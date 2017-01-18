@@ -1,62 +1,98 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Wed, 18 Jan 2017 09:02:44 -0600
-Message-ID: <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
-References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
- <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
- <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
- <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
- <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
- <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: [PATCH net-next] mlx4: support __GFP_MEMALLOC for rx
+Date: Wed, 18 Jan 2017 18:11:27 +0300
+Message-ID: <ed9a6b2a-428e-ac78-bba8-742f5e7c1eed@yandex-team.ru>
+References: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
+ <2696ea05-bb39-787b-2029-33b729fd88e0@yandex-team.ru>
+ <1484749428.13165.100.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com
-To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:54822 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751727AbdARPCr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 10:02:47 -0500
-In-Reply-To: <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
+ Tariq Toukan <tariqt@mellanox.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1484749428.13165.100.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 01/18/2017 07:53 AM, Zefir Kurtisi wrote:
-> No, not necessarily. The SGMII link default configuration is set such that you do
-> not have to bother at all.
+On 18.01.2017 17:23, Eric Dumazet wrote:
+> On Wed, 2017-01-18 at 12:31 +0300, Konstantin Khlebnikov wrote:
+>> On 18.01.2017 07:14, Eric Dumazet wrote:
+>>> From: Eric Dumazet <edumazet@google.com>
+>>>
+>>> Commit 04aeb56a1732 ("net/mlx4_en: allocate non 0-order pages for RX
+>>> ring with __GFP_NOMEMALLOC") added code that appears to be not needed at
+>>> that time, since mlx4 never used __GFP_MEMALLOC allocations anyway.
+>>>
+>>> As using memory reserves is a must in some situations (swap over NFS or
+>>> iSCSI), this patch adds this flag.
+>>
+>> AFAIK __GFP_MEMALLOC is used for TX, not for RX: for allocations which
+>> are required by memory reclaimer to free some pages.
+>>
+>> Allocation RX buffers with __GFP_MEMALLOC is a straight way to
+>> depleting all reserves by flood from network.
+>
+> You are mistaken.
+>
+> How do you think a TCP flow can make progress sending data if no ACK
+> packet can go back in RX ?
 
-Does the SGMII link need to make the speed and duplex of the external link?
+Well. Ok. I mistaken.
 
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c#n50
+>
+> Take a look at sk_filter_trim_cap(), where the RX packets received on a
+> socket which does not have SOCK_MEMALLOC is dropped.
+>
+>         /*
+>          * If the skb was allocated from pfmemalloc reserves, only
+>          * allow SOCK_MEMALLOC sockets to use it as this socket is
+>          * helping free memory
+>          */
+>         if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
+>                 return -ENOMEM;
 
-Here is where I can configure the SGMII link to match whatever phydev says 
-the external link is.  This is code that was handed down to me.  I've never 
-really understood what the purpose was.  Shouldn't I just be able to 
-configure the SGMII link to 1Gbs full-duplex, regardless of what the external 
-link is set to?
+I suppose this happens in BH context right after receiving packet?
 
-> That is, if in your case you see the warning popping up but the link always
-> regains connection, then it is an ignorable false positive.
+Potentially any ACK could free memory in TCP send queue,
+so using reserves here makes sense.
 
-Unfortunately, I can't really ignore it because genphy does this:
+>
+> Also take a look at __dev_alloc_pages()
+>
+> static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
+>                                              unsigned int order)
+> {
+>         /* This piece of code contains several assumptions.
+>          * 1.  This is for device Rx, therefor a cold page is preferred.
+>          * 2.  The expectation is the user wants a compound page.
+>          * 3.  If requesting a order 0 page it will not be compound
+>          *     due to the check to see if order has a value in prep_new_page
+>          * 4.  __GFP_MEMALLOC is ignored if __GFP_NOMEMALLOC is set due to
+>          *     code in gfp_to_alloc_flags that should be enforcing this.
+>          */
+>         gfp_mask |= __GFP_COLD | __GFP_COMP | __GFP_MEMALLOC;
+>
+>         return alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
+> }
+>
+>
+> So __GFP_MEMALLOC in RX is absolutely supported.
+>
+> But drivers have to opt-in, either using __dev_alloc_pages() or
+> dev_alloc_pages, or explicitely ORing __GFP_MEMALLOC when using
+> alloc_page[s]()
+>
+>
+>
 
-$ ifup eth1
-[ 1034.754276] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow 
-control rx/tx
-
-But the at803x driver does this:
-
-$ ifup eth1
-[ 1020.507728] 803x_aneg_done: SGMII link is not ok
-[ 1020.513517] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow 
-control rx/tx
-[ 1020.522839] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow 
-control rx/tx
-
-Customers are going to complain.
 
 -- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Konstantin
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
