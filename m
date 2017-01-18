@@ -1,86 +1,67 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH v2 1/2] xen-netback: fix memory leaks on XenBus disconnect
-Date: Wed, 18 Jan 2017 09:27:06 +0000
-Message-ID: <5a55d0748e7945539b9ee49f4c7f7084@AMSPEX02CL03.citrite.net>
-References: <1484686178-76959-1-git-send-email-igor.druzhinin@citrix.com>
- <1484686178-76959-2-git-send-email-igor.druzhinin@citrix.com>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: [PATCH net-next] mlx4: support __GFP_MEMALLOC for rx
+Date: Wed, 18 Jan 2017 12:31:18 +0300
+Message-ID: <2696ea05-bb39-787b-2029-33b729fd88e0@yandex-team.ru>
+References: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Igor Druzhinin <igor.druzhinin@citrix.com>
-To: Igor Druzhinin <igor.druzhinin@citrix.com>,
-        Wei Liu <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484686178-76959-2-git-send-email-igor.druzhinin@citrix.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>,
+ "linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>, David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Igor Druzhinin [mailto:igor.druzhinin@citrix.com]
-> Sent: 17 January 2017 20:50
-> To: Wei Liu <wei.liu2@citrix.com>
-> Cc: Paul Durrant <Paul.Durrant@citrix.com>; xen-devel@lists.xenproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Igor Druzhinin
-> <igor.druzhinin@citrix.com>
-> Subject: [PATCH v2 1/2] xen-netback: fix memory leaks on XenBus
-> disconnect
-> 
-> Eliminate memory leaks introduced several years ago by cleaning the
-> queue resources which are allocated on XenBus connection event. Namely,
-> queue
-> structure array and pages used for IO rings.
-> 
-> Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
+On 18.01.2017 07:14, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Commit 04aeb56a1732 ("net/mlx4_en: allocate non 0-order pages for RX
+> ring with __GFP_NOMEMALLOC") added code that appears to be not needed at
+> that time, since mlx4 never used __GFP_MEMALLOC allocations anyway.
+>
+> As using memory reserves is a must in some situations (swap over NFS or
+> iSCSI), this patch adds this flag.
 
-Reviewed-by: Paul Durrant <paul.durrant@citrix.com>
+AFAIK __GFP_MEMALLOC is used for TX, not for RX: for allocations which are required by memory reclaimer to free some pages.
 
+Allocation RX buffers with __GFP_MEMALLOC is a straight way to depleting all reserves by flood from network.
+
+>
+> Note that this driver does not reuse pages (yet) so we do not have to
+> add anything else.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
 > ---
->  drivers/net/xen-netback/xenbus.c | 11 +++++++++++
->  1 file changed, 11 insertions(+)
-> 
-> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-
-> netback/xenbus.c
-> index 6c57b02..3e99071 100644
-> --- a/drivers/net/xen-netback/xenbus.c
-> +++ b/drivers/net/xen-netback/xenbus.c
-> @@ -493,11 +493,20 @@ static int backend_create_xenvif(struct
-> backend_info *be)
->  static void backend_disconnect(struct backend_info *be)
->  {
->  	if (be->vif) {
-> +		unsigned int queue_index;
-> +
->  		xen_unregister_watchers(be->vif);
->  #ifdef CONFIG_DEBUG_FS
->  		xenvif_debugfs_delif(be->vif);
->  #endif /* CONFIG_DEBUG_FS */
->  		xenvif_disconnect_data(be->vif);
-> +		for (queue_index = 0; queue_index < be->vif-
-> >num_queues; ++queue_index)
-> +			xenvif_deinit_queue(&be->vif-
-> >queues[queue_index]);
-> +
-> +		vfree(be->vif->queues);
-> +		be->vif->num_queues = 0;
-> +		be->vif->queues = NULL;
-> +
->  		xenvif_disconnect_ctrl(be->vif);
->  	}
->  }
-> @@ -1026,6 +1035,8 @@ static void connect(struct backend_info *be)
->  err:
->  	if (be->vif->num_queues > 0)
->  		xenvif_disconnect_data(be->vif); /* Clean up existing
-> queues */
-> +	for (queue_index = 0; queue_index < be->vif->num_queues;
-> ++queue_index)
-> +		xenvif_deinit_queue(&be->vif->queues[queue_index]);
->  	vfree(be->vif->queues);
->  	be->vif->queues = NULL;
->  	be->vif->num_queues = 0;
-> --
-> 1.8.3.1
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index eac527e25ec902c2a586e9952272b9e8e599e2c8..e362f99334d03c0df4d88320977670015870dd9c 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -706,7 +706,8 @@ static bool mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
+>  	do {
+>  		if (mlx4_en_prepare_rx_desc(priv, ring,
+>  					    ring->prod & ring->size_mask,
+> -					    GFP_ATOMIC | __GFP_COLD))
+> +					    GFP_ATOMIC | __GFP_COLD |
+> +					    __GFP_MEMALLOC))
+>  			break;
+>  		ring->prod++;
+>  	} while (--missing);
+>
+>
+
+
+-- 
+Konstantin
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
