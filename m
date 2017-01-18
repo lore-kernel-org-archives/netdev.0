@@ -1,103 +1,141 @@
-From: Arun Easi <arun.easi@cavium.com>
-Subject: Re: [PATCH 1/2] qed: Add support for hardware offloaded FCoE.
-Date: Wed, 18 Jan 2017 15:26:20 -0800
-Message-ID: <alpine.LRH.2.00.1701181524090.2548@mvluser05.qlc.com>
-References: <201701172240.wF4OEtiC%fengguang.wu@intel.com>
+From: eaebtqp@mail.cpd.com.cn
+Subject: =?utf-8?B?c2FsZXMtLeOAkOWFheeUteermSvmlrDog73mupDmsb3ovablsZXjgJEg?=
+        =?utf-8?B?MjAxN+esrOWFq+WxiuS4reWbve+8iOW5v+W3nu+8ieWbvemZheaWsOiDvea6kOaxvei9pg==?=
+        =?utf-8?B?5bel5Lia5bGVICDvvIhHLVlEMi1DNTAtTWXvvIk=?=
+Date: Thu, 19 Jan 2017 03:52:39 +0800
+Message-ID: <20170119035252374450@cpd.com.cn>
+Reply-To: <EMAILQUNFA@163.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "Dupuis, Chad" <chad.dupuis@cavium.com>, <kbuild-all@01.org>,
-        <martin.petersen@oracle.com>, <linux-scsi@vger.kernel.org>,
-        <fcoe-devel@open-fcoe.org>, <netdev@vger.kernel.org>,
-        <yuval.mintz@cavium.com>, <QLogic-Storage-Upstream@cavium.com>
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain;
+        charset="utf-8"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0055.outbound.protection.outlook.com ([104.47.34.55]:62912
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751584AbdARX0b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 18:26:31 -0500
-In-Reply-To: <201701172240.wF4OEtiC%fengguang.wu@intel.com>
+Received: from [114.255.159.82] ([114.255.159.82]:43975 "EHLO mail.cpd.com.cn"
+        rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+        id S1751108AbdARX1d (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 18:27:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will be addressed in v2 of the series. The warning pops up when 
-CONFIG_DCB is not set. Thanks.
-
-Regards,
--Arun
-
-On Tue, 17 Jan 2017, 6:35am, kbuild test robot wrote:
-
-> Hi Arun,
-> 
-> [auto build test WARNING on net-next/master]
-> [also build test WARNING on v4.10-rc4 next-20170117]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Dupuis-Chad/Add-QLogic-FastLinQ-FCoE-qedf-driver/20170117-052438
-> config: i386-randconfig-c0-01172134 (attached as .config)
-> compiler: gcc-4.9 (Debian 4.9.4-2) 4.9.4
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=i386 
-> 
-> All warnings (new ones prefixed by >>):
-> 
->    In file included from drivers/net/ethernet/qlogic/qed/qed.h:49:0,
->                     from drivers/net/ethernet/qlogic/qed/qed_cxt.c:44:
-> >> include/linux/qed/qed_if.h:428:37: warning: 'struct qed_dcbx_get' declared inside parameter list
->      void (*dcbx_aen)(void *dev, struct qed_dcbx_get *get, u32 mib_type);
->                                         ^
-> >> include/linux/qed/qed_if.h:428:37: warning: its scope is only this definition or declaration, which is probably not what you want
-> --
->    In file included from drivers/net/ethernet/qlogic/qed/qed.h:49:0,
->                     from drivers/net/ethernet/qlogic/qed/qed_dcbx.c:41:
-> >> include/linux/qed/qed_if.h:428:37: warning: 'struct qed_dcbx_get' declared inside parameter list
->      void (*dcbx_aen)(void *dev, struct qed_dcbx_get *get, u32 mib_type);
->                                         ^
-> >> include/linux/qed/qed_if.h:428:37: warning: its scope is only this definition or declaration, which is probably not what you want
->    drivers/net/ethernet/qlogic/qed/qed_dcbx.c: In function 'qed_dcbx_aen':
->    drivers/net/ethernet/qlogic/qed/qed_dcbx.c:873:42: error: 'struct qed_dcbx_info' has no member named 'get'
->       op->dcbx_aen(cookie, &hwfn->p_dcbx_info->get, mib_type);
->                                              ^
->    drivers/net/ethernet/qlogic/qed/qed_dcbx.c: In function 'qed_dcbx_mib_update_event':
->    drivers/net/ethernet/qlogic/qed/qed_dcbx.c:902:2: error: implicit declaration of function 'qed_dcbx_get_params' [-Werror=implicit-function-declaration]
->      qed_dcbx_get_params(p_hwfn, p_ptt, &p_hwfn->p_dcbx_info->get, type);
->      ^
->    drivers/net/ethernet/qlogic/qed/qed_dcbx.c:902:57: error: 'struct qed_dcbx_info' has no member named 'get'
->      qed_dcbx_get_params(p_hwfn, p_ptt, &p_hwfn->p_dcbx_info->get, type);
->                                                             ^
->    cc1: some warnings being treated as errors
-> 
-> vim +428 include/linux/qed/qed_if.h
-> 
->    412		u8	name[QED_DRV_VER_STR_SIZE];
->    413	};
->    414	
->    415	#define ILT_PAGE_SIZE_TCFC 0x8000 /* 32KB */
->    416	
->    417	struct qed_int_info {
->    418		struct msix_entry	*msix;
->    419		u8			msix_cnt;
->    420	
->    421		/* This should be updated by the protocol driver */
->    422		u8			used_cnt;
->    423	};
->    424	
->    425	struct qed_common_cb_ops {
->    426		void	(*link_update)(void			*dev,
->    427				       struct qed_link_output	*link);
->  > 428		void	(*dcbx_aen)(void *dev, struct qed_dcbx_get *get, u32 mib_type);
->    429	};
->    430	
->    431	struct qed_selftest_ops {
->    432	/**
->    433	 * @brief selftest_interrupt - Perform interrupt test
->    434	 *
->    435	 * @param cdev
->    436	 *
-> 
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
-> 
+5Lit5Y2O5Lq65rCR5YWx5ZKM5Zu95ZWG5Yqh6YOo5byV5a+85pSv5oyB5bGV5LyaDQrlm73lrrbn
+uqflm73pmYXmgKfmsb3ovablhYXnlLXorr7lpIflsZXotLjlubPlj7ANCuOAgA0KMjAxN+esrOWF
+q+WxiuS4reWbve+8iOW5v+W3nu+8ieWbvemZheaWsOiDvea6kOaxvei9puW3peS4muWxleiniOS8
+miDvvIhORUEgMjAxN++8iQ0KVGhlIDh0aCBHdWFuZ3pob3UgSW50ZXJuYXRpb25hbCBOZXcgRW5l
+cmd5IEF1dG9tb2JpbGVzIEluZHVzdHJ5IEV4cG8gMjAxNw0K44CADQoyMDE356ys5YWr5bGK5Lit
+5Zu977yI5bm/5bee77yJ5Zu96ZmF5YWF55S156uZ5oqA5pyv6KOF5aSH5bGV6KeI5LyaIO+8iEVW
+RSAyMDE377yJDQpUaGUgOHRoIEd1YW5nemhvdSBJbnRlcm5hdGlvbmFsIEVsZWN0cmljIFZlaGlj
+bGUgU3VwcGx5IEVxdWlwbWVudHMgRXhwbyAyMDE3DQrjgIANCuOAgA0K44CQIOWxlSDkvJog5L+h
+IOaBryDjgJENCuOAgA0K4pagIOWxleiniOaXpeacnw0KMjAxN+W5tDA25pyIMDLigJQwNOaXpQ0K
+44CADQrilqAg5bGV6KeI5Zy66aaGDQrkuK3lm73igKLlub/lt57nkLbmtLLkv53liKnkuJbotLjl
+jZrop4jppoYNCuOAgA0K4pagIOaJueWHhuS4vuWKng0K5Lit5Y2O5Lq65rCR5YWx5ZKM5Zu95ZWG
+5Yqh6YOoDQrmibnmloflj7fvvJrllYbmnI3otLjmibnvvIgyMDE177yJODIz5Y+3DQrjgIANCuKW
+oCDmlK/mjIHljZXkvY0NCuS4reWNjuS6uuawkeWFseWSjOWbveWbveWutuiDvea6kOWxgA0K5Lit
+5Y2O5Lq65rCR5YWx5ZKM5Zu95Zu95a625Y+R5bGV5ZKM5pS56Z2p5aeU5ZGY5LyaDQrlub/kuJzn
+nIHkurrmsJHmlL/lupwNCuW5v+W3nuW4guS6uuawkeaUv+W6nA0K5Zu95a6255S1572RDQrljZfm
+lrnnlLXnvZHjgIDigKLigKLigKINCuOAgA0K4pagIOS4u+WKnuWNleS9jQ0K5Lit5Zu95a+55aSW
+6LS45piT57uP5rWO5ZCI5L2c5LyB5Lia5Y2P5LyaDQrjgIANCuKWoCDogZTlkIjmib/lip4NCuaY
+oOW+t+S8muWxle+8iOWMl+S6rO+8ieaciemZkOWFrOWPuA0K5bm/5bee5Lit5rG95bGV6KeI5pyJ
+6ZmQ5YWs5Y+4DQrjgIANCuKWoCDlrpjmlrnnvZHnq5kNCmh0dHA6Ly93d3cuQ0FQRS1jaGluYS5j
+b20NCuOAgA0K4pagIOWcqOe6v+Wuouacje+8miANCumCrueusS9RUe+8mjEyODA5Mzk1I3FxLmNv
+be+8myAg5b6u5L+h77yaeW9uZGV4cG/vvJsgIOW+ruWNmu+8mmh0dHA6Ly93ZWliby5jb20veWlu
+Z2RlaHVpemhhbg0K44CADQrilqAg5ZKo6K+i55S16K+d77yaIA0KNDAwMC01ODAtODUw77yI6L2s
+ODE0NOaIljg2OTnvvInvvJsgMTM5LTEwMzEtODE0NO+8myAwMTDigJU4Njk5LTcxNTXjgIEgODA4
+NC0yMTI477ybIA0K44CADQrjgIANCuOAkCDlrqMg5LygIOaOqCDlub8g44CRDQrjgIANCuOAgOOA
+gDIwMTfnrKzlhavlsYrlub/lt57lm73pmYXmlrDog73mupDmsb3ovablt6XkuJrlsZXop4jkvJrl
+sIbmmK/kuIDmrKHnq4votrPms5vnj6DkuInop5LvvIzkvp3miZjlhoXlnLDjgIHovpDlsITkuprl
+pKrjgIHmlL7nnLzkuJbnlYzlhbfmnInov5vlh7rlj6Plj4zlkJHlr7zlkJHlnovnmoTnjrDku6Pl
+jJblm73pmYXmgKfkuJPkuJrlk4HniYznm5vkvJrjgILkuLvlip7mlrnlsIbkv53or4HmiYDmnInl
+j4LlsZXllYbog73pgI/ov4fmnKzmrKHkuJPkuJrlsZXkvJrmnInmlYjnmoTkuqflk4Hmjqjku4vl
+j4rlvaLosaHlsZXnpLrvvIzlubbmnIDnu4jovr7miJDluILlnLrmiJDlip/mjqjlub/plIDllK7k
+uYvnm67nmoTjgILkuJPkuJrop4LkvJfnmoTnu4Tnu4flkozpgoDor7fmmK/nu4Tlp5TkvJrlt6Xk
+vZzph43ngrnkuYvkuIDvvIzkuLvlip7mlrnlsIblvJXov5vlm73pmYXlhYjov5vnmoRDUk3lrqLm
+iLflhbPns7vnrqHnkIbns7vnu5/vvIzmlbTlkIjmlL/lupzjgIHljY/kvJrjgIHnlJ/kuqfkvIHk
+uJrjgIHlqpLkvZPotYTmupDlj4rkuLvlip7mlrnlup7lpKfnmoTkubDlrrbmlbDmja7lupPvvIzp
+gJrov4fnm7Tpgq7jgIHkvKDnnJ/jgIHnlLXlrZDpgq7ku7bjgIHmi5zorr/jgIFWSVDpgoDor7fj
+gIHljbPml7bmjqjlub/jgIHlub/lkYrkvKDlqpLjgIHlsZXliY3pooTop4jjgIHkuJPkuJrop4Lk
+vJflnKjnur/nmbvorrDjgIHooYzkuJrlsZXkvJrmjqjku4vjgIHkuJPkuJrlqpLkvZPmjqjku4vj
+gIHlsZXllYbpgoDor7fjgIHooYzkuJrljY/kvJrnu4Tlm6Llkozlm73pmYXlkIjkvZznrYnlpJrn
+p43ngbXmtLvmnInmlYjnmoTmlrnlvI/nu4Tnu4fkuJPkuJrkurrlo6vliLDlnLrlj4Lop4Lph4fo
+tK3jgIINCuOAgOOAgOe7hOWnlOS8muWwhuWcqOS4iueZvuWutuaWsOmXu+WqkuS9k+OAgeS4k+S4
+muadguW/l+OAgee9keermeS4iuWPkeW4g+acrOasoeWxleS8muS/oeaBr++8jOWIiueZu+W5v+WR
+iu+8m+WdmuaMgeS7peS4u+a1geWqkuS9k+mdouWvuea2iOi0ueiAhe+8jOS4k+S4muWqkuS9k+md
+ouWvueWOguWVhuOAgee7j+mUgOWVhueahOS8oOaSreWvvOWQkSznu5PlkIjlpKflnovmtLvliqjn
+moTlvbHlk43lipvjgIHmnYPlqIHmgKcs5Lul5rOo5oSP5Yqb6JCl5raI55qE5paw6KeC5b+1LOWF
+qOWKm+aJk+mAoOWFt+acieWbvemZheW9seWTjeWKm+eahOS4k+S4muWxleS8muOAgg0K44CA44CA
+5Li75Yqe5pa55bCG5YWF5YiG5Y+R5oyl6Ieq6Lqr5LyY5Yq/77yM5LiO5YWo5Zu96IyD5Zu05YaF
+6LaF6L+HMTAwMOWutuWkp+Wei+aWsOiDvea6kOaxvei9puWPiuWFheeUteahqeW4guWcuuaQuuaJ
+i+WvueWxleS8mui/m+ihjOWuo+S8oOOAgumCgOivt+e7hOe7h+WFqOWbveWQhOWcsOWMuuaJgOac
+ieaWsOiDvea6kOaxvei9puW4guWcuuWPiuWFqOWbveWQhOWcsOaWsOiDvea6kOaxvei9puihjOS4
+muebuOWFs+WNj+S8muS8muWRmOWNleS9jeWPguWxleWPguinguOAgg0K44CA44CA5YW35L2T5Li+
+5o6q5aaC5LiL77yaIA0K4pagIOiBlOaJi+a1t+WGheWkluWQhOWkp+efpeWQjeWqkuS9k+OAgeS4
+k+S4muWqkuS9k+WvueWxleS8mui/m+ihjOW8uuWKv+Wuo+S8oOWSjOa3seWFpeaKpemBk++8jOS4
+juihjOS4muadg+WogeWqkuS9k+W8uuW8uuWQiOS9nO+8jOWFseWQjOaJk+mAoOaWsOiDvea6kOax
+vei9puihjOS4mueahOS4k+S4muWxleS8mu+8mw0K4pagIOWcqOWbveWGheWkluWQhOWkp+axvei9
+puihjOS4muWxleS8muS4iuaOqOW5v+acrOasoeWxleS8muOAgeW5v+WPkeWPguinguWIuO+8mw0K
+4pagIOWvuea1t+WGheWkljnkuIflpJrkuJPkuJrop4LkvJfpgq7lr4Tlj4Lop4LliLjpgoDor7fv
+vIzlr7nkuLvlip7mlrkyMOWkmuS4h+ihjOS4muS5sOWutuaVsOaNruWPkemAgeeUteWtkOmCruS7
+tumCgOivt++8jOWvuea1t+WGheWkljEwMDAwMOWutuS7peS4iueahOaWsOiDvea6kOaxvei9puW4
+guWcuumUgOWUruS8geS4muWPkeS8oOecn+mCgOivt++8jOWvuea1t+WGheWkluihjOS4muWGhei2
+hei/hzEwMDDkvY3kuJPkuJpWSVDkurrlo6vlj5HpgIHor7fmn6zpgoDor7fvvJsNCuKWoCDpgJro
+v4flpJblm73pqbvljY7kvb/poobppobjgIHllYbliqHlpITlkozotLjmmJPmnLrmnoTlkJHlhbbm
+nKzlm73nm7jlhbPmlrDog73mupDmsb3ovabooYzkuJrljY/kvJrlkozmnLrmnoTmjqjku4vmnKzm
+rKHlsZXkvJrvvIzpgoDor7fmnInlhbPkvIHkuJrlj4LlsZXlj4Lop4LvvIzlkIzml7bpgJrov4fm
+iJHlm73pqbvlpJbkvb/poobppoblkozllYbliqHlpITmjqjku4vlsZXkvJrjgIINCuKWoCDku47l
+voDlsYrlsZXkvJrop4LkvJfmlbDmja7lupPkuK3vvIzmjJbmjpjkuJPkuJrop4LkvJfvvIznu6fn
+u63pgoDor7fku5bku6zlj4Lop4LmnKzlsYrlsZXkvJrvvJvlkIzml7blp5TmiZjmtbflhoXlpJbl
+kITkuJPkuJrljY/vvIjlrabvvInkvJrjgIHooYzkuJrlqpLkvZPliIblj5HlsZXkvJrlrqPkvKDl
+k4Hlubbnu4Tnu4flj4Lop4LvvJvlrozmlbTnmoTotaDnpajorqHliJLlsIbljY/liqnlsZXllYbl
+sIbor7fmn6zpgIHoh7PmnIDlkIjpgILnmoTnm67moIfop4LkvJfnvqTkvZPvvJsNCuKWoCDnp6/m
+noHkuLrlsZXllYbmj5DkvpvkuI3mlq3mm7TmlrDnmoTluILlnLrotYTmlpnlkozmlL/nrZbmlrnp
+naLnmoTmjIflr7zkuI7lkqjor6LvvIzlvIDlsZXmlrDlu7rjgIHlnKjlu7rpobnnm67lj5HluIPv
+vIzlsIblsZXop4jkvJrnmoTotLjmmJPmtLvliqjov5vkuIDmraXlu7bkvLjvvIzlvJXlr7zlj4Ll
+sZXllYbliLblrprpgILlrpznmoTokKXplIDnrZbnlaXvvJvlubblsIbliKnnlKjoh6rouqvnmoTn
+pL7kvJrotYTmupDlkozljZPotornmoTnu4Tnu4fog73lipvvvIzljY/liqnlj4LlsZXllYbnu4Tn
+u4fkuL7lip7kuqflk4Hmjqjlub/kvJrvvIzkvb/lj4LlsZXllYbmnIDlpKfpmZDluqblnLDmianl
+pKflj4LlsZXnmoTmlYjnm4rjgIINCuOAgA0K44CADQrjgJAg5Y+CIOWxlSDnu4Yg5YiZIOOAkeOA
+gOOAgOOAgOOAgA0K44CADQrilqAg5bGV5L2N6KeE5qC877yaIA0K44CA44CAMeOAgeeJueijheWx
+leS9je+8mjM25bmz5pa557Gz6LW356ef77yM5LuF5o+Q5L6b55u45bqU6Z2i56ev5a6k5YaF5aSW
+56m65Zyw44CC5bGV5Y+w5pCt5bu644CB5bGV6KeI5Zmo5YW344CB55So55S155So5rC0562J6Ieq
+55CG44CCIA0K44CA44CAMuOAgeagh+WHhuWxleS9je+8mjnlubPmlrnnsbPvvIgzbcOXM23vvInm
+r4/kuKrvvIwyLjVt6auY5aOB5p2/44CB5LiA5p2h5qWj5p2/77yI5bGV5ZWG5ZCN56ew77yJ44CB
+5LiA5byg5rS96LCI5qGM44CB5Lik5oqK5qSF5a2Q44CB5Lik55uP5bCE54Gv44CBMjIwVi81QeeU
+tea6kOaPkuW6p+S4gOWkhOOAgiANCuOAgA0K4pagIOWxleS9jei0ueeUqO+8miAgICAgIA0K44CA
+44CA54m56KOF5bGV5L2N77ya5aKD5YaF5LyB5LiaUk1CMTIwMC/lubPmlrnnsbPvvJvjgIDjgIDl
+ooPlpJbkvIHkuJpVU0QzNTAv5bmz5pa557Gz77ybIA0K44CA44CA5qCH5YeG5bGV5L2N77ya5aKD
+5YaF5LyB5LiaUk1CMTIwMDAv5Liq77yb44CA44CA5aKD5aSW5LyB5LiaVVNEMzUwMC/kuKrvvJsg
+77yI5Y+M6Z2i5byA5Y+j5qCH5YeG5bGV5L2N5Y+m5Yqg5pS2MTAl6LS555So77yJDQrjgIANCuKW
+oCDkvJrliIrlub/lkYrvvJog77yI5aSn5Lya44CK5Lya5YiK44CL5bCG5biu5Yqp5oKo5Zyo5bGV
+5Lya5ZCO5om+5Yiw5a6i5oi377yB6Zmk5Zyo5bGV5Lya5pyf6Ze05bm/5Li65Y+R6YCB5aSW77yM
+6L+Y6YCa6L+H5ZCE56eN5pyJ5YWz5rig6YGT5Y+R6YCB57uZ5pyq6IO95YmN5p2l5Y+C6KeC5bGV
+5Lya55qE5ZCE5Zyw5LiT5Lia5Lq65aOr5omL5Lit77yM5LuW5Lus5Y+v5Yip55So5Lya5YiK6L+F
+6YCf5p+l5om+5pyN5Yqh5YaF5a655LiO6IGU57uc5pa55rOV44CCIOS8muWIiuWwuuWvuO+8mjEz
+MG1tKjIxMG1t77yM6L+b5Y+j6ZOc5p2/57q45b2p6Imy57K+5Y2w77yM5Y+R6KGM6YePMTDkuIfl
+hozjgILvvIkNCuOAgOOAgOWwgemdoiBDTlkgMzAwMDDvvJsgICAgIOWwgeS6jOWwgeS4iSBDTlkg
+MjIwMDDvvJsgICAgIOaJiemhtSBDTlkgMTgwMDDvvJsgICAgIOm7keeZvemhtSBDTlkgNTAwMO+8
+mw0K44CA44CA5bCB5bqVIENOWSAyMDAwMO+8myAgICAg5b2p6aG16Leo54mIIENOWSAxODAwMO+8
+myAgICAg5b2p6aG1IENOWSAxMjAwMO+8myAgICAgMzAw5a2X566A5LuLIENOWSAyMDAw77ybDQrj
+gIANCuKWoCDkvJrorq7orrrlnZvvvJoNCuOAgOOAgOWmguaKgOacr+S6pOa1geS8mi/kuqflk4Hm
+jqjlub/lj5HluIPkvJrvvIxDTlk5MDAwL+Wwj+aXti/lnLrvvIznlKjkuo7kvJrlnLrlj4rnm7jl
+hbPorr7lpIfnp5/ph5HvvIjljIXmi6zlnLrlnLDjgIHmianpn7Porr7mlr3jgIHnga/lhbfjgIHm
+ipXlvbHmnLrjgIHmipXlvbHku6rvvIzmoYzmpIXjgIHnqbrosIPjgIHojLbmsLTlubbljY/liqnk
+uLvorrLkvIHkuJrnu4Tnu4flkKzkvJfvvInjgIINCuOAgA0K44CADQrjgJAg5625IOWxlSDogZQg
+57ucIOOAkeOAgOOAgOOAgOOAgA0KIOOAgA0K5YWo5Zu957uf5LiA5a6i5pyN54Ot57q/77yaIDQw
+MDAtNTgwLTg1MC7vvIjliIbmnLrvvJo4MTQ044CBNTIwNuaIljUyMjDvvIkNCuWFqOWbvee7n+S4
+gOaKpeWQjeS4k+e6v++8miA0MDAwLTY4MC04NjAu77yI5YW85Lyg55yf77yJDQrlrpjmlrnnvZHn
+q5nvvJogaHR0cDovL3d3dy5DQVBFLWNoaW5hLmNvbSANCuWPguWxlemhvumXru+8miDnjovlhYjn
+lJ/jgIEg5p2O5YWI55Sf44CBIOauteWwj+WnkOOAgSDmooHlsI/lp5ANCuWPguWxleeDree6v++8
+miAxMzEtMjY2Mi01MjA244CBIDEzOS0xMDMxLTgxNDTvvJsgIDAxMOKAlCA4Njk5LSA3MTU144CB
+IDgwODQtIDIxMjguDQrlnKjnur/lrqLmnI3vvJogUVEv6YKu566x77yaMTI4MDkzOTUjcXEuY29t
+77ybICDlvq7kv6EvIHlvbmRleHBv77ybIOW+ruWNmi8gaHR0cDovL3dlaWJvLmNvbS95b25kZXhw
+bw0K44CADQrjgIANCuOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOA
+lCDmmKDlvrfkvJrlsZUgLyDor5rpgoDlj4LliqAyMDE35bm05bqm5p2D5aiB5a6e5pWI5ZOB54mM
+55ub5Lya77meDQrjgIANCuOAgA0K44CQIOWFrCDkvJcg5bmzIOWPsCDjgJENCuOAgA0K5b6u5L+h
+77yaIOWPguWxlea2iOaBryDvvIhJRO+8mkNhblpoYW5YaWFvWGnvvInigJTigJQg5ZOB54mM5omp
+5byg55qE5bmz5Y+w44CA5biC5Zy65byA5ouT55qE5qGl5qKBDQrlvq7kv6HvvJog5bGV5ZWG5LmL
+5a62IO+8iElE77yaWmhhblNoYW5nWmhpSmlh77yJ4oCU4oCUIOS4uuWxleWVhuaPkOS+m+acgOS9
+s+iQpeWcsOOAgOS4uumYgeS4i+iQpemAoOWPguWxleS7t+WAvA0K44CADQotLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0K55m+5LiH576k5Y+R57O757uf
+fOS4uuaCqOWPkemAgXzlpoLkuI3luIzmnJvlho3mlLbliLDmraTooYzkuJrotYTorq986K+35Zue
+5aSN4oCc6YCA6K6iK05FQTIwMTfigJ3oh7Ppgq7nrrExMDU1ODAwODEyQHFxLmNvbQ0K
