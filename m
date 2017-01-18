@@ -1,58 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Remove usage of net_device last_rx member
-Date: Wed, 18 Jan 2017 17:27:50 -0500 (EST)
-Message-ID: <20170118.172750.1394406967719526972.davem@davemloft.net>
-References: <20170118164501.1934-1-tklauser@distanz.ch>
+Subject: Re: [PATCH RFC] net: dsa: remove unnecessary phy.h include
+Date: Wed, 18 Jan 2017 16:47:38 -0500 (EST)
+Message-ID: <20170118.164738.406851995217401601.davem@davemloft.net>
+References: <20170118001403.GJ27312@n2100.armlinux.org.uk>
+        <20170118.163714.6755964924380784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
- b.a.t.m.a.n@lists.open-mesh.org, linux-m68k@lists.linux-m68k.org,
- intel-wired-lan@lists.osuosl.org, j.vosburgh@gmail.com, vfalico@gmail.com,
- andy@greyhouse.net, mlindner@marvell.com
-To: tklauser@distanz.ch
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170118164501.1934-1-tklauser@distanz.ch>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: linux@armlinux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170118.163714.6755964924380784.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Wed, 18 Jan 2017 17:45:01 +0100
-
-> The network stack no longer uses the last_rx member of struct net_device
-> since the bonding driver switched to use its own private last_rx in
-> commit 9f242738376d ("bonding: use last_arp_rx in slave_last_rx()").
-> 
-> However, some drivers still (ab)use the field for their own purposes and
-> some driver just update it without actually using it.
-> 
-> Previously, there was an accompanying comment for the last_rx member
-> added in commit 4dc89133f49b ("net: add a comment on netdev->last_rx")
-> which asked drivers not to update is, unless really needed. However,
-> this commend was removed in commit f8ff080dacec ("bonding: remove
-> useless updating of slave->dev->last_rx"), so some drivers added later
-> on still did update last_rx.
-> 
-> Remove all usage of last_rx and switch three drivers (sky2, atp and
-> smc91c92_cs) which actually read and write it to use their own private
-> copy in netdev_priv.
-> 
-> Compile-tested with allyesconfig and allmodconfig on x86 and arm.
-> 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Jay Vosburgh <j.vosburgh@gmail.com>
-> Cc: Veaceslav Falico <vfalico@gmail.com>
-> Cc: Andy Gospodarek <andy@greyhouse.net>
-> Cc: Mirko Lindner <mlindner@marvell.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-
-Applied, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAxOCBK
+YW4gMjAxNyAxNjozNzoxNCAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IFJ1c3NlbGwgS2luZyAtIEFS
+TSBMaW51eCA8bGludXhAYXJtbGludXgub3JnLnVrPg0KPiBEYXRlOiBXZWQsIDE4IEphbiAyMDE3
+IDAwOjE0OjAzICswMDAwDQo+IA0KPj4gSW5jbHVkaW5nIHBoeS5oIGFuZCBwaHlfZml4ZWQuaCBp
+bnRvIG5ldC9kc2EuaCBjYXVzZXMgcGh5Ki5oIHRvIGJlIGFuDQo+PiB1bm5lY2Vzc2FyeSBkZXBl
+bmRlbmN5IGZvciBxdWl0ZSBhIGxhcmdlIGFtb3VudCBvZiB0aGUga2VybmVsLiAgVGhlcmUncw0K
+Pj4gdmVyeSBsaXR0bGUgd2hpY2ggYWN0dWFsbHkgcmVxdWlyZXMgZGVmaW5pdGlvbnMgZnJvbSBw
+aHkuaCBpbiBuZXQvZHNhLmgNCj4+IC0gdGhlIGluY2x1ZGUgaXRzZWxmIG9ubHkgd2FudHMgdGhl
+IGRlY2xhcmF0aW9uIG9mIGEgY291cGxlIG9mDQo+PiBzdHJ1Y3R1cmVzIGFuZCBJRk5BTVNJWi4N
+Cj4+IA0KPj4gQWRkIGxpbnV4L2lmLmggZm9yIElGTkFNU0laLCBkZWNsYXJhdGlvbnMgZm9yIHRo
+ZSBzdHJ1Y3R1cmVzLCBwaHkuaCB0bw0KPj4gbXY4OGU2eHh4LmggYXMgaXQgbmVlZHMgaXQgZm9y
+IHBoeV9pbnRlcmZhY2VfdCwgYW5kIHJlbW92ZSBib3RoIHBoeS5oDQo+PiBhbmQgcGh5X2ZpeGVk
+LmggZnJvbSBuZXQvZHNhLmguDQo+PiANCj4+IFRoaXMgcGF0Y2ggcmVkdWNlcyBmcm9tIGFyb3Vu
+ZCA4MDAgZmlsZXMgcmVidWlsdCB0byBhcm91bmQgNDAgLSBldmVuDQo+PiB3aXRoIGNjYWNoZSwg
+dGhlIHRpbWUgZGlmZmVyZW5jZSBpcyBub3RpY2FibGUuDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6
+IFJ1c3NlbGwgS2luZyA8cm1rK2tlcm5lbEBhcm1saW51eC5vcmcudWs+DQo+IA0KPiBBcHBsaWVk
+LCB0aGFua3MuDQoNCkFjdXRhbGxseSwgSSdtIHJldmVydGluZyB0aGlzLCBpdCBicmVha3MgdGhl
+IGJ1aWxkIGFsbCBvdmVyIHRoZSBwbGFjZS4NCg0KVGhlIHByb2JsZW0gaXMgdGhhdCBpdCBzZWVt
+cyB0aGF0IHNvbWVob3cgd2UgYXJlIGdldHRpbmcgYW4gaW1wbGljaXQNCm1vZHVsZS5oIGluY2x1
+ZGUgdmlhIHBoeS5oIGFuZCB0aGlzIHByb3BhZ2F0ZXMgYWxsIG92ZXIgdGhlIHRyZWUuICBTbw0K
+SSBnZXQgZmFpbHVyZXMgbGlrZToNCg0KbmV0L2NvcmUvbmV0cHJpb19jZ3JvdXAuYzozMDM6MTY6
+IGVycm9yOiBleHBlY3RlZCBkZWNsYXJhdGlvbiBzcGVjaWZpZXJzIG9yIKEuLi6iIGJlZm9yZSBz
+dHJpbmcgY29uc3RhbnQNCiBNT0RVTEVfTElDRU5TRSgiR1BMIHYyIik7DQogLi4uDQpuZXQvc3Vu
+cnBjL3hwcnRyZG1hL3N2Y19yZG1hX2JhY2tjaGFubmVsLmM6IEluIGZ1bmN0aW9uIKF4cHJ0X3Jk
+bWFfYmNfcHV0ojoNCm5ldC9zdW5ycGMveHBydHJkbWEvc3ZjX3JkbWFfYmFja2NoYW5uZWwuYzoy
+Nzc6MjogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKFtb2R1bGVfcHV0
+oiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1kZWNsYXJhdGlvbl0NCiAgbW9kdWxlX3B1dChU
+SElTX01PRFVMRSk7DQogIF4NCm5ldC9zdW5ycGMveHBydHJkbWEvc3ZjX3JkbWFfYmFja2NoYW5u
+ZWwuYzogSW4gZnVuY3Rpb24goXhwcnRfc2V0dXBfcmRtYV9iY6I6DQpuZXQvc3VucnBjL3hwcnRy
+ZG1hL3N2Y19yZG1hX2JhY2tjaGFubmVsLmM6MzQ4Ojc6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJh
+dGlvbiBvZiBmdW5jdGlvbiChdHJ5X21vZHVsZV9nZXSiIFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0
+aW9uLWRlY2xhcmF0aW9uXQ0KICBpZiAoIXRyeV9tb2R1bGVfZ2V0KFRISVNfTU9EVUxFKSkNCg0K
+UGxlYXNlIHJlc3VibWl0IHRoaXMgYWZ0ZXIgeW91IGNhbiBzdWNjZXNzZnVsbHkgY29tcGxldGUg
+YW4gYWxsbW9kY29uZmlnIGJ1aWxkLg0KDQpUaGFua3MuDQo=
