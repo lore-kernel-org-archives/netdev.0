@@ -1,200 +1,73 @@
-From: "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>
-Subject: RE: [PATCH] net: fec: Fixed panic problem with non-tso
-Date: Wed, 18 Jan 2017 03:12:54 +0000
-Message-ID: <337A096076BEF646A1F21E1AD855580E3AC8F71A@g01jpexmbkw23>
-References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
- <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
+Date: Wed, 18 Jan 2017 11:35:58 +0800
+Message-ID: <5a587c8e-851c-9793-7f1f-8857cc00b2d7@redhat.com>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+ <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andy Duan <fugang.duan@nxp.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgwym04.jp.fujitsu.com ([211.128.242.43]:62249 "EHLO
-        mgwym04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdARDYq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 22:24:46 -0500
-Received: from g01jpfmpwkw03.exch.g01.fujitsu.local (g01jpfmpwkw03.exch.g01.fujitsu.local [10.0.193.57])
-        by yt-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 5E9EBAC00BD
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 12:12:55 +0900 (JST)
-In-Reply-To: <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-Content-Language: ja-JP
+Received: from mx1.redhat.com ([209.132.183.28]:53410 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750893AbdARDgF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Jan 2017 22:36:05 -0500
+In-Reply-To: <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Andy Duan [mailto:fugang.duan@nxp.com]
-> Sent: Tuesday, January 17, 2017 8:02 PM
-> To: Ashizuka, Yuusuke/$B02DM(B $BM:2p(B
-> Cc: netdev@vger.kernel.org
-> Subject: RE: [PATCH] net: fec: Fixed panic problem with non-tso
-> 
-> From: Yuusuke Ashiduka <ashiduka@jp.fujitsu.com> Sent: Tuesday, January
-> 17, 2017 3:48 PM
-> >To: Andy Duan <fugang.duan@nxp.com>
-> >Cc: netdev@vger.kernel.org; Yuusuke Ashiduka <ashiduka@jp.fujitsu.com>
-> >Subject: [PATCH] net: fec: Fixed panic problem with non-tso
-> >
-> >If highmem and 2GB or more of memory are valid, "this_frag-> page.p"
-> >indicates the highmem area, so the result of page_address() is NULL and
-> >panic occurs.
-> >
-> >This commit fixes this by using the skb_frag_dma_map() helper, which
-> >takes care of mapping the skb fragment properly. Additionally, the type
-> >of mapping is now tracked, so it can be unmapped using dma_unmap_page
-> >or dma_unmap_single when appropriate.
-> >---
-> > drivers/net/ethernet/freescale/fec.h      |  1 +
-> > drivers/net/ethernet/freescale/fec_main.c | 48
-> >+++++++++++++++++++++++--------
-> > 2 files changed, 37 insertions(+), 12 deletions(-)
-> >
-> The patch itself seems fine.
-> The driver doesn't support skb from highmem, if to support highmem, it should
-> add frag_skb (highmem) support for tso and non-tso.
-> In driver net/core/tso.c, it also add highmem support, right ?
 
-indeed.
 
-In the case of TSO with i.MX6 system (highmem enabled) with 2GB memory,
-"this_frag->page.p" did not become highmem area.
-(We confirmed by transferring about 100MB of files)
+On 2017年01月18日 06:22, John Fastabend wrote:
+>   
+> +static int virtnet_reset(struct virtnet_info *vi)
+> +{
+> +	struct virtio_device *dev = vi->vdev;
+> +	int ret;
+> +
+> +	virtio_config_disable(dev);
+> +	dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+> +	virtnet_freeze_down(dev);
+> +	_remove_vq_common(vi);
+> +
+> +	dev->config->reset(dev);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+> +
+> +	ret = virtio_finalize_features(dev);
+> +	if (ret)
+> +		goto err;
+> +
+> +	ret = virtnet_restore_up(dev);
+> +	if (ret)
+> +		goto err;
+> +	ret = _virtnet_set_queues(vi, vi->curr_queue_pairs);
+> +	if (ret)
+> +		goto err;
+> +
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+> +	virtio_config_enable(dev);
+> +	return 0;
+> +err:
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +	return ret;
+> +}
+> +
 
-However, in the case of non-tso on an i.MX6 system with 2GB of memory,
-"this_frag->page.p" may become a highmem area.
-(Occurred with approximately 2MB of file transfer)
+Hi John:
 
-For non-tso only, I do not know the reason why "this_frag-> page.p" 
-in this driver shows highmem area.
+I still prefer not open code (part of) virtio_device_freeze() and 
+virtio_device_restore() here. How about:
 
-Thanks.
+1) introduce __virtio_device_freeze/__virtio_device_restore which 
+accepts a function pointer of free/restore
+2) for virtio_device_freeze/virtio_device_restore just pass 
+drv->freeze/drv->restore (locked version)
+3) for virtnet_reset(), we can pass unlocked version of freeze and restore
 
-> 
-> Thanks.
-> 
-> >diff --git a/drivers/net/ethernet/freescale/fec.h
-> >b/drivers/net/ethernet/freescale/fec.h
-> >index 5ea740b4cf14..5b187e8aacf0 100644
-> >--- a/drivers/net/ethernet/freescale/fec.h
-> >+++ b/drivers/net/ethernet/freescale/fec.h
-> >@@ -463,6 +463,7 @@ struct bufdesc_prop {  struct fec_enet_priv_tx_q {
-> > 	struct bufdesc_prop bd;
-> > 	unsigned char *tx_bounce[TX_RING_SIZE];
-> >+	int tx_page_mapping[TX_RING_SIZE];
-> > 	struct  sk_buff *tx_skbuff[TX_RING_SIZE];
-> >
-> > 	unsigned short tx_stop_threshold;
-> >diff --git a/drivers/net/ethernet/freescale/fec_main.c
-> >b/drivers/net/ethernet/freescale/fec_main.c
-> >index 38160c2bebcb..b1562107e337 100644
-> >--- a/drivers/net/ethernet/freescale/fec_main.c
-> >+++ b/drivers/net/ethernet/freescale/fec_main.c
-> >@@ -60,6 +60,7 @@
-> > #include <linux/if_vlan.h>
-> > #include <linux/pinctrl/consumer.h>
-> > #include <linux/prefetch.h>
-> >+#include <linux/highmem.h>
-> > #include <soc/imx/cpuidle.h>
-> >
-> > #include <asm/cacheflush.h>
-> >@@ -377,20 +378,28 @@ fec_enet_txq_submit_frag_skb(struct
-> >fec_enet_priv_tx_q *txq,
-> > 			ebdp->cbd_esc = cpu_to_fec32(estatus);
-> > 		}
-> >
-> >-		bufaddr = page_address(this_frag->page.p) + this_frag-
-> >>page_offset;
-> >-
-> > 		index = fec_enet_get_bd_index(bdp, &txq->bd);
-> >-		if (((unsigned long) bufaddr) & fep->tx_align ||
-> >+		txq->tx_page_mapping[index] = 0;
-> >+		if (this_frag->page_offset & fep->tx_align ||
-> > 			fep->quirks & FEC_QUIRK_SWAP_FRAME) {
-> >+			bufaddr = kmap_atomic(this_frag->page.p) +
-> >+
-> 	this_frag->page_offset;
-> > 			memcpy(txq->tx_bounce[index], bufaddr,
-> frag_len);
-> >+			kunmap_atomic(bufaddr);
-> > 			bufaddr = txq->tx_bounce[index];
-> >
-> > 			if (fep->quirks & FEC_QUIRK_SWAP_FRAME)
-> > 				swap_buffer(bufaddr, frag_len);
-> >+			addr = dma_map_single(&fep->pdev->dev,
-> >+					      bufaddr,
-> >+					      frag_len,
-> >+					      DMA_TO_DEVICE);
-> >+		} else {
-> >+			txq->tx_page_mapping[index] = 1;
-> >+			addr = skb_frag_dma_map(&fep->pdev->dev,
-> >this_frag, 0,
-> >+						frag_len,
-> DMA_TO_DEVICE);
-> > 		}
-> >
-> >-		addr = dma_map_single(&fep->pdev->dev, bufaddr,
-> frag_len,
-> >-				      DMA_TO_DEVICE);
-> > 		if (dma_mapping_error(&fep->pdev->dev, addr)) {
-> > 			if (net_ratelimit())
-> > 				netdev_err(ndev, "Tx DMA memory map
-> failed\n"); @@ -411,8 +420,16
-> >@@ fec_enet_txq_submit_frag_skb(struct
-> >fec_enet_priv_tx_q *txq,
-> > 	bdp = txq->bd.cur;
-> > 	for (i = 0; i < frag; i++) {
-> > 		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
-> >-		dma_unmap_single(&fep->pdev->dev, fec32_to_cpu(bdp-
-> >>cbd_bufaddr),
-> >-				 fec16_to_cpu(bdp->cbd_datlen),
-> >DMA_TO_DEVICE);
-> >+		if (txq->tx_page_mapping[index])
-> >+			dma_unmap_page(&fep->pdev->dev,
-> >+				       fec32_to_cpu(bdp->cbd_bufaddr),
-> >+				       fec16_to_cpu(bdp->cbd_datlen),
-> >+				       DMA_TO_DEVICE);
-> >+		else
-> >+			dma_unmap_single(&fep->pdev->dev,
-> >+
-> fec32_to_cpu(bdp->cbd_bufaddr),
-> >+
-> fec16_to_cpu(bdp->cbd_datlen),
-> >+					 DMA_TO_DEVICE);
-> > 	}
-> > 	return ERR_PTR(-ENOMEM);
-> > }
-> >@@ -1201,11 +1218,18 @@ fec_enet_tx_queue(struct net_device *ndev, u16
-> >queue_id)
-> >
-> > 		skb = txq->tx_skbuff[index];
-> > 		txq->tx_skbuff[index] = NULL;
-> >-		if (!IS_TSO_HEADER(txq,
-> fec32_to_cpu(bdp->cbd_bufaddr)))
-> >-			dma_unmap_single(&fep->pdev->dev,
-> >-
-> fec32_to_cpu(bdp->cbd_bufaddr),
-> >-
-> fec16_to_cpu(bdp->cbd_datlen),
-> >-					 DMA_TO_DEVICE);
-> >+		if (!IS_TSO_HEADER(txq,
-> fec32_to_cpu(bdp->cbd_bufaddr)))
-> >{
-> >+			if (txq->tx_page_mapping[index])
-> >+				dma_unmap_page(&fep->pdev->dev,
-> >+
-> fec32_to_cpu(bdp->cbd_bufaddr),
-> >+
-> fec16_to_cpu(bdp->cbd_datlen),
-> >+					       DMA_TO_DEVICE);
-> >+			else
-> >+				dma_unmap_single(&fep->pdev->dev,
-> >+						 fec32_to_cpu(bdp-
-> >>cbd_bufaddr),
-> >+						 fec16_to_cpu(bdp-
-> >>cbd_datlen),
-> >+						 DMA_TO_DEVICE);
-> >+		}
-> > 		bdp->cbd_bufaddr = cpu_to_fec32(0);
-> > 		if (!skb)
-> > 			goto skb_done;
-> >--
-> >2.11.0
+Just my preference, if both Michael and you stick to this, I'm also fine.
+
+Thanks
