@@ -1,102 +1,49 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v3 1/2] bpf: add a longest prefix match trie map
- implementation
-Date: Wed, 18 Jan 2017 14:29:10 -0800
-Message-ID: <20170118222907.GA68490@ast-mbp.thefacebook.com>
-References: <20170114121727.14784-1-daniel@zonque.org>
- <20170114121727.14784-2-daniel@zonque.org>
- <587A581A.6060304@fb.com>
- <CANq1E4TY1BZfa1da1DB6=M==+JJUuATxT5iCJAAn2_Bi=yuiJw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@fb.com>, Daniel Mack <daniel@zonque.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next 2/3] ipvlan: use netdev_is_rx_handler_busy instead of checking specific type
+Date: Wed, 18 Jan 2017 15:02:53 -0800
+Message-ID: <20170118230253.20811-1-mahesh@bandewar.net>
+Cc: Eric Dumazet <edumazet@google.com>,
         netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: David Herrmann <dh.herrmann@gmail.com>
+        Mahesh Bandewar <mahesh@bandewar.net>,
+        Mahesh Bandewar <maheshb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34092 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750892AbdARW7e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 17:59:34 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y143so1926733pfb.1
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 14:58:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CANq1E4TY1BZfa1da1DB6=M==+JJUuATxT5iCJAAn2_Bi=yuiJw@mail.gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33941 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdARXKw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 18:10:52 -0500
+Received: by mail-pg0-f66.google.com with SMTP id t6so2429468pgt.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 15:09:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 03:30:14PM +0100, David Herrmann wrote:
-> Hi
-> 
-> On Sat, Jan 14, 2017 at 5:55 PM, Alexei Starovoitov <ast@fb.com> wrote:
-> > Another alternative is to extend samples/bpf/map_perf_test
-> > It has perf tests for most map types today (including lru)
-> > and trie would be natural addition there.
-> > I would prefer this latter option.
-> 
-> I hooked into gettid() and installed a simple kprobe bpf program that
-> searches for an entry in an lpm trie. The bpf program does either 0,
-> 1, 8, or 32 lookups in a row (always the same element). The trie has
-> size 0, 1, or 8192. The data is below. The results vary by roughly 5%
-> on every run.
-> 
-> A single gettid() syscall with an empty bpf program takes roughly
-> 6.5us on my system. Lookups in empty tries take ~1.8us on first try,
-> ~0.9us on retries. Lookups in tries with 8192 entries take ~7.1us (on
-> the first _and_ any subsequent try).
+From: Mahesh Bandewar <maheshb@google.com>
 
-thanks. please add them to commit log.
+IPvlan checks if the master device is already used by checking a
+specific device (here it's macvlan device). This is technically not
+sufficient and it should just ensure the rx_handler is busy or not.
+This would be a super check that includes macvlan and any other that
+has already registered rx-handler.
 
-> https://gist.github.com/dvdhrm/4c90e61a1c39746d5c55ab9e0e29315e
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-looks good. please add it as an extra patch to this set.
-and add
-#pragma clang loop unroll(full)
-before
-+       for (i = 0; i < 8; ++i)
-+               bpf_map_lookup_elem(&lpm_trie_map_alloc, &key);
-to make sure it's unrolled regardless of the version of llvm.
-
-> Trie-size: 0
-> #Lookups: 0
->     0:lpm_perf kmalloc 9,230,321 events per sec
->     -> 6.5us / syscall
-> 
-> Trie-size: 1
-> #Lookups: 1
->     0:lpm_perf kmalloc 7,224,508 events per sec
->     -> 8.3us / syscall
-> 
-> Trie-size: 1
-> #Lookups: 8
->     0:lpm_perf kmalloc 4,152,740 events per sec
->     -> 14.4us / syscall
-> 
-> Trie-size: 1
-> #Lookups: 32
->     0:lpm_perf kmalloc 1,713,415 events per sec
->     -> 35.0us / syscall
-> 
-> Trie-size: 8192
-> #Lookups: 1
->     0:lpm_perf kmalloc 4,369,138 events per sec
->     -> 13.7us / syscall
-> 
-> Trie-size: 8192
-> #Lookups: 8
->     0:lpm_perf kmalloc 943,849 events per sec
->     -> 63.6us / syscall
-> 
-> Trie-size: 8192
-> #Lookups: 32
->     0:lpm_perf kmalloc 271,737 events per sec
->     -> 220.8us / syscall
-
-so it's the same lookup done 32-times per each syscall.
-Since the latency of single lookup in 8 vs 32 experiments
-are pretty close, it means that the 32 lookup numbers
-amortize the cost of syscall pretty well and no need to go higher.
-So I would use 32 as a loop count in stress_lpm_trie_map_alloc()
-
-Thanks!
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index b5c390f0f2b3..95b18f4602cf 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -102,8 +102,8 @@ static int ipvlan_port_create(struct net_device *dev)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (netif_is_macvlan_port(dev)) {
+-		netdev_err(dev, "Master is a macvlan port.\n");
++	if (netdev_is_rx_handler_busy(dev)) {
++		netdev_err(dev, "Device is already in use.\n");
+ 		return -EBUSY;
+ 	}
+ 
+-- 
+2.11.0.483.g087da7b7c-goog
