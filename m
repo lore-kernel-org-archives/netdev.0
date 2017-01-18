@@ -1,67 +1,91 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: resend: tcp: performance issue with fastopen connections (mss > window)
-Date: Wed, 18 Jan 2017 10:16:45 -0800
-Message-ID: <CANn89i+5E0nXEox0EHU7s3me00KegXNA4ZeKQWxQoWRC4jNbHQ@mail.gmail.com>
-References: <30f38b3c-8c5c-7fab-e424-985e63ad900a@oracle.com>
- <1484321734.13165.24.camel@edumazet-glaptop3.roam.corp.google.com>
- <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com> <3dbbcda8-ce79-641c-cf3b-21f41c563939@oracle.com>
- <CANn89iJn+fC-mMCskczXupj=yhvDijYEn-_NeCphuG8roNCygA@mail.gmail.com> <CAK6E8=fL+Gf_uqxALxX8iT7Ew9sxZA_+Ncaa+nh2ZWMkej154w@mail.gmail.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH] net: fec: Fixed panic problem with non-tso
+Date: Wed, 18 Jan 2017 10:18:18 -0800
+Message-ID: <CAOrHB_A-oJid6RTeQB_xy0GDKsJjvEDwdTepMXN336qSi5h8AA@mail.gmail.com>
+References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
+ <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <337A096076BEF646A1F21E1AD855580E3AC8F71A@g01jpexmbkw23> <1484713283.13165.89.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexey Kodanev <alexey.kodanev@oracle.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Vasily Isaenko <vasily.isaenko@oracle.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: Yuchung Cheng <ycheng@google.com>
+Cc: "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>,
+        Andy Duan <fugang.duan@nxp.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Pravin B Shelar <pshelar@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:36594 "EHLO
-        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751464AbdARSRP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 13:17:15 -0500
-Received: by mail-io0-f177.google.com with SMTP id j13so18479679iod.3
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 10:16:46 -0800 (PST)
-In-Reply-To: <CAK6E8=fL+Gf_uqxALxX8iT7Ew9sxZA_+Ncaa+nh2ZWMkej154w@mail.gmail.com>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:59177 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751659AbdARSSX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 13:18:23 -0500
+Received: from mfilter24-d.gandi.net (mfilter24-d.gandi.net [217.70.178.152])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 62340172094
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 19:18:21 +0100 (CET)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter24-d.gandi.net (mfilter24-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id mBgzHUj5aHy0 for <netdev@vger.kernel.org>;
+        Wed, 18 Jan 2017 19:18:20 +0100 (CET)
+Received: from mail-it0-f50.google.com (mail-it0-f50.google.com [209.85.214.50])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id E0A991720C3
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 19:18:19 +0100 (CET)
+Received: by mail-it0-f50.google.com with SMTP id 203so123411565ith.0
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 10:18:19 -0800 (PST)
+In-Reply-To: <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 10:13 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> On Wed, Jan 18, 2017 at 9:35 AM, Eric Dumazet <edumazet@google.com> wrote:
+On Tue, Jan 17, 2017 at 8:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2017-01-17 at 20:21 -0800, Eric Dumazet wrote:
+>> On Wed, 2017-01-18 at 03:12 +0000, Ashizuka, Yuusuke wrote:
 >>
->> On Wed, Jan 18, 2017 at 9:32 AM, Alexey Kodanev
->> <alexey.kodanev@oracle.com> wrote:
->> > Hi Eric,
+>> > indeed.
 >> >
->> > On 01/13/2017 08:07 PM, Alexey Kodanev wrote:
+>> > In the case of TSO with i.MX6 system (highmem enabled) with 2GB memory,
+>> > "this_frag->page.p" did not become highmem area.
+>> > (We confirmed by transferring about 100MB of files)
 >> >
+>> > However, in the case of non-tso on an i.MX6 system with 2GB of memory,
+>> > "this_frag->page.p" may become a highmem area.
+>> > (Occurred with approximately 2MB of file transfer)
+>> >
+>> > For non-tso only, I do not know the reason why "this_frag-> page.p"
+>> > in this driver shows highmem area.
 >>
->> > Looks like max_window not correctly initialized for tfo sockets.
->> > On my test machine it has set to '5592320' in tcp_fastopen_create_child().
->> >
->> > This diff fixes the issue, the question: is this the right place to do it?
->> >
->> > diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
->> > index 4e777a3..33ed508 100644
->> > --- a/net/ipv4/tcp_fastopen.c
->> > +++ b/net/ipv4/tcp_fastopen.c
->> > @@ -206,6 +206,8 @@ static struct sock *tcp_fastopen_create_child(struct
->> > sock *sk,
->> >          */
->> >         tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
->> >
->> > +       tp->max_window = tp->snd_wnd;
->> > +
+>> This worries me, since this driver does not set NETIF_F_HIGHDMA in its
+>> features.
 >>
->> Excellent catch. Let me test our regression tests with this.
-> Indeed nice catch. Thanks for the investigative work!
+>> No packet should be given to this driver with a highmem fragment
+>>
+>> Check is done in illegal_highdma() in net/core/dev.c
 >
+> This used to work.
+>
+> I suspect commit ec5f061564238892005257c83565a0b58ec79295
+> ("net: Kill link between CSUM and SG features.")
+>
+> added this bug.
+>
+> Can you try this hot fix :
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index ad5959e561166f445bdd9d7260652a338f74cfea..073b832b945257dba9ed47f4bf875605225effc9 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2773,9 +2773,9 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
+>         if (skb->ip_summed != CHECKSUM_NONE &&
+>             !can_checksum_protocol(features, type)) {
+>                 features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
+> -       } else if (illegal_highdma(skb->dev, skb)) {
+> -               features &= ~NETIF_F_SG;
+>         }
+> +       if (illegal_highdma(skb->dev, skb))
+> +               features &= ~NETIF_F_SG;
+>
+>         return features;
+>  }
 
-We do have 2 failures, but tests might have depended on undocumented behavior
+Right, this high mem check should be decoupled from csum check.
 
-(For googlers :
-Ran 211 tests: 209 passing, 0 flaky 2 failing
-Sponge: http://sponge/f1575065-6e1c-4514-bced-9167ce56d2ee
-)
-
-Please Alexey submit an official patch, thanks a lot !
+Thanks,
+Pravin.
