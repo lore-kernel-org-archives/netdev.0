@@ -1,43 +1,47 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net] bnxt_en: Fix "uninitialized variable" bug in TPA code path.
-Date: Tue, 17 Jan 2017 22:07:19 -0500
-Message-ID: <1484708839-11745-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, andrew.gospodarek@broadcom.com
-To: davem@davemloft.net
+From: "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>
+Subject: RE: [PATCH] net: fec: Fixed panic problem with non-tso
+Date: Wed, 18 Jan 2017 03:20:23 +0000
+Message-ID: <337A096076BEF646A1F21E1AD855580E3AC8F757@g01jpexmbkw23>
+References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
+ <20170117.154512.612465430064515761.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-2022-jp"
+Cc: "fugang.duan@nxp.com" <fugang.duan@nxp.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:35729 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751485AbdARDHo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 22:07:44 -0500
-Received: by mail-pg0-f44.google.com with SMTP id 194so239940pgd.2
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 19:07:29 -0800 (PST)
+Received: from mgwkm04.jp.fujitsu.com ([202.219.69.171]:59353 "EHLO
+        mgwkm04.jp.fujitsu.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751179AbdARDUd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 22:20:33 -0500
+Received: from g01jpfmpwkw02.exch.g01.fujitsu.local (g01jpfmpwkw02.exch.g01.fujitsu.local [10.0.193.56])
+        by kw-mxoi2.gw.nic.fujitsu.com (Postfix) with ESMTP id 941BCAC0187
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 12:20:25 +0900 (JST)
+In-Reply-To: <20170117.154512.612465430064515761.davem@davemloft.net>
+Content-Language: ja-JP
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the TPA GRO code path, initialize the tcp_opt_len variable to 0 so
-that it will be correct for packets without TCP timestamps.  The bug
-caused the SKB fields to be incorrectly set up for packets without
-TCP timestamps, leading to these packets being rejected by the stack.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, January 18, 2017 5:45 AM
+> To: Ashizuka, Yuusuke/芦塚 雄介
+> Cc: fugang.duan@nxp.com; netdev@vger.kernel.org
+> Subject: Re: [PATCH] net: fec: Fixed panic problem with non-tso
+> 
+> From: Yuusuke Ashiduka <ashiduka@jp.fujitsu.com>
+> Date: Tue, 17 Jan 2017 16:48:20 +0900
+> 
+> > If highmem and 2GB or more of memory are valid, "this_frag-> page.p"
+> > indicates the highmem area, so the result of page_address() is NULL
+> > and panic occurs.
+> >
+> > This commit fixes this by using the skb_frag_dma_map() helper, which
+> > takes care of mapping the skb fragment properly. Additionally, the
+> > type of mapping is now tracked, so it can be unmapped using
+> > dma_unmap_page or dma_unmap_single when appropriate.
+> 
+> This patch submission is lacking a proper signoff.
 
-Reported-by: Andy Gospodarek <andrew.gospodarek@broadocm.com>
-Acked-by: Andy Gospodarek <andrew.gospodarek@broadocm.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 9608cb4..53e686f 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1099,7 +1099,7 @@ static struct sk_buff *bnxt_gro_func_5730x(struct bnxt_tpa_info *tpa_info,
- {
- #ifdef CONFIG_INET
- 	struct tcphdr *th;
--	int len, nw_off, tcp_opt_len;
-+	int len, nw_off, tcp_opt_len = 0;
- 
- 	if (tcp_ts)
- 		tcp_opt_len = 12;
--- 
-1.8.3.1
+Thank you for pointing out my mistake.
+I will submit the patch again.
