@@ -1,47 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: don't trigger OOM killer under pressure with
- map alloc
-Date: Wed, 18 Jan 2017 17:13:54 -0500 (EST)
-Message-ID: <20170118.171354.1392552826246839853.davem@davemloft.net>
-References: <1f39f6b28b1ec25a88b90dd95aa4ea7820d0d53a.1484747846.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] net: Remove usage of net_device last_rx member
+Date: Wed, 18 Jan 2017 17:27:50 -0500 (EST)
+Message-ID: <20170118.172750.1394406967719526972.davem@davemloft.net>
+References: <20170118164501.1934-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42444 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751235AbdARWU6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 17:20:58 -0500
-In-Reply-To: <1f39f6b28b1ec25a88b90dd95aa4ea7820d0d53a.1484747846.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+ b.a.t.m.a.n@lists.open-mesh.org, linux-m68k@lists.linux-m68k.org,
+ intel-wired-lan@lists.osuosl.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+ andy@greyhouse.net, mlindner@marvell.com
+To: tklauser@distanz.ch
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170118164501.1934-1-tklauser@distanz.ch>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 18 Jan 2017 15:14:17 +0100
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Wed, 18 Jan 2017 17:45:01 +0100
 
-> This patch adds two helpers, bpf_map_area_alloc() and bpf_map_area_free(),
-> that are to be used for map allocations. Using kmalloc() for very large
-> allocations can cause excessive work within the page allocator, so i) fall
-> back earlier to vmalloc() when the attempt is considered costly anyway,
-> and even more importantly ii) don't trigger OOM killer with any of the
-> allocators.
+> The network stack no longer uses the last_rx member of struct net_device
+> since the bonding driver switched to use its own private last_rx in
+> commit 9f242738376d ("bonding: use last_arp_rx in slave_last_rx()").
 > 
-> Since this is based on a user space request, for example, when creating
-> maps with element pre-allocation, we really want such requests to fail
-> instead of killing other user space processes.
+> However, some drivers still (ab)use the field for their own purposes and
+> some driver just update it without actually using it.
 > 
-> Also, don't spam the kernel log with warnings should any of the allocations
-> fail under pressure. Given that, we can make backend selection in
-> bpf_map_area_alloc() generic, and convert all maps over to use this API
-> for spots with potentially large allocation requests.
+> Previously, there was an accompanying comment for the last_rx member
+> added in commit 4dc89133f49b ("net: add a comment on netdev->last_rx")
+> which asked drivers not to update is, unless really needed. However,
+> this commend was removed in commit f8ff080dacec ("bonding: remove
+> useless updating of slave->dev->last_rx"), so some drivers added later
+> on still did update last_rx.
 > 
-> Note, replacing the one kmalloc_array() is fine as overflow checks happen
-> earlier in htab_map_alloc(), since it must also protect the multiplication
-> for vmalloc() should kmalloc_array() fail.
+> Remove all usage of last_rx and switch three drivers (sky2, atp and
+> smc91c92_cs) which actually read and write it to use their own private
+> copy in netdev_priv.
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Compile-tested with allyesconfig and allmodconfig on x86 and arm.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jay Vosburgh <j.vosburgh@gmail.com>
+> Cc: Veaceslav Falico <vfalico@gmail.com>
+> Cc: Andy Gospodarek <andy@greyhouse.net>
+> Cc: Mirko Lindner <mlindner@marvell.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
 Applied, thanks.
