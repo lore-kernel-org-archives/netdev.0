@@ -1,48 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next 0/6] sctp: add sender-side procedures for
- stream reconf ssn reset request chunk
-Date: Wed, 18 Jan 2017 14:55:28 -0500 (EST)
-Message-ID: <20170118.145528.656758298004770748.davem@davemloft.net>
-References: <cover.1484670664.git.lucien.xin@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: ipt_CLUSTERIP: fix build error without procfs
+Date: Wed, 18 Jan 2017 20:57:43 +0100
+Message-ID: <20170118195743.GA14797@salvia>
+References: <20170113154204.2737978-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com
-To: lucien.xin@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Xin Long <lucien.xin@gmail.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39676 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751423AbdART4u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 14:56:50 -0500
-In-Reply-To: <cover.1484670664.git.lucien.xin@gmail.com>
+Received: from mail.us.es ([193.147.175.20]:37362 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752452AbdART5w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 14:57:52 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 1C79913C0DD
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 20:57:51 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 0D679A7BF5
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 20:57:51 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 6EE58A7DB0
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 20:57:48 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20170113154204.2737978-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Wed, 18 Jan 2017 00:44:41 +0800
+On Fri, Jan 13, 2017 at 04:41:03PM +0100, Arnd Bergmann wrote:
+> We can't access c->pde if CONFIG_PROC_FS is disabled:
+> 
+> net/ipv4/netfilter/ipt_CLUSTERIP.c: In function 'clusterip_config_find_get':
+> net/ipv4/netfilter/ipt_CLUSTERIP.c:147:9: error: 'struct clusterip_config' has no member named 'pde'
+> 
+> This moves the check inside of another #ifdef.
+> 
+> Fixes: 6c5d5cfbe3c5 ("netfilter: ipt_CLUSTERIP: check duplicate config when initializing")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-> Patch 6/6 is to implement sender-side procedures for the Outgoing
-> and Incoming SSN Reset Request Parameter described in rfc6525
-> section 5.1.2 and 5.1.3
-> 
-> Patches 1-5/6 are ahead of it to define some apis and asoc members
-> for it.
-> 
-> Note that with this patchset, asoc->reconf_enable has no chance yet to
-> be set, until the patch "sctp: add get and set sockopt for reconf_enable"
-> is applied in the future. As we can not just enable it when sctp is not
-> capable of processing reconf chunk yet.
-> 
-> v1->v2:
->   - put these into a smaller group.
->   - rename some temporary variables in the codes.
->   - rename the titles of the commits and improve some changelogs.
-> v2->v3:
->   - re-split the patchset and make sure it has no dead codes for review.
-> v3->v4:
->   - move sctp_make_reconf() into patch 1/6 to avoid kbuild warning.
->   - drop unused struct sctp_strreset_req.
-
-Series applied, thank you.
+Applied, thanks Arnd.
