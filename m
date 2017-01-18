@@ -1,37 +1,48 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v4 00/10] net: dsa: Support for pdata in dsa2
-Date: Wed, 18 Jan 2017 14:06:43 -0800
-Message-ID: <c41c6746-9489-80f6-92a9-aa3595ce92c5@gmail.com>
-References: <20170117232152.1661-1-f.fainelli@gmail.com>
- <20170118.165050.2165692521961713529.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] lwtunnel: fix autoload of lwt modules
+Date: Wed, 18 Jan 2017 17:07:48 -0500 (EST)
+Message-ID: <20170118.170748.1892517744246492000.davem@davemloft.net>
+References: <1484693856-26021-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com, linux@armlinux.org.uk,
-        vivien.didelot@savoirfairelinux.com, gregkh@linuxfoundation.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170118.165050.2165692521961713529.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rshearma@brocade.com
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42196 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752697AbdARWIq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 17:08:46 -0500
+In-Reply-To: <1484693856-26021-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/18/2017 01:50 PM, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Tue, 17 Jan 2017 15:21:42 -0800
-> 
->> This is not exactly new, and was sent before, although back then, I did not
->> have an user of the pre-declared MDIO board information, but now we do. Note
->> that I have additional changes queued up to have b53 register platform data for
->> MIPS bcm47xx and bcm63xx.
->  ...
-> 
-> We're waiting for Greg's further review and Vivien's changes which I just
-> applied are going to create some conflicts, so I am presuming that you will
-> respin a v5 anyways.
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 17 Jan 2017 14:57:36 -0800
 
-Yes indeed. Thanks for your patience!
--- 
-Florian
+> Trying to add an mpls encap route when the MPLS modules are not loaded
+> hangs. For example:
+ ...
+> The problem is that lwtunnel_build_state is called with rtnl lock
+> held preventing mpls_init from registering.
+> 
+> Given the potential references held by the time lwtunnel_build_state it
+> can not drop the rtnl lock to the load module. So, extract the module
+> loading code from lwtunnel_build_state into a new function to validate
+> the encap type. The new function is called while converting the user
+> request into a fib_config which is well before any table, device or
+> fib entries are examined.
+> 
+> Fixes: 745041e2aaf1 ("lwtunnel: autoload of lwt modules")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> v2
+> - extract the module load attempt into a separate function that is
+>   called early in the newroute code paths
+
+Ok, this looks like it should work.
+
+Assuming it passed my build tests, I'll push this out and queue it for
+-stable.
+
+Thanks!
