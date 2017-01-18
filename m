@@ -1,73 +1,70 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
-Date: Wed, 18 Jan 2017 11:35:58 +0800
-Message-ID: <5a587c8e-851c-9793-7f1f-8857cc00b2d7@redhat.com>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
+Subject: Re: [PATCH] virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on xmit
+Date: Wed, 18 Jan 2017 11:54:21 +0800
+Message-ID: <34158479-8d4a-3761-a02e-66c474aca53e@redhat.com>
+References: <20170117181351.98291-1-rolf.neugebauer@docker.com>
+ <20170117202515-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        rppt@linux.vnet.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Rolf Neugebauer <rolf.neugebauer@docker.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53410 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56914 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750893AbdARDgF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Jan 2017 22:36:05 -0500
-In-Reply-To: <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
+        id S1751132AbdARDyZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Jan 2017 22:54:25 -0500
+In-Reply-To: <20170117202515-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 2017年01月18日 06:22, John Fastabend wrote:
->   
-> +static int virtnet_reset(struct virtnet_info *vi)
-> +{
-> +	struct virtio_device *dev = vi->vdev;
-> +	int ret;
-> +
-> +	virtio_config_disable(dev);
-> +	dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
-> +	virtnet_freeze_down(dev);
-> +	_remove_vq_common(vi);
-> +
-> +	dev->config->reset(dev);
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
-> +
-> +	ret = virtio_finalize_features(dev);
-> +	if (ret)
-> +		goto err;
-> +
-> +	ret = virtnet_restore_up(dev);
-> +	if (ret)
-> +		goto err;
-> +	ret = _virtnet_set_queues(vi, vi->curr_queue_pairs);
-> +	if (ret)
-> +		goto err;
-> +
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
-> +	virtio_config_enable(dev);
-> +	return 0;
-> +err:
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
-> +	return ret;
-> +}
-> +
+On 2017年01月18日 02:27, Michael S. Tsirkin wrote:
+> On Tue, Jan 17, 2017 at 06:13:51PM +0000, Rolf Neugebauer wrote:
+>> This patch part reverts fd2a0437dc33 and e858fae2b0b8 which introduced a
+>> subtle change in how the virtio_net flags are derived from the SKBs
+>> ip_summed field.
+>>
+>> With the above commits, the flags are set to VIRTIO_NET_HDR_F_DATA_VALID
+>> when ip_summed == CHECKSUM_UNNECESSARY, thus treating it differently to
+>> ip_summed == CHECKSUM_NONE, which should be the same.
+>>
+>> Further, the virtio spec 1.0 / CS04 explicitly says that
+>> VIRTIO_NET_HDR_F_DATA_VALID must not be set by the driver.
+>>
+>> Signed-off-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
+> Fixes: fd2a0437dc33 ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
+> Fixes: e858fae2b0b8 (" virtio_net: use common code for virtio_net_hdr and skb GSO conversion")
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+>
+> Should be backported into stable as well.
 
-Hi John:
-
-I still prefer not open code (part of) virtio_device_freeze() and 
-virtio_device_restore() here. How about:
-
-1) introduce __virtio_device_freeze/__virtio_device_restore which 
-accepts a function pointer of free/restore
-2) for virtio_device_freeze/virtio_device_restore just pass 
-drv->freeze/drv->restore (locked version)
-3) for virtnet_reset(), we can pass unlocked version of freeze and restore
-
-Just my preference, if both Michael and you stick to this, I'm also fine.
+Looks like a side effect is that we will never see this on receive path? 
+We probably need a hint for virtio_net_hdr_from_skb().
 
 Thanks
+
+>
+>
+>> ---
+>>   include/linux/virtio_net.h | 2 --
+>>   1 file changed, 2 deletions(-)
+>>
+>> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+>> index 66204007d7ac..56436472ccc7 100644
+>> --- a/include/linux/virtio_net.h
+>> +++ b/include/linux/virtio_net.h
+>> @@ -91,8 +91,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
+>>   				skb_checksum_start_offset(skb));
+>>   		hdr->csum_offset = __cpu_to_virtio16(little_endian,
+>>   				skb->csum_offset);
+>> -	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+>> -		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+>>   	} /* else everything is zero */
+>>   
+>>   	return 0;
+>> -- 
+>> 2.11.0
