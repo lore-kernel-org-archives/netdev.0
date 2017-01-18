@@ -1,83 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: support __GFP_MEMALLOC for rx
-Date: Wed, 18 Jan 2017 06:23:48 -0800
-Message-ID: <1484749428.13165.100.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <2696ea05-bb39-787b-2029-33b729fd88e0@yandex-team.ru>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next] net:add one common config
+ ARCH_WANT_RELAX_ORDER to support relax ordering.
+Date: Wed, 18 Jan 2017 16:22:01 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
+References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
+ <20170117.141533.680344033700095483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
- Tariq Toukan <tariqt@mellanox.com>, "linux-mm@kvack.org"
- <linux-mm@kvack.org>
-To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <2696ea05-bb39-787b-2029-33b729fd88e0@yandex-team.ru>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+To: 'David Miller' <davem@davemloft.net>,
+        "maowenan@huawei.com" <maowenan@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.188]:53828 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752792AbdARQWK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 11:22:10 -0500
+In-Reply-To: <20170117.141533.680344033700095483.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-18 at 12:31 +0300, Konstantin Khlebnikov wrote:
-> On 18.01.2017 07:14, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
+From: David Miller
+> Sent: 17 January 2017 19:16
+> > Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
+> > enhance the performance for some cpu architecure, such as SPARC and so on.
+> > Currently it only supports one special cpu architecture(SPARC) in 82599
+> > driver to enable RO feature, this is not very common for other cpu architecture
+> > which really needs RO feature.
+> > This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to set RO feature,
+> > and should define CONFIG_ARCH_WANT_RELAX_ORDER in sparc Kconfig firstly.
 > >
-> > Commit 04aeb56a1732 ("net/mlx4_en: allocate non 0-order pages for RX
-> > ring with __GFP_NOMEMALLOC") added code that appears to be not needed at
-> > that time, since mlx4 never used __GFP_MEMALLOC allocations anyway.
-> >
-> > As using memory reserves is a must in some situations (swap over NFS or
-> > iSCSI), this patch adds this flag.
+> > Signed-off-by: Mao Wenan <maowenan@huawei.com>
 > 
-> AFAIK __GFP_MEMALLOC is used for TX, not for RX: for allocations which
-> are required by memory reclaimer to free some pages.
+> Since no-one has reviewed this patch, and I do not feel comfortable with applying
+> it without such review, I am tossing this patch.
 > 
-> Allocation RX buffers with __GFP_MEMALLOC is a straight way to
-> depleting all reserves by flood from network.
+> If someone eventually reviews it, repost this patch.
 
-You are mistaken.
+Having re-read parts of the PCIe spec I think I'd like someone to
+explain exactly which transfers are affected by the 'relaxed ordering'
+bit and why any re-ordered transactions aren't a problem.
 
-How do you think a TCP flow can make progress sending data if no ACK
-packet can go back in RX ?
+In particular I believe RO allows the write to update the receive
+descriptor ring to overtake a write of receive packet data.
+That could lead to the network stack processing a receive frame
+before it has actually been written.
 
-Take a look at sk_filter_trim_cap(), where the RX packets received on a
-socket which does not have SOCK_MEMALLOC is dropped.
-
-        /*
-         * If the skb was allocated from pfmemalloc reserves, only
-         * allow SOCK_MEMALLOC sockets to use it as this socket is
-         * helping free memory
-         */
-        if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
-                return -ENOMEM;
-
-Also take a look at __dev_alloc_pages()
-
-static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
-                                             unsigned int order)
-{
-        /* This piece of code contains several assumptions.
-         * 1.  This is for device Rx, therefor a cold page is preferred.
-         * 2.  The expectation is the user wants a compound page.
-         * 3.  If requesting a order 0 page it will not be compound
-         *     due to the check to see if order has a value in prep_new_page
-         * 4.  __GFP_MEMALLOC is ignored if __GFP_NOMEMALLOC is set due to
-         *     code in gfp_to_alloc_flags that should be enforcing this.
-         */
-        gfp_mask |= __GFP_COLD | __GFP_COMP | __GFP_MEMALLOC;
-
-        return alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
-}
-
-
-So __GFP_MEMALLOC in RX is absolutely supported.
-
-But drivers have to opt-in, either using __dev_alloc_pages() or
-dev_alloc_pages, or explicitely ORing __GFP_MEMALLOC when using
-alloc_page[s]()
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	David
