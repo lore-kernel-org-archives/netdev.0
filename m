@@ -1,58 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: support __GFP_MEMALLOC for rx
-Date: Wed, 18 Jan 2017 07:24:31 -0800
-Message-ID: <1484753071.13165.106.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <2696ea05-bb39-787b-2029-33b729fd88e0@yandex-team.ru>
-	 <1484749428.13165.100.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <ed9a6b2a-428e-ac78-bba8-742f5e7c1eed@yandex-team.ru>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: xennet_start_xmit assumptions
+Date: Wed, 18 Jan 2017 10:31:32 -0500
+Message-ID: <20170118153132.GB9258@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
- Tariq Toukan <tariqt@mellanox.com>, "linux-mm@kvack.org"
- <linux-mm@kvack.org>
-To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <ed9a6b2a-428e-ac78-bba8-742f5e7c1eed@yandex-team.ru>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:43374 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751413AbdARPbm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 10:31:42 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-18 at 18:11 +0300, Konstantin Khlebnikov wrote:
-> On 18.01.2017 17:23, Eric Dumazet wrote:
+As I was playing around with pf_packet, I accidentally wrote
+a buggy application program that bzero'ed the msghdr, then set
+up the msg_name, msg_namelen correctly, and then did a sendmsg
+on the pf_packet/SOCK_RAW fd.
 
-> >
-> > Take a look at sk_filter_trim_cap(), where the RX packets received on a
-> > socket which does not have SOCK_MEMALLOC is dropped.
-> >
-> >         /*
-> >          * If the skb was allocated from pfmemalloc reserves, only
-> >          * allow SOCK_MEMALLOC sockets to use it as this socket is
-> >          * helping free memory
-> >          */
-> >         if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
-> >                 return -ENOMEM;
-> 
-> I suppose this happens in BH context right after receiving packet?
-> 
-> Potentially any ACK could free memory in TCP send queue,
-> so using reserves here makes sense.
+This causes packet_snd to set up an skb with a lot of issues,
+e.g., skb->len = 0, skb_headlen(skb) is 0, etc. I think we can/should
+drop the packet in packet_snd if the skb->len is 0, but there
+may be other driver bugs going on:
 
-Yes, but only sockets with SOCK_MEMALLOC have this contract with the mm
-layer.
+Turns out that ixgbe and sunvnet handle this problematic
+skb correctly (they drop it and system remains stable), 
+but it creates a panic in xen_netfront (xennet_start_xmit()
+hits a null pointer deref when xennet_make_first_txreq() returns 
+NULL)
 
-For 'other' sockets, one possible trick would be that if only the page
-fragment attached to skb had the pfmemalloc bit, and not the sk_buff
-itself, we could attempt a skb_condense() operation [1], but it is not
-really easy to properly recompute skb->pfmemalloc.
+I'm new to the xen driver code, so I'm hoping that
+the experts can comment here: reading the code in xennet_start_xmit,
+it seems like it mandatorily requires the skb_headlen() to be
+non-zero in order to create the first_tx? That may not always be
+true, how does the code recover for purely non-linear skbs?
 
-Pure TCP ACK packets can usually be trimmed by skb_condense().
-Since they have no payload, we have a guarantee they wont sit in a queue
-and hold memory.
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+--Sowmini
