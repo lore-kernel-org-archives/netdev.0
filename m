@@ -1,71 +1,28 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: [PATCH iproute2] Revert "man pages: add man page for skbmod
- action"
-Date: Wed, 18 Jan 2017 20:34:26 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93D4930D6@HASMSX110.ger.corp.intel.com>
-References: <d73859201d17931dfe19e31227bf98ea725a1178.1484742998.git.jbenc@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: dsa: store CPU switch structure in the
+ tree
+Date: Wed, 18 Jan 2017 12:35:23 -0800
+Message-ID: <aefbb268-ea4c-241c-341a-fd9ce4062715@gmail.com>
+References: <20170118014139.31417-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Lucas Bates <lucasb@mojatatu.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Jiri Benc <jbenc@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:20994 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751859AbdARUef (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 15:34:35 -0500
-In-Reply-To: <d73859201d17931dfe19e31227bf98ea725a1178.1484742998.git.jbenc@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170118014139.31417-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QWNrZWQtYnk6IFJhbWkgUm9zZW4gPHJhbWkucm9zZW5AaW50ZWwuY29tPg0KDQotLS0tLU9yaWdp
-bmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFp
-bHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBKaXJpIEJlbmMN
-ClNlbnQ6IFdlZG5lc2RheSwgSmFudWFyeSAxOCwgMjAxNyAxNDozNw0KVG86IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmcNCkNjOiBMdWNhcyBCYXRlcyA8bHVjYXNiQG1vamF0YXR1LmNvbT47IEphbWFs
-IEhhZGkgU2FsaW0gPGpoc0Btb2phdGF0dS5jb20+OyBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhl
-bkBuZXR3b3JrcGx1bWJlci5vcmc+DQpTdWJqZWN0OiBbUEFUQ0ggaXByb3V0ZTJdIFJldmVydCAi
-bWFuIHBhZ2VzOiBhZGQgbWFuIHBhZ2UgZm9yIHNrYm1vZCBhY3Rpb24iDQoNClRoaXMgcmV2ZXJ0
-cyBjb21taXQgYTQwOTk1ZDFjNzllNWExYjg3MTFmNmNkMjZlY2E5ODA3ZmM0ZGQ1MC4NCg0KVGhl
-IHBhdGNoIGlzIG1pc3NpbmcgdGhlIGFjdHVhbCB0Yy1za2Jtb2QuOCBmaWxlIHdoaWNoIGNhdXNl
-cyAnbWFrZSBpbnN0YWxsJyB0byBmYWlsOg0KDQppbnN0YWxsIC1tIDA3NTUgLWQgL3RtcC9pcC91
-c3Ivc2hhcmUvbWFuL21hbjggaW5zdGFsbCAtbSAwNjQ0IGlwLWFkZHJlc3MuOCBpcC1saW5rLjgg
-aXAtcm91dGUuOCBpcC44IGFycGQuOCBsbnN0YXQuOA0Kcm91dGVsLjggcnRhY2N0LjggcnRtb24u
-OCBydHByLjggc3MuOCB0Yy44IHRjLWJmaWZvLjggdGMtYnBmLjggdGMtY2JxLjgNCnRjLWNicS1k
-ZXRhaWxzLjggdGMtY2hva2UuOCB0Yy1jb2RlbC44IHRjLWZxLjggdGMtZHJyLjggdGMtZW1hdGNo
-LjgNCnRjLWZxX2NvZGVsLjggdGMtaGZzYy44IHRjLWh0Yi44IHRjLXBpZS44IHRjLW1xcHJpby44
-IHRjLW5ldGVtLjggdGMtcGZpZm8uOA0KdGMtcGZpZm9fZmFzdC44IHRjLXByaW8uOCB0Yy1yZWQu
-OCB0Yy1zZmIuOCB0Yy1zZnEuOCB0Yy1zdGFiLjggdGMtdGJmLjgNCmJyaWRnZS44IHJ0c3RhdC44
-IGN0c3RhdC44IG5zdGF0Ljggcm91dGVmLjggaXAtYWRkcmxhYmVsLjggaXAtZm91LjggaXAtZ3Vl
-LjgNCmlwLWwydHAuOCBpcC1tYWNzZWMuOCBpcC1tYWRkcmVzcy44IGlwLW1vbml0b3IuOCBpcC1t
-cm91dGUuOCBpcC1uZWlnaGJvdXIuOA0KaXAtbmV0bnMuOCBpcC1udGFibGUuOCBpcC1ydWxlLjgg
-aXAtdHVubmVsLjggaXAteGZybS44IGlwLXRjcF9tZXRyaWNzLjgNCmlwLW5ldGNvbmYuOCBpcC10
-b2tlbi44IHRpcGMuOCB0aXBjLWJlYXJlci44IHRpcGMtbGluay44IHRpcGMtbWVkaWEuOA0KdGlw
-Yy1uYW1ldGFibGUuOCB0aXBjLW5vZGUuOCB0aXBjLXNvY2tldC44IHRjLWJhc2ljLjggdGMtY2dy
-b3VwLjggdGMtZmxvdy44DQp0Yy1mbG93ZXIuOCB0Yy1mdy44IHRjLXJvdXRlLjggdGMtdGNpbmRl
-eC44IHRjLXUzMi44IHRjLW1hdGNoYWxsLjgNCnRjLWNvbm5tYXJrLjggdGMtY3N1bS44IHRjLW1p
-cnJlZC44IHRjLW5hdC44IHRjLXBlZGl0LjggdGMtcG9saWNlLjgNCnRjLXNpbXBsZS44IHRjLXNr
-YmVkaXQuOCB0Yy12bGFuLjggdGMteHQuOCAgdGMtaWZlLjggdGMtc2tibW9kLjgNCnRjLXR1bm5l
-bF9rZXkuOCBkZXZsaW5rLjggZGV2bGluay1kZXYuOCBkZXZsaW5rLW1vbml0b3IuOCBkZXZsaW5r
-LXBvcnQuOA0KZGV2bGluay1zYi44IC90bXAvaXAvdXNyL3NoYXJlL21hbi9tYW44DQppbnN0YWxs
-OiBjYW5ub3Qgc3RhdCDigJh0Yy1za2Jtb2QuOOKAmTogTm8gc3VjaCBmaWxlIG9yIGRpcmVjdG9y
-eQ0KbWFrZVsyXTogKioqIFtpbnN0YWxsXSBFcnJvciAxDQptYWtlWzFdOiAqKiogW2luc3RhbGxd
-IEVycm9yIDINCg0KU2lnbmVkLW9mZi1ieTogSmlyaSBCZW5jIDxqYmVuY0ByZWRoYXQuY29tPg0K
-LS0tDQogbWFuL21hbjgvTWFrZWZpbGUgfCAyICstDQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0
-aW9uKCspLCAxIGRlbGV0aW9uKC0pDQoNCmRpZmYgLS1naXQgYS9tYW4vbWFuOC9NYWtlZmlsZSBi
-L21hbi9tYW44L01ha2VmaWxlIGluZGV4IGQ0Y2IwMWFjM2YxMy4uNzdkMzQ3Y2E5OGZjIDEwMDY0
-NA0KLS0tIGEvbWFuL21hbjgvTWFrZWZpbGUNCisrKyBiL21hbi9tYW44L01ha2VmaWxlDQpAQCAt
-MTYsNyArMTYsNyBAQCBNQU44UEFHRVMgPSAkKFRBUkdFVFMpIGlwLjggYXJwZC44IGxuc3RhdC44
-IHJvdXRlbC44IHJ0YWNjdC44IHJ0bW9uLjggcnRwci44IHNzLg0KIAl0Yy1iYXNpYy44IHRjLWNn
-cm91cC44IHRjLWZsb3cuOCB0Yy1mbG93ZXIuOCB0Yy1mdy44IHRjLXJvdXRlLjggXA0KIAl0Yy10
-Y2luZGV4LjggdGMtdTMyLjggdGMtbWF0Y2hhbGwuOCBcDQogCXRjLWNvbm5tYXJrLjggdGMtY3N1
-bS44IHRjLW1pcnJlZC44IHRjLW5hdC44IHRjLXBlZGl0LjggdGMtcG9saWNlLjggXA0KLQl0Yy1z
-aW1wbGUuOCB0Yy1za2JlZGl0LjggdGMtdmxhbi44IHRjLXh0LjggIHRjLWlmZS44IHRjLXNrYm1v
-ZC44IFwNCisJdGMtc2ltcGxlLjggdGMtc2tiZWRpdC44IHRjLXZsYW4uOCB0Yy14dC44ICB0Yy1p
-ZmUuOCBcDQogCXRjLXR1bm5lbF9rZXkuOCBcDQogCWRldmxpbmsuOCBkZXZsaW5rLWRldi44IGRl
-dmxpbmstbW9uaXRvci44IGRldmxpbmstcG9ydC44IGRldmxpbmstc2IuOA0KIA0KLS0NCjEuOC4z
-LjENCg0K
+On 01/17/2017 05:41 PM, Vivien Didelot wrote:
+> Store a dsa_switch pointer to the CPU switch in the tree instead of only
+> its index. This avoids the need to initialize it to -1.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
