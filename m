@@ -1,42 +1,37 @@
-From: David Arcari <darcari@redhat.com>
-Subject: [PATCH] net: ethtool: avoid allocation failure for dump_regs
-Date: Wed, 18 Jan 2017 08:34:05 -0500
-Message-ID: <1484746445-97920-1-git-send-email-darcari@redhat.com>
-Cc: David Arcari <darcari@redhat.com>
-To: netdev@vger.kernel.org
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Wed, 18 Jan 2017 14:53:52 +0100
+Message-ID: <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
+ <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
+ <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, f.fainelli@gmail.com
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51200 "EHLO mx1.redhat.com"
+Received: from mail.neratec.com ([46.140.151.2]:46893 "EHLO mail.neratec.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752125AbdARNec (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 08:34:32 -0500
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 3CFCC270F39
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 13:34:33 +0000 (UTC)
+        id S1751612AbdARNyB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 08:54:01 -0500
+In-Reply-To: <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the user executes 'ethtool -d' for an interface and the associated
-get_regs_len() function returns 0, the user will see a call trace from
-the vmalloc() call in ethtool_get_regs().  This patch modifies
-ethtool_get_regs() to avoid the call to vmalloc when the size is zero.
+On 01/18/2017 02:13 PM, Timur Tabi wrote:
+> Zefir Kurtisi wrote:
+>> The fact that you see the warning means external autoneg completes before the
+>> SGMII side in best case or SGMII link remains down in worst case.
+> 
+> So I'm no expert on this.  Are you saying that I might possibly be doing things
+> backwards in my driver?  That is, I should be configuring the SGMII side of the
+> link before I start autonegotiation?
+> 
+No, not necessarily. The SGMII link default configuration is set such that you do
+not have to bother at all.
 
-Signed-off-by: David Arcari <darcari@redhat.com>
----
- net/core/ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index e23766c..47acd6f 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1405,7 +1405,7 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
- 	if (regs.len > reglen)
- 		regs.len = reglen;
- 
--	regbuf = vzalloc(reglen);
-+	regbuf = reglen ? vzalloc(reglen) : NULL;
- 	if (reglen && !regbuf)
- 		return -ENOMEM;
- 
+That is, if in your case you see the warning popping up but the link always
+regains connection, then it is an ignorable false positive.
