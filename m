@@ -1,43 +1,25 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: [PATCH net-next] csum: eliminate sparse warning in remcsum_unadjust()
-Date: Wed, 18 Jan 2017 15:14:56 -0500
-Message-ID: <1484770496-3401-1-git-send-email-lrichard@redhat.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net: ipv6: simplify rt6_fill_node
+Date: Wed, 18 Jan 2017 15:44:29 -0500 (EST)
+Message-ID: <20170118.154429.1213602974759476773.davem@davemloft.net>
+References: <1484697068-20106-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39686 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752459AbdARVJl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 16:09:41 -0500
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id D0C8AC05AA65
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 20:14:58 +0000 (UTC)
-Received: from thinkcentre.redhat.com (ovpn-116-133.rdu2.redhat.com [10.10.116.133])
-        by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id v0IKEw16021430
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 15:14:58 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:41146 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751585AbdARVQg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 16:16:36 -0500
+In-Reply-To: <1484697068-20106-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cast second parameter of csum_sub() from __sum16 to __wsum.
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 17 Jan 2017 15:51:06 -0800
 
-Signed-off-by: Lance Richardson <lrichard@redhat.com>
----
- include/net/checksum.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Remove a couple of unnecessary input arguments to rt6_fill_node.
 
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index 35d0fab..aef2b2b 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -179,7 +179,7 @@ static inline __wsum remcsum_adjust(void *ptr, __wsum csum,
- 
- static inline void remcsum_unadjust(__sum16 *psum, __wsum delta)
- {
--	*psum = csum_fold(csum_sub(delta, *psum));
-+	*psum = csum_fold(csum_sub(delta, (__force __wsum)*psum));
- }
- 
- #endif
--- 
-2.5.5
+Looks good, series applied, thanks.
