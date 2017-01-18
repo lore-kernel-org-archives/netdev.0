@@ -1,73 +1,160 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
-Date: Wed, 18 Jan 2017 19:50:26 +0200
-Message-ID: <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
-References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
- <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com> <20170118173327.GF32481@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ariel Almog <arielalmogworkemails@gmail.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Leon Romanovsky <leonro@mellanox.com>
+From: Gianluca Borello <g.borello@gmail.com>
+Subject: [PATCH net-next] bpf: add bpf_probe_read_str helper
+Date: Wed, 18 Jan 2017 17:55:49 +0000
+Message-ID: <20170118175549.15819-1-g.borello@gmail.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+        Gianluca Borello <g.borello@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f193.google.com ([74.125.82.193]:34573 "EHLO
-        mail-ot0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753356AbdARRuc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:50:32 -0500
-In-Reply-To: <20170118173327.GF32481@mtr-leonro.local>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34039 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751413AbdARSCM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 13:02:12 -0500
+Received: by mail-pg0-f66.google.com with SMTP id t6so1930581pgt.1
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 10:02:12 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 7:33 PM, Leon Romanovsky wrote:
-> On Wed, Jan 18, 2017 at 06:48:21PM +0200, Or Gerlitz wrote:
->> On Wed, Jan 18, 2017 at 5:19 PM, Ariel Almog
->> <arielalmogworkemails@gmail.com> wrote:
+Provide a simple helper with the same semantics of strncpy_from_unsafe():
 
->>> As of today, there is no single, simple, tool that allows monitoring
->>> and configuration of RDMA stack.
+int bpf_probe_read_str(void *dst, int size, const void *unsafe_addr)
 
->> Before tool, what kernel UAPI you thought to use?
+This gives more flexibility to a bpf program. A typical use case is
+intercepting a file name during sys_open(). The current approach is:
 
-> I'm aware of the following options:
-> 1) netlink
-> 2) RDMA ABI https://www.spinics.net/lists/linux-rdma/msg43960.html
-> 3) ioctl
-> 4) write/read
->
-> The items 1 and 2 are preferred options and one of the main goals
-> for this RFC is to chose between them.
->
-> For example, RDMA ABI has native support of querying and discovering
-> device capabilities via merge tree feature.
+SEC("kprobe/sys_open")
+void bpf_sys_open(struct pt_regs *ctx)
+{
+	char buf[PATHLEN]; // PATHLEN is defined to 256
+	bpf_probe_read(buf, sizeof(buf), ctx->di);
 
-To make it clear, when you wrote ABI in your initial email, I tend to
-think it was sort of unclear to the netdev crowd that you are talking
-on new UAPI which is now under the works for the IB subsystem, so with
-my netdev community member hat, I got confused... anyway
+	/* consume buf */
+}
 
+This is suboptimal because the size of the string needs to be estimated
+at compile time, causing more memory to be copied than often necessary,
+and can become more problematic if further processing on buf is done,
+for example by pushing it to userspace via bpf_perf_event_output(),
+since the real length of the string is unknown and the entire buffer
+must be copied (and defining an unrolled strnlen() inside the bpf
+program is a very inefficient and unfeasible approach).
 
->> > It is a good point to highlight the similarity to ethtool. It manages
->> > net_device, while rdmatool will manage RDMA stack.
+With the new helper, the code can easily operate on the actual string
+length rather than the buffer size:
 
-ethtool is likely to be ported to use netlink somewhere in the 21st century BTW
+SEC("kprobe/sys_open")
+void bpf_sys_open(struct pt_regs *ctx)
+{
+	char buf[PATHLEN]; // PATHLEN is defined to 256
+	int res = bpf_probe_read_str(buf, sizeof(buf), ctx->di);
 
+	/* consume buf, for example push it to userspace via
+	 * bpf_perf_event_output(), but this time we can use
+	 * res (the string length) as event size, after checking
+	 * its boundaries.
+	 */
+}
 
->> What's wrong with the RDMA netlink infrastructure?! it's there for
->> years and used
->> for various cases by MLNX, did you look on the code?
+Another useful use case is when parsing individual process arguments or
+individual environment variables navigating current->mm->arg_start and
+current->mm->env_start: using this helper and the return value, one can
+quickly iterate at the right offset of the memory area.
 
-> Nothing wrong, it is one of the valuable options and will be used if
-> community decides to put this tool under iproute2/ethtool umbrella.
+The code changes simply leverage the already existent
+strncpy_from_unsafe() kernel function, which is safe to be called from a
+bpf program as it is used in bpf_trace_printk().
 
-yeah, using netlink sounds good to me, and where you package/maintain
-the tool is of 2nd order, 1st decide what UAPI you wonna use. So far
-netlink was good for what bunch of use-cases needed.
+Signed-off-by: Gianluca Borello <g.borello@gmail.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ include/uapi/linux/bpf.h | 15 ++++++++++++++-
+ kernel/trace/bpf_trace.c | 32 ++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+), 1 deletion(-)
 
-Or.
-
->> cea05ea IB/core: Add flow control to the portmapper netlink calls
->> ae43f82 IB/core: Add IP to GID netlink offload
->> 2ca546b IB/sa: Route SA pathrecord query through netlink
->> 753f618 RDMA/cma: Add support for netlink statistics export
->> b2cbae2 RDMA: Add netlink infrastructure
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 0eb0e87dbe9f..54a5894bb4ea 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -430,6 +430,18 @@ union bpf_attr {
+  *     @xdp_md: pointer to xdp_md
+  *     @delta: An positive/negative integer to be added to xdp_md.data
+  *     Return: 0 on success or negative on error
++ *
++ * int bpf_probe_read_str(void *dst, int size, const void *unsafe_ptr)
++ *     Copy a NUL terminated string from unsafe address. In case the string
++ *     length is smaller than size, the target is not padded with further NUL
++ *     bytes. In case the string length is larger than size, just count-1
++ *     bytes are copied and the last byte is set to NUL.
++ *     @dst: destination address
++ *     @size: maximum number of bytes to copy, including the trailing NUL
++ *     @unsafe_ptr: unsafe address
++ *     Return:
++ *       > 0 length of the string including the trailing NUL on success
++ *       < 0 error
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -476,7 +488,8 @@ union bpf_attr {
+ 	FN(set_hash_invalid),		\
+ 	FN(get_numa_node_id),		\
+ 	FN(skb_change_head),		\
+-	FN(xdp_adjust_head),
++	FN(xdp_adjust_head),		\
++	FN(probe_read_str),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index c22a961d1a42..424daa4586d1 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -395,6 +395,36 @@ static const struct bpf_func_proto bpf_current_task_under_cgroup_proto = {
+ 	.arg2_type      = ARG_ANYTHING,
+ };
+ 
++BPF_CALL_3(bpf_probe_read_str, void *, dst, u32, size,
++	   const void *, unsafe_ptr)
++{
++	int ret;
++
++	/*
++	 * The strncpy_from_unsafe() call will likely not fill the entire
++	 * buffer, but that's okay in this circumstance as we're probing
++	 * arbitrary memory anyway similar to bpf_probe_read() and might
++	 * as well probe the stack. Thus, memory is explicitly cleared
++	 * only in error case, so that improper users ignoring return
++	 * code altogether don't copy garbage; otherwise length of string
++	 * is returned that can be used for bpf_perf_event_output() et al.
++	 */
++	ret = strncpy_from_unsafe(dst, unsafe_ptr, size);
++	if (unlikely(ret < 0))
++		memset(dst, 0, size);
++
++	return ret;
++}
++
++static const struct bpf_func_proto bpf_probe_read_str_proto = {
++	.func		= bpf_probe_read_str,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_UNINIT_MEM,
++	.arg2_type	= ARG_CONST_SIZE,
++	.arg3_type	= ARG_ANYTHING,
++};
++
+ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+@@ -432,6 +462,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_current_task_under_cgroup_proto;
+ 	case BPF_FUNC_get_prandom_u32:
+ 		return &bpf_get_prandom_u32_proto;
++	case BPF_FUNC_probe_read_str:
++		return &bpf_probe_read_str_proto;
+ 	default:
+ 		return NULL;
+ 	}
+-- 
+2.11.0
