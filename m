@@ -1,67 +1,80 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
-Date: Wed, 18 Jan 2017 11:31:27 -0700
-Message-ID: <20170118183127.GC14198@obsidianresearch.com>
-References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
- <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
- <20170118173327.GF32481@mtr-leonro.local>
- <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: resend: tcp: performance issue with fastopen connections (mss > window)
+Date: Wed, 18 Jan 2017 10:27:12 -0800
+Message-ID: <CAK6E8=cQdCvaXvcNzZYkC7R=vk2SmK7djS9OXNgqcWnO9CG0ug@mail.gmail.com>
+References: <30f38b3c-8c5c-7fab-e424-985e63ad900a@oracle.com>
+ <1484321734.13165.24.camel@edumazet-glaptop3.roam.corp.google.com>
+ <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com> <3dbbcda8-ce79-641c-cf3b-21f41c563939@oracle.com>
+ <CANn89iJn+fC-mMCskczXupj=yhvDijYEn-_NeCphuG8roNCygA@mail.gmail.com>
+ <CAK6E8=fL+Gf_uqxALxX8iT7Ew9sxZA_+Ncaa+nh2ZWMkej154w@mail.gmail.com> <CANn89i+5E0nXEox0EHU7s3me00KegXNA4ZeKQWxQoWRC4jNbHQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Leon Romanovsky <leonro@mellanox.com>,
-        Ariel Almog <arielalmogworkemails@gmail.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexey Kodanev <alexey.kodanev@oracle.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Vasily Isaenko <vasily.isaenko@oracle.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:36431 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751896AbdARSe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 13:34:26 -0500
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:33018 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751970AbdARSfl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 13:35:41 -0500
+Received: by mail-io0-f169.google.com with SMTP id v96so19003781ioi.0
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 10:35:36 -0800 (PST)
+In-Reply-To: <CANn89i+5E0nXEox0EHU7s3me00KegXNA4ZeKQWxQoWRC4jNbHQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 07:50:26PM +0200, Or Gerlitz wrote:
-> On Wed, Jan 18, 2017 at 7:33 PM, Leon Romanovsky wrote:
-> > On Wed, Jan 18, 2017 at 06:48:21PM +0200, Or Gerlitz wrote:
-> >> On Wed, Jan 18, 2017 at 5:19 PM, Ariel Almog
-> >> <arielalmogworkemails@gmail.com> wrote:
-> 
-> >>> As of today, there is no single, simple, tool that allows monitoring
-> >>> and configuration of RDMA stack.
-> 
-> >> Before tool, what kernel UAPI you thought to use?
-> 
-> > I'm aware of the following options:
-> > 1) netlink
-> > 2) RDMA ABI https://www.spinics.net/lists/linux-rdma/msg43960.html
-> > 3) ioctl
-> > 4) write/read
-> >
-> > The items 1 and 2 are preferred options and one of the main goals
-> > for this RFC is to chose between them.
-> >
-> > For example, RDMA ABI has native support of querying and discovering
-> > device capabilities via merge tree feature.
-> 
-> To make it clear, when you wrote ABI in your initial email, I tend to
-> think it was sort of unclear to the netdev crowd that you are talking
-> on new UAPI which is now under the works for the IB subsystem, so with
-> my netdev community member hat, I got confused... anyway
+Googler-only
 
-I think it depends on what this tool is supposed to cover, but based
-on the description, I would start with netlink-only.
+Hi Eric: yeah I think the test was just due to the TSO chunking
+difference between prod and upstream, which I was able to avoid with
+this patch re-suited by Neal in b/34128974. In fact, this patch
+enables me to run all recovery tests on upstream kernels for my RACK
+patch set.
 
-The only place verbs covers a similar ground is in 'device
-capabilities' - for some of that you might want to open a new-uAPI
-verbs fd, but even the capability data from that would not be
-totally offensive to be accessed over netlink.
+Neal: can we polish and check that in? super useful.
 
-IMHO netlink should cover almost everything found in sysfs today.
 
-I'm also deeply skeptical about driver-specific stuff at this layer,
-that sounds like a way to make a big mess.
-
-Jason
+On Wed, Jan 18, 2017 at 10:16 AM, Eric Dumazet <edumazet@google.com> wrote:
+> On Wed, Jan 18, 2017 at 10:13 AM, Yuchung Cheng <ycheng@google.com> wrote:
+>> On Wed, Jan 18, 2017 at 9:35 AM, Eric Dumazet <edumazet@google.com> wrote:
+>>>
+>>> On Wed, Jan 18, 2017 at 9:32 AM, Alexey Kodanev
+>>> <alexey.kodanev@oracle.com> wrote:
+>>> > Hi Eric,
+>>> >
+>>> > On 01/13/2017 08:07 PM, Alexey Kodanev wrote:
+>>> >
+>>>
+>>> > Looks like max_window not correctly initialized for tfo sockets.
+>>> > On my test machine it has set to '5592320' in tcp_fastopen_create_child().
+>>> >
+>>> > This diff fixes the issue, the question: is this the right place to do it?
+>>> >
+>>> > diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+>>> > index 4e777a3..33ed508 100644
+>>> > --- a/net/ipv4/tcp_fastopen.c
+>>> > +++ b/net/ipv4/tcp_fastopen.c
+>>> > @@ -206,6 +206,8 @@ static struct sock *tcp_fastopen_create_child(struct
+>>> > sock *sk,
+>>> >          */
+>>> >         tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
+>>> >
+>>> > +       tp->max_window = tp->snd_wnd;
+>>> > +
+>>>
+>>> Excellent catch. Let me test our regression tests with this.
+>> Indeed nice catch. Thanks for the investigative work!
+>>
+>
+> We do have 2 failures, but tests might have depended on undocumented behavior
+>
+> (For googlers :
+> Ran 211 tests: 209 passing, 0 flaky 2 failing
+> Sponge: http://sponge/f1575065-6e1c-4514-bced-9167ce56d2ee
+> )
+>
+> Please Alexey submit an official patch, thanks a lot !
