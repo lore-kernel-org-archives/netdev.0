@@ -1,83 +1,58 @@
-From: David Herrmann <dh.herrmann@gmail.com>
-Subject: Re: [PATCH v3 1/2] bpf: add a longest prefix match trie map implementation
-Date: Wed, 18 Jan 2017 15:30:14 +0100
-Message-ID: <CANq1E4TY1BZfa1da1DB6=M==+JJUuATxT5iCJAAn2_Bi=yuiJw@mail.gmail.com>
-References: <20170114121727.14784-1-daniel@zonque.org> <20170114121727.14784-2-daniel@zonque.org>
- <587A581A.6060304@fb.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [1/5] ath10k: Remove unused 'buf_len' variable
+Date: Wed, 18 Jan 2017 14:37:24 +0000 (UTC)
+Message-ID: <20170118143724.7A5FA6080C@smtp.codeaurora.org>
+References: <196e46eee00fd3ebb56da1373c36f3dff66f2ae1.1479974100.git.kirtika@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Mack <daniel@zonque.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Alexei Starovoitov <ast@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f196.google.com ([209.85.213.196]:36136 "EHLO
-        mail-yb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753291AbdAROaZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 09:30:25 -0500
-Received: by mail-yb0-f196.google.com with SMTP id l23so568459ybj.3
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 06:30:15 -0800 (PST)
-In-Reply-To: <587A581A.6060304@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Raja Mani <rmani-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>,
+        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+To: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <196e46eee00fd3ebb56da1373c36f3dff66f2ae1.1479974100.git.kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Commit 32653cf19554 removed the call to 'skb_trim(skb, buf_len)'
+> in ath10k_wmi_event_mgmt_rx(), leaving the buf_len variable set but
+> unused. Compiling with W=1 gives the following warning, fix it.
+> drivers/net/wireless/ath/ath10k/wmi.c: In function ‘ath10k_wmi_event_mgmt_rx’:
+> drivers/net/wireless/ath/ath10k/wmi.c:2280:6: warning: variable ‘buf_len’ set but not used [-Wunused-but-set-variable]
+> 
+> This is a harmless warning, and is only being fixed to reduce the
+> noise with W=1 in the kernel.
+> 
+> Fixes: 32653cf19554 ("ath10k: implement intermediate event args")
+> Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+> Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+> Signed-off-by: Kirtika Ruchandani <kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 
-On Sat, Jan 14, 2017 at 5:55 PM, Alexei Starovoitov <ast@fb.com> wrote:
-> Another alternative is to extend samples/bpf/map_perf_test
-> It has perf tests for most map types today (including lru)
-> and trie would be natural addition there.
-> I would prefer this latter option.
+These patches seem to be corrupted:
 
-I hooked into gettid() and installed a simple kprobe bpf program that
-searches for an entry in an lpm trie. The bpf program does either 0,
-1, 8, or 32 lookups in a row (always the same element). The trie has
-size 0, 1, or 8192. The data is below. The results vary by roughly 5%
-on every run.
+Applying: ath10k: Remove unused 'buf_len' variable
+fatal: corrupt patch at line 13
+error: could not build fake ancestor
+Patch failed at 0001 ath10k: Remove unused 'buf_len' variable
 
-A single gettid() syscall with an empty bpf program takes roughly
-6.5us on my system. Lookups in empty tries take ~1.8us on first try,
-~0.9us on retries. Lookups in tries with 8192 entries take ~7.1us (on
-the first _and_ any subsequent try).
+When resending please also cc ath10k list:
 
-https://gist.github.com/dvdhrm/4c90e61a1c39746d5c55ab9e0e29315e
+https://wireless.wiki.kernel.org/en/users/drivers/ath10k/sources#submitting_patches
 
-Thanks
-David
+4 patches set to Changes Requested.
 
+9444973 [1/5] ath10k: Remove unused 'buf_len' variable
+9444935 [2/5] ath10k: Remove unused 'num_vdev_stats' variable
+9444971 [4/5] ath10k: Removed unused 'dev' in ath10k_ahb_clock_enable()
+9444975 [5/5] ath10k: Removed unused 'dev' in ath10k_ahb_resource_init
 
-Trie-size: 0
-#Lookups: 0
-    0:lpm_perf kmalloc 9,230,321 events per sec
-    -> 6.5us / syscall
+-- 
+https://patchwork.kernel.org/patch/9444973/
 
-Trie-size: 1
-#Lookups: 1
-    0:lpm_perf kmalloc 7,224,508 events per sec
-    -> 8.3us / syscall
+Documentation about submitting wireless patches and checking status
+from patchwork:
 
-Trie-size: 1
-#Lookups: 8
-    0:lpm_perf kmalloc 4,152,740 events per sec
-    -> 14.4us / syscall
-
-Trie-size: 1
-#Lookups: 32
-    0:lpm_perf kmalloc 1,713,415 events per sec
-    -> 35.0us / syscall
-
-Trie-size: 8192
-#Lookups: 1
-    0:lpm_perf kmalloc 4,369,138 events per sec
-    -> 13.7us / syscall
-
-Trie-size: 8192
-#Lookups: 8
-    0:lpm_perf kmalloc 943,849 events per sec
-    -> 63.6us / syscall
-
-Trie-size: 8192
-#Lookups: 32
-    0:lpm_perf kmalloc 271,737 events per sec
-    -> 220.8us / syscall
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
