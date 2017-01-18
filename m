@@ -1,45 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fix harmonize_features() vs NETIF_F_HIGHDMA
-Date: Wed, 18 Jan 2017 15:25:14 -0500 (EST)
-Message-ID: <20170118.152514.1412023737192147746.davem@davemloft.net>
-References: <CAOrHB_A-oJid6RTeQB_xy0GDKsJjvEDwdTepMXN336qSi5h8AA@mail.gmail.com>
-        <1484769077.13165.111.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1484770337.13165.120.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: dsa: use cpu_switch instead of ds[0]
+Date: Wed, 18 Jan 2017 12:38:21 -0800
+Message-ID: <d686e94d-5055-b8e3-5436-842157b5f6ed@gmail.com>
+References: <20170118014139.31417-1-vivien.didelot@savoirfairelinux.com>
+ <20170118014139.31417-2-vivien.didelot@savoirfairelinux.com>
+ <20170118125057.GB7690@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@ovn.org, ashiduka@jp.fujitsu.com, fugang.duan@nxp.com,
-        netdev@vger.kernel.org, pshelar@nicira.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40566 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753290AbdARUfs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 15:35:48 -0500
-In-Reply-To: <1484770337.13165.120.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170118125057.GB7690@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 18 Jan 2017 12:12:17 -0800
+On 01/18/2017 04:50 AM, Andrew Lunn wrote:
+> On Tue, Jan 17, 2017 at 08:41:39PM -0500, Vivien Didelot wrote:
+>> Now that the DSA Ethernet switches are true Linux devices, the CPU
+>> switch is not necessarily the first one. If its address is higher than
+>> the second switch on the same MDIO bus, its index will be 1, not 0.
+>>
+>> Avoid any confusion by using dst->cpu_switch instead of dst->ds[0].
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> 
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Ashizuka reported a highmem oddity and sent a patch for freescale
-> fec driver.
-> 
-> But the problem root cause is that core networking stack
-> must ensure no skb with highmem fragment is ever sent through
-> a device that does not assert NETIF_F_HIGHDMA in its features.
-> 
-> We need to call illegal_highdma() from harmonize_features()
-> regardless of CSUM checks.
-> 
-> Fixes: ec5f06156423 ("net: Kill link between CSUM and SG features.")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Pravin Shelar <pshelar@ovn.org>
-> Reported-by: "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>
-
-Applied, thanks Eric.
-
-I guess few devices support SG and lack highmem support.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
