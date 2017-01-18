@@ -1,50 +1,47 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v4 05/10] drivers: base: Add
- device_find_in_class_name()
-Date: Wed, 18 Jan 2017 08:06:38 +0100
-Message-ID: <20170118070638.GA28945@kroah.com>
-References: <20170117232152.1661-1-f.fainelli@gmail.com>
- <20170117232152.1661-6-f.fainelli@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC ipsec-next] IPsec offload, part one
+Date: Wed, 18 Jan 2017 08:59:44 +0100
+Message-ID: <20170118075944.GD3541@gauss.secunet.com>
+References: <1483518230-6777-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
- Russell King <linux@armlinux.org.uk>, open list <linux-kernel@vger.kernel.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S. Miller" <davem@davemloft.net>,
- "moderated list:ARM/Marvell Dove/MV78xx0/Orion SOC support"
- <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:37186 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751304AbdARH7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 02:59:46 -0500
 Content-Disposition: inline
-In-Reply-To: <20170117232152.1661-6-f.fainelli@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1483518230-6777-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 03:21:47PM -0800, Florian Fainelli wrote:
-> Add a helper function to lookup a device reference given a class name.
-> This is a preliminary patch to remove adhoc code from net/dsa/dsa.c and
-> make it more generic.
+On Wed, Jan 04, 2017 at 09:23:45AM +0100, Steffen Klassert wrote:
+> This is the first part of the IPsec offload work we
+> talked at the IPsec workshop at the last netdev
+> conference. I plan to apply this to ipsec-next
+> after this round of review.
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/base/core.c    | 31 +++++++++++++++++++++++++++++++
->  include/linux/device.h |  2 ++
->  2 files changed, 33 insertions(+)
+> Patch 1 and 2 try to avoid skb linearization in
+> the ESP layer.
+> 
+> Patch 3 introduces a hepler to seup the esp trailer.
 
-My NAK still stands here, please give me a day or so to respond to the
-other thread about this...
+I have not received any comments about patches 1-3,
+so I've applied them to ipsec-next.
 
-thanks,
+> 
+> Patch 4 prepares the generic network code for
+> IPsec GRO. The main reason why we need this, is
+> that we need to reinject the decrypted inner
+> packet back to the GRO layer.
+> 
+> Patch 5 introduces GRO handlers for ESP, GRO
+> can enabled with a IPsec offload config option.
+> This config option will also be used for the
+> upcomming hardware offload.
 
-greg k-h
+Patches 4 and 5 will be refactored according to
+the comments from Eric.
