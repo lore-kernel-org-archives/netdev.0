@@ -1,95 +1,78 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: Setting link down or up in software
-Date: Wed, 18 Jan 2017 11:29:23 +0100
-Message-ID: <dc6378d7-d370-c893-63b7-c21cd7ef76fd@neratec.com>
-References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
- <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
- <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
- <9be9b48d-1bef-b48f-866f-8651d9b9c245@free.fr>
- <bfe5bd8b-d4eb-8c8e-45d8-6ea1c133b4a7@neratec.com>
- <660b7b17-0136-bf69-fd12-1c125069829b@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Mans Rullgard <mans@mansr.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>
+From: yegorslists@googlemail.com
+Subject: [PATCH v2] can: ti_hecc: add missing prepare and unprepare of the clock
+Date: Wed, 18 Jan 2017 11:35:57 +0100
+Message-ID: <1484735757-21172-1-git-send-email-yegorslists@googlemail.com>
+Cc: netdev@vger.kernel.org, mkl@pengutronix.de, wg@grandegger.com,
+        Yegor Yefremov <yegorslists@googlemail.com>
+To: linux-can@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:5566 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751204AbdARKaT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 05:30:19 -0500
-In-Reply-To: <660b7b17-0136-bf69-fd12-1c125069829b@free.fr>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34506 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751444AbdARKgJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 05:36:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/13/2017 06:35 PM, Mason wrote:
-> On 13/01/2017 17:28, Zefir Kurtisi wrote:
-> 
->> As for your specific problem: since I fought myself with the PHY/ETH subsystems
->> over the past months, I might remember something relevant to your issue. Could you
->> give some more info on your setup (PHY driver, opmode (SGMII, RGMII, etc.), ETH).
-> 
-> Hello Zefir,
-> 
-> My boards are using these drivers:
-> 
-> http://lxr.free-electrons.com/source/drivers/net/ethernet/aurora/nb8800.c
-> http://lxr.free-electrons.com/source/drivers/net/phy/at803x.c
-> 
-> The relevant device tree nodes are:
-> 
-> 		eth0: ethernet@26000 {
-> 			compatible = "sigma,smp8734-ethernet";
-> 			reg = <0x26000 0x800>;
-> 			interrupts = <38 IRQ_TYPE_LEVEL_HIGH>;
-> 			clocks = <&clkgen SYS_CLK>;
-> 		};
-> 
-> &eth0 {
-> 	phy-connection-type = "rgmii";
-> 	phy-handle = <&eth0_phy>;
-> 	#address-cells = <1>;
-> 	#size-cells = <0>;
-> 
-> 	/* Atheros AR8035 */
-> 	eth0_phy: ethernet-phy@4 {
-> 		compatible = "ethernet-phy-id004d.d072",
-> 			     "ethernet-phy-ieee802.3-c22";
-> 		interrupts = <37 IRQ_TYPE_EDGE_RISING>;
-> 		reg = <4>;
-> 	};
-> };
-> 
-> If I comment the PHY "interrupts" property, then the PHY framework
-> falls back to polling.
-> 
-> Am I forgetting important information?
-> 
-> Regards.
-> 
-Hi,
+From: Yegor Yefremov <yegorslists@googlemail.com>
 
-in our system we attach the at8031 over SGMII to the gianfar (Freescale eTSEC) and
-to fibre optics transceivers, which operate in fixed speeds. Getting this setup to
-work reliably was challenging for various reasons, maybe worth to note
+In order to make the driver work with the common clock framework, this
+patch converts the clk_enable()/clk_disable() to
+clk_prepare_enable()/clk_disable_unprepare().
 
-1) fixed SGMII speed not working: link is up on both ends, but no data is passed
-2) known issue with SGMII link not completing autonegotiation correctly, see [1]
-3) once autoneg is started or chip is reset, MII_CTRL1000 can not be written to
-until autoneg is completed => breaks phy state machine when the driver loads with
-unplugged cable and tries to set fixed speed
+Also add error checking for clk_prepare_enable().
 
-Unless you are using fixed speed links in your setup, none of those should affect
-it. My experience with at8031 attached to RGMII is that it is genphy compliant,
-therefore I would a) disable interrupts, and b) prevent loading at803x.ko and try
-the genphy instead. Yours is an at8035, results may vary.
+Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+---
+Changes v1 -> v2:
+	- add error checking for clk_prepare_enable (Marc Kleine-Budde)
 
+ drivers/net/can/ti_hecc.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-Cheers,
-Zefir
-
-
-[1] https://www.spinics.net/lists/netdev/msg400804.html
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index 680d1ff..8771531 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -948,7 +948,12 @@ static int ti_hecc_probe(struct platform_device *pdev)
+ 	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
+ 		HECC_DEF_NAPI_WEIGHT);
+ 
+-	clk_enable(priv->clk);
++	err = clk_prepare_enable(priv->clk);
++	if (err) {
++		dev_err(&pdev->dev, "clk_prepare_enable() failed\n");
++		goto probe_exit_clk;
++	}
++
+ 	err = register_candev(ndev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "register_candev() failed\n");
+@@ -981,7 +986,7 @@ static int ti_hecc_remove(struct platform_device *pdev)
+ 	struct ti_hecc_priv *priv = netdev_priv(ndev);
+ 
+ 	unregister_candev(ndev);
+-	clk_disable(priv->clk);
++	clk_disable_unprepare(priv->clk);
+ 	clk_put(priv->clk);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	iounmap(priv->base);
+@@ -1006,7 +1011,7 @@ static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
+ 	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+ 	priv->can.state = CAN_STATE_SLEEPING;
+ 
+-	clk_disable(priv->clk);
++	clk_disable_unprepare(priv->clk);
+ 
+ 	return 0;
+ }
+@@ -1016,7 +1021,7 @@ static int ti_hecc_resume(struct platform_device *pdev)
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+ 	struct ti_hecc_priv *priv = netdev_priv(dev);
+ 
+-	clk_enable(priv->clk);
++	clk_prepare_enable(priv->clk);
+ 
+ 	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+-- 
+2.1.4
