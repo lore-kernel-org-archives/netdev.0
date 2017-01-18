@@ -1,91 +1,67 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH] net: fec: Fixed panic problem with non-tso
-Date: Wed, 18 Jan 2017 10:18:18 -0800
-Message-ID: <CAOrHB_A-oJid6RTeQB_xy0GDKsJjvEDwdTepMXN336qSi5h8AA@mail.gmail.com>
-References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
- <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <337A096076BEF646A1F21E1AD855580E3AC8F71A@g01jpexmbkw23> <1484713283.13165.89.camel@edumazet-glaptop3.roam.corp.google.com>
- <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
+Date: Wed, 18 Jan 2017 11:31:27 -0700
+Message-ID: <20170118183127.GC14198@obsidianresearch.com>
+References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
+ <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
+ <20170118173327.GF32481@mtr-leonro.local>
+ <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>,
-        Andy Duan <fugang.duan@nxp.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Pravin B Shelar <pshelar@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Leon Romanovsky <leonro@mellanox.com>,
+        Ariel Almog <arielalmogworkemails@gmail.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:59177 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751659AbdARSSX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 13:18:23 -0500
-Received: from mfilter24-d.gandi.net (mfilter24-d.gandi.net [217.70.178.152])
-        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 62340172094
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 19:18:21 +0100 (CET)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-        by mfilter24-d.gandi.net (mfilter24-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id mBgzHUj5aHy0 for <netdev@vger.kernel.org>;
-        Wed, 18 Jan 2017 19:18:20 +0100 (CET)
-Received: from mail-it0-f50.google.com (mail-it0-f50.google.com [209.85.214.50])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id E0A991720C3
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 19:18:19 +0100 (CET)
-Received: by mail-it0-f50.google.com with SMTP id 203so123411565ith.0
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 10:18:19 -0800 (PST)
-In-Reply-To: <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from quartz.orcorp.ca ([184.70.90.242]:36431 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751896AbdARSe0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 13:34:26 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 8:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2017-01-17 at 20:21 -0800, Eric Dumazet wrote:
->> On Wed, 2017-01-18 at 03:12 +0000, Ashizuka, Yuusuke wrote:
->>
->> > indeed.
->> >
->> > In the case of TSO with i.MX6 system (highmem enabled) with 2GB memory,
->> > "this_frag->page.p" did not become highmem area.
->> > (We confirmed by transferring about 100MB of files)
->> >
->> > However, in the case of non-tso on an i.MX6 system with 2GB of memory,
->> > "this_frag->page.p" may become a highmem area.
->> > (Occurred with approximately 2MB of file transfer)
->> >
->> > For non-tso only, I do not know the reason why "this_frag-> page.p"
->> > in this driver shows highmem area.
->>
->> This worries me, since this driver does not set NETIF_F_HIGHDMA in its
->> features.
->>
->> No packet should be given to this driver with a highmem fragment
->>
->> Check is done in illegal_highdma() in net/core/dev.c
->
-> This used to work.
->
-> I suspect commit ec5f061564238892005257c83565a0b58ec79295
-> ("net: Kill link between CSUM and SG features.")
->
-> added this bug.
->
-> Can you try this hot fix :
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index ad5959e561166f445bdd9d7260652a338f74cfea..073b832b945257dba9ed47f4bf875605225effc9 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2773,9 +2773,9 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
->         if (skb->ip_summed != CHECKSUM_NONE &&
->             !can_checksum_protocol(features, type)) {
->                 features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
-> -       } else if (illegal_highdma(skb->dev, skb)) {
-> -               features &= ~NETIF_F_SG;
->         }
-> +       if (illegal_highdma(skb->dev, skb))
-> +               features &= ~NETIF_F_SG;
->
->         return features;
->  }
+On Wed, Jan 18, 2017 at 07:50:26PM +0200, Or Gerlitz wrote:
+> On Wed, Jan 18, 2017 at 7:33 PM, Leon Romanovsky wrote:
+> > On Wed, Jan 18, 2017 at 06:48:21PM +0200, Or Gerlitz wrote:
+> >> On Wed, Jan 18, 2017 at 5:19 PM, Ariel Almog
+> >> <arielalmogworkemails@gmail.com> wrote:
+> 
+> >>> As of today, there is no single, simple, tool that allows monitoring
+> >>> and configuration of RDMA stack.
+> 
+> >> Before tool, what kernel UAPI you thought to use?
+> 
+> > I'm aware of the following options:
+> > 1) netlink
+> > 2) RDMA ABI https://www.spinics.net/lists/linux-rdma/msg43960.html
+> > 3) ioctl
+> > 4) write/read
+> >
+> > The items 1 and 2 are preferred options and one of the main goals
+> > for this RFC is to chose between them.
+> >
+> > For example, RDMA ABI has native support of querying and discovering
+> > device capabilities via merge tree feature.
+> 
+> To make it clear, when you wrote ABI in your initial email, I tend to
+> think it was sort of unclear to the netdev crowd that you are talking
+> on new UAPI which is now under the works for the IB subsystem, so with
+> my netdev community member hat, I got confused... anyway
 
-Right, this high mem check should be decoupled from csum check.
+I think it depends on what this tool is supposed to cover, but based
+on the description, I would start with netlink-only.
 
-Thanks,
-Pravin.
+The only place verbs covers a similar ground is in 'device
+capabilities' - for some of that you might want to open a new-uAPI
+verbs fd, but even the capability data from that would not be
+totally offensive to be accessed over netlink.
+
+IMHO netlink should cover almost everything found in sysfs today.
+
+I'm also deeply skeptical about driver-specific stuff at this layer,
+that sounds like a way to make a big mess.
+
+Jason
