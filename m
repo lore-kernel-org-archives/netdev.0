@@ -1,292 +1,129 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH net-next] macb: Common code to enable ptp support for
- SAMA5Dx platforms.
-Date: Wed, 18 Jan 2017 10:32:27 -0700
-Message-ID: <1c534b5a-25cb-a5d6-f87c-db9ed958a606@atmel.com>
-References: <1484758673-8694-1-git-send-email-andrei.pistirica@microchip.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
+Date: Wed, 18 Jan 2017 19:33:27 +0200
+Message-ID: <20170118173327.GF32481@mtr-leonro.local>
+References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
+ <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <punnaia@xilinx.com>, <michals@xilinx.com>, <anirudh@xilinx.com>,
-        <boris.brezillon@free-electrons.com>,
-        <alexandre.belloni@free-electrons.com>, <tbultel@pixelsurmer.com>
-To: Andrei Pistirica <andrei.pistirica@microchip.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
-        <harinikatakamlinux@gmail.com>, <harini.katakam@xilinx.com>,
-        <richardcochran@gmail.com>, <rafalo@cadence.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="8f0Rp8CLSOFvlIcd"
+Cc: Ariel Almog <arielalmogworkemails@gmail.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:42880 "EHLO
-        eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751930AbdARRc2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:32:28 -0500
-In-Reply-To: <1484758673-8694-1-git-send-email-andrei.pistirica@microchip.com>
+Received: from mail.kernel.org ([198.145.29.136]:43074 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751085AbdARRda (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 12:33:30 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 18/01/2017 à 09:57, Andrei Pistirica a écrit :
-> This patch does the following:
-> - add GEM-PTP interface
-> - registers and bitfields for TSU are named according to SAMA5Dx data sheet
-> - PTP support based on platform capability
 
-The $subject will certainly never match reality, sadly "enable ptp
-support for SAMA5Dx platforms". So, you'd better change it.
-(no "." at the end BTW).
+--8f0Rp8CLSOFvlIcd
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Signed-off-by: Andrei Pistirica <andrei.pistirica@microchip.com>
-> ---
-> This is just the common code for GEM-PTP support. Code is based on the comments
-> related to the following patch series:
-> - [RFC PATCH net-next v1-to-4 1/2] macb: Add 1588 support in Cadence GEM.
-> - [RFC PATCH net-next v1-to-4 2/2] macb: Enable 1588 support in SAMA5Dx platforms.
-> 
-> Note: Patch on net-next: January 18.
-> 
-> Rafal/Harini, you can continue the work for GME-GXL.
-> 
->  drivers/net/ethernet/cadence/macb.c | 33 ++++++++++++++++-
->  drivers/net/ethernet/cadence/macb.h | 74 +++++++++++++++++++++++++++++++++++++
->  2 files changed, 105 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index c0fb80a..575022e 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -2085,6 +2085,9 @@ static int macb_open(struct net_device *dev)
->  
->  	netif_tx_start_all_queues(dev);
->  
-> +	if (bp->ptp_info)
-> +		bp->ptp_info->ptp_init(dev);
-> +
->  	return 0;
->  }
->  
-> @@ -2106,6 +2109,9 @@ static int macb_close(struct net_device *dev)
->  
->  	macb_free_consistent(bp);
->  
-> +	if (bp->ptp_info)
-> +		bp->ptp_info->ptp_remove(dev);
-> +
->  	return 0;
->  }
->  
-> @@ -2379,6 +2385,17 @@ static int macb_set_ringparam(struct net_device *netdev,
->  	return 0;
->  }
->  
-> +static int macb_get_ts_info(struct net_device *netdev,
-> +			    struct ethtool_ts_info *info)
-> +{
-> +	struct macb *bp = netdev_priv(netdev);
-> +
-> +	if (bp->ptp_info)
-> +		return bp->ptp_info->get_ts_info(netdev, info);
-> +
-> +	return ethtool_op_get_ts_info(netdev, info);
-> +}
-> +
->  static const struct ethtool_ops macb_ethtool_ops = {
->  	.get_regs_len		= macb_get_regs_len,
->  	.get_regs		= macb_get_regs,
-> @@ -2396,7 +2413,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
->  	.get_regs_len		= macb_get_regs_len,
->  	.get_regs		= macb_get_regs,
->  	.get_link		= ethtool_op_get_link,
-> -	.get_ts_info		= ethtool_op_get_ts_info,
-> +	.get_ts_info		= macb_get_ts_info,
->  	.get_ethtool_stats	= gem_get_ethtool_stats,
->  	.get_strings		= gem_get_ethtool_strings,
->  	.get_sset_count		= gem_get_sset_count,
-> @@ -2409,6 +2426,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
->  static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->  {
->  	struct phy_device *phydev = dev->phydev;
-> +	struct macb *bp = netdev_priv(dev);
->  
->  	if (!netif_running(dev))
->  		return -EINVAL;
-> @@ -2416,7 +2434,17 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
->  	if (!phydev)
->  		return -ENODEV;
->  
-> -	return phy_mii_ioctl(phydev, rq, cmd);
-> +	if (!bp->ptp_info)
-> +		return phy_mii_ioctl(phydev, rq, cmd);
-> +
-> +	switch (cmd) {
-> +	case SIOCSHWTSTAMP:
-> +		return bp->ptp_info->set_hwtst(dev, rq, cmd);
-> +	case SIOCGHWTSTAMP:
-> +		return bp->ptp_info->get_hwtst(dev, rq);
-> +	default:
-> +		return phy_mii_ioctl(phydev, rq, cmd);
-> +	}
->  }
->  
->  static int macb_set_features(struct net_device *netdev,
-> @@ -2490,6 +2518,7 @@ static void macb_configure_caps(struct macb *bp,
->  		dcfg = gem_readl(bp, DCFG2);
->  		if ((dcfg & (GEM_BIT(RX_PKT_BUFF) | GEM_BIT(TX_PKT_BUFF))) == 0)
->  			bp->caps |= MACB_CAPS_FIFO_MODE;
-> +
+On Wed, Jan 18, 2017 at 06:48:21PM +0200, Or Gerlitz wrote:
+> On Wed, Jan 18, 2017 at 5:19 PM, Ariel Almog
+> <arielalmogworkemails@gmail.com> wrote:
+> > General
+> > *******
+> > As of today, there is no single, simple, tool that allows monitoring
+> > and configuration of RDMA stack.
+>
+> Before tool, what kernel UAPI you thought to use?
 
-Nitpicking, just because other issue exists: this white line doesn't
-belong to the patch.
+I'm aware of the following options:
+1) netlink
+2) RDMA ABI https://www.spinics.net/lists/linux-rdma/msg43960.html
+3) ioctl
+4) write/read
 
->  	}
->  
->  	dev_dbg(&bp->pdev->dev, "Cadence caps 0x%08x\n", bp->caps);
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index d67adad..15f4a13 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -131,6 +131,20 @@
->  #define GEM_RXIPCCNT		0x01a8 /* IP header Checksum Error Counter */
->  #define GEM_RXTCPCCNT		0x01ac /* TCP Checksum Error Counter */
->  #define GEM_RXUDPCCNT		0x01b0 /* UDP Checksum Error Counter */
-> +#define GEM_TISUBN		0x01bc /* 1588 Timer Increment Sub-ns */
-> +#define GEM_TSH			0x01c0 /* 1588 Timer Seconds High */
-> +#define GEM_TSL			0x01d0 /* 1588 Timer Seconds Low */
-> +#define GEM_TN			0x01d4 /* 1588 Timer Nanoseconds */
-> +#define GEM_TA			0x01d8 /* 1588 Timer Adjust */
-> +#define GEM_TI			0x01dc /* 1588 Timer Increment */
-> +#define GEM_EFTSL		0x01e0 /* PTP Event Frame Tx Seconds Low */
-> +#define GEM_EFTN		0x01e4 /* PTP Event Frame Tx Nanoseconds */
-> +#define GEM_EFRSL		0x01e8 /* PTP Event Frame Rx Seconds Low */
-> +#define GEM_EFRN		0x01ec /* PTP Event Frame Rx Nanoseconds */
-> +#define GEM_PEFTSL		0x01f0 /* PTP Peer Event Frame Tx Secs Low */
-> +#define GEM_PEFTN		0x01f4 /* PTP Peer Event Frame Tx Ns */
-> +#define GEM_PEFRSL		0x01f8 /* PTP Peer Event Frame Rx Sec Low */
-> +#define GEM_PEFRN		0x01fc /* PTP Peer Event Frame Rx Ns */
->  #define GEM_DCFG1		0x0280 /* Design Config 1 */
->  #define GEM_DCFG2		0x0284 /* Design Config 2 */
->  #define GEM_DCFG3		0x0288 /* Design Config 3 */
-> @@ -174,6 +188,7 @@
->  #define MACB_NCR_TPF_SIZE	1
->  #define MACB_TZQ_OFFSET		12 /* Transmit zero quantum pause frame */
->  #define MACB_TZQ_SIZE		1
-> +#define MACB_SRTSM_OFFSET	15
->  
->  /* Bitfields in NCFGR */
->  #define MACB_SPD_OFFSET		0 /* Speed */
-> @@ -319,6 +334,32 @@
->  #define MACB_PTZ_SIZE		1
->  #define MACB_WOL_OFFSET		14 /* Enable wake-on-lan interrupt */
->  #define MACB_WOL_SIZE		1
-> +#define MACB_DRQFR_OFFSET	18 /* PTP Delay Request Frame Received */
-> +#define MACB_DRQFR_SIZE		1
-> +#define MACB_SFR_OFFSET		19 /* PTP Sync Frame Received */
-> +#define MACB_SFR_SIZE		1
-> +#define MACB_DRQFT_OFFSET	20 /* PTP Delay Request Frame Transmitted */
-> +#define MACB_DRQFT_SIZE		1
-> +#define MACB_SFT_OFFSET		21 /* PTP Sync Frame Transmitted */
-> +#define MACB_SFT_SIZE		1
-> +#define MACB_PDRQFR_OFFSET	22 /* PDelay Request Frame Received */
-> +#define MACB_PDRQFR_SIZE	1
-> +#define MACB_PDRSFR_OFFSET	23 /* PDelay Response Frame Received */
-> +#define MACB_PDRSFR_SIZE	1
-> +#define MACB_PDRQFT_OFFSET	24 /* PDelay Request Frame Transmitted */
-> +#define MACB_PDRQFT_SIZE	1
-> +#define MACB_PDRSFT_OFFSET	25 /* PDelay Response Frame Transmitted */
-> +#define MACB_PDRSFT_SIZE	1
-> +#define MACB_SRI_OFFSET		26 /* TSU Seconds Register Increment */
-> +#define MACB_SRI_SIZE		1
-> +
-> +/* Timer increment fields */
-> +#define MACB_TI_CNS_OFFSET	0
-> +#define MACB_TI_CNS_SIZE	8
-> +#define MACB_TI_ACNS_OFFSET	8
-> +#define MACB_TI_ACNS_SIZE	8
-> +#define MACB_TI_NIT_OFFSET	16
-> +#define MACB_TI_NIT_SIZE	8
->  
->  /* Bitfields in MAN */
->  #define MACB_DATA_OFFSET	0 /* data */
-> @@ -386,6 +427,17 @@
->  #define GEM_PBUF_LSO_OFFSET			27
->  #define GEM_PBUF_LSO_SIZE			1
->  
-> +/* Bitfields in TISUBN */
-> +#define GEM_SUBNSINCR_OFFSET			0
-> +#define GEM_SUBNSINCR_SIZE			16
-> +
-> +/* Bitfields in TI */
-> +#define GEM_NSINCR_OFFSET			0
-> +#define GEM_NSINCR_SIZE				8
-> +
-> +/* Bitfields in ADJ */
-> +#define GEM_ADDSUB_OFFSET			31
-> +#define GEM_ADDSUB_SIZE				1
->  /* Constants for CLK */
->  #define MACB_CLK_DIV8				0
->  #define MACB_CLK_DIV16				1
-> @@ -417,6 +469,7 @@
->  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
->  #define MACB_CAPS_SG_DISABLED			0x40000000
->  #define MACB_CAPS_MACB_IS_GEM			0x80000000
-> +#define MACB_CAPS_GEM_HAS_PTP			0x00000020
+The items 1 and 2 are preferred options and one of the main goals
+for this RFC is to chose between them.
 
-No, this mask already exists a couple of lines above:
-#define MACB_CAPS_JUMBO        0x00000020
+For example, RDMA ABI has native support of querying and discovering
+device capabilities via merge tree feature.
+https://github.com/matanb10/linux/commit/61aaa4cae1281f6bb32e261f0b8aad489d=
+b764ac
 
-That leads to a NACK, sorry (I didn't spotted earlier, BTW).
+>
+>
+> > rdmatool will provide standard, provider agnostic, user interface.
+> > RDMA user can use this interface to
+> > * Query RDMA device capabilities
+> > * Query RDMA device status and current open resources
+> > * Fetching RDMA statistics
+> > * Configure RDMA device
+> >
+> > The rdmatool will have the ability to control RDMA stack which
+> > includes the ib_device and RDMA protocol params.
+> >
+> > It is a good point to highlight the similarity to ethtool. It manages
+> > net_device, while rdmatool will manage RDMA stack.
+> >
+> > As a proposal, it is appealing to have a similar design to ethtool for
+> > rdmatool too. As ethtool, it should contain user space part, kernel
+> > handler and vendor specific handler(s).
+> >
+> > Another tool which allows similar functionality is iproute2. Iproute2
+> > allows user space tools to configure and query transport, network and
+> > link layer. The advantages of using iproute2 is the reuse of existing
+> > tool and familiar interface in addition to the wide spreading of this t=
+ool.
+> >
+> > As start point of the discussion, we would like to propose two
+> > implementation options for the rdmatool:
+> > (1) Build a tool using ABI interface. This will be a RDMA tool
+> >     which will be distributed as part of RDMA package
+> > (2) Enhancing iproute2 to include rdmatool functionality
+> >
+> > Our opinion is that the new ABI interface provides vast functionality a=
+nd
+> > it will be a waste to use other interface for the same functionality.
+> > Each of the proposed implementation above have their advantages, and we
+> > would like to hear your opinion regarding this direction.
+>
+> > I=E2=80=99m posting this RFC in both netdev and linux-rdma communities =
+in
+> > order to get feedback on this topic.
+>
+> What's wrong with the RDMA netlink infrastructure?! it's there for
+> years and used
+> for various cases by MLNX, did you look on the code?
 
->  /* LSO settings */
->  #define MACB_LSO_UFO_ENABLE			0x01
-> @@ -782,6 +835,20 @@ struct macb_or_gem_ops {
->  	int	(*mog_rx)(struct macb *bp, int budget);
->  };
->  
-> +/* MACB-PTP interface: adapt to platform needs. */
-> +struct macb_ptp_info {
-> +	void (*ptp_init)(struct net_device *ndev);
-> +	void (*ptp_remove)(struct net_device *ndev);
-> +	s32 (*get_ptp_max_adj)(void);
-> +	unsigned int (*get_tsu_rate)(struct macb *bp);
-> +	int (*get_ts_info)(struct net_device *dev,
-> +			   struct ethtool_ts_info *info);
-> +	int (*get_hwtst)(struct net_device *netdev,
-> +			 struct ifreq *ifr);
-> +	int (*set_hwtst)(struct net_device *netdev,
-> +			 struct ifreq *ifr, int cmd);
-> +};
-> +
->  struct macb_config {
->  	u32			caps;
->  	unsigned int		dma_burst_length;
-> @@ -874,6 +941,8 @@ struct macb {
->  	unsigned int		jumbo_max_len;
->  
->  	u32			wol;
-> +
-> +	struct macb_ptp_info	*ptp_info;	/* macb-ptp interface */
->  };
->  
->  static inline bool macb_is_gem(struct macb *bp)
-> @@ -881,4 +950,9 @@ static inline bool macb_is_gem(struct macb *bp)
->  	return !!(bp->caps & MACB_CAPS_MACB_IS_GEM);
->  }
->  
-> +static inline bool gem_has_ptp(struct macb *bp)
-> +{
-> +	return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
-> +}
-> +
->  #endif /* _MACB_H */
+Nothing wrong, it is one of the valuable options and will be used if
+community decides to put this tool under iproute2/ethtool umbrella.
 
-Otherwise, I'm okay with the rest.
+>
+> cea05ea IB/core: Add flow control to the portmapper netlink calls
+> ae43f82 IB/core: Add IP to GID netlink offload
+> 2ca546b IB/sa: Route SA pathrecord query through netlink
+> 753f618 RDMA/cma: Add support for netlink statistics export
+> b2cbae2 RDMA: Add netlink infrastructure
 
-I suggest to people that will keep the ball rolling on this topic to
-take advantage of the chunks of code that Andrei developed with the help
-of Richard and the best practices discussed. I think particularly, if it
-makes sense with HW, about:
-- gem_ptp_do_[rt]xstamp(bp, skb) dereference scheme
-- gem_ptp_adjfine() rationale
-- gem_get_ptp_peer() if needed
+--8f0Rp8CLSOFvlIcd
+Content-Type: application/pgp-signature; name="signature.asc"
 
-Regards,
--- 
-Nicolas Ferre
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlh/pucACgkQ5GN7iDZy
+WKdSKBAAwEs94rH29acDkcIohq61wXf1YetwHWOYjQ/4xCfGwgJMAxl0VCmz3zpy
+aADukMy0rlWY3/lF6sg/XN0oMM8lwPNKqYRgZ9/RnUIU8A2TfRWKkLO+efe9n/yd
+6s+PP1LRz2N1jPVHx50GV9flK2wF4PcjJvSaQi7bZKOkFKfG8N2qpNmCbrcKEqf0
+DrbvjrRI42wer/BJruC37YjErIqPY5m5mEtNslvb9CpxYfdrSI3Op3VObbhLhDjB
+y4wjzakga3ooTNRmg2D/u/8JL2wAf99sKdweOTAdS3dpZk/JHrG3gGKnvJLaDiN/
+xbyBsRNPUu0HekdiyXswW+6/STFSkHWmlvwhNJTbFFN2e7xjKL8KNG/sxdEu9LE2
+C8ewrFPDDHS8+3xshOKCJ4KWqPiSF7XjormSdzIAtjvFw5HvfLyKYvFuWSaJs+6y
+MfFcm0kcvcdKb9rl6FNvAkC2+ncc8g79U2sdc5PjW2Abk0lbFekNufgJlBXaOpJy
+pk/DAJ4fauwJE2wDik3yxqWHRP61WzQmYZTX8kq9vpUpf6NJQVji7D2ISU5QdWtH
+UjR3c3ev7E44l9zEU+Tz+cgH166H1pfdjz3pBUFRFRcfqAzVriWBNH1vKUFD/YuK
+ZGtJlHTJq5NxycIXch8CFeSg+4/LC2CFuXpKKF8Mdya+A57poSY=
+=woOQ
+-----END PGP SIGNATURE-----
+
+--8f0Rp8CLSOFvlIcd--
