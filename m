@@ -1,46 +1,34 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH] net: ethernet: ti: davinci_cpdma: correct check on NULL in set rate
-Date: Wed, 18 Jan 2017 02:28:06 +0200
-Message-ID: <1484699286-6197-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
-        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warnings after merge of the net-next tree
+Date: Wed, 18 Jan 2017 11:37:13 +1100
+Message-ID: <20170118113713.43c862b1@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Check "ch" on NULL first, then get ctlr.
+Hi all,
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
+After merging the net-next tree, today's linux-next build (powerpc
+ppc64_defconfig) produced these warnings:
 
-Based on net-next/master
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c: In function 'init_one':
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4646:9: warning: unused variable 'port_vec' [-Wunused-variable]
+  u32 v, port_vec;
+         ^
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4646:6: warning: unused variable 'v' [-Wunused-variable]
+  u32 v, port_vec;
+      ^
+Introduced by commit
 
- drivers/net/ethernet/ti/davinci_cpdma.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+  96fe11f27b70 ("cxgb4: Implement ndo_get_phys_port_id for mgmt dev")
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index d80bff1..7ecc6b7 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -835,8 +835,8 @@ EXPORT_SYMBOL_GPL(cpdma_chan_get_min_rate);
-  */
- int cpdma_chan_set_rate(struct cpdma_chan *ch, u32 rate)
- {
--	struct cpdma_ctlr *ctlr = ch->ctlr;
- 	unsigned long flags, ch_flags;
-+	struct cpdma_ctlr *ctlr;
- 	int ret, prio_mode;
- 	u32 rmask;
- 
-@@ -846,6 +846,7 @@ int cpdma_chan_set_rate(struct cpdma_chan *ch, u32 rate)
- 	if (ch->rate == rate)
- 		return rate;
- 
-+	ctlr = ch->ctlr;
- 	spin_lock_irqsave(&ctlr->lock, flags);
- 	spin_lock_irqsave(&ch->lock, ch_flags);
- 
 -- 
-2.7.4
+Cheers,
+Stephen Rothwell
