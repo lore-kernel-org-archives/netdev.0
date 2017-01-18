@@ -1,49 +1,94 @@
-From: Vineeth Remanan Pillai <vineethp@amazon.com>
-Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during
- network stress and OOM
-Date: Wed, 18 Jan 2017 09:02:17 -0800
-Message-ID: <79c6ecce-bfcb-ebaa-afd2-05c1d86004d7@amazon.com>
-References: <0cb06b48-cb3c-47aa-2ae6-3a70197a5b64@amazon.com>
- <1484330100-3960-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
- <ee87b2e4-de8c-7b9b-c4e5-854ffab2e554@suse.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next V5 2/3] vhost_net: tx batching
+Date: Wed, 18 Jan 2017 19:03:16 +0200
+Message-ID: <20170118190312-mutt-send-email-mst@kernel.org>
+References: <1484722923-7698-1-git-send-email-jasowang@redhat.com>
+ <1484722923-7698-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: kamatam@amazon.com, vineethp@amazon.com, aliguori@amazon.com
-To: Juergen Gross <jgross@suse.com>, David Miller <davem@davemloft.net>,
- <boris.ostrovsky@oracle.com>, <xen-devel@lists.xenproject.org>,
- <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <ee87b2e4-de8c-7b9b-c4e5-854ffab2e554@suse.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        kvm@vger.kernel.org, stephen@networkplumber.org, wexu@redhat.com,
+        stefanha@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41318 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750944AbdARRKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 12:10:13 -0500
+Content-Disposition: inline
+In-Reply-To: <1484722923-7698-3-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ck9uIDAxLzE1LzIwMTcgMTA6MjQgUE0sIEp1ZXJnZW4gR3Jvc3Mgd3JvdGU6Cj4gT24gMTMvMDEv
-MTcgMTg6NTUsIFJlbWFuYW4gUGlsbGFpIHdyb3RlOgo+PiBGcm9tOiBWaW5lZXRoIFJlbWFuYW4g
-UGlsbGFpIDx2aW5lZXRocEBhbWF6b24uY29tPgo+Pgo+PiBEdXJpbmcgYW4gT09NIHNjZW5hcmlv
-LCByZXF1ZXN0IHNsb3RzIGNvdWxkIG5vdCBiZSBjcmVhdGVkIGFzIHNrYgo+PiBhbGxvY2F0aW9u
-IGZhaWxzLiBTbyB0aGUgbmV0YmFjayBjYW5ub3QgcGFzcyBpbiBwYWNrZXRzIGFuZCBuZXRmcm9u
-dAo+PiB3cm9uZ2x5IGFzc3VtZXMgdGhhdCB0aGVyZSBpcyBubyBtb3JlIHdvcmsgdG8gYmUgZG9u
-ZSBhbmQgaXQgZGlzYWJsZXMKPj4gcG9sbGluZy4gVGhpcyBjYXVzZXMgUnggdG8gc3RhbGwuCj4+
-Cj4+IFRoZSBpc3N1ZSBpcyB3aXRoIHRoZSByZXRyeSBsb2dpYyB3aGljaCBzY2hlZHVsZXMgdGhl
-IHRpbWVyIGlmIHRoZQo+PiBjcmVhdGVkIHNsb3RzIGFyZSBsZXNzIHRoYW4gTkVUX1JYX1NMT1RT
-X01JTi4gVGhlIGNvdW50IG9mIG5ldyByZXF1ZXN0Cj4+IHNsb3RzIHRvIGJlIHB1c2hlZCBhcmUg
-Y2FsY3VsYXRlZCBhcyBhIGRpZmZlcmVuY2UgYmV0d2VlbiBuZXcgcmVxX3Byb2QKPj4gYW5kIHJz
-cF9jb25zIHdoaWNoIGNvdWxkIGJlIG1vcmUgdGhhbiB0aGUgYWN0dWFsIHNsb3RzLCBpZiB0aGVy
-ZSBhcmUKPj4gdW5jb25zdW1lZCByZXNwb25zZXMuCj4+Cj4+IFRoZSBmaXggaXMgdG8gY2FsY3Vs
-YXRlIHRoZSBjb3VudCBvZiBuZXdseSBjcmVhdGVkIHNsb3RzIGFzIHRoZQo+PiBkaWZmZXJlbmNl
-IGJldHdlZW4gbmV3IHJlcV9wcm9kIGFuZCBvbGQgcmVxX3Byb2QuCj4+Cj4+IFNpZ25lZC1vZmYt
-Ynk6IFZpbmVldGggUmVtYW5hbiBQaWxsYWkgPHZpbmVldGhwQGFtYXpvbi5jb20+Cj4gUmV2aWV3
-ZWQtYnk6IEp1ZXJnZW4gR3Jvc3MgPGpncm9zc0BzdXNlLmNvbT4KVGhhbmtzIEp1ZXJnZW4uCgpE
-YXZpZCwKCkNvdWxkIHlvdSBwbGVhc2UgcGljayB1cCB0aGlzIGNoYW5nZSBmb3IgbmV0LW5leHQg
-aWYgdGhlcmUgbm8gbW9yZSAKY29uY2VybnMuLgoKTWFueSBUaGFua3MsClZpbmVldGgKCj4KPgo+
-IFRoYW5rcywKPgo+IEp1ZXJnZW4KPgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhl
-bi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+On Wed, Jan 18, 2017 at 03:02:02PM +0800, Jason Wang wrote:
+> This patch tries to utilize tuntap rx batching by peeking the tx
+> virtqueue during transmission, if there's more available buffers in
+> the virtqueue, set MSG_MORE flag for a hint for backend (e.g tuntap)
+> to batch the packets.
+> 
+> Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+> ---
+>  drivers/vhost/net.c | 23 ++++++++++++++++++++---
+>  1 file changed, 20 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 5dc3465..c42e9c3 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -351,6 +351,15 @@ static int vhost_net_tx_get_vq_desc(struct vhost_net *net,
+>  	return r;
+>  }
+>  
+> +static bool vhost_exceeds_maxpend(struct vhost_net *net)
+> +{
+> +	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
+> +	struct vhost_virtqueue *vq = &nvq->vq;
+> +
+> +	return (nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV
+> +		== nvq->done_idx;
+> +}
+> +
+>  /* Expects to be always run from workqueue - which acts as
+>   * read-size critical section for our kind of RCU. */
+>  static void handle_tx(struct vhost_net *net)
+> @@ -394,8 +403,7 @@ static void handle_tx(struct vhost_net *net)
+>  		/* If more outstanding DMAs, queue the work.
+>  		 * Handle upend_idx wrap around
+>  		 */
+> -		if (unlikely((nvq->upend_idx + vq->num - VHOST_MAX_PEND)
+> -			      % UIO_MAXIOV == nvq->done_idx))
+> +		if (unlikely(vhost_exceeds_maxpend(net)))
+>  			break;
+>  
+>  		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
+> @@ -454,6 +462,16 @@ static void handle_tx(struct vhost_net *net)
+>  			msg.msg_control = NULL;
+>  			ubufs = NULL;
+>  		}
+> +
+> +		total_len += len;
+> +		if (total_len < VHOST_NET_WEIGHT &&
+> +		    !vhost_vq_avail_empty(&net->dev, vq) &&
+> +		    likely(!vhost_exceeds_maxpend(net))) {
+> +			msg.msg_flags |= MSG_MORE;
+> +		} else {
+> +			msg.msg_flags &= ~MSG_MORE;
+> +		}
+> +
+>  		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+>  		err = sock->ops->sendmsg(sock, &msg, len);
+>  		if (unlikely(err < 0)) {
+> @@ -472,7 +490,6 @@ static void handle_tx(struct vhost_net *net)
+>  			vhost_add_used_and_signal(&net->dev, vq, head, 0);
+>  		else
+>  			vhost_zerocopy_signal_used(net, vq);
+> -		total_len += len;
+>  		vhost_net_tx_packet(net);
+>  		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+>  			vhost_poll_queue(&vq->poll);
+> -- 
+> 2.7.4
