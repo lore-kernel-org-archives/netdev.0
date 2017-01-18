@@ -1,208 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V5 3/3] tun: rx batching
-Date: Wed, 18 Jan 2017 19:03:27 +0200
-Message-ID: <20170118190320-mutt-send-email-mst@kernel.org>
-References: <1484722923-7698-1-git-send-email-jasowang@redhat.com>
-	<1484722923-7698-4-git-send-email-jasowang@redhat.com>
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during
+ network stress and OOM
+Date: Wed, 18 Jan 2017 09:02:17 -0800
+Message-ID: <79c6ecce-bfcb-ebaa-afd2-05c1d86004d7@amazon.com>
+References: <0cb06b48-cb3c-47aa-2ae6-3a70197a5b64@amazon.com>
+ <1484330100-3960-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+ <ee87b2e4-de8c-7b9b-c4e5-854ffab2e554@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, wexu@redhat.com,
-	stefanha@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1484722923-7698-4-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: kamatam@amazon.com, vineethp@amazon.com, aliguori@amazon.com
+To: Juergen Gross <jgross@suse.com>, David Miller <davem@davemloft.net>,
+ <boris.ostrovsky@oracle.com>, <xen-devel@lists.xenproject.org>,
+ <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <ee87b2e4-de8c-7b9b-c4e5-854ffab2e554@suse.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 18, 2017 at 03:02:03PM +0800, Jason Wang wrote:
-> We can only process 1 packet at one time during sendmsg(). This often
-> lead bad cache utilization under heavy load. So this patch tries to do
-> some batching during rx before submitting them to host network
-> stack. This is done through accepting MSG_MORE as a hint from
-> sendmsg() caller, if it was set, batch the packet temporarily in a
-> linked list and submit them all once MSG_MORE were cleared.
-> 
-> Tests were done by pktgen (burst=128) in guest over mlx4(noqueue) on host:
-> 
->                                  Mpps  -+%
->     rx-frames = 0                0.91  +0%
->     rx-frames = 4                1.00  +9.8%
->     rx-frames = 8                1.00  +9.8%
->     rx-frames = 16               1.01  +10.9%
->     rx-frames = 32               1.07  +17.5%
->     rx-frames = 48               1.07  +17.5%
->     rx-frames = 64               1.08  +18.6%
->     rx-frames = 64 (no MSG_MORE) 0.91  +0%
-> 
-> User were allowed to change per device batched packets through
-> ethtool -C rx-frames. NAPI_POLL_WEIGHT were used as upper limitation
-> to prevent bh from being disabled too long.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-
-> ---
->  drivers/net/tun.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++-----
->  1 file changed, 70 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 8c1d3bd..13890ac 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -218,6 +218,7 @@ struct tun_struct {
->  	struct list_head disabled;
->  	void *security;
->  	u32 flow_count;
-> +	u32 rx_batched;
->  	struct tun_pcpu_stats __percpu *pcpu_stats;
->  };
->  
-> @@ -522,6 +523,7 @@ static void tun_queue_purge(struct tun_file *tfile)
->  	while ((skb = skb_array_consume(&tfile->tx_array)) != NULL)
->  		kfree_skb(skb);
->  
-> +	skb_queue_purge(&tfile->sk.sk_write_queue);
->  	skb_queue_purge(&tfile->sk.sk_error_queue);
->  }
->  
-> @@ -1139,10 +1141,46 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
->  	return skb;
->  }
->  
-> +static void tun_rx_batched(struct tun_struct *tun, struct tun_file *tfile,
-> +			   struct sk_buff *skb, int more)
-> +{
-> +	struct sk_buff_head *queue = &tfile->sk.sk_write_queue;
-> +	struct sk_buff_head process_queue;
-> +	u32 rx_batched = tun->rx_batched;
-> +	bool rcv = false;
-> +
-> +	if (!rx_batched || (!more && skb_queue_empty(queue))) {
-> +		local_bh_disable();
-> +		netif_receive_skb(skb);
-> +		local_bh_enable();
-> +		return;
-> +	}
-> +
-> +	spin_lock(&queue->lock);
-> +	if (!more || skb_queue_len(queue) == rx_batched) {
-> +		__skb_queue_head_init(&process_queue);
-> +		skb_queue_splice_tail_init(queue, &process_queue);
-> +		rcv = true;
-> +	} else {
-> +		__skb_queue_tail(queue, skb);
-> +	}
-> +	spin_unlock(&queue->lock);
-> +
-> +	if (rcv) {
-> +		struct sk_buff *nskb;
-> +
-> +		local_bh_disable();
-> +		while ((nskb = __skb_dequeue(&process_queue)))
-> +			netif_receive_skb(nskb);
-> +		netif_receive_skb(skb);
-> +		local_bh_enable();
-> +	}
-> +}
-> +
->  /* Get packet from user space buffer */
->  static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  			    void *msg_control, struct iov_iter *from,
-> -			    int noblock)
-> +			    int noblock, bool more)
->  {
->  	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
->  	struct sk_buff *skb;
-> @@ -1283,9 +1321,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  
->  	rxhash = skb_get_hash(skb);
->  #ifndef CONFIG_4KSTACKS
-> -	local_bh_disable();
-> -	netif_receive_skb(skb);
-> -	local_bh_enable();
-> +	tun_rx_batched(tun, tfile, skb, more);
->  #else
->  	netif_rx_ni(skb);
->  #endif
-> @@ -1311,7 +1347,8 @@ static ssize_t tun_chr_write_iter(struct kiocb *iocb, struct iov_iter *from)
->  	if (!tun)
->  		return -EBADFD;
->  
-> -	result = tun_get_user(tun, tfile, NULL, from, file->f_flags & O_NONBLOCK);
-> +	result = tun_get_user(tun, tfile, NULL, from,
-> +			      file->f_flags & O_NONBLOCK, false);
->  
->  	tun_put(tun);
->  	return result;
-> @@ -1569,7 +1606,8 @@ static int tun_sendmsg(struct socket *sock, struct msghdr *m, size_t total_len)
->  		return -EBADFD;
->  
->  	ret = tun_get_user(tun, tfile, m->msg_control, &m->msg_iter,
-> -			   m->msg_flags & MSG_DONTWAIT);
-> +			   m->msg_flags & MSG_DONTWAIT,
-> +			   m->msg_flags & MSG_MORE);
->  	tun_put(tun);
->  	return ret;
->  }
-> @@ -1770,6 +1808,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  		tun->align = NET_SKB_PAD;
->  		tun->filter_attached = false;
->  		tun->sndbuf = tfile->socket.sk->sk_sndbuf;
-> +		tun->rx_batched = 0;
->  
->  		tun->pcpu_stats = netdev_alloc_pcpu_stats(struct tun_pcpu_stats);
->  		if (!tun->pcpu_stats) {
-> @@ -2438,6 +2477,29 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
->  #endif
->  }
->  
-> +static int tun_get_coalesce(struct net_device *dev,
-> +			    struct ethtool_coalesce *ec)
-> +{
-> +	struct tun_struct *tun = netdev_priv(dev);
-> +
-> +	ec->rx_max_coalesced_frames = tun->rx_batched;
-> +
-> +	return 0;
-> +}
-> +
-> +static int tun_set_coalesce(struct net_device *dev,
-> +			    struct ethtool_coalesce *ec)
-> +{
-> +	struct tun_struct *tun = netdev_priv(dev);
-> +
-> +	if (ec->rx_max_coalesced_frames > NAPI_POLL_WEIGHT)
-> +		tun->rx_batched = NAPI_POLL_WEIGHT;
-> +	else
-> +		tun->rx_batched = ec->rx_max_coalesced_frames;
-> +
-> +	return 0;
-> +}
-> +
->  static const struct ethtool_ops tun_ethtool_ops = {
->  	.get_settings	= tun_get_settings,
->  	.get_drvinfo	= tun_get_drvinfo,
-> @@ -2445,6 +2507,8 @@ static const struct ethtool_ops tun_ethtool_ops = {
->  	.set_msglevel	= tun_set_msglevel,
->  	.get_link	= ethtool_op_get_link,
->  	.get_ts_info	= ethtool_op_get_ts_info,
-> +	.get_coalesce   = tun_get_coalesce,
-> +	.set_coalesce   = tun_set_coalesce,
->  };
->  
->  static int tun_queue_resize(struct tun_struct *tun)
-> -- 
-> 2.7.4
+Ck9uIDAxLzE1LzIwMTcgMTA6MjQgUE0sIEp1ZXJnZW4gR3Jvc3Mgd3JvdGU6Cj4gT24gMTMvMDEv
+MTcgMTg6NTUsIFJlbWFuYW4gUGlsbGFpIHdyb3RlOgo+PiBGcm9tOiBWaW5lZXRoIFJlbWFuYW4g
+UGlsbGFpIDx2aW5lZXRocEBhbWF6b24uY29tPgo+Pgo+PiBEdXJpbmcgYW4gT09NIHNjZW5hcmlv
+LCByZXF1ZXN0IHNsb3RzIGNvdWxkIG5vdCBiZSBjcmVhdGVkIGFzIHNrYgo+PiBhbGxvY2F0aW9u
+IGZhaWxzLiBTbyB0aGUgbmV0YmFjayBjYW5ub3QgcGFzcyBpbiBwYWNrZXRzIGFuZCBuZXRmcm9u
+dAo+PiB3cm9uZ2x5IGFzc3VtZXMgdGhhdCB0aGVyZSBpcyBubyBtb3JlIHdvcmsgdG8gYmUgZG9u
+ZSBhbmQgaXQgZGlzYWJsZXMKPj4gcG9sbGluZy4gVGhpcyBjYXVzZXMgUnggdG8gc3RhbGwuCj4+
+Cj4+IFRoZSBpc3N1ZSBpcyB3aXRoIHRoZSByZXRyeSBsb2dpYyB3aGljaCBzY2hlZHVsZXMgdGhl
+IHRpbWVyIGlmIHRoZQo+PiBjcmVhdGVkIHNsb3RzIGFyZSBsZXNzIHRoYW4gTkVUX1JYX1NMT1RT
+X01JTi4gVGhlIGNvdW50IG9mIG5ldyByZXF1ZXN0Cj4+IHNsb3RzIHRvIGJlIHB1c2hlZCBhcmUg
+Y2FsY3VsYXRlZCBhcyBhIGRpZmZlcmVuY2UgYmV0d2VlbiBuZXcgcmVxX3Byb2QKPj4gYW5kIHJz
+cF9jb25zIHdoaWNoIGNvdWxkIGJlIG1vcmUgdGhhbiB0aGUgYWN0dWFsIHNsb3RzLCBpZiB0aGVy
+ZSBhcmUKPj4gdW5jb25zdW1lZCByZXNwb25zZXMuCj4+Cj4+IFRoZSBmaXggaXMgdG8gY2FsY3Vs
+YXRlIHRoZSBjb3VudCBvZiBuZXdseSBjcmVhdGVkIHNsb3RzIGFzIHRoZQo+PiBkaWZmZXJlbmNl
+IGJldHdlZW4gbmV3IHJlcV9wcm9kIGFuZCBvbGQgcmVxX3Byb2QuCj4+Cj4+IFNpZ25lZC1vZmYt
+Ynk6IFZpbmVldGggUmVtYW5hbiBQaWxsYWkgPHZpbmVldGhwQGFtYXpvbi5jb20+Cj4gUmV2aWV3
+ZWQtYnk6IEp1ZXJnZW4gR3Jvc3MgPGpncm9zc0BzdXNlLmNvbT4KVGhhbmtzIEp1ZXJnZW4uCgpE
+YXZpZCwKCkNvdWxkIHlvdSBwbGVhc2UgcGljayB1cCB0aGlzIGNoYW5nZSBmb3IgbmV0LW5leHQg
+aWYgdGhlcmUgbm8gbW9yZSAKY29uY2VybnMuLgoKTWFueSBUaGFua3MsClZpbmVldGgKCj4KPgo+
+IFRoYW5rcywKPgo+IEp1ZXJnZW4KPgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhl
+bi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
