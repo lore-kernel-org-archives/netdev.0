@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V5 0/3] vhost_net tx batching
-Date: Wed, 18 Jan 2017 16:35:51 -0500 (EST)
-Message-ID: <20170118.163551.1438116039860355723.davem@davemloft.net>
-References: <1484722923-7698-1-git-send-email-jasowang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fq_codel: Avoid regenerating skb flow hash
+ unless necessary
+Date: Wed, 18 Jan 2017 13:13:13 -0800
+Message-ID: <1484773993.16328.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170118210428.24006-1-acollins@cradlepoint.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, kvm@vger.kernel.org,
-        stephen@networkplumber.org, wexu@redhat.com, stefanha@redhat.com
-To: jasowang@redhat.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com
+To: Andrew Collins <acollins@cradlepoint.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41440 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751625AbdARViQ (ORCPT
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33687 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751812AbdARViQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 16:38:16 -0500
-In-Reply-To: <1484722923-7698-1-git-send-email-jasowang@redhat.com>
+Received: by mail-pg0-f67.google.com with SMTP id 194so2291018pgd.0
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 13:36:45 -0800 (PST)
+In-Reply-To: <20170118210428.24006-1-acollins@cradlepoint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 18 Jan 2017 15:02:00 +0800
-
-> This series tries to implement tx batching support for vhost. This was
-> done by using MSG_MORE as a hint for under layer socket. The backend
-> (e.g tap) can then batch the packets temporarily in a list and
-> submit it all once the number of bacthed exceeds a limitation.
+On Wed, 2017-01-18 at 14:04 -0700, Andrew Collins wrote:
+> The fq_codel qdisc currently always regenerates the skb flow hash.
+> This wastes some cycles and prevents flow seperation in cases where
+> the traffic has been encrypted and can no longer be understood by the
+> flow dissector.
 > 
-> Tests shows obvious improvement on guest pktgen over over
-> mlx4(noqueue) on host:
- ...
+> Change it to use the prexisting flow hash if one exists, and only
+> regenerate if necessary.
+> 
+> Signed-off-by: Andrew Collins <acollins@cradlepoint.com>
+> ---
 
-Series applied, thanks Jason.
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
