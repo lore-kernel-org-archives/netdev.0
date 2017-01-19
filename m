@@ -1,73 +1,52 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH iproute2 net-next] tc: m_csum: add support for SCTP checksum
-Date: Thu, 19 Jan 2017 18:26:42 +0100
-Message-ID: <d979c4187228759f94c3b6c8504b16783e03bdc6.1484846369.git.dcaratti@redhat.com>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Gregoire Baron <baronchon@n7mm.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Setting link down or up in software
+Date: Thu, 19 Jan 2017 09:59:20 -0800
+Message-ID: <027dabb7-62fb-88bf-f51e-26fdc728d85f@gmail.com>
+References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+ <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+ <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
+ <9be9b48d-1bef-b48f-866f-8651d9b9c245@free.fr>
+ <bfe5bd8b-d4eb-8c8e-45d8-6ea1c133b4a7@neratec.com>
+ <660b7b17-0136-bf69-fd12-1c125069829b@free.fr>
+ <dc6378d7-d370-c893-63b7-c21cd7ef76fd@neratec.com>
+ <1ac88f50-30c5-fbaf-11ff-2d42490b5801@free.fr>
+ <yw1xbmv3j5ly.fsf@unicorn.mansr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+        Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49674 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753594AbdASRea (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 12:34:30 -0500
+Received: from mail-ot0-f196.google.com ([74.125.82.196]:34572 "EHLO
+        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753328AbdASSAL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 13:00:11 -0500
+Received: by mail-ot0-f196.google.com with SMTP id 73so5044748otj.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 09:59:23 -0800 (PST)
+In-Reply-To: <yw1xbmv3j5ly.fsf@unicorn.mansr.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'sctp' parameter can now be used as 'csum' target to enable CRC32c
-computation on SCTP packets.
+On 01/19/2017 09:56 AM, Måns Rullgård wrote:
+> Mason <slash.tmp@free.fr> writes:
+> 
+>> One thing I find confusing... If the 8035 could work with the generic
+>> PHY driver, what's the point of the at803x.ko driver?
+> 
+> Almost all Ethernet PHYs support the basic operation defined the by the
+> standard.  Many have additional non-standardised features that require a
+> specific driver.  Interrupts, for example.
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- tc/m_csum.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+Or special initial configuration wrt. (RG)MII modes, and runtime
+configuration (EEE, link speeds, workarounds), obtaining useful counters
+etc.
 
-diff --git a/tc/m_csum.c b/tc/m_csum.c
-index d5b1af6..0ee8cad 100644
---- a/tc/m_csum.c
-+++ b/tc/m_csum.c
-@@ -24,7 +24,7 @@ explain(void)
- {
- 	fprintf(stderr, "Usage: ... csum <UPDATE>\n"
- 			"Where: UPDATE := <TARGET> [<UPDATE>]\n"
--			"       TARGET := { ip4h | icmp | igmp | tcp | udp | udplite | <SWEETS> }\n"
-+			"       TARGET := { ip4h | icmp | igmp | tcp | udp | udplite | sctp | <SWEETS> }\n"
- 			"       SWEETS := { and | or | \'+\' }\n");
- }
- 
-@@ -65,6 +65,9 @@ parse_csum_args(int *argc_p, char ***argv_p, struct tc_csum *sel)
- 		else if (matches(*argv, "udplite") == 0)
- 			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_UDPLITE;
- 
-+		else if (matches(*argv, "sctp") == 0)
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_SCTP;
-+
- 		else if ((matches(*argv, "and") == 0) ||
- 			 (matches(*argv, "or") == 0) ||
- 			 (matches(*argv, "+") == 0))
-@@ -160,6 +163,7 @@ print_csum(struct action_util *au, FILE *f, struct rtattr *arg)
- 	char *uflag_4 = "";
- 	char *uflag_5 = "";
- 	char *uflag_6 = "";
-+	char *uflag_7 = "";
- 
- 	int uflag_count = 0;
- 
-@@ -191,13 +195,14 @@ print_csum(struct action_util *au, FILE *f, struct rtattr *arg)
- 	CSUM_UFLAG_BUFFER(uflag_4, TCA_CSUM_UPDATE_FLAG_TCP, "tcp");
- 	CSUM_UFLAG_BUFFER(uflag_5, TCA_CSUM_UPDATE_FLAG_UDP, "udp");
- 	CSUM_UFLAG_BUFFER(uflag_6, TCA_CSUM_UPDATE_FLAG_UDPLITE, "udplite");
-+	CSUM_UFLAG_BUFFER(uflag_7, TCA_CSUM_UPDATE_FLAG_SCTP, "sctp");
- 	if (!uflag_count) {
- 		uflag_1 = "?empty";
- 	}
- 
--	fprintf(f, "csum (%s%s%s%s%s%s) action %s\n",
-+	fprintf(f, "csum (%s%s%s%s%s%s%s) action %s\n",
- 		uflag_1, uflag_2, uflag_3,
--		uflag_4, uflag_5, uflag_6,
-+		uflag_4, uflag_5, uflag_6, uflag_7,
- 		action_n2a(sel->action));
- 	fprintf(f, "\tindex %u ref %d bind %d", sel->index, sel->refcnt,
- 		sel->bindcnt);
+The generic PHY driver only deals with the standard MII registers (and
+just a subset of it actually) while the PHY driver allows you to deal
+with all the hardware specifics, the whole point behind having both
+specialization and abstraction.
 -- 
-2.7.4
+Florian
