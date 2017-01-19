@@ -1,248 +1,202 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv3 net-next 4/4] sctp: implement sender-side procedures
- for Add Incoming/Outgoing Streams Request Parameter
-Date: Thu, 19 Jan 2017 19:47:51 -0200
-Message-ID: <20170119214750.GM3781@localhost.localdomain>
-References: <cover.1484845510.git.lucien.xin@gmail.com>
- <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58170 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751989AbdASVr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 16:47:56 -0500
-Content-Disposition: inline
-In-Reply-To: <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: [PATCH v5 2/2] net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341
+Date: Thu, 19 Jan 2017 22:49:34 +0100
+Message-ID: <20170119214934.27442-3-gregory.clement@free-electrons.com>
+References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Wilson Ding <dingwei@marvell.com>,
+        Kostya Porotchkin <kostap@marvell.com>,
+        Joe Zhou <shjzhou@marvell.com>,
+        Jon Pannell <jpannell@marvell.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170119214934.27442-1-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 20, 2017 at 01:19:14AM +0800, Xin Long wrote:
-> This patch is to implement Sender-Side Procedures for the Add
-> Outgoing and Incoming Streams Request Parameter described in
-> rfc6525 section 5.1.5-5.1.6.
-> 
-> It is also to add sockopt SCTP_ADD_STREAMS in rfc6525 section
-> 6.3.4 for users.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  include/net/sctp/sctp.h   |  2 +
->  include/uapi/linux/sctp.h |  7 ++++
->  net/sctp/socket.c         | 29 ++++++++++++++
->  net/sctp/stream.c         | 99 +++++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 137 insertions(+)
-> 
-> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> index b93820f..68ee1a6 100644
-> --- a/include/net/sctp/sctp.h
-> +++ b/include/net/sctp/sctp.h
-> @@ -199,6 +199,8 @@ int sctp_offload_init(void);
->  int sctp_send_reset_streams(struct sctp_association *asoc,
->  			    struct sctp_reset_streams *params);
->  int sctp_send_reset_assoc(struct sctp_association *asoc);
-> +int sctp_send_add_streams(struct sctp_association *asoc,
-> +			  struct sctp_add_streams *params);
->  
->  /*
->   * Module global variables
-> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> index c0bd8c3..a91a9cc 100644
-> --- a/include/uapi/linux/sctp.h
-> +++ b/include/uapi/linux/sctp.h
-> @@ -118,6 +118,7 @@ typedef __s32 sctp_assoc_t;
->  #define SCTP_ENABLE_STREAM_RESET	118
->  #define SCTP_RESET_STREAMS	119
->  #define SCTP_RESET_ASSOC	120
-> +#define SCTP_ADD_STREAMS	121
->  
->  /* PR-SCTP policies */
->  #define SCTP_PR_SCTP_NONE	0x0000
-> @@ -1027,4 +1028,10 @@ struct sctp_reset_streams {
->  	uint16_t srs_stream_list[];	/* list if srs_num_streams is not 0 */
->  };
->  
-> +struct sctp_add_streams {
-> +	sctp_assoc_t sas_assoc_id;
-> +	uint16_t sas_instrms;
-> +	uint16_t sas_outstrms;
-> +};
-> +
->  #endif /* _UAPI_SCTP_H */
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 2c5c9ca..ae0a99e 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -3838,6 +3838,32 @@ static int sctp_setsockopt_reset_assoc(struct sock *sk,
->  	return retval;
->  }
->  
-> +static int sctp_setsockopt_add_streams(struct sock *sk,
-> +				       char __user *optval,
-> +				       unsigned int optlen)
-> +{
-> +	struct sctp_association *asoc;
-> +	struct sctp_add_streams params;
-> +	int retval = -EINVAL;
-> +
-> +	if (optlen != sizeof(params))
-> +		goto out;
-> +
-> +	if (copy_from_user(&params, optval, optlen)) {
-> +		retval = -EFAULT;
-> +		goto out;
-> +	}
-> +
-> +	asoc = sctp_id2assoc(sk, params.sas_assoc_id);
-> +	if (!asoc)
-> +		goto out;
-> +
-> +	retval = sctp_send_add_streams(asoc, &params);
-> +
-> +out:
-> +	return retval;
-> +}
-> +
->  /* API 6.2 setsockopt(), getsockopt()
->   *
->   * Applications use setsockopt() and getsockopt() to set or retrieve
-> @@ -4013,6 +4039,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
->  	case SCTP_RESET_ASSOC:
->  		retval = sctp_setsockopt_reset_assoc(sk, optval, optlen);
->  		break;
-> +	case SCTP_ADD_STREAMS:
-> +		retval = sctp_setsockopt_add_streams(sk, optval, optlen);
-> +		break;
->  	default:
->  		retval = -ENOPROTOOPT;
->  		break;
-> diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-> index b368191..ba41837 100644
-> --- a/net/sctp/stream.c
-> +++ b/net/sctp/stream.c
-> @@ -195,3 +195,102 @@ int sctp_send_reset_assoc(struct sctp_association *asoc)
->  
->  	return retval;
->  }
-> +
-> +int sctp_send_add_streams(struct sctp_association *asoc,
-> +			  struct sctp_add_streams *params)
-> +{
-> +	struct sctp_stream *stream = asoc->stream;
-> +	struct sctp_chunk *chunk = NULL;
-> +	int retval = -EINVAL;
-> +	__u16 out, in;
-> +
-> +	if (!asoc->peer.reconf_capable ||
-> +	    !(asoc->strreset_enable & SCTP_ENABLE_CHANGE_ASSOC_REQ)) {
-> +		retval = -ENOPROTOOPT;
-> +		goto out;
-> +	}
-> +
-> +	if (asoc->strreset_outstanding) {
-> +		retval = -EINPROGRESS;
-> +		goto out;
-> +	}
-> +
-> +	out = params->sas_outstrms;
-> +	in  = params->sas_instrms;
-> +
-> +	if (!out && !in)
+The Marvell 88E6341 device is single-chip, 6-port Ethernet switch with
+four integrated 10/100/1000Mbps Ethernet transceivers and one high speed
+SerDes interfaces. It is partially compatible with switches of family
+88E6352 and switches of family 88E6390.
 
-[@]
+This commit adds an initial support for this switch by describing its
+capabilities to the driver and introducing a new family.
 
-> +		goto out;
-> +
-> +	if (out) {
-> +		__u16 nums = stream->outcnt + out;
-> +
-> +		/* Check for overflow, can't use nums here */
-> +		if (stream->outcnt + out > SCTP_MAX_STREAM)
-> +			goto out;
+Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c      | 55 +++++++++++++++++++++++++++++++++--
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 21 ++++++++++++-
+ 2 files changed, 72 insertions(+), 4 deletions(-)
 
-You should do these overflow checks before doing actual work,
-preferreably at [@] mark above.
-Here it's fine, but when [*] below run, it may be too late.
-
-> +
-> +		/* Use ksize to check if stream array really needs to realloc */
-> +		if (ksize(stream->out) / sizeof(*stream->out) < nums) {
-> +			struct sctp_stream_out *streamout;
-> +
-> +			streamout = kcalloc(nums, sizeof(*streamout),
-> +					    GFP_KERNEL);
-> +			if (!streamout) {
-> +				retval = -ENOMEM;
-> +				goto out;
-> +			}
-> +
-> +			memcpy(streamout, stream->out,
-> +			       sizeof(*streamout) * stream->outcnt);
-> +
-> +			kfree(stream->out);
-> +			stream->out = streamout;
-> +		}
-> +
-> +		stream->outcnt = nums;
-> +	}
-> +
-> +	if (in) {
-> +		__u16 nums = stream->incnt + in;
-> +
-> +		if (stream->incnt + in > SCTP_MAX_STREAM)
-> +			goto out;
-
-[*]
-
-> +
-> +		if (ksize(stream->in) / sizeof(*stream->in) < nums) {
-> +			struct sctp_stream_in *streamin;
-> +
-> +			streamin = kcalloc(nums, sizeof(*streamin),
-> +					   GFP_KERNEL);
-> +			if (!streamin) {
-> +				retval = -ENOMEM;
-> +				goto out;
-> +			}
-> +
-> +			memcpy(streamin, stream->in,
-> +			       sizeof(*streamin) * stream->incnt);
-> +
-> +			kfree(stream->in);
-> +			stream->in = streamin;
-> +		}
-> +
-> +		stream->incnt = nums;
-> +	}
-> +
-> +	chunk = sctp_make_strreset_addstrm(asoc, out, in);
-> +	if (!chunk) {
-> +		retval = -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	asoc->strreset_outstanding = !!out + !!in;
-> +	asoc->strreset_chunk = chunk;
-> +	sctp_chunk_hold(asoc->strreset_chunk);
-> +
-> +	retval = sctp_send_reconf(asoc, chunk);
-> +	if (retval) {
-> +		sctp_chunk_put(asoc->strreset_chunk);
-> +		asoc->strreset_chunk = NULL;
-> +	}
-> +
-> +out:
-> +	return retval;
-> +}
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index d1960ae0a618..c73800e8105b 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -664,6 +664,11 @@ static bool mv88e6xxx_6320_family(struct mv88e6xxx_chip *chip)
+ 	return chip->info->family == MV88E6XXX_FAMILY_6320;
+ }
+ 
++static bool mv88e6xxx_6341_family(struct mv88e6xxx_chip *chip)
++{
++	return chip->info->family == MV88E6XXX_FAMILY_6341;
++}
++
+ static bool mv88e6xxx_6351_family(struct mv88e6xxx_chip *chip)
+ {
+ 	return chip->info->family == MV88E6XXX_FAMILY_6351;
+@@ -1688,7 +1693,8 @@ static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
+ 			: GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
+ 
+ 	if (mv88e6xxx_6097_family(chip) || mv88e6xxx_6165_family(chip) ||
+-	    mv88e6xxx_6351_family(chip) || mv88e6xxx_6352_family(chip)) {
++	    mv88e6xxx_6351_family(chip) || mv88e6xxx_6352_family(chip) ||
++	    mv88e6xxx_6341_family(chip)) {
+ 		struct mv88e6xxx_vtu_entry vstp;
+ 
+ 		/* Adding a VTU entry requires a valid STU entry. As VSTP is not
+@@ -2543,7 +2549,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+ 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+ 	    mv88e6xxx_6095_family(chip) || mv88e6xxx_6320_family(chip) ||
+-	    mv88e6xxx_6185_family(chip))
++	    mv88e6xxx_6185_family(chip) || mv88e6xxx_6341_family(chip))
+ 		reg = PORT_CONTROL_2_MAP_DA;
+ 
+ 	if (mv88e6xxx_6095_family(chip) || mv88e6xxx_6185_family(chip)) {
+@@ -2597,7 +2603,8 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+ 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+-	    mv88e6xxx_6320_family(chip)) {
++	    mv88e6xxx_6320_family(chip) || mv88e6xxx_6341_family(chip) ||
++	    mv88e6xxx_6341_family(chip)) {
+ 		/* Port ATU control: disable limiting the number of
+ 		 * address database entries that this port is allowed
+ 		 * to use.
+@@ -3714,6 +3721,34 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
+ 	.reset = mv88e6352_g1_reset,
+ };
+ 
++static const struct mv88e6xxx_ops mv88e6341_ops = {
++	/* MV88E6XXX_FAMILY_6341 */
++	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
++	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
++	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
++	.phy_read = mv88e6xxx_g2_smi_phy_read,
++	.phy_write = mv88e6xxx_g2_smi_phy_write,
++	.port_set_link = mv88e6xxx_port_set_link,
++	.port_set_duplex = mv88e6xxx_port_set_duplex,
++	.port_set_rgmii_delay = mv88e6390_port_set_rgmii_delay,
++	.port_set_speed = mv88e6390_port_set_speed,
++	.port_tag_remap = mv88e6095_port_tag_remap,
++	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
++	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
++	.port_set_ether_type = mv88e6351_port_set_ether_type,
++	.port_jumbo_config = mv88e6165_port_jumbo_config,
++	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
++	.port_pause_config = mv88e6097_port_pause_config,
++	.stats_snapshot = mv88e6390_g1_stats_snapshot,
++	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
++	.stats_get_strings = mv88e6320_stats_get_strings,
++	.stats_get_stats = mv88e6390_stats_get_stats,
++	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
++	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
++	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
++	.reset = mv88e6352_g1_reset,
++};
++
+ static const struct mv88e6xxx_ops mv88e6390_ops = {
+ 	/* MV88E6XXX_FAMILY_6390 */
+ 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
+@@ -4101,6 +4136,20 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.ops = &mv88e6321_ops,
+ 	},
+ 
++	[MV88E6341] = {
++		.prod_num = PORT_SWITCH_ID_PROD_NUM_6341,
++		.family = MV88E6XXX_FAMILY_6341,
++		.name = "Marvell 88E6341",
++		.num_databases = 4096,
++		.num_ports = 6,
++		.port_base_addr = 0x10,
++		.global1_addr = 0x1b,
++		.age_time_coeff = 15000,
++		.tag_protocol = DSA_TAG_PROTO_EDSA,
++		.flags = MV88E6XXX_FLAGS_FAMILY_6341,
++		.ops = &mv88e6341_ops,
++	},
++
+ 	[MV88E6350] = {
+ 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
+ 		.family = MV88E6XXX_FAMILY_6351,
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 466cfdadb7bd..35e879169003 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -100,6 +100,7 @@
+ #define PORT_SWITCH_ID_PROD_NUM_6240	0x240
+ #define PORT_SWITCH_ID_PROD_NUM_6290	0x290
+ #define PORT_SWITCH_ID_PROD_NUM_6321	0x310
++#define PORT_SWITCH_ID_PROD_NUM_6341	0x340
+ #define PORT_SWITCH_ID_PROD_NUM_6352	0x352
+ #define PORT_SWITCH_ID_PROD_NUM_6350	0x371
+ #define PORT_SWITCH_ID_PROD_NUM_6351	0x375
+@@ -382,7 +383,7 @@
+ #define GLOBAL2_EEPROM_CMD_WRITE_EN	BIT(10)
+ #define GLOBAL2_EEPROM_CMD_ADDR_MASK	0xff
+ #define GLOBAL2_EEPROM_DATA	0x15
+-#define GLOBAL2_EEPROM_ADDR	0x15 /* 6390 */
++#define GLOBAL2_EEPROM_ADDR	0x15 /* 6390, 6341 */
+ #define GLOBAL2_PTP_AVB_OP	0x16
+ #define GLOBAL2_PTP_AVB_DATA	0x17
+ #define GLOBAL2_SMI_PHY_CMD			0x18
+@@ -433,6 +434,7 @@ enum mv88e6xxx_model {
+ 	MV88E6290,
+ 	MV88E6320,
+ 	MV88E6321,
++	MV88E6341,
+ 	MV88E6350,
+ 	MV88E6351,
+ 	MV88E6352,
+@@ -448,6 +450,7 @@ enum mv88e6xxx_family {
+ 	MV88E6XXX_FAMILY_6165,	/* 6123 6161 6165 */
+ 	MV88E6XXX_FAMILY_6185,	/* 6108 6121 6122 6131 6152 6155 6182 6185 */
+ 	MV88E6XXX_FAMILY_6320,	/* 6320 6321 */
++	MV88E6XXX_FAMILY_6341,	/* 6141 6341 */
+ 	MV88E6XXX_FAMILY_6351,	/* 6171 6175 6350 6351 */
+ 	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
+ 	MV88E6XXX_FAMILY_6390,  /* 6190 6190X 6191 6290 6390 6390X */
+@@ -612,6 +615,22 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAGS_PVT)
+ 
++#define MV88E6XXX_FLAGS_FAMILY_6341	\
++	(MV88E6XXX_FLAG_EEE |		\
++	 MV88E6XXX_FLAG_G1_ATU_FID |	\
++	 MV88E6XXX_FLAG_G1_VTU_FID |	\
++	 MV88E6XXX_FLAG_GLOBAL2 |	\
++	 MV88E6XXX_FLAG_G2_INT |	\
++	 MV88E6XXX_FLAG_G2_POT |	\
++	 MV88E6XXX_FLAG_STU |		\
++	 MV88E6XXX_FLAG_TEMP |		\
++	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
++	 MV88E6XXX_FLAG_VTU |		\
++	 MV88E6XXX_FLAGS_IRL |		\
++	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
++	 MV88E6XXX_FLAGS_PVT |		\
++	 MV88E6XXX_FLAGS_SERDES)
++
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+ 	(MV88E6XXX_FLAG_G1_ATU_FID |	\
+ 	 MV88E6XXX_FLAG_G1_VTU_FID |	\
+-- 
+2.11.0
