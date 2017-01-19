@@ -1,288 +1,75 @@
-From: Paul Blakey <paulb@mellanox.com>
-Subject: [PATCH iproute2 net-next] tc: flower: Refactor matching flags to be more user friendly
-Date: Thu, 19 Jan 2017 13:32:17 +0200
-Message-ID: <1484825537-26141-1-git-send-email-paulb@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>, Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next] net:add one common config
+ ARCH_WANT_RELAX_ORDER to support relax ordering.
+Date: Thu, 19 Jan 2017 11:43:05 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0267C5A@AcuExch.aculab.com>
+References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
+ <20170117.141533.680344033700095483.davem@davemloft.net>
+ <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
+ <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+        "maowenan@huawei.com" <maowenan@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49897 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752119AbdASLjS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:39:18 -0500
+Received: from smtp-out4.electric.net ([192.162.216.182]:62263 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752118AbdASLni (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:43:38 -0500
+In-Reply-To: <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of "magic numbers" we can now specify each flag
-by name. Prefix of "no_"  (e.g no_frag) unsets the flag,
-otherwise it wil be set.
-
-Example:
-    # add a flower filter that will drop fragmented packets
-    tc filter add dev ens4f0 protocol ip parent ffff: \
-            flower \
-            src_mac e4:1d:2d:fd:8b:01 \
-            dst_mac e4:1d:2d:fd:8b:02 \
-            indev ens4f0 \
-            ip_flags frag \
-    action drop
-
-    # add a flower filter that will drop non-fragmented packets
-    tc filter add dev ens4f0 protocol ip parent ffff: \
-            flower \
-            src_mac e4:1d:2d:fd:8b:01 \
-            dst_mac e4:1d:2d:fd:8b:02 \
-            indev ens4f0 \
-            ip_flags no_frag \
-    action drop
-
-Fixes: 22a8f019891c ('tc: flower: support matching flags')
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
-Reviewed-by: Roi Dayan <roid@mellanox.com>
----
-
-Hi,
-Added a framework to add new flags more easily, such 
-as the upcoming tcp_flags (see kernel cls_flower), and other ip_flags.
-
-Thanks,
-     Paul.
-
-
- man/man8/tc-flower.8 |  12 +++++-
- tc/f_flower.c        | 117 ++++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 102 insertions(+), 27 deletions(-)
-
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 2dd2c5e..77da10b 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@ -46,7 +46,9 @@ flower \- flow based traffic control filter
- .BR enc_dst_ip " | " enc_src_ip " } { "
- .IR ipv4_address " | " ipv6_address " } | "
- .B enc_dst_port
--.IR port_number
-+.IR port_number " | "
-+.BR ip_flags
-+.IR IP_FLAGS
- .SH DESCRIPTION
- The
- .B flower
-@@ -183,13 +185,19 @@ prefix length. If the prefix is missing, \fBtc\fR assumes a full-length
- host match.  Dst port
- .I NUMBER
- is a 16 bit UDP dst port.
-+.TP
-+.BI ip_flags " IP_FLAGS"
-+.I IP_FLAGS
-+may be either
-+.BR frag " or " no_frag
-+to match on fragmented packets or not respectively.
- .SH NOTES
- As stated above where applicable, matches of a certain layer implicitly depend
- on the matches of the next lower layer. Precisely, layer one and two matches
- (\fBindev\fR,  \fBdst_mac\fR and \fBsrc_mac\fR)
- have no dependency, layer three matches
- (\fBip_proto\fR, \fBdst_ip\fR, \fBsrc_ip\fR, \fBarp_tip\fR, \fBarp_sip\fR,
--\fBarp_op\fR, \fBarp_tha\fR and \fBarp_sha\fR)
-+\fBarp_op\fR, \fBarp_tha\fR, \fBarp_sha\fR and \fBip_flags\fR)
- depend on the
- .B protocol
- option of tc filter, layer four port matches
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index d301db3..3bafc75 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -24,6 +24,10 @@
- #include "tc_util.h"
- #include "rt_names.h"
- 
-+enum flower_matching_flags {
-+	FLOWER_IP_FLAGS,
-+};
-+
- enum flower_endpoint {
- 	FLOWER_ENDPOINT_SRC,
- 	FLOWER_ENDPOINT_DST
-@@ -63,7 +67,7 @@ static void explain(void)
- 		"                       enc_dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       enc_src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       enc_key_id [ KEY-ID ] |\n"
--		"                       matching_flags MATCHING-FLAGS | \n"
-+		"                       ip_flags IP-FLAGS | \n"
- 		"                       enc_dst_port [ port_number ] }\n"
- 		"       FILTERID := X:Y:Z\n"
- 		"       MASKED_LLADDR := { LLADDR | LLADDR/MASK | LLADDR/BITS }\n"
-@@ -136,28 +140,56 @@ static int flower_parse_vlan_eth_type(char *str, __be16 eth_type, int type,
- 	return 0;
- }
- 
--static int flower_parse_matching_flags(char *str, int type, int mask_type,
--				       struct nlmsghdr *n)
--{
--	__u32 mtf, mtf_mask;
--	char *c;
-+struct flag_to_string {
-+	int flag;
-+	enum flower_matching_flags type;
-+	char *string;
-+};
- 
--	c = strchr(str, '/');
--	if (c)
--		*c = '\0';
-+static struct flag_to_string flags_str[] = {
-+	{ TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT, FLOWER_IP_FLAGS, "frag" },
-+};
- 
--	if (get_u32(&mtf, str, 0))
--		return -1;
-+static int flower_parse_matching_flags(char *str,
-+				       enum flower_matching_flags type,
-+				       __u32 *mtf, __u32 *mtf_mask)
-+{
-+	char *token;
-+	bool no;
-+	bool found;
-+	int i;
- 
--	if (c) {
--		if (get_u32(&mtf_mask, ++c, 0))
-+	token = strtok(str, "|");
-+
-+	while (token) {
-+		if (!strncmp(token, "no_", 3)) {
-+			no = true;
-+			token = strchr(token, '_') + 1;
-+		} else
-+			no = false;
-+
-+		found = false;
-+		for (i = 0; i < ARRAY_SIZE(flags_str); i++) {
-+			if (type != flags_str[i].type)
-+				continue;
-+
-+			if (!strcmp(token, flags_str[i].string)) {
-+				if (no)
-+					*mtf &= ~flags_str[i].flag;
-+				else
-+					*mtf |= flags_str[i].flag;
-+
-+				*mtf_mask |= flags_str[i].flag;
-+				found = true;
-+				break;
-+			}
-+		}
-+		if (!found)
- 			return -1;
--	} else {
--		mtf_mask = 0xffffffff;
-+
-+		token = strtok(NULL, "|");
- 	}
- 
--	addattr32(n, MAX_MSG, type, htonl(mtf));
--	addattr32(n, MAX_MSG, mask_type, htonl(mtf_mask));
- 	return 0;
- }
- 
-@@ -433,6 +465,8 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 	__be16 vlan_ethtype = 0;
- 	__u8 ip_proto = 0xff;
- 	__u32 flags = 0;
-+	__u32 mtf = 0;
-+	__u32 mtf_mask = 0;
- 
- 	if (handle) {
- 		ret = get_u32(&t->tcm_handle, handle, 0);
-@@ -462,14 +496,14 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 				return -1;
- 			}
- 			addattr_l(n, MAX_MSG, TCA_FLOWER_CLASSID, &handle, 4);
--		} else if (matches(*argv, "matching_flags") == 0) {
-+		} else if (matches(*argv, "ip_flags") == 0) {
- 			NEXT_ARG();
- 			ret = flower_parse_matching_flags(*argv,
--							  TCA_FLOWER_KEY_FLAGS,
--							  TCA_FLOWER_KEY_FLAGS_MASK,
--							  n);
-+							  FLOWER_IP_FLAGS,
-+							  &mtf,
-+							  &mtf_mask);
- 			if (ret < 0) {
--				fprintf(stderr, "Illegal \"matching_flags\"\n");
-+				fprintf(stderr, "Illegal \"ip_flags\"\n");
- 				return -1;
- 			}
- 		} else if (matches(*argv, "skip_hw") == 0) {
-@@ -723,6 +757,16 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- parse_done:
- 	addattr32(n, MAX_MSG, TCA_FLOWER_FLAGS, flags);
- 
-+	if (mtf_mask) {
-+		ret = addattr32(n, MAX_MSG, TCA_FLOWER_KEY_FLAGS, htonl(mtf));
-+		if (ret)
-+			return ret;
-+
-+		ret = addattr32(n, MAX_MSG, TCA_FLOWER_KEY_FLAGS_MASK, htonl(mtf_mask));
-+		if (ret)
-+			return ret;
-+	}
-+
- 	ret = addattr16(n, MAX_MSG, TCA_FLOWER_KEY_ETH_TYPE, eth_type);
- 	if (ret) {
- 		fprintf(stderr, "Illegal \"eth_type\"(0x%x)\n",
-@@ -828,14 +872,36 @@ static void flower_print_ip_proto(FILE *f, __u8 *p_ip_proto,
- }
- 
- static void flower_print_matching_flags(FILE *f, char *name,
-+					enum flower_matching_flags type,
- 					struct rtattr *attr,
- 					struct rtattr *mask_attr)
- {
-+	int i;
-+	int count = 0;
-+	__u32 mtf;
-+	__u32 mtf_mask;
-+
- 	if (!mask_attr || RTA_PAYLOAD(mask_attr) != 4)
- 		return;
- 
--	fprintf(f, "\n  %s 0x%08x/0x%08x", name, ntohl(rta_getattr_u32(attr)),
--		mask_attr ? ntohl(rta_getattr_u32(mask_attr)) : 0xffffffff);
-+	mtf = ntohl(rta_getattr_u32(attr));
-+	mtf_mask = ntohl(rta_getattr_u32(mask_attr));
-+
-+	for (i = 0; i < ARRAY_SIZE(flags_str); i++) {
-+		if (type != flags_str[i].type)
-+			continue;
-+		if (mtf_mask & flags_str[i].flag) {
-+			if (++count == 1)
-+				fprintf(f, "\n  %s ", name);
-+			else
-+				fprintf(f, "|");
-+
-+			if (mtf & flags_str[i].flag)
-+				fprintf(f, "%s", flags_str[i].string);
-+			else
-+				fprintf(f, "no_%s", flags_str[i].string);
-+		}
-+	}
- }
- 
- static void flower_print_ip_addr(FILE *f, char *name, __be16 eth_type,
-@@ -1034,7 +1100,8 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
- 	flower_print_port(f, "enc_dst_port",
- 			  tb[TCA_FLOWER_KEY_ENC_UDP_DST_PORT]);
- 
--	flower_print_matching_flags(f, "matching_flags",
-+	flower_print_matching_flags(f, "ip_flags",
-+				    FLOWER_IP_FLAGS,
- 				    tb[TCA_FLOWER_KEY_FLAGS],
- 				    tb[TCA_FLOWER_KEY_FLAGS_MASK]);
- 
--- 
-2.7.4
+RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDE4IEphbnVhcnkgMjAxNyAxNzoyNQ0KPiBP
+biBXZWQsIEphbiAxOCwgMjAxNyBhdCA4OjIyIEFNLCBEYXZpZCBMYWlnaHQgPERhdmlkLkxhaWdo
+dEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPiBGcm9tOiBEYXZpZCBNaWxsZXINCj4gPj4gU2VudDog
+MTcgSmFudWFyeSAyMDE3IDE5OjE2DQo+ID4+ID4gUmVsYXggb3JkZXJpbmcoUk8pIGlzIG9uZSBm
+ZWF0dXJlIG9mIDgyNTk5IE5JQywgdG8gZW5hYmxlIHRoaXMgZmVhdHVyZSBjYW4NCj4gPj4gPiBl
+bmhhbmNlIHRoZSBwZXJmb3JtYW5jZSBmb3Igc29tZSBjcHUgYXJjaGl0ZWN1cmUsIHN1Y2ggYXMg
+U1BBUkMgYW5kIHNvIG9uLg0KPiA+PiA+IEN1cnJlbnRseSBpdCBvbmx5IHN1cHBvcnRzIG9uZSBz
+cGVjaWFsIGNwdSBhcmNoaXRlY3R1cmUoU1BBUkMpIGluIDgyNTk5DQo+ID4+ID4gZHJpdmVyIHRv
+IGVuYWJsZSBSTyBmZWF0dXJlLCB0aGlzIGlzIG5vdCB2ZXJ5IGNvbW1vbiBmb3Igb3RoZXIgY3B1
+IGFyY2hpdGVjdHVyZQ0KPiA+PiA+IHdoaWNoIHJlYWxseSBuZWVkcyBSTyBmZWF0dXJlLg0KPiA+
+PiA+IFRoaXMgcGF0Y2ggYWRkIG9uZSBjb21tb24gY29uZmlnIENPTkZJR19BUkNIX1dBTlRfUkVM
+QVhfT1JERVIgdG8gc2V0IFJPIGZlYXR1cmUsDQo+ID4+ID4gYW5kIHNob3VsZCBkZWZpbmUgQ09O
+RklHX0FSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpbiBzcGFyYyBLY29uZmlnIGZpcnN0bHkuDQo+ID4+
+ID4NCj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+
+DQo+ID4+DQo+ID4+IFNpbmNlIG5vLW9uZSBoYXMgcmV2aWV3ZWQgdGhpcyBwYXRjaCwgYW5kIEkg
+ZG8gbm90IGZlZWwgY29tZm9ydGFibGUgd2l0aCBhcHBseWluZw0KPiA+PiBpdCB3aXRob3V0IHN1
+Y2ggcmV2aWV3LCBJIGFtIHRvc3NpbmcgdGhpcyBwYXRjaC4NCj4gPj4NCj4gPj4gSWYgc29tZW9u
+ZSBldmVudHVhbGx5IHJldmlld3MgaXQsIHJlcG9zdCB0aGlzIHBhdGNoLg0KPiA+DQo+ID4gSGF2
+aW5nIHJlLXJlYWQgcGFydHMgb2YgdGhlIFBDSWUgc3BlYyBJIHRoaW5rIEknZCBsaWtlIHNvbWVv
+bmUgdG8NCj4gPiBleHBsYWluIGV4YWN0bHkgd2hpY2ggdHJhbnNmZXJzIGFyZSBhZmZlY3RlZCBi
+eSB0aGUgJ3JlbGF4ZWQgb3JkZXJpbmcnDQo+ID4gYml0IGFuZCB3aHkgYW55IHJlLW9yZGVyZWQg
+dHJhbnNhY3Rpb25zIGFyZW4ndCBhIHByb2JsZW0uDQo+ID4NCj4gPiBJbiBwYXJ0aWN1bGFyIEkg
+YmVsaWV2ZSBSTyBhbGxvd3MgdGhlIHdyaXRlIHRvIHVwZGF0ZSB0aGUgcmVjZWl2ZQ0KPiA+IGRl
+c2NyaXB0b3IgcmluZyB0byBvdmVydGFrZSBhIHdyaXRlIG9mIHJlY2VpdmUgcGFja2V0IGRhdGEu
+DQo+ID4gVGhhdCBjb3VsZCBsZWFkIHRvIHRoZSBuZXR3b3JrIHN0YWNrIHByb2Nlc3NpbmcgYSBy
+ZWNlaXZlIGZyYW1lDQo+ID4gYmVmb3JlIGl0IGhhcyBhY3R1YWxseSBiZWVuIHdyaXR0ZW4uDQo+
+ID4NCj4gPiAgICAgICAgIERhdmlkDQo+ID4NCj4gDQo+IFRoZSBSZWxheGVkIE9yZGVyaW5nIGF0
+dHJpYnV0ZSBkb2Vzbid0IGdldCBhcHBsaWVkIGFjcm9zcyB0aGUgYm9hcmQuDQo+IEl0IGVuZHMg
+dXAgYmVpbmcgbGltaXRlZCB0byBhIHN1YnNldCBvZiB0aGUgdHJhbnNhY3Rpb25zIGlmIEkgcmVj
+YWxsDQo+IGNvcnJlY3RseS4gIEluIHRoaXMgY2FzZSBpdCBpcyB0aGUgVHggZGVzY3JpcHRvciB3
+cml0ZSBiYWNrLCBhbmQgdGhlDQo+IFJ4IGRhdGEgd3JpdGUgYmFjay4gIFdlIGRvbid0IGFwcGx5
+IHRoZSBSTyBiaXQgdG8gYW55IG90aGVyDQo+IHRyYW5zYWN0aW9ucy4NCj4gDQo+IEluIHRoZSBj
+YXNlIG9mIFR4IGRlc2NyaXB0b3IgdGhlcmUgaXMgbm8gaGFybSBpbiBhbGxvd2luZyBpdCB0byBi
+ZQ0KPiByZW9yZGVyZWQgYmVjYXVzZSB3ZSBvbmx5IHJlYWxseSByZWFkIHRoZSBERCBiaXQgc28g
+d2UgZG9uJ3QgY2FyZQ0KPiBhYm91dCB0aGUgb3JkZXJpbmcgb2YgdGhlIHdyaXRlIGJhY2suICBJ
+biB0aGUgY2FzZSBvZiB0aGUgUnggZGF0YSB0aGUNCj4gUnggZGVzY3JpcHRvciBlc3NlbnRpYWxs
+eSBhY3RzIGFzIGEgZmx1c2ggc2luY2UgaXQgaXMgc2VudCB3aXRob3V0IHRoZQ0KPiBSTyBiaXQg
+c2V0LiAgU28gYWxsIHRoZSB3cml0ZXMgYmVmb3JlIGl0IG11c3QgYmUgY29tcGxldGVkIGJlZm9y
+ZSB0aGUNCj4gUnggZGVzY3JpcHRvciB3cml0ZSBiYWNrLg0KDQpJbiB3aGljaCBjYXNlIHdoeSBu
+b3Qgc2V0IGl0IHVuY29uZGl0aW9uYWxseSBmb3IgYWxsIGFyY2hpdGVjdHVyZXM/DQoNCkknbSBz
+dXJwcmlzZWQgKEkgb2Z0ZW4gYW0pIHRoYXQgYWxsb3dpbmcgdGhvc2UgcmUtb3JkZXJpbmdzIG1h
+a2VzDQphbnkgc2lnbmlmaWNhbnQgZGlmZmVyZW5jZS4NClVuZm9ydHVuYXRlbHkgeW91IG5lZWQg
+YSBQQ0llIGFuYWx5c2VyIHRvIHNlZSB3aGF0IGlzIHJlYWxseSBoYXBwZW5pbmcNCmFuZCB0aGV5
+IGRvbid0IGNvbWUgY2hlYXAuDQoNCldoYXQgSSBkbyB2YWd1ZWx5IHJlbWVtYmVyIGlzIHRoYXQg
+c29tZSBob3N0cyBkb24ndCBhbHdheXMgaW1wbGVtZW50DQp0aGUgJ25vcm1hbCcgcmUtb3JkZXJp
+bmcgb2YgcmVhZHMgYW5kIHJlYWQgY29tcGxldGlvbnMuDQpSZS1vcmRlcmluZyBvZiByZWFkcyBh
+bGxvd3MgZGVzY3JpcHRvciByZWFkcyB0byBvdmVydGFrZSB0cmFuc21pdA0KdHJhZmZpYyB3aGlj
+aCBpcyBsaWtlbHkgdG8gbWFrZSBhIGRpZmZlcmVuY2UuDQoNCglEYXZpZA0KDQo=
