@@ -1,53 +1,101 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
-Date: Thu, 19 Jan 2017 15:16:51 -0700
-Message-ID: <20170119221651.GA1656@obsidianresearch.com>
-References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
- <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
- <20170118173327.GF32481@mtr-leonro.local>
- <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
- <20170118183127.GC14198@obsidianresearch.com>
- <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9@sandisk.com>
- <20170119063326.GJ32481@mtr-leonro.local>
- <20170119180308.GD8109@obsidianresearch.com>
- <1484863558.2634.7.camel@sandisk.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv3 net-next 4/4] sctp: implement sender-side procedures
+ for Add Incoming/Outgoing Streams Request Parameter
+Date: Thu, 19 Jan 2017 20:18:13 -0200
+Message-ID: <20170119221812.GP3781@localhost.localdomain>
+References: <cover.1484845510.git.lucien.xin@gmail.com>
+ <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
+ <20170119201718.GA21836@hmswarspite.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "leon@kernel.org" <leon@kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "arielalmogworkemails@gmail.com" <arielalmogworkemails@gmail.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>
-To: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Cc: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+        davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:53008 "EHLO quartz.orcorp.ca"
+Received: from mx1.redhat.com ([209.132.183.28]:49900 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751822AbdASWRa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 17:17:30 -0500
+        id S1752152AbdASWSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 17:18:17 -0500
 Content-Disposition: inline
-In-Reply-To: <1484863558.2634.7.camel@sandisk.com>
+In-Reply-To: <20170119201718.GA21836@hmswarspite.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2017 at 10:06:12PM +0000, Bart Van Assche wrote:
-> On Thu, 2017-01-19 at 11:03 -0700, Jason Gunthorpe wrote:
-> > sysfs is unpopular because the 'one value per file' dogma is laregly
-> > unsuitable for complex mulit-value atomic changes which are common in
-> > netdev. You can force it to work, but it is pretty horrible..
+On Thu, Jan 19, 2017 at 03:17:18PM -0500, Neil Horman wrote:
+> On Fri, Jan 20, 2017 at 01:19:14AM +0800, Xin Long wrote:
+> > This patch is to implement Sender-Side Procedures for the Add
+> > Outgoing and Incoming Streams Request Parameter described in
+> > rfc6525 section 5.1.5-5.1.6.
 > > 
-> > It is also very expensive if you want to shuttle a lot of data, eg I
-> > could not see doing something like 'netstat' for IB through sysfs
-> 
-> Since the RDMA sysfs ABI defines a user space ABI and since user space
-> ABIs must be backwards compatible removing the existing sysfs ABI is
-> not an option. We will need to evaluate on a case-by-case basis whether
-> new functionality should use sysfs or whether another mechanism should
-> be used.
+> > It is also to add sockopt SCTP_ADD_STREAMS in rfc6525 section
+> > 6.3.4 for users.
+> > 
+> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> > ---
+> >  include/net/sctp/sctp.h   |  2 +
+> >  include/uapi/linux/sctp.h |  7 ++++
+> >  net/sctp/socket.c         | 29 ++++++++++++++
+> >  net/sctp/stream.c         | 99 +++++++++++++++++++++++++++++++++++++++++++++++
+> >  4 files changed, 137 insertions(+)
+> > 
+> > diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> > index b93820f..68ee1a6 100644
+> > --- a/include/net/sctp/sctp.h
+> > +++ b/include/net/sctp/sctp.h
+> > @@ -199,6 +199,8 @@ int sctp_offload_init(void);
+> >  int sctp_send_reset_streams(struct sctp_association *asoc,
+> >  			    struct sctp_reset_streams *params);
+> >  int sctp_send_reset_assoc(struct sctp_association *asoc);
+> > +int sctp_send_add_streams(struct sctp_association *asoc,
+> > +			  struct sctp_add_streams *params);
+> >  
+> >  /*
+> >   * Module global variables
+> > diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+> > index c0bd8c3..a91a9cc 100644
+> > --- a/include/uapi/linux/sctp.h
+> > +++ b/include/uapi/linux/sctp.h
+> > @@ -118,6 +118,7 @@ typedef __s32 sctp_assoc_t;
+> >  #define SCTP_ENABLE_STREAM_RESET	118
+> >  #define SCTP_RESET_STREAMS	119
+> >  #define SCTP_RESET_ASSOC	120
+> > +#define SCTP_ADD_STREAMS	121
+> >  
+> >  /* PR-SCTP policies */
+> >  #define SCTP_PR_SCTP_NONE	0x0000
+> > @@ -1027,4 +1028,10 @@ struct sctp_reset_streams {
+> >  	uint16_t srs_stream_list[];	/* list if srs_num_streams is not 0 */
+> >  };
+> >  
+> > +struct sctp_add_streams {
+> > +	sctp_assoc_t sas_assoc_id;
+> > +	uint16_t sas_instrms;
+> > +	uint16_t sas_outstrms;
+> > +};
+> > +
+> >  #endif /* _UAPI_SCTP_H */
+> > diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> > index 2c5c9ca..ae0a99e 100644
+> > --- a/net/sctp/socket.c
+> > +++ b/net/sctp/socket.c
+> > @@ -3838,6 +3838,32 @@ static int sctp_setsockopt_reset_assoc(struct sock *sk,
+> >  	return retval;
+> >  }
+> >  
+> > +static int sctp_setsockopt_add_streams(struct sock *sk,
+> > +				       char __user *optval,
+> > +				       unsigned int optlen)
+> > +{
+> you are going to need to provide some locking here or in sctp_send_add_streams.
+> By replacing the in/out streams pointer you run the risk of multiple callers
+> modifying the pointers in parallel, or in the sctp state machine reading it
+> while you do.
 
-Not talking about getting rid of it.
+There can't be multiple callers here because the socket is locked before
+calling this function, in sctp_setsockopt().
+I also don't see how a BH handler, timers or sleeping call (recvmsg)
+could trip on this.
 
-But if it makes sense to use netlink for the new stuff we should make
-netlink self-consistent so a netlink user does not have to fall back
-to sysfs for certain things.
-
-Jason
+  Marcelo
