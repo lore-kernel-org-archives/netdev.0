@@ -1,64 +1,53 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] rtlwifi: rtl8192x: Enabling and disabling hardware
- interrupts after enabling local irq flags
-Date: Thu, 19 Jan 2017 15:35:38 +0100
-Message-ID: <trinity-12e38a0e-85af-457b-9d4e-3c40ab1f6fd1-1484836538110@3capp-gmx-bs75>
-References: <1484820854-16719-1-git-send-email-bharatku@xilinx.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH iproute2 net-next V5] tc: flower: Refactor matching
+ flags to be more user friendly
+Date: Thu, 19 Jan 2017 15:48:17 +0100
+Message-ID: <20170119154817.26240372@griffin>
+References: <1484836073-47019-1-git-send-email-paulb@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-        linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kvalo@codeaurora.org, netdev@vger.kernel.org, rgummal@xilinx.com,
-        "Bharat Kumar Gogada" <bharatku@xilinx.com>
-To: "Bharat Kumar Gogada" <bharat.kumar.gogada@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484820854-16719-1-git-send-email-bharatku@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Paul Blakey <paulb@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46188 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752884AbdASOsm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 09:48:42 -0500
+In-Reply-To: <1484836073-47019-1-git-send-email-paulb@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 19 Jan 2017 16:27:53 +0200, Paul Blakey wrote:
+> Instead of "magic numbers" we can now specify each flag
+> by name. Prefix of "no"  (e.g nofrag) unsets the flag,
+> otherwise it wil be set.
+> 
+> Example:
+>     # add a flower filter that will drop fragmented packets
+>     tc filter add dev ens4f0 protocol ip parent ffff: \
+>             flower \
+>             src_mac e4:1d:2d:fd:8b:01 \
+>             dst_mac e4:1d:2d:fd:8b:02 \
+>             indev ens4f0 \
+>             ip_flags frag \
+>     action drop
+> 
+>     # add a flower filter that will drop non-fragmented packets
+>     tc filter add dev ens4f0 protocol ip parent ffff: \
+>             flower \
+>             src_mac e4:1d:2d:fd:8b:01 \
+>             dst_mac e4:1d:2d:fd:8b:02 \
+>             indev ens4f0 \
+>             ip_flags nofrag \
+>     action drop
+> 
+> Fixes: 22a8f019891c ('tc: flower: support matching flags')
+> Signed-off-by: Paul Blakey <paulb@mellanox.com>
+> Reviewed-by: Roi Dayan <roid@mellanox.com>
 
-altek/rtlwifi/rtl8192ce/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/hw.c
-> index a47be73..143766c4 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/hw.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ce/hw.c
-> @@ -1306,9 +1306,9 @@ void rtl92ce_enable_interrupt(struct ieee80211_hw *hw)
->  	struct rtl_priv *rtlpriv = rtl_priv(hw);
->  	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
->  
-> +	rtlpci->irq_enabled = true;
->  	rtl_write_dword(rtlpriv, REG_HIMR, rtlpci->irq_mask[0] & 0xFFFFFFFF);
->  	rtl_write_dword(rtlpriv, REG_HIMRE, rtlpci->irq_mask[1] & 0xFFFFFFFF);
-> -	rtlpci->irq_enabled = true;
->  }
->  
->  void rtl92ce_disable_interrupt(struct ieee80211_hw *hw)
-> @@ -1316,9 +1316,9 @@ void rtl92ce_disable_interrupt(struct ieee80211_hw *hw)
->  	struct rtl_priv *rtlpriv = rtl_priv(hw);
->  	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
->  
-> +	rtlpci->irq_enabled = false;
->  	rtl_write_dword(rtlpriv, REG_HIMR, IMR8190_DISABLED);
->  	rtl_write_dword(rtlpriv, REG_HIMRE, IMR8190_DISABLED);
-> -	rtlpci->irq_enabled = false;
->  }
->  
-
-AFAIK you also have to use memory barriers here to ensure that
-the concerning instructions are not reordered, and both irq handler
-and process have a consistent perception of irq_enabled, e.g:
-
-rtlpci->irq_enabled = true;
-smp_wmb();
-rtl_write_dword(rtlpriv, REG_HIMR, rtlpci->irq_mask[0] & 0xFFFFFFFF);
-
-and in the irq handler
-
-if (rtlpci->irq_enabled == 0) {
-        smp_rmb();
-	return ret;
-}
-
-
-Regards,
-Lino
+Reviewed-by: Jiri Benc <jbenc@redhat.com>
