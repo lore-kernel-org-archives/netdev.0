@@ -1,51 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] gianfar: Do not reuse pages from emergency reserve
-Date: Wed, 18 Jan 2017 19:44:42 -0800
-Message-ID: <1484797482.16328.13.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [PATCH net-next] macb: Common code to enable ptp support for
+ SAMA5Dx platforms.
+Date: Thu, 19 Jan 2017 09:52:51 +0530
+Message-ID: <CAFcVEC+fVUZzsJBZtbzxYw70zp7vyzdQ+bC97jGN-x--1bmBUA@mail.gmail.com>
+References: <1484758673-8694-1-git-send-email-andrei.pistirica@microchip.com>
+ <1c534b5a-25cb-a5d6-f87c-db9ed958a606@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Claudiu Manoil <claudiu.manoil@freescale.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36810 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751996AbdASDpM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 22:45:12 -0500
-Received: by mail-pf0-f193.google.com with SMTP id 19so2353973pfo.3
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 19:44:44 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: tbultel@pixelsurmer.com, Rafal Ozieblo <rafalo@cadence.com>,
+ Boris Brezillon <boris.brezillon@free-electrons.com>, netdev@vger.kernel.org,
+ Richard Cochran <richardcochran@gmail.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Andrei Pistirica <andrei.pistirica@microchip.com>,
+ "michals@xilinx.com" <michals@xilinx.com>,
+ Anirudha Sarangi <anirudh@xilinx.com>,
+ Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+ Harini Katakam <harini.katakam@xilinx.com>,
+ alexandre.belloni@free-electrons.com, David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1c534b5a-25cb-a5d6-f87c-db9ed958a606@atmel.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-A driver using dev_alloc_page() must not reuse a page that had to
-use emergency memory reserve.
-
-Otherwise all packets using this page will be immediately dropped,
-unless for very specific sockets having SOCK_MEMALLOC bit set.
-
-This issue might be hard to debug, because only a fraction of the RX
-ring buffer would suffer from drops.
-
-Fixes: 75354148ce69 ("gianfar: Add paged allocation and Rx S/G")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index a6e7afa878befd1abe00404b2cd4becfa174d103..c1b6716679208a69bc66f017a68e5b6e35c60064 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2948,7 +2948,7 @@ static bool gfar_add_rx_frag(struct gfar_rx_buff *rxb, u32 lstatus,
- 	}
- 
- 	/* try reuse page */
--	if (unlikely(page_count(page) != 1))
-+	if (unlikely(page_count(page) != 1 || page_is_pfmemalloc(page)))
- 		return false;
- 
- 	/* change offset to the other half */
+T24gV2VkLCBKYW4gMTgsIDIwMTcgYXQgMTE6MDIgUE0sIE5pY29sYXMgRmVycmUgPG5pY29sYXMu
+ZmVycmVAYXRtZWwuY29tPiB3cm90ZToKPiBMZSAxOC8wMS8yMDE3IMOgIDA5OjU3LCBBbmRyZWkg
+UGlzdGlyaWNhIGEgw6ljcml0IDoKPj4gVGhpcyBwYXRjaCBkb2VzIHRoZSBmb2xsb3dpbmc6Cj4+
+IC0gYWRkIEdFTS1QVFAgaW50ZXJmYWNlCj4+IC0gcmVnaXN0ZXJzIGFuZCBiaXRmaWVsZHMgZm9y
+IFRTVSBhcmUgbmFtZWQgYWNjb3JkaW5nIHRvIFNBTUE1RHggZGF0YSBzaGVldAo+PiAtIFBUUCBz
+dXBwb3J0IGJhc2VkIG9uIHBsYXRmb3JtIGNhcGFiaWxpdHkKPgo+IFRoZSAkc3ViamVjdCB3aWxs
+IGNlcnRhaW5seSBuZXZlciBtYXRjaCByZWFsaXR5LCBzYWRseSAiZW5hYmxlIHB0cAo+IHN1cHBv
+cnQgZm9yIFNBTUE1RHggcGxhdGZvcm1zIi4gU28sIHlvdSdkIGJldHRlciBjaGFuZ2UgaXQuCj4g
+KG5vICIuIiBhdCB0aGUgZW5kIEJUVykuCj4KPj4gU2lnbmVkLW9mZi1ieTogQW5kcmVpIFBpc3Rp
+cmljYSA8YW5kcmVpLnBpc3RpcmljYUBtaWNyb2NoaXAuY29tPgo+PiAtLS0KPj4gVGhpcyBpcyBq
+dXN0IHRoZSBjb21tb24gY29kZSBmb3IgR0VNLVBUUCBzdXBwb3J0LiBDb2RlIGlzIGJhc2VkIG9u
+IHRoZSBjb21tZW50cwo+PiByZWxhdGVkIHRvIHRoZSBmb2xsb3dpbmcgcGF0Y2ggc2VyaWVzOgo+
+PiAtIFtSRkMgUEFUQ0ggbmV0LW5leHQgdjEtdG8tNCAxLzJdIG1hY2I6IEFkZCAxNTg4IHN1cHBv
+cnQgaW4gQ2FkZW5jZSBHRU0uCj4+IC0gW1JGQyBQQVRDSCBuZXQtbmV4dCB2MS10by00IDIvMl0g
+bWFjYjogRW5hYmxlIDE1ODggc3VwcG9ydCBpbiBTQU1BNUR4IHBsYXRmb3Jtcy4KPj4KPj4gTm90
+ZTogUGF0Y2ggb24gbmV0LW5leHQ6IEphbnVhcnkgMTguCj4+Cj4+IFJhZmFsL0hhcmluaSwgeW91
+IGNhbiBjb250aW51ZSB0aGUgd29yayBmb3IgR01FLUdYTC4KClRoYW5rcyBBbmRyZWkuCgo8c25p
+cD4KPgo+IE90aGVyd2lzZSwgSSdtIG9rYXkgd2l0aCB0aGUgcmVzdC4KPgo+IEkgc3VnZ2VzdCB0
+byBwZW9wbGUgdGhhdCB3aWxsIGtlZXAgdGhlIGJhbGwgcm9sbGluZyBvbiB0aGlzIHRvcGljIHRv
+Cj4gdGFrZSBhZHZhbnRhZ2Ugb2YgdGhlIGNodW5rcyBvZiBjb2RlIHRoYXQgQW5kcmVpIGRldmVs
+b3BlZCB3aXRoIHRoZSBoZWxwCj4gb2YgUmljaGFyZCBhbmQgdGhlIGJlc3QgcHJhY3RpY2VzIGRp
+c2N1c3NlZC4gSSB0aGluayBwYXJ0aWN1bGFybHksIGlmIGl0Cj4gbWFrZXMgc2Vuc2Ugd2l0aCBI
+VywgYWJvdXQ6Cj4gLSBnZW1fcHRwX2RvX1tydF14c3RhbXAoYnAsIHNrYikgZGVyZWZlcmVuY2Ug
+c2NoZW1lCj4gLSBnZW1fcHRwX2FkamZpbmUoKSByYXRpb25hbGUKPiAtIGdlbV9nZXRfcHRwX3Bl
+ZXIoKSBpZiBuZWVkZWQKPgoKU3VyZSwgd2lsbCBwYXRjaCBvbiB0b3Agb2YgdGhpcy4KClJlZ2Fy
+ZHMsCkhhcmluaQoKPiBSZWdhcmRzLAo+IC0tCj4gTmljb2xhcyBGZXJyZQoKX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWls
+aW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0
+cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
