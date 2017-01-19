@@ -1,100 +1,66 @@
-From: Alexander Heinlein <alexander.heinlein@secunet.com>
-Subject: Re: [PATCH] ip/xfrm: Fix deleteall when having many policies
- installed
-Date: Thu, 19 Jan 2017 08:57:56 +0100
-Message-ID: <51b5293a-bce8-b663-f9de-97dc7c8113b3@secunet.com>
-References: <d056322e-7c23-7e19-3bdb-4afa5f04e409@secunet.com>
- <20170118090302.6efd6cce@xeon-e3>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH] net: fec: Fixed panic problem with non-tso
+Date: Thu, 19 Jan 2017 08:18:27 +0000
+Message-ID: <AM4PR0401MB2260F19C276A1329FD2BB8A7FF7E0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
+         <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+         <337A096076BEF646A1F21E1AD855580E3AC8F71A@g01jpexmbkw23>
+         <1484713283.13165.89.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature";
-        boundary="Bic70jE9rLDC2l2Djgrxs2d17DAPNQXpj"
-Cc: <netdev@vger.kernel.org>, <shemminger@osdl.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Pravin B Shelar <pshelar@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:46864 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751222AbdASIFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 03:05:25 -0500
-In-Reply-To: <20170118090302.6efd6cce@xeon-e3>
+Received: from mail-db5eur01on0059.outbound.protection.outlook.com ([104.47.2.59]:30816
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751013AbdASISm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 03:18:42 -0500
+In-Reply-To: <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Bic70jE9rLDC2l2Djgrxs2d17DAPNQXpj
-Content-Type: multipart/mixed; boundary="m9ox5M0M7ttJSI4br7d2TKphwDtN1HR8E";
- protected-headers="v1"
-From: Alexander Heinlein <alexander.heinlein@secunet.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Cc: netdev@vger.kernel.org, shemminger@osdl.org
-Message-ID: <51b5293a-bce8-b663-f9de-97dc7c8113b3@secunet.com>
-Subject: Re: [PATCH] ip/xfrm: Fix deleteall when having many policies
- installed
-References: <d056322e-7c23-7e19-3bdb-4afa5f04e409@secunet.com>
- <20170118090302.6efd6cce@xeon-e3>
-In-Reply-To: <20170118090302.6efd6cce@xeon-e3>
-
---m9ox5M0M7ttJSI4br7d2TKphwDtN1HR8E
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
-
-=46rom 192cf19b3a97871a508ad57ba5893d1719877f13 Mon Sep 17 00:00:00 2001
-From: Alexander Heinlein <alexander.heinlein@secunet.com>
-Date: Mon, 16 Jan 2017 14:48:25 +0100
-Subject: [PATCH] ip/xfrm: Fix deleteall when having many policies install=
-ed
-
-Fix "Policy buffer overflow" when trying to use deleteall with many
-policies installed.
-
-Signed-off-by: Alexander Heinlein <alexander.heinlein@secunet.com>
----
- ip/xfrm_policy.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-index cc9c0f1..451b982 100644
---- a/ip/xfrm_policy.c
-+++ b/ip/xfrm_policy.c
-@@ -732,10 +732,8 @@ static int xfrm_policy_keep(const struct sockaddr_nl=
- *who,
- 	if (!xfrm_policy_filter_match(xpinfo, ptype))
- 		return 0;
-=20
--	if (xb->offset > xb->size) {
--		fprintf(stderr, "Policy buffer overflow\n");
--		return -1;
--	}
-+	if (xb->offset + NLMSG_LENGTH(sizeof(*xpid)) > xb->size)
-+		return 0;
-=20
- 	new_n =3D (struct nlmsghdr *)(xb->buf + xb->offset);
- 	new_n->nlmsg_len =3D NLMSG_LENGTH(sizeof(*xpid));
---=20
-2.1.4
-
-
---m9ox5M0M7ttJSI4br7d2TKphwDtN1HR8E--
-
---Bic70jE9rLDC2l2Djgrxs2d17DAPNQXpj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEd9SQ6eG5LDb5ryJLIdvqUoU0W6kFAliAcYUACgkQIdvqUoU0
-W6nXtBAApzMaJvQGEG0G7qw+ok2lmw6Es5DGQGjgQ6BPKl5avZy6czS4PyKASM56
-EvR6xXsinVrw7/iOI/HvTCfYAnfVNd+tGbakO4FCI/teXujBM1mPUvJcigIpY3WN
-8b4SNRLDnumuZQKWCVonxUAs5rR/xuYg/99Y9rKP/vmPIKWooGYIVvbYrhRoByWJ
-FlAuEH8gG9+RyiMvzhYinQ7Q+pVBRW0pWqvV4G9F9UUygfiVBm/UsejiEaZvLrR/
-wHx+zxNRAaH3Bcoy/27aq1Ohpt27vdS73lqDPYsAiWxpA09rEy1NDUWTkI7ZhSbX
-r1lVGyl8SL20Bj508xuNU1ztjuFTDmvVUQmpnx+X+t4v/7APOtgIoQLL2Bqelwes
-Mz+FM0Yfwu0qb0jLBO2H4PElLw4ohIMQtic+ogsBzcaCO8xaWXemmvjVZmjoVNd8
-QnTCOHYDh965gBMYmFwAtVs9z7jK1kDSuvgVAE6eYXkt5wui4qXyqNi8mTXVEFIt
-yM51wPt5GANokSk/T9HtgTd5+sVErlDK59lJprWueuONdeAAHbAxjuqf1e0Qz/or
-z94jDK79gUVsC3F4uWDmJWMM1CVe8LE3XdA7GUBIcSNBwxdb4JipJF8tMEkl+E2p
-9q+SaL6JW0uYbHEHZQRixeKZSUWsysspfBiWcKc5r3ORWwqTHcM=
-=rcqp
------END PGP SIGNATURE-----
-
---Bic70jE9rLDC2l2Djgrxs2d17DAPNQXpj--
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBTZW50OiBXZWRuZXNk
+YXksIEphbnVhcnkgMTgsIDIwMTcgMTI6MzYgUE0NCj5UbzogQXNoaXp1a2EsIFl1dXN1a2UgPGFz
+aGlkdWthQGpwLmZ1aml0c3UuY29tPg0KPkNjOiBBbmR5IER1YW4gPGZ1Z2FuZy5kdWFuQG54cC5j
+b20+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBQcmF2aW4gQg0KPlNoZWxhciA8cHNoZWxhckBu
+aWNpcmEuY29tPg0KPlN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldDogZmVjOiBGaXhlZCBwYW5pYyBw
+cm9ibGVtIHdpdGggbm9uLXRzbw0KPg0KPk9uIFR1ZSwgMjAxNy0wMS0xNyBhdCAyMDoyMSAtMDgw
+MCwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPj4gT24gV2VkLCAyMDE3LTAxLTE4IGF0IDAzOjEyICsw
+MDAwLCBBc2hpenVrYSwgWXV1c3VrZSB3cm90ZToNCj4+DQo+PiA+IGluZGVlZC4NCj4+ID4NCj4+
+ID4gSW4gdGhlIGNhc2Ugb2YgVFNPIHdpdGggaS5NWDYgc3lzdGVtIChoaWdobWVtIGVuYWJsZWQp
+IHdpdGggMkdCDQo+PiA+IG1lbW9yeSwgInRoaXNfZnJhZy0+cGFnZS5wIiBkaWQgbm90IGJlY29t
+ZSBoaWdobWVtIGFyZWEuDQo+PiA+IChXZSBjb25maXJtZWQgYnkgdHJhbnNmZXJyaW5nIGFib3V0
+IDEwME1CIG9mIGZpbGVzKQ0KPj4gPg0KPj4gPiBIb3dldmVyLCBpbiB0aGUgY2FzZSBvZiBub24t
+dHNvIG9uIGFuIGkuTVg2IHN5c3RlbSB3aXRoIDJHQiBvZg0KPj4gPiBtZW1vcnksICJ0aGlzX2Zy
+YWctPnBhZ2UucCIgbWF5IGJlY29tZSBhIGhpZ2htZW0gYXJlYS4NCj4+ID4gKE9jY3VycmVkIHdp
+dGggYXBwcm94aW1hdGVseSAyTUIgb2YgZmlsZSB0cmFuc2ZlcikNCj4+ID4NCj4+ID4gRm9yIG5v
+bi10c28gb25seSwgSSBkbyBub3Qga25vdyB0aGUgcmVhc29uIHdoeSAidGhpc19mcmFnLT4gcGFn
+ZS5wIg0KPj4gPiBpbiB0aGlzIGRyaXZlciBzaG93cyBoaWdobWVtIGFyZWEuDQo+Pg0KPj4gVGhp
+cyB3b3JyaWVzIG1lLCBzaW5jZSB0aGlzIGRyaXZlciBkb2VzIG5vdCBzZXQgTkVUSUZfRl9ISUdI
+RE1BIGluIGl0cw0KPj4gZmVhdHVyZXMuDQo+Pg0KPj4gTm8gcGFja2V0IHNob3VsZCBiZSBnaXZl
+biB0byB0aGlzIGRyaXZlciB3aXRoIGEgaGlnaG1lbSBmcmFnbWVudA0KPj4NCj4+IENoZWNrIGlz
+IGRvbmUgaW4gaWxsZWdhbF9oaWdoZG1hKCkgaW4gbmV0L2NvcmUvZGV2LmMNCj4NCj5UaGlzIHVz
+ZWQgdG8gd29yay4NCj4NCj5JIHN1c3BlY3QgY29tbWl0IGVjNWYwNjE1NjQyMzg4OTIwMDUyNTdj
+ODM1NjVhMGI1OGVjNzkyOTUNCj4oIm5ldDogS2lsbCBsaW5rIGJldHdlZW4gQ1NVTSBhbmQgU0cg
+ZmVhdHVyZXMuIikNCj4NCj5hZGRlZCB0aGlzIGJ1Zy4NCj4NCj5DYW4geW91IHRyeSB0aGlzIGhv
+dCBmaXggOg0KPg0KPmRpZmYgLS1naXQgYS9uZXQvY29yZS9kZXYuYyBiL25ldC9jb3JlL2Rldi5j
+IGluZGV4DQo+YWQ1OTU5ZTU2MTE2NmY0NDViZGQ5ZDcyNjA2NTJhMzM4Zjc0Y2ZlYS4uMDczYjgz
+MmI5NDUyNTdkYmE5ZWQ0N2Y0YmYNCj44NzU2MDUyMjVlZmZjOSAxMDA2NDQNCj4tLS0gYS9uZXQv
+Y29yZS9kZXYuYw0KPisrKyBiL25ldC9jb3JlL2Rldi5jDQo+QEAgLTI3NzMsOSArMjc3Myw5IEBA
+IHN0YXRpYyBuZXRkZXZfZmVhdHVyZXNfdCBoYXJtb25pemVfZmVhdHVyZXMoc3RydWN0DQo+c2tf
+YnVmZiAqc2tiLA0KPiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX05PTkUgJiYNCj4g
+CSAgICAhY2FuX2NoZWNrc3VtX3Byb3RvY29sKGZlYXR1cmVzLCB0eXBlKSkgew0KPiAJCWZlYXR1
+cmVzICY9IH4oTkVUSUZfRl9DU1VNX01BU0sgfCBORVRJRl9GX0dTT19NQVNLKTsNCj4tCX0gZWxz
+ZSBpZiAoaWxsZWdhbF9oaWdoZG1hKHNrYi0+ZGV2LCBza2IpKSB7DQo+LQkJZmVhdHVyZXMgJj0g
+fk5FVElGX0ZfU0c7DQo+IAl9DQo+KwlpZiAoaWxsZWdhbF9oaWdoZG1hKHNrYi0+ZGV2LCBza2Ip
+KQ0KPisJCWZlYXR1cmVzICY9IH5ORVRJRl9GX1NHOw0KPg0KPiAJcmV0dXJuIGZlYXR1cmVzOw0K
+PiB9DQo+DQo+DQoNCkkgd2lsbCBkb3VibGUgY2hlY2sgeW91ciBmaXguIFRoYW5rcy4NCg0KQW5k
+LCBpZiBkcml2ZXIgaXMgdG8gc3VwcG9ydCBoaWdobWVtLCAgdGhlbiB3ZSBzaG91bGQgYWRkIHRz
+byBoaWdobWVtIHN1cHBvcnQgaW4gbmV0L2NvcmUvdHNvLmMsICBkbyB5b3UgdGhpbmsgaXQgaXMg
+bmVjZXNzYXJ5ID8NCg==
