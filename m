@@ -1,53 +1,48 @@
-From: Augusto Mecking Caringi <augustocaringi@gmail.com>
-Subject: [PATCH] net: atm: Fix build error when !CONFIG_PROC_FS
-Date: Thu, 19 Jan 2017 11:00:12 +0000
-Message-ID: <1484823626-8150-1-git-send-email-augustocaringi@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [Xen-devel] xennet_start_xmit assumptions
+Date: Thu, 19 Jan 2017 06:14:26 -0500
+Message-ID: <20170119111426.GA22018@oracle.com>
+References: <20170118153132.GB9258@oracle.com>
+ <20170118192528.GA6847@char.us.oracle.com>
+ <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Augusto Mecking Caringi <augustocaringi@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+        Wei Liu <wei.liu2@citrix.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36763 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751729AbdASLBK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:01:10 -0500
+Received: from aserp1040.oracle.com ([141.146.126.69]:29387 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751596AbdASLQI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:16:08 -0500
+Content-Disposition: inline
+In-Reply-To: <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_ATM_CLIP is set and CONFIG_PROC_FS is not set, the building
-was failing whith the error:
+On (01/19/17 09:36), Paul Durrant wrote:
+> 
+> Hi Sowmini,
+> 
+>   Sounds like a straightforward bug to me... netfront should be able
+> to handle an empty skb and clearly, if it's relying on skb_headlen()
+> being non-zero, that's not the case.
+> 
+>   Paul
 
-net/atm/clip.c: In function ‘atm_clip_exit’:
-net/atm/clip.c:933:27: error: ‘atm_proc_root’ undeclared (first use in
-this function)
-remove_proc_entry("arp", atm_proc_root);
-                           ^
+I see. Seems like there are 2 things broken here: recovering
+from skb->len = 0, and recovering from  the more complex
+case of (skb->len > 0 && skb_headlen(skb) == 0)
 
-Fix it by putting the proc cleanup code inside a #ifdef CONFIG_PROC_FS
-block.
+Do you folks want to take a shot at fixing this,
+since you know the code better? If you are interested,
+I can share my test program to help you reproduce the 
+simpler skb->len == 0 case, but it's the fully non-linear
+skbs that may be more interesting to reproduce/fix. 
 
-Signed-off-by: Augusto Mecking Caringi <augustocaringi@gmail.com>
----
- net/atm/clip.c | 2 ++
- 1 file changed, 2 insertions(+)
+I'll probably work on fixing packet_snd to return -EINVAL 
+or similar when the len is zero this week.
 
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index 53b4ac0..75221e4 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -930,7 +930,9 @@ static void atm_clip_exit_noproc(void)
- 
- static void __exit atm_clip_exit(void)
- {
-+#ifdef CONFIG_PROC_FS
- 	remove_proc_entry("arp", atm_proc_root);
-+#endif
- 
- 	atm_clip_exit_noproc();
- }
--- 
-2.7.4
+--Sowmini
