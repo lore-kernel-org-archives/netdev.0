@@ -1,82 +1,74 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v5 0/2] Add support for the ethernet switch on the ESPRESSObin
-Date: Thu, 19 Jan 2017 22:49:32 +0100
-Message-ID: <20170119214934.27442-1-gregory.clement@free-electrons.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Wilson Ding <dingwei@marvell.com>,
-        Kostya Porotchkin <kostap@marvell.com>,
-        Joe Zhou <shjzhou@marvell.com>,
-        Jon Pannell <jpannell@marvell.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Paul McKenney <paulmckrcu@gmail.com>
+Subject: Re: linux-next: build failure after merge of the rcu tree
+Date: Thu, 19 Jan 2017 13:54:37 -0800
+Message-ID: <CAJzB8QEdnVG8Gy-WOSu1pWTtkeVWgBzZvGCu0nobW3M-hBhpkw@mail.gmail.com>
+References: <20170119143445.6b65dc8b@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170119143445.6b65dc8b@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Jan 18, 2017 at 7:34 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi Paul,
+>
+> After merging the rcu tree, today's linux-next build (x86_64 allmodconfig)
+> failed like this:
+>
+> net/smc/af_smc.c:102:16: error: 'SLAB_DESTROY_BY_RCU' undeclared here (not in a function)
+>   .slab_flags = SLAB_DESTROY_BY_RCU,
+>                 ^
+>
+> Caused by commit
+>
+>   c7a545924ca1 ("mm: Rename SLAB_DESTROY_BY_RCU to SLAB_TYPESAFE_BY_RCU")
+>
+> interacting with commit
+>
+>   ac7138746e14 ("smc: establish new socket family")
+>
+> from the net-next tree.
+>
+> I have applied the following merge fix patch (someone will need to
+> remember to mention this to Linus):
 
-This set of patches adds support for the Marvell Ethernet switch
-88E6341 which is found on the ESPRESSObin. With this series the
-network is usable on this board.
+Thank you, Stephen!  I expect that there might be a bit more
+bikeshedding on the name, but here is hoping...  :-/
 
->From now on, I am taking care of this series.
+                                                      Thanx, Paul
 
-As Andrew Lunn pointed this switch is not fully compatible with the
-6352. However it is neither fully compatible with the 6390. Actually
-it is more a mix between this two families.
-
-I created a new family for this switch and filled the ops structure by
-selecting which seems the more appropriate functions. I rebased the
-series on net-next/master which allowed me to benefit to the eeprom
-functions introduced for the 6390.
-
-
-
-While comparing the datasheet and the ops functions used, some
-question came to me. They should not prevent applying this series,
-but their answer would help me to have a better understanding of the
-dsa subsystem.
-
-- Are the temperature related operation still useful with dsa2 ?
-
-Indeed the hwmon initialization is only done from dsa_probe which is
-not called if we use dsa2.
-
-- Why the setup is done differently between the 6390 and the 6352
-  families when the have exactly the same register?
-
-  - On the Port Controller 2, the bit PORT_CONTROL_2_MAP_DA is set for
-    6352 and not for 6390 whereas the same bit exists in 6360 and the
-    description for this bit is the same for both datasheet.
-
-
-  - Register PORT_ATU_CONTROL and PORT_PRI_OVERRIDE are reset on 6352
-    and not on 6390. While here again the registers description are
-    the same.
-
-Thanks,
-
-Gregory
-
-
-Gregory CLEMENT (1):
-  net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341
-
-Romain Perier (1):
-  net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY addr >=
-    num_of_ports
-
- drivers/net/dsa/mv88e6xxx/chip.c      | 61 +++++++++++++++++++++++++++++------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 21 +++++++++++-
- 2 files changed, 72 insertions(+), 10 deletions(-)
-
--- 
-2.11.0
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Thu, 19 Jan 2017 14:29:12 +1100
+> Subject: [PATCH] smc: merge fix for "mm: Rename SLAB_DESTROY_BY_RCU to SLAB_TYPESAFE_BY_RCU"
+>
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  net/smc/af_smc.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+> index 4875e65f0c4a..a48260f9ebb7 100644
+> --- a/net/smc/af_smc.c
+> +++ b/net/smc/af_smc.c
+> @@ -99,7 +99,7 @@ struct proto smc_proto = {
+>         .unhash         = smc_unhash_sk,
+>         .obj_size       = sizeof(struct smc_sock),
+>         .h.smc_hash     = &smc_v4_hashinfo,
+> -       .slab_flags     = SLAB_DESTROY_BY_RCU,
+> +       .slab_flags     = SLAB_TYPESAFE_BY_RCU,
+>  };
+>  EXPORT_SYMBOL_GPL(smc_proto);
+>
+> --
+> 2.10.2
+>
+> --
+> Cheers,
+> Stephen Rothwell
