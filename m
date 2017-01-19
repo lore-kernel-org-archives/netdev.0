@@ -1,7 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v6 11/13] net: ethernet: aquantia: Ethtool support
-Date: Wed, 18 Jan 2017 17:08:02 -0800
-Message-ID: <17521bcf9db2011b679782152a22caa3566b3979.1484788010.git.vomlehn@texas.net>
+Subject: [PATCH v6 08/13] net: ethernet: aquantia: PCI operations
+Date: Wed, 18 Jan 2017 17:07:59 -0800
+Message-ID: <ad5126feef7b8fd8e9b586e4a05e822bb9dd277c.1484788010.git.vomlehn@texas.net>
 References: <cover.1484788010.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
@@ -11,10 +11,10 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda6.aus1.datafoundry.com ([209.99.124.137]:53325 "EHLO
+Received: from barracuda6.aus1.datafoundry.com ([209.99.124.137]:53293 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751543AbdASBKZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 20:10:25 -0500
+        by vger.kernel.org with ESMTP id S1751450AbdASBKY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 20:10:24 -0500
 In-Reply-To: <cover.1484788010.git.vomlehn@texas.net>
 In-Reply-To: <cover.1484788010.git.vomlehn@texas.net>
 References: <cover.1484788010.git.vomlehn@texas.net>
@@ -23,7 +23,7 @@ List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add the driver interfaces required for support by the ethtool utility.
+Add functions that handle the PCI bus interface.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
@@ -31,18 +31,18 @@ Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- .../net/ethernet/aquantia/atlantic/aq_ethtool.c    | 258 +++++++++++++++++++++
- .../net/ethernet/aquantia/atlantic/aq_ethtool.h    |  19 ++
- 2 files changed, 277 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h
+ .../net/ethernet/aquantia/atlantic/aq_pci_func.c   | 345 +++++++++++++++++++++
+ .../net/ethernet/aquantia/atlantic/aq_pci_func.h   |  34 ++
+ 2 files changed, 379 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_pci_func.h
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
 new file mode 100644
-index 0000000..78d16bc
+index 0000000..ffcb7bc
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
-@@ -0,0 +1,258 @@
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
+@@ -0,0 +1,345 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -52,261 +52,348 @@ index 0000000..78d16bc
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_ethtool.c: Definition of ethertool related functions. */
++/* File aq_pci_func.c: Definition of PCI functions. */
 +
-+#include "aq_ethtool.h"
++#include "aq_pci_func.h"
 +#include "aq_nic.h"
++#include "aq_vec.h"
++#include "aq_hw.h"
++#include <linux/interrupt.h>
 +
-+static void aq_ethtool_get_regs(struct net_device *ndev,
-+				struct ethtool_regs *regs, void *p)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	u32 regs_count = aq_nic_get_regs_count(aq_nic);
-+
-+	memset(p, 0, regs_count * sizeof(u32));
-+	aq_nic_get_regs(aq_nic, regs, p);
-+}
-+
-+static int aq_ethtool_get_regs_len(struct net_device *ndev)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	u32 regs_count = aq_nic_get_regs_count(aq_nic);
-+
-+	return regs_count * sizeof(u32);
-+}
-+
-+static u32 aq_ethtool_get_link(struct net_device *ndev)
-+{
-+	return ethtool_op_get_link(ndev);
-+}
-+
-+static int aq_ethtool_get_settings(struct net_device *ndev,
-+				   struct ethtool_cmd *cmd)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+
-+	aq_nic_get_link_settings(aq_nic, cmd);
-+	ethtool_cmd_speed_set(cmd, netif_carrier_ok(ndev) ?
-+				aq_nic_get_link_speed(aq_nic) : 0U);
-+
-+	return 0;
-+}
-+
-+static int aq_ethtool_set_settings(struct net_device *ndev,
-+				   struct ethtool_cmd *cmd)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+
-+	return aq_nic_set_link_settings(aq_nic, cmd);
-+}
-+
-+/* there "5U" is number of queue[#] stats lines (InPackets+...+InErrors) */
-+static const unsigned int aq_ethtool_stat_queue_lines = 5U;
-+static const unsigned int aq_ethtool_stat_queue_chars =
-+	5U * ETH_GSTRING_LEN;
-+static const char aq_ethtool_stat_names[][ETH_GSTRING_LEN] = {
-+	"InPackets",
-+	"InUCast",
-+	"InMCast",
-+	"InBCast",
-+	"InErrors",
-+	"OutPackets",
-+	"OutUCast",
-+	"OutMCast",
-+	"OutBCast",
-+	"InUCastOctects",
-+	"OutUCastOctects",
-+	"InMCastOctects",
-+	"OutMCastOctects",
-+	"InBCastOctects",
-+	"OutBCastOctects",
-+	"InOctects",
-+	"OutOctects",
-+	"InPacketsDma",
-+	"OutPacketsDma",
-+	"InOctetsDma",
-+	"OutOctetsDma",
-+	"InDroppedDma",
-+	"Queue[0] InPackets",
-+	"Queue[0] OutPackets",
-+	"Queue[0] InJumboPackets",
-+	"Queue[0] InLroPackets",
-+	"Queue[0] InErrors",
-+	"Queue[1] InPackets",
-+	"Queue[1] OutPackets",
-+	"Queue[1] InJumboPackets",
-+	"Queue[1] InLroPackets",
-+	"Queue[1] InErrors",
-+	"Queue[2] InPackets",
-+	"Queue[2] OutPackets",
-+	"Queue[2] InJumboPackets",
-+	"Queue[2] InLroPackets",
-+	"Queue[2] InErrors",
-+	"Queue[3] InPackets",
-+	"Queue[3] OutPackets",
-+	"Queue[3] InJumboPackets",
-+	"Queue[3] InLroPackets",
-+	"Queue[3] InErrors",
-+	"Queue[4] InPackets",
-+	"Queue[4] OutPackets",
-+	"Queue[4] InJumboPackets",
-+	"Queue[4] InLroPackets",
-+	"Queue[4] InErrors",
-+	"Queue[5] InPackets",
-+	"Queue[5] OutPackets",
-+	"Queue[5] InJumboPackets",
-+	"Queue[5] InLroPackets",
-+	"Queue[5] InErrors",
-+	"Queue[6] InPackets",
-+	"Queue[6] OutPackets",
-+	"Queue[6] InJumboPackets",
-+	"Queue[6] InLroPackets",
-+	"Queue[6] InErrors",
-+	"Queue[7] InPackets",
-+	"Queue[7] OutPackets",
-+	"Queue[7] InJumboPackets",
-+	"Queue[7] InLroPackets",
-+	"Queue[7] InErrors",
++struct aq_pci_func_s {
++	struct pci_dev *pdev;
++	struct aq_nic_s *port[AQ_CFG_PCI_FUNC_PORTS];
++	void __iomem *mmio;
++	void *aq_vec[AQ_CFG_PCI_FUNC_MSIX_IRQS];
++	resource_size_t mmio_pa;
++	unsigned int msix_entry_mask;
++	unsigned int irq_type;
++	unsigned int ports;
++	bool is_pci_enabled;
++	bool is_regions;
++	bool is_pci_using_dac;
++	struct aq_hw_caps_s aq_hw_caps;
++	struct msix_entry msix_entry[AQ_CFG_PCI_FUNC_MSIX_IRQS];
 +};
 +
-+static void aq_ethtool_stats(struct net_device *ndev,
-+			     struct ethtool_stats *stats, u64 *data)
++struct aq_pci_func_s *aq_pci_func_alloc(struct aq_hw_ops *aq_hw_ops,
++					struct pci_dev *pdev,
++					const struct net_device_ops *ndev_ops,
++					const struct ethtool_ops *eth_ops)
 +{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
++	struct aq_pci_func_s *self = NULL;
++	int err = 0;
++	unsigned int port = 0U;
 +
-+/* ASSERT: Need add lines to aq_ethtool_stat_names if AQ_CFG_VECS_MAX > 8 */
-+	BUILD_BUG_ON(AQ_CFG_VECS_MAX > 8);
-+	memset(data, 0, ARRAY_SIZE(aq_ethtool_stat_names) * sizeof(u64));
-+	aq_nic_get_stats(aq_nic, data);
-+}
-+
-+static void aq_ethtool_get_drvinfo(struct net_device *ndev,
-+				   struct ethtool_drvinfo *drvinfo)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+	u32 firmware_version = aq_nic_get_fw_version(aq_nic);
-+	u32 regs_count = aq_nic_get_regs_count(aq_nic);
-+
-+	strlcat(drvinfo->driver, AQ_CFG_DRV_NAME, sizeof(drvinfo->driver));
-+	strlcat(drvinfo->version, AQ_CFG_DRV_VERSION, sizeof(drvinfo->version));
-+
-+	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
-+		 "%u.%u.%u", firmware_version >> 24,
-+		 (firmware_version >> 16) & 0xFFU, firmware_version & 0xFFFFU);
-+
-+	drvinfo->n_stats = ARRAY_SIZE(aq_ethtool_stat_names) -
-+		(AQ_CFG_VECS_MAX - cfg->vecs) * aq_ethtool_stat_queue_lines;
-+	drvinfo->testinfo_len = 0;
-+	drvinfo->regdump_len = regs_count;
-+	drvinfo->eedump_len = 0;
-+}
-+
-+static void aq_ethtool_get_strings(struct net_device *ndev,
-+				   u32 stringset, u8 *data)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+
-+	if (stringset == ETH_SS_STATS)
-+		memcpy(data, *aq_ethtool_stat_names,
-+		       sizeof(aq_ethtool_stat_names) -
-+		       (AQ_CFG_VECS_MAX - cfg->vecs) *
-+		       aq_ethtool_stat_queue_chars);
-+}
-+
-+static int aq_ethtool_get_sset_count(struct net_device *ndev, int stringset)
-+{
-+	int ret = 0;
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		ret = ARRAY_SIZE(aq_ethtool_stat_names) -
-+			(AQ_CFG_VECS_MAX - cfg->vecs) *
-+			aq_ethtool_stat_queue_lines;
-+		break;
-+	default:
-+		ret = -EOPNOTSUPP;
++	if (!aq_hw_ops) {
++		err = -EFAULT;
++		goto err_exit;
 +	}
-+	return ret;
++	self = kzalloc(sizeof(*self), GFP_KERNEL);
++	if (!self) {
++		err = -ENOMEM;
++		goto err_exit;
++	}
++
++	pci_set_drvdata(pdev, self);
++	self->pdev = pdev;
++
++	err = aq_hw_ops->get_hw_caps(NULL, &self->aq_hw_caps);
++	if (err < 0)
++		goto err_exit;
++
++	self->ports = self->aq_hw_caps.ports;
++
++	for (port = 0; port < self->ports; ++port) {
++		struct aq_nic_s *aq_nic = aq_nic_alloc_cold(ndev_ops, eth_ops,
++							    &pdev->dev, self,
++							    port, aq_hw_ops);
++
++		if (!aq_nic) {
++			err = -ENOMEM;
++			goto err_exit;
++		}
++		self->port[port] = aq_nic;
++	}
++
++err_exit:
++	if (err < 0) {
++		if (self)
++			aq_pci_func_free(self);
++		self = NULL;
++	}
++
++	(void)err;
++	return self;
 +}
 +
-+static u32 aq_ethtool_get_rss_indir_size(struct net_device *ndev)
++int aq_pci_func_init(struct aq_pci_func_s *self)
 +{
-+	return AQ_CFG_RSS_INDIRECTION_TABLE_MAX;
-+}
-+
-+static u32 aq_ethtool_get_rss_key_size(struct net_device *ndev)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+
-+	return sizeof(cfg->aq_rss.hash_secret_key);
-+}
-+
-+static int aq_ethtool_get_rss(struct net_device *ndev, u32 *indir, u8 *key,
-+			      u8 *hfunc)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
++	int err = 0;
++	unsigned int bar = 0U;
++	unsigned int port = 0U;
 +	unsigned int i = 0U;
 +
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP; /* Toeplitz */
-+	if (indir) {
-+		for (i = 0; i < AQ_CFG_RSS_INDIRECTION_TABLE_MAX; i++)
-+			indir[i] = cfg->aq_rss.indirection_table[i];
++	err = pci_enable_device(self->pdev);
++	if (err < 0)
++		goto err_exit;
++
++	self->is_pci_enabled = true;
++
++	err = pci_set_dma_mask(self->pdev, DMA_BIT_MASK(64));
++	if (!err) {
++		err = pci_set_consistent_dma_mask(self->pdev, DMA_BIT_MASK(64));
++		self->is_pci_using_dac = 1;
 +	}
-+	if (key)
-+		memcpy(key, cfg->aq_rss.hash_secret_key,
-+		       sizeof(cfg->aq_rss.hash_secret_key));
-+	return 0;
++	if (err) {
++		err = pci_set_dma_mask(self->pdev, DMA_BIT_MASK(32));
++		if (!err)
++			err = pci_set_consistent_dma_mask(self->pdev,
++							  DMA_BIT_MASK(32));
++		self->is_pci_using_dac = 0;
++	}
++	if (err != 0) {
++		err = -ENOSR;
++		goto err_exit;
++	}
++
++	err = pci_request_regions(self->pdev, AQ_CFG_DRV_NAME "_mmio");
++	if (err < 0)
++		goto err_exit;
++
++	self->is_regions = true;
++
++	pci_set_master(self->pdev);
++
++	for (bar = 0; bar < 4; ++bar) {
++		if (IORESOURCE_MEM & pci_resource_flags(self->pdev, bar)) {
++			resource_size_t reg_sz;
++
++			self->mmio_pa = pci_resource_start(self->pdev, bar);
++			if (self->mmio_pa == 0U) {
++				err = -EIO;
++				goto err_exit;
++			}
++
++			reg_sz = pci_resource_len(self->pdev, bar);
++			if ((reg_sz <= 24 /*ATL_REGS_SIZE*/)) {
++				err = -EIO;
++				goto err_exit;
++			}
++
++			self->mmio = ioremap_nocache(self->mmio_pa, reg_sz);
++			if (!self->mmio) {
++				err = -EIO;
++				goto err_exit;
++			}
++			break;
++		}
++	}
++
++	if (err < 0)
++		goto err_exit;
++	for (i = 0; i < self->aq_hw_caps.msix_irqs; i++)
++		self->msix_entry[i].entry = i;
++
++	/*enable interrupts */
++#if AQ_CFG_FORCE_LEGACY_INT
++	self->irq_type = AQ_IRQ_LEGACY;
++#else
++	err = pci_enable_msix(self->pdev, self->msix_entry,
++			      self->aq_hw_caps.msix_irqs);
++
++	if (err >= 0) {
++		self->irq_type = AQ_IRQ_MSIX;
++	} else {
++		err = pci_enable_msi(self->pdev);
++
++		if (err >= 0) {
++			self->irq_type = AQ_IRQ_MSI;
++		} else {
++			self->irq_type = AQ_IRQ_LEGACY;
++			err = 0;
++		}
++	}
++#endif
++
++	/* net device init */
++	for (port = 0; port < self->ports; ++port) {
++		if (!self->port[port])
++			continue;
++
++		err = aq_nic_cfg_start(self->port[port]);
++		if (err < 0)
++			goto err_exit;
++
++		err = aq_nic_ndev_init(self->port[port]);
++		if (err < 0)
++			goto err_exit;
++
++		err = aq_nic_ndev_register(self->port[port]);
++		if (err < 0)
++			goto err_exit;
++	}
++
++err_exit:
++	if (err < 0)
++		aq_pci_func_deinit(self);
++	return err;
 +}
 +
-+static int aq_ethtool_get_rxnfc(struct net_device *ndev,
-+				struct ethtool_rxnfc *cmd,
-+				u32 *rule_locs)
++int aq_pci_func_alloc_irq(struct aq_pci_func_s *self, unsigned int i,
++			  char *name, void *aq_vec, cpumask_t *affinity_mask)
 +{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
 +	int err = 0;
 +
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = cfg->vecs;
++	switch (self->irq_type) {
++	case AQ_IRQ_MSIX:
++		err = request_irq(self->msix_entry[i].vector, aq_vec_isr, 0,
++				  name, aq_vec);
++		break;
++
++	case AQ_IRQ_MSI:
++		err = request_irq(self->pdev->irq, aq_vec_isr, 0, name, aq_vec);
++		break;
++
++	case AQ_IRQ_LEGACY:
++		err = request_irq(self->pdev->irq, aq_vec_isr_legacy,
++				  IRQF_SHARED, name, aq_vec);
 +		break;
 +
 +	default:
-+		err = -EOPNOTSUPP;
++		err = -EFAULT;
 +		break;
++	}
++
++	if (err >= 0) {
++		self->msix_entry_mask |= (1 << i);
++		self->aq_vec[i] = aq_vec;
++
++		if (self->irq_type == AQ_IRQ_MSIX)
++			irq_set_affinity_hint(self->msix_entry[i].vector,
++					      affinity_mask);
 +	}
 +
 +	return err;
 +}
 +
-+const struct ethtool_ops aq_ethtool_ops = {
-+	.get_link            = aq_ethtool_get_link,
-+	.get_regs_len        = aq_ethtool_get_regs_len,
-+	.get_regs            = aq_ethtool_get_regs,
-+	.get_settings        = aq_ethtool_get_settings,
-+	.set_settings        = aq_ethtool_set_settings,
-+	.get_drvinfo         = aq_ethtool_get_drvinfo,
-+	.get_strings         = aq_ethtool_get_strings,
-+	.get_rxfh_indir_size = aq_ethtool_get_rss_indir_size,
-+	.get_rxfh_key_size   = aq_ethtool_get_rss_key_size,
-+	.get_rxfh            = aq_ethtool_get_rss,
-+	.get_rxnfc           = aq_ethtool_get_rxnfc,
-+	.get_sset_count      = aq_ethtool_get_sset_count,
-+	.get_ethtool_stats   = aq_ethtool_stats
-+};
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h
++void aq_pci_func_free_irqs(struct aq_pci_func_s *self)
++{
++	unsigned int i = 0U;
++
++	for (i = 32U; i--;) {
++		if (!((1U << i) & self->msix_entry_mask))
++			continue;
++
++		switch (self->irq_type) {
++		case AQ_IRQ_MSIX:
++			irq_set_affinity_hint(self->msix_entry[i].vector, NULL);
++			free_irq(self->msix_entry[i].vector, self->aq_vec[i]);
++			break;
++
++		case AQ_IRQ_MSI:
++			free_irq(self->pdev->irq, self->aq_vec[i]);
++			break;
++
++		case AQ_IRQ_LEGACY:
++			free_irq(self->pdev->irq, self->aq_vec[i]);
++			break;
++
++		default:
++			break;
++		}
++
++		self->msix_entry_mask &= ~(1U << i);
++	}
++}
++
++void __iomem *aq_pci_func_get_mmio(struct aq_pci_func_s *self)
++{
++	return self->mmio;
++}
++
++unsigned int aq_pci_func_get_irq_type(struct aq_pci_func_s *self)
++{
++	return self->irq_type;
++}
++
++void aq_pci_func_deinit(struct aq_pci_func_s *self)
++{
++	if (!self)
++		goto err_exit;
++
++	aq_pci_func_free_irqs(self);
++
++	switch (self->irq_type) {
++	case AQ_IRQ_MSI:
++		pci_disable_msi(self->pdev);
++		break;
++
++	case AQ_IRQ_MSIX:
++		pci_disable_msix(self->pdev);
++		break;
++
++	case AQ_IRQ_LEGACY:
++		break;
++
++	default:
++		break;
++	}
++
++	if (self->is_regions)
++		pci_release_regions(self->pdev);
++
++	if (self->is_pci_enabled)
++		pci_disable_device(self->pdev);
++
++err_exit:;
++}
++
++void aq_pci_func_free(struct aq_pci_func_s *self)
++{
++	unsigned int port = 0U;
++
++	if (!self)
++		goto err_exit;
++
++	for (port = 0; port < self->ports; ++port) {
++		if (!self->port[port])
++			continue;
++
++		aq_nic_ndev_free(self->port[port]);
++	}
++
++	kfree(self);
++
++err_exit:;
++}
++
++int aq_pci_func_change_pm_state(struct aq_pci_func_s *self,
++				pm_message_t *pm_msg)
++{
++	int err = 0;
++	unsigned int port = 0U;
++
++	if (!self) {
++		err = -EFAULT;
++		goto err_exit;
++	}
++	for (port = 0; port < self->ports; ++port) {
++		if (!self->port[port])
++			continue;
++
++		(void)aq_nic_change_pm_state(self->port[port], pm_msg);
++	}
++
++err_exit:
++	return err;
++}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.h b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.h
 new file mode 100644
-index 0000000..21c126e
+index 0000000..ecb0337
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h
-@@ -0,0 +1,19 @@
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_pci_func.h
+@@ -0,0 +1,34 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -316,15 +403,30 @@ index 0000000..21c126e
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_ethtool.h: Declaration of ethertool related functions. */
++/* File aq_pci_func.h: Declaration of PCI functions. */
 +
-+#ifndef AQ_ETHTOOL_H
-+#define AQ_ETHTOOL_H
++#ifndef AQ_PCI_FUNC_H
++#define AQ_PCI_FUNC_H
 +
 +#include "aq_common.h"
 +
-+extern const struct ethtool_ops aq_ethtool_ops;
++struct aq_pci_func_s *aq_pci_func_alloc(struct aq_hw_ops *hw_ops,
++					struct pci_dev *pdev,
++					const struct net_device_ops *ndev_ops,
++					const struct ethtool_ops *eth_ops);
++int aq_pci_func_init(struct aq_pci_func_s *self);
++int aq_pci_func_alloc_irq(struct aq_pci_func_s *self, unsigned int i,
++			  char *name, void *aq_vec,
++			  cpumask_t *affinity_mask);
++void aq_pci_func_free_irqs(struct aq_pci_func_s *self);
++int aq_pci_func_start(struct aq_pci_func_s *self);
++void __iomem *aq_pci_func_get_mmio(struct aq_pci_func_s *self);
++unsigned int aq_pci_func_get_irq_type(struct aq_pci_func_s *self);
++void aq_pci_func_deinit(struct aq_pci_func_s *self);
++void aq_pci_func_free(struct aq_pci_func_s *self);
++int aq_pci_func_change_pm_state(struct aq_pci_func_s *self,
++				pm_message_t *pm_msg);
 +
-+#endif /* AQ_ETHTOOL_H */
++#endif /* AQ_PCI_FUNC_H */
 -- 
 2.9.3
