@@ -1,30 +1,41 @@
-From: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
-Subject: Re: [PATCH v3 1/3] NFC: trf7970a: add device tree option for 27MHz
- clock
-Date: Thu, 19 Jan 2017 16:35:23 -0700
-Message-ID: <20170119233523.GA30311@animalcreek.com>
-References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
+From: Josef Bacik <jbacik@fb.com>
+Subject: [PATCH] inet: don't use sk_v6_rcv_saddr directly
+Date: Thu, 19 Jan 2017 17:47:46 -0500
+Message-ID: <1484866066-25407-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-        aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org
-To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1482380314-16440-1-git-send-email-geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <tom@herbertland.com>,
+        <netdev@vger.kernel.org>, <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37746 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751944AbdATAC3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 19:02:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2016 at 11:18:32PM -0500, Geoff Lansberry wrote:
-> The TRF7970A has configuration options to support hardware designs
-> which use a 27.12MHz clock. This commit adds a device tree option
-> 'clock-frequency' to support configuring the this chip for default
-> 13.56MHz clock or the optional 27.12MHz clock.
-> 
-> Signed-off-by: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-> ---
+When comparing two sockets we need to use inet6_rcv_saddr so we get a NULL
+sk_v6_rcv_saddr if the socket isn't AF_INET6, otherwise our comparison function
+can be wrong.
 
-Acked-by: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
+Fixes: 637bc8b ("inet: reset tb->fastreuseport when adding a reuseport sk")
+Signed-off-by: Josef Bacik <jbacik@fb.com>
+---
+ net/ipv4/inet_connection_sock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 096a085..a336c42 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -99,7 +99,7 @@ int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (sk->sk_family == AF_INET6)
+ 		return ipv6_rcv_saddr_equal(&sk->sk_v6_rcv_saddr,
+-					    &sk2->sk_v6_rcv_saddr,
++					    inet6_rcv_saddr(sk2),
+ 					    sk->sk_rcv_saddr,
+ 					    sk2->sk_rcv_saddr,
+ 					    ipv6_only_sock(sk),
+-- 
+2.5.5
