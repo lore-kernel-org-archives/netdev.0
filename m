@@ -1,82 +1,93 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH RFC 0/7] Clean up PHY MMD accessors
-Date: Thu, 19 Jan 2017 19:58:19 +0000
-Message-ID: <20170119195819.GJ27312@n2100.armlinux.org.uk>
-References: <20170113152059.GR14217@n2100.armlinux.org.uk>
- <9fb97d58-6ad3-f9d1-c255-9f91e5857f88@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCHv3 net-next 4/4] sctp: implement sender-side procedures
+ for Add Incoming/Outgoing Streams Request Parameter
+Date: Thu, 19 Jan 2017 15:17:18 -0500
+Message-ID: <20170119201718.GA21836@hmswarspite.think-freely.org>
+References: <cover.1484845510.git.lucien.xin@gmail.com>
+ <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Woojung Huh <woojung.huh@microchip.com>, netdev@vger.kernel.org,
- linux-usb@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53469 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754256AbdASUS4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 15:18:56 -0500
 Content-Disposition: inline
-In-Reply-To: <9fb97d58-6ad3-f9d1-c255-9f91e5857f88@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2017 at 11:42:47AM -0800, Florian Fainelli wrote:
-> On 01/13/2017 07:20 AM, Russell King - ARM Linux wrote:
-> > This series cleans up phylib's MMD accessors, so that we have a common
-> > way of accessing the Clause 45 register set.
-> > 
-> > The current situation is far from ideal - we have phy_(read|write)_mmd()
-> > which accesses Clause 45 registers over Clause 45 accesses, and we have
-> > phy_(read|write)_mmd_indirect(), which accesses Clause 45 registers via
-> > Clause 22 register 13/14.
-> > 
-> > Generic code uses the indirect methods to access standard Clause 45
-> > features, and when we come to add Clause 45 PHY support to phylib, we
-> > would need to make these conditional upon the PHY type, or duplicate
-> > these functions.
-> > 
-> > An alternative solution is to merge these accessors together, and select
-> > the appropriate access method depending upon the 802.3 clause that the
-> > PHY conforms with.  The result is that we have a single set of
-> > phy_(read|write)_mmd() accessors.
-> > 
-> > For cases which require special handling, we still allow PHY drivers to
-> > override all MMD accesses - except rather than just overriding the
-> > indirect accesses.  This keeps existing overrides working.
-> > 
-> > Combining the two also has another beneficial side effect - we get rid
-> > of similar functions that take arguments in different orders.  The
-> > old direct accessors took the phy structure, devad and register number,
-> > whereas the indirect accessors took the phy structure, register number
-> > and devad in that order.  Care must be taken when updating future
-> > drivers that the argument order is correct, and the function name is
-> > not merely replaced.
+On Fri, Jan 20, 2017 at 01:19:14AM +0800, Xin Long wrote:
+> This patch is to implement Sender-Side Procedures for the Add
+> Outgoing and Incoming Streams Request Parameter described in
+> rfc6525 section 5.1.5-5.1.6.
 > 
-> I really like that series, this is much much cleaner, do you mind
-> resubmitting this without a RFC tag so David can apply it?
+> It is also to add sockopt SCTP_ADD_STREAMS in rfc6525 section
+> 6.3.4 for users.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  include/net/sctp/sctp.h   |  2 +
+>  include/uapi/linux/sctp.h |  7 ++++
+>  net/sctp/socket.c         | 29 ++++++++++++++
+>  net/sctp/stream.c         | 99 +++++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 137 insertions(+)
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index b93820f..68ee1a6 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -199,6 +199,8 @@ int sctp_offload_init(void);
+>  int sctp_send_reset_streams(struct sctp_association *asoc,
+>  			    struct sctp_reset_streams *params);
+>  int sctp_send_reset_assoc(struct sctp_association *asoc);
+> +int sctp_send_add_streams(struct sctp_association *asoc,
+> +			  struct sctp_add_streams *params);
+>  
+>  /*
+>   * Module global variables
+> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+> index c0bd8c3..a91a9cc 100644
+> --- a/include/uapi/linux/sctp.h
+> +++ b/include/uapi/linux/sctp.h
+> @@ -118,6 +118,7 @@ typedef __s32 sctp_assoc_t;
+>  #define SCTP_ENABLE_STREAM_RESET	118
+>  #define SCTP_RESET_STREAMS	119
+>  #define SCTP_RESET_ASSOC	120
+> +#define SCTP_ADD_STREAMS	121
+>  
+>  /* PR-SCTP policies */
+>  #define SCTP_PR_SCTP_NONE	0x0000
+> @@ -1027,4 +1028,10 @@ struct sctp_reset_streams {
+>  	uint16_t srs_stream_list[];	/* list if srs_num_streams is not 0 */
+>  };
+>  
+> +struct sctp_add_streams {
+> +	sctp_assoc_t sas_assoc_id;
+> +	uint16_t sas_instrms;
+> +	uint16_t sas_outstrms;
+> +};
+> +
+>  #endif /* _UAPI_SCTP_H */
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 2c5c9ca..ae0a99e 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -3838,6 +3838,32 @@ static int sctp_setsockopt_reset_assoc(struct sock *sk,
+>  	return retval;
+>  }
+>  
+> +static int sctp_setsockopt_add_streams(struct sock *sk,
+> +				       char __user *optval,
+> +				       unsigned int optlen)
+> +{
+you are going to need to provide some locking here or in sctp_send_add_streams.
+By replacing the in/out streams pointer you run the risk of multiple callers
+modifying the pointers in parallel, or in the sctp state machine reading it
+while you do.
 
-Hi Florian,
-
-Thanks.
-
-Will do in the next couple of days - I'd prefer to make one change
-to the series before submitting it for real: provide compatibility
-functions marked as deprecated so this doesn't create a flag day.
-We can remove the deprecated _indirect functions later when we know
-there's no new users.
-
-I'd like to get the phy.h untanglement stuff into David's tree first.
-I'm almost there, my allmodconfig from last night almost built fine
-but for something I missed in bgmac.c, and 0-day found a MIPS file
-affected by the change.  New code pushed out for 0-day and I'm
-expecting tonights allmodconfig to be clear.
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Neil
