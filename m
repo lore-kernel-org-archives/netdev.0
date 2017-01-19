@@ -1,46 +1,60 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net/mlx5e: Remove unused variable
-Date: Thu, 19 Jan 2017 10:33:29 +0100
-Message-ID: <20170119093401.2582672-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Gal Pressman <galp@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Maor Gottlieb <maorg@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: Re: xennet_start_xmit assumptions
+Date: Thu, 19 Jan 2017 09:36:12 +0000
+Message-ID: <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
+References: <20170118153132.GB9258@oracle.com>
+ <20170118192528.GA6847@char.us.oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Sowmini Varadhan
+ <sowmini.varadhan@oracle.com>, Wei Liu <wei.liu2@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <20170118192528.GA6847@char.us.oracle.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-A cleanup removed the only user of this variable
-
-mlx5/core/en_ethtool.c: In function 'mlx5e_set_channels':
-mlx5/core/en_ethtool.c:546:6: error: unused variable 'ncv' [-Werror=unused-variable]
-
-Let's remove the declaration as well.
-
-Fixes: 639e9e94160e ("net/mlx5e: Remove unnecessary checks when setting num channels")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index b1b9eb6ee135..5197817e4b2f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -543,7 +543,6 @@ static int mlx5e_set_channels(struct net_device *dev,
- 			      struct ethtool_channels *ch)
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
--	int ncv = mlx5e_get_max_num_channels(priv->mdev);
- 	unsigned int count = ch->combined_count;
- 	bool arfs_enabled;
- 	bool was_opened;
--- 
-2.9.0
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IEtvbnJhZCBSemVzenV0ZWsgV2ls
+ayBbbWFpbHRvOmtvbnJhZC53aWxrQG9yYWNsZS5jb21dCj4gU2VudDogMTggSmFudWFyeSAyMDE3
+IDE5OjI1Cj4gVG86IFNvd21pbmkgVmFyYWRoYW4gPHNvd21pbmkudmFyYWRoYW5Ab3JhY2xlLmNv
+bT47IFdlaSBMaXUKPiA8d2VpLmxpdTJAY2l0cml4LmNvbT47IFBhdWwgRHVycmFudCA8UGF1bC5E
+dXJyYW50QGNpdHJpeC5jb20+Cj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHhlbi1kZXZl
+bEBsaXN0cy54ZW5wcm9qZWN0Lm9yZwo+IFN1YmplY3Q6IFJlOiBbWGVuLWRldmVsXSB4ZW5uZXRf
+c3RhcnRfeG1pdCBhc3N1bXB0aW9ucwo+IAo+IE9uIFdlZCwgSmFuIDE4LCAyMDE3IGF0IDEwOjMx
+OjMyQU0gLTA1MDAsIFNvd21pbmkgVmFyYWRoYW4gd3JvdGU6Cj4gPiBBcyBJIHdhcyBwbGF5aW5n
+IGFyb3VuZCB3aXRoIHBmX3BhY2tldCwgSSBhY2NpZGVudGFsbHkgd3JvdGUKPiA+IGEgYnVnZ3kg
+YXBwbGljYXRpb24gcHJvZ3JhbSB0aGF0IGJ6ZXJvJ2VkIHRoZSBtc2doZHIsIHRoZW4gc2V0Cj4g
+PiB1cCB0aGUgbXNnX25hbWUsIG1zZ19uYW1lbGVuIGNvcnJlY3RseSwgYW5kIHRoZW4gZGlkIGEg
+c2VuZG1zZwo+ID4gb24gdGhlIHBmX3BhY2tldC9TT0NLX1JBVyBmZC4KPiA+Cj4gPiBUaGlzIGNh
+dXNlcyBwYWNrZXRfc25kIHRvIHNldCB1cCBhbiBza2Igd2l0aCBhIGxvdCBvZiBpc3N1ZXMsCj4g
+PiBlLmcuLCBza2ItPmxlbiA9IDAsIHNrYl9oZWFkbGVuKHNrYikgaXMgMCwgZXRjLiBJIHRoaW5r
+IHdlIGNhbi9zaG91bGQKPiA+IGRyb3AgdGhlIHBhY2tldCBpbiBwYWNrZXRfc25kIGlmIHRoZSBz
+a2ItPmxlbiBpcyAwLCBidXQgdGhlcmUKPiA+IG1heSBiZSBvdGhlciBkcml2ZXIgYnVncyBnb2lu
+ZyBvbjoKPiA+Cj4gPiBUdXJucyBvdXQgdGhhdCBpeGdiZSBhbmQgc3Vudm5ldCBoYW5kbGUgdGhp
+cyBwcm9ibGVtYXRpYwo+ID4gc2tiIGNvcnJlY3RseSAodGhleSBkcm9wIGl0IGFuZCBzeXN0ZW0g
+cmVtYWlucyBzdGFibGUpLAo+ID4gYnV0IGl0IGNyZWF0ZXMgYSBwYW5pYyBpbiB4ZW5fbmV0ZnJv
+bnQgKHhlbm5ldF9zdGFydF94bWl0KCkKPiA+IGhpdHMgYSBudWxsIHBvaW50ZXIgZGVyZWYgd2hl
+biB4ZW5uZXRfbWFrZV9maXJzdF90eHJlcSgpIHJldHVybnMKPiA+IE5VTEwpCj4gPgo+ID4gSSdt
+IG5ldyB0byB0aGUgeGVuIGRyaXZlciBjb2RlLCBzbyBJJ20gaG9waW5nIHRoYXQKPiA+IHRoZSBl
+eHBlcnRzIGNhbiBjb21tZW50IGhlcmU6IHJlYWRpbmcgdGhlIGNvZGUgaW4geGVubmV0X3N0YXJ0
+X3htaXQsCj4gPiBpdCBzZWVtcyBsaWtlIGl0IG1hbmRhdG9yaWx5IHJlcXVpcmVzIHRoZSBza2Jf
+aGVhZGxlbigpIHRvIGJlCj4gPiBub24temVybyBpbiBvcmRlciB0byBjcmVhdGUgdGhlIGZpcnN0
+X3R4PyBUaGF0IG1heSBub3QgYWx3YXlzIGJlCj4gPiB0cnVlLCBob3cgZG9lcyB0aGUgY29kZSBy
+ZWNvdmVyIGZvciBwdXJlbHkgbm9uLWxpbmVhciBza2JzPwoKSGkgU293bWluaSwKCiAgU291bmRz
+IGxpa2UgYSBzdHJhaWdodGZvcndhcmQgYnVnIHRvIG1lLi4uIG5ldGZyb250IHNob3VsZCBiZSBh
+YmxlIHRvIGhhbmRsZSBhbiBlbXB0eSBza2IgYW5kIGNsZWFybHksIGlmIGl0J3MgcmVseWluZyBv
+biBza2JfaGVhZGxlbigpIGJlaW5nIG5vbi16ZXJvLCB0aGF0J3Mgbm90IHRoZSBjYXNlLgoKICBQ
+YXVsCgo+ID4KPiA+IC0tU293bWluaQo+IAo+IENDLWluZyB0aGUgdHdvIGZvbGtzIGZyb20gdGhl
+IE1BSU5UQUlORVJTIGZpbGUuCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3Jn
+Cmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
