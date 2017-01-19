@@ -1,38 +1,61 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH net-next 0/9] mlx4 misc improvements
-Date: Thu, 19 Jan 2017 10:32:02 +0200
-Message-ID: <ac1e3480-2200-f82f-3dde-5e791546a5b1@gmail.com>
-References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
- <20170117.144952.801420842795315435.davem@davemloft.net>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Thu, 19 Jan 2017 10:00:08 +0100
+Message-ID: <20170119090006.GI30786@dhcp22.suse.cz>
+References: <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
+ <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
+ <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
+ <20161220091150.GJ3124@twins.programming.kicks-ass.net>
+ <20170103102559.GA30129@dhcp22.suse.cz>
+ <20170116011901.GH14446@mtj.duckdns.org>
+ <20170117130303.GL19699@dhcp22.suse.cz>
+ <20170117133204.GA6515@twins.programming.kicks-ass.net>
+ <20170117135830.GO19699@dhcp22.suse.cz>
+ <20170118221850.GF9171@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com
-To: David Miller <davem@davemloft.net>, tariqt@mellanox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <peterz@infradead.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        David Ahern <dsahern@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Daniel Mack <daniel@zonque.org>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        Kees Cook <keescook@chromium.org>, Jann Horn <jann@thejh.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Graf <tgraf@suug.ch>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33338 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750717AbdASIdI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 03:33:08 -0500
-Received: by mail-wm0-f67.google.com with SMTP id r144so10238007wme.0
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 00:32:06 -0800 (PST)
-In-Reply-To: <20170117.144952.801420842795315435.davem@davemloft.net>
+Received: from mx2.suse.de ([195.135.220.15]:53223 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750924AbdASJAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 04:00:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20170118221850.GF9171@mtj.duckdns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed 18-01-17 14:18:50, Tejun Heo wrote:
+> Hello, Michal.
+> 
+> On Tue, Jan 17, 2017 at 02:58:30PM +0100, Michal Hocko wrote:
+> > This would require using hierarchical cgroup iterators to iterate over
+> 
+> It does behave hierarchically.
+> 
+> > tasks. As per Andy's testing this doesn't seem to be the case. I haven't
+> 
+> That's not what Andy's testing showed.  What that showed was that
+> program in a child can override the one from its ancestor.
 
-On 17/01/2017 9:49 PM, David Miller wrote:
-> From: Tariq Toukan <tariqt@mellanox.com>
-> Date: Mon, 16 Jan 2017 19:29:56 +0200
->
->> This patchset contains several improvements and cleanups
->> from the team to the mlx4 Eth and core drivers.
->>
->> Series generated against net-next commit:
->> dbeaa8c2a4ba stmmac: indent an if statement
-> It looks like, at a minimum, we'll need a respin of this series to add
-> some verbiage or explanations to the various commit log messages.
-I'll consider the comments and submit a respin.
-
-Thanks,
-Tariq
+My fault, I've misread Andy's test case. I thought that the child group
+simply disabled the bpf program and the one from the parent hasn't
+executed.
+-- 
+Michal Hocko
+SUSE Labs
