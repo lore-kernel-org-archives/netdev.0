@@ -1,7 +1,7 @@
 From: Paul Blakey <paulb@mellanox.com>
-Subject: [PATCH iproute2 net-next V3] tc: flower: Refactor matching flags to be more user friendly
-Date: Thu, 19 Jan 2017 16:14:01 +0200
-Message-ID: <1484835241-45689-1-git-send-email-paulb@mellanox.com>
+Subject: [PATCH net-next V4] tc: flower: Refactor matching flags to be more user friendly
+Date: Thu, 19 Jan 2017 16:17:48 +0200
+Message-ID: <1484835468-46051-1-git-send-email-paulb@mellanox.com>
 Cc: Jiri Pirko <jiri@mellanox.com>, Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
         Simon Horman <simon.horman@netronome.com>,
@@ -9,10 +9,10 @@ Cc: Jiri Pirko <jiri@mellanox.com>, Or Gerlitz <ogerlitz@mellanox.com>,
 To: Stephen Hemminger <stephen@networkplumber.org>,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47324 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47875 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752811AbdASOWK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 09:22:10 -0500
+        with ESMTP id S1752865AbdASOYn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 09:24:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -54,6 +54,9 @@ Thanks,
 
 Changelog:
 
+v4:
+Changed prefix in manpage as well.
+
 v3:
 Changed prefix to "no" instead of "no_".
 
@@ -66,7 +69,7 @@ Changed delimiter to "/" to avoid shell pipe errors.
  2 files changed, 102 insertions(+), 27 deletions(-)
 
 diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 2dd2c5e..77da10b 100644
+index 2dd2c5e..2bdd2ef 100644
 --- a/man/man8/tc-flower.8
 +++ b/man/man8/tc-flower.8
 @@ -46,7 +46,9 @@ flower \- flow based traffic control filter
@@ -88,7 +91,7 @@ index 2dd2c5e..77da10b 100644
 +.BI ip_flags " IP_FLAGS"
 +.I IP_FLAGS
 +may be either
-+.BR frag " or " no_frag
++.BR frag " or " nofrag
 +to match on fragmented packets or not respectively.
  .SH NOTES
  As stated above where applicable, matches of a certain layer implicitly depend
