@@ -1,92 +1,72 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] net: ethtool: avoid allocation failure for dump_regs
-Date: Thu, 19 Jan 2017 09:15:09 -0500
-Message-ID: <20170119141508.GA6245@tuxdriver.com>
-References: <1484746445-97920-1-git-send-email-darcari@redhat.com>
- <20170118.114505.1855687422610394730.davem@davemloft.net>
- <e88b01a6-dae8-a97e-9a8b-8aab030ad099@redhat.com>
+From: Nogah Frankel <nogahf@mellanox.com>
+Subject: RE: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to
+ extended statistics
+Date: Thu, 19 Jan 2017 15:21:40 +0000
+Message-ID: <DB5PR05MB1895D7CFBE9E127AAAE672DBAC7E0@DB5PR05MB1895.eurprd05.prod.outlook.com>
+References: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
+        <1484228991-32999-4-git-send-email-nogahf@mellanox.com>
+ <20170112174335.1bd391c2@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Arcari <darcari@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "roszenrami@gmail.com" <roszenrami@gmail.com>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48472 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753038AbdASPh0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 10:37:26 -0500
-Content-Disposition: inline
-In-Reply-To: <e88b01a6-dae8-a97e-9a8b-8aab030ad099@redhat.com>
+Received: from mail-eopbgr30040.outbound.protection.outlook.com ([40.107.3.40]:48384
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753143AbdASPiu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 10:38:50 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2017 at 07:35:22AM -0500, David Arcari wrote:
-> On 01/18/2017 11:45 AM, David Miller wrote:
-> > From: David Arcari <darcari@redhat.com>
-> > Date: Wed, 18 Jan 2017 08:34:05 -0500
-> >
-> >> If the user executes 'ethtool -d' for an interface and the associated
-> >> get_regs_len() function returns 0, the user will see a call trace from
-> >> the vmalloc() call in ethtool_get_regs().  This patch modifies
-> >> ethtool_get_regs() to avoid the call to vmalloc when the size is zero.
-> >>
-> >> Signed-off-by: David Arcari <darcari@redhat.com>
-> > I think when the driver indicates this, it is equivalent to saying that
-> > the operation isn't supported.
-> >
-> > Also, this guards us against ->get_regs() methods that don't handle
-> > zero length requests properly.  I see many which are going to do
-> > really terrible things in that situation.
-> >
-> > Therefore, if get_regs_len() returns zero, treat it the safe as if the
-> > ethtool operations were NULL.
-> >
-> > Thanks.
-> 
-> That was actually the fix that I was originally considering, but it
-> turns out
-> there is a problem with it.
-> 
-> I found that the vmalloc error was occurring because
-> ieee80211_get_regs_len() in
-> net/mac80211/ethtool.c was returning zero.  The ieee80211_get_regs in
-> the same
-> file returns the hw version. It turns out that this information is used
-> by the
-> at76c50x-usb driver in the user space ethtool to report which HW variant
-> is in
-> use.  Returning an error when regs_len() returns zero would break this
-> functionality.
-> 
-> -Dave
-
-I'm responsible for this mess. The original idea was for various
-mac80211-based drivers to override the ethtool operation and provide
-their own dump operation, but the mac80211 crowd never embraced
-the idea.
-
-In the meantime, I added the default implementation which just
-passed-up wdev->wiphy->hw_version as the version info for a 0-length
-register dump. I then implemented a driver-specific regiser dump
-handler for userland ethtool that would interpret the hardware version
-information for the at76c50x-usb driver.
-
-So the net of it is, if we treat a return of 0 from get_regs_len()
-as "not supported", we break this one driver-specific feature for
-userland ethtool. Realistically, there are probably very few users
-to care. But I can't guarantee that the number is zero.
-
-Possible solutions:
-
-	-- break userland ethtool for at76c50x-usb
-	-- avoid 0-len allocation attempt (David Arcari's patch)
-	-- make allocator accept a 0 length value w/o oops'ing
-	-- change mac8011 code to return non-zero from get_regs_len()
-
-Thoughts? The last option holds a certain attraction, but I'm not
-sure how to make it useful...?
-
-John
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBOb2dhaCBGcmFua2VsDQo+IFNl
+bnQ6IFN1bmRheSwgSmFudWFyeSAxNSwgMjAxNyAzOjU1IFBNDQo+IFRvOiAnU3RlcGhlbiBIZW1t
+aW5nZXInIDxzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZz4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmc7IHJvc3plbnJhbWlAZ21haWwuY29tOyByb29wYUBjdW11bHVzbmV0d29ya3MuY29t
+OyBKaXJpDQo+IFBpcmtvIDxqaXJpQG1lbGxhbm94LmNvbT47IElkbyBTY2hpbW1lbCA8aWRvc2No
+QG1lbGxhbm94LmNvbT47IEVsYWQgUmF6DQo+IDxlbGFkckBtZWxsYW5veC5jb20+OyBZb3RhbSBH
+aWdpIDx5b3RhbWdAbWVsbGFub3guY29tPjsgT3IgR2VybGl0eg0KPiA8b2dlcmxpdHpAbWVsbGFu
+b3guY29tPg0KPiBTdWJqZWN0OiBSRTogW1BBVENIIGlwcm91dGUyIHY0IDMvNF0gaWZzdGF0OiBB
+ZGQgNjQgYml0cyBiYXNlZCBzdGF0cyB0byBleHRlbmRlZCBzdGF0aXN0aWNzDQo+IA0KPiANCj4g
+DQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBTdGVwaGVuIEhlbW1p
+bmdlciBbbWFpbHRvOnN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnXQ0KPiA+IFNlbnQ6IEZyaWRh
+eSwgSmFudWFyeSAxMywgMjAxNyAzOjQ0IEFNDQo+ID4gVG86IE5vZ2FoIEZyYW5rZWwgPG5vZ2Fo
+ZkBtZWxsYW5veC5jb20+DQo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHJvc3plbnJh
+bWlAZ21haWwuY29tOyByb29wYUBjdW11bHVzbmV0d29ya3MuY29tOw0KPiBKaXJpDQo+ID4gUGly
+a28gPGppcmlAbWVsbGFub3guY29tPjsgSWRvIFNjaGltbWVsIDxpZG9zY2hAbWVsbGFub3guY29t
+PjsgRWxhZCBSYXoNCj4gPiA8ZWxhZHJAbWVsbGFub3guY29tPjsgWW90YW0gR2lnaSA8eW90YW1n
+QG1lbGxhbm94LmNvbT47IE9yIEdlcmxpdHoNCj4gPiA8b2dlcmxpdHpAbWVsbGFub3guY29tPg0K
+PiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggaXByb3V0ZTIgdjQgMy80XSBpZnN0YXQ6IEFkZCA2NCBi
+aXRzIGJhc2VkIHN0YXRzIHRvIGV4dGVuZGVkIHN0YXRpc3RpY3MNCj4gPg0KPiA+IE9uIFRodSwg
+MTIgSmFuIDIwMTcgMTU6NDk6NTAgKzAyMDANCj4gPiBOb2dhaCBGcmFua2VsIDxub2dhaGZAbWVs
+bGFub3guY29tPiB3cm90ZToNCj4gPg0KPiA+ID4gVGhlIGRlZmF1bHQgc3RhdHMgZm9yIGlmc3Rh
+dCBhcmUgMzIgYml0cyBiYXNlZC4NCj4gPiA+IFRoZSBrZXJuZWwgc3VwcG9ydHMgNjQgYml0cyBi
+YXNlZCBzdGF0cy4gKFRoZXkgYXJlIHJldHVybmVkIGluIHN0cnVjdA0KPiA+ID4gcnRubF9saW5r
+X3N0YXRzNjQgd2hpY2ggaXMgYW4gZXhhY3QgY29weSBvZiBzdHJ1Y3QgcnRubF9saW5rX3N0YXRz
+LCBpbg0KPiA+ID4gd2hpY2ggdGhlICJub3JtYWwiIHN0YXRzIGFyZSByZXR1cm5lZCwgYnV0IHdp
+dGggZmllbGRzIG9mIHU2NCBpbnN0ZWFkIG9mDQo+ID4gPiB1MzIpLiBUaGlzIHBhdGNoIGFkZHMg
+dGhlbSBhcyBhbiBleHRlbmRlZCBzdGF0cy4NCj4gPiA+DQo+ID4gPiBJdCBpcyByZWFkIHdpdGgg
+ZmlsdGVyIHR5cGUgSUZMQV9TVEFUU19MSU5LXzY0IGFuZCBubyBzdWIgdHlwZS4NCj4gPiA+DQo+
+ID4gPiBJdCBpcyB1bmRlciB0aGUgbmFtZSA2NGJpdHMNCj4gPiA+IChvciBhbnkgc2hvcnRlbiBv
+ZiBpdCBhcyAiNjQiKQ0KPiA+ID4NCj4gPiA+IEZvciBleGFtcGxlOg0KPiA+ID4gaWZzdGF0IC14
+IDY0Yml0DQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9mZi1ieTogTm9nYWggRnJhbmtlbCA8bm9nYWhm
+QG1lbGxhbm94LmNvbT4NCj4gPiA+IFJldmlld2VkLWJ5OiBKaXJpIFBpcmtvIDxqaXJpQG1lbGxh
+bm94LmNvbT4NCj4gPg0KPiA+IE90aGVyIGNvbW1hbmRzIChsaWtlIGlwIGxpbmspIGFsd2F5cyB1
+c2UgdGhlIDY0IGJpdCBzdGF0aXN0aWNzIGlmIGF2YWlsYWJsZQ0KPiA+IGZyb20gdGhlIGRldmlj
+ZS4gSSBzZWUgbm8gcmVhc29uIHRoYXQgaWZzdGF0IG5lZWRzIHRvIGJlIGRpZmZlcmVudC4NCj4g
+Pg0KPiANCj4gRG8geW91IG1lYW4gdG8gY2hhbmdlIHRoZSBkZWZhdWx0IGlmc3RhdCByZXN1bHRz
+IHRvIGJlIDY0IGJpdHMgYmFzZWQ/DQo+IEkgdHJpZWQgaXQgaW4gdGhlIGZpcnN0IHZlcnNpb24s
+IGJ1dCBSb29wYSBjb21tZW50ZWQgdGhhdCBpdCB3YXMgbm90IGEgZ29vZCBpZGVhLg0KPiBTaGUg
+c2FpZCB0aGV5IHRyaWVkIGl0IGluIHRoZSBwYXN0IGFuZCBpdCBjYXVzZWQgYmFja3dhcmQgY29t
+cGF0aWJpbGl0aWVzIHByb2JsZW1zLg0KPiAoT3IgbWF5YmUgSSBkaWRuJ3QgdW5kZXJzdGFuZCBj
+b3JyZWN0bHkpDQoNClNvLCBjYW4gSSBsZWF2ZSB0aGUgZGVmYXVsdCBpZnN0YXQgcmVzdWx0cyB0
+byBiZSAzMiBiaXRzIGJhc2VkLCBmb3IgdGhlIHRpbWUgYmVpbmc/DQoNCg==
