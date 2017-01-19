@@ -1,106 +1,94 @@
-From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCH net-next v4] bridge: multicast to unicast
-Date: Thu, 19 Jan 2017 10:53:56 +0100
-Message-ID: <253b73f3-0db0-4515-8787-2ff87d1e8256@cumulusnetworks.com>
-References: <20170119024510.3284-1-linus.luessing@c0d3.blue>
-Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Thu, 19 Jan 2017 10:43:48 +0100
+Message-ID: <759d6323-ffac-ebe8-b197-4e1165be5673@neratec.com>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
+ <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
+ <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
+ <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
+ <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: bridge@lists.linux-foundation.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-	Felix Fietkau <nbd@nbd.name>
-To: =?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>,
-	netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170119024510.3284-1-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, f.fainelli@gmail.com
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.neratec.com ([46.140.151.2]:38808 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751360AbdASJyi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 04:54:38 -0500
+In-Reply-To: <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19/01/17 03:45, Linus Lüssing wrote:
-> From: Felix Fietkau <nbd@nbd.name>
+On 01/18/2017 04:02 PM, Timur Tabi wrote:
+> On 01/18/2017 07:53 AM, Zefir Kurtisi wrote:
+>> No, not necessarily. The SGMII link default configuration is set such that you do
+>> not have to bother at all.
 > 
-> Implements an optional, per bridge port flag and feature to deliver
-> multicast packets to any host on the according port via unicast
-> individually. This is done by copying the packet per host and
-> changing the multicast destination MAC to a unicast one accordingly.
+> Does the SGMII link need to make the speed and duplex of the external link?
 > 
-> multicast-to-unicast works on top of the multicast snooping feature of
-> the bridge. Which means unicast copies are only delivered to hosts which
-> are interested in it and signalized this via IGMP/MLD reports
-> previously.
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c#n50
 > 
-> This feature is intended for interface types which have a more reliable
-> and/or efficient way to deliver unicast packets than broadcast ones
-> (e.g. wifi).
 > 
-> However, it should only be enabled on interfaces where no IGMPv2/MLDv1
-> report suppression takes place. This feature is disabled by default.
-> 
-> The initial patch and idea is from Felix Fietkau.
-> 
-> Signed-off-by: Felix Fietkau <nbd@nbd.name>
-> [linus.luessing@c0d3.blue: various bug + style fixes, commit message]
-> Signed-off-by: Linus Lüssing <linus.luessing@c0d3.blue>
-> 
-> ---
-> 
-> This feature is used and enabled by default in OpenWRT and LEDE for AP
-> interfaces for more than a year now to allow both a more robust multicast
-> delivery and multicast at higher rates (e.g. multicast streaming).
-> 
-> In OpenWRT/LEDE the IGMP/MLD report suppression issue is overcome by
-> the network daemon enabling AP isolation and by that separating all STAs.
-> Delivery of STA-to-STA IP mulitcast is made possible again by
-> enabling and utilizing the bridge hairpin mode, which considers the
-> incoming port as a potential outgoing port, too.
-> 
-> Hairpin-mode is performed after multicast snooping, therefore leading to
-> only deliver reports to STAs running a multicast router.
-> 
-> Changes in v4:
-> * readd "From: Felix Fietkau [...]" (missed it again in v3)
-> 
-> Changes in v3:
-> * fix an uninitialized variable bug introduced in br_multicast_flood()
->   in v2, found by kbuild test bot
-> 
-> Changes in v2:
-> * netlink support (thanks Nik!)
-> * fixed switching between multicast_to_unicast on/off
->   -> even after toggling an already existing entry would
->      stale in its mode and would never be replaced
->   -> new extra check in br_port_group_equal)
-> * reduced checks in br_multicast_flood() from two to one
->   to address fast-path concerns (thanks Nik!)
-> * rev-christmas tree ordering (thanks Nik!)
-> * removed "net_bridge_port_group::unicast", using
->   ::flags instead (thanks Nik!)
-> * BR_MULTICAST_TO_UCAST -> BR_MULTICAST_TO_UNICAST
->   (BR_MULTICAST_FLAST_LEAVE has the same length anyway)
-> * simplified maybe_deliver_addr()
->   (no return, no "prev" paramater -> was a NOP anyway)
-> * added "From: Felix Fietkau [...]"
-> * added "Signed-off-by: Felix Fietkau [...]"
-> ---
->  include/linux/if_bridge.h    |  1 +
->  include/uapi/linux/if_link.h |  1 +
->  net/bridge/br_forward.c      | 37 ++++++++++++++++-
->  net/bridge/br_mdb.c          |  2 +-
->  net/bridge/br_multicast.c    | 96 ++++++++++++++++++++++++++++++++------------
->  net/bridge/br_netlink.c      |  5 +++
->  net/bridge/br_private.h      |  8 ++--
->  net/bridge/br_sysfs_if.c     |  2 +
->  8 files changed, 121 insertions(+), 31 deletions(-)
+> Here is where I can configure the SGMII link to match whatever phydev says the
+> external link is.  This is code that was handed down to me.  I've never really
+> understood what the purpose was.  Shouldn't I just be able to configure the SGMII
+> link to 1Gbs full-duplex, regardless of what the external link is set to?
 > 
 
-Looks good to me,
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+This is because the SGMII link is a transparent interface to the upper layer with
+no means to inform the other side of the link type in the lower layer.
+
+It always operates at 675MHz, which with two lines gives 1.25Gbps, which at 10/8
+coding gives exactly 1Gbps net data rate. If the at803x's copper side
+autonegotiates to 1Gbps, the bits traversing over the SGMII match the copper side
+1:1. In case the copper side autonegotiates to e.g. 100Mbps, each bit at the
+copper side on the SGMII bus is replicated and sent 10x times - or 100x times in
+case of 10Mbps. The MAC side of the ETH needs to be aware of how the SGMII data
+has to be interpreted, and this is why you have to set the bits you are referring to.
+
+>> That is, if in your case you see the warning popping up but the link always
+>> regains connection, then it is an ignorable false positive.
+> 
+> Unfortunately, I can't really ignore it because genphy does this:
+> 
+> $ ifup eth1
+> [ 1034.754276] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
+> rx/tx
+> 
+> But the at803x driver does this:
+> 
+> $ ifup eth1
+> [ 1020.507728] 803x_aneg_done: SGMII link is not ok
+> [ 1020.513517] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
+> rx/tx
+> [ 1020.522839] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
+> rx/tx
+> 
+> Customers are going to complain.
+> 
+Yes, the double link-status message is annoying - I was referring to the other
+message.
+
+To track down who is causing the additional message, I would proceed with
+following technique that helped me dig down a similar problem: since you control
+the events in question and there is no risk of flooding the kernel log, in the top
+of phy.c::phy_print_status() add a dump_stack() call. In the debug log ensure that
+all of the traces end up in the same phydev->adjust_link() callback handler (in
+your case emac_adjust_link()).
+
+In the gianfar's handler there is an additional check whether the link really
+changed before phy_print_status() is called, in emac_adjust_link() this happens
+unconditionally - maybe that is the problem you are facing.
+
+@Florian: is it safe to assume that when phydev->adjust_link() is called there was
+in fact a link change (link, duplex, pause), or does the handler have to double
+check for a change? I see some ETH drivers maintain a private old state instance
+for that, while others don't.
+
+
+Cheers,
+Zefir
