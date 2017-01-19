@@ -1,113 +1,83 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
- directory layout
-Date: Thu, 19 Jan 2017 01:32:38 -0500
-Message-ID: <1484807558.2406.85.camel@redhat.com>
-References: <CALzJLG--ZRVk0Zy+6UaGCWbOhki+PZnkmrh9rjojU1ZDm_5Y6w@mail.gmail.com>
-         <20170118.123207.53777509111948450.davem@davemloft.net>
-         <CALx6S36p2g8EP48R+nWQu9tHtS5h8eKo7bj7rskmSMxCU36KXA@mail.gmail.com>
-         <20170119.003832.1262212358977773325.davem@davemloft.net>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
+Date: Thu, 19 Jan 2017 08:33:26 +0200
+Message-ID: <20170119063326.GJ32481@mtr-leonro.local>
+References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
+ <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
+ <20170118173327.GF32481@mtr-leonro.local>
+ <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
+ <20170118183127.GC14198@obsidianresearch.com>
+ <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9@sandisk.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-WtnqmtCzakocxFLtT5ZQ"
-Cc: saeedm@dev.mellanox.co.il, saeedm@mellanox.com,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org, leon@kernel.org
-To: David Miller <davem@davemloft.net>, tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43038 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750977AbdASGcl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 01:32:41 -0500
-In-Reply-To: <20170119.003832.1262212358977773325.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="cpgGT4jyFUyD7BZ9"
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Ariel Almog <arielalmogworkemails-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---=-WtnqmtCzakocxFLtT5ZQ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+--cpgGT4jyFUyD7BZ9
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On Thu, 2017-01-19 at 00:38 -0500, David Miller wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Wed, 18 Jan 2017 21:22:53 -0800
->=20
-> > In principle I=C2=A0 agree, but as I previously wrote backporting this
-> > driver is already a bear. We need to do something here as this is
-> > quickly approaching being infeasible to backport. Even if we don't
-> > restructure the directories I'd still like to see some effort
-> towards
-> > feature modularization and isolation.
->=20
-> There simply is a lot changing all the time, no restructuring is
-> going
-> to reduce that.=C2=A0 The driver simply gets a lot of churn.
->=20
-> Backporting such things through a bunch of file and/or directory
-> renames is seriously nothing but asking for more punishment.
->=20
-> That's why I am against it.
+On Wed, Jan 18, 2017 at 01:45:14PM -0800, Bart Van Assche wrote:
+> On 01/18/2017 10:31 AM, Jason Gunthorpe wrote:
+> > I think it depends on what this tool is supposed to cover, but based
+> > on the description, I would start with netlink-only.
+> >
+> > The only place verbs covers a similar ground is in 'device
+> > capabilities' - for some of that you might want to open a new-uAPI
+> > verbs fd, but even the capability data from that would not be
+> > totally offensive to be accessed over netlink.
+> >
+> > IMHO netlink should cover almost everything found in sysfs today.
+>
+> We would need a very strong argument to introduce a netlink API that
+> duplicates existing sysfs API functionality. Since the sysfs API is
+> extensible, why not extend that API further? E.g. the SCST sysfs API
+> shows that more is possible with sysfs than what most kernel drivers
+> realize.
 
-So, I spent the better part of two years dealing with this after the
-drivers/net/mellanox drivers/net/ethernet/mellanox rename, so I'll
-chime in. =C2=A0Especially since Tom's problem directly relates to the
-issues I dealt with when trying to take the latest Mellanox driver and
-shoe-horn it into a Red Hat kernel that didn't have the same net core
-(I had to pick and choose which mlx patches to take in order to work
-with our existing net core, and the files were renamed on top of that).
+We didn't look deeply on sysfs mainly because it is unpopular
+in netdev community. Maybe we were misled and it is simply not true.
 
-If you rename a file from place A to place B and keep the file the
-same, then a git backport can be done using techniques such as git
-cherry-pick with the --follow option enabled. =C2=A0It's slow, but works.
+>
+> Bart.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-But that's not what you've brought up. =C2=A0You brought up continuing the
-rename to go further and split code out into files based upon features.
-=C2=A0While git cherry-pick can follow renames mostly automatically, it can
-not follow refactors. =C2=A0If they move the tcflower stuff out to a file o=
-n
-its own, and you then attempt to backport some fix that touches the
-tcflower support in the new location while you have not taken the move
-patch, you will find that git will be totally stymied.
-
-What you have now is not perfect and you have to sort through commits
-to get the right ones and skip the ones you can't support, but things
-mostly apply except when context diffs break issues. =C2=A0With the refacto=
-r
-and separation you speak of, git will be totally unable to help and you
-will have to manually edit patches to point at new files or hand edit
-the files to apply the patches.
-
-I understand the desire for order instead of chaos, but it really will
-not help. =C2=A0Bringing patches from the new order back to the old chaos
-will be so much harder than just continuing as things are that you will
-silently curse the change shortly after it is made.
-
---=20
-Doug Ledford <dledford@redhat.com>
-=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
-=C2=A0 =C2=A0
-Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
-
---=-WtnqmtCzakocxFLtT5ZQ
+--cpgGT4jyFUyD7BZ9
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iQIcBAABCAAGBQJYgF2GAAoJELgmozMOVy/dxG8QAKi1omV5w78lKzw8Wol0yiFy
-46g7XgoJGG2EIkmA5N2pDencKpoew/3CQUJAo6fgKWqrLOfSKcA8a3FffXcIGcK5
-NWO/OqsJxa3xMTAEwd+O5sDwjHt47tZvwFkSSzoMBzdIh73qnXZ+3ziXaBYFvNNF
-umDJCEj9lYAwy00YeB98znySjv9lmO8tuFwpDe7pdJBIhwJSMm/ENmz0DClJ2K4p
-LAMEbleumnUDWz5hx37ksJ0PMsMw3Y3KkLhRFMWiC7BBEn/YmgA4QUryFAqH4I6z
-Wo4hl+tgOkt0g62CuALzbLHsHgbbjqoUaqzVayw0YCBomJnbJlTrWint3lDygCbw
-UPLUxrYHPyCVOrl7Df3keYucQa7q0wWfpBd+7YnGHgpYnlPlOaPSIWpnQ7vOi2nE
-p3aDMG9xODF2ufgHH9L5XF2WM0tiPlVI2fTd8qeFgqn8COGyNrPGuDq8me16jK2k
-KhAAe0WNQj4Vc2CAlkW9X8mm3mdHJALCmUcEh20dlNsJ87+7vAYOyg04KbvIlyAp
-YeTmYfFHB3Eh4zBlrqCijvZEckHMrLnypppBzqBGqU+rI6sRW3EYt6QyOB+SVKA/
-RG6f8kio/2V3Zz7i1DAvj8c2qymTko3AchZl15tqWNF3W/PgVzwDgrg3dMFz602I
-TU13hXLZwnGzxi40kTzG
-=ZAmW
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAliAXbYACgkQ5GN7iDZy
+WKdVMg//VmBObdkGkBGsU/JabpK3FKZDJFLrSTs+83NSmEqeMQtO1RUFK08RD/v5
+ZZAA/CGvtDpjE3Rr3uhP94c9vdQionj3KvsihGD6EJ7Krl4sX3eyULWp9OdQZNqO
+BSiKvyAoTMu0PtMMLK5TSqERynZHhLWSmADbczGN9U3YIWcQjrbL2KF2tnFLJIHa
+74zA9WKWiZ7a7tG/2iKl+QeUrbHoT8Azlxw3Pt6y+gosxjyUVa9AmK5T1jtn3OcW
+yKTP3AD8mOAI9LToynu7yPnhkCzvkB4RHqEC7FUSjrbFayyp1r1qls7AtDKZWhc9
+Ho4vCUMtuukloxHg2M1pIPNW76njiqN9M54WnN1660I7B+NXMXllkfHzlN6wFTbr
+MIH3pEd6A08vLREooawMdeyUAk/WeNPuGc7MKPcBJNEHvvFXmEFZ6TZX52wsjdZu
+WUdD8JiY+H0V15nXpYvWl2C/IrsIgkBnzXqWLkrrXePbWnH/b++ZoXj/wFw3MTyO
+JItLKNZR0qCRW3X1ZqzCpJzSNIzqVKZWUnXHrroPRrExUtAG2nFzXd7oiX0j5e6t
+oXdsF7P0KhZi94NWTVvqlqMQJPj+IzCANgIDcMWFFv2X5EvOD0vv0WmvnNgE0KwT
+kRobGRmlirNBXITNFY7Rr2HIGUQaWyzLemQZx37cL9oA2mxHCPw=
+=e7J4
 -----END PGP SIGNATURE-----
 
---=-WtnqmtCzakocxFLtT5ZQ--
+--cpgGT4jyFUyD7BZ9--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
