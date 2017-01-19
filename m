@@ -1,67 +1,40 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH] tcp: initialize max window for a new fastopen socket
-Date: Thu, 19 Jan 2017 16:36:39 +0300
-Message-ID: <1484832999-1849-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
-To: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: fec: Fixed panic problem with non-tso
+Date: Thu, 19 Jan 2017 05:24:51 -0800
+Message-ID: <1484832291.16328.21.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
+         <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+         <337A096076BEF646A1F21E1AD855580E3AC8F71A@g01jpexmbkw23>
+         <1484713283.13165.89.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
+         <AM4PR0401MB2260F19C276A1329FD2BB8A7FF7E0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Pravin B Shelar <pshelar@nicira.com>
+To: Andy Duan <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29553 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751931AbdASNbX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 08:31:23 -0500
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34290 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752694AbdASN6z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 08:58:55 -0500
+Received: by mail-pg0-f65.google.com with SMTP id t6so4269815pgt.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 05:58:51 -0800 (PST)
+In-Reply-To: <AM4PR0401MB2260F19C276A1329FD2BB8A7FF7E0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Found that if we run LTP netstress test with large MSS (65K),
-the first attempt from server to send data comparable to this
-MSS on fastopen connection will be delayed by the probe timer.
+On Thu, 2017-01-19 at 08:18 +0000, Andy Duan wrote:
 
-Here is an example:
+> I will double check your fix. Thanks.
+> 
+> And, if driver is to support highmem,  then we should add tso highmem
+> support in net/core/tso.c,  do you think it is necessary ?
 
-     < S  seq 0:0 win 43690 options [mss 65495 wscale 7 tfo cookie] length 32
-     > S. seq 0:0 ack 1 win 43690 options [mss 65495 wscale 7] length 0
-     < .  ack 1 win 342 length 0
 
-Inside tcp_sendmsg(), tcp_send_mss() returns max MSS in 'mss_now',
-as well as in 'size_goal'. This results the segment not queued for
-transmition until all the data copied from user buffer. Then, inside
-__tcp_push_pending_frames(), it breaks on send window test and
-continues with the check probe timer.
+Adding TSO highmem support would mean changing net/core/tso.c ABI and
+thus changing all net/core/tso.c users.
 
-Fragmentation occurs in tcp_write_wakeup()...
-
-+0.2 > P. seq 1:43777 ack 1 win 342 length 43776
-     < .  ack 43777, win 1365 length 0
-     > P. seq 43777:65001 ack 1 win 342 options [...] length 21224
-     ...
-
-This also contradicts with the fact that we should bound to the half
-of the window if it is large.
-
-Fix this flaw by correctly initializing max_window. Before that, it
-could have large values that affect further calculations of 'size_goal'.
-
-Fixes: 168a8f58059a ("tcp: TCP Fast Open Server - main code path")
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- net/ipv4/tcp_fastopen.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index f519195..dd2560c 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -205,6 +205,7 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
- 	 * scaled. So correct it appropriately.
- 	 */
- 	tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
-+	tp->max_window = tp->snd_wnd;
- 
- 	/* Activate the retrans timer so that SYNACK can be retransmitted.
- 	 * The request socket is not added to the ehash
--- 
-1.7.1
+Looks a lot of work to me.
