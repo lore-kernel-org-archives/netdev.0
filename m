@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: atm: Fix build error when !CONFIG_PROC_FS
-Date: Thu, 19 Jan 2017 11:32:28 -0500 (EST)
-Message-ID: <20170119.113228.175631525740148009.davem@davemloft.net>
-References: <1484823626-8150-1-git-send-email-augustocaringi@gmail.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: reduce fl_change stack
+ size
+Date: Thu, 19 Jan 2017 11:23:07 -0500 (EST)
+Message-ID: <20170119.112307.1679144601793219397.davem@davemloft.net>
+References: <20170119094551.2780983-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: augustocaringi@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, jiri@mellanox.com, hadarh@mellanox.com,
+        amir@vadai.me, paulb@mellanox.com, ogerlitz@mellanox.com,
+        simon.horman@netronome.com, roid@mellanox.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484823626-8150-1-git-send-email-augustocaringi@gmail.com>
+In-Reply-To: <20170119094551.2780983-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogQXVndXN0byBNZWNraW5nIENhcmluZ2kgPGF1Z3VzdG9jYXJpbmdpQGdtYWlsLmNvbT4N
-CkRhdGU6IFRodSwgMTkgSmFuIDIwMTcgMTE6MDA6MTIgKzAwMDANCg0KPiBXaGVuIENPTkZJR19B
-VE1fQ0xJUCBpcyBzZXQgYW5kIENPTkZJR19QUk9DX0ZTIGlzIG5vdCBzZXQsIHRoZSBidWlsZGlu
-Zw0KPiB3YXMgZmFpbGluZyB3aGl0aCB0aGUgZXJyb3I6DQo+IA0KPiBuZXQvYXRtL2NsaXAuYzog
-SW4gZnVuY3Rpb24goWF0bV9jbGlwX2V4aXSiOg0KPiBuZXQvYXRtL2NsaXAuYzo5MzM6Mjc6IGVy
-cm9yOiChYXRtX3Byb2Nfcm9vdKIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluDQo+IHRoaXMgZnVu
-Y3Rpb24pDQo+IHJlbW92ZV9wcm9jX2VudHJ5KCJhcnAiLCBhdG1fcHJvY19yb290KTsNCj4gICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgXg0KPiANCj4gRml4IGl0IGJ5IHB1dHRpbmcgdGhlIHBy
-b2MgY2xlYW51cCBjb2RlIGluc2lkZSBhICNpZmRlZiBDT05GSUdfUFJPQ19GUw0KPiBibG9jay4N
-Cj4gDQo+IFNpZ25lZC1vZmYtYnk6IEF1Z3VzdG8gTWVja2luZyBDYXJpbmdpIDxhdWd1c3RvY2Fy
-aW5naUBnbWFpbC5jb20+DQoNCldoZW4gQ09ORklHX1BST0NfRlMgaXMgbm90IGRlZmluZWQsIHJl
-bW92ZV9wcm9jX2VudHJ5IGlzIGRlZmluZWQgYXMgdGhlDQptYWNybzoNCg0KI2RlZmluZSByZW1v
-dmVfcHJvY19lbnRyeShuYW1lLCBwYXJlbnQpIGRvIHt9IHdoaWxlICgwKQ0KDQpUaGVyZWZvcmUg
-aXQgaXMgaW1wb3NzaWJsZSBmb3IgYXRtX3Byb2Nfcm9vdCB0byBiZSByZWZlcmVuZWQgaW4gYW55
-IHdheS4NCg0KVGhlIGZhbGxiYWNrIG1hY3JvIGlzIGRlc2lnbmVkIGV4YWN0bHkgc28gdGhhdCB1
-Z2x5IGlmZGVmcyBsaWtlIHRoZSBvbmUNCnlvdSBhcmUgcHJvcG9zaW5nIGFyZW4ndCBuZWNlc3Nh
-cnkuDQoNCkknbSBub3QgYXBwbHlpaW5nIHRoaXMgcGF0Y2gsIHNvbWV0aGluZyBlbHNlIGlzIGhh
-cHBlbmluZyBpbiB5b3VyIHRyZWUuDQo=
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 19 Jan 2017 10:45:31 +0100
+
+> The new ARP support has pushed the stack size over the edge on ARM,
+> as there are two large objects on the stack in this function (mask
+> and tb) and both have now grown a bit more:
+> 
+> net/sched/cls_flower.c: In function 'fl_change':
+> net/sched/cls_flower.c:928:1: error: the frame size of 1072 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
+> 
+> We can solve this by dynamically allocating one or both of them.
+> I first tried to do it just for the mask, but that only saved
+> 152 bytes on ARM, while this version just does it for the 'tb'
+> array, bringing the stack size back down to 664 bytes.
+> 
+> Fixes: 99d31326cbe6 ("net/sched: cls_flower: Support matching on ARP")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+Applied.
