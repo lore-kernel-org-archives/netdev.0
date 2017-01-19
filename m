@@ -1,32 +1,58 @@
-From: Roi Dayan <roid@mellanox.com>
-Subject: [PATCH iproute2 0/2] two small fixes in flower option parser error flow
-Date: Thu, 19 Jan 2017 14:31:18 +0200
-Message-ID: <1484829080-18593-1-git-send-email-roid@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Paul Blakey <paulb@mellanox.com>, Roi Dayan <roid@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: David Arcari <darcari@redhat.com>
+Subject: Re: [PATCH] net: ethtool: avoid allocation failure for dump_regs
+Date: Thu, 19 Jan 2017 07:35:22 -0500
+Message-ID: <e88b01a6-dae8-a97e-9a8b-8aab030ad099@redhat.com>
+References: <1484746445-97920-1-git-send-email-darcari@redhat.com>
+ <20170118.114505.1855687422610394730.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:57974 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752411AbdASMbh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 07:31:37 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:58148 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751785AbdASMfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 07:35:22 -0500
+In-Reply-To: <20170118.114505.1855687422610394730.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 01/18/2017 11:45 AM, David Miller wrote:
+> From: David Arcari <darcari@redhat.com>
+> Date: Wed, 18 Jan 2017 08:34:05 -0500
+>
+>> If the user executes 'ethtool -d' for an interface and the associated
+>> get_regs_len() function returns 0, the user will see a call trace from
+>> the vmalloc() call in ethtool_get_regs().  This patch modifies
+>> ethtool_get_regs() to avoid the call to vmalloc when the size is zero.
+>>
+>> Signed-off-by: David Arcari <darcari@redhat.com>
+> I think when the driver indicates this, it is equivalent to saying that
+> the operation isn't supported.
+>
+> Also, this guards us against ->get_regs() methods that don't handle
+> zero length requests properly.  I see many which are going to do
+> really terrible things in that situation.
+>
+> Therefore, if get_regs_len() returns zero, treat it the safe as if the
+> ethtool operations were NULL.
+>
+> Thanks.
 
-the first adds a missing return check and the second removes
-an incorrect error msg.
+That was actually the fix that I was originally considering, but it
+turns out
+there is a problem with it.
 
-Thanks,
-Roi
+I found that the vmalloc error was occurring because
+ieee80211_get_regs_len() in
+net/mac80211/ethtool.c was returning zero.  The ieee80211_get_regs in
+the same
+file returns the hw version. It turns out that this information is used
+by the
+at76c50x-usb driver in the user space ethtool to report which HW variant
+is in
+use.  Returning an error when regs_len() returns zero would break this
+functionality.
 
-
-Roi Dayan (2):
-  tc: flower: Add missing err check when parsing flower options
-  tc: flower: Fix incorrect error msg about eth type
-
- tc/f_flower.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+-Dave
