@@ -1,66 +1,43 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: Fixed panic problem with non-tso
-Date: Thu, 19 Jan 2017 08:18:27 +0000
-Message-ID: <AM4PR0401MB2260F19C276A1329FD2BB8A7FF7E0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
-         <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-         <337A096076BEF646A1F21E1AD855580E3AC8F71A@g01jpexmbkw23>
-         <1484713283.13165.89.camel@edumazet-glaptop3.roam.corp.google.com>
- <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: linux-next: build warning after merge of the net tree
+Date: Thu, 19 Jan 2017 10:26:35 +0200
+Message-ID: <2de655ca-5bc5-2f87-4268-dfdf77141cb0@gmail.com>
+References: <20170119095600.6d7a84d7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Pravin B Shelar <pshelar@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0059.outbound.protection.outlook.com ([104.47.2.59]:30816
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751013AbdASISm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 03:18:42 -0500
-In-Reply-To: <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170119095600.6d7a84d7@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBTZW50OiBXZWRuZXNk
-YXksIEphbnVhcnkgMTgsIDIwMTcgMTI6MzYgUE0NCj5UbzogQXNoaXp1a2EsIFl1dXN1a2UgPGFz
-aGlkdWthQGpwLmZ1aml0c3UuY29tPg0KPkNjOiBBbmR5IER1YW4gPGZ1Z2FuZy5kdWFuQG54cC5j
-b20+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBQcmF2aW4gQg0KPlNoZWxhciA8cHNoZWxhckBu
-aWNpcmEuY29tPg0KPlN1YmplY3Q6IFJlOiBbUEFUQ0hdIG5ldDogZmVjOiBGaXhlZCBwYW5pYyBw
-cm9ibGVtIHdpdGggbm9uLXRzbw0KPg0KPk9uIFR1ZSwgMjAxNy0wMS0xNyBhdCAyMDoyMSAtMDgw
-MCwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPj4gT24gV2VkLCAyMDE3LTAxLTE4IGF0IDAzOjEyICsw
-MDAwLCBBc2hpenVrYSwgWXV1c3VrZSB3cm90ZToNCj4+DQo+PiA+IGluZGVlZC4NCj4+ID4NCj4+
-ID4gSW4gdGhlIGNhc2Ugb2YgVFNPIHdpdGggaS5NWDYgc3lzdGVtIChoaWdobWVtIGVuYWJsZWQp
-IHdpdGggMkdCDQo+PiA+IG1lbW9yeSwgInRoaXNfZnJhZy0+cGFnZS5wIiBkaWQgbm90IGJlY29t
-ZSBoaWdobWVtIGFyZWEuDQo+PiA+IChXZSBjb25maXJtZWQgYnkgdHJhbnNmZXJyaW5nIGFib3V0
-IDEwME1CIG9mIGZpbGVzKQ0KPj4gPg0KPj4gPiBIb3dldmVyLCBpbiB0aGUgY2FzZSBvZiBub24t
-dHNvIG9uIGFuIGkuTVg2IHN5c3RlbSB3aXRoIDJHQiBvZg0KPj4gPiBtZW1vcnksICJ0aGlzX2Zy
-YWctPnBhZ2UucCIgbWF5IGJlY29tZSBhIGhpZ2htZW0gYXJlYS4NCj4+ID4gKE9jY3VycmVkIHdp
-dGggYXBwcm94aW1hdGVseSAyTUIgb2YgZmlsZSB0cmFuc2ZlcikNCj4+ID4NCj4+ID4gRm9yIG5v
-bi10c28gb25seSwgSSBkbyBub3Qga25vdyB0aGUgcmVhc29uIHdoeSAidGhpc19mcmFnLT4gcGFn
-ZS5wIg0KPj4gPiBpbiB0aGlzIGRyaXZlciBzaG93cyBoaWdobWVtIGFyZWEuDQo+Pg0KPj4gVGhp
-cyB3b3JyaWVzIG1lLCBzaW5jZSB0aGlzIGRyaXZlciBkb2VzIG5vdCBzZXQgTkVUSUZfRl9ISUdI
-RE1BIGluIGl0cw0KPj4gZmVhdHVyZXMuDQo+Pg0KPj4gTm8gcGFja2V0IHNob3VsZCBiZSBnaXZl
-biB0byB0aGlzIGRyaXZlciB3aXRoIGEgaGlnaG1lbSBmcmFnbWVudA0KPj4NCj4+IENoZWNrIGlz
-IGRvbmUgaW4gaWxsZWdhbF9oaWdoZG1hKCkgaW4gbmV0L2NvcmUvZGV2LmMNCj4NCj5UaGlzIHVz
-ZWQgdG8gd29yay4NCj4NCj5JIHN1c3BlY3QgY29tbWl0IGVjNWYwNjE1NjQyMzg4OTIwMDUyNTdj
-ODM1NjVhMGI1OGVjNzkyOTUNCj4oIm5ldDogS2lsbCBsaW5rIGJldHdlZW4gQ1NVTSBhbmQgU0cg
-ZmVhdHVyZXMuIikNCj4NCj5hZGRlZCB0aGlzIGJ1Zy4NCj4NCj5DYW4geW91IHRyeSB0aGlzIGhv
-dCBmaXggOg0KPg0KPmRpZmYgLS1naXQgYS9uZXQvY29yZS9kZXYuYyBiL25ldC9jb3JlL2Rldi5j
-IGluZGV4DQo+YWQ1OTU5ZTU2MTE2NmY0NDViZGQ5ZDcyNjA2NTJhMzM4Zjc0Y2ZlYS4uMDczYjgz
-MmI5NDUyNTdkYmE5ZWQ0N2Y0YmYNCj44NzU2MDUyMjVlZmZjOSAxMDA2NDQNCj4tLS0gYS9uZXQv
-Y29yZS9kZXYuYw0KPisrKyBiL25ldC9jb3JlL2Rldi5jDQo+QEAgLTI3NzMsOSArMjc3Myw5IEBA
-IHN0YXRpYyBuZXRkZXZfZmVhdHVyZXNfdCBoYXJtb25pemVfZmVhdHVyZXMoc3RydWN0DQo+c2tf
-YnVmZiAqc2tiLA0KPiAJaWYgKHNrYi0+aXBfc3VtbWVkICE9IENIRUNLU1VNX05PTkUgJiYNCj4g
-CSAgICAhY2FuX2NoZWNrc3VtX3Byb3RvY29sKGZlYXR1cmVzLCB0eXBlKSkgew0KPiAJCWZlYXR1
-cmVzICY9IH4oTkVUSUZfRl9DU1VNX01BU0sgfCBORVRJRl9GX0dTT19NQVNLKTsNCj4tCX0gZWxz
-ZSBpZiAoaWxsZWdhbF9oaWdoZG1hKHNrYi0+ZGV2LCBza2IpKSB7DQo+LQkJZmVhdHVyZXMgJj0g
-fk5FVElGX0ZfU0c7DQo+IAl9DQo+KwlpZiAoaWxsZWdhbF9oaWdoZG1hKHNrYi0+ZGV2LCBza2Ip
-KQ0KPisJCWZlYXR1cmVzICY9IH5ORVRJRl9GX1NHOw0KPg0KPiAJcmV0dXJuIGZlYXR1cmVzOw0K
-PiB9DQo+DQo+DQoNCkkgd2lsbCBkb3VibGUgY2hlY2sgeW91ciBmaXguIFRoYW5rcy4NCg0KQW5k
-LCBpZiBkcml2ZXIgaXMgdG8gc3VwcG9ydCBoaWdobWVtLCAgdGhlbiB3ZSBzaG91bGQgYWRkIHRz
-byBoaWdobWVtIHN1cHBvcnQgaW4gbmV0L2NvcmUvdHNvLmMsICBkbyB5b3UgdGhpbmsgaXQgaXMg
-bmVjZXNzYXJ5ID8NCg==
+Hi Stephen,
+
+On 19/01/2017 12:56 AM, Stephen Rothwell wrote:
+> Hi all,
+>
+> After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+> produced this warning:
+>
+> drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c: In function 'mlx5e_set_channels':
+> drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c:546:6: warning: unused variable 'ncv' [-Wunused-variable]
+>    int ncv = mlx5e_get_max_num_channels(priv->mdev);
+>        ^
+>
+> Introduced by commit
+>
+>    639e9e94160e ("net/mlx5e: Remove unnecessary checks when setting num channels")
+>
+> which removed the last reference to 'ncv'.
+>
+We will send a fix shortly.
+Thanks for your report!
+
+Regards,
+Tariq
