@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB
- NIC driver
-Date: Thu, 19 Jan 2017 11:55:01 -0500 (EST)
-Message-ID: <20170119.115501.1276899174376549958.davem@davemloft.net>
-References: <cover.1484788010.git.vomlehn@texas.net>
+Subject: Re: [PATCH v3 net-next] phy: increase size of MII_BUS_ID_SIZE and
+ bus_id
+Date: Thu, 19 Jan 2017 11:52:46 -0500 (EST)
+Message-ID: <20170119.115246.542469330543728589.davem@davemloft.net>
+References: <1484841904-19313-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vomlehn@texas.net,
-        Simon.Edelhaus@aquantia.com, Dmitrii.Tarakanov@aquantia.com,
-        Pavel.Belous@aquantia.com
-To: Alexander.Loktionov@aquantia.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se, magnus.oberg@westermo.se
+To: volodymyr.bendiuga@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60728 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60988 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753532AbdASQzG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 11:55:06 -0500
-In-Reply-To: <cover.1484788010.git.vomlehn@texas.net>
+        with ESMTP id S1753350AbdASRBE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 12:01:04 -0500
+In-Reply-To: <1484841904-19313-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Date: Wed, 18 Jan 2017 17:07:51 -0800
+From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Date: Thu, 19 Jan 2017 17:05:04 +0100
 
-> From: David VomLehn <vomlehn@texas.net>
+> Some bus names are pretty long and do not fit into
+> 17 chars. Increase therefore MII_BUS_ID_SIZE and
+> phy_fixup.bus_id to larger number. Now mii_bus.id
+> can host larger name.
 > 
-> This series introduces the AQtion NIC driver for the aQuantia
-> AQC107/AQC108 network devices.
-> 
-> This series introduces the AQtion NIC driver for the aQuantia
-> AQC107/AQC108 network devices.
+> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+> Signed-off-by: Magnus Öberg <magnus.oberg@westermo.se>
 
-You don't need to say this twice :-)
-
-Also, please incorporate the fix posted by the kbuild test robot.
+Applied.
