@@ -1,74 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v5 0/2] Add support for the ethernet switch on the
- ESPRESSObin
-Date: Thu, 19 Jan 2017 23:06:07 +0100
-Message-ID: <20170119220607.GA25907@lunn.ch>
-References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
+From: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
+Date: Thu, 19 Jan 2017 22:06:12 +0000
+Message-ID: <1484863558.2634.7.camel@sandisk.com>
+References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
+         <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
+         <20170118173327.GF32481@mtr-leonro.local>
+         <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
+         <20170118183127.GC14198@obsidianresearch.com>
+         <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9@sandisk.com>
+         <20170119063326.GJ32481@mtr-leonro.local>
+         <20170119180308.GD8109@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Florian Fainelli <f.fainelli@gmail.com>, Jason Cooper <jason@lakedaemon.net>,
- Joe Zhou <shjzhou@marvell.com>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Jon Pannell <jpannell@marvell.com>,
- Nadav Haklai <nadavh@marvell.com>, Kostya Porotchkin <kostap@marvell.com>,
- Wilson Ding <dingwei@marvell.com>, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20170119214934.27442-1-gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "arielalmogworkemails@gmail.com" <arielalmogworkemails@gmail.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>
+To: "jgunthorpe@obsidianresearch.com" <jgunthorpe@obsidianresearch.com>,
+        "leon@kernel.org" <leon@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0041.outbound.protection.outlook.com ([104.47.34.41]:5792
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751807AbdASWHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 17:07:16 -0500
+In-Reply-To: <20170119180308.GD8109@obsidianresearch.com>
+Content-Language: en-US
+Content-ID: <0506C7541F6E1E4483349F1E4A69D2B0@sandisk.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> While comparing the datasheet and the ops functions used, some
-> question came to me. They should not prevent applying this series,
-> but their answer would help me to have a better understanding of the
-> dsa subsystem.
-> 
-> - Are the temperature related operation still useful with dsa2 ?
+On Thu, 2017-01-19 at 11:03 -0700, Jason Gunthorpe wrote:
+> sysfs is unpopular because the 'one value per file' dogma is laregly
+> unsuitable for complex mulit-value atomic changes which are common in
+> netdev. You can force it to work, but it is pretty horrible..
+>=20
+> It is also very expensive if you want to shuttle a lot of data, eg I
+> could not see doing something like 'netstat' for IB through sysfs
 
-No. I'm in the process of moving the code into the Marvell PHY driver,
-since the sensor is in the embedded PHYs.
+Since the RDMA sysfs ABI defines a user space ABI and since user space
+ABIs must be backwards compatible removing the existing sysfs ABI is
+not an option. We will need to evaluate on a case-by-case basis whether
+new functionality should use sysfs or whether another mechanism should
+be used.
 
-What ID does the embedded PHY use? The 6390 has a blank ID, where as
-older device have a real ID.
-
-> - Why the setup is done differently between the 6390 and the 6352
->   families when the have exactly the same register?
-
-EDSA on 6390 works differently to 6352, meaning it breaks. So we need
-to run the 6390 with DSA tagging, not EDSA. Maybe this is the source
-of the differences?
-
-It should also be noted that the 6390 support is not yet complete. I
-have a few more patches in my tree to post.
-
->   - On the Port Controller 2, the bit PORT_CONTROL_2_MAP_DA is set for
->     6352 and not for 6390 whereas the same bit exists in 6360 and the
->     description for this bit is the same for both datasheet.
-
-Humm, it does look like it is missing mv88e6xxx_6390_family(chip).
- 
-> 
->   - Register PORT_ATU_CONTROL and PORT_PRI_OVERRIDE are reset on 6352
->     and not on 6390. While here again the registers description are
->     the same.
-
-And the same here. I've mostly been working on where the 6390 is
-different. Where it is the same i've mostly ignored it so far :-)
-
-There is also an ongoing effort to remove all these big if statements
-with a list of families.
-
-     Andrew
+Bart.=
