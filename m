@@ -1,72 +1,102 @@
-From: Nogah Frankel <nogahf@mellanox.com>
-Subject: RE: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to
- extended statistics
-Date: Thu, 19 Jan 2017 15:21:40 +0000
-Message-ID: <DB5PR05MB1895D7CFBE9E127AAAE672DBAC7E0@DB5PR05MB1895.eurprd05.prod.outlook.com>
-References: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
-        <1484228991-32999-4-git-send-email-nogahf@mellanox.com>
- <20170112174335.1bd391c2@xeon-e3>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Setting link down or up in software
+Date: Thu, 19 Jan 2017 16:40:04 +0100
+Message-ID: <1ac88f50-30c5-fbaf-11ff-2d42490b5801@free.fr>
+References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+ <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+ <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
+ <9be9b48d-1bef-b48f-866f-8651d9b9c245@free.fr>
+ <bfe5bd8b-d4eb-8c8e-45d8-6ea1c133b4a7@neratec.com>
+ <660b7b17-0136-bf69-fd12-1c125069829b@free.fr>
+ <dc6378d7-d370-c893-63b7-c21cd7ef76fd@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "roszenrami@gmail.com" <roszenrami@gmail.com>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr30040.outbound.protection.outlook.com ([40.107.3.40]:48384
-        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753143AbdASPiu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 10:38:50 -0500
-Content-Language: en-US
+Received: from smtp5-g21.free.fr ([212.27.42.5]:35564 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753290AbdASPk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 10:40:27 -0500
+In-Reply-To: <dc6378d7-d370-c893-63b7-c21cd7ef76fd@neratec.com>
+Content-Language: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBOb2dhaCBGcmFua2VsDQo+IFNl
-bnQ6IFN1bmRheSwgSmFudWFyeSAxNSwgMjAxNyAzOjU1IFBNDQo+IFRvOiAnU3RlcGhlbiBIZW1t
-aW5nZXInIDxzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZz4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IHJvc3plbnJhbWlAZ21haWwuY29tOyByb29wYUBjdW11bHVzbmV0d29ya3MuY29t
-OyBKaXJpDQo+IFBpcmtvIDxqaXJpQG1lbGxhbm94LmNvbT47IElkbyBTY2hpbW1lbCA8aWRvc2No
-QG1lbGxhbm94LmNvbT47IEVsYWQgUmF6DQo+IDxlbGFkckBtZWxsYW5veC5jb20+OyBZb3RhbSBH
-aWdpIDx5b3RhbWdAbWVsbGFub3guY29tPjsgT3IgR2VybGl0eg0KPiA8b2dlcmxpdHpAbWVsbGFu
-b3guY29tPg0KPiBTdWJqZWN0OiBSRTogW1BBVENIIGlwcm91dGUyIHY0IDMvNF0gaWZzdGF0OiBB
-ZGQgNjQgYml0cyBiYXNlZCBzdGF0cyB0byBleHRlbmRlZCBzdGF0aXN0aWNzDQo+IA0KPiANCj4g
-DQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBTdGVwaGVuIEhlbW1p
-bmdlciBbbWFpbHRvOnN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnXQ0KPiA+IFNlbnQ6IEZyaWRh
-eSwgSmFudWFyeSAxMywgMjAxNyAzOjQ0IEFNDQo+ID4gVG86IE5vZ2FoIEZyYW5rZWwgPG5vZ2Fo
-ZkBtZWxsYW5veC5jb20+DQo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHJvc3plbnJh
-bWlAZ21haWwuY29tOyByb29wYUBjdW11bHVzbmV0d29ya3MuY29tOw0KPiBKaXJpDQo+ID4gUGly
-a28gPGppcmlAbWVsbGFub3guY29tPjsgSWRvIFNjaGltbWVsIDxpZG9zY2hAbWVsbGFub3guY29t
-PjsgRWxhZCBSYXoNCj4gPiA8ZWxhZHJAbWVsbGFub3guY29tPjsgWW90YW0gR2lnaSA8eW90YW1n
-QG1lbGxhbm94LmNvbT47IE9yIEdlcmxpdHoNCj4gPiA8b2dlcmxpdHpAbWVsbGFub3guY29tPg0K
-PiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggaXByb3V0ZTIgdjQgMy80XSBpZnN0YXQ6IEFkZCA2NCBi
-aXRzIGJhc2VkIHN0YXRzIHRvIGV4dGVuZGVkIHN0YXRpc3RpY3MNCj4gPg0KPiA+IE9uIFRodSwg
-MTIgSmFuIDIwMTcgMTU6NDk6NTAgKzAyMDANCj4gPiBOb2dhaCBGcmFua2VsIDxub2dhaGZAbWVs
-bGFub3guY29tPiB3cm90ZToNCj4gPg0KPiA+ID4gVGhlIGRlZmF1bHQgc3RhdHMgZm9yIGlmc3Rh
-dCBhcmUgMzIgYml0cyBiYXNlZC4NCj4gPiA+IFRoZSBrZXJuZWwgc3VwcG9ydHMgNjQgYml0cyBi
-YXNlZCBzdGF0cy4gKFRoZXkgYXJlIHJldHVybmVkIGluIHN0cnVjdA0KPiA+ID4gcnRubF9saW5r
-X3N0YXRzNjQgd2hpY2ggaXMgYW4gZXhhY3QgY29weSBvZiBzdHJ1Y3QgcnRubF9saW5rX3N0YXRz
-LCBpbg0KPiA+ID4gd2hpY2ggdGhlICJub3JtYWwiIHN0YXRzIGFyZSByZXR1cm5lZCwgYnV0IHdp
-dGggZmllbGRzIG9mIHU2NCBpbnN0ZWFkIG9mDQo+ID4gPiB1MzIpLiBUaGlzIHBhdGNoIGFkZHMg
-dGhlbSBhcyBhbiBleHRlbmRlZCBzdGF0cy4NCj4gPiA+DQo+ID4gPiBJdCBpcyByZWFkIHdpdGgg
-ZmlsdGVyIHR5cGUgSUZMQV9TVEFUU19MSU5LXzY0IGFuZCBubyBzdWIgdHlwZS4NCj4gPiA+DQo+
-ID4gPiBJdCBpcyB1bmRlciB0aGUgbmFtZSA2NGJpdHMNCj4gPiA+IChvciBhbnkgc2hvcnRlbiBv
-ZiBpdCBhcyAiNjQiKQ0KPiA+ID4NCj4gPiA+IEZvciBleGFtcGxlOg0KPiA+ID4gaWZzdGF0IC14
-IDY0Yml0DQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9mZi1ieTogTm9nYWggRnJhbmtlbCA8bm9nYWhm
-QG1lbGxhbm94LmNvbT4NCj4gPiA+IFJldmlld2VkLWJ5OiBKaXJpIFBpcmtvIDxqaXJpQG1lbGxh
-bm94LmNvbT4NCj4gPg0KPiA+IE90aGVyIGNvbW1hbmRzIChsaWtlIGlwIGxpbmspIGFsd2F5cyB1
-c2UgdGhlIDY0IGJpdCBzdGF0aXN0aWNzIGlmIGF2YWlsYWJsZQ0KPiA+IGZyb20gdGhlIGRldmlj
-ZS4gSSBzZWUgbm8gcmVhc29uIHRoYXQgaWZzdGF0IG5lZWRzIHRvIGJlIGRpZmZlcmVudC4NCj4g
-Pg0KPiANCj4gRG8geW91IG1lYW4gdG8gY2hhbmdlIHRoZSBkZWZhdWx0IGlmc3RhdCByZXN1bHRz
-IHRvIGJlIDY0IGJpdHMgYmFzZWQ/DQo+IEkgdHJpZWQgaXQgaW4gdGhlIGZpcnN0IHZlcnNpb24s
-IGJ1dCBSb29wYSBjb21tZW50ZWQgdGhhdCBpdCB3YXMgbm90IGEgZ29vZCBpZGVhLg0KPiBTaGUg
-c2FpZCB0aGV5IHRyaWVkIGl0IGluIHRoZSBwYXN0IGFuZCBpdCBjYXVzZWQgYmFja3dhcmQgY29t
-cGF0aWJpbGl0aWVzIHByb2JsZW1zLg0KPiAoT3IgbWF5YmUgSSBkaWRuJ3QgdW5kZXJzdGFuZCBj
-b3JyZWN0bHkpDQoNClNvLCBjYW4gSSBsZWF2ZSB0aGUgZGVmYXVsdCBpZnN0YXQgcmVzdWx0cyB0
-byBiZSAzMiBiaXRzIGJhc2VkLCBmb3IgdGhlIHRpbWUgYmVpbmc/DQoNCg==
+On 18/01/2017 11:29, Zefir Kurtisi wrote:
+> On 01/13/2017 06:35 PM, Mason wrote:
+>> On 13/01/2017 17:28, Zefir Kurtisi wrote:
+>>
+>>> As for your specific problem: since I fought myself with the PHY/ETH subsystems
+>>> over the past months, I might remember something relevant to your issue. Could you
+>>> give some more info on your setup (PHY driver, opmode (SGMII, RGMII, etc.), ETH).
+>>
+>> Hello Zefir,
+>>
+>> My boards are using these drivers:
+>>
+>> http://lxr.free-electrons.com/source/drivers/net/ethernet/aurora/nb8800.c
+>> http://lxr.free-electrons.com/source/drivers/net/phy/at803x.c
+>>
+>> The relevant device tree nodes are:
+>>
+>> 		eth0: ethernet@26000 {
+>> 			compatible = "sigma,smp8734-ethernet";
+>> 			reg = <0x26000 0x800>;
+>> 			interrupts = <38 IRQ_TYPE_LEVEL_HIGH>;
+>> 			clocks = <&clkgen SYS_CLK>;
+>> 		};
+>>
+>> &eth0 {
+>> 	phy-connection-type = "rgmii";
+>> 	phy-handle = <&eth0_phy>;
+>> 	#address-cells = <1>;
+>> 	#size-cells = <0>;
+>>
+>> 	/* Atheros AR8035 */
+>> 	eth0_phy: ethernet-phy@4 {
+>> 		compatible = "ethernet-phy-id004d.d072",
+>> 			     "ethernet-phy-ieee802.3-c22";
+>> 		interrupts = <37 IRQ_TYPE_EDGE_RISING>;
+>> 		reg = <4>;
+>> 	};
+>> };
+>>
+>> If I comment the PHY "interrupts" property, then the PHY framework
+>> falls back to polling.
+>>
+>> Am I forgetting important information?
+> 
+> In our system we attach the at8031 over SGMII to the gianfar (Freescale eTSEC) and
+> to fibre optics transceivers, which operate in fixed speeds. Getting this setup to
+> work reliably was challenging for various reasons, maybe worth to note
+> 
+> 1) fixed SGMII speed not working: link is up on both ends, but no data is passed
+> 2) known issue with SGMII link not completing autonegotiation correctly, see [1]
+> 3) once autoneg is started or chip is reset, MII_CTRL1000 can not be written to
+> until autoneg is completed => breaks phy state machine when the driver loads with
+> unplugged cable and tries to set fixed speed
+> 
+> Unless you are using fixed speed links in your setup, none of those should affect
+> it. My experience with at8031 attached to RGMII is that it is genphy compliant,
+> therefore I would a) disable interrupts, and b) prevent loading at803x.ko and try
+> the genphy instead. Yours is an at8035, results may vary.
+> 
+> [1] https://www.spinics.net/lists/netdev/msg400804.html
+
+Hello Zefir,
+
+Thanks for having a look at my issue.
+
+I must confess that I'm not up to speed on the different *MIIs
+(MII, RMII, GMII, RGMII, SGMII, etc)
+
+One thing I find confusing... If the 8035 could work with the generic
+PHY driver, what's the point of the at803x.ko driver?
+
+Regards.
