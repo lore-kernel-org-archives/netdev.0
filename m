@@ -1,88 +1,309 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to extended
- statistics
-Date: Thu, 19 Jan 2017 08:06:21 -0800
-Message-ID: <5880E3FD.6010604@cumulusnetworks.com>
-References: <1484228991-32999-1-git-send-email-nogahf@mellanox.com> <1484228991-32999-4-git-send-email-nogahf@mellanox.com> <20170112174335.1bd391c2@xeon-e3> <DB5PR05MB1895D7CFBE9E127AAAE672DBAC7E0@DB5PR05MB1895.eurprd05.prod.outlook.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH net-next v2] macb: Common code to enable ptp support for
+ MACB/GEM
+Date: Thu, 19 Jan 2017 09:07:36 -0700
+Message-ID: <9bc6b112-f79c-58e4-7d2b-718ee07ff3a1@atmel.com>
+References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "roszenrami@gmail.com" <roszenrami@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Nogah Frankel <nogahf@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35550 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753153AbdASQGX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 11:06:23 -0500
-Received: by mail-pg0-f51.google.com with SMTP id 194so15251647pgd.2
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 08:06:23 -0800 (PST)
-In-Reply-To: <DB5PR05MB1895D7CFBE9E127AAAE672DBAC7E0@DB5PR05MB1895.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: boris.brezillon@free-electrons.com, rafalo@cadence.com,
+ alexandre.belloni@free-electrons.com, michals@xilinx.com,
+ tbultel@pixelsurmer.com, anirudh@xilinx.com, punnaia@xilinx.com,
+ richardcochran@gmail.com
+To: Andrei Pistirica <andrei.pistirica@microchip.com>,
+ <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+ <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
+ <harinikatakamlinux@gmail.com>, <harini.katakam@xilinx.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 1/19/17, 7:21 AM, Nogah Frankel wrote:
->> -----Original Message-----
->> From: Nogah Frankel
->> Sent: Sunday, January 15, 2017 3:55 PM
->> To: 'Stephen Hemminger' <stephen@networkplumber.org>
->> Cc: netdev@vger.kernel.org; roszenrami@gmail.com; roopa@cumulusnetworks.com; Jiri
->> Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
->> <eladr@mellanox.com>; Yotam Gigi <yotamg@mellanox.com>; Or Gerlitz
->> <ogerlitz@mellanox.com>
->> Subject: RE: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to extended statistics
->>
->>
->>
->>> -----Original Message-----
->>> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
->>> Sent: Friday, January 13, 2017 3:44 AM
->>> To: Nogah Frankel <nogahf@mellanox.com>
->>> Cc: netdev@vger.kernel.org; roszenrami@gmail.com; roopa@cumulusnetworks.com;
->> Jiri
->>> Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
->>> <eladr@mellanox.com>; Yotam Gigi <yotamg@mellanox.com>; Or Gerlitz
->>> <ogerlitz@mellanox.com>
->>> Subject: Re: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to extended statistics
->>>
->>> On Thu, 12 Jan 2017 15:49:50 +0200
->>> Nogah Frankel <nogahf@mellanox.com> wrote:
->>>
->>>> The default stats for ifstat are 32 bits based.
->>>> The kernel supports 64 bits based stats. (They are returned in struct
->>>> rtnl_link_stats64 which is an exact copy of struct rtnl_link_stats, in
->>>> which the "normal" stats are returned, but with fields of u64 instead of
->>>> u32). This patch adds them as an extended stats.
->>>>
->>>> It is read with filter type IFLA_STATS_LINK_64 and no sub type.
->>>>
->>>> It is under the name 64bits
->>>> (or any shorten of it as "64")
->>>>
->>>> For example:
->>>> ifstat -x 64bit
->>>>
->>>> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
->>>> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
->>> Other commands (like ip link) always use the 64 bit statistics if available
->>> from the device. I see no reason that ifstat needs to be different.
->>>
->> Do you mean to change the default ifstat results to be 64 bits based?
->> I tried it in the first version, but Roopa commented that it was not a good idea.
->> She said they tried it in the past and it caused backward compatibilities problems.
->> (Or maybe I didn't understand correctly)
-> So, can I leave the default ifstat results to be 32 bits based, for the time being?
->
->From past discussions: Moving the default to 64bit has compat issues with the old history file.
-There is a way to make it work by using a new file header (to indicate that it is 64 bit) in
-a freshly created history file and also check this header before dumping stats into the history file.
-ie maintain backward compat without introducing a new option. It is doable.
+Le 19/01/2017 =E0 08:56, Andrei Pistirica a =E9crit :
+> This patch does the following:
+> - MACB/GEM-PTP interface
+> - registers and bitfields for TSU
+> - capability flags to enable PTP per platform basis
+> =
 
-One approach is, you can drop the 64bit option from this series and
-try updating the default to 64 bit (with compat handling code) in a later series.
+> Signed-off-by: Andrei Pistirica <andrei.pistirica@microchip.com>
+
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+Thanks, regards,
+
+> ---
+> Patch history:
+> =
+
+> Version 1:
+> This is just the common code for MACB/GEM-PTP support.
+> Code is based on the comments related to the following patch series:
+> - [RFC PATCH net-next v1-to-4 1/2] macb: Add 1588 support in Cadence GEM
+> - [RFC PATCH net-next v1-to-4 2/2] macb: Enable 1588 support in SAMA5Dx p=
+latforms
+> =
+
+> Version 2:
+> - Cosmetic changes and PTP capability flag changed doe to overlapping wit=
+h JUMBO.
+> =
+
+> Note: Patch on net-next: January 19.
+> =
+
+>  drivers/net/ethernet/cadence/macb.c | 32 +++++++++++++++-
+>  drivers/net/ethernet/cadence/macb.h | 74 +++++++++++++++++++++++++++++++=
+++++++
+>  2 files changed, 104 insertions(+), 2 deletions(-)
+> =
+
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/c=
+adence/macb.c
+> index c0fb80a..ff1e648 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -2085,6 +2085,9 @@ static int macb_open(struct net_device *dev)
+>  =
+
+>  	netif_tx_start_all_queues(dev);
+>  =
+
+> +	if (bp->ptp_info)
+> +		bp->ptp_info->ptp_init(dev);
+> +
+>  	return 0;
+>  }
+>  =
+
+> @@ -2106,6 +2109,9 @@ static int macb_close(struct net_device *dev)
+>  =
+
+>  	macb_free_consistent(bp);
+>  =
+
+> +	if (bp->ptp_info)
+> +		bp->ptp_info->ptp_remove(dev);
+> +
+>  	return 0;
+>  }
+>  =
+
+> @@ -2379,6 +2385,17 @@ static int macb_set_ringparam(struct net_device *n=
+etdev,
+>  	return 0;
+>  }
+>  =
+
+> +static int macb_get_ts_info(struct net_device *netdev,
+> +			    struct ethtool_ts_info *info)
+> +{
+> +	struct macb *bp =3D netdev_priv(netdev);
+> +
+> +	if (bp->ptp_info)
+> +		return bp->ptp_info->get_ts_info(netdev, info);
+> +
+> +	return ethtool_op_get_ts_info(netdev, info);
+> +}
+> +
+>  static const struct ethtool_ops macb_ethtool_ops =3D {
+>  	.get_regs_len		=3D macb_get_regs_len,
+>  	.get_regs		=3D macb_get_regs,
+> @@ -2396,7 +2413,7 @@ static const struct ethtool_ops gem_ethtool_ops =3D=
+ {
+>  	.get_regs_len		=3D macb_get_regs_len,
+>  	.get_regs		=3D macb_get_regs,
+>  	.get_link		=3D ethtool_op_get_link,
+> -	.get_ts_info		=3D ethtool_op_get_ts_info,
+> +	.get_ts_info		=3D macb_get_ts_info,
+>  	.get_ethtool_stats	=3D gem_get_ethtool_stats,
+>  	.get_strings		=3D gem_get_ethtool_strings,
+>  	.get_sset_count		=3D gem_get_sset_count,
+> @@ -2409,6 +2426,7 @@ static const struct ethtool_ops gem_ethtool_ops =3D=
+ {
+>  static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+>  {
+>  	struct phy_device *phydev =3D dev->phydev;
+> +	struct macb *bp =3D netdev_priv(dev);
+>  =
+
+>  	if (!netif_running(dev))
+>  		return -EINVAL;
+> @@ -2416,7 +2434,17 @@ static int macb_ioctl(struct net_device *dev, stru=
+ct ifreq *rq, int cmd)
+>  	if (!phydev)
+>  		return -ENODEV;
+>  =
+
+> -	return phy_mii_ioctl(phydev, rq, cmd);
+> +	if (!bp->ptp_info)
+> +		return phy_mii_ioctl(phydev, rq, cmd);
+> +
+> +	switch (cmd) {
+> +	case SIOCSHWTSTAMP:
+> +		return bp->ptp_info->set_hwtst(dev, rq, cmd);
+> +	case SIOCGHWTSTAMP:
+> +		return bp->ptp_info->get_hwtst(dev, rq);
+> +	default:
+> +		return phy_mii_ioctl(phydev, rq, cmd);
+> +	}
+>  }
+>  =
+
+>  static int macb_set_features(struct net_device *netdev,
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/c=
+adence/macb.h
+> index d67adad..94ddedd 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -131,6 +131,20 @@
+>  #define GEM_RXIPCCNT		0x01a8 /* IP header Checksum Error Counter */
+>  #define GEM_RXTCPCCNT		0x01ac /* TCP Checksum Error Counter */
+>  #define GEM_RXUDPCCNT		0x01b0 /* UDP Checksum Error Counter */
+> +#define GEM_TISUBN		0x01bc /* 1588 Timer Increment Sub-ns */
+> +#define GEM_TSH			0x01c0 /* 1588 Timer Seconds High */
+> +#define GEM_TSL			0x01d0 /* 1588 Timer Seconds Low */
+> +#define GEM_TN			0x01d4 /* 1588 Timer Nanoseconds */
+> +#define GEM_TA			0x01d8 /* 1588 Timer Adjust */
+> +#define GEM_TI			0x01dc /* 1588 Timer Increment */
+> +#define GEM_EFTSL		0x01e0 /* PTP Event Frame Tx Seconds Low */
+> +#define GEM_EFTN		0x01e4 /* PTP Event Frame Tx Nanoseconds */
+> +#define GEM_EFRSL		0x01e8 /* PTP Event Frame Rx Seconds Low */
+> +#define GEM_EFRN		0x01ec /* PTP Event Frame Rx Nanoseconds */
+> +#define GEM_PEFTSL		0x01f0 /* PTP Peer Event Frame Tx Secs Low */
+> +#define GEM_PEFTN		0x01f4 /* PTP Peer Event Frame Tx Ns */
+> +#define GEM_PEFRSL		0x01f8 /* PTP Peer Event Frame Rx Sec Low */
+> +#define GEM_PEFRN		0x01fc /* PTP Peer Event Frame Rx Ns */
+>  #define GEM_DCFG1		0x0280 /* Design Config 1 */
+>  #define GEM_DCFG2		0x0284 /* Design Config 2 */
+>  #define GEM_DCFG3		0x0288 /* Design Config 3 */
+> @@ -174,6 +188,7 @@
+>  #define MACB_NCR_TPF_SIZE	1
+>  #define MACB_TZQ_OFFSET		12 /* Transmit zero quantum pause frame */
+>  #define MACB_TZQ_SIZE		1
+> +#define MACB_SRTSM_OFFSET	15
+>  =
+
+>  /* Bitfields in NCFGR */
+>  #define MACB_SPD_OFFSET		0 /* Speed */
+> @@ -319,6 +334,32 @@
+>  #define MACB_PTZ_SIZE		1
+>  #define MACB_WOL_OFFSET		14 /* Enable wake-on-lan interrupt */
+>  #define MACB_WOL_SIZE		1
+> +#define MACB_DRQFR_OFFSET	18 /* PTP Delay Request Frame Received */
+> +#define MACB_DRQFR_SIZE		1
+> +#define MACB_SFR_OFFSET		19 /* PTP Sync Frame Received */
+> +#define MACB_SFR_SIZE		1
+> +#define MACB_DRQFT_OFFSET	20 /* PTP Delay Request Frame Transmitted */
+> +#define MACB_DRQFT_SIZE		1
+> +#define MACB_SFT_OFFSET		21 /* PTP Sync Frame Transmitted */
+> +#define MACB_SFT_SIZE		1
+> +#define MACB_PDRQFR_OFFSET	22 /* PDelay Request Frame Received */
+> +#define MACB_PDRQFR_SIZE	1
+> +#define MACB_PDRSFR_OFFSET	23 /* PDelay Response Frame Received */
+> +#define MACB_PDRSFR_SIZE	1
+> +#define MACB_PDRQFT_OFFSET	24 /* PDelay Request Frame Transmitted */
+> +#define MACB_PDRQFT_SIZE	1
+> +#define MACB_PDRSFT_OFFSET	25 /* PDelay Response Frame Transmitted */
+> +#define MACB_PDRSFT_SIZE	1
+> +#define MACB_SRI_OFFSET		26 /* TSU Seconds Register Increment */
+> +#define MACB_SRI_SIZE		1
+> +
+> +/* Timer increment fields */
+> +#define MACB_TI_CNS_OFFSET	0
+> +#define MACB_TI_CNS_SIZE	8
+> +#define MACB_TI_ACNS_OFFSET	8
+> +#define MACB_TI_ACNS_SIZE	8
+> +#define MACB_TI_NIT_OFFSET	16
+> +#define MACB_TI_NIT_SIZE	8
+>  =
+
+>  /* Bitfields in MAN */
+>  #define MACB_DATA_OFFSET	0 /* data */
+> @@ -386,6 +427,17 @@
+>  #define GEM_PBUF_LSO_OFFSET			27
+>  #define GEM_PBUF_LSO_SIZE			1
+>  =
+
+> +/* Bitfields in TISUBN */
+> +#define GEM_SUBNSINCR_OFFSET			0
+> +#define GEM_SUBNSINCR_SIZE			16
+> +
+> +/* Bitfields in TI */
+> +#define GEM_NSINCR_OFFSET			0
+> +#define GEM_NSINCR_SIZE				8
+> +
+> +/* Bitfields in ADJ */
+> +#define GEM_ADDSUB_OFFSET			31
+> +#define GEM_ADDSUB_SIZE				1
+>  /* Constants for CLK */
+>  #define MACB_CLK_DIV8				0
+>  #define MACB_CLK_DIV16				1
+> @@ -413,6 +465,7 @@
+>  #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+>  #define MACB_CAPS_USRIO_DISABLED		0x00000010
+>  #define MACB_CAPS_JUMBO				0x00000020
+> +#define MACB_CAPS_GEM_HAS_PTP			0x00000040
+>  #define MACB_CAPS_FIFO_MODE			0x10000000
+>  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+>  #define MACB_CAPS_SG_DISABLED			0x40000000
+> @@ -782,6 +835,20 @@ struct macb_or_gem_ops {
+>  	int	(*mog_rx)(struct macb *bp, int budget);
+>  };
+>  =
+
+> +/* MACB-PTP interface: adapt to platform needs. */
+> +struct macb_ptp_info {
+> +	void (*ptp_init)(struct net_device *ndev);
+> +	void (*ptp_remove)(struct net_device *ndev);
+> +	s32 (*get_ptp_max_adj)(void);
+> +	unsigned int (*get_tsu_rate)(struct macb *bp);
+> +	int (*get_ts_info)(struct net_device *dev,
+> +			   struct ethtool_ts_info *info);
+> +	int (*get_hwtst)(struct net_device *netdev,
+> +			 struct ifreq *ifr);
+> +	int (*set_hwtst)(struct net_device *netdev,
+> +			 struct ifreq *ifr, int cmd);
+> +};
+> +
+>  struct macb_config {
+>  	u32			caps;
+>  	unsigned int		dma_burst_length;
+> @@ -874,6 +941,8 @@ struct macb {
+>  	unsigned int		jumbo_max_len;
+>  =
+
+>  	u32			wol;
+> +
+> +	struct macb_ptp_info	*ptp_info;	/* macb-ptp interface */
+>  };
+>  =
+
+>  static inline bool macb_is_gem(struct macb *bp)
+> @@ -881,4 +950,9 @@ static inline bool macb_is_gem(struct macb *bp)
+>  	return !!(bp->caps & MACB_CAPS_MACB_IS_GEM);
+>  }
+>  =
+
+> +static inline bool gem_has_ptp(struct macb *bp)
+> +{
+> +	return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
+> +}
+> +
+>  #endif /* _MACB_H */
+> =
+
+
+
+-- =
+
+Nicolas Ferre
