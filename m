@@ -1,141 +1,580 @@
-From: eaebtqp@mail.cpd.com.cn
-Subject: =?utf-8?B?c2FsZXMtLeOAkOWFheeUteermSvmlrDog73mupDmsb3ovablsZXjgJEg?=
-        =?utf-8?B?MjAxN+esrOWFq+WxiuS4reWbve+8iOW5v+W3nu+8ieWbvemZheaWsOiDvea6kOaxvei9pg==?=
-        =?utf-8?B?5bel5Lia5bGVICDvvIhHLVlEMi1DNTAtTWXvvIk=?=
-Date: Thu, 19 Jan 2017 03:52:39 +0800
-Message-ID: <20170119035252374450@cpd.com.cn>
-Reply-To: <EMAILQUNFA@163.COM>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCH net-next v3] bridge: multicast to unicast
+Date: Thu, 19 Jan 2017 01:23:39 +0100
+Message-ID: <20170119002339.11609-1-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        charset="utf-8"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [114.255.159.82] ([114.255.159.82]:43975 "EHLO mail.cpd.com.cn"
-        rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-        id S1751108AbdARX1d (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 18:27:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-5Lit5Y2O5Lq65rCR5YWx5ZKM5Zu95ZWG5Yqh6YOo5byV5a+85pSv5oyB5bGV5LyaDQrlm73lrrbn
-uqflm73pmYXmgKfmsb3ovablhYXnlLXorr7lpIflsZXotLjlubPlj7ANCuOAgA0KMjAxN+esrOWF
-q+WxiuS4reWbve+8iOW5v+W3nu+8ieWbvemZheaWsOiDvea6kOaxvei9puW3peS4muWxleiniOS8
-miDvvIhORUEgMjAxN++8iQ0KVGhlIDh0aCBHdWFuZ3pob3UgSW50ZXJuYXRpb25hbCBOZXcgRW5l
-cmd5IEF1dG9tb2JpbGVzIEluZHVzdHJ5IEV4cG8gMjAxNw0K44CADQoyMDE356ys5YWr5bGK5Lit
-5Zu977yI5bm/5bee77yJ5Zu96ZmF5YWF55S156uZ5oqA5pyv6KOF5aSH5bGV6KeI5LyaIO+8iEVW
-RSAyMDE377yJDQpUaGUgOHRoIEd1YW5nemhvdSBJbnRlcm5hdGlvbmFsIEVsZWN0cmljIFZlaGlj
-bGUgU3VwcGx5IEVxdWlwbWVudHMgRXhwbyAyMDE3DQrjgIANCuOAgA0K44CQIOWxlSDkvJog5L+h
-IOaBryDjgJENCuOAgA0K4pagIOWxleiniOaXpeacnw0KMjAxN+W5tDA25pyIMDLigJQwNOaXpQ0K
-44CADQrilqAg5bGV6KeI5Zy66aaGDQrkuK3lm73igKLlub/lt57nkLbmtLLkv53liKnkuJbotLjl
-jZrop4jppoYNCuOAgA0K4pagIOaJueWHhuS4vuWKng0K5Lit5Y2O5Lq65rCR5YWx5ZKM5Zu95ZWG
-5Yqh6YOoDQrmibnmloflj7fvvJrllYbmnI3otLjmibnvvIgyMDE177yJODIz5Y+3DQrjgIANCuKW
-oCDmlK/mjIHljZXkvY0NCuS4reWNjuS6uuawkeWFseWSjOWbveWbveWutuiDvea6kOWxgA0K5Lit
-5Y2O5Lq65rCR5YWx5ZKM5Zu95Zu95a625Y+R5bGV5ZKM5pS56Z2p5aeU5ZGY5LyaDQrlub/kuJzn
-nIHkurrmsJHmlL/lupwNCuW5v+W3nuW4guS6uuawkeaUv+W6nA0K5Zu95a6255S1572RDQrljZfm
-lrnnlLXnvZHjgIDigKLigKLigKINCuOAgA0K4pagIOS4u+WKnuWNleS9jQ0K5Lit5Zu95a+55aSW
-6LS45piT57uP5rWO5ZCI5L2c5LyB5Lia5Y2P5LyaDQrjgIANCuKWoCDogZTlkIjmib/lip4NCuaY
-oOW+t+S8muWxle+8iOWMl+S6rO+8ieaciemZkOWFrOWPuA0K5bm/5bee5Lit5rG95bGV6KeI5pyJ
-6ZmQ5YWs5Y+4DQrjgIANCuKWoCDlrpjmlrnnvZHnq5kNCmh0dHA6Ly93d3cuQ0FQRS1jaGluYS5j
-b20NCuOAgA0K4pagIOWcqOe6v+Wuouacje+8miANCumCrueusS9RUe+8mjEyODA5Mzk1I3FxLmNv
-be+8myAg5b6u5L+h77yaeW9uZGV4cG/vvJsgIOW+ruWNmu+8mmh0dHA6Ly93ZWliby5jb20veWlu
-Z2RlaHVpemhhbg0K44CADQrilqAg5ZKo6K+i55S16K+d77yaIA0KNDAwMC01ODAtODUw77yI6L2s
-ODE0NOaIljg2OTnvvInvvJsgMTM5LTEwMzEtODE0NO+8myAwMTDigJU4Njk5LTcxNTXjgIEgODA4
-NC0yMTI477ybIA0K44CADQrjgIANCuOAkCDlrqMg5LygIOaOqCDlub8g44CRDQrjgIANCuOAgOOA
-gDIwMTfnrKzlhavlsYrlub/lt57lm73pmYXmlrDog73mupDmsb3ovablt6XkuJrlsZXop4jkvJrl
-sIbmmK/kuIDmrKHnq4votrPms5vnj6DkuInop5LvvIzkvp3miZjlhoXlnLDjgIHovpDlsITkuprl
-pKrjgIHmlL7nnLzkuJbnlYzlhbfmnInov5vlh7rlj6Plj4zlkJHlr7zlkJHlnovnmoTnjrDku6Pl
-jJblm73pmYXmgKfkuJPkuJrlk4HniYznm5vkvJrjgILkuLvlip7mlrnlsIbkv53or4HmiYDmnInl
-j4LlsZXllYbog73pgI/ov4fmnKzmrKHkuJPkuJrlsZXkvJrmnInmlYjnmoTkuqflk4Hmjqjku4vl
-j4rlvaLosaHlsZXnpLrvvIzlubbmnIDnu4jovr7miJDluILlnLrmiJDlip/mjqjlub/plIDllK7k
-uYvnm67nmoTjgILkuJPkuJrop4LkvJfnmoTnu4Tnu4flkozpgoDor7fmmK/nu4Tlp5TkvJrlt6Xk
-vZzph43ngrnkuYvkuIDvvIzkuLvlip7mlrnlsIblvJXov5vlm73pmYXlhYjov5vnmoRDUk3lrqLm
-iLflhbPns7vnrqHnkIbns7vnu5/vvIzmlbTlkIjmlL/lupzjgIHljY/kvJrjgIHnlJ/kuqfkvIHk
-uJrjgIHlqpLkvZPotYTmupDlj4rkuLvlip7mlrnlup7lpKfnmoTkubDlrrbmlbDmja7lupPvvIzp
-gJrov4fnm7Tpgq7jgIHkvKDnnJ/jgIHnlLXlrZDpgq7ku7bjgIHmi5zorr/jgIFWSVDpgoDor7fj
-gIHljbPml7bmjqjlub/jgIHlub/lkYrkvKDlqpLjgIHlsZXliY3pooTop4jjgIHkuJPkuJrop4Lk
-vJflnKjnur/nmbvorrDjgIHooYzkuJrlsZXkvJrmjqjku4vjgIHkuJPkuJrlqpLkvZPmjqjku4vj
-gIHlsZXllYbpgoDor7fjgIHooYzkuJrljY/kvJrnu4Tlm6Llkozlm73pmYXlkIjkvZznrYnlpJrn
-p43ngbXmtLvmnInmlYjnmoTmlrnlvI/nu4Tnu4fkuJPkuJrkurrlo6vliLDlnLrlj4Lop4Lph4fo
-tK3jgIINCuOAgOOAgOe7hOWnlOS8muWwhuWcqOS4iueZvuWutuaWsOmXu+WqkuS9k+OAgeS4k+S4
-muadguW/l+OAgee9keermeS4iuWPkeW4g+acrOasoeWxleS8muS/oeaBr++8jOWIiueZu+W5v+WR
-iu+8m+WdmuaMgeS7peS4u+a1geWqkuS9k+mdouWvuea2iOi0ueiAhe+8jOS4k+S4muWqkuS9k+md
-ouWvueWOguWVhuOAgee7j+mUgOWVhueahOS8oOaSreWvvOWQkSznu5PlkIjlpKflnovmtLvliqjn
-moTlvbHlk43lipvjgIHmnYPlqIHmgKcs5Lul5rOo5oSP5Yqb6JCl5raI55qE5paw6KeC5b+1LOWF
-qOWKm+aJk+mAoOWFt+acieWbvemZheW9seWTjeWKm+eahOS4k+S4muWxleS8muOAgg0K44CA44CA
-5Li75Yqe5pa55bCG5YWF5YiG5Y+R5oyl6Ieq6Lqr5LyY5Yq/77yM5LiO5YWo5Zu96IyD5Zu05YaF
-6LaF6L+HMTAwMOWutuWkp+Wei+aWsOiDvea6kOaxvei9puWPiuWFheeUteahqeW4guWcuuaQuuaJ
-i+WvueWxleS8mui/m+ihjOWuo+S8oOOAgumCgOivt+e7hOe7h+WFqOWbveWQhOWcsOWMuuaJgOac
-ieaWsOiDvea6kOaxvei9puW4guWcuuWPiuWFqOWbveWQhOWcsOaWsOiDvea6kOaxvei9puihjOS4
-muebuOWFs+WNj+S8muS8muWRmOWNleS9jeWPguWxleWPguinguOAgg0K44CA44CA5YW35L2T5Li+
-5o6q5aaC5LiL77yaIA0K4pagIOiBlOaJi+a1t+WGheWkluWQhOWkp+efpeWQjeWqkuS9k+OAgeS4
-k+S4muWqkuS9k+WvueWxleS8mui/m+ihjOW8uuWKv+Wuo+S8oOWSjOa3seWFpeaKpemBk++8jOS4
-juihjOS4muadg+WogeWqkuS9k+W8uuW8uuWQiOS9nO+8jOWFseWQjOaJk+mAoOaWsOiDvea6kOax
-vei9puihjOS4mueahOS4k+S4muWxleS8mu+8mw0K4pagIOWcqOWbveWGheWkluWQhOWkp+axvei9
-puihjOS4muWxleS8muS4iuaOqOW5v+acrOasoeWxleS8muOAgeW5v+WPkeWPguinguWIuO+8mw0K
-4pagIOWvuea1t+WGheWkljnkuIflpJrkuJPkuJrop4LkvJfpgq7lr4Tlj4Lop4LliLjpgoDor7fv
-vIzlr7nkuLvlip7mlrkyMOWkmuS4h+ihjOS4muS5sOWutuaVsOaNruWPkemAgeeUteWtkOmCruS7
-tumCgOivt++8jOWvuea1t+WGheWkljEwMDAwMOWutuS7peS4iueahOaWsOiDvea6kOaxvei9puW4
-guWcuumUgOWUruS8geS4muWPkeS8oOecn+mCgOivt++8jOWvuea1t+WGheWkluihjOS4muWGhei2
-hei/hzEwMDDkvY3kuJPkuJpWSVDkurrlo6vlj5HpgIHor7fmn6zpgoDor7fvvJsNCuKWoCDpgJro
-v4flpJblm73pqbvljY7kvb/poobppobjgIHllYbliqHlpITlkozotLjmmJPmnLrmnoTlkJHlhbbm
-nKzlm73nm7jlhbPmlrDog73mupDmsb3ovabooYzkuJrljY/kvJrlkozmnLrmnoTmjqjku4vmnKzm
-rKHlsZXkvJrvvIzpgoDor7fmnInlhbPkvIHkuJrlj4LlsZXlj4Lop4LvvIzlkIzml7bpgJrov4fm
-iJHlm73pqbvlpJbkvb/poobppoblkozllYbliqHlpITmjqjku4vlsZXkvJrjgIINCuKWoCDku47l
-voDlsYrlsZXkvJrop4LkvJfmlbDmja7lupPkuK3vvIzmjJbmjpjkuJPkuJrop4LkvJfvvIznu6fn
-u63pgoDor7fku5bku6zlj4Lop4LmnKzlsYrlsZXkvJrvvJvlkIzml7blp5TmiZjmtbflhoXlpJbl
-kITkuJPkuJrljY/vvIjlrabvvInkvJrjgIHooYzkuJrlqpLkvZPliIblj5HlsZXkvJrlrqPkvKDl
-k4Hlubbnu4Tnu4flj4Lop4LvvJvlrozmlbTnmoTotaDnpajorqHliJLlsIbljY/liqnlsZXllYbl
-sIbor7fmn6zpgIHoh7PmnIDlkIjpgILnmoTnm67moIfop4LkvJfnvqTkvZPvvJsNCuKWoCDnp6/m
-noHkuLrlsZXllYbmj5DkvpvkuI3mlq3mm7TmlrDnmoTluILlnLrotYTmlpnlkozmlL/nrZbmlrnp
-naLnmoTmjIflr7zkuI7lkqjor6LvvIzlvIDlsZXmlrDlu7rjgIHlnKjlu7rpobnnm67lj5HluIPv
-vIzlsIblsZXop4jkvJrnmoTotLjmmJPmtLvliqjov5vkuIDmraXlu7bkvLjvvIzlvJXlr7zlj4Ll
-sZXllYbliLblrprpgILlrpznmoTokKXplIDnrZbnlaXvvJvlubblsIbliKnnlKjoh6rouqvnmoTn
-pL7kvJrotYTmupDlkozljZPotornmoTnu4Tnu4fog73lipvvvIzljY/liqnlj4LlsZXllYbnu4Tn
-u4fkuL7lip7kuqflk4Hmjqjlub/kvJrvvIzkvb/lj4LlsZXllYbmnIDlpKfpmZDluqblnLDmianl
-pKflj4LlsZXnmoTmlYjnm4rjgIINCuOAgA0K44CADQrjgJAg5Y+CIOWxlSDnu4Yg5YiZIOOAkeOA
-gOOAgOOAgOOAgA0K44CADQrilqAg5bGV5L2N6KeE5qC877yaIA0K44CA44CAMeOAgeeJueijheWx
-leS9je+8mjM25bmz5pa557Gz6LW356ef77yM5LuF5o+Q5L6b55u45bqU6Z2i56ev5a6k5YaF5aSW
-56m65Zyw44CC5bGV5Y+w5pCt5bu644CB5bGV6KeI5Zmo5YW344CB55So55S155So5rC0562J6Ieq
-55CG44CCIA0K44CA44CAMuOAgeagh+WHhuWxleS9je+8mjnlubPmlrnnsbPvvIgzbcOXM23vvInm
-r4/kuKrvvIwyLjVt6auY5aOB5p2/44CB5LiA5p2h5qWj5p2/77yI5bGV5ZWG5ZCN56ew77yJ44CB
-5LiA5byg5rS96LCI5qGM44CB5Lik5oqK5qSF5a2Q44CB5Lik55uP5bCE54Gv44CBMjIwVi81QeeU
-tea6kOaPkuW6p+S4gOWkhOOAgiANCuOAgA0K4pagIOWxleS9jei0ueeUqO+8miAgICAgIA0K44CA
-44CA54m56KOF5bGV5L2N77ya5aKD5YaF5LyB5LiaUk1CMTIwMC/lubPmlrnnsbPvvJvjgIDjgIDl
-ooPlpJbkvIHkuJpVU0QzNTAv5bmz5pa557Gz77ybIA0K44CA44CA5qCH5YeG5bGV5L2N77ya5aKD
-5YaF5LyB5LiaUk1CMTIwMDAv5Liq77yb44CA44CA5aKD5aSW5LyB5LiaVVNEMzUwMC/kuKrvvJsg
-77yI5Y+M6Z2i5byA5Y+j5qCH5YeG5bGV5L2N5Y+m5Yqg5pS2MTAl6LS555So77yJDQrjgIANCuKW
-oCDkvJrliIrlub/lkYrvvJog77yI5aSn5Lya44CK5Lya5YiK44CL5bCG5biu5Yqp5oKo5Zyo5bGV
-5Lya5ZCO5om+5Yiw5a6i5oi377yB6Zmk5Zyo5bGV5Lya5pyf6Ze05bm/5Li65Y+R6YCB5aSW77yM
-6L+Y6YCa6L+H5ZCE56eN5pyJ5YWz5rig6YGT5Y+R6YCB57uZ5pyq6IO95YmN5p2l5Y+C6KeC5bGV
-5Lya55qE5ZCE5Zyw5LiT5Lia5Lq65aOr5omL5Lit77yM5LuW5Lus5Y+v5Yip55So5Lya5YiK6L+F
-6YCf5p+l5om+5pyN5Yqh5YaF5a655LiO6IGU57uc5pa55rOV44CCIOS8muWIiuWwuuWvuO+8mjEz
-MG1tKjIxMG1t77yM6L+b5Y+j6ZOc5p2/57q45b2p6Imy57K+5Y2w77yM5Y+R6KGM6YePMTDkuIfl
-hozjgILvvIkNCuOAgOOAgOWwgemdoiBDTlkgMzAwMDDvvJsgICAgIOWwgeS6jOWwgeS4iSBDTlkg
-MjIwMDDvvJsgICAgIOaJiemhtSBDTlkgMTgwMDDvvJsgICAgIOm7keeZvemhtSBDTlkgNTAwMO+8
-mw0K44CA44CA5bCB5bqVIENOWSAyMDAwMO+8myAgICAg5b2p6aG16Leo54mIIENOWSAxODAwMO+8
-myAgICAg5b2p6aG1IENOWSAxMjAwMO+8myAgICAgMzAw5a2X566A5LuLIENOWSAyMDAw77ybDQrj
-gIANCuKWoCDkvJrorq7orrrlnZvvvJoNCuOAgOOAgOWmguaKgOacr+S6pOa1geS8mi/kuqflk4Hm
-jqjlub/lj5HluIPkvJrvvIxDTlk5MDAwL+Wwj+aXti/lnLrvvIznlKjkuo7kvJrlnLrlj4rnm7jl
-hbPorr7lpIfnp5/ph5HvvIjljIXmi6zlnLrlnLDjgIHmianpn7Porr7mlr3jgIHnga/lhbfjgIHm
-ipXlvbHmnLrjgIHmipXlvbHku6rvvIzmoYzmpIXjgIHnqbrosIPjgIHojLbmsLTlubbljY/liqnk
-uLvorrLkvIHkuJrnu4Tnu4flkKzkvJfvvInjgIINCuOAgA0K44CADQrjgJAg5625IOWxlSDogZQg
-57ucIOOAkeOAgOOAgOOAgOOAgA0KIOOAgA0K5YWo5Zu957uf5LiA5a6i5pyN54Ot57q/77yaIDQw
-MDAtNTgwLTg1MC7vvIjliIbmnLrvvJo4MTQ044CBNTIwNuaIljUyMjDvvIkNCuWFqOWbvee7n+S4
-gOaKpeWQjeS4k+e6v++8miA0MDAwLTY4MC04NjAu77yI5YW85Lyg55yf77yJDQrlrpjmlrnnvZHn
-q5nvvJogaHR0cDovL3d3dy5DQVBFLWNoaW5hLmNvbSANCuWPguWxlemhvumXru+8miDnjovlhYjn
-lJ/jgIEg5p2O5YWI55Sf44CBIOauteWwj+WnkOOAgSDmooHlsI/lp5ANCuWPguWxleeDree6v++8
-miAxMzEtMjY2Mi01MjA244CBIDEzOS0xMDMxLTgxNDTvvJsgIDAxMOKAlCA4Njk5LSA3MTU144CB
-IDgwODQtIDIxMjguDQrlnKjnur/lrqLmnI3vvJogUVEv6YKu566x77yaMTI4MDkzOTUjcXEuY29t
-77ybICDlvq7kv6EvIHlvbmRleHBv77ybIOW+ruWNmi8gaHR0cDovL3dlaWJvLmNvbS95b25kZXhw
-bw0K44CADQrjgIANCuOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOAgOOA
-lCDmmKDlvrfkvJrlsZUgLyDor5rpgoDlj4LliqAyMDE35bm05bqm5p2D5aiB5a6e5pWI5ZOB54mM
-55ub5Lya77meDQrjgIANCuOAgA0K44CQIOWFrCDkvJcg5bmzIOWPsCDjgJENCuOAgA0K5b6u5L+h
-77yaIOWPguWxlea2iOaBryDvvIhJRO+8mkNhblpoYW5YaWFvWGnvvInigJTigJQg5ZOB54mM5omp
-5byg55qE5bmz5Y+w44CA5biC5Zy65byA5ouT55qE5qGl5qKBDQrlvq7kv6HvvJog5bGV5ZWG5LmL
-5a62IO+8iElE77yaWmhhblNoYW5nWmhpSmlh77yJ4oCU4oCUIOS4uuWxleWVhuaPkOS+m+acgOS9
-s+iQpeWcsOOAgOS4uumYgeS4i+iQpemAoOWPguWxleS7t+WAvA0K44CADQotLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0K55m+5LiH576k5Y+R57O757uf
-fOS4uuaCqOWPkemAgXzlpoLkuI3luIzmnJvlho3mlLbliLDmraTooYzkuJrotYTorq986K+35Zue
-5aSN4oCc6YCA6K6iK05FQTIwMTfigJ3oh7Ppgq7nrrExMDU1ODAwODEyQHFxLmNvbQ0K
+Implements an optional, per bridge port flag and feature to deliver
+multicast packets to any host on the according port via unicast
+individually. This is done by copying the packet per host and
+changing the multicast destination MAC to a unicast one accordingly.
+
+multicast-to-unicast works on top of the multicast snooping feature of
+the bridge. Which means unicast copies are only delivered to hosts which
+are interested in it and signalized this via IGMP/MLD reports
+previously.
+
+This feature is intended for interface types which have a more reliable
+and/or efficient way to deliver unicast packets than broadcast ones
+(e.g. wifi).
+
+However, it should only be enabled on interfaces where no IGMPv2/MLDv1
+report suppression takes place. This feature is disabled by default.
+
+The initial patch and idea is from Felix Fietkau.
+
+Signed-off-by: Felix Fietkau <nbd@nbd.name>
+[linus.luessing@c0d3.blue: various bug + style fixes, commit message]
+Signed-off-by: Linus Lüssing <linus.luessing@c0d3.blue>
+
+---
+
+This feature is used and enabled by default in OpenWRT and LEDE for AP
+interfaces for more than a year now to allow both a more robust multicast
+delivery and multicast at higher rates (e.g. multicast streaming).
+
+In OpenWRT/LEDE the IGMP/MLD report suppression issue is overcome by
+the network daemon enabling AP isolation and by that separating all STAs.
+Delivery of STA-to-STA IP mulitcast is made possible again by
+enabling and utilizing the bridge hairpin mode, which considers the
+incoming port as a potential outgoing port, too.
+
+Hairpin-mode is performed after multicast snooping, therefore leading to
+only deliver reports to STAs running a multicast router.
+
+Changes in v3:
+* fix an uninitialized variable bug introduced in br_multicast_flood()
+  in v2, found by kbuild test bot
+
+Changes in v2:
+* netlink support (thanks Nik!)
+* fixed switching between multicast_to_unicast on/off
+  -> even after toggling an already existing entry would
+     stale in its mode and would never be replaced
+  -> new extra check in br_port_group_equal)
+* reduced checks in br_multicast_flood() from two to one
+  to address fast-path concerns (thanks Nik!)
+* rev-christmas tree ordering (thanks Nik!)
+* removed "net_bridge_port_group::unicast", using
+  ::flags instead (thanks Nik!)
+* BR_MULTICAST_TO_UCAST -> BR_MULTICAST_TO_UNICAST
+  (BR_MULTICAST_FLAST_LEAVE has the same length anyway)
+* simplified maybe_deliver_addr()
+  (no return, no "prev" paramater -> was a NOP anyway)
+* added "From: Felix Fietkau [...]"
+* added "Signed-off-by: Felix Fietkau [...]"
+---
+ include/linux/if_bridge.h    |  1 +
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_forward.c      | 37 ++++++++++++++++-
+ net/bridge/br_mdb.c          |  2 +-
+ net/bridge/br_multicast.c    | 96 ++++++++++++++++++++++++++++++++------------
+ net/bridge/br_netlink.c      |  5 +++
+ net/bridge/br_private.h      |  8 ++--
+ net/bridge/br_sysfs_if.c     |  2 +
+ 8 files changed, 121 insertions(+), 31 deletions(-)
+
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index c6587c0..debc9d5 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -46,6 +46,7 @@ struct br_ip_list {
+ #define BR_LEARNING_SYNC	BIT(9)
+ #define BR_PROXYARP_WIFI	BIT(10)
+ #define BR_MCAST_FLOOD		BIT(11)
++#define BR_MULTICAST_TO_UNICAST	BIT(12)
+ 
+ #define BR_DEFAULT_AGEING_TIME	(300 * HZ)
+ 
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 6b13e59..4e59565 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -321,6 +321,7 @@ enum {
+ 	IFLA_BRPORT_MULTICAST_ROUTER,
+ 	IFLA_BRPORT_PAD,
+ 	IFLA_BRPORT_MCAST_FLOOD,
++	IFLA_BRPORT_MCAST_TO_UCAST,
+ 	__IFLA_BRPORT_MAX
+ };
+ #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 7cb41ae..a6c8a27 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -174,6 +174,29 @@ static struct net_bridge_port *maybe_deliver(
+ 	return p;
+ }
+ 
++static void maybe_deliver_addr(struct net_bridge_port *p, struct sk_buff *skb,
++			       const unsigned char *addr, bool local_orig)
++{
++	struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
++	const unsigned char *src = eth_hdr(skb)->h_source;
++
++	if (!should_deliver(p, skb))
++		return;
++
++	/* Even with hairpin, no soliloquies - prevent breaking IPv6 DAD */
++	if (skb->dev == p->dev && ether_addr_equal(src, addr))
++		return;
++
++	skb = skb_copy(skb, GFP_ATOMIC);
++	if (!skb) {
++		dev->stats.tx_dropped++;
++		return;
++	}
++
++	memcpy(eth_hdr(skb)->h_dest, addr, ETH_ALEN);
++	__br_forward(p, skb, local_orig);
++}
++
+ /* called under rcu_read_lock */
+ void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 	      enum br_pkt_type pkt_type, bool local_rcv, bool local_orig)
+@@ -241,10 +264,20 @@ void br_multicast_flood(struct net_bridge_mdb_entry *mdst,
+ 		rport = rp ? hlist_entry(rp, struct net_bridge_port, rlist) :
+ 			     NULL;
+ 
+-		port = (unsigned long)lport > (unsigned long)rport ?
+-		       lport : rport;
++		if ((unsigned long)lport > (unsigned long)rport) {
++			port = lport;
++
++			if (p->flags & MDB_PG_FLAGS_MCAST_TO_UCAST) {
++				maybe_deliver_addr(lport, skb, p->eth_addr,
++						   local_orig);
++				goto delivered;
++			}
++		} else {
++			port = rport;
++		}
+ 
+ 		prev = maybe_deliver(prev, port, skb, local_orig);
++delivered:
+ 		if (IS_ERR(prev))
+ 			goto out;
+ 		if (prev == port)
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 7dbc80d..056e6ac 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -531,7 +531,7 @@ static int br_mdb_add_group(struct net_bridge *br, struct net_bridge_port *port,
+ 			break;
+ 	}
+ 
+-	p = br_multicast_new_port_group(port, group, *pp, state);
++	p = br_multicast_new_port_group(port, group, *pp, state, NULL);
+ 	if (unlikely(!p))
+ 		return -ENOMEM;
+ 	rcu_assign_pointer(*pp, p);
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index b30e77e..b127bb7 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -43,12 +43,14 @@ static void br_multicast_add_router(struct net_bridge *br,
+ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+ 					 __be32 group,
+-					 __u16 vid);
++					 __u16 vid,
++					 const unsigned char *src);
++
+ #if IS_ENABLED(CONFIG_IPV6)
+ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+ 					 const struct in6_addr *group,
+-					 __u16 vid);
++					 __u16 vid, const unsigned char *src);
+ #endif
+ unsigned int br_mdb_rehash_seq;
+ 
+@@ -711,7 +713,8 @@ struct net_bridge_port_group *br_multicast_new_port_group(
+ 			struct net_bridge_port *port,
+ 			struct br_ip *group,
+ 			struct net_bridge_port_group __rcu *next,
+-			unsigned char flags)
++			unsigned char flags,
++			const unsigned char *src)
+ {
+ 	struct net_bridge_port_group *p;
+ 
+@@ -726,12 +729,39 @@ struct net_bridge_port_group *br_multicast_new_port_group(
+ 	hlist_add_head(&p->mglist, &port->mglist);
+ 	setup_timer(&p->timer, br_multicast_port_group_expired,
+ 		    (unsigned long)p);
++
++	if ((port->flags & BR_MULTICAST_TO_UNICAST) && src) {
++		memcpy(p->eth_addr, src, ETH_ALEN);
++		p->flags |= MDB_PG_FLAGS_MCAST_TO_UCAST;
++	}
++
+ 	return p;
+ }
+ 
++static bool br_port_group_equal(struct net_bridge_port_group *p,
++				struct net_bridge_port *port,
++				const unsigned char *src)
++{
++	if (p->port != port)
++		return false;
++
++	if (!(p->flags & MDB_PG_FLAGS_MCAST_TO_UCAST) !=
++	    !(port->flags & BR_MULTICAST_TO_UNICAST))
++		return false;
++
++	if (!(p->flags & MDB_PG_FLAGS_MCAST_TO_UCAST))
++		return true;
++
++	if (!src)
++		return false;
++
++	return ether_addr_equal(src, p->eth_addr);
++}
++
+ static int br_multicast_add_group(struct net_bridge *br,
+ 				  struct net_bridge_port *port,
+-				  struct br_ip *group)
++				  struct br_ip *group,
++				  const unsigned char *src)
+ {
+ 	struct net_bridge_port_group __rcu **pp;
+ 	struct net_bridge_port_group *p;
+@@ -758,13 +788,13 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	for (pp = &mp->ports;
+ 	     (p = mlock_dereference(*pp, br)) != NULL;
+ 	     pp = &p->next) {
+-		if (p->port == port)
++		if (br_port_group_equal(p, port, src))
+ 			goto found;
+ 		if ((unsigned long)p->port < (unsigned long)port)
+ 			break;
+ 	}
+ 
+-	p = br_multicast_new_port_group(port, group, *pp, 0);
++	p = br_multicast_new_port_group(port, group, *pp, 0, src);
+ 	if (unlikely(!p))
+ 		goto err;
+ 	rcu_assign_pointer(*pp, p);
+@@ -783,7 +813,8 @@ static int br_multicast_add_group(struct net_bridge *br,
+ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 				      struct net_bridge_port *port,
+ 				      __be32 group,
+-				      __u16 vid)
++				      __u16 vid,
++				      const unsigned char *src)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -794,14 +825,15 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 	br_group.proto = htons(ETH_P_IP);
+ 	br_group.vid = vid;
+ 
+-	return br_multicast_add_group(br, port, &br_group);
++	return br_multicast_add_group(br, port, &br_group, src);
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ static int br_ip6_multicast_add_group(struct net_bridge *br,
+ 				      struct net_bridge_port *port,
+ 				      const struct in6_addr *group,
+-				      __u16 vid)
++				      __u16 vid,
++				      const unsigned char *src)
+ {
+ 	struct br_ip br_group;
+ 
+@@ -812,7 +844,7 @@ static int br_ip6_multicast_add_group(struct net_bridge *br,
+ 	br_group.proto = htons(ETH_P_IPV6);
+ 	br_group.vid = vid;
+ 
+-	return br_multicast_add_group(br, port, &br_group);
++	return br_multicast_add_group(br, port, &br_group, src);
+ }
+ #endif
+ 
+@@ -1081,6 +1113,7 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+ 					 struct sk_buff *skb,
+ 					 u16 vid)
+ {
++	const unsigned char *src;
+ 	struct igmpv3_report *ih;
+ 	struct igmpv3_grec *grec;
+ 	int i;
+@@ -1121,12 +1154,14 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+ 			continue;
+ 		}
+ 
++		src = eth_hdr(skb)->h_source;
+ 		if ((type == IGMPV3_CHANGE_TO_INCLUDE ||
+ 		     type == IGMPV3_MODE_IS_INCLUDE) &&
+ 		    ntohs(grec->grec_nsrcs) == 0) {
+-			br_ip4_multicast_leave_group(br, port, group, vid);
++			br_ip4_multicast_leave_group(br, port, group, vid, src);
+ 		} else {
+-			err = br_ip4_multicast_add_group(br, port, group, vid);
++			err = br_ip4_multicast_add_group(br, port, group, vid,
++							 src);
+ 			if (err)
+ 				break;
+ 		}
+@@ -1141,6 +1176,7 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
+ 					struct sk_buff *skb,
+ 					u16 vid)
+ {
++	const unsigned char *src = eth_hdr(skb)->h_source;
+ 	struct icmp6hdr *icmp6h;
+ 	struct mld2_grec *grec;
+ 	int i;
+@@ -1192,10 +1228,11 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
+ 		     grec->grec_type == MLD2_MODE_IS_INCLUDE) &&
+ 		    ntohs(*nsrcs) == 0) {
+ 			br_ip6_multicast_leave_group(br, port, &grec->grec_mca,
+-						     vid);
++						     vid, src);
+ 		} else {
+ 			err = br_ip6_multicast_add_group(br, port,
+-							 &grec->grec_mca, vid);
++							 &grec->grec_mca, vid,
++							 src);
+ 			if (err)
+ 				break;
+ 		}
+@@ -1511,7 +1548,8 @@ br_multicast_leave_group(struct net_bridge *br,
+ 			 struct net_bridge_port *port,
+ 			 struct br_ip *group,
+ 			 struct bridge_mcast_other_query *other_query,
+-			 struct bridge_mcast_own_query *own_query)
++			 struct bridge_mcast_own_query *own_query,
++			 const unsigned char *src)
+ {
+ 	struct net_bridge_mdb_htable *mdb;
+ 	struct net_bridge_mdb_entry *mp;
+@@ -1535,7 +1573,7 @@ br_multicast_leave_group(struct net_bridge *br,
+ 		for (pp = &mp->ports;
+ 		     (p = mlock_dereference(*pp, br)) != NULL;
+ 		     pp = &p->next) {
+-			if (p->port != port)
++			if (!br_port_group_equal(p, port, src))
+ 				continue;
+ 
+ 			rcu_assign_pointer(*pp, p->next);
+@@ -1566,7 +1604,7 @@ br_multicast_leave_group(struct net_bridge *br,
+ 		for (p = mlock_dereference(mp->ports, br);
+ 		     p != NULL;
+ 		     p = mlock_dereference(p->next, br)) {
+-			if (p->port != port)
++			if (!br_port_group_equal(p, port, src))
+ 				continue;
+ 
+ 			if (!hlist_unhashed(&p->mglist) &&
+@@ -1617,7 +1655,8 @@ br_multicast_leave_group(struct net_bridge *br,
+ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+ 					 __be32 group,
+-					 __u16 vid)
++					 __u16 vid,
++					 const unsigned char *src)
+ {
+ 	struct br_ip br_group;
+ 	struct bridge_mcast_own_query *own_query;
+@@ -1632,14 +1671,15 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 	br_group.vid = vid;
+ 
+ 	br_multicast_leave_group(br, port, &br_group, &br->ip4_other_query,
+-				 own_query);
++				 own_query, src);
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 					 struct net_bridge_port *port,
+ 					 const struct in6_addr *group,
+-					 __u16 vid)
++					 __u16 vid,
++					 const unsigned char *src)
+ {
+ 	struct br_ip br_group;
+ 	struct bridge_mcast_own_query *own_query;
+@@ -1654,7 +1694,7 @@ static void br_ip6_multicast_leave_group(struct net_bridge *br,
+ 	br_group.vid = vid;
+ 
+ 	br_multicast_leave_group(br, port, &br_group, &br->ip6_other_query,
+-				 own_query);
++				 own_query, src);
+ }
+ #endif
+ 
+@@ -1712,6 +1752,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 				 u16 vid)
+ {
+ 	struct sk_buff *skb_trimmed = NULL;
++	const unsigned char *src;
+ 	struct igmphdr *ih;
+ 	int err;
+ 
+@@ -1731,13 +1772,14 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 	}
+ 
+ 	ih = igmp_hdr(skb);
++	src = eth_hdr(skb)->h_source;
+ 	BR_INPUT_SKB_CB(skb)->igmp = ih->type;
+ 
+ 	switch (ih->type) {
+ 	case IGMP_HOST_MEMBERSHIP_REPORT:
+ 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+ 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+-		err = br_ip4_multicast_add_group(br, port, ih->group, vid);
++		err = br_ip4_multicast_add_group(br, port, ih->group, vid, src);
+ 		break;
+ 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
+ 		err = br_ip4_multicast_igmp3_report(br, port, skb_trimmed, vid);
+@@ -1746,7 +1788,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 		err = br_ip4_multicast_query(br, port, skb_trimmed, vid);
+ 		break;
+ 	case IGMP_HOST_LEAVE_MESSAGE:
+-		br_ip4_multicast_leave_group(br, port, ih->group, vid);
++		br_ip4_multicast_leave_group(br, port, ih->group, vid, src);
+ 		break;
+ 	}
+ 
+@@ -1766,6 +1808,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 				 u16 vid)
+ {
+ 	struct sk_buff *skb_trimmed = NULL;
++	const unsigned char *src;
+ 	struct mld_msg *mld;
+ 	int err;
+ 
+@@ -1785,8 +1828,10 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 
+ 	switch (mld->mld_type) {
+ 	case ICMPV6_MGM_REPORT:
++		src = eth_hdr(skb)->h_source;
+ 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+-		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca, vid);
++		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca, vid,
++						 src);
+ 		break;
+ 	case ICMPV6_MLD2_REPORT:
+ 		err = br_ip6_multicast_mld2_report(br, port, skb_trimmed, vid);
+@@ -1795,7 +1840,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 		err = br_ip6_multicast_query(br, port, skb_trimmed, vid);
+ 		break;
+ 	case ICMPV6_MGM_REDUCTION:
+-		br_ip6_multicast_leave_group(br, port, &mld->mld_mca, vid);
++		src = eth_hdr(skb)->h_source;
++		br_ip6_multicast_leave_group(br, port, &mld->mld_mca, vid, src);
+ 		break;
+ 	}
+ 
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 71c7453..6c087cd 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -123,6 +123,7 @@ static inline size_t br_port_info_size(void)
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_GUARD */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_PROTECT */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_FAST_LEAVE */
++		+ nla_total_size(1)	/* IFLA_BRPORT_MCAST_TO_UCAST */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_LEARNING */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_UNICAST_FLOOD */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP */
+@@ -173,6 +174,8 @@ static int br_port_fill_attrs(struct sk_buff *skb,
+ 		       !!(p->flags & BR_ROOT_BLOCK)) ||
+ 	    nla_put_u8(skb, IFLA_BRPORT_FAST_LEAVE,
+ 		       !!(p->flags & BR_MULTICAST_FAST_LEAVE)) ||
++	    nla_put_u8(skb, IFLA_BRPORT_MCAST_TO_UCAST,
++		       !!(p->flags & BR_MULTICAST_TO_UNICAST)) ||
+ 	    nla_put_u8(skb, IFLA_BRPORT_LEARNING, !!(p->flags & BR_LEARNING)) ||
+ 	    nla_put_u8(skb, IFLA_BRPORT_UNICAST_FLOOD,
+ 		       !!(p->flags & BR_FLOOD)) ||
+@@ -586,6 +589,7 @@ static const struct nla_policy br_port_policy[IFLA_BRPORT_MAX + 1] = {
+ 	[IFLA_BRPORT_PROXYARP]	= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_PROXYARP_WIFI] = { .type = NLA_U8 },
+ 	[IFLA_BRPORT_MULTICAST_ROUTER] = { .type = NLA_U8 },
++	[IFLA_BRPORT_MCAST_TO_UCAST] = { .type = NLA_U8 },
+ };
+ 
+ /* Change the state of the port and notify spanning tree */
+@@ -636,6 +640,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_FLOOD, BR_MCAST_FLOOD);
++	br_set_port_flag(p, tb, IFLA_BRPORT_MCAST_TO_UCAST, BR_MULTICAST_TO_UNICAST);
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP, BR_PROXYARP);
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_PROXYARP_WIFI, BR_PROXYARP_WIFI);
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 8ce621e..f7db79f 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -166,8 +166,9 @@ struct net_bridge_fdb_entry
+ 	struct rcu_head			rcu;
+ };
+ 
+-#define MDB_PG_FLAGS_PERMANENT	BIT(0)
+-#define MDB_PG_FLAGS_OFFLOAD	BIT(1)
++#define MDB_PG_FLAGS_PERMANENT		BIT(0)
++#define MDB_PG_FLAGS_OFFLOAD		BIT(1)
++#define MDB_PG_FLAGS_MCAST_TO_UCAST	BIT(2)
+ 
+ struct net_bridge_port_group {
+ 	struct net_bridge_port		*port;
+@@ -177,6 +178,7 @@ struct net_bridge_port_group {
+ 	struct timer_list		timer;
+ 	struct br_ip			addr;
+ 	unsigned char			flags;
++	unsigned char			eth_addr[ETH_ALEN];
+ };
+ 
+ struct net_bridge_mdb_entry
+@@ -599,7 +601,7 @@ void br_multicast_free_pg(struct rcu_head *head);
+ struct net_bridge_port_group *
+ br_multicast_new_port_group(struct net_bridge_port *port, struct br_ip *group,
+ 			    struct net_bridge_port_group __rcu *next,
+-			    unsigned char flags);
++			    unsigned char flags, const unsigned char *src);
+ void br_mdb_init(void);
+ void br_mdb_uninit(void);
+ void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index 8bd5696..05e8946 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -188,6 +188,7 @@ static BRPORT_ATTR(multicast_router, S_IRUGO | S_IWUSR, show_multicast_router,
+ 		   store_multicast_router);
+ 
+ BRPORT_ATTR_FLAG(multicast_fast_leave, BR_MULTICAST_FAST_LEAVE);
++BRPORT_ATTR_FLAG(multicast_to_unicast, BR_MULTICAST_TO_UNICAST);
+ #endif
+ 
+ static const struct brport_attribute *brport_attrs[] = {
+@@ -214,6 +215,7 @@ static const struct brport_attribute *brport_attrs[] = {
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	&brport_attr_multicast_router,
+ 	&brport_attr_multicast_fast_leave,
++	&brport_attr_multicast_to_unicast,
+ #endif
+ 	&brport_attr_proxyarp,
+ 	&brport_attr_proxyarp_wifi,
+-- 
+2.1.4
