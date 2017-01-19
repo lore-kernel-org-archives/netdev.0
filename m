@@ -1,58 +1,43 @@
-From: David Arcari <darcari@redhat.com>
-Subject: Re: [PATCH] net: ethtool: avoid allocation failure for dump_regs
-Date: Thu, 19 Jan 2017 07:35:22 -0500
-Message-ID: <e88b01a6-dae8-a97e-9a8b-8aab030ad099@redhat.com>
-References: <1484746445-97920-1-git-send-email-darcari@redhat.com>
- <20170118.114505.1855687422610394730.davem@davemloft.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: libertas: fix improper return value
+Date: Thu, 19 Jan 2017 12:39:13 +0000 (UTC)
+Message-ID: <20170119123913.B75AE60911@smtp.codeaurora.org>
+References: <1480760857-4549-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58148 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751785AbdASMfW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 07:35:22 -0500
-In-Reply-To: <20170118.114505.1855687422610394730.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andreas Kemnade <andreas@kemnade.info>,
+        Johannes Berg <johannes.berg@intel.com>,
+        libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Pan Bian <bianpan2016@163.com>
+To: Pan Bian <bianpan2016@163.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480760857-4549-1-git-send-email-bianpan2016@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/18/2017 11:45 AM, David Miller wrote:
-> From: David Arcari <darcari@redhat.com>
-> Date: Wed, 18 Jan 2017 08:34:05 -0500
->
->> If the user executes 'ethtool -d' for an interface and the associated
->> get_regs_len() function returns 0, the user will see a call trace from
->> the vmalloc() call in ethtool_get_regs().  This patch modifies
->> ethtool_get_regs() to avoid the call to vmalloc when the size is zero.
->>
->> Signed-off-by: David Arcari <darcari@redhat.com>
-> I think when the driver indicates this, it is equivalent to saying that
-> the operation isn't supported.
->
-> Also, this guards us against ->get_regs() methods that don't handle
-> zero length requests properly.  I see many which are going to do
-> really terrible things in that situation.
->
-> Therefore, if get_regs_len() returns zero, treat it the safe as if the
-> ethtool operations were NULL.
->
-> Thanks.
+Pan Bian <bianpan2016@163.com> wrote:
+> Function lbs_cmd_802_11_sleep_params() always return 0, even if the call
+> to lbs_cmd_with_response() fails. In this case, the parameter @sp will
+> keep uninitialized. Because the return value is 0, its caller (say
+> lbs_sleepparams_read()) will not detect the error, and will copy the
+> uninitialized stack memory to user sapce, resulting in stack information
+> leak. To avoid the bug, this patch returns variable ret (which takes
+> the return value of lbs_cmd_with_response()) instead of 0.
+> 
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188451
+> 
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-That was actually the fix that I was originally considering, but it
-turns out
-there is a problem with it.
+Patch applied to wireless-drivers-next.git, thanks.
 
-I found that the vmalloc error was occurring because
-ieee80211_get_regs_len() in
-net/mac80211/ethtool.c was returning zero.  The ieee80211_get_regs in
-the same
-file returns the hw version. It turns out that this information is used
-by the
-at76c50x-usb driver in the user space ethtool to report which HW variant
-is in
-use.  Returning an error when regs_len() returns zero would break this
-functionality.
+259010c509b6 libertas: fix improper return value
 
--Dave
+-- 
+https://patchwork.kernel.org/patch/9459597/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
