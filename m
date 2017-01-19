@@ -1,83 +1,86 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
-Date: Thu, 19 Jan 2017 08:33:26 +0200
-Message-ID: <20170119063326.GJ32481@mtr-leonro.local>
-References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
- <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
- <20170118173327.GF32481@mtr-leonro.local>
- <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
- <20170118183127.GC14198@obsidianresearch.com>
- <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9@sandisk.com>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH for bnxt_re V4 10/21] RDMA/bnxt_re: Support for CQ verbs
+Date: Thu, 19 Jan 2017 01:57:33 -0500
+Message-ID: <1484809053.2406.90.camel@redhat.com>
+References: <CA+sbYW0+Z2X+_BqG=QNBSgc0Qsk1S9sZYieUuN05PjF5or4NkQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="cpgGT4jyFUyD7BZ9"
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Ariel Almog <arielalmogworkemails-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-0XXfxMoXDiU/DSRQiya2"
+Cc: linux-rdma@vger.kernel.org,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Selvin Xavier <selvin.xavier@broadcom.com>,
+        Leon Romanovsky <leon@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40696 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751329AbdASG5g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 01:57:36 -0500
+In-Reply-To: <CA+sbYW0+Z2X+_BqG=QNBSgc0Qsk1S9sZYieUuN05PjF5or4NkQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---cpgGT4jyFUyD7BZ9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-0XXfxMoXDiU/DSRQiya2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Jan 18, 2017 at 01:45:14PM -0800, Bart Van Assche wrote:
-> On 01/18/2017 10:31 AM, Jason Gunthorpe wrote:
-> > I think it depends on what this tool is supposed to cover, but based
-> > on the description, I would start with netlink-only.
-> >
-> > The only place verbs covers a similar ground is in 'device
-> > capabilities' - for some of that you might want to open a new-uAPI
-> > verbs fd, but even the capability data from that would not be
-> > totally offensive to be accessed over netlink.
-> >
-> > IMHO netlink should cover almost everything found in sysfs today.
->
-> We would need a very strong argument to introduce a netlink API that
-> duplicates existing sysfs API functionality. Since the sysfs API is
-> extensible, why not extend that API further? E.g. the SCST sysfs API
-> shows that more is possible with sysfs than what most kernel drivers
-> realize.
+On Wed, 2017-01-18 at 14:42 +0530, Selvin Xavier wrote:
+> On Wed, Jan 18, 2017 at 1:49 PM, Leon Romanovsky <leon@kernel.org>
+> wrote:
+> >=20
+> > It is better to use already existing macros - min()
+> > cq->max_cql =3D min(entries, MAX_CQL_PER_POLL);
+> >=20
+> > I afraid that you can't avoid the respinning, you have more than
+> > month
+> > till merge window.
+> >=20
+> > Can you please remove useless wrappers and try to reuse kernel
+> > macros?
+>=20
+> Leon,
+> =C2=A0 Thanks for your comments. I will include your both comments in the
+> next patch set.
+>=20
+> Doug,
+> =C2=A0=C2=A0=C2=A0Is it ok if I send out the V5 now after re-basing again=
+st for-4.11
+> branch or should i wait for your comments on V4?
 
-We didn't look deeply on sysfs mainly because it is unpopular
-in netdev community. Maybe we were misled and it is simply not true.
+Wait.
 
->
-> Bart.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Doug Ledford <dledford@redhat.com>
+=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
+=C2=A0 =C2=A0
+Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
 
---cpgGT4jyFUyD7BZ9
+--=-0XXfxMoXDiU/DSRQiya2
 Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAliAXbYACgkQ5GN7iDZy
-WKdVMg//VmBObdkGkBGsU/JabpK3FKZDJFLrSTs+83NSmEqeMQtO1RUFK08RD/v5
-ZZAA/CGvtDpjE3Rr3uhP94c9vdQionj3KvsihGD6EJ7Krl4sX3eyULWp9OdQZNqO
-BSiKvyAoTMu0PtMMLK5TSqERynZHhLWSmADbczGN9U3YIWcQjrbL2KF2tnFLJIHa
-74zA9WKWiZ7a7tG/2iKl+QeUrbHoT8Azlxw3Pt6y+gosxjyUVa9AmK5T1jtn3OcW
-yKTP3AD8mOAI9LToynu7yPnhkCzvkB4RHqEC7FUSjrbFayyp1r1qls7AtDKZWhc9
-Ho4vCUMtuukloxHg2M1pIPNW76njiqN9M54WnN1660I7B+NXMXllkfHzlN6wFTbr
-MIH3pEd6A08vLREooawMdeyUAk/WeNPuGc7MKPcBJNEHvvFXmEFZ6TZX52wsjdZu
-WUdD8JiY+H0V15nXpYvWl2C/IrsIgkBnzXqWLkrrXePbWnH/b++ZoXj/wFw3MTyO
-JItLKNZR0qCRW3X1ZqzCpJzSNIzqVKZWUnXHrroPRrExUtAG2nFzXd7oiX0j5e6t
-oXdsF7P0KhZi94NWTVvqlqMQJPj+IzCANgIDcMWFFv2X5EvOD0vv0WmvnNgE0KwT
-kRobGRmlirNBXITNFY7Rr2HIGUQaWyzLemQZx37cL9oA2mxHCPw=
-=e7J4
+iQIcBAABCAAGBQJYgGNdAAoJELgmozMOVy/dLO0QALOnc0i3+N48KdicL7wfRtJL
+ikNADemN9GXbauVmd2eyIzOFlbnDLWrWKlrZCW+lK+rbfsAH0vTh4Kjxy9zKn8XZ
+nfluUVsvjQJfQmQfxTppnKJYI5NkMBQM80L1+IU0Du6GUan+hPZoVSBjlnzl51Da
+MbBnfBTo9cw/dHVZWyYn/z5w3b8HVe8x6ciD3V1pMlAEQeOlklR/y/TYFJ1htJXT
+OxjCoh9tAJtnUBMCoY6y89DRJcUFcVKRVy2HdHchLcx/+tRshaAD9aqTrQshU7P+
+LHCL2BrUgb//GfxHx2Gsx3Oqyor/q7deVOdsbuST17/u0wXfc2fNF934dsbrQZ3e
+0ruBrAJUTDLYg/ycFrtXpsJOxDrkHCvwDS679Ysnh+vKkdpi1K625/njjnE2zQu+
+cgEcblqYkhn6w1QDapbEWaePIBNUpaARa7Hej0FILFgX1RFsmr3EjPfZBXR/kh9T
+WboF92/eEa2h0RZ8VAI/zwintE1juNgZXDL20NkXy3G26JmXLx3ju5uDN0ZevDp7
+377EZu7ask/yKpFOqxtcya6n9MW1lsVMCttEKXy6qdF8C8paFsA6Krp0J/t7TNge
+rlnVc/69oIWr89eNNie5rL7kQAPyuPjU/nkrGVS1xRNpwPajrtB9hOgoF2TLAAIj
+j7X8SThBnD7PGyM/NkwR
+=oNNn
 -----END PGP SIGNATURE-----
 
---cpgGT4jyFUyD7BZ9--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=-0XXfxMoXDiU/DSRQiya2--
