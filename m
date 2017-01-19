@@ -1,62 +1,34 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
-Date: Thu, 19 Jan 2017 11:03:08 -0700
-Message-ID: <20170119180308.GD8109@obsidianresearch.com>
-References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
- <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
- <20170118173327.GF32481@mtr-leonro.local>
- <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
- <20170118183127.GC14198@obsidianresearch.com>
- <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9@sandisk.com>
- <20170119063326.GJ32481@mtr-leonro.local>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] vxlan: preserve type of dst_port parm for
+ encap_bypass_if_local()
+Date: Thu, 19 Jan 2017 19:16:00 +0100
+Message-ID: <20170119191600.5d86c35b@griffin>
+References: <1484771097-5692-1-git-send-email-lrichard@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Ariel Almog <arielalmogworkemails-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170119063326.GJ32481-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Lance Richardson <lrichard@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48706 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754016AbdASScu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 13:32:50 -0500
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id DA7823B70B
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 18:16:03 +0000 (UTC)
+In-Reply-To: <1484771097-5692-1-git-send-email-lrichard@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2017 at 08:33:26AM +0200, Leon Romanovsky wrote:
-> On Wed, Jan 18, 2017 at 01:45:14PM -0800, Bart Van Assche wrote:
-> > On 01/18/2017 10:31 AM, Jason Gunthorpe wrote:
-> > > I think it depends on what this tool is supposed to cover, but based
-> > > on the description, I would start with netlink-only.
-> > >
-> > > The only place verbs covers a similar ground is in 'device
-> > > capabilities' - for some of that you might want to open a new-uAPI
-> > > verbs fd, but even the capability data from that would not be
-> > > totally offensive to be accessed over netlink.
-> > >
-> > > IMHO netlink should cover almost everything found in sysfs today.
-> >
-> > We would need a very strong argument to introduce a netlink API that
-> > duplicates existing sysfs API functionality. Since the sysfs API is
-> > extensible, why not extend that API further? E.g. the SCST sysfs API
-> > shows that more is possible with sysfs than what most kernel drivers
-> > realize.
-> 
-> We didn't look deeply on sysfs mainly because it is unpopular
-> in netdev community. Maybe we were misled and it is simply not true.
+On Wed, 18 Jan 2017 15:24:57 -0500, Lance Richardson wrote:
+> Eliminate sparse warning by maintaining type of dst_port
+> as __be16.
 
-sysfs is unpopular because the 'one value per file' dogma is laregly
-unsuitable for complex mulit-value atomic changes which are common in
-netdev. You can force it to work, but it is pretty horrible..
+Fixes: fee1fad7c73d ("vxlan: simplify RTF_LOCAL handling.")
 
-It is also very expensive if you want to shuttle a lot of data, eg I
-could not see doing something like 'netstat' for IB through sysfs
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
 
-Maybe you should start by showing some examples of command out you
-wish to have in a rdmatool ..
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Jiri Benc <jbenc@redhat.com>
