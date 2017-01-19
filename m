@@ -1,52 +1,67 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH 2/3] qed: avoid possible stack overflow in
- qed_ll2_acquire_connection
-Date: Thu, 19 Jan 2017 13:13:30 +0000
-Message-ID: <BL2PR07MB2306B71885EAA9BB808414358D7E0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20170118145306.1004008-1-arnd@arndb.de>
- <20170118145306.1004008-2-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "Amrani, Ram" <Ram.Amrani@cavium.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        "Hannes Reinecke" <hare@suse.de>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Dept-Eng Everest Linux L2" <Dept-EngEverestLinuxL2@cavium.com>
-To: Arnd Bergmann <arnd@arndb.de>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: [PATCH] tcp: initialize max window for a new fastopen socket
+Date: Thu, 19 Jan 2017 16:36:39 +0300
+Message-ID: <1484832999-1849-1-git-send-email-alexey.kodanev@oracle.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Alexey Kodanev <alexey.kodanev@oracle.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0071.outbound.protection.outlook.com ([104.47.38.71]:4512
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751931AbdASNOG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 08:14:06 -0500
-In-Reply-To: <20170118145306.1004008-2-arnd@arndb.de>
-Content-Language: en-US
+Received: from userp1040.oracle.com ([156.151.31.81]:29553 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751931AbdASNbX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 08:31:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 968,23 +968,19 @@ static int qed_ll2_start_ooo(struct qed_dev *cdev,  {
->  	struct qed_hwfn *hwfn =3D QED_LEADING_HWFN(cdev);
->  	u8 *handle =3D &hwfn->pf_params.iscsi_pf_params.ll2_ooo_queue_id;
-> -	struct qed_ll2_info *ll2_info;
-> +	struct qed_ll2_conn ll2_info;
+Found that if we run LTP netstress test with large MSS (65K),
+the first attempt from server to send data comparable to this
+MSS on fastopen connection will be delayed by the probe timer.
 
-A bit confusing to change the type from qed_ll2_info - > qed_ll2_conn
-yet leave the variable named 'll2_info'.
-Probably better to have it name `ll2_params' as in:
+Here is an example:
 
-> @@ -2632,7 +2632,7 @@ static int qed_roce_ll2_start(struct qed_dev *cdev,
-> {
->  	struct qed_hwfn *hwfn =3D QED_LEADING_HWFN(cdev);
->  	struct qed_roce_ll2_info *roce_ll2;
-> -	struct qed_ll2_info ll2_params;
-> +	struct qed_ll2_conn ll2_params;
+     < S  seq 0:0 win 43690 options [mss 65495 wscale 7 tfo cookie] length 32
+     > S. seq 0:0 ack 1 win 43690 options [mss 65495 wscale 7] length 0
+     < .  ack 1 win 342 length 0
 
-But that's nitpicking; You can do this if for some reason you'll need a v2,
-or we'll later change it in some semantic patch.
+Inside tcp_sendmsg(), tcp_send_mss() returns max MSS in 'mss_now',
+as well as in 'size_goal'. This results the segment not queued for
+transmition until all the data copied from user buffer. Then, inside
+__tcp_push_pending_frames(), it breaks on send window test and
+continues with the check probe timer.
 
-Thanks for taking care of this.
+Fragmentation occurs in tcp_write_wakeup()...
 
-Acked-by: Yuval Mintz <Yuval.Mintz@cavium.com>
++0.2 > P. seq 1:43777 ack 1 win 342 length 43776
+     < .  ack 43777, win 1365 length 0
+     > P. seq 43777:65001 ack 1 win 342 options [...] length 21224
+     ...
+
+This also contradicts with the fact that we should bound to the half
+of the window if it is large.
+
+Fix this flaw by correctly initializing max_window. Before that, it
+could have large values that affect further calculations of 'size_goal'.
+
+Fixes: 168a8f58059a ("tcp: TCP Fast Open Server - main code path")
+Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+---
+ net/ipv4/tcp_fastopen.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index f519195..dd2560c 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -205,6 +205,7 @@ void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb)
+ 	 * scaled. So correct it appropriately.
+ 	 */
+ 	tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
++	tp->max_window = tp->snd_wnd;
+ 
+ 	/* Activate the retrans timer so that SYNACK can be retransmitted.
+ 	 * The request socket is not added to the ehash
+-- 
+1.7.1
