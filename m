@@ -1,102 +1,127 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to
- extended statistics
-Date: Thu, 19 Jan 2017 11:11:05 -0800
-Message-ID: <20170119111105.481dcc36@xeon-e3>
-References: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
-        <1484228991-32999-4-git-send-email-nogahf@mellanox.com>
-        <20170112174335.1bd391c2@xeon-e3>
-        <DB5PR05MB1895D7CFBE9E127AAAE672DBAC7E0@DB5PR05MB1895.eurprd05.prod.outlook.com>
-        <5880E3FD.6010604@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency
+ reserve
+Date: Thu, 19 Jan 2017 11:25:49 -0800
+Message-ID: <1484853949.16328.39.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Nogah Frankel <nogahf@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "roszenrami@gmail.com" <roszenrami@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:33958 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754001AbdASTTM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 14:19:12 -0500
-Received: by mail-pg0-f53.google.com with SMTP id 14so16424842pgg.1
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 11:18:18 -0800 (PST)
-In-Reply-To: <5880E3FD.6010604@cumulusnetworks.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33884 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754001AbdAST0N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 14:26:13 -0500
+Received: by mail-pg0-f67.google.com with SMTP id t6so4850044pgt.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 11:25:51 -0800 (PST)
+In-Reply-To: <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Jan 2017 08:06:21 -0800
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-
-> On 1/19/17, 7:21 AM, Nogah Frankel wrote:
-> >> -----Original Message-----
-> >> From: Nogah Frankel
-> >> Sent: Sunday, January 15, 2017 3:55 PM
-> >> To: 'Stephen Hemminger' <stephen@networkplumber.org>
-> >> Cc: netdev@vger.kernel.org; roszenrami@gmail.com; roopa@cumulusnetworks.com; Jiri
-> >> Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
-> >> <eladr@mellanox.com>; Yotam Gigi <yotamg@mellanox.com>; Or Gerlitz
-> >> <ogerlitz@mellanox.com>
-> >> Subject: RE: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to extended statistics
-> >>
-> >>
-> >>  
-> >>> -----Original Message-----
-> >>> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> >>> Sent: Friday, January 13, 2017 3:44 AM
-> >>> To: Nogah Frankel <nogahf@mellanox.com>
-> >>> Cc: netdev@vger.kernel.org; roszenrami@gmail.com; roopa@cumulusnetworks.com;  
-> >> Jiri  
-> >>> Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
-> >>> <eladr@mellanox.com>; Yotam Gigi <yotamg@mellanox.com>; Or Gerlitz
-> >>> <ogerlitz@mellanox.com>
-> >>> Subject: Re: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to extended statistics
-> >>>
-> >>> On Thu, 12 Jan 2017 15:49:50 +0200
-> >>> Nogah Frankel <nogahf@mellanox.com> wrote:
-> >>>  
-> >>>> The default stats for ifstat are 32 bits based.
-> >>>> The kernel supports 64 bits based stats. (They are returned in struct
-> >>>> rtnl_link_stats64 which is an exact copy of struct rtnl_link_stats, in
-> >>>> which the "normal" stats are returned, but with fields of u64 instead of
-> >>>> u32). This patch adds them as an extended stats.
-> >>>>
-> >>>> It is read with filter type IFLA_STATS_LINK_64 and no sub type.
-> >>>>
-> >>>> It is under the name 64bits
-> >>>> (or any shorten of it as "64")
-> >>>>
-> >>>> For example:
-> >>>> ifstat -x 64bit
-> >>>>
-> >>>> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-> >>>> Reviewed-by: Jiri Pirko <jiri@mellanox.com>  
-> >>> Other commands (like ip link) always use the 64 bit statistics if available
-> >>> from the device. I see no reason that ifstat needs to be different.
-> >>>  
-> >> Do you mean to change the default ifstat results to be 64 bits based?
-> >> I tried it in the first version, but Roopa commented that it was not a good idea.
-> >> She said they tried it in the past and it caused backward compatibilities problems.
-> >> (Or maybe I didn't understand correctly)  
-> > So, can I leave the default ifstat results to be 32 bits based, for the time being?
-> >  
-> From past discussions: Moving the default to 64bit has compat issues with the old history file.
-> There is a way to make it work by using a new file header (to indicate that it is 64 bit) in
-> a freshly created history file and also check this header before dumping stats into the history file.
-> ie maintain backward compat without introducing a new option. It is doable.
+On Thu, 2017-01-19 at 21:14 +0200, Saeed Mahameed wrote:
+> On Thu, Jan 19, 2017 at 9:03 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > A driver using dev_alloc_page() must not reuse a page allocated from
+> > emergency memory reserve.
+> >
+> > Otherwise all packets using this page will be immediately dropped,
+> > unless for very specific sockets having SOCK_MEMALLOC bit set.
+> >
+> > This issue might be hard to debug, because only a fraction of received
+> > packets would be dropped.
 > 
-> One approach is, you can drop the 64bit option from this series and
-> try updating the default to 64 bit (with compat handling code) in a later series.
+> Hi Eric,
+> 
+> When you say reuse, you mean point to the same page from several SKBs ?
+> 
+> Because in our page cache implementation we don't reuse pages that
+> already passed to the stack,
+> we just keep them in the page cache until the ref count drop back to
+> one, so we recycle them (i,e they will be re-used only when no one
+> else is using them).
 
-The ifstat code could do conversion based on file size.
+Look at other page_is_pfmemalloc() calls in other network drivers.
 
-  if (history_file_is_32bit()) {
-	printf("converting to 64 bit format\n");
-        ...
-  }
+The point is :
+
+We do not want to reuse a page that was initially allocated from
+emergency reserve.
+
+Chances are high that the packet will be simply dropped.
+
+If your cache is not refilled with such problematic pages,
+future dev_page_alloc() will likely give you sane pages, after stress
+has ended.
+
+By definition, emergency reserves are small, we do not want to keep
+pages from the reserve in another cache, depleting the reserve for too
+long.
+
+dev_alloc_page() in mlx5 was introduced in commit
+bc77b240b3c57236cdcc08d64ca390655d3a16ff
+("net/mlx5e: Add fragmented memory support for RX multi packet WQE")
+
+Maybe my Fixes: tag was slightly wrong.
+
+> 
+> on mlx5e rx re-post to the HW buffer we will call
+> mlx5e_page_alloc_mapped->mlx5e_rx_cache_get, and  mlx5e_rx_cache_get
+> will only return a page that is already freed by all stack users,
+> otherwise it will allocated a brand new one.
+> 
+> a page form mlx5e_page_cache can have one of 2 states
+> 1. passed to the stack (not free)
+> 2. free (already used and freed by the stack)
+> 
+> a non free page will never get reused for another SKB.
+
+
+Of course.
+
+> 
+> this is true for both mlx5 rx modes (striding and non-striding)
+> 
+> but in the striding mode regardless of page cache, small packets can
+> always fit in one page and this page can get pointed to by several
+> SKBs - should we be concerned about this case ?
+> 
+> Anyway, if you meant by this patch to avoid keeping such special pages
+> in the mlx5 page cache,
+> then it looks very good to me.
+> 
+> Thanks,
+> Saeed.
+> 
+> 
+> >
+> > Fixes: 4415a0319f92 ("net/mlx5e: Implement RX mapped page cache for page recycle")
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Cc: Tariq Toukan <tariqt@mellanox.com>
+> > Cc: Saeed Mahameed <saeedm@mellanox.com>
+> > ---
+> >  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |    3 +++
+> >  1 file changed, 3 insertions(+)
+> >
+> > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> > index 0e2fb3ed1790900ccdc0bbbef8bc5c33267df092..ce46409bde2736ea4d1246ca97855098f052f271 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+> > @@ -193,6 +193,9 @@ static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
+> >                 return false;
+> >         }
+> >
+> > +       if (unlikely(page_is_pfmemalloc(dma_info->page)))
+> > +               return false;
+> > +
+> >         cache->page_cache[cache->tail] = *dma_info;
+> >         cache->tail = tail_next;
+> >         return true;
+> >
+> >
