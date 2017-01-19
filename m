@@ -1,106 +1,107 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH] net: ethtool: avoid allocation failure for dump_regs
-Date: Thu, 19 Jan 2017 20:08:30 +0200
-Message-ID: <87h94uorc1.fsf@kamboji.qca.qualcomm.com>
-References: <1484746445-97920-1-git-send-email-darcari@redhat.com>
-        <20170118.114505.1855687422610394730.davem@davemloft.net>
-        <e88b01a6-dae8-a97e-9a8b-8aab030ad099@redhat.com>
-        <20170119141508.GA6245@tuxdriver.com>
-        <20170119155620.GD6245@tuxdriver.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Thu, 19 Jan 2017 10:01:48 -0800
+Message-ID: <e31c41c2-cd19-2682-9e55-3755cfb75521@gmail.com>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
+ <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
+ <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
+ <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
+ <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
+ <759d6323-ffac-ebe8-b197-4e1165be5673@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Arcari <darcari-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170119155620.GD6245-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> (John W. Linville's message
-        of "Thu, 19 Jan 2017 10:56:21 -0500")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ot0-f195.google.com ([74.125.82.195]:32900 "EHLO
+        mail-ot0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753667AbdASSLq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 13:11:46 -0500
+Received: by mail-ot0-f195.google.com with SMTP id f9so5094338otd.0
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 10:10:30 -0800 (PST)
+In-Reply-To: <759d6323-ffac-ebe8-b197-4e1165be5673@neratec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> writes:
 
-> I forgot to Cc Johannes and Kalle...
 
-Also adding linux-wireless.
+On 01/19/2017 01:43 AM, Zefir Kurtisi wrote:
+> On 01/18/2017 04:02 PM, Timur Tabi wrote:
+>> On 01/18/2017 07:53 AM, Zefir Kurtisi wrote:
+>>> No, not necessarily. The SGMII link default configuration is set such that you do
+>>> not have to bother at all.
+>>
+>> Does the SGMII link need to make the speed and duplex of the external link?
+>>
+>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c#n50
+>>
+>>
+>> Here is where I can configure the SGMII link to match whatever phydev says the
+>> external link is.  This is code that was handed down to me.  I've never really
+>> understood what the purpose was.  Shouldn't I just be able to configure the SGMII
+>> link to 1Gbs full-duplex, regardless of what the external link is set to?
+>>
+> 
+> This is because the SGMII link is a transparent interface to the upper layer with
+> no means to inform the other side of the link type in the lower layer.
+> 
+> It always operates at 675MHz, which with two lines gives 1.25Gbps, which at 10/8
+> coding gives exactly 1Gbps net data rate. If the at803x's copper side
+> autonegotiates to 1Gbps, the bits traversing over the SGMII match the copper side
+> 1:1. In case the copper side autonegotiates to e.g. 100Mbps, each bit at the
+> copper side on the SGMII bus is replicated and sent 10x times - or 100x times in
+> case of 10Mbps. The MAC side of the ETH needs to be aware of how the SGMII data
+> has to be interpreted, and this is why you have to set the bits you are referring to.
+> 
+>>> That is, if in your case you see the warning popping up but the link always
+>>> regains connection, then it is an ignorable false positive.
+>>
+>> Unfortunately, I can't really ignore it because genphy does this:
+>>
+>> $ ifup eth1
+>> [ 1034.754276] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
+>> rx/tx
+>>
+>> But the at803x driver does this:
+>>
+>> $ ifup eth1
+>> [ 1020.507728] 803x_aneg_done: SGMII link is not ok
+>> [ 1020.513517] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
+>> rx/tx
+>> [ 1020.522839] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
+>> rx/tx
+>>
+>> Customers are going to complain.
+>>
+> Yes, the double link-status message is annoying - I was referring to the other
+> message.
+> 
+> To track down who is causing the additional message, I would proceed with
+> following technique that helped me dig down a similar problem: since you control
+> the events in question and there is no risk of flooding the kernel log, in the top
+> of phy.c::phy_print_status() add a dump_stack() call. In the debug log ensure that
+> all of the traces end up in the same phydev->adjust_link() callback handler (in
+> your case emac_adjust_link()).
+> 
+> In the gianfar's handler there is an additional check whether the link really
+> changed before phy_print_status() is called, in emac_adjust_link() this happens
+> unconditionally - maybe that is the problem you are facing.
+> 
+> @Florian: is it safe to assume that when phydev->adjust_link() is called there was
+> in fact a link change (link, duplex, pause), or does the handler have to double
+> check for a change? I see some ETH drivers maintain a private old state instance
+> for that, while others don't.
 
-> On Thu, Jan 19, 2017 at 09:15:09AM -0500, John W. Linville wrote:
->> On Thu, Jan 19, 2017 at 07:35:22AM -0500, David Arcari wrote:
->> > On 01/18/2017 11:45 AM, David Miller wrote:
->> > > From: David Arcari <darcari-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> > > Date: Wed, 18 Jan 2017 08:34:05 -0500
->> > >
->> > >> If the user executes 'ethtool -d' for an interface and the associated
->> > >> get_regs_len() function returns 0, the user will see a call trace from
->> > >> the vmalloc() call in ethtool_get_regs().  This patch modifies
->> > >> ethtool_get_regs() to avoid the call to vmalloc when the size is zero.
->> > >>
->> > >> Signed-off-by: David Arcari <darcari-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> > > I think when the driver indicates this, it is equivalent to saying that
->> > > the operation isn't supported.
->> > >
->> > > Also, this guards us against ->get_regs() methods that don't handle
->> > > zero length requests properly.  I see many which are going to do
->> > > really terrible things in that situation.
->> > >
->> > > Therefore, if get_regs_len() returns zero, treat it the safe as if the
->> > > ethtool operations were NULL.
->> > >
->> > > Thanks.
->> > 
->> > That was actually the fix that I was originally considering, but it
->> > turns out
->> > there is a problem with it.
->> > 
->> > I found that the vmalloc error was occurring because
->> > ieee80211_get_regs_len() in
->> > net/mac80211/ethtool.c was returning zero.  The ieee80211_get_regs in
->> > the same
->> > file returns the hw version. It turns out that this information is used
->> > by the
->> > at76c50x-usb driver in the user space ethtool to report which HW variant
->> > is in
->> > use.  Returning an error when regs_len() returns zero would break this
->> > functionality.
->> > 
->> > -Dave
->> 
->> I'm responsible for this mess. The original idea was for various
->> mac80211-based drivers to override the ethtool operation and provide
->> their own dump operation, but the mac80211 crowd never embraced
->> the idea.
->> 
->> In the meantime, I added the default implementation which just
->> passed-up wdev->wiphy->hw_version as the version info for a 0-length
->> register dump. I then implemented a driver-specific regiser dump
->> handler for userland ethtool that would interpret the hardware version
->> information for the at76c50x-usb driver.
->> 
->> So the net of it is, if we treat a return of 0 from get_regs_len()
->> as "not supported", we break this one driver-specific feature for
->> userland ethtool. Realistically, there are probably very few users
->> to care. But I can't guarantee that the number is zero.
+Yes, it is not just safe, it is a contract. The reason most drivers
+cache the values from one run on adjust_link to the other is because you
+don't want to needlessly read/write registers if nothing has changed, or
+just a subset of link parameters did change.
 
-I know the number is not zero, because I remember using it years back
-with something else than at76c50x-usb. But is the number more than one,
-I don't know :)
-
->> Possible solutions:
->> 
->> 	-- break userland ethtool for at76c50x-usb
->> 	-- avoid 0-len allocation attempt (David Arcari's patch)
->> 	-- make allocator accept a 0 length value w/o oops'ing
->> 	-- change mac8011 code to return non-zero from get_regs_len()
->> 
->> Thoughts? The last option holds a certain attraction, but I'm not
->> sure how to make it useful...?
-
-If it were only about at76c50x-usb I would say go for it, nobody sane
-should use that device anymore. But on the other hand I'm worried that
-this interface might be used by other (proprietary) user space tools
-with other, more important, drivers. A difficult situation.
-
+NB: at some point I was considering bringing this caching into the core
+PHY library to save some housekeeping code in drivers...
 -- 
-Kalle Valo
+Florian
