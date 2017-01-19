@@ -1,75 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next] net:add one common config
- ARCH_WANT_RELAX_ORDER to support relax ordering.
-Date: Thu, 19 Jan 2017 11:43:05 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0267C5A@AcuExch.aculab.com>
-References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
- <20170117.141533.680344033700095483.davem@davemloft.net>
- <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
- <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
+From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Subject: [PATCH v2 net-next] phy: increase size of bus_id and MII_BUS_ID_SIZE
+Date: Thu, 19 Jan 2017 12:46:55 +0100
+Message-ID: <1484826415-31631-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        "maowenan@huawei.com" <maowenan@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
+        =?UTF-8?q?Magnus=20=C3=96berg?= <magnus.oberg@westermo.se>
+To: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.182]:62263 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752118AbdASLni (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:43:38 -0500
-In-Reply-To: <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:35413 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752194AbdASLrG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:47:06 -0500
+Received: by mail-lf0-f66.google.com with SMTP id v186so5082173lfa.2
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 03:47:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDE4IEphbnVhcnkgMjAxNyAxNzoyNQ0KPiBP
-biBXZWQsIEphbiAxOCwgMjAxNyBhdCA4OjIyIEFNLCBEYXZpZCBMYWlnaHQgPERhdmlkLkxhaWdo
-dEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPiBGcm9tOiBEYXZpZCBNaWxsZXINCj4gPj4gU2VudDog
-MTcgSmFudWFyeSAyMDE3IDE5OjE2DQo+ID4+ID4gUmVsYXggb3JkZXJpbmcoUk8pIGlzIG9uZSBm
-ZWF0dXJlIG9mIDgyNTk5IE5JQywgdG8gZW5hYmxlIHRoaXMgZmVhdHVyZSBjYW4NCj4gPj4gPiBl
-bmhhbmNlIHRoZSBwZXJmb3JtYW5jZSBmb3Igc29tZSBjcHUgYXJjaGl0ZWN1cmUsIHN1Y2ggYXMg
-U1BBUkMgYW5kIHNvIG9uLg0KPiA+PiA+IEN1cnJlbnRseSBpdCBvbmx5IHN1cHBvcnRzIG9uZSBz
-cGVjaWFsIGNwdSBhcmNoaXRlY3R1cmUoU1BBUkMpIGluIDgyNTk5DQo+ID4+ID4gZHJpdmVyIHRv
-IGVuYWJsZSBSTyBmZWF0dXJlLCB0aGlzIGlzIG5vdCB2ZXJ5IGNvbW1vbiBmb3Igb3RoZXIgY3B1
-IGFyY2hpdGVjdHVyZQ0KPiA+PiA+IHdoaWNoIHJlYWxseSBuZWVkcyBSTyBmZWF0dXJlLg0KPiA+
-PiA+IFRoaXMgcGF0Y2ggYWRkIG9uZSBjb21tb24gY29uZmlnIENPTkZJR19BUkNIX1dBTlRfUkVM
-QVhfT1JERVIgdG8gc2V0IFJPIGZlYXR1cmUsDQo+ID4+ID4gYW5kIHNob3VsZCBkZWZpbmUgQ09O
-RklHX0FSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpbiBzcGFyYyBLY29uZmlnIGZpcnN0bHkuDQo+ID4+
-ID4NCj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+
-DQo+ID4+DQo+ID4+IFNpbmNlIG5vLW9uZSBoYXMgcmV2aWV3ZWQgdGhpcyBwYXRjaCwgYW5kIEkg
-ZG8gbm90IGZlZWwgY29tZm9ydGFibGUgd2l0aCBhcHBseWluZw0KPiA+PiBpdCB3aXRob3V0IHN1
-Y2ggcmV2aWV3LCBJIGFtIHRvc3NpbmcgdGhpcyBwYXRjaC4NCj4gPj4NCj4gPj4gSWYgc29tZW9u
-ZSBldmVudHVhbGx5IHJldmlld3MgaXQsIHJlcG9zdCB0aGlzIHBhdGNoLg0KPiA+DQo+ID4gSGF2
-aW5nIHJlLXJlYWQgcGFydHMgb2YgdGhlIFBDSWUgc3BlYyBJIHRoaW5rIEknZCBsaWtlIHNvbWVv
-bmUgdG8NCj4gPiBleHBsYWluIGV4YWN0bHkgd2hpY2ggdHJhbnNmZXJzIGFyZSBhZmZlY3RlZCBi
-eSB0aGUgJ3JlbGF4ZWQgb3JkZXJpbmcnDQo+ID4gYml0IGFuZCB3aHkgYW55IHJlLW9yZGVyZWQg
-dHJhbnNhY3Rpb25zIGFyZW4ndCBhIHByb2JsZW0uDQo+ID4NCj4gPiBJbiBwYXJ0aWN1bGFyIEkg
-YmVsaWV2ZSBSTyBhbGxvd3MgdGhlIHdyaXRlIHRvIHVwZGF0ZSB0aGUgcmVjZWl2ZQ0KPiA+IGRl
-c2NyaXB0b3IgcmluZyB0byBvdmVydGFrZSBhIHdyaXRlIG9mIHJlY2VpdmUgcGFja2V0IGRhdGEu
-DQo+ID4gVGhhdCBjb3VsZCBsZWFkIHRvIHRoZSBuZXR3b3JrIHN0YWNrIHByb2Nlc3NpbmcgYSBy
-ZWNlaXZlIGZyYW1lDQo+ID4gYmVmb3JlIGl0IGhhcyBhY3R1YWxseSBiZWVuIHdyaXR0ZW4uDQo+
-ID4NCj4gPiAgICAgICAgIERhdmlkDQo+ID4NCj4gDQo+IFRoZSBSZWxheGVkIE9yZGVyaW5nIGF0
-dHJpYnV0ZSBkb2Vzbid0IGdldCBhcHBsaWVkIGFjcm9zcyB0aGUgYm9hcmQuDQo+IEl0IGVuZHMg
-dXAgYmVpbmcgbGltaXRlZCB0byBhIHN1YnNldCBvZiB0aGUgdHJhbnNhY3Rpb25zIGlmIEkgcmVj
-YWxsDQo+IGNvcnJlY3RseS4gIEluIHRoaXMgY2FzZSBpdCBpcyB0aGUgVHggZGVzY3JpcHRvciB3
-cml0ZSBiYWNrLCBhbmQgdGhlDQo+IFJ4IGRhdGEgd3JpdGUgYmFjay4gIFdlIGRvbid0IGFwcGx5
-IHRoZSBSTyBiaXQgdG8gYW55IG90aGVyDQo+IHRyYW5zYWN0aW9ucy4NCj4gDQo+IEluIHRoZSBj
-YXNlIG9mIFR4IGRlc2NyaXB0b3IgdGhlcmUgaXMgbm8gaGFybSBpbiBhbGxvd2luZyBpdCB0byBi
-ZQ0KPiByZW9yZGVyZWQgYmVjYXVzZSB3ZSBvbmx5IHJlYWxseSByZWFkIHRoZSBERCBiaXQgc28g
-d2UgZG9uJ3QgY2FyZQ0KPiBhYm91dCB0aGUgb3JkZXJpbmcgb2YgdGhlIHdyaXRlIGJhY2suICBJ
-biB0aGUgY2FzZSBvZiB0aGUgUnggZGF0YSB0aGUNCj4gUnggZGVzY3JpcHRvciBlc3NlbnRpYWxs
-eSBhY3RzIGFzIGEgZmx1c2ggc2luY2UgaXQgaXMgc2VudCB3aXRob3V0IHRoZQ0KPiBSTyBiaXQg
-c2V0LiAgU28gYWxsIHRoZSB3cml0ZXMgYmVmb3JlIGl0IG11c3QgYmUgY29tcGxldGVkIGJlZm9y
-ZSB0aGUNCj4gUnggZGVzY3JpcHRvciB3cml0ZSBiYWNrLg0KDQpJbiB3aGljaCBjYXNlIHdoeSBu
-b3Qgc2V0IGl0IHVuY29uZGl0aW9uYWxseSBmb3IgYWxsIGFyY2hpdGVjdHVyZXM/DQoNCkknbSBz
-dXJwcmlzZWQgKEkgb2Z0ZW4gYW0pIHRoYXQgYWxsb3dpbmcgdGhvc2UgcmUtb3JkZXJpbmdzIG1h
-a2VzDQphbnkgc2lnbmlmaWNhbnQgZGlmZmVyZW5jZS4NClVuZm9ydHVuYXRlbHkgeW91IG5lZWQg
-YSBQQ0llIGFuYWx5c2VyIHRvIHNlZSB3aGF0IGlzIHJlYWxseSBoYXBwZW5pbmcNCmFuZCB0aGV5
-IGRvbid0IGNvbWUgY2hlYXAuDQoNCldoYXQgSSBkbyB2YWd1ZWx5IHJlbWVtYmVyIGlzIHRoYXQg
-c29tZSBob3N0cyBkb24ndCBhbHdheXMgaW1wbGVtZW50DQp0aGUgJ25vcm1hbCcgcmUtb3JkZXJp
-bmcgb2YgcmVhZHMgYW5kIHJlYWQgY29tcGxldGlvbnMuDQpSZS1vcmRlcmluZyBvZiByZWFkcyBh
-bGxvd3MgZGVzY3JpcHRvciByZWFkcyB0byBvdmVydGFrZSB0cmFuc21pdA0KdHJhZmZpYyB3aGlj
-aCBpcyBsaWtlbHkgdG8gbWFrZSBhIGRpZmZlcmVuY2UuDQoNCglEYXZpZA0KDQo=
+Some bus names are pretty long and do not fit into
+20 chars, therefore bus_id size is increased together
+with MII_BUS_ID_SIZE to host larger names.
+
+Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Signed-off-by: Magnus Öberg <magnus.oberg@westermo.se>
+---
+ include/linux/phy.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index f7d95f6..f53f0cd 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -162,7 +162,7 @@ static inline const char *phy_modes(phy_interface_t interface)
+  * Need to be a little smaller than phydev->dev.bus_id to leave room
+  * for the ":%02x"
+  */
+-#define MII_BUS_ID_SIZE	(20 - 3)
++#define MII_BUS_ID_SIZE	(64 - 3)
+ 
+ /* Or MII_ADDR_C45 into regnum for read/write on mii_bus to enable the 21 bit
+    IEEE 802.3ae clause 45 addressing mode used by 10GIGE phy chips. */
+@@ -632,7 +632,7 @@ struct phy_driver {
+ /* A Structure for boards to register fixups with the PHY Lib */
+ struct phy_fixup {
+ 	struct list_head list;
+-	char bus_id[20];
++	char bus_id[64];
+ 	u32 phy_uid;
+ 	u32 phy_uid_mask;
+ 	int (*run)(struct phy_device *phydev);
+-- 
+2.7.4
