@@ -1,97 +1,137 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net/irda: fix lockdep annotation
-Date: Thu, 19 Jan 2017 11:27:36 -0500 (EST)
-Message-ID: <20170119.112736.1928027614533032571.davem@davemloft.net>
-References: <20170116211052.46525-1-dvyukov@google.com>
-        <20170117.151901.998994334183973013.davem@davemloft.net>
-        <CACT4Y+Yx3wVAgxJRYKMOYM419NTSc9naSxUVfwCb21kjvAnF6Q@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
+Date: Thu, 19 Jan 2017 17:30:13 +0100
+Message-ID: <20170119163013.GA22777@kroah.com>
+References: <20170114214713.28109-1-f.fainelli@gmail.com>
+ <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170115110628.GF26374@kroah.com>
+ <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+ <20170115191632.GD5643@lunn.ch>
+ <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+ <20170119142820.GA494@kroah.com> <20170119145315.GD21805@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, samuel@sortiz.org, glider@google.com,
-        andreyknvl@google.com, netdev@vger.kernel.org
-To: dvyukov@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59268 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753514AbdASQ1z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 11:27:55 -0500
-In-Reply-To: <CACT4Y+Yx3wVAgxJRYKMOYM419NTSc9naSxUVfwCb21kjvAnF6Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
+ Russell King <linux@armlinux.org.uk>, open list <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20170119145315.GD21805@lunn.ch>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Dmitry Vyukov <dvyukov@google.com>
-Date: Thu, 19 Jan 2017 11:05:36 +0100
+On Thu, Jan 19, 2017 at 03:53:15PM +0100, Andrew Lunn wrote:
+> > > > struct dsa_platform_data {
+> > > >         /*
+> > > >          * Reference to a Linux network interface that connects
+> > > >          * to the root switch chip of the tree.
+> > > >          */
+> > > >         struct device   *netdev;
+> > 
+> > This I think is the oddest thing, why do you need to have the "root
+> > switch" here?  You seem to have dropped the next value in this
+> > structure:
+> > 	struct net_device *of_netdev;
+> 
+> We are implementing platform_data for devices which don't support
+> device tree. When using OF, we don't have any of these issues. We can
+> go straight to the device.
+> 
+> It is a bit convoluted, but look at
+> arch/arm/mach-orion5x/rd88f5181l-ge-setup.c. It defines the start of
+> the dsa_platform_data in that file. It then gets passed through
+> common.c: orion5x_eth_switch_init() to 
+> arch/arm/plat-orion/common.c:orion_ge00_switch_init() :
+> 
+> void __init orion_ge00_switch_init(struct dsa_platform_data *d)
+> {
+>         int i;
+> 
+>         d->netdev = &orion_ge00.dev;
+>         for (i = 0; i < d->nr_chips; i++)
+>                 d->chip[i].host_dev = &orion_ge_mvmdio.dev;
+> 
+>         platform_device_register_data(NULL, "dsa", 0, d, sizeof(d));
+> }
+> 
+> Where we have
+> 
+> static struct platform_device orion_ge00 = {
+>         .name           = MV643XX_ETH_NAME,
+>         .id             = 0,
+>         .num_resources  = 1,
+>         .resource       = orion_ge00_resources,
+>         .dev            = {
+>                 .coherent_dma_mask      = DMA_BIT_MASK(32),
+>         },
+> };
+> 
+> So this is the platform device for the Ethernet device. We cannot go
+> to the net_device, because it does not exist until this Ethernet
+> platform device is instantiated.
 
-> Thanks for looking into it! This particular issue bothers my fuzzers
-> considerably. I agree that removing recursion is better.
-> So do how we proceed? Will you mail this as a real patch?
+Ok, fine, but why isn't the ethernet device a child of this platform
+device?  Why is it floating around somewhere else?  You don't see that
+happening for other devices.
 
-Someone needs to test this:
+> > Shouldn't you have a bus for RGMII devices?  Is that the real problem
+> > here, you don't have a representation for your RGMII "bus" with a
+> > controller to bundle everything under (like a USB host controller, it
+> > bridges from one bus to another).
+> 
+> RGMII is not a bus. It is a point to point link.
 
-diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
-index acbe61c..160dc89 100644
---- a/net/irda/irqueue.c
-+++ b/net/irda/irqueue.c
-@@ -383,9 +383,6 @@ EXPORT_SYMBOL(hashbin_new);
-  *    for deallocating this structure if it's complex. If not the user can
-  *    just supply kfree, which should take care of the job.
-  */
--#ifdef CONFIG_LOCKDEP
--static int hashbin_lock_depth = 0;
--#endif
- int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
- {
- 	irda_queue_t* queue;
-@@ -396,22 +393,27 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
- 	IRDA_ASSERT(hashbin->magic == HB_MAGIC, return -1;);
- 
- 	/* Synchronize */
--	if ( hashbin->hb_type & HB_LOCK ) {
--		spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags,
--					 hashbin_lock_depth++);
--	}
-+	if (hashbin->hb_type & HB_LOCK)
-+		spin_lock_irqsave(&hashbin->hb_spinlock, flags);
- 
- 	/*
- 	 *  Free the entries in the hashbin, TODO: use hashbin_clear when
- 	 *  it has been shown to work
- 	 */
- 	for (i = 0; i < HASHBIN_SIZE; i ++ ) {
--		queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
--		while (queue ) {
--			if (free_func)
--				(*free_func)(queue);
--			queue = dequeue_first(
--				(irda_queue_t**) &hashbin->hb_queue[i]);
-+		while (1) {
-+			queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
-+
-+			if (!queue)
-+				break;
-+
-+			if (free_func) {
-+				if (hashbin->hb_type & HB_LOCK)
-+					spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
-+				free_func(queue);
-+				if (hashbin->hb_type & HB_LOCK)
-+					spin_lock_irqsave(&hashbin->hb_spinlock, flags);
-+			}
- 		}
- 	}
- 
-@@ -420,12 +422,8 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
- 	hashbin->magic = ~HB_MAGIC;
- 
- 	/* Release lock */
--	if ( hashbin->hb_type & HB_LOCK) {
-+	if (hashbin->hb_type & HB_LOCK)
- 		spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
--#ifdef CONFIG_LOCKDEP
--		hashbin_lock_depth--;
--#endif
--	}
- 
- 	/*
- 	 *  Free the hashbin structure
+That's fine, but you have multiple devices talking across it, so in the
+kernel driver model "naming", it's a bus.  Anything can be a bus, it's
+just a way to group together devices of the same type.
+
+> Normally, it is
+> between the Ethernet MAC and the Ethernet PHY. But you can also have
+> it between an Ethernet MAC and another Ethernet MAC. I'm not sure
+> describing this is a bus would be practical. It would mean every
+> ethernet driver also becomes a bus driver!
+
+Instead of a custom platform device driver, yes.  Is that a big deal?
+How many do you have?
+
+> Every Ethernet PHY would become a bus device. That is a huge change,
+> for a few legacy boards which are not getting converted to device
+> tree.
+
+How many different drivers are we talking about here?
+
+> > If so, why is eth1 not below f1072004.mdio-mi in the heirachy already?
+> 
+> See the initial diagram above. The switch has two parents. It hangs of
+> an MDIO bus, and you would like to make RGMII also a bus. Can the
+> device model handle that? I thought it was a tree, not a graph?
+
+It is a tree, you are correct.  But right now you are picking and
+choosing where you want to put that network device.  Why not put it over
+on the mdio bus?  Or, like I mentioned, make it a custom bus where you
+can properly show this relationship, not just in a generic "let's jump
+to the parent and poke around randomly."
+
+Again, it's that last sentance that I object the most to here.  You all
+keep ignoring it for some reason...
+
+thanks,
+
+greg k-h
