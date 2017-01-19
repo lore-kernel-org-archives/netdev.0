@@ -1,8 +1,7 @@
 From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH v5 1/2] net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY addr >= num_of_ports
-Date: Thu, 19 Jan 2017 22:49:33 +0100
-Message-ID: <20170119214934.27442-2-gregory.clement@free-electrons.com>
-References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
+Subject: [PATCH v5 0/2] Add support for the ethernet switch on the ESPRESSObin
+Date: Thu, 19 Jan 2017 22:49:32 +0100
+Message-ID: <20170119214934.27442-1-gregory.clement@free-electrons.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         Jason Cooper <jason@lakedaemon.net>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -19,50 +18,65 @@ To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170119214934.27442-1-gregory.clement@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Romain Perier <romain.perier@free-electrons.com>
+Hi,
 
-Some Marvell ethernet switches have internal ethernet transceivers with
-hardcoded phy addresses. These addresses can be greater than the number
-of ports or its value might be different than the associated port number.
-This is for example the case for MV88E6341 that has 6 ports and internal
-Port 1 to Port4 PHYs mapped at SMI addresses from 0x11 to 0x14.
+This set of patches adds support for the Marvell Ethernet switch
+88E6341 which is found on the ESPRESSObin. With this series the
+network is usable on this board.
 
-This commits fixes the issue by removing the condition in MDIO callbacks.
+>From now on, I am taking care of this series.
 
-Signed-off-by: Romain Perier <romain.perier@free-electrons.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 6 ------
- 1 file changed, 6 deletions(-)
+As Andrew Lunn pointed this switch is not fully compatible with the
+6352. However it is neither fully compatible with the 6390. Actually
+it is more a mix between this two families.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 987b2dbbd35a..d1960ae0a618 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2882,9 +2882,6 @@ static int mv88e6xxx_mdio_read(struct mii_bus *bus, int phy, int reg)
- 	u16 val;
- 	int err;
- 
--	if (phy >= mv88e6xxx_num_ports(chip))
--		return 0xffff;
--
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_phy_read(chip, phy, reg, &val);
- 	mutex_unlock(&chip->reg_lock);
-@@ -2897,9 +2894,6 @@ static int mv88e6xxx_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
- 	struct mv88e6xxx_chip *chip = bus->priv;
- 	int err;
- 
--	if (phy >= mv88e6xxx_num_ports(chip))
--		return 0xffff;
--
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_phy_write(chip, phy, reg, val);
- 	mutex_unlock(&chip->reg_lock);
+I created a new family for this switch and filled the ops structure by
+selecting which seems the more appropriate functions. I rebased the
+series on net-next/master which allowed me to benefit to the eeprom
+functions introduced for the 6390.
+
+
+
+While comparing the datasheet and the ops functions used, some
+question came to me. They should not prevent applying this series,
+but their answer would help me to have a better understanding of the
+dsa subsystem.
+
+- Are the temperature related operation still useful with dsa2 ?
+
+Indeed the hwmon initialization is only done from dsa_probe which is
+not called if we use dsa2.
+
+- Why the setup is done differently between the 6390 and the 6352
+  families when the have exactly the same register?
+
+  - On the Port Controller 2, the bit PORT_CONTROL_2_MAP_DA is set for
+    6352 and not for 6390 whereas the same bit exists in 6360 and the
+    description for this bit is the same for both datasheet.
+
+
+  - Register PORT_ATU_CONTROL and PORT_PRI_OVERRIDE are reset on 6352
+    and not on 6390. While here again the registers description are
+    the same.
+
+Thanks,
+
+Gregory
+
+
+Gregory CLEMENT (1):
+  net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341
+
+Romain Perier (1):
+  net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY addr >=
+    num_of_ports
+
+ drivers/net/dsa/mv88e6xxx/chip.c      | 61 +++++++++++++++++++++++++++++------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 21 +++++++++++-
+ 2 files changed, 72 insertions(+), 10 deletions(-)
+
 -- 
 2.11.0
