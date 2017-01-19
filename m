@@ -1,41 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: reduce fl_change stack
- size
-Date: Thu, 19 Jan 2017 10:55:06 +0100
-Message-ID: <20170119095506.GA1801@nanopsycho.orion>
-References: <20170119094551.2780983-1-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net, 3/6] net: korina: increase tx/rx ring sizes
+Date: Thu, 19 Jan 2017 05:37:19 -0800
+Message-ID: <1484833039.16328.24.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1484674356-22363-1-git-send-email-roman@advem.lv>
+         <20170117.125844.253301507252169868.davem@davemloft.net>
+         <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
+         <1484680816.13165.73.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CACiydbJV5djpKdsgnKTDfxHpC0aPhF-bdH=zVzGeo9x127RFJg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Amir Vadai <amir@vadai.me>, Paul Blakey <paulb@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Roi Dayan <roid@mellanox.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170119094551.2780983-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Roman Yeryomin <leroi.lists@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35169 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753095AbdASNhg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 08:37:36 -0500
+Received: by mail-pf0-f195.google.com with SMTP id f144so3395304pfa.2
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 05:37:31 -0800 (PST)
+In-Reply-To: <CACiydbJV5djpKdsgnKTDfxHpC0aPhF-bdH=zVzGeo9x127RFJg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 19, 2017 at 10:45:31AM CET, arnd@arndb.de wrote:
->The new ARP support has pushed the stack size over the edge on ARM,
->as there are two large objects on the stack in this function (mask
->and tb) and both have now grown a bit more:
->
->net/sched/cls_flower.c: In function 'fl_change':
->net/sched/cls_flower.c:928:1: error: the frame size of 1072 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
->
->We can solve this by dynamically allocating one or both of them.
->I first tried to do it just for the mask, but that only saved
->152 bytes on ARM, while this version just does it for the 'tb'
->array, bringing the stack size back down to 664 bytes.
->
->Fixes: 99d31326cbe6 ("net/sched: cls_flower: Support matching on ARP")
->Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+On Thu, 2017-01-19 at 12:55 +0200, Roman Yeryomin wrote:
+> On 17 January 2017 at 21:20, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+> > Note that at 100M,  64 rx descriptors have a 8 ms max latency.
+> >
+> > Switching to 256 also multiply by 4 the latency -> 32 ms latency.
+> >
+> > Presumably switching to NAPI and GRO would avoid the latency increase
+> > and save a lot of cpu cycles for a MIPS board.
+> >
+> 
+> Eric, thanks for suggesting GRO, it gives huge performance gain when
+> receiving locally (55->95Mbps) and more than 25% gain for NAT
+> (55->70Mbps).
+> Also reading the datasheet more carefully I see that device rx
+> descriptor status flags are interpreted incorrectly. So will provide
+> an updated set.
+
+Oh right NAPI for rx is already implemented, so using GRO is a trivial
+patch.
