@@ -1,33 +1,37 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH iproute2 net-next V5] tc: flower: Refactor matching flags
- to be more user friendly
-Date: Thu, 19 Jan 2017 16:53:05 +0200
-Message-ID: <ae2dbf75-7a36-3b27-b2eb-76ecb4daa725@mellanox.com>
-References: <1484836073-47019-1-git-send-email-paulb@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Paul Blakey <paulb@mellanox.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Benc <jbenc@redhat.com>
-To: Simon Horman <simon.horman@netronome.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH net-next] net: caif: Remove unused stats member from struct chnl_net
+Date: Thu, 19 Jan 2017 16:04:25 +0100
+Message-ID: <20170119150425.12559-1-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0056.outbound.protection.outlook.com ([104.47.1.56]:22256
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753331AbdASPIV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 10:08:21 -0500
-In-Reply-To: <1484836073-47019-1-git-send-email-paulb@mellanox.com>
+Received: from mail.zhinst.com ([212.126.164.98]:58120 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751530AbdASPRy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 10:17:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/19/2017 4:27 PM, Paul Blakey wrote:
-> Hi, added a framework to add new flags more easily, such
-> as the upcoming tcp_flags (see kernel cls_flower), and other ip_flags.
+The stats member of struct chnl_net is used nowhere in the code, so it
+might as well be removed.
 
-FWIW, just wanted to make a note that I have the patches for tcp_flags 
-under the works, so if someone needs them urgently send me email, want 
-to avoid wasting your time implementing this..
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ net/caif/chnl_net.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Or.
+diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+index 3408ed51b611..1816fc9f1ee7 100644
+--- a/net/caif/chnl_net.c
++++ b/net/caif/chnl_net.c
+@@ -44,7 +44,6 @@ enum caif_states {
+ 
+ struct chnl_net {
+ 	struct cflayer chnl;
+-	struct net_device_stats stats;
+ 	struct caif_connect_request conn_req;
+ 	struct list_head list_field;
+ 	struct net_device *netdev;
+-- 
+2.11.0
