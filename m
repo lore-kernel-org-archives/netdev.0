@@ -1,141 +1,113 @@
-From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
-Subject: Re: [PATCH] stmmac: adding EEE to GMAC4
-Date: Thu, 19 Jan 2017 11:31:52 +0530
-Message-ID: <CAJ3bTp7XHNd+oc9QsX25iX_umARFjSveehPY_a+quJBnj-okkA@mail.gmail.com>
-References: <f89aaac8024e2a92834088545ad72fbe682b32ed.1483030665.git.jpinto@synopsys.com>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
+ directory layout
+Date: Thu, 19 Jan 2017 01:32:38 -0500
+Message-ID: <1484807558.2406.85.camel@redhat.com>
+References: <CALzJLG--ZRVk0Zy+6UaGCWbOhki+PZnkmrh9rjojU1ZDm_5Y6w@mail.gmail.com>
+         <20170118.123207.53777509111948450.davem@davemloft.net>
+         <CALx6S36p2g8EP48R+nWQu9tHtS5h8eKo7bj7rskmSMxCU36KXA@mail.gmail.com>
+         <20170119.003832.1262212358977773325.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f89aaac8024e2a92834088545ad72fbe682b32ed.1483030665.git.jpinto@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Thu, Dec 29, 2016 at 10:40 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
-> This patch adds Energy Efficiency Ethernet to GMAC4.
->
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      | 12 +++++
->  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 59 +++++++++++++++++++++++
->  2 files changed, 71 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> index b524598..73d1dab 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-> @@ -90,6 +90,18 @@ enum power_event {
->         power_down = 0x00000001,
->  };
->
-> +/* Energy Efficient Ethernet (EEE) for GMAC4
-> + *
-> + * LPI status, timer and control register offset
-> + */
-> +#define GMAC4_LPI_CTRL_STATUS  0xd0
-> +#define GMAC4_LPI_TIMER_CTRL   0xd4
-> +
-> +/* LPI control and status defines */
-> +#define GMAC4_LPI_CTRL_STATUS_LPITXA   BIT(19) /* Enable LPI TX Automate */
-> +#define GMAC4_LPI_CTRL_STATUS_PLS      BIT(17) /* PHY Link Status */
-> +#define GMAC4_LPI_CTRL_STATUS_LPIEN    BIT(16) /* LPI Enable */
-> +
->  /* MAC Debug bitmap */
->  #define GMAC_DEBUG_TFCSTS_MASK         GENMASK(18, 17)
->  #define GMAC_DEBUG_TFCSTS_SHIFT                17
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-> index ecfbf57..02eab79 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-> @@ -137,6 +137,61 @@ static void dwmac4_get_umac_addr(struct mac_device_info *hw,
->                                    GMAC_ADDR_LOW(reg_n));
->  }
->
-> +static void dwmac4_set_eee_mode(struct mac_device_info *hw)
-> +{
-> +       void __iomem *ioaddr = hw->pcsr;
-> +       u32 value;
-> +
-> +       /* Enable the link status receive on RGMII, SGMII ore SMII
-> +        * receive path and instruct the transmit to enter in LPI
-> +        * state.
-> +        */
-> +       value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
-> +       value |= GMAC4_LPI_CTRL_STATUS_LPIEN | GMAC4_LPI_CTRL_STATUS_LPITXA;
-> +
-> +       writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
-> +}
-> +
-> +static void dwmac4_reset_eee_mode(struct mac_device_info *hw)
-> +{
-> +       void __iomem *ioaddr = hw->pcsr;
-> +       u32 value;
-> +
-> +       value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
-> +       value &= ~(GMAC4_LPI_CTRL_STATUS_LPIEN | GMAC4_LPI_CTRL_STATUS_LPITXA);
-> +       writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
-> +}
-> +
-> +static void dwmac4_set_eee_pls(struct mac_device_info *hw, int link)
-> +{
-> +       void __iomem *ioaddr = hw->pcsr;
-> +       u32 value;
-> +
-> +       value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
-> +
-> +       if (link)
-> +               value |= GMAC4_LPI_CTRL_STATUS_PLS;
-> +       else
-> +               value &= ~GMAC4_LPI_CTRL_STATUS_PLS;
-> +
-> +       writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
-> +}
-> +
-> +static void dwmac4_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
-> +{
-> +       void __iomem *ioaddr = hw->pcsr;
-> +       int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
-
-If I am not wrong, LS field is 10 bits wide not 11 bits, hence we
-should AND 0x3ff.
-
-int value = ((tw & 0xffff)) | ((ls & 0x3ff) << 16);
-
-> +
-> +       /* Program the timers in the LPI timer control register:
-> +        * LS: minimum time (ms) for which the link
-> +        *  status from PHY should be ok before transmitting
-> +        *  the LPI pattern.
-> +        * TW: minimum time (us) for which the core waits
-> +        *  after it has stopped transmitting the LPI pattern.
-> +        */
-> +       writel(value, ioaddr + GMAC4_LPI_TIMER_CTRL);
-> +}
-> +
->  static void dwmac4_set_filter(struct mac_device_info *hw,
->                               struct net_device *dev)
->  {
-> @@ -410,6 +465,10 @@ static const struct stmmac_ops dwmac4_ops = {
->         .pmt = dwmac4_pmt,
->         .set_umac_addr = dwmac4_set_umac_addr,
->         .get_umac_addr = dwmac4_get_umac_addr,
-> +       .set_eee_mode = dwmac4_set_eee_mode,
-> +       .reset_eee_mode = dwmac4_reset_eee_mode,
-> +       .set_eee_timer = dwmac4_set_eee_timer,
-> +       .set_eee_pls = dwmac4_set_eee_pls,
->         .pcs_ctrl_ane = dwmac4_ctrl_ane,
->         .pcs_rane = dwmac4_rane,
->         .pcs_get_adv_lp = dwmac4_get_adv_lp,
-> --
-> 2.9.3
->
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-WtnqmtCzakocxFLtT5ZQ"
+Cc: saeedm@dev.mellanox.co.il, saeedm@mellanox.com,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org, leon@kernel.org
+To: David Miller <davem@davemloft.net>, tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43038 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750977AbdASGcl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 01:32:41 -0500
+In-Reply-To: <20170119.003832.1262212358977773325.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+--=-WtnqmtCzakocxFLtT5ZQ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
--- 
-wwr
-Rayagond
+On Thu, 2017-01-19 at 00:38 -0500, David Miller wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Wed, 18 Jan 2017 21:22:53 -0800
+>=20
+> > In principle I=C2=A0 agree, but as I previously wrote backporting this
+> > driver is already a bear. We need to do something here as this is
+> > quickly approaching being infeasible to backport. Even if we don't
+> > restructure the directories I'd still like to see some effort
+> towards
+> > feature modularization and isolation.
+>=20
+> There simply is a lot changing all the time, no restructuring is
+> going
+> to reduce that.=C2=A0 The driver simply gets a lot of churn.
+>=20
+> Backporting such things through a bunch of file and/or directory
+> renames is seriously nothing but asking for more punishment.
+>=20
+> That's why I am against it.
+
+So, I spent the better part of two years dealing with this after the
+drivers/net/mellanox drivers/net/ethernet/mellanox rename, so I'll
+chime in. =C2=A0Especially since Tom's problem directly relates to the
+issues I dealt with when trying to take the latest Mellanox driver and
+shoe-horn it into a Red Hat kernel that didn't have the same net core
+(I had to pick and choose which mlx patches to take in order to work
+with our existing net core, and the files were renamed on top of that).
+
+If you rename a file from place A to place B and keep the file the
+same, then a git backport can be done using techniques such as git
+cherry-pick with the --follow option enabled. =C2=A0It's slow, but works.
+
+But that's not what you've brought up. =C2=A0You brought up continuing the
+rename to go further and split code out into files based upon features.
+=C2=A0While git cherry-pick can follow renames mostly automatically, it can
+not follow refactors. =C2=A0If they move the tcflower stuff out to a file o=
+n
+its own, and you then attempt to backport some fix that touches the
+tcflower support in the new location while you have not taken the move
+patch, you will find that git will be totally stymied.
+
+What you have now is not perfect and you have to sort through commits
+to get the right ones and skip the ones you can't support, but things
+mostly apply except when context diffs break issues. =C2=A0With the refacto=
+r
+and separation you speak of, git will be totally unable to help and you
+will have to manually edit patches to point at new files or hand edit
+the files to apply the patches.
+
+I understand the desire for order instead of chaos, but it really will
+not help. =C2=A0Bringing patches from the new order back to the old chaos
+will be so much harder than just continuing as things are that you will
+silently curse the change shortly after it is made.
+
+--=20
+Doug Ledford <dledford@redhat.com>
+=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
+=C2=A0 =C2=A0
+Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
+
+--=-WtnqmtCzakocxFLtT5ZQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCAAGBQJYgF2GAAoJELgmozMOVy/dxG8QAKi1omV5w78lKzw8Wol0yiFy
+46g7XgoJGG2EIkmA5N2pDencKpoew/3CQUJAo6fgKWqrLOfSKcA8a3FffXcIGcK5
+NWO/OqsJxa3xMTAEwd+O5sDwjHt47tZvwFkSSzoMBzdIh73qnXZ+3ziXaBYFvNNF
+umDJCEj9lYAwy00YeB98znySjv9lmO8tuFwpDe7pdJBIhwJSMm/ENmz0DClJ2K4p
+LAMEbleumnUDWz5hx37ksJ0PMsMw3Y3KkLhRFMWiC7BBEn/YmgA4QUryFAqH4I6z
+Wo4hl+tgOkt0g62CuALzbLHsHgbbjqoUaqzVayw0YCBomJnbJlTrWint3lDygCbw
+UPLUxrYHPyCVOrl7Df3keYucQa7q0wWfpBd+7YnGHgpYnlPlOaPSIWpnQ7vOi2nE
+p3aDMG9xODF2ufgHH9L5XF2WM0tiPlVI2fTd8qeFgqn8COGyNrPGuDq8me16jK2k
+KhAAe0WNQj4Vc2CAlkW9X8mm3mdHJALCmUcEh20dlNsJ87+7vAYOyg04KbvIlyAp
+YeTmYfFHB3Eh4zBlrqCijvZEckHMrLnypppBzqBGqU+rI6sRW3EYt6QyOB+SVKA/
+RG6f8kio/2V3Zz7i1DAvj8c2qymTko3AchZl15tqWNF3W/PgVzwDgrg3dMFz602I
+TU13hXLZwnGzxi40kTzG
+=ZAmW
+-----END PGP SIGNATURE-----
+
+--=-WtnqmtCzakocxFLtT5ZQ--
