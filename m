@@ -1,34 +1,37 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next] vxlan: preserve type of dst_port parm for
- encap_bypass_if_local()
-Date: Thu, 19 Jan 2017 19:16:00 +0100
-Message-ID: <20170119191600.5d86c35b@griffin>
-References: <1484771097-5692-1-git-send-email-lrichard@redhat.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: xennet_start_xmit assumptions
+Date: Thu, 19 Jan 2017 13:47:33 -0500
+Message-ID: <20170119184733.GJ22018@oracle.com>
+References: <20170118192528.GA6847@char.us.oracle.com>
+ <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
+ <20170119111426.GA22018@oracle.com>
+ <20170119.113759.555556955190770932.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lance Richardson <lrichard@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48706 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754016AbdASScu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 13:32:50 -0500
-Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id DA7823B70B
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 18:16:03 +0000 (UTC)
-In-Reply-To: <1484771097-5692-1-git-send-email-lrichard@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Paul.Durrant@citrix.com, wei.liu2@citrix.com,
+ xen-devel@lists.xenproject.org, konrad.wilk@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <20170119.113759.555556955190770932.davem@davemloft.net>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jan 2017 15:24:57 -0500, Lance Richardson wrote:
-> Eliminate sparse warning by maintaining type of dst_port
-> as __be16.
-
-Fixes: fee1fad7c73d ("vxlan: simplify RTF_LOCAL handling.")
-
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
-
-Acked-by: Jiri Benc <jbenc@redhat.com>
+T24gKDAxLzE5LzE3IDExOjM3KSwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+IAo+IEkgdGhvdWdodCB3
+ZSBoYWQgY29kZSB3aGljaCBtYWRlIHN1cmUgdGhhdCBhdCBsZWFzdCBhIG1pbmltYWwKPiBsaW5r
+IGxheWVyIGhlYWRlciB3YXMgcHJlc2VudCBpbiB0aGUgU0tCPwo+IAo+IFNwZWNpZmljYWxseSBJ
+J20gdGFsa2luZyBhYm91dCB0aGUgZGV2X3ZhbGlkYXRlX2hlYWRlcigpIGNoZWNrLgo+IFRoYXQg
+aXMgc3VwcG9zZWQgdG8gcHJvdGVjdCB1cyBmcm9tIHRoZXNlIGtpbmRzIG9mIHNpdHVhdGlvbnMu
+CgphaCwgYnV0IEkgcnVuIG15IHBmX3BhY2tldCBhcHBsaWNhdGlvbiBhcyByb290LCBzbyBJIGhh
+dmUgCmNhcGFibGUoQ0FQX1NZU19SQVdJTyksIHNvIEkgc2xpcCB0aHJvdWdoIHRoZSBkZXZfdmFs
+aWRhdGVfaGVhZGVyKCkKY2hlY2suCgotLVNvd21pbmkKCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVs
+QGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
