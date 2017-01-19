@@ -1,300 +1,193 @@
-From: Paul Blakey <paulb@mellanox.com>
-Subject: [PATCH net-next V4] tc: flower: Refactor matching flags to be more user friendly
-Date: Thu, 19 Jan 2017 16:17:48 +0200
-Message-ID: <1484835468-46051-1-git-send-email-paulb@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>, Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47875 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752865AbdASOYn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 09:24:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
+Date: Thu, 19 Jan 2017 15:28:20 +0100
+Message-ID: <20170119142820.GA494@kroah.com>
+References: <20170114214713.28109-1-f.fainelli@gmail.com>
+ <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170115110628.GF26374@kroah.com>
+ <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+ <20170115191632.GD5643@lunn.ch>
+ <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
+ Russell King <linux@armlinux.org.uk>, open list <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Instead of "magic numbers" we can now specify each flag
-by name. Prefix of "no"  (e.g nofrag) unsets the flag,
-otherwise it wil be set.
+On Mon, Jan 16, 2017 at 12:01:02PM -0800, Florian Fainelli wrote:
+> On 01/15/2017 11:16 AM, Andrew Lunn wrote:
+> >>> What exactly is the relationship between these devices (a ascii-art tree
+> >>> or sysfs tree output might be nice) so I can try to understand what is
+> >>> going on here.
+> > 
+> > Hi Greg, Florian
+> > 
+> > A few diagrams and trees which might help understand what is going on.
+> > 
+> > The first diagram comes from the 2008 patch which added all this code:
+> > 
+> >             +-----------+       +-----------+
+> >             |           | RGMII |           |
+> >             |           +-------+           +------ 1000baseT MDI ("WAN")
+> >             |           |       |  6-port   +------ 1000baseT MDI ("LAN1")
+> >             |    CPU    |       |  ethernet +------ 1000baseT MDI ("LAN2")
+> >             |           |MIImgmt|  switch   +------ 1000baseT MDI ("LAN3")
+> >             |           +-------+  w/5 PHYs +------ 1000baseT MDI ("LAN4")
+> >             |           |       |           |
+> >             +-----------+       +-----------+
+> > 
+> > We have an ethernet switch and a host CPU. The switch is connected to
+> > the CPU in two different ways. RGMII allows us to get Ethernet frames
+> > from the CPU into the switch. MIImgmt, is the management bus normally
+> > used for Ethernet PHYs, but Marvell switches also use it for Managing
+> > switches.
+> > 
+> > The diagram above is the simplest setup. You can have multiple
+> > Ethernet switches, connected together via switch ports. Each switch
+> > has its own MIImgmt connect to the CPU, but there is only one RGMII
+> > link.
+> > 
+> > When this code was designed back in 2008, it was decided to represent
+> > this is a platform device, and it has a platform_data, which i have
+> > slightly edited to keep it simple:
+> > 
+> > struct dsa_platform_data {
+> >         /*
+> >          * Reference to a Linux network interface that connects
+> >          * to the root switch chip of the tree.
+> >          */
+> >         struct device   *netdev;
 
-Example:
-    # add a flower filter that will drop fragmented packets
-    tc filter add dev ens4f0 protocol ip parent ffff: \
-            flower \
-            src_mac e4:1d:2d:fd:8b:01 \
-            dst_mac e4:1d:2d:fd:8b:02 \
-            indev ens4f0 \
-            ip_flags frag \
-    action drop
+This I think is the oddest thing, why do you need to have the "root
+switch" here?  You seem to have dropped the next value in this
+structure:
+	struct net_device *of_netdev;
 
-    # add a flower filter that will drop non-fragmented packets
-    tc filter add dev ens4f0 protocol ip parent ffff: \
-            flower \
-            src_mac e4:1d:2d:fd:8b:01 \
-            dst_mac e4:1d:2d:fd:8b:02 \
-            indev ens4f0 \
-            ip_flags nofrag \
-    action drop
+Isn't that the "real" net_device you need/want to get to here?
 
-Fixes: 22a8f019891c ('tc: flower: support matching flags')
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
-Reviewed-by: Roi Dayan <roid@mellanox.com>
----
+Or, when you set netdev, can't you also point to the "real" net_device
+you want to later get to?
 
-Hi,
-Added a framework to add new flags more easily, such 
-as the upcoming tcp_flags (see kernel cls_flower), and other ip_flags.
+> >         /*
+> >          * Info structs describing each of the switch chips
+> >          * connected via this network interface.
+> >          */
+> >         int             nr_chips;
+> >         struct dsa_chip_data    *chip;
+> > };
+> > 
+> > This netdev is the CPU side of the RGMII interface.
+> > 
+> > Each switch has a dsa_chip_data, again edited:
+> > 
+> > struct dsa_chip_data {
+> >         /*
+> >          * How to access the switch configuration registers.
+> >          */
+> >         struct device   *host_dev;
+> >         int             sw_addr;
+> > ...
+> > }
 
-Thanks,
-     Paul.
+If each switch only has one dsa_chip_data, can't you point directly from
+that structure back to the dsa_platform_device?  Or is that what this
+"host_dev" pointer is pointing to?
 
+> > The host_dev is the CPU side of the MIImgmt, and we have the address
+> > the switch is using on the bus.
 
-Changelog:
+"cpu side" means what?  What 'struct device' is this?  The host
+controller?  The platform device?  Something else?
 
-v4:
-Changed prefix in manpage as well.
+> > During probe of this platform device, we need to get from the
+> > struct device *netdev to a struct net_device *dev.
 
-v3:
-Changed prefix to "no" instead of "no_".
+Wait, what exactly is this "struct device *"?  Who created it?
 
-v2:
-Changed delimiter to "/" to avoid shell pipe errors.
+And why are you using a platform device?  Shouldn't this be a custom
+bus?  I know people like to abuse platform devices, is that the case
+here, or is it really driven only by a device tree representation?
 
+Shouldn't you have a bus for RGMII devices?  Is that the real problem
+here, you don't have a representation for your RGMII "bus" with a
+controller to bundle everything under (like a USB host controller, it
+bridges from one bus to another).
 
- man/man8/tc-flower.8 |  12 +++++-
- tc/f_flower.c        | 117 ++++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 102 insertions(+), 27 deletions(-)
+> > So the code looks in the device net class to find the device
+> > 
+> > |   |   |   |-- f1074000.ethernet
+> > |   |   |   |   |-- deferred_probe
+> > |   |   |   |   |-- driver -> ../../../../../bus/platform/drivers/mvneta
+> > |   |   |   |   |-- driver_override
+> > |   |   |   |   |-- modalias
+> > |   |   |   |   |-- net
+> > |   |   |   |   |   `-- eth1
+> > |   |   |   |   |       |-- addr_assign_type
+> > |   |   |   |   |       |-- address
+> > |   |   |   |   |       |-- addr_len
+> > |   |   |   |   |       |-- broadcast
+> > |   |   |   |   |       |-- carrier
+> > |   |   |   |   |       |-- carrier_changes
+> > |   |   |   |   |       |-- deferred_probe
+> > |   |   |   |   |       |-- device -> ../../../f1074000.ethernet
+> > 
+> > and then use container_of() to get the net_device.
 
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 2dd2c5e..2bdd2ef 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -46,7 +46,9 @@ flower \- flow based traffic control filter
- .BR enc_dst_ip " | " enc_src_ip " } { "
- .IR ipv4_address " | " ipv6_address " } | "
- .B enc_dst_port
--.IR port_number
-+.IR port_number " | "
-+.BR ip_flags
-+.IR IP_FLAGS
- .SH DESCRIPTION
- The
- .B flower
-@@ -183,13 +185,19 @@ prefix length. If the prefix is missing, \fBtc\fR assumes a full-length
- host match.  Dst port
- .I NUMBER
- is a 16 bit UDP dst port.
-+.TP
-+.BI ip_flags " IP_FLAGS"
-+.I IP_FLAGS
-+may be either
-+.BR frag " or " nofrag
-+to match on fragmented packets or not respectively.
- .SH NOTES
- As stated above where applicable, matches of a certain layer implicitly depend
- on the matches of the next lower layer. Precisely, layer one and two matches
- (\fBindev\fR,  \fBdst_mac\fR and \fBsrc_mac\fR)
- have no dependency, layer three matches
- (\fBip_proto\fR, \fBdst_ip\fR, \fBsrc_ip\fR, \fBarp_tip\fR, \fBarp_sip\fR,
--\fBarp_op\fR, \fBarp_tha\fR and \fBarp_sha\fR)
-+\fBarp_op\fR, \fBarp_tha\fR, \fBarp_sha\fR and \fBip_flags\fR)
- depend on the
- .B protocol
- option of tc filter, layer four port matches
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index d301db3..3dffe2b 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -24,6 +24,10 @@
- #include "tc_util.h"
- #include "rt_names.h"
- 
-+enum flower_matching_flags {
-+	FLOWER_IP_FLAGS,
-+};
-+
- enum flower_endpoint {
- 	FLOWER_ENDPOINT_SRC,
- 	FLOWER_ENDPOINT_DST
-@@ -63,7 +67,7 @@ static void explain(void)
- 		"                       enc_dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       enc_src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
- 		"                       enc_key_id [ KEY-ID ] |\n"
--		"                       matching_flags MATCHING-FLAGS | \n"
-+		"                       ip_flags IP-FLAGS | \n"
- 		"                       enc_dst_port [ port_number ] }\n"
- 		"       FILTERID := X:Y:Z\n"
- 		"       MASKED_LLADDR := { LLADDR | LLADDR/MASK | LLADDR/BITS }\n"
-@@ -136,28 +140,56 @@ static int flower_parse_vlan_eth_type(char *str, __be16 eth_type, int type,
- 	return 0;
- }
- 
--static int flower_parse_matching_flags(char *str, int type, int mask_type,
--				       struct nlmsghdr *n)
--{
--	__u32 mtf, mtf_mask;
--	char *c;
-+struct flag_to_string {
-+	int flag;
-+	enum flower_matching_flags type;
-+	char *string;
-+};
- 
--	c = strchr(str, '/');
--	if (c)
--		*c = '\0';
-+static struct flag_to_string flags_str[] = {
-+	{ TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT, FLOWER_IP_FLAGS, "frag" },
-+};
- 
--	if (get_u32(&mtf, str, 0))
--		return -1;
-+static int flower_parse_matching_flags(char *str,
-+				       enum flower_matching_flags type,
-+				       __u32 *mtf, __u32 *mtf_mask)
-+{
-+	char *token;
-+	bool no;
-+	bool found;
-+	int i;
- 
--	if (c) {
--		if (get_u32(&mtf_mask, ++c, 0))
-+	token = strtok(str, "/");
-+
-+	while (token) {
-+		if (!strncmp(token, "no", 2)) {
-+			no = true;
-+			token = strchr(token, '_') + 1;
-+		} else
-+			no = false;
-+
-+		found = false;
-+		for (i = 0; i < ARRAY_SIZE(flags_str); i++) {
-+			if (type != flags_str[i].type)
-+				continue;
-+
-+			if (!strcmp(token, flags_str[i].string)) {
-+				if (no)
-+					*mtf &= ~flags_str[i].flag;
-+				else
-+					*mtf |= flags_str[i].flag;
-+
-+				*mtf_mask |= flags_str[i].flag;
-+				found = true;
-+				break;
-+			}
-+		}
-+		if (!found)
- 			return -1;
--	} else {
--		mtf_mask = 0xffffffff;
-+
-+		token = strtok(NULL, "/");
- 	}
- 
--	addattr32(n, MAX_MSG, type, htonl(mtf));
--	addattr32(n, MAX_MSG, mask_type, htonl(mtf_mask));
- 	return 0;
- }
- 
-@@ -433,6 +465,8 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 	__be16 vlan_ethtype = 0;
- 	__u8 ip_proto = 0xff;
- 	__u32 flags = 0;
-+	__u32 mtf = 0;
-+	__u32 mtf_mask = 0;
- 
- 	if (handle) {
- 		ret = get_u32(&t->tcm_handle, handle, 0);
-@@ -462,14 +496,14 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 				return -1;
- 			}
- 			addattr_l(n, MAX_MSG, TCA_FLOWER_CLASSID, &handle, 4);
--		} else if (matches(*argv, "matching_flags") == 0) {
-+		} else if (matches(*argv, "ip_flags") == 0) {
- 			NEXT_ARG();
- 			ret = flower_parse_matching_flags(*argv,
--							  TCA_FLOWER_KEY_FLAGS,
--							  TCA_FLOWER_KEY_FLAGS_MASK,
--							  n);
-+							  FLOWER_IP_FLAGS,
-+							  &mtf,
-+							  &mtf_mask);
- 			if (ret < 0) {
--				fprintf(stderr, "Illegal \"matching_flags\"\n");
-+				fprintf(stderr, "Illegal \"ip_flags\"\n");
- 				return -1;
- 			}
- 		} else if (matches(*argv, "skip_hw") == 0) {
-@@ -723,6 +757,16 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- parse_done:
- 	addattr32(n, MAX_MSG, TCA_FLOWER_FLAGS, flags);
- 
-+	if (mtf_mask) {
-+		ret = addattr32(n, MAX_MSG, TCA_FLOWER_KEY_FLAGS, htonl(mtf));
-+		if (ret)
-+			return ret;
-+
-+		ret = addattr32(n, MAX_MSG, TCA_FLOWER_KEY_FLAGS_MASK, htonl(mtf_mask));
-+		if (ret)
-+			return ret;
-+	}
-+
- 	ret = addattr16(n, MAX_MSG, TCA_FLOWER_KEY_ETH_TYPE, eth_type);
- 	if (ret) {
- 		fprintf(stderr, "Illegal \"eth_type\"(0x%x)\n",
-@@ -828,14 +872,36 @@ static void flower_print_ip_proto(FILE *f, __u8 *p_ip_proto,
- }
- 
- static void flower_print_matching_flags(FILE *f, char *name,
-+					enum flower_matching_flags type,
- 					struct rtattr *attr,
- 					struct rtattr *mask_attr)
- {
-+	int i;
-+	int count = 0;
-+	__u32 mtf;
-+	__u32 mtf_mask;
-+
- 	if (!mask_attr || RTA_PAYLOAD(mask_attr) != 4)
- 		return;
- 
--	fprintf(f, "\n  %s 0x%08x/0x%08x", name, ntohl(rta_getattr_u32(attr)),
--		mask_attr ? ntohl(rta_getattr_u32(mask_attr)) : 0xffffffff);
-+	mtf = ntohl(rta_getattr_u32(attr));
-+	mtf_mask = ntohl(rta_getattr_u32(mask_attr));
-+
-+	for (i = 0; i < ARRAY_SIZE(flags_str); i++) {
-+		if (type != flags_str[i].type)
-+			continue;
-+		if (mtf_mask & flags_str[i].flag) {
-+			if (++count == 1)
-+				fprintf(f, "\n  %s ", name);
-+			else
-+				fprintf(f, "/");
-+
-+			if (mtf & flags_str[i].flag)
-+				fprintf(f, "%s", flags_str[i].string);
-+			else
-+				fprintf(f, "no%s", flags_str[i].string);
-+		}
-+	}
- }
- 
- static void flower_print_ip_addr(FILE *f, char *name, __be16 eth_type,
-@@ -1034,7 +1100,8 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
- 	flower_print_port(f, "enc_dst_port",
- 			  tb[TCA_FLOWER_KEY_ENC_UDP_DST_PORT]);
- 
--	flower_print_matching_flags(f, "matching_flags",
-+	flower_print_matching_flags(f, "ip_flags",
-+				    FLOWER_IP_FLAGS,
- 				    tb[TCA_FLOWER_KEY_FLAGS],
- 				    tb[TCA_FLOWER_KEY_FLAGS_MASK]);
- 
--- 
-2.7.4
+What 'struct device *' are you passing to container_of() here?  The one
+representing eth1?  What call is this?  And where are you trying to go
+from there, to a peer?  Why?
+
+> > Similarly, the code needs to get from struct device *host_dev to a struct mii_bus *.
+> > 
+> > |   |   |   |-- f1072004.mdio
+> > |   |   |   |   |-- deferred_probe
+> > |   |   |   |   |-- driver -> ../../../../../bus/platform/drivers/orion-mdio
+> > |   |   |   |   |-- driver_override
+> > |   |   |   |   |-- mdio_bus
+> > |   |   |   |   |   `-- f1072004.mdio-mi
+> > |   |   |   |   |       |-- deferred_probe
+> > |   |   |   |   |       |-- device -> ../../../f1072004.mdio
+
+Ok, this looks like the "peer" you want to get to from eth1, you want
+f1072004.mdio-mi, right?
+
+If so, why is eth1 not below f1072004.mdio-mi in the heirachy already?
+
+Why is it up attached to the parent device, making this a "flat"
+heirachy?
+
+That's what is confusing about your functions, you are just walking all
+of the "child" devices of a specific struct device, trying to find the
+first random one that happens to belong to a specific 'bus' because you
+are related to it.
+
+Which is wrong, eth1 should be a child of your bus device, that way you
+"know" how to get to it (it's your parent!).
+
+So, I'm still confused, and still think this is all wrong, but feel free
+to prove me wrong about this :)
+
+thanks,
+
+greg k-h
