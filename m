@@ -1,94 +1,96 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Thu, 19 Jan 2017 10:43:48 +0100
-Message-ID: <759d6323-ffac-ebe8-b197-4e1165be5673@neratec.com>
-References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
- <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
- <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
- <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
- <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
- <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
- <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH v3] net/irda: fix lockdep annotation
+Date: Thu, 19 Jan 2017 11:05:36 +0100
+Message-ID: <CACT4Y+Yx3wVAgxJRYKMOYM419NTSc9naSxUVfwCb21kjvAnF6Q@mail.gmail.com>
+References: <20170116211052.46525-1-dvyukov@google.com> <20170117.151901.998994334183973013.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com
-To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Dave Jones <davej@redhat.com>, Samuel Ortiz <samuel@sortiz.org>,
+        Alexander Potapenko <glider@google.com>,
+        andreyknvl <andreyknvl@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:38808 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751360AbdASJyi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 04:54:38 -0500
-In-Reply-To: <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
+Received: from mail-ua0-f172.google.com ([209.85.217.172]:35126 "EHLO
+        mail-ua0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751252AbdASKF5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 05:05:57 -0500
+Received: by mail-ua0-f172.google.com with SMTP id y9so29876426uae.2
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 02:05:57 -0800 (PST)
+In-Reply-To: <20170117.151901.998994334183973013.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/18/2017 04:02 PM, Timur Tabi wrote:
-> On 01/18/2017 07:53 AM, Zefir Kurtisi wrote:
->> No, not necessarily. The SGMII link default configuration is set such that you do
->> not have to bother at all.
-> 
-> Does the SGMII link need to make the speed and duplex of the external link?
-> 
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c#n50
-> 
-> 
-> Here is where I can configure the SGMII link to match whatever phydev says the
-> external link is.  This is code that was handed down to me.  I've never really
-> understood what the purpose was.  Shouldn't I just be able to configure the SGMII
-> link to 1Gbs full-duplex, regardless of what the external link is set to?
-> 
+On Tue, Jan 17, 2017 at 9:19 PM, David Miller <davem@davemloft.net> wrote:
+> From: Dmitry Vyukov <dvyukov@google.com>
+> Date: Mon, 16 Jan 2017 22:10:52 +0100
+>
+>> The current annotation uses a global variable as recursion counter.
+>> The variable is not atomic nor protected with a mutex, but mutated
+>> by multiple threads. This causes lockdep bug reports episodically:
+>>
+>> BUG: looking up invalid subclass: 4294967295
+>> ...
+>> _raw_spin_lock_irqsave_nested+0x120/0x180
+>> hashbin_delete+0x4fe/0x750
+>> __irias_delete_object+0xab/0x170
+>> irias_delete_object+0x5f/0xc0
+>> ircomm_tty_detach_cable+0x1d5/0x3f0
+>> ...
+>>
+>> Make the hashbin_lock_depth variable atomic to prevent bug reports.
+>>
+>> As is this causes "unused variable 'depth'" warning without LOCKDEP.
+>> So also change raw_spin_lock_irqsave_nested() macro to not cause
+>> the warning without LOCKDEP. Similar to what raw_spin_lock_nested()
+>> already does.
+>>
+>> Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
+>> Cc: Dave Jones <davej@redhat.com>
+>> Cc: Samuel Ortiz <samuel@sortiz.org>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Cc: netdev@vger.kernel.org
+>> Fixes: c7630a4b932af ("[IrDA]: irda lockdep annotation")
+>
+> I took a closer look at this, and really this whole lockdep thing is
+> more than a hack.
+>
+> The basic problem is that the free_func() passed into hashbin_delete()
+> can trigger hashbin operations on other hashtables.
+>
+> This function is destroying a hash table completely, and is doing so
+> in a context where no new hash table entries can be inserted.  The
+> last thing we do is kfree() the hashtable so this must be true.
+>
+> Therefore, it is much better to just kill off all of this lockdep
+> stuff, and recode the teardown loop into something like:
+>
+>         if (hashbin->hb_type & HB_LOCK)
+>                 spin_lock_irqsave(&hashbin->hb_lock, flags);
+>         for (i = 0; i < HASHBIN_SIZE; i++) {
+>                 while (1) {
+>                         queue = dequeue_first((irda_queue_t **) &hashbin->hb_queue[i]);
+>
+>                         if (!queue)
+>                                 break;
+>                         if (free_func) {
+>                                 if (hashbin->hb_type & HB_LOCK)
+>                                         spin_unlock_irqrestore(&hashbin->hb_lock, flags);
+>                                 free_func(queue);
+>                                 if (hashbin->hb_type & HB_LOCK)
+>                                         spin_lock_irqsave(&hashbin->hb_lock, flags);
+>                         }
+>
+>                 }
+>         }
+>         hashbin->hb_current = NULL;
+>         hashbin->magic = ~HB_MAGIC;
+>         if (hashbin->hb_type & HB_LOCK)
+>                 spin_unlock_irqrestore(&hashbin->hb_lock, flags);
+>
+> At which point the recursive locking becomes impossible.
 
-This is because the SGMII link is a transparent interface to the upper layer with
-no means to inform the other side of the link type in the lower layer.
 
-It always operates at 675MHz, which with two lines gives 1.25Gbps, which at 10/8
-coding gives exactly 1Gbps net data rate. If the at803x's copper side
-autonegotiates to 1Gbps, the bits traversing over the SGMII match the copper side
-1:1. In case the copper side autonegotiates to e.g. 100Mbps, each bit at the
-copper side on the SGMII bus is replicated and sent 10x times - or 100x times in
-case of 10Mbps. The MAC side of the ETH needs to be aware of how the SGMII data
-has to be interpreted, and this is why you have to set the bits you are referring to.
-
->> That is, if in your case you see the warning popping up but the link always
->> regains connection, then it is an ignorable false positive.
-> 
-> Unfortunately, I can't really ignore it because genphy does this:
-> 
-> $ ifup eth1
-> [ 1034.754276] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
-> rx/tx
-> 
-> But the at803x driver does this:
-> 
-> $ ifup eth1
-> [ 1020.507728] 803x_aneg_done: SGMII link is not ok
-> [ 1020.513517] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
-> rx/tx
-> [ 1020.522839] qcom-emac QCOM8070:00 eth1: Link is Up - 1Gbps/Full - flow control
-> rx/tx
-> 
-> Customers are going to complain.
-> 
-Yes, the double link-status message is annoying - I was referring to the other
-message.
-
-To track down who is causing the additional message, I would proceed with
-following technique that helped me dig down a similar problem: since you control
-the events in question and there is no risk of flooding the kernel log, in the top
-of phy.c::phy_print_status() add a dump_stack() call. In the debug log ensure that
-all of the traces end up in the same phydev->adjust_link() callback handler (in
-your case emac_adjust_link()).
-
-In the gianfar's handler there is an additional check whether the link really
-changed before phy_print_status() is called, in emac_adjust_link() this happens
-unconditionally - maybe that is the problem you are facing.
-
-@Florian: is it safe to assume that when phydev->adjust_link() is called there was
-in fact a link change (link, duplex, pause), or does the handler have to double
-check for a change? I see some ETH drivers maintain a private old state instance
-for that, while others don't.
-
-
-Cheers,
-Zefir
+Thanks for looking into it! This particular issue bothers my fuzzers
+considerably. I agree that removing recursion is better.
+So do how we proceed? Will you mail this as a real patch?
