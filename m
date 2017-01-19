@@ -1,86 +1,54 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH for bnxt_re V4 10/21] RDMA/bnxt_re: Support for CQ verbs
-Date: Thu, 19 Jan 2017 01:57:33 -0500
-Message-ID: <1484809053.2406.90.camel@redhat.com>
-References: <CA+sbYW0+Z2X+_BqG=QNBSgc0Qsk1S9sZYieUuN05PjF5or4NkQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
+Date: Wed, 18 Jan 2017 23:03:08 -0800
+Message-ID: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-0XXfxMoXDiU/DSRQiya2"
-Cc: linux-rdma@vger.kernel.org,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Selvin Xavier <selvin.xavier@broadcom.com>,
-        Leon Romanovsky <leon@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40696 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751329AbdASG5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 01:57:36 -0500
-In-Reply-To: <CA+sbYW0+Z2X+_BqG=QNBSgc0Qsk1S9sZYieUuN05PjF5or4NkQ@mail.gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35063 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750955AbdASHDL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 02:03:11 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 204so3428570pge.2
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 23:03:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
---=-0XXfxMoXDiU/DSRQiya2
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+A driver using dev_alloc_page() must not reuse a page allocated from
+emergency memory reserve.
 
-On Wed, 2017-01-18 at 14:42 +0530, Selvin Xavier wrote:
-> On Wed, Jan 18, 2017 at 1:49 PM, Leon Romanovsky <leon@kernel.org>
-> wrote:
-> >=20
-> > It is better to use already existing macros - min()
-> > cq->max_cql =3D min(entries, MAX_CQL_PER_POLL);
-> >=20
-> > I afraid that you can't avoid the respinning, you have more than
-> > month
-> > till merge window.
-> >=20
-> > Can you please remove useless wrappers and try to reuse kernel
-> > macros?
->=20
-> Leon,
-> =C2=A0 Thanks for your comments. I will include your both comments in the
-> next patch set.
->=20
-> Doug,
-> =C2=A0=C2=A0=C2=A0Is it ok if I send out the V5 now after re-basing again=
-st for-4.11
-> branch or should i wait for your comments on V4?
+Otherwise all packets using this page will be immediately dropped,
+unless for very specific sockets having SOCK_MEMALLOC bit set.
 
-Wait.
+This issue might be hard to debug, because only a fraction of received
+packets would be dropped.
 
---=20
-Doug Ledford <dledford@redhat.com>
-=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
-=C2=A0 =C2=A0
-Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
+Fixes: 4415a0319f92 ("net/mlx5e: Implement RX mapped page cache for page recycle")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
---=-0XXfxMoXDiU/DSRQiya2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCAAGBQJYgGNdAAoJELgmozMOVy/dLO0QALOnc0i3+N48KdicL7wfRtJL
-ikNADemN9GXbauVmd2eyIzOFlbnDLWrWKlrZCW+lK+rbfsAH0vTh4Kjxy9zKn8XZ
-nfluUVsvjQJfQmQfxTppnKJYI5NkMBQM80L1+IU0Du6GUan+hPZoVSBjlnzl51Da
-MbBnfBTo9cw/dHVZWyYn/z5w3b8HVe8x6ciD3V1pMlAEQeOlklR/y/TYFJ1htJXT
-OxjCoh9tAJtnUBMCoY6y89DRJcUFcVKRVy2HdHchLcx/+tRshaAD9aqTrQshU7P+
-LHCL2BrUgb//GfxHx2Gsx3Oqyor/q7deVOdsbuST17/u0wXfc2fNF934dsbrQZ3e
-0ruBrAJUTDLYg/ycFrtXpsJOxDrkHCvwDS679Ysnh+vKkdpi1K625/njjnE2zQu+
-cgEcblqYkhn6w1QDapbEWaePIBNUpaARa7Hej0FILFgX1RFsmr3EjPfZBXR/kh9T
-WboF92/eEa2h0RZ8VAI/zwintE1juNgZXDL20NkXy3G26JmXLx3ju5uDN0ZevDp7
-377EZu7ask/yKpFOqxtcya6n9MW1lsVMCttEKXy6qdF8C8paFsA6Krp0J/t7TNge
-rlnVc/69oIWr89eNNie5rL7kQAPyuPjU/nkrGVS1xRNpwPajrtB9hOgoF2TLAAIj
-j7X8SThBnD7PGyM/NkwR
-=oNNn
------END PGP SIGNATURE-----
-
---=-0XXfxMoXDiU/DSRQiya2--
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 0e2fb3ed1790900ccdc0bbbef8bc5c33267df092..ce46409bde2736ea4d1246ca97855098f052f271 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -193,6 +193,9 @@ static inline bool mlx5e_rx_cache_put(struct mlx5e_rq *rq,
+ 		return false;
+ 	}
+ 
++	if (unlikely(page_is_pfmemalloc(dma_info->page)))
++		return false;
++
+ 	cache->page_cache[cache->tail] = *dma_info;
+ 	cache->tail = tail_next;
+ 	return true;
