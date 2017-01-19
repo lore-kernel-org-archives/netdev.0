@@ -1,56 +1,63 @@
-From: Remanan Pillai <vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
-Subject: [PATCH v2] xen-netfront: Fix Rx stall during network
-	stress and OOM
-Date: Wed, 18 Jan 2017 12:25:49 -0800
-Message-ID: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
+ directory layout
+Date: Wed, 18 Jan 2017 21:22:53 -0800
+Message-ID: <CALx6S36p2g8EP48R+nWQu9tHtS5h8eKo7bj7rskmSMxCU36KXA@mail.gmail.com>
+References: <20170113.121407.448230751444957957.davem@davemloft.net>
+ <CALzJLG_fjiGyuB_buZqOSMU7SaCnuqFiZ0UyW+hPDq+3yx7TWg@mail.gmail.com>
+ <CALzJLG--ZRVk0Zy+6UaGCWbOhki+PZnkmrh9rjojU1ZDm_5Y6w@mail.gmail.com> <20170118.123207.53777509111948450.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Vineeth Remanan Pillai <vineethp@amazon.com>, kamatam@amazon.com,
- aliguori@amazon.com
-To: <boris.ostrovsky@oracle.com>, <jgross@suse.com>, <davem@davemloft.net>,
- <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
- <linux-kernel@vger.kernel.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-rdma@vger.kernel.org, Leon Romanovsky <leon@kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36643 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752041AbdASFYA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 00:24:00 -0500
+Received: by mail-qt0-f195.google.com with SMTP id l7so6523325qtd.3
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 21:22:54 -0800 (PST)
+In-Reply-To: <20170118.123207.53777509111948450.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVmluZWV0aCBSZW1hbmFuIFBpbGxhaSA8dmluZWV0aHBAYW1hem9uLmNvbT4KCkR1cmlu
-ZyBhbiBPT00gc2NlbmFyaW8sIHJlcXVlc3Qgc2xvdHMgY291bGQgbm90IGJlIGNyZWF0ZWQgYXMg
-c2tiCmFsbG9jYXRpb24gZmFpbHMuIFNvIHRoZSBuZXRiYWNrIGNhbm5vdCBwYXNzIGluIHBhY2tl
-dHMgYW5kIG5ldGZyb250Cndyb25nbHkgYXNzdW1lcyB0aGF0IHRoZXJlIGlzIG5vIG1vcmUgd29y
-ayB0byBiZSBkb25lIGFuZCBpdCBkaXNhYmxlcwpwb2xsaW5nLiBUaGlzIGNhdXNlcyBSeCB0byBz
-dGFsbC4KClRoZSBpc3N1ZSBpcyB3aXRoIHRoZSByZXRyeSBsb2dpYyB3aGljaCBzY2hlZHVsZXMg
-dGhlIHRpbWVyIGlmIHRoZQpjcmVhdGVkIHNsb3RzIGFyZSBsZXNzIHRoYW4gTkVUX1JYX1NMT1RT
-X01JTi4gVGhlIGNvdW50IG9mIG5ldyByZXF1ZXN0CnNsb3RzIHRvIGJlIHB1c2hlZCBhcmUgY2Fs
-Y3VsYXRlZCBhcyBhIGRpZmZlcmVuY2UgYmV0d2VlbiBuZXcgcmVxX3Byb2QKYW5kIHJzcF9jb25z
-IHdoaWNoIGNvdWxkIGJlIG1vcmUgdGhhbiB0aGUgYWN0dWFsIHNsb3RzLCBpZiB0aGVyZSBhcmUK
-dW5jb25zdW1lZCByZXNwb25zZXMuCgpUaGUgZml4IGlzIHRvIGNhbGN1bGF0ZSB0aGUgY291bnQg
-b2YgbmV3bHkgY3JlYXRlZCBzbG90cyBhcyB0aGUKZGlmZmVyZW5jZSBiZXR3ZWVuIG5ldyByZXFf
-cHJvZCBhbmQgb2xkIHJlcV9wcm9kLgoKU2lnbmVkLW9mZi1ieTogVmluZWV0aCBSZW1hbmFuIFBp
-bGxhaSA8dmluZWV0aHBAYW1hem9uLmNvbT4KUmV2aWV3ZWQtYnk6IEp1ZXJnZW4gR3Jvc3MgPGpn
-cm9zc0BzdXNlLmNvbT4KLS0tCkNoYW5nZXMgaW4gdjI6CgktIFJlbW92ZWQgdGhlIG9sZCBpbXBs
-ZW1lbnRhdGlvbiBvZiBlbmFibGluZyBwb2xsaW5nIG9uCgkgIHNrYiBhbGxvY2F0aW9uIGVycm9y
-LgoJLSBDb3JyZWN0ZWQgdGhlIHJlZmlsbCB0aW1lciBsb2dpYyB0byBzY2hlZHVsZSB3aGVuIG5l
-d2x5CgkgIGNyZWF0ZWQgc2xvdHMgc2luY2UgbGFzdCBwdXNoIGlzIGxlc3MgdGhhbiBORVRfUlhf
-U0xPVFNfTUlOLgoKIGRyaXZlcnMvbmV0L3hlbi1uZXRmcm9udC5jIHwgMiArLQogMSBmaWxlIGNo
-YW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQveGVuLW5ldGZyb250LmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwppbmRleCA0
-MGYyNmI2Li4yYzdjMjlmIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwor
-KysgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwpAQCAtMzIxLDcgKzMyMSw3IEBAIHN0YXRp
-YyB2b2lkIHhlbm5ldF9hbGxvY19yeF9idWZmZXJzKHN0cnVjdCBuZXRmcm9udF9xdWV1ZSAqcXVl
-dWUpCiAJcXVldWUtPnJ4LnJlcV9wcm9kX3B2dCA9IHJlcV9wcm9kOwogCiAJLyogTm90IGVub3Vn
-aCByZXF1ZXN0cz8gVHJ5IGFnYWluIGxhdGVyLiAqLwotCWlmIChyZXFfcHJvZCAtIHF1ZXVlLT5y
-eC5yc3BfY29ucyA8IE5FVF9SWF9TTE9UU19NSU4pIHsKKwlpZiAocmVxX3Byb2QgLSBxdWV1ZS0+
-cnguc3JpbmctPnJlcV9wcm9kIDwgTkVUX1JYX1NMT1RTX01JTikgewogCQltb2RfdGltZXIoJnF1
-ZXVlLT5yeF9yZWZpbGxfdGltZXIsIGppZmZpZXMgKyAoSFovMTApKTsKIAkJcmV0dXJuOwogCX0K
-LS0gCjIuNy40CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczov
-L2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+On Wed, Jan 18, 2017 at 9:32 AM, David Miller <davem@davemloft.net> wrote:
+> From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+> Date: Mon, 16 Jan 2017 22:30:29 +0200
+>
+>>> But please bear with me here, what if we queue this patch up to -stable ?
+>
+> You've got to be seriously kidding me that your idea is to submit an
+> incredibly diruptive driver rename to -stable to solve this problem.
+>
+> That is completely a non-starter.
+>
+> The whole idea is to _MINIMIZE_ the amount of change happening in
+> -stable in order to avoid regressions and negative consequence for
+> everyone using the -stable tree.
+>
+> I am strongly against a major reorganization of this driver, sorry.
+> The Synopsys folks want to do the same thing for the stmmac driver,
+> for even more nefarious reasons, and I'm rejecting all of their
+> attempts to do that as well.
+>
+> If you look in that thread, they said they would "help" with the
+> -stable backports, and in there I explained why that is a completely
+> empty gesture.  There are people doing the backports outside of your
+> spehere of influence, who need to get their work done "right now" and
+> aren't going to consult you and be on your schedule for doing those
+> backports.
+
+David,
+
+In principle I  agree, but as I previously wrote backporting this
+driver is already a bear. We need to do something here as this is
+quickly approaching being infeasible to backport. Even if we don't
+restructure the directories I'd still like to see some effort towards
+feature modularization and isolation.
+
+Tom
