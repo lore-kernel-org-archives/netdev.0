@@ -1,57 +1,53 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: Re: [net, 3/6] net: korina: increase tx/rx ring sizes
-Date: Thu, 19 Jan 2017 12:55:16 +0200
-Message-ID: <CACiydbJV5djpKdsgnKTDfxHpC0aPhF-bdH=zVzGeo9x127RFJg@mail.gmail.com>
-References: <1484674356-22363-1-git-send-email-roman@advem.lv>
- <20170117.125844.253301507252169868.davem@davemloft.net> <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
- <1484680816.13165.73.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Augusto Mecking Caringi <augustocaringi@gmail.com>
+Subject: [PATCH] net: atm: Fix build error when !CONFIG_PROC_FS
+Date: Thu, 19 Jan 2017 11:00:12 +0000
+Message-ID: <1484823626-8150-1-git-send-email-augustocaringi@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 8bit
+Cc: Augusto Mecking Caringi <augustocaringi@gmail.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f52.google.com ([209.85.213.52]:35060 "EHLO
-        mail-vk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751410AbdASKzR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 05:55:17 -0500
-Received: by mail-vk0-f52.google.com with SMTP id x75so26790236vke.2
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 02:55:17 -0800 (PST)
-In-Reply-To: <1484680816.13165.73.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:36763 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751729AbdASLBK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:01:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17 January 2017 at 21:20, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2017-01-17 at 20:27 +0200, Roman Yeryomin wrote:
->> On 17 January 2017 at 19:58, David Miller <davem@davemloft.net> wrote:
->> > From: Roman Yeryomin <leroi.lists@gmail.com>
->> > Date: Tue, 17 Jan 2017 19:32:36 +0200
->> >
->> >> Having larger ring sizes almost eliminates rx fifo overflow, thus improving performance.
->> >> This patch reduces rx overflow occurence by approximately 1000 times (from ~25k down to ~25 times per 3M frames)
->> >
->> > Those numbers don't mean much without full context.
->> >
->> > What kind of system, what kind of traffic, and over what kind of link?
->>
->> MIPS rb532 board, TCP iperf3 test over 100M link, NATed speed ~55Mbps.
->> I can do more tests and provide more precise numbers, if needed.
->
-> Note that at 100M,  64 rx descriptors have a 8 ms max latency.
->
-> Switching to 256 also multiply by 4 the latency -> 32 ms latency.
->
-> Presumably switching to NAPI and GRO would avoid the latency increase
-> and save a lot of cpu cycles for a MIPS board.
->
+When CONFIG_ATM_CLIP is set and CONFIG_PROC_FS is not set, the building
+was failing whith the error:
 
-Eric, thanks for suggesting GRO, it gives huge performance gain when
-receiving locally (55->95Mbps) and more than 25% gain for NAT
-(55->70Mbps).
-Also reading the datasheet more carefully I see that device rx
-descriptor status flags are interpreted incorrectly. So will provide
-an updated set.
+net/atm/clip.c: In function ‘atm_clip_exit’:
+net/atm/clip.c:933:27: error: ‘atm_proc_root’ undeclared (first use in
+this function)
+remove_proc_entry("arp", atm_proc_root);
+                           ^
 
-Thanks for feedback!
+Fix it by putting the proc cleanup code inside a #ifdef CONFIG_PROC_FS
+block.
 
-Regards,
-Roman
+Signed-off-by: Augusto Mecking Caringi <augustocaringi@gmail.com>
+---
+ net/atm/clip.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index 53b4ac0..75221e4 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -930,7 +930,9 @@ static void atm_clip_exit_noproc(void)
+ 
+ static void __exit atm_clip_exit(void)
+ {
++#ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("arp", atm_proc_root);
++#endif
+ 
+ 	atm_clip_exit_noproc();
+ }
+-- 
+2.7.4
