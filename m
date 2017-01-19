@@ -1,45 +1,46 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH v6 13/13] net: ethernet: aquantia: Integrate AQtion 2.5/5
- GB NIC driver
-Date: Thu, 19 Jan 2017 17:09:31 +0800
-Message-ID: <201701191708.e8q1JvlR%fengguang.wu@intel.com>
-References: <bfce3d39db5d3cf8cac5e1cf355ffe13c2a08b4c.1484788010.git.vomlehn@texas.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-        David VomLehn <vomlehn@texas.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:18907 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751303AbdASJMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 04:12:38 -0500
-Content-Disposition: inline
-In-Reply-To: <bfce3d39db5d3cf8cac5e1cf355ffe13c2a08b4c.1484788010.git.vomlehn@texas.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net/mlx5e: Remove unused variable
+Date: Thu, 19 Jan 2017 10:33:29 +0100
+Message-ID: <20170119093401.2582672-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Gal Pressman <galp@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Maor Gottlieb <maorg@mellanox.com>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+A cleanup removed the only user of this variable
 
-[auto build test WARNING on net-next/master]
-[also build test WARNING on v4.10-rc4 next-20170118]
-[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+mlx5/core/en_ethtool.c: In function 'mlx5e_set_channels':
+mlx5/core/en_ethtool.c:546:6: error: unused variable 'ncv' [-Werror=unused-variable]
 
-url:    https://github.com/0day-ci/linux/commits/Alexander-Loktionov/net-ethernet-aquantia-Make-and-configuration-files/20170119-133339
+Let's remove the declaration as well.
 
-
-coccinelle warnings: (new ones prefixed by >>)
-
->> drivers/net/ethernet/aquantia/atlantic/aq_ring.c:24:20-41: WARNING: casting value returned by memory allocation function to (struct aq_ring_buff_s *) is useless.
-
-Please review and possibly fold the followup patch.
-
+Fixes: 639e9e94160e ("net/mlx5e: Remove unnecessary checks when setting num channels")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index b1b9eb6ee135..5197817e4b2f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -543,7 +543,6 @@ static int mlx5e_set_channels(struct net_device *dev,
+ 			      struct ethtool_channels *ch)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+-	int ncv = mlx5e_get_max_num_channels(priv->mdev);
+ 	unsigned int count = ch->combined_count;
+ 	bool arfs_enabled;
+ 	bool was_opened;
+-- 
+2.9.0
