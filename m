@@ -1,49 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during network stress
- and OOM
-Date: Thu, 19 Jan 2017 12:11:37 -0500 (EST)
-Message-ID: <20170119.121137.735637643552808729.davem@davemloft.net>
-References: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
-        <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: vineethp@amazon.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: [PATCH iproute2 net-next] tc: m_csum: add support for SCTP checksum
+Date: Thu, 19 Jan 2017 18:26:42 +0100
+Message-ID: <d979c4187228759f94c3b6c8504b16783e03bdc6.1484846369.git.dcaratti@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        Gregoire Baron <baronchon@n7mm.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49674 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753594AbdASRea (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 12:34:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vineeth Remanan Pillai <vineethp@amazon.com>
-Date: Thu, 19 Jan 2017 08:35:39 -0800
+'sctp' parameter can now be used as 'csum' target to enable CRC32c
+computation on SCTP packets.
 
-> From: Vineeth Remanan Pillai <vineethp@amazon.com>
-> 
-> During an OOM scenario, request slots could not be created as skb
-> allocation fails. So the netback cannot pass in packets and netfront
-> wrongly assumes that there is no more work to be done and it disables
-> polling. This causes Rx to stall.
-> 
-> The issue is with the retry logic which schedules the timer if the
-> created slots are less than NET_RX_SLOTS_MIN. The count of new request
-> slots to be pushed are calculated as a difference between new req_prod
-> and rsp_cons which could be more than the actual slots, if there are
-> unconsumed responses.
-> 
-> The fix is to calculate the count of newly created slots as the
-> difference between new req_prod and old req_prod.
-> 
-> Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
-> Reviewed-by: Juergen Gross <jgross@suse.com>
-> ---
-> Changes in v2:
-> 	- Removed the old implementation of enabling polling on
-> 	  skb allocation error.
-> 	- Corrected the refill timer logic to schedule when newly
-> 	  created slots since last push is less than NET_RX_SLOTS_MIN.
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+---
+ tc/m_csum.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-Your postings aren't showing up on vger.kernel.org at all.
-
-Are you getting a bounce message back?  I can only assume you are triggering
-one of the various content filters we have.
+diff --git a/tc/m_csum.c b/tc/m_csum.c
+index d5b1af6..0ee8cad 100644
+--- a/tc/m_csum.c
++++ b/tc/m_csum.c
+@@ -24,7 +24,7 @@ explain(void)
+ {
+ 	fprintf(stderr, "Usage: ... csum <UPDATE>\n"
+ 			"Where: UPDATE := <TARGET> [<UPDATE>]\n"
+-			"       TARGET := { ip4h | icmp | igmp | tcp | udp | udplite | <SWEETS> }\n"
++			"       TARGET := { ip4h | icmp | igmp | tcp | udp | udplite | sctp | <SWEETS> }\n"
+ 			"       SWEETS := { and | or | \'+\' }\n");
+ }
+ 
+@@ -65,6 +65,9 @@ parse_csum_args(int *argc_p, char ***argv_p, struct tc_csum *sel)
+ 		else if (matches(*argv, "udplite") == 0)
+ 			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_UDPLITE;
+ 
++		else if (matches(*argv, "sctp") == 0)
++			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_SCTP;
++
+ 		else if ((matches(*argv, "and") == 0) ||
+ 			 (matches(*argv, "or") == 0) ||
+ 			 (matches(*argv, "+") == 0))
+@@ -160,6 +163,7 @@ print_csum(struct action_util *au, FILE *f, struct rtattr *arg)
+ 	char *uflag_4 = "";
+ 	char *uflag_5 = "";
+ 	char *uflag_6 = "";
++	char *uflag_7 = "";
+ 
+ 	int uflag_count = 0;
+ 
+@@ -191,13 +195,14 @@ print_csum(struct action_util *au, FILE *f, struct rtattr *arg)
+ 	CSUM_UFLAG_BUFFER(uflag_4, TCA_CSUM_UPDATE_FLAG_TCP, "tcp");
+ 	CSUM_UFLAG_BUFFER(uflag_5, TCA_CSUM_UPDATE_FLAG_UDP, "udp");
+ 	CSUM_UFLAG_BUFFER(uflag_6, TCA_CSUM_UPDATE_FLAG_UDPLITE, "udplite");
++	CSUM_UFLAG_BUFFER(uflag_7, TCA_CSUM_UPDATE_FLAG_SCTP, "sctp");
+ 	if (!uflag_count) {
+ 		uflag_1 = "?empty";
+ 	}
+ 
+-	fprintf(f, "csum (%s%s%s%s%s%s) action %s\n",
++	fprintf(f, "csum (%s%s%s%s%s%s%s) action %s\n",
+ 		uflag_1, uflag_2, uflag_3,
+-		uflag_4, uflag_5, uflag_6,
++		uflag_4, uflag_5, uflag_6, uflag_7,
+ 		action_n2a(sel->action));
+ 	fprintf(f, "\tindex %u ref %d bind %d", sel->index, sel->refcnt,
+ 		sel->bindcnt);
+-- 
+2.7.4
