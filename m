@@ -1,72 +1,75 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v7 10/13] net: ethernet: aquantia: Hardware interface and
- utility functions
-Date: Thu, 19 Jan 2017 14:40:41 -0800
-Message-ID: <d00b973a-e211-2b31-3725-d63c45406af6@gmail.com>
-References: <cover.1484860589.git.vomlehn@texas.net>
- <4af27936d91148b266fee653fa49c47d23a0c9fa.1484860589.git.vomlehn@texas.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next 02/15] net/mlx5: Fix version printout in case of health issue
+Date: Fri, 20 Jan 2017 00:38:55 +0200
+Message-ID: <20170119223908.15924-3-saeedm@mellanox.com>
+References: <20170119223908.15924-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Eli Cohen <eli@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36389 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753047AbdASWko (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 17:40:44 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 75so5150824pgf.3
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 14:40:44 -0800 (PST)
-In-Reply-To: <4af27936d91148b266fee653fa49c47d23a0c9fa.1484860589.git.vomlehn@texas.net>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59328 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751638AbdASWki (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 17:40:38 -0500
+In-Reply-To: <20170119223908.15924-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/19/2017 01:33 PM, Alexander Loktionov wrote:
-> From: David VomLehn <vomlehn@texas.net>
-> 
-> Add functions to interface with the hardware and some utility functions.
-> 
-> Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-> Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
-> Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
-> Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-> Signed-off-by: David M. VomLehn <vomlehn@texas.net>
-> ---
+From: Eli Cohen <eli@mellanox.com>
 
-> +#ifndef AQ_HW_UTILS_H
-> +#define AQ_HW_UTILS_H
-> +
-> +#include "aq_common.h"
-> +
-> +#ifndef HIDWORD
-> +#define LODWORD(_qw)    ((u32)(_qw))
-> +#define HIDWORD(_qw)    ((u32)(((_qw) >> 32) & 0xffffffff))
-> +#endif
+Firmware representation of the firmware version on the health buffer has
+changed for newer device. The representation in the initialization
+segment does not and will not change. In addition, we print the health
+buffer firmware version as a raw hex number.
 
-upper_32_bits() and lower_32_bits()?
+Signed-off-by: Eli Cohen <eli@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 20 +++-----------------
+ 1 file changed, 3 insertions(+), 17 deletions(-)
 
-> +
-> +#define AQ_HW_SLEEP(_US_) mdelay(_US_)
-> +
-> +#define AQ_HW_WAIT_FOR(_B_, _US_, _N_) \
-> +do { \
-> +	unsigned int AQ_HW_WAIT_FOR_i; \
-> +	for (AQ_HW_WAIT_FOR_i = _N_; (!(_B_)) && (AQ_HW_WAIT_FOR_i);\
-> +	--AQ_HW_WAIT_FOR_i) {\
-> +		udelay(_US_); \
-> +	} \
-> +	if (!AQ_HW_WAIT_FOR_i) {\
-> +		err = ETIME; \
-> +	} \
-> +} while (0)
-
-You might want to use readl_poll_timeout() or something similar, at the
-very least this should be a function for which we can get proper type
-checking.
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 5bcf93422ee0..d0515391d33b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -231,21 +231,6 @@ static const char *hsynd_str(u8 synd)
+ 	}
+ }
+ 
+-static u16 get_maj(u32 fw)
+-{
+-	return fw >> 28;
+-}
+-
+-static u16 get_min(u32 fw)
+-{
+-	return fw >> 16 & 0xfff;
+-}
+-
+-static u16 get_sub(u32 fw)
+-{
+-	return fw & 0xffff;
+-}
+-
+ static void print_health_info(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_core_health *health = &dev->priv.health;
+@@ -263,13 +248,14 @@ static void print_health_info(struct mlx5_core_dev *dev)
+ 
+ 	dev_err(&dev->pdev->dev, "assert_exit_ptr 0x%08x\n", ioread32be(&h->assert_exit_ptr));
+ 	dev_err(&dev->pdev->dev, "assert_callra 0x%08x\n", ioread32be(&h->assert_callra));
+-	fw = ioread32be(&h->fw_ver);
+-	sprintf(fw_str, "%d.%d.%d", get_maj(fw), get_min(fw), get_sub(fw));
++	sprintf(fw_str, "%d.%d.%d", fw_rev_maj(dev), fw_rev_min(dev), fw_rev_sub(dev));
+ 	dev_err(&dev->pdev->dev, "fw_ver %s\n", fw_str);
+ 	dev_err(&dev->pdev->dev, "hw_id 0x%08x\n", ioread32be(&h->hw_id));
+ 	dev_err(&dev->pdev->dev, "irisc_index %d\n", ioread8(&h->irisc_index));
+ 	dev_err(&dev->pdev->dev, "synd 0x%x: %s\n", ioread8(&h->synd), hsynd_str(ioread8(&h->synd)));
+ 	dev_err(&dev->pdev->dev, "ext_synd 0x%04x\n", ioread16be(&h->ext_synd));
++	fw = ioread32be(&h->fw_ver);
++	dev_err(&dev->pdev->dev, "raw fw_ver 0x%08x\n", fw);
+ }
+ 
+ static unsigned long get_next_poll_jiffies(void)
 -- 
-Florian
+2.11.0
