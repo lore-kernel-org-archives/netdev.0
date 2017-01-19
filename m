@@ -1,35 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: xennet_start_xmit assumptions
-Date: Thu, 19 Jan 2017 11:37:59 -0500 (EST)
-Message-ID: <20170119.113759.555556955190770932.davem@davemloft.net>
-References: <20170118192528.GA6847@char.us.oracle.com>
- <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
- <20170119111426.GA22018@oracle.com>
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+Subject: [PATCH v2] xen-netfront: Fix Rx stall during network stress and OOM
+Date: Thu, 19 Jan 2017 08:35:39 -0800
+Message-ID: <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
+References: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Paul.Durrant@citrix.com, wei.liu2@citrix.com,
- xen-devel@lists.xenproject.org, konrad.wilk@oracle.com
-To: sowmini.varadhan@oracle.com
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20170119111426.GA22018@oracle.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <vineethp@amazon.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogU293bWluaSBWYXJhZGhhbiA8c293bWluaS52YXJhZGhhbkBvcmFjbGUuY29tPgpEYXRl
-OiBUaHUsIDE5IEphbiAyMDE3IDA2OjE0OjI2IC0wNTAwCgo+IEknbGwgcHJvYmFibHkgd29yayBv
-biBmaXhpbmcgcGFja2V0X3NuZCB0byByZXR1cm4gLUVJTlZBTCAKPiBvciBzaW1pbGFyIHdoZW4g
-dGhlIGxlbiBpcyB6ZXJvIHRoaXMgd2Vlay4KCkkgdGhvdWdodCB3ZSBoYWQgY29kZSB3aGljaCBt
-YWRlIHN1cmUgdGhhdCBhdCBsZWFzdCBhIG1pbmltYWwKbGluayBsYXllciBoZWFkZXIgd2FzIHBy
-ZXNlbnQgaW4gdGhlIFNLQj8KClNwZWNpZmljYWxseSBJJ20gdGFsa2luZyBhYm91dCB0aGUgZGV2
-X3ZhbGlkYXRlX2hlYWRlcigpIGNoZWNrLgpUaGF0IGlzIHN1cHBvc2VkIHRvIHByb3RlY3QgdXMg
-ZnJvbSB0aGVzZSBraW5kcyBvZiBzaXR1YXRpb25zLgoKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxA
-bGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+
+During an OOM scenario, request slots could not be created as skb
+allocation fails. So the netback cannot pass in packets and netfront
+wrongly assumes that there is no more work to be done and it disables
+polling. This causes Rx to stall.
+
+The issue is with the retry logic which schedules the timer if the
+created slots are less than NET_RX_SLOTS_MIN. The count of new request
+slots to be pushed are calculated as a difference between new req_prod
+and rsp_cons which could be more than the actual slots, if there are
+unconsumed responses.
+
+The fix is to calculate the count of newly created slots as the
+difference between new req_prod and old req_prod.
+
+Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
+Reviewed-by: Juergen Gross <jgross@suse.com>
+---
+Changes in v2:
+	- Removed the old implementation of enabling polling on
+	  skb allocation error.
+	- Corrected the refill timer logic to schedule when newly
+	  created slots since last push is less than NET_RX_SLOTS_MIN.
+
+  drivers/net/xen-netfront.c | 2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 40f26b6..2c7c29f 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -321,7 +321,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+  	queue->rx.req_prod_pvt = req_prod;
+  
+  	/* Not enough requests? Try again later. */
+-	if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
++	if (req_prod - queue->rx.sring->req_prod < NET_RX_SLOTS_MIN) {
+  		mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
+  		return;
+  	}
+-- 
+2.7.4
