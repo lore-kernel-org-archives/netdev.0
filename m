@@ -1,64 +1,70 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
-Date: Thu, 19 Jan 2017 11:05:40 +0800
-Message-ID: <40e9a46a-1115-c21a-49f3-fdedb0a34101@redhat.com>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
- <20170118171259-mutt-send-email-mst@kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the rcu tree
+Date: Thu, 19 Jan 2017 14:34:45 +1100
+Message-ID: <20170119143445.6b65dc8b@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50486 "EHLO mx1.redhat.com"
+Received: from ozlabs.org ([103.22.144.67]:39553 "EHLO ozlabs.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751960AbdASDWi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 22:22:38 -0500
-In-Reply-To: <20170118171259-mutt-send-email-mst@kernel.org>
+        id S1751976AbdASDpN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 22:45:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Paul,
 
+After merging the rcu tree, today's linux-next build (x86_64 allmodconfig)
+failed like this:
 
-On 2017年01月18日 23:15, Michael S. Tsirkin wrote:
-> On Tue, Jan 17, 2017 at 02:22:59PM -0800, John Fastabend wrote:
->> Add support for XDP adjust head by allocating a 256B header region
->> that XDP programs can grow into. This is only enabled when a XDP
->> program is loaded.
->>
->> In order to ensure that we do not have to unwind queue headroom push
->> queue setup below bpf_prog_add. It reads better to do a prog ref
->> unwind vs another queue setup call.
->>
->> At the moment this code must do a full reset to ensure old buffers
->> without headroom on program add or with headroom on program removal
->> are not used incorrectly in the datapath. Ideally we would only
->> have to disable/enable the RX queues being updated but there is no
->> API to do this at the moment in virtio so use the big hammer. In
->> practice it is likely not that big of a problem as this will only
->> happen when XDP is enabled/disabled changing programs does not
->> require the reset. There is some risk that the driver may either
->> have an allocation failure or for some reason fail to correctly
->> negotiate with the underlying backend in this case the driver will
->> be left uninitialized. I have not seen this ever happen on my test
->> systems and for what its worth this same failure case can occur
->> from probe and other contexts in virtio framework.
->>
->> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
-> I've been thinking about it - can't we drop
-> old buffers without the head room which were posted before
-> xdp attached?
->
-> Avoiding the reset would be much nicer.
->
-> Thoughts?
->
+net/smc/af_smc.c:102:16: error: 'SLAB_DESTROY_BY_RCU' undeclared here (not in a function)
+  .slab_flags = SLAB_DESTROY_BY_RCU,
+                ^
 
-As been discussed before, device may use them in the same time so it's 
-not safe. Or do you mean detect them after xdp were set and drop the 
-buffer without head room, this looks sub-optimal.
+Caused by commit
 
-Thanks
+  c7a545924ca1 ("mm: Rename SLAB_DESTROY_BY_RCU to SLAB_TYPESAFE_BY_RCU")
+
+interacting with commit
+
+  ac7138746e14 ("smc: establish new socket family")
+
+from the net-next tree.
+
+I have applied the following merge fix patch (someone will need to
+remember to mention this to Linus):
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 19 Jan 2017 14:29:12 +1100
+Subject: [PATCH] smc: merge fix for "mm: Rename SLAB_DESTROY_BY_RCU to SLAB_TYPESAFE_BY_RCU"
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/smc/af_smc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+index 4875e65f0c4a..a48260f9ebb7 100644
+--- a/net/smc/af_smc.c
++++ b/net/smc/af_smc.c
+@@ -99,7 +99,7 @@ struct proto smc_proto = {
+ 	.unhash		= smc_unhash_sk,
+ 	.obj_size	= sizeof(struct smc_sock),
+ 	.h.smc_hash	= &smc_v4_hashinfo,
+-	.slab_flags	= SLAB_DESTROY_BY_RCU,
++	.slab_flags	= SLAB_TYPESAFE_BY_RCU,
+ };
+ EXPORT_SYMBOL_GPL(smc_proto);
+ 
+-- 
+2.10.2
+
+-- 
+Cheers,
+Stephen Rothwell
