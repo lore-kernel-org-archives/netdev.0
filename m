@@ -1,36 +1,97 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net/mlx5e: Remove unused variable
-Date: Thu, 19 Jan 2017 11:15:14 -0500 (EST)
-Message-ID: <20170119.111514.839390581860301846.davem@davemloft.net>
-References: <20170119093401.2582672-1-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net/irda: fix lockdep annotation
+Date: Thu, 19 Jan 2017 11:27:36 -0500 (EST)
+Message-ID: <20170119.112736.1928027614533032571.davem@davemloft.net>
+References: <20170116211052.46525-1-dvyukov@google.com>
+        <20170117.151901.998994334183973013.davem@davemloft.net>
+        <CACT4Y+Yx3wVAgxJRYKMOYM419NTSc9naSxUVfwCb21kjvAnF6Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        galp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: arnd-r2nGTMty4D4@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170119093401.2582672-1-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davej@redhat.com, samuel@sortiz.org, glider@google.com,
+        andreyknvl@google.com, netdev@vger.kernel.org
+To: dvyukov@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59268 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753514AbdASQ1z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 11:27:55 -0500
+In-Reply-To: <CACT4Y+Yx3wVAgxJRYKMOYM419NTSc9naSxUVfwCb21kjvAnF6Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Date: Thu, 19 Jan 2017 10:33:29 +0100
+From: Dmitry Vyukov <dvyukov@google.com>
+Date: Thu, 19 Jan 2017 11:05:36 +0100
 
-> A cleanup removed the only user of this variable
-> 
-> mlx5/core/en_ethtool.c: In function 'mlx5e_set_channels':
-> mlx5/core/en_ethtool.c:546:6: error: unused variable 'ncv' [-Werror=unused-variable]
-> 
-> Let's remove the declaration as well.
-> 
-> Fixes: 639e9e94160e ("net/mlx5e: Remove unnecessary checks when setting num channels")
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Thanks for looking into it! This particular issue bothers my fuzzers
+> considerably. I agree that removing recursion is better.
+> So do how we proceed? Will you mail this as a real patch?
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Someone needs to test this:
+
+diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
+index acbe61c..160dc89 100644
+--- a/net/irda/irqueue.c
++++ b/net/irda/irqueue.c
+@@ -383,9 +383,6 @@ EXPORT_SYMBOL(hashbin_new);
+  *    for deallocating this structure if it's complex. If not the user can
+  *    just supply kfree, which should take care of the job.
+  */
+-#ifdef CONFIG_LOCKDEP
+-static int hashbin_lock_depth = 0;
+-#endif
+ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ {
+ 	irda_queue_t* queue;
+@@ -396,22 +393,27 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ 	IRDA_ASSERT(hashbin->magic == HB_MAGIC, return -1;);
+ 
+ 	/* Synchronize */
+-	if ( hashbin->hb_type & HB_LOCK ) {
+-		spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags,
+-					 hashbin_lock_depth++);
+-	}
++	if (hashbin->hb_type & HB_LOCK)
++		spin_lock_irqsave(&hashbin->hb_spinlock, flags);
+ 
+ 	/*
+ 	 *  Free the entries in the hashbin, TODO: use hashbin_clear when
+ 	 *  it has been shown to work
+ 	 */
+ 	for (i = 0; i < HASHBIN_SIZE; i ++ ) {
+-		queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
+-		while (queue ) {
+-			if (free_func)
+-				(*free_func)(queue);
+-			queue = dequeue_first(
+-				(irda_queue_t**) &hashbin->hb_queue[i]);
++		while (1) {
++			queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
++
++			if (!queue)
++				break;
++
++			if (free_func) {
++				if (hashbin->hb_type & HB_LOCK)
++					spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
++				free_func(queue);
++				if (hashbin->hb_type & HB_LOCK)
++					spin_lock_irqsave(&hashbin->hb_spinlock, flags);
++			}
+ 		}
+ 	}
+ 
+@@ -420,12 +422,8 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ 	hashbin->magic = ~HB_MAGIC;
+ 
+ 	/* Release lock */
+-	if ( hashbin->hb_type & HB_LOCK) {
++	if (hashbin->hb_type & HB_LOCK)
+ 		spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
+-#ifdef CONFIG_LOCKDEP
+-		hashbin_lock_depth--;
+-#endif
+-	}
+ 
+ 	/*
+ 	 *  Free the hashbin structure
