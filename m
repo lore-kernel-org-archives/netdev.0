@@ -1,189 +1,124 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-Date: Wed, 18 Jan 2017 16:59:25 -0800
-Message-ID: <20170119005925.GA18554@mtj.duckdns.org>
-References: <CALCETrW+ZQ1xMEfdEOzx6RK9ZoCvQiqQSnOyhDJ=-FZMwUbucg@mail.gmail.com>
- <20170118224120.GG9171@mtj.duckdns.org>
- <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A@mail.gmail.com>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: prb_retire_rx_blk_timer_expired use-after-free
+Date: Wed, 18 Jan 2017 19:22:47 -0500
+Message-ID: <20170119002247.ixkpbbm3gannw7qv@codemonkey.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from scorn.kernelslacker.org ([45.56.101.199]:49192 "EHLO
+        scorn.kernelslacker.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751585AbdASBBB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 20:01:01 -0500
+Received: from [2601:196:4600:77b0:ae9e:17ff:feb7:72ca] (helo=wopr.kernelslacker.org)
+        by scorn.kernelslacker.org with esmtp (Exim 4.84_2)
+        (envelope-from <davej@codemonkey.org.uk>)
+        id 1cU0V5-00020P-V8
+        for netdev@vger.kernel.org; Wed, 18 Jan 2017 19:22:48 -0500
 Content-Disposition: inline
-In-Reply-To: <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Andy.
+RSI looks kinda like slab poison here, so re-using a free'd ptr ?
 
-On Wed, Jan 18, 2017 at 04:18:04PM -0800, Andy Lutomirski wrote:
-> To map cgroup -> hook, a simple array in each cgroup structure works.
-> To map (cgroup, netns) -> hook function, the natural approach would be
-> to have some kind of hash, and that would be slower.  This code is
-> intended to be *fast*.
+general protection fault: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.10.0-rc4-think+ #2 
+task: ffffffff81e16500 task.stack: ffffffff81e00000
+RIP: 0010:prb_retire_rx_blk_timer_expired+0x42/0x130
+RSP: 0018:ffff880507803e30 EFLAGS: 00010246
+RAX: ffffffff81e16500 RBX: ffff8804bc751158 RCX: 0000000000000000
+RDX: ffff8804fb6e8008 RSI: a56b6b6b6b6b6b6b RDI: 0000000000000001
+RBP: ffff880507803e48 R08: 0000000000000000 R09: 0000000000000001
+R10: 0000000061f74469 R11: 0000000000000054 R12: ffff8804bc751338
+R13: ffff8804bc7516d8 R14: ffffffff818ab6a0 R15: ffff8804bc751158
+FS:  0000000000000000(0000) GS:ffff880507800000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 00005578f64a0130 CR3: 0000000003e11000 CR4: 00000000001406f0
+DR0: 00007f539ba38000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+Call Trace:
+ <IRQ>
+ call_timer_fn+0xd2/0x340
+ ? call_timer_fn+0x5/0x340
+ ? prb_retire_current_block+0x100/0x100
+ run_timer_softirq+0x284/0x650
+ ? 0xffffffffa035c077
+ ? run_timer_softirq+0x5/0x650
+ ? lapic_next_deadline+0x5/0x40
+ __do_softirq+0x143/0x431
+ irq_exit+0xa5/0xb0
+ smp_apic_timer_interrupt+0x3d/0x50
+ apic_timer_interrupt+0x8d/0xa0
+RIP: 0010:cpuidle_enter_state+0x129/0x360
+RSP: 0018:ffffffff81e03db8 EFLAGS: 00000246
+  ORIG_RAX: ffffffffffffff10
+RAX: 0000000000000000 RBX: ffffe8ffff603cc8 RCX: 000000000000001f
+RDX: 20c49ba5e353f7cf RSI: ffffffff81c5e743 RDI: ffffffff81c48102
+RBP: ffffffff81e03df8 R08: cccccccccccccccd R09: 0000000000000018
+R10: 000000000000022e R11: 0000000000000a2c R12: 0000000000000005
+R13: ffffffff81eaf918 R14: 0000000000000005 R15: ffffffff81eaf900
+ </IRQ>
+ ? cpuidle_enter_state+0x113/0x360
+ cpuidle_enter+0x17/0x20
+ call_cpuidle+0x23/0x40
+ do_idle+0xf6/0x1f0
+ cpu_startup_entry+0x71/0x80
+ rest_init+0xb8/0xc0
+ start_kernel+0x432/0x453
+ x86_64_start_reservations+0x2a/0x2c
+ x86_64_start_kernel+0x178/0x18b
+ start_cpu+0x14/0x14
+ ? start_cpu+0x14/0x14
+Code: fb 4c 89 e7 e8 b0 f1 01 00 0f b7 8b 2a 05 00 00 48 8b 93 18 05 00 00 80 bb 29 05 00 00 00 0f b6 bb 28 05 00 00 48 8b 34 ca 75 58 <8b> 56 0c 48 89 c8 85 d2 74 1d 8b 93 70 05 00 00 85 d2 74 13 f3 
 
-Updating these programs isn't a frequent operation.  We can easily
-calculate a perfect (or acceptable) hash per-cgroup and rcu swap the
-new hashtable.
+All code
+========
+   0:	fb                   	sti    
+   1:	4c 89 e7             	mov    %r12,%rdi
+   4:	e8 b0 f1 01 00       	callq  0x1f1b9
+   9:	0f b7 8b 2a 05 00 00 	movzwl 0x52a(%rbx),%ecx
+  10:	48 8b 93 18 05 00 00 	mov    0x518(%rbx),%rdx
+  17:	80 bb 29 05 00 00 00 	cmpb   $0x0,0x529(%rbx)
+  1e:	0f b6 bb 28 05 00 00 	movzbl 0x528(%rbx),%edi
+  25:	48 8b 34 ca          	mov    (%rdx,%rcx,8),%rsi
+  29:	75 58                	jne    0x83
+  2b:*	8b 56 0c             	mov    0xc(%rsi),%edx     <-- trapping instruction
+  2e:	48 89 c8             	mov    %rcx,%rax
+  31:	85 d2                	test   %edx,%edx
+  33:	74 1d                	je     0x52
+  35:	8b 93 70 05 00 00    	mov    0x570(%rbx),%edx
+  3b:	85 d2                	test   %edx,%edx
+  3d:	74 13                	je     0x52
+  3f:	f3                   	repz
 
-> I suppose you could have each cgroup structure contain an array where
-> each element is (netns, hook function) and just skip the ones that are
-> the wrong netns.  Perhaps it would be rare to have many of those.
+Code starting with the faulting instruction
+===========================================
+   0:	8b 56 0c             	mov    0xc(%rsi),%edx
+   3:	48 89 c8             	mov    %rcx,%rax
+   6:	85 d2                	test   %edx,%edx
+   8:	74 1d                	je     0x27
+   a:	8b 93 70 05 00 00    	mov    0x570(%rbx),%edx
+  10:	85 d2                	test   %edx,%edx
+  12:	74 13                	je     0x27
+  14:	f3                   	repz
 
-Yeah, or maybe even that.  It just isn't a fundamentally difficult
-problem.
+That code is the BLOCK_NUM_PKTS line here..
 
-> I think it's currently a broken cgroup feature.  I think it could be
-> made into a properly working cgroup feature (which I favor) or a
-> properly working net feature.  Can you articulate why you prefer
-> having it be a net feature instead of a cgroup feature?  I tend to
-
-I thought that's what I was doing in the previous message.
-
-> favor making it be a working cgroup feature (by giving it a file or
-> files in cgroupfs and maybe even a controller) because the result
-> would have very obvious semantics.
-
-I'm fine with both directions but one seems far out.
-
-> But maybe this is just a false dichotomy.  Could this feature be a
-> per-netns configuration where you can give instructions like "run this
-> hook if you're in such-and-such netns and in a given cgroup or one of
-> its descendents"?  This would prevent it from being a direct analogue
-> to systemd's RestrictAddressFamilies= option, but that may be okay.
-> This would side-step issues in the current code where a hook can't
-> rely on ifindex meaning what the hook thinks it means.
-
-How is this different from making the current code netns aware?
-
-> Actually, I think I like that approach.  What if it we had a "socket"
-> controller and files like "socket.create_socket", "socket.ingress" and
-> "socket.egress"?  You could use the bpf() syscall to install a bpf
-> filter into "socket.egress" and that filter would filter egress for
-> the target cgroup and its descendents on the current netns.  As a
-> first pass, the netns issue could be sidestepped by making it only
-> work in the root netns (i.e. the bpf() call would fail if you're not
-> in the root netns and the hooks wouldn't run if you're not in the root
-> netns.)  It *might* even be possible to retrofit in the socket
-> controller by saying that the default hierarchy is used if the socket
-> controller isn't mounted.
-
-I don't know.  You're throwing out too many ideas too fast and it's
-difficult to keep up with what the differences are between those
-ideas.  But if we're doing cgroup controllers, shouldn't cgroup ns
-support be sufficient?  We can consider the product of cgroup and net
-namespaces but that doesn't seem necessary given that people usually
-set up these namespaces in conjunction.
-
-> What *isn't* possible to cleanly fix after the fact is the current
-> semantics that cgroup hooks override the hooks in their ancestors.
-> IMO that is simply broken.  The example you gave (perf_event) is very
-> careful not to have this problem.
-
-That's like saying installing an iptables rule for a more specific
-target is broken.  As a cgroup controller, it is not an acceptable
-behavior given how delegation works.  As something similar to
-iptables, it is completely fine.
-
-> > * My impression with bpf is that while delegation is something
-> >   theoretically possible it is not something which is gonna take place
-> >   in any immediate time frame.  If I'm wrong on this, please feel free
-> >   to correct me.
-> 
-> But the issue isn't *BPF* delegation.  It's cgroup delegation or netns
-> creation, both of which exist today.
-
-No, the issue is bpf delegation.  If bpf were fully delegatable in
-practical sense, we could just do straight forward cgroup bpf
-controller.  Well, we'll have to think about how to chain the programs
-which would differ on program type but that shouldn't be too hard.
-
-> > * There are a lot of use cases which can immediately take advantage of
-> >   cgroup-aware bpf programs operating as proposed.  The model is
-> >   semantically equivalent to iptables (let's address the netns part if
-> >   that's an issue) which net people are familiar with.
-> 
-> That sounds like a great argument for those users to patch their
-> kernels to gain experience with this feature.
-
-I don't get why this would particularly point to out-of-tree usage.
-Why is that?
-
-> > * It isn't exclusive with adding cgroup bpf controller down the road
-> >   if necessary and practical.  Sure, this isn't the perfect situation
-> >   but it seems like an acceptable trade-off to me.  What ever is
-> >   perfect?
-> 
-> I think it more or less is exclusive.  I can imagine davem accepting a
-> patch to make the sock_cgroup_data think point at a new "socket"
-> cgroup type.  I can't imagine him accepting a patch to have sockets
-> have more than one pointer to a cgroup, with good reason.
-
-Why would it ever need multiple pointers?  Socket is associated with
-one cgroup whether it's this or controller thing.  Membership part
-doesn't change.  It can share everything.
-
-> I don't see what's added by having a "bpf" cgroup controller, though
-> -- it's just too broad.  If the Landlock stuff goes in, that should
-> presumably be either tied to the default hierarchy or use an "lsm"
-> controller.  A "bpf" controller for that makes no sense to me.
->
-> I can see *huge* value in having some combination of BPF and the
-> perf_event controller deciding whether to log perf events, for
-> example.  But this would be the perf_event controller, not a
-> hypothetical "bpf" controller.
-
-Let's not spiral out.  This isn't relevant to the discussion.  Call it
-whatever you want.
-
-> But it's doing it wrong!  Even perf_event tests for membership in a
-> given cgroup *or one of its descendents*.  This code does not.
-> 
-> I think the moral of the story here is that there are lots of open
-> questions and design work to be done and that this feature really
-> isn't ready to be stable.  For Landlock, I believe that it really
-> needs to be done right and I will put my foot down and NAK any effort
-> to have Landlock available in a released kernel without resolving
-> these types of issues first.  Does anyone really want Landlock to work
-> differently than the net hooks simply because the net hooks were in a
-> rush?
-
-No idea about landlock but as for the cgroup aware network bpf
-programs, let's please try to narrow down the arguments.  Here's one
-question.
-
-* If we make the current thing netns aware, how is it different from
-  iptables?  Note that at least future-proofing for netns is trivial.
-  We can simply skip running the bpf programs for non-root ns for now.
-
-If the answer is "they aren't that different", is the reason that
-you're against the current code because you think that it being a part
-of cgroup would be more useful?  I'm not necessarily against that
-point, I just think that this is a reasonable trade-off given the
-circumstances especially given that this doens't block having the
-cgroup things in the future.
-
-I'd really appreciate some inputs from bpf folks.  I'm basing my
-judgement primarily on the impression that it is very difficult to
-make bpf programs practically delegatable.  If that's not the case, we
-can easily go the cgroup controller route.
-
-Thanks.
-
--- 
-tejun
+ 677         spin_lock(&po->sk.sk_receive_queue.lock);
+ 678 
+ 679         frozen = prb_queue_frozen(pkc);
+ 680         pbd = GET_CURR_PBLOCK_DESC_FROM_CORE(pkc);
+ 681 
+ 682         if (unlikely(pkc->delete_blk_timer))
+ 683                 goto out;
+ 684 
+ 685         /* We only need to plug the race when the block is partially filled.
+ 686          * tpacket_rcv:
+ 687          *              lock(); increment BLOCK_NUM_PKTS; unlock()
+ 688          *              copy_bits() is in progress ...
+ 689          *              timer fires on other cpu:
+ 690          *              we can't retire the current block because copy_bits
+ 691          *              is in progress.
+ 692          *
+ 693          */
+ 694         if (BLOCK_NUM_PKTS(pbd)) {
