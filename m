@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] phy: increase size of MII_BUS_ID_SIZE and
- bus_id
-Date: Thu, 19 Jan 2017 11:52:46 -0500 (EST)
-Message-ID: <20170119.115246.542469330543728589.davem@davemloft.net>
-References: <1484841904-19313-1-git-send-email-volodymyr.bendiuga@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: f.fainelli@gmail.com, andrew@lunn.ch, netdev@vger.kernel.org,
-        volodymyr.bendiuga@westermo.se, magnus.oberg@westermo.se
-To: volodymyr.bendiuga@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60988 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753350AbdASRBE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 12:01:04 -0500
-In-Reply-To: <1484841904-19313-1-git-send-email-volodymyr.bendiuga@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v2 2/5] net: ethernet: ti: cpsw: don't disable interrupts in ndo_open
+Date: Thu, 19 Jan 2017 18:58:24 +0200
+Message-ID: <1484845107-30331-3-git-send-email-ivan.khoronzhuk@linaro.org>
+References: <1484845107-30331-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
+        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: mugunthanvnm@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1484845107-30331-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Date: Thu, 19 Jan 2017 17:05:04 +0100
+No need to disable interrupts if no open devices,
+they are disabled anyway.
 
-> Some bus names are pretty long and do not fit into
-> 17 chars. Increase therefore MII_BUS_ID_SIZE and
-> phy_fixup.bus_id to larger number. Now mii_bus.id
-> can host larger name.
-> 
-> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-> Signed-off-by: Magnus Öberg <magnus.oberg@westermo.se>
+Even no need to disable interrupts if some ndev is opened, In this
+case shared resources are not touched, only parameters of ndev shell,
+so no reason to disable them also. Removed lines have proved it.
 
-Applied.
+So, no need in redundant check and interrupt disable.
+
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 296ddf2..f798905 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1480,8 +1480,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		return ret;
+ 	}
+ 
+-	if (!cpsw_common_res_usage_state(cpsw))
+-		cpsw_intr_disable(cpsw);
+ 	netif_carrier_off(ndev);
+ 
+ 	/* Notify the stack of the actual queue counts. */
+-- 
+2.7.4
