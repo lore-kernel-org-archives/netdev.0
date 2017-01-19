@@ -1,129 +1,488 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-Date: Thu, 19 Jan 2017 02:01:53 +0100
-Message-ID: <15df4643-d553-fe73-4ced-2c963179d04b@digikod.net>
-References: <CALCETrW+ZQ1xMEfdEOzx6RK9ZoCvQiqQSnOyhDJ=-FZMwUbucg@mail.gmail.com>
- <20170118224120.GG9171@mtj.duckdns.org>
- <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="L97IftgON9JN95xleTv0c32ASrTpqg1M3"
-Cc: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Subject: [PATCH v6 07/13] net: ethernet: aquantia: Vector operations
+Date: Wed, 18 Jan 2017 17:07:58 -0800
+Message-ID: <5619d152c15138d89335d143a5e7f9f885f41363.1484788010.git.vomlehn@texas.net>
+References: <cover.1484788010.git.vomlehn@texas.net>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        "Pavel . Belous" <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda6.aus1.datafoundry.com ([209.99.124.137]:53292 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751430AbdASBKY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 20:10:24 -0500
+In-Reply-To: <cover.1484788010.git.vomlehn@texas.net>
+In-Reply-To: <cover.1484788010.git.vomlehn@texas.net>
+References: <cover.1484788010.git.vomlehn@texas.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---L97IftgON9JN95xleTv0c32ASrTpqg1M3
-Content-Type: multipart/mixed; boundary="JuclDMBKoQwEAwqQc1hKQkS68vKW4FPL1";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
- David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
- Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
- Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Message-ID: <15df4643-d553-fe73-4ced-2c963179d04b-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-References: <CALCETrW+ZQ1xMEfdEOzx6RK9ZoCvQiqQSnOyhDJ=-FZMwUbucg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
- <20170118224120.GG9171-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org>
- <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-In-Reply-To: <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+From: David VomLehn <vomlehn@texas.net>
 
---JuclDMBKoQwEAwqQc1hKQkS68vKW4FPL1
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Add functions to manululate the vector of receive and transmit rings.
 
+Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+Signed-off-by: Pavel.Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+Signed-off-by: David M. VomLehn <vomlehn@texas.net>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_vec.c | 393 ++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_vec.h |  42 +++
+ 2 files changed, 435 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_vec.h
 
-On 19/01/2017 01:18, Andy Lutomirski wrote:
->>> it explicitly respects the cgroup hierarchy.  It shows up in
->>> /proc/cgroups, and I had no problem mounting a cgroupfs instance with=
-
->>> perf_event enabled.  So I'm not sure what you mean.
->>
->> That all it's doing is providing membership information.
->=20
-> But it's doing it wrong!  Even perf_event tests for membership in a
-> given cgroup *or one of its descendents*.  This code does not.
->=20
-> I think the moral of the story here is that there are lots of open
-> questions and design work to be done and that this feature really
-> isn't ready to be stable.  For Landlock, I believe that it really
-> needs to be done right and I will put my foot down and NAK any effort
-> to have Landlock available in a released kernel without resolving
-> these types of issues first.  Does anyone really want Landlock to work
-> differently than the net hooks simply because the net hooks were in a
-> rush?
-
-About Landlock, there is two use cases:
-
-The first is to allow unprivileged users to tie eBPF programs (rules) to
-processes. This is the (final) goal. In this case, a (cgroup) hierarchy
-is mandatory, otherwise it would be trivial to defeat any access rule.
-This is the same issue with namespaces.
-
-The second use case is to only allow privileged users to tie eBPF
-programs to processes. As discussed, this will be the next series,
-preceding the unprivileged series. In this privilege case, only root
-(global CAP_SYS_ADMIN, no namespaces) may be able to use Landlock. Not
-having a hierarchy is not a security issue (only a practical one).
-
-The first/next Landlock series (in February) will focus on process
-hierarchies (without cgroup), a la seccomp-bpf. It would be too
-confusing to not use an inheritable hierarchy like seccomp does, even in
-a privileged-only first approach. The inherited rules should then behave
-similarly to the seccomp-bpf filters.
-
-However, the following series focusing on cgroup could keep the current
-cgroup-bpf behavior, without hierarchy. I don't like the non-hierarchy
-approach very much because it add another (less flexible and more
-confusing) way to do things (for Landlock at least), but I'm willing to
-do it if needed.
-
-Regards,
- Micka=C3=ABl
-
-
---JuclDMBKoQwEAwqQc1hKQkS68vKW4FPL1--
-
---L97IftgON9JN95xleTv0c32ASrTpqg1M3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAliAEAEACgkQIt7+33O9
-apXLUwf/TLqkj3fjbNfx/z2AAlEUe+AYES16PvY4VeCq1Cmz+9KFYXDVUyyLpRNr
-F9n8QTEG7PXnbEMTR6PkSUy7HMhVbGr2le4bKvytnsQnMuvd9iObDth75PdrP7em
-Z+gNW1mQ/s0j19+U9BqdA/cZnmt1AKmU4ToVjpLNd/+YIOxwASrBNWj616pRb4mI
-CIdsF12XW0J026LQ+6ccS3E2k2AkOFl6rPzEFn1DyFf3QlxkKjL/GCFOd03v050t
-yRD8e6ZQZT8XGyjec2i8X+mbkM0zAMWJEdhM5MxEX8Jymw8PdbM+W/E2wzL6Fwkb
-gXiNzJyJfwMpEokyg5MF/FOgyBBqVQ==
-=zb0o
------END PGP SIGNATURE-----
-
---L97IftgON9JN95xleTv0c32ASrTpqg1M3--
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+new file mode 100644
+index 0000000..34514eb
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+@@ -0,0 +1,393 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_vec.c: Definition of common structure for vector of Rx and Tx rings.
++ * Definition of functions for Rx and Tx rings. Friendly module for aq_nic.
++ */
++
++#include "aq_vec.h"
++#include "aq_nic.h"
++#include "aq_ring.h"
++#include "aq_hw.h"
++
++#include <linux/netdevice.h>
++
++struct aq_vec_s {
++	struct aq_obj_s header;
++	struct aq_hw_ops *aq_hw_ops;
++	struct aq_hw_s *aq_hw;
++	struct aq_nic_s *aq_nic;
++	unsigned int tx_rings;
++	unsigned int rx_rings;
++	struct aq_ring_param_s aq_ring_param;
++	struct napi_struct napi;
++	struct aq_ring_s ring[AQ_CFG_TCS_MAX][2];
++};
++
++#define AQ_VEC_TX_ID 0
++#define AQ_VEC_RX_ID 1
++
++static int aq_vec_poll(struct napi_struct *napi, int budget)
++__releases(&self->lock)
++__acquires(&self->lock)
++{
++	struct aq_vec_s *self = container_of(napi, struct aq_vec_s, napi);
++	struct aq_ring_s *ring = NULL;
++	int work_done = 0;
++	int err = 0;
++	unsigned int i = 0U;
++	unsigned int sw_tail_old = 0U;
++	bool was_tx_cleaned = false;
++
++	if (!self) {
++		err = -EINVAL;
++	} else if (spin_trylock(&self->header.lock)) {
++		for (i = 0U, ring = self->ring[0];
++			self->tx_rings > i; ++i, ring = self->ring[i]) {
++			if (self->aq_hw_ops->hw_ring_tx_head_update) {
++				err = self->aq_hw_ops->hw_ring_tx_head_update(
++							self->aq_hw,
++							&ring[AQ_VEC_TX_ID]);
++				if (err < 0)
++					goto err_exit;
++			}
++
++			if (ring[AQ_VEC_TX_ID].sw_head !=
++				ring[AQ_VEC_TX_ID].hw_head) {
++				err = aq_ring_tx_clean(&ring[AQ_VEC_TX_ID]);
++				if (err < 0)
++					goto err_exit;
++				was_tx_cleaned = true;
++			}
++
++			err = self->aq_hw_ops->hw_ring_rx_receive(self->aq_hw,
++					    &ring[AQ_VEC_RX_ID]);
++			if (err < 0)
++				goto err_exit;
++
++			if (ring[AQ_VEC_RX_ID].sw_head !=
++				ring[AQ_VEC_RX_ID].hw_head) {
++				err = aq_ring_rx_clean(&ring[AQ_VEC_RX_ID],
++						       &work_done,
++						       budget - work_done);
++				if (err < 0)
++					goto err_exit;
++
++				sw_tail_old = ring[AQ_VEC_RX_ID].sw_tail;
++
++				err = aq_ring_rx_fill(&ring[AQ_VEC_RX_ID]);
++				if (err < 0)
++					goto err_exit;
++
++				err = self->aq_hw_ops->hw_ring_rx_fill(
++					self->aq_hw,
++					&ring[AQ_VEC_RX_ID], sw_tail_old);
++				if (err < 0)
++					goto err_exit;
++			}
++		}
++
++		if (was_tx_cleaned)
++			work_done = budget;
++
++		if (work_done < budget) {
++			napi_complete(napi);
++			self->aq_hw_ops->hw_irq_enable(self->aq_hw,
++					1U << self->aq_ring_param.vec_idx);
++		}
++
++err_exit:
++		spin_unlock(&self->header.lock);
++	}
++
++	return work_done;
++}
++
++struct aq_vec_s *aq_vec_alloc(struct aq_nic_s *aq_nic, unsigned int idx,
++			      struct aq_nic_cfg_s *aq_nic_cfg)
++{
++	struct aq_vec_s *self = NULL;
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++	int err = 0;
++
++	self = kzalloc(sizeof(*self), GFP_KERNEL);
++	if (!self) {
++		err = -ENOMEM;
++		goto err_exit;
++	}
++
++	self->aq_nic = aq_nic;
++	self->aq_ring_param.vec_idx = idx;
++	self->aq_ring_param.cpu =
++		idx + aq_nic_cfg->aq_rss.base_cpu_number;
++
++	cpumask_set_cpu(self->aq_ring_param.cpu,
++			&self->aq_ring_param.affinity_mask);
++
++	self->tx_rings = 0;
++	self->rx_rings = 0;
++
++	netif_napi_add(aq_nic_get_ndev(aq_nic), &self->napi,
++		       aq_vec_poll, AQ_CFG_NAPI_WEIGHT);
++
++	for (i = 0; i < aq_nic_cfg->tcs; ++i) {
++		unsigned int idx_ring = AQ_NIC_TCVEC2RING(self->nic,
++						self->tx_rings,
++						self->aq_ring_param.vec_idx);
++
++		ring = aq_ring_tx_alloc(&self->ring[i][AQ_VEC_TX_ID], aq_nic,
++					idx_ring, aq_nic_cfg);
++		if (!ring) {
++			err = -ENOMEM;
++			goto err_exit;
++		}
++
++		++self->tx_rings;
++
++		aq_nic_set_tx_ring(aq_nic, idx_ring, ring);
++
++		ring = aq_ring_rx_alloc(&self->ring[i][AQ_VEC_RX_ID], aq_nic,
++					idx_ring, aq_nic_cfg);
++		if (!ring) {
++			err = -ENOMEM;
++			goto err_exit;
++		}
++
++		++self->rx_rings;
++	}
++
++err_exit:
++	if (err < 0) {
++		aq_vec_free(self);
++		self = NULL;
++	}
++	return self;
++}
++
++int aq_vec_init(struct aq_vec_s *self, struct aq_hw_ops *aq_hw_ops,
++		struct aq_hw_s *aq_hw)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++	int err = 0;
++
++	self->aq_hw_ops = aq_hw_ops;
++	self->aq_hw = aq_hw;
++
++	spin_lock_init(&self->header.lock);
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		err = aq_ring_init(&ring[AQ_VEC_TX_ID]);
++		if (err < 0)
++			goto err_exit;
++
++		err = self->aq_hw_ops->hw_ring_tx_init(self->aq_hw,
++						       &ring[AQ_VEC_TX_ID],
++						       &self->aq_ring_param);
++		if (err < 0)
++			goto err_exit;
++
++		err = aq_ring_init(&ring[AQ_VEC_RX_ID]);
++		if (err < 0)
++			goto err_exit;
++
++		err = self->aq_hw_ops->hw_ring_rx_init(self->aq_hw,
++						       &ring[AQ_VEC_RX_ID],
++						       &self->aq_ring_param);
++		if (err < 0)
++			goto err_exit;
++
++		err = aq_ring_rx_fill(&ring[AQ_VEC_RX_ID]);
++		if (err < 0)
++			goto err_exit;
++
++		err = self->aq_hw_ops->hw_ring_rx_fill(self->aq_hw,
++						       &ring[AQ_VEC_RX_ID], 0U);
++		if (err < 0)
++			goto err_exit;
++	}
++
++err_exit:
++	return err;
++}
++
++int aq_vec_start(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++	int err = 0;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		err = self->aq_hw_ops->hw_ring_tx_start(self->aq_hw,
++							&ring[AQ_VEC_TX_ID]);
++		if (err < 0)
++			goto err_exit;
++
++		err = self->aq_hw_ops->hw_ring_rx_start(self->aq_hw,
++							&ring[AQ_VEC_RX_ID]);
++		if (err < 0)
++			goto err_exit;
++	}
++
++	napi_enable(&self->napi);
++
++err_exit:
++	return err;
++}
++
++int aq_vec_stop(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		self->aq_hw_ops->hw_ring_tx_stop(self->aq_hw,
++						 &ring[AQ_VEC_TX_ID]);
++
++		self->aq_hw_ops->hw_ring_rx_stop(self->aq_hw,
++						 &ring[AQ_VEC_RX_ID]);
++	}
++
++	napi_disable(&self->napi);
++	return 0;
++}
++
++void aq_vec_deinit(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++
++	if (!self)
++		goto err_exit;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		aq_ring_tx_deinit(&ring[AQ_VEC_TX_ID]);
++		aq_ring_rx_deinit(&ring[AQ_VEC_RX_ID]);
++	}
++err_exit:;
++}
++
++void aq_vec_free(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++
++	if (!self)
++		goto err_exit;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		aq_ring_free(&ring[AQ_VEC_TX_ID]);
++		aq_ring_free(&ring[AQ_VEC_RX_ID]);
++	}
++
++	netif_napi_del(&self->napi);
++
++	kfree(self);
++
++err_exit:;
++}
++
++irqreturn_t aq_vec_isr(int irq, void *private)
++{
++	struct aq_vec_s *self = private;
++	int err = 0;
++
++	if (!self) {
++		err = -EINVAL;
++		goto err_exit;
++	}
++	napi_schedule(&self->napi);
++
++err_exit:
++	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
++}
++
++irqreturn_t aq_vec_isr_legacy(int irq, void *private)
++{
++	struct aq_vec_s *self = private;
++	u64 irq_mask = 0U;
++	irqreturn_t err = 0;
++
++	if (!self) {
++		err = -EINVAL;
++		goto err_exit;
++	}
++	err = self->aq_hw_ops->hw_irq_read(self->aq_hw, &irq_mask);
++	if (err < 0)
++		goto err_exit;
++
++	if (irq_mask) {
++		self->aq_hw_ops->hw_irq_disable(self->aq_hw,
++			      1U << self->aq_ring_param.vec_idx);
++		napi_schedule(&self->napi);
++	} else {
++		self->aq_hw_ops->hw_irq_enable(self->aq_hw, 1U);
++		err = IRQ_NONE;
++	}
++
++err_exit:
++	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
++}
++
++cpumask_t *aq_vec_get_affinity_mask(struct aq_vec_s *self)
++{
++	return &self->aq_ring_param.affinity_mask;
++}
++
++void aq_vec_add_stats(struct aq_vec_s *self,
++		      struct aq_ring_stats_rx_s *stats_rx,
++		      struct aq_ring_stats_tx_s *stats_tx)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int r = 0U;
++
++	for (r = 0U, ring = self->ring[0];
++		self->tx_rings > r; ++r, ring = self->ring[r]) {
++		struct aq_ring_stats_tx_s *tx = &ring[AQ_VEC_TX_ID].stats.tx;
++		struct aq_ring_stats_rx_s *rx = &ring[AQ_VEC_RX_ID].stats.rx;
++
++		stats_rx->packets += rx->packets;
++		stats_rx->bytes += rx->bytes;
++		stats_rx->errors += rx->errors;
++		stats_rx->jumbo_packets += rx->jumbo_packets;
++		stats_rx->lro_packets += rx->lro_packets;
++
++		stats_tx->packets += tx->packets;
++		stats_tx->bytes += tx->bytes;
++		stats_tx->errors += tx->errors;
++	}
++}
++
++int aq_vec_get_sw_stats(struct aq_vec_s *self, u64 *data, unsigned int *p_count)
++{
++	unsigned int count = 0U;
++	struct aq_ring_stats_rx_s stats_rx;
++	struct aq_ring_stats_tx_s stats_tx;
++
++	memset(&stats_rx, 0U, sizeof(struct aq_ring_stats_rx_s));
++	memset(&stats_tx, 0U, sizeof(struct aq_ring_stats_tx_s));
++	aq_vec_add_stats(self, &stats_rx, &stats_tx);
++
++	data[count] += stats_rx.packets;
++	data[++count] += stats_tx.packets;
++	data[++count] += stats_rx.jumbo_packets;
++	data[++count] += stats_rx.lro_packets;
++	data[++count] += stats_rx.errors;
++
++	if (p_count)
++		*p_count = ++count;
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.h b/drivers/net/ethernet/aquantia/atlantic/aq_vec.h
+new file mode 100644
+index 0000000..b924206
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.h
+@@ -0,0 +1,42 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_vec.h: Definition of common structures for vector of Rx and Tx rings.
++ * Declaration of functions for Rx and Tx rings.
++ */
++
++#ifndef AQ_VEC_H
++#define AQ_VEC_H
++
++#include "aq_common.h"
++#include <linux/irqreturn.h>
++
++struct aq_hw_s;
++struct aq_hw_ops;
++struct aq_ring_stats_rx_s;
++struct aq_ring_stats_tx_s;
++
++irqreturn_t aq_vec_isr(int irq, void *private);
++irqreturn_t aq_vec_isr_legacy(int irq, void *private);
++struct aq_vec_s *aq_vec_alloc(struct aq_nic_s *aq_nic, unsigned int idx,
++			      struct aq_nic_cfg_s *aq_nic_cfg);
++int aq_vec_init(struct aq_vec_s *self, struct aq_hw_ops *aq_hw_ops,
++		struct aq_hw_s *aq_hw);
++void aq_vec_deinit(struct aq_vec_s *self);
++void aq_vec_free(struct aq_vec_s *self);
++int aq_vec_start(struct aq_vec_s *self);
++int aq_vec_stop(struct aq_vec_s *self);
++cpumask_t *aq_vec_get_affinity_mask(struct aq_vec_s *self);
++int aq_vec_get_sw_stats(struct aq_vec_s *self, u64 *data,
++			unsigned int *p_count);
++void aq_vec_add_stats(struct aq_vec_s *self,
++		      struct aq_ring_stats_rx_s *stats_rx,
++		      struct aq_ring_stats_tx_s *stats_tx);
++
++#endif /* AQ_VEC_H */
+-- 
+2.9.3
