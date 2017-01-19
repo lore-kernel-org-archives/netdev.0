@@ -1,137 +1,34 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
-Date: Thu, 19 Jan 2017 17:30:13 +0100
-Message-ID: <20170119163013.GA22777@kroah.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-7-f.fainelli@gmail.com>
- <20170115110628.GF26374@kroah.com>
- <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
- <20170115173949.GA19268@kroah.com>
- <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
- <20170115191632.GD5643@lunn.ch>
- <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
- <20170119142820.GA494@kroah.com> <20170119145315.GD21805@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: atm: Fix build error when !CONFIG_PROC_FS
+Date: Thu, 19 Jan 2017 11:32:28 -0500 (EST)
+Message-ID: <20170119.113228.175631525740148009.davem@davemloft.net>
+References: <1484823626-8150-1-git-send-email-augustocaringi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
- Jason Cooper <jason@lakedaemon.net>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
- Russell King <linux@armlinux.org.uk>, open list <linux-kernel@vger.kernel.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S. Miller" <davem@davemloft.net>,
- "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20170119145315.GD21805@lunn.ch>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: jiri@mellanox.com, idosch@mellanox.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: augustocaringi@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1484823626-8150-1-git-send-email-augustocaringi@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 19, 2017 at 03:53:15PM +0100, Andrew Lunn wrote:
-> > > > struct dsa_platform_data {
-> > > >         /*
-> > > >          * Reference to a Linux network interface that connects
-> > > >          * to the root switch chip of the tree.
-> > > >          */
-> > > >         struct device   *netdev;
-> > 
-> > This I think is the oddest thing, why do you need to have the "root
-> > switch" here?  You seem to have dropped the next value in this
-> > structure:
-> > 	struct net_device *of_netdev;
-> 
-> We are implementing platform_data for devices which don't support
-> device tree. When using OF, we don't have any of these issues. We can
-> go straight to the device.
-> 
-> It is a bit convoluted, but look at
-> arch/arm/mach-orion5x/rd88f5181l-ge-setup.c. It defines the start of
-> the dsa_platform_data in that file. It then gets passed through
-> common.c: orion5x_eth_switch_init() to 
-> arch/arm/plat-orion/common.c:orion_ge00_switch_init() :
-> 
-> void __init orion_ge00_switch_init(struct dsa_platform_data *d)
-> {
->         int i;
-> 
->         d->netdev = &orion_ge00.dev;
->         for (i = 0; i < d->nr_chips; i++)
->                 d->chip[i].host_dev = &orion_ge_mvmdio.dev;
-> 
->         platform_device_register_data(NULL, "dsa", 0, d, sizeof(d));
-> }
-> 
-> Where we have
-> 
-> static struct platform_device orion_ge00 = {
->         .name           = MV643XX_ETH_NAME,
->         .id             = 0,
->         .num_resources  = 1,
->         .resource       = orion_ge00_resources,
->         .dev            = {
->                 .coherent_dma_mask      = DMA_BIT_MASK(32),
->         },
-> };
-> 
-> So this is the platform device for the Ethernet device. We cannot go
-> to the net_device, because it does not exist until this Ethernet
-> platform device is instantiated.
-
-Ok, fine, but why isn't the ethernet device a child of this platform
-device?  Why is it floating around somewhere else?  You don't see that
-happening for other devices.
-
-> > Shouldn't you have a bus for RGMII devices?  Is that the real problem
-> > here, you don't have a representation for your RGMII "bus" with a
-> > controller to bundle everything under (like a USB host controller, it
-> > bridges from one bus to another).
-> 
-> RGMII is not a bus. It is a point to point link.
-
-That's fine, but you have multiple devices talking across it, so in the
-kernel driver model "naming", it's a bus.  Anything can be a bus, it's
-just a way to group together devices of the same type.
-
-> Normally, it is
-> between the Ethernet MAC and the Ethernet PHY. But you can also have
-> it between an Ethernet MAC and another Ethernet MAC. I'm not sure
-> describing this is a bus would be practical. It would mean every
-> ethernet driver also becomes a bus driver!
-
-Instead of a custom platform device driver, yes.  Is that a big deal?
-How many do you have?
-
-> Every Ethernet PHY would become a bus device. That is a huge change,
-> for a few legacy boards which are not getting converted to device
-> tree.
-
-How many different drivers are we talking about here?
-
-> > If so, why is eth1 not below f1072004.mdio-mi in the heirachy already?
-> 
-> See the initial diagram above. The switch has two parents. It hangs of
-> an MDIO bus, and you would like to make RGMII also a bus. Can the
-> device model handle that? I thought it was a tree, not a graph?
-
-It is a tree, you are correct.  But right now you are picking and
-choosing where you want to put that network device.  Why not put it over
-on the mdio bus?  Or, like I mentioned, make it a custom bus where you
-can properly show this relationship, not just in a generic "let's jump
-to the parent and poke around randomly."
-
-Again, it's that last sentance that I object the most to here.  You all
-keep ignoring it for some reason...
-
-thanks,
-
-greg k-h
+RnJvbTogQXVndXN0byBNZWNraW5nIENhcmluZ2kgPGF1Z3VzdG9jYXJpbmdpQGdtYWlsLmNvbT4N
+CkRhdGU6IFRodSwgMTkgSmFuIDIwMTcgMTE6MDA6MTIgKzAwMDANCg0KPiBXaGVuIENPTkZJR19B
+VE1fQ0xJUCBpcyBzZXQgYW5kIENPTkZJR19QUk9DX0ZTIGlzIG5vdCBzZXQsIHRoZSBidWlsZGlu
+Zw0KPiB3YXMgZmFpbGluZyB3aGl0aCB0aGUgZXJyb3I6DQo+IA0KPiBuZXQvYXRtL2NsaXAuYzog
+SW4gZnVuY3Rpb24goWF0bV9jbGlwX2V4aXSiOg0KPiBuZXQvYXRtL2NsaXAuYzo5MzM6Mjc6IGVy
+cm9yOiChYXRtX3Byb2Nfcm9vdKIgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluDQo+IHRoaXMgZnVu
+Y3Rpb24pDQo+IHJlbW92ZV9wcm9jX2VudHJ5KCJhcnAiLCBhdG1fcHJvY19yb290KTsNCj4gICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgXg0KPiANCj4gRml4IGl0IGJ5IHB1dHRpbmcgdGhlIHBy
+b2MgY2xlYW51cCBjb2RlIGluc2lkZSBhICNpZmRlZiBDT05GSUdfUFJPQ19GUw0KPiBibG9jay4N
+Cj4gDQo+IFNpZ25lZC1vZmYtYnk6IEF1Z3VzdG8gTWVja2luZyBDYXJpbmdpIDxhdWd1c3RvY2Fy
+aW5naUBnbWFpbC5jb20+DQoNCldoZW4gQ09ORklHX1BST0NfRlMgaXMgbm90IGRlZmluZWQsIHJl
+bW92ZV9wcm9jX2VudHJ5IGlzIGRlZmluZWQgYXMgdGhlDQptYWNybzoNCg0KI2RlZmluZSByZW1v
+dmVfcHJvY19lbnRyeShuYW1lLCBwYXJlbnQpIGRvIHt9IHdoaWxlICgwKQ0KDQpUaGVyZWZvcmUg
+aXQgaXMgaW1wb3NzaWJsZSBmb3IgYXRtX3Byb2Nfcm9vdCB0byBiZSByZWZlcmVuZWQgaW4gYW55
+IHdheS4NCg0KVGhlIGZhbGxiYWNrIG1hY3JvIGlzIGRlc2lnbmVkIGV4YWN0bHkgc28gdGhhdCB1
+Z2x5IGlmZGVmcyBsaWtlIHRoZSBvbmUNCnlvdSBhcmUgcHJvcG9zaW5nIGFyZW4ndCBuZWNlc3Nh
+cnkuDQoNCkknbSBub3QgYXBwbHlpaW5nIHRoaXMgcGF0Y2gsIHNvbWV0aGluZyBlbHNlIGlzIGhh
+cHBlbmluZyBpbiB5b3VyIHRyZWUuDQo=
