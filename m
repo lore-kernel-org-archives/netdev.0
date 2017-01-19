@@ -1,61 +1,53 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v5 1/2] net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for
- PHY addr >= num_of_ports
-Date: Thu, 19 Jan 2017 17:13:12 -0500
-Message-ID: <871svylmvb.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
- <20170119214934.27442-2-gregory.clement@free-electrons.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC] RESEND - rdmatool - tool for RDMA users
+Date: Thu, 19 Jan 2017 15:16:51 -0700
+Message-ID: <20170119221651.GA1656@obsidianresearch.com>
+References: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
+ <CAJ3xEMgO496ctgCUp1sW=-pCUyniy7LZb8hSkyNeYsJ1V4aVwg@mail.gmail.com>
+ <20170118173327.GF32481@mtr-leonro.local>
+ <CAJ3xEMiR1+NGghUZJ6aGq+=xTdOHU5Ph-BcPii5OUB8dT4Vq-A@mail.gmail.com>
+ <20170118183127.GC14198@obsidianresearch.com>
+ <5f90fd26-e7bf-bb2a-01f2-6b166f2265e9@sandisk.com>
+ <20170119063326.GJ32481@mtr-leonro.local>
+ <20170119180308.GD8109@obsidianresearch.com>
+ <1484863558.2634.7.camel@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Jason Cooper <jason@lakedaemon.net>, Joe Zhou <shjzhou@marvell.com>,
- Jon Pannell <jpannell@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Kostya Porotchkin <kostap@marvell.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Wilson Ding <dingwei@marvell.com>, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170119214934.27442-2-gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "leon@kernel.org" <leon@kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "arielalmogworkemails@gmail.com" <arielalmogworkemails@gmail.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "gerlitz.or@gmail.com" <gerlitz.or@gmail.com>
+To: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:53008 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751822AbdASWRa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 17:17:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1484863558.2634.7.camel@sandisk.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gregory,
+On Thu, Jan 19, 2017 at 10:06:12PM +0000, Bart Van Assche wrote:
+> On Thu, 2017-01-19 at 11:03 -0700, Jason Gunthorpe wrote:
+> > sysfs is unpopular because the 'one value per file' dogma is laregly
+> > unsuitable for complex mulit-value atomic changes which are common in
+> > netdev. You can force it to work, but it is pretty horrible..
+> > 
+> > It is also very expensive if you want to shuttle a lot of data, eg I
+> > could not see doing something like 'netstat' for IB through sysfs
+> 
+> Since the RDMA sysfs ABI defines a user space ABI and since user space
+> ABIs must be backwards compatible removing the existing sysfs ABI is
+> not an option. We will need to evaluate on a case-by-case basis whether
+> new functionality should use sysfs or whether another mechanism should
+> be used.
 
-Gregory CLEMENT <gregory.clement@free-electrons.com> writes:
+Not talking about getting rid of it.
 
-> From: Romain Perier <romain.perier@free-electrons.com>
->
-> Some Marvell ethernet switches have internal ethernet transceivers with
-> hardcoded phy addresses. These addresses can be greater than the number
-> of ports or its value might be different than the associated port number.
-> This is for example the case for MV88E6341 that has 6 ports and internal
-> Port 1 to Port4 PHYs mapped at SMI addresses from 0x11 to 0x14.
+But if it makes sense to use netlink for the new stuff we should make
+netlink self-consistent so a netlink user does not have to fall back
+to sysfs for certain things.
 
-Isn't there an hardware table used to map the PHY addresses on such chip?
-
-> This commits fixes the issue by removing the condition in MDIO callbacks.
->
-> Signed-off-by: Romain Perier <romain.perier@free-electrons.com>
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-
-The patch is anyway still valid:
-
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-
-Thanks,
-
-        Vivien
+Jason
