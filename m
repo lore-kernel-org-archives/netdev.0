@@ -1,8 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v7 11/13] net: ethernet: aquantia: Ethtool support
-Date: Thu, 19 Jan 2017 13:33:19 -0800
-Message-ID: <e9264b9e538cc308055d8edc9f8bf712969b4765.1484860589.git.vomlehn@texas.net>
-References: <cover.1484860589.git.vomlehn@texas.net>
+Subject: [PATCH v7 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC driver
+Date: Thu, 19 Jan 2017 13:33:08 -0800
+Message-ID: <cover.1484860589.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
@@ -11,19 +10,48 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44695 "EHLO
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44422 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752081AbdASVee (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 16:34:34 -0500
-In-Reply-To: <cover.1484860589.git.vomlehn@texas.net>
-In-Reply-To: <cover.1484860589.git.vomlehn@texas.net>
-References: <cover.1484860589.git.vomlehn@texas.net>
+        by vger.kernel.org with ESMTP id S1751630AbdASVeb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 16:34:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add the driver interfaces required for support by the ethtool utility.
+This series introduces the AQtion NIC driver for the aQuantia
+AQC107/AQC108 network devices.
+
+v1: Initial version
+v2: o Make necessary drivers/net/ethernet changes to integrate software
+    o Drop intermediate atlantic directory
+    o Remove Makefile things only appropriate to out of tree module
+      building
+v3: o Move changes to drivers/net/ethernet/{Kconfig,Makefile} to the last
+      patch to ensure clean bisection.
+    o Removed inline attribute aq_hw_write_req() as it was defined in
+      only one .c file.
+    o #included pci.h in aq_common.h to get struct pci definition.
+    o Modified code to unlock based execution flow rather than using a flag.
+    o Made a number of functions that were only used in a single file static.
+    o Cleaned up error and return code handling in various places.
+    o Remove AQ_CFG_IP_ALIGN definition.
+    o Other minor code clean up.
+v4: o Using do_div for 64 bit division.
+    o Modified NIC statistics code.
+    o Using build_skb instead netdev_alloc_skb for single fragment packets.
+    o Removed extra aq_nic.o from Makefile
+v5: o Removed extra newline at the end of the files.
+v6: o Removed unnecessary cast from void*.
+    o Reworked strings array for ethtool statistics.
+    o Added stringset == ETH_SS_STATS checking.
+    o AQ_OBJ_HEADER replaced to aq_obj_header_s struct.
+    o AQ_OBJ_SET/TST/CLR macroses replaced to inline functions.
+    o Driver sources placed in to atlantic directory.
+    o Fixed compilation warnings (Make W=1)
+    o Added firmware version checking.
+    o Code cleaning.
+v7  o Removed unnecessary cast from memory allocation function (aq_ring.c).
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
@@ -31,300 +59,96 @@ Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- .../net/ethernet/aquantia/atlantic/aq_ethtool.c    | 258 +++++++++++++++++++++
- .../net/ethernet/aquantia/atlantic/aq_ethtool.h    |  19 ++
- 2 files changed, 277 insertions(+)
+David VomLehn (13):
+  net: ethernet: aquantia: Make and configuration files.
+  net: ethernet: aquantia: Common functions and definitions
+  net: ethernet: aquantia: Add ring support code
+  net: ethernet: aquantia: Low-level hardware interfaces
+  net: ethernet: aquantia: Support for NIC-specific code
+  net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
+  net: ethernet: aquantia: Vector operations
+  net: ethernet: aquantia: PCI operations
+  net: ethernet: aquantia: Atlantic hardware abstraction layer
+  net: ethernet: aquantia: Hardware interface and utility functions
+  net: ethernet: aquantia: Ethtool support
+  net: ethernet: aquantia: Receive side scaling
+  net: ethernet: aquantia: Integrate AQtion 2.5/5 GB NIC driver
+
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/aquantia/Kconfig              |   20 +
+ drivers/net/ethernet/aquantia/Makefile             |    5 +
+ drivers/net/ethernet/aquantia/atlantic/Kconfig     |    9 +
+ drivers/net/ethernet/aquantia/atlantic/Makefile    |   42 +
+ drivers/net/ethernet/aquantia/atlantic/aq_cfg.h    |   77 +
+ drivers/net/ethernet/aquantia/atlantic/aq_common.h |   23 +
+ .../net/ethernet/aquantia/atlantic/aq_ethtool.c    |  258 +++
+ .../net/ethernet/aquantia/atlantic/aq_ethtool.h    |   19 +
+ drivers/net/ethernet/aquantia/atlantic/aq_hw.h     |  177 ++
+ .../net/ethernet/aquantia/atlantic/aq_hw_utils.c   |   68 +
+ .../net/ethernet/aquantia/atlantic/aq_hw_utils.h   |   47 +
+ drivers/net/ethernet/aquantia/atlantic/aq_main.c   |  273 +++
+ drivers/net/ethernet/aquantia/atlantic/aq_main.h   |   17 +
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c    |  937 ++++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.h    |  108 +
+ .../ethernet/aquantia/atlantic/aq_nic_internal.h   |   46 +
+ .../net/ethernet/aquantia/atlantic/aq_pci_func.c   |  345 +++
+ .../net/ethernet/aquantia/atlantic/aq_pci_func.h   |   34 +
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  377 ++++
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.h   |  157 ++
+ drivers/net/ethernet/aquantia/atlantic/aq_rss.h    |   26 +
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |   50 +
+ drivers/net/ethernet/aquantia/atlantic/aq_vec.c    |  392 ++++
+ drivers/net/ethernet/aquantia/atlantic/aq_vec.h    |   42 +
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  905 ++++++++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.h  |   34 +
+ .../aquantia/atlantic/hw_atl/hw_atl_a0_internal.h  |  155 ++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  958 ++++++++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.h  |   34 +
+ .../aquantia/atlantic/hw_atl/hw_atl_b0_internal.h  |  207 ++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_llh.c | 1394 ++++++++++++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_llh.h |  677 ++++++
+ .../aquantia/atlantic/hw_atl/hw_atl_llh_internal.h | 2375 ++++++++++++++++++++
+ .../aquantia/atlantic/hw_atl/hw_atl_utils.c        |  569 +++++
+ .../aquantia/atlantic/hw_atl/hw_atl_utils.h        |  210 ++
+ drivers/net/ethernet/aquantia/atlantic/ver.h       |   18 +
+ 38 files changed, 11087 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_common.h
  create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
  create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_hw.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_main.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_main.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_nic.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_nic_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_pci_func.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_pci_func.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_ring.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_rss.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_vec.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_llh.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_llh.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_llh_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/ver.h
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
-new file mode 100644
-index 0000000..78d16bc
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
-@@ -0,0 +1,258 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_ethtool.c: Definition of ethertool related functions. */
-+
-+#include "aq_ethtool.h"
-+#include "aq_nic.h"
-+
-+static void aq_ethtool_get_regs(struct net_device *ndev,
-+				struct ethtool_regs *regs, void *p)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	u32 regs_count = aq_nic_get_regs_count(aq_nic);
-+
-+	memset(p, 0, regs_count * sizeof(u32));
-+	aq_nic_get_regs(aq_nic, regs, p);
-+}
-+
-+static int aq_ethtool_get_regs_len(struct net_device *ndev)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	u32 regs_count = aq_nic_get_regs_count(aq_nic);
-+
-+	return regs_count * sizeof(u32);
-+}
-+
-+static u32 aq_ethtool_get_link(struct net_device *ndev)
-+{
-+	return ethtool_op_get_link(ndev);
-+}
-+
-+static int aq_ethtool_get_settings(struct net_device *ndev,
-+				   struct ethtool_cmd *cmd)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+
-+	aq_nic_get_link_settings(aq_nic, cmd);
-+	ethtool_cmd_speed_set(cmd, netif_carrier_ok(ndev) ?
-+				aq_nic_get_link_speed(aq_nic) : 0U);
-+
-+	return 0;
-+}
-+
-+static int aq_ethtool_set_settings(struct net_device *ndev,
-+				   struct ethtool_cmd *cmd)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+
-+	return aq_nic_set_link_settings(aq_nic, cmd);
-+}
-+
-+/* there "5U" is number of queue[#] stats lines (InPackets+...+InErrors) */
-+static const unsigned int aq_ethtool_stat_queue_lines = 5U;
-+static const unsigned int aq_ethtool_stat_queue_chars =
-+	5U * ETH_GSTRING_LEN;
-+static const char aq_ethtool_stat_names[][ETH_GSTRING_LEN] = {
-+	"InPackets",
-+	"InUCast",
-+	"InMCast",
-+	"InBCast",
-+	"InErrors",
-+	"OutPackets",
-+	"OutUCast",
-+	"OutMCast",
-+	"OutBCast",
-+	"InUCastOctects",
-+	"OutUCastOctects",
-+	"InMCastOctects",
-+	"OutMCastOctects",
-+	"InBCastOctects",
-+	"OutBCastOctects",
-+	"InOctects",
-+	"OutOctects",
-+	"InPacketsDma",
-+	"OutPacketsDma",
-+	"InOctetsDma",
-+	"OutOctetsDma",
-+	"InDroppedDma",
-+	"Queue[0] InPackets",
-+	"Queue[0] OutPackets",
-+	"Queue[0] InJumboPackets",
-+	"Queue[0] InLroPackets",
-+	"Queue[0] InErrors",
-+	"Queue[1] InPackets",
-+	"Queue[1] OutPackets",
-+	"Queue[1] InJumboPackets",
-+	"Queue[1] InLroPackets",
-+	"Queue[1] InErrors",
-+	"Queue[2] InPackets",
-+	"Queue[2] OutPackets",
-+	"Queue[2] InJumboPackets",
-+	"Queue[2] InLroPackets",
-+	"Queue[2] InErrors",
-+	"Queue[3] InPackets",
-+	"Queue[3] OutPackets",
-+	"Queue[3] InJumboPackets",
-+	"Queue[3] InLroPackets",
-+	"Queue[3] InErrors",
-+	"Queue[4] InPackets",
-+	"Queue[4] OutPackets",
-+	"Queue[4] InJumboPackets",
-+	"Queue[4] InLroPackets",
-+	"Queue[4] InErrors",
-+	"Queue[5] InPackets",
-+	"Queue[5] OutPackets",
-+	"Queue[5] InJumboPackets",
-+	"Queue[5] InLroPackets",
-+	"Queue[5] InErrors",
-+	"Queue[6] InPackets",
-+	"Queue[6] OutPackets",
-+	"Queue[6] InJumboPackets",
-+	"Queue[6] InLroPackets",
-+	"Queue[6] InErrors",
-+	"Queue[7] InPackets",
-+	"Queue[7] OutPackets",
-+	"Queue[7] InJumboPackets",
-+	"Queue[7] InLroPackets",
-+	"Queue[7] InErrors",
-+};
-+
-+static void aq_ethtool_stats(struct net_device *ndev,
-+			     struct ethtool_stats *stats, u64 *data)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+
-+/* ASSERT: Need add lines to aq_ethtool_stat_names if AQ_CFG_VECS_MAX > 8 */
-+	BUILD_BUG_ON(AQ_CFG_VECS_MAX > 8);
-+	memset(data, 0, ARRAY_SIZE(aq_ethtool_stat_names) * sizeof(u64));
-+	aq_nic_get_stats(aq_nic, data);
-+}
-+
-+static void aq_ethtool_get_drvinfo(struct net_device *ndev,
-+				   struct ethtool_drvinfo *drvinfo)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+	u32 firmware_version = aq_nic_get_fw_version(aq_nic);
-+	u32 regs_count = aq_nic_get_regs_count(aq_nic);
-+
-+	strlcat(drvinfo->driver, AQ_CFG_DRV_NAME, sizeof(drvinfo->driver));
-+	strlcat(drvinfo->version, AQ_CFG_DRV_VERSION, sizeof(drvinfo->version));
-+
-+	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
-+		 "%u.%u.%u", firmware_version >> 24,
-+		 (firmware_version >> 16) & 0xFFU, firmware_version & 0xFFFFU);
-+
-+	drvinfo->n_stats = ARRAY_SIZE(aq_ethtool_stat_names) -
-+		(AQ_CFG_VECS_MAX - cfg->vecs) * aq_ethtool_stat_queue_lines;
-+	drvinfo->testinfo_len = 0;
-+	drvinfo->regdump_len = regs_count;
-+	drvinfo->eedump_len = 0;
-+}
-+
-+static void aq_ethtool_get_strings(struct net_device *ndev,
-+				   u32 stringset, u8 *data)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+
-+	if (stringset == ETH_SS_STATS)
-+		memcpy(data, *aq_ethtool_stat_names,
-+		       sizeof(aq_ethtool_stat_names) -
-+		       (AQ_CFG_VECS_MAX - cfg->vecs) *
-+		       aq_ethtool_stat_queue_chars);
-+}
-+
-+static int aq_ethtool_get_sset_count(struct net_device *ndev, int stringset)
-+{
-+	int ret = 0;
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		ret = ARRAY_SIZE(aq_ethtool_stat_names) -
-+			(AQ_CFG_VECS_MAX - cfg->vecs) *
-+			aq_ethtool_stat_queue_lines;
-+		break;
-+	default:
-+		ret = -EOPNOTSUPP;
-+	}
-+	return ret;
-+}
-+
-+static u32 aq_ethtool_get_rss_indir_size(struct net_device *ndev)
-+{
-+	return AQ_CFG_RSS_INDIRECTION_TABLE_MAX;
-+}
-+
-+static u32 aq_ethtool_get_rss_key_size(struct net_device *ndev)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+
-+	return sizeof(cfg->aq_rss.hash_secret_key);
-+}
-+
-+static int aq_ethtool_get_rss(struct net_device *ndev, u32 *indir, u8 *key,
-+			      u8 *hfunc)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+	unsigned int i = 0U;
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP; /* Toeplitz */
-+	if (indir) {
-+		for (i = 0; i < AQ_CFG_RSS_INDIRECTION_TABLE_MAX; i++)
-+			indir[i] = cfg->aq_rss.indirection_table[i];
-+	}
-+	if (key)
-+		memcpy(key, cfg->aq_rss.hash_secret_key,
-+		       sizeof(cfg->aq_rss.hash_secret_key));
-+	return 0;
-+}
-+
-+static int aq_ethtool_get_rxnfc(struct net_device *ndev,
-+				struct ethtool_rxnfc *cmd,
-+				u32 *rule_locs)
-+{
-+	struct aq_nic_s *aq_nic = netdev_priv(ndev);
-+	struct aq_nic_cfg_s *cfg = aq_nic_get_cfg(aq_nic);
-+	int err = 0;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = cfg->vecs;
-+		break;
-+
-+	default:
-+		err = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return err;
-+}
-+
-+const struct ethtool_ops aq_ethtool_ops = {
-+	.get_link            = aq_ethtool_get_link,
-+	.get_regs_len        = aq_ethtool_get_regs_len,
-+	.get_regs            = aq_ethtool_get_regs,
-+	.get_settings        = aq_ethtool_get_settings,
-+	.set_settings        = aq_ethtool_set_settings,
-+	.get_drvinfo         = aq_ethtool_get_drvinfo,
-+	.get_strings         = aq_ethtool_get_strings,
-+	.get_rxfh_indir_size = aq_ethtool_get_rss_indir_size,
-+	.get_rxfh_key_size   = aq_ethtool_get_rss_key_size,
-+	.get_rxfh            = aq_ethtool_get_rss,
-+	.get_rxnfc           = aq_ethtool_get_rxnfc,
-+	.get_sset_count      = aq_ethtool_get_sset_count,
-+	.get_ethtool_stats   = aq_ethtool_stats
-+};
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h
-new file mode 100644
-index 0000000..21c126e
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.h
-@@ -0,0 +1,19 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_ethtool.h: Declaration of ethertool related functions. */
-+
-+#ifndef AQ_ETHTOOL_H
-+#define AQ_ETHTOOL_H
-+
-+#include "aq_common.h"
-+
-+extern const struct ethtool_ops aq_ethtool_ops;
-+
-+#endif /* AQ_ETHTOOL_H */
 -- 
 2.9.3
