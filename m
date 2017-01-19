@@ -1,47 +1,102 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH v2 0/5] net: ethernet: ti: cpsw: correct common res usage
-Date: Thu, 19 Jan 2017 11:33:14 -0600
-Message-ID: <36f7fbd0-1f97-fd10-1f2a-81507dff34fd@ti.com>
-References: <1484845107-30331-1-git-send-email-ivan.khoronzhuk@linaro.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to
+ extended statistics
+Date: Thu, 19 Jan 2017 11:11:05 -0800
+Message-ID: <20170119111105.481dcc36@xeon-e3>
+References: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
+        <1484228991-32999-4-git-send-email-nogahf@mellanox.com>
+        <20170112174335.1bd391c2@xeon-e3>
+        <DB5PR05MB1895D7CFBE9E127AAAE672DBAC7E0@DB5PR05MB1895.eurprd05.prod.outlook.com>
+        <5880E3FD.6010604@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>, <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484845107-30331-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Nogah Frankel <nogahf@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "roszenrami@gmail.com" <roszenrami@gmail.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:33958 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754001AbdASTTM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 14:19:12 -0500
+Received: by mail-pg0-f53.google.com with SMTP id 14so16424842pgg.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 11:18:18 -0800 (PST)
+In-Reply-To: <5880E3FD.6010604@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 19 Jan 2017 08:06:21 -0800
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
+> On 1/19/17, 7:21 AM, Nogah Frankel wrote:
+> >> -----Original Message-----
+> >> From: Nogah Frankel
+> >> Sent: Sunday, January 15, 2017 3:55 PM
+> >> To: 'Stephen Hemminger' <stephen@networkplumber.org>
+> >> Cc: netdev@vger.kernel.org; roszenrami@gmail.com; roopa@cumulusnetworks.com; Jiri
+> >> Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
+> >> <eladr@mellanox.com>; Yotam Gigi <yotamg@mellanox.com>; Or Gerlitz
+> >> <ogerlitz@mellanox.com>
+> >> Subject: RE: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to extended statistics
+> >>
+> >>
+> >>  
+> >>> -----Original Message-----
+> >>> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> >>> Sent: Friday, January 13, 2017 3:44 AM
+> >>> To: Nogah Frankel <nogahf@mellanox.com>
+> >>> Cc: netdev@vger.kernel.org; roszenrami@gmail.com; roopa@cumulusnetworks.com;  
+> >> Jiri  
+> >>> Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
+> >>> <eladr@mellanox.com>; Yotam Gigi <yotamg@mellanox.com>; Or Gerlitz
+> >>> <ogerlitz@mellanox.com>
+> >>> Subject: Re: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to extended statistics
+> >>>
+> >>> On Thu, 12 Jan 2017 15:49:50 +0200
+> >>> Nogah Frankel <nogahf@mellanox.com> wrote:
+> >>>  
+> >>>> The default stats for ifstat are 32 bits based.
+> >>>> The kernel supports 64 bits based stats. (They are returned in struct
+> >>>> rtnl_link_stats64 which is an exact copy of struct rtnl_link_stats, in
+> >>>> which the "normal" stats are returned, but with fields of u64 instead of
+> >>>> u32). This patch adds them as an extended stats.
+> >>>>
+> >>>> It is read with filter type IFLA_STATS_LINK_64 and no sub type.
+> >>>>
+> >>>> It is under the name 64bits
+> >>>> (or any shorten of it as "64")
+> >>>>
+> >>>> For example:
+> >>>> ifstat -x 64bit
+> >>>>
+> >>>> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+> >>>> Reviewed-by: Jiri Pirko <jiri@mellanox.com>  
+> >>> Other commands (like ip link) always use the 64 bit statistics if available
+> >>> from the device. I see no reason that ifstat needs to be different.
+> >>>  
+> >> Do you mean to change the default ifstat results to be 64 bits based?
+> >> I tried it in the first version, but Roopa commented that it was not a good idea.
+> >> She said they tried it in the past and it caused backward compatibilities problems.
+> >> (Or maybe I didn't understand correctly)  
+> > So, can I leave the default ifstat results to be 32 bits based, for the time being?
+> >  
+> From past discussions: Moving the default to 64bit has compat issues with the old history file.
+> There is a way to make it work by using a new file header (to indicate that it is 64 bit) in
+> a freshly created history file and also check this header before dumping stats into the history file.
+> ie maintain backward compat without introducing a new option. It is doable.
+> 
+> One approach is, you can drop the 64bit option from this series and
+> try updating the default to 64 bit (with compat handling code) in a later series.
 
-On 01/19/2017 10:58 AM, Ivan Khoronzhuk wrote:
-> This series is intended to remove unneeded redundancies connected with
-> common resource usage function.
->
-> Since v1:
-> - changed name to cpsw_get_usage_count()
-> - added comments to open/closw for cpsw_get_usage_count()
-> - added patch:
->   net: ethernet: ti: cpsw: clarify ethtool ops changing num of descs
->
-> Based on net-next/master
->
-> Ivan Khoronzhuk (5):
->   net: ethernet: ti: cpsw: remove dual check from common res usage
->     function
->   net: ethernet: ti: cpsw: don't disable interrupts in ndo_open
->   net: ethernet: ti: cpsw: don't duplicate ndev_running
->   net: ethernet: ti: cpsw: don't duplicate common res in rx handler
->   net: ethernet: ti: cpsw: clarify ethtool ops changing num of descs
->
->  drivers/net/ethernet/ti/cpsw.c | 200 ++++++++++++++++++-----------------------
->  1 file changed, 88 insertions(+), 112 deletions(-)
->
+The ifstat code could do conversion based on file size.
 
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
-
--- 
-regards,
--grygorii
+  if (history_file_is_32bit()) {
+	printf("converting to 64 bit format\n");
+        ...
+  }
