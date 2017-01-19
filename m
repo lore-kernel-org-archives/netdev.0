@@ -1,85 +1,59 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [Xen-devel] xennet_start_xmit assumptions
-Date: Thu, 19 Jan 2017 06:37:00 -0500
-Message-ID: <20170119113700.GD22018@oracle.com>
-References: <20170118153132.GB9258@oracle.com>
- <20170118192528.GA6847@char.us.oracle.com>
- <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
- <20170119111426.GA22018@oracle.com>
- <22c048f35d3845158b225d51dde33bf7@AMSPEX02CL03.citrite.net>
+From: Paul Blakey <paulb@mellanox.com>
+Subject: Re: [PATCH iproute2 net-next] tc: flower: support matching flags
+Date: Thu, 19 Jan 2017 13:39:41 +0200
+Message-ID: <9498ff5d-7877-37b6-b72e-01d4bf40501a@mellanox.com>
+References: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
+ <20170102195522.7488179b@griffin>
+ <1ec4f4ca-08e0-84fc-34c6-b3868d756050@mellanox.com>
+ <20170104103301.GA30008@penelope.horms.nl>
+ <82df989f-09a7-a89a-a675-c45d190b049e@mellanox.com>
+ <20170104125559.34a7b7ed@griffin> <20170118134103.351bd524@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-        Wei Liu <wei.liu2@citrix.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <paulb@mellanox.com>, Simon Horman <simon.horman@netronome.com>,
+        <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:39248 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751936AbdASLhK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 06:37:10 -0500
-Content-Disposition: inline
-In-Reply-To: <22c048f35d3845158b225d51dde33bf7@AMSPEX02CL03.citrite.net>
+Received: from mail-ve1eur01on0065.outbound.protection.outlook.com ([104.47.1.65]:6976
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752378AbdASLjr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Jan 2017 06:39:47 -0500
+In-Reply-To: <20170118134103.351bd524@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/19/17 11:31), Paul Durrant wrote:
-> Sowmini,
-> 
-> Yeah, it would be useful to verify any change fixes the particular
-> issue you're seeing so please share the program. For the non-empty
-> non-linear case I'd hope that catching this and doing a pull of some
-> sensible amount of header (which might coincide with the least amount
-> that netback expects to see in the first frag) would be enough.
-> I can take a shot at a patch for this in the next few days; I'll add
-> your 'Reported-by' so you should get cc-ed.
-
-Sounds good, here is the test program (very basic, no error checks!).
-I think you can probably massage the pf_packet code to send down a 
-purely non-linear skb, I can take a look at what this involves and  
-get back to you. 
 
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <string.h>
-#include <linux/if_packet.h>
-#include <linux/if_ether.h>
+On 18/01/2017 14:41, Jiri Benc wrote:
+> On Wed, 4 Jan 2017 12:55:59 +0100, Jiri Benc wrote:
+>> On Wed, 4 Jan 2017 13:51:13 +0200, Paul Blakey wrote:
+>>> It mimics the kernel packing of flags, I have no problem either way
+>>> (flags, or ip_flags/tcp_flags pairs), what do you think jiri?
+>>
+>> What Simon says makes sense to me. ip_flags and tcp_flags sounds like
+>> the best solution so far (even better than my original suggestion).
+>
+> Is there any progress with the follow up patch? I don't think we want
+> iproute2 with the magic numbers to be released.
+>
+> Thanks,
+>
+>  Jiri
+>
 
-int main(int argc, char *argv[])
-{
-        struct ifreq ifr;
-        int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        struct sockaddr_ll sll;
-        int fd;
-        struct msghdr msg;
 
-        bzero(&ifr, sizeof (ifr));
-        strncpy(ifr.ifr_name, argv[1], sizeof(ifr.ifr_name));
-        ioctl(sockfd, SIOCGIFHWADDR, &ifr);
 
-        bzero(&sll, sizeof (sll));
-        sll.sll_family = PF_PACKET;
-        sll.sll_halen = ETH_ALEN;
-        sll.sll_ifindex = if_nametoindex(argv[1]);
-        memcpy(sll.sll_addr,  (struct sockaddr *)&(ifr.ifr_hwaddr), ETH_ALEN);
+Hi,
+I've posted a patch:
+"[PATCH iproute2 net-next] tc: flower: Refactor matching flags to be 
+more user friendly"
 
-        fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-        bind(fd, (struct sockaddr *)&sll, sizeof(sll));
-        bzero(&msg, sizeof (msg));
-        msg.msg_name = (void *)&sll;
-        msg.msg_namelen = sizeof (struct sockaddr_ll);
-        sendmsg(fd, &msg, 0);
-        fprintf(stderr, "sent!\n");
-}
+Thanks,
+Paul.
