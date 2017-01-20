@@ -1,48 +1,32 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v5 2/2] net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341
-Date: Fri, 20 Jan 2017 12:30:16 -0500
-Message-ID: <87lgu5r653.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170119214934.27442-1-gregory.clement@free-electrons.com> <20170119214934.27442-3-gregory.clement@free-electrons.com> <87y3y6k7pg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170120001203.GB31483@lunn.ch> <8760l9641t.fsf@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH next 0/3] use netdev_is_rx_handler_busy() in few known
+ cases
+Date: Fri, 20 Jan 2017 12:22:47 -0500 (EST)
+Message-ID: <20170120.122247.579482338385386692.davem@davemloft.net>
+References: <20170118230245.20674-1-mahesh@bandewar.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Wilson Ding <dingwei@marvell.com>,
-        Kostya Porotchkin <kostap@marvell.com>,
-        Joe Zhou <shjzhou@marvell.com>,
-        Jon Pannell <jpannell@marvell.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8760l9641t.fsf@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org, maheshb@google.com
+To: mahesh@bandewar.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34102 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752126AbdATRas (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:30:48 -0500
+In-Reply-To: <20170118230245.20674-1-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gregory,
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Wed, 18 Jan 2017 15:02:45 -0800
 
-Gregory CLEMENT <gregory.clement@free-electrons.com> writes:
+> netdev_rx_handler_register() was recently split into two parts - (a) check
+> if the handler is used, (b) register the new handler, parts. This is 
+> helpful in scenarios like bonding where at the time of registration there
+> is too much state to unwind and it should check if the device is free
+> before building that state. IPvlan and macvlan drivers don't have this
+> issue however it can make use of the same check instead of using a device
+> specific check.
 
-> If there a series about to be merged I can rebase my series on it. Else
-> I propose to keep it and convert the family check to ops when you will
-> send the series for it.
-
-I am reworking the VTU operations, but not these port operations yet.
-I will take care of converting the family checks once I'm done, don't
-worry ;)
-
-> I confirm that 6141 and 6341 are called Topaz. Actually I can add the
-> support for the 6141 too, it is just a matter of adding an ID and maybe
-> removing some ops as 6141 is a subset of 6341.
-
-I don't mind having a patch adding support for only one chip at a time,
-that is up to you.
-
-Thanks,
-
-        Vivien
+Looks good, series applied, thanks.
