@@ -1,53 +1,47 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/7] net: dsa: bcm_sf2: Make SF2_IO64_MACRO() utilize 32-bit macro
-Date: Fri, 20 Jan 2017 12:36:28 -0800
-Message-ID: <20170120203634.2773-2-f.fainelli@gmail.com>
-References: <20170120203634.2773-1-f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/7] net: dsa: bcm_sf2: Add support for BCM7278
+Date: Fri, 20 Jan 2017 12:36:27 -0800
+Message-ID: <20170120203634.2773-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
         andrew@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34353 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753656AbdATUgo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 15:36:44 -0500
-Received: by mail-pf0-f194.google.com with SMTP id y143so6039322pfb.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 12:36:44 -0800 (PST)
-In-Reply-To: <20170120203634.2773-1-f.fainelli@gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:32914 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753352AbdATUgn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 15:36:43 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so7679201pgd.0
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 12:36:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no point inlining the 32-bit direct register read/write part,
-just infer it from the existing macro. This will make it easier to
-centralize the address rewriting that we are going to introduce later
-on.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This patch series adds support for the Broadcom BCM7278 integrated switch
+which is a successor of the BCM7445 switch. We have a little bit of
+register shuffling going on, which is why most of the functional changes
+are to deal with that.
 
-diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
-index 44692673e1d5..4531c2333e86 100644
---- a/drivers/net/dsa/bcm_sf2.h
-+++ b/drivers/net/dsa/bcm_sf2.h
-@@ -125,7 +125,7 @@ static inline u64 name##_readq(struct bcm_sf2_priv *priv, u32 off)	\
- {									\
- 	u32 indir, dir;							\
- 	spin_lock(&priv->indir_lock);					\
--	dir = __raw_readl(priv->name + off);				\
-+	dir = name##_readl(priv, off);					\
- 	indir = reg_readl(priv, REG_DIR_DATA_READ);			\
- 	spin_unlock(&priv->indir_lock);					\
- 	return (u64)indir << 32 | dir;					\
-@@ -135,7 +135,7 @@ static inline void name##_writeq(struct bcm_sf2_priv *priv, u64 val,	\
- {									\
- 	spin_lock(&priv->indir_lock);					\
- 	reg_writel(priv, upper_32_bits(val), REG_DIR_DATA_WRITE);	\
--	__raw_writel(lower_32_bits(val), priv->name + off);		\
-+	name##_writel(priv, lower_32_bits(val), off);			\
- 	spin_unlock(&priv->indir_lock);					\
- }
- 
+Thanks!
+
+Florian Fainelli (7):
+  net: dsa: bcm_sf2: Make SF2_IO64_MACRO() utilize 32-bit macro
+  net: dsa: bcm_sf2: Prepare for different register layouts
+  net: dsa: bcm_sf2: Add support for BCM7278 integrated switch
+  net: dsa: bcm_sf2: Move code enabling Broadcom tags
+  net: dsa: bcm_sf2: Allow non-IMP ports to have Broadcom tags enabled
+  net: phy: bcm7xxx: Add entry for BCM7278
+  net: phy: bcm7xxx: Implement EGPHY workaround for 7278
+
+ .../bindings/net/brcm,bcm7445-switch-v4.0.txt      |  10 +-
+ drivers/net/dsa/b53/b53_common.c                   |  12 ++
+ drivers/net/dsa/b53/b53_priv.h                     |   4 +-
+ drivers/net/dsa/bcm_sf2.c                          | 167 ++++++++++++++++-----
+ drivers/net/dsa/bcm_sf2.h                          |  41 ++++-
+ drivers/net/dsa/bcm_sf2_regs.h                     |  47 +++---
+ drivers/net/phy/bcm7xxx.c                          |  36 +++++
+ include/linux/brcmphy.h                            |   1 +
+ 8 files changed, 261 insertions(+), 57 deletions(-)
+
 -- 
 2.9.3
