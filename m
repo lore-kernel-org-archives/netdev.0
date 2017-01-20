@@ -1,38 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv2 iproute2 net-next 1/5] iplink: bridge: add support for
- IFLA_BR_FDB_FLUSH
-Date: Fri, 20 Jan 2017 10:34:52 -0800
-Message-ID: <20170120103452.26314196@xeon-e3>
-References: <1484719971-21693-1-git-send-email-liuhangbin@gmail.com>
-        <1484719971-21693-2-git-send-email-liuhangbin@gmail.com>
+From: Mark Greer <mgreer@animalcreek.com>
+Subject: Re: [PATCH v3 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt
+ IO voltage
+Date: Fri, 20 Jan 2017 11:37:44 -0700
+Message-ID: <20170120183744.GA9749@animalcreek.com>
+References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
+ <1482380314-16440-2-git-send-email-geoff@kuvee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:34189 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752772AbdATSfA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 13:35:00 -0500
-Received: by mail-pg0-f44.google.com with SMTP id 14so25504084pgg.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 10:34:59 -0800 (PST)
-In-Reply-To: <1484719971-21693-2-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
+        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
+        robh+dt@kernel.org, mark.rutland@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        justin@kuvee.com
+To: Geoff Lansberry <geoff@kuvee.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1482380314-16440-2-git-send-email-geoff@kuvee.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jan 2017 14:12:47 +0800
-Hangbin Liu <liuhangbin@gmail.com> wrote:
-
-> This patch implements support for the IFLA_BR_FDB_FLUSH attribute
-> in iproute2 so it can flush bridge fdb dynamic entries.
+On Wed, Dec 21, 2016 at 11:18:33PM -0500, Geoff Lansberry wrote:
+> The TRF7970A has configuration options for supporting hardware designs
+> with 1.8 Volt or 3.3 Volt IO.   This commit adds a device tree option,
+> using a fixed regulator binding, for setting the io voltage to match
+> the hardware configuration. If no option is supplied it defaults to
+> 3.3 volt configuration.
 > 
-> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
 > ---
->  ip/iplink_bridge.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
+>  .../devicetree/bindings/net/nfc/trf7970a.txt       |  2 ++
+>  drivers/nfc/trf7970a.c                             | 26 +++++++++++++++++++++-
 
-Applied all of these to net-next, please update man pages.
+Acked-by: Mark Greer <mgreer@animalcreek.com>
