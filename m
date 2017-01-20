@@ -1,44 +1,97 @@
-From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Subject: [PATCH net-next] uapi: fix signess in ethtool_validate_speed()
-Date: Fri, 20 Jan 2017 14:20:53 +0100
-Message-ID: <1484918453-5849-1-git-send-email-volodymyr.bendiuga@gmail.com>
-Cc: Jonas Johansson <jonas.johansson@westermo.se>,
-        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-To: davem@davemloft.net, mst@redhat.com, nikolay@cumulusnetworks.com,
-        netdev@vger.kernel.org, volodymyr.bendiuga@westermo.se
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:33377 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750893AbdATNVu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 08:21:50 -0500
-Received: by mail-lf0-f65.google.com with SMTP id x1so8642114lff.0
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 05:21:49 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH] net: sctp: fix array overrun read on sctp_timer_tbl
+Date: Fri, 20 Jan 2017 11:22:02 -0200
+Message-ID: <20170120132202.GS3781@localhost.localdomain>
+References: <20170120130157.20034-1-colin.king@canonical.com>
+ <20170120131000.GR3781@localhost.localdomain>
+ <4ba6d2eb-972d-4e2e-7876-7ecf3e29a438@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, lucien.xin@gmail.com
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4ba6d2eb-972d-4e2e-7876-7ecf3e29a438@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jonas Johansson <jonas.johansson@westermo.se>
+On Fri, Jan 20, 2017 at 01:15:18PM +0000, Colin Ian King wrote:
+> On 20/01/17 13:10, Marcelo Ricardo Leitner wrote:
+> > On Fri, Jan 20, 2017 at 01:01:57PM +0000, Colin King wrote:
+> >> From: Colin Ian King <colin.king@canonical.com>
+> >>
+> >> The comparison on the timeout can lead to an array overrun
+> >> read on sctp_timer_tbl because of an off-by-one error. Fix
+> >> this by using < instead of <= and also compare to the array
+> >> size rather than SCTP_EVENT_TIMEOUT_MAX.
+> >>
+> >> Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
+> >>
+> >> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> >> ---
+> >>  net/sctp/debug.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/sctp/debug.c b/net/sctp/debug.c
+> >> index 95d7b15..e371a0d 100644
+> >> --- a/net/sctp/debug.c
+> >> +++ b/net/sctp/debug.c
+> >> @@ -166,7 +166,7 @@ static const char *const sctp_timer_tbl[] = {
+> >>  /* Lookup timer debug name. */
+> >>  const char *sctp_tname(const sctp_subtype_t id)
+> >>  {
+> >> -	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
+> >> +	if (id.timeout < ARRAY_SIZE(sctp_timer_tbl))
+> >>  		return sctp_timer_tbl[id.timeout];
+> > 
+> > The issue exists but this is not the right fix.
+> > Issue was introduced by 7b9438de0cd4 ("sctp: add stream reconf timer")
+> > as it introduced a new timer but didn't add the timer name here, so the
+> > fix should (also) include:
+> > 
+> > diff --git a/net/sctp/debug.c b/net/sctp/debug.c
+> > index 95d7b15dad21..c5f4ed5242ac 100644
+> > --- a/net/sctp/debug.c
+> > +++ b/net/sctp/debug.c
+> > @@ -159,6 +159,7 @@ static const char *const sctp_timer_tbl[] = {
+> >  	"TIMEOUT_T4_RTO",
+> >  	"TIMEOUT_T5_SHUTDOWN_GUARD",
+> >  	"TIMEOUT_HEARTBEAT",
+> > +	"TIMEOUT_RECONF",
+> >  	"TIMEOUT_SACK",
+> >  	"TIMEOUT_AUTOCLOSE",
+> >  };
+> 
+> Ah, OK, I can add that timeout into the the table, but perhaps it's
+> still prudent to check the index against the table size as well.
+> 
 
-There is a comparison of speed  variable which
-is unsigned, and SPEED_UNKNOWN which is signed.
+Yes, and/or a:
+  BUILD_BUG_ON(SCTP_EVENT_TIMEOUT_MAX + 1 != ARRAY_SIZE(sctp_timer_tbl))
+As then we would be sure to have the list right :-)
+Otherwise we may not do wrong reads but may report the wrong timer name.
 
-Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
-Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
----
- include/uapi/linux/ethtool.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index f0db778..1ca4a77 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1500,7 +1500,7 @@ enum ethtool_link_mode_bit_indices {
- 
- #define SPEED_UNKNOWN		-1
- 
--static inline int ethtool_validate_speed(__u32 speed)
-+static inline int ethtool_validate_speed(__s32 speed)
- {
- 	return speed <= INT_MAX || speed == SPEED_UNKNOWN;
- }
--- 
-2.7.4
+> > 
+> > Thanks,
+> > Marcelo
+> > 
+> >>  	return "unknown_timer";
+> >>  }
+> >> -- 
+> >> 2.10.2
+> >>
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
