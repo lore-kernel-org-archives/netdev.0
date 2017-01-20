@@ -1,47 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: seg6_genl_set_tunsrc() must check kmemdup()
- return value
-Date: Fri, 20 Jan 2017 07:57:42 -0800
-Message-ID: <1484927862.16328.123.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] virtio-net: restore VIRTIO_HDR_F_DATA_VALID on
+	receiving
+Date: Fri, 20 Jan 2017 11:03:57 -0500 (EST)
+Message-ID: <20170120.110357.940788880370139025.davem@davemloft.net>
+References: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        David Lebrun <david.lebrun@uclouvain.be>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33405 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752373AbdATP6l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 10:58:41 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 194so7229529pgd.0
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 07:57:43 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rolf.neugebauer@docker.com, netdev@vger.kernel.org, mst@redhat.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 20 Jan 2017 14:32:42 +0800
 
-seg6_genl_get_tunsrc() and set_tun_src() do not handle tun_src being
-possibly NULL, so we must check kmemdup() return value and abort if
-it is NULL
+> Commit 501db511397f ("virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on
+> xmit") in fact disables VIRTIO_HDR_F_DATA_VALID on receiving path too,
+> fixing this by adding a hint (has_data_valid) and set it only on the
+> receiving path.
+> 
+> Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Fixes: 915d7e5e5930 ("ipv6: sr: add code base for control plane support of SR-IPv6")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: David Lebrun <david.lebrun@uclouvain.be>
----
- net/ipv6/seg6.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv6/seg6.c b/net/ipv6/seg6.c
-index b172d85c650a376f541ea05d72046c76b8404303..a855eb325b030a666fe92c56a2d432c77d9dfe7a 100644
---- a/net/ipv6/seg6.c
-+++ b/net/ipv6/seg6.c
-@@ -176,6 +176,8 @@ static int seg6_genl_set_tunsrc(struct sk_buff *skb, struct genl_info *info)
- 
- 	val = nla_data(info->attrs[SEG6_ATTR_DST]);
- 	t_new = kmemdup(val, sizeof(*val), GFP_KERNEL);
-+	if (!t_new)
-+		return -ENOMEM;
- 
- 	mutex_lock(&sdata->lock);
- 
+Applied, thanks Jason.
