@@ -1,48 +1,38 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next v2] ipmroute: add support for
- RTNH_F_UNRESOLVED
-Date: Fri, 20 Jan 2017 09:42:14 -0800
-Message-ID: <20170120094214.4d01938e@xeon-e3>
-References: <1484921062-23379-1-git-send-email-nikolay@cumulusnetworks.com>
-        <1484921721-24378-1-git-send-email-nikolay@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency
+ reserve
+Date: Fri, 20 Jan 2017 12:43:01 -0500 (EST)
+Message-ID: <20170120.124301.1228899617504374421.davem@davemloft.net>
+References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34266 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752412AbdATRmW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:42:22 -0500
-Received: by mail-pf0-f172.google.com with SMTP id e4so23932958pfg.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 09:42:22 -0800 (PST)
-In-Reply-To: <1484921721-24378-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34312 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751328AbdATRnD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:43:03 -0500
+In-Reply-To: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Jan 2017 15:15:21 +0100
-Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Jan 2017 23:03:08 -0800
 
-> This patch adds a new field that is printed in the end of the line which
-> denotes the real entry state. Before this patch an entry's IIF could
-> disappear and it would look like an unresolved one (iif = unresolved):
-> (3.0.16.1, 225.11.16.1)          Iif: unresolved
-> with no way to really distinguish it from an unresolved entry.
-> After the patch if the dumped entry has RTNH_F_UNRESOLVED set we get:
-> (3.0.16.1, 225.11.16.1)          Iif: unresolved  State: unresolved
-> for unresolved entries and:
-> (0.0.0.0, 225.11.11.11)          Iif: eth4       Oifs: eth3  State: resolved
-> for resolved entries after the OIF list. Note that "State:" has ':' in
-> it so it cannot be mistaken for an interface name.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> And for the example above, we'd get:
-> (0.0.0.0, 225.11.11.11)          Iif: unresolved     State: resolved
+> A driver using dev_alloc_page() must not reuse a page allocated from
+> emergency memory reserve.
 > 
-> Also when dumping all routes via ip route show table all, it will show
-> up as:
-> multicast 225.11.16.1/32 from 3.0.16.1/32 table default proto 17 unresolved
+> Otherwise all packets using this page will be immediately dropped,
+> unless for very specific sockets having SOCK_MEMALLOC bit set.
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> This issue might be hard to debug, because only a fraction of received
+> packets would be dropped.
+> 
+> Fixes: 4415a0319f92 ("net/mlx5e: Implement RX mapped page cache for page recycle")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied to net-next
+Applied and queued up for -stable, thanks.
