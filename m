@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: remove bh disabling around
- percpu_counter accesses
-Date: Fri, 20 Jan 2017 11:27:35 -0500 (EST)
-Message-ID: <20170120.112735.1965338591020455561.davem@davemloft.net>
-References: <1484917568.16328.110.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] fq_codel: Avoid regenerating skb flow hash
+ unless necessary
+Date: Fri, 20 Jan 2017 12:15:37 -0500 (EST)
+Message-ID: <20170120.121537.2279655261253689807.davem@davemloft.net>
+References: <20170118210428.24006-1-acollins@cradlepoint.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, tom@herbertland.com
+To: acollins@cradlepoint.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60972 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33810 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752422AbdATQ1g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:27:36 -0500
-In-Reply-To: <1484917568.16328.110.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1752248AbdATRPj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:15:39 -0500
+In-Reply-To: <20170118210428.24006-1-acollins@cradlepoint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 20 Jan 2017 05:06:08 -0800
+From: Andrew Collins <acollins@cradlepoint.com>
+Date: Wed, 18 Jan 2017 14:04:28 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> The fq_codel qdisc currently always regenerates the skb flow hash.
+> This wastes some cycles and prevents flow seperation in cases where
+> the traffic has been encrypted and can no longer be understood by the
+> flow dissector.
 > 
-> Shaohua Li made percpu_counter irq safe in commit 098faf5805c8
-> ("percpu_counter: make APIs irq safe")
+> Change it to use the prexisting flow hash if one exists, and only
+> regenerate if necessary.
 > 
-> We can safely remove BH disable/enable sections around various
-> percpu_counter manipulations.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Andrew Collins <acollins@cradlepoint.com>
 
-Looks great, applied, thanks Eric.
+Applied, thanks.
