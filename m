@@ -1,88 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
-Date: Fri, 20 Jan 2017 19:48:55 +0200
-Message-ID: <20170120194824-mutt-send-email-mst@kernel.org>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
- <20170118171259-mutt-send-email-mst@kernel.org>
- <40e9a46a-1115-c21a-49f3-fdedb0a34101@redhat.com>
- <20170119231027-mutt-send-email-mst@kernel.org>
- <063D6719AE5E284EB5DD2968C1650D6DB026921C@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        "john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>
-To: David Laight <David.Laight@ACULAB.COM>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv4 net-next 0/5] sctp: add sender-side procedures for stream reconf asoc reset and add streams
+Date: Sat, 21 Jan 2017 02:00:34 +0800
+Message-ID: <cover.1484934853.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49908 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751026AbdATRs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 12:48:57 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB026921C@AcuExch.aculab.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34444 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752425AbdATSAr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 13:00:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 04:59:11PM +0000, David Laight wrote:
-> From: Michael S. Tsirkin
-> > Sent: 19 January 2017 21:12
-> > > On 2017?01?18? 23:15, Michael S. Tsirkin wrote:
-> > > > On Tue, Jan 17, 2017 at 02:22:59PM -0800, John Fastabend wrote:
-> > > > > Add support for XDP adjust head by allocating a 256B header region
-> > > > > that XDP programs can grow into. This is only enabled when a XDP
-> > > > > program is loaded.
-> > > > >
-> > > > > In order to ensure that we do not have to unwind queue headroom push
-> > > > > queue setup below bpf_prog_add. It reads better to do a prog ref
-> > > > > unwind vs another queue setup call.
-> > > > >
-> > > > > At the moment this code must do a full reset to ensure old buffers
-> > > > > without headroom on program add or with headroom on program removal
-> > > > > are not used incorrectly in the datapath. Ideally we would only
-> > > > > have to disable/enable the RX queues being updated but there is no
-> > > > > API to do this at the moment in virtio so use the big hammer. In
-> > > > > practice it is likely not that big of a problem as this will only
-> > > > > happen when XDP is enabled/disabled changing programs does not
-> > > > > require the reset. There is some risk that the driver may either
-> > > > > have an allocation failure or for some reason fail to correctly
-> > > > > negotiate with the underlying backend in this case the driver will
-> > > > > be left uninitialized. I have not seen this ever happen on my test
-> > > > > systems and for what its worth this same failure case can occur
-> > > > > from probe and other contexts in virtio framework.
-> > > > >
-> > > > > Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
-> > > > I've been thinking about it - can't we drop
-> > > > old buffers without the head room which were posted before
-> > > > xdp attached?
-> > > >
-> > > > Avoiding the reset would be much nicer.
-> > > >
-> > > > Thoughts?
-> > > >
-> > >
-> > > As been discussed before, device may use them in the same time so it's not
-> > > safe. Or do you mean detect them after xdp were set and drop the buffer
-> > > without head room, this looks sub-optimal.
-> > >
-> > > Thanks
-> > 
-> > Yes, this is what I mean.  Why is this suboptimal? It's a single branch
-> > in code. Yes we might lose some packets but the big hammer of device
-> > reset will likely lose more.
-> 
-> Why not leave let the hardware receive into the 'small' buffer (without
-> headroom) and do a copy when a frame is received.
-> Replace the buffers with 'big' ones for the next receive.
-> A data copy on a ring full of buffers won't really be noticed.
-> 
-> 	David
-> 
+Patch 3/5 is to implement sender-side procedures for the SSN/TSN Reset
+Request Parameter described in rfc6525 section 5.1.4, patch 2/5 is
+ahead of it to define a function to make the request chunk for it.
 
-I like that. John?
+Patch 5/5 is to implement sender-side procedures for the Add Incoming
+and Outgoing Streams Request Parameter Request Parameter described in
+rfc6525 section 5.1.5 and 5.1.6, patch 4/5 is ahead of it to define a
+function to make the request chunk for it.
+
+Patch 1/5 is a fix to make streams be closed only when request is sent
+successfully.
+
+v1->v2:
+  - put these into a smaller group.
+  - rename some temporary variables in the codes.
+  - rename the titles of the commits and improve some changelogs.
+v2->v3:
+  - re-split the patchset and make sure it has no dead codes for review.
+  - move some codes into stream.c from socket.c.
+v3->v4:
+  - add one more patch to fix a send reset stream request issue.
+  - doing actual work only when request is sent successfully.
+  - reduce some indents in sctp_send_add_streams.
+
+Xin Long (5):
+  sctp: streams should be closed when stream reset request is sent
+    successfully.
+  sctp: add support for generating stream reconf ssn/tsn reset request
+    chunk
+  sctp: implement sender-side procedures for SSN/TSN Reset Request
+    Parameter
+  sctp: add support for generating stream reconf add incoming/outgoing
+    streams request chunk
+  sctp: implement sender-side procedures for Add Incoming/Outgoing
+    Streams Request Parameter
+
+ include/linux/sctp.h      |  12 +++++
+ include/net/sctp/sctp.h   |   3 ++
+ include/net/sctp/sm.h     |   5 ++
+ include/uapi/linux/sctp.h |   8 +++
+ net/sctp/sm_make_chunk.c  |  75 ++++++++++++++++++++++++++++
+ net/sctp/socket.c         |  58 ++++++++++++++++++++++
+ net/sctp/stream.c         | 124 +++++++++++++++++++++++++++++++++++++++++++++-
+ 7 files changed, 284 insertions(+), 1 deletion(-)
 
 -- 
-MST
+2.1.0
