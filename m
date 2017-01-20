@@ -1,53 +1,34 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [PATCH] inet: don't use sk_v6_rcv_saddr directly
-Date: Fri, 20 Jan 2017 09:18:32 -0500
-Message-ID: <1484921912.786.1@smtp.office365.com>
-References: <1484866066-25407-1-git-send-email-jbacik@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: remove bh disabling around
+ percpu_counter accesses
+Date: Fri, 20 Jan 2017 11:27:35 -0500 (EST)
+Message-ID: <20170120.112735.1965338591020455561.davem@davemloft.net>
+References: <1484917568.16328.110.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-To: <davem@davemloft.net>, <tom@herbertland.com>,
-        <netdev@vger.kernel.org>, <kafai@fb.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57036 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752327AbdATPVl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 10:21:41 -0500
-In-Reply-To: <1484866066-25407-1-git-send-email-jbacik@fb.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60972 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752422AbdATQ1g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:27:36 -0500
+In-Reply-To: <1484917568.16328.110.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2017 at 5:47 PM, Josef Bacik <jbacik@fb.com> wrote:
-> When comparing two sockets we need to use inet6_rcv_saddr so we get a 
-> NULL
-> sk_v6_rcv_saddr if the socket isn't AF_INET6, otherwise our 
-> comparison function
-> can be wrong.
-> 
-> Fixes: 637bc8b ("inet: reset tb->fastreuseport when adding a 
-> reuseport sk")
-> Signed-off-by: Josef Bacik <jbacik@fb.com>
-> ---
->  net/ipv4/inet_connection_sock.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/inet_connection_sock.c 
-> b/net/ipv4/inet_connection_sock.c
-> index 096a085..a336c42 100644
-> --- a/net/ipv4/inet_connection_sock.c
-> +++ b/net/ipv4/inet_connection_sock.c
-> @@ -99,7 +99,7 @@ int inet_rcv_saddr_equal(const struct sock *sk, 
-> const struct sock *sk2,
->  #if IS_ENABLED(CONFIG_IPV6)
->  	if (sk->sk_family == AF_INET6)
->  		return ipv6_rcv_saddr_equal(&sk->sk_v6_rcv_saddr,
-> -					    &sk2->sk_v6_rcv_saddr,
-> +					    inet6_rcv_saddr(sk2),
->  					    sk->sk_rcv_saddr,
->  					    sk2->sk_rcv_saddr,
->  					    ipv6_only_sock(sk),
-> --
-> 2.5.5
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 20 Jan 2017 05:06:08 -0800
 
-Sorry I forgot to tag this, it's for net-next.  Thanks,
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Shaohua Li made percpu_counter irq safe in commit 098faf5805c8
+> ("percpu_counter: make APIs irq safe")
+> 
+> We can safely remove BH disable/enable sections around various
+> percpu_counter manipulations.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Josef
+Looks great, applied, thanks Eric.
