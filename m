@@ -1,46 +1,48 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/2] two small fixes in flower option parser
- error flow
-Date: Fri, 20 Jan 2017 09:30:15 -0800
-Message-ID: <20170120093015.2c0f06a9@xeon-e3>
-References: <1484829080-18593-1-git-send-email-roid@mellanox.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v5 2/2] net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341
+Date: Fri, 20 Jan 2017 12:30:16 -0500
+Message-ID: <87lgu5r653.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170119214934.27442-1-gregory.clement@free-electrons.com> <20170119214934.27442-3-gregory.clement@free-electrons.com> <87y3y6k7pg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170120001203.GB31483@lunn.ch> <8760l9641t.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Roi Dayan <roid@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34835 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752425AbdATRaX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:30:23 -0500
-Received: by mail-pf0-f178.google.com with SMTP id f144so23909470pfa.2
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 09:30:22 -0800 (PST)
-In-Reply-To: <1484829080-18593-1-git-send-email-roid@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Wilson Ding <dingwei@marvell.com>,
+        Kostya Porotchkin <kostap@marvell.com>,
+        Joe Zhou <shjzhou@marvell.com>,
+        Jon Pannell <jpannell@marvell.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8760l9641t.fsf@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Jan 2017 14:31:18 +0200
-Roi Dayan <roid@mellanox.com> wrote:
+Hi Gregory,
 
-> Hi,
-> 
-> the first adds a missing return check and the second removes
-> an incorrect error msg.
-> 
-> Thanks,
-> Roi
-> 
-> 
-> Roi Dayan (2):
->   tc: flower: Add missing err check when parsing flower options
->   tc: flower: Fix incorrect error msg about eth type
-> 
->  tc/f_flower.c |   11 +++++------
->  1 files changed, 5 insertions(+), 6 deletions(-)
-> 
+Gregory CLEMENT <gregory.clement@free-electrons.com> writes:
 
-Both applied
+> If there a series about to be merged I can rebase my series on it. Else
+> I propose to keep it and convert the family check to ops when you will
+> send the series for it.
+
+I am reworking the VTU operations, but not these port operations yet.
+I will take care of converting the family checks once I'm done, don't
+worry ;)
+
+> I confirm that 6141 and 6341 are called Topaz. Actually I can add the
+> support for the 6141 too, it is just a matter of adding an ID and maybe
+> removing some ops as 6141 is a subset of 6341.
+
+I don't mind having a patch adding support for only one chip at a time,
+that is up to you.
+
+Thanks,
+
+        Vivien
