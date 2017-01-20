@@ -1,40 +1,45 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCH][V2] net: sctp: fix array overrun read on sctp_timer_tbl
-Date: Fri, 20 Jan 2017 14:51:35 -0200
-Message-ID: <20170120165135.GB669@localhost.localdomain>
-References: <20170120134542.21104-1-colin.king@canonical.com>
- <20170120135845.GT3781@localhost.localdomain>
- <20170120.113209.1764653226397979876.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] net: Fix oops on state free after lwt module
+ unload
+Date: Fri, 20 Jan 2017 12:03:21 -0500 (EST)
+Message-ID: <20170120.120321.688277769193451439.davem@davemloft.net>
+References: <1484753523-26230-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: colin.king@canonical.com, vyasevich@gmail.com,
-        nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170120.113209.1764653226397979876.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tom@herbertland.com,
+        roopa@cumulusnetworks.com
+To: rshearma@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33594 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751391AbdATRD0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:03:26 -0500
+In-Reply-To: <1484753523-26230-1-git-send-email-rshearma@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 11:32:09AM -0500, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Fri, 20 Jan 2017 11:58:45 -0200
-> 
-> > Not sure I can add the Fixes tag for you here, but:
-> > Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
-> > Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> 
-> FWIW, patchwork doesn't notice updated Fixes: tags like this but I
-> try to do so myself and the effort is definitely appreciated.
+From: Robert Shearman <rshearma@brocade.com>
+Date: Wed, 18 Jan 2017 15:32:01 +0000
 
-Ok, good to know, thanks.
+> This patchset fixes an oops in lwtstate_free and a memory leak that
+> would otherwise be exposed by ensuring that references are taken on
+> modules that need to stay around to clean up lwt state. To faciliate
+> this all ops that implement destroy_state and that can be configured
+> to build as a module are changed specify the owner module in the
+> ops. The intersection of those two sets is just ila at the moment.
 
-> 
-> We need a V3 of this change anyways, see the build failure I reported
-> for V2, so Colin can add the Fixes: tag there explicitly.
-> 
+Two things:
 
-Replied this one in there.
+1) Under no circumstances should we allow a lwtunnel ops implementing
+   module to unload while there is a rule using those ops which is
+   alive.
 
-  Marcelo
+   Therefore, we should not special case the destroy op.  We should
+   unconditionally grab the module reference.
+
+2) Please add the new 'owner' field and add an appropriate assignment
+   for ops->owner to _every_ lwtunnel implementation, and do so in
+   your first patch.  Please do not only do this for ILA.
+
+Thanks.
