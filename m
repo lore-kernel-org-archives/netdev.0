@@ -1,35 +1,50 @@
-From: Valentine Sinitsyn <valentine.sinitsyn@gmail.com>
-Subject: ipv6_get_ifaddr() not exported
-Date: Fri, 20 Jan 2017 11:33:04 +0500
-Message-ID: <51967919-8cbd-e324-6851-0c3ed505ca4d@gmail.com>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net] r8152: fix rtl8152_post_reset function
+Date: Fri, 20 Jan 2017 14:33:55 +0800
+Message-ID: <1394712342-15778-234-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-233-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:33725 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751260AbdATGku (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 01:40:50 -0500
-Received: by mail-lf0-f48.google.com with SMTP id k86so51066759lfi.0
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 22:40:49 -0800 (PST)
-Received: from ?IPv6:2a02:6b8:0:2807:cde1:8c1:2576:7afc? ([2a02:6b8:0:2807:cde1:8c1:2576:7afc])
-        by smtp.googlemail.com with ESMTPSA id r18sm2950941lff.4.2017.01.19.22.33.04
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Thu, 19 Jan 2017 22:33:05 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-233-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+The rtl8152_post_reset() should sumbit rx urb and interrupt transfer,
+otherwise the rx wouldn't work and the linking change couldn't be
+detected.
 
-I'm working on a custom Netfilter module which could seemingly use 
-ipv6_get_ifaddr() function to find a netdev which has a destination IPv6 
-assigned (if any). The function is public, but not exported, so I can't 
-use it in my module.
+Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/r8152.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Am I doing anything wrong, or I'm just a first type to use 
-ipv6_get_ifaddr() outside net/ipv6 code, and it's okay to export it now?
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index f3b48ad..0e99af0 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3545,12 +3545,14 @@ static int rtl8152_post_reset(struct usb_interface *intf)
+ 	if (netif_carrier_ok(netdev)) {
+ 		mutex_lock(&tp->control);
+ 		tp->rtl_ops.enable(tp);
++		rtl_start_rx(tp);
+ 		rtl8152_set_rx_mode(netdev);
+ 		mutex_unlock(&tp->control);
+ 		netif_wake_queue(netdev);
+ 	}
+ 
+ 	napi_enable(&tp->napi);
++	usb_submit_urb(tp->intr_urb, GFP_KERNEL);
+ 
+ 	return 0;
+ }
+-- 
+2.7.4
 
-Thanks,
-Valentine
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
