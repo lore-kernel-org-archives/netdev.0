@@ -1,43 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: add NUMA awareness to seg6_hmac_init_algo()
-Date: Fri, 20 Jan 2017 08:08:56 -0800
-Message-ID: <1484928536.16328.127.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        David Lebrun <david.lebrun@uclouvain.be>
-To: David Miller <davem@davemloft.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH] net: stmicro: fix LS field mask in EEE configuration
+Date: Fri, 20 Jan 2017 16:00:26 +0000
+Message-ID: <ed690f703a3c82193737f1a9813dff8b1ff403dd.1484927665.git.jpinto@synopsys.com>
+Cc: rayagond@vayavyalabs.com, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36136 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752139AbdATQI6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:08:58 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 19so5712823pfo.3
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 08:08:58 -0800 (PST)
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:35749 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752439AbdATQIO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:08:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+This patch fixes the LS mask when setting EEE timer.
+LS field is 10 bits long and not 11 as currently.
 
-Since we allocate per cpu storage, let's also use NUMA hints.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+Reported-By: Rayagond Kokatanur <rayagond@vayavyalabs.com>
 ---
- net/ipv6/seg6_hmac.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
-index 5215e1eba01030dc9345b847eee5ac5ef3bed1b9..b274f1d95e037c93e8e0e6531cfc51709f71297c 100644
---- a/net/ipv6/seg6_hmac.c
-+++ b/net/ipv6/seg6_hmac.c
-@@ -389,7 +389,8 @@ static int seg6_hmac_init_algo(void)
- 			return -ENOMEM;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index 834f40f..202216c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -184,7 +184,7 @@ static void dwmac4_set_eee_pls(struct mac_device_info *hw, int link)
+ static void dwmac4_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+-	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
++	int value = ((tw & 0xffff)) | ((ls & 0x3ff) << 16);
  
- 		for_each_possible_cpu(cpu) {
--			shash = kzalloc(shsize, GFP_KERNEL);
-+			shash = kzalloc_node(shsize, GFP_KERNEL,
-+					     cpu_to_node(cpu));
- 			if (!shash)
- 				return -ENOMEM;
- 			*per_cpu_ptr(algo->shashs, cpu) = shash;
+ 	/* Program the timers in the LPI timer control register:
+ 	 * LS: minimum time (ms) for which the link
+-- 
+2.9.3
