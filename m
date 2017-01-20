@@ -1,38 +1,46 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCHv4 net-next 3/5] sctp: implement sender-side procedures
- for SSN/TSN Reset Request Parameter
-Date: Fri, 20 Jan 2017 18:47:01 -0200
-Message-ID: <20170120204701.GW3781@localhost.localdomain>
-References: <cover.1484934853.git.lucien.xin@gmail.com>
- <ae54d06e442d8fba6a5983fb81fb4c8ae4bee3ef.1484934853.git.lucien.xin@gmail.com>
- <20170120182521.GV3781@localhost.localdomain>
- <20170120.140034.1018095629148946810.davem@davemloft.net>
+From: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH v3 09/37] RDS: IB: Remove an unused structure member
+Date: Fri, 20 Jan 2017 13:04:09 -0800
+Message-ID: <20170120210437.26389-10-bart.vanassche@sandisk.com>
+References: <20170120210437.26389-1-bart.vanassche@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, nhorman@tuxdriver.com,
-        vyasevich@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40834 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753489AbdATUrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 15:47:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20170120.140034.1018095629148946810.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170120210437.26389-1-bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 20, 2017 at 02:00:34PM -0500, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Fri, 20 Jan 2017 16:25:22 -0200
-> 
-> > I talked offline with Xin about this and we cannot do it this way.
-> > Unfortunatelly we will have to take the long road here, because then
-> > we may send data while sending the request, as the streams are not
-> > closed yet.  We really need to close team, send the request, and
-> > re-open if the send fails.
-> 
-> I am expecting another spin of this series, correct?
+Signed-off-by: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
+---
+ net/rds/ib_mr.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-Yes.
+diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
+index 1c754f4acbe5..24c086db4511 100644
+--- a/net/rds/ib_mr.h
++++ b/net/rds/ib_mr.h
+@@ -45,7 +45,6 @@
+ 
+ struct rds_ib_fmr {
+ 	struct ib_fmr		*fmr;
+-	u64			*dma;
+ };
+ 
+ enum rds_ib_fr_state {
+-- 
+2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
