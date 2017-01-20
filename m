@@ -1,94 +1,122 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Thu, 19 Jan 2017 20:38:15 -0600
-Message-ID: <44eb0b95-1868-396b-db6b-18d233eff853@codeaurora.org>
-References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
- <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
- <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
- <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
- <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
- <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
- <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
- <759d6323-ffac-ebe8-b197-4e1165be5673@neratec.com>
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Thu, 19 Jan 2017 18:39:12 -0800
+Message-ID: <20170120023907.GA3294@ast-mbp.thefacebook.com>
+References: <CALCETrW+ZQ1xMEfdEOzx6RK9ZoCvQiqQSnOyhDJ=-FZMwUbucg@mail.gmail.com>
+ <20170118224120.GG9171@mtj.duckdns.org>
+ <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A@mail.gmail.com>
+ <20170119005925.GA18554@mtj.duckdns.org>
+ <CALCETrVrEnL4cvkdDu2LUhxmeOZ+SMEmF=yKKsm9OYoW2y1Kpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com
-To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:57222 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750916AbdATCiO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 21:38:14 -0500
-In-Reply-To: <759d6323-ffac-ebe8-b197-4e1165be5673@neratec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrVrEnL4cvkdDu2LUhxmeOZ+SMEmF=yKKsm9OYoW2y1Kpg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Zefir Kurtisi wrote:
-> It always operates at 675MHz, which with two lines gives 1.25Gbps,
-> which at 10/8 coding gives exactly 1Gbps net data rate. If the
-> at803x's copper side autonegotiates to 1Gbps, the bits traversing
-> over the SGMII match the copper side 1:1. In case the copper side
-> autonegotiates to e.g. 100Mbps, each bit at the copper side on the
-> SGMII bus is replicated and sent 10x times - or 100x times in case of
-> 10Mbps. The MAC side of the ETH needs to be aware of how the SGMII
-> data has to be interpreted, and this is why you have to set the bits
-> you are referring to.
+On Wed, Jan 18, 2017 at 06:29:22PM -0800, Andy Lutomirski wrote:
+> I think it could work by making a single socket cgroup controller that
+> handles all cgroup things that are bound to a socket.  Using
 
-So does this mean that the SGMII link should not be autonegotiated? I 
-currently have this code:
+Such 'socket cgroup controller' would limit usability of the feature
+to sockets and force all other use cases like landlock to invent
+their own wheel, which is undesirable. Everyone will be
+inventing new 'foo cgroup controller', while all of them
+are really bpf features. They are different bpf program
+types that attach to different hooks and use cgroup for scoping.
 
-     if (phydev->autoneg == AUTONEG_ENABLE) {
-         val &= ~(FORCE_AN_RX_CFG | FORCE_AN_TX_CFG);
-         val |= AN_ENABLE;
-         writel(val, phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
-     } else {
-         ...
+> Having thought about this some more, I think that making it would
+> alleviate a bunch of my concerns, as it would make the semantics if
+> the capable() check were relaxed to ns_capable() be sane.  Here's what
 
-So if the external PHY is set to autonegotiate, then the SGMII block is 
-set to also negotiate.  Now that I think about it, this seems wrong. 
-And in fact, I'm not sure how it works.  It seems that the this only 
-makes sense if the SGMII block is configured to act as the only PHY. 
-This is an option that the hardware supports but my driver does not.  So 
-perhaps I should remove this part, and just do the rest:
+here we're on the same page. For any meaningful discussion about
+'bpf cgroup controller' to happen bpf itself needs to become
+delegatable in cgroup sense. In other words BPF_PROG_TYPE_CGROUP*
+program types need to become available for unprivileged users.
+The only unprivileged prog type today is BPF_PROG_TYPE_SOCKET_FILTER.
+To make it secure we severely limited its functionality.
+All bpf advances since then (like new map types and verifier extensions)
+were done for root only. If early on the priv vs unpriv bpf features
+were 80/20. Now it's close to 95/5. No work has been done to
+make socket filter type more powerful. It still has to use
+slow-ish ld_abs skb access while tc/xdp have direct packet access.
+Things like register value tracking is root only as well and so on
+and so forth.
+We cannot just flip the switch and allow type_cgroup* to unpriv
+and I don't see any volunteers willing to do this work.
+Until that happens there is no point coming up with designs
+for 'cgroup bpf controller'... whatever that means.
 
+> I currently should happen before bpf+cgroup is enabled in a release:
+> 
+> 1. Make it netns-aware.  This could be as simple as making it only
+> work in the root netns because then real netns awareness can be added
+> later without breaking anything.  The current situation is bad in that
+> network namespaces are just ignored and it's plausible that people
+> will start writing user code that depends on having network namespaces
+> be ignored.
 
-	u32 speed_cfg;
+nothing in bpf today is netns-aware and frankly I don't see
+how cgroup+bpf has anything to do with netns.
+For regular sockets+bpf we don't check netns.
+When tcpdump opens raw socket and attaches bpf there are no netns
+checks, since socket itself gives a scope for the program to run.
+Same thing applies to cgroup+bpf. cgroup gives a scope for the program.
+But, say, we indeed add 'if !root ns' check to BPF_CGROUP_INET_*
+hooks. Then if the hooks are used for security, the process
+only needs to do setns() to escape security sandbox. Obviously
+broken semantics.
 
-	switch (phydev->speed) {
-	case SPEED_10:
-		speed_cfg = SPDMODE_10;
-		break;
-	case SPEED_100:
-		speed_cfg = SPDMODE_100;
-		break;
-	case SPEED_1000:
-		speed_cfg = SPDMODE_1000;
-		break;
-	default:
-		return -EINVAL;
-	}
+> 2. Make it inherit properly.  Inner cgroups should not override outer
+> hooks.  As in (1), this could be simplified by preventing the same
+> hook from being configured in both an ancestor and a descendent
+> cgroup.  Then inheritance could be added for real later on.
 
-	if (phydev->duplex == DUPLEX_FULL)
-		speed_cfg |= DUPLEX_MODE;
+In general it sounds fine, but it seems the reasoning to add
+such restriction now (instead of later), so that program chain can
+be added without breaking abi, since if we don't restrict it now
+there will be no way to add it without breaking abi?!
+That is incorrect assumption. We can add chaining and can add
+'do not override' logic without breaking existing semantics.
+For example, we can add 'priority' field to
+struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */}
+which would indicate relative position of multiple chained programs
+applied to the same cgroup+hook pair. Multiple programs with
+the same priority will be executed in the order they were added.
+Programs with different priorities will execute in the priority order.
+Such scheme will be more generic and flexible than earlier proposals.
+Similarly we can add another flag that will say 'dissallow override
+of bpf program in descendent cgroup'. It's all trivial to do,
+since bpf syscall was designed for extensibility.
 
-	val &= ~AN_ENABLE;
-	writel(speed_cfg, phy->base + EMAC_SGMII_PHY_SPEED_CFG1);
-	writel(val, phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
+Also until bpf_type_cgroup* becomes unprivileged there is no reason
+to add this 'priority/prog chaining' feature, since if it's
+used for security the root can always override it no matter cgroup
+hierarchy.
 
-Should I be doing this all the time?
+> 3. Give cgroup delegation support some serious thought.  In
+> particular, if delegation would be straightforward but the current API
+> wouldn't work well with delegation, then at least consider whether the
+> API should change before it becomes stable so that two APIs don't need
+> to be supported going forward.
 
-> To track down who is causing the additional message, I would proceed
-> with following technique that helped me dig down a similar problem:
-> since you control the events in question and there is no risk of
-> flooding the kernel log, in the top of phy.c::phy_print_status() add
-> a dump_stack() call. In the debug log ensure that all of the traces
-> end up in the same phydev->adjust_link() callback handler (in your
-> case emac_adjust_link()).
-
-That's a good idea, thanks.
-
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+please see example above. Since we went with bpf syscall (instead of
+inextensible ioctl) we can add any new cgroup+bpf logic without
+breaking current abi.
+No matter how you twist it the cgroup+bpf is bpf specific feature.
