@@ -1,42 +1,88 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v5 0/2] Add support for the ethernet switch on the
- ESPRESSObin
-Date: Fri, 20 Jan 2017 18:43:21 +0100
-Message-ID: <20170120174321.GF25907@lunn.ch>
-References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
- <20170119220607.GA25907@lunn.ch>
- <87a8al64mp.fsf@free-electrons.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
+Date: Fri, 20 Jan 2017 19:48:55 +0200
+Message-ID: <20170120194824-mutt-send-email-mst@kernel.org>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+ <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
+ <20170118171259-mutt-send-email-mst@kernel.org>
+ <40e9a46a-1115-c21a-49f3-fdedb0a34101@redhat.com>
+ <20170119231027-mutt-send-email-mst@kernel.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB026921C@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Wilson Ding <dingwei@marvell.com>,
-        Kostya Porotchkin <kostap@marvell.com>,
-        Joe Zhou <shjzhou@marvell.com>,
-        Jon Pannell <jpannell@marvell.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Jason Wang <jasowang@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        "john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49908 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751026AbdATRs5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 12:48:57 -0500
 Content-Disposition: inline
-In-Reply-To: <87a8al64mp.fsf@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB026921C@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> What I wanted to do was to test 6390 and 6352 temperature related
-> functions and to see if one of them worked. That's how I realized it was
-> not possible to do it with dsa2.
+On Fri, Jan 20, 2017 at 04:59:11PM +0000, David Laight wrote:
+> From: Michael S. Tsirkin
+> > Sent: 19 January 2017 21:12
+> > > On 2017?01?18? 23:15, Michael S. Tsirkin wrote:
+> > > > On Tue, Jan 17, 2017 at 02:22:59PM -0800, John Fastabend wrote:
+> > > > > Add support for XDP adjust head by allocating a 256B header region
+> > > > > that XDP programs can grow into. This is only enabled when a XDP
+> > > > > program is loaded.
+> > > > >
+> > > > > In order to ensure that we do not have to unwind queue headroom push
+> > > > > queue setup below bpf_prog_add. It reads better to do a prog ref
+> > > > > unwind vs another queue setup call.
+> > > > >
+> > > > > At the moment this code must do a full reset to ensure old buffers
+> > > > > without headroom on program add or with headroom on program removal
+> > > > > are not used incorrectly in the datapath. Ideally we would only
+> > > > > have to disable/enable the RX queues being updated but there is no
+> > > > > API to do this at the moment in virtio so use the big hammer. In
+> > > > > practice it is likely not that big of a problem as this will only
+> > > > > happen when XDP is enabled/disabled changing programs does not
+> > > > > require the reset. There is some risk that the driver may either
+> > > > > have an allocation failure or for some reason fail to correctly
+> > > > > negotiate with the underlying backend in this case the driver will
+> > > > > be left uninitialized. I have not seen this ever happen on my test
+> > > > > systems and for what its worth this same failure case can occur
+> > > > > from probe and other contexts in virtio framework.
+> > > > >
+> > > > > Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
+> > > > I've been thinking about it - can't we drop
+> > > > old buffers without the head room which were posted before
+> > > > xdp attached?
+> > > >
+> > > > Avoiding the reset would be much nicer.
+> > > >
+> > > > Thoughts?
+> > > >
+> > >
+> > > As been discussed before, device may use them in the same time so it's not
+> > > safe. Or do you mean detect them after xdp were set and drop the buffer
+> > > without head room, this looks sub-optimal.
+> > >
+> > > Thanks
+> > 
+> > Yes, this is what I mean.  Why is this suboptimal? It's a single branch
+> > in code. Yes we might lose some packets but the big hammer of device
+> > reset will likely lose more.
+> 
+> Why not leave let the hardware receive into the 'small' buffer (without
+> headroom) and do a copy when a frame is received.
+> Replace the buffers with 'big' ones for the next receive.
+> A data copy on a ring full of buffers won't really be noticed.
+> 
+> 	David
+> 
 
-Hi Gregory
+I like that. John?
 
-Probably the best thing to do is wait until the temperature code moves
-into the PHY driver. It then becomes easier to test. It probably is
-the same as the 6352, or like the 6390 which i've so far failed to get
-working, despite the registers being the same as the 6352.
-
-     Andrew
+-- 
+MST
