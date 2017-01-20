@@ -1,87 +1,179 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 6/8] net: phy: Marvell: Add mv88e6390 internal PHY
-Date: Sat, 21 Jan 2017 00:31:00 +0100
-Message-ID: <1484955062-26718-7-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 7/8] net: dsa: mv88e6xxx: Implement Clause 45 access to SMI devices
+Date: Sat, 21 Jan 2017 00:31:01 +0100
+Message-ID: <1484955062-26718-8-git-send-email-andrew@lunn.ch>
 References: <1484955062-26718-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40321 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:40325 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752330AbdATXbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 18:31:40 -0500
+        id S1752203AbdATXb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 18:31:56 -0500
 In-Reply-To: <1484955062-26718-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mv88e6390 Ethernet switch has internal PHYs. These PHYs don't have
-an model ID in the ID2 register. So the MDIO driver in the switch
-intercepts reads to this register, and returns the switch family ID.
-Extend the Marvell PHY driver by including this ID, and tread the PHY
-as a 88E1540.
+The mv88e6390 SERDES devices need clause 45 MDIO to access them.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/phy/marvell.c   | 20 ++++++++++++++++++++
- include/linux/marvell_phy.h |  6 ++++++
- 2 files changed, 26 insertions(+)
+ drivers/net/dsa/mv88e6xxx/global2.c   | 108 ++++++++++++++++++++++++++++++++--
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |   7 +++
+ 2 files changed, 111 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 64229976ace1..d02bb58a8c99 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -2141,6 +2141,25 @@ static struct phy_driver marvell_drivers[] = {
- 		.get_strings = marvell_get_strings,
- 		.get_stats = marvell_get_stats,
- 	},
-+	{
-+		.phy_id = MARVELL_PHY_ID_88E6390,
-+		.phy_id_mask = MARVELL_PHY_ID_MASK,
-+		.name = "Marvell 88E6390",
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.probe = marvell_probe,
-+		.config_init = &marvell_config_init,
-+		.config_aneg = &m88e1510_config_aneg,
-+		.read_status = &marvell_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.did_interrupt = &m88e1121_did_interrupt,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
-+		.get_sset_count = marvell_get_sset_count,
-+		.get_strings = marvell_get_strings,
-+		.get_stats = marvell_get_stats,
-+	},
- };
+diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
+index e2b00d1b0c28..d1a0b7d3ebb8 100644
+--- a/drivers/net/dsa/mv88e6xxx/global2.c
++++ b/drivers/net/dsa/mv88e6xxx/global2.c
+@@ -501,8 +501,60 @@ static int mv88e6xxx_g2_smi_phy_cmd(struct mv88e6xxx_chip *chip, u16 cmd)
+ 	return mv88e6xxx_g2_smi_phy_wait(chip);
+ }
  
- module_phy_driver(marvell_drivers);
-@@ -2159,6 +2178,7 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
- 	{ MARVELL_PHY_ID_88E1510, MARVELL_PHY_ID_MASK },
- 	{ MARVELL_PHY_ID_88E1540, MARVELL_PHY_ID_MASK },
- 	{ MARVELL_PHY_ID_88E3016, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E6390, MARVELL_PHY_ID_MASK },
- 	{ }
- };
- 
-diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
-index a57f0dfb6db7..3d616d7f65bf 100644
---- a/include/linux/marvell_phy.h
-+++ b/include/linux/marvell_phy.h
-@@ -19,6 +19,12 @@
- #define MARVELL_PHY_ID_88E1540		0x01410eb0
- #define MARVELL_PHY_ID_88E3016		0x01410e60
- 
-+/* The MV88e6390 Ethernet switch contains embedded PHYs. These PHYs do
-+ * not have a model ID. So the switch driver traps reads to the ID2
-+ * register and returns the switch family ID
-+ */
-+#define MARVELL_PHY_ID_88E6390		0x01410f90
+-int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip, int addr, int reg,
+-			      u16 *val, bool external)
++static int mv88e6xxx_g2_smi_phy_write_addr(struct mv88e6xxx_chip *chip,
++					   int addr, int device, int reg,
++					   bool external)
++{
++	int cmd = SMI_CMD_OP_45_WRITE_ADDR | (addr << 5) | device;
++	int err;
 +
- /* struct phy_device dev_flags definitions */
- #define MARVELL_PHY_M1145_FLAGS_RESISTANCE	0x00000001
- #define MARVELL_PHY_M1118_DNS323_LEDS		0x00000002
++	if (external)
++		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
++
++	err = mv88e6xxx_g2_smi_phy_wait(chip);
++	if (err)
++		return err;
++
++	err = mv88e6xxx_g2_write(chip, GLOBAL2_SMI_PHY_DATA, reg);
++	if (err)
++		return err;
++
++	return mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
++}
++
++int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
++				  int reg_c45, u16 *val, bool external)
++{
++	int device = (reg_c45 >> 16) & 0x1f;
++	int reg = reg_c45 & 0xffff;
++	int err;
++	u16 cmd;
++
++	err = mv88e6xxx_g2_smi_phy_write_addr(chip, addr, device, reg,
++					      external);
++	if (err)
++		return err;
++
++	cmd = GLOBAL2_SMI_PHY_CMD_OP_45_READ_DATA | (addr << 5) | device;
++
++	if (external)
++		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
++
++	err = mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
++	if (err)
++		return err;
++
++	err = mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
++	if (err)
++		return err;
++
++	err = *val;
++
++	return 0;
++}
++
++int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip, int addr,
++				  int reg, u16 *val, bool external)
+ {
+ 	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA | (addr << 5) | reg;
+ 	int err;
+@@ -535,8 +587,46 @@ int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip, int addr, int reg,
+ 	return 0;
+ }
+ 
+-int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, int addr, int reg,
+-			       u16 val, bool external)
++int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip, int addr, int reg,
++			      u16 *val, bool external)
++{
++	if (reg & MII_ADDR_C45)
++		return mv88e6xxx_g2_smi_phy_read_c45(chip, addr, reg, val,
++						     external);
++	return mv88e6xxx_g2_smi_phy_read_c22(chip, addr, reg, val, external);
++}
++
++int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
++				   int reg_c45, u16 val, bool external)
++{
++	int device = (reg_c45 >> 16) & 0x1f;
++	int reg = reg_c45 & 0xffff;
++	int err;
++	u16 cmd;
++
++	err = mv88e6xxx_g2_smi_phy_write_addr(chip, addr, device, reg,
++					      external);
++	if (err)
++		return err;
++
++	cmd = GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_DATA | (addr << 5) | device;
++
++	if (external)
++		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
++
++	err = mv88e6xxx_g2_write(chip, GLOBAL2_SMI_PHY_DATA, val);
++	if (err)
++		return err;
++
++	err = mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
++	if (err)
++		return err;
++
++	return 0;
++}
++
++int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip, int addr,
++				   int reg, u16 val, bool external)
+ {
+ 	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_WRITE_DATA | (addr << 5) | reg;
+ 	int err;
+@@ -555,6 +645,16 @@ int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, int addr, int reg,
+ 	return mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
+ }
+ 
++int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, int addr, int reg,
++			       u16 val, bool external)
++{
++	if (reg & MII_ADDR_C45)
++		return mv88e6xxx_g2_smi_phy_write_c45(chip, addr, reg, val,
++						      external);
++
++	return mv88e6xxx_g2_smi_phy_write_c22(chip, addr, reg, val, external);
++}
++
+ static void mv88e6xxx_g2_irq_mask(struct irq_data *d)
+ {
+ 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 7961467f709e..6cbde36027f1 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -399,6 +399,13 @@
+ #define GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA	((0x2 << 10) | \
+ 						 GLOBAL2_SMI_PHY_CMD_MODE_22 | \
+ 						 GLOBAL2_SMI_PHY_CMD_BUSY)
++#define GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_ADDR	((0x0 << 10) | \
++						 GLOBAL2_SMI_PHY_CMD_BUSY)
++#define GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_DATA	((0x1 << 10) | \
++						 GLOBAL2_SMI_PHY_CMD_BUSY)
++#define GLOBAL2_SMI_PHY_CMD_OP_45_READ_DATA	((0x3 << 10) | \
++						 GLOBAL2_SMI_PHY_CMD_BUSY)
++
+ #define GLOBAL2_SMI_PHY_DATA			0x19
+ #define GLOBAL2_SCRATCH_MISC	0x1a
+ #define GLOBAL2_SCRATCH_BUSY		BIT(15)
 -- 
 2.11.0
