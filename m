@@ -1,106 +1,41 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH iproute2 net-next v2] tc: m_csum: add support for SCTP checksum
-Date: Fri, 20 Jan 2017 11:10:10 +0100
-Message-ID: <7e8e15a6e6f11133b4e22166d27d32ad8d5a83e7.1484906832.git.dcaratti@redhat.com>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Gregoire Baron <baronchon@n7mm.org>,
-        Jiri Benc <jbenc@redhat.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
+Date: Fri, 20 Jan 2017 12:28:00 +0200
+Message-ID: <CALzJLG_JcOzW0EDm54pKX=uhNbA9CSAbcWCR4-r7C=y6C0nBsQ@mail.gmail.com>
+References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42024 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751859AbdATKRp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 05:17:45 -0500
+Received: from mail-yw0-f178.google.com ([209.85.161.178]:33597 "EHLO
+        mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751813AbdATKfu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 05:35:50 -0500
+Received: by mail-yw0-f178.google.com with SMTP id u68so41361177ywg.0
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 02:35:50 -0800 (PST)
+In-Reply-To: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'sctp' parameter can now be used as 'csum' target to enable CRC32c
-computation on SCTP packets.
+On Thu, Jan 19, 2017 at 9:03 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> A driver using dev_alloc_page() must not reuse a page allocated from
+> emergency memory reserve.
+>
+> Otherwise all packets using this page will be immediately dropped,
+> unless for very specific sockets having SOCK_MEMALLOC bit set.
+>
+> This issue might be hard to debug, because only a fraction of received
+> packets would be dropped.
+>
+> Fixes: 4415a0319f92 ("net/mlx5e: Implement RX mapped page cache for page recycle")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
+> Cc: Saeed Mahameed <saeedm@mellanox.com>
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
-
-Notes:
-    V2
-    - update man/man8/tc-csum.8 to include 'sctp' target
-
- man/man8/tc-csum.8 |  7 +++++--
- tc/m_csum.c        | 11 ++++++++---
- 2 files changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/man/man8/tc-csum.8 b/man/man8/tc-csum.8
-index 3a64c82..f4392a4 100644
---- a/man/man8/tc-csum.8
-+++ b/man/man8/tc-csum.8
-@@ -19,6 +19,7 @@ csum - checksum update action
- .BR tcp " |"
- .BR udp " |"
- .BR udplite " |"
-+.BR sctp " |"
- .IR SWEETS " }"
- 
- .ti -8
-@@ -43,9 +44,11 @@ IGMP header
- TCP header
- .RB ( tcp ),
- UDP header
--.RB ( udp ") or"
-+.RB ( udp ),
- UDPLite header
--.RB ( udplite ).
-+.RB ( udplite ") or"
-+SCTP header
-+.RB ( sctp ).
- .TP
- .B SWEETS
- These are merely syntactic sugar and ignored internally.
-diff --git a/tc/m_csum.c b/tc/m_csum.c
-index d5b1af6..0ee8cad 100644
---- a/tc/m_csum.c
-+++ b/tc/m_csum.c
-@@ -24,7 +24,7 @@ explain(void)
- {
- 	fprintf(stderr, "Usage: ... csum <UPDATE>\n"
- 			"Where: UPDATE := <TARGET> [<UPDATE>]\n"
--			"       TARGET := { ip4h | icmp | igmp | tcp | udp | udplite | <SWEETS> }\n"
-+			"       TARGET := { ip4h | icmp | igmp | tcp | udp | udplite | sctp | <SWEETS> }\n"
- 			"       SWEETS := { and | or | \'+\' }\n");
- }
- 
-@@ -65,6 +65,9 @@ parse_csum_args(int *argc_p, char ***argv_p, struct tc_csum *sel)
- 		else if (matches(*argv, "udplite") == 0)
- 			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_UDPLITE;
- 
-+		else if (matches(*argv, "sctp") == 0)
-+			sel->update_flags |= TCA_CSUM_UPDATE_FLAG_SCTP;
-+
- 		else if ((matches(*argv, "and") == 0) ||
- 			 (matches(*argv, "or") == 0) ||
- 			 (matches(*argv, "+") == 0))
-@@ -160,6 +163,7 @@ print_csum(struct action_util *au, FILE *f, struct rtattr *arg)
- 	char *uflag_4 = "";
- 	char *uflag_5 = "";
- 	char *uflag_6 = "";
-+	char *uflag_7 = "";
- 
- 	int uflag_count = 0;
- 
-@@ -191,13 +195,14 @@ print_csum(struct action_util *au, FILE *f, struct rtattr *arg)
- 	CSUM_UFLAG_BUFFER(uflag_4, TCA_CSUM_UPDATE_FLAG_TCP, "tcp");
- 	CSUM_UFLAG_BUFFER(uflag_5, TCA_CSUM_UPDATE_FLAG_UDP, "udp");
- 	CSUM_UFLAG_BUFFER(uflag_6, TCA_CSUM_UPDATE_FLAG_UDPLITE, "udplite");
-+	CSUM_UFLAG_BUFFER(uflag_7, TCA_CSUM_UPDATE_FLAG_SCTP, "sctp");
- 	if (!uflag_count) {
- 		uflag_1 = "?empty";
- 	}
- 
--	fprintf(f, "csum (%s%s%s%s%s%s) action %s\n",
-+	fprintf(f, "csum (%s%s%s%s%s%s%s) action %s\n",
- 		uflag_1, uflag_2, uflag_3,
--		uflag_4, uflag_5, uflag_6,
-+		uflag_4, uflag_5, uflag_6, uflag_7,
- 		action_n2a(sel->action));
- 	fprintf(f, "\tindex %u ref %d bind %d", sel->index, sel->refcnt,
- 		sel->bindcnt);
--- 
-2.7.4
+Acked-by: Saeed Mahameed <saeedm@mellanox.com>
