@@ -1,77 +1,49 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH][V2] net: sctp: fix array overrun read on sctp_timer_tbl
-Date: Fri, 20 Jan 2017 11:58:45 -0200
-Message-ID: <20170120135845.GT3781@localhost.localdomain>
-References: <20170120134542.21104-1-colin.king@canonical.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 net-next] ipmroute: add support for
+ RTNH_F_UNRESOLVED
+Date: Fri, 20 Jan 2017 15:05:51 +0100
+Message-ID: <406f3640-a441-aee2-0a10-1c184a172451@cumulusnetworks.com>
+References: <1484921062-23379-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170120134542.21104-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:35895 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752029AbdATOGa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 09:06:30 -0500
+Received: by mail-lf0-f47.google.com with SMTP id z134so58982714lff.3
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 06:05:55 -0800 (PST)
+In-Reply-To: <1484921062-23379-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 01:45:42PM +0000, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+On 20/01/17 15:04, Nikolay Aleksandrov wrote:
+> This patch adds a new field that is printed in the end of the line which
+> denotes the real entry state. Before this patch an entry's IIF could
+> disappear and it would look like an unresolved one (iif = unresolved):
+> (3.0.16.1, 225.11.16.1)          Iif: unresolved
+> with no way to really distinguish it from an unresolved entry.
+> After the patch if the dumped entry has RTNH_F_UNRESOLVED set we get:
+> (3.0.16.1, 225.11.16.1)          Iif: unresolved  State: unresolved
+> for unresolved entries and:
+> (0.0.0.0, 225.11.11.11)          Iif: eth4       Oifs: eth3  State: resolved
+> for resolved entries after the OIF list. Note that "State:" has ':' in
+> it so it cannot be mistaken for an interface name.
+> And for the example above, we'd get:
+> (0.0.0.0, 225.11.11.11)          Iif: unresolved     State: resolved
 > 
-> Table sctp_timer_tbl is missing a TIMEOUT_RECONF string so
-> add this in. Also compare timeout with the size of the array
-> sctp_timer_tbl rather than SCTP_EVENT_TIMEOUT_MAX.  Also add
-> a build time check that SCTP_EVENT_TIMEOUT_MAX is correct
-> so we don't ever get this kind of mismatch between the table
-> and SCTP_EVENT_TIMEOUT_MAX in the future.
+> Also when dumping all routes via ip route show table all, it will show
+> up as:
+> multicast 225.11.16.1/32 from 3.0.16.1/32 table default proto 17 unresolved
 > 
-> Kudos to Marcel Ricardo Leitner for spotting the missing string
-> and suggesting the build time sanity check.
-> 
-> Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-
-Not sure I can add the Fixes tag for you here, but:
-Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-
-Thanks
-
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 > ---
->  net/sctp/debug.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
+>  ip/ipmroute.c | 6 ++++++
+>  ip/iproute.c  | 2 ++
+>  2 files changed, 8 insertions(+)
 > 
-> diff --git a/net/sctp/debug.c b/net/sctp/debug.c
-> index 95d7b15..2e47eb2 100644
-> --- a/net/sctp/debug.c
-> +++ b/net/sctp/debug.c
-> @@ -159,6 +159,7 @@ static const char *const sctp_timer_tbl[] = {
->  	"TIMEOUT_T4_RTO",
->  	"TIMEOUT_T5_SHUTDOWN_GUARD",
->  	"TIMEOUT_HEARTBEAT",
-> +	"TIMEOUT_RECONF",
->  	"TIMEOUT_SACK",
->  	"TIMEOUT_AUTOCLOSE",
->  };
-> @@ -166,7 +167,9 @@ static const char *const sctp_timer_tbl[] = {
->  /* Lookup timer debug name. */
->  const char *sctp_tname(const sctp_subtype_t id)
->  {
-> -	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
-> +	BUILD_BUG_ON(SCTP_EVENT_TIMEOUT_MAX + 1 != ARRAY_SIZE(sctp_timer_tbl));
-> +
-> +	if (id.timeout < ARRAY_SIZE(sctp_timer_tbl))
->  		return sctp_timer_tbl[id.timeout];
->  	return "unknown_timer";
->  }
-> -- 
-> 2.10.2
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+Oops, sent the wrong version. v2 coming up, sorry for the noise
