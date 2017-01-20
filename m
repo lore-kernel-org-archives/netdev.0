@@ -1,523 +1,179 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v2 1/2] phy: marvell: Add support for temperature sensor
-Date: Fri, 20 Jan 2017 01:37:49 +0100
-Message-ID: <1484872670-32585-2-git-send-email-andrew@lunn.ch>
-References: <1484872670-32585-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net] net: mpls: Fix multipath selection for LSR use case
+Date: Thu, 19 Jan 2017 16:51:03 -0800
+Message-ID: <1484873463-11699-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: rshearma@brocade.com, roopa@cumulusnetworks.com,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38971 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753361AbdATAi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Jan 2017 19:38:57 -0500
-In-Reply-To: <1484872670-32585-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:33913 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753600AbdATAvK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 19:51:10 -0500
+Received: by mail-pg0-f50.google.com with SMTP id 14so18423525pgg.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 16:51:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some Marvell PHYs have an inbuilt temperature sensor. Add hwmon
-support for this sensor.
+MPLS multipath for LSR is broken -- always selecting the first nexthop
+in the one label case. For example:
 
-There are two different variants. The simpler, older chips have a 5
-degree accuracy. The newer devices have 1 degree accuracy.
+    $ ip netns exec ns1 ip -f mpls ro ls
+    100
+            nexthop as to 200 via inet 172.16.2.2  dev virt12
+            nexthop as to 300 via inet 172.16.3.2  dev virt13
+    101
+            nexthop as to 201 via inet6 2000:2::2  dev virt12
+            nexthop as to 301 via inet6 2000:3::2  dev virt13
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+In this example incoming packets have a single MPLS labels which means
+BOS bit is set. The BOS bit is passed from mpls_forward down to
+mpls_multipath_hash which never processes the hash loop because BOS is 1.
+
+Removing the bos arg from mpls_multipath_hash uncovers a number of other
+problems with the hash loop that processes the MPLS label stack -- from
+incorrect assumptions on the skb (skb has already pulled the first mpls
+label in mpls_forward yet loop assumes it is there) to incorrect
+pskb_may_pull checks (label_index starts at 0 and pskb_may_pull checks
+all use sizeof() * label_index).
+
+This patch addresses all problems by moving the skb_pull in mpls_forward
+after mpls_select_multipath. This allows mpls_multipath_hash to see the
+skb with the entire label stack as it arrived.
+
+>From there mpls_multipath_hash is modified to additively compute the
+total mpls header length on each pass (on pass N mpls_hdr_len is
+N * sizeof(mpls_shim_hdr)). When the label is found with the BOS set it
+verifies the skb has sufficient header for ipv4 or ipv6, and find the
+IPv4 and IPv6 header by using the last mpls_hdr pointer and adding 1 to
+advance past it.
+
+With these changes I have verified the code correctly sees the label,
+BOS, IPv4 and IPv6 addresses in the network header and icmp/tcp/udp
+traffic for ipv4 and ipv6 are distributed across the nexthops.
+
+Fixes: 1c78efa8319ca ("mpls: flow-based multipath selection")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
-v2: Simplify using PTR_ERR_OR_ZERO()
----
- drivers/net/phy/marvell.c | 423 +++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 420 insertions(+), 3 deletions(-)
+ net/mpls/af_mpls.c | 48 +++++++++++++++++++++++++-----------------------
+ 1 file changed, 25 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 0b78210c0fa7..64229976ace1 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -17,8 +17,10 @@
-  */
- #include <linux/kernel.h>
- #include <linux/string.h>
-+#include <linux/ctype.h>
- #include <linux/errno.h>
- #include <linux/unistd.h>
-+#include <linux/hwmon.h>
- #include <linux/interrupt.h>
- #include <linux/init.h>
- #include <linux/delay.h>
-@@ -90,6 +92,17 @@
- #define MII_88E1121_PHY_MSCR_TX_DELAY	BIT(4)
- #define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(0x3 << 4))
- 
-+#define MII_88E1121_MISC_TEST				0x1a
-+#define MII_88E1510_MISC_TEST_TEMP_THRESHOLD_MASK	0x1f00
-+#define MII_88E1510_MISC_TEST_TEMP_THRESHOLD_SHIFT	8
-+#define MII_88E1510_MISC_TEST_TEMP_IRQ_EN		BIT(7)
-+#define MII_88E1510_MISC_TEST_TEMP_IRQ			BIT(6)
-+#define MII_88E1121_MISC_TEST_TEMP_SENSOR_EN		BIT(5)
-+#define MII_88E1121_MISC_TEST_TEMP_MASK			0x1f
-+
-+#define MII_88E1510_TEMP_SENSOR		0x1b
-+#define MII_88E1510_TEMP_SENSOR_MASK	0xff
-+
- #define MII_88E1318S_PHY_MSCR1_REG	16
- #define MII_88E1318S_PHY_MSCR1_PAD_ODD	BIT(6)
- 
-@@ -172,6 +185,8 @@ static struct marvell_hw_stat marvell_hw_stats[] = {
- 
- struct marvell_priv {
- 	u64 stats[ARRAY_SIZE(marvell_hw_stats)];
-+	char *hwmon_name;
-+	struct device *hwmon_dev;
- };
- 
- static int marvell_ack_interrupt(struct phy_device *phydev)
-@@ -1468,6 +1483,371 @@ static void marvell_get_stats(struct phy_device *phydev,
- 		data[i] = marvell_get_stat(phydev, i);
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 4dc81963af8f..64d3bf269a26 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -119,18 +119,19 @@ void mpls_stats_inc_outucastpkts(struct net_device *dev,
  }
+ EXPORT_SYMBOL_GPL(mpls_stats_inc_outucastpkts);
  
-+#ifdef CONFIG_HWMON
-+static int m88e1121_get_temp(struct phy_device *phydev, long *temp)
-+{
-+	int ret;
-+	int val;
-+
-+	*temp = 0;
-+
-+	mutex_lock(&phydev->lock);
-+
-+	ret = phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x6);
-+	if (ret < 0)
-+		goto error;
-+
-+	/* Enable temperature sensor */
-+	ret = phy_read(phydev, MII_88E1121_MISC_TEST);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = phy_write(phydev, MII_88E1121_MISC_TEST,
-+			ret | MII_88E1121_MISC_TEST_TEMP_SENSOR_EN);
-+	if (ret < 0)
-+		goto error;
-+
-+	/* Wait for temperature to stabilize */
-+	usleep_range(10000, 12000);
-+
-+	val = phy_read(phydev, MII_88E1121_MISC_TEST);
-+	if (val < 0) {
-+		ret = val;
-+		goto error;
-+	}
-+
-+	/* Disable temperature sensor */
-+	ret = phy_write(phydev, MII_88E1121_MISC_TEST,
-+			ret & ~MII_88E1121_MISC_TEST_TEMP_SENSOR_EN);
-+	if (ret < 0)
-+		goto error;
-+
-+	*temp = ((val & MII_88E1121_MISC_TEST_TEMP_MASK) - 5) * 5000;
-+
-+error:
-+	phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x0);
-+	mutex_unlock(&phydev->lock);
-+
-+	return ret;
-+}
-+
-+static int m88e1121_hwmon_read(struct device *dev,
-+			       enum hwmon_sensor_types type,
-+			       u32 attr, int channel, long *temp)
-+{
-+	struct phy_device *phydev = dev_get_drvdata(dev);
-+	int err;
-+
-+	switch (attr) {
-+	case hwmon_temp_input:
-+		err = m88e1121_get_temp(phydev, temp);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return err;
-+}
-+
-+static umode_t m88e1121_hwmon_is_visible(const void *data,
-+					 enum hwmon_sensor_types type,
-+					 u32 attr, int channel)
-+{
-+	if (type != hwmon_temp)
-+		return 0;
-+
-+	switch (attr) {
-+	case hwmon_temp_input:
-+		return 0444;
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static u32 m88e1121_hwmon_chip_config[] = {
-+	HWMON_C_REGISTER_TZ,
-+	0
-+};
-+
-+static const struct hwmon_channel_info m88e1121_hwmon_chip = {
-+	.type = hwmon_chip,
-+	.config = m88e1121_hwmon_chip_config,
-+};
-+
-+static u32 m88e1121_hwmon_temp_config[] = {
-+	HWMON_T_INPUT,
-+	0
-+};
-+
-+static const struct hwmon_channel_info m88e1121_hwmon_temp = {
-+	.type = hwmon_temp,
-+	.config = m88e1121_hwmon_temp_config,
-+};
-+
-+static const struct hwmon_channel_info *m88e1121_hwmon_info[] = {
-+	&m88e1121_hwmon_chip,
-+	&m88e1121_hwmon_temp,
-+	NULL
-+};
-+
-+static const struct hwmon_ops m88e1121_hwmon_hwmon_ops = {
-+	.is_visible = m88e1121_hwmon_is_visible,
-+	.read = m88e1121_hwmon_read,
-+};
-+
-+static const struct hwmon_chip_info m88e1121_hwmon_chip_info = {
-+	.ops = &m88e1121_hwmon_hwmon_ops,
-+	.info = m88e1121_hwmon_info,
-+};
-+
-+static int m88e1510_get_temp(struct phy_device *phydev, long *temp)
-+{
-+	int ret;
-+
-+	*temp = 0;
-+
-+	mutex_lock(&phydev->lock);
-+
-+	ret = phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x6);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = phy_read(phydev, MII_88E1510_TEMP_SENSOR);
-+	if (ret < 0)
-+		goto error;
-+
-+	*temp = ((ret & MII_88E1510_TEMP_SENSOR_MASK) - 25) * 1000;
-+
-+error:
-+	phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x0);
-+	mutex_unlock(&phydev->lock);
-+
-+	return ret;
-+}
-+
-+int m88e1510_get_temp_critical(struct phy_device *phydev, long *temp)
-+{
-+	int ret;
-+
-+	*temp = 0;
-+
-+	mutex_lock(&phydev->lock);
-+
-+	ret = phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x6);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = phy_read(phydev, MII_88E1121_MISC_TEST);
-+	if (ret < 0)
-+		goto error;
-+
-+	*temp = (((ret & MII_88E1510_MISC_TEST_TEMP_THRESHOLD_MASK) >>
-+		  MII_88E1510_MISC_TEST_TEMP_THRESHOLD_SHIFT) * 5) - 25;
-+	/* convert to mC */
-+	*temp *= 1000;
-+
-+error:
-+	phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x0);
-+	mutex_unlock(&phydev->lock);
-+
-+	return ret;
-+}
-+
-+int m88e1510_set_temp_critical(struct phy_device *phydev, long temp)
-+{
-+	int ret;
-+
-+	mutex_lock(&phydev->lock);
-+
-+	ret = phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x6);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = phy_read(phydev, MII_88E1121_MISC_TEST);
-+	if (ret < 0)
-+		goto error;
-+
-+	temp = temp / 1000;
-+	temp = clamp_val(DIV_ROUND_CLOSEST(temp, 5) + 5, 0, 0x1f);
-+	ret = phy_write(phydev, MII_88E1121_MISC_TEST,
-+			(ret & ~MII_88E1510_MISC_TEST_TEMP_THRESHOLD_MASK) |
-+			(temp << MII_88E1510_MISC_TEST_TEMP_THRESHOLD_SHIFT));
-+
-+error:
-+	phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x0);
-+	mutex_unlock(&phydev->lock);
-+
-+	return ret;
-+}
-+
-+int m88e1510_get_temp_alarm(struct phy_device *phydev, long *alarm)
-+{
-+	int ret;
-+
-+	*alarm = false;
-+
-+	mutex_lock(&phydev->lock);
-+
-+	ret = phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x6);
-+	if (ret < 0)
-+		goto error;
-+
-+	ret = phy_read(phydev, MII_88E1121_MISC_TEST);
-+	if (ret < 0)
-+		goto error;
-+	*alarm = !!(ret & MII_88E1510_MISC_TEST_TEMP_IRQ);
-+
-+error:
-+	phy_write(phydev, MII_M1145_PHY_EXT_ADDR_PAGE, 0x0);
-+	mutex_unlock(&phydev->lock);
-+
-+	return ret;
-+}
-+
-+static int m88e1510_hwmon_read(struct device *dev,
-+			       enum hwmon_sensor_types type,
-+			       u32 attr, int channel, long *temp)
-+{
-+	struct phy_device *phydev = dev_get_drvdata(dev);
-+	int err;
-+
-+	switch (attr) {
-+	case hwmon_temp_input:
-+		err = m88e1510_get_temp(phydev, temp);
-+		break;
-+	case hwmon_temp_crit:
-+		err = m88e1510_get_temp_critical(phydev, temp);
-+		break;
-+	case hwmon_temp_max_alarm:
-+		err = m88e1510_get_temp_alarm(phydev, temp);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return err;
-+}
-+
-+static int m88e1510_hwmon_write(struct device *dev,
-+				enum hwmon_sensor_types type,
-+				u32 attr, int channel, long temp)
-+{
-+	struct phy_device *phydev = dev_get_drvdata(dev);
-+	int err;
-+
-+	switch (attr) {
-+	case hwmon_temp_crit:
-+		err = m88e1510_set_temp_critical(phydev, temp);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+	return err;
-+}
-+
-+static umode_t m88e1510_hwmon_is_visible(const void *data,
-+					 enum hwmon_sensor_types type,
-+					 u32 attr, int channel)
-+{
-+	if (type != hwmon_temp)
-+		return 0;
-+
-+	switch (attr) {
-+	case hwmon_temp_input:
-+	case hwmon_temp_max_alarm:
-+		return 0444;
-+	case hwmon_temp_crit:
-+		return 0644;
-+	default:
-+		return 0;
-+	}
-+}
-+
-+static u32 m88e1510_hwmon_temp_config[] = {
-+	HWMON_T_INPUT | HWMON_T_CRIT | HWMON_T_MAX_ALARM,
-+	0
-+};
-+
-+static const struct hwmon_channel_info m88e1510_hwmon_temp = {
-+	.type = hwmon_temp,
-+	.config = m88e1510_hwmon_temp_config,
-+};
-+
-+static const struct hwmon_channel_info *m88e1510_hwmon_info[] = {
-+	&m88e1121_hwmon_chip,
-+	&m88e1510_hwmon_temp,
-+	NULL
-+};
-+
-+static const struct hwmon_ops m88e1510_hwmon_hwmon_ops = {
-+	.is_visible = m88e1510_hwmon_is_visible,
-+	.read = m88e1510_hwmon_read,
-+	.write = m88e1510_hwmon_write,
-+};
-+
-+static const struct hwmon_chip_info m88e1510_hwmon_chip_info = {
-+	.ops = &m88e1510_hwmon_hwmon_ops,
-+	.info = m88e1510_hwmon_info,
-+};
-+
-+static int marvell_hwmon_name(struct phy_device *phydev)
-+{
-+	struct marvell_priv *priv = phydev->priv;
-+	struct device *dev = &phydev->mdio.dev;
-+	const char *devname = dev_name(dev);
-+	size_t len = strlen(devname);
-+	int i, j;
-+
-+	priv->hwmon_name = devm_kzalloc(dev, len, GFP_KERNEL);
-+	if (!priv->hwmon_name)
-+		return -ENOMEM;
-+
-+	for (i = j = 0; i < len && devname[i]; i++) {
-+		if (isalnum(devname[i]))
-+			priv->hwmon_name[j++] = devname[i];
-+	}
-+
-+	return 0;
-+}
-+
-+static int marvell_hwmon_probe(struct phy_device *phydev,
-+			       const struct hwmon_chip_info *chip)
-+{
-+	struct marvell_priv *priv = phydev->priv;
-+	struct device *dev = &phydev->mdio.dev;
-+	int err;
-+
-+	err = marvell_hwmon_name(phydev);
-+	if (err)
-+		return err;
-+
-+	priv->hwmon_dev = devm_hwmon_device_register_with_info(
-+		dev, priv->hwmon_name, phydev, chip, NULL);
-+
-+	return PTR_ERR_OR_ZERO(priv->hwmon_dev);
-+}
-+
-+static int m88e1121_hwmon_probe(struct phy_device *phydev)
-+{
-+	return marvell_hwmon_probe(phydev, &m88e1121_hwmon_chip_info);
-+}
-+
-+static int m88e1510_hwmon_probe(struct phy_device *phydev)
-+{
-+	return marvell_hwmon_probe(phydev, &m88e1510_hwmon_chip_info);
-+}
-+#else
-+static int m88e1121_hwmon_probe(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+
-+static int m88e1510_hwmon_probe(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+#endif
-+
- static int marvell_probe(struct phy_device *phydev)
+-static u32 mpls_multipath_hash(struct mpls_route *rt,
+-			       struct sk_buff *skb, bool bos)
++static u32 mpls_multipath_hash(struct mpls_route *rt, struct sk_buff *skb)
  {
- 	struct marvell_priv *priv;
-@@ -1481,6 +1861,39 @@ static int marvell_probe(struct phy_device *phydev)
- 	return 0;
+ 	struct mpls_entry_decoded dec;
++	unsigned int mpls_hdr_len = 0;
+ 	struct mpls_shim_hdr *hdr;
+ 	bool eli_seen = false;
+ 	int label_index;
+ 	u32 hash = 0;
+ 
+-	for (label_index = 0; label_index < MAX_MP_SELECT_LABELS && !bos;
++	for (label_index = 0; label_index < MAX_MP_SELECT_LABELS;
+ 	     label_index++) {
+-		if (!pskb_may_pull(skb, sizeof(*hdr) * label_index))
++		mpls_hdr_len += sizeof(*hdr);
++		if (!pskb_may_pull(skb, mpls_hdr_len))
+ 			break;
+ 
+ 		/* Read and decode the current label */
+@@ -155,37 +156,38 @@ static u32 mpls_multipath_hash(struct mpls_route *rt,
+ 			eli_seen = true;
+ 		}
+ 
+-		bos = dec.bos;
+-		if (bos && pskb_may_pull(skb, sizeof(*hdr) * label_index +
+-					 sizeof(struct iphdr))) {
++		if (!dec.bos)
++			continue;
++
++		/* found bottom label; does skb have room for a header? */
++		if (pskb_may_pull(skb, mpls_hdr_len + sizeof(struct iphdr))) {
+ 			const struct iphdr *v4hdr;
+ 
+-			v4hdr = (const struct iphdr *)(mpls_hdr(skb) +
+-						       label_index);
++			v4hdr = (const struct iphdr *)(hdr + 1);
+ 			if (v4hdr->version == 4) {
+ 				hash = jhash_3words(ntohl(v4hdr->saddr),
+ 						    ntohl(v4hdr->daddr),
+ 						    v4hdr->protocol, hash);
+ 			} else if (v4hdr->version == 6 &&
+-				pskb_may_pull(skb, sizeof(*hdr) * label_index +
+-					      sizeof(struct ipv6hdr))) {
++				   pskb_may_pull(skb, mpls_hdr_len +
++						 sizeof(struct ipv6hdr))) {
+ 				const struct ipv6hdr *v6hdr;
+ 
+-				v6hdr = (const struct ipv6hdr *)(mpls_hdr(skb) +
+-								label_index);
+-
++				v6hdr = (const struct ipv6hdr *)(hdr + 1);
+ 				hash = __ipv6_addr_jhash(&v6hdr->saddr, hash);
+ 				hash = __ipv6_addr_jhash(&v6hdr->daddr, hash);
+ 				hash = jhash_1word(v6hdr->nexthdr, hash);
+ 			}
+ 		}
++
++		break;
+ 	}
+ 
+ 	return hash;
  }
  
-+static int m88e1121_probe(struct phy_device *phydev)
-+{
-+	int err;
+ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+-					     struct sk_buff *skb, bool bos)
++					     struct sk_buff *skb)
+ {
+ 	int alive = ACCESS_ONCE(rt->rt_nhn_alive);
+ 	u32 hash = 0;
+@@ -201,7 +203,7 @@ static struct mpls_nh *mpls_select_multipath(struct mpls_route *rt,
+ 	if (alive <= 0)
+ 		return NULL;
+ 
+-	hash = mpls_multipath_hash(rt, skb, bos);
++	hash = mpls_multipath_hash(rt, skb);
+ 	nh_index = hash % alive;
+ 	if (alive == rt->rt_nhn)
+ 		goto out;
+@@ -308,22 +310,22 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 	hdr = mpls_hdr(skb);
+ 	dec = mpls_entry_decode(hdr);
+ 
+-	/* Pop the label */
+-	skb_pull(skb, sizeof(*hdr));
+-	skb_reset_network_header(skb);
+-
+-	skb_orphan(skb);
+-
+ 	rt = mpls_route_input_rcu(net, dec.label);
+ 	if (!rt) {
+ 		MPLS_INC_STATS(mdev, rx_noroute);
+ 		goto drop;
+ 	}
+ 
+-	nh = mpls_select_multipath(rt, skb, dec.bos);
++	nh = mpls_select_multipath(rt, skb);
+ 	if (!nh)
+ 		goto err;
+ 
++	/* Pop the label */
++	skb_pull(skb, sizeof(*hdr));
++	skb_reset_network_header(skb);
 +
-+	err = marvell_probe(phydev);
-+	if (err)
-+		return err;
++	skb_orphan(skb);
 +
-+	return m88e1121_hwmon_probe(phydev);
-+}
-+
-+static int m88e1510_probe(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = marvell_probe(phydev);
-+	if (err)
-+		return err;
-+
-+	return m88e1510_hwmon_probe(phydev);
-+}
-+
-+static void marvell_remove(struct phy_device *phydev)
-+{
-+#ifdef CONFIG_HWMON
-+
-+	struct marvell_priv *priv = phydev->priv;
-+
-+	if (priv && priv->hwmon_dev)
-+		hwmon_device_unregister(priv->hwmon_dev);
-+#endif
-+}
-+
- static struct phy_driver marvell_drivers[] = {
- 	{
- 		.phy_id = MARVELL_PHY_ID_88E1101,
-@@ -1558,9 +1971,10 @@ static struct phy_driver marvell_drivers[] = {
- 		.phy_id = MARVELL_PHY_ID_88E1121R,
- 		.phy_id_mask = MARVELL_PHY_ID_MASK,
- 		.name = "Marvell 88E1121R",
-+		.probe = &m88e1121_probe,
-+		.remove = &marvell_remove,
- 		.features = PHY_GBIT_FEATURES,
- 		.flags = PHY_HAS_INTERRUPT,
--		.probe = marvell_probe,
- 		.config_init = &m88e1121_config_init,
- 		.config_aneg = &m88e1121_config_aneg,
- 		.read_status = &marvell_read_status,
-@@ -1671,8 +2085,10 @@ static struct phy_driver marvell_drivers[] = {
- 		.phy_id_mask = MARVELL_PHY_ID_MASK,
- 		.name = "Marvell 88E1510",
- 		.features = PHY_GBIT_FEATURES | SUPPORTED_FIBRE,
-+		.probe = &m88e1510_probe,
-+		.remove = &marvell_remove,
-+		.features = PHY_GBIT_FEATURES,
- 		.flags = PHY_HAS_INTERRUPT,
--		.probe = marvell_probe,
- 		.config_init = &m88e1510_config_init,
- 		.config_aneg = &m88e1510_config_aneg,
- 		.read_status = &marvell_read_status,
-@@ -1689,9 +2105,10 @@ static struct phy_driver marvell_drivers[] = {
- 		.phy_id = MARVELL_PHY_ID_88E1540,
- 		.phy_id_mask = MARVELL_PHY_ID_MASK,
- 		.name = "Marvell 88E1540",
-+		.probe = m88e1510_probe,
-+		.remove = &marvell_remove,
- 		.features = PHY_GBIT_FEATURES,
- 		.flags = PHY_HAS_INTERRUPT,
--		.probe = marvell_probe,
- 		.config_init = &marvell_config_init,
- 		.config_aneg = &m88e1510_config_aneg,
- 		.read_status = &marvell_read_status,
+ 	if (skb_warn_if_lro(skb))
+ 		goto err;
+ 
 -- 
-2.11.0
+2.1.4
