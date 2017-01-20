@@ -1,62 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v7 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC
- driver
-Date: Thu, 19 Jan 2017 14:50:00 -0800
-Message-ID: <ee95ad08-b5c9-e8db-d637-734271c19fb4@gmail.com>
-References: <cover.1484860589.git.vomlehn@texas.net>
- <13303162-471c-de9c-a222-6bdbf5f38db9@gmail.com>
- <4e7c386f-e0bd-7647-ee2d-0afdcc9e6a91@texas.net>
+From: Josef Bacik <jbacik@fb.com>
+Subject: Re: [PATCH] inet: don't use sk_v6_rcv_saddr directly
+Date: Fri, 20 Jan 2017 09:18:32 -0500
+Message-ID: <1484921912.786.1@smtp.office365.com>
+References: <1484866066-25407-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-To: David VomLehn <vomlehn@texas.net>,
-        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+To: <davem@davemloft.net>, <tom@herbertland.com>,
+        <netdev@vger.kernel.org>, <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35477 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753470AbdASWuM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 17:50:12 -0500
-Received: by mail-pf0-f195.google.com with SMTP id f144so4107054pfa.2
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 14:50:02 -0800 (PST)
-In-Reply-To: <4e7c386f-e0bd-7647-ee2d-0afdcc9e6a91@texas.net>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57036 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752327AbdATPVl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 10:21:41 -0500
+In-Reply-To: <1484866066-25407-1-git-send-email-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/19/2017 02:45 PM, David VomLehn wrote:
-> On 01/19/2017 02:41 PM, Florian Fainelli wrote:
->> On 01/19/2017 01:33 PM, Alexander Loktionov wrote:
->>> From: David VomLehn <vomlehn@texas.net>
->>>
->>> This series introduces the AQtion NIC driver for the aQuantia
->>> AQC107/AQC108 network devices.
->>> v5: o Removed extra newline at the end of the files.
->>> v6: o Removed unnecessary cast from void*.
->>>      o Reworked strings array for ethtool statistics.
->>>      o Added stringset == ETH_SS_STATS checking.
->>>      o AQ_OBJ_HEADER replaced to aq_obj_header_s struct.
->>>      o AQ_OBJ_SET/TST/CLR macroses replaced to inline functions.
->>>      o Driver sources placed in to atlantic directory.
->>>      o Fixed compilation warnings (Make W=1)
->>>      o Added firmware version checking.
->>>      o Code cleaning.
->>> v7  o Removed unnecessary cast from memory allocation function
->>> (aq_ring.c).
->> In general, you may want for a couple of days before resubmitting new
->> versions that only fix minor stuff like what happened here between v6
->> and v7.
-> Yeah, the number of comments has dropped enough that I had hopes this
-> last one might be it. It makes me, I know, a foolish dreamer, but such
-> is the lot of a software developer...
+On Thu, Jan 19, 2017 at 5:47 PM, Josef Bacik <jbacik@fb.com> wrote:
+> When comparing two sockets we need to use inet6_rcv_saddr so we get a 
+> NULL
+> sk_v6_rcv_saddr if the socket isn't AF_INET6, otherwise our 
+> comparison function
+> can be wrong.
+> 
+> Fixes: 637bc8b ("inet: reset tb->fastreuseport when adding a 
+> reuseport sk")
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
+> ---
+>  net/ipv4/inet_connection_sock.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/inet_connection_sock.c 
+> b/net/ipv4/inet_connection_sock.c
+> index 096a085..a336c42 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -99,7 +99,7 @@ int inet_rcv_saddr_equal(const struct sock *sk, 
+> const struct sock *sk2,
+>  #if IS_ENABLED(CONFIG_IPV6)
+>  	if (sk->sk_family == AF_INET6)
+>  		return ipv6_rcv_saddr_equal(&sk->sk_v6_rcv_saddr,
+> -					    &sk2->sk_v6_rcv_saddr,
+> +					    inet6_rcv_saddr(sk2),
+>  					    sk->sk_rcv_saddr,
+>  					    sk2->sk_rcv_saddr,
+>  					    ipv6_only_sock(sk),
+> --
+> 2.5.5
 
-The driver looks in an okay shape, from a cursory glance at the files,
-there is quite a bit of complexity in reading the functional code,
-primarily because of the complicated helper functions and abstraction
-(not the HAL though)...
--- 
-Florian
+Sorry I forgot to tag this, it's for net-next.  Thanks,
+
+Josef
