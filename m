@@ -1,41 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v3 net-next 1/2] net/ipv6: allow sysctl to change
- link-local address generation mode
-Date: Thu, 19 Jan 2017 17:27:10 -0800
-Message-ID: <20170119172710.57eda5d0@xeon-e3>
-References: <20170119224619.18656-1-felix.jia@alliedtelesis.co.nz>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Setting skb->csum in shared skb with csum-complete
+Date: Thu, 19 Jan 2017 17:29:09 -0800
+Message-ID: <CALx6S34ZfFzPOmzfLoverXQ215AvasYejyJUv8wtWAVRumi-eg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>,
-        Hermin Anggawijaya <hermin.anggawijaya@alliedtelesis.co.nz>
-To: Felix Jia <felix.jia@alliedtelesis.co.nz>
+Content-Type: text/plain; charset=UTF-8
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35819 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753752AbdATB1l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 20:27:41 -0500
-Received: by mail-pg0-f51.google.com with SMTP id 194so18656760pgd.2
-        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 17:27:18 -0800 (PST)
-In-Reply-To: <20170119224619.18656-1-felix.jia@alliedtelesis.co.nz>
+Received: from mail-yw0-f182.google.com ([209.85.161.182]:34590 "EHLO
+        mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753752AbdATB3L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 20:29:11 -0500
+Received: by mail-yw0-f182.google.com with SMTP id w75so60245176ywg.1
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 17:29:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Jan 2017 11:46:19 +1300
-Felix Jia <felix.jia@alliedtelesis.co.nz> wrote:
+Hi Herbert,
 
-> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-> index 0fa4c324b713..48e2a34a6ed3 100644
-> --- a/include/net/if_inet6.h
-> +++ b/include/net/if_inet6.h
-> @@ -1,9 +1,9 @@
->  /*
->   *	inet6 interface/address list definitions
-> - *	Linux INET6 implementation 
-> + *	Linux INET6 implementation
->   *
->   *	Authors:
-> - *	Pedro Roque		<roque@di.fc.ul.pt>	
-> + *	Pedro Roque		<roque@di.fc.ul.pt>
+I am looking at "net: Fix skb csum races when peeking". The context is
+that I'm seeing checksum faults after backporting mlx5 from driver.
+The handling of the checksum faults in interesting in itself. One side
+effect is that we end up recalculating and doing the dump twice when
+GRO is enabled. Another is that we validate checksum complete in a
+shared skbuf with a knowingly bad skb->csum value.
 
-Please don't add unnecessary whitespace changes to  your patch.
+In the checksum fault case we recalculate the checksum and find it was
+actually correct in the packet. If the skb is not shared then we set
+the skb->csum to the correct value and also set skb->csum_complete_sw
+and skb->csum_valid. But if skb is shared we don't do any of that.
+This is kind of odd since __skb_checksum_complete_head then returns
+zero for an skb with checksum_complete where the checksum complete
+value is not correct. I'm not sure what the consequences of doing that
+are (I don't think it's related to issues I'm seeing) but this doesn't
+seem like a good thing. Maybe we should set skb->csum in this case
+since we know it's already wrong and the fact that skbuf is shared
+can't make it more wrong...
+
+Tom
