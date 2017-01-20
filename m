@@ -1,135 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: restore VIRTIO_HDR_F_DATA_VALID on
-	receiving
-Date: Fri, 20 Jan 2017 18:45:11 +0200
-Message-ID: <20170120184220-mutt-send-email-mst@kernel.org>
-References: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] bcm63xx_enet: avoid uninitialized variable warning
+Date: Fri, 20 Jan 2017 11:46:00 -0500 (EST)
+Message-ID: <20170120.114600.1285813871724893800.davem@davemloft.net>
+References: <20170118145306.1004008-1-arnd@arndb.de>
+ <20170118145306.1004008-3-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Rolf Neugebauer <rolf.neugebauer@docker.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: f.fainelli@gmail.com, xypron.glpk@gmx.de, linux-kernel@vger.kernel.org,
+ bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, tremyfr@gmail.com
+To: arnd@arndb.de
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170118145306.1004008-3-arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 20, 2017 at 02:32:42PM +0800, Jason Wang wrote:
-> Commit 501db511397f ("virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on
-> xmit") in fact disables VIRTIO_HDR_F_DATA_VALID on receiving path too,
-> fixing this by adding a hint (has_data_valid) and set it only on the
-> receiving path.
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 18 Jan 2017 15:52:53 +0100
+
+> gcc-7 and probably earlier versions get confused by this function
+> and print a harmless warning:
 > 
-> Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/macvtap.c      | 2 +-
->  drivers/net/tun.c          | 2 +-
->  drivers/net/virtio_net.c   | 2 +-
->  include/linux/virtio_net.h | 6 +++++-
->  net/packet/af_packet.c     | 4 ++--
->  5 files changed, 10 insertions(+), 6 deletions(-)
+> drivers/net/ethernet/broadcom/bcm63xx_enet.c: In function 'bcm_enet_open':
+> drivers/net/ethernet/broadcom/bcm63xx_enet.c:1130:3: error: 'phydev' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 5c26653..4026185 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -825,7 +825,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
->  			return -EINVAL;
->  
->  		if (virtio_net_hdr_from_skb(skb, &vnet_hdr,
-> -					    macvtap_is_little_endian(q)))
-> +					    macvtap_is_little_endian(q), true))
->  			BUG();
->  
->  		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter) !=
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index cd8e02c..2cd10b2 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1360,7 +1360,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
->  			return -EINVAL;
->  
->  		if (virtio_net_hdr_from_skb(skb, &gso,
-> -					    tun_is_little_endian(tun))) {
-> +					    tun_is_little_endian(tun), true)) {
->  			struct skb_shared_info *sinfo = skb_shinfo(skb);
->  			pr_err("unexpected GSO type: "
->  			       "0x%x, gso_size %d, hdr_len %d\n",
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 4a10500..3474243 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1104,7 +1104,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
->  		hdr = skb_vnet_hdr(skb);
->  
->  	if (virtio_net_hdr_from_skb(skb, &hdr->hdr,
-> -				    virtio_is_little_endian(vi->vdev)))
-> +				    virtio_is_little_endian(vi->vdev), false))
->  		BUG();
->  
->  	if (vi->mergeable_rx_bufs)
-> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> index 5643647..5209b5e 100644
-> --- a/include/linux/virtio_net.h
-> +++ b/include/linux/virtio_net.h
-> @@ -56,7 +56,8 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
->  
->  static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
->  					  struct virtio_net_hdr *hdr,
-> -					  bool little_endian)
-> +					  bool little_endian,
-> +					  bool has_data_valid)
->  {
->  	memset(hdr, 0, sizeof(*hdr));   /* no info leak */
->  
+> This adds an initialization for the 'phydev' variable when it is unused
+> and changes the check to test for that NULL pointer to make it clear
+> that we always pass a valid pointer here.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-I would prefer naming it is_rx. Callers should not know about
-internal details like data valid, the issue we are trying to fix
-here is that tx and tx headers are slightly different.
-
-
-> @@ -91,6 +92,9 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
->  				skb_checksum_start_offset(skb));
->  		hdr->csum_offset = __cpu_to_virtio16(little_endian,
->  				skb->csum_offset);
-> +	} else if (has_data_valid &&
-> +		   skb->ip_summed == CHECKSUM_UNNECESSARY) {
-> +		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
->  	} /* else everything is zero */
->  
->  	return 0;
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index b9e1a13..3d555c7 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1976,7 +1976,7 @@ static int packet_rcv_vnet(struct msghdr *msg, const struct sk_buff *skb,
->  		return -EINVAL;
->  	*len -= sizeof(vnet_hdr);
->  
-> -	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le()))
-> +	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le(), true))
->  		return -EINVAL;
->  
->  	return memcpy_to_msg(msg, (void *)&vnet_hdr, sizeof(vnet_hdr));
-> @@ -2237,7 +2237,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
->  	if (po->has_vnet_hdr) {
->  		if (virtio_net_hdr_from_skb(skb, h.raw + macoff -
->  					    sizeof(struct virtio_net_hdr),
-> -					    vio_le())) {
-> +					    vio_le(), true)) {
->  			spin_lock(&sk->sk_receive_queue.lock);
->  			goto drop_n_account;
->  		}
-> -- 
-> 2.7.4
+Also applied, thanks.
