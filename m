@@ -1,73 +1,61 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next] ipmroute: add support for RTNH_F_UNRESOLVED
-Date: Fri, 20 Jan 2017 15:04:22 +0100
-Message-ID: <1484921062-23379-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Bharat Kumar Gogada <bharat.kumar.gogada@xilinx.com>
+Subject: RE: [PATCH] rtlwifi: rtl8192x: Enabling and disabling hardware
+ interrupts after enabling local irq flags
+Date: Fri, 20 Jan 2017 14:14:10 +0000
+Message-ID: <8520D5D51A55D047800579B094147198263CA86D@XAP-PVEXMBX02.xlnx.xilinx.com>
+References: <1484820854-16719-1-git-send-email-bharatku@xilinx.com>
+ <b2e783f6-fa09-e287-8119-266299cdae22@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Ravikiran Gummaluri <rgummal@xilinx.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36387 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752428AbdATOMi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 09:12:38 -0500
-Received: by mail-wm0-f45.google.com with SMTP id c85so38668357wmi.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 06:12:37 -0800 (PST)
+Received: from mail-sn1nam02on0089.outbound.protection.outlook.com ([104.47.36.89]:61733
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752422AbdATOOY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 09:14:24 -0500
+In-Reply-To: <b2e783f6-fa09-e287-8119-266299cdae22@lwfinger.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new field that is printed in the end of the line which
-denotes the real entry state. Before this patch an entry's IIF could
-disappear and it would look like an unresolved one (iif = unresolved):
-(3.0.16.1, 225.11.16.1)          Iif: unresolved
-with no way to really distinguish it from an unresolved entry.
-After the patch if the dumped entry has RTNH_F_UNRESOLVED set we get:
-(3.0.16.1, 225.11.16.1)          Iif: unresolved  State: unresolved
-for unresolved entries and:
-(0.0.0.0, 225.11.11.11)          Iif: eth4       Oifs: eth3  State: resolved
-for resolved entries after the OIF list. Note that "State:" has ':' in
-it so it cannot be mistaken for an interface name.
-And for the example above, we'd get:
-(0.0.0.0, 225.11.11.11)          Iif: unresolved     State: resolved
+ > On 01/19/2017 04:14 AM, Bharat Kumar Gogada wrote:
+> > -Realtek 8192CE chipset maintains local irq flags after enabling/disabl=
+ing
+> > hardware interrupts.
+> > -Hardware interrupts are enabled before enabling the local irq
+> > flags(these flags are being checked in interrupt handler),
+> > leading to race condition on some RP, where the irq line between
+> > bridge and GIC goes high at ASSERT_INTx and goes low only
+> > at DEASSERT_INTx. In this kind of RP by the time ASSERT_INTx is seen
+> > irq_enable flag is still set to false, resulting in continuous
+> > interrupts seen by CPU as DEASSERT_INTx cannot be sent since
+> > flag is still false and making CPU stall.
+> > -Changing the sequence of setting these irq flags.
+> >
+> > Signed-off-by: Bharat Kumar Gogada <bharatku@xilinx.com>
+> > ---
+>=20
+> This patch should be enhanced with the smb_xx() calls as suggested by by =
+Lino.
+>=20
+> The subject should be changed. I would suggest something like "rtlwifi:
+> rtl8192ce: Prevent race condition when enabling interrupts", as it explai=
+ns the
+> condition you are preventing.
+>=20
+> The other PCI drivers also have the same problem. Do you want to prepare =
+the
+> patches, or should I do it?
+>=20
+Thanks Larry. Please send out the patches adding the above enhancements sug=
+gested by Lino.
 
-Also when dumping all routes via ip route show table all, it will show
-up as:
-multicast 225.11.16.1/32 from 3.0.16.1/32 table default proto 17 unresolved
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- ip/ipmroute.c | 6 ++++++
- ip/iproute.c  | 2 ++
- 2 files changed, 8 insertions(+)
-
-diff --git a/ip/ipmroute.c b/ip/ipmroute.c
-index 512afcd2086e..913f3fd28e14 100644
---- a/ip/ipmroute.c
-+++ b/ip/ipmroute.c
-@@ -159,6 +159,12 @@ int print_mroute(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			nh = RTNH_NEXT(nh);
- 		}
- 	}
-+	fprintf(fp, " State: ");
-+	if (r->rtm_flags & RTNH_F_UNRESOLVED)
-+		fprintf(fp, "unresolved");
-+	else
-+		fprintf(fp, "resolved");
-+
- 	if (show_stats && tb[RTA_MFC_STATS]) {
- 		struct rta_mfc_stats *mfcs = RTA_DATA(tb[RTA_MFC_STATS]);
- 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index e433de8be189..c19578337f71 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -448,6 +448,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		fprintf(fp, "notify ");
- 	if (r->rtm_flags & RTNH_F_LINKDOWN)
- 		fprintf(fp, "linkdown ");
-+	if (r->rtm_flags & RTNH_F_UNRESOLVED)
-+		fprintf(fp, "unresolved ");
- 	if (tb[RTA_MARK]) {
- 		unsigned int mark = *(unsigned int *)RTA_DATA(tb[RTA_MARK]);
- 
--- 
-2.1.4
+Bharat
