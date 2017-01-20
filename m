@@ -1,53 +1,72 @@
-From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-Subject: [PATCH v2 iproute2] f_flower: don't set TCA_FLOWER_KEY_ETH_TYPE for
- "protocol all"
-Date: Fri, 20 Jan 2017 14:07:38 -0500
-Message-ID: <20170120190738.GA17163@nvt-d.home.kvack.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org,
-        bcrl@kvack.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/2] net: systemport: Dynamically allocate number of TX rings
+Date: Fri, 20 Jan 2017 11:08:26 -0800
+Message-ID: <20170120190827.26444-2-f.fainelli@gmail.com>
+References: <20170120190827.26444-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:35198 "EHLO
-        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751497AbdATTHo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 14:07:44 -0500
-Received: by mail-it0-f54.google.com with SMTP id 203so26485993ith.0
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 11:07:43 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34061 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752590AbdATTIe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 14:08:34 -0500
+Received: by mail-pf0-f195.google.com with SMTP id y143so5947271pfb.1
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 11:08:34 -0800 (PST)
+In-Reply-To: <20170120190827.26444-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2 - update to address changes in 00697ca19ae3e1118f2af82c3b41ac4335fe918b.
+In preparation for adding SYSTEMPORT Lite, which has twice as less transmit
+queues than SYSTEMPORT make sure we do allocate TX rings based on the
+systemport,txq property to get an appropriate memory footprint.
 
-When using the tc flower filter, rules marked with "protocol all" do not
-actually match all packets.  This is due to a bug in f_flower.c that passes
-in ETH_P_ALL in the TCA_FLOWER_KEY_ETH_TYPE attribute when adding a rule.
-Fix this by omitting TCA_FLOWER_KEY_ETH_TYPE if the protocol is set to
-ETH_P_ALL.
-    
-Fixes: 488b41d020fb ("tc: flower no need to specify the ethertype")
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
-Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 11 +++++++++++
+ drivers/net/ethernet/broadcom/bcmsysport.h |  2 +-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 314c2dd..145a856 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -529,9 +529,11 @@ parse_done:
- 	if (ret)
- 		return ret;
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 744ed6ddaf37..31bb2c3696ec 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1752,6 +1752,10 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 	if (of_property_read_u32(dn, "systemport,num-rxq", &rxq))
+ 		rxq = 1;
  
--	ret = addattr16(n, MAX_MSG, TCA_FLOWER_KEY_ETH_TYPE, eth_type);
--	if (ret)
--		return ret;
-+	if (eth_type != htons(ETH_P_ALL)) {
-+		ret = addattr16(n, MAX_MSG, TCA_FLOWER_KEY_ETH_TYPE, eth_type);
-+		if (ret)
-+			return ret;
-+	}
++	/* Sanity check the number of transmit queues */
++	if (!txq || txq > TDMA_NUM_RINGS)
++		return -EINVAL;
++
+ 	dev = alloc_etherdev_mqs(sizeof(*priv), txq, rxq);
+ 	if (!dev)
+ 		return -ENOMEM;
+@@ -1759,6 +1763,13 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 	/* Initialize private members */
+ 	priv = netdev_priv(dev);
  
- 	tail->rta_len = (((void *)n)+n->nlmsg_len) - (void *)tail;
++	/* Allocate number of TX rings */
++	priv->tx_rings = devm_kcalloc(&pdev->dev, txq,
++				      sizeof(struct bcm_sysport_tx_ring),
++				      GFP_KERNEL);
++	if (!priv->tx_rings)
++		return -ENOMEM;
++
+ 	priv->irq0 = platform_get_irq(pdev, 0);
+ 	priv->irq1 = platform_get_irq(pdev, 1);
+ 	priv->wol_irq = platform_get_irq(pdev, 2);
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+index 1c82e3da69a7..f051356b0274 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.h
++++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+@@ -659,7 +659,7 @@ struct bcm_sysport_priv {
+ 	int			wol_irq;
  
+ 	/* Transmit rings */
+-	struct bcm_sysport_tx_ring tx_rings[TDMA_NUM_RINGS];
++	struct bcm_sysport_tx_ring *tx_rings;
+ 
+ 	/* Receive queue */
+ 	void __iomem		*rx_bds;
+-- 
+2.11.0
