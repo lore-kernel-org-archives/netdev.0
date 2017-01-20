@@ -1,275 +1,79 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv3 net-next 4/4] sctp: implement sender-side procedures
- for Add Incoming/Outgoing Streams Request Parameter
-Date: Fri, 20 Jan 2017 09:43:53 -0200
-Message-ID: <20170120114352.GQ3781@localhost.localdomain>
-References: <cover.1484845510.git.lucien.xin@gmail.com>
- <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
- <20170119214750.GM3781@localhost.localdomain>
- <CADvbK_dAG6gLb00VmqvuTnbXcBnK5-bSytkqd_kNEv3SxakMgw@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] net: ethtool: avoid allocation failure for dump_regs
+Date: Fri, 20 Jan 2017 13:44:37 +0200
+Message-ID: <87y3y6lzve.fsf@kamboji.qca.qualcomm.com>
+References: <20170119141508.GA6245@tuxdriver.com>
+        <20170119155620.GD6245@tuxdriver.com>
+        <87h94uorc1.fsf@kamboji.qca.qualcomm.com>
+        <20170119.142230.1012416564568457058.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        davem <davem@davemloft.net>
-To: Xin Long <lucien.xin@gmail.com>
+Cc: linville@tuxdriver.com, darcari@redhat.com, netdev@vger.kernel.org,
+        johannes.berg@intel.com, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37576 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751719AbdATLoC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 06:44:02 -0500
-Content-Disposition: inline
-In-Reply-To: <CADvbK_dAG6gLb00VmqvuTnbXcBnK5-bSytkqd_kNEv3SxakMgw@mail.gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:44940 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751719AbdATLoo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 06:44:44 -0500
+In-Reply-To: <20170119.142230.1012416564568457058.davem@davemloft.net> (David
+        Miller's message of "Thu, 19 Jan 2017 14:22:30 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 04:56:30PM +0800, Xin Long wrote:
-> On Fri, Jan 20, 2017 at 5:47 AM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
-> > On Fri, Jan 20, 2017 at 01:19:14AM +0800, Xin Long wrote:
-> >> This patch is to implement Sender-Side Procedures for the Add
-> >> Outgoing and Incoming Streams Request Parameter described in
-> >> rfc6525 section 5.1.5-5.1.6.
-> >>
-> >> It is also to add sockopt SCTP_ADD_STREAMS in rfc6525 section
-> >> 6.3.4 for users.
-> >>
-> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> >> ---
-> >>  include/net/sctp/sctp.h   |  2 +
-> >>  include/uapi/linux/sctp.h |  7 ++++
-> >>  net/sctp/socket.c         | 29 ++++++++++++++
-> >>  net/sctp/stream.c         | 99 +++++++++++++++++++++++++++++++++++++++++++++++
-> >>  4 files changed, 137 insertions(+)
-> >>
-> >> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-> >> index b93820f..68ee1a6 100644
-> >> --- a/include/net/sctp/sctp.h
-> >> +++ b/include/net/sctp/sctp.h
-> >> @@ -199,6 +199,8 @@ int sctp_offload_init(void);
-> >>  int sctp_send_reset_streams(struct sctp_association *asoc,
-> >>                           struct sctp_reset_streams *params);
-> >>  int sctp_send_reset_assoc(struct sctp_association *asoc);
-> >> +int sctp_send_add_streams(struct sctp_association *asoc,
-> >> +                       struct sctp_add_streams *params);
-> >>
-> >>  /*
-> >>   * Module global variables
-> >> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> >> index c0bd8c3..a91a9cc 100644
-> >> --- a/include/uapi/linux/sctp.h
-> >> +++ b/include/uapi/linux/sctp.h
-> >> @@ -118,6 +118,7 @@ typedef __s32 sctp_assoc_t;
-> >>  #define SCTP_ENABLE_STREAM_RESET     118
-> >>  #define SCTP_RESET_STREAMS   119
-> >>  #define SCTP_RESET_ASSOC     120
-> >> +#define SCTP_ADD_STREAMS     121
-> >>
-> >>  /* PR-SCTP policies */
-> >>  #define SCTP_PR_SCTP_NONE    0x0000
-> >> @@ -1027,4 +1028,10 @@ struct sctp_reset_streams {
-> >>       uint16_t srs_stream_list[];     /* list if srs_num_streams is not 0 */
-> >>  };
-> >>
-> >> +struct sctp_add_streams {
-> >> +     sctp_assoc_t sas_assoc_id;
-> >> +     uint16_t sas_instrms;
-> >> +     uint16_t sas_outstrms;
-> >> +};
-> >> +
-> >>  #endif /* _UAPI_SCTP_H */
-> >> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> >> index 2c5c9ca..ae0a99e 100644
-> >> --- a/net/sctp/socket.c
-> >> +++ b/net/sctp/socket.c
-> >> @@ -3838,6 +3838,32 @@ static int sctp_setsockopt_reset_assoc(struct sock *sk,
-> >>       return retval;
-> >>  }
-> >>
-> >> +static int sctp_setsockopt_add_streams(struct sock *sk,
-> >> +                                    char __user *optval,
-> >> +                                    unsigned int optlen)
-> >> +{
-> >> +     struct sctp_association *asoc;
-> >> +     struct sctp_add_streams params;
-> >> +     int retval = -EINVAL;
-> >> +
-> >> +     if (optlen != sizeof(params))
-> >> +             goto out;
-> >> +
-> >> +     if (copy_from_user(&params, optval, optlen)) {
-> >> +             retval = -EFAULT;
-> >> +             goto out;
-> >> +     }
-> >> +
-> >> +     asoc = sctp_id2assoc(sk, params.sas_assoc_id);
-> >> +     if (!asoc)
-> >> +             goto out;
-> >> +
-> >> +     retval = sctp_send_add_streams(asoc, &params);
-> >> +
-> >> +out:
-> >> +     return retval;
-> >> +}
-> >> +
-> >>  /* API 6.2 setsockopt(), getsockopt()
-> >>   *
-> >>   * Applications use setsockopt() and getsockopt() to set or retrieve
-> >> @@ -4013,6 +4039,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
-> >>       case SCTP_RESET_ASSOC:
-> >>               retval = sctp_setsockopt_reset_assoc(sk, optval, optlen);
-> >>               break;
-> >> +     case SCTP_ADD_STREAMS:
-> >> +             retval = sctp_setsockopt_add_streams(sk, optval, optlen);
-> >> +             break;
-> >>       default:
-> >>               retval = -ENOPROTOOPT;
-> >>               break;
-> >> diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-> >> index b368191..ba41837 100644
-> >> --- a/net/sctp/stream.c
-> >> +++ b/net/sctp/stream.c
-> >> @@ -195,3 +195,102 @@ int sctp_send_reset_assoc(struct sctp_association *asoc)
-> >>
-> >>       return retval;
-> >>  }
-> >> +
-> >> +int sctp_send_add_streams(struct sctp_association *asoc,
-> >> +                       struct sctp_add_streams *params)
-> >> +{
-> >> +     struct sctp_stream *stream = asoc->stream;
-> >> +     struct sctp_chunk *chunk = NULL;
-> >> +     int retval = -EINVAL;
-> >> +     __u16 out, in;
-> >> +
-> >> +     if (!asoc->peer.reconf_capable ||
-> >> +         !(asoc->strreset_enable & SCTP_ENABLE_CHANGE_ASSOC_REQ)) {
-> >> +             retval = -ENOPROTOOPT;
-> >> +             goto out;
-> >> +     }
-> >> +
-> >> +     if (asoc->strreset_outstanding) {
-> >> +             retval = -EINPROGRESS;
-> >> +             goto out;
-> >> +     }
-> >> +
-> >> +     out = params->sas_outstrms;
-> >> +     in  = params->sas_instrms;
-> >> +
-> >> +     if (!out && !in)
-> >
-> > [@]
-> >
-> >> +             goto out;
-> >> +
-> >> +     if (out) {
-> >> +             __u16 nums = stream->outcnt + out;
-> >> +
-> >> +             /* Check for overflow, can't use nums here */
-> >> +             if (stream->outcnt + out > SCTP_MAX_STREAM)
-> >> +                     goto out;
-> >
-> > You should do these overflow checks before doing actual work,
-> > preferreably at [@] mark above.
-> > Here it's fine, but when [*] below run, it may be too late.
-> >
-> >> +
-> >> +             /* Use ksize to check if stream array really needs to realloc */
-> >> +             if (ksize(stream->out) / sizeof(*stream->out) < nums) {
-> >> +                     struct sctp_stream_out *streamout;
-> >> +
-> >> +                     streamout = kcalloc(nums, sizeof(*streamout),
-> >> +                                         GFP_KERNEL);
-> >> +                     if (!streamout) {
-> >> +                             retval = -ENOMEM;
-> >> +                             goto out;
-> >> +                     }
-> >> +
-> >> +                     memcpy(streamout, stream->out,
-> >> +                            sizeof(*streamout) * stream->outcnt);
-> >> +
-> >> +                     kfree(stream->out);
-> >> +                     stream->out = streamout;
-> >> +             }
-> >> +
-> >> +             stream->outcnt = nums;
-> >> +     }
-> >> +
-> >> +     if (in) {
-> >> +             __u16 nums = stream->incnt + in;
-> >> +
-> >> +             if (stream->incnt + in > SCTP_MAX_STREAM)
-> >> +                     goto out;
-> >
-> > [*]
-> it will cause alloc unused memory, but no consistent issue if
-> we move outcnt/incnt after checking retval.
+David Miller <davem@davemloft.net> writes:
 
-Ah yes, right, so it doesn't hurt actually.
+> From: Kalle Valo <kvalo@codeaurora.org>
+> Date: Thu, 19 Jan 2017 20:08:30 +0200
+>
+>> "John W. Linville" <linville@tuxdriver.com> writes:
+>> 
+>>> I forgot to Cc Johannes and Kalle...
+>> 
+>> Also adding linux-wireless.
+>> 
+>>> On Thu, Jan 19, 2017 at 09:15:09AM -0500, John W. Linville wrote:
+>>>
+>>>> I'm responsible for this mess. The original idea was for various
+>>>> mac80211-based drivers to override the ethtool operation and provide
+>>>> their own dump operation, but the mac80211 crowd never embraced
+>>>> the idea.
+>>>> 
+>>>> In the meantime, I added the default implementation which just
+>>>> passed-up wdev->wiphy->hw_version as the version info for a 0-length
+>>>> register dump. I then implemented a driver-specific regiser dump
+>>>> handler for userland ethtool that would interpret the hardware version
+>>>> information for the at76c50x-usb driver.
+>>>> 
+>>>> So the net of it is, if we treat a return of 0 from get_regs_len()
+>>>> as "not supported", we break this one driver-specific feature for
+>>>> userland ethtool. Realistically, there are probably very few users
+>>>> to care. But I can't guarantee that the number is zero.
+>> 
+>> I know the number is not zero, because I remember using it years back
+>> with something else than at76c50x-usb. But is the number more than one,
+>> I don't know :)
+>
+> I'm trying to dig down and figure out why this problem is showing up now.
+> ethtool_get_regs() has been using vzalloc() since 2011, and before that it
+> used plain vmalloc().
+>
+> This code has therefore been using v{m,z}alloc() forever.  What changed?
+>
+> The zero size check has been in the vmalloc implementation since at least
+> 2009.
+>
+> I don't understand why this is all triggering and being noticed now.  The
+> whole ieee80211 "return zero length regs and return hw version in get_regs"
+> thing should have been failing for at least 7 years now.
 
-> 
-> if we want overflow check to go ahead of the actual work, another
-> conditions if (in) {} if(out) {} have to be added.
+Maybe just nobody hasn't used it since? If my memory serves me right
+(too often it does not) It's 6-7 years since I used this, and if the
+kernel I worked on at the time was a year or two old, I might have used
+a version without the zero size check.
 
-Not sure why? Seems 
-if (!in || !out || stream->incnt + in > SCTP_MAX_STREAM ||
-    stream->outcnt + out > SCTP_MAX_STREAM)
-	goto out;
-would do it, no?
+But I'm just hand-waving here, I cannot be sure what's the last kernel I
+used.
 
-> 
-> >
-> >> +
-> >> +             if (ksize(stream->in) / sizeof(*stream->in) < nums) {
-> >> +                     struct sctp_stream_in *streamin;
-> >> +
-> >> +                     streamin = kcalloc(nums, sizeof(*streamin),
-> >> +                                        GFP_KERNEL);
-> >> +                     if (!streamin) {
-> >> +                             retval = -ENOMEM;
-> >> +                             goto out;
-> >> +                     }
-> >> +
-> >> +                     memcpy(streamin, stream->in,
-> >> +                            sizeof(*streamin) * stream->incnt);
-> >> +
-> >> +                     kfree(stream->in);
-> >> +                     stream->in = streamin;
-> >> +             }
-> >> +
-> >> +             stream->incnt = nums;
-> >> +     }
-> >> +
-> >> +     chunk = sctp_make_strreset_addstrm(asoc, out, in);
-> >> +     if (!chunk) {
-> >> +             retval = -ENOMEM;
-> >> +             goto out;
-> >> +     }
-> >> +
-> >> +     asoc->strreset_outstanding = !!out + !!in;
-> >> +     asoc->strreset_chunk = chunk;
-> >> +     sctp_chunk_hold(asoc->strreset_chunk);
-> >> +
-> >> +     retval = sctp_send_reconf(asoc, chunk);
-> >> +     if (retval) {
-> >> +             sctp_chunk_put(asoc->strreset_chunk);
-> >> +             asoc->strreset_chunk = NULL;
-> >> +     }
-> >> +
-> >> +out:
-> >> +     return retval;
-> >> +}
-> >> --
-> >> 2.1.0
-> >>
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+Kalle Valo
