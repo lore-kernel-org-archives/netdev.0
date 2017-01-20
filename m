@@ -1,110 +1,47 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH v3] net/irda: fix lockdep annotation
-Date: Fri, 20 Jan 2017 23:53:17 +0100
-Message-ID: <CACT4Y+Y+QQz59UbSW7K_NXKFPGt0FtVGvmTs0gm1aTAUyAGusA@mail.gmail.com>
-References: <20170116211052.46525-1-dvyukov@google.com> <20170117.151901.998994334183973013.davem@davemloft.net>
- <CACT4Y+Yx3wVAgxJRYKMOYM419NTSc9naSxUVfwCb21kjvAnF6Q@mail.gmail.com> <20170119.112736.1928027614533032571.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v5 2/2] net: dsa: mv88e6xxx: Add support for ethernet
+ switch 88E6341
+Date: Sat, 21 Jan 2017 00:15:15 +0100
+Message-ID: <20170120231515.GB25240@lunn.ch>
+References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
+ <20170119214934.27442-3-gregory.clement@free-electrons.com>
+ <87y3y6k7pg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170120001203.GB31483@lunn.ch>
+ <8760l9641t.fsf@free-electrons.com>
+ <87lgu5r653.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dave Jones <davej@redhat.com>, Samuel Ortiz <samuel@sortiz.org>,
-        Alexander Potapenko <glider@google.com>,
-        andreyknvl <andreyknvl@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f49.google.com ([209.85.213.49]:36525 "EHLO
-        mail-vk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751396AbdATWxj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 17:53:39 -0500
-Received: by mail-vk0-f49.google.com with SMTP id t8so59351191vke.3
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 14:53:39 -0800 (PST)
-In-Reply-To: <20170119.112736.1928027614533032571.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Wilson Ding <dingwei@marvell.com>,
+        Kostya Porotchkin <kostap@marvell.com>,
+        Joe Zhou <shjzhou@marvell.com>,
+        Jon Pannell <jpannell@marvell.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87lgu5r653.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 19, 2017 at 5:27 PM, David Miller <davem@davemloft.net> wrote:
-> From: Dmitry Vyukov <dvyukov@google.com>
-> Date: Thu, 19 Jan 2017 11:05:36 +0100
->
->> Thanks for looking into it! This particular issue bothers my fuzzers
->> considerably. I agree that removing recursion is better.
->> So do how we proceed? Will you mail this as a real patch?
->
-> Someone needs to test this:
+On Fri, Jan 20, 2017 at 12:30:16PM -0500, Vivien Didelot wrote:
+> Hi Gregory,
+> 
+> Gregory CLEMENT <gregory.clement@free-electrons.com> writes:
+> 
+> > If there a series about to be merged I can rebase my series on it. Else
+> > I propose to keep it and convert the family check to ops when you will
+> > send the series for it.
+> 
+> I am reworking the VTU operations, but not these port operations yet.
 
+I'm working on them. I have a patch ready for testing on my hardware.
 
-I've stressed this with the fuzzer for a day.
-It gets rid of the lockdep warning, and I did not notice any other
-related crashes.
-
-Tested-by: Dmitry Vyukov <dvyukov@google.com>
-
-Thanks!
-
-
-> diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
-> index acbe61c..160dc89 100644
-> --- a/net/irda/irqueue.c
-> +++ b/net/irda/irqueue.c
-> @@ -383,9 +383,6 @@ EXPORT_SYMBOL(hashbin_new);
->   *    for deallocating this structure if it's complex. If not the user can
->   *    just supply kfree, which should take care of the job.
->   */
-> -#ifdef CONFIG_LOCKDEP
-> -static int hashbin_lock_depth = 0;
-> -#endif
->  int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
->  {
->         irda_queue_t* queue;
-> @@ -396,22 +393,27 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
->         IRDA_ASSERT(hashbin->magic == HB_MAGIC, return -1;);
->
->         /* Synchronize */
-> -       if ( hashbin->hb_type & HB_LOCK ) {
-> -               spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags,
-> -                                        hashbin_lock_depth++);
-> -       }
-> +       if (hashbin->hb_type & HB_LOCK)
-> +               spin_lock_irqsave(&hashbin->hb_spinlock, flags);
->
->         /*
->          *  Free the entries in the hashbin, TODO: use hashbin_clear when
->          *  it has been shown to work
->          */
->         for (i = 0; i < HASHBIN_SIZE; i ++ ) {
-> -               queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
-> -               while (queue ) {
-> -                       if (free_func)
-> -                               (*free_func)(queue);
-> -                       queue = dequeue_first(
-> -                               (irda_queue_t**) &hashbin->hb_queue[i]);
-> +               while (1) {
-> +                       queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
-> +
-> +                       if (!queue)
-> +                               break;
-> +
-> +                       if (free_func) {
-> +                               if (hashbin->hb_type & HB_LOCK)
-> +                                       spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
-> +                               free_func(queue);
-> +                               if (hashbin->hb_type & HB_LOCK)
-> +                                       spin_lock_irqsave(&hashbin->hb_spinlock, flags);
-> +                       }
->                 }
->         }
->
-> @@ -420,12 +422,8 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
->         hashbin->magic = ~HB_MAGIC;
->
->         /* Release lock */
-> -       if ( hashbin->hb_type & HB_LOCK) {
-> +       if (hashbin->hb_type & HB_LOCK)
->                 spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
-> -#ifdef CONFIG_LOCKDEP
-> -               hashbin_lock_depth--;
-> -#endif
-> -       }
->
->         /*
->          *  Free the hashbin structure
+    Andrew
