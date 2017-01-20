@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/3] use netdev_is_rx_handler_busy() in few known
- cases
-Date: Fri, 20 Jan 2017 12:22:47 -0500 (EST)
-Message-ID: <20170120.122247.579482338385386692.davem@davemloft.net>
-References: <20170118230245.20674-1-mahesh@bandewar.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] fq_codel: Avoid regenerating skb flow hash
+ unless necessary
+Date: Fri, 20 Jan 2017 09:31:55 -0800
+Message-ID: <1484933515.16328.139.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170118210428.24006-1-acollins@cradlepoint.com>
+         <CALx6S37Pnjyz6cpykKgy5JOU23MkH4EJ2Z+do+zVfXR08X5NYg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, maheshb@google.com
-To: mahesh@bandewar.net
+Cc: Andrew Collins <acollins@cradlepoint.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34102 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752126AbdATRas (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:30:48 -0500
-In-Reply-To: <20170118230245.20674-1-mahesh@bandewar.net>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36391 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751303AbdATRb5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:31:57 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 75so7355667pgf.3
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 09:31:57 -0800 (PST)
+In-Reply-To: <CALx6S37Pnjyz6cpykKgy5JOU23MkH4EJ2Z+do+zVfXR08X5NYg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Wed, 18 Jan 2017 15:02:45 -0800
+On Fri, 2017-01-20 at 09:23 -0800, Tom Herbert wrote:
 
-> netdev_rx_handler_register() was recently split into two parts - (a) check
-> if the handler is used, (b) register the new handler, parts. This is 
-> helpful in scenarios like bonding where at the time of registration there
-> is too much state to unwind and it should check if the device is free
-> before building that state. IPvlan and macvlan drivers don't have this
-> issue however it can make use of the same check instead of using a device
-> specific check.
+> So the perturbing of the hash is no longer needed for fq_codel?
 
-Looks good, series applied, thanks.
+Right, we never implemented a timer to change the perturbation anyway.
+
+Note that local TCP flows now implement their own hash change when
+needed.
