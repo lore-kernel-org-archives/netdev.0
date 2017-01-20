@@ -1,43 +1,135 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] qed: avoid possible stack overflow in
- qed_ll2_acquire_connection
-Date: Fri, 20 Jan 2017 11:44:55 -0500 (EST)
-Message-ID: <20170120.114455.431685285744854397.davem@davemloft.net>
-References: <20170118145306.1004008-1-arnd@arndb.de>
-        <20170118145306.1004008-2-arnd@arndb.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] virtio-net: restore VIRTIO_HDR_F_DATA_VALID on
+	receiving
+Date: Fri, 20 Jan 2017 18:45:11 +0200
+Message-ID: <20170120184220-mutt-send-email-mst@kernel.org>
+References: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        everest-linux-l2@cavium.com, Ram.Amrani@cavium.com,
-        weiyongjun1@huawei.com, hare@suse.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170118145306.1004008-2-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Rolf Neugebauer <rolf.neugebauer@docker.com>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 18 Jan 2017 15:52:52 +0100
+On Fri, Jan 20, 2017 at 02:32:42PM +0800, Jason Wang wrote:
+> Commit 501db511397f ("virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on
+> xmit") in fact disables VIRTIO_HDR_F_DATA_VALID on receiving path too,
+> fixing this by adding a hint (has_data_valid) and set it only on the
+> receiving path.
+> 
+> Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/macvtap.c      | 2 +-
+>  drivers/net/tun.c          | 2 +-
+>  drivers/net/virtio_net.c   | 2 +-
+>  include/linux/virtio_net.h | 6 +++++-
+>  net/packet/af_packet.c     | 4 ++--
+>  5 files changed, 10 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 5c26653..4026185 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -825,7 +825,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+>  			return -EINVAL;
+>  
+>  		if (virtio_net_hdr_from_skb(skb, &vnet_hdr,
+> -					    macvtap_is_little_endian(q)))
+> +					    macvtap_is_little_endian(q), true))
+>  			BUG();
+>  
+>  		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter) !=
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index cd8e02c..2cd10b2 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -1360,7 +1360,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>  			return -EINVAL;
+>  
+>  		if (virtio_net_hdr_from_skb(skb, &gso,
+> -					    tun_is_little_endian(tun))) {
+> +					    tun_is_little_endian(tun), true)) {
+>  			struct skb_shared_info *sinfo = skb_shinfo(skb);
+>  			pr_err("unexpected GSO type: "
+>  			       "0x%x, gso_size %d, hdr_len %d\n",
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 4a10500..3474243 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1104,7 +1104,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+>  		hdr = skb_vnet_hdr(skb);
+>  
+>  	if (virtio_net_hdr_from_skb(skb, &hdr->hdr,
+> -				    virtio_is_little_endian(vi->vdev)))
+> +				    virtio_is_little_endian(vi->vdev), false))
+>  		BUG();
+>  
+>  	if (vi->mergeable_rx_bufs)
+> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+> index 5643647..5209b5e 100644
+> --- a/include/linux/virtio_net.h
+> +++ b/include/linux/virtio_net.h
+> @@ -56,7 +56,8 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
+>  
+>  static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
+>  					  struct virtio_net_hdr *hdr,
+> -					  bool little_endian)
+> +					  bool little_endian,
+> +					  bool has_data_valid)
+>  {
+>  	memset(hdr, 0, sizeof(*hdr));   /* no info leak */
+>  
 
-> struct qed_ll2_info is rather large, so putting it on the stack
-> can cause an overflow, as this warning tries to tell us:
-> 
-> drivers/net/ethernet/qlogic/qed/qed_ll2.c: In function 'qed_ll2_start':
-> drivers/net/ethernet/qlogic/qed/qed_ll2.c:2159:1: error: the frame size of 1056 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
-> 
-> qed_ll2_start_ooo() already uses a dynamic allocation for the structure
-> to work around that problem, and we could do the same in qed_ll2_start()
-> as well as qed_roce_ll2_start(), but since the structure is only
-> used to pass a couple of initialization values here, it seems nicer
-> to replace it with a different structure.
-> 
-> Lacking any idea for better naming, I'm adding 'struct qed_ll2_conn',
-> which now contains all the initialization data, and this now simply
-> gets copied into struct qed_ll2_info rather than assigning all members
-> one by one.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+I would prefer naming it is_rx. Callers should not know about
+internal details like data valid, the issue we are trying to fix
+here is that tx and tx headers are slightly different.
 
-Applied.
+
+> @@ -91,6 +92,9 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
+>  				skb_checksum_start_offset(skb));
+>  		hdr->csum_offset = __cpu_to_virtio16(little_endian,
+>  				skb->csum_offset);
+> +	} else if (has_data_valid &&
+> +		   skb->ip_summed == CHECKSUM_UNNECESSARY) {
+> +		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+>  	} /* else everything is zero */
+>  
+>  	return 0;
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index b9e1a13..3d555c7 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1976,7 +1976,7 @@ static int packet_rcv_vnet(struct msghdr *msg, const struct sk_buff *skb,
+>  		return -EINVAL;
+>  	*len -= sizeof(vnet_hdr);
+>  
+> -	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le()))
+> +	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le(), true))
+>  		return -EINVAL;
+>  
+>  	return memcpy_to_msg(msg, (void *)&vnet_hdr, sizeof(vnet_hdr));
+> @@ -2237,7 +2237,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+>  	if (po->has_vnet_hdr) {
+>  		if (virtio_net_hdr_from_skb(skb, h.raw + macoff -
+>  					    sizeof(struct virtio_net_hdr),
+> -					    vio_le())) {
+> +					    vio_le(), true)) {
+>  			spin_lock(&sk->sk_receive_queue.lock);
+>  			goto drop_n_account;
+>  		}
+> -- 
+> 2.7.4
