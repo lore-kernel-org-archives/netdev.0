@@ -1,45 +1,62 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: sctp: fix array overrun read on sctp_timer_tbl
-Date: Fri, 20 Jan 2017 13:01:57 +0000
-Message-ID: <20170120130157.20034-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Subject: [PATCH] net: phy: micrel: add KSZ8795 ethernet switch
+Date: Fri, 20 Jan 2017 13:50:49 +0100
+Message-ID: <20170120125049.121307-1-sean.nyekjaer@prevas.dk>
+Cc: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail02.prevas.se ([62.95.78.10]:62035 "EHLO mail02.prevas.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751996AbdATNFB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 08:05:01 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+This ethernet switch have unfortunately the same phy id as KSZ8051.
 
-The comparison on the timeout can lead to an array overrun
-read on sctp_timer_tbl because of an off-by-one error. Fix
-this by using < instead of <= and also compare to the array
-size rather than SCTP_EVENT_TIMEOUT_MAX.
-
-Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
 ---
- net/sctp/debug.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/phy/micrel.c   | 14 ++++++++++++++
+ include/linux/micrel_phy.h |  2 ++
+ 2 files changed, 16 insertions(+)
 
-diff --git a/net/sctp/debug.c b/net/sctp/debug.c
-index 95d7b15..e371a0d 100644
---- a/net/sctp/debug.c
-+++ b/net/sctp/debug.c
-@@ -166,7 +166,7 @@ static const char *const sctp_timer_tbl[] = {
- /* Lookup timer debug name. */
- const char *sctp_tname(const sctp_subtype_t id)
- {
--	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
-+	if (id.timeout < ARRAY_SIZE(sctp_timer_tbl))
- 		return sctp_timer_tbl[id.timeout];
- 	return "unknown_timer";
- }
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index ea92d524d5a8..d47026c18974 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
+ 	.get_stats	= kszphy_get_stats,
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
++}, {
++	.phy_id		= PHY_ID_KSZ8795,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
++	.name		= "Micrel KSZ8795 Switch",
++	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= kszphy_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.get_sset_count = kszphy_get_sset_count,
++	.get_strings	= kszphy_get_strings,
++	.get_stats	= kszphy_get_stats,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
+ } };
+ 
+ module_phy_driver(ksphy_driver);
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index 257173e0095e..f541da68d1e7 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -35,6 +35,8 @@
+ #define PHY_ID_KSZ886X		0x00221430
+ #define PHY_ID_KSZ8863		0x00221435
+ 
++#define PHY_ID_KSZ8795		0x00221550
++
+ /* struct phy_device dev_flags definitions */
+ #define MICREL_PHY_50MHZ_CLK	0x00000001
+ #define MICREL_PHY_FXEN		0x00000002
 -- 
-2.10.2
+2.11.0
