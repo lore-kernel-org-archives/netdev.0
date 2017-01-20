@@ -1,79 +1,56 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] net: ethtool: avoid allocation failure for dump_regs
-Date: Fri, 20 Jan 2017 13:44:37 +0200
-Message-ID: <87y3y6lzve.fsf@kamboji.qca.qualcomm.com>
-References: <20170119141508.GA6245@tuxdriver.com>
-        <20170119155620.GD6245@tuxdriver.com>
-        <87h94uorc1.fsf@kamboji.qca.qualcomm.com>
-        <20170119.142230.1012416564568457058.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next V4] tc: flower: Refactor matching flags to be
+ more user friendly
+Date: Fri, 20 Jan 2017 12:27:42 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0268D18@AcuExch.aculab.com>
+References: <1484835468-46051-1-git-send-email-paulb@mellanox.com>
+ <20170119152218.61aa2fc4@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville@tuxdriver.com, darcari@redhat.com, netdev@vger.kernel.org,
-        johannes.berg@intel.com, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: 'Jiri Benc' <jbenc@redhat.com>, Paul Blakey <paulb@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:44940 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751719AbdATLoo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 06:44:44 -0500
-In-Reply-To: <20170119.142230.1012416564568457058.davem@davemloft.net> (David
-        Miller's message of "Thu, 19 Jan 2017 14:22:30 -0500 (EST)")
+Received: from smtp-out4.electric.net ([192.162.216.184]:56493 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752164AbdATM1v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 07:27:51 -0500
+In-Reply-To: <20170119152218.61aa2fc4@griffin>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Of Jiri Benc
+> Sent: 19 January 2017 14:22
+> On Thu, 19 Jan 2017 16:17:48 +0200, Paul Blakey wrote:
+> > +	while (token) {
+> > +		if (!strncmp(token, "no", 2)) {
+> > +			no = true;
+> > +			token = strchr(token, '_') + 1;
+> 
+> This seems to still assume that "no" is followed by an underscore.
+> What about a simple token += 2?
 
-> From: Kalle Valo <kvalo@codeaurora.org>
-> Date: Thu, 19 Jan 2017 20:08:30 +0200
->
->> "John W. Linville" <linville@tuxdriver.com> writes:
->> 
->>> I forgot to Cc Johannes and Kalle...
->> 
->> Also adding linux-wireless.
->> 
->>> On Thu, Jan 19, 2017 at 09:15:09AM -0500, John W. Linville wrote:
->>>
->>>> I'm responsible for this mess. The original idea was for various
->>>> mac80211-based drivers to override the ethtool operation and provide
->>>> their own dump operation, but the mac80211 crowd never embraced
->>>> the idea.
->>>> 
->>>> In the meantime, I added the default implementation which just
->>>> passed-up wdev->wiphy->hw_version as the version info for a 0-length
->>>> register dump. I then implemented a driver-specific regiser dump
->>>> handler for userland ethtool that would interpret the hardware version
->>>> information for the at76c50x-usb driver.
->>>> 
->>>> So the net of it is, if we treat a return of 0 from get_regs_len()
->>>> as "not supported", we break this one driver-specific feature for
->>>> userland ethtool. Realistically, there are probably very few users
->>>> to care. But I can't guarantee that the number is zero.
->> 
->> I know the number is not zero, because I remember using it years back
->> with something else than at76c50x-usb. But is the number more than one,
->> I don't know :)
->
-> I'm trying to dig down and figure out why this problem is showing up now.
-> ethtool_get_regs() has been using vzalloc() since 2011, and before that it
-> used plain vmalloc().
->
-> This code has therefore been using v{m,z}alloc() forever.  What changed?
->
-> The zero size check has been in the vmalloc implementation since at least
-> 2009.
->
-> I don't understand why this is all triggering and being noticed now.  The
-> whole ieee80211 "return zero length regs and return hw version in get_regs"
-> thing should have been failing for at least 7 years now.
+Actually it was rather worse than that and probably shows a
+distinct lack of testing.
+Consider what happened with "no", "nofubar" and "nofubar_baz",
+all ought to be rejected.
 
-Maybe just nobody hasn't used it since? If my memory serves me right
-(too often it does not) It's 6-7 years since I used this, and if the
-kernel I worked on at the time was a year or two old, I might have used
-a version without the zero size check.
+Actually using strncmp() is also overkill.
+Nothing wrong with:
+	if (token[0] == 'n' && token[1] == 'o' && token[2]) {
+		no = true;
+		token += 2;
+		if (token[0] == '_' && token[1])
+			token++;
+		...
 
-But I'm just hand-waving here, I cannot be sure what's the last kernel I
-used.
+or replace the last 3 lines with:
+		token += 2 + (token[2] == '_' & token[3]);
 
--- 
-Kalle Valo
+	David
