@@ -1,34 +1,25 @@
-From: Geliang Tang <geliangtang@gmail.com>
-Subject: [PATCH] sock: use hlist_entry_safe
-Date: Fri, 20 Jan 2017 22:27:04 +0800
-Message-ID: <697f2692562e48afa03304a7e605e8adbee8437e.1484829069.git.geliangtang@gmail.com>
-Cc: Geliang Tang <geliangtang@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: [PATCH v7 11/13] net: ethernet: aquantia: Ethtool support
+Date: Fri, 20 Jan 2017 16:33:09 +0200
+Message-ID: <CAKoUAr=O6WLcUzOEjTknE4+rcDriXF5ei-7MU2CBk1tQSteiJA@mail.gmail.com>
+References: <cover.1484860589.git.vomlehn@texas.net> <e9264b9e538cc308055d8edc9f8bf712969b4765.1484860589.git.vomlehn@texas.net>
+ <733a83f4-892e-f77b-3c90-8a3a26642e3e@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:34391 "EHLO
+        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752271AbdATOdw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 09:33:52 -0500
+Received: by mail-io0-f177.google.com with SMTP id l66so62561249ioi.1
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 06:33:11 -0800 (PST)
+In-Reply-To: <733a83f4-892e-f77b-3c90-8a3a26642e3e@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use hlist_entry_safe() instead of open-coding it.
++1
+Many times this information is needed, and "ethtool -i"  is a
+convenient way to get it.
 
-Signed-off-by: Geliang Tang <geliangtang@gmail.com>
----
- include/net/sock.h | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 4077ec4..c4e1caf1 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -544,8 +544,7 @@ static inline struct sock *sk_nulls_head(const struct hlist_nulls_head *head)
- 
- static inline struct sock *sk_next(const struct sock *sk)
- {
--	return sk->sk_node.next ?
--		hlist_entry(sk->sk_node.next, struct sock, sk_node) : NULL;
-+	return hlist_entry_safe(sk->sk_node.next, struct sock, sk_node);
- }
- 
- static inline struct sock *sk_nulls_next(const struct sock *sk)
--- 
-2.9.3
+Rami Rosen
