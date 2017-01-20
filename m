@@ -1,65 +1,41 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next V4] tc: flower: Refactor matching flags to be
- more user friendly
-Date: Fri, 20 Jan 2017 17:41:14 +0100
-Message-ID: <20170120174114.183f6e81@griffin>
-References: <1484835468-46051-1-git-send-email-paulb@mellanox.com>
-        <20170119152218.61aa2fc4@griffin>
-        <063D6719AE5E284EB5DD2968C1650D6DB0268D18@AcuExch.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/3] Retrieve number of VFs in a bus-agnostic
+ way
+Date: Fri, 20 Jan 2017 11:43:46 -0500 (EST)
+Message-ID: <20170120.114346.786441265338417344.davem@davemloft.net>
+References: <20170118130439.15023-1-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Paul Blakey <paulb@mellanox.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: bhelgaas@google.com, netdev@vger.kernel.org,
+        linux-pci@vger.kernel.org
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41794 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752611AbdATQld (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 11:41:33 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0268D18@AcuExch.aculab.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33076 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752780AbdATQns (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:43:48 -0500
+In-Reply-To: <20170118130439.15023-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 20 Jan 2017 12:27:42 +0000, David Laight wrote:
-> Consider what happened with "no", "nofubar" and "nofubar_baz",
-> all ought to be rejected.
+From: Phil Sutter <phil@nwl.cc>
+Date: Wed, 18 Jan 2017 14:04:36 +0100
 
-Why? "no" translates to "", "nofubar" to "fubar", etc. And those will
-be evaluated the same way as if they were supplied without the "no".
-I don't see a problem with this.
-
-> Actually using strncmp() is also overkill.
-
-Why? It compares two bytes. There's an extra null at the end of the
-"no" string but I wouldn't call that "overkill".
-
-> Nothing wrong with:
-> 	if (token[0] == 'n' && token[1] == 'o' && token[2]) {
-
-Except that strncmp is easier to understand and cleaner.
-
-> 		no = true;
-> 		token += 2;
-> 		if (token[0] == '_' && token[1])
-> 			token++;
-
-This doesn't make sense. The intent was not to allow both "nofrag" and
-"no_frag". The code in the patch treats "no_frag" as invalid and that's
-okay.
-
-> 		...
+> Previously, it was assumed that only PCI NICs would be capable of having
+> virtual functions - with my proposed enhancement of dummy NIC driver
+> implementing (fake) ones for testing purposes, this is no longer true.
 > 
-> or replace the last 3 lines with:
-> 		token += 2 + (token[2] == '_' & token[3]);
+> Discussion of said patch has led to the suggestion of implementing a
+> bus-agnostic method for VF count retrieval so rtnetlink could work with
+> both real VF-capable PCI NICs as well as my dummy modifications without
+> introducing ugly hacks.
+> 
+> The following series tries to achieve just that by introducing a bus
+> type callback to retrieve a device's number of VFs, implementing this
+> callback for PCI bus and finally adjusting rtnetlink to make use of the
+> generalized infrastructure.
 
-That's horribly ugly. Anyone looking at this will spent 2 minutes
-trying to untangle the code instead of the 2 seconds with the current
-code. We're not trying to win the Obfuscated C Contest here.
+This is really nice and clean, compare it to your original approach :-)
 
- Jiri
+Series applied, thanks!
