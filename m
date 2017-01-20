@@ -1,124 +1,35 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] virtio-net: restore VIRTIO_HDR_F_DATA_VALID on receiving
-Date: Fri, 20 Jan 2017 14:32:42 +0800
-Message-ID: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
+From: Valentine Sinitsyn <valentine.sinitsyn@gmail.com>
+Subject: ipv6_get_ifaddr() not exported
+Date: Fri, 20 Jan 2017 11:33:04 +0500
+Message-ID: <51967919-8cbd-e324-6851-0c3ed505ca4d@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:33725 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751260AbdATGku (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 01:40:50 -0500
+Received: by mail-lf0-f48.google.com with SMTP id k86so51066759lfi.0
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 22:40:49 -0800 (PST)
+Received: from ?IPv6:2a02:6b8:0:2807:cde1:8c1:2576:7afc? ([2a02:6b8:0:2807:cde1:8c1:2576:7afc])
+        by smtp.googlemail.com with ESMTPSA id r18sm2950941lff.4.2017.01.19.22.33.04
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 19 Jan 2017 22:33:05 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 501db511397f ("virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on
-xmit") in fact disables VIRTIO_HDR_F_DATA_VALID on receiving path too,
-fixing this by adding a hint (has_data_valid) and set it only on the
-receiving path.
+Hi all,
 
-Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/macvtap.c      | 2 +-
- drivers/net/tun.c          | 2 +-
- drivers/net/virtio_net.c   | 2 +-
- include/linux/virtio_net.h | 6 +++++-
- net/packet/af_packet.c     | 4 ++--
- 5 files changed, 10 insertions(+), 6 deletions(-)
+I'm working on a custom Netfilter module which could seemingly use 
+ipv6_get_ifaddr() function to find a netdev which has a destination IPv6 
+assigned (if any). The function is public, but not exported, so I can't 
+use it in my module.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 5c26653..4026185 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -825,7 +825,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 			return -EINVAL;
- 
- 		if (virtio_net_hdr_from_skb(skb, &vnet_hdr,
--					    macvtap_is_little_endian(q)))
-+					    macvtap_is_little_endian(q), true))
- 			BUG();
- 
- 		if (copy_to_iter(&vnet_hdr, sizeof(vnet_hdr), iter) !=
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index cd8e02c..2cd10b2 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1360,7 +1360,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 			return -EINVAL;
- 
- 		if (virtio_net_hdr_from_skb(skb, &gso,
--					    tun_is_little_endian(tun))) {
-+					    tun_is_little_endian(tun), true)) {
- 			struct skb_shared_info *sinfo = skb_shinfo(skb);
- 			pr_err("unexpected GSO type: "
- 			       "0x%x, gso_size %d, hdr_len %d\n",
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4a10500..3474243 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1104,7 +1104,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 		hdr = skb_vnet_hdr(skb);
- 
- 	if (virtio_net_hdr_from_skb(skb, &hdr->hdr,
--				    virtio_is_little_endian(vi->vdev)))
-+				    virtio_is_little_endian(vi->vdev), false))
- 		BUG();
- 
- 	if (vi->mergeable_rx_bufs)
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 5643647..5209b5e 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -56,7 +56,8 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
- 
- static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 					  struct virtio_net_hdr *hdr,
--					  bool little_endian)
-+					  bool little_endian,
-+					  bool has_data_valid)
- {
- 	memset(hdr, 0, sizeof(*hdr));   /* no info leak */
- 
-@@ -91,6 +92,9 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 				skb_checksum_start_offset(skb));
- 		hdr->csum_offset = __cpu_to_virtio16(little_endian,
- 				skb->csum_offset);
-+	} else if (has_data_valid &&
-+		   skb->ip_summed == CHECKSUM_UNNECESSARY) {
-+		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 	} /* else everything is zero */
- 
- 	return 0;
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b9e1a13..3d555c7 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1976,7 +1976,7 @@ static int packet_rcv_vnet(struct msghdr *msg, const struct sk_buff *skb,
- 		return -EINVAL;
- 	*len -= sizeof(vnet_hdr);
- 
--	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le()))
-+	if (virtio_net_hdr_from_skb(skb, &vnet_hdr, vio_le(), true))
- 		return -EINVAL;
- 
- 	return memcpy_to_msg(msg, (void *)&vnet_hdr, sizeof(vnet_hdr));
-@@ -2237,7 +2237,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (po->has_vnet_hdr) {
- 		if (virtio_net_hdr_from_skb(skb, h.raw + macoff -
- 					    sizeof(struct virtio_net_hdr),
--					    vio_le())) {
-+					    vio_le(), true)) {
- 			spin_lock(&sk->sk_receive_queue.lock);
- 			goto drop_n_account;
- 		}
--- 
-2.7.4
+Am I doing anything wrong, or I'm just a first type to use 
+ipv6_get_ifaddr() outside net/ipv6 code, and it's okay to export it now?
+
+Thanks,
+Valentine
