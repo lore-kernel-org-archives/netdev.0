@@ -1,69 +1,110 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: fs, net: deadlock between bind/splice on af_unix
-Date: Fri, 20 Jan 2017 23:52:17 +0100
-Message-ID: <CACT4Y+Yf5S1OiNdd8WH=bmge=25m3zOh48QB8iq2nsKESG6Z_Q@mail.gmail.com>
-References: <CACT4Y+Z981V+QLHr=PnQy1Dvxrpp-nCDhQtf+5HuNAusH+Vqxw@mail.gmail.com>
- <CACT4Y+a-fTzW95ViVP3knhNTa=h6XFB0bMddcyQVeeV+LbXKHw@mail.gmail.com>
- <CAM_iQpXu+fyjmvrYRB9+VJCdSLS=7Jiet762hqWDANfsOM0XWw@mail.gmail.com>
- <20161209013208.GW1555@ZenIV.linux.org.uk> <CAM_iQpXjeG5=wZyQP-yOKcB4WRfgGRjeQ+NDHyeSWwdU50Xh5g@mail.gmail.com>
- <20161209064144.GZ1555@ZenIV.linux.org.uk> <CACT4Y+ad1s6HPdw-ocQ5YfFx7qCeWb3z1k7F9+9KsNmw6+Tszw@mail.gmail.com>
- <CAM_iQpWu+V2E_uxJLUjS+xM+94CKKR+Bv95UrFPuswUAuAGM+w@mail.gmail.com>
- <CACT4Y+Y_3i=PThhVzHXYnCQm_xN72VQ0eN9Ae4uXyORq_a_Z6w@mail.gmail.com> <CAM_iQpUtirzcm901Gh6918g2yROo3FFKb6Vx87Wtj7M31wE6DA@mail.gmail.com>
+Subject: Re: [PATCH v3] net/irda: fix lockdep annotation
+Date: Fri, 20 Jan 2017 23:53:17 +0100
+Message-ID: <CACT4Y+Y+QQz59UbSW7K_NXKFPGt0FtVGvmTs0gm1aTAUyAGusA@mail.gmail.com>
+References: <20170116211052.46525-1-dvyukov@google.com> <20170117.151901.998994334183973013.davem@davemloft.net>
+ <CACT4Y+Yx3wVAgxJRYKMOYM419NTSc9naSxUVfwCb21kjvAnF6Q@mail.gmail.com> <20170119.112736.1928027614533032571.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpUtirzcm901Gh6918g2yROo3FFKb6Vx87Wtj7M31wE6DA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Dave Jones <davej@redhat.com>, Samuel Ortiz <samuel@sortiz.org>,
+        Alexander Potapenko <glider@google.com>,
+        andreyknvl <andreyknvl@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f49.google.com ([209.85.213.49]:36525 "EHLO
+        mail-vk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751396AbdATWxj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 17:53:39 -0500
+Received: by mail-vk0-f49.google.com with SMTP id t8so59351191vke.3
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 14:53:39 -0800 (PST)
+In-Reply-To: <20170119.112736.1928027614533032571.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 5:57 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>>>>> > Why do we do autobind there, anyway, and why is it conditional on
->>>>>> > SOCK_PASSCRED?  Note that e.g. for SOCK_STREAM we can bloody well get
->>>>>> > to sending stuff without autobind ever done - just use socketpair()
->>>>>> > to create that sucker and we won't be going through the connect()
->>>>>> > at all.
->>>>>>
->>>>>> In the case Dmitry reported, unix_dgram_sendmsg() calls unix_autobind(),
->>>>>> not SOCK_STREAM.
->>>>>
->>>>> Yes, I've noticed.  What I'm asking is what in there needs autobind triggered
->>>>> on sendmsg and why doesn't the same need affect the SOCK_STREAM case?
->>>>>
->>>>>> I guess some lock, perhaps the u->bindlock could be dropped before
->>>>>> acquiring the next one (sb_writer), but I need to double check.
->>>>>
->>>>> Bad idea, IMO - do you *want* autobind being able to come through while
->>>>> bind(2) is busy with mknod?
->>>>
->>>>
->>>> Ping. This is still happening on HEAD.
->>>>
->>>
->>> Thanks for your reminder. Mind to give the attached patch (compile only)
->>> a try? I take another approach to fix this deadlock, which moves the
->>> unix_mknod() out of unix->bindlock. Not sure if there is any unexpected
->>> impact with this way.
->>
->>
->> I instantly hit:
->>
+On Thu, Jan 19, 2017 at 5:27 PM, David Miller <davem@davemloft.net> wrote:
+> From: Dmitry Vyukov <dvyukov@google.com>
+> Date: Thu, 19 Jan 2017 11:05:36 +0100
 >
-> Oh, sorry about it, I forgot to initialize struct path...
+>> Thanks for looking into it! This particular issue bothers my fuzzers
+>> considerably. I agree that removing recursion is better.
+>> So do how we proceed? Will you mail this as a real patch?
 >
-> Attached is the updated version, I just did a boot test, no crash at least. ;)
->
-> Thanks!
+> Someone needs to test this:
 
-This works! I did not see the deadlock warning, nor any other related crashes.
+
+I've stressed this with the fuzzer for a day.
+It gets rid of the lockdep warning, and I did not notice any other
+related crashes.
 
 Tested-by: Dmitry Vyukov <dvyukov@google.com>
+
+Thanks!
+
+
+> diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
+> index acbe61c..160dc89 100644
+> --- a/net/irda/irqueue.c
+> +++ b/net/irda/irqueue.c
+> @@ -383,9 +383,6 @@ EXPORT_SYMBOL(hashbin_new);
+>   *    for deallocating this structure if it's complex. If not the user can
+>   *    just supply kfree, which should take care of the job.
+>   */
+> -#ifdef CONFIG_LOCKDEP
+> -static int hashbin_lock_depth = 0;
+> -#endif
+>  int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+>  {
+>         irda_queue_t* queue;
+> @@ -396,22 +393,27 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+>         IRDA_ASSERT(hashbin->magic == HB_MAGIC, return -1;);
+>
+>         /* Synchronize */
+> -       if ( hashbin->hb_type & HB_LOCK ) {
+> -               spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags,
+> -                                        hashbin_lock_depth++);
+> -       }
+> +       if (hashbin->hb_type & HB_LOCK)
+> +               spin_lock_irqsave(&hashbin->hb_spinlock, flags);
+>
+>         /*
+>          *  Free the entries in the hashbin, TODO: use hashbin_clear when
+>          *  it has been shown to work
+>          */
+>         for (i = 0; i < HASHBIN_SIZE; i ++ ) {
+> -               queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
+> -               while (queue ) {
+> -                       if (free_func)
+> -                               (*free_func)(queue);
+> -                       queue = dequeue_first(
+> -                               (irda_queue_t**) &hashbin->hb_queue[i]);
+> +               while (1) {
+> +                       queue = dequeue_first((irda_queue_t**) &hashbin->hb_queue[i]);
+> +
+> +                       if (!queue)
+> +                               break;
+> +
+> +                       if (free_func) {
+> +                               if (hashbin->hb_type & HB_LOCK)
+> +                                       spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
+> +                               free_func(queue);
+> +                               if (hashbin->hb_type & HB_LOCK)
+> +                                       spin_lock_irqsave(&hashbin->hb_spinlock, flags);
+> +                       }
+>                 }
+>         }
+>
+> @@ -420,12 +422,8 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+>         hashbin->magic = ~HB_MAGIC;
+>
+>         /* Release lock */
+> -       if ( hashbin->hb_type & HB_LOCK) {
+> +       if (hashbin->hb_type & HB_LOCK)
+>                 spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
+> -#ifdef CONFIG_LOCKDEP
+> -               hashbin_lock_depth--;
+> -#endif
+> -       }
+>
+>         /*
+>          *  Free the hashbin structure
