@@ -1,109 +1,151 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
-Date: Fri, 20 Jan 2017 16:31:09 +0100
-Message-ID: <f7636f54-5e01-44a2-b3e9-ca0feed96f20@neratec.com>
-References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
- <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
- <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
- <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
- <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
- <b12e913d-874b-734a-4401-88315b8459dc@neratec.com>
- <7d61d23d-60f5-a77e-42ad-fccf6e8d5878@codeaurora.org>
- <759d6323-ffac-ebe8-b197-4e1165be5673@neratec.com>
- <44eb0b95-1868-396b-db6b-18d233eff853@codeaurora.org>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH] stmmac: adding EEE to GMAC4
+Date: Fri, 20 Jan 2017 15:49:40 +0000
+Message-ID: <4d14e0b1-a3ed-1b3d-a554-eab5dff706b7@synopsys.com>
+References: <f89aaac8024e2a92834088545ad72fbe682b32ed.1483030665.git.jpinto@synopsys.com>
+ <CAJ3bTp7XHNd+oc9QsX25iX_umARFjSveehPY_a+quJBnj-okkA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, f.fainelli@gmail.com
-To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:13963 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752029AbdATPbL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 10:31:11 -0500
-In-Reply-To: <44eb0b95-1868-396b-db6b-18d233eff853@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        <linux-kernel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Rayagond Kokatanur <rayagond@vayavyalabs.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ3bTp7XHNd+oc9QsX25iX_umARFjSveehPY_a+quJBnj-okkA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/20/2017 03:38 AM, Timur Tabi wrote:
-> Zefir Kurtisi wrote:
->> It always operates at 675MHz, which with two lines gives 1.25Gbps,
->> which at 10/8 coding gives exactly 1Gbps net data rate. If the
->> at803x's copper side autonegotiates to 1Gbps, the bits traversing
->> over the SGMII match the copper side 1:1. In case the copper side
->> autonegotiates to e.g. 100Mbps, each bit at the copper side on the
->> SGMII bus is replicated and sent 10x times - or 100x times in case of
->> 10Mbps. The MAC side of the ETH needs to be aware of how the SGMII
->> data has to be interpreted, and this is why you have to set the bits
->> you are referring to.
-> 
-> So does this mean that the SGMII link should not be autonegotiated? I currently
-> have this code:
-> 
->     if (phydev->autoneg == AUTONEG_ENABLE) {
->         val &= ~(FORCE_AN_RX_CFG | FORCE_AN_TX_CFG);
->         val |= AN_ENABLE;
->         writel(val, phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
->     } else {
->         ...
-> 
-> So if the external PHY is set to autonegotiate, then the SGMII block is set to
-> also negotiate.  Now that I think about it, this seems wrong. And in fact, I'm not
-> sure how it works.  It seems that the this only makes sense if the SGMII block is
-> configured to act as the only PHY. This is an option that the hardware supports
-> but my driver does not.  So perhaps I should remove this part, and just do the rest:
-> 
-> 
->     u32 speed_cfg;
-> 
->     switch (phydev->speed) {
->     case SPEED_10:
->         speed_cfg = SPDMODE_10;
->         break;
->     case SPEED_100:
->         speed_cfg = SPDMODE_100;
->         break;
->     case SPEED_1000:
->         speed_cfg = SPDMODE_1000;
->         break;
->     default:
->         return -EINVAL;
->     }
-> 
->     if (phydev->duplex == DUPLEX_FULL)
->         speed_cfg |= DUPLEX_MODE;
-> 
->     val &= ~AN_ENABLE;
->     writel(speed_cfg, phy->base + EMAC_SGMII_PHY_SPEED_CFG1);
->     writel(val, phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
-> 
-> Should I be doing this all the time?
-> 
-Hm, that might be product dependent. From my experience with the gianfar/at8031
-this is what I can share: there is a known flaw in some revisions of the eTSEC
-that causes random failures in SGMII autonegotiation. As a workaround FSL proposes
-to use fixed speed. I spent lots of time getting this working, but in the end it
-turned out it does not. Setting fixed Gbps speed on both ends of the link is
-reported to be ok (link failure bits clean, page transmitted ok), but no data goes
-through the link.
 
->From a source I can't remember atm I was told that autonegotiation is mandatory
-for SGMII, therefore I believe there is no need to change the autoneg bits for
-SGMII in your case. I'd assume that resetting the link before setting the speed
-value should be enough, i.e. the second write to EMAC_SGMII_PHY_AUTONEG_CFG2 might
-be useless. YMMV
+Hi Rayagond,
 
->> To track down who is causing the additional message, I would proceed
->> with following technique that helped me dig down a similar problem:
->> since you control the events in question and there is no risk of
->> flooding the kernel log, in the top of phy.c::phy_print_status() add
->> a dump_stack() call. In the debug log ensure that all of the traces
->> end up in the same phydev->adjust_link() callback handler (in your
->> case emac_adjust_link()).
+Às 6:01 AM de 1/19/2017, Rayagond Kokatanur escreveu:
+> On Thu, Dec 29, 2016 at 10:40 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
+>> This patch adds Energy Efficiency Ethernet to GMAC4.
+>>
+>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>> ---
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      | 12 +++++
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 59 +++++++++++++++++++++++
+>>  2 files changed, 71 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> index b524598..73d1dab 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> @@ -90,6 +90,18 @@ enum power_event {
+>>         power_down = 0x00000001,
+>>  };
+>>
+>> +/* Energy Efficient Ethernet (EEE) for GMAC4
+>> + *
+>> + * LPI status, timer and control register offset
+>> + */
+>> +#define GMAC4_LPI_CTRL_STATUS  0xd0
+>> +#define GMAC4_LPI_TIMER_CTRL   0xd4
+>> +
+>> +/* LPI control and status defines */
+>> +#define GMAC4_LPI_CTRL_STATUS_LPITXA   BIT(19) /* Enable LPI TX Automate */
+>> +#define GMAC4_LPI_CTRL_STATUS_PLS      BIT(17) /* PHY Link Status */
+>> +#define GMAC4_LPI_CTRL_STATUS_LPIEN    BIT(16) /* LPI Enable */
+>> +
+>>  /* MAC Debug bitmap */
+>>  #define GMAC_DEBUG_TFCSTS_MASK         GENMASK(18, 17)
+>>  #define GMAC_DEBUG_TFCSTS_SHIFT                17
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+>> index ecfbf57..02eab79 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+>> @@ -137,6 +137,61 @@ static void dwmac4_get_umac_addr(struct mac_device_info *hw,
+>>                                    GMAC_ADDR_LOW(reg_n));
+>>  }
+>>
+>> +static void dwmac4_set_eee_mode(struct mac_device_info *hw)
+>> +{
+>> +       void __iomem *ioaddr = hw->pcsr;
+>> +       u32 value;
+>> +
+>> +       /* Enable the link status receive on RGMII, SGMII ore SMII
+>> +        * receive path and instruct the transmit to enter in LPI
+>> +        * state.
+>> +        */
+>> +       value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
+>> +       value |= GMAC4_LPI_CTRL_STATUS_LPIEN | GMAC4_LPI_CTRL_STATUS_LPITXA;
+>> +
+>> +       writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
+>> +}
+>> +
+>> +static void dwmac4_reset_eee_mode(struct mac_device_info *hw)
+>> +{
+>> +       void __iomem *ioaddr = hw->pcsr;
+>> +       u32 value;
+>> +
+>> +       value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
+>> +       value &= ~(GMAC4_LPI_CTRL_STATUS_LPIEN | GMAC4_LPI_CTRL_STATUS_LPITXA);
+>> +       writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
+>> +}
+>> +
+>> +static void dwmac4_set_eee_pls(struct mac_device_info *hw, int link)
+>> +{
+>> +       void __iomem *ioaddr = hw->pcsr;
+>> +       u32 value;
+>> +
+>> +       value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
+>> +
+>> +       if (link)
+>> +               value |= GMAC4_LPI_CTRL_STATUS_PLS;
+>> +       else
+>> +               value &= ~GMAC4_LPI_CTRL_STATUS_PLS;
+>> +
+>> +       writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
+>> +}
+>> +
+>> +static void dwmac4_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
+>> +{
+>> +       void __iomem *ioaddr = hw->pcsr;
+>> +       int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
 > 
-> That's a good idea, thanks.
+> If I am not wrong, LS field is 10 bits wide not 11 bits, hence we
+> should AND 0x3ff.
 > 
-As Florian responded, it seems you need to double check for real changes before
-printing the link status to get rid of the double printed notifications.
+> int value = ((tw & 0xffff)) | ((ls & 0x3ff) << 16);
 
-Good Luck.
+You are absolutely right. LS is related to 25:16 (10 bits).
+Thank you for checking it!
+
+Joao
+
+> 
+>> +
+>> +       /* Program the timers in the LPI timer control register:
+>> +        * LS: minimum time (ms) for which the link
+>> +        *  status from PHY should be ok before transmitting
+>> +        *  the LPI pattern.
+>> +        * TW: minimum time (us) for which the core waits
+>> +        *  after it has stopped transmitting the LPI pattern.
+>> +        */
+>> +       writel(value, ioaddr + GMAC4_LPI_TIMER_CTRL);
+>> +}
+>> +
+>>  static void dwmac4_set_filter(struct mac_device_info *hw,
+>>                               struct net_device *dev)
+>>  {
+>> @@ -410,6 +465,10 @@ static const struct stmmac_ops dwmac4_ops = {
+>>         .pmt = dwmac4_pmt,
+>>         .set_umac_addr = dwmac4_set_umac_addr,
+>>         .get_umac_addr = dwmac4_get_umac_addr,
+>> +       .set_eee_mode = dwmac4_set_eee_mode,
+>> +       .reset_eee_mode = dwmac4_reset_eee_mode,
+>> +       .set_eee_timer = dwmac4_set_eee_timer,
+>> +       .set_eee_pls = dwmac4_set_eee_pls,
+>>         .pcs_ctrl_ane = dwmac4_ctrl_ane,
+>>         .pcs_rane = dwmac4_rane,
+>>         .pcs_get_adv_lp = dwmac4_get_adv_lp,
+>> --
+>> 2.9.3
+>>
+> 
+> 
+> 
