@@ -1,97 +1,75 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH] net: sctp: fix array overrun read on sctp_timer_tbl
-Date: Fri, 20 Jan 2017 11:22:02 -0200
-Message-ID: <20170120132202.GS3781@localhost.localdomain>
-References: <20170120130157.20034-1-colin.king@canonical.com>
- <20170120131000.GR3781@localhost.localdomain>
- <4ba6d2eb-972d-4e2e-7876-7ecf3e29a438@canonical.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Fri, 20 Jan 2017 14:41:37 +0100
+Message-ID: <7c109e9e-e28b-3ddb-42b6-902f46bf0572@suse.cz>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
+ <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
+ <20170112173745.GC31509@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, lucien.xin@gmail.com
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4ba6d2eb-972d-4e2e-7876-7ecf3e29a438@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+ David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
+ Johannes Weiner <hannes@cmpxchg.org>, Al Viro <viro@zeniv.linux.org.uk>,
+ Linux-MM <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
+ Martin Schwidefsky <schwidefsky@de.ibm.com>,
+ Heiko Carstens <heiko.carstens@de.ibm.com>,
+ Herbert Xu <herbert@gondor.apana.org.au>, Anton Vorontsov
+ <anton@enomsg.org>, Colin Cross <ccross@android.com>,
+ Tony Luck <tony.luck@intel.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+ Ben Skeggs <bskeggs@redhat.com>, Kent Overstreet
+ <kent.overstreet@gmail.com>, Santosh Raspatur <santosh@chelsio.com>,
+ Hariprasad S <hariprasad@chelsio.com>, Tariq Toukan <tariqt@mellanox.com>,
+ Yishai Hadas <yishaih@mellanox.com>, Dan Williams
+ <dan.j.williams@intel.com>, Oleg Drokin <oleg.drokin@intel.com>,
+ Andreas Dilger <andreas.dilger@intel.com>,
+ Bor
+To: Michal Hocko <mhocko@kernel.org>, Kees Cook <keescook@chromium.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170112173745.GC31509@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 20, 2017 at 01:15:18PM +0000, Colin Ian King wrote:
-> On 20/01/17 13:10, Marcelo Ricardo Leitner wrote:
-> > On Fri, Jan 20, 2017 at 01:01:57PM +0000, Colin King wrote:
-> >> From: Colin Ian King <colin.king@canonical.com>
-> >>
-> >> The comparison on the timeout can lead to an array overrun
-> >> read on sctp_timer_tbl because of an off-by-one error. Fix
-> >> this by using < instead of <= and also compare to the array
-> >> size rather than SCTP_EVENT_TIMEOUT_MAX.
-> >>
-> >> Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
-> >>
-> >> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> >> ---
-> >>  net/sctp/debug.c | 2 +-
-> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> diff --git a/net/sctp/debug.c b/net/sctp/debug.c
-> >> index 95d7b15..e371a0d 100644
-> >> --- a/net/sctp/debug.c
-> >> +++ b/net/sctp/debug.c
-> >> @@ -166,7 +166,7 @@ static const char *const sctp_timer_tbl[] = {
-> >>  /* Lookup timer debug name. */
-> >>  const char *sctp_tname(const sctp_subtype_t id)
-> >>  {
-> >> -	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
-> >> +	if (id.timeout < ARRAY_SIZE(sctp_timer_tbl))
-> >>  		return sctp_timer_tbl[id.timeout];
-> > 
-> > The issue exists but this is not the right fix.
-> > Issue was introduced by 7b9438de0cd4 ("sctp: add stream reconf timer")
-> > as it introduced a new timer but didn't add the timer name here, so the
-> > fix should (also) include:
-> > 
-> > diff --git a/net/sctp/debug.c b/net/sctp/debug.c
-> > index 95d7b15dad21..c5f4ed5242ac 100644
-> > --- a/net/sctp/debug.c
-> > +++ b/net/sctp/debug.c
-> > @@ -159,6 +159,7 @@ static const char *const sctp_timer_tbl[] = {
-> >  	"TIMEOUT_T4_RTO",
-> >  	"TIMEOUT_T5_SHUTDOWN_GUARD",
-> >  	"TIMEOUT_HEARTBEAT",
-> > +	"TIMEOUT_RECONF",
-> >  	"TIMEOUT_SACK",
-> >  	"TIMEOUT_AUTOCLOSE",
-> >  };
+On 01/12/2017 06:37 PM, Michal Hocko wrote:
+> On Thu 12-01-17 09:26:09, Kees Cook wrote:
+>> On Thu, Jan 12, 2017 at 7:37 AM, Michal Hocko <mhocko@kernel.org> wrote:
+> [...]
+>>> diff --git a/arch/s390/kvm/kvm-s390.c b/arch/s390/kvm/kvm-s390.c
+>>> index 4f74511015b8..e6bbb33d2956 100644
+>>> --- a/arch/s390/kvm/kvm-s390.c
+>>> +++ b/arch/s390/kvm/kvm-s390.c
+>>> @@ -1126,10 +1126,7 @@ static long kvm_s390_get_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
+>>>         if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
+>>>                 return -EINVAL;
+>>>
+>>> -       keys = kmalloc_array(args->count, sizeof(uint8_t),
+>>> -                            GFP_KERNEL | __GFP_NOWARN);
+>>> -       if (!keys)
+>>> -               keys = vmalloc(sizeof(uint8_t) * args->count);
+>>> +       keys = kvmalloc(args->count * sizeof(uint8_t), GFP_KERNEL);
+>>
+>> Before doing this conversion, can we add a kvmalloc_array() API? This
+>> conversion could allow for the reintroduction of integer overflow
+>> flaws. (This particular situation isn't at risk since ->count is
+>> checked, but I'd prefer we not create a risky set of examples for
+>> using kvmalloc.)
 > 
-> Ah, OK, I can add that timeout into the the table, but perhaps it's
-> still prudent to check the index against the table size as well.
-> 
+> Well, I am not opposed to kvmalloc_array but I would argue that this
+> conversion cannot introduce new overflow issues. The code would have
+> to be broken already because even though kmalloc_array checks for the
+> overflow but vmalloc fallback doesn't...
 
-Yes, and/or a:
-  BUILD_BUG_ON(SCTP_EVENT_TIMEOUT_MAX + 1 != ARRAY_SIZE(sctp_timer_tbl))
-As then we would be sure to have the list right :-)
-Otherwise we may not do wrong reads but may report the wrong timer name.
+Yeah I agree, but if some of the places were really wrong, after the
+conversion we won't see them anymore.
 
-> > 
-> > Thanks,
-> > Marcelo
-> > 
-> >>  	return "unknown_timer";
-> >>  }
-> >> -- 
-> >> 2.10.2
-> >>
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> If there is a general interest for this API I can add it.
+
+I think it would be better, yes.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
