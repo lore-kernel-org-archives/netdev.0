@@ -1,41 +1,44 @@
-From: Ryder Lee <ryder.lee@mediatek.com>
-Subject: [PATCH net] macsec: fix validation failed in asynchronous operation.
-Date: Fri, 20 Jan 2017 15:28:33 +0800
-Message-ID: <1484897313-19157-1-git-send-email-ryder.lee@mediatek.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: ethernet: aquantia: fix alloc_cast.cocci warnings
+Date: Fri, 20 Jan 2017 00:19:57 -0800
+Message-ID: <1484900397.12563.1.camel@perches.com>
+References: <201701191708.e8q1JvlR%fengguang.wu@intel.com>
+         <20170119090931.GA28354@lkp-ne04.lkp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Sabrina Dubroca <sd@queasysnail.net>,
-        <linux-mediatek@lists.infradead.org>,
-        Ryder Lee <ryder.lee@mediatek.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+        David VomLehn <vomlehn@texas.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: kbuild test robot <lkp@intel.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:52454 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751320AbdATH2k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 02:28:40 -0500
+Received: from smtprelay0220.hostedemail.com ([216.40.44.220]:51771 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751499AbdATIUB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 03:20:01 -0500
+In-Reply-To: <20170119090931.GA28354@lkp-ne04.lkp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing "macsec_skb_cb(skb)->valid = true" in callback
-function macsec_decrypt_done(), this fixes packet validation
-failed while decrypting asynchronously.
+On Thu, 2017-01-19 at 17:09 +0800, kbuild test robot wrote:
+> drivers/net/ethernet/aquantia/atlantic/aq_ring.c:24:20-41: WARNING: casting value returned by memory allocation function to (struct aq_ring_buff_s *) is useless.
+> 
+>  Remove casting the values returned by memory allocation functions
+>  like kmalloc, kzalloc, kmem_cache_alloc, kmem_cache_zalloc etc.
+[]
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> @@ -21,7 +21,7 @@ static struct aq_ring_s *aq_ring_alloc(s
+>  {
+>  	int err = 0;
+>  
+> -	self->buff_ring = (struct aq_ring_buff_s *)
+> +	self->buff_ring =
+>  		kzalloc(sizeof(struct aq_ring_buff_s) * self->size, GFP_KERNEL);
 
-Signed-off-by: Ryder Lee <ryder.lee@mediatek.com>
----
- drivers/net/macsec.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index f83cf66..2a6ab5a 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -880,6 +880,7 @@ static void macsec_decrypt_done(struct crypto_async_request *base, int err)
- 	aead_request_free(macsec_skb_cb(skb)->req);
- 
- 	rcu_read_lock_bh();
-+	macsec_skb_cb(skb)->valid = true;
- 	pn = ntohl(macsec_ethhdr(skb)->packet_number);
- 	if (!macsec_post_decrypt(skb, &macsec->secy, pn)) {
- 		rcu_read_unlock_bh();
--- 
-1.9.1
+This should likely be kcalloc 
