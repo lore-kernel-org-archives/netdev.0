@@ -1,46 +1,62 @@
-From: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH v3 09/37] RDS: IB: Remove an unused structure member
-Date: Fri, 20 Jan 2017 13:04:09 -0800
-Message-ID: <20170120210437.26389-10-bart.vanassche@sandisk.com>
-References: <20170120210437.26389-1-bart.vanassche@sandisk.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH] net: qcom/emac: claim the irq only when the device is
+ opened
+Date: Fri, 20 Jan 2017 22:31:09 +0100
+Message-ID: <4025bb82-bc41-abfd-1481-5e66abc25c65@gmx.de>
+References: <1484775745-14050-1-git-send-email-timur@codeaurora.org>
+ <c86ba3d4-8393-f88d-2414-9295feb6d661@gmx.de>
+ <0b4a0259-f281-9b25-ef63-a09ef6725746@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170120210437.26389-1-bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Timur Tabi <timur@codeaurora.org>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:57210 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752243AbdATVbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 16:31:25 -0500
+In-Reply-To: <0b4a0259-f281-9b25-ef63-a09ef6725746@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
----
- net/rds/ib_mr.h | 1 -
- 1 file changed, 1 deletion(-)
 
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index 1c754f4acbe5..24c086db4511 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -45,7 +45,6 @@
- 
- struct rds_ib_fmr {
- 	struct ib_fmr		*fmr;
--	u64			*dma;
- };
- 
- enum rds_ib_fr_state {
--- 
-2.11.0
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 20.01.2017 22:05, Timur Tabi wrote:
+> On 01/20/2017 02:44 PM, Lino Sanfilippo wrote:
+>>
+>>
+>> On 18.01.2017 22:42, Timur Tabi wrote:
+>>> @@ -1029,8 +1017,6 @@ void emac_mac_down(struct emac_adapter *adpt)
+>>>        */
+>>>       writel(DIS_INT, adpt->base + EMAC_INT_STATUS);
+>>>       writel(0, adpt->base + EMAC_INT_MASK);
+>>> -    synchronize_irq(adpt->irq.irq);
+>>
+>> There is no reason to remove the irq synchronization, is it?
+>> Note that the desriptors are freed after that so we must be sure that
+>> the irq handler is not running any more.
+>
+> I'm moving it to stay with the free_irq().
+>
+> @@ -283,6 +292,9 @@ static int emac_close(struct net_device *netdev)
+>
+>      mutex_lock(&adpt->reset_lock);
+>
+> +    synchronize_irq(adpt->irq.irq);
+> +    free_irq(adpt->irq.irq, &adpt->irq);
+> +
+>
+> However, I'll admit that I don't know why we call synchronize_irq() at 
+> all.
+>
+
+free_irq() will call synchronize_irq() if necessary, so it is pointless 
+to call synchronize_irq()
+right before free_irq().
+In emac_mac_down() however we need synchronize_irq(), since it ensures 
+that the irq
+handler is not running any more when it (synchronize_irq) returns.
+
+Regards,
+Lino
