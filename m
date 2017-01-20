@@ -1,44 +1,34 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH][V2] net: sctp: fix array overrun read on sctp_timer_tbl
-Date: Fri, 20 Jan 2017 11:31:17 -0500 (EST)
-Message-ID: <20170120.113117.1592305434267734738.davem@davemloft.net>
+Date: Fri, 20 Jan 2017 11:32:09 -0500 (EST)
+Message-ID: <20170120.113209.1764653226397979876.davem@davemloft.net>
 References: <20170120134542.21104-1-colin.king@canonical.com>
+        <20170120135845.GT3781@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170120134542.21104-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: colin.king@canonical.com, vyasevich@gmail.com,
+        nhorman@tuxdriver.com, linux-sctp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33004 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752663AbdATQle (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:41:34 -0500
+In-Reply-To: <20170120135845.GT3781@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQ29saW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29tPg0KRGF0ZTogRnJpLCAy
-MCBKYW4gMjAxNyAxMzo0NTo0MiArMDAwMA0KDQo+IEZyb206IENvbGluIElhbiBLaW5nIDxjb2xp
-bi5raW5nQGNhbm9uaWNhbC5jb20+DQo+IA0KPiBUYWJsZSBzY3RwX3RpbWVyX3RibCBpcyBtaXNz
-aW5nIGEgVElNRU9VVF9SRUNPTkYgc3RyaW5nIHNvDQo+IGFkZCB0aGlzIGluLiBBbHNvIGNvbXBh
-cmUgdGltZW91dCB3aXRoIHRoZSBzaXplIG9mIHRoZSBhcnJheQ0KPiBzY3RwX3RpbWVyX3RibCBy
-YXRoZXIgdGhhbiBTQ1RQX0VWRU5UX1RJTUVPVVRfTUFYLiAgQWxzbyBhZGQNCj4gYSBidWlsZCB0
-aW1lIGNoZWNrIHRoYXQgU0NUUF9FVkVOVF9USU1FT1VUX01BWCBpcyBjb3JyZWN0DQo+IHNvIHdl
-IGRvbid0IGV2ZXIgZ2V0IHRoaXMga2luZCBvZiBtaXNtYXRjaCBiZXR3ZWVuIHRoZSB0YWJsZQ0K
-PiBhbmQgU0NUUF9FVkVOVF9USU1FT1VUX01BWCBpbiB0aGUgZnV0dXJlLg0KPiANCj4gS3Vkb3Mg
-dG8gTWFyY2VsIFJpY2FyZG8gTGVpdG5lciBmb3Igc3BvdHRpbmcgdGhlIG1pc3Npbmcgc3RyaW5n
-DQo+IGFuZCBzdWdnZXN0aW5nIHRoZSBidWlsZCB0aW1lIHNhbml0eSBjaGVjay4NCj4gDQo+IEZp
-eGVzIENvdmVyaXR5U2NhbiBDSUQjMTM5NzYzOSAoIk91dC1vZi1ib3VuZHMgcmVhZCIpDQo+IA0K
-PiBTaWduZWQtb2ZmLWJ5OiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29t
-Pg0KDQpXZWxsLCBteSBiYWQuLi4gSSByZXZlcnRlZCBWMSwgdGhhdCdzIGZpbmUuDQoNCkJ1dCB0
-aGlzIHBhdGNoIGRvZXNuJ3QgZXZlbiBjb21waWxlLg0KDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20g
-Li9pbmNsdWRlL3VhcGkvbGludXgvc3RkZGVmLmg6MTowLA0KICAgICAgICAgICAgICAgICBmcm9t
-IC4vaW5jbHVkZS9saW51eC9zdGRkZWYuaDo0LA0KICAgICAgICAgICAgICAgICBmcm9tIC4vaW5j
-bHVkZS91YXBpL2xpbnV4L3Bvc2l4X3R5cGVzLmg6NCwNCiAgICAgICAgICAgICAgICAgZnJvbSAu
-L2luY2x1ZGUvdWFwaS9saW51eC90eXBlcy5oOjEzLA0KICAgICAgICAgICAgICAgICBmcm9tIC4v
-aW5jbHVkZS9saW51eC90eXBlcy5oOjUsDQogICAgICAgICAgICAgICAgIGZyb20gLi9pbmNsdWRl
-L25ldC9zY3RwL3NjdHAuaDo1OCwNCiAgICAgICAgICAgICAgICAgZnJvbSBuZXQvc2N0cC9kZWJ1
-Zy5jOjQxOg0KbmV0L3NjdHAvZGVidWcuYzogSW4gZnVuY3Rpb24goXNjdHBfdG5hbWWiOg0KLi9p
-bmNsdWRlL2xpbnV4L2NvbXBpbGVyLmg6NTE4OjM4OiBlcnJvcjogY2FsbCB0byChX19jb21waWxl
-dGltZV9hc3NlcnRfMTcwoiBkZWNsYXJlZCB3aXRoIGF0dHJpYnV0ZSBlcnJvcjogQlVJTERfQlVH
-X09OIGZhaWxlZDogU0NUUF9FVkVOVF9USU1FT1VUX01BWCArIDEgIT0gQVJSQVlfU0laRShzY3Rw
-X3RpbWVyX3RibCkNCiAgX2NvbXBpbGV0aW1lX2Fzc2VydChjb25kaXRpb24sIG1zZywgX19jb21w
-aWxldGltZV9hc3NlcnRfLCBfX0xJTkVfXykNCg==
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Fri, 20 Jan 2017 11:58:45 -0200
+
+> Not sure I can add the Fixes tag for you here, but:
+> Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
+> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+
+FWIW, patchwork doesn't notice updated Fixes: tags like this but I
+try to do so myself and the effort is definitely appreciated.
+
+We need a V3 of this change anyways, see the build failure I reported
+for V2, so Colin can add the Fixes: tag there explicitly.
