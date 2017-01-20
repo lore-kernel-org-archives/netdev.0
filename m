@@ -1,41 +1,31 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
-Date: Fri, 20 Jan 2017 12:28:00 +0200
-Message-ID: <CALzJLG_JcOzW0EDm54pKX=uhNbA9CSAbcWCR4-r7C=y6C0nBsQ@mail.gmail.com>
-References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Benjamin Bikko <okpankuchambers@gmail.com>
+Subject: Please read and get back to me its urgent. Thank you!
+Date: Fri, 20 Jan 2017 11:27:07 +0100
+Message-ID: <CAJdFrph47QGY7U6tCFa0hnfMytZXU_FiV+OUivbhBqh2Y-HtKw@mail.gmail.com>
+Reply-To: bikkobikko001@consultant.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:33597 "EHLO
-        mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751813AbdATKfu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 05:35:50 -0500
-Received: by mail-yw0-f178.google.com with SMTP id u68so41361177ywg.0
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 02:35:50 -0800 (PST)
-In-Reply-To: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35708 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751753AbdATKgS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 05:36:18 -0500
+Received: by mail-oi0-f68.google.com with SMTP id x84so5207609oix.2
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 02:36:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 19, 2017 at 9:03 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> A driver using dev_alloc_page() must not reuse a page allocated from
-> emergency memory reserve.
->
-> Otherwise all packets using this page will be immediately dropped,
-> unless for very specific sockets having SOCK_MEMALLOC bit set.
->
-> This issue might be hard to debug, because only a fraction of received
-> packets would be dropped.
->
-> Fixes: 4415a0319f92 ("net/mlx5e: Implement RX mapped page cache for page recycle")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> Cc: Saeed Mahameed <saeedm@mellanox.com>
-
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+Good  day,
+I have an important message for you concerning the death of my
+deceased client . I am aware you are not related to this by blood,
+nationality or family, therefore I ask that you consider the factors
+in my email and keep it strictly confidential. However, if you are
+unable to meet my demand, kindly discard of it. This is regards the
+fund 15.5 million us dollars and 5 Kilos of GOLD BAR  he left behind
+here in this country (Togo),Contact me with your full names,
+occupation, country of residence and direct telephone number only at
+(bikkobikko001@consultant.com) for full details regards this claim.I
+await your urgent response today.
+Regards,
+Benjamin Bikko .
