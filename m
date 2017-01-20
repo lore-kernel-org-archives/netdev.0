@@ -1,85 +1,62 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: phy: Avoid deadlock during phy_error()
-Date: Fri, 20 Jan 2017 15:31:52 -0800
-Message-ID: <20170120233152.16244-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, kyle.roeschley@ni.com,
-        rmk+kernel@armlinux.org.uk, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [net-next 0/8] More MV88E6390 patches
+Date: Sat, 21 Jan 2017 00:30:54 +0100
+Message-ID: <1484955062-26718-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35984 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752474AbdATXcA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 18:32:00 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 75so7913054pgf.3
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 15:32:00 -0800 (PST)
+Received: from vps0.lunn.ch ([178.209.37.122]:40333 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752474AbdATXcg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 18:32:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-phy_error() is called in the PHY state machine workqueue context, and
-calls phy_trigger_machine() which does a cancel_delayed_work_sync() of
-the workqueue we execute from, causing a deadlock situation.
+This is the ongoing work to add support for the Marvell 9390 family of
+switches. There are now two MDIO busses, one for the internal PHYs and
+an external bus for external PHYs. Add support for this external bus.
 
-Augment phy_trigger_machine() machine with a sync boolean indicating
-whether we should use cancel_*_sync() or just cancel_*_work().
+This switch supports 2Gbps, 2.5Gbps and 10Gbps ports. Add phy-modes
+for these speeds/interfaces. These modes are then used to configure
+ports 9 and 10, which support these speeds.
 
-Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
-Reported-by: Russell King <rmk+kernel@armlinux.org.uk>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+The internal PHYs oddly use a Marvell Vendor ID, but have empty
+product ID. Trap reads of the product ID, and if it returns 0,
+instead return the switch family ID. The Marvell PHY driver is then
+extended to support this ID, treating the PHY as compatible with the
+1540.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 48da6e93c3f7..e687a9cb4a37 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -649,14 +649,18 @@ void phy_start_machine(struct phy_device *phydev)
-  * phy_trigger_machine - trigger the state machine to run
-  *
-  * @phydev: the phy_device struct
-+ * @sync: indicate whether we should wait for the workqueue cancelation
-  *
-  * Description: There has been a change in state which requires that the
-  *   state machine runs.
-  */
- 
--static void phy_trigger_machine(struct phy_device *phydev)
-+static void phy_trigger_machine(struct phy_device *phydev, bool sync)
- {
--	cancel_delayed_work_sync(&phydev->state_queue);
-+	if (sync)
-+		cancel_delayed_work_sync(&phydev->state_queue);
-+	else
-+		cancel_delayed_work(&phydev->state_queue);
- 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
- }
- 
-@@ -693,7 +697,7 @@ static void phy_error(struct phy_device *phydev)
- 	phydev->state = PHY_HALTED;
- 	mutex_unlock(&phydev->lock);
- 
--	phy_trigger_machine(phydev);
-+	phy_trigger_machine(phydev, false);
- }
- 
- /**
-@@ -840,7 +844,7 @@ void phy_change(struct phy_device *phydev)
- 	}
- 
- 	/* reschedule state queue work to run as soon as possible */
--	phy_trigger_machine(phydev);
-+	phy_trigger_machine(phydev, true);
- 	return;
- 
- ignore:
-@@ -942,7 +946,7 @@ void phy_start(struct phy_device *phydev)
- 	if (do_resume)
- 		phy_resume(phydev);
- 
--	phy_trigger_machine(phydev);
-+	phy_trigger_machine(phydev, true);
- }
- EXPORT_SYMBOL(phy_start);
- 
+Both the internal and external MDIO busses are capable of clause 45
+addressing, and is required to accessing the SERDES
+interfaces. Implement support for clause 45.
+
+And two fixes are included. There is no need to port these to stable,
+the current support for the 6390 is not sufficient to be usable.
+
+Andrew Lunn (8):
+  net: dsa: mv88e6xxx: Implement external MDIO bus on mv88e6390
+  net: phy: Add 2000base-x, 2500base-x and rxaui modes
+  net: dsa: mv88e6xxx: Fix ATU age timer for MV88E6390
+  net: dsa: mv88e6xxx: Set the CMODE for mv88e6390 ports 9 & 10
+  net: dsa: mv88e6xxx: Workaround missing PHY ID on mv88e6390
+  net: phy: Marvell: Add mv88e6390 internal PHY
+  net: dsa: mv88e6xxx: Implement Clause 45 access to SMI devices
+  net: dsa: mv88e6xxx: Fix typ0 when configuring 2.5Gbps
+
+ .../devicetree/bindings/net/dsa/marvell.txt        |   4 +
+ Documentation/devicetree/bindings/net/ethernet.txt |   3 +
+ drivers/net/dsa/mv88e6xxx/chip.c                   | 168 ++++++++++++++++-----
+ drivers/net/dsa/mv88e6xxx/global2.c                | 130 +++++++++++++++-
+ drivers/net/dsa/mv88e6xxx/global2.h                |   4 +-
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h              |  55 +++++--
+ drivers/net/dsa/mv88e6xxx/port.c                   |  66 +++++++-
+ drivers/net/dsa/mv88e6xxx/port.h                   |   3 +
+ drivers/net/phy/marvell.c                          |  20 +++
+ include/linux/marvell_phy.h                        |   6 +
+ include/linux/phy.h                                |   9 ++
+ 11 files changed, 409 insertions(+), 59 deletions(-)
+
 -- 
 2.11.0
