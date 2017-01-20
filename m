@@ -1,55 +1,30 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: rtl8192x: Enabling and disabling hardware
- interrupts after enabling local irq flags
-Date: Fri, 20 Jan 2017 10:30:05 -0600
-Message-ID: <07fff87e-4dc2-f7b1-76f1-263be2410905@lwfinger.net>
-References: <1484820854-16719-1-git-send-email-bharatku@xilinx.com>
- <b2e783f6-fa09-e287-8119-266299cdae22@lwfinger.net>
- <8520D5D51A55D047800579B094147198263CA86D@XAP-PVEXMBX02.xlnx.xilinx.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] gre6: Clean up unused struct
+ ipv6_tel_txoption definition
+Date: Fri, 20 Jan 2017 11:37:14 -0500 (EST)
+Message-ID: <20170120.113714.1859127019240221345.davem@davemloft.net>
+References: <1484920386-9058-1-git-send-email-jkbs@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Ravikiran Gummaluri <rgummal@xilinx.com>
-To: Bharat Kumar Gogada <bharat.kumar.gogada@xilinx.com>,
-        "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8520D5D51A55D047800579B094147198263CA86D@XAP-PVEXMBX02.xlnx.xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jkbs@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:32932 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753131AbdATQhQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:37:16 -0500
+In-Reply-To: <1484920386-9058-1-git-send-email-jkbs@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2017 08:14 AM, Bharat Kumar Gogada wrote:
->  > On 01/19/2017 04:14 AM, Bharat Kumar Gogada wrote:
->>> -Realtek 8192CE chipset maintains local irq flags after enabling/disabling
->>> hardware interrupts.
->>> -Hardware interrupts are enabled before enabling the local irq
->>> flags(these flags are being checked in interrupt handler),
->>> leading to race condition on some RP, where the irq line between
->>> bridge and GIC goes high at ASSERT_INTx and goes low only
->>> at DEASSERT_INTx. In this kind of RP by the time ASSERT_INTx is seen
->>> irq_enable flag is still set to false, resulting in continuous
->>> interrupts seen by CPU as DEASSERT_INTx cannot be sent since
->>> flag is still false and making CPU stall.
->>> -Changing the sequence of setting these irq flags.
->>>
->>> Signed-off-by: Bharat Kumar Gogada <bharatku@xilinx.com>
->>> ---
->>
->> This patch should be enhanced with the smb_xx() calls as suggested by by Lino.
->>
->> The subject should be changed. I would suggest something like "rtlwifi:
->> rtl8192ce: Prevent race condition when enabling interrupts", as it explains the
->> condition you are preventing.
->>
->> The other PCI drivers also have the same problem. Do you want to prepare the
->> patches, or should I do it?
->>
-> Thanks Larry. Please send out the patches adding the above enhancements suggested by Lino.
+From: Jakub Sitnicki <jkbs@redhat.com>
+Date: Fri, 20 Jan 2017 14:53:06 +0100
 
-I have prepared a patch fixing all the drivers. By the way, what CPU hardware 
-showed this problem?
+> Commit b05229f44228 ("gre6: Cleanup GREv6 transmit path, call common GRE
+> functions") removed the ip6gre specific transmit function, but left the
+> struct ipv6_tel_txoption definition. Clean it up.
+> 
+> Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
 
-Larry
+Applied, thank you.
