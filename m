@@ -1,43 +1,77 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: [PATCH net-next] gre6: Clean up unused struct ipv6_tel_txoption definition
-Date: Fri, 20 Jan 2017 14:53:06 +0100
-Message-ID: <1484920386-9058-1-git-send-email-jkbs@redhat.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36891 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752214AbdATNxK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 08:53:10 -0500
-Received: by mail-wm0-f45.google.com with SMTP id c206so44529167wme.0
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 05:53:09 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH][V2] net: sctp: fix array overrun read on sctp_timer_tbl
+Date: Fri, 20 Jan 2017 11:58:45 -0200
+Message-ID: <20170120135845.GT3781@localhost.localdomain>
+References: <20170120134542.21104-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170120134542.21104-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit b05229f44228 ("gre6: Cleanup GREv6 transmit path, call common GRE
-functions") removed the ip6gre specific transmit function, but left the
-struct ipv6_tel_txoption definition. Clean it up.
+On Fri, Jan 20, 2017 at 01:45:42PM +0000, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Table sctp_timer_tbl is missing a TIMEOUT_RECONF string so
+> add this in. Also compare timeout with the size of the array
+> sctp_timer_tbl rather than SCTP_EVENT_TIMEOUT_MAX.  Also add
+> a build time check that SCTP_EVENT_TIMEOUT_MAX is correct
+> so we don't ever get this kind of mismatch between the table
+> and SCTP_EVENT_TIMEOUT_MAX in the future.
+> 
+> Kudos to Marcel Ricardo Leitner for spotting the missing string
+> and suggesting the build time sanity check.
+> 
+> Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
----
- net/ipv6/ip6_gre.c | 5 -----
- 1 file changed, 5 deletions(-)
+Not sure I can add the Fixes tag for you here, but:
+Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 75b6108..65bdfd1 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -484,11 +484,6 @@ static int gre_rcv(struct sk_buff *skb)
- 	return 0;
- }
- 
--struct ipv6_tel_txoption {
--	struct ipv6_txoptions ops;
--	__u8 dst_opt[8];
--};
--
- static int gre_handle_offloads(struct sk_buff *skb, bool csum)
- {
- 	return iptunnel_handle_offloads(skb,
--- 
-2.7.4
+Thanks
+
+> ---
+>  net/sctp/debug.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/debug.c b/net/sctp/debug.c
+> index 95d7b15..2e47eb2 100644
+> --- a/net/sctp/debug.c
+> +++ b/net/sctp/debug.c
+> @@ -159,6 +159,7 @@ static const char *const sctp_timer_tbl[] = {
+>  	"TIMEOUT_T4_RTO",
+>  	"TIMEOUT_T5_SHUTDOWN_GUARD",
+>  	"TIMEOUT_HEARTBEAT",
+> +	"TIMEOUT_RECONF",
+>  	"TIMEOUT_SACK",
+>  	"TIMEOUT_AUTOCLOSE",
+>  };
+> @@ -166,7 +167,9 @@ static const char *const sctp_timer_tbl[] = {
+>  /* Lookup timer debug name. */
+>  const char *sctp_tname(const sctp_subtype_t id)
+>  {
+> -	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
+> +	BUILD_BUG_ON(SCTP_EVENT_TIMEOUT_MAX + 1 != ARRAY_SIZE(sctp_timer_tbl));
+> +
+> +	if (id.timeout < ARRAY_SIZE(sctp_timer_tbl))
+>  		return sctp_timer_tbl[id.timeout];
+>  	return "unknown_timer";
+>  }
+> -- 
+> 2.10.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
