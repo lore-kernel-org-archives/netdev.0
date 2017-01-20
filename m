@@ -1,69 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v5 0/2] Add support for the ethernet switch on the
- ESPRESSObin
-Date: Fri, 20 Jan 2017 23:38:23 +0100
-Message-ID: <20170120223823.GA25240@lunn.ch>
-References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
- <20170119220607.GA25907@lunn.ch>
- <87a8al64mp.fsf@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Wilson Ding <dingwei@marvell.com>,
-        Kostya Porotchkin <kostap@marvell.com>,
-        Joe Zhou <shjzhou@marvell.com>,
-        Jon Pannell <jpannell@marvell.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40278 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751125AbdATWi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 17:38:29 -0500
-Content-Disposition: inline
-In-Reply-To: <87a8al64mp.fsf@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] net: adaptec: starfire: add checks for dma mapping errors
+Date: Sat, 21 Jan 2017 01:52:24 +0300
+Message-ID: <1484952744-9815-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Ion Badulescu <ionut@badula.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Actually I didn't find anything related to the temperature measurement
-> in the datasheet I have. For the 6390 there is a dedicated datsheet for
-> the PHY part for the 6352 it is part of the same datasheet.
+init_ring() and refill_rx_ring() don't check if mapping dma memory succeed.
+The patch adds the checks and failure handling.
 
-Hi Gregory
+Found by Linux Driver Verification project (linuxtesting.org).
 
-The temperature sensor changes have landed in net-next. If you have
-time, please rebase to it and do some tests. Here are the likely
-outcomes:
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/ethernet/adaptec/starfire.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-1) Like the 6390, it does not have a valid PHY product ID. Hence the
-Marvell PHY driver is not loaded. You can see the PHY ID in
-
-/sys/bus/mdio_bus/devices/*/phy_id
-
-If it is 0x01410000, there is no product ID. I have a workaround for
-this.
-
-2) It has a valid phy_id, but it is not known to the marvell driver.
-Add an entry to the table at the bottom of drivers/net/phy/marvell.c,
-and a new entry in marvell_drivers. I would copy the 1540.
-
-
-3) The Marvell PHY driver does recognise it, and makes the temperature
-available in /sys/class/hwmon/hwmon*/temp1_input. It always returns
--25000mC. Same problem i have with the 6390. No idea how to fix it yet.
-
-4) The Marvell PHY driver does recognise it, and makes the temperature
-available in /sys/class/hwmon/hwmon*/temp1_input. The value is O.K. It
-all works :-)
-
-Personally, i'm not betting on 4 :-)
-
-
-    Andrew
+diff --git a/drivers/net/ethernet/adaptec/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
+index c12d2618eebf..e27043d051e1 100644
+--- a/drivers/net/ethernet/adaptec/starfire.c
++++ b/drivers/net/ethernet/adaptec/starfire.c
+@@ -1152,6 +1152,12 @@ static void init_ring(struct net_device *dev)
+ 		if (skb == NULL)
+ 			break;
+ 		np->rx_info[i].mapping = pci_map_single(np->pci_dev, skb->data, np->rx_buf_sz, PCI_DMA_FROMDEVICE);
++		if (pci_dma_mapping_error(np->pci_dev,
++					  np->rx_info[i].mapping)) {
++			dev_kfree_skb(skb);
++			np->rx_info[i].skb = NULL;
++			break;
++		}
+ 		/* Grrr, we cannot offset to correctly align the IP header. */
+ 		np->rx_ring[i].rxaddr = cpu_to_dma(np->rx_info[i].mapping | RxDescValid);
+ 	}
+@@ -1569,6 +1575,12 @@ static void refill_rx_ring(struct net_device *dev)
+ 				break;	/* Better luck next round. */
+ 			np->rx_info[entry].mapping =
+ 				pci_map_single(np->pci_dev, skb->data, np->rx_buf_sz, PCI_DMA_FROMDEVICE);
++			if (pci_dma_mapping_error(np->pci_dev,
++						np->rx_info[entry].mapping)) {
++				dev_kfree_skb(skb);
++				np->rx_info[entry].skb = NULL;
++				break;
++			}
+ 			np->rx_ring[entry].rxaddr =
+ 				cpu_to_dma(np->rx_info[entry].mapping | RxDescValid);
+ 		}
+-- 
+2.7.4
