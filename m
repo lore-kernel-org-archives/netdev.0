@@ -1,51 +1,38 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] net: qcom/emac: claim the irq only when the device is
- opened
-Date: Fri, 20 Jan 2017 15:05:25 -0600
-Message-ID: <0b4a0259-f281-9b25-ef63-a09ef6725746@codeaurora.org>
-References: <1484775745-14050-1-git-send-email-timur@codeaurora.org>
- <c86ba3d4-8393-f88d-2414-9295feb6d661@gmx.de>
+From: marcelo.leitner@gmail.com
+Subject: Re: [PATCHv4 net-next 3/5] sctp: implement sender-side procedures
+ for SSN/TSN Reset Request Parameter
+Date: Fri, 20 Jan 2017 18:47:01 -0200
+Message-ID: <20170120204701.GW3781@localhost.localdomain>
+References: <cover.1484934853.git.lucien.xin@gmail.com>
+ <ae54d06e442d8fba6a5983fb81fb4c8ae4bee3ef.1484934853.git.lucien.xin@gmail.com>
+ <20170120182521.GV3781@localhost.localdomain>
+ <20170120.140034.1018095629148946810.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, nhorman@tuxdriver.com,
+        vyasevich@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45672 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752156AbdATVGB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 16:06:01 -0500
-In-Reply-To: <c86ba3d4-8393-f88d-2414-9295feb6d661@gmx.de>
+Received: from mx1.redhat.com ([209.132.183.28]:40834 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753489AbdATUrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 15:47:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20170120.140034.1018095629148946810.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2017 02:44 PM, Lino Sanfilippo wrote:
->
->
-> On 18.01.2017 22:42, Timur Tabi wrote:
->> @@ -1029,8 +1017,6 @@ void emac_mac_down(struct emac_adapter *adpt)
->>        */
->>       writel(DIS_INT, adpt->base + EMAC_INT_STATUS);
->>       writel(0, adpt->base + EMAC_INT_MASK);
->> -    synchronize_irq(adpt->irq.irq);
->
-> There is no reason to remove the irq synchronization, is it?
-> Note that the desriptors are freed after that so we must be sure that
-> the irq handler is not running any more.
+On Fri, Jan 20, 2017 at 02:00:34PM -0500, David Miller wrote:
+> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Date: Fri, 20 Jan 2017 16:25:22 -0200
+> 
+> > I talked offline with Xin about this and we cannot do it this way.
+> > Unfortunatelly we will have to take the long road here, because then
+> > we may send data while sending the request, as the streams are not
+> > closed yet.  We really need to close team, send the request, and
+> > re-open if the send fails.
+> 
+> I am expecting another spin of this series, correct?
 
-I'm moving it to stay with the free_irq().
-
-@@ -283,6 +292,9 @@ static int emac_close(struct net_device *netdev)
-
-  	mutex_lock(&adpt->reset_lock);
-
-+	synchronize_irq(adpt->irq.irq);
-+	free_irq(adpt->irq.irq, &adpt->irq);
-+
-
-However, I'll admit that I don't know why we call synchronize_irq() at all.
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Yes.
