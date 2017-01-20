@@ -1,69 +1,57 @@
-From: YueHaibing <yuehaibing@huawei.com>
-Subject: Re: [PATCH RFC net-next 2/7] net: add dst_pending_confirm flag to
- skbuff
-Date: Fri, 20 Jan 2017 11:39:25 +0800
-Message-ID: <11f3e6c9-5eec-8275-3323-0c1de91f8c23@huawei.com>
-References: <1482094596-26046-1-git-send-email-ja@ssi.bg>
- <1482094596-26046-3-git-send-email-ja@ssi.bg>
- <1482164252.1521.7.camel@edumazet-glaptop3.roam.corp.google.com>
- <alpine.LFD.2.11.1612192203480.3105@ja.home.ssi.bg>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Setting skb->csum in shared skb with csum-complete
+Date: Thu, 19 Jan 2017 19:50:30 -0800
+Message-ID: <CALx6S36AF8rz75LYRx7kzHx57Eazc9vi_QvJGwqQCR4GjCPOfQ@mail.gmail.com>
+References: <CALx6S34ZfFzPOmzfLoverXQ215AvasYejyJUv8wtWAVRumi-eg@mail.gmail.com>
+ <1484877634.16328.71.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-sctp@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:25773 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751137AbdATDki (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 22:40:38 -0500
-In-Reply-To: <alpine.LFD.2.11.1612192203480.3105@ja.home.ssi.bg>
+Received: from mail-yw0-f169.google.com ([209.85.161.169]:33382 "EHLO
+        mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbdATDub (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Jan 2017 22:50:31 -0500
+Received: by mail-yw0-f169.google.com with SMTP id u68so26895209ywg.0
+        for <netdev@vger.kernel.org>; Thu, 19 Jan 2017 19:50:31 -0800 (PST)
+In-Reply-To: <1484877634.16328.71.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 2016/12/20 4:37, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Mon, 19 Dec 2016, Eric Dumazet wrote:
-> 
->> I am still digesting this awesome patch series ;)
-> 
-> 	Thanks. I don't feel quite comfortable with some
-> of the changes (mostly XFRM, dst_confirm usage in CXGB) and
-> I hope the discussion can provide adequate solution.
-> 
->> Not sure why you used an unlikely() here. TCP for example would hit this
->> path quite often.
-> 
-> 	I was not sure, may be because ACKs can come with lower
-> rate than the sent packets. Also because non-TCP rarely uses
-> MSG_CONFIRM. If you still think it is better without unlikely,
-> I'll remove it.
-> 
->> So considering sk_dst_pending_confirm might be dirtied quite often,further 
+On Thu, Jan 19, 2017 at 6:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-01-19 at 17:29 -0800, Tom Herbert wrote:
+>> Hi Herbert,
 >>
->> I am not sure why you placed it in the cache line that contains
->> sk_rx_dst (in 1st patch)
-> 
-> 	I saw your recent changes and was worried if the
-> sk_dst_confirm() calling on RX can cause unwanted dirtying of
-> additional cache line. My preliminary analyze pointed
-> sk_omem_alloc as good candidate for moving to next cache
-> line. I know how critical is to properly place the new flags,
-> so I really need recommendations about this.
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
-> .
-> 
+>> I am looking at "net: Fix skb csum races when peeking". The context is
+>> that I'm seeing checksum faults after backporting mlx5 from driver.
+>> The handling of the checksum faults in interesting in itself. One side
+>> effect is that we end up recalculating and doing the dump twice when
+>> GRO is enabled. Another is that we validate checksum complete in a
+>> shared skbuf with a knowingly bad skb->csum value.
+>>
+>> In the checksum fault case we recalculate the checksum and find it was
+>> actually correct in the packet. If the skb is not shared then we set
+>> the skb->csum to the correct value and also set skb->csum_complete_sw
+>> and skb->csum_valid. But if skb is shared we don't do any of that.
+>> This is kind of odd since __skb_checksum_complete_head then returns
+>> zero for an skb with checksum_complete where the checksum complete
+>> value is not correct. I'm not sure what the consequences of doing that
+>> are (I don't think it's related to issues I'm seeing) but this doesn't
+>> seem like a good thing. Maybe we should set skb->csum in this case
+>> since we know it's already wrong and the fact that skbuf is shared
+>> can't make it more wrong...
+>
+> Why GRO can not change skb fields ?
+>
+Sure, I just noted this fact. We don't typically expect the device to
+be giving us miscomputed checksum complete values ;-)
 
-Sorry for so late reply.
-I have test your new patch, It works well in my scene.
-
-Everybody,Is there any further comment about this awesome patch series?
+> skb can not be shared at GRO layer, so really this should be done there
+> if you want to avoid a double checksumming later.
+>
+> You added all these skb fields, you know better than us ;)
+>
+>
+>
