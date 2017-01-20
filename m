@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] bpf: fix samples xdp_tx_iptunnel and
- tc_l2_redirect with fake KBUILD_MODNAME
-Date: Fri, 20 Jan 2017 12:04:43 -0500 (EST)
-Message-ID: <20170120.120443.1159212475181260259.davem@davemloft.net>
-References: <148475634058.19645.17347886661194782120.stgit@firesoul>
+Subject: Re: [PATCH] net: qcom/emac: claim the irq only when the device is
+ opened
+Date: Fri, 20 Jan 2017 12:19:01 -0500 (EST)
+Message-ID: <20170120.121901.1924570978922182141.davem@davemloft.net>
+References: <1484775745-14050-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, borkmann@iogearbox.net, kafai@fb.com,
-        alexei.starovoitov@gmail.com
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33836 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33902 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751494AbdATRP6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:15:58 -0500
-In-Reply-To: <148475634058.19645.17347886661194782120.stgit@firesoul>
+        with ESMTP id S1751303AbdATRTj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:19:39 -0500
+In-Reply-To: <1484775745-14050-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Wed, 18 Jan 2017 17:19:00 +0100
+From: Timur Tabi <timur@codeaurora.org>
+Date: Wed, 18 Jan 2017 15:42:25 -0600
 
-> Fix build errors for samples/bpf xdp_tx_iptunnel and tc_l2_redirect,
-> when dynamic debugging is enabled (CONFIG_DYNAMIC_DEBUG) by defining a
-> fake KBUILD_MODNAME.
+> During reset, functions emac_mac_down() and emac_mac_up() are called,
+> so we don't want to free and claim the IRQ unnecessarily.  Move those
+> operations to open/close.
 > 
-> Just like Daniel Borkmann fixed other samples/bpf in commit
-> 96a8eb1eeed2 ("bpf: fix samples to add fake KBUILD_MODNAME").
-> 
-> Fixes: 12d8bb64e3f6 ("bpf: xdp: Add XDP example for head adjustment")
-> Fixes: 90e02896f1a4 ("bpf: Add test for bpf_redirect to ipip/ip6tnl")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
 
-Applied, thanks Jesper.
+If you don't tell me what tree this is against in your Subject line,
+I have to guess.
+
+I don't like guessing.
