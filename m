@@ -1,53 +1,43 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [Xen-devel] xennet_start_xmit assumptions
-Date: Fri, 20 Jan 2017 15:03:23 -0500
-Message-ID: <20170120200323.GA30186@oracle.com>
-References: <20170119.113759.555556955190770932.davem@davemloft.net>
- <20170119184733.GJ22018@oracle.com>
- <20170119224123.GB19618@oracle.com>
- <20170120.143059.1390682983473502518.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3] bridge: netlink: call br_changelink()
+ during br_dev_newlink()
+Date: Fri, 20 Jan 2017 15:08:31 -0500 (EST)
+Message-ID: <20170120.150831.840272160400257097.davem@davemloft.net>
+References: <20170120171217.20617-1-cera@cera.cz>
+	<20170120181042.GB1784@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul.Durrant@citrix.com, konrad.wilk@oracle.com,
-        wei.liu2@citrix.com, netdev@vger.kernel.org,
-        xen-devel@lists.xenproject.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:48715 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752780AbdATUDh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 15:03:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20170120.143059.1390682983473502518.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, cera@cera.cz,
+	bridge@lists.linux-foundation.org
+To: jiri@resnulli.us
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170120181042.GB1784@nanopsycho.orion>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On (01/20/17 14:30), David Miller wrote:
-> 
-> CAP_SYS_RAWIO or not, the contract we have with the device is that
-> there will be at least enough bytes to cover a link layer header.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 20 Jan 2017 19:10:42 +0100
 
-I see. If that's the case (for all the kernel-driver interfaces), 
-then the xen_netfront driver is probably not required to check for
-variants of sk_buffs like pure-non-linear etc.
+> Fri, Jan 20, 2017 at 06:12:17PM CET, cera@cera.cz wrote:
+>>Any bridge options specified during link creation (e.g. ip link add)
+>>are ignored as br_dev_newlink() does not process them.
+>>Use br_changelink() to do it.
+>>
+>>Fixes: 1332351 ("bridge: implement rtnl_link_ops->changelink")
+> 
+> Should have 12 chars. Other than that,
+> 
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 
-> This probably requires a little bit of an adjustment to the calling
-> convention.  Perhaps:
-> 
-> 	int dev_validate_header(const struct net_device *dev,
-> 				char *ll_header, int len);
-> 
-> So then you can go:
-> 
-> 	new_len = dev_validate_header(dev, skb->data, len);
-> 	if (new_len < 0)
-> 		goto out_cleanup_err;
-> 	if (new_len > len)
-> 		__skb_put(skb, new_len - len);
-> 
-> Or something like that.
+I fixed up the SHA1-ID.
 
-ok let me work with that and get back (hopefully with an 
-RFC patch).
-
---Sowmini
+Applied and queued up for -stable, thanks.
