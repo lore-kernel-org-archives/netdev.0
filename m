@@ -1,179 +1,85 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 7/8] net: dsa: mv88e6xxx: Implement Clause 45 access to SMI devices
-Date: Sat, 21 Jan 2017 00:31:01 +0100
-Message-ID: <1484955062-26718-8-git-send-email-andrew@lunn.ch>
-References: <1484955062-26718-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: phy: Avoid deadlock during phy_error()
+Date: Fri, 20 Jan 2017 15:31:52 -0800
+Message-ID: <20170120233152.16244-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, kyle.roeschley@ni.com,
+        rmk+kernel@armlinux.org.uk, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40325 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752203AbdATXb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Jan 2017 18:31:56 -0500
-In-Reply-To: <1484955062-26718-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35984 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752474AbdATXcA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 18:32:00 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 75so7913054pgf.3
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 15:32:00 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mv88e6390 SERDES devices need clause 45 MDIO to access them.
+phy_error() is called in the PHY state machine workqueue context, and
+calls phy_trigger_machine() which does a cancel_delayed_work_sync() of
+the workqueue we execute from, causing a deadlock situation.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Augment phy_trigger_machine() machine with a sync boolean indicating
+whether we should use cancel_*_sync() or just cancel_*_work().
+
+Fixes: 3c293f4e08b5 ("net: phy: Trigger state machine on state change and not polling.")
+Reported-by: Russell King <rmk+kernel@armlinux.org.uk>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/mv88e6xxx/global2.c   | 108 ++++++++++++++++++++++++++++++++--
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |   7 +++
- 2 files changed, 111 insertions(+), 4 deletions(-)
+ drivers/net/phy/phy.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index e2b00d1b0c28..d1a0b7d3ebb8 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -501,8 +501,60 @@ static int mv88e6xxx_g2_smi_phy_cmd(struct mv88e6xxx_chip *chip, u16 cmd)
- 	return mv88e6xxx_g2_smi_phy_wait(chip);
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 48da6e93c3f7..e687a9cb4a37 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -649,14 +649,18 @@ void phy_start_machine(struct phy_device *phydev)
+  * phy_trigger_machine - trigger the state machine to run
+  *
+  * @phydev: the phy_device struct
++ * @sync: indicate whether we should wait for the workqueue cancelation
+  *
+  * Description: There has been a change in state which requires that the
+  *   state machine runs.
+  */
+ 
+-static void phy_trigger_machine(struct phy_device *phydev)
++static void phy_trigger_machine(struct phy_device *phydev, bool sync)
+ {
+-	cancel_delayed_work_sync(&phydev->state_queue);
++	if (sync)
++		cancel_delayed_work_sync(&phydev->state_queue);
++	else
++		cancel_delayed_work(&phydev->state_queue);
+ 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue, 0);
  }
  
--int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip, int addr, int reg,
--			      u16 *val, bool external)
-+static int mv88e6xxx_g2_smi_phy_write_addr(struct mv88e6xxx_chip *chip,
-+					   int addr, int device, int reg,
-+					   bool external)
-+{
-+	int cmd = SMI_CMD_OP_45_WRITE_ADDR | (addr << 5) | device;
-+	int err;
-+
-+	if (external)
-+		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
-+
-+	err = mv88e6xxx_g2_smi_phy_wait(chip);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g2_write(chip, GLOBAL2_SMI_PHY_DATA, reg);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
-+}
-+
-+int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
-+				  int reg_c45, u16 *val, bool external)
-+{
-+	int device = (reg_c45 >> 16) & 0x1f;
-+	int reg = reg_c45 & 0xffff;
-+	int err;
-+	u16 cmd;
-+
-+	err = mv88e6xxx_g2_smi_phy_write_addr(chip, addr, device, reg,
-+					      external);
-+	if (err)
-+		return err;
-+
-+	cmd = GLOBAL2_SMI_PHY_CMD_OP_45_READ_DATA | (addr << 5) | device;
-+
-+	if (external)
-+		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
-+
-+	err = mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-+	if (err)
-+		return err;
-+
-+	err = *val;
-+
-+	return 0;
-+}
-+
-+int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip, int addr,
-+				  int reg, u16 *val, bool external)
- {
- 	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA | (addr << 5) | reg;
- 	int err;
-@@ -535,8 +587,46 @@ int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip, int addr, int reg,
- 	return 0;
+@@ -693,7 +697,7 @@ static void phy_error(struct phy_device *phydev)
+ 	phydev->state = PHY_HALTED;
+ 	mutex_unlock(&phydev->lock);
+ 
+-	phy_trigger_machine(phydev);
++	phy_trigger_machine(phydev, false);
  }
  
--int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, int addr, int reg,
--			       u16 val, bool external)
-+int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip, int addr, int reg,
-+			      u16 *val, bool external)
-+{
-+	if (reg & MII_ADDR_C45)
-+		return mv88e6xxx_g2_smi_phy_read_c45(chip, addr, reg, val,
-+						     external);
-+	return mv88e6xxx_g2_smi_phy_read_c22(chip, addr, reg, val, external);
-+}
-+
-+int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
-+				   int reg_c45, u16 val, bool external)
-+{
-+	int device = (reg_c45 >> 16) & 0x1f;
-+	int reg = reg_c45 & 0xffff;
-+	int err;
-+	u16 cmd;
-+
-+	err = mv88e6xxx_g2_smi_phy_write_addr(chip, addr, device, reg,
-+					      external);
-+	if (err)
-+		return err;
-+
-+	cmd = GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_DATA | (addr << 5) | device;
-+
-+	if (external)
-+		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
-+
-+	err = mv88e6xxx_g2_write(chip, GLOBAL2_SMI_PHY_DATA, val);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
-+	if (err)
-+		return err;
-+
-+	return 0;
-+}
-+
-+int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip, int addr,
-+				   int reg, u16 val, bool external)
- {
- 	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_WRITE_DATA | (addr << 5) | reg;
- 	int err;
-@@ -555,6 +645,16 @@ int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, int addr, int reg,
- 	return mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
- }
+ /**
+@@ -840,7 +844,7 @@ void phy_change(struct phy_device *phydev)
+ 	}
  
-+int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, int addr, int reg,
-+			       u16 val, bool external)
-+{
-+	if (reg & MII_ADDR_C45)
-+		return mv88e6xxx_g2_smi_phy_write_c45(chip, addr, reg, val,
-+						      external);
-+
-+	return mv88e6xxx_g2_smi_phy_write_c22(chip, addr, reg, val, external);
-+}
-+
- static void mv88e6xxx_g2_irq_mask(struct irq_data *d)
- {
- 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 7961467f709e..6cbde36027f1 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -399,6 +399,13 @@
- #define GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA	((0x2 << 10) | \
- 						 GLOBAL2_SMI_PHY_CMD_MODE_22 | \
- 						 GLOBAL2_SMI_PHY_CMD_BUSY)
-+#define GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_ADDR	((0x0 << 10) | \
-+						 GLOBAL2_SMI_PHY_CMD_BUSY)
-+#define GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_DATA	((0x1 << 10) | \
-+						 GLOBAL2_SMI_PHY_CMD_BUSY)
-+#define GLOBAL2_SMI_PHY_CMD_OP_45_READ_DATA	((0x3 << 10) | \
-+						 GLOBAL2_SMI_PHY_CMD_BUSY)
-+
- #define GLOBAL2_SMI_PHY_DATA			0x19
- #define GLOBAL2_SCRATCH_MISC	0x1a
- #define GLOBAL2_SCRATCH_BUSY		BIT(15)
+ 	/* reschedule state queue work to run as soon as possible */
+-	phy_trigger_machine(phydev);
++	phy_trigger_machine(phydev, true);
+ 	return;
+ 
+ ignore:
+@@ -942,7 +946,7 @@ void phy_start(struct phy_device *phydev)
+ 	if (do_resume)
+ 		phy_resume(phydev);
+ 
+-	phy_trigger_machine(phydev);
++	phy_trigger_machine(phydev, true);
+ }
+ EXPORT_SYMBOL(phy_start);
+ 
 -- 
 2.11.0
