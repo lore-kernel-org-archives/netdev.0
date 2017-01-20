@@ -1,73 +1,78 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
-Date: Fri, 20 Jan 2017 16:59:11 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026921C@AcuExch.aculab.com>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
- <20170118171259-mutt-send-email-mst@kernel.org>
- <40e9a46a-1115-c21a-49f3-fdedb0a34101@redhat.com>
- <20170119231027-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        "john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>
-To: "'Michael S. Tsirkin'" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>
+From: Ivan Vecera <cera@cera.cz>
+Subject: [PATCH net v2] bridge: netlink: call br_changelink() during br_dev_newlink()
+Date: Fri, 20 Jan 2017 17:59:33 +0100
+Message-ID: <20170120165933.19991-1-cera@cera.cz>
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+        bridge@lists.linux-foundation.org, jiri@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:57080 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751950AbdATQ72 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:59:28 -0500
-In-Reply-To: <20170119231027-mutt-send-email-mst@kernel.org>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:34156 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751786AbdATQ7g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Jan 2017 11:59:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWljaGFlbCBTLiBUc2lya2luDQo+IFNlbnQ6IDE5IEphbnVhcnkgMjAxNyAyMToxMg0K
-PiA+IE9uIDIwMTc/MDE/MTg/IDIzOjE1LCBNaWNoYWVsIFMuIFRzaXJraW4gd3JvdGU6DQo+ID4g
-PiBPbiBUdWUsIEphbiAxNywgMjAxNyBhdCAwMjoyMjo1OVBNIC0wODAwLCBKb2huIEZhc3RhYmVu
-ZCB3cm90ZToNCj4gPiA+ID4gQWRkIHN1cHBvcnQgZm9yIFhEUCBhZGp1c3QgaGVhZCBieSBhbGxv
-Y2F0aW5nIGEgMjU2QiBoZWFkZXIgcmVnaW9uDQo+ID4gPiA+IHRoYXQgWERQIHByb2dyYW1zIGNh
-biBncm93IGludG8uIFRoaXMgaXMgb25seSBlbmFibGVkIHdoZW4gYSBYRFANCj4gPiA+ID4gcHJv
-Z3JhbSBpcyBsb2FkZWQuDQo+ID4gPiA+DQo+ID4gPiA+IEluIG9yZGVyIHRvIGVuc3VyZSB0aGF0
-IHdlIGRvIG5vdCBoYXZlIHRvIHVud2luZCBxdWV1ZSBoZWFkcm9vbSBwdXNoDQo+ID4gPiA+IHF1
-ZXVlIHNldHVwIGJlbG93IGJwZl9wcm9nX2FkZC4gSXQgcmVhZHMgYmV0dGVyIHRvIGRvIGEgcHJv
-ZyByZWYNCj4gPiA+ID4gdW53aW5kIHZzIGFub3RoZXIgcXVldWUgc2V0dXAgY2FsbC4NCj4gPiA+
-ID4NCj4gPiA+ID4gQXQgdGhlIG1vbWVudCB0aGlzIGNvZGUgbXVzdCBkbyBhIGZ1bGwgcmVzZXQg
-dG8gZW5zdXJlIG9sZCBidWZmZXJzDQo+ID4gPiA+IHdpdGhvdXQgaGVhZHJvb20gb24gcHJvZ3Jh
-bSBhZGQgb3Igd2l0aCBoZWFkcm9vbSBvbiBwcm9ncmFtIHJlbW92YWwNCj4gPiA+ID4gYXJlIG5v
-dCB1c2VkIGluY29ycmVjdGx5IGluIHRoZSBkYXRhcGF0aC4gSWRlYWxseSB3ZSB3b3VsZCBvbmx5
-DQo+ID4gPiA+IGhhdmUgdG8gZGlzYWJsZS9lbmFibGUgdGhlIFJYIHF1ZXVlcyBiZWluZyB1cGRh
-dGVkIGJ1dCB0aGVyZSBpcyBubw0KPiA+ID4gPiBBUEkgdG8gZG8gdGhpcyBhdCB0aGUgbW9tZW50
-IGluIHZpcnRpbyBzbyB1c2UgdGhlIGJpZyBoYW1tZXIuIEluDQo+ID4gPiA+IHByYWN0aWNlIGl0
-IGlzIGxpa2VseSBub3QgdGhhdCBiaWcgb2YgYSBwcm9ibGVtIGFzIHRoaXMgd2lsbCBvbmx5DQo+
-ID4gPiA+IGhhcHBlbiB3aGVuIFhEUCBpcyBlbmFibGVkL2Rpc2FibGVkIGNoYW5naW5nIHByb2dy
-YW1zIGRvZXMgbm90DQo+ID4gPiA+IHJlcXVpcmUgdGhlIHJlc2V0LiBUaGVyZSBpcyBzb21lIHJp
-c2sgdGhhdCB0aGUgZHJpdmVyIG1heSBlaXRoZXINCj4gPiA+ID4gaGF2ZSBhbiBhbGxvY2F0aW9u
-IGZhaWx1cmUgb3IgZm9yIHNvbWUgcmVhc29uIGZhaWwgdG8gY29ycmVjdGx5DQo+ID4gPiA+IG5l
-Z290aWF0ZSB3aXRoIHRoZSB1bmRlcmx5aW5nIGJhY2tlbmQgaW4gdGhpcyBjYXNlIHRoZSBkcml2
-ZXIgd2lsbA0KPiA+ID4gPiBiZSBsZWZ0IHVuaW5pdGlhbGl6ZWQuIEkgaGF2ZSBub3Qgc2VlbiB0
-aGlzIGV2ZXIgaGFwcGVuIG9uIG15IHRlc3QNCj4gPiA+ID4gc3lzdGVtcyBhbmQgZm9yIHdoYXQg
-aXRzIHdvcnRoIHRoaXMgc2FtZSBmYWlsdXJlIGNhc2UgY2FuIG9jY3VyDQo+ID4gPiA+IGZyb20g
-cHJvYmUgYW5kIG90aGVyIGNvbnRleHRzIGluIHZpcnRpbyBmcmFtZXdvcmsuDQo+ID4gPiA+DQo+
-ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEpvaG4gRmFzdGFiZW5kPGpvaG4uci5mYXN0YWJlbmRAaW50
-ZWwuY29tPg0KPiA+ID4gSSd2ZSBiZWVuIHRoaW5raW5nIGFib3V0IGl0IC0gY2FuJ3Qgd2UgZHJv
-cA0KPiA+ID4gb2xkIGJ1ZmZlcnMgd2l0aG91dCB0aGUgaGVhZCByb29tIHdoaWNoIHdlcmUgcG9z
-dGVkIGJlZm9yZQ0KPiA+ID4geGRwIGF0dGFjaGVkPw0KPiA+ID4NCj4gPiA+IEF2b2lkaW5nIHRo
-ZSByZXNldCB3b3VsZCBiZSBtdWNoIG5pY2VyLg0KPiA+ID4NCj4gPiA+IFRob3VnaHRzPw0KPiA+
-ID4NCj4gPg0KPiA+IEFzIGJlZW4gZGlzY3Vzc2VkIGJlZm9yZSwgZGV2aWNlIG1heSB1c2UgdGhl
-bSBpbiB0aGUgc2FtZSB0aW1lIHNvIGl0J3Mgbm90DQo+ID4gc2FmZS4gT3IgZG8geW91IG1lYW4g
-ZGV0ZWN0IHRoZW0gYWZ0ZXIgeGRwIHdlcmUgc2V0IGFuZCBkcm9wIHRoZSBidWZmZXINCj4gPiB3
-aXRob3V0IGhlYWQgcm9vbSwgdGhpcyBsb29rcyBzdWItb3B0aW1hbC4NCj4gPg0KPiA+IFRoYW5r
-cw0KPiANCj4gWWVzLCB0aGlzIGlzIHdoYXQgSSBtZWFuLiAgV2h5IGlzIHRoaXMgc3Vib3B0aW1h
-bD8gSXQncyBhIHNpbmdsZSBicmFuY2gNCj4gaW4gY29kZS4gWWVzIHdlIG1pZ2h0IGxvc2Ugc29t
-ZSBwYWNrZXRzIGJ1dCB0aGUgYmlnIGhhbW1lciBvZiBkZXZpY2UNCj4gcmVzZXQgd2lsbCBsaWtl
-bHkgbG9zZSBtb3JlLg0KDQpXaHkgbm90IGxlYXZlIGxldCB0aGUgaGFyZHdhcmUgcmVjZWl2ZSBp
-bnRvIHRoZSAnc21hbGwnIGJ1ZmZlciAod2l0aG91dA0KaGVhZHJvb20pIGFuZCBkbyBhIGNvcHkg
-d2hlbiBhIGZyYW1lIGlzIHJlY2VpdmVkLg0KUmVwbGFjZSB0aGUgYnVmZmVycyB3aXRoICdiaWcn
-IG9uZXMgZm9yIHRoZSBuZXh0IHJlY2VpdmUuDQpBIGRhdGEgY29weSBvbiBhIHJpbmcgZnVsbCBv
-ZiBidWZmZXJzIHdvbid0IHJlYWxseSBiZSBub3RpY2VkLg0KDQoJRGF2aWQNCg0K
+Any bridge options specified during link creation (e.g. ip link add)
+are ignored as br_dev_newlink() does not process them.
+Use br_changelink() to do it.
+
+Fixes: 1332351 bridge: implement rtnl_link_ops->changelink
+Signed-off-by: Ivan Vecera <cera@cera.cz>
+---
+ net/bridge/br_netlink.c | 33 +++++++++++++++++++--------------
+ 1 file changed, 19 insertions(+), 14 deletions(-)
+
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 71c7453..7109b38 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -781,20 +781,6 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	return 0;
+ }
+ 
+-static int br_dev_newlink(struct net *src_net, struct net_device *dev,
+-			  struct nlattr *tb[], struct nlattr *data[])
+-{
+-	struct net_bridge *br = netdev_priv(dev);
+-
+-	if (tb[IFLA_ADDRESS]) {
+-		spin_lock_bh(&br->lock);
+-		br_stp_change_bridge_id(br, nla_data(tb[IFLA_ADDRESS]));
+-		spin_unlock_bh(&br->lock);
+-	}
+-
+-	return register_netdevice(dev);
+-}
+-
+ static int br_port_slave_changelink(struct net_device *brdev,
+ 				    struct net_device *dev,
+ 				    struct nlattr *tb[],
+@@ -1115,6 +1101,25 @@ static int br_changelink(struct net_device *brdev, struct nlattr *tb[],
+ 	return 0;
+ }
+ 
++static int br_dev_newlink(struct net *src_net, struct net_device *dev,
++			  struct nlattr *tb[], struct nlattr *data[])
++{
++	struct net_bridge *br = netdev_priv(dev);
++	int err;
++
++	if (tb[IFLA_ADDRESS]) {
++		spin_lock_bh(&br->lock);
++		br_stp_change_bridge_id(br, nla_data(tb[IFLA_ADDRESS]));
++		spin_unlock_bh(&br->lock);
++	}
++
++	err = br_changelink(dev, tb, data);
++	if (err)
++		return err;
++
++	return register_netdevice(dev);
++}
++
+ static size_t br_get_size(const struct net_device *brdev)
+ {
+ 	return nla_total_size(sizeof(u32)) +	/* IFLA_BR_FORWARD_DELAY  */
+-- 
+2.10.2
