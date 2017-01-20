@@ -1,40 +1,73 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH 0/3] Retrieve number of VFs in a bus-agnostic way
-Date: Fri, 20 Jan 2017 17:59:14 +0100
-Message-ID: <20170120165914.GF5197@orbyte.nwl.cc>
-References: <20170118130439.15023-1-phil@nwl.cc>
- <20170120.114346.786441265338417344.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
+Date: Fri, 20 Jan 2017 16:59:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026921C@AcuExch.aculab.com>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+ <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
+ <20170118171259-mutt-send-email-mst@kernel.org>
+ <40e9a46a-1115-c21a-49f3-fdedb0a34101@redhat.com>
+ <20170119231027-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhelgaas@google.com, netdev@vger.kernel.org,
-        linux-pci@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170120.114346.786441265338417344.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        "john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>
+To: "'Michael S. Tsirkin'" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.186]:57080 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751950AbdATQ72 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:59:28 -0500
+In-Reply-To: <20170119231027-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 11:43:46AM -0500, David Miller wrote:
-> From: Phil Sutter <phil@nwl.cc>
-> Date: Wed, 18 Jan 2017 14:04:36 +0100
-> 
-> > Previously, it was assumed that only PCI NICs would be capable of having
-> > virtual functions - with my proposed enhancement of dummy NIC driver
-> > implementing (fake) ones for testing purposes, this is no longer true.
-> > 
-> > Discussion of said patch has led to the suggestion of implementing a
-> > bus-agnostic method for VF count retrieval so rtnetlink could work with
-> > both real VF-capable PCI NICs as well as my dummy modifications without
-> > introducing ugly hacks.
-> > 
-> > The following series tries to achieve just that by introducing a bus
-> > type callback to retrieve a device's number of VFs, implementing this
-> > callback for PCI bus and finally adjusting rtnetlink to make use of the
-> > generalized infrastructure.
-> 
-> This is really nice and clean, compare it to your original approach :-)
-
-Yes, indeed! Thanks a lot for pointing me into the right direction. :)
-
-Cheers, Phil
+RnJvbTogTWljaGFlbCBTLiBUc2lya2luDQo+IFNlbnQ6IDE5IEphbnVhcnkgMjAxNyAyMToxMg0K
+PiA+IE9uIDIwMTc/MDE/MTg/IDIzOjE1LCBNaWNoYWVsIFMuIFRzaXJraW4gd3JvdGU6DQo+ID4g
+PiBPbiBUdWUsIEphbiAxNywgMjAxNyBhdCAwMjoyMjo1OVBNIC0wODAwLCBKb2huIEZhc3RhYmVu
+ZCB3cm90ZToNCj4gPiA+ID4gQWRkIHN1cHBvcnQgZm9yIFhEUCBhZGp1c3QgaGVhZCBieSBhbGxv
+Y2F0aW5nIGEgMjU2QiBoZWFkZXIgcmVnaW9uDQo+ID4gPiA+IHRoYXQgWERQIHByb2dyYW1zIGNh
+biBncm93IGludG8uIFRoaXMgaXMgb25seSBlbmFibGVkIHdoZW4gYSBYRFANCj4gPiA+ID4gcHJv
+Z3JhbSBpcyBsb2FkZWQuDQo+ID4gPiA+DQo+ID4gPiA+IEluIG9yZGVyIHRvIGVuc3VyZSB0aGF0
+IHdlIGRvIG5vdCBoYXZlIHRvIHVud2luZCBxdWV1ZSBoZWFkcm9vbSBwdXNoDQo+ID4gPiA+IHF1
+ZXVlIHNldHVwIGJlbG93IGJwZl9wcm9nX2FkZC4gSXQgcmVhZHMgYmV0dGVyIHRvIGRvIGEgcHJv
+ZyByZWYNCj4gPiA+ID4gdW53aW5kIHZzIGFub3RoZXIgcXVldWUgc2V0dXAgY2FsbC4NCj4gPiA+
+ID4NCj4gPiA+ID4gQXQgdGhlIG1vbWVudCB0aGlzIGNvZGUgbXVzdCBkbyBhIGZ1bGwgcmVzZXQg
+dG8gZW5zdXJlIG9sZCBidWZmZXJzDQo+ID4gPiA+IHdpdGhvdXQgaGVhZHJvb20gb24gcHJvZ3Jh
+bSBhZGQgb3Igd2l0aCBoZWFkcm9vbSBvbiBwcm9ncmFtIHJlbW92YWwNCj4gPiA+ID4gYXJlIG5v
+dCB1c2VkIGluY29ycmVjdGx5IGluIHRoZSBkYXRhcGF0aC4gSWRlYWxseSB3ZSB3b3VsZCBvbmx5
+DQo+ID4gPiA+IGhhdmUgdG8gZGlzYWJsZS9lbmFibGUgdGhlIFJYIHF1ZXVlcyBiZWluZyB1cGRh
+dGVkIGJ1dCB0aGVyZSBpcyBubw0KPiA+ID4gPiBBUEkgdG8gZG8gdGhpcyBhdCB0aGUgbW9tZW50
+IGluIHZpcnRpbyBzbyB1c2UgdGhlIGJpZyBoYW1tZXIuIEluDQo+ID4gPiA+IHByYWN0aWNlIGl0
+IGlzIGxpa2VseSBub3QgdGhhdCBiaWcgb2YgYSBwcm9ibGVtIGFzIHRoaXMgd2lsbCBvbmx5DQo+
+ID4gPiA+IGhhcHBlbiB3aGVuIFhEUCBpcyBlbmFibGVkL2Rpc2FibGVkIGNoYW5naW5nIHByb2dy
+YW1zIGRvZXMgbm90DQo+ID4gPiA+IHJlcXVpcmUgdGhlIHJlc2V0LiBUaGVyZSBpcyBzb21lIHJp
+c2sgdGhhdCB0aGUgZHJpdmVyIG1heSBlaXRoZXINCj4gPiA+ID4gaGF2ZSBhbiBhbGxvY2F0aW9u
+IGZhaWx1cmUgb3IgZm9yIHNvbWUgcmVhc29uIGZhaWwgdG8gY29ycmVjdGx5DQo+ID4gPiA+IG5l
+Z290aWF0ZSB3aXRoIHRoZSB1bmRlcmx5aW5nIGJhY2tlbmQgaW4gdGhpcyBjYXNlIHRoZSBkcml2
+ZXIgd2lsbA0KPiA+ID4gPiBiZSBsZWZ0IHVuaW5pdGlhbGl6ZWQuIEkgaGF2ZSBub3Qgc2VlbiB0
+aGlzIGV2ZXIgaGFwcGVuIG9uIG15IHRlc3QNCj4gPiA+ID4gc3lzdGVtcyBhbmQgZm9yIHdoYXQg
+aXRzIHdvcnRoIHRoaXMgc2FtZSBmYWlsdXJlIGNhc2UgY2FuIG9jY3VyDQo+ID4gPiA+IGZyb20g
+cHJvYmUgYW5kIG90aGVyIGNvbnRleHRzIGluIHZpcnRpbyBmcmFtZXdvcmsuDQo+ID4gPiA+DQo+
+ID4gPiA+IFNpZ25lZC1vZmYtYnk6IEpvaG4gRmFzdGFiZW5kPGpvaG4uci5mYXN0YWJlbmRAaW50
+ZWwuY29tPg0KPiA+ID4gSSd2ZSBiZWVuIHRoaW5raW5nIGFib3V0IGl0IC0gY2FuJ3Qgd2UgZHJv
+cA0KPiA+ID4gb2xkIGJ1ZmZlcnMgd2l0aG91dCB0aGUgaGVhZCByb29tIHdoaWNoIHdlcmUgcG9z
+dGVkIGJlZm9yZQ0KPiA+ID4geGRwIGF0dGFjaGVkPw0KPiA+ID4NCj4gPiA+IEF2b2lkaW5nIHRo
+ZSByZXNldCB3b3VsZCBiZSBtdWNoIG5pY2VyLg0KPiA+ID4NCj4gPiA+IFRob3VnaHRzPw0KPiA+
+ID4NCj4gPg0KPiA+IEFzIGJlZW4gZGlzY3Vzc2VkIGJlZm9yZSwgZGV2aWNlIG1heSB1c2UgdGhl
+bSBpbiB0aGUgc2FtZSB0aW1lIHNvIGl0J3Mgbm90DQo+ID4gc2FmZS4gT3IgZG8geW91IG1lYW4g
+ZGV0ZWN0IHRoZW0gYWZ0ZXIgeGRwIHdlcmUgc2V0IGFuZCBkcm9wIHRoZSBidWZmZXINCj4gPiB3
+aXRob3V0IGhlYWQgcm9vbSwgdGhpcyBsb29rcyBzdWItb3B0aW1hbC4NCj4gPg0KPiA+IFRoYW5r
+cw0KPiANCj4gWWVzLCB0aGlzIGlzIHdoYXQgSSBtZWFuLiAgV2h5IGlzIHRoaXMgc3Vib3B0aW1h
+bD8gSXQncyBhIHNpbmdsZSBicmFuY2gNCj4gaW4gY29kZS4gWWVzIHdlIG1pZ2h0IGxvc2Ugc29t
+ZSBwYWNrZXRzIGJ1dCB0aGUgYmlnIGhhbW1lciBvZiBkZXZpY2UNCj4gcmVzZXQgd2lsbCBsaWtl
+bHkgbG9zZSBtb3JlLg0KDQpXaHkgbm90IGxlYXZlIGxldCB0aGUgaGFyZHdhcmUgcmVjZWl2ZSBp
+bnRvIHRoZSAnc21hbGwnIGJ1ZmZlciAod2l0aG91dA0KaGVhZHJvb20pIGFuZCBkbyBhIGNvcHkg
+d2hlbiBhIGZyYW1lIGlzIHJlY2VpdmVkLg0KUmVwbGFjZSB0aGUgYnVmZmVycyB3aXRoICdiaWcn
+IG9uZXMgZm9yIHRoZSBuZXh0IHJlY2VpdmUuDQpBIGRhdGEgY29weSBvbiBhIHJpbmcgZnVsbCBv
+ZiBidWZmZXJzIHdvbid0IHJlYWxseSBiZSBub3RpY2VkLg0KDQoJRGF2aWQNCg0K
