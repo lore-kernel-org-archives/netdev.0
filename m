@@ -1,66 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel] xennet_start_xmit assumptions
-Date: Fri, 20 Jan 2017 14:30:59 -0500 (EST)
-Message-ID: <20170120.143059.1390682983473502518.davem@davemloft.net>
-References: <20170119.113759.555556955190770932.davem@davemloft.net>
-        <20170119184733.GJ22018@oracle.com>
-        <20170119224123.GB19618@oracle.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 0/2] net: ipv6: Improve user experience with
+ multipath routes
+Date: Fri, 20 Jan 2017 12:31:44 -0700
+Message-ID: <90d6fdce-7780-b864-0e89-db262dec6fa1@cumulusnetworks.com>
+References: <1484892626-14257-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Paul.Durrant@citrix.com, konrad.wilk@oracle.com,
-        wei.liu2@citrix.com, netdev@vger.kernel.org,
-        xen-devel@lists.xenproject.org
-To: sowmini.varadhan@oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36536 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752590AbdATTbB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 14:31:01 -0500
-In-Reply-To: <20170119224123.GB19618@oracle.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33656 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752101AbdATTbv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 14:31:51 -0500
+Received: by mail-pf0-f181.google.com with SMTP id y143so24589432pfb.0
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 11:31:51 -0800 (PST)
+Received: from ?IPv6:2601:284:8202:3440:6da4:dd1a:6c14:ae7f? ([2601:284:8202:3440:6da4:dd1a:6c14:ae7f])
+        by smtp.googlemail.com with ESMTPSA id c11sm18662224pfe.68.2017.01.20.11.31.49
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 20 Jan 2017 11:31:50 -0800 (PST)
+In-Reply-To: <1484892626-14257-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu, 19 Jan 2017 17:41:23 -0500
-
-> On (01/19/17 13:47), Sowmini Varadhan wrote:
->> > Specifically I'm talking about the dev_validate_header() check.
->> > That is supposed to protect us from these kinds of situations.
->> 
->> ah, but I run my pf_packet application as root, so I have 
->> capable(CAP_SYS_RAWIO), so I slip through the dev_validate_header()
->> check.
+On 1/19/17 11:10 PM, David Ahern wrote:
+> This series closes a couple of gaps between IPv4 and IPv6 with respect
+> to multipath routes:
+...
+> In both cases, the new behavior requires users to opt in by setting a new
+> flag, RTM_F_ALL_NEXTHOPS, in the rtm_flags of struct rtmsg which is
+> expected to be the ancillary header in the netlink request received from
+> the user. A program must opt in to the new behavior so as to not break
+> any existing applications.
 > 
-> and in that light, should dev_validate_header()
-> always return false if len == 0?
-> 
-> that will take care of all the send paths in af_packet.c
-> but it impacts all drivers as well (even though it is the
-> logically correct thing to do..)
+> The opt-in behavior works for both route deletes and dumps (the two
+> differences noted above), but not for notifications as notifications
+> do not take user input to specify flags. The only way to have
+> notifications generate RTA_MULTIPATH encodings is to have a gobal
+> flag -- e.g., sysctl. I'd prefer not to add a sysctl knob for this
+> backwards compatibility.
 
-I think dev_validate_header() almost does the correct thing in
-the SYS_RAWIO case.
-
-It clears out the not-provided hard header bytes, but it doesn't
-adjust the skb->len.  I think that is a real requirement in this
-situation.
-
-CAP_SYS_RAWIO or not, the contract we have with the device is that
-there will be at least enough bytes to cover a link layer header.
-
-This probably requires a little bit of an adjustment to the calling
-convention.  Perhaps:
-
-	int dev_validate_header(const struct net_device *dev,
-				char *ll_header, int len);
-
-So then you can go:
-
-	new_len = dev_validate_header(dev, skb->data, len);
-	if (new_len < 0)
-		goto out_cleanup_err;
-	if (new_len > len)
-		__skb_put(skb, new_len - len);
-
-Or something like that.
+BTW, I am in favor of not requiring a user API for this but just doing it. I can't imagine anyone working with multipath routes not wanting the efficiency of the RTA_MULTIPATH attribute. These patches require an API only because of the rule not to break userspace. If we conclude to just do it without an API, the multipath_add and multipath_del need to be modified to only send a notification once at the end of the actions.
