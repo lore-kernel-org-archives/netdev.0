@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Fix unused variable warning
-Date: Fri, 20 Jan 2017 11:16:13 -0500 (EST)
-Message-ID: <20170120.111613.1785085164218270615.davem@davemloft.net>
-References: <1484903839-5890-1-git-send-email-ganeshgr@chelsio.com>
+Subject: Re: [PATCH] net: sctp: fix array overrun read on sctp_timer_tbl
+Date: Fri, 20 Jan 2017 11:26:26 -0500 (EST)
+Message-ID: <20170120.112626.159194842548687734.davem@davemloft.net>
+References: <20170120130157.20034-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        hariprasad@chelsio.com
-To: ganeshgr@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60926 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752730AbdATQZs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 11:25:48 -0500
-In-Reply-To: <1484903839-5890-1-git-send-email-ganeshgr@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170120130157.20034-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Fri, 20 Jan 2017 14:47:19 +0530
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 20 Jan 2017 13:01:57 +0000
 
-> Fix unused variable warning when CONFIG_PCI_IOV is not
-> defined.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> The comparison on the timeout can lead to an array overrun
+> read on sctp_timer_tbl because of an off-by-one error. Fix
+> this by using < instead of <= and also compare to the array
+> size rather than SCTP_EVENT_TIMEOUT_MAX.
+> 
+> Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Arnd already submitted a fix for this, and unlike your's his provided
-a proper Fixes-by: tag.
-
-Thanks.
+Applied.
