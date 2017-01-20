@@ -1,32 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net v2] bridge: netlink: call br_changelink() during
- br_dev_newlink()
-Date: Fri, 20 Jan 2017 18:08:47 +0100
-Message-ID: <20170120170847.GA1784@nanopsycho.orion>
-References: <20170120165933.19991-1-cera@cera.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf: add bpf_probe_read_str helper
+Date: Fri, 20 Jan 2017 12:09:20 -0500 (EST)
+Message-ID: <20170120.120920.594824834893909165.davem@davemloft.net>
+References: <20170118175549.15819-1-g.borello@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-        davem@davemloft.net, bridge@lists.linux-foundation.org,
-        jiri@mellanox.com
-To: Ivan Vecera <cera@cera.cz>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, ast@kernel.org, netdev@vger.kernel.org
+To: g.borello@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33323 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751294AbdATRJA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:09:00 -0500
-Received: by mail-wm0-f67.google.com with SMTP id r144so8156806wme.0
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 09:09:00 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170120165933.19991-1-cera@cera.cz>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33710 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752432AbdATRJW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 12:09:22 -0500
+In-Reply-To: <20170118175549.15819-1-g.borello@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jan 20, 2017 at 05:59:33PM CET, cera@cera.cz wrote:
->Any bridge options specified during link creation (e.g. ip link add)
->are ignored as br_dev_newlink() does not process them.
->Use br_changelink() to do it.
->
->Fixes: 1332351 bridge: implement rtnl_link_ops->changelink
+From: Gianluca Borello <g.borello@gmail.com>
+Date: Wed, 18 Jan 2017 17:55:49 +0000
 
-This is not the correct "Fixes" format.
+> Provide a simple helper with the same semantics of strncpy_from_unsafe():
+> 
+> int bpf_probe_read_str(void *dst, int size, const void *unsafe_addr)
+> 
+> This gives more flexibility to a bpf program.
+ ...
+> Signed-off-by: Gianluca Borello <g.borello@gmail.com>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Applied, thank you.
