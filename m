@@ -1,431 +1,172 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH v4 2/3] bpf: Add tests for the lpm trie map
-Date: Sat, 21 Jan 2017 17:26:12 +0100
-Message-ID: <20170121162613.4159-3-daniel@zonque.org>
+Subject: [PATCH v4 3/3] samples/bpf: add lpm-trie benchmark
+Date: Sat, 21 Jan 2017 17:26:13 +0100
+Message-ID: <20170121162613.4159-4-daniel@zonque.org>
 References: <20170121162613.4159-1-daniel@zonque.org>
 Cc: dh.herrmann@gmail.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        Daniel Mack <daniel@zonque.org>
+        netdev@vger.kernel.org, davem@davemloft.net
 To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:36633 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:36638 "EHLO mail.zonque.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750944AbdAUQ0h (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 21 Jan 2017 11:26:37 -0500
+        id S1750876AbdAUQ0j (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 21 Jan 2017 11:26:39 -0500
 In-Reply-To: <20170121162613.4159-1-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David Herrmann <dh.herrmann@gmail.com>
 
-The first part of this program runs randomized tests against the
-lpm-bpf-map. It implements a "Trivial Longest Prefix Match" (tlpm)
-based on simple, linear, single linked lists. The implementation
-should be pretty straightforward.
+Extend the map_perf_test_{user,kern}.c infrastructure to stress test
+lpm-trie lookups. We hook into the kprobe on sys_gettid() and measure
+the latency depending on trie size and lookup count.
 
-Based on tlpm, this inserts randomized data into bpf-lpm-maps and
-verifies the trie-based bpf-map implementation behaves the same way
-as tlpm.
-
-The second part uses 'real world' IPv4 and IPv6 addresses and tests
-the trie with those.
+On my Intel Haswell i7-6400U, a single gettid() syscall with an empty
+bpf program takes roughly 6.5us on my system. Lookups in empty tries
+take ~1.8us on first try, ~0.9us on retries. Lookups in tries with 8192
+entries take ~7.1us (on the first _and_ any subsequent try).
 
 Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
-Signed-off-by: Daniel Mack <daniel@zonque.org>
+Reviewed-by: Daniel Mack <daniel@zonque.org>
 ---
- tools/testing/selftests/bpf/.gitignore     |   1 +
- tools/testing/selftests/bpf/Makefile       |   4 +-
- tools/testing/selftests/bpf/test_lpm_map.c | 358 +++++++++++++++++++++++++++++
- 3 files changed, 361 insertions(+), 2 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/test_lpm_map.c
+ samples/bpf/map_perf_test_kern.c | 30 ++++++++++++++++++++++++
+ samples/bpf/map_perf_test_user.c | 49 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 79 insertions(+)
 
-diff --git a/tools/testing/selftests/bpf/.gitignore b/tools/testing/selftests/bpf/.gitignore
-index 071431b..d3b1c9b 100644
---- a/tools/testing/selftests/bpf/.gitignore
-+++ b/tools/testing/selftests/bpf/.gitignore
-@@ -1,3 +1,4 @@
- test_verifier
- test_maps
- test_lru_map
-+test_lpm_map
-diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
-index 7a5f245..064a3e5 100644
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@ -1,8 +1,8 @@
- CFLAGS += -Wall -O2 -I../../../../usr/include
+diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
+index 7ee1574..a91872a 100644
+--- a/samples/bpf/map_perf_test_kern.c
++++ b/samples/bpf/map_perf_test_kern.c
+@@ -57,6 +57,14 @@ struct bpf_map_def SEC("maps") percpu_hash_map_alloc = {
+ 	.map_flags = BPF_F_NO_PREALLOC,
+ };
  
--test_objs = test_verifier test_maps test_lru_map
-+test_objs = test_verifier test_maps test_lru_map test_lpm_map
- 
--TEST_PROGS := test_verifier test_maps test_lru_map test_kmod.sh
-+TEST_PROGS := test_verifier test_maps test_lru_map test_lpm_map test_kmod.sh
- TEST_FILES := $(test_objs)
- 
- all: $(test_objs)
-diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
-new file mode 100644
-index 0000000..26775c0
---- /dev/null
-+++ b/tools/testing/selftests/bpf/test_lpm_map.c
-@@ -0,0 +1,358 @@
-+/*
-+ * Randomized tests for eBPF longest-prefix-match maps
-+ *
-+ * This program runs randomized tests against the lpm-bpf-map. It implements a
-+ * "Trivial Longest Prefix Match" (tlpm) based on simple, linear, singly linked
-+ * lists. The implementation should be pretty straightforward.
-+ *
-+ * Based on tlpm, this inserts randomized data into bpf-lpm-maps and verifies
-+ * the trie-based bpf-map implementation behaves the same way as tlpm.
-+ */
-+
-+#include <assert.h>
-+#include <errno.h>
-+#include <inttypes.h>
-+#include <linux/bpf.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <time.h>
-+#include <unistd.h>
-+#include <arpa/inet.h>
-+#include <sys/time.h>
-+#include <sys/resource.h>
-+
-+#include "bpf_sys.h"
-+#include "bpf_util.h"
-+
-+struct tlpm_node {
-+	struct tlpm_node *next;
-+	size_t n_bits;
-+	uint8_t key[];
++struct bpf_map_def SEC("maps") lpm_trie_map_alloc = {
++	.type = BPF_MAP_TYPE_LPM_TRIE,
++	.key_size = 8,
++	.value_size = sizeof(long),
++	.max_entries = 10000,
++	.map_flags = BPF_F_NO_PREALLOC,
 +};
 +
-+static struct tlpm_node *tlpm_add(struct tlpm_node *list,
-+				  const uint8_t *key,
-+				  size_t n_bits)
+ SEC("kprobe/sys_getuid")
+ int stress_hmap(struct pt_regs *ctx)
+ {
+@@ -135,5 +143,27 @@ int stress_percpu_lru_hmap_alloc(struct pt_regs *ctx)
+ 	return 0;
+ }
+ 
++SEC("kprobe/sys_gettid")
++int stress_lpm_trie_map_alloc(struct pt_regs *ctx)
 +{
-+	struct tlpm_node *node;
-+	size_t n;
++	union {
++		u32 b32[2];
++		u8 b8[8];
++	} key;
++	unsigned int i;
 +
-+	/* add new entry with @key/@n_bits to @list and return new head */
++	key.b32[0] = 32;
++	key.b8[4] = 192;
++	key.b8[5] = 168;
++	key.b8[6] = 0;
++	key.b8[7] = 1;
 +
-+	n = (n_bits + 7) / 8;
-+	node = malloc(sizeof(*node) + n);
-+	assert(node);
++#pragma clang loop unroll(full)
++	for (i = 0; i < 32; ++i)
++		bpf_map_lookup_elem(&lpm_trie_map_alloc, &key);
 +
-+	node->next = list;
-+	node->n_bits = n_bits;
-+	memcpy(node->key, key, n);
-+
-+	return node;
++	return 0;
 +}
 +
-+static void tlpm_clear(struct tlpm_node *list)
+ char _license[] SEC("license") = "GPL";
+ u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
+index 9505b4d..680260a 100644
+--- a/samples/bpf/map_perf_test_user.c
++++ b/samples/bpf/map_perf_test_user.c
+@@ -37,6 +37,7 @@ static __u64 time_get_ns(void)
+ #define PERCPU_HASH_KMALLOC	(1 << 3)
+ #define LRU_HASH_PREALLOC	(1 << 4)
+ #define PERCPU_LRU_HASH_PREALLOC	(1 << 5)
++#define LPM_KMALLOC		(1 << 6)
+ 
+ static int test_flags = ~0;
+ 
+@@ -112,6 +113,18 @@ static void test_percpu_hash_kmalloc(int cpu)
+ 	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
+ }
+ 
++static void test_lpm_kmalloc(int cpu)
 +{
-+	struct tlpm_node *node;
++	__u64 start_time;
++	int i;
 +
-+	/* free all entries in @list */
-+
-+	while ((node = list)) {
-+		list = list->next;
-+		free(node);
-+	}
++	start_time = time_get_ns();
++	for (i = 0; i < MAX_CNT; i++)
++		syscall(__NR_gettid);
++	printf("%d:lpm_perf kmalloc %lld events per sec\n",
++	       cpu, MAX_CNT * 1000000000ll / (time_get_ns() - start_time));
 +}
 +
-+static struct tlpm_node *tlpm_match(struct tlpm_node *list,
-+				    const uint8_t *key,
-+				    size_t n_bits)
+ static void loop(int cpu)
+ {
+ 	cpu_set_t cpuset;
+@@ -137,6 +150,9 @@ static void loop(int cpu)
+ 
+ 	if (test_flags & PERCPU_LRU_HASH_PREALLOC)
+ 		test_percpu_lru_hash_prealloc(cpu);
++
++	if (test_flags & LPM_KMALLOC)
++		test_lpm_kmalloc(cpu);
+ }
+ 
+ static void run_perf_test(int tasks)
+@@ -162,6 +178,37 @@ static void run_perf_test(int tasks)
+ 	}
+ }
+ 
++static void fill_lpm_trie(void)
 +{
-+	struct tlpm_node *best = NULL;
-+	size_t i;
-+
-+	/* Perform longest prefix-match on @key/@n_bits. That is, iterate all
-+	 * entries and match each prefix against @key. Remember the "best"
-+	 * entry we find (i.e., the longest prefix that matches) and return it
-+	 * to the caller when done.
-+	 */
-+
-+	for ( ; list; list = list->next) {
-+		for (i = 0; i < n_bits && i < list->n_bits; ++i) {
-+			if ((key[i / 8] & (1 << (7 - i % 8))) !=
-+			    (list->key[i / 8] & (1 << (7 - i % 8))))
-+				break;
-+		}
-+
-+		if (i >= list->n_bits) {
-+			if (!best || i > best->n_bits)
-+				best = list;
-+		}
-+	}
-+
-+	return best;
-+}
-+
-+static void test_lpm_basic(void)
-+{
-+	struct tlpm_node *list = NULL, *t1, *t2;
-+
-+	/* very basic, static tests to verify tlpm works as expected */
-+
-+	assert(!tlpm_match(list, (uint8_t[]){ 0xff }, 8));
-+
-+	t1 = list = tlpm_add(list, (uint8_t[]){ 0xff }, 8);
-+	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff }, 8));
-+	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff, 0xff }, 16));
-+	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff, 0x00 }, 16));
-+	assert(!tlpm_match(list, (uint8_t[]){ 0x7f }, 8));
-+	assert(!tlpm_match(list, (uint8_t[]){ 0xfe }, 8));
-+	assert(!tlpm_match(list, (uint8_t[]){ 0xff }, 7));
-+
-+	t2 = list = tlpm_add(list, (uint8_t[]){ 0xff, 0xff }, 16);
-+	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff }, 8));
-+	assert(t2 == tlpm_match(list, (uint8_t[]){ 0xff, 0xff }, 16));
-+	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff, 0xff }, 15));
-+	assert(!tlpm_match(list, (uint8_t[]){ 0x7f, 0xff }, 16));
-+
-+	tlpm_clear(list);
-+}
-+
-+static void test_lpm_order(void)
-+{
-+	struct tlpm_node *t1, *t2, *l1 = NULL, *l2 = NULL;
-+	size_t i, j;
-+
-+	/* Verify the tlpm implementation works correctly regardless of the
-+	 * order of entries. Insert a random set of entries into @l1, and copy
-+	 * the same data in reverse order into @l2. Then verify a lookup of
-+	 * random keys will yield the same result in both sets.
-+	 */
-+
-+	for (i = 0; i < (1 << 12); ++i)
-+		l1 = tlpm_add(l1, (uint8_t[]){
-+					rand() % 0xff,
-+					rand() % 0xff,
-+				}, rand() % 16 + 1);
-+
-+	for (t1 = l1; t1; t1 = t1->next)
-+		l2 = tlpm_add(l2, t1->key, t1->n_bits);
-+
-+	for (i = 0; i < (1 << 8); ++i) {
-+		uint8_t key[] = { rand() % 0xff, rand() % 0xff };
-+
-+		t1 = tlpm_match(l1, key, 16);
-+		t2 = tlpm_match(l2, key, 16);
-+
-+		assert(!t1 == !t2);
-+		if (t1) {
-+			assert(t1->n_bits == t2->n_bits);
-+			for (j = 0; j < t1->n_bits; ++j)
-+				assert((t1->key[j / 8] & (1 << (7 - j % 8))) ==
-+				       (t2->key[j / 8] & (1 << (7 - j % 8))));
-+		}
-+	}
-+
-+	tlpm_clear(l1);
-+	tlpm_clear(l2);
-+}
-+
-+static void test_lpm_map(int keysize)
-+{
-+	size_t i, j, n_matches, n_nodes, n_lookups;
-+	struct tlpm_node *t, *list = NULL;
 +	struct bpf_lpm_trie_key *key;
-+	uint8_t *data, *value;
-+	int r, map;
++	unsigned long value = 0;
++	unsigned int i;
++	int r;
 +
-+	/* Compare behavior of tlpm vs. bpf-lpm. Create a randomized set of
-+	 * prefixes and insert it into both tlpm and bpf-lpm. Then run some
-+	 * randomized lookups and verify both maps return the same result.
-+	 */
++	key = alloca(sizeof(*key) + 4);
++	key->prefixlen = 32;
 +
-+	n_matches = 0;
-+	n_nodes = 1 << 8;
-+	n_lookups = 1 << 16;
-+
-+	data = alloca(keysize);
-+	memset(data, 0, keysize);
-+
-+	value = alloca(keysize + 1);
-+	memset(value, 0, keysize + 1);
-+
-+	key = alloca(sizeof(*key) + keysize);
-+	memset(key, 0, sizeof(*key) + keysize);
-+
-+	map = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
-+			     sizeof(*key) + keysize,
-+			     keysize + 1,
-+			     4096,
-+			     BPF_F_NO_PREALLOC);
-+	assert(map >= 0);
-+
-+	for (i = 0; i < n_nodes; ++i) {
-+		for (j = 0; j < keysize; ++j)
-+			value[j] = rand() & 0xff;
-+		value[keysize] = rand() % (8 * keysize + 1);
-+
-+		list = tlpm_add(list, value, value[keysize]);
-+
-+		key->prefixlen = value[keysize];
-+		memcpy(key->data, value, keysize);
-+		r = bpf_map_update(map, key, value, 0);
++	for (i = 0; i < 512; ++i) {
++		key->prefixlen = rand() % 33;
++		key->data[0] = rand() & 0xff;
++		key->data[1] = rand() & 0xff;
++		key->data[2] = rand() & 0xff;
++		key->data[3] = rand() & 0xff;
++		r = bpf_map_update_elem(map_fd[6], key, &value, 0);
 +		assert(!r);
 +	}
 +
-+	for (i = 0; i < n_lookups; ++i) {
-+		for (j = 0; j < keysize; ++j)
-+			data[j] = rand() & 0xff;
++	key->prefixlen = 32;
++	key->data[0] = 192;
++	key->data[1] = 168;
++	key->data[2] = 0;
++	key->data[3] = 1;
++	value = 128;
 +
-+		t = tlpm_match(list, data, 8 * keysize);
-+
-+		key->prefixlen = 8 * keysize;
-+		memcpy(key->data, data, keysize);
-+		r = bpf_map_lookup(map, key, value);
-+		assert(!r || errno == ENOENT);
-+		assert(!t == !!r);
-+
-+		if (t) {
-+			++n_matches;
-+			assert(t->n_bits == value[keysize]);
-+			for (j = 0; j < t->n_bits; ++j)
-+				assert((t->key[j / 8] & (1 << (7 - j % 8))) ==
-+				       (value[j / 8] & (1 << (7 - j % 8))));
-+		}
-+	}
-+
-+	close(map);
-+	tlpm_clear(list);
-+
-+	/* With 255 random nodes in the map, we are pretty likely to match
-+	 * something on every lookup. For statistics, use this:
-+	 *
-+	 *     printf("  nodes: %zu\n"
-+	 *            "lookups: %zu\n"
-+	 *            "matches: %zu\n", n_nodes, n_lookups, n_matches);
-+	 */
++	r = bpf_map_update_elem(map_fd[6], key, &value, 0);
++	assert(!r);
 +}
 +
-+/* Test the implementation with some 'real world' examples */
+ int main(int argc, char **argv)
+ {
+ 	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+@@ -182,6 +229,8 @@ int main(int argc, char **argv)
+ 		return 1;
+ 	}
+ 
++	fill_lpm_trie();
 +
-+static void test_lpm_ipaddr(void)
-+{
-+	struct bpf_lpm_trie_key *key_ipv4;
-+	struct bpf_lpm_trie_key *key_ipv6;
-+	size_t key_size_ipv4;
-+	size_t key_size_ipv6;
-+	int map_fd_ipv4;
-+	int map_fd_ipv6;
-+	__u64 value;
-+
-+	key_size_ipv4 = sizeof(*key_ipv4) + sizeof(__u32);
-+	key_size_ipv6 = sizeof(*key_ipv6) + sizeof(__u32) * 4;
-+	key_ipv4 = alloca(key_size_ipv4);
-+	key_ipv6 = alloca(key_size_ipv6);
-+
-+	map_fd_ipv4 = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
-+				     key_size_ipv4, sizeof(value),
-+				     100, BPF_F_NO_PREALLOC);
-+	assert(map_fd_ipv4 >= 0);
-+
-+	map_fd_ipv6 = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
-+				     key_size_ipv6, sizeof(value),
-+				     100, BPF_F_NO_PREALLOC);
-+	assert(map_fd_ipv6 >= 0);
-+
-+	/* Fill data some IPv4 and IPv6 address ranges */
-+	value = 1;
-+	key_ipv4->prefixlen = 16;
-+	inet_pton(AF_INET, "192.168.0.0", key_ipv4->data);
-+	assert(bpf_map_update(map_fd_ipv4, key_ipv4, &value, 0) == 0);
-+
-+	value = 2;
-+	key_ipv4->prefixlen = 24;
-+	inet_pton(AF_INET, "192.168.0.0", key_ipv4->data);
-+	assert(bpf_map_update(map_fd_ipv4, key_ipv4, &value, 0) == 0);
-+
-+	value = 3;
-+	key_ipv4->prefixlen = 24;
-+	inet_pton(AF_INET, "192.168.128.0", key_ipv4->data);
-+	assert(bpf_map_update(map_fd_ipv4, key_ipv4, &value, 0) == 0);
-+
-+	value = 5;
-+	key_ipv4->prefixlen = 24;
-+	inet_pton(AF_INET, "192.168.1.0", key_ipv4->data);
-+	assert(bpf_map_update(map_fd_ipv4, key_ipv4, &value, 0) == 0);
-+
-+	value = 4;
-+	key_ipv4->prefixlen = 23;
-+	inet_pton(AF_INET, "192.168.0.0", key_ipv4->data);
-+	assert(bpf_map_update(map_fd_ipv4, key_ipv4, &value, 0) == 0);
-+
-+	value = 0xdeadbeef;
-+	key_ipv6->prefixlen = 64;
-+	inet_pton(AF_INET6, "2a00:1450:4001:814::200e", key_ipv6->data);
-+	assert(bpf_map_update(map_fd_ipv6, key_ipv6, &value, 0) == 0);
-+
-+	/* Set tprefixlen to maximum for lookups */
-+	key_ipv4->prefixlen = 32;
-+	key_ipv6->prefixlen = 128;
-+
-+	/* Test some lookups that should come back with a value */
-+	inet_pton(AF_INET, "192.168.128.23", key_ipv4->data);
-+	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == 0);
-+	assert(value == 3);
-+
-+	inet_pton(AF_INET, "192.168.0.1", key_ipv4->data);
-+	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == 0);
-+	assert(value == 2);
-+
-+	inet_pton(AF_INET6, "2a00:1450:4001:814::", key_ipv6->data);
-+	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == 0);
-+	assert(value == 0xdeadbeef);
-+
-+	inet_pton(AF_INET6, "2a00:1450:4001:814::1", key_ipv6->data);
-+	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == 0);
-+	assert(value == 0xdeadbeef);
-+
-+	/* Test some lookups that should not match any entry */
-+	inet_pton(AF_INET, "10.0.0.1", key_ipv4->data);
-+	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == -1 &&
-+	       errno == ENOENT);
-+
-+	inet_pton(AF_INET, "11.11.11.11", key_ipv4->data);
-+	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == -1 &&
-+	       errno == ENOENT);
-+
-+	inet_pton(AF_INET6, "2a00:ffff::", key_ipv6->data);
-+	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == -1 &&
-+	       errno == ENOENT);
-+
-+	close(map_fd_ipv4);
-+	close(map_fd_ipv6);
-+}
-+
-+int main(void)
-+{
-+	struct rlimit limit  = { RLIM_INFINITY, RLIM_INFINITY };
-+	int i, ret;
-+
-+	/* we want predictable, pseudo random tests */
-+	srand(0xf00ba1);
-+
-+	/* allow unlimited locked memory */
-+	ret = setrlimit(RLIMIT_MEMLOCK, &limit);
-+	if (ret < 0)
-+		perror("Unable to lift memlock rlimit");
-+
-+	test_lpm_basic();
-+	test_lpm_order();
-+
-+	/* Test with 8, 16, 24, 32, ... 128 bit prefix length */
-+	for (i = 1; i <= 16; ++i)
-+		test_lpm_map(i);
-+
-+	test_lpm_ipaddr();
-+
-+	printf("test_lpm: OK\n");
-+	return 0;
-+}
+ 	run_perf_test(num_cpu);
+ 
+ 	return 0;
 -- 
 2.9.3
