@@ -1,65 +1,87 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv5 net-next 0/5] sctp: add sender-side procedures for stream reconf asoc reset and add streams
-Date: Sat, 21 Jan 2017 18:24:21 +0800
-Message-ID: <cover.1484993773.git.lucien.xin@gmail.com>
+Subject: [PATCHv5 net-next 1/5] sctp: streams should be recovered when it fails to send request.
+Date: Sat, 21 Jan 2017 18:24:22 +0800
+Message-ID: <9f2a54d764987dc6509e2322e3c0d93f819ebdb5.1484993773.git.lucien.xin@gmail.com>
+References: <cover.1484993773.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35885 "EHLO
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33622 "EHLO
         mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750886AbdAUKYe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 05:24:34 -0500
+        with ESMTP id S1751064AbdAUKYm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 05:24:42 -0500
+In-Reply-To: <cover.1484993773.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1484993773.git.lucien.xin@gmail.com>
+References: <cover.1484993773.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch 3/5 is to implement sender-side procedures for the SSN/TSN Reset
-Request Parameter described in rfc6525 section 5.1.4, patch 2/5 is
-ahead of it to define a function to make the request chunk for it.
+Now when sending stream reset request, it closes the streams to
+block further xmit of data until this request is completed, then
+calls sctp_send_reconf to send the chunk.
 
-Patch 5/5 is to implement sender-side procedures for the Add Incoming
-and Outgoing Streams Request Parameter Request Parameter described in
-rfc6525 section 5.1.5 and 5.1.6, patch 4/5 is ahead of it to define a
-function to make the request chunk for it.
+But if sctp_send_reconf returns err, and it doesn't recover the
+streams' states back,  which means the request chunk would not be
+queued and sent, so the asoc will get stuck, streams are closed
+and no packet is even queued.
 
-Patch 1/5 is a fix to recover streams states when it fails to send
-request.
+This patch is to fix it by recovering the streams' states when
+it fails to send the request, it is also to fix a return value.
 
-v1->v2:
-  - put these into a smaller group.
-  - rename some temporary variables in the codes.
-  - rename the titles of the commits and improve some changelogs.
-v2->v3:
-  - re-split the patchset and make sure it has no dead codes for review.
-  - move some codes into stream.c from socket.c.
-v3->v4:
-  - add one more patch to fix a send reset stream request issue.
-  - doing actual work only when request is sent successfully.
-  - reduce some indents in sctp_send_add_streams.
-v4->v5:
-  - close streams before sending request and recover them when sending
-    fails in patch 1/5 and patch 3/5
+Fixes: 7f9d68ac944e ("sctp: implement sender-side procedures for SSN Reset Request Parameter")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/stream.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
-Xin Long (5):
-  sctp: streams should be recovered when it fails to send request.
-  sctp: add support for generating stream reconf ssn/tsn reset request
-    chunk
-  sctp: implement sender-side procedures for SSN/TSN Reset Request
-    Parameter
-  sctp: add support for generating stream reconf add incoming/outgoing
-    streams request chunk
-  sctp: implement sender-side procedures for Add Incoming/Outgoing
-    Streams Request Parameter
-
- include/linux/sctp.h      |  12 ++++
- include/net/sctp/sctp.h   |   3 +
- include/net/sctp/sm.h     |   5 ++
- include/uapi/linux/sctp.h |   8 +++
- net/sctp/sm_make_chunk.c  |  75 +++++++++++++++++++++++++
- net/sctp/socket.c         |  58 +++++++++++++++++++
- net/sctp/stream.c         | 138 +++++++++++++++++++++++++++++++++++++++++++++-
- 7 files changed, 298 insertions(+), 1 deletion(-)
-
+diff --git a/net/sctp/stream.c b/net/sctp/stream.c
+index 13d5e07..6a686e3 100644
+--- a/net/sctp/stream.c
++++ b/net/sctp/stream.c
+@@ -136,8 +136,10 @@ int sctp_send_reset_streams(struct sctp_association *asoc,
+ 				goto out;
+ 
+ 	chunk = sctp_make_strreset_req(asoc, str_nums, str_list, out, in);
+-	if (!chunk)
++	if (!chunk) {
++		retval = -ENOMEM;
+ 		goto out;
++	}
+ 
+ 	if (out) {
+ 		if (str_nums)
+@@ -149,7 +151,6 @@ int sctp_send_reset_streams(struct sctp_association *asoc,
+ 				stream->out[i].state = SCTP_STREAM_CLOSED;
+ 	}
+ 
+-	asoc->strreset_outstanding = out + in;
+ 	asoc->strreset_chunk = chunk;
+ 	sctp_chunk_hold(asoc->strreset_chunk);
+ 
+@@ -157,8 +158,22 @@ int sctp_send_reset_streams(struct sctp_association *asoc,
+ 	if (retval) {
+ 		sctp_chunk_put(asoc->strreset_chunk);
+ 		asoc->strreset_chunk = NULL;
++		if (!out)
++			goto out;
++
++		if (str_nums)
++			for (i = 0; i < str_nums; i++)
++				stream->out[str_list[i]].state =
++						       SCTP_STREAM_OPEN;
++		else
++			for (i = 0; i < stream->outcnt; i++)
++				stream->out[i].state = SCTP_STREAM_OPEN;
++
++		goto out;
+ 	}
+ 
++	asoc->strreset_outstanding = out + in;
++
+ out:
+ 	return retval;
+ }
 -- 
 2.1.0
