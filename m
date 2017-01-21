@@ -1,7 +1,7 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net v2 2/2] lwtunnel: Fix oops on state free after encap module unload
-Date: Sat, 21 Jan 2017 00:21:26 +0000
-Message-ID: <1484958086-6151-3-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net v2 1/2] net: Specify the owning module for lwtunnel ops
+Date: Sat, 21 Jan 2017 00:21:25 +0000
+Message-ID: <1484958086-6151-2-git-send-email-rshearma@brocade.com>
 References: <1484753523-26230-1-git-send-email-rshearma@brocade.com>
  <1484958086-6151-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
@@ -14,78 +14,108 @@ Cc: <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>,
         Robert Shearman <rshearma@brocade.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33156 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752244AbdAUAXR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 19:23:17 -0500
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:49648 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752229AbdAUAYy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 19:24:54 -0500
 In-Reply-To: <1484958086-6151-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When attempting to free lwtunnel state after the module for the encap
-has been unloaded an oops occurs:
-
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-IP: lwtstate_free+0x18/0x40
-[..]
-task: ffff88003e372380 task.stack: ffffc900001fc000
-RIP: 0010:lwtstate_free+0x18/0x40
-RSP: 0018:ffff88003fd83e88 EFLAGS: 00010246
-RAX: 0000000000000000 RBX: ffff88002bbb3380 RCX: ffff88000c91a300
-[..]
-Call Trace:
- <IRQ>
- free_fib_info_rcu+0x195/0x1a0
- ? rt_fibinfo_free+0x50/0x50
- rcu_process_callbacks+0x2d3/0x850
- ? rcu_process_callbacks+0x296/0x850
- __do_softirq+0xe4/0x4cb
- irq_exit+0xb0/0xc0
- smp_apic_timer_interrupt+0x3d/0x50
- apic_timer_interrupt+0x93/0xa0
-[..]
-Code: e8 6e c6 fc ff 89 d8 5b 5d c3 bb de ff ff ff eb f4 66 90 66 66 66 66 90 55 48 89 e5 53 0f b7 07 48 89 fb 48 8b 04 c5 00 81 d5 81 <48> 8b 40 08 48 85 c0 74 13 ff d0 48 8d 7b 20 be 20 00 00 00 e8
-
-The problem is after the module for the encap is unloaded the
-corresponding ops is removed and thus is NULL here.
-
 Modules implementing lwtunnel ops should not be allowed to unload
-while there is state alive using those ops, so grab the module
-reference for the ops on creating lwtunnel state and of course release
-the reference when freeing the state.
+while there is state alive using those ops, so specify the owning
+module for all lwtunnel ops.
 
-Fixes: 1104d9ba443a ("lwtunnel: Add destroy state operation")
 Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- net/core/lwtunnel.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ include/net/lwtunnel.h    | 2 ++
+ net/core/lwt_bpf.c        | 1 +
+ net/ipv4/ip_tunnel_core.c | 2 ++
+ net/ipv6/ila/ila_lwt.c    | 1 +
+ net/ipv6/seg6_iptunnel.c  | 1 +
+ net/mpls/mpls_iptunnel.c  | 1 +
+ 6 files changed, 8 insertions(+)
 
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-index 47b1dd65947b..ebfaffaa777b 100644
---- a/net/core/lwtunnel.c
-+++ b/net/core/lwtunnel.c
-@@ -115,8 +115,12 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
- 	ret = -EOPNOTSUPP;
- 	rcu_read_lock();
- 	ops = rcu_dereference(lwtun_encaps[encap_type]);
--	if (likely(ops && ops->build_state))
--		ret = ops->build_state(dev, encap, family, cfg, lws);
-+	if (likely(ops)) {
-+		if (likely(try_module_get(ops->owner) && ops->build_state))
-+			ret = ops->build_state(dev, encap, family, cfg, lws);
-+		if (ret)
-+			module_put(ops->owner);
-+	}
- 	rcu_read_unlock();
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index 0b585f1fd340..73dd87647460 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -44,6 +44,8 @@ struct lwtunnel_encap_ops {
+ 	int (*get_encap_size)(struct lwtunnel_state *lwtstate);
+ 	int (*cmp_encap)(struct lwtunnel_state *a, struct lwtunnel_state *b);
+ 	int (*xmit)(struct sk_buff *skb);
++
++	struct module *owner;
+ };
  
- 	return ret;
-@@ -194,6 +198,7 @@ void lwtstate_free(struct lwtunnel_state *lws)
- 	} else {
- 		kfree(lws);
- 	}
-+	module_put(ops->owner);
- }
- EXPORT_SYMBOL(lwtstate_free);
+ #ifdef CONFIG_LWTUNNEL
+diff --git a/net/core/lwt_bpf.c b/net/core/lwt_bpf.c
+index 71bb3e2eca08..b3eef90b2df9 100644
+--- a/net/core/lwt_bpf.c
++++ b/net/core/lwt_bpf.c
+@@ -386,6 +386,7 @@ static const struct lwtunnel_encap_ops bpf_encap_ops = {
+ 	.fill_encap	= bpf_fill_encap_info,
+ 	.get_encap_size = bpf_encap_nlsize,
+ 	.cmp_encap	= bpf_encap_cmp,
++	.owner		= THIS_MODULE,
+ };
  
+ static int __init bpf_lwt_init(void)
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index fed3d29f9eb3..0fd1976ab63b 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -313,6 +313,7 @@ static const struct lwtunnel_encap_ops ip_tun_lwt_ops = {
+ 	.fill_encap = ip_tun_fill_encap_info,
+ 	.get_encap_size = ip_tun_encap_nlsize,
+ 	.cmp_encap = ip_tun_cmp_encap,
++	.owner = THIS_MODULE,
+ };
+ 
+ static const struct nla_policy ip6_tun_policy[LWTUNNEL_IP6_MAX + 1] = {
+@@ -403,6 +404,7 @@ static const struct lwtunnel_encap_ops ip6_tun_lwt_ops = {
+ 	.fill_encap = ip6_tun_fill_encap_info,
+ 	.get_encap_size = ip6_tun_encap_nlsize,
+ 	.cmp_encap = ip_tun_cmp_encap,
++	.owner = THIS_MODULE,
+ };
+ 
+ void __init ip_tunnel_core_init(void)
+diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
+index a7bc54ab46e2..13b5e85fe0d5 100644
+--- a/net/ipv6/ila/ila_lwt.c
++++ b/net/ipv6/ila/ila_lwt.c
+@@ -238,6 +238,7 @@ static const struct lwtunnel_encap_ops ila_encap_ops = {
+ 	.fill_encap = ila_fill_encap_info,
+ 	.get_encap_size = ila_encap_nlsize,
+ 	.cmp_encap = ila_encap_cmp,
++	.owner = THIS_MODULE,
+ };
+ 
+ int ila_lwt_init(void)
+diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
+index 1d60cb132835..c46f8cbf5ab5 100644
+--- a/net/ipv6/seg6_iptunnel.c
++++ b/net/ipv6/seg6_iptunnel.c
+@@ -422,6 +422,7 @@ static const struct lwtunnel_encap_ops seg6_iptun_ops = {
+ 	.fill_encap = seg6_fill_encap_info,
+ 	.get_encap_size = seg6_encap_nlsize,
+ 	.cmp_encap = seg6_encap_cmp,
++	.owner = THIS_MODULE,
+ };
+ 
+ int __init seg6_iptunnel_init(void)
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+index 2f7ccd934416..1d281c1ff7c1 100644
+--- a/net/mpls/mpls_iptunnel.c
++++ b/net/mpls/mpls_iptunnel.c
+@@ -215,6 +215,7 @@ static const struct lwtunnel_encap_ops mpls_iptun_ops = {
+ 	.fill_encap = mpls_fill_encap_info,
+ 	.get_encap_size = mpls_encap_nlsize,
+ 	.cmp_encap = mpls_encap_cmp,
++	.owner = THIS_MODULE,
+ };
+ 
+ static int __init mpls_iptunnel_init(void)
 -- 
 2.1.4
