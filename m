@@ -1,20 +1,20 @@
 From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] net: moxa: constify net_device_ops structures
-Date: Sat, 21 Jan 2017 11:44:38 +0530
-Message-ID: <1484979278-29261-1-git-send-email-bhumirks@gmail.com>
+Subject: [PATCH v2] net: moxa: constify net_device_ops structures
+Date: Sat, 21 Jan 2017 12:27:26 +0530
+Message-ID: <1484981846-29736-1-git-send-email-bhumirks@gmail.com>
 Cc: Bhumika Goyal <bhumirks@gmail.com>
 To: julia.lawall@lip6.fr, dan.carpenter@oracle.com,
         davem@davemloft.net, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33836 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750717AbdAUGOt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 01:14:49 -0500
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35964 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750717AbdAUG6L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 01:58:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Declare net_device_ops structures as const as they are only stored in
+Declare net_device_ops structure as const as it is only stored in
 the netdev_ops field of a net_device structure. This field is of type
 const, so net_device_ops structures having same properties can be made
 const too.
@@ -55,6 +55,9 @@ File size after:
 
 Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 ---
+Changes in v2:
+* Corrected the commit message.
+
  drivers/net/ethernet/moxa/moxart_ether.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
