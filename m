@@ -1,66 +1,65 @@
-From: <tomsue2000@yahoo.co.uk>
-Subject: (unknown)
-Date: Sat, 21 Jan 2017 09:56:53 -0000
-Message-ID: <148499261351.20378.3886548359817358446@hinet.net>
-Reply-To: <tomsue2000@yahoo.co.uk>
-Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_9865442338_netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv5 net-next 0/5] sctp: add sender-side procedures for stream reconf asoc reset and add streams
+Date: Sat, 21 Jan 2017 18:24:21 +0800
+Message-ID: <cover.1484993773.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 36-228-129-72.dynamic-ip.hinet.net ([36.228.129.72]:40844 "HELO
-        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1750717AbdAUJ47 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 21 Jan 2017 04:56:59 -0500
-Content-Disposition: attachment
-Subject: 
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35885 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750886AbdAUKYe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 05:24:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AABQSwUGAAAAAAEAAQBSAAAA7gkAAAAA
+Patch 3/5 is to implement sender-side procedures for the SSN/TSN Reset
+Request Parameter described in rfc6525 section 5.1.4, patch 2/5 is
+ahead of it to define a function to make the request chunk for it.
+
+Patch 5/5 is to implement sender-side procedures for the Add Incoming
+and Outgoing Streams Request Parameter Request Parameter described in
+rfc6525 section 5.1.5 and 5.1.6, patch 4/5 is ahead of it to define a
+function to make the request chunk for it.
+
+Patch 1/5 is a fix to recover streams states when it fails to send
+request.
+
+v1->v2:
+  - put these into a smaller group.
+  - rename some temporary variables in the codes.
+  - rename the titles of the commits and improve some changelogs.
+v2->v3:
+  - re-split the patchset and make sure it has no dead codes for review.
+  - move some codes into stream.c from socket.c.
+v3->v4:
+  - add one more patch to fix a send reset stream request issue.
+  - doing actual work only when request is sent successfully.
+  - reduce some indents in sctp_send_add_streams.
+v4->v5:
+  - close streams before sending request and recover them when sending
+    fails in patch 1/5 and patch 3/5
+
+Xin Long (5):
+  sctp: streams should be recovered when it fails to send request.
+  sctp: add support for generating stream reconf ssn/tsn reset request
+    chunk
+  sctp: implement sender-side procedures for SSN/TSN Reset Request
+    Parameter
+  sctp: add support for generating stream reconf add incoming/outgoing
+    streams request chunk
+  sctp: implement sender-side procedures for Add Incoming/Outgoing
+    Streams Request Parameter
+
+ include/linux/sctp.h      |  12 ++++
+ include/net/sctp/sctp.h   |   3 +
+ include/net/sctp/sm.h     |   5 ++
+ include/uapi/linux/sctp.h |   8 +++
+ net/sctp/sm_make_chunk.c  |  75 +++++++++++++++++++++++++
+ net/sctp/socket.c         |  58 +++++++++++++++++++
+ net/sctp/stream.c         | 138 +++++++++++++++++++++++++++++++++++++++++++++-
+ 7 files changed, 298 insertions(+), 1 deletion(-)
+
+-- 
+2.1.0
