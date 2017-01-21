@@ -1,42 +1,56 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next 3/5] bridge: uapi: add per vlan tunnel info
-Date: Sat, 21 Jan 2017 08:59:25 -0800
-Message-ID: <5883936D.5090600@cumulusnetworks.com>
-References: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com> <1484977616-1541-4-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-        nikolay@cumulusnetworks.com, tgraf@suug.ch,
-        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
-        dsa@cumulusnetworks.com, hadi@mojatatu.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: dsa: Keep a reference count on ethernet_dev
+Date: Sat, 21 Jan 2017 09:40:54 -0800
+Message-ID: <20170121174055.27560-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:33179 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750770AbdAUQ7Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 11:59:25 -0500
-Received: by mail-pg0-f42.google.com with SMTP id 204so32316753pge.0
-        for <netdev@vger.kernel.org>; Sat, 21 Jan 2017 08:59:25 -0800 (PST)
-In-Reply-To: <1484977616-1541-4-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/20/17, 9:46 PM, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> New netlink api to associate tunnel info per vlan.
-> This is used by bridge driver to send tunnel metadata to
-> bridge ports in LWT tunnel dst metadata mode.
->
-> One example use for this is a vxlan bridging gateway or vtep
-> which maps vlans to vn-segments (or vnis). User can configure
-> per-vlan tunnel information which the bridge driver can use
-> to bridge vlan into the corresponding vn-segment.
->
-> This patch also introduces a bridge port flag IFLA_BRPORT_LWT_VLAN
-> to enable this feature on a tunnel bridge port. It is off by default.
->
->
-since it does not use the LWT infra, I plan to drop any LWT references and call
-the new features and modes plain collect metadata or dst_metadata mode in the next version.
+of_find_net_device_by_node() just returns a reference to a net_device but does
+not increment its reference count, which means that the master network device
+can just vanish under our feet.
+
+Fixes: 83c0afaec7b7 ("net: dsa: Add new binding implementation")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/dsa2.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index da3862124545..4adb9b11c22c 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -440,6 +440,8 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
+ 
+ 	pr_info("DSA: tree %d unapplied\n", dst->tree);
+ 	dst->applied = false;
++
++	dev_put(dst->master_netdev);
+ }
+ 
+ static int dsa_cpu_parse(struct device_node *port, u32 index,
+@@ -458,6 +460,8 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
+ 	if (!ethernet_dev)
+ 		return -EPROBE_DEFER;
+ 
++	dev_hold(ethernet_dev);
++
+ 	if (!ds->master_netdev)
+ 		ds->master_netdev = ethernet_dev;
+ 
+@@ -473,6 +477,7 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
+ 	dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
+ 	if (IS_ERR(dst->tag_ops)) {
+ 		dev_warn(ds->dev, "No tagger for this switch\n");
++		dev_put(ethernet_dev);
+ 		return PTR_ERR(dst->tag_ops);
+ 	}
+ 
+-- 
+2.9.3
