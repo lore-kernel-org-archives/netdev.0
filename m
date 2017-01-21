@@ -1,48 +1,589 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/8] net: dsa: mv88e6xxx: Implement external
- MDIO bus on mv88e6390
-Date: Sat, 21 Jan 2017 17:15:32 +0100
-Message-ID: <20170121161532.GB7808@lunn.ch>
-References: <1484955062-26718-1-git-send-email-andrew@lunn.ch>
- <1484955062-26718-2-git-send-email-andrew@lunn.ch>
- <878tq5ffcc.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH v4 1/3] bpf: add a longest prefix match trie map implementation
+Date: Sat, 21 Jan 2017 17:26:11 +0100
+Message-ID: <20170121162613.4159-2-daniel@zonque.org>
+References: <20170121162613.4159-1-daniel@zonque.org>
+Cc: dh.herrmann@gmail.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        Daniel Mack <daniel@zonque.org>
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40599 "EHLO vps0.lunn.ch"
+Received: from svenfoo.org ([82.94.215.22]:36642 "EHLO mail.zonque.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750735AbdAUQQa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 21 Jan 2017 11:16:30 -0500
-Content-Disposition: inline
-In-Reply-To: <878tq5ffcc.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+        id S1751031AbdAUQ0m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 21 Jan 2017 11:26:42 -0500
+In-Reply-To: <20170121162613.4159-1-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 07:04:35PM -0500, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > The mv88e6390 has two MDIO busses. The internal MDIO bus is used for
-> > the internal PHYs. The external MDIO can be used for external PHYs.
-> > The external MDIO bus will be instantiated if there is an
-> > "mdio-external" node in the device tree.
-> 
-> Thanks for pushing the 88E6390 support. Some comments below.
-> 
-> > +static int mv88e6xxx_read_phy(struct mv88e6xxx_chip *chip, int addr, int reg,
-> > +static int mv88e6xxx_write_phy(struct mv88e6xxx_chip *chip, int addr, int reg,
-> >  static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
-> >  static int mv88e6xxx_phy_write(struct mv88e6xxx_chip *chip, int phy,
-> 
-> Adding mv88e6xxx_read/write_phy() in addition to existing
-> mv88e6xxx_phy_read/write() feels really confusing and hard to
-> maintain. Can that be done the other way around maybe?
+This trie implements a longest prefix match algorithm that can be used
+to match IP addresses to a stored set of ranges.
 
-Yes, i agree. I didn't particularly like it either. What might be
-simpler is to pass the struct mii_bus all the way down, where as we
-only currently have chip.
+Internally, data is stored in an unbalanced trie of nodes that has a
+maximum height of n, where n is the prefixlen the trie was created
+with.
 
-     Andrew
+Tries may be created with prefix lengths that are multiples of 8, in
+the range from 8 to 2048. The key used for lookup and update operations
+is a struct bpf_lpm_trie_key, and the value is a uint64_t.
+
+The code carries more information about the internal implementation.
+
+Signed-off-by: Daniel Mack <daniel@zonque.org>
+Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
+---
+ include/uapi/linux/bpf.h |   7 +
+ kernel/bpf/Makefile      |   2 +-
+ kernel/bpf/lpm_trie.c    | 503 +++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 511 insertions(+), 1 deletion(-)
+ create mode 100644 kernel/bpf/lpm_trie.c
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 0eb0e87..d564277 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -63,6 +63,12 @@ struct bpf_insn {
+ 	__s32	imm;		/* signed immediate constant */
+ };
+ 
++/* Key of an a BPF_MAP_TYPE_LPM_TRIE entry */
++struct bpf_lpm_trie_key {
++	__u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
++	__u8	data[0];	/* Arbitrary size */
++};
++
+ /* BPF syscall commands, see bpf(2) man-page for details. */
+ enum bpf_cmd {
+ 	BPF_MAP_CREATE,
+@@ -89,6 +95,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_CGROUP_ARRAY,
+ 	BPF_MAP_TYPE_LRU_HASH,
+ 	BPF_MAP_TYPE_LRU_PERCPU_HASH,
++	BPF_MAP_TYPE_LPM_TRIE,
+ };
+ 
+ enum bpf_prog_type {
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index 1276474..e1ce4f4 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -1,7 +1,7 @@
+ obj-y := core.o
+ 
+ obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
+-obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o
++obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o
+ ifeq ($(CONFIG_PERF_EVENTS),y)
+ obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
+ endif
+diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
+new file mode 100644
+index 0000000..ba19241d
+--- /dev/null
++++ b/kernel/bpf/lpm_trie.c
+@@ -0,0 +1,503 @@
++/*
++ * Longest prefix match list implementation
++ *
++ * Copyright (c) 2016,2017 Daniel Mack
++ * Copyright (c) 2016 David Herrmann
++ *
++ * This file is subject to the terms and conditions of version 2 of the GNU
++ * General Public License.  See the file COPYING in the main directory of the
++ * Linux distribution for more details.
++ */
++
++#include <linux/bpf.h>
++#include <linux/err.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/vmalloc.h>
++#include <net/ipv6.h>
++
++/* Intermediate node */
++#define LPM_TREE_NODE_FLAG_IM BIT(0)
++
++struct lpm_trie_node;
++
++struct lpm_trie_node {
++	struct rcu_head rcu;
++	struct lpm_trie_node __rcu	*child[2];
++	u32				prefixlen;
++	u32				flags;
++	u8				data[0];
++};
++
++struct lpm_trie {
++	struct bpf_map			map;
++	struct lpm_trie_node __rcu	*root;
++	size_t				n_entries;
++	size_t				max_prefixlen;
++	size_t				data_size;
++	raw_spinlock_t			lock;
++};
++
++/* This trie implements a longest prefix match algorithm that can be used to
++ * match IP addresses to a stored set of ranges.
++ *
++ * Data stored in @data of struct bpf_lpm_key and struct lpm_trie_node is
++ * interpreted as big endian, so data[0] stores the most significant byte.
++ *
++ * Match ranges are internally stored in instances of struct lpm_trie_node
++ * which each contain their prefix length as well as two pointers that may
++ * lead to more nodes containing more specific matches. Each node also stores
++ * a value that is defined by and returned to userspace via the update_elem
++ * and lookup functions.
++ *
++ * For instance, let's start with a trie that was created with a prefix length
++ * of 32, so it can be used for IPv4 addresses, and one single element that
++ * matches 192.168.0.0/16. The data array would hence contain
++ * [0xc0, 0xa8, 0x00, 0x00] in big-endian notation. This documentation will
++ * stick to IP-address notation for readability though.
++ *
++ * As the trie is empty initially, the new node (1) will be places as root
++ * node, denoted as (R) in the example below. As there are no other node, both
++ * child pointers are %NULL.
++ *
++ *              +----------------+
++ *              |       (1)  (R) |
++ *              | 192.168.0.0/16 |
++ *              |    value: 1    |
++ *              |   [0]    [1]   |
++ *              +----------------+
++ *
++ * Next, let's add a new node (2) matching 192.168.0.0/24. As there is already
++ * a node with the same data and a smaller prefix (ie, a less specific one),
++ * node (2) will become a child of (1). In child index depends on the next bit
++ * that is outside of what (1) matches, and that bit is 0, so (2) will be
++ * child[0] of (1):
++ *
++ *              +----------------+
++ *              |       (1)  (R) |
++ *              | 192.168.0.0/16 |
++ *              |    value: 1    |
++ *              |   [0]    [1]   |
++ *              +----------------+
++ *                   |
++ *    +----------------+
++ *    |       (2)      |
++ *    | 192.168.0.0/24 |
++ *    |    value: 2    |
++ *    |   [0]    [1]   |
++ *    +----------------+
++ *
++ * The child[1] slot of (1) could be filled with another node which has bit #17
++ * (the next bit after the ones that (1) matches on) set to 1. For instance,
++ * 192.168.128.0/24:
++ *
++ *              +----------------+
++ *              |       (1)  (R) |
++ *              | 192.168.0.0/16 |
++ *              |    value: 1    |
++ *              |   [0]    [1]   |
++ *              +----------------+
++ *                   |      |
++ *    +----------------+  +------------------+
++ *    |       (2)      |  |        (3)       |
++ *    | 192.168.0.0/24 |  | 192.168.128.0/24 |
++ *    |    value: 2    |  |     value: 3     |
++ *    |   [0]    [1]   |  |    [0]    [1]    |
++ *    +----------------+  +------------------+
++ *
++ * Let's add another node (4) to the game for 192.168.1.0/24. In order to place
++ * it, node (1) is looked at first, and because (4) of the semantics laid out
++ * above (bit #17 is 0), it would normally be attached to (1) as child[0].
++ * However, that slot is already allocated, so a new node is needed in between.
++ * That node does not have a value attached to it and it will never be
++ * returned to users as result of a lookup. It is only there to differentiate
++ * the traversal further. It will get a prefix as wide as necessary to
++ * distinguish its two children:
++ *
++ *                      +----------------+
++ *                      |       (1)  (R) |
++ *                      | 192.168.0.0/16 |
++ *                      |    value: 1    |
++ *                      |   [0]    [1]   |
++ *                      +----------------+
++ *                           |      |
++ *            +----------------+  +------------------+
++ *            |       (4)  (I) |  |        (3)       |
++ *            | 192.168.0.0/23 |  | 192.168.128.0/24 |
++ *            |    value: ---  |  |     value: 3     |
++ *            |   [0]    [1]   |  |    [0]    [1]    |
++ *            +----------------+  +------------------+
++ *                 |      |
++ *  +----------------+  +----------------+
++ *  |       (2)      |  |       (5)      |
++ *  | 192.168.0.0/24 |  | 192.168.1.0/24 |
++ *  |    value: 2    |  |     value: 5   |
++ *  |   [0]    [1]   |  |   [0]    [1]   |
++ *  +----------------+  +----------------+
++ *
++ * 192.168.1.1/32 would be a child of (5) etc.
++ *
++ * An intermediate node will be turned into a 'real' node on demand. In the
++ * example above, (4) would be re-used if 192.168.0.0/23 is added to the trie.
++ *
++ * A fully populated trie would have a height of 32 nodes, as the trie was
++ * created with a prefix length of 32.
++ *
++ * The lookup starts at the root node. If the current node matches and if there
++ * is a child that can be used to become more specific, the trie is traversed
++ * downwards. The last node in the traversal that is a non-intermediate one is
++ * returned.
++ */
++
++static inline int extract_bit(const u8 *data, size_t index)
++{
++	return !!(data[index / 8] & (1 << (7 - (index % 8))));
++}
++
++/**
++ * longest_prefix_match() - determine the longest prefix
++ * @trie:	The trie to get internal sizes from
++ * @node:	The node to operate on
++ * @key:	The key to compare to @node
++ *
++ * Determine the longest prefix of @node that matches the bits in @key.
++ */
++static size_t longest_prefix_match(const struct lpm_trie *trie,
++				   const struct lpm_trie_node *node,
++				   const struct bpf_lpm_trie_key *key)
++{
++	size_t prefixlen = 0;
++	size_t i;
++
++	for (i = 0; i < trie->data_size; i++) {
++		size_t b;
++
++		b = 8 - fls(node->data[i] ^ key->data[i]);
++		prefixlen += b;
++
++		if (prefixlen >= node->prefixlen || prefixlen >= key->prefixlen)
++			return min(node->prefixlen, key->prefixlen);
++
++		if (b < 8)
++			break;
++	}
++
++	return prefixlen;
++}
++
++/* Called from syscall or from eBPF program */
++static void *trie_lookup_elem(struct bpf_map *map, void *_key)
++{
++	struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
++	struct lpm_trie_node *node, *found = NULL;
++	struct bpf_lpm_trie_key *key = _key;
++
++	/* Start walking the trie from the root node ... */
++
++	for (node = rcu_dereference(trie->root); node;) {
++		unsigned int next_bit;
++		size_t matchlen;
++
++		/* Determine the longest prefix of @node that matches @key.
++		 * If it's the maximum possible prefix for this trie, we have
++		 * an exact match and can return it directly.
++		 */
++		matchlen = longest_prefix_match(trie, node, key);
++		if (matchlen == trie->max_prefixlen) {
++			found = node;
++			break;
++		}
++
++		/* If the number of bits that match is smaller than the prefix
++		 * length of @node, bail out and return the node we have seen
++		 * last in the traversal (ie, the parent).
++		 */
++		if (matchlen < node->prefixlen)
++			break;
++
++		/* Consider this node as return candidate unless it is an
++		 * artificially added intermediate one.
++		 */
++		if (!(node->flags & LPM_TREE_NODE_FLAG_IM))
++			found = node;
++
++		/* If the node match is fully satisfied, let's see if we can
++		 * become more specific. Determine the next bit in the key and
++		 * traverse down.
++		 */
++		next_bit = extract_bit(key->data, node->prefixlen);
++		node = rcu_dereference(node->child[next_bit]);
++	}
++
++	if (!found)
++		return NULL;
++
++	return found->data + trie->data_size;
++}
++
++static struct lpm_trie_node *lpm_trie_node_alloc(const struct lpm_trie *trie,
++						 const void *value)
++{
++	struct lpm_trie_node *node;
++	size_t size = sizeof(struct lpm_trie_node) + trie->data_size;
++
++	if (value)
++		size += trie->map.value_size;
++
++	node = kmalloc(size, GFP_ATOMIC | __GFP_NOWARN);
++	if (!node)
++		return NULL;
++
++	node->flags = 0;
++
++	if (value)
++		memcpy(node->data + trie->data_size, value,
++		       trie->map.value_size);
++
++	return node;
++}
++
++/* Called from syscall or from eBPF program */
++static int trie_update_elem(struct bpf_map *map,
++			    void *_key, void *value, u64 flags)
++{
++	struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
++	struct lpm_trie_node *node, *im_node, *new_node = NULL;
++	struct lpm_trie_node __rcu **slot;
++	struct bpf_lpm_trie_key *key = _key;
++	unsigned long irq_flags;
++	unsigned int next_bit;
++	size_t matchlen = 0;
++	int ret = 0;
++
++	if (unlikely(flags > BPF_EXIST))
++		return -EINVAL;
++
++	if (key->prefixlen > trie->max_prefixlen)
++		return -EINVAL;
++
++	raw_spin_lock_irqsave(&trie->lock, irq_flags);
++
++	/* Allocate and fill a new node */
++
++	if (trie->n_entries == trie->map.max_entries) {
++		ret = -ENOSPC;
++		goto out;
++	}
++
++	new_node = lpm_trie_node_alloc(trie, value);
++	if (!new_node) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	trie->n_entries++;
++
++	new_node->prefixlen = key->prefixlen;
++	RCU_INIT_POINTER(new_node->child[0], NULL);
++	RCU_INIT_POINTER(new_node->child[1], NULL);
++	memcpy(new_node->data, key->data, trie->data_size);
++
++	/* Now find a slot to attach the new node. To do that, walk the tree
++	 * from the root and match as many bits as possible for each node until
++	 * we either find an empty slot or a slot that needs to be replaced by
++	 * an intermediate node.
++	 */
++	slot = &trie->root;
++
++	while ((node = rcu_dereference_protected(*slot,
++					lockdep_is_held(&trie->lock)))) {
++		matchlen = longest_prefix_match(trie, node, key);
++
++		if (node->prefixlen != matchlen ||
++		    node->prefixlen == key->prefixlen ||
++		    node->prefixlen == trie->max_prefixlen)
++			break;
++
++		next_bit = extract_bit(key->data, node->prefixlen);
++		slot = &node->child[next_bit];
++	}
++
++	/* If the slot is empty (a free child pointer or an empty root),
++	 * simply assign the @new_node to that slot and be done.
++	 */
++	if (!node) {
++		rcu_assign_pointer(*slot, new_node);
++		goto out;
++	}
++
++	/* If the slot we picked already exists, replace it with @new_node
++	 * which already has the correct data array set.
++	 */
++	if (node->prefixlen == matchlen) {
++		new_node->child[0] = node->child[0];
++		new_node->child[1] = node->child[1];
++
++		if (!(node->flags & LPM_TREE_NODE_FLAG_IM))
++			trie->n_entries--;
++
++		rcu_assign_pointer(*slot, new_node);
++		kfree_rcu(node, rcu);
++
++		goto out;
++	}
++
++	/* If the new node matches the prefix completely, it must be inserted
++	 * as an ancestor. Simply insert it between @node and *@slot.
++	 */
++	if (matchlen == key->prefixlen) {
++		next_bit = extract_bit(node->data, matchlen);
++		rcu_assign_pointer(new_node->child[next_bit], node);
++		rcu_assign_pointer(*slot, new_node);
++		goto out;
++	}
++
++	im_node = lpm_trie_node_alloc(trie, NULL);
++	if (!im_node) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	im_node->prefixlen = matchlen;
++	im_node->flags |= LPM_TREE_NODE_FLAG_IM;
++	memcpy(im_node->data, node->data, trie->data_size);
++
++	/* Now determine which child to install in which slot */
++	if (extract_bit(key->data, matchlen)) {
++		rcu_assign_pointer(im_node->child[0], node);
++		rcu_assign_pointer(im_node->child[1], new_node);
++	} else {
++		rcu_assign_pointer(im_node->child[0], new_node);
++		rcu_assign_pointer(im_node->child[1], node);
++	}
++
++	/* Finally, assign the intermediate node to the determined spot */
++	rcu_assign_pointer(*slot, im_node);
++
++out:
++	if (ret) {
++		if (new_node)
++			trie->n_entries--;
++
++		kfree(new_node);
++		kfree(im_node);
++	}
++
++	raw_spin_unlock_irqrestore(&trie->lock, irq_flags);
++
++	return ret;
++}
++
++static int trie_delete_elem(struct bpf_map *map, void *key)
++{
++	/* TODO */
++	return -ENOSYS;
++}
++
++static struct bpf_map *trie_alloc(union bpf_attr *attr)
++{
++	size_t cost, cost_per_node;
++	struct lpm_trie *trie;
++	int ret;
++
++	if (!capable(CAP_SYS_ADMIN))
++		return ERR_PTR(-EPERM);
++
++	/* check sanity of attributes */
++	if (attr->max_entries == 0 ||
++	    attr->map_flags != BPF_F_NO_PREALLOC ||
++	    attr->key_size < sizeof(struct bpf_lpm_trie_key) + 1   ||
++	    attr->key_size > sizeof(struct bpf_lpm_trie_key) + 256 ||
++	    attr->value_size == 0)
++		return ERR_PTR(-EINVAL);
++
++	trie = kzalloc(sizeof(*trie), GFP_USER | __GFP_NOWARN);
++	if (!trie)
++		return ERR_PTR(-ENOMEM);
++
++	/* copy mandatory map attributes */
++	trie->map.map_type = attr->map_type;
++	trie->map.key_size = attr->key_size;
++	trie->map.value_size = attr->value_size;
++	trie->map.max_entries = attr->max_entries;
++	trie->data_size = attr->key_size -
++			  offsetof(struct bpf_lpm_trie_key, data);
++	trie->max_prefixlen = trie->data_size * 8;
++
++	cost_per_node = sizeof(struct lpm_trie_node) +
++			attr->value_size + trie->data_size;
++	cost = sizeof(*trie) + attr->max_entries * cost_per_node;
++	trie->map.pages = round_up(cost, PAGE_SIZE) >> PAGE_SHIFT;
++
++	ret = bpf_map_precharge_memlock(trie->map.pages);
++	if (ret) {
++		kfree(trie);
++		return ERR_PTR(ret);
++	}
++
++	raw_spin_lock_init(&trie->lock);
++
++	return &trie->map;
++}
++
++static void trie_free(struct bpf_map *map)
++{
++	struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
++	struct lpm_trie_node __rcu **slot;
++	struct lpm_trie_node *node;
++
++	raw_spin_lock(&trie->lock);
++
++	/* Always start at the root and walk down to a node that has no
++	 * children. Then free that node, nullify its reference in the parent
++	 * and start over.
++	 */
++
++	for (;;) {
++		slot = &trie->root;
++
++		for (;;) {
++			node = rcu_dereference_protected(*slot,
++					lockdep_is_held(&trie->lock));
++			if (!node)
++				goto unlock;
++
++			if (rcu_access_pointer(node->child[0])) {
++				slot = &node->child[0];
++				continue;
++			}
++
++			if (rcu_access_pointer(node->child[1])) {
++				slot = &node->child[1];
++				continue;
++			}
++
++			kfree(node);
++			RCU_INIT_POINTER(*slot, NULL);
++			break;
++		}
++	}
++
++unlock:
++	raw_spin_unlock(&trie->lock);
++}
++
++static const struct bpf_map_ops trie_ops = {
++	.map_alloc = trie_alloc,
++	.map_free = trie_free,
++	.map_lookup_elem = trie_lookup_elem,
++	.map_update_elem = trie_update_elem,
++	.map_delete_elem = trie_delete_elem,
++};
++
++static struct bpf_map_type_list trie_type __read_mostly = {
++	.ops = &trie_ops,
++	.type = BPF_MAP_TYPE_LPM_TRIE,
++};
++
++static int __init register_trie_map(void)
++{
++	bpf_register_map_type(&trie_type);
++	return 0;
++}
++late_initcall(register_trie_map);
+-- 
+2.9.3
