@@ -1,48 +1,48 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH cumulus-4.1.y 3/5] vxlan: enforce precedence for static over dynamic fdb entry
-Date: Fri, 20 Jan 2017 23:40:08 -0800
-Message-ID: <1484984410-3304-3-git-send-email-roopa@cumulusnetworks.com>
-References: <1484984410-3304-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH cumulus-4.1.y 1/5] vxlan: flush fdb entries on oper down
+Date: Fri, 20 Jan 2017 23:40:06 -0800
+Message-ID: <1484984410-3304-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, ramanb@cumulusnetworks.com,
         stephen@networkplumber.org, jbenc@redhat.com, pshelar@ovn.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:34043 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750836AbdAUHlG (ORCPT
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34468 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750800AbdAUHlG (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 02:41:06 -0500
-Received: by mail-pg0-f48.google.com with SMTP id 14so29793755pgg.1
-        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 23:40:20 -0800 (PST)
-In-Reply-To: <1484984410-3304-1-git-send-email-roopa@cumulusnetworks.com>
+Received: by mail-pf0-f169.google.com with SMTP id e4so28012994pfg.1
+        for <netdev@vger.kernel.org>; Fri, 20 Jan 2017 23:40:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wilson Kok <wkok@cumulusnetworks.com>
+From: Balakrishnan Raman <ramanb@cumulusnetworks.com>
 
-This patch enforces fdb state correctly when deciding
-to add or update an existing fdb. It makes sure static fdb
-entries are not replaced by dynamic fdb entries.
+Flush fdb entries of a vxlan device when its state
+changes to oper down. vxlan_stop handles flush on
+admin down.
 
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Signed-off-by: Balakrishnan Raman <ramanb@cumulusnetworks.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- drivers/net/vxlan.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/vxlan.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 72b99ff..7300586 100644
+index 19b1653..15b1c23 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -628,6 +628,10 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
- 			return -EEXIST;
- 		}
- 		if (f->state != state) {
-+			if ((f->state & NUD_PERMANENT) &&
-+			    !(state & NUD_PERMANENT))
-+				return -EINVAL;
-+
- 			f->state = state;
- 			f->updated = jiffies;
- 			notify = 1;
+@@ -3276,6 +3276,12 @@ static int vxlan_netdevice_event(struct notifier_block *unused,
+ 		vxlan_handle_lowerdev_unregister(vn, dev);
+ 	else if (event == NETDEV_UDP_TUNNEL_PUSH_INFO)
+ 		vxlan_push_rx_ports(dev);
++	else if (event == NETDEV_CHANGE) {
++		if (dev->netdev_ops == &vxlan_netdev_ops) {
++			if (netif_running(dev) && !netif_oper_up(dev))
++				vxlan_flush(netdev_priv(dev));
++		}
++	}
+ 
+ 	return NOTIFY_DONE;
+ }
 -- 
 1.9.1
