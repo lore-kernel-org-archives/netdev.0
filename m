@@ -1,16 +1,16 @@
 From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] net: xilinx: constify net_device_ops structures
-Date: Sat, 21 Jan 2017 11:38:12 +0530
-Message-ID: <1484978892-28015-1-git-send-email-bhumirks@gmail.com>
+Subject: [PATCH] net: moxa: constify net_device_ops structures
+Date: Sat, 21 Jan 2017 11:44:38 +0530
+Message-ID: <1484979278-29261-1-git-send-email-bhumirks@gmail.com>
 Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, michal.simek@xilinx.com,
-        soren.brinkmann@xilinx.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: julia.lawall@lip6.fr, dan.carpenter@oracle.com,
+        davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35287 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750717AbdAUGI4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 01:08:56 -0500
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33836 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750717AbdAUGOt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Jan 2017 01:14:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -47,38 +47,29 @@ struct net_device_ops i;
 
 File size before:
    text	   data	    bss	    dec	    hex	filename
-   6201	    744	      0	   6945	   1b21 ethernet/xilinx/xilinx_emaclite.o
+   4821	    744	      0	   5565	   15bd ethernet/moxa/moxart_ether.o
 
 File size after:
    text	   data	    bss	    dec	    hex	filename
-   6745	    192	      0	   6937	   1b19 ethernet/xilinx/xilinx_emaclite.o
+   5373	    192	      0	   5565	   15bd ethernet/moxa/moxart_ether.o
 
 Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 ---
- drivers/net/ethernet/xilinx/xilinx_emaclite.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/moxa/moxart_ether.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 93dc10b..546f569 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -1065,7 +1065,7 @@ static bool get_bool(struct platform_device *ofdev, const char *s)
- 	}
+diff --git a/drivers/net/ethernet/moxa/moxart_ether.c b/drivers/net/ethernet/moxa/moxart_ether.c
+index 9774b50..6a6525f 100644
+--- a/drivers/net/ethernet/moxa/moxart_ether.c
++++ b/drivers/net/ethernet/moxa/moxart_ether.c
+@@ -436,7 +436,7 @@ static void moxart_mac_set_rx_mode(struct net_device *ndev)
+ 	spin_unlock_irq(&priv->txlock);
  }
  
--static struct net_device_ops xemaclite_netdev_ops;
-+static const struct net_device_ops xemaclite_netdev_ops;
- 
- /**
-  * xemaclite_of_probe - Probe method for the Emaclite device.
-@@ -1219,7 +1219,7 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
- }
- #endif
- 
--static struct net_device_ops xemaclite_netdev_ops = {
-+static const struct net_device_ops xemaclite_netdev_ops = {
- 	.ndo_open		= xemaclite_open,
- 	.ndo_stop		= xemaclite_close,
- 	.ndo_start_xmit		= xemaclite_send,
+-static struct net_device_ops moxart_netdev_ops = {
++static const struct net_device_ops moxart_netdev_ops = {
+ 	.ndo_open		= moxart_mac_open,
+ 	.ndo_stop		= moxart_mac_stop,
+ 	.ndo_start_xmit		= moxart_mac_start_xmit,
 -- 
 1.9.1
