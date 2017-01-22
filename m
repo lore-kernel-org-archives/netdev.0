@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/4] net: Introduce psample, a new genetlink channel for packet sampling
-Date: Sun, 22 Jan 2017 12:44:44 +0100
-Message-ID: <1485085487-2652-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/4] net/sched: Introduce sample tc action
+Date: Sun, 22 Jan 2017 12:44:45 +0100
+Message-ID: <1485085487-2652-3-git-send-email-jiri@resnulli.us>
 References: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -12,244 +12,192 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mrv@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36834 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751267AbdAVLow (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 06:44:52 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r126so18851165wmr.3
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 03:44:51 -0800 (PST)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35057 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751283AbdAVLox (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 06:44:53 -0500
+Received: by mail-wm0-f66.google.com with SMTP id d140so18898030wmd.2
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 03:44:52 -0800 (PST)
 In-Reply-To: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Add a general way for kernel modules to sample packets, without being tied
-to any specific subsystem. This netlink channel can be used by tc,
-iptables, etc. and allow to standardize packet sampling in the kernel.
+This action allows the user to sample traffic matched by tc classifier.
+The sampling consists of choosing packets randomly and sampling them using
+the psample module. The user can configure the psample group number, the
+sampling rate and the packet's truncation (to save kernel-user traffic).
 
-For every sampled packet, the psample module adds the following metadata
-fields:
+Example:
+To sample ingress traffic from interface eth1, one may use the commands:
 
-PSAMPLE_ATTR_IIFINDEX - the packets input ifindex, if applicable
+tc qdisc add dev eth1 handle ffff: ingress
 
-PSAMPLE_ATTR_OIFINDEX - the packet output ifindex, if applicable
+tc filter add dev eth1 parent ffff: \
+	   matchall action sample rate 12 group 4
 
-PSAMPLE_ATTR_ORIGSIZE - the packet's original size, in case it has been
-   truncated during sampling
-
-PSAMPLE_ATTR_SAMPLE_GROUP - the packet's sample group, which is set by the
-   user who initiated the sampling. This field allows the user to
-   differentiate between several samplers working simultaneously and
-   filter packets relevant to him
-
-PSAMPLE_ATTR_GROUP_SEQ - sequence counter of last sent packet. The
-   sequence is kept for each group
-
-PSAMPLE_ATTR_SAMPLE_RATE - the sampling rate used for sampling the packets
-
-PSAMPLE_ATTR_DATA - the actual packet bits
-
-In addition, add the GET_GROUPS netlink command which allows the user to
-see the current sample groups, their refcount and sequence number. This
-command currently supports only netlink dump mode.
+Where the first command adds an ingress qdisc and the second starts
+sampling randomly with an average of one sampled packet per 12 packets on
+dev eth1 to psample group 4.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- MAINTAINERS                  |   7 +
- include/net/psample.h        |  36 ++++++
- include/uapi/linux/Kbuild    |   1 +
- include/uapi/linux/psample.h |  35 +++++
- net/Kconfig                  |   1 +
- net/Makefile                 |   1 +
- net/psample/Kconfig          |  15 +++
- net/psample/Makefile         |   5 +
- net/psample/psample.c        | 301 +++++++++++++++++++++++++++++++++++++++++++
- 9 files changed, 402 insertions(+)
- create mode 100644 include/net/psample.h
- create mode 100644 include/uapi/linux/psample.h
- create mode 100644 net/psample/Kconfig
- create mode 100644 net/psample/Makefile
- create mode 100644 net/psample/psample.c
+ include/net/tc_act/tc_sample.h        |  50 +++++++
+ include/uapi/linux/tc_act/Kbuild      |   1 +
+ include/uapi/linux/tc_act/tc_sample.h |  26 ++++
+ net/sched/Kconfig                     |  12 ++
+ net/sched/Makefile                    |   1 +
+ net/sched/act_sample.c                | 274 ++++++++++++++++++++++++++++++++++
+ 6 files changed, 364 insertions(+)
+ create mode 100644 include/net/tc_act/tc_sample.h
+ create mode 100644 include/uapi/linux/tc_act/tc_sample.h
+ create mode 100644 net/sched/act_sample.c
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3c84a8f..d76fccd 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -9957,6 +9957,13 @@ L:	linuxppc-dev@lists.ozlabs.org
- S:	Maintained
- F:	drivers/block/ps3vram.c
- 
-+PSAMPLE PACKET SAMPLING SUPPORT:
-+M:	Yotam Gigi <yotamg@mellanox.com>
-+S:	Maintained
-+F:	net/psample
-+F:	include/net/psample.h
-+F:	include/uapi/linux/psample.h
-+
- PSTORE FILESYSTEM
- M:	Anton Vorontsov <anton@enomsg.org>
- M:	Colin Cross <ccross@android.com>
-diff --git a/include/net/psample.h b/include/net/psample.h
+diff --git a/include/net/tc_act/tc_sample.h b/include/net/tc_act/tc_sample.h
 new file mode 100644
-index 0000000..8888b0e
+index 0000000..89e9305
 --- /dev/null
-+++ b/include/net/psample.h
-@@ -0,0 +1,36 @@
-+#ifndef __NET_PSAMPLE_H
-+#define __NET_PSAMPLE_H
++++ b/include/net/tc_act/tc_sample.h
+@@ -0,0 +1,50 @@
++#ifndef __NET_TC_SAMPLE_H
++#define __NET_TC_SAMPLE_H
 +
-+#include <uapi/linux/psample.h>
-+#include <linux/module.h>
-+#include <linux/list.h>
++#include <net/act_api.h>
++#include <linux/tc_act/tc_sample.h>
++#include <net/psample.h>
 +
-+struct psample_group {
-+	struct list_head list;
-+	struct net *net;
-+	u32 group_num;
-+	u32 refcount;
-+	u32 seq;
++struct tcf_sample {
++	struct tc_action common;
++	u32 rate;
++	bool truncate;
++	u32 trunc_size;
++	struct psample_group __rcu *psample_group;
++	u32 psample_group_num;
++	struct list_head tcfm_list;
++	struct rcu_head rcu;
 +};
++#define to_sample(a) ((struct tcf_sample *)a)
 +
-+struct psample_group *psample_group_get(struct net *net, u32 group_num);
-+void psample_group_put(struct psample_group *group);
-+
-+#if IS_ENABLED(CONFIG_PSAMPLE)
-+
-+void psample_sample_packet(struct psample_group *group, struct sk_buff *skb,
-+			   u32 trunc_size, int in_ifindex, int out_ifindex,
-+			   u32 sample_rate);
-+
-+#else
-+
-+static inline void psample_sample_packet(struct psample_group *group,
-+					 struct sk_buff *skb, u32 trunc_size,
-+					 int in_ifindex, int out_ifindex,
-+					 u32 sample_rate)
++static inline bool is_tcf_sample(const struct tc_action *a)
 +{
++#ifdef CONFIG_NET_CLS_ACT
++	return a->ops && a->ops->type == TCA_ACT_SAMPLE;
++#else
++	return false;
++#endif
 +}
 +
-+#endif
++static inline __u32 tcf_sample_rate(const struct tc_action *a)
++{
++	return to_sample(a)->rate;
++}
 +
-+#endif /* __NET_PSAMPLE_H */
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index e600b50..80ad741 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -305,6 +305,7 @@ header-y += netrom.h
- header-y += net_namespace.h
- header-y += net_tstamp.h
- header-y += nfc.h
-+header-y += psample.h
- header-y += nfs2.h
- header-y += nfs3.h
- header-y += nfs4.h
-diff --git a/include/uapi/linux/psample.h b/include/uapi/linux/psample.h
++static inline bool tcf_sample_truncate(const struct tc_action *a)
++{
++	return to_sample(a)->truncate;
++}
++
++static inline int tcf_sample_trunc_size(const struct tc_action *a)
++{
++	return to_sample(a)->trunc_size;
++}
++
++static inline struct psample_group *
++tcf_sample_psample_group(const struct tc_action *a)
++{
++	return rcu_dereference(to_sample(a)->psample_group);
++}
++
++#endif /* __NET_TC_SAMPLE_H */
+diff --git a/include/uapi/linux/tc_act/Kbuild b/include/uapi/linux/tc_act/Kbuild
+index e3db740..ba62ddf 100644
+--- a/include/uapi/linux/tc_act/Kbuild
++++ b/include/uapi/linux/tc_act/Kbuild
+@@ -4,6 +4,7 @@ header-y += tc_defact.h
+ header-y += tc_gact.h
+ header-y += tc_ipt.h
+ header-y += tc_mirred.h
++header-y += tc_sample.h
+ header-y += tc_nat.h
+ header-y += tc_pedit.h
+ header-y += tc_skbedit.h
+diff --git a/include/uapi/linux/tc_act/tc_sample.h b/include/uapi/linux/tc_act/tc_sample.h
 new file mode 100644
-index 0000000..ed48996
+index 0000000..21378bc
 --- /dev/null
-+++ b/include/uapi/linux/psample.h
-@@ -0,0 +1,35 @@
-+#ifndef __UAPI_PSAMPLE_H
-+#define __UAPI_PSAMPLE_H
++++ b/include/uapi/linux/tc_act/tc_sample.h
+@@ -0,0 +1,26 @@
++#ifndef __LINUX_TC_SAMPLE_H
++#define __LINUX_TC_SAMPLE_H
++
++#include <linux/types.h>
++#include <linux/pkt_cls.h>
++#include <linux/if_ether.h>
++
++#define TCA_ACT_SAMPLE 26
++
++struct tc_sample {
++	tc_gen;
++};
 +
 +enum {
-+	/* sampled packet metadata */
-+	PSAMPLE_ATTR_IIFINDEX,
-+	PSAMPLE_ATTR_OIFINDEX,
-+	PSAMPLE_ATTR_ORIGSIZE,
-+	PSAMPLE_ATTR_SAMPLE_GROUP,
-+	PSAMPLE_ATTR_GROUP_SEQ,
-+	PSAMPLE_ATTR_SAMPLE_RATE,
-+	PSAMPLE_ATTR_DATA,
-+
-+	/* commands attributes */
-+	PSAMPLE_ATTR_GROUP_REFCOUNT,
-+
-+	__PSAMPLE_ATTR_MAX
++	TCA_SAMPLE_UNSPEC,
++	TCA_SAMPLE_PARMS,
++	TCA_SAMPLE_TM,
++	TCA_SAMPLE_RATE,
++	TCA_SAMPLE_TRUNC_SIZE,
++	TCA_SAMPLE_PSAMPLE_GROUP,
++	TCA_SAMPLE_PAD,
++	__TCA_SAMPLE_MAX
 +};
-+
-+enum psample_command {
-+	PSAMPLE_CMD_SAMPLE,
-+	PSAMPLE_CMD_GET_GROUP,
-+	PSAMPLE_CMD_NEW_GROUP,
-+	PSAMPLE_CMD_DEL_GROUP,
-+};
-+
-+/* Can be overridden at runtime by module option */
-+#define PSAMPLE_ATTR_MAX (__PSAMPLE_ATTR_MAX - 1)
-+
-+#define PSAMPLE_NL_MCGRP_CONFIG_NAME "config"
-+#define PSAMPLE_NL_MCGRP_SAMPLE_NAME "packets"
-+#define PSAMPLE_GENL_NAME "psample"
-+#define PSAMPLE_GENL_VERSION 1
++#define TCA_SAMPLE_MAX (__TCA_SAMPLE_MAX - 1)
 +
 +#endif
-diff --git a/net/Kconfig b/net/Kconfig
-index 92ae150..ce4aee6 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -390,6 +390,7 @@ source "net/9p/Kconfig"
- source "net/caif/Kconfig"
- source "net/ceph/Kconfig"
- source "net/nfc/Kconfig"
-+source "net/psample/Kconfig"
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index a9aa38d..72cfa3a 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -650,6 +650,18 @@ config NET_ACT_MIRRED
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called act_mirred.
  
- config LWTUNNEL
- 	bool "Network light weight tunnels"
-diff --git a/net/Makefile b/net/Makefile
-index 5d6e0e5f..7d41de4 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -70,6 +70,7 @@ obj-$(CONFIG_DNS_RESOLVER)	+= dns_resolver/
- obj-$(CONFIG_CEPH_LIB)		+= ceph/
- obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/
- obj-$(CONFIG_NFC)		+= nfc/
-+obj-$(CONFIG_PSAMPLE)		+= psample/
- obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
- obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
- obj-$(CONFIG_MPLS)		+= mpls/
-diff --git a/net/psample/Kconfig b/net/psample/Kconfig
-new file mode 100644
-index 0000000..d850246
---- /dev/null
-+++ b/net/psample/Kconfig
-@@ -0,0 +1,15 @@
-+#
-+# psample packet sampling configuration
-+#
++config NET_ACT_SAMPLE
++        tristate "Traffic Sampling"
++        depends on NET_CLS_ACT
++        select PSAMPLE
++        ---help---
++	  Say Y here to allow packet sampling tc action. The packet sample
++	  action consists of statistically choosing packets and sampling
++	  them using the psample module.
 +
-+menuconfig PSAMPLE
-+	depends on NET
-+	tristate "Packet-sampling netlink channel"
-+	default n
-+	help
-+	  Say Y here to add support for packet-sampling netlink channel
-+	  This netlink channel allows transferring packets alongside some
-+	  metadata to userspace.
++	  To compile this code as a module, choose M here: the
++	  module will be called act_sample.
 +
-+	  To compile this support as a module, choose M here: the module will
-+	  be called psample.
-diff --git a/net/psample/Makefile b/net/psample/Makefile
+ config NET_ACT_IPT
+         tristate "IPtables targets"
+         depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 4bdda36..7b915d2 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_CLS_ACT)	+= act_api.o
+ obj-$(CONFIG_NET_ACT_POLICE)	+= act_police.o
+ obj-$(CONFIG_NET_ACT_GACT)	+= act_gact.o
+ obj-$(CONFIG_NET_ACT_MIRRED)	+= act_mirred.o
++obj-$(CONFIG_NET_ACT_SAMPLE)	+= act_sample.o
+ obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
+ obj-$(CONFIG_NET_ACT_NAT)	+= act_nat.o
+ obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
+diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
 new file mode 100644
-index 0000000..609b0a7
+index 0000000..24e20e4
 --- /dev/null
-+++ b/net/psample/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the psample netlink channel
-+#
-+
-+obj-$(CONFIG_PSAMPLE) += psample.o
-diff --git a/net/psample/psample.c b/net/psample/psample.c
-new file mode 100644
-index 0000000..8aa58a9
---- /dev/null
-+++ b/net/psample/psample.c
-@@ -0,0 +1,301 @@
++++ b/net/sched/act_sample.c
+@@ -0,0 +1,274 @@
 +/*
-+ * net/psample/psample.c - Netlink channel for packet sampling
++ * net/sched/act_sample.c - Packet samplig tc action
 + * Copyright (c) 2017 Yotam Gigi <yotamg@mellanox.com>
 + *
 + * This program is free software; you can redistribute it and/or modify
@@ -259,295 +207,268 @@ index 0000000..8aa58a9
 +
 +#include <linux/types.h>
 +#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
 +#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
 +#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/gfp.h>
 +#include <net/net_namespace.h>
-+#include <net/sock.h>
 +#include <net/netlink.h>
-+#include <net/genetlink.h>
++#include <net/pkt_sched.h>
++#include <linux/tc_act/tc_sample.h>
++#include <net/tc_act/tc_sample.h>
 +#include <net/psample.h>
-+#include <linux/spinlock.h>
 +
-+#define PSAMPLE_MAX_PACKET_SIZE 0xffff
++#include <linux/if_arp.h>
 +
-+static LIST_HEAD(psample_groups_list);
-+static DEFINE_SPINLOCK(psample_groups_lock);
++#define SAMPLE_TAB_MASK     7
++static unsigned int sample_net_id;
++static struct tc_action_ops act_sample_ops;
 +
-+/* multicast groups */
-+enum psample_nl_multicast_groups {
-+	PSAMPLE_NL_MCGRP_CONFIG,
-+	PSAMPLE_NL_MCGRP_SAMPLE,
++static const struct nla_policy sample_policy[TCA_SAMPLE_MAX + 1] = {
++	[TCA_SAMPLE_PARMS]		= { .len = sizeof(struct tc_sample) },
++	[TCA_SAMPLE_RATE]		= { .type = NLA_U32 },
++	[TCA_SAMPLE_TRUNC_SIZE]		= { .type = NLA_U32 },
++	[TCA_SAMPLE_PSAMPLE_GROUP]	= { .type = NLA_U32 },
 +};
 +
-+static const struct genl_multicast_group psample_nl_mcgrps[] = {
-+	[PSAMPLE_NL_MCGRP_CONFIG] = { .name = PSAMPLE_NL_MCGRP_CONFIG_NAME },
-+	[PSAMPLE_NL_MCGRP_SAMPLE] = { .name = PSAMPLE_NL_MCGRP_SAMPLE_NAME },
-+};
-+
-+static struct genl_family psample_nl_family __ro_after_init;
-+
-+static int psample_group_nl_fill(struct sk_buff *msg,
-+				 struct psample_group *group,
-+				 enum psample_command cmd, u32 portid, u32 seq,
-+				 int flags)
++static int tcf_sample_init(struct net *net, struct nlattr *nla,
++			   struct nlattr *est, struct tc_action **a, int ovr,
++			   int bind)
 +{
-+	void *hdr;
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++	struct nlattr *tb[TCA_SAMPLE_MAX + 1];
++	struct psample_group *psample_group;
++	struct tc_sample *parm;
++	struct tcf_sample *s;
++	bool exists = false;
 +	int ret;
 +
-+	hdr = genlmsg_put(msg, portid, seq, &psample_nl_family, flags, cmd);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	ret = nla_put_u32(msg, PSAMPLE_ATTR_SAMPLE_GROUP, group->group_num);
++	if (!nla)
++		return -EINVAL;
++	ret = nla_parse_nested(tb, TCA_SAMPLE_MAX, nla, sample_policy);
 +	if (ret < 0)
-+		goto error;
++		return ret;
++	if (!tb[TCA_SAMPLE_PARMS] || !tb[TCA_SAMPLE_RATE] ||
++	    !tb[TCA_SAMPLE_PSAMPLE_GROUP])
++		return -EINVAL;
 +
-+	ret = nla_put_u32(msg, PSAMPLE_ATTR_GROUP_REFCOUNT, group->refcount);
-+	if (ret < 0)
-+		goto error;
++	parm = nla_data(tb[TCA_SAMPLE_PARMS]);
 +
-+	ret = nla_put_u32(msg, PSAMPLE_ATTR_GROUP_SEQ, group->seq);
-+	if (ret < 0)
-+		goto error;
++	exists = tcf_hash_check(tn, parm->index, a, bind);
++	if (exists && bind)
++		return 0;
 +
-+	genlmsg_end(msg, hdr);
-+	return 0;
++	if (!exists) {
++		ret = tcf_hash_create(tn, parm->index, est, a,
++				      &act_sample_ops, bind, false);
++		if (ret)
++			return ret;
++		ret = ACT_P_CREATED;
++	} else {
++		tcf_hash_release(*a, bind);
++		if (!ovr)
++			return -EEXIST;
++	}
++	s = to_sample(*a);
 +
-+error:
-+	genlmsg_cancel(msg, hdr);
-+	return -EMSGSIZE;
++	ASSERT_RTNL();
++	s->tcf_action = parm->action;
++	s->rate = nla_get_u32(tb[TCA_SAMPLE_RATE]);
++	s->psample_group_num = nla_get_u32(tb[TCA_SAMPLE_PSAMPLE_GROUP]);
++	psample_group = psample_group_get(net, s->psample_group_num);
++	if (!psample_group)
++		return -ENOMEM;
++	RCU_INIT_POINTER(s->psample_group, psample_group);
++
++	if (tb[TCA_SAMPLE_TRUNC_SIZE]) {
++		s->truncate = true;
++		s->trunc_size = nla_get_u32(tb[TCA_SAMPLE_TRUNC_SIZE]);
++	}
++
++	if (ret == ACT_P_CREATED)
++		tcf_hash_insert(tn, *a);
++	return ret;
 +}
 +
-+static int psample_nl_cmd_get_group_dumpit(struct sk_buff *msg,
-+					   struct netlink_callback *cb)
++static void tcf_sample_cleanup_rcu(struct rcu_head *rcu)
 +{
-+	struct psample_group *group;
-+	int start = cb->args[0];
-+	int idx = 0;
-+	int err;
++	struct tcf_sample *s = container_of(rcu, struct tcf_sample, rcu);
++	struct psample_group *psample_group;
 +
-+	spin_lock(&psample_groups_lock);
-+	list_for_each_entry(group, &psample_groups_list, list) {
-+		if (!net_eq(group->net, sock_net(msg->sk)))
-+			continue;
-+		if (idx < start) {
-+			idx++;
-+			continue;
++	psample_group = rcu_dereference_protected(s->psample_group, 1);
++	RCU_INIT_POINTER(s->psample_group, NULL);
++	psample_group_put(psample_group);
++}
++
++static void tcf_sample_cleanup(struct tc_action *a, int bind)
++{
++	struct tcf_sample *s = to_sample(a);
++
++	call_rcu(&s->rcu, tcf_sample_cleanup_rcu);
++}
++
++static bool tcf_sample_dev_ok_push(struct net_device *dev)
++{
++	switch (dev->type) {
++	case ARPHRD_TUNNEL:
++	case ARPHRD_TUNNEL6:
++	case ARPHRD_SIT:
++	case ARPHRD_IPGRE:
++	case ARPHRD_VOID:
++	case ARPHRD_NONE:
++		return false;
++	default:
++		return true;
++	}
++}
++
++static int tcf_sample(struct sk_buff *skb, const struct tc_action *a,
++		      struct tcf_result *res)
++{
++	struct tcf_sample *s = to_sample(a);
++	struct psample_group *psample_group;
++	int retval;
++	int size;
++	int iif;
++	int oif;
++
++	tcf_lastuse_update(&s->tcf_tm);
++	bstats_cpu_update(this_cpu_ptr(s->common.cpu_bstats), skb);
++	retval = READ_ONCE(s->tcf_action);
++
++	rcu_read_lock();
++	psample_group = rcu_dereference(s->psample_group);
++
++	/* randomly sample packets according to rate */
++	if (psample_group && (prandom_u32() % s->rate == 0)) {
++		if (!skb_at_tc_ingress(skb)) {
++			iif = skb->skb_iif;
++			oif = skb->dev->ifindex;
++		} else {
++			iif = skb->dev->ifindex;
++			oif = 0;
 +		}
-+		err = psample_group_nl_fill(msg, group, PSAMPLE_CMD_NEW_GROUP,
-+					    NETLINK_CB(cb->skb).portid,
-+					    cb->nlh->nlmsg_seq, NLM_F_MULTI);
-+		if (err)
-+			break;
-+		idx++;
++
++		/* on ingress, the mac header gets popped, so push it back */
++		if (skb_at_tc_ingress(skb) && tcf_sample_dev_ok_push(skb->dev))
++			skb_push(skb, skb->mac_len);
++
++		size = s->truncate ? s->trunc_size : skb->len;
++		psample_sample_packet(psample_group, skb, size, iif, oif,
++				      s->rate);
++
++		if (skb_at_tc_ingress(skb) && tcf_sample_dev_ok_push(skb->dev))
++			skb_pull(skb, skb->mac_len);
 +	}
 +
-+	spin_unlock(&psample_groups_lock);
-+	cb->args[0] = idx;
-+	return msg->len;
++	rcu_read_unlock();
++	return retval;
 +}
 +
-+static const struct genl_ops psample_nl_ops[] = {
-+	{
-+		.cmd = PSAMPLE_CMD_GET_GROUP,
-+		.dumpit = psample_nl_cmd_get_group_dumpit,
-+		/* can be retrieved by unprivileged users */
-+	}
++static int tcf_sample_dump(struct sk_buff *skb, struct tc_action *a,
++			   int bind, int ref)
++{
++	unsigned char *b = skb_tail_pointer(skb);
++	struct tcf_sample *s = to_sample(a);
++	struct tc_sample opt = {
++		.index      = s->tcf_index,
++		.action     = s->tcf_action,
++		.refcnt     = s->tcf_refcnt - ref,
++		.bindcnt    = s->tcf_bindcnt - bind,
++	};
++	struct tcf_t t;
++
++	if (nla_put(skb, TCA_SAMPLE_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++
++	tcf_tm_dump(&t, &s->tcf_tm);
++	if (nla_put_64bit(skb, TCA_SAMPLE_TM, sizeof(t), &t, TCA_SAMPLE_PAD))
++		goto nla_put_failure;
++
++	if (nla_put_u32(skb, TCA_SAMPLE_RATE, s->rate))
++		goto nla_put_failure;
++
++	if (s->truncate)
++		if (nla_put_u32(skb, TCA_SAMPLE_TRUNC_SIZE, s->trunc_size))
++			goto nla_put_failure;
++
++	if (nla_put_u32(skb, TCA_SAMPLE_PSAMPLE_GROUP, s->psample_group_num))
++		goto nla_put_failure;
++	return skb->len;
++
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static int tcf_sample_walker(struct net *net, struct sk_buff *skb,
++			     struct netlink_callback *cb, int type,
++			     const struct tc_action_ops *ops)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	return tcf_generic_walker(tn, skb, cb, type, ops);
++}
++
++static int tcf_sample_search(struct net *net, struct tc_action **a, u32 index)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	return tcf_hash_search(tn, a, index);
++}
++
++static struct tc_action_ops act_sample_ops = {
++	.kind	  = "sample",
++	.type	  = TCA_ACT_SAMPLE,
++	.owner	  = THIS_MODULE,
++	.act	  = tcf_sample,
++	.dump	  = tcf_sample_dump,
++	.init	  = tcf_sample_init,
++	.cleanup  = tcf_sample_cleanup,
++	.walk	  = tcf_sample_walker,
++	.lookup	  = tcf_sample_search,
++	.size	  = sizeof(struct tcf_sample),
 +};
 +
-+static struct genl_family psample_nl_family __ro_after_init = {
-+	.name		= PSAMPLE_GENL_NAME,
-+	.version	= PSAMPLE_GENL_VERSION,
-+	.maxattr	= PSAMPLE_ATTR_MAX,
-+	.netnsok	= true,
-+	.module		= THIS_MODULE,
-+	.mcgrps		= psample_nl_mcgrps,
-+	.ops		= psample_nl_ops,
-+	.n_ops		= ARRAY_SIZE(psample_nl_ops),
-+	.n_mcgrps	= ARRAY_SIZE(psample_nl_mcgrps),
++static __net_init int sample_init_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	return tc_action_net_init(tn, &act_sample_ops, SAMPLE_TAB_MASK);
++}
++
++static void __net_exit sample_exit_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	tc_action_net_exit(tn);
++}
++
++static struct pernet_operations sample_net_ops = {
++	.init = sample_init_net,
++	.exit = sample_exit_net,
++	.id   = &sample_net_id,
++	.size = sizeof(struct tc_action_net),
 +};
 +
-+static void psample_group_notify(struct psample_group *group,
-+				 enum psample_command cmd)
++static int __init sample_init_module(void)
 +{
-+	struct sk_buff *msg;
-+	int err;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
-+	if (!msg)
-+		return;
-+
-+	err = psample_group_nl_fill(msg, group, cmd, 0, 0, NLM_F_MULTI);
-+	if (!err)
-+		genlmsg_multicast_netns(&psample_nl_family, group->net, msg, 0,
-+					PSAMPLE_NL_MCGRP_CONFIG, GFP_ATOMIC);
-+	else
-+		nlmsg_free(msg);
++	return tcf_register_action(&act_sample_ops, &sample_net_ops);
 +}
 +
-+static struct psample_group *psample_group_create(struct net *net,
-+						  u32 group_num)
++static void __exit sample_cleanup_module(void)
 +{
-+	struct psample_group *group;
-+
-+	group = kzalloc(sizeof(*group), GFP_ATOMIC);
-+	if (!group)
-+		return NULL;
-+
-+	group->net = net;
-+	group->group_num = group_num;
-+	list_add_tail(&group->list, &psample_groups_list);
-+
-+	psample_group_notify(group, PSAMPLE_CMD_NEW_GROUP);
-+	return group;
++	tcf_unregister_action(&act_sample_ops, &sample_net_ops);
 +}
 +
-+static void psample_group_destroy(struct psample_group *group)
-+{
-+	psample_group_notify(group, PSAMPLE_CMD_DEL_GROUP);
-+	list_del(&group->list);
-+	kfree(group);
-+}
-+
-+static struct psample_group *
-+psample_group_lookup(struct net *net, u32 group_num)
-+{
-+	struct psample_group *group;
-+
-+	list_for_each_entry(group, &psample_groups_list, list)
-+		if ((group->group_num == group_num) && (group->net == net))
-+			return group;
-+	return NULL;
-+}
-+
-+struct psample_group *psample_group_get(struct net *net, u32 group_num)
-+{
-+	struct psample_group *group;
-+
-+	spin_lock(&psample_groups_lock);
-+
-+	group = psample_group_lookup(net, group_num);
-+	if (!group) {
-+		group = psample_group_create(net, group_num);
-+		if (!group)
-+			goto out;
-+	}
-+	group->refcount++;
-+
-+out:
-+	spin_unlock(&psample_groups_lock);
-+	return group;
-+}
-+EXPORT_SYMBOL_GPL(psample_group_get);
-+
-+void psample_group_put(struct psample_group *group)
-+{
-+	spin_lock(&psample_groups_lock);
-+
-+	if (--group->refcount == 0)
-+		psample_group_destroy(group);
-+
-+	spin_unlock(&psample_groups_lock);
-+}
-+EXPORT_SYMBOL_GPL(psample_group_put);
-+
-+void psample_sample_packet(struct psample_group *group, struct sk_buff *skb,
-+			   u32 trunc_size, int in_ifindex, int out_ifindex,
-+			   u32 sample_rate)
-+{
-+	struct sk_buff *nl_skb;
-+	int data_len;
-+	int meta_len;
-+	void *data;
-+	int ret;
-+
-+	meta_len = (in_ifindex ? nla_total_size(sizeof(u16)) : 0) +
-+		   (out_ifindex ? nla_total_size(sizeof(u16)) : 0) +
-+		   nla_total_size(sizeof(u32)) +	/* sample_rate */
-+		   nla_total_size(sizeof(u32)) +	/* orig_size */
-+		   nla_total_size(sizeof(u32)) +	/* group_num */
-+		   nla_total_size(sizeof(u32));		/* seq */
-+
-+	data_len = min(skb->len, trunc_size);
-+	if (meta_len + nla_total_size(data_len) > PSAMPLE_MAX_PACKET_SIZE)
-+		data_len = PSAMPLE_MAX_PACKET_SIZE - meta_len - NLA_HDRLEN
-+			    - NLA_ALIGNTO;
-+
-+	nl_skb = genlmsg_new(meta_len + data_len, GFP_ATOMIC);
-+	if (unlikely(!nl_skb))
-+		return;
-+
-+	data = genlmsg_put(nl_skb, 0, 0, &psample_nl_family, 0,
-+			   PSAMPLE_CMD_SAMPLE);
-+	if (unlikely(!data))
-+		goto error;
-+
-+	if (in_ifindex) {
-+		ret = nla_put_u16(nl_skb, PSAMPLE_ATTR_IIFINDEX, in_ifindex);
-+		if (unlikely(ret < 0))
-+			goto error;
-+	}
-+
-+	if (out_ifindex) {
-+		ret = nla_put_u16(nl_skb, PSAMPLE_ATTR_OIFINDEX, out_ifindex);
-+		if (unlikely(ret < 0))
-+			goto error;
-+	}
-+
-+	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_SAMPLE_RATE, sample_rate);
-+	if (unlikely(ret < 0))
-+		goto error;
-+
-+	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_ORIGSIZE, skb->len);
-+	if (unlikely(ret < 0))
-+		goto error;
-+
-+	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_SAMPLE_GROUP, group->group_num);
-+	if (unlikely(ret < 0))
-+		goto error;
-+
-+	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_GROUP_SEQ, group->seq++);
-+	if (unlikely(ret < 0))
-+		goto error;
-+
-+	if (data_len) {
-+		int nla_len = nla_total_size(data_len);
-+		struct nlattr *nla;
-+
-+		nla = (struct nlattr *)skb_put(nl_skb, nla_len);
-+		nla->nla_type = PSAMPLE_ATTR_DATA;
-+		nla->nla_len = nla_attr_size(data_len);
-+
-+		if (skb_copy_bits(skb, 0, nla_data(nla), data_len))
-+			goto error;
-+	}
-+
-+	genlmsg_end(nl_skb, data);
-+	genlmsg_multicast_netns(&psample_nl_family, group->net, nl_skb, 0,
-+				PSAMPLE_NL_MCGRP_SAMPLE, GFP_ATOMIC);
-+
-+	return;
-+error:
-+	pr_err_ratelimited("Could not create psample log message\n");
-+	nlmsg_free(nl_skb);
-+}
-+EXPORT_SYMBOL_GPL(psample_sample_packet);
-+
-+static int __init psample_module_init(void)
-+{
-+	return genl_register_family(&psample_nl_family);
-+}
-+
-+static void __exit psample_module_exit(void)
-+{
-+	genl_unregister_family(&psample_nl_family);
-+}
-+
-+module_init(psample_module_init);
-+module_exit(psample_module_exit);
++module_init(sample_init_module);
++module_exit(sample_cleanup_module);
 +
 +MODULE_AUTHOR("Yotam Gigi <yotamg@mellanox.com>");
-+MODULE_DESCRIPTION("netlink channel for packet sampling");
++MODULE_DESCRIPTION("Packet sampling action");
 +MODULE_LICENSE("GPL v2");
 -- 
 2.7.4
