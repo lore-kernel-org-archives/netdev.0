@@ -1,234 +1,553 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next 2/5] vxlan: make COLLECT_METADATA mode bridge
- friendly
-Date: Sun, 22 Jan 2017 12:40:47 +0100
-Message-ID: <f4c86e0a-472b-700c-98fe-f5da2eea35e6@cumulusnetworks.com>
-References: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com>
- <1484977616-1541-3-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, stephen@networkplumber.org, tgraf@suug.ch,
-        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
-        dsa@cumulusnetworks.com, hadi@mojatatu.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/4] net: Introduce psample, a new genetlink channel for packet sampling
+Date: Sun, 22 Jan 2017 12:44:44 +0100
+Message-ID: <1485085487-2652-2-git-send-email-jiri@resnulli.us>
+References: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        jhs@mojatatu.com, geert+renesas@glider.be,
+        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+        linux@roeck-us.net, roopa@cumulusnetworks.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:37224 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750735AbdAVLku (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 06:40:50 -0500
-Received: by mail-wm0-f42.google.com with SMTP id c206so112251036wme.0
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 03:40:49 -0800 (PST)
-In-Reply-To: <1484977616-1541-3-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36834 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751267AbdAVLow (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 06:44:52 -0500
+Received: by mail-wm0-f65.google.com with SMTP id r126so18851165wmr.3
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 03:44:51 -0800 (PST)
+In-Reply-To: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/01/17 06:46, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This patch series makes vxlan COLLECT_METADATA mode bridge
-> and layer2 network friendly. Vxlan COLLECT_METADATA mode today
-> solves the per-vni netdev scalability problem in l3 networks.
-> When vxlan collect metadata device participates in bridging
-> vlan to vn-segments, It can only get the vlan mapped vni in
-> the xmit tunnel dst metadata. It will need the vxlan driver to
-> continue learn, hold forwarding state and remote destination
-> information similar to how it already does for non COLLECT_METADATA
-> vxlan netdevices today.
-> 
-> Changes introduced by this patch:
->     - allow learning and forwarding database state to vxlan netdev in
->       COLLECT_METADATA mode. Current behaviour is not changed
->       by default. tunnel info flag IP_TUNNEL_INFO_BRIDGE is used
->       to support the new bridge friendly mode.
->     - A single fdb table hashed by (mac, vni) to allow fdb entries with
->       multiple vnis in the same fdb table
->     - rx path already has the vni
->     - tx path expects a vni in the packet with dst_metadata
->     - prior to this series, fdb remote_dsts carried remote vni and
->       the vxlan device carrying the fdb table represented the
->       source vni. With the vxlan device now representing multiple vnis,
->       this patch adds a src vni attribute to the fdb entry. The remote
->       vni already uses NDA_VNI attribute. This patch introduces
->       NDA_SRC_VNI netlink attribute to represent the src vni in a multi
->       vni fdb table.
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
-[snip]
-> @@ -2173,23 +2221,29 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
->  	bool did_rsc = false;
->  	struct vxlan_rdst *rdst, *fdst = NULL;
->  	struct vxlan_fdb *f;
-> +	__be32 vni = 0;
->  
->  	info = skb_tunnel_info(skb);
->  
->  	skb_reset_mac_header(skb);
->  
->  	if (vxlan->flags & VXLAN_F_COLLECT_METADATA) {
-> -		if (info && info->mode & IP_TUNNEL_INFO_TX)
-> -			vxlan_xmit_one(skb, dev, NULL, false);
-> -		else
-> -			kfree_skb(skb);
-> -		return NETDEV_TX_OK;
-> +		if (info && info->mode & IP_TUNNEL_INFO_BRIDGE &&
-> +		    info->mode & IP_TUNNEL_INFO_TX) {
+From: Yotam Gigi <yotamg@mellanox.com>
 
-nit: parentheses around the IP_TUNNEL_INFO_TX check
+Add a general way for kernel modules to sample packets, without being tied
+to any specific subsystem. This netlink channel can be used by tc,
+iptables, etc. and allow to standardize packet sampling in the kernel.
 
-> +			vni = tunnel_id_to_key32(info->key.tun_id);
-> +		} else {
-> +			if (info && info->mode & IP_TUNNEL_INFO_TX)
+For every sampled packet, the psample module adds the following metadata
+fields:
 
-nit: parentheses around the IP_TUNNEL_INFO_TX check
+PSAMPLE_ATTR_IIFINDEX - the packets input ifindex, if applicable
 
-> +				vxlan_xmit_one(skb, dev, vni, NULL, false);
-> +			else
-> +				kfree_skb(skb);
-> +			return NETDEV_TX_OK;
-> +		}
->  	}
->  
->  	if (vxlan->flags & VXLAN_F_PROXY) {
->  		eth = eth_hdr(skb);
->  		if (ntohs(eth->h_proto) == ETH_P_ARP)
-> -			return arp_reduce(dev, skb);
-> +			return arp_reduce(dev, skb, vni);
->  #if IS_ENABLED(CONFIG_IPV6)
->  		else if (ntohs(eth->h_proto) == ETH_P_IPV6 &&
->  			 pskb_may_pull(skb, sizeof(struct ipv6hdr)
-> @@ -2200,13 +2254,13 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
->  				msg = (struct nd_msg *)skb_transport_header(skb);
->  				if (msg->icmph.icmp6_code == 0 &&
->  				    msg->icmph.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION)
-> -					return neigh_reduce(dev, skb);
-> +					return neigh_reduce(dev, skb, vni);
->  		}
->  #endif
->  	}
->  
->  	eth = eth_hdr(skb);
-> -	f = vxlan_find_mac(vxlan, eth->h_dest);
-> +	f = vxlan_find_mac(vxlan, eth->h_dest, vni);
->  	did_rsc = false;
->  
->  	if (f && (f->flags & NTF_ROUTER) && (vxlan->flags & VXLAN_F_RSC) &&
-> @@ -2214,11 +2268,11 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
->  	     ntohs(eth->h_proto) == ETH_P_IPV6)) {
->  		did_rsc = route_shortcircuit(dev, skb);
->  		if (did_rsc)
-> -			f = vxlan_find_mac(vxlan, eth->h_dest);
-> +			f = vxlan_find_mac(vxlan, eth->h_dest, vni);
->  	}
->  
->  	if (f == NULL) {
-> -		f = vxlan_find_mac(vxlan, all_zeros_mac);
-> +		f = vxlan_find_mac(vxlan, all_zeros_mac, vni);
->  		if (f == NULL) {
->  			if ((vxlan->flags & VXLAN_F_L2MISS) &&
->  			    !is_multicast_ether_addr(eth->h_dest))
-> @@ -2239,11 +2293,11 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
->  		}
->  		skb1 = skb_clone(skb, GFP_ATOMIC);
->  		if (skb1)
-> -			vxlan_xmit_one(skb1, dev, rdst, did_rsc);
-> +			vxlan_xmit_one(skb1, dev, vni, rdst, did_rsc);
->  	}
->  
->  	if (fdst)
-> -		vxlan_xmit_one(skb, dev, fdst, did_rsc);
-> +		vxlan_xmit_one(skb, dev, vni, fdst, did_rsc);
->  	else
->  		kfree_skb(skb);
->  	return NETDEV_TX_OK;
-> @@ -2307,12 +2361,12 @@ static int vxlan_init(struct net_device *dev)
->  	return 0;
->  }
->  
-> -static void vxlan_fdb_delete_default(struct vxlan_dev *vxlan)
-> +static void vxlan_fdb_delete_default(struct vxlan_dev *vxlan, __be32 vni)
->  {
->  	struct vxlan_fdb *f;
->  
->  	spin_lock_bh(&vxlan->hash_lock);
-> -	f = __vxlan_find_mac(vxlan, all_zeros_mac);
-> +	f = __vxlan_find_mac(vxlan, all_zeros_mac, vni);
->  	if (f)
->  		vxlan_fdb_destroy(vxlan, f);
->  	spin_unlock_bh(&vxlan->hash_lock);
-> @@ -2322,7 +2376,7 @@ static void vxlan_uninit(struct net_device *dev)
->  {
->  	struct vxlan_dev *vxlan = netdev_priv(dev);
->  
-> -	vxlan_fdb_delete_default(vxlan);
-> +	vxlan_fdb_delete_default(vxlan, vxlan->cfg.vni);
->  
->  	free_percpu(dev->tstats);
->  }
-> @@ -2536,6 +2590,8 @@ static void vxlan_setup(struct net_device *dev)
->  	dev->vlan_features = dev->features;
->  	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
->  	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
-> +	dev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX;
-> +	dev->features |= dev->hw_features;
->  	netif_keep_dst(dev);
->  	dev->priv_flags |= IFF_NO_QUEUE;
->  
-> @@ -2921,6 +2977,7 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
->  				       NLM_F_EXCL|NLM_F_CREATE,
->  				       vxlan->cfg.dst_port,
->  				       vxlan->default_dst.remote_vni,
-> +				       vxlan->default_dst.remote_vni,
->  				       vxlan->default_dst.remote_ifindex,
->  				       NTF_SELF);
->  		if (err)
-> @@ -2929,7 +2986,7 @@ static int vxlan_dev_configure(struct net *src_net, struct net_device *dev,
->  
->  	err = register_netdevice(dev);
->  	if (err) {
-> -		vxlan_fdb_delete_default(vxlan);
-> +		vxlan_fdb_delete_default(vxlan, vxlan->cfg.vni);
->  		return err;
->  	}
->  
-> @@ -3023,19 +3080,19 @@ static int vxlan_newlink(struct net *src_net, struct net_device *dev,
->  		conf.flags |= VXLAN_F_UDP_ZERO_CSUM_TX;
->  
->  	if (data[IFLA_VXLAN_UDP_ZERO_CSUM6_TX] &&
-> -	    nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_TX]))
-> +	    !nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_TX]))
->  		conf.flags |= VXLAN_F_UDP_ZERO_CSUM6_TX;
->  
->  	if (data[IFLA_VXLAN_UDP_ZERO_CSUM6_RX] &&
-> -	    nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
-> +	    !nla_get_u8(data[IFLA_VXLAN_UDP_ZERO_CSUM6_RX]))
->  		conf.flags |= VXLAN_F_UDP_ZERO_CSUM6_RX;
->  
->  	if (data[IFLA_VXLAN_REMCSUM_TX] &&
-> -	    nla_get_u8(data[IFLA_VXLAN_REMCSUM_TX]))
-> +	    !nla_get_u8(data[IFLA_VXLAN_REMCSUM_TX]))
->  		conf.flags |= VXLAN_F_REMCSUM_TX;
->  
->  	if (data[IFLA_VXLAN_REMCSUM_RX] &&
-> -	    nla_get_u8(data[IFLA_VXLAN_REMCSUM_RX]))
-> +	    !nla_get_u8(data[IFLA_VXLAN_REMCSUM_RX]))
->  		conf.flags |= VXLAN_F_REMCSUM_RX;
+PSAMPLE_ATTR_OIFINDEX - the packet output ifindex, if applicable
 
-Aren't these going to break user-space ? 
+PSAMPLE_ATTR_ORIGSIZE - the packet's original size, in case it has been
+   truncated during sampling
 
->  
->  	if (data[IFLA_VXLAN_GBP])
-> diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-> index bd99a8d..f3d16db 100644
-> --- a/include/uapi/linux/neighbour.h
-> +++ b/include/uapi/linux/neighbour.h
-> @@ -26,6 +26,7 @@ enum {
->  	NDA_IFINDEX,
->  	NDA_MASTER,
->  	NDA_LINK_NETNSID,
-> +	NDA_SRC_VNI,
->  	__NDA_MAX
->  };
->  
-> 
+PSAMPLE_ATTR_SAMPLE_GROUP - the packet's sample group, which is set by the
+   user who initiated the sampling. This field allows the user to
+   differentiate between several samplers working simultaneously and
+   filter packets relevant to him
+
+PSAMPLE_ATTR_GROUP_SEQ - sequence counter of last sent packet. The
+   sequence is kept for each group
+
+PSAMPLE_ATTR_SAMPLE_RATE - the sampling rate used for sampling the packets
+
+PSAMPLE_ATTR_DATA - the actual packet bits
+
+In addition, add the GET_GROUPS netlink command which allows the user to
+see the current sample groups, their refcount and sequence number. This
+command currently supports only netlink dump mode.
+
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ MAINTAINERS                  |   7 +
+ include/net/psample.h        |  36 ++++++
+ include/uapi/linux/Kbuild    |   1 +
+ include/uapi/linux/psample.h |  35 +++++
+ net/Kconfig                  |   1 +
+ net/Makefile                 |   1 +
+ net/psample/Kconfig          |  15 +++
+ net/psample/Makefile         |   5 +
+ net/psample/psample.c        | 301 +++++++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 402 insertions(+)
+ create mode 100644 include/net/psample.h
+ create mode 100644 include/uapi/linux/psample.h
+ create mode 100644 net/psample/Kconfig
+ create mode 100644 net/psample/Makefile
+ create mode 100644 net/psample/psample.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 3c84a8f..d76fccd 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9957,6 +9957,13 @@ L:	linuxppc-dev@lists.ozlabs.org
+ S:	Maintained
+ F:	drivers/block/ps3vram.c
+ 
++PSAMPLE PACKET SAMPLING SUPPORT:
++M:	Yotam Gigi <yotamg@mellanox.com>
++S:	Maintained
++F:	net/psample
++F:	include/net/psample.h
++F:	include/uapi/linux/psample.h
++
+ PSTORE FILESYSTEM
+ M:	Anton Vorontsov <anton@enomsg.org>
+ M:	Colin Cross <ccross@android.com>
+diff --git a/include/net/psample.h b/include/net/psample.h
+new file mode 100644
+index 0000000..8888b0e
+--- /dev/null
++++ b/include/net/psample.h
+@@ -0,0 +1,36 @@
++#ifndef __NET_PSAMPLE_H
++#define __NET_PSAMPLE_H
++
++#include <uapi/linux/psample.h>
++#include <linux/module.h>
++#include <linux/list.h>
++
++struct psample_group {
++	struct list_head list;
++	struct net *net;
++	u32 group_num;
++	u32 refcount;
++	u32 seq;
++};
++
++struct psample_group *psample_group_get(struct net *net, u32 group_num);
++void psample_group_put(struct psample_group *group);
++
++#if IS_ENABLED(CONFIG_PSAMPLE)
++
++void psample_sample_packet(struct psample_group *group, struct sk_buff *skb,
++			   u32 trunc_size, int in_ifindex, int out_ifindex,
++			   u32 sample_rate);
++
++#else
++
++static inline void psample_sample_packet(struct psample_group *group,
++					 struct sk_buff *skb, u32 trunc_size,
++					 int in_ifindex, int out_ifindex,
++					 u32 sample_rate)
++{
++}
++
++#endif
++
++#endif /* __NET_PSAMPLE_H */
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index e600b50..80ad741 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -305,6 +305,7 @@ header-y += netrom.h
+ header-y += net_namespace.h
+ header-y += net_tstamp.h
+ header-y += nfc.h
++header-y += psample.h
+ header-y += nfs2.h
+ header-y += nfs3.h
+ header-y += nfs4.h
+diff --git a/include/uapi/linux/psample.h b/include/uapi/linux/psample.h
+new file mode 100644
+index 0000000..ed48996
+--- /dev/null
++++ b/include/uapi/linux/psample.h
+@@ -0,0 +1,35 @@
++#ifndef __UAPI_PSAMPLE_H
++#define __UAPI_PSAMPLE_H
++
++enum {
++	/* sampled packet metadata */
++	PSAMPLE_ATTR_IIFINDEX,
++	PSAMPLE_ATTR_OIFINDEX,
++	PSAMPLE_ATTR_ORIGSIZE,
++	PSAMPLE_ATTR_SAMPLE_GROUP,
++	PSAMPLE_ATTR_GROUP_SEQ,
++	PSAMPLE_ATTR_SAMPLE_RATE,
++	PSAMPLE_ATTR_DATA,
++
++	/* commands attributes */
++	PSAMPLE_ATTR_GROUP_REFCOUNT,
++
++	__PSAMPLE_ATTR_MAX
++};
++
++enum psample_command {
++	PSAMPLE_CMD_SAMPLE,
++	PSAMPLE_CMD_GET_GROUP,
++	PSAMPLE_CMD_NEW_GROUP,
++	PSAMPLE_CMD_DEL_GROUP,
++};
++
++/* Can be overridden at runtime by module option */
++#define PSAMPLE_ATTR_MAX (__PSAMPLE_ATTR_MAX - 1)
++
++#define PSAMPLE_NL_MCGRP_CONFIG_NAME "config"
++#define PSAMPLE_NL_MCGRP_SAMPLE_NAME "packets"
++#define PSAMPLE_GENL_NAME "psample"
++#define PSAMPLE_GENL_VERSION 1
++
++#endif
+diff --git a/net/Kconfig b/net/Kconfig
+index 92ae150..ce4aee6 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -390,6 +390,7 @@ source "net/9p/Kconfig"
+ source "net/caif/Kconfig"
+ source "net/ceph/Kconfig"
+ source "net/nfc/Kconfig"
++source "net/psample/Kconfig"
+ 
+ config LWTUNNEL
+ 	bool "Network light weight tunnels"
+diff --git a/net/Makefile b/net/Makefile
+index 5d6e0e5f..7d41de4 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -70,6 +70,7 @@ obj-$(CONFIG_DNS_RESOLVER)	+= dns_resolver/
+ obj-$(CONFIG_CEPH_LIB)		+= ceph/
+ obj-$(CONFIG_BATMAN_ADV)	+= batman-adv/
+ obj-$(CONFIG_NFC)		+= nfc/
++obj-$(CONFIG_PSAMPLE)		+= psample/
+ obj-$(CONFIG_OPENVSWITCH)	+= openvswitch/
+ obj-$(CONFIG_VSOCKETS)	+= vmw_vsock/
+ obj-$(CONFIG_MPLS)		+= mpls/
+diff --git a/net/psample/Kconfig b/net/psample/Kconfig
+new file mode 100644
+index 0000000..d850246
+--- /dev/null
++++ b/net/psample/Kconfig
+@@ -0,0 +1,15 @@
++#
++# psample packet sampling configuration
++#
++
++menuconfig PSAMPLE
++	depends on NET
++	tristate "Packet-sampling netlink channel"
++	default n
++	help
++	  Say Y here to add support for packet-sampling netlink channel
++	  This netlink channel allows transferring packets alongside some
++	  metadata to userspace.
++
++	  To compile this support as a module, choose M here: the module will
++	  be called psample.
+diff --git a/net/psample/Makefile b/net/psample/Makefile
+new file mode 100644
+index 0000000..609b0a7
+--- /dev/null
++++ b/net/psample/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the psample netlink channel
++#
++
++obj-$(CONFIG_PSAMPLE) += psample.o
+diff --git a/net/psample/psample.c b/net/psample/psample.c
+new file mode 100644
+index 0000000..8aa58a9
+--- /dev/null
++++ b/net/psample/psample.c
+@@ -0,0 +1,301 @@
++/*
++ * net/psample/psample.c - Netlink channel for packet sampling
++ * Copyright (c) 2017 Yotam Gigi <yotamg@mellanox.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/skbuff.h>
++#include <linux/module.h>
++#include <net/net_namespace.h>
++#include <net/sock.h>
++#include <net/netlink.h>
++#include <net/genetlink.h>
++#include <net/psample.h>
++#include <linux/spinlock.h>
++
++#define PSAMPLE_MAX_PACKET_SIZE 0xffff
++
++static LIST_HEAD(psample_groups_list);
++static DEFINE_SPINLOCK(psample_groups_lock);
++
++/* multicast groups */
++enum psample_nl_multicast_groups {
++	PSAMPLE_NL_MCGRP_CONFIG,
++	PSAMPLE_NL_MCGRP_SAMPLE,
++};
++
++static const struct genl_multicast_group psample_nl_mcgrps[] = {
++	[PSAMPLE_NL_MCGRP_CONFIG] = { .name = PSAMPLE_NL_MCGRP_CONFIG_NAME },
++	[PSAMPLE_NL_MCGRP_SAMPLE] = { .name = PSAMPLE_NL_MCGRP_SAMPLE_NAME },
++};
++
++static struct genl_family psample_nl_family __ro_after_init;
++
++static int psample_group_nl_fill(struct sk_buff *msg,
++				 struct psample_group *group,
++				 enum psample_command cmd, u32 portid, u32 seq,
++				 int flags)
++{
++	void *hdr;
++	int ret;
++
++	hdr = genlmsg_put(msg, portid, seq, &psample_nl_family, flags, cmd);
++	if (!hdr)
++		return -EMSGSIZE;
++
++	ret = nla_put_u32(msg, PSAMPLE_ATTR_SAMPLE_GROUP, group->group_num);
++	if (ret < 0)
++		goto error;
++
++	ret = nla_put_u32(msg, PSAMPLE_ATTR_GROUP_REFCOUNT, group->refcount);
++	if (ret < 0)
++		goto error;
++
++	ret = nla_put_u32(msg, PSAMPLE_ATTR_GROUP_SEQ, group->seq);
++	if (ret < 0)
++		goto error;
++
++	genlmsg_end(msg, hdr);
++	return 0;
++
++error:
++	genlmsg_cancel(msg, hdr);
++	return -EMSGSIZE;
++}
++
++static int psample_nl_cmd_get_group_dumpit(struct sk_buff *msg,
++					   struct netlink_callback *cb)
++{
++	struct psample_group *group;
++	int start = cb->args[0];
++	int idx = 0;
++	int err;
++
++	spin_lock(&psample_groups_lock);
++	list_for_each_entry(group, &psample_groups_list, list) {
++		if (!net_eq(group->net, sock_net(msg->sk)))
++			continue;
++		if (idx < start) {
++			idx++;
++			continue;
++		}
++		err = psample_group_nl_fill(msg, group, PSAMPLE_CMD_NEW_GROUP,
++					    NETLINK_CB(cb->skb).portid,
++					    cb->nlh->nlmsg_seq, NLM_F_MULTI);
++		if (err)
++			break;
++		idx++;
++	}
++
++	spin_unlock(&psample_groups_lock);
++	cb->args[0] = idx;
++	return msg->len;
++}
++
++static const struct genl_ops psample_nl_ops[] = {
++	{
++		.cmd = PSAMPLE_CMD_GET_GROUP,
++		.dumpit = psample_nl_cmd_get_group_dumpit,
++		/* can be retrieved by unprivileged users */
++	}
++};
++
++static struct genl_family psample_nl_family __ro_after_init = {
++	.name		= PSAMPLE_GENL_NAME,
++	.version	= PSAMPLE_GENL_VERSION,
++	.maxattr	= PSAMPLE_ATTR_MAX,
++	.netnsok	= true,
++	.module		= THIS_MODULE,
++	.mcgrps		= psample_nl_mcgrps,
++	.ops		= psample_nl_ops,
++	.n_ops		= ARRAY_SIZE(psample_nl_ops),
++	.n_mcgrps	= ARRAY_SIZE(psample_nl_mcgrps),
++};
++
++static void psample_group_notify(struct psample_group *group,
++				 enum psample_command cmd)
++{
++	struct sk_buff *msg;
++	int err;
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
++	if (!msg)
++		return;
++
++	err = psample_group_nl_fill(msg, group, cmd, 0, 0, NLM_F_MULTI);
++	if (!err)
++		genlmsg_multicast_netns(&psample_nl_family, group->net, msg, 0,
++					PSAMPLE_NL_MCGRP_CONFIG, GFP_ATOMIC);
++	else
++		nlmsg_free(msg);
++}
++
++static struct psample_group *psample_group_create(struct net *net,
++						  u32 group_num)
++{
++	struct psample_group *group;
++
++	group = kzalloc(sizeof(*group), GFP_ATOMIC);
++	if (!group)
++		return NULL;
++
++	group->net = net;
++	group->group_num = group_num;
++	list_add_tail(&group->list, &psample_groups_list);
++
++	psample_group_notify(group, PSAMPLE_CMD_NEW_GROUP);
++	return group;
++}
++
++static void psample_group_destroy(struct psample_group *group)
++{
++	psample_group_notify(group, PSAMPLE_CMD_DEL_GROUP);
++	list_del(&group->list);
++	kfree(group);
++}
++
++static struct psample_group *
++psample_group_lookup(struct net *net, u32 group_num)
++{
++	struct psample_group *group;
++
++	list_for_each_entry(group, &psample_groups_list, list)
++		if ((group->group_num == group_num) && (group->net == net))
++			return group;
++	return NULL;
++}
++
++struct psample_group *psample_group_get(struct net *net, u32 group_num)
++{
++	struct psample_group *group;
++
++	spin_lock(&psample_groups_lock);
++
++	group = psample_group_lookup(net, group_num);
++	if (!group) {
++		group = psample_group_create(net, group_num);
++		if (!group)
++			goto out;
++	}
++	group->refcount++;
++
++out:
++	spin_unlock(&psample_groups_lock);
++	return group;
++}
++EXPORT_SYMBOL_GPL(psample_group_get);
++
++void psample_group_put(struct psample_group *group)
++{
++	spin_lock(&psample_groups_lock);
++
++	if (--group->refcount == 0)
++		psample_group_destroy(group);
++
++	spin_unlock(&psample_groups_lock);
++}
++EXPORT_SYMBOL_GPL(psample_group_put);
++
++void psample_sample_packet(struct psample_group *group, struct sk_buff *skb,
++			   u32 trunc_size, int in_ifindex, int out_ifindex,
++			   u32 sample_rate)
++{
++	struct sk_buff *nl_skb;
++	int data_len;
++	int meta_len;
++	void *data;
++	int ret;
++
++	meta_len = (in_ifindex ? nla_total_size(sizeof(u16)) : 0) +
++		   (out_ifindex ? nla_total_size(sizeof(u16)) : 0) +
++		   nla_total_size(sizeof(u32)) +	/* sample_rate */
++		   nla_total_size(sizeof(u32)) +	/* orig_size */
++		   nla_total_size(sizeof(u32)) +	/* group_num */
++		   nla_total_size(sizeof(u32));		/* seq */
++
++	data_len = min(skb->len, trunc_size);
++	if (meta_len + nla_total_size(data_len) > PSAMPLE_MAX_PACKET_SIZE)
++		data_len = PSAMPLE_MAX_PACKET_SIZE - meta_len - NLA_HDRLEN
++			    - NLA_ALIGNTO;
++
++	nl_skb = genlmsg_new(meta_len + data_len, GFP_ATOMIC);
++	if (unlikely(!nl_skb))
++		return;
++
++	data = genlmsg_put(nl_skb, 0, 0, &psample_nl_family, 0,
++			   PSAMPLE_CMD_SAMPLE);
++	if (unlikely(!data))
++		goto error;
++
++	if (in_ifindex) {
++		ret = nla_put_u16(nl_skb, PSAMPLE_ATTR_IIFINDEX, in_ifindex);
++		if (unlikely(ret < 0))
++			goto error;
++	}
++
++	if (out_ifindex) {
++		ret = nla_put_u16(nl_skb, PSAMPLE_ATTR_OIFINDEX, out_ifindex);
++		if (unlikely(ret < 0))
++			goto error;
++	}
++
++	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_SAMPLE_RATE, sample_rate);
++	if (unlikely(ret < 0))
++		goto error;
++
++	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_ORIGSIZE, skb->len);
++	if (unlikely(ret < 0))
++		goto error;
++
++	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_SAMPLE_GROUP, group->group_num);
++	if (unlikely(ret < 0))
++		goto error;
++
++	ret = nla_put_u32(nl_skb, PSAMPLE_ATTR_GROUP_SEQ, group->seq++);
++	if (unlikely(ret < 0))
++		goto error;
++
++	if (data_len) {
++		int nla_len = nla_total_size(data_len);
++		struct nlattr *nla;
++
++		nla = (struct nlattr *)skb_put(nl_skb, nla_len);
++		nla->nla_type = PSAMPLE_ATTR_DATA;
++		nla->nla_len = nla_attr_size(data_len);
++
++		if (skb_copy_bits(skb, 0, nla_data(nla), data_len))
++			goto error;
++	}
++
++	genlmsg_end(nl_skb, data);
++	genlmsg_multicast_netns(&psample_nl_family, group->net, nl_skb, 0,
++				PSAMPLE_NL_MCGRP_SAMPLE, GFP_ATOMIC);
++
++	return;
++error:
++	pr_err_ratelimited("Could not create psample log message\n");
++	nlmsg_free(nl_skb);
++}
++EXPORT_SYMBOL_GPL(psample_sample_packet);
++
++static int __init psample_module_init(void)
++{
++	return genl_register_family(&psample_nl_family);
++}
++
++static void __exit psample_module_exit(void)
++{
++	genl_unregister_family(&psample_nl_family);
++}
++
++module_init(psample_module_init);
++module_exit(psample_module_exit);
++
++MODULE_AUTHOR("Yotam Gigi <yotamg@mellanox.com>");
++MODULE_DESCRIPTION("netlink channel for packet sampling");
++MODULE_LICENSE("GPL v2");
+-- 
+2.7.4
