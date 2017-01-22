@@ -1,97 +1,67 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: restore VIRTIO_HDR_F_DATA_VALID on
-	receiving
-Date: Sun, 22 Jan 2017 16:18:39 +0800
-Message-ID: <30305cb9-b6c2-5bba-ebad-683221abc4ba@redhat.com>
-References: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
-	<20170120184220-mutt-send-email-mst@kernel.org>
-	<268cadeb-433c-7960-5fe6-a06f849493a8@redhat.com>
-	<20170122061838-mutt-send-email-mst@kernel.org>
+From: Jingju Hou <houjingj@marvell.com>
+Subject: [PATCH] net: mvneta: implement .set_wol and .get_wol
+Date: Sun, 22 Jan 2017 18:06:30 +0800
+Message-ID: <1485079590-6392-1-git-send-email-houjingj@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Rolf Neugebauer <rolf.neugebauer@docker.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170122061838-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <thomas.petazzoni@free-electrons.com>, <netdev@vger.kernel.org>,
+        Jingju Hou <houjingj@marvell.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:48831 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750917AbdAVKIn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 05:08:43 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDHmnIgyMuaXpSAxMjoyMiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFN1biwgSmFuIDIyLCAyMDE3IGF0IDEwOjQxOjIyQU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTflubQwMeaciDIx5pelIDAwOjQ1LCBNaWNoYWVsIFMuIFRzaXJraW4g
-d3JvdGU6Cj4+PiBPbiBGcmksIEphbiAyMCwgMjAxNyBhdCAwMjozMjo0MlBNICswODAwLCBKYXNv
-biBXYW5nIHdyb3RlOgo+Pj4+IENvbW1pdCA1MDFkYjUxMTM5N2YgKCJ2aXJ0aW86IGRvbid0IHNl
-dCBWSVJUSU9fTkVUX0hEUl9GX0RBVEFfVkFMSUQgb24KPj4+PiB4bWl0IikgaW4gZmFjdCBkaXNh
-YmxlcyBWSVJUSU9fSERSX0ZfREFUQV9WQUxJRCBvbiByZWNlaXZpbmcgcGF0aCB0b28sCj4+Pj4g
-Zml4aW5nIHRoaXMgYnkgYWRkaW5nIGEgaGludCAoaGFzX2RhdGFfdmFsaWQpIGFuZCBzZXQgaXQg
-b25seSBvbiB0aGUKPj4+PiByZWNlaXZpbmcgcGF0aC4KPj4+Pgo+Pj4+IENjOiBSb2xmIE5ldWdl
-YmF1ZXI8cm9sZi5uZXVnZWJhdWVyQGRvY2tlci5jb20+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFz
-b24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+Pj4+IC0tLQo+Pj4+ICAgIGRyaXZlcnMvbmV0
-L21hY3Z0YXAuYyAgICAgIHwgMiArLQo+Pj4+ICAgIGRyaXZlcnMvbmV0L3R1bi5jICAgICAgICAg
-IHwgMiArLQo+Pj4+ICAgIGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyAgIHwgMiArLQo+Pj4+ICAg
-IGluY2x1ZGUvbGludXgvdmlydGlvX25ldC5oIHwgNiArKysrKy0KPj4+PiAgICBuZXQvcGFja2V0
-L2FmX3BhY2tldC5jICAgICB8IDQgKystLQo+Pj4+ICAgIDUgZmlsZXMgY2hhbmdlZCwgMTAgaW5z
-ZXJ0aW9ucygrKSwgNiBkZWxldGlvbnMoLSkKPj4+Pgo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9tYWN2dGFwLmMgYi9kcml2ZXJzL25ldC9tYWN2dGFwLmMKPj4+PiBpbmRleCA1YzI2NjUz
-Li40MDI2MTg1IDEwMDY0NAo+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0L21hY3Z0YXAuYwo+Pj4+ICsr
-KyBiL2RyaXZlcnMvbmV0L21hY3Z0YXAuYwo+Pj4+IEBAIC04MjUsNyArODI1LDcgQEAgc3RhdGlj
-IHNzaXplX3QgbWFjdnRhcF9wdXRfdXNlcihzdHJ1Y3QgbWFjdnRhcF9xdWV1ZSAqcSwKPj4+PiAg
-ICAJCQlyZXR1cm4gLUVJTlZBTDsKPj4+PiAgICAJCWlmICh2aXJ0aW9fbmV0X2hkcl9mcm9tX3Nr
-Yihza2IsICZ2bmV0X2hkciwKPj4+PiAtCQkJCQkgICAgbWFjdnRhcF9pc19saXR0bGVfZW5kaWFu
-KHEpKSkKPj4+PiArCQkJCQkgICAgbWFjdnRhcF9pc19saXR0bGVfZW5kaWFuKHEpLCB0cnVlKSkK
-Pj4+PiAgICAJCQlCVUcoKTsKPj4+PiAgICAJCWlmIChjb3B5X3RvX2l0ZXIoJnZuZXRfaGRyLCBz
-aXplb2Yodm5ldF9oZHIpLCBpdGVyKSAhPQo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC90
-dW4uYyBiL2RyaXZlcnMvbmV0L3R1bi5jCj4+Pj4gaW5kZXggY2Q4ZTAyYy4uMmNkMTBiMiAxMDA2
-NDQKPj4+PiAtLS0gYS9kcml2ZXJzL25ldC90dW4uYwo+Pj4+ICsrKyBiL2RyaXZlcnMvbmV0L3R1
-bi5jCj4+Pj4gQEAgLTEzNjAsNyArMTM2MCw3IEBAIHN0YXRpYyBzc2l6ZV90IHR1bl9wdXRfdXNl
-cihzdHJ1Y3QgdHVuX3N0cnVjdCAqdHVuLAo+Pj4+ICAgIAkJCXJldHVybiAtRUlOVkFMOwo+Pj4+
-ICAgIAkJaWYgKHZpcnRpb19uZXRfaGRyX2Zyb21fc2tiKHNrYiwgJmdzbywKPj4+PiAtCQkJCQkg
-ICAgdHVuX2lzX2xpdHRsZV9lbmRpYW4odHVuKSkpIHsKPj4+PiArCQkJCQkgICAgdHVuX2lzX2xp
-dHRsZV9lbmRpYW4odHVuKSwgdHJ1ZSkpIHsKPj4+PiAgICAJCQlzdHJ1Y3Qgc2tiX3NoYXJlZF9p
-bmZvICpzaW5mbyA9IHNrYl9zaGluZm8oc2tiKTsKPj4+PiAgICAJCQlwcl9lcnIoInVuZXhwZWN0
-ZWQgR1NPIHR5cGU6ICIKPj4+PiAgICAJCQkgICAgICAgIjB4JXgsIGdzb19zaXplICVkLCBoZHJf
-bGVuICVkXG4iLAo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9k
-cml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4+PiBpbmRleCA0YTEwNTAwLi4zNDc0MjQzIDEwMDY0
-NAo+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+Pj4+ICsrKyBiL2RyaXZlcnMv
-bmV0L3ZpcnRpb19uZXQuYwo+Pj4+IEBAIC0xMTA0LDcgKzExMDQsNyBAQCBzdGF0aWMgaW50IHht
-aXRfc2tiKHN0cnVjdCBzZW5kX3F1ZXVlICpzcSwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPj4+PiAg
-ICAJCWhkciA9IHNrYl92bmV0X2hkcihza2IpOwo+Pj4+ICAgIAlpZiAodmlydGlvX25ldF9oZHJf
-ZnJvbV9za2Ioc2tiLCAmaGRyLT5oZHIsCj4+Pj4gLQkJCQkgICAgdmlydGlvX2lzX2xpdHRsZV9l
-bmRpYW4odmktPnZkZXYpKSkKPj4+PiArCQkJCSAgICB2aXJ0aW9faXNfbGl0dGxlX2VuZGlhbih2
-aS0+dmRldiksIGZhbHNlKSkKPj4+PiAgICAJCUJVRygpOwo+Pj4+ICAgIAlpZiAodmktPm1lcmdl
-YWJsZV9yeF9idWZzKQo+Pj4+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3ZpcnRpb19uZXQu
-aCBiL2luY2x1ZGUvbGludXgvdmlydGlvX25ldC5oCj4+Pj4gaW5kZXggNTY0MzY0Ny4uNTIwOWI1
-ZSAxMDA2NDQKPj4+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L3ZpcnRpb19uZXQuaAo+Pj4+ICsrKyBi
-L2luY2x1ZGUvbGludXgvdmlydGlvX25ldC5oCj4+Pj4gQEAgLTU2LDcgKzU2LDggQEAgc3RhdGlj
-IGlubGluZSBpbnQgdmlydGlvX25ldF9oZHJfdG9fc2tiKHN0cnVjdCBza19idWZmICpza2IsCj4+
-Pj4gICAgc3RhdGljIGlubGluZSBpbnQgdmlydGlvX25ldF9oZHJfZnJvbV9za2IoY29uc3Qgc3Ry
-dWN0IHNrX2J1ZmYgKnNrYiwKPj4+PiAgICAJCQkJCSAgc3RydWN0IHZpcnRpb19uZXRfaGRyICpo
-ZHIsCj4+Pj4gLQkJCQkJICBib29sIGxpdHRsZV9lbmRpYW4pCj4+Pj4gKwkJCQkJICBib29sIGxp
-dHRsZV9lbmRpYW4sCj4+Pj4gKwkJCQkJICBib29sIGhhc19kYXRhX3ZhbGlkKQo+Pj4+ICAgIHsK
-Pj4+PiAgICAJbWVtc2V0KGhkciwgMCwgc2l6ZW9mKCpoZHIpKTsgICAvKiBubyBpbmZvIGxlYWsg
-Ki8KPj4+IEkgd291bGQgcHJlZmVyIG5hbWluZyBpdCBpc19yeC4gQ2FsbGVycyBzaG91bGQgbm90
-IGtub3cgYWJvdXQKPj4+IGludGVybmFsIGRldGFpbHMgbGlrZSBkYXRhIHZhbGlkLCB0aGUgaXNz
-dWUgd2UgYXJlIHRyeWluZyB0byBmaXgKPj4+IGhlcmUgaXMgdGhhdCB0eCBhbmQgdHggaGVhZGVy
-cyBhcmUgc2xpZ2h0bHkgZGlmZmVyZW50Lgo+Pj4KPj4gQWN0dWFsbHksIEkndmUgY29uc2lkZXJl
-ZCBzb21ldGhpbmcgbGlrZSB0aGlzLCBidXQgdGhlIHByb2JsZW0gaXM6Cj4+Cj4+IC0gdHVuIHVz
-ZSB0aGlzIG9uIHhtaXQsIHNvIGlzX3J4ID0gdHJ1ZSBtYXkgY2F1c2Ugc29tZSBjb25mdXNpb24g
-aGVyZQo+IHR1biBpcyBnZW5lcmFsbHkgd2VpcmQsIHllcy4gaG93IGFib3V0IHJ4X2Zvcm1hdD8K
-Ck9rLgoKPgo+PiAtIEkgYmVsaWV2ZSB3ZSBtYXkgd2FudCB0byBzdXBwb3J0IERBVEFfVkFMSUQg
-KGxpa2UgeGVuLW5ldGJhY2spIG9uIHR4Cj4+IChwcm9iYWJseSB3aXRoIGEgZmVhdHVyZSkgaW4g
-dGhlIGZ1dHVyZS4KPj4KPj4gVGhhbmtzCj4gV2UnbGwgcHV0IHRoYXQga25vd2xlZGdlIHdpdGhp
-biB2aXJ0aW9fbmV0X2hkcl9mcm9tX3NrYiBub3QKPiBpbiB0aGUgY2FsbGVycyBJIHRoaW5rLgo+
-CgpNYXliZSwgd2lsbCBwcmVwYXJlIGEgcGF0Y2ggZm9yIG5ldC1uZXh0LgoKVGhhbmtzCgpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlv
-biBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcK
-aHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVh
-bGl6YXRpb24=
+Signed-off-by: Jingju Hou <houjingj@marvell.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index e05e227..b684f43 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3908,6 +3908,29 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+ 	return 0;
+ }
+ 
++static void
++mvneta_ethtool_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++
++	wol->supported = 0;
++	wol->wolopts = 0;
++
++	if (pp->phy_dev)
++		return phy_ethtool_get_wol(pp->phy_dev, wol);
++}
++
++static int
++mvneta_ethtool_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++
++	if (!pp->phy_dev)
++		return -EOPNOTSUPP;
++
++	return phy_ethtool_set_wol(pp->phy_dev, wol);
++}
++
+ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_open            = mvneta_open,
+ 	.ndo_stop            = mvneta_stop,
+@@ -3937,6 +3960,8 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+ 	.set_rxfh	= mvneta_ethtool_set_rxfh,
+ 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
+ 	.set_link_ksettings = mvneta_ethtool_set_link_ksettings,
++	.get_wol        = mvneta_ethtool_get_wol,
++	.set_wol        = mvneta_ethtool_set_wol,
+ };
+ 
+ /* Initialize hw */
+-- 
+1.9.1
