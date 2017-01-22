@@ -1,87 +1,91 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net] virtio-net: restore VIRTIO_HDR_F_DATA_VALID on
-	receiving
-Date: Sun, 22 Jan 2017 10:41:22 +0800
-Message-ID: <268cadeb-433c-7960-5fe6-a06f849493a8@redhat.com>
-References: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
-	<20170120184220-mutt-send-email-mst@kernel.org>
+Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
+Date: Sun, 22 Jan 2017 10:51:42 +0800
+Message-ID: <bcf017d4-96b9-9ccf-cc7b-06ec9301251d@redhat.com>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+ <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
+ <20170118171259-mutt-send-email-mst@kernel.org>
+ <40e9a46a-1115-c21a-49f3-fdedb0a34101@redhat.com>
+ <20170119231027-mutt-send-email-mst@kernel.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB026921C@AcuExch.aculab.com>
+ <20170120194824-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Rolf Neugebauer <rolf.neugebauer@docker.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170120184220-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        "john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50428 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750770AbdAVCw5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 21 Jan 2017 21:52:57 -0500
+In-Reply-To: <20170120194824-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDHmnIgyMeaXpSAwMDo0NSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIEZyaSwgSmFuIDIwLCAyMDE3IGF0IDAyOjMyOjQyUE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+IENvbW1pdCA1MDFkYjUxMTM5N2YgKCJ2aXJ0aW86IGRvbid0IHNldCBWSVJUSU9fTkVU
-X0hEUl9GX0RBVEFfVkFMSUQgb24KPj4geG1pdCIpIGluIGZhY3QgZGlzYWJsZXMgVklSVElPX0hE
-Ul9GX0RBVEFfVkFMSUQgb24gcmVjZWl2aW5nIHBhdGggdG9vLAo+PiBmaXhpbmcgdGhpcyBieSBh
-ZGRpbmcgYSBoaW50IChoYXNfZGF0YV92YWxpZCkgYW5kIHNldCBpdCBvbmx5IG9uIHRoZQo+PiBy
-ZWNlaXZpbmcgcGF0aC4KPj4KPj4gQ2M6IFJvbGYgTmV1Z2ViYXVlcjxyb2xmLm5ldWdlYmF1ZXJA
-ZG9ja2VyLmNvbT4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQu
-Y29tPgo+PiAtLS0KPj4gICBkcml2ZXJzL25ldC9tYWN2dGFwLmMgICAgICB8IDIgKy0KPj4gICBk
-cml2ZXJzL25ldC90dW4uYyAgICAgICAgICB8IDIgKy0KPj4gICBkcml2ZXJzL25ldC92aXJ0aW9f
-bmV0LmMgICB8IDIgKy0KPj4gICBpbmNsdWRlL2xpbnV4L3ZpcnRpb19uZXQuaCB8IDYgKysrKyst
-Cj4+ICAgbmV0L3BhY2tldC9hZl9wYWNrZXQuYyAgICAgfCA0ICsrLS0KPj4gICA1IGZpbGVzIGNo
-YW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pCj4+Cj4+IGRpZmYgLS1naXQg
-YS9kcml2ZXJzL25ldC9tYWN2dGFwLmMgYi9kcml2ZXJzL25ldC9tYWN2dGFwLmMKPj4gaW5kZXgg
-NWMyNjY1My4uNDAyNjE4NSAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9uZXQvbWFjdnRhcC5jCj4+
-ICsrKyBiL2RyaXZlcnMvbmV0L21hY3Z0YXAuYwo+PiBAQCAtODI1LDcgKzgyNSw3IEBAIHN0YXRp
-YyBzc2l6ZV90IG1hY3Z0YXBfcHV0X3VzZXIoc3RydWN0IG1hY3Z0YXBfcXVldWUgKnEsCj4+ICAg
-CQkJcmV0dXJuIC1FSU5WQUw7Cj4+ICAgCj4+ICAgCQlpZiAodmlydGlvX25ldF9oZHJfZnJvbV9z
-a2Ioc2tiLCAmdm5ldF9oZHIsCj4+IC0JCQkJCSAgICBtYWN2dGFwX2lzX2xpdHRsZV9lbmRpYW4o
-cSkpKQo+PiArCQkJCQkgICAgbWFjdnRhcF9pc19saXR0bGVfZW5kaWFuKHEpLCB0cnVlKSkKPj4g
-ICAJCQlCVUcoKTsKPj4gICAKPj4gICAJCWlmIChjb3B5X3RvX2l0ZXIoJnZuZXRfaGRyLCBzaXpl
-b2Yodm5ldF9oZHIpLCBpdGVyKSAhPQo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdHVuLmMg
-Yi9kcml2ZXJzL25ldC90dW4uYwo+PiBpbmRleCBjZDhlMDJjLi4yY2QxMGIyIDEwMDY0NAo+PiAt
-LS0gYS9kcml2ZXJzL25ldC90dW4uYwo+PiArKysgYi9kcml2ZXJzL25ldC90dW4uYwo+PiBAQCAt
-MTM2MCw3ICsxMzYwLDcgQEAgc3RhdGljIHNzaXplX3QgdHVuX3B1dF91c2VyKHN0cnVjdCB0dW5f
-c3RydWN0ICp0dW4sCj4+ICAgCQkJcmV0dXJuIC1FSU5WQUw7Cj4+ICAgCj4+ICAgCQlpZiAodmly
-dGlvX25ldF9oZHJfZnJvbV9za2Ioc2tiLCAmZ3NvLAo+PiAtCQkJCQkgICAgdHVuX2lzX2xpdHRs
-ZV9lbmRpYW4odHVuKSkpIHsKPj4gKwkJCQkJICAgIHR1bl9pc19saXR0bGVfZW5kaWFuKHR1biks
-IHRydWUpKSB7Cj4+ICAgCQkJc3RydWN0IHNrYl9zaGFyZWRfaW5mbyAqc2luZm8gPSBza2Jfc2hp
-bmZvKHNrYik7Cj4+ICAgCQkJcHJfZXJyKCJ1bmV4cGVjdGVkIEdTTyB0eXBlOiAiCj4+ICAgCQkJ
-ICAgICAgICIweCV4LCBnc29fc2l6ZSAlZCwgaGRyX2xlbiAlZFxuIiwKPj4gZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+PiBp
-bmRleCA0YTEwNTAwLi4zNDc0MjQzIDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL25ldC92aXJ0aW9f
-bmV0LmMKPj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+IEBAIC0xMTA0LDcgKzEx
-MDQsNyBAQCBzdGF0aWMgaW50IHhtaXRfc2tiKHN0cnVjdCBzZW5kX3F1ZXVlICpzcSwgc3RydWN0
-IHNrX2J1ZmYgKnNrYikKPj4gICAJCWhkciA9IHNrYl92bmV0X2hkcihza2IpOwo+PiAgIAo+PiAg
-IAlpZiAodmlydGlvX25ldF9oZHJfZnJvbV9za2Ioc2tiLCAmaGRyLT5oZHIsCj4+IC0JCQkJICAg
-IHZpcnRpb19pc19saXR0bGVfZW5kaWFuKHZpLT52ZGV2KSkpCj4+ICsJCQkJICAgIHZpcnRpb19p
-c19saXR0bGVfZW5kaWFuKHZpLT52ZGV2KSwgZmFsc2UpKQo+PiAgIAkJQlVHKCk7Cj4+ICAgCj4+
-ICAgCWlmICh2aS0+bWVyZ2VhYmxlX3J4X2J1ZnMpCj4+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xp
-bnV4L3ZpcnRpb19uZXQuaCBiL2luY2x1ZGUvbGludXgvdmlydGlvX25ldC5oCj4+IGluZGV4IDU2
-NDM2NDcuLjUyMDliNWUgMTAwNjQ0Cj4+IC0tLSBhL2luY2x1ZGUvbGludXgvdmlydGlvX25ldC5o
-Cj4+ICsrKyBiL2luY2x1ZGUvbGludXgvdmlydGlvX25ldC5oCj4+IEBAIC01Niw3ICs1Niw4IEBA
-IHN0YXRpYyBpbmxpbmUgaW50IHZpcnRpb19uZXRfaGRyX3RvX3NrYihzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLAo+PiAgIAo+PiAgIHN0YXRpYyBpbmxpbmUgaW50IHZpcnRpb19uZXRfaGRyX2Zyb21fc2ti
-KGNvbnN0IHN0cnVjdCBza19idWZmICpza2IsCj4+ICAgCQkJCQkgIHN0cnVjdCB2aXJ0aW9fbmV0
-X2hkciAqaGRyLAo+PiAtCQkJCQkgIGJvb2wgbGl0dGxlX2VuZGlhbikKPj4gKwkJCQkJICBib29s
-IGxpdHRsZV9lbmRpYW4sCj4+ICsJCQkJCSAgYm9vbCBoYXNfZGF0YV92YWxpZCkKPj4gICB7Cj4+
-ICAgCW1lbXNldChoZHIsIDAsIHNpemVvZigqaGRyKSk7ICAgLyogbm8gaW5mbyBsZWFrICovCj4+
-ICAgCj4gSSB3b3VsZCBwcmVmZXIgbmFtaW5nIGl0IGlzX3J4LiBDYWxsZXJzIHNob3VsZCBub3Qg
-a25vdyBhYm91dAo+IGludGVybmFsIGRldGFpbHMgbGlrZSBkYXRhIHZhbGlkLCB0aGUgaXNzdWUg
-d2UgYXJlIHRyeWluZyB0byBmaXgKPiBoZXJlIGlzIHRoYXQgdHggYW5kIHR4IGhlYWRlcnMgYXJl
-IHNsaWdodGx5IGRpZmZlcmVudC4KPgoKQWN0dWFsbHksIEkndmUgY29uc2lkZXJlZCBzb21ldGhp
-bmcgbGlrZSB0aGlzLCBidXQgdGhlIHByb2JsZW0gaXM6CgotIHR1biB1c2UgdGhpcyBvbiB4bWl0
-LCBzbyBpc19yeCA9IHRydWUgbWF5IGNhdXNlIHNvbWUgY29uZnVzaW9uIGhlcmUKLSBJIGJlbGll
-dmUgd2UgbWF5IHdhbnQgdG8gc3VwcG9ydCBEQVRBX1ZBTElEIChsaWtlIHhlbi1uZXRiYWNrKSBv
-biB0eCAKKHByb2JhYmx5IHdpdGggYSBmZWF0dXJlKSBpbiB0aGUgZnV0dXJlLgoKVGhhbmtzCgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXph
-dGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5v
-cmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmly
-dHVhbGl6YXRpb24=
+
+
+On 2017年01月21日 01:48, Michael S. Tsirkin wrote:
+> On Fri, Jan 20, 2017 at 04:59:11PM +0000, David Laight wrote:
+>> From: Michael S. Tsirkin
+>>> Sent: 19 January 2017 21:12
+>>>> On 2017?01?18? 23:15, Michael S. Tsirkin wrote:
+>>>>> On Tue, Jan 17, 2017 at 02:22:59PM -0800, John Fastabend wrote:
+>>>>>> Add support for XDP adjust head by allocating a 256B header region
+>>>>>> that XDP programs can grow into. This is only enabled when a XDP
+>>>>>> program is loaded.
+>>>>>>
+>>>>>> In order to ensure that we do not have to unwind queue headroom push
+>>>>>> queue setup below bpf_prog_add. It reads better to do a prog ref
+>>>>>> unwind vs another queue setup call.
+>>>>>>
+>>>>>> At the moment this code must do a full reset to ensure old buffers
+>>>>>> without headroom on program add or with headroom on program removal
+>>>>>> are not used incorrectly in the datapath. Ideally we would only
+>>>>>> have to disable/enable the RX queues being updated but there is no
+>>>>>> API to do this at the moment in virtio so use the big hammer. In
+>>>>>> practice it is likely not that big of a problem as this will only
+>>>>>> happen when XDP is enabled/disabled changing programs does not
+>>>>>> require the reset. There is some risk that the driver may either
+>>>>>> have an allocation failure or for some reason fail to correctly
+>>>>>> negotiate with the underlying backend in this case the driver will
+>>>>>> be left uninitialized. I have not seen this ever happen on my test
+>>>>>> systems and for what its worth this same failure case can occur
+>>>>>> from probe and other contexts in virtio framework.
+>>>>>>
+>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
+>>>>> I've been thinking about it - can't we drop
+>>>>> old buffers without the head room which were posted before
+>>>>> xdp attached?
+>>>>>
+>>>>> Avoiding the reset would be much nicer.
+>>>>>
+>>>>> Thoughts?
+>>>>>
+>>>> As been discussed before, device may use them in the same time so it's not
+>>>> safe. Or do you mean detect them after xdp were set and drop the buffer
+>>>> without head room, this looks sub-optimal.
+>>>>
+>>>> Thanks
+>>> Yes, this is what I mean.  Why is this suboptimal? It's a single branch
+>>> in code. Yes we might lose some packets but the big hammer of device
+>>> reset will likely lose more.
+>> Why not leave let the hardware receive into the 'small' buffer (without
+>> headroom) and do a copy when a frame is received.
+>> Replace the buffers with 'big' ones for the next receive.
+>> A data copy on a ring full of buffers won't really be noticed.
+>>
+>> 	David
+>>
+> I like that. John?
+>
+
+This works, I prefer this only if it uses simpler code (but I suspect) 
+than reset.
+
+Thanks
