@@ -1,95 +1,97 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH] net/mlx4: use rb_entry()
-Date: Sun, 22 Jan 2017 09:48:39 +0200
-Message-ID: <20170122074839.GD28570@mtr-leonro.local>
-References: <c6a809ea5820242a4ae126b03cdcd910a36e5cae.1484817152.git.geliangtang@gmail.com>
- <6c1c772de8f70113580dade04f89a377174d8c88.1484817025.git.geliangtang@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] virtio-net: restore VIRTIO_HDR_F_DATA_VALID on
+	receiving
+Date: Sun, 22 Jan 2017 16:18:39 +0800
+Message-ID: <30305cb9-b6c2-5bba-ebad-683221abc4ba@redhat.com>
+References: <1484893962-7614-1-git-send-email-jasowang@redhat.com>
+	<20170120184220-mutt-send-email-mst@kernel.org>
+	<268cadeb-433c-7960-5fe6-a06f849493a8@redhat.com>
+	<20170122061838-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="uxuisgdDHaNETlh8"
-Cc: Yishai Hadas <yishaih@mellanox.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geliang Tang <geliangtang@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:57748 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750912AbdAVHsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Jan 2017 02:48:41 -0500
-Content-Disposition: inline
-In-Reply-To: <6c1c772de8f70113580dade04f89a377174d8c88.1484817025.git.geliangtang@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Rolf Neugebauer <rolf.neugebauer@docker.com>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170122061838-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-
---uxuisgdDHaNETlh8
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, Jan 20, 2017 at 10:36:57PM +0800, Geliang Tang wrote:
-> To make the code clearer, use rb_entry() instead of container_of() to
-> deal with rbtree.
->
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-
-I don't understand completely the rationale behind this conversion.
-rb_entry == container_of, why do we need another name for it?
-
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> index 1822382..6da6e01 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-> @@ -236,8 +236,8 @@ static void *res_tracker_lookup(struct rb_root *root, u64 res_id)
->  	struct rb_node *node = root->rb_node;
->
->  	while (node) {
-> -		struct res_common *res = container_of(node, struct res_common,
-> -						      node);
-> +		struct res_common *res = rb_entry(node, struct res_common,
-> +						  node);
->
->  		if (res_id < res->res_id)
->  			node = node->rb_left;
-> @@ -255,8 +255,8 @@ static int res_tracker_insert(struct rb_root *root, struct res_common *res)
->
->  	/* Figure out where to put new node */
->  	while (*new) {
-> -		struct res_common *this = container_of(*new, struct res_common,
-> -						       node);
-> +		struct res_common *this = rb_entry(*new, struct res_common,
-> +						   node);
->
->  		parent = *new;
->  		if (res->res_id < this->res_id)
-> --
-> 2.9.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---uxuisgdDHaNETlh8
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAliEY9cACgkQ5GN7iDZy
-WKeDTw/+J9x8ygvxpRu+slKFFqZXXPARllOV3nH6hmGHi/QkAeQcvTj0R6/p1AjS
-4viEM5OC3ai6XOWrgt2dniJU2v3pUMHwH6+U1zi3IkFgvb0wFzZhv1mOnj5Xsu0I
-IUT9380PZip2ChFpP/S7FUIN5zsm8VejU9dlhkgW+TFlbdEo4djr4+brdXBcLigP
-kAalbPOiNkOmwJEnZPq3AQPtrkyM3ASkhUON1iOEdxpr0SzXt5H7A0qMRJWubOVR
-tqZEsQQKYdRMLW+Am22L3Bi9D0vQgMvOEbClVtZKQXTkiUazLZcx6Qv87CZBoJY2
-tXXTX1evRSXqTomcPt3kmRUM9tyec91EpJpqj+F9ZvHU+cJMk0acePPTY+QqmMQd
-kDNNkT7f0LZSsy4DcgzMaDuYl3LfrIknPcJmSnHiOpdvmE+KlVQb1ys9R7sKUBd6
-n+5YSdyhlxzrWAZKjC3TITj72os9xCP8nkSyP18kb5aq15wL2mjB7BDOWT9nUz1W
-/VvfG7WQReG4PUG+wPuVu2AbgWeFq0o7th9eZXSAVT4OAeN52IP7Ywd0djTgj4w6
-XBQVifFsovqHJFrI+CaDdhplpDj85IHRv67SUq8AkWjv75dEE4TJo2u9WqXKvk/8
-mcU+tiZr+DLdZDY5t8J0AgudxECB7mPk4jUzlbCIBhsUi7KYHxM=
-=PYQU
------END PGP SIGNATURE-----
-
---uxuisgdDHaNETlh8--
+CgpPbiAyMDE35bm0MDHmnIgyMuaXpSAxMjoyMiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFN1biwgSmFuIDIyLCAyMDE3IGF0IDEwOjQxOjIyQU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTflubQwMeaciDIx5pelIDAwOjQ1LCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBGcmksIEphbiAyMCwgMjAxNyBhdCAwMjozMjo0MlBNICswODAwLCBKYXNv
+biBXYW5nIHdyb3RlOgo+Pj4+IENvbW1pdCA1MDFkYjUxMTM5N2YgKCJ2aXJ0aW86IGRvbid0IHNl
+dCBWSVJUSU9fTkVUX0hEUl9GX0RBVEFfVkFMSUQgb24KPj4+PiB4bWl0IikgaW4gZmFjdCBkaXNh
+YmxlcyBWSVJUSU9fSERSX0ZfREFUQV9WQUxJRCBvbiByZWNlaXZpbmcgcGF0aCB0b28sCj4+Pj4g
+Zml4aW5nIHRoaXMgYnkgYWRkaW5nIGEgaGludCAoaGFzX2RhdGFfdmFsaWQpIGFuZCBzZXQgaXQg
+b25seSBvbiB0aGUKPj4+PiByZWNlaXZpbmcgcGF0aC4KPj4+Pgo+Pj4+IENjOiBSb2xmIE5ldWdl
+YmF1ZXI8cm9sZi5uZXVnZWJhdWVyQGRvY2tlci5jb20+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFz
+b24gV2FuZzxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+Pj4+IC0tLQo+Pj4+ICAgIGRyaXZlcnMvbmV0
+L21hY3Z0YXAuYyAgICAgIHwgMiArLQo+Pj4+ICAgIGRyaXZlcnMvbmV0L3R1bi5jICAgICAgICAg
+IHwgMiArLQo+Pj4+ICAgIGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyAgIHwgMiArLQo+Pj4+ICAg
+IGluY2x1ZGUvbGludXgvdmlydGlvX25ldC5oIHwgNiArKysrKy0KPj4+PiAgICBuZXQvcGFja2V0
+L2FmX3BhY2tldC5jICAgICB8IDQgKystLQo+Pj4+ICAgIDUgZmlsZXMgY2hhbmdlZCwgMTAgaW5z
+ZXJ0aW9ucygrKSwgNiBkZWxldGlvbnMoLSkKPj4+Pgo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9tYWN2dGFwLmMgYi9kcml2ZXJzL25ldC9tYWN2dGFwLmMKPj4+PiBpbmRleCA1YzI2NjUz
+Li40MDI2MTg1IDEwMDY0NAo+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0L21hY3Z0YXAuYwo+Pj4+ICsr
+KyBiL2RyaXZlcnMvbmV0L21hY3Z0YXAuYwo+Pj4+IEBAIC04MjUsNyArODI1LDcgQEAgc3RhdGlj
+IHNzaXplX3QgbWFjdnRhcF9wdXRfdXNlcihzdHJ1Y3QgbWFjdnRhcF9xdWV1ZSAqcSwKPj4+PiAg
+ICAJCQlyZXR1cm4gLUVJTlZBTDsKPj4+PiAgICAJCWlmICh2aXJ0aW9fbmV0X2hkcl9mcm9tX3Nr
+Yihza2IsICZ2bmV0X2hkciwKPj4+PiAtCQkJCQkgICAgbWFjdnRhcF9pc19saXR0bGVfZW5kaWFu
+KHEpKSkKPj4+PiArCQkJCQkgICAgbWFjdnRhcF9pc19saXR0bGVfZW5kaWFuKHEpLCB0cnVlKSkK
+Pj4+PiAgICAJCQlCVUcoKTsKPj4+PiAgICAJCWlmIChjb3B5X3RvX2l0ZXIoJnZuZXRfaGRyLCBz
+aXplb2Yodm5ldF9oZHIpLCBpdGVyKSAhPQo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC90
+dW4uYyBiL2RyaXZlcnMvbmV0L3R1bi5jCj4+Pj4gaW5kZXggY2Q4ZTAyYy4uMmNkMTBiMiAxMDA2
+NDQKPj4+PiAtLS0gYS9kcml2ZXJzL25ldC90dW4uYwo+Pj4+ICsrKyBiL2RyaXZlcnMvbmV0L3R1
+bi5jCj4+Pj4gQEAgLTEzNjAsNyArMTM2MCw3IEBAIHN0YXRpYyBzc2l6ZV90IHR1bl9wdXRfdXNl
+cihzdHJ1Y3QgdHVuX3N0cnVjdCAqdHVuLAo+Pj4+ICAgIAkJCXJldHVybiAtRUlOVkFMOwo+Pj4+
+ICAgIAkJaWYgKHZpcnRpb19uZXRfaGRyX2Zyb21fc2tiKHNrYiwgJmdzbywKPj4+PiAtCQkJCQkg
+ICAgdHVuX2lzX2xpdHRsZV9lbmRpYW4odHVuKSkpIHsKPj4+PiArCQkJCQkgICAgdHVuX2lzX2xp
+dHRsZV9lbmRpYW4odHVuKSwgdHJ1ZSkpIHsKPj4+PiAgICAJCQlzdHJ1Y3Qgc2tiX3NoYXJlZF9p
+bmZvICpzaW5mbyA9IHNrYl9zaGluZm8oc2tiKTsKPj4+PiAgICAJCQlwcl9lcnIoInVuZXhwZWN0
+ZWQgR1NPIHR5cGU6ICIKPj4+PiAgICAJCQkgICAgICAgIjB4JXgsIGdzb19zaXplICVkLCBoZHJf
+bGVuICVkXG4iLAo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMgYi9k
+cml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4+PiBpbmRleCA0YTEwNTAwLi4zNDc0MjQzIDEwMDY0
+NAo+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+Pj4+ICsrKyBiL2RyaXZlcnMv
+bmV0L3ZpcnRpb19uZXQuYwo+Pj4+IEBAIC0xMTA0LDcgKzExMDQsNyBAQCBzdGF0aWMgaW50IHht
+aXRfc2tiKHN0cnVjdCBzZW5kX3F1ZXVlICpzcSwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPj4+PiAg
+ICAJCWhkciA9IHNrYl92bmV0X2hkcihza2IpOwo+Pj4+ICAgIAlpZiAodmlydGlvX25ldF9oZHJf
+ZnJvbV9za2Ioc2tiLCAmaGRyLT5oZHIsCj4+Pj4gLQkJCQkgICAgdmlydGlvX2lzX2xpdHRsZV9l
+bmRpYW4odmktPnZkZXYpKSkKPj4+PiArCQkJCSAgICB2aXJ0aW9faXNfbGl0dGxlX2VuZGlhbih2
+aS0+dmRldiksIGZhbHNlKSkKPj4+PiAgICAJCUJVRygpOwo+Pj4+ICAgIAlpZiAodmktPm1lcmdl
+YWJsZV9yeF9idWZzKQo+Pj4+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L3ZpcnRpb19uZXQu
+aCBiL2luY2x1ZGUvbGludXgvdmlydGlvX25ldC5oCj4+Pj4gaW5kZXggNTY0MzY0Ny4uNTIwOWI1
+ZSAxMDA2NDQKPj4+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L3ZpcnRpb19uZXQuaAo+Pj4+ICsrKyBi
+L2luY2x1ZGUvbGludXgvdmlydGlvX25ldC5oCj4+Pj4gQEAgLTU2LDcgKzU2LDggQEAgc3RhdGlj
+IGlubGluZSBpbnQgdmlydGlvX25ldF9oZHJfdG9fc2tiKHN0cnVjdCBza19idWZmICpza2IsCj4+
+Pj4gICAgc3RhdGljIGlubGluZSBpbnQgdmlydGlvX25ldF9oZHJfZnJvbV9za2IoY29uc3Qgc3Ry
+dWN0IHNrX2J1ZmYgKnNrYiwKPj4+PiAgICAJCQkJCSAgc3RydWN0IHZpcnRpb19uZXRfaGRyICpo
+ZHIsCj4+Pj4gLQkJCQkJICBib29sIGxpdHRsZV9lbmRpYW4pCj4+Pj4gKwkJCQkJICBib29sIGxp
+dHRsZV9lbmRpYW4sCj4+Pj4gKwkJCQkJICBib29sIGhhc19kYXRhX3ZhbGlkKQo+Pj4+ICAgIHsK
+Pj4+PiAgICAJbWVtc2V0KGhkciwgMCwgc2l6ZW9mKCpoZHIpKTsgICAvKiBubyBpbmZvIGxlYWsg
+Ki8KPj4+IEkgd291bGQgcHJlZmVyIG5hbWluZyBpdCBpc19yeC4gQ2FsbGVycyBzaG91bGQgbm90
+IGtub3cgYWJvdXQKPj4+IGludGVybmFsIGRldGFpbHMgbGlrZSBkYXRhIHZhbGlkLCB0aGUgaXNz
+dWUgd2UgYXJlIHRyeWluZyB0byBmaXgKPj4+IGhlcmUgaXMgdGhhdCB0eCBhbmQgdHggaGVhZGVy
+cyBhcmUgc2xpZ2h0bHkgZGlmZmVyZW50Lgo+Pj4KPj4gQWN0dWFsbHksIEkndmUgY29uc2lkZXJl
+ZCBzb21ldGhpbmcgbGlrZSB0aGlzLCBidXQgdGhlIHByb2JsZW0gaXM6Cj4+Cj4+IC0gdHVuIHVz
+ZSB0aGlzIG9uIHhtaXQsIHNvIGlzX3J4ID0gdHJ1ZSBtYXkgY2F1c2Ugc29tZSBjb25mdXNpb24g
+aGVyZQo+IHR1biBpcyBnZW5lcmFsbHkgd2VpcmQsIHllcy4gaG93IGFib3V0IHJ4X2Zvcm1hdD8K
+Ck9rLgoKPgo+PiAtIEkgYmVsaWV2ZSB3ZSBtYXkgd2FudCB0byBzdXBwb3J0IERBVEFfVkFMSUQg
+KGxpa2UgeGVuLW5ldGJhY2spIG9uIHR4Cj4+IChwcm9iYWJseSB3aXRoIGEgZmVhdHVyZSkgaW4g
+dGhlIGZ1dHVyZS4KPj4KPj4gVGhhbmtzCj4gV2UnbGwgcHV0IHRoYXQga25vd2xlZGdlIHdpdGhp
+biB2aXJ0aW9fbmV0X2hkcl9mcm9tX3NrYiBub3QKPiBpbiB0aGUgY2FsbGVycyBJIHRoaW5rLgo+
+CgpNYXliZSwgd2lsbCBwcmVwYXJlIGEgcGF0Y2ggZm9yIG5ldC1uZXh0LgoKVGhhbmtzCgpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlv
+biBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcK
+aHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVh
+bGl6YXRpb24=
