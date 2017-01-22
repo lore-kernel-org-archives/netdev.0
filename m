@@ -1,107 +1,53 @@
-From: Nogah Frankel <nogahf@mellanox.com>
-Subject: RE: [PATCH iproute2 v4 3/4] ifstat: Add 64 bits based stats to
- extended statistics
-Date: Sun, 22 Jan 2017 15:34:45 +0000
-Message-ID: <DB5PR05MB1895E5D25BFD05D416EB11FDAC730@DB5PR05MB1895.eurprd05.prod.outlook.com>
-References: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
-        <1484228991-32999-4-git-send-email-nogahf@mellanox.com>
-        <20170112174335.1bd391c2@xeon-e3>
-        <DB5PR05MB1895D7CFBE9E127AAAE672DBAC7E0@DB5PR05MB1895.eurprd05.prod.outlook.com>
-        <5880E3FD.6010604@cumulusnetworks.com> <20170119111105.481dcc36@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "roszenrami@gmail.com" <roszenrami@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0089.outbound.protection.outlook.com ([104.47.1.89]:48256
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751746AbdAVPeu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Jan 2017 10:34:50 -0500
-In-Reply-To: <20170119111105.481dcc36@xeon-e3>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH] Documentation: net: phy: improve explanation when to specify the PHY ID
+Date: Sun, 22 Jan 2017 17:41:32 +0100
+Message-ID: <20170122164132.13967-1-martin.blumenstingl@googlemail.com>
+Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: andrew-g2DYL2Zd6BY@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFN0ZXBoZW4gSGVtbWluZ2Vy
-IFttYWlsdG86c3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmddDQo+IFNlbnQ6IFRodXJzZGF5LCBK
-YW51YXJ5IDE5LCAyMDE3IDk6MTEgUE0NCj4gVG86IFJvb3BhIFByYWJodSA8cm9vcGFAY3VtdWx1
-c25ldHdvcmtzLmNvbT4NCj4gQ2M6IE5vZ2FoIEZyYW5rZWwgPG5vZ2FoZkBtZWxsYW5veC5jb20+
-OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiByb3N6ZW5yYW1pQGdtYWlsLmNvbTsgSmlyaSBQ
-aXJrbyA8amlyaUBtZWxsYW5veC5jb20+OyBJZG8gU2NoaW1tZWwNCj4gPGlkb3NjaEBtZWxsYW5v
-eC5jb20+OyBFbGFkIFJheiA8ZWxhZHJAbWVsbGFub3guY29tPjsgWW90YW0gR2lnaQ0KPiA8eW90
-YW1nQG1lbGxhbm94LmNvbT47IE9yIEdlcmxpdHogPG9nZXJsaXR6QG1lbGxhbm94LmNvbT4NCj4g
-U3ViamVjdDogUmU6IFtQQVRDSCBpcHJvdXRlMiB2NCAzLzRdIGlmc3RhdDogQWRkIDY0IGJpdHMg
-YmFzZWQgc3RhdHMgdG8gZXh0ZW5kZWQgc3RhdGlzdGljcw0KPiANCj4gT24gVGh1LCAxOSBKYW4g
-MjAxNyAwODowNjoyMSAtMDgwMA0KPiBSb29wYSBQcmFiaHUgPHJvb3BhQGN1bXVsdXNuZXR3b3Jr
-cy5jb20+IHdyb3RlOg0KPiANCj4gPiBPbiAxLzE5LzE3LCA3OjIxIEFNLCBOb2dhaCBGcmFua2Vs
-IHdyb3RlOg0KPiA+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPj4gRnJvbTog
-Tm9nYWggRnJhbmtlbA0KPiA+ID4+IFNlbnQ6IFN1bmRheSwgSmFudWFyeSAxNSwgMjAxNyAzOjU1
-IFBNDQo+ID4gPj4gVG86ICdTdGVwaGVuIEhlbW1pbmdlcicgPHN0ZXBoZW5AbmV0d29ya3BsdW1i
-ZXIub3JnPg0KPiA+ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyByb3N6ZW5yYW1pQGdt
-YWlsLmNvbTsNCj4gcm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbTsgSmlyaQ0KPiA+ID4+IFBpcmtv
-IDxqaXJpQG1lbGxhbm94LmNvbT47IElkbyBTY2hpbW1lbCA8aWRvc2NoQG1lbGxhbm94LmNvbT47
-IEVsYWQgUmF6DQo+ID4gPj4gPGVsYWRyQG1lbGxhbm94LmNvbT47IFlvdGFtIEdpZ2kgPHlvdGFt
-Z0BtZWxsYW5veC5jb20+OyBPciBHZXJsaXR6DQo+ID4gPj4gPG9nZXJsaXR6QG1lbGxhbm94LmNv
-bT4NCj4gPiA+PiBTdWJqZWN0OiBSRTogW1BBVENIIGlwcm91dGUyIHY0IDMvNF0gaWZzdGF0OiBB
-ZGQgNjQgYml0cyBiYXNlZCBzdGF0cyB0byBleHRlbmRlZA0KPiBzdGF0aXN0aWNzDQo+ID4gPj4N
-Cj4gPiA+Pg0KPiA+ID4+DQo+ID4gPj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4g
-Pj4+IEZyb206IFN0ZXBoZW4gSGVtbWluZ2VyIFttYWlsdG86c3RlcGhlbkBuZXR3b3JrcGx1bWJl
-ci5vcmddDQo+ID4gPj4+IFNlbnQ6IEZyaWRheSwgSmFudWFyeSAxMywgMjAxNyAzOjQ0IEFNDQo+
-ID4gPj4+IFRvOiBOb2dhaCBGcmFua2VsIDxub2dhaGZAbWVsbGFub3guY29tPg0KPiA+ID4+PiBD
-YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgcm9zemVucmFtaUBnbWFpbC5jb207DQo+IHJvb3Bh
-QGN1bXVsdXNuZXR3b3Jrcy5jb207DQo+ID4gPj4gSmlyaQ0KPiA+ID4+PiBQaXJrbyA8amlyaUBt
-ZWxsYW5veC5jb20+OyBJZG8gU2NoaW1tZWwgPGlkb3NjaEBtZWxsYW5veC5jb20+OyBFbGFkIFJh
-eg0KPiA+ID4+PiA8ZWxhZHJAbWVsbGFub3guY29tPjsgWW90YW0gR2lnaSA8eW90YW1nQG1lbGxh
-bm94LmNvbT47IE9yIEdlcmxpdHoNCj4gPiA+Pj4gPG9nZXJsaXR6QG1lbGxhbm94LmNvbT4NCj4g
-PiA+Pj4gU3ViamVjdDogUmU6IFtQQVRDSCBpcHJvdXRlMiB2NCAzLzRdIGlmc3RhdDogQWRkIDY0
-IGJpdHMgYmFzZWQgc3RhdHMgdG8gZXh0ZW5kZWQNCj4gc3RhdGlzdGljcw0KPiA+ID4+Pg0KPiA+
-ID4+PiBPbiBUaHUsIDEyIEphbiAyMDE3IDE1OjQ5OjUwICswMjAwDQo+ID4gPj4+IE5vZ2FoIEZy
-YW5rZWwgPG5vZ2FoZkBtZWxsYW5veC5jb20+IHdyb3RlOg0KPiA+ID4+Pg0KPiA+ID4+Pj4gVGhl
-IGRlZmF1bHQgc3RhdHMgZm9yIGlmc3RhdCBhcmUgMzIgYml0cyBiYXNlZC4NCj4gPiA+Pj4+IFRo
-ZSBrZXJuZWwgc3VwcG9ydHMgNjQgYml0cyBiYXNlZCBzdGF0cy4gKFRoZXkgYXJlIHJldHVybmVk
-IGluIHN0cnVjdA0KPiA+ID4+Pj4gcnRubF9saW5rX3N0YXRzNjQgd2hpY2ggaXMgYW4gZXhhY3Qg
-Y29weSBvZiBzdHJ1Y3QgcnRubF9saW5rX3N0YXRzLCBpbg0KPiA+ID4+Pj4gd2hpY2ggdGhlICJu
-b3JtYWwiIHN0YXRzIGFyZSByZXR1cm5lZCwgYnV0IHdpdGggZmllbGRzIG9mIHU2NCBpbnN0ZWFk
-IG9mDQo+ID4gPj4+PiB1MzIpLiBUaGlzIHBhdGNoIGFkZHMgdGhlbSBhcyBhbiBleHRlbmRlZCBz
-dGF0cy4NCj4gPiA+Pj4+DQo+ID4gPj4+PiBJdCBpcyByZWFkIHdpdGggZmlsdGVyIHR5cGUgSUZM
-QV9TVEFUU19MSU5LXzY0IGFuZCBubyBzdWIgdHlwZS4NCj4gPiA+Pj4+DQo+ID4gPj4+PiBJdCBp
-cyB1bmRlciB0aGUgbmFtZSA2NGJpdHMNCj4gPiA+Pj4+IChvciBhbnkgc2hvcnRlbiBvZiBpdCBh
-cyAiNjQiKQ0KPiA+ID4+Pj4NCj4gPiA+Pj4+IEZvciBleGFtcGxlOg0KPiA+ID4+Pj4gaWZzdGF0
-IC14IDY0Yml0DQo+ID4gPj4+Pg0KPiA+ID4+Pj4gU2lnbmVkLW9mZi1ieTogTm9nYWggRnJhbmtl
-bCA8bm9nYWhmQG1lbGxhbm94LmNvbT4NCj4gPiA+Pj4+IFJldmlld2VkLWJ5OiBKaXJpIFBpcmtv
-IDxqaXJpQG1lbGxhbm94LmNvbT4NCj4gPiA+Pj4gT3RoZXIgY29tbWFuZHMgKGxpa2UgaXAgbGlu
-aykgYWx3YXlzIHVzZSB0aGUgNjQgYml0IHN0YXRpc3RpY3MgaWYgYXZhaWxhYmxlDQo+ID4gPj4+
-IGZyb20gdGhlIGRldmljZS4gSSBzZWUgbm8gcmVhc29uIHRoYXQgaWZzdGF0IG5lZWRzIHRvIGJl
-IGRpZmZlcmVudC4NCj4gPiA+Pj4NCj4gPiA+PiBEbyB5b3UgbWVhbiB0byBjaGFuZ2UgdGhlIGRl
-ZmF1bHQgaWZzdGF0IHJlc3VsdHMgdG8gYmUgNjQgYml0cyBiYXNlZD8NCj4gPiA+PiBJIHRyaWVk
-IGl0IGluIHRoZSBmaXJzdCB2ZXJzaW9uLCBidXQgUm9vcGEgY29tbWVudGVkIHRoYXQgaXQgd2Fz
-IG5vdCBhIGdvb2QgaWRlYS4NCj4gPiA+PiBTaGUgc2FpZCB0aGV5IHRyaWVkIGl0IGluIHRoZSBw
-YXN0IGFuZCBpdCBjYXVzZWQgYmFja3dhcmQgY29tcGF0aWJpbGl0aWVzIHByb2JsZW1zLg0KPiA+
-ID4+IChPciBtYXliZSBJIGRpZG4ndCB1bmRlcnN0YW5kIGNvcnJlY3RseSkNCj4gPiA+IFNvLCBj
-YW4gSSBsZWF2ZSB0aGUgZGVmYXVsdCBpZnN0YXQgcmVzdWx0cyB0byBiZSAzMiBiaXRzIGJhc2Vk
-LCBmb3IgdGhlIHRpbWUgYmVpbmc/DQo+ID4gPg0KPiA+IEZyb20gcGFzdCBkaXNjdXNzaW9uczog
-TW92aW5nIHRoZSBkZWZhdWx0IHRvIDY0Yml0IGhhcyBjb21wYXQgaXNzdWVzIHdpdGggdGhlIG9s
-ZA0KPiBoaXN0b3J5IGZpbGUuDQo+ID4gVGhlcmUgaXMgYSB3YXkgdG8gbWFrZSBpdCB3b3JrIGJ5
-IHVzaW5nIGEgbmV3IGZpbGUgaGVhZGVyICh0byBpbmRpY2F0ZSB0aGF0IGl0IGlzIDY0IGJpdCkg
-aW4NCj4gPiBhIGZyZXNobHkgY3JlYXRlZCBoaXN0b3J5IGZpbGUgYW5kIGFsc28gY2hlY2sgdGhp
-cyBoZWFkZXIgYmVmb3JlIGR1bXBpbmcgc3RhdHMgaW50byB0aGUNCj4gaGlzdG9yeSBmaWxlLg0K
-PiA+IGllIG1haW50YWluIGJhY2t3YXJkIGNvbXBhdCB3aXRob3V0IGludHJvZHVjaW5nIGEgbmV3
-IG9wdGlvbi4gSXQgaXMgZG9hYmxlLg0KPiA+DQo+ID4gT25lIGFwcHJvYWNoIGlzLCB5b3UgY2Fu
-IGRyb3AgdGhlIDY0Yml0IG9wdGlvbiBmcm9tIHRoaXMgc2VyaWVzIGFuZA0KPiA+IHRyeSB1cGRh
-dGluZyB0aGUgZGVmYXVsdCB0byA2NCBiaXQgKHdpdGggY29tcGF0IGhhbmRsaW5nIGNvZGUpIGlu
-IGEgbGF0ZXIgc2VyaWVzLg0KDQpJIHRoaW5rIEkgd2lsbCB0YWtlIHlvdXIgc3VnZ2VzdGlvbiB0
-byBkcm9wIHRoZSA2NCBiaXRzIGZyb20gdGhpcyBzZXJpZXMuDQpIb3BlZnVsbHksIEknbGwgcmV0
-dXJuIHRvIGl0IGluIHNvbWUgbGF0ZXIgc2VyaWVzIGluIHRoZSBmdXR1cmUuDQpUaGFua3MNCg0K
-PiANCj4gVGhlIGlmc3RhdCBjb2RlIGNvdWxkIGRvIGNvbnZlcnNpb24gYmFzZWQgb24gZmlsZSBz
-aXplLg0KPiANCj4gICBpZiAoaGlzdG9yeV9maWxlX2lzXzMyYml0KCkpIHsNCj4gCXByaW50Zigi
-Y29udmVydGluZyB0byA2NCBiaXQgZm9ybWF0XG4iKTsNCj4gICAgICAgICAuLi4NCj4gICB9DQo+
-IA0KPiANCg0K
+The old description basically read like "ethernet-phy-idAAAA.BBBB" can
+be specified when you know the actual PHY ID. However, specifying this
+has a side-effect: it forces Linux to bind to a certain PHY driver (the
+one that matches the ID given in the compatible string), ignoring the ID
+which is reported by the actual PHY.
+Whenever a device is shipped with (multiple) different PHYs during it's
+production lifetime then explicitly specifying
+"ethernet-phy-idAAAA.BBBB" could break certain revisions of that device.
+
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+---
+Thanks to Andrew Lunn for pointing the documentation issue out to me in:
+http://lists.infradead.org/pipermail/linux-amlogic/2017-January/002141.html
+
+
+ Documentation/devicetree/bindings/net/phy.txt | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index ff1bc4b1bb3b..fb5056b22685 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -19,8 +19,9 @@ Optional Properties:
+   specifications. If neither of these are specified, the default is to
+   assume clause 22.
+ 
+-  If the phy's identifier is known then the list may contain an entry
+-  of the form: "ethernet-phy-idAAAA.BBBB" where
++  If the PHY reports an incorrect ID (or none at all) then the
++  "compatible" list may contain an entry with the correct PHY ID in the
++  form: "ethernet-phy-idAAAA.BBBB" where
+      AAAA - The value of the 16 bit Phy Identifier 1 register as
+             4 hex digits. This is the chip vendor OUI bits 3:18
+      BBBB - The value of the 16 bit Phy Identifier 2 register as
+-- 
+2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
