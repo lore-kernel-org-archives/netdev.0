@@ -1,85 +1,51 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [patch net-next 2/4] net/sched: Introduce sample tc action
-Date: Sun, 22 Jan 2017 13:28:16 +0000
-Message-ID: <DB3PR05MB07647B3EAE035276C60CCB4DAC730@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
- <1485085487-2652-3-git-send-email-jiri@resnulli.us>
- <52d57d84-6e0d-0ff3-5027-6dea06f4a683@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        "geert+renesas@glider.be" <geert+renesas@glider.be>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "linux@roeck-us.net" <linux@roeck-us.net>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-        "simon.horman@netronome.com" <simon.horman@netronome.com>,
-        "mrv@mojatatu.com" <mrv@mojatatu.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH iproute2 1/1] tc: distinguish Add/Replace action operations.
+Date: Sun, 22 Jan 2017 08:55:33 -0500
+Message-ID: <1485093333-18317-1-git-send-email-mrv@mojatatu.com>
+Cc: netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr30083.outbound.protection.outlook.com ([40.107.3.83]:37232
-        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750985AbdAVN23 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Jan 2017 08:28:29 -0500
-In-Reply-To: <52d57d84-6e0d-0ff3-5027-6dea06f4a683@mojatatu.com>
-Content-Language: en-US
+Received: from mail-it0-f66.google.com ([209.85.214.66]:35186 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750886AbdAVN4l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 08:56:41 -0500
+Received: by mail-it0-f66.google.com with SMTP id 203so7572339ith.2
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 05:56:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Jamal Hadi Salim [mailto:jhs@mojatatu.com]
->Sent: Sunday, January 22, 2017 3:17 PM
->To: Jiri Pirko <jiri@resnulli.us>; netdev@vger.kernel.org
->Cc: davem@davemloft.net; Yotam Gigi <yotamg@mellanox.com>; Ido Schimmel
-><idosch@mellanox.com>; Elad Raz <eladr@mellanox.com>; Nogah Frankel
-><nogahf@mellanox.com>; Or Gerlitz <ogerlitz@mellanox.com>;
->geert+renesas@glider.be; stephen@networkplumber.org;
->xiyou.wangcong@gmail.com; linux@roeck-us.net; roopa@cumulusnetworks.com;
->john.fastabend@gmail.com; simon.horman@netronome.com; mrv@mojatatu.com
->Subject: Re: [patch net-next 2/4] net/sched: Introduce sample tc action
->
->On 17-01-22 06:44 AM, Jiri Pirko wrote:
->
->> diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
->> new file mode 100644
->> index 0000000..24e20e4
->> --- /dev/null
->> +++ b/net/sched/act_sample.c
->> @@ -0,0 +1,274 @@
->> +/*
->> + * net/sched/act_sample.c - Packet samplig tc action
->
->typo: "Sampling"
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ tc/m_action.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-It took me a while to see it. Will fix :)
-
->
->
->> +static int tcf_sample(struct sk_buff *skb, const struct tc_action *a,
->> +		      struct tcf_result *res)
->
->
->Can you rename this function because it is also the name of the data
->structure? It makes it easier to grep.
->I know we have this all over the place in other actions (and i hope
->those are cleaned up at some point).
-
-OK, makes sense.
-
->
->otherwise:
->Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-Thanks!=20
-
->
->cheers,
->jamal
+diff --git a/tc/m_action.c b/tc/m_action.c
+index bb19df8..05ef07e 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -365,12 +365,18 @@ int print_action(const struct sockaddr_nl *who,
+ 			fprintf(fp, "Flushed table ");
+ 			tab_flush = 1;
+ 		} else {
+-			fprintf(fp, "deleted action ");
++			fprintf(fp, "Deleted action ");
+ 		}
+ 	}
+ 
+-	if (n->nlmsg_type == RTM_NEWACTION)
+-		fprintf(fp, "Added action ");
++	if (n->nlmsg_type == RTM_NEWACTION) {
++		if ((n->nlmsg_flags & NLM_F_CREATE) &&
++		    !(n->nlmsg_flags & NLM_F_REPLACE)) {
++			fprintf(fp, "Added action ");
++		} else if (n->nlmsg_flags & NLM_F_REPLACE) {
++			fprintf(fp, "Replaced action ");
++		}
++	}
+ 	tc_print_action(fp, tb[TCA_ACT_TAB]);
+ 
+ 	return 0;
+-- 
+1.9.1
