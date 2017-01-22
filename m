@@ -1,36 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: mvneta: implement .set_wol and .get_wol
-Date: Sun, 22 Jan 2017 17:49:35 +0100
-Message-ID: <20170122164935.GA26560@lunn.ch>
-References: <1485079590-6392-1-git-send-email-houjingj@marvell.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH] Documentation: net: phy: improve explanation when to
+ specify the PHY ID
+Date: Sun, 22 Jan 2017 17:57:04 +0100
+Message-ID: <20170122165704.GB26560@lunn.ch>
+References: <20170122164132.13967-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, thomas.petazzoni@free-electrons.com,
-        netdev@vger.kernel.org
-To: Jingju Hou <houjingj@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41017 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750999AbdAVQtm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Jan 2017 11:49:42 -0500
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1485079590-6392-1-git-send-email-houjingj@marvell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170122164132.13967-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 22, 2017 at 06:06:30PM +0800, Jingju Hou wrote:
-> Signed-off-by: Jingju Hou <houjingj@marvell.com>
+On Sun, Jan 22, 2017 at 05:41:32PM +0100, Martin Blumenstingl wrote:
+> The old description basically read like "ethernet-phy-idAAAA.BBBB" can
+> be specified when you know the actual PHY ID. However, specifying this
+> has a side-effect: it forces Linux to bind to a certain PHY driver (the
+> one that matches the ID given in the compatible string), ignoring the ID
+> which is reported by the actual PHY.
+> Whenever a device is shipped with (multiple) different PHYs during it's
+> production lifetime then explicitly specifying
+> "ethernet-phy-idAAAA.BBBB" could break certain revisions of that device.
+> 
+> Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 
-Hi Jingju
-
-Please include a real comment here. Something like:
-
-The mvneta itself does not support WOL, but the PHY might. So pass the
-calls to the PHY.
-
-It also looks like you are patching an old kernel. Network patches
-like this need to be against net-next. You should also include
-net-next in the subject line.
+Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
 
 Thanks
-	Andrew
+    Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
