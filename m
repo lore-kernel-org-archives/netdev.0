@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx4: use rb_entry()
-Date: Sun, 22 Jan 2017 16:48:47 -0500 (EST)
-Message-ID: <20170122.164847.331110749082525627.davem@davemloft.net>
-References: <c6a809ea5820242a4ae126b03cdcd910a36e5cae.1484817152.git.geliangtang@gmail.com>
-        <6c1c772de8f70113580dade04f89a377174d8c88.1484817025.git.geliangtang@gmail.com>
-        <20170122074839.GD28570@mtr-leonro.local>
+Subject: Re: [PATCH] net: stmicro: fix LS field mask in EEE configuration
+Date: Sun, 22 Jan 2017 16:49:53 -0500 (EST)
+Message-ID: <20170122.164953.874236089744264438.davem@davemloft.net>
+References: <ed690f703a3c82193737f1a9813dff8b1ff403dd.1484927665.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: geliangtang@gmail.com, yishaih@mellanox.com,
-        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: leon@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170122074839.GD28570@mtr-leonro.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: rayagond@vayavyalabs.com, netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55914 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdAVVtz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 16:49:55 -0500
+In-Reply-To: <ed690f703a3c82193737f1a9813dff8b1ff403dd.1484927665.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Leon Romanovsky <leon@kernel.org>
-Date: Sun, 22 Jan 2017 09:48:39 +0200
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Fri, 20 Jan 2017 16:00:26 +0000
 
-> I don't understand completely the rationale behind this conversion.
-> rb_entry == container_of, why do we need another name for it?
+> This patch fixes the LS mask when setting EEE timer.
+> LS field is 10 bits long and not 11 as currently.
+> 
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> Reported-By: Rayagond Kokatanur <rayagond@vayavyalabs.com>
 
-Because it's an annotation.
+Please indicate the appropriate target tree of your patch in the
+subject line just like all other developers on this list do, don't
+make me guess.
 
-Either you agree that the macro exists and it should be used in
-every spot where those types are being used, or you don't and
-therefore argue for the macro and it's usage completely.
+This time I figured out that this is meant for the net-next tree,
+but I will not guess next time, I will just reject your patch
+instead.
+
+Thanks.
