@@ -1,58 +1,112 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 4/8] net: dsa: mv88e6xxx: Set the CMODE for mv88e6390 ports 9 & 10
-Date: Fri, 20 Jan 2017 19:20:10 -0500
-Message-ID: <8737gdfemd.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1484955062-26718-1-git-send-email-andrew@lunn.ch> <1484955062-26718-5-git-send-email-andrew@lunn.ch>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
+Date: Sun, 22 Jan 2017 10:09:23 -0800
+Message-ID: <CALx6S369rCbKYh3aLGp4G1GLwG456yqnX-a3fnG+vAKgvmS8vw@mail.gmail.com>
+References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
+ <CALx6S35+miSu6QgjyQYVDGqu4hkq0eoj+wHha35HH5+DdSQtEg@mail.gmail.com> <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Davem <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: kernel netdev <netdev@brouer.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:57676 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752276AbdAUAUj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Jan 2017 19:20:39 -0500
-In-Reply-To: <1484955062-26718-5-git-send-email-andrew@lunn.ch>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:34181 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751728AbdAVSRw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 13:17:52 -0500
+Received: by mail-qt0-f196.google.com with SMTP id a29so12177175qtb.1
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 10:17:52 -0800 (PST)
+In-Reply-To: <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Sat, Jan 21, 2017 at 11:12 AM, kernel netdev <netdev@brouer.com> wrote:
+>
+>
+> Den 21. jan. 2017 7.10 PM skrev "Tom Herbert" <tom@herbertland.com>:
+>
+> On Thu, Jan 19, 2017 at 11:14 AM, Saeed Mahameed
+> <saeedm@dev.mellanox.co.il> wrote:
+>> On Thu, Jan 19, 2017 at 9:03 AM, Eric Dumazet <eric.dumazet@gmail.com>
+>> wrote:
+>>> From: Eric Dumazet <edumazet@google.com>
+>>>
+>>> A driver using dev_alloc_page() must not reuse a page allocated from
+>>> emergency memory reserve.
+>>>
+>>> Otherwise all packets using this page will be immediately dropped,
+>>> unless for very specific sockets having SOCK_MEMALLOC bit set.
+>>>
+>>> This issue might be hard to debug, because only a fraction of received
+>>> packets would be dropped.
+>>
+>> Hi Eric,
+>>
+>> When you say reuse, you mean point to the same page from several SKBs ?
+>>
+>> Because in our page cache implementation we don't reuse pages that
+>> already passed to the stack,
+>> we just keep them in the page cache until the ref count drop back to
+>> one, so we recycle them (i,e they will be re-used only when no one
+>> else is using them).
+>>
+> Saeed,
+>
+> Speaking of the mlx page cache can we remove this or a least make it
+> optional to use. It is another example of complex functionality being
+> put into drivers that makes things like backports more complicated and
+> provide at best some marginal value. In the case of the mlx5e cache
+> code the results from pktgen really weren't very impressive in the
+> first place. Also, the cache suffers from HOL blocking where we can
+> block the whole cache due to an outstanding reference on just one page
+> (something that you wouldn't see in pktgen but is likely to happen in
+> real applications).
+>
+>
+> (Send from phone in car)
+>
+> To Tom, have you measured the effect of this page cache? Before claiming =
+it
+> is ineffective.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+No, I have not. TBH, I have most of the past few weeks trying to debug
+a backport of the code from 4.9 to 4.6. Until we have a working
+backport performance is immaterial for our purposes. Unfortunately, we
+are seeing some issues: the checksum faults I described previously and
+crashes on bad page refcns which are presumably being caused by the
+logic in RX buffer processing. This is why I am now having to dissect
+the code and trying to disable things like the page cache that are not
+essential functionality.
 
-> Unlike most ports, ports 9 and 10 of the 6390X family have configurable
-> PHY modes. Set the mode as part of adjust_link().
+In any case the HOL blocking issue is obvious from reading the code
+which and implies bimodal behavior-- we don't need a test for that to
+know it's a bad as we've see the bad effects of that in many other
+contexts.
 >
-> Ordering is important, because the SERDES interfaces connected to
-> ports 9 and 10 can be split and assigned to other ports. The CMODE has
-> to be correctly set before the SERDES interface on another port can be
-> configured. Such configuration is likely to be performed in
-> port_enable() and port_disabled(), called on slave_open() and
-> slave_close().
+> My previous measurements show approx 20=E2=84=85 speedup on a UDP test wi=
+th delivery
+> to remote CPU.
 >
-> The simple case is port 9 and 10 are used for 'CPU' or 'DSA'. In this
-> case, the CMODE is set via a phy-mode in dsa_cpu_dsa_setup(), which is
-> called early in the switch setup.
+> Removing the cache would of cause be a good usecase for speeding up the p=
+age
+> allocator (PCP). Which Mel Gorman and me are working on. AFAIK current pa=
+ge
+> order0 cost 240 cycles. Mel have reduced til to 180, and without NUMA 150
+> cycles. And with bulking this can be amortized to 80 cycles.
 >
-> When ports 9 or 10 are used as user ports, and have a fixed-phy, when
-> the fixed fixed-phy is attached, dsa_slave_adjust_link() is called,
-> which results in the adjust_link function being called, setting the
-> cmode. The port_enable() will for other ports will be called much
-> later.
->
-> When ports 9 or 10 are used as user ports and have a real phy attached
-> which does not use all the available SERDES interface, e.g. a 1Gbps
-> SGMII, there is currently no mechanism in place to set the CMODE of
-> the port from software. It must be hoped the stripping resistors are
-> correct.
->
-> At the same time, add a function to get the cmode. This will be needed
-> when configuring the SERDES interfaces.
->
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+That would be great. If only I had a nickel for every time someone
+started working on a driver and came the conclusion that they need to
+do a custom memory allocator because the kernel allocator is so
+inefficient!
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Tom
 
-Thanks for the very descriptive message, the patch looks perfect.
-
-        Vivien
+> --Jesper
+>
