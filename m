@@ -1,40 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] net: dsa: Fix inverted test for multiple CPU interface
-Date: Sun, 22 Jan 2017 22:16:45 +0100
-Message-ID: <1485119805-30338-1-git-send-email-andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41146 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750703AbdAVVkR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Jan 2017 16:40:17 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RESEND PATCH net] macsec: fix validation failed in
+ asynchronous operation.
+Date: Sun, 22 Jan 2017 16:44:50 -0500 (EST)
+Message-ID: <20170122.164450.1158725072101098502.davem@davemloft.net>
+References: <1484988127-25860-1-git-send-email-ryder.lee@mediatek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ sd-y1jBWg8GRStKuXlAQpz2QA@public.gmane.org
+To: ryder.lee-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1484988127-25860-1-git-send-email-ryder.lee-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Remove the wrong !, otherwise we get false positives about having
-multiple CPU interfaces.
 
-Fixes: b22de490869d ("net: dsa: store CPU switch structure in the tree")
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- net/dsa/dsa.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Why are you resending this?
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 77cb78767f1d..1f3afeb673d6 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -225,7 +225,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 			continue;
- 
- 		if (!strcmp(name, "cpu")) {
--			if (!dst->cpu_switch) {
-+			if (dst->cpu_switch) {
- 				netdev_err(dst->master_netdev,
- 					   "multiple cpu ports?!\n");
- 				return -EINVAL;
--- 
-2.11.0
+The original posting on Jan 20th made it to the mailing list and is queued
+up in patchwork just fine.
+
+Also, regardless of the reason, a "RESEND" patch should always contain an
+explanation of why it needs to be resent.  So that the maintainer doesn't
+need to ask questions like I am right now.
