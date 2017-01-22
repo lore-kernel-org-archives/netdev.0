@@ -1,144 +1,106 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
-Date: Sun, 22 Jan 2017 09:50:13 -0800
-Message-ID: <CALx6S37EsGgf69R6N5DkLQbOgiHO1J4si4LMJ1+DMjnHW41eMQ@mail.gmail.com>
-References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
- <CALx6S35+miSu6QgjyQYVDGqu4hkq0eoj+wHha35HH5+DdSQtEg@mail.gmail.com>
- <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com> <CALzJLG9JEorLwV48H3m0vQ1+VDnpYbKhiBoUw+WW-JFouJoj1g@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v5 1/1] net sched actions: Add support for user
+ cookies
+Date: Sun, 22 Jan 2017 10:13:28 -0800
+Message-ID: <11da08ed-32b3-2a9f-8ba4-54b346cabecc@gmail.com>
+References: <1485089498-6673-1-git-send-email-jhs@emojatatu.com>
+ <1485089498-6673-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: kernel netdev <netdev@brouer.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Davem <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
+        roid@mellanox.com, xiyou.wangcong@gmail.com, daniel@iogearbox.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:33695 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751749AbdAVRuP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 12:50:15 -0500
-Received: by mail-qt0-f195.google.com with SMTP id n13so12057416qtc.0
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 09:50:14 -0800 (PST)
-In-Reply-To: <CALzJLG9JEorLwV48H3m0vQ1+VDnpYbKhiBoUw+WW-JFouJoj1g@mail.gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33133 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751047AbdAVSNe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 13:13:34 -0500
+Received: by mail-wm0-f67.google.com with SMTP id r144so20750144wme.0
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 10:13:33 -0800 (PST)
+In-Reply-To: <1485089498-6673-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 21, 2017 at 12:31 PM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Sat, Jan 21, 2017 at 9:12 PM, kernel netdev <netdev@brouer.com> wrote:
->>
->>
->> Den 21. jan. 2017 7.10 PM skrev "Tom Herbert" <tom@herbertland.com>:
->>
->> On Thu, Jan 19, 2017 at 11:14 AM, Saeed Mahameed
->> <saeedm@dev.mellanox.co.il> wrote:
->>> On Thu, Jan 19, 2017 at 9:03 AM, Eric Dumazet <eric.dumazet@gmail.com>
->>> wrote:
->>>> From: Eric Dumazet <edumazet@google.com>
->>>>
->>>> A driver using dev_alloc_page() must not reuse a page allocated from
->>>> emergency memory reserve.
->>>>
->>>> Otherwise all packets using this page will be immediately dropped,
->>>> unless for very specific sockets having SOCK_MEMALLOC bit set.
->>>>
->>>> This issue might be hard to debug, because only a fraction of received
->>>> packets would be dropped.
->>>
->>> Hi Eric,
->>>
->>> When you say reuse, you mean point to the same page from several SKBs ?
->>>
->>> Because in our page cache implementation we don't reuse pages that
->>> already passed to the stack,
->>> we just keep them in the page cache until the ref count drop back to
->>> one, so we recycle them (i,e they will be re-used only when no one
->>> else is using them).
->>>
->> Saeed,
->>
->> Speaking of the mlx page cache can we remove this or a least make it
->> optional to use. It is another example of complex functionality being
->> put into drivers that makes things like backports more complicated and
->
-> Re complexity, I am not sure the mlx page cache is that complex,
-> we just wrap alloc_page/put_page with our own page cache calls.
-> Roughly the page cache implementation is 200-300 LOC tops all concentrate=
-d
-> in one place in the code.
->
-Taken as part of the RX buffer management code the whole thing in very
-complicated and seems to be completely bereft of any comments in the
-code as to how things are supposed to work.
 
->> provide at best some marginal value. In the case of the mlx5e cache
->> code the results from pktgen really weren't very impressive in the
->> first place. Also, the cache suffers from HOL blocking where we can
->
-> Well, with pktgen you won't notice a huge improvement since the pages are=
- freed
-> in the stack directly from our rx receive handler (gro_receive), those
-> pages will go back to the page allocator and get requested immediately
-> again from the driver (no stress).
->
-> The real improvements are seen when you really stress the page allocator =
-with
-> real uses cases such as  TCP/UDP with user applications, where the
-> pages are held longer than the driver needs, the page cache in this
-> case will play an important role of reducing the stress
-> on the page allocater since with those use cases we are juggling with
-> more pages than pktgen could.
->
-> With more stress (#cores TCP streams) our humble page cache some times
-> can't hold ! and it will get full fast enough and will fail to recycle
-> for a huge percentage of the driver pages requests.
->
-> Before our own page cache we used dev_alloc_skb which used its own
-> cache "page_frag_cache" and it worked nice enough. So i don't really
-> recommend removing the page cache, until we have
-> a generic RX page cache solution for all device drivers.
->
->> block the whole cache due to an outstanding reference on just one page
->> (something that you wouldn't see in pktgen but is likely to happen in
->> real applications).
->>
->
-> Re the HOL issue, we have some upcoming patches that would drastically
-> improve the HOL blocking issue (we will simple swap the HOL on every
-> sample).
->
->>
->> (Send from phone in car)
->>
->
-> Driver Safe :) ..
->
->> To Tom, have you measured the effect of this page cache? Before claiming=
- it
->> is ineffective.
->>
->> My previous measurements show approx 20=E2=84=85 speedup on a UDP test w=
-ith delivery
->> to remote CPU.
->>
->> Removing the cache would of cause be a good usecase for speeding up the =
-page
->> allocator (PCP). Which Mel Gorman and me are working on. AFAIK current p=
-age
->> order0 cost 240 cycles. Mel have reduced til to 180, and without NUMA 15=
-0
->> cycles. And with bulking this can be amortized to 80 cycles.
->>
->
-> Are you trying to say that we won't need the cache if you manage to
-> deliver those optimizations ?
-> can you compare those optimizations with the page_frag_cache from
-> dev_alloc_skb ?
->
->> --Jesper
->>
+
+On 01/22/2017 04:51 AM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> Introduce optional 128-bit action cookie.
+> Like all other cookie schemes in the networking world (eg in protocols
+> like http or existing kernel fib protocol field, etc) the idea is to save
+> user state that when retrieved serves as a correlator. The kernel
+> _should not_ intepret it.  The user can store whatever they wish in the
+> 128 bits.
+> 
+> Sample exercise(showing variable length use of cookie)
+> 
+> .. create an accept action with cookie a1b2c3d4
+> sudo $TC actions add action ok index 1 cookie a1b2c3d4
+> 
+> .. dump all gact actions..
+> sudo $TC -s actions ls action gact
+> 
+>     action order 0: gact action pass
+>      random type none pass val 0
+>      index 1 ref 1 bind 0 installed 5 sec used 5 sec
+>     Action statistics:
+>     Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>     backlog 0b 0p requeues 0
+>     cookie a1b2c3d4
+> 
+> .. bind the accept action to a filter..
+> sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
+> u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
+> 
+> ... send some traffic..
+> $ ping 127.0.0.1 -c 3
+> PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
+> 64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
+> 64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
+> 64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
+> 
+> --- 127.0.0.1 ping statistics ---
+> 3 packets transmitted, 3 received, 0% packet loss, time 2109ms
+> rtt min/avg/max/mdev = 0.020/0.028/0.038/0.008 ms 1
+> 
+> ... show some stats
+> $ sudo $TC -s actions get action gact index 1
+> 
+>     action order 1: gact action pass
+>      random type none pass val 0
+>      index 1 ref 2 bind 1 installed 204 sec used 5 sec
+>     Action statistics:
+>         Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+>     backlog 0b 0p requeues 0
+>     cookie a1b2c3d4
+> 
+> .. try longer cookie...
+> $ sudo $TC actions replace action ok index 1 cookie 1234567890abcdef
+> .. dump..
+> $ sudo $TC -s actions ls action gact
+> 
+>     action order 1: gact action pass
+>      random type none pass val 0
+>      index 1 ref 2 bind 1 installed 204 sec used 5 sec
+>     Action statistics:
+>         Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+>     backlog 0b 0p requeues 0
+>     cookie 1234567890abcdef
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+> +		a->act_cookie->data = nla_memdup(tb[TCA_ACT_COOKIE],
+> +						 GFP_KERNEL);
+> +		if (!a->act_cookie->data) {
+> +			err = -ENOMEM;
+> +			tcf_hash_release(a, bind);
+> +			goto err_mod;
+> +		}
+
+Are not you leaking a->act_cookie here in case nla_memdup() fails here?
+-- 
+Florian
