@@ -1,58 +1,55 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v5 0/1] Add support for tc cookies
-Date: Sun, 22 Jan 2017 07:54:26 -0500
-Message-ID: <15594a09-5f3a-be5c-530f-316f95157345@mojatatu.com>
-References: <1485089498-6673-1-git-send-email-jhs@emojatatu.com>
+Subject: Re: [patch net-next 2/4] net/sched: Introduce sample tc action
+Date: Sun, 22 Jan 2017 08:16:38 -0500
+Message-ID: <52d57d84-6e0d-0ff3-5027-6dea06f4a683@mojatatu.com>
+References: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
+ <1485085487-2652-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
-        john.fastabend@gmail.com, simon.horman@netronome.com,
-        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
-        roid@mellanox.com, xiyou.wangcong@gmail.com, daniel@iogearbox.net
-To: davem@davemloft.net
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        geert+renesas@glider.be, stephen@networkplumber.org,
+        xiyou.wangcong@gmail.com, linux@roeck-us.net,
+        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
+        simon.horman@netronome.com, mrv@mojatatu.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:35625 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750968AbdAVNB7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 08:01:59 -0500
-Received: by mail-qt0-f195.google.com with SMTP id f4so11313112qte.2
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 05:01:59 -0800 (PST)
-In-Reply-To: <1485089498-6673-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:34078 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750973AbdAVNQk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 08:16:40 -0500
+Received: by mail-qk0-f196.google.com with SMTP id e1so7626904qkh.1
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 05:16:40 -0800 (PST)
+In-Reply-To: <1485085487-2652-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I removed people's reviewed/Acked because i changed the data structure
-per Daniel's suggestions.
+On 17-01-22 06:44 AM, Jiri Pirko wrote:
+
+> diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
+> new file mode 100644
+> index 0000000..24e20e4
+> --- /dev/null
+> +++ b/net/sched/act_sample.c
+> @@ -0,0 +1,274 @@
+> +/*
+> + * net/sched/act_sample.c - Packet samplig tc action
+
+typo: "Sampling"
+
+
+> +static int tcf_sample(struct sk_buff *skb, const struct tc_action *a,
+> +		      struct tcf_result *res)
+
+
+Can you rename this function because it is also the name of the data
+structure? It makes it easier to grep.
+I know we have this all over the place in other actions (and i hope
+those are cleaned up at some point).
+
+otherwise:
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
 cheers,
 jamal
-On 17-01-22 07:51 AM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Changes in V5:
->  - kill the stylistic changes
->  - Adopt a new structure with length-valuepointer representation
->  - rename some things
->
-> Changes in v4:
->  - move stylistic changes out into a separate patch
->    (and add more stylistic changes)
->
-> Changes in v3:
->  - use TC_ prefix for the max size
->  - move the cookie struct so visible only to kernel
->  - remove unneeded void * cast
->
-> Changes in V2:
->  -move from a union to a length-value representation
->
-> Jamal Hadi Salim (1):
->   net sched actions: Add support for user cookies
->
->  include/net/act_api.h        |  1 +
->  include/net/pkt_cls.h        |  8 ++++++++
->  include/uapi/linux/pkt_cls.h |  3 +++
->  net/sched/act_api.c          | 35 +++++++++++++++++++++++++++++++++++
->  4 files changed, 47 insertions(+)
->
