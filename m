@@ -1,71 +1,59 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next 1/4] net: Introduce psample, a new genetlink
- channel for packet sampling
-Date: Sun, 22 Jan 2017 08:19:35 -0500
-Message-ID: <9f5b46ff-2bc1-7b28-e13a-625bc495496f@mojatatu.com>
-References: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
- <1485085487-2652-2-git-send-email-jiri@resnulli.us>
+From: Felix Fietkau <nbd@nbd.name>
+Subject: Re: [net, 6/6] net: korina: version bump
+Date: Sun, 22 Jan 2017 14:21:47 +0100
+Message-ID: <52436caa-bdf5-708a-3a4f-67778e40d501@nbd.name>
+References: <1484674393-22515-1-git-send-email-roman@advem.lv>
+ <e607e3a1-8227-7768-2234-6a3340f4a368@nbd.name>
+ <CACiydbLu+sKihjKsGVV5kiruSAEwcpJFsUOyASxnBd6=5+xddQ@mail.gmail.com>
+ <CACiydbKPNZyN+_+TDkHsbg0uGR51iDcqSTAQUMKyVCJ+u9wL7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-        geert+renesas@glider.be, stephen@networkplumber.org,
-        xiyou.wangcong@gmail.com, linux@roeck-us.net,
-        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
-        simon.horman@netronome.com, mrv@mojatatu.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Roman Yeryomin <leroi.lists@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:32773 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751615AbdAVNTi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 08:19:38 -0500
-Received: by mail-qt0-f194.google.com with SMTP id n13so11350690qtc.0
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 05:19:38 -0800 (PST)
-In-Reply-To: <1485085487-2652-2-git-send-email-jiri@resnulli.us>
+Received: from nbd.name ([46.4.11.11]:46757 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751099AbdAVNVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 22 Jan 2017 08:21:49 -0500
+In-Reply-To: <CACiydbKPNZyN+_+TDkHsbg0uGR51iDcqSTAQUMKyVCJ+u9wL7w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-22 06:44 AM, Jiri Pirko wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
->
-> Add a general way for kernel modules to sample packets, without being tied
-> to any specific subsystem. This netlink channel can be used by tc,
-> iptables, etc. and allow to standardize packet sampling in the kernel.
->
-> For every sampled packet, the psample module adds the following metadata
-> fields:
->
-> PSAMPLE_ATTR_IIFINDEX - the packets input ifindex, if applicable
->
-> PSAMPLE_ATTR_OIFINDEX - the packet output ifindex, if applicable
->
-> PSAMPLE_ATTR_ORIGSIZE - the packet's original size, in case it has been
->    truncated during sampling
->
-> PSAMPLE_ATTR_SAMPLE_GROUP - the packet's sample group, which is set by the
->    user who initiated the sampling. This field allows the user to
->    differentiate between several samplers working simultaneously and
->    filter packets relevant to him
->
-> PSAMPLE_ATTR_GROUP_SEQ - sequence counter of last sent packet. The
->    sequence is kept for each group
->
-> PSAMPLE_ATTR_SAMPLE_RATE - the sampling rate used for sampling the packets
->
-> PSAMPLE_ATTR_DATA - the actual packet bits
->
-> In addition, add the GET_GROUPS netlink command which allows the user to
-> see the current sample groups, their refcount and sequence number. This
-> command currently supports only netlink dump mode.
->
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+On 2017-01-22 13:10, Roman Yeryomin wrote:
+> On 17 January 2017 at 21:19, Roman Yeryomin <leroi.lists@gmail.com> wrote:
+>> On 17 January 2017 at 20:55, Felix Fietkau <nbd@nbd.name> wrote:
+>>> On 2017-01-17 18:33, Roman Yeryomin wrote:
+>>>> Signed-off-by: Roman Yeryomin <roman@advem.lv>
+>>>> ---
+>>>>  drivers/net/ethernet/korina.c | 4 ++--
+>>>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
+>>>> index 83c994f..c8fed01 100644
+>>>> --- a/drivers/net/ethernet/korina.c
+>>>> +++ b/drivers/net/ethernet/korina.c
+>>>> @@ -66,8 +66,8 @@
+>>>>  #include <asm/mach-rc32434/dma_v.h>
+>>>>
+>>>>  #define DRV_NAME     "korina"
+>>>> -#define DRV_VERSION  "0.10"
+>>>> -#define DRV_RELDATE  "04Mar2008"
+>>>> +#define DRV_VERSION  "0.20"
+>>>> +#define DRV_RELDATE  "15Jan2017"
+>>> I think it would make more sense to remove this version instead of
+>>> bumping it. Individual driver versions are rather pointless, the kernel
+>>> version is more meaningful anyway.
+>>
+>> OK, makes sense
+> 
+> Actually, after thinking a bit more about this, not really...
+> How about ethtool, which uses driver name and version?
+> I see most ethernet drivers define some version. And it's pretty
+> useful, when using backports.
+> IMO, it should be kept and bumped.
+I don't really care, I just wanted to point out that the exact kernel
+version is a much more useful indicator, especially since not all patch
+submitters do the useless version bump dance.
 
-Will be useful to describe in the commit log that one needs to listen
-to PSAMPLE_NL_MCGRP_SAMPLE to see the samples.
-
-Reviewed-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+- Felix
