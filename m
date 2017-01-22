@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/4] net/sched: Introduce sample tc action
-Date: Sun, 22 Jan 2017 12:44:45 +0100
-Message-ID: <1485085487-2652-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 3/4] mlxsw: reg: add the Monitoring Packet Sampling Configuration Register
+Date: Sun, 22 Jan 2017 12:44:46 +0100
+Message-ID: <1485085487-2652-4-git-send-email-jiri@resnulli.us>
 References: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -12,463 +12,88 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mrv@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35057 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36851 "EHLO
         mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751283AbdAVLox (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 06:44:53 -0500
-Received: by mail-wm0-f66.google.com with SMTP id d140so18898030wmd.2
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 03:44:52 -0800 (PST)
+        with ESMTP id S1751291AbdAVLoy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 06:44:54 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r126so18851303wmr.3
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 03:44:53 -0800 (PST)
 In-Reply-To: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-This action allows the user to sample traffic matched by tc classifier.
-The sampling consists of choosing packets randomly and sampling them using
-the psample module. The user can configure the psample group number, the
-sampling rate and the packet's truncation (to save kernel-user traffic).
-
-Example:
-To sample ingress traffic from interface eth1, one may use the commands:
-
-tc qdisc add dev eth1 handle ffff: ingress
-
-tc filter add dev eth1 parent ffff: \
-	   matchall action sample rate 12 group 4
-
-Where the first command adds an ingress qdisc and the second starts
-sampling randomly with an average of one sampled packet per 12 packets on
-dev eth1 to psample group 4.
+The MPSC register allows to configure ingress packet sampling on specific
+port of the mlxsw device. The sampled packets are then trapped via
+PKT_SAMPLE trap.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/tc_act/tc_sample.h        |  50 +++++++
- include/uapi/linux/tc_act/Kbuild      |   1 +
- include/uapi/linux/tc_act/tc_sample.h |  26 ++++
- net/sched/Kconfig                     |  12 ++
- net/sched/Makefile                    |   1 +
- net/sched/act_sample.c                | 274 ++++++++++++++++++++++++++++++++++
- 6 files changed, 364 insertions(+)
- create mode 100644 include/net/tc_act/tc_sample.h
- create mode 100644 include/uapi/linux/tc_act/tc_sample.h
- create mode 100644 net/sched/act_sample.c
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 41 +++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
 
-diff --git a/include/net/tc_act/tc_sample.h b/include/net/tc_act/tc_sample.h
-new file mode 100644
-index 0000000..89e9305
---- /dev/null
-+++ b/include/net/tc_act/tc_sample.h
-@@ -0,0 +1,50 @@
-+#ifndef __NET_TC_SAMPLE_H
-+#define __NET_TC_SAMPLE_H
-+
-+#include <net/act_api.h>
-+#include <linux/tc_act/tc_sample.h>
-+#include <net/psample.h>
-+
-+struct tcf_sample {
-+	struct tc_action common;
-+	u32 rate;
-+	bool truncate;
-+	u32 trunc_size;
-+	struct psample_group __rcu *psample_group;
-+	u32 psample_group_num;
-+	struct list_head tcfm_list;
-+	struct rcu_head rcu;
-+};
-+#define to_sample(a) ((struct tcf_sample *)a)
-+
-+static inline bool is_tcf_sample(const struct tc_action *a)
-+{
-+#ifdef CONFIG_NET_CLS_ACT
-+	return a->ops && a->ops->type == TCA_ACT_SAMPLE;
-+#else
-+	return false;
-+#endif
-+}
-+
-+static inline __u32 tcf_sample_rate(const struct tc_action *a)
-+{
-+	return to_sample(a)->rate;
-+}
-+
-+static inline bool tcf_sample_truncate(const struct tc_action *a)
-+{
-+	return to_sample(a)->truncate;
-+}
-+
-+static inline int tcf_sample_trunc_size(const struct tc_action *a)
-+{
-+	return to_sample(a)->trunc_size;
-+}
-+
-+static inline struct psample_group *
-+tcf_sample_psample_group(const struct tc_action *a)
-+{
-+	return rcu_dereference(to_sample(a)->psample_group);
-+}
-+
-+#endif /* __NET_TC_SAMPLE_H */
-diff --git a/include/uapi/linux/tc_act/Kbuild b/include/uapi/linux/tc_act/Kbuild
-index e3db740..ba62ddf 100644
---- a/include/uapi/linux/tc_act/Kbuild
-+++ b/include/uapi/linux/tc_act/Kbuild
-@@ -4,6 +4,7 @@ header-y += tc_defact.h
- header-y += tc_gact.h
- header-y += tc_ipt.h
- header-y += tc_mirred.h
-+header-y += tc_sample.h
- header-y += tc_nat.h
- header-y += tc_pedit.h
- header-y += tc_skbedit.h
-diff --git a/include/uapi/linux/tc_act/tc_sample.h b/include/uapi/linux/tc_act/tc_sample.h
-new file mode 100644
-index 0000000..21378bc
---- /dev/null
-+++ b/include/uapi/linux/tc_act/tc_sample.h
-@@ -0,0 +1,26 @@
-+#ifndef __LINUX_TC_SAMPLE_H
-+#define __LINUX_TC_SAMPLE_H
-+
-+#include <linux/types.h>
-+#include <linux/pkt_cls.h>
-+#include <linux/if_ether.h>
-+
-+#define TCA_ACT_SAMPLE 26
-+
-+struct tc_sample {
-+	tc_gen;
-+};
-+
-+enum {
-+	TCA_SAMPLE_UNSPEC,
-+	TCA_SAMPLE_PARMS,
-+	TCA_SAMPLE_TM,
-+	TCA_SAMPLE_RATE,
-+	TCA_SAMPLE_TRUNC_SIZE,
-+	TCA_SAMPLE_PSAMPLE_GROUP,
-+	TCA_SAMPLE_PAD,
-+	__TCA_SAMPLE_MAX
-+};
-+#define TCA_SAMPLE_MAX (__TCA_SAMPLE_MAX - 1)
-+
-+#endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index a9aa38d..72cfa3a 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -650,6 +650,18 @@ config NET_ACT_MIRRED
- 	  To compile this code as a module, choose M here: the
- 	  module will be called act_mirred.
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 1357fe0..9fb0316 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -4965,6 +4965,46 @@ static inline void mlxsw_reg_mlcr_pack(char *payload, u8 local_port,
+ 					   MLXSW_REG_MLCR_DURATION_MAX : 0);
+ }
  
-+config NET_ACT_SAMPLE
-+        tristate "Traffic Sampling"
-+        depends on NET_CLS_ACT
-+        select PSAMPLE
-+        ---help---
-+	  Say Y here to allow packet sampling tc action. The packet sample
-+	  action consists of statistically choosing packets and sampling
-+	  them using the psample module.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called act_sample.
-+
- config NET_ACT_IPT
-         tristate "IPtables targets"
-         depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 4bdda36..7b915d2 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_CLS_ACT)	+= act_api.o
- obj-$(CONFIG_NET_ACT_POLICE)	+= act_police.o
- obj-$(CONFIG_NET_ACT_GACT)	+= act_gact.o
- obj-$(CONFIG_NET_ACT_MIRRED)	+= act_mirred.o
-+obj-$(CONFIG_NET_ACT_SAMPLE)	+= act_sample.o
- obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
- obj-$(CONFIG_NET_ACT_NAT)	+= act_nat.o
- obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
-diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
-new file mode 100644
-index 0000000..24e20e4
---- /dev/null
-+++ b/net/sched/act_sample.c
-@@ -0,0 +1,274 @@
-+/*
-+ * net/sched/act_sample.c - Packet samplig tc action
-+ * Copyright (c) 2017 Yotam Gigi <yotamg@mellanox.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
++/* MPSC - Monitoring Packet Sampling Configuration Register
++ * --------------------------------------------------------
++ * MPSC Register is used to configure the Packet Sampling mechanism.
 + */
++#define MLXSW_REG_MPSC_ID 0x9080
++#define MLXSW_REG_MPSC_LEN 0x1C
 +
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/gfp.h>
-+#include <net/net_namespace.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+#include <linux/tc_act/tc_sample.h>
-+#include <net/tc_act/tc_sample.h>
-+#include <net/psample.h>
++MLXSW_REG_DEFINE(mpsc, MLXSW_REG_MPSC_ID, MLXSW_REG_MPSC_LEN);
 +
-+#include <linux/if_arp.h>
++/* reg_mpsc_local_port
++ * Local port number
++ * Not supported for CPU port
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, mpsc, local_port, 0x00, 16, 8);
 +
-+#define SAMPLE_TAB_MASK     7
-+static unsigned int sample_net_id;
-+static struct tc_action_ops act_sample_ops;
++/* reg_mpsc_e
++ * Enable sampling on port local_port
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mpsc, e, 0x04, 30, 1);
 +
-+static const struct nla_policy sample_policy[TCA_SAMPLE_MAX + 1] = {
-+	[TCA_SAMPLE_PARMS]		= { .len = sizeof(struct tc_sample) },
-+	[TCA_SAMPLE_RATE]		= { .type = NLA_U32 },
-+	[TCA_SAMPLE_TRUNC_SIZE]		= { .type = NLA_U32 },
-+	[TCA_SAMPLE_PSAMPLE_GROUP]	= { .type = NLA_U32 },
-+};
++#define MLXSW_REG_MPSC_RATE_MAX 3500000000UL
 +
-+static int tcf_sample_init(struct net *net, struct nlattr *nla,
-+			   struct nlattr *est, struct tc_action **a, int ovr,
-+			   int bind)
++/* reg_mpsc_rate
++ * Sampling rate = 1 out of rate packets (with randomization around
++ * the point). Valid values are: 1 to MLXSW_REG_MPSC_RATE_MAX
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mpsc, rate, 0x08, 0, 32);
++
++static inline void mlxsw_reg_mpsc_pack(char *payload, u8 local_port, bool e,
++				       u32 rate)
 +{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+	struct nlattr *tb[TCA_SAMPLE_MAX + 1];
-+	struct psample_group *psample_group;
-+	struct tc_sample *parm;
-+	struct tcf_sample *s;
-+	bool exists = false;
-+	int ret;
-+
-+	if (!nla)
-+		return -EINVAL;
-+	ret = nla_parse_nested(tb, TCA_SAMPLE_MAX, nla, sample_policy);
-+	if (ret < 0)
-+		return ret;
-+	if (!tb[TCA_SAMPLE_PARMS] || !tb[TCA_SAMPLE_RATE] ||
-+	    !tb[TCA_SAMPLE_PSAMPLE_GROUP])
-+		return -EINVAL;
-+
-+	parm = nla_data(tb[TCA_SAMPLE_PARMS]);
-+
-+	exists = tcf_hash_check(tn, parm->index, a, bind);
-+	if (exists && bind)
-+		return 0;
-+
-+	if (!exists) {
-+		ret = tcf_hash_create(tn, parm->index, est, a,
-+				      &act_sample_ops, bind, false);
-+		if (ret)
-+			return ret;
-+		ret = ACT_P_CREATED;
-+	} else {
-+		tcf_hash_release(*a, bind);
-+		if (!ovr)
-+			return -EEXIST;
-+	}
-+	s = to_sample(*a);
-+
-+	ASSERT_RTNL();
-+	s->tcf_action = parm->action;
-+	s->rate = nla_get_u32(tb[TCA_SAMPLE_RATE]);
-+	s->psample_group_num = nla_get_u32(tb[TCA_SAMPLE_PSAMPLE_GROUP]);
-+	psample_group = psample_group_get(net, s->psample_group_num);
-+	if (!psample_group)
-+		return -ENOMEM;
-+	RCU_INIT_POINTER(s->psample_group, psample_group);
-+
-+	if (tb[TCA_SAMPLE_TRUNC_SIZE]) {
-+		s->truncate = true;
-+		s->trunc_size = nla_get_u32(tb[TCA_SAMPLE_TRUNC_SIZE]);
-+	}
-+
-+	if (ret == ACT_P_CREATED)
-+		tcf_hash_insert(tn, *a);
-+	return ret;
++	MLXSW_REG_ZERO(mpsc, payload);
++	mlxsw_reg_mpsc_local_port_set(payload, local_port);
++	mlxsw_reg_mpsc_e_set(payload, e);
++	mlxsw_reg_mpsc_rate_set(payload, rate);
 +}
 +
-+static void tcf_sample_cleanup_rcu(struct rcu_head *rcu)
-+{
-+	struct tcf_sample *s = container_of(rcu, struct tcf_sample, rcu);
-+	struct psample_group *psample_group;
-+
-+	psample_group = rcu_dereference_protected(s->psample_group, 1);
-+	RCU_INIT_POINTER(s->psample_group, NULL);
-+	psample_group_put(psample_group);
-+}
-+
-+static void tcf_sample_cleanup(struct tc_action *a, int bind)
-+{
-+	struct tcf_sample *s = to_sample(a);
-+
-+	call_rcu(&s->rcu, tcf_sample_cleanup_rcu);
-+}
-+
-+static bool tcf_sample_dev_ok_push(struct net_device *dev)
-+{
-+	switch (dev->type) {
-+	case ARPHRD_TUNNEL:
-+	case ARPHRD_TUNNEL6:
-+	case ARPHRD_SIT:
-+	case ARPHRD_IPGRE:
-+	case ARPHRD_VOID:
-+	case ARPHRD_NONE:
-+		return false;
-+	default:
-+		return true;
-+	}
-+}
-+
-+static int tcf_sample(struct sk_buff *skb, const struct tc_action *a,
-+		      struct tcf_result *res)
-+{
-+	struct tcf_sample *s = to_sample(a);
-+	struct psample_group *psample_group;
-+	int retval;
-+	int size;
-+	int iif;
-+	int oif;
-+
-+	tcf_lastuse_update(&s->tcf_tm);
-+	bstats_cpu_update(this_cpu_ptr(s->common.cpu_bstats), skb);
-+	retval = READ_ONCE(s->tcf_action);
-+
-+	rcu_read_lock();
-+	psample_group = rcu_dereference(s->psample_group);
-+
-+	/* randomly sample packets according to rate */
-+	if (psample_group && (prandom_u32() % s->rate == 0)) {
-+		if (!skb_at_tc_ingress(skb)) {
-+			iif = skb->skb_iif;
-+			oif = skb->dev->ifindex;
-+		} else {
-+			iif = skb->dev->ifindex;
-+			oif = 0;
-+		}
-+
-+		/* on ingress, the mac header gets popped, so push it back */
-+		if (skb_at_tc_ingress(skb) && tcf_sample_dev_ok_push(skb->dev))
-+			skb_push(skb, skb->mac_len);
-+
-+		size = s->truncate ? s->trunc_size : skb->len;
-+		psample_sample_packet(psample_group, skb, size, iif, oif,
-+				      s->rate);
-+
-+		if (skb_at_tc_ingress(skb) && tcf_sample_dev_ok_push(skb->dev))
-+			skb_pull(skb, skb->mac_len);
-+	}
-+
-+	rcu_read_unlock();
-+	return retval;
-+}
-+
-+static int tcf_sample_dump(struct sk_buff *skb, struct tc_action *a,
-+			   int bind, int ref)
-+{
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct tcf_sample *s = to_sample(a);
-+	struct tc_sample opt = {
-+		.index      = s->tcf_index,
-+		.action     = s->tcf_action,
-+		.refcnt     = s->tcf_refcnt - ref,
-+		.bindcnt    = s->tcf_bindcnt - bind,
-+	};
-+	struct tcf_t t;
-+
-+	if (nla_put(skb, TCA_SAMPLE_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
-+
-+	tcf_tm_dump(&t, &s->tcf_tm);
-+	if (nla_put_64bit(skb, TCA_SAMPLE_TM, sizeof(t), &t, TCA_SAMPLE_PAD))
-+		goto nla_put_failure;
-+
-+	if (nla_put_u32(skb, TCA_SAMPLE_RATE, s->rate))
-+		goto nla_put_failure;
-+
-+	if (s->truncate)
-+		if (nla_put_u32(skb, TCA_SAMPLE_TRUNC_SIZE, s->trunc_size))
-+			goto nla_put_failure;
-+
-+	if (nla_put_u32(skb, TCA_SAMPLE_PSAMPLE_GROUP, s->psample_group_num))
-+		goto nla_put_failure;
-+	return skb->len;
-+
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+static int tcf_sample_walker(struct net *net, struct sk_buff *skb,
-+			     struct netlink_callback *cb, int type,
-+			     const struct tc_action_ops *ops)
-+{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+
-+	return tcf_generic_walker(tn, skb, cb, type, ops);
-+}
-+
-+static int tcf_sample_search(struct net *net, struct tc_action **a, u32 index)
-+{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+
-+	return tcf_hash_search(tn, a, index);
-+}
-+
-+static struct tc_action_ops act_sample_ops = {
-+	.kind	  = "sample",
-+	.type	  = TCA_ACT_SAMPLE,
-+	.owner	  = THIS_MODULE,
-+	.act	  = tcf_sample,
-+	.dump	  = tcf_sample_dump,
-+	.init	  = tcf_sample_init,
-+	.cleanup  = tcf_sample_cleanup,
-+	.walk	  = tcf_sample_walker,
-+	.lookup	  = tcf_sample_search,
-+	.size	  = sizeof(struct tcf_sample),
-+};
-+
-+static __net_init int sample_init_net(struct net *net)
-+{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+
-+	return tc_action_net_init(tn, &act_sample_ops, SAMPLE_TAB_MASK);
-+}
-+
-+static void __net_exit sample_exit_net(struct net *net)
-+{
-+	struct tc_action_net *tn = net_generic(net, sample_net_id);
-+
-+	tc_action_net_exit(tn);
-+}
-+
-+static struct pernet_operations sample_net_ops = {
-+	.init = sample_init_net,
-+	.exit = sample_exit_net,
-+	.id   = &sample_net_id,
-+	.size = sizeof(struct tc_action_net),
-+};
-+
-+static int __init sample_init_module(void)
-+{
-+	return tcf_register_action(&act_sample_ops, &sample_net_ops);
-+}
-+
-+static void __exit sample_cleanup_module(void)
-+{
-+	tcf_unregister_action(&act_sample_ops, &sample_net_ops);
-+}
-+
-+module_init(sample_init_module);
-+module_exit(sample_cleanup_module);
-+
-+MODULE_AUTHOR("Yotam Gigi <yotamg@mellanox.com>");
-+MODULE_DESCRIPTION("Packet sampling action");
-+MODULE_LICENSE("GPL v2");
+ /* SBPR - Shared Buffer Pools Register
+  * -----------------------------------
+  * The SBPR configures and retrieves the shared buffer pools and configuration.
+@@ -5429,6 +5469,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(mpat),
+ 	MLXSW_REG(mpar),
+ 	MLXSW_REG(mlcr),
++	MLXSW_REG(mpsc),
+ 	MLXSW_REG(sbpr),
+ 	MLXSW_REG(sbcm),
+ 	MLXSW_REG(sbpm),
 -- 
 2.7.4
