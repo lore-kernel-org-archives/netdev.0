@@ -1,53 +1,36 @@
-From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: [PATCH] Documentation: net: phy: improve explanation when to specify the PHY ID
-Date: Sun, 22 Jan 2017 17:41:32 +0100
-Message-ID: <20170122164132.13967-1-martin.blumenstingl@googlemail.com>
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-To: andrew-g2DYL2Zd6BY@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: mvneta: implement .set_wol and .get_wol
+Date: Sun, 22 Jan 2017 17:49:35 +0100
+Message-ID: <20170122164935.GA26560@lunn.ch>
+References: <1485079590-6392-1-git-send-email-houjingj@marvell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, thomas.petazzoni@free-electrons.com,
+        netdev@vger.kernel.org
+To: Jingju Hou <houjingj@marvell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41017 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750999AbdAVQtm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 22 Jan 2017 11:49:42 -0500
+Content-Disposition: inline
+In-Reply-To: <1485079590-6392-1-git-send-email-houjingj@marvell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The old description basically read like "ethernet-phy-idAAAA.BBBB" can
-be specified when you know the actual PHY ID. However, specifying this
-has a side-effect: it forces Linux to bind to a certain PHY driver (the
-one that matches the ID given in the compatible string), ignoring the ID
-which is reported by the actual PHY.
-Whenever a device is shipped with (multiple) different PHYs during it's
-production lifetime then explicitly specifying
-"ethernet-phy-idAAAA.BBBB" could break certain revisions of that device.
+On Sun, Jan 22, 2017 at 06:06:30PM +0800, Jingju Hou wrote:
+> Signed-off-by: Jingju Hou <houjingj@marvell.com>
 
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
----
-Thanks to Andrew Lunn for pointing the documentation issue out to me in:
-http://lists.infradead.org/pipermail/linux-amlogic/2017-January/002141.html
+Hi Jingju
 
+Please include a real comment here. Something like:
 
- Documentation/devicetree/bindings/net/phy.txt | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+The mvneta itself does not support WOL, but the PHY might. So pass the
+calls to the PHY.
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index ff1bc4b1bb3b..fb5056b22685 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -19,8 +19,9 @@ Optional Properties:
-   specifications. If neither of these are specified, the default is to
-   assume clause 22.
- 
--  If the phy's identifier is known then the list may contain an entry
--  of the form: "ethernet-phy-idAAAA.BBBB" where
-+  If the PHY reports an incorrect ID (or none at all) then the
-+  "compatible" list may contain an entry with the correct PHY ID in the
-+  form: "ethernet-phy-idAAAA.BBBB" where
-      AAAA - The value of the 16 bit Phy Identifier 1 register as
-             4 hex digits. This is the chip vendor OUI bits 3:18
-      BBBB - The value of the 16 bit Phy Identifier 2 register as
--- 
-2.11.0
+It also looks like you are patching an old kernel. Network patches
+like this need to be against net-next. You should also include
+net-next in the subject line.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
+	Andrew
