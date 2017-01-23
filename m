@@ -1,53 +1,50 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v1] net: phy: micrel: add KSZ8795 ethernet switch
-Date: Mon, 23 Jan 2017 16:12:19 +0100
-Message-ID: <20170123151219.GE10895@lunn.ch>
-References: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
+Subject: Re: [PATCH] phy: marvell: remove conflicting initializer
+Date: Mon, 23 Jan 2017 16:19:41 +0100
+Message-ID: <20170123151941.GG10895@lunn.ch>
+References: <20170123121905.3245589-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>,
+        Clemens Gruber <clemens.gruber@pqgruber.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41681 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:41693 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750705AbdAWPMU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 10:12:20 -0500
+        id S1750962AbdAWPTw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 10:19:52 -0500
 Content-Disposition: inline
-In-Reply-To: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
+In-Reply-To: <20170123121905.3245589-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 08:58:46AM +0100, Sean Nyekjaer wrote:
-> This is add support for the PHYs in the KSZ8795 5port managed switch.
+On Mon, Jan 23, 2017 at 01:18:41PM +0100, Arnd Bergmann wrote:
+> One line was apparently pasted incorrectly during a new feature patch:
 > 
-> It will allow to detect the link between the switch and the soc
-> and uses the same read_status functions as the KSZ8873MLL switch.
+> drivers/net/phy/marvell.c:2090:15: error: initialized field overwritten [-Werror=override-init]
+>    .features = PHY_GBIT_FEATURES,
 > 
-> This ethernet switch have unfortunately the same phy id as KSZ8051.
+> I'm removing the extraneous line here to avoid the W=1 warning and restore
+> the previous flags value, and I'm slightly reordering the lines for consistency
+> to make it less likely to happen again in the future. The ordering in the
+> array is still not the same as in the structure definition, instead I picked
+> the order that is most common in this file and that seems to make more sense
+> here.
 > 
-> Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
-> ---
->  drivers/net/phy/micrel.c   | 14 ++++++++++++++
->  include/linux/micrel_phy.h |  2 ++
->  2 files changed, 16 insertions(+)
-> 
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index ea92d524d5a8..fa158ae5115b 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
->  	.get_stats	= kszphy_get_stats,
->  	.suspend	= genphy_suspend,
->  	.resume		= genphy_resume,
-> +}, {
-> +	.phy_id		= PHY_ID_KSZ8795,
-> +	.phy_id_mask	= MICREL_PHY_ID_MASK,
-> +	.name		= "Micrel KSZ8795 Switch",
+> Fixes: 0b04680fdae4 ("phy: marvell: Add support for temperature sensor")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-This name is confusing. You are adding support for the PHYs embedded
-in the switch, not the switch itself. The phylib has no idea these
-PHYs are inside a switch. It does not matter. It is just a PHY. Please
-drop the word "Switch".
+Hi Arnd
 
-Thanks
-	Andrew
+Thanks for this. I found one bug in my code while testing due to
+duplicate probe initialisation. I was surprised at the time the
+compiler did not warn me. I didn't think to try W=1. Is there any
+legitimate need to allow multiple initialisation of a field? Can this
+warning be made always on instead of only W=1?
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
