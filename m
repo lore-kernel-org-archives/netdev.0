@@ -1,51 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Question about veth_xmit()
-Date: Mon, 23 Jan 2017 14:05:45 -0800
-Message-ID: <1485209145.16328.214.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAOwmpL3vg56ZqHaYVBy+9dJJ1=GCbgy-m8NY0JrNCV-Z42R_eg@mail.gmail.com>
-         <CAM_iQpVXOsPZrAhBN10JYrVjOOK2_q7=gsFbsi_=s5XZLj1S+g@mail.gmail.com>
-         <CAOwmpL3fiGcXHmUouzRf8vneSF1SQ5SWVqYLXGVecLTepZTNOw@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
+Date: Mon, 23 Jan 2017 23:01:21 +0100
+Message-ID: <20170123220121.GG20894@1wt.eu>
+References: <20170123185922.48046-1-tracywwnj@gmail.com>
+ <20170123185922.48046-4-tracywwnj@gmail.com>
+ <20170123211623.GE20894@1wt.eu>
+ <CAEA6p_DxVMAry1PCz_idmk=TGpnnTib3WpWso03FB1oMVXN+sg@mail.gmail.com>
+ <20170123213732.GF20894@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Xiangning Yu <yuxiangning@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Wang <tracywwnj@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33111 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751337AbdAWWFr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 17:05:47 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 194so14722089pgd.0
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 14:05:47 -0800 (PST)
-In-Reply-To: <CAOwmpL3fiGcXHmUouzRf8vneSF1SQ5SWVqYLXGVecLTepZTNOw@mail.gmail.com>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:63051 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751136AbdAWWIp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 17:08:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20170123213732.GF20894@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-23 at 13:46 -0800, Xiangning Yu wrote:
-> On Mon, Jan 23, 2017 at 12:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > On Mon, Jan 23, 2017 at 10:46 AM, Xiangning Yu <yuxiangning@gmail.com> wrote:
-> >> Hi netdev folks,
-> >>
-> >> It looks like we call dev_forward_skb() in veth_xmit(), which calls
-> >> netif_rx() eventually.
-> >>
-> >> While netif_rx() will enqueue the skb to the CPU RX backlog before the
-> >> actual processing takes place. So, this actually means a TX skb has to
-> >> wait some un-related RX skbs to finish. And this will happen twice for
-> >> a single ping, because the veth device always works as a pair?
-> >
-> > For me it is more like for the completeness of network stack of each
-> > netns. The /proc net.core.netdev_max_backlog etc. are per netns, which
-> > means each netns, as an independent network stack, should respect it
-> > too.
-> >
-> > Since you care about latency, why not tune net.core.dev_weight for your
-> > own netns?
+On Mon, Jan 23, 2017 at 10:37:32PM +0100, Willy Tarreau wrote:
+> On Mon, Jan 23, 2017 at 01:28:53PM -0800, Wei Wang wrote:
+> > Hi Willy,
+> > 
+> > True. If you call connect() multiple times on a socket which already has
+> > cookie without a write(), the second and onward connect() call will return
+> > EINPROGRESS.
+> > It is basically because the following code block in __inet_stream_connect()
+> > can't distinguish if it is the first time connect() is called or not:
+> > 
+> > case SS_CONNECTING:
+> >                 if (inet_sk(sk)->defer_connect)  <----- defer_connect will
+> > be 0 only after a write() is called
+> >                         err = -EINPROGRESS;
+> >                 else
+> >                         err = -EALREADY;
+> >                 /* Fall out of switch with err, set for this state */
+> >                 break;
 > 
-> I haven't tried that yet, thank you for the hint! Though normally one
-> of the veth device will be in the global namespace.
+> Ah OK that totally makes sense, thanks for the explanation!
+> 
+> > I guess we can add some extra logic here to address this issue. So the
+> > second connect() and onwards will return EALREADY.
 
-Well, per cpu backlog are not per net ns, but per cpu.
+Thinking about it a bit more, I really think it would make more
+sense to return -EISCONN here if we want to match the semantics
+of a connect() returning zero on the first call. This way the
+caller knows it can write whenever it wants and can disable
+write polling until needed.
 
-So Cong suggestion is not going to work.
+I'm currently rebuilding a kernel with this change to see if it
+behaves any better :
+
+-                        err = -EINPROGRESS;
++                        err = -EISCONN;
+
+I'll keep you updated.
+
+Thanks,
+Willy
