@@ -1,53 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] virtio_net: fix PAGE_SIZE > 64k
-Date: Mon, 23 Jan 2017 19:06:11 +0200
-Message-ID: <1485189896-20327-1-git-send-email-mst@redhat.com>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/3] powerpc: bpf: remove redundant check for non-null
+ image
+Date: Mon, 23 Jan 2017 22:44:53 +0530
+Message-ID: <20170123171453.GD3820@naverao1-tp.localdomain>
+References: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
+ <20170116.133859.1157069434816521683.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: ast@fb.com, linuxppc-dev@lists.ozlabs.org, daniel@iogearbox.net,
+ netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20170116.133859.1157069434816521683.davem@davemloft.net>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-I don't have any guests with PAGE_SIZE > 64k but the
-code seems to be clearly broken in that case
-as PAGE_SIZE / MERGEABLE_BUFFER_ALIGN will need
-more than 8 bit and so the code in mergeable_ctx_to_buf_address
-does not give us the actual true size.
+Hi David,
 
-Cc: John Fastabend <john.fastabend@gmail.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+On 2017/01/16 01:38PM, David Miller wrote:
+> 
+> I'm assuming these patches will go via the powerpc tree.
+> 
+> If you want them to go into net-next, I kindly ask that you always
+> explicitly say so, and furthermore always submit a patch series with
+> a proper "[PATCH 0/N] ..." header posting.
 
-Lightly tested on x86 only.
+Sure. Sorry for the confusion. I will be more explicit next time.
 
- drivers/net/virtio_net.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4a10500..5e3b07e 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -48,8 +48,16 @@ module_param(gso, bool, 0444);
-  */
- DECLARE_EWMA(pkt_len, 1, 64)
- 
-+/* With mergeable buffers we align buffer address and use the low bits to
-+ * encode its true size. Buffer size is up to 1 page so we need to align to
-+ * square root of page size to ensure we reserve enough bits to encode the true
-+ * size.
-+ */
-+#define MERGEABLE_BUFFER_MIN_ALIGN_SHIFT ((PAGE_SHIFT + 1) / 2)
-+
- /* Minimum alignment for mergeable packet buffers. */
--#define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, 256)
-+#define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, \
-+				   1U << MERGEABLE_BUFFER_MIN_ALIGN_SHIFT)
- 
- #define VIRTNET_DRIVER_VERSION "1.0.0"
- 
--- 
-MST
+Thanks,
+Naveen
