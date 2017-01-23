@@ -1,39 +1,35 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next 4/5] bridge: vlan lwt and dst_metadata netlink
- support
-Date: Mon, 23 Jan 2017 07:39:20 -0800
-Message-ID: <588623A8.6010906@cumulusnetworks.com>
-References: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com> <1484977616-1541-5-git-send-email-roopa@cumulusnetworks.com> <9B0331B6EBBD0E4684FBFAEDA55776F93D495F16@HASMSX110.ger.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency
+ reserve
+Date: Mon, 23 Jan 2017 10:45:40 -0500 (EST)
+Message-ID: <20170123.104540.2005179027278796046.davem@davemloft.net>
+References: <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
+        <CALzJLG9JEorLwV48H3m0vQ1+VDnpYbKhiBoUw+WW-JFouJoj1g@mail.gmail.com>
+        <20170123093940.5d69539e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
-        "tgraf@suug.ch" <tgraf@suug.ch>,
-        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-        "jbenc@redhat.com" <jbenc@redhat.com>,
-        "pshelar@ovn.org" <pshelar@ovn.org>,
-        "dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
-        "hadi@mojatatu.com" <hadi@mojatatu.com>
-To: "Rosen, Rami" <rami.rosen@intel.com>
+Cc: saeedm@dev.mellanox.co.il, tom@herbertland.com,
+        saeedm@mellanox.com, netdev@vger.kernel.org, tariqt@mellanox.com,
+        eric.dumazet@gmail.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:34705 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751283AbdAWPjY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 10:39:24 -0500
-Received: by mail-pg0-f45.google.com with SMTP id 14so45872025pgg.1
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 07:39:24 -0800 (PST)
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F93D495F16@HASMSX110.ger.corp.intel.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42036 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750705AbdAWPpo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 10:45:44 -0500
+In-Reply-To: <20170123093940.5d69539e@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/22/17, 4:22 PM, Rosen, Rami wrote:
-> Hi, Roopa,
->
-> Two minor comments:
->
-> The parameter br is not used in the br_add_vlan_tunnel_info() method, it should be removed:
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Mon, 23 Jan 2017 09:39:40 +0100
 
-Thanks Rami. will take care of this in the next version.
+> BUT there are other advantages of using a guaranteed recycle pool
+> facility (like the page_pool).  Namely, (1) DMA-overhead: keeping page
+> DMA mapped to counter DMA+IOMMU overhead, (2) RX-zero-copy: opens up
+> for a software memory model solution for pre-VMA-mapping pages to
+> userspace (See: [1] for argument how this avoids leaking kernel mem,
+> but only expose/leak packet-data mem)
+
++1
