@@ -1,82 +1,88 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH 08/17] gtp: consolidate pdp context destruction into helper
-Date: Mon, 23 Jan 2017 12:56:57 +0100
-Message-ID: <20170123115706.4354-9-aschultz@tpip.net>
+Subject: [PATCH 15/17] gtp: rename gtp hashtable helpers
+Date: Mon, 23 Jan 2017 12:57:04 +0100
+Message-ID: <20170123115706.4354-16-aschultz@tpip.net>
 References: <20170123115706.4354-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc@lists.osmocom.org
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:41459 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:47333 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750908AbdAWMGy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751004AbdAWMGy (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 23 Jan 2017 07:06:54 -0500
 In-Reply-To: <20170123115706.4354-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The gtp_hashtable helper are now olny used for the per netdevice
+address hashes. Rename them to make their purpose clearer.
+
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c | 25 ++++++++++++++-----------
- 1 file changed, 14 insertions(+), 11 deletions(-)
+ drivers/net/gtp.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index f434f84..5b35ebb 100644
+index 019e80f..55bf098 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -84,6 +84,8 @@ struct gtp_net {
+@@ -618,8 +618,8 @@ static void gtp_link_setup(struct net_device *dev)
+ 				  sizeof(struct gtp0_header);
+ }
  
- static u32 gtp_h_initval;
+-static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
+-static void gtp_hashtable_free(struct gtp_dev *gtp);
++static int gtp_dev_hashtable_new(struct gtp_dev *gtp, int hsize);
++static void gtp_dev_hashtable_free(struct gtp_dev *gtp);
+ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 			    int hsize, struct nlattr *data[]);
+ static void gtp_encap_disable(struct gtp_dev *gtp);
+@@ -644,7 +644,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 			goto out_err;
+ 	}
  
-+static void pdp_context_delete(struct pdp_ctx *pctx);
-+
- static inline u32 gtp0_hashfn(u64 tid)
+-	err = gtp_hashtable_new(gtp, hashsize);
++	err = gtp_dev_hashtable_new(gtp, hashsize);
+ 	if (err < 0)
+ 		goto out_socket;
+ 
+@@ -662,7 +662,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 	return 0;
+ 
+ out_hashtable:
+-	gtp_hashtable_free(gtp);
++	gtp_dev_hashtable_free(gtp);
+ out_socket:
+ 	gtp_encap_disable(gtp);
+ out_err:
+@@ -673,7 +673,7 @@ static void gtp_dellink(struct net_device *dev, struct list_head *head)
  {
- 	u32 *tid32 = (u32 *) &tid;
-@@ -775,13 +777,10 @@ static void gtp_hashtable_free(struct gtp_dev *gtp)
- 	struct pdp_ctx *pctx;
+ 	struct gtp_dev *gtp = netdev_priv(dev);
+ 
+-	gtp_hashtable_free(gtp);
++	gtp_dev_hashtable_free(gtp);
+ 	if (gtp->sock0)
+ 		sockfd_put(gtp->sock0);
+ 	if (gtp->sock1u)
+@@ -742,7 +742,7 @@ static struct net *gtp_genl_get_net(struct net *src_net, struct nlattr *tb[])
+ 	return net;
+ }
+ 
+-static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize)
++static int gtp_dev_hashtable_new(struct gtp_dev *gtp, int hsize)
+ {
  	int i;
  
--	for (i = 0; i < gtp->hash_size; i++) {
--		hlist_for_each_entry_rcu(pctx, &gtp->tid_hash[i], hlist_tid) {
--			hlist_del_rcu(&pctx->hlist_tid);
--			hlist_del_rcu(&pctx->hlist_addr);
--			kfree_rcu(pctx, rcu_head);
--		}
--	}
-+	for (i = 0; i < gtp->hash_size; i++)
-+		hlist_for_each_entry_rcu(pctx, &gtp->tid_hash[i], hlist_tid)
-+			pdp_context_delete(pctx);
-+
- 	synchronize_rcu();
- 	kfree(gtp->addr_hash);
- 	kfree(gtp->tid_hash);
-@@ -984,6 +983,13 @@ static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
+@@ -758,7 +758,7 @@ static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize)
  	return 0;
  }
  
-+static void pdp_context_delete(struct pdp_ctx *pctx)
-+{
-+	hlist_del_rcu(&pctx->hlist_tid);
-+	hlist_del_rcu(&pctx->hlist_addr);
-+	kfree_rcu(pctx, rcu_head);
-+}
-+
- static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+-static void gtp_hashtable_free(struct gtp_dev *gtp)
++static void gtp_dev_hashtable_free(struct gtp_dev *gtp)
  {
- 	struct net_device *dev;
-@@ -1082,10 +1088,7 @@ static int gtp_genl_del_pdp(struct sk_buff *skb, struct genl_info *info)
- 		pr_debug("GTPv1-U: deleting tunnel id = %x/%x (pdp %p)\n",
- 			 pctx->u.v1.i_tei, pctx->u.v1.o_tei, pctx);
- 
--	hlist_del_rcu(&pctx->hlist_tid);
--	hlist_del_rcu(&pctx->hlist_addr);
--	kfree_rcu(pctx, rcu_head);
--
-+	pdp_context_delete(pctx);
- 	return 0;
- }
- 
+ 	struct pdp_ctx *pctx;
+ 	int i;
 -- 
 2.10.2
