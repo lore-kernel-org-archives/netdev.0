@@ -1,116 +1,50 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: [RFC PATCH net-next 4/5] bridge: vlan lwt and dst_metadata
- netlink support
-Date: Mon, 23 Jan 2017 00:22:00 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93D495F16@HASMSX110.ger.corp.intel.com>
-References: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com>
- <1484977616-1541-5-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
-        "tgraf@suug.ch" <tgraf@suug.ch>,
-        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-        "jbenc@redhat.com" <jbenc@redhat.com>,
-        "pshelar@ovn.org" <pshelar@ovn.org>,
-        "dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
-        "hadi@mojatatu.com" <hadi@mojatatu.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:40160 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750707AbdAWAWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Jan 2017 19:22:05 -0500
-In-Reply-To: <1484977616-1541-5-git-send-email-roopa@cumulusnetworks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joe@ovn.org>
+Subject: [PATCHv2 perf/core 0/7] Libbpf improvements
+Date: Sun, 22 Jan 2017 17:11:21 -0800
+Message-ID: <20170123011128.26534-1-joe@ovn.org>
+Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: acme@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Roopa,
+Patch 1 fixes an issue when using drastically different BPF map definitions
+inside ELFs from a client using libbpf, vs the map definition libbpf uses.
 
-Two minor comments:
+Patches 2-4 add some simple, useful helper functions for setting prog type
+and retrieving libbpf errors without depending on kernel headers from
+userspace programs.
 
-The parameter br is not used in the br_add_vlan_tunnel_info() method, it should be removed:
+Patches 5-7 add a new pinning functionality for maps, programs, and objects.
+Library users may call bpf_map__pin(map, path) or bpf_program__pin(prog, path)
+to pin maps and programs separately, or use bpf_object__pin(obj, path) to
+pin all maps and programs from the BPF object to the path. The map and program
+variations require a full path where it will be pinned in the filesystem,
+and the object variation will create directories "maps/" and "progs/" under
+the specified path, then mount each map and program under those subdirectories.
 
-+static int br_add_vlan_tunnel_info(struct net_bridge *br,
-+				   struct net_bridge_port *p, int cmd,
-+				   u16 vid, u32 tun_id)
-+{
-+	int err;
-+
-+	switch (cmd) {
-+	case RTM_SETLINK:
-+		if (p) {
-+			/* if the MASTER flag is set this will act on the global
-+			 * per-VLAN entry as well
-+			 */
-+			err = nbp_vlan_tunnel_info_add(p, vid, tun_id);
-+			if (err)
-+				break;
-+		} else {
-+			return -EINVAL;
-+		}
-+
-+		break;
-+
-+	case RTM_DELLINK:
-+		if (p)
-+			nbp_vlan_tunnel_info_delete(p, vid);
-+		else
-+			return -EINVAL;
-+		break;
-+	}
-+
-+	return 0;
-+}
-+
+---
+v1: Initial post.
+v2: Wang Nan provided improvements to patch 1.
+    Dropped patch 2 from v1.
+    Added acks for acked patches.
+    Split the bpf_obj__pin() to also provide map / program pinning APIs.
+    Allow users to provide full filesystem path (don't autodetect/mount BPFFS).
 
-The parameter br is used inside br_process_vlan_tunnel_info() only in the two 
-Cases, when br_add_vlan_tunnel_info() is invoked. Since we saw earlier that it should be removed from br_add_vlan_tunnel_info(), it should also be removed from br_process_vlan_tunnel_info() as it is not needed anymore:
+Joe Stringer (7):
+  tools lib bpf: Fix map offsets in relocation
+  tools lib bpf: Define prog_type fns with macro
+  tools lib bpf: Add set/is helpers for all prog types
+  tools lib bpf: Add libbpf_get_error()
+  tools lib bpf: Add bpf_program__pin()
+  tools lib bpf: Add bpf_map__pin()
+  tools lib bpf: Add bpf_object__pin()
 
-+static int br_process_vlan_tunnel_info(struct net_bridge *br,
-+				       struct net_bridge_port *p, int cmd,
-+				       struct vtunnel_info *tinfo_curr,
-+				       struct vtunnel_info *tinfo_last) {
-+	int t, v;
-+	int err;
-+
-+	if (tinfo_curr->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
-+		if (tinfo_last->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN)
-+			return -EINVAL;
-+		memcpy(tinfo_last, tinfo_curr, sizeof(struct vtunnel_info));
-+	} else if (tinfo_curr->flags & BRIDGE_VLAN_INFO_RANGE_END) {
-+		if (!(tinfo_last->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN))
-+			return -EINVAL;
-+		if ((tinfo_curr->vid - tinfo_last->vid) !=
-+		    (tinfo_curr->tunid - tinfo_last->tunid))
-+			return -EINVAL;
-+		/* XXX: tun id and vlan id attrs must be same
-+		 */
-+		t = tinfo_last->tunid;
-+		for (v = tinfo_last->vid; v <= tinfo_curr->vid; v++) {
-+			err = br_add_vlan_tunnel_info(br, p, cmd,
-+							  v, t);
-+			if (err)
-+				return err;
-+			t++;
-+		}
-+		memset(tinfo_last, 0, sizeof(struct vtunnel_info));
-+		memset(tinfo_curr, 0, sizeof(struct vtunnel_info));
-+	} else {
-+		err = br_add_vlan_tunnel_info(br, p, cmd,
-+					      tinfo_curr->vid,
-+					      tinfo_curr->tunid);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
+ tools/lib/bpf/libbpf.c  | 240 ++++++++++++++++++++++++++++++++++++++++++------
+ tools/lib/bpf/libbpf.h  |  17 +++-
+ tools/perf/tests/llvm.c |   2 +-
+ 3 files changed, 229 insertions(+), 30 deletions(-)
 
-Regards,
-Rami Rosen
+-- 
+2.11.0
