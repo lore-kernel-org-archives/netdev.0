@@ -1,85 +1,52 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv3 net-next 4/4] sctp: implement sender-side procedures
- for Add Incoming/Outgoing Streams Request Parameter
-Date: Mon, 23 Jan 2017 16:47:44 -0200
-Message-ID: <20170123184744.GC3781@localhost.localdomain>
-References: <cover.1484845510.git.lucien.xin@gmail.com>
- <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB026B563@AcuExch.aculab.com>
+From: Wei Wang <tracywwnj@gmail.com>
+Subject: [PATCH net-next 0/3] net/tcp-fastopen: Add new userspace API support
+Date: Mon, 23 Jan 2017 10:59:19 -0800
+Message-ID: <20170123185922.48046-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Xin Long'" <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>, Wei Wang <weiwan@google.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59726 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751041AbdAWSrt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 13:47:49 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB026B563@AcuExch.aculab.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35810 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750948AbdAWTAI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 14:00:08 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 204so14384533pge.2
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 11:00:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 11:25:56AM +0000, David Laight wrote:
-> From: Xin Long
-> > Sent: 19 January 2017 17:19
-> > This patch is to implement Sender-Side Procedures for the Add
-> > Outgoing and Incoming Streams Request Parameter described in
-> > rfc6525 section 5.1.5-5.1.6.
-> > 
-> > It is also to add sockopt SCTP_ADD_STREAMS in rfc6525 section
-> > 6.3.4 for users.
-> ...
-> > +	out = params->sas_outstrms;
-> > +	in  = params->sas_instrms;
-> > +
-> > +	if (!out && !in)
-> > +		goto out;
-> > +
-> > +	if (out) {
-> > +		__u16 nums = stream->outcnt + out;
-> 
-> Make nums 'unsigned int', the code will be smaller and you can
-> use the value for the overflow check.
+From: Wei Wang <weiwan@google.com>
 
-Smaller as in to avoid the sum below?
+The patch series is to add support for new userspace API for TCP fastopen
+sockets. 
+In the current code, user has to call sendto()/sendmsg() with special flag
+MSG_FASTOPEN for TCP fastopen sockets. This API is quite different from the
+normal TCP socket API and can be cumbersome for applications to make use
+fastopen sockets.
+So this new patch introduces a new way of using TCP fastopen sockets which
+is similar to normal TCP sockets with a new sockopt TCP_FASTOPEN_CONNECT.
+More details about it is described in the third patch.
+(First 2 patches are preparations for the third patch.)
 
-> 
-> > +		/* Check for overflow, can't use nums here */
-> > +		if (stream->outcnt + out > SCTP_MAX_STREAM)
-> > +			goto out;
-> > +
-> > +		/* Use ksize to check if stream array really needs to realloc */
-> > +		if (ksize(stream->out) / sizeof(*stream->out) < nums) {
-> > +			struct sctp_stream_out *streamout;
-> > +
-> > +			streamout = kcalloc(nums, sizeof(*streamout),
-> > +					    GFP_KERNEL);
-> > +			if (!streamout) {
-> > +				retval = -ENOMEM;
-> > +				goto out;
-> > +			}
-> > +
-> > +			memcpy(streamout, stream->out,
-> > +			       sizeof(*streamout) * stream->outcnt);
-> > +
-> > +			kfree(stream->out);
-> > +			stream->out = streamout;
-> > +		}
-> 
-> Does kcalloc() zero the entire area, or just the length you ask for?
-> If the latter you need to zero the rest here.
-> ...
-> 
-> 	David
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Wei Wang (3):
+  net/tcp-fastopen: refactor cookie check logic
+  net: Remove __sk_dst_reset() in tcp_v6_connect()
+  net/tcp-fastopen: Add new API support
+
+ include/linux/tcp.h      |  3 ++-
+ include/net/inet_sock.h  |  6 +++++-
+ include/net/tcp.h        |  3 +++
+ include/uapi/linux/tcp.h |  1 +
+ net/ipv4/af_inet.c       | 31 ++++++++++++++++++++-------
+ net/ipv4/tcp.c           | 35 ++++++++++++++++++++++++++++++-
+ net/ipv4/tcp_fastopen.c  | 54 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp_ipv4.c      |  7 ++++++-
+ net/ipv4/tcp_output.c    | 16 ++------------
+ net/ipv6/tcp_ipv6.c      |  6 +++++-
+ 10 files changed, 136 insertions(+), 26 deletions(-)
+
+-- 
+2.11.0.483.g087da7b7c-goog
