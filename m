@@ -1,72 +1,74 @@
-From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
-Subject: [PATCH 2/3] ath10k: use dma_zalloc_coherent()
-Date: Mon, 23 Jan 2017 15:04:35 +0000
-Message-ID: <1485183876-27080-2-git-send-email-srinivas.kandagatla@linaro.org>
-References: <1485183876-27080-1-git-send-email-srinivas.kandagatla@linaro.org>
-Cc: ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485183876-27080-1-git-send-email-srinivas.kandagatla@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Mon, 23 Jan 2017 17:05:30 +0200
+Message-ID: <20170123170530-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: gcampana@quarkslab.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, pmorel@linux.vnet.ibm.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	dan.carpenter@oracle.com, colin.king@canonical.com,
+	bhumirks@gmail.com, silbe@linux.vnet.ibm.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-use dma_zalloc_coherent() instead of dma_alloc_coherent and memset().
+The following changes since commit 49def1853334396f948dcb4cedb9347abb318df5:
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
----
- drivers/net/wireless/ath/ath10k/ce.c  | 9 +--------
- drivers/net/wireless/ath/ath10k/pci.c | 3 +--
- 2 files changed, 2 insertions(+), 10 deletions(-)
+  Linux 4.10-rc4 (2017-01-15 16:21:59 -0800)
 
-diff --git a/drivers/net/wireless/ath/ath10k/ce.c b/drivers/net/wireless/ath/ath10k/ce.c
-index 0b4d796..c2b388f 100644
---- a/drivers/net/wireless/ath/ath10k/ce.c
-+++ b/drivers/net/wireless/ath/ath10k/ce.c
-@@ -958,7 +958,7 @@ ath10k_ce_alloc_dest_ring(struct ath10k *ar, unsigned int ce_id,
- 	 * coherent DMA are unsupported
- 	 */
- 	dest_ring->base_addr_owner_space_unaligned =
--		dma_alloc_coherent(ar->dev,
-+		dma_zalloc_coherent(ar->dev,
- 				   (nentries * sizeof(struct ce_desc) +
- 				    CE_DESC_RING_ALIGN),
- 				   &base_addr, GFP_KERNEL);
-@@ -969,13 +969,6 @@ ath10k_ce_alloc_dest_ring(struct ath10k *ar, unsigned int ce_id,
- 
- 	dest_ring->base_addr_ce_space_unaligned = base_addr;
- 
--	/*
--	 * Correctly initialize memory to 0 to prevent garbage
--	 * data crashing system when download firmware
--	 */
--	memset(dest_ring->base_addr_owner_space_unaligned, 0,
--	       nentries * sizeof(struct ce_desc) + CE_DESC_RING_ALIGN);
--
- 	dest_ring->base_addr_owner_space = PTR_ALIGN(
- 			dest_ring->base_addr_owner_space_unaligned,
- 			CE_DESC_RING_ALIGN);
-diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
-index b541a1c..855e3de 100644
---- a/drivers/net/wireless/ath/ath10k/pci.c
-+++ b/drivers/net/wireless/ath/ath10k/pci.c
-@@ -896,7 +896,7 @@ static int ath10k_pci_diag_read_mem(struct ath10k *ar, u32 address, void *data,
- 	 */
- 	alloc_nbytes = min_t(unsigned int, nbytes, DIAG_TRANSFER_LIMIT);
- 
--	data_buf = (unsigned char *)dma_alloc_coherent(ar->dev,
-+	data_buf = (unsigned char *)dma_zalloc_coherent(ar->dev,
- 						       alloc_nbytes,
- 						       &ce_data_base,
- 						       GFP_ATOMIC);
-@@ -905,7 +905,6 @@ static int ath10k_pci_diag_read_mem(struct ath10k *ar, u32 address, void *data,
- 		ret = -ENOMEM;
- 		goto done;
- 	}
--	memset(data_buf, 0, alloc_nbytes);
- 
- 	remaining_bytes = nbytes;
- 	ce_data = ce_data_base;
--- 
-2.10.1
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to 0db1dba5dfaf70fb3baf07973996db2078528cde:
+
+  virtio/s390: virtio: constify virtio_config_ops structures (2017-01-19 23:46:34 +0200)
+
+Note: ARM DMA fixes missed this pull, will be in the next one.
+
+----------------------------------------------------------------
+virtio, vhost: fixes, cleanups
+
+Random fixes and cleanups that accumulated over the time.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Bhumika Goyal (2):
+      vhost: scsi: constify target_core_fabric_ops structures
+      virtio/s390: virtio: constify virtio_config_ops structures
+
+Colin Ian King (1):
+      virtio/s390: add missing \n to end of dev_err message
+
+Dan Carpenter (1):
+      vhost/scsi: silence uninitialized variable warning
+
+G. Campana (1):
+      virtio_console: fix a crash in config_work_handler
+
+Halil Pasic (2):
+      tools/virtio/ringtest: fix run-on-all.sh for offline cpus
+      tools/virtio/ringtest: tweaks for s390
+
+Pierre Morel (1):
+      virtio/s390: support READ_STATUS command for virtio-ccw
+
+ drivers/char/virtio_console.c       |  2 +-
+ drivers/s390/virtio/virtio_ccw.c    | 29 +++++++++++++++++++++++++++--
+ drivers/vhost/scsi.c                |  4 ++--
+ tools/virtio/ringtest/main.h        | 12 ++++++++++++
+ tools/virtio/ringtest/run-on-all.sh |  5 +++--
+ 5 files changed, 45 insertions(+), 7 deletions(-)
