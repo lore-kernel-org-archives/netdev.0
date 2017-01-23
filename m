@@ -1,31 +1,41 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: wrong smp_mb__after_atomic() in tcp_check_space() ?
-Date: Mon, 23 Jan 2017 15:30:25 +0100
-Message-ID: <20170123143025.GA31676@redhat.com>
+From: Joyes Dadi <"YD."@biscuit.ocn.ne.jp>
+Subject: Urgent Please,,
+Date: Mon, 23 Jan 2017 23:11:45 +0900 (JST)
+Message-ID: <202486791.25784616.1485180705307.JavaMail.root__31702.6504119442$1485182149$gmane$org@biscuit.ocn.ne.jp>
+Reply-To: Joyes Dadi <joyesdadi767@citromail.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert.xu@redhat.com>,
-        Yauheni Kaliuta <yauheni.kaliuta@redhat.com>,
-        netdev@vger.kernel.org
-To: Jason Baron <jbaron@akamai.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49258 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750723AbdAWOa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 09:30:26 -0500
-Content-Disposition: inline
+Received: from mbkd0325.ocn.ad.jp ([153.149.236.26]:42392 "EHLO
+        mbkd0325.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbdAWOfX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 09:35:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Good Day Dear,
 
-smp_mb__after_atomic() looks wrong and misleading, sock_reset_flag() does the
-non-atomic __clear_bit() and thus it can not guarantee test_bit(SOCK_NOSPACE)
-(non-atomic too) won't be reordered.
+My name is Ms. Joyes Dadi, I am glad you are reading this letter and I hope
+we will start our communication and I know that this message will look strange,
+surprising and probably unbelievable to you, but it is the reality. I want to
+make a donation of money to you.
 
-It was added by 3c7151275c0c9a "tcp: add memory barriers to write space paths"
-and the patch looks correct in that we need the barriers in tcp_check_space()
-and tcp_poll() in theory, so it seems tcp_check_space() needs smp_mb() ?
+I contact you by the will of God. I am a firm German woman specialized in
+mining gold and diamonds in Africa. But now, I'm very sick of a cancer. My
+husband died in an accident two years ago with our two children and now I have
+cancer of the esophagus that damaged almost all the cells in my system/agencies
+and I'll die soon according to my doctor.
 
-Oleg.
+My most concern now is, we grew up in the orphanage and were married in
+orphanage. If I die this deposited fund will soon be left alone in the hand of
+the bank, and I do want to it that  way. Please, if you can be reliable and
+sincere to accept my humble proposal; I have (10.5Millions Euro) in a fixed
+deposit account; I will order the Bank to transfer the money into your account
+in your country immediately, and then you will take the fund to  your country
+and invest it to the orphanage homes Please, answer as quickly as possible.
+
+God bless you.
+Ms. Joyes Dadi
+Email: joyesdadi767@citromail.hu
