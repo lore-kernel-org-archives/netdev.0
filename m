@@ -1,66 +1,86 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next] net:add one common config
- ARCH_WANT_RELAX_ORDER to support relax ordering.
-Date: Mon, 23 Jan 2017 09:44:35 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0268E25@AcuExch.aculab.com>
-References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
- <20170117.141533.680344033700095483.davem@davemloft.net>
- <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
- <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0267C5A@AcuExch.aculab.com>
- <CAKgT0UeW1LgzFiycz+aQb8j9VamdXO8Q1mO1DqcazeTkwQmYCA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        "maowenan@huawei.com" <maowenan@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 0/4] Add support for offloading packet-sampling
+Date: Mon, 23 Jan 2017 11:07:07 +0100
+Message-ID: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        jhs@mojatatu.com, geert+renesas@glider.be,
+        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+        linux@roeck-us.net, roopa@cumulusnetworks.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:54536 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750705AbdAWJol (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 04:44:41 -0500
-In-Reply-To: <CAKgT0UeW1LgzFiycz+aQb8j9VamdXO8Q1mO1DqcazeTkwQmYCA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:32987 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750705AbdAWKHO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 05:07:14 -0500
+Received: by mail-wj0-f195.google.com with SMTP id un2so1470742wjb.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 02:07:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDE5IEphbnVhcnkgMjAxNyAxNTo1NQ0KLi4uDQo+ID4+
-IFRoZSBSZWxheGVkIE9yZGVyaW5nIGF0dHJpYnV0ZSBkb2Vzbid0IGdldCBhcHBsaWVkIGFjcm9z
-cyB0aGUgYm9hcmQuDQo+ID4+IEl0IGVuZHMgdXAgYmVpbmcgbGltaXRlZCB0byBhIHN1YnNldCBv
-ZiB0aGUgdHJhbnNhY3Rpb25zIGlmIEkgcmVjYWxsDQo+ID4+IGNvcnJlY3RseS4gIEluIHRoaXMg
-Y2FzZSBpdCBpcyB0aGUgVHggZGVzY3JpcHRvciB3cml0ZSBiYWNrLCBhbmQgdGhlDQo+ID4+IFJ4
-IGRhdGEgd3JpdGUgYmFjay4gIFdlIGRvbid0IGFwcGx5IHRoZSBSTyBiaXQgdG8gYW55IG90aGVy
-DQo+ID4+IHRyYW5zYWN0aW9ucy4NCj4gPj4NCj4gPj4gSW4gdGhlIGNhc2Ugb2YgVHggZGVzY3Jp
-cHRvciB0aGVyZSBpcyBubyBoYXJtIGluIGFsbG93aW5nIGl0IHRvIGJlDQo+ID4+IHJlb3JkZXJl
-ZCBiZWNhdXNlIHdlIG9ubHkgcmVhbGx5IHJlYWQgdGhlIEREIGJpdCBzbyB3ZSBkb24ndCBjYXJl
-DQo+ID4+IGFib3V0IHRoZSBvcmRlcmluZyBvZiB0aGUgd3JpdGUgYmFjay4gIEluIHRoZSBjYXNl
-IG9mIHRoZSBSeCBkYXRhIHRoZQ0KPiA+PiBSeCBkZXNjcmlwdG9yIGVzc2VudGlhbGx5IGFjdHMg
-YXMgYSBmbHVzaCBzaW5jZSBpdCBpcyBzZW50IHdpdGhvdXQgdGhlDQo+ID4+IFJPIGJpdCBzZXQu
-ICBTbyBhbGwgdGhlIHdyaXRlcyBiZWZvcmUgaXQgbXVzdCBiZSBjb21wbGV0ZWQgYmVmb3JlIHRo
-ZQ0KPiA+PiBSeCBkZXNjcmlwdG9yIHdyaXRlIGJhY2suDQo+ID4NCj4gPiBJbiB3aGljaCBjYXNl
-IHdoeSBub3Qgc2V0IGl0IHVuY29uZGl0aW9uYWxseSBmb3IgYWxsIGFyY2hpdGVjdHVyZXM/DQo+
-ID4NCj4gPiBJJ20gc3VycHJpc2VkIChJIG9mdGVuIGFtKSB0aGF0IGFsbG93aW5nIHRob3NlIHJl
-LW9yZGVyaW5ncyBtYWtlcw0KPiA+IGFueSBzaWduaWZpY2FudCBkaWZmZXJlbmNlLg0KPiA+IFVu
-Zm9ydHVuYXRlbHkgeW91IG5lZWQgYSBQQ0llIGFuYWx5c2VyIHRvIHNlZSB3aGF0IGlzIHJlYWxs
-eSBoYXBwZW5pbmcNCj4gPiBhbmQgdGhleSBkb24ndCBjb21lIGNoZWFwLg0KPiA+DQo+ID4gV2hh
-dCBJIGRvIHZhZ3VlbHkgcmVtZW1iZXIgaXMgdGhhdCBzb21lIGhvc3RzIGRvbid0IGFsd2F5cyBp
-bXBsZW1lbnQNCj4gPiB0aGUgJ25vcm1hbCcgcmUtb3JkZXJpbmcgb2YgcmVhZHMgYW5kIHJlYWQg
-Y29tcGxldGlvbnMuDQo+ID4gUmUtb3JkZXJpbmcgb2YgcmVhZHMgYWxsb3dzIGRlc2NyaXB0b3Ig
-cmVhZHMgdG8gb3ZlcnRha2UgdHJhbnNtaXQNCj4gPiB0cmFmZmljIHdoaWNoIGlzIGxpa2VseSB0
-byBtYWtlIGEgZGlmZmVyZW5jZS4NCj4gDQo+IEkgdGhpbmsgcGFydCBvZiB0aGUgaXNzdWUsIGF0
-IGxlYXN0IGluIHRoZSBjYXNlIG9mIFNQQVJDLCBpcyB0aGF0IHRoZQ0KPiBoYW5kbGluZyBvZiB0
-aGUgbWVtb3J5IHdyaXRlcyBpbiB0aGUgUENJZSByb290IGNvbXBsZXggaXMgaW1wYWN0ZWQgYnkN
-Cj4gdGhlIFJPIGF0dHJpYnV0ZS4gIE9uIHRoZSBidXMgaXRzZWxmIGl0IGRvZXNuJ3QgbWF0dGVy
-IG11Y2gsIGJ1dCBhdA0KPiB0aGUgcm9vdCBjb21wbGV4IGl0IGNhbiBiZWNvbWUgZXhwZW5zaXZl
-IHRvIGhhdmUgdG8gd2FpdCBvbiBhIHBhcnRpYWwNCj4gd3JpdGUgdG8gY29tcGxldGUgd2hpbGUg
-dGhlcmUgYXJlIG90aGVyIHdyaXRlcyBwZW5kaW5nLiAgVGhpcyBpcyB3aHkNCj4gdGhlIElPTU1V
-IGZvciBTUEFSQyBub3cgaGFzIGEgV0VBS19PUkRFUklORyBhdHRyaWJ1dGUgeW91IGNhbiBhZGQg
-c28NCj4gdGhhdCBpdCBjYW4gd3JpdGUgdGhlIGRhdGEgaW4gd2hhdGV2ZXIgb3JkZXIgaXQgd2Fu
-dHMgaW4gcmVsYXRpb24gdG8NCj4gb3RoZXIgd3JpdGVzIGluIHRoYXQgcmVnaW9uLg0KDQpJIGhv
-cGUgdGhlIElPTU1VIG9ubHkgZXZlciByZW9yZGVycyB3cml0ZXMgdGhhdCBoYXZlIHRoZSBSTyBi
-aXQgc2V0Lg0KDQpIYXMgYW55b25lIHRyaWVkIGNhY2hlIGludmFsaWRhdGVzIG9uIHRoZSByeCBi
-dWZmZXJzPw0KTWlnaHQgbWFrZSB0aGUgd3JpdGVzIGxlc3MgZXhwZW5zaXZlLg0KT3IgaXMgdGhl
-IGlzc3VlIHdpdGggTlVNQSByYXRoZXIgdGhhbiBjYWNoZS4NCg0KCURhdmlkDQoNCg==
+From: Jiri Pirko <jiri@mellanox.com>
+
+Yotam says:
+
+The first patch introduces the psample module, a netlink channel dedicated
+to packet sampling implemented using generic netlink. This module provides
+a generic way for kernel modules to sample packets, while not being tied
+to any specific subsystem like NFLOG.
+
+The second patch adds the sample tc action, which uses psample to randomly
+sample packets that match a classifier. The user can configure the psample
+group number, the sampling rate and the packet's truncation (to save
+kernel-user traffic).
+
+The last two patches add the support for offloading the matchall-sample
+tc command in the mlxsw driver, for ingress qdiscs.
+
+An example for psample usage can be found in the libpsample project at:
+https://github.com/Mellanox/libpsample
+
+---
+v1->v2:
+- Reword first patch's commit message
+- Fix typo in comment in second patch
+- Change order of tc_sample uapi enum to match convention
+- Rename act_sample action callback tcf_sample -> tcf_sample_act
+
+Yotam Gigi (4):
+  net: Introduce psample, a new genetlink channel for packet sampling
+  net/sched: Introduce sample tc action
+  mlxsw: reg: add the Monitoring Packet Sampling Configuration Register
+  mlxsw: spectrum: Add packet sample offloading support
+
+ MAINTAINERS                                    |   7 +
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      |  41 ++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 111 +++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  10 +
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |   1 +
+ include/net/psample.h                          |  36 +++
+ include/net/tc_act/tc_sample.h                 |  50 ++++
+ include/uapi/linux/Kbuild                      |   1 +
+ include/uapi/linux/psample.h                   |  35 +++
+ include/uapi/linux/tc_act/Kbuild               |   1 +
+ include/uapi/linux/tc_act/tc_sample.h          |  26 +++
+ net/Kconfig                                    |   1 +
+ net/Makefile                                   |   1 +
+ net/psample/Kconfig                            |  15 ++
+ net/psample/Makefile                           |   5 +
+ net/psample/psample.c                          | 301 +++++++++++++++++++++++++
+ net/sched/Kconfig                              |  12 +
+ net/sched/Makefile                             |   1 +
+ net/sched/act_sample.c                         | 274 ++++++++++++++++++++++
+ 19 files changed, 929 insertions(+)
+ create mode 100644 include/net/psample.h
+ create mode 100644 include/net/tc_act/tc_sample.h
+ create mode 100644 include/uapi/linux/psample.h
+ create mode 100644 include/uapi/linux/tc_act/tc_sample.h
+ create mode 100644 net/psample/Kconfig
+ create mode 100644 net/psample/Makefile
+ create mode 100644 net/psample/psample.c
+ create mode 100644 net/sched/act_sample.c
+
+-- 
+2.7.4
