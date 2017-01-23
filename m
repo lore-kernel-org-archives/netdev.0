@@ -1,59 +1,56 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
-Date: Mon, 23 Jan 2017 22:37:32 +0100
-Message-ID: <20170123213732.GF20894@1wt.eu>
-References: <20170123185922.48046-1-tracywwnj@gmail.com>
- <20170123185922.48046-4-tracywwnj@gmail.com>
- <20170123211623.GE20894@1wt.eu>
- <CAEA6p_DxVMAry1PCz_idmk=TGpnnTib3WpWso03FB1oMVXN+sg@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: XDP offload to hypervisor
+Date: Mon, 23 Jan 2017 23:40:29 +0200
+Message-ID: <20170123230727-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wei Wang <tracywwnj@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Wei Wang <weiwan@google.com>
+Cc: jasowang@redhat.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:63008 "EHLO 1wt.eu"
+Received: from mx1.redhat.com ([209.132.183.28]:44264 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751083AbdAWVhj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 16:37:39 -0500
+        id S1750705AbdAWVk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 16:40:29 -0500
 Content-Disposition: inline
-In-Reply-To: <CAEA6p_DxVMAry1PCz_idmk=TGpnnTib3WpWso03FB1oMVXN+sg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 01:28:53PM -0800, Wei Wang wrote:
-> Hi Willy,
-> 
-> True. If you call connect() multiple times on a socket which already has
-> cookie without a write(), the second and onward connect() call will return
-> EINPROGRESS.
-> It is basically because the following code block in __inet_stream_connect()
-> can't distinguish if it is the first time connect() is called or not:
-> 
-> case SS_CONNECTING:
->                 if (inet_sk(sk)->defer_connect)  <----- defer_connect will
-> be 0 only after a write() is called
->                         err = -EINPROGRESS;
->                 else
->                         err = -EALREADY;
->                 /* Fall out of switch with err, set for this state */
->                 break;
+I've been thinking about passing XDP programs from guest to the
+hypervisor.  Basically, after getting an incoming packet, we could run
+an XDP program in host kernel.
 
-Ah OK that totally makes sense, thanks for the explanation!
+If the result is XDP_DROP or XDP_TX we don't need to wake up the guest at all!
 
-> I guess we can add some extra logic here to address this issue. So the
-> second connect() and onwards will return EALREADY.
+When using tun for networking - especially with adjust_head - this
+unfortunately probably means we need to do a data copy unless there is
+enough headroom.  How much is enough though?
 
-If that's possible at little cost it would be nice, because your patch
-makes it so easy to enable TFO on outgoing connections now that I
-expect many people will blindly run the setsockopt() before connect().
+Another issue is around host/guest ABI. Guest BPF could add new features
+at any point. What if hypervisor can not support it all?  I guess we
+could try loading program into hypervisor and run it within guest on
+failure to load, but this ignores question of cross-version
+compatibility - someone might start guest on a new host
+then try to move to an old one. So we will need an option
+"behave like an older host" such that guest can start and then
+move to an older host later. This will likely mean
+implementing this validation of programs in qemu userspace unless linux
+can supply something like this. Is this (disabling some features)
+something that might be of interest to larger bpf community?
 
-Do not hesitate to ask me to run some tests. While 4 years ago it was
-not easy, here it's very simple for me. By the way I'm seeing an ~10%
-performance increase on haproxy by enabling this, it's really cool!
+With a device such as macvtap there exist configurations where a single
+guest is in control of the device (aka passthrough mode) in that case
+there's a potential to run xdp on host before host skb is built, unless
+host already has an xdp program attached.  If it does we could run the
+program within guest, but what if a guest program got attached first?
+Maybe we should pass a flag in the packet "xdp passed on this packet in
+host". Then, guest can skip running it.  Unless we do a full reset
+there's always a potential for packets to slip through, e.g. on xdp
+program changes. Maybe a flush command is needed, or force queue or
+device reset to make sure nothing is going on. Does this make sense?
 
-Thanks,
-Willy
+Thanks!
+
+-- 
+MST
