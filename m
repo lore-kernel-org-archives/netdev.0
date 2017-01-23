@@ -1,284 +1,128 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
-Date: Mon, 23 Jan 2017 22:09:23 +0200
-Message-ID: <20170123220231-mutt-send-email-mst@kernel.org>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
- <20170123205957-mutt-send-email-mst@kernel.org>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Mon, 23 Jan 2017 12:20:52 -0800
+Message-ID: <CALCETrXK65itdDqYTdhB-Td8d-Hzj00dcDScUOUh9psCZN_cLA@mail.gmail.com>
+References: <CALCETrW+ZQ1xMEfdEOzx6RK9ZoCvQiqQSnOyhDJ=-FZMwUbucg@mail.gmail.com>
+ <20170118224120.GG9171@mtj.duckdns.org> <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A@mail.gmail.com>
+ <20170119005925.GA18554@mtj.duckdns.org> <CALCETrVrEnL4cvkdDu2LUhxmeOZ+SMEmF=yKKsm9OYoW2y1Kpg@mail.gmail.com>
+ <20170120023907.GA3294@ast-mbp.thefacebook.com> <CALCETrV6NArtFa89iW+QO3udxpJYpMXLbOEk6ZYyWsw7oZDS2Q@mail.gmail.com>
+ <20170123043154.GA93519@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42306 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750714AbdAWUJY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 15:09:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20170123205957-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170123043154.GA93519-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 23, 2017 at 09:22:36PM +0200, Michael S. Tsirkin wrote:
-> On Tue, Jan 17, 2017 at 02:22:59PM -0800, John Fastabend wrote:
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 62dbf4b..3b129b4 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -41,6 +41,9 @@
-> >  #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-> >  #define GOOD_COPY_LEN	128
-> >  
-> > +/* Amount of XDP headroom to prepend to packets for use by xdp_adjust_head */
-> > +#define VIRTIO_XDP_HEADROOM 256
-> > +
-> >  /* RX packet size EWMA. The average packet size is used to determine the packet
-> >   * buffer size when refilling RX rings. As the entire RX ring may be refilled
-> >   * at once, the weight is chosen so that the EWMA will be insensitive to short-
-> 
-> I wonder where does this number come from?  This is quite a lot and
-> means that using XDP_PASS will slow down any sockets on top of it.
-> Which in turn means people will try to remove XDP when not in use,
-> causing resets.  E.g. build_skb (which I have a patch to switch to) uses
-> a much more reasonable NET_SKB_PAD.
-> 
-> -- 
-> MST
+On Sun, Jan 22, 2017 at 8:31 PM, Alexei Starovoitov
+<alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Thu, Jan 19, 2017 at 08:04:59PM -0800, Andy Lutomirski wrote:
+>> On Thu, Jan 19, 2017 at 6:39 PM, Alexei Starovoitov
+>> <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> > On Wed, Jan 18, 2017 at 06:29:22PM -0800, Andy Lutomirski wrote:
+>> >> I think it could work by making a single socket cgroup controller that
+>> >> handles all cgroup things that are bound to a socket.  Using
+>> >
+>> > Such 'socket cgroup controller' would limit usability of the feature
+>> > to sockets and force all other use cases like landlock to invent
+>> > their own wheel, which is undesirable. Everyone will be
+>> > inventing new 'foo cgroup controller', while all of them
+>> > are really bpf features. They are different bpf program
+>> > types that attach to different hooks and use cgroup for scoping.
+>>
+>> Can you elaborate on why that would be a problem?  In a cgroup v1
+>> world, users who want different hierarchies for different types of
+>> control could easily want one hierarchy for socket hooks and a
+>> different hierarchy for lsm hooks.  In a cgroup v2 delegation world, I
+>> could easily imagine the decision to delegate socket hooks being
+>> different from the decision to delegate lsm hooks.  Almost all of the
+>> code would be shared between different bpf-using cgroup controllers.
+>
+> how do you think it can be enforced when directory is chowned?
 
+A combination of delegation policy (a la subtree_control in the
+parent) and MAC policy.  I'm quite confident that apparmor can apply
+policy to cgroupfs and I'm reasonably confident (although slightly
+less so) that selinux can as well.  The docs suck :(
 
-Let me show you a patch that I've been cooking.  What is missing there
-is handling corner cases like e.g.  when ring size is ~4 entries so
-using smaller buffers might mean we no longer have enough space to store
-a full packet.  So it looks like I have to maintain the skb copy path
-for this hardware.
+But if there's only one file in there to apply MAC policy to, the
+ability to differentiate between subsystems is quite limited.   In the
+current API, there are no files to apply policy to, so it won't work
+at all.
 
-With this patch, standard configuration has NET_SKB_PAD + NET_IP_ALIGN
-bytes head padding. Would this be enough for XDP? If yes we do not
-need the resets.
+>
+> ... and open() of the directory done by the current api will preserve
+> cgroup delegation when and only when bpf_prog_type_cgroup_*
+> becomes unprivileged.
+> I'm not proposing creating new api here.
 
-Thoughts?
+I don't know what you mean.  open() of the directory can't check
+anything useful because it has to work for programs that just want to
+read the directory.
 
---->
+>> Meanwhile, cgroup+bpf actually appears to be buggy in this regard even
+>> regardless of what semantics you think are better.  sk_bound_dev_if is
+>> exposed as a u32 value, but sk_bound_dev_if only has meaning within a
+>> given netns.  The "ip vrf" stuff will straight-up malfunction if a
+>> process affected by its hook runs in a different netns from the netns
+>> that "ip vrf" was run in.
+>
+> how is that any different from normal 'ip netns exec'?
+> that is expected user behavior.
 
-virtio_net: switch to build_skb for mrg_rxbuf
+# ./ip link add dev vrf0 type vrf table 10
+# ./ip vrf exec vrf0 ./show_bind
+Default binding is "vrf0"
+# ./ip vrf exec vrf0 unshare -n ./show_bind
+show_bind: getsockopt: No such device
 
-For small packets data copy was observed to
-take up about 15% CPU time. Switch to build_skb
-and avoid the copy when using mergeable rx buffers.
+The expected behavior to me is that ip netns exec (or equivalently
+unshare -n) gives a clean slate.  Actually malfunctioning (which this
+example using the latest iproute2 and linux just did) is not expected.
 
-As a bonus, medium-size skbs that fit in a page will be
-completely linear.
+I'm done with this part of this thread and I'm sending a patch.
 
-Of course, we now need to lower the lower bound on packet size,
-to make sure a sane number of skbs fits in rx socket buffer.
-By how much? I don't know yet.
+>
+>> restricting the types of sockets that can be created, then you do want
+>> the filter to work across namespaces, but seccomp can do that too and
+>> the current code doesn't handle netns correctly.
+>
+> are you saying that seccomp supports netns filtering? please show the proof.
 
-It might also be useful to prefetch the packet buffer since
-net stack will likely use it soon.
+It can trivially restruct the types of sockets that are created by
+filtering on socket(2) syscall parameters, at least on sane
+architectures that don't use socketcall().
 
-Lightly tested, in particular, I didn't yet test what this
-actually does to performance - sending this out for early
-feedback/flames.
+> To summarize, I think the 'prog override is not allowed' flag would be
+> ok feature to have and I wouldn't mind making it the default when no 'flag'
+> field is passed to bpf syscall, but it's not acceptable to remove current
+> 'prog override is allowed' behavior.
+> So if you insist on changing the default, please implement the flag asap.
+> Though from security point of view and ABI point of view there is absolutely
+> no difference whether this flag is added today or a year later while
+> the default is kept as-is.
 
-TODO: it appears that Linux won't handle correctly the case of first
-buffer being very small (or consisting exclusively of virtio header).
-This is already the case for current code, need to fix.
-TODO: might be unfair to the last packet in a fragment as we include
-remaining space if any in its truesize.
+It's too late and I have too little time.  I'll try to write a patch
+to change the default to just deny attempts to override.  Better
+behavior can be added later.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b425fa1..a6b996f 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -38,6 +38,8 @@ module_param(gso, bool, 0444);
- 
- /* FIXME: MTU in config. */
- #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-+//#define MIN_PACKET_ALLOC GOOD_PACKET_LEN
-+#define MIN_PACKET_ALLOC 128
- #define GOOD_COPY_LEN	128
- 
- /* RX packet size EWMA. The average packet size is used to determine the packet
-@@ -246,6 +248,9 @@ static void *mergeable_ctx_to_buf_address(unsigned long mrg_ctx)
- static unsigned long mergeable_buf_to_ctx(void *buf, unsigned int truesize)
- {
- 	unsigned int size = truesize / MERGEABLE_BUFFER_ALIGN;
-+
-+	BUG_ON((unsigned long)buf & (MERGEABLE_BUFFER_ALIGN - 1));
-+	BUG_ON(size - 1 >= MERGEABLE_BUFFER_ALIGN);
- 	return (unsigned long)buf | (size - 1);
- }
- 
-@@ -354,25 +359,54 @@ static struct sk_buff *receive_big(struct net_device *dev,
- 	return NULL;
- }
- 
-+#define VNET_SKB_PAD (NET_SKB_PAD + NET_IP_ALIGN)
-+#define VNET_SKB_BUG (VNET_SKB_PAD < sizeof(struct virtio_net_hdr_mrg_rxbuf))
-+#define VNET_SKB_LEN(len) ((len) - sizeof(struct virtio_net_hdr_mrg_rxbuf))
-+#define VNET_SKB_OFF VNET_SKB_LEN(VNET_SKB_PAD)
-+
-+static struct sk_buff *vnet_build_skb(struct virtnet_info *vi,
-+				      void *buf,
-+				      unsigned int len, unsigned int truesize)
-+{
-+	struct sk_buff *skb = build_skb(buf, truesize);
-+
-+	if (!skb)
-+		return NULL;
-+
-+	skb_reserve(skb, VNET_SKB_PAD);
-+	skb_put(skb, VNET_SKB_LEN(len));
-+
-+	return skb;
-+}
-+
- static struct sk_buff *receive_mergeable(struct net_device *dev,
- 					 struct virtnet_info *vi,
- 					 struct receive_queue *rq,
- 					 unsigned long ctx,
--					 unsigned int len)
-+					 unsigned int len,
-+					 struct virtio_net_hdr_mrg_rxbuf *hdr)
- {
- 	void *buf = mergeable_ctx_to_buf_address(ctx);
--	struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
--	u16 num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
-+	u16 num_buf;
- 	struct page *page = virt_to_head_page(buf);
--	int offset = buf - page_address(page);
--	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-+	unsigned int truesize = mergeable_ctx_to_buf_truesize(ctx);
-+	int offset;
-+	struct sk_buff *head_skb;
-+	struct sk_buff *curr_skb;
-+
-+	BUG_ON(len > truesize);
- 
--	struct sk_buff *head_skb = page_to_skb(vi, rq, page, offset, len,
--					       truesize);
--	struct sk_buff *curr_skb = head_skb;
-+	/* copy header: build_skb will overwrite it */
-+	memcpy(hdr, buf + VNET_SKB_OFF, sizeof *hdr);
-+
-+	head_skb = vnet_build_skb(vi, buf, len, truesize);
-+	curr_skb = head_skb;
-+
-+	num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
- 
- 	if (unlikely(!curr_skb))
- 		goto err_skb;
-+
- 	while (--num_buf) {
- 		int num_skb_frags;
- 
-@@ -386,7 +420,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 			goto err_buf;
- 		}
- 
--		buf = mergeable_ctx_to_buf_address(ctx);
-+		buf = mergeable_ctx_to_buf_address(ctx) + VNET_SKB_OFF;
- 		page = virt_to_head_page(buf);
- 
- 		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
-@@ -403,7 +437,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 			head_skb->truesize += nskb->truesize;
- 			num_skb_frags = 0;
- 		}
--		truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-+		truesize = mergeable_ctx_to_buf_truesize(ctx);
-+		BUG_ON(len > truesize);
- 		if (curr_skb != head_skb) {
- 			head_skb->data_len += len;
- 			head_skb->len += len;
-@@ -449,6 +484,7 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
- 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
- 	struct sk_buff *skb;
- 	struct virtio_net_hdr_mrg_rxbuf *hdr;
-+	struct virtio_net_hdr_mrg_rxbuf hdr0;
- 
- 	if (unlikely(len < vi->hdr_len + ETH_HLEN)) {
- 		pr_debug("%s: short packet %i\n", dev->name, len);
-@@ -465,17 +501,24 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
- 		return;
- 	}
- 
--	if (vi->mergeable_rx_bufs)
--		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
--	else if (vi->big_packets)
-+	if (vi->mergeable_rx_bufs) {
-+		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len,
-+					&hdr0);
-+		if (unlikely(!skb))
-+			return;
-+		hdr = &hdr0;
-+	} else if (vi->big_packets) {
- 		skb = receive_big(dev, vi, rq, buf, len);
--	else
-+		if (unlikely(!skb))
-+			return;
-+		hdr = skb_vnet_hdr(skb);
-+	} else {
- 		skb = receive_small(vi, buf, len);
-+		if (unlikely(!skb))
-+			return;
-+		hdr = skb_vnet_hdr(skb);
-+	}
- 
--	if (unlikely(!skb))
--		return;
--
--	hdr = skb_vnet_hdr(skb);
- 
- 	u64_stats_update_begin(&stats->rx_syncp);
- 	stats->rx_bytes += skb->len;
-@@ -581,11 +624,14 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
- 
- static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
- {
--	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+	unsigned int hdr;
- 	unsigned int len;
- 
--	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
--			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-+	hdr = ALIGN(VNET_SKB_PAD + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
-+		    MERGEABLE_BUFFER_ALIGN);
-+
-+	len = hdr + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
-+			    MIN_PACKET_ALLOC, PAGE_SIZE - hdr);
- 	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
- }
- 
-@@ -601,8 +647,11 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
- 	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
- 		return -ENOMEM;
- 
--	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
--	ctx = mergeable_buf_to_ctx(buf, len);
-+	BUILD_BUG_ON(VNET_SKB_BUG);
-+
-+	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset +
-+		VNET_SKB_OFF;
-+	//ctx = mergeable_buf_to_ctx(buf - VNET_SKB_OFF, len);
- 	get_page(alloc_frag->page);
- 	alloc_frag->offset += len;
- 	hole = alloc_frag->size - alloc_frag->offset;
-@@ -615,8 +664,10 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
- 		len += hole;
- 		alloc_frag->offset += hole;
- 	}
-+	ctx = mergeable_buf_to_ctx(buf - VNET_SKB_OFF, len);
- 
--	sg_init_one(rq->sg, buf, len);
-+	sg_init_one(rq->sg, buf,
-+		    len - VNET_SKB_OFF - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)));
- 	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, (void *)ctx, gfp);
- 	if (err < 0)
- 		put_page(virt_to_head_page(buf));
+IMO your suggestions about priorities are overcomplicated.  For your
+instrumentation needs, I can imagine that a simple "make this hook not
+run if a descendent has a hook" would do it.  For everything else, run
+them all in tree order (depending on filter type) and let the eBPF
+code do whatever it wants to do.
