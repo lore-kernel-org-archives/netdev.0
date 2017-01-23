@@ -1,81 +1,36 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 3/3] sh_eth: stop using bare numbers for EESIPR values
-Date: Mon, 23 Jan 2017 09:00:49 +0100
-Message-ID: <CAMuHMdWWFmDkJfhac9jLZ-ZAJfzDPw7oq4hwL5hVy21h0V13Og@mail.gmail.com>
-References: <1636105.gp4aQxGd5K@wasted.cogentembedded.com> <4605565.M0SEEbnHAH@wasted.cogentembedded.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH v2] net: broadcom: bnx2x: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Mon, 23 Jan 2017 08:16:34 +0000
+Message-ID: <BL2PR07MB23062801CB2F195C61C17BDD8D720@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1485006196-6472-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <4605565.M0SEEbnHAH@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Elior, Ariel" <Ariel.Elior@cavium.com>
+To: Philippe Reynes <tremyfr@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-dm3nam03on0048.outbound.protection.outlook.com ([104.47.41.48]:59008
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750703AbdAWIQj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 03:16:39 -0500
+In-Reply-To: <1485006196-6472-1-git-send-email-tremyfr@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+>=20
+> As I don't have the hardware, I'd be very pleased if someone may test thi=
+s
+> patch.
+>=20
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-On Sun, Jan 22, 2017 at 8:19 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Now  that we  have almost all EESIPR bits declared (and those that  are
-> still not are most probably reserved anyway) we can at last replace the
-> bare  numbers used for 'sh_eth_cpu_data::eesipr_value' initializers with
-> the bit names ORed together...
->
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c |   89 +++++++++++++++++++++++++++++-----
->  1 file changed, 78 insertions(+), 11 deletions(-)
->
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-
-> @@ -800,7 +843,12 @@ static struct sh_eth_cpu_data sh7734_dat
->
->         .ecsr_value     = ECSR_ICD | ECSR_MPD,
->         .ecsipr_value   = ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
-> -       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP | 0x003f07ff,
-> +       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP |
-> +                         EESIPR_FTCIP | EESIPR_TDEIP | EESIPR_TFUFIP |
-> +                         EESIPR_FRIP | EESIPR_RDEIP | EESIPR_RFOFIP |
-
-Missing:
-
-        EESIPR_DLCIP | EESIPR_CDIP | EESIPR_TROIP |
-
-> +                         EESIPR_RMAFIP | EESIPR_CEEFIP | EESIPR_CELFIP |
-> +                         EESIPR_RRFIP | EESIPR_RTLFIP | EESIPR_RTSFIP |
-> +                         EESIPR_PREIP | EESIPR_CERFIP,
->
->         .tx_check       = EESR_TC1 | EESR_FTC,
->         .eesr_err_check = EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
-> @@ -830,7 +878,12 @@ static struct sh_eth_cpu_data sh7763_dat
->
->         .ecsr_value     = ECSR_ICD | ECSR_MPD,
->         .ecsipr_value   = ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
-> -       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP | 0x003f07ff,
-> +       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP |
-> +                         EESIPR_FTCIP | EESIPR_TDEIP | EESIPR_TFUFIP |
-> +                         EESIPR_FRIP | EESIPR_RDEIP | EESIPR_RFOFIP |
-
-Likewise
-
-> +                         EESIPR_RMAFIP | EESIPR_CEEFIP | EESIPR_CELFIP |
-> +                         EESIPR_RRFIP | EESIPR_RTLFIP | EESIPR_RTSFIP |
-> +                         EESIPR_PREIP | EESIPR_CERFIP,
-
-Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+>From the little testing I've did, things look fine. Thanks.
+Acked-by: Yuval Mintz <Yuval.Mintz@cavium.com>
