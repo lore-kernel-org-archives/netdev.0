@@ -1,311 +1,183 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH v5 6/6] virtio_net: XDP support for adjust_head
-Date: Tue, 24 Jan 2017 00:28:53 +0200
-Message-ID: <20170124002828-mutt-send-email-mst@kernel.org>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117222259.20280.24625.stgit@john-Precision-Tower-5810>
- <20170123205957-mutt-send-email-mst@kernel.org>
- <20170123220231-mutt-send-email-mst@kernel.org>
- <58867FDF.4070708@gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
+Date: Mon, 23 Jan 2017 23:33:19 +0100
+Message-ID: <20170123223319.GH20894@1wt.eu>
+References: <20170123185922.48046-1-tracywwnj@gmail.com>
+ <20170123185922.48046-4-tracywwnj@gmail.com>
+ <20170123211623.GE20894@1wt.eu>
+ <CAEA6p_DxVMAry1PCz_idmk=TGpnnTib3WpWso03FB1oMVXN+sg@mail.gmail.com>
+ <20170123213732.GF20894@1wt.eu>
+ <20170123220121.GG20894@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: Wei Wang <tracywwnj@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39162 "EHLO mx1.redhat.com"
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:63087 "EHLO 1wt.eu"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751183AbdAWW2y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 17:28:54 -0500
+        id S1751668AbdAWWdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 17:33:37 -0500
 Content-Disposition: inline
-In-Reply-To: <58867FDF.4070708@gmail.com>
+In-Reply-To: <20170123220121.GG20894@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 02:12:47PM -0800, John Fastabend wrote:
-> On 17-01-23 12:09 PM, Michael S. Tsirkin wrote:
-> > On Mon, Jan 23, 2017 at 09:22:36PM +0200, Michael S. Tsirkin wrote:
-> >> On Tue, Jan 17, 2017 at 02:22:59PM -0800, John Fastabend wrote:
-> >>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> >>> index 62dbf4b..3b129b4 100644
-> >>> --- a/drivers/net/virtio_net.c
-> >>> +++ b/drivers/net/virtio_net.c
-> >>> @@ -41,6 +41,9 @@
-> >>>  #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-> >>>  #define GOOD_COPY_LEN	128
-> >>>  
-> >>> +/* Amount of XDP headroom to prepend to packets for use by xdp_adjust_head */
-> >>> +#define VIRTIO_XDP_HEADROOM 256
-> >>> +
-> >>>  /* RX packet size EWMA. The average packet size is used to determine the packet
-> >>>   * buffer size when refilling RX rings. As the entire RX ring may be refilled
-> >>>   * at once, the weight is chosen so that the EWMA will be insensitive to short-
-> >>
-> >> I wonder where does this number come from?  This is quite a lot and
-> >> means that using XDP_PASS will slow down any sockets on top of it.
-> >> Which in turn means people will try to remove XDP when not in use,
-> >> causing resets.  E.g. build_skb (which I have a patch to switch to) uses
-> >> a much more reasonable NET_SKB_PAD.
-> 
-> I just used the value Alexei (or someone?) came up with. I think it needs to be
-> large enough to avoid copy in header encap cases. So minimum
-> 
->   VXLAN_HDR + OUTER_UDP + OUTER_IPV6_HDR + OUTER_MAC =
->      8      +     8     +        40      +      14   =  70
-> 
-> The choice of VXLAN hdr was sort of arbitrary but seems good for estimates. For
-> what its worth there is also a ndo_set_rx_headroom could we use that to set it
-> and choose a reasonable default.
-> 
-> >>
-> >> -- 
-> >> MST
+On Mon, Jan 23, 2017 at 11:01:21PM +0100, Willy Tarreau wrote:
+> On Mon, Jan 23, 2017 at 10:37:32PM +0100, Willy Tarreau wrote:
+> > On Mon, Jan 23, 2017 at 01:28:53PM -0800, Wei Wang wrote:
+> > > Hi Willy,
+> > > 
+> > > True. If you call connect() multiple times on a socket which already has
+> > > cookie without a write(), the second and onward connect() call will return
+> > > EINPROGRESS.
+> > > It is basically because the following code block in __inet_stream_connect()
+> > > can't distinguish if it is the first time connect() is called or not:
+> > > 
+> > > case SS_CONNECTING:
+> > >                 if (inet_sk(sk)->defer_connect)  <----- defer_connect will
+> > > be 0 only after a write() is called
+> > >                         err = -EINPROGRESS;
+> > >                 else
+> > >                         err = -EALREADY;
+> > >                 /* Fall out of switch with err, set for this state */
+> > >                 break;
 > > 
+> > Ah OK that totally makes sense, thanks for the explanation!
 > > 
-> > Let me show you a patch that I've been cooking.  What is missing there
-> > is handling corner cases like e.g.  when ring size is ~4 entries so
-> > using smaller buffers might mean we no longer have enough space to store
-> > a full packet.  So it looks like I have to maintain the skb copy path
-> > for this hardware.
-> > 
-> > With this patch, standard configuration has NET_SKB_PAD + NET_IP_ALIGN
-> > bytes head padding. Would this be enough for XDP? If yes we do not
-> > need the resets.
+> > > I guess we can add some extra logic here to address this issue. So the
+> > > second connect() and onwards will return EALREADY.
 > 
-> Based on above seems a bit small (L1_CACHE_BYTES + 2)? How tricky would it
-> be to add support for ndo_set_rx_headroom.
+> Thinking about it a bit more, I really think it would make more
+> sense to return -EISCONN here if we want to match the semantics
+> of a connect() returning zero on the first call. This way the
+> caller knows it can write whenever it wants and can disable
+> write polling until needed.
+> 
+> I'm currently rebuilding a kernel with this change to see if it
+> behaves any better :
+> 
+> -                        err = -EINPROGRESS;
+> +                        err = -EISCONN;
 
-Donnu but then what? Expose it to userspace and let admin
-make the decision for us?
+OK so obviously it didn't work since sendmsg() goes there as well.
+
+But that made me realize that there really are 3 states, not 2 :
+
+  - after connect() and before sendmsg() :
+     defer_accept = 1, we want to lie to userland and pretend we're
+     connected so that userland can call send(). A connect() must
+     return either zero or -EISCONN.
+
+  - during first sendmsg(), still connecting :
+     the connection is in progress, EINPROGRESS must be returned to
+     the first sendmsg().
+
+  - after the first sendmsg() :
+     defer_accept = 0 ; connect() must return -EALREADY. We want to
+     return real socket states from now on.
+
+Thus I modified defer_accept to take two bits to represent the extra
+state we need to indicate the transition. Now sendmsg() upgrades
+defer_accept from 1 to 2 before calling __inet_stream_connect(), which
+then knows it must return EINPROGRESS to sendmsg().
+
+This way we correctly cover all these situations. Even if we call
+connect() again after the first connect() attempt it still matches
+the first result :
+
+accept4(7, {sa_family=AF_INET, sin_port=htons(36860), sin_addr=inet_addr("192.168.0.176")}, [128->16], SOCK_NONBLOCK) = 1
+setsockopt(1, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+accept4(7, 0x7ffc2282fcb0, [128], SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+recvfrom(1, 0x7b53a4, 7006, 0, NULL, NULL) = -1 EAGAIN (Resource temporarily unavailable)
+socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) = 2
+fcntl(2, F_SETFL, O_RDONLY|O_NONBLOCK)  = 0
+setsockopt(2, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+setsockopt(2, SOL_TCP, 0x1e /* TCP_??? */, [1], 4) = 0
+connect(2, {sa_family=AF_INET, sin_port=htons(8001), sin_addr=inet_addr("127.0.0.1")}, 16) = 0
+epoll_ctl(0, EPOLL_CTL_ADD, 1, {EPOLLIN|EPOLLRDHUP, {u32=1, u64=1}}) = 0
+epoll_wait(0, [], 200, 0)               = 0
+connect(2, {sa_family=AF_INET, sin_port=htons(8001), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EISCONN (Transport endpoint is already connected)
+epoll_wait(0, [], 200, 0)               = 0
+recvfrom(2, 0x7b53a4, 8030, 0, NULL, NULL) = -1 EAGAIN (Resource temporarily unavailable)
+epoll_ctl(0, EPOLL_CTL_ADD, 2, {EPOLLIN|EPOLLRDHUP, {u32=2, u64=2}}) = 0
+epoll_wait(0, [], 200, 1000)            = 0
+epoll_wait(0, [], 200, 1000)            = 0
+epoll_wait(0, [], 200, 1000)            = 0
+epoll_wait(0, [{EPOLLIN, {u32=1, u64=1}}], 200, 1000) = 1
+recvfrom(1, "GET / HTTP/1.1\r\n", 8030, 0, NULL, NULL) = 16
+sendto(2, "GET / HTTP/1.1\r\n", 16, MSG_DONTWAIT|MSG_NOSIGNAL, NULL, 0) = 16
+epoll_wait(0, [{EPOLLIN, {u32=1, u64=1}}], 200, 1000) = 1
+recvfrom(1, "\r\n", 8030, 0, NULL, NULL) = 2
+sendto(2, "\r\n", 2, MSG_DONTWAIT|MSG_NOSIGNAL, NULL, 0) = 2
+epoll_wait(0, [{EPOLLIN|EPOLLRDHUP, {u32=2, u64=2}}], 200, 1000) = 1
+recvfrom(2, "HTTP/1.1 302 Found\r\nCache-Contro"..., 8030, 0, NULL, NULL) = 98
+sendto(1, "HTTP/1.1 302 Found\r\nCache-Contro"..., 98, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_MORE, NULL, 0) = 98
+shutdown(1, SHUT_WR)                    = 0
+epoll_ctl(0, EPOLL_CTL_DEL, 2, 0x6ff55c) = 0
+epoll_wait(0, [{EPOLLIN|EPOLLHUP|EPOLLRDHUP, {u32=1, u64=1}}], 200, 1000) = 1
+recvfrom(1, "", 8030, 0, NULL, NULL)    = 0
+close(1)                                = 0
+shutdown(2, SHUT_WR)                    = 0
+close(2)                                = 0
+
+Here's what I changed on top of your patchset :
+
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 0042fed..dc53f7f 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -207,9 +207,10 @@ struct inet_sock {
+ 				mc_all:1,
+ 				nodefrag:1;
+ 	__u8			bind_address_no_port:1,
+-				defer_connect:1; /* Indicates that fastopen_connect is set
++				defer_connect:2; /* Indicates that fastopen_connect is set
+ 						  * and cookie exists so we defer connect
+-						  * until first data frame is written
++						  * until first data frame is written.
++						  * Switches from 1 to 2 during first write()
+ 						  */
+ 	__u8			rcv_tos;
+ 	__u8			convert_csum;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index e67d572..6dda9d5a 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -594,8 +594,10 @@ int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 		err = -EISCONN;
+ 		goto out;
+ 	case SS_CONNECTING:
+-		if (inet_sk(sk)->defer_connect)
+-			err = -EINPROGRESS;
++		if (inet_sk(sk)->defer_connect == 2)
++			err = -EINPROGRESS; /* sendmsg started */
++		else if (inet_sk(sk)->defer_connect == 1)
++			err = -EISCONN;     /* suggest to send now */
+ 		else
+ 			err = -EALREADY;
+ 		/* Fall out of switch with err, set for this state */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 3c8938d..bd71f60 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1103,6 +1103,10 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ 			inet->inet_dport = 0;
+ 			sk->sk_route_caps = 0;
+ 		}
++		/* tell __inet_stream_connect() that we're doing the
++		 * first write.
++		 */
++		inet->defer_connect = 2;
+ 	}
+ 	flags = (msg->msg_flags & MSG_DONTWAIT) ? O_NONBLOCK : 0;
+ 	err = __inet_stream_connect(sk->sk_socket, msg->msg_name,
 
 
-> > 
-> > Thoughts?
-> 
-> I'll take a look at the patch this afternoon. Thanks.
-> 
-> > 
-> > --->
-> > 
-> > virtio_net: switch to build_skb for mrg_rxbuf
-> > 
-> > For small packets data copy was observed to
-> > take up about 15% CPU time. Switch to build_skb
-> > and avoid the copy when using mergeable rx buffers.
-> > 
-> > As a bonus, medium-size skbs that fit in a page will be
-> > completely linear.
-> > 
-> > Of course, we now need to lower the lower bound on packet size,
-> > to make sure a sane number of skbs fits in rx socket buffer.
-> > By how much? I don't know yet.
-> > 
-> > It might also be useful to prefetch the packet buffer since
-> > net stack will likely use it soon.
-> > 
-> > Lightly tested, in particular, I didn't yet test what this
-> > actually does to performance - sending this out for early
-> > feedback/flames.
-> > 
-> > TODO: it appears that Linux won't handle correctly the case of first
-> > buffer being very small (or consisting exclusively of virtio header).
-> > This is already the case for current code, need to fix.
-> > TODO: might be unfair to the last packet in a fragment as we include
-> > remaining space if any in its truesize.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > 
-> > ----
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index b425fa1..a6b996f 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -38,6 +38,8 @@ module_param(gso, bool, 0444);
-> >  
-> >  /* FIXME: MTU in config. */
-> >  #define GOOD_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
-> > +//#define MIN_PACKET_ALLOC GOOD_PACKET_LEN
-> > +#define MIN_PACKET_ALLOC 128
-> >  #define GOOD_COPY_LEN	128
-> >  
-> >  /* RX packet size EWMA. The average packet size is used to determine the packet
-> > @@ -246,6 +248,9 @@ static void *mergeable_ctx_to_buf_address(unsigned long mrg_ctx)
-> >  static unsigned long mergeable_buf_to_ctx(void *buf, unsigned int truesize)
-> >  {
-> >  	unsigned int size = truesize / MERGEABLE_BUFFER_ALIGN;
-> > +
-> > +	BUG_ON((unsigned long)buf & (MERGEABLE_BUFFER_ALIGN - 1));
-> > +	BUG_ON(size - 1 >= MERGEABLE_BUFFER_ALIGN);
-> >  	return (unsigned long)buf | (size - 1);
-> >  }
-> >  
-> > @@ -354,25 +359,54 @@ static struct sk_buff *receive_big(struct net_device *dev,
-> >  	return NULL;
-> >  }
-> >  
-> > +#define VNET_SKB_PAD (NET_SKB_PAD + NET_IP_ALIGN)
-> > +#define VNET_SKB_BUG (VNET_SKB_PAD < sizeof(struct virtio_net_hdr_mrg_rxbuf))
-> > +#define VNET_SKB_LEN(len) ((len) - sizeof(struct virtio_net_hdr_mrg_rxbuf))
-> > +#define VNET_SKB_OFF VNET_SKB_LEN(VNET_SKB_PAD)
-> > +
-> > +static struct sk_buff *vnet_build_skb(struct virtnet_info *vi,
-> > +				      void *buf,
-> > +				      unsigned int len, unsigned int truesize)
-> > +{
-> > +	struct sk_buff *skb = build_skb(buf, truesize);
-> > +
-> > +	if (!skb)
-> > +		return NULL;
-> > +
-> > +	skb_reserve(skb, VNET_SKB_PAD);
-> > +	skb_put(skb, VNET_SKB_LEN(len));
-> > +
-> > +	return skb;
-> > +}
-> > +
-> >  static struct sk_buff *receive_mergeable(struct net_device *dev,
-> >  					 struct virtnet_info *vi,
-> >  					 struct receive_queue *rq,
-> >  					 unsigned long ctx,
-> > -					 unsigned int len)
-> > +					 unsigned int len,
-> > +					 struct virtio_net_hdr_mrg_rxbuf *hdr)
-> >  {
-> >  	void *buf = mergeable_ctx_to_buf_address(ctx);
-> > -	struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
-> > -	u16 num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
-> > +	u16 num_buf;
-> >  	struct page *page = virt_to_head_page(buf);
-> > -	int offset = buf - page_address(page);
-> > -	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-> > +	unsigned int truesize = mergeable_ctx_to_buf_truesize(ctx);
-> > +	int offset;
-> > +	struct sk_buff *head_skb;
-> > +	struct sk_buff *curr_skb;
-> > +
-> > +	BUG_ON(len > truesize);
-> >  
-> > -	struct sk_buff *head_skb = page_to_skb(vi, rq, page, offset, len,
-> > -					       truesize);
-> > -	struct sk_buff *curr_skb = head_skb;
-> > +	/* copy header: build_skb will overwrite it */
-> > +	memcpy(hdr, buf + VNET_SKB_OFF, sizeof *hdr);
-> > +
-> > +	head_skb = vnet_build_skb(vi, buf, len, truesize);
-> > +	curr_skb = head_skb;
-> > +
-> > +	num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
-> >  
-> >  	if (unlikely(!curr_skb))
-> >  		goto err_skb;
-> > +
-> >  	while (--num_buf) {
-> >  		int num_skb_frags;
-> >  
-> > @@ -386,7 +420,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
-> >  			goto err_buf;
-> >  		}
-> >  
-> > -		buf = mergeable_ctx_to_buf_address(ctx);
-> > +		buf = mergeable_ctx_to_buf_address(ctx) + VNET_SKB_OFF;
-> >  		page = virt_to_head_page(buf);
-> >  
-> >  		num_skb_frags = skb_shinfo(curr_skb)->nr_frags;
-> > @@ -403,7 +437,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
-> >  			head_skb->truesize += nskb->truesize;
-> >  			num_skb_frags = 0;
-> >  		}
-> > -		truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-> > +		truesize = mergeable_ctx_to_buf_truesize(ctx);
-> > +		BUG_ON(len > truesize);
-> >  		if (curr_skb != head_skb) {
-> >  			head_skb->data_len += len;
-> >  			head_skb->len += len;
-> > @@ -449,6 +484,7 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
-> >  	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
-> >  	struct sk_buff *skb;
-> >  	struct virtio_net_hdr_mrg_rxbuf *hdr;
-> > +	struct virtio_net_hdr_mrg_rxbuf hdr0;
-> >  
-> >  	if (unlikely(len < vi->hdr_len + ETH_HLEN)) {
-> >  		pr_debug("%s: short packet %i\n", dev->name, len);
-> > @@ -465,17 +501,24 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
-> >  		return;
-> >  	}
-> >  
-> > -	if (vi->mergeable_rx_bufs)
-> > -		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len);
-> > -	else if (vi->big_packets)
-> > +	if (vi->mergeable_rx_bufs) {
-> > +		skb = receive_mergeable(dev, vi, rq, (unsigned long)buf, len,
-> > +					&hdr0);
-> > +		if (unlikely(!skb))
-> > +			return;
-> > +		hdr = &hdr0;
-> > +	} else if (vi->big_packets) {
-> >  		skb = receive_big(dev, vi, rq, buf, len);
-> > -	else
-> > +		if (unlikely(!skb))
-> > +			return;
-> > +		hdr = skb_vnet_hdr(skb);
-> > +	} else {
-> >  		skb = receive_small(vi, buf, len);
-> > +		if (unlikely(!skb))
-> > +			return;
-> > +		hdr = skb_vnet_hdr(skb);
-> > +	}
-> >  
-> > -	if (unlikely(!skb))
-> > -		return;
-> > -
-> > -	hdr = skb_vnet_hdr(skb);
-> >  
-> >  	u64_stats_update_begin(&stats->rx_syncp);
-> >  	stats->rx_bytes += skb->len;
-> > @@ -581,11 +624,14 @@ static int add_recvbuf_big(struct virtnet_info *vi, struct receive_queue *rq,
-> >  
-> >  static unsigned int get_mergeable_buf_len(struct ewma_pkt_len *avg_pkt_len)
-> >  {
-> > -	const size_t hdr_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> > +	unsigned int hdr;
-> >  	unsigned int len;
-> >  
-> > -	len = hdr_len + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
-> > -			GOOD_PACKET_LEN, PAGE_SIZE - hdr_len);
-> > +	hdr = ALIGN(VNET_SKB_PAD + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)),
-> > +		    MERGEABLE_BUFFER_ALIGN);
-> > +
-> > +	len = hdr + clamp_t(unsigned int, ewma_pkt_len_read(avg_pkt_len),
-> > +			    MIN_PACKET_ALLOC, PAGE_SIZE - hdr);
-> >  	return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-> >  }
-> >  
-> > @@ -601,8 +647,11 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
-> >  	if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
-> >  		return -ENOMEM;
-> >  
-> > -	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
-> > -	ctx = mergeable_buf_to_ctx(buf, len);
-> > +	BUILD_BUG_ON(VNET_SKB_BUG);
-> > +
-> > +	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset +
-> > +		VNET_SKB_OFF;
-> > +	//ctx = mergeable_buf_to_ctx(buf - VNET_SKB_OFF, len);
-> >  	get_page(alloc_frag->page);
-> >  	alloc_frag->offset += len;
-> >  	hole = alloc_frag->size - alloc_frag->offset;
-> > @@ -615,8 +664,10 @@ static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
-> >  		len += hole;
-> >  		alloc_frag->offset += hole;
-> >  	}
-> > +	ctx = mergeable_buf_to_ctx(buf - VNET_SKB_OFF, len);
-> >  
-> > -	sg_init_one(rq->sg, buf, len);
-> > +	sg_init_one(rq->sg, buf,
-> > +		    len - VNET_SKB_OFF - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)));
-> >  	err = virtqueue_add_inbuf(rq->vq, rq->sg, 1, (void *)ctx, gfp);
-> >  	if (err < 0)
-> >  		put_page(virt_to_head_page(buf));
-> > 
+Is this also what you had in mind ?
+
+thanks,
+Willy
