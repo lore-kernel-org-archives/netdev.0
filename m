@@ -1,46 +1,51 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small buffer
- XDP receive
-Date: Mon, 23 Jan 2017 13:57:31 -0800
-Message-ID: <58867C4B.6040704@gmail.com>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117221950.20280.39496.stgit@john-Precision-Tower-5810>
- <20170123230809-mutt-send-email-mst@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Question about veth_xmit()
+Date: Mon, 23 Jan 2017 14:05:45 -0800
+Message-ID: <1485209145.16328.214.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAOwmpL3vg56ZqHaYVBy+9dJJ1=GCbgy-m8NY0JrNCV-Z42R_eg@mail.gmail.com>
+         <CAM_iQpVXOsPZrAhBN10JYrVjOOK2_q7=gsFbsi_=s5XZLj1S+g@mail.gmail.com>
+         <CAOwmpL3fiGcXHmUouzRf8vneSF1SQ5SWVqYLXGVecLTepZTNOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Xiangning Yu <yuxiangning@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36455 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751082AbdAWV5n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 16:57:43 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 75so14684053pgf.3
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 13:57:42 -0800 (PST)
-In-Reply-To: <20170123230809-mutt-send-email-mst@kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33111 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751337AbdAWWFr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 17:05:47 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 194so14722089pgd.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 14:05:47 -0800 (PST)
+In-Reply-To: <CAOwmpL3fiGcXHmUouzRf8vneSF1SQ5SWVqYLXGVecLTepZTNOw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-23 01:08 PM, Michael S. Tsirkin wrote:
-> On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
->> In the small buffer case during driver unload we currently use
->> put_page instead of dev_kfree_skb. Resolve this by adding a check
->> for virtnet mode when checking XDP queue type. Also name the
->> function so that the code reads correctly to match the additional
->> check.
->>
->> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> Acked-by: Jason Wang <jasowang@redhat.com>
+On Mon, 2017-01-23 at 13:46 -0800, Xiangning Yu wrote:
+> On Mon, Jan 23, 2017 at 12:56 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > On Mon, Jan 23, 2017 at 10:46 AM, Xiangning Yu <yuxiangning@gmail.com> wrote:
+> >> Hi netdev folks,
+> >>
+> >> It looks like we call dev_forward_skb() in veth_xmit(), which calls
+> >> netif_rx() eventually.
+> >>
+> >> While netif_rx() will enqueue the skb to the CPU RX backlog before the
+> >> actual processing takes place. So, this actually means a TX skb has to
+> >> wait some un-related RX skbs to finish. And this will happen twice for
+> >> a single ping, because the veth device always works as a pair?
+> >
+> > For me it is more like for the completeness of network stack of each
+> > netns. The /proc net.core.netdev_max_backlog etc. are per netns, which
+> > means each netns, as an independent network stack, should respect it
+> > too.
+> >
+> > Since you care about latency, why not tune net.core.dev_weight for your
+> > own netns?
 > 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> I think we definitely want this one in -net as it's
-> a bugfix.
-> 
+> I haven't tried that yet, thank you for the hint! Though normally one
+> of the veth device will be in the global namespace.
 
-Agreed, let me pull this fix out of the series and submit it for
-net.
+Well, per cpu backlog are not per net ns, but per cpu.
+
+So Cong suggestion is not going to work.
