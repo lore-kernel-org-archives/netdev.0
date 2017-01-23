@@ -1,81 +1,59 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v4 1/3] bpf: add a longest prefix match trie map
- implementation
-Date: Mon, 23 Jan 2017 17:42:28 +0100
-Message-ID: <da8fb52a-ac48-2bc8-10a2-cd37247f2d2f@zonque.org>
-References: <20170121162613.4159-1-daniel@zonque.org>
- <20170121162613.4159-2-daniel@zonque.org> <588631CE.9080402@iogearbox.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 0/4] Make xfrm usable by 32-bit programs
+Date: Mon, 23 Jan 2017 16:45:39 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026BC58@AcuExch.aculab.com>
+References: <20170121000507.34381-1-cernekee@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Daniel Borkmann <daniel@iogearbox.net>, ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:51067 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750723AbdAWQmb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 11:42:31 -0500
-In-Reply-To: <588631CE.9080402@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "selinux@tycho.nsa.gov" <selinux@tycho.nsa.gov>,
+        "fw@strlen.de" <fw@strlen.de>,
+        "fan.du@windriver.com" <fan.du@windriver.com>,
+        "dianders@chromium.org" <dianders@chromium.org>,
+        "dtor@chromium.org" <dtor@chromium.org>
+To: 'Kevin Cernekee' <cernekee@chromium.org>,
+        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
+        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "paul@paul-moore.com" <paul@paul-moore.com>,
+        "sds@tycho.nsa.gov" <sds@tycho.nsa.gov>,
+        "eparis@parisplace.org" <eparis@parisplace.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170121000507.34381-1-cernekee@chromium.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/23/2017 05:39 PM, Daniel Borkmann wrote:
-> On 01/21/2017 05:26 PM, Daniel Mack wrote:
-> [...]
->> +/* Called from syscall or from eBPF program */
->> +static int trie_update_elem(struct bpf_map *map,
->> +			    void *_key, void *value, u64 flags)
->> +{
->> +	struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
->> +	struct lpm_trie_node *node, *im_node, *new_node = NULL;
-> 
-> im_node is uninitialized here ...
-> 
->> +	struct lpm_trie_node __rcu **slot;
->> +	struct bpf_lpm_trie_key *key = _key;
->> +	unsigned long irq_flags;
->> +	unsigned int next_bit;
->> +	size_t matchlen = 0;
->> +	int ret = 0;
->> +
->> +	if (unlikely(flags > BPF_EXIST))
->> +		return -EINVAL;
->> +
->> +	if (key->prefixlen > trie->max_prefixlen)
->> +		return -EINVAL;
->> +
->> +	raw_spin_lock_irqsave(&trie->lock, irq_flags);
->> +
->> +	/* Allocate and fill a new node */
->> +
->> +	if (trie->n_entries == trie->map.max_entries) {
->> +		ret = -ENOSPC;
->> +		goto out;
-> 
-> ... and here we go to out path with ret as non-zero ...
-> 
->> +	}
->> +
->> +	new_node = lpm_trie_node_alloc(trie, value);
->> +	if (!new_node) {
->> +		ret = -ENOMEM;
->> +		goto out;
->> +	}
-> [...]
->> +
->> +out:
->> +	if (ret) {
->> +		if (new_node)
->> +			trie->n_entries--;
->> +
->> +		kfree(new_node);
->> +		kfree(im_node);
-> 
-> ... which does kfree() in im_node here.
+From: Kevin Cernekee
+> Sent: 21 January 2017 00:05
+> Several of the xfrm netlink and setsockopt() interfaces are not usable
+> from a 32-bit binary running on a 64-bit kernel due to struct padding
+> differences.  This has been the case for many, many years[0].  This
+> patch series deprecates the broken netlink messages and replaces them
+> with packed structs that are compatible between 64-bit and 32-bit
+> programs.
 
-Oops. Nice catch! gcc was too stupid to recognize that :)
+Do you mean '__packed' or just structures with no holes?
+The latter is really the best.
+You can add a compile time assert on the structure sizes to ensure
+that the user API is never accidentally broken.
 
-Thanks, I'll repost a v5 with Alexei's Acked-by later today.
+I can't imagine any reason to change the 64bit structures except
+(maybe) to make any padding explicit.
 
+> It retains support for legacy user programs (i.e. anything
+> that is currently working today), and allows legacy support to be
+> compiled out via CONFIG_XFRM_USER_LEGACY if it becomes unnecessary in
+> the future.
+...
 
-Daniel
+Isn't that effectively the same as doing a compat layer?
+Otherwise you can't build a 32bit app that will work with an 'old'
+32bit kernel and a new 64bit one.
+
+Provided you've got the length of the user's buffer the compat code
+ought to be trivial (if tedious).
+
+	David
