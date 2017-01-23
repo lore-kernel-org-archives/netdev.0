@@ -1,42 +1,116 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v4 3/3] samples/bpf: add lpm-trie benchmark
-Date: Sun, 22 Jan 2017 15:02:06 -0800
-Message-ID: <20170122230205.GD73160@ast-mbp.thefacebook.com>
-References: <20170121162613.4159-1-daniel@zonque.org>
- <20170121162613.4159-4-daniel@zonque.org>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [RFC PATCH net-next 4/5] bridge: vlan lwt and dst_metadata
+ netlink support
+Date: Mon, 23 Jan 2017 00:22:00 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93D495F16@HASMSX110.ger.corp.intel.com>
+References: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com>
+ <1484977616-1541-5-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@fb.com, dh.herrmann@gmail.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, davem@davemloft.net
-To: Daniel Mack <daniel@zonque.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
+        "tgraf@suug.ch" <tgraf@suug.ch>,
+        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+        "jbenc@redhat.com" <jbenc@redhat.com>,
+        "pshelar@ovn.org" <pshelar@ovn.org>,
+        "dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
+        "hadi@mojatatu.com" <hadi@mojatatu.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34633 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750704AbdAVXCL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 18:02:11 -0500
-Received: by mail-pg0-f66.google.com with SMTP id t6so12007810pgt.1
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 15:02:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170121162613.4159-4-daniel@zonque.org>
+Received: from mga01.intel.com ([192.55.52.88]:40160 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750707AbdAWAWF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 22 Jan 2017 19:22:05 -0500
+In-Reply-To: <1484977616-1541-5-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 21, 2017 at 05:26:13PM +0100, Daniel Mack wrote:
-> From: David Herrmann <dh.herrmann@gmail.com>
-> 
-> Extend the map_perf_test_{user,kern}.c infrastructure to stress test
-> lpm-trie lookups. We hook into the kprobe on sys_gettid() and measure
-> the latency depending on trie size and lookup count.
-> 
-> On my Intel Haswell i7-6400U, a single gettid() syscall with an empty
-> bpf program takes roughly 6.5us on my system. Lookups in empty tries
-> take ~1.8us on first try, ~0.9us on retries. Lookups in tries with 8192
-> entries take ~7.1us (on the first _and_ any subsequent try).
-> 
-> Signed-off-by: David Herrmann <dh.herrmann@gmail.com>
-> Reviewed-by: Daniel Mack <daniel@zonque.org>
+Hi, Roopa,
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Two minor comments:
 
-Thank you for all the hard work you've put into these patches.
-All looks great to me.
+The parameter br is not used in the br_add_vlan_tunnel_info() method, it should be removed:
+
++static int br_add_vlan_tunnel_info(struct net_bridge *br,
++				   struct net_bridge_port *p, int cmd,
++				   u16 vid, u32 tun_id)
++{
++	int err;
++
++	switch (cmd) {
++	case RTM_SETLINK:
++		if (p) {
++			/* if the MASTER flag is set this will act on the global
++			 * per-VLAN entry as well
++			 */
++			err = nbp_vlan_tunnel_info_add(p, vid, tun_id);
++			if (err)
++				break;
++		} else {
++			return -EINVAL;
++		}
++
++		break;
++
++	case RTM_DELLINK:
++		if (p)
++			nbp_vlan_tunnel_info_delete(p, vid);
++		else
++			return -EINVAL;
++		break;
++	}
++
++	return 0;
++}
++
+
+The parameter br is used inside br_process_vlan_tunnel_info() only in the two 
+Cases, when br_add_vlan_tunnel_info() is invoked. Since we saw earlier that it should be removed from br_add_vlan_tunnel_info(), it should also be removed from br_process_vlan_tunnel_info() as it is not needed anymore:
+
++static int br_process_vlan_tunnel_info(struct net_bridge *br,
++				       struct net_bridge_port *p, int cmd,
++				       struct vtunnel_info *tinfo_curr,
++				       struct vtunnel_info *tinfo_last) {
++	int t, v;
++	int err;
++
++	if (tinfo_curr->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
++		if (tinfo_last->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN)
++			return -EINVAL;
++		memcpy(tinfo_last, tinfo_curr, sizeof(struct vtunnel_info));
++	} else if (tinfo_curr->flags & BRIDGE_VLAN_INFO_RANGE_END) {
++		if (!(tinfo_last->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN))
++			return -EINVAL;
++		if ((tinfo_curr->vid - tinfo_last->vid) !=
++		    (tinfo_curr->tunid - tinfo_last->tunid))
++			return -EINVAL;
++		/* XXX: tun id and vlan id attrs must be same
++		 */
++		t = tinfo_last->tunid;
++		for (v = tinfo_last->vid; v <= tinfo_curr->vid; v++) {
++			err = br_add_vlan_tunnel_info(br, p, cmd,
++							  v, t);
++			if (err)
++				return err;
++			t++;
++		}
++		memset(tinfo_last, 0, sizeof(struct vtunnel_info));
++		memset(tinfo_curr, 0, sizeof(struct vtunnel_info));
++	} else {
++		err = br_add_vlan_tunnel_info(br, p, cmd,
++					      tinfo_curr->vid,
++					      tinfo_curr->tunid);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
+
+Regards,
+Rami Rosen
