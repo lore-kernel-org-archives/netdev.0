@@ -1,36 +1,47 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: fs, net: deadlock between bind/splice on af_unix
-Date: Mon, 23 Jan 2017 11:00:17 -0800
-Message-ID: <CAM_iQpWDO671sT-GQpu7c1UeyaLMX+rt7bUhqtF8tnxMqyeK4Q@mail.gmail.com>
-References: <CACT4Y+Z981V+QLHr=PnQy1Dvxrpp-nCDhQtf+5HuNAusH+Vqxw@mail.gmail.com>
- <CACT4Y+a-fTzW95ViVP3knhNTa=h6XFB0bMddcyQVeeV+LbXKHw@mail.gmail.com>
- <CAM_iQpXu+fyjmvrYRB9+VJCdSLS=7Jiet762hqWDANfsOM0XWw@mail.gmail.com>
- <20161209013208.GW1555@ZenIV.linux.org.uk> <CAM_iQpXjeG5=wZyQP-yOKcB4WRfgGRjeQ+NDHyeSWwdU50Xh5g@mail.gmail.com>
- <20161209064144.GZ1555@ZenIV.linux.org.uk> <CACT4Y+ad1s6HPdw-ocQ5YfFx7qCeWb3z1k7F9+9KsNmw6+Tszw@mail.gmail.com>
- <CAM_iQpWu+V2E_uxJLUjS+xM+94CKKR+Bv95UrFPuswUAuAGM+w@mail.gmail.com>
- <CACT4Y+Y_3i=PThhVzHXYnCQm_xN72VQ0eN9Ae4uXyORq_a_Z6w@mail.gmail.com>
- <CAM_iQpUtirzcm901Gh6918g2yROo3FFKb6Vx87Wtj7M31wE6DA@mail.gmail.com> <CACT4Y+Yf5S1OiNdd8WH=bmge=25m3zOh48QB8iq2nsKESG6Z_Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Question about veth_xmit()
+Date: Mon, 23 Jan 2017 11:07:42 -0800
+Message-ID: <1485198462.16328.208.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAOwmpL3vg56ZqHaYVBy+9dJJ1=GCbgy-m8NY0JrNCV-Z42R_eg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+Yf5S1OiNdd8WH=bmge=25m3zOh48QB8iq2nsKESG6Z_Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Xiangning Yu <yuxiangning@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36680 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751310AbdAWTHo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 14:07:44 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 19so10498195pfo.3
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 11:07:44 -0800 (PST)
+In-Reply-To: <CAOwmpL3vg56ZqHaYVBy+9dJJ1=GCbgy-m8NY0JrNCV-Z42R_eg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 2:52 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->
-> This works! I did not see the deadlock warning, nor any other related crashes.
->
-> Tested-by: Dmitry Vyukov <dvyukov@google.com>
+On Mon, 2017-01-23 at 10:46 -0800, Xiangning Yu wrote:
+> Hi netdev folks,
+> 
+> It looks like we call dev_forward_skb() in veth_xmit(), which calls
+> netif_rx() eventually.
+> 
+> While netif_rx() will enqueue the skb to the CPU RX backlog before the
+> actual processing takes place. So, this actually means a TX skb has to
+> wait some un-related RX skbs to finish. And this will happen twice for
+> a single ping, because the veth device always works as a pair?
+> 
+> IMHO this might lead to some latency issue under certain workload,
+> can we change the call to dev_forward_skb() to something like this?
+> 
+>         if (likely(__dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) {
+>                 local_bh_disable();
+>                 netif_receive_skb(skb);
+>                 local_bh_enable();
+> 
+> Could you please shed some light on this change? And please feel free
+> to correct my if my understanding is wrong.
 
-Thanks for verifying it. I will send it out formally soon.
+How veth would have different latency requirement than loopback device ?
+
+Calling netif_receive_skb() is considered too dangerous here (or from
+any ndo_start_xmit()) because of possible kernel stack exhaustion.
