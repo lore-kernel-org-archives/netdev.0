@@ -1,152 +1,64 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [RFC PATCH] mlx5: Fix page rfcnt issue
-Date: Mon, 23 Jan 2017 15:56:58 -0800
-Message-ID: <20170123235658.3872770-1-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>, <tariqt@mellanox.com>,
-        <saeedm@mellanox.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 1/2] ip6_tunnel: must reload ipv6h in ip6ip6_tnl_xmit()
+Date: Mon, 23 Jan 2017 15:58:03 -0800
+Message-ID: <20170123235804.29342-2-edumazet@google.com>
+References: <20170123235804.29342-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Dmitry Kozlov <xeb@mail.ru>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39736 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750715AbdAWX5Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 18:57:25 -0500
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v0NNsNcX001804
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 15:57:09 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 285qs08wrh-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 15:57:09 -0800
-Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
- mx-out.facebook.com (10.212.232.59) with ESMTP id
- a623d2eae1c711e6ac150002c991e86a-a62c1a50 for <netdev@vger.kernel.org>;        Mon,
- 23 Jan 2017 15:57:08 -0800
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35228 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751869AbdAWX6u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 18:58:50 -0500
+Received: by mail-pf0-f171.google.com with SMTP id f144so44908989pfa.2
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 15:58:09 -0800 (PST)
+In-Reply-To: <20170123235804.29342-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is an FYI about possible issuses in mlx5.
+Since ip6_tnl_parse_tlv_enc_lim() can call pskb_may_pull(),
+we must reload any pointer that was related to skb->head
+(or skb->data), or risk use after free.
 
-There are two issues we discovered in the mlx5 backport from 4.9 to
-4.6...
-
-The bad behaviours we were seeing was a refcnts going to less than zero
-and eventually killing hosts. We've only seen this running a real
-application work load and it does take a while to trigger. The root
-cause is unclear, however this patch seems to circumvent the issue. I
-have not been able to reproduce this issue upstream because I haven't
-been able to get the app running cleanly. At this point I cannot verify
-if it is an upstream issue or not.
-
-Specific issues that I have identified are:
-
-1) In mlx5e_free_rx_mpwqe we are seeing cases where wi->skbs_frags[i] >
-   pg_strides so that a negative refcnt is being subtracted. The warning
-   at en_rx.c:409 of this patch does trigger.
-2) Checksum faults are occurring. I have previously described this
-   problem.
-
-As for the checksum faults that seems to be an unrelated issue and I do
-believe that was an upstream issue in 4.9, but may have been fixed in
-4.10. This is easier to reproduce than the page refcnt issue-- just a
-few concurrent netperf TCP_STREAMs was able to trigger the faults.
-
-One other potential problem in the driver is the use of put_page in
-release pages.  Comparing how the allocation is done in other drivers
-(for instance comparing to ixgbe) some seem to use __free_pages instead.
-I don't know which is correct to use, but somehow it doesn't seem like
-they can both be right.
-
-This patch:
-1) We no longer do the page_ref_sub page_ref_add, instead we take the
-   more traditional approach of just doing get_page when giving the
-   page to an skb.
-2) Add warnings to catch cases where operations on page refcnts are
-   nonsensical
-3) Comment out checksum-complete processing in order to squelch the
-   checksum faults.
-
+Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Dmitry Kozlov <xeb@mail.ru>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 18 +++++++++++++++---
- 1 file changed, 15 insertions(+), 3 deletions(-)
+ net/ipv6/ip6_gre.c    | 3 +++
+ net/ipv6/ip6_tunnel.c | 2 ++
+ 2 files changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 20f116f..b24c2b8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -209,6 +209,7 @@ static inline bool mlx5e_rx_cache_get(struct mlx5e_rq *rq,
- 	}
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 75b6108234dd05a54af0ae51c7c11eaf1ca2..558631860d91bbcb1321a4b566b6e92ddcaf 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -582,6 +582,9 @@ static inline int ip6gre_xmit_ipv6(struct sk_buff *skb, struct net_device *dev)
+ 		return -1;
  
- 	if (page_ref_count(cache->page_cache[cache->head].page) != 1) {
-+		WARN_ON(page_ref_count(cache->page_cache[cache->head].page) <= 0);
- 		rq->stats.cache_busy++;
- 		return false;
- 	}
-@@ -292,6 +293,13 @@ static inline void mlx5e_add_skb_frag_mpwqe(struct mlx5e_rq *rq,
- 				wi->umr.dma_info[page_idx].addr + frag_offset,
- 				len, DMA_FROM_DEVICE);
- 	wi->skbs_frags[page_idx]++;
-+	WARN_ON(wi->skbs_frags[page_idx] > mlx5e_mpwqe_strides_per_page(rq));
+ 	offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
++	/* ip6_tnl_parse_tlv_enc_lim() might have reallocated skb->head */
++	ipv6h = ipv6_hdr(skb);
 +
-+	/* Take a page reference every time we give page to skb (alternative
-+	 * to original mlx code).
-+	 */
-+	get_page(wi->umr.dma_info[page_idx].page);
-+
- 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
- 			wi->umr.dma_info[page_idx].page, frag_offset,
- 			len, truesize);
-@@ -372,7 +380,6 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
- 		if (unlikely(err))
- 			goto err_unmap;
- 		wi->umr.mtt[i] = cpu_to_be64(dma_info->addr | MLX5_EN_WR);
--		page_ref_add(dma_info->page, pg_strides);
- 		wi->skbs_frags[i] = 0;
- 	}
+ 	if (offset > 0) {
+ 		struct ipv6_tlv_tnl_enc_lim *tel;
+ 		tel = (struct ipv6_tlv_tnl_enc_lim *)&skb_network_header(skb)[offset];
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 753d6d0860fb14c100ab8b20799782ab8160..02923f956ac8ba5f3270e8d5282fd9637c2d 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1303,6 +1303,8 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		fl6.flowlabel = key->label;
+ 	} else {
+ 		offset = ip6_tnl_parse_tlv_enc_lim(skb, skb_network_header(skb));
++		/* ip6_tnl_parse_tlv_enc_lim() might have reallocated skb->head */
++		ipv6h = ipv6_hdr(skb);
+ 		if (offset > 0) {
+ 			struct ipv6_tlv_tnl_enc_lim *tel;
  
-@@ -385,7 +392,6 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
- 	while (--i >= 0) {
- 		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
- 
--		page_ref_sub(dma_info->page, pg_strides);
- 		mlx5e_page_release(rq, dma_info, true);
- 	}
- 
-@@ -400,7 +406,7 @@ void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi)
- 	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
- 		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
- 
--		page_ref_sub(dma_info->page, pg_strides - wi->skbs_frags[i]);
-+		WARN_ON(pg_strides - wi->skbs_frags[i] < 0);
- 		mlx5e_page_release(rq, dma_info, true);
- 	}
- }
-@@ -565,12 +571,17 @@ static inline void mlx5e_handle_csum(struct net_device *netdev,
- 		return;
- 	}
- 
-+#if 0
-+	/* Disabled since we are seeing checksum faults occurring. This should
-+	 * not have any noticeable impact (in the short term).
-+	 */
- 	if (is_first_ethertype_ip(skb)) {
- 		skb->ip_summed = CHECKSUM_COMPLETE;
- 		skb->csum = csum_unfold((__force __sum16)cqe->check_sum);
- 		rq->stats.csum_complete++;
- 		return;
- 	}
-+#endif
- 
- 	if (likely((cqe->hds_ip_ext & CQE_L3_OK) &&
- 		   (cqe->hds_ip_ext & CQE_L4_OK))) {
-@@ -929,6 +940,7 @@ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
- 	if (likely(wi->consumed_strides < rq->mpwqe_num_strides))
- 		return;
- 
-+	WARN_ON(wi->consumed_strides > rq->mpwqe_num_strides);
- 	mlx5e_free_rx_mpwqe(rq, wi);
- 	mlx5_wq_ll_pop(&rq->wq, cqe->wqe_id, &wqe->next.next_wqe_index);
- }
 -- 
-2.9.3
+2.11.0.483.g087da7b7c-goog
