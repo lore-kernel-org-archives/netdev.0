@@ -1,90 +1,60 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC v2 net-next] ravb: unmap descriptors when freeing
- rings
-Date: Mon, 23 Jan 2017 10:19:58 +0100
-Message-ID: <20170123091958.GE31651@verge.net.au>
-References: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
- <6fcec500-bed6-ffa3-2887-d45b34703682@cogentembedded.com>
- <20170112091116.GC7724@verge.net.au>
- <3e1d4324-4288-8d65-56fd-8c3e7283020b@cogentembedded.com>
- <20170112131821.GA16060@verge.net.au>
- <8ab10450-5fe3-bc33-6c66-6f3ea861f561@cogentembedded.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 0/4] Make xfrm usable by 32-bit programs
+Date: Mon, 23 Jan 2017 10:35:17 +0100
+Message-ID: <20170123093517.GM3541@gauss.secunet.com>
+References: <20170121000507.34381-1-cernekee@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+        <paul@paul-moore.com>, <sds@tycho.nsa.gov>,
+        <eparis@parisplace.org>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>, <fw@strlen.de>,
+        <fan.du@windriver.com>, <dianders@chromium.org>,
+        <dtor@chromium.org>
+To: Kevin Cernekee <cernekee@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:50514 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750703AbdAWJfU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 04:35:20 -0500
 Content-Disposition: inline
-In-Reply-To: <8ab10450-5fe3-bc33-6c66-6f3ea861f561@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170121000507.34381-1-cernekee@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 16, 2017 at 11:41:51PM +0300, Sergei Shtylyov wrote:
-> Hello!
-> 
-> On 01/12/2017 04:18 PM, Simon Horman wrote:
-> 
-> >...
-> 
-> >>>>  Here, it stop once an untransmitted buffer is encountered...
-> >>>
-> >>>Yes, I see that now.
-> >>>
-> >>>I wonder if we should:
-> >>>
-> >>>a) paramatise ravb_tx_free() so it may either clear all transmitted buffers
-> >>>  (current behaviour) or all buffers (new behaviour).
-> >>>b) provide a different version of this loop in ravb_ring_free()
-> >>>
-> >>>What are your thoughts?
-> >>
-> >>   I'm voting for (b).
-> 
->    After looking at this issue for another time, I'll vote for (a). Sorry
-> for back-and-forth on this matter -- I somehow thought we could do a better
-> job by scanning all the TX ring...
+On Fri, Jan 20, 2017 at 04:05:03PM -0800, Kevin Cernekee wrote:
+> Several of the xfrm netlink and setsockopt() interfaces are not usable
+> from a 32-bit binary running on a 64-bit kernel due to struct padding
+> differences.  This has been the case for many, many years[0].  This
+> patch series deprecates the broken netlink messages and replaces them
+> with packed structs that are compatible between 64-bit and 32-bit
+> programs.  It retains support for legacy user programs (i.e. anything
+> that is currently working today), and allows legacy support to be
+> compiled out via CONFIG_XFRM_USER_LEGACY if it becomes unnecessary in
+> the future.
 
-No problem. I also have had several opinions on this over time.
-I'll see about respinning the patch.
+This would mean that we have to maintain two APIs from now on.
+This is something I really want to avoid because it is almost
+impossible to get rid of the old one.
 
 > 
-> >Ok, something like this?
-> >
-> >@@ -215,6 +225,30 @@ static void ravb_ring_free(struct net_device *ndev, int q)
-> > 	}
-> >
-> > 	if (priv->tx_ring[q]) {
-> >+		for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
-> >+			struct ravb_tx_desc *desc;
-> >+			int entry;
-> >+
-> >+			entry = priv->dirty_tx[q] % (priv->num_tx_ring[q] *
-> >+						     NUM_TX_DESC);
-> >+			desc = &priv->tx_ring[q][entry];
-> >+
-> >+			/* Free the original skb. */
-> >+			if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
-> >+				u32 size = le16_to_cpu(desc->ds_tagl) & TX_DS;
-> >+
-> >+				dma_unmap_single(ndev->dev.parent,
-> >+						 le32_to_cpu(desc->dptr),
-> >+						 size, DMA_TO_DEVICE);
-> >+				/* Last packet descriptor? */
-> >+				if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
-> >+					entry /= NUM_TX_DESC;
-> >+					dev_kfree_skb_any(priv->tx_skb[q][entry]);
-> >+					priv->tx_skb[q][entry] = NULL;
-> >+				}
-> >+			}
-> >+		}
-> >+
+> Earlier attempts at fixing the problem had implemented a compat layer.
+> A compat layer is helpful because it avoids the need to recompile old
+> user binaries, but there are many challenges involved in implementing
+> it.  I believe a compat layer is of limited value in this instance
+> because anybody who really needed to solve the problem without
+> recompiling their binaries has almost certainly found another solution
+> in the ~7 years since the compat patches were first proposed.
 > 
->    This is only different from ravb_tx_free() by not stopping on unfinished
-> descriptor, so we must be good with adding an extra param to it...
-> 
-> [...]
-> 
-> MBR, Sergei
-> 
+> A benefit of this approach is that long-term, the broken netlink messages
+> will no longer be used.  A drawback is that in the short term, user
+> programs that want to adopt the new message formats will require a
+> modern kernel.  Projects like strongSwan and iproute2 bundle the xfrm.h
+> header inside their own source trees, so they will need to make a
+> judgment call on when to remove support for kernels that do not support
+> the new messages.  And programs built against the new kernel headers
+> will not work on old kernels.
+
+So this creates new incompatibilities what is another argument against
+this approach. If you really need this, try to implement a full compat
+layer. I think this is the only sane solution for this.
