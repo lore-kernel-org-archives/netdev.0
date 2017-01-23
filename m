@@ -1,94 +1,69 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v6 1/1] net sched actions: Add support for user
- cookies
-Date: Mon, 23 Jan 2017 08:48:05 +0100
-Message-ID: <20170123074805.GA1831@nanopsycho.orion>
-References: <1485116750-31198-1-git-send-email-jhs@emojatatu.com>
+From: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Subject: [PATCH v1] net: phy: micrel: add KSZ8795 ethernet switch
+Date: Mon, 23 Jan 2017 08:58:46 +0100
+Message-ID: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
-        paulb@mellanox.com, john.fastabend@gmail.com,
-        simon.horman@netronome.com, mrv@mojatatu.com, hadarh@mellanox.com,
-        ogerlitz@mellanox.com, roid@mellanox.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain
+Cc: Sean Nyekjaer <sean.nyekjaer@prevas.dk>, <andrew@lunn.ch>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36751 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdAWHsI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 02:48:08 -0500
-Received: by mail-wm0-f68.google.com with SMTP id r126so24317038wmr.3
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 23:48:07 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1485116750-31198-1-git-send-email-jhs@emojatatu.com>
+Received: from mail01.prevas.se ([62.95.78.3]:11010 "EHLO mail01.prevas.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750703AbdAWH7G (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 02:59:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Jan 22, 2017 at 09:25:50PM CET, jhs@mojatatu.com wrote:
->From: Jamal Hadi Salim <jhs@mojatatu.com>
->
->Introduce optional 128-bit action cookie.
->Like all other cookie schemes in the networking world (eg in protocols
->like http or existing kernel fib protocol field, etc) the idea is to save
->user state that when retrieved serves as a correlator. The kernel
->_should not_ intepret it.  The user can store whatever they wish in the
->128 bits.
->
->Sample exercise(showing variable length use of cookie)
->
->.. create an accept action with cookie a1b2c3d4
->sudo $TC actions add action ok index 1 cookie a1b2c3d4
->
->.. dump all gact actions..
->sudo $TC -s actions ls action gact
->
->    action order 0: gact action pass
->     random type none pass val 0
->     index 1 ref 1 bind 0 installed 5 sec used 5 sec
->    Action statistics:
->    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->    backlog 0b 0p requeues 0
->    cookie a1b2c3d4
->
->.. bind the accept action to a filter..
->sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
->u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
->
->... send some traffic..
->$ ping 127.0.0.1 -c 3
->PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
->64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
->64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
->64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
->
->--- 127.0.0.1 ping statistics ---
->3 packets transmitted, 3 received, 0% packet loss, time 2109ms
->rtt min/avg/max/mdev = 0.020/0.028/0.038/0.008 ms 1
->
->... show some stats
->$ sudo $TC -s actions get action gact index 1
->
->    action order 1: gact action pass
->     random type none pass val 0
->     index 1 ref 2 bind 1 installed 204 sec used 5 sec
->    Action statistics:
->        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
->    backlog 0b 0p requeues 0
->    cookie a1b2c3d4
->
->.. try longer cookie...
->$ sudo $TC actions replace action ok index 1 cookie 1234567890abcdef
->.. dump..
->$ sudo $TC -s actions ls action gact
->
->    action order 1: gact action pass
->     random type none pass val 0
->     index 1 ref 2 bind 1 installed 204 sec used 5 sec
->    Action statistics:
->        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
->    backlog 0b 0p requeues 0
->    cookie 1234567890abcdef
->
->Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+This is add support for the PHYs in the KSZ8795 5port managed switch.
 
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+It will allow to detect the link between the switch and the soc
+and uses the same read_status functions as the KSZ8873MLL switch.
+
+This ethernet switch have unfortunately the same phy id as KSZ8051.
+
+Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+---
+ drivers/net/phy/micrel.c   | 14 ++++++++++++++
+ include/linux/micrel_phy.h |  2 ++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index ea92d524d5a8..fa158ae5115b 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
+ 	.get_stats	= kszphy_get_stats,
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
++}, {
++	.phy_id		= PHY_ID_KSZ8795,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
++	.name		= "Micrel KSZ8795 Switch",
++	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= kszphy_config_init,
++	.config_aneg	= ksz8873mll_config_aneg,
++	.read_status	= ksz8873mll_read_status,
++	.get_sset_count = kszphy_get_sset_count,
++	.get_strings	= kszphy_get_strings,
++	.get_stats	= kszphy_get_stats,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
+ } };
+ 
+ module_phy_driver(ksphy_driver);
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index 257173e0095e..f541da68d1e7 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -35,6 +35,8 @@
+ #define PHY_ID_KSZ886X		0x00221430
+ #define PHY_ID_KSZ8863		0x00221435
+ 
++#define PHY_ID_KSZ8795		0x00221550
++
+ /* struct phy_device dev_flags definitions */
+ #define MICREL_PHY_50MHZ_CLK	0x00000001
+ #define MICREL_PHY_FXEN		0x00000002
+-- 
+2.11.0
