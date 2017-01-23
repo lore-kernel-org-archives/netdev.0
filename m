@@ -1,112 +1,122 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
-Date: Sun, 22 Jan 2017 10:09:23 -0800
-Message-ID: <CALx6S369rCbKYh3aLGp4G1GLwG456yqnX-a3fnG+vAKgvmS8vw@mail.gmail.com>
-References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
- <CALx6S35+miSu6QgjyQYVDGqu4hkq0eoj+wHha35HH5+DdSQtEg@mail.gmail.com> <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH net-next 0/5] bridge: per vlan lwt and dst_metadata
+ support
+Date: Mon, 23 Jan 2017 09:08:05 +0100
+Message-ID: <20170123080805.GB1831@nanopsycho.orion>
+References: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Davem <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: kernel netdev <netdev@brouer.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        stephen@networkplumber.org, nikolay@cumulusnetworks.com,
+        tgraf@suug.ch, hannes@stressinduktion.org, jbenc@redhat.com,
+        pshelar@ovn.org, dsa@cumulusnetworks.com, hadi@mojatatu.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:34181 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751728AbdAVSRw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 13:17:52 -0500
-Received: by mail-qt0-f196.google.com with SMTP id a29so12177175qtb.1
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 10:17:52 -0800 (PST)
-In-Reply-To: <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33550 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750708AbdAWIII (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 03:08:08 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r144so24467166wme.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 00:08:07 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 21, 2017 at 11:12 AM, kernel netdev <netdev@brouer.com> wrote:
+Sat, Jan 21, 2017 at 06:46:51AM CET, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >
+>High level summary:
+>lwt and dst_metadata/collect_metadata have enabled vxlan l3 deployments
+>to use a single vxlan netdev for multiple vnis eliminating the scalability
+>problem with using a single vxlan netdev per vni. This series tries to
+>do the same for vxlan netdevs in pure l2 bridged networks.
+>Use-case/deployment and details are below.
 >
-> Den 21. jan. 2017 7.10 PM skrev "Tom Herbert" <tom@herbertland.com>:
+>Deployment scerario details:
+>As we know VXLAN is used to build layer 2 virtual networks across the
+>underlay layer3 infrastructure. A VXLAN tunnel endpoint (VTEP)
+>originates and terminates VXLAN tunnels. And a VTEP can be a TOR switch
+>or a vswitch in the hypervisor. This patch series mainly
+>focuses on the TOR switch configured as a Vtep. Vxlan segment ID (vni)
+>along with vlan id is used to identify layer 2 segments in a vxlan
+>overlay network. Vxlan bridging is the function provided by Vteps to terminate
+>vxlan tunnels and map the vxlan vni to traditional end host vlan. This is
+>covered in the "VXLAN Deployment Scenarios" in sections 6 and 6.1 in RFC 7348.
+>To provide vxlan bridging function, a vtep has to map vlan to a vni. The rfc
+>says that the ingress VTEP device shall remove the IEEE 802.1Q VLAN tag in
+>the original Layer 2 packet if there is one before encapsulating the packet
+>into the VXLAN format to transmit it through the underlay network. The remote
+>VTEP devices have information about the VLAN in which the packet will be
+>placed based on their own VLAN-to-VXLAN VNI mapping configurations.
 >
-> On Thu, Jan 19, 2017 at 11:14 AM, Saeed Mahameed
-> <saeedm@dev.mellanox.co.il> wrote:
->> On Thu, Jan 19, 2017 at 9:03 AM, Eric Dumazet <eric.dumazet@gmail.com>
->> wrote:
->>> From: Eric Dumazet <edumazet@google.com>
->>>
->>> A driver using dev_alloc_page() must not reuse a page allocated from
->>> emergency memory reserve.
->>>
->>> Otherwise all packets using this page will be immediately dropped,
->>> unless for very specific sockets having SOCK_MEMALLOC bit set.
->>>
->>> This issue might be hard to debug, because only a fraction of received
->>> packets would be dropped.
->>
->> Hi Eric,
->>
->> When you say reuse, you mean point to the same page from several SKBs ?
->>
->> Because in our page cache implementation we don't reuse pages that
->> already passed to the stack,
->> we just keep them in the page cache until the ref count drop back to
->> one, so we recycle them (i,e they will be re-used only when no one
->> else is using them).
->>
-> Saeed,
+>Existing solution:
+>Without this patch series one can deploy such a vtep configuration by
+>by adding the local ports and vxlan netdevs into a vlan filtering bridge.
+>The local ports are configured as trunk ports carrying all vlans.
+>A vxlan netdev per vni is added to the bridge. Vlan mapping to vni is
+>achieved by configuring the vlan as pvid on the corresponding vxlan netdev.
+>The vxlan netdev only receives traffic corresponding to the vlan it is mapped
+>to. This configuration maps traffic belonging to a vlan to the corresponding
+>vxlan segment.
 >
-> Speaking of the mlx page cache can we remove this or a least make it
-> optional to use. It is another example of complex functionality being
-> put into drivers that makes things like backports more complicated and
-> provide at best some marginal value. In the case of the mlx5e cache
-> code the results from pktgen really weren't very impressive in the
-> first place. Also, the cache suffers from HOL blocking where we can
-> block the whole cache due to an outstanding reference on just one page
-> (something that you wouldn't see in pktgen but is likely to happen in
-> real applications).
+>          -----------------------------------
+>         |              bridge               |
+>         |                                   |
+>          -----------------------------------
+>            |100,200       |100 (pvid)    |200 (pvid)
+>            |              |              |
+>           swp1          vxlan1000      vxlan2000
+>                    
+>This provides the required vxlan bridging function but poses a
+>scalability problem with using a single vxlan netdev for each vni.
 >
+>Solution in this patch series:
+>The Goal is to use a single vxlan device to carry all vnis similar
+>to the vxlan collect metadata mode but vxlan driver still carrying all
+>the forwarding information.
+>- vxlan driver changes:
+>    - enable collect metadata mode device to be used with learning,
+>      replication, fdb
+>    - A single fdb table hashed by (mac, vni)
+>    - rx path already has the vni
+>    - tx path expects a vni in the packet with dst_metadata and vxlan
+>      driver has all the forwarding information for the vni in the
+>      dst_metadata.
 >
-> (Send from phone in car)
+>- Bridge driver changes: per vlan LWT and dst_metadata support:
+>    - Our use case is vxlan and 1-1 mapping between vlan and vni, but I have
+>      kept the api generic for any tunnel info
+>    - Uapi to configure/unconfigure/dump per vlan tunnel data
+>    - new bridge port flag to turn this feature on/off. off by default
+>    - ingress hook:
+>        - if port is a lwt tunnel port, use tunnel info in
+>          attached dst_metadata to map it to a local vlan
+>    - egress hook:
+>        - if port is a lwt tunnel port, use tunnel info attached to vlan
+>          to set dst_metadata on the skb
 >
-> To Tom, have you measured the effect of this page cache? Before claiming =
-it
-> is ineffective.
+>Other approaches tried and vetoed:
+>- tc vlan push/pop and tunnel metadata dst:
+>    - posses a tc rule scalability problem (2 rules per vni)
 
-No, I have not. TBH, I have most of the past few weeks trying to debug
-a backport of the code from 4.9 to 4.6. Until we have a working
-backport performance is immaterial for our purposes. Unfortunately, we
-are seeing some issues: the checksum faults I described previously and
-crashes on bad page refcns which are presumably being caused by the
-logic in RX buffer processing. This is why I am now having to dissect
-the code and trying to disable things like the page cache that are not
-essential functionality.
+Why it is a problem?
 
-In any case the HOL blocking issue is obvious from reading the code
-which and implies bimodal behavior-- we don't need a test for that to
-know it's a bad as we've see the bad effects of that in many other
-contexts.
->
-> My previous measurements show approx 20=E2=84=85 speedup on a UDP test wi=
-th delivery
-> to remote CPU.
->
-> Removing the cache would of cause be a good usecase for speeding up the p=
-age
-> allocator (PCP). Which Mel Gorman and me are working on. AFAIK current pa=
-ge
-> order0 cost 240 cycles. Mel have reduced til to 180, and without NUMA 150
-> cycles. And with bulking this can be amortized to 80 cycles.
->
-That would be great. If only I had a nickel for every time someone
-started working on a driver and came the conclusion that they need to
-do a custom memory allocator because the kernel allocator is so
-inefficient!
 
-Tom
+>    - cannot handle the case where a packet needs to be replicated to
+>      multiple vxlan remote tunnel end-points.. which the vxlan driver
+>      can do today by having multiple remote destinations per fdb.
 
-> --Jesper
->
+Can't you just extend the tc to support this?
+
+
+To me, looks like the tc is the correct place to hangle this. Then, the
+user can use it for multiple cases of forwarding, including bridge,
+tc-mirred, ovs and others. Putting this in bridge somehow seems wrong in
+this light. Also, the bridge code is polluted enough as it is. I this we
+should be super-picky to add another code there.
+
+Can you please elaborate more why can't have this as a re-usable TC solution?
+
+
+Thanks.
