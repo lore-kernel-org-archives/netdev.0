@@ -1,85 +1,91 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH 13/17] gtp: replace netdev_dbg and KERN_DEBUG printk with pr_debug
-Date: Mon, 23 Jan 2017 12:57:02 +0100
-Message-ID: <20170123115706.4354-14-aschultz@tpip.net>
-References: <20170123115706.4354-1-aschultz@tpip.net>
-Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org
-To: Pablo Neira <pablo@netfilter.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] phy: marvell: remove conflicting initializer
+Date: Mon, 23 Jan 2017 13:18:41 +0100
+Message-ID: <20170123121905.3245589-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>,
+        Clemens Gruber <clemens.gruber@pqgruber.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:44922 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750714AbdAWMGw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 07:06:52 -0500
-In-Reply-To: <20170123115706.4354-1-aschultz@tpip.net>
+Received: from mout.kundenserver.de ([212.227.126.135]:62894 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdAWMT2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 07:19:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pr_debug is more versatile for normal debugging.
-Also replace netdev_dbg in in places where the network device
-will be remove soon.
+One line was apparently pasted incorrectly during a new feature patch:
 
-Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+drivers/net/phy/marvell.c:2090:15: error: initialized field overwritten [-Werror=override-init]
+   .features = PHY_GBIT_FEATURES,
+
+I'm removing the extraneous line here to avoid the W=1 warning and restore
+the previous flags value, and I'm slightly reordering the lines for consistency
+to make it less likely to happen again in the future. The ordering in the
+array is still not the same as in the structure definition, instead I picked
+the order that is most common in this file and that seems to make more sense
+here.
+
+Fixes: 0b04680fdae4 ("phy: marvell: Add support for temperature sensor")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/gtp.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/phy/marvell.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 290c400..276cc66 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -235,7 +235,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 
- 	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
- 	if (IS_ERR(pctx)) {
--		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
-+		pr_debug("No PDP ctx to decap skb=%p\n", skb);
- 		return 1;
- 	}
- 
-@@ -277,7 +277,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 
- 	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
- 	if (IS_ERR(pctx)) {
--		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
-+		pr_debug("No PDP ctx to decap skb=%p\n", skb);
- 		return 1;
- 	}
- 
-@@ -296,15 +296,15 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	if (!gtp)
- 		return 1;
- 
--	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
-+	pr_debug("encap_recv sk=%p\n", sk);
- 
- 	switch (udp_sk(sk)->encap_type) {
- 	case UDP_ENCAP_GTP0:
--		netdev_dbg(gtp->dev, "received GTP0 packet\n");
-+		pr_debug("received GTP0 packet\n");
- 		ret = gtp0_udp_encap_recv(gtp, skb);
- 		break;
- 	case UDP_ENCAP_GTP1U:
--		netdev_dbg(gtp->dev, "received GTP1U packet\n");
-+		pr_debug("received GTP1U packet\n");
- 		ret = gtp1u_udp_encap_recv(gtp, skb);
- 		break;
- 	default:
-@@ -313,12 +313,12 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	switch (ret) {
- 	case 1:
--		netdev_dbg(gtp->dev, "pass up to the process\n");
-+		pr_debug("pass up to the process\n");
- 		break;
- 	case 0:
- 		break;
- 	case -1:
--		netdev_dbg(gtp->dev, "GTP packet has been dropped\n");
-+		pr_debug("GTP packet has been dropped\n");
- 		kfree_skb(skb);
- 		ret = 0;
- 		break;
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 64229976ace1..b5b73ff4329a 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -1900,8 +1900,8 @@ static struct phy_driver marvell_drivers[] = {
+ 		.phy_id_mask = MARVELL_PHY_ID_MASK,
+ 		.name = "Marvell 88E1101",
+ 		.features = PHY_GBIT_FEATURES,
+-		.probe = marvell_probe,
+ 		.flags = PHY_HAS_INTERRUPT,
++		.probe = marvell_probe,
+ 		.config_init = &marvell_config_init,
+ 		.config_aneg = &marvell_config_aneg,
+ 		.read_status = &genphy_read_status,
+@@ -1971,10 +1971,10 @@ static struct phy_driver marvell_drivers[] = {
+ 		.phy_id = MARVELL_PHY_ID_88E1121R,
+ 		.phy_id_mask = MARVELL_PHY_ID_MASK,
+ 		.name = "Marvell 88E1121R",
+-		.probe = &m88e1121_probe,
+-		.remove = &marvell_remove,
+ 		.features = PHY_GBIT_FEATURES,
+ 		.flags = PHY_HAS_INTERRUPT,
++		.probe = &m88e1121_probe,
++		.remove = &marvell_remove,
+ 		.config_init = &m88e1121_config_init,
+ 		.config_aneg = &m88e1121_config_aneg,
+ 		.read_status = &marvell_read_status,
+@@ -2085,10 +2085,9 @@ static struct phy_driver marvell_drivers[] = {
+ 		.phy_id_mask = MARVELL_PHY_ID_MASK,
+ 		.name = "Marvell 88E1510",
+ 		.features = PHY_GBIT_FEATURES | SUPPORTED_FIBRE,
++		.flags = PHY_HAS_INTERRUPT,
+ 		.probe = &m88e1510_probe,
+ 		.remove = &marvell_remove,
+-		.features = PHY_GBIT_FEATURES,
+-		.flags = PHY_HAS_INTERRUPT,
+ 		.config_init = &m88e1510_config_init,
+ 		.config_aneg = &m88e1510_config_aneg,
+ 		.read_status = &marvell_read_status,
+@@ -2105,10 +2104,10 @@ static struct phy_driver marvell_drivers[] = {
+ 		.phy_id = MARVELL_PHY_ID_88E1540,
+ 		.phy_id_mask = MARVELL_PHY_ID_MASK,
+ 		.name = "Marvell 88E1540",
+-		.probe = m88e1510_probe,
+-		.remove = &marvell_remove,
+ 		.features = PHY_GBIT_FEATURES,
+ 		.flags = PHY_HAS_INTERRUPT,
++		.probe = m88e1510_probe,
++		.remove = &marvell_remove,
+ 		.config_init = &marvell_config_init,
+ 		.config_aneg = &m88e1510_config_aneg,
+ 		.read_status = &marvell_read_status,
 -- 
-2.10.2
+2.9.0
