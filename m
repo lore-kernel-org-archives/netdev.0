@@ -1,70 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small
- buffer XDP receive
-Date: Mon, 23 Jan 2017 23:08:35 +0200
-Message-ID: <20170123230809-mutt-send-email-mst@kernel.org>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
- <20170117221950.20280.39496.stgit@john-Precision-Tower-5810>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 0/3] bpf: add longest prefix match map
+Date: Mon, 23 Jan 2017 16:11:02 -0500 (EST)
+Message-ID: <20170123.161102.1338660110746497238.davem@davemloft.net>
+References: <20170121162613.4159-1-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, dh.herrmann@gmail.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org
+To: daniel@zonque.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45712 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751130AbdAWVIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 16:08:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20170117221950.20280.39496.stgit@john-Precision-Tower-5810>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57982 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750957AbdAWVLH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 16:11:07 -0500
+In-Reply-To: <20170121162613.4159-1-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
-> In the small buffer case during driver unload we currently use
-> put_page instead of dev_kfree_skb. Resolve this by adding a check
-> for virtnet mode when checking XDP queue type. Also name the
-> function so that the code reads correctly to match the additional
-> check.
-> 
-> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Acked-by: Jason Wang <jasowang@redhat.com>
+From: Daniel Mack <daniel@zonque.org>
+Date: Sat, 21 Jan 2017 17:26:10 +0100
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-I think we definitely want this one in -net as it's
-a bugfix.
-
-> ---
->  drivers/net/virtio_net.c |    8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 4a10500..d97bb71 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1890,8 +1890,12 @@ static void free_receive_page_frags(struct virtnet_info *vi)
->  			put_page(vi->rq[i].alloc_frag.page);
->  }
+> This patch set adds a longest prefix match algorithm that can be used
+> to match IP addresses to a stored set of ranges. It is exposed as a
+> bpf map type.
+>    
+> Internally, data is stored in an unbalanced tree of nodes that has a
+> maximum height of n, where n is the prefixlen the trie was created
+> with.
 >  
-> -static bool is_xdp_queue(struct virtnet_info *vi, int q)
-> +static bool is_xdp_raw_buffer_queue(struct virtnet_info *vi, int q)
->  {
-> +	/* For small receive mode always use kfree_skb variants */
-> +	if (!vi->mergeable_rx_bufs)
-> +		return false;
-> +
->  	if (q < (vi->curr_queue_pairs - vi->xdp_queue_pairs))
->  		return false;
->  	else if (q < vi->curr_queue_pairs)
-> @@ -1908,7 +1912,7 @@ static void free_unused_bufs(struct virtnet_info *vi)
->  	for (i = 0; i < vi->max_queue_pairs; i++) {
->  		struct virtqueue *vq = vi->sq[i].vq;
->  		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
-> -			if (!is_xdp_queue(vi, i))
-> +			if (!is_xdp_raw_buffer_queue(vi, i))
->  				dev_kfree_skb(buf);
->  			else
->  				put_page(virt_to_head_page(buf));
+> Note that this has nothing to do with fib or fib6 and is in no way meant
+> to replace or share code with it. It's rather a much simpler
+> implementation that is specifically written with bpf maps in mind.
+>  
+> Patch 1/2 adds the implementation, 2/2 an extensive test suite and 3/3
+> has benchmarking code for the new trie type.
+> 
+> Feedback is much appreciated.
+
+Series applied, thank you.
