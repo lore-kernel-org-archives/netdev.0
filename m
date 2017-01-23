@@ -1,79 +1,43 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH net-next] net: stmicro: dwmac4 comments enhancement
-Date: Mon, 23 Jan 2017 15:56:24 +0000
-Message-ID: <4b0ae13cd5076f1830bae79e1ad9bd0542d0e2bf.1485186686.git.jpinto@synopsys.com>
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
+Date: Mon, 23 Jan 2017 11:15:09 -0800
+Message-ID: <1485198909.16328.211.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170123185922.48046-1-tracywwnj@gmail.com>
+         <20170123185922.48046-4-tracywwnj@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>, Wei Wang <weiwan@google.com>
+To: Wei Wang <tracywwnj@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:35504 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751335AbdAWP4j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 10:56:39 -0500
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34471 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750714AbdAWTP4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 14:15:56 -0500
+Received: by mail-pg0-f65.google.com with SMTP id t6so14418029pgt.1
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 11:15:11 -0800 (PST)
+In-Reply-To: <20170123185922.48046-4-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds clarification about the HW Controller that the dwmac4 driver
-package is targeting.
+On Mon, 2017-01-23 at 10:59 -0800, Wei Wang wrote:
+> From: Wei Wang <weiwan@google.com>
+> 
+> This patch adds a new socket option, TCP_FASTOPEN_CONNECT, as an
+> alternative way to perform Fast Open on the active side (client). Prior
+> to this patch, a client needs to replace the connect() call with
+> sendto(MSG_FASTOPEN). This can be cumbersome for applications who want
+> to use Fast Open: these socket operations are often done in lower layer
+> libraries used by many other applications. Changing these libraries
+> and/or the socket call sequences are not trivial. A more convenient
+> approach is to perform Fast Open by simply enabling a socket option when
+> the socket is created w/o changing other socket calls sequence:
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.h | 2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c   | 4 ++--
- 4 files changed, 7 insertions(+), 7 deletions(-)
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> ---
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 202216c..d893da9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -1,6 +1,6 @@
- /*
-- * This is the driver for the GMAC on-chip Ethernet controller for ST SoCs.
-- * DWC Ether MAC version 4.00  has been used for developing this code.
-+ * This is the driver for the DesignWare Ethernet QoS Controller.
-+ * For historical reasons it started in 4.x version.
-  *
-  * This only implements the mac core functions for this chip.
-  *
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-index 8816515..1f94bd6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-@@ -1,6 +1,6 @@
- /*
-- * This contains the functions to handle the descriptors for DesignWare databook
-- * 4.xx.
-+ * This contains the functions to handle the descriptors for the DesignWare
-+ * Ethernet QoS Controller. For historical reasons it started in 4.x version.
-  *
-  * Copyright (C) 2015  STMicroelectronics Ltd
-  *
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.h
-index 9736c50..cfeb08a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.h
-@@ -1,6 +1,6 @@
- /*
-  * Header File to describe the DMA descriptors and related definitions specific
-- * for DesignWare databook 4.xx.
-+ * for the DesignWare Ethernet QoS Controller
-  *
-  * Copyright (C) 2015  STMicroelectronics Ltd
-  *
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-index 377d1b4..301d01f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
-@@ -1,6 +1,6 @@
- /*
-- * This is the driver for the GMAC on-chip Ethernet controller for ST SoCs.
-- * DWC Ether MAC version 4.xx  has been used for  developing this code.
-+ * This is the driver for DesignWare Ethernet QoS Controller.
-+ * For historical reasons it started in 4.x version.
-  *
-  * This contains the functions to handle the dma.
-  *
--- 
-2.9.3
+Thanks for this hard work Wei.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
