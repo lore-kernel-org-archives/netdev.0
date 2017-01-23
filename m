@@ -1,63 +1,63 @@
-From: Xiangning Yu <yuxiangning@gmail.com>
-Subject: Re: Question about veth_xmit()
-Date: Mon, 23 Jan 2017 11:29:07 -0800
-Message-ID: <CAOwmpL3jqQRANpKLSEOsZ8MpNoPC8SAR=fUVTPwOuE2FRxop5A@mail.gmail.com>
-References: <CAOwmpL3vg56ZqHaYVBy+9dJJ1=GCbgy-m8NY0JrNCV-Z42R_eg@mail.gmail.com>
- <1485198462.16328.208.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
+Date: Mon, 23 Jan 2017 21:37:52 +0200
+Message-ID: <1485197869-11350-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:36255 "EHLO
-        mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbdAWT3I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 14:29:08 -0500
-Received: by mail-io0-f176.google.com with SMTP id j13so117943957iod.3
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 11:29:08 -0800 (PST)
-In-Reply-To: <1485198462.16328.208.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
+	virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 23, 2017 at 11:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-01-23 at 10:46 -0800, Xiangning Yu wrote:
->> Hi netdev folks,
->>
->> It looks like we call dev_forward_skb() in veth_xmit(), which calls
->> netif_rx() eventually.
->>
->> While netif_rx() will enqueue the skb to the CPU RX backlog before the
->> actual processing takes place. So, this actually means a TX skb has to
->> wait some un-related RX skbs to finish. And this will happen twice for
->> a single ping, because the veth device always works as a pair?
->>
->> IMHO this might lead to some latency issue under certain workload,
->> can we change the call to dev_forward_skb() to something like this?
->>
->>         if (likely(__dev_forward_skb(rcv, skb) == NET_RX_SUCCESS)) {
->>                 local_bh_disable();
->>                 netif_receive_skb(skb);
->>                 local_bh_enable();
->>
->> Could you please shed some light on this change? And please feel free
->> to correct my if my understanding is wrong.
->
-> How veth would have different latency requirement than loopback device ?
->
+I don't have any guests with PAGE_SIZE > 64k but the
+code seems to be clearly broken in that case
+as PAGE_SIZE / MERGEABLE_BUFFER_ALIGN will need
+more than 8 bit and so the code in mergeable_ctx_to_buf_address
+does not give us the actual true size.
 
-The traffic from those veth device will reach external network, and
-normally those are RPC type traffic.
+Cc: John Fastabend <john.fastabend@gmail.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-> Calling netif_receive_skb() is considered too dangerous here (or from
-> any ndo_start_xmit()) because of possible kernel stack exhaustion.
->
+changes from v1:
+	fix build warnings
 
-I agree, stack space is a concern, especially if the traffic is
-loopback-ed to another namespace.
+ drivers/net/virtio_net.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-Thanks,
-
-- Xiangning
-
->
->
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 4a10500..4dc373b 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -48,8 +48,16 @@ module_param(gso, bool, 0444);
+  */
+ DECLARE_EWMA(pkt_len, 1, 64)
+ 
++/* With mergeable buffers we align buffer address and use the low bits to
++ * encode its true size. Buffer size is up to 1 page so we need to align to
++ * square root of page size to ensure we reserve enough bits to encode the true
++ * size.
++ */
++#define MERGEABLE_BUFFER_MIN_ALIGN_SHIFT ((PAGE_SHIFT + 1) / 2)
++
+ /* Minimum alignment for mergeable packet buffers. */
+-#define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, 256)
++#define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, \
++				   1 << MERGEABLE_BUFFER_MIN_ALIGN_SHIFT)
+ 
+ #define VIRTNET_DRIVER_VERSION "1.0.0"
+ 
+-- 
+MST
