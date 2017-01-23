@@ -1,45 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] Introduce a sysctl that modifies the value
- of PROT_SOCK.
-Date: Mon, 23 Jan 2017 15:39:49 -0500 (EST)
-Message-ID: <20170123.153949.1298637068250931720.davem@davemloft.net>
-References: <20161231125505.7f0c7dff@xeon-e3>
-        <20170112065225.GB2345@templeofstupid.com>
-        <20170121014911.GB2598@templeofstupid.com>
+Subject: Re: [PATCH net v2 2/2] lwtunnel: Fix oops on state free after
+ encap module unload
+Date: Mon, 23 Jan 2017 15:42:48 -0500 (EST)
+Message-ID: <20170123.154248.261820530578170635.davem@davemloft.net>
+References: <1484753523-26230-1-git-send-email-rshearma@brocade.com>
+        <1484958086-6151-1-git-send-email-rshearma@brocade.com>
+        <1484958086-6151-3-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: kjlx@templeofstupid.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com,
+        roopa@cumulusnetworks.com, david.lebrun@uclouvain.be,
+        tgraf@suug.ch, dsa@cumulusnetworks.com
+To: rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56138 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56296 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751082AbdAWUkJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 15:40:09 -0500
-In-Reply-To: <20170121014911.GB2598@templeofstupid.com>
+        with ESMTP id S1750723AbdAWUmu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 15:42:50 -0500
+In-Reply-To: <1484958086-6151-3-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krister Johansen <kjlx@templeofstupid.com>
-Date: Fri, 20 Jan 2017 17:49:11 -0800
+From: Robert Shearman <rshearma@brocade.com>
+Date: Sat, 21 Jan 2017 00:21:26 +0000
 
-> Add net.ipv4.ip_unprivileged_port_start, which is a per namespace sysctl
-> that denotes the first unprivileged inet port in the namespace.  To
-> disable all privileged ports set this to zero.  It also checks for
-> overlap with the local port range.  The privileged and local range may
-> not overlap.
-> 
-> The use case for this change is to allow containerized processes to bind
-> to priviliged ports, but prevent them from ever being allowed to modify
-> their container's network configuration.  The latter is accomplished by
-> ensuring that the network namespace is not a child of the user
-> namespace.  This modification was needed to allow the container manager
-> to disable a namespace's priviliged port restrictions without exposing
-> control of the network namespace to processes in the user namespace.
-> 
-> Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
+> @@ -115,8 +115,12 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+>  	ret = -EOPNOTSUPP;
+>  	rcu_read_lock();
 
-I'm not ignoring this change, I just want to think about it some more.
+Here 'ret' equals -EOPNOTSUPP
 
-Just FYI...
+>  	ops = rcu_dereference(lwtun_encaps[encap_type]);
+> -	if (likely(ops && ops->build_state))
+> -		ret = ops->build_state(dev, encap, family, cfg, lws);
+> +	if (likely(ops)) {
+> +		if (likely(try_module_get(ops->owner) && ops->build_state))
+> +			ret = ops->build_state(dev, encap, family, cfg, lws);
+> +		if (ret)
+> +			module_put(ops->owner);
+
+If try_module_get() fails, 'ret' will still be -EOPNOTSUPP and we will
+module_put() on a module we did not grab a reference to.
+
+I think you need to adjust the logic here.  You only want to 'put' if
+try_module_get() succeeds and ->build_state() returns an error.
