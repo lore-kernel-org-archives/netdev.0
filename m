@@ -1,80 +1,48 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: spectrum_router: Correctly reallocate adjacency entries
-Date: Mon, 23 Jan 2017 11:11:42 +0100
-Message-ID: <1485166302-5629-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com
-To: netdev@vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH] net: stmicro: fix LS field mask in EEE configuration
+Date: Mon, 23 Jan 2017 10:17:02 +0000
+Message-ID: <be0b0899-77b1-702f-af01-f6694765df4e@synopsys.com>
+References: <ed690f703a3c82193737f1a9813dff8b1ff403dd.1484927665.git.jpinto@synopsys.com>
+ <20170122.164953.874236089744264438.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <rayagond@vayavyalabs.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34376 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdAWKLp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 05:11:45 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c85so25157421wmi.1
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 02:11:45 -0800 (PST)
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:36958 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdAWKRH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 05:17:07 -0500
+In-Reply-To: <20170122.164953.874236089744264438.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+Hi David,
 
-mlxsw_sp_nexthop_group_mac_update() is called in one of two cases:
+Às 9:49 PM de 1/22/2017, David Miller escreveu:
+> From: Joao Pinto <Joao.Pinto@synopsys.com>
+> Date: Fri, 20 Jan 2017 16:00:26 +0000
+> 
+>> This patch fixes the LS mask when setting EEE timer.
+>> LS field is 10 bits long and not 11 as currently.
+>>
+>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>> Reported-By: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+> 
+> Please indicate the appropriate target tree of your patch in the
+> subject line just like all other developers on this list do, don't
+> make me guess.
 
-1) When the MAC of a nexthop needs to be updated
-2) When the size of a nexthop group has changed
+Sorry, I will follow that rule also of course.
 
-In the second case the adjacency entries for the nexthop group need to
-be reallocated from the adjacency table. In this case we must write to
-the entries the MAC addresses of all the nexthops that should be
-offloaded and not only those whose MAC changed. Otherwise, these entries
-would be filled with garbage data, resulting in packet loss.
+> 
+> This time I figured out that this is meant for the net-next tree,
+> but I will not guess next time, I will just reject your patch
+> instead.
+> 
+> Thanks.
+> 
 
-Fixes: a7ff87acd995 ("mlxsw: spectrum_router: Implement next-hop routing")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 01d0efa..9e494a4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1172,7 +1172,8 @@ static int mlxsw_sp_nexthop_mac_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
- 
- static int
- mlxsw_sp_nexthop_group_mac_update(struct mlxsw_sp *mlxsw_sp,
--				  struct mlxsw_sp_nexthop_group *nh_grp)
-+				  struct mlxsw_sp_nexthop_group *nh_grp,
-+				  bool reallocate)
- {
- 	u32 adj_index = nh_grp->adj_index; /* base */
- 	struct mlxsw_sp_nexthop *nh;
-@@ -1187,7 +1188,7 @@ mlxsw_sp_nexthop_group_mac_update(struct mlxsw_sp *mlxsw_sp,
- 			continue;
- 		}
- 
--		if (nh->update) {
-+		if (nh->update || reallocate) {
- 			err = mlxsw_sp_nexthop_mac_update(mlxsw_sp,
- 							  adj_index, nh);
- 			if (err)
-@@ -1248,7 +1249,8 @@ mlxsw_sp_nexthop_group_refresh(struct mlxsw_sp *mlxsw_sp,
- 		/* Nothing was added or removed, so no need to reallocate. Just
- 		 * update MAC on existing adjacency indexes.
- 		 */
--		err = mlxsw_sp_nexthop_group_mac_update(mlxsw_sp, nh_grp);
-+		err = mlxsw_sp_nexthop_group_mac_update(mlxsw_sp, nh_grp,
-+							false);
- 		if (err) {
- 			dev_warn(mlxsw_sp->bus_info->dev, "Failed to update neigh MAC in adjacency table.\n");
- 			goto set_trap;
-@@ -1276,7 +1278,7 @@ mlxsw_sp_nexthop_group_refresh(struct mlxsw_sp *mlxsw_sp,
- 	nh_grp->adj_index_valid = 1;
- 	nh_grp->adj_index = adj_index;
- 	nh_grp->ecmp_size = ecmp_size;
--	err = mlxsw_sp_nexthop_group_mac_update(mlxsw_sp, nh_grp);
-+	err = mlxsw_sp_nexthop_group_mac_update(mlxsw_sp, nh_grp, true);
- 	if (err) {
- 		dev_warn(mlxsw_sp->bus_info->dev, "Failed to update neigh MAC in adjacency table.\n");
- 		goto set_trap;
--- 
-2.7.4
+Thanks.
+Joao
