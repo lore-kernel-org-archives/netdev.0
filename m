@@ -1,59 +1,83 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 0/4] Make xfrm usable by 32-bit programs
-Date: Mon, 23 Jan 2017 16:45:39 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026BC58@AcuExch.aculab.com>
-References: <20170121000507.34381-1-cernekee@chromium.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: ignore null_entry on route dumps
+Date: Mon, 23 Jan 2017 09:51:07 -0700
+Message-ID: <a1eaeddc-69df-e0fa-c06a-285c3234249c@cumulusnetworks.com>
+References: <1485147377-11922-1-git-send-email-dsa@cumulusnetworks.com>
+ <20170122.235829.1911961579892347071.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "selinux@tycho.nsa.gov" <selinux@tycho.nsa.gov>,
-        "fw@strlen.de" <fw@strlen.de>,
-        "fan.du@windriver.com" <fan.du@windriver.com>,
-        "dianders@chromium.org" <dianders@chromium.org>,
-        "dtor@chromium.org" <dtor@chromium.org>
-To: 'Kevin Cernekee' <cernekee@chromium.org>,
-        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
-        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "paul@paul-moore.com" <paul@paul-moore.com>,
-        "sds@tycho.nsa.gov" <sds@tycho.nsa.gov>,
-        "eparis@parisplace.org" <eparis@parisplace.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170121000507.34381-1-cernekee@chromium.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiaolong.ye@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35535 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750723AbdAWQvJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 11:51:09 -0500
+Received: by mail-pf0-f175.google.com with SMTP id f144so42469170pfa.2
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 08:51:09 -0800 (PST)
+In-Reply-To: <20170122.235829.1911961579892347071.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Cernekee
-> Sent: 21 January 2017 00:05
-> Several of the xfrm netlink and setsockopt() interfaces are not usable
-> from a 32-bit binary running on a 64-bit kernel due to struct padding
-> differences.  This has been the case for many, many years[0].  This
-> patch series deprecates the broken netlink messages and replaces them
-> with packed structs that are compatible between 64-bit and 32-bit
-> programs.
+On 1/22/17 9:58 PM, David Miller wrote:
+> 
+> David, please slow down.
+> 
+> How is the NULL entry getting selected to be dumped and passed
+> down here in the first place?
 
-Do you mean '__packed' or just structures with no holes?
-The latter is really the best.
-You can add a compile time assert on the structure sizes to ensure
-that the user API is never accidentally broken.
+The null_entry might be a 'marker' but is integral to the ipv6 fib. For starters:
 
-I can't imagine any reason to change the 64bit structures except
-(maybe) to make any padding explicit.
+static int __net_init fib6_net_init(struct net *net)
+{
+...
+        net->ipv6.fib6_main_tbl = kzalloc(sizeof(*net->ipv6.fib6_main_tbl),
+                                          GFP_KERNEL);
+...
+        net->ipv6.fib6_main_tbl->tb6_id = RT6_TABLE_MAIN;
+        net->ipv6.fib6_main_tbl->tb6_root.leaf = net->ipv6.ip6_null_entry;
 
-> It retains support for legacy user programs (i.e. anything
-> that is currently working today), and allows legacy support to be
-> compiled out via CONFIG_XFRM_USER_LEGACY if it becomes unnecessary in
-> the future.
 ...
 
-Isn't that effectively the same as doing a compat layer?
-Otherwise you can't build a 32bit app that will work with an 'old'
-32bit kernel and a new 64bit one.
 
-Provided you've got the length of the user's buffer the compat code
-ought to be trivial (if tedious).
+Same goes for every other table allocated:
 
-	David
+static struct fib6_table *fib6_alloc_table(struct net *net, u32 id)
+{
+        struct fib6_table *table;
+
+        table = kzalloc(sizeof(*table), GFP_ATOMIC);
+        if (table) {
+                table->tb6_id = id;
+                table->tb6_root.leaf = net->ipv6.ip6_null_entry;
+..
+        }
+
+
+And if you look at the fib6_add code:
+
+                        sfn->leaf = info->nl_net->ipv6.ip6_null_entry;
+                        atomic_inc(&info->nl_net->ipv6.ip6_null_entry->rt6i_ref);
+                        sfn->fn_flags = RTN_ROOT;
+                        sfn->fn_sernum = sernum;
+
+                        /* Now add the first leaf node to new subtree */
+
+                        sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
+                                        rt->rt6i_src.plen,
+                                        offsetof(struct rt6_info, rt6i_src),
+                                        allow_create, replace_required, sernum);
+
+Meaning that a walk of the table is going to dump the ip6_null_entry route, potentially multiple times.
+
+As far as the dump request the chain rtnetlink message invokes inet6_dump_fib:
+
+inet6_dump_fib
+- fib6_dump_table
+  + fib6_walk
+    * fib6_walk_continue
+      - fib6_dump_node
+        + rt6_dump_route
+
+Seems to me the most appropriate place to check that rt is the null_entry route is rt6_dump_route but perhaps fib6_dump_node could as well. This patch buts the check in rt6_dump_route. 
