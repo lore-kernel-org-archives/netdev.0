@@ -1,79 +1,66 @@
-From: maowenan <maowenan@huawei.com>
-Subject: Re: [PATCH] net:phy fix driver reference count error when attach and
- detach phy device
-Date: Mon, 23 Jan 2017 17:33:41 +0800
-Message-ID: <83f87925-5456-1896-e8ff-4d9f724158e4@huawei.com>
-References: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0232613@AcuExch.aculab.com>
- <0cef0798-7b0d-734d-17a3-bebffe6206c7@huawei.com>
- <7902ba31-de5d-27cf-f631-4a88a78b246f@huawei.com>
- <c4fce3bf-4105-c7f2-fc67-be4316a2004a@gmail.com>
- <F95AC9340317A84688A5F0DF0246F3F201524E04@szxeml504-mbs.china.huawei.com>
- <70502429-5edf-924f-6e48-89340620ae6f@gmail.com>
- <cbd390e3-666b-dcc3-2ff3-18fa75549167@huawei.com>
- <9086cf5e-18c4-0e17-4f0e-6a630cf1c7d7@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next] net:add one common config
+ ARCH_WANT_RELAX_ORDER to support relax ordering.
+Date: Mon, 23 Jan 2017 09:44:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0268E25@AcuExch.aculab.com>
+References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
+ <20170117.141533.680344033700095483.davem@davemloft.net>
+ <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
+ <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0267C5A@AcuExch.aculab.com>
+ <CAKgT0UeW1LgzFiycz+aQb8j9VamdXO8Q1mO1DqcazeTkwQmYCA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Laight <David.Laight@ACULAB.COM>,
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+        "maowenan@huawei.com" <maowenan@huawei.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Dingtianhong <dingtianhong@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Andrew Lunn <andrew@lunn.ch>
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:54038 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdAWJfb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 04:35:31 -0500
-In-Reply-To: <9086cf5e-18c4-0e17-4f0e-6a630cf1c7d7@gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.192]:54536 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750705AbdAWJol (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 04:44:41 -0500
+In-Reply-To: <CAKgT0UeW1LgzFiycz+aQb8j9VamdXO8Q1mO1DqcazeTkwQmYCA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017/1/6 12:48, Florian Fainelli wrote:
-> Le 01/05/17 à 19:39, maowenan a écrit :
->>
->>
->> On 2017/1/6 11:21, Florian Fainelli wrote:
->>> +Andrew,
->>>
->>> Le 01/05/17 à 18:29, maowenan a écrit :
->>>>>> @Florian Fainelli, what's your comments about this patch?
->>>>>
->>>>> I am trying to reproduce what you are seeing, but at first glance is looks like an
->>>>> appropriate solution to me. Do you mind giving me a couple more days?
->>>>>
->>>>> Thanks!
->>>>> --
->>>>> Florian
->>>>
->>>> Hi Florian, 
->>>>   Do you have any update about this patch?
->>>
->>> Your patch is not complete, there are now MDIO device (which PHY devices
->>> are a superset of) that would also need a similar fix.
->>>
->> ok, is there any patch to fix MDIO yet?  if not, i will verify it and give a fix patch?
->>
-> 
-> No, there is not a patch yet, your approach looks okay, but need to be
-> made general and cover MDIO devices as well.
-> 
-> Thank you!
-> 
-
-Hi Florian,
-Sorry I can't get you. There has already existed codes which are not originally written by me to cover MDIO device in phy_attach_direct and phy_detach in my patch .
-Please help check, thank you.
-phy_attach_direct:
-struct device *d = &phydev->mdio.dev;
-...
-get_device(d);
-...
-
-phy_detach:
- 	put_device(&phydev->mdio.dev);       /*--MDIO device--*/
-+	module_put(phydev->mdio.dev.driver->owner);
- 	module_put(bus->owner);
+QWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDE5IEphbnVhcnkgMjAxNyAxNTo1NQ0KLi4uDQo+ID4+
+IFRoZSBSZWxheGVkIE9yZGVyaW5nIGF0dHJpYnV0ZSBkb2Vzbid0IGdldCBhcHBsaWVkIGFjcm9z
+cyB0aGUgYm9hcmQuDQo+ID4+IEl0IGVuZHMgdXAgYmVpbmcgbGltaXRlZCB0byBhIHN1YnNldCBv
+ZiB0aGUgdHJhbnNhY3Rpb25zIGlmIEkgcmVjYWxsDQo+ID4+IGNvcnJlY3RseS4gIEluIHRoaXMg
+Y2FzZSBpdCBpcyB0aGUgVHggZGVzY3JpcHRvciB3cml0ZSBiYWNrLCBhbmQgdGhlDQo+ID4+IFJ4
+IGRhdGEgd3JpdGUgYmFjay4gIFdlIGRvbid0IGFwcGx5IHRoZSBSTyBiaXQgdG8gYW55IG90aGVy
+DQo+ID4+IHRyYW5zYWN0aW9ucy4NCj4gPj4NCj4gPj4gSW4gdGhlIGNhc2Ugb2YgVHggZGVzY3Jp
+cHRvciB0aGVyZSBpcyBubyBoYXJtIGluIGFsbG93aW5nIGl0IHRvIGJlDQo+ID4+IHJlb3JkZXJl
+ZCBiZWNhdXNlIHdlIG9ubHkgcmVhbGx5IHJlYWQgdGhlIEREIGJpdCBzbyB3ZSBkb24ndCBjYXJl
+DQo+ID4+IGFib3V0IHRoZSBvcmRlcmluZyBvZiB0aGUgd3JpdGUgYmFjay4gIEluIHRoZSBjYXNl
+IG9mIHRoZSBSeCBkYXRhIHRoZQ0KPiA+PiBSeCBkZXNjcmlwdG9yIGVzc2VudGlhbGx5IGFjdHMg
+YXMgYSBmbHVzaCBzaW5jZSBpdCBpcyBzZW50IHdpdGhvdXQgdGhlDQo+ID4+IFJPIGJpdCBzZXQu
+ICBTbyBhbGwgdGhlIHdyaXRlcyBiZWZvcmUgaXQgbXVzdCBiZSBjb21wbGV0ZWQgYmVmb3JlIHRo
+ZQ0KPiA+PiBSeCBkZXNjcmlwdG9yIHdyaXRlIGJhY2suDQo+ID4NCj4gPiBJbiB3aGljaCBjYXNl
+IHdoeSBub3Qgc2V0IGl0IHVuY29uZGl0aW9uYWxseSBmb3IgYWxsIGFyY2hpdGVjdHVyZXM/DQo+
+ID4NCj4gPiBJJ20gc3VycHJpc2VkIChJIG9mdGVuIGFtKSB0aGF0IGFsbG93aW5nIHRob3NlIHJl
+LW9yZGVyaW5ncyBtYWtlcw0KPiA+IGFueSBzaWduaWZpY2FudCBkaWZmZXJlbmNlLg0KPiA+IFVu
+Zm9ydHVuYXRlbHkgeW91IG5lZWQgYSBQQ0llIGFuYWx5c2VyIHRvIHNlZSB3aGF0IGlzIHJlYWxs
+eSBoYXBwZW5pbmcNCj4gPiBhbmQgdGhleSBkb24ndCBjb21lIGNoZWFwLg0KPiA+DQo+ID4gV2hh
+dCBJIGRvIHZhZ3VlbHkgcmVtZW1iZXIgaXMgdGhhdCBzb21lIGhvc3RzIGRvbid0IGFsd2F5cyBp
+bXBsZW1lbnQNCj4gPiB0aGUgJ25vcm1hbCcgcmUtb3JkZXJpbmcgb2YgcmVhZHMgYW5kIHJlYWQg
+Y29tcGxldGlvbnMuDQo+ID4gUmUtb3JkZXJpbmcgb2YgcmVhZHMgYWxsb3dzIGRlc2NyaXB0b3Ig
+cmVhZHMgdG8gb3ZlcnRha2UgdHJhbnNtaXQNCj4gPiB0cmFmZmljIHdoaWNoIGlzIGxpa2VseSB0
+byBtYWtlIGEgZGlmZmVyZW5jZS4NCj4gDQo+IEkgdGhpbmsgcGFydCBvZiB0aGUgaXNzdWUsIGF0
+IGxlYXN0IGluIHRoZSBjYXNlIG9mIFNQQVJDLCBpcyB0aGF0IHRoZQ0KPiBoYW5kbGluZyBvZiB0
+aGUgbWVtb3J5IHdyaXRlcyBpbiB0aGUgUENJZSByb290IGNvbXBsZXggaXMgaW1wYWN0ZWQgYnkN
+Cj4gdGhlIFJPIGF0dHJpYnV0ZS4gIE9uIHRoZSBidXMgaXRzZWxmIGl0IGRvZXNuJ3QgbWF0dGVy
+IG11Y2gsIGJ1dCBhdA0KPiB0aGUgcm9vdCBjb21wbGV4IGl0IGNhbiBiZWNvbWUgZXhwZW5zaXZl
+IHRvIGhhdmUgdG8gd2FpdCBvbiBhIHBhcnRpYWwNCj4gd3JpdGUgdG8gY29tcGxldGUgd2hpbGUg
+dGhlcmUgYXJlIG90aGVyIHdyaXRlcyBwZW5kaW5nLiAgVGhpcyBpcyB3aHkNCj4gdGhlIElPTU1V
+IGZvciBTUEFSQyBub3cgaGFzIGEgV0VBS19PUkRFUklORyBhdHRyaWJ1dGUgeW91IGNhbiBhZGQg
+c28NCj4gdGhhdCBpdCBjYW4gd3JpdGUgdGhlIGRhdGEgaW4gd2hhdGV2ZXIgb3JkZXIgaXQgd2Fu
+dHMgaW4gcmVsYXRpb24gdG8NCj4gb3RoZXIgd3JpdGVzIGluIHRoYXQgcmVnaW9uLg0KDQpJIGhv
+cGUgdGhlIElPTU1VIG9ubHkgZXZlciByZW9yZGVycyB3cml0ZXMgdGhhdCBoYXZlIHRoZSBSTyBi
+aXQgc2V0Lg0KDQpIYXMgYW55b25lIHRyaWVkIGNhY2hlIGludmFsaWRhdGVzIG9uIHRoZSByeCBi
+dWZmZXJzPw0KTWlnaHQgbWFrZSB0aGUgd3JpdGVzIGxlc3MgZXhwZW5zaXZlLg0KT3IgaXMgdGhl
+IGlzc3VlIHdpdGggTlVNQSByYXRoZXIgdGhhbiBjYWNoZS4NCg0KCURhdmlkDQoNCg==
