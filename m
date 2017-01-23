@@ -1,21 +1,22 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH] Documentation: net: phy: improve explanation when to
  specify the PHY ID
-Date: Mon, 23 Jan 2017 14:32:27 -0600
-Message-ID: <20170123203227.etk23xwiqs7rzktt@rob-hp-laptop>
+Date: Mon, 23 Jan 2017 12:33:14 -0800
+Message-ID: <58e8429a-7159-471c-7507-3fde566939a8@gmail.com>
 References: <20170122164132.13967-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andrew-g2DYL2Zd6BY@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
-To: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        andrew-g2DYL2Zd6BY@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
 In-Reply-To: <20170122164132.13967-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 22, 2017 at 05:41:32PM +0100, Martin Blumenstingl wrote:
+On 01/22/2017 08:41 AM, Martin Blumenstingl wrote:
 > The old description basically read like "ethernet-phy-idAAAA.BBBB" can
 > be specified when you know the actual PHY ID. However, specifying this
 > has a side-effect: it forces Linux to bind to a certain PHY driver (the
@@ -26,15 +27,10 @@ On Sun, Jan 22, 2017 at 05:41:32PM +0100, Martin Blumenstingl wrote:
 > "ethernet-phy-idAAAA.BBBB" could break certain revisions of that device.
 > 
 > Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-> ---
-> Thanks to Andrew Lunn for pointing the documentation issue out to me in:
-> http://lists.infradead.org/pipermail/linux-amlogic/2017-January/002141.html
-> 
-> 
->  Documentation/devicetree/bindings/net/phy.txt | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+-- 
+Florian
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
