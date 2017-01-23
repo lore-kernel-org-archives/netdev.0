@@ -1,47 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: Check return value of
- phy_connect_direct()
-Date: Mon, 23 Jan 2017 15:43:49 -0500 (EST)
-Message-ID: <20170123.154349.1850757123800068825.davem@davemloft.net>
-References: <20170121000505.15135-1-f.fainelli@gmail.com>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: iproute2: using .maxattr = IFLA_VLAN_MAX??
+Date: Mon, 23 Jan 2017 20:45:24 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93D496CA4@HASMSX110.ger.corp.intel.com>
+References: <58864115.4060608@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Murali Karicheri <m-karicheri2@ti.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56322 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbdAWUnv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 15:43:51 -0500
-In-Reply-To: <20170121000505.15135-1-f.fainelli@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:34335 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751337AbdAWUp2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 15:45:28 -0500
+In-Reply-To: <58864115.4060608@ti.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 20 Jan 2017 16:05:05 -0800
-
-> We need to check the return value of phy_connect_direct() in
-> dsa_slave_phy_connect() otherwise we may be continuing the
-> initialization of a slave network device with a PHY that already
-> attached somewhere else and which will soon be in error because the PHY
-> device is in error.
-> 
-> The conditions for such an error to occur are that we have a port of our
-> switch that is not disabled, and has the same port number as a PHY
-> address (say both 5) that can be probed using the DSA slave MII bus. We
-> end-up having this slave network device find a PHY at the same address
-> as our port number, and we try to attach to it.
-> 
-> A slave network (e.g: port 0) has already attached to our PHY device,
-> and we try to re-attach it with a different network device, but since we
-> ignore the error we would end-up initializating incorrect device
-> references by the time the slave network interface is opened.
-> 
-> The code has been (re)organized several times, making it hard to provide
-> an exact Fixes tag, this is a bugfix nonetheless.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Applied, thanks Florian.
+SGksIE11cmFsaSwNCg0KPiBUaGlzIGFwcGVhcnMgdG8gYmUgYSBjdXQtbi1wYXN0ZSBidWcgYXMg
+dGhlIHNvdXJjZSBpcyBiYXNlZCBvbiBpcC9pcGxpbmtfdmxhbi5jIGFuZCBzaG91bGQgYmUgZml4
+ZWQgdG8gSUZMQV9IU1JfTUFYLiANCg0KWW91IGFyZSByaWdodC4NClRoZSAiSFNSIHNlY3Rpb24i
+IGluZGVlZCBkZWZpbmVzIElGTEFfSFNSX01BWCBpbiBpbmNsdWRlL2xpbnV4L2lmX2xpbmsuaCBv
+ZiBpcHJvdXRlMiBhcyB0aGUgbWF4IGF0dHJpYnV0ZXMgbnVtYmVyLg0KDQpBbmQgaW4gdGhlIHRv
+cCBvZiBpcC9pcGxpbmtfaHNyLmMgeW91IHdpbGwgZmluZCB0aGlzIGNvbW1lbnQsIHdoaWNoIGVu
+aGFuY2VzIHlvdXIgYXNzdW1wdGlvbiBhYm91dCB0aGUgb3JpZ2luIG9mIHRoaXMgbWlzdGFrZToN
+Cg0KLyoNCi4uLg0KICAgICBCYXNlZCBvbiBpcGxpbmtfdmxhbi5jIGJ5IFBhdHJpY2sgTWNIYXJk
+eSA8a2FiZXJAdHJhc2gubmV0DQouLi4NCiAqLw0KDQpSZWdhcmRzLA0KUmFtaSBSb3Nlbg0KDQo=
