@@ -1,172 +1,114 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH] virtio_net: fix PAGE_SIZE > 64k
-Date: Tue, 24 Jan 2017 04:46:20 +0800
-Message-ID: <201701240451.9IOHWr3k%fengguang.wu@intel.com>
-References: <1485189896-20327-1-git-send-email-mst@redhat.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next 1/3] net/tcp-fastopen: refactor cookie check logic
+Date: Mon, 23 Jan 2017 12:51:56 -0800
+Message-ID: <CAK6E8=edDZG31Zzhz_bwgKULN2J27rqgEs2ZP1_w71JgFACRRg@mail.gmail.com>
+References: <20170123185922.48046-1-tracywwnj@gmail.com> <20170123185922.48046-2-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
-        Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1485189896-20327-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Wei Wang <weiwan@google.com>
+To: Wei Wang <tracywwnj@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f47.google.com ([209.85.214.47]:37750 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751548AbdAWUws (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 15:52:48 -0500
+Received: by mail-it0-f47.google.com with SMTP id r185so76045290ita.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 12:52:43 -0800 (PST)
+In-Reply-To: <20170123185922.48046-2-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+On Mon, Jan 23, 2017 at 10:59 AM, Wei Wang <tracywwnj@gmail.com> wrote:
+>
+> From: Wei Wang <weiwan@google.com>
+>
+> Refactor the cookie check logic in tcp_send_syn_data() into a function.
+> This function will be called else where in later changes.
+>
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> ---
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-[auto build test WARNING on net-next/master]
-[also build test WARNING on v4.10-rc5 next-20170123]
-[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-
-url:    https://github.com/0day-ci/linux/commits/Michael-S-Tsirkin/virtio_net-fix-PAGE_SIZE-64k/20170124-023805
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
-
-
-sparse warnings: (new ones prefixed by >>)
-
-   include/linux/compiler.h:253:8: sparse: attribute 'no_sanitize_address': unknown attribute
->> drivers/net/virtio_net.c:250:44: sparse: incompatible types in comparison expression (different signedness)
-   drivers/net/virtio_net.c:251:33: sparse: incompatible types in comparison expression (different signedness)
-   drivers/net/virtio_net.c:256:36: sparse: incompatible types in comparison expression (different signedness)
-   drivers/net/virtio_net.c:262:40: sparse: incompatible types in comparison expression (different signedness)
-   drivers/net/virtio_net.c:861:16: sparse: incompatible types in comparison expression (different signedness)
-   drivers/net/virtio_net.c:861:16: sparse: incompatible types in comparison expression (different signedness)
-   In file included from include/linux/list.h:8:0,
-                    from include/linux/timer.h:4,
-                    from include/linux/netdevice.h:28,
-                    from drivers/net/virtio_net.c:19:
-   drivers/net/virtio_net.c: In function 'mergeable_ctx_to_buf_truesize':
-   include/linux/kernel.h:763:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&max1 == &max2);   \
-                   ^
-   include/linux/kernel.h:766:2: note: in expansion of macro '__max'
-     __max(typeof(x), typeof(y),   \
-     ^~~~~
-   drivers/net/virtio_net.c:59:32: note: in expansion of macro 'max'
-    #define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, \
-                                   ^~~
-   drivers/net/virtio_net.c:250:37: note: in expansion of macro 'MERGEABLE_BUFFER_ALIGN'
-     unsigned int truesize = mrg_ctx & (MERGEABLE_BUFFER_ALIGN - 1);
-                                        ^~~~~~~~~~~~~~~~~~~~~~
-   include/linux/kernel.h:763:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&max1 == &max2);   \
-                   ^
-   include/linux/kernel.h:766:2: note: in expansion of macro '__max'
-     __max(typeof(x), typeof(y),   \
-     ^~~~~
-   drivers/net/virtio_net.c:59:32: note: in expansion of macro 'max'
-    #define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, \
-                                   ^~~
-   drivers/net/virtio_net.c:251:26: note: in expansion of macro 'MERGEABLE_BUFFER_ALIGN'
-     return (truesize + 1) * MERGEABLE_BUFFER_ALIGN;
-                             ^~~~~~~~~~~~~~~~~~~~~~
-   drivers/net/virtio_net.c: In function 'mergeable_ctx_to_buf_address':
-   include/linux/kernel.h:763:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&max1 == &max2);   \
-                   ^
-   include/linux/kernel.h:766:2: note: in expansion of macro '__max'
-     __max(typeof(x), typeof(y),   \
-     ^~~~~
-   drivers/net/virtio_net.c:59:32: note: in expansion of macro 'max'
-    #define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, \
-                                   ^~~
-   drivers/net/virtio_net.c:256:29: note: in expansion of macro 'MERGEABLE_BUFFER_ALIGN'
-     return (void *)(mrg_ctx & -MERGEABLE_BUFFER_ALIGN);
-                                ^~~~~~~~~~~~~~~~~~~~~~
-   drivers/net/virtio_net.c: In function 'mergeable_buf_to_ctx':
-   include/linux/kernel.h:763:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&max1 == &max2);   \
-                   ^
-   include/linux/kernel.h:766:2: note: in expansion of macro '__max'
-     __max(typeof(x), typeof(y),   \
-     ^~~~~
-   drivers/net/virtio_net.c:59:32: note: in expansion of macro 'max'
-    #define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, \
-                                   ^~~
-   drivers/net/virtio_net.c:262:33: note: in expansion of macro 'MERGEABLE_BUFFER_ALIGN'
-     unsigned int size = truesize / MERGEABLE_BUFFER_ALIGN;
-                                    ^~~~~~~~~~~~~~~~~~~~~~
-   In file included from include/linux/cache.h:4:0,
-                    from include/linux/printk.h:8,
-                    from include/linux/kernel.h:13,
-                    from include/linux/list.h:8,
-                    from include/linux/timer.h:4,
-                    from include/linux/netdevice.h:28,
-                    from drivers/net/virtio_net.c:19:
-   drivers/net/virtio_net.c: In function 'get_mergeable_buf_len':
-   include/linux/kernel.h:763:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&max1 == &max2);   \
-                   ^
-   include/uapi/linux/kernel.h:10:47: note: in definition of macro '__ALIGN_KERNEL_MASK'
-    #define __ALIGN_KERNEL_MASK(x, mask) (((x) + (mask)) & ~(mask))
-                                                  ^~~~
-   include/linux/kernel.h:49:22: note: in expansion of macro '__ALIGN_KERNEL'
-    #define ALIGN(x, a)  __ALIGN_KERNEL((x), (a))
-                         ^~~~~~~~~~~~~~
-   drivers/net/virtio_net.c:861:9: note: in expansion of macro 'ALIGN'
-     return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-            ^~~~~
-   include/linux/kernel.h:766:2: note: in expansion of macro '__max'
-     __max(typeof(x), typeof(y),   \
-     ^~~~~
-   drivers/net/virtio_net.c:59:32: note: in expansion of macro 'max'
-    #define MERGEABLE_BUFFER_ALIGN max(L1_CACHE_BYTES, \
-                                   ^~~
-   drivers/net/virtio_net.c:861:20: note: in expansion of macro 'MERGEABLE_BUFFER_ALIGN'
-     return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-                       ^~~~~~~~~~~~~~~~~~~~~~
-   include/linux/kernel.h:763:16: warning: comparison of distinct pointer types lacks a cast
-     (void) (&max1 == &max2);   \
-                   ^
-   include/uapi/linux/kernel.h:10:58: note: in definition of macro '__ALIGN_KERNEL_MASK'
-    #define __ALIGN_KERNEL_MASK(x, mask) (((x) + (mask)) & ~(mask))
-                                                             ^~~~
-   include/linux/kernel.h:49:22: note: in expansion of macro '__ALIGN_KERNEL'
-    #define ALIGN(x, a)  __ALIGN_KERNEL((x), (a))
-                         ^~~~~~~~~~~~~~
-   drivers/net/virtio_net.c:861:9: note: in expansion of macro 'ALIGN'
-     return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
-
-vim +250 drivers/net/virtio_net.c
-
-fb6813f4 Rusty Russell  2008-07-25  234  	return p;
-fb6813f4 Rusty Russell  2008-07-25  235  }
-fb6813f4 Rusty Russell  2008-07-25  236  
-e9d7417b Jason Wang     2012-12-07  237  static void skb_xmit_done(struct virtqueue *vq)
-296f96fc Rusty Russell  2007-10-22  238  {
-e9d7417b Jason Wang     2012-12-07  239  	struct virtnet_info *vi = vq->vdev->priv;
-296f96fc Rusty Russell  2007-10-22  240  
-2cb9c6ba Rusty Russell  2008-02-04  241  	/* Suppress further interrupts. */
-e9d7417b Jason Wang     2012-12-07  242  	virtqueue_disable_cb(vq);
-11a3a154 Rusty Russell  2008-05-26  243  
-363f1514 Rusty Russell  2008-06-08  244  	/* We were probably waiting for more output buffers. */
-986a4f4d Jason Wang     2012-12-07  245  	netif_wake_subqueue(vi->dev, vq2txq(vq));
-296f96fc Rusty Russell  2007-10-22  246  }
-296f96fc Rusty Russell  2007-10-22  247  
-ab7db917 Michael Dalton 2014-01-16  248  static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
-ab7db917 Michael Dalton 2014-01-16  249  {
-ab7db917 Michael Dalton 2014-01-16 @250  	unsigned int truesize = mrg_ctx & (MERGEABLE_BUFFER_ALIGN - 1);
-ab7db917 Michael Dalton 2014-01-16  251  	return (truesize + 1) * MERGEABLE_BUFFER_ALIGN;
-ab7db917 Michael Dalton 2014-01-16  252  }
-ab7db917 Michael Dalton 2014-01-16  253  
-ab7db917 Michael Dalton 2014-01-16  254  static void *mergeable_ctx_to_buf_address(unsigned long mrg_ctx)
-ab7db917 Michael Dalton 2014-01-16  255  {
-ab7db917 Michael Dalton 2014-01-16  256  	return (void *)(mrg_ctx & -MERGEABLE_BUFFER_ALIGN);
-ab7db917 Michael Dalton 2014-01-16  257  
-ab7db917 Michael Dalton 2014-01-16  258  }
-
-:::::: The code at line 250 was first introduced by commit
-:::::: ab7db91705e95ed1bba1304388936fccfa58c992 virtio-net: auto-tune mergeable rx buffer size for improved performance
-
-:::::: TO: Michael Dalton <mwdalton@google.com>
-:::::: CC: David S. Miller <davem@davemloft.net>
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+>  include/net/tcp.h       |  2 ++
+>  net/ipv4/tcp_fastopen.c | 21 +++++++++++++++++++++
+>  net/ipv4/tcp_output.c   | 16 ++--------------
+>  3 files changed, 25 insertions(+), 14 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index c55d65f74f7f..de67541d7adf 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -1493,6 +1493,8 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+>                               struct tcp_fastopen_cookie *foc,
+>                               struct dst_entry *dst);
+>  void tcp_fastopen_init_key_once(bool publish);
+> +bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+> +                            struct tcp_fastopen_cookie *cookie);
+>  #define TCP_FASTOPEN_KEY_LENGTH 16
+>
+>  /* Fastopen key context */
+> diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+> index f51919535ca7..f90e09e1ff4c 100644
+> --- a/net/ipv4/tcp_fastopen.c
+> +++ b/net/ipv4/tcp_fastopen.c
+> @@ -325,3 +325,24 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+>         *foc = valid_foc;
+>         return NULL;
+>  }
+> +
+> +bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+> +                              struct tcp_fastopen_cookie *cookie)
+> +{
+> +       unsigned long last_syn_loss = 0;
+> +       int syn_loss = 0;
+> +
+> +       tcp_fastopen_cache_get(sk, mss, cookie, &syn_loss, &last_syn_loss);
+> +
+> +       /* Recurring FO SYN losses: no cookie or data in SYN */
+> +       if (syn_loss > 1 &&
+> +           time_before(jiffies, last_syn_loss + (60*HZ << syn_loss))) {
+> +               cookie->len = -1;
+> +               return false;
+> +       }
+> +       if (sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
+> +               cookie->len = -1;
+> +               return true;
+> +       }
+> +       return cookie->len > 0;
+> +}
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 9a1a1494b9dd..671c69535671 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -3267,23 +3267,11 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
+>         struct tcp_fastopen_request *fo = tp->fastopen_req;
+> -       int syn_loss = 0, space, err = 0;
+> -       unsigned long last_syn_loss = 0;
+> +       int space, err = 0;
+>         struct sk_buff *syn_data;
+>
+>         tp->rx_opt.mss_clamp = tp->advmss;  /* If MSS is not cached */
+> -       tcp_fastopen_cache_get(sk, &tp->rx_opt.mss_clamp, &fo->cookie,
+> -                              &syn_loss, &last_syn_loss);
+> -       /* Recurring FO SYN losses: revert to regular handshake temporarily */
+> -       if (syn_loss > 1 &&
+> -           time_before(jiffies, last_syn_loss + (60*HZ << syn_loss))) {
+> -               fo->cookie.len = -1;
+> -               goto fallback;
+> -       }
+> -
+> -       if (sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE)
+> -               fo->cookie.len = -1;
+> -       else if (fo->cookie.len <= 0)
+> +       if (!tcp_fastopen_cookie_check(sk, &tp->rx_opt.mss_clamp, &fo->cookie))
+>                 goto fallback;
+>
+>         /* MSS for SYN-data is based on cached MSS and bounded by PMTU and
+> --
+> 2.11.0.483.g087da7b7c-goog
+>
