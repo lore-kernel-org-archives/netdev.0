@@ -1,7 +1,7 @@
 From: Andy Lutomirski <luto@kernel.org>
-Subject: [PATCH] bpf: Restrict cgroup bpf hooks to the init netns
-Date: Mon, 23 Jan 2017 12:33:29 -0800
-Message-ID: <6ac1023356c4e6e6cf4c5130d10e3b199ad27196.1485203487.git.luto@kernel.org>
+Subject: [PATCH v2] bpf: Restrict cgroup bpf hooks to the init netns
+Date: Mon, 23 Jan 2017 12:36:08 -0800
+Message-ID: <ddd9e097f54e894197a2925731de02d1d3cae137.1485203708.git.luto@kernel.org>
 Cc: Andy Lutomirski <luto@kernel.org>,
         Daniel Borkmann <daniel@iogearbox.net>,
         Alexei Starovoitov <ast@kernel.org>,
@@ -9,10 +9,10 @@ Cc: Andy Lutomirski <luto@kernel.org>,
 To: Network Development <netdev@vger.kernel.org>,
         "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:58904 "EHLO mail.kernel.org"
+Received: from mail.kernel.org ([198.145.29.136]:59278 "EHLO mail.kernel.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751082AbdAWUdm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 15:33:42 -0500
+        id S1751669AbdAWUgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 15:36:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -20,8 +20,11 @@ To see how cgroup+bpf interacts with network namespaces, I wrote a
 little program called show_bind that calls getsockopt(...,
 SO_BINDTODEVICE, ...) and prints the result.  It did this:
 
-Default binding is "vrf0"
-show_bind: getsockopt: No such device
+ # ./ip link add dev vrf0 type vrf table 10
+ # ./ip vrf exec vrf0 ./show_bind
+ Default binding is "vrf0"
+ # ./ip vrf exec vrf0 unshare -n ./show_bind
+ show_bind: getsockopt: No such device
 
 What's happening here is that "ip vrf" looks up vrf0's ifindex in
 the init netns and installs a hook that binds sockets to that
@@ -52,7 +55,12 @@ DaveM, this mitigates a bug in a feature that's new in 4.10, and the
 bug can be hit using current iproute2 -git.  please consider this for
 -net.
 
- kernel/bpf/cgroup.c  | 21 +++++++++++++++++++++
+Changes from v1:
+ - Fix the commit message.  'git commit' was very clever and thought that
+   all the interesting bits of the test case were intended to be comments
+   and stripped them.  Whoops!
+
+kernel/bpf/cgroup.c  | 21 +++++++++++++++++++++
  kernel/bpf/syscall.c | 11 +++++++++++
  2 files changed, 32 insertions(+)
 
