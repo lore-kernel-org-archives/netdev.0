@@ -1,37 +1,121 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] Documentation: net: phy: improve explanation when to
- specify the PHY ID
-Date: Mon, 23 Jan 2017 12:33:14 -0800
-Message-ID: <58e8429a-7159-471c-7507-3fde566939a8@gmail.com>
-References: <20170122164132.13967-1-martin.blumenstingl@googlemail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        andrew-g2DYL2Zd6BY@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170122164132.13967-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andy Lutomirski <luto@kernel.org>
+Subject: [PATCH] bpf: Restrict cgroup bpf hooks to the init netns
+Date: Mon, 23 Jan 2017 12:33:29 -0800
+Message-ID: <6ac1023356c4e6e6cf4c5130d10e3b199ad27196.1485203487.git.luto@kernel.org>
+Cc: Andy Lutomirski <luto@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Network Development <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:58904 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751082AbdAWUdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 15:33:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2017 08:41 AM, Martin Blumenstingl wrote:
-> The old description basically read like "ethernet-phy-idAAAA.BBBB" can
-> be specified when you know the actual PHY ID. However, specifying this
-> has a side-effect: it forces Linux to bind to a certain PHY driver (the
-> one that matches the ID given in the compatible string), ignoring the ID
-> which is reported by the actual PHY.
-> Whenever a device is shipped with (multiple) different PHYs during it's
-> production lifetime then explicitly specifying
-> "ethernet-phy-idAAAA.BBBB" could break certain revisions of that device.
-> 
-> Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To see how cgroup+bpf interacts with network namespaces, I wrote a
+little program called show_bind that calls getsockopt(...,
+SO_BINDTODEVICE, ...) and prints the result.  It did this:
 
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Default binding is "vrf0"
+show_bind: getsockopt: No such device
+
+What's happening here is that "ip vrf" looks up vrf0's ifindex in
+the init netns and installs a hook that binds sockets to that
+ifindex.  When the hook runs in a different netns, it sets
+sk_bound_dev_if to an ifindex from the wrong netns, resulting in
+incorrect behavior.  In this particular example, the ifindex was 4
+and there was no ifindex 4 in the new netns.  If there had been,
+this test would have malfunctioned differently
+
+Since it's rather late in the release cycle, let's punt.  This patch
+makes it impossible to install cgroup+bpf hooks outside the init
+netns and makes them not run on sockets that aren't in the init
+netns.
+
+In a future release, it should be relatively straightforward to make
+these hooks be local to a netns and, if needed, to add a flag so
+that hooks can be made global if necessary.  Global hooks should
+presumably be constrained so that they can't write to any ifindex
+fields.
+
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Andy Lutomirski <luto@kernel.org>
+---
+
+DaveM, this mitigates a bug in a feature that's new in 4.10, and the
+bug can be hit using current iproute2 -git.  please consider this for
+-net.
+
+ kernel/bpf/cgroup.c  | 21 +++++++++++++++++++++
+ kernel/bpf/syscall.c | 11 +++++++++++
+ 2 files changed, 32 insertions(+)
+
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index a515f7b007c6..a824f543de69 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -143,6 +143,17 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
+ 	if (!sk || !sk_fullsock(sk))
+ 		return 0;
+ 
++	/*
++	 * For now, socket bpf hooks attached to cgroups can only be
++	 * installed in the init netns and only affect the init netns.
++	 * This could be relaxed in the future once some semantic issues
++	 * are resolved.  For example, ifindexes belonging to one netns
++	 * should probably not be visible to hooks installed by programs
++	 * running in a different netns.
++	 */
++	if (sock_net(sk) != &init_net)
++		return 0;
++
+ 	if (sk->sk_family != AF_INET &&
+ 	    sk->sk_family != AF_INET6)
+ 		return 0;
+@@ -186,6 +197,16 @@ int __cgroup_bpf_run_filter_sk(struct sock *sk,
+ 	struct bpf_prog *prog;
+ 	int ret = 0;
+ 
++	/*
++	 * For now, socket bpf hooks attached to cgroups can only be
++	 * installed in the init netns and only affect the init netns.
++	 * This could be relaxed in the future once some semantic issues
++	 * are resolved.  For example, ifindexes belonging to one netns
++	 * should probably not be visible to hooks installed by programs
++	 * running in a different netns.
++	 */
++	if (sock_net(sk) != &init_net)
++		return 0;
+ 
+ 	rcu_read_lock();
+ 
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index e89acea22ecf..c0bbc55e244d 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -902,6 +902,17 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+ 	struct cgroup *cgrp;
+ 	enum bpf_prog_type ptype;
+ 
++	/*
++	 * For now, socket bpf hooks attached to cgroups can only be
++	 * installed in the init netns and only affect the init netns.
++	 * This could be relaxed in the future once some semantic issues
++	 * are resolved.  For example, ifindexes belonging to one netns
++	 * should probably not be visible to hooks installed by programs
++	 * running in a different netns.
++	 */
++	if (current->nsproxy->net_ns != &init_net)
++		return -EINVAL;
++
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
 -- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.9.3
