@@ -1,35 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: Fix inverted test for multiple CPU
- interface
-Date: Sun, 22 Jan 2017 21:26:40 -0800
-Message-ID: <6f7bc0c1-7c8c-38b4-0522-aecfd37d5c5a@gmail.com>
-References: <1485119805-30338-1-git-send-email-andrew@lunn.ch>
+From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Subject: Re: [PATCH] net: stmicro: fix LS field mask in EEE configuration
+Date: Mon, 23 Jan 2017 11:01:08 +0530
+Message-ID: <CAJ3bTp5hcodw9C5Rs6OowFg4D28e4AnseMXG8agxs+0chTnW9w@mail.gmail.com>
+References: <ed690f703a3c82193737f1a9813dff8b1ff403dd.1484927665.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33841 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdAWF0m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 00:26:42 -0500
-Received: by mail-pg0-f66.google.com with SMTP id t6so12745939pgt.1
-        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 21:26:42 -0800 (PST)
-In-Reply-To: <1485119805-30338-1-git-send-email-andrew@lunn.ch>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36695 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdAWFbK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 00:31:10 -0500
+Received: by mail-wm0-f51.google.com with SMTP id c85so115546590wmi.1
+        for <netdev@vger.kernel.org>; Sun, 22 Jan 2017 21:31:09 -0800 (PST)
+In-Reply-To: <ed690f703a3c82193737f1a9813dff8b1ff403dd.1484927665.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Acked-by:Rayagond Kokatanur <rayagond@vayavyalabs.com>
+
+On Fri, Jan 20, 2017 at 9:30 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
+> This patch fixes the LS mask when setting EEE timer.
+> LS field is 10 bits long and not 11 as currently.
+>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> Reported-By: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> index 834f40f..202216c 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> @@ -184,7 +184,7 @@ static void dwmac4_set_eee_pls(struct mac_device_info *hw, int link)
+>  static void dwmac4_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
+>  {
+>         void __iomem *ioaddr = hw->pcsr;
+> -       int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
+> +       int value = ((tw & 0xffff)) | ((ls & 0x3ff) << 16);
+>
+>         /* Program the timers in the LPI timer control register:
+>          * LS: minimum time (ms) for which the link
+> --
+> 2.9.3
+>
 
 
-On 01/22/2017 01:16 PM, Andrew Lunn wrote:
-> Remove the wrong !, otherwise we get false positives about having
-> multiple CPU interfaces.
-> 
-> Fixes: b22de490869d ("net: dsa: store CPU switch structure in the tree")
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-Florian
+wwr
+Rayagond
