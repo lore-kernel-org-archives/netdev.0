@@ -1,45 +1,106 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH 02/17] gtp: clear DF bit on GTP packet tx
-Date: Mon, 23 Jan 2017 12:56:51 +0100
-Message-ID: <20170123115706.4354-3-aschultz@tpip.net>
+Subject: [PATCH 07/17] gtp: remove unnecessary rcu_read_lock
+Date: Mon, 23 Jan 2017 12:56:56 +0100
+Message-ID: <20170123115706.4354-8-aschultz@tpip.net>
 References: <20170123115706.4354-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc@lists.osmocom.org
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:58945 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:54112 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750703AbdAWMGw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 07:06:52 -0500
+        id S1750703AbdAWMGy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 07:06:54 -0500
 In-Reply-To: <20170123115706.4354-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-3GPP TS 29.281 and 3GPP TS 29.060 imply that GTP-U packets should be
-sent with the DF bit cleared. For example 3GPP TS 29.060, Release 8,
-Section 13.2.2:
-
-> Backbone router: Any router in the backbone may fragment the GTP
-> packet if needed, according to IPv4.
+The rcu read lock is hold by default in the ip input path. There
+is no need to hold it twice in the socket recv decapsulate code path.
 
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/gtp.c | 24 ++++--------------------
+ 1 file changed, 4 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 7580ccc..1df54d6 100644
+index bc8734b7..f434f84 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -612,7 +612,7 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 				    pktinfo.fl4.saddr, pktinfo.fl4.daddr,
- 				    pktinfo.iph->tos,
- 				    ip4_dst_hoplimit(&pktinfo.rt->dst),
--				    htons(IP_DF),
-+				    0,
- 				    pktinfo.gtph_port, pktinfo.gtph_port,
- 				    true, false);
- 		break;
+@@ -183,7 +183,6 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 			      sizeof(struct gtp0_header);
+ 	struct gtp0_header *gtp0;
+ 	struct pdp_ctx *pctx;
+-	int ret = 0;
+ 
+ 	if (!pskb_may_pull(skb, hdrlen))
+ 		return -1;
+@@ -196,26 +195,19 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 	if (gtp0->type != GTP_TPDU)
+ 		return 1;
+ 
+-	rcu_read_lock();
+ 	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
+ 	if (IS_ERR(pctx)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+-		ret = -1;
+-		goto out_rcu;
++		return -1;
+ 	}
+ 
+ 	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+-		ret = -1;
+-		goto out_rcu;
++		return -1;
+ 	}
+-	rcu_read_unlock();
+ 
+ 	/* Get rid of the GTP + UDP headers. */
+ 	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
+-out_rcu:
+-	rcu_read_unlock();
+-	return ret;
+ }
+ 
+ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+@@ -225,7 +217,6 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 			      sizeof(struct gtp1_header);
+ 	struct gtp1_header *gtp1;
+ 	struct pdp_ctx *pctx;
+-	int ret = 0;
+ 
+ 	if (!pskb_may_pull(skb, hdrlen))
+ 		return -1;
+@@ -253,26 +244,19 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 
+ 	gtp1 = (struct gtp1_header *)(skb->data + sizeof(struct udphdr));
+ 
+-	rcu_read_lock();
+ 	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
+ 	if (IS_ERR(pctx)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+-		ret = -1;
+-		goto out_rcu;
++		return -1;
+ 	}
+ 
+ 	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+-		ret = -1;
+-		goto out_rcu;
++		return -1;
+ 	}
+-	rcu_read_unlock();
+ 
+ 	/* Get rid of the GTP + UDP headers. */
+ 	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
+-out_rcu:
+-	rcu_read_unlock();
+-	return ret;
+ }
+ 
+ /* UDP encapsulation receive handler. See net/ipv4/udp.c.
 -- 
 2.10.2
