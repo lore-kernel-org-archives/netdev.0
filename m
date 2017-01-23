@@ -1,43 +1,78 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] vxlan: don't flush static fdb entries on
- admin down
-Date: Mon, 23 Jan 2017 08:31:26 -0800
-Message-ID: <58862FDE.6090008@cumulusnetworks.com>
-References: <1484984599-16712-1-git-send-email-roopa@cumulusnetworks.com> <1484984599-16712-2-git-send-email-roopa@cumulusnetworks.com> <20170123095555.0778abb6@griffin>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v4 1/3] bpf: add a longest prefix match trie map implementation
+Date: Mon, 23 Jan 2017 17:39:42 +0100
+Message-ID: <588631CE.9080402@iogearbox.net>
+References: <20170121162613.4159-1-daniel@zonque.org> <20170121162613.4159-2-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        ramanb@cumulusnetworks.com, stephen@networkplumber.org,
-        pshelar@ovn.org
-To: Jiri Benc <jbenc@redhat.com>
+Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+To: Daniel Mack <daniel@zonque.org>, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:36538 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750835AbdAWQb3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 11:31:29 -0500
-Received: by mail-pg0-f51.google.com with SMTP id t6so46191224pgt.3
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 08:31:28 -0800 (PST)
-In-Reply-To: <20170123095555.0778abb6@griffin>
+Received: from www62.your-server.de ([213.133.104.62]:48285 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750705AbdAWQjq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 11:39:46 -0500
+In-Reply-To: <20170121162613.4159-2-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/23/17, 12:55 AM, Jiri Benc wrote:
-> On Fri, 20 Jan 2017 23:43:18 -0800, Roopa Prabhu wrote:
->> This patch skips flushing static fdb entries in
->> ndo_stop, but flushes all fdb entries during vxlan
->> device delete. This is consistent with the bridge
->> driver fdb
-> This makes sense but isn't this a uAPI change? Do you know whether
-> there are users relying on the current behavior?
->
-yeah, i have debated about this also. I am sitting on a stash of such patches
-which are borderline bug fixes but been out there long enough that people might care.
+On 01/21/2017 05:26 PM, Daniel Mack wrote:
+[...]
+> +/* Called from syscall or from eBPF program */
+> +static int trie_update_elem(struct bpf_map *map,
+> +			    void *_key, void *value, u64 flags)
+> +{
+> +	struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
+> +	struct lpm_trie_node *node, *im_node, *new_node = NULL;
 
-I leaned towards making it the default because,
-- I am assuming not many people use static entries
-- and people will not be very unhappy with this change....because it does not delete something
- they had...just retains them.
-- Per device flag seems like an overkill here
+im_node is uninitialized here ...
 
-Also, i think some such changes were done to the bridge driver too after it was out.
+> +	struct lpm_trie_node __rcu **slot;
+> +	struct bpf_lpm_trie_key *key = _key;
+> +	unsigned long irq_flags;
+> +	unsigned int next_bit;
+> +	size_t matchlen = 0;
+> +	int ret = 0;
+> +
+> +	if (unlikely(flags > BPF_EXIST))
+> +		return -EINVAL;
+> +
+> +	if (key->prefixlen > trie->max_prefixlen)
+> +		return -EINVAL;
+> +
+> +	raw_spin_lock_irqsave(&trie->lock, irq_flags);
+> +
+> +	/* Allocate and fill a new node */
+> +
+> +	if (trie->n_entries == trie->map.max_entries) {
+> +		ret = -ENOSPC;
+> +		goto out;
+
+... and here we go to out path with ret as non-zero ...
+
+> +	}
+> +
+> +	new_node = lpm_trie_node_alloc(trie, value);
+> +	if (!new_node) {
+> +		ret = -ENOMEM;
+> +		goto out;
+> +	}
+[...]
+> +
+> +out:
+> +	if (ret) {
+> +		if (new_node)
+> +			trie->n_entries--;
+> +
+> +		kfree(new_node);
+> +		kfree(im_node);
+
+... which does kfree() in im_node here.
+
+> +	}
+> +
+> +	raw_spin_unlock_irqrestore(&trie->lock, irq_flags);
+> +
+> +	return ret;
+> +}
