@@ -1,68 +1,39 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 net-next] net: mvneta: implement .set_wol and .get_wol
-Date: Mon, 23 Jan 2017 19:10:34 +0100
-Message-ID: <20170123181034.GN10895@lunn.ch>
-References: <20170123065507.2557-1-jszhang@marvell.com>
+Subject: Re: [PATCH] net: ethernet: mvneta: add support for 2.5G DRSGMII mode
+Date: Mon, 23 Jan 2017 19:18:36 +0100
+Message-ID: <20170123181836.GO10895@lunn.ch>
+References: <20170123142206.5390-1-jlu@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: thomas.petazzoni@free-electrons.com, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jingju Hou <houjingj@marvell.com>
-To: Jisheng Zhang <jszhang@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        davem@davemloft.net, Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Jan Luebbe <jlu@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41900 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750742AbdAWSSk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 13:18:40 -0500
 Content-Disposition: inline
-In-Reply-To: <20170123065507.2557-1-jszhang@marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170123142206.5390-1-jlu@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 02:55:07PM +0800, Jisheng Zhang wrote:
-> From: Jingju Hou <houjingj@marvell.com>
+On Mon, Jan 23, 2017 at 03:22:06PM +0100, Jan Luebbe wrote:
+> The Marvell MVNETA Ethernet controller supports a 2.5 Gbps SGMII mode
+> called DRSGMII.
 > 
-> From: Jingju Hou <houjingj@marvell.com>
-> 
-> The mvneta itself does not support WOL, but the PHY might.
-> So pass the calls to the PHY
-> 
-> Signed-off-by: Jingju Hou <houjingj@marvell.com>
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
-> ---
-> since v3:
->  - really fix the build error
+> This patch adds a corresponding phy-mode string 'drsgmii' and parses it
+> from DT. The MVNETA then configures the SERDES protocol value
+> accordingly.
 
-Keep trying....
+Hi Jan
 
-But maybe tomorrow, after you have taken the pause Dave said you
-should take, and maybe ask Jingju to really review it, in detail.
+So this sets the PHY to 2.5Gbps. What about the MAC? Currently,
+mvneta_adjust_link() knows about SPEED_1000 and SPEED_100. Does it now
+need to know about SPEED_2500? mvneta_ethtool_set_link_ksettings()?
 
-> 
-> since v2,v1:
->  - using phy_dev member in struct net_device
->  - add commit msg
-> 
->  drivers/net/ethernet/marvell/mvneta.c | 21 +++++++++++++++++++++
->  1 file changed, 21 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index 6dcc951af0ff..02611fa1c3b8 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -3929,6 +3929,25 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
->  	return 0;
->  }
->  
-> +static void mvneta_ethtool_get_wol(struct net_device *dev,
-> +				   struct ethtool_wolinfo *wol)
-> +{
-> +	wol->supported = 0;
-> +	wol->wolopts = 0;
-> +
-> +	if (dev->phydev)
-> +		return phy_ethtool_get_wol(dev->phydev, wol);
-
-This is a void function.  And you are returning a value.  And
-phy_ethtool_get_wol() is also a void function, so does not actually
-return anything.
-
-0-day was telling you this. Please read what is said.
-
-     Andrew
+Thanks
+	Andrew
