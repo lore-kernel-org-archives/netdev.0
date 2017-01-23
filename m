@@ -1,48 +1,45 @@
-From: prashantkumar dhotre <prashantkumardhotre@gmail.com>
-Subject: Re: EPOLLERR on memory mapped netlink socket
-Date: Mon, 23 Jan 2017 23:10:53 +0530
-Message-ID: <CA+VDgmPfYe7jkGzLujcJ_VL_5RYwTTOke_Y4e9WhRoJuLX6-gw@mail.gmail.com>
-References: <CA+VDgmPKUnje8XTBx35kOsybwXnByUHYXwpZFjYw95V-8O1jbw@mail.gmail.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: iproute2: using .maxattr = IFLA_VLAN_MAX??
+Date: Mon, 23 Jan 2017 12:44:53 -0500
+Message-ID: <58864115.4060608@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f178.google.com ([209.85.216.178]:35812 "EHLO
-        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751156AbdAWRkz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 12:40:55 -0500
-Received: by mail-qt0-f178.google.com with SMTP id x49so135590279qtc.2
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 09:40:54 -0800 (PST)
-In-Reply-To: <CA+VDgmPKUnje8XTBx35kOsybwXnByUHYXwpZFjYw95V-8O1jbw@mail.gmail.com>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:53082 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750756AbdAWRpH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 12:45:07 -0500
+Received: from dflxv15.itg.ti.com ([128.247.5.124])
+        by fllnx209.ext.ti.com (8.15.1/8.15.1) with ESMTP id v0NHiufv012061
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 11:44:56 -0600
+Received: from DFLE72.ent.ti.com (dfle72.ent.ti.com [128.247.5.109])
+        by dflxv15.itg.ti.com (8.14.3/8.13.8) with ESMTP id v0NHipi4027475
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 11:44:51 -0600
+Received: from [158.218.103.148] (ileax41-snat.itg.ti.com [10.172.224.153])     by
+ dflp32.itg.ti.com (8.14.3/8.13.8) with ESMTP id v0NHioa8009855 for
+ <netdev@vger.kernel.org>; Mon, 23 Jan 2017 11:44:50 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Appreciate any help on this
-Thanks
+Hi iproute2 experts,
 
-On Mon, Jan 23, 2017 at 9:19 AM, prashantkumar dhotre
-<prashantkumardhotre@gmail.com> wrote:
-> Hi experts,
-> I am new to netlink sockets.
-> In my app , I am  getting EPOLLERR in epoll_wait() on netlink socket
-> continuously.
-> epoll just notifies that there is a read event on socket (it does not
-> tell if it is read or epollerr).
-> What could be cause of this and what EPOLLERR on memory mapped netlink
-> socket mean.is this Other side of netlink (kernel side) closed
-> connection ?even if kernel side closed connection why non-stop
-> repeated EPOLLERR s on netlink sockets ?
-> What action should we take in such cases ? just close the socket  or
-> call getsockopt(SO_ERROR) to retrieve the pending error state from the
-> socket and just continue without closing socket?
->
-> how do we detect if kernel side closed the connection ?
-> My understanding is :
-> if we get read event notification from epoll on memory mapped netlink
-> socket and in RX ring if the frame is neither NL_MMAP_STATUS_VALID and
-> nor NL_MMAP_STATUS_COPY then we can conclude that this is a 'close()'
-> from remote kernel socket and I can close connection by calling
-> close() on my netlink socket.
-> Is above understanding correct ?
->
-> Please
+Found the below usage of IFLA_VLAN_MAX in ip/iplink_hsr.c
+
+struct link_util hsr_link_util = {
+        .id             = "hsr",
+        .maxattr        = IFLA_VLAN_MAX, <==== should be IFLA_HSR_MAX
+        .parse_opt      = hsr_parse_opt,
+        .print_opt      = hsr_print_opt,
+        .print_help     = hsr_print_help,
+};
+
+This appears to be a cut-n-paste bug as the source is based on 
+ip/iplink_vlan.c and should be fixed to IFLA_HSR_MAX. If yes, 
+I will send a patch for this.
+
+Thanks.
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
