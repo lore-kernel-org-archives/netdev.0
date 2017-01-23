@@ -1,75 +1,88 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv3 net-next 4/4] sctp: implement sender-side procedures
- for Add Incoming/Outgoing Streams Request Parameter
-Date: Mon, 23 Jan 2017 11:25:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026B563@AcuExch.aculab.com>
-References: <cover.1484845510.git.lucien.xin@gmail.com>
- <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: 'Xin Long' <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH 06/17] gtp: fix cross netns recv on gtp socket
+Date: Mon, 23 Jan 2017 12:56:55 +0100
+Message-ID: <20170123115706.4354-7-aschultz@tpip.net>
+References: <20170123115706.4354-1-aschultz@tpip.net>
+Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org
+To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.183]:61779 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbdAWLbO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 06:31:14 -0500
-In-Reply-To: <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
-Content-Language: en-US
+Received: from mail.tpip.net ([92.43.49.48]:42640 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750739AbdAWMGx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 07:06:53 -0500
+In-Reply-To: <20170123115706.4354-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long
-> Sent: 19 January 2017 17:19
-> This patch is to implement Sender-Side Procedures for the Add
-> Outgoing and Incoming Streams Request Parameter described in
-> rfc6525 section 5.1.5-5.1.6.
-> 
-> It is also to add sockopt SCTP_ADD_STREAMS in rfc6525 section
-> 6.3.4 for users.
-...
-> +	out = params->sas_outstrms;
-> +	in  = params->sas_instrms;
-> +
-> +	if (!out && !in)
-> +		goto out;
-> +
-> +	if (out) {
-> +		__u16 nums = stream->outcnt + out;
+The use of the paassed through netlink src_net to check for a
+cross netns operation was wrong. Using the GTP socket and the
+GTP netdevice is always correct (even if the netdev has been
+moved to new netns after link creation).
 
-Make nums 'unsigned int', the code will be smaller and you can
-use the value for the overflow check.
+Remove the now obsolete net field from gtp_dev.
 
-> +		/* Check for overflow, can't use nums here */
-> +		if (stream->outcnt + out > SCTP_MAX_STREAM)
-> +			goto out;
-> +
-> +		/* Use ksize to check if stream array really needs to realloc */
-> +		if (ksize(stream->out) / sizeof(*stream->out) < nums) {
-> +			struct sctp_stream_out *streamout;
-> +
-> +			streamout = kcalloc(nums, sizeof(*streamout),
-> +					    GFP_KERNEL);
-> +			if (!streamout) {
-> +				retval = -ENOMEM;
-> +				goto out;
-> +			}
-> +
-> +			memcpy(streamout, stream->out,
-> +			       sizeof(*streamout) * stream->outcnt);
-> +
-> +			kfree(stream->out);
-> +			stream->out = streamout;
-> +		}
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ drivers/net/gtp.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-Does kcalloc() zero the entire area, or just the length you ask for?
-If the latter you need to zero the rest here.
-...
-
-	David
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 7a3c5f6..bc8734b7 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -69,7 +69,6 @@ struct gtp_dev {
+ 	struct socket		*sock0;
+ 	struct socket		*sock1u;
+ 
+-	struct net		*net;
+ 	struct net_device	*dev;
+ 
+ 	unsigned int		hash_size;
+@@ -292,7 +291,7 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
+ 
+-	xnet = !net_eq(gtp->net, dev_net(gtp->dev));
++	xnet = !net_eq(sock_net(sk), dev_net(gtp->dev));
+ 
+ 	switch (udp_sk(sk)->encap_type) {
+ 	case UDP_ENCAP_GTP0:
+@@ -642,7 +641,7 @@ static void gtp_link_setup(struct net_device *dev)
+ static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
+ static void gtp_hashtable_free(struct gtp_dev *gtp);
+ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    struct net *src_net, struct nlattr *data[]);
++			    struct nlattr *data[]);
+ static void gtp_encap_disable(struct gtp_dev *gtp);
+ 
+ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+@@ -660,7 +659,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 		hashsize = nla_get_u32(data[IFLA_GTP_PDP_HASHSIZE]);
+ 
+ 	if (data[IFLA_GTP_FD0] || data[IFLA_GTP_FD1]) {
+-		err = gtp_encap_enable(dev, gtp, src_net, data);
++		err = gtp_encap_enable(dev, gtp, data);
+ 		if (err < 0)
+ 			goto out_err;
+ 	}
+@@ -839,7 +838,7 @@ static struct socket *gtp_encap_enable_socket(int fd, int type,
+ }
+ 
+ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    struct net *src_net, struct nlattr *data[])
++			    struct nlattr *data[])
+ {
+ 	struct socket *sock0 = NULL;
+ 	struct socket *sock1u = NULL;
+@@ -867,7 +866,6 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 
+ 	gtp->sock0 = sock0;
+ 	gtp->sock1u = sock1u;
+-	gtp->net = src_net;
+ 
+ 	return 0;
+ }
+-- 
+2.10.2
