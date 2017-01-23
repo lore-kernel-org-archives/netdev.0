@@ -1,79 +1,98 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency
- reserve
-Date: Mon, 23 Jan 2017 09:39:40 +0100
-Message-ID: <20170123093940.5d69539e@redhat.com>
-References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
-        <CALx6S35+miSu6QgjyQYVDGqu4hkq0eoj+wHha35HH5+DdSQtEg@mail.gmail.com>
-        <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
-        <CALzJLG9JEorLwV48H3m0vQ1+VDnpYbKhiBoUw+WW-JFouJoj1g@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: ieee802154: atusb: fix driver to work with older firmware versions
+Date: Mon, 23 Jan 2017 09:42:58 +0100
+Message-ID: <CAMuHMdVaHtmNoXWyrj6-_pMi0XxOMv05c2w2TtPVLgg6wby2Ew@mail.gmail.com>
+References: <20170117181132.05BEF660FF6@gitolite.kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: brouer@redhat.com, Tom Herbert <tom@herbertland.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Davem <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35644 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750707AbdAWIjq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 03:39:46 -0500
-In-Reply-To: <CALzJLG9JEorLwV48H3m0vQ1+VDnpYbKhiBoUw+WW-JFouJoj1g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-wpan@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stefan Schmidt <stefan@osg.samsung.com>,
+        Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170117181132.05BEF660FF6@gitolite.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Jan 17, 2017 at 7:11 PM, Linux Kernel Mailing List
+<linux-kernel@vger.kernel.org> wrote:
+> Web:        https://git.kernel.org/torvalds/c/8e38b7d4d71479b23b77f01cf0e5071610b8f357
+> Commit:     8e38b7d4d71479b23b77f01cf0e5071610b8f357
+> Parent:     f301606934b240fb54d8edf3618a0483e36046fc
+> Refname:    refs/heads/master
+> Author:     Stefan Schmidt <stefan@osg.samsung.com>
+> AuthorDate: Mon Jan 2 16:58:13 2017 +0100
+> Committer:  Marcel Holtmann <marcel@holtmann.org>
+> CommitDate: Thu Jan 12 22:12:43 2017 +0100
+>
+>     ieee802154: atusb: fix driver to work with older firmware versions
+>
+>     After the addition of the frame_retries callback we could run into cases where
+>     a ATUSB device with an older firmware version would now longer be able to bring
+>     the interface up.
+>
+>     We keep this functionality disabled now if the minimum firmware version for this
+>     feature is not available.
+>
+>     Fixes: 5d82288b93db3bc ("ieee802154: atusb: implement .set_frame_retries
+>     ops callback")
+>     Reported-by: Alexander Aring <aar@pengutronix.de>
+>     Acked-by: Alexander Aring <aar@pengutronix.de>
+>     Signed-off-by: Stefan Schmidt <stefan@osg.samsung.com>
+>     Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+> ---
+>  drivers/net/ieee802154/atusb.c | 13 ++++---------
+>  1 file changed, 4 insertions(+), 9 deletions(-)
+>
+> diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
+> index 63cb679..ef68851 100644
+> --- a/drivers/net/ieee802154/atusb.c
+> +++ b/drivers/net/ieee802154/atusb.c
+> @@ -562,13 +562,6 @@ static int
+>  atusb_set_frame_retries(struct ieee802154_hw *hw, s8 retries)
+>  {
+>         struct atusb *atusb = hw->priv;
+> -       struct device *dev = &atusb->usb_dev->dev;
+> -
+> -       if (atusb->fw_ver_maj == 0 && atusb->fw_ver_min < 3) {
+> -               dev_info(dev, "Automatic frame retransmission is only available from "
+> -                       "firmware version 0.3. Please update if you want this feature.");
+> -               return -EINVAL;
+> -       }
+>
+>         return atusb_write_subreg(atusb, SR_MAX_FRAME_RETRIES, retries);
+>  }
+> @@ -802,8 +795,7 @@ static int atusb_probe(struct usb_interface *interface,
+>
+>         hw->parent = &usb_dev->dev;
+>         hw->flags = IEEE802154_HW_TX_OMIT_CKSUM | IEEE802154_HW_AFILT |
+> -                   IEEE802154_HW_PROMISCUOUS | IEEE802154_HW_CSMA_PARAMS |
+> -                   IEEE802154_HW_FRAME_RETRIES;
+> +                   IEEE802154_HW_PROMISCUOUS | IEEE802154_HW_CSMA_PARAMS;
+>
+>         hw->phy->flags = WPAN_PHY_FLAG_TXPOWER | WPAN_PHY_FLAG_CCA_ED_LEVEL |
+>                          WPAN_PHY_FLAG_CCA_MODE;
+> @@ -832,6 +824,9 @@ static int atusb_probe(struct usb_interface *interface,
+>         atusb_get_and_show_build(atusb);
+>         atusb_set_extended_addr(atusb);
+>
+> +       if (atusb->fw_ver_maj >= 0 && atusb->fw_ver_min >= 3)
 
-On Sat, 21 Jan 2017 22:31:26 +0200 Saeed Mahameed <saeedm@dev.mellanox.co.il> wrote:
+As fw_ver_maj is unsigned char, gcc 4.1.2 complains:
 
-> > My previous measurements show approx 20℅ speedup on a UDP test with delivery
-> > to remote CPU.
-> >
-> > Removing the cache would of cause be a good usecase for speeding up the page
-> > allocator (PCP). Which Mel Gorman and me are working on. AFAIK current page
-> > order0 cost 240 cycles. Mel have reduced til to 180, and without NUMA 150
-> > cycles. And with bulking this can be amortized to 80 cycles.
-> >  
-> 
-> Are you trying to say that we won't need the cache if you manage to
-> deliver those optimizations ?
+warning: comparison is always true due to limited range of data type
 
-These page alloc optimization are good, but not fast-enough to replace
-your cache.  Maybe I can improve it further, but it will be very hard
-to compete with a recycle cache (it can skip many checks the page alloc
-need, as it knows the page state).
+> +               hw->flags |= IEEE802154_HW_FRAME_RETRIES;
+> +
 
-Said in another way, the gap will be significantly smaller, and you
-will not see a big boost from using this cache.
+Gr{oetje,eeting}s,
 
+                        Geert
 
-BUT there are other advantages of using a guaranteed recycle pool
-facility (like the page_pool).  Namely, (1) DMA-overhead: keeping page
-DMA mapped to counter DMA+IOMMU overhead, (2) RX-zero-copy: opens up
-for a software memory model solution for pre-VMA-mapping pages to
-userspace (See: [1] for argument how this avoids leaking kernel mem,
-but only expose/leak packet-data mem)
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-
-> can you compare those optimizations with the page_frag_cache from
-> dev_alloc_skb ?
-
-IHMO the page_frag_cache is indirectly a bulk page allocator facility,
-which is limiting the number of times the page allocator is called, and
-thus amortize the cost of talking to the page allocator.  Performance
-wise, it is likely comparable to your page cache, and likely faster
-than the 80 cycles order0-bulking.
-BUT we generally worry about using these 32K pages, as it opens a
-window for attackers pinning down memory.
-
-
-[1] https://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/memory_model_nic.html
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
