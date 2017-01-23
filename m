@@ -1,36 +1,69 @@
-From: Ryder Lee <ryder.lee@mediatek.com>
-Subject: Re: [RESEND PATCH net] macsec: fix validation failed in
- asynchronous operation.
-Date: Mon, 23 Jan 2017 09:39:35 +0800
-Message-ID: <1485135575.5237.15.camel@mtkswgap22>
-References: <1484988127-25860-1-git-send-email-ryder.lee@mediatek.com>
-         <20170122.164450.1158725072101098502.davem@davemloft.net>
+From: Jingju Hou <houjingj@marvell.com>
+Subject: [PATCH] net: mvneta: implement .set_wol and .get_wol
+Date: Mon, 23 Jan 2017 10:43:08 +0800
+Message-ID: <1485139388-11003-1-git-send-email-houjingj@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <sd@queasysnail.net>,
-        <linux-mediatek@lists.infradead.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <jszhang@marvell.com>, <thomas.petazzoni@free-electrons.com>,
+        <netdev@vger.kernel.org>, Jingju Hou <houjingj@marvell.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:26822 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750712AbdAWBjm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 20:39:42 -0500
-In-Reply-To: <20170122.164450.1158725072101098502.davem@davemloft.net>
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:32955 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750708AbdAWCnv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 21:43:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry for forgetting to explain it. 
+The mvneta itself does not support WOL, but the PHY might.
+So pass the calls to the PHY
 
-The original patch was incomplete, but I sent it out by mistake... 
-So please ignore it.
+Signed-off-by: Jingju Hou <houjingj@marvell.com>
+---
+Since v1:
+- using phy_dev member in struct net_device
 
-On Sun, 2017-01-22 at 16:44 -0500, David Miller wrote:
-> Why are you resending this?
-> 
-> The original posting on Jan 20th made it to the mailing list and is queued
-> up in patchwork just fine.
-> 
-> Also, regardless of the reason, a "RESEND" patch should always contain an
-> explanation of why it needs to be resent.  So that the maintainer doesn't
-> need to ask questions like I am right now.
+ drivers/net/ethernet/marvell/mvneta.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index e05e227..78869fa 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3908,6 +3908,25 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+ 	return 0;
+ }
+ 
++static void
++mvneta_ethtool_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	wol->supported = 0;
++	wol->wolopts = 0;
++
++	if (dev->phy_dev)
++		return phy_ethtool_get_wol(dev->phy_dev, wol);
++}
++
++static int
++mvneta_ethtool_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	if (!dev->phy_dev)
++		return -EOPNOTSUPP;
++
++	return phy_ethtool_set_wol(dev->phy_dev, wol);
++}
++
+ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_open            = mvneta_open,
+ 	.ndo_stop            = mvneta_stop,
+@@ -3937,6 +3956,8 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+ 	.set_rxfh	= mvneta_ethtool_set_rxfh,
+ 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
+ 	.set_link_ksettings = mvneta_ethtool_set_link_ksettings,
++	.get_wol        = mvneta_ethtool_get_wol,
++	.set_wol        = mvneta_ethtool_set_wol,
+ };
+ 
+ /* Initialize hw */
+-- 
+1.9.1
