@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/4] mlxsw: spectrum: Add packet sample offloading support
-Date: Mon, 23 Jan 2017 11:07:11 +0100
-Message-ID: <1485166031-4773-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 2/4] net/sched: Introduce sample tc action
+Date: Mon, 23 Jan 2017 11:07:09 +0100
+Message-ID: <1485166031-4773-3-git-send-email-jiri@resnulli.us>
 References: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -12,281 +12,464 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mrv@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36452 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750884AbdAWKH3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 05:07:29 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r126so25198520wmr.3
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 02:07:28 -0800 (PST)
+Received: from mail-wj0-f196.google.com ([209.85.210.196]:33003 "EHLO
+        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750738AbdAWKHR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 05:07:17 -0500
+Received: by mail-wj0-f196.google.com with SMTP id un2so1470941wjb.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 02:07:16 -0800 (PST)
 In-Reply-To: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Using the MPSC register, add the functions that configure port-based
-packet sampling in hardware and the necessary datatypes in the
-mlxsw_sp_port struct. In addition, add the necessary trap for sampled
-packets and integrate with matchall offloading to allow offloading of the
-sample tc action.
+This action allows the user to sample traffic matched by tc classifier.
+The sampling consists of choosing packets randomly and sampling them using
+the psample module. The user can configure the psample group number, the
+sampling rate and the packet's truncation (to save kernel-user traffic).
 
-The current offload support is for the tc command:
+Example:
+To sample ingress traffic from interface eth1, one may use the commands:
 
-tc filter add dev <DEV> parent ffff: \
-	  matchall skip_sw \
-	  action sample rate <RATE> group <GROUP> [trunc <SIZE>]
+tc qdisc add dev eth1 handle ffff: ingress
 
-Where only ingress qdiscs are supported, and only a combination of
-matchall classifier and sample action will lead to activating hardware
-packet sampling.
+tc filter add dev eth1 parent ffff: \
+	   matchall action sample rate 12 group 4
+
+Where the first command adds an ingress qdisc and the second starts
+sampling randomly with an average of one sampled packet per 12 packets on
+dev eth1 to psample group 4.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 111 +++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  10 +++
- drivers/net/ethernet/mellanox/mlxsw/trap.h     |   1 +
- 3 files changed, 122 insertions(+)
+ include/net/tc_act/tc_sample.h        |  50 +++++++
+ include/uapi/linux/tc_act/Kbuild      |   1 +
+ include/uapi/linux/tc_act/tc_sample.h |  26 ++++
+ net/sched/Kconfig                     |  12 ++
+ net/sched/Makefile                    |   1 +
+ net/sched/act_sample.c                | 274 ++++++++++++++++++++++++++++++++++
+ 6 files changed, 364 insertions(+)
+ create mode 100644 include/net/tc_act/tc_sample.h
+ create mode 100644 include/uapi/linux/tc_act/tc_sample.h
+ create mode 100644 net/sched/act_sample.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 3dbd82e..467aa52 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -57,6 +57,7 @@
- #include <net/pkt_cls.h>
- #include <net/tc_act/tc_mirred.h>
- #include <net/netevent.h>
-+#include <net/tc_act/tc_sample.h>
- 
- #include "spectrum.h"
- #include "pci.h"
-@@ -469,6 +470,16 @@ static void mlxsw_sp_span_mirror_remove(struct mlxsw_sp_port *from,
- 	mlxsw_sp_span_inspected_port_unbind(from, span_entry, type);
- }
- 
-+static int mlxsw_sp_port_sample_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+				    bool enable, u32 rate)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char mpsc_pl[MLXSW_REG_MPSC_LEN];
+diff --git a/include/net/tc_act/tc_sample.h b/include/net/tc_act/tc_sample.h
+new file mode 100644
+index 0000000..89e9305
+--- /dev/null
++++ b/include/net/tc_act/tc_sample.h
+@@ -0,0 +1,50 @@
++#ifndef __NET_TC_SAMPLE_H
++#define __NET_TC_SAMPLE_H
 +
-+	mlxsw_reg_mpsc_pack(mpsc_pl, mlxsw_sp_port->local_port, enable, rate);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpsc), mpsc_pl);
-+}
-+
- static int mlxsw_sp_port_admin_status_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 					  bool is_up)
- {
-@@ -1218,6 +1229,51 @@ mlxsw_sp_port_del_cls_matchall_mirror(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mlxsw_sp_span_mirror_remove(mlxsw_sp_port, to_port, span_type);
- }
- 
-+static int
-+mlxsw_sp_port_add_cls_matchall_sample(struct mlxsw_sp_port *mlxsw_sp_port,
-+				      struct tc_cls_matchall_offload *cls,
-+				      const struct tc_action *a,
-+				      bool ingress)
-+{
-+	int err;
-+
-+	if (!mlxsw_sp_port->sample)
-+		return -EOPNOTSUPP;
-+	if (rtnl_dereference(mlxsw_sp_port->sample->psample_group)) {
-+		netdev_err(mlxsw_sp_port->dev, "sample already active\n");
-+		return -EEXIST;
-+	}
-+	if (tcf_sample_rate(a) > MLXSW_REG_MPSC_RATE_MAX) {
-+		netdev_err(mlxsw_sp_port->dev, "sample rate not supported\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	rcu_assign_pointer(mlxsw_sp_port->sample->psample_group,
-+			   tcf_sample_psample_group(a));
-+	mlxsw_sp_port->sample->truncate = tcf_sample_truncate(a);
-+	mlxsw_sp_port->sample->trunc_size = tcf_sample_trunc_size(a);
-+	mlxsw_sp_port->sample->rate = tcf_sample_rate(a);
-+
-+	err = mlxsw_sp_port_sample_set(mlxsw_sp_port, true, tcf_sample_rate(a));
-+	if (err)
-+		goto err_port_sample_set;
-+	return 0;
-+
-+err_port_sample_set:
-+	RCU_INIT_POINTER(mlxsw_sp_port->sample->psample_group, NULL);
-+	return err;
-+}
-+
-+static void
-+mlxsw_sp_port_del_cls_matchall_sample(struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	if (!mlxsw_sp_port->sample)
-+		return;
-+
-+	mlxsw_sp_port_sample_set(mlxsw_sp_port, false, 1);
-+	RCU_INIT_POINTER(mlxsw_sp_port->sample->psample_group, NULL);
-+}
-+
- static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 					  __be16 protocol,
- 					  struct tc_cls_matchall_offload *cls,
-@@ -1248,6 +1304,10 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 		mirror = &mall_tc_entry->mirror;
- 		err = mlxsw_sp_port_add_cls_matchall_mirror(mlxsw_sp_port,
- 							    mirror, a, ingress);
-+	} else if (is_tcf_sample(a) && protocol == htons(ETH_P_ALL)) {
-+		mall_tc_entry->type = MLXSW_SP_PORT_MALL_SAMPLE;
-+		err = mlxsw_sp_port_add_cls_matchall_sample(mlxsw_sp_port, cls,
-+							    a, ingress);
- 	} else {
- 		err = -EOPNOTSUPP;
- 	}
-@@ -1281,6 +1341,9 @@ static void mlxsw_sp_port_del_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 		mlxsw_sp_port_del_cls_matchall_mirror(mlxsw_sp_port,
- 						      &mall_tc_entry->mirror);
- 		break;
-+	case MLXSW_SP_PORT_MALL_SAMPLE:
-+		mlxsw_sp_port_del_cls_matchall_sample(mlxsw_sp_port);
-+		break;
- 	default:
- 		WARN_ON(1);
- 	}
-@@ -2259,6 +2322,13 @@ static int __mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 		goto err_alloc_stats;
- 	}
- 
-+	mlxsw_sp_port->sample = kzalloc(sizeof(*mlxsw_sp_port->sample),
-+					GFP_KERNEL);
-+	if (!mlxsw_sp_port->sample) {
-+		err = -ENOMEM;
-+		goto err_alloc_sample;
-+	}
-+
- 	mlxsw_sp_port->hw_stats.cache =
- 		kzalloc(sizeof(*mlxsw_sp_port->hw_stats.cache), GFP_KERNEL);
- 
-@@ -2387,6 +2457,8 @@ static int __mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- err_port_swid_set:
- 	kfree(mlxsw_sp_port->hw_stats.cache);
- err_alloc_hw_stats:
-+	kfree(mlxsw_sp_port->sample);
-+err_alloc_sample:
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
- err_alloc_stats:
- 	kfree(mlxsw_sp_port->untagged_vlans);
-@@ -2433,6 +2505,7 @@ static void __mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
- 	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
- 	kfree(mlxsw_sp_port->hw_stats.cache);
-+	kfree(mlxsw_sp_port->sample);
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
- 	kfree(mlxsw_sp_port->untagged_vlans);
- 	kfree(mlxsw_sp_port->active_vlans);
-@@ -2734,6 +2807,41 @@ static void mlxsw_sp_rx_listener_mark_func(struct sk_buff *skb, u8 local_port,
- 	return mlxsw_sp_rx_listener_no_mark_func(skb, local_port, priv);
- }
- 
-+static void mlxsw_sp_rx_listener_sample_func(struct sk_buff *skb, u8 local_port,
-+					     void *priv)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp->ports[local_port];
-+	struct psample_group *psample_group;
-+	u32 size;
-+
-+	if (unlikely(!mlxsw_sp_port)) {
-+		dev_warn_ratelimited(mlxsw_sp->bus_info->dev, "Port %d: sample skb received for non-existent port\n",
-+				     local_port);
-+		goto out;
-+	}
-+	if (unlikely(!mlxsw_sp_port->sample)) {
-+		dev_warn_ratelimited(mlxsw_sp->bus_info->dev, "Port %d: sample skb received on unsupported port\n",
-+				     local_port);
-+		goto out;
-+	}
-+
-+	size = mlxsw_sp_port->sample->truncate ?
-+		  mlxsw_sp_port->sample->trunc_size : skb->len;
-+
-+	rcu_read_lock();
-+	psample_group = rcu_dereference(mlxsw_sp_port->sample->psample_group);
-+	if (!psample_group)
-+		goto out_unlock;
-+	psample_sample_packet(psample_group, skb, size,
-+			      mlxsw_sp_port->dev->ifindex, 0,
-+			      mlxsw_sp_port->sample->rate);
-+out_unlock:
-+	rcu_read_unlock();
-+out:
-+	consume_skb(skb);
-+}
-+
- #define MLXSW_SP_RXL_NO_MARK(_trap_id, _action, _trap_group, _is_ctrl)	\
- 	MLXSW_RXL(mlxsw_sp_rx_listener_no_mark_func, _trap_id, _action,	\
- 		  _is_ctrl, SP_##_trap_group, DISCARD)
-@@ -2769,6 +2877,9 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
- 	MLXSW_SP_RXL_NO_MARK(RTR_INGRESS0, TRAP_TO_CPU, REMOTE_ROUTE, false),
- 	MLXSW_SP_RXL_NO_MARK(HOST_MISS_IPV4, TRAP_TO_CPU, ARP_MISS, false),
- 	MLXSW_SP_RXL_NO_MARK(BGP_IPV4, TRAP_TO_CPU, BGP_IPV4, false),
-+	/* PKT Sample trap */
-+	MLXSW_RXL(mlxsw_sp_rx_listener_sample_func, PKT_SAMPLE, MIRROR_TO_CPU,
-+		  false, SP_IP2ME, DISCARD)
- };
- 
- static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index cc1af19..bc3efe1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -46,6 +46,7 @@
- #include <linux/dcbnl.h>
- #include <linux/in6.h>
- #include <linux/notifier.h>
++#include <net/act_api.h>
++#include <linux/tc_act/tc_sample.h>
 +#include <net/psample.h>
- 
- #include "port.h"
- #include "core.h"
-@@ -229,6 +230,7 @@ struct mlxsw_sp_span_entry {
- 
- enum mlxsw_sp_port_mall_action_type {
- 	MLXSW_SP_PORT_MALL_MIRROR,
-+	MLXSW_SP_PORT_MALL_SAMPLE,
- };
- 
- struct mlxsw_sp_port_mall_mirror_tc_entry {
-@@ -315,6 +317,13 @@ struct mlxsw_sp_port_pcpu_stats {
- 	u32			tx_dropped;
- };
- 
-+struct mlxsw_sp_port_sample {
-+	struct psample_group __rcu *psample_group;
-+	u32 trunc_size;
++
++struct tcf_sample {
++	struct tc_action common;
 +	u32 rate;
 +	bool truncate;
++	u32 trunc_size;
++	struct psample_group __rcu *psample_group;
++	u32 psample_group_num;
++	struct list_head tcfm_list;
++	struct rcu_head rcu;
++};
++#define to_sample(a) ((struct tcf_sample *)a)
++
++static inline bool is_tcf_sample(const struct tc_action *a)
++{
++#ifdef CONFIG_NET_CLS_ACT
++	return a->ops && a->ops->type == TCA_ACT_SAMPLE;
++#else
++	return false;
++#endif
++}
++
++static inline __u32 tcf_sample_rate(const struct tc_action *a)
++{
++	return to_sample(a)->rate;
++}
++
++static inline bool tcf_sample_truncate(const struct tc_action *a)
++{
++	return to_sample(a)->truncate;
++}
++
++static inline int tcf_sample_trunc_size(const struct tc_action *a)
++{
++	return to_sample(a)->trunc_size;
++}
++
++static inline struct psample_group *
++tcf_sample_psample_group(const struct tc_action *a)
++{
++	return rcu_dereference(to_sample(a)->psample_group);
++}
++
++#endif /* __NET_TC_SAMPLE_H */
+diff --git a/include/uapi/linux/tc_act/Kbuild b/include/uapi/linux/tc_act/Kbuild
+index e3db740..ba62ddf 100644
+--- a/include/uapi/linux/tc_act/Kbuild
++++ b/include/uapi/linux/tc_act/Kbuild
+@@ -4,6 +4,7 @@ header-y += tc_defact.h
+ header-y += tc_gact.h
+ header-y += tc_ipt.h
+ header-y += tc_mirred.h
++header-y += tc_sample.h
+ header-y += tc_nat.h
+ header-y += tc_pedit.h
+ header-y += tc_skbedit.h
+diff --git a/include/uapi/linux/tc_act/tc_sample.h b/include/uapi/linux/tc_act/tc_sample.h
+new file mode 100644
+index 0000000..edc9058
+--- /dev/null
++++ b/include/uapi/linux/tc_act/tc_sample.h
+@@ -0,0 +1,26 @@
++#ifndef __LINUX_TC_SAMPLE_H
++#define __LINUX_TC_SAMPLE_H
++
++#include <linux/types.h>
++#include <linux/pkt_cls.h>
++#include <linux/if_ether.h>
++
++#define TCA_ACT_SAMPLE 26
++
++struct tc_sample {
++	tc_gen;
 +};
 +
- struct mlxsw_sp_port {
- 	struct net_device *dev;
- 	struct mlxsw_sp_port_pcpu_stats __percpu *pcpu_stats;
-@@ -361,6 +370,7 @@ struct mlxsw_sp_port {
- 		struct rtnl_link_stats64 *cache;
- 		struct delayed_work update_dw;
- 	} hw_stats;
-+	struct mlxsw_sp_port_sample *sample;
- };
++enum {
++	TCA_SAMPLE_UNSPEC,
++	TCA_SAMPLE_TM,
++	TCA_SAMPLE_PARMS,
++	TCA_SAMPLE_RATE,
++	TCA_SAMPLE_TRUNC_SIZE,
++	TCA_SAMPLE_PSAMPLE_GROUP,
++	TCA_SAMPLE_PAD,
++	__TCA_SAMPLE_MAX
++};
++#define TCA_SAMPLE_MAX (__TCA_SAMPLE_MAX - 1)
++
++#endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index a9aa38d..72cfa3a 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -650,6 +650,18 @@ config NET_ACT_MIRRED
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called act_mirred.
  
- struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-index 7ab275d..02ea48b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-@@ -54,6 +54,7 @@ enum {
- 	MLXSW_TRAP_ID_IGMP_V2_REPORT = 0x32,
- 	MLXSW_TRAP_ID_IGMP_V2_LEAVE = 0x33,
- 	MLXSW_TRAP_ID_IGMP_V3_REPORT = 0x34,
-+	MLXSW_TRAP_ID_PKT_SAMPLE = 0x38,
- 	MLXSW_TRAP_ID_ARPBC = 0x50,
- 	MLXSW_TRAP_ID_ARPUC = 0x51,
- 	MLXSW_TRAP_ID_MTUERROR = 0x52,
++config NET_ACT_SAMPLE
++        tristate "Traffic Sampling"
++        depends on NET_CLS_ACT
++        select PSAMPLE
++        ---help---
++	  Say Y here to allow packet sampling tc action. The packet sample
++	  action consists of statistically choosing packets and sampling
++	  them using the psample module.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called act_sample.
++
+ config NET_ACT_IPT
+         tristate "IPtables targets"
+         depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 4bdda36..7b915d2 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -10,6 +10,7 @@ obj-$(CONFIG_NET_CLS_ACT)	+= act_api.o
+ obj-$(CONFIG_NET_ACT_POLICE)	+= act_police.o
+ obj-$(CONFIG_NET_ACT_GACT)	+= act_gact.o
+ obj-$(CONFIG_NET_ACT_MIRRED)	+= act_mirred.o
++obj-$(CONFIG_NET_ACT_SAMPLE)	+= act_sample.o
+ obj-$(CONFIG_NET_ACT_IPT)	+= act_ipt.o
+ obj-$(CONFIG_NET_ACT_NAT)	+= act_nat.o
+ obj-$(CONFIG_NET_ACT_PEDIT)	+= act_pedit.o
+diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
+new file mode 100644
+index 0000000..3922975
+--- /dev/null
++++ b/net/sched/act_sample.c
+@@ -0,0 +1,274 @@
++/*
++ * net/sched/act_sample.c - Packet sampling tc action
++ * Copyright (c) 2017 Yotam Gigi <yotamg@mellanox.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/gfp.h>
++#include <net/net_namespace.h>
++#include <net/netlink.h>
++#include <net/pkt_sched.h>
++#include <linux/tc_act/tc_sample.h>
++#include <net/tc_act/tc_sample.h>
++#include <net/psample.h>
++
++#include <linux/if_arp.h>
++
++#define SAMPLE_TAB_MASK     7
++static unsigned int sample_net_id;
++static struct tc_action_ops act_sample_ops;
++
++static const struct nla_policy sample_policy[TCA_SAMPLE_MAX + 1] = {
++	[TCA_SAMPLE_PARMS]		= { .len = sizeof(struct tc_sample) },
++	[TCA_SAMPLE_RATE]		= { .type = NLA_U32 },
++	[TCA_SAMPLE_TRUNC_SIZE]		= { .type = NLA_U32 },
++	[TCA_SAMPLE_PSAMPLE_GROUP]	= { .type = NLA_U32 },
++};
++
++static int tcf_sample_init(struct net *net, struct nlattr *nla,
++			   struct nlattr *est, struct tc_action **a, int ovr,
++			   int bind)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++	struct nlattr *tb[TCA_SAMPLE_MAX + 1];
++	struct psample_group *psample_group;
++	struct tc_sample *parm;
++	struct tcf_sample *s;
++	bool exists = false;
++	int ret;
++
++	if (!nla)
++		return -EINVAL;
++	ret = nla_parse_nested(tb, TCA_SAMPLE_MAX, nla, sample_policy);
++	if (ret < 0)
++		return ret;
++	if (!tb[TCA_SAMPLE_PARMS] || !tb[TCA_SAMPLE_RATE] ||
++	    !tb[TCA_SAMPLE_PSAMPLE_GROUP])
++		return -EINVAL;
++
++	parm = nla_data(tb[TCA_SAMPLE_PARMS]);
++
++	exists = tcf_hash_check(tn, parm->index, a, bind);
++	if (exists && bind)
++		return 0;
++
++	if (!exists) {
++		ret = tcf_hash_create(tn, parm->index, est, a,
++				      &act_sample_ops, bind, false);
++		if (ret)
++			return ret;
++		ret = ACT_P_CREATED;
++	} else {
++		tcf_hash_release(*a, bind);
++		if (!ovr)
++			return -EEXIST;
++	}
++	s = to_sample(*a);
++
++	ASSERT_RTNL();
++	s->tcf_action = parm->action;
++	s->rate = nla_get_u32(tb[TCA_SAMPLE_RATE]);
++	s->psample_group_num = nla_get_u32(tb[TCA_SAMPLE_PSAMPLE_GROUP]);
++	psample_group = psample_group_get(net, s->psample_group_num);
++	if (!psample_group)
++		return -ENOMEM;
++	RCU_INIT_POINTER(s->psample_group, psample_group);
++
++	if (tb[TCA_SAMPLE_TRUNC_SIZE]) {
++		s->truncate = true;
++		s->trunc_size = nla_get_u32(tb[TCA_SAMPLE_TRUNC_SIZE]);
++	}
++
++	if (ret == ACT_P_CREATED)
++		tcf_hash_insert(tn, *a);
++	return ret;
++}
++
++static void tcf_sample_cleanup_rcu(struct rcu_head *rcu)
++{
++	struct tcf_sample *s = container_of(rcu, struct tcf_sample, rcu);
++	struct psample_group *psample_group;
++
++	psample_group = rcu_dereference_protected(s->psample_group, 1);
++	RCU_INIT_POINTER(s->psample_group, NULL);
++	psample_group_put(psample_group);
++}
++
++static void tcf_sample_cleanup(struct tc_action *a, int bind)
++{
++	struct tcf_sample *s = to_sample(a);
++
++	call_rcu(&s->rcu, tcf_sample_cleanup_rcu);
++}
++
++static bool tcf_sample_dev_ok_push(struct net_device *dev)
++{
++	switch (dev->type) {
++	case ARPHRD_TUNNEL:
++	case ARPHRD_TUNNEL6:
++	case ARPHRD_SIT:
++	case ARPHRD_IPGRE:
++	case ARPHRD_VOID:
++	case ARPHRD_NONE:
++		return false;
++	default:
++		return true;
++	}
++}
++
++static int tcf_sample_act(struct sk_buff *skb, const struct tc_action *a,
++			  struct tcf_result *res)
++{
++	struct tcf_sample *s = to_sample(a);
++	struct psample_group *psample_group;
++	int retval;
++	int size;
++	int iif;
++	int oif;
++
++	tcf_lastuse_update(&s->tcf_tm);
++	bstats_cpu_update(this_cpu_ptr(s->common.cpu_bstats), skb);
++	retval = READ_ONCE(s->tcf_action);
++
++	rcu_read_lock();
++	psample_group = rcu_dereference(s->psample_group);
++
++	/* randomly sample packets according to rate */
++	if (psample_group && (prandom_u32() % s->rate == 0)) {
++		if (!skb_at_tc_ingress(skb)) {
++			iif = skb->skb_iif;
++			oif = skb->dev->ifindex;
++		} else {
++			iif = skb->dev->ifindex;
++			oif = 0;
++		}
++
++		/* on ingress, the mac header gets popped, so push it back */
++		if (skb_at_tc_ingress(skb) && tcf_sample_dev_ok_push(skb->dev))
++			skb_push(skb, skb->mac_len);
++
++		size = s->truncate ? s->trunc_size : skb->len;
++		psample_sample_packet(psample_group, skb, size, iif, oif,
++				      s->rate);
++
++		if (skb_at_tc_ingress(skb) && tcf_sample_dev_ok_push(skb->dev))
++			skb_pull(skb, skb->mac_len);
++	}
++
++	rcu_read_unlock();
++	return retval;
++}
++
++static int tcf_sample_dump(struct sk_buff *skb, struct tc_action *a,
++			   int bind, int ref)
++{
++	unsigned char *b = skb_tail_pointer(skb);
++	struct tcf_sample *s = to_sample(a);
++	struct tc_sample opt = {
++		.index      = s->tcf_index,
++		.action     = s->tcf_action,
++		.refcnt     = s->tcf_refcnt - ref,
++		.bindcnt    = s->tcf_bindcnt - bind,
++	};
++	struct tcf_t t;
++
++	if (nla_put(skb, TCA_SAMPLE_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++
++	tcf_tm_dump(&t, &s->tcf_tm);
++	if (nla_put_64bit(skb, TCA_SAMPLE_TM, sizeof(t), &t, TCA_SAMPLE_PAD))
++		goto nla_put_failure;
++
++	if (nla_put_u32(skb, TCA_SAMPLE_RATE, s->rate))
++		goto nla_put_failure;
++
++	if (s->truncate)
++		if (nla_put_u32(skb, TCA_SAMPLE_TRUNC_SIZE, s->trunc_size))
++			goto nla_put_failure;
++
++	if (nla_put_u32(skb, TCA_SAMPLE_PSAMPLE_GROUP, s->psample_group_num))
++		goto nla_put_failure;
++	return skb->len;
++
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static int tcf_sample_walker(struct net *net, struct sk_buff *skb,
++			     struct netlink_callback *cb, int type,
++			     const struct tc_action_ops *ops)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	return tcf_generic_walker(tn, skb, cb, type, ops);
++}
++
++static int tcf_sample_search(struct net *net, struct tc_action **a, u32 index)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	return tcf_hash_search(tn, a, index);
++}
++
++static struct tc_action_ops act_sample_ops = {
++	.kind	  = "sample",
++	.type	  = TCA_ACT_SAMPLE,
++	.owner	  = THIS_MODULE,
++	.act	  = tcf_sample_act,
++	.dump	  = tcf_sample_dump,
++	.init	  = tcf_sample_init,
++	.cleanup  = tcf_sample_cleanup,
++	.walk	  = tcf_sample_walker,
++	.lookup	  = tcf_sample_search,
++	.size	  = sizeof(struct tcf_sample),
++};
++
++static __net_init int sample_init_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	return tc_action_net_init(tn, &act_sample_ops, SAMPLE_TAB_MASK);
++}
++
++static void __net_exit sample_exit_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, sample_net_id);
++
++	tc_action_net_exit(tn);
++}
++
++static struct pernet_operations sample_net_ops = {
++	.init = sample_init_net,
++	.exit = sample_exit_net,
++	.id   = &sample_net_id,
++	.size = sizeof(struct tc_action_net),
++};
++
++static int __init sample_init_module(void)
++{
++	return tcf_register_action(&act_sample_ops, &sample_net_ops);
++}
++
++static void __exit sample_cleanup_module(void)
++{
++	tcf_unregister_action(&act_sample_ops, &sample_net_ops);
++}
++
++module_init(sample_init_module);
++module_exit(sample_cleanup_module);
++
++MODULE_AUTHOR("Yotam Gigi <yotamg@mellanox.com>");
++MODULE_DESCRIPTION("Packet sampling action");
++MODULE_LICENSE("GPL v2");
 -- 
 2.7.4
