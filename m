@@ -1,45 +1,46 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: wrong smp_mb__after_atomic() in tcp_check_space() ?
-Date: Mon, 23 Jan 2017 11:56:18 -0500
-Message-ID: <f5f9c542-2b23-9df9-098c-ad4007bf7e78@akamai.com>
-References: <20170123143025.GA31676@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Make xfrm usable by 32-bit programs
+Date: Mon, 23 Jan 2017 11:57:22 -0500 (EST)
+Message-ID: <20170123.115722.2044116177906799668.davem@davemloft.net>
+References: <20170121000507.34381-1-cernekee@chromium.org>
+        <063D6719AE5E284EB5DD2968C1650D6DB026BC58@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert.xu@redhat.com>,
-        Yauheni Kaliuta <yauheni.kaliuta@redhat.com>,
-        netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Oleg Nesterov <oleg@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: cernekee@chromium.org, steffen.klassert@secunet.com,
+        herbert@gondor.apana.org.au, paul@paul-moore.com,
+        sds@tycho.nsa.gov, eparis@parisplace.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        selinux@tycho.nsa.gov, fw@strlen.de, fan.du@windriver.com,
+        dianders@chromium.org, dtor@chromium.org
+To: David.Laight@ACULAB.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:20202 "EHLO
-        prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750713AbdAWQ4U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 11:56:20 -0500
-In-Reply-To: <20170123143025.GA31676@redhat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44992 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751019AbdAWQ5Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 11:57:25 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB026BC58@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2017 09:30 AM, Oleg Nesterov wrote:
-> Hello,
->
-> smp_mb__after_atomic() looks wrong and misleading, sock_reset_flag() does the
-> non-atomic __clear_bit() and thus it can not guarantee test_bit(SOCK_NOSPACE)
-> (non-atomic too) won't be reordered.
->
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Mon, 23 Jan 2017 16:45:39 +0000
 
-Indeed. Here's a bit of discussion on it:
-http://marc.info/?l=linux-netdev&m=146662325920596&w=2
+> Provided you've got the length of the user's buffer the compat code
+> ought to be trivial (if tedious).
 
-> It was added by 3c7151275c0c9a "tcp: add memory barriers to write space paths"
-> and the patch looks correct in that we need the barriers in tcp_check_space()
-> and tcp_poll() in theory, so it seems tcp_check_space() needs smp_mb() ?
->
+Wireless guys had to deal with a similar problem with nl80211.
 
-Yes, I think it should be upgraded to an smp_mb() there. If you agree 
-with this analysis, I will send a patch to upgrade it. Note, I did not 
-actually run into this race in practice.
+You don't know who is going to get the message when you build it,
+because you can't possibly know what applications are listening
+on the netlink sockets for notifications and even if you did
+that set changes dynamically and could be different by the time
+the notification is delivered.
 
-Thanks,
+The long and short of it is that you must always generate both the
+native 64-bit as well as the 32-bit compat version of every message,
+then at delivery time you enqueue the appropriate one to each
+receiving socket.
 
--Jason
+This is how nl80211 solved the problem, and it's what XFRM should do
+as well.
