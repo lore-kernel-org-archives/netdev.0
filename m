@@ -1,41 +1,51 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/3] powerpc: bpf: remove redundant check for non-null
- image
-Date: Mon, 23 Jan 2017 22:44:53 +0530
-Message-ID: <20170123171453.GD3820@naverao1-tp.localdomain>
-References: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
- <20170116.133859.1157069434816521683.davem@davemloft.net>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: wrong smp_mb__after_atomic() in tcp_check_space() ?
+Date: Mon, 23 Jan 2017 18:18:28 +0100
+Message-ID: <20170123171828.GA2476@redhat.com>
+References: <20170123143025.GA31676@redhat.com>
+ <f5f9c542-2b23-9df9-098c-ad4007bf7e78@akamai.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ast@fb.com, linuxppc-dev@lists.ozlabs.org, daniel@iogearbox.net,
- netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert.xu@redhat.com>,
+        Yauheni Kaliuta <yauheni.kaliuta@redhat.com>,
+        netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35662 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750756AbdAWRSa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Jan 2017 12:18:30 -0500
 Content-Disposition: inline
-In-Reply-To: <20170116.133859.1157069434816521683.davem@davemloft.net>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <f5f9c542-2b23-9df9-098c-ad4007bf7e78@akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On 01/23, Jason Baron wrote:
+>
+> >It was added by 3c7151275c0c9a "tcp: add memory barriers to write space paths"
+> >and the patch looks correct in that we need the barriers in tcp_check_space()
+> >and tcp_poll() in theory, so it seems tcp_check_space() needs smp_mb() ?
+> >
+>
+> Yes, I think it should be upgraded to an smp_mb() there. If you agree with
+> this analysis, I will send a patch to upgrade it.
 
-On 2017/01/16 01:38PM, David Miller wrote:
-> 
-> I'm assuming these patches will go via the powerpc tree.
-> 
-> If you want them to go into net-next, I kindly ask that you always
-> explicitly say so, and furthermore always submit a patch series with
-> a proper "[PATCH 0/N] ..." header posting.
+I think this makes sense, if nothing else to remove the obviously wrong
+smp_mb__after_atomic() ;)
 
-Sure. Sorry for the confusion. I will be more explicit next time.
+> Note, I did not actually
+> run into this race in practice.
 
-Thanks,
-Naveen
+Yes, I am not sure it is actually necessary in practice, and even if
+tcp_check_space() races with tcp_poll() and misses SOCK_NOSPACE it should
+be probably called again later, but I know nothing about networking code.
+
+We noticed this by accident, we have a bug report which really looks as a
+missed wakeup in epoll, but this kernel is old and in particular it lacks
+the commit 128dd1759 "epoll: prevent missed events on EPOLL_CTL_MOD" which
+looks more promising. But we are not sure it can fully explain the problem
+we can't reproduce, so we are looking for anything else which may contribute
+to the problem.
+
+Oleg.
