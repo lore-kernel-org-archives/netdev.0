@@ -1,60 +1,79 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 0/4] Make xfrm usable by 32-bit programs
-Date: Mon, 23 Jan 2017 10:35:17 +0100
-Message-ID: <20170123093517.GM3541@gauss.secunet.com>
-References: <20170121000507.34381-1-cernekee@chromium.org>
+From: maowenan <maowenan@huawei.com>
+Subject: Re: [PATCH] net:phy fix driver reference count error when attach and
+ detach phy device
+Date: Mon, 23 Jan 2017 17:33:41 +0800
+Message-ID: <83f87925-5456-1896-e8ff-4d9f724158e4@huawei.com>
+References: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0232613@AcuExch.aculab.com>
+ <0cef0798-7b0d-734d-17a3-bebffe6206c7@huawei.com>
+ <7902ba31-de5d-27cf-f631-4a88a78b246f@huawei.com>
+ <c4fce3bf-4105-c7f2-fc67-be4316a2004a@gmail.com>
+ <F95AC9340317A84688A5F0DF0246F3F201524E04@szxeml504-mbs.china.huawei.com>
+ <70502429-5edf-924f-6e48-89340620ae6f@gmail.com>
+ <cbd390e3-666b-dcc3-2ff3-18fa75549167@huawei.com>
+ <9086cf5e-18c4-0e17-4f0e-6a630cf1c7d7@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-        <paul@paul-moore.com>, <sds@tycho.nsa.gov>,
-        <eparis@parisplace.org>, <linux-kernel@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <selinux@tycho.nsa.gov>, <fw@strlen.de>,
-        <fan.du@windriver.com>, <dianders@chromium.org>,
-        <dtor@chromium.org>
-To: Kevin Cernekee <cernekee@chromium.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Dingtianhong <dingtianhong@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:50514 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750703AbdAWJfU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Jan 2017 04:35:20 -0500
-Content-Disposition: inline
-In-Reply-To: <20170121000507.34381-1-cernekee@chromium.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:54038 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdAWJfb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 04:35:31 -0500
+In-Reply-To: <9086cf5e-18c4-0e17-4f0e-6a630cf1c7d7@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 20, 2017 at 04:05:03PM -0800, Kevin Cernekee wrote:
-> Several of the xfrm netlink and setsockopt() interfaces are not usable
-> from a 32-bit binary running on a 64-bit kernel due to struct padding
-> differences.  This has been the case for many, many years[0].  This
-> patch series deprecates the broken netlink messages and replaces them
-> with packed structs that are compatible between 64-bit and 32-bit
-> programs.  It retains support for legacy user programs (i.e. anything
-> that is currently working today), and allows legacy support to be
-> compiled out via CONFIG_XFRM_USER_LEGACY if it becomes unnecessary in
-> the future.
 
-This would mean that we have to maintain two APIs from now on.
-This is something I really want to avoid because it is almost
-impossible to get rid of the old one.
 
+On 2017/1/6 12:48, Florian Fainelli wrote:
+> Le 01/05/17 à 19:39, maowenan a écrit :
+>>
+>>
+>> On 2017/1/6 11:21, Florian Fainelli wrote:
+>>> +Andrew,
+>>>
+>>> Le 01/05/17 à 18:29, maowenan a écrit :
+>>>>>> @Florian Fainelli, what's your comments about this patch?
+>>>>>
+>>>>> I am trying to reproduce what you are seeing, but at first glance is looks like an
+>>>>> appropriate solution to me. Do you mind giving me a couple more days?
+>>>>>
+>>>>> Thanks!
+>>>>> --
+>>>>> Florian
+>>>>
+>>>> Hi Florian, 
+>>>>   Do you have any update about this patch?
+>>>
+>>> Your patch is not complete, there are now MDIO device (which PHY devices
+>>> are a superset of) that would also need a similar fix.
+>>>
+>> ok, is there any patch to fix MDIO yet?  if not, i will verify it and give a fix patch?
+>>
 > 
-> Earlier attempts at fixing the problem had implemented a compat layer.
-> A compat layer is helpful because it avoids the need to recompile old
-> user binaries, but there are many challenges involved in implementing
-> it.  I believe a compat layer is of limited value in this instance
-> because anybody who really needed to solve the problem without
-> recompiling their binaries has almost certainly found another solution
-> in the ~7 years since the compat patches were first proposed.
+> No, there is not a patch yet, your approach looks okay, but need to be
+> made general and cover MDIO devices as well.
 > 
-> A benefit of this approach is that long-term, the broken netlink messages
-> will no longer be used.  A drawback is that in the short term, user
-> programs that want to adopt the new message formats will require a
-> modern kernel.  Projects like strongSwan and iproute2 bundle the xfrm.h
-> header inside their own source trees, so they will need to make a
-> judgment call on when to remove support for kernels that do not support
-> the new messages.  And programs built against the new kernel headers
-> will not work on old kernels.
+> Thank you!
+> 
 
-So this creates new incompatibilities what is another argument against
-this approach. If you really need this, try to implement a full compat
-layer. I think this is the only sane solution for this.
+Hi Florian,
+Sorry I can't get you. There has already existed codes which are not originally written by me to cover MDIO device in phy_attach_direct and phy_detach in my patch .
+Please help check, thank you.
+phy_attach_direct:
+struct device *d = &phydev->mdio.dev;
+...
+get_device(d);
+...
+
+phy_detach:
+ 	put_device(&phydev->mdio.dev);       /*--MDIO device--*/
++	module_put(phydev->mdio.dev.driver->owner);
+ 	module_put(bus->owner);
