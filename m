@@ -1,76 +1,42 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: [PATCHv2 net-next] net: mvneta: implement .set_wol and .get_wol
-Date: Mon, 23 Jan 2017 10:52:23 +0800
-Message-ID: <20170123105223.3535751b@xhacker>
-References: <1485139447-11067-1-git-send-email-houjingj@marvell.com>
+From: Jingju Hou <houjingj@marvell.com>
+Subject: [PATCH v2 net-next] net: phy: marvell: Add Wake from LAN support for 88E1510 PHY
+Date: Mon, 23 Jan 2017 10:58:15 +0800
+Message-ID: <1485140295-11339-1-git-send-email-houjingj@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <thomas.petazzoni@free-electrons.com>,
-        <netdev@vger.kernel.org>
-To: Jingju Hou <houjingj@marvell.com>
+Content-Type: text/plain
+Cc: <jszhang@marvell.com>, <netdev@vger.kernel.org>,
+        Jingju Hou <houjingj@marvell.com>
+To: <davem@davemloft.net>, <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:59969 "EHLO
-        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750708AbdAWC5B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 21:57:01 -0500
-In-Reply-To: <1485139447-11067-1-git-send-email-houjingj@marvell.com>
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:33564 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750708AbdAWC65 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Jan 2017 21:58:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 23 Jan 2017 10:44:07 +0800
-Jingju Hou <houjingj@marvell.com> wrote:
+This is test on BG4CT platform with 88E1518 marvell PHY.
 
-> The mvneta itself does not support WOL, but the PHY might.
-> So pass the calls to the PHY
-> 
-> Signed-off-by: Jingju Hou <houjingj@marvell.com>
+Signed-off-by: Jingju Hou <houjingj@marvell.com>
+---
+Since v1:
+- add some commit messages
 
-Reviewed-by: Jisheng Zhang <jszhang@marvell.com>
+ drivers/net/phy/marvell.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-> ---
-> Since v1:
-> - using phy_dev member in struct net_device
-> 
->  drivers/net/ethernet/marvell/mvneta.c | 21 +++++++++++++++++++++
->  1 file changed, 21 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index e05e227..78869fa 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -3908,6 +3908,25 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
->  	return 0;
->  }
->  
-> +static void
-> +mvneta_ethtool_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-> +{
-> +	wol->supported = 0;
-> +	wol->wolopts = 0;
-> +
-> +	if (dev->phy_dev)
-> +		return phy_ethtool_get_wol(dev->phy_dev, wol);
-> +}
-> +
-> +static int
-> +mvneta_ethtool_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-> +{
-> +	if (!dev->phy_dev)
-> +		return -EOPNOTSUPP;
-> +
-> +	return phy_ethtool_set_wol(dev->phy_dev, wol);
-> +}
-> +
->  static const struct net_device_ops mvneta_netdev_ops = {
->  	.ndo_open            = mvneta_open,
->  	.ndo_stop            = mvneta_stop,
-> @@ -3937,6 +3956,8 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
->  	.set_rxfh	= mvneta_ethtool_set_rxfh,
->  	.get_link_ksettings = phy_ethtool_get_link_ksettings,
->  	.set_link_ksettings = mvneta_ethtool_set_link_ksettings,
-> +	.get_wol        = mvneta_ethtool_get_wol,
-> +	.set_wol        = mvneta_ethtool_set_wol,
->  };
->  
->  /* Initialize hw */
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 0b78210..ed0d235 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -1679,6 +1679,8 @@ static int marvell_probe(struct phy_device *phydev)
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+ 		.did_interrupt = &m88e1121_did_interrupt,
++		.get_wol = &m88e1318_get_wol,
++		.set_wol = &m88e1318_set_wol,
+ 		.resume = &marvell_resume,
+ 		.suspend = &marvell_suspend,
+ 		.get_sset_count = marvell_get_sset_count,
+-- 
+1.9.1
