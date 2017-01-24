@@ -1,449 +1,138 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 11/18] netvsc: optimize receive path
-Date: Tue, 24 Jan 2017 13:06:08 -0800
-Message-ID: <20170124210615.18628-12-sthemmin@microsoft.com>
+Subject: [PATCH 15/18] netvsc: account for packets/bytes transmitted after completion
+Date: Tue, 24 Jan 2017 13:06:12 -0800
+Message-ID: <20170124210615.18628-16-sthemmin@microsoft.com>
 References: <20170124210615.18628-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33507 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750838AbdAXVG7 (ORCPT
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33576 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750844AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pf0-f175.google.com with SMTP id y143so52570528pfb.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:29 -0800 (PST)
+Received: by mail-pg0-f52.google.com with SMTP id 204so57911407pge.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:34 -0800 (PST)
 In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do manual optimizations of receive path:
-  - remove checks for impossible conditions (but keep checks
-    for bad data from host)
-  - pass argument down, rather than having callee recompute what
-    is already known
-  - remove indirection about receive buffer datalength
-  - remove dependence on VLAN_TAG_PRESENCE
-  - use _hot/_cold and likely/unlikely
+Most drivers do not increment transmit statistics until after the
+transmit is completed. This will also be necessary for BQL support.
+
+Slight additional complexity because the netvsc driver aggregates
+multiple packets into one transmit.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   | 21 +++++----
- drivers/net/hyperv/netvsc.c       | 74 ++++++++++++-----------------
- drivers/net/hyperv/netvsc_drv.c   | 32 ++++++-------
- drivers/net/hyperv/rndis_filter.c | 99 +++++++++++++++------------------------
- 4 files changed, 93 insertions(+), 133 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |  4 +++-
+ drivers/net/hyperv/netvsc.c     | 19 ++++++++++++++++---
+ drivers/net/hyperv/netvsc_drv.c | 13 +++----------
+ 3 files changed, 22 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index fb73caad0965..4b91e37c85ca 100644
+index fec365241f37..340f64233e2a 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -119,6 +119,7 @@ struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
+@@ -137,8 +137,10 @@ struct hv_netvsc_packet {
+ 	u8 page_buf_cnt;
  
- /* Fwd declaration */
- struct ndis_tcp_ip_checksum_info;
-+struct ndis_pkt_8021q_info;
+ 	u16 q_idx;
+-	u32 send_buf_index;
++	u16 total_packets;
  
- /*
-  * Represent netvsc packet which contains 1 RNDIS and 1 ethernet frame
-@@ -186,12 +187,11 @@ int netvsc_send(struct hv_device *device,
- 		struct sk_buff *skb);
- void netvsc_linkstatus_callback(struct hv_device *device_obj,
- 				struct rndis_message *resp);
--int netvsc_recv_callback(struct hv_device *device_obj,
--			struct hv_netvsc_packet *packet,
--			void **data,
--			struct ndis_tcp_ip_checksum_info *csum_info,
--			struct vmbus_channel *channel,
--			u16 vlan_tci);
-+int netvsc_recv_callback(struct net_device *net,
-+			 struct vmbus_channel *channel,
-+			 void  *data, u32 len,
-+			 const struct ndis_tcp_ip_checksum_info *csum_info,
-+			 const struct ndis_pkt_8021q_info *vlan);
- void netvsc_channel_cb(void *context);
- int rndis_filter_open(struct netvsc_device *nvdev);
- int rndis_filter_close(struct netvsc_device *nvdev);
-@@ -200,10 +200,11 @@ int rndis_filter_device_add(struct hv_device *dev,
- void rndis_filter_device_remove(struct hv_device *dev);
- int rndis_filter_set_rss_param(struct rndis_device *rdev,
- 			       const u8 *key, int num_queue);
--int rndis_filter_receive(struct hv_device *dev,
--			struct hv_netvsc_packet *pkt,
--			void **data,
--			struct vmbus_channel *channel);
-+int rndis_filter_receive(struct net_device *ndev,
-+			 struct netvsc_device *net_dev,
-+			 struct hv_device *dev,
-+			 struct vmbus_channel *channel,
-+			 void *data, u32 buflen);
++	u32 total_bytes;
++	u32 send_buf_index;
+ 	u32 total_data_buflen;
+ };
  
- int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
- int rndis_filter_set_device_mac(struct net_device *ndev, char *mac);
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 4dd2a1f2da11..80eecb4f9456 100644
+index bd055146f098..397aa1d88a6f 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -1095,51 +1095,35 @@ static inline struct recv_comp_data *get_recv_comp_slot(
- 	return rcd;
- }
+@@ -611,15 +611,23 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
  
--static void netvsc_receive(struct netvsc_device *net_device,
--			struct vmbus_channel *channel,
--			struct hv_device *device,
--			struct vmpacket_descriptor *packet)
-+static void netvsc_receive(struct net_device *ndev,
-+		   struct netvsc_device *net_device,
-+		   struct net_device_context *net_device_ctx,
-+		   struct hv_device *device,
-+		   struct vmbus_channel *channel,
-+		   struct vmtransfer_page_packet_header *vmxferpage_packet,
-+		   struct nvsp_message *nvsp)
- {
--	struct vmtransfer_page_packet_header *vmxferpage_packet;
--	struct nvsp_message *nvsp_packet;
--	struct hv_netvsc_packet nv_pkt;
--	struct hv_netvsc_packet *netvsc_packet = &nv_pkt;
-+	char *recv_buf = net_device->recv_buf;
- 	u32 status = NVSP_STAT_SUCCESS;
- 	int i;
- 	int count = 0;
--	struct net_device *ndev = hv_get_drvdata(device);
--	void *data;
- 	int ret;
- 	struct recv_comp_data *rcd;
- 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+ 	/* Notify the layer above us */
+ 	if (likely(skb)) {
+-		struct hv_netvsc_packet *nvsc_packet
++		const struct hv_netvsc_packet *packet
+ 			= (struct hv_netvsc_packet *)skb->cb;
+-		u32 send_index = nvsc_packet->send_buf_index;
++		u32 send_index = packet->send_buf_index;
++		struct netvsc_stats *tx_stats;
  
--	/*
--	 * All inbound packets other than send completion should be xfer page
--	 * packet
--	 */
--	if (packet->type != VM_PKT_DATA_USING_XFER_PAGES) {
--		netdev_err(ndev, "Unknown packet type received - %d\n",
--			   packet->type);
--		return;
--	}
--
--	nvsp_packet = (struct nvsp_message *)((unsigned long)packet +
--			(packet->offset8 << 3));
--
- 	/* Make sure this is a valid nvsp packet */
--	if (nvsp_packet->hdr.msg_type !=
--	    NVSP_MSG1_TYPE_SEND_RNDIS_PKT) {
--		netdev_err(ndev, "Unknown nvsp packet type received-"
--			" %d\n", nvsp_packet->hdr.msg_type);
-+	if (unlikely(nvsp->hdr.msg_type != NVSP_MSG1_TYPE_SEND_RNDIS_PKT)) {
-+		netif_err(net_device_ctx, rx_err, ndev,
-+			  "Unknown nvsp packet type received %u\n",
-+			  nvsp->hdr.msg_type);
- 		return;
+ 		if (send_index != NETVSC_INVALID_INDEX)
+ 			netvsc_free_send_slot(net_device, send_index);
+-		q_idx = nvsc_packet->q_idx;
++		q_idx = packet->q_idx;
+ 		channel = incoming_channel;
+ 
++		tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
++
++		u64_stats_update_begin(&tx_stats->syncp);
++		tx_stats->packets += packet->total_packets;
++		tx_stats->bytes += packet->total_bytes;
++		u64_stats_update_end(&tx_stats->syncp);
++
+ 		dev_consume_skb_any(skb);
  	}
  
--	vmxferpage_packet = (struct vmtransfer_page_packet_header *)packet;
--
--	if (vmxferpage_packet->xfer_pageset_id != NETVSC_RECEIVE_BUFFER_ID) {
--		netdev_err(ndev, "Invalid xfer page set id - "
--			   "expecting %x got %x\n", NETVSC_RECEIVE_BUFFER_ID,
--			   vmxferpage_packet->xfer_pageset_id);
-+	if (unlikely(vmxferpage_packet->xfer_pageset_id != NETVSC_RECEIVE_BUFFER_ID)) {
-+		netif_err(net_device_ctx, rx_err, ndev,
-+			  "Invalid xfer page set id - expecting %x got %x\n",
-+			  NETVSC_RECEIVE_BUFFER_ID,
-+			  vmxferpage_packet->xfer_pageset_id);
- 		return;
- 	}
+@@ -924,6 +932,11 @@ int netvsc_send(struct hv_device *device,
+ 			packet->total_data_buflen += msd_len;
+ 		}
  
-@@ -1147,15 +1131,13 @@ static void netvsc_receive(struct netvsc_device *net_device,
++		if (msdp->pkt) {
++			packet->total_packets += msdp->pkt->total_packets;
++			packet->total_bytes += msdp->pkt->total_bytes;
++		}
++
+ 		if (msdp->skb)
+ 			dev_consume_skb_any(msdp->skb);
  
- 	/* Each range represents 1 RNDIS pkt that contains 1 ethernet frame */
- 	for (i = 0; i < count; i++) {
--		/* Initialize the netvsc packet */
--		data = (void *)((unsigned long)net_device->
--			recv_buf + vmxferpage_packet->ranges[i].byte_offset);
--		netvsc_packet->total_data_buflen =
--					vmxferpage_packet->ranges[i].byte_count;
-+		void *data = recv_buf
-+			+ vmxferpage_packet->ranges[i].byte_offset;
-+		u32 buflen = vmxferpage_packet->ranges[i].byte_count;
- 
- 		/* Pass it to the upper layer */
--		status = rndis_filter_receive(device, netvsc_packet, &data,
--					      channel);
-+		status = rndis_filter_receive(ndev, net_device, device,
-+					      channel, data, buflen);
- 	}
- 
- 	if (!net_device->chan_table[q_idx].mrc.buf) {
-@@ -1234,11 +1216,10 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
- 				   u64 request_id,
- 				   struct vmpacket_descriptor *desc)
- {
--	struct nvsp_message *nvmsg;
- 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
--
--	nvmsg = (struct nvsp_message *)((unsigned long)
--		desc + (desc->offset8 << 3));
-+	struct nvsp_message *nvmsg
-+		= (struct nvsp_message *)((unsigned long)desc
-+					  + (desc->offset8 << 3));
- 
- 	switch (desc->type) {
- 	case VM_PKT_COMP:
-@@ -1246,7 +1227,10 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
- 		break;
- 
- 	case VM_PKT_DATA_USING_XFER_PAGES:
--		netvsc_receive(net_device, channel, device, desc);
-+		netvsc_receive(ndev, net_device, net_device_ctx,
-+			       device, channel,
-+			       (struct vmtransfer_page_packet_header *)desc,
-+			       nvmsg);
- 		break;
- 
- 	case VM_PKT_DATA_INBAND:
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index da5863641703..4bc1fdbc8cd7 100644
+index 11755783c2f6..1dd13da79f02 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -596,13 +596,13 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- }
+@@ -364,7 +364,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 rndis_msg_size;
+ 	struct rndis_per_packet_info *ppi;
+ 	u32 hash;
+-	u32 skb_length;
+ 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
+ 	struct hv_page_buffer *pb = page_buf;
  
- static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
--				struct hv_netvsc_packet *packet,
--				struct ndis_tcp_ip_checksum_info *csum_info,
--				void *data, u16 vlan_tci)
-+					     const struct ndis_tcp_ip_checksum_info *csum_info,
-+					     const struct ndis_pkt_8021q_info *vlan,
-+					     void *data, u32 buflen)
- {
- 	struct sk_buff *skb;
- 
--	skb = netdev_alloc_skb_ip_align(net, packet->total_data_buflen);
-+	skb = netdev_alloc_skb_ip_align(net, buflen);
- 	if (!skb)
- 		return skb;
- 
-@@ -610,8 +610,7 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
- 	 * Copy to skb. This copy is needed here since the memory pointed by
- 	 * hv_netvsc_packet cannot be deallocated
+@@ -374,7 +373,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	 * more pages we try linearizing it.
  	 */
--	memcpy(skb_put(skb, packet->total_data_buflen), data,
--	       packet->total_data_buflen);
-+	memcpy(skb_put(skb, buflen), data, buflen);
  
- 	skb->protocol = eth_type_trans(skb, net);
+-	skb_length = skb->len;
+ 	num_data_pgs = netvsc_get_slots(skb) + 2;
  
-@@ -628,9 +627,12 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	}
+ 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
+@@ -407,6 +405,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	packet->q_idx = skb_get_queue_mapping(skb);
  
--	if (vlan_tci & VLAN_TAG_PRESENT)
-+	if (vlan) {
-+		u16 vlan_tci = vlan->vlanid | (vlan->pri << VLAN_PRIO_SHIFT);
-+
- 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
- 				       vlan_tci);
-+	}
+ 	packet->total_data_buflen = skb->len;
++	packet->total_bytes = skb->len;
++	packet->total_packets = 1;
  
- 	return skb;
- }
-@@ -639,14 +641,12 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
-  * netvsc_recv_callback -  Callback when we receive a packet from the
-  * "wire" on the specified device.
-  */
--int netvsc_recv_callback(struct hv_device *device_obj,
--				struct hv_netvsc_packet *packet,
--				void **data,
--				struct ndis_tcp_ip_checksum_info *csum_info,
--				struct vmbus_channel *channel,
--				u16 vlan_tci)
-+int netvsc_recv_callback(struct net_device *net,
-+			 struct vmbus_channel *channel,
-+			 void  *data, u32 len,
-+			 const struct ndis_tcp_ip_checksum_info *csum_info,
-+			 const struct ndis_pkt_8021q_info *vlan)
- {
--	struct net_device *net = hv_get_drvdata(device_obj);
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct net_device *vf_netdev;
- 	struct sk_buff *skb;
-@@ -668,7 +668,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 		net = vf_netdev;
+ 	rndis_msg = (struct rndis_message *)skb->head;
  
- 	/* Allocate a skb - TODO direct I/O to pages? */
--	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
-+	skb = netvsc_alloc_recv_skb(net, csum_info, vlan, data, len);
- 	if (unlikely(!skb)) {
- 		++net->stats.rx_dropped;
- 		rcu_read_unlock();
-@@ -687,7 +687,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
- 	u64_stats_update_begin(&rx_stats->syncp);
- 	rx_stats->packets++;
--	rx_stats->bytes += packet->total_data_buflen;
-+	rx_stats->bytes += len;
- 
- 	if (skb->pkt_type == PACKET_BROADCAST)
- 		++rx_stats->broadcast;
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 0df02c9808e8..decce4f8fda8 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -132,7 +132,7 @@ static void put_rndis_request(struct rndis_device *dev,
- }
- 
- static void dump_rndis_message(struct hv_device *hv_dev,
--			struct rndis_message *rndis_msg)
-+			       const struct rndis_message *rndis_msg)
- {
- 	struct net_device *netdev = hv_get_drvdata(hv_dev);
- 
-@@ -347,102 +347,78 @@ static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
- 	return NULL;
- }
- 
--static int rndis_filter_receive_data(struct rndis_device *dev,
--				   struct rndis_message *msg,
--				   struct hv_netvsc_packet *pkt,
--				   void **data,
--				   struct vmbus_channel *channel)
-+static int rndis_filter_receive_data(struct net_device *ndev,
-+				     struct rndis_device *dev,
-+				     struct rndis_message *msg,
-+				     struct vmbus_channel *channel,
-+				     void *data, u32 data_buflen)
- {
--	struct rndis_packet *rndis_pkt;
-+	struct rndis_packet *rndis_pkt = &msg->msg.pkt;
-+	const struct ndis_tcp_ip_checksum_info *csum_info;
-+	const struct ndis_pkt_8021q_info *vlan;
- 	u32 data_offset;
--	struct ndis_pkt_8021q_info *vlan;
--	struct ndis_tcp_ip_checksum_info *csum_info;
--	u16 vlan_tci = 0;
--	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
+@@ -517,15 +517,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	skb_tx_timestamp(skb);
+ 	ret = netvsc_send(net_device_ctx->device_ctx, packet,
+ 			  rndis_msg, &pb, skb);
+-	if (likely(ret == 0)) {
+-		struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
 -
--	rndis_pkt = &msg->msg.pkt;
- 
- 	/* Remove the rndis header and pass it back up the stack */
- 	data_offset = RNDIS_HEADER_SIZE + rndis_pkt->data_offset;
- 
--	pkt->total_data_buflen -= data_offset;
-+	data_buflen -= data_offset;
- 
- 	/*
- 	 * Make sure we got a valid RNDIS message, now total_data_buflen
- 	 * should be the data packet size plus the trailer padding size
- 	 */
--	if (pkt->total_data_buflen < rndis_pkt->data_len) {
-+	if (unlikely(data_buflen < rndis_pkt->data_len)) {
- 		netdev_err(dev->ndev, "rndis message buffer "
- 			   "overflow detected (got %u, min %u)"
- 			   "...dropping this message!\n",
--			   pkt->total_data_buflen, rndis_pkt->data_len);
-+			   data_buflen, rndis_pkt->data_len);
- 		return NVSP_STAT_FAIL;
- 	}
- 
-+	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
-+
- 	/*
- 	 * Remove the rndis trailer padding from rndis packet message
- 	 * rndis_pkt->data_len tell us the real data length, we only copy
- 	 * the data packet to the stack, without the rndis trailer padding
- 	 */
--	pkt->total_data_buflen = rndis_pkt->data_len;
--	*data = (void *)((unsigned long)(*data) + data_offset);
--
--	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
--	if (vlan) {
--		vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
--			(vlan->pri << VLAN_PRIO_SHIFT);
+-		u64_stats_update_begin(&tx_stats->syncp);
+-		tx_stats->packets++;
+-		tx_stats->bytes += skb_length;
+-		u64_stats_update_end(&tx_stats->syncp);
++	if (likely(ret == 0))
+ 		return NETDEV_TX_OK;
 -	}
--
-+	data = (void *)((unsigned long)data + data_offset);
- 	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
--	return netvsc_recv_callback(net_device_ctx->device_ctx, pkt, data,
--				    csum_info, channel, vlan_tci);
-+	return netvsc_recv_callback(ndev, channel,
-+				    data, rndis_pkt->data_len,
-+				    csum_info, vlan);
- }
  
--int rndis_filter_receive(struct hv_device *dev,
--				struct hv_netvsc_packet	*pkt,
--				void **data,
--				struct vmbus_channel *channel)
-+int rndis_filter_receive(struct net_device *ndev,
-+			 struct netvsc_device *net_dev,
-+			 struct hv_device *dev,
-+			 struct vmbus_channel *channel,
-+			 void *data, u32 buflen)
- {
--	struct net_device *ndev = hv_get_drvdata(dev);
- 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
--	struct netvsc_device *net_dev = net_device_ctx->nvdev;
--	struct rndis_device *rndis_dev;
--	struct rndis_message *rndis_msg;
--	int ret = 0;
--
--	if (!net_dev) {
--		ret = NVSP_STAT_FAIL;
--		goto exit;
--	}
-+	struct rndis_device *rndis_dev = net_dev->extension;
-+	struct rndis_message *rndis_msg = data;
- 
- 	/* Make sure the rndis device state is initialized */
--	if (!net_dev->extension) {
--		netdev_err(ndev, "got rndis message but no rndis device - "
--			  "dropping this message!\n");
--		ret = NVSP_STAT_FAIL;
--		goto exit;
-+	if (unlikely(!rndis_dev)) {
-+		netif_err(net_device_ctx, rx_err, ndev,
-+			  "got rndis message but no rndis device!\n");
-+		return NVSP_STAT_FAIL;
- 	}
- 
--	rndis_dev = (struct rndis_device *)net_dev->extension;
--	if (rndis_dev->state == RNDIS_DEV_UNINITIALIZED) {
--		netdev_err(ndev, "got rndis message but rndis device "
--			   "uninitialized...dropping this message!\n");
--		ret = NVSP_STAT_FAIL;
--		goto exit;
-+	if (unlikely(rndis_dev->state == RNDIS_DEV_UNINITIALIZED)) {
-+		netif_err(net_device_ctx, rx_err, ndev,
-+			  "got rndis message uninitialized\n");
-+		return NVSP_STAT_FAIL;
- 	}
- 
--	rndis_msg = *data;
--
--	if (netif_msg_rx_err(net_device_ctx))
-+	if (netif_msg_rx_status(net_device_ctx))
- 		dump_rndis_message(dev, rndis_msg);
- 
- 	switch (rndis_msg->ndis_msg_type) {
- 	case RNDIS_MSG_PACKET:
--		/* data msg */
--		ret = rndis_filter_receive_data(rndis_dev, rndis_msg, pkt,
--						data, channel);
--		break;
--
-+		return rndis_filter_receive_data(ndev, rndis_dev, rndis_msg,
-+						 channel, data, buflen);
- 	case RNDIS_MSG_INIT_C:
- 	case RNDIS_MSG_QUERY_C:
- 	case RNDIS_MSG_SET_C:
-@@ -462,8 +438,7 @@ int rndis_filter_receive(struct hv_device *dev,
- 		break;
- 	}
- 
--exit:
--	return ret;
-+	return 0;
- }
- 
- static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
+ 	if (ret == -EAGAIN) {
+ 		++net_device_ctx->eth_stats.tx_busy;
 -- 
 2.11.0
