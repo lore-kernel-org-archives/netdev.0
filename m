@@ -1,91 +1,83 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 05/12] net/mlx5e: Maximize ip tunnel key usage on the TC offloading path
-Date: Tue, 24 Jan 2017 22:16:45 +0200
-Message-ID: <20170124201652.2920-6-saeedm@mellanox.com>
+Subject: [net-next 02/12] net/mlx5e: Add TC offloads matching on IPv6 encapsulation headers
+Date: Tue, 24 Jan 2017 22:16:42 +0200
+Message-ID: <20170124201652.2920-3-saeedm@mellanox.com>
 References: <20170124201652.2920-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54288 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54285 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750993AbdAXURa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 15:17:30 -0500
+        with ESMTP id S1750975AbdAXURZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 15:17:25 -0500
 In-Reply-To: <20170124201652.2920-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Use more fields out of the tunnel key (e.g the tunnel source IP address)
-provided by upper layers for the route lookup done on the encap offload path.
+Enhance the parsing of offloaded TC rules to set HW matching on outer
+IPv6 encapsulation headers. This effectively adds support for TC tunnel
+key release action (decapsulation) of SRIOV offloads over IPv6 tunnels.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 30 ++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 477b2796c12e..3d0dbfb018ca 100644
+index d4af5507679f..e9f0854e9509 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -684,7 +684,6 @@ static int mlx5e_route_lookup_ipv4(struct mlx5e_priv *priv,
- 				   struct net_device **out_dev,
- 				   struct flowi4 *fl4,
- 				   struct neighbour **out_n,
--				   __be32 *saddr,
- 				   int *out_ttl)
- {
- 	struct rtable *rt;
-@@ -714,7 +713,6 @@ static int mlx5e_route_lookup_ipv4(struct mlx5e_priv *priv,
- 		return -ENOMEM;
+@@ -298,6 +298,32 @@ static int parse_tunnel_attr(struct mlx5e_priv *priv,
  
- 	*out_n = n;
--	*saddr = fl4->saddr;
- 	*out_dev = rt->dst.dev;
- 
- 	return 0;
-@@ -763,13 +761,10 @@ static int mlx5e_create_encap_header_ipv4(struct mlx5e_priv *priv,
- {
- 	int max_encap_size = MLX5_CAP_ESW(priv->mdev, max_encap_header_size);
- 	struct ip_tunnel_key *tun_key = &e->tun_info.key;
-+	int encap_size, ttl, err;
- 	struct neighbour *n = NULL;
- 	struct flowi4 fl4 = {};
- 	char *encap_header;
--	int encap_size;
--	__be32 saddr;
--	int ttl;
--	int err;
- 
- 	encap_header = kzalloc(max_encap_size, GFP_KERNEL);
- 	if (!encap_header)
-@@ -784,10 +779,12 @@ static int mlx5e_create_encap_header_ipv4(struct mlx5e_priv *priv,
- 		err = -EOPNOTSUPP;
- 		goto out;
+ 		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, headers_c, ethertype);
+ 		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ethertype, ETH_P_IP);
++	} else if (enc_control->addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
++		struct flow_dissector_key_ipv6_addrs *key =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS,
++						  f->key);
++		struct flow_dissector_key_ipv6_addrs *mask =
++			skb_flow_dissector_target(f->dissector,
++						  FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS,
++						  f->mask);
++
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
++				    src_ipv4_src_ipv6.ipv6_layout.ipv6),
++		       &mask->src, MLX5_FLD_SZ_BYTES(ipv6_layout, ipv6));
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
++				    src_ipv4_src_ipv6.ipv6_layout.ipv6),
++		       &key->src, MLX5_FLD_SZ_BYTES(ipv6_layout, ipv6));
++
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_c,
++				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++		       &mask->dst, MLX5_FLD_SZ_BYTES(ipv6_layout, ipv6));
++		memcpy(MLX5_ADDR_OF(fte_match_set_lyr_2_4, headers_v,
++				    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++		       &key->dst, MLX5_FLD_SZ_BYTES(ipv6_layout, ipv6));
++
++		MLX5_SET_TO_ONES(fte_match_set_lyr_2_4, headers_c, ethertype);
++		MLX5_SET(fte_match_set_lyr_2_4, headers_v, ethertype, ETH_P_IPV6);
  	}
-+	fl4.flowi4_tos = tun_key->tos;
- 	fl4.daddr = tun_key->u.ipv4.dst;
-+	fl4.saddr = tun_key->u.ipv4.src;
  
- 	err = mlx5e_route_lookup_ipv4(priv, mirred_dev, out_dev,
--				      &fl4, &n, &saddr, &ttl);
-+				      &fl4, &n, &ttl);
- 	if (err)
- 		goto out;
- 
-@@ -806,8 +803,8 @@ static int mlx5e_create_encap_header_ipv4(struct mlx5e_priv *priv,
- 	case MLX5_HEADER_TYPE_VXLAN:
- 		encap_size = gen_vxlan_header_ipv4(*out_dev, encap_header,
- 						   e->h_dest, ttl,
--						   tun_key->u.ipv4.dst,
--						   saddr, tun_key->tp_dst,
-+						   fl4.daddr,
-+						   fl4.saddr, tun_key->tp_dst,
- 						   tunnel_id_to_key32(tun_key->tun_id));
- 		break;
- 	default:
+ 	/* Enforce DMAC when offloading incoming tunneled flows.
+@@ -358,12 +384,10 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+ 						  f->key);
+ 		switch (key->addr_type) {
+ 		case FLOW_DISSECTOR_KEY_IPV4_ADDRS:
++		case FLOW_DISSECTOR_KEY_IPV6_ADDRS:
+ 			if (parse_tunnel_attr(priv, spec, f))
+ 				return -EOPNOTSUPP;
+ 			break;
+-		case FLOW_DISSECTOR_KEY_IPV6_ADDRS:
+-			netdev_warn(priv->netdev,
+-				    "IPv6 tunnel decap offload isn't supported\n");
+ 		default:
+ 			return -EOPNOTSUPP;
+ 		}
 -- 
 2.11.0
