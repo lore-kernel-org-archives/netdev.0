@@ -1,140 +1,84 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 11/12] net/mlx5e: Reduce memory consumption on kdump kernel
-Date: Tue, 24 Jan 2017 22:16:51 +0200
-Message-ID: <20170124201652.2920-12-saeedm@mellanox.com>
-References: <20170124201652.2920-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Kamal Heib <kamalh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 5/5] gtp: let userspace handle packets for invalid tunnels
+Date: Tue, 24 Jan 2017 21:19:28 +0100
+Message-ID: <20170124201928.GA11999@salvia>
+References: <20170124172402.12096-1-aschultz@tpip.net>
+ <20170124172402.12096-6-aschultz@tpip.net>
+ <20170124190349.GA9757@salvia>
+ <1060167008.597625.1485288151511.JavaMail.zimbra@tpip.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org, laforge <laforge@gnumonks.org>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54282 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750921AbdAXURZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 15:17:25 -0500
-In-Reply-To: <20170124201652.2920-1-saeedm@mellanox.com>
+Received: from mail.us.es ([193.147.175.20]:54304 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750759AbdAXUTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 15:19:35 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id DAC651EC2CD
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 21:19:32 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id C922FA7E7D
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 21:19:32 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 19D55DA790
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 21:19:29 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <1060167008.597625.1485288151511.JavaMail.zimbra@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamal Heib <kamalh@mellanox.com>
+On Tue, Jan 24, 2017 at 09:02:31PM +0100, Andreas Schultz wrote:
+> Hi Pablo,
+> 
+> ----- On Jan 24, 2017, at 8:03 PM, pablo pablo@netfilter.org wrote:
+> 
+> > Hi Andreas,
+> > 
+> > On Tue, Jan 24, 2017 at 06:24:02PM +0100, Andreas Schultz wrote:
+> >> enable userspace to send error replies for invalid tunnels
+> >> 
+> >> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+> >> ---
+> >>  drivers/net/gtp.c | 8 ++++----
+> >>  1 file changed, 4 insertions(+), 4 deletions(-)
+> >> 
+> >> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+> >> index 912721e..c607333 100644
+> >> --- a/drivers/net/gtp.c
+> >> +++ b/drivers/net/gtp.c
+> >> @@ -198,12 +198,12 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct
+> >> sk_buff *skb,
+> >>  	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
+> >>  	if (!pctx) {
+> >>  		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+> >> -		return -1;
+> >> +		return 1;
+> >>  	}
+> >>  
+> >>  	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
+> >>  		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+> >> -		return -1;
+> >> +		return 1;
+> > 
+> > So userspace gets the packet that we cannot forward. I guess your
+> > userspace codebase performs this sanity checks again so you can send
+> > the appropriate error reply?
+> 
+> For TEID /= 0, the only reply is a T-PDU of type error indication. There
+> is no cause specified. So I don't actually have to repeat the check.
+> TEID == 0 is more interesting, this tells userspace that it tried to
+> send on an invalid tunnel and should tear it down.
 
-Reduce memory consumption on kdump kernel by decreasing the number of
-channels to 1 and the size of RQs and SQs to the minimal values.
+Ah, I see, thanks for explaining, I guess this is good to debug
+misconfigurations.
 
-Signed-off-by: Kamal Heib <kamalh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h        |  7 +------
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c    |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c   | 21 ++++++++++++++++++---
- 3 files changed, 21 insertions(+), 11 deletions(-)
+> If you like, you can have a look at the userspace code. The relevant piece
+> is at https://github.com/travelping/gtp_u_kmod/blob/master/src/gtp_u_kmod_port.erl#L231
+> 
+> But be warned, it's written in Erlang ;-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index d603a30ad639..8d660a018bf8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -101,6 +101,7 @@
- 
- #define MLX5E_LOG_INDIR_RQT_SIZE       0x7
- #define MLX5E_INDIR_RQT_SIZE           BIT(MLX5E_LOG_INDIR_RQT_SIZE)
-+#define MLX5E_MIN_NUM_CHANNELS         0x1
- #define MLX5E_MAX_NUM_CHANNELS         (MLX5E_INDIR_RQT_SIZE >> 1)
- #define MLX5E_MAX_NUM_SQS              (MLX5E_MAX_NUM_CHANNELS * MLX5E_MAX_NUM_TC)
- #define MLX5E_TX_CQ_POLL_BUDGET        128
-@@ -847,12 +848,6 @@ static inline u32 mlx5e_get_wqe_mtt_offset(struct mlx5e_rq *rq, u16 wqe_ix)
- 	return wqe_ix * ALIGN(MLX5_MPWRQ_PAGES_PER_WQE, 8);
- }
- 
--static inline int mlx5e_get_max_num_channels(struct mlx5_core_dev *mdev)
--{
--	return min_t(int, mdev->priv.eq_table.num_comp_vectors,
--		     MLX5E_MAX_NUM_CHANNELS);
--}
--
- extern const struct ethtool_ops mlx5e_ethtool_ops;
- #ifdef CONFIG_MLX5_CORE_EN_DCB
- extern const struct dcbnl_rtnl_ops mlx5e_dcbnl_ops;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 4021863e3840..9d520f8d6d1a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -552,7 +552,7 @@ static void mlx5e_get_channels(struct net_device *dev,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 
--	ch->max_combined   = mlx5e_get_max_num_channels(priv->mdev);
-+	ch->max_combined   = priv->profile->max_nch(priv->mdev);
- 	ch->combined_count = priv->params.num_channels;
- }
- 
-@@ -560,7 +560,7 @@ static int mlx5e_set_channels(struct net_device *dev,
- 			      struct ethtool_channels *ch)
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
--	int ncv = mlx5e_get_max_num_channels(priv->mdev);
-+	int ncv = priv->profile->max_nch(priv->mdev);
- 	unsigned int count = ch->combined_count;
- 	bool arfs_enabled;
- 	bool was_opened;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 636372873e64..e829143efc14 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -31,6 +31,7 @@
-  */
- 
- #include <net/tc_act/tc_gact.h>
-+#include <linux/crash_dump.h>
- #include <net/pkt_cls.h>
- #include <linux/mlx5/fs.h>
- #include <net/vxlan.h>
-@@ -83,7 +84,9 @@ static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
- 	priv->params.rq_wq_type = rq_type;
- 	switch (priv->params.rq_wq_type) {
- 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
--		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
-+		priv->params.log_rq_size = is_kdump_kernel() ?
-+			MLX5E_PARAMS_MINIMUM_LOG_RQ_SIZE_MPW :
-+			MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
- 		priv->params.mpwqe_log_stride_sz =
- 			MLX5E_GET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS) ?
- 			MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS :
-@@ -92,7 +95,9 @@ static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
- 			priv->params.mpwqe_log_stride_sz;
- 		break;
- 	default: /* MLX5_WQ_TYPE_LINKED_LIST */
--		priv->params.log_rq_size = MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE;
-+		priv->params.log_rq_size = is_kdump_kernel() ?
-+			MLX5E_PARAMS_MINIMUM_LOG_RQ_SIZE :
-+			MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE;
- 	}
- 	priv->params.min_rx_wqes = mlx5_min_rx_wqes(priv->params.rq_wq_type,
- 					       BIT(priv->params.log_rq_size));
-@@ -1508,6 +1513,14 @@ static int mlx5e_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
- 	return err;
- }
- 
-+static inline int mlx5e_get_max_num_channels(struct mlx5_core_dev *mdev)
-+{
-+	return is_kdump_kernel() ?
-+		MLX5E_MIN_NUM_CHANNELS :
-+		min_t(int, mdev->priv.eq_table.num_comp_vectors,
-+		      MLX5E_MAX_NUM_CHANNELS);
-+}
-+
- static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 			      struct mlx5e_channel_param *cparam,
- 			      struct mlx5e_channel **cp)
-@@ -3491,7 +3504,9 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
- 	priv->params.lro_timeout =
- 		mlx5e_choose_lro_timeout(mdev, MLX5E_DEFAULT_LRO_TIMEOUT);
- 
--	priv->params.log_sq_size = MLX5E_PARAMS_DEFAULT_LOG_SQ_SIZE;
-+	priv->params.log_sq_size = is_kdump_kernel() ?
-+		MLX5E_PARAMS_MINIMUM_LOG_SQ_SIZE :
-+		MLX5E_PARAMS_DEFAULT_LOG_SQ_SIZE;
- 
- 	/* set CQE compression */
- 	priv->params.rx_cqe_compress_def = false;
--- 
-2.11.0
+Will have a look, but you taking me away from my usual domains :).
