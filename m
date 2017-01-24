@@ -1,215 +1,71 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 01/18] netvsc: remove no longer needed receive staging buffers
-Date: Tue, 24 Jan 2017 13:05:58 -0800
-Message-ID: <20170124210615.18628-2-sthemmin@microsoft.com>
-References: <20170124210615.18628-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net, kys@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:33547 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750782AbdAXVG7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pg0-f50.google.com with SMTP id 204so57910011pge.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:19 -0800 (PST)
-In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
+Date: Tue, 24 Jan 2017 16:10:46 -0500 (EST)
+Message-ID: <20170124.161046.824400071485171478.davem@davemloft.net>
+References: <20170124221114-mutt-send-email-mst@kernel.org>
+        <20170124.155331.1409241818867862249.davem@davemloft.net>
+        <20170124225502-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, jasowang@redhat.com,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        john.fastabend@gmail.com
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170124225502-mutt-send-email-mst@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ring buffer mapping now handles the wraparound case
-inside get_next_pkt_raw. Therefore it is not necessary to have an
-additional special receive staging buffer.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 24 Jan 2017 23:07:51 +0200
 
-See commit 1562edaed8c164ca5199 ("Drivers: hv: ring_buffer: count on
-wrap around mappings")
+> On Tue, Jan 24, 2017 at 03:53:31PM -0500, David Miller wrote:
+>> From: "Michael S. Tsirkin" <mst@redhat.com>
+>> Date: Tue, 24 Jan 2017 22:45:37 +0200
+>> 
+>> > On Tue, Jan 24, 2017 at 03:09:59PM -0500, David Miller wrote:
+>> >> From: "Michael S. Tsirkin" <mst@redhat.com>
+>> >> Date: Tue, 24 Jan 2017 21:53:13 +0200
+>> >> 
+>> >> > I didn't realise. Why can't we? I thought that adjust_header is an
+>> >> > optional feature that userspace can test for, so no rush.
+>> >> 
+>> >> No, we want the base set of XDP features to be present in all drivers
+>> >> supporting XDP.
+>> > 
+>> > I see, I didn't realize this. In light of this, is there any
+>> > guidance *how much* head room is required to be considered
+>> > valid? We already have 12 bytes of headroom.
+>> 
+>> The idea is to allow programs to implement arbitrary kinds of
+>> encapsulation, so we need to be able to allow them to push headers for
+>> all kinds of software tunnels, with allowance for a few depths in some
+>> extreme cases.
+>> 
+>> In that light, a nice round power of 2 number such as 256 seems quite
+>> reasonable to me.
+>> 
+>> This seems to be what other XDP implementations in drivers use at the
+>> moment as well.
+> 
+> It bothers me that this becomes a part of userspace ABI.
+> Apps will see that everyone does 256 and will assume it,
+> we'll never be able to go back.
+> 
+> This does mean that XDP_PASS will use much more memory
+> for small packets and by extension need a higher rmem limit.
+> Would all admins be comfortable with this? Why would they want
+> to if all their XDP does is DROP?
+> Why not teach applications to query the headroom?
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   |  5 ---
- drivers/net/hyperv/netvsc.c       | 83 ++++++---------------------------------
- drivers/net/hyperv/rndis_filter.c | 11 ------
- 3 files changed, 11 insertions(+), 88 deletions(-)
+This works in the regimen that XDP packets always live in exactly one
+page.  That will be needed to mmap the RX ring into userspace, and it
+helps make adjust_header trivial as well.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 3958adade7eb..cce70ceba6d5 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -748,11 +748,6 @@ struct netvsc_device {
- 
- 	int ring_size;
- 
--	/* The primary channel callback buffer */
--	unsigned char *cb_buffer;
--	/* The sub channel callback buffer */
--	unsigned char *sub_cb_buf;
--
- 	struct multi_send_data msd[VRSS_CHANNEL_MAX];
- 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
- 	u32 pkt_align; /* alignment bytes, e.g. 8 */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 5a1cc089acb7..5e90c7fb1bd2 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -67,12 +67,6 @@ static struct netvsc_device *alloc_net_device(void)
- 	if (!net_device)
- 		return NULL;
- 
--	net_device->cb_buffer = kzalloc(NETVSC_PACKET_SIZE, GFP_KERNEL);
--	if (!net_device->cb_buffer) {
--		kfree(net_device);
--		return NULL;
--	}
--
- 	net_device->mrc[0].buf = vzalloc(NETVSC_RECVSLOT_MAX *
- 					 sizeof(struct recv_comp_data));
- 
-@@ -93,7 +87,6 @@ static void free_netvsc_device(struct netvsc_device *nvdev)
- 	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
- 		vfree(nvdev->mrc[i].buf);
- 
--	kfree(nvdev->cb_buffer);
- 	kfree(nvdev);
- }
- 
-@@ -584,7 +577,6 @@ void netvsc_device_remove(struct hv_device *device)
- 	vmbus_close(device->channel);
- 
- 	/* Release all resources */
--	vfree(net_device->sub_cb_buf);
- 	free_netvsc_device(net_device);
- }
- 
-@@ -1271,16 +1263,11 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
- 
- void netvsc_channel_cb(void *context)
- {
--	int ret;
--	struct vmbus_channel *channel = (struct vmbus_channel *)context;
-+	struct vmbus_channel *channel = context;
- 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
- 	struct hv_device *device;
- 	struct netvsc_device *net_device;
--	u32 bytes_recvd;
--	u64 request_id;
- 	struct vmpacket_descriptor *desc;
--	unsigned char *buffer;
--	int bufferlen = NETVSC_PACKET_SIZE;
- 	struct net_device *ndev;
- 	bool need_to_commit = false;
- 
-@@ -1292,65 +1279,19 @@ void netvsc_channel_cb(void *context)
- 	net_device = get_inbound_net_device(device);
- 	if (!net_device)
- 		return;
-+
- 	ndev = hv_get_drvdata(device);
--	buffer = get_per_channel_state(channel);
--
--	do {
--		desc = get_next_pkt_raw(channel);
--		if (desc != NULL) {
--			netvsc_process_raw_pkt(device,
--					       channel,
--					       net_device,
--					       ndev,
--					       desc->trans_id,
--					       desc);
--
--			put_pkt_raw(channel, desc);
--			need_to_commit = true;
--			continue;
--		}
--		if (need_to_commit) {
--			need_to_commit = false;
--			commit_rd_index(channel);
--		}
- 
--		ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
--					   &bytes_recvd, &request_id);
--		if (ret == 0) {
--			if (bytes_recvd > 0) {
--				desc = (struct vmpacket_descriptor *)buffer;
--				netvsc_process_raw_pkt(device,
--						       channel,
--						       net_device,
--						       ndev,
--						       request_id,
--						       desc);
--			} else {
--				/*
--				 * We are done for this pass.
--				 */
--				break;
--			}
--
--		} else if (ret == -ENOBUFS) {
--			if (bufferlen > NETVSC_PACKET_SIZE)
--				kfree(buffer);
--			/* Handle large packet */
--			buffer = kmalloc(bytes_recvd, GFP_ATOMIC);
--			if (buffer == NULL) {
--				/* Try again next time around */
--				netdev_err(ndev,
--					   "unable to allocate buffer of size "
--					   "(%d)!!\n", bytes_recvd);
--				break;
--			}
--
--			bufferlen = bytes_recvd;
--		}
--	} while (1);
-+	while ((desc = get_next_pkt_raw(channel)) != NULL) {
-+		netvsc_process_raw_pkt(device, channel, net_device,
-+				       ndev, desc->trans_id, desc);
- 
--	if (bufferlen > NETVSC_PACKET_SIZE)
--		kfree(buffer);
-+		put_pkt_raw(channel, desc);
-+		need_to_commit = true;
-+	}
-+
-+	if (need_to_commit)
-+		commit_rd_index(channel);
- 
- 	netvsc_chk_recv_comp(net_device, channel, q_idx);
- }
-@@ -1374,8 +1315,6 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
- 
- 	net_device->ring_size = ring_size;
- 
--	set_per_channel_state(device->channel, net_device->cb_buffer);
--
- 	/* Open the channel */
- 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
- 			 ring_size * PAGE_SIZE, NULL, 0,
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 8d90904e0e49..113c7f4d1590 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -948,9 +948,6 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
- 	if (chn_index >= nvscdev->num_chn)
- 		return;
- 
--	set_per_channel_state(new_sc, nvscdev->sub_cb_buf + (chn_index - 1) *
--			      NETVSC_PACKET_SIZE);
--
- 	nvscdev->mrc[chn_index].buf = vzalloc(NETVSC_RECVSLOT_MAX *
- 					      sizeof(struct recv_comp_data));
- 
-@@ -1099,14 +1096,6 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	if (net_device->num_chn == 1)
- 		goto out;
- 
--	net_device->sub_cb_buf = vzalloc((net_device->num_chn - 1) *
--					 NETVSC_PACKET_SIZE);
--	if (!net_device->sub_cb_buf) {
--		net_device->num_chn = 1;
--		dev_info(&dev->device, "No memory for subchannels.\n");
--		goto out;
--	}
--
- 	vmbus_set_sc_create_callback(dev->channel, netvsc_sc_open);
- 
- 	init_packet = &net_device->channel_init_pkt;
--- 
-2.11.0
+MTU 1500, PAGESIZE >= 4096, so a headroom of 256 is no problem, and
+we still have enough tailroom for skb_shared_info should we wrap
+the buffer into a real SKB and push it into the stack.
+
+If you are trying to do buffering differently for virtio_net, well...
+that's a self inflicted wound as far as I can tell.
