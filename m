@@ -1,46 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: ethernet: mvneta: add support for 2.5G DRSGMII mode
-Date: Tue, 24 Jan 2017 14:19:55 +0100
-Message-ID: <20170124131955.GA27016@lunn.ch>
-References: <20170123142206.5390-1-jlu@pengutronix.de>
- <20170123181836.GO10895@lunn.ch>
- <1485246858.5508.47.camel@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        davem@davemloft.net, Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Jan =?iso-8859-1?Q?L=FCbbe?= <jlu@pengutronix.de>
+From: Tobias Regnery <tobias.regnery@gmail.com>
+Subject: [PATCH net 0/3] alx: fix fallout from multi queue conversion
+Date: Tue, 24 Jan 2017 14:34:21 +0100
+Message-ID: <cover.1485263833.git.tobias.regnery@gmail.com>
+Cc: davem@davemloft.net, Tobias Regnery <tobias.regnery@gmail.com>
+To: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43630 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750739AbdAXNUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 08:20:01 -0500
-Content-Disposition: inline
-In-Reply-To: <1485246858.5508.47.camel@pengutronix.de>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33886 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750854AbdAXNen (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 08:34:43 -0500
+Received: by mail-wm0-f65.google.com with SMTP id c85so34626515wmi.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 05:34:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> It works without any other changes. ;)
-> 
-> Initially I looked at adding a SPEED_2500, but I wasn't sure which code
-> would need to handle the new value. Would the path from the ethtool
-> ioctl to the driver be enough (mvneta_ethtool_set_link_ksettings() as
-> you said)?
+Here are 3 fixes for the multi queue conversion in v4.10.
 
-You have this connected to an FPGA? Do you have a traditional PHY in
-the FPGA? Or are you implementing something more like an Ethernet
-switch?
+The first patch fixes a wrong condition in an if statement.
 
-I don't know this driver too well, but what often happens is the PHY
-performs autoneg and the phylib then calls the adjust_link function to
-set the MAC to what has been negotiated. So if you have a PHY attached
-which can do 2.5Ghz, you might be seeing calls to adjust_link with
-SPEED_2500.
+Patches 2 and 3 fixes regressions in the corner case when requesting msi-x
+interrupts fails and we fall back to msi or legacy interrupts.
 
-What does ethtool <devname> show?
+Tobias Regnery (3):
+  alx: fix wrong condition to free descriptor memory
+  alx: fix fallback to msi or legacy interrupts
+  alx: work around hardware bug in interrupt fallback path
 
-Thanks
-     Andrew
+ drivers/net/ethernet/atheros/alx/main.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+-- 
+2.9.3
