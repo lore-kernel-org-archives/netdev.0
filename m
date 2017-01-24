@@ -1,35 +1,54 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH 0/5] simple gtp improvements
-Date: Tue, 24 Jan 2017 19:26:11 +0100
-Message-ID: <20170124182611.vqi3erhxcw45yhjt@nataraja>
-References: <20170124172402.12096-1-aschultz@tpip.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
+ device_find_class()
+Date: Tue, 24 Jan 2017 10:59:15 -0800
+Message-ID: <c98f3ff8-9d4e-a007-1fef-130fcf580201@gmail.com>
+References: <20170114214713.28109-1-f.fainelli@gmail.com>
+ <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170115110628.GF26374@kroah.com>
+ <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+ <20170115191632.GD5643@lunn.ch>
+ <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+ <20170119142820.GA494@kroah.com> <20170119145315.GD21805@lunn.ch>
+ <20170119165155.GH27312@n2100.armlinux.org.uk>
+ <841dc133-e9af-e7ca-75bf-8371337d6281@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira <pablo@netfilter.org>, netdev@vger.kernel.org,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org
-To: Andreas Schultz <aschultz@tpip.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:55828 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdAXS6w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 13:58:52 -0500
-Content-Disposition: inline
-In-Reply-To: <20170124172402.12096-1-aschultz@tpip.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "moderated list:ARM SUB-ARCHITECTURES"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <841dc133-e9af-e7ca-75bf-8371337d6281@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andreas,
+On 01/19/2017 10:12 AM, Florian Fainelli wrote:
+> 
+> Back to the actual code that triggered this discussion, the whole
+> purpose is just a safeguard. Given a device reference, we can assume
+> that it is indeed the backing device for a net_device, and we could do a
+> to_net_device() right away (and crash if someone did not write correct
+> platform_data structures), or, by walking the device tree (the device
+> driver model one) we can make sure it does belong in the proper class
+> and this is indeed what we think it is.
 
-I agree with your changes (particularly those related to 3GPP specs)
-like 2/5 and 5/5.  Also, 1/5 is of course obvious.
+Greg, did Russell's explanation clarify things, or do you still think
+this is completely bogus and we need to re design the whole thing?
 
-For kernel topics like 3/5 and 4/5 I trust Pablo and the general netdev
-crew to have better judgement than me.
+Just asking so I can try to resubmit just the preparatory parts or just
+the whole thing.
 
+Thank you
 -- 
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-============================================================================
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+Florian
