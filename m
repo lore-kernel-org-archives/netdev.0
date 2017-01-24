@@ -1,123 +1,39 @@
-From: Jeffy Chen <jeffy.chen@rock-chips.com>
-Subject: [PATCH 3/3] Bluetooth: hidp: fix possible might sleep error in hidp_session_thread
-Date: Tue, 24 Jan 2017 12:07:51 +0800
-Message-ID: <1485230871-22828-3-git-send-email-jeffy.chen@rock-chips.com>
-References: <1485230871-22828-1-git-send-email-jeffy.chen@rock-chips.com>
-Cc: Brian Norris <briannorris@chromium.org>,
-        Douglas Anderson <dianders@chromium.org>,
-        Johan Hedberg <johan.hedberg@intel.com>,
-        Peter Hurley <peter@hurleysoftware.com>,
-        Jeffy Chen <jeffy.chen@rock-chips.com>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v2] bpf: Restrict cgroup bpf hooks to the init netns
+Date: Mon, 23 Jan 2017 21:10:34 -0700
+Message-ID: <f494c25b-1ef0-1fe4-9ac5-05eafa903be0@cumulusnetworks.com>
+References: <ddd9e097f54e894197a2925731de02d1d3cae137.1485203708.git.luto@kernel.org>
+ <20170124020950.GA72992@ast-mbp.thefacebook.com>
+ <678f4d6f-e2f8-eb37-207a-c77269507f9d@cumulusnetworks.com>
+ <CALCETrUz1701E5JS5NEqEqeGLExnxpesU44dSi2eYK4iMu=kcQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
         "David S. Miller" <davem@davemloft.net>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>
-To: linux-bluetooth@vger.kernel.org
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from regular1.263xmail.com ([211.150.99.132]:51582 "EHLO
-        regular1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750709AbdAXEJf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 23:09:35 -0500
-In-Reply-To: <1485230871-22828-1-git-send-email-jeffy.chen@rock-chips.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33179 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdAXEKg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 23:10:36 -0500
+Received: by mail-pg0-f49.google.com with SMTP id 204so51052006pge.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 20:10:36 -0800 (PST)
+In-Reply-To: <CALCETrUz1701E5JS5NEqEqeGLExnxpesU44dSi2eYK4iMu=kcQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It looks like hidp_session_thread has same pattern as the issue reported in
-old rfcomm:
+On 1/23/17 7:39 PM, Andy Lutomirski wrote:
+> I'm not sure I followed what you meant.  If I understood right (which
+> is a big if) you're saying that ip vrf when run in a netns works
+> correctly in that netns.  I agree, but I think that it would continue
+> to work (even more reliably) if the hooks only executed in the netns
+> in which they were created.  I think that would probably be a good
+> improvement, and it could be done on top of my patch, but I'm not
+> about to write that code for 4.10.
 
-	while (1) {
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (condition)
-			break;
-		// may call might_sleep here
-		schedule();
-	}
-	__set_current_state(TASK_RUNNING);
-
-Which fixed at:
-	dfb2fae Bluetooth: Fix nested sleeps
-
-So let's fix it at the same way, also follow the suggestion of:
-https://lwn.net/Articles/628628/
-
-Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
----
-
- net/bluetooth/hidp/core.c | 23 +++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
-
-diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-index 0bec458..43d6e6a 100644
---- a/net/bluetooth/hidp/core.c
-+++ b/net/bluetooth/hidp/core.c
-@@ -36,6 +36,7 @@
- #define VERSION "1.2"
- 
- static DECLARE_RWSEM(hidp_session_sem);
-+static DECLARE_WAIT_QUEUE_HEAD(hidp_session_wq);
- static LIST_HEAD(hidp_session_list);
- 
- static unsigned char hidp_keycode[256] = {
-@@ -1068,12 +1069,15 @@ static int hidp_session_start_sync(struct hidp_session *session)
-  * Wake up session thread and notify it to stop. This is asynchronous and
-  * returns immediately. Call this whenever a runtime error occurs and you want
-  * the session to stop.
-- * Note: wake_up_process() performs any necessary memory-barriers for us.
-  */
- static void hidp_session_terminate(struct hidp_session *session)
- {
- 	atomic_inc(&session->terminate);
--	wake_up_process(session->task);
-+
-+	/* Ensure session->terminate is updated */
-+	smp_mb__after_atomic();
-+
-+	wake_up_interruptible(&hidp_session_wq);
- }
- 
- /*
-@@ -1180,7 +1184,9 @@ static void hidp_session_run(struct hidp_session *session)
- 	struct sock *ctrl_sk = session->ctrl_sock->sk;
- 	struct sock *intr_sk = session->intr_sock->sk;
- 	struct sk_buff *skb;
-+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
- 
-+	add_wait_queue(&hidp_session_wq, &wait);
- 	for (;;) {
- 		/*
- 		 * This thread can be woken up two ways:
-@@ -1188,12 +1194,10 @@ static void hidp_session_run(struct hidp_session *session)
- 		 *    session->terminate flag and wakes this thread up.
- 		 *  - Via modifying the socket state of ctrl/intr_sock. This
- 		 *    thread is woken up by ->sk_state_changed().
--		 *
--		 * Note: set_current_state() performs any necessary
--		 * memory-barriers for us.
- 		 */
--		set_current_state(TASK_INTERRUPTIBLE);
- 
-+		/* Ensure session->terminate is updated */
-+		smp_mb__before_atomic();
- 		if (atomic_read(&session->terminate))
- 			break;
- 
-@@ -1227,11 +1231,14 @@ static void hidp_session_run(struct hidp_session *session)
- 		hidp_process_transmit(session, &session->ctrl_transmit,
- 				      session->ctrl_sock);
- 
--		schedule();
-+		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
- 	}
-+	remove_wait_queue(&hidp_session_wq, &wait);
- 
- 	atomic_inc(&session->terminate);
--	set_current_state(TASK_RUNNING);
-+
-+	/* Ensure session->terminate is updated */
-+	smp_mb__after_atomic();
- }
- 
- /*
--- 
-2.1.4
+Sounds like an efficiency on the implementation that does not require limiting the code today to just init namespace.
