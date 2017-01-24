@@ -1,7 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v8 10/13] net: ethernet: aquantia: Hardware interface and utility functions
-Date: Mon, 23 Jan 2017 22:09:17 -0800
-Message-ID: <25cc49ec812a42109e9b898e0fc2d602dd297bf6.1485237861.git.vomlehn@texas.net>
+Subject: [PATCH v8 02/13] net: ethernet: aquantia: Common functions and definitions
+Date: Mon, 23 Jan 2017 22:09:09 -0800
+Message-ID: <c57223d69fc1ecfe5b6f3be703e96a85b38f4fb8.1485237861.git.vomlehn@texas.net>
 References: <cover.1485237861.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
@@ -11,10 +11,10 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44887 "EHLO
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44757 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750791AbdAXGJ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:09:57 -0500
+        by vger.kernel.org with ESMTP id S1750743AbdAXGJq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:09:46 -0500
 In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
 In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
 References: <cover.1485237861.git.vomlehn@texas.net>
@@ -23,7 +23,8 @@ List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add functions to interface with the hardware and some utility functions.
+Add files containing the functions and definitions used in common in
+different functional areas.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
@@ -31,20 +32,20 @@ Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_hw.h     | 177 +++++++++++++++++++++
- .../net/ethernet/aquantia/atlantic/aq_hw_utils.c   |  68 ++++++++
- .../net/ethernet/aquantia/atlantic/aq_hw_utils.h   |  47 ++++++
- 3 files changed, 292 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_hw.h
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.c
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.h
+ drivers/net/ethernet/aquantia/atlantic/aq_cfg.h    | 77 ++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_common.h | 23 +++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  | 50 ++++++++++++++
+ 3 files changed, 150 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_common.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_utils.h
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_hw.h b/drivers/net/ethernet/aquantia/atlantic/aq_hw.h
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
 new file mode 100644
-index 0000000..fce0fd3
+index 0000000..5f99237
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_hw.h
-@@ -0,0 +1,177 @@
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+@@ -0,0 +1,77 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -54,300 +55,158 @@ index 0000000..fce0fd3
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_hw.h: Declaraion of abstract interface for NIC hardware specific
-+ * functions.
++/* File aq_cfg.h: Definition of configuration parameters and constants. */
++
++#ifndef AQ_CFG_H
++#define AQ_CFG_H
++
++#define AQ_CFG_VECS_DEF   4U
++#define AQ_CFG_TCS_DEF    1U
++
++#define AQ_CFG_TXDS_DEF    4096U
++#define AQ_CFG_RXDS_DEF    1024U
++
++#define AQ_CFG_IS_POLLING_DEF 0U
++
++#define AQ_CFG_FORCE_LEGACY_INT 0U
++
++#define AQ_CFG_IS_INTERRUPT_MODERATION_DEF   1U
++#define AQ_CFG_INTERRUPT_MODERATION_RATE_DEF 0xFFFFU
++#define AQ_CFG_IRQ_MASK                      0x1FFU
++
++#define AQ_CFG_VECS_MAX   8U
++#define AQ_CFG_TCS_MAX    8U
++
++#define AQ_CFG_TX_FRAME_MAX  (16U * 1024U)
++#define AQ_CFG_RX_FRAME_MAX  (4U * 1024U)
++
++/* LRO */
++#define AQ_CFG_IS_LRO_DEF           1U
++
++/* RSS */
++#define AQ_CFG_RSS_INDIRECTION_TABLE_MAX  128U
++#define AQ_CFG_RSS_HASHKEY_SIZE           320U
++
++#define AQ_CFG_IS_RSS_DEF           1U
++#define AQ_CFG_NUM_RSS_QUEUES_DEF   AQ_CFG_VECS_DEF
++#define AQ_CFG_RSS_BASE_CPU_NUM_DEF 0U
++
++#define AQ_CFG_PCI_FUNC_MSIX_IRQS   9U
++#define AQ_CFG_PCI_FUNC_PORTS       2U
++
++#define AQ_CFG_SERVICE_TIMER_INTERVAL    (2 * HZ)
++#define AQ_CFG_POLLING_TIMER_INTERVAL   ((unsigned int)(2 * HZ))
++
++#define AQ_CFG_SKB_FRAGS_MAX   32U
++
++#define AQ_CFG_NAPI_WEIGHT     64U
++
++#define AQ_CFG_MULTICAST_ADDRESS_MAX     32U
++
++/*#define AQ_CFG_MAC_ADDR_PERMANENT {0x30, 0x0E, 0xE3, 0x12, 0x34, 0x56}*/
++
++#define AQ_CFG_FC_MODE 3U
++
++#define AQ_CFG_SPEED_MSK  0xFFFFU	/* 0xFFFFU==auto_neg */
++
++#define AQ_CFG_IS_AUTONEG_DEF       1U
++#define AQ_CFG_MTU_DEF              1514U
++
++#define AQ_CFG_LOCK_TRYS   100U
++
++#define AQ_CFG_DRV_AUTHOR      "aQuantia"
++#define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
++#define AQ_CFG_DRV_NAME        "aquantia"
++#define AQ_CFG_DRV_VERSION	__stringify(NIC_MAJOR_DRIVER_VERSION)"."\
++				__stringify(NIC_MINOR_DRIVER_VERSION)"."\
++				__stringify(NIC_BUILD_DRIVER_VERSION)"."\
++				__stringify(NIC_REVISION_DRIVER_VERSION)
++
++#endif /* AQ_CFG_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_common.h b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
+new file mode 100644
+index 0000000..9eb5e22
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
+@@ -0,0 +1,23 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
 + */
 +
-+#ifndef AQ_HW_H
-+#define AQ_HW_H
++/* File aq_common.h: Basic includes for all files in project. */
++
++#ifndef AQ_COMMON_H
++#define AQ_COMMON_H
++
++#include <linux/etherdevice.h>
++#include <linux/pci.h>
++
++#include "ver.h"
++#include "aq_nic.h"
++#include "aq_cfg.h"
++#include "aq_utils.h"
++
++#endif /* AQ_COMMON_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+new file mode 100644
+index 0000000..4446bd9
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+@@ -0,0 +1,50 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_utils.h: Useful macro and structures used in all layers of driver. */
++
++#ifndef AQ_UTILS_H
++#define AQ_UTILS_H
 +
 +#include "aq_common.h"
 +
-+/* NIC H/W capabilities */
-+struct aq_hw_caps_s {
-+	u64 hw_features;
-+	u64 link_speed_msk;
-+	unsigned int hw_priv_flags;
-+	u32 rxds;
-+	u32 txds;
-+	u32 txhwb_alignment;
-+	u32 irq_mask;
-+	u32 vecs;
-+	u32 mtu;
-+	u32 mac_regs_count;
-+	u8 ports;
-+	u8 msix_irqs;
-+	u8 tcs;
-+	u8 rxd_alignment;
-+	u8 rxd_size;
-+	u8 txd_alignment;
-+	u8 txd_size;
-+	u8 tx_rings;
-+	u8 rx_rings;
-+	bool flow_control;
-+	bool is_64_dma;
-+	u32 fw_ver_expected;
++#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
++
++struct aq_obj_s {
++	spinlock_t lock; /* spinlock for nic/rings processing */
++	atomic_t flags;
++	atomic_t busy_count;
 +};
 +
-+struct aq_hw_link_status_s {
-+	unsigned int mbps;
-+};
-+
-+#define AQ_HW_IRQ_INVALID 0U
-+#define AQ_HW_IRQ_LEGACY  1U
-+#define AQ_HW_IRQ_MSI     2U
-+#define AQ_HW_IRQ_MSIX    3U
-+
-+#define AQ_HW_POWER_STATE_D0   0U
-+#define AQ_HW_POWER_STATE_D3   3U
-+
-+#define AQ_HW_FLAG_STARTED     0x00000004U
-+#define AQ_HW_FLAG_STOPPING    0x00000008U
-+#define AQ_HW_FLAG_RESETTING   0x00000010U
-+#define AQ_HW_FLAG_CLOSING     0x00000020U
-+#define AQ_HW_LINK_DOWN        0x04000000U
-+#define AQ_HW_FLAG_ERR_UNPLUG  0x40000000U
-+#define AQ_HW_FLAG_ERR_HW      0x80000000U
-+
-+#define AQ_HW_FLAG_ERRORS      (AQ_HW_FLAG_ERR_HW | AQ_HW_FLAG_ERR_UNPLUG)
-+
-+struct aq_hw_s {
-+	struct aq_obj_s header;
-+	struct aq_nic_cfg_s *aq_nic_cfg;
-+	struct aq_pci_func_s *aq_pci_func;
-+	void __iomem *mmio;
-+	unsigned int not_ff_addr;
-+	struct aq_hw_link_status_s aq_link_status;
-+};
-+
-+struct aq_ring_s;
-+struct aq_ring_param_s;
-+struct aq_nic_cfg_s;
-+struct sk_buff;
-+
-+struct aq_hw_ops {
-+	struct aq_hw_s *(*create)(struct aq_pci_func_s *aq_pci_func,
-+				  unsigned int port, struct aq_hw_ops *ops);
-+
-+	void (*destroy)(struct aq_hw_s *self);
-+
-+	int (*get_hw_caps)(struct aq_hw_s *self,
-+			   struct aq_hw_caps_s *aq_hw_caps);
-+
-+	int (*hw_ring_tx_xmit)(struct aq_hw_s *self, struct aq_ring_s *aq_ring,
-+			       unsigned int frags);
-+
-+	int (*hw_ring_rx_receive)(struct aq_hw_s *self,
-+				  struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_rx_fill)(struct aq_hw_s *self, struct aq_ring_s *aq_ring,
-+			       unsigned int sw_tail_old);
-+
-+	int (*hw_ring_tx_head_update)(struct aq_hw_s *self,
-+				      struct aq_ring_s *aq_ring);
-+
-+	int (*hw_get_mac_permanent)(struct aq_hw_s *self,
-+				    struct aq_hw_caps_s *aq_hw_caps,
-+				    u8 *mac);
-+
-+	int (*hw_set_mac_address)(struct aq_hw_s *self, u8 *mac_addr);
-+
-+	int (*hw_get_link_status)(struct aq_hw_s *self,
-+				  struct aq_hw_link_status_s *link_status);
-+
-+	int (*hw_set_link_speed)(struct aq_hw_s *self, u32 speed);
-+
-+	int (*hw_reset)(struct aq_hw_s *self);
-+
-+	int (*hw_init)(struct aq_hw_s *self, struct aq_nic_cfg_s *aq_nic_cfg,
-+		       u8 *mac_addr);
-+
-+	int (*hw_start)(struct aq_hw_s *self);
-+
-+	int (*hw_stop)(struct aq_hw_s *self);
-+
-+	int (*hw_ring_tx_init)(struct aq_hw_s *self, struct aq_ring_s *aq_ring,
-+			       struct aq_ring_param_s *aq_ring_param);
-+
-+	int (*hw_ring_tx_start)(struct aq_hw_s *self,
-+				struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_tx_stop)(struct aq_hw_s *self,
-+			       struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_rx_init)(struct aq_hw_s *self,
-+			       struct aq_ring_s *aq_ring,
-+			       struct aq_ring_param_s *aq_ring_param);
-+
-+	int (*hw_ring_rx_start)(struct aq_hw_s *self,
-+				struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_rx_stop)(struct aq_hw_s *self,
-+			       struct aq_ring_s *aq_ring);
-+
-+	int (*hw_irq_enable)(struct aq_hw_s *self, u64 mask);
-+
-+	int (*hw_irq_disable)(struct aq_hw_s *self, u64 mask);
-+
-+	int (*hw_irq_read)(struct aq_hw_s *self, u64 *mask);
-+
-+	int (*hw_packet_filter_set)(struct aq_hw_s *self,
-+				    unsigned int packet_filter);
-+
-+	int (*hw_multicast_list_set)(struct aq_hw_s *self,
-+				     u8 ar_mac[AQ_CFG_MULTICAST_ADDRESS_MAX]
-+				     [ETH_ALEN],
-+				     u32 count);
-+
-+	int (*hw_interrupt_moderation_set)(struct aq_hw_s *self,
-+					   bool itr_enabled);
-+
-+	int (*hw_rss_set)(struct aq_hw_s *self,
-+			  struct aq_rss_parameters *rss_params);
-+
-+	int (*hw_rss_hash_set)(struct aq_hw_s *self,
-+			       struct aq_rss_parameters *rss_params);
-+
-+	int (*hw_get_regs)(struct aq_hw_s *self,
-+			   struct aq_hw_caps_s *aq_hw_caps, u32 *regs_buff);
-+
-+	int (*hw_get_hw_stats)(struct aq_hw_s *self, u64 *data,
-+			       unsigned int *p_count);
-+
-+	int (*hw_get_fw_version)(struct aq_hw_s *self, u32 *fw_version);
-+
-+	int (*hw_deinit)(struct aq_hw_s *self);
-+
-+	int (*hw_set_power)(struct aq_hw_s *self, unsigned int power_state);
-+};
-+
-+#endif /* AQ_HW_H */
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.c b/drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.c
-new file mode 100644
-index 0000000..5f13465
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.c
-@@ -0,0 +1,68 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_hw_utils.c: Definitions of helper functions used across
-+ * hardware layer.
-+ */
-+
-+#include "aq_hw_utils.h"
-+#include "aq_hw.h"
-+
-+void aq_hw_write_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk,
-+			 u32 shift, u32 val)
++static inline void aq_utils_obj_set(atomic_t *flags, u32 mask)
 +{
-+	if (msk ^ ~0) {
-+		u32 reg_old, reg_new;
++	unsigned long flags_old, flags_new;
 +
-+		reg_old = aq_hw_read_reg(aq_hw, addr);
-+		reg_new = (reg_old & (~msk)) | (val << shift);
-+
-+		if (reg_old != reg_new)
-+			aq_hw_write_reg(aq_hw, addr, reg_new);
-+	} else {
-+		aq_hw_write_reg(aq_hw, addr, val);
-+	}
++	do {
++		flags_old = atomic_read(flags);
++		flags_new = flags_old | (mask);
++	} while (atomic_cmpxchg(flags, flags_old, flags_new) != flags_old);
 +}
 +
-+u32 aq_hw_read_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk, u32 shift)
++static inline void aq_utils_obj_clear(atomic_t *flags, u32 mask)
 +{
-+	return ((aq_hw_read_reg(aq_hw, addr) & msk) >> shift);
++	unsigned long flags_old, flags_new;
++
++	do {
++		flags_old = atomic_read(flags);
++		flags_new = flags_old & ~(mask);
++	} while (atomic_cmpxchg(flags, flags_old, flags_new) != flags_old);
 +}
 +
-+u32 aq_hw_read_reg(struct aq_hw_s *hw, u32 reg)
++static inline bool aq_utils_obj_test(atomic_t *flags, u32 mask)
 +{
-+	u32 value = readl(hw->mmio + reg);
-+
-+	if ((~0U) == value && (~0U) == readl(hw->mmio + hw->not_ff_addr))
-+		aq_utils_obj_set(&hw->header.flags, AQ_HW_FLAG_ERR_UNPLUG);
-+
-+	return value;
++	return atomic_read(flags) & mask;
 +}
 +
-+void aq_hw_write_reg(struct aq_hw_s *hw, u32 reg, u32 value)
-+{
-+	writel(value, hw->mmio + reg);
-+}
-+
-+int aq_hw_err_from_flags(struct aq_hw_s *hw)
-+{
-+	int err = 0;
-+
-+	if (aq_utils_obj_test(&hw->header.flags, AQ_HW_FLAG_ERR_UNPLUG)) {
-+		err = -ENXIO;
-+		goto err_exit;
-+	}
-+	if (aq_utils_obj_test(&hw->header.flags, AQ_HW_FLAG_ERR_HW)) {
-+		err = -EIO;
-+		goto err_exit;
-+	}
-+
-+err_exit:
-+	return err;
-+}
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.h
-new file mode 100644
-index 0000000..78fcc0c
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_hw_utils.h
-@@ -0,0 +1,47 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_hw_utils.h: Declaration of helper functions used across hardware
-+ * layer.
-+ */
-+
-+#ifndef AQ_HW_UTILS_H
-+#define AQ_HW_UTILS_H
-+
-+#include "aq_common.h"
-+
-+#ifndef HIDWORD
-+#define LODWORD(_qw)    ((u32)(_qw))
-+#define HIDWORD(_qw)    ((u32)(((_qw) >> 32) & 0xffffffff))
-+#endif
-+
-+#define AQ_HW_SLEEP(_US_) mdelay(_US_)
-+
-+#define AQ_HW_WAIT_FOR(_B_, _US_, _N_) \
-+do { \
-+	unsigned int AQ_HW_WAIT_FOR_i; \
-+	for (AQ_HW_WAIT_FOR_i = _N_; (!(_B_)) && (AQ_HW_WAIT_FOR_i);\
-+	--AQ_HW_WAIT_FOR_i) {\
-+		udelay(_US_); \
-+	} \
-+	if (!AQ_HW_WAIT_FOR_i) {\
-+		err = ETIME; \
-+	} \
-+} while (0)
-+
-+struct aq_hw_s;
-+
-+void aq_hw_write_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk,
-+			 u32 shift, u32 val);
-+u32 aq_hw_read_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk, u32 shift);
-+u32 aq_hw_read_reg(struct aq_hw_s *hw, u32 reg);
-+void aq_hw_write_reg(struct aq_hw_s *hw, u32 reg, u32 value);
-+int aq_hw_err_from_flags(struct aq_hw_s *hw);
-+
-+#endif /* AQ_HW_UTILS_H */
++#endif /* AQ_UTILS_H */
 -- 
 2.9.3
