@@ -1,85 +1,191 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH v2 13/18] gtp: replace netdev_dbg and KERN_DEBUG printk with pr_debug
-Date: Tue, 24 Jan 2017 16:28:43 +0100
-Message-ID: <20170124152848.6120-14-aschultz@tpip.net>
+Subject: [PATCH v2 10/18] gtp: add socket to pdp context
+Date: Tue, 24 Jan 2017 16:28:40 +0100
+Message-ID: <20170124152848.6120-11-aschultz@tpip.net>
 References: <20170124152848.6120-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:35219 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:36307 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751147AbdAXP26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751058AbdAXP26 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 24 Jan 2017 10:28:58 -0500
 In-Reply-To: <20170124152848.6120-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pr_debug is more versatile for normal debugging.
-Also replace netdev_dbg in in places where the network device
-will be remove soon.
+Having the socket present in context simplifies the sending logic.
+It also fixes the invalid assumtion that we have to use the same
+sending socket for all client IP's on a specific gtp interface.
 
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/gtp.c | 70 ++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 38 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 8d74b7d..7d82252 100644
+index c7e32a6..fb93468 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -235,7 +235,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+@@ -58,6 +58,8 @@ struct pdp_ctx {
+ 	struct in_addr		ms_addr_ip4;
+ 	struct in_addr		sgsn_addr_ip4;
  
- 	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
- 	if (IS_ERR(pctx)) {
--		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
-+		pr_debug("No PDP ctx to decap skb=%p\n", skb);
- 		return 1;
++	struct sock		*sk;
++
+ 	atomic_t		tx_seq;
+ 	struct rcu_head		rcu_head;
+ };
+@@ -353,8 +355,9 @@ static void gtp_dev_uninit(struct net_device *dev)
+ 	free_percpu(dev->tstats);
+ }
+ 
+-static struct rtable *ip4_route_output_gtp(struct net *net, struct flowi4 *fl4,
+-					   const struct sock *sk, __be32 daddr)
++static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
++					   const struct sock *sk,
++					   __be32 daddr)
+ {
+ 	memset(fl4, 0, sizeof(*fl4));
+ 	fl4->flowi4_oif		= sk->sk_bound_dev_if;
+@@ -363,7 +366,7 @@ static struct rtable *ip4_route_output_gtp(struct net *net, struct flowi4 *fl4,
+ 	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
+ 	fl4->flowi4_proto	= sk->sk_protocol;
+ 
+-	return ip_route_output_key(net, fl4);
++	return ip_route_output_key(sock_net(sk), fl4);
+ }
+ 
+ static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+@@ -452,7 +455,6 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	struct rtable *rt;
+ 	struct flowi4 fl4;
+ 	struct iphdr *iph;
+-	struct sock *sk;
+ 	__be16 df;
+ 	int mtu;
+ 
+@@ -468,30 +470,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 	netdev_dbg(dev, "found PDP context %p\n", pctx);
+ 
+-	switch (pctx->gtp_version) {
+-	case GTP_V0:
+-		if (gtp->sock0)
+-			sk = gtp->sock0->sk;
+-		else
+-			sk = NULL;
+-		break;
+-	case GTP_V1:
+-		if (gtp->sock1u)
+-			sk = gtp->sock1u->sk;
+-		else
+-			sk = NULL;
+-		break;
+-	default:
+-		return -ENOENT;
+-	}
+-
+-	if (!sk) {
+-		netdev_dbg(dev, "no userspace socket is available, skip\n");
+-		return -ENOENT;
+-	}
+-
+-	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sock0->sk,
+-				  pctx->sgsn_addr_ip4.s_addr);
++	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->sgsn_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+ 			   &pctx->sgsn_addr_ip4.s_addr);
+@@ -536,7 +515,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 		goto err_rt;
  	}
  
-@@ -277,7 +277,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+-	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
++	gtp_set_pktinfo_ipv4(pktinfo, pctx->sk, iph, pctx, rt, &fl4, dev);
+ 	gtp_push_header(skb, pktinfo);
  
- 	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
- 	if (IS_ERR(pctx)) {
--		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
-+		pr_debug("No PDP ctx to decap skb=%p\n", skb);
- 		return 1;
+ 	return 0;
+@@ -906,7 +885,8 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
  	}
+ }
  
-@@ -296,15 +296,15 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	if (!gtp)
- 		return 1;
+-static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
++static int ipv4_pdp_add(struct net_device *dev, struct sock *sk,
++			struct genl_info *info)
+ {
+ 	struct gtp_dev *gtp = netdev_priv(dev);
+ 	u32 hash_ms, hash_tid = 0;
+@@ -947,6 +927,8 @@ static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
+ 	if (pctx == NULL)
+ 		return -ENOMEM;
  
--	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
-+	pr_debug("encap_recv sk=%p\n", sk);
++	sock_hold(sk);
++	pctx->sk = sk;
+ 	ipv4_pdp_fill(pctx, info);
+ 	atomic_set(&pctx->tx_seq, 0);
  
- 	switch (udp_sk(sk)->encap_type) {
- 	case UDP_ENCAP_GTP0:
--		netdev_dbg(gtp->dev, "received GTP0 packet\n");
-+		pr_debug("received GTP0 packet\n");
- 		ret = gtp0_udp_encap_recv(gtp, skb);
- 		break;
- 	case UDP_ENCAP_GTP1U:
--		netdev_dbg(gtp->dev, "received GTP1U packet\n");
-+		pr_debug("received GTP1U packet\n");
- 		ret = gtp1u_udp_encap_recv(gtp, skb);
- 		break;
- 	default:
-@@ -313,12 +313,12 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
+@@ -987,6 +969,7 @@ static void pdp_context_free(struct rcu_head *head)
+ {
+ 	struct pdp_ctx *pctx = container_of(head, struct pdp_ctx, rcu_head);
  
- 	switch (ret) {
- 	case 1:
--		netdev_dbg(gtp->dev, "pass up to the process\n");
-+		pr_debug("pass up to the process\n");
- 		break;
- 	case 0:
- 		break;
- 	case -1:
--		netdev_dbg(gtp->dev, "GTP packet has been dropped\n");
-+		pr_debug("GTP packet has been dropped\n");
- 		kfree_skb(skb);
- 		ret = 0;
- 		break;
++	sock_put(pctx->sk);
+ 	kfree(pctx);
+ }
+ 
+@@ -997,10 +980,27 @@ static void pdp_context_delete(struct pdp_ctx *pctx)
+ 	call_rcu(&pctx->rcu_head, pdp_context_free);
+ }
+ 
++static struct socket *gtp_genl_new_pdp_select_socket(int version,
++						     struct net_device *dev)
++{
++	struct gtp_dev *gtp = netdev_priv(dev);
++
++	switch (version) {
++	case GTP_V0:
++		return gtp->sock0;
++	case GTP_V1:
++		return gtp->sock1u;
++	default:
++		return NULL;
++	}
++}
++
+ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ {
++	unsigned int version;
+ 	struct net_device *dev;
+ 	struct net *net;
++	struct socket *sock;
+ 
+ 	if (!info->attrs[GTPA_VERSION] ||
+ 	    !info->attrs[GTPA_LINK] ||
+@@ -1008,7 +1008,9 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 	    !info->attrs[GTPA_MS_ADDRESS])
+ 		return -EINVAL;
+ 
+-	switch (nla_get_u32(info->attrs[GTPA_VERSION])) {
++	version = nla_get_u32(info->attrs[GTPA_VERSION]);
++
++	switch (version) {
+ 	case GTP_V0:
+ 		if (!info->attrs[GTPA_TID] ||
+ 		    !info->attrs[GTPA_FLOW])
+@@ -1036,7 +1038,11 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 	}
+ 	put_net(net);
+ 
+-	return ipv4_pdp_add(dev, info);
++	sock = gtp_genl_new_pdp_select_socket(version, dev);
++	if (!sock)
++		return -ENODEV;
++
++	return ipv4_pdp_add(dev, sock->sk, info);
+ }
+ 
+ static struct pdp_ctx *gtp_genl_find_pdp_by_link(struct sk_buff *skb,
 -- 
 2.10.2
