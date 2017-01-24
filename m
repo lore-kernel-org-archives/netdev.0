@@ -1,87 +1,47 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
-Date: Tue, 24 Jan 2017 19:34:46 +0100
-Message-ID: <20170124183446.GE21921@1wt.eu>
-References: <20170123185922.48046-1-tracywwnj@gmail.com>
- <20170123185922.48046-4-tracywwnj@gmail.com>
- <20170123211623.GE20894@1wt.eu>
- <1485279889.16328.306.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v5 0/2] stmmac: dwmac-meson8b: configurable
+ RGMII TX delay
+Date: Tue, 24 Jan 2017 13:36:13 -0500 (EST)
+Message-ID: <20170124.133613.1355073769005063451.davem@davemloft.net>
+References: <20161217182119.4037-1-martin.blumenstingl@googlemail.com>
+        <20170122220246.13602-1-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wei Wang <tracywwnj@gmail.com>, netdev@vger.kernel.org,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>, Wei Wang <weiwan@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:65009 "EHLO 1wt.eu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750725AbdAXSfA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 13:35:00 -0500
-Content-Disposition: inline
-In-Reply-To: <1485279889.16328.306.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+To: martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170122220246.13602-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Date: Sun, 22 Jan 2017 23:02:44 +0100
 
-On Tue, Jan 24, 2017 at 09:44:49AM -0800, Eric Dumazet wrote:
-> I believe there is a bug in this application.
+> Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
+> cycle (= 2ns) TX clock delay. This seems to work fine for many boards
+> (for example Odroid-C2 or Amlogic's reference boards) but there are
+> some others where TX traffic is simply broken.
+> There are probably multiple reasons why it's working on some boards
+> while it's broken on others:
+> - some of Amlogic's reference boards are using a Micrel PHY
+> - hardware circuit design
+> - maybe more...
 > 
-> It does not check connect() return value.
+> iperf3 results on my Mecool BB2 board (Meson GXM, RTL8211F PHY) with
+> TX clock delay disabled on the MAC (as it's enabled in the PHY driver).
+> TX throughput was virtually zero before:
+ ...
+> I get similar TX throughput on my Meson GXBB "MXQ Pro+" board when I
+> disable the PHY's TX-delay and configure a 4ms TX-delay on the MAC.
+> So changes to at least the RTL8211F PHY driver are needed to get it
+> working properly in all situations.
 
-Yes in fact it does but I noticed the same thing, there's something causing
-the event not to be registered or something like this.
-
-> When 0 is returned, it makes no sense to wait 200 ms :
-> 
-> > 06:29:24.048593 epoll_ctl(3, EPOLL_CTL_ADD, 9, {EPOLLIN|EPOLLRDHUP, {u32=9, u64=9}}) = 0
-> > 06:29:24.048651 epoll_wait(3, [], 200, 0) = 0
-> > 06:29:24.048699 getsockopt(10, SOL_SOCKET, SO_ERROR, [0], [4]) = 0
-> 
-> And it makes no sense to call connect() again :
-> 
-> > 06:29:24.048751 connect(10, {sa_family=AF_INET, sin_port=htons(8001), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EINPROGRES
-> > S (Operation now in progress)
-
-I totally agree.
-
-> man connect
-> 
-> <quote>
-> Generally,  connection-based protocol sockets may successfully connect()
-> only once;
-> </quote>
-> 
-> 
-> I would prefer we do not add yet another bit in tcp kernel sockets, to
-> work around some oddity in your program Willy.
-
-I'm fine with chasing the bug on my side and fixing it, but there's a
-semantic trouble anyway with returning -EINPROGRESS :
-  - connect() = 0 indicates that the connection is established
-  - then a further connect() should return -EISCONN, and does so when
-    not using TFO
-
-man connect says this regarding EINPROGRESS :
-
-    The socket is nonblocking and the connection cannot be completed immediately.
-    It is possible to  select(2)  or  poll(2)  for completion  by  selecting  the
-    socket  for  writing.  After  select(2) indicates writability, use getsockopt(2)
-    to read the SO_ERROR option at level SOL_SOCKET to determine whether connect()
-    completed successfully (SO_ERROR is  zero)  or  unsuccess-fully (SO_ERROR is
-    one of the usual error codes listed here, explaining the reason for the failure).
-
-Here we clearly have an incompatibility between this EINPROGRESS saying
-that we must poll, and poll returning POLLOUT suggesting that it's now
-OK.
-
-I'm totally fine with not using an extra bit in a scarce area, but then
-we can either add an extra argument to __inet_stream_connect() to say
-"this is sendmsg" or just add an extra flag in the last argument.
-
-But in general I don't feel comfortable with a semantics that doesn't
-completely match the current and documented one :-/
-
-Thanks,
-Willy
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
