@@ -1,70 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/2] net: phy: leds: Fix truncated LED trigger names
-Date: Tue, 24 Jan 2017 21:03:39 +0100
-Message-ID: <20170124200339.GT10895@lunn.ch>
-References: <1485272470-3497-1-git-send-email-geert+renesas@glider.be>
- <1485272470-3497-3-git-send-email-geert+renesas@glider.be>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small
+ buffer XDP receive
+Date: Tue, 24 Jan 2017 22:08:33 +0200
+Message-ID: <20170124215412-mutt-send-email-mst@kernel.org>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+ <20170117221950.20280.39496.stgit@john-Precision-Tower-5810>
+ <20170123230809-mutt-send-email-mst@kernel.org>
+ <20170124.144328.2195698124358175034.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Zach Brown <zach.brown@ni.com>,
-        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
-        Magnus =?iso-8859-1?Q?=D6berg?= <magnus.oberg@westermo.se>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: john.fastabend@gmail.com, jasowang@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52082 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750713AbdAXUIf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 15:08:35 -0500
 Content-Disposition: inline
-In-Reply-To: <1485272470-3497-3-git-send-email-geert+renesas@glider.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170124.144328.2195698124358175034.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 5c9d2529685fe215..f6ab919528ab3627 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -25,7 +25,6 @@
->  #include <linux/timer.h>
->  #include <linux/workqueue.h>
->  #include <linux/mod_devicetable.h>
-> -#include <linux/phy_led_triggers.h>
->  
->  #include <linux/atomic.h>
->  
-> @@ -339,6 +338,8 @@ struct phy_c45_device_ids {
->  	u32 device_ids[8];
->  };
->  
-> +#include <linux/phy_led_triggers.h>
-> +
->  /* phy_device: An instance of a PHY
->   *
->   * drv: Pointer to the driver for this PHY instance
-> diff --git a/include/linux/phy_led_triggers.h b/include/linux/phy_led_triggers.h
-> index a2daea0a37d2ae14..69dffb4fc5a294e9 100644
-> --- a/include/linux/phy_led_triggers.h
-> +++ b/include/linux/phy_led_triggers.h
-> @@ -20,9 +20,8 @@
->  #include <linux/leds.h>
->  
->  #define PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE	10
-> -#define PHY_MII_BUS_ID_SIZE	(20 - 3)
->  
-> -#define PHY_LINK_LED_TRIGGER_NAME_SIZE (PHY_MII_BUS_ID_SIZE + \
-> +#define PHY_LINK_LED_TRIGGER_NAME_SIZE (MII_BUS_ID_SIZE + \
->  				       FIELD_SIZEOF(struct mdio_device, addr)+\
->  				       PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE)
+On Tue, Jan 24, 2017 at 02:43:28PM -0500, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Mon, 23 Jan 2017 23:08:35 +0200
+> 
+> > On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
+> >> In the small buffer case during driver unload we currently use
+> >> put_page instead of dev_kfree_skb. Resolve this by adding a check
+> >> for virtnet mode when checking XDP queue type. Also name the
+> >> function so that the code reads correctly to match the additional
+> >> check.
+> >> 
+> >> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
+> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> >> Acked-by: Jason Wang <jasowang@redhat.com>
+> > 
+> > Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> > 
+> > I think we definitely want this one in -net as it's
+> > a bugfix.
+> 
+> This whole series is a bug fix, we must have adjust_header XDP
+> support in the virtio_net driver before v4.10 goes out, it is
+> a requires base feature for XDP.
 
-Hi Geert
+I have to say device resets outside probe have a huge potential
+to uncover hypervisor bugs. I am rather uncomfortable
+doing that after -rc1.
 
-Using the macro is great, but it does seem a bit ugly having the
-include in the middle of the file.
+How about a module option to disable it by default?
+We can then ship a partial implementation in 4.10
+and work on completing it in 4.11.
 
-As far as i can see, phy.h only uses a pointer to a struct
-phy_led_trigger, not struct phy_led_trigger itself. Could you try
-removing the header file all together and just have a forward
-declaration of phy_led_trigger?
-
-Thanks
-	Andrew
+-- 
+MST
