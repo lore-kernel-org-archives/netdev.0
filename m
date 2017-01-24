@@ -1,41 +1,79 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch net-next] sctp: fix some debug output
-Date: Tue, 24 Jan 2017 13:50:07 +0300
-Message-ID: <20170124105007.GF4201@mwanda>
-References: <20170124090540.GA27652@mwanda>
- <20170124091411.GE3781@localhost.localdomain>
+From: David Windsor <dwindsor@gmail.com>
+Subject: Re: Reference counting struct inet_peer
+Date: Tue, 24 Jan 2017 06:05:26 -0500
+Message-ID: <CAEXv5_hyDYMCKX-ZuK1nw=SSTpgKb-DCT3EoTC_L41sQ+RJojQ@mail.gmail.com>
+References: <CAEXv5_j1cz1EUPgmAKO5OHxKcoHVLuPPVRs316CWyMpw8UtpRw@mail.gmail.com>
+ <alpine.LFD.2.11.1701240853370.1779@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Xin Long <lucien.xin@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        Colin King <colin.king@canonical.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Kees Cook <keescook@chromium.org>,
+        "Reshetova, Elena" <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42095 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbdAXKvV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 05:51:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20170124091411.GE3781@localhost.localdomain>
+Received: from mail-ua0-f195.google.com ([209.85.217.195]:36151 "EHLO
+        mail-ua0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750783AbdAXLF1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 06:05:27 -0500
+Received: by mail-ua0-f195.google.com with SMTP id f2so15998588uaf.3
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 03:05:27 -0800 (PST)
+In-Reply-To: <alpine.LFD.2.11.1701240853370.1779@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2017 at 07:14:11AM -0200, Marcelo Ricardo Leitner wrote:
-> On Tue, Jan 24, 2017 at 12:05:40PM +0300, Dan Carpenter wrote:
-> > We added SCTP_EVENT_TIMEOUT_RECONF but we didn't update this array so
-> > it causes an off-by-one read overflow.
-> > 
-> > Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> Weird, seems your patch is missing the --- marker here.
+On Tue, Jan 24, 2017 at 2:38 AM, Julian Anastasov <ja@ssi.bg> wrote:
+>
+>         Hello,
+>
+> On Mon, 23 Jan 2017, David Windsor wrote:
+>
+>> Hi,
+>>
+>> I'm working on a patchset that adds overflow protection to kernel
+>> reference counters, as part of the KSPP effort.  We're introducing a
+>> new type, tentatively called refcount_t, that will ultimately replace
+>> atomic_t as the type used for kernel reference counters.  refcount_t
+>> has a constrained interface relative to atomic_t and stores reference
+>> counts as unsigned integers.
+>>
+>> While performing an audit of kernel reference counters, we've come
+>> upon a few corner cases that we're unable to cleanly migrate to
+>> refcount_t.  One of these is the reference counting scheme for struct
+>> inet_peer.
+>
+> ...
+>
+>> We're also seeing the same thing (freeing shared objects when their
+>> refcount becomes -1) in ip_vs.h:
+>>
+>> http://lxr.free-electrons.com/source/include/net/ip_vs.h#L1424
+>>
+>> static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
+>> {
+>>     if (atomic_dec_return(&dest->refcnt) < 0)
+>>         kfree(dest);
+>> }
+>
+>         I think, this is easy to fix. The problem is that
+> dest_trash currently holds deleted dests (unlinked from RCU lists)
+> with refcnt=0. If we change the dest_trash to hold dest
+> with refcnt=1, the above atomic_dec_return can be changed to
+> atomic_dec_and_test. Change should be small: ip_vs_dest_put
+> should be removed from __ip_vs_del_dest(), ip_vs_dest_hold()
+> from ip_vs_trash_get_dest() and refcnt check in
+> ip_vs_dest_trash_expire() should be updated. Let me know if
+> this holds your work, I can provide such patch to fix it.
+>
 
-Are there tools that require the --- marker?  I normally leave it out
-when it's not required.
+Thanks for looking into this.  Your solution does indeed solve the
+problem we're looking to fix.  Essentially, we just need the reference
+count to never become < 0.  If you have a patch to fix this, that
+would be great.
 
-regards,
-dan carpenter
+Thanks,
+David Windsor
+
+> Regards
+>
+> --
+> Julian Anastasov <ja@ssi.bg>
