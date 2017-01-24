@@ -1,43 +1,334 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 18/18] netvsc: call netif_receive_skb
-Date: Tue, 24 Jan 2017 13:06:15 -0800
-Message-ID: <20170124210615.18628-19-sthemmin@microsoft.com>
+Subject: [PATCH 10/18] netvsc: group all per-channel state together
+Date: Tue, 24 Jan 2017 13:06:07 -0800
+Message-ID: <20170124210615.18628-11-sthemmin@microsoft.com>
 References: <20170124210615.18628-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:33581 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750856AbdAXVG7 (ORCPT
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35092 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750836AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pg0-f43.google.com with SMTP id 204so57911642pge.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:36 -0800 (PST)
+Received: by mail-pf0-f174.google.com with SMTP id f144so52576888pfa.2
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:27 -0800 (PST)
 In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To improve performance, netvsc can call network stack directly and
-avoid the local backlog queue. This is safe since incoming packets are
-handled in softirq context already because the receive function
-callback is called from a tasklet.
+Put all the per-channel state together in one data struct.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/hyperv/hyperv_net.h   | 14 +++++---
+ drivers/net/hyperv/netvsc.c       | 73 +++++++++++++++++++--------------------
+ drivers/net/hyperv/netvsc_drv.c   |  5 ++-
+ drivers/net/hyperv/rndis_filter.c |  6 ++--
+ 4 files changed, 51 insertions(+), 47 deletions(-)
 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index db11f7ab67a8..fb73caad0965 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -714,6 +714,14 @@ struct net_device_context {
+ 	u32 vf_serial;
+ };
+ 
++/* Per channel data */
++struct netvsc_channel {
++	struct vmbus_channel *channel;
++	struct multi_send_data msd;
++	struct multi_recv_comp mrc;
++	atomic_t queue_sends;
++};
++
+ /* Per netvsc device */
+ struct netvsc_device {
+ 	u32 nvsp_version;
+@@ -744,27 +752,25 @@ struct netvsc_device {
+ 
+ 	struct nvsp_message revoke_packet;
+ 
+-	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
+ 	u32 send_table[VRSS_SEND_TAB_SIZE];
+ 	u32 max_chn;
+ 	u32 num_chn;
+ 	spinlock_t sc_lock; /* Protects num_sc_offered variable */
+ 	u32 num_sc_offered;
+-	atomic_t queue_sends[VRSS_CHANNEL_MAX];
+ 
+ 	/* Holds rndis device info */
+ 	void *extension;
+ 
+ 	int ring_size;
+ 
+-	struct multi_send_data msd[VRSS_CHANNEL_MAX];
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ 
+-	struct multi_recv_comp mrc[VRSS_CHANNEL_MAX];
+ 	atomic_t num_outstanding_recvs;
+ 
+ 	atomic_t open_cnt;
++
++	struct netvsc_channel chan_table[VRSS_CHANNEL_MAX];
+ };
+ 
+ static inline struct netvsc_device *
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 5e90c7fb1bd2..4dd2a1f2da11 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -67,8 +67,8 @@ static struct netvsc_device *alloc_net_device(void)
+ 	if (!net_device)
+ 		return NULL;
+ 
+-	net_device->mrc[0].buf = vzalloc(NETVSC_RECVSLOT_MAX *
+-					 sizeof(struct recv_comp_data));
++	net_device->chan_table[0].mrc.buf
++		= vzalloc(NETVSC_RECVSLOT_MAX * sizeof(struct recv_comp_data));
+ 
+ 	init_waitqueue_head(&net_device->wait_drain);
+ 	net_device->destroy = false;
+@@ -85,7 +85,7 @@ static void free_netvsc_device(struct netvsc_device *nvdev)
+ 	int i;
+ 
+ 	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+-		vfree(nvdev->mrc[i].buf);
++		vfree(nvdev->chan_table[i].mrc.buf);
+ 
+ 	kfree(nvdev);
+ }
+@@ -632,7 +632,9 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+ 
+ 	num_outstanding_sends =
+ 		atomic_dec_return(&net_device->num_outstanding_sends);
+-	queue_sends = atomic_dec_return(&net_device->queue_sends[q_idx]);
++
++	queue_sends =
++		atomic_dec_return(&net_device->chan_table[q_idx].queue_sends);
+ 
+ 	if (net_device->destroy && num_outstanding_sends == 0)
+ 		wake_up(&net_device->wait_drain);
+@@ -757,9 +759,11 @@ static inline int netvsc_send_pkt(
+ 	struct sk_buff *skb)
+ {
+ 	struct nvsp_message nvmsg;
+-	u16 q_idx = packet->q_idx;
+-	struct vmbus_channel *out_channel = net_device->chn_table[q_idx];
++	struct netvsc_channel *nvchan
++		= &net_device->chan_table[packet->q_idx];
++	struct vmbus_channel *out_channel = nvchan->channel;
+ 	struct net_device *ndev = hv_get_drvdata(device);
++	struct netdev_queue *txq = netdev_get_tx_queue(ndev, packet->q_idx);
+ 	u64 req_id;
+ 	int ret;
+ 	struct hv_page_buffer *pgbuf;
+@@ -820,22 +824,18 @@ static inline int netvsc_send_pkt(
+ 
+ 	if (ret == 0) {
+ 		atomic_inc(&net_device->num_outstanding_sends);
+-		atomic_inc(&net_device->queue_sends[q_idx]);
++		atomic_inc_return(&nvchan->queue_sends);
+ 
+ 		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
+-			netif_tx_stop_queue(netdev_get_tx_queue(ndev, q_idx));
++			netif_tx_stop_queue(txq);
+ 
+-			if (atomic_read(&net_device->
+-				queue_sends[q_idx]) < 1)
+-				netif_tx_wake_queue(netdev_get_tx_queue(
+-						    ndev, q_idx));
++			if (atomic_read(&nvchan->queue_sends) < 1)
++				netif_tx_wake_queue(txq);
+ 		}
+ 	} else if (ret == -EAGAIN) {
+-		netif_tx_stop_queue(netdev_get_tx_queue(
+-				    ndev, q_idx));
+-		if (atomic_read(&net_device->queue_sends[q_idx]) < 1) {
+-			netif_tx_wake_queue(netdev_get_tx_queue(
+-					    ndev, q_idx));
++		netif_tx_stop_queue(txq);
++		if (atomic_read(&nvchan->queue_sends) < 1) {
++			netif_tx_wake_queue(txq);
+ 			ret = -ENOSPC;
+ 		}
+ 	} else {
+@@ -866,8 +866,7 @@ int netvsc_send(struct hv_device *device,
+ {
+ 	struct netvsc_device *net_device;
+ 	int ret = 0;
+-	struct vmbus_channel *out_channel;
+-	u16 q_idx = packet->q_idx;
++	struct netvsc_channel *nvchan;
+ 	u32 pktlen = packet->total_data_buflen, msd_len = 0;
+ 	unsigned int section_index = NETVSC_INVALID_INDEX;
+ 	struct multi_send_data *msdp;
+@@ -887,8 +886,7 @@ int netvsc_send(struct hv_device *device,
+ 	if (!net_device->send_section_map)
+ 		return -EAGAIN;
+ 
+-	out_channel = net_device->chn_table[q_idx];
+-
++	nvchan = &net_device->chan_table[packet->q_idx];
+ 	packet->send_buf_index = NETVSC_INVALID_INDEX;
+ 	packet->cp_partial = false;
+ 
+@@ -900,9 +898,8 @@ int netvsc_send(struct hv_device *device,
+ 		goto send_now;
+ 	}
+ 
+-	msdp = &net_device->msd[q_idx];
+-
+ 	/* batch packets in send buffer if possible */
++	msdp = &nvchan->msd;
+ 	if (msdp->pkt)
+ 		msd_len = msdp->pkt->total_data_buflen;
+ 
+@@ -1003,8 +1000,9 @@ static int netvsc_send_recv_completion(struct vmbus_channel *channel,
+ static inline void count_recv_comp_slot(struct netvsc_device *nvdev, u16 q_idx,
+ 					u32 *filled, u32 *avail)
+ {
+-	u32 first = nvdev->mrc[q_idx].first;
+-	u32 next = nvdev->mrc[q_idx].next;
++	struct multi_recv_comp *mrc = &nvdev->chan_table[q_idx].mrc;
++	u32 first = mrc->first;
++	u32 next = mrc->next;
+ 
+ 	*filled = (first > next) ? NETVSC_RECVSLOT_MAX - first + next :
+ 		  next - first;
+@@ -1016,26 +1014,26 @@ static inline void count_recv_comp_slot(struct netvsc_device *nvdev, u16 q_idx,
+ static inline struct recv_comp_data *read_recv_comp_slot(struct netvsc_device
+ 							 *nvdev, u16 q_idx)
+ {
++	struct multi_recv_comp *mrc = &nvdev->chan_table[q_idx].mrc;
+ 	u32 filled, avail;
+ 
+-	if (!nvdev->mrc[q_idx].buf)
++	if (unlikely(!mrc->buf))
+ 		return NULL;
+ 
+ 	count_recv_comp_slot(nvdev, q_idx, &filled, &avail);
+ 	if (!filled)
+ 		return NULL;
+ 
+-	return nvdev->mrc[q_idx].buf + nvdev->mrc[q_idx].first *
+-	       sizeof(struct recv_comp_data);
++	return mrc->buf + mrc->first * sizeof(struct recv_comp_data);
+ }
+ 
+ /* Put the first filled slot back to available pool */
+ static inline void put_recv_comp_slot(struct netvsc_device *nvdev, u16 q_idx)
+ {
++	struct multi_recv_comp *mrc = &nvdev->chan_table[q_idx].mrc;
+ 	int num_recv;
+ 
+-	nvdev->mrc[q_idx].first = (nvdev->mrc[q_idx].first + 1) %
+-				  NETVSC_RECVSLOT_MAX;
++	mrc->first = (mrc->first + 1) % NETVSC_RECVSLOT_MAX;
+ 
+ 	num_recv = atomic_dec_return(&nvdev->num_outstanding_recvs);
+ 
+@@ -1070,13 +1068,14 @@ static void netvsc_chk_recv_comp(struct netvsc_device *nvdev,
+ static inline struct recv_comp_data *get_recv_comp_slot(
+ 	struct netvsc_device *nvdev, struct vmbus_channel *channel, u16 q_idx)
+ {
++	struct multi_recv_comp *mrc = &nvdev->chan_table[q_idx].mrc;
+ 	u32 filled, avail, next;
+ 	struct recv_comp_data *rcd;
+ 
+-	if (!nvdev->recv_section)
++	if (unlikely(!nvdev->recv_section))
+ 		return NULL;
+ 
+-	if (!nvdev->mrc[q_idx].buf)
++	if (unlikely(!mrc->buf))
+ 		return NULL;
+ 
+ 	if (atomic_read(&nvdev->num_outstanding_recvs) >
+@@ -1087,9 +1086,9 @@ static inline struct recv_comp_data *get_recv_comp_slot(
+ 	if (!avail)
+ 		return NULL;
+ 
+-	next = nvdev->mrc[q_idx].next;
+-	rcd = nvdev->mrc[q_idx].buf + next * sizeof(struct recv_comp_data);
+-	nvdev->mrc[q_idx].next = (next + 1) % NETVSC_RECVSLOT_MAX;
++	next = mrc->next;
++	rcd = mrc->buf + next * sizeof(struct recv_comp_data);
++	mrc->next = (next + 1) % NETVSC_RECVSLOT_MAX;
+ 
+ 	atomic_inc(&nvdev->num_outstanding_recvs);
+ 
+@@ -1159,7 +1158,7 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ 					      channel);
+ 	}
+ 
+-	if (!net_device->mrc[q_idx].buf) {
++	if (!net_device->chan_table[q_idx].mrc.buf) {
+ 		ret = netvsc_send_recv_completion(channel,
+ 						  vmxferpage_packet->d.trans_id,
+ 						  status);
+@@ -1333,7 +1332,7 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
+ 	 * opened.
+ 	 */
+ 	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+-		net_device->chn_table[i] = device->channel;
++		net_device->chan_table[i].channel = device->channel;
+ 
+ 	/* Writing nvdev pointer unlocks netvsc_send(), make sure chn_table is
+ 	 * populated.
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index fe0df72532a3..72b0c1f7496e 100644
+index f96b44eee270..da5863641703 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -695,7 +695,7 @@ int netvsc_recv_callback(struct net_device *net,
- 	 * is done.
- 	 * TODO - use NAPI?
- 	 */
--	netif_rx(skb);
-+	netif_receive_skb(skb);
- 	rcu_read_unlock();
+@@ -135,7 +135,7 @@ static int netvsc_close(struct net_device *net)
+ 	while (true) {
+ 		aread = 0;
+ 		for (i = 0; i < nvdev->num_chn; i++) {
+-			chn = nvdev->chn_table[i];
++			chn = nvdev->chan_table[i].channel;
+ 			if (!chn)
+ 				continue;
  
- 	return 0;
+@@ -225,7 +225,7 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 		q_idx = new_idx;
+ 	}
+ 
+-	if (unlikely(!nvsc_dev->chn_table[q_idx]))
++	if (unlikely(!nvsc_dev->chan_table[q_idx].channel))
+ 		q_idx = 0;
+ 
+ 	return q_idx;
+@@ -545,7 +545,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	++net_device_ctx->eth_stats.tx_no_memory;
+ 	goto drop;
+ }
+-
+ /*
+  * netvsc_linkstatus_callback - Link up/down notification
+  */
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index fc98d2a16ddd..0df02c9808e8 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1012,15 +1012,15 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	if (chn_index >= nvscdev->num_chn)
+ 		return;
+ 
+-	nvscdev->mrc[chn_index].buf = vzalloc(NETVSC_RECVSLOT_MAX *
+-					      sizeof(struct recv_comp_data));
++	nvscdev->chan_table[chn_index].mrc.buf
++		= vzalloc(NETVSC_RECVSLOT_MAX * sizeof(struct recv_comp_data));
+ 
+ 	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
+ 			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
+ 			 netvsc_channel_cb, new_sc);
+ 
+ 	if (ret == 0)
+-		nvscdev->chn_table[chn_index] = new_sc;
++		nvscdev->chan_table[chn_index].channel = new_sc;
+ 
+ 	spin_lock_irqsave(&nvscdev->sc_lock, flags);
+ 	nvscdev->num_sc_offered--;
 -- 
 2.11.0
