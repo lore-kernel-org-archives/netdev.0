@@ -1,67 +1,206 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] uapi: fix signess in ethtool_validate_speed()
-Date: Tue, 24 Jan 2017 16:51:58 +0200
-Message-ID: <20170124165037-mutt-send-email-mst@kernel.org>
-References: <1484918453-5849-1-git-send-email-volodymyr.bendiuga@gmail.com>
- <20170120183606-mutt-send-email-mst@kernel.org>
- <CABHmqqAaram+jGGfAM4qGRSuucxZag-pRoc2aBqgQsnWVzNRUQ@mail.gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Tue, 24 Jan 2017 16:00:05 +0100
+Message-ID: <20170124150004.GM6867@dhcp22.suse.cz>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
+ <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
+ <20170112173745.GC31509@dhcp22.suse.cz>
+ <7c109e9e-e28b-3ddb-42b6-902f46bf0572@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, nikolay@cumulusnetworks.com,
-        netdev@vger.kernel.org,
-        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>,
-        Jonas Johansson <jonas.johansson@westermo.se>
-To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49076 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750897AbdAXOwB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 09:52:01 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook@chromium.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        David Rientjes <rientjes@google.com>,
+        Mel Gorman <mgorman@suse.de>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Linux-MM <linux-mm@kvack.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Anton Vorontsov <anton@enomsg.org>,
+        Colin Cross <ccross@android.com>,
+        Tony Luck <tony.luck@intel.com>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        Ben Skeggs <bskeggs@redhat.com>,
+        Kent Overstreet <kent.overstreet@gmail.com>,
+        Santosh Raspatur <santosh@chelsio.com>,
+        Hariprasad S <hariprasad@chelsio.com>,
+        Tariq Toukan <tariqt@mell
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CABHmqqAaram+jGGfAM4qGRSuucxZag-pRoc2aBqgQsnWVzNRUQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <7c109e9e-e28b-3ddb-42b6-902f46bf0572@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 03:45:25PM +0100, Volodymyr Bendiuga wrote:
-> On Fri, Jan 20, 2017 at 5:36 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+On Fri 20-01-17 14:41:37, Vlastimil Babka wrote:
+> On 01/12/2017 06:37 PM, Michal Hocko wrote:
+> > On Thu 12-01-17 09:26:09, Kees Cook wrote:
+> >> On Thu, Jan 12, 2017 at 7:37 AM, Michal Hocko <mhocko@kernel.org> wrote:
+> > [...]
+> >>> diff --git a/arch/s390/kvm/kvm-s390.c b/arch/s390/kvm/kvm-s390.c
+> >>> index 4f74511015b8..e6bbb33d2956 100644
+> >>> --- a/arch/s390/kvm/kvm-s390.c
+> >>> +++ b/arch/s390/kvm/kvm-s390.c
+> >>> @@ -1126,10 +1126,7 @@ static long kvm_s390_get_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
+> >>>         if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
+> >>>                 return -EINVAL;
+> >>>
+> >>> -       keys = kmalloc_array(args->count, sizeof(uint8_t),
+> >>> -                            GFP_KERNEL | __GFP_NOWARN);
+> >>> -       if (!keys)
+> >>> -               keys = vmalloc(sizeof(uint8_t) * args->count);
+> >>> +       keys = kvmalloc(args->count * sizeof(uint8_t), GFP_KERNEL);
+> >>
+> >> Before doing this conversion, can we add a kvmalloc_array() API? This
+> >> conversion could allow for the reintroduction of integer overflow
+> >> flaws. (This particular situation isn't at risk since ->count is
+> >> checked, but I'd prefer we not create a risky set of examples for
+> >> using kvmalloc.)
+> > 
+> > Well, I am not opposed to kvmalloc_array but I would argue that this
+> > conversion cannot introduce new overflow issues. The code would have
+> > to be broken already because even though kmalloc_array checks for the
+> > overflow but vmalloc fallback doesn't...
 > 
->     On Fri, Jan 20, 2017 at 02:20:53PM +0100, Volodymyr Bendiuga wrote:
->     > From: Jonas Johansson <jonas.johansson@westermo.se>
->     >
->     > There is a comparison of speed  variable which
->     > is unsigned, and SPEED_UNKNOWN which is signed.
+> Yeah I agree, but if some of the places were really wrong, after the
+> conversion we won't see them anymore.
 > 
->     So?
->    
->     >
->     > Signed-off-by: Jonas Johansson <jonas.johansson@westermo.se>
->     > Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
->     > ---
->     >  include/uapi/linux/ethtool.h | 2 +-
->     >  1 file changed, 1 insertion(+), 1 deletion(-)
->     >
->     > diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
->     > index f0db778..1ca4a77 100644
->     > --- a/include/uapi/linux/ethtool.h
->     > +++ b/include/uapi/linux/ethtool.h
->     > @@ -1500,7 +1500,7 @@ enum ethtool_link_mode_bit_indices {
->     >
->     >  #define SPEED_UNKNOWN                -1
->     >
->     > -static inline int ethtool_validate_speed(__u32 speed)
->     > +static inline int ethtool_validate_speed(__s32 speed)
->     >  {
->     >       return speed <= INT_MAX || speed == SPEED_UNKNOWN;
->     >  }
+> > If there is a general interest for this API I can add it.
 > 
->     Then comparison to INT_MAX does not make sense.
-> 
-> Why doesn't it make sense?
-> 
+> I think it would be better, yes.
 
-A signed integer is always <= INT_MAX.
-
-
+OK, fair enough. I will fold the following into the original patch. I
+was little bit reluctant to create kvcalloc so I've made the original
+callers more talkative and added | __GFP_ZERO. To be honest I do not
+really like how kcalloc...
+---
+diff --git a/arch/s390/kvm/kvm-s390.c b/arch/s390/kvm/kvm-s390.c
+index e6bbb33d2956..aa558dce6bb4 100644
+--- a/arch/s390/kvm/kvm-s390.c
++++ b/arch/s390/kvm/kvm-s390.c
+@@ -1126,7 +1126,7 @@ static long kvm_s390_get_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
+ 	if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
+ 		return -EINVAL;
+ 
+-	keys = kvmalloc(args->count * sizeof(uint8_t), GFP_KERNEL);
++	keys = kvmalloc_array(args->count, sizeof(uint8_t), GFP_KERNEL);
+ 	if (!keys)
+ 		return -ENOMEM;
+ 
+@@ -1168,7 +1168,7 @@ static long kvm_s390_set_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
+ 	if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
+ 		return -EINVAL;
+ 
+-	keys = kvmalloc(sizeof(uint8_t) * args->count, GFP_KERNEL);
++	keys = kvmalloc_array(args->count, sizeof(uint8_t), GFP_KERNEL);
+ 	if (!keys)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 82354fd0a87e..6583d4601480 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -115,7 +115,7 @@ static int mlx4_buddy_init(struct mlx4_buddy *buddy, int max_order)
+ 
+ 	for (i = 0; i <= buddy->max_order; ++i) {
+ 		s = BITS_TO_LONGS(1 << (buddy->max_order - i));
+-		buddy->bits[i] = kvzalloc(s * sizeof(long), GFP_KERNEL);
++		buddy->bits[i] = kvmalloc_array(s, sizeof(long), GFP_KERNEL | __GFP_ZERO);
+ 		if (!buddy->bits[i])
+ 			goto err_out_free;
+ 	}
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 55fd570c3e1e..22c6e81d0c16 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -498,6 +498,14 @@ static inline void *kvzalloc(size_t size, gfp_t flags)
+ 	return kvmalloc(size, flags | __GFP_ZERO);
+ }
+ 
++static inline void *kvmalloc_array(size_t n, size_t size, gfp_t flags)
++{
++	if (size != 0 && n > SIZE_MAX / size)
++		return NULL;
++
++	return kvmalloc(n * size, flags);
++}
++
+ extern void kvfree(const void *addr);
+ 
+ static inline atomic_t *compound_mapcount_ptr(struct page *page)
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 4ca30a951bbc..58ec07946fe6 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -320,7 +320,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
+ 		goto free_htab;
+ 
+ 	err = -ENOMEM;
+-	htab->buckets = kvmalloc(htab->n_buckets * sizeof(struct bucket), GFP_USER);
++	htab->buckets = kvmalloc_array(htab->n_buckets, sizeof(struct bucket), GFP_USER);
+ 	if (!htab->buckets)
+ 		goto free_htab;
+ 
+diff --git a/lib/iov_iter.c b/lib/iov_iter.c
+index 45c17b5562b5..8f9caf095172 100644
+--- a/lib/iov_iter.c
++++ b/lib/iov_iter.c
+@@ -957,7 +957,7 @@ EXPORT_SYMBOL(iov_iter_get_pages);
+ 
+ static struct page **get_pages_array(size_t n)
+ {
+-	return kvmalloc(n * sizeof(struct page *), GFP_KERNEL);
++	return kvmalloc_array(n, sizeof(struct page *), GFP_KERNEL);
+ }
+ 
+ static ssize_t pipe_get_pages_alloc(struct iov_iter *i,
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index a46a9fd8b540..0c4848bd86c4 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -687,7 +687,7 @@ int inet_ehash_locks_alloc(struct inet_hashinfo *hashinfo)
+ 		/* no more locks than number of hash buckets */
+ 		nblocks = min(nblocks, hashinfo->ehash_mask + 1);
+ 
+-		hashinfo->ehash_locks = kvmalloc(nblocks * locksz, GFP_KERNEL);
++		hashinfo->ehash_locks = kvmalloc_array(nblocks, locksz, GFP_KERNEL);
+ 		if (!hashinfo->ehash_locks)
+ 			return -ENOMEM;
+ 
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index cdc55d5ee4ad..eca16612b1ae 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -712,10 +712,7 @@ EXPORT_SYMBOL(xt_check_entry_offsets);
+  */
+ unsigned int *xt_alloc_entry_offsets(unsigned int size)
+ {
+-	if (size < (SIZE_MAX / sizeof(unsigned int)))
+-		return kvzalloc(size * sizeof(unsigned int), GFP_KERNEL);
+-
+-	return NULL;
++	return kvmalloc_array(size * sizeof(unsigned int), GFP_KERNEL | __GFP_ZERO);
+ 
+ }
+ EXPORT_SYMBOL(xt_alloc_entry_offsets);
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index 30d6a39fd2c8..47cbfae44898 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -431,7 +431,7 @@ static int choke_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (mask != q->tab_mask) {
+ 		struct sk_buff **ntab;
+ 
+-		ntab = kvzalloc((mask + 1) * sizeof(struct sk_buff *), GFP_KERNEL);
++		ntab = kvmalloc_array((mask + 1), sizeof(struct sk_buff *), GFP_KERNEL | __GFP_ZERO);
+ 		if (!ntab)
+ 			return -ENOMEM;
+ 
 -- 
-MST
+Michal Hocko
+SUSE Labs
