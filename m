@@ -1,39 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/sched: matchall: Fix configuration race
-Date: Tue, 24 Jan 2017 13:42:04 -0500 (EST)
-Message-ID: <20170124.134204.1815559887565233291.davem@davemloft.net>
-References: <1485161667-13929-1-git-send-email-yotamg@mellanox.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
+Date: Tue, 24 Jan 2017 19:43:45 +0100
+Message-ID: <20170124184345.GF21921@1wt.eu>
+References: <20170123185922.48046-1-tracywwnj@gmail.com>
+ <20170123185922.48046-4-tracywwnj@gmail.com>
+ <20170124073043.GA21590@1wt.eu>
+ <CAK6E8=eR5N-AV9sDJGwB-VKTojqSBRnPF6e7cK4jeavTzP97Hw@mail.gmail.com>
+ <1485279727.16328.303.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mlxsw@mellanox.com, jiri@mellanox.com, eladr@mellanox.com,
-        daniel@iogearbox.net, jhs@mojatatu.com, netdev@vger.kernel.org
-To: yotamg@mellanox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Yuchung Cheng <ycheng@google.com>, Wei Wang <tracywwnj@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Wei Wang <weiwan@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54464 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbdAXSmF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 13:42:05 -0500
-In-Reply-To: <1485161667-13929-1-git-send-email-yotamg@mellanox.com>
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:65023 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751045AbdAXSnw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 13:43:52 -0500
+Content-Disposition: inline
+In-Reply-To: <1485279727.16328.303.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
-Date: Mon, 23 Jan 2017 10:54:27 +0200
-
-> In the current version, the matchall internal state is split into two
-> structs: cls_matchall_head and cls_matchall_filter. This makes little
-> sense, as matchall instance supports only one filter, and there is no
-> situation where one exists and the other does not. In addition, that led
-> to some races when filter was deleted while packet was processed.
+On Tue, Jan 24, 2017 at 09:42:07AM -0800, Eric Dumazet wrote:
+> On Tue, 2017-01-24 at 09:26 -0800, Yuchung Cheng wrote:
 > 
-> Unify that two structs into one, thus simplifying the process of matchall
-> creation and deletion. As a result, the new, delete and get callbacks have
-> a dummy implementation where all the work is done in destroy and change
-> callbacks, as was done in cls_cgroup.
+> > >
+> > > Do you think there's a compelling reason for adding a new option or
+> > > are you interested in a small patch to perform the change above ?
+> > I like the proposal especially other stack also uses TCP_FASTOPEN
+> > https://msdn.microsoft.com/en-us/library/windows/desktop/ms738596(v=vs.85).aspx
 > 
-> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> 
+> Problem is that might break existing applications that were using
+> TCP_FASTOPEN before a connect() (it was a NOP until now)
+> 
+> I prefer we use a separate new option to be 100% safe, not adding
+> regressions.
+> 
+> Only new applications, tested, will use this new feature at their risk.
 
-This doesn't apply cleanly to the net tree, please respin.
+That's indeed a good point. I Yuchung's comment above made me wonder
+about application's portability but very few OSes will use this and in
+the end it might be that portable applications will just add :
+
+   #define TCP_FASTOPEN_CONNECT TCP_FASTOPEN
+
+For other OSes and use TCP_FASTOPEN_CONNECT only for the connect() case.
+
+Willy
