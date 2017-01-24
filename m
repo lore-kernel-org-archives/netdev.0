@@ -1,85 +1,215 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 09/18] netvsc: remove unused variables
-Date: Tue, 24 Jan 2017 13:06:06 -0800
-Message-ID: <20170124210615.18628-10-sthemmin@microsoft.com>
+Subject: [PATCH 01/18] netvsc: remove no longer needed receive staging buffers
+Date: Tue, 24 Jan 2017 13:05:58 -0800
+Message-ID: <20170124210615.18628-2-sthemmin@microsoft.com>
 References: <20170124210615.18628-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33502 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750830AbdAXVG7 (ORCPT
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:33547 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750782AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pf0-f172.google.com with SMTP id y143so52570302pfb.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:26 -0800 (PST)
+Received: by mail-pg0-f50.google.com with SMTP id 204so57910011pge.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:19 -0800 (PST)
 In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes set but never used warnings
+The ring buffer mapping now handles the wraparound case
+inside get_next_pkt_raw. Therefore it is not necessary to have an
+additional special receive staging buffer.
+
+See commit 1562edaed8c164ca5199 ("Drivers: hv: ring_buffer: count on
+wrap around mappings")
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c   | 4 ----
- drivers/net/hyperv/rndis_filter.c | 3 ---
- 2 files changed, 7 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |  5 ---
+ drivers/net/hyperv/netvsc.c       | 83 ++++++---------------------------------
+ drivers/net/hyperv/rndis_filter.c | 11 ------
+ 3 files changed, 11 insertions(+), 88 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 86feab3f5443..f96b44eee270 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1390,7 +1390,6 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- static int netvsc_unregister_vf(struct net_device *vf_netdev)
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 3958adade7eb..cce70ceba6d5 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -748,11 +748,6 @@ struct netvsc_device {
+ 
+ 	int ring_size;
+ 
+-	/* The primary channel callback buffer */
+-	unsigned char *cb_buffer;
+-	/* The sub channel callback buffer */
+-	unsigned char *sub_cb_buf;
+-
+ 	struct multi_send_data msd[VRSS_CHANNEL_MAX];
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 5a1cc089acb7..5e90c7fb1bd2 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -67,12 +67,6 @@ static struct netvsc_device *alloc_net_device(void)
+ 	if (!net_device)
+ 		return NULL;
+ 
+-	net_device->cb_buffer = kzalloc(NETVSC_PACKET_SIZE, GFP_KERNEL);
+-	if (!net_device->cb_buffer) {
+-		kfree(net_device);
+-		return NULL;
+-	}
+-
+ 	net_device->mrc[0].buf = vzalloc(NETVSC_RECVSLOT_MAX *
+ 					 sizeof(struct recv_comp_data));
+ 
+@@ -93,7 +87,6 @@ static void free_netvsc_device(struct netvsc_device *nvdev)
+ 	for (i = 0; i < VRSS_CHANNEL_MAX; i++)
+ 		vfree(nvdev->mrc[i].buf);
+ 
+-	kfree(nvdev->cb_buffer);
+ 	kfree(nvdev);
+ }
+ 
+@@ -584,7 +577,6 @@ void netvsc_device_remove(struct hv_device *device)
+ 	vmbus_close(device->channel);
+ 
+ 	/* Release all resources */
+-	vfree(net_device->sub_cb_buf);
+ 	free_netvsc_device(net_device);
+ }
+ 
+@@ -1271,16 +1263,11 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
+ 
+ void netvsc_channel_cb(void *context)
  {
+-	int ret;
+-	struct vmbus_channel *channel = (struct vmbus_channel *)context;
++	struct vmbus_channel *channel = context;
+ 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
+ 	struct hv_device *device;
+ 	struct netvsc_device *net_device;
+-	u32 bytes_recvd;
+-	u64 request_id;
+ 	struct vmpacket_descriptor *desc;
+-	unsigned char *buffer;
+-	int bufferlen = NETVSC_PACKET_SIZE;
  	struct net_device *ndev;
--	struct netvsc_device *netvsc_dev;
- 	struct net_device_context *net_device_ctx;
+ 	bool need_to_commit = false;
  
- 	ndev = get_netvsc_byref(vf_netdev);
-@@ -1398,7 +1397,6 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
- 		return NOTIFY_DONE;
+@@ -1292,65 +1279,19 @@ void netvsc_channel_cb(void *context)
+ 	net_device = get_inbound_net_device(device);
+ 	if (!net_device)
+ 		return;
++
+ 	ndev = hv_get_drvdata(device);
+-	buffer = get_per_channel_state(channel);
+-
+-	do {
+-		desc = get_next_pkt_raw(channel);
+-		if (desc != NULL) {
+-			netvsc_process_raw_pkt(device,
+-					       channel,
+-					       net_device,
+-					       ndev,
+-					       desc->trans_id,
+-					       desc);
+-
+-			put_pkt_raw(channel, desc);
+-			need_to_commit = true;
+-			continue;
+-		}
+-		if (need_to_commit) {
+-			need_to_commit = false;
+-			commit_rd_index(channel);
+-		}
  
- 	net_device_ctx = netdev_priv(ndev);
--	netvsc_dev = net_device_ctx->nvdev;
+-		ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
+-					   &bytes_recvd, &request_id);
+-		if (ret == 0) {
+-			if (bytes_recvd > 0) {
+-				desc = (struct vmpacket_descriptor *)buffer;
+-				netvsc_process_raw_pkt(device,
+-						       channel,
+-						       net_device,
+-						       ndev,
+-						       request_id,
+-						       desc);
+-			} else {
+-				/*
+-				 * We are done for this pass.
+-				 */
+-				break;
+-			}
+-
+-		} else if (ret == -ENOBUFS) {
+-			if (bufferlen > NETVSC_PACKET_SIZE)
+-				kfree(buffer);
+-			/* Handle large packet */
+-			buffer = kmalloc(bytes_recvd, GFP_ATOMIC);
+-			if (buffer == NULL) {
+-				/* Try again next time around */
+-				netdev_err(ndev,
+-					   "unable to allocate buffer of size "
+-					   "(%d)!!\n", bytes_recvd);
+-				break;
+-			}
+-
+-			bufferlen = bytes_recvd;
+-		}
+-	} while (1);
++	while ((desc = get_next_pkt_raw(channel)) != NULL) {
++		netvsc_process_raw_pkt(device, channel, net_device,
++				       ndev, desc->trans_id, desc);
  
- 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+-	if (bufferlen > NETVSC_PACKET_SIZE)
+-		kfree(buffer);
++		put_pkt_raw(channel, desc);
++		need_to_commit = true;
++	}
++
++	if (need_to_commit)
++		commit_rd_index(channel);
  
-@@ -1507,7 +1505,6 @@ static int netvsc_remove(struct hv_device *dev)
- {
- 	struct net_device *net;
- 	struct net_device_context *ndev_ctx;
--	struct netvsc_device *net_device;
+ 	netvsc_chk_recv_comp(net_device, channel, q_idx);
+ }
+@@ -1374,8 +1315,6 @@ int netvsc_device_add(struct hv_device *device, void *additional_info)
  
- 	net = hv_get_drvdata(dev);
+ 	net_device->ring_size = ring_size;
  
-@@ -1517,7 +1514,6 @@ static int netvsc_remove(struct hv_device *dev)
- 	}
- 
- 	ndev_ctx = netdev_priv(net);
--	net_device = ndev_ctx->nvdev;
- 
- 	/* Avoid racing with netvsc_change_mtu()/netvsc_set_channels()
- 	 * removing the device.
+-	set_per_channel_state(device->channel, net_device->cb_buffer);
+-
+ 	/* Open the channel */
+ 	ret = vmbus_open(device->channel, ring_size * PAGE_SIZE,
+ 			 ring_size * PAGE_SIZE, NULL, 0,
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 8d2b078403de..fc98d2a16ddd 100644
+index 8d90904e0e49..113c7f4d1590 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -845,7 +845,6 @@ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
- 	struct rndis_request *request;
- 	struct rndis_set_request *set;
- 	struct rndis_set_complete *set_complete;
--	u32 status;
- 	int ret;
+@@ -948,9 +948,6 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	if (chn_index >= nvscdev->num_chn)
+ 		return;
  
- 	request = get_rndis_request(dev, RNDIS_MSG_SET,
-@@ -872,8 +871,6 @@ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
- 	wait_for_completion(&request->wait_event);
- 
- 	set_complete = &request->response_msg.msg.set_complete;
--	status = set_complete->status;
+-	set_per_channel_state(new_sc, nvscdev->sub_cb_buf + (chn_index - 1) *
+-			      NETVSC_PACKET_SIZE);
 -
- cleanup:
- 	if (request)
- 		put_rndis_request(dev, request);
+ 	nvscdev->mrc[chn_index].buf = vzalloc(NETVSC_RECVSLOT_MAX *
+ 					      sizeof(struct recv_comp_data));
+ 
+@@ -1099,14 +1096,6 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	if (net_device->num_chn == 1)
+ 		goto out;
+ 
+-	net_device->sub_cb_buf = vzalloc((net_device->num_chn - 1) *
+-					 NETVSC_PACKET_SIZE);
+-	if (!net_device->sub_cb_buf) {
+-		net_device->num_chn = 1;
+-		dev_info(&dev->device, "No memory for subchannels.\n");
+-		goto out;
+-	}
+-
+ 	vmbus_set_sc_create_callback(dev->channel, netvsc_sc_open);
+ 
+ 	init_packet = &net_device->channel_init_pkt;
 -- 
 2.11.0
