@@ -1,20 +1,20 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v8 07/13] net: ethernet: aquantia: Vector operations
-Date: Mon, 23 Jan 2017 22:09:14 -0800
-Message-ID: <5a9db829199bf35aa2290c7cd0cde1cb7e39867a.1485237861.git.vomlehn@texas.net>
+Subject: [PATCH v8 06/13] net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
+Date: Mon, 23 Jan 2017 22:09:13 -0800
+Message-ID: <434a7617c3aca68c19302e0f4c7fdf0e608b288b.1485237861.git.vomlehn@texas.net>
 References: <cover.1485237861.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
         Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        "Pavel . Belous" <Pavel.Belous@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44843 "EHLO
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44827 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750789AbdAXGJz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:09:55 -0500
+        by vger.kernel.org with ESMTP id S1750703AbdAXGJy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:09:54 -0500
 In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
 In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
 References: <cover.1485237861.git.vomlehn@texas.net>
@@ -23,26 +23,34 @@ List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add functions to manululate the vector of receive and transmit rings.
+Add Atlantic A0 and B0 specific functions.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
-Signed-off-by: Pavel.Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_vec.c | 392 ++++++++++++++++++++++++
- drivers/net/ethernet/aquantia/atlantic/aq_vec.h |  42 +++
- 2 files changed, 434 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_vec.c
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_vec.h
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  | 905 +++++++++++++++++++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.h  |  34 +
+ .../aquantia/atlantic/hw_atl/hw_atl_a0_internal.h  | 155 ++++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  | 958 +++++++++++++++++++++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.h  |  34 +
+ .../aquantia/atlantic/hw_atl/hw_atl_b0_internal.h  | 207 +++++
+ 6 files changed, 2293 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
 new file mode 100644
-index 0000000..140962f
+index 0000000..1f38805
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-@@ -0,0 +1,392 @@
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+@@ -0,0 +1,905 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -52,395 +60,908 @@ index 0000000..140962f
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_vec.c: Definition of common structure for vector of Rx and Tx rings.
-+ * Definition of functions for Rx and Tx rings. Friendly module for aq_nic.
-+ */
++/* File hw_atl_a0.c: Definition of Atlantic hardware specific functions. */
 +
-+#include "aq_vec.h"
-+#include "aq_nic.h"
-+#include "aq_ring.h"
-+#include "aq_hw.h"
++#include "../aq_hw.h"
++#include "../aq_hw_utils.h"
++#include "../aq_ring.h"
++#include "hw_atl_a0.h"
++#include "hw_atl_utils.h"
++#include "hw_atl_llh.h"
++#include "hw_atl_a0_internal.h"
 +
-+#include <linux/netdevice.h>
-+
-+struct aq_vec_s {
-+	struct aq_obj_s header;
-+	struct aq_hw_ops *aq_hw_ops;
-+	struct aq_hw_s *aq_hw;
-+	struct aq_nic_s *aq_nic;
-+	unsigned int tx_rings;
-+	unsigned int rx_rings;
-+	struct aq_ring_param_s aq_ring_param;
-+	struct napi_struct napi;
-+	struct aq_ring_s ring[AQ_CFG_TCS_MAX][2];
-+};
-+
-+#define AQ_VEC_TX_ID 0
-+#define AQ_VEC_RX_ID 1
-+
-+static int aq_vec_poll(struct napi_struct *napi, int budget)
-+__releases(&self->lock)
-+__acquires(&self->lock)
++static int hw_atl_a0_get_hw_caps(struct aq_hw_s *self,
++				 struct aq_hw_caps_s *aq_hw_caps)
 +{
-+	struct aq_vec_s *self = container_of(napi, struct aq_vec_s, napi);
-+	struct aq_ring_s *ring = NULL;
-+	int work_done = 0;
-+	int err = 0;
-+	unsigned int i = 0U;
-+	unsigned int sw_tail_old = 0U;
-+	bool was_tx_cleaned = false;
-+
-+	if (!self) {
-+		err = -EINVAL;
-+	} else if (spin_trylock(&self->header.lock)) {
-+		for (i = 0U, ring = self->ring[0];
-+			self->tx_rings > i; ++i, ring = self->ring[i]) {
-+			if (self->aq_hw_ops->hw_ring_tx_head_update) {
-+				err = self->aq_hw_ops->hw_ring_tx_head_update(
-+							self->aq_hw,
-+							&ring[AQ_VEC_TX_ID]);
-+				if (err < 0)
-+					goto err_exit;
-+			}
-+
-+			if (ring[AQ_VEC_TX_ID].sw_head !=
-+				ring[AQ_VEC_TX_ID].hw_head) {
-+				err = aq_ring_tx_clean(&ring[AQ_VEC_TX_ID]);
-+				if (err < 0)
-+					goto err_exit;
-+				was_tx_cleaned = true;
-+			}
-+
-+			err = self->aq_hw_ops->hw_ring_rx_receive(self->aq_hw,
-+					    &ring[AQ_VEC_RX_ID]);
-+			if (err < 0)
-+				goto err_exit;
-+
-+			if (ring[AQ_VEC_RX_ID].sw_head !=
-+				ring[AQ_VEC_RX_ID].hw_head) {
-+				err = aq_ring_rx_clean(&ring[AQ_VEC_RX_ID],
-+						       &work_done,
-+						       budget - work_done);
-+				if (err < 0)
-+					goto err_exit;
-+
-+				sw_tail_old = ring[AQ_VEC_RX_ID].sw_tail;
-+
-+				err = aq_ring_rx_fill(&ring[AQ_VEC_RX_ID]);
-+				if (err < 0)
-+					goto err_exit;
-+
-+				err = self->aq_hw_ops->hw_ring_rx_fill(
-+					self->aq_hw,
-+					&ring[AQ_VEC_RX_ID], sw_tail_old);
-+				if (err < 0)
-+					goto err_exit;
-+			}
-+		}
-+
-+		if (was_tx_cleaned)
-+			work_done = budget;
-+
-+		if (work_done < budget) {
-+			napi_complete(napi);
-+			self->aq_hw_ops->hw_irq_enable(self->aq_hw,
-+					1U << self->aq_ring_param.vec_idx);
-+		}
-+
-+err_exit:
-+		spin_unlock(&self->header.lock);
-+	}
-+
-+	return work_done;
++	memcpy(aq_hw_caps, &hw_atl_a0_hw_caps_, sizeof(*aq_hw_caps));
++	return 0;
 +}
 +
-+struct aq_vec_s *aq_vec_alloc(struct aq_nic_s *aq_nic, unsigned int idx,
-+			      struct aq_nic_cfg_s *aq_nic_cfg)
++static struct aq_hw_s *hw_atl_a0_create(struct aq_pci_func_s *aq_pci_func,
++					unsigned int port,
++					struct aq_hw_ops *ops)
 +{
-+	struct aq_vec_s *self = NULL;
-+	struct aq_ring_s *ring = NULL;
-+	unsigned int i = 0U;
-+	int err = 0;
++	struct hw_atl_s *self = NULL;
 +
 +	self = kzalloc(sizeof(*self), GFP_KERNEL);
-+	if (!self) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+
-+	self->aq_nic = aq_nic;
-+	self->aq_ring_param.vec_idx = idx;
-+	self->aq_ring_param.cpu =
-+		idx + aq_nic_cfg->aq_rss.base_cpu_number;
-+
-+	cpumask_set_cpu(self->aq_ring_param.cpu,
-+			&self->aq_ring_param.affinity_mask);
-+
-+	self->tx_rings = 0;
-+	self->rx_rings = 0;
-+
-+	netif_napi_add(aq_nic_get_ndev(aq_nic), &self->napi,
-+		       aq_vec_poll, AQ_CFG_NAPI_WEIGHT);
-+
-+	for (i = 0; i < aq_nic_cfg->tcs; ++i) {
-+		unsigned int idx_ring = AQ_NIC_TCVEC2RING(self->nic,
-+						self->tx_rings,
-+						self->aq_ring_param.vec_idx);
-+
-+		ring = aq_ring_tx_alloc(&self->ring[i][AQ_VEC_TX_ID], aq_nic,
-+					idx_ring, aq_nic_cfg);
-+		if (!ring) {
-+			err = -ENOMEM;
-+			goto err_exit;
-+		}
-+
-+		++self->tx_rings;
-+
-+		aq_nic_set_tx_ring(aq_nic, idx_ring, ring);
-+
-+		ring = aq_ring_rx_alloc(&self->ring[i][AQ_VEC_RX_ID], aq_nic,
-+					idx_ring, aq_nic_cfg);
-+		if (!ring) {
-+			err = -ENOMEM;
-+			goto err_exit;
-+		}
-+
-+		++self->rx_rings;
-+	}
-+
-+err_exit:
-+	if (err < 0) {
-+		aq_vec_free(self);
-+		self = NULL;
-+	}
-+	return self;
-+}
-+
-+int aq_vec_init(struct aq_vec_s *self, struct aq_hw_ops *aq_hw_ops,
-+		struct aq_hw_s *aq_hw)
-+{
-+	struct aq_ring_s *ring = NULL;
-+	unsigned int i = 0U;
-+	int err = 0;
-+
-+	self->aq_hw_ops = aq_hw_ops;
-+	self->aq_hw = aq_hw;
-+
-+	spin_lock_init(&self->header.lock);
-+
-+	for (i = 0U, ring = self->ring[0];
-+		self->tx_rings > i; ++i, ring = self->ring[i]) {
-+		err = aq_ring_init(&ring[AQ_VEC_TX_ID]);
-+		if (err < 0)
-+			goto err_exit;
-+
-+		err = self->aq_hw_ops->hw_ring_tx_init(self->aq_hw,
-+						       &ring[AQ_VEC_TX_ID],
-+						       &self->aq_ring_param);
-+		if (err < 0)
-+			goto err_exit;
-+
-+		err = aq_ring_init(&ring[AQ_VEC_RX_ID]);
-+		if (err < 0)
-+			goto err_exit;
-+
-+		err = self->aq_hw_ops->hw_ring_rx_init(self->aq_hw,
-+						       &ring[AQ_VEC_RX_ID],
-+						       &self->aq_ring_param);
-+		if (err < 0)
-+			goto err_exit;
-+
-+		err = aq_ring_rx_fill(&ring[AQ_VEC_RX_ID]);
-+		if (err < 0)
-+			goto err_exit;
-+
-+		err = self->aq_hw_ops->hw_ring_rx_fill(self->aq_hw,
-+						       &ring[AQ_VEC_RX_ID], 0U);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+err_exit:
-+	return err;
-+}
-+
-+int aq_vec_start(struct aq_vec_s *self)
-+{
-+	struct aq_ring_s *ring = NULL;
-+	unsigned int i = 0U;
-+	int err = 0;
-+
-+	for (i = 0U, ring = self->ring[0];
-+		self->tx_rings > i; ++i, ring = self->ring[i]) {
-+		err = self->aq_hw_ops->hw_ring_tx_start(self->aq_hw,
-+							&ring[AQ_VEC_TX_ID]);
-+		if (err < 0)
-+			goto err_exit;
-+
-+		err = self->aq_hw_ops->hw_ring_rx_start(self->aq_hw,
-+							&ring[AQ_VEC_RX_ID]);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+	napi_enable(&self->napi);
-+
-+err_exit:
-+	return err;
-+}
-+
-+void aq_vec_stop(struct aq_vec_s *self)
-+{
-+	struct aq_ring_s *ring = NULL;
-+	unsigned int i = 0U;
-+
-+	for (i = 0U, ring = self->ring[0];
-+		self->tx_rings > i; ++i, ring = self->ring[i]) {
-+		self->aq_hw_ops->hw_ring_tx_stop(self->aq_hw,
-+						 &ring[AQ_VEC_TX_ID]);
-+
-+		self->aq_hw_ops->hw_ring_rx_stop(self->aq_hw,
-+						 &ring[AQ_VEC_RX_ID]);
-+	}
-+
-+	napi_disable(&self->napi);
-+}
-+
-+void aq_vec_deinit(struct aq_vec_s *self)
-+{
-+	struct aq_ring_s *ring = NULL;
-+	unsigned int i = 0U;
-+
 +	if (!self)
 +		goto err_exit;
 +
-+	for (i = 0U, ring = self->ring[0];
-+		self->tx_rings > i; ++i, ring = self->ring[i]) {
-+		aq_ring_tx_deinit(&ring[AQ_VEC_TX_ID]);
-+		aq_ring_rx_deinit(&ring[AQ_VEC_RX_ID]);
-+	}
-+err_exit:;
++	self->base.aq_pci_func = aq_pci_func;
++
++	self->base.not_ff_addr = 0x10U;
++
++err_exit:
++	return (struct aq_hw_s *)self;
 +}
 +
-+void aq_vec_free(struct aq_vec_s *self)
++static void hw_atl_a0_destroy(struct aq_hw_s *self)
 +{
-+	struct aq_ring_s *ring = NULL;
-+	unsigned int i = 0U;
-+
-+	if (!self)
-+		goto err_exit;
-+
-+	for (i = 0U, ring = self->ring[0];
-+		self->tx_rings > i; ++i, ring = self->ring[i]) {
-+		aq_ring_free(&ring[AQ_VEC_TX_ID]);
-+		aq_ring_free(&ring[AQ_VEC_RX_ID]);
-+	}
-+
-+	netif_napi_del(&self->napi);
-+
 +	kfree(self);
-+
-+err_exit:;
 +}
 +
-+irqreturn_t aq_vec_isr(int irq, void *private)
++static int hw_atl_a0_hw_reset(struct aq_hw_s *self)
 +{
-+	struct aq_vec_s *self = private;
 +	int err = 0;
 +
-+	if (!self) {
-+		err = -EINVAL;
-+		goto err_exit;
-+	}
-+	napi_schedule(&self->napi);
++	glb_glb_reg_res_dis_set(self, 1U);
++	pci_pci_reg_res_dis_set(self, 0U);
++	rx_rx_reg_res_dis_set(self, 0U);
++	tx_tx_reg_res_dis_set(self, 0U);
 +
-+err_exit:
-+	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
-+}
++	HW_ATL_FLUSH();
++	glb_soft_res_set(self, 1);
 +
-+irqreturn_t aq_vec_isr_legacy(int irq, void *private)
-+{
-+	struct aq_vec_s *self = private;
-+	u64 irq_mask = 0U;
-+	irqreturn_t err = 0;
-+
-+	if (!self) {
-+		err = -EINVAL;
-+		goto err_exit;
-+	}
-+	err = self->aq_hw_ops->hw_irq_read(self->aq_hw, &irq_mask);
++	/* check 10 times by 1ms */
++	AQ_HW_WAIT_FOR(glb_soft_res_get(self) == 0, 1000U, 10U);
 +	if (err < 0)
 +		goto err_exit;
 +
-+	if (irq_mask) {
-+		self->aq_hw_ops->hw_irq_disable(self->aq_hw,
-+			      1U << self->aq_ring_param.vec_idx);
-+		napi_schedule(&self->napi);
-+	} else {
-+		self->aq_hw_ops->hw_irq_enable(self->aq_hw, 1U);
-+		err = IRQ_NONE;
-+	}
++	itr_irq_reg_res_dis_set(self, 0U);
++	itr_res_irq_set(self, 1U);
++
++	/* check 10 times by 1ms */
++	AQ_HW_WAIT_FOR(itr_res_irq_get(self) == 0, 1000U, 10U);
++	if (err < 0)
++		goto err_exit;
++
++	hw_atl_utils_mpi_set(self, MPI_RESET, 0x0U);
++
++	err = aq_hw_err_from_flags(self);
 +
 +err_exit:
-+	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
++	return err;
 +}
 +
-+cpumask_t *aq_vec_get_affinity_mask(struct aq_vec_s *self)
++static int hw_atl_a0_hw_qos_set(struct aq_hw_s *self)
 +{
-+	return &self->aq_ring_param.affinity_mask;
++	u32 tc = 0U;
++	u32 buff_size = 0U;
++	unsigned int i_priority = 0U;
++	bool is_rx_flow_control = false;
++
++	/* TPS Descriptor rate init */
++	tps_tx_pkt_shed_desc_rate_curr_time_res_set(self, 0x0U);
++	tps_tx_pkt_shed_desc_rate_lim_set(self, 0xA);
++
++	/* TPS VM init */
++	tps_tx_pkt_shed_desc_vm_arb_mode_set(self, 0U);
++
++	/* TPS TC credits init */
++	tps_tx_pkt_shed_desc_tc_arb_mode_set(self, 0U);
++	tps_tx_pkt_shed_data_arb_mode_set(self, 0U);
++
++	tps_tx_pkt_shed_tc_data_max_credit_set(self, 0xFFF, 0U);
++	tps_tx_pkt_shed_tc_data_weight_set(self, 0x64, 0U);
++	tps_tx_pkt_shed_desc_tc_max_credit_set(self, 0x50, 0U);
++	tps_tx_pkt_shed_desc_tc_weight_set(self, 0x1E, 0U);
++
++	/* Tx buf size */
++	buff_size = HW_ATL_A0_TXBUF_MAX;
++
++	tpb_tx_pkt_buff_size_per_tc_set(self, buff_size, tc);
++	tpb_tx_buff_hi_threshold_per_tc_set(self,
++					    (buff_size * (1024 / 32U) * 66U) /
++					    100U, tc);
++	tpb_tx_buff_lo_threshold_per_tc_set(self,
++					    (buff_size * (1024 / 32U) * 50U) /
++					    100U, tc);
++
++	/* QoS Rx buf size per TC */
++	tc = 0;
++	is_rx_flow_control = (AQ_NIC_FC_RX & self->aq_nic_cfg->flow_control);
++	buff_size = HW_ATL_A0_RXBUF_MAX;
++
++	rpb_rx_pkt_buff_size_per_tc_set(self, buff_size, tc);
++	rpb_rx_buff_hi_threshold_per_tc_set(self,
++					    (buff_size *
++					    (1024U / 32U) * 66U) /
++					    100U, tc);
++	rpb_rx_buff_lo_threshold_per_tc_set(self,
++					    (buff_size *
++					    (1024U / 32U) * 50U) /
++					    100U, tc);
++	rpb_rx_xoff_en_per_tc_set(self, is_rx_flow_control ? 1U : 0U, tc);
++
++	/* QoS 802.1p priority -> TC mapping */
++	for (i_priority = 8U; i_priority--;)
++		rpf_rpb_user_priority_tc_map_set(self, i_priority, 0U);
++
++	return aq_hw_err_from_flags(self);
 +}
 +
-+void aq_vec_add_stats(struct aq_vec_s *self,
-+		      struct aq_ring_stats_rx_s *stats_rx,
-+		      struct aq_ring_stats_tx_s *stats_tx)
++static int hw_atl_a0_hw_rss_hash_set(struct aq_hw_s *self,
++				     struct aq_rss_parameters *rss_params)
 +{
-+	struct aq_ring_s *ring = NULL;
-+	unsigned int r = 0U;
++	struct aq_nic_cfg_s *cfg = NULL;
++	int err = 0;
++	unsigned int i = 0U;
++	unsigned int addr = 0U;
 +
-+	for (r = 0U, ring = self->ring[0];
-+		self->tx_rings > r; ++r, ring = self->ring[r]) {
-+		struct aq_ring_stats_tx_s *tx = &ring[AQ_VEC_TX_ID].stats.tx;
-+		struct aq_ring_stats_rx_s *rx = &ring[AQ_VEC_RX_ID].stats.rx;
++	cfg = self->aq_nic_cfg;
 +
-+		stats_rx->packets += rx->packets;
-+		stats_rx->bytes += rx->bytes;
-+		stats_rx->errors += rx->errors;
-+		stats_rx->jumbo_packets += rx->jumbo_packets;
-+		stats_rx->lro_packets += rx->lro_packets;
-+
-+		stats_tx->packets += tx->packets;
-+		stats_tx->bytes += tx->bytes;
-+		stats_tx->errors += tx->errors;
++	for (i = 10, addr = 0U; i--; ++addr) {
++		u32 key_data = cfg->is_rss ?
++			__swab32(rss_params->hash_secret_key[i]) : 0U;
++		rpf_rss_key_wr_data_set(self, key_data);
++		rpf_rss_key_addr_set(self, addr);
++		rpf_rss_key_wr_en_set(self, 1U);
++		AQ_HW_WAIT_FOR(rpf_rss_key_wr_en_get(self) == 0, 1000U, 10U);
++		if (err < 0)
++			goto err_exit;
 +	}
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
 +}
 +
-+int aq_vec_get_sw_stats(struct aq_vec_s *self, u64 *data, unsigned int *p_count)
++static int hw_atl_a0_hw_rss_set(struct aq_hw_s *self,
++				struct aq_rss_parameters *rss_params)
 +{
-+	unsigned int count = 0U;
-+	struct aq_ring_stats_rx_s stats_rx;
-+	struct aq_ring_stats_tx_s stats_tx;
++	u8 *indirection_table =	rss_params->indirection_table;
++	u32 i = 0U;
++	u32 num_rss_queues = max(1U, self->aq_nic_cfg->num_rss_queues);
++	int err = 0;
++	u16 bitary[(HW_ATL_A0_RSS_REDIRECTION_MAX *
++					HW_ATL_A0_RSS_REDIRECTION_BITS / 16U)];
 +
-+	memset(&stats_rx, 0U, sizeof(struct aq_ring_stats_rx_s));
-+	memset(&stats_tx, 0U, sizeof(struct aq_ring_stats_tx_s));
-+	aq_vec_add_stats(self, &stats_rx, &stats_tx);
++	memset(bitary, 0, sizeof(bitary));
 +
-+	data[count] += stats_rx.packets;
-+	data[++count] += stats_tx.packets;
-+	data[++count] += stats_rx.jumbo_packets;
-+	data[++count] += stats_rx.lro_packets;
-+	data[++count] += stats_rx.errors;
++	for (i = HW_ATL_A0_RSS_REDIRECTION_MAX; i--; ) {
++		(*(u32 *)(bitary + ((i * 3U) / 16U))) |=
++			((indirection_table[i] % num_rss_queues) <<
++			((i * 3U) & 0xFU));
++	}
 +
-+	if (p_count)
-+		*p_count = ++count;
++	for (i = AQ_DIMOF(bitary); i--;) {
++		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
++		rpf_rss_redir_tbl_addr_set(self, i);
++		rpf_rss_redir_wr_en_set(self, 1U);
++		AQ_HW_WAIT_FOR(rpf_rss_redir_wr_en_get(self) == 0, 1000U, 10U);
++		if (err < 0)
++			goto err_exit;
++	}
 +
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_a0_hw_offload_set(struct aq_hw_s *self,
++				    struct aq_nic_cfg_s *aq_nic_cfg)
++{
++	int err = 0;
++
++	/* TX checksums offloads*/
++	tpo_ipv4header_crc_offload_en_set(self, 1);
++	tpo_tcp_udp_crc_offload_en_set(self, 1);
++	if (err < 0)
++		goto err_exit;
++
++	/* RX checksums offloads*/
++	rpo_ipv4header_crc_offload_en_set(self, 1);
++	rpo_tcp_udp_crc_offload_en_set(self, 1);
++	if (err < 0)
++		goto err_exit;
++
++	/* LSO offloads*/
++	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
++	if (err < 0)
++		goto err_exit;
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_a0_hw_init_tx_path(struct aq_hw_s *self)
++{
++	thm_lso_tcp_flag_of_first_pkt_set(self, 0x0FF6U);
++	thm_lso_tcp_flag_of_middle_pkt_set(self, 0x0FF6U);
++	thm_lso_tcp_flag_of_last_pkt_set(self, 0x0F7FU);
++
++	/* Tx interrupts */
++	tdm_tx_desc_wr_wb_irq_en_set(self, 1U);
++
++	/* misc */
++	aq_hw_write_reg(self, 0x00007040U, IS_CHIP_FEATURE(TPO2) ?
++			0x00010000U : 0x00000000U);
++	tdm_tx_dca_en_set(self, 0U);
++	tdm_tx_dca_mode_set(self, 0U);
++
++	tpb_tx_path_scp_ins_en_set(self, 1U);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_init_rx_path(struct aq_hw_s *self)
++{
++	struct aq_nic_cfg_s *cfg = self->aq_nic_cfg;
++	int i;
++
++	/* Rx TC/RSS number config */
++	rpb_rpf_rx_traf_class_mode_set(self, 1U);
++
++	/* Rx flow control */
++	rpb_rx_flow_ctl_mode_set(self, 1U);
++
++	/* RSS Ring selection */
++	reg_rx_flr_rss_control1set(self, cfg->is_rss ?
++					0xB3333333U : 0x00000000U);
++
++	/* Multicast filters */
++	for (i = HW_ATL_A0_MAC_MAX; i--;) {
++		rpfl2_uc_flr_en_set(self, (i == 0U) ? 1U : 0U, i);
++		rpfl2unicast_flr_act_set(self, 1U, i);
++	}
++
++	reg_rx_flr_mcst_flr_msk_set(self, 0x00000000U);
++	reg_rx_flr_mcst_flr_set(self, 0x00010FFFU, 0U);
++
++	/* Vlan filters */
++	rpf_vlan_outer_etht_set(self, 0x88A8U);
++	rpf_vlan_inner_etht_set(self, 0x8100U);
++	rpf_vlan_prom_mode_en_set(self, 1);
++
++	/* Rx Interrupts */
++	rdm_rx_desc_wr_wb_irq_en_set(self, 1U);
++
++	/* misc */
++	rpfl2broadcast_flr_act_set(self, 1U);
++	rpfl2broadcast_count_threshold_set(self, 0xFFFFU & (~0U / 256U));
++
++	rdm_rx_dca_en_set(self, 0U);
++	rdm_rx_dca_mode_set(self, 0U);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_mac_addr_set(struct aq_hw_s *self, u8 *mac_addr)
++{
++	int err = 0;
++	unsigned int h = 0U;
++	unsigned int l = 0U;
++
++	if (!mac_addr) {
++		err = -EINVAL;
++		goto err_exit;
++	}
++	h = (mac_addr[0] << 8) | (mac_addr[1]);
++	l = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
++		(mac_addr[4] << 8) | mac_addr[5];
++
++	rpfl2_uc_flr_en_set(self, 0U, HW_ATL_A0_MAC);
++	rpfl2unicast_dest_addresslsw_set(self, l, HW_ATL_A0_MAC);
++	rpfl2unicast_dest_addressmsw_set(self, h, HW_ATL_A0_MAC);
++	rpfl2_uc_flr_en_set(self, 1U, HW_ATL_A0_MAC);
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_a0_hw_init(struct aq_hw_s *self,
++			     struct aq_nic_cfg_s *aq_nic_cfg,
++			     u8 *mac_addr)
++{
++	static u32 aq_hw_atl_igcr_table_[4][2] = {
++		{ 0x20000000U, 0x20000000U }, /* AQ_IRQ_INVALID */
++		{ 0x20000080U, 0x20000080U }, /* AQ_IRQ_LEGACY */
++		{ 0x20000021U, 0x20000025U }, /* AQ_IRQ_MSI */
++		{ 0x20000022U, 0x20000026U }  /* AQ_IRQ_MSIX */
++	};
++
++	int err = 0;
++
++	self->aq_nic_cfg = aq_nic_cfg;
++
++	hw_atl_utils_hw_chip_features_init(self,
++					   &PHAL_ATLANTIC_A0->chip_features);
++
++	hw_atl_a0_hw_init_tx_path(self);
++	hw_atl_a0_hw_init_rx_path(self);
++
++	hw_atl_a0_hw_mac_addr_set(self, mac_addr);
++
++	hw_atl_utils_mpi_set(self, MPI_INIT, aq_nic_cfg->link_speed_msk);
++
++	reg_tx_dma_debug_ctl_set(self, 0x800000b8U);
++	reg_tx_dma_debug_ctl_set(self, 0x000000b8U);
++
++	hw_atl_a0_hw_qos_set(self);
++	hw_atl_a0_hw_rss_set(self, &aq_nic_cfg->aq_rss);
++	hw_atl_a0_hw_rss_hash_set(self, &aq_nic_cfg->aq_rss);
++
++	err = aq_hw_err_from_flags(self);
++	if (err < 0)
++		goto err_exit;
++
++	/* Interrupts */
++	reg_irq_glb_ctl_set(self,
++			    aq_hw_atl_igcr_table_[aq_nic_cfg->irq_type]
++						 [(aq_nic_cfg->vecs > 1U) ?
++						 1 : 0]);
++
++	itr_irq_auto_masklsw_set(self, aq_nic_cfg->aq_hw_caps->irq_mask);
++
++	/* Interrupts */
++	reg_gen_irq_map_set(self,
++			    ((HW_ATL_A0_ERR_INT << 0x18) | (1U << 0x1F)) |
++			    ((HW_ATL_A0_ERR_INT << 0x10) | (1U << 0x17)) |
++			    ((HW_ATL_A0_ERR_INT << 8) | (1U << 0xF)) |
++			    ((HW_ATL_A0_ERR_INT) | (1U << 0x7)), 0U);
++
++	hw_atl_a0_hw_offload_set(self, aq_nic_cfg);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_a0_hw_ring_tx_start(struct aq_hw_s *self,
++				      struct aq_ring_s *ring)
++{
++	tdm_tx_desc_en_set(self, 1, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_ring_rx_start(struct aq_hw_s *self,
++				      struct aq_ring_s *ring)
++{
++	rdm_rx_desc_en_set(self, 1, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_start(struct aq_hw_s *self)
++{
++	tpb_tx_buff_en_set(self, 1);
++	rpb_rx_buff_en_set(self, 1);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_tx_ring_tail_update(struct aq_hw_s *self,
++					    struct aq_ring_s *ring)
++{
++	reg_tx_dma_desc_tail_ptr_set(self, ring->sw_tail, ring->idx);
 +	return 0;
 +}
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.h b/drivers/net/ethernet/aquantia/atlantic/aq_vec.h
++
++static int hw_atl_a0_hw_ring_tx_xmit(struct aq_hw_s *self,
++				     struct aq_ring_s *ring,
++				     unsigned int frags)
++{
++	struct aq_ring_buff_s *buff = NULL;
++	struct hw_atl_txd_s *txd = NULL;
++	unsigned int buff_pa_len = 0U;
++	unsigned int pkt_len = 0U;
++	unsigned int frag_count = 0U;
++	bool is_gso = false;
++
++	buff = &ring->buff_ring[ring->sw_tail];
++	pkt_len = (buff->is_eop && buff->is_sop) ? buff->len : buff->len_pkt;
++
++	for (frag_count = 0; frag_count < frags; frag_count++) {
++		txd = (struct hw_atl_txd_s *)&ring->dx_ring[ring->sw_tail *
++						HW_ATL_A0_TXD_SIZE];
++		txd->ctl = 0;
++		txd->ctl2 = 0;
++		txd->buf_addr = 0;
++
++		buff = &ring->buff_ring[ring->sw_tail];
++
++		if (buff->is_txc) {
++			txd->ctl |= (buff->len_l3 << 31) |
++				(buff->len_l2 << 24) |
++				HW_ATL_A0_TXD_CTL_CMD_TCP |
++				HW_ATL_A0_TXD_CTL_DESC_TYPE_TXC;
++			txd->ctl2 |= (buff->mss << 16) |
++				(buff->len_l4 << 8) |
++				(buff->len_l3 >> 1);
++
++			pkt_len -= (buff->len_l4 +
++				    buff->len_l3 +
++				    buff->len_l2);
++			is_gso = true;
++		} else {
++			buff_pa_len = buff->len;
++
++			txd->buf_addr = buff->pa;
++			txd->ctl |= (HW_ATL_A0_TXD_CTL_BLEN &
++						((u32)buff_pa_len << 4));
++			txd->ctl |= HW_ATL_A0_TXD_CTL_DESC_TYPE_TXD;
++			/* PAY_LEN */
++			txd->ctl2 |= HW_ATL_A0_TXD_CTL2_LEN & (pkt_len << 14);
++
++			if (is_gso) {
++				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_LSO;
++				txd->ctl2 |= HW_ATL_A0_TXD_CTL2_CTX_EN;
++			}
++
++			/* Tx checksum offloads */
++			if (buff->is_ip_cso)
++				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_IPCSO;
++
++			if (buff->is_udp_cso || buff->is_tcp_cso)
++				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_TUCSO;
++
++			if (unlikely(buff->is_eop)) {
++				txd->ctl |= HW_ATL_A0_TXD_CTL_EOP;
++				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_WB;
++			}
++		}
++
++		ring->sw_tail = aq_ring_next_dx(ring, ring->sw_tail);
++	}
++
++	hw_atl_a0_hw_tx_ring_tail_update(self, ring);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_ring_rx_init(struct aq_hw_s *self,
++				     struct aq_ring_s *aq_ring,
++				     struct aq_ring_param_s *aq_ring_param)
++{
++	u32 dma_desc_addr_lsw = (u32)aq_ring->dx_ring_pa;
++	u32 dma_desc_addr_msw = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
++
++	rdm_rx_desc_en_set(self, false, aq_ring->idx);
++
++	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
++
++	reg_rx_dma_desc_base_addresslswset(self, dma_desc_addr_lsw,
++					   aq_ring->idx);
++
++	reg_rx_dma_desc_base_addressmswset(self,
++					   dma_desc_addr_msw, aq_ring->idx);
++
++	rdm_rx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
++
++	rdm_rx_desc_data_buff_size_set(self,
++				       AQ_CFG_RX_FRAME_MAX / 1024U,
++				       aq_ring->idx);
++
++	rdm_rx_desc_head_buff_size_set(self, 0U, aq_ring->idx);
++	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
++	rpo_rx_desc_vlan_stripping_set(self, 0U, aq_ring->idx);
++
++	/* Rx ring set mode */
++
++	/* Mapping interrupt vector */
++	itr_irq_map_rx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
++	itr_irq_map_en_rx_set(self, true, aq_ring->idx);
++
++	rdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
++	rdm_rx_desc_dca_en_set(self, 0U, aq_ring->idx);
++	rdm_rx_head_dca_en_set(self, 0U, aq_ring->idx);
++	rdm_rx_pld_dca_en_set(self, 0U, aq_ring->idx);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_ring_tx_init(struct aq_hw_s *self,
++				     struct aq_ring_s *aq_ring,
++				     struct aq_ring_param_s *aq_ring_param)
++{
++	u32 dma_desc_lsw_addr = (u32)aq_ring->dx_ring_pa;
++	u32 dma_desc_msw_addr = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
++
++	reg_tx_dma_desc_base_addresslswset(self, dma_desc_lsw_addr,
++					   aq_ring->idx);
++
++	reg_tx_dma_desc_base_addressmswset(self, dma_desc_msw_addr,
++					   aq_ring->idx);
++
++	tdm_tx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
++
++	hw_atl_a0_hw_tx_ring_tail_update(self, aq_ring);
++
++	/* Set Tx threshold */
++	tdm_tx_desc_wr_wb_threshold_set(self, 0U, aq_ring->idx);
++
++	/* Mapping interrupt vector */
++	itr_irq_map_tx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
++	itr_irq_map_en_tx_set(self, true, aq_ring->idx);
++
++	tdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
++	tdm_tx_desc_dca_en_set(self, 0U, aq_ring->idx);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_ring_rx_fill(struct aq_hw_s *self,
++				     struct aq_ring_s *ring,
++				     unsigned int sw_tail_old)
++{
++	for (; sw_tail_old != ring->sw_tail;
++		sw_tail_old = aq_ring_next_dx(ring, sw_tail_old)) {
++		struct hw_atl_rxd_s *rxd =
++			(struct hw_atl_rxd_s *)&ring->dx_ring[sw_tail_old *
++							HW_ATL_A0_RXD_SIZE];
++
++		struct aq_ring_buff_s *buff = &ring->buff_ring[sw_tail_old];
++
++		rxd->buf_addr = buff->pa;
++		rxd->hdr_addr = 0U;
++	}
++
++	reg_rx_dma_desc_tail_ptr_set(self, sw_tail_old, ring->idx);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_ring_tx_head_update(struct aq_hw_s *self,
++					    struct aq_ring_s *ring)
++{
++	int err = 0;
++	unsigned int hw_head_ = tdm_tx_desc_head_ptr_get(self, ring->idx);
++
++	if (aq_utils_obj_test(&self->header.flags, AQ_HW_FLAG_ERR_UNPLUG)) {
++		err = -ENXIO;
++		goto err_exit;
++	}
++	ring->hw_head = hw_head_;
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_a0_hw_ring_rx_receive(struct aq_hw_s *self,
++					struct aq_ring_s *ring)
++{
++	struct device *ndev = aq_nic_get_dev(ring->aq_nic);
++
++	for (; ring->hw_head != ring->sw_tail;
++		ring->hw_head = aq_ring_next_dx(ring, ring->hw_head)) {
++		struct aq_ring_buff_s *buff = NULL;
++		struct hw_atl_rxd_wb_s *rxd_wb = (struct hw_atl_rxd_wb_s *)
++			&ring->dx_ring[ring->hw_head * HW_ATL_A0_RXD_SIZE];
++
++		unsigned int is_err = 1U;
++		unsigned int is_rx_check_sum_enabled = 0U;
++		unsigned int pkt_type = 0U;
++
++		if (!(rxd_wb->status & 0x5U)) { /* RxD is not done */
++			if ((1U << 4) &
++				reg_rx_dma_desc_status_get(self, ring->idx)) {
++			rdm_rx_desc_en_set(self, false, ring->idx);
++			rdm_rx_desc_res_set(self, true, ring->idx);
++			rdm_rx_desc_res_set(self, false, ring->idx);
++			rdm_rx_desc_en_set(self, true, ring->idx);
++			}
++
++			if (ring->hw_head ||
++			    (rdm_rx_desc_head_ptr_get(self, ring->idx) < 2U)) {
++				break;
++			} else if (!(rxd_wb->status & 0x1U)) {
++				struct hw_atl_rxd_wb_s *rxd_wb1 =
++					(struct hw_atl_rxd_wb_s *)
++					(&ring->dx_ring[(1U) *
++						HW_ATL_A0_RXD_SIZE]);
++
++				if ((rxd_wb1->status & 0x1U)) {
++					rxd_wb->pkt_len = 1514U;
++					rxd_wb->status = 3U;
++				} else {
++					break;
++				}
++			}
++		}
++
++		buff = &ring->buff_ring[ring->hw_head];
++
++		if (0x3U != (rxd_wb->status & 0x3U))
++			rxd_wb->status |= 4;
++
++		is_err = (0x0000001CU & rxd_wb->status);
++		is_rx_check_sum_enabled = (rxd_wb->type) & (0x3U << 19);
++		pkt_type = 0xFFU & (rxd_wb->type >> 4);
++
++		if (is_rx_check_sum_enabled) {
++			if (0x0U == (pkt_type & 0x3U))
++				buff->is_ip_cso = (is_err & 0x08U) ? 0 : 1;
++
++			if (0x4U == (pkt_type & 0x1CU))
++				buff->is_udp_cso = (is_err & 0x10U) ? 0 : 1;
++			else if (0x0U == (pkt_type & 0x1CU))
++				buff->is_tcp_cso = (is_err & 0x10U) ? 0 : 1;
++		}
++
++		is_err &= ~0x18U;
++		is_err &= ~0x04U;
++
++		dma_unmap_page(ndev, buff->pa, buff->len, DMA_FROM_DEVICE);
++
++		if (is_err || rxd_wb->type & 0x1000U) {
++			/* status error or DMA error */
++			buff->is_error = 1U;
++		} else {
++			if (self->aq_nic_cfg->is_rss) {
++				/* last 4 byte */
++				u16 rss_type = rxd_wb->type & 0xFU;
++
++				if (rss_type && rss_type < 0x8U) {
++					buff->is_hash_l4 = (rss_type == 0x4 ||
++							rss_type == 0x5);
++					buff->rss_hash = rxd_wb->rss_hash;
++				}
++			}
++
++			if (HW_ATL_A0_RXD_WB_STAT2_EOP & rxd_wb->status) {
++				buff->len = (rxd_wb->pkt_len &
++						(AQ_CFG_RX_FRAME_MAX - 1U));
++				buff->len = buff->len ?
++					buff->len : AQ_CFG_RX_FRAME_MAX;
++				buff->next = 0U;
++				buff->is_eop = 1U;
++			} else {
++				/* jumbo */
++				buff->next = aq_ring_next_dx(ring,
++							     ring->hw_head);
++				++ring->stats.rx.jumbo_packets;
++			}
++		}
++	}
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_irq_enable(struct aq_hw_s *self, u64 mask)
++{
++	itr_irq_msk_setlsw_set(self, LODWORD(mask) |
++			       (1U << HW_ATL_A0_ERR_INT));
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_irq_disable(struct aq_hw_s *self, u64 mask)
++{
++	itr_irq_msk_clearlsw_set(self, LODWORD(mask));
++	itr_irq_status_clearlsw_set(self, LODWORD(mask));
++
++	if ((1U << 16) & reg_gen_irq_status_get(self))
++
++		atomic_inc(&PHAL_ATLANTIC_A0->dpc);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_irq_read(struct aq_hw_s *self, u64 *mask)
++{
++	*mask = itr_irq_statuslsw_get(self);
++	return aq_hw_err_from_flags(self);
++}
++
++#define IS_FILTER_ENABLED(_F_) ((packet_filter & (_F_)) ? 1U : 0U)
++
++static int hw_atl_a0_hw_packet_filter_set(struct aq_hw_s *self,
++					  unsigned int packet_filter)
++{
++	unsigned int i = 0U;
++
++	rpfl2promiscuous_mode_en_set(self, IS_FILTER_ENABLED(IFF_PROMISC));
++	rpfl2multicast_flr_en_set(self, IS_FILTER_ENABLED(IFF_MULTICAST), 0);
++	rpfl2broadcast_en_set(self, IS_FILTER_ENABLED(IFF_BROADCAST));
++
++	self->aq_nic_cfg->is_mc_list_enabled =
++			IS_FILTER_ENABLED(IFF_MULTICAST);
++
++	for (i = HW_ATL_A0_MAC_MIN; i < HW_ATL_A0_MAC_MAX; ++i)
++		rpfl2_uc_flr_en_set(self,
++				    (self->aq_nic_cfg->is_mc_list_enabled &&
++				    (i <= self->aq_nic_cfg->mc_list_count)) ?
++				    1U : 0U, i);
++
++	return aq_hw_err_from_flags(self);
++}
++
++#undef IS_FILTER_ENABLED
++
++static int hw_atl_a0_hw_multicast_list_set(struct aq_hw_s *self,
++					   u8 ar_mac
++					   [AQ_CFG_MULTICAST_ADDRESS_MAX]
++					   [ETH_ALEN],
++					   u32 count)
++{
++	int err = 0;
++
++	if (count > (HW_ATL_A0_MAC_MAX - HW_ATL_A0_MAC_MIN)) {
++		err = EBADRQC;
++		goto err_exit;
++	}
++	for (self->aq_nic_cfg->mc_list_count = 0U;
++			self->aq_nic_cfg->mc_list_count < count;
++			++self->aq_nic_cfg->mc_list_count) {
++		u32 i = self->aq_nic_cfg->mc_list_count;
++		u32 h = (ar_mac[i][0] << 8) | (ar_mac[i][1]);
++		u32 l = (ar_mac[i][2] << 24) | (ar_mac[i][3] << 16) |
++					(ar_mac[i][4] << 8) | ar_mac[i][5];
++
++		rpfl2_uc_flr_en_set(self, 0U, HW_ATL_A0_MAC_MIN + i);
++
++		rpfl2unicast_dest_addresslsw_set(self,
++						 l, HW_ATL_A0_MAC_MIN + i);
++
++		rpfl2unicast_dest_addressmsw_set(self,
++						 h, HW_ATL_A0_MAC_MIN + i);
++
++		rpfl2_uc_flr_en_set(self,
++				    (self->aq_nic_cfg->is_mc_list_enabled),
++				    HW_ATL_A0_MAC_MIN + i);
++	}
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_a0_hw_interrupt_moderation_set(struct aq_hw_s *self,
++						 bool itr_enabled)
++{
++	unsigned int i = 0U;
++
++	if (itr_enabled && self->aq_nic_cfg->itr) {
++		if (self->aq_nic_cfg->itr != 0xFFFFU) {
++			u32 itr_ = (self->aq_nic_cfg->itr >> 1);
++
++			itr_ = min(AQ_CFG_IRQ_MASK, itr_);
++
++			PHAL_ATLANTIC_A0->itr_rx = 0x80000000U |
++					(itr_ << 0x10);
++		} else  {
++			u32 n = 0xFFFFU & aq_hw_read_reg(self, 0x00002A00U);
++
++			if (n < self->aq_link_status.mbps) {
++				PHAL_ATLANTIC_A0->itr_rx = 0U;
++			} else {
++				static unsigned int hw_timers_tbl_[] = {
++					0x01CU, /* 10Gbit */
++					0x039U, /* 5Gbit */
++					0x039U, /* 5Gbit 5GS */
++					0x073U, /* 2.5Gbit */
++					0x120U, /* 1Gbit */
++					0x1FFU, /* 100Mbit */
++				};
++
++				unsigned int speed_index =
++					hw_atl_utils_mbps_2_speed_index(
++						self->aq_link_status.mbps);
++
++				PHAL_ATLANTIC_A0->itr_rx =
++					0x80000000U |
++					(hw_timers_tbl_[speed_index] << 0x10U);
++			}
++
++			aq_hw_write_reg(self, 0x00002A00U, 0x40000000U);
++			aq_hw_write_reg(self, 0x00002A00U, 0x8D000000U);
++		}
++	} else {
++		PHAL_ATLANTIC_A0->itr_rx = 0U;
++	}
++
++	for (i = HW_ATL_A0_RINGS_MAX; i--;)
++		reg_irq_thr_set(self, PHAL_ATLANTIC_A0->itr_rx, i);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_stop(struct aq_hw_s *self)
++{
++	hw_atl_a0_hw_irq_disable(self, HW_ATL_A0_INT_MASK);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_ring_tx_stop(struct aq_hw_s *self,
++				     struct aq_ring_s *ring)
++{
++	tdm_tx_desc_en_set(self, 0U, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_ring_rx_stop(struct aq_hw_s *self,
++				     struct aq_ring_s *ring)
++{
++	rdm_rx_desc_en_set(self, 0U, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_a0_hw_set_speed(struct aq_hw_s *self, u32 speed)
++{
++	int err = 0;
++
++	err = hw_atl_utils_mpi_set_speed(self, speed, MPI_INIT);
++	if (err < 0)
++		goto err_exit;
++
++err_exit:
++	return err;
++}
++
++static struct aq_hw_ops hw_atl_ops_ = {
++	.create               = hw_atl_a0_create,
++	.destroy              = hw_atl_a0_destroy,
++	.get_hw_caps          = hw_atl_a0_get_hw_caps,
++
++	.hw_get_mac_permanent = hw_atl_utils_get_mac_permanent,
++	.hw_set_mac_address   = hw_atl_a0_hw_mac_addr_set,
++	.hw_get_link_status   = hw_atl_utils_mpi_get_link_status,
++	.hw_set_link_speed    = hw_atl_a0_hw_set_speed,
++	.hw_init              = hw_atl_a0_hw_init,
++	.hw_deinit            = hw_atl_utils_hw_deinit,
++	.hw_set_power         = hw_atl_utils_hw_set_power,
++	.hw_reset             = hw_atl_a0_hw_reset,
++	.hw_start             = hw_atl_a0_hw_start,
++	.hw_ring_tx_start     = hw_atl_a0_hw_ring_tx_start,
++	.hw_ring_tx_stop      = hw_atl_a0_hw_ring_tx_stop,
++	.hw_ring_rx_start     = hw_atl_a0_hw_ring_rx_start,
++	.hw_ring_rx_stop      = hw_atl_a0_hw_ring_rx_stop,
++	.hw_stop              = hw_atl_a0_hw_stop,
++
++	.hw_ring_tx_xmit         = hw_atl_a0_hw_ring_tx_xmit,
++	.hw_ring_tx_head_update  = hw_atl_a0_hw_ring_tx_head_update,
++
++	.hw_ring_rx_receive      = hw_atl_a0_hw_ring_rx_receive,
++	.hw_ring_rx_fill         = hw_atl_a0_hw_ring_rx_fill,
++
++	.hw_irq_enable           = hw_atl_a0_hw_irq_enable,
++	.hw_irq_disable          = hw_atl_a0_hw_irq_disable,
++	.hw_irq_read             = hw_atl_a0_hw_irq_read,
++
++	.hw_ring_rx_init             = hw_atl_a0_hw_ring_rx_init,
++	.hw_ring_tx_init             = hw_atl_a0_hw_ring_tx_init,
++	.hw_packet_filter_set        = hw_atl_a0_hw_packet_filter_set,
++	.hw_multicast_list_set       = hw_atl_a0_hw_multicast_list_set,
++	.hw_interrupt_moderation_set = hw_atl_a0_hw_interrupt_moderation_set,
++	.hw_rss_set                  = hw_atl_a0_hw_rss_set,
++	.hw_rss_hash_set             = hw_atl_a0_hw_rss_hash_set,
++	.hw_get_regs                 = hw_atl_utils_hw_get_regs,
++	.hw_get_hw_stats             = hw_atl_utils_get_hw_stats,
++	.hw_get_fw_version           = hw_atl_utils_get_fw_version,
++};
++
++struct aq_hw_ops *hw_atl_a0_get_ops_by_id(struct pci_dev *pdev)
++{
++	bool is_vid_ok = (pdev->vendor == PCI_VENDOR_ID_AQUANTIA);
++	bool is_did_ok = ((pdev->device == HW_ATL_DEVICE_ID_0001) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D100) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D107) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D108) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D109));
++
++	bool is_rev_ok = (pdev->revision == 1U);
++
++	return (is_vid_ok && is_did_ok && is_rev_ok) ? &hw_atl_ops_ : NULL;
++}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.h b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.h
 new file mode 100644
-index 0000000..6c68b18
+index 0000000..6e1d527
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.h
-@@ -0,0 +1,42 @@
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.h
+@@ -0,0 +1,34 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -450,38 +971,1408 @@ index 0000000..6c68b18
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_vec.h: Definition of common structures for vector of Rx and Tx rings.
-+ * Declaration of functions for Rx and Tx rings.
++/* File hw_atl_a0.h: Declaration of abstract interface for Atlantic hardware
++ * specific functions.
 + */
 +
-+#ifndef AQ_VEC_H
-+#define AQ_VEC_H
++#ifndef HW_ATL_A0_H
++#define HW_ATL_A0_H
 +
-+#include "aq_common.h"
-+#include <linux/irqreturn.h>
++#include "../aq_common.h"
 +
-+struct aq_hw_s;
-+struct aq_hw_ops;
-+struct aq_ring_stats_rx_s;
-+struct aq_ring_stats_tx_s;
++#ifndef PCI_VENDOR_ID_AQUANTIA
 +
-+irqreturn_t aq_vec_isr(int irq, void *private);
-+irqreturn_t aq_vec_isr_legacy(int irq, void *private);
-+struct aq_vec_s *aq_vec_alloc(struct aq_nic_s *aq_nic, unsigned int idx,
-+			      struct aq_nic_cfg_s *aq_nic_cfg);
-+int aq_vec_init(struct aq_vec_s *self, struct aq_hw_ops *aq_hw_ops,
-+		struct aq_hw_s *aq_hw);
-+void aq_vec_deinit(struct aq_vec_s *self);
-+void aq_vec_free(struct aq_vec_s *self);
-+int aq_vec_start(struct aq_vec_s *self);
-+void aq_vec_stop(struct aq_vec_s *self);
-+cpumask_t *aq_vec_get_affinity_mask(struct aq_vec_s *self);
-+int aq_vec_get_sw_stats(struct aq_vec_s *self, u64 *data,
-+			unsigned int *p_count);
-+void aq_vec_add_stats(struct aq_vec_s *self,
-+		      struct aq_ring_stats_rx_s *stats_rx,
-+		      struct aq_ring_stats_tx_s *stats_tx);
++#define PCI_VENDOR_ID_AQUANTIA  0x1D6A
++#define HW_ATL_DEVICE_ID_0001   0x0001
++#define HW_ATL_DEVICE_ID_D100   0xD100
++#define HW_ATL_DEVICE_ID_D107   0xD107
++#define HW_ATL_DEVICE_ID_D108   0xD108
++#define HW_ATL_DEVICE_ID_D109   0xD109
 +
-+#endif /* AQ_VEC_H */
++#define HW_ATL_NIC_NAME "aQuantia AQtion 5Gbit Network Adapter"
++
++#endif
++
++struct aq_hw_ops *hw_atl_a0_get_ops_by_id(struct pci_dev *pdev);
++
++#endif /* HW_ATL_A0_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h
+new file mode 100644
+index 0000000..1093ea1
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0_internal.h
+@@ -0,0 +1,155 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File hw_atl_a0_internal.h: Definition of Atlantic A0 chip specific
++ * constants.
++ */
++
++#ifndef HW_ATL_A0_INTERNAL_H
++#define HW_ATL_A0_INTERNAL_H
++
++#include "../aq_common.h"
++
++#define HW_ATL_A0_MTU_JUMBO 9014U
++
++#define HW_ATL_A0_TX_RINGS 4U
++#define HW_ATL_A0_RX_RINGS 4U
++
++#define HW_ATL_A0_RINGS_MAX 32U
++#define HW_ATL_A0_TXD_SIZE  16U
++#define HW_ATL_A0_RXD_SIZE  16U
++
++#define HW_ATL_A0_MAC      0U
++#define HW_ATL_A0_MAC_MIN  1U
++#define HW_ATL_A0_MAC_MAX  33U
++
++/* interrupts */
++#define HW_ATL_A0_ERR_INT 8U
++#define HW_ATL_A0_INT_MASK  0xFFFFFFFFU
++
++#define HW_ATL_A0_TXD_CTL2_LEN        0xFFFFC000U
++#define HW_ATL_A0_TXD_CTL2_CTX_EN     0x00002000U
++#define HW_ATL_A0_TXD_CTL2_CTX_IDX    0x00001000U
++
++#define HW_ATL_A0_TXD_CTL_DESC_TYPE_TXD   0x00000001U
++#define HW_ATL_A0_TXD_CTL_DESC_TYPE_TXC   0x00000002U
++#define HW_ATL_A0_TXD_CTL_BLEN        0x000FFFF0U
++#define HW_ATL_A0_TXD_CTL_DD          0x00100000U
++#define HW_ATL_A0_TXD_CTL_EOP         0x00200000U
++
++#define HW_ATL_A0_TXD_CTL_CMD_X       0x3FC00000U
++
++#define HW_ATL_A0_TXD_CTL_CMD_VLAN    BIT(22)
++#define HW_ATL_A0_TXD_CTL_CMD_FCS     BIT(23)
++#define HW_ATL_A0_TXD_CTL_CMD_IPCSO   BIT(24)
++#define HW_ATL_A0_TXD_CTL_CMD_TUCSO   BIT(25)
++#define HW_ATL_A0_TXD_CTL_CMD_LSO     BIT(26)
++#define HW_ATL_A0_TXD_CTL_CMD_WB      BIT(27)
++#define HW_ATL_A0_TXD_CTL_CMD_VXLAN   BIT(28)
++
++#define HW_ATL_A0_TXD_CTL_CMD_IPV6    BIT(21)
++#define HW_ATL_A0_TXD_CTL_CMD_TCP     BIT(22)
++
++#define HW_ATL_A0_MPI_CONTROL_ADR     0x0368U
++#define HW_ATL_A0_MPI_STATE_ADR       0x036CU
++
++#define HW_ATL_A0_MPI_SPEED_MSK       0xFFFFU
++#define HW_ATL_A0_MPI_SPEED_SHIFT     16U
++
++#define HW_ATL_A0_RATE_10G            BIT(0)
++#define HW_ATL_A0_RATE_5G             BIT(1)
++#define HW_ATL_A0_RATE_2G5            BIT(3)
++#define HW_ATL_A0_RATE_1G             BIT(4)
++#define HW_ATL_A0_RATE_100M           BIT(5)
++
++#define HW_ATL_A0_TXBUF_MAX 160U
++#define HW_ATL_A0_RXBUF_MAX 320U
++
++#define HW_ATL_A0_RSS_REDIRECTION_MAX 64U
++#define HW_ATL_A0_RSS_REDIRECTION_BITS 3U
++
++#define HW_ATL_A0_TC_MAX 1U
++#define HW_ATL_A0_RSS_MAX 8U
++
++#define HW_ATL_A0_FW_SEMA_RAM           0x2U
++
++#define HW_ATL_A0_RXD_DD    0x1U
++#define HW_ATL_A0_RXD_NCEA0 0x1U
++
++#define HW_ATL_A0_RXD_WB_STAT2_EOP     0x0002U
++
++#define HW_ATL_A0_UCP_0X370_REG  0x370U
++
++#define HW_ATL_A0_FW_VER_EXPECTED 0x01050006U
++
++/* Hardware tx descriptor */
++struct __packed hw_atl_txd_s {
++	u64 buf_addr;
++	u32 ctl;
++	u32 ctl2; /* 63..46 - payload length, 45 - ctx enable, 44 - ctx index */
++};
++
++/* Hardware tx context descriptor */
++struct __packed hw_atl_txc_s {
++	u32 rsvd;
++	u32 len;
++	u32 ctl;
++	u32 len2;
++};
++
++/* Hardware rx descriptor */
++struct __packed hw_atl_rxd_s {
++	u64 buf_addr;
++	u64 hdr_addr;
++};
++
++/* Hardware rx descriptor writeback */
++struct __packed hw_atl_rxd_wb_s {
++	u32 type;
++	u32 rss_hash;
++	u16 status;
++	u16 pkt_len;
++	u16 next_desc_ptr;
++	u16 vlan;
++};
++
++/* HW layer capabilities */
++static struct aq_hw_caps_s hw_atl_a0_hw_caps_ = {
++	.ports = 1U,
++	.is_64_dma = true,
++	.msix_irqs = 4U,
++	.irq_mask = ~0U,
++	.vecs = HW_ATL_A0_RSS_MAX,
++	.tcs = HW_ATL_A0_TC_MAX,
++	.rxd_alignment = 1U,
++	.rxd_size = HW_ATL_A0_RXD_SIZE,
++	.rxds = 248U,
++	.txd_alignment = 1U,
++	.txd_size = HW_ATL_A0_TXD_SIZE,
++	.txds = 8U * 1024U,
++	.txhwb_alignment = 4096U,
++	.tx_rings = HW_ATL_A0_TX_RINGS,
++	.rx_rings = HW_ATL_A0_RX_RINGS,
++	.hw_features = NETIF_F_HW_CSUM |
++			NETIF_F_RXHASH |
++			NETIF_F_SG |
++			NETIF_F_TSO,
++	.hw_priv_flags = IFF_UNICAST_FLT,
++	.link_speed_msk = (HW_ATL_A0_RATE_10G |
++			HW_ATL_A0_RATE_5G |
++			HW_ATL_A0_RATE_2G5 |
++			HW_ATL_A0_RATE_1G |
++			HW_ATL_A0_RATE_100M),
++	.flow_control = true,
++	.mtu = HW_ATL_A0_MTU_JUMBO,
++	.mac_regs_count = 88,
++	.fw_ver_expected = HW_ATL_A0_FW_VER_EXPECTED,
++};
++
++#endif /* HW_ATL_A0_INTERNAL_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+new file mode 100644
+index 0000000..e7e694f
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+@@ -0,0 +1,958 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File hw_atl_b0.c: Definition of Atlantic hardware specific functions. */
++
++#include "../aq_hw.h"
++#include "../aq_hw_utils.h"
++#include "../aq_ring.h"
++#include "hw_atl_b0.h"
++#include "hw_atl_utils.h"
++#include "hw_atl_llh.h"
++#include "hw_atl_b0_internal.h"
++
++static int hw_atl_b0_get_hw_caps(struct aq_hw_s *self,
++				 struct aq_hw_caps_s *aq_hw_caps)
++{
++	memcpy(aq_hw_caps, &hw_atl_b0_hw_caps_, sizeof(*aq_hw_caps));
++	return 0;
++}
++
++static struct aq_hw_s *hw_atl_b0_create(struct aq_pci_func_s *aq_pci_func,
++					unsigned int port,
++					struct aq_hw_ops *ops)
++{
++	struct hw_atl_s *self = NULL;
++
++	self = kzalloc(sizeof(*self), GFP_KERNEL);
++	if (!self)
++		goto err_exit;
++
++	self->base.aq_pci_func = aq_pci_func;
++
++	self->base.not_ff_addr = 0x10U;
++
++err_exit:
++	return (struct aq_hw_s *)self;
++}
++
++static void hw_atl_b0_destroy(struct aq_hw_s *self)
++{
++	kfree(self);
++}
++
++static int hw_atl_b0_hw_reset(struct aq_hw_s *self)
++{
++	int err = 0;
++
++	glb_glb_reg_res_dis_set(self, 1U);
++	pci_pci_reg_res_dis_set(self, 0U);
++	rx_rx_reg_res_dis_set(self, 0U);
++	tx_tx_reg_res_dis_set(self, 0U);
++
++	HW_ATL_FLUSH();
++	glb_soft_res_set(self, 1);
++
++	/* check 10 times by 1ms */
++	AQ_HW_WAIT_FOR(glb_soft_res_get(self) == 0, 1000U, 10U);
++	if (err < 0)
++		goto err_exit;
++
++	itr_irq_reg_res_dis_set(self, 0U);
++	itr_res_irq_set(self, 1U);
++
++	/* check 10 times by 1ms */
++	AQ_HW_WAIT_FOR(itr_res_irq_get(self) == 0, 1000U, 10U);
++	if (err < 0)
++		goto err_exit;
++
++	hw_atl_utils_mpi_set(self, MPI_RESET, 0x0U);
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_qos_set(struct aq_hw_s *self)
++{
++	u32 tc = 0U;
++	u32 buff_size = 0U;
++	unsigned int i_priority = 0U;
++	bool is_rx_flow_control = false;
++
++	/* TPS Descriptor rate init */
++	tps_tx_pkt_shed_desc_rate_curr_time_res_set(self, 0x0U);
++	tps_tx_pkt_shed_desc_rate_lim_set(self, 0xA);
++
++	/* TPS VM init */
++	tps_tx_pkt_shed_desc_vm_arb_mode_set(self, 0U);
++
++	/* TPS TC credits init */
++	tps_tx_pkt_shed_desc_tc_arb_mode_set(self, 0U);
++	tps_tx_pkt_shed_data_arb_mode_set(self, 0U);
++
++	tps_tx_pkt_shed_tc_data_max_credit_set(self, 0xFFF, 0U);
++	tps_tx_pkt_shed_tc_data_weight_set(self, 0x64, 0U);
++	tps_tx_pkt_shed_desc_tc_max_credit_set(self, 0x50, 0U);
++	tps_tx_pkt_shed_desc_tc_weight_set(self, 0x1E, 0U);
++
++	/* Tx buf size */
++	buff_size = HW_ATL_B0_TXBUF_MAX;
++
++	tpb_tx_pkt_buff_size_per_tc_set(self, buff_size, tc);
++	tpb_tx_buff_hi_threshold_per_tc_set(self,
++					    (buff_size * (1024 / 32U) * 66U) /
++					    100U, tc);
++	tpb_tx_buff_lo_threshold_per_tc_set(self,
++					    (buff_size * (1024 / 32U) * 50U) /
++					    100U, tc);
++
++	/* QoS Rx buf size per TC */
++	tc = 0;
++	is_rx_flow_control = (AQ_NIC_FC_RX & self->aq_nic_cfg->flow_control);
++	buff_size = HW_ATL_B0_RXBUF_MAX;
++
++	rpb_rx_pkt_buff_size_per_tc_set(self, buff_size, tc);
++	rpb_rx_buff_hi_threshold_per_tc_set(self,
++					    (buff_size *
++					    (1024U / 32U) * 66U) /
++					    100U, tc);
++	rpb_rx_buff_lo_threshold_per_tc_set(self,
++					    (buff_size *
++					    (1024U / 32U) * 50U) /
++					    100U, tc);
++	rpb_rx_xoff_en_per_tc_set(self, is_rx_flow_control ? 1U : 0U, tc);
++
++	/* QoS 802.1p priority -> TC mapping */
++	for (i_priority = 8U; i_priority--;)
++		rpf_rpb_user_priority_tc_map_set(self, i_priority, 0U);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_rss_hash_set(struct aq_hw_s *self,
++				     struct aq_rss_parameters *rss_params)
++{
++	struct aq_nic_cfg_s *cfg = NULL;
++	int err = 0;
++	unsigned int i = 0U;
++	unsigned int addr = 0U;
++
++	cfg = self->aq_nic_cfg;
++
++	for (i = 10, addr = 0U; i--; ++addr) {
++		u32 key_data = cfg->is_rss ?
++			__swab32(rss_params->hash_secret_key[i]) : 0U;
++		rpf_rss_key_wr_data_set(self, key_data);
++		rpf_rss_key_addr_set(self, addr);
++		rpf_rss_key_wr_en_set(self, 1U);
++		AQ_HW_WAIT_FOR(rpf_rss_key_wr_en_get(self) == 0, 1000U, 10U);
++		if (err < 0)
++			goto err_exit;
++	}
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_rss_set(struct aq_hw_s *self,
++				struct aq_rss_parameters *rss_params)
++{
++	u8 *indirection_table =	rss_params->indirection_table;
++	u32 i = 0U;
++	u32 num_rss_queues = max(1U, self->aq_nic_cfg->num_rss_queues);
++	int err = 0;
++	u16 bitary[(HW_ATL_B0_RSS_REDIRECTION_MAX *
++					HW_ATL_B0_RSS_REDIRECTION_BITS / 16U)];
++
++	memset(bitary, 0, sizeof(bitary));
++
++	for (i = HW_ATL_B0_RSS_REDIRECTION_MAX; i--;) {
++		(*(u32 *)(bitary + ((i * 3U) / 16U))) |=
++			((indirection_table[i] % num_rss_queues) <<
++			((i * 3U) & 0xFU));
++	}
++
++	for (i = AQ_DIMOF(bitary); i--;) {
++		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
++		rpf_rss_redir_tbl_addr_set(self, i);
++		rpf_rss_redir_wr_en_set(self, 1U);
++		AQ_HW_WAIT_FOR(rpf_rss_redir_wr_en_get(self) == 0, 1000U, 10U);
++		if (err < 0)
++			goto err_exit;
++	}
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_offload_set(struct aq_hw_s *self,
++				    struct aq_nic_cfg_s *aq_nic_cfg)
++{
++	int err = 0;
++	unsigned int i;
++
++	/* TX checksums offloads*/
++	tpo_ipv4header_crc_offload_en_set(self, 1);
++	tpo_tcp_udp_crc_offload_en_set(self, 1);
++	if (err < 0)
++		goto err_exit;
++
++	/* RX checksums offloads*/
++	rpo_ipv4header_crc_offload_en_set(self, 1);
++	rpo_tcp_udp_crc_offload_en_set(self, 1);
++	if (err < 0)
++		goto err_exit;
++
++	/* LSO offloads*/
++	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
++	if (err < 0)
++		goto err_exit;
++
++/* LRO offloads */
++	{
++		unsigned int val = (8U < HW_ATL_B0_LRO_RXD_MAX) ? 0x3U :
++			((4U < HW_ATL_B0_LRO_RXD_MAX) ? 0x2U :
++			((2U < HW_ATL_B0_LRO_RXD_MAX) ? 0x1U : 0x0));
++
++		for (i = 0; i < HW_ATL_B0_RINGS_MAX; i++)
++			rpo_lro_max_num_of_descriptors_set(self, val, i);
++
++		rpo_lro_time_base_divider_set(self, 0x61AU);
++		rpo_lro_inactive_interval_set(self, 0);
++		rpo_lro_max_coalescing_interval_set(self, 2);
++
++		rpo_lro_qsessions_lim_set(self, 1U);
++
++		rpo_lro_total_desc_lim_set(self, 2U);
++
++		rpo_lro_patch_optimization_en_set(self, 0U);
++
++		rpo_lro_min_pay_of_first_pkt_set(self, 10U);
++
++		rpo_lro_pkt_lim_set(self, 1U);
++
++		rpo_lro_en_set(self, aq_nic_cfg->is_lro ? 0xFFFFFFFFU : 0U);
++	}
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_init_tx_path(struct aq_hw_s *self)
++{
++	thm_lso_tcp_flag_of_first_pkt_set(self, 0x0FF6U);
++	thm_lso_tcp_flag_of_middle_pkt_set(self, 0x0FF6U);
++	thm_lso_tcp_flag_of_last_pkt_set(self, 0x0F7FU);
++
++	/* Tx interrupts */
++	tdm_tx_desc_wr_wb_irq_en_set(self, 1U);
++
++	/* misc */
++	aq_hw_write_reg(self, 0x00007040U, IS_CHIP_FEATURE(TPO2) ?
++			0x00010000U : 0x00000000U);
++	tdm_tx_dca_en_set(self, 0U);
++	tdm_tx_dca_mode_set(self, 0U);
++
++	tpb_tx_path_scp_ins_en_set(self, 1U);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_init_rx_path(struct aq_hw_s *self)
++{
++	struct aq_nic_cfg_s *cfg = self->aq_nic_cfg;
++	int i;
++
++	/* Rx TC/RSS number config */
++	rpb_rpf_rx_traf_class_mode_set(self, 1U);
++
++	/* Rx flow control */
++	rpb_rx_flow_ctl_mode_set(self, 1U);
++
++	/* RSS Ring selection */
++	reg_rx_flr_rss_control1set(self, cfg->is_rss ?
++					0xB3333333U : 0x00000000U);
++
++	/* Multicast filters */
++	for (i = HW_ATL_B0_MAC_MAX; i--;) {
++		rpfl2_uc_flr_en_set(self, (i == 0U) ? 1U : 0U, i);
++		rpfl2unicast_flr_act_set(self, 1U, i);
++	}
++
++	reg_rx_flr_mcst_flr_msk_set(self, 0x00000000U);
++	reg_rx_flr_mcst_flr_set(self, 0x00010FFFU, 0U);
++
++	/* Vlan filters */
++	rpf_vlan_outer_etht_set(self, 0x88A8U);
++	rpf_vlan_inner_etht_set(self, 0x8100U);
++
++	if (cfg->vlan_id) {
++		rpf_vlan_flr_act_set(self, 1U, 0U);
++		rpf_vlan_id_flr_set(self, 0U, 0U);
++		rpf_vlan_flr_en_set(self, 0U, 0U);
++
++		rpf_vlan_accept_untagged_packets_set(self, 1U);
++		rpf_vlan_untagged_act_set(self, 1U);
++
++		rpf_vlan_flr_act_set(self, 1U, 1U);
++		rpf_vlan_id_flr_set(self, cfg->vlan_id, 0U);
++		rpf_vlan_flr_en_set(self, 1U, 1U);
++	} else {
++		rpf_vlan_prom_mode_en_set(self, 1);
++	}
++
++	/* Rx Interrupts */
++	rdm_rx_desc_wr_wb_irq_en_set(self, 1U);
++
++	/* misc */
++	aq_hw_write_reg(self, 0x00005040U,
++			IS_CHIP_FEATURE(RPF2) ? 0x000F0000U : 0x00000000U);
++
++	rpfl2broadcast_flr_act_set(self, 1U);
++	rpfl2broadcast_count_threshold_set(self, 0xFFFFU & (~0U / 256U));
++
++	rdm_rx_dca_en_set(self, 0U);
++	rdm_rx_dca_mode_set(self, 0U);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_mac_addr_set(struct aq_hw_s *self, u8 *mac_addr)
++{
++	int err = 0;
++	unsigned int h = 0U;
++	unsigned int l = 0U;
++
++	if (!mac_addr) {
++		err = -EINVAL;
++		goto err_exit;
++	}
++	h = (mac_addr[0] << 8) | (mac_addr[1]);
++	l = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
++		(mac_addr[4] << 8) | mac_addr[5];
++
++	rpfl2_uc_flr_en_set(self, 0U, HW_ATL_B0_MAC);
++	rpfl2unicast_dest_addresslsw_set(self, l, HW_ATL_B0_MAC);
++	rpfl2unicast_dest_addressmsw_set(self, h, HW_ATL_B0_MAC);
++	rpfl2_uc_flr_en_set(self, 1U, HW_ATL_B0_MAC);
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_init(struct aq_hw_s *self,
++			     struct aq_nic_cfg_s *aq_nic_cfg,
++			     u8 *mac_addr)
++{
++	static u32 aq_hw_atl_igcr_table_[4][2] = {
++		{ 0x20000000U, 0x20000000U }, /* AQ_IRQ_INVALID */
++		{ 0x20000080U, 0x20000080U }, /* AQ_IRQ_LEGACY */
++		{ 0x20000021U, 0x20000025U }, /* AQ_IRQ_MSI */
++		{ 0x20000022U, 0x20000026U }  /* AQ_IRQ_MSIX */
++	};
++
++	int err = 0;
++
++	self->aq_nic_cfg = aq_nic_cfg;
++
++	hw_atl_utils_hw_chip_features_init(self,
++					   &PHAL_ATLANTIC_B0->chip_features);
++
++	hw_atl_b0_hw_init_tx_path(self);
++	hw_atl_b0_hw_init_rx_path(self);
++
++	hw_atl_b0_hw_mac_addr_set(self, mac_addr);
++
++	hw_atl_utils_mpi_set(self, MPI_INIT, aq_nic_cfg->link_speed_msk);
++
++	hw_atl_b0_hw_qos_set(self);
++	hw_atl_b0_hw_rss_set(self, &aq_nic_cfg->aq_rss);
++	hw_atl_b0_hw_rss_hash_set(self, &aq_nic_cfg->aq_rss);
++
++	err = aq_hw_err_from_flags(self);
++	if (err < 0)
++		goto err_exit;
++
++	/* Interrupts */
++	reg_irq_glb_ctl_set(self,
++			    aq_hw_atl_igcr_table_[aq_nic_cfg->irq_type]
++						 [(aq_nic_cfg->vecs > 1U) ?
++						 1 : 0]);
++
++	itr_irq_auto_masklsw_set(self, aq_nic_cfg->aq_hw_caps->irq_mask);
++
++	/* Interrupts */
++	reg_gen_irq_map_set(self,
++			    ((HW_ATL_B0_ERR_INT << 0x18) | (1U << 0x1F)) |
++			    ((HW_ATL_B0_ERR_INT << 0x10) | (1U << 0x17)), 0U);
++
++	hw_atl_b0_hw_offload_set(self, aq_nic_cfg);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_ring_tx_start(struct aq_hw_s *self,
++				      struct aq_ring_s *ring)
++{
++	tdm_tx_desc_en_set(self, 1, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_ring_rx_start(struct aq_hw_s *self,
++				      struct aq_ring_s *ring)
++{
++	rdm_rx_desc_en_set(self, 1, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_start(struct aq_hw_s *self)
++{
++	tpb_tx_buff_en_set(self, 1);
++	rpb_rx_buff_en_set(self, 1);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_tx_ring_tail_update(struct aq_hw_s *self,
++					    struct aq_ring_s *ring)
++{
++	reg_tx_dma_desc_tail_ptr_set(self, ring->sw_tail, ring->idx);
++	return 0;
++}
++
++static int hw_atl_b0_hw_ring_tx_xmit(struct aq_hw_s *self,
++				     struct aq_ring_s *ring,
++				     unsigned int frags)
++{
++	struct aq_ring_buff_s *buff = NULL;
++	struct hw_atl_txd_s *txd = NULL;
++	unsigned int buff_pa_len = 0U;
++	unsigned int pkt_len = 0U;
++	unsigned int frag_count = 0U;
++	bool is_gso = false;
++
++	buff = &ring->buff_ring[ring->sw_tail];
++	pkt_len = (buff->is_eop && buff->is_sop) ? buff->len : buff->len_pkt;
++
++	for (frag_count = 0; frag_count < frags; frag_count++) {
++		txd = (struct hw_atl_txd_s *)&ring->dx_ring[ring->sw_tail *
++						HW_ATL_B0_TXD_SIZE];
++		txd->ctl = 0;
++		txd->ctl2 = 0;
++		txd->buf_addr = 0;
++
++		buff = &ring->buff_ring[ring->sw_tail];
++
++		if (buff->is_txc) {
++			txd->ctl |= (buff->len_l3 << 31) |
++				(buff->len_l2 << 24) |
++				HW_ATL_B0_TXD_CTL_CMD_TCP |
++				HW_ATL_B0_TXD_CTL_DESC_TYPE_TXC;
++			txd->ctl2 |= (buff->mss << 16) |
++				(buff->len_l4 << 8) |
++				(buff->len_l3 >> 1);
++
++			pkt_len -= (buff->len_l4 +
++				    buff->len_l3 +
++				    buff->len_l2);
++			is_gso = true;
++		} else {
++			buff_pa_len = buff->len;
++
++			txd->buf_addr = buff->pa;
++			txd->ctl |= (HW_ATL_B0_TXD_CTL_BLEN &
++						((u32)buff_pa_len << 4));
++			txd->ctl |= HW_ATL_B0_TXD_CTL_DESC_TYPE_TXD;
++			/* PAY_LEN */
++			txd->ctl2 |= HW_ATL_B0_TXD_CTL2_LEN & (pkt_len << 14);
++
++			if (is_gso) {
++				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_LSO;
++				txd->ctl2 |= HW_ATL_B0_TXD_CTL2_CTX_EN;
++			}
++
++			/* Tx checksum offloads */
++			if (buff->is_ip_cso)
++				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_IPCSO;
++
++			if (buff->is_udp_cso || buff->is_tcp_cso)
++				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_TUCSO;
++
++			if (unlikely(buff->is_eop)) {
++				txd->ctl |= HW_ATL_B0_TXD_CTL_EOP;
++				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_WB;
++			}
++		}
++
++		ring->sw_tail = aq_ring_next_dx(ring, ring->sw_tail);
++	}
++
++	hw_atl_b0_hw_tx_ring_tail_update(self, ring);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_ring_rx_init(struct aq_hw_s *self,
++				     struct aq_ring_s *aq_ring,
++				     struct aq_ring_param_s *aq_ring_param)
++{
++	u32 dma_desc_addr_lsw = (u32)aq_ring->dx_ring_pa;
++	u32 dma_desc_addr_msw = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
++
++	rdm_rx_desc_en_set(self, false, aq_ring->idx);
++
++	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
++
++	reg_rx_dma_desc_base_addresslswset(self, dma_desc_addr_lsw,
++					   aq_ring->idx);
++
++	reg_rx_dma_desc_base_addressmswset(self,
++					   dma_desc_addr_msw, aq_ring->idx);
++
++	rdm_rx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
++
++	rdm_rx_desc_data_buff_size_set(self,
++				       AQ_CFG_RX_FRAME_MAX / 1024U,
++				       aq_ring->idx);
++
++	rdm_rx_desc_head_buff_size_set(self, 0U, aq_ring->idx);
++	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
++	rpo_rx_desc_vlan_stripping_set(self, 0U, aq_ring->idx);
++
++	/* Rx ring set mode */
++
++	/* Mapping interrupt vector */
++	itr_irq_map_rx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
++	itr_irq_map_en_rx_set(self, true, aq_ring->idx);
++
++	rdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
++	rdm_rx_desc_dca_en_set(self, 0U, aq_ring->idx);
++	rdm_rx_head_dca_en_set(self, 0U, aq_ring->idx);
++	rdm_rx_pld_dca_en_set(self, 0U, aq_ring->idx);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_ring_tx_init(struct aq_hw_s *self,
++				     struct aq_ring_s *aq_ring,
++				     struct aq_ring_param_s *aq_ring_param)
++{
++	u32 dma_desc_lsw_addr = (u32)aq_ring->dx_ring_pa;
++	u32 dma_desc_msw_addr = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
++
++	reg_tx_dma_desc_base_addresslswset(self, dma_desc_lsw_addr,
++					   aq_ring->idx);
++
++	reg_tx_dma_desc_base_addressmswset(self, dma_desc_msw_addr,
++					   aq_ring->idx);
++
++	tdm_tx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
++
++	hw_atl_b0_hw_tx_ring_tail_update(self, aq_ring);
++
++	/* Set Tx threshold */
++	tdm_tx_desc_wr_wb_threshold_set(self, 0U, aq_ring->idx);
++
++	/* Mapping interrupt vector */
++	itr_irq_map_tx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
++	itr_irq_map_en_tx_set(self, true, aq_ring->idx);
++
++	tdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
++	tdm_tx_desc_dca_en_set(self, 0U, aq_ring->idx);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_ring_rx_fill(struct aq_hw_s *self,
++				     struct aq_ring_s *ring,
++				     unsigned int sw_tail_old)
++{
++	for (; sw_tail_old != ring->sw_tail;
++		sw_tail_old = aq_ring_next_dx(ring, sw_tail_old)) {
++		struct hw_atl_rxd_s *rxd =
++			(struct hw_atl_rxd_s *)&ring->dx_ring[sw_tail_old *
++							HW_ATL_B0_RXD_SIZE];
++
++		struct aq_ring_buff_s *buff = &ring->buff_ring[sw_tail_old];
++
++		rxd->buf_addr = buff->pa;
++		rxd->hdr_addr = 0U;
++	}
++
++	reg_rx_dma_desc_tail_ptr_set(self, sw_tail_old, ring->idx);
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_ring_tx_head_update(struct aq_hw_s *self,
++					    struct aq_ring_s *ring)
++{
++	int err = 0;
++	unsigned int hw_head_ = tdm_tx_desc_head_ptr_get(self, ring->idx);
++
++	if (aq_utils_obj_test(&self->header.flags, AQ_HW_FLAG_ERR_UNPLUG)) {
++		err = -ENXIO;
++		goto err_exit;
++	}
++	ring->hw_head = hw_head_;
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
++					struct aq_ring_s *ring)
++{
++	struct device *ndev = aq_nic_get_dev(ring->aq_nic);
++
++	for (; ring->hw_head != ring->sw_tail;
++		ring->hw_head = aq_ring_next_dx(ring, ring->hw_head)) {
++		struct aq_ring_buff_s *buff = NULL;
++		struct hw_atl_rxd_wb_s *rxd_wb = (struct hw_atl_rxd_wb_s *)
++			&ring->dx_ring[ring->hw_head * HW_ATL_B0_RXD_SIZE];
++
++		unsigned int is_err = 1U;
++		unsigned int is_rx_check_sum_enabled = 0U;
++		unsigned int pkt_type = 0U;
++
++		if (!(rxd_wb->status & 0x1U)) { /* RxD is not done */
++			break;
++		}
++
++		buff = &ring->buff_ring[ring->hw_head];
++
++		is_err = (0x0000003CU & rxd_wb->status);
++
++		is_rx_check_sum_enabled = (rxd_wb->type) & (0x3U << 19);
++		is_err &= ~0x20U; /* exclude validity bit */
++
++		pkt_type = 0xFFU & (rxd_wb->type >> 4);
++
++		if (is_rx_check_sum_enabled) {
++			if (0x0U == (pkt_type & 0x3U))
++				buff->is_ip_cso = (is_err & 0x08U) ? 0U : 1U;
++
++			if (0x4U == (pkt_type & 0x1CU))
++				buff->is_udp_cso = buff->is_cso_err ? 0U : 1U;
++			else if (0x0U == (pkt_type & 0x1CU))
++				buff->is_tcp_cso = buff->is_cso_err ? 0U : 1U;
++		}
++
++		is_err &= ~0x18U;
++
++		dma_unmap_page(ndev, buff->pa, buff->len, DMA_FROM_DEVICE);
++
++		if (is_err || rxd_wb->type & 0x1000U) {
++			/* status error or DMA error */
++			buff->is_error = 1U;
++		} else {
++			if (self->aq_nic_cfg->is_rss) {
++				/* last 4 byte */
++				u16 rss_type = rxd_wb->type & 0xFU;
++
++				if (rss_type && rss_type < 0x8U) {
++					buff->is_hash_l4 = (rss_type == 0x4 ||
++					rss_type == 0x5);
++					buff->rss_hash = rxd_wb->rss_hash;
++				}
++			}
++
++			if (HW_ATL_B0_RXD_WB_STAT2_EOP & rxd_wb->status) {
++				buff->len = (rxd_wb->pkt_len &
++						(AQ_CFG_RX_FRAME_MAX - 1U));
++				buff->len = buff->len ?
++					buff->len : AQ_CFG_RX_FRAME_MAX;
++				buff->next = 0U;
++				buff->is_eop = 1U;
++			} else {
++				if (HW_ATL_B0_RXD_WB_STAT2_RSCCNT &
++					rxd_wb->status) {
++					/* LRO */
++					buff->next = rxd_wb->next_desc_ptr;
++					++ring->stats.rx.lro_packets;
++				} else {
++					/* jumbo */
++					buff->next =
++						aq_ring_next_dx(ring,
++								ring->hw_head);
++					++ring->stats.rx.jumbo_packets;
++				}
++			}
++		}
++	}
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_irq_enable(struct aq_hw_s *self, u64 mask)
++{
++	itr_irq_msk_setlsw_set(self, LODWORD(mask));
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_irq_disable(struct aq_hw_s *self, u64 mask)
++{
++	itr_irq_msk_clearlsw_set(self, LODWORD(mask));
++	itr_irq_status_clearlsw_set(self, LODWORD(mask));
++
++	atomic_inc(&PHAL_ATLANTIC_B0->dpc);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_irq_read(struct aq_hw_s *self, u64 *mask)
++{
++	*mask = itr_irq_statuslsw_get(self);
++	return aq_hw_err_from_flags(self);
++}
++
++#define IS_FILTER_ENABLED(_F_) ((packet_filter & (_F_)) ? 1U : 0U)
++
++static int hw_atl_b0_hw_packet_filter_set(struct aq_hw_s *self,
++					  unsigned int packet_filter)
++{
++	unsigned int i = 0U;
++
++	rpfl2promiscuous_mode_en_set(self, IS_FILTER_ENABLED(IFF_PROMISC));
++	rpfl2multicast_flr_en_set(self,
++				  IS_FILTER_ENABLED(IFF_MULTICAST), 0);
++
++	rpfl2_accept_all_mc_packets_set(self,
++					IS_FILTER_ENABLED(IFF_ALLMULTI));
++
++	rpfl2broadcast_en_set(self, IS_FILTER_ENABLED(IFF_BROADCAST));
++
++	self->aq_nic_cfg->is_mc_list_enabled = IS_FILTER_ENABLED(IFF_MULTICAST);
++
++	for (i = HW_ATL_B0_MAC_MIN; i < HW_ATL_B0_MAC_MAX; ++i)
++		rpfl2_uc_flr_en_set(self,
++				    (self->aq_nic_cfg->is_mc_list_enabled &&
++				    (i <= self->aq_nic_cfg->mc_list_count)) ?
++				    1U : 0U, i);
++
++	return aq_hw_err_from_flags(self);
++}
++
++#undef IS_FILTER_ENABLED
++
++static int hw_atl_b0_hw_multicast_list_set(struct aq_hw_s *self,
++					   u8 ar_mac
++					   [AQ_CFG_MULTICAST_ADDRESS_MAX]
++					   [ETH_ALEN],
++					   u32 count)
++{
++	int err = 0;
++
++	if (count > (HW_ATL_B0_MAC_MAX - HW_ATL_B0_MAC_MIN)) {
++		err = -EBADRQC;
++		goto err_exit;
++	}
++	for (self->aq_nic_cfg->mc_list_count = 0U;
++			self->aq_nic_cfg->mc_list_count < count;
++			++self->aq_nic_cfg->mc_list_count) {
++		u32 i = self->aq_nic_cfg->mc_list_count;
++		u32 h = (ar_mac[i][0] << 8) | (ar_mac[i][1]);
++		u32 l = (ar_mac[i][2] << 24) | (ar_mac[i][3] << 16) |
++					(ar_mac[i][4] << 8) | ar_mac[i][5];
++
++		rpfl2_uc_flr_en_set(self, 0U, HW_ATL_B0_MAC_MIN + i);
++
++		rpfl2unicast_dest_addresslsw_set(self,
++						 l, HW_ATL_B0_MAC_MIN + i);
++
++		rpfl2unicast_dest_addressmsw_set(self,
++						 h, HW_ATL_B0_MAC_MIN + i);
++
++		rpfl2_uc_flr_en_set(self,
++				    (self->aq_nic_cfg->is_mc_list_enabled),
++				    HW_ATL_B0_MAC_MIN + i);
++	}
++
++	err = aq_hw_err_from_flags(self);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_b0_hw_interrupt_moderation_set(struct aq_hw_s *self,
++						 bool itr_enabled)
++{
++	unsigned int i = 0U;
++
++	if (itr_enabled && self->aq_nic_cfg->itr) {
++		tdm_tx_desc_wr_wb_irq_en_set(self, 0U);
++		tdm_tdm_intr_moder_en_set(self, 1U);
++		rdm_rx_desc_wr_wb_irq_en_set(self, 0U);
++		rdm_rdm_intr_moder_en_set(self, 1U);
++
++		PHAL_ATLANTIC_B0->itr_tx = 2U;
++		PHAL_ATLANTIC_B0->itr_rx = 2U;
++
++		if (self->aq_nic_cfg->itr != 0xFFFFU) {
++			unsigned int max_timer = self->aq_nic_cfg->itr / 2U;
++			unsigned int min_timer = self->aq_nic_cfg->itr / 32U;
++
++			max_timer = min(0x1FFU, max_timer);
++			min_timer = min(0xFFU, min_timer);
++
++			PHAL_ATLANTIC_B0->itr_tx |= min_timer << 0x8U;
++			PHAL_ATLANTIC_B0->itr_tx |= max_timer << 0x10U;
++			PHAL_ATLANTIC_B0->itr_rx |= min_timer << 0x8U;
++			PHAL_ATLANTIC_B0->itr_rx |= max_timer << 0x10U;
++		} else {
++			static unsigned int hw_atl_b0_timers_table_tx_[][2] = {
++				{0xffU, 0xffU}, /* 10Gbit */
++				{0xffU, 0x1ffU}, /* 5Gbit */
++				{0xffU, 0x1ffU}, /* 5Gbit 5GS */
++				{0xffU, 0x1ffU}, /* 2.5Gbit */
++				{0xffU, 0x1ffU}, /* 1Gbit */
++				{0xffU, 0x1ffU}, /* 100Mbit */
++			};
++
++			static unsigned int hw_atl_b0_timers_table_rx_[][2] = {
++				{0x6U, 0x38U},/* 10Gbit */
++				{0xCU, 0x70U},/* 5Gbit */
++				{0xCU, 0x70U},/* 5Gbit 5GS */
++				{0x18U, 0xE0U},/* 2.5Gbit */
++				{0x30U, 0x80U},/* 1Gbit */
++				{0x4U, 0x50U},/* 100Mbit */
++			};
++
++			unsigned int speed_index =
++					hw_atl_utils_mbps_2_speed_index(
++						self->aq_link_status.mbps);
++
++			PHAL_ATLANTIC_B0->itr_tx |=
++				hw_atl_b0_timers_table_tx_[speed_index]
++				[0] << 0x8U; /* set min timer value */
++			PHAL_ATLANTIC_B0->itr_tx |=
++				hw_atl_b0_timers_table_tx_[speed_index]
++				[1] << 0x10U; /* set max timer value */
++
++			PHAL_ATLANTIC_B0->itr_rx |=
++				hw_atl_b0_timers_table_rx_[speed_index]
++				[0] << 0x8U; /* set min timer value */
++			PHAL_ATLANTIC_B0->itr_rx |=
++				hw_atl_b0_timers_table_rx_[speed_index]
++				[1] << 0x10U; /* set max timer value */
++		}
++	} else {
++		tdm_tx_desc_wr_wb_irq_en_set(self, 1U);
++		tdm_tdm_intr_moder_en_set(self, 0U);
++		rdm_rx_desc_wr_wb_irq_en_set(self, 1U);
++		rdm_rdm_intr_moder_en_set(self, 0U);
++		PHAL_ATLANTIC_B0->itr_tx = 0U;
++		PHAL_ATLANTIC_B0->itr_rx = 0U;
++	}
++
++	for (i = HW_ATL_B0_RINGS_MAX; i--;) {
++		reg_tx_intr_moder_ctrl_set(self,
++					   PHAL_ATLANTIC_B0->itr_tx, i);
++		reg_rx_intr_moder_ctrl_set(self,
++					   PHAL_ATLANTIC_B0->itr_rx, i);
++	}
++
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_stop(struct aq_hw_s *self)
++{
++	hw_atl_b0_hw_irq_disable(self, HW_ATL_B0_INT_MASK);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_ring_tx_stop(struct aq_hw_s *self,
++				     struct aq_ring_s *ring)
++{
++	tdm_tx_desc_en_set(self, 0U, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_ring_rx_stop(struct aq_hw_s *self,
++				     struct aq_ring_s *ring)
++{
++	rdm_rx_desc_en_set(self, 0U, ring->idx);
++	return aq_hw_err_from_flags(self);
++}
++
++static int hw_atl_b0_hw_set_speed(struct aq_hw_s *self, u32 speed)
++{
++	int err = 0;
++
++	err = hw_atl_utils_mpi_set_speed(self, speed, MPI_INIT);
++	if (err < 0)
++		goto err_exit;
++
++err_exit:
++	return err;
++}
++
++static struct aq_hw_ops hw_atl_ops_ = {
++	.create               = hw_atl_b0_create,
++	.destroy              = hw_atl_b0_destroy,
++	.get_hw_caps          = hw_atl_b0_get_hw_caps,
++
++	.hw_get_mac_permanent = hw_atl_utils_get_mac_permanent,
++	.hw_set_mac_address   = hw_atl_b0_hw_mac_addr_set,
++	.hw_get_link_status   = hw_atl_utils_mpi_get_link_status,
++	.hw_set_link_speed    = hw_atl_b0_hw_set_speed,
++	.hw_init              = hw_atl_b0_hw_init,
++	.hw_deinit            = hw_atl_utils_hw_deinit,
++	.hw_set_power         = hw_atl_utils_hw_set_power,
++	.hw_reset             = hw_atl_b0_hw_reset,
++	.hw_start             = hw_atl_b0_hw_start,
++	.hw_ring_tx_start     = hw_atl_b0_hw_ring_tx_start,
++	.hw_ring_tx_stop      = hw_atl_b0_hw_ring_tx_stop,
++	.hw_ring_rx_start     = hw_atl_b0_hw_ring_rx_start,
++	.hw_ring_rx_stop      = hw_atl_b0_hw_ring_rx_stop,
++	.hw_stop              = hw_atl_b0_hw_stop,
++
++	.hw_ring_tx_xmit         = hw_atl_b0_hw_ring_tx_xmit,
++	.hw_ring_tx_head_update  = hw_atl_b0_hw_ring_tx_head_update,
++
++	.hw_ring_rx_receive      = hw_atl_b0_hw_ring_rx_receive,
++	.hw_ring_rx_fill         = hw_atl_b0_hw_ring_rx_fill,
++
++	.hw_irq_enable           = hw_atl_b0_hw_irq_enable,
++	.hw_irq_disable          = hw_atl_b0_hw_irq_disable,
++	.hw_irq_read             = hw_atl_b0_hw_irq_read,
++
++	.hw_ring_rx_init             = hw_atl_b0_hw_ring_rx_init,
++	.hw_ring_tx_init             = hw_atl_b0_hw_ring_tx_init,
++	.hw_packet_filter_set        = hw_atl_b0_hw_packet_filter_set,
++	.hw_multicast_list_set       = hw_atl_b0_hw_multicast_list_set,
++	.hw_interrupt_moderation_set = hw_atl_b0_hw_interrupt_moderation_set,
++	.hw_rss_set                  = hw_atl_b0_hw_rss_set,
++	.hw_rss_hash_set             = hw_atl_b0_hw_rss_hash_set,
++	.hw_get_regs                 = hw_atl_utils_hw_get_regs,
++	.hw_get_hw_stats             = hw_atl_utils_get_hw_stats,
++	.hw_get_fw_version           = hw_atl_utils_get_fw_version,
++};
++
++struct aq_hw_ops *hw_atl_b0_get_ops_by_id(struct pci_dev *pdev)
++{
++	bool is_vid_ok = (pdev->vendor == PCI_VENDOR_ID_AQUANTIA);
++	bool is_did_ok = ((pdev->device == HW_ATL_DEVICE_ID_0001) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D100) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D107) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D108) ||
++			(pdev->device == HW_ATL_DEVICE_ID_D109));
++
++	bool is_rev_ok = (pdev->revision == 2U);
++
++	return (is_vid_ok && is_did_ok && is_rev_ok) ? &hw_atl_ops_ : NULL;
++}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.h b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.h
+new file mode 100644
+index 0000000..a1e1bce6
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.h
+@@ -0,0 +1,34 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File hw_atl_b0.h: Declaration of abstract interface for Atlantic hardware
++ * specific functions.
++ */
++
++#ifndef HW_ATL_B0_H
++#define HW_ATL_B0_H
++
++#include "../aq_common.h"
++
++#ifndef PCI_VENDOR_ID_AQUANTIA
++
++#define PCI_VENDOR_ID_AQUANTIA  0x1D6A
++#define HW_ATL_DEVICE_ID_0001   0x0001
++#define HW_ATL_DEVICE_ID_D100   0xD100
++#define HW_ATL_DEVICE_ID_D107   0xD107
++#define HW_ATL_DEVICE_ID_D108   0xD108
++#define HW_ATL_DEVICE_ID_D109   0xD109
++
++#define HW_ATL_NIC_NAME "aQuantia AQtion 5Gbit Network Adapter"
++
++#endif
++
++struct aq_hw_ops *hw_atl_b0_get_ops_by_id(struct pci_dev *pdev);
++
++#endif /* HW_ATL_B0_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h
+new file mode 100644
+index 0000000..8bdee3d
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0_internal.h
+@@ -0,0 +1,207 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File hw_atl_b0_internal.h: Definition of Atlantic B0 chip specific
++ * constants.
++ */
++
++#ifndef HW_ATL_B0_INTERNAL_H
++#define HW_ATL_B0_INTERNAL_H
++
++#include "../aq_common.h"
++
++#define HW_ATL_B0_MTU_JUMBO (16000U)
++#define HW_ATL_B0_MTU        1514U
++
++#define HW_ATL_B0_TX_RINGS 4U
++#define HW_ATL_B0_RX_RINGS 4U
++
++#define HW_ATL_B0_RINGS_MAX 32U
++#define HW_ATL_B0_TXD_SIZE       (16U)
++#define HW_ATL_B0_RXD_SIZE       (16U)
++
++#define HW_ATL_B0_MAC      0U
++#define HW_ATL_B0_MAC_MIN  1U
++#define HW_ATL_B0_MAC_MAX  33U
++
++/* UCAST/MCAST filters */
++#define HW_ATL_B0_UCAST_FILTERS_MAX 38
++#define HW_ATL_B0_MCAST_FILTERS_MAX 8
++
++/* interrupts */
++#define HW_ATL_B0_ERR_INT 8U
++#define HW_ATL_B0_INT_MASK  (0xFFFFFFFFU)
++
++#define HW_ATL_B0_TXD_CTL2_LEN        (0xFFFFC000)
++#define HW_ATL_B0_TXD_CTL2_CTX_EN     (0x00002000)
++#define HW_ATL_B0_TXD_CTL2_CTX_IDX    (0x00001000)
++
++#define HW_ATL_B0_TXD_CTL_DESC_TYPE_TXD   (0x00000001)
++#define HW_ATL_B0_TXD_CTL_DESC_TYPE_TXC   (0x00000002)
++#define HW_ATL_B0_TXD_CTL_BLEN        (0x000FFFF0)
++#define HW_ATL_B0_TXD_CTL_DD          (0x00100000)
++#define HW_ATL_B0_TXD_CTL_EOP         (0x00200000)
++
++#define HW_ATL_B0_TXD_CTL_CMD_X       (0x3FC00000)
++
++#define HW_ATL_B0_TXD_CTL_CMD_VLAN    BIT(22)
++#define HW_ATL_B0_TXD_CTL_CMD_FCS     BIT(23)
++#define HW_ATL_B0_TXD_CTL_CMD_IPCSO   BIT(24)
++#define HW_ATL_B0_TXD_CTL_CMD_TUCSO   BIT(25)
++#define HW_ATL_B0_TXD_CTL_CMD_LSO     BIT(26)
++#define HW_ATL_B0_TXD_CTL_CMD_WB      BIT(27)
++#define HW_ATL_B0_TXD_CTL_CMD_VXLAN   BIT(28)
++
++#define HW_ATL_B0_TXD_CTL_CMD_IPV6    BIT(21)
++#define HW_ATL_B0_TXD_CTL_CMD_TCP     BIT(22)
++
++#define HW_ATL_B0_MPI_CONTROL_ADR       0x0368U
++#define HW_ATL_B0_MPI_STATE_ADR         0x036CU
++
++#define HW_ATL_B0_MPI_SPEED_MSK         0xFFFFU
++#define HW_ATL_B0_MPI_SPEED_SHIFT       16U
++
++#define HW_ATL_B0_RATE_10G              BIT(0)
++#define HW_ATL_B0_RATE_5G               BIT(1)
++#define HW_ATL_B0_RATE_2G5              BIT(3)
++#define HW_ATL_B0_RATE_1G               BIT(4)
++#define HW_ATL_B0_RATE_100M             BIT(5)
++
++#define HW_ATL_B0_TXBUF_MAX  160U
++#define HW_ATL_B0_RXBUF_MAX  320U
++
++#define HW_ATL_B0_RSS_REDIRECTION_MAX 64U
++#define HW_ATL_B0_RSS_REDIRECTION_BITS 3U
++#define HW_ATL_B0_RSS_HASHKEY_BITS 320U
++
++#define HW_ATL_B0_TCRSS_4_8  1
++#define HW_ATL_B0_TC_MAX 1U
++#define HW_ATL_B0_RSS_MAX 8U
++
++#define HW_ATL_B0_LRO_RXD_MAX 2U
++#define HW_ATL_B0_RS_SLIP_ENABLED  0U
++
++/* (256k -1(max pay_len) - 54(header)) */
++#define HAL_ATL_B0_LSO_MAX_SEGMENT_SIZE 262089U
++
++/* (256k -1(max pay_len) - 74(header)) */
++#define HAL_ATL_B0_LSO_IPV6_MAX_SEGMENT_SIZE 262069U
++
++#define HW_ATL_B0_CHIP_REVISION_B0      0xA0U
++#define HW_ATL_B0_CHIP_REVISION_UNKNOWN 0xFFU
++
++#define HW_ATL_B0_FW_SEMA_RAM           0x2U
++
++#define HW_ATL_B0_TXC_LEN_TUNLEN    (0x0000FF00)
++#define HW_ATL_B0_TXC_LEN_OUTLEN    (0xFFFF0000)
++
++#define HW_ATL_B0_TXC_CTL_DESC_TYPE (0x00000007)
++#define HW_ATL_B0_TXC_CTL_CTX_ID    (0x00000008)
++#define HW_ATL_B0_TXC_CTL_VLAN      (0x000FFFF0)
++#define HW_ATL_B0_TXC_CTL_CMD       (0x00F00000)
++#define HW_ATL_B0_TXC_CTL_L2LEN     (0x7F000000)
++
++#define HW_ATL_B0_TXC_CTL_L3LEN     (0x80000000)	/* L3LEN lsb */
++#define HW_ATL_B0_TXC_LEN2_L3LEN    (0x000000FF)	/* L3LE upper bits */
++#define HW_ATL_B0_TXC_LEN2_L4LEN    (0x0000FF00)
++#define HW_ATL_B0_TXC_LEN2_MSSLEN   (0xFFFF0000)
++
++#define HW_ATL_B0_RXD_DD    (0x1)
++#define HW_ATL_B0_RXD_NCEA0 (0x1)
++
++#define HW_ATL_B0_RXD_WB_STAT_RSSTYPE (0x0000000F)
++#define HW_ATL_B0_RXD_WB_STAT_PKTTYPE (0x00000FF0)
++#define HW_ATL_B0_RXD_WB_STAT_RXCTRL  (0x00180000)
++#define HW_ATL_B0_RXD_WB_STAT_SPLHDR  (0x00200000)
++#define HW_ATL_B0_RXD_WB_STAT_HDRLEN  (0xFFC00000)
++
++#define HW_ATL_B0_RXD_WB_STAT2_DD      (0x0001)
++#define HW_ATL_B0_RXD_WB_STAT2_EOP     (0x0002)
++#define HW_ATL_B0_RXD_WB_STAT2_RXSTAT  (0x003C)
++#define HW_ATL_B0_RXD_WB_STAT2_MACERR  (0x0004)
++#define HW_ATL_B0_RXD_WB_STAT2_IP4ERR  (0x0008)
++#define HW_ATL_B0_RXD_WB_STAT2_TCPUPDERR  (0x0010)
++#define HW_ATL_B0_RXD_WB_STAT2_RXESTAT (0x0FC0)
++#define HW_ATL_B0_RXD_WB_STAT2_RSCCNT  (0xF000)
++
++#define L2_FILTER_ACTION_DISCARD (0x0)
++#define L2_FILTER_ACTION_HOST    (0x1)
++
++#define HW_ATL_B0_UCP_0X370_REG  (0x370)
++
++#define HW_ATL_B0_FLUSH() AQ_HW_READ_REG(self, 0x10)
++
++#define HW_ATL_B0_FW_VER_EXPECTED 0x01050006U
++
++/* Hardware tx descriptor */
++struct __packed hw_atl_txd_s {
++	u64 buf_addr;
++	u32 ctl;
++	u32 ctl2; /* 63..46 - payload length, 45 - ctx enable, 44 - ctx index */
++};
++
++/* Hardware tx context descriptor */
++struct __packed hw_atl_txc_s {
++	u32 rsvd;
++	u32 len;
++	u32 ctl;
++	u32 len2;
++};
++
++/* Hardware rx descriptor */
++struct __packed hw_atl_rxd_s {
++	u64 buf_addr;
++	u64 hdr_addr;
++};
++
++/* Hardware rx descriptor writeback */
++struct __packed hw_atl_rxd_wb_s {
++	u32 type;
++	u32 rss_hash;
++	u16 status;
++	u16 pkt_len;
++	u16 next_desc_ptr;
++	u16 vlan;
++};
++
++/* HW layer capabilities */
++static struct aq_hw_caps_s hw_atl_b0_hw_caps_ = {
++	.ports = 1U,
++	.is_64_dma = true,
++	.msix_irqs = 4U,
++	.irq_mask = ~0U,
++	.vecs = HW_ATL_B0_RSS_MAX,
++	.tcs = HW_ATL_B0_TC_MAX,
++	.rxd_alignment = 1U,
++	.rxd_size = HW_ATL_B0_RXD_SIZE,
++	.rxds = 8U * 1024U,
++	.txd_alignment = 1U,
++	.txd_size = HW_ATL_B0_TXD_SIZE,
++	.txds = 8U * 1024U,
++	.txhwb_alignment = 4096U,
++	.tx_rings = HW_ATL_B0_TX_RINGS,
++	.rx_rings = HW_ATL_B0_RX_RINGS,
++	.hw_features = NETIF_F_HW_CSUM |
++			NETIF_F_RXHASH |
++			NETIF_F_SG |
++			NETIF_F_TSO |
++			NETIF_F_LRO,
++	.hw_priv_flags = IFF_UNICAST_FLT,
++	.link_speed_msk = (HW_ATL_B0_RATE_10G |
++			HW_ATL_B0_RATE_5G |
++			HW_ATL_B0_RATE_2G5 |
++			HW_ATL_B0_RATE_1G |
++			HW_ATL_B0_RATE_100M),
++	.flow_control = true,
++	.mtu = HW_ATL_B0_MTU_JUMBO,
++	.mac_regs_count = 88,
++	.fw_ver_expected = HW_ATL_B0_FW_VER_EXPECTED,
++};
++
++#endif /* HW_ATL_B0_INTERNAL_H */
 -- 
 2.9.3
