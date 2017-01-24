@@ -1,61 +1,70 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: [PATCH] cxgbit: use T6 specific macro to set force bit
-Date: Tue, 24 Jan 2017 17:07:02 +0530
-Message-ID: <1485257822-729-1-git-send-email-varun@chelsio.com>
-Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org,
-        indranil@chelsio.com, varun@chelsio.com
-To: bart.vanassche@sandisk.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v6 1/1] net sched actions: Add support for user
+ cookies
+Date: Tue, 24 Jan 2017 06:46:48 -0500
+Message-ID: <dc61a214-2825-7bec-890c-069795a182a0@mojatatu.com>
+References: <1485116750-31198-1-git-send-email-jhs@emojatatu.com>
+ <20170123125838.GD31958@penelope.horms.nl> <58862CE7.2080906@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
+        paulb@mellanox.com, john.fastabend@gmail.com, mrv@mojatatu.com,
+        hadarh@mellanox.com, ogerlitz@mellanox.com, roid@mellanox.com,
+        xiyou.wangcong@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:39091 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750824AbdAXLhg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 06:37:36 -0500
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36479 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750763AbdAXLqv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 06:46:51 -0500
+Received: by mail-qt0-f193.google.com with SMTP id l7so24538575qtd.3
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 03:46:50 -0800 (PST)
+In-Reply-To: <58862CE7.2080906@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For T6 adapters use T6 specific macro to set
-force bit.
+On 17-01-23 11:18 AM, Daniel Borkmann wrote:
+> On 01/23/2017 01:58 PM, Simon Horman wrote:
+>> Hi Jamal,
+>>
+>> On Sun, Jan 22, 2017 at 03:25:50PM -0500, Jamal Hadi Salim wrote:
+>>
+>> ...
+>>
+>>> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+>>> index cd08df9..58cf1c5 100644
+>>> --- a/net/sched/act_api.c
+>>> +++ b/net/sched/act_api.c
+>>> @@ -24,6 +24,7 @@
+>>>   #include <net/net_namespace.h>
+>>>   #include <net/sock.h>
+>>>   #include <net/sch_generic.h>
+>>> +#include <net/pkt_cls.h>
+>>>   #include <net/act_api.h>
+>>>   #include <net/netlink.h>
+>>>
+>>> @@ -33,6 +34,8 @@ static void free_tcf(struct rcu_head *head)
+>>>
+>>>       free_percpu(p->cpu_bstats);
+>>>       free_percpu(p->cpu_qstats);
+>>> +    kfree(p->act_cookie->data);
+>>
+>> Does the above need to be protected by a check for p->act_cookie being
+>> non-NULL?
+>
+> Yep, that would be a NULL-deref. Why not just embedd tc_cookie as
+> suggested earlier, the struct is rather small anyway ...
+>
 
-Signed-off-by: Varun Prakash <varun@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h | 4 ++++
- drivers/target/iscsi/cxgbit/cxgbit_target.c | 4 +++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index a267173..21fc2fe 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -1349,6 +1349,10 @@ struct cpl_tx_data {
- #define TX_FORCE_S	13
- #define TX_FORCE_V(x)	((x) << TX_FORCE_S)
- 
-+#define T6_TX_FORCE_S		20
-+#define T6_TX_FORCE_V(x)	((x) << T6_TX_FORCE_S)
-+#define T6_TX_FORCE_F		T6_TX_FORCE_V(1U)
-+
- enum {
- 	ULP_TX_MEM_READ = 2,
- 	ULP_TX_MEM_WRITE = 3,
-diff --git a/drivers/target/iscsi/cxgbit/cxgbit_target.c b/drivers/target/iscsi/cxgbit/cxgbit_target.c
-index 8bcb9b7..bcf94aa 100644
---- a/drivers/target/iscsi/cxgbit/cxgbit_target.c
-+++ b/drivers/target/iscsi/cxgbit/cxgbit_target.c
-@@ -162,12 +162,14 @@ cxgbit_tx_data_wr(struct cxgbit_sock *csk, struct sk_buff *skb, u32 dlen,
- 		  u32 len, u32 credits, u32 compl)
- {
- 	struct fw_ofld_tx_data_wr *req;
-+	const struct cxgb4_lld_info *lldi = &csk->com.cdev->lldi;
- 	u32 submode = cxgbit_skcb_submode(skb);
- 	u32 wr_ulp_mode = 0;
- 	u32 hdr_size = sizeof(*req);
- 	u32 opcode = FW_OFLD_TX_DATA_WR;
- 	u32 immlen = 0;
--	u32 force = TX_FORCE_V(!submode);
-+	u32 force = is_t5(lldi->adapter_type) ? TX_FORCE_V(!submode) :
-+		    T6_TX_FORCE_F;
- 
- 	if (cxgbit_skcb_flags(skb) & SKCBF_TX_ISO) {
- 		opcode = FW_ISCSI_TX_DATA_WR;
--- 
-2.0.2
+Everytime I make a change like that i seem to forget to run one
+more test and it creates more bugs (example, the last two resends
+are errors introduced by changing the struct from last one which
+was your suggestion;->).
+So you will have to forgive me I am not going back to that
+definition; I will post version 7 soon.
+
+cheers,
+jamal
