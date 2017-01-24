@@ -1,116 +1,89 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net 2/2] ipv6: fix ip6_tnl_parse_tlv_enc_lim()
-Date: Mon, 23 Jan 2017 16:43:06 -0800
-Message-ID: <20170124004306.19236-3-edumazet@google.com>
-References: <20170124004306.19236-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: XDP offload to hypervisor
+Date: Mon, 23 Jan 2017 17:02:02 -0800
+Message-ID: <20170124010201.GB60699@ast-mbp.thefacebook.com>
+References: <20170123230727-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>, jasowang@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        daniel@iogearbox.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33767 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751786AbdAXAnY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:43:24 -0500
-Received: by mail-pf0-f172.google.com with SMTP id y143so45192901pfb.0
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 16:43:18 -0800 (PST)
-In-Reply-To: <20170124004306.19236-1-edumazet@google.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33108 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751355AbdAXBCI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 20:02:08 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so15037816pgd.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 17:02:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170123230727-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function suffers from multiple issues.
+On Mon, Jan 23, 2017 at 11:40:29PM +0200, Michael S. Tsirkin wrote:
+> I've been thinking about passing XDP programs from guest to the
+> hypervisor.  Basically, after getting an incoming packet, we could run
+> an XDP program in host kernel.
+> 
+> If the result is XDP_DROP or XDP_TX we don't need to wake up the guest at all!
 
-First one is that pskb_may_pull() may reallocate skb->head,
-so the 'raw' pointer needs either to be reloaded or not used at all.
+that's an interesting idea!
+Long term 'xdp offload' needs to be defined, since NICs become smarter
+and can accelerate xdp programs.
+So pushing the xdp program down from virtio in the guest into host
+and from x86 into nic cpu should probably be handled through the same api.
 
-Second issue is that NEXTHDR_DEST handling does not validate
-that the options are present in skb->data, so we might read
-garbage or access non existent memory.
+> When using tun for networking - especially with adjust_head - this
+> unfortunately probably means we need to do a data copy unless there is
+> enough headroom.  How much is enough though?
 
-With help from Willem de Bruijn.
+Frankly I don't understand the whole virtio nit picking that was happening.
+imo virtio+xdp by itself is only useful for debugging, development and testing
+of xdp programs in a VM. The discussion about performance of virtio+xdp
+will only be meaningful when corresponding host part is done.
+Likely in the form of vhost extensions and may be driver changes.
+Trying to optimize virtio+xdp when host is doing traditional skb+vhost
+isn't going to be impactful.
+But when host can do xdp in phyiscal NIC that can deliver raw
+pages into vhost that gets picked up by guest virtio, then we hopefully
+will be around 10G line rate. page pool is likely needed in such scenario.
+Some new xdp action like xdp_tx_into_vhost or whatever.
+And guest will be seeing full pages that host nic provided and discussion
+about headroom will be automatically solved.
+Arguing that skb has 64-byte headroom and therefore we need to
+reduce XDP_PACKET_HEADROOM is really upside down.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov  <dvyukov@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
----
- net/ipv6/ip6_tunnel.c | 34 ++++++++++++++++++++++------------
- 1 file changed, 22 insertions(+), 12 deletions(-)
+> Another issue is around host/guest ABI. Guest BPF could add new features
+> at any point. What if hypervisor can not support it all?  I guess we
+> could try loading program into hypervisor and run it within guest on
+> failure to load, but this ignores question of cross-version
+> compatibility - someone might start guest on a new host
+> then try to move to an old one. So we will need an option
+> "behave like an older host" such that guest can start and then
+> move to an older host later. This will likely mean
+> implementing this validation of programs in qemu userspace unless linux
+> can supply something like this. Is this (disabling some features)
+> something that might be of interest to larger bpf community?
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 02923f956ac8ba5f3270e8d5282fd9637c2d..ff8ee06491c335d209e86bb15f2526ab1915 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -400,18 +400,19 @@ ip6_tnl_dev_uninit(struct net_device *dev)
- 
- __u16 ip6_tnl_parse_tlv_enc_lim(struct sk_buff *skb, __u8 *raw)
- {
--	const struct ipv6hdr *ipv6h = (const struct ipv6hdr *) raw;
--	__u8 nexthdr = ipv6h->nexthdr;
--	__u16 off = sizeof(*ipv6h);
-+	const struct ipv6hdr *ipv6h = (const struct ipv6hdr *)raw;
-+	unsigned int nhoff = raw - skb->data;
-+	unsigned int off = nhoff + sizeof(*ipv6h);
-+	u8 next, nexthdr = ipv6h->nexthdr;
- 
- 	while (ipv6_ext_hdr(nexthdr) && nexthdr != NEXTHDR_NONE) {
--		__u16 optlen = 0;
- 		struct ipv6_opt_hdr *hdr;
--		if (raw + off + sizeof(*hdr) > skb->data &&
--		    !pskb_may_pull(skb, raw - skb->data + off + sizeof (*hdr)))
-+		u16 optlen;
-+
-+		if (!pskb_may_pull(skb, off + sizeof(*hdr)))
- 			break;
- 
--		hdr = (struct ipv6_opt_hdr *) (raw + off);
-+		hdr = (struct ipv6_opt_hdr *)(skb->data + off);
- 		if (nexthdr == NEXTHDR_FRAGMENT) {
- 			struct frag_hdr *frag_hdr = (struct frag_hdr *) hdr;
- 			if (frag_hdr->frag_off)
-@@ -422,20 +423,29 @@ __u16 ip6_tnl_parse_tlv_enc_lim(struct sk_buff *skb, __u8 *raw)
- 		} else {
- 			optlen = ipv6_optlen(hdr);
- 		}
-+		/* cache hdr->nexthdr, since pskb_may_pull() might
-+		 * invalidate hdr
-+		 */
-+		next = hdr->nexthdr;
- 		if (nexthdr == NEXTHDR_DEST) {
--			__u16 i = off + 2;
-+			u16 i = 2;
-+
-+			/* Remember : hdr is no longer valid at this point. */
-+			if (!pskb_may_pull(skb, off + optlen))
-+				break;
-+
- 			while (1) {
- 				struct ipv6_tlv_tnl_enc_lim *tel;
- 
- 				/* No more room for encapsulation limit */
--				if (i + sizeof (*tel) > off + optlen)
-+				if (i + sizeof(*tel) > optlen)
- 					break;
- 
--				tel = (struct ipv6_tlv_tnl_enc_lim *) &raw[i];
-+				tel = (struct ipv6_tlv_tnl_enc_lim *) skb->data + off + i;
- 				/* return index of option if found and valid */
- 				if (tel->type == IPV6_TLV_TNL_ENCAP_LIMIT &&
- 				    tel->length == 1)
--					return i;
-+					return i + off - nhoff;
- 				/* else jump to next option */
- 				if (tel->type)
- 					i += tel->length + 2;
-@@ -443,7 +453,7 @@ __u16 ip6_tnl_parse_tlv_enc_lim(struct sk_buff *skb, __u8 *raw)
- 					i++;
- 			}
- 		}
--		nexthdr = hdr->nexthdr;
-+		nexthdr = next;
- 		off += optlen;
- 	}
- 	return 0;
--- 
-2.11.0.483.g087da7b7c-goog
+In case of x86->nic offload not all xdp features will be supported
+by the nic and that is expected. The user will request 'offload of xdp prog'
+in some form and if it cannot be done, then xdp programs will run
+on x86 as before. Same thing, I imagine, is applicable to virtio->host
+offload. Therefore I don't see a need for user space visible
+feature negotiation.
+
+> With a device such as macvtap there exist configurations where a single
+> guest is in control of the device (aka passthrough mode) in that case
+> there's a potential to run xdp on host before host skb is built, unless
+> host already has an xdp program attached.  If it does we could run the
+> program within guest, but what if a guest program got attached first?
+> Maybe we should pass a flag in the packet "xdp passed on this packet in
+> host". Then, guest can skip running it.  Unless we do a full reset
+> there's always a potential for packets to slip through, e.g. on xdp
+> program changes. Maybe a flush command is needed, or force queue or
+> device reset to make sure nothing is going on. Does this make sense?
+
+All valid questions and concerns.
+Since there is still no xdp_adjust_head support in virtio,
+it feels kinda early to get into detailed 'virtio offload' discussion.
