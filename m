@@ -1,43 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] Introduce a sysctl that modifies the value
- of PROT_SOCK.
-Date: Tue, 24 Jan 2017 12:11:21 -0500 (EST)
-Message-ID: <20170124.121121.1514357798997792255.davem@davemloft.net>
-References: <20161231125505.7f0c7dff@xeon-e3>
-        <20170112065225.GB2345@templeofstupid.com>
-        <20170121014911.GB2598@templeofstupid.com>
+From: Eli Cohen <eli@mellanox.com>
+Subject: RE: [for-next 07/10] IB/mlx5: Use blue flame register allocator in
+ mlx5_ib
+Date: Tue, 24 Jan 2017 17:16:19 +0000
+Message-ID: <AM4PR0501MB2787B803D95B7575065CC497C5750@AM4PR0501MB2787.eurprd05.prod.outlook.com>
+References: <CAL3tnx4H2HsGMH=caiobivvvs0AU9yrzCmVONOdUQ_j_JMfufA@mail.gmail.com>
+         <20170105.150731.2097384465565543422.davem@davemloft.net>
+         <20170106060608.GG15685@mtr-leonro.local>
+         <20170106.111131.1775665484264248231.davem@redhat.com>
+         <20170108062257.GH15685@mtr-leonro.local>
+ <1485276271.43764.31.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: kjlx@templeofstupid.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "eli@dev.mellanox.co.il" <eli@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Matan Barak <matanb@mellanox.com>
+To: Doug Ledford <dledford@redhat.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50620 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750774AbdAXRLq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 12:11:46 -0500
-In-Reply-To: <20170121014911.GB2598@templeofstupid.com>
+Received: from mail-eopbgr40060.outbound.protection.outlook.com ([40.107.4.60]:35982
+        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750715AbdAXRQY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 12:16:24 -0500
+In-Reply-To: <1485276271.43764.31.camel@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Krister Johansen <kjlx@templeofstupid.com>
-Date: Fri, 20 Jan 2017 17:49:11 -0800
-
-> Add net.ipv4.ip_unprivileged_port_start, which is a per namespace sysctl
-> that denotes the first unprivileged inet port in the namespace.  To
-> disable all privileged ports set this to zero.  It also checks for
-> overlap with the local port range.  The privileged and local range may
-> not overlap.
-> 
-> The use case for this change is to allow containerized processes to bind
-> to priviliged ports, but prevent them from ever being allowed to modify
-> their container's network configuration.  The latter is accomplished by
-> ensuring that the network namespace is not a child of the user
-> namespace.  This modification was needed to allow the container manager
-> to disable a namespace's priviliged port restrictions without exposing
-> control of the network namespace to processes in the user namespace.
-> 
-> Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
-
-Applied, thanks.
+SXQgaXMgaW4gRGF2ZSdzIHRyZWU6DQoNCmNvbW1pdCA1ZmU5ZGVjMGQwNDU0MzdlNDhmMTEyYjhm
+YTcwNTE5N2JkN2JjM2MwDQpBdXRob3I6IEVsaSBDb2hlbiA8ZWxpQG1lbGxhbm94LmNvbT4NCkRh
+dGU6ICAgVHVlIEphbiAzIDIzOjU1OjI1IDIwMTcgKzAyMDANCg0KICAgIElCL21seDU6IFVzZSBi
+bHVlIGZsYW1lIHJlZ2lzdGVyIGFsbG9jYXRvciBpbiBtbHg1X2liDQogICAgDQogICAgTWFrZSB1
+c2Ugb2YgdGhlIGJsdWUgZmxhbWUgcmVnaXN0ZXJzIGFsbG9jYXRvciBhdCBtbHg1X2liLiBTaW5j
+ZSBibHVlDQogICAgZmxhbWUgd2FzIG5vdCByZWFsbHkgc3VwcG9ydGVkIHdlIHJlbW92ZSBhbGwg
+dGhlIGNvZGUgdGhhdCBpcyByZWxhdGVkIHRvDQogICAgYmx1ZSBmbGFtZSBhbmQgd2UgbGV0IGFs
+bCBjb25zdW1lcnMgdG8gdXNlIHRoZSBzYW1lIGJsdWUgZmxhbWUgcmVnaXN0ZXIuDQogICAgT25j
+ZSBibHVlIGZsYW1lIGlzIHN1cHBvcnRlZCB3ZSB3aWxsIGFkZCB0aGUgY29kZS4gQXMgcGFydCBv
+ZiB0aGlzIHBhdGNoDQogICAgd2UgYWxzbyBtb3ZlIHRoZSBkZWZpbml0aW9uIG9mIHN0cnVjdCBt
+bHg1X2JmIHRvIG1seDVfaWIuaCBhcyBpdCBpcyBvbmx5DQogICAgdXNlZCBieSBtbHg1X2liLg0K
+ICAgIA0KICAgIFNpZ25lZC1vZmYtYnk6IEVsaSBDb2hlbiA8ZWxpQG1lbGxhbm94LmNvbT4NCiAg
+ICBSZXZpZXdlZC1ieTogTWF0YW4gQmFyYWsgPG1hdGFuYkBtZWxsYW5veC5jb20+DQogICAgU2ln
+bmVkLW9mZi1ieTogTGVvbiBSb21hbm92c2t5IDxsZW9uQGtlcm5lbC5vcmc+DQogICAgU2lnbmVk
+LW9mZi1ieTogU2FlZWQgTWFoYW1lZWQgPHNhZWVkbUBtZWxsYW5veC5jb20+DQoNCi0tLS0tT3Jp
+Z2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBEb3VnIExlZGZvcmQgW21haWx0bzpkbGVkZm9yZEBy
+ZWRoYXQuY29tXSANClNlbnQ6IFR1ZXNkYXksIEphbnVhcnkgMjQsIDIwMTcgMTA6NDUgQU0NClRv
+OiBMZW9uIFJvbWFub3Zza3kgPGxlb25yb0BtZWxsYW5veC5jb20+OyBEYXZpZCBNaWxsZXIgPGRh
+dmVtQHJlZGhhdC5jb20+DQpDYzogZWxpQGRldi5tZWxsYW5veC5jby5pbDsgU2FlZWQgTWFoYW1l
+ZWQgPHNhZWVkbUBtZWxsYW5veC5jb20+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1y
+ZG1hQHZnZXIua2VybmVsLm9yZzsgRWxpIENvaGVuIDxlbGlAbWVsbGFub3guY29tPjsgTWF0YW4g
+QmFyYWsgPG1hdGFuYkBtZWxsYW5veC5jb20+DQpTdWJqZWN0OiBSZTogW2Zvci1uZXh0IDA3LzEw
+XSBJQi9tbHg1OiBVc2UgYmx1ZSBmbGFtZSByZWdpc3RlciBhbGxvY2F0b3IgaW4gbWx4NV9pYg0K
+DQpPbiBTdW4sIDIwMTctMDEtMDggYXQgMDg6MjIgKzAyMDAsIExlb24gUm9tYW5vdnNreSB3cm90
+ZToNCj4gT24gRnJpLCBKYW4gMDYsIDIwMTcgYXQgMTE6MTE6MzFBTSAtMDUwMCwgRGF2aWQgTWls
+bGVyIHdyb3RlOg0KPiA+IA0KPiA+IEZyb206IExlb24gUm9tYW5vdnNreSA8bGVvbnJvQG1lbGxh
+bm94LmNvbT4NCj4gPiBEYXRlOiBGcmksIDYgSmFuIDIwMTcgMDg6MDY6MDkgKzAyMDANCj4gPiAN
+Cj4gPiA+IA0KPiA+ID4gT24gVGh1LCBKYW4gMDUsIDIwMTcgYXQgMDM6MDc6MzFQTSAtMDUwMCwg
+RGF2aWQgTWlsbGVyIHdyb3RlOg0KPiA+ID4gPiANCj4gPiA+ID4gRnJvbTogRWxpIENvaGVuIDxl
+bGlAZGV2Lm1lbGxhbm94LmNvLmlsPg0KPiA+ID4gPiBEYXRlOiBUaHUsIDUgSmFuIDIwMTcgMTQ6
+MDM6MTggLTA2MDANCj4gPiA+ID4gDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gSWYgbmVjZXNzYXJ5
+IEkgY2FuIG1ha2Ugc3VyZSBpdCBidWlsZHMgb24gMzIgYml0cyBhcyB3ZWxsLg0KPiA+ID4gPiAN
+Cj4gPiA+ID4gUGxlYXNlIGRvLg0KPiA+ID4gDQo+ID4gPiBEYXZlLA0KPiA+ID4gDQo+ID4gPiBJ
+J20gZmFpbGluZyB0byB1bmRlcnN0YW5kIHRoZSBiZW5lZml0cyBvZiBidWlsZGluZyBtbHg1IG9u
+IDMyIA0KPiA+ID4gYml0cywgYW5kIHNlZSBvbmx5IGRpc2FkdmFudGFnZXM6DQo+ID4gPiDCoCog
+SXQgaXMgYWN0dWFsIGRlYWQgY29kZSB3aXRob3V0IHRlc3QgY292ZXJhZ2UuDQo+ID4gPiDCoCog
+SXQgbWlzbGVhZHMgcmV2aWV3ZXJzL2N1c3RvbWVycyBieSBzZWVpbmcgY29kZSBmb3IgMzIgYml0
+cy4NCj4gPiA+IMKgKiBJdCBhZGRzIGNvbXBpbGF0aW9uIHRpbWUgZm9yIDMyIGJpdHMgcGxhdGZv
+cm1zIGFuZCAicHVuaXNoZXMiDQo+ID4gPiB0aGVtDQo+ID4gPiDCoMKgwqBmb3Igbm90IHJlbGV2
+YW50IGZvciB0aGVtIGRyaXZlci4NCj4gPiA+IA0KPiA+ID4gV2h5IGRvIHlvdSBjYWxsIHJlbW92
+aW5nIGFsbCB0aGF0IGFzIGEgInJlZ3Jlc3Npb24iPw0KPiA+IA0KPiA+IFdlIGhhdmUgdGhpcyB0
+aGluZyBjYWxsZWQgIkNPTkZJR19DT01QSUxFX1RFU1QiLCBpdCBoYXMgdG9ucyBvZiANCj4gPiB2
+YWx1ZSwgcGVyaGFwcyB5b3UndmUgc2VlbiBpdCBiZWZvcmU/DQo+IA0KPiBUaGFua3MgRGF2aWQs
+DQo+IEkgc2VlIHlvdXIgcG9pbnQuDQoNCldoYXQncyB0aGUgc3RhdHVzIHVwZGF0ZSBvbiB0aGlz
+LiDCoFVubGVzcyBJJ20gbWlzc2luZyBpdCBpbiBteSByZG1hIG1haWxpbmcgbGlzdCAod2hpY2gg
+aXMgYWx3YXlzIHBvc3NpYmxlIGlmIEkgc2NhbiBzdWJqZWN0cyB0b28gZmFzdCksIEkgZG9uJ3Qg
+c2VlIGEgdjIgb2YgdGhpcyBwdWxsIHJlcXVlc3QsIGJ1dCBJIGFsc28gZG9uJ3Qgc2VlIHRoYXQg
+RGF2aWQncyBjb25jZXJucyBoYXZlIGJlZW4gYWRkcmVzc2VkLCBub3IgdGhhdCBoZSBoYXMgcHVs
+bGVkIHRoaXMuDQoNCi0tDQpEb3VnIExlZGZvcmQgPGRsZWRmb3JkQHJlZGhhdC5jb20+DQrCoCDC
+oCBHUEcgS2V5SUQ6IEI4MjZBMzMzMEU1NzJGREQNCsKgIMKgDQpLZXkgZmluZ2VycHJpbnQgPSBB
+RTZCIDFCREEgMTIyQiAyM0I0IDI2NUIgwqAxMjc0IEI4MjYgQTMzMyAwRTU3IDJGREQNCg==
