@@ -1,48 +1,61 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 00/18] netvsc driver enhancements for net-next
-Date: Tue, 24 Jan 2017 13:05:57 -0800
-Message-ID: <20170124210615.18628-1-sthemmin@microsoft.com>
+Subject: [PATCH 03/18] netvsc: report number of rx queues in ethtool
+Date: Tue, 24 Jan 2017 13:06:00 -0800
+Message-ID: <20170124210615.18628-4-sthemmin@microsoft.com>
+References: <20170124210615.18628-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36230 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750763AbdAXVG7 (ORCPT
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:33860 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750787AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pf0-f174.google.com with SMTP id 189so52616505pfu.3
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:18 -0800 (PST)
+Received: by mail-pg0-f45.google.com with SMTP id 14so57791438pgg.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:21 -0800 (PST)
+In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lots of little things in here. Support for minor more ethtool control,
-negotiation of offload parameters with host (based on FreeBSD) and
-several cleanups.
+Report actual number of receive queues to ethtool.
 
-Stephen Hemminger (18):
-  netvsc: remove no longer needed receive staging buffers
-  netvsc: negotiate checksum and segmentation parameters
-  netvsc: report number of rx queues in ethtool
-  netvsc: report rss field values
-  netvsc: add ethtool ops to get/set RSS key
-  netvsc: allow more flexible setting of number of channels
-  netvsc: allow get/set of RSS indirection table
-  netvsc: enhance transmit select_queue
-  netvsc: remove unused variables
-  netvsc: group all per-channel state together
-  netvsc: optimize receive path
-  netvsc: don't pass void * to internal device_add
-  netvsc: simplify rndis_filter_remove
-  netvsc: eliminate per-device outstanding send counter
-  netvsc: account for packets/bytes transmitted after completion
-  netvsc: report per-channel stats in ethtool statistics
-  netvsc: simplify get next send section
-  netvsc: call netif_receive_skb
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
- drivers/net/hyperv/hyperv_net.h   | 216 ++++++++++++---
- drivers/net/hyperv/netvsc.c       | 321 ++++++++-------------
- drivers/net/hyperv/netvsc_drv.c   | 569 +++++++++++++++++++++++---------------
- drivers/net/hyperv/rndis_filter.c | 338 ++++++++++++++--------
- 4 files changed, 850 insertions(+), 594 deletions(-)
-
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index f26d9d2d475f..b158cab678b3 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1008,6 +1008,21 @@ static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 	}
+ }
+ 
++static int
++netvsc_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
++		 u32 *rules)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *nvdev = ndc->nvdev;
++
++	switch (info->cmd) {
++	case ETHTOOL_GRXRINGS:
++		info->data = nvdev->num_chn;
++		return 0;
++	}
++	return -EOPNOTSUPP;
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void netvsc_poll_controller(struct net_device *net)
+ {
+@@ -1028,6 +1043,7 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.get_ts_info	= ethtool_op_get_ts_info,
+ 	.get_settings	= netvsc_get_settings,
+ 	.set_settings	= netvsc_set_settings,
++	.get_rxnfc	= netvsc_get_rxnfc,
+ };
+ 
+ static const struct net_device_ops device_ops = {
 -- 
 2.11.0
