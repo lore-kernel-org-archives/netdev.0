@@ -1,44 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/18] gtp: fixes and support multiple VRF's per GTP
- socket
-Date: Tue, 24 Jan 2017 11:46:55 -0500 (EST)
-Message-ID: <20170124.114655.1282086171761676213.davem@davemloft.net>
-References: <20170124152848.6120-1-aschultz@tpip.net>
-        <20170124153919.zkigaq55kykyrfq5@nataraja>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH v5 0/2] Add support for the ethernet switch on the ESPRESSObin
+Date: Tue, 24 Jan 2017 17:47:06 +0100
+Message-ID: <87r33s2ynp.fsf@free-electrons.com>
+References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
+        <20170120.141705.1390880809796992457.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: aschultz@tpip.net, pablo@netfilter.org, netdev@vger.kernel.org,
-        Lionel.Gauthier@eurecom.fr, openbsc@lists.osmocom.org
-To: laforge@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49614 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750715AbdAXQq5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 11:46:57 -0500
-In-Reply-To: <20170124153919.zkigaq55kykyrfq5@nataraja>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, jason@lakedaemon.net,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com,
+        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
+        dingwei@marvell.com, kostap@marvell.com, shjzhou@marvell.com,
+        jpannell@marvell.com
+To: David Miller <davem@davemloft.net>,
+        vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170120.141705.1390880809796992457.davem@davemloft.net> (David
+        Miller's message of "Fri, 20 Jan 2017 14:17:05 -0500 (EST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Tue, 24 Jan 2017 16:39:19 +0100
+Hi David,
+ 
+ On ven., janv. 20 2017, David Miller <davem@davemloft.net> wrote:
 
-> Hi Andreas,
-> 
-> On Tue, Jan 24, 2017 at 04:28:30PM +0100, Andreas Schultz wrote:
->> During that work some smaller problems where found and fixes for them are
->> included.
-> 
-> As this is a rather large patch-set, and I think it might be better to
-> split it in clear bugfixes of the existing code (or no-brainers like the
-> module alias) and in introducing new featur regarding socket/netdev.
-> However, that's just my comment "from the side", I'm not the one who
-> needs to be convinced in terms of merging them :)
-> 
-> I would just assume that the clear fixes + no-brainers could go in right
-> away without any further review...
+> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Date: Thu, 19 Jan 2017 22:49:32 +0100
+>
+>> I created a new family for this switch and filled the ops structure
+>> by selecting which seems the more appropriate functions. I rebased
+>> the series on net-next/master which allowed me to benefit to the
+>> eeprom functions introduced for the 6390.
+>
+> It looks like there will be at least one more respin of this series,
+> specifically to remove the new family as Vivien seems to object to
+> this.
 
-Yes, please split this stuff up, the patch series is _way_ too large.
+I am about to send a new version. However about removing the new family,
+I thought that with the confirmation from Andrew we could keep it.
 
-Anything more than a dozen patches is way too much to burdon reviewers
-with at one time.
+Vivien could you confirm this?
+
+Thanks,
+
+Gregory
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
