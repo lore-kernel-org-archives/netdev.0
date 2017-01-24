@@ -1,88 +1,38 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH v2 06/18] gtp: fix cross netns recv on gtp socket
-Date: Tue, 24 Jan 2017 16:28:36 +0100
-Message-ID: <20170124152848.6120-7-aschultz@tpip.net>
-References: <20170124152848.6120-1-aschultz@tpip.net>
+Subject: [PATCH v2 00/18] gtp: fixes and support multiple VRF's per GTP socket
+Date: Tue, 24 Jan 2017 16:28:30 +0100
+Message-ID: <20170124152848.6120-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:60589 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:43643 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751115AbdAXP25 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 10:28:57 -0500
-In-Reply-To: <20170124152848.6120-1-aschultz@tpip.net>
+        id S1751058AbdAXP2z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 10:28:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The use of the paassed through netlink src_net to check for a
-cross netns operation was wrong. Using the GTP socket and the
-GTP netdevice is always correct (even if the netdev has been
-moved to new netns after link creation).
+The current linking of GTP network devices and GTP enabled sockets means that
+we can not have multiple VRF's per GTP socket. This series seperates the
+sockets from network device, makes sockets attached to GTP network device
+optional and adds a API function to enable GTP encapsulation on socket
+without having to create a new GTP device.
 
-Remove the now obsolete net field from gtp_dev.
+It is still possible to use the old API. The network device attached socket is
+then used when no socket is specified on PDP context creation.
 
-Signed-off-by: Andreas Schultz <aschultz@tpip.net>
----
- drivers/net/gtp.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+During that work some smaller problems where found and fixes for them are
+included.
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 7a3c5f6..bc8734b7 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -69,7 +69,6 @@ struct gtp_dev {
- 	struct socket		*sock0;
- 	struct socket		*sock1u;
- 
--	struct net		*net;
- 	struct net_device	*dev;
- 
- 	unsigned int		hash_size;
-@@ -292,7 +291,7 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
- 
--	xnet = !net_eq(gtp->net, dev_net(gtp->dev));
-+	xnet = !net_eq(sock_net(sk), dev_net(gtp->dev));
- 
- 	switch (udp_sk(sk)->encap_type) {
- 	case UDP_ENCAP_GTP0:
-@@ -642,7 +641,7 @@ static void gtp_link_setup(struct net_device *dev)
- static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
- static void gtp_hashtable_free(struct gtp_dev *gtp);
- static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
--			    struct net *src_net, struct nlattr *data[]);
-+			    struct nlattr *data[]);
- static void gtp_encap_disable(struct gtp_dev *gtp);
- 
- static int gtp_newlink(struct net *src_net, struct net_device *dev,
-@@ -660,7 +659,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
- 		hashsize = nla_get_u32(data[IFLA_GTP_PDP_HASHSIZE]);
- 
- 	if (data[IFLA_GTP_FD0] || data[IFLA_GTP_FD1]) {
--		err = gtp_encap_enable(dev, gtp, src_net, data);
-+		err = gtp_encap_enable(dev, gtp, data);
- 		if (err < 0)
- 			goto out_err;
- 	}
-@@ -839,7 +838,7 @@ static struct socket *gtp_encap_enable_socket(int fd, int type,
- }
- 
- static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
--			    struct net *src_net, struct nlattr *data[])
-+			    struct nlattr *data[])
- {
- 	struct socket *sock0 = NULL;
- 	struct socket *sock1u = NULL;
-@@ -867,7 +866,6 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
- 
- 	gtp->sock0 = sock0;
- 	gtp->sock1u = sock1u;
--	gtp->net = src_net;
- 
- 	return 0;
- }
--- 
-2.10.2
+v2 changes:
+
+ * the socket that is hold by the pdp context has to be release in a rcu
+   callback. Otherwise a stray GTP rx could end uo with an invalid socket.
+ * accessing the skb->sk field in gtp_rx is invalid, that field has no
+   been populated at that point
+ * add dst_cache to speed up the routing
+
+Regards
+Andreas
