@@ -1,212 +1,62 @@
-From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v8 02/13] net: ethernet: aquantia: Common functions and definitions
-Date: Mon, 23 Jan 2017 22:09:09 -0800
-Message-ID: <c57223d69fc1ecfe5b6f3be703e96a85b38f4fb8.1485237861.git.vomlehn@texas.net>
-References: <cover.1485237861.git.vomlehn@texas.net>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44757 "EHLO
-        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750743AbdAXGJq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:09:46 -0500
-In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
-In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
-References: <cover.1485237861.git.vomlehn@texas.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Huth <thuth@redhat.com>
+Subject: [PATCH] ibmveth: Add a proper check for the availability of the
+ checksum features
+Date: Tue, 24 Jan 2017 07:28:41 +0100
+Message-ID: <1485239321-14947-1-git-send-email-thuth@redhat.com>
+Cc: linuxppc-dev@lists.ozlabs.org
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-From: David VomLehn <vomlehn@texas.net>
+When using the ibmveth driver in a KVM/QEMU based VM, it currently
+always prints out a scary error message like this when it is started:
 
-Add files containing the functions and definitions used in common in
-different functional areas.
+ ibmveth 71000003 (unregistered net_device): unable to change
+ checksum offload settings. 1 rc=-2 ret_attr=71000003
 
-Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
-Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
-Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-Signed-off-by: David M. VomLehn <vomlehn@texas.net>
+This happens because the driver always tries to enable the checksum
+offloading without checking for the availability of this feature first.
+QEMU does not support checksum offloading for the spapr-vlan device,
+thus we always get the error message here.
+According to the LoPAPR specification, the "ibm,illan-options" property
+of the corresponding device tree node should be checked first to see
+whether the H_ILLAN_ATTRIUBTES hypercall and thus the checksum offloading
+feature is available. Thus let's do this in the ibmveth driver, too, so
+that the error message is really only limited to cases where something
+goes wrong, and does not occur if the feature is just missing.
+
+Signed-off-by: Thomas Huth <thuth@redhat.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_cfg.h    | 77 ++++++++++++++++++++++
- drivers/net/ethernet/aquantia/atlantic/aq_common.h | 23 +++++++
- drivers/net/ethernet/aquantia/atlantic/aq_utils.h  | 50 ++++++++++++++
- 3 files changed, 150 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_common.h
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+ drivers/net/ethernet/ibm/ibmveth.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
-new file mode 100644
-index 0000000..5f99237
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
-@@ -0,0 +1,77 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_cfg.h: Definition of configuration parameters and constants. */
-+
-+#ifndef AQ_CFG_H
-+#define AQ_CFG_H
-+
-+#define AQ_CFG_VECS_DEF   4U
-+#define AQ_CFG_TCS_DEF    1U
-+
-+#define AQ_CFG_TXDS_DEF    4096U
-+#define AQ_CFG_RXDS_DEF    1024U
-+
-+#define AQ_CFG_IS_POLLING_DEF 0U
-+
-+#define AQ_CFG_FORCE_LEGACY_INT 0U
-+
-+#define AQ_CFG_IS_INTERRUPT_MODERATION_DEF   1U
-+#define AQ_CFG_INTERRUPT_MODERATION_RATE_DEF 0xFFFFU
-+#define AQ_CFG_IRQ_MASK                      0x1FFU
-+
-+#define AQ_CFG_VECS_MAX   8U
-+#define AQ_CFG_TCS_MAX    8U
-+
-+#define AQ_CFG_TX_FRAME_MAX  (16U * 1024U)
-+#define AQ_CFG_RX_FRAME_MAX  (4U * 1024U)
-+
-+/* LRO */
-+#define AQ_CFG_IS_LRO_DEF           1U
-+
-+/* RSS */
-+#define AQ_CFG_RSS_INDIRECTION_TABLE_MAX  128U
-+#define AQ_CFG_RSS_HASHKEY_SIZE           320U
-+
-+#define AQ_CFG_IS_RSS_DEF           1U
-+#define AQ_CFG_NUM_RSS_QUEUES_DEF   AQ_CFG_VECS_DEF
-+#define AQ_CFG_RSS_BASE_CPU_NUM_DEF 0U
-+
-+#define AQ_CFG_PCI_FUNC_MSIX_IRQS   9U
-+#define AQ_CFG_PCI_FUNC_PORTS       2U
-+
-+#define AQ_CFG_SERVICE_TIMER_INTERVAL    (2 * HZ)
-+#define AQ_CFG_POLLING_TIMER_INTERVAL   ((unsigned int)(2 * HZ))
-+
-+#define AQ_CFG_SKB_FRAGS_MAX   32U
-+
-+#define AQ_CFG_NAPI_WEIGHT     64U
-+
-+#define AQ_CFG_MULTICAST_ADDRESS_MAX     32U
-+
-+/*#define AQ_CFG_MAC_ADDR_PERMANENT {0x30, 0x0E, 0xE3, 0x12, 0x34, 0x56}*/
-+
-+#define AQ_CFG_FC_MODE 3U
-+
-+#define AQ_CFG_SPEED_MSK  0xFFFFU	/* 0xFFFFU==auto_neg */
-+
-+#define AQ_CFG_IS_AUTONEG_DEF       1U
-+#define AQ_CFG_MTU_DEF              1514U
-+
-+#define AQ_CFG_LOCK_TRYS   100U
-+
-+#define AQ_CFG_DRV_AUTHOR      "aQuantia"
-+#define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
-+#define AQ_CFG_DRV_NAME        "aquantia"
-+#define AQ_CFG_DRV_VERSION	__stringify(NIC_MAJOR_DRIVER_VERSION)"."\
-+				__stringify(NIC_MINOR_DRIVER_VERSION)"."\
-+				__stringify(NIC_BUILD_DRIVER_VERSION)"."\
-+				__stringify(NIC_REVISION_DRIVER_VERSION)
-+
-+#endif /* AQ_CFG_H */
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_common.h b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
-new file mode 100644
-index 0000000..9eb5e22
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
-@@ -0,0 +1,23 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_common.h: Basic includes for all files in project. */
-+
-+#ifndef AQ_COMMON_H
-+#define AQ_COMMON_H
-+
-+#include <linux/etherdevice.h>
-+#include <linux/pci.h>
-+
-+#include "ver.h"
-+#include "aq_nic.h"
-+#include "aq_cfg.h"
-+#include "aq_utils.h"
-+
-+#endif /* AQ_COMMON_H */
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-new file mode 100644
-index 0000000..4446bd9
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-@@ -0,0 +1,50 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_utils.h: Useful macro and structures used in all layers of driver. */
-+
-+#ifndef AQ_UTILS_H
-+#define AQ_UTILS_H
-+
-+#include "aq_common.h"
-+
-+#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
-+
-+struct aq_obj_s {
-+	spinlock_t lock; /* spinlock for nic/rings processing */
-+	atomic_t flags;
-+	atomic_t busy_count;
-+};
-+
-+static inline void aq_utils_obj_set(atomic_t *flags, u32 mask)
-+{
-+	unsigned long flags_old, flags_new;
-+
-+	do {
-+		flags_old = atomic_read(flags);
-+		flags_new = flags_old | (mask);
-+	} while (atomic_cmpxchg(flags, flags_old, flags_new) != flags_old);
-+}
-+
-+static inline void aq_utils_obj_clear(atomic_t *flags, u32 mask)
-+{
-+	unsigned long flags_old, flags_new;
-+
-+	do {
-+		flags_old = atomic_read(flags);
-+		flags_new = flags_old & ~(mask);
-+	} while (atomic_cmpxchg(flags, flags_old, flags_new) != flags_old);
-+}
-+
-+static inline bool aq_utils_obj_test(atomic_t *flags, u32 mask)
-+{
-+	return atomic_read(flags) & mask;
-+}
-+
-+#endif /* AQ_UTILS_H */
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index a831f94..309f5c6 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -1601,8 +1601,11 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	netdev->netdev_ops = &ibmveth_netdev_ops;
+ 	netdev->ethtool_ops = &netdev_ethtool_ops;
+ 	SET_NETDEV_DEV(netdev, &dev->dev);
+-	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
+-		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
++	netdev->hw_features = NETIF_F_SG;
++	if (vio_get_attribute(dev, "ibm,illan-options", NULL) != NULL) {
++		netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++				       NETIF_F_RXCSUM;
++	}
+ 
+ 	netdev->features |= netdev->hw_features;
+ 
 -- 
-2.9.3
+1.8.3.1
