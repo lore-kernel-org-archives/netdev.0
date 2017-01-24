@@ -1,89 +1,80 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: wrong smp_mb__after_atomic() in tcp_check_space() ?
-Date: Tue, 24 Jan 2017 10:18:04 +0100
-Message-ID: <20170124091804.GA3594@redhat.com>
-References: <20170123143025.GA31676@redhat.com>
- <f5f9c542-2b23-9df9-098c-ad4007bf7e78@akamai.com>
- <1485194671.16328.195.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
+Date: Tue, 24 Jan 2017 11:21:18 +0200
+Message-ID: <CALzJLG-K0eDRzr_QcXxYth-hrnSKRtT96-7j=RUC703Gg2hqUw@mail.gmail.com>
+References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
+ <CALx6S35+miSu6QgjyQYVDGqu4hkq0eoj+wHha35HH5+DdSQtEg@mail.gmail.com>
+ <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
+ <1485026809.16328.181.camel@edumazet-glaptop3.roam.corp.google.com> <20170123101455.380ef896@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Baron <jbaron@akamai.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert.xu@redhat.com>,
-        Yauheni Kaliuta <yauheni.kaliuta@redhat.com>,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>, Davem <davem@davemloft.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44542 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750713AbdAXJSF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 04:18:05 -0500
-Content-Disposition: inline
-In-Reply-To: <1485194671.16328.195.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:33191 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750713AbdAXJVk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 04:21:40 -0500
+Received: by mail-qt0-f196.google.com with SMTP id n13so23658538qtc.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 01:21:39 -0800 (PST)
+In-Reply-To: <20170123101455.380ef896@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/23, Eric Dumazet wrote:
+On Mon, Jan 23, 2017 at 11:14 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> On Sat, 21 Jan 2017 11:26:49 -0800
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> On Mon, 2017-01-23 at 11:56 -0500, Jason Baron wrote:
-> > On 01/23/2017 09:30 AM, Oleg Nesterov wrote:
-> > > Hello,
-> > >
-> > > smp_mb__after_atomic() looks wrong and misleading, sock_reset_flag() does the
-> > > non-atomic __clear_bit() and thus it can not guarantee test_bit(SOCK_NOSPACE)
-> > > (non-atomic too) won't be reordered.
-> > >
-> >
-> > Indeed. Here's a bit of discussion on it:
-> > http://marc.info/?l=linux-netdev&m=146662325920596&w=2
-> >
-> > > It was added by 3c7151275c0c9a "tcp: add memory barriers to write space paths"
-> > > and the patch looks correct in that we need the barriers in tcp_check_space()
-> > > and tcp_poll() in theory, so it seems tcp_check_space() needs smp_mb() ?
-> > >
-> >
-> > Yes, I think it should be upgraded to an smp_mb() there. If you agree 
-> > with this analysis, I will send a patch to upgrade it. Note, I did not 
-> > actually run into this race in practice.
+>> > My previous measurements show approx 20=E2=84=85 speedup on a UDP test=
+ with
+>> > delivery to remote CPU.
+>> >
+>> I find this a bit strange. When you have time (ie not while driving your
+>> car or during week end) please give more details, for example on message
+>> size.
 >
-> SOCK_QUEUE_SHRUNK is used locally in TCP, it is not used by tcp_poll().
+> I tested this with both 64 bytes and 1500 bytes.  After I moved to 50G
+> and 100G testing then I don't need to use 64 bytes packets to provoke
+> the bottlenecks in the stack ;-)
 >
-> (Otherwise it would be using atomic set/clear operations)
+
+Exactly! for XDP like uses cases, page cache maybe a non required optimizat=
+ion.
+but when you start testing a typical TCP use cases over 50/100G link
+you will need
+more buffers (pages) to host the traffic for longer periods, you will
+hit that bottleneck.
+
+>> Was it before skb_condense() was added ?
 >
-> I do not see obvious reason why we have this smp_mb__after_atomic() in
-> tcp_check_space().
-
-It is not that we need to serialize __clear_bit(SOCK_QUEUE_SHRUNK) and
-test_bit(SOCK_NOSPACE), we do not care if they are reordered.
-
-But we need to ensure that either tcp_poll() sees sk_stream_is_writeable()
-or tcp_check_space() sees SOCK_NOSPACE and calls tcp_new_space().
-
-
-> But looking at this code, it seems we lack one barrier if sk_sndbuf is
-> ever increased. Fortunately this almost never happen during TCP session
-> lifetime...
+> It tested this just before skb_condense() was added.  BUT
+> skb_condense() does not get activated when using mlx5, because uses
+> build_skb() ie. not using frags.
 >
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index bfa165cc455ad0a9aea44964aa663dbe6085aebd..3692e9f4c852cebf8c4d46c141f112e75e4ae66d 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -331,8 +331,13 @@ static void tcp_sndbuf_expand(struct sock *sk)
->  	sndmem = ca_ops->sndbuf_expand ? ca_ops->sndbuf_expand(sk) : 2;
->  	sndmem *= nr_segs * per_mss;
+
+Well, we can always replace build_skb with alloc_skb +
+memcpy(skb->data, headlen) + add_skb_frag(payload)
+does it it worth it ? and is it healthy that both skb->data and
+skb_shinfo(skb)->frags[i] point to the same page ?
+
+> For people that don't realize this:
+>  Eric's optimization in skb_condense() is about trading remote CPU
+>  atomic refcnt (put_page) for copy + local CPU refcnt dec.
 >
-> -	if (sk->sk_sndbuf < sndmem)
-> +	if (sk->sk_sndbuf < sndmem) {
->  		sk->sk_sndbuf = min(sndmem, sysctl_tcp_wmem[2]);
-> +		/* Paired with second sk_stream_is_writeable(sk)
-> +		 * test from tcp_poll()
-> +		 */
-> +		smp_wmb();
-> +	}
->  }
-
-I do not think we need the additional barrier here. If we are going to call
-sk->sk_write_space() we rely on wq_has_sleeper() which has a barrier which
-also pairs with the 2nd check in tcp_poll().
-
-Oleg.
+> My measurements show cycles cost local=3D31 vs. remote=3D208, thus a
+> estimated saving around 177 cycles.  Which is spend on calling a fairly
+> complex function __pskb_pull_tail(), and only works for more complex
+> SKBs with frags.
+>
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   LinkedIn: http://www.linkedin.com/in/brouer
