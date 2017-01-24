@@ -1,138 +1,335 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 15/18] netvsc: account for packets/bytes transmitted after completion
-Date: Tue, 24 Jan 2017 13:06:12 -0800
-Message-ID: <20170124210615.18628-16-sthemmin@microsoft.com>
+Subject: [PATCH 16/18] netvsc: report per-channel stats in ethtool statistics
+Date: Tue, 24 Jan 2017 13:06:13 -0800
+Message-ID: <20170124210615.18628-17-sthemmin@microsoft.com>
 References: <20170124210615.18628-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>,
+        Simon Xiao <sixiao@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:33576 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750844AbdAXVG7 (ORCPT
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33514 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750849AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pg0-f52.google.com with SMTP id 204so57911407pge.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:34 -0800 (PST)
+Received: by mail-pf0-f179.google.com with SMTP id y143so52570934pfb.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:35 -0800 (PST)
 In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most drivers do not increment transmit statistics until after the
-transmit is completed. This will also be necessary for BQL support.
+From: Simon Xiao <sixiao@microsoft.com>
 
-Slight additional complexity because the netvsc driver aggregates
-multiple packets into one transmit.
+Report packets and bytes transferred through a vmbus channel via ethtool.
+This supersedes need for per-cpu statistics.
 
+Example:
+$ ethtool -S eth0
+NIC statistics:
+...
+     tx_queue_0_packets: 3523179
+     tx_queue_0_bytes: 505370920
+     rx_queue_0_packets: 41430490
+     rx_queue_0_bytes: 62714661254
+     tx_queue_1_packets: 0
+     tx_queue_1_bytes: 0
+     rx_queue_1_packets: 0
+     rx_queue_1_bytes: 0
+...
+
+Reviewed-by: Long Li <longli@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Simon Xiao <sixiao@microsoft.com>
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |  4 +++-
- drivers/net/hyperv/netvsc.c     | 19 ++++++++++++++++---
- drivers/net/hyperv/netvsc_drv.c | 13 +++----------
- 3 files changed, 22 insertions(+), 14 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |   5 +-
+ drivers/net/hyperv/netvsc.c     |   2 +-
+ drivers/net/hyperv/netvsc_drv.c | 143 +++++++++++++++++++++++++---------------
+ 3 files changed, 93 insertions(+), 57 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index fec365241f37..340f64233e2a 100644
+index 340f64233e2a..d3e73ac158ae 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -137,8 +137,10 @@ struct hv_netvsc_packet {
- 	u8 page_buf_cnt;
+@@ -699,8 +699,6 @@ struct net_device_context {
+ 	u32 msg_enable; /* debug level */
  
- 	u16 q_idx;
--	u32 send_buf_index;
-+	u16 total_packets;
+ 	u32 tx_checksum_mask;
+-	struct netvsc_stats __percpu *tx_stats;
+-	struct netvsc_stats __percpu *rx_stats;
  
-+	u32 total_bytes;
-+	u32 send_buf_index;
- 	u32 total_data_buflen;
+ 	/* Ethtool settings */
+ 	u8 duplex;
+@@ -725,6 +723,9 @@ struct netvsc_channel {
+ 	struct multi_send_data msd;
+ 	struct multi_recv_comp mrc;
+ 	atomic_t queue_sends;
++
++	struct netvsc_stats tx_stats;
++	struct netvsc_stats rx_stats;
  };
  
+ /* Per netvsc device */
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index bd055146f098..397aa1d88a6f 100644
+index 397aa1d88a6f..c70c4ac77b74 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -611,15 +611,23 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
- 
- 	/* Notify the layer above us */
- 	if (likely(skb)) {
--		struct hv_netvsc_packet *nvsc_packet
-+		const struct hv_netvsc_packet *packet
- 			= (struct hv_netvsc_packet *)skb->cb;
--		u32 send_index = nvsc_packet->send_buf_index;
-+		u32 send_index = packet->send_buf_index;
-+		struct netvsc_stats *tx_stats;
- 
- 		if (send_index != NETVSC_INVALID_INDEX)
- 			netvsc_free_send_slot(net_device, send_index);
--		q_idx = nvsc_packet->q_idx;
-+		q_idx = packet->q_idx;
+@@ -621,7 +621,7 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+ 		q_idx = packet->q_idx;
  		channel = incoming_channel;
  
-+		tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
-+
-+		u64_stats_update_begin(&tx_stats->syncp);
-+		tx_stats->packets += packet->total_packets;
-+		tx_stats->bytes += packet->total_bytes;
-+		u64_stats_update_end(&tx_stats->syncp);
-+
- 		dev_consume_skb_any(skb);
- 	}
+-		tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
++		tx_stats = &net_device->chan_table[q_idx].tx_stats;
  
-@@ -924,6 +932,11 @@ int netvsc_send(struct hv_device *device,
- 			packet->total_data_buflen += msd_len;
- 		}
- 
-+		if (msdp->pkt) {
-+			packet->total_packets += msdp->pkt->total_packets;
-+			packet->total_bytes += msdp->pkt->total_bytes;
-+		}
-+
- 		if (msdp->skb)
- 			dev_consume_skb_any(msdp->skb);
- 
+ 		u64_stats_update_begin(&tx_stats->syncp);
+ 		tx_stats->packets += packet->total_packets;
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 11755783c2f6..1dd13da79f02 100644
+index 1dd13da79f02..fe0df72532a3 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -364,7 +364,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	u32 rndis_msg_size;
- 	struct rndis_per_packet_info *ppi;
- 	u32 hash;
--	u32 skb_length;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 	struct hv_page_buffer *pb = page_buf;
+@@ -641,9 +641,12 @@ int netvsc_recv_callback(struct net_device *net,
+ 			 const struct ndis_pkt_8021q_info *vlan)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
++	struct netvsc_device *net_device = net_device_ctx->nvdev;
+ 	struct net_device *vf_netdev;
+ 	struct sk_buff *skb;
+ 	struct netvsc_stats *rx_stats;
++	u16 q_idx = channel->offermsg.offer.sub_channel_index;
++
  
-@@ -374,7 +373,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	 * more pages we try linearizing it.
+ 	if (net->reg_state != NETREG_REGISTERED)
+ 		return NVSP_STAT_FAIL;
+@@ -669,15 +672,14 @@ int netvsc_recv_callback(struct net_device *net,
+ 	}
+ 
+ 	if (net != vf_netdev)
+-		skb_record_rx_queue(skb,
+-				    channel->offermsg.offer.sub_channel_index);
++		skb_record_rx_queue(skb, q_idx);
+ 
+ 	/*
+ 	 * Even if injecting the packet, record the statistics
+ 	 * on the synthetic device because modifying the VF device
+ 	 * statistics will not work correctly.
  	 */
- 
--	skb_length = skb->len;
- 	num_data_pgs = netvsc_get_slots(skb) + 2;
- 
- 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
-@@ -407,6 +405,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	packet->q_idx = skb_get_queue_mapping(skb);
- 
- 	packet->total_data_buflen = skb->len;
-+	packet->total_bytes = skb->len;
-+	packet->total_packets = 1;
- 
- 	rndis_msg = (struct rndis_message *)skb->head;
- 
-@@ -517,15 +517,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	skb_tx_timestamp(skb);
- 	ret = netvsc_send(net_device_ctx->device_ctx, packet,
- 			  rndis_msg, &pb, skb);
--	if (likely(ret == 0)) {
--		struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
+-	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
++	rx_stats = &net_device->chan_table[q_idx].rx_stats;
+ 	u64_stats_update_begin(&rx_stats->syncp);
+ 	rx_stats->packets++;
+ 	rx_stats->bytes += len;
+@@ -882,34 +884,39 @@ static void netvsc_get_stats64(struct net_device *net,
+ 			       struct rtnl_link_stats64 *t)
+ {
+ 	struct net_device_context *ndev_ctx = netdev_priv(net);
+-	int cpu;
 -
--		u64_stats_update_begin(&tx_stats->syncp);
--		tx_stats->packets++;
--		tx_stats->bytes += skb_length;
--		u64_stats_update_end(&tx_stats->syncp);
-+	if (likely(ret == 0))
- 		return NETDEV_TX_OK;
--	}
+-	for_each_possible_cpu(cpu) {
+-		struct netvsc_stats *tx_stats = per_cpu_ptr(ndev_ctx->tx_stats,
+-							    cpu);
+-		struct netvsc_stats *rx_stats = per_cpu_ptr(ndev_ctx->rx_stats,
+-							    cpu);
+-		u64 tx_packets, tx_bytes, rx_packets, rx_bytes, rx_multicast;
++	struct netvsc_device *nvdev = ndev_ctx->nvdev;
++	int i;
++
++	if (!nvdev)
++		return;
++
++	for (i = 0; i < nvdev->num_chn; i++) {
++		const struct netvsc_channel *nvchan = &nvdev->chan_table[i];
++		const struct netvsc_stats *stats;
++		u64 packets, bytes, multicast;
+ 		unsigned int start;
  
- 	if (ret == -EAGAIN) {
- 		++net_device_ctx->eth_stats.tx_busy;
++		stats = &nvchan->tx_stats;
+ 		do {
+-			start = u64_stats_fetch_begin_irq(&tx_stats->syncp);
+-			tx_packets = tx_stats->packets;
+-			tx_bytes = tx_stats->bytes;
+-		} while (u64_stats_fetch_retry_irq(&tx_stats->syncp, start));
++			start = u64_stats_fetch_begin_irq(&stats->syncp);
++			packets = stats->packets;
++			bytes = stats->bytes;
++		} while (u64_stats_fetch_retry_irq(&stats->syncp, start));
++
++		t->tx_bytes	+= bytes;
++		t->tx_packets	+= packets;
+ 
++		stats = &nvchan->rx_stats;
+ 		do {
+-			start = u64_stats_fetch_begin_irq(&rx_stats->syncp);
+-			rx_packets = rx_stats->packets;
+-			rx_bytes = rx_stats->bytes;
+-			rx_multicast = rx_stats->multicast + rx_stats->broadcast;
+-		} while (u64_stats_fetch_retry_irq(&rx_stats->syncp, start));
+-
+-		t->tx_bytes	+= tx_bytes;
+-		t->tx_packets	+= tx_packets;
+-		t->rx_bytes	+= rx_bytes;
+-		t->rx_packets	+= rx_packets;
+-		t->multicast	+= rx_multicast;
++			start = u64_stats_fetch_begin_irq(&stats->syncp);
++			packets = stats->packets;
++			bytes = stats->bytes;
++			multicast = stats->multicast + stats->broadcast;
++		} while (u64_stats_fetch_retry_irq(&stats->syncp, start));
++
++		t->rx_bytes	+= bytes;
++		t->rx_packets	+= packets;
++		t->multicast	+= multicast;
+ 	}
+ 
+ 	t->tx_dropped	= net->stats.tx_dropped;
+@@ -954,11 +961,19 @@ static const struct {
+ 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
+ };
+ 
++#define NETVSC_GLOBAL_STATS_LEN	ARRAY_SIZE(netvsc_stats)
++
++/* 4 statistics per queue (rx/tx packets/bytes) */
++#define NETVSC_QUEUE_STATS_LEN(dev) ((dev)->num_chn * 4)
++
+ static int netvsc_get_sset_count(struct net_device *dev, int string_set)
+ {
++	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *nvdev = ndc->nvdev;
++
+ 	switch (string_set) {
+ 	case ETH_SS_STATS:
+-		return ARRAY_SIZE(netvsc_stats);
++		return NETVSC_GLOBAL_STATS_LEN + NETVSC_QUEUE_STATS_LEN(nvdev);
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -968,22 +983,63 @@ static void netvsc_get_ethtool_stats(struct net_device *dev,
+ 				     struct ethtool_stats *stats, u64 *data)
+ {
+ 	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *nvdev = ndc->nvdev;
+ 	const void *nds = &ndc->eth_stats;
+-	int i;
++	const struct netvsc_stats *qstats;
++	unsigned int start;
++	u64 packets, bytes;
++	int i, j;
+ 
+-	for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
++	for (i = 0; i < NETVSC_GLOBAL_STATS_LEN; i++)
+ 		data[i] = *(unsigned long *)(nds + netvsc_stats[i].offset);
++
++	for (j = 0; j < nvdev->num_chn; j++) {
++		qstats = &nvdev->chan_table[j].tx_stats;
++
++		do {
++			start = u64_stats_fetch_begin_irq(&qstats->syncp);
++			packets = qstats->packets;
++			bytes = qstats->bytes;
++		} while (u64_stats_fetch_retry_irq(&qstats->syncp, start));
++		data[i++] = packets;
++		data[i++] = bytes;
++
++		qstats = &nvdev->chan_table[j].rx_stats;
++		do {
++			start = u64_stats_fetch_begin_irq(&qstats->syncp);
++			packets = qstats->packets;
++			bytes = qstats->bytes;
++		} while (u64_stats_fetch_retry_irq(&qstats->syncp, start));
++		data[i++] = packets;
++		data[i++] = bytes;
++	}
+ }
+ 
+ static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ {
++	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *nvdev = ndc->nvdev;
++	u8 *p = data;
+ 	int i;
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
+ 		for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
+-			memcpy(data + i * ETH_GSTRING_LEN,
++			memcpy(p + i * ETH_GSTRING_LEN,
+ 			       netvsc_stats[i].name, ETH_GSTRING_LEN);
++
++		p += i * ETH_GSTRING_LEN;
++		for (i = 0; i < nvdev->num_chn; i++) {
++			sprintf(p, "tx_queue_%u_packets", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_queue_%u_bytes", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_queue_%u_packets", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_queue_%u_bytes", i);
++			p += ETH_GSTRING_LEN;
++		}
++
+ 		break;
+ 	}
+ }
+@@ -1237,15 +1293,6 @@ static void netvsc_link_change(struct work_struct *w)
+ 	rtnl_unlock();
+ }
+ 
+-static void netvsc_free_netdev(struct net_device *netdev)
+-{
+-	struct net_device_context *net_device_ctx = netdev_priv(netdev);
+-
+-	free_percpu(net_device_ctx->tx_stats);
+-	free_percpu(net_device_ctx->rx_stats);
+-	free_netdev(netdev);
+-}
+-
+ static struct net_device *get_netvsc_bymac(const u8 *mac)
+ {
+ 	struct net_device *dev;
+@@ -1423,18 +1470,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 		netdev_dbg(net, "netvsc msg_enable: %d\n",
+ 			   net_device_ctx->msg_enable);
+ 
+-	net_device_ctx->tx_stats = netdev_alloc_pcpu_stats(struct netvsc_stats);
+-	if (!net_device_ctx->tx_stats) {
+-		free_netdev(net);
+-		return -ENOMEM;
+-	}
+-	net_device_ctx->rx_stats = netdev_alloc_pcpu_stats(struct netvsc_stats);
+-	if (!net_device_ctx->rx_stats) {
+-		free_percpu(net_device_ctx->tx_stats);
+-		free_netdev(net);
+-		return -ENOMEM;
+-	}
+-
+ 	hv_set_drvdata(dev, net);
+ 
+ 	net_device_ctx->start_remove = false;
+@@ -1460,7 +1495,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 	ret = rndis_filter_device_add(dev, &device_info);
+ 	if (ret != 0) {
+ 		netdev_err(net, "unable to add netvsc device (ret %d)\n", ret);
+-		netvsc_free_netdev(net);
++		free_netdev(net);
+ 		hv_set_drvdata(dev, NULL);
+ 		return ret;
+ 	}
+@@ -1487,7 +1522,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 	if (ret != 0) {
+ 		pr_err("Unable to register netdev.\n");
+ 		rndis_filter_device_remove(dev, nvdev);
+-		netvsc_free_netdev(net);
++		free_netdev(net);
+ 	}
+ 
+ 	return ret;
+@@ -1530,7 +1565,7 @@ static int netvsc_remove(struct hv_device *dev)
+ 
+ 	hv_set_drvdata(dev, NULL);
+ 
+-	netvsc_free_netdev(net);
++	free_netdev(net);
+ 	return 0;
+ }
+ 
 -- 
 2.11.0
