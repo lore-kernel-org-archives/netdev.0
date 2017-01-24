@@ -1,54 +1,81 @@
-From: Jan =?ISO-8859-1?Q?L=FCbbe?= <jlu-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH] net: ethernet: mvneta: add support for 2.5G DRSGMII mode
-Date: Tue, 24 Jan 2017 09:34:18 +0100
-Message-ID: <1485246858.5508.47.camel@pengutronix.de>
-References: <20170123142206.5390-1-jlu@pengutronix.de>
-         <20170123181836.GO10895@lunn.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 1/4] net: Introduce psample, a new genetlink
+ channel for packet sampling
+Date: Tue, 24 Jan 2017 09:37:34 +0100
+Message-ID: <20170124083734.GB1891@nanopsycho>
+References: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
+ <1485166031-4773-2-git-send-email-jiri@resnulli.us>
+ <20170124083203.GA25022@penelope.horms.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170123181836.GO10895-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com, jhs@mojatatu.com, geert+renesas@glider.be,
+        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
+        linux@roeck-us.net, roopa@cumulusnetworks.com,
+        john.fastabend@gmail.com, mrv@mojatatu.com
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:33362 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750989AbdAXIhi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 03:37:38 -0500
+Received: by mail-lf0-f67.google.com with SMTP id x1so16148715lff.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 00:37:37 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170124083203.GA25022@penelope.horms.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-On Mo, 2017-01-23 at 19:18 +0100, Andrew Lunn wrote:
-> On Mon, Jan 23, 2017 at 03:22:06PM +0100, Jan Luebbe wrote:
-> > The Marvell MVNETA Ethernet controller supports a 2.5 Gbps SGMII mode
-> > called DRSGMII.
-> > 
-> > This patch adds a corresponding phy-mode string 'drsgmii' and parses it
-> > from DT. The MVNETA then configures the SERDES protocol value
-> > accordingly.
+Tue, Jan 24, 2017 at 09:32:05AM CET, simon.horman@netronome.com wrote:
+>On Mon, Jan 23, 2017 at 11:07:08AM +0100, Jiri Pirko wrote:
+>> From: Yotam Gigi <yotamg@mellanox.com>
+>> 
+>> Add a general way for kernel modules to sample packets, without being tied
+>> to any specific subsystem. This netlink channel can be used by tc,
+>> iptables, etc. and allow to standardize packet sampling in the kernel.
+>> 
+>> For every sampled packet, the psample module adds the following metadata
+>> fields:
+>> 
+>> PSAMPLE_ATTR_IIFINDEX - the packets input ifindex, if applicable
+>> 
+>> PSAMPLE_ATTR_OIFINDEX - the packet output ifindex, if applicable
+>> 
+>> PSAMPLE_ATTR_ORIGSIZE - the packet's original size, in case it has been
+>>    truncated during sampling
+>> 
+>> PSAMPLE_ATTR_SAMPLE_GROUP - the packet's sample group, which is set by the
+>>    user who initiated the sampling. This field allows the user to
+>>    differentiate between several samplers working simultaneously and
+>>    filter packets relevant to him
+>> 
+>> PSAMPLE_ATTR_GROUP_SEQ - sequence counter of last sent packet. The
+>>    sequence is kept for each group
+>> 
+>> PSAMPLE_ATTR_SAMPLE_RATE - the sampling rate used for sampling the packets
+>> 
+>> PSAMPLE_ATTR_DATA - the actual packet bits
+>> 
+>> The sampled packets are sent to the PSAMPLE_NL_MCGRP_SAMPLE multicast
+>> group. In addition, add the GET_GROUPS netlink command which allows the
+>> user to see the current sample groups, their refcount and sequence number.
+>> This command currently supports only netlink dump mode.
+>> 
+>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> Reviewed-by: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> So this sets the PHY to 2.5Gbps. What about the MAC? Currently,
-> mvneta_adjust_link() knows about SPEED_1000 and SPEED_100. Does it now
-> need to know about SPEED_2500? mvneta_ethtool_set_link_ksettings()?
+>Hi Jiri, Hi Yotam,
+>
+>this looks good to me.
+>
+>Reviewed-by: Simon Horman <simon.horman@netronome.com>
+>
+>I do, however, have one question: what is your feeling about allowing
+>the per-action cooking which Jamal has proposed[1] to be emited as
+>metadata as another PSAMPLE_ATTR_* attribute? For one thing I think it
+>would allow for smooth integration with OvS user-space which makes use of a
+>cookie.
 
-It works without any other changes. ;)
-
-Initially I looked at adding a SPEED_2500, but I wasn't sure which code
-would need to handle the new value. Would the path from the ethtool
-ioctl to the driver be enough (mvneta_ethtool_set_link_ksettings() as
-you said)?
-
-Regards,
-Jan
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yeah, cookie could be easily added.
