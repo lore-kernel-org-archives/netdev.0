@@ -1,43 +1,40 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch net-next] tipc: uninitialized return code in tipc_setsockopt()
-Date: Tue, 24 Jan 2017 12:49:35 +0300
-Message-ID: <20170124094935.GA19984@mwanda>
+Subject: Re: [patch net-next] sctp: fix some debug output
+Date: Tue, 24 Jan 2017 12:51:04 +0300
+Message-ID: <20170124095104.GA4149@mwanda>
+References: <20170124090540.GA27652@mwanda>
+ <20170124091411.GE3781@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ying Xue <ying.xue@windriver.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        tipc-discussion@lists.sourceforge.net,
-        kernel-janitors@vger.kernel.org
-To: Jon Maloy <jon.maloy@ericsson.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Xin Long <lucien.xin@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        Colin King <colin.king@canonical.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <20170124091411.GE3781@localhost.localdomain>
 Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We shuffled some code around and added some new case statements here and
-now "res" isn't initialized on all paths.
+On Tue, Jan 24, 2017 at 07:14:11AM -0200, Marcelo Ricardo Leitner wrote:
+> On Tue, Jan 24, 2017 at 12:05:40PM +0300, Dan Carpenter wrote:
+> > We added SCTP_EVENT_TIMEOUT_RECONF but we didn't update this array so
+> > it causes an off-by-one read overflow.
+> > 
+> > Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> Weird, seems your patch is missing the --- marker here.
+> Colin (Cc'ed) is supposed to post a v3 of his patch containing this fix.
+> 
 
-Fixes: 01fd12bb189a ("tipc: make replicast a user selectable option")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Colin, if you wanted, you could CC kernel-janitors with static checker
+fixes.  There are several of us on that list.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 5bec8aac5008..103d1fd058c0 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -2348,7 +2348,7 @@ static int tipc_setsockopt(struct socket *sock, int lvl, int opt,
- 	struct sock *sk = sock->sk;
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	u32 value = 0;
--	int res;
-+	int res = 0;
- 
- 	if ((lvl == IPPROTO_TCP) && (sock->type == SOCK_STREAM))
- 		return 0;
-@@ -2388,7 +2388,6 @@ static int tipc_setsockopt(struct socket *sock, int lvl, int opt,
- 		break;
- 	case TIPC_CONN_TIMEOUT:
- 		tipc_sk(sk)->conn_timeout = value;
--		/* no need to set "res", since already 0 at this point */
- 		break;
- 	case TIPC_MCAST_BROADCAST:
- 		tsk->mc_method.rcast = false;
+regards,
+dan carpenter
+
