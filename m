@@ -1,7 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v8 13/13] net: ethernet: aquantia: Integrate AQtion 2.5/5 GB NIC driver
-Date: Mon, 23 Jan 2017 22:09:20 -0800
-Message-ID: <3b41980ba694bfc2f6aa3d58f5e6bf3dcfbbe8d9.1485237861.git.vomlehn@texas.net>
+Subject: [PATCH v8 12/13] net: ethernet: aquantia: Receive side scaling
+Date: Mon, 23 Jan 2017 22:09:19 -0800
+Message-ID: <d0d71d4da1136dd4e667040a7e835823ad971523.1485237861.git.vomlehn@texas.net>
 References: <cover.1485237861.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
@@ -11,10 +11,10 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44928 "EHLO
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:44915 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750808AbdAXGKA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:10:00 -0500
+        by vger.kernel.org with ESMTP id S1750703AbdAXGKE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:10:04 -0500
 In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
 In-Reply-To: <cover.1485237861.git.vomlehn@texas.net>
 References: <cover.1485237861.git.vomlehn@texas.net>
@@ -23,8 +23,7 @@ List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Modify the drivers/net/ethernet/{Makefile,Kconfig} file to make them a
-part of the network drivers build.
+Add definitions that support receive side scaling.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
@@ -32,33 +31,41 @@ Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/Kconfig  | 1 +
- drivers/net/ethernet/Makefile | 1 +
- 2 files changed, 2 insertions(+)
+ drivers/net/ethernet/aquantia/atlantic/aq_rss.h | 26 +++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_rss.h
 
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index e4c28fe..1258b55 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -29,6 +29,7 @@ source "drivers/net/ethernet/amazon/Kconfig"
- source "drivers/net/ethernet/amd/Kconfig"
- source "drivers/net/ethernet/apm/Kconfig"
- source "drivers/net/ethernet/apple/Kconfig"
-+source "drivers/net/ethernet/aquantia/Kconfig"
- source "drivers/net/ethernet/arc/Kconfig"
- source "drivers/net/ethernet/atheros/Kconfig"
- source "drivers/net/ethernet/aurora/Kconfig"
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 24330f4..d8a33c7 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -15,6 +15,7 @@ obj-$(CONFIG_NET_VENDOR_AMAZON) += amazon/
- obj-$(CONFIG_NET_VENDOR_AMD) += amd/
- obj-$(CONFIG_NET_XGENE) += apm/
- obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
-+obj-$(CONFIG_NET_VENDOR_AQUANTIA) += aquantia/
- obj-$(CONFIG_NET_VENDOR_ARC) += arc/
- obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
- obj-$(CONFIG_NET_VENDOR_AURORA) += aurora/
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_rss.h b/drivers/net/ethernet/aquantia/atlantic/aq_rss.h
+new file mode 100644
+index 0000000..1db6eb2
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_rss.h
+@@ -0,0 +1,26 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_rss.h: Receive Side Scaling definitions. */
++
++#ifndef AQ_RSS_H
++#define AQ_RSS_H
++
++#include "aq_common.h"
++#include "aq_cfg.h"
++
++struct aq_rss_parameters {
++	u16 base_cpu_number;
++	u16 indirection_table_size;
++	u16 hash_secret_key_size;
++	u32 hash_secret_key[AQ_CFG_RSS_HASHKEY_SIZE / sizeof(u32)];
++	u8 indirection_table[AQ_CFG_RSS_INDIRECTION_TABLE_MAX];
++};
++
++#endif /* AQ_RSS_H */
 -- 
 2.9.3
