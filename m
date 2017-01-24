@@ -1,62 +1,56 @@
-From: Thomas Huth <thuth@redhat.com>
-Subject: [PATCH] ibmveth: Add a proper check for the availability of the
- checksum features
-Date: Tue, 24 Jan 2017 07:28:41 +0100
-Message-ID: <1485239321-14947-1-git-send-email-thuth@redhat.com>
-Cc: linuxppc-dev@lists.ozlabs.org
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>, netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch] samples/bpf: silence shift wrapping warning
+Date: Mon, 23 Jan 2017 22:44:34 -0800
+Message-ID: <CAADnVQLF6PWEjic6aSRBnRqtO25eEw7YLE+Gb95+f5_pvq3ZMA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+        Thomas Graf <tgraf@suug.ch>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Joe Stringer <joe@ovn.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using the ibmveth driver in a KVM/QEMU based VM, it currently
-always prints out a scary error message like this when it is started:
+On Mon, Jan 23, 2017 at 5:27 AM, Arnaldo Carvalho de Melo
+<arnaldo.melo@gmail.com> wrote:
+> Em Sun, Jan 22, 2017 at 02:51:25PM -0800, Alexei Starovoitov escreveu:
+>> On Sat, Jan 21, 2017 at 07:51:43AM +0300, Dan Carpenter wrote:
+>> > max_key is a value in the 0-63 range, so on 32 bit systems the shift
+>> > could wrap.
+>> >
+>> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>>
+>> Looks fine. I think 'net-next' is ok.
+>
+> I could process these patches, if that would help,
 
- ibmveth 71000003 (unregistered net_device): unable to change
- checksum offload settings. 1 rc=-2 ret_attr=71000003
+Thanks for the offer.
+I don't think there will be conflicts with all the work happening in net-next,
+but it's best to avoid even possibility of it when we can.
+Dan,
+can you please resend the patch cc-ing Dave and netdev ?
+please mention [PATCH net-next] in the subject.
 
-This happens because the driver always tries to enable the checksum
-offloading without checking for the availability of this feature first.
-QEMU does not support checksum offloading for the spapr-vlan device,
-thus we always get the error message here.
-According to the LoPAPR specification, the "ibm,illan-options" property
-of the corresponding device tree node should be checked first to see
-whether the H_ILLAN_ATTRIUBTES hypercall and thus the checksum offloading
-feature is available. Thus let's do this in the ibmveth driver, too, so
-that the error message is really only limited to cases where something
-goes wrong, and does not occur if the feature is just missing.
-
-Signed-off-by: Thomas Huth <thuth@redhat.com>
----
- drivers/net/ethernet/ibm/ibmveth.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index a831f94..309f5c6 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -1601,8 +1601,11 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 	netdev->netdev_ops = &ibmveth_netdev_ops;
- 	netdev->ethtool_ops = &netdev_ethtool_ops;
- 	SET_NETDEV_DEV(netdev, &dev->dev);
--	netdev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
--		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-+	netdev->hw_features = NETIF_F_SG;
-+	if (vio_get_attribute(dev, "ibm,illan-options", NULL) != NULL) {
-+		netdev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-+				       NETIF_F_RXCSUM;
-+	}
- 
- 	netdev->features |= netdev->hw_features;
- 
--- 
-1.8.3.1
+> - Arnaldo
+>
+>> Acked-by: Alexei Starovoitov <ast@kernel.org>
+>
+>> > diff --git a/samples/bpf/lwt_len_hist_user.c b/samples/bpf/lwt_len_hist_user.c
+>> > index ec8f3bb..bd06eef 100644
+>> > --- a/samples/bpf/lwt_len_hist_user.c
+>> > +++ b/samples/bpf/lwt_len_hist_user.c
+>> > @@ -68,7 +68,7 @@ int main(int argc, char **argv)
+>> >     for (i = 1; i <= max_key + 1; i++) {
+>> >             stars(starstr, data[i - 1], max_value, MAX_STARS);
+>> >             printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
+>> > -                  (1l << i) >> 1, (1l << i) - 1, data[i - 1],
+>> > +                  (1ULL << i) >> 1, (1ULL << i) - 1, data[i - 1],
+>> >                    MAX_STARS, starstr);
+>> >     }
+>> >
