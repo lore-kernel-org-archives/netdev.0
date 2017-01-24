@@ -1,48 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
-Date: Tue, 24 Jan 2017 14:42:27 -0500 (EST)
-Message-ID: <20170124.144227.2017106704873029028.davem@davemloft.net>
-References: <1485197869-11350-1-git-send-email-mst@redhat.com>
+Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small
+ buffer XDP receive
+Date: Tue, 24 Jan 2017 14:43:28 -0500 (EST)
+Message-ID: <20170124.144328.2195698124358175034.davem@davemloft.net>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+        <20170117221950.20280.39496.stgit@john-Precision-Tower-5810>
+        <20170123230809-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+Cc: john.fastabend@gmail.com, jasowang@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
 To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1485197869-11350-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57170 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750708AbdAXTn3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 14:43:29 -0500
+In-Reply-To: <20170123230809-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 23 Jan 2017 21:37:52 +0200
+Date: Mon, 23 Jan 2017 23:08:35 +0200
 
-> I don't have any guests with PAGE_SIZE > 64k but the
-> code seems to be clearly broken in that case
-> as PAGE_SIZE / MERGEABLE_BUFFER_ALIGN will need
-> more than 8 bit and so the code in mergeable_ctx_to_buf_address
-> does not give us the actual true size.
+> On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
+>> In the small buffer case during driver unload we currently use
+>> put_page instead of dev_kfree_skb. Resolve this by adding a check
+>> for virtnet mode when checking XDP queue type. Also name the
+>> function so that the code reads correctly to match the additional
+>> check.
+>> 
+>> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> Acked-by: Jason Wang <jasowang@redhat.com>
 > 
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> I think we definitely want this one in -net as it's
+> a bugfix.
 
-Applied, thanks Michael.
-
-I am really trying to be patient, but we are about to run out of
-time for fixing the adjust header XDP stuff.
-
-That should have been resolved in a week or two, but now we're
-basically a month or so later.
-
-Please come to some kind of agreement about how to implement this
-because we can't let v4.10 go out without this being resolved.
-
-Thank you.
+This whole series is a bug fix, we must have adjust_header XDP
+support in the virtio_net driver before v4.10 goes out, it is
+a requires base feature for XDP.
