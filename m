@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESENT PATCH net,stable] qmi_wwan/cdc_ether: add device ID
- for HP lt2523 (Novatel E371) WWAN card
-Date: Tue, 24 Jan 2017 15:25:36 -0500 (EST)
-Message-ID: <20170124.152536.539823117408876472.davem@davemloft.net>
-References: <20170124094538.20351-1-bjorn@mork.no>
+Subject: Re: [PATCH] cxgbit: use T6 specific macro to set force bit
+Date: Tue, 24 Jan 2017 15:26:16 -0500 (EST)
+Message-ID: <20170124.152616.964714349603826115.davem@davemloft.net>
+References: <1485257822-729-1-git-send-email-varun@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, oliver@neukum.org,
-        linux-usb@vger.kernel.org, dcbw@redhat.com
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59208 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750752AbdAXUZh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 15:25:37 -0500
-In-Reply-To: <20170124094538.20351-1-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bart.vanassche@sandisk.com, target-devel@vger.kernel.org,
+        netdev@vger.kernel.org, indranil@chelsio.com
+To: varun@chelsio.com
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <1485257822-729-1-git-send-email-varun@chelsio.com>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bjørn Mork <bjorn@mork.no>
-Date: Tue, 24 Jan 2017 10:45:38 +0100
+From: Varun Prakash <varun@chelsio.com>
+Date: Tue, 24 Jan 2017 17:07:02 +0530
 
-> Another rebranded Novatel E371.  qmi_wwan should drive this device, while
-> cdc_ether should ignore it.  Even though the USB descriptors are plain
-> CDC-ETHER that USB interface is a QMI interface.  Ref commit 7fdb7846c9ca
-> ("qmi_wwan/cdc_ether: add device IDs for Dell 5804 (Novatel E371) WWAN
-> card")
+> For T6 adapters use T6 specific macro to set
+> force bit.
 > 
-> Cc: Dan Williams <dcbw@redhat.com>
-> Signed-off-by: Bjørn Mork <bjorn@mork.no>
+> Signed-off-by: Varun Prakash <varun@chelsio.com>
 
-Applied.
+What tree is this for?
+
+You must always indicate this in your PATCH subject text.
