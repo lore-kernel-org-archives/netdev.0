@@ -1,86 +1,145 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/3] sh_eth: rename EESIPR bits
-Date: Tue, 24 Jan 2017 18:47:37 +0300
-Message-ID: <0f483c3d-8148-0aea-a9e1-7b3f5ccc22df@cogentembedded.com>
-References: <1636105.gp4aQxGd5K@wasted.cogentembedded.com>
- <6851530.HAKW22qnWH@wasted.cogentembedded.com>
- <CAMuHMdVS4C37FGtB+eCytz-=aXSjGB7vYGUCnLG=rKN0L1io7g@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH net-next 0/5] bridge: per vlan lwt and dst_metadata
+ support
+Date: Tue, 24 Jan 2017 07:47:55 -0800
+Message-ID: <20170124074755.082c5c5e@xeon-e3>
+References: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        nikolay@cumulusnetworks.com, tgraf@suug.ch,
+        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
+        dsa@cumulusnetworks.com, hadi@mojatatu.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:35265 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750953AbdAXPrl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 10:47:41 -0500
-Received: by mail-lf0-f50.google.com with SMTP id n124so113082693lfd.2
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 07:47:40 -0800 (PST)
-In-Reply-To: <CAMuHMdVS4C37FGtB+eCytz-=aXSjGB7vYGUCnLG=rKN0L1io7g@mail.gmail.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:35220 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750714AbdAXPsE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 10:48:04 -0500
+Received: by mail-pg0-f49.google.com with SMTP id 194so55933211pgd.2
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 07:48:04 -0800 (PST)
+In-Reply-To: <1484977616-1541-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Fri, 20 Jan 2017 21:46:51 -0800
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-On 01/23/2017 10:39 AM, Geert Uytterhoeven wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> High level summary:
+> lwt and dst_metadata/collect_metadata have enabled vxlan l3 deployments
+> to use a single vxlan netdev for multiple vnis eliminating the scalability
+> problem with using a single vxlan netdev per vni. This series tries to
+> do the same for vxlan netdevs in pure l2 bridged networks.
+> Use-case/deployment and details are below.
+> 
+> Deployment scerario details:
+> As we know VXLAN is used to build layer 2 virtual networks across the
+> underlay layer3 infrastructure. A VXLAN tunnel endpoint (VTEP)
+> originates and terminates VXLAN tunnels. And a VTEP can be a TOR switch
+> or a vswitch in the hypervisor. This patch series mainly
+> focuses on the TOR switch configured as a Vtep. Vxlan segment ID (vni)
+> along with vlan id is used to identify layer 2 segments in a vxlan
+> overlay network. Vxlan bridging is the function provided by Vteps to terminate
+> vxlan tunnels and map the vxlan vni to traditional end host vlan. This is
+> covered in the "VXLAN Deployment Scenarios" in sections 6 and 6.1 in RFC 7348.
+> To provide vxlan bridging function, a vtep has to map vlan to a vni. The rfc
+> says that the ingress VTEP device shall remove the IEEE 802.1Q VLAN tag in
+> the original Layer 2 packet if there is one before encapsulating the packet
+> into the VXLAN format to transmit it through the underlay network. The remote
+> VTEP devices have information about the VLAN in which the packet will be
+> placed based on their own VLAN-to-VXLAN VNI mapping configurations.
+> 
+> Existing solution:
+> Without this patch series one can deploy such a vtep configuration by
+> by adding the local ports and vxlan netdevs into a vlan filtering bridge.
+> The local ports are configured as trunk ports carrying all vlans.
+> A vxlan netdev per vni is added to the bridge. Vlan mapping to vni is
+> achieved by configuring the vlan as pvid on the corresponding vxlan netdev.
+> The vxlan netdev only receives traffic corresponding to the vlan it is mapped
+> to. This configuration maps traffic belonging to a vlan to the corresponding
+> vxlan segment.
+> 
+>           -----------------------------------
+>          |              bridge               |
+>          |                                   |
+>           -----------------------------------
+>             |100,200       |100 (pvid)    |200 (pvid)
+>             |              |              |
+>            swp1          vxlan1000      vxlan2000
+>                     
+> This provides the required vxlan bridging function but poses a
+> scalability problem with using a single vxlan netdev for each vni.
+> 
+> Solution in this patch series:
+> The Goal is to use a single vxlan device to carry all vnis similar
+> to the vxlan collect metadata mode but vxlan driver still carrying all
+> the forwarding information.
+> - vxlan driver changes:
+>     - enable collect metadata mode device to be used with learning,
+>       replication, fdb
+>     - A single fdb table hashed by (mac, vni)
+>     - rx path already has the vni
+>     - tx path expects a vni in the packet with dst_metadata and vxlan
+>       driver has all the forwarding information for the vni in the
+>       dst_metadata.
+> 
+> - Bridge driver changes: per vlan LWT and dst_metadata support:
+>     - Our use case is vxlan and 1-1 mapping between vlan and vni, but I have
+>       kept the api generic for any tunnel info
+>     - Uapi to configure/unconfigure/dump per vlan tunnel data
+>     - new bridge port flag to turn this feature on/off. off by default
+>     - ingress hook:
+>         - if port is a lwt tunnel port, use tunnel info in
+>           attached dst_metadata to map it to a local vlan
+>     - egress hook:
+>         - if port is a lwt tunnel port, use tunnel info attached to vlan
+>           to set dst_metadata on the skb
+> 
+> Other approaches tried and vetoed:
+> - tc vlan push/pop and tunnel metadata dst:
+>     - posses a tc rule scalability problem (2 rules per vni)
+>     - cannot handle the case where a packet needs to be replicated to
+>       multiple vxlan remote tunnel end-points.. which the vxlan driver
+>       can do today by having multiple remote destinations per fdb.
+> - making vxlan driver understand vlan-vni mapping:
+>     - I had a series almost ready with this one but soon realized
+>       it duplicated a lot of vlan handling code in the vxlan driver
+> 
+> This series is briefly tested for functionality. Sending it out as RFC while
+> I continue to test it more. There are some rough edges which I am in the process
+> of fixing.
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Roopa Prabhu (5):
+>   ip_tunnels: new IP_TUNNEL_INFO_BRIDGE flag for ip_tunnel_info mode
+>   vxlan: make COLLECT_METADATA mode bridge friendly
+>   bridge: uapi: add per vlan tunnel info
+>   bridge: vlan lwt and dst_metadata netlink support
+>   bridge: vlan lwt dst_metadata hooks in ingress and egress paths
+> 
+>  drivers/net/vxlan.c            |  209 ++++++++++++--------
+>  include/linux/if_bridge.h      |    1 +
+>  include/net/ip_tunnels.h       |    1 +
+>  include/uapi/linux/if_bridge.h |   11 ++
+>  include/uapi/linux/if_link.h   |    1 +
+>  include/uapi/linux/neighbour.h |    1 +
+>  net/bridge/br_input.c          |    5 +
+>  net/bridge/br_netlink.c        |  410 ++++++++++++++++++++++++++++++++++------
+>  net/bridge/br_private.h        |   22 +++
+>  net/bridge/br_vlan.c           |  193 ++++++++++++++++++-
+>  10 files changed, 717 insertions(+), 137 deletions(-)
+> 
 
->> Since the  commit  b0ca2a21f769 ("sh_eth: Add support of SH7763 to sh_eth")
->> the *enum* declaring the EESIPR bits (interrupt mask) went out of sync with
->> the *enum* declaring the EESR bits (interrupt status) WRT  bit naming  and
->> formatting. I'd like to restore the consistency by using EESIPR as the bit
->> name prefix, renaming the *enum* to EESIPR_BIT, and (finally) renaming the
->> bits according to the available  Renesas SH77{34|63} manuals...
->
-> Which versions of the SH77{34|63} manuals did you use?
-> Several registers are called slightly different in mine, and also in my
-> r8a7740 manual.
+Yes this is a complex issue, but I am concerned about the added code bloat
+and complexity. The bridge which is already a mess with netfilter, multicast, vlan
+filtering etc.The current code not modular and grows with each feature.
+At the same time, the same bridge functionality is used in its simplest form by
+all the network virtualization and container technolgies.
 
-    SH7734 User's Manual: Hardware, Rev.1.00 Jun 2012.
-    SH7763 User’s Manual: Hardware, Rev.3.00 Mar 2012
+Maybe do it in OpenVswitch or figure out a way to do customization with BPF?
 
->> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
->> +++ net-next/drivers/net/ethernet/renesas/sh_eth.h
->> @@ -268,19 +268,29 @@ enum EESR_BIT {
->>                                  EESR_TFE | EESR_TDE)
->>
->>  /* EESIPR */
->> -enum DMAC_IM_BIT {
->> -       DMAC_M_TWB = 0x40000000, DMAC_M_TABT = 0x04000000,
->> -       DMAC_M_RABT = 0x02000000,
->> -       DMAC_M_RFRMER = 0x01000000, DMAC_M_ADF = 0x00800000,
->> -       DMAC_M_ECI = 0x00400000, DMAC_M_FTC = 0x00200000,
->> -       DMAC_M_TDE = 0x00100000, DMAC_M_TFE = 0x00080000,
->> -       DMAC_M_FRC = 0x00040000, DMAC_M_RDE = 0x00020000,
->> -       DMAC_M_RFE = 0x00010000, DMAC_M_TINT4 = 0x00000800,
->> -       DMAC_M_TINT3 = 0x00000400, DMAC_M_TINT2 = 0x00000200,
->> -       DMAC_M_TINT1 = 0x00000100, DMAC_M_RINT8 = 0x00000080,
->> -       DMAC_M_RINT5 = 0x00000010, DMAC_M_RINT4 = 0x00000008,
->> -       DMAC_M_RINT3 = 0x00000004, DMAC_M_RINT2 = 0x00000002,
->> -       DMAC_M_RINT1 = 0x00000001,
->> +enum EESIPR_BIT {
->> +       EESIPR_TWBIP    = 0x40000000,
->
-> TWBIP is actually two bits in my manual: TWB1IP and TWB0IP
-
-    Yes. I'm adding TWB1 in the next patch.
-
->> +       EESIPR_ADEIP    = 0x00800000,
->
-> Nonexistent bit in my manual.
-
-    In mine as well. I used EESR *enum* as a source of info in this case.
-Note that this bit is documented for R-Car gen2 (but called differently).
-
->> +       EESIPR_CNDIP    = 0x00000800,
->
-> Nonexistent bit in my manual.
-
-    I used the EESR *enum* again.
-
-> Gr{oetje,eeting}s,
->
->                         Geert
-
-MBR, Sergei
+more complex than it should
