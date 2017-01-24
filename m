@@ -1,37 +1,74 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 2/2] ipv6: fix ip6_tnl_parse_tlv_enc_lim()
-Date: Mon, 23 Jan 2017 16:06:18 -0800
-Message-ID: <CANn89iKmt2hKOuastFw5Qc4qL7wFVk==kSP3bP0h8rfbS4_rCg@mail.gmail.com>
-References: <20170123235804.29342-1-edumazet@google.com> <20170123235804.29342-3-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 3/5] bpf: allow option for setting bpf_l4_csum_replace from scratch
+Date: Tue, 24 Jan 2017 01:06:28 +0100
+Message-ID: <497b7bda4f531a2044974d54dbd50b77e1eaf675.1485214851.git.daniel@iogearbox.net>
+References: <cover.1485214851.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, ast@kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:34760 "EHLO
-        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751930AbdAXAGY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:06:24 -0500
-Received: by mail-io0-f178.google.com with SMTP id l66so123365729ioi.1
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 16:06:19 -0800 (PST)
-In-Reply-To: <20170123235804.29342-3-edumazet@google.com>
+Received: from www62.your-server.de ([213.133.104.62]:44955 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751924AbdAXAGy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:06:54 -0500
+In-Reply-To: <cover.1485214851.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1485214851.git.daniel@iogearbox.net>
+References: <cover.1485214851.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 3:58 PM, Eric Dumazet <edumazet@google.com> wrote:
-> This function suffers from multiple issues.
->
-> First one is that pskb_may_pull() may reallocate skb->head,
-> so the 'raw' pointer needs either to be reloaded or not used at all.
->
-> Second issue is that NEXTHDR_DEST handling does not validate
-> that the options are present in skb->data, so we might read
-> garbage or access non existent memory.
->
-> With help from Willem de Bruijn.
+When programs need to calculate the csum from scratch for small UDP
+packets and use bpf_l4_csum_replace() to feed the result from helpers
+like bpf_csum_diff(), then we need a flag besides BPF_F_MARK_MANGLED_0
+that would ignore the case of current csum being 0, and which would
+still allow for the helper to set the csum and transform when needed
+to CSUM_MANGLED_0.
 
-Hmm, I've added a bug. Will send a V2, sorry for this.
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/uapi/linux/bpf.h | 1 +
+ net/core/filter.c        | 7 ++++---
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index bd30684..e07fd5a 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -522,6 +522,7 @@ enum bpf_func_id {
+ /* BPF_FUNC_l4_csum_replace flags. */
+ #define BPF_F_PSEUDO_HDR		(1ULL << 4)
+ #define BPF_F_MARK_MANGLED_0		(1ULL << 5)
++#define BPF_F_MARK_ENFORCE		(1ULL << 6)
+ 
+ /* BPF_FUNC_clone_redirect and BPF_FUNC_redirect flags. */
+ #define BPF_F_INGRESS			(1ULL << 0)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index e2263da..1e00737 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1522,10 +1522,11 @@ static inline void bpf_pull_mac_rcsum(struct sk_buff *skb)
+ {
+ 	bool is_pseudo = flags & BPF_F_PSEUDO_HDR;
+ 	bool is_mmzero = flags & BPF_F_MARK_MANGLED_0;
++	bool do_mforce = flags & BPF_F_MARK_ENFORCE;
+ 	__sum16 *ptr;
+ 
+-	if (unlikely(flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_PSEUDO_HDR |
+-			       BPF_F_HDR_FIELD_MASK)))
++	if (unlikely(flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_MARK_ENFORCE |
++			       BPF_F_PSEUDO_HDR | BPF_F_HDR_FIELD_MASK)))
+ 		return -EINVAL;
+ 	if (unlikely(offset > 0xffff || offset & 1))
+ 		return -EFAULT;
+@@ -1533,7 +1534,7 @@ static inline void bpf_pull_mac_rcsum(struct sk_buff *skb)
+ 		return -EFAULT;
+ 
+ 	ptr = (__sum16 *)(skb->data + offset);
+-	if (is_mmzero && !*ptr)
++	if (is_mmzero && !do_mforce && !*ptr)
+ 		return 0;
+ 
+ 	switch (flags & BPF_F_HDR_FIELD_MASK) {
+-- 
+1.9.3
