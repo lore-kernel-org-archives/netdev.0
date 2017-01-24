@@ -1,261 +1,313 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 4/5] bpf: add prog tag test case to bpf selftests
-Date: Tue, 24 Jan 2017 01:06:29 +0100
-Message-ID: <8723f7d203c7d1eb17098c4d31795af9fc3c7b15.1485214851.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 5/5] bpf: enable verifier to better track const alu ops
+Date: Tue, 24 Jan 2017 01:06:30 +0100
+Message-ID: <41914154d137b47e3c9400da58e7e2b15ef5d43a.1485214851.git.daniel@iogearbox.net>
 References: <cover.1485214851.git.daniel@iogearbox.net>
 Cc: netdev@vger.kernel.org, ast@kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Gianluca Borello <g.borello@gmail.com>,
+        William Tu <u9012063@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44957 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:44968 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751003AbdAXAGp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:06:45 -0500
+        with ESMTP id S1751981AbdAXAGr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:06:47 -0500
 In-Reply-To: <cover.1485214851.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1485214851.git.daniel@iogearbox.net>
 References: <cover.1485214851.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the test case used to compare the results from fdinfo with
-af_alg's output on the tag. Tests are from min to max sized
-programs, with and without maps included.
+William reported couple of issues in relation to direct packet
+access. Typical scheme is to check for data + [off] <= data_end,
+where [off] can be either immediate or coming from a tracked
+register that contains an immediate, depending on the branch, we
+can then access the data. However, in case of calculating [off]
+for either the mentioned test itself or for access after the test
+in a more "complex" way, then the verifier will stop tracking the
+CONST_IMM marked register and will mark it as UNKNOWN_VALUE one.
 
-  # ./test_tag
-  test_tag: OK (40945 tests)
+Adding that UNKNOWN_VALUE typed register to a pkt() marked
+register, the verifier then bails out in check_packet_ptr_add()
+as it finds the registers imm value below 48. In the first below
+example, that is due to evaluate_reg_imm_alu() not handling right
+shifts and thus marking the register as UNKNOWN_VALUE via helper
+__mark_reg_unknown_value() that resets imm to 0.
 
-Tested on x86_64 and s390x.
+In the second case the same happens at the time when r4 is set
+to r4 &= r5, where it transitions to UNKNOWN_VALUE from
+evaluate_reg_imm_alu(). Later on r4 we shift right by 3 inside
+evaluate_reg_alu(), where the register's imm turns into 3. That
+is, for registers with type UNKNOWN_VALUE, imm of 0 means that
+we don't know what value the register has, and for imm > 0 it
+means that the value has [imm] upper zero bits. F.e. when shifting
+an UNKNOWN_VALUE register by 3 to the right, no matter what value
+it had, we know that the 3 upper most bits must be zero now.
+This is to make sure that ALU operations with unknown registers
+don't overflow. Meaning, once we know that we have more than 48
+upper zero bits, or, in other words cannot go beyond 0xffff offset
+with ALU ops, such an addition will track the target register
+as a new pkt() register with a new id, but 0 offset and 0 range,
+so for that a new data/data_end test will be required. Is the source
+register a CONST_IMM one that is to be added to the pkt() register,
+or the source instruction is an add instruction with immediate
+value, then it will get added if it stays within max 0xffff bounds.
+>From there, pkt() type, can be accessed should reg->off + imm be
+within the access range of pkt().
 
+  [...]
+  from 28 to 30: R0=imm1,min_value=1,max_value=1
+    R1=pkt(id=0,off=0,r=22) R2=pkt_end
+    R3=imm144,min_value=144,max_value=144
+    R4=imm0,min_value=0,max_value=0
+    R5=inv48,min_value=2054,max_value=2054 R10=fp
+  30: (bf) r5 = r3
+  31: (07) r5 += 23
+  32: (77) r5 >>= 3
+  33: (bf) r6 = r1
+  34: (0f) r6 += r5
+  cannot add integer value with 0 upper zero bits to ptr_to_packet
+
+  [...]
+  from 52 to 80: R0=imm1,min_value=1,max_value=1
+    R1=pkt(id=0,off=0,r=34) R2=pkt_end R3=inv
+    R4=imm272 R5=inv56,min_value=17,max_value=17
+    R6=pkt(id=0,off=26,r=34) R10=fp
+  80: (07) r4 += 71
+  81: (18) r5 = 0xfffffff8
+  83: (5f) r4 &= r5
+  84: (77) r4 >>= 3
+  85: (0f) r1 += r4
+  cannot add integer value with 3 upper zero bits to ptr_to_packet
+
+Thus to get above use-cases working, evaluate_reg_imm_alu() has
+been extended for further ALU ops. This is fine, because we only
+operate strictly within realm of CONST_IMM types, so here we don't
+care about overflows as they will happen in the simulated but also
+real execution and interaction with pkt() in check_packet_ptr_add()
+will check actual imm value once added to pkt(), but it's irrelevant
+before.
+
+With regards to 06c1c049721a ("bpf: allow helpers access to variable
+memory") that works on UNKNOWN_VALUE registers, the verifier becomes
+now a bit smarter as it can better resolve ALU ops, so we need to
+adapt two test cases there, as min/max bound tracking only becomes
+necessary when registers were spilled to stack. So while mask was
+set before to track upper bound for UNKNOWN_VALUE case, it's now
+resolved directly as CONST_IMM, and such contructs are only necessary
+when f.e. registers are spilled.
+
+For commit 6b17387307ba ("bpf: recognize 64bit immediate loads as
+consts") that initially enabled dw load tracking only for nfp jit/
+analyzer, I did couple of tests on large, complex programs and we
+don't increase complexity badly (my tests were in ~3% range on avg).
+I've added a couple of tests similar to affected code above, and
+it works fine with verifier now.
+
+Reported-by: William Tu <u9012063@gmail.com>
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Gianluca Borello <g.borello@gmail.com>
+Cc: William Tu <u9012063@gmail.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- tools/testing/selftests/bpf/Makefile   |   4 +-
- tools/testing/selftests/bpf/test_tag.c | 202 +++++++++++++++++++++++++++++++++
- 2 files changed, 204 insertions(+), 2 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/test_tag.c
+ kernel/bpf/verifier.c                       | 64 +++++++++++++++-------
+ tools/testing/selftests/bpf/test_verifier.c | 82 +++++++++++++++++++++++++++++
+ 2 files changed, 127 insertions(+), 19 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
-index 064a3e5..769a6cb 100644
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@ -1,8 +1,8 @@
- CFLAGS += -Wall -O2 -I../../../../usr/include
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 8f69df7..fb3513b 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1566,22 +1566,54 @@ static int evaluate_reg_imm_alu(struct bpf_verifier_env *env,
+ 	struct bpf_reg_state *dst_reg = &regs[insn->dst_reg];
+ 	struct bpf_reg_state *src_reg = &regs[insn->src_reg];
+ 	u8 opcode = BPF_OP(insn->code);
++	u64 dst_imm = dst_reg->imm;
  
--test_objs = test_verifier test_maps test_lru_map test_lpm_map
-+test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
+-	/* dst_reg->type == CONST_IMM here, simulate execution of 'add'/'or'
+-	 * insn. Don't care about overflow or negative values, just add them
++	/* dst_reg->type == CONST_IMM here. Simulate execution of insns
++	 * containing ALU ops. Don't care about overflow or negative
++	 * values, just add/sub/... them; registers are in u64.
+ 	 */
+-	if (opcode == BPF_ADD && BPF_SRC(insn->code) == BPF_K)
+-		dst_reg->imm += insn->imm;
+-	else if (opcode == BPF_ADD && BPF_SRC(insn->code) == BPF_X &&
+-		 src_reg->type == CONST_IMM)
+-		dst_reg->imm += src_reg->imm;
+-	else if (opcode == BPF_OR && BPF_SRC(insn->code) == BPF_K)
+-		dst_reg->imm |= insn->imm;
+-	else if (opcode == BPF_OR && BPF_SRC(insn->code) == BPF_X &&
+-		 src_reg->type == CONST_IMM)
+-		dst_reg->imm |= src_reg->imm;
+-	else
++	if (opcode == BPF_ADD && BPF_SRC(insn->code) == BPF_K) {
++		dst_imm += insn->imm;
++	} else if (opcode == BPF_ADD && BPF_SRC(insn->code) == BPF_X &&
++		   src_reg->type == CONST_IMM) {
++		dst_imm += src_reg->imm;
++	} else if (opcode == BPF_SUB && BPF_SRC(insn->code) == BPF_K) {
++		dst_imm -= insn->imm;
++	} else if (opcode == BPF_SUB && BPF_SRC(insn->code) == BPF_X &&
++		   src_reg->type == CONST_IMM) {
++		dst_imm -= src_reg->imm;
++	} else if (opcode == BPF_MUL && BPF_SRC(insn->code) == BPF_K) {
++		dst_imm *= insn->imm;
++	} else if (opcode == BPF_MUL && BPF_SRC(insn->code) == BPF_X &&
++		   src_reg->type == CONST_IMM) {
++		dst_imm *= src_reg->imm;
++	} else if (opcode == BPF_OR && BPF_SRC(insn->code) == BPF_K) {
++		dst_imm |= insn->imm;
++	} else if (opcode == BPF_OR && BPF_SRC(insn->code) == BPF_X &&
++		   src_reg->type == CONST_IMM) {
++		dst_imm |= src_reg->imm;
++	} else if (opcode == BPF_AND && BPF_SRC(insn->code) == BPF_K) {
++		dst_imm &= insn->imm;
++	} else if (opcode == BPF_AND && BPF_SRC(insn->code) == BPF_X &&
++		   src_reg->type == CONST_IMM) {
++		dst_imm &= src_reg->imm;
++	} else if (opcode == BPF_RSH && BPF_SRC(insn->code) == BPF_K) {
++		dst_imm >>= insn->imm;
++	} else if (opcode == BPF_RSH && BPF_SRC(insn->code) == BPF_X &&
++		   src_reg->type == CONST_IMM) {
++		dst_imm >>= src_reg->imm;
++	} else if (opcode == BPF_LSH && BPF_SRC(insn->code) == BPF_K) {
++		dst_imm <<= insn->imm;
++	} else if (opcode == BPF_LSH && BPF_SRC(insn->code) == BPF_X &&
++		   src_reg->type == CONST_IMM) {
++		dst_imm <<= src_reg->imm;
++	} else {
+ 		mark_reg_unknown_value(regs, insn->dst_reg);
++		goto out;
++	}
++
++	dst_reg->imm = dst_imm;
++out:
+ 	return 0;
+ }
  
--TEST_PROGS := test_verifier test_maps test_lru_map test_lpm_map test_kmod.sh
-+TEST_PROGS := $(test_objs) test_kmod.sh
- TEST_FILES := $(test_objs)
+@@ -2225,14 +2257,8 @@ static int check_ld_imm(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 		return err;
  
- all: $(test_objs)
-diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
-new file mode 100644
-index 0000000..6ab4793
---- /dev/null
-+++ b/tools/testing/selftests/bpf/test_tag.c
-@@ -0,0 +1,202 @@
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <ctype.h>
-+#include <time.h>
-+#include <errno.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <sched.h>
-+#include <limits.h>
-+#include <assert.h>
-+
-+#include <sys/socket.h>
-+#include <sys/resource.h>
-+
-+#include <linux/filter.h>
-+#include <linux/bpf.h>
-+#include <linux/if_alg.h>
-+
-+#include "../../../include/linux/filter.h"
-+
-+#include "bpf_sys.h"
-+
-+static struct bpf_insn prog[BPF_MAXINSNS];
-+
-+static void bpf_gen_imm_prog(unsigned int insns, int fd_map)
-+{
-+	int i;
-+
-+	srand(time(NULL));
-+	for (i = 0; i < insns; i++)
-+		prog[i] = BPF_ALU64_IMM(BPF_MOV, i % BPF_REG_10, rand());
-+	prog[i - 1] = BPF_EXIT_INSN();
-+}
-+
-+static void bpf_gen_map_prog(unsigned int insns, int fd_map)
-+{
-+	int i, j = 0;
-+
-+	for (i = 0; i + 1 < insns; i += 2) {
-+		struct bpf_insn tmp[] = {
-+			BPF_LD_MAP_FD(j++ % BPF_REG_10, fd_map)
-+		};
-+
-+		memcpy(&prog[i], tmp, sizeof(tmp));
-+	}
-+	if (insns % 2 == 0)
-+		prog[insns - 2] = BPF_ALU64_IMM(BPF_MOV, i % BPF_REG_10, 42);
-+	prog[insns - 1] = BPF_EXIT_INSN();
-+}
-+
-+static int bpf_try_load_prog(int insns, int fd_map,
-+			     void (*bpf_filler)(unsigned int insns,
-+						int fd_map))
-+{
-+	int fd_prog;
-+
-+	bpf_filler(insns, fd_map);
-+	fd_prog = bpf_prog_load(BPF_PROG_TYPE_SCHED_CLS, prog, insns *
-+				sizeof(struct bpf_insn), "", NULL, 0);
-+	assert(fd_prog > 0);
-+	if (fd_map > 0)
-+		bpf_filler(insns, 0);
-+	return fd_prog;
-+}
-+
-+static int __hex2bin(char ch)
-+{
-+	if ((ch >= '0') && (ch <= '9'))
-+		return ch - '0';
-+	ch = tolower(ch);
-+	if ((ch >= 'a') && (ch <= 'f'))
-+		return ch - 'a' + 10;
-+	return -1;
-+}
-+
-+static int hex2bin(uint8_t *dst, const char *src, size_t count)
-+{
-+	while (count--) {
-+		int hi = __hex2bin(*src++);
-+		int lo = __hex2bin(*src++);
-+
-+		if ((hi < 0) || (lo < 0))
-+			return -1;
-+		*dst++ = (hi << 4) | lo;
-+	}
-+	return 0;
-+}
-+
-+static void tag_from_fdinfo(int fd_prog, uint8_t *tag, uint32_t len)
-+{
-+	const int prefix_len = sizeof("prog_tag:\t") - 1;
-+	char buff[256];
-+	int ret = -1;
-+	FILE *fp;
-+
-+	snprintf(buff, sizeof(buff), "/proc/%d/fdinfo/%d", getpid(),
-+		 fd_prog);
-+	fp = fopen(buff, "r");
-+	assert(fp);
-+
-+	while (fgets(buff, sizeof(buff), fp)) {
-+		if (strncmp(buff, "prog_tag:\t", len))
-+			continue;
-+		ret = hex2bin(tag, buff + prefix_len, len);
-+		break;
-+	}
-+
-+	fclose(fp);
-+	assert(!ret);
-+}
-+
-+static void tag_from_alg(int insns, uint8_t *tag, uint32_t len)
-+{
-+	static const struct sockaddr_alg alg = {
-+		.salg_family	= AF_ALG,
-+		.salg_type	= "hash",
-+		.salg_name	= "sha1",
-+	};
-+	int fd_base, fd_alg, ret;
-+	ssize_t size;
-+
-+	fd_base = socket(AF_ALG, SOCK_SEQPACKET, 0);
-+	assert(fd_base > 0);
-+
-+	ret = bind(fd_base, (struct sockaddr *)&alg, sizeof(alg));
-+	assert(!ret);
-+
-+	fd_alg = accept(fd_base, NULL, 0);
-+	assert(fd_alg > 0);
-+
-+	insns *= sizeof(struct bpf_insn);
-+	size = write(fd_alg, prog, insns);
-+	assert(size == insns);
-+
-+	size = read(fd_alg, tag, len);
-+	assert(size == len);
-+
-+	close(fd_alg);
-+	close(fd_base);
-+}
-+
-+static void tag_dump(const char *prefix, uint8_t *tag, uint32_t len)
-+{
-+	int i;
-+
-+	printf("%s", prefix);
-+	for (i = 0; i < len; i++)
-+		printf("%02x", tag[i]);
-+	printf("\n");
-+}
-+
-+static void tag_exit_report(int insns, int fd_map, uint8_t *ftag,
-+			    uint8_t *atag, uint32_t len)
-+{
-+	printf("Program tag mismatch for %d insns%s!\n", insns,
-+	       fd_map < 0 ? "" : " with map");
-+
-+	tag_dump("  fdinfo result: ", ftag, len);
-+	tag_dump("  af_alg result: ", atag, len);
-+	exit(1);
-+}
-+
-+static void do_test(uint32_t *tests, int start_insns, int fd_map,
-+		    void (*bpf_filler)(unsigned int insns, int fd))
-+{
-+	int i, fd_prog;
-+
-+	for (i = start_insns; i <= BPF_MAXINSNS; i++) {
-+		uint8_t ftag[8], atag[sizeof(ftag)];
-+
-+		fd_prog = bpf_try_load_prog(i, fd_map, bpf_filler);
-+		tag_from_fdinfo(fd_prog, ftag, sizeof(ftag));
-+		tag_from_alg(i, atag, sizeof(atag));
-+		if (memcmp(ftag, atag, sizeof(ftag)))
-+			tag_exit_report(i, fd_map, ftag, atag, sizeof(ftag));
-+
-+		close(fd_prog);
-+		sched_yield();
-+		(*tests)++;
-+	}
-+}
-+
-+int main(void)
-+{
-+	struct rlimit rinf = { RLIM_INFINITY, RLIM_INFINITY };
-+	uint32_t tests = 0;
-+	int i, fd_map;
-+
-+	setrlimit(RLIMIT_MEMLOCK, &rinf);
-+	fd_map = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(int),
-+				sizeof(int), 1, BPF_F_NO_PREALLOC);
-+	assert(fd_map > 0);
-+
-+	for (i = 0; i < 5; i++) {
-+		do_test(&tests, 2, -1,     bpf_gen_imm_prog);
-+		do_test(&tests, 3, fd_map, bpf_gen_map_prog);
-+	}
-+
-+	printf("test_tag: OK (%u tests)\n", tests);
-+	close(fd_map);
-+	return 0;
-+}
+ 	if (insn->src_reg == 0) {
+-		/* generic move 64-bit immediate into a register,
+-		 * only analyzer needs to collect the ld_imm value.
+-		 */
+ 		u64 imm = ((u64)(insn + 1)->imm << 32) | (u32)insn->imm;
+ 
+-		if (!env->analyzer_ops)
+-			return 0;
+-
+ 		regs[insn->dst_reg].type = CONST_IMM;
+ 		regs[insn->dst_reg].imm = imm;
+ 		return 0;
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 1aa7324..0d0912c 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -2326,6 +2326,84 @@ struct test_val {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
+ 	{
++		"direct packet access: test11 (shift, good access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 22),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 8),
++			BPF_MOV64_IMM(BPF_REG_3, 144),
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_3),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 23),
++			BPF_ALU64_IMM(BPF_RSH, BPF_REG_5, 3),
++			BPF_MOV64_REG(BPF_REG_6, BPF_REG_2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_6, BPF_REG_5),
++			BPF_MOV64_IMM(BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"direct packet access: test12 (and, good access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 22),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 8),
++			BPF_MOV64_IMM(BPF_REG_3, 144),
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_3),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 23),
++			BPF_ALU64_IMM(BPF_AND, BPF_REG_5, 15),
++			BPF_MOV64_REG(BPF_REG_6, BPF_REG_2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_6, BPF_REG_5),
++			BPF_MOV64_IMM(BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
++		"direct packet access: test13 (branches, good access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 22),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 13),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, mark)),
++			BPF_MOV64_IMM(BPF_REG_4, 1),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_3, BPF_REG_4, 2),
++			BPF_MOV64_IMM(BPF_REG_3, 14),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_MOV64_IMM(BPF_REG_3, 24),
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_3),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 23),
++			BPF_ALU64_IMM(BPF_AND, BPF_REG_5, 15),
++			BPF_MOV64_REG(BPF_REG_6, BPF_REG_2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_6, BPF_REG_5),
++			BPF_MOV64_IMM(BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
+ 		"helper access to packet: test1, valid packet_ptr range",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+@@ -4208,6 +4286,8 @@ struct test_val {
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_1, 0),
+ 			BPF_MOV64_IMM(BPF_REG_2, 0),
++			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -128),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_10, -128),
+ 			BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 64),
+ 			BPF_MOV64_IMM(BPF_REG_3, 0),
+ 			BPF_MOV64_IMM(BPF_REG_4, 0),
+@@ -4251,6 +4331,8 @@ struct test_val {
+ 			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -16),
+ 			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -8),
+ 			BPF_MOV64_IMM(BPF_REG_2, 0),
++			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -128),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_2, BPF_REG_10, -128),
+ 			BPF_ALU64_IMM(BPF_AND, BPF_REG_2, 63),
+ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 1),
+ 			BPF_MOV64_IMM(BPF_REG_3, 0),
 -- 
 1.9.3
