@@ -1,33 +1,48 @@
-From: Sriram V <vshrirama@gmail.com>
-Subject: network status
-Date: Wed, 25 Jan 2017 01:09:54 +0530
-Message-ID: <CAH9_wRNWRG0zY20OCXyL_MDci3Bw+RYDjQJCu15+c82C1Eon=Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
+Date: Tue, 24 Jan 2017 14:42:27 -0500 (EST)
+Message-ID: <20170124.144227.2017106704873029028.davem@davemloft.net>
+References: <1485197869-11350-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f172.google.com ([209.85.217.172]:35635 "EHLO
-        mail-ua0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbdAXTjz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 14:39:55 -0500
-Received: by mail-ua0-f172.google.com with SMTP id y9so142770854uae.2
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 11:39:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1485197869-11350-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 23 Jan 2017 21:37:52 +0200
 
-Apologies in case, this is not the right list of this question.
+> I don't have any guests with PAGE_SIZE > 64k but the
+> code seems to be clearly broken in that case
+> as PAGE_SIZE / MERGEABLE_BUFFER_ALIGN will need
+> more than 8 bit and so the code in mergeable_ctx_to_buf_address
+> does not give us the actual true size.
+> 
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-I wanted to check, How can i find out if a network status has changed
+Applied, thanks Michael.
 
-1. How can the user application find out if the link status has changed?
-2. what changes do i need to add in the driver to indicate to the user
-applications that ethernet cable has been plugged in or unplugged.
+I am really trying to be patient, but we are about to run out of
+time for fixing the adjust header XDP stuff.
 
-3. How should a user application know the status change (Should the
-userapp poll on the interface/is there an uevent interface to indicate
-the link status change)
+That should have been resolved in a week or two, but now we're
+basically a month or so later.
 
-Thanks.
-Sriram
+Please come to some kind of agreement about how to implement this
+because we can't let v4.10 go out without this being resolved.
+
+Thank you.
