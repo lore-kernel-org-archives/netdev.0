@@ -1,81 +1,83 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 1/4] net: Introduce psample, a new genetlink
- channel for packet sampling
-Date: Tue, 24 Jan 2017 09:37:34 +0100
-Message-ID: <20170124083734.GB1891@nanopsycho>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [patch net-next v2 2/4] net/sched: Introduce sample tc action
+Date: Tue, 24 Jan 2017 08:39:37 +0000
+Message-ID: <DB3PR05MB076447766A61C7CD63F5875CAC750@DB3PR05MB0764.eurprd05.prod.outlook.com>
 References: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
- <1485166031-4773-2-git-send-email-jiri@resnulli.us>
- <20170124083203.GA25022@penelope.horms.nl>
+ <1485166031-4773-3-git-send-email-jiri@resnulli.us>
+ <20170124083318.GB25022@penelope.horms.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-        ogerlitz@mellanox.com, jhs@mojatatu.com, geert+renesas@glider.be,
-        stephen@networkplumber.org, xiyou.wangcong@gmail.com,
-        linux@roeck-us.net, roopa@cumulusnetworks.com,
-        john.fastabend@gmail.com, mrv@mojatatu.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "geert+renesas@glider.be" <geert+renesas@glider.be>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "linux@roeck-us.net" <linux@roeck-us.net>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "mrv@mojatatu.com" <mrv@mojatatu.com>
+To: Simon Horman <simon.horman@netronome.com>,
+        Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:33362 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750989AbdAXIhi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 03:37:38 -0500
-Received: by mail-lf0-f67.google.com with SMTP id x1so16148715lff.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 00:37:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170124083203.GA25022@penelope.horms.nl>
+Received: from mail-he1eur01on0058.outbound.protection.outlook.com ([104.47.0.58]:19973
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751037AbdAXIjx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 03:39:53 -0500
+In-Reply-To: <20170124083318.GB25022@penelope.horms.nl>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jan 24, 2017 at 09:32:05AM CET, simon.horman@netronome.com wrote:
->On Mon, Jan 23, 2017 at 11:07:08AM +0100, Jiri Pirko wrote:
+>-----Original Message-----
+>From: Simon Horman [mailto:simon.horman@netronome.com]
+>Sent: Tuesday, January 24, 2017 10:33 AM
+>To: Jiri Pirko <jiri@resnulli.us>
+>Cc: netdev@vger.kernel.org; davem@davemloft.net; Yotam Gigi
+><yotamg@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
+><eladr@mellanox.com>; Nogah Frankel <nogahf@mellanox.com>; Or Gerlitz
+><ogerlitz@mellanox.com>; jhs@mojatatu.com; geert+renesas@glider.be;
+>stephen@networkplumber.org; xiyou.wangcong@gmail.com; linux@roeck-us.net;
+>roopa@cumulusnetworks.com; john.fastabend@gmail.com; mrv@mojatatu.com
+>Subject: Re: [patch net-next v2 2/4] net/sched: Introduce sample tc action
+>
+>On Mon, Jan 23, 2017 at 11:07:09AM +0100, Jiri Pirko wrote:
 >> From: Yotam Gigi <yotamg@mellanox.com>
->> 
->> Add a general way for kernel modules to sample packets, without being tied
->> to any specific subsystem. This netlink channel can be used by tc,
->> iptables, etc. and allow to standardize packet sampling in the kernel.
->> 
->> For every sampled packet, the psample module adds the following metadata
->> fields:
->> 
->> PSAMPLE_ATTR_IIFINDEX - the packets input ifindex, if applicable
->> 
->> PSAMPLE_ATTR_OIFINDEX - the packet output ifindex, if applicable
->> 
->> PSAMPLE_ATTR_ORIGSIZE - the packet's original size, in case it has been
->>    truncated during sampling
->> 
->> PSAMPLE_ATTR_SAMPLE_GROUP - the packet's sample group, which is set by the
->>    user who initiated the sampling. This field allows the user to
->>    differentiate between several samplers working simultaneously and
->>    filter packets relevant to him
->> 
->> PSAMPLE_ATTR_GROUP_SEQ - sequence counter of last sent packet. The
->>    sequence is kept for each group
->> 
->> PSAMPLE_ATTR_SAMPLE_RATE - the sampling rate used for sampling the packets
->> 
->> PSAMPLE_ATTR_DATA - the actual packet bits
->> 
->> The sampled packets are sent to the PSAMPLE_NL_MCGRP_SAMPLE multicast
->> group. In addition, add the GET_GROUPS netlink command which allows the
->> user to see the current sample groups, their refcount and sequence number.
->> This command currently supports only netlink dump mode.
->> 
+>>
+>> This action allows the user to sample traffic matched by tc classifier.
+>> The sampling consists of choosing packets randomly and sampling them usi=
+ng
+>> the psample module. The user can configure the psample group number, the
+>> sampling rate and the packet's truncation (to save kernel-user traffic).
+>>
+>> Example:
+>> To sample ingress traffic from interface eth1, one may use the commands:
+>>
+>> tc qdisc add dev eth1 handle ffff: ingress
+>>
+>> tc filter add dev eth1 parent ffff: \
+>> 	   matchall action sample rate 12 group 4
+>>
+>> Where the first command adds an ingress qdisc and the second starts
+>> sampling randomly with an average of one sampled packet per 12 packets o=
+n
+>> dev eth1 to psample group 4.
+>>
 >> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> Reviewed-by: Jamal Hadi Salim <jhs@mojatatu.com>
->
->Hi Jiri, Hi Yotam,
->
->this looks good to me.
+>> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 >
 >Reviewed-by: Simon Horman <simon.horman@netronome.com>
 >
->I do, however, have one question: what is your feeling about allowing
->the per-action cooking which Jamal has proposed[1] to be emited as
->metadata as another PSAMPLE_ATTR_* attribute? For one thing I think it
->would allow for smooth integration with OvS user-space which makes use of a
->cookie.
+>Is the tc user-space (iproute2) code available yet?
 
-Yeah, cookie could be easily added.
+Yes it is. I thought about sending it the moment the kernel patches gets=20
+accepted.
+
+Do you want it to send it directly to you?
