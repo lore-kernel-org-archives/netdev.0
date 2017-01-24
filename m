@@ -1,56 +1,41 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [patch] samples/bpf: silence shift wrapping warning
-Date: Mon, 23 Jan 2017 22:44:34 -0800
-Message-ID: <CAADnVQLF6PWEjic6aSRBnRqtO25eEw7YLE+Gb95+f5_pvq3ZMA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/4] net: Introduce psample, a new genetlink
+ channel for packet sampling
+Date: Tue, 24 Jan 2017 07:48:05 +0100
+Message-ID: <20170124064805.GA1891@nanopsycho>
+References: <1485085487-2652-1-git-send-email-jiri@resnulli.us>
+ <1485085487-2652-2-git-send-email-jiri@resnulli.us>
+ <20170123155750.22f4b323@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-        Thomas Graf <tgraf@suug.ch>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Joe Stringer <joe@ovn.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+        ogerlitz@mellanox.com, jhs@mojatatu.com, geert+renesas@glider.be,
+        xiyou.wangcong@gmail.com, linux@roeck-us.net,
+        roopa@cumulusnetworks.com, john.fastabend@gmail.com,
+        simon.horman@netronome.com, mrv@mojatatu.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35233 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750735AbdAXGsI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:48:08 -0500
+Received: by mail-wm0-f66.google.com with SMTP id d140so32333224wmd.2
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 22:48:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170123155750.22f4b323@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 5:27 AM, Arnaldo Carvalho de Melo
-<arnaldo.melo@gmail.com> wrote:
-> Em Sun, Jan 22, 2017 at 02:51:25PM -0800, Alexei Starovoitov escreveu:
->> On Sat, Jan 21, 2017 at 07:51:43AM +0300, Dan Carpenter wrote:
->> > max_key is a value in the 0-63 range, so on 32 bit systems the shift
->> > could wrap.
->> >
->> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->>
->> Looks fine. I think 'net-next' is ok.
+Tue, Jan 24, 2017 at 12:57:50AM CET, stephen@networkplumber.org wrote:
+>On Sun, 22 Jan 2017 12:44:44 +0100
+>Jiri Pirko <jiri@resnulli.us> wrote:
 >
-> I could process these patches, if that would help,
+>> +static LIST_HEAD(psample_groups_list);
+>> +static DEFINE_SPINLOCK(psample_groups_lock);
+>> +
+>
+>Why not a mutex? You aren't acquiring this in IRQ context?
 
-Thanks for the offer.
-I don't think there will be conflicts with all the work happening in net-next,
-but it's best to avoid even possibility of it when we can.
-Dan,
-can you please resend the patch cc-ing Dave and netdev ?
-please mention [PATCH net-next] in the subject.
-
-> - Arnaldo
->
->> Acked-by: Alexei Starovoitov <ast@kernel.org>
->
->> > diff --git a/samples/bpf/lwt_len_hist_user.c b/samples/bpf/lwt_len_hist_user.c
->> > index ec8f3bb..bd06eef 100644
->> > --- a/samples/bpf/lwt_len_hist_user.c
->> > +++ b/samples/bpf/lwt_len_hist_user.c
->> > @@ -68,7 +68,7 @@ int main(int argc, char **argv)
->> >     for (i = 1; i <= max_key + 1; i++) {
->> >             stars(starstr, data[i - 1], max_value, MAX_STARS);
->> >             printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
->> > -                  (1l << i) >> 1, (1l << i) - 1, data[i - 1],
->> > +                  (1ULL << i) >> 1, (1ULL << i) - 1, data[i - 1],
->> >                    MAX_STARS, starstr);
->> >     }
->> >
+Well, that is not argument for mutex. Mutex is much heavier and does not
+need to be used when not necessary (like if you don't need to sleep).
