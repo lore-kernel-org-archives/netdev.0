@@ -1,49 +1,79 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv3 net-next 4/4] sctp: implement sender-side procedures
- for Add Incoming/Outgoing Streams Request Parameter
-Date: Tue, 24 Jan 2017 12:35:39 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026CAD7@AcuExch.aculab.com>
-References: <cover.1484845510.git.lucien.xin@gmail.com>
- <daa150a23548dda0a2fd513c622773f0ff9b2df3.1484845510.git.lucien.xin@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB026B563@AcuExch.aculab.com>
- <20170123145347.GB31445@hmswarspite.think-freely.org>
- <20170123160234.GY3781@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Xin Long' <lucien.xin@gmail.com>,
-        network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
+From: David Windsor <dwindsor@gmail.com>
+Subject: [PATCH net] net: free ip_vs_dest structs when refcnt=0
+Date: Tue, 24 Jan 2017 07:48:20 -0500
+Message-ID: <1485262100-12366-1-git-send-email-dwindsor@gmail.com>
+Cc: keescook@chromium.org, elena.reshetova@intel.com, ja@ssi.bg,
+        dwindsor@gmail.com, ishkamiel@gmail.com
+To: netdev@vger.kernel.org, kernel-hardening@lists.openwall.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.189]:51011 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750721AbdAXMfs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 07:35:48 -0500
-In-Reply-To: <20170123160234.GY3781@localhost.localdomain>
-Content-Language: en-US
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36596 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750833AbdAXMs3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 07:48:29 -0500
+Received: by mail-qt0-f195.google.com with SMTP id l7so24941186qtd.3
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 04:48:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner
-> Sent: 23 January 2017 16:03
-...
-> > > Does kcalloc() zero the entire area, or just the length you ask for?
-> > > If the latter you need to zero the rest here.
-> > Better still, just use krealloc.  You still need to zero out any space beyond
-> > the old length, but it will make the code shorter, and avoid the need for
-> > additional temporary variables.
-> 
-> Seems if we pass gfp | __GFP_ZERO to krealloc it will end up zeroing the
-> slab for us before doing the memcpy.
-> I didn't follow all paths but in slab_alloc_node it will end up calling:
->         if (unlikely(gfpflags & __GFP_ZERO) && object)
->                 memset(object, 0, s->object_size);
-> So I would expect that other paths also do it.
+Currently, the ip_vs_dest cache frees ip_vs_dest objects when their reference
+count becomes < 0.  Aside from not being semantically sound, this is problematic
+for the new type refcount_t, which will be introduced shortly in a separate patch.
+refcount_t is the new kernel type for holding reference counts, and provides
+overflow protection and a constrained interface relative to atomic_t (the type
+currently being used for kernel reference counts).
 
-You probably don't want krealloc() zeroing all of the new area.
+Per Juilan Anastasov: "The problem is that dest_trash currently holds deleted
+dests (unlinked from RCU lists) with refcnt=0."  Changing dest_trash to hold
+dest with refcnt=1 will allow us to free ip_vs_dest structs when their refcnt=0,
+in ip_vs_dest_put_and_free().
 
-	David
+Signed-off-by: David Windsor <dwindsor@gmail.com>
+---
+ include/net/ip_vs.h            | 2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c | 4 +---
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index cd6018a..a3e78ad 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1421,7 +1421,7 @@ static inline void ip_vs_dest_put(struct ip_vs_dest *dest)
+ 
+ static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
+ {
+-	if (atomic_dec_return(&dest->refcnt) < 0)
++	if (atomic_dec_and_test(&dest->refcnt))
+ 		kfree(dest);
+ }
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 55e0169..6b5492e 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -711,7 +711,6 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, int dest_af,
+ 		      dest->vport == svc->port))) {
+ 			/* HIT */
+ 			list_del(&dest->t_list);
+-			ip_vs_dest_hold(dest);
+ 			goto out;
+ 		}
+ 	}
+@@ -1084,7 +1083,6 @@ static void __ip_vs_del_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest,
+ 	list_add(&dest->t_list, &ipvs->dest_trash);
+ 	dest->idle_start = 0;
+ 	spin_unlock_bh(&ipvs->dest_trash_lock);
+-	ip_vs_dest_put(dest);
+ }
+ 
+ 
+@@ -1160,7 +1158,7 @@ static void ip_vs_dest_trash_expire(unsigned long data)
+ 
+ 	spin_lock(&ipvs->dest_trash_lock);
+ 	list_for_each_entry_safe(dest, next, &ipvs->dest_trash, t_list) {
+-		if (atomic_read(&dest->refcnt) > 0)
++		if (atomic_read(&dest->refcnt) > 1)
+ 			continue;
+ 		if (dest->idle_start) {
+ 			if (time_before(now, dest->idle_start +
+-- 
+2.7.4
