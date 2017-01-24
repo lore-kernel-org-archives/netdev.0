@@ -1,63 +1,62 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCHv2 perf/core 0/7] Libbpf improvements
-Date: Tue, 24 Jan 2017 13:12:10 -0300
-Message-ID: <20170124161210.GE10340@kernel.org>
-References: <20170123011128.26534-1-joe@ovn.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3] powerpc: bpf: implement in-register swap for 64-bit
+ endian operations
+Date: Tue, 24 Jan 2017 16:13:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026CE48@AcuExch.aculab.com>
+References: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
+ <bb264395301754f43b77ddec68a16dd34220abb4.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB02635FB@AcuExch.aculab.com>
+ <20170113175201.GD3470@naverao1-tp.localdomain>
+ <1484492458.11927.17.camel@au1.ibm.com>
+ <20170123192227.GE3820@naverao1-tp.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Stringer <joe@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170123011128.26534-1-joe@ovn.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "ast@fb.com" <ast@fb.com>,
+        Madhavan Srinivasan <maddy@linux.vnet.ibm.com>,
+        Michael Ellerman <mpe@ellerman.id.au>
+To: "'Naveen N. Rao'" <naveen.n.rao@linux.vnet.ibm.com>,
+        "Benjamin Herrenschmidt" <benh@au1.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.188]:60847 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750755AbdAXQOB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 11:14:01 -0500
+In-Reply-To: <20170123192227.GE3820@naverao1-tp.localdomain>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Sun, Jan 22, 2017 at 05:11:21PM -0800, Joe Stringer escreveu:
-> Patch 1 fixes an issue when using drastically different BPF map definitions
-> inside ELFs from a client using libbpf, vs the map definition libbpf uses.
+From: 'Naveen N. Rao'
+> Sent: 23 January 2017 19:22
+> On 2017/01/15 09:00AM, Benjamin Herrenschmidt wrote:
+> > On Fri, 2017-01-13 at 23:22 +0530, 'Naveen N. Rao' wrote:
+> > > > That rather depends on whether the processor has a store to load forwarder
+> > > > that will satisfy the read from the store buffer.
+> > > > I don't know about ppc, but at least some x86 will do that.
+> > >
+> > > Interesting - good to know that.
+> > >
+> > > However, I don't think powerpc does that and in-register swap is likely
+> > > faster regardless. Note also that gcc prefers this form at higher
+> > > optimization levels.
+> >
+> > Of course powerpc has a load-store forwarder these days, however, I
+> > wouldn't be surprised if the in-register form was still faster on some
+> > implementations, but this needs to be tested.
 > 
-> Patches 2-4 add some simple, useful helper functions for setting prog type
-> and retrieving libbpf errors without depending on kernel headers from
-> userspace programs.
-> 
-> Patches 5-7 add a new pinning functionality for maps, programs, and objects.
-> Library users may call bpf_map__pin(map, path) or bpf_program__pin(prog, path)
-> to pin maps and programs separately, or use bpf_object__pin(obj, path) to
-> pin all maps and programs from the BPF object to the path. The map and program
-> variations require a full path where it will be pinned in the filesystem,
-> and the object variation will create directories "maps/" and "progs/" under
-> the specified path, then mount each map and program under those subdirectories.
+> Thanks for clarifying! To test this, I wrote a simple (perhaps naive)
+> test that just issues a whole lot of endian swaps and in _that_ test, it
+> does look like the load-store forwarder is doing pretty well.
+...
+> This is all in a POWER8 vm. On POWER7, the in-register variant is around
+> 4 times faster than the ldbrx variant.
+...
 
-Merged the ones either acked by Wang or adjusted by you to address
-Wang's remarks, the last ones introducing those __pin() methods, please
-provide users together with those APIs, preferably entries for 'perf
-test',
+I wonder which is faster on the little 1GHz embedded ppc we use here.
 
-- Arnaldo
- 
-> ---
-> v1: Initial post.
-> v2: Wang Nan provided improvements to patch 1.
->     Dropped patch 2 from v1.
->     Added acks for acked patches.
->     Split the bpf_obj__pin() to also provide map / program pinning APIs.
->     Allow users to provide full filesystem path (don't autodetect/mount BPFFS).
-> 
-> Joe Stringer (7):
->   tools lib bpf: Fix map offsets in relocation
->   tools lib bpf: Define prog_type fns with macro
->   tools lib bpf: Add set/is helpers for all prog types
->   tools lib bpf: Add libbpf_get_error()
->   tools lib bpf: Add bpf_program__pin()
->   tools lib bpf: Add bpf_map__pin()
->   tools lib bpf: Add bpf_object__pin()
-> 
->  tools/lib/bpf/libbpf.c  | 240 ++++++++++++++++++++++++++++++++++++++++++------
->  tools/lib/bpf/libbpf.h  |  17 +++-
->  tools/perf/tests/llvm.c |   2 +-
->  3 files changed, 229 insertions(+), 30 deletions(-)
-> 
-> -- 
-> 2.11.0
+	David
