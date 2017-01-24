@@ -1,48 +1,39 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] samples/bpf: silence shift wrapping warning
-Date: Tue, 24 Jan 2017 11:46:45 +0300
-Message-ID: <20170124084645.GA4201@mwanda>
-References: <CAADnVQLF6PWEjic6aSRBnRqtO25eEw7YLE+Gb95+f5_pvq3ZMA@mail.gmail.com>
+Subject: [patch net-next] sctp: fix some debug output
+Date: Tue, 24 Jan 2017 12:05:40 +0300
+Message-ID: <20170124090540.GA27652@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
-        Thomas Graf <tgraf@suug.ch>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Joe Stringer <joe@ovn.org>,
+Cc: Neil Horman <nhorman@tuxdriver.com>,
         "David S. Miller" <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+        Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:42508 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750710AbdAXJHD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 04:07:03 -0500
 Content-Disposition: inline
-In-Reply-To: <CAADnVQLF6PWEjic6aSRBnRqtO25eEw7YLE+Gb95+f5_pvq3ZMA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 23, 2017 at 10:44:34PM -0800, Alexei Starovoitov wrote:
-> On Mon, Jan 23, 2017 at 5:27 AM, Arnaldo Carvalho de Melo
-> <arnaldo.melo@gmail.com> wrote:
-> > Em Sun, Jan 22, 2017 at 02:51:25PM -0800, Alexei Starovoitov escreveu:
-> >> On Sat, Jan 21, 2017 at 07:51:43AM +0300, Dan Carpenter wrote:
-> >> > max_key is a value in the 0-63 range, so on 32 bit systems the shift
-> >> > could wrap.
-> >> >
-> >> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> >>
-> >> Looks fine. I think 'net-next' is ok.
-> >
-> > I could process these patches, if that would help,
-> 
-> Thanks for the offer.
-> I don't think there will be conflicts with all the work happening in net-next,
-> but it's best to avoid even possibility of it when we can.
-> Dan,
-> can you please resend the patch cc-ing Dave and netdev ?
-> please mention [PATCH net-next] in the subject.
-> 
+We added SCTP_EVENT_TIMEOUT_RECONF but we didn't update this array so
+it causes an off-by-one read overflow.
 
-Sure.
+Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-regards,
-dan carpenter
+diff --git a/net/sctp/debug.c b/net/sctp/debug.c
+index 95d7b15dad21..c5f4ed5242ac 100644
+--- a/net/sctp/debug.c
++++ b/net/sctp/debug.c
+@@ -159,6 +159,7 @@ static const char *const sctp_timer_tbl[] = {
+ 	"TIMEOUT_T4_RTO",
+ 	"TIMEOUT_T5_SHUTDOWN_GUARD",
+ 	"TIMEOUT_HEARTBEAT",
++	"TIMEOUT_RECONF",
+ 	"TIMEOUT_SACK",
+ 	"TIMEOUT_AUTOCLOSE",
+ };
