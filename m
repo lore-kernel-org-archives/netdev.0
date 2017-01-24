@@ -1,171 +1,261 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/5] bpf: enable load bytes helper for filter/reuseport progs
-Date: Tue, 24 Jan 2017 01:06:27 +0100
-Message-ID: <8acdd034730a3e3a62de1b079df17a9d5a253427.1485214851.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 4/5] bpf: add prog tag test case to bpf selftests
+Date: Tue, 24 Jan 2017 01:06:29 +0100
+Message-ID: <8723f7d203c7d1eb17098c4d31795af9fc3c7b15.1485214851.git.daniel@iogearbox.net>
 References: <cover.1485214851.git.daniel@iogearbox.net>
 Cc: netdev@vger.kernel.org, ast@kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44965 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:44957 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751003AbdAXAGl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:06:41 -0500
+        with ESMTP id S1751003AbdAXAGp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:06:45 -0500
 In-Reply-To: <cover.1485214851.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1485214851.git.daniel@iogearbox.net>
 References: <cover.1485214851.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BPF_PROG_TYPE_SOCKET_FILTER are used in various facilities such as
-for SO_REUSEPORT and packet fanout demuxing, packet filtering, kcm,
-etc, and yet the only facility they can use is BPF_LD with {BPF_ABS,
-BPF_IND} for single byte/half/word access.
+Add the test case used to compare the results from fdinfo with
+af_alg's output on the tag. Tests are from min to max sized
+programs, with and without maps included.
 
-Direct packet access is only restricted to tc programs right now,
-but we can still facilitate usage by allowing skb_load_bytes() helper
-added back then in 05c74e5e53f6 ("bpf: add bpf_skb_load_bytes helper")
-that calls skb_header_pointer() similarly to bpf_load_pointer(), but
-for stack buffers with larger access size.
+  # ./test_tag
+  test_tag: OK (40945 tests)
 
-Name the previous sk_filter_func_proto() as bpf_base_func_proto()
-since this is used everywhere else as well, similarly for the ctx
-converter, that is, bpf_convert_ctx_access().
+Tested on x86_64 and s390x.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/core/filter.c | 41 ++++++++++++++++++++++++++---------------
- 1 file changed, 26 insertions(+), 15 deletions(-)
+ tools/testing/selftests/bpf/Makefile   |   4 +-
+ tools/testing/selftests/bpf/test_tag.c | 202 +++++++++++++++++++++++++++++++++
+ 2 files changed, 204 insertions(+), 2 deletions(-)
+ create mode 100644 tools/testing/selftests/bpf/test_tag.c
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 883975f..e2263da 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2598,7 +2598,7 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- };
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 064a3e5..769a6cb 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -1,8 +1,8 @@
+ CFLAGS += -Wall -O2 -I../../../../usr/include
  
- static const struct bpf_func_proto *
--sk_filter_func_proto(enum bpf_func_id func_id)
-+bpf_base_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
- 	case BPF_FUNC_map_lookup_elem:
-@@ -2626,6 +2626,17 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- }
+-test_objs = test_verifier test_maps test_lru_map test_lpm_map
++test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
  
- static const struct bpf_func_proto *
-+sk_filter_func_proto(enum bpf_func_id func_id)
+-TEST_PROGS := test_verifier test_maps test_lru_map test_lpm_map test_kmod.sh
++TEST_PROGS := $(test_objs) test_kmod.sh
+ TEST_FILES := $(test_objs)
+ 
+ all: $(test_objs)
+diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
+new file mode 100644
+index 0000000..6ab4793
+--- /dev/null
++++ b/tools/testing/selftests/bpf/test_tag.c
+@@ -0,0 +1,202 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <ctype.h>
++#include <time.h>
++#include <errno.h>
++#include <unistd.h>
++#include <string.h>
++#include <sched.h>
++#include <limits.h>
++#include <assert.h>
++
++#include <sys/socket.h>
++#include <sys/resource.h>
++
++#include <linux/filter.h>
++#include <linux/bpf.h>
++#include <linux/if_alg.h>
++
++#include "../../../include/linux/filter.h"
++
++#include "bpf_sys.h"
++
++static struct bpf_insn prog[BPF_MAXINSNS];
++
++static void bpf_gen_imm_prog(unsigned int insns, int fd_map)
 +{
-+	switch (func_id) {
-+	case BPF_FUNC_skb_load_bytes:
-+		return &bpf_skb_load_bytes_proto;
-+	default:
-+		return bpf_base_func_proto(func_id);
++	int i;
++
++	srand(time(NULL));
++	for (i = 0; i < insns; i++)
++		prog[i] = BPF_ALU64_IMM(BPF_MOV, i % BPF_REG_10, rand());
++	prog[i - 1] = BPF_EXIT_INSN();
++}
++
++static void bpf_gen_map_prog(unsigned int insns, int fd_map)
++{
++	int i, j = 0;
++
++	for (i = 0; i + 1 < insns; i += 2) {
++		struct bpf_insn tmp[] = {
++			BPF_LD_MAP_FD(j++ % BPF_REG_10, fd_map)
++		};
++
++		memcpy(&prog[i], tmp, sizeof(tmp));
++	}
++	if (insns % 2 == 0)
++		prog[insns - 2] = BPF_ALU64_IMM(BPF_MOV, i % BPF_REG_10, 42);
++	prog[insns - 1] = BPF_EXIT_INSN();
++}
++
++static int bpf_try_load_prog(int insns, int fd_map,
++			     void (*bpf_filler)(unsigned int insns,
++						int fd_map))
++{
++	int fd_prog;
++
++	bpf_filler(insns, fd_map);
++	fd_prog = bpf_prog_load(BPF_PROG_TYPE_SCHED_CLS, prog, insns *
++				sizeof(struct bpf_insn), "", NULL, 0);
++	assert(fd_prog > 0);
++	if (fd_map > 0)
++		bpf_filler(insns, 0);
++	return fd_prog;
++}
++
++static int __hex2bin(char ch)
++{
++	if ((ch >= '0') && (ch <= '9'))
++		return ch - '0';
++	ch = tolower(ch);
++	if ((ch >= 'a') && (ch <= 'f'))
++		return ch - 'a' + 10;
++	return -1;
++}
++
++static int hex2bin(uint8_t *dst, const char *src, size_t count)
++{
++	while (count--) {
++		int hi = __hex2bin(*src++);
++		int lo = __hex2bin(*src++);
++
++		if ((hi < 0) || (lo < 0))
++			return -1;
++		*dst++ = (hi << 4) | lo;
++	}
++	return 0;
++}
++
++static void tag_from_fdinfo(int fd_prog, uint8_t *tag, uint32_t len)
++{
++	const int prefix_len = sizeof("prog_tag:\t") - 1;
++	char buff[256];
++	int ret = -1;
++	FILE *fp;
++
++	snprintf(buff, sizeof(buff), "/proc/%d/fdinfo/%d", getpid(),
++		 fd_prog);
++	fp = fopen(buff, "r");
++	assert(fp);
++
++	while (fgets(buff, sizeof(buff), fp)) {
++		if (strncmp(buff, "prog_tag:\t", len))
++			continue;
++		ret = hex2bin(tag, buff + prefix_len, len);
++		break;
++	}
++
++	fclose(fp);
++	assert(!ret);
++}
++
++static void tag_from_alg(int insns, uint8_t *tag, uint32_t len)
++{
++	static const struct sockaddr_alg alg = {
++		.salg_family	= AF_ALG,
++		.salg_type	= "hash",
++		.salg_name	= "sha1",
++	};
++	int fd_base, fd_alg, ret;
++	ssize_t size;
++
++	fd_base = socket(AF_ALG, SOCK_SEQPACKET, 0);
++	assert(fd_base > 0);
++
++	ret = bind(fd_base, (struct sockaddr *)&alg, sizeof(alg));
++	assert(!ret);
++
++	fd_alg = accept(fd_base, NULL, 0);
++	assert(fd_alg > 0);
++
++	insns *= sizeof(struct bpf_insn);
++	size = write(fd_alg, prog, insns);
++	assert(size == insns);
++
++	size = read(fd_alg, tag, len);
++	assert(size == len);
++
++	close(fd_alg);
++	close(fd_base);
++}
++
++static void tag_dump(const char *prefix, uint8_t *tag, uint32_t len)
++{
++	int i;
++
++	printf("%s", prefix);
++	for (i = 0; i < len; i++)
++		printf("%02x", tag[i]);
++	printf("\n");
++}
++
++static void tag_exit_report(int insns, int fd_map, uint8_t *ftag,
++			    uint8_t *atag, uint32_t len)
++{
++	printf("Program tag mismatch for %d insns%s!\n", insns,
++	       fd_map < 0 ? "" : " with map");
++
++	tag_dump("  fdinfo result: ", ftag, len);
++	tag_dump("  af_alg result: ", atag, len);
++	exit(1);
++}
++
++static void do_test(uint32_t *tests, int start_insns, int fd_map,
++		    void (*bpf_filler)(unsigned int insns, int fd))
++{
++	int i, fd_prog;
++
++	for (i = start_insns; i <= BPF_MAXINSNS; i++) {
++		uint8_t ftag[8], atag[sizeof(ftag)];
++
++		fd_prog = bpf_try_load_prog(i, fd_map, bpf_filler);
++		tag_from_fdinfo(fd_prog, ftag, sizeof(ftag));
++		tag_from_alg(i, atag, sizeof(atag));
++		if (memcmp(ftag, atag, sizeof(ftag)))
++			tag_exit_report(i, fd_map, ftag, atag, sizeof(ftag));
++
++		close(fd_prog);
++		sched_yield();
++		(*tests)++;
 +	}
 +}
 +
-+static const struct bpf_func_proto *
- tc_cls_act_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -2680,7 +2691,7 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- 	case BPF_FUNC_skb_under_cgroup:
- 		return &bpf_skb_under_cgroup_proto;
- 	default:
--		return sk_filter_func_proto(func_id);
-+		return bpf_base_func_proto(func_id);
- 	}
- }
- 
-@@ -2695,7 +2706,7 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- 	case BPF_FUNC_xdp_adjust_head:
- 		return &bpf_xdp_adjust_head_proto;
- 	default:
--		return sk_filter_func_proto(func_id);
-+		return bpf_base_func_proto(func_id);
- 	}
- }
- 
-@@ -2706,7 +2717,7 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- 	case BPF_FUNC_skb_load_bytes:
- 		return &bpf_skb_load_bytes_proto;
- 	default:
--		return sk_filter_func_proto(func_id);
-+		return bpf_base_func_proto(func_id);
- 	}
- }
- 
-@@ -2733,7 +2744,7 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- 	case BPF_FUNC_skb_under_cgroup:
- 		return &bpf_skb_under_cgroup_proto;
- 	default:
--		return sk_filter_func_proto(func_id);
-+		return bpf_base_func_proto(func_id);
- 	}
- }
- 
-@@ -2983,10 +2994,10 @@ void bpf_warn_invalid_xdp_action(u32 act)
- }
- EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
- 
--static u32 sk_filter_convert_ctx_access(enum bpf_access_type type,
--					const struct bpf_insn *si,
--					struct bpf_insn *insn_buf,
--					struct bpf_prog *prog)
-+static u32 bpf_convert_ctx_access(enum bpf_access_type type,
-+				  const struct bpf_insn *si,
-+				  struct bpf_insn *insn_buf,
-+				  struct bpf_prog *prog)
- {
- 	struct bpf_insn *insn = insn_buf;
- 	int off;
-@@ -3210,7 +3221,7 @@ static u32 tc_cls_act_convert_ctx_access(enum bpf_access_type type,
- 				      offsetof(struct net_device, ifindex));
- 		break;
- 	default:
--		return sk_filter_convert_ctx_access(type, si, insn_buf, prog);
-+		return bpf_convert_ctx_access(type, si, insn_buf, prog);
- 	}
- 
- 	return insn - insn_buf;
-@@ -3242,7 +3253,7 @@ static u32 xdp_convert_ctx_access(enum bpf_access_type type,
- static const struct bpf_verifier_ops sk_filter_ops = {
- 	.get_func_proto		= sk_filter_func_proto,
- 	.is_valid_access	= sk_filter_is_valid_access,
--	.convert_ctx_access	= sk_filter_convert_ctx_access,
-+	.convert_ctx_access	= bpf_convert_ctx_access,
- };
- 
- static const struct bpf_verifier_ops tc_cls_act_ops = {
-@@ -3261,24 +3272,24 @@ static u32 xdp_convert_ctx_access(enum bpf_access_type type,
- static const struct bpf_verifier_ops cg_skb_ops = {
- 	.get_func_proto		= cg_skb_func_proto,
- 	.is_valid_access	= sk_filter_is_valid_access,
--	.convert_ctx_access	= sk_filter_convert_ctx_access,
-+	.convert_ctx_access	= bpf_convert_ctx_access,
- };
- 
- static const struct bpf_verifier_ops lwt_inout_ops = {
- 	.get_func_proto		= lwt_inout_func_proto,
- 	.is_valid_access	= lwt_is_valid_access,
--	.convert_ctx_access	= sk_filter_convert_ctx_access,
-+	.convert_ctx_access	= bpf_convert_ctx_access,
- };
- 
- static const struct bpf_verifier_ops lwt_xmit_ops = {
- 	.get_func_proto		= lwt_xmit_func_proto,
- 	.is_valid_access	= lwt_is_valid_access,
--	.convert_ctx_access	= sk_filter_convert_ctx_access,
-+	.convert_ctx_access	= bpf_convert_ctx_access,
- 	.gen_prologue		= tc_cls_act_prologue,
- };
- 
- static const struct bpf_verifier_ops cg_sock_ops = {
--	.get_func_proto		= sk_filter_func_proto,
-+	.get_func_proto		= bpf_base_func_proto,
- 	.is_valid_access	= sock_filter_is_valid_access,
- 	.convert_ctx_access	= sock_filter_convert_ctx_access,
- };
++int main(void)
++{
++	struct rlimit rinf = { RLIM_INFINITY, RLIM_INFINITY };
++	uint32_t tests = 0;
++	int i, fd_map;
++
++	setrlimit(RLIMIT_MEMLOCK, &rinf);
++	fd_map = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(int),
++				sizeof(int), 1, BPF_F_NO_PREALLOC);
++	assert(fd_map > 0);
++
++	for (i = 0; i < 5; i++) {
++		do_test(&tests, 2, -1,     bpf_gen_imm_prog);
++		do_test(&tests, 3, fd_map, bpf_gen_map_prog);
++	}
++
++	printf("test_tag: OK (%u tests)\n", tests);
++	close(fd_map);
++	return 0;
++}
 -- 
 1.9.3
