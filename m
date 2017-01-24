@@ -1,54 +1,83 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
- device_find_class()
-Date: Tue, 24 Jan 2017 10:59:15 -0800
-Message-ID: <c98f3ff8-9d4e-a007-1fef-130fcf580201@gmail.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-7-f.fainelli@gmail.com>
- <20170115110628.GF26374@kroah.com>
- <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
- <20170115173949.GA19268@kroah.com>
- <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
- <20170115191632.GD5643@lunn.ch>
- <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
- <20170119142820.GA494@kroah.com> <20170119145315.GD21805@lunn.ch>
- <20170119165155.GH27312@n2100.armlinux.org.uk>
- <841dc133-e9af-e7ca-75bf-8371337d6281@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 5/5] gtp: let userspace handle packets for invalid tunnels
+Date: Tue, 24 Jan 2017 20:03:49 +0100
+Message-ID: <20170124190349.GA9757@salvia>
+References: <20170124172402.12096-1-aschultz@tpip.net>
+ <20170124172402.12096-6-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <841dc133-e9af-e7ca-75bf-8371337d6281@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
+To: Andreas Schultz <aschultz@tpip.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60102 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750704AbdAXTEC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 14:04:02 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 0FF501EC2C7
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 20:04:01 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 00EA0A7BF9
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 20:04:01 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 675E0A7DBC
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 20:03:58 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20170124172402.12096-6-aschultz@tpip.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/19/2017 10:12 AM, Florian Fainelli wrote:
+Hi Andreas,
+
+On Tue, Jan 24, 2017 at 06:24:02PM +0100, Andreas Schultz wrote:
+> enable userspace to send error replies for invalid tunnels
 > 
-> Back to the actual code that triggered this discussion, the whole
-> purpose is just a safeguard. Given a device reference, we can assume
-> that it is indeed the backing device for a net_device, and we could do a
-> to_net_device() right away (and crash if someone did not write correct
-> platform_data structures), or, by walking the device tree (the device
-> driver model one) we can make sure it does belong in the proper class
-> and this is indeed what we think it is.
+> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+> ---
+>  drivers/net/gtp.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+> index 912721e..c607333 100644
+> --- a/drivers/net/gtp.c
+> +++ b/drivers/net/gtp.c
+> @@ -198,12 +198,12 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+>  	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
+>  	if (!pctx) {
+>  		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+> -		return -1;
+> +		return 1;
+>  	}
+>  
+>  	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
+>  		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+> -		return -1;
+> +		return 1;
 
-Greg, did Russell's explanation clarify things, or do you still think
-this is completely bogus and we need to re design the whole thing?
+So userspace gets the packet that we cannot forward. I guess your
+userspace codebase performs this sanity checks again so you can send
+the appropriate error reply?
 
-Just asking so I can try to resubmit just the preparatory parts or just
-the whole thing.
-
-Thank you
--- 
-Florian
+>  	}
+>  
+>  	/* Get rid of the GTP + UDP headers. */
+> @@ -247,12 +247,12 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+>  	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
+>  	if (!pctx) {
+>  		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+> -		return -1;
+> +		return 1;
+>  	}
+>  
+>  	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
+>  		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+> -		return -1;
+> +		return 1;
+>  	}
+>  
+>  	/* Get rid of the GTP + UDP headers. */
+> -- 
+> 2.10.2
+> 
