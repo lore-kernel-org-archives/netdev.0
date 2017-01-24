@@ -1,181 +1,449 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 14/18] netvsc: eliminate per-device outstanding send counter
-Date: Tue, 24 Jan 2017 13:06:11 -0800
-Message-ID: <20170124210615.18628-15-sthemmin@microsoft.com>
+Subject: [PATCH 11/18] netvsc: optimize receive path
+Date: Tue, 24 Jan 2017 13:06:08 -0800
+Message-ID: <20170124210615.18628-12-sthemmin@microsoft.com>
 References: <20170124210615.18628-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:33886 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750843AbdAXVG7 (ORCPT
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33507 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750838AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pg0-f44.google.com with SMTP id 14so57792548pgg.1
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:33 -0800 (PST)
+Received: by mail-pf0-f175.google.com with SMTP id y143so52570528pfb.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:29 -0800 (PST)
 In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since now keep track of per-queue outstanding sends, we can avoid
-one atomic update by removing no longer needed per-device atomic.
+Do manual optimizations of receive path:
+  - remove checks for impossible conditions (but keep checks
+    for bad data from host)
+  - pass argument down, rather than having callee recompute what
+    is already known
+  - remove indirection about receive buffer datalength
+  - remove dependence on VLAN_TAG_PRESENCE
+  - use _hot/_cold and likely/unlikely
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   |  1 -
- drivers/net/hyperv/netvsc.c       | 44 ++++++++++++++-------------------------
- drivers/net/hyperv/rndis_filter.c | 21 ++++++++++++++++---
- 3 files changed, 34 insertions(+), 32 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   | 21 +++++----
+ drivers/net/hyperv/netvsc.c       | 74 ++++++++++++-----------------
+ drivers/net/hyperv/netvsc_drv.c   | 32 ++++++-------
+ drivers/net/hyperv/rndis_filter.c | 99 +++++++++++++++------------------------
+ 4 files changed, 93 insertions(+), 133 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 757205c9cb93..fec365241f37 100644
+index fb73caad0965..4b91e37c85ca 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -729,7 +729,6 @@ struct netvsc_channel {
- struct netvsc_device {
- 	u32 nvsp_version;
+@@ -119,6 +119,7 @@ struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
  
--	atomic_t num_outstanding_sends;
- 	wait_queue_head_t wait_drain;
- 	bool destroy;
+ /* Fwd declaration */
+ struct ndis_tcp_ip_checksum_info;
++struct ndis_pkt_8021q_info;
  
+ /*
+  * Represent netvsc packet which contains 1 RNDIS and 1 ethernet frame
+@@ -186,12 +187,11 @@ int netvsc_send(struct hv_device *device,
+ 		struct sk_buff *skb);
+ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 				struct rndis_message *resp);
+-int netvsc_recv_callback(struct hv_device *device_obj,
+-			struct hv_netvsc_packet *packet,
+-			void **data,
+-			struct ndis_tcp_ip_checksum_info *csum_info,
+-			struct vmbus_channel *channel,
+-			u16 vlan_tci);
++int netvsc_recv_callback(struct net_device *net,
++			 struct vmbus_channel *channel,
++			 void  *data, u32 len,
++			 const struct ndis_tcp_ip_checksum_info *csum_info,
++			 const struct ndis_pkt_8021q_info *vlan);
+ void netvsc_channel_cb(void *context);
+ int rndis_filter_open(struct netvsc_device *nvdev);
+ int rndis_filter_close(struct netvsc_device *nvdev);
+@@ -200,10 +200,11 @@ int rndis_filter_device_add(struct hv_device *dev,
+ void rndis_filter_device_remove(struct hv_device *dev);
+ int rndis_filter_set_rss_param(struct rndis_device *rdev,
+ 			       const u8 *key, int num_queue);
+-int rndis_filter_receive(struct hv_device *dev,
+-			struct hv_netvsc_packet *pkt,
+-			void **data,
+-			struct vmbus_channel *channel);
++int rndis_filter_receive(struct net_device *ndev,
++			 struct netvsc_device *net_dev,
++			 struct hv_device *dev,
++			 struct vmbus_channel *channel,
++			 void *data, u32 buflen);
+ 
+ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter);
+ int rndis_filter_set_device_mac(struct net_device *ndev, char *mac);
 diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 359e7ef7040b..bd055146f098 100644
+index 4dd2a1f2da11..80eecb4f9456 100644
 --- a/drivers/net/hyperv/netvsc.c
 +++ b/drivers/net/hyperv/netvsc.c
-@@ -90,29 +90,23 @@ static void free_netvsc_device(struct netvsc_device *nvdev)
- 	kfree(nvdev);
+@@ -1095,51 +1095,35 @@ static inline struct recv_comp_data *get_recv_comp_slot(
+ 	return rcd;
  }
  
--static struct netvsc_device *get_outbound_net_device(struct hv_device *device)
--{
--	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
- 
--	if (net_device && net_device->destroy)
--		net_device = NULL;
-+static inline bool netvsc_channel_idle(const struct netvsc_device *net_device,
-+				       u16 q_idx)
-+{
-+	const struct netvsc_channel *nvchan = &net_device->chan_table[q_idx];
- 
--	return net_device;
-+	return atomic_read(&net_device->num_outstanding_recvs) == 0 &&
-+		atomic_read(&nvchan->queue_sends) == 0;
- }
- 
--static struct netvsc_device *get_inbound_net_device(struct hv_device *device)
-+static struct netvsc_device *get_outbound_net_device(struct hv_device *device)
+-static void netvsc_receive(struct netvsc_device *net_device,
+-			struct vmbus_channel *channel,
+-			struct hv_device *device,
+-			struct vmpacket_descriptor *packet)
++static void netvsc_receive(struct net_device *ndev,
++		   struct netvsc_device *net_device,
++		   struct net_device_context *net_device_ctx,
++		   struct hv_device *device,
++		   struct vmbus_channel *channel,
++		   struct vmtransfer_page_packet_header *vmxferpage_packet,
++		   struct nvsp_message *nvsp)
  {
- 	struct netvsc_device *net_device = hv_device_to_netvsc_device(device);
+-	struct vmtransfer_page_packet_header *vmxferpage_packet;
+-	struct nvsp_message *nvsp_packet;
+-	struct hv_netvsc_packet nv_pkt;
+-	struct hv_netvsc_packet *netvsc_packet = &nv_pkt;
++	char *recv_buf = net_device->recv_buf;
+ 	u32 status = NVSP_STAT_SUCCESS;
+ 	int i;
+ 	int count = 0;
+-	struct net_device *ndev = hv_get_drvdata(device);
+-	void *data;
+ 	int ret;
+ 	struct recv_comp_data *rcd;
+ 	u16 q_idx = channel->offermsg.offer.sub_channel_index;
  
--	if (!net_device)
--		goto get_in_err;
+-	/*
+-	 * All inbound packets other than send completion should be xfer page
+-	 * packet
+-	 */
+-	if (packet->type != VM_PKT_DATA_USING_XFER_PAGES) {
+-		netdev_err(ndev, "Unknown packet type received - %d\n",
+-			   packet->type);
+-		return;
+-	}
 -
--	if (net_device->destroy &&
--	    atomic_read(&net_device->num_outstanding_sends) == 0 &&
--	    atomic_read(&net_device->num_outstanding_recvs) == 0)
-+	if (net_device && net_device->destroy)
- 		net_device = NULL;
+-	nvsp_packet = (struct nvsp_message *)((unsigned long)packet +
+-			(packet->offset8 << 3));
+-
+ 	/* Make sure this is a valid nvsp packet */
+-	if (nvsp_packet->hdr.msg_type !=
+-	    NVSP_MSG1_TYPE_SEND_RNDIS_PKT) {
+-		netdev_err(ndev, "Unknown nvsp packet type received-"
+-			" %d\n", nvsp_packet->hdr.msg_type);
++	if (unlikely(nvsp->hdr.msg_type != NVSP_MSG1_TYPE_SEND_RNDIS_PKT)) {
++		netif_err(net_device_ctx, rx_err, ndev,
++			  "Unknown nvsp packet type received %u\n",
++			  nvsp->hdr.msg_type);
+ 		return;
+ 	}
  
--get_in_err:
- 	return net_device;
+-	vmxferpage_packet = (struct vmtransfer_page_packet_header *)packet;
+-
+-	if (vmxferpage_packet->xfer_pageset_id != NETVSC_RECEIVE_BUFFER_ID) {
+-		netdev_err(ndev, "Invalid xfer page set id - "
+-			   "expecting %x got %x\n", NETVSC_RECEIVE_BUFFER_ID,
+-			   vmxferpage_packet->xfer_pageset_id);
++	if (unlikely(vmxferpage_packet->xfer_pageset_id != NETVSC_RECEIVE_BUFFER_ID)) {
++		netif_err(net_device_ctx, rx_err, ndev,
++			  "Invalid xfer page set id - expecting %x got %x\n",
++			  NETVSC_RECEIVE_BUFFER_ID,
++			  vmxferpage_packet->xfer_pageset_id);
+ 		return;
+ 	}
+ 
+@@ -1147,15 +1131,13 @@ static void netvsc_receive(struct netvsc_device *net_device,
+ 
+ 	/* Each range represents 1 RNDIS pkt that contains 1 ethernet frame */
+ 	for (i = 0; i < count; i++) {
+-		/* Initialize the netvsc packet */
+-		data = (void *)((unsigned long)net_device->
+-			recv_buf + vmxferpage_packet->ranges[i].byte_offset);
+-		netvsc_packet->total_data_buflen =
+-					vmxferpage_packet->ranges[i].byte_count;
++		void *data = recv_buf
++			+ vmxferpage_packet->ranges[i].byte_offset;
++		u32 buflen = vmxferpage_packet->ranges[i].byte_count;
+ 
+ 		/* Pass it to the upper layer */
+-		status = rndis_filter_receive(device, netvsc_packet, &data,
+-					      channel);
++		status = rndis_filter_receive(ndev, net_device, device,
++					      channel, data, buflen);
+ 	}
+ 
+ 	if (!net_device->chan_table[q_idx].mrc.buf) {
+@@ -1234,11 +1216,10 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
+ 				   u64 request_id,
+ 				   struct vmpacket_descriptor *desc)
+ {
+-	struct nvsp_message *nvmsg;
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-
+-	nvmsg = (struct nvsp_message *)((unsigned long)
+-		desc + (desc->offset8 << 3));
++	struct nvsp_message *nvmsg
++		= (struct nvsp_message *)((unsigned long)desc
++					  + (desc->offset8 << 3));
+ 
+ 	switch (desc->type) {
+ 	case VM_PKT_COMP:
+@@ -1246,7 +1227,10 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
+ 		break;
+ 
+ 	case VM_PKT_DATA_USING_XFER_PAGES:
+-		netvsc_receive(net_device, channel, device, desc);
++		netvsc_receive(ndev, net_device, net_device_ctx,
++			       device, channel,
++			       (struct vmtransfer_page_packet_header *)desc,
++			       nvmsg);
+ 		break;
+ 
+ 	case VM_PKT_DATA_INBAND:
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index da5863641703..4bc1fdbc8cd7 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -596,13 +596,13 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
  }
  
-@@ -612,7 +606,6 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
- 	struct net_device *ndev = hv_get_drvdata(device);
- 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
- 	struct vmbus_channel *channel = device->channel;
--	int num_outstanding_sends;
- 	u16 q_idx = 0;
- 	int queue_sends;
+ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
+-				struct hv_netvsc_packet *packet,
+-				struct ndis_tcp_ip_checksum_info *csum_info,
+-				void *data, u16 vlan_tci)
++					     const struct ndis_tcp_ip_checksum_info *csum_info,
++					     const struct ndis_pkt_8021q_info *vlan,
++					     void *data, u32 buflen)
+ {
+ 	struct sk_buff *skb;
  
-@@ -630,13 +623,10 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
- 		dev_consume_skb_any(skb);
+-	skb = netdev_alloc_skb_ip_align(net, packet->total_data_buflen);
++	skb = netdev_alloc_skb_ip_align(net, buflen);
+ 	if (!skb)
+ 		return skb;
+ 
+@@ -610,8 +610,7 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
+ 	 * Copy to skb. This copy is needed here since the memory pointed by
+ 	 * hv_netvsc_packet cannot be deallocated
+ 	 */
+-	memcpy(skb_put(skb, packet->total_data_buflen), data,
+-	       packet->total_data_buflen);
++	memcpy(skb_put(skb, buflen), data, buflen);
+ 
+ 	skb->protocol = eth_type_trans(skb, net);
+ 
+@@ -628,9 +627,12 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
  	}
  
--	num_outstanding_sends =
--		atomic_dec_return(&net_device->num_outstanding_sends);
--
- 	queue_sends =
- 		atomic_dec_return(&net_device->chan_table[q_idx].queue_sends);
+-	if (vlan_tci & VLAN_TAG_PRESENT)
++	if (vlan) {
++		u16 vlan_tci = vlan->vlanid | (vlan->pri << VLAN_PRIO_SHIFT);
++
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 				       vlan_tci);
++	}
  
--	if (net_device->destroy && num_outstanding_sends == 0)
-+	if (net_device->destroy && queue_sends == 0)
- 		wake_up(&net_device->wait_drain);
+ 	return skb;
+ }
+@@ -639,14 +641,12 @@ static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
+  * netvsc_recv_callback -  Callback when we receive a packet from the
+  * "wire" on the specified device.
+  */
+-int netvsc_recv_callback(struct hv_device *device_obj,
+-				struct hv_netvsc_packet *packet,
+-				void **data,
+-				struct ndis_tcp_ip_checksum_info *csum_info,
+-				struct vmbus_channel *channel,
+-				u16 vlan_tci)
++int netvsc_recv_callback(struct net_device *net,
++			 struct vmbus_channel *channel,
++			 void  *data, u32 len,
++			 const struct ndis_tcp_ip_checksum_info *csum_info,
++			 const struct ndis_pkt_8021q_info *vlan)
+ {
+-	struct net_device *net = hv_get_drvdata(device_obj);
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
+ 	struct net_device *vf_netdev;
+ 	struct sk_buff *skb;
+@@ -668,7 +668,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 		net = vf_netdev;
  
- 	if (netif_tx_queue_stopped(netdev_get_tx_queue(ndev, q_idx)) &&
-@@ -823,15 +813,10 @@ static inline int netvsc_send_pkt(
- 	}
+ 	/* Allocate a skb - TODO direct I/O to pages? */
+-	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
++	skb = netvsc_alloc_recv_skb(net, csum_info, vlan, data, len);
+ 	if (unlikely(!skb)) {
+ 		++net->stats.rx_dropped;
+ 		rcu_read_unlock();
+@@ -687,7 +687,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	rx_stats = this_cpu_ptr(net_device_ctx->rx_stats);
+ 	u64_stats_update_begin(&rx_stats->syncp);
+ 	rx_stats->packets++;
+-	rx_stats->bytes += packet->total_data_buflen;
++	rx_stats->bytes += len;
  
- 	if (ret == 0) {
--		atomic_inc(&net_device->num_outstanding_sends);
- 		atomic_inc_return(&nvchan->queue_sends);
- 
--		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
-+		if (ring_avail < RING_AVAIL_PERCENT_LOWATER)
- 			netif_tx_stop_queue(txq);
--
--			if (atomic_read(&nvchan->queue_sends) < 1)
--				netif_tx_wake_queue(txq);
--		}
- 	} else if (ret == -EAGAIN) {
- 		netif_tx_stop_queue(txq);
- 		if (atomic_read(&nvchan->queue_sends) < 1) {
-@@ -1259,11 +1244,14 @@ void netvsc_channel_cb(void *context)
- 	else
- 		device = channel->device_obj;
- 
--	net_device = get_inbound_net_device(device);
--	if (!net_device)
-+	ndev = hv_get_drvdata(device);
-+	if (unlikely(!ndev))
- 		return;
- 
--	ndev = hv_get_drvdata(device);
-+	net_device = net_device_to_netvsc_device(ndev);
-+	if (unlikely(net_device->destroy) &&
-+	    netvsc_channel_idle(net_device, q_idx))
-+		return;
- 
- 	while ((desc = get_next_pkt_raw(channel)) != NULL) {
- 		netvsc_process_raw_pkt(device, channel, net_device,
+ 	if (skb->pkt_type == PACKET_BROADCAST)
+ 		++rx_stats->broadcast;
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 70b099a731a9..19356f56b7b1 100644
+index 0df02c9808e8..decce4f8fda8 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -903,6 +903,23 @@ static int rndis_filter_init_device(struct rndis_device *dev)
- 	return ret;
+@@ -132,7 +132,7 @@ static void put_rndis_request(struct rndis_device *dev,
  }
  
-+static bool netvsc_device_idle(const struct netvsc_device *nvdev)
-+{
-+	int i;
-+
-+	if (atomic_read(&nvdev->num_outstanding_recvs) > 0)
-+		return false;
-+
-+	for (i = 0; i < nvdev->num_chn; i++) {
-+		const struct netvsc_channel *nvchan = &nvdev->chan_table[i];
-+
-+		if (atomic_read(&nvchan->queue_sends) > 0)
-+			return false;
-+	}
-+
-+	return true;
-+}
-+
- static void rndis_filter_halt_device(struct rndis_device *dev)
+ static void dump_rndis_message(struct hv_device *hv_dev,
+-			struct rndis_message *rndis_msg)
++			       const struct rndis_message *rndis_msg)
  {
- 	struct rndis_request *request;
-@@ -933,9 +950,7 @@ static void rndis_filter_halt_device(struct rndis_device *dev)
- 	spin_unlock_irqrestore(&hdev->channel->inbound_lock, flags);
+ 	struct net_device *netdev = hv_get_drvdata(hv_dev);
  
- 	/* Wait for all send completions */
--	wait_event(nvdev->wait_drain,
--		   atomic_read(&nvdev->num_outstanding_sends) == 0 &&
--		   atomic_read(&nvdev->num_outstanding_recvs) == 0);
-+	wait_event(nvdev->wait_drain, netvsc_device_idle(nvdev));
+@@ -347,102 +347,78 @@ static inline void *rndis_get_ppi(struct rndis_packet *rpkt, u32 type)
+ 	return NULL;
+ }
  
- 	if (request)
- 		put_rndis_request(dev, request);
+-static int rndis_filter_receive_data(struct rndis_device *dev,
+-				   struct rndis_message *msg,
+-				   struct hv_netvsc_packet *pkt,
+-				   void **data,
+-				   struct vmbus_channel *channel)
++static int rndis_filter_receive_data(struct net_device *ndev,
++				     struct rndis_device *dev,
++				     struct rndis_message *msg,
++				     struct vmbus_channel *channel,
++				     void *data, u32 data_buflen)
+ {
+-	struct rndis_packet *rndis_pkt;
++	struct rndis_packet *rndis_pkt = &msg->msg.pkt;
++	const struct ndis_tcp_ip_checksum_info *csum_info;
++	const struct ndis_pkt_8021q_info *vlan;
+ 	u32 data_offset;
+-	struct ndis_pkt_8021q_info *vlan;
+-	struct ndis_tcp_ip_checksum_info *csum_info;
+-	u16 vlan_tci = 0;
+-	struct net_device_context *net_device_ctx = netdev_priv(dev->ndev);
+-
+-	rndis_pkt = &msg->msg.pkt;
+ 
+ 	/* Remove the rndis header and pass it back up the stack */
+ 	data_offset = RNDIS_HEADER_SIZE + rndis_pkt->data_offset;
+ 
+-	pkt->total_data_buflen -= data_offset;
++	data_buflen -= data_offset;
+ 
+ 	/*
+ 	 * Make sure we got a valid RNDIS message, now total_data_buflen
+ 	 * should be the data packet size plus the trailer padding size
+ 	 */
+-	if (pkt->total_data_buflen < rndis_pkt->data_len) {
++	if (unlikely(data_buflen < rndis_pkt->data_len)) {
+ 		netdev_err(dev->ndev, "rndis message buffer "
+ 			   "overflow detected (got %u, min %u)"
+ 			   "...dropping this message!\n",
+-			   pkt->total_data_buflen, rndis_pkt->data_len);
++			   data_buflen, rndis_pkt->data_len);
+ 		return NVSP_STAT_FAIL;
+ 	}
+ 
++	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
++
+ 	/*
+ 	 * Remove the rndis trailer padding from rndis packet message
+ 	 * rndis_pkt->data_len tell us the real data length, we only copy
+ 	 * the data packet to the stack, without the rndis trailer padding
+ 	 */
+-	pkt->total_data_buflen = rndis_pkt->data_len;
+-	*data = (void *)((unsigned long)(*data) + data_offset);
+-
+-	vlan = rndis_get_ppi(rndis_pkt, IEEE_8021Q_INFO);
+-	if (vlan) {
+-		vlan_tci = VLAN_TAG_PRESENT | vlan->vlanid |
+-			(vlan->pri << VLAN_PRIO_SHIFT);
+-	}
+-
++	data = (void *)((unsigned long)data + data_offset);
+ 	csum_info = rndis_get_ppi(rndis_pkt, TCPIP_CHKSUM_PKTINFO);
+-	return netvsc_recv_callback(net_device_ctx->device_ctx, pkt, data,
+-				    csum_info, channel, vlan_tci);
++	return netvsc_recv_callback(ndev, channel,
++				    data, rndis_pkt->data_len,
++				    csum_info, vlan);
+ }
+ 
+-int rndis_filter_receive(struct hv_device *dev,
+-				struct hv_netvsc_packet	*pkt,
+-				void **data,
+-				struct vmbus_channel *channel)
++int rndis_filter_receive(struct net_device *ndev,
++			 struct netvsc_device *net_dev,
++			 struct hv_device *dev,
++			 struct vmbus_channel *channel,
++			 void *data, u32 buflen)
+ {
+-	struct net_device *ndev = hv_get_drvdata(dev);
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+-	struct netvsc_device *net_dev = net_device_ctx->nvdev;
+-	struct rndis_device *rndis_dev;
+-	struct rndis_message *rndis_msg;
+-	int ret = 0;
+-
+-	if (!net_dev) {
+-		ret = NVSP_STAT_FAIL;
+-		goto exit;
+-	}
++	struct rndis_device *rndis_dev = net_dev->extension;
++	struct rndis_message *rndis_msg = data;
+ 
+ 	/* Make sure the rndis device state is initialized */
+-	if (!net_dev->extension) {
+-		netdev_err(ndev, "got rndis message but no rndis device - "
+-			  "dropping this message!\n");
+-		ret = NVSP_STAT_FAIL;
+-		goto exit;
++	if (unlikely(!rndis_dev)) {
++		netif_err(net_device_ctx, rx_err, ndev,
++			  "got rndis message but no rndis device!\n");
++		return NVSP_STAT_FAIL;
+ 	}
+ 
+-	rndis_dev = (struct rndis_device *)net_dev->extension;
+-	if (rndis_dev->state == RNDIS_DEV_UNINITIALIZED) {
+-		netdev_err(ndev, "got rndis message but rndis device "
+-			   "uninitialized...dropping this message!\n");
+-		ret = NVSP_STAT_FAIL;
+-		goto exit;
++	if (unlikely(rndis_dev->state == RNDIS_DEV_UNINITIALIZED)) {
++		netif_err(net_device_ctx, rx_err, ndev,
++			  "got rndis message uninitialized\n");
++		return NVSP_STAT_FAIL;
+ 	}
+ 
+-	rndis_msg = *data;
+-
+-	if (netif_msg_rx_err(net_device_ctx))
++	if (netif_msg_rx_status(net_device_ctx))
+ 		dump_rndis_message(dev, rndis_msg);
+ 
+ 	switch (rndis_msg->ndis_msg_type) {
+ 	case RNDIS_MSG_PACKET:
+-		/* data msg */
+-		ret = rndis_filter_receive_data(rndis_dev, rndis_msg, pkt,
+-						data, channel);
+-		break;
+-
++		return rndis_filter_receive_data(ndev, rndis_dev, rndis_msg,
++						 channel, data, buflen);
+ 	case RNDIS_MSG_INIT_C:
+ 	case RNDIS_MSG_QUERY_C:
+ 	case RNDIS_MSG_SET_C:
+@@ -462,8 +438,7 @@ int rndis_filter_receive(struct hv_device *dev,
+ 		break;
+ 	}
+ 
+-exit:
+-	return ret;
++	return 0;
+ }
+ 
+ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
 -- 
 2.11.0
