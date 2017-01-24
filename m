@@ -1,585 +1,73 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 02/18] netvsc: negotiate checksum and segmentation parameters
-Date: Tue, 24 Jan 2017 13:05:59 -0800
-Message-ID: <20170124210615.18628-3-sthemmin@microsoft.com>
-References: <20170124210615.18628-1-sthemmin@microsoft.com>
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net, kys@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33550 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750783AbdAXVG7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 204so57910137pge.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:20 -0800 (PST)
-In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
+Date: Tue, 24 Jan 2017 23:07:51 +0200
+Message-ID: <20170124225502-mutt-send-email-mst@kernel.org>
+References: <20170124215214-mutt-send-email-mst@kernel.org>
+	<20170124.150959.1708982899683381291.davem@davemloft.net>
+	<20170124221114-mutt-send-email-mst@kernel.org>
+	<20170124.155331.1409241818867862249.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170124.155331.1409241818867862249.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Redo how Hyper-V network driver negotiates offload features. Query the
-host to determine offload settings, and use the result.
+On Tue, Jan 24, 2017 at 03:53:31PM -0500, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Tue, 24 Jan 2017 22:45:37 +0200
+> 
+> > On Tue, Jan 24, 2017 at 03:09:59PM -0500, David Miller wrote:
+> >> From: "Michael S. Tsirkin" <mst@redhat.com>
+> >> Date: Tue, 24 Jan 2017 21:53:13 +0200
+> >> 
+> >> > I didn't realise. Why can't we? I thought that adjust_header is an
+> >> > optional feature that userspace can test for, so no rush.
+> >> 
+> >> No, we want the base set of XDP features to be present in all drivers
+> >> supporting XDP.
+> > 
+> > I see, I didn't realize this. In light of this, is there any
+> > guidance *how much* head room is required to be considered
+> > valid? We already have 12 bytes of headroom.
+> 
+> The idea is to allow programs to implement arbitrary kinds of
+> encapsulation, so we need to be able to allow them to push headers for
+> all kinds of software tunnels, with allowance for a few depths in some
+> extreme cases.
+> 
+> In that light, a nice round power of 2 number such as 256 seems quite
+> reasonable to me.
+> 
+> This seems to be what other XDP implementations in drivers use at the
+> moment as well.
 
-Also:
-  * disable IPv4 header checksum offload (not used by Linux)
-  * enable TSO only if host supports
-  * enable UDP checksum offload if supported
-  * don't advertise support for checksumming of non-IP protocols
-  * adjust GSO maximum segment size
-  * enable HIGHDMA
+It bothers me that this becomes a part of userspace ABI.
+Apps will see that everyone does 256 and will assume it,
+we'll never be able to go back.
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   | 149 +++++++++++++++++++++++++++++++++++---
- drivers/net/hyperv/netvsc_drv.c   |  92 ++++++++++-------------
- drivers/net/hyperv/rndis_filter.c | 140 +++++++++++++++++++++++++++++++----
- 3 files changed, 305 insertions(+), 76 deletions(-)
+This does mean that XDP_PASS will use much more memory
+for small packets and by extension need a higher rmem limit.
+Would all admins be comfortable with this? Why would they want
+to if all their XDP does is DROP?
+Why not teach applications to query the headroom?
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index cce70ceba6d5..ccf94c16084c 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -34,6 +34,7 @@
- 
- #define NDIS_OBJECT_TYPE_RSS_CAPABILITIES 0x88
- #define NDIS_OBJECT_TYPE_RSS_PARAMETERS 0x89
-+#define NDIS_OBJECT_TYPE_OFFLOAD	0xa7
- 
- #define NDIS_RECEIVE_SCALE_CAPABILITIES_REVISION_2 2
- #define NDIS_RECEIVE_SCALE_PARAMETERS_REVISION_2 2
-@@ -685,6 +686,7 @@ struct net_device_context {
- 	struct work_struct work;
- 	u32 msg_enable; /* debug level */
- 
-+	u32 tx_checksum_mask;
- 	struct netvsc_stats __percpu *tx_stats;
- 	struct netvsc_stats __percpu *rx_stats;
- 
-@@ -934,7 +936,7 @@ struct ndis_pkt_8021q_info {
- 	};
- };
- 
--struct ndis_oject_header {
-+struct ndis_object_header {
- 	u8 type;
- 	u8 revision;
- 	u16 size;
-@@ -942,6 +944,9 @@ struct ndis_oject_header {
- 
- #define NDIS_OBJECT_TYPE_DEFAULT	0x80
- #define NDIS_OFFLOAD_PARAMETERS_REVISION_3 3
-+#define NDIS_OFFLOAD_PARAMETERS_REVISION_2 2
-+#define NDIS_OFFLOAD_PARAMETERS_REVISION_1 1
-+
- #define NDIS_OFFLOAD_PARAMETERS_NO_CHANGE 0
- #define NDIS_OFFLOAD_PARAMETERS_LSOV2_DISABLED 1
- #define NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED  2
-@@ -968,8 +973,135 @@ struct ndis_oject_header {
- #define OID_TCP_CONNECTION_OFFLOAD_HARDWARE_CAPABILITIES 0xFC01020F /* query */
- #define OID_OFFLOAD_ENCAPSULATION 0x0101010A /* set/query */
- 
-+/*
-+ * OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES
-+ * ndis_type: NDIS_OBJTYPE_OFFLOAD
-+ */
-+
-+#define	NDIS_OFFLOAD_ENCAP_NONE		0x0000
-+#define	NDIS_OFFLOAD_ENCAP_NULL		0x0001
-+#define	NDIS_OFFLOAD_ENCAP_8023		0x0002
-+#define	NDIS_OFFLOAD_ENCAP_8023PQ	0x0004
-+#define	NDIS_OFFLOAD_ENCAP_8023PQ_OOB	0x0008
-+#define	NDIS_OFFLOAD_ENCAP_RFC1483	0x0010
-+
-+struct ndis_csum_offload {
-+	u32	ip4_txenc;
-+	u32	ip4_txcsum;
-+#define	NDIS_TXCSUM_CAP_IP4OPT		0x001
-+#define	NDIS_TXCSUM_CAP_TCP4OPT		0x004
-+#define	NDIS_TXCSUM_CAP_TCP4		0x010
-+#define	NDIS_TXCSUM_CAP_UDP4		0x040
-+#define	NDIS_TXCSUM_CAP_IP4		0x100
-+
-+#define NDIS_TXCSUM_ALL_TCP4	(NDIS_TXCSUM_CAP_TCP4 | NDIS_TXCSUM_CAP_TCP4OPT)
-+
-+	u32	ip4_rxenc;
-+	u32	ip4_rxcsum;
-+#define	NDIS_RXCSUM_CAP_IP4OPT		0x001
-+#define	NDIS_RXCSUM_CAP_TCP4OPT		0x004
-+#define	NDIS_RXCSUM_CAP_TCP4		0x010
-+#define	NDIS_RXCSUM_CAP_UDP4		0x040
-+#define	NDIS_RXCSUM_CAP_IP4		0x100
-+	u32	ip6_txenc;
-+	u32	ip6_txcsum;
-+#define	NDIS_TXCSUM_CAP_IP6EXT		0x001
-+#define	NDIS_TXCSUM_CAP_TCP6OPT		0x004
-+#define	NDIS_TXCSUM_CAP_TCP6		0x010
-+#define	NDIS_TXCSUM_CAP_UDP6		0x040
-+	u32	ip6_rxenc;
-+	u32	ip6_rxcsum;
-+#define	NDIS_RXCSUM_CAP_IP6EXT		0x001
-+#define	NDIS_RXCSUM_CAP_TCP6OPT		0x004
-+#define	NDIS_RXCSUM_CAP_TCP6		0x010
-+#define	NDIS_RXCSUM_CAP_UDP6		0x040
-+
-+#define NDIS_TXCSUM_ALL_TCP6	(NDIS_TXCSUM_CAP_TCP6 |		\
-+				 NDIS_TXCSUM_CAP_TCP6OPT |	\
-+				 NDIS_TXCSUM_CAP_IP6EXT)
-+};
-+
-+struct ndis_lsov1_offload {
-+	u32	encap;
-+	u32	maxsize;
-+	u32	minsegs;
-+	u32	opts;
-+};
-+
-+struct ndis_ipsecv1_offload {
-+	u32	encap;
-+	u32	ah_esp;
-+	u32	xport_tun;
-+	u32	ip4_opts;
-+	u32	flags;
-+	u32	ip4_ah;
-+	u32	ip4_esp;
-+};
-+
-+struct ndis_lsov2_offload {
-+	u32	ip4_encap;
-+	u32	ip4_maxsz;
-+	u32	ip4_minsg;
-+	u32	ip6_encap;
-+	u32	ip6_maxsz;
-+	u32	ip6_minsg;
-+	u32	ip6_opts;
-+#define	NDIS_LSOV2_CAP_IP6EXT		0x001
-+#define	NDIS_LSOV2_CAP_TCP6OPT		0x004
-+
-+#define NDIS_LSOV2_CAP_IP6		(NDIS_LSOV2_CAP_IP6EXT | \
-+					 NDIS_LSOV2_CAP_TCP6OPT)
-+};
-+
-+struct ndis_ipsecv2_offload {
-+	u32	encap;
-+	u16	ip6;
-+	u16	ip4opt;
-+	u16	ip6ext;
-+	u16	ah;
-+	u16	esp;
-+	u16	ah_esp;
-+	u16	xport;
-+	u16	tun;
-+	u16	xport_tun;
-+	u16	lso;
-+	u16	extseq;
-+	u32	udp_esp;
-+	u32	auth;
-+	u32	crypto;
-+	u32	sa_caps;
-+};
-+
-+struct ndis_rsc_offload {
-+	u16	ip4;
-+	u16	ip6;
-+};
-+
-+struct ndis_encap_offload {
-+	u32	flags;
-+	u32	maxhdr;
-+};
-+
-+struct ndis_offload {
-+	struct ndis_object_header	header;
-+	struct ndis_csum_offload	csum;
-+	struct ndis_lsov1_offload	lsov1;
-+	struct ndis_ipsecv1_offload	ipsecv1;
-+	struct ndis_lsov2_offload	lsov2;
-+	u32				flags;
-+	/* NDIS >= 6.1 */
-+	struct ndis_ipsecv2_offload	ipsecv2;
-+	/* NDIS >= 6.30 */
-+	struct ndis_rsc_offload		rsc;
-+	struct ndis_encap_offload	encap_gre;
-+};
-+
-+#define	NDIS_OFFLOAD_SIZE		sizeof(struct ndis_offload)
-+#define	NDIS_OFFLOAD_SIZE_6_0		offsetof(struct ndis_offload, ipsecv2)
-+#define	NDIS_OFFLOAD_SIZE_6_1		offsetof(struct ndis_offload, rsc)
-+
- struct ndis_offload_params {
--	struct ndis_oject_header header;
-+	struct ndis_object_header header;
- 	u8 ip_v4_csum;
- 	u8 tcp_ip_v4_csum;
- 	u8 udp_ip_v4_csum;
-@@ -1296,15 +1428,10 @@ struct rndis_message {
- #define NDIS_PACKET_TYPE_FUNCTIONAL	0x00000400
- #define NDIS_PACKET_TYPE_MAC_FRAME	0x00000800
- 
--#define INFO_IPV4       2
--#define INFO_IPV6       4
--#define INFO_TCP        2
--#define INFO_UDP        4
--
- #define TRANSPORT_INFO_NOT_IP   0
--#define TRANSPORT_INFO_IPV4_TCP ((INFO_IPV4 << 16) | INFO_TCP)
--#define TRANSPORT_INFO_IPV4_UDP ((INFO_IPV4 << 16) | INFO_UDP)
--#define TRANSPORT_INFO_IPV6_TCP ((INFO_IPV6 << 16) | INFO_TCP)
--#define TRANSPORT_INFO_IPV6_UDP ((INFO_IPV6 << 16) | INFO_UDP)
-+#define TRANSPORT_INFO_IPV4_TCP 0x01
-+#define TRANSPORT_INFO_IPV4_UDP 0x02
-+#define TRANSPORT_INFO_IPV6_TCP 0x10
-+#define TRANSPORT_INFO_IPV6_UDP 0x20
- 
- #endif /* _HYPERV_NET_H */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index eebeb9378bac..f26d9d2d475f 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -42,14 +42,6 @@
- 
- #define RING_SIZE_MIN 64
- #define LINKCHANGE_INT (2 * HZ)
--#define NETVSC_HW_FEATURES	(NETIF_F_RXCSUM | \
--				 NETIF_F_SG | \
--				 NETIF_F_TSO | \
--				 NETIF_F_TSO6 | \
--				 NETIF_F_HW_CSUM)
--
--/* Restrict GSO size to account for NVGRE */
--#define NETVSC_GSO_MAX_SIZE	62768
- 
- static int ring_size = 128;
- module_param(ring_size, int, S_IRUGO);
-@@ -323,33 +315,25 @@ static int netvsc_get_slots(struct sk_buff *skb)
- 	return slots + frag_slots;
- }
- 
--static u32 get_net_transport_info(struct sk_buff *skb, u32 *trans_off)
-+static u32 net_checksum_info(struct sk_buff *skb)
- {
--	u32 ret_val = TRANSPORT_INFO_NOT_IP;
--
--	if ((eth_hdr(skb)->h_proto != htons(ETH_P_IP)) &&
--		(eth_hdr(skb)->h_proto != htons(ETH_P_IPV6))) {
--		goto not_ip;
--	}
--
--	*trans_off = skb_transport_offset(skb);
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		struct iphdr *ip = ip_hdr(skb);
- 
--	if ((eth_hdr(skb)->h_proto == htons(ETH_P_IP))) {
--		struct iphdr *iphdr = ip_hdr(skb);
--
--		if (iphdr->protocol == IPPROTO_TCP)
--			ret_val = TRANSPORT_INFO_IPV4_TCP;
--		else if (iphdr->protocol == IPPROTO_UDP)
--			ret_val = TRANSPORT_INFO_IPV4_UDP;
-+		if (ip->protocol == IPPROTO_TCP)
-+			return TRANSPORT_INFO_IPV4_TCP;
-+		else if (ip->protocol == IPPROTO_UDP)
-+			return TRANSPORT_INFO_IPV4_UDP;
- 	} else {
--		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
--			ret_val = TRANSPORT_INFO_IPV6_TCP;
-+		struct ipv6hdr *ip6 = ipv6_hdr(skb);
-+
-+		if (ip6->nexthdr == IPPROTO_TCP)
-+			return TRANSPORT_INFO_IPV6_TCP;
- 		else if (ipv6_hdr(skb)->nexthdr == IPPROTO_UDP)
--			ret_val = TRANSPORT_INFO_IPV6_UDP;
-+			return TRANSPORT_INFO_IPV6_UDP;
- 	}
- 
--not_ip:
--	return ret_val;
-+	return TRANSPORT_INFO_NOT_IP;
- }
- 
- static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
-@@ -362,9 +346,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	struct rndis_packet *rndis_pkt;
- 	u32 rndis_msg_size;
- 	struct rndis_per_packet_info *ppi;
--	struct ndis_tcp_ip_checksum_info *csum_info;
--	int  hdr_offset;
--	u32 net_trans_info;
- 	u32 hash;
- 	u32 skb_length;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
-@@ -445,13 +426,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 				VLAN_PRIO_SHIFT;
- 	}
- 
--	net_trans_info = get_net_transport_info(skb, &hdr_offset);
--
--	/*
--	 * Setup the sendside checksum offload only if this is not a
--	 * GSO packet.
--	 */
--	if ((net_trans_info & (INFO_TCP | INFO_UDP)) && skb_is_gso(skb)) {
-+	if (skb_is_gso(skb)) {
- 		struct ndis_tcp_lso_info *lso_info;
- 
- 		rndis_msg_size += NDIS_LSO_PPI_SIZE;
-@@ -462,7 +437,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 							ppi->ppi_offset);
- 
- 		lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
--		if (net_trans_info & (INFO_IPV4 << 16)) {
-+		if (skb->protocol == htons(ETH_P_IP)) {
- 			lso_info->lso_v2_transmit.ip_version =
- 				NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
- 			ip_hdr(skb)->tot_len = 0;
-@@ -478,10 +453,12 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 						 &ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
- 		}
--		lso_info->lso_v2_transmit.tcp_header_offset = hdr_offset;
-+		lso_info->lso_v2_transmit.tcp_header_offset = skb_transport_offset(skb);
- 		lso_info->lso_v2_transmit.mss = skb_shinfo(skb)->gso_size;
- 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		if (net_trans_info & INFO_TCP) {
-+		if (net_checksum_info(skb) & net_device_ctx->tx_checksum_mask) {
-+			struct ndis_tcp_ip_checksum_info *csum_info;
-+
- 			rndis_msg_size += NDIS_CSUM_PPI_SIZE;
- 			ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
- 					    TCPIP_CHKSUM_PKTINFO);
-@@ -489,15 +466,25 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 			csum_info = (struct ndis_tcp_ip_checksum_info *)((void *)ppi +
- 									 ppi->ppi_offset);
- 
--			if (net_trans_info & (INFO_IPV4 << 16))
-+			csum_info->transmit.tcp_header_offset = skb_transport_offset(skb);
-+
-+			if (skb->protocol == htons(ETH_P_IP)) {
- 				csum_info->transmit.is_ipv4 = 1;
--			else
-+
-+				if (ip_hdr(skb)->protocol == IPPROTO_TCP)
-+					csum_info->transmit.tcp_checksum = 1;
-+				else
-+					csum_info->transmit.udp_checksum = 1;
-+			} else {
- 				csum_info->transmit.is_ipv6 = 1;
- 
--			csum_info->transmit.tcp_checksum = 1;
--			csum_info->transmit.tcp_header_offset = hdr_offset;
-+				if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
-+					csum_info->transmit.tcp_checksum = 1;
-+				else
-+					csum_info->transmit.udp_checksum = 1;
-+			}
- 		} else {
--			/* UDP checksum (and other) offload is not supported. */
-+			/* Can't do offload of this type of checksum */
- 			if (skb_checksum_help(skb))
- 				goto drop;
- 		}
-@@ -1372,10 +1359,6 @@ static int netvsc_probe(struct hv_device *dev,
- 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
- 
- 	net->netdev_ops = &device_ops;
--
--	net->hw_features = NETVSC_HW_FEATURES;
--	net->features = NETVSC_HW_FEATURES | NETIF_F_HW_VLAN_CTAG_TX;
--
- 	net->ethtool_ops = &ethtool_ops;
- 	SET_NETDEV_DEV(net, &dev->device);
- 
-@@ -1395,10 +1378,15 @@ static int netvsc_probe(struct hv_device *dev,
- 	}
- 	memcpy(net->dev_addr, device_info.mac_adr, ETH_ALEN);
- 
-+	/* hw_features computed in rndis_filter_device_add */
-+	net->features = net->hw_features |
-+		NETIF_F_HIGHDMA | NETIF_F_SG |
-+		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
-+	net->vlan_features = net->features;
-+
- 	nvdev = net_device_ctx->nvdev;
- 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
- 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
--	netif_set_gso_max_size(net, NETVSC_GSO_MAX_SIZE);
- 
- 	/* MTU range: 68 - 1500 or 65521 */
- 	net->min_mtu = NETVSC_MTU_MIN;
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 113c7f4d1590..8f04be1d7421 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -485,7 +485,35 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
- 	query->info_buflen = 0;
- 	query->dev_vc_handle = 0;
- 
--	if (oid == OID_GEN_RECEIVE_SCALE_CAPABILITIES) {
-+	if (oid == OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES) {
-+		struct net_device_context *ndevctx = netdev_priv(dev->ndev);
-+		struct netvsc_device *nvdev = ndevctx->nvdev;
-+		struct ndis_offload *hwcaps;
-+		u32 nvsp_version = nvdev->nvsp_version;
-+		u8 ndis_rev;
-+		size_t size;
-+
-+		if (nvsp_version >= NVSP_PROTOCOL_VERSION_5) {
-+			ndis_rev = NDIS_OFFLOAD_PARAMETERS_REVISION_3;
-+			size = NDIS_OFFLOAD_SIZE;
-+		} else if (nvsp_version >= NVSP_PROTOCOL_VERSION_4) {
-+			ndis_rev = NDIS_OFFLOAD_PARAMETERS_REVISION_2;
-+			size = NDIS_OFFLOAD_SIZE_6_1;
-+		} else {
-+			ndis_rev = NDIS_OFFLOAD_PARAMETERS_REVISION_1;
-+			size = NDIS_OFFLOAD_SIZE_6_0;
-+		}
-+
-+		request->request_msg.msg_len += size;
-+		query->info_buflen = size;
-+		hwcaps = (struct ndis_offload *)
-+			((unsigned long)query + query->info_buf_offset);
-+
-+		hwcaps->header.type = NDIS_OBJECT_TYPE_OFFLOAD;
-+		hwcaps->header.revision = ndis_rev;
-+		hwcaps->header.size = size;
-+
-+	} else if (oid == OID_GEN_RECEIVE_SCALE_CAPABILITIES) {
- 		struct ndis_recv_scale_cap *cap;
- 
- 		request->request_msg.msg_len +=
-@@ -526,6 +554,44 @@ static int rndis_filter_query_device(struct rndis_device *dev, u32 oid,
- 	return ret;
- }
- 
-+/* Get the hardware offload capabilities */
-+static int
-+rndis_query_hwcaps(struct rndis_device *dev, struct ndis_offload *caps)
-+{
-+	u32 caps_len = sizeof(*caps);
-+	int ret;
-+
-+	memset(caps, 0, sizeof(*caps));
-+
-+	ret = rndis_filter_query_device(dev,
-+					OID_TCP_OFFLOAD_HARDWARE_CAPABILITIES,
-+					caps, &caps_len);
-+	if (ret)
-+		return ret;
-+
-+	if (caps->header.type != NDIS_OBJECT_TYPE_OFFLOAD) {
-+		netdev_warn(dev->ndev, "invalid NDIS objtype %#x\n",
-+			    caps->header.type);
-+		return -EINVAL;
-+	}
-+
-+	if (caps->header.revision < NDIS_OFFLOAD_PARAMETERS_REVISION_1) {
-+		netdev_warn(dev->ndev, "invalid NDIS objrev %x\n",
-+			    caps->header.revision);
-+		return -EINVAL;
-+	}
-+
-+	if (caps->header.size > caps_len ||
-+	    caps->header.size < NDIS_OFFLOAD_SIZE_6_0) {
-+		netdev_warn(dev->ndev,
-+			    "invalid NDIS objsize %u, data size %u\n",
-+			    caps->header.size, caps_len);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- static int rndis_filter_query_device_mac(struct rndis_device *dev)
- {
- 	u32 size = ETH_ALEN;
-@@ -974,10 +1040,12 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	struct netvsc_device *net_device;
- 	struct rndis_device *rndis_device;
- 	struct netvsc_device_info *device_info = additional_info;
-+	struct ndis_offload hwcaps;
- 	struct ndis_offload_params offloads;
- 	struct nvsp_message *init_packet;
- 	struct ndis_recv_scale_cap rsscap;
- 	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
-+	unsigned int gso_max_size = GSO_MAX_SIZE;
- 	u32 mtu, size;
- 	u32 num_rss_qs;
- 	u32 sc_delta;
-@@ -1034,19 +1102,65 @@ int rndis_filter_device_add(struct hv_device *dev,
- 
- 	memcpy(device_info->mac_adr, rndis_device->hw_mac_adr, ETH_ALEN);
- 
--	/* Turn on the offloads; the host supports all of the relevant
--	 * offloads.
--	 */
-+	/* Find HW offload capabilities */
-+	ret = rndis_query_hwcaps(rndis_device, &hwcaps);
-+	if (ret != 0) {
-+		rndis_filter_device_remove(dev);
-+		return ret;
-+	}
-+
-+	/* A value of zero means "no change"; now turn on what we want. */
- 	memset(&offloads, 0, sizeof(struct ndis_offload_params));
--	/* A value of zero means "no change"; now turn on what we
--	 * want.
--	 */
--	offloads.ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
--	offloads.tcp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
--	offloads.udp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
--	offloads.tcp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
--	offloads.udp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
--	offloads.lso_v2_ipv4 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
-+
-+	/* Linux does not care about IP checksum, always does in kernel */
-+	offloads.ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_DISABLED;
-+
-+	/* Compute tx offload settings based on hw capabilities */
-+	net->hw_features = NETIF_F_RXCSUM;
-+
-+	if ((hwcaps.csum.ip4_txcsum & NDIS_TXCSUM_ALL_TCP4) == NDIS_TXCSUM_ALL_TCP4) {
-+		/* Can checksum TCP */
-+		net->hw_features |= NETIF_F_IP_CSUM;
-+		net_device_ctx->tx_checksum_mask |= TRANSPORT_INFO_IPV4_TCP;
-+
-+		offloads.tcp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+
-+		if (hwcaps.lsov2.ip4_encap & NDIS_OFFLOAD_ENCAP_8023) {
-+			offloads.lso_v2_ipv4 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
-+			net->hw_features |= NETIF_F_TSO;
-+
-+			if (hwcaps.lsov2.ip4_maxsz < gso_max_size)
-+				gso_max_size = hwcaps.lsov2.ip4_maxsz;
-+		}
-+
-+		if (hwcaps.csum.ip4_txcsum & NDIS_TXCSUM_CAP_UDP4) {
-+			offloads.udp_ip_v4_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+			net_device_ctx->tx_checksum_mask |= TRANSPORT_INFO_IPV4_UDP;
-+		}
-+	}
-+
-+	if ((hwcaps.csum.ip6_txcsum & NDIS_TXCSUM_ALL_TCP6) == NDIS_TXCSUM_ALL_TCP6) {
-+		net->hw_features |= NETIF_F_IPV6_CSUM;
-+
-+		offloads.tcp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+		net_device_ctx->tx_checksum_mask |= TRANSPORT_INFO_IPV6_TCP;
-+
-+		if ((hwcaps.lsov2.ip6_encap & NDIS_OFFLOAD_ENCAP_8023) &&
-+		    (hwcaps.lsov2.ip6_opts & NDIS_LSOV2_CAP_IP6) == NDIS_LSOV2_CAP_IP6) {
-+			offloads.lso_v2_ipv6 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
-+			net->hw_features |= NETIF_F_TSO6;
-+
-+			if (hwcaps.lsov2.ip6_maxsz < gso_max_size)
-+				gso_max_size = hwcaps.lsov2.ip6_maxsz;
-+		}
-+
-+		if (hwcaps.csum.ip6_txcsum & NDIS_TXCSUM_CAP_UDP6) {
-+			offloads.udp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
-+			net_device_ctx->tx_checksum_mask |= TRANSPORT_INFO_IPV6_UDP;
-+		}
-+	}
-+
-+	netif_set_gso_max_size(net, gso_max_size);
- 
- 	ret = rndis_filter_set_offload_params(net, &offloads);
- 	if (ret)
+Or even better, do what we do with skbs and do data copies whenever you
+run out of headroom instead of a failure. Anyone using build_skb already
+has a ton of tailroom so that will work better.
+
 -- 
-2.11.0
+MST
