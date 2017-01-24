@@ -1,82 +1,38 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net] net: free ip_vs_dest structs when refcnt=0
-Date: Tue, 24 Jan 2017 23:14:29 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1701242255570.2743@ja.home.ssi.bg>
-References: <1485262100-12366-1-git-send-email-dwindsor@gmail.com>
+From: Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net 0/3] qed: RoCE infrastrucutre fixes
+Date: Tue, 24 Jan 2017 23:15:20 +0200
+Message-ID: <1485292523-8821-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        keescook@chromium.org, elena.reshetova@intel.com,
-        ishkamiel@gmail.com
-To: David Windsor <dwindsor@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33279 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750792AbdAXVOw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 16:14:52 -0500
-In-Reply-To: <1485262100-12366-1-git-send-email-dwindsor@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <Ram.Amrani-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Yuval Mintz <Yuval.Mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+This series contains three RoCE bug fixes that improve stability and
+robustness.
 
-	Hello,
+Dave,
 
-On Tue, 24 Jan 2017, David Windsor wrote:
+Please consider applying these to 'net'.
 
-> Currently, the ip_vs_dest cache frees ip_vs_dest objects when their reference
-> count becomes < 0.  Aside from not being semantically sound, this is problematic
-> for the new type refcount_t, which will be introduced shortly in a separate patch.
-> refcount_t is the new kernel type for holding reference counts, and provides
-> overflow protection and a constrained interface relative to atomic_t (the type
-> currently being used for kernel reference counts).
-> 
-> Per Juilan Anastasov: "The problem is that dest_trash currently holds deleted
+Thanks,
+Yuval
 
-	Julian
+Ram Amrani (3):
+  qed: on failure release CQ resource under lock
+  qed: read queue state before releasing buffer
+  qed: don't free a QP more than once
 
-> dests (unlinked from RCU lists) with refcnt=0."  Changing dest_trash to hold
-> dest with refcnt=1 will allow us to free ip_vs_dest structs when their refcnt=0,
-> in ip_vs_dest_put_and_free().
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 63 +++++++++++++++++-------------
+ 1 file changed, 35 insertions(+), 28 deletions(-)
 
-	Too long lines, should be up to 75 columns as per
-Documentation/process/submitting-patches.rst
+-- 
+1.8.3.1
 
-	Check with: scripts/checkpatch.pl --strict /tmp/file.patch
-
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
-> ---
->  include/net/ip_vs.h            | 2 +-
->  net/netfilter/ipvs/ip_vs_ctl.c | 4 +---
->  2 files changed, 2 insertions(+), 4 deletions(-)
-> 
-
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index 55e0169..6b5492e 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -711,7 +711,6 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, int dest_af,
->  		      dest->vport == svc->port))) {
->  			/* HIT */
->  			list_del(&dest->t_list);
-> -			ip_vs_dest_hold(dest);
->  			goto out;
->  		}
->  	}
-
-	The changes look ok to me but as this is a net-next
-material I also prefer some comments in the code to be updated:
-
-- "be 0, so we simply release them here" before ip_vs_trash_cleanup
-should become "be 1, so we simply release them here".
-
-- "dest lives in trash with[out] reference" in __ip_vs_del_dest
-
-	When sending v2 for net-next please also CC:
-
-Simon Horman <horms@verge.net.au>
-Pablo Neira Ayuso <pablo@netfilter.org>
-lvs-devel@vger.kernel.org
-
-	I'll ack the next version after some tests...
-
-Regards
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
