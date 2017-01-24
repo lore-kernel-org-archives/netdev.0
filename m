@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][V3][net-next] net: sctp: fix array overrun read on
- sctp_timer_tbl
-Date: Tue, 24 Jan 2017 15:24:49 -0500 (EST)
-Message-ID: <20170124.152449.1095694033734759610.davem@davemloft.net>
-References: <20170124092554.27019-1-colin.king@canonical.com>
+Subject: Re: [RESENT PATCH net,stable] qmi_wwan/cdc_ether: add device ID
+ for HP lt2523 (Novatel E371) WWAN card
+Date: Tue, 24 Jan 2017 15:25:36 -0500 (EST)
+Message-ID: <20170124.152536.539823117408876472.davem@davemloft.net>
+References: <20170124094538.20351-1-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170124092554.27019-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, oliver@neukum.org,
+        linux-usb@vger.kernel.org, dcbw@redhat.com
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59208 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750752AbdAXUZh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 15:25:37 -0500
+In-Reply-To: <20170124094538.20351-1-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Tue, 24 Jan 2017 09:25:54 +0000
+From: Bjørn Mork <bjorn@mork.no>
+Date: Tue, 24 Jan 2017 10:45:38 +0100
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Another rebranded Novatel E371.  qmi_wwan should drive this device, while
+> cdc_ether should ignore it.  Even though the USB descriptors are plain
+> CDC-ETHER that USB interface is a QMI interface.  Ref commit 7fdb7846c9ca
+> ("qmi_wwan/cdc_ether: add device IDs for Dell 5804 (Novatel E371) WWAN
+> card")
 > 
-> Table sctp_timer_tbl is missing a TIMEOUT_RECONF string so
-> add this in. Also compare timeout with the size of the array
-> sctp_timer_tbl rather than SCTP_EVENT_TIMEOUT_MAX.  Also add
-> a build time check that SCTP_EVENT_TIMEOUT_MAX is correct
-> so we don't ever get this kind of mismatch between the table
-> and SCTP_EVENT_TIMEOUT_MAX in the future.
-> 
-> Kudos to Marcelo Ricardo Leitner for spotting the missing string
-> and suggesting the build time sanity check.
-> 
-> Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
-> 
-> Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Cc: Dan Williams <dcbw@redhat.com>
+> Signed-off-by: Bjørn Mork <bjorn@mork.no>
 
 Applied.
