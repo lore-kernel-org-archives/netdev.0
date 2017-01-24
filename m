@@ -1,35 +1,32 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] vxlan: don't flush static fdb entries on
- admin down
-Date: Mon, 23 Jan 2017 16:14:38 -0800
-Message-ID: <58869C6E.8090101@cumulusnetworks.com>
-References: <1484984599-16712-1-git-send-email-roopa@cumulusnetworks.com> <1484984599-16712-2-git-send-email-roopa@cumulusnetworks.com> <20170123.160741.1558621534864494201.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] mlx5: Fix page rfcnt issue
+Date: Mon, 23 Jan 2017 19:16:53 -0500 (EST)
+Message-ID: <20170123.191653.947869807938526572.davem@davemloft.net>
+References: <20170123235658.3872770-1-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ramanb@cumulusnetworks.com,
-        stephen@networkplumber.org, jbenc@redhat.com, pshelar@ovn.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com,
+        kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36168 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750715AbdAXAPN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:15:13 -0500
-Received: by mail-pf0-f170.google.com with SMTP id 189so45060890pfu.3
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 16:14:40 -0800 (PST)
-In-Reply-To: <20170123.160741.1558621534864494201.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38562 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751003AbdAXAQ5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:16:57 -0500
+In-Reply-To: <20170123235658.3872770-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/23/17, 1:07 PM, David Miller wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Fri, 20 Jan 2017 23:43:18 -0800
->
->>  /* Purge the forwarding table */
->> -static void vxlan_flush(struct vxlan_dev *vxlan)
->> +static void vxlan_flush(struct vxlan_dev *vxlan, int do_all)
-> Please use 'bool' and true/false for this new argument.
->
-> FWIW, I am fine with changing the default behavior in this way.
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 23 Jan 2017 15:56:58 -0800
 
-ack, will fix and post a v2, thanks.
+> One other potential problem in the driver is the use of put_page in
+> release pages.  Comparing how the allocation is done in other drivers
+> (for instance comparing to ixgbe) some seem to use __free_pages instead.
+> I don't know which is correct to use, but somehow it doesn't seem like
+> they can both be right.
+
+The only difference I can see is that put_page() does a
+__page_cache_release() which shouldn't be necessary for driver RX
+pages, so it could be unnecessary overhead.
