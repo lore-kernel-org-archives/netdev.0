@@ -1,80 +1,61 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net] net/mlx5e: Do not recycle pages from emergency reserve
-Date: Tue, 24 Jan 2017 11:21:18 +0200
-Message-ID: <CALzJLG-K0eDRzr_QcXxYth-hrnSKRtT96-7j=RUC703Gg2hqUw@mail.gmail.com>
-References: <1484809388.16328.19.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALzJLG8DzzpO97ehxWAdm=18Hw3Q9N6poTviDYuEFgyc9+O9RA@mail.gmail.com>
- <CALx6S35+miSu6QgjyQYVDGqu4hkq0eoj+wHha35HH5+DdSQtEg@mail.gmail.com>
- <CAPe+=50xs=MMqxHPgTiGa3qytL7633Cygf_vBWuAuq=ceLyacg@mail.gmail.com>
- <1485026809.16328.181.camel@edumazet-glaptop3.roam.corp.google.com> <20170123101455.380ef896@redhat.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V3][net-next] net: sctp: fix array overrun read on sctp_timer_tbl
+Date: Tue, 24 Jan 2017 09:25:54 +0000
+Message-ID: <20170124092554.27019-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>, Davem <davem@davemloft.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:33191 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750713AbdAXJVk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 04:21:40 -0500
-Received: by mail-qt0-f196.google.com with SMTP id n13so23658538qtc.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 01:21:39 -0800 (PST)
-In-Reply-To: <20170123101455.380ef896@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 23, 2017 at 11:14 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Sat, 21 Jan 2017 11:26:49 -0800
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> > My previous measurements show approx 20=E2=84=85 speedup on a UDP test=
- with
->> > delivery to remote CPU.
->> >
->> I find this a bit strange. When you have time (ie not while driving your
->> car or during week end) please give more details, for example on message
->> size.
->
-> I tested this with both 64 bytes and 1500 bytes.  After I moved to 50G
-> and 100G testing then I don't need to use 64 bytes packets to provoke
-> the bottlenecks in the stack ;-)
->
+From: Colin Ian King <colin.king@canonical.com>
 
-Exactly! for XDP like uses cases, page cache maybe a non required optimizat=
-ion.
-but when you start testing a typical TCP use cases over 50/100G link
-you will need
-more buffers (pages) to host the traffic for longer periods, you will
-hit that bottleneck.
+Table sctp_timer_tbl is missing a TIMEOUT_RECONF string so
+add this in. Also compare timeout with the size of the array
+sctp_timer_tbl rather than SCTP_EVENT_TIMEOUT_MAX.  Also add
+a build time check that SCTP_EVENT_TIMEOUT_MAX is correct
+so we don't ever get this kind of mismatch between the table
+and SCTP_EVENT_TIMEOUT_MAX in the future.
 
->> Was it before skb_condense() was added ?
->
-> It tested this just before skb_condense() was added.  BUT
-> skb_condense() does not get activated when using mlx5, because uses
-> build_skb() ie. not using frags.
->
+Kudos to Marcelo Ricardo Leitner for spotting the missing string
+and suggesting the build time sanity check.
 
-Well, we can always replace build_skb with alloc_skb +
-memcpy(skb->data, headlen) + add_skb_frag(payload)
-does it it worth it ? and is it healthy that both skb->data and
-skb_shinfo(skb)->frags[i] point to the same page ?
+Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
 
-> For people that don't realize this:
->  Eric's optimization in skb_condense() is about trading remote CPU
->  atomic refcnt (put_page) for copy + local CPU refcnt dec.
->
-> My measurements show cycles cost local=3D31 vs. remote=3D208, thus a
-> estimated saving around 177 cycles.  Which is spend on calling a fairly
-> complex function __pskb_pull_tail(), and only works for more complex
-> SKBs with frags.
->
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   LinkedIn: http://www.linkedin.com/in/brouer
+Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/sctp/debug.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/debug.c b/net/sctp/debug.c
+index 95d7b15..2e47eb2 100644
+--- a/net/sctp/debug.c
++++ b/net/sctp/debug.c
+@@ -159,6 +159,7 @@ static const char *const sctp_timer_tbl[] = {
+ 	"TIMEOUT_T4_RTO",
+ 	"TIMEOUT_T5_SHUTDOWN_GUARD",
+ 	"TIMEOUT_HEARTBEAT",
++	"TIMEOUT_RECONF",
+ 	"TIMEOUT_SACK",
+ 	"TIMEOUT_AUTOCLOSE",
+ };
+@@ -166,7 +167,9 @@ static const char *const sctp_timer_tbl[] = {
+ /* Lookup timer debug name. */
+ const char *sctp_tname(const sctp_subtype_t id)
+ {
+-	if (id.timeout <= SCTP_EVENT_TIMEOUT_MAX)
++	BUILD_BUG_ON(SCTP_EVENT_TIMEOUT_MAX + 1 != ARRAY_SIZE(sctp_timer_tbl));
++
++	if (id.timeout < ARRAY_SIZE(sctp_timer_tbl))
+ 		return sctp_timer_tbl[id.timeout];
+ 	return "unknown_timer";
+ }
+-- 
+2.10.2
