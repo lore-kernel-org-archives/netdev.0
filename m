@@ -1,51 +1,36 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net v3 0/2] net: Fix oops on state free after lwt module unload
-Date: Tue, 24 Jan 2017 16:26:46 +0000
-Message-ID: <1485275208-31702-1-git-send-email-rshearma@brocade.com>
-References: <1484958086-6151-1-git-send-email-rshearma@brocade.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH][V3][net-next] net: sctp: fix array overrun read on sctp_timer_tbl
+Date: Wed, 25 Jan 2017 00:34:04 +0800
+Message-ID: <CADvbK_cqgUWBVrGvJV5anrWnJaq5QPLCyZ7LtDc-qopWYu-Z1g@mail.gmail.com>
+References: <20170124092554.27019-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Robert Shearman <rshearma@brocade.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:51532 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750748AbdAXQ1l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 11:27:41 -0500
-In-Reply-To: <1484958086-6151-1-git-send-email-rshearma@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, network dev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170124092554.27019-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-An oops is seen in lwtstate_free after an lwt ops module has been
-unloaded. This patchset fixes this by preventing modules implementing
-lwtunnel ops from being unloaded whilst there's state alive using
-those ops. The first patch adds fills in a new owner field in all lwt
-ops and the second patch makes use of this to reference count the
-modules as state is built and destroyed using them.
-
-Changes in v3:
- - don't put module reference if try_module_get fails on building state
-
-Changes in v2:
- - specify module owner for all modules as suggested by DaveM
- - reference count all modules building lwt state, not just those ops
-   implementing destroy_state, as also suggested by DaveM.
- - rebased on top of David Ahern's lwtunnel changes
-
-Robert Shearman (2):
-  net: Specify the owning module for lwtunnel ops
-  lwtunnel: Fix oops on state free after encap module unload
-
- include/net/lwtunnel.h    | 2 ++
- net/core/lwt_bpf.c        | 1 +
- net/core/lwtunnel.c       | 6 +++++-
- net/ipv4/ip_tunnel_core.c | 2 ++
- net/ipv6/ila/ila_lwt.c    | 1 +
- net/ipv6/seg6_iptunnel.c  | 1 +
- net/mpls/mpls_iptunnel.c  | 1 +
- 7 files changed, 13 insertions(+), 1 deletion(-)
-
--- 
-2.1.4
+On Tue, Jan 24, 2017 at 5:25 PM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> Table sctp_timer_tbl is missing a TIMEOUT_RECONF string so
+> add this in. Also compare timeout with the size of the array
+> sctp_timer_tbl rather than SCTP_EVENT_TIMEOUT_MAX.  Also add
+> a build time check that SCTP_EVENT_TIMEOUT_MAX is correct
+> so we don't ever get this kind of mismatch between the table
+> and SCTP_EVENT_TIMEOUT_MAX in the future.
+>
+> Kudos to Marcelo Ricardo Leitner for spotting the missing string
+> and suggesting the build time sanity check.
+>
+> Fixes CoverityScan CID#1397639 ("Out-of-bounds read")
+>
+> Fixes: 7b9438de0cd4 ("sctp: add stream reconf timer")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
