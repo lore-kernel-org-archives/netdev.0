@@ -1,36 +1,72 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 00/18] netvsc driver enhancements for net-next
-Date: Tue, 24 Jan 2017 14:50:36 -0800
-Message-ID: <20170124145036.42f95772@xeon-e3>
-References: <20170124210615.18628-1-sthemmin@microsoft.com>
-        <20170124.163005.1454633748162819090.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: reduce skb overhead in selected places
+Date: Tue, 24 Jan 2017 14:57:36 -0800
+Message-ID: <1485298656.16328.355.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, netdev@vger.kernel.org, sthemmin@microsoft.com
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34438 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751043AbdAXWut (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 17:50:49 -0500
-Received: by mail-pf0-f172.google.com with SMTP id e4so52887750pfg.1
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 14:50:48 -0800 (PST)
-In-Reply-To: <20170124.163005.1454633748162819090.davem@davemloft.net>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33882 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750962AbdAXW5h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 17:57:37 -0500
+Received: by mail-pg0-f68.google.com with SMTP id t6so17712028pgt.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 14:57:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 24 Jan 2017 16:30:05 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Tue, 24 Jan 2017 13:05:57 -0800
-> 
-> > Lots of little things in here. Support for minor more ethtool control,
-> > negotiation of offload parameters with host (based on FreeBSD) and
-> > several cleanups.  
-> 
-> Series applied, but two comments for potential follow-on changes:
+tcp_add_backlog() can use skb_condense() helper to get better
+gains and less SKB_TRUESIZE() magic. This only happens when socket
+backlog has to be used.
 
-There might be some merge conflicts in linux-next. Nothing drastic but
-other vmbus changes are coming through that tree.
+Some attacks involve specially crafted out of order tiny TCP packets,
+clogging the ofo queue of (many) sockets.
+Then later, expensive collapse happens, trying to copy all these skbs
+into single ones.
+This unfortunately does not work if each skb has no neighbor in TCP
+sequence order.
+
+By using skb_condense() if the skb could not be coalesced to a prior
+one, we defeat these kind of threats, potentially saving 4K per skb
+(or more, since this is one page fragment).
+
+A typical NAPI driver allocates gro packets with GRO_MAX_HEAD bytes
+in skb->head, meaning the copy done by skb_condense() is limited to
+about 200 bytes.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c |    1 +
+ net/ipv4/tcp_ipv4.c  |    3 +--
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bfa165cc455ad0a9aea44964aa663dbe6085..3de6eba378ade2c0d4a8400ecb5582a7d126 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4507,6 +4507,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+ end:
+ 	if (skb) {
+ 		tcp_grow_window(sk, skb);
++		skb_condense(skb);
+ 		skb_set_owner_r(skb, sk);
+ 	}
+ }
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index f7325b25b06e65581ecc496f95e819aa738c..a90b4540c11eca6ed5b374ec69c8ced2ff18 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1556,8 +1556,7 @@ bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb)
+ 	 * It has been noticed pure SACK packets were sometimes dropped
+ 	 * (if cooked by drivers without copybreak feature).
+ 	 */
+-	if (!skb->data_len)
+-		skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
++	skb_condense(skb);
+ 
+ 	if (unlikely(sk_add_backlog(sk, skb, limit))) {
+ 		bh_unlock_sock(sk);
