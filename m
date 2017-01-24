@@ -1,120 +1,275 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 4/6] tipc: fix nametbl_lock soft
-	lockup at module exit
-Date: Tue, 24 Jan 2017 13:00:46 +0100
-Message-ID: <1485259248-21812-5-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 2/6] tipc: add subscription refcount to avoid invalid delete
+Date: Tue, 24 Jan 2017 13:00:44 +0100
+Message-ID: <1485259248-21812-3-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1485259248-21812-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
+        <ying.xue@windriver.com>
 To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:46098 "EHLO
+        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750785AbdAXMBw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 07:01:52 -0500
 In-Reply-To: <1485259248-21812-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 333f796235a527 ("tipc: fix a race condition leading to
-subscriber refcnt bug") reveals a soft lockup while acquiring
-nametbl_lock.
+Until now, the subscribers keep track of the subscriptions using
+reference count at subscriber level. At subscription cancel or
+subscriber delete, we delete the subscription only if the timer
+was pending for the subscription. This approach is incorrect as:
+1. del_timer() is not SMP safe, if on CPU0 the check for pending
+   timer returns true but CPU1 might schedule the timer callback
+   thereby deleting the subscription. Thus when CPU0 is scheduled,
+   it deletes an invalid subscription.
+2. We export tipc_subscrp_report_overlap(), which accesses the
+   subscription pointer multiple times. Meanwhile the subscription
+   timer can expire thereby freeing the subscription and we might
+   continue to access the subscription pointer leading to memory
+   violations.
 
-Before commit 333f796235a527, we call tipc_conn_shutdown() from
-tipc_close_conn() in the context of tipc_topsrv_stop(). In that
-context, we are allowed to grab the nametbl_lock.
+In this commit, we introduce subscription refcount to avoid deleting
+an invalid subscription.
 
-Commit 333f796235a527, moved tipc_conn_release (renamed from
-tipc_conn_shutdown) to the connection refcount cleanup. This allows
-either tipc_nametbl_withdraw() or tipc_topsrv_stop() to the cleanup.
-
-Since tipc_exit_net() first calls tipc_topsrv_stop() and then
-tipc_nametble_withdraw() increases the chances for the later to
-perform the connection cleanup.
-
-The soft lockup occurs in the call chain of tipc_nametbl_withdraw(),
-when it performs the tipc_conn_kref_release() as it tries to grab
-nametbl_lock again while holding it already.
-tipc_nametbl_withdraw() grabs nametbl_lock
-  tipc_nametbl_remove_publ()
-    tipc_subscrp_report_overlap()
-      tipc_subscrp_send_event()
-        tipc_conn_sendmsg()
-          << if (con->flags != CF_CONNECTED) we do conn_put(),
-             triggering the cleanup as refcount=0. >>
-          tipc_conn_kref_release
-            tipc_sock_release
-              tipc_conn_release
-                tipc_subscrb_delete
-                  tipc_subscrp_delete
-                    tipc_nametbl_unsubscribe << Soft Lockup >>
-
-The previous changes in this series fixes the race conditions fixed
-by commit 333f796235a527. Hence we can now revert the commit.
-
-Fixes: 333f796235a52727 ("tipc: fix a race condition leading to subscriber refcnt bug")
 Reported-and-Tested-by: John Thompson <thompa.atl@gmail.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- net/tipc/server.c | 16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
+ net/tipc/subscr.c | 124 ++++++++++++++++++++++++++++++------------------------
+ net/tipc/subscr.h |   1 +
+ 2 files changed, 71 insertions(+), 54 deletions(-)
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index 2e803601aa99..826cde2c401e 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -86,7 +86,6 @@ struct outqueue_entry {
- static void tipc_recv_work(struct work_struct *work);
- static void tipc_send_work(struct work_struct *work);
- static void tipc_clean_outqueues(struct tipc_conn *con);
--static void tipc_sock_release(struct tipc_conn *con);
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 0dd02244e21d..9d94e65d0894 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -54,6 +54,8 @@ struct tipc_subscriber {
  
- static void tipc_conn_kref_release(struct kref *kref)
+ static void tipc_subscrp_delete(struct tipc_subscription *sub);
+ static void tipc_subscrb_put(struct tipc_subscriber *subscriber);
++static void tipc_subscrp_put(struct tipc_subscription *subscription);
++static void tipc_subscrp_get(struct tipc_subscription *subscription);
+ 
+ /**
+  * htohl - convert value to endianness used by destination
+@@ -123,6 +125,7 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub, u32 found_lower,
  {
-@@ -104,7 +103,6 @@ static void tipc_conn_kref_release(struct kref *kref)
- 		}
- 		saddr->scope = -TIPC_NODE_SCOPE;
- 		kernel_bind(sock, (struct sockaddr *)saddr, sizeof(*saddr));
--		tipc_sock_release(con);
- 		sock_release(sock);
- 		con->sock = NULL;
+ 	struct tipc_name_seq seq;
  
-@@ -194,19 +192,15 @@ static void tipc_unregister_callbacks(struct tipc_conn *con)
- 	write_unlock_bh(&sk->sk_callback_lock);
++	tipc_subscrp_get(sub);
+ 	tipc_subscrp_convert_seq(&sub->evt.s.seq, sub->swap, &seq);
+ 	if (!tipc_subscrp_check_overlap(&seq, found_lower, found_upper))
+ 		return;
+@@ -132,30 +135,23 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub, u32 found_lower,
+ 
+ 	tipc_subscrp_send_event(sub, found_lower, found_upper, event, port_ref,
+ 				node);
++	tipc_subscrp_put(sub);
  }
  
--static void tipc_sock_release(struct tipc_conn *con)
-+static void tipc_close_conn(struct tipc_conn *con)
+ static void tipc_subscrp_timeout(unsigned long data)
  {
- 	struct tipc_server *s = con->server;
+ 	struct tipc_subscription *sub = (struct tipc_subscription *)data;
+-	struct tipc_subscriber *subscriber = sub->subscriber;
  
--	if (con->conid)
--		s->tipc_conn_release(con->conid, con->usr_data);
+ 	/* Notify subscriber of timeout */
+ 	tipc_subscrp_send_event(sub, sub->evt.s.seq.lower, sub->evt.s.seq.upper,
+ 				TIPC_SUBSCR_TIMEOUT, 0, 0);
+ 
+-	spin_lock_bh(&subscriber->lock);
+-	tipc_subscrp_delete(sub);
+-	spin_unlock_bh(&subscriber->lock);
 -
--	tipc_unregister_callbacks(con);
--}
+-	tipc_subscrb_put(subscriber);
++	tipc_subscrp_put(sub);
+ }
+ 
+ static void tipc_subscrb_kref_release(struct kref *kref)
+ {
+-	struct tipc_subscriber *subcriber = container_of(kref,
+-					    struct tipc_subscriber, kref);
 -
--static void tipc_close_conn(struct tipc_conn *con)
--{
- 	if (test_and_clear_bit(CF_CONNECTED, &con->flags)) {
-+		tipc_unregister_callbacks(con);
+-	kfree(subcriber);
++	kfree(container_of(kref,struct tipc_subscriber, kref));
+ }
+ 
+ static void tipc_subscrb_put(struct tipc_subscriber *subscriber)
+@@ -168,6 +164,59 @@ static void tipc_subscrb_get(struct tipc_subscriber *subscriber)
+ 	kref_get(&subscriber->kref);
+ }
+ 
++static void tipc_subscrp_kref_release(struct kref *kref)
++{
++	struct tipc_subscription *sub = container_of(kref,
++						     struct tipc_subscription,
++						     kref);
++	struct tipc_net *tn = net_generic(sub->net, tipc_net_id);
++	struct tipc_subscriber *subscriber = sub->subscriber;
 +
-+		if (con->conid)
-+			s->tipc_conn_release(con->conid, con->usr_data);
++	spin_lock_bh(&subscriber->lock);
++	tipc_nametbl_unsubscribe(sub);
++	list_del(&sub->subscrp_list);
++	atomic_dec(&tn->subscription_count);
++	spin_unlock_bh(&subscriber->lock);
++	kfree(sub);
++	tipc_subscrb_put(subscriber);
++}
++
++static void tipc_subscrp_put(struct tipc_subscription *subscription)
++{
++	kref_put(&subscription->kref, tipc_subscrp_kref_release);
++}
++
++static void tipc_subscrp_get(struct tipc_subscription *subscription)
++{
++	kref_get(&subscription->kref);
++}
++
++/* tipc_subscrb_subscrp_delete - delete a specific subscription or all
++ * subscriptions for a given subscriber.
++ */
++static void tipc_subscrb_subscrp_delete(struct tipc_subscriber *subscriber,
++					struct tipc_subscr *s)
++{
++	struct list_head *subscription_list = &subscriber->subscrp_list;
++	struct tipc_subscription *sub, *temp;
++
++	spin_lock_bh(&subscriber->lock);
++	list_for_each_entry_safe(sub, temp, subscription_list,  subscrp_list) {
++		if (s && memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr)))
++			continue;
++
++		tipc_subscrp_get(sub);
++		spin_unlock_bh(&subscriber->lock);
++		tipc_subscrp_delete(sub);
++		tipc_subscrp_put(sub);
++		spin_lock_bh(&subscriber->lock);
++
++		if (s)
++			break;
++	}
++	spin_unlock_bh(&subscriber->lock);
++}
++
+ static struct tipc_subscriber *tipc_subscrb_create(int conid)
+ {
+ 	struct tipc_subscriber *subscriber;
+@@ -177,8 +226,8 @@ static struct tipc_subscriber *tipc_subscrb_create(int conid)
+ 		pr_warn("Subscriber rejected, no memory\n");
+ 		return NULL;
+ 	}
+-	kref_init(&subscriber->kref);
+ 	INIT_LIST_HEAD(&subscriber->subscrp_list);
++	kref_init(&subscriber->kref);
+ 	subscriber->conid = conid;
+ 	spin_lock_init(&subscriber->lock);
  
- 		/* We shouldn't flush pending works as we may be in the
- 		 * thread. In fact the races with pending rx/tx work structs
+@@ -187,55 +236,22 @@ static struct tipc_subscriber *tipc_subscrb_create(int conid)
+ 
+ static void tipc_subscrb_delete(struct tipc_subscriber *subscriber)
+ {
+-	struct tipc_subscription *sub, *temp;
+-	u32 timeout;
+-
+-	spin_lock_bh(&subscriber->lock);
+-	/* Destroy any existing subscriptions for subscriber */
+-	list_for_each_entry_safe(sub, temp, &subscriber->subscrp_list,
+-				 subscrp_list) {
+-		timeout = htohl(sub->evt.s.timeout, sub->swap);
+-		if ((timeout == TIPC_WAIT_FOREVER) || del_timer(&sub->timer)) {
+-			tipc_subscrp_delete(sub);
+-			tipc_subscrb_put(subscriber);
+-		}
+-	}
+-	spin_unlock_bh(&subscriber->lock);
+-
++	tipc_subscrb_subscrp_delete(subscriber, NULL);
+ 	tipc_subscrb_put(subscriber);
+ }
+ 
+ static void tipc_subscrp_delete(struct tipc_subscription *sub)
+ {
+-	struct tipc_net *tn = net_generic(sub->net, tipc_net_id);
++	u32 timeout = htohl(sub->evt.s.timeout, sub->swap);
+ 
+-	tipc_nametbl_unsubscribe(sub);
+-	list_del(&sub->subscrp_list);
+-	kfree(sub);
+-	atomic_dec(&tn->subscription_count);
++	if (timeout == TIPC_WAIT_FOREVER || del_timer(&sub->timer))
++		tipc_subscrp_put(sub);
+ }
+ 
+ static void tipc_subscrp_cancel(struct tipc_subscr *s,
+ 				struct tipc_subscriber *subscriber)
+ {
+-	struct tipc_subscription *sub, *temp;
+-	u32 timeout;
+-
+-	spin_lock_bh(&subscriber->lock);
+-	/* Find first matching subscription, exit if not found */
+-	list_for_each_entry_safe(sub, temp, &subscriber->subscrp_list,
+-				 subscrp_list) {
+-		if (!memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr))) {
+-			timeout = htohl(sub->evt.s.timeout, sub->swap);
+-			if ((timeout == TIPC_WAIT_FOREVER) ||
+-			    del_timer(&sub->timer)) {
+-				tipc_subscrp_delete(sub);
+-				tipc_subscrb_put(subscriber);
+-			}
+-			break;
+-		}
+-	}
+-	spin_unlock_bh(&subscriber->lock);
++	tipc_subscrb_subscrp_delete(subscriber, s);
+ }
+ 
+ static struct tipc_subscription *tipc_subscrp_create(struct net *net,
+@@ -272,6 +288,7 @@ static struct tipc_subscription *tipc_subscrp_create(struct net *net,
+ 	sub->swap = swap;
+ 	memcpy(&sub->evt.s, s, sizeof(*s));
+ 	atomic_inc(&tn->subscription_count);
++	kref_init(&sub->kref);
+ 	return sub;
+ }
+ 
+@@ -288,17 +305,16 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
+ 
+ 	spin_lock_bh(&subscriber->lock);
+ 	list_add(&sub->subscrp_list, &subscriber->subscrp_list);
+-	tipc_subscrb_get(subscriber);
+ 	sub->subscriber = subscriber;
+ 	tipc_nametbl_subscribe(sub);
++	tipc_subscrb_get(subscriber);
+ 	spin_unlock_bh(&subscriber->lock);
+ 
++	setup_timer(&sub->timer, tipc_subscrp_timeout, (unsigned long)sub);
+ 	timeout = htohl(sub->evt.s.timeout, swap);
+-	if (timeout == TIPC_WAIT_FOREVER)
+-		return;
+ 
+-	setup_timer(&sub->timer, tipc_subscrp_timeout, (unsigned long)sub);
+-	mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout));
++	if (timeout != TIPC_WAIT_FOREVER)
++		mod_timer(&sub->timer, jiffies + msecs_to_jiffies(timeout));
+ }
+ 
+ /* Handle one termination request for the subscriber */
+diff --git a/net/tipc/subscr.h b/net/tipc/subscr.h
+index be60103082c9..ffdc214c117a 100644
+--- a/net/tipc/subscr.h
++++ b/net/tipc/subscr.h
+@@ -57,6 +57,7 @@ struct tipc_subscriber;
+  * @evt: template for events generated by subscription
+  */
+ struct tipc_subscription {
++	struct kref kref;
+ 	struct tipc_subscriber *subscriber;
+ 	struct net *net;
+ 	struct timer_list timer;
 -- 
 2.1.4
-
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, SlashDot.org! http://sdm.link/slashdot
