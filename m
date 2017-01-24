@@ -1,45 +1,93 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: XDP offload to hypervisor
-Date: Mon, 23 Jan 2017 19:50:31 -0800
-Message-ID: <20170124035029.GA89215@ast-mbp.thefacebook.com>
-References: <20170123230727-mutt-send-email-mst@kernel.org>
- <20170124010201.GB60699@ast-mbp.thefacebook.com>
- <20170124053207-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>, jasowang@redhat.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35039 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdAXDug (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 22:50:36 -0500
-Received: by mail-pf0-f196.google.com with SMTP id f144so11220389pfa.2
-        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 19:50:36 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170124053207-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Subject: [PATCH 1/3] Bluetooth: bnep: fix possible might sleep error in bnep_session
+Date: Tue, 24 Jan 2017 12:07:49 +0800
+Message-ID: <1485230871-22828-1-git-send-email-jeffy.chen@rock-chips.com>
+Cc: Brian Norris <briannorris@chromium.org>,
+        Douglas Anderson <dianders@chromium.org>,
+        Johan Hedberg <johan.hedberg@intel.com>,
+        Peter Hurley <peter@hurleysoftware.com>,
+        Jeffy Chen <jeffy.chen@rock-chips.com>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>
+To: linux-bluetooth@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 05:33:37AM +0200, Michael S. Tsirkin wrote:
-> On Mon, Jan 23, 2017 at 05:02:02PM -0800, Alexei Starovoitov wrote:
-> > Frankly I don't understand the whole virtio nit picking that was happening.
-> > imo virtio+xdp by itself is only useful for debugging, development and testing
-> > of xdp programs in a VM. The discussion about performance of virtio+xdp
-> > will only be meaningful when corresponding host part is done.
-> > Likely in the form of vhost extensions and may be driver changes.
-> > Trying to optimize virtio+xdp when host is doing traditional skb+vhost
-> > isn't going to be impactful.
-> 
-> Well if packets can be dropped without a host/guest
-> transition then yes, that will have an impact even
-> with traditional skbs.
+It looks like bnep_session has same pattern as the issue reported in
+old rfcomm:
 
-I don't think it's worth optimizing for though, since the speed of drop
-matters for ddos-like use case and if we let host be flooded with skbs,
-we already lost, since the only thing cpu is doing is allocating skbs
-and moving them around. Whether drop is happening upon entry into VM
-or host does it in some post-vhost layer doesn't change the picture much.
-That said, I do like the idea of offloading virto+xdp into host somehow.
+	while (1) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (condition)
+			break;
+		// may call might_sleep here
+		schedule();
+	}
+	__set_current_state(TASK_RUNNING);
+
+Which fixed at:
+	dfb2fae Bluetooth: Fix nested sleeps
+
+So let's fix it at the same way, also follow the suggestion of:
+https://lwn.net/Articles/628628/
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+
+ net/bluetooth/bnep/core.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+index fbf251f..da04d51 100644
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -484,16 +484,16 @@ static int bnep_session(void *arg)
+ 	struct net_device *dev = s->dev;
+ 	struct sock *sk = s->sock->sk;
+ 	struct sk_buff *skb;
+-	wait_queue_t wait;
++	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+ 
+ 	BT_DBG("");
+ 
+ 	set_user_nice(current, -15);
+ 
+-	init_waitqueue_entry(&wait, current);
+ 	add_wait_queue(sk_sleep(sk), &wait);
+ 	while (1) {
+-		set_current_state(TASK_INTERRUPTIBLE);
++		/* Ensure session->terminate is updated */
++		smp_mb__before_atomic();
+ 
+ 		if (atomic_read(&s->terminate))
+ 			break;
+@@ -515,9 +515,8 @@ static int bnep_session(void *arg)
+ 				break;
+ 		netif_wake_queue(dev);
+ 
+-		schedule();
++		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+ 	}
+-	__set_current_state(TASK_RUNNING);
+ 	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	/* Cleanup session */
+@@ -666,7 +665,11 @@ int bnep_del_connection(struct bnep_conndel_req *req)
+ 	s = __bnep_get_session(req->dst);
+ 	if (s) {
+ 		atomic_inc(&s->terminate);
+-		wake_up_process(s->task);
++
++		/* Ensure session->terminate is updated */
++		smp_mb__after_atomic();
++
++		wake_up_interruptible(sk_sleep(s->sock->sk));
+ 	} else
+ 		err = -ENOENT;
+ 
+-- 
+2.1.4
