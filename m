@@ -1,37 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/2] net: ipv6: Improve user experience
- with multipath routes
-Date: Tue, 24 Jan 2017 11:06:16 -0500 (EST)
-Message-ID: <20170124.110616.2098461870069191491.davem@davemloft.net>
-References: <1484892626-14257-1-git-send-email-dsa@cumulusnetworks.com>
-        <90d6fdce-7780-b864-0e89-db262dec6fa1@cumulusnetworks.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [patch] samples/bpf: silence shift wrapping warning
+Date: Tue, 24 Jan 2017 13:02:51 -0300
+Message-ID: <20170124160251.GD10340@kernel.org>
+References: <CAADnVQLF6PWEjic6aSRBnRqtO25eEw7YLE+Gb95+f5_pvq3ZMA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47910 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbdAXQGg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 11:06:36 -0500
-In-Reply-To: <90d6fdce-7780-b864-0e89-db262dec6fa1@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        Thomas Graf <tgraf@suug.ch>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Joe Stringer <joe@ovn.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAADnVQLF6PWEjic6aSRBnRqtO25eEw7YLE+Gb95+f5_pvq3ZMA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Fri, 20 Jan 2017 12:31:44 -0700
+Em Mon, Jan 23, 2017 at 10:44:34PM -0800, Alexei Starovoitov escreveu:
+> On Mon, Jan 23, 2017 at 5:27 AM, Arnaldo Carvalho de Melo
+> <arnaldo.melo@gmail.com> wrote:
+> > Em Sun, Jan 22, 2017 at 02:51:25PM -0800, Alexei Starovoitov escreveu:
+> >> On Sat, Jan 21, 2017 at 07:51:43AM +0300, Dan Carpenter wrote:
+> >> > max_key is a value in the 0-63 range, so on 32 bit systems the shift
+> >> > could wrap.
+> >> >
+> >> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> >>
+> >> Looks fine. I think 'net-next' is ok.
+> >
+> > I could process these patches, if that would help,
+> 
+> Thanks for the offer.
+> I don't think there will be conflicts with all the work happening in net-next,
+> but it's best to avoid even possibility of it when we can.
 
-> BTW, I am in favor of not requiring a user API for this but just
-> doing it. I can't imagine anyone working with multipath routes not
-> wanting the efficiency of the RTA_MULTIPATH attribute. These patches
-> require an API only because of the rule not to break userspace. If
-> we conclude to just do it without an API, the multipath_add and
-> multipath_del need to be modified to only send a notification once
-> at the end of the actions.
+Okay sir, I'll let you know when/if the tests I perform building
+samples/bpf/ in my containers catch something,
 
-After some consideration, I agree.
+- Arnaldo
 
-Please repost this series without the new netlink knob.
-
-Thanks.
+> Dan,
+> can you please resend the patch cc-ing Dave and netdev ?
+> please mention [PATCH net-next] in the subject.
+> 
+> > - Arnaldo
+> >
+> >> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> >
+> >> > diff --git a/samples/bpf/lwt_len_hist_user.c b/samples/bpf/lwt_len_hist_user.c
+> >> > index ec8f3bb..bd06eef 100644
+> >> > --- a/samples/bpf/lwt_len_hist_user.c
+> >> > +++ b/samples/bpf/lwt_len_hist_user.c
+> >> > @@ -68,7 +68,7 @@ int main(int argc, char **argv)
+> >> >     for (i = 1; i <= max_key + 1; i++) {
+> >> >             stars(starstr, data[i - 1], max_value, MAX_STARS);
+> >> >             printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
+> >> > -                  (1l << i) >> 1, (1l << i) - 1, data[i - 1],
+> >> > +                  (1ULL << i) >> 1, (1ULL << i) - 1, data[i - 1],
+> >> >                    MAX_STARS, starstr);
+> >> >     }
+> >> >
