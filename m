@@ -1,62 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/3] ath10k: use dma_zalloc_coherent()
-Date: Mon, 23 Jan 2017 21:25:29 -0800
-Message-ID: <1485235529.12563.39.camel@perches.com>
-References: <1485183876-27080-1-git-send-email-srinivas.kandagatla@linaro.org>
-         <1485183876-27080-2-git-send-email-srinivas.kandagatla@linaro.org>
-         <1485213569.12563.32.camel@perches.com> <8737g9ox1k.fsf@qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Valo, Kalle" <kvalo@qca.qualcomm.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: sctp_addr_id2transport should verify the addr before looking up assoc
+Date: Tue, 24 Jan 2017 14:01:53 +0800
+Message-ID: <2ba9d3e0b3aa05baa3791811c92248126d233c67.1485237713.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0136.hostedemail.com ([216.40.44.136]:38124 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750703AbdAXFZd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 00:25:33 -0500
-In-Reply-To: <8737g9ox1k.fsf@qca.qualcomm.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35363 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdAXGCB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:02:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-01-24 at 05:18 +0000, Valo, Kalle wrote:
-> Joe Perches <joe@perches.com> writes:
-> 
-> > On Mon, 2017-01-23 at 15:04 +0000, Srinivas Kandagatla wrote:
-> > > use dma_zalloc_coherent() instead of dma_alloc_coherent and memset().
-> > 
-> > []
-> > > diff --git a/drivers/net/wireless/ath/ath10k/pci.c b/drivers/net/wireless/ath/ath10k/pci.c
-> > 
-> > []
-> > > @@ -896,7 +896,7 @@ static int ath10k_pci_diag_read_mem(struct ath10k *ar, u32 address, void *data,
-> > >  	 */
-> > >  	alloc_nbytes = min_t(unsigned int, nbytes, DIAG_TRANSFER_LIMIT);
-> > >  
-> > > -	data_buf = (unsigned char *)dma_alloc_coherent(ar->dev,
-> > > +	data_buf = (unsigned char *)dma_zalloc_coherent(ar->dev,
-> > >  						       alloc_nbytes,
-> > >  						       &ce_data_base,
-> > >  						       GFP_ATOMIC);
-> > 
-> > trivia:
-> > 
-> > Nicer to realign arguments and remove the unnecessary cast.
-> > 
-> > Perhaps:
-> > 
-> > 	data_buf = dma_zalloc_coherent(ar->dev, alloc_nbytes, &ce_data_base,
-> > 				       GFP_ATOMIC);
-> 
-> Sure, but that should be in a separate patch.
+sctp_addr_id2transport is a function for sockopt to look up assoc by
+address. As the address is from userspace, it can be a v4-mapped v6
+address. But in sctp protocol stack, it always handles a v4-mapped
+v6 address as a v4 address. So it's necessary to convert it to a v4
+address before looking up assoc by address.
 
-I don't think so, trivial patches can be combined.
+This patch is to fix it by calling sctp_verify_addr in which it can do
+this conversion before calling sctp_endpoint_lookup_assoc, just like
+what sctp_sendmsg and __sctp_connect do for the address from users.
 
-It's also nicer to realign all modified multiline
-arguments when performing these changes.
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/socket.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Coccinelle generally does it automatically.
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 318c678..37eeab7 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -235,8 +235,12 @@ static struct sctp_transport *sctp_addr_id2transport(struct sock *sk,
+ 					      sctp_assoc_t id)
+ {
+ 	struct sctp_association *addr_asoc = NULL, *id_asoc = NULL;
+-	struct sctp_transport *transport;
++	struct sctp_af *af = sctp_get_af_specific(addr->ss_family);
+ 	union sctp_addr *laddr = (union sctp_addr *)addr;
++	struct sctp_transport *transport;
++
++	if (sctp_verify_addr(sk, laddr, af->sockaddr_len))
++		return NULL;
+ 
+ 	addr_asoc = sctp_endpoint_lookup_assoc(sctp_sk(sk)->ep,
+ 					       laddr,
+-- 
+2.1.0
