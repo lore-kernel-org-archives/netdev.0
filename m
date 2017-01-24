@@ -1,85 +1,175 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [patch net-next v2 2/4] net/sched: Introduce sample tc action
-Date: Tue, 24 Jan 2017 12:49:29 +0100
-Message-ID: <20170124114928.GB16485@penelope.horms.nl>
-References: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
- <1485166031-4773-3-git-send-email-jiri@resnulli.us>
- <20170124083318.GB25022@penelope.horms.nl>
- <DB3PR05MB076447766A61C7CD63F5875CAC750@DB3PR05MB0764.eurprd05.prod.outlook.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH for bnxt_re V4 15/21] RDMA/bnxt_re: Support post_recv
+Date: Tue, 24 Jan 2017 13:59:43 +0200
+Message-ID: <20170124115943.GF6005@mtr-leonro.local>
+References: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
+ <1482320530-5344-16-git-send-email-selvin.xavier@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "geert+renesas@glider.be" <geert+renesas@glider.be>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "linux@roeck-us.net" <linux@roeck-us.net>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-        "mrv@mojatatu.com" <mrv@mojatatu.com>
-To: Yotam Gigi <yotamg@mellanox.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="jkO+KyKz7TfD21mV"
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, michael.chan@broadcom.com,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Selvin Xavier <selvin.xavier@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:37671 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750955AbdAXLtd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 06:49:33 -0500
-Received: by mail-wm0-f51.google.com with SMTP id c206so204968633wme.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 03:49:32 -0800 (PST)
+Received: from mail.kernel.org ([198.145.29.136]:48756 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750763AbdAXL7m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 06:59:42 -0500
 Content-Disposition: inline
-In-Reply-To: <DB3PR05MB076447766A61C7CD63F5875CAC750@DB3PR05MB0764.eurprd05.prod.outlook.com>
+In-Reply-To: <1482320530-5344-16-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2017 at 08:39:37AM +0000, Yotam Gigi wrote:
-> >-----Original Message-----
-> >From: Simon Horman [mailto:simon.horman@netronome.com]
-> >Sent: Tuesday, January 24, 2017 10:33 AM
-> >To: Jiri Pirko <jiri@resnulli.us>
-> >Cc: netdev@vger.kernel.org; davem@davemloft.net; Yotam Gigi
-> ><yotamg@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
-> ><eladr@mellanox.com>; Nogah Frankel <nogahf@mellanox.com>; Or Gerlitz
-> ><ogerlitz@mellanox.com>; jhs@mojatatu.com; geert+renesas@glider.be;
-> >stephen@networkplumber.org; xiyou.wangcong@gmail.com; linux@roeck-us.net;
-> >roopa@cumulusnetworks.com; john.fastabend@gmail.com; mrv@mojatatu.com
-> >Subject: Re: [patch net-next v2 2/4] net/sched: Introduce sample tc action
-> >
-> >On Mon, Jan 23, 2017 at 11:07:09AM +0100, Jiri Pirko wrote:
-> >> From: Yotam Gigi <yotamg@mellanox.com>
-> >>
-> >> This action allows the user to sample traffic matched by tc classifier.
-> >> The sampling consists of choosing packets randomly and sampling them using
-> >> the psample module. The user can configure the psample group number, the
-> >> sampling rate and the packet's truncation (to save kernel-user traffic).
-> >>
-> >> Example:
-> >> To sample ingress traffic from interface eth1, one may use the commands:
-> >>
-> >> tc qdisc add dev eth1 handle ffff: ingress
-> >>
-> >> tc filter add dev eth1 parent ffff: \
-> >> 	   matchall action sample rate 12 group 4
-> >>
-> >> Where the first command adds an ingress qdisc and the second starts
-> >> sampling randomly with an average of one sampled packet per 12 packets on
-> >> dev eth1 to psample group 4.
-> >>
-> >> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> >> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> >
-> >Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> >
-> >Is the tc user-space (iproute2) code available yet?
-> 
-> Yes it is. I thought about sending it the moment the kernel patches gets 
-> accepted.
-> 
-> Do you want it to send it directly to you?
 
-I'm happy to wait for now.
+--jkO+KyKz7TfD21mV
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Dec 21, 2016 at 03:42:04AM -0800, Selvin Xavier wrote:
+> Enables the fastpath verb ib_post_recv.
+>
+> v3: Fixes sparse warnings
+>
+> Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+> Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+> Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
+> ---
+>  drivers/infiniband/hw/bnxt_re/ib_verbs.c | 123 +++++++++++++++++++++++++++++++
+>  drivers/infiniband/hw/bnxt_re/ib_verbs.h |   2 +
+>  drivers/infiniband/hw/bnxt_re/main.c     |   2 +
+>  drivers/infiniband/hw/bnxt_re/qplib_fp.c | 100 +++++++++++++++++++++++++
+>  drivers/infiniband/hw/bnxt_re/qplib_fp.h |   8 ++
+>  5 files changed, 235 insertions(+)
+>
+> diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.c b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
+> index e659490..7476994c 100644
+> --- a/drivers/infiniband/hw/bnxt_re/ib_verbs.c
+> +++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
+> @@ -1637,6 +1637,51 @@ static int bnxt_re_build_qp1_send_v2(struct bnxt_re_qp *qp,
+>  	return rc;
+>  }
+>
+> +/* For the MAD layer, it only provides the recv SGE the size of
+> + * ib_grh + MAD datagram.  No Ethernet headers, Ethertype, BTH, DETH,
+> + * nor RoCE iCRC.  The Cu+ solution must provide buffer for the entire
+> + * receive packet (334 bytes) with no VLAN and then copy the GRH
+> + * and the MAD datagram out to the provided SGE.
+> + */
+> +static int bnxt_re_build_qp1_shadow_qp_recv(struct bnxt_re_qp *qp,
+> +					    struct ib_recv_wr *wr,
+> +					    struct bnxt_qplib_swqe *wqe,
+> +					    int payload_size)
+> +{
+> +	struct bnxt_qplib_sge ref, sge;
+> +	u32 rq_prod_index;
+> +	struct bnxt_re_sqp_entries *sqp_entry;
+> +
+> +	rq_prod_index = bnxt_qplib_get_rq_prod_index(&qp->qplib_qp);
+> +
+> +	if (bnxt_qplib_get_qp1_rq_buf(&qp->qplib_qp, &sge)) {
+> +		/* Create 1 SGE to receive the entire
+> +		 * ethernet packet
+> +		 */
+> +		/* Save the reference from ULP */
+> +		ref.addr = wqe->sg_list[0].addr;
+> +		ref.lkey = wqe->sg_list[0].lkey;
+> +		ref.size = wqe->sg_list[0].size;
+> +
+> +		sqp_entry = &qp->rdev->sqp_tbl[rq_prod_index];
+> +
+> +		/* SGE 1 */
+> +		wqe->sg_list[0].addr = sge.addr;
+> +		wqe->sg_list[0].lkey = sge.lkey;
+> +		wqe->sg_list[0].size = BNXT_QPLIB_MAX_QP1_RQ_HDR_SIZE_V2;
+> +		sge.size -= wqe->sg_list[0].size;
+> +
+> +		sqp_entry->sge.addr = ref.addr;
+> +		sqp_entry->sge.lkey = ref.lkey;
+> +		sqp_entry->sge.size = ref.size;
+> +		/* Store the wrid for reporting completion */
+> +		sqp_entry->wrid = wqe->wr_id;
+> +		/* change the wqe->wrid to table index */
+> +		wqe->wr_id = rq_prod_index;
+> +	}
+> +	return 0;
+> +}
+> +
+>  static int is_ud_qp(struct bnxt_re_qp *qp)
+>  {
+>  	return qp->qplib_qp.type == CMDQ_CREATE_QP_TYPE_UD;
+> @@ -1983,6 +2028,84 @@ int bnxt_re_post_send(struct ib_qp *ib_qp, struct ib_send_wr *wr,
+>  	return rc;
+>  }
+>
+> +static int bnxt_re_post_recv_shadow_qp(struct bnxt_re_dev *rdev,
+> +				       struct bnxt_re_qp *qp,
+> +				       struct ib_recv_wr *wr)
+> +{
+> +	struct bnxt_qplib_swqe wqe;
+> +	int rc = 0, payload_sz = 0;
+> +
+> +	memset(&wqe, 0, sizeof(wqe));
+> +	while (wr) {
+> +		/* House keeping */
+> +		memset(&wqe, 0, sizeof(wqe));
+> +
+> +		/* Common */
+> +		wqe.num_sge = wr->num_sge;
+> +		if (wr->num_sge > qp->qplib_qp.rq.max_sge) {
+> +			dev_err(rdev_to_dev(rdev),
+> +				"Limit exceeded for Receive SGEs");
+> +			rc = -EINVAL;
+> +			goto bad;
+
+"goto bad" directly to other place in while() to call the "break".
+It will be more convenient to call "break" here.
+
+
+> +		}
+> +		payload_sz = bnxt_re_build_sgl(wr->sg_list, wqe.sg_list,
+> +					       wr->num_sge);
+> +		wqe.wr_id = wr->wr_id;
+> +		wqe.type = BNXT_QPLIB_SWQE_TYPE_RECV;
+> +
+> +		if (!rc)
+
+If we are here, we will always have rc == 0.
+
+> +			rc = bnxt_qplib_post_recv(&qp->qplib_qp, &wqe);
+> +bad:
+> +		if (rc)
+> +			break;
+> +
+> +		wr = wr->next;
+> +	}
+> +	bnxt_qplib_post_recv_db(&qp->qplib_qp);
+> +	return rc;
+> +}
+
+--jkO+KyKz7TfD21mV
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAliHQa8ACgkQ5GN7iDZy
+WKcRCw/6AyuTlh4uy/V+0ByWlRrbhn+8ITgjCPkIPNASWD5k9gRGwFu0o5s1Hl4Q
+JijCRuL1rCNbgi0DBoe6oPkK0UPWj/RN10TxHeFErKRpWosxrtvSm7PJdmUVp1rd
+Hmos4nz8I/0tOHUp2NTUmYVMQk1StQLSbcu8hizk/hRF2DKQfqBFXtmj7Ww8OmuG
+CT1i5Uhsa3I1n65zbk5rpn94Dqs206I83/ejeOSEeqvGIIwTzyuZhlxM886S6Kg1
+eT7p/eZlNgd7BWhSQPoqxvt12mXkZjQ1PFNUHBUDdL55FkLStm3VT/aRxvqRONqi
+MZ4nlango1gyjrHDdnH88QPXg4e42l/Nzrp8ZWDzKDigAhn8mSzKBxN3LFcXxJzE
+iOWHuXzRRvQdf9TM1kVhA1oRIPzv5JpYXWVKNK5UkfEof0VUQJ+jOaSXU8rEa13x
+1CMb3hwSyXfGpWc2Ic7m+iwRdCvOygzfbk0IrFahI/ORTTaqHmNRGAsg9OCO1+mZ
+kwFjFCNRM7DSjX1qNTcBrj762bZeXcFxXHBxB2eW81I+V0WItn/ieA1OfHrcGLlt
+TuB61BPK9vRlVIoCL8FqwF16d8NkA1Hm5rt/clE8TUkeznYHwV3UFKPq42jbqvSA
+xwq+lItzCU3sGS29OLeoG/v2Mc3iDmk7hgtttfHedC1CFVoi9Z8=
+=v03l
+-----END PGP SIGNATURE-----
+
+--jkO+KyKz7TfD21mV--
