@@ -1,100 +1,212 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 12/18] netvsc: don't pass void * to internal device_add
-Date: Tue, 24 Jan 2017 13:06:09 -0800
-Message-ID: <20170124210615.18628-13-sthemmin@microsoft.com>
+Subject: [PATCH 05/18] netvsc: add ethtool ops to get/set RSS key
+Date: Tue, 24 Jan 2017 13:06:02 -0800
+Message-ID: <20170124210615.18628-6-sthemmin@microsoft.com>
 References: <20170124210615.18628-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:33880 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750840AbdAXVG7 (ORCPT
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36235 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750816AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pg0-f54.google.com with SMTP id 14so57792318pgg.1
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:31 -0800 (PST)
+Received: by mail-pf0-f182.google.com with SMTP id 189so52616805pfu.3
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:23 -0800 (PST)
 In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All the caller's/callee's know that the format of the device_add
-parameter is a netvsc_device_info struct.
+For some cases it is useful to be able to change RSS key value.
+For example, replacing RSS key with a symmetric hash.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h   | 5 +++--
- drivers/net/hyperv/netvsc.c       | 6 +++---
- drivers/net/hyperv/rndis_filter.c | 5 ++---
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/hyperv/hyperv_net.h   |  7 +++++-
+ drivers/net/hyperv/netvsc_drv.c   | 46 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/hyperv/rndis_filter.c | 34 +++++++++++++++--------------
+ 3 files changed, 70 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 4b91e37c85ca..28cbd6a2ecf8 100644
+index ccf94c16084c..5bf21418bbe5 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -178,7 +178,8 @@ struct rndis_device {
- /* Interface */
- struct rndis_message;
- struct netvsc_device;
--int netvsc_device_add(struct hv_device *device, void *additional_info);
-+int netvsc_device_add(struct hv_device *device,
-+		      const struct netvsc_device_info *info);
- void netvsc_device_remove(struct hv_device *device);
- int netvsc_send(struct hv_device *device,
- 		struct hv_netvsc_packet *packet,
-@@ -196,7 +197,7 @@ void netvsc_channel_cb(void *context);
- int rndis_filter_open(struct netvsc_device *nvdev);
- int rndis_filter_close(struct netvsc_device *nvdev);
+@@ -156,6 +156,8 @@ enum rndis_device_state {
+ 	RNDIS_DEV_DATAINITIALIZED,
+ };
+ 
++#define NETVSC_HASH_KEYLEN 40
++
+ struct rndis_device {
+ 	struct net_device *ndev;
+ 
+@@ -166,7 +168,8 @@ struct rndis_device {
+ 	spinlock_t request_lock;
+ 	struct list_head req_list;
+ 
+-	unsigned char hw_mac_adr[ETH_ALEN];
++	u8 hw_mac_adr[ETH_ALEN];
++	u8 rss_key[NETVSC_HASH_KEYLEN];
+ };
+ 
+ 
+@@ -194,6 +197,8 @@ int rndis_filter_close(struct netvsc_device *nvdev);
  int rndis_filter_device_add(struct hv_device *dev,
--			void *additional_info);
-+			    struct netvsc_device_info *info);
+ 			void *additional_info);
  void rndis_filter_device_remove(struct hv_device *dev);
- int rndis_filter_set_rss_param(struct rndis_device *rdev,
- 			       const u8 *key, int num_queue);
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 80eecb4f9456..359e7ef7040b 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -1283,11 +1283,11 @@ void netvsc_channel_cb(void *context)
-  * netvsc_device_add - Callback when the device belonging to this
-  * driver is added
-  */
--int netvsc_device_add(struct hv_device *device, void *additional_info)
-+int netvsc_device_add(struct hv_device *device,
-+		      const struct netvsc_device_info *device_info)
- {
- 	int i, ret = 0;
--	int ring_size =
--	((struct netvsc_device_info *)additional_info)->ring_size;
-+	int ring_size = device_info->ring_size;
- 	struct netvsc_device *net_device;
- 	struct net_device *ndev = hv_get_drvdata(device);
- 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
++int rndis_filter_set_rss_param(struct rndis_device *rdev,
++			       const u8 *key, int num_queue);
+ int rndis_filter_receive(struct hv_device *dev,
+ 			struct hv_netvsc_packet *pkt,
+ 			void **data,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 6ab8b52af965..40a88387a8f5 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1059,6 +1059,48 @@ static void netvsc_poll_controller(struct net_device *net)
+ }
+ #endif
+ 
++static u32 netvsc_get_rxfh_key_size(struct net_device *dev)
++{
++	return NETVSC_HASH_KEYLEN;
++}
++
++static u32 netvsc_rss_indir_size(struct net_device *dev)
++{
++	return 0;
++}
++
++static int netvsc_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
++			   u8 *hfunc)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *ndev = ndc->nvdev;
++	struct rndis_device *rndis_dev = ndev->extension;
++
++	if (hfunc)
++		*hfunc = ETH_RSS_HASH_TOP;	/* Toeplitz */
++
++	if (key)
++		memcpy(key, rndis_dev->rss_key, NETVSC_HASH_KEYLEN);
++
++	return 0;
++}
++
++static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
++			   const u8 *key, const u8 hfunc)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++	struct netvsc_device *ndev = ndc->nvdev;
++	struct rndis_device *rndis_dev = ndev->extension;
++
++	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)
++		return -EOPNOTSUPP;
++
++	if (!key || memcmp(key, rndis_dev->rss_key, NETVSC_HASH_KEYLEN) == 0)
++		return 0; /* no change */
++
++	return rndis_filter_set_rss_param(rndis_dev, key, ndev->num_chn);
++}
++
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo	= netvsc_get_drvinfo,
+ 	.get_link	= ethtool_op_get_link,
+@@ -1071,6 +1113,10 @@ static const struct ethtool_ops ethtool_ops = {
+ 	.get_settings	= netvsc_get_settings,
+ 	.set_settings	= netvsc_set_settings,
+ 	.get_rxnfc	= netvsc_get_rxnfc,
++	.get_rxfh_key_size = netvsc_get_rxfh_key_size,
++	.get_rxfh_indir_size = netvsc_rss_indir_size,
++	.get_rxfh	= netvsc_get_rxfh,
++	.set_rxfh	= netvsc_set_rxfh,
+ };
+ 
+ static const struct net_device_ops device_ops = {
 diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index decce4f8fda8..e3b29f35366c 100644
+index 8f04be1d7421..ac08aa1b089a 100644
 --- a/drivers/net/hyperv/rndis_filter.c
 +++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1005,13 +1005,12 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+@@ -57,6 +57,14 @@ struct rndis_request {
+ 	u8 request_ext[RNDIS_EXT_LEN];
+ };
+ 
++static const u8 netvsc_hash_key[NETVSC_HASH_KEYLEN] = {
++	0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
++	0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
++	0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
++	0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
++	0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
++};
++
+ static struct rndis_device *get_rndis_device(void)
+ {
+ 	struct rndis_device *device;
+@@ -729,23 +737,15 @@ rndis_filter_set_offload_params(struct net_device *ndev,
+ 	return ret;
  }
  
- int rndis_filter_device_add(struct hv_device *dev,
--			    void *additional_info)
-+			    struct netvsc_device_info *device_info)
+-static const u8 netvsc_hash_key[] = {
+-	0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
+-	0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
+-	0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
+-	0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
+-	0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
+-};
+-#define HASH_KEYLEN ARRAY_SIZE(netvsc_hash_key)
+-
+-static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
++int rndis_filter_set_rss_param(struct rndis_device *rdev,
++			       const u8 *rss_key, int num_queue)
  {
- 	struct net_device *net = hv_get_drvdata(dev);
- 	struct net_device_context *net_device_ctx = netdev_priv(net);
- 	struct netvsc_device *net_device;
- 	struct rndis_device *rndis_device;
--	struct netvsc_device_info *device_info = additional_info;
- 	struct ndis_offload hwcaps;
- 	struct ndis_offload_params offloads;
- 	struct nvsp_message *init_packet;
-@@ -1035,7 +1034,7 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	 * NOTE! Once the channel is created, we may get a receive callback
- 	 * (RndisFilterOnReceive()) before this call is completed
- 	 */
--	ret = netvsc_device_add(dev, additional_info);
-+	ret = netvsc_device_add(dev, device_info);
- 	if (ret != 0) {
- 		kfree(rndis_device);
- 		return ret;
+ 	struct net_device *ndev = rdev->ndev;
+ 	struct rndis_request *request;
+ 	struct rndis_set_request *set;
+ 	struct rndis_set_complete *set_complete;
+ 	u32 extlen = sizeof(struct ndis_recv_scale_param) +
+-		     4*ITAB_NUM + HASH_KEYLEN;
++		     4 * ITAB_NUM + NETVSC_HASH_KEYLEN;
+ 	struct ndis_recv_scale_param *rssp;
+ 	u32 *itab;
+ 	u8 *keyp;
+@@ -773,7 +773,7 @@ static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
+ 			 NDIS_HASH_TCP_IPV6;
+ 	rssp->indirect_tabsize = 4*ITAB_NUM;
+ 	rssp->indirect_taboffset = sizeof(struct ndis_recv_scale_param);
+-	rssp->hashkey_size = HASH_KEYLEN;
++	rssp->hashkey_size = NETVSC_HASH_KEYLEN;
+ 	rssp->kashkey_offset = rssp->indirect_taboffset +
+ 			       rssp->indirect_tabsize;
+ 
+@@ -784,8 +784,7 @@ static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
+ 
+ 	/* Set hask key values */
+ 	keyp = (u8 *)((unsigned long)rssp + rssp->kashkey_offset);
+-	for (i = 0; i < HASH_KEYLEN; i++)
+-		keyp[i] = netvsc_hash_key[i];
++	memcpy(keyp, rss_key, NETVSC_HASH_KEYLEN);
+ 
+ 	ret = rndis_filter_send_request(rdev, request);
+ 	if (ret != 0)
+@@ -793,7 +792,9 @@ static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
+ 
+ 	wait_for_completion(&request->wait_event);
+ 	set_complete = &request->response_msg.msg.set_complete;
+-	if (set_complete->status != RNDIS_STATUS_SUCCESS) {
++	if (set_complete->status == RNDIS_STATUS_SUCCESS)
++		memcpy(rdev->rss_key, rss_key, NETVSC_HASH_KEYLEN);
++	else {
+ 		netdev_err(ndev, "Fail to set RSS parameters:0x%x\n",
+ 			   set_complete->status);
+ 		ret = -EINVAL;
+@@ -1235,7 +1236,8 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	net_device->num_chn = 1 +
+ 		init_packet->msg.v5_msg.subchn_comp.num_subchannels;
+ 
+-	ret = rndis_filter_set_rss_param(rndis_device, net_device->num_chn);
++	ret = rndis_filter_set_rss_param(rndis_device, netvsc_hash_key,
++					 net_device->num_chn);
+ 
+ 	/*
+ 	 * Set the number of sub-channels to be received.
 -- 
 2.11.0
