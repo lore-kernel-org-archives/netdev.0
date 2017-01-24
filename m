@@ -1,68 +1,86 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small
- buffer XDP receive
-Date: Tue, 24 Jan 2017 22:54:40 +0200
-Message-ID: <20170124224550-mutt-send-email-mst@kernel.org>
-References: <20170123230809-mutt-send-email-mst@kernel.org>
- <20170124.144328.2195698124358175034.davem@davemloft.net>
- <20170124215412-mutt-send-email-mst@kernel.org>
- <20170124.151139.1496962673545808215.davem@davemloft.net>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net-next v6 4/4] phy: marvell: Add support for the PHY embedded in the topaz switch
+Date: Tue, 24 Jan 2017 21:55:08 +0100
+Message-ID: <87efzs2n6b.fsf@free-electrons.com>
+References: <cover.b0e18efe751186768e720c341693117fdd4d3c16.1485288602.git-series.gregory.clement@free-electrons.com>
+        <f8526f4a5d99223fc90fe5579b4958eaa0950a3a.1485288602.git-series.gregory.clement@free-electrons.com>
+        <20170124202847.GV10895@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john.fastabend@gmail.com, jasowang@redhat.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60574 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750733AbdAXUym (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 15:54:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20170124.151139.1496962673545808215.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Wilson Ding <dingwei@marvell.com>,
+        Kostya Porotchkin <kostap@marvell.com>,
+        Joe Zhou <shjzhou@marvell.com>,
+        Jon Pannell <jpannell@marvell.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170124202847.GV10895@lunn.ch> (Andrew Lunn's message of "Tue,
+        24 Jan 2017 21:28:47 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 03:11:39PM -0500, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Tue, 24 Jan 2017 22:08:33 +0200
-> 
-> > On Tue, Jan 24, 2017 at 02:43:28PM -0500, David Miller wrote:
-> >> From: "Michael S. Tsirkin" <mst@redhat.com>
-> >> Date: Mon, 23 Jan 2017 23:08:35 +0200
-> >> 
-> >> > On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
-> >> >> In the small buffer case during driver unload we currently use
-> >> >> put_page instead of dev_kfree_skb. Resolve this by adding a check
-> >> >> for virtnet mode when checking XDP queue type. Also name the
-> >> >> function so that the code reads correctly to match the additional
-> >> >> check.
-> >> >> 
-> >> >> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
-> >> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >> >> Acked-by: Jason Wang <jasowang@redhat.com>
-> >> > 
-> >> > Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> >> > 
-> >> > I think we definitely want this one in -net as it's
-> >> > a bugfix.
-> >> 
-> >> This whole series is a bug fix, we must have adjust_header XDP
-> >> support in the virtio_net driver before v4.10 goes out, it is
-> >> a requires base feature for XDP.
-> > 
-> > I have to say device resets outside probe have a huge potential
-> > to uncover hypervisor bugs. I am rather uncomfortable
-> > doing that after -rc1.
-> > 
-> > How about a module option to disable it by default?
-> > We can then ship a partial implementation in 4.10
-> > and work on completing it in 4.11.
-> 
-> XDP programmers must be able to assume a base set of features being
-> present, adjust_header is one of them.
+Hi Andrew,
+ 
+ On mar., janv. 24 2017, Andrew Lunn <andrew@lunn.ch> wrote:
 
-Let's make all of XDP depend on this extra_headroom option then?
+> On Tue, Jan 24, 2017 at 09:10:26PM +0100, Gregory CLEMENT wrote:
+>> The PHY with the ID 0x1410C00
+>
+> :-(
+>
+> I don't have a better reference, but
+> Linux/Documentation/devicetree/bindings/net/phy.txt says:
+>
+>  22   If the phy's identifier is known then the list may contain an entry
+>  23   of the form: "ethernet-phy-idAAAA.BBBB" where
+>  24      AAAA - The value of the 16 bit Phy Identifier 1 register as
+>  25             4 hex digits. This is the chip vendor OUI bits 3:18
+>  26      BBBB - The value of the 16 bit Phy Identifier 2 register as
+>  27             4 hex digits. This is the chip vendor OUI bits 19:24,
+>  28             followed by 10 bits of a vendor specific ID.
+>
+> So the lower 10 bits of 0x1410C00 are 0. So we know it is a Marvell
+> PHY from the OUI, but the vendor specific bits are all 0.
+
+In your previous email you mention a value of 0x01410000, so when I saw
+the "C00" at the end I was happy and I didn't look for further.
+
+>
+> Please take a look at:
+>
+> https://marc.info/?l=linux-netdev&m=148495522620757&w=1
+>
+> and
+>
+> https://marc.info/?l=linux-netdev&m=148495510320714&w=1
+>
+> Maybe i should submit these two independently, so you can extend it
+> for the 88E6341 family.
+
+Please do it :)
+
+The feedback from Florian and Vivian was good about it so I see no
+reason to not apply them.
+
+Add me in CC so I will now when to rebase my series.
+
+Thanks,
+
+Gregory
+
+>
+>     Andrew
 
 -- 
-MST
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
