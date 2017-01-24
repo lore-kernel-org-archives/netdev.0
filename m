@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net 2/3] qed: Read queue state before releasing buffer
-Date: Tue, 24 Jan 2017 23:15:22 +0200
-Message-ID: <1485292523-8821-3-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net 1/3] qed: Release CQ resource under lock on failure
+Date: Tue, 24 Jan 2017 23:15:21 +0200
+Message-ID: <1485292523-8821-2-git-send-email-Yuval.Mintz@cavium.com>
 References: <1485292523-8821-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,64 +9,38 @@ Cc: <linux-rdma@vger.kernel.org>, <Ram.Amrani@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:42044 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:42035 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750873AbdAXVQE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:16:04 -0500
+        by vger.kernel.org with ESMTP id S1750850AbdAXVQA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:16:00 -0500
 In-Reply-To: <1485292523-8821-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ram Amrani <Ram.Amrani@cavium.com>
 
-Currently the state is read only after the buffers are relesed.
+The CQ resource pool is protected by a spin lock. When a CQ creation
+fails it now deallocates under that lock as well.
 
 Signed-off-by: Ram Amrani <Ram.Amrani@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_roce.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_roce.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index 7ab6d4e..0846068 100644
+index bd4cad2..7ab6d4e 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -1768,13 +1768,13 @@ static int qed_roce_query_qp(struct qed_hwfn *p_hwfn,
- 	if (rc)
- 		goto err_resp;
+@@ -948,7 +948,9 @@ static int qed_rdma_create_cq(void *rdma_cxt,
  
--	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_resp_ramrod_res),
--			  p_resp_ramrod_res, resp_ramrod_res_phys);
--
- 	out_params->rq_psn = le32_to_cpu(p_resp_ramrod_res->psn);
- 	rq_err_state = GET_FIELD(le32_to_cpu(p_resp_ramrod_res->err_flag),
- 				 ROCE_QUERY_QP_RESP_OUTPUT_PARAMS_ERROR_FLG);
+ err:
+ 	/* release allocated icid */
++	spin_lock_bh(&p_info->lock);
+ 	qed_bmap_release_id(p_hwfn, &p_info->cq_map, returned_id);
++	spin_unlock_bh(&p_info->lock);
+ 	DP_NOTICE(p_hwfn, "Create CQ failed, rc = %d\n", rc);
  
-+	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_resp_ramrod_res),
-+			  p_resp_ramrod_res, resp_ramrod_res_phys);
-+
- 	if (!(qp->req_offloaded)) {
- 		/* Don't send query qp for the requester */
- 		out_params->sq_psn = qp->sq_psn;
-@@ -1815,9 +1815,6 @@ static int qed_roce_query_qp(struct qed_hwfn *p_hwfn,
- 	if (rc)
- 		goto err_req;
- 
--	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_req_ramrod_res),
--			  p_req_ramrod_res, req_ramrod_res_phys);
--
- 	out_params->sq_psn = le32_to_cpu(p_req_ramrod_res->psn);
- 	sq_err_state = GET_FIELD(le32_to_cpu(p_req_ramrod_res->flags),
- 				 ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_ERR_FLG);
-@@ -1825,6 +1822,9 @@ static int qed_roce_query_qp(struct qed_hwfn *p_hwfn,
- 		GET_FIELD(le32_to_cpu(p_req_ramrod_res->flags),
- 			  ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_SQ_DRAINING_FLG);
- 
-+	dma_free_coherent(&p_hwfn->cdev->pdev->dev, sizeof(*p_req_ramrod_res),
-+			  p_req_ramrod_res, req_ramrod_res_phys);
-+
- 	out_params->draining = false;
- 
- 	if (rq_err_state)
+ 	return rc;
 -- 
 1.8.3.1
