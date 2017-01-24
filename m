@@ -1,91 +1,61 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net-next v6 4/4] phy: marvell: Add support for the PHY embedded in the topaz switch
-Date: Tue, 24 Jan 2017 21:10:26 +0100
-Message-ID: <f8526f4a5d99223fc90fe5579b4958eaa0950a3a.1485288602.git-series.gregory.clement@free-electrons.com>
-References: <cover.b0e18efe751186768e720c341693117fdd4d3c16.1485288602.git-series.gregory.clement@free-electrons.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Wilson Ding <dingwei@marvell.com>,
-        Kostya Porotchkin <kostap@marvell.com>,
-        Joe Zhou <shjzhou@marvell.com>,
-        Jon Pannell <jpannell@marvell.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.b0e18efe751186768e720c341693117fdd4d3c16.1485288602.git-series.gregory.clement@free-electrons.com>
-In-Reply-To: <cover.b0e18efe751186768e720c341693117fdd4d3c16.1485288602.git-series.gregory.clement@free-electrons.com>
-References: <cover.b0e18efe751186768e720c341693117fdd4d3c16.1485288602.git-series.gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small
+ buffer XDP receive
+Date: Tue, 24 Jan 2017 15:11:39 -0500 (EST)
+Message-ID: <20170124.151139.1496962673545808215.davem@davemloft.net>
+References: <20170123230809-mutt-send-email-mst@kernel.org>
+        <20170124.144328.2195698124358175034.davem@davemloft.net>
+        <20170124215412-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, jasowang@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58630 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750823AbdAXUMF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 15:12:05 -0500
+In-Reply-To: <20170124215412-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The PHY with the ID 0x1410C00 can be found embedded in the Marvell Topaz
-switches (88E6141/88E6341). It is compatible with the 88E1510 (at least for
-the temperature information), so add support for it, using the 88E1510
-specific functions.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 24 Jan 2017 22:08:33 +0200
 
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/phy/marvell.c   | 21 +++++++++++++++++++++
- include/linux/marvell_phy.h |  1 +
- 2 files changed, 22 insertions(+)
+> On Tue, Jan 24, 2017 at 02:43:28PM -0500, David Miller wrote:
+>> From: "Michael S. Tsirkin" <mst@redhat.com>
+>> Date: Mon, 23 Jan 2017 23:08:35 +0200
+>> 
+>> > On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
+>> >> In the small buffer case during driver unload we currently use
+>> >> put_page instead of dev_kfree_skb. Resolve this by adding a check
+>> >> for virtnet mode when checking XDP queue type. Also name the
+>> >> function so that the code reads correctly to match the additional
+>> >> check.
+>> >> 
+>> >> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
+>> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> >> Acked-by: Jason Wang <jasowang@redhat.com>
+>> > 
+>> > Acked-by: Michael S. Tsirkin <mst@redhat.com>
+>> > 
+>> > I think we definitely want this one in -net as it's
+>> > a bugfix.
+>> 
+>> This whole series is a bug fix, we must have adjust_header XDP
+>> support in the virtio_net driver before v4.10 goes out, it is
+>> a requires base feature for XDP.
+> 
+> I have to say device resets outside probe have a huge potential
+> to uncover hypervisor bugs. I am rather uncomfortable
+> doing that after -rc1.
+> 
+> How about a module option to disable it by default?
+> We can then ship a partial implementation in 4.10
+> and work on completing it in 4.11.
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 64229976ace1..8b9338a746b8 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -2141,6 +2141,26 @@ static struct phy_driver marvell_drivers[] = {
- 		.get_strings = marvell_get_strings,
- 		.get_stats = marvell_get_stats,
- 	},
-+	{
-+		.phy_id = MARVELL_PHY_ID_88E6141,
-+		.phy_id_mask = MARVELL_PHY_ID_MASK,
-+		.name = "Marvell 88E6141",
-+		.probe = m88e1510_probe,
-+		.remove = &marvell_remove,
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.config_init = &marvell_config_init,
-+		.config_aneg = &m88e1510_config_aneg,
-+		.read_status = &marvell_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.did_interrupt = &m88e1121_did_interrupt,
-+		.resume = &genphy_resume,
-+		.suspend = &genphy_suspend,
-+		.get_sset_count = marvell_get_sset_count,
-+		.get_strings = marvell_get_strings,
-+		.get_stats = marvell_get_stats,
-+	},
- };
- 
- module_phy_driver(marvell_drivers);
-@@ -2159,6 +2179,7 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
- 	{ MARVELL_PHY_ID_88E1510, MARVELL_PHY_ID_MASK },
- 	{ MARVELL_PHY_ID_88E1540, MARVELL_PHY_ID_MASK },
- 	{ MARVELL_PHY_ID_88E3016, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E6141, MARVELL_PHY_ID_MASK },
- 	{ }
- };
- 
-diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
-index a57f0dfb6db7..6f33b73f2044 100644
---- a/include/linux/marvell_phy.h
-+++ b/include/linux/marvell_phy.h
-@@ -5,6 +5,7 @@
- #define MARVELL_PHY_ID_MASK		0xfffffff0
- 
- /* Known PHY IDs */
-+#define MARVELL_PHY_ID_88E6141		0x01410c00
- #define MARVELL_PHY_ID_88E1101		0x01410c60
- #define MARVELL_PHY_ID_88E1112		0x01410c90
- #define MARVELL_PHY_ID_88E1111		0x01410cc0
--- 
-git-series 0.9.1
+XDP programmers must be able to assume a base set of features being
+present, adjust_header is one of them.
