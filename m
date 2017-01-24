@@ -1,121 +1,88 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH v2 16/18] gtp: add genl cmd to enable GTP encapsulation on UDP socket
-Date: Tue, 24 Jan 2017 16:28:46 +0100
-Message-ID: <20170124152848.6120-17-aschultz@tpip.net>
+Subject: [PATCH v2 15/18] gtp: rename gtp hashtable helpers
+Date: Tue, 24 Jan 2017 16:28:45 +0100
+Message-ID: <20170124152848.6120-16-aschultz@tpip.net>
 References: <20170124152848.6120-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:34279 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:60589 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751149AbdAXP26 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751148AbdAXP26 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 24 Jan 2017 10:28:58 -0500
 In-Reply-To: <20170124152848.6120-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The gtp_hashtable helper are now olny used for the per netdevice
+address hashes. Rename them to make their purpose clearer.
+
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c        | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/gtp.h |  4 ++++
- 2 files changed, 52 insertions(+)
+ drivers/net/gtp.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 9e5f858..c6c1f0d 100644
+index d2ba943..9e5f858 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -1247,6 +1247,46 @@ static int gtp_genl_dump_pdp(struct sk_buff *skb,
- 	return skb->len;
+@@ -618,8 +618,8 @@ static void gtp_link_setup(struct net_device *dev)
+ 				  sizeof(struct gtp0_header);
  }
  
-+static int gtp_genl_enable_socket(struct sk_buff *skb, struct genl_info *info)
-+{
-+	u32 version, fd, hashsize;
-+	struct socket *sock;
-+
-+	if (!info->attrs[GTPA_VERSION] ||
-+	    !info->attrs[GTPA_FD])
-+		return -EINVAL;
-+
-+	if (!info->attrs[GTPA_PDP_HASHSIZE])
-+		hashsize = 1024;
-+	else
-+		hashsize = nla_get_u32(info->attrs[IFLA_GTP_PDP_HASHSIZE]);
-+
-+	version = nla_get_u32(info->attrs[GTPA_VERSION]);
-+	fd = nla_get_u32(info->attrs[GTPA_FD]);
-+
-+	switch (version) {
-+	case GTP_V0:
-+		sock = gtp_encap_enable_socket(fd, UDP_ENCAP_GTP0, hashsize);
-+		break;
-+
-+	case GTP_V1:
-+		sock = gtp_encap_enable_socket(fd, UDP_ENCAP_GTP1U, hashsize);
-+		break;
-+
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	if (!sock)
-+		return -EINVAL;
-+
-+	if (IS_ERR(sock))
-+		return PTR_ERR(sock);
-+
-+	sockfd_put(sock);
-+	return 0;
-+}
-+
- static struct nla_policy gtp_genl_policy[GTPA_MAX + 1] = {
- 	[GTPA_LINK]		= { .type = NLA_U32, },
- 	[GTPA_VERSION]		= { .type = NLA_U32, },
-@@ -1257,6 +1297,8 @@ static struct nla_policy gtp_genl_policy[GTPA_MAX + 1] = {
- 	[GTPA_NET_NS_FD]	= { .type = NLA_U32, },
- 	[GTPA_I_TEI]		= { .type = NLA_U32, },
- 	[GTPA_O_TEI]		= { .type = NLA_U32, },
-+	[GTPA_PDP_HASHSIZE]	= { .type = NLA_U32, },
-+	[GTPA_FD]		= { .type = NLA_U32, },
- };
+-static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
+-static void gtp_hashtable_free(struct gtp_dev *gtp);
++static int gtp_dev_hashtable_new(struct gtp_dev *gtp, int hsize);
++static void gtp_dev_hashtable_free(struct gtp_dev *gtp);
+ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 			    int hsize, struct nlattr *data[]);
+ static void gtp_encap_disable(struct gtp_dev *gtp);
+@@ -644,7 +644,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 			goto out_err;
+ 	}
  
- static const struct genl_ops gtp_genl_ops[] = {
-@@ -1279,6 +1321,12 @@ static const struct genl_ops gtp_genl_ops[] = {
- 		.policy = gtp_genl_policy,
- 		.flags = GENL_ADMIN_PERM,
- 	},
-+	{
-+		.cmd = GTP_CMD_ENABLE_SOCKET,
-+		.doit = gtp_genl_enable_socket,
-+		.policy = gtp_genl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+	},
- };
+-	err = gtp_hashtable_new(gtp, hashsize);
++	err = gtp_dev_hashtable_new(gtp, hashsize);
+ 	if (err < 0)
+ 		goto out_socket;
  
- static struct genl_family gtp_genl_family __ro_after_init = {
-diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
-index 72a04a0..a9e9fe0 100644
---- a/include/uapi/linux/gtp.h
-+++ b/include/uapi/linux/gtp.h
-@@ -6,6 +6,8 @@ enum gtp_genl_cmds {
- 	GTP_CMD_DELPDP,
- 	GTP_CMD_GETPDP,
+@@ -662,7 +662,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 	return 0;
  
-+	GTP_CMD_ENABLE_SOCKET,
-+
- 	GTP_CMD_MAX,
- };
+ out_hashtable:
+-	gtp_hashtable_free(gtp);
++	gtp_dev_hashtable_free(gtp);
+ out_socket:
+ 	gtp_encap_disable(gtp);
+ out_err:
+@@ -673,7 +673,7 @@ static void gtp_dellink(struct net_device *dev, struct list_head *head)
+ {
+ 	struct gtp_dev *gtp = netdev_priv(dev);
  
-@@ -26,6 +28,8 @@ enum gtp_attrs {
- 	GTPA_I_TEI,	/* for GTPv1 only */
- 	GTPA_O_TEI,	/* for GTPv1 only */
- 	GTPA_PAD,
-+	GTPA_PDP_HASHSIZE,
-+	GTPA_FD,
- 	__GTPA_MAX,
- };
- #define GTPA_MAX (__GTPA_MAX + 1)
+-	gtp_hashtable_free(gtp);
++	gtp_dev_hashtable_free(gtp);
+ 	if (gtp->sock0)
+ 		sockfd_put(gtp->sock0);
+ 	if (gtp->sock1u)
+@@ -742,7 +742,7 @@ static struct net *gtp_genl_get_net(struct net *src_net, struct nlattr *tb[])
+ 	return net;
+ }
+ 
+-static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize)
++static int gtp_dev_hashtable_new(struct gtp_dev *gtp, int hsize)
+ {
+ 	int i;
+ 
+@@ -758,7 +758,7 @@ static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize)
+ 	return 0;
+ }
+ 
+-static void gtp_hashtable_free(struct gtp_dev *gtp)
++static void gtp_dev_hashtable_free(struct gtp_dev *gtp)
+ {
+ 	struct pdp_ctx *pctx;
+ 	int i;
 -- 
 2.10.2
