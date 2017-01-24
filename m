@@ -1,87 +1,78 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH 2/2] net: phy: leds: Fix truncated LED trigger names
-Date: Tue, 24 Jan 2017 16:41:10 +0100
-Message-ID: <1485272470-3497-3-git-send-email-geert+renesas@glider.be>
-References: <1485272470-3497-1-git-send-email-geert+renesas@glider.be>
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        =?UTF-8?q?Magnus=20=C3=96berg?= <magnus.oberg@westermo.se>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+From: =?UTF-8?q?Amadeusz=20S=C5=82awi=C5=84ski?=
+        <amadeusz.slawinski@tieto.com>
+Subject: [PATCH 1/2] mac80211: use helper function to access ieee802_1d_to_ac[]
+Date: Tue, 24 Jan 2017 16:42:10 +0100
+Message-ID: <1485272531-11587-1-git-send-email-amadeusz.slawinski@tieto.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>,
-        Zach Brown <zach.brown@ni.com>,
-        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+        =?UTF-8?q?Amadeusz=20S=C5=82awi=C5=84ski?=
+        <amadeusz.slawinski@tieto.com>
+To: linux-wireless@vger.kernel.org,
+        Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485272470-3497-1-git-send-email-geert+renesas@glider.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 4567d686f5c6d955 ("phy: increase size of MII_BUS_ID_SIZE and
-bus_id") increased the size of MII bus IDs, but forgot to update the
-private definition in <linux/phy_led_triggers.h>.
-This may cause:
-  1. Truncation of LED trigger names,
-  2. Duplicate LED trigger names,
-  3. Failures registering LED triggers,
-  4. Crashes due to bad error handling in the LED trigger failure path.
+cleanup patch to make use of ieee80211_ac_from_tid() to retrieve ac from
+ieee802_1d_to_ac[]
 
-To fix this, and prevent the definitions going out of sync again in the
-future, let the PHY LED trigger code use the existing MII_BUS_ID_SIZE
-definition. Note that this requires moving the #include down, after the
-definition of MII_BUS_ID_SIZE.
-
-Example:
-  - Before I had triggers "ee700000.etherne:01:100Mbps" and
-    "ee700000.etherne:01:10Mbps",
-  - After the increase of MII_BUS_ID_SIZE, both became
-    "ee700000.ethernet-ffffffff:01:" => FAIL,
-  - Now, the triggers are "ee700000.ethernet-ffffffff:01:100Mbps" and
-    "ee700000.ethernet-ffffffff:01:10Mbps", which are unique again.
-
-Fixes: 4567d686f5c6d955 ("phy: increase size of MII_BUS_ID_SIZE and bus_id")
-Fixes: 2e0bc452f4721520 ("net: phy: leds: add support for led triggers on phy link state change")
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Signed-off-by: Amadeusz Sławiński <amadeusz.slawinski@tieto.com>
 ---
- include/linux/phy.h              | 3 ++-
- include/linux/phy_led_triggers.h | 3 +--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ net/mac80211/rx.c     | 2 +-
+ net/mac80211/status.c | 2 +-
+ net/mac80211/tx.c     | 4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 5c9d2529685fe215..f6ab919528ab3627 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -25,7 +25,6 @@
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- #include <linux/mod_devicetable.h>
--#include <linux/phy_led_triggers.h>
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 3e289a6..cf8ed1c 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -1391,7 +1391,7 @@ void ieee80211_sta_pspoll(struct ieee80211_sta *pubsta)
+ void ieee80211_sta_uapsd_trigger(struct ieee80211_sta *pubsta, u8 tid)
+ {
+ 	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+-	u8 ac = ieee802_1d_to_ac[tid & 7];
++	int ac = ieee80211_ac_from_tid(tid);
  
- #include <linux/atomic.h>
+ 	/*
+ 	 * If this AC is not trigger-enabled do nothing unless the
+diff --git a/net/mac80211/status.c b/net/mac80211/status.c
+index ddf71c6..dd48de0 100644
+--- a/net/mac80211/status.c
++++ b/net/mac80211/status.c
+@@ -95,7 +95,7 @@ static void ieee80211_handle_filtered_frame(struct ieee80211_local *local,
+ 		 */
+ 		if (*p & IEEE80211_QOS_CTL_EOSP)
+ 			*p &= ~IEEE80211_QOS_CTL_EOSP;
+-		ac = ieee802_1d_to_ac[tid & 7];
++		ac = ieee80211_ac_from_tid(tid);
+ 	} else {
+ 		ac = IEEE80211_AC_BE;
+ 	}
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 0d8b716..009eb36 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1410,7 +1410,7 @@ void ieee80211_txq_init(struct ieee80211_sub_if_data *sdata,
+ 		txqi->txq.sta = &sta->sta;
+ 		sta->sta.txq[tid] = &txqi->txq;
+ 		txqi->txq.tid = tid;
+-		txqi->txq.ac = ieee802_1d_to_ac[tid & 7];
++		txqi->txq.ac = ieee80211_ac_from_tid(tid);
+ 	} else {
+ 		sdata->vif.txq = &txqi->txq;
+ 		txqi->txq.tid = 0;
+@@ -4542,7 +4542,7 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
+ 				 struct sk_buff *skb, int tid,
+ 				 enum nl80211_band band)
+ {
+-	int ac = ieee802_1d_to_ac[tid & 7];
++	int ac = ieee80211_ac_from_tid(tid);
  
-@@ -339,6 +338,8 @@ struct phy_c45_device_ids {
- 	u32 device_ids[8];
- };
- 
-+#include <linux/phy_led_triggers.h>
-+
- /* phy_device: An instance of a PHY
-  *
-  * drv: Pointer to the driver for this PHY instance
-diff --git a/include/linux/phy_led_triggers.h b/include/linux/phy_led_triggers.h
-index a2daea0a37d2ae14..69dffb4fc5a294e9 100644
---- a/include/linux/phy_led_triggers.h
-+++ b/include/linux/phy_led_triggers.h
-@@ -20,9 +20,8 @@
- #include <linux/leds.h>
- 
- #define PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE	10
--#define PHY_MII_BUS_ID_SIZE	(20 - 3)
- 
--#define PHY_LINK_LED_TRIGGER_NAME_SIZE (PHY_MII_BUS_ID_SIZE + \
-+#define PHY_LINK_LED_TRIGGER_NAME_SIZE (MII_BUS_ID_SIZE + \
- 				       FIELD_SIZEOF(struct mdio_device, addr)+\
- 				       PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE)
- 
+ 	skb_reset_mac_header(skb);
+ 	skb_set_queue_mapping(skb, ac);
 -- 
 1.9.1
