@@ -1,43 +1,46 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH v2 00/18] gtp: fixes and support multiple VRF's per GTP
- socket
-Date: Tue, 24 Jan 2017 16:39:19 +0100
-Message-ID: <20170124153919.zkigaq55kykyrfq5@nataraja>
-References: <20170124152848.6120-1-aschultz@tpip.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH net-next 2/5] net: split skb_checksum_help
+Date: Tue, 24 Jan 2017 16:35:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026CEA4@AcuExch.aculab.com>
+References: <cover.1485177252.git.dcaratti@redhat.com>
+ <532e1db70b6c40f1b1e5c60b5b51be9f3437a30b.1485177252.git.dcaratti@redhat.com>
+ <CALx6S37E=OEkRego_u=oDuUgQUn9-NZLpupvbN_dge1rqF92CQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira <pablo@netfilter.org>, netdev@vger.kernel.org,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: 'Tom Herbert' <tom@herbertland.com>,
+        Davide Caratti <dcaratti@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:54593 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750715AbdAXQeT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 11:34:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20170124152848.6120-1-aschultz@tpip.net>
+Received: from smtp-out6.electric.net ([192.162.217.184]:56543 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750723AbdAXQf1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 11:35:27 -0500
+In-Reply-To: <CALx6S37E=OEkRego_u=oDuUgQUn9-NZLpupvbN_dge1rqF92CQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andreas,
-
-On Tue, Jan 24, 2017 at 04:28:30PM +0100, Andreas Schultz wrote:
-> During that work some smaller problems where found and fixes for them are
-> included.
-
-As this is a rather large patch-set, and I think it might be better to
-split it in clear bugfixes of the existing code (or no-brainers like the
-module alias) and in introducing new featur regarding socket/netdev.
-However, that's just my comment "from the side", I'm not the one who
-needs to be convinced in terms of merging them :)
-
-I would just assume that the clear fixes + no-brainers could go in right
-away without any further review...
-
--- 
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-============================================================================
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+RnJvbTogVG9tIEhlcmJlcnQNCj4gU2VudDogMjMgSmFudWFyeSAyMDE3IDIxOjAwDQouLg0KPiBz
+a2JfY2hlY2tzdW1faGVscCBpcyBzcGVjaWZpYyB0byB0aGUgSW50ZXJuZXQgY2hlY2tzdW0uIEZv
+ciBpbnN0YW5jZSwNCj4gQ0hFQ0tTVU1fQ09NUExFVEUgY2FuIF9vbmx5XyByZWZlciB0byBJbnRl
+cm5ldCBjaGVja3N1bSBjYWxjdWxhdGlvbg0KPiBub3RoaW5nIGVsc2Ugd2lsbCB3b3JrLiBDaGVj
+a3N1bXMgYW5kIENSQ3MgYXJlIHZlcnkgZGlmZmVyZW50IHRoaW5ncw0KPiB3aXRoIHZlcnkgZGlm
+ZmVyZW50IHByb2Nlc3NpbmcuIFRoZXkgYXJlIG5vdCBpbnRlcmNoYW5nZWFibGUsIGhhdmUNCj4g
+dmVyeSBkaWZmZXJlbnQgcHJvcGVydGllcywgYW5kIGhlbmNlIGl0IGlzIGEgbWlzdGFrZSB0byB0
+cnkgdG8gc2hvZQ0KPiBob3JuIHRoaW5ncyBzbyB0aGF0IHRoZXkgdXNlIGEgY29tbW9uIGluZnJh
+c3RydWN0dXJlLg0KPiANCj4gSXQgbWlnaHQgbWFrZSBzZW5zZSB0byBjcmVhdGUgc29tZSBDUkMg
+aGVscGVyIGZ1bmN0aW9ucywgYnV0IGxhc3QgdGltZQ0KPiBJIGNoZWNrZWQgdGhlcmUgYXJlIHNv
+IGZldyB1c2VycyBvZiBDUkMgaW4gc2tidWZzIEknbSBub3QgZXZlbiBzdXJlDQo+IHRoYXQgd291
+bGQgbWFrZSBzZW5zZS4NCg0KSSBjYW4gaW1hZ2luZSBob3JyaWQgdGhpbmdzIGhhcHBlbmluZyBp
+ZiBzb21lb25lIHRyaWVzIHRvIGVuY2Fwc3VsYXRlDQpTQ1RQL0lQIGluIFVEUCAob3Igd29yc2Ug
+VURQL0lQIGluIFNDVFApLg0KDQpGb3IgVURQIGluIFVEUCBJIHN1c3BlY3QgdGhhdCBDSEVDS1NV
+TV9DT01QTEVURSBvbiBhbiBpbm5lciBVRFAgcGFja2V0DQphbGxvd3MgdGhlIG91dGVyIGNoZWNr
+c3VtIGJlIGNhbGN1bGF0ZWQgYnkgaWdub3JpbmcgdGhlIGlubmVyIHBhY2tldA0KKHNpbmNlIGl0
+IHN1bXMgdG8gemVybykuDQpUaGlzIGp1c3QgaXNuJ3QgdHJ1ZSBpZiBTQ1RQIGlzIGludm9sdmVk
+Lg0KVGhlcmUgYXJlIHRyaWNrcyB0byBnZW5lcmF0ZSBhIGNyYyBvZiBhIGxvbmdlciBwYWNrZXQs
+IGJ1dCB0aGV5J2Qgb25seQ0Kd29yayBmb3IgU0NUUCBpbiBTQ1RQLg0KDQpGb3Igbm9uLWVuY2Fw
+c3VsYXRlZCBwYWNrZXRzIGl0IGlzIGEgZGlmZmVyZW50IG1hdHRlci4NCg0KCURhdmlkDQoNCg==
