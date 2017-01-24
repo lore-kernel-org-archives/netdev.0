@@ -1,44 +1,52 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v2] bpf: Restrict cgroup bpf hooks to the init netns
-Date: Tue, 24 Jan 2017 14:34:37 -0700
-Message-ID: <a3e24f62-de50-57f8-35a1-4761cc99dace@cumulusnetworks.com>
-References: <ddd9e097f54e894197a2925731de02d1d3cae137.1485203708.git.luto@kernel.org>
- <20170124020950.GA72992@ast-mbp.thefacebook.com>
- <CALCETrUq_ZSso_252ixzjt+WbFOv_K57zbePUXneLv-Tgi5=jA@mail.gmail.com>
- <20170124031259.GA81720@ast-mbp.thefacebook.com>
- <CALCETrVZqqfMO+=HGgebbAJ0TY6c3XSyY1G-Ve+g3VQiEfGwyA@mail.gmail.com>
- <08f3f57e-8c51-c893-01ad-3ce23db8166d@cumulusnetworks.com>
- <CALCETrVsqktjiPkfpcm_5uL0UL2Lzr106ZteLchJVnsKH_e-aw@mail.gmail.com>
- <20170124174823.GA17813@ast-mbp.thefacebook.com>
- <CALCETrW-Sj9eM+Nm9PVpqJky_30YSGhzc8hnzmddPkhHzb5_Fg@mail.gmail.com>
- <242993d5-e27c-7177-a021-610d16b150e4@cumulusnetworks.com>
- <CALCETrXzh-7BJ4Q_oG0hBkTdK+XgDWUYe0=gLwkqG6sncskv3g@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
+Date: Tue, 24 Jan 2017 23:56:15 +0200
+Message-ID: <20170124235101-mutt-send-email-mst@kernel.org>
+References: <20170124221114-mutt-send-email-mst@kernel.org>
+	<20170124.155331.1409241818867862249.davem@davemloft.net>
+	<20170124225502-mutt-send-email-mst@kernel.org>
+	<20170124.161046.824400071485171478.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tejun Heo <tj@kernel.org>, Andy Lutomirski <luto@kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:36716 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750888AbdAXVek (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:34:40 -0500
-Received: by mail-pf0-f179.google.com with SMTP id 189so52738656pfu.3
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:34:39 -0800 (PST)
-In-Reply-To: <CALCETrXzh-7BJ4Q_oG0hBkTdK+XgDWUYe0=gLwkqG6sncskv3g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20170124.161046.824400071485171478.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 1/24/17 2:24 PM, Andy Lutomirski wrote:
-> I was hoping for an actual likely use case for the bpf hooks to be run
-> in all namespaces.  You're arguing that iproute2 can be made to work
-> mostly okay if bpf hooks can run in all namespaces, but the use case
-> of intentionally making sk_bound_dev_if invalid across all namespaces
-> seems dubious.
+On Tue, Jan 24, 2017 at 04:10:46PM -0500, David Miller wrote:
+> This works in the regimen that XDP packets always live in exactly one
+> page.  That will be needed to mmap the RX ring into userspace, and it
+> helps make adjust_header trivial as well.
 
-you can use the bpf hook to deny socket create based on family and/or protocol. 
+I think the point was to avoid resets across xdp attach/detach.  If we
+are doing resets now, we could do whatever buffering we want. We could
+also just disable mergeable buffers for that matter.
+
+> MTU 1500, PAGESIZE >= 4096, so a headroom of 256 is no problem, and
+> we still have enough tailroom for skb_shared_info should we wrap
+> the buffer into a real SKB and push it into the stack.
+> 
+> If you are trying to do buffering differently for virtio_net, well...
+> that's a self inflicted wound as far as I can tell.
+
+Right but I was wondering about the fact that this makes XDP_PASS
+much slower than processing skbs without XDP, as truesize is huge
+so we'll quickly run out of rmem space.
+
+When XDP is used to fight DOS attacks, why isn't this a concern?
+
+-- 
+MST
