@@ -1,47 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v5] bridge: multicast to unicast
-Date: Tue, 24 Jan 2017 12:41:19 -0500 (EST)
-Message-ID: <20170124.124119.2246238373876916746.davem@davemloft.net>
-References: <20170121200133.1864-1-linus.luessing@c0d3.blue>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
+Date: Tue, 24 Jan 2017 09:42:07 -0800
+Message-ID: <1485279727.16328.303.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170123185922.48046-1-tracywwnj@gmail.com>
+         <20170123185922.48046-4-tracywwnj@gmail.com>
+         <20170124073043.GA21590@1wt.eu>
+         <CAK6E8=eR5N-AV9sDJGwB-VKTojqSBRnPF6e7cK4jeavTzP97Hw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org,
-        nikolay-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170121200133.1864-1-linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Willy Tarreau <w@1wt.eu>, Wei Wang <tracywwnj@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Wei Wang <weiwan@google.com>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35020 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750716AbdAXRmK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 12:42:10 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 204so17177910pge.2
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 09:42:09 -0800 (PST)
+In-Reply-To: <CAK6E8=eR5N-AV9sDJGwB-VKTojqSBRnPF6e7cK4jeavTzP97Hw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
-Date: Sat, 21 Jan 2017 21:01:32 +0100
+On Tue, 2017-01-24 at 09:26 -0800, Yuchung Cheng wrote:
 
-> From: Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
-> 
-> Implements an optional, per bridge port flag and feature to deliver
-> multicast packets to any host on the according port via unicast
-> individually. This is done by copying the packet per host and
-> changing the multicast destination MAC to a unicast one accordingly.
-> 
-> multicast-to-unicast works on top of the multicast snooping feature of
-> the bridge. Which means unicast copies are only delivered to hosts which
-> are interested in it and signalized this via IGMP/MLD reports
-> previously.
-> 
-> This feature is intended for interface types which have a more reliable
-> and/or efficient way to deliver unicast packets than broadcast ones
-> (e.g. wifi).
-> 
-> However, it should only be enabled on interfaces where no IGMPv2/MLDv1
-> report suppression takes place. This feature is disabled by default.
-> 
-> The initial patch and idea is from Felix Fietkau.
-> 
-> Signed-off-by: Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
-> [linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org: various bug + style fixes, commit message]
-> Signed-off-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+> >
+> > Do you think there's a compelling reason for adding a new option or
+> > are you interested in a small patch to perform the change above ?
+> I like the proposal especially other stack also uses TCP_FASTOPEN
+> https://msdn.microsoft.com/en-us/library/windows/desktop/ms738596(v=vs.85).aspx
 
-I'm not completely happy that things have progressed this way, however
-I don't have a better solution to suggest.
+
+Problem is that might break existing applications that were using
+TCP_FASTOPEN before a connect() (it was a NOP until now)
+
+I prefer we use a separate new option to be 100% safe, not adding
+regressions.
+
+Only new applications, tested, will use this new feature at their risk.
