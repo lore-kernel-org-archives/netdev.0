@@ -1,27 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: couple mdio_module_driver changes
-Date: Tue, 24 Jan 2017 13:38:07 -0500 (EST)
-Message-ID: <20170124.133807.1324899528963098965.davem@davemloft.net>
-References: <20170123051733.10316-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net] r8152: don't execute runtime suspend if the tx is
+ not empty
+Date: Tue, 24 Jan 2017 13:39:25 -0500 (EST)
+Message-ID: <20170124.133925.2008738155868268449.davem@davemloft.net>
+References: <1394712342-15778-235-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54254 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750713AbdAXSiI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 13:38:08 -0500
-In-Reply-To: <20170123051733.10316-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-235-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sun, 22 Jan 2017 21:17:31 -0800
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Mon, 23 Jan 2017 14:18:43 +0800
 
-> Small patch series fixing a comment for mdio_module_driver and
-> finally utilizing it in b53_mdio.
+> Runtime suspend shouldn't be executed if the tx queue is not empty,
+> because the device is not idle.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
