@@ -1,51 +1,51 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: sctp_addr_id2transport should verify the addr before looking up assoc
-Date: Tue, 24 Jan 2017 14:01:53 +0800
-Message-ID: <2ba9d3e0b3aa05baa3791811c92248126d233c67.1485237713.git.lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: sctp gso should set feature with NETIF_F_SG when calling skb_segment
+Date: Tue, 24 Jan 2017 14:05:16 +0800
+Message-ID: <7b4d081c051650e706ffda360fdfbd4baaa1a317.1485237916.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35363 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdAXGCB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:02:01 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34984 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdAXGFX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 01:05:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp_addr_id2transport is a function for sockopt to look up assoc by
-address. As the address is from userspace, it can be a v4-mapped v6
-address. But in sctp protocol stack, it always handles a v4-mapped
-v6 address as a v4 address. So it's necessary to convert it to a v4
-address before looking up assoc by address.
+Now sctp gso puts segments into skb's frag_list, then processes these
+segments in skb_segment. But skb_segment handles them only when gs is
+enabled, as it's in the same branch with skb's frags.
 
-This patch is to fix it by calling sctp_verify_addr in which it can do
-this conversion before calling sctp_endpoint_lookup_assoc, just like
-what sctp_sendmsg and __sctp_connect do for the address from users.
+Although almost all the NICs support sg other than some old ones, but
+since commit 1e16aa3ddf86 ("net: gso: use feature flag argument in all
+protocol gso handlers"), features &= skb->dev->hw_enc_features, and
+xfrm_output_gso call skb_segment with features = 0, which means sctp
+gso would call skb_segment with sg = 0, and skb_segment would not work
+as expected.
+
+This patch is to fix it by setting features param with NETIF_F_SG when
+calling skb_segment so that it can go the right branch to process the
+skb's frag_list.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/sctp/socket.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/sctp/offload.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 318c678..37eeab7 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -235,8 +235,12 @@ static struct sctp_transport *sctp_addr_id2transport(struct sock *sk,
- 					      sctp_assoc_t id)
- {
- 	struct sctp_association *addr_asoc = NULL, *id_asoc = NULL;
--	struct sctp_transport *transport;
-+	struct sctp_af *af = sctp_get_af_specific(addr->ss_family);
- 	union sctp_addr *laddr = (union sctp_addr *)addr;
-+	struct sctp_transport *transport;
-+
-+	if (sctp_verify_addr(sk, laddr, af->sockaddr_len))
-+		return NULL;
+diff --git a/net/sctp/offload.c b/net/sctp/offload.c
+index 7e869d0..4f5a2b5 100644
+--- a/net/sctp/offload.c
++++ b/net/sctp/offload.c
+@@ -68,7 +68,7 @@ static struct sk_buff *sctp_gso_segment(struct sk_buff *skb,
+ 		goto out;
+ 	}
  
- 	addr_asoc = sctp_endpoint_lookup_assoc(sctp_sk(sk)->ep,
- 					       laddr,
+-	segs = skb_segment(skb, features | NETIF_F_HW_CSUM);
++	segs = skb_segment(skb, features | NETIF_F_HW_CSUM | NETIF_F_SG);
+ 	if (IS_ERR(segs))
+ 		goto out;
+ 
 -- 
 2.1.0
