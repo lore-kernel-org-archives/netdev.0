@@ -1,53 +1,43 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH v5 0/2] Add support for the ethernet switch on the ESPRESSObin
-Date: Tue, 24 Jan 2017 17:47:06 +0100
-Message-ID: <87r33s2ynp.fsf@free-electrons.com>
-References: <20170119214934.27442-1-gregory.clement@free-electrons.com>
-        <20170120.141705.1390880809796992457.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] Introduce a sysctl that modifies the value
+ of PROT_SOCK.
+Date: Tue, 24 Jan 2017 12:11:21 -0500 (EST)
+Message-ID: <20170124.121121.1514357798997792255.davem@davemloft.net>
+References: <20161231125505.7f0c7dff@xeon-e3>
+        <20170112065225.GB2345@templeofstupid.com>
+        <20170121014911.GB2598@templeofstupid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jason@lakedaemon.net,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org, nadavh@marvell.com,
-        dingwei@marvell.com, kostap@marvell.com, shjzhou@marvell.com,
-        jpannell@marvell.com
-To: David Miller <davem@davemloft.net>,
-        vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170120.141705.1390880809796992457.davem@davemloft.net> (David
-        Miller's message of "Fri, 20 Jan 2017 14:17:05 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, stephen@networkplumber.org,
+        netdev@vger.kernel.org
+To: kjlx@templeofstupid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50620 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750774AbdAXRLq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 12:11:46 -0500
+In-Reply-To: <20170121014911.GB2598@templeofstupid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
- 
- On ven., janv. 20 2017, David Miller <davem@davemloft.net> wrote:
+From: Krister Johansen <kjlx@templeofstupid.com>
+Date: Fri, 20 Jan 2017 17:49:11 -0800
 
-> From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-> Date: Thu, 19 Jan 2017 22:49:32 +0100
->
->> I created a new family for this switch and filled the ops structure
->> by selecting which seems the more appropriate functions. I rebased
->> the series on net-next/master which allowed me to benefit to the
->> eeprom functions introduced for the 6390.
->
-> It looks like there will be at least one more respin of this series,
-> specifically to remove the new family as Vivien seems to object to
-> this.
+> Add net.ipv4.ip_unprivileged_port_start, which is a per namespace sysctl
+> that denotes the first unprivileged inet port in the namespace.  To
+> disable all privileged ports set this to zero.  It also checks for
+> overlap with the local port range.  The privileged and local range may
+> not overlap.
+> 
+> The use case for this change is to allow containerized processes to bind
+> to priviliged ports, but prevent them from ever being allowed to modify
+> their container's network configuration.  The latter is accomplished by
+> ensuring that the network namespace is not a child of the user
+> namespace.  This modification was needed to allow the container manager
+> to disable a namespace's priviliged port restrictions without exposing
+> control of the network namespace to processes in the user namespace.
+> 
+> Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
 
-I am about to send a new version. However about removing the new family,
-I thought that with the confirmation from Andrew we could keep it.
-
-Vivien could you confirm this?
-
-Thanks,
-
-Gregory
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Applied, thanks.
