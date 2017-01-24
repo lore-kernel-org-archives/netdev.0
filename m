@@ -1,83 +1,30 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 3/3] sh_eth: stop using bare numbers for EESIPR values
-Date: Tue, 24 Jan 2017 18:54:44 +0300
-Message-ID: <371abddd-f4c7-8560-0c17-e30a91462ae3@cogentembedded.com>
-References: <1636105.gp4aQxGd5K@wasted.cogentembedded.com>
- <4605565.M0SEEbnHAH@wasted.cogentembedded.com>
- <CAMuHMdWWFmDkJfhac9jLZ-ZAJfzDPw7oq4hwL5hVy21h0V13Og@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/5] net: dsa: mv88e6xxx: Abstract mv88e6165 PHY operations
+Date: Tue, 24 Jan 2017 10:56:57 -0500
+Message-ID: <874m0ocuye.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1485266031-4980-1-git-send-email-andrew@lunn.ch> <1485266031-4980-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdWWFmDkJfhac9jLZ-ZAJfzDPw7oq4hwL5hVy21h0V13Og@mail.gmail.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:34048 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750714AbdAXP5a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 10:57:30 -0500
+In-Reply-To: <1485266031-4980-2-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2017 11:00 AM, Geert Uytterhoeven wrote:
+Andrew Lunn <andrew@lunn.ch> writes:
 
->> Now  that we  have almost all EESIPR bits declared (and those that  are
->> still not are most probably reserved anyway) we can at last replace the
->> bare  numbers used for 'sh_eth_cpu_data::eesipr_value' initializers with
->> the bit names ORed together...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->> ---
->>  drivers/net/ethernet/renesas/sh_eth.c |   89 +++++++++++++++++++++++++++++-----
->>  1 file changed, 78 insertions(+), 11 deletions(-)
->>
->> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
->> ===================================================================
->> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
->> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> The mv88e6165 family has the internal PHYs mapped directly onto the
+> SMI register space as the switch. So the registers can be read
+> directly. Put a wrapper around this, in preparation for changing the
+> signature in order to support the external MDIO bus of the 6390.
 >
->> @@ -800,7 +843,12 @@ static struct sh_eth_cpu_data sh7734_dat
->>
->>         .ecsr_value     = ECSR_ICD | ECSR_MPD,
->>         .ecsipr_value   = ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
->> -       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP | 0x003f07ff,
->> +       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP |
->> +                         EESIPR_FTCIP | EESIPR_TDEIP | EESIPR_TFUFIP |
->> +                         EESIPR_FRIP | EESIPR_RDEIP | EESIPR_RFOFIP |
->
-> Missing:
->
->         EESIPR_DLCIP | EESIPR_CDIP | EESIPR_TROIP |
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-    Hm, I thought I'd double-checked all the initializers... TY!
-
->> +                         EESIPR_RMAFIP | EESIPR_CEEFIP | EESIPR_CELFIP |
->> +                         EESIPR_RRFIP | EESIPR_RTLFIP | EESIPR_RTSFIP |
->> +                         EESIPR_PREIP | EESIPR_CERFIP,
->>
->>         .tx_check       = EESR_TC1 | EESR_FTC,
->>         .eesr_err_check = EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
->> @@ -830,7 +878,12 @@ static struct sh_eth_cpu_data sh7763_dat
->>
->>         .ecsr_value     = ECSR_ICD | ECSR_MPD,
->>         .ecsipr_value   = ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
->> -       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP | 0x003f07ff,
->> +       .eesipr_value   = EESIPR_RFCOFIP | EESIPR_ECIIP |
->> +                         EESIPR_FTCIP | EESIPR_TDEIP | EESIPR_TFUFIP |
->> +                         EESIPR_FRIP | EESIPR_RDEIP | EESIPR_RFOFIP |
->
-> Likewise
-
-    :-<
-
->> +                         EESIPR_RMAFIP | EESIPR_CEEFIP | EESIPR_CELFIP |
->> +                         EESIPR_RRFIP | EESIPR_RTLFIP | EESIPR_RTSFIP |
->> +                         EESIPR_PREIP | EESIPR_CERFIP,
->
-> Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
-
-    Will add, thanks again...
-
-> Gr{oetje,eeting}s,
->
->                         Geert
-
-MBR, Sergei
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
