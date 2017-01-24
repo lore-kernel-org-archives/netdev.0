@@ -1,40 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: Keep a reference count on ethernet_dev
-Date: Tue, 24 Jan 2017 12:39:11 -0500 (EST)
-Message-ID: <20170124.123911.330293119907498159.davem@davemloft.net>
-References: <20170121174055.27560-1-f.fainelli@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v5] bridge: multicast to unicast
+Date: Tue, 24 Jan 2017 12:41:19 -0500 (EST)
+Message-ID: <20170124.124119.2246238373876916746.davem@davemloft.net>
+References: <20170121200133.1864-1-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51582 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750707AbdAXRjP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 12:39:15 -0500
-In-Reply-To: <20170121174055.27560-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org,
+        nikolay-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170121200133.1864-1-linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sat, 21 Jan 2017 09:40:54 -0800
+From: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Date: Sat, 21 Jan 2017 21:01:32 +0100
 
-> of_find_net_device_by_node() just returns a reference to a net_device but does
-> not increment its reference count, which means that the master network device
-> can just vanish under our feet.
+> From: Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
 > 
-> Fixes: 83c0afaec7b7 ("net: dsa: Add new binding implementation")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Implements an optional, per bridge port flag and feature to deliver
+> multicast packets to any host on the according port via unicast
+> individually. This is done by copying the packet per host and
+> changing the multicast destination MAC to a unicast one accordingly.
+> 
+> multicast-to-unicast works on top of the multicast snooping feature of
+> the bridge. Which means unicast copies are only delivered to hosts which
+> are interested in it and signalized this via IGMP/MLD reports
+> previously.
+> 
+> This feature is intended for interface types which have a more reliable
+> and/or efficient way to deliver unicast packets than broadcast ones
+> (e.g. wifi).
+> 
+> However, it should only be enabled on interfaces where no IGMPv2/MLDv1
+> report suppression takes place. This feature is disabled by default.
+> 
+> The initial patch and idea is from Felix Fietkau.
+> 
+> Signed-off-by: Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
+> [linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org: various bug + style fixes, commit message]
+> Signed-off-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
 
-This is fine, except now this netdev is completely locked into place with
-no way to dynamically unload it.
-
-If someone tries to modunload the driver for this ethernet device,
-their screen will fill up with warning messages indicating that the
-reference taken here in the DSA code is not going away.
-
-You need to implement a netdev notifier that tears down this DSA
-instance during an unregister event and releases the ethernet_dev.
-Similar to how we handle protocol addresses bound to a netdev, etc.
+I'm not completely happy that things have progressed this way, however
+I don't have a better solution to suggest.
