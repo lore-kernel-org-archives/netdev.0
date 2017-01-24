@@ -1,73 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
-Date: Tue, 24 Jan 2017 23:07:51 +0200
-Message-ID: <20170124225502-mutt-send-email-mst@kernel.org>
-References: <20170124215214-mutt-send-email-mst@kernel.org>
-	<20170124.150959.1708982899683381291.davem@davemloft.net>
-	<20170124221114-mutt-send-email-mst@kernel.org>
-	<20170124.155331.1409241818867862249.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170124.155331.1409241818867862249.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH 17/18] netvsc: simplify get next send section
+Date: Tue, 24 Jan 2017 13:06:14 -0800
+Message-ID: <20170124210615.18628-18-sthemmin@microsoft.com>
+References: <20170124210615.18628-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net, kys@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:33816 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750854AbdAXVG7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
+Received: by mail-pf0-f179.google.com with SMTP id e4so52411857pfg.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:35 -0800 (PST)
+In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2017 at 03:53:31PM -0500, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Tue, 24 Jan 2017 22:45:37 +0200
-> 
-> > On Tue, Jan 24, 2017 at 03:09:59PM -0500, David Miller wrote:
-> >> From: "Michael S. Tsirkin" <mst@redhat.com>
-> >> Date: Tue, 24 Jan 2017 21:53:13 +0200
-> >> 
-> >> > I didn't realise. Why can't we? I thought that adjust_header is an
-> >> > optional feature that userspace can test for, so no rush.
-> >> 
-> >> No, we want the base set of XDP features to be present in all drivers
-> >> supporting XDP.
-> > 
-> > I see, I didn't realize this. In light of this, is there any
-> > guidance *how much* head room is required to be considered
-> > valid? We already have 12 bytes of headroom.
-> 
-> The idea is to allow programs to implement arbitrary kinds of
-> encapsulation, so we need to be able to allow them to push headers for
-> all kinds of software tunnels, with allowance for a few depths in some
-> extreme cases.
-> 
-> In that light, a nice round power of 2 number such as 256 seems quite
-> reasonable to me.
-> 
-> This seems to be what other XDP implementations in drivers use at the
-> moment as well.
+Use kernel for_each_clear_bit macro to simplify finding next
+available send section.
 
-It bothers me that this becomes a part of userspace ABI.
-Apps will see that everyone does 256 and will assume it,
-we'll never be able to go back.
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c | 28 ++++++++--------------------
+ 1 file changed, 8 insertions(+), 20 deletions(-)
 
-This does mean that XDP_PASS will use much more memory
-for small packets and by extension need a higher rmem limit.
-Would all admins be comfortable with this? Why would they want
-to if all their XDP does is DROP?
-Why not teach applications to query the headroom?
-
-Or even better, do what we do with skbs and do data copies whenever you
-run out of headroom instead of a failure. Anyone using build_skb already
-has a ton of tailroom so that will work better.
-
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index c70c4ac77b74..5cfdb1a1b4c1 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -680,27 +680,15 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+ 
+ static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
+ {
+-	unsigned long index;
+-	u32 max_words = net_device->map_words;
+-	unsigned long *map_addr = (unsigned long *)net_device->send_section_map;
+-	u32 section_cnt = net_device->send_section_cnt;
+-	int ret_val = NETVSC_INVALID_INDEX;
+-	int i;
+-	int prev_val;
+-
+-	for (i = 0; i < max_words; i++) {
+-		if (!~(map_addr[i]))
+-			continue;
+-		index = ffz(map_addr[i]);
+-		prev_val = sync_test_and_set_bit(index, &map_addr[i]);
+-		if (prev_val)
+-			continue;
+-		if ((index + (i * BITS_PER_LONG)) >= section_cnt)
+-			break;
+-		ret_val = (index + (i * BITS_PER_LONG));
+-		break;
++	unsigned long *map_addr = net_device->send_section_map;
++	unsigned int i;
++
++	for_each_clear_bit(i, map_addr, net_device->map_words) {
++		if (sync_test_and_set_bit(i, map_addr) == 0)
++			return i;
+ 	}
+-	return ret_val;
++
++	return NETVSC_INVALID_INDEX;
+ }
+ 
+ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
 -- 
-MST
+2.11.0
