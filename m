@@ -1,86 +1,60 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: use-after-free in tw_timer_handler
-Date: Tue, 24 Jan 2017 16:06:02 +0100
-Message-ID: <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
-References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
- <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com> <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: linux-next: manual merge of the kselftest tree with the net-next
+ tree
+Date: Tue, 24 Jan 2017 08:17:21 -0700
+Message-ID: <fd85f7f5-ab0d-3bf5-784d-872f926dd7d7@osg.samsung.com>
+References: <20170124154524.2a993739@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        David Herrmann <dh.herrmann@gmail.com>,
+        Daniel Mack <daniel@zonque.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Bamvor Jian Zhang <bamvor.zhangjian@linaro.org>,
+        "bamvor.zhangjian@huawei.com" <bamvor.zhangjian@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <20170124154524.2a993739@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 3:28 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-01-23 at 11:23 +0100, Dmitry Vyukov wrote:
->> On Mon, Jan 23, 2017 at 11:19 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> > Hello,
->> >
->> > While running syzkaller fuzzer I started seeing use-after-frees in
->> > tw_timer_handler. It happens with very low frequency, so far I've seen
->> > 22 of them. But all reports look consistent, so I would assume that it
->> > is real, just requires a very tricky race to happen. I've stared
->> > seeing it around Jan 17, however I did not update kernels for some
->> > time before that so potentially the issues was introduced somewhat
->> > earlier. Or maybe fuzzer just figured how to trigger it, and the bug
->> > is actually old. I am seeing it on all of torvalds/linux-next/mmotm,
->> > some commits if it matters: 7a308bb3016f57e5be11a677d15b821536419d36,
->> > 5cf7a0f3442b2312326c39f571d637669a478235,
->> > c497f8d17246720afe680ea1a8fa6e48e75af852.
->> > Majority of reports points to net_drop_ns as the offending free, but
->> > it may be red herring. Since the access happens in timer, it can
->> > happen long after free and the memory could have been reused. I've
->> > also seen few where the access in tw_timer_handler is reported as
->> > out-of-bounds on task_struct and on struct filename.
->>
->>
->>
->> I've briefly skimmed through the code. Assuming that it requires a
->> very tricky race to be triggered, the most suspicious looks
->> inet_twsk_deschedule_put vs __inet_twsk_schedule:
->>
->> void inet_twsk_deschedule_put(struct inet_timewait_sock *tw)
->> {
->>         if (del_timer_sync(&tw->tw_timer))
->>                 inet_twsk_kill(tw);
->>         inet_twsk_put(tw);
->> }
->>
->> void __inet_twsk_schedule(struct inet_timewait_sock *tw, int timeo, bool rearm)
->> {
->>         tw->tw_kill = timeo <= 4*HZ;
->>         if (!rearm) {
->>                 BUG_ON(mod_timer(&tw->tw_timer, jiffies + timeo));
->>                 atomic_inc(&tw->tw_dr->tw_count);
->>         } else {
->>                 mod_timer_pending(&tw->tw_timer, jiffies + timeo);
->>         }
->> }
->>
->> Can't it somehow end up rearming already deleted timer? Or maybe the
->> first mod_timer happens after del_timer_sync?
->
-> This code was changed a long time ago :
->
-> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
->
-> So I suspect a recent patch broke the logic.
->
-> You might start a bisection :
->
-> I would check if 4.7 and 4.8 trigger the issue you noticed.
+On 01/23/2017 09:45 PM, Stephen Rothwell wrote:
+> Hi Shuah,
+> 
+> Today's linux-next merge of the kselftest tree got a conflict in:
+> 
+>   tools/testing/selftests/bpf/Makefile
+> 
+> between commit:
+> 
+>   4d3381f5a322 ("bpf: Add tests for the lpm trie map")
+> 
+> from the net-next tree and commit:
+> 
+>   88baa78d1f31 ("selftests: remove duplicated all and clean target")
+> 
+> from the kselftest tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
+
+Yes. Please.
+
+> 
+> P.S. Shuah, that kselftest commit has a different email address in its
+> Author and Signed-off-by.
+> 
 
 
-It happens with too low rate for bisecting (few times per day). I
-could add some additional checks into code, but I don't know what
-checks could be useful.
+Yes you are right. I didn't notice the discrepancy.
+
+Bamvor! Your gitconfig is outdated perhaps!
+
+thanks,
+-- Shuah
