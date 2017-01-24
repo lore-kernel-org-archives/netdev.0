@@ -1,55 +1,82 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] cxgbit: use T6 specific macro to set force bit
-Date: Tue, 24 Jan 2017 13:11:40 -0800
-Message-ID: <1485292300.12563.41.camel@perches.com>
-References: <1485257822-729-1-git-send-email-varun@chelsio.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net] net: free ip_vs_dest structs when refcnt=0
+Date: Tue, 24 Jan 2017 23:14:29 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1701242255570.2743@ja.home.ssi.bg>
+References: <1485262100-12366-1-git-send-email-dwindsor@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org,
-        indranil@chelsio.com
-To: Varun Prakash <varun@chelsio.com>, bart.vanassche@sandisk.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        keescook@chromium.org, elena.reshetova@intel.com,
+        ishkamiel@gmail.com
+To: David Windsor <dwindsor@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0239.hostedemail.com ([216.40.44.239]:34166 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750969AbdAXVLp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:11:45 -0500
-In-Reply-To: <1485257822-729-1-git-send-email-varun@chelsio.com>
+Received: from ja.ssi.bg ([178.16.129.10]:33279 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750792AbdAXVOw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 16:14:52 -0500
+In-Reply-To: <1485262100-12366-1-git-send-email-dwindsor@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-01-24 at 17:07 +0530, Varun Prakash wrote:
-> For T6 adapters use T6 specific macro to set
-> force bit.
-[]
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-[]
-> @@ -1349,6 +1349,10 @@ struct cpl_tx_data {
->  #define TX_FORCE_S	13
->  #define TX_FORCE_V(x)	((x) << TX_FORCE_S)
->  
-> +#define T6_TX_FORCE_S		20
-> +#define T6_TX_FORCE_V(x)	((x) << T6_TX_FORCE_S)
-> +#define T6_TX_FORCE_F		T6_TX_FORCE_V(1U)
-> +
->  enum {
->  	ULP_TX_MEM_READ = 2,
->  	ULP_TX_MEM_WRITE = 3,
-> diff --git a/drivers/target/iscsi/cxgbit/cxgbit_target.c b/drivers/target/iscsi/cxgbit/cxgbit_target.c
-[]
-> @@ -162,12 +162,14 @@ cxgbit_tx_data_wr(struct cxgbit_sock *csk, struct sk_buff *skb, u32 dlen,
->  		  u32 len, u32 credits, u32 compl)
->  {
->  	struct fw_ofld_tx_data_wr *req;
-> +	const struct cxgb4_lld_info *lldi = &csk->com.cdev->lldi;
->  	u32 submode = cxgbit_skcb_submode(skb);
->  	u32 wr_ulp_mode = 0;
->  	u32 hdr_size = sizeof(*req);
->  	u32 opcode = FW_OFLD_TX_DATA_WR;
->  	u32 immlen = 0;
-> -	u32 force = TX_FORCE_V(!submode);
-> +	u32 force = is_t5(lldi->adapter_type) ? TX_FORCE_V(!submode) :
-> +		    T6_TX_FORCE_F;
 
-Perhaps it'd be better to add a is_t6() mechanism so this
-is written in the positive rather than the negative.
+	Hello,
+
+On Tue, 24 Jan 2017, David Windsor wrote:
+
+> Currently, the ip_vs_dest cache frees ip_vs_dest objects when their reference
+> count becomes < 0.  Aside from not being semantically sound, this is problematic
+> for the new type refcount_t, which will be introduced shortly in a separate patch.
+> refcount_t is the new kernel type for holding reference counts, and provides
+> overflow protection and a constrained interface relative to atomic_t (the type
+> currently being used for kernel reference counts).
+> 
+> Per Juilan Anastasov: "The problem is that dest_trash currently holds deleted
+
+	Julian
+
+> dests (unlinked from RCU lists) with refcnt=0."  Changing dest_trash to hold
+> dest with refcnt=1 will allow us to free ip_vs_dest structs when their refcnt=0,
+> in ip_vs_dest_put_and_free().
+
+	Too long lines, should be up to 75 columns as per
+Documentation/process/submitting-patches.rst
+
+	Check with: scripts/checkpatch.pl --strict /tmp/file.patch
+
+> Signed-off-by: David Windsor <dwindsor@gmail.com>
+> ---
+>  include/net/ip_vs.h            | 2 +-
+>  net/netfilter/ipvs/ip_vs_ctl.c | 4 +---
+>  2 files changed, 2 insertions(+), 4 deletions(-)
+> 
+
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 55e0169..6b5492e 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -711,7 +711,6 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, int dest_af,
+>  		      dest->vport == svc->port))) {
+>  			/* HIT */
+>  			list_del(&dest->t_list);
+> -			ip_vs_dest_hold(dest);
+>  			goto out;
+>  		}
+>  	}
+
+	The changes look ok to me but as this is a net-next
+material I also prefer some comments in the code to be updated:
+
+- "be 0, so we simply release them here" before ip_vs_trash_cleanup
+should become "be 1, so we simply release them here".
+
+- "dest lives in trash with[out] reference" in __ip_vs_del_dest
+
+	When sending v2 for net-next please also CC:
+
+Simon Horman <horms@verge.net.au>
+Pablo Neira Ayuso <pablo@netfilter.org>
+lvs-devel@vger.kernel.org
+
+	I'll ack the next version after some tests...
+
+Regards
