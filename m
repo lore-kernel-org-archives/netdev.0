@@ -1,75 +1,85 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] net: reset ct before calling ndo_start_xmit
-Date: Tue, 24 Jan 2017 10:40:13 +0100
-Message-ID: <e33476125bdaf4619c221aa82c034831bbdce89b.1485250657.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Florian Westphal <fw@strlen.de>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [RESENT PATCH net,stable] qmi_wwan/cdc_ether: add device ID for HP lt2523 (Novatel E371) WWAN card
+Date: Tue, 24 Jan 2017 10:45:38 +0100
+Message-ID: <20170124094538.20351-1-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Oliver Neukum <oliver@neukum.org>, linux-usb@vger.kernel.org,
+        =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+        Dan Williams <dcbw@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45422 "EHLO mx1.redhat.com"
+Received: from canardo.mork.no ([148.122.252.1]:36639 "EHLO canardo.mork.no"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750733AbdAXJlk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 04:41:40 -0500
+        id S1750728AbdAXJqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 04:46:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some devices (e.g. ipoib and most wifi drivers) can retain the
-to-be-xmitted packets on some internal queue for a possibly
-unlimited time.
+Another rebranded Novatel E371.  qmi_wwan should drive this device, while
+cdc_ether should ignore it.  Even though the USB descriptors are plain
+CDC-ETHER that USB interface is a QMI interface.  Ref commit 7fdb7846c9ca
+("qmi_wwan/cdc_ether: add device IDs for Dell 5804 (Novatel E371) WWAN
+card")
 
-Removing conntrack modules after some skbs are queued on any of
-those devices may cause rmmod to hang waiting for ct refcount going
-away.
-
-Since clearing skb nfct early can also improve the performance,
-we now clear skb nfct before calling ndo_start_xmit() for all
-the devices not strictly requiring such information, that is,
-all virtual devices.
-
-Currently we use the NETIF_F_LLTX feature bit to identify such devices,
-since all the [legacy] phys drivers setting such bit are not prone
-the hangup issue. The plan is adding a specific 'this is a
-virtual device' priv flag and use it instead, in a later net-next
-patch.
-
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Cc: Dan Williams <dcbw@redhat.com>
+Signed-off-by: Bjørn Mork <bjorn@mork.no>
 ---
- include/linux/netdevice.h | 7 +++++++
- net/core/dev.c            | 3 +++
- 2 files changed, 10 insertions(+)
+Resending with correct author and to address. I didn't manage to spell
+kernel correctly... I guess I should have had one more cup of coffee
+this morning.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 9bde955..6e6b2ea 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -4200,6 +4200,13 @@ static inline bool netif_reduces_vlan_mtu(struct net_device *dev)
- 	return dev->priv_flags & IFF_MACSEC;
- }
+No changes to the diff.
+
+
+ drivers/net/usb/cdc_ether.c | 8 ++++++++
+ drivers/net/usb/qmi_wwan.c  | 7 +++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index fe7b2886cb6b..86144f9a80ee 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -531,6 +531,7 @@ static const struct driver_info wwan_info = {
+ #define SAMSUNG_VENDOR_ID	0x04e8
+ #define LENOVO_VENDOR_ID	0x17ef
+ #define NVIDIA_VENDOR_ID	0x0955
++#define HP_VENDOR_ID		0x03f0
  
-+/* return true if we should preserve skb nfct before calling ndo_start_xmit() */
-+static inline bool netif_needs_ct(struct net_device *dev)
+ static const struct usb_device_id	products[] = {
+ /* BLACKLIST !!
+@@ -677,6 +678,13 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++/* HP lt2523 (Novatel E371) - handled by qmi_wwan */
 +{
-+	/* any kind of virtual device needs to preserve the ct entry */
-+	return dev->features & NETIF_F_LLTX;
-+}
++	USB_DEVICE_AND_INTERFACE_INFO(HP_VENDOR_ID, 0x421d, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
 +
- extern struct pernet_operations __net_initdata loopback_net_ops;
- 
- /* Logging, debugging and troubleshooting/diagnostic helpers. */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7f218e0..85fcae0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2886,6 +2886,9 @@ static int xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	unsigned int len;
- 	int rc;
- 
-+	if (!netif_needs_ct(dev))
-+		nf_reset(skb);
-+
- 	if (!list_empty(&ptype_all) || !list_empty(&dev->ptype_all))
- 		dev_queue_xmit_nit(skb, dev);
- 
+ /* AnyDATA ADU960S - handled by qmi_wwan */
+ {
+ 	USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a, USB_CLASS_COMM,
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 6fe1cdb0174f..24d5272cdce5 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -654,6 +654,13 @@ static const struct usb_device_id products[] = {
+ 					      USB_CDC_PROTO_NONE),
+ 		.driver_info        = (unsigned long)&qmi_wwan_info,
+ 	},
++	{	/* HP lt2523 (Novatel E371) */
++		USB_DEVICE_AND_INTERFACE_INFO(0x03f0, 0x421d,
++					      USB_CLASS_COMM,
++					      USB_CDC_SUBCLASS_ETHERNET,
++					      USB_CDC_PROTO_NONE),
++		.driver_info        = (unsigned long)&qmi_wwan_info,
++	},
+ 	{	/* HP lt4112 LTE/HSPA+ Gobi 4G Module (Huawei me906e) */
+ 		USB_DEVICE_AND_INTERFACE_INFO(0x03f0, 0x581d, USB_CLASS_VENDOR_SPEC, 1, 7),
+ 		.driver_info = (unsigned long)&qmi_wwan_info,
 -- 
-2.9.3
+2.11.0
