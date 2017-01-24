@@ -1,68 +1,250 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 17/18] netvsc: simplify get next send section
-Date: Tue, 24 Jan 2017 13:06:14 -0800
-Message-ID: <20170124210615.18628-18-sthemmin@microsoft.com>
+Subject: [PATCH 06/18] netvsc: allow more flexible setting of number of channels
+Date: Tue, 24 Jan 2017 13:06:03 -0800
+Message-ID: <20170124210615.18628-7-sthemmin@microsoft.com>
 References: <20170124210615.18628-1-sthemmin@microsoft.com>
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: davem@davemloft.net, kys@microsoft.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:33816 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750854AbdAXVG7 (ORCPT
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:36139 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750821AbdAXVG7 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 16:06:59 -0500
-Received: by mail-pf0-f179.google.com with SMTP id e4so52411857pfg.1
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:35 -0800 (PST)
+Received: by mail-pg0-f48.google.com with SMTP id t6so57821997pgt.3
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 13:06:24 -0800 (PST)
 In-Reply-To: <20170124210615.18628-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use kernel for_each_clear_bit macro to simplify finding next
-available send section.
+This allows for number of channels to be managed in a manner similar
+to existing hardware drivers. It also removes the restriction of
+maximum 8 channels and allows as many as the host will allow.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc.c | 28 ++++++++--------------------
- 1 file changed, 8 insertions(+), 20 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |   1 +
+ drivers/net/hyperv/netvsc_drv.c | 128 +++++++++++++++-------------------------
+ 2 files changed, 50 insertions(+), 79 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index c70c4ac77b74..5cfdb1a1b4c1 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -680,27 +680,15 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 5bf21418bbe5..5a652eb8a619 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -628,6 +628,7 @@ struct nvsp_message {
  
- static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
- {
--	unsigned long index;
--	u32 max_words = net_device->map_words;
--	unsigned long *map_addr = (unsigned long *)net_device->send_section_map;
--	u32 section_cnt = net_device->send_section_cnt;
--	int ret_val = NETVSC_INVALID_INDEX;
--	int i;
--	int prev_val;
+ #define VRSS_SEND_TAB_SIZE 16
+ #define VRSS_CHANNEL_MAX 64
++#define VRSS_CHANNEL_DEFAULT 8
+ 
+ #define RNDIS_MAX_PKT_DEFAULT 8
+ #define RNDIS_PKT_ALIGN_DEFAULT 8
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 40a88387a8f5..ead472150742 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -47,8 +47,6 @@ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+ 
+-static int max_num_vrss_chns = 8;
 -
--	for (i = 0; i < max_words; i++) {
--		if (!~(map_addr[i]))
--			continue;
--		index = ffz(map_addr[i]);
--		prev_val = sync_test_and_set_bit(index, &map_addr[i]);
--		if (prev_val)
--			continue;
--		if ((index + (i * BITS_PER_LONG)) >= section_cnt)
--			break;
--		ret_val = (index + (i * BITS_PER_LONG));
--		break;
-+	unsigned long *map_addr = net_device->send_section_map;
-+	unsigned int i;
-+
-+	for_each_clear_bit(i, map_addr, net_device->map_words) {
-+		if (sync_test_and_set_bit(i, map_addr) == 0)
-+			return i;
+ static const u32 default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE |
+ 				NETIF_MSG_LINK | NETIF_MSG_IFUP |
+ 				NETIF_MSG_IFDOWN | NETIF_MSG_RX_ERR |
+@@ -709,102 +707,76 @@ static void netvsc_get_channels(struct net_device *net,
  	}
--	return ret_val;
-+
-+	return NETVSC_INVALID_INDEX;
  }
  
- static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
++static int netvsc_set_queues(struct net_device *net, struct hv_device *dev,
++			     u32 num_chn)
++{
++	struct netvsc_device_info device_info;
++	int ret;
++
++	memset(&device_info, 0, sizeof(device_info));
++	device_info.num_chn = num_chn;
++	device_info.ring_size = ring_size;
++	device_info.max_num_vrss_chns = num_chn;
++
++	ret = rndis_filter_device_add(dev, &device_info);
++	if (ret)
++		return ret;
++
++	ret = netif_set_real_num_tx_queues(net, num_chn);
++	if (ret)
++		return ret;
++
++	ret = netif_set_real_num_rx_queues(net, num_chn);
++
++	return ret;
++}
++
+ static int netvsc_set_channels(struct net_device *net,
+ 			       struct ethtool_channels *channels)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
+ 	struct hv_device *dev = net_device_ctx->device_ctx;
+ 	struct netvsc_device *nvdev = net_device_ctx->nvdev;
+-	struct netvsc_device_info device_info;
+-	u32 num_chn;
+-	u32 max_chn;
+-	int ret = 0;
+-	bool recovering = false;
++	unsigned int count = channels->combined_count;
++	int ret;
++
++	/* We do not support separate count for rx, tx, or other */
++	if (count == 0 ||
++	    channels->rx_count || channels->tx_count || channels->other_count)
++		return -EINVAL;
++
++	if (count > net->num_tx_queues || count > net->num_rx_queues)
++		return -EINVAL;
+ 
+ 	if (net_device_ctx->start_remove || !nvdev || nvdev->destroy)
+ 		return -ENODEV;
+ 
+-	num_chn = nvdev->num_chn;
+-	max_chn = min_t(u32, nvdev->max_chn, num_online_cpus());
+-
+-	if (nvdev->nvsp_version < NVSP_PROTOCOL_VERSION_5) {
+-		pr_info("vRSS unsupported before NVSP Version 5\n");
++	if (nvdev->nvsp_version < NVSP_PROTOCOL_VERSION_5)
+ 		return -EINVAL;
+-	}
+ 
+-	/* We do not support rx, tx, or other */
+-	if (!channels ||
+-	    channels->rx_count ||
+-	    channels->tx_count ||
+-	    channels->other_count ||
+-	    (channels->combined_count < 1))
++	if (count > nvdev->max_chn)
+ 		return -EINVAL;
+ 
+-	if (channels->combined_count > max_chn) {
+-		pr_info("combined channels too high, using %d\n", max_chn);
+-		channels->combined_count = max_chn;
+-	}
+-
+ 	ret = netvsc_close(net);
+ 	if (ret)
+-		goto out;
++		return ret;
+ 
+- do_set:
+ 	net_device_ctx->start_remove = true;
+ 	rndis_filter_device_remove(dev);
+ 
+-	nvdev->num_chn = channels->combined_count;
+-
+-	memset(&device_info, 0, sizeof(device_info));
+-	device_info.num_chn = nvdev->num_chn; /* passed to RNDIS */
+-	device_info.ring_size = ring_size;
+-	device_info.max_num_vrss_chns = max_num_vrss_chns;
+-
+-	ret = rndis_filter_device_add(dev, &device_info);
+-	if (ret) {
+-		if (recovering) {
+-			netdev_err(net, "unable to add netvsc device (ret %d)\n", ret);
+-			return ret;
+-		}
+-		goto recover;
+-	}
+-
+-	nvdev = net_device_ctx->nvdev;
+-
+-	ret = netif_set_real_num_tx_queues(net, nvdev->num_chn);
+-	if (ret) {
+-		if (recovering) {
+-			netdev_err(net, "could not set tx queue count (ret %d)\n", ret);
+-			return ret;
+-		}
+-		goto recover;
+-	}
+-
+-	ret = netif_set_real_num_rx_queues(net, nvdev->num_chn);
+-	if (ret) {
+-		if (recovering) {
+-			netdev_err(net, "could not set rx queue count (ret %d)\n", ret);
+-			return ret;
+-		}
+-		goto recover;
+-	}
++	ret = netvsc_set_queues(net, dev, count);
++	if (ret == 0)
++		nvdev->num_chn = count;
++	else
++		netvsc_set_queues(net, dev, nvdev->num_chn);
+ 
+- out:
+ 	netvsc_open(net);
+ 	net_device_ctx->start_remove = false;
++
+ 	/* We may have missed link change notifications */
+ 	schedule_delayed_work(&net_device_ctx->dwork, 0);
+ 
+ 	return ret;
+-
+- recover:
+-	/* If the above failed, we attempt to recover through the same
+-	 * process but with the original number of channels.
+-	 */
+-	netdev_err(net, "could not set channels, recovering\n");
+-	recovering = true;
+-	channels->combined_count = num_chn;
+-	goto do_set;
+ }
+ 
+ static bool netvsc_validate_ethtool_ss_cmd(const struct ethtool_cmd *cmd)
+@@ -865,8 +837,7 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	struct netvsc_device *nvdev = ndevctx->nvdev;
+ 	struct hv_device *hdev = ndevctx->device_ctx;
+ 	struct netvsc_device_info device_info;
+-	u32 num_chn;
+-	int ret = 0;
++	int ret;
+ 
+ 	if (ndevctx->start_remove || !nvdev || nvdev->destroy)
+ 		return -ENODEV;
+@@ -875,8 +846,6 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 	if (ret)
+ 		goto out;
+ 
+-	num_chn = nvdev->num_chn;
+-
+ 	ndevctx->start_remove = true;
+ 	rndis_filter_device_remove(hdev);
+ 
+@@ -884,8 +853,8 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+-	device_info.num_chn = num_chn;
+-	device_info.max_num_vrss_chns = max_num_vrss_chns;
++	device_info.num_chn = nvdev->num_chn;
++	device_info.max_num_vrss_chns = nvdev->num_chn;
+ 	rndis_filter_device_add(hdev, &device_info);
+ 
+ out:
+@@ -1410,7 +1379,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 	int ret;
+ 
+ 	net = alloc_etherdev_mq(sizeof(struct net_device_context),
+-				num_online_cpus());
++				VRSS_CHANNEL_MAX);
+ 	if (!net)
+ 		return -ENOMEM;
+ 
+@@ -1457,7 +1426,8 @@ static int netvsc_probe(struct hv_device *dev,
+ 	/* Notify the netvsc driver of the new device */
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.ring_size = ring_size;
+-	device_info.max_num_vrss_chns = max_num_vrss_chns;
++	device_info.max_num_vrss_chns = min_t(u32, VRSS_CHANNEL_DEFAULT,
++					      num_online_cpus());
+ 	ret = rndis_filter_device_add(dev, &device_info);
+ 	if (ret != 0) {
+ 		netdev_err(net, "unable to add netvsc device (ret %d)\n", ret);
 -- 
 2.11.0
