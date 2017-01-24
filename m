@@ -1,32 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] mlx5: Fix page rfcnt issue
-Date: Mon, 23 Jan 2017 19:16:53 -0500 (EST)
-Message-ID: <20170123.191653.947869807938526572.davem@davemloft.net>
-References: <20170123235658.3872770-1-tom@herbertland.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH cumulus-4.1.y 2/5] vxlan: don't replace fdb entry if nothing
+ changed
+Date: Mon, 23 Jan 2017 16:14:09 -0800
+Message-ID: <58869C51.4080101@cumulusnetworks.com>
+References: <1484984410-3304-1-git-send-email-roopa@cumulusnetworks.com> <1484984410-3304-2-git-send-email-roopa@cumulusnetworks.com> <20170123090211.6bcd2afc@xeon-e3>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com,
-        kernel-team@fb.com
-To: tom@herbertland.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        ramanb@cumulusnetworks.com, jbenc@redhat.com, pshelar@ovn.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38562 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751003AbdAXAQ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:16:57 -0500
-In-Reply-To: <20170123235658.3872770-1-tom@herbertland.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:33705 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdAXAVk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Jan 2017 19:21:40 -0500
+Received: by mail-pg0-f42.google.com with SMTP id 204so49270955pge.0
+        for <netdev@vger.kernel.org>; Mon, 23 Jan 2017 16:21:40 -0800 (PST)
+In-Reply-To: <20170123090211.6bcd2afc@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Mon, 23 Jan 2017 15:56:58 -0800
+On 1/23/17, 9:02 AM, Stephen Hemminger wrote:
+> On Fri, 20 Jan 2017 23:40:07 -0800
+> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>
+>> +	if (!vxlan_addr_equal(&rd->remote_ip, ip) ||
+>> +	    rd->remote_port != port ||
+>> +	    rd->remote_vni != vni ||
+>> +	    rd->remote_ifindex != ifindex) {
+>> +		dst_cache_reset(&rd->dst_cache);
+>> +		rd->remote_ip = *ip;
+>> +		rd->remote_port = port;
+>> +		rd->remote_vni = vni;
+>> +		rd->remote_ifindex = ifindex;
+>> +		return 1;
+>> +	}
+>> +
+> I think it would be clearer if negative logic was avoided.
+>
+> 	if (vxlan_addr_equal(&rd->remote_ip, ip) &&
+> 	    rd->remote_port == port &&
+> 	    rd->remote_vni == vni &&
+>             rd->ermote_ifindex == ifndex)
+> 		return 1;
+>
+> 	dst_cache_reset ...
 
-> One other potential problem in the driver is the use of put_page in
-> release pages.  Comparing how the allocation is done in other drivers
-> (for instance comparing to ixgbe) some seem to use __free_pages instead.
-> I don't know which is correct to use, but somehow it doesn't seem like
-> they can both be right.
+ack, this was an accidental hit on send as well.
+It is on my upstream patch stack..but i think this patch is not really needed upstream because
+a previous call to vxlan_fdb_find_rdst in vxlan_fdb_replace does the same thing.
 
-The only difference I can see is that put_page() does a
-__page_cache_release() which shouldn't be necessary for driver RX
-pages, so it could be unnecessary overhead.
+I will test again and repost if needed, thanks.
