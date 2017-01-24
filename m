@@ -1,32 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 0/2] ipv6: fix ip6_tnl_parse_tlv_enc_lim() issues
-Date: Tue, 24 Jan 2017 14:54:01 -0500 (EST)
-Message-ID: <20170124.145401.1164225343344688380.davem@davemloft.net>
-References: <20170124004306.19236-1-edumazet@google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 5/5] net: dsa: mv88e6xxx: Implement the 6390
+ external MDIO bus
+Date: Tue, 24 Jan 2017 20:54:05 +0100
+Message-ID: <20170124195405.GR10895@lunn.ch>
+References: <1485266031-4980-1-git-send-email-andrew@lunn.ch>
+ <1485266031-4980-6-git-send-email-andrew@lunn.ch>
+ <871svscpt9.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com, ast@kernel.org,
-        eric.dumazet@gmail.com
-To: edumazet@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57626 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751004AbdAXTyF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 14:54:05 -0500
-In-Reply-To: <20170124004306.19236-1-edumazet@google.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44023 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751026AbdAXTyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 14:54:16 -0500
+Content-Disposition: inline
+In-Reply-To: <871svscpt9.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Mon, 23 Jan 2017 16:43:04 -0800
-
-> First patch fixes ip6_tnl_parse_tlv_enc_lim() callers,
-> bug added in linux-3.7
+On Tue, Jan 24, 2017 at 12:48:02PM -0500, Vivien Didelot wrote:
+> Hi Andrew,
 > 
-> Second patch fixes ip6_tnl_parse_tlv_enc_lim() itself,
-> bug predates linux-2.6.12
+> Sorry but the previous patches with a list of MDIO busses and refactored
+> PHY ops still seems too much complex to just toggle a bit.
 > 
-> Based on a report from Dmitry Vyukov, thanks to KASAN.
+> We know which switch port has an external PHY attached to it, right?
 
-Series applied and queued up for -stable, thanks Eric.
+No, not really. We have the full flexibility of phandles in the device
+tree. The PHYs on the external bus might not even be connected to the
+switch, they could be for the host interfaces, for example. And you
+don't even need to use the internal PHYs. If you are using the SERDES
+interfaces, you could have an external SGMII PHY connect to a
+port. This would make sense with SFP cages, with a copper PHY inserted
+into the cage. All ports of the 6390 allow this.
+
+The hardware has two really separate MDIO busses. Both busses could
+have a PHY on the same address. We should really model this as two
+Linux MDIO devices.
+
+It is actually a shame older chips don't have this. Early versions of
+the ClearFog have a hardware design error. The external PHY on port6
+is using address 0. So it clashes with the internal PHY on port0. Two
+MDIO busses would solve this. And i actually expect quite a few
+designs using the 6390 will put an external phy at address 0 and 1,
+not 9 and 10. Few PHYs have that many strapping pins for address
+selection.
+
+     Andrew
