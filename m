@@ -1,97 +1,78 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2] bpf: Restrict cgroup bpf hooks to the init netns
-Date: Tue, 24 Jan 2017 09:48:26 -0800
-Message-ID: <20170124174823.GA17813@ast-mbp.thefacebook.com>
-References: <ddd9e097f54e894197a2925731de02d1d3cae137.1485203708.git.luto@kernel.org>
- <20170124020950.GA72992@ast-mbp.thefacebook.com>
- <CALCETrUq_ZSso_252ixzjt+WbFOv_K57zbePUXneLv-Tgi5=jA@mail.gmail.com>
- <20170124031259.GA81720@ast-mbp.thefacebook.com>
- <CALCETrVZqqfMO+=HGgebbAJ0TY6c3XSyY1G-Ve+g3VQiEfGwyA@mail.gmail.com>
- <08f3f57e-8c51-c893-01ad-3ce23db8166d@cumulusnetworks.com>
- <CALCETrVsqktjiPkfpcm_5uL0UL2Lzr106ZteLchJVnsKH_e-aw@mail.gmail.com>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [for-next 07/10] IB/mlx5: Use blue flame register allocator in
+ mlx5_ib
+Date: Tue, 24 Jan 2017 12:49:14 -0500
+Message-ID: <1485280154.43764.39.camel@redhat.com>
+References: <CAL3tnx4H2HsGMH=caiobivvvs0AU9yrzCmVONOdUQ_j_JMfufA@mail.gmail.com>
+         <20170105.150731.2097384465565543422.davem@davemloft.net>
+         <20170106060608.GG15685@mtr-leonro.local>
+         <20170106.111131.1775665484264248231.davem@redhat.com>
+         <20170108062257.GH15685@mtr-leonro.local>
+         <1485276271.43764.31.camel@redhat.com>
+         <AM4PR0501MB2787B803D95B7575065CC497C5750@AM4PR0501MB2787.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:32983 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750775AbdAXRsr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 12:48:47 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 194so17208161pgd.0
-        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 09:48:36 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALCETrVsqktjiPkfpcm_5uL0UL2Lzr106ZteLchJVnsKH_e-aw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-lazzLZHAD6Metg0BA6+v"
+Cc: "eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org" <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        David Miller <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AM4PR0501MB2787B803D95B7575065CC497C5750-dp/nxUn679jFcPxmzbbP+MDSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 23, 2017 at 08:32:02PM -0800, Andy Lutomirski wrote:
-> On Mon, Jan 23, 2017 at 8:05 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> > On 1/23/17 8:37 PM, Andy Lutomirski wrote:
-> >> Yes, it is a bug because cgroup+bpf causes unwitting programs to be
-> >> subject to BPF code installed by a different, potentially unrelated
-> >> process.  That's a new situation.  The failure can happen when a
-> >> privileged supervisor (whoever runs ip vrf) runs a clueless or
-> >> unprivileged program (the thing calling unshare()).
-> >
-> > There are many, many ways to misconfigure networking and to run programs in a context or with an input argument that causes the program to not work at all, not work as expected or stop working. This situation is no different.
-> >
-> > For example, the only aspect of BPF_PROG_TYPE_CGROUP_SOCK filters that are namespace based is the ifindex. You brought up the example of changing namespaces where the ifindex is not defined. Alexei mentioned an example where interfaces can be moved to another namespace breaking any ifindex based programs. Another example is the interface can be deleted. Deleting an interface with sockets bound to it does not impact the program in any way - no notification, no wakeup, nothing. The sockets just don't work.
-> 
-> And if you use 'ip vrf' to bind to a vrf with ifindex 4 and a program
-> unshares netns and creates an interface with ifindex 4, then that
-> program will end up with its sockets magically bound to ifindex 4 and
-> will silently malfunction.
-> 
-> I can think of multiple ways to address this problem.  You could scope
-> the hooks to a netns (which is sort of what my patch does).  You could
-> find a way to force programs in a given cgroup to only execute in a
-> single netns, although that would probably cause other breakage.  You
-> could improve the BPF hook API to be netns-aware, which could plausbly
-> address issues related to unshare() but might get very tricky when
-> setns() is involved.
 
-scoping cgroup to netns will create weird combination of cgroup and netns
-which was never done before. cgroup and netns scopes have to be able
-to overlap in arbitrary way. Application shouldn't not be able to escape
-cgroup scope by changing netns. They are orthogonal scoping constructs.
-What we can do instead is to do add bpf helper function to retrieve
-the netns id, so that program created for specific netns and specific
-ifindex will be more resilient to netns changes.
-Note that this ifindex behavior has been present since classic bpf
-and its shortcomings are understood. We need to improve it for all bpf
-users. It really has nothing to do with cgroups.
-cls_bpf filters can do packet redirect into ifindex and they can break
-if user process changes.
-The 'malfunction' scenario describe above is no different than
-cls_bpf is using bpf_skb_under_cgroup() to scope particular
-skb->sk->cgroup and doing redirect into ifindex.
-It will 'malfunction' exactly the same way if application stays
-in the same cgroup, but moves from one netns into another.
+--=-lazzLZHAD6Metg0BA6+v
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> My point is that, in 4.10-rc, it doesn't work right, and I doubt this
-> problem is restricted to just 'ip vrf'.  Without some kind of change
-> to the way that netns and cgroup+bpf interact, anything that uses
-> sk_bound_dev_if or reads the ifindex on an skb will be subject to a
-> huge footgun that unprivileged programs can trigger and any future
-> attempt to make the cgroup+bpf work for unprivileged users is going to
-> be more complicated than it deserves to be.
+On Tue, 2017-01-24 at 17:16 +0000, Eli Cohen wrote:
+> It is in Dave's tree:
+>=20
+> commit 5fe9dec0d045437e48f112b8fa705197bd7bc3c0
+> Author: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Date:=C2=A0=C2=A0=C2=A0Tue Jan 3 23:55:25 2017 +0200
+>=20
 
-For n-th time, the current BPF_PROG_TYPE_CGROUP* is root only and
-speculation about unprivileged usage are not helping the discussion.
+Thanks, got it.
 
-> things up so that unshare will malfunction.  It should avoid
-> malfunctioning when running Linux programs that are unaware of it.
+--=C2=A0
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
+=C2=A0 =C2=A0
+Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
 
-I agree that for VRF use case it will help to make programs netns
-aware by adding new bpf_get_current_netns_id() or something helper,
-but it's up to the program to function properly or be broken.
-Adding weird netns restrictions is not going to make bpf programs
-any more sane. The program author can always shoot in the foot.
+--=-lazzLZHAD6Metg0BA6+v
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-I will work on the patch to add that.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCAAGBQJYh5OaAAoJELgmozMOVy/dSZgP/it5+OpmQZ0fEeEKFVzitpSq
+wWhumUlW12jyENgMQybFnJZcG0Xes7bI5hlg8lZdiPZLjWdJ3MTY2vSC5cPk/529
+rK/Wsjxp5foAdrZ1ibpq3tfQ7QYH63nPz0A/VivOPPYoaXvKglsdXUpDO7Z22R0T
+rf+OhcsIZy53a5GVP1j+F1DZ5cN9AIUNgreJ3rs1VZJ68qrkWwrcyaUgfRfUo4Vw
+LYu703FHyA/PB/npZc/5Dlbj/lYTrOvztIzyZTTbn+R0oqQds2yyXnfGLbNnx4zv
+gfe7o91V/Mb06GhpEzgN8bNF8fuiM6yVU+TJ/hvSc7H+URi5DKtBcIdYwVSGPRy9
+GYCDb+ymwlyJjr0WJ+qVoII+klFa7i43Mrc7d95BhLPiZpZd+bGyQK2YPTTo4+To
+FDLIZ+F6OgDT1LwTpI282ObJu5bUdCsRl/N+WJ+o0lkrVjEJ8AD/RhTiZXWR2jf8
+f2gfyTP/A4LKx+T4PT0GltuYNMVN569gZaNE8yMhAkzmB+modIfTYQprt5L3TS9x
+Q8eZ/iKd9lkACK27YgepkjIcRbpOSJsmX8pfAyYZ82NySFO5JeG+sUT2w0pNu02q
+YcVLSbr6rbE/hFim3h9Q6+JAtf+3WoQQOo832Ynq/JioHxnWcoivklwoZKIji9iH
+cA4AwlWBwuJ0d6Onxt0g
+=k5Z5
+-----END PGP SIGNATURE-----
+
+--=-lazzLZHAD6Metg0BA6+v--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
