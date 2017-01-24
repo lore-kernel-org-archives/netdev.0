@@ -1,44 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v7] net: dummy: Introduce dummy virtual
- functions
-Date: Tue, 24 Jan 2017 14:07:42 -0500 (EST)
-Message-ID: <20170124.140742.2012452984177351042.davem@davemloft.net>
-References: <20170123111733.28643-1-phil@nwl.cc>
+Subject: Re: [PATCH] phy: marvell: remove conflicting initializer
+Date: Tue, 24 Jan 2017 14:09:24 -0500 (EST)
+Message-ID: <20170124.140924.1432554530568021817.davem@davemloft.net>
+References: <20170123121905.3245589-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sd@queasysnail.net
-To: phil@nwl.cc
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55594 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750860AbdAXTHo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 14:07:44 -0500
-In-Reply-To: <20170123111733.28643-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, andrew@lunn.ch,
+        charles-antoine.couret@nexvision.fr, clemens.gruber@pqgruber.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170123121905.3245589-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Mon, 23 Jan 2017 12:17:33 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 23 Jan 2017 13:18:41 +0100
 
-> The idea for this was born when testing VF support in iproute2 which was
-> impeded by hardware requirements. In fact, not every VF-capable hardware
-> driver implements all netdev ops, so testing the interface is still hard
-> to do even with a well-sorted hardware shelf.
+> One line was apparently pasted incorrectly during a new feature patch:
 > 
-> To overcome this and allow for testing the user-kernel interface, this
-> patch allows to turn dummy into a PF with a configurable amount of VFs.
+> drivers/net/phy/marvell.c:2090:15: error: initialized field overwritten [-Werror=override-init]
+>    .features = PHY_GBIT_FEATURES,
 > 
-> Since my patch series 'bus-agnostic-num-vf' has been accepted,
-> implementing the required interfaces is pretty straightforward: Iff
-> 'num_vfs' module parameter was given a value >0, a dummy bus type is
-> being registered which implements the 'num_vf()' callback. Additionally,
-> a dummy parent device common to all dummy devices is registered which
-> sits on the above dummy bus.
+> I'm removing the extraneous line here to avoid the W=1 warning and restore
+> the previous flags value, and I'm slightly reordering the lines for consistency
+> to make it less likely to happen again in the future. The ordering in the
+> array is still not the same as in the structure definition, instead I picked
+> the order that is most common in this file and that seems to make more sense
+> here.
 > 
-> Joint work with Sabrina Dubroca.
-> 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Fixes: 0b04680fdae4 ("phy: marvell: Add support for temperature sensor")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Yeah this looks awesome, applied, thanks!
+Applied, thanks Arnd.
+
+Please start putting appropriate "net" and "net-next" strings in your
+PATCH subject lines, it will save me a lot of time.
