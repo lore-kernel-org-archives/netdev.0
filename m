@@ -1,71 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the kselftest tree with the net-next
- tree
-Date: Tue, 24 Jan 2017 15:45:24 +1100
-Message-ID: <20170124154524.2a993739@canb.auug.org.au>
+From: "Valo, Kalle" <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH 2/3] ath10k: use dma_zalloc_coherent()
+Date: Tue, 24 Jan 2017 05:18:49 +0000
+Message-ID: <8737g9ox1k.fsf@qca.qualcomm.com>
+References: <1485183876-27080-1-git-send-email-srinivas.kandagatla@linaro.org>
+        <1485183876-27080-2-git-send-email-srinivas.kandagatla@linaro.org>
+        <1485213569.12563.32.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        David Herrmann <dh.herrmann@gmail.com>,
-        Daniel Mack <daniel@zonque.org>,
-        Bamvor Jian Zhang <bamvor.zhangjian@linaro.org>,
-        "bamvor.zhangjian@huawei.com" <bamvor.zhangjian@huawei.com>
-To: Shuah Khan <shuahkh@osg.samsung.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>,
+        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485213569.12563.32.camel@perches.com> (Joe Perches's message of
+        "Mon, 23 Jan 2017 15:19:29 -0800")
+Content-Language: en-US
+Content-ID: <38F78C300A1A754E9111BE621A5D15A6@qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Shuah,
-
-Today's linux-next merge of the kselftest tree got a conflict in:
-
-  tools/testing/selftests/bpf/Makefile
-
-between commit:
-
-  4d3381f5a322 ("bpf: Add tests for the lpm trie map")
-
-from the net-next tree and commit:
-
-  88baa78d1f31 ("selftests: remove duplicated all and clean target")
-
-from the kselftest tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
-P.S. Shuah, that kselftest commit has a different email address in its
-Author and Signed-off-by.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc tools/testing/selftests/bpf/Makefile
-index 064a3e5f2836,058351b0694f..000000000000
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@@ -1,13 -1,7 +1,7 @@@
-  CFLAGS += -Wall -O2 -I../../../../usr/include
-  
-- test_objs = test_verifier test_maps test_lru_map test_lpm_map
- -TEST_GEN_PROGS = test_verifier test_maps test_lru_map
-++TEST_GEN_PROGS = test_verifier test_maps test_lru_map test_lpm_map
-  
-- TEST_PROGS := test_verifier test_maps test_lru_map test_lpm_map test_kmod.sh
-- TEST_FILES := $(test_objs)
-- 
-- all: $(test_objs)
-+ TEST_PROGS := test_kmod.sh
-  
-  include ../lib.mk
-- 
-- clean:
-- 	$(RM) $(test_objs)
+Sm9lIFBlcmNoZXMgPGpvZUBwZXJjaGVzLmNvbT4gd3JpdGVzOg0KDQo+IE9uIE1vbiwgMjAxNy0w
+MS0yMyBhdCAxNTowNCArMDAwMCwgU3Jpbml2YXMgS2FuZGFnYXRsYSB3cm90ZToNCj4+IHVzZSBk
+bWFfemFsbG9jX2NvaGVyZW50KCkgaW5zdGVhZCBvZiBkbWFfYWxsb2NfY29oZXJlbnQgYW5kIG1l
+bXNldCgpLg0KPiBbXQ0KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9h
+dGgxMGsvcGNpLmMgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3BjaS5jDQo+IFtd
+DQo+PiBAQCAtODk2LDcgKzg5Niw3IEBAIHN0YXRpYyBpbnQgYXRoMTBrX3BjaV9kaWFnX3JlYWRf
+bWVtKHN0cnVjdCBhdGgxMGsgKmFyLCB1MzIgYWRkcmVzcywgdm9pZCAqZGF0YSwNCj4+ICAJICov
+DQo+PiAgCWFsbG9jX25ieXRlcyA9IG1pbl90KHVuc2lnbmVkIGludCwgbmJ5dGVzLCBESUFHX1RS
+QU5TRkVSX0xJTUlUKTsNCj4+ICANCj4+IC0JZGF0YV9idWYgPSAodW5zaWduZWQgY2hhciAqKWRt
+YV9hbGxvY19jb2hlcmVudChhci0+ZGV2LA0KPj4gKwlkYXRhX2J1ZiA9ICh1bnNpZ25lZCBjaGFy
+ICopZG1hX3phbGxvY19jb2hlcmVudChhci0+ZGV2LA0KPj4gIAkJCQkJCSAgICAgICBhbGxvY19u
+Ynl0ZXMsDQo+PiAgCQkJCQkJICAgICAgICZjZV9kYXRhX2Jhc2UsDQo+PiAgCQkJCQkJICAgICAg
+IEdGUF9BVE9NSUMpOw0KPg0KPiB0cml2aWE6DQo+DQo+IE5pY2VyIHRvIHJlYWxpZ24gYXJndW1l
+bnRzIGFuZCByZW1vdmUgdGhlIHVubmVjZXNzYXJ5IGNhc3QuDQo+DQo+IFBlcmhhcHM6DQo+DQo+
+IAlkYXRhX2J1ZiA9IGRtYV96YWxsb2NfY29oZXJlbnQoYXItPmRldizCoGFsbG9jX25ieXRlcywg
+JmNlX2RhdGFfYmFzZSwNCj4gCQkJCSAgICAgIMKgR0ZQX0FUT01JQyk7DQoNClN1cmUsIGJ1dCB0
+aGF0IHNob3VsZCBiZSBpbiBhIHNlcGFyYXRlIHBhdGNoLg0KDQotLSANCkthbGxlIFZhbG8=
