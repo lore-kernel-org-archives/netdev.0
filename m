@@ -1,107 +1,252 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 3/6] tipc: fix connection refcount
-	error
-Date: Tue, 24 Jan 2017 13:00:45 +0100
-Message-ID: <1485259248-21812-4-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-References: <1485259248-21812-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1485259248-21812-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v7 1/1] net sched actions: Add support for user cookies
+Date: Tue, 24 Jan 2017 07:02:41 -0500
+Message-ID: <1485259361-16860-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
+        roid@mellanox.com, xiyou.wangcong@gmail.com, daniel@iogearbox.net,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:32953 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750893AbdAXMDD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 07:03:03 -0500
+Received: by mail-qt0-f193.google.com with SMTP id n13so24607845qtc.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 04:02:57 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Until now, the generic server framework maintains the connection
-id's per subscriber in server's conn_idr. At tipc_close_conn, we
-remove the connection id from the server list, but the connection is
-valid until we call the refcount cleanup. Hence we have a window
-where the server allocates the same connection to an new subscriber
-leading to inconsistent reference count. We have another refcount
-warning we grab the refcount in tipc_conn_lookup() for connections
-with flag with CF_CONNECTED not set. This usually occurs at shutdown
-when the we stop the topology server and withdraw TIPC_CFG_SRV
-publication thereby triggering a withdraw message to subscribers.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-In this commit, we:
-1. remove the connection from the server list at recount cleanup.
-2. grab the refcount for a connection only if CF_CONNECTED is set.
+Introduce optional 128-bit action cookie.
+Like all other cookie schemes in the networking world (eg in protocols
+like http or existing kernel fib protocol field, etc) the idea is to save
+user state that when retrieved serves as a correlator. The kernel
+_should not_ intepret it.  The user can store whatever they wish in the
+128 bits.
 
-Tested-by: John Thompson <thompa.atl@gmail.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Sample exercise(showing variable length use of cookie)
+
+.. create an accept action with cookie a1b2c3d4
+sudo $TC actions add action ok index 1 cookie a1b2c3d4
+
+.. dump all gact actions..
+sudo $TC -s actions ls action gact
+
+    action order 0: gact action pass
+     random type none pass val 0
+     index 1 ref 1 bind 0 installed 5 sec used 5 sec
+    Action statistics:
+    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+    backlog 0b 0p requeues 0
+    cookie a1b2c3d4
+
+.. bind the accept action to a filter..
+sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
+u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
+
+... send some traffic..
+$ ping 127.0.0.1 -c 3
+PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
+64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
+64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
+64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
+
+--- 127.0.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2109ms
+rtt min/avg/max/mdev = 0.020/0.028/0.038/0.008 ms 1
+
+... show some stats
+$ sudo $TC -s actions get action gact index 1
+
+    action order 1: gact action pass
+     random type none pass val 0
+     index 1 ref 2 bind 1 installed 204 sec used 5 sec
+    Action statistics:
+        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+    backlog 0b 0p requeues 0
+    cookie a1b2c3d4
+
+.. try longer cookie...
+$ sudo $TC actions replace action ok index 1 cookie 1234567890abcdef
+.. dump..
+$ sudo $TC -s actions ls action gact
+
+    action order 1: gact action pass
+     random type none pass val 0
+     index 1 ref 2 bind 1 installed 204 sec used 5 sec
+    Action statistics:
+        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+    backlog 0b 0p requeues 0
+    cookie 1234567890abcdef
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/tipc/server.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
+Changes in v7:
+ -put guard around freeing cookie (caught by Simon)
+ -separate out the creation of the cookie (suggested by Simon)
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index 215849ce453d..2e803601aa99 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -91,7 +91,8 @@ static void tipc_sock_release(struct tipc_conn *con);
- static void tipc_conn_kref_release(struct kref *kref)
- {
- 	struct tipc_conn *con = container_of(kref, struct tipc_conn, kref);
--	struct sockaddr_tipc *saddr = con->server->saddr;
-+	struct tipc_server *s = con->server;
-+	struct sockaddr_tipc *saddr = s->saddr;
- 	struct socket *sock = con->sock;
- 	struct sock *sk;
+Changes in v6:
+ - fix mem leak caught by Florian
+
+Changes in V5:
+ - kill the stylistic changes
+ - Adopt a new structure with length-valuepointer representation
+ - rename some things
+
+Changes in v4:
+ - move stylistic changes out into a separate patch
+   (and add more stylistic changes)
+
+Changes in v3:
+ - use TC_ prefix for the max size
+ - move the cookie struct so visible only to kernel
+ - remove unneeded void * cast
+
+Changes in V2:
+ -move from a union to a length-value representation
+
+ include/net/act_api.h        |  1 +
+ include/net/pkt_cls.h        |  8 ++++++++
+ include/uapi/linux/pkt_cls.h |  3 +++
+ net/sched/act_api.c          | 45 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 57 insertions(+)
+
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 1d71644..cfa2ae3 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -41,6 +41,7 @@ struct tc_action {
+ 	struct rcu_head			tcfa_rcu;
+ 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+ 	struct gnet_stats_queue __percpu *cpu_qstats;
++	struct tc_cookie	*act_cookie;
+ };
+ #define tcf_head	common.tcfa_head
+ #define tcf_index	common.tcfa_index
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index f0a0514..b43077e 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -515,4 +515,12 @@ struct tc_cls_bpf_offload {
+ 	u32 gen_flags;
+ };
  
-@@ -106,6 +107,11 @@ static void tipc_conn_kref_release(struct kref *kref)
- 		tipc_sock_release(con);
- 		sock_release(sock);
- 		con->sock = NULL;
 +
-+		spin_lock_bh(&s->idr_lock);
-+		idr_remove(&s->conn_idr, con->conid);
-+		s->idr_in_use--;
-+		spin_unlock_bh(&s->idr_lock);
- 	}
++/* This structure holds cookie structure that is passed from user
++ * to the kernel for actions and classifiers
++ */
++struct tc_cookie {
++	u8  *data;
++	u32 len;
++};
+ #endif
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index fd373eb..345551e 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -4,6 +4,8 @@
+ #include <linux/types.h>
+ #include <linux/pkt_sched.h>
  
- 	tipc_clean_outqueues(con);
-@@ -128,8 +134,10 @@ static struct tipc_conn *tipc_conn_lookup(struct tipc_server *s, int conid)
++#define TC_COOKIE_MAX_SIZE 16
++
+ /* Action attributes */
+ enum {
+ 	TCA_ACT_UNSPEC,
+@@ -12,6 +14,7 @@ enum {
+ 	TCA_ACT_INDEX,
+ 	TCA_ACT_STATS,
+ 	TCA_ACT_PAD,
++	TCA_ACT_COOKIE,
+ 	__TCA_ACT_MAX
+ };
  
- 	spin_lock_bh(&s->idr_lock);
- 	con = idr_find(&s->conn_idr, conid);
--	if (con)
-+	if (con && test_bit(CF_CONNECTED, &con->flags))
- 		conn_get(con);
-+	else
-+		con = NULL;
- 	spin_unlock_bh(&s->idr_lock);
- 	return con;
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index cd08df9..3c5e29b 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -24,6 +24,7 @@
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <net/sch_generic.h>
++#include <net/pkt_cls.h>
+ #include <net/act_api.h>
+ #include <net/netlink.h>
+ 
+@@ -33,6 +34,12 @@ static void free_tcf(struct rcu_head *head)
+ 
+ 	free_percpu(p->cpu_bstats);
+ 	free_percpu(p->cpu_qstats);
++
++	if (p->act_cookie) {
++		kfree(p->act_cookie->data);
++		kfree(p->act_cookie);
++	}
++
+ 	kfree(p);
  }
-@@ -198,15 +206,8 @@ static void tipc_sock_release(struct tipc_conn *con)
  
- static void tipc_close_conn(struct tipc_conn *con)
- {
--	struct tipc_server *s = con->server;
--
- 	if (test_and_clear_bit(CF_CONNECTED, &con->flags)) {
+@@ -475,6 +482,12 @@ int tcf_action_destroy(struct list_head *actions, int bind)
+ 		goto nla_put_failure;
+ 	if (tcf_action_copy_stats(skb, a, 0))
+ 		goto nla_put_failure;
++	if (a->act_cookie) {
++		if (nla_put(skb, TCA_ACT_COOKIE, a->act_cookie->len,
++			    a->act_cookie->data))
++			goto nla_put_failure;
++	}
++
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
+@@ -516,6 +529,22 @@ int tcf_action_dump(struct sk_buff *skb, struct list_head *actions,
+ 	return err;
+ }
  
--		spin_lock_bh(&s->idr_lock);
--		idr_remove(&s->conn_idr, con->conid);
--		s->idr_in_use--;
--		spin_unlock_bh(&s->idr_lock);
--
- 		/* We shouldn't flush pending works as we may be in the
- 		 * thread. In fact the races with pending rx/tx work structs
- 		 * are harmless for us here as we have already deleted this
++int nla_memdup_cookie(struct tc_action *a, struct nlattr **tb)
++{
++	a->act_cookie = kzalloc(sizeof(*a->act_cookie), GFP_KERNEL);
++	if (!a->act_cookie)
++		return -ENOMEM;
++
++	a->act_cookie->data = nla_memdup(tb[TCA_ACT_COOKIE], GFP_KERNEL);
++	if (!a->act_cookie->data) {
++		kfree(a->act_cookie);
++		return -ENOMEM;
++	}
++	a->act_cookie->len = nla_len(tb[TCA_ACT_COOKIE]);
++
++	return 0;
++}
++
+ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 				    struct nlattr *est, char *name, int ovr,
+ 				    int bind)
+@@ -575,6 +604,22 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 	if (err < 0)
+ 		goto err_mod;
+ 
++	if (tb[TCA_ACT_COOKIE]) {
++		int cklen = nla_len(tb[TCA_ACT_COOKIE]);
++
++		if (cklen > TC_COOKIE_MAX_SIZE) {
++			err = -EINVAL;
++			tcf_hash_release(a, bind);
++			goto err_mod;
++		}
++
++		err = nla_memdup_cookie(a, tb);
++		if (err < 0) {
++			tcf_hash_release(a, bind);
++			goto err_mod;
++		}
++	}
++
+ 	/* module count goes up only when brand new policy is created
+ 	 * if it exists and is only bound to in a_o->init() then
+ 	 * ACT_P_CREATED is not returned (a zero is).
 -- 
-2.1.4
-
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, SlashDot.org! http://sdm.link/slashdot
+1.9.1
