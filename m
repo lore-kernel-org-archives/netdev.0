@@ -1,54 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/3] sh_eth: add missing EESIPR bits
-Date: Tue, 24 Jan 2017 18:51:16 +0300
-Message-ID: <f320226f-222a-2d3c-fa70-1e42f27c64f7@cogentembedded.com>
-References: <1636105.gp4aQxGd5K@wasted.cogentembedded.com>
- <3805935.iR4tgtFiHm@wasted.cogentembedded.com>
- <CAMuHMdVED1D46zGkuSbpF22ZnKKjWcf50yRp-uT+LcBY_70xgA@mail.gmail.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net: use-after-free in tw_timer_handler
+Date: Tue, 24 Jan 2017 07:52:54 -0800
+Message-ID: <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
+References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
+ <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
+ <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com> <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdVED1D46zGkuSbpF22ZnKKjWcf50yRp-uT+LcBY_70xgA@mail.gmail.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/23/2017 10:41 AM, Geert Uytterhoeven wrote:
-
->> Renesas SH77{34|63} manuals  describe more EESIPR bits than the current
->> driver. Declare the new bits with the end goal of using the bit names
->> instead of the bare numbers  for  the 'sh_eth_cpu_data::eesipr_value'
->> initializers...
+On Tue, Jan 24, 2017 at 7:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
 >>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
-> Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
->
->> ---
->>  drivers/net/ethernet/renesas/sh_eth.h |   10 ++++++++--
->>  1 file changed, 8 insertions(+), 2 deletions(-)
+>> This code was changed a long time ago :
 >>
->> Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
->> ===================================================================
->> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
->> +++ net-next/drivers/net/ethernet/renesas/sh_eth.h
->> @@ -269,13 +269,17 @@ enum EESR_BIT {
+>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
 >>
->>  /* EESIPR */
->>  enum EESIPR_BIT {
->> -       EESIPR_TWBIP    = 0x40000000,
->> +       EESIPR_TWB1IP   = 0x80000000,
->> +       EESIPR_TWBIP    = 0x40000000,   /* same as TWB0IP */
+>> So I suspect a recent patch broke the logic.
+>>
+>> You might start a bisection :
+>>
+>> I would check if 4.7 and 4.8 trigger the issue you noticed.
 >
-> Ah, your adding it here ;-)
-
-    Do you want me to add such comment in the 1st patch instead?
-
-> Gr{oetje,eeting}s,
 >
->                         Geert
+> It happens with too low rate for bisecting (few times per day). I
+> could add some additional checks into code, but I don't know what
+> checks could be useful.
 
-MRB, Sergei
+If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
+we are able to help.
