@@ -1,40 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] External MDIO support for mv88e6xxx
-Date: Tue, 24 Jan 2017 15:35:04 -0500 (EST)
-Message-ID: <20170124.153504.1132892597644436492.davem@davemloft.net>
-References: <1485266031-4980-1-git-send-email-andrew@lunn.ch>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
+Date: Tue, 24 Jan 2017 22:45:37 +0200
+Message-ID: <20170124221114-mutt-send-email-mst@kernel.org>
+References: <1485197869-11350-1-git-send-email-mst@redhat.com>
+ <20170124.144227.2017106704873029028.davem@davemloft.net>
+ <20170124215214-mutt-send-email-mst@kernel.org>
+ <20170124.150959.1708982899683381291.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59736 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdAXUfG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 15:35:06 -0500
-In-Reply-To: <1485266031-4980-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, jasowang@redhat.com,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        john.fastabend@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170124.150959.1708982899683381291.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 24 Jan 2017 14:53:46 +0100
-
-> The mv88e6390 family of switches has two MDIO busses, one internal to
-> the switch and a second one for external usage. Older generations of switches
-> have a single MDIO bus, which is used both internally and externally.
+On Tue, Jan 24, 2017 at 03:09:59PM -0500, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Tue, 24 Jan 2017 21:53:13 +0200
 > 
-> Refactor the existing MDIO driver code to allow for multiple MDIO
-> busses, and implement the second MDIO bus on mv88e6390.
+> > I didn't realise. Why can't we? I thought that adjust_header is an
+> > optional feature that userspace can test for, so no rush.
 > 
-> This is a rewrite of a patch previously submitted as part of "Batch
-> 3". It has been broken up into 5 smaller patches. A compatible string
-> is now used in the device tree to indicate the external MDIO bus.
+> No, we want the base set of XDP features to be present in all drivers
+> supporting XDP.
 
-Series applied, thanks Andrew.
+I see, I didn't realize this. In light of this, is there any
+guidance *how much* head room is required to be considered
+valid? We already have 12 bytes of headroom.
 
-There seems to be a bit of inconsistency wrt. tab vs. space for
-indentation in the binding files, just FYI.  I had to make some small
-adjustments to this patch series in order to keep GIT from warning
-when I applied this stuff.
+
+I'm generally sorry it's taking long, a large part of that is difficulty
+figuring out the requirements: when we discussed this on LPC my
+take-away was that one of the first users will be fighting DDOS attacks.
+
+In light of this, I assumed that
+- supporting just DROP (or DROP+TX) would already be useful
+- XDP_PASS shouldn't be too slow as some people will run all
+  their traffic with XDP enabled
+- people actually want this in virtio because they run in a vm
+
+Since then I heard opinions that seem to imply that
+- you must support all features, not just DROP, otherwise it's useless
+- XDP_PASS is a slow path fallback as people are not expected to mix XDP
+  with regular sockets
+- DDOS protection and by extension XDP in virtio is a developer's toy anyway
+
+Thus, expect some slowness while I figure it all out.
+
+-- 
+MST
