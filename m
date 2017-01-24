@@ -1,109 +1,49 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH v2 04/18] gtp: return error ptr in find pdp helpers
-Date: Tue, 24 Jan 2017 16:28:34 +0100
-Message-ID: <20170124152848.6120-5-aschultz@tpip.net>
+Subject: [PATCH v2 09/18] gtp: use addr_hash when traversing pdp contexts
+Date: Tue, 24 Jan 2017 16:28:39 +0100
+Message-ID: <20170124152848.6120-10-aschultz@tpip.net>
 References: <20170124152848.6120-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:47202 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:49108 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751063AbdAXP2z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 10:28:55 -0500
+        id S1751117AbdAXP25 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 10:28:57 -0500
 In-Reply-To: <20170124152848.6120-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This prepares for the removal of the tid_hash from the device.
+
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ drivers/net/gtp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 60946b7..e95c856 100644
+index c117f63..c7e32a6 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -114,7 +114,7 @@ static struct pdp_ctx *gtp0_pdp_find(struct gtp_dev *gtp, u64 tid)
- 		    pdp->u.v0.tid == tid)
- 			return pdp;
- 	}
--	return NULL;
-+	return ERR_PTR(-ENOENT);
- }
+@@ -778,7 +778,7 @@ static void gtp_hashtable_free(struct gtp_dev *gtp)
+ 	int i;
  
- /* Resolve a PDP context structure based on the 32bit TEI. */
-@@ -130,7 +130,7 @@ static struct pdp_ctx *gtp1_pdp_find(struct gtp_dev *gtp, u32 tid)
- 		    pdp->u.v1.i_tei == tid)
- 			return pdp;
- 	}
--	return NULL;
-+	return ERR_PTR(-ENOENT);
- }
+ 	for (i = 0; i < gtp->hash_size; i++)
+-		hlist_for_each_entry_rcu(pctx, &gtp->tid_hash[i], hlist_tid)
++		hlist_for_each_entry_rcu(pctx, &gtp->addr_hash[i], hlist_addr)
+ 			pdp_context_delete(pctx);
  
- /* Resolve a PDP context based on IPv4 address of MS. */
-@@ -147,7 +147,7 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
- 			return pdp;
- 	}
+ 	synchronize_rcu();
+@@ -1195,7 +1195,7 @@ static int gtp_genl_dump_pdp(struct sk_buff *skb,
+ 			last_gtp = NULL;
  
--	return NULL;
-+	return ERR_PTR(-ENOENT);
- }
- 
- static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
-@@ -199,7 +199,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 
- 	rcu_read_lock();
- 	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
--	if (!pctx) {
-+	if (IS_ERR(pctx)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
- 		ret = -1;
- 		goto out_rcu;
-@@ -256,7 +256,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 
- 	rcu_read_lock();
- 	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
--	if (!pctx) {
-+	if (IS_ERR(pctx)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
- 		ret = -1;
- 		goto out_rcu;
-@@ -476,10 +476,10 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	 */
- 	iph = ip_hdr(skb);
- 	pctx = ipv4_pdp_find(gtp, iph->daddr);
--	if (!pctx) {
-+	if (IS_ERR(pctx)) {
- 		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
- 			   &iph->daddr);
--		return -ENOENT;
-+		return PTR_ERR(pctx);
- 	}
- 	netdev_dbg(dev, "found PDP context %p\n", pctx);
- 
-@@ -1085,8 +1085,8 @@ static int gtp_genl_del_pdp(struct sk_buff *skb, struct genl_info *info)
- 		return -EINVAL;
- 	}
- 
--	if (pctx == NULL)
--		return -ENOENT;
-+	if (IS_ERR(pctx))
-+		return PTR_ERR(pctx);
- 
- 	if (pctx->gtp_version == GTP_V0)
- 		netdev_dbg(dev, "GTPv0-U: deleting tunnel id = %llx (pdp %p)\n",
-@@ -1194,8 +1194,8 @@ static int gtp_genl_get_pdp(struct sk_buff *skb, struct genl_info *info)
- 		pctx = ipv4_pdp_find(gtp, ip);
- 	}
- 
--	if (pctx == NULL) {
--		err = -ENOENT;
-+	if (IS_ERR(pctx)) {
-+		err = PTR_ERR(pctx);
- 		goto err_unlock;
- 	}
- 
+ 		for (i = k; i < gtp->hash_size; i++) {
+-			hlist_for_each_entry_rcu(pctx, &gtp->tid_hash[i], hlist_tid) {
++			hlist_for_each_entry_rcu(pctx, &gtp->addr_hash[i], hlist_addr) {
+ 				if (tid && tid != pctx->u.tid)
+ 					continue;
+ 				else
 -- 
 2.10.2
