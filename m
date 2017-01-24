@@ -1,53 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
-Date: Tue, 24 Jan 2017 15:53:31 -0500 (EST)
-Message-ID: <20170124.155331.1409241818867862249.davem@davemloft.net>
-References: <20170124215214-mutt-send-email-mst@kernel.org>
-	<20170124.150959.1708982899683381291.davem@davemloft.net>
-	<20170124221114-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170124221114-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
-
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 24 Jan 2017 22:45:37 +0200
+Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small
+ buffer XDP receive
+Date: Tue, 24 Jan 2017 22:54:40 +0200
+Message-ID: <20170124224550-mutt-send-email-mst@kernel.org>
+References: <20170123230809-mutt-send-email-mst@kernel.org>
+ <20170124.144328.2195698124358175034.davem@davemloft.net>
+ <20170124215412-mutt-send-email-mst@kernel.org>
+ <20170124.151139.1496962673545808215.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: john.fastabend@gmail.com, jasowang@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60574 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750733AbdAXUym (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 15:54:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20170124.151139.1496962673545808215.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Tue, Jan 24, 2017 at 03:09:59PM -0500, David Miller wrote:
->> From: "Michael S. Tsirkin" <mst@redhat.com>
->> Date: Tue, 24 Jan 2017 21:53:13 +0200
->> 
->> > I didn't realise. Why can't we? I thought that adjust_header is an
->> > optional feature that userspace can test for, so no rush.
->> 
->> No, we want the base set of XDP features to be present in all drivers
->> supporting XDP.
+On Tue, Jan 24, 2017 at 03:11:39PM -0500, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Tue, 24 Jan 2017 22:08:33 +0200
 > 
-> I see, I didn't realize this. In light of this, is there any
-> guidance *how much* head room is required to be considered
-> valid? We already have 12 bytes of headroom.
+> > On Tue, Jan 24, 2017 at 02:43:28PM -0500, David Miller wrote:
+> >> From: "Michael S. Tsirkin" <mst@redhat.com>
+> >> Date: Mon, 23 Jan 2017 23:08:35 +0200
+> >> 
+> >> > On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
+> >> >> In the small buffer case during driver unload we currently use
+> >> >> put_page instead of dev_kfree_skb. Resolve this by adding a check
+> >> >> for virtnet mode when checking XDP queue type. Also name the
+> >> >> function so that the code reads correctly to match the additional
+> >> >> check.
+> >> >> 
+> >> >> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
+> >> >> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> >> >> Acked-by: Jason Wang <jasowang@redhat.com>
+> >> > 
+> >> > Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> >> > 
+> >> > I think we definitely want this one in -net as it's
+> >> > a bugfix.
+> >> 
+> >> This whole series is a bug fix, we must have adjust_header XDP
+> >> support in the virtio_net driver before v4.10 goes out, it is
+> >> a requires base feature for XDP.
+> > 
+> > I have to say device resets outside probe have a huge potential
+> > to uncover hypervisor bugs. I am rather uncomfortable
+> > doing that after -rc1.
+> > 
+> > How about a module option to disable it by default?
+> > We can then ship a partial implementation in 4.10
+> > and work on completing it in 4.11.
+> 
+> XDP programmers must be able to assume a base set of features being
+> present, adjust_header is one of them.
 
-The idea is to allow programs to implement arbitrary kinds of
-encapsulation, so we need to be able to allow them to push headers for
-all kinds of software tunnels, with allowance for a few depths in some
-extreme cases.
+Let's make all of XDP depend on this extra_headroom option then?
 
-In that light, a nice round power of 2 number such as 256 seems quite
-reasonable to me.
-
-This seems to be what other XDP implementations in drivers use at the
-moment as well.
+-- 
+MST
