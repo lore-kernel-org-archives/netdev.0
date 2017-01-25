@@ -1,43 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net v2 3/4] r8152: re-schedule napi for tx
-Date: Wed, 25 Jan 2017 05:57:17 -0800
-Message-ID: <1485352637.5145.4.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
-         <1394712342-15778-242-Taiwan-albertk@realtek.com>
-         <1394712342-15778-245-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: [PATCH 16/23] tools lib bpf: Add set/is helpers for all prog types
+Date: Wed, 25 Jan 2017 10:53:43 -0300
+Message-ID: <20170125135350.22983-17-acme@kernel.org>
+References: <20170125135350.22983-1-acme@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Ingo Molnar <mingo@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-245-Taiwan-albertk@realtek.com>
+In-Reply-To: <20170125135350.22983-1-acme@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-01-25 at 16:13 +0800, Hayes Wang wrote:
-> Re-schedule napi after napi_complete() for tx, if it is necessay.
-> 
-> In r8152_poll(), if the tx is completed after tx_bottom() and before
-> napi_complete(), the scheduling of napi would be lost. Then, no
-> one handles the next tx until the next napi_schedule() is called.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
->  drivers/net/usb/r8152.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-> index ec882be..45d168e 100644
-> --- a/drivers/net/usb/r8152.c
-> +++ b/drivers/net/usb/r8152.c
-> @@ -1936,6 +1936,9 @@ static int r8152_poll(struct napi_struct *napi, int budget)
->  		napi_complete(napi);
->  		if (!list_empty(&tp->rx_done))
->  			napi_schedule(napi);
-> +		else if (!skb_queue_empty(&tp->tx_queue) &&
-> +			 !list_empty(&tp->tx_free))
-> +			napi_schedule(&tp->napi);
+From: Joe Stringer <joe@ovn.org>
 
-Why using &tp->napi instead of napi here, as done 3 lines above ?
+These bpf_prog_types were exposed in the uapi but there were no
+corresponding functions to set these types for programs in libbpf.
+
+Signed-off-by: Joe Stringer <joe@ovn.org>
+Acked-by: Wang Nan <wangnan0@huawei.com>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org
+Link: http://lkml.kernel.org/r/20170123011128.26534-4-joe@ovn.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ tools/lib/bpf/libbpf.c |  5 +++++
+ tools/lib/bpf/libbpf.h | 10 ++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+index 371cb40a2304..406838fa9c4f 100644
+--- a/tools/lib/bpf/libbpf.c
++++ b/tools/lib/bpf/libbpf.c
+@@ -1448,8 +1448,13 @@ bool bpf_program__is_##NAME(struct bpf_program *prog)	\
+ 	return bpf_program__is_type(prog, TYPE);	\
+ }							\
+ 
++BPF_PROG_TYPE_FNS(socket_filter, BPF_PROG_TYPE_SOCKET_FILTER);
+ BPF_PROG_TYPE_FNS(kprobe, BPF_PROG_TYPE_KPROBE);
++BPF_PROG_TYPE_FNS(sched_cls, BPF_PROG_TYPE_SCHED_CLS);
++BPF_PROG_TYPE_FNS(sched_act, BPF_PROG_TYPE_SCHED_ACT);
+ BPF_PROG_TYPE_FNS(tracepoint, BPF_PROG_TYPE_TRACEPOINT);
++BPF_PROG_TYPE_FNS(xdp, BPF_PROG_TYPE_XDP);
++BPF_PROG_TYPE_FNS(perf_event, BPF_PROG_TYPE_PERF_EVENT);
+ 
+ int bpf_map__fd(struct bpf_map *map)
+ {
+diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+index a5a8b86a06fe..2188ccdc0e2d 100644
+--- a/tools/lib/bpf/libbpf.h
++++ b/tools/lib/bpf/libbpf.h
+@@ -174,11 +174,21 @@ int bpf_program__nth_fd(struct bpf_program *prog, int n);
+ /*
+  * Adjust type of bpf program. Default is kprobe.
+  */
++int bpf_program__set_socket_filter(struct bpf_program *prog);
+ int bpf_program__set_tracepoint(struct bpf_program *prog);
+ int bpf_program__set_kprobe(struct bpf_program *prog);
++int bpf_program__set_sched_cls(struct bpf_program *prog);
++int bpf_program__set_sched_act(struct bpf_program *prog);
++int bpf_program__set_xdp(struct bpf_program *prog);
++int bpf_program__set_perf_event(struct bpf_program *prog);
+ 
++bool bpf_program__is_socket_filter(struct bpf_program *prog);
+ bool bpf_program__is_tracepoint(struct bpf_program *prog);
+ bool bpf_program__is_kprobe(struct bpf_program *prog);
++bool bpf_program__is_sched_cls(struct bpf_program *prog);
++bool bpf_program__is_sched_act(struct bpf_program *prog);
++bool bpf_program__is_xdp(struct bpf_program *prog);
++bool bpf_program__is_perf_event(struct bpf_program *prog);
+ 
+ /*
+  * We don't need __attribute__((packed)) now since it is
+-- 
+2.9.3
