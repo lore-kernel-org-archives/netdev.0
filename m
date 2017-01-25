@@ -1,53 +1,51 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
- device_find_class()
-Date: Wed, 25 Jan 2017 22:25:00 +0100
-Message-ID: <20170125212500.GA6052@kroah.com>
-References: <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
- <20170115173949.GA19268@kroah.com>
- <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
- <20170115191632.GD5643@lunn.ch>
- <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
- <20170119142820.GA494@kroah.com>
- <20170119145315.GD21805@lunn.ch>
- <20170119165155.GH27312@n2100.armlinux.org.uk>
- <841dc133-e9af-e7ca-75bf-8371337d6281@gmail.com>
- <c98f3ff8-9d4e-a007-1fef-130fcf580201@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Sainath Grandhi <sainath.grandhi@intel.com>
+Subject: [PATCHv3 0/7] Refactor macvtap to re-use tap functionality by other virtual intefaces
+Date: Wed, 25 Jan 2017 13:25:32 -0800
+Message-ID: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
+Cc: davem@davemloft.net, mahesh@bandewar.net,
+        linux-kernel@vger.kernel.org, sainath.grandhi@intel.com
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <c98f3ff8-9d4e-a007-1fef-130fcf580201@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 10:59:15AM -0800, Florian Fainelli wrote:
-> On 01/19/2017 10:12 AM, Florian Fainelli wrote:
-> > 
-> > Back to the actual code that triggered this discussion, the whole
-> > purpose is just a safeguard. Given a device reference, we can assume
-> > that it is indeed the backing device for a net_device, and we could do a
-> > to_net_device() right away (and crash if someone did not write correct
-> > platform_data structures), or, by walking the device tree (the device
-> > driver model one) we can make sure it does belong in the proper class
-> > and this is indeed what we think it is.
-> 
-> Greg, did Russell's explanation clarify things, or do you still think
-> this is completely bogus and we need to re design the whole thing?
-> 
-> Just asking so I can try to resubmit just the preparatory parts or just
-> the whole thing.
+Tap character devices can be implemented on other virtual interfaces like
+ipvlan, similar to macvtap. Source code for tap functionality in macvtap
+can be re-used for this purpose.
 
-Sorry, I haven't gotten back to this, it's lower on my list.  Should try
-to get to it tomorrow...
+This patch series splits macvtap source into two modules, macvtap and tap.
+This patch series also includes a patch for implementing tap character
+device driver based on the IP-VLAN network interface, called ipvtap.
+
+These patches are tested on x86 platform.
+
+Sainath Grandhi (7):
+  TAP: Refactoring macvtap.c
+  TAP: Renaming tap related APIs, data structures, macros
+  TAP: Tap character device creation/destroy API
+  TAP: Abstract type of virtual interface from tap  implementation
+  TAP: Extending tap device create/destroy APIs
+  TAP: tap as an independent module
+  IPVTAP: IP-VLAN based tap driver
+
+ drivers/net/Kconfig              |   28 +
+ drivers/net/Makefile             |    2 +
+ drivers/net/ipvlan/Makefile      |    1 +
+ drivers/net/ipvlan/ipvlan.h      |    7 +
+ drivers/net/ipvlan/ipvlan_core.c |    5 +-
+ drivers/net/ipvlan/ipvlan_main.c |   27 +-
+ drivers/net/ipvlan/ipvtap.c      |  241 ++++++++
+ drivers/net/macvlan.c            |    2 +-
+ drivers/net/macvtap.c            | 1229 ++-----------------------------------
+ drivers/net/tap.c                | 1261 ++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/Kconfig            |    2 +-
+ drivers/vhost/net.c              |    3 +-
+ include/linux/if_macvlan.h       |   17 +-
+ include/linux/if_tap.h           |   75 +++
+ 14 files changed, 1691 insertions(+), 1209 deletions(-)
+ create mode 100644 drivers/net/ipvlan/ipvtap.c
+ create mode 100644 drivers/net/tap.c
+ create mode 100644 include/linux/if_tap.h
+
+-- 
+2.7.4
