@@ -1,87 +1,42 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: sctp_addr_id2transport should verify the addr
- before looking up assoc
-Date: Wed, 25 Jan 2017 23:34:33 +0800
-Message-ID: <CADvbK_dw2XhYF7bc8PdyuBG2WgzNwZxJekwWsc36UN=2QE8MDg@mail.gmail.com>
-References: <2ba9d3e0b3aa05baa3791811c92248126d233c67.1485237713.git.lucien.xin@gmail.com>
- <CAGCdqXEAkbeMPhVA5N_vYV_k_54faX_0JWui5kSrZBbsmms7jg@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [Xen-devel] xennet_start_xmit assumptions
+Date: Wed, 25 Jan 2017 10:45:46 -0500
+Message-ID: <20170125154546.GF2212@oracle.com>
+References: <20170118153132.GB9258@oracle.com>
+ <20170118192528.GA6847@char.us.oracle.com>
+ <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
+ <20170119111426.GA22018@oracle.com>
+ <fa531e2ed014488baa10556c724e176c@AMSPEX02CL03.citrite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+        Wei Liu <wei.liu2@citrix.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
+To: Paul Durrant <Paul.Durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35809 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751838AbdAYPep (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:34:45 -0500
-In-Reply-To: <CAGCdqXEAkbeMPhVA5N_vYV_k_54faX_0JWui5kSrZBbsmms7jg@mail.gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:45562 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750768AbdAYPqA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:46:00 -0500
+Content-Disposition: inline
+In-Reply-To: <fa531e2ed014488baa10556c724e176c@AMSPEX02CL03.citrite.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2017 at 11:27 PM, Vladislav Yasevich
-<vyasevich@gmail.com> wrote:
-> On Tue, Jan 24, 2017 at 1:01 AM, Xin Long <lucien.xin@gmail.com> wrote:
->>
->> sctp_addr_id2transport is a function for sockopt to look up assoc by
->> address. As the address is from userspace, it can be a v4-mapped v6
->> address. But in sctp protocol stack, it always handles a v4-mapped
->> v6 address as a v4 address. So it's necessary to convert it to a v4
->> address before looking up assoc by address.
->>
->> This patch is to fix it by calling sctp_verify_addr in which it can do
->> this conversion before calling sctp_endpoint_lookup_assoc, just like
->> what sctp_sendmsg and __sctp_connect do for the address from users.
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  net/sctp/socket.c | 6 +++++-
->>  1 file changed, 5 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->> index 318c678..37eeab7 100644
->> --- a/net/sctp/socket.c
->> +++ b/net/sctp/socket.c
->> @@ -235,8 +235,12 @@ static struct sctp_transport
->> *sctp_addr_id2transport(struct sock *sk,
->>                                               sctp_assoc_t id)
->>  {
->>         struct sctp_association *addr_asoc = NULL, *id_asoc = NULL;
->> -       struct sctp_transport *transport;
->> +       struct sctp_af *af = sctp_get_af_specific(addr->ss_family);
->>         union sctp_addr *laddr = (union sctp_addr *)addr;
->> +       struct sctp_transport *transport;
->> +
->> +       if (sctp_verify_addr(sk, laddr, af->sockaddr_len))
->> +               return NULL;
->>
->
-> This causes a side-effect such that GET options will end up with ipv4
-> address instead
-> of a v4mapped address that was passed in.
-not really
+On (01/25/17 15:06), Paul Durrant wrote:
+> 
+>   Making netfront cope with a fully non-linear skb looks like it would
+> be quite intrusive and probably not worth it so I opted for just doing
+> the ETH_HLEN pull-tail if necessary. Can you check it works for you?
 
-(more below)
->
-> -vlad
->
->>
->>         addr_asoc = sctp_endpoint_lookup_assoc(sctp_sk(sk)->ep,
->>                                                laddr,
-        sctp_get_pf_specific(sk->sk_family)->addr_to_user(sctp_sk(sk),
-                                                (union sctp_addr *)addr);
+I tested it, and it works fine, but note that DaveM's comments in 
+this thread: the DKI is that we *must* provide at least the hard_header_len
+in the non-paged part of the skb. So might not even be necessary to handle
+the fully non-linear skb (though it's probably prudent to check
+and bail for this, as your patch does)
 
-here it will convert it back to v4mapped v6 address.
-
->> --
->> 2.1.0
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+I just posted an RFC patch for fixing the pf_packet layer,
+just in case other drivers like xen_netfront dont explicitly
+check for this
+   http://patchwork.ozlabs.org/patch/719236/
