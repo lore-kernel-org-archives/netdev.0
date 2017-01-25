@@ -1,169 +1,51 @@
-From: sunil.kovvuri@gmail.com
-Subject: [PATCH 2/2] net: thunderx: Leave serdes lane config on 81/83xx to firmware
-Date: Wed, 25 Jan 2017 17:36:24 +0530
-Message-ID: <1485345984-28163-3-git-send-email-sunil.kovvuri@gmail.com>
-References: <1485345984-28163-1-git-send-email-sunil.kovvuri@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        Sunil Goutham <sgoutham@cavium.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485345984-28163-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 3/3] net: phy: leds: Fix truncated LED trigger names
+Date: Wed, 25 Jan 2017 13:51:02 +0100
+Message-ID: <20170125125102.GB2504@lunn.ch>
+References: <1485340790-10785-1-git-send-email-geert+renesas@glider.be>
+ <1485340790-10785-4-git-send-email-geert+renesas@glider.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Zach Brown <zach.brown@ni.com>,
+        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
+        Magnus =?iso-8859-1?Q?=D6berg?= <magnus.oberg@westermo.se>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1485340790-10785-4-git-send-email-geert+renesas@glider.be>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+On Wed, Jan 25, 2017 at 11:39:50AM +0100, Geert Uytterhoeven wrote:
+> Commit 4567d686f5c6d955 ("phy: increase size of MII_BUS_ID_SIZE and
+> bus_id") increased the size of MII bus IDs, but forgot to update the
+> private definition in <linux/phy_led_triggers.h>.
+> This may cause:
+>   1. Truncation of LED trigger names,
+>   2. Duplicate LED trigger names,
+>   3. Failures registering LED triggers,
+>   4. Crashes due to bad error handling in the LED trigger failure path.
+> 
+> To fix this, and prevent the definitions going out of sync again in the
+> future, let the PHY LED trigger code use the existing MII_BUS_ID_SIZE
+> definition.
+> 
+> Example:
+>   - Before I had triggers "ee700000.etherne:01:100Mbps" and
+>     "ee700000.etherne:01:10Mbps",
+>   - After the increase of MII_BUS_ID_SIZE, both became
+>     "ee700000.ethernet-ffffffff:01:" => FAIL,
+>   - Now, the triggers are "ee700000.ethernet-ffffffff:01:100Mbps" and
+>     "ee700000.ethernet-ffffffff:01:10Mbps", which are unique again.
+> 
+> Fixes: 4567d686f5c6d955 ("phy: increase size of MII_BUS_ID_SIZE and bus_id")
+> Fixes: 2e0bc452f4721520 ("net: phy: leds: add support for led triggers on phy link state change")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-For DLMs and SLMs on 80/81/83xx, many lane configurations
-across different boards are coming up. Also kernel doesn't have
-any way to identify board type/info and since firmware does,
-just get rid of figuring out lane to serdes config and take
-whatever has been programmed by low level firmware.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 95 +++++------------------
- 1 file changed, 18 insertions(+), 77 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 2f85b64..dfb2bad 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -894,17 +894,15 @@ static void bgx_print_qlm_mode(struct bgx *bgx, u8 lmacid)
- 	struct device *dev = &bgx->pdev->dev;
- 	struct lmac *lmac;
- 	char str[20];
--	u8 dlm;
- 
--	if (lmacid > bgx->max_lmac)
-+	if (!bgx->is_dlm && lmacid)
- 		return;
- 
- 	lmac = &bgx->lmac[lmacid];
--	dlm = (lmacid / 2) + (bgx->bgx_id * 2);
- 	if (!bgx->is_dlm)
- 		sprintf(str, "BGX%d QLM mode", bgx->bgx_id);
- 	else
--		sprintf(str, "BGX%d DLM%d mode", bgx->bgx_id, dlm);
-+		sprintf(str, "BGX%d LMAC%d mode", bgx->bgx_id, lmacid);
- 
- 	switch (lmac->lmac_type) {
- 	case BGX_MODE_SGMII:
-@@ -990,7 +988,6 @@ static void lmac_set_training(struct bgx *bgx, struct lmac *lmac, int lmacid)
- static void bgx_set_lmac_config(struct bgx *bgx, u8 idx)
- {
- 	struct lmac *lmac;
--	struct lmac *olmac;
- 	u64 cmr_cfg;
- 	u8 lmac_type;
- 	u8 lane_to_sds;
-@@ -1010,62 +1007,26 @@ static void bgx_set_lmac_config(struct bgx *bgx, u8 idx)
- 		return;
- 	}
- 
--	/* On 81xx BGX can be split across 2 DLMs
--	 * firmware programs lmac_type of LMAC0 and LMAC2
-+	/* For DLMs or SLMs on 80/81/83xx so many lane configurations
-+	 * are possible and vary across boards. Also Kernel doesn't have
-+	 * any way to identify board type/info and since firmware does,
-+	 * just take lmac type and serdes lane config as is.
- 	 */
--	if ((idx == 0) || (idx == 2)) {
--		cmr_cfg = bgx_reg_read(bgx, idx, BGX_CMRX_CFG);
--		lmac_type = (u8)((cmr_cfg >> 8) & 0x07);
--		lane_to_sds = (u8)(cmr_cfg & 0xFF);
--		/* Check if config is not reset value */
--		if ((lmac_type == 0) && (lane_to_sds == 0xE4))
--			lmac->lmac_type = BGX_MODE_INVALID;
--		else
--			lmac->lmac_type = lmac_type;
--		lmac_set_training(bgx, lmac, lmac->lmacid);
--		lmac_set_lane2sds(bgx, lmac);
--
--		olmac = &bgx->lmac[idx + 1];
--		/*  Check if other LMAC on the same DLM is already configured by
--		 *  firmware, if so use the same config or else set as same, as
--		 *  that of LMAC 0/2.
--		 *  This check is needed as on 80xx only one lane of each of the
--		 *  DLM of BGX0 is used, so have to rely on firmware for
--		 *  distingushing 80xx from 81xx.
--		 */
--		cmr_cfg = bgx_reg_read(bgx, idx + 1, BGX_CMRX_CFG);
--		lmac_type = (u8)((cmr_cfg >> 8) & 0x07);
--		lane_to_sds = (u8)(cmr_cfg & 0xFF);
--		if ((lmac_type == 0) && (lane_to_sds == 0xE4)) {
--			olmac->lmac_type = lmac->lmac_type;
--			lmac_set_lane2sds(bgx, olmac);
--		} else {
--			olmac->lmac_type = lmac_type;
--			olmac->lane_to_sds = lane_to_sds;
--		}
--		lmac_set_training(bgx, olmac, olmac->lmacid);
--	}
--}
--
--static bool is_dlm0_in_bgx_mode(struct bgx *bgx)
--{
--	struct lmac *lmac;
--
--	if (!bgx->is_dlm)
--		return true;
--
--	lmac = &bgx->lmac[0];
--	if (lmac->lmac_type == BGX_MODE_INVALID)
--		return false;
--
--	return true;
-+	cmr_cfg = bgx_reg_read(bgx, idx, BGX_CMRX_CFG);
-+	lmac_type = (u8)((cmr_cfg >> 8) & 0x07);
-+	lane_to_sds = (u8)(cmr_cfg & 0xFF);
-+	/* Check if config is reset value */
-+	if ((lmac_type == 0) && (lane_to_sds == 0xE4))
-+		lmac->lmac_type = BGX_MODE_INVALID;
-+	else
-+		lmac->lmac_type = lmac_type;
-+	lmac->lane_to_sds = lane_to_sds;
-+	lmac_set_training(bgx, lmac, lmac->lmacid);
- }
- 
- static void bgx_get_qlm_mode(struct bgx *bgx)
- {
- 	struct lmac *lmac;
--	struct lmac *lmac01;
--	struct lmac *lmac23;
- 	u8  idx;
- 
- 	/* Init all LMAC's type to invalid */
-@@ -1081,29 +1042,9 @@ static void bgx_get_qlm_mode(struct bgx *bgx)
- 	if (bgx->lmac_count > bgx->max_lmac)
- 		bgx->lmac_count = bgx->max_lmac;
- 
--	for (idx = 0; idx < bgx->max_lmac; idx++)
--		bgx_set_lmac_config(bgx, idx);
--
--	if (!bgx->is_dlm || bgx->is_rgx) {
--		bgx_print_qlm_mode(bgx, 0);
--		return;
--	}
--
--	if (bgx->lmac_count) {
--		bgx_print_qlm_mode(bgx, 0);
--		bgx_print_qlm_mode(bgx, 2);
--	}
--
--	/* If DLM0 is not in BGX mode then LMAC0/1 have
--	 * to be configured with serdes lanes of DLM1
--	 */
--	if (is_dlm0_in_bgx_mode(bgx) || (bgx->lmac_count > 2))
--		return;
- 	for (idx = 0; idx < bgx->lmac_count; idx++) {
--		lmac01 = &bgx->lmac[idx];
--		lmac23 = &bgx->lmac[idx + 2];
--		lmac01->lmac_type = lmac23->lmac_type;
--		lmac01->lane_to_sds = lmac23->lane_to_sds;
-+		bgx_set_lmac_config(bgx, idx);
-+		bgx_print_qlm_mode(bgx, idx);
- 	}
- }
- 
--- 
-2.7.4
+    Andrew
