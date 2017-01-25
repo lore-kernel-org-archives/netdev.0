@@ -1,97 +1,46 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 0/6 v3] kvmalloc
-Date: Wed, 25 Jan 2017 10:14:12 -0800
-Message-ID: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: reduce skb overhead in selected places
+Date: Wed, 25 Jan 2017 13:17:17 -0500 (EST)
+Message-ID: <20170125.131717.489451306351372553.davem@davemloft.net>
+References: <1485298656.16328.355.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>, Vlastimil Babka <vbabka@suse.cz>,
-	Mel Gorman <mgorman@suse.de>, Johannes Weiner <hannes@cmpxchg.org>, linux-mm <linux-mm@kvack.org>,
-	LKML <linux-kernel@vger.kernel.org>, Daniel Borkmann <daniel@iogearbox.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57170 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751685AbdAYSRT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 13:17:19 -0500
+In-Reply-To: <1485298656.16328.355.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2017 at 5:21 AM, Michal Hocko <mhocko@kernel.org> wrote:
-> On Wed 25-01-17 14:10:06, Michal Hocko wrote:
->> On Tue 24-01-17 11:17:21, Alexei Starovoitov wrote:
->> > On Tue, Jan 24, 2017 at 04:17:52PM +0100, Michal Hocko wrote:
->> > > On Thu 12-01-17 16:37:11, Michal Hocko wrote:
->> > > > Hi,
->> > > > this has been previously posted as a single patch [1] but later on more
->> > > > built on top. It turned out that there are users who would like to have
->> > > > __GFP_REPEAT semantic. This is currently implemented for costly >64B
->> > > > requests. Doing the same for smaller requests would require to redefine
->> > > > __GFP_REPEAT semantic in the page allocator which is out of scope of
->> > > > this series.
->> > > >
->> > > > There are many open coded kmalloc with vmalloc fallback instances in
->> > > > the tree.  Most of them are not careful enough or simply do not care
->> > > > about the underlying semantic of the kmalloc/page allocator which means
->> > > > that a) some vmalloc fallbacks are basically unreachable because the
->> > > > kmalloc part will keep retrying until it succeeds b) the page allocator
->> > > > can invoke a really disruptive steps like the OOM killer to move forward
->> > > > which doesn't sound appropriate when we consider that the vmalloc
->> > > > fallback is available.
->> > > >
->> > > > As it can be seen implementing kvmalloc requires quite an intimate
->> > > > knowledge if the page allocator and the memory reclaim internals which
->> > > > strongly suggests that a helper should be implemented in the memory
->> > > > subsystem proper.
->> > > >
->> > > > Most callers I could find have been converted to use the helper instead.
->> > > > This is patch 5. There are some more relying on __GFP_REPEAT in the
->> > > > networking stack which I have converted as well but considering we do
->> > > > not have a support for __GFP_REPEAT for requests smaller than 64kB I
->> > > > have marked it RFC.
->> > >
->> > > Are there any more comments? I would really appreciate to hear from
->> > > networking folks before I resubmit the series.
->> >
->> > while this patchset was baking the bpf side switched to use bpf_map_area_alloc()
->> > which fixes the issue with missing __GFP_NORETRY that we had to fix quickly.
->> > See commit d407bd25a204 ("bpf: don't trigger OOM killer under pressure with map alloc")
->> > it covers all kmalloc/vmalloc pairs instead of just one place as in this set.
->> > So please rebase and switch bpf_map_area_alloc() to use kvmalloc().
->>
->> OK, will do. Thanks for the heads up.
->
-> Just for the record, I will fold the following into the patch 1
-> ---
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 19b6129eab23..8697f43cf93c 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -53,21 +53,7 @@ void bpf_register_map_type(struct bpf_map_type_list *tl)
->
->  void *bpf_map_area_alloc(size_t size)
->  {
-> -       /* We definitely need __GFP_NORETRY, so OOM killer doesn't
-> -        * trigger under memory pressure as we really just want to
-> -        * fail instead.
-> -        */
-> -       const gfp_t flags = __GFP_NOWARN | __GFP_NORETRY | __GFP_ZERO;
-> -       void *area;
-> -
-> -       if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
-> -               area = kmalloc(size, GFP_USER | flags);
-> -               if (area != NULL)
-> -                       return area;
-> -       }
-> -
-> -       return __vmalloc(size, GFP_KERNEL | __GFP_HIGHMEM | flags,
-> -                        PAGE_KERNEL);
-> +       return kvzalloc(size, GFP_USER);
->  }
->
->  void bpf_map_area_free(void *area)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 24 Jan 2017 14:57:36 -0800
 
-Looks fine by me.
-Daniel, thoughts?
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> tcp_add_backlog() can use skb_condense() helper to get better
+> gains and less SKB_TRUESIZE() magic. This only happens when socket
+> backlog has to be used.
+> 
+> Some attacks involve specially crafted out of order tiny TCP packets,
+> clogging the ofo queue of (many) sockets.
+> Then later, expensive collapse happens, trying to copy all these skbs
+> into single ones.
+> This unfortunately does not work if each skb has no neighbor in TCP
+> sequence order.
+> 
+> By using skb_condense() if the skb could not be coalesced to a prior
+> one, we defeat these kind of threats, potentially saving 4K per skb
+> (or more, since this is one page fragment).
+> 
+> A typical NAPI driver allocates gro packets with GRO_MAX_HEAD bytes
+> in skb->head, meaning the copy done by skb_condense() is limited to
+> about 200 bytes.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thanks Eric.
