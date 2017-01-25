@@ -1,105 +1,130 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 3/3] net: phy: bcm-phy-lib: clean up remaining AUXCTL
- register defines
-Date: Wed, 25 Jan 2017 08:36:18 -0800
-Message-ID: <1439c0db-45df-db8d-df53-e0c4a6385914@gmail.com>
-References: <20170125155411.14922-1-zajec5@gmail.com>
- <20170125155411.14922-3-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Xo Wang <xow@google.com>, Joel Stanley <joel@jms.id.au>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Jaedon Shin <jaedon.shin@gmail.com>, netdev@vger.kernel.org,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 0/7] pull request for net-next: batman-adv 2017-01-25
+Date: Wed, 25 Jan 2017 17:42:56 +0100
+Message-ID: <20170125164303.14268-1-sw@simonwunderlich.de>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36056 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751073AbdAYQgU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 11:36:20 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 75so20118130pgf.3
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 08:36:20 -0800 (PST)
-In-Reply-To: <20170125155411.14922-3-zajec5@gmail.com>
+Received: from packetmixer.de ([79.140.42.25]:49208 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751020AbdAYQnL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 11:43:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/25/2017 07:54 AM, Rafał Miłecki wrote:
-> From: Rafał Miłecki <rafal@milecki.pl>
-> 
-> 1) Use 0x%02x format for register number. This follows some other
->    defines and makes it easier to distinct register from values.
-> 2) Put register define above values and sort the values. It makes
->    reading header code easier.
-> 3) Drop SHDWSEL_ name part from the only value define using it. For all
->    other values we just start with MISC_.
 
-That's not how these bits are defined in the data sheet, so please drop
-that part of the patch.
+Hi David,
 
-> 
-> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-> ---
->  drivers/net/phy/bcm-phy-lib.c | 6 +++---
->  include/linux/brcmphy.h       | 8 ++++----
->  2 files changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/phy/bcm-phy-lib.c b/drivers/net/phy/bcm-phy-lib.c
-> index ab9ad689617c..8d7e21a9fa77 100644
-> --- a/drivers/net/phy/bcm-phy-lib.c
-> +++ b/drivers/net/phy/bcm-phy-lib.c
-> @@ -241,7 +241,7 @@ int bcm_phy_downshift_get(struct phy_device *phydev, u8 *count)
->  		return val;
->  
->  	/* Check if wirespeed is enabled or not */
-> -	if (!(val & MII_BCM54XX_AUXCTL_SHDWSEL_MISC_WIRESPEED_EN)) {
-> +	if (!(val & MII_BCM54XX_AUXCTL_MISC_WIRESPEED_EN)) {
->  		*count = DOWNSHIFT_DEV_DISABLE;
->  		return 0;
->  	}
-> @@ -283,12 +283,12 @@ int bcm_phy_downshift_set(struct phy_device *phydev, u8 count)
->  	val |= MII_BCM54XX_AUXCTL_MISC_WREN;
->  
->  	if (count == DOWNSHIFT_DEV_DISABLE) {
-> -		val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_WIRESPEED_EN;
-> +		val &= ~MII_BCM54XX_AUXCTL_MISC_WIRESPEED_EN;
->  		return bcm54xx_auxctl_write(phydev,
->  					    MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
->  					    val);
->  	} else {
-> -		val |= MII_BCM54XX_AUXCTL_SHDWSEL_MISC_WIRESPEED_EN;
-> +		val |= MII_BCM54XX_AUXCTL_MISC_WIRESPEED_EN;
->  		ret = bcm54xx_auxctl_write(phydev,
->  					   MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
->  					   val);
-> diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-> index bff53da82b58..a79d57caf7f1 100644
-> --- a/include/linux/brcmphy.h
-> +++ b/include/linux/brcmphy.h
-> @@ -104,16 +104,16 @@
->  /*
->   * AUXILIARY CONTROL SHADOW ACCESS REGISTERS.  (PHY REG 0x18)
->   */
-> -#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x0000
-> +#define MII_BCM54XX_AUXCTL_SHDWSEL_AUXCTL	0x00
->  #define MII_BCM54XX_AUXCTL_ACTL_TX_6DB		0x0400
->  #define MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA	0x0800
->  
-> -#define MII_BCM54XX_AUXCTL_MISC_WREN	0x8000
-> +#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC		0x07
-> +#define MII_BCM54XX_AUXCTL_MISC_WIRESPEED_EN	0x0010
->  #define MII_BCM54XX_AUXCTL_MISC_RXD_RXC_SKEW	0x0100
->  #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
-> -#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
-> +#define MII_BCM54XX_AUXCTL_MISC_WREN		0x8000
->  #define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
-> -#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_WIRESPEED_EN	(1 << 4)
->  
->  #define MII_BCM54XX_AUXCTL_SHDWSEL_MASK	0x0007
->  
-> 
+here is a small feature/cleanup pull request of batman-adv to go into net-next.
 
+Please pull or let me know of any problem!
 
--- 
-Florian
+Thank you,
+      Simon
+
+The following changes since commit 7ce7d89f48834cefece7804d38fc5d85382edf77:
+
+  Linux 4.10-rc1 (2016-12-25 16:13:08 -0800)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20170125
+
+for you to fetch changes up to 03d17903cbfdc3bdf6e08c9fb6603936135bba5b:
+
+  batman-adv: Remove unused variable in batadv_tt_local_set_flags (2017-01-04 08:20:21 +0100)
+
+----------------------------------------------------------------
+This feature/cleanup patchset includes the following patches:
+
+ - bump version strings, by Simon Wunderlich
+
+ - Handle NET_XMIT_CN like NET_XMIT_SUCCESS, and a follow up code clean up,
+   by Gao Feng (2 patches)
+
+ - ignore self-generated loop detect MAC addresses in translation table,
+   by Simon Wunderlich
+
+ - install uapi batman_adv.h header, by Sven Eckelmann
+
+ - bump copyright years, by Sven Eckelmann
+
+ - Remove an unused variable in translation table code, by Sven Eckelmann
+
+----------------------------------------------------------------
+Gao Feng (2):
+      batman-adv: Treat NET_XMIT_CN as transmit successfully
+      batman-adv: Remove one condition check in batadv_route_unicast_packet
+
+Simon Wunderlich (2):
+      batman-adv: Start new development cycle
+      batman-adv: don't add loop detect macs to TT
+
+Sven Eckelmann (3):
+      uapi: install batman_adv.h header
+      batman-adv: update copyright years for 2017
+      batman-adv: Remove unused variable in batadv_tt_local_set_flags
+
+ include/uapi/linux/Kbuild              |  1 +
+ include/uapi/linux/batman_adv.h        |  2 +-
+ net/batman-adv/Makefile                |  2 +-
+ net/batman-adv/bat_algo.c              |  2 +-
+ net/batman-adv/bat_algo.h              |  2 +-
+ net/batman-adv/bat_iv_ogm.c            |  2 +-
+ net/batman-adv/bat_iv_ogm.h            |  2 +-
+ net/batman-adv/bat_v.c                 |  2 +-
+ net/batman-adv/bat_v.h                 |  2 +-
+ net/batman-adv/bat_v_elp.c             |  2 +-
+ net/batman-adv/bat_v_elp.h             |  2 +-
+ net/batman-adv/bat_v_ogm.c             |  2 +-
+ net/batman-adv/bat_v_ogm.h             |  2 +-
+ net/batman-adv/bitarray.c              |  2 +-
+ net/batman-adv/bitarray.h              |  2 +-
+ net/batman-adv/bridge_loop_avoidance.c |  2 +-
+ net/batman-adv/bridge_loop_avoidance.h | 20 +++++++++++++++++++-
+ net/batman-adv/debugfs.c               |  2 +-
+ net/batman-adv/debugfs.h               |  2 +-
+ net/batman-adv/distributed-arp-table.c |  5 +++--
+ net/batman-adv/distributed-arp-table.h |  2 +-
+ net/batman-adv/fragmentation.c         |  4 ++--
+ net/batman-adv/fragmentation.h         |  2 +-
+ net/batman-adv/gateway_client.c        |  2 +-
+ net/batman-adv/gateway_client.h        |  2 +-
+ net/batman-adv/gateway_common.c        |  2 +-
+ net/batman-adv/gateway_common.h        |  2 +-
+ net/batman-adv/hard-interface.c        |  2 +-
+ net/batman-adv/hard-interface.h        |  2 +-
+ net/batman-adv/hash.c                  |  2 +-
+ net/batman-adv/hash.h                  |  2 +-
+ net/batman-adv/icmp_socket.c           |  2 +-
+ net/batman-adv/icmp_socket.h           |  2 +-
+ net/batman-adv/log.c                   |  2 +-
+ net/batman-adv/log.h                   |  2 +-
+ net/batman-adv/main.c                  |  2 +-
+ net/batman-adv/main.h                  |  4 ++--
+ net/batman-adv/multicast.c             |  2 +-
+ net/batman-adv/multicast.h             |  2 +-
+ net/batman-adv/netlink.c               |  2 +-
+ net/batman-adv/netlink.h               |  2 +-
+ net/batman-adv/network-coding.c        |  2 +-
+ net/batman-adv/network-coding.h        |  2 +-
+ net/batman-adv/originator.c            |  2 +-
+ net/batman-adv/originator.h            |  2 +-
+ net/batman-adv/packet.h                |  2 +-
+ net/batman-adv/routing.c               | 20 +++++++++-----------
+ net/batman-adv/routing.h               |  2 +-
+ net/batman-adv/send.c                  |  2 +-
+ net/batman-adv/send.h                  |  2 +-
+ net/batman-adv/soft-interface.c        |  7 ++++---
+ net/batman-adv/soft-interface.h        |  2 +-
+ net/batman-adv/sysfs.c                 |  2 +-
+ net/batman-adv/sysfs.h                 |  2 +-
+ net/batman-adv/tp_meter.c              |  4 ++--
+ net/batman-adv/tp_meter.h              |  2 +-
+ net/batman-adv/translation-table.c     |  4 +---
+ net/batman-adv/translation-table.h     |  2 +-
+ net/batman-adv/tvlv.c                  |  2 +-
+ net/batman-adv/tvlv.h                  |  2 +-
+ net/batman-adv/types.h                 |  2 +-
+ 61 files changed, 95 insertions(+), 78 deletions(-)
