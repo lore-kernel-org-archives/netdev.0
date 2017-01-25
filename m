@@ -1,43 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v3 net] ravb: unmap descriptors when freeing rings
-Date: Wed, 25 Jan 2017 19:18:15 +0300
-Message-ID: <312867f0-f6dd-3c92-df09-fae72ea7405b@cogentembedded.com>
-References: <1485282073-16662-1-git-send-email-horms+renesas@verge.net.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] virtio, vhost: fixes
+Date: Wed, 25 Jan 2017 18:21:18 +0200
+Message-ID: <20170125182118-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:33028 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751008AbdAYQST (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 11:18:19 -0500
-Received: by mail-lf0-f49.google.com with SMTP id x1so44889016lff.0
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 08:18:19 -0800 (PST)
-In-Reply-To: <1485282073-16662-1-git-send-email-horms+renesas@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stefanha@redhat.com, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, will.deacon@arm.com,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, marc.zyngier@arm.com,
+	luto@kernel.org, robin.murphy@arm.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 01/24/2017 09:21 PM, Simon Horman wrote:
+The following changes since commit 7a308bb3016f57e5be11a677d15b821536419d36:
 
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->
-> "swiotlb buffer is full" errors occur after repeated initialisation of a
-> device - f.e. suspend/resume or ip link set up/down. This is because memory
-> mapped using dma_map_single() in ravb_ring_format() and ravb_start_xmit()
-> is not released.  Resolve this problem by unmapping descriptors when
-> freeing rings.
+  Linux 4.10-rc5 (2017-01-22 12:54:15 -0800)
 
-    Could you look into the sh_eth driver which seems to have the same issue?
+are available in the git repository at:
 
-> Note, ravb_tx_free() is moved but not otherwise modified by this patch.
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
 
-    This is not true anymore BTW.
+for you to fetch changes up to c7070619f3408d9a0dffbed9149e6f00479cf43b:
 
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> [simon: reworked]
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+  vring: Force use of DMA API for ARM-based systems with legacy devices (2017-01-25 00:33:11 +0200)
 
-MBR, Sergei
+----------------------------------------------------------------
+virtio, vhost: fixes
+
+ARM DMA fixes
+vhost vsock bugfix
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Robin Murphy (1):
+      virtio_mmio: Set DMA masks appropriately
+
+Stefan Hajnoczi (1):
+      vhost/vsock: handle vhost_vq_init_access() error
+
+Will Deacon (1):
+      vring: Force use of DMA API for ARM-based systems with legacy devices
+
+ drivers/vhost/vsock.c        | 13 +++++++++----
+ drivers/virtio/virtio_mmio.c | 20 +++++++++++++++++++-
+ drivers/virtio/virtio_ring.c |  7 +++++++
+ 3 files changed, 35 insertions(+), 5 deletions(-)
