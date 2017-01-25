@@ -1,91 +1,102 @@
-From: Greg <gvrose8192@gmail.com>
-Subject: Re: ip link SR-IOV VF MAC address disparity
-Date: Wed, 25 Jan 2017 07:49:47 -0800
-Message-ID: <1485359387.29083.3.camel@gmail.com>
-References: <CA+mNUtCquJF9TxTRs9GF7XdBhxDUS_LwWA8M5QZbeXoRGNrZ2A@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small buffer
+ XDP receive
+Date: Wed, 25 Jan 2017 07:52:23 -0800
+Message-ID: <5888C9B7.8040603@gmail.com>
+References: <CAADnVQ+O1tNuktnPgkL7JHZFBaQbWfxq0rjxPn86rsbRcteRyg@mail.gmail.com>
+ <20170125164844-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dan Kenigsberg <danken@redhat.com>,
-        Edward Haas <ehaas@redhat.com>
-To: Leon Goldberg <lgoldber@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35233 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751487AbdAYPtt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:49:49 -0500
-Received: by mail-pf0-f193.google.com with SMTP id f144so14640027pfa.2
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 07:49:49 -0800 (PST)
-In-Reply-To: <CA+mNUtCquJF9TxTRs9GF7XdBhxDUS_LwWA8M5QZbeXoRGNrZ2A@mail.gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35672 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751020AbdAYPwh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:52:37 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 204so20027202pge.2
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 07:52:37 -0800 (PST)
+In-Reply-To: <20170125164844-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-25 at 15:34 +0200, Leon Goldberg wrote:
-> Hey,
+On 17-01-25 06:52 AM, Michael S. Tsirkin wrote:
+> On Tue, Jan 24, 2017 at 11:33:56PM -0800, Alexei Starovoitov wrote:
+>> On Tue, Jan 24, 2017 at 8:02 PM, John Fastabend
+>> <john.fastabend@gmail.com> wrote:
+>>>
+>>> Finally just to point out here are the drivers with XDP support on latest
+>>> net tree,
+>>>
+>>>         mlx/mlx5
+>>>         mlx/mlx4
+>>>         qlogic/qede
+>>>         netronome/nfp
+>>>         virtio_net
+>>>
+>>> And here is the list of adjust header support,
+>>>
+>>>         mlx/mlx4
+>>>
+>>
+>> in net-next it's actually:
+>> yes: mlx4, mlx5
+>> no: qede, nfp, virtio
+>> while nfp and virtio are working on it.
+>>
+>> xdp_adjust_head() is must have for load balancer,
 > 
-> Using ip link to retrieve the MAC addresses of some SR-IOV virtual
-> functions, I'm receiving mixed results:
+> What amount of head space does it need? 70 bytes
+> to do vxlan kind of thing?
 > 
-> [root@nari05 sys]# ip link
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT
->     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-> 2: enp2s0f0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq
-> master ovirtmgmt state UP mode DEFAULT qlen 1000
->     link/ether 78:e7:d1:e4:9b:64 brd ff:ff:ff:ff:ff:ff
-> 3: enp2s0f1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq master test1
-> state DOWN mode DEFAULT qlen 1000
->     link/ether 78:e7:d1:e4:9b:65 brd ff:ff:ff:ff:ff:ff
->     vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
->     vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
->     vf 2 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
->     vf 3 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
->     vf 4 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
-> 4: ovirtmgmt: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
-> state UP mode DEFAULT
->     link/ether 78:e7:d1:e4:9b:64 brd ff:ff:ff:ff:ff:ff
-> 5: test1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
-> state DOWN mode DEFAULT
->     link/ether 78:e7:d1:e4:9b:65 brd ff:ff:ff:ff:ff:ff
-> 11: ;vdsmdummy;: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> mode DEFAULT
->     link/ether 5e:b4:ac:5c:b9:a1 brd ff:ff:ff:ff:ff:ff
-> 37: enp2s16f1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> mode DEFAULT qlen 1000
->     link/ether 00:00:00:00:00:02 brd ff:ff:ff:ff:ff:ff
-> 38: enp2s16f3: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> mode DEFAULT qlen 1000
->     link/ether d6:ee:45:57:c0:39 brd ff:ff:ff:ff:ff:ff
-> 39: enp2s16f5: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> mode DEFAULT qlen 1000
->     link/ether 4a:2c:25:42:97:4a brd ff:ff:ff:ff:ff:ff
-> 40: enp2s16f7: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> mode DEFAULT qlen 1000
->     link/ether c2:fe:2f:5e:f5:e8 brd ff:ff:ff:ff:ff:ff
-> 41: enp2s17f1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-> mode DEFAULT qlen 1000
->     link/ether e6:31:a9:59:5f:ad brd ff:ff:ff:ff:ff:ff
+>> so the sooner it lands for virtio the easier it will be
+>> to develop xdp programs. Initially I expected
+>> e1k+xdp to be the base line for debugging and
+>> development of xdp programs, but since not everyone
+>> agreed on e1k the virtio+xdp filled in the gap.
+>> So without adjust_head in virtio I see very little use for it
+>> in our environment.
+>> It is a must have feature regardless of timing.
+>> I will backport whatever is necessary, but distros
+>> will stick with official releases and imo it's not great
+>> from xdp adoption point of view to have
+>> virtio driver lacking key features.
 > 
-> enp2s0f1 is the physical function; enp2s1f* are the interfaces to the
-> virtual functions.
+> If everyone can agree it's net-next material then I'm happy.
 > 
-> Essentially, I have 2 questions:
-> 1) What is the difference between the entries under the physical
-> function and the interfaces?
-> 2) How should I retrieve the correct MAC addresses? I'm aware of
-> /sys/.../<vf>/net/address, but I am now not sure it is the correct
-> source.
 
-If you haven't used ip link commands to set the VF device MAC addresses
-then the devices will create their own as they register their net device
-entries.  In that case you'll see the VF MAC addresses as all 00's
-because you haven't set them.
+Considering that the only support for adjust_head in net branch
+is in mlx4 and most drivers are aborting when programs get loaded
+with adjust_head support I am OK with applying the patch below to
+net and this series to net-next.
 
-Best known methods call for using the ip link command to set the MAC
-addresses for the VF devices rather than letting them set their own
-temporary LAA type MAC addresses.
+https://patchwork.ozlabs.org/patch/707118/
 
-- Greg
+ diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+ index 08327e005ccc..db761f37783e 100644
+ --- a/drivers/net/virtio_net.c
+ +++ b/drivers/net/virtio_net.c
+ @@ -1677,6 +1677,11 @@  static int virtnet_xdp_set(struct net_device *dev,
+struct bpf_prog *prog)
+  	u16 xdp_qp = 0, curr_qp;
+  	int i, err;
 
-> 
-> Thanks,
-> Leon
+ +	if (prog && prog->xdp_adjust_head) {
+ +		netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
+ +		return -EOPNOTSUPP;
+ +	}
+ +
+  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+  	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6)) {
+  		netdev_warn(dev, "can't set XDP while host is implementing LRO, disable LRO
+first\n");
+
+
+Thanks,
+John
