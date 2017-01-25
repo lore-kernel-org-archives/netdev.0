@@ -1,39 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] Documentation: devicetree: change the mediatek
- ethernet compatible string
-Date: Wed, 25 Jan 2017 14:36:13 -0500 (EST)
-Message-ID: <20170125.143613.634538648038125925.davem@davemloft.net>
-References: <1485332455-34743-1-git-send-email-john@phrozen.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Workaround missing PHY ID on mv88e6390
+Date: Wed, 25 Jan 2017 14:37:46 -0500
+Message-ID: <87lgtz3p85.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1485309314-23942-1-git-send-email-andrew@lunn.ch> <1485309314-23942-2-git-send-email-andrew@lunn.ch> <87sho7123x.fsf@free-electrons.com> <87o9yvyqwr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <87r33r3tkw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170125193040.GE6611@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, matthias.bgg@gmail.com, netdev@vger.kernel.org,
-        sean.wang@mediatek.com, devicetree@vger.kernel.org,
-        linux-mediatek@lists.infradead.org
-To: john@phrozen.org
+Content-Type: text/plain
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33094 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751446AbdAYTgQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 14:36:16 -0500
-In-Reply-To: <1485332455-34743-1-git-send-email-john@phrozen.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:55108 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750768AbdAYTiS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 14:38:18 -0500
+In-Reply-To: <20170125193040.GE6611@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Crispin <john@phrozen.org>
-Date: Wed, 25 Jan 2017 09:20:54 +0100
+Hi Andrew,
 
-> When the binding was defined, I was not aware that mt2701 was an earlier
-> version of the SoC. For sake of consistency, the ethernet driver should
-> use mt2701 inside the compat string as this is the earliest SoC with the
-> ethernet core.
-> 
-> The ethernet driver is currently of no real use until we finish and
-> upstream the DSA driver. There are no users of this binding yet. It should
-> be safe to fix this now before it is too late and we need to provide
-> backward compatibility for the mt7623-eth compat string.
-> 
-> Reported-by: Sean Wang <sean.wang@mediatek.com>
-> Signed-off-by: John Crispin <john@phrozen.org>
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Applied.
+>>           if (reg == MII_PHYSID2 && (*val & 0xfff0) == 0)
+>
+> This should be 0x3f0. There are 10 bits for the device model, of which
+> Marvell uses the lowest 4 for version.
+>
+>>               *val |= chip->info->prod_num << 4;
+>
+> #define PORT_SWITCH_ID_PROD_NUM_6190    0x190
+> #define PORT_SWITCH_ID_PROD_NUM_6190X   0x0a0
+> #define PORT_SWITCH_ID_PROD_NUM_6191    0x191
+> #define PORT_SWITCH_ID_PROD_NUM_6290    0x290
+> #define PORT_SWITCH_ID_PROD_NUM_6390    0x390
+> #define PORT_SWITCH_ID_PROD_NUM_6390X   0x0a1
+>
+> That still gives us 6 different PHY IDs, and the shift will cause is
+> to modify the OUI, so it is no longer a Marvell OUI.
+
+OK, this is fine with the Marvell mask then. Can you move the check in
+the higher mv88e6xxx_phy_read() function when you respin please?
+
+Thanks!
+
+        Vivien
