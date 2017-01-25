@@ -1,7 +1,7 @@
 From: Sainath Grandhi <sainath.grandhi@intel.com>
-Subject: [PATCHv3 5/7] TAP: Extending tap device create/destroy APIs
-Date: Wed, 25 Jan 2017 13:25:37 -0800
-Message-ID: <1485379539-32932-6-git-send-email-sainath.grandhi@intel.com>
+Subject: [PATCHv3 3/7] TAP: Tap character device creation/destroy API
+Date: Wed, 25 Jan 2017 13:25:35 -0800
+Message-ID: <1485379539-32932-4-git-send-email-sainath.grandhi@intel.com>
 References: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
 Cc: davem@davemloft.net, mahesh@bandewar.net,
         linux-kernel@vger.kernel.org, sainath.grandhi@intel.com
@@ -11,236 +11,215 @@ In-Reply-To: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Extending tap APIs get/free_minor and create/destroy_cdev to handle more than one
-type of virtual interface.
+This patch provides tap device create/destroy APIs in tap.c.
 
 Signed-off-by: Sainath Grandhi <sainath.grandhi@intel.com>
 ---
- drivers/net/macvtap_main.c |  6 +--
- drivers/net/tap.c          | 98 +++++++++++++++++++++++++++++++++++-----------
- include/linux/if_tap.h     |  4 +-
- 3 files changed, 80 insertions(+), 28 deletions(-)
+ drivers/net/macvtap_main.c | 30 +++++++---------------
+ drivers/net/tap.c          | 62 ++++++++++++++++++++++++++++++++++++++--------
+ include/linux/if_tap.h     |  3 +++
+ 3 files changed, 63 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/macvtap_main.c b/drivers/net/macvtap_main.c
-index dd6f4e4..50fe993 100644
+index 548f339..694e385 100644
 --- a/drivers/net/macvtap_main.c
 +++ b/drivers/net/macvtap_main.c
-@@ -163,7 +163,7 @@ static int macvtap_device_event(struct notifier_block *unused,
- 		 * been registered but before register_netdevice has
- 		 * finished running.
- 		 */
--		err = tap_get_minor(&vlantap->tap);
-+		err = tap_get_minor(macvtap_major, &vlantap->tap);
- 		if (err)
- 			return notifier_from_errno(err);
+@@ -28,7 +28,6 @@
+  * Variables for dealing with macvtaps device numbers.
+  */
+ static dev_t macvtap_major;
+-#define MACVTAP_NUM_DEVS (1U << MINORBITS)
  
-@@ -171,7 +171,7 @@ static int macvtap_device_event(struct notifier_block *unused,
- 		classdev = device_create(&macvtap_class, &dev->dev, devt,
- 					 dev, tap_name);
- 		if (IS_ERR(classdev)) {
--			tap_free_minor(&vlantap->tap);
-+			tap_free_minor(macvtap_major, &vlantap->tap);
- 			return notifier_from_errno(PTR_ERR(classdev));
- 		}
- 		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
-@@ -186,7 +186,7 @@ static int macvtap_device_event(struct notifier_block *unused,
- 		sysfs_remove_link(&dev->dev.kobj, tap_name);
- 		devt = MKDEV(MAJOR(macvtap_major), vlantap->tap.minor);
- 		device_destroy(&macvtap_class, devt);
--		tap_free_minor(&vlantap->tap);
-+		tap_free_minor(macvtap_major, &vlantap->tap);
- 		break;
- 	case NETDEV_CHANGE_TX_QUEUE_LEN:
- 		if (tap_queue_resize(&vlantap->tap))
+ static const void *macvtap_net_namespace(struct device *d)
+ {
+@@ -159,57 +158,46 @@ static struct notifier_block macvtap_notifier_block __read_mostly = {
+ 	.notifier_call	= macvtap_device_event,
+ };
+ 
+-extern struct file_operations tap_fops;
+ static int macvtap_init(void)
+ {
+ 	int err;
+ 
+-	err = alloc_chrdev_region(&macvtap_major, 0,
+-				MACVTAP_NUM_DEVS, "macvtap");
+-	if (err)
+-		goto out1;
++	err = tap_create_cdev(&macvtap_cdev, &macvtap_major, "macvtap");
+ 
+-	cdev_init(&macvtap_cdev, &tap_fops);
+-	err = cdev_add(&macvtap_cdev, macvtap_major, MACVTAP_NUM_DEVS);
+ 	if (err)
+-		goto out2;
++		goto out1;
+ 
+ 	err = class_register(&macvtap_class);
+ 	if (err)
+-		goto out3;
++		goto out2;
+ 
+ 	err = register_netdevice_notifier(&macvtap_notifier_block);
+ 	if (err)
+-		goto out4;
++		goto out3;
+ 
+ 	err = macvlan_link_register(&macvtap_link_ops);
+ 	if (err)
+-		goto out5;
++		goto out4;
+ 
+ 	return 0;
+ 
+-out5:
+-	unregister_netdevice_notifier(&macvtap_notifier_block);
+ out4:
+-	class_unregister(&macvtap_class);
++	unregister_netdevice_notifier(&macvtap_notifier_block);
+ out3:
+-	cdev_del(&macvtap_cdev);
++	class_unregister(&macvtap_class);
+ out2:
+-	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
++	cdev_del(&macvtap_cdev);
+ out1:
+ 	return err;
+ }
+ module_init(macvtap_init);
+ 
+-extern struct idr minor_idr;
+ static void macvtap_exit(void)
+ {
+ 	rtnl_link_unregister(&macvtap_link_ops);
+ 	unregister_netdevice_notifier(&macvtap_notifier_block);
+ 	class_unregister(&macvtap_class);
+-	cdev_del(&macvtap_cdev);
+-	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
+-	idr_destroy(&minor_idr);
++	tap_destroy_cdev(macvtap_major, &macvtap_cdev);
+ }
+ module_exit(macvtap_exit);
+ 
 diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-index ede436a..1219ee9 100644
+index ec35efe..ec7ebed 100644
 --- a/drivers/net/tap.c
 +++ b/drivers/net/tap.c
-@@ -99,12 +99,16 @@ static struct proto tap_proto = {
+@@ -123,8 +123,12 @@ static struct proto tap_proto = {
  };
  
  #define TAP_NUM_DEVS (1U << MINORBITS)
-+
-+static LIST_HEAD(major_list);
-+
- struct major_info {
- 	dev_t major;
- 	struct idr minor_idr;
- 	struct mutex minor_lock;
- 	const char *device_name;
--} macvtap_major;
-+	struct list_head next;
-+};
+-static DEFINE_MUTEX(minor_lock);
+-DEFINE_IDR(minor_idr);
++struct major_info {
++	dev_t major;
++	struct idr minor_idr;
++	struct mutex minor_lock;
++	const char *device_name;
++} macvtap_major;
  
  #define GOODCOPY_LEN 128
  
-@@ -385,44 +389,73 @@ rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
- 	return RX_HANDLER_CONSUMED;
- }
- 
--int tap_get_minor(struct tap_dev *tap)
-+static struct major_info *tap_get_major(int major)
-+{
-+	struct major_info *tap_major, *tmp;
-+
-+	list_for_each_entry_safe(tap_major, tmp, &major_list, next) {
-+		if (tap_major->major == major) {
-+			return tap_major;
-+		}
-+	}
-+
-+	return NULL;
-+}
-+
-+int tap_get_minor(dev_t major, struct tap_dev *tap)
+@@ -413,26 +417,26 @@ int tap_get_minor(struct macvlan_dev *vlan)
  {
  	int retval = -ENOMEM;
-+	struct major_info *tap_major;
-+
-+	tap_major = tap_get_major(MAJOR(major));
-+	if (!tap_major)
-+		return -EINVAL;
  
--	mutex_lock(&macvtap_major.minor_lock);
--	retval = idr_alloc(&macvtap_major.minor_idr, tap, 1, TAP_NUM_DEVS, GFP_KERNEL);
-+	mutex_lock(&tap_major->minor_lock);
-+	retval = idr_alloc(&tap_major->minor_idr, tap, 1, TAP_NUM_DEVS, GFP_KERNEL);
+-	mutex_lock(&minor_lock);
+-	retval = idr_alloc(&minor_idr, vlan, 1, TAP_NUM_DEVS, GFP_KERNEL);
++	mutex_lock(&macvtap_major.minor_lock);
++	retval = idr_alloc(&macvtap_major.minor_idr, vlan, 1, TAP_NUM_DEVS, GFP_KERNEL);
  	if (retval >= 0) {
- 		tap->minor = retval;
+ 		vlan->minor = retval;
  	} else if (retval == -ENOSPC) {
- 		netdev_err(tap->dev, "Too many tap devices\n");
+ 		netdev_err(vlan->dev, "Too many tap devices\n");
  		retval = -EINVAL;
  	}
--	mutex_unlock(&macvtap_major.minor_lock);
-+	mutex_unlock(&tap_major->minor_lock);
+-	mutex_unlock(&minor_lock);
++	mutex_unlock(&macvtap_major.minor_lock);
  	return retval < 0 ? retval : 0;
  }
  
--void tap_free_minor(struct tap_dev *tap)
-+void tap_free_minor(dev_t major, struct tap_dev *tap)
+ void tap_free_minor(struct macvlan_dev *vlan)
  {
--	mutex_lock(&macvtap_major.minor_lock);
-+	struct major_info *tap_major;
-+
-+	tap_major = tap_get_major(MAJOR(major));
-+	if (!tap_major)
-+		return;
-+
-+	mutex_lock(&tap_major->minor_lock);
- 	if (tap->minor) {
--		idr_remove(&macvtap_major.minor_idr, tap->minor);
-+		idr_remove(&tap_major->minor_idr, tap->minor);
- 		tap->minor = 0;
+-	mutex_lock(&minor_lock);
++	mutex_lock(&macvtap_major.minor_lock);
+ 	if (vlan->minor) {
+-		idr_remove(&minor_idr, vlan->minor);
++		idr_remove(&macvtap_major.minor_idr, vlan->minor);
+ 		vlan->minor = 0;
  	}
--	mutex_unlock(&macvtap_major.minor_lock);
-+	mutex_unlock(&tap_major->minor_lock);
+-	mutex_unlock(&minor_lock);
++	mutex_unlock(&macvtap_major.minor_lock);
  }
  
--static struct tap_dev *dev_get_by_tap_minor(int minor)
-+static struct tap_dev *dev_get_by_tap_file(int major, int minor)
- {
+ static struct net_device *dev_get_by_tap_minor(int minor)
+@@ -440,13 +444,13 @@ static struct net_device *dev_get_by_tap_minor(int minor)
  	struct net_device *dev = NULL;
- 	struct tap_dev *tap;
-+	struct major_info *tap_major;
-+
-+	tap_major = tap_get_major(major);
-+	if (!tap_major)
-+		return NULL;
+ 	struct macvlan_dev *vlan;
  
--	mutex_lock(&macvtap_major.minor_lock);
--	tap = idr_find(&macvtap_major.minor_idr, minor);
-+	mutex_lock(&tap_major->minor_lock);
-+	tap = idr_find(&tap_major->minor_idr, minor);
- 	if (tap) {
- 		dev = tap->dev;
+-	mutex_lock(&minor_lock);
+-	vlan = idr_find(&minor_idr, minor);
++	mutex_lock(&macvtap_major.minor_lock);
++	vlan = idr_find(&macvtap_major.minor_idr, minor);
+ 	if (vlan) {
+ 		dev = vlan->dev;
  		dev_hold(dev);
  	}
--	mutex_unlock(&macvtap_major.minor_lock);
-+	mutex_unlock(&tap_major->minor_lock);
- 	return tap;
+-	mutex_unlock(&minor_lock);
++	mutex_unlock(&macvtap_major.minor_lock);
+ 	return dev;
  }
  
-@@ -454,7 +487,7 @@ static int tap_open(struct inode *inode, struct file *file)
- 	int err = -ENODEV;
- 
- 	rtnl_lock();
--	tap = dev_get_by_tap_minor(iminor(inode));
-+	tap = dev_get_by_tap_file(imajor(inode), iminor(inode));
- 	if (!tap)
- 		goto err;
- 
-@@ -1161,6 +1194,26 @@ int tap_queue_resize(struct tap_dev *tap)
+@@ -1184,3 +1188,39 @@ int tap_queue_resize(struct macvlan_dev *vlan)
+ 	kfree(arrays);
  	return ret;
  }
- 
-+static int tap_list_add(dev_t major, const char *device_name)
++
++int tap_create_cdev(struct cdev *tap_cdev,
++		    dev_t *tap_major, const char *device_name)
 +{
-+	struct major_info *tap_major;
-+	int err = 0;
++	int err;
 +
-+	tap_major = kzalloc(sizeof(*tap_major), GFP_ATOMIC);
-+	if (!tap_major)
-+		return -ENOMEM;
++	err = alloc_chrdev_region(tap_major, 0, TAP_NUM_DEVS, device_name);
++	if (err)
++		goto out1;
 +
-+	tap_major->major = MAJOR(major);
++	cdev_init(tap_cdev, &tap_fops);
++	err = cdev_add(tap_cdev, *tap_major, TAP_NUM_DEVS);
++	if (err)
++		goto out2;
 +
-+	idr_init(&tap_major->minor_idr);
-+	mutex_init(&tap_major->minor_lock);
++	macvtap_major.major = MAJOR(*tap_major);
 +
-+	tap_major->device_name = device_name;
++	idr_init(&macvtap_major.minor_idr);
++	mutex_init(&macvtap_major.minor_lock);
 +
-+	list_add_tail(&tap_major->next, &major_list);
++	macvtap_major.device_name = device_name;
++
++	return err;
++
++out2:
++	unregister_chrdev_region(*tap_major, TAP_NUM_DEVS);
++out1:
 +	return err;
 +}
 +
- int tap_create_cdev(struct cdev *tap_cdev,
- 		    dev_t *tap_major, const char *device_name)
- {
-@@ -1175,14 +1228,7 @@ int tap_create_cdev(struct cdev *tap_cdev,
- 	if (err)
- 		goto out2;
- 
--	macvtap_major.major = MAJOR(*tap_major);
--
--	idr_init(&macvtap_major.minor_idr);
--	mutex_init(&macvtap_major.minor_lock);
--
--	macvtap_major.device_name = device_name;
--
--	return err;
-+	return tap_list_add(*tap_major, device_name);
- 
- out2:
- 	unregister_chrdev_region(*tap_major, TAP_NUM_DEVS);
-@@ -1192,7 +1238,13 @@ int tap_create_cdev(struct cdev *tap_cdev,
- 
- void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
- {
-+	struct major_info *tap_major;
-+
-+	tap_major = tap_get_major(MAJOR(major));
-+	if (!tap_major)
-+		return;
-+
- 	cdev_del(tap_cdev);
- 	unregister_chrdev_region(major, TAP_NUM_DEVS);
--	idr_destroy(&macvtap_major.minor_idr);
-+	idr_destroy(&tap_major->minor_idr);
- }
++void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
++{
++	cdev_del(tap_cdev);
++	unregister_chrdev_region(major, TAP_NUM_DEVS);
++	idr_destroy(&macvtap_major.minor_idr);
++}
 diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
-index 75031e5..362e71c 100644
+index 97d27b8..a2dfd90 100644
 --- a/include/linux/if_tap.h
 +++ b/include/linux/if_tap.h
-@@ -65,8 +65,8 @@ struct tap_queue {
+@@ -19,5 +19,8 @@ void tap_del_queues(struct net_device *dev);
+ int tap_get_minor(struct macvlan_dev *vlan);
+ void tap_free_minor(struct macvlan_dev *vlan);
+ int tap_queue_resize(struct macvlan_dev *vlan);
++int tap_create_cdev(struct cdev *tap_cdev,
++		    dev_t *tap_major, const char *device_name);
++void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev);
  
- rx_handler_result_t tap_handle_frame(struct sk_buff **pskb);
- void tap_del_queues(struct tap_dev *tap);
--int tap_get_minor(struct tap_dev *tap);
--void tap_free_minor(struct tap_dev *tap);
-+int tap_get_minor(dev_t major, struct tap_dev *tap);
-+void tap_free_minor(dev_t major, struct tap_dev *tap);
- int tap_queue_resize(struct tap_dev *tap);
- int tap_create_cdev(struct cdev *tap_cdev,
- 		    dev_t *tap_major, const char *device_name);
+ #endif /*_LINUX_IF_TAP_H_*/
 -- 
 2.7.4
