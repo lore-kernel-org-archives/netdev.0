@@ -1,37 +1,31 @@
-From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: Re: [PATCH for bnxt_re V4 17/21] RDMA/bnxt_re: Handling dispatching
- of events to IB stack
-Date: Wed, 25 Jan 2017 14:33:36 +0530
-Message-ID: <CA+sbYW2=Kfe6gUpiJTeLErXGTHzVacCYrWRNgewe9mJKH6ov4Q@mail.gmail.com>
+From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH for bnxt_re V4 20/21] RDMA/bnxt_re: Add QP event handling
+Date: Wed, 25 Jan 2017 14:34:28 +0530
+Message-ID: <CA+sbYW1zyeaByUV_7JzYbZmt6-fZkchAT-3vcBgHnw0z0tad3A@mail.gmail.com>
 References: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
- <1482320530-5344-18-git-send-email-selvin.xavier@broadcom.com> <20170124121801.GG6005@mtr-leonro.local>
+ <1482320530-5344-21-git-send-email-selvin.xavier@broadcom.com> <20170124122008.GH6005@mtr-leonro.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f172.google.com ([209.85.216.172]:36369 "EHLO
-        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751335AbdAYJDi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 04:03:38 -0500
-Received: by mail-qt0-f172.google.com with SMTP id k15so10891899qtg.3
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 01:03:37 -0800 (PST)
-In-Reply-To: <20170124121801.GG6005@mtr-leonro.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170124122008.GH6005-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 5:48 PM, Leon Romanovsky <leon@kernel.org> wrote:
-> All callers to this function in this patch set qp_wait to be false.
-> Do you have in following patches qp_wait == true?
-> I'm curious because of your msleep below.
+On Tue, Jan 24, 2017 at 5:50 PM, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> it looks like if( ... ) return 0
 
-
-Thanks for pointing it out. Driver in our internal tree had one more
-condition which has a qp_wait == true condition. I missed to remove
-this before posting upstream. Will include this in V5
+Yes.. There is some code to be added on this area as a part of error
+reporting. We will add this once the driver is accepted. Perhaps, i
+will add a debug print here for now.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
