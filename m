@@ -1,52 +1,56 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
-Date: Wed, 25 Jan 2017 16:23:03 +0200
-Message-ID: <20170125162039-mutt-send-email-mst@kernel.org>
-References: <CAADnVQ+ioJ7kgsFeFoSV9Nqnq9CkRGMmqS5QM66gsJG01-Rojw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP stops sending packets over loopback on 4.10-rc3?
+Date: Wed, 25 Jan 2017 06:25:11 -0800
+Message-ID: <1485354311.5145.12.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485256853.4014.0@smtp.office365.com>
+         <1485266868.16328.292.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1485353664.5902.2@smtp.office365.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CAADnVQ+ioJ7kgsFeFoSV9Nqnq9CkRGMmqS5QM66gsJG01-Rojw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Lawrence Brakmo <brakmo@fb.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Josef Bacik <jbacik@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35950 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752033AbdAYOZN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 09:25:13 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 75so19848692pgf.3
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 06:25:13 -0800 (PST)
+In-Reply-To: <1485353664.5902.2@smtp.office365.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2017 at 08:07:40PM -0800, Alexei Starovoitov wrote:
-> On Tue, Jan 24, 2017 at 7:48 PM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
-> >
-> > It is a concern on my side. I want XDP and Linux stack to work
-> > reasonably well together.
+On Wed, 2017-01-25 at 09:14 -0500, Josef Bacik wrote:
+> On Tue, Jan 24, 2017 at 9:07 AM, Eric Dumazet <eric.dumazet@gmail.com> 
+
+> > 
+> > git grep -n SOCK_QUEUE_SHRUNK
+> > 
+> > -> tcp_check_space()
 > 
-> btw the micro benchmarks showed that page per packet approach
-> that xdp took in mlx4 should be 10% slower vs normal operation
-> for tcp/ip stack.
+> But tcp_check_space() doesn't actually reduce sk_wmem_queued from what 
+> I can see.  The only places that appear to reduce it are tcp_trim_head, 
+> which is only called in the retransmit path, and sk_wmem_free_skb, 
+> which seems to be right,
 
-Interesting. TCP only or UDP too? What's the packet size? Are you tuning
-your rmem limits at all?  The slowdown would be more noticeable with
-UDP with default values and small packet sizes.
+This is exactly how it works.
 
-> We thought that for our LB use case
-> it will be an acceptable slowdown, but turned out that overall we
-> got a performance boost, since xdp model simplified user space
-> and got data path faster, so we magically got extra free cpu
-> that is used for other apps on the same host and overall
-> perf win despite extra overhead in tcp/ip.
-> Not all use cases are the same and not everyone will be as lucky,
-> so I'd like to see performance of xdp_pass improving too, though
-> it turned out to be not as high priority as I initially estimated.
+We free a bunch of skbs (an ACK can acknowledge dozens of them), and set
+the SOCK_QUEUE_SHRUNK.
+
+Then later, tcp_check_space() is called once and check if the bit was
+set by a prior call to tcp_trim_head() or full skb freeing.
+
+>  but I added a trace_printk() in it to see if 
+> it was firing during my test and it never fires.  So we _appear_ to 
+> only ever be incrementing this counter, but never decrementing it.  I'm 
+> doing a bunch of tracing trying to figure out what is going on here but 
+> so far nothing is popping which is starting to make me think ftrace is 
+> broken.  Thanks,
+> 
+
+Just to make sure, are you telling use native/standard TCP is broken
+over loopback, or is that only when using an additional kernel module ?
