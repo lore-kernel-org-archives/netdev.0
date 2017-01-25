@@ -1,115 +1,52 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: TCP stops sending packets over loopback on 4.10-rc3?
-Date: Wed, 25 Jan 2017 09:14:24 -0500
-Message-ID: <1485353664.5902.2@smtp.office365.com>
-References: <1485256853.4014.0@smtp.office365.com>
-        <1485266868.16328.292.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
+Date: Wed, 25 Jan 2017 16:23:03 +0200
+Message-ID: <20170125162039-mutt-send-email-mst@kernel.org>
+References: <CAADnVQ+ioJ7kgsFeFoSV9Nqnq9CkRGMmqS5QM66gsJG01-Rojw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Lawrence Brakmo <brakmo@fb.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47761 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751627AbdAYOOc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 09:14:32 -0500
-In-Reply-To: <1485266868.16328.292.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	John Fastabend <john.fastabend@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CAADnVQ+ioJ7kgsFeFoSV9Nqnq9CkRGMmqS5QM66gsJG01-Rojw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 9:07 AM, Eric Dumazet <eric.dumazet@gmail.com> 
-wrote:
-> On Tue, 2017-01-24 at 06:20 -0500, Josef Bacik wrote:
->>  Hello,
->> 
->>  I've been trying to test some NBD changes I had made recently and I
->>  started having packet timeouts.  I traced this down to tcp just
->>  stopping sending packets after a lot of writing.  All NBD does is 
->> call
->>  kernel_sendmsg() with a request struct and some pages when it does
->>  writes.  I did a bunch of tracing and I've narrowed it down to 
->> running
->>  out of sk_wmem_queued space.  In tcp_sendmsg() here
->> 
->>  new_segment:
->>                          /* Allocate new segment. If the interface 
->> is SG,
->>                           * allocate skb fitting to single page.
->>                           */
->>                          if (!sk_stream_memory_free(sk))
->>                                  goto wait_for_sndbuf;
->> 
->>  we hit this pretty regularly, and eventually just get stuck in
->>  sk_stream_wait_memory until the timeout ends and we error out
->>  everything.  Now sk_stream_memory_free checks the sk_wmem_queued and
->>  calls into the sk_prot->stream_memory_free(), so I broke this out 
->> like
->>  the following
->> 
->> 
->>      if (sk->sk_wmem_queued >= sk->sk_sndbuf) {
->>          trace_printk("sk_wmem_queued %d, sk_sndbuf %d\n",
->>  sk->sk_wmem_queued, sk->sk_sndbuf);
->>          goto wait_for_sndbuf;
->>       }
->>       if (sk->sk_prot->stream_memory_free &&
->>  !sk->sk_prot->stream_memory_free(sk)) {
->>          trace_printk("sk_stream_memory_free\n");
->>          goto wait_for_sndbuf;
->>       }
->> 
->>  And I got this in my tracing
->> 
->>     kworker/u16:5-112   [001] ....  1375.637564: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>     kworker/u16:5-112   [001] ....  1375.639657: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>     kworker/u16:5-112   [003] ....  1375.641128: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>     kworker/u16:5-112   [003] ....  1375.643441: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>     kworker/u16:5-112   [001] ....  1375.807614: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>     kworker/u16:5-112   [001] ....  1377.538744: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>     kworker/u16:5-112   [001] ....  1377.543418: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>      kworker/2:4H-1535  [002] ....  1377.544685: tcp_sendmsg:
->>  sk_wmem_queued 4204872, sk_sndbuf 4194304
->>     kworker/u16:5-112   [000] ....  1379.378352: tcp_sendmsg:
->>  sk_wmem_queued 4205796, sk_sndbuf 4194304
->>     kworker/u16:5-112   [003] ....  1380.985721: tcp_sendmsg:
->>  sk_wmem_queued 4212416, sk_sndbuf 4194304
->> 
->>  This is as far as I've gotten and I'll keep digging into it, but I 
->> was
->>  wondering if this looks familiar to anybody?  Also one thing I've
->>  noticed is sk_stream_wait_memory() will wait on sk_sleep(sk), but
->>  basically nothing wakes this up.  For example it seems the main way 
->> we
->>  reduce sk_wmem_queued is through sk_wmem_free_skb(), which doesn't
->>  appear to wake anything up in any of its callers, so anybody who 
->> does
->>  end up sleeping will basically never wake up.  That seems like it
->>  should be more broken than it is, so I'm curious to know how things 
->> are
->>  actually woken up in this case.  Thanks,
+On Tue, Jan 24, 2017 at 08:07:40PM -0800, Alexei Starovoitov wrote:
+> On Tue, Jan 24, 2017 at 7:48 PM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+> >
+> > It is a concern on my side. I want XDP and Linux stack to work
+> > reasonably well together.
 > 
-> 
-> git grep -n SOCK_QUEUE_SHRUNK
-> 
-> -> tcp_check_space()
+> btw the micro benchmarks showed that page per packet approach
+> that xdp took in mlx4 should be 10% slower vs normal operation
+> for tcp/ip stack.
 
-But tcp_check_space() doesn't actually reduce sk_wmem_queued from what 
-I can see.  The only places that appear to reduce it are tcp_trim_head, 
-which is only called in the retransmit path, and sk_wmem_free_skb, 
-which seems to be right, but I added a trace_printk() in it to see if 
-it was firing during my test and it never fires.  So we _appear_ to 
-only ever be incrementing this counter, but never decrementing it.  I'm 
-doing a bunch of tracing trying to figure out what is going on here but 
-so far nothing is popping which is starting to make me think ftrace is 
-broken.  Thanks,
+Interesting. TCP only or UDP too? What's the packet size? Are you tuning
+your rmem limits at all?  The slowdown would be more noticeable with
+UDP with default values and small packet sizes.
 
-Josef
+> We thought that for our LB use case
+> it will be an acceptable slowdown, but turned out that overall we
+> got a performance boost, since xdp model simplified user space
+> and got data path faster, so we magically got extra free cpu
+> that is used for other apps on the same host and overall
+> perf win despite extra overhead in tcp/ip.
+> Not all use cases are the same and not everyone will be as lucky,
+> so I'd like to see performance of xdp_pass improving too, though
+> it turned out to be not as high priority as I initially estimated.
