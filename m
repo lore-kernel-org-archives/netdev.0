@@ -1,97 +1,119 @@
-From: <stef.ryckmans@kortenberg.be>
-Subject: (unknown)
-Date: Wed, 25 Jan 2017 00:56:17 -0000
-Message-ID: <148530577714.6149.16806369001330096494@ubtanet.com>
-Reply-To: <stef.ryckmans@kortenberg.be>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCHv2 perf/core 5/7] tools lib bpf: Add bpf_program__pin()
+Date: Wed, 25 Jan 2017 09:04:16 +0800
+Message-ID: <e24b0753-43ee-fad5-86c4-a3699caff05d@huawei.com>
+References: <20170123011128.26534-1-joe@ovn.org>
+ <20170123011128.26534-6-joe@ovn.org>
 Mime-Version: 1.0
-Content-Type: application/zip; name="NATASHA-40151903-netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <ast@fb.com>, <daniel@iogearbox.net>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Joe Stringer <joe@ovn.org>, <acme@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-67-213-229-121-dsl.ubtanet.com ([67.213.229.121]:47879
-        "HELO ubtanet.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751017AbdAYA4k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 19:56:40 -0500
-Content-Disposition: attachment
-Subject: 
+Received: from szxga01-in.huawei.com ([58.251.152.64]:41831 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751218AbdAYBFj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 20:05:39 -0500
+In-Reply-To: <20170123011128.26534-6-joe@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-UwAAAMYQAAAAAA==
+
+
+On 2017/1/23 9:11, Joe Stringer wrote:
+> Add a new API to pin a BPF program to the filesystem. The user can
+> specify the path full path within a BPF filesystem to pin the program.
+> Programs with multiple instances are pinned as 'foo', 'foo_1', 'foo_2',
+> and so on.
+>
+> Signed-off-by: Joe Stringer <joe@ovn.org>
+> ---
+> v2: Don't automount BPF filesystem
+>      Split program, map, object pinning into separate APIs and separate
+>      patches.
+> ---
+>   tools/lib/bpf/libbpf.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>   tools/lib/bpf/libbpf.h |  1 +
+>   2 files changed, 77 insertions(+)
+>
+> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+> index e6cd62b1264b..eea5c74808f7 100644
+> --- a/tools/lib/bpf/libbpf.c
+> +++ b/tools/lib/bpf/libbpf.c
+> @@ -4,6 +4,7 @@
+>    * Copyright (C) 2013-2015 Alexei Starovoitov <ast@kernel.org>
+>    * Copyright (C) 2015 Wang Nan <wangnan0@huawei.com>
+>    * Copyright (C) 2015 Huawei Inc.
+> + * Copyright (C) 2017 Nicira, Inc.
+>    *
+>    * This program is free software; you can redistribute it and/or
+>    * modify it under the terms of the GNU Lesser General Public
+> @@ -22,6 +23,7 @@
+>   #include <stdlib.h>
+>   #include <stdio.h>
+>   #include <stdarg.h>
+> +#include <libgen.h>
+>   #include <inttypes.h>
+>   #include <string.h>
+>   #include <unistd.h>
+> @@ -31,7 +33,10 @@
+>   #include <linux/err.h>
+>   #include <linux/kernel.h>
+>   #include <linux/bpf.h>
+> +#include <linux/magic.h>
+>   #include <linux/list.h>
+> +#include <linux/limits.h>
+> +#include <sys/vfs.h>
+>   #include <libelf.h>
+>   #include <gelf.h>
+>   
+> @@ -1237,6 +1242,77 @@ int bpf_object__load(struct bpf_object *obj)
+>   	return err;
+>   }
+>   
+> +static int check_path(const char *path)
+> +{
+> +	struct statfs st_fs;
+> +	char *dname, *dir;
+> +	int err = 0;
+> +
+> +	if (path == NULL)
+> +		return -EINVAL;
+> +
+> +	dname = strdup(path);
+> +	dir = dirname(dname);
+> +	if (statfs(dir, &st_fs)) {
+> +		pr_warning("failed to statfs %s: %s\n", dir, strerror(errno));
+> +		err = -errno;
+> +	}
+> +	free(dname);
+> +
+> +	if (!err && st_fs.f_type != BPF_FS_MAGIC) {
+> +		pr_warning("specified path %s is not on BPF FS\n", path);
+> +		err = -EINVAL;
+> +	}
+> +
+> +	return err;
+> +}
+> +
+> +int bpf_program__pin(struct bpf_program *prog, const char *path)
+
+In your next patch please let caller select one instance:
+
+int bpf_program__pin(struct bpf_program *prog, int instance, const char 
+*path)
+(please choose a better name)
+
+Then your can wrap it with another function to pin all instances, implement
+naming schema (%s_%d) there.
+
+Then implement naming schema in bpf_object__pin like:
+
+%s/objectname_mapname
+%s/objectname_progname_%d
+
+and make a bpf_{map,program}__pin the raw pinning functions with no 
+naming schema.
+
+Thank you.
