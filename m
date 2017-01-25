@@ -1,9 +1,10 @@
 From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [PATCH 15/23] tools lib bpf: Define prog_type fns with macro
-Date: Wed, 25 Jan 2017 10:53:42 -0300
-Message-ID: <20170125135350.22983-16-acme@kernel.org>
+Subject: [PATCH 14/23] tools lib bpf: Fix map offsets in relocation
+Date: Wed, 25 Jan 2017 10:53:41 -0300
+Message-ID: <20170125135350.22983-15-acme@kernel.org>
 References: <20170125135350.22983-1-acme@kernel.org>
 Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
+        Wang Nan <wangnan0@huawei.com>,
         Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
         Arnaldo Carvalho de Melo <acme@redhat.com>
@@ -15,77 +16,86 @@ List-Id: netdev.vger.kernel.org
 
 From: Joe Stringer <joe@ovn.org>
 
-Turning this into a macro allows future prog types to be added with a
-single line per type.
+Commit 4708bbda5cb2 ("tools lib bpf: Fix maps resolution") attempted to
+fix map resolution by identifying the number of symbols that point to
+maps, and using this number to resolve each of the maps.
+
+However, during relocation the original definition of the map size was
+still in use. For up to two maps, the calculation was correct if there
+was a small difference in size between the map definition in libbpf and
+the one that the client library uses. However if the difference was
+large, particularly if more than two maps were used in the BPF program,
+the relocation would fail.
+
+For example, when using a map definition with size 28, with three maps,
+map relocation would count:
+
+    (sym_offset / sizeof(struct bpf_map_def) => map_idx)
+    (0 / 16 => 0), ie map_idx = 0
+    (28 / 16 => 1), ie map_idx = 1
+    (56 / 16 => 3), ie map_idx = 3
+
+So, libbpf reports:
+
+    libbpf: bpf relocation: map_idx 3 large than 2
+
+Fix map relocation by checking the exact offset of maps when doing
+relocation.
 
 Signed-off-by: Joe Stringer <joe@ovn.org>
-Acked-by: Wang Nan <wangnan0@huawei.com>
+[Allow different map size in an object]
+Signed-off-by: Wang Nan <wangnan0@huawei.com>
 Cc: Alexei Starovoitov <ast@fb.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: netdev@vger.kernel.org
-Link: http://lkml.kernel.org/r/20170123011128.26534-3-joe@ovn.org
+Fixes: 4708bbda5cb2 ("tools lib bpf: Fix maps resolution")
+Link: http://lkml.kernel.org/r/20170123011128.26534-2-joe@ovn.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- tools/lib/bpf/libbpf.c | 41 ++++++++++++++++-------------------------
- 1 file changed, 16 insertions(+), 25 deletions(-)
+ tools/lib/bpf/libbpf.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-index 671d5ad07cf1..371cb40a2304 100644
+index 84e6b35da4bd..671d5ad07cf1 100644
 --- a/tools/lib/bpf/libbpf.c
 +++ b/tools/lib/bpf/libbpf.c
-@@ -1428,37 +1428,28 @@ static void bpf_program__set_type(struct bpf_program *prog,
- 	prog->type = type;
- }
- 
--int bpf_program__set_tracepoint(struct bpf_program *prog)
--{
--	if (!prog)
--		return -EINVAL;
--	bpf_program__set_type(prog, BPF_PROG_TYPE_TRACEPOINT);
--	return 0;
--}
--
--int bpf_program__set_kprobe(struct bpf_program *prog)
--{
--	if (!prog)
--		return -EINVAL;
--	bpf_program__set_type(prog, BPF_PROG_TYPE_KPROBE);
--	return 0;
--}
--
- static bool bpf_program__is_type(struct bpf_program *prog,
- 				 enum bpf_prog_type type)
+@@ -779,7 +779,7 @@ static int
+ bpf_program__collect_reloc(struct bpf_program *prog,
+ 			   size_t nr_maps, GElf_Shdr *shdr,
+ 			   Elf_Data *data, Elf_Data *symbols,
+-			   int maps_shndx)
++			   int maps_shndx, struct bpf_map *maps)
  {
- 	return prog ? (prog->type == type) : false;
- }
+ 	int i, nrels;
  
--bool bpf_program__is_tracepoint(struct bpf_program *prog)
--{
--	return bpf_program__is_type(prog, BPF_PROG_TYPE_TRACEPOINT);
--}
--
--bool bpf_program__is_kprobe(struct bpf_program *prog)
--{
--	return bpf_program__is_type(prog, BPF_PROG_TYPE_KPROBE);
--}
-+#define BPF_PROG_TYPE_FNS(NAME, TYPE)			\
-+int bpf_program__set_##NAME(struct bpf_program *prog)	\
-+{							\
-+	if (!prog)					\
-+		return -EINVAL;				\
-+	bpf_program__set_type(prog, TYPE);		\
-+	return 0;					\
-+}							\
-+							\
-+bool bpf_program__is_##NAME(struct bpf_program *prog)	\
-+{							\
-+	return bpf_program__is_type(prog, TYPE);	\
-+}							\
+@@ -829,7 +829,15 @@ bpf_program__collect_reloc(struct bpf_program *prog,
+ 			return -LIBBPF_ERRNO__RELOC;
+ 		}
+ 
+-		map_idx = sym.st_value / sizeof(struct bpf_map_def);
++		/* TODO: 'maps' is sorted. We can use bsearch to make it faster. */
++		for (map_idx = 0; map_idx < nr_maps; map_idx++) {
++			if (maps[map_idx].offset == sym.st_value) {
++				pr_debug("relocation: find map %zd (%s) for insn %u\n",
++					 map_idx, maps[map_idx].name, insn_idx);
++				break;
++			}
++		}
 +
-+BPF_PROG_TYPE_FNS(kprobe, BPF_PROG_TYPE_KPROBE);
-+BPF_PROG_TYPE_FNS(tracepoint, BPF_PROG_TYPE_TRACEPOINT);
- 
- int bpf_map__fd(struct bpf_map *map)
- {
+ 		if (map_idx >= nr_maps) {
+ 			pr_warning("bpf relocation: map_idx %d large than %d\n",
+ 				   (int)map_idx, (int)nr_maps - 1);
+@@ -953,7 +961,8 @@ static int bpf_object__collect_reloc(struct bpf_object *obj)
+ 		err = bpf_program__collect_reloc(prog, nr_maps,
+ 						 shdr, data,
+ 						 obj->efile.symbols,
+-						 obj->efile.maps_shndx);
++						 obj->efile.maps_shndx,
++						 obj->maps);
+ 		if (err)
+ 			return err;
+ 	}
 -- 
 2.9.3
