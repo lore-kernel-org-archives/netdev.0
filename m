@@ -1,43 +1,66 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: [PATCH net] tcp: correct memory barrier usage in tcp_check_space()
-Date: Tue, 24 Jan 2017 21:49:41 -0500
-Message-ID: <1485312581-13041-1-git-send-email-jbaron@akamai.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-        Oleg Nesterov <oleg@redhat.com>
-To: davem@davemloft.net
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small buffer
+ XDP receive
+Date: Wed, 25 Jan 2017 10:57:12 +0800
+Message-ID: <a129524e-c4af-5c67-5397-dec992c70fa1@redhat.com>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+ <20170117221950.20280.39496.stgit@john-Precision-Tower-5810>
+ <20170123230809-mutt-send-email-mst@kernel.org>
+ <20170124.144328.2195698124358175034.davem@davemloft.net>
+ <20170124215412-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.fastabend@gmail.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:46900 "EHLO
-        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751224AbdAYCyQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 21:54:16 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:44268 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751137AbdAYC5T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 21:57:19 -0500
+In-Reply-To: <20170124215412-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Baron <jbaron@akamai.com>
 
-sock_reset_flag() maps to __clear_bit() not the atomic version clear_bit().
-Thus, we need smp_mb(), smp_mb__after_atomic() is not sufficient.
 
-Fixes: 3c7151275c0c ("tcp: add memory barriers to write space paths")
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Oleg Nesterov <oleg@redhat.com>
-Signed-off-by: Jason Baron <jbaron@akamai.com>
----
- net/ipv4/tcp_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 2017年01月25日 04:08, Michael S. Tsirkin wrote:
+> On Tue, Jan 24, 2017 at 02:43:28PM -0500, David Miller wrote:
+>> From: "Michael S. Tsirkin" <mst@redhat.com>
+>> Date: Mon, 23 Jan 2017 23:08:35 +0200
+>>
+>>> On Tue, Jan 17, 2017 at 02:19:50PM -0800, John Fastabend wrote:
+>>>> In the small buffer case during driver unload we currently use
+>>>> put_page instead of dev_kfree_skb. Resolve this by adding a check
+>>>> for virtnet mode when checking XDP queue type. Also name the
+>>>> function so that the code reads correctly to match the additional
+>>>> check.
+>>>>
+>>>> Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
+>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>>> Acked-by: Jason Wang <jasowang@redhat.com>
+>>> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+>>>
+>>> I think we definitely want this one in -net as it's
+>>> a bugfix.
+>> This whole series is a bug fix, we must have adjust_header XDP
+>> support in the virtio_net driver before v4.10 goes out, it is
+>> a requires base feature for XDP.
+> I have to say device resets outside probe have a huge potential
+> to uncover hypervisor bugs.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bfa165cc455a..1e22ae4a5b38 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5028,7 +5028,7 @@ static void tcp_check_space(struct sock *sk)
- 	if (sock_flag(sk, SOCK_QUEUE_SHRUNK)) {
- 		sock_reset_flag(sk, SOCK_QUEUE_SHRUNK);
- 		/* pairs with tcp_poll() */
--		smp_mb__after_atomic();
-+		smp_mb();
- 		if (sk->sk_socket &&
- 		    test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)) {
- 			tcp_new_space(sk);
--- 
-2.6.1
+Maybe not if it reuses most of current codes? Since we've already used 
+them in sleep or hibernation?
+
+Thanks
+
+>   I am rather uncomfortable
+> doing that after -rc1.
+>
+> How about a module option to disable it by default?
+> We can then ship a partial implementation in 4.10
+> and work on completing it in 4.11.
+>
