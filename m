@@ -1,48 +1,92 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC v3 net] ravb: unmap descriptors when freeing rings
-Date: Wed, 25 Jan 2017 17:48:57 +0100
-Message-ID: <20170125164857.GD12042@verge.net.au>
-References: <1485282073-16662-1-git-send-email-horms+renesas@verge.net.au>
- <312867f0-f6dd-3c92-df09-fae72ea7405b@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] xen-netfront: reject short packets and handle
+ non-linear packets
+Date: Wed, 25 Jan 2017 08:51:26 -0800
+Message-ID: <1485363086.5145.24.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485361612-10154-1-git-send-email-paul.durrant@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+        Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+        Juergen Gross <jgross@suse.com>
+To: Paul Durrant <paul.durrant@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:36060 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750965AbdAYQtD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 11:49:03 -0500
-Content-Disposition: inline
-In-Reply-To: <312867f0-f6dd-3c92-df09-fae72ea7405b@cogentembedded.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35862 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751029AbdAYQv2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 11:51:28 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 75so20150030pgf.3
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 08:51:28 -0800 (PST)
+In-Reply-To: <1485361612-10154-1-git-send-email-paul.durrant@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2017 at 07:18:15PM +0300, Sergei Shtylyov wrote:
-> On 01/24/2017 09:21 PM, Simon Horman wrote:
+On Wed, 2017-01-25 at 16:26 +0000, Paul Durrant wrote:
+> Sowmini points out two vulnerabilities in xen-netfront:
 > 
-> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >
-> >"swiotlb buffer is full" errors occur after repeated initialisation of a
-> >device - f.e. suspend/resume or ip link set up/down. This is because memory
-> >mapped using dma_map_single() in ravb_ring_format() and ravb_start_xmit()
-> >is not released.  Resolve this problem by unmapping descriptors when
-> >freeing rings.
+> a) The code assumes that skb->len is at least ETH_HLEN.
+> b) The code assumes that at least ETH_HLEN octets are in the linear
+>    port of the socket buffer.
 > 
->    Could you look into the sh_eth driver which seems to have the same issue?
+> This patch adds tests for both of these, and in the case of the latter
+> pulls sufficient bytes into the linear area.
+> 
+> Signed-off-by: Paul Durrant <paul.durrant@citrix.com>
+> Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Tested-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+> Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+> Cc: Juergen Gross <jgross@suse.com>
+> ---
+>  drivers/net/xen-netfront.c | 9 +++++++++
+>  1 file changed, 9 insertions(+)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 40f26b6..0478809 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -567,6 +567,10 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	u16 queue_index;
+>  	struct sk_buff *nskb;
+>  
+> +	/* Basic sanity check */
+> +	if (unlikely(skb->len < ETH_HLEN))
+> +		goto drop;
+> +
+>  	/* Drop the packet if no queues are set up */
+>  	if (num_queues < 1)
+>  		goto drop;
+> @@ -609,6 +613,11 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	}
+>  
+>  	len = skb_headlen(skb);
+> +	if (unlikely(len < ETH_HLEN)) {
+> +		if (!__pskb_pull_tail(skb, ETH_HLEN - len))
+> +			goto drop;
+> +		len = ETH_HLEN;
+> +	}
 
-Sure, I will check.
+Looks like duplicated code, and buggy, considering the code above
 
-> >Note, ravb_tx_free() is moved but not otherwise modified by this patch.
-> 
->    This is not true anymore BTW.
+page = virt_to_page(skb->data);
+offset = offset_in_page(skb->data);
 
-Thanks for noticing, I'll fix that.
+Your patch might end up with skb->data/head being reallocated, and use
+after free would happen.
 
-> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >[simon: reworked]
-> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> MBR, Sergei
-> 
+What about something like that ?
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 40f26b69beb11459f0566fc1d1d739aa75e643bf..99a67fe4de86d3141169143b0820d00968cb09f2 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -583,6 +583,8 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			skb->len);
+ 		goto drop;
+ 	}
++	if (!pskb_may_pull(skb, ETH_HLEN))
++		goto drop;
+ 
+ 	slots = xennet_count_skb_slots(skb);
+ 	if (unlikely(slots > MAX_XEN_SKB_FRAGS + 1)) {
