@@ -1,40 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: reduce skb overhead in selected places
-Date: Wed, 25 Jan 2017 10:38:52 -0800
-Message-ID: <1485369532.5145.50.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1485298656.16328.355.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170125.131717.489451306351372553.davem@davemloft.net>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: stmmac: GMAC_RGSMIIIS reports bogus values
+Date: Wed, 25 Jan 2017 18:39:24 +0000
+Message-ID: <1485369563.7117.81.camel@synopsys.com>
+References: <1478189833.4072.65.camel@synopsys.com>
+         <a1f114cc-6120-154c-a3f7-3e0389d38e36@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35272 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752426AbdAYSjD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 13:39:03 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 204so20366815pge.2
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 10:39:03 -0800 (PST)
-In-Reply-To: <20170125.131717.489451306351372553.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "manabian@gmail.com" <manabian@gmail.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "fabrice.gasnier@st.com" <fabrice.gasnier@st.com>,
+        "linux-snps-arc@lists.infradead.org"
+        <linux-snps-arc@lists.infradead.org>,
+        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
+        "preid@electromag.com.au" <preid@electromag.com.au>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a1f114cc-6120-154c-a3f7-3e0389d38e36@st.com>
+Content-Language: en-US
+Content-ID: <91937DA5124C1B42A9A67DFB11A346BA@internal.synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-01-25 at 13:17 -0500, David Miller wrote:
-
-> Applied, thanks Eric.
-
-Thanks David.
-
-It looks IPv6 potential big network headers are also a threat :
-
-Various pskb_may_pull() to pull headers might reallocate skb->head,
-but skb->truesize is not updated in __pskb_pull_tail()
-
-We probably need to update skb->truesize, but it is tricky as the prior
-skb->truesize value might have been used for memory accounting when skb
-was stored in some queue.
-
-Do you think we could change __pskb_pull_tail() right away and fix the
-few places that would break, or should we add various helpers with extra
-parameters to take a safe route ?
+SGkgR2l1c2VwcGUsDQoNCk9uIE1vbiwgMjAxNi0xMS0xNCBhdCAwOToxNCArMDEwMCwgR2l1c2Vw
+cGUgQ0FWQUxMQVJPIHdyb3RlOg0KPiBIZWxsbyBBbGV4ZXkNCj4gDQo+IFNvcnJ5IGZvciBteSBs
+YXRlIHJlcGx5LiBJbiB0aGF0IGNhc2UsIEkgdGhpbmsgdGhhdCB0aGUgc3RtbWFjDQo+IGlzIHVz
+aW5nIG93biBSR01JSS9TR01JSSBzdXBwb3J0IChQQ1MpIHRvIGRpYWxvZyB3aXRoIHRoZQ0KPiB0
+cmFuc2NlaXZlci4gSSB0aGluaywgZnJvbSB0aGUgSFcgY2FwYWJpbGl0eSByZWdpc3Rlcg0KPiB0
+aGlzIGZlYXR1cmUgaXMgcHJlc2VudCBhbmQgdGhlIGRyaXZlciBpcyB1c2luZyBpdCBhcyBkZWZh
+dWx0Lg0KDQpZZXAgbG9va3MgbGlrZSB0aGF0Lg0KDQo+IEkga2luZGx5IGFzayB5b3UgdG8gdmVy
+aWZ5IGlmIHRoaXMgaXMgeW91ciBzZXR1cCBvciBpZiB5b3UNCj4gZG8gbm90IHdhbnQgdG8gdXNl
+IGl0LiBJbiB0aGF0IGNhc2UsIGl0IGlzIGxpa2VseSB3ZSBuZWVkIHRvDQo+IGFkZCBzb21lIGNv
+ZGUgaW4gdGhlIGRyaXZlci4NCg0KV2VsbCBHTUFDJ3MgZGF0YWJvb2sgc2F5czoNCi0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NClRoZSBEV0Nf
+Z21hYyBwcm92aWRlcyBhbiBJRUVFIDgwMi4zeiBjb21wbGlhbnQgMTAtYml0DQpQaHlzaWNhbCBD
+b2RpbmcgU3VibGF5ZXIgKFBDUykgaW50ZXJmYWNlIHRoYXQgeW91IGNhbiB1c2UNCndoZW4gdGhl
+IE1BQyBpcyBjb25maWd1cmVkIGZvciB0aGUgVEJJLCBSVEJJLCBvciBTR01JSSBQSFkNCmludGVy
+ZmFjZS4NCg0KLi4uDQoNCllvdSBjYW4gaW5jbHVkZSB0aGUgb3B0aW9uYWwgUENTIG1vZHVsZSBp
+biB0aGUgRFdDX2dtYWMgYnkNCnNlbGVjdGluZyB0aGUgVEJJLCBSVEJJLCBvciBTR01JSSBpbnRl
+cmZhY2UgaW4gY29yZUNvbnN1bHRhbnQNCmR1cmluZyBjb25maWd1cmF0aW9uLg0KLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tPjgtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KDQpCdXQgd2Ug
+dXNlIFJHTUlJIGZvciBjb21tdW5pY2F0aW9uIHdpdGggdGhlIFBIWS4NCkFuZCBmcm9tIHRoZSBx
+dW90ZSBhYm92ZSBJIHdvdWxkIGNvbmNsdWRlIHRoYXQgZm9yIFJHTUlJIHdlIHNob3VsZA0KaGF2
+ZSBQQ1MgZXhjbHVkZWQgZnJvbSBHTUFDLg0KDQpJIGp1c3Qgc2VudCBlbWFpbCB0byBHTUFDIGRl
+dmVsb3BlcnMgaGVyZSBpbiBTeW5vcHN5cyBhbmQNCmhvcGVmdWxseSB3aWxsIGdldCBzb21lIGNs
+YXJpZmljYXRpb25zIGZyb20gdGhlbSBzb29uLg0KDQpQcm9iYWJseSBjb3JyZWN0IHNvbHV0aW9u
+IGlzIGFzIHNpbXBsZSBhczoNCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLT44LS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0NCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1p
+Y3JvL3N0bW1hYy9zdG1tYWNfbWFpbi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9z
+dG1tYWMvc3RtbWFjX21haW4uYw0KaW5kZXggYTI3NmEzMmQ1N2YyLi5mNGI2N2RjN2Q1MzAgMTAw
+NjQ0DQotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFp
+bi5jDQorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFp
+bi5jDQpAQCAtODAzLDEzICs4MDMsNyBAQCBzdGF0aWMgdm9pZCBzdG1tYWNfY2hlY2tfcGNzX21v
+ZGUoc3RydWN0IHN0bW1hY19wcml2ICpwcml2KQ0KwqDCoMKgwqDCoMKgwqDCoGludCBpbnRlcmZh
+Y2UgPSBwcml2LT5wbGF0LT5pbnRlcmZhY2U7DQrCoA0KwqDCoMKgwqDCoMKgwqDCoGlmIChwcml2
+LT5kbWFfY2FwLnBjcykgew0KLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGlmICgoaW50
+ZXJmYWNlID09IFBIWV9JTlRFUkZBQ0VfTU9ERV9SR01JSSkgfHwNCi3CoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoChpbnRlcmZhY2UgPT0gUEhZX0lOVEVSRkFDRV9NT0RFX1JH
+TUlJX0lEKSB8fA0KLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgKGludGVy
+ZmFjZSA9PSBQSFlfSU5URVJGQUNFX01PREVfUkdNSUlfUlhJRCkgfHwNCi3CoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoChpbnRlcmZhY2UgPT0gUEhZX0lOVEVSRkFDRV9NT0RF
+X1JHTUlJX1RYSUQpKSB7DQotwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoG5ldGRldl9kYmcocHJpdi0+ZGV2LCAiUENTIFJHTUlJIHN1cHBvcnQgZW5hYmxlZFxu
+Iik7DQotwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHByaXYt
+Pmh3LT5wY3MgPSBTVE1NQUNfUENTX1JHTUlJOw0KLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoH0gZWxzZSBpZiAoaW50ZXJmYWNlID09IFBIWV9JTlRFUkZBQ0VfTU9ERV9TR01JSSkgew0K
+K8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGlmIChpbnRlcmZhY2UgPT0gUEhZX0lOVEVS
+RkFDRV9NT0RFX1NHTUlJKSB7DQrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqBuZXRkZXZfZGJnKHByaXYtPmRldiwgIlBDUyBTR01JSSBzdXBwb3J0IGVuYWJs
+ZWRcbiIpOw0KwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+cHJpdi0+aHctPnBjcyA9IFNUTU1BQ19QQ1NfU0dNSUk7DQrCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoH0NCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLT44LS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0NCg0KPiBBbHNvIEkgd29uZGVyIGlmLCBvdGhlciB2ZXJzaW9uIG9mIHRoZSBz
+dG1tYWMgd29ya2VkIG9uIHRoaXMgcGxhdGZvcm0NCj4gYmVmb3JlLg0KDQpJdCBkaWQgd29yayBh
+bmQgc3RpbGwgd29ya3MuIFRoZSBvbmx5IHByb2JsZW0gaXMgd2UncmUgZ2V0dGluZw0KYSBsb3Qg
+b2Ygbm9pc2Ugbm93IGFib3V0IGJvZ3VzIGxpbmsgc3RhdHVzIGNoYW5nZS4gVGhhdCdzIGJlY2F1
+c2UNCnRoaXMgaW5mbyBpcyBub3cgaW4gcHJfaW5mbygpIGNvbXBhcmVkIHRvIGJlaW5nIHByZXZp
+b3VzbHkgaW4gcHJfZGVidWcoKS4NCg0KLUFsZXhleQ==
