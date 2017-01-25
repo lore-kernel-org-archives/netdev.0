@@ -1,24 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8152: fix the wrong spelling
-Date: Wed, 25 Jan 2017 13:24:54 -0500 (EST)
-Message-ID: <20170125.132454.802072962898400026.davem@davemloft.net>
-References: <1394712342-15778-241-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next 0/2] Work around missing PHY prodcut ID in
+ mv88e6390
+Date: Wed, 25 Jan 2017 13:25:09 -0500 (EST)
+Message-ID: <20170125.132509.1614793375095964218.davem@davemloft.net>
+References: <1485309314-23942-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-241-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
+        gregory.clement@free-electrons.com
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57528 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751513AbdAYSZ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 13:25:26 -0500
+In-Reply-To: <1485309314-23942-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Wed, 25 Jan 2017 13:41:45 +0800
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 25 Jan 2017 02:55:12 +0100
 
-> Replace rumtime with runtime.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> The internal PHYs of the MV88E6390 have a Marvell OUI, but the product
+> ID is zero. Work around this by trapping reads to the ID, and if it is
+> zero, return the MV88E6390 family ID.
 
-Applied, thanks.
+Because of the ID masking issue, I am expecting a respin of this.
