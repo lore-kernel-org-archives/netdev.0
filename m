@@ -1,65 +1,50 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v2 4/4] r8152: check rx after napi is enabled
-Date: Wed, 25 Jan 2017 16:13:21 +0800
-Message-ID: <1394712342-15778-246-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
- <1394712342-15778-242-Taiwan-albertk@realtek.com>
+From: Amadeusz Slawinski <amadeusz.slawinski@tieto.com>
+Subject: Re: [PATCH 2/2] mac80211: use accessor functions to set sta->_flags
+Date: Wed, 25 Jan 2017 09:55:57 +0100
+Message-ID: <CA+db6Z1OtO4_93KN-YoEaVg79zY5BgX2u0S+8FGVdkWav0iB2g@mail.gmail.com>
+References: <1485272531-11587-1-git-send-email-amadeusz.slawinski@tieto.com>
+ <1485272531-11587-2-git-send-email-amadeusz.slawinski@tieto.com> <1485272668.1236.5.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([211.75.126.72]:43135 "EHLO
-        rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbdAYINw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 03:13:52 -0500
-In-Reply-To: <1394712342-15778-242-Taiwan-albertk@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-wireless@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485272668.1236.5.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Schedule the napi after napi_enable() for rx, if it is necessary.
+And yes I did. Somehow managed to ignore those warnings though, sorry
+about that.
+Rechecked with just first patch and it should still be good. Please
+ignore this one ;)
 
-If the rx is completed when napi is disabled, the sheduling of napi
-would be lost. Then, no one handles the rx packet until next napi
-is scheduled.
-
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 45d168e..8924520 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -32,7 +32,7 @@
- #define NETNEXT_VERSION		"08"
- 
- /* Information for net */
--#define NET_VERSION		"7"
-+#define NET_VERSION		"8"
- 
- #define DRIVER_VERSION		"v1." NETNEXT_VERSION "." NET_VERSION
- #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd@realtek.com>"
-@@ -3561,6 +3561,9 @@ static int rtl8152_post_reset(struct usb_interface *intf)
- 	netif_wake_queue(netdev);
- 	usb_submit_urb(tp->intr_urb, GFP_KERNEL);
- 
-+	if (!list_empty(&tp->rx_done))
-+		napi_schedule(&tp->napi);
-+
- 	return 0;
- }
- 
-@@ -3700,6 +3703,8 @@ static int rtl8152_resume(struct usb_interface *intf)
- 			napi_enable(&tp->napi);
- 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
- 			smp_mb__after_atomic();
-+			if (!list_empty(&tp->rx_done))
-+				napi_schedule(&tp->napi);
- 		} else {
- 			tp->rtl_ops.up(tp);
- 			netif_carrier_off(tp->netdev);
--- 
-2.7.4
+On 24 January 2017 at 16:44, Johannes Berg <johannes@sipsolutions.net> wrot=
+e:
+> On Tue, 2017-01-24 at 16:42 +0100, Amadeusz S=C5=82awi=C5=84ski wrote:
+>> cleanup patch to make use of set_sta_flag()/clear_sta_flag() in
+>> places
+>> where we access sta->_flags
+>>
+>> Signed-off-by: Amadeusz S=C5=82awi=C5=84ski <amadeusz.slawinski@tieto.co=
+m>
+>> ---
+>>  net/mac80211/sta_info.c | 12 ++++++------
+>>  1 file changed, 6 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+>> index b6cfcf0..6c9cc2f 100644
+>> --- a/net/mac80211/sta_info.c
+>> +++ b/net/mac80211/sta_info.c
+>> @@ -1855,13 +1855,13 @@ int sta_info_move_state(struct sta_info *sta,
+>>       switch (new_state) {
+>>       case IEEE80211_STA_NONE:
+>>               if (sta->sta_state =3D=3D IEEE80211_STA_AUTH)
+>> -                     clear_bit(WLAN_STA_AUTH, &sta->_flags);
+>> +                     clear_sta_flag(sta, WLAN_STA_AUTH);
+>
+> You should try to run this patch sometime :)
+>
+> johannes
