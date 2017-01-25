@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Workaround missing PHY ID on mv88e6390
-Date: Wed, 25 Jan 2017 02:55:13 +0100
-Message-ID: <1485309314-23942-2-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 2/2] net: phy: Marvell: Add mv88e6390 internal PHY
+Date: Wed, 25 Jan 2017 02:55:14 +0100
+Message-ID: <1485309314-23942-3-git-send-email-andrew@lunn.ch>
 References: <1485309314-23942-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
@@ -9,50 +9,81 @@ Cc: netdev <netdev@vger.kernel.org>,
         Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44702 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:44707 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751065AbdAYB4N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 20:56:13 -0500
+        id S1751065AbdAYB42 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 20:56:28 -0500
 In-Reply-To: <1485309314-23942-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The internal PHYs of the mv88e6390 do not have a model ID. Trap any
-calls to the ID register, and if it is zero, return the ID for the
-mv88e6390. The Marvell PHY driver can then bind to this ID.
+The mv88e6390 Ethernet switch has internal PHYs. These PHYs don't have
+an model ID in the ID2 register. So the MDIO driver in the switch
+intercepts reads to this register, and returns the switch family ID.
+Extend the Marvell PHY driver by including this ID, and tread the PHY
+as a 88E1540.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/mv88e6xxx/global2.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/phy/marvell.c   | 20 ++++++++++++++++++++
+ include/linux/marvell_phy.h |  6 ++++++
+ 2 files changed, 26 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 353e26bea3c3..521a5511bd5f 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -520,7 +520,21 @@ int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip,
- 	if (err)
- 		return err;
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index b5b73ff4329a..9debe1a4a6f6 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -2140,6 +2140,25 @@ static struct phy_driver marvell_drivers[] = {
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+ 	},
++	{
++		.phy_id = MARVELL_PHY_ID_88E6390,
++		.phy_id_mask = MARVELL_PHY_ID_MASK,
++		.name = "Marvell 88E6390",
++		.features = PHY_GBIT_FEATURES,
++		.flags = PHY_HAS_INTERRUPT,
++		.probe = marvell_probe,
++		.config_init = &marvell_config_init,
++		.config_aneg = &m88e1510_config_aneg,
++		.read_status = &marvell_read_status,
++		.ack_interrupt = &marvell_ack_interrupt,
++		.config_intr = &marvell_config_intr,
++		.did_interrupt = &m88e1121_did_interrupt,
++		.resume = &genphy_resume,
++		.suspend = &genphy_suspend,
++		.get_sset_count = marvell_get_sset_count,
++		.get_strings = marvell_get_strings,
++		.get_stats = marvell_get_stats,
++	},
+ };
  
--	return mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-+	err = mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-+	if (err)
-+		return err;
-+
-+	if (reg == MII_PHYSID2) {
-+		/* The mv88e6390 internal PHYS don't have a model number.
-+		 * Use the switch family model number instead.
-+		 */
-+		if (!(*val & 0x3ff)) {
-+			if (chip->info->family == MV88E6XXX_FAMILY_6390)
-+				*val |= PORT_SWITCH_ID_PROD_NUM_6390;
-+		}
-+	}
-+
-+	return 0;
- }
+ module_phy_driver(marvell_drivers);
+@@ -2158,6 +2177,7 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
+ 	{ MARVELL_PHY_ID_88E1510, MARVELL_PHY_ID_MASK },
+ 	{ MARVELL_PHY_ID_88E1540, MARVELL_PHY_ID_MASK },
+ 	{ MARVELL_PHY_ID_88E3016, MARVELL_PHY_ID_MASK },
++	{ MARVELL_PHY_ID_88E6390, MARVELL_PHY_ID_MASK },
+ 	{ }
+ };
  
- int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip,
+diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
+index a57f0dfb6db7..3d616d7f65bf 100644
+--- a/include/linux/marvell_phy.h
++++ b/include/linux/marvell_phy.h
+@@ -19,6 +19,12 @@
+ #define MARVELL_PHY_ID_88E1540		0x01410eb0
+ #define MARVELL_PHY_ID_88E3016		0x01410e60
+ 
++/* The MV88e6390 Ethernet switch contains embedded PHYs. These PHYs do
++ * not have a model ID. So the switch driver traps reads to the ID2
++ * register and returns the switch family ID
++ */
++#define MARVELL_PHY_ID_88E6390		0x01410f90
++
+ /* struct phy_device dev_flags definitions */
+ #define MARVELL_PHY_M1145_FLAGS_RESISTANCE	0x00000001
+ #define MARVELL_PHY_M1118_DNS323_LEDS		0x00000002
 -- 
 2.11.0
