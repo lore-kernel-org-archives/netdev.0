@@ -1,124 +1,49 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net 1/5] ibmvnic: harden interrupt handler
-Date: Wed, 25 Jan 2017 15:02:19 -0600
-Message-ID: <1485378143-5084-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: linuxppc-dev@lists.ozlabs.org, wvoigt@us.ibm.com,
-        nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
-        tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48322 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751725AbdAYVCe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 16:02:34 -0500
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v0PKwj8F086424
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 16:02:28 -0500
-Received: from e17.ny.us.ibm.com (e17.ny.us.ibm.com [129.33.205.207])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2870eyf76p-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 16:02:28 -0500
-Received: from localhost
-        by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Wed, 25 Jan 2017 16:02:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
+Date: Wed, 25 Jan 2017 22:09:20 +0100
+Message-ID: <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw@mail.gmail.com>
+References: <20170124084606.GA11764@app09> <20170125.123448.742815192519658537.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170125.123448.742815192519658537.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Move most interrupt handler processing into a tasklet, and
-introduce a delay after re-enabling interrupts to fix timing
-issues encountered in hardware testing.
+On Wed, Jan 25, 2017 at 6:34 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Tue, 24 Jan 2017 16:46:14 +0800
+>> We also use the same binding document to describe the same faraday ethernet
+>> controller and add faraday to vendor-prefixes.txt.
+>
+> Why are you renaming the MOXA binding file instead of adding a completely new one
+> for faraday?  The MOXA one should stick around, I don't see a justification for
+> removing it.
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 21 +++++++++++++++++++--
- drivers/net/ethernet/ibm/ibmvnic.h |  1 +
- 2 files changed, 20 insertions(+), 2 deletions(-)
+This was my suggestion, basically fixing the name of the existing
+binding, which was
+accidentally named after one of the users rather than the company that did the
+hardware.
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index c125966..09071bf 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3414,6 +3414,18 @@ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
- static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
- {
- 	struct ibmvnic_adapter *adapter = instance;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&adapter->crq.lock, flags);
-+	vio_disable_interrupts(adapter->vdev);
-+	tasklet_schedule(&adapter->tasklet);
-+	spin_unlock_irqrestore(&adapter->crq.lock, flags);
-+	return IRQ_HANDLED;
-+}
-+
-+static void ibmvnic_tasklet(void *data)
-+{
-+	struct ibmvnic_adapter *adapter = data;
- 	struct ibmvnic_crq_queue *queue = &adapter->crq;
- 	struct vio_dev *vdev = adapter->vdev;
- 	union ibmvnic_crq *crq;
-@@ -3421,7 +3433,6 @@ static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
- 	bool done = false;
- 
- 	spin_lock_irqsave(&queue->lock, flags);
--	vio_disable_interrupts(vdev);
- 	while (!done) {
- 		/* Pull all the valid messages off the CRQ */
- 		while ((crq = ibmvnic_next_crq(adapter)) != NULL) {
-@@ -3429,6 +3440,8 @@ static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
- 			crq->generic.first = 0;
- 		}
- 		vio_enable_interrupts(vdev);
-+		/* delay in case of firmware hiccup */
-+		mdelay(10);
- 		crq = ibmvnic_next_crq(adapter);
- 		if (crq) {
- 			vio_disable_interrupts(vdev);
-@@ -3439,7 +3452,6 @@ static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
- 		}
- 	}
- 	spin_unlock_irqrestore(&queue->lock, flags);
--	return IRQ_HANDLED;
- }
- 
- static int ibmvnic_reenable_crq_queue(struct ibmvnic_adapter *adapter)
-@@ -3494,6 +3506,7 @@ static void ibmvnic_release_crq_queue(struct ibmvnic_adapter *adapter)
- 
- 	netdev_dbg(adapter->netdev, "Releasing CRQ\n");
- 	free_irq(vdev->irq, adapter);
-+	tasklet_kill(&adapter->tasklet);
- 	do {
- 		rc = plpar_hcall_norets(H_FREE_CRQ, vdev->unit_address);
- 	} while (rc == H_BUSY || H_IS_LONG_BUSY(rc));
-@@ -3539,6 +3552,9 @@ static int ibmvnic_init_crq_queue(struct ibmvnic_adapter *adapter)
- 
- 	retrc = 0;
- 
-+	tasklet_init(&adapter->tasklet, (void *)ibmvnic_tasklet,
-+		     (unsigned long)adapter);
-+
- 	netdev_dbg(adapter->netdev, "registering irq 0x%x\n", vdev->irq);
- 	rc = request_irq(vdev->irq, ibmvnic_interrupt, 0, IBMVNIC_NAME,
- 			 adapter);
-@@ -3560,6 +3576,7 @@ static int ibmvnic_init_crq_queue(struct ibmvnic_adapter *adapter)
- 	return retrc;
- 
- req_irq_failed:
-+	tasklet_kill(&adapter->tasklet);
- 	do {
- 		rc = plpar_hcall_norets(H_FREE_CRQ, vdev->unit_address);
- 	} while (rc == H_BUSY || H_IS_LONG_BUSY(rc));
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
-index dd775d9..0d0edc3 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.h
-+++ b/drivers/net/ethernet/ibm/ibmvnic.h
-@@ -1049,5 +1049,6 @@ struct ibmvnic_adapter {
- 
- 	struct work_struct vnic_crq_init;
- 	struct work_struct ibmvnic_xport;
-+	struct tasklet_struct tasklet;
- 	bool failover;
- };
--- 
-2.7.4
+We can't change the compatible string, but I'd much prefer having only
+one binding
+file for this device rather than two separate ones that could possibly become
+incompatible in case we add new properties to them. If there is only
+one of them,
+naming it according to the hardware design is the general policy.
+
+Note that we currently have two separate device drivers, but that is more a
+historic artifact, and if we ever get around to merging them into one driver,
+that should not impact the binding.
+
+    Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
