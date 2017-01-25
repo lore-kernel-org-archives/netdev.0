@@ -1,225 +1,186 @@
 From: Sainath Grandhi <sainath.grandhi@intel.com>
-Subject: [PATCHv3 3/7] TAP: Tap character device creation/destroy API
-Date: Wed, 25 Jan 2017 13:25:35 -0800
-Message-ID: <1485379539-32932-4-git-send-email-sainath.grandhi@intel.com>
+Subject: [PATCHv3 6/7] TAP: tap as an independent module
+Date: Wed, 25 Jan 2017 13:25:38 -0800
+Message-ID: <1485379539-32932-7-git-send-email-sainath.grandhi@intel.com>
 References: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
 Cc: davem@davemloft.net, mahesh@bandewar.net,
         linux-kernel@vger.kernel.org, sainath.grandhi@intel.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:48942 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752446AbdAYV1N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Jan 2017 16:27:13 -0500
 In-Reply-To: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch provides tap device create/destroy APIs in tap.c.
+This patch makes tap a separate module for other types of virtual interfaces, for example,
+ipvlan to use.
 
 Signed-off-by: Sainath Grandhi <sainath.grandhi@intel.com>
 ---
- drivers/net/macvtap_main.c | 30 +++++++---------------
- drivers/net/tap.c          | 62 ++++++++++++++++++++++++++++++++++++++--------
- include/linux/if_tap.h     |  3 +++
- 3 files changed, 63 insertions(+), 32 deletions(-)
+ drivers/net/Kconfig                       | 15 +++++++++++++++
+ drivers/net/Makefile                      |  3 +--
+ drivers/net/{macvtap_main.c => macvtap.c} |  0
+ drivers/net/tap.c                         | 11 +++++++++++
+ drivers/vhost/Kconfig                     |  2 +-
+ include/linux/if_tap.h                    |  4 ++--
+ 6 files changed, 30 insertions(+), 5 deletions(-)
+ rename drivers/net/{macvtap_main.c => macvtap.c} (100%)
 
-diff --git a/drivers/net/macvtap_main.c b/drivers/net/macvtap_main.c
-index 548f339..694e385 100644
---- a/drivers/net/macvtap_main.c
-+++ b/drivers/net/macvtap_main.c
-@@ -28,7 +28,6 @@
-  * Variables for dealing with macvtaps device numbers.
-  */
- static dev_t macvtap_major;
--#define MACVTAP_NUM_DEVS (1U << MINORBITS)
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 95c32f2..1c88437 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -135,6 +135,7 @@ config MACVTAP
+ 	tristate "MAC-VLAN based tap driver"
+ 	depends on MACVLAN
+ 	depends on INET
++	depends on TAP
+ 	help
+ 	  This adds a specialized tap character device driver that is based
+ 	  on the MAC-VLAN network interface, called macvtap. A macvtap device
+@@ -284,6 +285,20 @@ config TUN
  
- static const void *macvtap_net_namespace(struct device *d)
- {
-@@ -159,57 +158,46 @@ static struct notifier_block macvtap_notifier_block __read_mostly = {
- 	.notifier_call	= macvtap_device_event,
- };
+ 	  If you don't know what to use this for, you don't need it.
  
--extern struct file_operations tap_fops;
- static int macvtap_init(void)
- {
- 	int err;
++config TAP
++        tristate "TAP module support for virtual interfaces"
++        ---help---
++          TAP module serves two purposes. This can be used as library of functions
++          for virtual interfaces to implement tap functionality.
++
++          This module also includes character device file and socket operations
++          that can be used by virtual interface implementing tap.
++
++          To compile this driver as a module, choose M here: the module
++          will be called tap.
++
++          If you don't know what to use this for, you don't need it.
++
+ config TUN_VNET_CROSS_LE
+ 	bool "Support for cross-endian vnet headers on little-endian kernels"
+ 	default n
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 19b03a9..7dd86ca 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -21,6 +21,7 @@ obj-$(CONFIG_PHYLIB) += phy/
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_NET_TEAM) += team/
+ obj-$(CONFIG_TUN) += tun.o
++obj-$(CONFIG_TAP) += tap.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_VXLAN) += vxlan.o
+@@ -29,8 +30,6 @@ obj-$(CONFIG_GTP) += gtp.o
+ obj-$(CONFIG_NLMON) += nlmon.o
+ obj-$(CONFIG_NET_VRF) += vrf.o
  
--	err = alloc_chrdev_region(&macvtap_major, 0,
--				MACVTAP_NUM_DEVS, "macvtap");
--	if (err)
--		goto out1;
-+	err = tap_create_cdev(&macvtap_cdev, &macvtap_major, "macvtap");
- 
--	cdev_init(&macvtap_cdev, &tap_fops);
--	err = cdev_add(&macvtap_cdev, macvtap_major, MACVTAP_NUM_DEVS);
- 	if (err)
--		goto out2;
-+		goto out1;
- 
- 	err = class_register(&macvtap_class);
- 	if (err)
--		goto out3;
-+		goto out2;
- 
- 	err = register_netdevice_notifier(&macvtap_notifier_block);
- 	if (err)
--		goto out4;
-+		goto out3;
- 
- 	err = macvlan_link_register(&macvtap_link_ops);
- 	if (err)
--		goto out5;
-+		goto out4;
- 
- 	return 0;
- 
--out5:
--	unregister_netdevice_notifier(&macvtap_notifier_block);
- out4:
--	class_unregister(&macvtap_class);
-+	unregister_netdevice_notifier(&macvtap_notifier_block);
- out3:
--	cdev_del(&macvtap_cdev);
-+	class_unregister(&macvtap_class);
- out2:
--	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
-+	cdev_del(&macvtap_cdev);
- out1:
- 	return err;
- }
- module_init(macvtap_init);
- 
--extern struct idr minor_idr;
- static void macvtap_exit(void)
- {
- 	rtnl_link_unregister(&macvtap_link_ops);
- 	unregister_netdevice_notifier(&macvtap_notifier_block);
- 	class_unregister(&macvtap_class);
--	cdev_del(&macvtap_cdev);
--	unregister_chrdev_region(macvtap_major, MACVTAP_NUM_DEVS);
--	idr_destroy(&minor_idr);
-+	tap_destroy_cdev(macvtap_major, &macvtap_cdev);
- }
- module_exit(macvtap_exit);
- 
+-macvtap-objs := macvtap_main.o tap.o
+-
+ #
+ # Networking Drivers
+ #
+diff --git a/drivers/net/macvtap_main.c b/drivers/net/macvtap.c
+similarity index 100%
+rename from drivers/net/macvtap_main.c
+rename to drivers/net/macvtap.c
 diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-index ec35efe..ec7ebed 100644
+index 1219ee9..9f49280 100644
 --- a/drivers/net/tap.c
 +++ b/drivers/net/tap.c
-@@ -123,8 +123,12 @@ static struct proto tap_proto = {
- };
+@@ -311,6 +311,7 @@ void tap_del_queues(struct tap_dev *tap)
+ 	/* guarantee that any future tap_set_queue will fail */
+ 	tap->numvtaps = MAX_TAP_QUEUES;
+ }
++EXPORT_SYMBOL_GPL(tap_del_queues);
  
- #define TAP_NUM_DEVS (1U << MINORBITS)
--static DEFINE_MUTEX(minor_lock);
--DEFINE_IDR(minor_idr);
-+struct major_info {
-+	dev_t major;
-+	struct idr minor_idr;
-+	struct mutex minor_lock;
-+	const char *device_name;
-+} macvtap_major;
- 
- #define GOODCOPY_LEN 128
- 
-@@ -413,26 +417,26 @@ int tap_get_minor(struct macvlan_dev *vlan)
+ rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
  {
- 	int retval = -ENOMEM;
+@@ -388,6 +389,7 @@ rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
+ 	kfree_skb(skb);
+ 	return RX_HANDLER_CONSUMED;
+ }
++EXPORT_SYMBOL_GPL(tap_handle_frame);
  
--	mutex_lock(&minor_lock);
--	retval = idr_alloc(&minor_idr, vlan, 1, TAP_NUM_DEVS, GFP_KERNEL);
-+	mutex_lock(&macvtap_major.minor_lock);
-+	retval = idr_alloc(&macvtap_major.minor_idr, vlan, 1, TAP_NUM_DEVS, GFP_KERNEL);
- 	if (retval >= 0) {
- 		vlan->minor = retval;
- 	} else if (retval == -ENOSPC) {
- 		netdev_err(vlan->dev, "Too many tap devices\n");
- 		retval = -EINVAL;
- 	}
--	mutex_unlock(&minor_lock);
-+	mutex_unlock(&macvtap_major.minor_lock);
+ static struct major_info *tap_get_major(int major)
+ {
+@@ -422,6 +424,7 @@ int tap_get_minor(dev_t major, struct tap_dev *tap)
+ 	mutex_unlock(&tap_major->minor_lock);
  	return retval < 0 ? retval : 0;
  }
++EXPORT_SYMBOL_GPL(tap_get_minor);
  
- void tap_free_minor(struct macvlan_dev *vlan)
+ void tap_free_minor(dev_t major, struct tap_dev *tap)
  {
--	mutex_lock(&minor_lock);
-+	mutex_lock(&macvtap_major.minor_lock);
- 	if (vlan->minor) {
--		idr_remove(&minor_idr, vlan->minor);
-+		idr_remove(&macvtap_major.minor_idr, vlan->minor);
- 		vlan->minor = 0;
+@@ -438,6 +441,7 @@ void tap_free_minor(dev_t major, struct tap_dev *tap)
  	}
--	mutex_unlock(&minor_lock);
-+	mutex_unlock(&macvtap_major.minor_lock);
+ 	mutex_unlock(&tap_major->minor_lock);
  }
++EXPORT_SYMBOL_GPL(tap_free_minor);
  
- static struct net_device *dev_get_by_tap_minor(int minor)
-@@ -440,13 +444,13 @@ static struct net_device *dev_get_by_tap_minor(int minor)
- 	struct net_device *dev = NULL;
- 	struct macvlan_dev *vlan;
- 
--	mutex_lock(&minor_lock);
--	vlan = idr_find(&minor_idr, minor);
-+	mutex_lock(&macvtap_major.minor_lock);
-+	vlan = idr_find(&macvtap_major.minor_idr, minor);
- 	if (vlan) {
- 		dev = vlan->dev;
- 		dev_hold(dev);
- 	}
--	mutex_unlock(&minor_lock);
-+	mutex_unlock(&macvtap_major.minor_lock);
- 	return dev;
- }
- 
-@@ -1184,3 +1188,39 @@ int tap_queue_resize(struct macvlan_dev *vlan)
+ static struct tap_dev *dev_get_by_tap_file(int major, int minor)
+ {
+@@ -1193,6 +1197,7 @@ int tap_queue_resize(struct tap_dev *tap)
  	kfree(arrays);
  	return ret;
  }
++EXPORT_SYMBOL_GPL(tap_queue_resize);
+ 
+ static int tap_list_add(dev_t major, const char *device_name)
+ {
+@@ -1235,6 +1240,7 @@ int tap_create_cdev(struct cdev *tap_cdev,
+ out1:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(tap_create_cdev);
+ 
+ void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
+ {
+@@ -1248,3 +1254,8 @@ void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
+ 	unregister_chrdev_region(major, TAP_NUM_DEVS);
+ 	idr_destroy(&tap_major->minor_idr);
+ }
++EXPORT_SYMBOL_GPL(tap_destroy_cdev);
 +
-+int tap_create_cdev(struct cdev *tap_cdev,
-+		    dev_t *tap_major, const char *device_name)
-+{
-+	int err;
-+
-+	err = alloc_chrdev_region(tap_major, 0, TAP_NUM_DEVS, device_name);
-+	if (err)
-+		goto out1;
-+
-+	cdev_init(tap_cdev, &tap_fops);
-+	err = cdev_add(tap_cdev, *tap_major, TAP_NUM_DEVS);
-+	if (err)
-+		goto out2;
-+
-+	macvtap_major.major = MAJOR(*tap_major);
-+
-+	idr_init(&macvtap_major.minor_idr);
-+	mutex_init(&macvtap_major.minor_lock);
-+
-+	macvtap_major.device_name = device_name;
-+
-+	return err;
-+
-+out2:
-+	unregister_chrdev_region(*tap_major, TAP_NUM_DEVS);
-+out1:
-+	return err;
-+}
-+
-+void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
-+{
-+	cdev_del(tap_cdev);
-+	unregister_chrdev_region(major, TAP_NUM_DEVS);
-+	idr_destroy(&macvtap_major.minor_idr);
-+}
++MODULE_AUTHOR("Arnd Bergmann <arnd@arndb.de>");
++MODULE_AUTHOR("Sainath Grandhi <sainath.grandhi@intel.com>");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+index 40764ec..cfdecea 100644
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -1,6 +1,6 @@
+ config VHOST_NET
+ 	tristate "Host kernel accelerator for virtio net"
+-	depends on NET && EVENTFD && (TUN || !TUN) && (MACVTAP || !MACVTAP)
++	depends on NET && EVENTFD && (TUN || !TUN) && (TAP || !TAP)
+ 	select VHOST
+ 	---help---
+ 	  This kernel module can be loaded in host kernel to accelerate
 diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
-index 97d27b8..a2dfd90 100644
+index 362e71c..3482c3c 100644
 --- a/include/linux/if_tap.h
 +++ b/include/linux/if_tap.h
-@@ -19,5 +19,8 @@ void tap_del_queues(struct net_device *dev);
- int tap_get_minor(struct macvlan_dev *vlan);
- void tap_free_minor(struct macvlan_dev *vlan);
- int tap_queue_resize(struct macvlan_dev *vlan);
-+int tap_create_cdev(struct cdev *tap_cdev,
-+		    dev_t *tap_major, const char *device_name);
-+void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev);
+@@ -1,7 +1,7 @@
+ #ifndef _LINUX_IF_TAP_H_
+ #define _LINUX_IF_TAP_H_
  
- #endif /*_LINUX_IF_TAP_H_*/
+-#if IS_ENABLED(CONFIG_MACVTAP)
++#if IS_ENABLED(CONFIG_TAP)
+ struct socket *tap_get_socket(struct file *);
+ #else
+ #include <linux/err.h>
+@@ -12,7 +12,7 @@ static inline struct socket *tap_get_socket(struct file *f)
+ {
+ 	return ERR_PTR(-EINVAL);
+ }
+-#endif /* CONFIG_MACVTAP */
++#endif /* CONFIG_TAP */
+ 
+ #include <net/sock.h>
+ #include <linux/skb_array.h>
 -- 
 2.7.4
