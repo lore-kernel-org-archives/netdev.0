@@ -1,42 +1,40 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 5/5] net: dsa: mv88e6xxx: Implement the 6390
- external MDIO bus
-Date: Wed, 25 Jan 2017 02:32:30 +0100
-Message-ID: <20170125013230.GB5043@lunn.ch>
-References: <1485266031-4980-1-git-send-email-andrew@lunn.ch>
- <1485266031-4980-6-git-send-email-andrew@lunn.ch>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: ignore null_entry on route dumps
+Date: Tue, 24 Jan 2017 18:35:02 -0700
+Message-ID: <95b123db-a760-b73a-a858-9be0516799fc@cumulusnetworks.com>
+References: <1485147377-11922-1-git-send-email-dsa@cumulusnetworks.com>
+ <20170122.235829.1911961579892347071.davem@davemloft.net>
+ <a1eaeddc-69df-e0fa-c06a-285c3234249c@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Gregory Clement <gregory.clement@free-electrons.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiaolong.ye@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44680 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751071AbdAYBcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 20:32:32 -0500
-Content-Disposition: inline
-In-Reply-To: <1485266031-4980-6-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:32958 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751013AbdAYBfE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 20:35:04 -0500
+Received: by mail-pg0-f47.google.com with SMTP id 204so59662844pge.0
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 17:35:04 -0800 (PST)
+In-Reply-To: <a1eaeddc-69df-e0fa-c06a-285c3234249c@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> index 7d24add45e74..572d585dc1e2 100644
-> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> @@ -387,6 +387,7 @@
->  #define GLOBAL2_PTP_AVB_DATA	0x17
->  #define GLOBAL2_SMI_PHY_CMD			0x18
->  #define GLOBAL2_SMI_PHY_CMD_BUSY		BIT(15)
-> +#define GLOBAL2_SMI_PHY_CMD_EXTERNAL		BIT(13)
->  #define GLOBAL2_SMI_PHY_CMD_MODE_22		BIT(12)
->  #define GLOBAL2_SMI_PHY_CMD_OP_22_WRITE_DATA	((0x1 << 10) | \
+On 1/23/17 9:51 AM, David Ahern wrote:
+> On 1/22/17 9:58 PM, David Miller wrote:
+>> David, please slow down.
+>>
+>> How is the NULL entry getting selected to be dumped and passed
+>> down here in the first place?
+> The null_entry might be a 'marker' but is integral to the ipv6 fib.
 
-Hi Gregory
+As I mentioned in my last response the null_entry is tb6_root.leaf for all tables making it part of the table. Since the dump walks the table and sends each route to rt6_dump_route, the dump includes the null_entry.
 
-Please could you check if the 88E6341 has an external MDIO. Global 2,
-register 0x18, bit 13.
+ip6_null_entry->rt6i_idev is NULL because ip6_route_net_init is run before addrconf_init has initialized the loopback device.
 
-Thanks
-	Andrew
+Given that, it seems like a check is needed somewhere ...  be it 'rt == net->ipv6.ip6_null_entry' in rt6_dump_route or fib6_dump_node, or a check for rt6i_idev NULL in rt6_fill_node.
+
+You marked the last patch as changes needed meaning another needs to be sent.
+
+Suggestion?
