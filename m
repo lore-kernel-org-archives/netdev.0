@@ -1,57 +1,82 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch] samples/bpf: silence shift wrapping warning
-Date: Wed, 25 Jan 2017 11:08:51 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026DD27@AcuExch.aculab.com>
-References: <20170121045143.GC15269@mwanda>
- <20170122225123.GA73160@ast-mbp.thefacebook.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Wed, 25 Jan 2017 12:15:59 +0100
+Message-ID: <a4b4e2f4-f730-4f1d-7f41-36ba0d34f1a6@suse.cz>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
+ <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
+ <20170112173745.GC31509@dhcp22.suse.cz>
+ <7c109e9e-e28b-3ddb-42b6-902f46bf0572@suse.cz>
+ <20170124150004.GM6867@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Thomas Graf <tgraf@suug.ch>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Joe Stringer <joe@ovn.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
-        Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.191]:59332 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751741AbdAYLJA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 06:09:00 -0500
-In-Reply-To: <20170122225123.GA73160@ast-mbp.thefacebook.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook@chromium.org>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
+ Johannes Weiner <hannes@cmpxchg.org>, Al Viro <viro@zeniv.linux.org.uk>,
+ Linux-MM <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
+ Martin Schwidefsky <schwidefsky@de.ibm.com>,
+ Heiko Carstens <heiko.carstens@de.ibm.com>,
+ Herbert Xu <herbert@gondor.apana.org.au>, Anton Vorontsov
+ <anton@enomsg.org>, Colin Cross <ccross@android.com>,
+ Tony Luck <tony.luck@intel.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+ Ben Skeggs <bskeggs@redhat.com>, Kent Overstreet
+ <kent.overstreet@gmail.com>, Santosh Raspatur <santosh@chelsio.com>,
+ Hariprasad S <hariprasad@chelsio.com>, Tariq Toukan <tariqt@mellanox.com>,
+ Yishai Hadas <yishaih@mellanox.com>, Dan Williams
+ <dan.j.williams@intel.com>, Oleg Drokin <oleg.drokin@intel.com>,
+ Andreas Dil
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170124150004.GM6867@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov
-> Sent: 22 January 2017 22:51
-> On Sat, Jan 21, 2017 at 07:51:43AM +0300, Dan Carpenter wrote:
-> > max_key is a value in the 0-63 range, so on 32 bit systems the shift
-> > could wrap.
-> >
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> Looks fine. I think 'net-next' is ok.
-> 
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> 
-> > diff --git a/samples/bpf/lwt_len_hist_user.c b/samples/bpf/lwt_len_hist_user.c
-> > index ec8f3bb..bd06eef 100644
-> > --- a/samples/bpf/lwt_len_hist_user.c
-> > +++ b/samples/bpf/lwt_len_hist_user.c
-> > @@ -68,7 +68,7 @@ int main(int argc, char **argv)
-> >  	for (i = 1; i <= max_key + 1; i++) {
-> >  		stars(starstr, data[i - 1], max_value, MAX_STARS);
-> >  		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
-> > -		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
-> > +		       (1ULL << i) >> 1, (1ULL << i) - 1, data[i - 1],
-> >  		       MAX_STARS, starstr);
-> >  	}
+On 01/24/2017 04:00 PM, Michal Hocko wrote:
+>> > Well, I am not opposed to kvmalloc_array but I would argue that this
+>> > conversion cannot introduce new overflow issues. The code would have
+>> > to be broken already because even though kmalloc_array checks for the
+>> > overflow but vmalloc fallback doesn't...
+>>
+>> Yeah I agree, but if some of the places were really wrong, after the
+>> conversion we won't see them anymore.
+>>
+>> > If there is a general interest for this API I can add it.
+>>
+>> I think it would be better, yes.
+>
+> OK, fair enough. I will fold the following into the original patch. I
+> was little bit reluctant to create kvcalloc so I've made the original
+> callers more talkative and added | __GFP_ZERO.
 
-The format effectors are wrong on 32bit systems.
+Fair enough,
 
-	David
+> To be honest I do not
+> really like how kcalloc...
+
+how kcalloc what?
+
+[...]
+> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+> index cdc55d5ee4ad..eca16612b1ae 100644
+> --- a/net/netfilter/x_tables.c
+> +++ b/net/netfilter/x_tables.c
+> @@ -712,10 +712,7 @@ EXPORT_SYMBOL(xt_check_entry_offsets);
+>   */
+>  unsigned int *xt_alloc_entry_offsets(unsigned int size)
+>  {
+> -	if (size < (SIZE_MAX / sizeof(unsigned int)))
+> -		return kvzalloc(size * sizeof(unsigned int), GFP_KERNEL);
+> -
+> -	return NULL;
+> +	return kvmalloc_array(size * sizeof(unsigned int), GFP_KERNEL | __GFP_ZERO);
+
+This one wouldn't compile.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
