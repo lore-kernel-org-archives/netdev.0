@@ -1,9 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 3/3] net: phy: leds: Fix truncated LED trigger names
-Date: Wed, 25 Jan 2017 13:51:02 +0100
-Message-ID: <20170125125102.GB2504@lunn.ch>
+Subject: Re: [PATCH v2 2/3] net: phy: leds: Break dependency of phy.h on
+ phy_led_triggers.h
+Date: Wed, 25 Jan 2017 13:50:46 +0100
+Message-ID: <20170125125046.GA2504@lunn.ch>
 References: <1485340790-10785-1-git-send-email-geert+renesas@glider.be>
- <1485340790-10785-4-git-send-email-geert+renesas@glider.be>
+ <1485340790-10785-3-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -14,36 +15,22 @@ Cc: "David S. Miller" <davem@davemloft.net>,
         netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: Geert Uytterhoeven <geert+renesas@glider.be>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:45318 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751391AbdAYMuz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Jan 2017 07:50:55 -0500
 Content-Disposition: inline
-In-Reply-To: <1485340790-10785-4-git-send-email-geert+renesas@glider.be>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1485340790-10785-3-git-send-email-geert+renesas@glider.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2017 at 11:39:50AM +0100, Geert Uytterhoeven wrote:
-> Commit 4567d686f5c6d955 ("phy: increase size of MII_BUS_ID_SIZE and
-> bus_id") increased the size of MII bus IDs, but forgot to update the
-> private definition in <linux/phy_led_triggers.h>.
-> This may cause:
->   1. Truncation of LED trigger names,
->   2. Duplicate LED trigger names,
->   3. Failures registering LED triggers,
->   4. Crashes due to bad error handling in the LED trigger failure path.
+On Wed, Jan 25, 2017 at 11:39:49AM +0100, Geert Uytterhoeven wrote:
+> <linux/phy.h> includes <linux/phy_led_triggers.h>, which is not really
+> needed.  Drop the include from <linux/phy.h>, and add it to all users
+> that didn't include it explicitly.
 > 
-> To fix this, and prevent the definitions going out of sync again in the
-> future, let the PHY LED trigger code use the existing MII_BUS_ID_SIZE
-> definition.
-> 
-> Example:
->   - Before I had triggers "ee700000.etherne:01:100Mbps" and
->     "ee700000.etherne:01:10Mbps",
->   - After the increase of MII_BUS_ID_SIZE, both became
->     "ee700000.ethernet-ffffffff:01:" => FAIL,
->   - Now, the triggers are "ee700000.ethernet-ffffffff:01:100Mbps" and
->     "ee700000.ethernet-ffffffff:01:10Mbps", which are unique again.
-> 
-> Fixes: 4567d686f5c6d955 ("phy: increase size of MII_BUS_ID_SIZE and bus_id")
-> Fixes: 2e0bc452f4721520 ("net: phy: leds: add support for led triggers on phy link state change")
+> Suggested-by: Andrew Lunn <andrew@lunn.ch>
 > Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
