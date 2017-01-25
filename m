@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
-Date: Wed, 25 Jan 2017 12:22:05 -0500 (EST)
-Message-ID: <20170125.122205.9460825196595773.davem@davemloft.net>
-References: <1485283885.16328.319.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170124191127.GG21921@1wt.eu>
-        <CAC15z3izWNh7th_yxA_a90vgLnU5XzVDm6vyojq3cMDgQZ71YA@mail.gmail.com>
+Subject: Re: [PATCH net] sctp: sctp_addr_id2transport should verify the
+ addr before looking up assoc
+Date: Wed, 25 Jan 2017 12:27:12 -0500 (EST)
+Message-ID: <20170125.122712.1048162748923388120.davem@davemloft.net>
+References: <2ba9d3e0b3aa05baa3791811c92248126d233c67.1485237713.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: w@1wt.eu, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        edumazet@google.com, ycheng@google.com, weiwan@google.com
-To: tracywwnj@gmail.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54894 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55036 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751016AbdAYRWL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 12:22:11 -0500
-In-Reply-To: <CAC15z3izWNh7th_yxA_a90vgLnU5XzVDm6vyojq3cMDgQZ71YA@mail.gmail.com>
+        with ESMTP id S1751567AbdAYR1N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 12:27:13 -0500
+In-Reply-To: <2ba9d3e0b3aa05baa3791811c92248126d233c67.1485237713.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <tracywwnj@gmail.com>
-Date: Wed, 25 Jan 2017 09:15:34 -0800
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue, 24 Jan 2017 14:01:53 +0800
 
-> Looks like you sent a separate patch on top of this patch series to
-> address double connect().  Then I think this patch series should be
-> good to go.
+> sctp_addr_id2transport is a function for sockopt to look up assoc by
+> address. As the address is from userspace, it can be a v4-mapped v6
+> address. But in sctp protocol stack, it always handles a v4-mapped
+> v6 address as a v4 address. So it's necessary to convert it to a v4
+> address before looking up assoc by address.
+> 
+> This patch is to fix it by calling sctp_verify_addr in which it can do
+> this conversion before calling sctp_endpoint_lookup_assoc, just like
+> what sctp_sendmsg and __sctp_connect do for the address from users.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Indeed, Willy please give some kind of ACK.
-
-Thanks.
+Applied.
