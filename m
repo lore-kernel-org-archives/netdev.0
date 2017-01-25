@@ -1,96 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net] net: dsa: Mop up remaining NET_DSA_HWMON references
-Date: Wed, 25 Jan 2017 15:04:17 +0100
-Message-ID: <1485353057-4612-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, valentinrothberg@gmail.com,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NAPI on USB network drivers
+Date: Wed, 25 Jan 2017 06:13:11 -0800
+Message-ID: <1485353591.5145.8.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485336881.16604.2.camel@suse.com>
+         <0835B3720019904CB8F7AA43166CEEB201A134A7@RTITMBSV06.realtek.com.tw>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Neukum <oneukum@suse.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45363 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752021AbdAYOEk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Jan 2017 09:04:40 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33840 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751866AbdAYONN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 09:13:13 -0500
+In-Reply-To: <0835B3720019904CB8F7AA43166CEEB201A134A7@RTITMBSV06.realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previous patches have moved the temperature sensor code into the
-Marvell PHYs. A few now dead references to NET_DSA_HWMON were left
-behind. Go reap them.
+On Wed, 2017-01-25 at 09:39 +0000, Hayes Wang wrote:
+> Oliver Neukum [mailto:oneukum@suse.com]
+> > Sent: Wednesday, January 25, 2017 5:35 PM
+> [...]
+> > looking at r8152 I noticed that it uses NAPI. I never considered
+> > this for the generic USB networking code as you cannot disable
+> > interrupts for USB. Is it still worth it? What are the benefits?
+> 
+> You could use napi_gro_receive() and it influences the performance.
 
-Reported-by: Valentin Rothberg <valentinrothberg@gmail.com>
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- Documentation/networking/dsa/dsa.txt | 24 ------------------------
- include/net/dsa.h                    |  8 --------
- 2 files changed, 32 deletions(-)
+You also could use napi_complete_done() instead of napi_complete(), as
+it allows users to tune the performance vs latency for GRO.
 
-diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
-index 63912ef34606..b8b40753133e 100644
---- a/Documentation/networking/dsa/dsa.txt
-+++ b/Documentation/networking/dsa/dsa.txt
-@@ -295,7 +295,6 @@ DSA currently leverages the following subsystems:
- - MDIO/PHY library: drivers/net/phy/phy.c, mdio_bus.c
- - Switchdev: net/switchdev/*
- - Device Tree for various of_* functions
--- HWMON: drivers/hwmon/*
+Looking at this driver, I do not see any limitation on the number of
+skbs that can be pushed into tp->rx_queue.
+
+I wonder if this queue can end up consuming all memory of a host under
+stress.
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index e1466b4d2b6c727148a884672bbd9593bf04b3ac..221df4a931b5c1073f1922d0fa0bbff158c73b7d 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1840,7 +1840,10 @@ static int rx_bottom(struct r8152 *tp, int budget)
+ 				stats->rx_packets++;
+ 				stats->rx_bytes += pkt_len;
+ 			} else {
+-				__skb_queue_tail(&tp->rx_queue, skb);
++				if (unlikely(skb_queue_len(&tp->rx_queue) >= 1000))
++					kfree_skb(skb);
++				else
++					__skb_queue_tail(&tp->rx_queue, skb);
+ 			}
  
- MDIO/PHY library
- ----------------
-@@ -349,12 +348,6 @@ Documentation/devicetree/bindings/net/dsa/dsa.txt. PHY/MDIO library helper
- functions such as of_get_phy_mode(), of_phy_connect() are also used to query
- per-port PHY specific details: interface connection, MDIO bus location etc..
- 
--HWMON
-------
--
--Some switch drivers feature internal temperature sensors which are exposed as
--regular HWMON devices in /sys/class/hwmon/.
--
- Driver development
- ==================
- 
-@@ -495,23 +488,6 @@ Power management
-   BR_STATE_DISABLED and propagating changes to the hardware if this port is
-   disabled while being a bridge member
- 
--Hardware monitoring
---------------------
--
--These callbacks are only available if CONFIG_NET_DSA_HWMON is enabled:
--
--- get_temp: this function queries the given switch for its temperature
--
--- get_temp_limit: this function returns the switch current maximum temperature
--  limit
--
--- set_temp_limit: this function configures the maximum temperature limit allowed
--
--- get_temp_alarm: this function returns the critical temperature threshold
--  returning an alarm notification
--
--See Documentation/hwmon/sysfs-interface for details.
--
- Bridge layer
- ------------
- 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 9d6cd923c48c..08b340403927 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -178,14 +178,6 @@ struct dsa_switch {
- 	 */
- 	s8		rtable[DSA_MAX_SWITCHES];
- 
--#ifdef CONFIG_NET_DSA_HWMON
--	/*
--	 * Hardware monitoring information
--	 */
--	char			hwmon_name[IFNAMSIZ + 8];
--	struct device		*hwmon_dev;
--#endif
--
- 	/*
- 	 * The lower device this switch uses to talk to the host
- 	 */
--- 
-2.11.0
+ find_next_rx:
