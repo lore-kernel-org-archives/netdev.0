@@ -1,51 +1,162 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv6: ignore null_entry on route dumps
-Date: Tue, 24 Jan 2017 20:39:32 -0500 (EST)
-Message-ID: <20170124.203932.616922168982477148.davem@davemloft.net>
-References: <20170122.235829.1911961579892347071.davem@davemloft.net>
-        <a1eaeddc-69df-e0fa-c06a-285c3234249c@cumulusnetworks.com>
-        <95b123db-a760-b73a-a858-9be0516799fc@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiaolong.ye@intel.com
-To: dsa@cumulusnetworks.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next] Doc: DT: bindings: net: dsa: marvell.txt: Tabification
+Date: Wed, 25 Jan 2017 02:44:48 +0100
+Message-ID: <1485308688-23670-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44052 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750966AbdAYBje (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 20:39:34 -0500
-In-Reply-To: <95b123db-a760-b73a-a858-9be0516799fc@cumulusnetworks.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44688 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750966AbdAYBpH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Jan 2017 20:45:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue, 24 Jan 2017 18:35:02 -0700
+Replace spaces with tabs. Fix indentation to be multiples of tabs, not
+a mixture or tabs and spaces.
 
-> On 1/23/17 9:51 AM, David Ahern wrote:
->> On 1/22/17 9:58 PM, David Miller wrote:
->>> David, please slow down.
->>>
->>> How is the NULL entry getting selected to be dumped and passed
->>> down here in the first place?
->> The null_entry might be a 'marker' but is integral to the ipv6 fib.
-> 
-> As I mentioned in my last response the null_entry is tb6_root.leaf for all tables making it part of the table. Since the dump walks the table and sends each route to rt6_dump_route, the dump includes the null_entry.
-> 
-> ip6_null_entry->rt6i_idev is NULL because ip6_route_net_init is run before addrconf_init has initialized the loopback device.
-> 
-> Given that, it seems like a check is needed somewhere ...  be it 'rt == net->ipv6.ip6_null_entry' in rt6_dump_route or fib6_dump_node, or a check for rt6i_idev NULL in rt6_fill_node.
-> 
-> You marked the last patch as changes needed meaning another needs to be sent.
-> 
-> Suggestion?
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+---
+ .../devicetree/bindings/net/dsa/marvell.txt        | 112 ++++++++++-----------
+ 1 file changed, 56 insertions(+), 56 deletions(-)
 
-Probably putting the check as high in the call chain as possible, via
-fib6_dump_node(), is the best.
-
-Although, it's troubling that we are trying to dump unfinished entries
-simply because of initialization order.  It's arguable that this is
-the real thing to fix.
-
-The loopback device is a hard dependency which the ipv6 stack has
-because of how it does statistics and other things.
+diff --git a/Documentation/devicetree/bindings/net/dsa/marvell.txt b/Documentation/devicetree/bindings/net/dsa/marvell.txt
+index 64dbdd825981..7ef9dbb08957 100644
+--- a/Documentation/devicetree/bindings/net/dsa/marvell.txt
++++ b/Documentation/devicetree/bindings/net/dsa/marvell.txt
+@@ -14,9 +14,9 @@ The properties described here are those specific to Marvell devices.
+ Additional required and optional properties can be found in dsa.txt.
+ 
+ Required properties:
+-- compatible	       : Should be one of "marvell,mv88e6085" or
+-			 "marvell,mv88e6190"
+-- reg                  : Address on the MII bus for the switch.
++- compatible		: Should be one of "marvell,mv88e6085" or
++			  "marvell,mv88e6190"
++- reg			: Address on the MII bus for the switch.
+ 
+ Optional properties:
+ 
+@@ -28,65 +28,65 @@ Optional properties:
+ #interrupt-cells = <2>	: Controller uses two cells, number and flag
+ - mdio			: Container of PHY and devices on the switches MDIO
+ 			  bus.
+-- mdio?			: Container of PHYs and devices on the external MDIO
++- mdio?		: Container of PHYs and devices on the external MDIO
+ 			  bus. The node must contains a compatible string of
+ 			  "marvell,mv88e6xxx-mdio-external"
+ 
+ Example:
+ 
+-       mdio {
+-               #address-cells = <1>;
+-               #size-cells = <0>;
+-               interrupt-parent = <&gpio0>;
+-               interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+-               interrupt-controller;
+-               #interrupt-cells = <2>;
++	mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		interrupt-parent = <&gpio0>;
++		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
++		interrupt-controller;
++		#interrupt-cells = <2>;
+ 
+-               switch0: switch@0 {
+-                       compatible = "marvell,mv88e6085";
+-                       reg = <0>;
+-		       reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
+-               };
+-               mdio {
+-                       #address-cells = <1>;
+-                       #size-cells = <0>;
+-                       switch1phy0: switch1phy0@0 {
+-                               reg = <0>;
+-                               interrupt-parent = <&switch0>;
+-                               interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+-                       };
+-               };
+-       };
++		switch0: switch@0 {
++			compatible = "marvell,mv88e6085";
++			reg = <0>;
++			reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
++		};
++		mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			switch1phy0: switch1phy0@0 {
++				reg = <0>;
++				interrupt-parent = <&switch0>;
++				interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
++			};
++		};
++	};
+ 
+-       mdio {
+-               #address-cells = <1>;
+-               #size-cells = <0>;
+-               interrupt-parent = <&gpio0>;
+-               interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+-               interrupt-controller;
+-               #interrupt-cells = <2>;
++	mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		interrupt-parent = <&gpio0>;
++		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
++		interrupt-controller;
++		#interrupt-cells = <2>;
+ 
+-               switch0: switch@0 {
+-                       compatible = "marvell,mv88e6390";
+-                       reg = <0>;
+-		       reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
+-               };
+-               mdio {
+-                       #address-cells = <1>;
+-                       #size-cells = <0>;
+-                       switch1phy0: switch1phy0@0 {
+-                               reg = <0>;
+-                               interrupt-parent = <&switch0>;
+-                               interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+-                       };
+-               };
++		switch0: switch@0 {
++			compatible = "marvell,mv88e6390";
++			reg = <0>;
++			reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
++		};
++		mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			switch1phy0: switch1phy0@0 {
++				reg = <0>;
++				interrupt-parent = <&switch0>;
++				interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
++			};
++		};
+ 
+-               mdio1 {
+-                       compatible = "marvell,mv88e6xxx-mdio-external";
+-                       #address-cells = <1>;
+-                       #size-cells = <0>;
+-                       switch1phy9: switch1phy0@9 {
+-                               reg = <9>;
+-                       };
+-               };
+-       };
++		mdio1 {
++			compatible = "marvell,mv88e6xxx-mdio-external";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			switch1phy9: switch1phy0@9 {
++				reg = <9>;
++			};
++		};
++	};
+-- 
+2.11.0
