@@ -1,39 +1,57 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
-Date: Wed, 25 Jan 2017 18:54:58 +0100
-Message-ID: <20170125175458.GF23545@1wt.eu>
-References: <1485283885.16328.319.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170124191127.GG21921@1wt.eu>
- <CAC15z3izWNh7th_yxA_a90vgLnU5XzVDm6vyojq3cMDgQZ71YA@mail.gmail.com>
- <20170125.122205.9460825196595773.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Workaround missing PHY
+ ID on mv88e6390
+Date: Wed, 25 Jan 2017 19:00:14 +0100
+Message-ID: <20170125180014.GC6611@lunn.ch>
+References: <1485309314-23942-1-git-send-email-andrew@lunn.ch>
+ <1485309314-23942-2-git-send-email-andrew@lunn.ch>
+ <87sho7123x.fsf@free-electrons.com>
+ <87o9yvyqwr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tracywwnj@gmail.com, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, edumazet@google.com, ycheng@google.com,
-        weiwan@google.com
-To: David Miller <davem@davemloft.net>
+Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wtarreau.pck.nerim.net ([62.212.114.60]:2398 "EHLO 1wt.eu"
+Received: from vps0.lunn.ch ([178.209.37.122]:45899 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750965AbdAYRzF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Jan 2017 12:55:05 -0500
+        id S1751442AbdAYSAS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Jan 2017 13:00:18 -0500
 Content-Disposition: inline
-In-Reply-To: <20170125.122205.9460825196595773.davem@davemloft.net>
+In-Reply-To: <87o9yvyqwr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2017 at 12:22:05PM -0500, David Miller wrote:
-> From: Wei Wang <tracywwnj@gmail.com>
-> Date: Wed, 25 Jan 2017 09:15:34 -0800
+> Since several chips have this issue, we can introduce a u16 physid2_mask
+> member in the mv88e6xxx_info structure and move the check in
+> mv88e6xxx_phy_read() so that the logic of device (as in Global2) helpers
+> are not affected by such (necessary) hack. Something like:
 > 
-> > Looks like you sent a separate patch on top of this patch series to
-> > address double connect().  Then I think this patch series should be
-> > good to go.
+>     static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
+>                                   int reg, u16 *val)
+>     {
+>         ...
 > 
-> Indeed, Willy please give some kind of ACK.
+>         err = chip->info->ops->phy_read(chip, bus, addr, reg, val);
+>         if (err)
+>             return err;
+> 
+>         if (reg == MII_PHYSID2 && chip->info->physid2_mask) {
+>             /* Some internal PHYs don't have a model number,
+>              * so return the switch family model number directly.
+>              */
+>             if (!(*val & chip->info->physid2_mask))
 
-Yes sorry David, for me it's OK. If Wei runs his whole series of tests
-on it again, it should be perfect.
+Hi Vivien
 
-thanks,
-Willy
+I don't see the need to have per switch masks. Lets just hard code it
+to ignore the lower 4 bits.
+
+>                 *val |= chip->info->prod_num;
+
+and this is not good. I deliberately picked the family num, not the
+product num. Otherwise for the 6390 family, we have 6 different PHY
+IDs. And two more for Gregorys two switches.
+
+     Andrew
