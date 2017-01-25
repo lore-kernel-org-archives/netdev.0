@@ -1,54 +1,41 @@
-From: Simon Edelhaus <Simon.Edelhaus@aquantia.com>
-Subject: RE: [PATCH v8 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC
- driver
-Date: Wed, 25 Jan 2017 00:20:11 +0000
-Message-ID: <BLUPR0701MB20819AEE2BC8E1631E05C1EEFC740@BLUPR0701MB2081.namprd07.prod.outlook.com>
-References: <cover.1485237861.git.vomlehn@texas.net>
- <20170124.151440.1091650456243239230.davem@davemloft.net>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCHv2 perf/core 0/7] Libbpf improvements
+Date: Tue, 24 Jan 2017 16:50:57 -0800
+Message-ID: <CAPWQB7GYmN6oyK3_BbJTGffhCZmDK3MHmRNymgunF_kbMUu-=Q@mail.gmail.com>
+References: <20170123011128.26534-1-joe@ovn.org> <20170124161210.GE10340@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "vomlehn@texas.net" <vomlehn@texas.net>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
-To: David Miller <davem@davemloft.net>,
-        Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0048.outbound.protection.outlook.com ([104.47.38.48]:27190
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750888AbdAYAUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 19:20:16 -0500
-In-Reply-To: <20170124.151440.1091650456243239230.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Wang Nan <wangnan0@huawei.com>, ast@fb.com,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170124161210.GE10340@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We really want to thank the community for all the time, effort and very
-valuable feedback provided.=20
+On 24 January 2017 at 08:12, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
+> Em Sun, Jan 22, 2017 at 05:11:21PM -0800, Joe Stringer escreveu:
+>> Patch 1 fixes an issue when using drastically different BPF map definitions
+>> inside ELFs from a client using libbpf, vs the map definition libbpf uses.
+>>
+>> Patches 2-4 add some simple, useful helper functions for setting prog type
+>> and retrieving libbpf errors without depending on kernel headers from
+>> userspace programs.
+>>
+>> Patches 5-7 add a new pinning functionality for maps, programs, and objects.
+>> Library users may call bpf_map__pin(map, path) or bpf_program__pin(prog, path)
+>> to pin maps and programs separately, or use bpf_object__pin(obj, path) to
+>> pin all maps and programs from the BPF object to the path. The map and program
+>> variations require a full path where it will be pinned in the filesystem,
+>> and the object variation will create directories "maps/" and "progs/" under
+>> the specified path, then mount each map and program under those subdirectories.
+>
+> Merged the ones either acked by Wang or adjusted by you to address
+> Wang's remarks, the last ones introducing those __pin() methods, please
+> provide users together with those APIs, preferably entries for 'perf
+> test',
 
-This wouldn't have been possible without each and every one of you.=20
-A big thank you to all ya'all !=20
-
---ttfn
-Simon Edelhaus
-Aquantia Corporation
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net]=20
-Sent: Tuesday, January 24, 2017 12:15 PM
-To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Cc: netdev@vger.kernel.org; vomlehn@texas.net; Simon Edelhaus <Simon.Edelha=
-us@aquantia.com>; Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>; Pavel=
- Belous <Pavel.Belous@aquantia.com>
-Subject: Re: [PATCH v8 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB =
-NIC driver
-
-From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Date: Mon, 23 Jan 2017 22:09:07 -0800
-
-> This series introduces the AQtion NIC driver for the aQuantia
-> AQC107/AQC108 network devices.
-
-Series applied.
+OK great, I'll rebase the last 3 patches and add a test to perf test
+for pinning.
