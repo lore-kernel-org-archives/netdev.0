@@ -1,65 +1,88 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH V2 2/3] net: phy: broadcom: drop duplicated define for RGMII SKEW delay
-Date: Wed, 25 Jan 2017 21:00:26 +0100
-Message-ID: <20170125200027.14387-3-zajec5@gmail.com>
-References: <20170125200027.14387-1-zajec5@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Wed, 25 Jan 2017 21:16:42 +0100
+Message-ID: <588907AA.1020704@iogearbox.net>
+References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Xo Wang <xow@google.com>, Joel Stanley <joel@jms.id.au>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Jaedon Shin <jaedon.shin@gmail.com>, netdev@vger.kernel.org,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-To: "David S . Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:33819 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752091AbdAYUAv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 15:00:51 -0500
-Received: by mail-lf0-f68.google.com with SMTP id q89so22070652lfi.1
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 12:00:50 -0800 (PST)
-In-Reply-To: <20170125200027.14387-1-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        linux-mm <linux-mm@kvack.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Michal Hocko <mhocko@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rafał Miłecki <rafal@milecki.pl>
+On 01/25/2017 07:14 PM, Alexei Starovoitov wrote:
+> On Wed, Jan 25, 2017 at 5:21 AM, Michal Hocko <mhocko@kernel.org> wrote:
+>> On Wed 25-01-17 14:10:06, Michal Hocko wrote:
+>>> On Tue 24-01-17 11:17:21, Alexei Starovoitov wrote:
+[...]
+>>>>> Are there any more comments? I would really appreciate to hear from
+>>>>> networking folks before I resubmit the series.
+>>>>
+>>>> while this patchset was baking the bpf side switched to use bpf_map_area_alloc()
+>>>> which fixes the issue with missing __GFP_NORETRY that we had to fix quickly.
+>>>> See commit d407bd25a204 ("bpf: don't trigger OOM killer under pressure with map alloc")
+>>>> it covers all kmalloc/vmalloc pairs instead of just one place as in this set.
+>>>> So please rebase and switch bpf_map_area_alloc() to use kvmalloc().
+>>>
+>>> OK, will do. Thanks for the heads up.
+>>
+>> Just for the record, I will fold the following into the patch 1
+>> ---
+>> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+>> index 19b6129eab23..8697f43cf93c 100644
+>> --- a/kernel/bpf/syscall.c
+>> +++ b/kernel/bpf/syscall.c
+>> @@ -53,21 +53,7 @@ void bpf_register_map_type(struct bpf_map_type_list *tl)
+>>
+>>   void *bpf_map_area_alloc(size_t size)
+>>   {
+>> -       /* We definitely need __GFP_NORETRY, so OOM killer doesn't
+>> -        * trigger under memory pressure as we really just want to
+>> -        * fail instead.
+>> -        */
+>> -       const gfp_t flags = __GFP_NOWARN | __GFP_NORETRY | __GFP_ZERO;
+>> -       void *area;
+>> -
+>> -       if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
+>> -               area = kmalloc(size, GFP_USER | flags);
+>> -               if (area != NULL)
+>> -                       return area;
+>> -       }
+>> -
+>> -       return __vmalloc(size, GFP_KERNEL | __GFP_HIGHMEM | flags,
+>> -                        PAGE_KERNEL);
+>> +       return kvzalloc(size, GFP_USER);
+>>   }
+>>
+>>   void bpf_map_area_free(void *area)
+>
+> Looks fine by me.
+> Daniel, thoughts?
 
-We had two defines for the same bit (both were used with the
-MII_BCM54XX_AUXCTL_SHDWSEL_MISC register).
+I assume that kvzalloc() is still the same from [1], right? If so, then
+it would unfortunately (partially) reintroduce the issue that was fixed.
+If you look above at flags, they're also passed to __vmalloc() to not
+trigger OOM in these situations I've experienced. This is effectively the
+same requirement as in other networking areas f.e. that 5bad87348c70
+("netfilter: x_tables: avoid warn and OOM killer on vmalloc call") has.
+In your comment in kvzalloc() you eventually say that some of the above
+modifiers are not supported. So there would be two options, i) just leave
+out the kvzalloc() chunk for BPF area to avoid the merge conflict and tackle
+it later (along with similar code from 5bad87348c70), or ii) implement
+support for these modifiers as well to your original set. I guess it's not
+too urgent, so we could also proceed with i) if that is easier for you to
+proceed (I don't mind either way).
 
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
----
-V2: Drop the other define to match datasheet. Thanks Florian.
----
- drivers/net/phy/broadcom.c | 2 +-
- include/linux/brcmphy.h    | 1 -
- 2 files changed, 1 insertion(+), 2 deletions(-)
+Thanks a lot,
+Daniel
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 25c6e6cea2dc..97d1c057c0a1 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -398,7 +398,7 @@ static int bcm54612e_config_aneg(struct phy_device *phydev)
- 		reg = bcm54xx_auxctl_read(phydev,
- 					  MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
- 		/* Disable RXD to RXC delay (default set) */
--		reg &= ~MII_BCM54XX_AUXCTL_MISC_RXD_RXC_SKEW;
-+		reg &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
- 		/* Clear shadow selector field */
- 		reg &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MASK;
- 		bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 34e61004b9dc..f9cb73df127e 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -109,7 +109,6 @@
- #define MII_BCM54XX_AUXCTL_ACTL_SMDSP_ENA	0x0800
- 
- #define MII_BCM54XX_AUXCTL_MISC_WREN	0x8000
--#define MII_BCM54XX_AUXCTL_MISC_RXD_RXC_SKEW	0x0100
- #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
- #define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
--- 
-2.11.0
+   [1] https://lkml.org/lkml/2017/1/12/442
