@@ -1,51 +1,35 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH 2/2] net-next: ethernet: mediatek: change the compatible string
-Date: Wed, 25 Jan 2017 09:20:55 +0100
-Message-ID: <1485332455-34743-2-git-send-email-john@phrozen.org>
-References: <1485332455-34743-1-git-send-email-john@phrozen.org>
-Cc: netdev@vger.kernel.org, Sean Wang <sean.wang@mediatek.com>,
-        devicetree@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        John Crispin <john@phrozen.org>
-To: Rob Herring <robh+dt@kernel.org>,
-        Matthias Brugger <matthias.bgg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:55042 "EHLO nbd.name"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751401AbdAYJNv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Jan 2017 04:13:51 -0500
-In-Reply-To: <1485332455-34743-1-git-send-email-john@phrozen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] mac80211: use accessor functions to set sta->_flags
+Date: Wed, 25 Jan 2017 10:17:39 +0100
+Message-ID: <1485335859.17709.3.camel@sipsolutions.net>
+References: <1485272531-11587-1-git-send-email-amadeusz.slawinski@tieto.com>
+         <1485272531-11587-2-git-send-email-amadeusz.slawinski@tieto.com>
+         <1485272668.1236.5.camel@sipsolutions.net>
+         <CA+db6Z1OtO4_93KN-YoEaVg79zY5BgX2u0S+8FGVdkWav0iB2g@mail.gmail.com>
+         (sfid-20170125_095558_832079_04D76103)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Amadeusz Slawinski <amadeusz.slawinski-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+db6Z1OtO4_93KN-YoEaVg79zY5BgX2u0S+8FGVdkWav0iB2g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20170125_095558_832079_04D76103)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When the binding was defined, I was not aware that mt2701 was an earlier
-version of the SoC. For sake of consistency, the ethernet driver should
-use mt2701 inside the compat string as this is the earliest SoC with the
-ethernet core.
+On Wed, 2017-01-25 at 09:55 +0100, Amadeusz Slawinski wrote:
+> And yes I did. Somehow managed to ignore those warnings though, sorry
+> about that.
 
-The ethernet driver is currently of no real use until we finish and
-upstream the DSA driver. There are no users of this binding yet. It should
-be safe to fix this now before it is too late and we need to provide
-backward compatibility for the mt7623-eth compat string.
+:)
+That was intentional so nobody changing mac80211 in the future will
+accidentally play with those flags through the normal accessors.
 
-Reported-by: Sean Wang <sean.wang@mediatek.com>
-Signed-off-by: John Crispin <john@phrozen.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Rechecked with just first patch and it should still be good. Please
+> ignore this one ;)
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 25ae0c5..9e75768 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -2515,7 +2515,7 @@ static int mtk_remove(struct platform_device *pdev)
- }
- 
- const struct of_device_id of_mtk_match[] = {
--	{ .compatible = "mediatek,mt7623-eth" },
-+	{ .compatible = "mediatek,mt2701-eth" },
- 	{},
- };
- MODULE_DEVICE_TABLE(of, of_mtk_match);
--- 
-1.7.10.4
+Yeah, I still have that one pending, no worries :)
+
+johannes
