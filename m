@@ -1,47 +1,81 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: network status
-Date: Wed, 25 Jan 2017 14:05:30 -0800
-Message-ID: <CAM_iQpUjkWcHk+3MLiw=xSbRq0MaLKarNZoX2KBcFyTNBZsSiw@mail.gmail.com>
-References: <CAH9_wRNWRG0zY20OCXyL_MDci3Bw+RYDjQJCu15+c82C1Eon=Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sriram V <vshrirama@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:35571 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752409AbdAYWGC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 17:06:02 -0500
-Received: by mail-wm0-f41.google.com with SMTP id r126so46910852wmr.0
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 14:05:56 -0800 (PST)
-In-Reply-To: <CAH9_wRNWRG0zY20OCXyL_MDci3Bw+RYDjQJCu15+c82C1Eon=Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] ISDN: eicon: reduce stack size of sig_ind function
+Date: Wed, 25 Jan 2017 23:15:53 +0100
+Message-ID: <20170125221607.1102271-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Armin Schindler <mac@melware.de>,
+        Karsten Keil <isdn@linux-pingi.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 24, 2017 at 11:39 AM, Sriram V <vshrirama@gmail.com> wrote:
-> Hello,
->
-> Apologies in case, this is not the right list of this question.
->
-> I wanted to check, How can i find out if a network status has changed
->
-> 1. How can the user application find out if the link status has changed?
+I noticed that this function uses a lot of kernel stack when the
+"latent entropy" plugin is enabled:
 
-There are some flags per netdevice for its link status, IFF_LOWER_UP
-etc., they are sent to user-space via rtnetlink message, ->ifi_flags.
+drivers/isdn/hardware/eicon/message.c: In function 'sig_ind':
+drivers/isdn/hardware/eicon/message.c:6113:1: error: the frame size of 1168 bytes is larger than 1152 bytes [-Werror=frame-larger-than=]
 
+We currently don't warn about this, as we raise the warning limit
+to 2048 bytes in mainline, but I'd like to lower that limit again
+in the future, and this function can easily be changed to be more
+efficient and avoid that warning, by making some of its local
+variables 'const'.
 
-> 2. what changes do i need to add in the driver to indicate to the user
-> applications that ethernet cable has been plugged in or unplugged.
->
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/isdn/hardware/eicon/message.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-Probably nothing but calling netif_carrier_on/off() API's.
-
-
-> 3. How should a user application know the status change (Should the
-> userapp poll on the interface/is there an uevent interface to indicate
-> the link status change)
->
-
-It needs to subscribe to the rtnetlink group RTNLGRP_LINK to receive
-the broadcasts from kernel.
+diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
+index 1a1d99704fe6..5dcfa2913ceb 100644
+--- a/drivers/isdn/hardware/eicon/message.c
++++ b/drivers/isdn/hardware/eicon/message.c
+@@ -147,7 +147,7 @@ static word plci_remove_check(PLCI *);
+ static void listen_check(DIVA_CAPI_ADAPTER *);
+ static byte AddInfo(byte **, byte **, byte *, byte *);
+ static byte getChannel(API_PARSE *);
+-static void IndParse(PLCI *, word *, byte **, byte);
++static void IndParse(PLCI *, const word *, byte **, byte);
+ static byte ie_compare(byte *, byte *);
+ static word find_cip(DIVA_CAPI_ADAPTER *, byte *, byte *);
+ static word CPN_filter_ok(byte *cpn, DIVA_CAPI_ADAPTER *, word);
+@@ -4858,7 +4858,7 @@ static void sig_ind(PLCI *plci)
+ 	/* included before the ESC_MSGTYPE and MAXPARMSIDS has to be incremented */
+ 	/* SMSG is situated at the end because its 0 (for compatibility reasons */
+ 	/* (see Info_Mask Bit 4, first IE. then the message type)           */
+-	word parms_id[] =
++	static const word parms_id[] =
+ 		{MAXPARMSIDS, CPN, 0xff, DSA, OSA, BC, LLC, HLC, ESC_CAUSE, DSP, DT, CHA,
+ 		 UUI, CONG_RR, CONG_RNR, ESC_CHI, KEY, CHI, CAU, ESC_LAW,
+ 		 RDN, RDX, CONN_NR, RIN, NI, CAI, ESC_CR,
+@@ -4866,12 +4866,12 @@ static void sig_ind(PLCI *plci)
+ 	/* 14 FTY repl by ESC_CHI */
+ 	/* 18 PI  repl by ESC_LAW */
+ 	/* removed OAD changed to 0xff for future use, OAD is multiIE now */
+-	word multi_fac_id[] = {1, FTY};
+-	word multi_pi_id[]  = {1, PI};
+-	word multi_CiPN_id[]  = {1, OAD};
+-	word multi_ssext_id[]  = {1, ESC_SSEXT};
++	static const word multi_fac_id[] = {1, FTY};
++	static const word multi_pi_id[]  = {1, PI};
++	static const word multi_CiPN_id[]  = {1, OAD};
++	static const word multi_ssext_id[]  = {1, ESC_SSEXT};
+ 
+-	word multi_vswitch_id[]  = {1, ESC_VSWITCH};
++	static const word multi_vswitch_id[]  = {1, ESC_VSWITCH};
+ 
+ 	byte *cau;
+ 	word ncci;
+@@ -8924,7 +8924,7 @@ static void listen_check(DIVA_CAPI_ADAPTER *a)
+ /* functions for all parameters sent in INDs                        */
+ /*------------------------------------------------------------------*/
+ 
+-static void IndParse(PLCI *plci, word *parms_id, byte **parms, byte multiIEsize)
++static void IndParse(PLCI *plci, const word *parms_id, byte **parms, byte multiIEsize)
+ {
+ 	word ploc;            /* points to current location within packet */
+ 	byte w;
+-- 
+2.9.0
