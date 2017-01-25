@@ -1,44 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: Bring back device detaching in dsa_slave_suspend()
-Date: Wed, 25 Jan 2017 09:10:41 -0800
-Message-ID: <20170125171041.21442-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/3] net/tcp-fastopen: Add new API support
+Date: Wed, 25 Jan 2017 12:22:05 -0500 (EST)
+Message-ID: <20170125.122205.9460825196595773.davem@davemloft.net>
+References: <1485283885.16328.319.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170124191127.GG21921@1wt.eu>
+        <CAC15z3izWNh7th_yxA_a90vgLnU5XzVDm6vyojq3cMDgQZ71YA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: w@1wt.eu, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+        edumazet@google.com, ycheng@google.com, weiwan@google.com
+To: tracywwnj@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54894 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdAYRWL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 12:22:11 -0500
+In-Reply-To: <CAC15z3izWNh7th_yxA_a90vgLnU5XzVDm6vyojq3cMDgQZ71YA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 448b4482c671 ("net: dsa: Add lockdep class to tx queues to avoid
-lockdep splat") removed the netif_device_detach() call done in
-dsa_slave_suspend() which is necessary, and paired with a corresponding
-netif_device_attach(), bring it back.
+From: Wei Wang <tracywwnj@gmail.com>
+Date: Wed, 25 Jan 2017 09:15:34 -0800
 
-Fixes: 448b4482c671 ("net: dsa: Add lockdep class to tx queues to avoid lockdep splat")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-David,
+> Looks like you sent a separate patch on top of this patch series to
+> address double connect().  Then I think this patch series should be
+> good to go.
 
-Can you also queue this for -stable? Thanks!
+Indeed, Willy please give some kind of ACK.
 
- net/dsa/slave.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 68c9eea00518..020a28d5c93e 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1203,6 +1203,8 @@ int dsa_slave_suspend(struct net_device *slave_dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(slave_dev);
- 
-+	netif_device_detach(slave_dev);
-+
- 	if (p->phy) {
- 		phy_stop(p->phy);
- 		p->old_pause = -1;
--- 
-2.9.3
+Thanks.
