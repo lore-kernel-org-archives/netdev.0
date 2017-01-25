@@ -1,90 +1,40 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: XDP offload to hypervisor
-Date: Wed, 25 Jan 2017 10:45:18 +0800
-Message-ID: <7b09fb3f-34bc-23d2-563f-79f28e5aec44@redhat.com>
-References: <20170123230727-mutt-send-email-mst@kernel.org>
- <58867C00.1060901@gmail.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net 0/4] r8152: fix scheduling napi
+Date: Wed, 25 Jan 2017 10:50:50 +0800
+Message-ID: <1394712342-15778-236-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40296 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751165AbdAYCpf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Jan 2017 21:45:35 -0500
-In-Reply-To: <58867C00.1060901@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Scheduling the napi during the following periods would let it be ignored.
+And the events wouldn't be handled until next napi_schedule() is called.
 
+1. after napi_disable and before napi_enable().
+2. after all actions of napi function is completed and before calling
+   napi_complete().
 
-On 2017年01月24日 05:56, John Fastabend wrote:
-> On 17-01-23 01:40 PM, Michael S. Tsirkin wrote:
->> I've been thinking about passing XDP programs from guest to the
->> hypervisor.  Basically, after getting an incoming packet, we could run
->> an XDP program in host kernel.
->>
-> Interesting. I am planning on adding XDP to tun driver. My use case
-> is we want to use XDP to restrict VM traffic. I was planning on pushing
-> the xdp program execution into tun_get_user(). So different then "offloading"
-> an xdp program into hypervisor.
+If no next napi_schedule() is called, tx or rx would stop working.
 
-This looks interesting to me. BTW, I was playing a patch and tries to 
-make use of XDP to accelerate macvtap in passthrough mode rx on host. 
-With the patch, XDP buffer instead of sbk could be used for vhost rx, 
-and tests shows nice results.
+In order to avoid these situations, the followings solutions are applied.
 
-But this seems conflict with XDP offload idea here.
+1. prevent start_xmit() from calling napi_schedule() during runtime suspend
+   or after napi_disable().
+2. re-schedule the napi for tx if it is necessary.
+3. check if any rx is finished or not after napi_enable().
 
-Thanks
+Hayes Wang (4):
+  r8152: avoid start_xmit to call napi_schedule during autosuspend
+  r8152: avoid start_xmit to schedule napi when napi is disabled
+  r8152: re-schedule napi for tx
+  r8152: check rx after napi is enabled
 
->
->> If the result is XDP_DROP or XDP_TX we don't need to wake up the guest at all!
->>
-> nice win.
->
->> When using tun for networking - especially with adjust_head - this
->> unfortunately probably means we need to do a data copy unless there is
->> enough headroom.  How much is enough though?
-> We were looking at making headroom configurable on Intel drivers or at
-> least matching it with XDP headroom guidelines. (although the developers
-> had the same complaint about 256B being large). Then at least on supported
-> drivers the copy could be an exception path.
->
->> Another issue is around host/guest ABI. Guest BPF could add new features
->> at any point. What if hypervisor can not support it all?  I guess we
->> could try loading program into hypervisor and run it within guest on
->> failure to load, but this ignores question of cross-version
->> compatibility - someone might start guest on a new host
->> then try to move to an old one. So we will need an option
->> "behave like an older host" such that guest can start and then
->> move to an older host later. This will likely mean
->> implementing this validation of programs in qemu userspace unless linux
->> can supply something like this. Is this (disabling some features)
->> something that might be of interest to larger bpf community?
-> This is interesting to me at least. Another interesting "feature" of
-> running bpf in qemu userspace is it could work with vhost_user as well
-> presumably?
->
->> With a device such as macvtap there exist configurations where a single
->> guest is in control of the device (aka passthrough mode) in that case
->> there's a potential to run xdp on host before host skb is built, unless
->> host already has an xdp program attached.  If it does we could run the
->> program within guest, but what if a guest program got attached first?
->> Maybe we should pass a flag in the packet "xdp passed on this packet in
->> host". Then, guest can skip running it.  Unless we do a full reset
->> there's always a potential for packets to slip through, e.g. on xdp
->> program changes. Maybe a flush command is needed, or force queue or
->> device reset to make sure nothing is going on. Does this make sense?
->>
-> Could the virtio driver pretend its "offloading" the XDP program to
-> hardware? This would make it explicit in VM that the program is run
-> before data is received by virtio_net. Then qemu is enabling the
-> offload framework which would be interesting.
->
->> Thanks!
->>
+ drivers/net/usb/r8152.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
+
+-- 
+2.7.4
