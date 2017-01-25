@@ -1,48 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree
- usage.
-Date: Wed, 25 Jan 2017 12:34:48 -0500 (EST)
-Message-ID: <20170125.123448.742815192519658537.davem@davemloft.net>
-References: <20170124084606.GA11764@app09>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: ethernet: mvneta: add support for 2.5G DRSGMII
+ mode
+Date: Wed, 25 Jan 2017 12:38:06 -0500 (EST)
+Message-ID: <20170125.123806.790914338952471404.davem@davemloft.net>
+References: <20170123142206.5390-1-jlu@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org, andrew@lunn.ch,
-        arnd@arndb.de, jiri@resnulli.us, linux-kernel@vger.kernel.org,
-        f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com
-To: green.hu@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170124084606.GA11764@app09>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: jlu-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170123142206.5390-1-jlu-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Greentime Hu <green.hu@gmail.com>
-Date: Tue, 24 Jan 2017 16:46:14 +0800
+From: Jan Luebbe <jlu-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Mon, 23 Jan 2017 15:22:06 +0100
 
-> We also use the same binding document to describe the same faraday ethernet
-> controller and add faraday to vendor-prefixes.txt.
+> The Marvell MVNETA Ethernet controller supports a 2.5 Gbps SGMII mode
+> called DRSGMII.
 > 
-> Signed-off-by: Greentime Hu <green.hu@gmail.com>
-> ---
-> Changes in v4:
->   - Use the same binding document to describe the same faraday ethernet controller and add faraday to vendor-prefixes.txt.
-> Changes in v3:
->   - Nothing changed in this patch but I have committed andestech to vendor-prefixes.txt.
-> Changes in v2:
->   - Change atmac100_of_ids to ftmac100_of_ids
+> This patch adds a corresponding phy-mode string 'drsgmii' and parses it
+> from DT. The MVNETA then configures the SERDES protocol value
+> accordingly.
 > 
-> ---
->  .../net/{moxa,moxart-mac.txt => faraday,ftmac.txt} |    7 +++++--
->  .../devicetree/bindings/vendor-prefixes.txt        |    1 +
->  drivers/net/ethernet/faraday/ftmac100.c            |    7 +++++++
->  3 files changed, 13 insertions(+), 2 deletions(-)
->  rename Documentation/devicetree/bindings/net/{moxa,moxart-mac.txt => faraday,ftmac.txt} (68%)
+> It was successfully tested on a MV78460 connected to a FPGA.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/moxa,moxart-mac.txt b/Documentation/devicetree/bindings/net/faraday,ftmac.txt
-> similarity index 68%
-> rename from Documentation/devicetree/bindings/net/moxa,moxart-mac.txt
-> rename to Documentation/devicetree/bindings/net/faraday,ftmac.txt
+> Signed-off-by: Jan Luebbe <jlu-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
-Why are you renaming the MOXA binding file instead of adding a completely new one
-for faraday?  The MOXA one should stick around, I don't see a justification for
-removing it.
+I still haven't seen a sufficient explanation as to why this change
+works without any explicit MAC programming changes to this driver.
+
+That really needs to be explained before I will apply this patch.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
