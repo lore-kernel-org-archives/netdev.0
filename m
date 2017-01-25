@@ -1,82 +1,29 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Wed, 25 Jan 2017 12:15:59 +0100
-Message-ID: <a4b4e2f4-f730-4f1d-7f41-36ba0d34f1a6@suse.cz>
-References: <20170112153717.28943-1-mhocko@kernel.org>
- <20170112153717.28943-6-mhocko@kernel.org>
- <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
- <20170112173745.GC31509@dhcp22.suse.cz>
- <7c109e9e-e28b-3ddb-42b6-902f46bf0572@suse.cz>
- <20170124150004.GM6867@dhcp22.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook@chromium.org>,
- Andrew Morton <akpm@linux-foundation.org>,
- David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
- Johannes Weiner <hannes@cmpxchg.org>, Al Viro <viro@zeniv.linux.org.uk>,
- Linux-MM <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
- Martin Schwidefsky <schwidefsky@de.ibm.com>,
- Heiko Carstens <heiko.carstens@de.ibm.com>,
- Herbert Xu <herbert@gondor.apana.org.au>, Anton Vorontsov
- <anton@enomsg.org>, Colin Cross <ccross@android.com>,
- Tony Luck <tony.luck@intel.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>,
- Ben Skeggs <bskeggs@redhat.com>, Kent Overstreet
- <kent.overstreet@gmail.com>, Santosh Raspatur <santosh@chelsio.com>,
- Hariprasad S <hariprasad@chelsio.com>, Tariq Toukan <tariqt@mellanox.com>,
- Yishai Hadas <yishaih@mellanox.com>, Dan Williams
- <dan.j.williams@intel.com>, Oleg Drokin <oleg.drokin@intel.com>,
- Andreas Dil
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170124150004.GM6867@dhcp22.suse.cz>
-Sender: owner-linux-mm@kvack.org
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH 0/2] More ethtool support and BGX configuration changes
+Date: Wed, 25 Jan 2017 17:36:22 +0530
+Message-ID: <1485345984-28163-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Sunil Goutham <sgoutham@cavium.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/24/2017 04:00 PM, Michal Hocko wrote:
->> > Well, I am not opposed to kvmalloc_array but I would argue that this
->> > conversion cannot introduce new overflow issues. The code would have
->> > to be broken already because even though kmalloc_array checks for the
->> > overflow but vmalloc fallback doesn't...
->>
->> Yeah I agree, but if some of the places were really wrong, after the
->> conversion we won't see them anymore.
->>
->> > If there is a general interest for this API I can add it.
->>
->> I think it would be better, yes.
->
-> OK, fair enough. I will fold the following into the original patch. I
-> was little bit reluctant to create kvcalloc so I've made the original
-> callers more talkative and added | __GFP_ZERO.
+From: Sunil Goutham <sgoutham@cavium.com>
 
-Fair enough,
+These patches adds support to set queue sizes from ethtool and changes 
+the way serdes lane configuration is done by BGX driver on 81/83xx 
+platforms.
 
-> To be honest I do not
-> really like how kcalloc...
+Sunil Goutham (2):
+  net: thunderx: Support to configure queue sizes from ethtool
+  net: thunderx: Leave serdes lane config on 81/83xx to firmware
 
-how kcalloc what?
+ .../net/ethernet/cavium/thunder/nicvf_ethtool.c    | 39 ++++++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 19 ++++-
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 16 +++-
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  | 95 ++++------------------
+ 4 files changed, 83 insertions(+), 86 deletions(-)
 
-[...]
-> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-> index cdc55d5ee4ad..eca16612b1ae 100644
-> --- a/net/netfilter/x_tables.c
-> +++ b/net/netfilter/x_tables.c
-> @@ -712,10 +712,7 @@ EXPORT_SYMBOL(xt_check_entry_offsets);
->   */
->  unsigned int *xt_alloc_entry_offsets(unsigned int size)
->  {
-> -	if (size < (SIZE_MAX / sizeof(unsigned int)))
-> -		return kvzalloc(size * sizeof(unsigned int), GFP_KERNEL);
-> -
-> -	return NULL;
-> +	return kvmalloc_array(size * sizeof(unsigned int), GFP_KERNEL | __GFP_ZERO);
-
-This one wouldn't compile.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+2.7.4
