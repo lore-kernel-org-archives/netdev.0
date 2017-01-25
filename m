@@ -1,78 +1,96 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [PATCH 16/23] tools lib bpf: Add set/is helpers for all prog types
-Date: Wed, 25 Jan 2017 10:53:43 -0300
-Message-ID: <20170125135350.22983-17-acme@kernel.org>
-References: <20170125135350.22983-1-acme@kernel.org>
-Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170125135350.22983-1-acme@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net] net: dsa: Mop up remaining NET_DSA_HWMON references
+Date: Wed, 25 Jan 2017 15:04:17 +0100
+Message-ID: <1485353057-4612-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>, valentinrothberg@gmail.com,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:45363 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752021AbdAYOEk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Jan 2017 09:04:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Stringer <joe@ovn.org>
+Previous patches have moved the temperature sensor code into the
+Marvell PHYs. A few now dead references to NET_DSA_HWMON were left
+behind. Go reap them.
 
-These bpf_prog_types were exposed in the uapi but there were no
-corresponding functions to set these types for programs in libbpf.
-
-Signed-off-by: Joe Stringer <joe@ovn.org>
-Acked-by: Wang Nan <wangnan0@huawei.com>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: netdev@vger.kernel.org
-Link: http://lkml.kernel.org/r/20170123011128.26534-4-joe@ovn.org
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Reported-by: Valentin Rothberg <valentinrothberg@gmail.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- tools/lib/bpf/libbpf.c |  5 +++++
- tools/lib/bpf/libbpf.h | 10 ++++++++++
- 2 files changed, 15 insertions(+)
+ Documentation/networking/dsa/dsa.txt | 24 ------------------------
+ include/net/dsa.h                    |  8 --------
+ 2 files changed, 32 deletions(-)
 
-diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-index 371cb40a2304..406838fa9c4f 100644
---- a/tools/lib/bpf/libbpf.c
-+++ b/tools/lib/bpf/libbpf.c
-@@ -1448,8 +1448,13 @@ bool bpf_program__is_##NAME(struct bpf_program *prog)	\
- 	return bpf_program__is_type(prog, TYPE);	\
- }							\
+diff --git a/Documentation/networking/dsa/dsa.txt b/Documentation/networking/dsa/dsa.txt
+index 63912ef34606..b8b40753133e 100644
+--- a/Documentation/networking/dsa/dsa.txt
++++ b/Documentation/networking/dsa/dsa.txt
+@@ -295,7 +295,6 @@ DSA currently leverages the following subsystems:
+ - MDIO/PHY library: drivers/net/phy/phy.c, mdio_bus.c
+ - Switchdev: net/switchdev/*
+ - Device Tree for various of_* functions
+-- HWMON: drivers/hwmon/*
  
-+BPF_PROG_TYPE_FNS(socket_filter, BPF_PROG_TYPE_SOCKET_FILTER);
- BPF_PROG_TYPE_FNS(kprobe, BPF_PROG_TYPE_KPROBE);
-+BPF_PROG_TYPE_FNS(sched_cls, BPF_PROG_TYPE_SCHED_CLS);
-+BPF_PROG_TYPE_FNS(sched_act, BPF_PROG_TYPE_SCHED_ACT);
- BPF_PROG_TYPE_FNS(tracepoint, BPF_PROG_TYPE_TRACEPOINT);
-+BPF_PROG_TYPE_FNS(xdp, BPF_PROG_TYPE_XDP);
-+BPF_PROG_TYPE_FNS(perf_event, BPF_PROG_TYPE_PERF_EVENT);
+ MDIO/PHY library
+ ----------------
+@@ -349,12 +348,6 @@ Documentation/devicetree/bindings/net/dsa/dsa.txt. PHY/MDIO library helper
+ functions such as of_get_phy_mode(), of_phy_connect() are also used to query
+ per-port PHY specific details: interface connection, MDIO bus location etc..
  
- int bpf_map__fd(struct bpf_map *map)
- {
-diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
-index a5a8b86a06fe..2188ccdc0e2d 100644
---- a/tools/lib/bpf/libbpf.h
-+++ b/tools/lib/bpf/libbpf.h
-@@ -174,11 +174,21 @@ int bpf_program__nth_fd(struct bpf_program *prog, int n);
- /*
-  * Adjust type of bpf program. Default is kprobe.
-  */
-+int bpf_program__set_socket_filter(struct bpf_program *prog);
- int bpf_program__set_tracepoint(struct bpf_program *prog);
- int bpf_program__set_kprobe(struct bpf_program *prog);
-+int bpf_program__set_sched_cls(struct bpf_program *prog);
-+int bpf_program__set_sched_act(struct bpf_program *prog);
-+int bpf_program__set_xdp(struct bpf_program *prog);
-+int bpf_program__set_perf_event(struct bpf_program *prog);
+-HWMON
+------
+-
+-Some switch drivers feature internal temperature sensors which are exposed as
+-regular HWMON devices in /sys/class/hwmon/.
+-
+ Driver development
+ ==================
  
-+bool bpf_program__is_socket_filter(struct bpf_program *prog);
- bool bpf_program__is_tracepoint(struct bpf_program *prog);
- bool bpf_program__is_kprobe(struct bpf_program *prog);
-+bool bpf_program__is_sched_cls(struct bpf_program *prog);
-+bool bpf_program__is_sched_act(struct bpf_program *prog);
-+bool bpf_program__is_xdp(struct bpf_program *prog);
-+bool bpf_program__is_perf_event(struct bpf_program *prog);
+@@ -495,23 +488,6 @@ Power management
+   BR_STATE_DISABLED and propagating changes to the hardware if this port is
+   disabled while being a bridge member
  
- /*
-  * We don't need __attribute__((packed)) now since it is
+-Hardware monitoring
+--------------------
+-
+-These callbacks are only available if CONFIG_NET_DSA_HWMON is enabled:
+-
+-- get_temp: this function queries the given switch for its temperature
+-
+-- get_temp_limit: this function returns the switch current maximum temperature
+-  limit
+-
+-- set_temp_limit: this function configures the maximum temperature limit allowed
+-
+-- get_temp_alarm: this function returns the critical temperature threshold
+-  returning an alarm notification
+-
+-See Documentation/hwmon/sysfs-interface for details.
+-
+ Bridge layer
+ ------------
+ 
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 9d6cd923c48c..08b340403927 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -178,14 +178,6 @@ struct dsa_switch {
+ 	 */
+ 	s8		rtable[DSA_MAX_SWITCHES];
+ 
+-#ifdef CONFIG_NET_DSA_HWMON
+-	/*
+-	 * Hardware monitoring information
+-	 */
+-	char			hwmon_name[IFNAMSIZ + 8];
+-	struct device		*hwmon_dev;
+-#endif
+-
+ 	/*
+ 	 * The lower device this switch uses to talk to the host
+ 	 */
 -- 
-2.9.3
+2.11.0
