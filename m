@@ -1,34 +1,42 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2] virtio_net: fix PAGE_SIZE > 64k
-Date: Tue, 24 Jan 2017 20:07:40 -0800
-Message-ID: <CAADnVQ+ioJ7kgsFeFoSV9Nqnq9CkRGMmqS5QM66gsJG01-Rojw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: correct memory barrier usage in
+ tcp_check_space()
+Date: Tue, 24 Jan 2017 20:53:37 -0800
+Message-ID: <1485320017.16328.386.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485312581-13041-1-git-send-email-jbaron@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        Oleg Nesterov <oleg@redhat.com>
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34650 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751137AbdAYExk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 23:53:40 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 3so765905pgj.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 20:53:40 -0800 (PST)
+In-Reply-To: <1485312581-13041-1-git-send-email-jbaron@akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2017 at 7:48 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
->
-> It is a concern on my side. I want XDP and Linux stack to work
-> reasonably well together.
+On Tue, 2017-01-24 at 21:49 -0500, Jason Baron wrote:
+> From: Jason Baron <jbaron@akamai.com>
+> 
+> sock_reset_flag() maps to __clear_bit() not the atomic version clear_bit().
+> Thus, we need smp_mb(), smp_mb__after_atomic() is not sufficient.
+> 
+> Fixes: 3c7151275c0c ("tcp: add memory barriers to write space paths")
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Oleg Nesterov <oleg@redhat.com>
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
+> ---
+>  net/ipv4/tcp_input.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-btw the micro benchmarks showed that page per packet approach
-that xdp took in mlx4 should be 10% slower vs normal operation
-for tcp/ip stack. We thought that for our LB use case
-it will be an acceptable slowdown, but turned out that overall we
-got a performance boost, since xdp model simplified user space
-and got data path faster, so we magically got extra free cpu
-that is used for other apps on the same host and overall
-perf win despite extra overhead in tcp/ip.
-Not all use cases are the same and not everyone will be as lucky,
-so I'd like to see performance of xdp_pass improving too, though
-it turned out to be not as high priority as I initially estimated.
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+I believe this would need also this for proper attribution.
+
+Reported-by: Oleg Nesterov <oleg@redhat.com>
