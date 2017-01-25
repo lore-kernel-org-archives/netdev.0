@@ -1,81 +1,105 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [net-next] ISDN: eicon: reduce stack size of sig_ind function
-Date: Wed, 25 Jan 2017 23:15:53 +0100
-Message-ID: <20170125221607.1102271-1-arnd@arndb.de>
+Subject: [PATCH] [net-next] bridge: move maybe_deliver_addr()
+	inside #ifdef
+Date: Wed, 25 Jan 2017 23:29:33 +0100
+Message-ID: <20170125222950.1352566-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Armin Schindler <mac@melware.de>,
-        Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, Felix Fietkau <nbd@nbd.name>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-I noticed that this function uses a lot of kernel stack when the
-"latent entropy" plugin is enabled:
+The only caller of this new function is inside of an #ifdef checking
+for CONFIG_BRIDGE_IGMP_SNOOPING, so we should move the implementation
+there too, in order to avoid this harmless warning:
 
-drivers/isdn/hardware/eicon/message.c: In function 'sig_ind':
-drivers/isdn/hardware/eicon/message.c:6113:1: error: the frame size of 1168 bytes is larger than 1152 bytes [-Werror=frame-larger-than=]
+net/bridge/br_forward.c:177:13: error: 'maybe_deliver_addr' defined but not used [-Werror=unused-function]
 
-We currently don't warn about this, as we raise the warning limit
-to 2048 bytes in mainline, but I'd like to lower that limit again
-in the future, and this function can easily be changed to be more
-efficient and avoid that warning, by making some of its local
-variables 'const'.
-
+Fixes: 6db6f0eae605 ("bridge: multicast to unicast")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/isdn/hardware/eicon/message.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ net/bridge/br_forward.c | 50 ++++++++++++++++++++++++-------------------------
+ 1 file changed, 25 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/isdn/hardware/eicon/message.c b/drivers/isdn/hardware/eicon/message.c
-index 1a1d99704fe6..5dcfa2913ceb 100644
---- a/drivers/isdn/hardware/eicon/message.c
-+++ b/drivers/isdn/hardware/eicon/message.c
-@@ -147,7 +147,7 @@ static word plci_remove_check(PLCI *);
- static void listen_check(DIVA_CAPI_ADAPTER *);
- static byte AddInfo(byte **, byte **, byte *, byte *);
- static byte getChannel(API_PARSE *);
--static void IndParse(PLCI *, word *, byte **, byte);
-+static void IndParse(PLCI *, const word *, byte **, byte);
- static byte ie_compare(byte *, byte *);
- static word find_cip(DIVA_CAPI_ADAPTER *, byte *, byte *);
- static word CPN_filter_ok(byte *cpn, DIVA_CAPI_ADAPTER *, word);
-@@ -4858,7 +4858,7 @@ static void sig_ind(PLCI *plci)
- 	/* included before the ESC_MSGTYPE and MAXPARMSIDS has to be incremented */
- 	/* SMSG is situated at the end because its 0 (for compatibility reasons */
- 	/* (see Info_Mask Bit 4, first IE. then the message type)           */
--	word parms_id[] =
-+	static const word parms_id[] =
- 		{MAXPARMSIDS, CPN, 0xff, DSA, OSA, BC, LLC, HLC, ESC_CAUSE, DSP, DT, CHA,
- 		 UUI, CONG_RR, CONG_RNR, ESC_CHI, KEY, CHI, CAU, ESC_LAW,
- 		 RDN, RDX, CONN_NR, RIN, NI, CAI, ESC_CR,
-@@ -4866,12 +4866,12 @@ static void sig_ind(PLCI *plci)
- 	/* 14 FTY repl by ESC_CHI */
- 	/* 18 PI  repl by ESC_LAW */
- 	/* removed OAD changed to 0xff for future use, OAD is multiIE now */
--	word multi_fac_id[] = {1, FTY};
--	word multi_pi_id[]  = {1, PI};
--	word multi_CiPN_id[]  = {1, OAD};
--	word multi_ssext_id[]  = {1, ESC_SSEXT};
-+	static const word multi_fac_id[] = {1, FTY};
-+	static const word multi_pi_id[]  = {1, PI};
-+	static const word multi_CiPN_id[]  = {1, OAD};
-+	static const word multi_ssext_id[]  = {1, ESC_SSEXT};
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index a0f9d0037d24..5a1f8ef49899 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -174,31 +174,6 @@ static struct net_bridge_port *maybe_deliver(
+ 	return p;
+ }
  
--	word multi_vswitch_id[]  = {1, ESC_VSWITCH};
-+	static const word multi_vswitch_id[]  = {1, ESC_VSWITCH};
+-static void maybe_deliver_addr(struct net_bridge_port *p, struct sk_buff *skb,
+-			       const unsigned char *addr, bool local_orig)
+-{
+-	struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
+-	const unsigned char *src = eth_hdr(skb)->h_source;
+-
+-	if (!should_deliver(p, skb))
+-		return;
+-
+-	/* Even with hairpin, no soliloquies - prevent breaking IPv6 DAD */
+-	if (skb->dev == p->dev && ether_addr_equal(src, addr))
+-		return;
+-
+-	skb = skb_copy(skb, GFP_ATOMIC);
+-	if (!skb) {
+-		dev->stats.tx_dropped++;
+-		return;
+-	}
+-
+-	if (!is_broadcast_ether_addr(addr))
+-		memcpy(eth_hdr(skb)->h_dest, addr, ETH_ALEN);
+-
+-	__br_forward(p, skb, local_orig);
+-}
+-
+ /* called under rcu_read_lock */
+ void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 	      enum br_pkt_type pkt_type, bool local_rcv, bool local_orig)
+@@ -245,6 +220,31 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ }
  
- 	byte *cau;
- 	word ncci;
-@@ -8924,7 +8924,7 @@ static void listen_check(DIVA_CAPI_ADAPTER *a)
- /* functions for all parameters sent in INDs                        */
- /*------------------------------------------------------------------*/
- 
--static void IndParse(PLCI *plci, word *parms_id, byte **parms, byte multiIEsize)
-+static void IndParse(PLCI *plci, const word *parms_id, byte **parms, byte multiIEsize)
- {
- 	word ploc;            /* points to current location within packet */
- 	byte w;
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
++static void maybe_deliver_addr(struct net_bridge_port *p, struct sk_buff *skb,
++			       const unsigned char *addr, bool local_orig)
++{
++	struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
++	const unsigned char *src = eth_hdr(skb)->h_source;
++
++	if (!should_deliver(p, skb))
++		return;
++
++	/* Even with hairpin, no soliloquies - prevent breaking IPv6 DAD */
++	if (skb->dev == p->dev && ether_addr_equal(src, addr))
++		return;
++
++	skb = skb_copy(skb, GFP_ATOMIC);
++	if (!skb) {
++		dev->stats.tx_dropped++;
++		return;
++	}
++
++	if (!is_broadcast_ether_addr(addr))
++		memcpy(eth_hdr(skb)->h_dest, addr, ETH_ALEN);
++
++	__br_forward(p, skb, local_orig);
++}
++
+ /* called with rcu_read_lock */
+ void br_multicast_flood(struct net_bridge_mdb_entry *mdst,
+ 			struct sk_buff *skb,
 -- 
 2.9.0
