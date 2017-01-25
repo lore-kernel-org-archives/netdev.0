@@ -1,42 +1,43 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net 3/4] r8152: re-schedule napi for tx
-Date: Wed, 25 Jan 2017 10:50:53 +0800
-Message-ID: <1394712342-15778-239-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-236-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jason Baron <jbaron@akamai.com>
+Subject: [PATCH net] tcp: correct memory barrier usage in tcp_check_space()
+Date: Tue, 24 Jan 2017 21:49:41 -0500
+Message-ID: <1485312581-13041-1-git-send-email-jbaron@akamai.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+        Oleg Nesterov <oleg@redhat.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:46900 "EHLO
+        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751224AbdAYCyQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 21:54:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Re-schedule napi after napi_complete() for tx, if it is necessay.
+From: Jason Baron <jbaron@akamai.com>
 
-In r8152_poll(), if the tx is completed after tx_bottom() and before
-napi_complete(), the scheduling of napi would be lost. Then, no
-one handles the next tx until the next napi_schedule() is called.
+sock_reset_flag() maps to __clear_bit() not the atomic version clear_bit().
+Thus, we need smp_mb(), smp_mb__after_atomic() is not sufficient.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Fixes: 3c7151275c0c ("tcp: add memory barriers to write space paths")
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Signed-off-by: Jason Baron <jbaron@akamai.com>
 ---
- drivers/net/usb/r8152.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/ipv4/tcp_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 3454238..f65109b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -1936,6 +1936,9 @@ static int r8152_poll(struct napi_struct *napi, int budget)
- 		napi_complete(napi);
- 		if (!list_empty(&tp->rx_done))
- 			napi_schedule(napi);
-+		else if (!skb_queue_empty(&tp->tx_queue) &&
-+			 !list_empty(&tp->tx_free))
-+			napi_schedule(&tp->napi);
- 	}
- 
- 	return work_done;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bfa165cc455a..1e22ae4a5b38 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5028,7 +5028,7 @@ static void tcp_check_space(struct sock *sk)
+ 	if (sock_flag(sk, SOCK_QUEUE_SHRUNK)) {
+ 		sock_reset_flag(sk, SOCK_QUEUE_SHRUNK);
+ 		/* pairs with tcp_poll() */
+-		smp_mb__after_atomic();
++		smp_mb();
+ 		if (sk->sk_socket &&
+ 		    test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)) {
+ 			tcp_new_space(sk);
 -- 
-2.7.4
+2.6.1
