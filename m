@@ -1,67 +1,30 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the kselftest tree with the net-next
- tree
-Date: Wed, 25 Jan 2017 15:03:21 +1100
-Message-ID: <20170125150321.0b377f57@canb.auug.org.au>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: ignore null_entry on route dumps
+Date: Tue, 24 Jan 2017 21:07:24 -0700
+Message-ID: <a4e48364-23e5-a7a5-e09a-6e60841088db@cumulusnetworks.com>
+References: <20170122.235829.1911961579892347071.davem@davemloft.net>
+ <a1eaeddc-69df-e0fa-c06a-285c3234249c@cumulusnetworks.com>
+ <95b123db-a760-b73a-a858-9be0516799fc@cumulusnetworks.com>
+ <20170124.203932.616922168982477148.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "bamvor.zhangjian@huawei.com" <bamvor.zhangjian@huawei.com>,
-        Bamvor Jian Zhang <bamvor.zhangjian@linaro.org>
-To: Shuah Khan <shuahkh@osg.samsung.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xiaolong.ye@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:36723 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751137AbdAYEH1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Jan 2017 23:07:27 -0500
+Received: by mail-pg0-f53.google.com with SMTP id 3so2041661pgj.3
+        for <netdev@vger.kernel.org>; Tue, 24 Jan 2017 20:07:26 -0800 (PST)
+In-Reply-To: <20170124.203932.616922168982477148.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Shuah,
+On 1/24/17 6:39 PM, David Miller wrote:
+> Although, it's troubling that we are trying to dump unfinished entries
+> simply because of initialization order.  It's arguable that this is
+> the real thing to fix.
 
-Today's linux-next merge of the kselftest tree got a conflict in:
-
-  tools/testing/selftests/bpf/Makefile
-
-between commit:
-
-  62b64660262a ("bpf: add prog tag test case to bpf selftests")
-
-from the net-next tree and commit:
-
-  88baa78d1f31 ("selftests: remove duplicated all and clean target")
-
-from the kselftest tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc tools/testing/selftests/bpf/Makefile
-index 769a6cb42b4b,058351b0694f..000000000000
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@@ -1,13 -1,7 +1,7 @@@
-  CFLAGS += -Wall -O2 -I../../../../usr/include
-  
-- test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
- -TEST_GEN_PROGS = test_verifier test_maps test_lru_map
-++TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map
-  
-- TEST_PROGS := $(test_objs) test_kmod.sh
-- TEST_FILES := $(test_objs)
-- 
-- all: $(test_objs)
-+ TEST_PROGS := test_kmod.sh
-  
-  include ../lib.mk
-- 
-- clean:
-- 	$(RM) $(test_objs)
+that's rabbit hole from which I have not found an exit
