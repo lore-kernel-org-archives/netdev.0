@@ -1,58 +1,46 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next 5/5] net: dsa: mv88e6xxx: Implement the 6390 external MDIO bus
-Date: Wed, 25 Jan 2017 09:13:05 +0100
-Message-ID: <871svr36cu.fsf@free-electrons.com>
-References: <1485266031-4980-1-git-send-email-andrew@lunn.ch>
-        <1485266031-4980-6-git-send-email-andrew@lunn.ch>
-        <20170125013230.GB5043@lunn.ch>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net v2 0/4] r8152: fix scheduling napi
+Date: Wed, 25 Jan 2017 16:13:17 +0800
+Message-ID: <1394712342-15778-242-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:49983 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbdAYINS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 03:13:18 -0500
-In-Reply-To: <20170125013230.GB5043@lunn.ch> (Andrew Lunn's message of "Wed,
-        25 Jan 2017 02:32:30 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-236-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
- 
- On mer., janv. 25 2017, Andrew Lunn <andrew@lunn.ch> wrote:
+v2:
+Add smp_mb__after_atomic() for patch #1.
 
->> diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
->> index 7d24add45e74..572d585dc1e2 100644
->> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
->> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
->> @@ -387,6 +387,7 @@
->>  #define GLOBAL2_PTP_AVB_DATA	0x17
->>  #define GLOBAL2_SMI_PHY_CMD			0x18
->>  #define GLOBAL2_SMI_PHY_CMD_BUSY		BIT(15)
->> +#define GLOBAL2_SMI_PHY_CMD_EXTERNAL		BIT(13)
->>  #define GLOBAL2_SMI_PHY_CMD_MODE_22		BIT(12)
->>  #define GLOBAL2_SMI_PHY_CMD_OP_22_WRITE_DATA	((0x1 << 10) | \
->
-> Hi Gregory
->
-> Please could you check if the 88E6341 has an external MDIO. Global 2,
-> register 0x18, bit 13.
+v1:
+Scheduling the napi during the following periods would let it be ignored.
+And the events wouldn't be handled until next napi_schedule() is called.
 
-I confirm that 88E6341 has Global 2, register 0x18, bit 13 referred as
-"External access"
+1. after napi_disable and before napi_enable().
+2. after all actions of napi function is completed and before calling
+   napi_complete().
 
-Gregory
+If no next napi_schedule() is called, tx or rx would stop working.
 
->
-> Thanks
-> 	Andrew
+In order to avoid these situations, the followings solutions are applied.
+
+1. prevent start_xmit() from calling napi_schedule() during runtime suspend
+   or after napi_disable().
+2. re-schedule the napi for tx if it is necessary.
+3. check if any rx is finished or not after napi_enable().
+
+Hayes Wang (4):
+  r8152: avoid start_xmit to call napi_schedule during autosuspend
+  r8152: avoid start_xmit to schedule napi when napi is disabled
+  r8152: re-schedule napi for tx
+  r8152: check rx after napi is enabled
+
+ drivers/net/usb/r8152.c | 26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+2.7.4
