@@ -1,8 +1,7 @@
 From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH V2 1/3] net: phy: broadcom: use auxctl reading helper in BCM54612E code
-Date: Wed, 25 Jan 2017 21:00:25 +0100
-Message-ID: <20170125200027.14387-2-zajec5@gmail.com>
-References: <20170125200027.14387-1-zajec5@gmail.com>
+Subject: [PATCH V2 0/3] net-next: Broadcom PHY driver cleanup
+Date: Wed, 25 Jan 2017 21:00:24 +0100
+Message-ID: <20170125200027.14387-1-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -13,60 +12,36 @@ Cc: Xo Wang <xow@google.com>, Joel Stanley <joel@jms.id.au>,
 To: "David S . Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:32945 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751016AbdAYUAt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 15:00:49 -0500
-Received: by mail-lf0-f65.google.com with SMTP id x1so22145776lff.0
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 12:00:48 -0800 (PST)
-In-Reply-To: <20170125200027.14387-1-zajec5@gmail.com>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:34878 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdAYUAr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 15:00:47 -0500
+Received: by mail-lf0-f67.google.com with SMTP id v186so22088152lfa.2
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 12:00:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rafał Miłecki <rafal@milecki.pl>
 
-Starting with commit 5b4e29005123 ("net: phy: broadcom: add
-bcm54xx_auxctl_read") we have a reading helper so use it and avoid code
-duplication.
-It also means we don't need MII_BCM54XX_AUXCTL_SHDWSEL_MISC define as
-it's the same as MII_BCM54XX_AUXCTL_SHDWSEL_MISC just for reading needs
-(same value shifted by 12 bits).
+I will probably need to use broadcom.ko for PHY connected to interface
+of bgmac supported device so I started looking at it willing to
+understand it better.
 
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/broadcom.c | 6 ++----
- include/linux/brcmphy.h    | 1 -
- 2 files changed, 2 insertions(+), 5 deletions(-)
+I found AUXCTL part of the driver / lib a bit confusing and hard to read
+so I'm trying to clean it up a bit. I hope this patchset makes following
+AUXCTL operations much easier making it clear which defines are for
+registers and which for values.
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 4223e35490b0..25c6e6cea2dc 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -395,10 +395,8 @@ static int bcm54612e_config_aneg(struct phy_device *phydev)
- 	    (phydev->interface != PHY_INTERFACE_MODE_RGMII_RXID)) {
- 		u16 reg;
- 
--		/* Errata: reads require filling in the write selector field */
--		bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
--				     MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC);
--		reg = phy_read(phydev, MII_BCM54XX_AUX_CTL);
-+		reg = bcm54xx_auxctl_read(phydev,
-+					  MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
- 		/* Disable RXD to RXC delay (default set) */
- 		reg &= ~MII_BCM54XX_AUXCTL_MISC_RXD_RXC_SKEW;
- 		/* Clear shadow selector field */
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 295fb3e73de5..34e61004b9dc 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -111,7 +111,6 @@
- #define MII_BCM54XX_AUXCTL_MISC_WREN	0x8000
- #define MII_BCM54XX_AUXCTL_MISC_RXD_RXC_SKEW	0x0100
- #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
--#define MII_BCM54XX_AUXCTL_MISC_RDSEL_MISC	0x7000
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
- #define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN	(1 << 8)
+There is no functional change in this pachset.
+
+Rafał Miłecki (3):
+  net: phy: broadcom: use auxctl reading helper in BCM54612E code
+  net: phy: broadcom: drop duplicated define for RGMII SKEW delay
+  net: phy: bcm-phy-lib: clean up remaining AUXCTL register defines
+
+ drivers/net/phy/broadcom.c |  8 +++-----
+ include/linux/brcmphy.h    | 16 +++++++---------
+ 2 files changed, 10 insertions(+), 14 deletions(-)
+
 -- 
 2.11.0
