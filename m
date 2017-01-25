@@ -1,70 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Workaround missing PHY
- ID on mv88e6390
-Date: Wed, 25 Jan 2017 20:30:40 +0100
-Message-ID: <20170125193040.GE6611@lunn.ch>
-References: <1485309314-23942-1-git-send-email-andrew@lunn.ch>
- <1485309314-23942-2-git-send-email-andrew@lunn.ch>
- <87sho7123x.fsf@free-electrons.com>
- <87o9yvyqwr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <87r33r3tkw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net v2 0/4] r8152: fix scheduling napi
+Date: Wed, 25 Jan 2017 14:31:19 -0500 (EST)
+Message-ID: <20170125.143119.411717735878453521.davem@davemloft.net>
+References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
+        <1394712342-15778-242-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45961 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751446AbdAYTar (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Jan 2017 14:30:47 -0500
-Content-Disposition: inline
-In-Reply-To: <87r33r3tkw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1394712342-15778-242-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 25, 2017 at 01:03:43PM -0500, Vivien Didelot wrote:
-> Andrew,
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Date: Wed, 25 Jan 2017 16:13:17 +0800
+
+> v2:
+> Add smp_mb__after_atomic() for patch #1.
 > 
-> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
+> v1:
+> Scheduling the napi during the following periods would let it be ignored.
+> And the events wouldn't be handled until next napi_schedule() is called.
 > 
-> > Since several chips have this issue, we can introduce a u16 physid2_mask
-> > member in the mv88e6xxx_info structure and move the check in
-> > mv88e6xxx_phy_read() so that the logic of device (as in Global2) helpers
-> > are not affected by such (necessary) hack. Something like:
-> >
-> >     static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
-> >                                   int reg, u16 *val)
-> >     {
-> >         ...
-> >
-> >         err = chip->info->ops->phy_read(chip, bus, addr, reg, val);
-> >         if (err)
-> >             return err;
-> >
-> >         if (reg == MII_PHYSID2 && chip->info->physid2_mask) {
-> >             /* Some internal PHYs don't have a model number,
-> >              * so return the switch family model number directly.
-> >              */
-> >             if (!(*val & chip->info->physid2_mask))
-> >                 *val |= chip->info->prod_num;
+> 1. after napi_disable and before napi_enable().
+> 2. after all actions of napi function is completed and before calling
+>    napi_complete().
 > 
->           if (reg == MII_PHYSID2 && (*val & 0xfff0) == 0)
+> If no next napi_schedule() is called, tx or rx would stop working.
+> 
+> In order to avoid these situations, the followings solutions are applied.
+> 
+> 1. prevent start_xmit() from calling napi_schedule() during runtime suspend
+>    or after napi_disable().
+> 2. re-schedule the napi for tx if it is necessary.
+> 3. check if any rx is finished or not after napi_enable().
 
-This should be 0x3f0. There are 10 bits for the device model, of which
-Marvell uses the lowest 4 for version.
+I think the fundamental issue is that since you can't stop URBs from
+queueing up, you cannot properly synchronize NAPI and schedule polling
+properly.
 
->               *val |= chip->info->prod_num << 4;
+>From my perspective what happened here is you want GRO support, but it
+comes at the expense of this extremely racey NAPI support which does
+not at all achieve one of the main advantages of NAPI which is
+interrupt mitigation.
 
-#define PORT_SWITCH_ID_PROD_NUM_6190    0x190
-#define PORT_SWITCH_ID_PROD_NUM_6190X   0x0a0
-#define PORT_SWITCH_ID_PROD_NUM_6191    0x191
-#define PORT_SWITCH_ID_PROD_NUM_6290    0x290
-#define PORT_SWITCH_ID_PROD_NUM_6390    0x390
-#define PORT_SWITCH_ID_PROD_NUM_6390X   0x0a1
-
-That still gives us 6 different PHY IDs, and the shift will cause is
-to modify the OUI, so it is no longer a Marvell OUI.
-
-   Andrew
+It would have been so much better to implement a generic way for
+drivers to get GRO support without NAPI, especially if their packet
+feeding engine works the way that the USB networking drivers's do.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
