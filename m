@@ -1,59 +1,57 @@
-From: Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2] Documentation: devicetree: change the mediatek
- ethernet compatible string
-Date: Wed, 25 Jan 2017 11:43:16 +0100
-Message-ID: <95bbd455-fb78-b41c-ef09-6d35671e68c3@gmail.com>
-References: <1485332455-34743-1-git-send-email-john@phrozen.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch] samples/bpf: silence shift wrapping warning
+Date: Wed, 25 Jan 2017 11:08:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB026DD27@AcuExch.aculab.com>
+References: <20170121045143.GC15269@mwanda>
+ <20170122225123.GA73160@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1485332455-34743-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Thomas Graf <tgraf@suug.ch>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Joe Stringer <joe@ovn.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
+        Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.191]:59332 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751741AbdAYLJA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 06:09:00 -0500
+In-Reply-To: <20170122225123.GA73160@ast-mbp.thefacebook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alexei Starovoitov
+> Sent: 22 January 2017 22:51
+> On Sat, Jan 21, 2017 at 07:51:43AM +0300, Dan Carpenter wrote:
+> > max_key is a value in the 0-63 range, so on 32 bit systems the shift
+> > could wrap.
+> >
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> Looks fine. I think 'net-next' is ok.
+> 
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> 
+> > diff --git a/samples/bpf/lwt_len_hist_user.c b/samples/bpf/lwt_len_hist_user.c
+> > index ec8f3bb..bd06eef 100644
+> > --- a/samples/bpf/lwt_len_hist_user.c
+> > +++ b/samples/bpf/lwt_len_hist_user.c
+> > @@ -68,7 +68,7 @@ int main(int argc, char **argv)
+> >  	for (i = 1; i <= max_key + 1; i++) {
+> >  		stars(starstr, data[i - 1], max_value, MAX_STARS);
+> >  		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
+> > -		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
+> > +		       (1ULL << i) >> 1, (1ULL << i) - 1, data[i - 1],
+> >  		       MAX_STARS, starstr);
+> >  	}
 
+The format effectors are wrong on 32bit systems.
 
-On 01/25/2017 09:20 AM, John Crispin wrote:
-> When the binding was defined, I was not aware that mt2701 was an earlier
-> version of the SoC. For sake of consistency, the ethernet driver should
-> use mt2701 inside the compat string as this is the earliest SoC with the
-> ethernet core.
->
-> The ethernet driver is currently of no real use until we finish and
-> upstream the DSA driver. There are no users of this binding yet. It should
-> be safe to fix this now before it is too late and we need to provide
-> backward compatibility for the mt7623-eth compat string.
->
-> Reported-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-> ---
-
-sounds reasonable to me:
-Reviewed-by: Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
->  Documentation/devicetree/bindings/net/mediatek-net.txt |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
-> index c010faf..c7194e8 100644
-> --- a/Documentation/devicetree/bindings/net/mediatek-net.txt
-> +++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
-> @@ -7,7 +7,7 @@ have dual GMAC each represented by a child node..
->  * Ethernet controller node
->
->  Required properties:
-> -- compatible: Should be "mediatek,mt7623-eth"
-> +- compatible: Should be "mediatek,mt2701-eth"
->  - reg: Address and length of the register set for the device
->  - interrupts: Should contain the three frame engines interrupts in numeric
->  	order. These are fe_int0, fe_int1 and fe_int2.
->
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	David
