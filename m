@@ -1,42 +1,91 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [Xen-devel] xennet_start_xmit assumptions
-Date: Wed, 25 Jan 2017 10:45:46 -0500
-Message-ID: <20170125154546.GF2212@oracle.com>
-References: <20170118153132.GB9258@oracle.com>
- <20170118192528.GA6847@char.us.oracle.com>
- <de0d7a7db4c24b46838aee7623d5d2a3@AMSPEX02CL03.citrite.net>
- <20170119111426.GA22018@oracle.com>
- <fa531e2ed014488baa10556c724e176c@AMSPEX02CL03.citrite.net>
+From: Greg <gvrose8192@gmail.com>
+Subject: Re: ip link SR-IOV VF MAC address disparity
+Date: Wed, 25 Jan 2017 07:49:47 -0800
+Message-ID: <1485359387.29083.3.camel@gmail.com>
+References: <CA+mNUtCquJF9TxTRs9GF7XdBhxDUS_LwWA8M5QZbeXoRGNrZ2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-        Wei Liu <wei.liu2@citrix.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dan Kenigsberg <danken@redhat.com>,
+        Edward Haas <ehaas@redhat.com>
+To: Leon Goldberg <lgoldber@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:45562 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750768AbdAYPqA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:46:00 -0500
-Content-Disposition: inline
-In-Reply-To: <fa531e2ed014488baa10556c724e176c@AMSPEX02CL03.citrite.net>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35233 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751487AbdAYPtt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:49:49 -0500
+Received: by mail-pf0-f193.google.com with SMTP id f144so14640027pfa.2
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 07:49:49 -0800 (PST)
+In-Reply-To: <CA+mNUtCquJF9TxTRs9GF7XdBhxDUS_LwWA8M5QZbeXoRGNrZ2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/25/17 15:06), Paul Durrant wrote:
+On Wed, 2017-01-25 at 15:34 +0200, Leon Goldberg wrote:
+> Hey,
 > 
->   Making netfront cope with a fully non-linear skb looks like it would
-> be quite intrusive and probably not worth it so I opted for just doing
-> the ETH_HLEN pull-tail if necessary. Can you check it works for you?
+> Using ip link to retrieve the MAC addresses of some SR-IOV virtual
+> functions, I'm receiving mixed results:
+> 
+> [root@nari05 sys]# ip link
+> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> 2: enp2s0f0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq
+> master ovirtmgmt state UP mode DEFAULT qlen 1000
+>     link/ether 78:e7:d1:e4:9b:64 brd ff:ff:ff:ff:ff:ff
+> 3: enp2s0f1: <BROADCAST,MULTICAST> mtu 1500 qdisc mq master test1
+> state DOWN mode DEFAULT qlen 1000
+>     link/ether 78:e7:d1:e4:9b:65 brd ff:ff:ff:ff:ff:ff
+>     vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
+>     vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
+>     vf 2 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
+>     vf 3 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
+>     vf 4 MAC 00:00:00:00:00:00, spoof checking on, link-state auto
+> 4: ovirtmgmt: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue
+> state UP mode DEFAULT
+>     link/ether 78:e7:d1:e4:9b:64 brd ff:ff:ff:ff:ff:ff
+> 5: test1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue
+> state DOWN mode DEFAULT
+>     link/ether 78:e7:d1:e4:9b:65 brd ff:ff:ff:ff:ff:ff
+> 11: ;vdsmdummy;: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT
+>     link/ether 5e:b4:ac:5c:b9:a1 brd ff:ff:ff:ff:ff:ff
+> 37: enp2s16f1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT qlen 1000
+>     link/ether 00:00:00:00:00:02 brd ff:ff:ff:ff:ff:ff
+> 38: enp2s16f3: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT qlen 1000
+>     link/ether d6:ee:45:57:c0:39 brd ff:ff:ff:ff:ff:ff
+> 39: enp2s16f5: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT qlen 1000
+>     link/ether 4a:2c:25:42:97:4a brd ff:ff:ff:ff:ff:ff
+> 40: enp2s16f7: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT qlen 1000
+>     link/ether c2:fe:2f:5e:f5:e8 brd ff:ff:ff:ff:ff:ff
+> 41: enp2s17f1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT qlen 1000
+>     link/ether e6:31:a9:59:5f:ad brd ff:ff:ff:ff:ff:ff
+> 
+> enp2s0f1 is the physical function; enp2s1f* are the interfaces to the
+> virtual functions.
+> 
+> Essentially, I have 2 questions:
+> 1) What is the difference between the entries under the physical
+> function and the interfaces?
+> 2) How should I retrieve the correct MAC addresses? I'm aware of
+> /sys/.../<vf>/net/address, but I am now not sure it is the correct
+> source.
 
-I tested it, and it works fine, but note that DaveM's comments in 
-this thread: the DKI is that we *must* provide at least the hard_header_len
-in the non-paged part of the skb. So might not even be necessary to handle
-the fully non-linear skb (though it's probably prudent to check
-and bail for this, as your patch does)
+If you haven't used ip link commands to set the VF device MAC addresses
+then the devices will create their own as they register their net device
+entries.  In that case you'll see the VF MAC addresses as all 00's
+because you haven't set them.
 
-I just posted an RFC patch for fixing the pf_packet layer,
-just in case other drivers like xen_netfront dont explicitly
-check for this
-   http://patchwork.ozlabs.org/patch/719236/
+Best known methods call for using the ip link command to set the MAC
+addresses for the VF devices rather than letting them set their own
+temporary LAA type MAC addresses.
+
+- Greg
+
+> 
+> Thanks,
+> Leon
