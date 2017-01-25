@@ -1,59 +1,149 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: Re: [PATCH] cxgbit: use T6 specific macro to set force bit
-Date: Wed, 25 Jan 2017 12:08:10 +0530
-Message-ID: <20170125063809.GB1668@chelsio.com>
-References: <1485257822-729-1-git-send-email-varun@chelsio.com>
- <1485292300.12563.41.camel@perches.com>
+From: YUAN Jia <Jia.Yuan@alcatel-sbell.com.cn>
+Subject: A PMTU auto-discovery error for large SCTP packets
+Date: Wed, 25 Jan 2017 06:40:10 +0000
+Message-ID: <07B7943445653648AD9B4DBB916BB48F1C265220@cnshjmbx01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "bart.vanassche@sandisk.com" <bart.vanassche@sandisk.com>,
-        "target-devel@vger.kernel.org" <target-devel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Indranil Choudhury <indranil@chelsio.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <target-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1485292300.12563.41.camel@perches.com>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+        boundary="_003_07B7943445653648AD9B4DBB916BB48F1C265220cnshjmbx01_"
+To: "'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>,
+        'network dev' <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:54227 "EHLO
+        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751286AbdAYGkM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 01:40:12 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2017 at 02:41:40AM +0530, Joe Perches wrote:
-> On Tue, 2017-01-24 at 17:07 +0530, Varun Prakash wrote:
-> > For T6 adapters use T6 specific macro to set
-> > force bit.
-> []
-> > diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-> []
-> > @@ -1349,6 +1349,10 @@ struct cpl_tx_data {
-> >  #define TX_FORCE_S	13
-> >  #define TX_FORCE_V(x)	((x) << TX_FORCE_S)
-> >  
-> > +#define T6_TX_FORCE_S		20
-> > +#define T6_TX_FORCE_V(x)	((x) << T6_TX_FORCE_S)
-> > +#define T6_TX_FORCE_F		T6_TX_FORCE_V(1U)
-> > +
-> >  enum {
-> >  	ULP_TX_MEM_READ = 2,
-> >  	ULP_TX_MEM_WRITE = 3,
-> > diff --git a/drivers/target/iscsi/cxgbit/cxgbit_target.c b/drivers/target/iscsi/cxgbit/cxgbit_target.c
-> []
-> > @@ -162,12 +162,14 @@ cxgbit_tx_data_wr(struct cxgbit_sock *csk, struct sk_buff *skb, u32 dlen,
-> >  		  u32 len, u32 credits, u32 compl)
-> >  {
-> >  	struct fw_ofld_tx_data_wr *req;
-> > +	const struct cxgb4_lld_info *lldi = &csk->com.cdev->lldi;
-> >  	u32 submode = cxgbit_skcb_submode(skb);
-> >  	u32 wr_ulp_mode = 0;
-> >  	u32 hdr_size = sizeof(*req);
-> >  	u32 opcode = FW_OFLD_TX_DATA_WR;
-> >  	u32 immlen = 0;
-> > -	u32 force = TX_FORCE_V(!submode);
-> > +	u32 force = is_t5(lldi->adapter_type) ? TX_FORCE_V(!submode) :
-> > +		    T6_TX_FORCE_F;
-> 
-> Perhaps it'd be better to add a is_t6() mechanism so this
-> is written in the positive rather than the negative.
->
+--_003_07B7943445653648AD9B4DBB916BB48F1C265220cnshjmbx01_
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 
-At present cxgbit driver supports only T5 and T6 adapters so
-if a adapter is not T5 then it is T6.
+SGkgQWxsLA0KDQpSZWNlbnRseSwgSSBtZXQgYSBwcm9ibGVtIG9mIFNDVFAgYXNzb2NpYXRpb24g
+YnJva2VuIHdoaWNoIHdhcyByZXN1bHRlZCBmcm9tIGxhcmdlIFNDVFAgcGFja2V0cyBhcyBhdHRh
+Y2hlZCBpbiB0aGlzIG1haWwuDQpCZWNhdXNlIHRoZSAxc3QgcGFja2V04oCZcyBsZW5ndGggaXMg
+MTYyNiB0aGF0IGV4Y2VlZHMgdGhlIG5leHQgaG9w4oCZcyBNVFUgb2YgMTUwMCwgYW4gSUNNUCBw
+YWNrZXQgb2YgY29kZSA0IChGcmFnbWVudGF0aW9uIG5lZWRlZCkgcmVmbGVjdHMgYmFjayBhbmQg
+Y2FycmllcyB0aGUgY29ycmVjdCBNVFUgdmFsdWUgMTUwMC4gSG93ZXZlciwgdGhlIG1lY2hhbmlz
+bSBvZiBhdXRvLWFkanVzdGluZyBQTVRVIGRvZXNu4oCZdCB3b3JrLiBIYXZpbmcgZGVidWdnZWQg
+dGhlIGtlcm5lbCwgSSBmaW5kIHRoZSBJQ01QIHBhY2tldCBpcyBkcm9wcGVkIGF0IGEgcHJlLXJv
+dXRpbmcgbmV0IGZpbHRlciBjYWxsZWQg4oCYbmZ0X2NoYWluX25hdF9pcHY04oCZIGR1ZSB0byDi
+gJhDT05GSUdfTkZUX0NIQUlOX05BVF9JUFY04oCZIGJlaW5nIGVuYWJsZWQuIEJlbG93IGlzIHRo
+ZSBjYWxsaW5nIHNlcXVlbmNlOg0KUEFUSDE6IMKgwqDCoMKgTkZfSU5FVF9QUkVfUk9VVElORyDi
+hpIgbmZ0X25hdF9pcHY0X2luIOKGkiBuZl9uYXRfaXB2NF9pbiDihpIgbmZfbmF0X2lwdjRfZm4g
+4oaSIG5mX25hdF9pY21wX3JlcGx5X3RyYW5zbGF0aW9uIOKGkiBuZl9uYXRfaXB2NF9tYW5pcF9w
+a3QNClBBVEgyOiDCoMKgwqDCoE5GX0lORVRfUFJFX1JPVVRJTkcg4oaSIG5mdF9uYXRfaXB2NF9p
+biDihpIgbmZfbmF0X2lwdjRfaW4g4oaSIG5mX25hdF9pcHY0X2ZuIOKGkiBuZl9uYXRfcGFja2V0
+IOKGkiBsM3Byb3RvLT5tYW5pcF9wa3QobmZfbmF0X2lwdjRfbWFuaXBfcGt0KQ0KQ09NTU9OOsKg
+IG5mX25hdF9pcHY0X21hbmlwX3BrdCDihpIgbDRwcm90by0+bWFuaXBfcGt0KHNjdHBfbWFuaXBf
+cGt0KSDihpIgc2tiX21ha2Vfd3JpdGFibGUNCg0KVG8gcmVhY2ggdGhlIGZpbmFsIGZ1bmN0aW9u
+IOKAmHNrYl9tYWtlX3dyaXRhYmxl4oCZIGluIHRoaXMgY2FsbGluZyBjaGFpbiwgdGhlIElDTVAg
+cGFja2V0IGFuZCB2YXJpb3VzIGhlYWRlciBwb2ludGVycyBjYW4gYmUgZGVwaWN0ZWQgYXMgYmVs
+b3c6DQpNQUMobDIpICsgW1ZMQU4obDIpXSArIElQKGwzKSArIElDTVAobDQpICsgeyBwYXlsb2Fk
+IOKHkiBJUCArIFNDVFAgfcKgwqDCoMKgwqDCoMKgwqDCoMKgwqAgQW5kIHRoZSBpbnB1dCBwYXJh
+bWV0ZXIg4oCYaGRyb2Zm4oCZIG5vdyBlcXVhbHMgdG8gdGhlIGxlbmd0aCBmcm9tIOKAmHNrYi0+
+ZGF0YeKAmSB0byB0aGUgU0NUUCBoZWFkZXIgaW4gdGhlIElDTVAgcGF5bG9hZC4NClNvLCB0aGUg
+c3RhdGVtZW50IOKAmHNrYl9tYWtlX3dyaXRhYmxlKHNrYiwgaGRyb2ZmICsgc2l6ZW9mKCpoZHIp
+KeKAmSBhc3N1bWVzIHRoYXQgdGhlIFNDVFAgaGVhZGVyIGlzIGludGFjdCBhbmQgd2hvbGUuIEhv
+d2V2ZXIsIGNlcnRhaW4gbmV0d29yayBlbGVtZW50cyAocm91dGVzLCBnYXRld2F5cywgb3Igc29t
+ZXRoaW5nIGxpa2UgdGhhdCkgcHJvYmFibHkgc2VuZCBJQ01QIG9ubHkgY29udGFpbmluZyBleHRy
+YSA4IGJ5dGVzICg2NCBiaXRzKSBhZnRlciB0aGUgSVAgaGVhZGVyIG9mIG9yaWdpbmFsIHBhY2tl
+dC4gSnVzdCBhcyB0aGUgYXR0YWNobWVudCBzaG93biwgdGhlIElDTVAgb25seSBjb250YWluZWQg
+dGhlIHNvdXJjZSBwb3J0LCBkZXN0aW5hdGlvbiBwb3J0IGFuZCBTQ1RQIHZlcmlmaWNhdGlvbiB0
+YWcgb2YgdGhlIHBhcnRpYWwgKDggYnl0ZXMpIFNDVFAgaGVhZGVyIGluIHRoZSBwcmV2aW91cyBT
+Q1RQIHBhY2tldC4gU3VjaCB0aGUgY2FzZSBjYW4gbWFrZSDigJhza2JfbWFrZV93cml0YWJsZeKA
+mSByZXR1cm4gZmFsc2UuIEFuZCB0aGVuLCB0aGUgSUNNUCBwYWNrZXQgd2lsbCBiZSBkcm9wcGVk
+LiBGaW5hbGx5LCB0aGUgdXBwZXIgbGF5ZXLigJlzIOKAmGVycl9oYW5kbGVy4oCZIHdvdWxkIG5v
+dCBiZSB0cmlnZ2VyZWQgdG8gbm90aWZ5IFNDVFAgZm9yIHVwZGF0aW5nIHRoZSBQTVRVLg0KDQpJ
+IGNvbXBhcmUgaXQgd2l0aCBob3cgdGhlIFRDUCBwcm90b2NvbCBpcyBoYW5kbGVkLiBJbiB0aGUg
+ZmlsZSDigJhuZXQvbmV0ZmlsdGVyL25mX25hdF9wcm90b190Y3AuY+KAmSwgdGhlcmXigJlzIGFs
+c28gYSBzaW1pbGFyIGZ1bmN0aW9uIGNhbGxlZCDigJh0Y3BfbWFuaXBfcGt04oCZLCBhbmQgYSBw
+YXJhZ3JhcGggb2YgY29tbWVuY2UgZGVzY3JpYmluZyBhcyBiZWxvdzoNCiAgICAgaW50IGhkcnNp
+emUgPSA4OyAvKiBUQ1AgY29ubmVjdGlvbiB0cmFja2luZyBndWFyYW50ZWVzIHRoaXMgbXVjaCAq
+Lw0KICAgICANCsKgwqDCoCAvKiB0aGlzIGNvdWxkIGJlIGEgaW5uZXIgaGVhZGVyIHJldHVybmVk
+IGluIGljbXAgcGFja2V0OyBpbiBzdWNoDQrCoMKgwqDCoMKgwqAgY2FzZXMgd2UgY2Fubm90IHVw
+ZGF0ZSB0aGUgY2hlY2tzdW0gZmllbGQgc2luY2UgaXQgaXMgb3V0c2lkZSBvZg0KwqDCoMKgwqDC
+oMKgIHRoZSA4IGJ5dGVzIG9mIHRyYW5zcG9ydCBsYXllciBoZWFkZXJzIHdlIGFyZSBndWFyYW50
+ZWVkICovDQrCoMKgwqAgaWYgKHNrYi0+bGVuID49IGhkcm9mZiArIHNpemVvZihzdHJ1Y3QgdGNw
+aGRyKSkNCsKgwqDCoMKgwqDCoMKgIGhkcnNpemUgPSBzaXplb2Yoc3RydWN0IHRjcGhkcik7DQoN
+CsKgwqDCoCBpZiAoIXNrYl9tYWtlX3dyaXRhYmxlKHNrYiwgaGRyb2ZmICsgaGRyc2l6ZSkpDQrC
+oMKgwqDCoMKgwqDCoCByZXR1cm4gZmFsc2U7DQrigKbigKbigKbigKbigKbigKbigKbigKbigKYg
+YW5kIGxhdGVyIOKApuKApuKApuKApuKApuKApuKApuKApuKApuKApg0KwqDCoMKgIGlmIChoZHJz
+aXplIDwgc2l6ZW9mKCpoZHIpKQ0KwqDCoMKgwqDCoMKgwqAgcmV0dXJuIHRydWU7DQoNCkkgdGhp
+bmsgdGhhdCDigJhzY3RwX21hbmlwX3BrdOKAmSBzaG91bGQgYWxzbyBiZWhhdmUgbGlrZSB0aGlz
+LiBJc27igJl0IGl0Pw0KDQpCZXN0IHJlZ2FyZHMsDQpSaWNoYXJkDQoNCg==
+
+--_003_07B7943445653648AD9B4DBB916BB48F1C265220cnshjmbx01_
+Content-Type: application/octet-stream; name="icmp_pmtu.pcap"
+Content-Description: icmp_pmtu.pcap
+Content-Disposition: attachment; filename="icmp_pmtu.pcap"; size=1902;
+	creation-date="Tue, 24 Jan 2017 08:28:36 GMT";
+	modification-date="Tue, 24 Jan 2017 08:28:36 GMT"
+Content-Transfer-Encoding: base64
+
+1MOyoQIABAAAAAAAAAAAANAHAAABAAAATbxTWISLCwBaBgAAWgYAAAAAXgABoVSmGVedsQgARbgG
+TAAAQABAhBNtCklQggoPuy+ORo48Mp9TsCgqhNQAAgYsyNouDQABEVMAAAASAAAAhlwAAAcAAAAF
+wArApgMACAADQAf2AAEAAQAAAkACAgAABAANAAL4EAAUvUAC+BCU4QBPQAEAAGgAhiOGIUCF8Q8w
+hHfNmAEwjZMMHAAwIQkZTiyAw4lUJj5On///lf/p///5X/6f//+V/+n///lf/p///5X/6f//+V/+
+n///lf/p///5X/6f//+V/+n///lf/p///5X/6f//+V/+n///lf/p///5X/6f//+V/+n///lf/p//
+/5X/6f//+V/+n///lf/p///5X/10P/oaIMAIyFPBBlOlSXH4LGAAAAAH1AacAABNAwgAEADbAAQA
+NMABAAxgAEADHAAQAMAABAAwwAEADBAAQAMQABAA0gAEADZAAQAOcABAAywAEADQAAQAMwABAAXA
+gAcoACAB0AAIAHMAAgAL4QAWUIGEAAgA7YACAhBABWwgYQACADpgAICEEAFTCBhAAIAOOAAgIQQA
+UcIGEAAgA4wACAhBABRggYQACADhAAICEEAHCAAQEAIAKEEDAAAQAMIABIB2wAEBGCACthAxgAEA
+HbAAQEAIAK2EDAAAQAV8IGmAAgA6YACAjBABUwgYwACADpgAICAEAFTCBgAAIAOOAAgIwQAUcIGM
+AAgA4wACAjBABxgAEBACACjBAwAAEADGAASAccABAQAgAo4QMAABAA5wAEgDlAASAOgABIC2wAEB
+GCAhBACWwgYwACAhBACWwgIwQMIABAC2wAEBCCAgBACWwgYQACAgBACWwgIQQMAABAC0wAEBGCAh
+BACUwgYwACAhBACUwgIwQMIABAC0wAEBCCAgBACUwgYQACAgBACUwgIQQMAABACxwAEBGCAhBACR
+wgYwACAhBACRwgIwQMIABACxwAEBCCAgBACRwgYQACAgBACRwgIQQMAABABxgAEhCCACjBIwgAEA
+HGAAQEIJAKMEDCAASAtMABARggIAQAlMIGMAAgIAQAlMICMEDAAAQJtP///K//T///yv/0///8r/
+9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T/
+//yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8
+r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//
+T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0//
+/8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K
+//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0
+///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P///K//T///yv/0///8r/9P//
+/K//T///yv/0///8r/4ASAABnNAAABDw8fx/Dw4Q8PDw6HhyHh4ci8Xi8Oj8ACHh4eP4/j+HhwMk
+QBowgAAXRAADOQyqtUGpVaoikgwRIABgAEQ4QnHPveaa7ZcoTjn3vNNdsvUJxz73mmu2XaE4597z
+TXbLc9AgvMEKw49eeht5prtl7QrDj156G3mmu2WwQ7yQ76Q72Q73q0wAAhpJa0iANmD4EKNHmUKV
+OzbuX8ubPo2CETMDV1imYBQEz2UjO4gAkvKAFaAAAAyAOkACgFFQsgImVnkLgQ8WAR6AxBNAXwCN
+CEAsgAAEC4wcIDRQEdoQyYetgnfZIRg4HCd9khGLgB9RN4TvskIORE3QAmABQBgF/ymhDDxZPBF4
+UHDgACEoWYIPgtfoARmAoAwBEIO7X+AACQQAZvQht+IDI4TAAKAm8A+iQ9BsBTgBEAIEAGgFaLVV
+ICgXgAHt0NfUGCIyAIVvJh/BFL1AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJG1FL
+1AYAAAAAAAAAAAAAAE28U1ibiwsAhgAAAIYAAAAAAF4AAaFUphlXnbEIAEW4AHgAAEAAQIQZQQpJ
+UIIKD7svjkaOPDKfU7AEuZcVAAEAVcjaLg4AARFTAAAAEgAAAAAAAAAAAAAAAAAAAAAAAAAAACxl
+gAAATkACRQAAAvgQFL1AUQgC+BANvxARgAAEAAAAp0ACACwAAvgQFL1AUAAADQAAAE28U1i8sgsA
+RgAAAEYAAABUphlXnbEAAQIDBAUIAEW4ADgAAAAA+AFr3lH9qWYKSVCCAwRUTQAABdxFuAZMAABA
+ADuEGG0KSVCCCg+7L45Gjjwyn1Ow
+
+--_003_07B7943445653648AD9B4DBB916BB48F1C265220cnshjmbx01_
+Content-Type: application/octet-stream; name="icmp_pmtu.rar"
+Content-Description: icmp_pmtu.rar
+Content-Disposition: attachment; filename="icmp_pmtu.rar"; size=1098;
+	creation-date="Wed, 25 Jan 2017 06:22:57 GMT";
+	modification-date="Wed, 25 Jan 2017 06:22:57 GMT"
+Content-Transfer-Encoding: base64
+
+UmFyIRoHADvQcwgADQAAAAAAAAC2hXSAkjcA+AMAAG4HAAACskb46pKDOEodNRIAIAAAAGljbXBf
+cG10dS5wY2FwAAHADACwSgA45xgl0+wAlyy0oYOih2nlIPOdL41VYchPX+Z4Kzdsuq3wULjvGftL
+5Tr5eHALi8+PMm5loRGrYF2S0vbSwOqLcYk1pyRnz0kg7yuvGTg24B1fdhnHX8AwH4wsMR5g04L8
+rHr5951UrsLZVhR7Q1r+SBb0sxqsy5KX9F0eeNIWrqm2m+3iAJsQUsaRuQJiO6H6oOpmgto/MWQ5
+2f4PQlxtCf99Z/mbq0OzGw28CAB6scpvRvKqEeuXILKKEOXtspm2Y+xgVDT16ggCLQIaEgB/dnC1
+6zoXzfPgRu5kaXIT904CuDiRjzxjDPWt1wcoTX85vkxoKHZt+H9y28+IsBmc9qpS7A5bqwuxD43e
+2mht6rYcZMKwo71ArChX2WTU0pAjJxIvfS+LPAtRoW3h4gEqD4O9NkVKqPpGMVfPv/EKS37j2f7U
+fMFdTNypXKjdGccDZZAVaT+5CC4Szgz8C8slptQGCUzgI4iITEZ+uQwK4sKYAvhdUCYYLwFzwGpj
+i4P3zzQxfS9F8LAC2gODoIAyKujfUnwYMqPca/Fs+vJsFyeR/Td0nQsgAfkiC8PRHk8vn294q9mE
+2O4wu64SP3RJ9M49r9+lfEI+s4hRg7lWgvOtQSQ2reebta12kq8XW3+BvgGOuD2kP3wtQwpVY0OK
+4osTzZbfFGl+Jv1cF6IkaoOUQuZ51rVuNyDz88GlTvKDsQDf7To8dd4zBJ7sylDwaB0WPDHi4uTJ
+RCluP+vMjdWs4PlWRqtas0p/n22v6Q6+lQppSB2Q4LFntpFl4RpCVqaQIzdfmnvkeSTWDmFCWpMp
+s7FntzhMHDLTM5EJTSihFO/gNxanUXqftHrN/JYKSgYABX38cuvYnqZaBlPOVKXsrf7L0gpU3M9k
+Swl9GQE1cE0l6eXWgw7+eNyQYy02hA1Dt4LFU5sFrVgHwEspeHQhbo+tazHsgVHo2iW6dfJHXuJ4
+os548EBeowBuXEd1CtGB60YSDdK+kX6vsl/W+lRnJRAGi9T/sXpCd5avZm+lZ0HJNndN3xJNS/3M
+3i3eBiDf0sIOWhpYsKNG2zSBumV1TagtxegjsE0ljrUccjtuWGcgQynvzkw/P/v4/+woy4zR8lPC
+czDkH9dJ0aTqNR16bsp0wcb2BfQUbmf4cP1qWbfB9zV/vh6PFOaHN2MSK18y4zfIUzj+/dVUVF+U
+N8AaFG3wor6GKHmF71INQfEhx+/YZ37OUpvukjvh3F1hoZ7tKpj0y3UhcUEi8W6Y5iPZpfbY6WSV
+454fxnpZJFUNSWW8hdUmZW3o+rF5nLLeb55/NmMAiAEZ1BlumOUs6vQ2AQ9eRKJ0qX9jqddomH8A
+AL+IZ/ap/9TEPXsAQAcA
+
+--_003_07B7943445653648AD9B4DBB916BB48F1C265220cnshjmbx01_--
