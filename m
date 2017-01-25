@@ -1,63 +1,96 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH 2/3] net: phy: broadcom: drop duplicated define for RXD to RXC delay
-Date: Wed, 25 Jan 2017 16:54:10 +0100
-Message-ID: <20170125155411.14922-2-zajec5@gmail.com>
-References: <20170125155411.14922-1-zajec5@gmail.com>
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] sctp: sctp_addr_id2transport should verify the addr
+ before looking up assoc
+Date: Wed, 25 Jan 2017 10:57:13 -0500
+Message-ID: <CAGCdqXFYFBwu=H18L_GxBHtOQEKQrhie6hM7iwceaHfGBcd-OQ@mail.gmail.com>
+References: <2ba9d3e0b3aa05baa3791811c92248126d233c67.1485237713.git.lucien.xin@gmail.com>
+ <CAGCdqXEAkbeMPhVA5N_vYV_k_54faX_0JWui5kSrZBbsmms7jg@mail.gmail.com> <CADvbK_dw2XhYF7bc8PdyuBG2WgzNwZxJekwWsc36UN=2QE8MDg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Xo Wang <xow@google.com>, Joel Stanley <joel@jms.id.au>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Jaedon Shin <jaedon.shin@gmail.com>, netdev@vger.kernel.org,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-To: "David S . Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
+Cc: network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:35468 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751685AbdAYPyc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:54:32 -0500
-Received: by mail-lf0-f66.google.com with SMTP id v186so21573390lfa.2
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 07:54:31 -0800 (PST)
-In-Reply-To: <20170125155411.14922-1-zajec5@gmail.com>
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:32978 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750746AbdAYP5P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 10:57:15 -0500
+In-Reply-To: <CADvbK_dw2XhYF7bc8PdyuBG2WgzNwZxJekwWsc36UN=2QE8MDg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rafał Miłecki <rafal@milecki.pl>
+On Wed, Jan 25, 2017 at 10:34 AM, Xin Long <lucien.xin@gmail.com> wrote:
+>
+> On Wed, Jan 25, 2017 at 11:27 PM, Vladislav Yasevich
+> <vyasevich@gmail.com> wrote:
+> > On Tue, Jan 24, 2017 at 1:01 AM, Xin Long <lucien.xin@gmail.com> wrote:
+> >>
+> >> sctp_addr_id2transport is a function for sockopt to look up assoc by
+> >> address. As the address is from userspace, it can be a v4-mapped v6
+> >> address. But in sctp protocol stack, it always handles a v4-mapped
+> >> v6 address as a v4 address. So it's necessary to convert it to a v4
+> >> address before looking up assoc by address.
+> >>
+> >> This patch is to fix it by calling sctp_verify_addr in which it can do
+> >> this conversion before calling sctp_endpoint_lookup_assoc, just like
+> >> what sctp_sendmsg and __sctp_connect do for the address from users.
+> >>
+> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> >> ---
+> >>  net/sctp/socket.c | 6 +++++-
+> >>  1 file changed, 5 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> >> index 318c678..37eeab7 100644
+> >> --- a/net/sctp/socket.c
+> >> +++ b/net/sctp/socket.c
+> >> @@ -235,8 +235,12 @@ static struct sctp_transport
+> >> *sctp_addr_id2transport(struct sock *sk,
+> >>                                               sctp_assoc_t id)
+> >>  {
+> >>         struct sctp_association *addr_asoc = NULL, *id_asoc = NULL;
+> >> -       struct sctp_transport *transport;
+> >> +       struct sctp_af *af = sctp_get_af_specific(addr->ss_family);
+> >>         union sctp_addr *laddr = (union sctp_addr *)addr;
+> >> +       struct sctp_transport *transport;
+> >> +
+> >> +       if (sctp_verify_addr(sk, laddr, af->sockaddr_len))
+> >> +               return NULL;
+> >>
+> >
+> > This causes a side-effect such that GET options will end up with ipv4
+> > address instead
+> > of a v4mapped address that was passed in.
+> not really
+>
+> (more below)
+> >
+> > -vlad
+> >
+> >>
+> >>         addr_asoc = sctp_endpoint_lookup_assoc(sctp_sk(sk)->ep,
+> >>                                                laddr,
+>         sctp_get_pf_specific(sk->sk_family)->addr_to_user(sctp_sk(sk),
+>                                                 (union sctp_addr *)addr);
+>
+> here it will convert it back to v4mapped v6 address.
+>
 
-We had two defines for the same bit (both were used with the
-MII_BCM54XX_AUXCTL_SHDWSEL_MISC register).
+Yep, you are right.  Missed the fact that it was already there.
 
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
----
- drivers/net/phy/broadcom.c | 2 +-
- include/linux/brcmphy.h    | 1 -
- 2 files changed, 1 insertion(+), 2 deletions(-)
+ACK
 
-diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
-index 25c6e6cea2dc..9b7c2d57ca92 100644
---- a/drivers/net/phy/broadcom.c
-+++ b/drivers/net/phy/broadcom.c
-@@ -42,7 +42,7 @@ static int bcm54810_config(struct phy_device *phydev)
- 		return rc;
- 
- 	val = bcm54xx_auxctl_read(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
--	val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
-+	val &= ~MII_BCM54XX_AUXCTL_MISC_RXD_RXC_SKEW;
- 	val |= MII_BCM54XX_AUXCTL_MISC_WREN;
- 	rc = bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC,
- 				  val);
-diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
-index 34e61004b9dc..bff53da82b58 100644
---- a/include/linux/brcmphy.h
-+++ b/include/linux/brcmphy.h
-@@ -113,7 +113,6 @@
- #define MII_BCM54XX_AUXCTL_MISC_FORCE_AMDIX	0x0200
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC	0x0007
- #define MII_BCM54XX_AUXCTL_SHDWSEL_READ_SHIFT	12
--#define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN	(1 << 8)
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MISC_WIRESPEED_EN	(1 << 4)
- 
- #define MII_BCM54XX_AUXCTL_SHDWSEL_MASK	0x0007
--- 
-2.11.0
+-vlad
+
+> >> --
+> >> 2.1.0
+> >>
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
+> >
