@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] BPF tracepoints
-Date: Wed, 25 Jan 2017 13:19:28 -0500 (EST)
-Message-ID: <20170125.131928.1293307938933551620.davem@davemloft.net>
-References: <cover.1485306168.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] Doc: DT: bindings: net: dsa: marvell.txt:
+ Tabification
+Date: Wed, 25 Jan 2017 13:20:13 -0500 (EST)
+Message-ID: <20170125.132013.1188209801584456027.davem@davemloft.net>
+References: <1485308688-23670-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57186 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57198 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751513AbdAYSTa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 13:19:30 -0500
-In-Reply-To: <cover.1485306168.git.daniel@iogearbox.net>
+        with ESMTP id S1751513AbdAYSUP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 13:20:15 -0500
+In-Reply-To: <1485308688-23670-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 25 Jan 2017 02:28:15 +0100
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 25 Jan 2017 02:44:48 +0100
 
-> This set adds tracepoints to BPF for better introspection and
-> debugging. The first two patches are prerequisite for the actual
-> third patch that adds the tracepoints. I think the first two are
-> small and straight forward enough that they could ideally go via
-> net-next, but I'm also open to other suggestions on how to route
-> them in case that's not applicable (it would reduce potential
-> merge conflicts on BPF side, though). For details, please see
-> individual patches.
+> Replace spaces with tabs. Fix indentation to be multiples of tabs, not
+> a mixture or tabs and spaces.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Looks great, series applied, thanks Daniel.
+Applied, thanks for following up on this.
