@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: reduce severity of PIO buffer alloc
- failures
-Date: Wed, 25 Jan 2017 14:44:10 -0500 (EST)
-Message-ID: <20170125.144410.136728977042293227.davem@davemloft.net>
-References: <4bb401da-f76d-38e8-2368-d36edeb4ac44@solarflare.com>
+Subject: Re: [PATCH net] net: dsa: Mop up remaining NET_DSA_HWMON references
+Date: Wed, 25 Jan 2017 14:45:29 -0500 (EST)
+Message-ID: <20170125.144529.586555336340775169.davem@davemloft.net>
+References: <1485353057-4612-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8BIT
-Cc: tpilar@solarflare.com, linux-net-drivers@solarflare.com,
-        netdev@vger.kernel.org
-To: bkenward@solarflare.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, valentinrothberg@gmail.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33426 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33452 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751925AbdAYToL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 14:44:11 -0500
-In-Reply-To: <4bb401da-f76d-38e8-2368-d36edeb4ac44@solarflare.com>
+        with ESMTP id S1751807AbdAYTpb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 14:45:31 -0500
+In-Reply-To: <1485353057-4612-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Wed, 25 Jan 2017 13:48:17 +0000
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 25 Jan 2017 15:04:17 +0100
 
-> From: Tomá¹ Pilaø <tpilar@solarflare.com>
+> Previous patches have moved the temperature sensor code into the
+> Marvell PHYs. A few now dead references to NET_DSA_HWMON were left
+> behind. Go reap them.
 > 
-> PIO buffer allocation can fail for two valid reasons:
->  - we've run out of them (results in -ENOSPC)
->  - the NIC configuration doesn't support them (results in -EPERM)
-> Since both these failures are expected netif_err is excessive.
-> 
-> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+> Reported-by: Valentin Rothberg <valentinrothberg@gmail.com>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Applied.
+Applied to... net-next :-)
