@@ -1,31 +1,49 @@
-From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH for bnxt_re V4 20/21] RDMA/bnxt_re: Add QP event handling
-Date: Wed, 25 Jan 2017 14:34:28 +0530
-Message-ID: <CA+sbYW1zyeaByUV_7JzYbZmt6-fZkchAT-3vcBgHnw0z0tad3A@mail.gmail.com>
-References: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
- <1482320530-5344-21-git-send-email-selvin.xavier@broadcom.com> <20170124122008.GH6005@mtr-leonro.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Michael Chan <michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170124122008.GH6005-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH 1/2] Documentation: devicetree: change the mediatek ethernet compatible string
+Date: Wed, 25 Jan 2017 09:20:54 +0100
+Message-ID: <1485332455-34743-1-git-send-email-john@phrozen.org>
+Cc: netdev@vger.kernel.org, Sean Wang <sean.wang@mediatek.com>,
+        devicetree@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        John Crispin <john@phrozen.org>
+To: Rob Herring <robh+dt@kernel.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:55041 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751367AbdAYJNu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Jan 2017 04:13:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2017 at 5:50 PM, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> it looks like if( ... ) return 0
+When the binding was defined, I was not aware that mt2701 was an earlier
+version of the SoC. For sake of consistency, the ethernet driver should
+use mt2701 inside the compat string as this is the earliest SoC with the
+ethernet core.
 
-Yes.. There is some code to be added on this area as a part of error
-reporting. We will add this once the driver is accepted. Perhaps, i
-will add a debug print here for now.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The ethernet driver is currently of no real use until we finish and
+upstream the DSA driver. There are no users of this binding yet. It should
+be safe to fix this now before it is too late and we need to provide
+backward compatibility for the mt7623-eth compat string.
+
+Reported-by: Sean Wang <sean.wang@mediatek.com>
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+ Documentation/devicetree/bindings/net/mediatek-net.txt |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/mediatek-net.txt b/Documentation/devicetree/bindings/net/mediatek-net.txt
+index c010faf..c7194e8 100644
+--- a/Documentation/devicetree/bindings/net/mediatek-net.txt
++++ b/Documentation/devicetree/bindings/net/mediatek-net.txt
+@@ -7,7 +7,7 @@ have dual GMAC each represented by a child node..
+ * Ethernet controller node
+ 
+ Required properties:
+-- compatible: Should be "mediatek,mt7623-eth"
++- compatible: Should be "mediatek,mt2701-eth"
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain the three frame engines interrupts in numeric
+ 	order. These are fe_int0, fe_int1 and fe_int2.
+-- 
+1.7.10.4
