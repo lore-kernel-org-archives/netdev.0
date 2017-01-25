@@ -1,46 +1,78 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v2 0/4] r8152: fix scheduling napi
-Date: Wed, 25 Jan 2017 16:13:17 +0800
-Message-ID: <1394712342-15778-242-Taiwan-albertk@realtek.com>
+Subject: [PATCH net v2 2/4] r8152: avoid start_xmit to schedule napi when napi is disabled
+Date: Wed, 25 Jan 2017 16:13:19 +0800
+Message-ID: <1394712342-15778-244-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
+ <1394712342-15778-242-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
         <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-236-Taiwan-albertk@realtek.com>
+In-Reply-To: <1394712342-15778-242-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-v2:
-Add smp_mb__after_atomic() for patch #1.
+Stop the tx when the napi is disabled to prevent napi_schedule() is
+called.
 
-v1:
-Scheduling the napi during the following periods would let it be ignored.
-And the events wouldn't be handled until next napi_schedule() is called.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-1. after napi_disable and before napi_enable().
-2. after all actions of napi function is completed and before calling
-   napi_complete().
-
-If no next napi_schedule() is called, tx or rx would stop working.
-
-In order to avoid these situations, the followings solutions are applied.
-
-1. prevent start_xmit() from calling napi_schedule() during runtime suspend
-   or after napi_disable().
-2. re-schedule the napi for tx if it is necessary.
-3. check if any rx is finished or not after napi_enable().
-
-Hayes Wang (4):
-  r8152: avoid start_xmit to call napi_schedule during autosuspend
-  r8152: avoid start_xmit to schedule napi when napi is disabled
-  r8152: re-schedule napi for tx
-  r8152: check rx after napi is enabled
-
- drivers/net/usb/r8152.c | 26 ++++++++++++++++++++------
- 1 file changed, 20 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 23bef8e..ec882be 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3155,10 +3155,13 @@ static void set_carrier(struct r8152 *tp)
+ 		if (!netif_carrier_ok(netdev)) {
+ 			tp->rtl_ops.enable(tp);
+ 			set_bit(RTL8152_SET_RX_MODE, &tp->flags);
++			netif_stop_queue(netdev);
+ 			napi_disable(&tp->napi);
+ 			netif_carrier_on(netdev);
+ 			rtl_start_rx(tp);
+ 			napi_enable(&tp->napi);
++			netif_wake_queue(netdev);
++			netif_info(tp, link, netdev, "carrier on\n");
+ 		}
+ 	} else {
+ 		if (netif_carrier_ok(netdev)) {
+@@ -3166,6 +3169,7 @@ static void set_carrier(struct r8152 *tp)
+ 			napi_disable(&tp->napi);
+ 			tp->rtl_ops.disable(tp);
+ 			napi_enable(&tp->napi);
++			netif_info(tp, link, netdev, "carrier off\n");
+ 		}
+ 	}
+ }
+@@ -3515,12 +3519,12 @@ static int rtl8152_pre_reset(struct usb_interface *intf)
+ 	if (!netif_running(netdev))
+ 		return 0;
+ 
++	netif_stop_queue(netdev);
+ 	napi_disable(&tp->napi);
+ 	clear_bit(WORK_ENABLE, &tp->flags);
+ 	usb_kill_urb(tp->intr_urb);
+ 	cancel_delayed_work_sync(&tp->schedule);
+ 	if (netif_carrier_ok(netdev)) {
+-		netif_stop_queue(netdev);
+ 		mutex_lock(&tp->control);
+ 		tp->rtl_ops.disable(tp);
+ 		mutex_unlock(&tp->control);
+@@ -3548,10 +3552,10 @@ static int rtl8152_post_reset(struct usb_interface *intf)
+ 		rtl_start_rx(tp);
+ 		rtl8152_set_rx_mode(netdev);
+ 		mutex_unlock(&tp->control);
+-		netif_wake_queue(netdev);
+ 	}
+ 
+ 	napi_enable(&tp->napi);
++	netif_wake_queue(netdev);
+ 	usb_submit_urb(tp->intr_urb, GFP_KERNEL);
+ 
+ 	return 0;
 -- 
 2.7.4
