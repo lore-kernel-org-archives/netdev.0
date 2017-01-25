@@ -1,85 +1,105 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 2/2] net: phy: leds: Fix truncated LED trigger names
-Date: Wed, 25 Jan 2017 10:56:00 +0100
-Message-ID: <CAMuHMdWm4yMZ7EAmZp4uzi9+UBvYHFEiEC=Q1osDQD5-Td2A_A@mail.gmail.com>
-References: <1485272470-3497-1-git-send-email-geert+renesas@glider.be>
- <1485272470-3497-3-git-send-email-geert+renesas@glider.be> <20170124200339.GT10895@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        "David S. Miller" <davem@davemloft.net>,
-        Zach Brown <zach.brown@ni.com>,
-        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
-        =?UTF-8?Q?Magnus_=C3=96berg?= <magnus.oberg@westermo.se>,
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH v2 1/3] net: phy: leds: Clear phy_num_led_triggers on failure to avoid crash
+Date: Wed, 25 Jan 2017 11:39:48 +0100
+Message-ID: <1485340790-10785-2-git-send-email-geert+renesas@glider.be>
+References: <1485340790-10785-1-git-send-email-geert+renesas@glider.be>
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        =?UTF-8?q?Magnus=20=C3=96berg?= <magnus.oberg@westermo.se>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Geert Uytterhoeven <geert+renesas@glider.be>
+To: "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170124200339.GT10895@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+        Zach Brown <zach.brown@ni.com>,
+        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1485340790-10785-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+phy_attach_direct() ignores errors returned by
+phy_led_triggers_register(). I think that's OK, as LED triggers can be
+considered a non-critical feature.
 
-On Tue, Jan 24, 2017 at 9:03 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->> diff --git a/include/linux/phy.h b/include/linux/phy.h
->> index 5c9d2529685fe215..f6ab919528ab3627 100644
->> --- a/include/linux/phy.h
->> +++ b/include/linux/phy.h
->> @@ -25,7 +25,6 @@
->>  #include <linux/timer.h>
->>  #include <linux/workqueue.h>
->>  #include <linux/mod_devicetable.h>
->> -#include <linux/phy_led_triggers.h>
->>
->>  #include <linux/atomic.h>
->>
->> @@ -339,6 +338,8 @@ struct phy_c45_device_ids {
->>       u32 device_ids[8];
->>  };
->>
->> +#include <linux/phy_led_triggers.h>
->> +
->>  /* phy_device: An instance of a PHY
->>   *
->>   * drv: Pointer to the driver for this PHY instance
->> diff --git a/include/linux/phy_led_triggers.h b/include/linux/phy_led_triggers.h
->> index a2daea0a37d2ae14..69dffb4fc5a294e9 100644
->> --- a/include/linux/phy_led_triggers.h
->> +++ b/include/linux/phy_led_triggers.h
->> @@ -20,9 +20,8 @@
->>  #include <linux/leds.h>
->>
->>  #define PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE    10
->> -#define PHY_MII_BUS_ID_SIZE  (20 - 3)
->>
->> -#define PHY_LINK_LED_TRIGGER_NAME_SIZE (PHY_MII_BUS_ID_SIZE + \
->> +#define PHY_LINK_LED_TRIGGER_NAME_SIZE (MII_BUS_ID_SIZE + \
->>                                      FIELD_SIZEOF(struct mdio_device, addr)+\
->>                                      PHY_LED_TRIGGER_SPEED_SUFFIX_SIZE)
->
-> Hi Geert
->
-> Using the macro is great, but it does seem a bit ugly having the
-> include in the middle of the file.
->
-> As far as i can see, phy.h only uses a pointer to a struct
-> phy_led_trigger, not struct phy_led_trigger itself. Could you try
-> removing the header file all together and just have a forward
-> declaration of phy_led_trigger?
+However, this causes problems later:
+  - phy_led_trigger_change_speed() will access the array
+    phy_device.phy_led_triggers, which has been freed in the error path
+    of phy_led_triggers_register(), which may lead to a crash.
 
-Thanks for the suggestion!
-Yes, the include can be removed. A forward declaration isn't even needed.
+  - phy_led_triggers_unregister() will access the same array, leading to
+    crashes during s2ram or poweroff, like:
 
-Gr{oetje,eeting}s,
+	Unable to handle kernel NULL pointer dereference at virtual address
+	00000000
+	...
+	[<c04116d4>] (__list_del_entry_valid) from [<c05e8948>] (led_trigger_unregister+0x34/0xcc)
+	[<c05e8948>] (led_trigger_unregister) from [<c05336c4>] (phy_led_triggers_unregister+0x28/0x34)
+	[<c05336c4>] (phy_led_triggers_unregister) from [<c0531d44>] (phy_detach+0x30/0x74)
+	[<c0531d44>] (phy_detach) from [<c0538bdc>] (sh_eth_close+0x64/0x9c)
+	[<c0538bdc>] (sh_eth_close) from [<c04d4ce0>] (dpm_run_callback+0x48/0xc8)
 
-                        Geert
+    or:
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+	list_del corruption. prev->next should be dede6540, but was 2e323931
+	------------[ cut here ]------------
+	kernel BUG at lib/list_debug.c:52!
+	...
+	[<c02f6d70>] (__list_del_entry_valid) from [<c0425168>] (led_trigger_unregister+0x34/0xcc)
+	[<c0425168>] (led_trigger_unregister) from [<c03a05a0>] (phy_led_triggers_unregister+0x28/0x34)
+	[<c03a05a0>] (phy_led_triggers_unregister) from [<c039ec04>] (phy_detach+0x30/0x74)
+	[<c039ec04>] (phy_detach) from [<c03a4fc0>] (sh_eth_close+0x6c/0xa4)
+	[<c03a4fc0>] (sh_eth_close) from [<c0483234>] (__dev_close_many+0xac/0xd0)
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+To fix this, clear phy_device.phy_num_led_triggers in the error path of
+phy_led_triggers_register() fails.
+
+Note that the "No phy led trigger registered for speed" message will
+still be printed on link speed changes, which is a good cue that
+something went wrong with the LED triggers.
+
+Fixes: 2e0bc452f4721520 ("net: phy: leds: add support for led triggers on phy link state change")
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Alternatively, phy_attach_direct() could consider
+phy_led_triggers_register() failures as fatal, so
+phy_led_trigger_change_speed() and phy_led_triggers_unregister() are
+never called afterwards.
+
+Exposed by commit 4567d686f5c6d955 ("phy: increase size of
+MII_BUS_ID_SIZE and bus_id"), which caused duplicate trigger names.
+
+v2:
+  - Add Reviewed-by.
+---
+ drivers/net/phy/phy_led_triggers.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
+index fa62bdf2f52694de..3f619e7371e97d8a 100644
+--- a/drivers/net/phy/phy_led_triggers.c
++++ b/drivers/net/phy/phy_led_triggers.c
+@@ -102,8 +102,10 @@ int phy_led_triggers_register(struct phy_device *phy)
+ 					    sizeof(struct phy_led_trigger) *
+ 						   phy->phy_num_led_triggers,
+ 					    GFP_KERNEL);
+-	if (!phy->phy_led_triggers)
+-		return -ENOMEM;
++	if (!phy->phy_led_triggers) {
++		err = -ENOMEM;
++		goto out_clear;
++	}
+ 
+ 	for (i = 0; i < phy->phy_num_led_triggers; i++) {
+ 		err = phy_led_trigger_register(phy, &phy->phy_led_triggers[i],
+@@ -120,6 +122,8 @@ int phy_led_triggers_register(struct phy_device *phy)
+ 	while (i--)
+ 		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
+ 	devm_kfree(&phy->mdio.dev, phy->phy_led_triggers);
++out_clear:
++	phy->phy_num_led_triggers = 0;
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(phy_led_triggers_register);
+-- 
+1.9.1
