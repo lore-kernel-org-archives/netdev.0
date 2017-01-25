@@ -1,34 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] bnxt_en: Fix RTNL lock usage in bnxt_sp_task().
-Date: Wed, 25 Jan 2017 13:27:52 -0500 (EST)
-Message-ID: <20170125.132752.1057010400377426314.davem@davemloft.net>
-References: <1485330909-12037-1-git-send-email-michael.chan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57694 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751906AbdAYS1x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 13:27:53 -0500
-In-Reply-To: <1485330909-12037-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v6 1/3] Bluetooth: btusb: Use an error label for error paths
+Date: Wed, 25 Jan 2017 10:34:58 -0800
+Message-ID: <20170125183500.8292-1-rajatja@google.com>
+Cc: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Wed, 25 Jan 2017 02:55:06 -0500
+Use a label to remove the repetetive cleanup, for error cases.
 
-> There are 2 function calls from bnxt_sp_task() that have buggy RTNL
-> usage.  These 2 functions take RTNL lock under some conditions, but
-> some callers (such as open, ethtool) have already taken RTNL.  These
-> 3 patches fix the issue by making it clear that callers must take
-> RTNL.  If the caller is bnxt_sp_task() which does not automatically
-> take RTNL, we add a common scheme for bnxt_sp_task() to call these
-> functions properly under RTNL.
+Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+v6: same as v5
+v5: same as v4
+v4: same as v3
+v3: Added Brian's "Reviewed-by"
+v2: same as v1
 
-Series applied, thanks Michael.
+ drivers/bluetooth/btusb.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-You can sprinkle some ASSERT_RTNL(); in the functions that require
-RTNL to be held if you like.
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 2f633df9f4e6..ce22cefceed1 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -2991,18 +2991,15 @@ static int btusb_probe(struct usb_interface *intf,
+ 		err = usb_set_interface(data->udev, 0, 0);
+ 		if (err < 0) {
+ 			BT_ERR("failed to set interface 0, alt 0 %d", err);
+-			hci_free_dev(hdev);
+-			return err;
++			goto out_free_dev;
+ 		}
+ 	}
+ 
+ 	if (data->isoc) {
+ 		err = usb_driver_claim_interface(&btusb_driver,
+ 						 data->isoc, data);
+-		if (err < 0) {
+-			hci_free_dev(hdev);
+-			return err;
+-		}
++		if (err < 0)
++			goto out_free_dev;
+ 	}
+ 
+ #ifdef CONFIG_BT_HCIBTUSB_BCM
+@@ -3016,14 +3013,16 @@ static int btusb_probe(struct usb_interface *intf,
+ #endif
+ 
+ 	err = hci_register_dev(hdev);
+-	if (err < 0) {
+-		hci_free_dev(hdev);
+-		return err;
+-	}
++	if (err < 0)
++		goto out_free_dev;
+ 
+ 	usb_set_intfdata(intf, data);
+ 
+ 	return 0;
++
++out_free_dev:
++	hci_free_dev(hdev);
++	return err;
+ }
+ 
+ static void btusb_disconnect(struct usb_interface *intf)
+-- 
+2.11.0.483.g087da7b7c-goog
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
