@@ -1,28 +1,28 @@
-From: Roy Keene <lkml@rkeene.org>
+From: Roy Keene <rkeene@rkeene.org>
 Subject: ip_rcv_finish() NULL pointer kernel panic
-Date: Wed, 25 Jan 2017 16:02:26 -0600 (CST)
-Message-ID: <alpine.LNX.2.02.1701251556540.24491__45817.5718122677$1485383710$gmane$org@maul.oc9.org>
+Date: Wed, 25 Jan 2017 16:21:18 -0600 (CST)
+Message-ID: <alpine.LNX.2.02.1701251620440.24491@maul.oc9.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-To: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from oc9.org ([108.175.9.112]:54227 "EHLO mail.oc9.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752485AbdAYWfA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Jan 2017 17:35:00 -0500
+        id S1752325AbdAYWe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Jan 2017 17:34:59 -0500
 Received: from maul.oc9.org (localhost [127.0.0.1])
-        by mail.oc9.org (8.14.9/8.14.9) with ESMTP id v0PMJiOG014765
+        by mail.oc9.org (8.14.9/8.14.9) with ESMTP id v0PMLICm025351
         (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 16:19:44 -0600
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 16:21:18 -0600
 Received: from localhost (rkeene@localhost)
-        by maul.oc9.org (8.14.9/8.14.5) with ESMTP id v0PMJi9m014757
-        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 16:19:44 -0600
+        by maul.oc9.org (8.14.9/8.14.5) with ESMTP id v0PMLIpE025295
+        for <netdev@vger.kernel.org>; Wed, 25 Jan 2017 16:21:18 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 All,
 
- 	I am experiencing a kernel panic on different (but identical) 
+  	I am experiencing a kernel panic on different (but identical) 
 hardware in ip_rcv_finish on Linux 4.4.39 (but I can see no changes that 
 would improve the situation on 4.4.44, or master).
 
@@ -114,64 +114,64 @@ Notes:
 ----
 include/linux/skbuff.h:
 
-  734 #define SKB_DST_NOREF   1UL
-  735 #define SKB_DST_PTRMASK ~(SKB_DST_NOREF)
+   734 #define SKB_DST_NOREF   1UL
+   735 #define SKB_DST_PTRMASK ~(SKB_DST_NOREF)
 ...
-  743 static inline struct dst_entry *skb_dst(const struct sk_buff *skb) {
-  745         /* If refdst was not refcounted, check we still are in a
-  746          * rcu_read_lock section
-  747          */
-  748         WARN_ON((skb->_skb_refdst & SKB_DST_NOREF) &&
-  749                 !rcu_read_lock_held() &&
-  750                 !rcu_read_lock_bh_held());
-  751         return (struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK);
-  752 }
+   743 static inline struct dst_entry *skb_dst(const struct sk_buff *skb) {
+   745         /* If refdst was not refcounted, check we still are in a
+   746          * rcu_read_lock section
+   747          */
+   748         WARN_ON((skb->_skb_refdst & SKB_DST_NOREF) &&
+   749                 !rcu_read_lock_held() &&
+   750                 !rcu_read_lock_bh_held());
+   751         return (struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK);
+   752 }
 ---
 include/net/dst.h:
-  496 static inline int dst_input(struct sk_buff *skb) {
-  498         return skb_dst(skb)->input(skb);
-  499 }
+   496 static inline int dst_input(struct sk_buff *skb) {
+   498         return skb_dst(skb)->input(skb);
+   499 }
 ---
 net/ipv4/ip_input.c:
 
-  359         rt = skb_rtable(skb);
-  360         if (rt->rt_type == RTN_MULTICAST) {
-  361                 IP_UPD_PO_STATS_BH(net, IPSTATS_MIB_INMCAST, skb->len);
-  362         } else if (rt->rt_type == RTN_BROADCAST)
-  363                 IP_UPD_PO_STATS_BH(net, IPSTATS_MIB_INBCAST, skb->len);
-  364
-  365         return dst_input(skb);
+   359         rt = skb_rtable(skb);
+   360         if (rt->rt_type == RTN_MULTICAST) {
+   361                 IP_UPD_PO_STATS_BH(net, IPSTATS_MIB_INMCAST, skb->len);
+   362         } else if (rt->rt_type == RTN_BROADCAST)
+   363                 IP_UPD_PO_STATS_BH(net, IPSTATS_MIB_INBCAST, skb->len);
+   364
+   365         return dst_input(skb);
 ----
 Expand net/ipv4/ip_input.c:365:
-      return dst_input(skb);
+       return dst_input(skb);
 
 Into:
-      return skb_dst(skb)->input(skb);
+       return skb_dst(skb)->input(skb);
 
 Into:
-      return ((struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK))->input(skb);
+       return ((struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK))->input(skb);
 
 Into:
-      return ((struct dst_entry *)(skb->_skb_refdst & (~(1UL))))->input(skb);
+       return ((struct dst_entry *)(skb->_skb_refdst & (~(1UL))))->input(skb);
 
 Into:
-      return ((struct dst_entry *)(skb->_skb_refdst & 0xfffffffffffffffe))->input(skb);
+       return ((struct dst_entry *)(skb->_skb_refdst & 0xfffffffffffffffe))->input(skb);
 ----
 Disassembly with C code next to it
-     0xffffffff8157d7d4 <ip_rcv_finish+116>  movzwl 0xa0(%rdx),%edx                                | rt = skb_rtable(skb);
-     0xffffffff8157d7db <ip_rcv_finish+123>  cmp    $0x5,%dx                                       | if (rt->rt_type == RTN_MULTICAST) {
-     0xffffffff8157d7df <ip_rcv_finish+127>  je     0xffffffff8157d908 <ip_rcv_finish+424>         ....
-     0xffffffff8157d7e5 <ip_rcv_finish+133>  cmp    $0x3,%dx                                       | } else if (rt->rt_type == RTN_BROADCAST)
-     0xffffffff8157d7e9 <ip_rcv_finish+137>  je     0xffffffff8157d87e <ip_rcv_finish+286>         ...
-     0xffffffff8157d7ef <ip_rcv_finish+143>  and    $0xfffffffffffffffe,%rax                       | skb->_skb_refdst & SKB_DST_PTRMASK
-     0xffffffff8157d7f3 <ip_rcv_finish+147>  mov    %rbx,%rdi
+      0xffffffff8157d7d4 <ip_rcv_finish+116>  movzwl 0xa0(%rdx),%edx                                | rt = skb_rtable(skb);
+      0xffffffff8157d7db <ip_rcv_finish+123>  cmp    $0x5,%dx                                       | if (rt->rt_type == RTN_MULTICAST) {
+      0xffffffff8157d7df <ip_rcv_finish+127>  je     0xffffffff8157d908 <ip_rcv_finish+424>         ....
+      0xffffffff8157d7e5 <ip_rcv_finish+133>  cmp    $0x3,%dx                                       | } else if (rt->rt_type == RTN_BROADCAST)
+      0xffffffff8157d7e9 <ip_rcv_finish+137>  je     0xffffffff8157d87e <ip_rcv_finish+286>         ...
+      0xffffffff8157d7ef <ip_rcv_finish+143>  and    $0xfffffffffffffffe,%rax                       | skb->_skb_refdst & SKB_DST_PTRMASK
+      0xffffffff8157d7f3 <ip_rcv_finish+147>  mov    %rbx,%rdi
 --> 0xffffffff8157d7f6 <ip_rcv_finish+150>  callq  *0x50(%rax)                                    | ((struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK))->input(skb)
-     0xffffffff8157d7f9 <ip_rcv_finish+153>  pop    %rbx
-     0xffffffff8157d7fa <ip_rcv_finish+154>  pop    %r12
-     0xffffffff8157d7fc <ip_rcv_finish+156>  pop    %r13
-     0xffffffff8157d7fe <ip_rcv_finish+158>  pop    %r14
-     0xffffffff8157d800 <ip_rcv_finish+160>  pop    %rbp
-     0xffffffff8157d801 <ip_rcv_finish+161>  retq
+      0xffffffff8157d7f9 <ip_rcv_finish+153>  pop    %rbx
+      0xffffffff8157d7fa <ip_rcv_finish+154>  pop    %r12
+      0xffffffff8157d7fc <ip_rcv_finish+156>  pop    %r13
+      0xffffffff8157d7fe <ip_rcv_finish+158>  pop    %r14
+      0xffffffff8157d800 <ip_rcv_finish+160>  pop    %rbp
+      0xffffffff8157d801 <ip_rcv_finish+161>  retq
 ----
 
 This leads me to believe that ((struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK))->input is NULL and we are jumping there (callq).
@@ -181,4 +181,4 @@ Under what conditions would ((struct dst_entry *)(skb->_skb_refdst &
 SKB_DST_PTRMASK))->input be NULL at this point ?
 
 Thanks,
- 	Roy Keene
+  	Roy Keene
