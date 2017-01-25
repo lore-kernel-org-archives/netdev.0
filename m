@@ -1,57 +1,97 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Workaround missing PHY ID on mv88e6390
-Date: Wed, 25 Jan 2017 13:03:43 -0500
-Message-ID: <87r33r3tkw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1485309314-23942-1-git-send-email-andrew@lunn.ch> <1485309314-23942-2-git-send-email-andrew@lunn.ch> <87sho7123x.fsf@free-electrons.com> <87o9yvyqwr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Wed, 25 Jan 2017 10:14:12 -0800
+Message-ID: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:46560 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750731AbdAYSEQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 13:04:16 -0500
-In-Reply-To: <87o9yvyqwr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Morton <akpm@linux-foundation.org>, Vlastimil Babka <vbabka@suse.cz>,
+	Mel Gorman <mgorman@suse.de>, Johannes Weiner <hannes@cmpxchg.org>, linux-mm <linux-mm@kvack.org>,
+	LKML <linux-kernel@vger.kernel.org>, Daniel Borkmann <daniel@iogearbox.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Andrew,
-
-Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
-
-> Since several chips have this issue, we can introduce a u16 physid2_mask
-> member in the mv88e6xxx_info structure and move the check in
-> mv88e6xxx_phy_read() so that the logic of device (as in Global2) helpers
-> are not affected by such (necessary) hack. Something like:
+On Wed, Jan 25, 2017 at 5:21 AM, Michal Hocko <mhocko@kernel.org> wrote:
+> On Wed 25-01-17 14:10:06, Michal Hocko wrote:
+>> On Tue 24-01-17 11:17:21, Alexei Starovoitov wrote:
+>> > On Tue, Jan 24, 2017 at 04:17:52PM +0100, Michal Hocko wrote:
+>> > > On Thu 12-01-17 16:37:11, Michal Hocko wrote:
+>> > > > Hi,
+>> > > > this has been previously posted as a single patch [1] but later on more
+>> > > > built on top. It turned out that there are users who would like to have
+>> > > > __GFP_REPEAT semantic. This is currently implemented for costly >64B
+>> > > > requests. Doing the same for smaller requests would require to redefine
+>> > > > __GFP_REPEAT semantic in the page allocator which is out of scope of
+>> > > > this series.
+>> > > >
+>> > > > There are many open coded kmalloc with vmalloc fallback instances in
+>> > > > the tree.  Most of them are not careful enough or simply do not care
+>> > > > about the underlying semantic of the kmalloc/page allocator which means
+>> > > > that a) some vmalloc fallbacks are basically unreachable because the
+>> > > > kmalloc part will keep retrying until it succeeds b) the page allocator
+>> > > > can invoke a really disruptive steps like the OOM killer to move forward
+>> > > > which doesn't sound appropriate when we consider that the vmalloc
+>> > > > fallback is available.
+>> > > >
+>> > > > As it can be seen implementing kvmalloc requires quite an intimate
+>> > > > knowledge if the page allocator and the memory reclaim internals which
+>> > > > strongly suggests that a helper should be implemented in the memory
+>> > > > subsystem proper.
+>> > > >
+>> > > > Most callers I could find have been converted to use the helper instead.
+>> > > > This is patch 5. There are some more relying on __GFP_REPEAT in the
+>> > > > networking stack which I have converted as well but considering we do
+>> > > > not have a support for __GFP_REPEAT for requests smaller than 64kB I
+>> > > > have marked it RFC.
+>> > >
+>> > > Are there any more comments? I would really appreciate to hear from
+>> > > networking folks before I resubmit the series.
+>> >
+>> > while this patchset was baking the bpf side switched to use bpf_map_area_alloc()
+>> > which fixes the issue with missing __GFP_NORETRY that we had to fix quickly.
+>> > See commit d407bd25a204 ("bpf: don't trigger OOM killer under pressure with map alloc")
+>> > it covers all kmalloc/vmalloc pairs instead of just one place as in this set.
+>> > So please rebase and switch bpf_map_area_alloc() to use kvmalloc().
+>>
+>> OK, will do. Thanks for the heads up.
 >
->     static int mv88e6xxx_phy_read(struct mv88e6xxx_chip *chip, int phy,
->                                   int reg, u16 *val)
->     {
->         ...
+> Just for the record, I will fold the following into the patch 1
+> ---
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index 19b6129eab23..8697f43cf93c 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -53,21 +53,7 @@ void bpf_register_map_type(struct bpf_map_type_list *tl)
 >
->         err = chip->info->ops->phy_read(chip, bus, addr, reg, val);
->         if (err)
->             return err;
+>  void *bpf_map_area_alloc(size_t size)
+>  {
+> -       /* We definitely need __GFP_NORETRY, so OOM killer doesn't
+> -        * trigger under memory pressure as we really just want to
+> -        * fail instead.
+> -        */
+> -       const gfp_t flags = __GFP_NOWARN | __GFP_NORETRY | __GFP_ZERO;
+> -       void *area;
+> -
+> -       if (size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER)) {
+> -               area = kmalloc(size, GFP_USER | flags);
+> -               if (area != NULL)
+> -                       return area;
+> -       }
+> -
+> -       return __vmalloc(size, GFP_KERNEL | __GFP_HIGHMEM | flags,
+> -                        PAGE_KERNEL);
+> +       return kvzalloc(size, GFP_USER);
+>  }
 >
->         if (reg == MII_PHYSID2 && chip->info->physid2_mask) {
->             /* Some internal PHYs don't have a model number,
->              * so return the switch family model number directly.
->              */
->             if (!(*val & chip->info->physid2_mask))
->                 *val |= chip->info->prod_num;
+>  void bpf_map_area_free(void *area)
 
-          if (reg == MII_PHYSID2 && (*val & 0xfff0) == 0)
-              *val |= chip->info->prod_num << 4;
+Looks fine by me.
+Daniel, thoughts?
 
-then. Do you agree?
-
->         }
->
->         return 0;
->     }
-
-Thanks,
-
-        Vivien
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
