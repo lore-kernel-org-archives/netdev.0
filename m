@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: use prefix_len in test_tag when reading
- fdinfo
-Date: Wed, 25 Jan 2017 23:15:39 -0500 (EST)
-Message-ID: <20170125.231539.610771035278620989.davem@davemloft.net>
-References: <a4146cba5583102419763e59d8feff5e91802525.1485387682.git.daniel@iogearbox.net>
+Subject: Re: [PATCH] [net-next] bridge: move maybe_deliver_addr() inside
+ #ifdef
+Date: Wed, 25 Jan 2017 23:16:25 -0500 (EST)
+Message-ID: <20170125.231625.778055316669261176.davem@davemloft.net>
+References: <20170125222950.1352566-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55532 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752746AbdAZEPk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 23:15:40 -0500
-In-Reply-To: <a4146cba5583102419763e59d8feff5e91802525.1485387682.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, linus.luessing@c0d3.blue,
+        nikolay@cumulusnetworks.com, nbd@nbd.name,
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170125222950.1352566-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 26 Jan 2017 00:42:49 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 25 Jan 2017 23:29:33 +0100
 
-> We currently used len instead of prefix_len for the strncmp() in
-> fdinfo on the prog_tag. It still worked as we matched on the correct
-> output line also with first 8 instead of 10 chars, but lets fix it
-> properly to use the intended length.
+> The only caller of this new function is inside of an #ifdef checking
+> for CONFIG_BRIDGE_IGMP_SNOOPING, so we should move the implementation
+> there too, in order to avoid this harmless warning:
 > 
-> Fixes: 62b64660262a ("bpf: add prog tag test case to bpf selftests")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> net/bridge/br_forward.c:177:13: error: 'maybe_deliver_addr' defined but not used [-Werror=unused-function]
+> 
+> Fixes: 6db6f0eae605 ("bridge: multicast to unicast")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied.
+Applied, thank you.
