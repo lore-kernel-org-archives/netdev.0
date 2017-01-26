@@ -1,60 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net resend] virtio_net: reject XDP programs using header
- adjustment
-Date: Thu, 26 Jan 2017 05:01:25 +0200
-Message-ID: <20170126050114-mutt-send-email-mst@kernel.org>
-References: <5888C9B7.8040603@gmail.com>
- <20170125225636.167620-1-jakub.kicinski@netronome.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net v2 0/4] r8152: fix scheduling napi
+Date: Thu, 26 Jan 2017 03:04:45 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB201A13865@RTITMBSV06.realtek.com.tw>
+References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
+        <1394712342-15778-242-Taiwan-albertk@realtek.com>
+ <20170125.143119.411717735878453521.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jason Wang <jasowang@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        oss-drivers@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55712 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752453AbdAZDB0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Jan 2017 22:01:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20170125225636.167620-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170125.143119.411717735878453521.davem@davemloft.net>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 25, 2017 at 02:56:36PM -0800, Jakub Kicinski wrote:
-> commit 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
-> added a new XDP helper to prepend and remove data from a frame.
-> Make virtio_net reject programs making use of this helper until
-> proper support is added.
+David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, January 26, 2017 3:31 AM
+[...]
+> I think the fundamental issue is that since you can't stop URBs from
+> queueing up, you cannot properly synchronize NAPI and schedule polling
+> properly.
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+> From my perspective what happened here is you want GRO support, but it
+> comes at the expense of this extremely racey NAPI support which does
+> not at all achieve one of the main advantages of NAPI which is
+> interrupt mitigation.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+May you apply these patches first, until I find another way to replace
+current one? The driver uses NAPI now and I have no idea to find better
+way to replace current one. I think it would take me long time to find
+out the solution. And the issue is still there until I finish this work.
+If now I give up the NAPI and its advantages except for the interrupt
+mitigation, some things would become worse.
 
-> ---
->  drivers/net/virtio_net.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index f9bf94887ff1..a2aac4fd8e42 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1710,6 +1710,11 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->  	u16 xdp_qp = 0, curr_qp;
->  	int i, err;
->  
-> +	if (prog && prog->xdp_adjust_head) {
-> +		netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
-> +		return -EOPNOTSUPP;
-> +	}
-> +
->  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->  	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
->  	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
-> -- 
-> 2.11.0
+Our hw supports packet aggregation. The purpose is interrupt mitigation,
+too. I wouldn't say it is better than what the NAPI does. However, I
+could say we try to improve it. If the interrupt could be disabled, I
+would be happy to do it. However, it is the limitation of USB devices.
+That is why I still use NAPI even though the interrupt cannot be disabled
+for USB devices. Because one of the advantages of NAPI couldn't be
+satisfied, I must not use the NAPI. Doesn't it seem too strict?
+
+Best Regards,
+Hayes
