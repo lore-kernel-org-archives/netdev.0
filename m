@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v3 4/4] r8152: check rx after napi is enabled
-Date: Thu, 26 Jan 2017 09:38:34 +0800
-Message-ID: <1394712342-15778-251-Taiwan-albertk@realtek.com>
+Subject: [PATCH net v3 3/4] r8152: re-schedule napi for tx
+Date: Thu, 26 Jan 2017 09:38:33 +0800
+Message-ID: <1394712342-15778-250-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
  <1394712342-15778-247-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
@@ -10,56 +10,38 @@ Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
         <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([211.75.126.72]:35524 "EHLO
+Received: from rtits2.realtek.com ([211.75.126.72]:35523 "EHLO
         rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752705AbdAZBjP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 20:39:15 -0500
+        with ESMTP id S1752669AbdAZBjG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 20:39:06 -0500
 In-Reply-To: <1394712342-15778-247-Taiwan-albertk@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Schedule the napi after napi_enable() for rx, if it is necessary.
+Re-schedule napi after napi_complete() for tx, if it is necessay.
 
-If the rx is completed when napi is disabled, the sheduling of napi
-would be lost. Then, no one handles the rx packet until next napi
-is scheduled.
+In r8152_poll(), if the tx is completed after tx_bottom() and before
+napi_complete(), the scheduling of napi would be lost. Then, no
+one handles the next tx until the next napi_schedule() is called.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/usb/r8152.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 4785d2b..ad42295 100644
+index ec882be..4785d2b 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -32,7 +32,7 @@
- #define NETNEXT_VERSION		"08"
+@@ -1936,6 +1936,9 @@ static int r8152_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
+ 		if (!list_empty(&tp->rx_done))
+ 			napi_schedule(napi);
++		else if (!skb_queue_empty(&tp->tx_queue) &&
++			 !list_empty(&tp->tx_free))
++			napi_schedule(napi);
+ 	}
  
- /* Information for net */
--#define NET_VERSION		"7"
-+#define NET_VERSION		"8"
- 
- #define DRIVER_VERSION		"v1." NETNEXT_VERSION "." NET_VERSION
- #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd@realtek.com>"
-@@ -3561,6 +3561,9 @@ static int rtl8152_post_reset(struct usb_interface *intf)
- 	netif_wake_queue(netdev);
- 	usb_submit_urb(tp->intr_urb, GFP_KERNEL);
- 
-+	if (!list_empty(&tp->rx_done))
-+		napi_schedule(&tp->napi);
-+
- 	return 0;
- }
- 
-@@ -3700,6 +3703,8 @@ static int rtl8152_resume(struct usb_interface *intf)
- 			napi_enable(&tp->napi);
- 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
- 			smp_mb__after_atomic();
-+			if (!list_empty(&tp->rx_done))
-+				napi_schedule(&tp->napi);
- 		} else {
- 			tp->rtl_ops.up(tp);
- 			netif_carrier_off(tp->netdev);
+ 	return work_done;
 -- 
 2.7.4
