@@ -1,7 +1,7 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 1/3] sfc: fixes to filter restore handling
-Date: Thu, 26 Jan 2017 17:52:55 +0000
-Message-ID: <c14e6ebb-4343-f61d-9ff5-ef904d2b7b98@solarflare.com>
+Subject: [PATCH net-next 2/3] sfc: refactor debug-or-warnings printks
+Date: Thu, 26 Jan 2017 17:53:48 +0000
+Message-ID: <15f3ecb9-1785-8688-93b9-51d400ee12bc@solarflare.com>
 References: <39d8923f-4400-506c-dd50-250636ff83fa@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,105 +9,106 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:6449 "EHLO
-        nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753855AbdAZRxE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 12:53:04 -0500
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:48408 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754012AbdAZRyA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 12:54:00 -0500
 In-Reply-To: <39d8923f-4400-506c-dd50-250636ff83fa@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jon Cooper <jcooper@solarflare.com>
 
-If the NIC is switched from full-featured to low-latency, encapsulated
- filters are no longer available, and this causes errors. This patch
- removes those filters from the filter table on restore.
-Also, if filters which are removed by the above, or which we fail to
- insert when restoring filters, were UC, MC or broadcast default
- filters, invalidate the corresponding vlan->default_filters entry.
+Rationalise several debug-or-warnings printks in to a macro that switches
+ between netif_dbg and netif_warn to make output more consistent.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 42 +++++++++++++++++++++++++++++++++++++----
- 1 file changed, 38 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c       |  8 ++++----
+ drivers/net/ethernet/sfc/mcdi.c       | 19 ++++++++-----------
+ drivers/net/ethernet/sfc/net_driver.h |  9 +++++++++
+ 3 files changed, 21 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 7c53da2..b64b47b 100644
+index b64b47b..d0c1ed0e 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -4557,9 +4557,12 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
- {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	unsigned int invalid_filters = 0, failed = 0;
-+	struct efx_ef10_filter_vlan *vlan;
- 	struct efx_filter_spec *spec;
- 	unsigned int filter_idx;
--	bool failed = false;
-+	u32 mcdi_flags;
-+	int match_pri;
- 	int rc;
+@@ -4881,10 +4881,10 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx,
  
- 	WARN_ON(!rwsem_is_locked(&efx->filter_sem));
-@@ -4577,6 +4580,20 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
- 		if (!spec)
- 			continue;
- 
-+		mcdi_flags = efx_ef10_filter_mcdi_flags_from_spec(spec);
-+		match_pri = 0;
-+		while (match_pri < table->rx_match_count &&
-+		       table->rx_match_mcdi_flags[match_pri] != mcdi_flags)
-+			++match_pri;
-+		if (match_pri >= table->rx_match_count) {
-+			invalid_filters++;
-+			goto not_restored;
-+		}
-+		if (spec->rss_context != EFX_FILTER_RSS_CONTEXT_DEFAULT &&
-+		    spec->rss_context != nic_data->rx_rss_context)
-+			netif_warn(efx, drv, efx->net_dev,
-+				   "Warning: unable to restore a filter with specific RSS context.\n");
-+
- 		table->entry[filter_idx].spec |= EFX_EF10_FILTER_FLAG_BUSY;
- 		spin_unlock_bh(&efx->filter_lock);
- 
-@@ -4584,10 +4601,19 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
- 					  &table->entry[filter_idx].handle,
- 					  false);
- 		if (rc)
--			failed = true;
--
-+			failed++;
- 		spin_lock_bh(&efx->filter_lock);
-+
- 		if (rc) {
-+not_restored:
-+			list_for_each_entry(vlan, &table->vlan_list, list) {
-+				if (vlan->ucdef == filter_idx)
-+					vlan->ucdef = EFX_EF10_FILTER_ID_INVALID;
-+				if (vlan->mcdef == filter_idx)
-+					vlan->mcdef = EFX_EF10_FILTER_ID_INVALID;
-+				if (vlan->bcast == filter_idx)
-+					vlan->bcast = EFX_EF10_FILTER_ID_INVALID;
-+			}
- 			kfree(spec);
- 			efx_ef10_filter_set_entry(table, filter_idx, NULL, 0);
+ 	rc = efx_ef10_filter_insert(efx, &spec, true);
+ 	if (rc < 0) {
+-		netif_printk(efx, drv, rc == -EPERM ? KERN_DEBUG : KERN_WARNING,
+-			     efx->net_dev,
+-			     "%scast mismatch filter insert failed rc=%d\n",
+-			     multicast ? "Multi" : "Uni", rc);
++		netif_cond_dbg(efx, drv, efx->net_dev,
++			       rc == -EPERM, warn,
++			       "%scast mismatch filter insert failed rc=%d\n",
++			       multicast ? "Multi" : "Uni", rc);
+ 	} else if (multicast) {
+ 		EFX_WARN_ON_PARANOID(vlan->mcdef != EFX_EF10_FILTER_ID_INVALID);
+ 		vlan->mcdef = efx_ef10_filter_get_unsafe_id(efx, rc);
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 9956513..24b271b 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -837,11 +837,9 @@ static int _efx_mcdi_rpc(struct efx_nic *efx, unsigned int cmd,
+ 						  outbuf, outlen, outlen_actual,
+ 						  quiet, NULL, raw_rc);
  		} else {
-@@ -4598,9 +4624,17 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
+-			netif_printk(efx, hw,
+-				     rc == -EPERM ? KERN_DEBUG : KERN_ERR,
+-				     efx->net_dev,
+-				     "MC command 0x%x failed after proxy auth rc=%d\n",
+-				     cmd, rc);
++			netif_cond_dbg(efx, hw, efx->net_dev, rc == -EPERM, err,
++				       "MC command 0x%x failed after proxy auth rc=%d\n",
++				       cmd, rc);
  
- 	spin_unlock_bh(&efx->filter_lock);
- 
-+	/* This can happen validly if the MC's capabilities have changed, so
-+	 * is not an error.
-+	 */
-+	if (invalid_filters)
-+		netif_dbg(efx, drv, efx->net_dev,
-+			  "Did not restore %u filters that are now unsupported.\n",
-+			  invalid_filters);
-+
- 	if (failed)
- 		netif_err(efx, hw, efx->net_dev,
--			  "unable to restore all filters\n");
-+			  "unable to restore %u filters\n", failed);
- 	else
- 		nic_data->must_restore_filters = false;
+ 			if (rc == -EINTR || rc == -EIO)
+ 				efx_schedule_reset(efx, RESET_TYPE_MC_FAILURE);
+@@ -1084,10 +1082,9 @@ void efx_mcdi_display_error(struct efx_nic *efx, unsigned cmd,
+ 		code = MCDI_DWORD(outbuf, ERR_CODE);
+ 	if (outlen >= MC_CMD_ERR_ARG_OFST + 4)
+ 		err_arg = MCDI_DWORD(outbuf, ERR_ARG);
+-	netif_printk(efx, hw, rc == -EPERM ? KERN_DEBUG : KERN_ERR,
+-		     efx->net_dev,
+-		     "MC command 0x%x inlen %zu failed rc=%d (raw=%d) arg=%d\n",
+-		     cmd, inlen, rc, code, err_arg);
++	netif_cond_dbg(efx, hw, efx->net_dev, rc == -EPERM, err,
++		       "MC command 0x%x inlen %zu failed rc=%d (raw=%d) arg=%d\n",
++		       cmd, inlen, rc, code, err_arg);
  }
+ 
+ /* Switch to polled MCDI completions.  This can be called in various
+@@ -2057,8 +2054,8 @@ int efx_mcdi_get_workarounds(struct efx_nic *efx, unsigned int *impl_out,
+ 	/* Older firmware lacks GET_WORKAROUNDS and this isn't especially
+ 	 * terrifying.  The call site will have to deal with it though.
+ 	 */
+-	netif_printk(efx, hw, rc == -ENOSYS ? KERN_DEBUG : KERN_ERR,
+-		     efx->net_dev, "%s: failed rc=%d\n", __func__, rc);
++	netif_cond_dbg(efx, hw, efx->net_dev, rc == -ENOSYS, err,
++		       "%s: failed rc=%d\n", __func__, rc);
+ 	return rc;
+ }
+ 
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 5927c20..c640955 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -51,6 +51,15 @@
+ #define EFX_WARN_ON_PARANOID(x) do {} while (0)
+ #endif
+ 
++/* if @cond then downgrade to debug, else print at @level */
++#define netif_cond_dbg(priv, type, netdev, cond, level, fmt, args...)     \
++	do {                                                              \
++		if (cond)                                                 \
++			netif_dbg(priv, type, netdev, fmt, ##args);       \
++		else                                                      \
++			netif_ ## level(priv, type, netdev, fmt, ##args); \
++	} while (0)
++
+ /**************************************************************************
+  *
+  * Efx data structures
