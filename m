@@ -1,59 +1,94 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: Re: [PATCH net 1/5] ibmvnic: harden interrupt handler
-Date: Thu, 26 Jan 2017 10:44:22 -0600
-Message-ID: <0cea7654-6722-5e68-cd05-cc51bbf7a5ae@linux.vnet.ibm.com>
-References: <1485378143-5084-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
- <20170125.230413.830821835017116629.davem@davemloft.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
+Date: Thu, 26 Jan 2017 08:37:30 -0800
+Message-ID: <CALCETrXQ8JFV28xU7tnh3tVbe_mp5yOtHp6shi10GMNnVCQowg@mail.gmail.com>
+References: <1485401274-2836524-1-git-send-email-ast@fb.com>
+ <87efzq8jbi.fsf@xmission.com> <588995DE.9040707@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wvoigt@us.ibm.com,
-        jallen@linux.vnet.ibm.com, linuxppc-dev@lists.ozlabs.org,
-        nfont@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@fb.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:50672 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753458AbdAZQp1 (ORCPT
+Received: from mail-vk0-f49.google.com ([209.85.213.49]:35104 "EHLO
+        mail-vk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753629AbdAZQp1 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 11:45:27 -0500
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v0QGiCmL100816
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 11:44:33 -0500
-Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 287cux50ae-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 11:44:33 -0500
-Received: from localhost
-        by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Thu, 26 Jan 2017 09:44:33 -0700
-In-Reply-To: <20170125.230413.830821835017116629.davem@davemloft.net>
+Received: by mail-vk0-f49.google.com with SMTP id x75so158281225vke.2
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 08:45:13 -0800 (PST)
+In-Reply-To: <588995DE.9040707@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/25/2017 10:04 PM, David Miller wrote:
-> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> Date: Wed, 25 Jan 2017 15:02:19 -0600
->
->> Move most interrupt handler processing into a tasklet, and
->> introduce a delay after re-enabling interrupts to fix timing
->> issues encountered in hardware testing.
+Hi Linus-
+
+Can you weigh in here before we get stuck in a potentially unfortunate place?
+
+On Wed, Jan 25, 2017 at 10:23 PM, Alexei Starovoitov <ast@fb.com> wrote:
+> On 1/25/17 9:46 PM, Eric W. Biederman wrote:
 >>
->> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> I don't think you have any idea what the real problem is.  This looks
-> like a hack, at best.  Next patch you'll increase the delay to "20",
-> right?  And if that doesn't work you'll try "40".
->
-> Or if you do know the reason, you need to explain it in detail in this
-> commit message so that we can properly evaluate this patch.
+>> Alexei Starovoitov <ast@fb.com> writes:
+>>
 
-You're right, I should have given more explanation in the commit message about the bug encountered and our reasons for this sort of fix.  The issue is that there are some scenarios during the device init where multiple messages are sent by firmware in one interrupt request. 
+[...]
 
-We have observed behavior where messages are delayed, resulting in the interrupt handler completing before the delayed messages can be processed, fouling up the device bring-up in the device probing and elsewhere.  The goal of the delay is to buy some time for the hypervisor to forward all the CRQ messages from the firmware.
+>>> Similarly TC cls_bpf/act_bpf and socket filters can do
+>>> if (skb->netns_inum == expected_inode)
+>>
+>>
+>> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 >
-> Furthermore, if you're going to move all of your packet processing
-> into software interrupt context, you might as well use NAPI polling
-> which is a purposefully built piece of infrastructure for doing
-> exactly this.
 >
-This interrupt handler doesn't handle packet processing, but communications between the driver and firmware for device settings and resource allocation.  Packet processing is done with different interrupts that do use NAPI polling.
+> I very much value your opinion, but your ack or nack doesn't apply here.
+
+I'm confused.  Eric, the namespace maintainer, says nack.  This is
+namespace code regardless of what file it lives in.
+
+>> The only sane thing is to interpret whatever your bpf program in the
+>> context of the program which installs it.
+>
+>
+> that's impossible. The programs are operating in the context that
+> is disjoined from the app that installs it.
+>
+>> If you can't do that you have a very broken piece of userspace
+>> interface.  Which appears to be the case here.
+>
+>
+> Call it rubbish, but this is how it is.
+> cls_bpf is operating on packets. xdp_bpf is operating on raw dma buffers
+> and there we might need eventually lookup sockets and net namespaces.
+> Think of bpf programs as safe kernel modules. They don't have
+> confined boundaries and program authors, if not careful, can shoot
+> themselves in the foot. We're not trying to prevent that because
+> it's impossible to check that the program is sane. Just like
+> it's impossible to check that kernel module is sane.
+> But in case of bpf we check that bpf program is _safe_ from the kernel
+> point of view. If it's doing some garbage, it's program's business.
+> Does it make more sense now?
+>
+
+With all due respect, I think this is not an acceptable way to think
+about BPF at all.  If you think of BPF this way, I think there needs
+to be a real discussion at KS or similar as to whether this is okay.
+The reason is simple: the kernel promises a stable ABI to userspace
+but not to kernel modules.  By thinking of BPF as more like a module,
+you're taking a big shortcut that will either result in ABI breakage
+down the road or in committing to a problematic stable ABI.
+
+In fact, this was discussed a bit at KS in the context of tracepoints.
+The general consensus seemed to be that tracepoints should not be
+considered fully stable in large part because they're a debugging
+feature.  But these BPF hooks are very much not a debugging feature.
+
+Concretely, iproute2 git contains an eBPF program.  If that program
+were just a "safe kernel module", then it would be totally fine
+(expected, even) for future kernel versions to break it outright.  I
+don't think this is how it works.
+
+--Andy
