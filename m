@@ -1,56 +1,64 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 0/6 v3] kvmalloc
-Date: Thu, 26 Jan 2017 13:27:29 +0100
-Message-ID: <20170126122729.GL6590@dhcp22.suse.cz>
-References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
- <588907AA.1020704@iogearbox.net>
- <20170126074354.GB8456@dhcp22.suse.cz>
- <5889C331.7020101@iogearbox.net>
- <20170126100802.GF6590@dhcp22.suse.cz>
- <20170126103216.GG6590@dhcp22.suse.cz>
- <1485432877.12563.100.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
-	Johannes Weiner <hannes@cmpxchg.org>, linux-mm <linux-mm@kvack.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	marcelo.leitner@gmail.com
-To: Joe Perches <joe@perches.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1485432877.12563.100.camel@perches.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Nogah Frankel <nogahf@mellanox.com>
+Subject: [PATCH iproute2 v5 0/4] update ifstat for new stats
+Date: Thu, 26 Jan 2017 14:44:37 +0200
+Message-ID: <1485434681-33947-1-git-send-email-nogahf@mellanox.com>
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
+        roszenrami@gmail.com, jbenc@redhat.com,
+        sergei.shtylyov@cogentembedded.com, jiri@mellanox.com,
+        eladr@mellanox.com, idosch@mellanox.com, yotamg@mellanox.com,
+        ogerlitz@mellanox.com, Nogah Frankel <nogahf@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51709 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752020AbdAZMnC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 07:43:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 26-01-17 04:14:37, Joe Perches wrote:
-> On Thu, 2017-01-26 at 11:32 +0100, Michal Hocko wrote:
-> > So I have folded the following to the patch 1. It is in line with
-> > kvmalloc and hopefully at least tell more than the current code.
-> []
-> > diff --git a/mm/vmalloc.c b/mm/vmalloc.c
-> []
-> > @@ -1741,6 +1741,13 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
-> >   *	Allocate enough pages to cover @size from the page level
-> >   *	allocator with @gfp_mask flags.  Map them into contiguous
-> >   *	kernel virtual space, using a pagetable protection of @prot.
-> > + *
-> > + *	Reclaim modifiers in @gfp_mask - __GFP_NORETRY, __GFP_REPEAT
-> > + *	and __GFP_NOFAIL are not supported
-> 
-> Maybe add a BUILD_BUG or a WARN_ON_ONCE to catch new occurrences?
+Previously stats were gotten by RTM_GETLINK which returns 32 bits based
+statistics. It supports only one type of stats.
+Lately, a new method to get stats was added - RTM_GETSTATS. It supports
+ability to choose stats type. The basic stats were changed from 32 bits
+based to 64 bits based.
 
-I would really like to not touch vmalloc in this series.
+This patchset adds ifstat the ability to get extended stats (xstats) by
+this method. Its adds xstat of cpu_hits - for packets that hit cpu.
+
+---
+v4->v5:
+ - remove patch 3/4 that added 64 based "normal" stats
+ - add a new patch 4/4 that updates ifstat man page
+
+v3->v4:
+- patch 2/4:
+ - change xstat name read to avoid redundant copy.
+ - delete extra line
+- patch 4/4:
+ - change xstat name.
+
+v2->v3:
+- patch 1/4:
+ - add a new patch to reorder includes in misc/ifstat.c
+- patch 2/4: (previously 1/3)
+ - fix typos.
+ - change error print to use fprintf.
+
+v1->v2:
+ - change from using RTM_GETSTATS always to using it only for extended
+   stats.
+ - Add 64bits extended stats type.
+
+Nogah Frankel (4):
+  ifstat: Includes reorder
+  ifstat: Add extended statistics to ifstat
+  ifstat: Add "sw only" extended statistics to ifstat
+  ifstat: Add xstat to ifstat man page
+
+ man/man8/Makefile |   3 +-
+ man/man8/ifstat.8 |  12 +++-
+ misc/ifstat.c     | 168 ++++++++++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 163 insertions(+), 20 deletions(-)
 
 -- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.4.3
