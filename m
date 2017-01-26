@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v3 1/4] r8152: avoid start_xmit to call napi_schedule during autosuspend
-Date: Thu, 26 Jan 2017 09:38:31 +0800
-Message-ID: <1394712342-15778-248-Taiwan-albertk@realtek.com>
+Subject: [PATCH net v3 4/4] r8152: check rx after napi is enabled
+Date: Thu, 26 Jan 2017 09:38:34 +0800
+Message-ID: <1394712342-15778-251-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
  <1394712342-15778-247-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
@@ -9,72 +9,55 @@ Content-Type: text/plain
 Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
         <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([211.75.126.72]:35524 "EHLO
+        rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752705AbdAZBjP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 20:39:15 -0500
 In-Reply-To: <1394712342-15778-247-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adjust the setting of the flag of SELECTIVE_SUSPEND to prevent start_xmit()
-from calling napi_schedule() directly during runtime suspend.
+Schedule the napi after napi_enable() for rx, if it is necessary.
 
-After calling napi_disable() or clearing the flag of WORK_ENABLE,
-scheduling the napi is useless.
+If the rx is completed when napi is disabled, the sheduling of napi
+would be lost. Then, no one handles the rx packet until next napi
+is scheduled.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/usb/r8152.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index e1466b4..23bef8e 100644
+index 4785d2b..ad42295 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -3585,10 +3585,15 @@ static int rtl8152_rumtime_suspend(struct r8152 *tp)
- 	struct net_device *netdev = tp->netdev;
- 	int ret = 0;
+@@ -32,7 +32,7 @@
+ #define NETNEXT_VERSION		"08"
  
-+	set_bit(SELECTIVE_SUSPEND, &tp->flags);
-+	smp_mb__after_atomic();
+ /* Information for net */
+-#define NET_VERSION		"7"
++#define NET_VERSION		"8"
+ 
+ #define DRIVER_VERSION		"v1." NETNEXT_VERSION "." NET_VERSION
+ #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd@realtek.com>"
+@@ -3561,6 +3561,9 @@ static int rtl8152_post_reset(struct usb_interface *intf)
+ 	netif_wake_queue(netdev);
+ 	usb_submit_urb(tp->intr_urb, GFP_KERNEL);
+ 
++	if (!list_empty(&tp->rx_done))
++		napi_schedule(&tp->napi);
 +
- 	if (netif_running(netdev) && test_bit(WORK_ENABLE, &tp->flags)) {
- 		u32 rcr = 0;
- 
- 		if (delay_autosuspend(tp)) {
-+			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-+			smp_mb__after_atomic();
- 			ret = -EBUSY;
- 			goto out1;
- 		}
-@@ -3605,6 +3610,8 @@ static int rtl8152_rumtime_suspend(struct r8152 *tp)
- 			if (!(ocp_data & RXFIFO_EMPTY)) {
- 				rxdy_gated_en(tp, false);
- 				ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, rcr);
-+				clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-+				smp_mb__after_atomic();
- 				ret = -EBUSY;
- 				goto out1;
- 			}
-@@ -3624,8 +3631,6 @@ static int rtl8152_rumtime_suspend(struct r8152 *tp)
- 		}
- 	}
- 
--	set_bit(SELECTIVE_SUSPEND, &tp->flags);
--
- out1:
- 	return ret;
+ 	return 0;
  }
-@@ -3681,12 +3686,13 @@ static int rtl8152_resume(struct usb_interface *intf)
- 	if (netif_running(tp->netdev) && tp->netdev->flags & IFF_UP) {
- 		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
- 			tp->rtl_ops.autosuspend_en(tp, false);
--			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
- 			napi_disable(&tp->napi);
- 			set_bit(WORK_ENABLE, &tp->flags);
- 			if (netif_carrier_ok(tp->netdev))
- 				rtl_start_rx(tp);
+ 
+@@ -3700,6 +3703,8 @@ static int rtl8152_resume(struct usb_interface *intf)
  			napi_enable(&tp->napi);
-+			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
-+			smp_mb__after_atomic();
+ 			clear_bit(SELECTIVE_SUSPEND, &tp->flags);
+ 			smp_mb__after_atomic();
++			if (!list_empty(&tp->rx_done))
++				napi_schedule(&tp->napi);
  		} else {
  			tp->rtl_ops.up(tp);
  			netif_carrier_off(tp->netdev);
