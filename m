@@ -1,7 +1,7 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: [PATCHv3 perf/core 6/6] perf test: Add libbpf pinning test
-Date: Thu, 26 Jan 2017 13:20:01 -0800
-Message-ID: <20170126212001.14103-7-joe@ovn.org>
+Subject: [PATCHv3 perf/core 4/6] tools perf util: Make rm_rf(path) argument const
+Date: Thu, 26 Jan 2017 13:19:59 -0800
+Message-ID: <20170126212001.14103-5-joe@ovn.org>
 References: <20170126212001.14103-1-joe@ovn.org>
 Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org
@@ -11,124 +11,42 @@ In-Reply-To: <20170126212001.14103-1-joe@ovn.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a test for the newly added BPF object pinning functionality.
-
-For example:
-  # tools/perf/perf test 37
-    37: BPF filter                                 :
-    37.1: Basic BPF filtering                      : Ok
-    37.2: BPF pinning                              : Ok
-    37.3: BPF prologue generation                  : Ok
-    37.4: BPF relocation checker                   : Ok
-
-  # tools/perf/perf test 37 -v 2>&1 | grep pinned
-    libbpf: pinned map '/sys/fs/bpf/perf_test/flip_table'
-    libbpf: pinned program '/sys/fs/bpf/perf_test/func=SyS_epoll_wait/0'
+rm_rf() doesn't modify its path argument, and a future caller will pass
+a string constant into it to delete.
 
 Signed-off-by: Joe Stringer <joe@ovn.org>
-Cc: Wang Nan <wangnan0@huawei.com>
-Cc: Arnaldo Carvalho de Melo <acme@kernel.org>
 ---
 v3: Initial post.
 ---
- tools/perf/tests/bpf.c | 42 +++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 41 insertions(+), 1 deletion(-)
+ tools/perf/util/util.c | 2 +-
+ tools/perf/util/util.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/tools/perf/tests/bpf.c b/tools/perf/tests/bpf.c
-index 92343f43e44a..1a04fe77487d 100644
---- a/tools/perf/tests/bpf.c
-+++ b/tools/perf/tests/bpf.c
-@@ -5,11 +5,13 @@
- #include <util/evlist.h>
- #include <linux/bpf.h>
- #include <linux/filter.h>
-+#include <api/fs/fs.h>
- #include <bpf/bpf.h>
- #include "tests.h"
- #include "llvm.h"
- #include "debug.h"
- #define NR_ITERS       111
-+#define PERF_TEST_BPF_PATH "/sys/fs/bpf/perf_test"
+diff --git a/tools/perf/util/util.c b/tools/perf/util/util.c
+index bf29aed16bd6..d8b45cea54d0 100644
+--- a/tools/perf/util/util.c
++++ b/tools/perf/util/util.c
+@@ -85,7 +85,7 @@ int mkdir_p(char *path, mode_t mode)
+ 	return (stat(path, &st) && mkdir(path, mode)) ? -1 : 0;
+ }
  
- #ifdef HAVE_LIBBPF_SUPPORT
+-int rm_rf(char *path)
++int rm_rf(const char *path)
+ {
+ 	DIR *dir;
+ 	int ret = 0;
+diff --git a/tools/perf/util/util.h b/tools/perf/util/util.h
+index 6e8be174ec0b..c74708da8571 100644
+--- a/tools/perf/util/util.h
++++ b/tools/perf/util/util.h
+@@ -209,7 +209,7 @@ static inline int sane_case(int x, int high)
+ }
  
-@@ -54,6 +56,7 @@ static struct {
- 	const char *msg_load_fail;
- 	int (*target_func)(void);
- 	int expect_result;
-+	bool	pin;
- } bpf_testcase_table[] = {
- 	{
- 		LLVM_TESTCASE_BASE,
-@@ -63,6 +66,17 @@ static struct {
- 		"load bpf object failed",
- 		&epoll_wait_loop,
- 		(NR_ITERS + 1) / 2,
-+		false,
-+	},
-+	{
-+		LLVM_TESTCASE_BASE,
-+		"BPF pinning",
-+		"[bpf_pinning]",
-+		"fix kbuild first",
-+		"check your vmlinux setting?",
-+		&epoll_wait_loop,
-+		(NR_ITERS + 1) / 2,
-+		true,
- 	},
- #ifdef HAVE_BPF_PROLOGUE
- 	{
-@@ -73,6 +87,7 @@ static struct {
- 		"check your vmlinux setting?",
- 		&llseek_loop,
- 		(NR_ITERS + 1) / 4,
-+		false,
- 	},
- #endif
- 	{
-@@ -83,6 +98,7 @@ static struct {
- 		"libbpf error when dealing with relocation",
- 		NULL,
- 		0,
-+		false,
- 	},
- };
- 
-@@ -226,10 +242,34 @@ static int __test__bpf(int idx)
- 		goto out;
- 	}
- 
--	if (obj)
-+	if (obj) {
- 		ret = do_test(obj,
- 			      bpf_testcase_table[idx].target_func,
- 			      bpf_testcase_table[idx].expect_result);
-+		if (ret != TEST_OK)
-+			goto out;
-+		if (bpf_testcase_table[idx].pin) {
-+			int err;
-+
-+			if (!bpf_fs__mount()) {
-+				pr_debug("BPF filesystem not mounted\n");
-+				ret = TEST_FAIL;
-+				goto out;
-+			}
-+			err = mkdir(PERF_TEST_BPF_PATH, 0777);
-+			if (err && errno != EEXIST) {
-+				pr_debug("Failed to make perf_test dir: %s\n",
-+					 strerror(errno));
-+				ret = TEST_FAIL;
-+				goto out;
-+			}
-+			if (bpf_object__pin(obj, PERF_TEST_BPF_PATH))
-+				ret = TEST_FAIL;
-+			if (rm_rf(PERF_TEST_BPF_PATH))
-+				ret = TEST_FAIL;
-+		}
-+	}
-+
- out:
- 	bpf__clear();
- 	return ret;
+ int mkdir_p(char *path, mode_t mode);
+-int rm_rf(char *path);
++int rm_rf(const char *path);
+ struct strlist *lsdir(const char *name, bool (*filter)(const char *, struct dirent *));
+ bool lsdir_no_dot_filter(const char *name, struct dirent *d);
+ int copyfile(const char *from, const char *to);
 -- 
 2.11.0
