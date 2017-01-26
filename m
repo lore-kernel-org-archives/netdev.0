@@ -1,72 +1,72 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: Avoid accessing skb after submitting to
- input queue
-Date: Thu, 26 Jan 2017 11:52:35 -0800
-Message-ID: <20170126195235.GA3875@felix.cavium.com>
+From: Chris Packham <Chris.Packham@alliedtelesis.co.nz>
+Subject: Re: [PATCHv3 4/5] arm: mvebu: Add device tree for 98DX3236 SoCs
+Date: Thu, 26 Jan 2017 20:07:47 +0000
+Message-ID: <3493169361fe445ba971951b40360301@svr-chch-ex1.atlnz.lc>
+References: <20170105033641.6212-1-chris.packham@alliedtelesis.co.nz>
+ <20170106041517.9589-1-chris.packham@alliedtelesis.co.nz>
+ <20170106041517.9589-5-chris.packham@alliedtelesis.co.nz>
+ <87inp1zwlg.fsf@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0073.outbound.protection.outlook.com ([104.47.38.73]:12512
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753184AbdAZTxv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 14:53:51 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, Andrew Lunn <andrew@lunn.ch>,
+ Jason Cooper <jason@lakedaemon.net>,
+ "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Russell King <linux@armlinux.org.uk>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Rob Herring <robh+dt@kernel.org>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Satanand Burla <satananda.burla@cavium.com>
+On 27/01/17 04:10, Gregory CLEMENT wrote:
+> Hi Chris,
+>
+>  On ven., janv. 06 2017, Chris Packham <chris.packham@alliedtelesis.co.nz> wrote:
+>
+>> The Marvell 98DX3236, 98DX3336, 98DX4521 and variants are switch ASICs
+>> with integrated CPUs. They are similar to the Armada XP SoCs but have
+>> different I/O interfaces.
+>
+> Before sending a new version I have a few remarks:
+>
+>
 
-Accessing skb after submitting to input queue can cause
-access to stale pointers if the skb ends up being transmitted
-and freed by that time.
+[snip]
 
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 6 +++---
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+I'll update the dtsi files to use the node labels and correct the 
+commends as requested
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 5ee3f00..9261ddc 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3316,11 +3316,11 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 	netif_trans_update(netdev);
- 
--	if (skb_shinfo(skb)->gso_size)
--		stats->tx_done += skb_shinfo(skb)->gso_segs;
-+	if (tx_info->s.gso_segs)
-+		stats->tx_done += tx_info->s.gso_segs;
- 	else
- 		stats->tx_done++;
--	stats->tx_tot_bytes += skb->len;
-+	stats->tx_tot_bytes += ndata.datasize;
- 
- 	return NETDEV_TX_OK;
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index e96cf6c..a6587d7 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -2433,11 +2433,11 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 	netif_trans_update(netdev);
- 
--	if (skb_shinfo(skb)->gso_size)
--		stats->tx_done += skb_shinfo(skb)->gso_segs;
-+	if (tx_info->s.gso_segs)
-+		stats->tx_done += tx_info->s.gso_segs;
- 	else
- 		stats->tx_done++;
--	stats->tx_tot_bytes += skb->len;
-+	stats->tx_tot_bytes += ndata.datasize;
- 
- 	return NETDEV_TX_OK;
+>
+> Why the following node is not part of the dtsi?
+>
+> Gregory
+>
+>> +			resume@20980 {
+>> +				compatible = "marvell,98dx3336-resume-ctrl";
+>> +				reg = <0x20980 0x10>;
+>> +			};
+>> +		};
+>> +	};
+
+The 98DX9236 has a single ARMv7 core. As such this resume control isn't 
+present on it. The 98DX3336 and 98DX4521 have dual ARMv7 cores and this 
+is used to boot the second core (SMP support is a little different 
+compared to Armada-XP).
+
+In other words {98DX3336, 98DX4521} = 98DX9236 + an additional core. At 
+the switch packet processor level there are more differences but as far 
+as the kernel is concerned the only real difference is the number of cores.
