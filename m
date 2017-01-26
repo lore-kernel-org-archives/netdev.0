@@ -1,140 +1,71 @@
-From: Ivan Vecera <cera@cera.cz>
-Subject: [PATCH net] be2net: fix initial MAC setting
-Date: Thu, 26 Jan 2017 11:28:01 +0100
-Message-ID: <20170126102801.18914-1-cera@cera.cz>
-Cc: Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58567 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752994AbdAZK2L (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 05:28:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Thu, 26 Jan 2017 11:32:16 +0100
+Message-ID: <20170126103216.GG6590@dhcp22.suse.cz>
+References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
+ <588907AA.1020704@iogearbox.net>
+ <20170126074354.GB8456@dhcp22.suse.cz>
+ <5889C331.7020101@iogearbox.net>
+ <20170126100802.GF6590@dhcp22.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        linux-mm <linux-mm@kvack.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        marcelo.leitner@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170126100802.GF6590@dhcp22.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recent commit 34393529163a ("be2net: fix MAC addr setting on privileged
-BE3 VFs") allows privileged BE3 VFs to set its MAC address during
-initialization. Although the initial MAC for such VFs is already
-programmed by parent PF the subsequent setting performed by VF is OK,
-but in certain cases (after fresh boot) this command in VF can fail.
+On Thu 26-01-17 11:08:02, Michal Hocko wrote:
+> On Thu 26-01-17 10:36:49, Daniel Borkmann wrote:
+> > On 01/26/2017 08:43 AM, Michal Hocko wrote:
+> > > On Wed 25-01-17 21:16:42, Daniel Borkmann wrote:
+> [...]
+> > > > I assume that kvzalloc() is still the same from [1], right? If so, then
+> > > > it would unfortunately (partially) reintroduce the issue that was fixed.
+> > > > If you look above at flags, they're also passed to __vmalloc() to not
+> > > > trigger OOM in these situations I've experienced.
+> > > 
+> > > Pushing __GFP_NORETRY to __vmalloc doesn't have the effect you might
+> > > think it would. It can still trigger the OOM killer becauset the flags
+> > > are no propagated all the way down to all allocations requests (e.g.
+> > > page tables). This is the same reason why GFP_NOFS is not supported in
+> > > vmalloc.
+> > 
+> > Ok, good to know, is that somewhere clearly documented (like for the
+> > case with kmalloc())?
+> 
+> I am afraid that we really suck on this front. I will add something.
 
-The MAC should be initialized only when:
-1) no MAC is programmed (always except BE3 VFs during first init)
-2) programmed MAC is different from requested (e.g. MAC is set when
-   interface is down). In this case the initial MAC programmed by PF
-   needs to be deleted.
-
-The adapter->dev_mac contains MAC address currently programmed in HW so
-it should be zeroed when the MAC is deleted from HW and should not be
-filled when MAC is set when interface is down in be_mac_addr_set() as
-no programming is performed in this case.
-
-Example of failure without the fix (immediately after fresh boot):
-
-# ip link set eth0 up  <- eth0 is BE3 PF
-be2net 0000:01:00.0 eth0: Link is Up
-
-# echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create 1 VF
-...
-be2net 0000:01:04.0: Emulex OneConnect(be3): VF  port 0
-
-# ip link set eth8 up  <- eth8 is created privileged VF
-be2net 0000:01:04.0: opcode 59-1 failed:status 1-76
-RTNETLINK answers: Input/output error
-
-# echo 0 > /sys/class/net/eth0/device/sriov_numvfs  <- Delete VF
-iommu: Removing device 0000:01:04.0 from group 33
-...
-
-# echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create it again
-iommu: Removing device 0000:01:04.0 from group 33
-...
-
-# ip link set eth8 up
-be2net 0000:01:04.0 eth8: Link is Up
-
-Initialization is now OK.
-
-Fixes: 34393529163a ("be2net: fix MAC addr setting on privileged BE3 VFs")
-Cc: Sathya Perla <sathya.perla@broadcom.com>
-Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Cc: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Ivan Vecera <cera@cera.cz>
+So I have folded the following to the patch 1. It is in line with
+kvmalloc and hopefully at least tell more than the current code.
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 31 ++++++++++++++++++++++++-----
- 1 file changed, 26 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 1a7f8ad7b9c6..cf13b99b8551 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -362,8 +362,10 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
- 		status = -EPERM;
- 		goto err;
- 	}
--done:
-+
-+	/* Remember currently programmed MAC */
- 	ether_addr_copy(adapter->dev_mac, addr->sa_data);
-+done:
- 	ether_addr_copy(netdev->dev_addr, addr->sa_data);
- 	dev_info(dev, "MAC address changed to %pM\n", addr->sa_data);
- 	return 0;
-@@ -3618,8 +3620,10 @@ static void be_disable_if_filters(struct be_adapter *adapter)
- {
- 	/* Don't delete MAC on BE3 VFs without FILTMGMT privilege  */
- 	if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
--	    check_privilege(adapter, BE_PRIV_FILTMGMT))
-+	    check_privilege(adapter, BE_PRIV_FILTMGMT)) {
- 		be_dev_mac_del(adapter, adapter->pmac_id[0]);
-+		eth_zero_addr(adapter->dev_mac);
-+	}
- 
- 	be_clear_uc_list(adapter);
- 	be_clear_mc_list(adapter);
-@@ -3773,12 +3777,25 @@ static int be_enable_if_filters(struct be_adapter *adapter)
- 	if (status)
- 		return status;
- 
--	/* Don't add MAC on BE3 VFs without FILTMGMT privilege */
--	if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
--	    check_privilege(adapter, BE_PRIV_FILTMGMT)) {
-+	/* Normally this condition usually true as the ->dev_mac is zeroed.
-+	 * But on BE3 VFs the initial MAC is pre-programmed by PF and
-+	 * subsequent be_dev_mac_add() can fail (after fresh boot)
-+	 */
-+	if (!ether_addr_equal(adapter->dev_mac, adapter->netdev->dev_addr)) {
-+		int old_pmac_id = -1;
-+
-+		/* Remember old programmed MAC if any - can happen on BE3 VF */
-+		if (!is_zero_ether_addr(adapter->dev_mac))
-+			old_pmac_id = adapter->pmac_id[0];
-+
- 		status = be_dev_mac_add(adapter, adapter->netdev->dev_addr);
- 		if (status)
- 			return status;
-+
-+		/* Delete old programmed MAC if necessary */
-+		if (old_pmac_id > 0 && old_pmac_id != adapter->pmac_id[0])
-+			be_dev_mac_del(adapter, old_pmac_id);
-+
- 		ether_addr_copy(adapter->dev_mac, adapter->netdev->dev_addr);
- 	}
- 
-@@ -4552,6 +4569,10 @@ static int be_mac_setup(struct be_adapter *adapter)
- 
- 		memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
- 		memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
-+
-+		/* Initial MAC for BE3 VFs is already programmed by PF */
-+		if (BEx_chip(adapter) && be_virtfn(adapter))
-+			memcpy(adapter->dev_mac, mac, ETH_ALEN);
- 	}
- 
- 	return 0;
+diff --git a/mm/vmalloc.c b/mm/vmalloc.c
+index d89034a393f2..6c1aa2c68887 100644
+--- a/mm/vmalloc.c
++++ b/mm/vmalloc.c
+@@ -1741,6 +1741,13 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
+  *	Allocate enough pages to cover @size from the page level
+  *	allocator with @gfp_mask flags.  Map them into contiguous
+  *	kernel virtual space, using a pagetable protection of @prot.
++ *
++ *	Reclaim modifiers in @gfp_mask - __GFP_NORETRY, __GFP_REPEAT
++ *	and __GFP_NOFAIL are not supported
++ *
++ *	Any use of gfp flags outside of GFP_KERNEL should be consulted
++ *	with mm people.
++ *
+  */
+ static void *__vmalloc_node(unsigned long size, unsigned long align,
+ 			    gfp_t gfp_mask, pgprot_t prot,
 -- 
-2.10.2
+Michal Hocko
+SUSE Labs
