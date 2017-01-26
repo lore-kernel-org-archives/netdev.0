@@ -1,48 +1,45 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: IPv6-UDP 0x0000 checksum
-Date: Thu, 26 Jan 2017 15:49:24 +0100
-Message-ID: <1485442164.14760.11.camel@sipsolutions.net>
-References: <1485437276.14760.3.camel@sipsolutions.net>
-         <1485438299.5145.117.camel@edumazet-glaptop3.roam.corp.google.com>
-         (sfid-20170126_144502_343976_16232A6D) <1485438546.14760.7.camel@sipsolutions.net>
-         <1485441942.5145.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         (sfid-20170126_154545_190303_B1FB80BF)
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2 0/2] net: ipv6: Improve user experience with
+ multipath routes
+Date: Thu, 26 Jan 2017 15:58:21 +0100
+Message-ID: <4024f547-7f26-ab52-df9d-a0509048c7ff@6wind.com>
+References: <1484892626-14257-1-git-send-email-dsa@cumulusnetworks.com>
+ <90d6fdce-7780-b864-0e89-db262dec6fa1@cumulusnetworks.com>
+ <20170124.110616.2098461870069191491.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1485441942.5145.131.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org> (sfid-20170126_154545_190303_B1FB80BF)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:33685 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752376AbdAZO6Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 09:58:25 -0500
+Received: by mail-wm0-f43.google.com with SMTP id d140so5750691wmd.0
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 06:58:24 -0800 (PST)
+In-Reply-To: <20170124.110616.2098461870069191491.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-01-26 at 06:45 -0800, Eric Dumazet wrote:
-> On Thu, 2017-01-26 at 14:49 +0100, Johannes Berg wrote:
+Le 24/01/2017 à 17:06, David Miller a écrit :
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Fri, 20 Jan 2017 12:31:44 -0700
 > 
-> > Oops, sorry - receive. We can only indicate "CHECKSUM_UNNECESSARY",
-> > nothing more advanced right now, but right now we'd indicate that
-> > if
-> > the packet had 0x0000 in the checksum field, but should've had
-> > 0xffff.
-> > 
-> > On TX I believe we actually do in HW exactly what your patch just
-> > did.
+>> BTW, I am in favor of not requiring a user API for this but just
+>> doing it. I can't imagine anyone working with multipath routes not
+>> wanting the efficiency of the RTA_MULTIPATH attribute. These patches
+>> require an API only because of the rule not to break userspace. If
+>> we conclude to just do it without an API, the multipath_add and
+>> multipath_del need to be modified to only send a notification once
+>> at the end of the actions.
 > 
-> Can you describe the visible effects of this problem ?
-> 
-> Is that because of a conversion we might do later to
-> CHECKSUM_COMPLETE ?
+> After some consideration, I agree.
+Sorry for my late reply but I fear that this will break some userland apps like
+quagga.
+I agree that it would be better but the API is here since v3.8, ie 4 years.
 
-Unfortunately, I haven't been able to actually test this yet. I also
-didn't find the code that would drop frames with CSUM 0 either, so I'm
-thinking - for now - that if all the csum handling is skipped, dropping
-0 csum frames would also be, and then we'd accept a frame we should
-actually have dropped.
 
-I'll go test this I guess :)
-
-Any pointers to where 0 csum frames are dropped?
-
-johannes
+Regards,
+Nicolas
