@@ -1,42 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 1/5] ibmvnic: harden interrupt handler
-Date: Thu, 26 Jan 2017 10:28:02 -0800
-Message-ID: <20170126102802.4f920418@xeon-e3>
-References: <1485378143-5084-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: netvsc NAPI patch process
+Date: Thu, 26 Jan 2017 13:06:46 -0500 (EST)
+Message-ID: <20170126.130646.2180422281199593870.davem@davemloft.net>
+References: <20170126100405.0eac2dea@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wvoigt@us.ibm.com, jallen@linux.vnet.ibm.com,
- linuxppc-dev@lists.ozlabs.org, nfont@linux.vnet.ibm.com
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1485378143-5084-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Cc: kys@microsoft.com, greg@kroah.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37054 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753880AbdAZSav (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 13:30:51 -0500
+In-Reply-To: <20170126100405.0eac2dea@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 Jan 2017 15:02:19 -0600
-Thomas Falcon <tlfalcon@linux.vnet.ibm.com> wrote:
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 26 Jan 2017 10:04:05 -0800
 
->  static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
->  {
->  	struct ibmvnic_adapter *adapter = instance;
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&adapter->crq.lock, flags);
-> +	vio_disable_interrupts(adapter->vdev);
-> +	tasklet_schedule(&adapter->tasklet);
-> +	spin_unlock_irqrestore(&adapter->crq.lock, flags);
-> +	return IRQ_HANDLED;
-> +}
-> +
+> I have a working set of patches to enable NAPI in the netvsc driver.
+> The problem is that it requires a set of patches to vmbus layer as well.
+> Since vmbus patches have been going through char-misc-next tree rather
+> than net-next, it is difficult to stage these.
+> 
+> How about if I send the vmbus patches through normal driver-devel upstream
+> and during the 4.10 merge window send the last 3 patches for NAPI for linux-net
+> tree to get into 4.10?
 
-Why not use NAPI? rather than a tasklet
+Another option is that the char-misc-next folks create a branch with just
+the commits you need for NAPI, I pull that into net-next, and then you
+can submit the NAPI changes to me.
