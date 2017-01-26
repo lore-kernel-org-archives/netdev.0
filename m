@@ -1,47 +1,61 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: iproute2: using .maxattr = IFLA_VLAN_MAX??
-Date: Thu, 26 Jan 2017 11:27:41 -0500
-Message-ID: <588A237D.8030007@ti.com>
-References: <58864115.4060608@ti.com>
- <9B0331B6EBBD0E4684FBFAEDA55776F93D496CA4@HASMSX110.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: "Rosen, Rami" <rami.rosen@intel.com>,
-        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 07/14] netfilter: ipt_CLUSTERIP: fix build error without procfs
+Date: Thu, 26 Jan 2017 17:38:00 +0100
+Message-ID: <1485448687-6072-8-git-send-email-pablo@netfilter.org>
+References: <1485448687-6072-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:65071 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752790AbdAZQ1l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 11:27:41 -0500
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F93D496CA4@HASMSX110.ger.corp.intel.com>
+Received: from mail.us.es ([193.147.175.20]:48636 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753547AbdAZQjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Jan 2017 11:39:23 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E6D547650
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:31 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D833E1B300B
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:31 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9FC8012212B
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:29 +0100 (CET)
+In-Reply-To: <1485448687-6072-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2017 03:45 PM, Rosen, Rami wrote:
-> Hi, Murali,
-> 
->> This appears to be a cut-n-paste bug as the source is based on ip/iplink_vlan.c and should be fixed to IFLA_HSR_MAX. 
-> 
-> You are right.
-> The "HSR section" indeed defines IFLA_HSR_MAX in include/linux/if_link.h of iproute2 as the max attributes number.
-> 
-> And in the top of ip/iplink_hsr.c you will find this comment, which enhances your assumption about the origin of this mistake:
-> 
-> /*
-> ...
->      Based on iplink_vlan.c by Patrick McHardy <kaber@trash.net
-> ...
->  */
-> 
-> Regards,
-> Rami Rosen
-> 
-Hi, Rami,
+From: Arnd Bergmann <arnd@arndb.de>
 
-Thanks for confirming. I will send out a patch for fixing this when I get a chance to 
-test hsr for my work in the next few days.
+We can't access c->pde if CONFIG_PROC_FS is disabled:
 
+net/ipv4/netfilter/ipt_CLUSTERIP.c: In function 'clusterip_config_find_get':
+net/ipv4/netfilter/ipt_CLUSTERIP.c:147:9: error: 'struct clusterip_config' has no member named 'pde'
+
+This moves the check inside of another #ifdef.
+
+Fixes: 6c5d5cfbe3c5 ("netfilter: ipt_CLUSTERIP: check duplicate config when initializing")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv4/netfilter/ipt_CLUSTERIP.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index a6b8c1a4102b..0a783cd73faf 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -144,7 +144,12 @@ clusterip_config_find_get(struct net *net, __be32 clusterip, int entry)
+ 	rcu_read_lock_bh();
+ 	c = __clusterip_config_find(net, clusterip);
+ 	if (c) {
+-		if (!c->pde || unlikely(!atomic_inc_not_zero(&c->refcount)))
++#ifdef CONFIG_PROC_FS
++		if (!c->pde)
++			c = NULL;
++		else
++#endif
++		if (unlikely(!atomic_inc_not_zero(&c->refcount)))
+ 			c = NULL;
+ 		else if (entry)
+ 			atomic_inc(&c->entries);
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+2.1.4
