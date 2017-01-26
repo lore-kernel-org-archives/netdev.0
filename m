@@ -1,115 +1,74 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 net] net: free ip_vs_dest structs when refcnt=0
-Date: Thu, 26 Jan 2017 22:49:10 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1701262241280.3892@ja.home.ssi.bg>
-References: <1485228269-21758-1-git-send-email-dwindsor@gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-        wensong@linux-vs.org, horms@verge.net.au, pablo@netfilter.org,
-        keescook@chromium.org, elena.reshetova@intel.com,
-        ishkamiel@gmail.com
-To: David Windsor <dwindsor@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35854 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753060AbdAZUt4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 15:49:56 -0500
-In-Reply-To: <1485228269-21758-1-git-send-email-dwindsor@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joe@ovn.org>
+Subject: [PATCHv3 perf/core 2/6] tools lib bpf: Add bpf_map__pin()
+Date: Thu, 26 Jan 2017 13:19:57 -0800
+Message-ID: <20170126212001.14103-3-joe@ovn.org>
+References: <20170126212001.14103-1-joe@ovn.org>
+Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: acme@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170126212001.14103-1-joe@ovn.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Add a new API to pin a BPF map to the filesystem. The user can
+specify the path full path within a BPF filesystem to pin the map.
 
-	Hello,
+Signed-off-by: Joe Stringer <joe@ovn.org>
+---
+v3: No change.
+v2: Don't automount BPF filesystem
+    Split program, map, object pinning into separate APIs and separate
+    patches.
+---
+ tools/lib/bpf/libbpf.c | 22 ++++++++++++++++++++++
+ tools/lib/bpf/libbpf.h |  1 +
+ 2 files changed, 23 insertions(+)
 
-On Mon, 23 Jan 2017, David Windsor wrote:
-
-> Currently, the ip_vs_dest cache frees ip_vs_dest objects when their
-> reference count becomes < 0.  Aside from not being semantically sound,
-> this is problematic for the new type refcount_t, which will be introduced
-> shortly in a separate patch. refcount_t is the new kernel type for
-> holding reference counts, and provides overflow protection and a
-> constrained interface relative to atomic_t (the type currently being
-> used for kernel reference counts).
-> 
-> Per Julian Anastasov: "The problem is that dest_trash currently holds
-> deleted dests (unlinked from RCU lists) with refcnt=0."  Changing
-> dest_trash to hold dest with refcnt=1 will allow us to free ip_vs_dest
-> structs when their refcnt=0, in ip_vs_dest_put_and_free().
-> 
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
-
-	Thanks! I tested the first version and this one
-just adds the needed changes in comments, so
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-
-	Simon and Pablo, this is more appropriate for
-ipvs-next/nf-next. Please apply!
-
-> ---
->  include/net/ip_vs.h            | 2 +-
->  net/netfilter/ipvs/ip_vs_ctl.c | 8 +++-----
->  2 files changed, 4 insertions(+), 6 deletions(-)
-> 
-> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-> index cd6018a..a3e78ad 100644
-> --- a/include/net/ip_vs.h
-> +++ b/include/net/ip_vs.h
-> @@ -1421,7 +1421,7 @@ static inline void ip_vs_dest_put(struct ip_vs_dest *dest)
->  
->  static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
->  {
-> -	if (atomic_dec_return(&dest->refcnt) < 0)
-> +	if (atomic_dec_and_test(&dest->refcnt))
->  		kfree(dest);
->  }
->  
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index 55e0169..5fc4836 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -711,7 +711,6 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, int dest_af,
->  		      dest->vport == svc->port))) {
->  			/* HIT */
->  			list_del(&dest->t_list);
-> -			ip_vs_dest_hold(dest);
->  			goto out;
->  		}
->  	}
-> @@ -741,7 +740,7 @@ static void ip_vs_dest_free(struct ip_vs_dest *dest)
->   *  When the ip_vs_control_clearup is activated by ipvs module exit,
->   *  the service tables must have been flushed and all the connections
->   *  are expired, and the refcnt of each destination in the trash must
-> - *  be 0, so we simply release them here.
-> + *  be 1, so we simply release them here.
->   */
->  static void ip_vs_trash_cleanup(struct netns_ipvs *ipvs)
->  {
-> @@ -1080,11 +1079,10 @@ static void __ip_vs_del_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest,
->  	if (list_empty(&ipvs->dest_trash) && !cleanup)
->  		mod_timer(&ipvs->dest_trash_timer,
->  			  jiffies + (IP_VS_DEST_TRASH_PERIOD >> 1));
-> -	/* dest lives in trash without reference */
-> +	/* dest lives in trash with reference */
->  	list_add(&dest->t_list, &ipvs->dest_trash);
->  	dest->idle_start = 0;
->  	spin_unlock_bh(&ipvs->dest_trash_lock);
-> -	ip_vs_dest_put(dest);
->  }
->  
->  
-> @@ -1160,7 +1158,7 @@ static void ip_vs_dest_trash_expire(unsigned long data)
->  
->  	spin_lock(&ipvs->dest_trash_lock);
->  	list_for_each_entry_safe(dest, next, &ipvs->dest_trash, t_list) {
-> -		if (atomic_read(&dest->refcnt) > 0)
-> +		if (atomic_read(&dest->refcnt) > 1)
->  			continue;
->  		if (dest->idle_start) {
->  			if (time_before(now, dest->idle_start +
-> -- 
-> 2.7.4
-
-Regards
+diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+index d1d7638b7c21..ce987c02363e 100644
+--- a/tools/lib/bpf/libbpf.c
++++ b/tools/lib/bpf/libbpf.c
+@@ -1349,6 +1349,28 @@ int bpf_program__pin(struct bpf_program *prog, const char *path)
+ 	return 0;
+ }
+ 
++int bpf_map__pin(struct bpf_map *map, const char *path)
++{
++	int err;
++
++	err = check_path(path);
++	if (err)
++		return err;
++
++	if (map == NULL) {
++		pr_warning("invalid map pointer\n");
++		return -EINVAL;
++	}
++
++	if (bpf_obj_pin(map->fd, path)) {
++		pr_warning("failed to pin map: %s\n", strerror(errno));
++		return -errno;
++	}
++
++	pr_debug("pinned map '%s'\n", path);
++	return 0;
++}
++
+ void bpf_object__close(struct bpf_object *obj)
+ {
+ 	size_t i;
+diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+index 9f8aa63b95f4..2addf9d5b13c 100644
+--- a/tools/lib/bpf/libbpf.h
++++ b/tools/lib/bpf/libbpf.h
+@@ -236,6 +236,7 @@ typedef void (*bpf_map_clear_priv_t)(struct bpf_map *, void *);
+ int bpf_map__set_priv(struct bpf_map *map, void *priv,
+ 		      bpf_map_clear_priv_t clear_priv);
+ void *bpf_map__priv(struct bpf_map *map);
++int bpf_map__pin(struct bpf_map *map, const char *path);
+ 
+ long libbpf_get_error(const void *ptr);
+ 
+-- 
+2.11.0
