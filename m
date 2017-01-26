@@ -1,61 +1,170 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/14] netfilter: ipt_CLUSTERIP: fix build error without procfs
-Date: Thu, 26 Jan 2017 17:38:00 +0100
-Message-ID: <1485448687-6072-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/14] netfilter: conntrack: refine gc worker heuristics, redux
+Date: Thu, 26 Jan 2017 17:38:02 +0100
+Message-ID: <1485448687-6072-10-git-send-email-pablo@netfilter.org>
 References: <1485448687-6072-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48636 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:48618 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753547AbdAZQjX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 11:39:23 -0500
+        id S1753629AbdAZQjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Jan 2017 11:39:24 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id E6D547650
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:31 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id 6395480FB
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:34 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D833E1B300B
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:31 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 529D7FEFC6
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:34 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 9FC8012212B
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:29 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 0343A1B3025
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 17:38:32 +0100 (CET)
 In-Reply-To: <1485448687-6072-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
+From: Florian Westphal <fw@strlen.de>
 
-We can't access c->pde if CONFIG_PROC_FS is disabled:
+This further refines the changes made to conntrack gc_worker in
+commit e0df8cae6c16 ("netfilter: conntrack: refine gc worker heuristics").
 
-net/ipv4/netfilter/ipt_CLUSTERIP.c: In function 'clusterip_config_find_get':
-net/ipv4/netfilter/ipt_CLUSTERIP.c:147:9: error: 'struct clusterip_config' has no member named 'pde'
+The main idea of that change was to reduce the scan interval when evictions
+take place.
 
-This moves the check inside of another #ifdef.
+However, on the reporters' setup, there are 1-2 million conntrack entries
+in total and roughly 8k new (and closing) connections per second.
 
-Fixes: 6c5d5cfbe3c5 ("netfilter: ipt_CLUSTERIP: check duplicate config when initializing")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+In this case we'll always evict at least one entry per gc cycle and scan
+interval is always at 1 jiffy because of this test:
+
+ } else if (expired_count) {
+     gc_work->next_gc_run /= 2U;
+     next_run = msecs_to_jiffies(1);
+
+being true almost all the time.
+
+Given we scan ~10k entries per run its clearly wrong to reduce interval
+based on nonzero eviction count, it will only waste cpu cycles since a vast
+majorities of conntracks are not timed out.
+
+Thus only look at the ratio (scanned entries vs. evicted entries) to make
+a decision on whether to reduce or not.
+
+Because evictor is supposed to only kick in when system turns idle after
+a busy period, pick a high ratio -- this makes it 50%.  We thus keep
+the idea of increasing scan rate when its likely that table contains many
+expired entries.
+
+In order to not let timed-out entries hang around for too long
+(important when using event logging, in which case we want to timely
+destroy events), we now scan the full table within at most
+GC_MAX_SCAN_JIFFIES (16 seconds) even in worst-case scenario where all
+timed-out entries sit in same slot.
+
+I tested this with a vm under synflood (with
+sysctl net.netfilter.nf_conntrack_tcp_timeout_syn_recv=3).
+
+While flood is ongoing, interval now stays at its max rate
+(GC_MAX_SCAN_JIFFIES / GC_MAX_BUCKETS_DIV -> 125ms).
+
+With feedback from Nicolas Dichtel.
+
+Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Fixes: b87a2f9199ea82eaadc ("netfilter: conntrack: add gc worker to remove timed-out entries")
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Tested-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Tested-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/ipt_CLUSTERIP.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_core.c | 39 ++++++++++++++++++++-------------------
+ 1 file changed, 20 insertions(+), 19 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index a6b8c1a4102b..0a783cd73faf 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -144,7 +144,12 @@ clusterip_config_find_get(struct net *net, __be32 clusterip, int entry)
- 	rcu_read_lock_bh();
- 	c = __clusterip_config_find(net, clusterip);
- 	if (c) {
--		if (!c->pde || unlikely(!atomic_inc_not_zero(&c->refcount)))
-+#ifdef CONFIG_PROC_FS
-+		if (!c->pde)
-+			c = NULL;
-+		else
-+#endif
-+		if (unlikely(!atomic_inc_not_zero(&c->refcount)))
- 			c = NULL;
- 		else if (entry)
- 			atomic_inc(&c->entries);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 6feb5d370319..4e8083c5e01d 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -85,9 +85,11 @@ static __read_mostly DEFINE_SPINLOCK(nf_conntrack_locks_all_lock);
+ static __read_mostly bool nf_conntrack_locks_all;
+ 
+ /* every gc cycle scans at most 1/GC_MAX_BUCKETS_DIV part of table */
+-#define GC_MAX_BUCKETS_DIV	64u
+-/* upper bound of scan intervals */
+-#define GC_INTERVAL_MAX		(2 * HZ)
++#define GC_MAX_BUCKETS_DIV	128u
++/* upper bound of full table scan */
++#define GC_MAX_SCAN_JIFFIES	(16u * HZ)
++/* desired ratio of entries found to be expired */
++#define GC_EVICT_RATIO	50u
+ 
+ static struct conntrack_gc_work conntrack_gc_work;
+ 
+@@ -936,6 +938,7 @@ static noinline int early_drop(struct net *net, unsigned int _hash)
+ 
+ static void gc_worker(struct work_struct *work)
+ {
++	unsigned int min_interval = max(HZ / GC_MAX_BUCKETS_DIV, 1u);
+ 	unsigned int i, goal, buckets = 0, expired_count = 0;
+ 	struct conntrack_gc_work *gc_work;
+ 	unsigned int ratio, scanned = 0;
+@@ -994,27 +997,25 @@ static void gc_worker(struct work_struct *work)
+ 	 * 1. Minimize time until we notice a stale entry
+ 	 * 2. Maximize scan intervals to not waste cycles
+ 	 *
+-	 * Normally, expired_count will be 0, this increases the next_run time
+-	 * to priorize 2) above.
++	 * Normally, expire ratio will be close to 0.
+ 	 *
+-	 * As soon as a timed-out entry is found, move towards 1) and increase
+-	 * the scan frequency.
+-	 * In case we have lots of evictions next scan is done immediately.
++	 * As soon as a sizeable fraction of the entries have expired
++	 * increase scan frequency.
+ 	 */
+ 	ratio = scanned ? expired_count * 100 / scanned : 0;
+-	if (ratio >= 90) {
+-		gc_work->next_gc_run = 0;
+-		next_run = 0;
+-	} else if (expired_count) {
+-		gc_work->next_gc_run /= 2U;
+-		next_run = msecs_to_jiffies(1);
++	if (ratio > GC_EVICT_RATIO) {
++		gc_work->next_gc_run = min_interval;
+ 	} else {
+-		if (gc_work->next_gc_run < GC_INTERVAL_MAX)
+-			gc_work->next_gc_run += msecs_to_jiffies(1);
++		unsigned int max = GC_MAX_SCAN_JIFFIES / GC_MAX_BUCKETS_DIV;
+ 
+-		next_run = gc_work->next_gc_run;
++		BUILD_BUG_ON((GC_MAX_SCAN_JIFFIES / GC_MAX_BUCKETS_DIV) == 0);
++
++		gc_work->next_gc_run += min_interval;
++		if (gc_work->next_gc_run > max)
++			gc_work->next_gc_run = max;
+ 	}
+ 
++	next_run = gc_work->next_gc_run;
+ 	gc_work->last_bucket = i;
+ 	queue_delayed_work(system_long_wq, &gc_work->dwork, next_run);
+ }
+@@ -1022,7 +1023,7 @@ static void gc_worker(struct work_struct *work)
+ static void conntrack_gc_work_init(struct conntrack_gc_work *gc_work)
+ {
+ 	INIT_DELAYED_WORK(&gc_work->dwork, gc_worker);
+-	gc_work->next_gc_run = GC_INTERVAL_MAX;
++	gc_work->next_gc_run = HZ;
+ 	gc_work->exiting = false;
+ }
+ 
+@@ -1914,7 +1915,7 @@ int nf_conntrack_init_start(void)
+ 	nf_ct_untracked_status_or(IPS_CONFIRMED | IPS_UNTRACKED);
+ 
+ 	conntrack_gc_work_init(&conntrack_gc_work);
+-	queue_delayed_work(system_long_wq, &conntrack_gc_work.dwork, GC_INTERVAL_MAX);
++	queue_delayed_work(system_long_wq, &conntrack_gc_work.dwork, HZ);
+ 
+ 	return 0;
+ 
 -- 
 2.1.4
