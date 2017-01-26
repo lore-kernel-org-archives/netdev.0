@@ -1,83 +1,145 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
-Date: Wed, 25 Jan 2017 22:23:26 -0800
-Message-ID: <588995DE.9040707@fb.com>
-References: <1485401274-2836524-1-git-send-email-ast@fb.com>
- <87efzq8jbi.fsf@xmission.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 2/2] xfrm: Add a device independent napi instance
+Date: Thu, 26 Jan 2017 07:50:56 +0100
+Message-ID: <1485413456-31197-3-git-send-email-steffen.klassert@secunet.com>
+References: <1485413456-31197-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Thomas Graf <tgraf@suug.ch>, <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "Sowmini Varadhan" <sowmini.varadhan@oracle.com>,
+        Ilan Tayari <ilant@mellanox.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48346 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751605AbdAZGYD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 01:24:03 -0500
-In-Reply-To: <87efzq8jbi.fsf@xmission.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:35536 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752106AbdAZGvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Jan 2017 01:51:20 -0500
+In-Reply-To: <1485413456-31197-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/25/17 9:46 PM, Eric W. Biederman wrote:
-> Alexei Starovoitov <ast@fb.com> writes:
->
->> in cases where bpf programs are looking at sockets and packets
->> that belong to different netns, it could be useful to read netns inode,
->> so that programs can make intelligent decisions.
->> For example to disallow raw sockets in all non-init netns the program can do:
->> if (sk->type == SOCK_RAW && sk->netns_inum != 0xf0000075)
->>    return 0;
->> where 0xf0000075 inode comes from /proc/pid/ns/net
->>
->> Similarly TC cls_bpf/act_bpf and socket filters can do
->> if (skb->netns_inum == expected_inode)
->
-> Nacked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+This patch adds a napi instance for IPsec GRO.
+With this, we handle IPsec GRO with no impact
+on the generic networking code.
 
-I very much value your opinion, but your ack or nack doesn't apply here.
-Exposing existing inode has nothing to do with what you maintain.
-It's a bpf feature that is exposing already visible to user space id.
-Period.
-If I was proposing to expose some internal namespace id, then yes,
-we'd need to have a discussion. ns.inum is already visible.
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_input.c | 87 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 86 insertions(+), 1 deletion(-)
 
-> Particularly you need to compare more than the inode number.
-> Further I have never guaranteed there will be exactly one inode
-> per network namespace, just that if the device number and the inode
-> number pair match they are the same.
-
-people already rely on inodes for _all_ namespaces.
-The current implementation of
-net_ns_net_init->..>ida_get_new is stuck the way it is.
-We can change ids, generation algorithm, but uniqueness is
-already assumed by user space.
-
-> Beyond that the entire concept is complete rubbish.
-
-care to explain what you think the 'entire concept' is?
-
-> The only sane thing is to interpret whatever your bpf program in the
-> context of the program which installs it.
-
-that's impossible. The programs are operating in the context that
-is disjoined from the app that installs it.
-
-> If you can't do that you have a very broken piece of userspace
-> interface.  Which appears to be the case here.
-
-Call it rubbish, but this is how it is.
-cls_bpf is operating on packets. xdp_bpf is operating on raw dma buffers
-and there we might need eventually lookup sockets and net namespaces.
-Think of bpf programs as safe kernel modules. They don't have
-confined boundaries and program authors, if not careful, can shoot
-themselves in the foot. We're not trying to prevent that because
-it's impossible to check that the program is sane. Just like
-it's impossible to check that kernel module is sane.
-But in case of bpf we check that bpf program is _safe_ from the kernel
-point of view. If it's doing some garbage, it's program's business.
-Does it make more sense now?
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 6e3f025..c5fc12d 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -21,6 +21,90 @@
+ static DEFINE_SPINLOCK(xfrm_input_afinfo_lock);
+ static struct xfrm_input_afinfo __rcu *xfrm_input_afinfo[NPROTO];
+ 
++struct xfrm_napi {
++	struct sk_buff_head	napi_skbs;
++	struct napi_struct	napi;
++};
++
++static struct xfrm_napi __percpu *napis;
++
++static void xfrm_gro_receive(struct sk_buff *skb)
++{
++	struct xfrm_napi *xnapi;
++	struct net_device *dev = skb->dev;
++
++	if (!napis || skb_cloned(skb) || !(dev->features & NETIF_F_GRO)) {
++		netif_rx(skb);
++		return;
++	}
++
++	xnapi = this_cpu_ptr(napis);
++
++	if (skb_queue_len(&xnapi->napi_skbs) > netdev_max_backlog) {
++		atomic_long_inc(&dev->rx_dropped);
++		kfree_skb(skb);
++		return;
++	}
++
++	__skb_queue_tail(&xnapi->napi_skbs, skb);
++	if (skb_queue_len(&xnapi->napi_skbs) == 1)
++		napi_schedule(&xnapi->napi);
++}
++
++static int xfrm_gro_poll(struct napi_struct *napi, int budget)
++{
++	unsigned long flags;
++	struct sk_buff *skb;
++	int work_done = 0;
++	struct xfrm_napi *xnapi = container_of(napi, struct xfrm_napi, napi);
++
++	while (work_done < budget) {
++		skb = __skb_dequeue(&xnapi->napi_skbs);
++		if (!skb)
++			break;
++		napi_gro_receive(napi, skb);
++		work_done++;
++	}
++
++	if (work_done < budget) {
++		napi_gro_flush(napi, false);
++
++		if (likely(list_empty(&napi->poll_list))) {
++			WARN_ON_ONCE(!test_and_clear_bit(NAPI_STATE_SCHED, &napi->state));
++		} else {
++			/* If n->poll_list is not empty, we need to mask irqs */
++			local_irq_save(flags);
++			__napi_complete(napi);
++			local_irq_restore(flags);
++		}
++	}
++
++	return work_done;
++}
++
++static void xfrm_gro_init(void)
++{
++	int i;
++
++	/* Napi remains disabled if we can't alloc memory. */
++	napis = alloc_percpu(struct xfrm_napi);
++
++	for_each_possible_cpu(i) {
++		struct xfrm_napi *xnapi = per_cpu_ptr(napis, i);
++
++		__skb_queue_head_init(&xnapi->napi_skbs);
++
++		set_bit(NAPI_STATE_NO_BUSY_POLL, &xnapi->napi.state);
++
++		INIT_LIST_HEAD(&xnapi->napi.poll_list);
++		xnapi->napi.poll = xfrm_gro_poll;
++		xnapi->napi.weight = 64;
++		xnapi->napi.gro_list = NULL;
++		xnapi->napi.gro_count = 0;
++		xnapi->napi.skb = NULL;
++	}
++}
++
+ int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
+ {
+ 	int err = 0;
+@@ -371,7 +455,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 
+ 	if (decaps) {
+ 		skb_dst_drop(skb);
+-		netif_rx(skb);
++		xfrm_gro_receive(skb);
+ 		return 0;
+ 	} else {
+ 		return x->inner_mode->afinfo->transport_finish(skb, async);
+@@ -394,6 +478,7 @@ int xfrm_input_resume(struct sk_buff *skb, int nexthdr)
+ 
+ void __init xfrm_input_init(void)
+ {
++	xfrm_gro_init();
+ 	secpath_cachep = kmem_cache_create("secpath_cache",
+ 					   sizeof(struct sec_path),
+ 					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+-- 
+1.9.1
