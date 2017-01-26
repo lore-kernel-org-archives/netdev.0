@@ -1,64 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ip_rcv_finish() NULL pointer kernel panic
-Date: Thu, 26 Jan 2017 13:04:28 -0500 (EST)
-Message-ID: <20170126.130428.2050566986836855986.davem@davemloft.net>
-References: <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
-        <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170126162433.GB1778@breakpoint.cc>
+From: =?UTF-8?Q?Sean_Nyekj=c3=a6r?= <sean.nyekjaer@prevas.dk>
+Subject: Re: [PATCH v1] net: phy: micrel: add KSZ8795 ethernet switch
+Date: Thu, 26 Jan 2017 18:51:07 +0100
+Message-ID: <732c14ff-f0cf-67d5-bcf9-cbbf9a4391b3@prevas.dk>
+References: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
+ <20170123151219.GE10895@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, lkml@rkeene.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20170126162433.GB1778@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail02.prevas.se ([62.95.78.10]:13469 "EHLO mail02.prevas.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752183AbdAZSH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Jan 2017 13:07:56 -0500
+In-Reply-To: <20170123151219.GE10895@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 26 Jan 2017 17:24:33 +0100
 
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > Though possibly with different things not setting the "input" function 
->> > pointer in the "struct dst_entry".
->> > 
->> > include/net/dst.h:
->> >   496 static inline int dst_input(struct sk_buff *skb) {
->> >   498         return skb_dst(skb)->input(skb);
->> >   499 }
->> > 
->> > Is there any reason not to check to see if this pointer is NULL before 
->> > blindly calling it ?
->> 
->> Sure. It can not be NULL at this point.
->> 
->> Just look at the code in ip_rcv_finish() :
->> 
->> It first make sure to get a valid dst.
->> 
->> Something is broken, probably in bridge netfilter code.
->> 
->> I suspect the dst here points to &br->fake_rtable, and this is not
->> expected.
->> 
->> br_drop_fake_rtable() should have been called somewhere ...
-> 
-> I think it makes sense to set dst->incoming
-> to a stub in br_netfilter_rtable_init() to just kfree_skb()+
-> WARN_ON_ONCE(), no need to add code to ip stack or crash kernel
-> due to brnf bug.
 
-That would certainly make recovery from such bugs must better.
+On 2017-01-23 16:12, Andrew Lunn wrote:
+> On Mon, Jan 23, 2017 at 08:58:46AM +0100, Sean Nyekjaer wrote:
+>> This is add support for the PHYs in the KSZ8795 5port managed switch.
+>>
+>> It will allow to detect the link between the switch and the soc
+>> and uses the same read_status functions as the KSZ8873MLL switch.
+>>
+>> This ethernet switch have unfortunately the same phy id as KSZ8051.
+>>
+>> Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+>> ---
+>>   drivers/net/phy/micrel.c   | 14 ++++++++++++++
+>>   include/linux/micrel_phy.h |  2 ++
+>>   2 files changed, 16 insertions(+)
+>>
+>> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+>> index ea92d524d5a8..fa158ae5115b 100644
+>> --- a/drivers/net/phy/micrel.c
+>> +++ b/drivers/net/phy/micrel.c
+>> @@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
+>>   	.get_stats	= kszphy_get_stats,
+>>   	.suspend	= genphy_suspend,
+>>   	.resume		= genphy_resume,
+>> +}, {
+>> +	.phy_id		= PHY_ID_KSZ8795,
+>> +	.phy_id_mask	= MICREL_PHY_ID_MASK,
+>> +	.name		= "Micrel KSZ8795 Switch",
+> This name is confusing. You are adding support for the PHYs embedded
+> in the switch, not the switch itself. The phylib has no idea these
+> PHYs are inside a switch. It does not matter. It is just a PHY. Please
+> drop the word "Switch".
+>
+> Thanks
+> 	Andrew
+Okay i'll understand :-)
+I remove the word "Switch" from the commit message and phy name.
+The rest is okay?
+What is generally being done when to phy's have the same id, micrel have 
+done this many times...
 
-But I have to say that this netfilter bridging fake dst has caused
-several dozen bugs over the years, it is fundamentally a serious
-problem in and of itself.  It provides DST facilities by hand, in a
-static object, without using any of the usual methods for creating and
-facilitating dst objects.
-
-Therefore every time someone makes an adjustment to common dst code,
-this turd (and yes, it _is_ a turd) breaks.  Every single time.
-
-So in the long term, instead of polishing this turd, let's get rid of
-it.
+/Sean
