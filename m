@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 0/7] Refactor macvtap to re-use tap functionality by
- other virtual intefaces
-Date: Wed, 25 Jan 2017 23:06:59 -0500 (EST)
-Message-ID: <20170125.230659.1003672790271737098.davem@davemloft.net>
-References: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
+Subject: Re: [PATCH 0/1] pull request for net: batman-adv 2017-01-25
+Date: Wed, 25 Jan 2017 23:11:56 -0500 (EST)
+Message-ID: <20170125.231156.954335408559738848.davem@davemloft.net>
+References: <20170125162506.12642-1-sw@simonwunderlich.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mahesh@bandewar.net,
-        linux-kernel@vger.kernel.org
-To: sainath.grandhi@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sw@simonwunderlich.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55482 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750780AbdAZEL5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 23:11:57 -0500
+In-Reply-To: <20170125162506.12642-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sainath Grandhi <sainath.grandhi@intel.com>
-Date: Wed, 25 Jan 2017 13:25:32 -0800
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Date: Wed, 25 Jan 2017 17:25:05 +0100
 
-> Tap character devices can be implemented on other virtual interfaces like
-> ipvlan, similar to macvtap. Source code for tap functionality in macvtap
-> can be re-used for this purpose.
+> here is a bugfix for net which we would like to have integrated.
 > 
-> This patch series splits macvtap source into two modules, macvtap and tap.
-> This patch series also includes a patch for implementing tap character
-> device driver based on the IP-VLAN network interface, called ipvtap.
-> 
-> These patches are tested on x86 platform.
+> Please pull or let me know of any problem!
 
-Please resubmit this series, after you have waited for other feedback,
-with your Subject lines fixed.
-
-Subsystem prefixes in the Subject lines such as "TAP" and "IPVTAP"
-should be in all lowercase letters not all uppercase.
+Pulled, thanks.
