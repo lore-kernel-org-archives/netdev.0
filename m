@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V3 net-next 10/14] net/ena: use READ_ONCE to access completion descriptors
-Date: Fri, 27 Jan 2017 00:18:12 +0200
-Message-ID: <1485469096-5271-11-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V3 net-next 12/14] net/ena: change driver's default timeouts
+Date: Fri, 27 Jan 2017 00:18:14 +0200
+Message-ID: <1485469096-5271-13-git-send-email-netanel@annapurnalabs.com>
 References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,64 +14,54 @@ In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Completion descriptors are accessed from the driver and from the device.
-To avoid reading the old value, use READ_ONCE macro.
+The timeouts were too agressive and sometimes cause false alarms.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.h     | 1 +
- drivers/net/ethernet/amazon/ena/ena_eth_com.c | 8 ++++----
- 2 files changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c    | 4 ++--
+ drivers/net/ethernet/amazon/ena/ena_netdev.h | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.h b/drivers/net/ethernet/amazon/ena/ena_com.h
-index 509d7b8..c9b33ee 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.h
-@@ -33,6 +33,7 @@
- #ifndef ENA_COM
- #define ENA_COM
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index 5518b1f..8029e7c 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -36,9 +36,9 @@
+ /*****************************************************************************/
  
-+#include <linux/compiler.h>
- #include <linux/delay.h>
- #include <linux/dma-mapping.h>
- #include <linux/gfp.h>
-diff --git a/drivers/net/ethernet/amazon/ena/ena_eth_com.c b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-index 539c536..f999305 100644
---- a/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
-@@ -45,7 +45,7 @@ static inline struct ena_eth_io_rx_cdesc_base *ena_com_get_next_rx_cdesc(
- 	cdesc = (struct ena_eth_io_rx_cdesc_base *)(io_cq->cdesc_addr.virt_addr
- 			+ (head_masked * io_cq->cdesc_entry_size_in_bytes));
+ /* Timeout in micro-sec */
+-#define ADMIN_CMD_TIMEOUT_US (1000000)
++#define ADMIN_CMD_TIMEOUT_US (3000000)
  
--	desc_phase = (cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_PHASE_MASK) >>
-+	desc_phase = (READ_ONCE(cdesc->status) & ENA_ETH_IO_RX_CDESC_BASE_PHASE_MASK) >>
- 			ENA_ETH_IO_RX_CDESC_BASE_PHASE_SHIFT;
+-#define ENA_ASYNC_QUEUE_DEPTH 4
++#define ENA_ASYNC_QUEUE_DEPTH 16
+ #define ENA_ADMIN_QUEUE_DEPTH 32
  
- 	if (desc_phase != expected_phase)
-@@ -141,7 +141,7 @@ static inline u16 ena_com_cdesc_rx_pkt_get(struct ena_com_io_cq *io_cq,
+ #define MIN_ENA_VER (((ENA_COMMON_SPEC_VERSION_MAJOR) << \
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index f0ddc11..efe0ea1 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -100,7 +100,7 @@
+ /* Number of queues to check for missing queues per timer service */
+ #define ENA_MONITORED_TX_QUEUES	4
+ /* Max timeout packets before device reset */
+-#define MAX_NUM_OF_TIMEOUTED_PACKETS 32
++#define MAX_NUM_OF_TIMEOUTED_PACKETS 128
  
- 		ena_com_cq_inc_head(io_cq);
- 		count++;
--		last = (cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_LAST_MASK) >>
-+		last = (READ_ONCE(cdesc->status) & ENA_ETH_IO_RX_CDESC_BASE_LAST_MASK) >>
- 			ENA_ETH_IO_RX_CDESC_BASE_LAST_SHIFT;
- 	} while (!last);
+ #define ENA_TX_RING_IDX_NEXT(idx, ring_size) (((idx) + 1) & ((ring_size) - 1))
  
-@@ -489,13 +489,13 @@ int ena_com_tx_comp_req_id_get(struct ena_com_io_cq *io_cq, u16 *req_id)
- 	 * expected, it mean that the device still didn't update
- 	 * this completion.
- 	 */
--	cdesc_phase = cdesc->flags & ENA_ETH_IO_TX_CDESC_PHASE_MASK;
-+	cdesc_phase = READ_ONCE(cdesc->flags) & ENA_ETH_IO_TX_CDESC_PHASE_MASK;
- 	if (cdesc_phase != expected_phase)
- 		return -EAGAIN;
+@@ -116,9 +116,9 @@
+ #define ENA_IO_IRQ_IDX(q)		(ENA_IO_IRQ_FIRST_IDX + (q))
  
- 	ena_com_cq_inc_head(io_cq);
+ /* ENA device should send keep alive msg every 1 sec.
+- * We wait for 3 sec just to be on the safe side.
++ * We wait for 6 sec just to be on the safe side.
+  */
+-#define ENA_DEVICE_KALIVE_TIMEOUT	(3 * HZ)
++#define ENA_DEVICE_KALIVE_TIMEOUT	(6 * HZ)
  
--	*req_id = cdesc->req_id;
-+	*req_id = READ_ONCE(cdesc->req_id);
+ #define ENA_MMIO_DISABLE_REG_READ	BIT(0)
  
- 	return 0;
- }
 -- 
 2.7.4
