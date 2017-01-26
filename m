@@ -1,50 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: Fix ndo_setup_tc comment
-Date: Thu, 26 Jan 2017 14:44:17 -0800
-Message-ID: <20170126224417.10327-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, john.r.fastabend@intel.com, jiri@mellanox.com,
-        jhs@mojatatu.com, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35623 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752224AbdAZWoe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 17:44:34 -0500
-Received: by mail-pf0-f195.google.com with SMTP id f144so17249811pfa.2
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 14:44:23 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris Packham <Chris.Packham@alliedtelesis.co.nz>
+Subject: Re: [PATCHv3 4/5] arm: mvebu: Add device tree for 98DX3236 SoCs
+Date: Thu, 26 Jan 2017 22:52:53 +0000
+Message-ID: <ebe3bda3918548af8c98936703353e37@svr-chch-ex1.atlnz.lc>
+References: <20170105033641.6212-1-chris.packham@alliedtelesis.co.nz>
+ <20170106041517.9589-1-chris.packham@alliedtelesis.co.nz>
+ <20170106041517.9589-5-chris.packham@alliedtelesis.co.nz>
+ <87inp1zwlg.fsf@free-electrons.com>
+ <cca41061129f4378bfd41a66c8eb71e1@svr-chch-ex1.atlnz.lc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, Andrew Lunn <andrew@lunn.ch>,
+ Jason Cooper <jason@lakedaemon.net>,
+ "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Russell King <linux@armlinux.org.uk>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Rob Herring <robh+dt@kernel.org>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Commit 16e5cc647173 ("net: rework setup_tc ndo op to consume
-general tc operand") changed the ndo_setup_tc() signature, but did not
-update the comments in netdevice.h, so do that now.
+On 27/01/17 09:24, Chris Packham wrote:
+> On 27/01/17 04:10, Gregory CLEMENT wrote:
+>>> +		internal-regs {
+>
+> [snip]
+>
+>>> +
+>>> +		dfx-registers {
+>> node label
+>>
+>
+> [snip]
+>
+>>> +		switch {
+>> node label
+>>
+>
+> These are peers to the internal-regs, i.e. parts of the SoC with
+> mappable windows in the address space. Do they really need a label?
+> Their subnodes absolutely need (and have) labels.
+>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/linux/netdevice.h | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3868c32d98af..d63cacb67ea6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -964,11 +964,12 @@ struct netdev_xdp {
-  *      with PF and querying it may introduce a theoretical security risk.
-  * int (*ndo_set_vf_rss_query_en)(struct net_device *dev, int vf, bool setting);
-  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
-- * int (*ndo_setup_tc)(struct net_device *dev, u8 tc)
-- * 	Called to setup 'tc' number of traffic classes in the net device. This
-- * 	is always called from the stack with the rtnl lock held and netif tx
-- * 	queues stopped. This allows the netdevice to perform queue management
-- * 	safely.
-+ * int (*ndo_setup_tc)(struct net_device *dev, u32 handle,
-+ *		       __be16 protocol, struct tc_to_netdev *tc);
-+ *	Called to setup any 'tc' scheduler, classifier or action on @dev.
-+ *	This is always called from the stack with the rtnl lock held and netif
-+ *	tx queues stopped. This allows the netdevice to perform queue
-+ *	management safely.
-  *
-  *	Fiber Channel over Ethernet (FCoE) offload functions.
-  * int (*ndo_fcoe_enable)(struct net_device *dev);
--- 
-2.9.3
+Actually the pci-controller is in the same category and that has a label 
+so I'll add one.
