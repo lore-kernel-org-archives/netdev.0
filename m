@@ -1,42 +1,48 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 1/7] batman-adv: Start new development cycle
-Date: Thu, 26 Jan 2017 17:43:58 +0100
-Message-ID: <20170126164404.16074-2-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 5/7] batman-adv: Remove unused variable in batadv_tt_local_set_flags
+Date: Thu, 26 Jan 2017 17:44:02 +0100
+Message-ID: <20170126164404.16074-6-sw@simonwunderlich.de>
 References: <20170126164404.16074-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170126164404.16074-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Sven Eckelmann <sven@narfation.org>,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:54088 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752721AbdAZQoR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 11:44:17 -0500
+In-Reply-To: <20170126164404.16074-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+From: Sven Eckelmann <sven@narfation.org>
+
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/main.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/translation-table.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index a6cc8040a21d..8683542067ba 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -24,7 +24,7 @@
- #define BATADV_DRIVER_DEVICE "batman-adv"
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 941afad92121..6077a87d46f0 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -3714,7 +3714,6 @@ static void batadv_tt_local_set_flags(struct batadv_priv *bat_priv, u16 flags,
+ {
+ 	struct batadv_hashtable *hash = bat_priv->tt.local_hash;
+ 	struct batadv_tt_common_entry *tt_common_entry;
+-	u16 changed_num = 0;
+ 	struct hlist_head *head;
+ 	u32 i;
  
- #ifndef BATADV_SOURCE_VERSION
--#define BATADV_SOURCE_VERSION "2016.5"
-+#define BATADV_SOURCE_VERSION "2017.0"
- #endif
+@@ -3736,7 +3735,6 @@ static void batadv_tt_local_set_flags(struct batadv_priv *bat_priv, u16 flags,
+ 					continue;
+ 				tt_common_entry->flags &= ~flags;
+ 			}
+-			changed_num++;
  
- /* B.A.T.M.A.N. parameters */
+ 			if (!count)
+ 				continue;
 -- 
 2.11.0
