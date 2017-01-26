@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V3 net-next 07/14] net/ena: refactor ena_get_stats64 to be atomic context safe
-Date: Fri, 27 Jan 2017 00:18:09 +0200
-Message-ID: <1485469096-5271-8-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V3 net-next 09/14] net/ena: use napi_complete_done() return value
+Date: Fri, 27 Jan 2017 00:18:11 +0200
+Message-ID: <1485469096-5271-10-git-send-email-netanel@annapurnalabs.com>
 References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -9,141 +9,83 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         nafea@annapurnalabs.com, eric.dumazet@gmail.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:37256 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754228AbdAZWSt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 17:18:49 -0500
+Received: by mail-wm0-f49.google.com with SMTP id c206so108565061wme.0
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 14:18:49 -0800 (PST)
 In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ndo_get_stat64() can be called from atomic context, but the current
-implementation sends an admin command to retrieve the statistics from
-the device. This admin command can sleep.
-
-This patch re-factors the implementation of ena_get_stats64() to use
-the {rx,tx}bytes/count from the driver's inner counters, and to obtain
-the rx drop counter from the asynchronous keep alive (heart bit)
-event.
+Do not unamsk interrupts if we are in busy poll mode.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  8 ++++
- drivers/net/ethernet/amazon/ena/ena_netdev.c     | 57 +++++++++++++++++-------
- drivers/net/ethernet/amazon/ena/ena_netdev.h     |  1 +
- 3 files changed, 51 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 44 ++++++++++++++++++----------
+ 1 file changed, 29 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-index e1594d6..5b6509d 100644
---- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-@@ -873,6 +873,14 @@ struct ena_admin_aenq_link_change_desc {
- 	u32 flags;
- };
- 
-+struct ena_admin_aenq_keep_alive_desc {
-+	struct ena_admin_aenq_common_desc aenq_common_desc;
-+
-+	u32 rx_drops_low;
-+
-+	u32 rx_drops_high;
-+};
-+
- struct ena_admin_ena_mmio_req_read_less_resp {
- 	u16 req_id;
- 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 639f0aa..ea3c801 100644
+index 606fb5c..d1e1d9d 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2169,28 +2169,46 @@ static struct rtnl_link_stats64 *ena_get_stats64(struct net_device *netdev,
- 						 struct rtnl_link_stats64 *stats)
- {
- 	struct ena_adapter *adapter = netdev_priv(netdev);
--	struct ena_admin_basic_stats ena_stats;
--	int rc;
-+	struct ena_ring *rx_ring, *tx_ring;
-+	unsigned int start;
-+	u64 rx_drops;
-+	int i;
+@@ -1122,26 +1122,40 @@ static int ena_io_poll(struct napi_struct *napi, int budget)
+ 	tx_work_done = ena_clean_tx_irq(tx_ring, tx_budget);
+ 	rx_work_done = ena_clean_rx_irq(rx_ring, napi, budget);
  
- 	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags))
- 		return NULL;
+-	if ((budget > rx_work_done) && (tx_budget > tx_work_done)) {
+-		napi_complete_done(napi, rx_work_done);
++	/* If the device is about to reset or down, avoid unmask
++	 * the interrupt and return 0 so NAPI won't reschedule
++	 */
++	if (unlikely(!test_bit(ENA_FLAG_DEV_UP, &tx_ring->adapter->flags) ||
++		     test_bit(ENA_FLAG_TRIGGER_RESET, &tx_ring->adapter->flags))) {
++		napi_complete_done(napi, 0);
++		ret = 0;
  
--	rc = ena_com_get_dev_basic_stats(adapter->ena_dev, &ena_stats);
--	if (rc)
--		return NULL;
-+	for (i = 0; i < adapter->num_queues; i++) {
-+		u64 bytes, packets;
++	} else if ((budget > rx_work_done) && (tx_budget > tx_work_done)) {
+ 		napi_comp_call = 1;
+-		/* Tx and Rx share the same interrupt vector */
+-		if (ena_com_get_adaptive_moderation_enabled(rx_ring->ena_dev))
+-			ena_adjust_intr_moderation(rx_ring, tx_ring);
+ 
+-		/* Update intr register: rx intr delay, tx intr delay and
+-		 * interrupt unmask
++		/* Update numa and unmask the interrupt only when schedule
++		 * from the interrupt context (vs from sk_busy_loop)
+ 		 */
+-		ena_com_update_intr_reg(&intr_reg,
+-					rx_ring->smoothed_interval,
+-					tx_ring->smoothed_interval,
+-					true);
++		if (napi_complete_done(napi, rx_work_done)) {
++			/* Tx and Rx share the same interrupt vector */
++			if (ena_com_get_adaptive_moderation_enabled(rx_ring->ena_dev))
++				ena_adjust_intr_moderation(rx_ring, tx_ring);
 +
-+		tx_ring = &adapter->tx_ring[i];
++			/* Update intr register: rx intr delay,
++			 * tx intr delay and interrupt unmask
++			 */
++			ena_com_update_intr_reg(&intr_reg,
++						rx_ring->smoothed_interval,
++						tx_ring->smoothed_interval,
++						true);
 +
-+		do {
-+			start = u64_stats_fetch_begin_irq(&tx_ring->syncp);
-+			packets = tx_ring->tx_stats.cnt;
-+			bytes = tx_ring->tx_stats.bytes;
-+		} while (u64_stats_fetch_retry_irq(&tx_ring->syncp, start));
-+
-+		stats->tx_packets += packets;
-+		stats->tx_bytes += bytes;
++			/* It is a shared MSI-X.
++			 * Tx and Rx CQ have pointer to it.
++			 * So we use one of them to reach the intr reg
++			 */
++			ena_com_unmask_intr(rx_ring->ena_com_io_cq, &intr_reg);
++		}
  
--	stats->tx_bytes = ((u64)ena_stats.tx_bytes_high << 32) |
--		ena_stats.tx_bytes_low;
--	stats->rx_bytes = ((u64)ena_stats.rx_bytes_high << 32) |
--		ena_stats.rx_bytes_low;
-+		rx_ring = &adapter->rx_ring[i];
-+
-+		do {
-+			start = u64_stats_fetch_begin_irq(&rx_ring->syncp);
-+			packets = rx_ring->rx_stats.cnt;
-+			bytes = rx_ring->rx_stats.bytes;
-+		} while (u64_stats_fetch_retry_irq(&rx_ring->syncp, start));
+-		/* It is a shared MSI-X. Tx and Rx CQ have pointer to it.
+-		 * So we use one of them to reach the intr reg
+-		 */
+-		ena_com_unmask_intr(rx_ring->ena_com_io_cq, &intr_reg);
  
--	stats->rx_packets = ((u64)ena_stats.rx_pkts_high << 32) |
--		ena_stats.rx_pkts_low;
--	stats->tx_packets = ((u64)ena_stats.tx_pkts_high << 32) |
--		ena_stats.tx_pkts_low;
-+		stats->rx_packets += packets;
-+		stats->rx_bytes += bytes;
-+	}
-+
-+	do {
-+		start = u64_stats_fetch_begin_irq(&adapter->syncp);
-+		rx_drops = adapter->dev_stats.rx_drops;
-+	} while (u64_stats_fetch_retry_irq(&adapter->syncp, start));
+ 		ena_update_ring_numa_node(tx_ring, rx_ring);
  
--	stats->rx_dropped = ((u64)ena_stats.rx_drops_high << 32) |
--		ena_stats.rx_drops_low;
-+	stats->rx_dropped = rx_drops;
- 
- 	stats->multicast = 0;
- 	stats->collisions = 0;
-@@ -3213,8 +3231,17 @@ static void ena_keep_alive_wd(void *adapter_data,
- 			      struct ena_admin_aenq_entry *aenq_e)
- {
- 	struct ena_adapter *adapter = (struct ena_adapter *)adapter_data;
-+	struct ena_admin_aenq_keep_alive_desc *desc;
-+	u64 rx_drops;
- 
-+	desc = (struct ena_admin_aenq_keep_alive_desc *)aenq_e;
- 	adapter->last_keep_alive_jiffies = jiffies;
-+
-+	rx_drops = ((u64)desc->rx_drops_high << 32) | desc->rx_drops_low;
-+
-+	u64_stats_update_begin(&adapter->syncp);
-+	adapter->dev_stats.rx_drops = rx_drops;
-+	u64_stats_update_end(&adapter->syncp);
- }
- 
- static void ena_notification(void *adapter_data,
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index 69d7e9e..f0ddc11 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -241,6 +241,7 @@ struct ena_stats_dev {
- 	u64 interface_up;
- 	u64 interface_down;
- 	u64 admin_q_pause;
-+	u64 rx_drops;
- };
- 
- enum ena_flags_t {
 -- 
 2.7.4
