@@ -1,102 +1,89 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 0/6 v3] kvmalloc
-Date: Thu, 26 Jan 2017 14:40:04 +0100
-Message-ID: <20170126134004.GM6590@dhcp22.suse.cz>
-References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
- <588907AA.1020704@iogearbox.net>
- <20170126074354.GB8456@dhcp22.suse.cz>
- <5889C331.7020101@iogearbox.net>
- <20170126100802.GF6590@dhcp22.suse.cz>
- <5889DEA3.7040106@iogearbox.net>
- <20170126115833.GI6590@dhcp22.suse.cz>
- <5889F52E.7030602@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IPv6-UDP 0x0000 checksum
+Date: Thu, 26 Jan 2017 05:44:59 -0800
+Message-ID: <1485438299.5145.117.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485437276.14760.3.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
-	Johannes Weiner <hannes@cmpxchg.org>, linux-mm <linux-mm@kvack.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	marcelo.leitner@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <5889F52E.7030602@iogearbox.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+        linux-wireless <linux-wireless@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:32868 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752208AbdAZNpB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 08:45:01 -0500
+In-Reply-To: <1485437276.14760.3.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 26-01-17 14:10:06, Daniel Borkmann wrote:
-> On 01/26/2017 12:58 PM, Michal Hocko wrote:
-> > On Thu 26-01-17 12:33:55, Daniel Borkmann wrote:
-> > > On 01/26/2017 11:08 AM, Michal Hocko wrote:
-> > [...]
-> > > > If you disagree I can drop the bpf part of course...
-> > > 
-> > > If we could consolidate these spots with kvmalloc() eventually, I'm
-> > > all for it. But even if __GFP_NORETRY is not covered down to all
-> > > possible paths, it kind of does have an effect already of saying
-> > > 'don't try too hard', so would it be harmful to still keep that for
-> > > now? If it's not, I'd personally prefer to just leave it as is until
-> > > there's some form of support by kvmalloc() and friends.
-> > 
-> > Well, you can use kvmalloc(size, GFP_KERNEL|__GFP_NORETRY). It is not
-> > disallowed. It is not _supported_ which means that if it doesn't work as
-> > you expect you are on your own. Which is actually the situation right
-> > now as well. But I still think that this is just not right thing to do.
-> > Even though it might happen to work in some cases it gives a false
-> > impression of a solution. So I would rather go with
+On Thu, 2017-01-26 at 14:27 +0100, Johannes Berg wrote:
+> Hi,
 > 
-> Hmm. 'On my own' means, we could potentially BUG somewhere down the
-> vmalloc implementation, etc, presumably? So it might in-fact be
-> harmful to pass that, right?
-
-No it would mean that it might eventually hit the behavior which you are
-trying to avoid - in other words it may invoke OOM killer even though
-__GFP_NORETRY means giving up before any system wide disruptive actions
-a re taken.
-
+> It looks like right now we may have a hardware bug and accept 0x0000 as
+> valid, when the outcome of the calculation is 0xffff.
 > 
-> > diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> > index 8697f43cf93c..a6dc4d596f14 100644
-> > --- a/kernel/bpf/syscall.c
-> > +++ b/kernel/bpf/syscall.c
-> > @@ -53,6 +53,11 @@ void bpf_register_map_type(struct bpf_map_type_list *tl)
-> > 
-> >   void *bpf_map_area_alloc(size_t size)
-> >   {
-> > +	/*
-> > +	 * FIXME: we would really like to not trigger the OOM killer and rather
-> > +	 * fail instead. This is not supported right now. Please nag MM people
-> > +	 * if these OOM start bothering people.
-> > +	 */
+> What do you think we should do about this?
 > 
-> Ok, I know this is out of scope for this series, but since i) this
-> is _not_ the _only_ spot right now which has such a construct and ii)
-> I am already kind of nagging a bit ;), my question would be, what
-> would it take to start supporting it?
+> We could ignore the issue entirely, since 0 wasn't ever supposed to be
+> sent anyway - but then we don't drop frames that we should drop. I
+> didn't manage to find the code in the IPv6/UDP stack that even does
+> that, but I assume it's there somewhere.
+> 
+> Alternatively, we could parse the packet to find the checksum inside,
+> and if it's 0 then don't report CHECKSUM_UNNECESSARY, but that seems
+> rather expensive/difficult due to the IPv6 variable header and all
+> that. If we wanted to go this route, are there any helper functions for
+> this?
+> 
+> Unfortunately, in the current devices, we neither have a complete
+> indication that the packet was even UDP-IPv6, nor do we have the raw
+> csum or anything like that. I think they're adding that to the next
+> hardware spin, but we probably need to address this issue now.
+> 
+> johannes
 
-propagate gfp mask all the way down from vmalloc to all places which
-might allocate down the path and especially page table allocation
-function are PITA because they are really deep. This is a lot of work...
+Hi Johannes
 
-But realistically, how big is this problem really? Is it really worth
-it? You said this is an admin only interface and admin can kill the
-machine by OOM and other means already.
+I am afraid information is missing.
 
-Moreover and I should probably mention it explicitly, your d407bd25a204b
-reduced the likelyhood of oom for other reason. kmalloc used GPF_USER
-previously and with order > 0 && order <= PAGE_ALLOC_COSTLY_ORDER this
-could indeed hit the OOM e.g. due to memory fragmentation. It would be
-much harder to hit the OOM killer from vmalloc which doesn't issue
-higher order allocation requests. Or have you ever seen the OOM killer
-pointing to the vmalloc fallback path?
--- 
-Michal Hocko
-SUSE Labs
+Is this a xmit or rcv problem ?
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I recently fixed an issue, could this be this ?
+
+commit 4f2e4ad56a65f3b7d64c258e373cb71e8d2499f4
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sat Oct 29 11:02:36 2016 -0700
+
+    net: mangle zero checksum in skb_checksum_help()
+    
+    Sending zero checksum is ok for TCP, but not for UDP.
+    
+    UDPv6 receiver should by default drop a frame with a 0 checksum,
+    and UDPv4 would not verify the checksum and might accept a corrupted
+    packet.
+    
+    Simply replace such checksum by 0xffff, regardless of transport.
+    
+    This error was caught on SIT tunnels, but seems generic.
+    
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Cc: Maciej Żenczykowski <maze@google.com>
+    Cc: Willem de Bruijn <willemb@google.com>
+    Acked-by: Maciej Żenczykowski <maze@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 820bac239738eb021354ac95ca5bbdff1840cb8e..eaad4c28069ff523ac784bf2dffd0acff82341a0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2484,7 +2484,7 @@ int skb_checksum_help(struct sk_buff *skb)
+                        goto out;
+        }
+ 
+-       *(__sum16 *)(skb->data + offset) = csum_fold(csum);
++       *(__sum16 *)(skb->data + offset) = csum_fold(csum) ?: CSUM_MANGLED_0;
+ out_set_summed:
+        skb->ip_summed = CHECKSUM_NONE;
+ out:
