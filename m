@@ -1,41 +1,27 @@
-From: Jan =?ISO-8859-1?Q?L=FCbbe?= <jlu-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH] net: ethernet: mvneta: add support for 2.5G DRSGMII mode
-Date: Thu, 26 Jan 2017 09:17:11 +0100
-Message-ID: <1485418631.5508.146.camel@pengutronix.de>
-References: <20170123142206.5390-1-jlu@pengutronix.de>
-         <20170125.123806.790914338952471404.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/2] mac80211: use helper function to access
+ ieee802_1d_to_ac[]
+Date: Thu, 26 Jan 2017 09:51:24 +0100
+Message-ID: <1485420684.11038.2.camel@sipsolutions.net>
+References: <1485272531-11587-1-git-send-email-amadeusz.slawinski@tieto.com>
+         (sfid-20170124_164227_980319_47DCDD4D)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170125.123806.790914338952471404.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Amadeusz =?UTF-8?Q?S=C5=82awi=C5=84ski?=
+        <amadeusz.slawinski@tieto.com>, linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485272531-11587-1-git-send-email-amadeusz.slawinski@tieto.com> (sfid-20170124_164227_980319_47DCDD4D)
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mi, 2017-01-25 at 12:38 -0500, David Miller wrote:
-> I still haven't seen a sufficient explanation as to why this change
-> works without any explicit MAC programming changes to this driver.
-> 
-> That really needs to be explained before I will apply this patch.
+On Tue, 2017-01-24 at 16:42 +0100, Amadeusz Sławiński wrote:
+> cleanup patch to make use of ieee80211_ac_from_tid() to retrieve ac
+> from
+> ieee802_1d_to_ac[]
 
-I'll need to recheck this with the documentation and will also check
-what/if changes need to be done for ethtool and adjust_link as Andrew
-Lunn mentioned. So in any case there will be a v2 as soon as I figure
-out those details.
+Applied.
 
-Thanks,
-Jan
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+johannes
