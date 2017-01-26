@@ -1,40 +1,34 @@
-From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V3 net-next 03/14] net/ena: fix queues number calculation
-Date: Fri, 27 Jan 2017 00:18:05 +0200
-Message-ID: <1485469096-5271-4-git-send-email-netanel@annapurnalabs.com>
-References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
-Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
-        zorik@annapurnalabs.com, alex@annapurnalabs.com,
-        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
-        nafea@annapurnalabs.com, eric.dumazet@gmail.com
-To: linux-kernel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: ipv6: remove skb_reserve in getroute
+Date: Thu, 26 Jan 2017 14:29:33 -0800
+Message-ID: <1485469773.5145.178.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485468516-4750-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33428 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751957AbdAZWbT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 17:31:19 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 194so23343748pgd.0
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 14:29:35 -0800 (PST)
+In-Reply-To: <1485468516-4750-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ENA driver tries to open a queue per vCPU.
-To determine how many vCPUs the instance have it uses num_possible_cpus()
-while it should have use num_online_cpus() instead.
+On Thu, 2017-01-26 at 14:08 -0800, David Ahern wrote:
+> Remove skb_reserve and skb_reset_mac_header from inet6_rtm_getroute. The
+> allocated skb is not passed through the routing engine (like it is for
+> IPv4) and has not since the beginning of git time.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  net/ipv6/route.c | 6 ------
+>  1 file changed, 6 deletions(-)
 
-Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
----
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Nice ;)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index cb60567..f409cfd 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2660,7 +2660,7 @@ static int ena_calc_io_queue_num(struct pci_dev *pdev,
- 		io_sq_num = get_feat_ctx->max_queues.max_sq_num;
- 	}
- 
--	io_queue_num = min_t(int, num_possible_cpus(), ENA_MAX_NUM_IO_QUEUES);
-+	io_queue_num = min_t(int, num_online_cpus(), ENA_MAX_NUM_IO_QUEUES);
- 	io_queue_num = min_t(int, io_queue_num, io_sq_num);
- 	io_queue_num = min_t(int, io_queue_num,
- 			     get_feat_ctx->max_queues.max_cq_num);
--- 
-2.7.4
+Acked-by: Eric Dumazet <edumazet@google.com>
