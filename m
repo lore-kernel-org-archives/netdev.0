@@ -1,42 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net v2 3/3] gtp: fix cross netns recv on gtp socket
-Date: Thu, 26 Jan 2017 16:34:40 +0100
-Message-ID: <20170126153440.GC1763@salvia>
-References: <20170126151134.2892-1-aschultz@tpip.net>
- <20170126151134.2892-4-aschultz@tpip.net>
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Subject: Re: [PATCH v2 0/4] USB support for Broadcom NSP SoC
+Date: Thu, 26 Jan 2017 21:04:18 +0530
+Message-ID: <588A16FA.50507@ti.com>
+References: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <bcm-kernel-feedback-list@broadcom.com>,
+        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+To: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Ray Jui <rjui@broadcom.com>,
+        Scott Branden <sbranden@broadcom.com>,
+        Jon Mason <jonmason@broadcom.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50268 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753368AbdAZPeu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 10:34:50 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 4E4D01125E
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 16:34:48 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3B4AEA7DC6
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 16:34:48 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 6AC81A7BF0
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 16:34:45 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <20170126151134.2892-4-aschultz@tpip.net>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:63003 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752794AbdAZPfG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 10:35:06 -0500
+In-Reply-To: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 26, 2017 at 04:11:34PM +0100, Andreas Schultz wrote:
-> The use of the passed through netlink src_net to check for a
-> cross netns operation was wrong. Using the GTP socket and the
-> GTP netdevice is always correct (even if the netdev has been
-> moved to new netns after link creation).
-> 
-> Remove the now obsolete net field from gtp_dev.
-> 
-> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+On Tuesday 17 January 2017 09:44 PM, Yendapally Reddy Dhananjaya Reddy wrote:
+> This patch set contains the usb support for Broadcom NSP SoC. The
+> usb3 phy is internal to the SoC and is accessed through mdio interface.
+> The mdio interface can be used to access either internal usb3 phy or
+> external ethernet phy using a multiplexer.
+> 
+> The first patch provides the documentation details for usb3 phy. The
+> second patch provides the changes to the mdio bus driver. The third
+> patch provides the phy driver and fourth patch provides the enable
+> method for usb.
+
+merged the 1st and 4th patch to linux-phy.
+
+Thanks
+Kishon
+
+> 
+> This patch series has been tested on NSP bcm958625HR board.
+> This patch series is based on v4.10.0-rc3 and is available from
+> github-repo: https://github.com/Broadcom/cygnus-linux.git
+> branch:nsp-usb-v2
+> 
+> Changes in v2:
+> * Remove separate nsp mux driver as suggested by Andrew Lunn
+> * Addressed comments from Scott and Rob
+> 
+> Yendapally Reddy Dhananjaya Reddy (4):
+>   dt-bindings: phy: Add documentation for NSP USB3 PHY
+>   net: phy: Initialize mdio clock at probe function
+>   phy: Add USB3 PHY support for Broadcom NSP SoC
+>   arm: dts: nsp: Add USB nodes to device tree
+> 
+>  .../devicetree/bindings/phy/brcm,nsp-usb3-phy.txt  |  39 +++++
+>  arch/arm/boot/dts/bcm-nsp.dtsi                     |  56 +++++++
+>  arch/arm/boot/dts/bcm958625k.dts                   |  16 ++
+>  drivers/net/phy/mdio-bcm-iproc.c                   |   6 +-
+>  drivers/phy/Kconfig                                |   8 +
+>  drivers/phy/Makefile                               |   1 +
+>  drivers/phy/phy-bcm-nsp-usb3.c                     | 176 +++++++++++++++++++++
+>  7 files changed, 298 insertions(+), 4 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
+>  create mode 100644 drivers/phy/phy-bcm-nsp-usb3.c
+> 
