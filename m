@@ -1,26 +1,46 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net v2 0/3] various gtp fixes
-Date: Thu, 26 Jan 2017 16:11:31 +0100
-Message-ID: <20170126151134.2892-1-aschultz@tpip.net>
-Cc: netdev@vger.kernel.org,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
-To: Pablo Neira <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:49545 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752681AbdAZPLl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 10:11:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rafal Ozieblo <rafalo@cadence.com>
+Subject: RE: [PATCH net-next v2] macb: Common code to enable ptp support for
+ MACB/GEM
+Date: Thu, 26 Jan 2017 15:15:58 +0000
+Message-ID: <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
+References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "punnaia@xilinx.com" <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        "anirudh@xilinx.com" <anirudh@xilinx.com>,
+        "boris.brezillon@free-electrons.com"
+        <boris.brezillon@free-electrons.com>,
+        "alexandre.belloni@free-electrons.com"
+        <alexandre.belloni@free-electrons.com>,
+        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>
+To: Andrei Pistirica <andrei.pistirica@microchip.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is the part of the previous "simple gtp improvements" series
-that Pablo indicated should go into net.
-
-The addition of the module alias fixes genl family autoloading,
-clearing the DF bit fixes a protocol violation in regard to the
-specification and the netns comparison fixes a corner case of
-cross netns recv.
-
-I'm not sure if Pablos comments on the previous version qualify
-as ACK, so I left that out.
+> -----Original Message-----
+> From: Andrei Pistirica [mailto:andrei.pistirica@microchip.com]=20
+> Sent: 19 stycznia 2017 16:56
+> Subject: [PATCH net-next v2] macb: Common code to enable ptp support for =
+MACB/GEM
+>=20
+> =20
+> +static inline bool gem_has_ptp(struct macb *bp)
+> +{
+> +	return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
+> +}
+Why don't you use hardware capabilities here? Would it be better to read it=
+ from hardware instead adding it to many configuration?
