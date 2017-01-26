@@ -1,104 +1,72 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH net-next 1/3] trace: add variant without spacing in
- trace_print_hex_seq
-Date: Thu, 26 Jan 2017 16:53:06 -0300
-Message-ID: <20170126195306.GD17504@kernel.org>
-References: <cover.1485306168.git.daniel@iogearbox.net>
- <f860273ed9fd0c423f4d1ee2ab93565992d76ff4.1485306168.git.daniel@iogearbox.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: Avoid accessing skb after submitting to
+ input queue
+Date: Thu, 26 Jan 2017 11:52:35 -0800
+Message-ID: <20170126195235.GA3875@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ast@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0073.outbound.protection.outlook.com ([104.47.38.73]:12512
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753184AbdAZTxv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Jan 2017 14:53:51 -0500
 Content-Disposition: inline
-In-Reply-To: <f860273ed9fd0c423f4d1ee2ab93565992d76ff4.1485306168.git.daniel@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Wed, Jan 25, 2017 at 02:28:16AM +0100, Daniel Borkmann escreveu:
-> For upcoming tracepoint support for BPF, we want to dump the program's
-> tag. Format should be similar to __print_hex(), but without spacing.
-> Add a __print_hex_str() variant for exactly that purpose that reuses
-> trace_print_hex_seq().
+From: Satanand Burla <satananda.burla@cavium.com>
 
-Steven should be back to his side of the wall soon, will wait for his
-Ack, ok?
+Accessing skb after submitting to input queue can cause
+access to stale pointers if the skb ends up being transmitted
+and freed by that time.
 
-- Arnaldo
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 6 +++---
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 6 +++---
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 5ee3f00..9261ddc 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -3316,11 +3316,11 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
  
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Steven Rostedt <rostedt@goodmis.org>
-> Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-> ---
->  include/linux/trace_events.h | 3 ++-
->  include/trace/trace_events.h | 8 +++++++-
->  kernel/trace/trace_output.c  | 7 ++++---
->  3 files changed, 13 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
-> index be00761..cfa475a 100644
-> --- a/include/linux/trace_events.h
-> +++ b/include/linux/trace_events.h
-> @@ -33,7 +33,8 @@ const char *trace_print_bitmask_seq(struct trace_seq *p, void *bitmask_ptr,
->  				    unsigned int bitmask_size);
->  
->  const char *trace_print_hex_seq(struct trace_seq *p,
-> -				const unsigned char *buf, int len);
-> +				const unsigned char *buf, int len,
-> +				bool spacing);
->  
->  const char *trace_print_array_seq(struct trace_seq *p,
->  				   const void *buf, int count,
-> diff --git a/include/trace/trace_events.h b/include/trace/trace_events.h
-> index 467e12f..9f68462 100644
-> --- a/include/trace/trace_events.h
-> +++ b/include/trace/trace_events.h
-> @@ -297,7 +297,12 @@
->  #endif
->  
->  #undef __print_hex
-> -#define __print_hex(buf, buf_len) trace_print_hex_seq(p, buf, buf_len)
-> +#define __print_hex(buf, buf_len)					\
-> +	trace_print_hex_seq(p, buf, buf_len, true)
-> +
-> +#undef __print_hex_str
-> +#define __print_hex_str(buf, buf_len)					\
-> +	trace_print_hex_seq(p, buf, buf_len, false)
->  
->  #undef __print_array
->  #define __print_array(array, count, el_size)				\
-> @@ -711,6 +716,7 @@
->  #undef __print_flags
->  #undef __print_symbolic
->  #undef __print_hex
-> +#undef __print_hex_str
->  #undef __get_dynamic_array
->  #undef __get_dynamic_array_len
->  #undef __get_str
-> diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
-> index 5d33a73..30a144b1 100644
-> --- a/kernel/trace/trace_output.c
-> +++ b/kernel/trace/trace_output.c
-> @@ -163,14 +163,15 @@ enum print_line_t trace_print_printk_msg_only(struct trace_iterator *iter)
->  EXPORT_SYMBOL_GPL(trace_print_bitmask_seq);
->  
->  const char *
-> -trace_print_hex_seq(struct trace_seq *p, const unsigned char *buf, int buf_len)
-> +trace_print_hex_seq(struct trace_seq *p, const unsigned char *buf, int buf_len,
-> +		    bool spacing)
->  {
->  	int i;
->  	const char *ret = trace_seq_buffer_ptr(p);
->  
->  	for (i = 0; i < buf_len; i++)
-> -		trace_seq_printf(p, "%s%2.2x", i == 0 ? "" : " ", buf[i]);
-> -
-> +		trace_seq_printf(p, "%s%2.2x", !spacing || i == 0 ? "" : " ",
-> +				 buf[i]);
->  	trace_seq_putc(p, 0);
->  
->  	return ret;
-> -- 
-> 1.9.3
+ 	netif_trans_update(netdev);
+ 
+-	if (skb_shinfo(skb)->gso_size)
+-		stats->tx_done += skb_shinfo(skb)->gso_segs;
++	if (tx_info->s.gso_segs)
++		stats->tx_done += tx_info->s.gso_segs;
+ 	else
+ 		stats->tx_done++;
+-	stats->tx_tot_bytes += skb->len;
++	stats->tx_tot_bytes += ndata.datasize;
+ 
+ 	return NETDEV_TX_OK;
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index e96cf6c..a6587d7 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -2433,11 +2433,11 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 	netif_trans_update(netdev);
+ 
+-	if (skb_shinfo(skb)->gso_size)
+-		stats->tx_done += skb_shinfo(skb)->gso_segs;
++	if (tx_info->s.gso_segs)
++		stats->tx_done += tx_info->s.gso_segs;
+ 	else
+ 		stats->tx_done++;
+-	stats->tx_tot_bytes += skb->len;
++	stats->tx_tot_bytes += ndata.datasize;
+ 
+ 	return NETDEV_TX_OK;
