@@ -1,7 +1,7 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/5] gtp: Improve another size determination in ipv4_pdp_add()
-Date: Thu, 26 Jan 2017 11:18:09 +0100
-Message-ID: <91f31650-3052-507c-8006-96874107f981@users.sourceforge.net>
+Subject: [PATCH 4/5] gtp: Rename jump labels in gtp_encap_enable()
+Date: Thu, 26 Jan 2017 11:20:28 +0100
+Message-ID: <78c09980-bc36-f474-8a26-541f90ca55c4@users.sourceforge.net>
 References: <698070a4-e08e-78e5-0214-df69783cce22@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -19,29 +19,54 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Wed, 25 Jan 2017 22:24:08 +0100
+Date: Thu, 26 Jan 2017 10:48:40 +0100
 
-Replace the specification of a data type by a pointer dereference
-as the parameter for the operator "sizeof" to make the corresponding size
-determination a bit safer according to the Linux coding style convention.
+Adjust jump labels according to the Linux coding style convention.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/gtp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/gtp.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 5d0d520ae40f..f0c123101aa9 100644
+index 7e38786361d8..2d4ddc000919 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -956,7 +956,7 @@ static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
- 
+@@ -840,20 +840,20 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 	if (sock0->sk->sk_protocol != IPPROTO_UDP) {
+ 		netdev_dbg(dev, "socket fd=%d not UDP\n", fd_gtp0);
+ 		err = -EINVAL;
+-		goto err1;
++		goto put_socket;
  	}
  
--	pctx = kmalloc(sizeof(struct pdp_ctx), GFP_KERNEL);
-+	pctx = kmalloc(sizeof(*pctx), GFP_KERNEL);
- 	if (pctx == NULL)
- 		return -ENOMEM;
+ 	sock1u = sockfd_lookup(fd_gtp1, &err);
+ 	if (!sock1u) {
+ 		netdev_dbg(dev, "socket fd=%d not found (gtp1u)\n", fd_gtp1);
+ 		err = -ENOENT;
+-		goto err1;
++		goto put_socket;
+ 	}
  
+ 	if (sock1u->sk->sk_protocol != IPPROTO_UDP) {
+ 		netdev_dbg(dev, "socket fd=%d not UDP\n", fd_gtp1);
+ 		err = -EINVAL;
+-		goto err2;
++		goto put_socket_u;
+ 	}
+ 
+ 	netdev_dbg(dev, "enable gtp on %p, %p\n", sock0, sock1u);
+@@ -873,9 +873,9 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 	setup_udp_tunnel_sock(sock_net(gtp->sock1u->sk), gtp->sock1u, &tuncfg);
+ 
+ 	err = 0;
+-err2:
++put_socket_u:
+ 	sockfd_put(sock1u);
+-err1:
++put_socket:
+ 	sockfd_put(sock0);
+ 	return err;
+ }
 -- 
 2.11.0
