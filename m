@@ -1,203 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [BUG/RFC] vhost: net: big endian viring access despite virtio 1
-Date: Thu, 26 Jan 2017 21:20:03 +0200
-Message-ID: <20170126211511-mutt-send-email-mst@kernel.org>
-References: <a08f491a-1320-607e-f450-d32ce2c9e2f5@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 3/3] gtp: fix cross netns recv on gtp socket
+Date: Thu, 26 Jan 2017 14:22:47 -0500 (EST)
+Message-ID: <20170126.142247.527598780818100974.davem@davemloft.net>
+References: <20170126151134.2892-1-aschultz@tpip.net>
+        <20170126151134.2892-4-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-        Greg Kurz <groug@kaod.org>,
-        "virtualization@lists.linux-foundation.org"
-        <virtualization@lists.linux-foundation.org>,
-        netdev@vger.kernel.org, Cornelia Huck <cornelia.huck@de.ibm.com>
-To: Halil Pasic <pasic@linux.vnet.ibm.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: pablo@netfilter.org, netdev@vger.kernel.org,
+        Lionel.Gauthier@eurecom.fr, openbsc@lists.osmocom.org,
+        laforge@gnumonks.org
+To: aschultz@tpip.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49990 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752938AbdAZTUI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 14:20:08 -0500
-Content-Disposition: inline
-In-Reply-To: <a08f491a-1320-607e-f450-d32ce2c9e2f5@linux.vnet.ibm.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40000 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753249AbdAZTWy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 14:22:54 -0500
+In-Reply-To: <20170126151134.2892-4-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 26, 2017 at 06:39:14PM +0100, Halil Pasic wrote:
-> 
-> Hi!
-> 
-> Recently I have been investigating some strange migration problems on
-> s390x.
-> 
-> It turned out under certain circumstances vhost_net corrupts avail.idx by
-> using wrong endianness.
-> 
-> I managed to track the problem down (I'm pretty sure). It boils down to
-> the following.
-> 
-> When stopping vhost userspace (QEMU) calls vhost_net_set_backend with
-> the fd argument set to -1, this leads to is_le being reset in
-> vhost_vq_init_access.  On a BE system resetting to legacy means resetting
-> to BE. Usually this is not a problem, but in the case when oldubufs is not
-> zero (which is not likely if no network stress applied) it is a problem.
-> That code path needs to write avail.idx, and ends up using wrong
-> endianness when doing that (but only on a BE system).
-> 
-> That is the story in prose, now let's see the corresponding code annotated
-> with some comments.
-> 
-> from drivers/vhost/net.c:
-> static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
-> {
-> /* [..] some not too interesting stuff  */
->         sock = get_socket(fd);
-> /* fd == -1 --> sock == NULL */
->         if (IS_ERR(sock)) {
->                 r = PTR_ERR(sock);
->                 goto err_vq;
->         }
-> 
->         /* start polling new socket */
->         oldsock = vq->private_data;
->         if (sock != oldsock) {
->                 ubufs = vhost_net_ubuf_alloc(vq,
->                                              sock && vhost_sock_zcopy(sock));
->                 if (IS_ERR(ubufs)) {
->                         r = PTR_ERR(ubufs);
->                         goto err_ubufs;
->                 }
-> 
->                 vhost_net_disable_vq(n, vq);
-> ==>             vq->private_data = sock; 
-> /* now vq->private_data is NULL */
-> ==>             r = vhost_vq_init_access(vq);
->                 if (r)
->                         goto err_used;
-> /* vq endianness has been reset to BE on s390 */
->                 r = vhost_net_enable_vq(n, vq);
->                 if (r)
->                         goto err_used;
-> 
-> ==>             oldubufs = nvq->ubufs;
-> /* here oldubufs might become != 0 */               
->                 nvq->ubufs = ubufs;
-> 
->                 n->tx_packets = 0;
->                 n->tx_zcopy_err = 0;
->                 n->tx_flush = false;
->         }
->         mutex_unlock(&vq->mutex);
-> 
->         if (oldubufs) {
->                 vhost_net_ubuf_put_wait_and_free(oldubufs);
->                 mutex_lock(&vq->mutex);
-> ==>             vhost_zerocopy_signal_used(n, vq);
-> /* tries to update virtqueue structures; endianness is BE on s390
->  * now (but should be LE for virtio-1) */
->                 mutex_unlock(&vq->mutex);
->         }
-> /*[..] rest of the function */
-> }
-
-> 
-> from drivers/vhost/vhost.c:
-> 
-> int vhost_vq_init_access(struct vhost_virtqueue *vq)
-> {
->         __virtio16 last_used_idx;
->         int r;
->         bool is_le = vq->is_le;
-> 
->         if (!vq->private_data) {
-> ==>             vhost_reset_is_le(vq);
-> /* resets to native endianness and returns */
->                 return 0;
->         }
-> 
-> ==>      vhost_init_is_le(vq);
-> /* here we init is_le */
-> 
->         r = vhost_update_used_flags(vq);
->         if (r)
->                 goto err;
->         vq->signalled_used_valid = false;
->         if (!vq->iotlb &&
->             !access_ok(VERIFY_READ, &vq->used->idx, sizeof vq->used->idx)) {
->                 r = -EFAULT;
->                 goto err;
->         }
->         r = vhost_get_user(vq, last_used_idx, &vq->used->idx);
->         if (r) {
->                 vq_err(vq, "Can't access used idx at %p\n",
->                        &vq->used->idx);
->                 goto err;
->         }
->         vq->last_used_idx = vhost16_to_cpu(vq, last_used_idx);
->         return 0;
-> 
-> err:
->         vq->is_le = is_le;
->         return r;
-> }
-> 
-> AFAIU this can be fixed very simply by omitting the reset. Below the
-> patch. I'm not sure though, the endianness handling ain't simple in
-> vhost. Am I going in the right direction?
-> 
-> We have a test (on s390x only) running for a couple of hours now and so
-> far so good but it's a bit early to announce it is tested  for s390x.
-> If the patch is reasonable, I'm intend to do a version with proper
-> attribution and stuff.
-> 
-> By the way the reset was first introduced by 
-> https://lkml.org/lkml/2015/4/10/226 (dug it up in the hope that reasons
-> for the reset were discussed -- but no enlightenment for me).
-> 
-> Finally I would like to credit Dave Gilbert for hinting that the
-> unreasonable avail.idx may be due to an endianness problem and Michael A.
-> Tebolt for reporting the bug and testing.
-> 
-> -------------------------8<--------------
-> >From b26e2bbdc03832a0204ee2b42967a1b49a277dc8 Mon Sep 17 00:00:00 2001
-> From: Halil Pasic <pasic@linux.vnet.ibm.com>
-> Date: Thu, 26 Jan 2017 00:06:15 +0100
-> Subject: [PATCH] vhost: remove useless/dangerous reset of is_le
-> 
-> The reset of is_le does no good, but it contributes its fair share to a
-> bug in vhost_net, which occurs if we have some oldubufs when stopping and
-> setting a fd = -1 as a backend. Instead of doing something convoluted in
-> vhost_net, let's just get rid of the reset.
-> 
-> Signed-off-by: Halil Pasic <pasic@linux.vnet.ibm.com>
-> Fixes: commit 2751c9882b94 
-> ---
->  drivers/vhost/vhost.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
-> 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index d643260..08072a2 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -1714,10 +1714,8 @@ int vhost_vq_init_access(struct vhost_virtqueue *vq)
->         int r;
->         bool is_le = vq->is_le;
-> 
-> -       if (!vq->private_data) {
-> -               vhost_reset_is_le(vq);
-> +       if (!vq->private_data)
->                 return 0;
-> -       }
-> 
->         vhost_init_is_le(vq);
-
-
-I think you do need to reset it, just maybe within vhost_init_is_le.
-
-        if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
-                vq->is_le = true;
-	else
-		vhost_reset_is_le(vq);
-
-
-
-> -- 
-> 2.8.4
+RnJvbTogQW5kcmVhcyBTY2h1bHR6IDxhc2NodWx0ekB0cGlwLm5ldD4NCkRhdGU6IFRodSwgMjYg
+SmFuIDIwMTcgMTY6MTE6MzQgKzAxMDANCg0KPiBUaGUgdXNlIG9mIHRoZSBwYXNzZWQgdGhyb3Vn
+aCBuZXRsaW5rIHNyY19uZXQgdG8gY2hlY2sgZm9yIGENCj4gY3Jvc3MgbmV0bnMgb3BlcmF0aW9u
+IHdhcyB3cm9uZy4gVXNpbmcgdGhlIEdUUCBzb2NrZXQgYW5kIHRoZQ0KPiBHVFAgbmV0ZGV2aWNl
+IGlzIGFsd2F5cyBjb3JyZWN0IChldmVuIGlmIHRoZSBuZXRkZXYgaGFzIGJlZW4NCj4gbW92ZWQg
+dG8gbmV3IG5ldG5zIGFmdGVyIGxpbmsgY3JlYXRpb24pLg0KPiANCj4gUmVtb3ZlIHRoZSBub3cg
+b2Jzb2xldGUgbmV0IGZpZWxkIGZyb20gZ3RwX2Rldi4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEFu
+ZHJlYXMgU2NodWx0eiA8YXNjaHVsdHpAdHBpcC5uZXQ+DQoNClBsZWFzZSBhdCBsZWFzdCBjb21w
+aWxlIHRlc3QgeW91ciBzdWJtaXNzaW9uczoNCg0KZHJpdmVycy9uZXQvZ3RwLmM6IEluIGZ1bmN0
+aW9uIKFndHBfbmV3bGlua6I6DQpkcml2ZXJzL25ldC9ndHAuYzo2Nzc6ODogZXJyb3I6IHRvbyBt
+YW55IGFyZ3VtZW50cyB0byBmdW5jdGlvbiChZ3RwX2VuY2FwX2VuYWJsZaINCiAgZXJyID0gZ3Rw
+X2VuY2FwX2VuYWJsZShkZXYsIGd0cCwgZmQwLCBmZDEsIHNyY19uZXQpOw0KICAgICAgICBeDQpk
+cml2ZXJzL25ldC9ndHAuYzo2NTk6MTI6IG5vdGU6IGRlY2xhcmVkIGhlcmUNCiBzdGF0aWMgaW50
+IGd0cF9lbmNhcF9lbmFibGUoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IGd0cF9kZXYg
+Kmd0cCwNCiAgICAgICAgICAgIF4NCmRyaXZlcnMvbmV0L2d0cC5jOiBBdCB0b3AgbGV2ZWw6DQpk
+cml2ZXJzL25ldC9ndHAuYzo4MjI6MTI6IGVycm9yOiBjb25mbGljdGluZyB0eXBlcyBmb3IgoWd0
+cF9lbmNhcF9lbmFibGWiDQogc3RhdGljIGludCBndHBfZW5jYXBfZW5hYmxlKHN0cnVjdCBuZXRf
+ZGV2aWNlICpkZXYsIHN0cnVjdCBndHBfZGV2ICpndHAsDQogICAgICAgICAgICBeDQpkcml2ZXJz
+L25ldC9ndHAuYzo2NTk6MTI6IG5vdGU6IHByZXZpb3VzIGRlY2xhcmF0aW9uIG9mIKFndHBfZW5j
+YXBfZW5hYmxloiB3YXMgaGVyZQ0KIHN0YXRpYyBpbnQgZ3RwX2VuY2FwX2VuYWJsZShzdHJ1Y3Qg
+bmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgZ3RwX2RldiAqZ3RwLA0KICAgICAgICAgICAgXg0KZHJp
+dmVycy9uZXQvZ3RwLmM6NjU5OjEyOiB3YXJuaW5nOiChZ3RwX2VuY2FwX2VuYWJsZaIgdXNlZCBi
+dXQgbmV2ZXIgZGVmaW5lZA0KZHJpdmVycy9uZXQvZ3RwLmM6ODIyOjEyOiB3YXJuaW5nOiChZ3Rw
+X2VuY2FwX2VuYWJsZaIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWZ1bmN0aW9uXQ0K
+IHN0YXRpYyBpbnQgZ3RwX2VuY2FwX2VuYWJsZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1
+Y3QgZ3RwX2RldiAqZ3RwLA0KICAgICAgICAgICAgXg0Kc2NyaXB0cy9NYWtlZmlsZS5idWlsZDoy
+OTk6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL25ldC9ndHAubycgZmFpbGVkDQo=
