@@ -1,41 +1,90 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v1] net: phy: micrel: add KSZ8795 ethernet switch
-Date: Thu, 26 Jan 2017 19:12:07 +0100
-Message-ID: <20170126181207.GF5656@lunn.ch>
-References: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
- <20170123151219.GE10895@lunn.ch>
- <732c14ff-f0cf-67d5-bcf9-cbbf9a4391b3@prevas.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Sean =?iso-8859-1?Q?Nyekj=E6r?= <sean.nyekjaer@prevas.dk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 3/4] net: dsa: Suffix function manipulating device_node with _dn
+Date: Thu, 26 Jan 2017 10:45:53 -0800
+Message-ID: <20170126184554.1325-4-f.fainelli@gmail.com>
+References: <20170126184554.1325-1-f.fainelli@gmail.com>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46800 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751767AbdAZSlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 13:41:09 -0500
-Content-Disposition: inline
-In-Reply-To: <732c14ff-f0cf-67d5-bcf9-cbbf9a4391b3@prevas.dk>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35656 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752201AbdAZSq3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 13:46:29 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 204so22961899pge.2
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 10:46:03 -0800 (PST)
+In-Reply-To: <20170126184554.1325-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I remove the word "Switch" from the commit message and phy name.
-> The rest is okay?
+Make it clear that these functions take a device_node structure pointer
 
-Yes.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/dsa2.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-> What is generally being done when to phy's have the same id, micrel
-> have done this many times...
-
-It should not be a problem. When you write a switch driver for the
-switch, it will be in device tree. Look at the Marvell Switches as an
-example. Switches don't probe based on the ID in registers 2 and 3,
-because switches often respond to many different addresses, or don't
-have an ID in register 2 and 3.
-
-So it should not matter if the switch and the PHYs embedded in the
-switch have the same ID.
-
-When do you plan to post your switch driver?
-
-       Andrew
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 56c43ca7c049..4c11619a818b 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -93,8 +93,8 @@ static bool dsa_port_is_cpu(struct dsa_port *port)
+ 	return !!of_parse_phandle(port->dn, "ethernet", 0);
+ }
+ 
+-static bool dsa_ds_find_port(struct dsa_switch *ds,
+-			     struct device_node *port)
++static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
++				struct device_node *port)
+ {
+ 	u32 index;
+ 
+@@ -104,8 +104,8 @@ static bool dsa_ds_find_port(struct dsa_switch *ds,
+ 	return false;
+ }
+ 
+-static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+-					    struct device_node *port)
++static struct dsa_switch *dsa_dst_find_port_dn(struct dsa_switch_tree *dst,
++					       struct device_node *port)
+ {
+ 	struct dsa_switch *ds;
+ 	u32 index;
+@@ -115,7 +115,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+ 		if (!ds)
+ 			continue;
+ 
+-		if (dsa_ds_find_port(ds, port))
++		if (dsa_ds_find_port_dn(ds, port))
+ 			return ds;
+ 	}
+ 
+@@ -136,7 +136,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
+ 		if (!link)
+ 			break;
+ 
+-		dst_ds = dsa_dst_find_port(dst, link);
++		dst_ds = dsa_dst_find_port_dn(dst, link);
+ 		of_node_put(link);
+ 
+ 		if (!dst_ds)
+@@ -545,7 +545,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int dsa_parse_member(struct device_node *np, u32 *tree, u32 *index)
++static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
+ {
+ 	int err;
+ 
+@@ -591,7 +591,7 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ 	u32 tree, index;
+ 	int i, err;
+ 
+-	err = dsa_parse_member(np, &tree, &index);
++	err = dsa_parse_member_dn(np, &tree, &index);
+ 	if (err)
+ 		return err;
+ 
+-- 
+2.9.3
