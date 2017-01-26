@@ -1,312 +1,64 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net] net: Avoid receiving packets with an l3mdev on unbound UDP sockets
-Date: Thu, 26 Jan 2017 18:02:24 +0000
-Message-ID: <1485453744-5120-1-git-send-email-rshearma@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ip_rcv_finish() NULL pointer kernel panic
+Date: Thu, 26 Jan 2017 13:04:28 -0500 (EST)
+Message-ID: <20170126.130428.2050566986836855986.davem@davemloft.net>
+References: <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
+        <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170126162433.GB1778@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, David Ahern <dsa@cumulusnetworks.com>,
-        "Robert Shearman" <rshearma@brocade.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:47961 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752183AbdAZSEN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 13:04:13 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, lkml@rkeene.org, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20170126162433.GB1778@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Packets arriving in a VRF currently are delivered to UDP sockets that
-aren't bound to any interface. TCP defaults to not delivering packets
-arriving in a VRF to unbound sockets. IP route lookup and socket
-transmit both assume that unbound means using the default table and
-UDP applications that haven't been changed to be aware of VRFs may not
-function correctly in this case since they may not be able to handle
-overlapping IP address ranges, or be able to send packets back to the
-original sender if required.
+From: Florian Westphal <fw@strlen.de>
+Date: Thu, 26 Jan 2017 17:24:33 +0100
 
-So add a sysctl, udp_l3mdev_accept, to control this behaviour with it
-being analgous to the existing tcp_l3mdev_accept, namely to allow a
-process to have a VRF-global listen socket. Have this default to off
-as this is the behaviour that users will expect, given that there is
-no explicit mechanism to set unmodified VRF-unaware application into a
-default VRF.
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > Though possibly with different things not setting the "input" function 
+>> > pointer in the "struct dst_entry".
+>> > 
+>> > include/net/dst.h:
+>> >   496 static inline int dst_input(struct sk_buff *skb) {
+>> >   498         return skb_dst(skb)->input(skb);
+>> >   499 }
+>> > 
+>> > Is there any reason not to check to see if this pointer is NULL before 
+>> > blindly calling it ?
+>> 
+>> Sure. It can not be NULL at this point.
+>> 
+>> Just look at the code in ip_rcv_finish() :
+>> 
+>> It first make sure to get a valid dst.
+>> 
+>> Something is broken, probably in bridge netfilter code.
+>> 
+>> I suspect the dst here points to &br->fake_rtable, and this is not
+>> expected.
+>> 
+>> br_drop_fake_rtable() should have been called somewhere ...
+> 
+> I think it makes sense to set dst->incoming
+> to a stub in br_netfilter_rtable_init() to just kfree_skb()+
+> WARN_ON_ONCE(), no need to add code to ip stack or crash kernel
+> due to brnf bug.
 
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
----
-I've targetted this for the net tree because I believe the expected
-behaviour is different enough from the current behaviour to be
-considered a bug. However, this should also apply to the net-next tree
-as-is if this not deemed a bug.
+That would certainly make recovery from such bugs must better.
 
- Documentation/networking/ip-sysctl.txt |  7 +++++++
- Documentation/networking/vrf.txt       |  7 ++++---
- include/net/netns/ipv4.h               |  4 ++++
- net/ipv4/sysctl_net_ipv4.c             | 11 +++++++++++
- net/ipv4/udp.c                         | 27 ++++++++++++++++++++-------
- net/ipv6/udp.c                         | 27 ++++++++++++++++++++-------
- 6 files changed, 66 insertions(+), 17 deletions(-)
+But I have to say that this netfilter bridging fake dst has caused
+several dozen bugs over the years, it is fundamentally a serious
+problem in and of itself.  It provides DST facilities by hand, in a
+static object, without using any of the usual methods for creating and
+facilitating dst objects.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 7dd65c9cf707..fa1f14977a0c 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -742,6 +742,13 @@ tcp_challenge_ack_limit - INTEGER
- 
- UDP variables:
- 
-+udp_l3mdev_accept - BOOLEAN
-+	Enabling this option allows a "global" bound socket to work
-+	across L3 master domains (e.g., VRFs) with packets capable of
-+	being received regardless of the L3 domain in which they
-+	originated. Only valid when the kernel was compiled with
-+	CONFIG_NET_L3_MASTER_DEV.
-+
- udp_mem - vector of 3 INTEGERs: min, pressure, max
- 	Number of pages allowed for queueing by all UDP sockets.
- 
-diff --git a/Documentation/networking/vrf.txt b/Documentation/networking/vrf.txt
-index 755dab856392..3918dae964d4 100644
---- a/Documentation/networking/vrf.txt
-+++ b/Documentation/networking/vrf.txt
-@@ -98,10 +98,11 @@ VRF device:
- 
- or to specify the output device using cmsg and IP_PKTINFO.
- 
--TCP services running in the default VRF context (ie., not bound to any VRF
--device) can work across all VRF domains by enabling the tcp_l3mdev_accept
--sysctl option:
-+TCP & UDP services running in the default VRF context (ie., not bound
-+to any VRF device) can work across all VRF domains by enabling the
-+tcp_l3mdev_accept and udp_l3mdev_accept sysctl options:
-     sysctl -w net.ipv4.tcp_l3mdev_accept=1
-+    sysctl -w net.ipv4.udp_l3mdev_accept=1
- 
- netfilter rules on the VRF device can be used to limit access to services
- running in the default VRF context as well.
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 0378e88f6fd3..0822dced1b68 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -112,6 +112,10 @@ struct netns_ipv4 {
- 	unsigned int sysctl_tcp_notsent_lowat;
- 	int sysctl_tcp_tw_reuse;
- 
-+#ifdef CONFIG_NET_L3_MASTER_DEV
-+	int sysctl_udp_l3mdev_accept;
-+#endif
-+
- 	int sysctl_igmp_max_memberships;
- 	int sysctl_igmp_max_msf;
- 	int sysctl_igmp_llm_reports;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index b2fa498b15d1..a2ebbe6211ba 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -971,6 +971,17 @@ static struct ctl_table ipv4_net_table[] = {
- 		.extra2		= &one,
- 	},
- #endif
-+#ifdef CONFIG_NET_L3_MASTER_DEV
-+	{
-+		.procname	= "udp_l3mdev_accept",
-+		.data		= &init_net.ipv4.sysctl_udp_l3mdev_accept,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &one,
-+	},
-+#endif
- 	{ }
- };
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 1307a7c2e544..c7fcb7395ccf 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -134,6 +134,17 @@ EXPORT_SYMBOL(udp_memory_allocated);
- #define MAX_UDP_PORTS 65536
- #define PORTS_PER_CHAIN (MAX_UDP_PORTS / UDP_HTABLE_SIZE_MIN)
- 
-+/* IPCB reference means this can not be used from early demux */
-+static bool udp_lib_exact_dif_match(struct net *net, struct sk_buff *skb)
-+{
-+#if IS_ENABLED(CONFIG_NET_L3_MASTER_DEV)
-+	if (!net->ipv4.sysctl_udp_l3mdev_accept &&
-+	    skb && ipv4_l3mdev_skb(IPCB(skb)->flags))
-+		return true;
-+#endif
-+	return false;
-+}
-+
- static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 			       const struct udp_hslot *hslot,
- 			       unsigned long *bitmap,
-@@ -394,7 +405,8 @@ int udp_v4_get_port(struct sock *sk, unsigned short snum)
- 
- static int compute_score(struct sock *sk, struct net *net,
- 			 __be32 saddr, __be16 sport,
--			 __be32 daddr, unsigned short hnum, int dif)
-+			 __be32 daddr, unsigned short hnum, int dif,
-+			 bool exact_dif)
- {
- 	int score;
- 	struct inet_sock *inet;
-@@ -425,7 +437,7 @@ static int compute_score(struct sock *sk, struct net *net,
- 		score += 4;
- 	}
- 
--	if (sk->sk_bound_dev_if) {
-+	if (sk->sk_bound_dev_if || exact_dif) {
- 		if (sk->sk_bound_dev_if != dif)
- 			return -1;
- 		score += 4;
-@@ -450,7 +462,7 @@ static u32 udp_ehashfn(const struct net *net, const __be32 laddr,
- /* called with rcu_read_lock() */
- static struct sock *udp4_lib_lookup2(struct net *net,
- 		__be32 saddr, __be16 sport,
--		__be32 daddr, unsigned int hnum, int dif,
-+		__be32 daddr, unsigned int hnum, int dif, bool exact_dif,
- 		struct udp_hslot *hslot2,
- 		struct sk_buff *skb)
- {
-@@ -462,7 +474,7 @@ static struct sock *udp4_lib_lookup2(struct net *net,
- 	badness = 0;
- 	udp_portaddr_for_each_entry_rcu(sk, &hslot2->head) {
- 		score = compute_score(sk, net, saddr, sport,
--				      daddr, hnum, dif);
-+				      daddr, hnum, dif, exact_dif);
- 		if (score > badness) {
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-@@ -497,6 +509,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 	unsigned short hnum = ntohs(dport);
- 	unsigned int hash2, slot2, slot = udp_hashfn(net, hnum, udptable->mask);
- 	struct udp_hslot *hslot2, *hslot = &udptable->hash[slot];
-+	bool exact_dif = udp_lib_exact_dif_match(net, skb);
- 	int score, badness, matches = 0, reuseport = 0;
- 	u32 hash = 0;
- 
-@@ -509,7 +522,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 
- 		result = udp4_lib_lookup2(net, saddr, sport,
- 					  daddr, hnum, dif,
--					  hslot2, skb);
-+					  exact_dif, hslot2, skb);
- 		if (!result) {
- 			unsigned int old_slot2 = slot2;
- 			hash2 = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum);
-@@ -524,7 +537,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 
- 			result = udp4_lib_lookup2(net, saddr, sport,
- 						  daddr, hnum, dif,
--						  hslot2, skb);
-+						  exact_dif, hslot2, skb);
- 		}
- 		return result;
- 	}
-@@ -533,7 +546,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 	badness = 0;
- 	sk_for_each_rcu(sk, &hslot->head) {
- 		score = compute_score(sk, net, saddr, sport,
--				      daddr, hnum, dif);
-+				      daddr, hnum, dif, exact_dif);
- 		if (score > badness) {
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4d5c4eee4b3f..f0bb414329ff 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -55,6 +55,16 @@
- #include <trace/events/skb.h>
- #include "udp_impl.h"
- 
-+static bool udp6_lib_exact_dif_match(struct net *net, struct sk_buff *skb)
-+{
-+#if defined(CONFIG_NET_L3_MASTER_DEV)
-+	if (!net->ipv4.sysctl_udp_l3mdev_accept &&
-+	    skb && ipv6_l3mdev_skb(IP6CB(skb)->flags))
-+		return true;
-+#endif
-+	return false;
-+}
-+
- static u32 udp6_ehashfn(const struct net *net,
- 			const struct in6_addr *laddr,
- 			const u16 lport,
-@@ -118,7 +128,7 @@ static void udp_v6_rehash(struct sock *sk)
- static int compute_score(struct sock *sk, struct net *net,
- 			 const struct in6_addr *saddr, __be16 sport,
- 			 const struct in6_addr *daddr, unsigned short hnum,
--			 int dif)
-+			 int dif, bool exact_dif)
- {
- 	int score;
- 	struct inet_sock *inet;
-@@ -149,7 +159,7 @@ static int compute_score(struct sock *sk, struct net *net,
- 		score++;
- 	}
- 
--	if (sk->sk_bound_dev_if) {
-+	if (sk->sk_bound_dev_if || exact_dif) {
- 		if (sk->sk_bound_dev_if != dif)
- 			return -1;
- 		score++;
-@@ -165,7 +175,7 @@ static int compute_score(struct sock *sk, struct net *net,
- static struct sock *udp6_lib_lookup2(struct net *net,
- 		const struct in6_addr *saddr, __be16 sport,
- 		const struct in6_addr *daddr, unsigned int hnum, int dif,
--		struct udp_hslot *hslot2,
-+		bool exact_dif, struct udp_hslot *hslot2,
- 		struct sk_buff *skb)
- {
- 	struct sock *sk, *result;
-@@ -176,7 +186,7 @@ static struct sock *udp6_lib_lookup2(struct net *net,
- 	badness = -1;
- 	udp_portaddr_for_each_entry_rcu(sk, &hslot2->head) {
- 		score = compute_score(sk, net, saddr, sport,
--				      daddr, hnum, dif);
-+				      daddr, hnum, dif, exact_dif);
- 		if (score > badness) {
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
-@@ -212,6 +222,7 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 	unsigned short hnum = ntohs(dport);
- 	unsigned int hash2, slot2, slot = udp_hashfn(net, hnum, udptable->mask);
- 	struct udp_hslot *hslot2, *hslot = &udptable->hash[slot];
-+	bool exact_dif = udp6_lib_exact_dif_match(net, skb);
- 	int score, badness, matches = 0, reuseport = 0;
- 	u32 hash = 0;
- 
-@@ -223,7 +234,7 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 			goto begin;
- 
- 		result = udp6_lib_lookup2(net, saddr, sport,
--					  daddr, hnum, dif,
-+					  daddr, hnum, dif, exact_dif,
- 					  hslot2, skb);
- 		if (!result) {
- 			unsigned int old_slot2 = slot2;
-@@ -239,7 +250,8 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 
- 			result = udp6_lib_lookup2(net, saddr, sport,
- 						  daddr, hnum, dif,
--						  hslot2, skb);
-+						  exact_dif, hslot2,
-+						  skb);
- 		}
- 		return result;
- 	}
-@@ -247,7 +259,8 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 	result = NULL;
- 	badness = -1;
- 	sk_for_each_rcu(sk, &hslot->head) {
--		score = compute_score(sk, net, saddr, sport, daddr, hnum, dif);
-+		score = compute_score(sk, net, saddr, sport, daddr, hnum, dif,
-+				      exact_dif);
- 		if (score > badness) {
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
--- 
-2.1.4
+Therefore every time someone makes an adjustment to common dst code,
+this turd (and yes, it _is_ a turd) breaks.  Every single time.
+
+So in the long term, instead of polishing this turd, let's get rid of
+it.
