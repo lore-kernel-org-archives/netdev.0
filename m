@@ -1,44 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 02/14] tcp: fix mark propagation with fwmark_reflect
- enabled
-Date: Thu, 26 Jan 2017 11:28:46 -0800
-Message-ID: <1485458926.5145.156.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1485448687-6072-1-git-send-email-pablo@netfilter.org>
-         <1485448687-6072-3-git-send-email-pablo@netfilter.org>
-         <1485453760.5145.144.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170126191935.GA26591@salvia>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/7] pull request for net-next:
+	batman-adv 2017-01-26
+Date: Thu, 26 Jan 2017 14:31:34 -0500 (EST)
+Message-ID: <20170126.143134.1263227760995643461.davem@davemloft.net>
+References: <20170126164404.16074-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20170126191935.GA26591@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20170126164404.16074-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-01-26 at 20:19 +0100, Pablo Neira Ayuso wrote:
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Date: Thu, 26 Jan 2017 17:43:57 +0100
 
-> Right. This is not percpu as in IPv4.
+> this is the updated version of yesterdays feature/cleanup pull request for
+> batman-adv which should go into net-next. We've followed your suggestion
+> regarding the NET_XMIT_CN handling and modified Gaos patch accordingly.
 > 
-> I can send a follow up patch to get this in sync with the way we do it
-> in IPv4, ie. add percpu socket.
+> The remaining patches are untouched.
 > 
-> Fine with this approach? Thanks!
+> Please pull or let me know of any problem!
 
-Not really.
-
-percpu sockets are going to slow down network namespace creation /
-deletion and increase memory foot print.
-
-IPv6 is cleaner because it does not really have to use different
-sockets.
-
-Ultimately would would like to have the same for IPv4.
-
-I would rather carry the mark either in an additional parameter,
-or in the flow that is already passed as a parameter.
-
-
-
+Pulled, thanks.
