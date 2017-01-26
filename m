@@ -1,46 +1,38 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 0/3] sfc: encapsulated filters
-Date: Thu, 26 Jan 2017 17:50:24 +0000
-Message-ID: <39d8923f-4400-506c-dd50-250636ff83fa@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ip_rcv_finish() NULL pointer kernel panic
+Date: Thu, 26 Jan 2017 10:14:44 -0800
+Message-ID: <1485454484.5145.148.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <alpine.LNX.2.02.1701260627510.24491@maul.oc9.org>
+         <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
+         <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170126162433.GB1778@breakpoint.cc>
+         <1485453601.5145.142.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:51329 "EHLO
-        nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754022AbdAZRuo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 12:50:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Roy Keene <lkml@rkeene.org>, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1485453601.5145.142.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series adds support for setting up filters for encapsulated traffic on
-SFC 8000-series adapters, which recognise VXLAN, GENEVE and NVGRE packets by
-parsing packet headers.  (VXLAN and GENEVE will only be recognised if the
-driver on the primary PF has notified the firmware of relevant UDP ports,
-which this driver does not yet do.)
-While the driver currently has no way of using these filters for flow
-steering, it is nonetheless necessary to insert catch-all (aka 'default')
-filters to direct this traffic, similar to the existing unencapsulated uni-
-and multi-cast catch-all filters, as otherwise the traffic will be dropped
-by the NIC - implementation details of the hardware filtering mean that the
-traffic will not get matched on outer MAC address to unencapsulated catch-
-all filters.  (Yes, this is a mess.)
-Although this is, therefore, fixing a bug in the existing driver, it's a bug
-which has existed since 8000 series support was added, and the fix involves
-quite a big patch with an 'adding features' flavour to it, hence why this is
-for net-next rather than net and stable.
+On Thu, 2017-01-26 at 10:00 -0800, Eric Dumazet wrote:
+> On Thu, 2017-01-26 at 17:24 +0100, Florian Westphal wrote:
+> 
+> > I think it makes sense to set dst->incoming
+> > to a stub in br_netfilter_rtable_init() to just kfree_skb()+
+> > WARN_ON_ONCE(), no need to add code to ip stack or crash kernel
+> > due to brnf bug.
+> 
+> Just kfree_skb() would hide bugs.
+> 
+> Dropping packets is not uncommon in networking...
+> 
+> I would rather use at least a WARN_ON_ONCE() before the kfree_skb() ;)
 
-Edward Cree (1):
-  sfc: insert catch-all filters for encapsulated traffic
 
-Jon Cooper (2):
-  sfc: fixes to filter restore handling
-  sfc: refactor debug-or-warnings printks
+Oh well, I obviously did not parse properly your suggestion.
 
- drivers/net/ethernet/sfc/ef10.c       | 582 +++++++++++++++++++++++++---------
- drivers/net/ethernet/sfc/filter.h     |  41 ++-
- drivers/net/ethernet/sfc/mcdi.c       |  19 +-
- drivers/net/ethernet/sfc/net_driver.h |   9 +
- 4 files changed, 497 insertions(+), 154 deletions(-)
+
