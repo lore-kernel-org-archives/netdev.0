@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 13/14] netfilter: nf_tables: deconstify walk callback function
-Date: Thu, 26 Jan 2017 17:38:06 +0100
-Message-ID: <1485448687-6072-14-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/14] netfilter: nft_log: restrict the log prefix length to 127
+Date: Thu, 26 Jan 2017 17:38:04 +0100
+Message-ID: <1485448687-6072-12-git-send-email-pablo@netfilter.org>
 References: <1485448687-6072-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,149 +10,73 @@ In-Reply-To: <1485448687-6072-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The flush operation needs to modify set and element objects, so let's
-deconstify this.
+From: Liping Zhang <zlpnobody@gmail.com>
 
+First, log prefix will be truncated to NF_LOG_PREFIXLEN-1, i.e. 127,
+at nf_log_packet(), so the extra part is useless.
+
+Second, after adding a log rule with a very very long prefix, we will
+fail to dump the nft rules after this _special_ one, but acctually,
+they do exist. For example:
+  # name_65000=$(printf "%0.sQ" {1..65000})
+  # nft add rule filter output log prefix "$name_65000"
+  # nft add rule filter output counter
+  # nft add rule filter output counter
+  # nft list chain filter output
+  table ip filter {
+      chain output {
+          type filter hook output priority 0; policy accept;
+      }
+  }
+
+So now, restrict the log prefix length to NF_LOG_PREFIXLEN-1.
+
+Fixes: 96518518cc41 ("netfilter: add nftables")
+Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |  6 +++---
- net/netfilter/nf_tables_api.c     | 24 ++++++++++++------------
- net/netfilter/nft_set_hash.c      |  2 +-
- net/netfilter/nft_set_rbtree.c    |  2 +-
- 4 files changed, 17 insertions(+), 17 deletions(-)
+ include/uapi/linux/netfilter/nf_log.h | 2 ++
+ net/netfilter/nf_log.c                | 1 -
+ net/netfilter/nft_log.c               | 3 ++-
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 924325c46aab..7dfdb517f0be 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -207,9 +207,9 @@ struct nft_set_iter {
- 	unsigned int	skip;
- 	int		err;
- 	int		(*fn)(const struct nft_ctx *ctx,
--			      const struct nft_set *set,
-+			      struct nft_set *set,
- 			      const struct nft_set_iter *iter,
--			      const struct nft_set_elem *elem);
-+			      struct nft_set_elem *elem);
- };
+diff --git a/include/uapi/linux/netfilter/nf_log.h b/include/uapi/linux/netfilter/nf_log.h
+index 8be21e02387d..d0b5fa91ff54 100644
+--- a/include/uapi/linux/netfilter/nf_log.h
++++ b/include/uapi/linux/netfilter/nf_log.h
+@@ -9,4 +9,6 @@
+ #define NF_LOG_MACDECODE	0x20	/* Decode MAC header */
+ #define NF_LOG_MASK		0x2f
  
- /**
-@@ -301,7 +301,7 @@ struct nft_set_ops {
- 	void				(*remove)(const struct nft_set *set,
- 						  const struct nft_set_elem *elem);
- 	void				(*walk)(const struct nft_ctx *ctx,
--						const struct nft_set *set,
-+						struct nft_set *set,
- 						struct nft_set_iter *iter);
++#define NF_LOG_PREFIXLEN	128
++
+ #endif /* _NETFILTER_NF_LOG_H */
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 3dca90dc24ad..ffb9e8ada899 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -13,7 +13,6 @@
+ /* Internal logging interface, which relies on the real
+    LOG target modules */
  
- 	unsigned int			(*privsize)(const struct nlattr * const nla[]);
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 831a9a16f563..5bd0068320fb 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -3087,9 +3087,9 @@ static int nf_tables_delset(struct net *net, struct sock *nlsk,
- }
+-#define NF_LOG_PREFIXLEN		128
+ #define NFLOGGER_NAME_LEN		64
  
- static int nf_tables_bind_check_setelem(const struct nft_ctx *ctx,
--					const struct nft_set *set,
-+					struct nft_set *set,
- 					const struct nft_set_iter *iter,
--					const struct nft_set_elem *elem)
-+					struct nft_set_elem *elem)
- {
- 	const struct nft_set_ext *ext = nft_set_elem_ext(set, elem->priv);
- 	enum nft_registers dreg;
-@@ -3308,9 +3308,9 @@ struct nft_set_dump_args {
- };
+ static struct nf_logger __rcu *loggers[NFPROTO_NUMPROTO][NF_LOG_TYPE_MAX] __read_mostly;
+diff --git a/net/netfilter/nft_log.c b/net/netfilter/nft_log.c
+index 6271e40a3dd6..6f6e64423643 100644
+--- a/net/netfilter/nft_log.c
++++ b/net/netfilter/nft_log.c
+@@ -39,7 +39,8 @@ static void nft_log_eval(const struct nft_expr *expr,
  
- static int nf_tables_dump_setelem(const struct nft_ctx *ctx,
--				  const struct nft_set *set,
-+				  struct nft_set *set,
- 				  const struct nft_set_iter *iter,
--				  const struct nft_set_elem *elem)
-+				  struct nft_set_elem *elem)
- {
- 	struct nft_set_dump_args *args;
- 
-@@ -3322,7 +3322,7 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
- 	u8 genmask = nft_genmask_cur(net);
--	const struct nft_set *set;
-+	struct nft_set *set;
- 	struct nft_set_dump_args args;
- 	struct nft_ctx ctx;
- 	struct nlattr *nla[NFTA_SET_ELEM_LIST_MAX + 1];
-@@ -3890,9 +3890,9 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
- }
- 
- static int nft_flush_set(const struct nft_ctx *ctx,
--			 const struct nft_set *set,
-+			 struct nft_set *set,
- 			 const struct nft_set_iter *iter,
--			 const struct nft_set_elem *elem)
-+			 struct nft_set_elem *elem)
- {
- 	struct nft_trans *trans;
- 	int err;
-@@ -3907,8 +3907,8 @@ static int nft_flush_set(const struct nft_ctx *ctx,
- 		goto err1;
- 	}
- 
--	nft_trans_elem_set(trans) = (struct nft_set *)set;
--	nft_trans_elem(trans) = *((struct nft_set_elem *)elem);
-+	nft_trans_elem_set(trans) = set;
-+	nft_trans_elem(trans) = *elem;
- 	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
- 
- 	return 0;
-@@ -5019,9 +5019,9 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
- 				 const struct nft_chain *chain);
- 
- static int nf_tables_loop_check_setelem(const struct nft_ctx *ctx,
--					const struct nft_set *set,
-+					struct nft_set *set,
- 					const struct nft_set_iter *iter,
--					const struct nft_set_elem *elem)
-+					struct nft_set_elem *elem)
- {
- 	const struct nft_set_ext *ext = nft_set_elem_ext(set, elem->priv);
- 	const struct nft_data *data;
-@@ -5045,7 +5045,7 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
- {
- 	const struct nft_rule *rule;
- 	const struct nft_expr *expr, *last;
--	const struct nft_set *set;
-+	struct nft_set *set;
- 	struct nft_set_binding *binding;
- 	struct nft_set_iter iter;
- 
-diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
-index 1e20e2bbb6d9..e36069fb76ae 100644
---- a/net/netfilter/nft_set_hash.c
-+++ b/net/netfilter/nft_set_hash.c
-@@ -212,7 +212,7 @@ static void nft_hash_remove(const struct nft_set *set,
- 	rhashtable_remove_fast(&priv->ht, &he->node, nft_hash_params);
- }
- 
--static void nft_hash_walk(const struct nft_ctx *ctx, const struct nft_set *set,
-+static void nft_hash_walk(const struct nft_ctx *ctx, struct nft_set *set,
- 			  struct nft_set_iter *iter)
- {
- 	struct nft_hash *priv = nft_set_priv(set);
-diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
-index 08376e50f6cd..f06f55ee516d 100644
---- a/net/netfilter/nft_set_rbtree.c
-+++ b/net/netfilter/nft_set_rbtree.c
-@@ -221,7 +221,7 @@ static void *nft_rbtree_deactivate(const struct net *net,
- }
- 
- static void nft_rbtree_walk(const struct nft_ctx *ctx,
--			    const struct nft_set *set,
-+			    struct nft_set *set,
- 			    struct nft_set_iter *iter)
- {
- 	const struct nft_rbtree *priv = nft_set_priv(set);
+ static const struct nla_policy nft_log_policy[NFTA_LOG_MAX + 1] = {
+ 	[NFTA_LOG_GROUP]	= { .type = NLA_U16 },
+-	[NFTA_LOG_PREFIX]	= { .type = NLA_STRING },
++	[NFTA_LOG_PREFIX]	= { .type = NLA_STRING,
++				    .len = NF_LOG_PREFIXLEN - 1 },
+ 	[NFTA_LOG_SNAPLEN]	= { .type = NLA_U32 },
+ 	[NFTA_LOG_QTHRESHOLD]	= { .type = NLA_U16 },
+ 	[NFTA_LOG_LEVEL]	= { .type = NLA_U32 },
 -- 
 2.1.4
 
