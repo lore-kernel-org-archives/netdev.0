@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V3 net-next 04/14] net/ena: fix ethtool RSS flow configuration
-Date: Fri, 27 Jan 2017 00:18:06 +0200
-Message-ID: <1485469096-5271-5-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V3 net-next 01/14] net/ena: remove ntuple filter support from device feature list
+Date: Fri, 27 Jan 2017 00:18:03 +0200
+Message-ID: <1485469096-5271-2-git-send-email-netanel@annapurnalabs.com>
 References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,52 +14,25 @@ In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ena_flow_data_to_flow_hash and ena_flow_hash_to_flow_type
-treat the ena_flow_hash_to_flow_type enum as power of two values.
-
-Change the values of ena_admin_flow_hash_fields to be power of two values.
-
-This bug effect the ethtool set/get rxnfc.
-ethtool will report wrong values hash fields for get and will
-configure wrong hash fields in set.
+Remove NETIF_F_NTUPLE from netdev->features.
+The ENA device driver does not support ntuple filtering.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-index a46e749..e1594d6 100644
---- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-@@ -631,22 +631,22 @@ enum ena_admin_flow_hash_proto {
- /* RSS flow hash fields */
- enum ena_admin_flow_hash_fields {
- 	/* Ethernet Dest Addr */
--	ENA_ADMIN_RSS_L2_DA	= 0,
-+	ENA_ADMIN_RSS_L2_DA	= BIT(0),
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index cc8b13e..7493ea3 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -2722,7 +2722,6 @@ static void ena_set_dev_offloads(struct ena_com_dev_get_features_ctx *feat,
+ 	netdev->features =
+ 		dev_features |
+ 		NETIF_F_SG |
+-		NETIF_F_NTUPLE |
+ 		NETIF_F_RXHASH |
+ 		NETIF_F_HIGHDMA;
  
- 	/* Ethernet Src Addr */
--	ENA_ADMIN_RSS_L2_SA	= 1,
-+	ENA_ADMIN_RSS_L2_SA	= BIT(1),
- 
- 	/* ipv4/6 Dest Addr */
--	ENA_ADMIN_RSS_L3_DA	= 2,
-+	ENA_ADMIN_RSS_L3_DA	= BIT(2),
- 
- 	/* ipv4/6 Src Addr */
--	ENA_ADMIN_RSS_L3_SA	= 5,
-+	ENA_ADMIN_RSS_L3_SA	= BIT(3),
- 
- 	/* tcp/udp Dest Port */
--	ENA_ADMIN_RSS_L4_DP	= 6,
-+	ENA_ADMIN_RSS_L4_DP	= BIT(4),
- 
- 	/* tcp/udp Src Port */
--	ENA_ADMIN_RSS_L4_SP	= 7,
-+	ENA_ADMIN_RSS_L4_SP	= BIT(5),
- };
- 
- struct ena_admin_proto_input {
 -- 
 2.7.4
