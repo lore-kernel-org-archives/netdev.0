@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/5] ibmvnic: Fix MTU settings
-Date: Wed, 25 Jan 2017 23:05:04 -0500 (EST)
-Message-ID: <20170125.230504.215468934911959234.davem@davemloft.net>
-References: <1485378143-5084-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-        <1485378143-5084-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCHv3 0/7] Refactor macvtap to re-use tap functionality by
+ other virtual intefaces
+Date: Wed, 25 Jan 2017 23:06:59 -0500 (EST)
+Message-ID: <20170125.230659.1003672790271737098.davem@davemloft.net>
+References: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        wvoigt@us.ibm.com, nfont@linux.vnet.ibm.com,
-        jallen@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55096 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdAZEFF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 23:05:05 -0500
-In-Reply-To: <1485378143-5084-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, mahesh@bandewar.net,
+        linux-kernel@vger.kernel.org
+To: sainath.grandhi@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485379539-32932-1-git-send-email-sainath.grandhi@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Wed, 25 Jan 2017 15:02:20 -0600
+From: Sainath Grandhi <sainath.grandhi@intel.com>
+Date: Wed, 25 Jan 2017 13:25:32 -0800
 
-> In the current driver, the MTU is set to the maximum value
-> capable for the backing device. This patch sets the MTU to the
-> default value for a Linux net device.
+> Tap character devices can be implemented on other virtual interfaces like
+> ipvlan, similar to macvtap. Source code for tap functionality in macvtap
+> can be re-used for this purpose.
+> 
+> This patch series splits macvtap source into two modules, macvtap and tap.
+> This patch series also includes a patch for implementing tap character
+> device driver based on the IP-VLAN network interface, called ipvtap.
+> 
+> These patches are tested on x86 platform.
 
-Why are you doing this?
+Please resubmit this series, after you have waited for other feedback,
+with your Subject lines fixed.
 
-What happens to users who depend upon the current behavior.
-
-They will break, and that isn't acceptable.
+Subsystem prefixes in the Subject lines such as "TAP" and "IPVTAP"
+should be in all lowercase letters not all uppercase.
