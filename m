@@ -1,63 +1,48 @@
-From: =?UTF-8?Q?Sean_Nyekj=c3=a6r?= <sean.nyekjaer@prevas.dk>
-Subject: Re: [PATCH v1] net: phy: micrel: add KSZ8795 ethernet switch
-Date: Thu, 26 Jan 2017 18:51:07 +0100
-Message-ID: <732c14ff-f0cf-67d5-bcf9-cbbf9a4391b3@prevas.dk>
-References: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
- <20170123151219.GE10895@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/2] net: ipv6: Improve user experience
+ with multipath routes
+Date: Thu, 26 Jan 2017 13:00:54 -0500 (EST)
+Message-ID: <20170126.130054.2221154789287701062.davem@davemloft.net>
+References: <20170124.110616.2098461870069191491.davem@davemloft.net>
+        <4024f547-7f26-ab52-df9d-a0509048c7ff@6wind.com>
+        <c78afc85-8d18-0f63-68b3-63925e5d8c81@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail02.prevas.se ([62.95.78.10]:13469 "EHLO mail02.prevas.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752183AbdAZSH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 13:07:56 -0500
-In-Reply-To: <20170123151219.GE10895@lunn.ch>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35598 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753029AbdAZSME (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 13:12:04 -0500
+In-Reply-To: <c78afc85-8d18-0f63-68b3-63925e5d8c81@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu, 26 Jan 2017 10:26:51 -0700
 
+> On 1/26/17 7:58 AM, Nicolas Dichtel wrote:
+>> Le 24/01/2017 à 17:06, David Miller a écrit :
+>>> From: David Ahern <dsa@cumulusnetworks.com>
+>>> Date: Fri, 20 Jan 2017 12:31:44 -0700
+>>>
+>>>> BTW, I am in favor of not requiring a user API for this but just
+>>>> doing it. I can't imagine anyone working with multipath routes not
+>>>> wanting the efficiency of the RTA_MULTIPATH attribute. These patches
+>>>> require an API only because of the rule not to break userspace. If
+>>>> we conclude to just do it without an API, the multipath_add and
+>>>> multipath_del need to be modified to only send a notification once
+>>>> at the end of the actions.
+>>>
+>>> After some consideration, I agree.
+>> Sorry for my late reply but I fear that this will break some userland apps like
+>> quagga.
+> 
+> Quagga does not properly handle IPv6 multipath routes received from
+> the kernel. I checked this with debian/jessie version and our
+> version, and Donald reviewed the source. It is broken.
 
-On 2017-01-23 16:12, Andrew Lunn wrote:
-> On Mon, Jan 23, 2017 at 08:58:46AM +0100, Sean Nyekjaer wrote:
->> This is add support for the PHYs in the KSZ8795 5port managed switch.
->>
->> It will allow to detect the link between the switch and the soc
->> and uses the same read_status functions as the KSZ8873MLL switch.
->>
->> This ethernet switch have unfortunately the same phy id as KSZ8051.
->>
->> Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
->> ---
->>   drivers/net/phy/micrel.c   | 14 ++++++++++++++
->>   include/linux/micrel_phy.h |  2 ++
->>   2 files changed, 16 insertions(+)
->>
->> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
->> index ea92d524d5a8..fa158ae5115b 100644
->> --- a/drivers/net/phy/micrel.c
->> +++ b/drivers/net/phy/micrel.c
->> @@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
->>   	.get_stats	= kszphy_get_stats,
->>   	.suspend	= genphy_suspend,
->>   	.resume		= genphy_resume,
->> +}, {
->> +	.phy_id		= PHY_ID_KSZ8795,
->> +	.phy_id_mask	= MICREL_PHY_ID_MASK,
->> +	.name		= "Micrel KSZ8795 Switch",
-> This name is confusing. You are adding support for the PHYs embedded
-> in the switch, not the switch itself. The phylib has no idea these
-> PHYs are inside a switch. It does not matter. It is just a PHY. Please
-> drop the word "Switch".
->
-> Thanks
-> 	Andrew
-Okay i'll understand :-)
-I remove the word "Switch" from the commit message and phy name.
-The rest is okay?
-What is generally being done when to phy's have the same id, micrel have 
-done this many times...
-
-/Sean
+If this is true, quagga is asbolutely not an argument for this "breaking"
+something.  It doesn't break anything.
