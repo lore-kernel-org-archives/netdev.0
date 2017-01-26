@@ -1,48 +1,47 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: ip_rcv_finish() NULL pointer kernel panic
-Date: Thu, 26 Jan 2017 17:24:33 +0100
-Message-ID: <20170126162433.GB1778@breakpoint.cc>
-References: <alpine.LNX.2.02.1701260627510.24491@maul.oc9.org>
- <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
- <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: iproute2: using .maxattr = IFLA_VLAN_MAX??
+Date: Thu, 26 Jan 2017 11:27:41 -0500
+Message-ID: <588A237D.8030007@ti.com>
+References: <58864115.4060608@ti.com>
+ <9B0331B6EBBD0E4684FBFAEDA55776F93D496CA4@HASMSX110.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Roy Keene <lkml@rkeene.org>, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: "Rosen, Rami" <rami.rosen@intel.com>,
+        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:65071 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752790AbdAZQ1l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 11:27:41 -0500
+In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F93D496CA4@HASMSX110.ger.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Though possibly with different things not setting the "input" function 
-> > pointer in the "struct dst_entry".
-> > 
-> > include/net/dst.h:
-> >   496 static inline int dst_input(struct sk_buff *skb) {
-> >   498         return skb_dst(skb)->input(skb);
-> >   499 }
-> > 
-> > Is there any reason not to check to see if this pointer is NULL before 
-> > blindly calling it ?
+On 01/23/2017 03:45 PM, Rosen, Rami wrote:
+> Hi, Murali,
 > 
-> Sure. It can not be NULL at this point.
+>> This appears to be a cut-n-paste bug as the source is based on ip/iplink_vlan.c and should be fixed to IFLA_HSR_MAX. 
 > 
-> Just look at the code in ip_rcv_finish() :
+> You are right.
+> The "HSR section" indeed defines IFLA_HSR_MAX in include/linux/if_link.h of iproute2 as the max attributes number.
 > 
-> It first make sure to get a valid dst.
+> And in the top of ip/iplink_hsr.c you will find this comment, which enhances your assumption about the origin of this mistake:
 > 
-> Something is broken, probably in bridge netfilter code.
+> /*
+> ...
+>      Based on iplink_vlan.c by Patrick McHardy <kaber@trash.net
+> ...
+>  */
 > 
-> I suspect the dst here points to &br->fake_rtable, and this is not
-> expected.
+> Regards,
+> Rami Rosen
 > 
-> br_drop_fake_rtable() should have been called somewhere ...
+Hi, Rami,
 
-I think it makes sense to set dst->incoming
-to a stub in br_netfilter_rtable_init() to just kfree_skb()+
-WARN_ON_ONCE(), no need to add code to ip stack or crash kernel
-due to brnf bug.
+Thanks for confirming. I will send out a patch for fixing this when I get a chance to 
+test hsr for my work in the next few days.
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
