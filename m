@@ -1,70 +1,46 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net v2 3/3] gtp: fix cross netns recv on gtp socket
-Date: Thu, 26 Jan 2017 16:11:34 +0100
-Message-ID: <20170126151134.2892-4-aschultz@tpip.net>
+Subject: [PATCH net v2 2/3] gtp: clear DF bit on GTP packet tx
+Date: Thu, 26 Jan 2017 16:11:33 +0100
+Message-ID: <20170126151134.2892-3-aschultz@tpip.net>
 References: <20170126151134.2892-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:60893 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:49843 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752833AbdAZPLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752786AbdAZPLl (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 26 Jan 2017 10:11:41 -0500
 In-Reply-To: <20170126151134.2892-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The use of the passed through netlink src_net to check for a
-cross netns operation was wrong. Using the GTP socket and the
-GTP netdevice is always correct (even if the netdev has been
-moved to new netns after link creation).
+3GPP TS 29.281 and 3GPP TS 29.060 imply that GTP-U packets should be
+sent with the DF bit cleared. For example 3GPP TS 29.060, Release 8,
+Section 13.2.2:
 
-Remove the now obsolete net field from gtp_dev.
+> Backbone router: Any router in the backbone may fragment the GTP
+> packet if needed, according to IPv4.
 
+Acked-by: Harald Welte <laforge@netfilter.org>
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/gtp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 1df54d6..72dd1ba 100644
+index 7580ccc..1df54d6 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -69,7 +69,6 @@ struct gtp_dev {
- 	struct socket		*sock0;
- 	struct socket		*sock1u;
- 
--	struct net		*net;
- 	struct net_device	*dev;
- 
- 	unsigned int		hash_size;
-@@ -316,7 +315,7 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
- 
--	xnet = !net_eq(gtp->net, dev_net(gtp->dev));
-+	xnet = !net_eq(sock_net(sk), dev_net(gtp->dev));
- 
- 	switch (udp_sk(sk)->encap_type) {
- 	case UDP_ENCAP_GTP0:
-@@ -658,7 +657,7 @@ static void gtp_link_setup(struct net_device *dev)
- static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
- static void gtp_hashtable_free(struct gtp_dev *gtp);
- static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
--			    int fd_gtp0, int fd_gtp1, struct net *src_net);
-+			    int fd_gtp0, int fd_gtp1);
- 
- static int gtp_newlink(struct net *src_net, struct net_device *dev,
- 			struct nlattr *tb[], struct nlattr *data[])
-@@ -858,7 +857,6 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
- 
- 	gtp->sock0 = sock0;
- 	gtp->sock1u = sock1u;
--	gtp->net = src_net;
- 
- 	tuncfg.sk_user_data = gtp;
- 	tuncfg.encap_rcv = gtp_encap_recv;
+@@ -612,7 +612,7 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				    pktinfo.fl4.saddr, pktinfo.fl4.daddr,
+ 				    pktinfo.iph->tos,
+ 				    ip4_dst_hoplimit(&pktinfo.rt->dst),
+-				    htons(IP_DF),
++				    0,
+ 				    pktinfo.gtph_port, pktinfo.gtph_port,
+ 				    true, false);
+ 		break;
 -- 
 2.10.2
