@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V3 net-next 02/14] net/ena: fix error handling when probe fails
-Date: Fri, 27 Jan 2017 00:18:04 +0200
-Message-ID: <1485469096-5271-3-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V3 net-next 05/14] net/ena: fix RSS default hash configuration
+Date: Fri, 27 Jan 2017 00:18:07 +0200
+Message-ID: <1485469096-5271-6-git-send-email-netanel@annapurnalabs.com>
 References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,27 +14,30 @@ In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When driver fails in probe, it will release all resources,
-including adapter.
-In case of probe failure, ena_remove should not try to
-free the adapter resources.
+ENA default hash configures IPv4_frag hash twice instead of
+configure non-IP packets.
+
+The bug caused IPv4 fragmented packets to be calculated based on
+L2 source and destination address instead of L3 source and destination.
+IPv4 packets can reach to the wrong Rx queue.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/amazon/ena/ena_com.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 7493ea3..cb60567 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -3046,6 +3046,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- err_free_region:
- 	ena_release_bars(ena_dev, pdev);
- err_free_ena_dev:
-+	pci_set_drvdata(pdev, NULL);
- 	vfree(ena_dev);
- err_disable_device:
- 	pci_disable_device(pdev);
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
+index 3066d9c..46aad3a 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_com.c
+@@ -2184,7 +2184,7 @@ int ena_com_set_default_hash_ctrl(struct ena_com_dev *ena_dev)
+ 	hash_ctrl->selected_fields[ENA_ADMIN_RSS_IP4_FRAG].fields =
+ 		ENA_ADMIN_RSS_L3_SA | ENA_ADMIN_RSS_L3_DA;
+ 
+-	hash_ctrl->selected_fields[ENA_ADMIN_RSS_IP4_FRAG].fields =
++	hash_ctrl->selected_fields[ENA_ADMIN_RSS_NOT_IP].fields =
+ 		ENA_ADMIN_RSS_L2_DA | ENA_ADMIN_RSS_L2_SA;
+ 
+ 	for (i = 0; i < ENA_ADMIN_RSS_PROTO_NUM; i++) {
 -- 
 2.7.4
