@@ -1,7 +1,7 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: [PATCHv3 perf/core 5/6] tools lib api fs: Add bpf_fs filesystem detector
-Date: Thu, 26 Jan 2017 13:20:00 -0800
-Message-ID: <20170126212001.14103-6-joe@ovn.org>
+Subject: [PATCHv3 perf/core 6/6] perf test: Add libbpf pinning test
+Date: Thu, 26 Jan 2017 13:20:01 -0800
+Message-ID: <20170126212001.14103-7-joe@ovn.org>
 References: <20170126212001.14103-1-joe@ovn.org>
 Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org
@@ -11,82 +11,124 @@ In-Reply-To: <20170126212001.14103-1-joe@ovn.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow mounting of the BPF filesystem at /sys/fs/bpf.
+Add a test for the newly added BPF object pinning functionality.
+
+For example:
+  # tools/perf/perf test 37
+    37: BPF filter                                 :
+    37.1: Basic BPF filtering                      : Ok
+    37.2: BPF pinning                              : Ok
+    37.3: BPF prologue generation                  : Ok
+    37.4: BPF relocation checker                   : Ok
+
+  # tools/perf/perf test 37 -v 2>&1 | grep pinned
+    libbpf: pinned map '/sys/fs/bpf/perf_test/flip_table'
+    libbpf: pinned program '/sys/fs/bpf/perf_test/func=SyS_epoll_wait/0'
 
 Signed-off-by: Joe Stringer <joe@ovn.org>
+Cc: Wang Nan <wangnan0@huawei.com>
+Cc: Arnaldo Carvalho de Melo <acme@kernel.org>
 ---
 v3: Initial post.
 ---
- tools/lib/api/fs/fs.c | 16 ++++++++++++++++
- tools/lib/api/fs/fs.h |  1 +
- 2 files changed, 17 insertions(+)
+ tools/perf/tests/bpf.c | 42 +++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 41 insertions(+), 1 deletion(-)
 
-diff --git a/tools/lib/api/fs/fs.c b/tools/lib/api/fs/fs.c
-index f99f49e4a31e..4b6bfc43cccf 100644
---- a/tools/lib/api/fs/fs.c
-+++ b/tools/lib/api/fs/fs.c
-@@ -38,6 +38,10 @@
- #define HUGETLBFS_MAGIC        0x958458f6
- #endif
+diff --git a/tools/perf/tests/bpf.c b/tools/perf/tests/bpf.c
+index 92343f43e44a..1a04fe77487d 100644
+--- a/tools/perf/tests/bpf.c
++++ b/tools/perf/tests/bpf.c
+@@ -5,11 +5,13 @@
+ #include <util/evlist.h>
+ #include <linux/bpf.h>
+ #include <linux/filter.h>
++#include <api/fs/fs.h>
+ #include <bpf/bpf.h>
+ #include "tests.h"
+ #include "llvm.h"
+ #include "debug.h"
+ #define NR_ITERS       111
++#define PERF_TEST_BPF_PATH "/sys/fs/bpf/perf_test"
  
-+#ifndef BPF_FS_MAGIC
-+#define BPF_FS_MAGIC           0xcafe4a11
-+#endif
-+
- static const char * const sysfs__fs_known_mountpoints[] = {
- 	"/sys",
- 	0,
-@@ -75,6 +79,11 @@ static const char * const hugetlbfs__known_mountpoints[] = {
- 	0,
- };
+ #ifdef HAVE_LIBBPF_SUPPORT
  
-+static const char * const bpf_fs__known_mountpoints[] = {
-+	"/sys/fs/bpf",
-+	0,
-+};
-+
- struct fs {
- 	const char		*name;
- 	const char * const	*mounts;
-@@ -89,6 +98,7 @@ enum {
- 	FS__DEBUGFS = 2,
- 	FS__TRACEFS = 3,
- 	FS__HUGETLBFS = 4,
-+	FS__BPF_FS = 5,
- };
- 
- #ifndef TRACEFS_MAGIC
-@@ -121,6 +131,11 @@ static struct fs fs__entries[] = {
- 		.mounts = hugetlbfs__known_mountpoints,
- 		.magic	= HUGETLBFS_MAGIC,
- 	},
-+	[FS__BPF_FS] = {
-+		.name	= "bpf",
-+		.mounts = bpf_fs__known_mountpoints,
-+		.magic	= BPF_FS_MAGIC,
+@@ -54,6 +56,7 @@ static struct {
+ 	const char *msg_load_fail;
+ 	int (*target_func)(void);
+ 	int expect_result;
++	bool	pin;
+ } bpf_testcase_table[] = {
+ 	{
+ 		LLVM_TESTCASE_BASE,
+@@ -63,6 +66,17 @@ static struct {
+ 		"load bpf object failed",
+ 		&epoll_wait_loop,
+ 		(NR_ITERS + 1) / 2,
++		false,
 +	},
++	{
++		LLVM_TESTCASE_BASE,
++		"BPF pinning",
++		"[bpf_pinning]",
++		"fix kbuild first",
++		"check your vmlinux setting?",
++		&epoll_wait_loop,
++		(NR_ITERS + 1) / 2,
++		true,
+ 	},
+ #ifdef HAVE_BPF_PROLOGUE
+ 	{
+@@ -73,6 +87,7 @@ static struct {
+ 		"check your vmlinux setting?",
+ 		&llseek_loop,
+ 		(NR_ITERS + 1) / 4,
++		false,
+ 	},
+ #endif
+ 	{
+@@ -83,6 +98,7 @@ static struct {
+ 		"libbpf error when dealing with relocation",
+ 		NULL,
+ 		0,
++		false,
+ 	},
  };
  
- static bool fs__read_mounts(struct fs *fs)
-@@ -280,6 +295,7 @@ FS(procfs,  FS__PROCFS);
- FS(debugfs, FS__DEBUGFS);
- FS(tracefs, FS__TRACEFS);
- FS(hugetlbfs, FS__HUGETLBFS);
-+FS(bpf_fs, FS__BPF_FS);
+@@ -226,10 +242,34 @@ static int __test__bpf(int idx)
+ 		goto out;
+ 	}
  
- int filename__read_int(const char *filename, int *value)
- {
-diff --git a/tools/lib/api/fs/fs.h b/tools/lib/api/fs/fs.h
-index a63269f5d20c..6b332dc74498 100644
---- a/tools/lib/api/fs/fs.h
-+++ b/tools/lib/api/fs/fs.h
-@@ -22,6 +22,7 @@ FS(procfs)
- FS(debugfs)
- FS(tracefs)
- FS(hugetlbfs)
-+FS(bpf_fs)
- 
- #undef FS
- 
+-	if (obj)
++	if (obj) {
+ 		ret = do_test(obj,
+ 			      bpf_testcase_table[idx].target_func,
+ 			      bpf_testcase_table[idx].expect_result);
++		if (ret != TEST_OK)
++			goto out;
++		if (bpf_testcase_table[idx].pin) {
++			int err;
++
++			if (!bpf_fs__mount()) {
++				pr_debug("BPF filesystem not mounted\n");
++				ret = TEST_FAIL;
++				goto out;
++			}
++			err = mkdir(PERF_TEST_BPF_PATH, 0777);
++			if (err && errno != EEXIST) {
++				pr_debug("Failed to make perf_test dir: %s\n",
++					 strerror(errno));
++				ret = TEST_FAIL;
++				goto out;
++			}
++			if (bpf_object__pin(obj, PERF_TEST_BPF_PATH))
++				ret = TEST_FAIL;
++			if (rm_rf(PERF_TEST_BPF_PATH))
++				ret = TEST_FAIL;
++		}
++	}
++
+ out:
+ 	bpf__clear();
+ 	return ret;
 -- 
 2.11.0
