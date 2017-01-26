@@ -1,80 +1,87 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v5 net] ravb: unmap descriptors when freeing rings
-Date: Thu, 26 Jan 2017 19:48:30 +0300
-Message-ID: <ebfc2f11-8fd8-a04e-c480-0ed9eac3fa79@cogentembedded.com>
-References: <1485437367-3245-1-git-send-email-horms+renesas@verge.net.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 0/4] USB support for Broadcom NSP SoC
+Date: Thu, 26 Jan 2017 09:27:00 -0800
+Message-ID: <241009ca-4b34-b160-2de1-4752d3ff114b@gmail.com>
+References: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
+ <588A16FA.50507@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Simon Horman <horms+renesas@verge.net.au>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1485437367-3245-1-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Cc: devicetree@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org
+To: Kishon Vijay Abraham I <kishon@ti.com>,
+ Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
+ Rob Herring <robh+dt@kernel.org>, Mark Rutland <mark.rutland@arm.com>,
+ Russell King <linux@armlinux.org.uk>, Ray Jui <rjui@broadcom.com>,
+ Scott Branden <sbranden@broadcom.com>, Jon Mason <jonmason@broadcom.com>,
+ Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <588A16FA.50507@ti.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 01/26/2017 04:29 PM, Simon Horman wrote:
+On 01/26/2017 07:34 AM, Kishon Vijay Abraham I wrote:
+> 
+> 
+> On Tuesday 17 January 2017 09:44 PM, Yendapally Reddy Dhananjaya Reddy wrote:
+>> This patch set contains the usb support for Broadcom NSP SoC. The
+>> usb3 phy is internal to the SoC and is accessed through mdio interface.
+>> The mdio interface can be used to access either internal usb3 phy or
+>> external ethernet phy using a multiplexer.
+>>
+>> The first patch provides the documentation details for usb3 phy. The
+>> second patch provides the changes to the mdio bus driver. The third
+>> patch provides the phy driver and fourth patch provides the enable
+>> method for usb.
+> 
+> merged the 1st and 4th patch to linux-phy.
 
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+You mean 1st and 3rd here, right? 4th is a Device Tree change that I
+should take, and Patch 2 should be merged by David.
 
-    Well, Kazuya's patch is so far from your now, you could have said it was 
-reported by him or that your patch is loosely based on his one. :-)
+What branch in your tree should we be looking at?
 
-> "swiotlb buffer is full" errors occur after repeated initialisation of a
-> device - f.e. suspend/resume or ip link set up/down. This is because memory
-> mapped using dma_map_single() in ravb_ring_format() and ravb_start_xmit()
-> is not released.  Resolve this problem by unmapping descriptors when
-> freeing rings.
->
-> Fixes: c156633f1353 ("Renesas Ethernet AVB driver proper")
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> [simon: reworked]
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> 
+> Thanks
+> Kishon
+> 
+>>
+>> This patch series has been tested on NSP bcm958625HR board.
+>> This patch series is based on v4.10.0-rc3 and is available from
+>> github-repo: https://github.com/Broadcom/cygnus-linux.git
+>> branch:nsp-usb-v2
+>>
+>> Changes in v2:
+>> * Remove separate nsp mux driver as suggested by Andrew Lunn
+>> * Addressed comments from Scott and Rob
+>>
+>> Yendapally Reddy Dhananjaya Reddy (4):
+>>   dt-bindings: phy: Add documentation for NSP USB3 PHY
+>>   net: phy: Initialize mdio clock at probe function
+>>   phy: Add USB3 PHY support for Broadcom NSP SoC
+>>   arm: dts: nsp: Add USB nodes to device tree
+>>
+>>  .../devicetree/bindings/phy/brcm,nsp-usb3-phy.txt  |  39 +++++
+>>  arch/arm/boot/dts/bcm-nsp.dtsi                     |  56 +++++++
+>>  arch/arm/boot/dts/bcm958625k.dts                   |  16 ++
+>>  drivers/net/phy/mdio-bcm-iproc.c                   |   6 +-
+>>  drivers/phy/Kconfig                                |   8 +
+>>  drivers/phy/Makefile                               |   1 +
+>>  drivers/phy/phy-bcm-nsp-usb3.c                     | 176 +++++++++++++++++++++
+>>  7 files changed, 298 insertions(+), 4 deletions(-)
+>>  create mode 100644 Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
+>>  create mode 100644 drivers/phy/phy-bcm-nsp-usb3.c
+>>
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-> --
-
-    --- is needed here...
-
-> ---
-
-    ... unlike this place. :-)
-
->  drivers/net/ethernet/renesas/ravb_main.c | 112 ++++++++++++++++++-------------
->  1 file changed, 64 insertions(+), 48 deletions(-)
->
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 89ac1e3f6175..301f48755093 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -179,6 +179,49 @@ static struct mdiobb_ops bb_ops = {
->  	.get_mdio_data = ravb_get_mdio_data,
->  };
->
-> +/* Free TX skb function for AVB-IP */
-> +static int ravb_tx_free(struct net_device *ndev, int q, bool free_txed_only)
-
-    I'd have called the last parameter just 'all' or at least would have 
-avoided such verbs as 'txed'... :-)
-
-> +{
-> +	struct ravb_private *priv = netdev_priv(ndev);
-> +	struct net_device_stats *stats = &priv->stats[q];
-> +	struct ravb_tx_desc *desc;
-> +	int free_num = 0;
-> +	int entry;
-> +	u32 size;
-> +
-> +	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
-> +		bool txed;
-
-     I'd have declared this in the function scope like all other local vars.
-And would have chosen somewhat clearer name, like 'sent'. :-)
-
-[...]
-
-MBR, Sergei
+-- 
+Florian
