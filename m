@@ -1,306 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 2/4] net: dsa: Make most functions take a dsa_port argument
-Date: Thu, 26 Jan 2017 10:45:52 -0800
-Message-ID: <20170126184554.1325-3-f.fainelli@gmail.com>
-References: <20170126184554.1325-1-f.fainelli@gmail.com>
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35410 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752130AbdAZSq3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 13:46:29 -0500
-Received: by mail-pf0-f194.google.com with SMTP id f144so16949135pfa.2
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 10:46:02 -0800 (PST)
-In-Reply-To: <20170126184554.1325-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH net 1/5] ibmvnic: harden interrupt handler
+Date: Thu, 26 Jan 2017 12:57:02 -0600
+Message-ID: <8fa5134a-25a7-165a-d035-cc86cd690885@linux.vnet.ibm.com>
+References: <1485378143-5084-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+ <20170125.230413.830821835017116629.davem@davemloft.net>
+ <0cea7654-6722-5e68-cd05-cc51bbf7a5ae@linux.vnet.ibm.com>
+ <20170126.125624.243097121899163842.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wvoigt@us.ibm.com, linuxppc-dev@lists.ozlabs.org,
+ nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20170126.125624.243097121899163842.davem@davemloft.net>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-In preparation for allowing platform data, and therefore no valid
-device_node pointer, make most DSA functions takes a pointer to a
-dsa_port structure whenever possible. While at it, introduce a
-dsa_port_is_valid() helper function which checks whether port->dn is
-NULL or not at the moment.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/dsa.c      | 15 ++++++++------
- net/dsa/dsa2.c     | 61 +++++++++++++++++++++++++++++-------------------------
- net/dsa/dsa_priv.h |  4 ++--
- 3 files changed, 44 insertions(+), 36 deletions(-)
-
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 1f3afeb673d6..07e863369e04 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -110,8 +110,9 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
- 
- /* basic switch operations **************************************************/
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct device_node *port_dn, int port)
-+		      struct dsa_port *dport, int port)
- {
-+	struct device_node *port_dn = dport->dn;
- 	struct phy_device *phydev;
- 	int ret, mode;
- 
-@@ -141,15 +142,15 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 
- static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
- {
--	struct device_node *port_dn;
-+	struct dsa_port *dport;
- 	int ret, port;
- 
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
- 
--		port_dn = ds->ports[port].dn;
--		ret = dsa_cpu_dsa_setup(ds, dev, port_dn, port);
-+		dport = &ds->ports[port];
-+		ret = dsa_cpu_dsa_setup(ds, dev, dport, port);
- 		if (ret)
- 			return ret;
- 	}
-@@ -364,8 +365,10 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	return ds;
- }
- 
--void dsa_cpu_dsa_destroy(struct device_node *port_dn)
-+void dsa_cpu_dsa_destroy(struct dsa_port *port)
- {
-+	struct device_node *port_dn = port->dn;
-+
- 	if (of_phy_is_fixed_link(port_dn))
- 		of_phy_deregister_fixed_link(port_dn);
- }
-@@ -389,7 +392,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
--		dsa_cpu_dsa_destroy(ds->ports[port].dn);
-+		dsa_cpu_dsa_destroy(&ds->ports[port]);
- 
- 		/* Clearing a bit which is not set does no harm */
- 		ds->cpu_port_mask |= ~(1 << port);
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 2cf489c5e90f..56c43ca7c049 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -78,14 +78,19 @@ static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
- 	kref_put(&dst->refcount, dsa_free_dst);
- }
- 
--static bool dsa_port_is_dsa(struct device_node *port)
-+static bool dsa_port_is_valid(struct dsa_port *port)
- {
--	return !!of_parse_phandle(port, "link", 0);
-+	return !!port->dn;
- }
- 
--static bool dsa_port_is_cpu(struct device_node *port)
-+static bool dsa_port_is_dsa(struct dsa_port *port)
- {
--	return !!of_parse_phandle(port, "ethernet", 0);
-+	return !!of_parse_phandle(port->dn, "link", 0);
-+}
-+
-+static bool dsa_port_is_cpu(struct dsa_port *port)
-+{
-+	return !!of_parse_phandle(port->dn, "ethernet", 0);
- }
- 
- static bool dsa_ds_find_port(struct dsa_switch *ds,
-@@ -119,7 +124,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
- 
- static int dsa_port_complete(struct dsa_switch_tree *dst,
- 			     struct dsa_switch *src_ds,
--			     struct device_node *port,
-+			     struct dsa_port *port,
- 			     u32 src_port)
- {
- 	struct device_node *link;
-@@ -127,7 +132,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
- 	struct dsa_switch *dst_ds;
- 
- 	for (index = 0;; index++) {
--		link = of_parse_phandle(port, "link", index);
-+		link = of_parse_phandle(port->dn, "link", index);
- 		if (!link)
- 			break;
- 
-@@ -150,13 +155,13 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
-  */
- static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (!dsa_port_is_dsa(port))
-@@ -196,7 +201,7 @@ static int dsa_dst_complete(struct dsa_switch_tree *dst)
- 	return 0;
- }
- 
--static int dsa_dsa_port_apply(struct device_node *port, u32 index,
-+static int dsa_dsa_port_apply(struct dsa_port *port, u32 index,
- 			      struct dsa_switch *ds)
- {
- 	int err;
-@@ -211,13 +216,13 @@ static int dsa_dsa_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_dsa_port_unapply(struct device_node *port, u32 index,
-+static void dsa_dsa_port_unapply(struct dsa_port *port, u32 index,
- 				 struct dsa_switch *ds)
- {
- 	dsa_cpu_dsa_destroy(port);
- }
- 
--static int dsa_cpu_port_apply(struct device_node *port, u32 index,
-+static int dsa_cpu_port_apply(struct dsa_port *port, u32 index,
- 			      struct dsa_switch *ds)
- {
- 	int err;
-@@ -234,7 +239,7 @@ static int dsa_cpu_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
-+static void dsa_cpu_port_unapply(struct dsa_port *port, u32 index,
- 				 struct dsa_switch *ds)
- {
- 	dsa_cpu_dsa_destroy(port);
-@@ -242,13 +247,13 @@ static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
- 
- }
- 
--static int dsa_user_port_apply(struct device_node *port, u32 index,
-+static int dsa_user_port_apply(struct dsa_port *port, u32 index,
- 			       struct dsa_switch *ds)
- {
- 	const char *name;
- 	int err;
- 
--	name = of_get_property(port, "label", NULL);
-+	name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		name = "eth%d";
- 
-@@ -262,7 +267,7 @@ static int dsa_user_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_user_port_unapply(struct device_node *port, u32 index,
-+static void dsa_user_port_unapply(struct dsa_port *port, u32 index,
- 				  struct dsa_switch *ds)
- {
- 	if (ds->ports[index].netdev) {
-@@ -274,7 +279,7 @@ static void dsa_user_port_unapply(struct device_node *port, u32 index,
- 
- static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
-@@ -308,8 +313,8 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 	}
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_dsa(port)) {
-@@ -336,12 +341,12 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 
- static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_dsa(port)) {
-@@ -425,7 +430,7 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 	dst->applied = false;
- }
- 
--static int dsa_cpu_parse(struct device_node *port, u32 index,
-+static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 			 struct dsa_switch_tree *dst,
- 			 struct dsa_switch *ds)
- {
-@@ -433,7 +438,7 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
- 
--	ethernet = of_parse_phandle(port, "ethernet", 0);
-+	ethernet = of_parse_phandle(port->dn, "ethernet", 0);
- 	if (!ethernet)
- 		return -EINVAL;
- 
-@@ -466,13 +471,13 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
- 
- static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_cpu(port)) {
-@@ -533,7 +538,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
- 		 * to have access to a correct value, just like what
- 		 * net/dsa/dsa.c::dsa_switch_setup_one does.
- 		 */
--		if (!dsa_port_is_cpu(port))
-+		if (!dsa_port_is_cpu(&ds->ports[reg]))
- 			ds->enabled_port_mask |= 1 << reg;
- 	}
- 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 63ae1484abae..16194a4bb2fe 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -50,8 +50,8 @@ struct dsa_slave_priv {
- 
- /* dsa.c */
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct device_node *port_dn, int port);
--void dsa_cpu_dsa_destroy(struct device_node *port_dn);
-+		      struct dsa_port *dport, int port);
-+void dsa_cpu_dsa_destroy(struct dsa_port *dport);
- const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- int dsa_cpu_port_ethtool_setup(struct dsa_switch *ds);
- void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds);
--- 
-2.9.3
+On 01/26/2017 11:56 AM, David Miller wrote:
+> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> Date: Thu, 26 Jan 2017 10:44:22 -0600
+>
+>> On 01/25/2017 10:04 PM, David Miller wrote:
+>>> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+>>> Date: Wed, 25 Jan 2017 15:02:19 -0600
+>>>
+>>>> Move most interrupt handler processing into a tasklet, and
+>>>> introduce a delay after re-enabling interrupts to fix timing
+>>>> issues encountered in hardware testing.
+>>>>
+>>>> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+>>> I don't think you have any idea what the real problem is.  This looks
+>>> like a hack, at best.  Next patch you'll increase the delay to "20",
+>>> right?  And if that doesn't work you'll try "40".
+>>>
+>>> Or if you do know the reason, you need to explain it in detail in this
+>>> commit message so that we can properly evaluate this patch.
+>> You're right, I should have given more explanation in the commit message about the bug encountered and our reasons for this sort of fix.  The issue is that there are some scenarios during the device init where multiple messages are sent by firmware in one interrupt request. 
+>>
+>> We have observed behavior where messages are delayed, resulting in the interrupt handler completing before the delayed messages can be processed, fouling up the device bring-up in the device probing and elsewhere.  The goal of the delay is to buy some time for the hypervisor to forward all the CRQ messages from the firmware.
+> Then isn't there an event you can sleep and wait for, or a piece of state for
+> you to poll and test for in a timeout based loop?
+>
+> This delay is a bad solution for the problem of waiting for A to happen
+> before you do B.
+>
+Understood.  We will come up with a better fix.  Thanks for your attention.
