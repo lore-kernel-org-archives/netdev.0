@@ -1,60 +1,196 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: [PATCHv3 perf/core 0/6] Libbpf object pinning
-Date: Thu, 26 Jan 2017 13:19:55 -0800
-Message-ID: <20170126212001.14103-1-joe@ovn.org>
+Subject: [PATCHv3 perf/core 1/6] tools lib bpf: Add BPF program pinning APIs.
+Date: Thu, 26 Jan 2017 13:19:56 -0800
+Message-ID: <20170126212001.14103-2-joe@ovn.org>
+References: <20170126212001.14103-1-joe@ovn.org>
 Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: acme@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:51691 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753510AbdAZVUS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 16:20:18 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170126212001.14103-1-joe@ovn.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series adds pinning functionality for maps, programs, and objects.
-Library users may call bpf_map__pin(map, path) or bpf_program__pin(prog, path)
-to pin maps and programs separately, or use bpf_object__pin(obj, path) to
-pin all maps and programs from the BPF object to the path. The map and program
-variations require a path where it will be pinned in the filesystem,
-and the object variation will create named directories for each program with
-instances within, and mount the maps by name under the path.
+Add new APIs to pin a BPF program (or specific instances) to the filesystem.
+The user can specify the path full path within a BPF filesystem to pin the
+program.
 
-For example, with the directory '/sys/fs/bpf/foo' and a BPF object which
-contains two instances of a program named 'bar', and a map named 'baz':
-/sys/fs/bpf/foo/bar/0
-/sys/fs/bpf/foo/bar/1
-/sys/fs/bpf/foo/baz
+bpf_program__pin_instance(prog, path, n) will pin the nth instance of
+'prog' to the specified path.
+bpf_program__pin(prog, path) will create the directory 'path' (if it
+does not exist) and pin each instance within that directory. For
+instance, path/0, path/1, path/2.
 
+Signed-off-by: Joe Stringer <joe@ovn.org>
 ---
-v3: Split out bpf_program__pin_instance().
-    Change the paths from PATH/{maps,progs}/foo to the above.
-    Drop the patches that were applied.
-    Add a perf test to check that pinning works.
-v2: Wang Nan provided improvements to patch 1.
-    Dropped patch 2 from v1.
-    Added acks for acked patches.
-    Split the bpf_obj__pin() to also provide map / program pinning APIs.
-    Allow users to provide full filesystem path (don't autodetect/mount BPFFS).
-v1: Initial post.
+v3: Add per-instance pinning.
+    Use path for bpf_program__pin() as directory.
+v2: Don't automount BPF filesystem
+    Split program, map, object pinning into separate APIs and separate
+    patches.
+---
+ tools/lib/bpf/libbpf.c | 112 +++++++++++++++++++++++++++++++++++++++++++++++++
+ tools/lib/bpf/libbpf.h |   3 ++
+ 2 files changed, 115 insertions(+)
 
-Joe Stringer (6):
-  tools lib bpf: Add BPF program pinning APIs.
-  tools lib bpf: Add bpf_map__pin()
-  tools lib bpf: Add bpf_object__pin()
-  tools perf util: Make rm_rf(path) argument const
-  tools lib api fs: Add bpf_fs filesystem detector
-  perf test: Add libbpf pinning test
-
- tools/lib/api/fs/fs.c  |  16 +++++
- tools/lib/api/fs/fs.h  |   1 +
- tools/lib/bpf/libbpf.c | 188 +++++++++++++++++++++++++++++++++++++++++++++++++
- tools/lib/bpf/libbpf.h |   5 ++
- tools/perf/tests/bpf.c |  42 ++++++++++-
- tools/perf/util/util.c |   2 +-
- tools/perf/util/util.h |   2 +-
- 7 files changed, 253 insertions(+), 3 deletions(-)
-
+diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+index e6cd62b1264b..d1d7638b7c21 100644
+--- a/tools/lib/bpf/libbpf.c
++++ b/tools/lib/bpf/libbpf.c
+@@ -4,6 +4,7 @@
+  * Copyright (C) 2013-2015 Alexei Starovoitov <ast@kernel.org>
+  * Copyright (C) 2015 Wang Nan <wangnan0@huawei.com>
+  * Copyright (C) 2015 Huawei Inc.
++ * Copyright (C) 2017 Nicira, Inc.
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+@@ -22,6 +23,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <stdarg.h>
++#include <libgen.h>
+ #include <inttypes.h>
+ #include <string.h>
+ #include <unistd.h>
+@@ -31,7 +33,10 @@
+ #include <linux/err.h>
+ #include <linux/kernel.h>
+ #include <linux/bpf.h>
++#include <linux/magic.h>
+ #include <linux/list.h>
++#include <linux/limits.h>
++#include <sys/vfs.h>
+ #include <libelf.h>
+ #include <gelf.h>
+ 
+@@ -1237,6 +1242,113 @@ int bpf_object__load(struct bpf_object *obj)
+ 	return err;
+ }
+ 
++static int check_path(const char *path)
++{
++	struct statfs st_fs;
++	char *dname, *dir;
++	int err = 0;
++
++	if (path == NULL)
++		return -EINVAL;
++
++	dname = strdup(path);
++	dir = dirname(dname);
++	if (statfs(dir, &st_fs)) {
++		pr_warning("failed to statfs %s: %s\n", dir, strerror(errno));
++		err = -errno;
++	}
++	free(dname);
++
++	if (!err && st_fs.f_type != BPF_FS_MAGIC) {
++		pr_warning("specified path %s is not on BPF FS\n", path);
++		err = -EINVAL;
++	}
++
++	return err;
++}
++
++int bpf_program__pin_instance(struct bpf_program *prog, const char *path,
++			      int instance)
++{
++	int err;
++
++	err = check_path(path);
++	if (err)
++		return err;
++
++	if (prog == NULL) {
++		pr_warning("invalid program pointer\n");
++		return -EINVAL;
++	}
++
++	if (instance < 0 || instance >= prog->instances.nr) {
++		pr_warning("invalid prog instance %d of prog %s (max %d)\n",
++			   instance, prog->section_name, prog->instances.nr);
++		return -EINVAL;
++	}
++
++	if (bpf_obj_pin(prog->instances.fds[instance], path)) {
++		pr_warning("failed to pin program: %s\n", strerror(errno));
++		return -errno;
++	}
++	pr_debug("pinned program '%s'\n", path);
++
++	return 0;
++}
++
++static int make_dir(const char *path)
++{
++	int err = 0;
++
++	if (mkdir(path, 0700) && errno != EEXIST)
++		err = -errno;
++
++	if (err)
++		pr_warning("failed to mkdir %s: %s\n", path, strerror(-err));
++	return err;
++}
++
++int bpf_program__pin(struct bpf_program *prog, const char *path)
++{
++	int i, err;
++
++	err = check_path(path);
++	if (err)
++		return err;
++
++	if (prog == NULL) {
++		pr_warning("invalid program pointer\n");
++		return -EINVAL;
++	}
++
++	if (prog->instances.nr <= 0) {
++		pr_warning("no instances of prog %s to pin\n",
++			   prog->section_name);
++		return -EINVAL;
++	}
++
++	err = make_dir(path);
++	if (err)
++		return err;
++
++	for (i = 0; i < prog->instances.nr; i++) {
++		char buf[PATH_MAX];
++		int len;
++
++		len = snprintf(buf, PATH_MAX, "%s/%d", path, i);
++		if (len < 0)
++			return -EINVAL;
++		else if (len > PATH_MAX)
++			return -ENAMETOOLONG;
++
++		err = bpf_program__pin_instance(prog, buf, i);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
+ void bpf_object__close(struct bpf_object *obj)
+ {
+ 	size_t i;
+diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+index 4014d1ba5e3d..9f8aa63b95f4 100644
+--- a/tools/lib/bpf/libbpf.h
++++ b/tools/lib/bpf/libbpf.h
+@@ -106,6 +106,9 @@ void *bpf_program__priv(struct bpf_program *prog);
+ const char *bpf_program__title(struct bpf_program *prog, bool needs_copy);
+ 
+ int bpf_program__fd(struct bpf_program *prog);
++int bpf_program__pin_instance(struct bpf_program *prog, const char *path,
++			      int instance);
++int bpf_program__pin(struct bpf_program *prog, const char *path);
+ 
+ struct bpf_insn;
+ 
 -- 
 2.11.0
