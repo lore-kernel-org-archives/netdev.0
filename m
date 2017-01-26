@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/1] pull request for net: batman-adv 2017-01-25
-Date: Wed, 25 Jan 2017 23:11:56 -0500 (EST)
-Message-ID: <20170125.231156.954335408559738848.davem@davemloft.net>
-References: <20170125162506.12642-1-sw@simonwunderlich.de>
+Subject: Re: [PATCH V2 0/3] net-next: Broadcom PHY driver cleanup
+Date: Wed, 25 Jan 2017 23:14:05 -0500 (EST)
+Message-ID: <20170125.231405.890954133887623747.davem@davemloft.net>
+References: <20170125200027.14387-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: sw@simonwunderlich.de
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: 8bit
+Cc: f.fainelli@gmail.com, xow@google.com, joel@jms.id.au,
+        jon.mason@broadcom.com, jaedon.shin@gmail.com,
+        netdev@vger.kernel.org, rafal@milecki.pl
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55482 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55490 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdAZEL5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 23:11:57 -0500
-In-Reply-To: <20170125162506.12642-1-sw@simonwunderlich.de>
+        with ESMTP id S1752743AbdAZEOH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 23:14:07 -0500
+In-Reply-To: <20170125200027.14387-1-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Date: Wed, 25 Jan 2017 17:25:05 +0100
+From: Rafa©© Mi©©ecki <zajec5@gmail.com>
+Date: Wed, 25 Jan 2017 21:00:24 +0100
 
-> here is a bugfix for net which we would like to have integrated.
+> I will probably need to use broadcom.ko for PHY connected to interface
+> of bgmac supported device so I started looking at it willing to
+> understand it better.
 > 
-> Please pull or let me know of any problem!
+> I found AUXCTL part of the driver / lib a bit confusing and hard to read
+> so I'm trying to clean it up a bit. I hope this patchset makes following
+> AUXCTL operations much easier making it clear which defines are for
+> registers and which for values.
+> 
+> There is no functional change in this pachset.
 
-Pulled, thanks.
+Series applied, thanks.
