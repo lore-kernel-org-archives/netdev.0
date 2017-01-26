@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V3 net-next 01/14] net/ena: remove ntuple filter support from device feature list
-Date: Fri, 27 Jan 2017 00:18:03 +0200
-Message-ID: <1485469096-5271-2-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V3 net-next 03/14] net/ena: fix queues number calculation
+Date: Fri, 27 Jan 2017 00:18:05 +0200
+Message-ID: <1485469096-5271-4-git-send-email-netanel@annapurnalabs.com>
 References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -14,25 +14,27 @@ In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove NETIF_F_NTUPLE from netdev->features.
-The ENA device driver does not support ntuple filtering.
+The ENA driver tries to open a queue per vCPU.
+To determine how many vCPUs the instance have it uses num_possible_cpus()
+while it should have use num_online_cpus() instead.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index cc8b13e..7493ea3 100644
+index cb60567..f409cfd 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2722,7 +2722,6 @@ static void ena_set_dev_offloads(struct ena_com_dev_get_features_ctx *feat,
- 	netdev->features =
- 		dev_features |
- 		NETIF_F_SG |
--		NETIF_F_NTUPLE |
- 		NETIF_F_RXHASH |
- 		NETIF_F_HIGHDMA;
+@@ -2660,7 +2660,7 @@ static int ena_calc_io_queue_num(struct pci_dev *pdev,
+ 		io_sq_num = get_feat_ctx->max_queues.max_sq_num;
+ 	}
  
+-	io_queue_num = min_t(int, num_possible_cpus(), ENA_MAX_NUM_IO_QUEUES);
++	io_queue_num = min_t(int, num_online_cpus(), ENA_MAX_NUM_IO_QUEUES);
+ 	io_queue_num = min_t(int, io_queue_num, io_sq_num);
+ 	io_queue_num = min_t(int, io_queue_num,
+ 			     get_feat_ctx->max_queues.max_cq_num);
 -- 
 2.7.4
