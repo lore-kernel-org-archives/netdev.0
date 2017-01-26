@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 0/4] r8152: fix scheduling napi
-Date: Wed, 25 Jan 2017 22:47:49 -0500 (EST)
-Message-ID: <20170125.224749.986545008082919012.davem@davemloft.net>
-References: <1394712342-15778-236-Taiwan-albertk@realtek.com>
-        <1394712342-15778-247-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net resend] virtio_net: reject XDP programs using
+ header adjustment
+Date: Wed, 25 Jan 2017 22:49:11 -0500 (EST)
+Message-ID: <20170125.224911.108489414049157715.davem@davemloft.net>
+References: <5888C9B7.8040603@gmail.com>
+        <20170125225636.167620-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-247-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com, mst@redhat.com,
+        alexei.starovoitov@gmail.com, jasowang@redhat.com,
+        john.r.fastabend@intel.com, daniel@iogearbox.net,
+        oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54440 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750780AbdAZDtN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 22:49:13 -0500
+In-Reply-To: <20170125225636.167620-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 26 Jan 2017 09:38:30 +0800
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Wed, 25 Jan 2017 14:56:36 -0800
 
-> v3:
-> simply the argument for patch #3. Replace &tp->napi with napi.
+> commit 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
+> added a new XDP helper to prepend and remove data from a frame.
+> Make virtio_net reject programs making use of this helper until
+> proper support is added.
 > 
-> v2:
-> Add smp_mb__after_atomic() for patch #1.
-> 
-> v1:
-> Scheduling the napi during the following periods would let it be ignored.
-> And the events wouldn't be handled until next napi_schedule() is called.
-> 
-> 1. after napi_disable and before napi_enable().
-> 2. after all actions of napi function is completed and before calling
->    napi_complete().
-> 
-> If no next napi_schedule() is called, tx or rx would stop working.
-> 
-> In order to avoid these situations, the followings solutions are applied.
-> 
-> 1. prevent start_xmit() from calling napi_schedule() during runtime suspend
->    or after napi_disable().
-> 2. re-schedule the napi for tx if it is necessary.
-> 3. check if any rx is finished or not after napi_enable().
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Acked-by: John Fastabend <john.r.fastabend@intel.com>
 
-Series applied.
+Applied.
