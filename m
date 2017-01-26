@@ -1,54 +1,45 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] macvtap: Use kmalloc_array() in macvtap_queue_resize()
-Date: Thu, 26 Jan 2017 20:00:08 +0100
-Message-ID: <ca646e0a-9f04-149e-999a-df828b363861@users.sourceforge.net>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH net 1/5] ibmvnic: harden interrupt handler
+Date: Thu, 26 Jan 2017 13:05:40 -0600
+Message-ID: <b6646479-b370-b19b-48e2-27e20f67a31a@linux.vnet.ibm.com>
+References: <1485378143-5084-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+ <20170126102802.4f920418@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Francesco Ruggeri <fruggeri@arista.com>,
-        Gao Feng <fgao@ikuai8.com>, Jason Wang <jasowang@redhat.com>,
-        Marc Angel <marc@arista.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Mike Rapoport <rppt@linux.vnet.ibm.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([217.72.192.78]:51863 "EHLO mout.web.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752397AbdAZTDQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 14:03:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, wvoigt@us.ibm.com, linuxppc-dev@lists.ozlabs.org,
+ nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20170126102802.4f920418@xeon-e3>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 26 Jan 2017 19:47:38 +0100
-
-A multiplication for the size determination of a memory allocation
-indicated that an array data structure should be processed.
-Thus use the corresponding function "kmalloc_array".
-
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/macvtap.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 5c26653eceb5..1796d8f1ef47 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -1243,7 +1243,7 @@ static int macvtap_queue_resize(struct macvlan_dev *vlan)
- 	int n = vlan->numqueues;
- 	int ret, i = 0;
- 
--	arrays = kmalloc(sizeof *arrays * n, GFP_KERNEL);
-+	arrays = kmalloc_array(n, sizeof(*arrays), GFP_KERNEL);
- 	if (!arrays)
- 		return -ENOMEM;
- 
--- 
-2.11.0
+On 01/26/2017 12:28 PM, Stephen Hemminger wrote:
+> On Wed, 25 Jan 2017 15:02:19 -0600
+> Thomas Falcon <tlfalcon@linux.vnet.ibm.com> wrote:
+>
+>>  static irqreturn_t ibmvnic_interrupt(int irq, void *instance)
+>>  {
+>>  	struct ibmvnic_adapter *adapter = instance;
+>> +	unsigned long flags;
+>> +
+>> +	spin_lock_irqsave(&adapter->crq.lock, flags);
+>> +	vio_disable_interrupts(adapter->vdev);
+>> +	tasklet_schedule(&adapter->tasklet);
+>> +	spin_unlock_irqrestore(&adapter->crq.lock, flags);
+>> +	return IRQ_HANDLED;
+>> +}
+>> +
+> Why not use NAPI? rather than a tasklet
+>
+This interrupt function doesn't process packets, but message passing between firmware and driver for determining device capabilities and available resources, such as the number TX and RX queues. 
