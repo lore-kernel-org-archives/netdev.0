@@ -1,49 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/3] sfc: refactor debug-or-warnings printks
-Date: Thu, 26 Jan 2017 14:36:29 -0500 (EST)
-Message-ID: <20170126.143629.337763461510725581.davem@davemloft.net>
-References: <39d8923f-4400-506c-dd50-250636ff83fa@solarflare.com>
-        <15f3ecb9-1785-8688-93b9-51d400ee12bc@solarflare.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCHv2 perf/core 5/7] tools lib bpf: Add bpf_program__pin()
+Date: Thu, 26 Jan 2017 11:43:52 -0800
+Message-ID: <CAPWQB7E65hJPO9JPAtN-HxM3VUue2yrmx++YkQDTFL6oExVKpA@mail.gmail.com>
+References: <20170123011128.26534-1-joe@ovn.org> <20170123011128.26534-6-joe@ovn.org>
+ <e24b0753-43ee-fad5-86c4-a3699caff05d@huawei.com> <921d83a9-aa44-acee-4fcf-dbc45cc0a66a@huawei.com>
+ <CAPWQB7EWFE6DToMwTws6rUpnO49UYV1Rq-=0KV2ZioUf+dTjpg@mail.gmail.com>
+ <b93c8045-7408-fb8d-f8a1-c0d11bdbc791@huawei.com> <20170126193240.GC17504@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40712 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752397AbdAZThG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 14:37:06 -0500
-In-Reply-To: <15f3ecb9-1785-8688-93b9-51d400ee12bc@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: ast@fb.com, "Wangnan (F)" <wangnan0@huawei.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170126193240.GC17504@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Thu, 26 Jan 2017 17:53:48 +0000
+On 26 January 2017 at 11:32, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
+> Em Wed, Jan 25, 2017 at 10:18:22AM +0800, Wangnan (F) escreveu:
+>> On 2017/1/25 9:16, Joe Stringer wrote:
+>> > On 24 January 2017 at 17:06, Wangnan (F) <wangnan0@huawei.com> wrote:
+>> > > On 2017/1/25 9:04, Wangnan (F) wrote:
+>> > > Is it possible to use directory tree instead?
+>
+>> > > %s/object/mapname
+>> > > %s/object/prog/instance
+>> > I don't think objects have names, so let's assume an object with two
+>> > program instances named foo, and one map named bar.
+>
+>> > A call of bpf_object__pin(obj, "/sys/fs/bpf/myobj") would mount with
+>> > the following files and directories:
+>> > /sys/fs/bpf/myobj/foo/1
+>> > /sys/fs/bpf/myobj/foo/2
+>> > /sys/fs/bpf/myobj/bar
+>
+>> > Alternatively, if you want to control exactly where you want the
+>> > progs/maps to be pinned, you can call eg
+>> > bpf_program__pin_instance(prog, "/sys/fs/bpf/wherever", 0) and that
+>> > instance will be mounted to /sys/fs/bpf/wherever, or alternatively
+>> > bpf_program__pin(prog, "/sys/fs/bpf/foo"), and you will end up with
+>> > /sys/fs/bpf/foo/{0,1}.
+>
+>> > This looks pretty reasonable to me.
+>
+>> It looks good to me.
+>
+> Ok, please continue from perf/core, Ingo merged the first patch of this
+> patchset today,
 
-> diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-> index 5927c20..c640955 100644
-> --- a/drivers/net/ethernet/sfc/net_driver.h
-> +++ b/drivers/net/ethernet/sfc/net_driver.h
-> @@ -51,6 +51,15 @@
->  #define EFX_WARN_ON_PARANOID(x) do {} while (0)
->  #endif
->  
-> +/* if @cond then downgrade to debug, else print at @level */
-> +#define netif_cond_dbg(priv, type, netdev, cond, level, fmt, args...)     \
-> +	do {                                                              \
-> +		if (cond)                                                 \
-> +			netif_dbg(priv, type, netdev, fmt, ##args);       \
-> +		else                                                      \
-> +			netif_ ## level(priv, type, netdev, fmt, ##args); \
-> +	} while (0)
-> +
->  /**************************************************************************
->   *
->   * Efx data structures
-> 
-
-Please do not define locally in a driver an interface that looks like a generic
-one and might be useful to code outside of your driver.
-
-Thanks.
+Ok thanks, I'll continue from there.
