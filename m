@@ -1,35 +1,48 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [PATCH] Fix 64 bit addressing support for GEM
-Date: Thu, 26 Jan 2017 16:16:30 +0000
-Message-ID: <BN3PR07MB2516DC52226DB57C29BC13F4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <1485442837-26598-1-git-send-email-rafalo@cadence.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: ip_rcv_finish() NULL pointer kernel panic
+Date: Thu, 26 Jan 2017 17:24:33 +0100
+Message-ID: <20170126162433.GB1778@breakpoint.cc>
+References: <alpine.LNX.2.02.1701260627510.24491@maul.oc9.org>
+ <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
+ <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-To: Rafal Ozieblo <rafalo@cadence.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485442837-26598-1-git-send-email-rafalo@cadence.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Roy Keene <lkml@rkeene.org>, netdev@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------Original Message-----
-> From: Rafal Ozieblo [mailto:rafalo@cadence.com]=20
-> Sent: 26 stycznia 2017 16:01
-> Subject: [PATCH] Fix 64 bit addressing support for GEM
->=20
-> This patch adds support for 32 bit GEM in
-> 64 bit system. It checks capability at runtime
-> and uses appropriate buffer descriptor.
->=20
-> Signed-off-by: Rafal Ozieblo <rafalo@cadence.com>
-> ---
->  #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
-> -	if (GEM_BFEXT(DBWDEF, gem_readl(bp, DCFG1)) > GEM_DBW32)
-> +	if (GEM_BFEXT(DAW64, gem_readl(bp, DCFG6))) {
-> +		pr_emerg("rozieblo: 64B!\n");
-I forgot to remove that log message.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Though possibly with different things not setting the "input" function 
+> > pointer in the "struct dst_entry".
+> > 
+> > include/net/dst.h:
+> >   496 static inline int dst_input(struct sk_buff *skb) {
+> >   498         return skb_dst(skb)->input(skb);
+> >   499 }
+> > 
+> > Is there any reason not to check to see if this pointer is NULL before 
+> > blindly calling it ?
+> 
+> Sure. It can not be NULL at this point.
+> 
+> Just look at the code in ip_rcv_finish() :
+> 
+> It first make sure to get a valid dst.
+> 
+> Something is broken, probably in bridge netfilter code.
+> 
+> I suspect the dst here points to &br->fake_rtable, and this is not
+> expected.
+> 
+> br_drop_fake_rtable() should have been called somewhere ...
+
+I think it makes sense to set dst->incoming
+to a stub in br_netfilter_rtable_init() to just kfree_skb()+
+WARN_ON_ONCE(), no need to add code to ip stack or crash kernel
+due to brnf bug.
