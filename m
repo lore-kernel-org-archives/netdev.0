@@ -1,49 +1,92 @@
-From: "Amrani, Ram" <Ram.Amrani@cavium.com>
-Subject: RE: [PATCH net 1/3] qed: Release CQ resource under lock on failure
-Date: Thu, 26 Jan 2017 11:43:24 +0000
-Message-ID: <SN1PR07MB2207514E622BF7BED69695F5F8770@SN1PR07MB2207.namprd07.prod.outlook.com>
-References: <1485292523-8821-1-git-send-email-Yuval.Mintz@cavium.com>
- <1485292523-8821-2-git-send-email-Yuval.Mintz@cavium.com>
- <20170125072426.GA4973@yuval-lap>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Thu, 26 Jan 2017 12:49:25 +0100
+Message-ID: <20170126114925.GH6590@dhcp22.suse.cz>
+References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
+ <588907AA.1020704@iogearbox.net>
+ <20170126074354.GB8456@dhcp22.suse.cz>
+ <5889C331.7020101@iogearbox.net>
+ <20170126100802.GF6590@dhcp22.suse.cz>
+ <20170126103216.GG6590@dhcp22.suse.cz>
+ <5889D7AD.5030103@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "Kalderon, Michal" <Michal.Kalderon@cavium.com>
-To: Yuval Shaia <yuval.shaia@oracle.com>,
-        "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0047.outbound.protection.outlook.com ([104.47.42.47]:59456
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750998AbdAZLoz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 06:44:55 -0500
-In-Reply-To: <20170125072426.GA4973@yuval-lap>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+	Johannes Weiner <hannes@cmpxchg.org>, linux-mm <linux-mm@kvack.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	marcelo.leitner@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <5889D7AD.5030103@iogearbox.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-> Minor suggestion.
-> Can you consider embedding the lock and unlock inside qed_bmap_release_id=
-?
-> There are two places where this is bad idea as driver needs to release tw=
-o
-> IDs but still one is in error flow and second is when destroying QP so fo=
-r
-> most cases code may look a bit better.
->=20
+On Thu 26-01-17 12:04:13, Daniel Borkmann wrote:
+> On 01/26/2017 11:32 AM, Michal Hocko wrote:
+> > On Thu 26-01-17 11:08:02, Michal Hocko wrote:
+> > > On Thu 26-01-17 10:36:49, Daniel Borkmann wrote:
+> > > > On 01/26/2017 08:43 AM, Michal Hocko wrote:
+> > > > > On Wed 25-01-17 21:16:42, Daniel Borkmann wrote:
+> > > [...]
+> > > > > > I assume that kvzalloc() is still the same from [1], right? If so, then
+> > > > > > it would unfortunately (partially) reintroduce the issue that was fixed.
+> > > > > > If you look above at flags, they're also passed to __vmalloc() to not
+> > > > > > trigger OOM in these situations I've experienced.
+> > > > > 
+> > > > > Pushing __GFP_NORETRY to __vmalloc doesn't have the effect you might
+> > > > > think it would. It can still trigger the OOM killer becauset the flags
+> > > > > are no propagated all the way down to all allocations requests (e.g.
+> > > > > page tables). This is the same reason why GFP_NOFS is not supported in
+> > > > > vmalloc.
+> > > > 
+> > > > Ok, good to know, is that somewhere clearly documented (like for the
+> > > > case with kmalloc())?
+> > > 
+> > > I am afraid that we really suck on this front. I will add something.
+> > 
+> > So I have folded the following to the patch 1. It is in line with
+> > kvmalloc and hopefully at least tell more than the current code.
+> > ---
+> > diff --git a/mm/vmalloc.c b/mm/vmalloc.c
+> > index d89034a393f2..6c1aa2c68887 100644
+> > --- a/mm/vmalloc.c
+> > +++ b/mm/vmalloc.c
+> > @@ -1741,6 +1741,13 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
+> >    *	Allocate enough pages to cover @size from the page level
+> >    *	allocator with @gfp_mask flags.  Map them into contiguous
+> >    *	kernel virtual space, using a pagetable protection of @prot.
+> > + *
+> > + *	Reclaim modifiers in @gfp_mask - __GFP_NORETRY, __GFP_REPEAT
+> > + *	and __GFP_NOFAIL are not supported
+> 
+> We could probably also mention that __GFP_ZERO in @gfp_mask is
+> supported, though.
 
-The bitmap functions are being used by various bitmaps one of which is the =
-cid.
-The cid code must allocate two consecutive cids. So here the lock is over t=
-wo calls
-to the bit allocating call.
+There are others which would be supported so I would rather stay with
+explicit unsupported.
 
-I am planning to recode the cid to use one bit instead of two, this is furt=
-her
-down the list.
+> 
+> > + *	Any use of gfp flags outside of GFP_KERNEL should be consulted
+> > + *	with mm people.
+> 
+> Just a question: should that read 'GFP_KERNEL | __GFP_HIGHMEM' as
+> that is what vmalloc() resp. vzalloc() and others pass as flags?
 
-Thanks for the suggestion,
-Ram
+yes, even though I think that specifying __GFP_HIGHMEM shouldn't be
+really necessary. Are there any users who would really insist on vmalloc
+pages in lowmem? Anyway this made me recheck kvmalloc_node
+implementation and I am not adding this flags which would mean a
+regression from the current state. Will fix it up.
+-- 
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
