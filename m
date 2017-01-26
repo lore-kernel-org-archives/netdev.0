@@ -1,64 +1,41 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net-next 1/2] net: dsa: mv88e6xxx: Workaround missing PHY ID on mv88e6390
-Date: Thu, 26 Jan 2017 13:06:57 +0100
-Message-ID: <87tw8myqhq.fsf@free-electrons.com>
-References: <1485309314-23942-1-git-send-email-andrew@lunn.ch>
-        <1485309314-23942-2-git-send-email-andrew@lunn.ch>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Thu, 26 Jan 2017 04:14:37 -0800
+Message-ID: <1485432877.12563.100.camel@perches.com>
+References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
+         <588907AA.1020704@iogearbox.net> <20170126074354.GB8456@dhcp22.suse.cz>
+         <5889C331.7020101@iogearbox.net> <20170126100802.GF6590@dhcp22.suse.cz>
+         <20170126103216.GG6590@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:51906 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752603AbdAZMHA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 07:07:00 -0500
-In-Reply-To: <1485309314-23942-2-git-send-email-andrew@lunn.ch> (Andrew Lunn's
-        message of "Wed, 25 Jan 2017 02:55:13 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        linux-mm <linux-mm@kvack.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        marcelo.leitner@gmail.com
+To: Michal Hocko <mhocko@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170126103216.GG6590@dhcp22.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Thu, 2017-01-26 at 11:32 +0100, Michal Hocko wrote:
+> So I have folded the following to the patch 1. It is in line with
+> kvmalloc and hopefully at least tell more than the current code.
+[]
+> diff --git a/mm/vmalloc.c b/mm/vmalloc.c
+[]
+> @@ -1741,6 +1741,13 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
+>   *	Allocate enough pages to cover @size from the page level
+>   *	allocator with @gfp_mask flags.  Map them into contiguous
+>   *	kernel virtual space, using a pagetable protection of @prot.
+> + *
+> + *	Reclaim modifiers in @gfp_mask - __GFP_NORETRY, __GFP_REPEAT
+> + *	and __GFP_NOFAIL are not supported
 
-> -	return mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-> +	err = mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-> +	if (err)
-> +		return err;
-> +
-> +	if (reg == MII_PHYSID2) {
-> +		/* The mv88e6390 internal PHYS don't have a model number.
-> +		 * Use the switch family model number instead.
-> +		 */
-> +		if (!(*val & 0x3ff)) {
-> +			if (chip->info->family == MV88E6XXX_FAMILY_6390)
-
-I needed to test the MV88E6XXX_FAMILY_6341 flag too. But this one have
-to be done in my series because before it the flag is not introduced.
-
-As pointed in the other patch, we still need to decide to use the sale
-PHY ID or to use a new one.
-
-Thanks,
-
-Gregory
-
-
-> +				*val |= PORT_SWITCH_ID_PROD_NUM_6390;
-> +		}
-> +	}
-> +
-> +	return 0;
->  }
->  
->  int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip,
-> -- 
-> 2.11.0
->
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Maybe add a BUILD_BUG or a WARN_ON_ONCE to catch new occurrences?
