@@ -1,44 +1,40 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ipv6: remove skb_reserve in getroute
-Date: Thu, 26 Jan 2017 14:08:36 -0800
-Message-ID: <1485468516-4750-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:35739 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753569AbdAZWJ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 17:09:26 -0500
-Received: by mail-pg0-f48.google.com with SMTP id 194so75560177pgd.2
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 14:08:41 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Netanel Belgazal <netanel@annapurnalabs.com>
+Subject: [PATCH V3 net-next 02/14] net/ena: fix error handling when probe fails
+Date: Fri, 27 Jan 2017 00:18:04 +0200
+Message-ID: <1485469096-5271-3-git-send-email-netanel@annapurnalabs.com>
+References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
+Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
+        zorik@annapurnalabs.com, alex@annapurnalabs.com,
+        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
+        nafea@annapurnalabs.com, eric.dumazet@gmail.com
+To: linux-kernel@vger.kernel.org, davem@davemloft.net,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove skb_reserve and skb_reset_mac_header from inet6_rtm_getroute. The
-allocated skb is not passed through the routing engine (like it is for
-IPv4) and has not since the beginning of git time.
+When driver fails in probe, it will release all resources,
+including adapter.
+In case of probe failure, ena_remove should not try to
+free the adapter resources.
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- net/ipv6/route.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 47499ed429da..5046d2b24004 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3420,12 +3420,6 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 		goto errout;
- 	}
- 
--	/* Reserve room for dummy headers, this skb can pass
--	   through good chunk of routing engine.
--	 */
--	skb_reset_mac_header(skb);
--	skb_reserve(skb, MAX_HEADER + sizeof(struct ipv6hdr));
--
- 	skb_dst_set(skb, &rt->dst);
- 
- 	err = rt6_fill_node(net, skb, rt, &fl6.daddr, &fl6.saddr, iif,
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index 7493ea3..cb60567 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -3046,6 +3046,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ err_free_region:
+ 	ena_release_bars(ena_dev, pdev);
+ err_free_ena_dev:
++	pci_set_drvdata(pdev, NULL);
+ 	vfree(ena_dev);
+ err_disable_device:
+ 	pci_disable_device(pdev);
 -- 
-2.1.4
+2.7.4
