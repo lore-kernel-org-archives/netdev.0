@@ -1,7 +1,8 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V3 net-next 00/14] Bug Fixes in ENA driver.
-Date: Fri, 27 Jan 2017 00:18:02 +0200
-Message-ID: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V3 net-next 10/14] net/ena: use READ_ONCE to access completion descriptors
+Date: Fri, 27 Jan 2017 00:18:12 +0200
+Message-ID: <1485469096-5271-11-git-send-email-netanel@annapurnalabs.com>
+References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
         saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
@@ -9,43 +10,68 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Changes between V3 and V2:
-* Fix typos and correct alignment in commit messages.
-* use napi_complete_done() return value to determine when the napi
-handler needs to unmask the interrupts rather than implementing
-non standard solution.
-* Remove new features from this patchset and leave bug fixes only.
-* Give example in the commit message for kernel crashes.
-* Use BIT(x) instead of use the value explicitly.
+Completion descriptors are accessed from the driver and from the device.
+To avoid reading the old value, use READ_ONCE macro.
 
+Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
+---
+ drivers/net/ethernet/amazon/ena/ena_com.h     | 1 +
+ drivers/net/ethernet/amazon/ena/ena_eth_com.c | 8 ++++----
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-Netanel Belgazal (14):
-  net/ena: remove ntuple filter support from device feature list
-  net/ena: fix error handling when probe fails
-  net/ena: fix queues number calculation
-  net/ena: fix ethtool RSS flow configuration
-  net/ena: fix RSS default hash configuration
-  net/ena: fix NULL dereference when removing the driver after device
-    reset failed
-  net/ena: refactor ena_get_stats64 to be atomic context safe
-  net/ena: fix potential access to freed memory during device reset
-  net/ena: use napi_complete_done() return value
-  net/ena: use READ_ONCE to access completion descriptors
-  net/ena: reduce the severity of ena printouts
-  net/ena: change driver's default timeouts
-  net/ena: change condition for host attribute configuration
-  net/ena: update driver version to 1.1.2
-
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  20 ++-
- drivers/net/ethernet/amazon/ena/ena_com.c        |  41 ++---
- drivers/net/ethernet/amazon/ena/ena_com.h        |   1 +
- drivers/net/ethernet/amazon/ena/ena_eth_com.c    |   8 +-
- drivers/net/ethernet/amazon/ena/ena_netdev.c     | 186 ++++++++++++++++-------
- drivers/net/ethernet/amazon/ena/ena_netdev.h     |   9 +-
- 6 files changed, 182 insertions(+), 83 deletions(-)
-
+diff --git a/drivers/net/ethernet/amazon/ena/ena_com.h b/drivers/net/ethernet/amazon/ena/ena_com.h
+index 509d7b8..c9b33ee 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_com.h
++++ b/drivers/net/ethernet/amazon/ena/ena_com.h
+@@ -33,6 +33,7 @@
+ #ifndef ENA_COM
+ #define ENA_COM
+ 
++#include <linux/compiler.h>
+ #include <linux/delay.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/gfp.h>
+diff --git a/drivers/net/ethernet/amazon/ena/ena_eth_com.c b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+index 539c536..f999305 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_eth_com.c
++++ b/drivers/net/ethernet/amazon/ena/ena_eth_com.c
+@@ -45,7 +45,7 @@ static inline struct ena_eth_io_rx_cdesc_base *ena_com_get_next_rx_cdesc(
+ 	cdesc = (struct ena_eth_io_rx_cdesc_base *)(io_cq->cdesc_addr.virt_addr
+ 			+ (head_masked * io_cq->cdesc_entry_size_in_bytes));
+ 
+-	desc_phase = (cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_PHASE_MASK) >>
++	desc_phase = (READ_ONCE(cdesc->status) & ENA_ETH_IO_RX_CDESC_BASE_PHASE_MASK) >>
+ 			ENA_ETH_IO_RX_CDESC_BASE_PHASE_SHIFT;
+ 
+ 	if (desc_phase != expected_phase)
+@@ -141,7 +141,7 @@ static inline u16 ena_com_cdesc_rx_pkt_get(struct ena_com_io_cq *io_cq,
+ 
+ 		ena_com_cq_inc_head(io_cq);
+ 		count++;
+-		last = (cdesc->status & ENA_ETH_IO_RX_CDESC_BASE_LAST_MASK) >>
++		last = (READ_ONCE(cdesc->status) & ENA_ETH_IO_RX_CDESC_BASE_LAST_MASK) >>
+ 			ENA_ETH_IO_RX_CDESC_BASE_LAST_SHIFT;
+ 	} while (!last);
+ 
+@@ -489,13 +489,13 @@ int ena_com_tx_comp_req_id_get(struct ena_com_io_cq *io_cq, u16 *req_id)
+ 	 * expected, it mean that the device still didn't update
+ 	 * this completion.
+ 	 */
+-	cdesc_phase = cdesc->flags & ENA_ETH_IO_TX_CDESC_PHASE_MASK;
++	cdesc_phase = READ_ONCE(cdesc->flags) & ENA_ETH_IO_TX_CDESC_PHASE_MASK;
+ 	if (cdesc_phase != expected_phase)
+ 		return -EAGAIN;
+ 
+ 	ena_com_cq_inc_head(io_cq);
+ 
+-	*req_id = cdesc->req_id;
++	*req_id = READ_ONCE(cdesc->req_id);
+ 
+ 	return 0;
+ }
 -- 
 2.7.4
