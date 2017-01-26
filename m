@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 0/3] net-next: Broadcom PHY driver cleanup
-Date: Wed, 25 Jan 2017 23:14:05 -0500 (EST)
-Message-ID: <20170125.231405.890954133887623747.davem@davemloft.net>
-References: <20170125200027.14387-1-zajec5@gmail.com>
+Subject: Re: [PATCH net-next] bpf: use prefix_len in test_tag when reading
+ fdinfo
+Date: Wed, 25 Jan 2017 23:15:39 -0500 (EST)
+Message-ID: <20170125.231539.610771035278620989.davem@davemloft.net>
+References: <a4146cba5583102419763e59d8feff5e91802525.1485387682.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: 8bit
-Cc: f.fainelli@gmail.com, xow@google.com, joel@jms.id.au,
-        jon.mason@broadcom.com, jaedon.shin@gmail.com,
-        netdev@vger.kernel.org, rafal@milecki.pl
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@kernel.org, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55490 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55532 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752743AbdAZEOH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 23:14:07 -0500
-In-Reply-To: <20170125200027.14387-1-zajec5@gmail.com>
+        with ESMTP id S1752746AbdAZEPk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Jan 2017 23:15:40 -0500
+In-Reply-To: <a4146cba5583102419763e59d8feff5e91802525.1485387682.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rafa©© Mi©©ecki <zajec5@gmail.com>
-Date: Wed, 25 Jan 2017 21:00:24 +0100
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 26 Jan 2017 00:42:49 +0100
 
-> I will probably need to use broadcom.ko for PHY connected to interface
-> of bgmac supported device so I started looking at it willing to
-> understand it better.
+> We currently used len instead of prefix_len for the strncmp() in
+> fdinfo on the prog_tag. It still worked as we matched on the correct
+> output line also with first 8 instead of 10 chars, but lets fix it
+> properly to use the intended length.
 > 
-> I found AUXCTL part of the driver / lib a bit confusing and hard to read
-> so I'm trying to clean it up a bit. I hope this patchset makes following
-> AUXCTL operations much easier making it clear which defines are for
-> registers and which for values.
-> 
-> There is no functional change in this pachset.
+> Fixes: 62b64660262a ("bpf: add prog tag test case to bpf selftests")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Series applied, thanks.
+Applied.
