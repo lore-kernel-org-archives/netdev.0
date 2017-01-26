@@ -1,76 +1,90 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v1] net: phy: micrel: add KSZ8795 ethernet switch
-Date: Thu, 26 Jan 2017 10:36:17 -0800
-Message-ID: <3098087b-f58b-c1c3-34be-d14aa1818e7e@gmail.com>
-References: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
- <20170123151219.GE10895@lunn.ch>
- <732c14ff-f0cf-67d5-bcf9-cbbf9a4391b3@prevas.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Sean_Nyekj=c3=a6r?= <sean.nyekjaer@prevas.dk>,
-        Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 3/4] net: dsa: Suffix function manipulating device_node with _dn
+Date: Thu, 26 Jan 2017 10:28:07 -0800
+Message-ID: <20170126182808.13435-4-f.fainelli@gmail.com>
+References: <20170126182808.13435-1-f.fainelli@gmail.com>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33673 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751872AbdAZShZ (ORCPT
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36271 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751956AbdAZShZ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 13:37:25 -0500
-Received: by mail-pf0-f195.google.com with SMTP id e4so16880419pfg.0
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 10:36:19 -0800 (PST)
-In-Reply-To: <732c14ff-f0cf-67d5-bcf9-cbbf9a4391b3@prevas.dk>
+Received: by mail-pf0-f194.google.com with SMTP id 19so16902383pfo.3
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 10:37:09 -0800 (PST)
+In-Reply-To: <20170126182808.13435-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/26/2017 09:51 AM, Sean Nyekjær wrote:
-> 
-> 
-> On 2017-01-23 16:12, Andrew Lunn wrote:
->> On Mon, Jan 23, 2017 at 08:58:46AM +0100, Sean Nyekjaer wrote:
->>> This is add support for the PHYs in the KSZ8795 5port managed switch.
->>>
->>> It will allow to detect the link between the switch and the soc
->>> and uses the same read_status functions as the KSZ8873MLL switch.
->>>
->>> This ethernet switch have unfortunately the same phy id as KSZ8051.
->>>
->>> Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
->>> ---
->>>   drivers/net/phy/micrel.c   | 14 ++++++++++++++
->>>   include/linux/micrel_phy.h |  2 ++
->>>   2 files changed, 16 insertions(+)
->>>
->>> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
->>> index ea92d524d5a8..fa158ae5115b 100644
->>> --- a/drivers/net/phy/micrel.c
->>> +++ b/drivers/net/phy/micrel.c
->>> @@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
->>>       .get_stats    = kszphy_get_stats,
->>>       .suspend    = genphy_suspend,
->>>       .resume        = genphy_resume,
->>> +}, {
->>> +    .phy_id        = PHY_ID_KSZ8795,
->>> +    .phy_id_mask    = MICREL_PHY_ID_MASK,
->>> +    .name        = "Micrel KSZ8795 Switch",
->> This name is confusing. You are adding support for the PHYs embedded
->> in the switch, not the switch itself. The phylib has no idea these
->> PHYs are inside a switch. It does not matter. It is just a PHY. Please
->> drop the word "Switch".
->>
->> Thanks
->>     Andrew
-> Okay i'll understand :-)
-> I remove the word "Switch" from the commit message and phy name.
-> The rest is okay?
-> What is generally being done when to phy's have the same id, micrel have
-> done this many times...
+Make it clear that these functions take a device_node structure pointer
 
-You need unique names, we have a case like that in
-drivers/net/phy/bcm7xxx.c for the 7439 PHY where it exists with two
-different IDs, so the first one is named "Broadcom BCM7439" and the
-second one is named "Broadcom BCM7439 (2)", feel free to adopt the same
-convention, or something else.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/dsa2.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-The rest of your patch is okay.
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 56c43ca7c049..4c11619a818b 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -93,8 +93,8 @@ static bool dsa_port_is_cpu(struct dsa_port *port)
+ 	return !!of_parse_phandle(port->dn, "ethernet", 0);
+ }
+ 
+-static bool dsa_ds_find_port(struct dsa_switch *ds,
+-			     struct device_node *port)
++static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
++				struct device_node *port)
+ {
+ 	u32 index;
+ 
+@@ -104,8 +104,8 @@ static bool dsa_ds_find_port(struct dsa_switch *ds,
+ 	return false;
+ }
+ 
+-static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+-					    struct device_node *port)
++static struct dsa_switch *dsa_dst_find_port_dn(struct dsa_switch_tree *dst,
++					       struct device_node *port)
+ {
+ 	struct dsa_switch *ds;
+ 	u32 index;
+@@ -115,7 +115,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+ 		if (!ds)
+ 			continue;
+ 
+-		if (dsa_ds_find_port(ds, port))
++		if (dsa_ds_find_port_dn(ds, port))
+ 			return ds;
+ 	}
+ 
+@@ -136,7 +136,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
+ 		if (!link)
+ 			break;
+ 
+-		dst_ds = dsa_dst_find_port(dst, link);
++		dst_ds = dsa_dst_find_port_dn(dst, link);
+ 		of_node_put(link);
+ 
+ 		if (!dst_ds)
+@@ -545,7 +545,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int dsa_parse_member(struct device_node *np, u32 *tree, u32 *index)
++static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
+ {
+ 	int err;
+ 
+@@ -591,7 +591,7 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ 	u32 tree, index;
+ 	int i, err;
+ 
+-	err = dsa_parse_member(np, &tree, &index);
++	err = dsa_parse_member_dn(np, &tree, &index);
+ 	if (err)
+ 		return err;
+ 
 -- 
-Florian
+2.9.3
