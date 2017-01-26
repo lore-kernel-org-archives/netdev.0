@@ -1,39 +1,50 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: IPv6-UDP 0x0000 checksum
-Date: Thu, 26 Jan 2017 16:36:25 +0100
-Message-ID: <1485444985.14760.14.camel@sipsolutions.net>
-References: <1485437276.14760.3.camel@sipsolutions.net>
-         <1485438299.5145.117.camel@edumazet-glaptop3.roam.corp.google.com>
-         (sfid-20170126_144502_343976_16232A6D) <1485438546.14760.7.camel@sipsolutions.net>
-         <1485441942.5145.131.camel@edumazet-glaptop3.roam.corp.google.com>
-         (sfid-20170126_154545_190303_B1FB80BF) <1485442164.14760.11.camel@sipsolutions.net>
-         <1485444276.5145.133.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1485444476.5145.136.camel@edumazet-glaptop3.roam.corp.google.com>
-         (sfid-20170126_162759_798052_1A660877)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ip_rcv_finish() NULL pointer kernel panic
+Date: Thu, 26 Jan 2017 07:57:59 -0800
+Message-ID: <1485446279.5145.141.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <alpine.LNX.2.02.1701260627510.24491@maul.oc9.org>
+         <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1485444476.5145.136.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org> (sfid-20170126_162759_798052_1A660877)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Roy Keene <lkml@rkeene.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34299 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752449AbdAZQFl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 11:05:41 -0500
+In-Reply-To: <alpine.LNX.2.02.1701260927040.24491@maul.oc9.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-01-26 at 07:27 -0800, Eric Dumazet wrote:
+On Thu, 2017-01-26 at 09:32 -0600, Roy Keene wrote:
+> This bug appears to have existed for a long time:
 > 
->                 if (!uh->check && !udp_sk(sk)->no_check6_rx) {
->                         udp6_csum_zero_error(skb);
->                         goto csum_error;
->                 }
+>  	https://www.spinics.net/lists/netdev/msg222459.html
+> 
+>  	http://www.kernelhub.org/?p=2&msg=823752
+> 
+> Though possibly with different things not setting the "input" function 
+> pointer in the "struct dst_entry".
+> 
+> include/net/dst.h:
+>   496 static inline int dst_input(struct sk_buff *skb) {
+>   498         return skb_dst(skb)->input(skb);
+>   499 }
+> 
+> Is there any reason not to check to see if this pointer is NULL before 
+> blindly calling it ?
 
+Sure. It can not be NULL at this point.
 
+Just look at the code in ip_rcv_finish() :
 
-Yeah, I'd found no_check6_rx already, was still trying to figure out this one :)
+It first make sure to get a valid dst.
 
-Looks like we actually check uh->check regardless of anything the
-driver said (CHECKSUM_UNNECESSARY, or whatever), so we should be fine
-even with the hardware tagging it as good in this case.
+Something is broken, probably in bridge netfilter code.
 
-johannes
+I suspect the dst here points to &br->fake_rtable, and this is not
+expected.
+
+br_drop_fake_rtable() should have been called somewhere ...
