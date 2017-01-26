@@ -1,54 +1,115 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: netvsc NAPI patch process
-Date: Thu, 26 Jan 2017 20:46:40 +0000
-Message-ID: <DM5PR03MB249073BDE0362C6A7051AA8EA0770@DM5PR03MB2490.namprd03.prod.outlook.com>
-References: <20170126100405.0eac2dea@xeon-e3>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 net] net: free ip_vs_dest structs when refcnt=0
+Date: Thu, 26 Jan 2017 22:49:10 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1701262241280.3892@ja.home.ssi.bg>
+References: <1485228269-21758-1-git-send-email-dwindsor@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Greg KH <greg@kroah.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
+        netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+        wensong@linux-vs.org, horms@verge.net.au, pablo@netfilter.org,
+        keescook@chromium.org, elena.reshetova@intel.com,
+        ishkamiel@gmail.com
+To: David Windsor <dwindsor@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0103.outbound.protection.outlook.com ([104.47.37.103]:54041
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752822AbdAZUrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Jan 2017 15:47:23 -0500
-In-Reply-To: <20170126100405.0eac2dea@xeon-e3>
-Content-Language: en-US
+Received: from ja.ssi.bg ([178.16.129.10]:35854 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753060AbdAZUt4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Jan 2017 15:49:56 -0500
+In-Reply-To: <1485228269-21758-1-git-send-email-dwindsor@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+	Hello,
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Thursday, January 26, 2017 10:04 AM
-> To: davem@davemloft.net; KY Srinivasan <kys@microsoft.com>; Greg KH
-> <greg@kroah.com>
-> Cc: netdev@vger.kernel.org
-> Subject: netvsc NAPI patch process
->=20
-> I have a working set of patches to enable NAPI in the netvsc driver.
-> The problem is that it requires a set of patches to vmbus layer as well.
-> Since vmbus patches have been going through char-misc-next tree rather
-> than net-next, it is difficult to stage these.
+On Mon, 23 Jan 2017, David Windsor wrote:
 
-In the past, we have done this in two stages - get the supporting vmbus pat=
-ches into
-Greg's tree first and in the next merge cycle get the netvsc patches in. Wh=
-y not continue to
-do what we have done in the past to address cross-tree dependencies.
+> Currently, the ip_vs_dest cache frees ip_vs_dest objects when their
+> reference count becomes < 0.  Aside from not being semantically sound,
+> this is problematic for the new type refcount_t, which will be introduced
+> shortly in a separate patch. refcount_t is the new kernel type for
+> holding reference counts, and provides overflow protection and a
+> constrained interface relative to atomic_t (the type currently being
+> used for kernel reference counts).
+> 
+> Per Julian Anastasov: "The problem is that dest_trash currently holds
+> deleted dests (unlinked from RCU lists) with refcnt=0."  Changing
+> dest_trash to hold dest with refcnt=1 will allow us to free ip_vs_dest
+> structs when their refcnt=0, in ip_vs_dest_put_and_free().
+> 
+> Signed-off-by: David Windsor <dwindsor@gmail.com>
 
-Regards,
+	Thanks! I tested the first version and this one
+just adds the needed changes in comments, so
 
-K. Y=20
->=20
-> How about if I send the vmbus patches through normal driver-devel
-> upstream
-> and during the 4.10 merge window send the last 3 patches for NAPI for lin=
-ux-
-> net
-> tree to get into 4.10?
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+
+	Simon and Pablo, this is more appropriate for
+ipvs-next/nf-next. Please apply!
+
+> ---
+>  include/net/ip_vs.h            | 2 +-
+>  net/netfilter/ipvs/ip_vs_ctl.c | 8 +++-----
+>  2 files changed, 4 insertions(+), 6 deletions(-)
+> 
+> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+> index cd6018a..a3e78ad 100644
+> --- a/include/net/ip_vs.h
+> +++ b/include/net/ip_vs.h
+> @@ -1421,7 +1421,7 @@ static inline void ip_vs_dest_put(struct ip_vs_dest *dest)
+>  
+>  static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
+>  {
+> -	if (atomic_dec_return(&dest->refcnt) < 0)
+> +	if (atomic_dec_and_test(&dest->refcnt))
+>  		kfree(dest);
+>  }
+>  
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index 55e0169..5fc4836 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -711,7 +711,6 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, int dest_af,
+>  		      dest->vport == svc->port))) {
+>  			/* HIT */
+>  			list_del(&dest->t_list);
+> -			ip_vs_dest_hold(dest);
+>  			goto out;
+>  		}
+>  	}
+> @@ -741,7 +740,7 @@ static void ip_vs_dest_free(struct ip_vs_dest *dest)
+>   *  When the ip_vs_control_clearup is activated by ipvs module exit,
+>   *  the service tables must have been flushed and all the connections
+>   *  are expired, and the refcnt of each destination in the trash must
+> - *  be 0, so we simply release them here.
+> + *  be 1, so we simply release them here.
+>   */
+>  static void ip_vs_trash_cleanup(struct netns_ipvs *ipvs)
+>  {
+> @@ -1080,11 +1079,10 @@ static void __ip_vs_del_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest,
+>  	if (list_empty(&ipvs->dest_trash) && !cleanup)
+>  		mod_timer(&ipvs->dest_trash_timer,
+>  			  jiffies + (IP_VS_DEST_TRASH_PERIOD >> 1));
+> -	/* dest lives in trash without reference */
+> +	/* dest lives in trash with reference */
+>  	list_add(&dest->t_list, &ipvs->dest_trash);
+>  	dest->idle_start = 0;
+>  	spin_unlock_bh(&ipvs->dest_trash_lock);
+> -	ip_vs_dest_put(dest);
+>  }
+>  
+>  
+> @@ -1160,7 +1158,7 @@ static void ip_vs_dest_trash_expire(unsigned long data)
+>  
+>  	spin_lock(&ipvs->dest_trash_lock);
+>  	list_for_each_entry_safe(dest, next, &ipvs->dest_trash, t_list) {
+> -		if (atomic_read(&dest->refcnt) > 0)
+> +		if (atomic_read(&dest->refcnt) > 1)
+>  			continue;
+>  		if (dest->idle_start) {
+>  			if (time_before(now, dest->idle_start +
+> -- 
+> 2.7.4
+
+Regards
