@@ -1,106 +1,148 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2] net: ipv6: ignore null_entry on route dumps
-Date: Thu, 26 Jan 2017 13:54:08 -0800
-Message-ID: <1485467648-27922-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: xiaolong.ye@intel.com, David Ahern <dsa@cumulusnetworks.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH net] tcp: don't annotate mark on control socket from tcp_v6_send_response()
+Date: Thu, 26 Jan 2017 22:56:21 +0100
+Message-ID: <1485467781-1842-1-git-send-email-pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+        eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36162 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753754AbdAZVyP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 16:54:15 -0500
-Received: by mail-pf0-f174.google.com with SMTP id 189so68164281pfu.3
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 13:54:15 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-lkp-robot reported a BUG:
-[   10.151226] BUG: unable to handle kernel NULL pointer dereference at 00000198
-[   10.152525] IP: rt6_fill_node+0x164/0x4b8
-[   10.153307] *pdpt = 0000000012ee5001 *pde = 0000000000000000
-[   10.153309]
-[   10.154492] Oops: 0000 [#1]
-[   10.154987] CPU: 0 PID: 909 Comm: netifd Not tainted 4.10.0-rc4-00722-g41e8c70ee162-dirty #10
-[   10.156482] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[   10.158254] task: d0deb000 task.stack: d0e0c000
-[   10.159059] EIP: rt6_fill_node+0x164/0x4b8
-[   10.159780] EFLAGS: 00010296 CPU: 0
-[   10.160404] EAX: 00000000 EBX: d10c2358 ECX: c1f7c6cc EDX: c1f6ff44
-[   10.161469] ESI: 00000000 EDI: c2059900 EBP: d0e0dc4c ESP: d0e0dbe4
-[   10.162534]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 0068
-[   10.163482] CR0: 80050033 CR2: 00000198 CR3: 10d94660 CR4: 000006b0
-[   10.164535] Call Trace:
-[   10.164993]  ? paravirt_sched_clock+0x9/0xd
-[   10.165727]  ? sched_clock+0x9/0xc
-[   10.166329]  ? sched_clock_cpu+0x19/0xe9
-[   10.166991]  ? lock_release+0x13e/0x36c
-[   10.167652]  rt6_dump_route+0x4c/0x56
-[   10.168276]  fib6_dump_node+0x1d/0x3d
-[   10.168913]  fib6_walk_continue+0xab/0x167
-[   10.169611]  fib6_walk+0x2a/0x40
-[   10.170182]  inet6_dump_fib+0xfb/0x1e0
-[   10.170855]  netlink_dump+0xcd/0x21f
+Unlike ipv4, this control socket is shared by all cpus so we cannot use
+it as scratchpad area to annotate the mark that we pass to ip6_xmit().
 
-This happens when the loopback device is set down and a ipv6 fib route
-dump is requested.
+Add a new parameter to ip6_xmit() to indicate the mark. The SCTP socket
+family caches the flowi6 structure in the sctp_transport structure, so
+we cannot use to carry the mark unless we later on reset it back, which
+I discarded since it looks ugly to me.
 
-ip6_null_entry is the root of all ipv6 fib tables making it integrated
-into the table and hence passed to the ipv6 route dump code. The
-null_entry route uses the loopback device for dst.dev but may not have
-rt6i_idev set because of the order in which initializations are done --
-ip6_route_net_init is run before addrconf_init has initialized the
-loopback device. Fixing the initialization order is a much bigger problem
-with no obvious solution thus far.
-
-The BUG is triggered when the loopback is set down and the netif_running
-check added by a1a22c1206 fails. The fill_node descends to checking
-rt->rt6i_idev for ignore_routes_with_linkdown and since rt6i_idev is
-NULL it faults.
-
-The null_entry route should not be processed in a dump request. Catch
-and ignore. This check is done in rt6_dump_route as it is the highest
-place in the callchain with knowledge of both the route and the network
-namespace.
-
-Fixes: a1a22c1206("net: ipv6: Keep nexthop of multipath route on admin down")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Fixes: bf99b4ded5f8 ("tcp: fix mark propagation with fwmark_reflect enabled")
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
-v2
-- updated commit message; no code change
+Tested with nc6, works for me.
 
-Dave: per last email you suggested putting this in fib6_dump_node, but
-      fib6_dump_node does not have knowledge of the network namespace
-      because of the way the fib_walker works. I could put
-      struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) w->args;
-      into fib6_dump_node to get the net pointer from it but did not
-      want to duplicate the typecast.
+Note: DCCP and SCTP don't seem to support fwmark_reflect yet, so leave
+      these bits.
 
- net/ipv6/route.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Thanks!
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4b1f0f98a0e9..47499ed429da 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -3320,6 +3320,10 @@ static int rt6_fill_node(struct net *net,
- int rt6_dump_route(struct rt6_info *rt, void *p_arg)
- {
- 	struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
-+	struct net *net = arg->net;
-+
-+	if (rt == net->ipv6.ip6_null_entry)
-+		return 0;
+ include/net/ipv6.h               | 2 +-
+ net/dccp/ipv6.c                  | 4 ++--
+ net/ipv6/inet6_connection_sock.c | 2 +-
+ net/ipv6/ip6_output.c            | 4 ++--
+ net/ipv6/tcp_ipv6.c              | 5 ++---
+ net/sctp/ipv6.c                  | 3 ++-
+ 6 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 487e57391664..7afe991e900e 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -871,7 +871,7 @@ int ip6_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb);
+  *	upper-layer output functions
+  */
+ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+-	     struct ipv6_txoptions *opt, int tclass);
++	     __u32 mark, struct ipv6_txoptions *opt, int tclass);
  
- 	if (nlmsg_len(arg->cb->nlh) >= sizeof(struct rtmsg)) {
- 		struct rtmsg *rtm = nlmsg_data(arg->cb->nlh);
-@@ -3332,7 +3336,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
- 		}
+ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr);
+ 
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index adfc790f7193..c4e879c02186 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -227,7 +227,7 @@ static int dccp_v6_send_response(const struct sock *sk, struct request_sock *req
+ 		opt = ireq->ipv6_opt;
+ 		if (!opt)
+ 			opt = rcu_dereference(np->opt);
+-		err = ip6_xmit(sk, skb, &fl6, opt, np->tclass);
++		err = ip6_xmit(sk, skb, &fl6, sk->sk_mark, opt, np->tclass);
+ 		rcu_read_unlock();
+ 		err = net_xmit_eval(err);
  	}
+@@ -281,7 +281,7 @@ static void dccp_v6_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+ 	dst = ip6_dst_lookup_flow(ctl_sk, &fl6, NULL);
+ 	if (!IS_ERR(dst)) {
+ 		skb_dst_set(skb, dst);
+-		ip6_xmit(ctl_sk, skb, &fl6, NULL, 0);
++		ip6_xmit(ctl_sk, skb, &fl6, 0, NULL, 0);
+ 		DCCP_INC_STATS(DCCP_MIB_OUTSEGS);
+ 		DCCP_INC_STATS(DCCP_MIB_OUTRSTS);
+ 		return;
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index 7396e75e161b..75c308239243 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -176,7 +176,7 @@ int inet6_csk_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl_unused
+ 	/* Restore final destination back after routing done */
+ 	fl6.daddr = sk->sk_v6_daddr;
  
--	return rt6_fill_node(arg->net,
-+	return rt6_fill_node(net,
- 		     arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
- 		     NETLINK_CB(arg->cb->skb).portid, arg->cb->nlh->nlmsg_seq,
- 		     NLM_F_MULTI);
+-	res = ip6_xmit(sk, skb, &fl6, rcu_dereference(np->opt),
++	res = ip6_xmit(sk, skb, &fl6, sk->sk_mark, rcu_dereference(np->opt),
+ 		       np->tclass);
+ 	rcu_read_unlock();
+ 	return res;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 38122d04fadc..2c0df09e9036 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -172,7 +172,7 @@ int ip6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+  * which are using proper atomic operations or spinlocks.
+  */
+ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+-	     struct ipv6_txoptions *opt, int tclass)
++	     __u32 mark, struct ipv6_txoptions *opt, int tclass)
+ {
+ 	struct net *net = sock_net(sk);
+ 	const struct ipv6_pinfo *np = inet6_sk(sk);
+@@ -240,7 +240,7 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 
+ 	skb->protocol = htons(ETH_P_IPV6);
+ 	skb->priority = sk->sk_priority;
+-	skb->mark = sk->sk_mark;
++	skb->mark = mark;
+ 
+ 	mtu = dst_mtu(dst);
+ 	if ((skb->len <= mtu) || skb->ignore_df || skb_is_gso(skb)) {
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 2b20622a5824..cb8929681dc7 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -469,7 +469,7 @@ static int tcp_v6_send_synack(const struct sock *sk, struct dst_entry *dst,
+ 		opt = ireq->ipv6_opt;
+ 		if (!opt)
+ 			opt = rcu_dereference(np->opt);
+-		err = ip6_xmit(sk, skb, fl6, opt, np->tclass);
++		err = ip6_xmit(sk, skb, fl6, sk->sk_mark, opt, np->tclass);
+ 		rcu_read_unlock();
+ 		err = net_xmit_eval(err);
+ 	}
+@@ -840,8 +840,7 @@ static void tcp_v6_send_response(const struct sock *sk, struct sk_buff *skb, u32
+ 	dst = ip6_dst_lookup_flow(ctl_sk, &fl6, NULL);
+ 	if (!IS_ERR(dst)) {
+ 		skb_dst_set(buff, dst);
+-		ctl_sk->sk_mark = fl6.flowi6_mark;
+-		ip6_xmit(ctl_sk, buff, &fl6, NULL, tclass);
++		ip6_xmit(ctl_sk, buff, &fl6, fl6.flowi6_mark, NULL, tclass);
+ 		TCP_INC_STATS(net, TCP_MIB_OUTSEGS);
+ 		if (rst)
+ 			TCP_INC_STATS(net, TCP_MIB_OUTRSTS);
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 5ed8e79bf102..64dfd35ccdcc 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -222,7 +222,8 @@ static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport)
+ 	SCTP_INC_STATS(sock_net(sk), SCTP_MIB_OUTSCTPPACKS);
+ 
+ 	rcu_read_lock();
+-	res = ip6_xmit(sk, skb, fl6, rcu_dereference(np->opt), np->tclass);
++	res = ip6_xmit(sk, skb, fl6, sk->sk_mark, rcu_dereference(np->opt),
++		       np->tclass);
+ 	rcu_read_unlock();
+ 	return res;
+ }
 -- 
 2.1.4
+
