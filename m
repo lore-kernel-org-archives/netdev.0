@@ -1,38 +1,55 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/7] pull request for net-next:
-	batman-adv 2017-01-26
-Date: Thu, 26 Jan 2017 14:31:34 -0500 (EST)
-Message-ID: <20170126.143134.1263227760995643461.davem@davemloft.net>
-References: <20170126164404.16074-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCHv2 perf/core 5/7] tools lib bpf: Add bpf_program__pin()
+Date: Thu, 26 Jan 2017 16:32:40 -0300
+Message-ID: <20170126193240.GC17504@kernel.org>
+References: <20170123011128.26534-1-joe@ovn.org>
+ <20170123011128.26534-6-joe@ovn.org>
+ <e24b0753-43ee-fad5-86c4-a3699caff05d@huawei.com>
+ <921d83a9-aa44-acee-4fcf-dbc45cc0a66a@huawei.com>
+ <CAPWQB7EWFE6DToMwTws6rUpnO49UYV1Rq-=0KV2ZioUf+dTjpg@mail.gmail.com>
+ <b93c8045-7408-fb8d-f8a1-c0d11bdbc791@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170126164404.16074-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Wangnan (F)" <wangnan0@huawei.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Joe Stringer <joe@ovn.org>, ast@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b93c8045-7408-fb8d-f8a1-c0d11bdbc791@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Date: Thu, 26 Jan 2017 17:43:57 +0100
+Em Wed, Jan 25, 2017 at 10:18:22AM +0800, Wangnan (F) escreveu:
+> On 2017/1/25 9:16, Joe Stringer wrote:
+> > On 24 January 2017 at 17:06, Wangnan (F) <wangnan0@huawei.com> wrote:
+> > > On 2017/1/25 9:04, Wangnan (F) wrote:
+> > > Is it possible to use directory tree instead?
 
-> this is the updated version of yesterdays feature/cleanup pull request for
-> batman-adv which should go into net-next. We've followed your suggestion
-> regarding the NET_XMIT_CN handling and modified Gaos patch accordingly.
-> 
-> The remaining patches are untouched.
-> 
-> Please pull or let me know of any problem!
+> > > %s/object/mapname
+> > > %s/object/prog/instance
+> > I don't think objects have names, so let's assume an object with two
+> > program instances named foo, and one map named bar.
 
-Pulled, thanks.
+> > A call of bpf_object__pin(obj, "/sys/fs/bpf/myobj") would mount with
+> > the following files and directories:
+> > /sys/fs/bpf/myobj/foo/1
+> > /sys/fs/bpf/myobj/foo/2
+> > /sys/fs/bpf/myobj/bar
+
+> > Alternatively, if you want to control exactly where you want the
+> > progs/maps to be pinned, you can call eg
+> > bpf_program__pin_instance(prog, "/sys/fs/bpf/wherever", 0) and that
+> > instance will be mounted to /sys/fs/bpf/wherever, or alternatively
+> > bpf_program__pin(prog, "/sys/fs/bpf/foo"), and you will end up with
+> > /sys/fs/bpf/foo/{0,1}.
+
+> > This looks pretty reasonable to me.
+
+> It looks good to me.
+
+Ok, please continue from perf/core, Ingo merged the first patch of this
+patchset today,
+
+- Arnaldo
