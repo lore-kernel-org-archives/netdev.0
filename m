@@ -1,53 +1,104 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCHv2 perf/core 5/7] tools lib bpf: Add bpf_program__pin()
-Date: Thu, 26 Jan 2017 11:43:52 -0800
-Message-ID: <CAPWQB7E65hJPO9JPAtN-HxM3VUue2yrmx++YkQDTFL6oExVKpA@mail.gmail.com>
-References: <20170123011128.26534-1-joe@ovn.org> <20170123011128.26534-6-joe@ovn.org>
- <e24b0753-43ee-fad5-86c4-a3699caff05d@huawei.com> <921d83a9-aa44-acee-4fcf-dbc45cc0a66a@huawei.com>
- <CAPWQB7EWFE6DToMwTws6rUpnO49UYV1Rq-=0KV2ZioUf+dTjpg@mail.gmail.com>
- <b93c8045-7408-fb8d-f8a1-c0d11bdbc791@huawei.com> <20170126193240.GC17504@kernel.org>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH net-next 1/3] trace: add variant without spacing in
+ trace_print_hex_seq
+Date: Thu, 26 Jan 2017 16:53:06 -0300
+Message-ID: <20170126195306.GD17504@kernel.org>
+References: <cover.1485306168.git.daniel@iogearbox.net>
+ <f860273ed9fd0c423f4d1ee2ab93565992d76ff4.1485306168.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: ast@fb.com, "Wangnan (F)" <wangnan0@huawei.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, ast@kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170126193240.GC17504@kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f860273ed9fd0c423f4d1ee2ab93565992d76ff4.1485306168.git.daniel@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26 January 2017 at 11:32, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
-> Em Wed, Jan 25, 2017 at 10:18:22AM +0800, Wangnan (F) escreveu:
->> On 2017/1/25 9:16, Joe Stringer wrote:
->> > On 24 January 2017 at 17:06, Wangnan (F) <wangnan0@huawei.com> wrote:
->> > > On 2017/1/25 9:04, Wangnan (F) wrote:
->> > > Is it possible to use directory tree instead?
->
->> > > %s/object/mapname
->> > > %s/object/prog/instance
->> > I don't think objects have names, so let's assume an object with two
->> > program instances named foo, and one map named bar.
->
->> > A call of bpf_object__pin(obj, "/sys/fs/bpf/myobj") would mount with
->> > the following files and directories:
->> > /sys/fs/bpf/myobj/foo/1
->> > /sys/fs/bpf/myobj/foo/2
->> > /sys/fs/bpf/myobj/bar
->
->> > Alternatively, if you want to control exactly where you want the
->> > progs/maps to be pinned, you can call eg
->> > bpf_program__pin_instance(prog, "/sys/fs/bpf/wherever", 0) and that
->> > instance will be mounted to /sys/fs/bpf/wherever, or alternatively
->> > bpf_program__pin(prog, "/sys/fs/bpf/foo"), and you will end up with
->> > /sys/fs/bpf/foo/{0,1}.
->
->> > This looks pretty reasonable to me.
->
->> It looks good to me.
->
-> Ok, please continue from perf/core, Ingo merged the first patch of this
-> patchset today,
+Em Wed, Jan 25, 2017 at 02:28:16AM +0100, Daniel Borkmann escreveu:
+> For upcoming tracepoint support for BPF, we want to dump the program's
+> tag. Format should be similar to __print_hex(), but without spacing.
+> Add a __print_hex_str() variant for exactly that purpose that reuses
+> trace_print_hex_seq().
 
-Ok thanks, I'll continue from there.
+Steven should be back to his side of the wall soon, will wait for his
+Ack, ok?
+
+- Arnaldo
+ 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Steven Rostedt <rostedt@goodmis.org>
+> Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+> ---
+>  include/linux/trace_events.h | 3 ++-
+>  include/trace/trace_events.h | 8 +++++++-
+>  kernel/trace/trace_output.c  | 7 ++++---
+>  3 files changed, 13 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
+> index be00761..cfa475a 100644
+> --- a/include/linux/trace_events.h
+> +++ b/include/linux/trace_events.h
+> @@ -33,7 +33,8 @@ const char *trace_print_bitmask_seq(struct trace_seq *p, void *bitmask_ptr,
+>  				    unsigned int bitmask_size);
+>  
+>  const char *trace_print_hex_seq(struct trace_seq *p,
+> -				const unsigned char *buf, int len);
+> +				const unsigned char *buf, int len,
+> +				bool spacing);
+>  
+>  const char *trace_print_array_seq(struct trace_seq *p,
+>  				   const void *buf, int count,
+> diff --git a/include/trace/trace_events.h b/include/trace/trace_events.h
+> index 467e12f..9f68462 100644
+> --- a/include/trace/trace_events.h
+> +++ b/include/trace/trace_events.h
+> @@ -297,7 +297,12 @@
+>  #endif
+>  
+>  #undef __print_hex
+> -#define __print_hex(buf, buf_len) trace_print_hex_seq(p, buf, buf_len)
+> +#define __print_hex(buf, buf_len)					\
+> +	trace_print_hex_seq(p, buf, buf_len, true)
+> +
+> +#undef __print_hex_str
+> +#define __print_hex_str(buf, buf_len)					\
+> +	trace_print_hex_seq(p, buf, buf_len, false)
+>  
+>  #undef __print_array
+>  #define __print_array(array, count, el_size)				\
+> @@ -711,6 +716,7 @@
+>  #undef __print_flags
+>  #undef __print_symbolic
+>  #undef __print_hex
+> +#undef __print_hex_str
+>  #undef __get_dynamic_array
+>  #undef __get_dynamic_array_len
+>  #undef __get_str
+> diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+> index 5d33a73..30a144b1 100644
+> --- a/kernel/trace/trace_output.c
+> +++ b/kernel/trace/trace_output.c
+> @@ -163,14 +163,15 @@ enum print_line_t trace_print_printk_msg_only(struct trace_iterator *iter)
+>  EXPORT_SYMBOL_GPL(trace_print_bitmask_seq);
+>  
+>  const char *
+> -trace_print_hex_seq(struct trace_seq *p, const unsigned char *buf, int buf_len)
+> +trace_print_hex_seq(struct trace_seq *p, const unsigned char *buf, int buf_len,
+> +		    bool spacing)
+>  {
+>  	int i;
+>  	const char *ret = trace_seq_buffer_ptr(p);
+>  
+>  	for (i = 0; i < buf_len; i++)
+> -		trace_seq_printf(p, "%s%2.2x", i == 0 ? "" : " ", buf[i]);
+> -
+> +		trace_seq_printf(p, "%s%2.2x", !spacing || i == 0 ? "" : " ",
+> +				 buf[i]);
+>  	trace_seq_putc(p, 0);
+>  
+>  	return ret;
+> -- 
+> 1.9.3
