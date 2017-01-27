@@ -1,107 +1,41 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 4/8] net/mlx5: E-Switch, Re-enable RoCE on mode change only after FDB destroy
-Date: Fri, 27 Jan 2017 22:38:39 +0200
-Message-ID: <20170127203843.3206-5-saeedm@mellanox.com>
-References: <20170127203843.3206-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33319 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751357AbdA0VLL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:11:11 -0500
-In-Reply-To: <20170127203843.3206-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] cfg80211 debugfs: Cleanup some checkpatch issues
+Date: Fri, 27 Jan 2017 13:10:40 -0800
+Message-ID: <1485551440.12563.140.camel@perches.com>
+References: <20170127192603.GA13522@gmail.com>
+         (sfid-20170127_203712_578214_221D21FF) <1485550820.14579.2.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>,
+        Pichugin Dmitry <smokeman85@gmail.com>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485550820.14579.2.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+On Fri, 2017-01-27 at 22:00 +0100, Johannes Berg wrote:
+> On Fri, 2017-01-27 at 22:26 +0300, Pichugin Dmitry wrote:
+> > This fixes the checkpatch.pl warnings:
+> > * Macros should not use a trailing semicolon.
+> > * Spaces required around that '='.
+> > * Symbolic permissions 'S_IRUGO' are not preferred.
+> > * Macro argument reuse 'buflen' - possible side-effects
+> 
+> I really see no point in any of this.
 
-We must re-enable RoCE on the e-switch management port (PF) only after destroying
-the FDB in its switchdev/offloaded mode. Otherwise, when encapsulation is supported,
-this re-enablement will fail.
+Look at the uses of DEBUGFS_READONLY_FILE and
+see if they are consistent before and after.
 
-Also, it's more natural and symmetric to disable RoCE on the PF before we create
-the FDB under switchdev mode, so do that as well and revert if getting into error
-during the mode change later.
-
-Fixes: 9da34cd34e85 ('net/mlx5: Disable RoCE on the e-switch management [..]')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 29 ++++++++++++++--------
- 1 file changed, 18 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index c61bca138e65..595f7c7383b3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -675,9 +675,14 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports)
- 	int vport;
- 	int err;
- 
-+	/* disable PF RoCE so missed packets don't go through RoCE steering */
-+	mlx5_dev_list_lock();
-+	mlx5_remove_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
-+	mlx5_dev_list_unlock();
-+
- 	err = esw_create_offloads_fdb_table(esw, nvports);
- 	if (err)
--		return err;
-+		goto create_fdb_err;
- 
- 	err = esw_create_offloads_table(esw);
- 	if (err)
-@@ -697,11 +702,6 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports)
- 			goto err_reps;
- 	}
- 
--	/* disable PF RoCE so missed packets don't go through RoCE steering */
--	mlx5_dev_list_lock();
--	mlx5_remove_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
--	mlx5_dev_list_unlock();
--
- 	return 0;
- 
- err_reps:
-@@ -718,6 +718,13 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports)
- 
- create_ft_err:
- 	esw_destroy_offloads_fdb_table(esw);
-+
-+create_fdb_err:
-+	/* enable back PF RoCE */
-+	mlx5_dev_list_lock();
-+	mlx5_add_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
-+	mlx5_dev_list_unlock();
-+
- 	return err;
- }
- 
-@@ -725,11 +732,6 @@ static int esw_offloads_stop(struct mlx5_eswitch *esw)
- {
- 	int err, err1, num_vfs = esw->dev->priv.sriov.num_vfs;
- 
--	/* enable back PF RoCE */
--	mlx5_dev_list_lock();
--	mlx5_add_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
--	mlx5_dev_list_unlock();
--
- 	mlx5_eswitch_disable_sriov(esw);
- 	err = mlx5_eswitch_enable_sriov(esw, num_vfs, SRIOV_LEGACY);
- 	if (err) {
-@@ -739,6 +741,11 @@ static int esw_offloads_stop(struct mlx5_eswitch *esw)
- 			esw_warn(esw->dev, "Failed setting eswitch back to offloads, err %d\n", err);
- 	}
- 
-+	/* enable back PF RoCE */
-+	mlx5_dev_list_lock();
-+	mlx5_add_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
-+	mlx5_dev_list_unlock();
-+
- 	return err;
- }
- 
--- 
-2.11.0
+ DEBUGFS_READONLY_FILE(rts_threshold, 20, "%d",
+-                     wiphy->rts_threshold)
++                     wiphy->rts_threshold);
+ DEBUGFS_READONLY_FILE(fragmentation_threshold, 20, "%d",
+                      wiphy->frag_threshold);
+ DEBUGFS_READONLY_FILE(short_retry_limit, 20, "%d",
+-                     wiphy->retry_short)
++                     wiphy->retry_short);
+ DEBUGFS_READONLY_FILE(long_retry_limit, 20, "%d",
+                      wiphy->retry_long);
