@@ -1,98 +1,159 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Fri, 27 Jan 2017 23:15:56 +0200
-Message-ID: <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
- <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
- <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
- <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
- <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com> <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net: suspicious RCU usage in nf_hook
+Date: Fri, 27 Jan 2017 22:15:57 +0100
+Message-ID: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f174.google.com ([209.85.216.174]:34853 "EHLO
-        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751461AbdA0Vqr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:46:47 -0500
-Received: by mail-qt0-f174.google.com with SMTP id x49so157235270qtc.2
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:46:46 -0800 (PST)
-In-Reply-To: <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <edumazet@google.com>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2017 at 8:42 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Fri, Jan 27, 2017 at 10:28 AM, Saeed Mahameed
-> <saeedm@dev.mellanox.co.il> wrote:
->> On Fri, Jan 27, 2017 at 8:16 PM, Tom Herbert <tom@herbertland.com> wrote:
->>> On Fri, Jan 27, 2017 at 10:05 AM, Saeed Mahameed
->>> <saeedm@dev.mellanox.co.il> wrote:
->>>> On Fri, Jan 27, 2017 at 7:50 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>>> On Fri, Jan 27, 2017 at 9:38 AM, Saeed Mahameed
->>>>> <saeedm@dev.mellanox.co.il> wrote:
->>>>>> On Fri, Jan 27, 2017 at 7:34 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>>>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
->>>>>>>> Add a configuration option (CONFIG_MLX5_CORE_ESWITCH) for controlling
->>>>>>>> whether the eswitch code is built. Change Kconfig and Makefile
->>>>>>>> accordingly.
->>>>>>>
->>>>>>> Tom, FWIW, please note that the basic e-switch functionality is needed
->>>>>>> also when SRIOV isn't of use, this is for a multi host configuration.
->>>>>>>
->>>>>>
->>>>>> Right, set_l2_table_entry@eswitch.c need to be called by PF for any UC
->>>>>> MAC address wanted by VF or PF.
->>>>>> To keep one flow in the code, the implementation is done as part of eswitch.
->>>>>>
->>>>>> so in multi-host configuration (where there are 4 PFs) each PF should
->>>>>> invoke set_l2_table_entry_cmd  for each one of its own UC MACs.
->>>>>>
->>>>>> populating the l2 table is done using the whole eswitch event driven
->>>>>> mechanisms, it is not easy and IMH not right to separate eswitch
->>>>>> tables from l2 table (same management logic, different tables).
->>>>>>
->>>>>> Anyways as Or stated this is just an FYI, eswitch needs to be enabled
->>>>>> on Multi-host configuration.
->>>>>>
->>>>> What indicate a multi-host configuration?
->>>>
->>>> nothing in the driver, it is transparent.
->>>>
->>> So then we always need the eswitch code to be built even if someone
->>> never uses any of it?
->>>
->>
->> yes.
->> but for your convenience all you need is to compile eswitch.c.
->> esiwtch_offoalds.c and en_rep.c can be compiled out for basic ethernet.
->>
-> Well eswitch.c is 2200 LOC. en_rep.c and eswitch_offloads.c are 1600
-> LOC. If we _must_ have eswitch.c then there's probably not much point
-> then. But I am still finding it hard to fathom that eswitch has now
-> become a mandatory component of Ethernet drivers/devices.
->
+Hello,
 
-It is only mandatory for configurations that needs eswitch, where the
-driver has no way to know about them, for a good old bare metal box,
-eswitch is not needed.
+I've got the following report while running syzkaller fuzzer on
+fd694aaa46c7ed811b72eb47d5eb11ce7ab3f7f1:
 
-we can do some work to strip the l2 table logic - needed for PFs to
-work on multi-host - out of eswitch but again that would further
-complicate the driver code since eswitch will still need to update l2
-tables for VFs.
+[ INFO: suspicious RCU usage. ]
+4.10.0-rc5+ #192 Not tainted
+-------------------------------
+./include/linux/rcupdate.h:561 Illegal context switch in RCU read-side
+critical section!
 
+other info that might help us debug this:
 
-> Tom
->
->>>>>
->>>>>>> Or.
->>>>>>>
->>>>>>> My WW (and same for the rest of the IL team..) has ended so I will be
->>>>>>> able to further look on this series and comment on Sunday.
+rcu_scheduler_active = 2, debug_locks = 0
+2 locks held by syz-executor14/23111:
+ #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>] lock_sock
+include/net/sock.h:1454 [inline]
+ #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>]
+rawv6_sendmsg+0x1e65/0x3ec0 net/ipv6/raw.c:919
+ #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>] nf_hook
+include/linux/netfilter.h:201 [inline]
+ #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>]
+__ip6_local_out+0x258/0x840 net/ipv6/output_core.c:160
+
+stack backtrace:
+CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:15 [inline]
+ dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+ lockdep_rcu_suspicious+0x139/0x180 kernel/locking/lockdep.c:4452
+ rcu_preempt_sleep_check include/linux/rcupdate.h:560 [inline]
+ ___might_sleep+0x560/0x650 kernel/sched/core.c:7748
+ __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
+ mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
+ atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
+ __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
+ static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
+ net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
+ sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
+ __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
+ sk_destruct+0x47/0x80 net/core/sock.c:1460
+ __sk_free+0x57/0x230 net/core/sock.c:1468
+ sock_wfree+0xae/0x120 net/core/sock.c:1645
+ skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
+ skb_release_all+0x15/0x60 net/core/skbuff.c:668
+ __kfree_skb+0x15/0x20 net/core/skbuff.c:684
+ kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
+ inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
+ inet_frag_put include/net/inet_frag.h:133 [inline]
+ nf_ct_frag6_gather+0x1106/0x3840 net/ipv6/netfilter/nf_conntrack_reasm.c:617
+ ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+ nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
+ nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
+ nf_hook include/linux/netfilter.h:212 [inline]
+ __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
+ ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
+ ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
+ ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
+ rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
+ rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
+ inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+ sock_sendmsg_nosec net/socket.c:635 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:645
+ sock_write_iter+0x326/0x600 net/socket.c:848
+ do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
+ do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
+ vfs_writev+0x87/0xc0 fs/read_write.c:911
+ do_writev+0x110/0x2c0 fs/read_write.c:944
+ SYSC_writev fs/read_write.c:1017 [inline]
+ SyS_writev+0x27/0x30 fs/read_write.c:1014
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x445559
+RSP: 002b:00007f6f46fceb58 EFLAGS: 00000292 ORIG_RAX: 0000000000000014
+RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445559
+RDX: 0000000000000001 RSI: 0000000020f1eff0 RDI: 0000000000000005
+RBP: 00000000006e19c0 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000700000
+R13: 0000000020f59000 R14: 0000000000000015 R15: 0000000000020400
+BUG: sleeping function called from invalid context at kernel/locking/mutex.c:752
+in_atomic(): 1, irqs_disabled(): 0, pid: 23111, name: syz-executor14
+INFO: lockdep is turned off.
+CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:15 [inline]
+ dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+ ___might_sleep+0x47e/0x650 kernel/sched/core.c:7780
+ __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
+ mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
+ atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
+ __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
+ static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
+ net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
+ sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
+ __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
+ sk_destruct+0x47/0x80 net/core/sock.c:1460
+ __sk_free+0x57/0x230 net/core/sock.c:1468
+ sock_wfree+0xae/0x120 net/core/sock.c:1645
+ skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
+ skb_release_all+0x15/0x60 net/core/skbuff.c:668
+ __kfree_skb+0x15/0x20 net/core/skbuff.c:684
+ kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
+ inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
+ inet_frag_put include/net/inet_frag.h:133 [inline]
+ nf_ct_frag6_gather+0x1106/0x3840 net/ipv6/netfilter/nf_conntrack_reasm.c:617
+ ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+ nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
+ nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
+ nf_hook include/linux/netfilter.h:212 [inline]
+ __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
+ ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
+ ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
+ ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
+ rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
+ rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
+ inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+ sock_sendmsg_nosec net/socket.c:635 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:645
+ sock_write_iter+0x326/0x600 net/socket.c:848
+ do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
+ do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
+ vfs_writev+0x87/0xc0 fs/read_write.c:911
+ do_writev+0x110/0x2c0 fs/read_write.c:944
+ SYSC_writev fs/read_write.c:1017 [inline]
+ SyS_writev+0x27/0x30 fs/read_write.c:1014
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x445559
+RSP: 002b:00007f6f46fceb58 EFLAGS: 00000292 ORIG_RAX: 0000000000000014
+RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445559
+RDX: 0000000000000001 RSI: 0000000020f1eff0 RDI: 0000000000000005
+RBP: 00000000006e19c0 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000700000
+R13: 0000000020f59000 R14: 0000000000000015 R15: 0000000000020400
+BUG: scheduling while atomic: syz-executor14/23111/0x00000002
+INFO: lockdep is turned off.
+Modules linked in:
+Kernel panic - not syncing: scheduling while atomic
