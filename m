@@ -1,85 +1,87 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Fri, 27 Jan 2017 10:42:20 -0800
-Message-ID: <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
- <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
- <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
- <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com> <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: phy: micrel: add support for KSZ8795
+Date: Fri, 27 Jan 2017 10:55:22 -0800
+Message-ID: <bce20c23-0d67-128b-3643-2aafc3648e68@gmail.com>
+References: <20170127074623.9200-1-sean.nyekjaer@prevas.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch
+To: Sean Nyekjaer <sean.nyekjaer@prevas.dk>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:33259 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750737AbdA0Sm0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:42:26 -0500
-Received: by mail-qt0-f196.google.com with SMTP id n13so47709916qtc.0
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:42:21 -0800 (PST)
-In-Reply-To: <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33988 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750750AbdA0SzZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:55:25 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so7866484pgj.1
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:55:24 -0800 (PST)
+In-Reply-To: <20170127074623.9200-1-sean.nyekjaer@prevas.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 10:28 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Fri, Jan 27, 2017 at 8:16 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Fri, Jan 27, 2017 at 10:05 AM, Saeed Mahameed
->> <saeedm@dev.mellanox.co.il> wrote:
->>> On Fri, Jan 27, 2017 at 7:50 PM, Tom Herbert <tom@herbertland.com> wrote:
->>>> On Fri, Jan 27, 2017 at 9:38 AM, Saeed Mahameed
->>>> <saeedm@dev.mellanox.co.il> wrote:
->>>>> On Fri, Jan 27, 2017 at 7:34 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
->>>>>>> Add a configuration option (CONFIG_MLX5_CORE_ESWITCH) for controlling
->>>>>>> whether the eswitch code is built. Change Kconfig and Makefile
->>>>>>> accordingly.
->>>>>>
->>>>>> Tom, FWIW, please note that the basic e-switch functionality is needed
->>>>>> also when SRIOV isn't of use, this is for a multi host configuration.
->>>>>>
->>>>>
->>>>> Right, set_l2_table_entry@eswitch.c need to be called by PF for any UC
->>>>> MAC address wanted by VF or PF.
->>>>> To keep one flow in the code, the implementation is done as part of eswitch.
->>>>>
->>>>> so in multi-host configuration (where there are 4 PFs) each PF should
->>>>> invoke set_l2_table_entry_cmd  for each one of its own UC MACs.
->>>>>
->>>>> populating the l2 table is done using the whole eswitch event driven
->>>>> mechanisms, it is not easy and IMH not right to separate eswitch
->>>>> tables from l2 table (same management logic, different tables).
->>>>>
->>>>> Anyways as Or stated this is just an FYI, eswitch needs to be enabled
->>>>> on Multi-host configuration.
->>>>>
->>>> What indicate a multi-host configuration?
->>>
->>> nothing in the driver, it is transparent.
->>>
->> So then we always need the eswitch code to be built even if someone
->> never uses any of it?
->>
->
-> yes.
-> but for your convenience all you need is to compile eswitch.c.
-> esiwtch_offoalds.c and en_rep.c can be compiled out for basic ethernet.
->
-Well eswitch.c is 2200 LOC. en_rep.c and eswitch_offloads.c are 1600
-LOC. If we _must_ have eswitch.c then there's probably not much point
-then. But I am still finding it hard to fathom that eswitch has now
-become a mandatory component of Ethernet drivers/devices.
+On 01/26/2017 11:46 PM, Sean Nyekjaer wrote:
+> This is adds support for the PHYs in the KSZ8795 5port managed switch.
+> 
+> It will allow to detect the link between the switch and the soc
+> and uses the same read_status functions as the KSZ8873MLL switch.
+> 
+> Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+> ---
+> Changes in v2:
+>  - Removed "switch" name
+> 
+>  drivers/net/phy/micrel.c   | 14 ++++++++++++++
+>  include/linux/micrel_phy.h |  2 ++
+>  2 files changed, 16 insertions(+)
+> 
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index ea92d524d5a8..fab56c9350cf 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
+>  	.get_stats	= kszphy_get_stats,
+>  	.suspend	= genphy_suspend,
+>  	.resume		= genphy_resume,
+> +}, {
+> +	.phy_id		= PHY_ID_KSZ8795,
+> +	.phy_id_mask	= MICREL_PHY_ID_MASK,
+> +	.name		= "Micrel KSZ8795",
+> +	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
 
-Tom
+This is wrong, it should be PHY_GBIT_FEATURES or PHY_BASIC_FEATURES.
+Including the Pause/AsymPause feature bits is not longer necessary, the
+PHY library takes care of adding these automatically to let your MAC do
+flow control auto-negotiation later on.
 
->>>>
->>>>>> Or.
->>>>>>
->>>>>> My WW (and same for the rest of the IL team..) has ended so I will be
->>>>>> able to further look on this series and comment on Sunday.
+Please submit an incremental fix to that.
+
+> +	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+> +	.config_init	= kszphy_config_init,
+> +	.config_aneg	= ksz8873mll_config_aneg,
+> +	.read_status	= ksz8873mll_read_status,
+> +	.get_sset_count = kszphy_get_sset_count,
+> +	.get_strings	= kszphy_get_strings,
+> +	.get_stats	= kszphy_get_stats,
+> +	.suspend	= genphy_suspend,
+> +	.resume		= genphy_resume,
+>  } };
+>  
+>  module_phy_driver(ksphy_driver);
+> diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+> index 257173e0095e..f541da68d1e7 100644
+> --- a/include/linux/micrel_phy.h
+> +++ b/include/linux/micrel_phy.h
+> @@ -35,6 +35,8 @@
+>  #define PHY_ID_KSZ886X		0x00221430
+>  #define PHY_ID_KSZ8863		0x00221435
+>  
+> +#define PHY_ID_KSZ8795		0x00221550
+> +
+>  /* struct phy_device dev_flags definitions */
+>  #define MICREL_PHY_50MHZ_CLK	0x00000001
+>  #define MICREL_PHY_FXEN		0x00000002
+> 
+
+
+-- 
+Florian
