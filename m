@@ -1,37 +1,57 @@
-From: administrador <administrator@ancol.com>
-Subject: =?utf-8?b?QVRFTkNJw5NO?=
-Date: Sat, 28 Jan 2017 00:18:35 +0530
-Message-ID: <20170127182920.C0199937097@zimbra2.bawaslu.go.id>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
+Date: Fri, 27 Jan 2017 16:17:33 -0600
+Message-ID: <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop>
+References: <20170124084606.GA11764@app09>
+ <20170125.123448.742815192519658537.davem@davemloft.net>
+ <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bawaslu.go.id ([103.249.227.34]:33752 "EHLO
-        zimbra2.bawaslu.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751025AbdA0Xsg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 18:48:36 -0500
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        andrew-g2DYL2Zd6BY@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ATENCIÓN;
+On Wed, Jan 25, 2017 at 10:09:20PM +0100, Arnd Bergmann wrote:
+> On Wed, Jan 25, 2017 at 6:34 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> > From: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Date: Tue, 24 Jan 2017 16:46:14 +0800
+> >> We also use the same binding document to describe the same faraday ethernet
+> >> controller and add faraday to vendor-prefixes.txt.
+> >
+> > Why are you renaming the MOXA binding file instead of adding a completely new one
+> > for faraday?  The MOXA one should stick around, I don't see a justification for
+> > removing it.
+> 
+> This was my suggestion, basically fixing the name of the existing
+> binding, which was
+> accidentally named after one of the users rather than the company that did the
+> hardware.
+> 
+> We can't change the compatible string, but I'd much prefer having only
+> one binding
+> file for this device rather than two separate ones that could possibly become
+> incompatible in case we add new properties to them. If there is only
+> one of them,
+> naming it according to the hardware design is the general policy.
+> 
+> Note that we currently have two separate device drivers, but that is more a
+> historic artifact, and if we ever get around to merging them into one driver,
+> that should not impact the binding.
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+The change is fine with me, but the subject and commit message need some 
+work. I'm guessing faraday licensed this to MOXA or something? Why is 
+the new name preferred or better?
 
-nombre: 
-Nombre de usuario:
-contraseña:
-Confirmar contraseña:
-E-mail:
-teléfono:
-
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
-
-Disculpa las molestias.
-Código de verificación: es: 006524
-Correo Soporte Técnico © 2017
-
-¡gracias
-Sistemas administrador
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
