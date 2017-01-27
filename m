@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2017-01-24,pull-request: can-next
- 2017-01-24
-Date: Fri, 27 Jan 2017 11:24:44 -0500 (EST)
-Message-ID: <20170127.112444.682986770132734034.davem@davemloft.net>
-References: <37eedb82-54d7-c7a9-0cd6-ed26738efff7@pengutronix.de>
+Subject: Re: [PATCH v2 net-next 0/4] sfc: encapsulated filters
+Date: Fri, 27 Jan 2017 11:59:53 -0500 (EST)
+Message-ID: <20170127.115953.1732560410043160047.davem@davemloft.net>
+References: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-        linux-can@vger.kernel.org
-To: mkl@pengutronix.de
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42856 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43244 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932310AbdA0RIS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 12:08:18 -0500
-In-Reply-To: <37eedb82-54d7-c7a9-0cd6-ed26738efff7@pengutronix.de>
+        with ESMTP id S932162AbdA0RK4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 12:10:56 -0500
+In-Reply-To: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 27 Jan 2017 10:02:09 +0100
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 27 Jan 2017 15:00:45 +0000
 
-> this is a pull request of 4 patches for net-next/master.
+> This series adds support for setting up filters for encapsulated traffic on
+> SFC 8000-series adapters, which recognise VXLAN, GENEVE and NVGRE packets by
+> parsing packet headers.  (VXLAN and GENEVE will only be recognised if the
+> driver on the primary PF has notified the firmware of relevant UDP ports,
+> which this driver does not yet do.)
+> While the driver currently has no way of using these filters for flow
+> steering, it is nonetheless necessary to insert catch-all (aka 'default')
+> filters to direct this traffic, similar to the existing unencapsulated uni-
+> and multi-cast catch-all filters, as otherwise the traffic will be dropped
+> by the NIC - implementation details of the hardware filtering mean that the
+> traffic will not get matched on outer MAC address to unencapsulated catch-
+> all filters.  (Yes, this is a mess.)
+> Although this is, therefore, fixing a bug in the existing driver, it's a bug
+> which has existed since 8000 series support was added, and the fix involves
+> quite a big patch with an 'adding features' flavour to it, hence why this is
+> for net-next rather than net and stable.
 > 
-> The first patch by Oliver Hartkopp adds a netlink API to configure the
-> interface termination of a CAN card. The next two patches are by me and
-> add a netlink API to query and configure CAN interfaces that only
-> support fixed bitrates. The last patch by Colin Ian King simplifies the
-> return path in the softing_cs driver's softingcs_probe() function.
+> v2: move netif_cond_dbg into netdevice.h and its own patch
 
-Pulled, thanks.
+Yes, this looks better, series applied.
+
+Thanks!
