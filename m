@@ -1,745 +1,86 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/3] net: dsa: bcm_sf2: Add support for ethtool::rxnfc
-Date: Fri, 27 Jan 2017 13:05:15 -0800
-Message-ID: <20170127210516.16704-5-f.fainelli@gmail.com>
-References: <20170127210516.16704-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [pull request][net 0/8] Mellanox mlx5 fixes 2017-01-27
+Date: Fri, 27 Jan 2017 22:38:35 +0200
+Message-ID: <20170127203843.3206-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33400 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751607AbdA0VPI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:15:08 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 194so25852991pgd.0
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:15:08 -0800 (PST)
-In-Reply-To: <20170127210516.16704-1-f.fainelli@gmail.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33325 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751338AbdA0VLL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:11:11 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for configuring classification rules using the
-ethtool::rxnfc API.  This is useful to program the switch's CFP/TCAM to
-redirect specific packets to specific ports/queues for instance. For
-now, we allow any kind of IPv4 5-tuple matching.
+Hi Dave,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+This pull request includes some mlx5 fixes for net, please see details
+below.
+
+Please pull and let me know if there's any problem.
+
+For -stable:
+      net/mlx5e: Modify TIRs hash only when it's needed
+      net/mlx5e: Fix update of hash function/key via ethtool
+
+Thanks,
+Saeed.
+
 ---
- drivers/net/dsa/Makefile      |   2 +-
- drivers/net/dsa/bcm_sf2.c     |  14 +
- drivers/net/dsa/bcm_sf2.h     |  17 ++
- drivers/net/dsa/bcm_sf2_cfp.c | 613 ++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 645 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/dsa/bcm_sf2_cfp.c
 
-diff --git a/drivers/net/dsa/Makefile b/drivers/net/dsa/Makefile
-index 8346e4f9737a..e69f3683f52f 100644
---- a/drivers/net/dsa/Makefile
-+++ b/drivers/net/dsa/Makefile
-@@ -1,5 +1,5 @@
- obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
--obj-$(CONFIG_NET_DSA_BCM_SF2)	+= bcm_sf2.o
-+obj-$(CONFIG_NET_DSA_BCM_SF2)	+= bcm_sf2.o bcm_sf2_cfp.o
- obj-$(CONFIG_NET_DSA_QCA8K)	+= qca8k.o
- 
- obj-y				+= b53/
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 8eecfd227e06..74cf18798655 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -1036,6 +1036,8 @@ static const struct dsa_switch_ops bcm_sf2_ops = {
- 	.port_fdb_dump		= b53_fdb_dump,
- 	.port_fdb_add		= b53_fdb_add,
- 	.port_fdb_del		= b53_fdb_del,
-+	.get_rxnfc		= bcm_sf2_get_rxnfc,
-+	.set_rxnfc		= bcm_sf2_set_rxnfc,
- };
- 
- struct bcm_sf2_of_data {
-@@ -1159,6 +1161,12 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
- 
- 	spin_lock_init(&priv->indir_lock);
- 	mutex_init(&priv->stats_mutex);
-+	mutex_init(&priv->cfp.lock);
-+
-+	/* CFP rule #0 cannot be used for specific classifications, flag it as
-+	 * permanently used
-+	 */
-+	set_bit(0, priv->cfp.used);
- 
- 	bcm_sf2_identify_ports(priv, dn->child);
- 
-@@ -1188,6 +1196,12 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
- 		return ret;
- 	}
- 
-+	ret = bcm_sf2_cfp_rst(priv);
-+	if (ret) {
-+		pr_err("failed to reset CFP\n");
-+		goto out_mdio;
-+	}
-+
- 	/* Disable all interrupts and request them */
- 	bcm_sf2_intr_disable(priv);
- 
-diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
-index 6e1f74e4d471..7d3030e04f11 100644
---- a/drivers/net/dsa/bcm_sf2.h
-+++ b/drivers/net/dsa/bcm_sf2.h
-@@ -52,6 +52,13 @@ struct bcm_sf2_port_status {
- 	struct ethtool_eee eee;
- };
- 
-+struct bcm_sf2_cfp_priv {
-+	/* Mutex protecting concurrent accesses to the CFP registers */
-+	struct mutex lock;
-+	DECLARE_BITMAP(used, CFP_NUM_RULES);
-+	unsigned int rules_cnt;
-+};
-+
- struct bcm_sf2_priv {
- 	/* Base registers, keep those in order with BCM_SF2_REGS_NAME */
- 	void __iomem			*core;
-@@ -103,6 +110,9 @@ struct bcm_sf2_priv {
- 
- 	/* Bitmask of ports needing BRCM tags */
- 	unsigned int			brcm_tag_mask;
-+
-+	/* CFP rules context */
-+	struct bcm_sf2_cfp_priv		cfp;
- };
- 
- static inline struct bcm_sf2_priv *bcm_sf2_to_priv(struct dsa_switch *ds)
-@@ -197,4 +207,11 @@ SF2_IO_MACRO(acb);
- SWITCH_INTR_L2(0);
- SWITCH_INTR_L2(1);
- 
-+/* RXNFC */
-+int bcm_sf2_get_rxnfc(struct dsa_switch *ds, int port,
-+		      struct ethtool_rxnfc *nfc, u32 *rule_locs);
-+int bcm_sf2_set_rxnfc(struct dsa_switch *ds, int port,
-+		      struct ethtool_rxnfc *nfc);
-+int bcm_sf2_cfp_rst(struct bcm_sf2_priv *priv);
-+
- #endif /* __BCM_SF2_H */
-diff --git a/drivers/net/dsa/bcm_sf2_cfp.c b/drivers/net/dsa/bcm_sf2_cfp.c
-new file mode 100644
-index 000000000000..c71be3e0dc2d
---- /dev/null
-+++ b/drivers/net/dsa/bcm_sf2_cfp.c
-@@ -0,0 +1,613 @@
-+/*
-+ * Broadcom Starfighter 2 DSA switch CFP support
-+ *
-+ * Copyright (C) 2016, Broadcom
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/list.h>
-+#include <net/dsa.h>
-+#include <linux/ethtool.h>
-+#include <linux/if_ether.h>
-+#include <linux/in.h>
-+#include <linux/bitmap.h>
-+
-+#include "bcm_sf2.h"
-+#include "bcm_sf2_regs.h"
-+
-+struct cfp_udf_layout {
-+	u8 slices[UDF_NUM_SLICES];
-+	u32 mask_value;
-+
-+};
-+
-+/* UDF slices layout for a TCPv4/UDPv4 specification */
-+static const struct cfp_udf_layout udf_tcpip4_layout = {
-+	.slices = {
-+		/* End of L2, byte offset 12, src IP[0:15] */
-+		CFG_UDF_EOL2 | 6,
-+		/* End of L2, byte offset 14, src IP[16:31] */
-+		CFG_UDF_EOL2 | 7,
-+		/* End of L2, byte offset 16, dst IP[0:15] */
-+		CFG_UDF_EOL2 | 8,
-+		/* End of L2, byte offset 18, dst IP[16:31] */
-+		CFG_UDF_EOL2 | 9,
-+		/* End of L3, byte offset 0, src port */
-+		CFG_UDF_EOL3 | 0,
-+		/* End of L3, byte offset 2, dst port */
-+		CFG_UDF_EOL3 | 1,
-+		0, 0, 0
-+	},
-+	.mask_value = L3_FRAMING_MASK | IPPROTO_MASK | IP_FRAG,
-+};
-+
-+static inline unsigned int bcm_sf2_get_num_udf_slices(const u8 *layout)
-+{
-+	unsigned int i, count = 0;
-+
-+	for (i = 0; i < UDF_NUM_SLICES; i++) {
-+		if (layout[i] != 0)
-+			count++;
-+	}
-+
-+	return count;
-+}
-+
-+static void bcm_sf2_cfp_udf_set(struct bcm_sf2_priv *priv,
-+				unsigned int slice_num,
-+				const u8 *layout)
-+{
-+	u32 offset = CORE_UDF_0_A_0_8_PORT_0 + slice_num * UDF_SLICE_OFFSET;
-+	unsigned int i;
-+
-+	for (i = 0; i < UDF_NUM_SLICES; i++)
-+		core_writel(priv, layout[i], offset + i * 4);
-+}
-+
-+static int bcm_sf2_cfp_op(struct bcm_sf2_priv *priv, unsigned int op)
-+{
-+	unsigned int timeout = 1000;
-+	u32 reg;
-+
-+	reg = core_readl(priv, CORE_CFP_ACC);
-+	reg &= ~(OP_SEL_MASK | RAM_SEL_MASK);
-+	reg |= OP_STR_DONE | op;
-+	core_writel(priv, reg, CORE_CFP_ACC);
-+
-+	do {
-+		reg = core_readl(priv, CORE_CFP_ACC);
-+		if (!(reg & OP_STR_DONE))
-+			break;
-+
-+		cpu_relax();
-+	} while (timeout--);
-+
-+	if (!timeout)
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
-+static inline void bcm_sf2_cfp_rule_addr_set(struct bcm_sf2_priv *priv,
-+					     unsigned int addr)
-+{
-+	u32 reg;
-+
-+	WARN_ON(addr >= CFP_NUM_RULES);
-+
-+	reg = core_readl(priv, CORE_CFP_ACC);
-+	reg &= ~(XCESS_ADDR_MASK << XCESS_ADDR_SHIFT);
-+	reg |= addr << XCESS_ADDR_SHIFT;
-+	core_writel(priv, reg, CORE_CFP_ACC);
-+}
-+
-+static inline unsigned int bcm_sf2_cfp_rule_size(struct bcm_sf2_priv *priv)
-+{
-+	/* Entry #0 is reserved */
-+	return CFP_NUM_RULES - 1;
-+}
-+
-+static int bcm_sf2_cfp_rule_set(struct dsa_switch *ds, int port,
-+				struct ethtool_rx_flow_spec *fs)
-+{
-+	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
-+	struct ethtool_tcpip4_spec *v4_spec;
-+	const struct cfp_udf_layout *layout;
-+	unsigned int slice_num, rule_index;
-+	unsigned int queue_num, port_num;
-+	u8 ip_proto, ip_frag;
-+	u8 num_udf;
-+	u32 reg;
-+	int ret;
-+
-+	/* Check for unsupported extensions */
-+	if ((fs->flow_type & FLOW_EXT) &&
-+	    (fs->m_ext.vlan_etype || fs->m_ext.data[1]))
-+		return -EINVAL;
-+
-+	if (fs->location != RX_CLS_LOC_ANY &&
-+	    test_bit(fs->location, priv->cfp.used))
-+		return -EBUSY;
-+
-+	if (fs->location != RX_CLS_LOC_ANY &&
-+	    fs->location > bcm_sf2_cfp_rule_size(priv))
-+		return -EINVAL;
-+
-+	ip_frag = be32_to_cpu(fs->m_ext.data[0]);
-+
-+	/* We do not support discarding packets, check that the
-+	 * destination port is enabled and that we are within the
-+	 * number of ports supported by the switch
-+	 */
-+	port_num = fs->ring_cookie / 8;
-+
-+	if (fs->ring_cookie == RX_CLS_FLOW_DISC ||
-+	    !(BIT(port_num) & ds->enabled_port_mask) ||
-+	    port_num >= priv->hw_params.num_ports)
-+		return -EINVAL;
-+
-+	switch (fs->flow_type & ~FLOW_EXT) {
-+	case TCP_V4_FLOW:
-+		ip_proto = IPPROTO_TCP;
-+		v4_spec = &fs->h_u.tcp_ip4_spec;
-+		break;
-+	case UDP_V4_FLOW:
-+		ip_proto = IPPROTO_UDP;
-+		v4_spec = &fs->h_u.udp_ip4_spec;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	/* We only use one UDF slice for now */
-+	slice_num = 1;
-+	layout = &udf_tcpip4_layout;
-+	num_udf = bcm_sf2_get_num_udf_slices(layout->slices);
-+
-+	/* Apply the UDF layout for this filter */
-+	bcm_sf2_cfp_udf_set(priv, slice_num, layout->slices);
-+
-+	/* Apply to all packets received through this port */
-+	core_writel(priv, BIT(port), CORE_CFP_DATA_PORT(7));
-+
-+	/* S-Tag status		[31:30]
-+	 * C-Tag status		[29:28]
-+	 * L2 framing		[27:26]
-+	 * L3 framing		[25:24]
-+	 * IP ToS		[23:16]
-+	 * IP proto		[15:08]
-+	 * IP Fragm		[7]
-+	 * Non 1st frag		[6]
-+	 * IP Authen		[5]
-+	 * TTL range		[4:3]
-+	 * PPPoE session	[2]
-+	 * Reserved		[1]
-+	 * UDF_Valid[8]		[0]
-+	 */
-+	core_writel(priv, v4_spec->tos << 16 | ip_proto << 8 | ip_frag << 7,
-+		    CORE_CFP_DATA_PORT(6));
-+
-+	/* UDF_Valid[7:0]	[31:24]
-+	 * S-Tag		[23:8]
-+	 * C-Tag		[7:0]
-+	 */
-+	core_writel(priv, GENMASK(num_udf - 1, 0) << 24, CORE_CFP_DATA_PORT(5));
-+
-+	/* C-Tag		[31:24]
-+	 * UDF_n_A8		[23:8]
-+	 * UDF_n_A7		[7:0]
-+	 */
-+	core_writel(priv, 0, CORE_CFP_DATA_PORT(4));
-+
-+	/* UDF_n_A7		[31:24]
-+	 * UDF_n_A6		[23:8]
-+	 * UDF_n_A5		[7:0]
-+	 */
-+	core_writel(priv, be16_to_cpu(v4_spec->pdst) >> 8,
-+		    CORE_CFP_DATA_PORT(3));
-+
-+	/* UDF_n_A5		[31:24]
-+	 * UDF_n_A4		[23:8]
-+	 * UDF_n_A3		[7:0]
-+	 */
-+	reg = (be16_to_cpu(v4_spec->pdst) & 0xff) << 24 |
-+	      (u32)be16_to_cpu(v4_spec->psrc) << 8 |
-+	      (be32_to_cpu(v4_spec->ip4dst) & 0x0000ff00) >> 8;
-+	core_writel(priv, reg, CORE_CFP_DATA_PORT(2));
-+
-+	/* UDF_n_A3		[31:24]
-+	 * UDF_n_A2		[23:8]
-+	 * UDF_n_A1		[7:0]
-+	 */
-+	reg = (u32)(be32_to_cpu(v4_spec->ip4dst) & 0xff) << 24 |
-+	      (u32)(be32_to_cpu(v4_spec->ip4dst) >> 16) << 8 |
-+	      (be32_to_cpu(v4_spec->ip4src) & 0x0000ff00) >> 8;
-+	core_writel(priv, reg, CORE_CFP_DATA_PORT(1));
-+
-+	/* UDF_n_A1		[31:24]
-+	 * UDF_n_A0		[23:8]
-+	 * Reserved		[7:4]
-+	 * Slice ID		[3:2]
-+	 * Slice valid		[1:0]
-+	 */
-+	reg = (u32)(be32_to_cpu(v4_spec->ip4src) & 0xff) << 24 |
-+	      (u32)(be32_to_cpu(v4_spec->ip4src) >> 16) << 8 |
-+	      SLICE_NUM(slice_num) | SLICE_VALID;
-+	core_writel(priv, reg, CORE_CFP_DATA_PORT(0));
-+
-+	/* Source port map match */
-+	core_writel(priv, 0xff, CORE_CFP_MASK_PORT(7));
-+
-+	/* Mask with the specific layout for IPv4 packets */
-+	core_writel(priv, layout->mask_value, CORE_CFP_MASK_PORT(6));
-+
-+	/* Mask all but valid UDFs */
-+	core_writel(priv, GENMASK(num_udf - 1, 0) << 24, CORE_CFP_MASK_PORT(5));
-+
-+	/* Mask all */
-+	core_writel(priv, 0, CORE_CFP_MASK_PORT(4));
-+
-+	/* All other UDFs should be matched with the filter */
-+	core_writel(priv, 0xff, CORE_CFP_MASK_PORT(3));
-+	core_writel(priv, 0xffffffff, CORE_CFP_MASK_PORT(2));
-+	core_writel(priv, 0xffffffff, CORE_CFP_MASK_PORT(1));
-+	core_writel(priv, 0xffffff0f, CORE_CFP_MASK_PORT(0));
-+
-+	/* Locate the first rule available */
-+	if (fs->location == RX_CLS_LOC_ANY)
-+		rule_index = find_first_zero_bit(priv->cfp.used,
-+						 bcm_sf2_cfp_rule_size(priv));
-+	else
-+		rule_index = fs->location;
-+
-+	/* Insert into TCAM now */
-+	bcm_sf2_cfp_rule_addr_set(priv, rule_index);
-+
-+	ret = bcm_sf2_cfp_op(priv, OP_SEL_WRITE | TCAM_SEL);
-+	if (ret) {
-+		pr_err("TCAM entry at addr %d failed\n", rule_index);
-+		return ret;
-+	}
-+
-+	/* Replace ARL derived destination with DST_MAP derived, define
-+	 * which port and queue this should be forwarded to.
-+	 *
-+	 * We have a small oddity where Port 6 just does not have a
-+	 * valid bit here (so we subtract by one).
-+	 */
-+	queue_num = fs->ring_cookie % 8;
-+	if (port_num >= 7)
-+		port_num -= 1;
-+
-+	reg = CHANGE_FWRD_MAP_IB_REP_ARL | BIT(port_num + DST_MAP_IB_SHIFT) |
-+		CHANGE_TC | queue_num << NEW_TC_SHIFT;
-+
-+	core_writel(priv, reg, CORE_ACT_POL_DATA0);
-+
-+	/* Set classification ID that needs to be put in Broadcom tag */
-+	core_writel(priv, rule_index << CHAIN_ID_SHIFT,
-+		    CORE_ACT_POL_DATA1);
-+
-+	core_writel(priv, 0, CORE_ACT_POL_DATA2);
-+
-+	/* Configure policer RAM now */
-+	ret = bcm_sf2_cfp_op(priv, OP_SEL_WRITE | ACT_POL_RAM);
-+	if (ret) {
-+		pr_err("Policer entry at %d failed\n", rule_index);
-+		return ret;
-+	}
-+
-+	/* Disable the policer */
-+	core_writel(priv, POLICER_MODE_DISABLE, CORE_RATE_METER0);
-+
-+	/* Now the rate meter */
-+	ret = bcm_sf2_cfp_op(priv, OP_SEL_WRITE | RATE_METER_RAM);
-+	if (ret) {
-+		pr_err("Meter entry at %d failed\n", rule_index);
-+		return ret;
-+	}
-+
-+	/* Turn on CFP for this rule now */
-+	reg = core_readl(priv, CORE_CFP_CTL_REG);
-+	reg |= BIT(port);
-+	core_writel(priv, reg, CORE_CFP_CTL_REG);
-+
-+	/* Flag the rule as being used and return it */
-+	set_bit(rule_index, priv->cfp.used);
-+	fs->location = rule_index;
-+
-+	return 0;
-+}
-+
-+static int bcm_sf2_cfp_rule_del(struct bcm_sf2_priv *priv, int port,
-+				u32 loc)
-+{
-+	int ret;
-+	u32 reg;
-+
-+	/* Refuse deletion of unused rules, and the default reserved rule */
-+	if (!test_bit(loc, priv->cfp.used) || loc == 0)
-+		return -EINVAL;
-+
-+	/* Indicate which rule we want to read */
-+	bcm_sf2_cfp_rule_addr_set(priv, loc);
-+
-+	ret =  bcm_sf2_cfp_op(priv, OP_SEL_READ | TCAM_SEL);
-+	if (ret)
-+		return ret;
-+
-+	/* Clear its valid bits */
-+	reg = core_readl(priv, CORE_CFP_DATA_PORT(0));
-+	reg &= ~SLICE_VALID;
-+	core_writel(priv, reg, CORE_CFP_DATA_PORT(0));
-+
-+	/* Write back this entry into the TCAM now */
-+	ret = bcm_sf2_cfp_op(priv, OP_SEL_WRITE | TCAM_SEL);
-+	if (ret)
-+		return ret;
-+
-+	clear_bit(loc, priv->cfp.used);
-+
-+	return 0;
-+}
-+
-+static void bcm_sf2_invert_masks(struct ethtool_rx_flow_spec *flow)
-+{
-+	unsigned int i;
-+
-+	for (i = 0; i < sizeof(flow->m_u); i++)
-+		flow->m_u.hdata[i] ^= 0xff;
-+
-+	flow->m_ext.vlan_etype ^= cpu_to_be16(~0);
-+	flow->m_ext.vlan_tci ^= cpu_to_be16(~0);
-+	flow->m_ext.data[0] ^= cpu_to_be32(~0);
-+	flow->m_ext.data[1] ^= cpu_to_be32(~0);
-+}
-+
-+static int bcm_sf2_cfp_rule_get(struct bcm_sf2_priv *priv, int port,
-+				struct ethtool_rxnfc *nfc, bool search)
-+{
-+	struct ethtool_tcpip4_spec *v4_spec;
-+	unsigned int queue_num;
-+	u16 src_dst_port;
-+	u32 reg, ipv4;
-+	int ret;
-+
-+	if (!search) {
-+		bcm_sf2_cfp_rule_addr_set(priv, nfc->fs.location);
-+
-+		ret = bcm_sf2_cfp_op(priv, OP_SEL_READ | ACT_POL_RAM);
-+		if (ret)
-+			return ret;
-+
-+		reg = core_readl(priv, CORE_ACT_POL_DATA0);
-+
-+		ret = bcm_sf2_cfp_op(priv, OP_SEL_READ | TCAM_SEL);
-+		if (ret)
-+			return ret;
-+	} else {
-+		reg = core_readl(priv, CORE_ACT_POL_DATA0);
-+	}
-+
-+	/* Extract the destination port */
-+	nfc->fs.ring_cookie = fls((reg >> DST_MAP_IB_SHIFT) &
-+				  DST_MAP_IB_MASK) - 1;
-+
-+	/* There is no Port 6, so we compensate for that here */
-+	if (nfc->fs.ring_cookie >= 6)
-+		nfc->fs.ring_cookie++;
-+	nfc->fs.ring_cookie *= 8;
-+
-+	/* Extract the destination queue */
-+	queue_num = (reg >> NEW_TC_SHIFT) & NEW_TC_MASK;
-+	nfc->fs.ring_cookie += queue_num;
-+
-+	/* Extract the IP protocol */
-+	reg = core_readl(priv, CORE_CFP_DATA_PORT(6));
-+	switch ((reg & IPPROTO_MASK) >> IPPROTO_SHIFT) {
-+	case IPPROTO_TCP:
-+		nfc->fs.flow_type = TCP_V4_FLOW;
-+		v4_spec = &nfc->fs.h_u.tcp_ip4_spec;
-+		break;
-+	case IPPROTO_UDP:
-+		nfc->fs.flow_type = UDP_V4_FLOW;
-+		v4_spec = &nfc->fs.h_u.udp_ip4_spec;
-+		break;
-+	default:
-+		/* Clear to exit the search process */
-+		if (search)
-+			core_readl(priv, CORE_CFP_DATA_PORT(7));
-+		return -EINVAL;
-+	}
-+
-+	v4_spec->tos = (reg >> 16) & IPPROTO_MASK;
-+	nfc->fs.m_ext.data[0] = cpu_to_be32((reg >> 7) & 1);
-+
-+	reg = core_readl(priv, CORE_CFP_DATA_PORT(3));
-+	/* src port [15:8] */
-+	src_dst_port = reg << 8;
-+
-+	reg = core_readl(priv, CORE_CFP_DATA_PORT(2));
-+	/* src port [7:0] */
-+	src_dst_port |= (reg >> 24);
-+
-+	v4_spec->pdst = cpu_to_be16(src_dst_port);
-+	nfc->fs.m_u.tcp_ip4_spec.pdst = cpu_to_be16(~0);
-+	v4_spec->psrc = cpu_to_be16((u16)(reg >> 8));
-+	nfc->fs.m_u.tcp_ip4_spec.psrc = cpu_to_be16(~0);
-+
-+	/* IPv4 dst [15:8] */
-+	ipv4 = (u16)(reg & 0xff) << 8;
-+	reg = core_readl(priv, CORE_CFP_DATA_PORT(1));
-+	/* IPv4 dst [31:16] */
-+	ipv4 |= (u32)((reg >> 8) & 0xffffff) << 16;
-+	/* IPv4 dst [7:0] */
-+	ipv4 |= (reg >> 24) & 0xff;
-+	v4_spec->ip4dst = cpu_to_be32(ipv4);
-+	nfc->fs.m_u.tcp_ip4_spec.ip4dst = cpu_to_be32(~0);
-+
-+	/* IPv4 src [15:8] */
-+	ipv4 = (u16)(reg & 0xff) << 8;
-+	reg = core_readl(priv, CORE_CFP_DATA_PORT(0));
-+
-+	if (!(reg & SLICE_VALID))
-+		return -EINVAL;
-+
-+	/* IPv4 src [7:0] */
-+	ipv4 |= (reg >> 24) & 0xff;
-+	/* IPv4 src [31:16] */
-+	ipv4 |= ((reg >> 8) & 0xffffff) << 16;
-+	v4_spec->ip4src = cpu_to_be32(ipv4);
-+	nfc->fs.m_u.tcp_ip4_spec.ip4src = cpu_to_be32(~0);
-+
-+	/* Read last to avoid next entry clobbering the results during search
-+	 * operations
-+	 */
-+	reg = core_readl(priv, CORE_CFP_DATA_PORT(7));
-+	if (!(reg & 1 << port))
-+		return -EINVAL;
-+
-+	bcm_sf2_invert_masks(&nfc->fs);
-+
-+	/* Put the TCAM size here */
-+	nfc->data = bcm_sf2_cfp_rule_size(priv);
-+
-+	return 0;
-+}
-+
-+/* We implement the search doing a TCAM search operation */
-+static int bcm_sf2_cfp_rule_get_all(struct bcm_sf2_priv *priv,
-+				    int port, struct ethtool_rxnfc *nfc,
-+				    u32 *rule_locs)
-+{
-+	unsigned int index = 1, rules_cnt = 0;
-+	int ret;
-+	u32 reg;
-+
-+	/* Do not poll on OP_STR_DONE to be self-clearing for search
-+	 * operations, we cannot use bcm_sf2_cfp_op here because it completes
-+	 * on clearing OP_STR_DONE which won't clear until the entire search
-+	 * operation is over.
-+	 */
-+	reg = core_readl(priv, CORE_CFP_ACC);
-+	reg &= ~(XCESS_ADDR_MASK << XCESS_ADDR_SHIFT);
-+	reg |= index << XCESS_ADDR_SHIFT;
-+	reg &= ~(OP_SEL_MASK | RAM_SEL_MASK);
-+	reg |= OP_SEL_SEARCH | TCAM_SEL | OP_STR_DONE;
-+	core_writel(priv, reg, CORE_CFP_ACC);
-+
-+	do {
-+		/* Wait for results to be ready */
-+		reg = core_readl(priv, CORE_CFP_ACC);
-+
-+		/* Extract the address we are searching */
-+		index = reg >> XCESS_ADDR_SHIFT;
-+		index &= XCESS_ADDR_MASK;
-+
-+		/* We have a valid search result, so flag it accordingly */
-+		if (reg & SEARCH_STS) {
-+			ret = bcm_sf2_cfp_rule_get(priv, port, nfc, true);
-+			if (ret)
-+				continue;
-+
-+			rule_locs[rules_cnt] = index;
-+			rules_cnt++;
-+		}
-+
-+		/* Search is over break out */
-+		if (!(reg & OP_STR_DONE))
-+			break;
-+
-+	} while (index < CFP_NUM_RULES);
-+
-+	/* Put the TCAM size here */
-+	nfc->data = bcm_sf2_cfp_rule_size(priv);
-+	nfc->rule_cnt = rules_cnt;
-+
-+	return 0;
-+}
-+
-+int bcm_sf2_get_rxnfc(struct dsa_switch *ds, int port,
-+		      struct ethtool_rxnfc *nfc, u32 *rule_locs)
-+{
-+	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
-+	int ret = 0;
-+
-+	mutex_lock(&priv->cfp.lock);
-+
-+	switch (nfc->cmd) {
-+	case ETHTOOL_GRXCLSRLCNT:
-+		/* Subtract the default, unusable rule */
-+		nfc->rule_cnt = bitmap_weight(priv->cfp.used,
-+					      CFP_NUM_RULES) - 1;
-+		/* We support specifying rule locations */
-+		nfc->data |= RX_CLS_LOC_SPECIAL;
-+		break;
-+	case ETHTOOL_GRXCLSRULE:
-+		ret = bcm_sf2_cfp_rule_get(priv, port, nfc, false);
-+		break;
-+	case ETHTOOL_GRXCLSRLALL:
-+		ret = bcm_sf2_cfp_rule_get_all(priv, port, nfc, rule_locs);
-+		break;
-+	default:
-+		ret = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	mutex_unlock(&priv->cfp.lock);
-+
-+	return ret;
-+}
-+
-+int bcm_sf2_set_rxnfc(struct dsa_switch *ds, int port,
-+		      struct ethtool_rxnfc *nfc)
-+{
-+	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
-+	int ret = 0;
-+
-+	mutex_lock(&priv->cfp.lock);
-+
-+	switch (nfc->cmd) {
-+	case ETHTOOL_SRXCLSRLINS:
-+		ret = bcm_sf2_cfp_rule_set(ds, port, &nfc->fs);
-+		break;
-+
-+	case ETHTOOL_SRXCLSRLDEL:
-+		ret = bcm_sf2_cfp_rule_del(priv, port, nfc->fs.location);
-+		break;
-+	default:
-+		ret = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	mutex_unlock(&priv->cfp.lock);
-+
-+	return ret;
-+}
-+
-+int bcm_sf2_cfp_rst(struct bcm_sf2_priv *priv)
-+{
-+	unsigned int timeout = 1000;
-+	u32 reg;
-+
-+	reg = core_readl(priv, CORE_CFP_ACC);
-+	reg |= TCAM_RESET;
-+	core_writel(priv, reg, CORE_CFP_ACC);
-+
-+	do {
-+		reg = core_readl(priv, CORE_CFP_ACC);
-+		if (!(reg & TCAM_RESET))
-+			break;
-+
-+		cpu_relax();
-+	} while (timeout--);
-+
-+	if (!timeout)
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
--- 
-2.9.3
+The following changes since commit 214767faa2f31285f92754393c036f13b55474a6:
+
+  Merge tag 'batadv-net-for-davem-20170125' of git://git.open-mesh.org/linux-merge (2017-01-25 23:11:13 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-01-27
+
+for you to fetch changes up to 4f24229d2f73be75c2d362113588e30a1695dcb1:
+
+  net/mlx5e: Check ets capability before ets query FW command (2017-01-27 00:05:47 +0200)
+
+----------------------------------------------------------------
+mlx5-fixes-2017-01-27
+
+A couple of mlx5 core and ethernet driver fixes.
+
+>From Or, a couple of error return values and error handling fixes.
+>From Hadar, Support TC encapsulation offloads even when the mlx5e uplink
+device is stacked  under an upper device.
+>From Gal, two patches to fix RSS hash modifications via ethtool.
+>From Moshe, Added a needed ets capability check.
+
+----------------------------------------------------------------
+Gal Pressman (2):
+      net/mlx5e: Modify TIRs hash only when it's needed
+      net/mlx5e: Fix update of hash function/key via ethtool
+
+Hadar Hen Zion (1):
+      net/mlx5e: Support TC encapsulation offloads with upper devices
+
+Moshe Shemesh (1):
+      net/mlx5e: Check ets capability before ets query FW command
+
+Or Gerlitz (4):
+      net/mlx5: Change ENOTSUPP to EOPNOTSUPP
+      net/mlx5: Return EOPNOTSUPP when failing to get steering name-space
+      net/mlx5: E-Switch, Err when retrieving steering name-space fails
+      net/mlx5: E-Switch, Re-enable RoCE on mode change only after FDB destroy
+
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   7 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |  11 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  41 +++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |   2 +-
+ .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 202 ++++++++++-----------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  13 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  10 +-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  36 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |   2 +-
+ 15 files changed, 181 insertions(+), 157 deletions(-)
