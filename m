@@ -1,50 +1,58 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net: suspicious RCU usage in nf_hook
-Date: Fri, 27 Jan 2017 15:30:50 -0800
-Message-ID: <CAM_iQpU9Tc6vwZ46wKcmH8FMRyYesY9qXM0kDY-OhgWbO-TtpQ@mail.gmail.com>
-References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
- <CAM_iQpXNwZbkF+zoR5qdREcK6ZFt3ODbrpRB38WidLkcUWt5dw@mail.gmail.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH V3 net-next 02/14] net/ena: fix error handling when probe
+ fails
+Date: Sat, 28 Jan 2017 00:33:33 +0100
+Message-ID: <174cba24-4bf4-4212-9756-2bedf4fa5a92@gmx.de>
+References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
+ <1485469096-5271-3-git-send-email-netanel@annapurnalabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Eric Dumazet <edumazet@google.com>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel@vger.kernel.org,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXNwZbkF+zoR5qdREcK6ZFt3ODbrpRB38WidLkcUWt5dw@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dwmw@amazon.com, zorik@annapurnalabs.com, alex@annapurnalabs.com,
+        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
+        nafea@annapurnalabs.com, eric.dumazet@gmail.com
+To: Netanel Belgazal <netanel@annapurnalabs.com>,
+        linux-kernel@vger.kernel.org, davem@davemloft.net,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.15]:52048 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750720AbdA0Xdu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Jan 2017 18:33:50 -0500
+In-Reply-To: <1485469096-5271-3-git-send-email-netanel@annapurnalabs.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 3:22 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Fri, Jan 27, 2017 at 1:15 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> stack backtrace:
->> CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> Call Trace:
->>  __dump_stack lib/dump_stack.c:15 [inline]
->>  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
->>  lockdep_rcu_suspicious+0x139/0x180 kernel/locking/lockdep.c:4452
->>  rcu_preempt_sleep_check include/linux/rcupdate.h:560 [inline]
->>  ___might_sleep+0x560/0x650 kernel/sched/core.c:7748
->>  __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
->>  mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
->>  atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
->>  __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
->>  static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
->>  net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
->>  sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
->>  __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
->>  sk_destruct+0x47/0x80 net/core/sock.c:1460
+Hi,
+
+On 26.01.2017 23:18, Netanel Belgazal wrote:
+> When driver fails in probe, it will release all resources,
+> including adapter.
+> In case of probe failure, ena_remove should not try to
+> free the adapter resources.
 >
-> jump label uses a mutex and we call jump label API in softIRQ context...
-> Maybe we have to move it to a work struct as what we did for netlink.
+> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
+> ---
+>  drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+> index 7493ea3..cb60567 100644
+> --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
+> +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+> @@ -3046,6 +3046,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  err_free_region:
+>  	ena_release_bars(ena_dev, pdev);
+>  err_free_ena_dev:
+> +	pci_set_drvdata(pdev, NULL);
+>  	vfree(ena_dev);
+>  err_disable_device:
+>  	pci_disable_device(pdev);
+>
 
-Correct myself: process context but with RCU read lock held...
+Is this change really a "fix"? remove() should only be called if
+probe() has been successful before, otherwise not. Did you experience
+something different?
+
+Regards,
+Lino
