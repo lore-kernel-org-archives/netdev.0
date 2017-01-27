@@ -1,109 +1,72 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: stmmac: GMAC_RGSMIIIS reports bogus values
-Date: Fri, 27 Jan 2017 10:23:06 +0000
-Message-ID: <1485512586.2693.35.camel@synopsys.com>
-References: <1478189833.4072.65.camel@synopsys.com>
- <a1f114cc-6120-154c-a3f7-3e0389d38e36@st.com>
- <1485369563.7117.81.camel@synopsys.com>
+From: Rafal Ozieblo <rafalo@cadence.com>
+Subject: RE: [PATCH net-next v2] macb: Common code to enable ptp support for
+ MACB/GEM
+Date: Fri, 27 Jan 2017 10:26:14 +0000
+Message-ID: <BN3PR07MB25163747E1520E4CE1C6164FC9760@BN3PR07MB2516.namprd07.prod.outlook.com>
+References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
+ <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "fabrice.gasnier@st.com" <fabrice.gasnier@st.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
+ "boris.brezillon@free-electrons.com" <boris.brezillon@free-electrons.com>,
  "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "manabian@gmail.com" <manabian@gmail.com>,
+ "alexandre.belloni@free-electrons.com" <alexandre.belloni@free-electrons.com>,
+ "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
  "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "preid@electromag.com.au" <preid@electromag.com.au>,
+ "richardcochran@gmail.com" <richardcochran@gmail.com>,
+ Andrei Pistirica <andrei.pistirica@microchip.com>,
+ "michals@xilinx.com" <michals@xilinx.com>,
+ "anirudh@xilinx.com" <anirudh@xilinx.com>,
+ "punnaia@xilinx.com" <punnaia@xilinx.com>,
+ "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
  "davem@davemloft.net" <davem@davemloft.net>,
- "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
- "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
- Vineet Gupta <Vineet.Gupta1@synopsys.com>
-To: "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1485369563.7117.81.camel@synopsys.com>
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Harini Katakam <harinikatakamlinux@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
 Content-Language: en-US
-Content-ID: <7875BE23A472B54294E8D0891DEA130E@internal.synopsys.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-SGnCoEdpdXNlcHBlLA0KDQpPbiBXZWQsIDIwMTctMDEtMjUgYXQgMjE6MzkgKzAzMDAsIEFsZXhl
-eSBCcm9ka2luIHdyb3RlOg0KPiBIaSBHaXVzZXBwZSwNCj4gDQo+IE9uIE1vbiwgMjAxNi0xMS0x
-NCBhdCAwOToxNCArMDEwMCwgR2l1c2VwcGUgQ0FWQUxMQVJPIHdyb3RlOg0KPiA+IA0KPiA+IEhl
-bGxvIEFsZXhleQ0KPiA+IA0KPiA+IFNvcnJ5IGZvciBteSBsYXRlIHJlcGx5LiBJbiB0aGF0IGNh
-c2UsIEkgdGhpbmsgdGhhdCB0aGUgc3RtbWFjDQo+ID4gaXMgdXNpbmcgb3duIFJHTUlJL1NHTUlJ
-IHN1cHBvcnQgKFBDUykgdG8gZGlhbG9nIHdpdGggdGhlDQo+ID4gdHJhbnNjZWl2ZXIuIEkgdGhp
-bmssIGZyb20gdGhlIEhXIGNhcGFiaWxpdHkgcmVnaXN0ZXINCj4gPiB0aGlzIGZlYXR1cmUgaXMg
-cHJlc2VudCBhbmQgdGhlIGRyaXZlciBpcyB1c2luZyBpdCBhcyBkZWZhdWx0Lg0KPiANCj4gWWVw
-IGxvb2tzIGxpa2UgdGhhdC4NCg0KSG0sIHNvIEkgdG9vayBhIGxvb2sgYXQgd2hhdCBhbSBJIHJl
-YWRpbmcgZnJvbQ0KIlJlZ2lzdGVyIDIyIChIVyBGZWF0dXJlIFJlZ2lzdGVyKSIgaW7CoGR3bWFj
-MTAwMF9nZXRfaHdfZmVhdHVyZSgpDQphbmQgd2FzIHJlYWxseSBzdXJwcmlzZWQgdG8gc2VlIHRo
-ZSByZWdpc3RlciB2YWx1ZSA9IDB4MTAwNTA5YmYuDQoNClNlZSBiaXQgNiAiUENTU0VMIiBpcyB6
-ZXJvZWQgd2hpY2ggc3RhbmRzIGZvcg0KIlBDUyByZWdpc3RlcnMgKFRCSSwgU0dNSUksIG9yIFJU
-QkkgUEhZIGludGVyZmFjZSkiLg0KDQpJLmUuIFBDUyBkb2Vzbid0IGV4aXN0IGluIG91ciBHTUFD
-IHNvIG1vc3Qgb2YgdGhlIHByZXZpb3VzIGNvbW1lbnRzDQpiZWxvdyBzaG91bGQgYmUgZGlzY2Fy
-ZGVkLg0KDQo+ID4gSSBraW5kbHkgYXNrIHlvdSB0byB2ZXJpZnkgaWYgdGhpcyBpcyB5b3VyIHNl
-dHVwIG9yIGlmIHlvdQ0KPiA+IGRvIG5vdCB3YW50IHRvIHVzZSBpdC4gSW4gdGhhdCBjYXNlLCBp
-dCBpcyBsaWtlbHkgd2UgbmVlZCB0bw0KPiA+IGFkZCBzb21lIGNvZGUgaW4gdGhlIGRyaXZlci4N
-Cj4gDQo+IFdlbGwgR01BQydzIGRhdGFib29rIHNheXM6DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gVGhlIERXQ19nbWFjIHByb3Zp
-ZGVzIGFuIElFRUUgODAyLjN6IGNvbXBsaWFudCAxMC1iaXQNCj4gUGh5c2ljYWwgQ29kaW5nIFN1
-YmxheWVyIChQQ1MpIGludGVyZmFjZSB0aGF0IHlvdSBjYW4gdXNlDQo+IHdoZW4gdGhlIE1BQyBp
-cyBjb25maWd1cmVkIGZvciB0aGUgVEJJLCBSVEJJLCBvciBTR01JSSBQSFkNCj4gaW50ZXJmYWNl
-Lg0KPiANCj4gLi4uDQo+IA0KPiBZb3UgY2FuIGluY2x1ZGUgdGhlIG9wdGlvbmFsIFBDUyBtb2R1
-bGUgaW4gdGhlIERXQ19nbWFjIGJ5DQo+IHNlbGVjdGluZyB0aGUgVEJJLCBSVEJJLCBvciBTR01J
-SSBpbnRlcmZhY2UgaW4gY29yZUNvbnN1bHRhbnQNCj4gZHVyaW5nIGNvbmZpZ3VyYXRpb24uDQo+
-IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0N
-Cj4gDQo+IEJ1dCB3ZSB1c2UgUkdNSUkgZm9yIGNvbW11bmljYXRpb24gd2l0aCB0aGUgUEhZLg0K
-PiBBbmQgZnJvbSB0aGUgcXVvdGUgYWJvdmUgSSB3b3VsZCBjb25jbHVkZSB0aGF0IGZvciBSR01J
-SSB3ZSBzaG91bGQNCj4gaGF2ZSBQQ1MgZXhjbHVkZWQgZnJvbSBHTUFDLg0KPiANCj4gSSBqdXN0
-IHNlbnQgZW1haWwgdG8gR01BQyBkZXZlbG9wZXJzIGhlcmUgaW4gU3lub3BzeXMgYW5kDQo+IGhv
-cGVmdWxseSB3aWxsIGdldCBzb21lIGNsYXJpZmljYXRpb25zIGZyb20gdGhlbSBzb29uLg0KPiAN
-Cj4gUHJvYmFibHkgY29ycmVjdCBzb2x1dGlvbiBpcyBhcyBzaW1wbGUgYXM6DQo+IC0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tYWluLmMg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFpbi5jDQo+IGlu
-ZGV4IGEyNzZhMzJkNTdmMi4uZjRiNjdkYzdkNTMwIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tYWluLmMNCj4gQEAgLTgwMywxMyAr
-ODAzLDcgQEAgc3RhdGljIHZvaWQgc3RtbWFjX2NoZWNrX3Bjc19tb2RlKHN0cnVjdCBzdG1tYWNf
-cHJpdiAqcHJpdikNCj4gwqDCoMKgwqDCoMKgwqDCoGludCBpbnRlcmZhY2UgPSBwcml2LT5wbGF0
-LT5pbnRlcmZhY2U7DQo+IMKgDQo+IMKgwqDCoMKgwqDCoMKgwqBpZiAocHJpdi0+ZG1hX2NhcC5w
-Y3MpIHsNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGlmICgoaW50ZXJmYWNlID09
-IFBIWV9JTlRFUkZBQ0VfTU9ERV9SR01JSSkgfHwNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgKGludGVyZmFjZSA9PSBQSFlfSU5URVJGQUNFX01PREVfUkdNSUlfSUQp
-IHx8DQo+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoChpbnRlcmZhY2Ug
-PT0gUEhZX0lOVEVSRkFDRV9NT0RFX1JHTUlJX1JYSUQpIHx8DQo+IC3CoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoChpbnRlcmZhY2UgPT0gUEhZX0lOVEVSRkFDRV9NT0RFX1JH
-TUlJX1RYSUQpKSB7DQo+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgbmV0ZGV2X2RiZyhwcml2LT5kZXYsICJQQ1MgUkdNSUkgc3VwcG9ydCBlbmFibGVkXG4i
-KTsNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBwcml2
-LT5ody0+cGNzID0gU1RNTUFDX1BDU19SR01JSTsNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoH0gZWxzZSBpZiAoaW50ZXJmYWNlID09IFBIWV9JTlRFUkZBQ0VfTU9ERV9TR01JSSkg
-ew0KPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaWYgKGludGVyZmFjZSA9PSBQSFlf
-SU5URVJGQUNFX01PREVfU0dNSUkpIHsNCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgbmV0ZGV2X2RiZyhwcml2LT5kZXYsICJQQ1MgU0dNSUkgc3VwcG9y
-dCBlbmFibGVkXG4iKTsNCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgcHJpdi0+aHctPnBjcyA9IFNUTU1BQ19QQ1NfU0dNSUk7DQo+IMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgfQ0KPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0+OC0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+IA0KPiA+IA0KPiA+IEFsc28gSSB3b25kZXIgaWYs
-IG90aGVyIHZlcnNpb24gb2YgdGhlIHN0bW1hYyB3b3JrZWQgb24gdGhpcyBwbGF0Zm9ybQ0KPiA+
-IGJlZm9yZS4NCj4gDQo+IEl0IGRpZCB3b3JrIGFuZCBzdGlsbCB3b3Jrcy4gVGhlIG9ubHkgcHJv
-YmxlbSBpcyB3ZSdyZSBnZXR0aW5nDQo+IGEgbG90IG9mIG5vaXNlIG5vdyBhYm91dCBib2d1cyBs
-aW5rIHN0YXR1cyBjaGFuZ2UuIFRoYXQncyBiZWNhdXNlDQo+IHRoaXMgaW5mbyBpcyBub3cgaW4g
-cHJfaW5mbygpIGNvbXBhcmVkIHRvIGJlaW5nIHByZXZpb3VzbHkgaW4gcHJfZGVidWcoKS4NCg0K
-U28gaXQgYWxsIHJlYWxseSBib2lscyBkb3duIHRvIHRoZSBmb2xsb3dpbmcgcHJvYmxlbToNCkxp
-bmsgc3RhdGUgcmVwb3J0ZWQgdmlhICJSZWdpc3RlciA1NCAoU0dNSUkvUkdNSUkvU01JSSBDb250
-cm9sIGFuZCBTdGF0dXMgUmVnaXN0ZXIpIg0KZG9lc24ndCBtYXRjaCBzdGF0dXMgcmVhZCB2aWEg
-TURJTyBmcm9tIHRoZSBQSFkuDQoNClRoYXQncyB3aHkgbXkgaW5pdGlhbCBwcm9wb3NhbCB3YXMg
-dG8gaWdub3JlIHdoYXRldmVyIHdlIHJlYWQgZnJvbSB0aGlzIHJlZ2lzdGVyDQppZiB3ZSBoYXZl
-IE1ESU8gYnVzIGluc3RhbnRpYXRlZCBhbHJlYWR5Lg0KDQotQWxleGV5DQoNCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LXNucHMtYXJjIG1haWxp
-bmcgbGlzdApsaW51eC1zbnBzLWFyY0BsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5p
-bmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtc25wcy1hcmM=
+>-----Original Message-----
+>From: Harini Katakam [mailto:harinikatakamlinux@gmail.com] 
+>Sent: 27 stycznia 2017 06:43
+>Subject: Re: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
+>
+>Hi Rafal,
+>
+>On Thu, Jan 26, 2017 at 8:45 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
+>>> -----Original Message-----
+>>> From: Andrei Pistirica [mailto:andrei.pistirica@microchip.com]
+>>> Sent: 19 stycznia 2017 16:56
+>>> Subject: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
+>>>
+>>>
+>>> +static inline bool gem_has_ptp(struct macb *bp)
+>>> +{
+>>> +     return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
+>>> +}
+>> Why don't you use hardware capabilities here? Would it be better to read it from hardware instead adding it to many configuration?
+>
+>If you are referring to TSU bit in DCFG5, then we will be relying on
+>Cadence IP's information irrespective of the SoC capability
+>and whether the PTP support was adequate.
+>I think the capability approach gives better control and
+>it is not really much to add.
+>
+>Regards,
+>Harini
+>
+Yes, I'm referring to TSU bit.
+What if SoC contains multiple Cadence GEMs, some with PTP support and others without?
+Relevant will be checking both, hardware capabilities and SoC capabilities from "caps" field.
