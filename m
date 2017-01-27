@@ -1,45 +1,43 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH v3 net-next 0/2] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
-Date: Fri, 27 Jan 2017 20:46:25 +0100
-Message-ID: <1485546387-30809-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:38272 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751115AbdA0Tqs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 14:46:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] cfg80211 debugfs: Cleanup some checkpatch issues
+Date: Fri, 27 Jan 2017 11:48:35 -0800
+Message-ID: <1485546515.12563.138.camel@perches.com>
+References: <20170127192603.GA13522@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Pichugin Dmitry <smokeman85@gmail.com>, johannes@sipsolutions.net,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170127192603.GA13522@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, 2017-01-27 at 22:26 +0300, Pichugin Dmitry wrote:
+> This fixes the checkpatch.pl warnings:
+> * Macros should not use a trailing semicolon.
+> * Spaces required around that '='.
+> * Symbolic permissions 'S_IRUGO' are not preferred.
 
-this series adds support for gigabit communication to the Renesas EthernetAVB
-controller when used in conjunction with  R-Car Gen3 H3 ES1.1+ and M3-W SoCs.
-Gigabit is already supported with R-Car Gen 2 SoCs.
+OK
 
-The patch from Geert was previously posted for inclusion in v4.10 and
-acked by Dave for that purpose. It was, however, not accepted by the
-ARM SoC maintainers.
+> * Macro argument reuse 'buflen' - possible side-effects
 
-The path from Mizuguchi-san is to address timing problems observed with
-gigabit transfers. I would like it considered although my own testing on
-M3-W did not show any timing problems.
+Not all checkpatch messages need fixing.
+This is one of them.
 
-Changes since v1:
-* Address various feedback for "APSR" patch as noted in its changelog
+> diff --git a/net/wireless/debugfs.c b/net/wireless/debugfs.c
+[]
+> @@ -17,11 +17,12 @@
+>  static ssize_t name## _read(struct file *file, char __user *userbuf,	\
+>  			    size_t count, loff_t *ppos)			\
+>  {									\
+> -	struct wiphy *wiphy= file->private_data;		\
+> -	char buf[buflen];						\
+> +	struct wiphy *wiphy = file->private_data;			\
+> +	int __buflen = __builtin_constant_p(buflen) ? buflen : -1;	\
+> +	char buf[__buflen];						\
 
-Geert Uytterhoeven (1):
-  ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
-
-Kazuya Mizuguchi (1):
-  ravb: Add tx and rx clock internal delays mode of APSR
-
- drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++++
- drivers/net/ethernet/renesas/ravb_main.c | 33 ++++++++++++++++++++++++++++++--
- 2 files changed, 41 insertions(+), 2 deletions(-)
-
--- 
-2.7.0.rc3.207.g0ac5344
+That's rather an odd change too
