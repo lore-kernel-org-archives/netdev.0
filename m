@@ -1,19 +1,19 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/4] net: dsa: bcm_sf2: Add support for ethtool::rxnfc
-Date: Fri, 27 Jan 2017 13:05:16 -0800
-Message-ID: <20170127210516.16704-6-f.fainelli@gmail.com>
+Subject: [PATCH net-next 3/3] net: dsa: bcm_sf2: Add support for ethtool::rxnfc
+Date: Fri, 27 Jan 2017 13:05:15 -0800
+Message-ID: <20170127210516.16704-5-f.fainelli@gmail.com>
 References: <20170127210516.16704-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33120 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751606AbdA0VOl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:14:41 -0500
-Received: by mail-pf0-f196.google.com with SMTP id e4so19186921pfg.0
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:14:40 -0800 (PST)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33400 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751607AbdA0VPI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:15:08 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 194so25852991pgd.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:15:08 -0800 (PST)
 In-Reply-To: <20170127210516.16704-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -44,10 +44,10 @@ index 8346e4f9737a..e69f3683f52f 100644
  
  obj-y				+= b53/
 diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 637072da3acf..be282b430c50 100644
+index 8eecfd227e06..74cf18798655 100644
 --- a/drivers/net/dsa/bcm_sf2.c
 +++ b/drivers/net/dsa/bcm_sf2.c
-@@ -1045,6 +1045,8 @@ static const struct dsa_switch_ops bcm_sf2_ops = {
+@@ -1036,6 +1036,8 @@ static const struct dsa_switch_ops bcm_sf2_ops = {
  	.port_fdb_dump		= b53_fdb_dump,
  	.port_fdb_add		= b53_fdb_add,
  	.port_fdb_del		= b53_fdb_del,
@@ -56,7 +56,7 @@ index 637072da3acf..be282b430c50 100644
  };
  
  struct bcm_sf2_of_data {
-@@ -1168,6 +1170,12 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+@@ -1159,6 +1161,12 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
  
  	spin_lock_init(&priv->indir_lock);
  	mutex_init(&priv->stats_mutex);
@@ -69,7 +69,7 @@ index 637072da3acf..be282b430c50 100644
  
  	bcm_sf2_identify_ports(priv, dn->child);
  
-@@ -1197,6 +1205,12 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+@@ -1188,6 +1196,12 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
  		return ret;
  	}
  
