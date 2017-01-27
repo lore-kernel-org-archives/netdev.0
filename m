@@ -1,87 +1,119 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
- hard_header_len bytes in skb_headlen() to the driver
-Date: Thu, 26 Jan 2017 19:08:44 -0500
-Message-ID: <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
-References: <1485274309-201670-1-git-send-email-sowmini.varadhan@oracle.com>
- <CAF=yD-KXqpODBVQ0vUt1a1p_mMXzzQp=5GU33f9GY9_cbPJxDw@mail.gmail.com> <20170126213742.GE29475@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: adjust skb->truesize in pskb_expand_head()
+Date: Thu, 26 Jan 2017 16:21:20 -0800
+Message-ID: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Slava Shwartsman <slavash@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33063 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752518AbdA0AJ1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 19:09:27 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r144so54269701wme.0
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 16:09:26 -0800 (PST)
-In-Reply-To: <20170126213742.GE29475@oracle.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36768 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752796AbdA0AV2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 19:21:28 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 75so23522052pgf.3
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 16:21:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 26, 2017 at 4:37 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (01/26/17 15:21), Willem de Bruijn wrote:
->> > If the application has provided fewer than hard_header_len bytes,
->> > dev_validate_header() will zero out the skb->data as needed. This is
->> > acceptable for SOCK_DGRAM/PF_PACKET sockets but in all other cases,
->>
->> This was added not for datagram sockets, but to be able to bypass
->> validation. See the message in commit 2793a23aacbd ("net: validate
->> variable length ll header") and discussion leading up to that patch.
->
-> some context, I got inot this patch as a result of  the comments in
->  https://www.mail-archive.com/netdev@vger.kernel.org/msg149031.html
->
->> As David pointed out, this does not handle variable length headers
->> correctly. In link layers that support these, hard_header_len defines
->> the maximum header length. A hard failure on len < hard_header_len
->> would be incorrect.
->
-> right, since DaveM's comments, I took a look at the drivers
-> that have a ->validate - afaict (from cscope) ax25 is the only
-> in-kernel driver that actually passes a ->validate pointer..
-> I tried patching ax25 here:
->   http://marc.info/?l=linux-hams&m=148537926422828&w=2
-> Still waiting to hear back from that list (which doesnt seem to have
-> much traffic so maybe I should time out on it). Does that
-> patch make better sense (I'll look up the comments leading up
-> to 2793a23aacbd later tonight)
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks for the context. ax25_addr_parse doesn't adjust length, it only
-verifies that the contents of the variable length header matches
-protocol spec. I don't think that it or the .validate callback have to
-be modified to return length.
+Slava Shwartsman reported a warning in skb_try_coalesce(), when we
+detect skb->truesize is completely wrong.
 
-To ensure that skb_headlen(skb) is at least a valid header length even
-when CAP_SYS_RAWIO bypasses validation perhaps revise
-dev_validate_header to take an additional skb->len parameter and
-call skb_put directly from inside that branch.
+In his case, issue came from IPv6 reassembly coping with malicious
+datagrams, that forced various pskb_may_pull() to reallocate a bigger
+skb->head than the one allocated by NIC driver before entering GRO
+layer.
 
->> The ->validate callback was added to allow specifying additional
->> constraints on a per protocol basis. This is where a min constraint
->> can be added, e.g., for ethernet.
->>
->> > -       if (!dev_validate_header(dev, skb->data, len)) {
->> > +       newlen = dev_validate_header(dev, skb->data, len);
->> > +       /* As comments above this function indicate, a full L2 header
->> > +        * must be passed to this function, so if newlen > len, bail.
->> > +        */
->> > +       if (newlen < 0 || newlen > len) {
->>
->> If callers only care whether the function returned failure or
->> increased len, which also indicates failure, it is cleaner to leave it
->> a boolean and fail in cases where len < the minimum for that link
->> layer type. No caller actually uses newlen.
->>
->> > +               /* Caller has allocated for copylen in non-paged part of
->> > +                * skb so we should never find newlen > hdrlen
->> > +                */
->> > +               WARN_ON(newlen > hdrlen);
->>
->> WARN_ON_ONCE is safer.
->
-> Ok that's easy enough to do.
->
+Current code does not change skb->truesize, leaving this burden to
+callers if they care enough.
+
+Blindly changing skb->truesize in pskb_expand_head() is not
+easy, as some producers might track skb->truesize, for example
+in xmit path for back pressure feedback (sk->sk_wmem_alloc)
+
+We can detect the cases where it should be safe to change
+skb->truesize :
+
+1) skb is not attached to a socket.
+2) If it is attached to a socket, destructor is sock_edemux()
+
+My audit gave only two callers doing their own skb->truesize
+manipulation.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Slava Shwartsman <slavash@mellanox.com>
+---
+ net/core/skbuff.c        |   14 +++++++++++---
+ net/netlink/af_netlink.c |    8 +++-----
+ net/wireless/util.c      |    2 --
+ 3 files changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f8dbe4a7ab46a9196c6683ce5c9c14d3d99d..6cd59da7ec583260748b9c45b99a824bcc61 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1192,10 +1192,10 @@ EXPORT_SYMBOL(__pskb_copy_fclone);
+ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 		     gfp_t gfp_mask)
+ {
+-	int i;
+-	u8 *data;
+-	int size = nhead + skb_end_offset(skb) + ntail;
++	int i, osize = skb_end_offset(skb);
++	int size = osize + nhead + ntail;
+ 	long off;
++	u8 *data;
+ 
+ 	BUG_ON(nhead < 0);
+ 
+@@ -1257,6 +1257,14 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	skb->hdr_len  = 0;
+ 	skb->nohdr    = 0;
+ 	atomic_set(&skb_shinfo(skb)->dataref, 1);
++
++	/* It is not generally safe to change skb->truesize.
++	 * For the moment, we really care of rx path, or
++	 * when skb is orphaned (not attached to a socket)
++	 */
++	if (!skb->sk || skb->destructor == sock_edemux)
++		skb->truesize += size - osize;
++
+ 	return 0;
+ 
+ nofrags:
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index edcc1e19ad532641f51f6809b8c90d1e3770..7b73c7c161a9680b8691a712c31073b77896 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1210,11 +1210,9 @@ static struct sk_buff *netlink_trim(struct sk_buff *skb, gfp_t allocation)
+ 		skb = nskb;
+ 	}
+ 
+-	if (!pskb_expand_head(skb, 0, -delta,
+-			      (allocation & ~__GFP_DIRECT_RECLAIM) |
+-			      __GFP_NOWARN | __GFP_NORETRY))
+-		skb->truesize -= delta;
+-
++	pskb_expand_head(skb, 0, -delta,
++			 (allocation & ~__GFP_DIRECT_RECLAIM) |
++			 __GFP_NOWARN | __GFP_NORETRY);
+ 	return skb;
+ }
+ 
+diff --git a/net/wireless/util.c b/net/wireless/util.c
+index 1b9296882dcd6a0b585dfd604a30807e7f26..68e5f2ecee1aa22f17ab9a55eb566124e585 100644
+--- a/net/wireless/util.c
++++ b/net/wireless/util.c
+@@ -618,8 +618,6 @@ int ieee80211_data_from_8023(struct sk_buff *skb, const u8 *addr,
+ 
+ 		if (pskb_expand_head(skb, head_need, 0, GFP_ATOMIC))
+ 			return -ENOMEM;
+-
+-		skb->truesize += head_need;
+ 	}
+ 
+ 	if (encaps_data) {
