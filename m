@@ -1,60 +1,88 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
- hard_header_len bytes in skb_headlen() to the driver
-Date: Fri, 27 Jan 2017 09:37:14 -0500
-Message-ID: <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
-References: <1485274309-201670-1-git-send-email-sowmini.varadhan@oracle.com>
- <CAF=yD-KXqpODBVQ0vUt1a1p_mMXzzQp=5GU33f9GY9_cbPJxDw@mail.gmail.com>
- <20170126213742.GE29475@oracle.com> <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
- <20170127020836.GH29475@oracle.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: adjust skb->truesize in pskb_expand_head()
+Date: Fri, 27 Jan 2017 06:44:21 -0800
+Message-ID: <1485528261.6360.38.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB0270970@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+        netdev <netdev@vger.kernel.org>,
+        Slava Shwartsman <slavash@mellanox.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f194.google.com ([209.85.210.194]:35153 "EHLO
-        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754879AbdA0Oh4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 09:37:56 -0500
-Received: by mail-wj0-f194.google.com with SMTP id i7so6098711wjf.2
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 06:37:56 -0800 (PST)
-In-Reply-To: <20170127020836.GH29475@oracle.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36016 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753804AbdA0OoX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 09:44:23 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 75so25179187pgf.3
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 06:44:22 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0270970@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 26, 2017 at 9:08 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (01/26/17 19:08), Willem de Bruijn wrote:
->>
->> Thanks for the context. ax25_addr_parse doesn't adjust length, it only
->> verifies that the contents of the variable length header matches
->> protocol spec. I don't think that it or the .validate callback have to
->> be modified to return length.
->
-> Yes, I noticed that too, but my reading of ax25_addr_parse
-> was that it checks to see that a sane L2 header has been
-> passed in, and if that (sane-header) is the case, it
-> returns pointer to the start of data. Thus the returned
-> (non-null) pointer minus start should tell you the "real"
-> header length- is my understanding correct?
+On Fri, 2017-01-27 at 10:49 +0000, David Laight wrote:
+> From: Eric Dumazet
+> > Sent: 27 January 2017 00:21
+> > Slava Shwartsman reported a warning in skb_try_coalesce(), when we
+> > detect skb->truesize is completely wrong.
+> > 
+> > In his case, issue came from IPv6 reassembly coping with malicious
+> > datagrams, that forced various pskb_may_pull() to reallocate a bigger
+> > skb->head than the one allocated by NIC driver before entering GRO
+> > layer.
+> > 
+> > Current code does not change skb->truesize, leaving this burden to
+> > callers if they care enough.
+> > 
+> > Blindly changing skb->truesize in pskb_expand_head() is not
+> > easy, as some producers might track skb->truesize, for example
+> > in xmit path for back pressure feedback (sk->sk_wmem_alloc)
+> > 
+> > We can detect the cases where it should be safe to change
+> > skb->truesize :
+> > 
+> > 1) skb is not attached to a socket.
+> > 2) If it is attached to a socket, destructor is sock_edemux()
+> ...
+> >  int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+> >  		     gfp_t gfp_mask)
+> >  {
+> > +	int i, osize = skb_end_offset(skb);
+> > +	int size = osize + nhead + ntail;
+> >  	long off;
+> > +	u8 *data;
+> > 
+> >  	BUG_ON(nhead < 0);
+> > 
+> > @@ -1257,6 +1257,14 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+> >  	skb->hdr_len  = 0;
+> >  	skb->nohdr    = 0;
+> >  	atomic_set(&skb_shinfo(skb)->dataref, 1);
+> > +
+> > +	/* It is not generally safe to change skb->truesize.
+> > +	 * For the moment, we really care of rx path, or
+> > +	 * when skb is orphaned (not attached to a socket)
+> > +	 */
+> > +	if (!skb->sk || skb->destructor == sock_edemux)
+> > +		skb->truesize += size - osize;
+> 
+> That calculation doesn't look right to me at all.
+> Isn't 'truesize' supposed to reflect the amount of memory allocated to the skb.
+> So you need the difference between the size of the new and old memory blocks.
+> 
 
-Yes. ax25_validate_header reads up to len bytes to parse the header,
-so it is smaller than or equal to len or the function returns false.
-It is not necessary to check whether the return value exceeds the len
-passed to dev_validate_header.
+Well, please take a look at the code, because I believe I did exactly
+that.
 
-The immediate problem you were facing is that dev_validate_header
-accepts values smaller than hard_header_len even for protocols with
-fixed header lengths.
+> I'm also guessing that extra headroom can be generated by stealing unused tailroom.
 
-This is a consequence of that CAP_SYS_RAWIO branch. Without it,
-dev_validate_header would have correctly dropped your packet. That
-branch was added because there are tests that explicitly test bad
-input. Ideally, it would be behind sysctl and static key, but doing so
-might start failing active tests.
+This is already done.
 
-See also this discussion
+Quoting
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=87fb4b7b533073eeeaed0b6bf7c2328995f6c075
 
-  Sending short raw packets using sendmsg() broke
-  https://www.mail-archive.com/netdev@vger.kernel.org/msg99081.html
+    At skb alloc phase, we put skb_shared_info struct at the exact end of
+    skb head, to allow a better use of memory (lowering number of
+    reallocations), since kmalloc() gives us power-of-two memory blocks.
