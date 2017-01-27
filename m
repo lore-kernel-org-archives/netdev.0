@@ -1,140 +1,109 @@
-From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Fri, 27 Jan 2017 11:10:43 +0100
-Message-ID: <20170127101043.GD24223@pali>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
- <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
- <87tw8lnei3.fsf@codeaurora.org>
- <20170127094342.GC24223@pali>
- <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: stmmac: GMAC_RGSMIIIS reports bogus values
+Date: Fri, 27 Jan 2017 10:23:06 +0000
+Message-ID: <1485512586.2693.35.camel@synopsys.com>
+References: <1478189833.4072.65.camel@synopsys.com>
+ <a1f114cc-6120-154c-a3f7-3e0389d38e36@st.com>
+ <1485369563.7117.81.camel@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "fabrice.gasnier@st.com" <fabrice.gasnier@st.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "manabian@gmail.com" <manabian@gmail.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "preid@electromag.com.au" <preid@electromag.com.au>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
+ "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
+ Vineet Gupta <Vineet.Gupta1@synopsys.com>
+To: "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>
+Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1485369563.7117.81.camel@synopsys.com>
+Content-Language: en-US
+Content-ID: <7875BE23A472B54294E8D0891DEA130E@internal.synopsys.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
+List-Post: <mailto:linux-snps-arc@lists.infradead.org>
+List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
+Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 27 January 2017 11:05:32 Arend Van Spriel wrote:
-> On 27-1-2017 10:43, Pali Rohár wrote:
-> > On Friday 27 January 2017 09:33:40 Kalle Valo wrote:
-> >> Pali Rohár <pali.rohar@gmail.com> writes:
-> >>
-> >>> NVS calibration data for wl1251 are model specific. Every one device with
-> >>> wl1251 chip has different and calibrated in factory.
-> >>>
-> >>> Not all wl1251 chips have own EEPROM where are calibration data stored. And
-> >>> in that case there is no "standard" place. Every device has stored them on
-> >>> different place (some in rootfs file, some in dedicated nand partition,
-> >>> some in another proprietary structure).
-> >>>
-> >>> Kernel wl1251 driver cannot support every one different storage decided by
-> >>> device manufacture so it will use request_firmware_prefer_user() call for
-> >>> loading NVS calibration data and userspace helper will be responsible to
-> >>> prepare correct data.
-> >>>
-> >>> In case userspace helper fails request_firmware_prefer_user() still try to
-> >>> load data file directly from VFS as fallback mechanism.
-> >>>
-> >>> On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
-> >>> in CAL nand partition. CAL is proprietary Nokia key/value format for nand
-> >>> devices.
-> >>>
-> >>> With this patch it is finally possible to load correct model specific NVS
-> >>> calibration data for Nokia N900.
-> >>>
-> >>> Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
-> >>> ---
-> >>>  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
-> >>>  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
-> >>>  2 files changed, 2 insertions(+), 1 deletion(-)
-> >>>
-> >>> diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
-> >>> index 7142ccf..affe154 100644
-> >>> --- a/drivers/net/wireless/ti/wl1251/Kconfig
-> >>> +++ b/drivers/net/wireless/ti/wl1251/Kconfig
-> >>> @@ -2,6 +2,7 @@ config WL1251
-> >>>  	tristate "TI wl1251 driver support"
-> >>>  	depends on MAC80211
-> >>>  	select FW_LOADER
-> >>> +	select FW_LOADER_USER_HELPER
-> >>>  	select CRC7
-> >>>  	---help---
-> >>>  	  This will enable TI wl1251 driver support. The drivers make
-> >>> diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
-> >>> index 208f062..24f8866 100644
-> >>> --- a/drivers/net/wireless/ti/wl1251/main.c
-> >>> +++ b/drivers/net/wireless/ti/wl1251/main.c
-> >>> @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
-> >>>  	struct device *dev = wiphy_dev(wl->hw->wiphy);
-> >>>  	int ret;
-> >>>  
-> >>> -	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
-> >>> +	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
-> >>
-> >> I don't see the need for this. Just remove the default nvs file from
-> >> filesystem and the fallback user helper will be always used, right?
-> > 
-> > It is part of linux-firmware repository. And already part of all
-> > previous versions of linux-firmware packages in lot of linux
-> > distributions. So removing it is not possible...
-> 
-> You are probably saying that on your platform you can not remove
-> anything from /lib/firmware, right? I don't see how you come from "it is
-> part of firmware package" to "removing is not possible". Trying to
-> understand this and it makes no sense.
-
-It is already in linux distribution packages. If I remove that file from
-file system it will be placed there again by package management or it it
-will throw error message about system integrity (missing file, etc...).
-
-Also that file is already in linux-firmware git and so is propagated to
-/lib/firmware by anybody who is using linux-firmware.
-
-> >> Like we discussed earlier, the default nvs file should not be used by
-> >> normal users.
-> > 
-> > But already is and we need to deal with this fact.
-> 
-> Why?
-
-Because everybody has already installed it.
-
-> Are there other platforms that use the default nvs file and have a
-> working wifi.
-
-I do not know.
-
-> So your "removing is not possible" would be about
-> regression for those?
-
-Yes, that is possible.
-
-Also you can use wifi on Nokia N900 with this default file. Yes it is
-not recommended and probably has performance problems... but more people
-use it for SSH and it is working. Pavel could confirm this.
-
-So yes, if you remove that file *now* there is regression for Nokia N900
-when you are using SSH over wifi.
-
--- 
-Pali Rohár
-pali.rohar@gmail.com
+SGnCoEdpdXNlcHBlLA0KDQpPbiBXZWQsIDIwMTctMDEtMjUgYXQgMjE6MzkgKzAzMDAsIEFsZXhl
+eSBCcm9ka2luIHdyb3RlOg0KPiBIaSBHaXVzZXBwZSwNCj4gDQo+IE9uIE1vbiwgMjAxNi0xMS0x
+NCBhdCAwOToxNCArMDEwMCwgR2l1c2VwcGUgQ0FWQUxMQVJPIHdyb3RlOg0KPiA+IA0KPiA+IEhl
+bGxvIEFsZXhleQ0KPiA+IA0KPiA+IFNvcnJ5IGZvciBteSBsYXRlIHJlcGx5LiBJbiB0aGF0IGNh
+c2UsIEkgdGhpbmsgdGhhdCB0aGUgc3RtbWFjDQo+ID4gaXMgdXNpbmcgb3duIFJHTUlJL1NHTUlJ
+IHN1cHBvcnQgKFBDUykgdG8gZGlhbG9nIHdpdGggdGhlDQo+ID4gdHJhbnNjZWl2ZXIuIEkgdGhp
+bmssIGZyb20gdGhlIEhXIGNhcGFiaWxpdHkgcmVnaXN0ZXINCj4gPiB0aGlzIGZlYXR1cmUgaXMg
+cHJlc2VudCBhbmQgdGhlIGRyaXZlciBpcyB1c2luZyBpdCBhcyBkZWZhdWx0Lg0KPiANCj4gWWVw
+IGxvb2tzIGxpa2UgdGhhdC4NCg0KSG0sIHNvIEkgdG9vayBhIGxvb2sgYXQgd2hhdCBhbSBJIHJl
+YWRpbmcgZnJvbQ0KIlJlZ2lzdGVyIDIyIChIVyBGZWF0dXJlIFJlZ2lzdGVyKSIgaW7CoGR3bWFj
+MTAwMF9nZXRfaHdfZmVhdHVyZSgpDQphbmQgd2FzIHJlYWxseSBzdXJwcmlzZWQgdG8gc2VlIHRo
+ZSByZWdpc3RlciB2YWx1ZSA9IDB4MTAwNTA5YmYuDQoNClNlZSBiaXQgNiAiUENTU0VMIiBpcyB6
+ZXJvZWQgd2hpY2ggc3RhbmRzIGZvcg0KIlBDUyByZWdpc3RlcnMgKFRCSSwgU0dNSUksIG9yIFJU
+QkkgUEhZIGludGVyZmFjZSkiLg0KDQpJLmUuIFBDUyBkb2Vzbid0IGV4aXN0IGluIG91ciBHTUFD
+IHNvIG1vc3Qgb2YgdGhlIHByZXZpb3VzIGNvbW1lbnRzDQpiZWxvdyBzaG91bGQgYmUgZGlzY2Fy
+ZGVkLg0KDQo+ID4gSSBraW5kbHkgYXNrIHlvdSB0byB2ZXJpZnkgaWYgdGhpcyBpcyB5b3VyIHNl
+dHVwIG9yIGlmIHlvdQ0KPiA+IGRvIG5vdCB3YW50IHRvIHVzZSBpdC4gSW4gdGhhdCBjYXNlLCBp
+dCBpcyBsaWtlbHkgd2UgbmVlZCB0bw0KPiA+IGFkZCBzb21lIGNvZGUgaW4gdGhlIGRyaXZlci4N
+Cj4gDQo+IFdlbGwgR01BQydzIGRhdGFib29rIHNheXM6DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gVGhlIERXQ19nbWFjIHByb3Zp
+ZGVzIGFuIElFRUUgODAyLjN6IGNvbXBsaWFudCAxMC1iaXQNCj4gUGh5c2ljYWwgQ29kaW5nIFN1
+YmxheWVyIChQQ1MpIGludGVyZmFjZSB0aGF0IHlvdSBjYW4gdXNlDQo+IHdoZW4gdGhlIE1BQyBp
+cyBjb25maWd1cmVkIGZvciB0aGUgVEJJLCBSVEJJLCBvciBTR01JSSBQSFkNCj4gaW50ZXJmYWNl
+Lg0KPiANCj4gLi4uDQo+IA0KPiBZb3UgY2FuIGluY2x1ZGUgdGhlIG9wdGlvbmFsIFBDUyBtb2R1
+bGUgaW4gdGhlIERXQ19nbWFjIGJ5DQo+IHNlbGVjdGluZyB0aGUgVEJJLCBSVEJJLCBvciBTR01J
+SSBpbnRlcmZhY2UgaW4gY29yZUNvbnN1bHRhbnQNCj4gZHVyaW5nIGNvbmZpZ3VyYXRpb24uDQo+
+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0N
+Cj4gDQo+IEJ1dCB3ZSB1c2UgUkdNSUkgZm9yIGNvbW11bmljYXRpb24gd2l0aCB0aGUgUEhZLg0K
+PiBBbmQgZnJvbSB0aGUgcXVvdGUgYWJvdmUgSSB3b3VsZCBjb25jbHVkZSB0aGF0IGZvciBSR01J
+SSB3ZSBzaG91bGQNCj4gaGF2ZSBQQ1MgZXhjbHVkZWQgZnJvbSBHTUFDLg0KPiANCj4gSSBqdXN0
+IHNlbnQgZW1haWwgdG8gR01BQyBkZXZlbG9wZXJzIGhlcmUgaW4gU3lub3BzeXMgYW5kDQo+IGhv
+cGVmdWxseSB3aWxsIGdldCBzb21lIGNsYXJpZmljYXRpb25zIGZyb20gdGhlbSBzb29uLg0KPiAN
+Cj4gUHJvYmFibHkgY29ycmVjdCBzb2x1dGlvbiBpcyBhcyBzaW1wbGUgYXM6DQo+IC0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tYWluLmMg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFpbi5jDQo+IGlu
+ZGV4IGEyNzZhMzJkNTdmMi4uZjRiNjdkYzdkNTMwIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9zdG1pY3JvL3N0bW1hYy9zdG1tYWNfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tYWluLmMNCj4gQEAgLTgwMywxMyAr
+ODAzLDcgQEAgc3RhdGljIHZvaWQgc3RtbWFjX2NoZWNrX3Bjc19tb2RlKHN0cnVjdCBzdG1tYWNf
+cHJpdiAqcHJpdikNCj4gwqDCoMKgwqDCoMKgwqDCoGludCBpbnRlcmZhY2UgPSBwcml2LT5wbGF0
+LT5pbnRlcmZhY2U7DQo+IMKgDQo+IMKgwqDCoMKgwqDCoMKgwqBpZiAocHJpdi0+ZG1hX2NhcC5w
+Y3MpIHsNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGlmICgoaW50ZXJmYWNlID09
+IFBIWV9JTlRFUkZBQ0VfTU9ERV9SR01JSSkgfHwNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgKGludGVyZmFjZSA9PSBQSFlfSU5URVJGQUNFX01PREVfUkdNSUlfSUQp
+IHx8DQo+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoChpbnRlcmZhY2Ug
+PT0gUEhZX0lOVEVSRkFDRV9NT0RFX1JHTUlJX1JYSUQpIHx8DQo+IC3CoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoChpbnRlcmZhY2UgPT0gUEhZX0lOVEVSRkFDRV9NT0RFX1JH
+TUlJX1RYSUQpKSB7DQo+IC3CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgbmV0ZGV2X2RiZyhwcml2LT5kZXYsICJQQ1MgUkdNSUkgc3VwcG9ydCBlbmFibGVkXG4i
+KTsNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBwcml2
+LT5ody0+cGNzID0gU1RNTUFDX1BDU19SR01JSTsNCj4gLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoH0gZWxzZSBpZiAoaW50ZXJmYWNlID09IFBIWV9JTlRFUkZBQ0VfTU9ERV9TR01JSSkg
+ew0KPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaWYgKGludGVyZmFjZSA9PSBQSFlf
+SU5URVJGQUNFX01PREVfU0dNSUkpIHsNCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgbmV0ZGV2X2RiZyhwcml2LT5kZXYsICJQQ1MgU0dNSUkgc3VwcG9y
+dCBlbmFibGVkXG4iKTsNCj4gwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgcHJpdi0+aHctPnBjcyA9IFNUTU1BQ19QQ1NfU0dNSUk7DQo+IMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgfQ0KPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0+OC0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+IA0KPiA+IA0KPiA+IEFsc28gSSB3b25kZXIgaWYs
+IG90aGVyIHZlcnNpb24gb2YgdGhlIHN0bW1hYyB3b3JrZWQgb24gdGhpcyBwbGF0Zm9ybQ0KPiA+
+IGJlZm9yZS4NCj4gDQo+IEl0IGRpZCB3b3JrIGFuZCBzdGlsbCB3b3Jrcy4gVGhlIG9ubHkgcHJv
+YmxlbSBpcyB3ZSdyZSBnZXR0aW5nDQo+IGEgbG90IG9mIG5vaXNlIG5vdyBhYm91dCBib2d1cyBs
+aW5rIHN0YXR1cyBjaGFuZ2UuIFRoYXQncyBiZWNhdXNlDQo+IHRoaXMgaW5mbyBpcyBub3cgaW4g
+cHJfaW5mbygpIGNvbXBhcmVkIHRvIGJlaW5nIHByZXZpb3VzbHkgaW4gcHJfZGVidWcoKS4NCg0K
+U28gaXQgYWxsIHJlYWxseSBib2lscyBkb3duIHRvIHRoZSBmb2xsb3dpbmcgcHJvYmxlbToNCkxp
+bmsgc3RhdGUgcmVwb3J0ZWQgdmlhICJSZWdpc3RlciA1NCAoU0dNSUkvUkdNSUkvU01JSSBDb250
+cm9sIGFuZCBTdGF0dXMgUmVnaXN0ZXIpIg0KZG9lc24ndCBtYXRjaCBzdGF0dXMgcmVhZCB2aWEg
+TURJTyBmcm9tIHRoZSBQSFkuDQoNClRoYXQncyB3aHkgbXkgaW5pdGlhbCBwcm9wb3NhbCB3YXMg
+dG8gaWdub3JlIHdoYXRldmVyIHdlIHJlYWQgZnJvbSB0aGlzIHJlZ2lzdGVyDQppZiB3ZSBoYXZl
+IE1ESU8gYnVzIGluc3RhbnRpYXRlZCBhbHJlYWR5Lg0KDQotQWxleGV5DQoNCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LXNucHMtYXJjIG1haWxp
+bmcgbGlzdApsaW51eC1zbnBzLWFyY0BsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5p
+bmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtc25wcy1hcmM=
