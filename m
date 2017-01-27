@@ -1,103 +1,98 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: [net-next v2] openvswitch: Simplify do_execute_actions().
-Date: Fri, 27 Jan 2017 13:45:28 -0800
-Message-ID: <1485553528-16248-1-git-send-email-azhou@ovn.org>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@ovn.org>
-To: davem@davemloft.net
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
+Date: Fri, 27 Jan 2017 23:15:56 +0200
+Message-ID: <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
+ <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
+ <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
+ <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
+ <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
+ <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
+ <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com> <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36607 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751430AbdA0Vpq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:45:46 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 19so19246782pfo.3
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:45:38 -0800 (PST)
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:34853 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751461AbdA0Vqr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:46:47 -0500
+Received: by mail-qt0-f174.google.com with SMTP id x49so157235270qtc.2
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:46:46 -0800 (PST)
+In-Reply-To: <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-do_execute_actions() implements a worthwhile optimization: in case
-an output action is the last action in an action list, skb_clone()
-can be avoided by outputing the current skb. However, the
-implementation is more complicated than necessary.  This patch
-simplify this logic.
+On Fri, Jan 27, 2017 at 8:42 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Fri, Jan 27, 2017 at 10:28 AM, Saeed Mahameed
+> <saeedm@dev.mellanox.co.il> wrote:
+>> On Fri, Jan 27, 2017 at 8:16 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Fri, Jan 27, 2017 at 10:05 AM, Saeed Mahameed
+>>> <saeedm@dev.mellanox.co.il> wrote:
+>>>> On Fri, Jan 27, 2017 at 7:50 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> On Fri, Jan 27, 2017 at 9:38 AM, Saeed Mahameed
+>>>>> <saeedm@dev.mellanox.co.il> wrote:
+>>>>>> On Fri, Jan 27, 2017 at 7:34 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>>>>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>>>>> Add a configuration option (CONFIG_MLX5_CORE_ESWITCH) for controlling
+>>>>>>>> whether the eswitch code is built. Change Kconfig and Makefile
+>>>>>>>> accordingly.
+>>>>>>>
+>>>>>>> Tom, FWIW, please note that the basic e-switch functionality is needed
+>>>>>>> also when SRIOV isn't of use, this is for a multi host configuration.
+>>>>>>>
+>>>>>>
+>>>>>> Right, set_l2_table_entry@eswitch.c need to be called by PF for any UC
+>>>>>> MAC address wanted by VF or PF.
+>>>>>> To keep one flow in the code, the implementation is done as part of eswitch.
+>>>>>>
+>>>>>> so in multi-host configuration (where there are 4 PFs) each PF should
+>>>>>> invoke set_l2_table_entry_cmd  for each one of its own UC MACs.
+>>>>>>
+>>>>>> populating the l2 table is done using the whole eswitch event driven
+>>>>>> mechanisms, it is not easy and IMH not right to separate eswitch
+>>>>>> tables from l2 table (same management logic, different tables).
+>>>>>>
+>>>>>> Anyways as Or stated this is just an FYI, eswitch needs to be enabled
+>>>>>> on Multi-host configuration.
+>>>>>>
+>>>>> What indicate a multi-host configuration?
+>>>>
+>>>> nothing in the driver, it is transparent.
+>>>>
+>>> So then we always need the eswitch code to be built even if someone
+>>> never uses any of it?
+>>>
+>>
+>> yes.
+>> but for your convenience all you need is to compile eswitch.c.
+>> esiwtch_offoalds.c and en_rep.c can be compiled out for basic ethernet.
+>>
+> Well eswitch.c is 2200 LOC. en_rep.c and eswitch_offloads.c are 1600
+> LOC. If we _must_ have eswitch.c then there's probably not much point
+> then. But I am still finding it hard to fathom that eswitch has now
+> become a mandatory component of Ethernet drivers/devices.
+>
 
-Signed-off-by: Andy Zhou <azhou@ovn.org>
----
-v1->v2:  drop skb NULL check in do_output()
+It is only mandatory for configurations that needs eswitch, where the
+driver has no way to know about them, for a good old bare metal box,
+eswitch is not needed.
+
+we can do some work to strip the l2 table logic - needed for PFs to
+work on multi-host - out of eswitch but again that would further
+complicate the driver code since eswitch will still need to update l2
+tables for VFs.
 
 
----
- net/openvswitch/actions.c | 42 ++++++++++++++++++++----------------------
- 1 file changed, 20 insertions(+), 22 deletions(-)
-
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 514f7bc..efa9a88 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -1141,12 +1141,6 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			      struct sw_flow_key *key,
- 			      const struct nlattr *attr, int len)
- {
--	/* Every output action needs a separate clone of 'skb', but the common
--	 * case is just a single output action, so that doing a clone and
--	 * then freeing the original skbuff is wasteful.  So the following code
--	 * is slightly obscure just to avoid that.
--	 */
--	int prev_port = -1;
- 	const struct nlattr *a;
- 	int rem;
- 
-@@ -1154,20 +1148,28 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 	     a = nla_next(a, &rem)) {
- 		int err = 0;
- 
--		if (unlikely(prev_port != -1)) {
--			struct sk_buff *out_skb = skb_clone(skb, GFP_ATOMIC);
--
--			if (out_skb)
--				do_output(dp, out_skb, prev_port, key);
-+		switch (nla_type(a)) {
-+		case OVS_ACTION_ATTR_OUTPUT: {
-+			int port = nla_get_u32(a);
-+			struct sk_buff *clone;
-+
-+			/* Every output action needs a separate clone
-+			 * of 'skb', In case the output action is the
-+			 * last action, cloning can be avoided.
-+			 */
-+			if (nla_is_last(a, rem)) {
-+				do_output(dp, skb, port, key);
-+				/* 'skb' has been used for output.
-+				 */
-+				return 0;
-+			}
- 
-+			clone = skb_clone(skb, GFP_ATOMIC);
-+			if (clone)
-+				do_output(dp, clone, port, key);
- 			OVS_CB(skb)->cutlen = 0;
--			prev_port = -1;
--		}
--
--		switch (nla_type(a)) {
--		case OVS_ACTION_ATTR_OUTPUT:
--			prev_port = nla_get_u32(a);
- 			break;
-+		}
- 
- 		case OVS_ACTION_ATTR_TRUNC: {
- 			struct ovs_action_trunc *trunc = nla_data(a);
-@@ -1257,11 +1259,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 		}
- 	}
- 
--	if (prev_port != -1)
--		do_output(dp, skb, prev_port, key);
--	else
--		consume_skb(skb);
--
-+	consume_skb(skb);
- 	return 0;
- }
- 
--- 
-1.8.3.1
+> Tom
+>
+>>>>>
+>>>>>>> Or.
+>>>>>>>
+>>>>>>> My WW (and same for the rest of the IL team..) has ended so I will be
+>>>>>>> able to further look on this series and comment on Sunday.
