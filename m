@@ -1,90 +1,113 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [RHEL7.4 kernel PATCH 11/30] VSOCK: do not disconnect socket when peer has shutdown SEND only
-Date: Fri, 27 Jan 2017 15:03:08 +0000
-Message-ID: <20170127150327.16593-12-stefanha@redhat.com>
-References: <20170127150327.16593-1-stefanha@redhat.com>
-Cc: "David S . Miller" <davem@redhat.com>, rhvirt-patches@redhat.com,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Ian Campbell <ian.campbell@docker.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-        Andy King <acking@vmware.com>,
-        Dmitry Torokhov <dtor@vmware.com>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org
-To: rhkernel-list@redhat.com
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 1/4] sfc: fixes to filter restore handling
+Date: Fri, 27 Jan 2017 15:02:11 +0000
+Message-ID: <b231ea6a-0f47-c316-55b2-bfe247e3946f@solarflare.com>
+References: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44584 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932237AbdA0PMt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 10:12:49 -0500
-In-Reply-To: <20170127150327.16593-1-stefanha@redhat.com>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:18182 "EHLO
+        nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755047AbdA0PKM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:10:12 -0500
+In-Reply-To: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@docker.com>
+From: Jon Cooper <jcooper@solarflare.com>
 
-The peer may be expecting a reply having sent a request and then done a
-shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-wrong and breaks for me with a client which does a SHUT_WR.
+If the NIC is switched from full-featured to low-latency, encapsulated
+ filters are no longer available, and this causes errors. This patch
+ removes those filters from the filter table on restore.
+Also, if filters which are removed by the above, or which we fail to
+ insert when restoring filters, were UC, MC or broadcast default
+ filters, invalidate the corresponding vlan->default_filters entry.
 
-Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-here does not seem to be the norm and removing it does not seem to have
-had any adverse effects that I can see.
-
-I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-on the vmci transport.
-
-Signed-off-by: Ian Campbell <ian.campbell@docker.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Cc: Andy King <acking@vmware.com>
-Cc: Dmitry Torokhov <dtor@vmware.com>
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Cc: Adit Ranadive <aditr@vmware.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-(cherry picked from commit dedc58e067d8c379a15a8a183c5db318201295bb)
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- net/vmw_vsock/af_vsock.c | 21 +--------------------
- 1 file changed, 1 insertion(+), 20 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c | 42 +++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 38 insertions(+), 4 deletions(-)
 
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 9a96342..510d14f 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1809,27 +1809,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb,
- 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		err = 0;
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 7c53da2..b64b47b 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -4557,9 +4557,12 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
+ {
+ 	struct efx_ef10_filter_table *table = efx->filter_state;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	unsigned int invalid_filters = 0, failed = 0;
++	struct efx_ef10_filter_vlan *vlan;
+ 	struct efx_filter_spec *spec;
+ 	unsigned int filter_idx;
+-	bool failed = false;
++	u32 mcdi_flags;
++	int match_pri;
+ 	int rc;
  
--	if (copied > 0) {
--		/* We only do these additional bookkeeping/notification steps
--		 * if we actually copied something out of the queue pair
--		 * instead of just peeking ahead.
--		 */
+ 	WARN_ON(!rwsem_is_locked(&efx->filter_sem));
+@@ -4577,6 +4580,20 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
+ 		if (!spec)
+ 			continue;
+ 
++		mcdi_flags = efx_ef10_filter_mcdi_flags_from_spec(spec);
++		match_pri = 0;
++		while (match_pri < table->rx_match_count &&
++		       table->rx_match_mcdi_flags[match_pri] != mcdi_flags)
++			++match_pri;
++		if (match_pri >= table->rx_match_count) {
++			invalid_filters++;
++			goto not_restored;
++		}
++		if (spec->rss_context != EFX_FILTER_RSS_CONTEXT_DEFAULT &&
++		    spec->rss_context != nic_data->rx_rss_context)
++			netif_warn(efx, drv, efx->net_dev,
++				   "Warning: unable to restore a filter with specific RSS context.\n");
++
+ 		table->entry[filter_idx].spec |= EFX_EF10_FILTER_FLAG_BUSY;
+ 		spin_unlock_bh(&efx->filter_lock);
+ 
+@@ -4584,10 +4601,19 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
+ 					  &table->entry[filter_idx].handle,
+ 					  false);
+ 		if (rc)
+-			failed = true;
 -
--		if (!(flags & MSG_PEEK)) {
--			/* If the other side has shutdown for sending and there
--			 * is nothing more to read, then modify the socket
--			 * state.
--			 */
--			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
--				if (vsock_stream_has_data(vsk) <= 0) {
--					sk->sk_state = SS_UNCONNECTED;
--					sock_set_flag(sk, SOCK_DONE);
--					sk->sk_state_change(sk);
--				}
--			}
--		}
-+	if (copied > 0)
- 		err = copied;
--	}
++			failed++;
+ 		spin_lock_bh(&efx->filter_lock);
++
+ 		if (rc) {
++not_restored:
++			list_for_each_entry(vlan, &table->vlan_list, list) {
++				if (vlan->ucdef == filter_idx)
++					vlan->ucdef = EFX_EF10_FILTER_ID_INVALID;
++				if (vlan->mcdef == filter_idx)
++					vlan->mcdef = EFX_EF10_FILTER_ID_INVALID;
++				if (vlan->bcast == filter_idx)
++					vlan->bcast = EFX_EF10_FILTER_ID_INVALID;
++			}
+ 			kfree(spec);
+ 			efx_ef10_filter_set_entry(table, filter_idx, NULL, 0);
+ 		} else {
+@@ -4598,9 +4624,17 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
  
- out:
- 	release_sock(sk);
--- 
-2.9.3
+ 	spin_unlock_bh(&efx->filter_lock);
+ 
++	/* This can happen validly if the MC's capabilities have changed, so
++	 * is not an error.
++	 */
++	if (invalid_filters)
++		netif_dbg(efx, drv, efx->net_dev,
++			  "Did not restore %u filters that are now unsupported.\n",
++			  invalid_filters);
++
+ 	if (failed)
+ 		netif_err(efx, hw, efx->net_dev,
+-			  "unable to restore all filters\n");
++			  "unable to restore %u filters\n", failed);
+ 	else
+ 		nic_data->must_restore_filters = false;
+ }
