@@ -1,58 +1,38 @@
-From: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
-Subject: [PATCH net-next 0/2] qed*: Add support for PTP
-Date: Fri, 27 Jan 2017 07:30:18 -0800
-Message-ID: <1485531020-8905-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [next-20170124] Kernel oops(rt6_fill_node) during reboot of LPAR
+Date: Fri, 27 Jan 2017 08:34:15 -0700
+Message-ID: <84f3cb86-5110-64a0-5575-4024ba758135@cumulusnetworks.com>
+References: <9520531C-6458-4442-9ED5-3598E72C7C6A@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@cavium.com>,
-        "Sudarsana Reddy Kalluru" <Sudarsana.Kalluru@cavium.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@lists.ozlabs.org,
+        Stephen Rothwell <sfr@canb.auug.org.au>, davem@davemloft.net,
+        Michael Ellerman <michael@ellerman.id.au>
+To: Sachin Sant <sachinp@linux.vnet.ibm.com>,
+        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0072.outbound.protection.outlook.com ([104.47.34.72]:20544
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932218AbdA0PbL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 10:31:11 -0500
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33087 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754903AbdA0PfJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:35:09 -0500
+Received: by mail-pg0-f52.google.com with SMTP id 204so82217923pge.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 07:34:18 -0800 (PST)
+In-Reply-To: <9520531C-6458-4442-9ED5-3598E72C7C6A@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+On 1/27/17 5:54 AM, Sachin Sant wrote:
+> While rebooting PowerVM LPAR running 4.10.0-rc5-next-20170124
+> on a POWER8 box, following kernel oops is displayed.
+> 
+> This problem was introduced with next-20170123. next-20170120 works.
+> Initial analysis points to following patch included with next-20170123
+> 
+> commit a1a22c12060e4b9c52f45d4b3460f614e00162a2
+> net: ipv6: Keep nexthop of multipath route on admin down
 
-Hi David,
-    The patch series adds required changes for qed/qede drivers for
-supporting the IEEE Precision Time Protocol (PTP).
+Thanks for the report. Fixed by:
 
-Please consider applying this series to "net-next".
-
-Thanks,
-Sudarsana
-
-Sudarsana Reddy Kalluru (2):
-  qed: Add infrastructure for PTP support.
-  qede: Add driver support for PTP.
-
- drivers/net/ethernet/qlogic/Kconfig             |   1 +
- drivers/net/ethernet/qlogic/qed/Makefile        |   2 +-
- drivers/net/ethernet/qlogic/qed/qed.h           |   2 +
- drivers/net/ethernet/qlogic/qed/qed_l2.c        |   5 +
- drivers/net/ethernet/qlogic/qed/qed_l2.h        |   1 +
- drivers/net/ethernet/qlogic/qed/qed_main.c      |  15 +
- drivers/net/ethernet/qlogic/qed/qed_ptp.c       | 315 ++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_ptp.h       |  47 +++
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  31 ++
- drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
- drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
- drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
- drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
- drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
- include/linux/qed/qed_eth_if.h                  |  22 +
- 17 files changed, 1100 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
- create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
- create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
-
--- 
-1.8.3.1
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1f17e2f2c8a8be3430813119fa7b633398f6185b
