@@ -1,59 +1,63 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
- hard_header_len bytes in skb_headlen() to the driver
-Date: Fri, 27 Jan 2017 16:58:48 -0500
-Message-ID: <20170127215848.GG25829@oracle.com>
-References: <20170126213742.GE29475@oracle.com>
- <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
- <20170127020836.GH29475@oracle.com>
- <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
- <20170127151119.GB25829@oracle.com>
- <CAF=yD-+LS6g572Uo5oErq7uazxxPwXXo0w2p4zcHDbXxkuah6Q@mail.gmail.com>
- <20170127170320.GD25829@oracle.com>
- <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
- <20170127200639.GF25829@oracle.com>
- <CAF=yD-+GGAdvgXoZeMshyQXXh_3m9kjDGNFf9FQ43rxJgk__vw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/4] net: dsa: bcm_sf2: CFP support
+Date: Fri, 27 Jan 2017 13:58:11 -0800
+Message-ID: <be2a5c66-190a-1d10-16a0-22d1b96ef1c9@gmail.com>
+References: <20170127210516.16704-1-f.fainelli@gmail.com>
+ <CAFXsbZohZy3ybi6Pe5hryGfuBPnstUAQpB0HM4++XFmwbYi+3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Chris Healy <cphealy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1050.oracle.com ([141.146.126.70]:31415 "EHLO
-        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751178AbdA0WBS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 17:01:18 -0500
-Received: from aserp1040.oracle.com (aserp1040.oracle.com [141.146.126.69])
-        by aserp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v0RM05eH008580
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 22:00:05 GMT
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-+GGAdvgXoZeMshyQXXh_3m9kjDGNFf9FQ43rxJgk__vw@mail.gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:32931 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751998AbdA0WFj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 17:05:39 -0500
+Received: by mail-pf0-f195.google.com with SMTP id e4so19240834pfg.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 14:05:39 -0800 (PST)
+In-Reply-To: <CAFXsbZohZy3ybi6Pe5hryGfuBPnstUAQpB0HM4++XFmwbYi+3w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/27/17 15:51), Willem de Bruijn wrote:
-    :
-> - limit capable() check to drivers with with .validate callback  
-(aka second option below)
-    :
-> - let privileged applications shoot themselves in the foot (change nothing).
+Hi Chris,
 
-> The second will break variable length header protocols unless
-> you exhaustively search for all variable length protocols and add
-> validate callbacks first.
+On 01/27/2017 01:24 PM, Chris Healy wrote:
+> Hi Florian,
+> 
+> In saying the below, I may just be showing my naivety but here goes:
+> 
+> If I understand this correctly, what you are using is similar to the
+> TCAM hardware present in the newer Marvell switches.  I think Pablo is
+> doing some work with nftables and HW offload using TCAM HW.  Is there
+> overlap here?  It seems that one or the other API should be used but
+> not both.
 
-other than ax25, are there variable length header protocols out there
-without ->validate, and which need the CAP_RAW_SYSIO branch?
+Well, the problem is that there is overlap with 3 different unrelated
+subsystems accessing the same HW here: tc, ethtool, and netfilter, all
+(two at least) with different ways of formatting input parameters, as I
+pointed out a while back in this thread:
+https://www.mail-archive.com/netdev@vger.kernel.org/msg126321.html
 
-I realize that, to an extent, even ethernet is a protocol whose
-header is > 14 with vlan, but from the google search, seems like it
-was mostly ax25 that really triggered a large part of the check.
+My angle on this submission is the following, purely based on pragmatism:
 
-If we think that there are a large number of these (that dont have a 
-->validate, to fix up things as desired) I'd just go for the "change
-nothing in pf_packet" option.
+- I have real users behind this feature who are currently very happy
+with how this works using ethtool, switching them to netlink, tc,
+netfilter is not trivial, but could be done in the long run, not just
+now. At the very least, this serves as reference code for people who are
+curious to see how Broadcom's CFP works
 
-As I found out many drivers like ixgbe and sunvnet have defensive checks
-in the Tx path anyway, and xen_netfront can also join that group with
-a few simple checks.
+- cls_flower was looked at, it is missing a critical feature IMHO which
+is the ability to specify a rule index, and the amount of code necessary
+to validate input parameters is just totally insane, just like the fact
+that there is not a common intermediate input representation (ala
+ethtool_rx_flow_spec) makes it impractical
+
+- I have heard about the work Pablo is doing, but until it is publicly
+submitted and reviewed, it's hard to project what it is going to look like
+
+Thanks!
