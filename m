@@ -1,66 +1,95 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
- hard_header_len bytes in skb_headlen() to the driver
-Date: Fri, 27 Jan 2017 15:06:39 -0500
-Message-ID: <20170127200639.GF25829@oracle.com>
-References: <1485274309-201670-1-git-send-email-sowmini.varadhan@oracle.com>
- <CAF=yD-KXqpODBVQ0vUt1a1p_mMXzzQp=5GU33f9GY9_cbPJxDw@mail.gmail.com>
- <20170126213742.GE29475@oracle.com>
- <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
- <20170127020836.GH29475@oracle.com>
- <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
- <20170127151119.GB25829@oracle.com>
- <CAF=yD-+LS6g572Uo5oErq7uazxxPwXXo0w2p4zcHDbXxkuah6Q@mail.gmail.com>
- <20170127170320.GD25829@oracle.com>
- <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Fri, 27 Jan 2017 21:12:26 +0100
+Message-ID: <588BA9AA.8010805@iogearbox.net>
+References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com> <588907AA.1020704@iogearbox.net> <20170126074354.GB8456@dhcp22.suse.cz> <5889C331.7020101@iogearbox.net> <20170126100802.GF6590@dhcp22.suse.cz> <5889DEA3.7040106@iogearbox.net> <20170126115833.GI6590@dhcp22.suse.cz> <5889F52E.7030602@iogearbox.net> <20170126134004.GM6590@dhcp22.suse.cz> <588A5D3C.4060605@iogearbox.net> <20170127100544.GF4143@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:49700 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751018AbdA0UHs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 15:07:48 -0500
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+ Johannes Weiner <hannes@cmpxchg.org>,
+ linux-mm <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ marcelo.leitner@gmail.com
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170127100544.GF4143@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On (01/27/17 14:29), Willem de Bruijn wrote:
-> 
-> As your patch state, the contract is that any packet delivered to a
-> driver has the entire L2 in its linear section. Drivers are not required
-> to be robust against shorter packets, so there is no reason to test
-> those.
-> 
-> One option is to limit your fix to known fixed-header protocols.
-> In these cases hard_header_len is the minimum, so anything
-> smaller must be dropped.
+On 01/27/2017 11:05 AM, Michal Hocko wrote:
+> On Thu 26-01-17 21:34:04, Daniel Borkmann wrote:
+>> On 01/26/2017 02:40 PM, Michal Hocko wrote:
+> [...]
+>>> But realistically, how big is this problem really? Is it really worth
+>>> it? You said this is an admin only interface and admin can kill the
+>>> machine by OOM and other means already.
+>>>
+>>> Moreover and I should probably mention it explicitly, your d407bd25a204b
+>>> reduced the likelyhood of oom for other reason. kmalloc used GPF_USER
+>>> previously and with order > 0 && order <= PAGE_ALLOC_COSTLY_ORDER this
+>>> could indeed hit the OOM e.g. due to memory fragmentation. It would be
+>>> much harder to hit the OOM killer from vmalloc which doesn't issue
+>>> higher order allocation requests. Or have you ever seen the OOM killer
+>>> pointing to the vmalloc fallback path?
+>>
+>> The case I was concerned about was from vmalloc() path, not kmalloc().
+>> That was where the stack trace indicating OOM pointed to. As an example,
+>> there could be really large allocation requests for maps where the map
+>> has pre-allocated memory for its elements. Thus, if we get to the point
+>> where we need to kill others due to shortage of mem for satisfying this,
+>> I'd much much rather prefer to just not let vmalloc() work really hard
+>> and fail early on instead.
+>
+> I see, but as already mentioned, chances are that by the time you get
+> close to the OOM somebody else will hit the OOM before the vmalloc path
+> manages to free the allocated memory.
+>
+>> In my (crafted) test case, I was connected
+>> via ssh and it each time reliably killed my connection, which is really
+>> suboptimal.
+>>
+>> F.e., I could also imagine a buggy or miscalculated map definition for
+>> a prog that is provisioned to multiple places, which then accidentally
+>> triggers this. Or if large on purpose, but we crossed the line, it
+>> could be handled more gracefully, f.e. I could imagine an option to
+>> falling back to a non-pre-allocated map flavor from the application
+>> loading the program. Trade-off for sure, but still allowing it to
+>> operate up to a certain extend. Granted, if vmalloc() succeeded without
+>> trying hard and we then OOM elsewhere, too bad, but we don't have much
+>> control over that one anyway, only about our own request. Reason I
+>> asked above was whether having __GFP_NORETRY in would be fatal
+>> somewhere down the path, but seems not as you say.
+>>
+>> So to answer your second email with the bpf and netfilter hunks, why
+>> not replacing them with kvmalloc() and __GFP_NORETRY flag and add that
+>> big fat FIXME comment above there, saying explicitly that __GFP_NORETRY
+>> is not harmful though has only /partial/ effect right now and that full
+>> support needs to be implemented in future. That would still be better
+>> that not having it, imo, and the FIXME would make expectations clear
+>> to anyone reading that code.
+>
+> Well, we can do that, I just would like to prevent from this (ab)use
+> if there is no _real_ and _sensible_ usecase for it. Having a real bug
 
-yes, but how would you you know that this is a fixed-header protocol
-or a var-hdrlen protocol? AIUI the hard_header_len itself will not
-tell you this info: it will be 77 for ax25, 14 for ethernet, 
-but that does not tell me that ax25 is the "robust-er" driver
-with a min requirement of 21 for the hdrlen.
+Understandable.
 
-That's why I was thinking of a IFF_L2_VARHDRLEN in the priv_flags
-of the net_device.
+> report or a fallback mechanism you are mentioning above would justify
+> the (ab)use IMHO. But that abuse would be documented properly and have a
+> real reason to exist. That sounds like a better approach to me.
+>
+> But if you absolutely _insist_ I can change that.
 
-> For protocols with variable header length it is fine to send packets
-> shorter than hard_header_len, even with corrupted content (i.e.,
-> even if they would fail that protocol's validate callback), as long as
-> they exceed the minimum length. ax25 already has a min length
-> check through its protocol-specific validate callback.
+Yeah, please do (with a big FIXME comment as mentioned), this originally
+came from a real bug report. Anyway, feel free to add my Acked-by then.
 
-Another option that comes to mind.. the real thorn-in-the-flesh
-here is the CAP_SYS_RAWIO check. Would it be a better idea to ask 
-the test-suites (since they seem to be the major consumer of
-that path) to use a special PF_PACKET socket option instead, that 
-indicates "I'm testing robustness of the header, so let this one
-slip past dev_validate_header at all times"?
+Thanks again,
+Daniel
 
-It would mean the test suites would have to change slightly.
-
---Sowmini
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
