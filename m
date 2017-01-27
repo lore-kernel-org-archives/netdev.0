@@ -1,143 +1,67 @@
-From: Greg Kurz <groug@kaod.org>
-Subject: Re: [BUG/RFC] vhost: net: big endian viring access despite virtio 1
-Date: Fri, 27 Jan 2017 14:37:47 +0100
-Message-ID: <20170127143747.1313d9ee@bahia.lan>
-References: <a08f491a-1320-607e-f450-d32ce2c9e2f5@linux.vnet.ibm.com>
-        <20170126211511-mutt-send-email-mst@kernel.org>
-        <f5c0779f-f7b0-0e0c-5f20-4161b5c70394@linux.vnet.ibm.com>
+From: =?UTF-8?Q?Milan_Ko=c4=8dvara?= <milankocvara@gmail.com>
+Subject: bonding l2tpeth interfaces
+Date: Fri, 27 Jan 2017 15:02:25 +0100
+Message-ID: <b6ba20c1-8f5c-a0b6-f618-bb72160850ef@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-        "virtualization@lists.linux-foundation.org"
-        <virtualization@lists.linux-foundation.org>,
-        netdev@vger.kernel.org, Cornelia Huck <cornelia.huck@de.ibm.com>
-To: Halil Pasic <pasic@linux.vnet.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <f5c0779f-f7b0-0e0c-5f20-4161b5c70394@linux.vnet.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34969 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932770AbdA0OC2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 09:02:28 -0500
+Received: by mail-wm0-f68.google.com with SMTP id d140so58716010wmd.2
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 06:02:28 -0800 (PST)
+Received: from ?IPv6:2a02:570:f:100:9764:b2a0:ab21:15a2? ([2a02:570:f:100:9764:b2a0:ab21:15a2])
+        by smtp.googlemail.com with ESMTPSA id r24sm8093133wrr.25.2017.01.27.06.02.25
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 27 Jan 2017 06:02:26 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 Jan 2017 13:24:13 +0100
-Halil Pasic <pasic@linux.vnet.ibm.com> wrote:
+Hello.
+I would like ask you about bonding l2tpeth interfaces. I found an older 
+patch to allow it (interfaces were created over l2tpv3tun package) but 
+after switching this functionality into ip route package starting kernel 
+4.4 this patch does not work.
 
-> On 01/26/2017 08:20 PM, Michael S. Tsirkin wrote:
-> > On Thu, Jan 26, 2017 at 06:39:14PM +0100, Halil Pasic wrote:  
-> >>
-> >> Hi!
-> >>
-> >> Recently I have been investigating some strange migration problems on
-> >> s390x.
-> >>
-> >> It turned out under certain circumstances vhost_net corrupts avail.idx by
-> >> using wrong endianness.  
-> 
-> [..]
-> 
-> >> -------------------------8<--------------  
-> >> >From b26e2bbdc03832a0204ee2b42967a1b49a277dc8 Mon Sep 17 00:00:00 2001  
-> >> From: Halil Pasic <pasic@linux.vnet.ibm.com>
-> >> Date: Thu, 26 Jan 2017 00:06:15 +0100
-> >> Subject: [PATCH] vhost: remove useless/dangerous reset of is_le
-> >>
-> >> The reset of is_le does no good, but it contributes its fair share to a
-> >> bug in vhost_net, which occurs if we have some oldubufs when stopping and
-> >> setting a fd = -1 as a backend. Instead of doing something convoluted in
-> >> vhost_net, let's just get rid of the reset.
-> >>
-> >> Signed-off-by: Halil Pasic <pasic@linux.vnet.ibm.com>
-> >> Fixes: commit 2751c9882b94 
-> >> ---
-> >>  drivers/vhost/vhost.c | 4 +---
-> >>  1 file changed, 1 insertion(+), 3 deletions(-)
-> >>
-> >> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> >> index d643260..08072a2 100644
-> >> --- a/drivers/vhost/vhost.c
-> >> +++ b/drivers/vhost/vhost.c
-> >> @@ -1714,10 +1714,8 @@ int vhost_vq_init_access(struct vhost_virtqueue *vq)
-> >>         int r;
-> >>         bool is_le = vq->is_le;
-> >>
-> >> -       if (!vq->private_data) {
-> >> -               vhost_reset_is_le(vq);
-> >> +       if (!vq->private_data)
-> >>                 return 0;
-> >> -       }
-> >>
-> >>         vhost_init_is_le(vq);  
-> > 
-> > 
-> > I think you do need to reset it, just maybe within vhost_init_is_le.
-> > 
-> >         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
-> >                 vq->is_le = true;
-> > 	else
-> > 		vhost_reset_is_le(vq);
-> > 
-> >   
-> 
-> That is a very good point! I have overlooked that while the 
-> CONFIG_VHOST_CROSS_ENDIAN_LEGACY variant
-> 
-> static void vhost_init_is_le(struct vhost_virtqueue *vq)
-> {
->         /* Note for legacy virtio: user_be is initialized at reset time
->          * according to the host endianness. If userspace does not set an
->          * explicit endianness, the default behavior is native endian, as
->          * expected by legacy virtio.
->          */
->         vq->is_le = vhost_has_feature(vq, VIRTIO_F_VERSION_1) || !vq->user_be;
-> }
-> 
-> is fine the other variant 
-> 
-> static void vhost_init_is_le(struct vhost_virtqueue *vq)
-> {
->         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
->                 vq->is_le = true;
-> }
-> is a very strange initializer (makes assumptions about the state
-> to be initialized).
-> 
-> I agree, setting native endianness there sounds very reasonable.
-> 
-> I have a question regarding readability. IMHO the relationship
-> of reset_is_le and int_is_le is a bit confusing, and I'm afraid
-> it could become even more confusing with using reset in one of
-> the init_is_le's.
-> 
-> How about we do the following?
-> 
-> static void vhost_init_is_le(struct vhost_virtqueue *vq)
-> {
->         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
->                 vq->is_le = true;
-> +       else
-> +               vq->is_le = virtio_legacy_is_little_endian();
-> 
-> }
-> 
-> static void vhost_reset_is_le(struct vhost_virtqueue *vq)
-> {
-> -       vq->is_le = virtio_legacy_is_little_endian();
-> +       vhost_init_is_le(vq);
-> }
-> 
-> That way we would have correct endianness both after reset
-> and after init, I think :).
-> 
+ifenslave says
+ifenslave: bond0: can't set hw address
+ifenslave: can't enslave l2tpeth1 to bond0: Resource busy
+and doing over echo l2tpeth1 > /sys/class/net/bond0/bonding/
+it says [  100.892608] bond0: interface 2tpeth1 does not exist!
 
-Yes, I think this is what we need.
+patch was
 
-Cheers.
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 76125c5..1e73b35 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -120,12 +120,13 @@ static struct rtnl_link_stats64 
+*l2tp_eth_get_stats64(struct net_device *dev,
+         return stats;
+  }
 
---
-Greg
+-
+  static struct net_device_ops l2tp_eth_netdev_ops = {
+         .ndo_init               = l2tp_eth_dev_init,
+         .ndo_uninit             = l2tp_eth_dev_uninit,
+         .ndo_start_xmit         = l2tp_eth_dev_xmit,
+         .ndo_get_stats64        = l2tp_eth_get_stats64,
++       .ndo_validate_addr      = eth_validate_addr,
++       .ndo_set_mac_address    = eth_mac_addr,
+  };
 
-> Thank you very much!
-> 
-> Halil
-> 
-> 
+  static void l2tp_eth_dev_setup(struct net_device *dev)
+-- 
+1.7.9.5
+
+this row > .ndo_set_mac_address    = eth_mac_addr, is part of current 
+source.
+
+What should be wrong yet, please?
+
+My router is
+Linux lede 4.4.42 #0 Wed Jan 25 15:25:48 2017 mips GNU/Linux
