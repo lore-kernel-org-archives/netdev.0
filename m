@@ -1,61 +1,140 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH net-next v2] macb: Common code to enable ptp support for
- MACB/GEM
-Date: Fri, 27 Jan 2017 11:12:24 +0100
-Message-ID: <1bf44464-6f85-64a9-a660-8d2c44015eb9@atmel.com>
-References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Fri, 27 Jan 2017 11:10:43 +0100
+Message-ID: <20170127101043.GD24223@pali>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+ <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+ <87tw8lnei3.fsf@codeaurora.org>
+ <20170127094342.GC24223@pali>
+ <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
- "boris.brezillon@free-electrons.com" <boris.brezillon@free-electrons.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "alexandre.belloni@free-electrons.com" <alexandre.belloni@free-electrons.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "richardcochran@gmail.com" <richardcochran@gmail.com>,
- Andrei Pistirica <andrei.pistirica@microchip.com>,
- "michals@xilinx.com" <michals@xilinx.com>,
- "anirudh@xilinx.com" <anirudh@xilinx.com>,
- "punnaia@xilinx.com" <punnaia@xilinx.com>,
- "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Harini Katakam <harinikatakamlinux@gmail.com>, Rafal Ozieblo
- <rafalo@cadence.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgMjcvMDEvMjAxNyDDoCAwNjo0MiwgSGFyaW5pIEthdGFrYW0gYSDDqWNyaXQgOgo+IEhpIFJh
-ZmFsLAo+IAo+IE9uIFRodSwgSmFuIDI2LCAyMDE3IGF0IDg6NDUgUE0sIFJhZmFsIE96aWVibG8g
-PHJhZmFsb0BjYWRlbmNlLmNvbT4gd3JvdGU6Cj4+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0t
-LQo+Pj4gRnJvbTogQW5kcmVpIFBpc3RpcmljYSBbbWFpbHRvOmFuZHJlaS5waXN0aXJpY2FAbWlj
-cm9jaGlwLmNvbV0KPj4+IFNlbnQ6IDE5IHN0eWN6bmlhIDIwMTcgMTY6NTYKPj4+IFN1YmplY3Q6
-IFtQQVRDSCBuZXQtbmV4dCB2Ml0gbWFjYjogQ29tbW9uIGNvZGUgdG8gZW5hYmxlIHB0cCBzdXBw
-b3J0IGZvciBNQUNCL0dFTQo+Pj4KPj4+Cj4+PiArc3RhdGljIGlubGluZSBib29sIGdlbV9oYXNf
-cHRwKHN0cnVjdCBtYWNiICpicCkKPj4+ICt7Cj4+PiArICAgICByZXR1cm4gISEoYnAtPmNhcHMg
-JiBNQUNCX0NBUFNfR0VNX0hBU19QVFApOwo+Pj4gK30KPj4gV2h5IGRvbid0IHlvdSB1c2UgaGFy
-ZHdhcmUgY2FwYWJpbGl0aWVzIGhlcmU/IFdvdWxkIGl0IGJlIGJldHRlciB0byByZWFkIGl0IGZy
-b20gaGFyZHdhcmUgaW5zdGVhZCBhZGRpbmcgaXQgdG8gbWFueSBjb25maWd1cmF0aW9uPwo+IAo+
-IElmIHlvdSBhcmUgcmVmZXJyaW5nIHRvIFRTVSBiaXQgaW4gRENGRzUsIHRoZW4gd2Ugd2lsbCBi
-ZSByZWx5aW5nIG9uCj4gQ2FkZW5jZSBJUCdzIGluZm9ybWF0aW9uIGlycmVzcGVjdGl2ZSBvZiB0
-aGUgU29DIGNhcGFiaWxpdHkKPiBhbmQgd2hldGhlciB0aGUgUFRQIHN1cHBvcnQgd2FzIGFkZXF1
-YXRlLgo+IEkgdGhpbmsgdGhlIGNhcGFiaWxpdHkgYXBwcm9hY2ggZ2l2ZXMgYmV0dGVyIGNvbnRy
-b2wgYW5kCj4gaXQgaXMgbm90IHJlYWxseSBtdWNoIHRvIGFkZC4KClllcywgYWJzb2x1dGVseS4g
-SW4gZmFjdCB3ZSBhbHJlYWR5IGhhZCB0aGlzIGRpc2N1c3Npb24gYW5kIGRlY2lkZWQgdGhhdAp0
-aGlzIGNhcGFiaWxpdHkgc2NoZW1lIHdhcyBnaXZpbmcgbXVjaCBtb3JlIGNvbnRyb2wgYXQgbG93
-IGNvc3QuCgpSZWdhcmRzLAotLSAKTmljb2xhcyBGZXJyZQoKX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QK
-bGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRl
-YWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
+On Friday 27 January 2017 11:05:32 Arend Van Spriel wrote:
+> On 27-1-2017 10:43, Pali Rohár wrote:
+> > On Friday 27 January 2017 09:33:40 Kalle Valo wrote:
+> >> Pali Rohár <pali.rohar@gmail.com> writes:
+> >>
+> >>> NVS calibration data for wl1251 are model specific. Every one device with
+> >>> wl1251 chip has different and calibrated in factory.
+> >>>
+> >>> Not all wl1251 chips have own EEPROM where are calibration data stored. And
+> >>> in that case there is no "standard" place. Every device has stored them on
+> >>> different place (some in rootfs file, some in dedicated nand partition,
+> >>> some in another proprietary structure).
+> >>>
+> >>> Kernel wl1251 driver cannot support every one different storage decided by
+> >>> device manufacture so it will use request_firmware_prefer_user() call for
+> >>> loading NVS calibration data and userspace helper will be responsible to
+> >>> prepare correct data.
+> >>>
+> >>> In case userspace helper fails request_firmware_prefer_user() still try to
+> >>> load data file directly from VFS as fallback mechanism.
+> >>>
+> >>> On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
+> >>> in CAL nand partition. CAL is proprietary Nokia key/value format for nand
+> >>> devices.
+> >>>
+> >>> With this patch it is finally possible to load correct model specific NVS
+> >>> calibration data for Nokia N900.
+> >>>
+> >>> Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
+> >>> ---
+> >>>  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
+> >>>  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
+> >>>  2 files changed, 2 insertions(+), 1 deletion(-)
+> >>>
+> >>> diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
+> >>> index 7142ccf..affe154 100644
+> >>> --- a/drivers/net/wireless/ti/wl1251/Kconfig
+> >>> +++ b/drivers/net/wireless/ti/wl1251/Kconfig
+> >>> @@ -2,6 +2,7 @@ config WL1251
+> >>>  	tristate "TI wl1251 driver support"
+> >>>  	depends on MAC80211
+> >>>  	select FW_LOADER
+> >>> +	select FW_LOADER_USER_HELPER
+> >>>  	select CRC7
+> >>>  	---help---
+> >>>  	  This will enable TI wl1251 driver support. The drivers make
+> >>> diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
+> >>> index 208f062..24f8866 100644
+> >>> --- a/drivers/net/wireless/ti/wl1251/main.c
+> >>> +++ b/drivers/net/wireless/ti/wl1251/main.c
+> >>> @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
+> >>>  	struct device *dev = wiphy_dev(wl->hw->wiphy);
+> >>>  	int ret;
+> >>>  
+> >>> -	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
+> >>> +	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+> >>
+> >> I don't see the need for this. Just remove the default nvs file from
+> >> filesystem and the fallback user helper will be always used, right?
+> > 
+> > It is part of linux-firmware repository. And already part of all
+> > previous versions of linux-firmware packages in lot of linux
+> > distributions. So removing it is not possible...
+> 
+> You are probably saying that on your platform you can not remove
+> anything from /lib/firmware, right? I don't see how you come from "it is
+> part of firmware package" to "removing is not possible". Trying to
+> understand this and it makes no sense.
+
+It is already in linux distribution packages. If I remove that file from
+file system it will be placed there again by package management or it it
+will throw error message about system integrity (missing file, etc...).
+
+Also that file is already in linux-firmware git and so is propagated to
+/lib/firmware by anybody who is using linux-firmware.
+
+> >> Like we discussed earlier, the default nvs file should not be used by
+> >> normal users.
+> > 
+> > But already is and we need to deal with this fact.
+> 
+> Why?
+
+Because everybody has already installed it.
+
+> Are there other platforms that use the default nvs file and have a
+> working wifi.
+
+I do not know.
+
+> So your "removing is not possible" would be about
+> regression for those?
+
+Yes, that is possible.
+
+Also you can use wifi on Nokia N900 with this default file. Yes it is
+not recommended and probably has performance problems... but more people
+use it for SSH and it is working. Pavel could confirm this.
+
+So yes, if you remove that file *now* there is regression for Nokia N900
+when you are using SSH over wifi.
+
+-- 
+Pali Rohár
+pali.rohar@gmail.com
