@@ -1,48 +1,106 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net v3 2/3] gtp: clear DF bit on GTP packet tx
-Date: Fri, 27 Jan 2017 10:40:57 +0100
-Message-ID: <20170127094058.7899-3-aschultz@tpip.net>
-References: <20170127094058.7899-1-aschultz@tpip.net>
-Cc: netdev@vger.kernel.org,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>,
-        SF Markus Elfring <elfring@users.sourceforge.net>
-To: Pablo Neira <pablo@netfilter.org>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Fri, 27 Jan 2017 10:43:42 +0100
+Message-ID: <20170127094342.GC24223@pali>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+ <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+ <87tw8lnei3.fsf@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:48882 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932460AbdA0JlL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 04:41:11 -0500
-In-Reply-To: <20170127094058.7899-1-aschultz@tpip.net>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36261 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754457AbdA0Jnv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 04:43:51 -0500
+Content-Disposition: inline
+In-Reply-To: <87tw8lnei3.fsf@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-3GPP TS 29.281 and 3GPP TS 29.060 imply that GTP-U packets should be
-sent with the DF bit cleared. For example 3GPP TS 29.060, Release 8,
-Section 13.2.2:
+On Friday 27 January 2017 09:33:40 Kalle Valo wrote:
+> Pali Rohár <pali.rohar@gmail.com> writes:
+> 
+> > NVS calibration data for wl1251 are model specific. Every one device with
+> > wl1251 chip has different and calibrated in factory.
+> >
+> > Not all wl1251 chips have own EEPROM where are calibration data stored. And
+> > in that case there is no "standard" place. Every device has stored them on
+> > different place (some in rootfs file, some in dedicated nand partition,
+> > some in another proprietary structure).
+> >
+> > Kernel wl1251 driver cannot support every one different storage decided by
+> > device manufacture so it will use request_firmware_prefer_user() call for
+> > loading NVS calibration data and userspace helper will be responsible to
+> > prepare correct data.
+> >
+> > In case userspace helper fails request_firmware_prefer_user() still try to
+> > load data file directly from VFS as fallback mechanism.
+> >
+> > On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
+> > in CAL nand partition. CAL is proprietary Nokia key/value format for nand
+> > devices.
+> >
+> > With this patch it is finally possible to load correct model specific NVS
+> > calibration data for Nokia N900.
+> >
+> > Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
+> > ---
+> >  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
+> >  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
+> >  2 files changed, 2 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
+> > index 7142ccf..affe154 100644
+> > --- a/drivers/net/wireless/ti/wl1251/Kconfig
+> > +++ b/drivers/net/wireless/ti/wl1251/Kconfig
+> > @@ -2,6 +2,7 @@ config WL1251
+> >  	tristate "TI wl1251 driver support"
+> >  	depends on MAC80211
+> >  	select FW_LOADER
+> > +	select FW_LOADER_USER_HELPER
+> >  	select CRC7
+> >  	---help---
+> >  	  This will enable TI wl1251 driver support. The drivers make
+> > diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
+> > index 208f062..24f8866 100644
+> > --- a/drivers/net/wireless/ti/wl1251/main.c
+> > +++ b/drivers/net/wireless/ti/wl1251/main.c
+> > @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
+> >  	struct device *dev = wiphy_dev(wl->hw->wiphy);
+> >  	int ret;
+> >  
+> > -	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
+> > +	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+> 
+> I don't see the need for this. Just remove the default nvs file from
+> filesystem and the fallback user helper will be always used, right?
 
-> Backbone router: Any router in the backbone may fragment the GTP
-> packet if needed, according to IPv4.
+It is part of linux-firmware repository. And already part of all
+previous versions of linux-firmware packages in lot of linux
+distributions. So removing it is not possible...
 
-Signed-off-by: Andreas Schultz <aschultz@tpip.net>
-Acked-by: Harald Welte <laforge@netfilter.org>
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- drivers/net/gtp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Like we discussed earlier, the default nvs file should not be used by
+> normal users.
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 7580ccc..1df54d6 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -612,7 +612,7 @@ static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 				    pktinfo.fl4.saddr, pktinfo.fl4.daddr,
- 				    pktinfo.iph->tos,
- 				    ip4_dst_hoplimit(&pktinfo.rt->dst),
--				    htons(IP_DF),
-+				    0,
- 				    pktinfo.gtph_port, pktinfo.gtph_port,
- 				    true, false);
- 		break;
+But already is and we need to deal with this fact.
+
 -- 
-2.10.2
+Pali Rohár
+pali.rohar@gmail.com
