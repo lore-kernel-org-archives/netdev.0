@@ -1,70 +1,54 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 6/8] net/mlx5e: Modify TIRs hash only when it's needed
-Date: Fri, 27 Jan 2017 22:38:41 +0200
-Message-ID: <20170127203843.3206-7-saeedm@mellanox.com>
+Subject: [net 3/8] net/mlx5: E-Switch, Err when retrieving steering name-space fails
+Date: Fri, 27 Jan 2017 22:38:38 +0200
+Message-ID: <20170127203843.3206-4-saeedm@mellanox.com>
 References: <20170127203843.3206-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33324 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33321 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751354AbdA0VLL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:11:11 -0500
+        with ESMTP id S1751054AbdA0VL0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:11:26 -0500
 In-Reply-To: <20170127203843.3206-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-We don't need to modify our TIRs unless the user requested a change in
-the hash function/key, for example when changing indirection only.
+Make sure to return error when we failed retrieving the FDB steering
+name space. Also, while around, correctly print the error when mode
+change revert fails in the warning message.
 
-Fixes: bdfc028de1b3 ("net/mlx5e: Fix ethtool RX hash func configuration change")
-Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reported-by: Leon Romanovsky <leonro@mellanox.com>
+Reviewed-by: Roi Dayan <roid@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index ffbdf9ee5a9b..6f4eb34259f0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -996,6 +996,7 @@ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 	int inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
-+	bool hash_changed = false;
- 	void *in;
- 
- 	if ((hfunc != ETH_RSS_HASH_NO_CHANGE) &&
-@@ -1017,14 +1018,21 @@ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
- 		mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 5803216157cf..c61bca138e65 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -424,6 +424,7 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
+ 	if (!root_ns) {
+ 		esw_warn(dev, "Failed to get FDB flow namespace\n");
++		err = -EOPNOTSUPP;
+ 		goto ns_err;
  	}
  
--	if (key)
-+	if (hfunc != ETH_RSS_HASH_NO_CHANGE &&
-+	    hfunc != priv->params.rss_hfunc) {
-+		priv->params.rss_hfunc = hfunc;
-+		hash_changed = true;
-+	}
-+
-+	if (key) {
- 		memcpy(priv->params.toeplitz_hash_key, key,
- 		       sizeof(priv->params.toeplitz_hash_key));
-+		hash_changed = hash_changed ||
-+			       priv->params.rss_hfunc == ETH_RSS_HASH_TOP;
-+	}
- 
--	if (hfunc != ETH_RSS_HASH_NO_CHANGE)
--		priv->params.rss_hfunc = hfunc;
--
--	mlx5e_modify_tirs_hash(priv, in, inlen);
-+	if (hash_changed)
-+		mlx5e_modify_tirs_hash(priv, in, inlen);
- 
- 	mutex_unlock(&priv->state_lock);
- 
+@@ -655,7 +656,7 @@ static int esw_offloads_start(struct mlx5_eswitch *esw)
+ 		esw_warn(esw->dev, "Failed setting eswitch to offloads, err %d\n", err);
+ 		err1 = mlx5_eswitch_enable_sriov(esw, num_vfs, SRIOV_LEGACY);
+ 		if (err1)
+-			esw_warn(esw->dev, "Failed setting eswitch back to legacy, err %d\n", err);
++			esw_warn(esw->dev, "Failed setting eswitch back to legacy, err %d\n", err1);
+ 	}
+ 	if (esw->offloads.inline_mode == MLX5_INLINE_MODE_NONE) {
+ 		if (mlx5_eswitch_inline_mode_get(esw,
 -- 
 2.11.0
