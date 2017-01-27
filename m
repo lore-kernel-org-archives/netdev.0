@@ -1,41 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC ipsec-next 2/2] xfrm: Add a dummy network device
- for napi.
-Date: Fri, 27 Jan 2017 09:53:49 -0500 (EST)
-Message-ID: <20170127.095349.597744818419458840.davem@davemloft.net>
-References: <1485501572-20908-1-git-send-email-steffen.klassert@secunet.com>
-        <1485501572-20908-3-git-send-email-steffen.klassert@secunet.com>
-        <1485528398.6360.39.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 2/4] net: implement netif_cond_dbg macro
+Date: Fri, 27 Jan 2017 15:02:26 +0000
+Message-ID: <d55a40ab-eb5d-61c9-cae7-7ea865cbb204@solarflare.com>
+References: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-        sowmini.varadhan@oracle.com, ilant@mellanox.com
-To: eric.dumazet@gmail.com
+Cc: <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34730 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754817AbdA0Oxv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 09:53:51 -0500
-In-Reply-To: <1485528398.6360.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:12146 "EHLO
+        nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754921AbdA0PGk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:06:40 -0500
+In-Reply-To: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 27 Jan 2017 06:46:38 -0800
+For reporting things that may or may not be serious, depending on some
+ condition, netif_cond_dbg will check the condition and print the report
+ at either dbg (if the condition is true) or the specified level.
 
-> On Fri, 2017-01-27 at 08:19 +0100, Steffen Klassert wrote:
->> This patch adds a dummy network device so that we can
->> use gro_cells for IPsec GRO. With this, we handle IPsec
->> GRO with no impact on the generic networking code.
->> 
->> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
->> ---
->>  net/xfrm/xfrm_input.c | 12 +++++++++++-
->>  1 file changed, 11 insertions(+), 1 deletion(-)
-> 
-> That is nice ;)
+Suggested-by: Jon Cooper <jcooper@solarflare.com>
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ include/linux/netdevice.h | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-I like it too.
-
-I suspect we can do something similar for USB networking drivers.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3868c32..b83884c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4346,6 +4346,15 @@ do {								\
+ })
+ #endif
+ 
++/* if @cond then downgrade to debug, else print at @level */
++#define netif_cond_dbg(priv, type, netdev, cond, level, fmt, args...)     \
++	do {                                                              \
++		if (cond)                                                 \
++			netif_dbg(priv, type, netdev, fmt, ##args);       \
++		else                                                      \
++			netif_ ## level(priv, type, netdev, fmt, ##args); \
++	} while (0)
++
+ #if defined(VERBOSE_DEBUG)
+ #define netif_vdbg	netif_dbg
+ #else
