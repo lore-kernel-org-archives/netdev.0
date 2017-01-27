@@ -1,41 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3 0/3] various gtp fixes
-Date: Fri, 27 Jan 2017 10:40:12 -0500 (EST)
-Message-ID: <20170127.104012.823264164422411860.davem@davemloft.net>
-References: <20170127094058.7899-1-aschultz@tpip.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net: adjust skb->truesize in pskb_expand_head()
+Date: Fri, 27 Jan 2017 15:46:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0270D8B@AcuExch.aculab.com>
+References: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB0270970@AcuExch.aculab.com>
+ <1485528261.6360.38.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-        Lionel.Gauthier@eurecom.fr, openbsc@lists.osmocom.org,
-        laforge@gnumonks.org, elfring@users.sourceforge.net
-To: aschultz@tpip.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        "Slava Shwartsman" <slavash@mellanox.com>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36694 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932733AbdA0Plr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:41:47 -0500
-In-Reply-To: <20170127094058.7899-1-aschultz@tpip.net>
+Received: from smtp-out4.electric.net ([192.162.216.185]:52044 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932733AbdA0Pq3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:46:29 -0500
+In-Reply-To: <1485528261.6360.38.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Schultz <aschultz@tpip.net>
-Date: Fri, 27 Jan 2017 10:40:55 +0100
-
-> I'm sorry for the compile error mess up in the last version.
-> It's no excuse for not test compiling, but the hunks got lost in
-> a rebase.
-> 
-> This is the part of the previous "simple gtp improvements" series
-> that Pablo indicated should go into net.
-> 
-> The addition of the module alias fixes genl family autoloading,
-> clearing the DF bit fixes a protocol violation in regard to the
-> specification and the netns comparison fixes a corner case of
-> cross netns recv.
-> 
-> Andreas
-> 
-> v2->v3: fix compiler error introduced in rebase
-
-Looks better, series applied, thanks.
+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2Vu
+dDogMjcgSmFudWFyeSAyMDE3IDE0OjQ0DQo+IE9uIEZyaSwgMjAxNy0wMS0yNyBhdCAxMDo0OSAr
+MDAwMCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IEVyaWMgRHVtYXpldA0KPiA+ID4g
+U2VudDogMjcgSmFudWFyeSAyMDE3IDAwOjIxDQo+ID4gPiBTbGF2YSBTaHdhcnRzbWFuIHJlcG9y
+dGVkIGEgd2FybmluZyBpbiBza2JfdHJ5X2NvYWxlc2NlKCksIHdoZW4gd2UNCj4gPiA+IGRldGVj
+dCBza2ItPnRydWVzaXplIGlzIGNvbXBsZXRlbHkgd3JvbmcuDQo+ID4gPg0KPiA+ID4gSW4gaGlz
+IGNhc2UsIGlzc3VlIGNhbWUgZnJvbSBJUHY2IHJlYXNzZW1ibHkgY29waW5nIHdpdGggbWFsaWNp
+b3VzDQo+ID4gPiBkYXRhZ3JhbXMsIHRoYXQgZm9yY2VkIHZhcmlvdXMgcHNrYl9tYXlfcHVsbCgp
+IHRvIHJlYWxsb2NhdGUgYSBiaWdnZXINCj4gPiA+IHNrYi0+aGVhZCB0aGFuIHRoZSBvbmUgYWxs
+b2NhdGVkIGJ5IE5JQyBkcml2ZXIgYmVmb3JlIGVudGVyaW5nIEdSTw0KPiA+ID4gbGF5ZXIuDQo+
+ID4gPg0KPiA+ID4gQ3VycmVudCBjb2RlIGRvZXMgbm90IGNoYW5nZSBza2ItPnRydWVzaXplLCBs
+ZWF2aW5nIHRoaXMgYnVyZGVuIHRvDQo+ID4gPiBjYWxsZXJzIGlmIHRoZXkgY2FyZSBlbm91Z2gu
+DQo+ID4gPg0KPiA+ID4gQmxpbmRseSBjaGFuZ2luZyBza2ItPnRydWVzaXplIGluIHBza2JfZXhw
+YW5kX2hlYWQoKSBpcyBub3QNCj4gPiA+IGVhc3ksIGFzIHNvbWUgcHJvZHVjZXJzIG1pZ2h0IHRy
+YWNrIHNrYi0+dHJ1ZXNpemUsIGZvciBleGFtcGxlDQo+ID4gPiBpbiB4bWl0IHBhdGggZm9yIGJh
+Y2sgcHJlc3N1cmUgZmVlZGJhY2sgKHNrLT5za193bWVtX2FsbG9jKQ0KPiA+ID4NCj4gPiA+IFdl
+IGNhbiBkZXRlY3QgdGhlIGNhc2VzIHdoZXJlIGl0IHNob3VsZCBiZSBzYWZlIHRvIGNoYW5nZQ0K
+PiA+ID4gc2tiLT50cnVlc2l6ZSA6DQo+ID4gPg0KPiA+ID4gMSkgc2tiIGlzIG5vdCBhdHRhY2hl
+ZCB0byBhIHNvY2tldC4NCj4gPiA+IDIpIElmIGl0IGlzIGF0dGFjaGVkIHRvIGEgc29ja2V0LCBk
+ZXN0cnVjdG9yIGlzIHNvY2tfZWRlbXV4KCkNCj4gPiAuLi4NCj4gPiA+ICBpbnQgcHNrYl9leHBh
+bmRfaGVhZChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgbmhlYWQsIGludCBudGFpbCwNCj4gPiA+
+ICAJCSAgICAgZ2ZwX3QgZ2ZwX21hc2spDQo+ID4gPiAgew0KPiA+ID4gKwlpbnQgaSwgb3NpemUg
+PSBza2JfZW5kX29mZnNldChza2IpOw0KPiA+ID4gKwlpbnQgc2l6ZSA9IG9zaXplICsgbmhlYWQg
+KyBudGFpbDsNCj4gPiA+ICAJbG9uZyBvZmY7DQo+ID4gPiArCXU4ICpkYXRhOw0KPiA+ID4NCj4g
+PiA+ICAJQlVHX09OKG5oZWFkIDwgMCk7DQo+ID4gPg0KPiA+ID4gQEAgLTEyNTcsNiArMTI1Nywx
+NCBAQCBpbnQgcHNrYl9leHBhbmRfaGVhZChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgbmhlYWQs
+IGludCBudGFpbCwNCj4gPiA+ICAJc2tiLT5oZHJfbGVuICA9IDA7DQo+ID4gPiAgCXNrYi0+bm9o
+ZHIgICAgPSAwOw0KPiA+ID4gIAlhdG9taWNfc2V0KCZza2Jfc2hpbmZvKHNrYiktPmRhdGFyZWYs
+IDEpOw0KPiA+ID4gKw0KPiA+ID4gKwkvKiBJdCBpcyBub3QgZ2VuZXJhbGx5IHNhZmUgdG8gY2hh
+bmdlIHNrYi0+dHJ1ZXNpemUuDQo+ID4gPiArCSAqIEZvciB0aGUgbW9tZW50LCB3ZSByZWFsbHkg
+Y2FyZSBvZiByeCBwYXRoLCBvcg0KPiA+ID4gKwkgKiB3aGVuIHNrYiBpcyBvcnBoYW5lZCAobm90
+IGF0dGFjaGVkIHRvIGEgc29ja2V0KQ0KPiA+ID4gKwkgKi8NCj4gPiA+ICsJaWYgKCFza2ItPnNr
+IHx8IHNrYi0+ZGVzdHJ1Y3RvciA9PSBzb2NrX2VkZW11eCkNCj4gPiA+ICsJCXNrYi0+dHJ1ZXNp
+emUgKz0gc2l6ZSAtIG9zaXplOw0KPiA+DQo+ID4gVGhhdCBjYWxjdWxhdGlvbiBkb2Vzbid0IGxv
+b2sgcmlnaHQgdG8gbWUgYXQgYWxsLg0KPiA+IElzbid0ICd0cnVlc2l6ZScgc3VwcG9zZWQgdG8g
+cmVmbGVjdCB0aGUgYW1vdW50IG9mIG1lbW9yeSBhbGxvY2F0ZWQgdG8gdGhlIHNrYi4NCj4gPiBT
+byB5b3UgbmVlZCB0aGUgZGlmZmVyZW5jZSBiZXR3ZWVuIHRoZSBzaXplIG9mIHRoZSBuZXcgYW5k
+IG9sZCBtZW1vcnkgYmxvY2tzLg0KPiA+DQo+IA0KPiBXZWxsLCBwbGVhc2UgdGFrZSBhIGxvb2sg
+YXQgdGhlIGNvZGUsIGJlY2F1c2UgSSBiZWxpZXZlIEkgZGlkIGV4YWN0bHkNCj4gdGhhdC4NCg0K
+UmVhZHMgY29kZSAuLi4NCk15IGNvbmZ1c2lvbiBpcyB0aGF0IHRoZSBjYWxsIGlzIHNwZWNpZnlp
+bmcgdGhlIG51bWJlciBvZiBFWFRSQSBieXRlcyBvZiBoZWFkL3RhaWwNCnJvb20gcmF0aGVyIHRo
+YW4gdGhlIG51bWJlciBvZiBieXRlcyBuZWVkZWQuDQoNCj4gPiBJJ20gYWxzbyBndWVzc2luZyB0
+aGF0IGV4dHJhIGhlYWRyb29tIGNhbiBiZSBnZW5lcmF0ZWQgYnkgc3RlYWxpbmcgdW51c2VkIHRh
+aWxyb29tLg0KPiANCj4gVGhpcyBpcyBhbHJlYWR5IGRvbmUuDQo+IA0KPiBRdW90aW5nDQo+IGh0
+dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0L3RvcnZhbGRzL2xpbnV4
+LmdpdC9jb21taXQvP2lkPTg3ZmI0YjdiNTMzMDczZWVlYWVkMGI2YmY3Yw0KPiAyMzI4OTk1ZjZj
+MDc1DQo+IA0KPiAgICAgQXQgc2tiIGFsbG9jIHBoYXNlLCB3ZSBwdXQgc2tiX3NoYXJlZF9pbmZv
+IHN0cnVjdCBhdCB0aGUgZXhhY3QgZW5kIG9mDQo+ICAgICBza2IgaGVhZCwgdG8gYWxsb3cgYSBi
+ZXR0ZXIgdXNlIG9mIG1lbW9yeSAobG93ZXJpbmcgbnVtYmVyIG9mDQo+ICAgICByZWFsbG9jYXRp
+b25zKSwgc2luY2Uga21hbGxvYygpIGdpdmVzIHVzIHBvd2VyLW9mLXR3byBtZW1vcnkgYmxvY2tz
+Lg0KDQpJdCBsb29rcyBhcyB0aG91Z2ggdGhhdCBqdXN0IG1ha2VzIGFsbCB0aGUgJ3NwYXJlJyBz
+cGFjZSB0YWlscm9vbS4NCk15IGd1ZXNzIGlzIHRoYXQgaGVhZHJvb20gaXMgbmVlZGVkIG1vcmUg
+b2Z0ZW4gdGhhbiB0YWlscm9vbS4NCkl0IGRvZXNuJ3QgbG9vayBhcyB0aG91Z2ggdGhlIGFtb3Vu
+dCBvZiB0YWlscm9vbSB0aGF0IGhhcyBhY3R1YWxseSBiZWVuIHJlcXVlc3RlZA0KaXMgc2F2ZWQg
+ZWl0aGVyIChub3IgaGVhZHJvb20gZm9yIHRoYXQgbWF0dGVyKS4NCg0KSSB3YXMgdGhpbmtpbmcg
+dGhhdCBwc2tiX2V4cGFuZF9oZWFkKHNrYiwgMTYsIC0xNiwgLi4uKSBjb3VsZCBiZSBpbXBsZW1l
+bnRlZA0KKG1vc3RseSkgd2l0aCBtZW1tb3ZlKCkuDQoNCkhtbW0uLi4uIEFsc28gaWYgYSBjYWxs
+ZXIgYXNrcyBmb3IgMyBleHRyYSBieXRlcyBvZiBoZWFkcm9vbSB5b3UgcmVhbGx5IHdhbnQgdG8N
+CmFsbG9jYXRlIDggZXh0cmEgYnl0ZXMgc28gdGhhdCB0aGUgbWVtY3B5KCkgaXMgYWxpZ25lZC4N
+Cg0KCURhdmlkDQoNCg0K
