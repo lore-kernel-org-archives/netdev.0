@@ -1,60 +1,70 @@
-From: Kishon Vijay Abraham I <kishon@ti.com>
-Subject: Re: [PATCH v2 0/4] USB support for Broadcom NSP SoC
-Date: Fri, 27 Jan 2017 13:09:22 +0530
-Message-ID: <588AF92A.4060802@ti.com>
-References: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
- <588A16FA.50507@ti.com> <241009ca-4b34-b160-2de1-4752d3ff114b@gmail.com>
+From: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Subject: [PATCH v2] net: phy: micrel: add support for KSZ8795
+Date: Fri, 27 Jan 2017 08:46:23 +0100
+Message-ID: <20170127074623.9200-1-sean.nyekjaer@prevas.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>, Yendapally Reddy Dhananjaya Reddy
- <yendapally.reddy@broadcom.com>, Rob Herring <robh+dt@kernel.org>, Mark
- Rutland <mark.rutland@arm.com>,
- Russell King <linux@armlinux.org.uk>, Ray Jui <rjui@broadcom.com>,
- Scott Branden <sbranden@broadcom.com>, Jon Mason <jonmason@broadcom.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <241009ca-4b34-b160-2de1-4752d3ff114b@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Sean Nyekjaer <sean.nyekjaer@prevas.dk>, <andrew@lunn.ch>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail02.prevas.se ([62.95.78.10]:29610 "EHLO mail02.prevas.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754214AbdA0HtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Jan 2017 02:49:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This is adds support for the PHYs in the KSZ8795 5port managed switch.
 
-On Thursday 26 January 2017 10:57 PM, Florian Fainelli wrote:
-> On 01/26/2017 07:34 AM, Kishon Vijay Abraham I wrote:
->>
->>
->> On Tuesday 17 January 2017 09:44 PM, Yendapally Reddy Dhananjaya Reddy wrote:
->>> This patch set contains the usb support for Broadcom NSP SoC. The
->>> usb3 phy is internal to the SoC and is accessed through mdio interface.
->>> The mdio interface can be used to access either internal usb3 phy or
->>> external ethernet phy using a multiplexer.
->>>
->>> The first patch provides the documentation details for usb3 phy. The
->>> second patch provides the changes to the mdio bus driver. The third
->>> patch provides the phy driver and fourth patch provides the enable
->>> method for usb.
->>
->> merged the 1st and 4th patch to linux-phy.
-> 
-> You mean 1st and 3rd here, right? 4th is a Device Tree change that I
-> should take, and Patch 2 should be merged by David.
+It will allow to detect the link between the switch and the soc
+and uses the same read_status functions as the KSZ8873MLL switch.
 
-yeah, sorry!
-> 
-> What branch in your tree should we be looking at?
+Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+---
+Changes in v2:
+ - Removed "switch" name
 
-git://git.kernel.org/pub/scm/linux/kernel/git/kishon/linux-phy.git next
+ drivers/net/phy/micrel.c   | 14 ++++++++++++++
+ include/linux/micrel_phy.h |  2 ++
+ 2 files changed, 16 insertions(+)
 
-Thanks
-Kishon
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index ea92d524d5a8..fab56c9350cf 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
+ 	.get_stats	= kszphy_get_stats,
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
++}, {
++	.phy_id		= PHY_ID_KSZ8795,
++	.phy_id_mask	= MICREL_PHY_ID_MASK,
++	.name		= "Micrel KSZ8795",
++	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= kszphy_config_init,
++	.config_aneg	= ksz8873mll_config_aneg,
++	.read_status	= ksz8873mll_read_status,
++	.get_sset_count = kszphy_get_sset_count,
++	.get_strings	= kszphy_get_strings,
++	.get_stats	= kszphy_get_stats,
++	.suspend	= genphy_suspend,
++	.resume		= genphy_resume,
+ } };
+ 
+ module_phy_driver(ksphy_driver);
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index 257173e0095e..f541da68d1e7 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -35,6 +35,8 @@
+ #define PHY_ID_KSZ886X		0x00221430
+ #define PHY_ID_KSZ8863		0x00221435
+ 
++#define PHY_ID_KSZ8795		0x00221550
++
+ /* struct phy_device dev_flags definitions */
+ #define MICREL_PHY_50MHZ_CLK	0x00000001
+ #define MICREL_PHY_FXEN		0x00000002
+-- 
+2.11.0
