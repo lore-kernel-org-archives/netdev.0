@@ -1,86 +1,62 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net 0/8] Mellanox mlx5 fixes 2017-01-27
-Date: Fri, 27 Jan 2017 22:38:35 +0200
-Message-ID: <20170127203843.3206-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Andy Zhou <azhou@ovn.org>
+Subject: Re: [net-next] openvswitch: Simplify do_execute_actions().
+Date: Fri, 27 Jan 2017 13:25:52 -0800
+Message-ID: <CABKoBm3=MGv+sdL6T3=2_=pTh+Wukp66ZdDUx99tD7t482nodA@mail.gmail.com>
+References: <1485408261-31999-1-git-send-email-azhou@ovn.org> <CAOrHB_C3C_pcPpS=TSvKD0pF8eKRZMVgCK6eNKfbJnT_-xs1xw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33325 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751338AbdA0VLL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:11:11 -0500
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:56265 "EHLO
+        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751281AbdA0V1I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:27:08 -0500
+Received: from mfilter20-d.gandi.net (mfilter20-d.gandi.net [217.70.178.148])
+        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 522C6FB89E
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 22:26:35 +0100 (CET)
+Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
+        by mfilter20-d.gandi.net (mfilter20-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id 5tArDDQdpfSz for <netdev@vger.kernel.org>;
+        Fri, 27 Jan 2017 22:26:34 +0100 (CET)
+Received: from mail-ua0-f169.google.com (mail-ua0-f169.google.com [209.85.217.169])
+        (Authenticated sender: azhou@ovn.org)
+        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id C469FFB87D
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 22:26:33 +0100 (CET)
+Received: by mail-ua0-f169.google.com with SMTP id i68so214023920uad.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:26:33 -0800 (PST)
+In-Reply-To: <CAOrHB_C3C_pcPpS=TSvKD0pF8eKRZMVgCK6eNKfbJnT_-xs1xw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
-
-This pull request includes some mlx5 fixes for net, please see details
-below.
-
-Please pull and let me know if there's any problem.
-
-For -stable:
-      net/mlx5e: Modify TIRs hash only when it's needed
-      net/mlx5e: Fix update of hash function/key via ethtool
-
-Thanks,
-Saeed.
-
----
-
-The following changes since commit 214767faa2f31285f92754393c036f13b55474a6:
-
-  Merge tag 'batadv-net-for-davem-20170125' of git://git.open-mesh.org/linux-merge (2017-01-25 23:11:13 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-01-27
-
-for you to fetch changes up to 4f24229d2f73be75c2d362113588e30a1695dcb1:
-
-  net/mlx5e: Check ets capability before ets query FW command (2017-01-27 00:05:47 +0200)
-
-----------------------------------------------------------------
-mlx5-fixes-2017-01-27
-
-A couple of mlx5 core and ethernet driver fixes.
-
->From Or, a couple of error return values and error handling fixes.
->From Hadar, Support TC encapsulation offloads even when the mlx5e uplink
-device is stacked  under an upper device.
->From Gal, two patches to fix RSS hash modifications via ethtool.
->From Moshe, Added a needed ets capability check.
-
-----------------------------------------------------------------
-Gal Pressman (2):
-      net/mlx5e: Modify TIRs hash only when it's needed
-      net/mlx5e: Fix update of hash function/key via ethtool
-
-Hadar Hen Zion (1):
-      net/mlx5e: Support TC encapsulation offloads with upper devices
-
-Moshe Shemesh (1):
-      net/mlx5e: Check ets capability before ets query FW command
-
-Or Gerlitz (4):
-      net/mlx5: Change ENOTSUPP to EOPNOTSUPP
-      net/mlx5: Return EOPNOTSUPP when failing to get steering name-space
-      net/mlx5: E-Switch, Err when retrieving steering name-space fails
-      net/mlx5: E-Switch, Re-enable RoCE on mode change only after FDB destroy
-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   7 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |  11 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  41 +++--
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |   2 +-
- .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 202 ++++++++++-----------
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  13 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  10 +-
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  36 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    |   2 +-
- 15 files changed, 181 insertions(+), 157 deletions(-)
+On Fri, Jan 27, 2017 at 12:42 PM, Pravin Shelar <pshelar@ovn.org> wrote:
+> On Wed, Jan 25, 2017 at 9:24 PM, Andy Zhou <azhou@ovn.org> wrote:
+>> do_execute_actions() implements a worthwhile optimization: in case
+>> an output action is the last action in an action list, skb_clone()
+>> can be avoided by outputing the current skb. However, the
+>> implementation is more complicated than necessary.  This patch
+>> simplify this logic.
+>>
+>> Signed-off-by: Andy Zhou <azhou@ovn.org>
+>> ---
+>>  net/openvswitch/actions.c | 40 +++++++++++++++++++---------------------
+>>  1 file changed, 19 insertions(+), 21 deletions(-)
+>>
+>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>> index 514f7bc..3866608 100644
+>> --- a/net/openvswitch/actions.c
+>> +++ b/net/openvswitch/actions.c
+>> @@ -830,6 +830,9 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+>>  {
+>>         struct vport *vport = ovs_vport_rcu(dp, out_port);
+>>
+>> +       if (unlikely(!skb))
+>> +               return;
+>> +
+> Patch looks good to me. But I wanted to know if you considered moving
+> this check to do_execute_actions() in case skb-clone is done? This way
+> we can avoid this unlikely check from likely case :)
+>
+Good point.  O.K. I will repost a version without this check.  Thanks
+for the review and comment.
