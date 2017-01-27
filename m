@@ -1,45 +1,41 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] man: tc-csum.8: Fix example
-Date: Fri, 27 Jan 2017 12:15:01 +0100
-Message-ID: <20170127111501.21439-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43087 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933369AbdA0LPY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 06:15:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shailendra Verma <shailendra.v@samsung.com>
+Subject: [PATCH] Net: ethernet: mediatek - Fix possible NULL derefrence.
+Date: Fri, 27 Jan 2017 16:49:40 +0530
+Message-ID: <1485515980-3814-1-git-send-email-shailendra.v@samsung.com>
+References: <CGME20170127111947epcas2p14f5ea86f0069142be02339754fda4a55@epcas2p1.samsung.com>
+To: Felix Fietkau <nbd@openwrt.org>, John Crispin <blogic@openwrt.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+        p.shailesh@samsung.com, ashish.kalra@samsung.com,
+        Shailendra Verma <shailendra.v@samsung.com>,
+        Shailendra Verma <shailendra.capricorn@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This fixes two issues with the provided example:
+of_match_device could return NULL, and so can cause a NULL
+pointer dereference later.
 
-- Add missing 'dev' keyword to second command.
-- Use a real IPv4 address instead of a bogus hex value since that will
-  be rejected by get_addr_ipv4().
-
-Fixes: dbfb17a67f9c7 ("man: tc-csum.8: Add an example")
-Reported-by: Davide Caratti <dcaratti@redhat.com>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Shailendra Verma <shailendra.v@samsung.com>
 ---
- man/man8/tc-csum.8 | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/man/man8/tc-csum.8 b/man/man8/tc-csum.8
-index 3a64c82f09ba8..43561d9f90a8e 100644
---- a/man/man8/tc-csum.8
-+++ b/man/man8/tc-csum.8
-@@ -57,9 +57,9 @@ packets, both IP and UDP checksums have to be recalculated:
- .RS
- .EX
- # tc qdisc add dev eth0 ingress handle ffff:
--# tc filter add eth0 prio 1 protocol ip parent ffff: \\
-+# tc filter add dev eth0 prio 1 protocol ip parent ffff: \\
- 	u32 match ip src 192.168.1.100/32 flowid :1 \\
--	action pedit munge ip dst set 0x12345678 pipe \\
-+	action pedit munge ip dst set 1.2.3.4 pipe \\
- 	csum ip and udp
- .EE
- .RE
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 4a62ffd..4495b7b 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -2369,6 +2369,10 @@ static int mtk_probe(struct platform_device *pdev)
+ 	int i;
+ 
+ 	match = of_match_device(of_mtk_match, &pdev->dev);
++	if (!match) {
++		dev_err(&pdev->dev, "Error: No device match found\n");
++		return -ENODEV;
++	}
+ 	soc = (struct mtk_soc_data *)match->data;
+ 
+ 	eth = devm_kzalloc(&pdev->dev, sizeof(*eth), GFP_KERNEL);
 -- 
-2.11.0
+1.7.9.5
