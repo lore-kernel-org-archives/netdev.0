@@ -1,30 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Fix ndo_setup_tc comment
-Date: Fri, 27 Jan 2017 09:15:21 -0500 (EST)
-Message-ID: <20170127.091521.719751287975323113.davem@davemloft.net>
-References: <20170126224417.10327-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
-        jiri@mellanox.com, jhs@mojatatu.com
-To: f.fainelli@gmail.com
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: wan:  Remove unused stats member from struct frad_local
+Date: Fri, 27 Jan 2017 15:26:32 +0100
+Message-ID: <20170127142632.29332-1-tklauser@distanz.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32808 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932263AbdA0OPZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 09:15:25 -0500
-In-Reply-To: <20170126224417.10327-1-f.fainelli@gmail.com>
+Received: from mail.zhinst.com ([212.126.164.98]:39628 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932257AbdA0O1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Jan 2017 09:27:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 26 Jan 2017 14:44:17 -0800
+The stats member of struct frad_locl is used neither by the dlci nor the
+sdla driver, so it might as well be removed.
 
-> Commit 16e5cc647173 ("net: rework setup_tc ndo op to consume
-> general tc operand") changed the ndo_setup_tc() signature, but did not
-> update the comments in netdevice.h, so do that now.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ include/linux/if_frad.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-Applied.
+diff --git a/include/linux/if_frad.h b/include/linux/if_frad.h
+index 4316aa173dde..46df7e565d6f 100644
+--- a/include/linux/if_frad.h
++++ b/include/linux/if_frad.h
+@@ -66,8 +66,6 @@ struct dlci_local
+ 
+ struct frad_local
+ {
+-   struct net_device_stats stats;
+-
+    /* devices which this FRAD is slaved to */
+    struct net_device     *master[CONFIG_DLCI_MAX];
+    short             dlci[CONFIG_DLCI_MAX];
+-- 
+2.11.0
