@@ -1,39 +1,46 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH 4/4] [net-next] net: qcom/emac: add an error interrupt
- handler for the sgmii
-Date: Fri, 27 Jan 2017 17:21:19 -0600
-Message-ID: <e44849a6-62ce-5d19-c622-20e7a5373f75@codeaurora.org>
-References: <1485557028-32510-1-git-send-email-timur@codeaurora.org>
- <1485557028-32510-5-git-send-email-timur@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v3 4/4] net: ipv6: Use compressed IPv6 addresses showing route replace error
+Date: Fri, 27 Jan 2017 15:20:58 -0800
+Message-ID: <1485559258-4856-5-git-send-email-dsa@cumulusnetworks.com>
+References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, nicolas.dichtel@6wind.com,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:38784 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750751AbdA0XWD (ORCPT
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36746 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750748AbdA0XWD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 18:22:03 -0500
-In-Reply-To: <1485557028-32510-5-git-send-email-timur@codeaurora.org>
+Received: by mail-pg0-f54.google.com with SMTP id 3so26077712pgj.3
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 15:21:07 -0800 (PST)
+In-Reply-To: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/27/2017 04:43 PM, Timur Tabi wrote:
-> The SGMII (internal PHY) can report decode errors via an interrupt.  It
-> can also report autonegotiation status changes, but we don't need to track
-> those.  The SGMII can recover automatically from most decode errors, so
-> we only reset the interface if we get multiple consecutive errors.
->
-> It's possible for bogus decode errors to be reported while the link is
-> being brought up.  The interrupt is registered when the interface is
-> opened, and it's enabled after the link is up.
->
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
+ip6_print_replace_route_err logs an error if a route replace fails with
+IPv6 addresses in the full format. e.g,:
 
-Sorry, this particular patch wasn't meant to be in the patchset.  Please 
-ignore it.
+IPv6: IPV6: multipath route replace failed (check consistency of installed routes): 2001:0db8:0200:0000:0000:0000:0000:0000 nexthop 2001:0db8:0001:0000:0000:0000:0000:0016 ifi 0
 
+Change the message to dump the addresses in the compressed format.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv6/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 747f333ae006..463cc0847a3d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2969,7 +2969,7 @@ static void ip6_print_replace_route_err(struct list_head *rt6_nh_list)
+ 	struct rt6_nh *nh;
+ 
+ 	list_for_each_entry(nh, rt6_nh_list, next) {
+-		pr_warn("IPV6: multipath route replace failed (check consistency of installed routes): %pI6 nexthop %pI6 ifi %d\n",
++		pr_warn("IPV6: multipath route replace failed (check consistency of installed routes): %pI6c nexthop %pI6c ifi %d\n",
+ 		        &nh->r_cfg.fc_dst, &nh->r_cfg.fc_gateway,
+ 		        nh->r_cfg.fc_ifindex);
+ 	}
 -- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+2.1.4
