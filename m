@@ -1,137 +1,91 @@
-From: Halil Pasic <pasic@linux.vnet.ibm.com>
-Subject: Re: [BUG/RFC] vhost: net: big endian viring access despite virtio 1
-Date: Fri, 27 Jan 2017 13:24:13 +0100
-Message-ID: <f5c0779f-f7b0-0e0c-5f20-4161b5c70394@linux.vnet.ibm.com>
-References: <a08f491a-1320-607e-f450-d32ce2c9e2f5@linux.vnet.ibm.com>
-	<20170126211511-mutt-send-email-mst@kernel.org>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for loading NVS calibration data
+Date: Fri, 27 Jan 2017 14:26:22 +0200
+Message-ID: <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+        <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+        <87tw8lnei3.fsf@codeaurora.org> <20170127094342.GC24223@pali>
+        <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+        <20170127101043.GD24223@pali>
+        <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
+        <20170127103408.GG24223@pali>
+        <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
+        <20170127115706.GH24223@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, Greg Kurz <groug@kaod.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170126211511-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>,
+        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+        Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>,
+        Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
+        Grazvydas Ignotas <notasas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170127115706.GH24223@pali> ("Pali \=\?utf-8\?Q\?Roh\=C3\=A1r\=22'\?\=
+ \=\?utf-8\?Q\?s\?\= message of "Fri, 27
+        Jan 2017 12:57:06 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
+> On Friday 27 January 2017 13:49:03 Kalle Valo wrote:
+>> Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>>=20
+>> >> So
+>> >> for those other platforms there will be a delay waiting for user-mode
+>> >> helper to fail, before trying to get nvs file from /lib/firmware.
+>> >
+>> > Yes, there will be. But there is no easy way to fix this problem that
+>> > kernel is trying to use default/example NVS data...
+>>=20
+>> Kernel is doing correctly and requesting NVS data as expected, the
+>> problem here is that linux-firmware claims that the example NVS data is
+>> real calibration data (which it is not). Distros should not use that,
+>> only developers for testing purposes. We should not courage users using
+>> example calibration data.
+>>=20
+>> The simple fix is to rename the NVS file in linux-firmware to something
+>> like wl1251-nvs.bin.example, no need to workaround this in kernel. If
+>> you send a patch to linux-firmware I'm happy to ack that.
+>
+> I agree with rename and fact that default/example data should not be
+> used.
+>
+> But...
+>
+> 1) Kernel should not read device/model specific data from VFS where
+> are stored not-device-specific files preinstalled by linux
+> distributions.
+>
+> And linux distributions are already putting files into VFS and kernel
+> cannot enforce userspace to not do that (as they are already doing it).
 
-On 01/26/2017 08:20 PM, Michael S. Tsirkin wrote:
-> On Thu, Jan 26, 2017 at 06:39:14PM +0100, Halil Pasic wrote:
->>
->> Hi!
->>
->> Recently I have been investigating some strange migration problems on
->> s390x.
->>
->> It turned out under certain circumstances vhost_net corrupts avail.idx by
->> using wrong endianness.
+I'm having problems to understand what you are saying here.
 
-[..]
+> 2) It was already tested that example NVS data can be used for N900 e.g.
+> for SSH connection. If real correct data are not available it is better
+> to use at least those example (and probably log warning message) so user
+> can connect via SSH and start investigating where is problem.
 
->> -------------------------8<--------------
->> >From b26e2bbdc03832a0204ee2b42967a1b49a277dc8 Mon Sep 17 00:00:00 2001
->> From: Halil Pasic <pasic@linux.vnet.ibm.com>
->> Date: Thu, 26 Jan 2017 00:06:15 +0100
->> Subject: [PATCH] vhost: remove useless/dangerous reset of is_le
->>
->> The reset of is_le does no good, but it contributes its fair share to a
->> bug in vhost_net, which occurs if we have some oldubufs when stopping and
->> setting a fd = -1 as a backend. Instead of doing something convoluted in
->> vhost_net, let's just get rid of the reset.
->>
->> Signed-off-by: Halil Pasic <pasic@linux.vnet.ibm.com>
->> Fixes: commit 2751c9882b94 
->> ---
->>  drivers/vhost/vhost.c | 4 +---
->>  1 file changed, 1 insertion(+), 3 deletions(-)
->>
->> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->> index d643260..08072a2 100644
->> --- a/drivers/vhost/vhost.c
->> +++ b/drivers/vhost/vhost.c
->> @@ -1714,10 +1714,8 @@ int vhost_vq_init_access(struct vhost_virtqueue *vq)
->>         int r;
->>         bool is_le = vq->is_le;
->>
->> -       if (!vq->private_data) {
->> -               vhost_reset_is_le(vq);
->> +       if (!vq->private_data)
->>                 return 0;
->> -       }
->>
->>         vhost_init_is_le(vq);
-> 
-> 
-> I think you do need to reset it, just maybe within vhost_init_is_le.
-> 
->         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
->                 vq->is_le = true;
-> 	else
-> 		vhost_reset_is_le(vq);
-> 
-> 
+I disagree. Allowing default calibration data to be used can be
+unnoticed by user and left her wondering why wifi works so badly.
 
-That is a very good point! I have overlooked that while the 
-CONFIG_VHOST_CROSS_ENDIAN_LEGACY variant
+> 3) If we do rename *now* we will totally break wifi support on Nokia
+> N900.
 
-static void vhost_init_is_le(struct vhost_virtqueue *vq)
-{
-        /* Note for legacy virtio: user_be is initialized at reset time
-         * according to the host endianness. If userspace does not set an
-         * explicit endianness, the default behavior is native endian, as
-         * expected by legacy virtio.
-         */
-        vq->is_le = vhost_has_feature(vq, VIRTIO_F_VERSION_1) || !vq->user_be;
-}
+Then the distro should fix that when updating the linux-firmware
+packages. Can you provide details about the setup, what distro etc?
 
-is fine the other variant 
-
-static void vhost_init_is_le(struct vhost_virtqueue *vq)
-{
-        if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
-                vq->is_le = true;
-}
-is a very strange initializer (makes assumptions about the state
-to be initialized).
-
-I agree, setting native endianness there sounds very reasonable.
-
-I have a question regarding readability. IMHO the relationship
-of reset_is_le and int_is_le is a bit confusing, and I'm afraid
-it could become even more confusing with using reset in one of
-the init_is_le's.
-
-How about we do the following?
-
-static void vhost_init_is_le(struct vhost_virtqueue *vq)
-{
-        if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
-                vq->is_le = true;
-+       else
-+               vq->is_le = virtio_legacy_is_little_endian();
-
-}
-
-static void vhost_reset_is_le(struct vhost_virtqueue *vq)
-{
--       vq->is_le = virtio_legacy_is_little_endian();
-+       vhost_init_is_le(vq);
-}
-
-That way we would have correct endianness both after reset
-and after init, I think :).
-
-Thank you very much!
-
-Halil
+--=20
+Kalle Valo
