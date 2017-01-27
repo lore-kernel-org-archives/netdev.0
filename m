@@ -1,122 +1,163 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/2] ravb: Add tx and rx clock internal delays
- mode of APSR
-Date: Fri, 27 Jan 2017 15:42:05 +0300
-Message-ID: <813af981-9a1b-8e45-1fed-788047ab26b5@cogentembedded.com>
-References: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
- <1485515090-7570-2-git-send-email-horms+renesas@verge.net.au>
+From: Ivan Vecera <cera@cera.cz>
+Subject: Re: [PATCH net] be2net: fix initial MAC setting
+Date: Fri, 27 Jan 2017 13:43:25 +0100
+Message-ID: <CA+Nub0ZoPT0_k0gnc-d1j_5nK41MkUxt=NX=0Zv3YwtVK964-Q@mail.gmail.com>
+References: <20170126102801.18914-1-cera@cera.cz> <CAHHeUGXitTaXqQk8zDymcCX09vFq3CtM20FHJPL6AeVhc2iBPQ@mail.gmail.com>
+Reply-To: ivan.vecera@cera.cz
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Simon Horman <horms+renesas@verge.net.au>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
+To: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:34317 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754799AbdA0MnV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 07:43:21 -0500
-Received: by mail-lf0-f52.google.com with SMTP id v186so161309308lfa.1
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 04:42:13 -0800 (PST)
-In-Reply-To: <1485515090-7570-2-git-send-email-horms+renesas@verge.net.au>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:35899 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932474AbdA0MpB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 07:45:01 -0500
+Received: by mail-io0-f194.google.com with SMTP id q20so7847222ioi.3
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 04:43:26 -0800 (PST)
+In-Reply-To: <CAHHeUGXitTaXqQk8zDymcCX09vFq3CtM20FHJPL6AeVhc2iBPQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+2017-01-27 13:38 GMT+01:00 Sriharsha Basavapatna
+<sriharsha.basavapatna@broadcom.com>:
+> Hi Ivan,
+>
+> This patch is a bit involved. We need some time to review and test
+> this to make sure it works with other (non-BE3/VF - Skyhawk, Lancer)
+> devices. Also, IIRC we shouldn't see this issue with the latest FW.
+>
+I have done tests on BE3 PF & both privileged and non-privileged as well
+as on Skyhawk PF and VF. No problems found.
+Regarding firmware, I'm using version 11.1.215.0 on my devices and this version
+is affected on BE3. Older versions are affected as well.
 
-On 01/27/2017 02:04 PM, Simon Horman wrote:
-
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Ivan
 >
-> This patch enables tx and rx clock internal delay modes (TDM and RDM).
->
-> This is to address a failure in the case of 1Gbps communication using the
-> by salvator-x board with the KSZ9031RNX phy. This has been reported to
-> occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
->
-> With this change APSR internal delay modes are enabled for
-> "rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
->
-> phy mode   | ASPR delay mode
-> -----------+----------------
-> rgmii-id   | TDM and RDM
-> rgmii-rxid | RDM
-> rgmii-txid | TDM
->
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
->
-> ---
-> v1 [Simon Horman]
-> - Combined patches
-> - Reworded changelog
->
-> v0 [Kazuya Mizuguchi]
-> ---
->  drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++++
->  drivers/net/ethernet/renesas/ravb_main.c | 29 +++++++++++++++++++++++++++++
->  2 files changed, 39 insertions(+)
->
-> diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-> index f1109661a533..d7c91d48cc48 100644
-> --- a/drivers/net/ethernet/renesas/ravb.h
-> +++ b/drivers/net/ethernet/renesas/ravb.h
-[...]
-> @@ -248,6 +249,15 @@ enum ESR_BIT {
->  	ESR_EIL		= 0x00001000,
->  };
->
-> +/* APSR */
-> +enum APSR_BIT {
-> +	APSR_MEMS		= 0x00000002,
-
-    Not documented in the revision 0.5 of the gen3 manual...
-
-> +	APSR_CMSW		= 0x00000010,
-> +	APSR_DM			= 0x00006000,
-
-    ... and neither this field. Are these documented in the latter revs?
-
-> +	APSR_DM_RDM		= 0x00002000,
-> +	APSR_DM_TDM		= 0x00004000,
-> +};
-> +
->  /* RCR */
->  enum RCR_BIT {
->  	RCR_EFFS	= 0x00000001,
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 89ac1e3f6175..9fb4c04c5885 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -1904,6 +1904,29 @@ static void ravb_set_config_mode(struct net_device *ndev)
->  	}
->  }
->
-> +static void ravb_set_delay_mode(struct net_device *ndev)
-> +{
-> +	struct ravb_private *priv = netdev_priv(ndev);
-> +
-> +	if (priv->chip_id != RCAR_GEN2) {
-> +		switch (priv->phy_interface) {
-> +		case PHY_INTERFACE_MODE_RGMII_ID:
-> +			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM |
-> +				   APSR_DM_TDM);
-> +			break;
-> +		case PHY_INTERFACE_MODE_RGMII_RXID:
-> +			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM);
-> +			break;
-> +		case PHY_INTERFACE_MODE_RGMII_TXID:
-> +			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_TDM);
-> +			break;
-> +		default:
-> +			ravb_modify(ndev, APSR, APSR_DM, 0);
-> +			break;
-> +		}
-
-    How about doing ravb_modify() only once?
-
-[...]
-
-MNR, Sergei
+> On Thu, Jan 26, 2017 at 3:58 PM, Ivan Vecera <cera@cera.cz> wrote:
+>> Recent commit 34393529163a ("be2net: fix MAC addr setting on privileged
+>> BE3 VFs") allows privileged BE3 VFs to set its MAC address during
+>> initialization. Although the initial MAC for such VFs is already
+>> programmed by parent PF the subsequent setting performed by VF is OK,
+>> but in certain cases (after fresh boot) this command in VF can fail.
+>>
+>> The MAC should be initialized only when:
+>> 1) no MAC is programmed (always except BE3 VFs during first init)
+>> 2) programmed MAC is different from requested (e.g. MAC is set when
+>>    interface is down). In this case the initial MAC programmed by PF
+>>    needs to be deleted.
+>>
+>> The adapter->dev_mac contains MAC address currently programmed in HW so
+>> it should be zeroed when the MAC is deleted from HW and should not be
+>> filled when MAC is set when interface is down in be_mac_addr_set() as
+>> no programming is performed in this case.
+>>
+>> Example of failure without the fix (immediately after fresh boot):
+>>
+>> # ip link set eth0 up  <- eth0 is BE3 PF
+>> be2net 0000:01:00.0 eth0: Link is Up
+>>
+>> # echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create 1 VF
+>> ...
+>> be2net 0000:01:04.0: Emulex OneConnect(be3): VF  port 0
+>>
+>> # ip link set eth8 up  <- eth8 is created privileged VF
+>> be2net 0000:01:04.0: opcode 59-1 failed:status 1-76
+>> RTNETLINK answers: Input/output error
+>>
+>> # echo 0 > /sys/class/net/eth0/device/sriov_numvfs  <- Delete VF
+>> iommu: Removing device 0000:01:04.0 from group 33
+>> ...
+>>
+>> # echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create it again
+>> iommu: Removing device 0000:01:04.0 from group 33
+>> ...
+>>
+>> # ip link set eth8 up
+>> be2net 0000:01:04.0 eth8: Link is Up
+>>
+>> Initialization is now OK.
+>>
+>> Fixes: 34393529163a ("be2net: fix MAC addr setting on privileged BE3 VFs")
+>> Cc: Sathya Perla <sathya.perla@broadcom.com>
+>> Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
+>> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+>> Cc: Somnath Kotur <somnath.kotur@broadcom.com>
+>> Signed-off-by: Ivan Vecera <cera@cera.cz>
+>> ---
+>>  drivers/net/ethernet/emulex/benet/be_main.c | 31 ++++++++++++++++++++++++-----
+>>  1 file changed, 26 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+>> index 1a7f8ad7b9c6..cf13b99b8551 100644
+>> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+>> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+>> @@ -362,8 +362,10 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+>>                 status = -EPERM;
+>>                 goto err;
+>>         }
+>> -done:
+>> +
+>> +       /* Remember currently programmed MAC */
+>>         ether_addr_copy(adapter->dev_mac, addr->sa_data);
+>> +done:
+>>         ether_addr_copy(netdev->dev_addr, addr->sa_data);
+>>         dev_info(dev, "MAC address changed to %pM\n", addr->sa_data);
+>>         return 0;
+>> @@ -3618,8 +3620,10 @@ static void be_disable_if_filters(struct be_adapter *adapter)
+>>  {
+>>         /* Don't delete MAC on BE3 VFs without FILTMGMT privilege  */
+>>         if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
+>> -           check_privilege(adapter, BE_PRIV_FILTMGMT))
+>> +           check_privilege(adapter, BE_PRIV_FILTMGMT)) {
+>>                 be_dev_mac_del(adapter, adapter->pmac_id[0]);
+>> +               eth_zero_addr(adapter->dev_mac);
+>> +       }
+>>
+>>         be_clear_uc_list(adapter);
+>>         be_clear_mc_list(adapter);
+>> @@ -3773,12 +3777,25 @@ static int be_enable_if_filters(struct be_adapter *adapter)
+>>         if (status)
+>>                 return status;
+>>
+>> -       /* Don't add MAC on BE3 VFs without FILTMGMT privilege */
+>> -       if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
+>> -           check_privilege(adapter, BE_PRIV_FILTMGMT)) {
+>> +       /* Normally this condition usually true as the ->dev_mac is zeroed.
+>> +        * But on BE3 VFs the initial MAC is pre-programmed by PF and
+>> +        * subsequent be_dev_mac_add() can fail (after fresh boot)
+>> +        */
+>> +       if (!ether_addr_equal(adapter->dev_mac, adapter->netdev->dev_addr)) {
+>> +               int old_pmac_id = -1;
+>> +
+>> +               /* Remember old programmed MAC if any - can happen on BE3 VF */
+>> +               if (!is_zero_ether_addr(adapter->dev_mac))
+>> +                       old_pmac_id = adapter->pmac_id[0];
+>> +
+>>                 status = be_dev_mac_add(adapter, adapter->netdev->dev_addr);
+>>                 if (status)
+>>                         return status;
+>> +
+>> +               /* Delete old programmed MAC if necessary */
+>> +               if (old_pmac_id > 0 && old_pmac_id != adapter->pmac_id[0])
+>> +                       be_dev_mac_del(adapter, old_pmac_id);
+>> +
+>>                 ether_addr_copy(adapter->dev_mac, adapter->netdev->dev_addr);
+>>         }
+>>
+>> @@ -4552,6 +4569,10 @@ static int be_mac_setup(struct be_adapter *adapter)
+>>
+>>                 memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
+>>                 memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
+>> +
+>> +               /* Initial MAC for BE3 VFs is already programmed by PF */
+>> +               if (BEx_chip(adapter) && be_virtfn(adapter))
+>> +                       memcpy(adapter->dev_mac, mac, ETH_ALEN);
+>>         }
+>>
+>>         return 0;
+>> --
+>> 2.10.2
+>>
