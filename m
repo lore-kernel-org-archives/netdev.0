@@ -1,31 +1,30 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next v2] IPsec GRO
-Date: Fri, 27 Jan 2017 08:19:30 +0100
-Message-ID: <1485501572-20908-1-git-send-email-steffen.klassert@secunet.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] net: Fix ndo_setup_tc comment
+Date: Fri, 27 Jan 2017 08:12:38 +0100
+Message-ID: <20170127071238.GA1902@nanopsycho>
+References: <20170126224417.10327-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
-        "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        john.r.fastabend@intel.com, jiri@mellanox.com, jhs@mojatatu.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:39144 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753970AbdA0HTm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 02:19:42 -0500
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33942 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754002AbdA0HTT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 02:19:19 -0500
+Received: by mail-wm0-f68.google.com with SMTP id c85so55928159wmi.1
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 23:18:55 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170126224417.10327-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Thu, Jan 26, 2017 at 11:44:17PM CET, f.fainelli@gmail.com wrote:
+>Commit 16e5cc647173 ("net: rework setup_tc ndo op to consume
+>general tc operand") changed the ndo_setup_tc() signature, but did not
+>update the comments in netdevice.h, so do that now.
+>
+>Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-This adds a dummy network device so that we can use gro_cells
-for IPsec GRO. We now may have a secpath at a GRO merged skb,
-so we need to drop it. This is the only change to the generic
-networking code.
-
-The packet still travels two times through the stack,
-but might be aggregated in the second round. We can
-avoid the second round with implementing GRO callbacks
-for the IPsec protocols. This will be a separate patchset
-as this needs some more generic networking changes because
-of the asynchronous nature of IPsec.
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
