@@ -1,112 +1,70 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Fri, 27 Jan 2017 20:40:12 +0100
-Message-ID: <20170127194012.GE20571@amd>
-References: <20170127094342.GC24223@pali>
- <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
- <20170127101043.GD24223@pali>
- <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
- <20170127103408.GG24223@pali>
- <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
- <20170127115706.GH24223@pali>
- <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
- <20170127131146.GI24223@pali>
- <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="wTWi5aaYRw9ix9vO"
-Cc: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH v3 net-next 2/2] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
+Date: Fri, 27 Jan 2017 20:46:27 +0100
+Message-ID: <1485546387-30809-3-git-send-email-horms+renesas@verge.net.au>
+References: <1485546387-30809-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:38280 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751104AbdA0Tqx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 14:46:53 -0500
+In-Reply-To: <1485546387-30809-1-git-send-email-horms+renesas@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Geert Uytterhoeven <geert+renesas@glider.be>
 
---wTWi5aaYRw9ix9vO
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The limitation to 10/100Mbit speeds on R-Car Gen3 is valid for R-Car H3
+ES1.0 only. Check for the exact SoC model to allow 1Gbps on newer
+revisions of R-Car H3, and on R-Car M3-W.
 
-On Fri 2017-01-27 17:23:07, Kalle Valo wrote:
-> Pali Roh=E1r <pali.rohar@gmail.com> writes:
->=20
-> > On Friday 27 January 2017 14:26:22 Kalle Valo wrote:
-> >> Pali Roh=E1r <pali.rohar@gmail.com> writes:
-> >>=20
-> >> > 2) It was already tested that example NVS data can be used for N900 =
-e.g.
-> >> > for SSH connection. If real correct data are not available it is bet=
-ter
-> >> > to use at least those example (and probably log warning message) so =
-user
-> >> > can connect via SSH and start investigating where is problem.
-> >>=20
-> >> I disagree. Allowing default calibration data to be used can be
-> >> unnoticed by user and left her wondering why wifi works so badly.
-> >
-> > So there are only two options:
-> >
-> > 1) Disallow it and so these users will have non-working wifi.
-> >
-> > 2) Allow those data to be used as fallback mechanism.
-> >
-> > And personally I'm against 1) because it will break wifi support for
-> > *all* Nokia N900 devices right now.
->=20
-> All two of them? :)
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-Umm. You clearly want a flock of angry penguins at your doorsteps :-).
-
-> But not working is exactly my point, if correct calibration data is not
-> available wifi should not work. And it's not only about functionality
-> problems, there's also the regulatory aspect.
-
-If you break existing configuration that's called "regression".
-
-> >> > 3) If we do rename *now* we will totally break wifi support on Nokia
-> >> > N900.
-> >>=20
-> >> Then the distro should fix that when updating the linux-firmware
-> >> packages. Can you provide details about the setup, what distro etc?
-> >
-> > Debian stable, Ubuntu LTSs 14.04, 16.04.=20
->=20
-> You can run these out of box on N900?
-
-Debian stable does.
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---wTWi5aaYRw9ix9vO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAliLohwACgkQMOfwapXb+vIMowCfafqFiiWLUvCz/ObElhmeZ2MC
-OP0An0zg74gU6k3v3GVikgkzmVssYyUa
-=Pi8Z
------END PGP SIGNATURE-----
-
---wTWi5aaYRw9ix9vO--
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 732cdea7800b..615a3cb6f18c 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -31,6 +31,7 @@
+ #include <linux/pm_runtime.h>
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
++#include <linux/sys_soc.h>
+ 
+ #include <asm/div64.h>
+ 
+@@ -973,6 +974,11 @@ static void ravb_adjust_link(struct net_device *ndev)
+ 		phy_print_status(phydev);
+ }
+ 
++static const struct soc_device_attribute r8a7795es10[] = {
++	{ .soc_id = "r8a7795", .revision = "ES1.0", },
++	{ /* sentinel */ }
++};
++
+ /* PHY init function */
+ static int ravb_phy_init(struct net_device *ndev)
+ {
+@@ -1008,10 +1014,10 @@ static int ravb_phy_init(struct net_device *ndev)
+ 		goto err_deregister_fixed_link;
+ 	}
+ 
+-	/* This driver only support 10/100Mbit speeds on Gen3
++	/* This driver only support 10/100Mbit speeds on R-Car H3 ES1.0
+ 	 * at this time.
+ 	 */
+-	if (priv->chip_id == RCAR_GEN3) {
++	if (soc_device_match(r8a7795es10)) {
+ 		err = phy_set_max_speed(phydev, SPEED_100);
+ 		if (err) {
+ 			netdev_err(ndev, "failed to limit PHY to 100Mbit/s\n");
+-- 
+2.7.0.rc3.207.g0ac5344
