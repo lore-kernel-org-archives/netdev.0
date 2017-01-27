@@ -1,53 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: adjust skb->truesize in pskb_expand_head()
-Date: Thu, 26 Jan 2017 18:34:58 -0800
-Message-ID: <1485484498.6360.2.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <201701271009.NCgqcrWI%fengguang.wu@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: cls_matchall and port mirroring questions
+Date: Thu, 26 Jan 2017 19:00:50 -0800
+Message-ID: <f310a430-cd20-f0b0-801c-49376ca20acb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Slava Shwartsman <slavash@mellanox.com>
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36123 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753097AbdA0CfW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 21:35:22 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 19so17536540pfo.3
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 18:35:00 -0800 (PST)
-In-Reply-To: <201701271009.NCgqcrWI%fengguang.wu@intel.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33113 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753013AbdA0DBK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Jan 2017 22:01:10 -0500
+Received: by mail-pf0-f196.google.com with SMTP id e4so17555724pfg.0
+        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 19:00:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-01-27 at 10:22 +0800, kbuild test robot wrote:
-> Hi Eric,
-> 
-> [auto build test WARNING on net-next/master]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Eric-Dumazet/net-adjust-skb-truesize-in-pskb_expand_head/20170127-082517
-> config: i386-randconfig-x0-01270914 (attached as .config)
-> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=i386 
+Hi,
 
-Hmm... I thought sock_edemux was safe, but apparently it uses a
-parameter for no good reason.
+As I am adding support for cls_matchall in the b53/bcm_sf2 drivers, I
+was looking into several, yet unrelated things:
 
-I will add this to v2
+- mlxsw does not seem to specify whether the port used for capture
+remains usable, or blocks non-mirror traffic ingressing/egressing it, do
+we want a control knob for that? If not, what is a sensible default,
+block all non capture traffic?
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 7144750d14e56b9d5392e43dc46cb40a87e3d397..94e65fd703548dd40e16c30207fd55c879ed0b60 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1534,7 +1534,7 @@ void sock_efree(struct sk_buff *skb);
- #ifdef CONFIG_INET
- void sock_edemux(struct sk_buff *skb);
- #else
--#define sock_edemux(skb) sock_efree(skb)
-+#define sock_edemux sock_efree
- #endif
- 
- int sock_setsockopt(struct socket *sock, int level, int op,
+- do we have an updated man page for tc-matchall.8 that features how to
+use the statistical sampler too? b53 switches have a divider that allows
+us to select how many frames we want to receive (10 bit value).
+
+- b53 supports capture against a particular MAC SA or DA (or both), do
+we want to be able to control that somehow? What about Marvell switches,
+what can they do?
+
+-  a fair amount of code dealing with the cls_matchall mirroring entry
+is not switch driver specific, in fact, the only things that are switch
+driver specific are:
+	- list pointer where to store this entry (typically in the private
+network device context)
+	- operation to check whether the device belongs to us (identical
+netdev_ops)
+	- retrieval of the destination port number (to_port) which is also
+typically available in network device private context
+
+Do we want to move a fair amount of code into switchdev, treat
+cls_matchall entries as a specific switchdev object, and have drivers
+take over at the same level that mlxsw_sp_port_add_cls_matchall_mirror()
+currently starts?
+
+Thanks!
+-- 
+Florian
