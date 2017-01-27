@@ -1,38 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [next-20170124] Kernel oops(rt6_fill_node) during reboot of LPAR
-Date: Fri, 27 Jan 2017 08:34:15 -0700
-Message-ID: <84f3cb86-5110-64a0-5575-4024ba758135@cumulusnetworks.com>
-References: <9520531C-6458-4442-9ED5-3598E72C7C6A@linux.vnet.ibm.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][net-next] net: ethernet: aquantia: remove another redundant err check
+Date: Fri, 27 Jan 2017 15:00:25 +0000
+Message-ID: <20170127150025.18886-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@lists.ozlabs.org,
-        Stephen Rothwell <sfr@canb.auug.org.au>, davem@davemloft.net,
-        Michael Ellerman <michael@ellerman.id.au>
-To: Sachin Sant <sachinp@linux.vnet.ibm.com>,
-        "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>,
+        David VomLehn <vomlehn@texas.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:33087 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754903AbdA0PfJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:35:09 -0500
-Received: by mail-pg0-f52.google.com with SMTP id 204so82217923pge.0
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 07:34:18 -0800 (PST)
-In-Reply-To: <9520531C-6458-4442-9ED5-3598E72C7C6A@linux.vnet.ibm.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:37984 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932164AbdA0Phf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:37:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/27/17 5:54 AM, Sachin Sant wrote:
-> While rebooting PowerVM LPAR running 4.10.0-rc5-next-20170124
-> on a POWER8 box, following kernel oops is displayed.
-> 
-> This problem was introduced with next-20170123. next-20170120 works.
-> Initial analysis points to following patch included with next-20170123
-> 
-> commit a1a22c12060e4b9c52f45d4b3460f614e00162a2
-> net: ipv6: Keep nexthop of multipath route on admin down
+From: Colin Ian King <colin.king@canonical.com>
 
-Thanks for the report. Fixed by:
+The check on err < 0 is redundant and can be removed. Detected
+by CoverityScan, CID#1398318 ("Logically Dead Code")
 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1f17e2f2c8a8be3430813119fa7b633398f6185b
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+index b517b26..817c145 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+@@ -304,8 +304,6 @@ int aq_ring_rx_fill(struct aq_ring_s *self)
+ 
+ 		buff = NULL;
+ 	}
+-	if (err < 0)
+-		goto err_exit;
+ 
+ err_exit:
+ 	if (err < 0) {
+-- 
+2.10.2
