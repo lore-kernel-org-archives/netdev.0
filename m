@@ -1,84 +1,118 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] net: adjust skb->truesize in pskb_expand_head()
-Date: Fri, 27 Jan 2017 15:46:04 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0270D8B@AcuExch.aculab.com>
-References: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
-         <063D6719AE5E284EB5DD2968C1650D6DB0270970@AcuExch.aculab.com>
- <1485528261.6360.38.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Fri, 27 Jan 2017 16:41:25 +0100
+Message-ID: <20170127154125.GL24223@pali>
+References: <20170127094342.GC24223@pali>
+ <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+ <20170127101043.GD24223@pali>
+ <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
+ <20170127103408.GG24223@pali>
+ <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
+ <20170127115706.GH24223@pali>
+ <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
+ <20170127131146.GI24223@pali>
+ <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "Slava Shwartsman" <slavash@mellanox.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.185]:52044 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932733AbdA0Pq3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:46:29 -0500
-In-Reply-To: <1485528261.6360.38.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2Vu
-dDogMjcgSmFudWFyeSAyMDE3IDE0OjQ0DQo+IE9uIEZyaSwgMjAxNy0wMS0yNyBhdCAxMDo0OSAr
-MDAwMCwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IEVyaWMgRHVtYXpldA0KPiA+ID4g
-U2VudDogMjcgSmFudWFyeSAyMDE3IDAwOjIxDQo+ID4gPiBTbGF2YSBTaHdhcnRzbWFuIHJlcG9y
-dGVkIGEgd2FybmluZyBpbiBza2JfdHJ5X2NvYWxlc2NlKCksIHdoZW4gd2UNCj4gPiA+IGRldGVj
-dCBza2ItPnRydWVzaXplIGlzIGNvbXBsZXRlbHkgd3JvbmcuDQo+ID4gPg0KPiA+ID4gSW4gaGlz
-IGNhc2UsIGlzc3VlIGNhbWUgZnJvbSBJUHY2IHJlYXNzZW1ibHkgY29waW5nIHdpdGggbWFsaWNp
-b3VzDQo+ID4gPiBkYXRhZ3JhbXMsIHRoYXQgZm9yY2VkIHZhcmlvdXMgcHNrYl9tYXlfcHVsbCgp
-IHRvIHJlYWxsb2NhdGUgYSBiaWdnZXINCj4gPiA+IHNrYi0+aGVhZCB0aGFuIHRoZSBvbmUgYWxs
-b2NhdGVkIGJ5IE5JQyBkcml2ZXIgYmVmb3JlIGVudGVyaW5nIEdSTw0KPiA+ID4gbGF5ZXIuDQo+
-ID4gPg0KPiA+ID4gQ3VycmVudCBjb2RlIGRvZXMgbm90IGNoYW5nZSBza2ItPnRydWVzaXplLCBs
-ZWF2aW5nIHRoaXMgYnVyZGVuIHRvDQo+ID4gPiBjYWxsZXJzIGlmIHRoZXkgY2FyZSBlbm91Z2gu
-DQo+ID4gPg0KPiA+ID4gQmxpbmRseSBjaGFuZ2luZyBza2ItPnRydWVzaXplIGluIHBza2JfZXhw
-YW5kX2hlYWQoKSBpcyBub3QNCj4gPiA+IGVhc3ksIGFzIHNvbWUgcHJvZHVjZXJzIG1pZ2h0IHRy
-YWNrIHNrYi0+dHJ1ZXNpemUsIGZvciBleGFtcGxlDQo+ID4gPiBpbiB4bWl0IHBhdGggZm9yIGJh
-Y2sgcHJlc3N1cmUgZmVlZGJhY2sgKHNrLT5za193bWVtX2FsbG9jKQ0KPiA+ID4NCj4gPiA+IFdl
-IGNhbiBkZXRlY3QgdGhlIGNhc2VzIHdoZXJlIGl0IHNob3VsZCBiZSBzYWZlIHRvIGNoYW5nZQ0K
-PiA+ID4gc2tiLT50cnVlc2l6ZSA6DQo+ID4gPg0KPiA+ID4gMSkgc2tiIGlzIG5vdCBhdHRhY2hl
-ZCB0byBhIHNvY2tldC4NCj4gPiA+IDIpIElmIGl0IGlzIGF0dGFjaGVkIHRvIGEgc29ja2V0LCBk
-ZXN0cnVjdG9yIGlzIHNvY2tfZWRlbXV4KCkNCj4gPiAuLi4NCj4gPiA+ICBpbnQgcHNrYl9leHBh
-bmRfaGVhZChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgbmhlYWQsIGludCBudGFpbCwNCj4gPiA+
-ICAJCSAgICAgZ2ZwX3QgZ2ZwX21hc2spDQo+ID4gPiAgew0KPiA+ID4gKwlpbnQgaSwgb3NpemUg
-PSBza2JfZW5kX29mZnNldChza2IpOw0KPiA+ID4gKwlpbnQgc2l6ZSA9IG9zaXplICsgbmhlYWQg
-KyBudGFpbDsNCj4gPiA+ICAJbG9uZyBvZmY7DQo+ID4gPiArCXU4ICpkYXRhOw0KPiA+ID4NCj4g
-PiA+ICAJQlVHX09OKG5oZWFkIDwgMCk7DQo+ID4gPg0KPiA+ID4gQEAgLTEyNTcsNiArMTI1Nywx
-NCBAQCBpbnQgcHNrYl9leHBhbmRfaGVhZChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgbmhlYWQs
-IGludCBudGFpbCwNCj4gPiA+ICAJc2tiLT5oZHJfbGVuICA9IDA7DQo+ID4gPiAgCXNrYi0+bm9o
-ZHIgICAgPSAwOw0KPiA+ID4gIAlhdG9taWNfc2V0KCZza2Jfc2hpbmZvKHNrYiktPmRhdGFyZWYs
-IDEpOw0KPiA+ID4gKw0KPiA+ID4gKwkvKiBJdCBpcyBub3QgZ2VuZXJhbGx5IHNhZmUgdG8gY2hh
-bmdlIHNrYi0+dHJ1ZXNpemUuDQo+ID4gPiArCSAqIEZvciB0aGUgbW9tZW50LCB3ZSByZWFsbHkg
-Y2FyZSBvZiByeCBwYXRoLCBvcg0KPiA+ID4gKwkgKiB3aGVuIHNrYiBpcyBvcnBoYW5lZCAobm90
-IGF0dGFjaGVkIHRvIGEgc29ja2V0KQ0KPiA+ID4gKwkgKi8NCj4gPiA+ICsJaWYgKCFza2ItPnNr
-IHx8IHNrYi0+ZGVzdHJ1Y3RvciA9PSBzb2NrX2VkZW11eCkNCj4gPiA+ICsJCXNrYi0+dHJ1ZXNp
-emUgKz0gc2l6ZSAtIG9zaXplOw0KPiA+DQo+ID4gVGhhdCBjYWxjdWxhdGlvbiBkb2Vzbid0IGxv
-b2sgcmlnaHQgdG8gbWUgYXQgYWxsLg0KPiA+IElzbid0ICd0cnVlc2l6ZScgc3VwcG9zZWQgdG8g
-cmVmbGVjdCB0aGUgYW1vdW50IG9mIG1lbW9yeSBhbGxvY2F0ZWQgdG8gdGhlIHNrYi4NCj4gPiBT
-byB5b3UgbmVlZCB0aGUgZGlmZmVyZW5jZSBiZXR3ZWVuIHRoZSBzaXplIG9mIHRoZSBuZXcgYW5k
-IG9sZCBtZW1vcnkgYmxvY2tzLg0KPiA+DQo+IA0KPiBXZWxsLCBwbGVhc2UgdGFrZSBhIGxvb2sg
-YXQgdGhlIGNvZGUsIGJlY2F1c2UgSSBiZWxpZXZlIEkgZGlkIGV4YWN0bHkNCj4gdGhhdC4NCg0K
-UmVhZHMgY29kZSAuLi4NCk15IGNvbmZ1c2lvbiBpcyB0aGF0IHRoZSBjYWxsIGlzIHNwZWNpZnlp
-bmcgdGhlIG51bWJlciBvZiBFWFRSQSBieXRlcyBvZiBoZWFkL3RhaWwNCnJvb20gcmF0aGVyIHRo
-YW4gdGhlIG51bWJlciBvZiBieXRlcyBuZWVkZWQuDQoNCj4gPiBJJ20gYWxzbyBndWVzc2luZyB0
-aGF0IGV4dHJhIGhlYWRyb29tIGNhbiBiZSBnZW5lcmF0ZWQgYnkgc3RlYWxpbmcgdW51c2VkIHRh
-aWxyb29tLg0KPiANCj4gVGhpcyBpcyBhbHJlYWR5IGRvbmUuDQo+IA0KPiBRdW90aW5nDQo+IGh0
-dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dpdC9saW51eC9rZXJuZWwvZ2l0L3RvcnZhbGRzL2xpbnV4
-LmdpdC9jb21taXQvP2lkPTg3ZmI0YjdiNTMzMDczZWVlYWVkMGI2YmY3Yw0KPiAyMzI4OTk1ZjZj
-MDc1DQo+IA0KPiAgICAgQXQgc2tiIGFsbG9jIHBoYXNlLCB3ZSBwdXQgc2tiX3NoYXJlZF9pbmZv
-IHN0cnVjdCBhdCB0aGUgZXhhY3QgZW5kIG9mDQo+ICAgICBza2IgaGVhZCwgdG8gYWxsb3cgYSBi
-ZXR0ZXIgdXNlIG9mIG1lbW9yeSAobG93ZXJpbmcgbnVtYmVyIG9mDQo+ICAgICByZWFsbG9jYXRp
-b25zKSwgc2luY2Uga21hbGxvYygpIGdpdmVzIHVzIHBvd2VyLW9mLXR3byBtZW1vcnkgYmxvY2tz
-Lg0KDQpJdCBsb29rcyBhcyB0aG91Z2ggdGhhdCBqdXN0IG1ha2VzIGFsbCB0aGUgJ3NwYXJlJyBz
-cGFjZSB0YWlscm9vbS4NCk15IGd1ZXNzIGlzIHRoYXQgaGVhZHJvb20gaXMgbmVlZGVkIG1vcmUg
-b2Z0ZW4gdGhhbiB0YWlscm9vbS4NCkl0IGRvZXNuJ3QgbG9vayBhcyB0aG91Z2ggdGhlIGFtb3Vu
-dCBvZiB0YWlscm9vbSB0aGF0IGhhcyBhY3R1YWxseSBiZWVuIHJlcXVlc3RlZA0KaXMgc2F2ZWQg
-ZWl0aGVyIChub3IgaGVhZHJvb20gZm9yIHRoYXQgbWF0dGVyKS4NCg0KSSB3YXMgdGhpbmtpbmcg
-dGhhdCBwc2tiX2V4cGFuZF9oZWFkKHNrYiwgMTYsIC0xNiwgLi4uKSBjb3VsZCBiZSBpbXBsZW1l
-bnRlZA0KKG1vc3RseSkgd2l0aCBtZW1tb3ZlKCkuDQoNCkhtbW0uLi4uIEFsc28gaWYgYSBjYWxs
-ZXIgYXNrcyBmb3IgMyBleHRyYSBieXRlcyBvZiBoZWFkcm9vbSB5b3UgcmVhbGx5IHdhbnQgdG8N
-CmFsbG9jYXRlIDggZXh0cmEgYnl0ZXMgc28gdGhhdCB0aGUgbWVtY3B5KCkgaXMgYWxpZ25lZC4N
-Cg0KCURhdmlkDQoNCg0K
+On Friday 27 January 2017 17:23:07 Kalle Valo wrote:
+> Pali Rohár <pali.rohar@gmail.com> writes:
+> 
+> > On Friday 27 January 2017 14:26:22 Kalle Valo wrote:
+> >> Pali Rohár <pali.rohar@gmail.com> writes:
+> >> 
+> >> > 2) It was already tested that example NVS data can be used for N900 e.g.
+> >> > for SSH connection. If real correct data are not available it is better
+> >> > to use at least those example (and probably log warning message) so user
+> >> > can connect via SSH and start investigating where is problem.
+> >> 
+> >> I disagree. Allowing default calibration data to be used can be
+> >> unnoticed by user and left her wondering why wifi works so badly.
+> >
+> > So there are only two options:
+> >
+> > 1) Disallow it and so these users will have non-working wifi.
+> >
+> > 2) Allow those data to be used as fallback mechanism.
+> >
+> > And personally I'm against 1) because it will break wifi support for
+> > *all* Nokia N900 devices right now.
+> 
+> All two of them? :)
+
+Ehm...
+
+> But not working is exactly my point, if correct calibration data is not
+> available wifi should not work. And it's not only about functionality
+> problems, there's also the regulatory aspect.
+
+About functionality, Pavel confirmed too that SSH is somehow working...
+
+Regulatory aspect is different, but via iw can be manually configured
+some settings.
+
+> >> > 3) If we do rename *now* we will totally break wifi support on Nokia
+> >> > N900.
+> >> 
+> >> Then the distro should fix that when updating the linux-firmware
+> >> packages. Can you provide details about the setup, what distro etc?
+> >
+> > Debian stable, Ubuntu LTSs 14.04, 16.04. 
+> 
+> You can run these out of box on N900?
+
+Out-of-box I can run Kubuntu 12.04 (which is LTS too). They had prepared
+special image for N900 and I still have it on uSD card.
+
+I guess that new versions of Ubuntu could somehow work (maybe not
+out-of-box but with some changes) and Pavel has working Debian.
+
+Also basic support needed for wifi and SSH server is probably working
+with any distribution targeting armv7-a or omap3. So yes, I can say it
+is out-of-box. We will not have GSM calls or camera support, but wifi
+breakage is there.
+
+> > And I think that other LTS distributions contains that example nvs
+> > file too (I'm not going to verify others, but list will be probably
+> > long). Upgrading linux-firmware is against policy of those
+> > distributions. So no this is not an solution.
+> 
+> So instead we should workaround distro policies in kernel? Come on.
+> 
+> Seriously, just rename the file in linux-firmware and file a bug (with a
+> patch) to distros. If they don't fix the bug you just have to do a
+> custom hack for N900. But such is life.
+
+I do not see point what will be changed. I rename that file and after
+system update (or integrity check) it will be there again.
+
+And if I do that, what prevents kernel to stop using NVS file from
+/lib/firmware/? Nothing, original problem (which is going solved by this
+patch series) still remains.
+
+-- 
+Pali Rohár
+pali.rohar@gmail.com
