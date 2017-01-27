@@ -1,53 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 0/2] net: ipv6: Improve user experience with
- multipath routes
-Date: Fri, 27 Jan 2017 09:36:49 -0700
-Message-ID: <582674ce-ed9e-9c9d-d88c-a7bfe6691d89@cumulusnetworks.com>
-References: <20170124.110616.2098461870069191491.davem@davemloft.net>
- <4024f547-7f26-ab52-df9d-a0509048c7ff@6wind.com>
- <c78afc85-8d18-0f63-68b3-63925e5d8c81@cumulusnetworks.com>
- <20170126.130054.2221154789287701062.davem@davemloft.net>
- <f30ab203-47f9-e333-3552-bf5e2dbeaaf9@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: adjust skb->truesize in pskb_expand_head()
+Date: Fri, 27 Jan 2017 08:14:55 -0800
+Message-ID: <1485533695.6360.64.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB0270970@AcuExch.aculab.com>
+         <1485528261.6360.38.camel@edumazet-glaptop3.roam.corp.google.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB0270D8B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, roopa <roopa@cumulusnetworks.com>
-To: nicolas.dichtel@6wind.com, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Slava Shwartsman <slavash@mellanox.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:35089 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755239AbdA0QhX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 11:37:23 -0500
-Received: by mail-pg0-f43.google.com with SMTP id 194so82428633pgd.2
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 08:36:52 -0800 (PST)
-In-Reply-To: <f30ab203-47f9-e333-3552-bf5e2dbeaaf9@6wind.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:32802 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755097AbdA0QoZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 11:44:25 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 194so25403354pgd.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 08:44:24 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0270D8B@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/27/17 9:29 AM, Nicolas Dichtel wrote:
-> Le 26/01/2017 à 19:00, David Miller a écrit :
->> From: David Ahern <dsa@cumulusnetworks.com>
-> [snip]
->>> Quagga does not properly handle IPv6 multipath routes received from
->>> the kernel. I checked this with debian/jessie version and our
->>> version, and Donald reviewed the source. It is broken.
->>
->> If this is true, quagga is asbolutely not an argument for this "breaking"
->> something.  It doesn't break anything.
-> Ok, my tests also shows that quagga is buggy.
-> Let's change the way to advertise these routes.
-> 
-> It would be great to also use RTA_MULTIPATH when a route is deleted (like in
-> your patch 1/2).
+On Fri, 2017-01-27 at 15:46 +0000, David Laight wrote:
 
-I have updated notifications to use RTA_MULTIPATH. Working on the multipath add/delete/replace permutations now and what the notification looks like. Add/replace is easy and the notifications use RTA_MULTIPATH. Notifications for the delete path are complicated given that a delete could remove only a subset of nexthops. Given that, we might have to settle for a notification for each nexthop delete.
+> Reads code ...
+> My confusion is that the call is specifying the number of EXTRA bytes of head/tail
+> room rather than the number of bytes needed.
 
-> 
-> Note that there is still a difference between ipv4 and ipv6: in ipv4 when a
-> nexthop is added/updated/removed, the whole route must be deleted and added
-> again. In IPv6, nexthop can be managed one by one.
-> It means that in ipv4, the full route is always dumped, which is not the case in
-> ipv6.
-> 
+And the fact that @size is changed in existing code (so not visible in
+patch diff) to
 
-Yes. I have been working on how to delete a nexthop within an IPv4 route. It is much more complicated given how the route is stored compared to IPv6.
+size = SKB_WITH_OVERHEAD(ksize(data));
+
+
+> I was thinking that pskb_expand_head(skb, 16, -16, ...) could be implemented
+> (mostly) with memmove().
+
+Yes, might worth doing that if one day a caller tries that ;)
+
+In the meantime, not worth adding code that wont be reached.
+
+Thanks.
