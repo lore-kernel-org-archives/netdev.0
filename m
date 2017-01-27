@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 8/9] net: dsa: qca8k: use dsa_port's bridge pointer
-Date: Fri, 27 Jan 2017 15:29:43 -0500
-Message-ID: <20170127202944.28598-9-vivien.didelot@savoirfairelinux.com>
-References: <20170127202944.28598-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/9] net: dsa: preparatory patches for multi-chip
+Date: Fri, 27 Jan 2017 15:29:35 -0500
+Message-ID: <20170127202944.28598-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,73 +9,43 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170127202944.28598-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that DSA exposes the bridge device pointer to which a port belongs,
-use it when programming the port based VLANs and thus remove the cache.
+In order to introduce support for multi-chip configuration, we need to
+do a few enhancements. This patchset makes the number of ports in a
+switch dynamic (instead of capping to DSA_MAX_PORTS), stores the switch
+and index of a port in the dsa_port structure, uses it in the slave
+private structure, and exposes the bridge device a port belongs to.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/qca8k.c | 12 ++++--------
- drivers/net/dsa/qca8k.h |  1 -
- 2 files changed, 4 insertions(+), 9 deletions(-)
+Vivien Didelot (9):
+  net: dsa: variable number of ports
+  net: dsa: use ds->num_ports when possible
+  net: dsa: add ds and index to dsa_port
+  net: dsa: store a dsa_port in dsa_slave_priv
+  net: dsa: move bridge device in dsa_port
+  net: dsa: pass bridge device when a port leaves
+  net: dsa: mv88e6xxx: use dsa_port's bridge pointer
+  net: dsa: qca8k: use dsa_port's bridge pointer
+  net: dsa: b53: use dsa_port's bridge pointer
 
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index c85b187aa3d9..a4fd4ccf7b67 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -746,17 +746,14 @@ qca8k_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
- }
- 
- static int
--qca8k_port_bridge_join(struct dsa_switch *ds, int port,
--		       struct net_device *bridge)
-+qca8k_port_bridge_join(struct dsa_switch *ds, int port, struct net_device *br)
- {
- 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
- 	int port_mask = BIT(QCA8K_CPU_PORT);
- 	int i;
- 
--	priv->port_sts[port].bridge_dev = bridge;
--
- 	for (i = 1; i < QCA8K_NUM_PORTS; i++) {
--		if (priv->port_sts[i].bridge_dev != bridge)
-+		if (ds->ports[i].bridge_dev != br)
- 			continue;
- 		/* Add this port to the portvlan mask of the other ports
- 		 * in the bridge
-@@ -781,8 +778,7 @@ qca8k_port_bridge_leave(struct dsa_switch *ds, int port, struct net_device *br)
- 	int i;
- 
- 	for (i = 1; i < QCA8K_NUM_PORTS; i++) {
--		if (priv->port_sts[i].bridge_dev !=
--		    priv->port_sts[port].bridge_dev)
-+		if (ds->ports[i].bridge_dev != br)
- 			continue;
- 		/* Remove this port to the portvlan mask of the other ports
- 		 * in the bridge
-@@ -791,7 +787,7 @@ qca8k_port_bridge_leave(struct dsa_switch *ds, int port, struct net_device *br)
- 				QCA8K_PORT_LOOKUP_CTRL(i),
- 				BIT(port));
- 	}
--	priv->port_sts[port].bridge_dev = NULL;
-+
- 	/* Set the cpu port to be the only one in the portvlan mask of
- 	 * this port
- 	 */
-diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
-index 201464719531..1ed4fac6cd6d 100644
---- a/drivers/net/dsa/qca8k.h
-+++ b/drivers/net/dsa/qca8k.h
-@@ -157,7 +157,6 @@ enum qca8k_fdb_cmd {
- 
- struct ar8xxx_port_status {
- 	struct ethtool_eee eee;
--	struct net_device *bridge_dev;
- 	int enabled;
- };
- 
+ drivers/net/dsa/b53/b53_common.c      |  18 ++--
+ drivers/net/dsa/b53/b53_priv.h        |   3 +-
+ drivers/net/dsa/mv88e6xxx/chip.c      |  33 +++---
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |   6 --
+ drivers/net/dsa/qca8k.c               |  17 ++--
+ drivers/net/dsa/qca8k.h               |   1 -
+ include/net/dsa.h                     |  12 ++-
+ net/dsa/dsa.c                         |  21 ++--
+ net/dsa/dsa2.c                        |  34 +++++--
+ net/dsa/dsa_priv.h                    |   9 +-
+ net/dsa/slave.c                       | 182 +++++++++++++++++-----------------
+ net/dsa/tag_brcm.c                    |   6 +-
+ net/dsa/tag_dsa.c                     |  10 +-
+ net/dsa/tag_edsa.c                    |  10 +-
+ net/dsa/tag_qca.c                     |   2 +-
+ net/dsa/tag_trailer.c                 |   4 +-
+ 16 files changed, 186 insertions(+), 182 deletions(-)
+
 -- 
 2.11.0
