@@ -1,61 +1,75 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] Net: ethernet: mediatek - Fix possible NULL derefrence.
-Date: Fri, 27 Jan 2017 13:44:49 +0100
-Message-ID: <20170127124449.GB13611@Red>
-References: <CGME20170127111947epcas2p14f5ea86f0069142be02339754fda4a55@epcas2p1.samsung.com>
- <1485515980-3814-1-git-send-email-shailendra.v@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, ashish.kalra-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, p.shailesh-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Shailendra Verma <shailendra.capricorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-To: Shailendra Verma <shailendra.v-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1485515980-3814-1-git-send-email-shailendra.v-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: [PATCH] stmmac: Discard masked flags in interrupt status register
+Date: Fri, 27 Jan 2017 15:24:43 +0300
+Message-ID: <1485519883-24969-1-git-send-email-abrodkin@synopsys.com>
+Cc: linux-kernel@vger.kernel.org,
+        Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Fabrice Gasnier <fabrice.gasnier@st.com>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Phil Reid <preid@electromag.com.au>,
+        David Miller <davem@davemloft.net>,
+        Alexandre Torgue <alexandre.torgue@gmail.com>,
+        Vineet Gupta <Vineet.Gupta1@synopsys.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2017 at 04:49:40PM +0530, Shailendra Verma wrote:
-> of_match_device could return NULL, and so can cause a NULL
-> pointer dereference later.
-> 
-> Signed-off-by: Shailendra Verma <shailendra.v-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c |    4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index 4a62ffd..4495b7b 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -2369,6 +2369,10 @@ static int mtk_probe(struct platform_device *pdev)
->  	int i;
->  
->  	match = of_match_device(of_mtk_match, &pdev->dev);
-> +	if (!match) {
-> +		dev_err(&pdev->dev, "Error: No device match found\n");
-> +		return -ENODEV;
-> +	}
->  	soc = (struct mtk_soc_data *)match->data;
->  
->  	eth = devm_kzalloc(&pdev->dev, sizeof(*eth), GFP_KERNEL);
-> -- 
+DW GMAC databook says the following about bits in "Register 15 (Interrupt
+Mask Register)":
+--------------------------->8-------------------------
+When set, this bit __disables_the_assertion_of_the_interrupt_signal__
+because of the setting of XXX bit in Register 14 (Interrupt
+Status Register).
+--------------------------->8-------------------------
 
-Hello
+In fact even if we mask one bit in the mask register it doesn't prevent
+corresponding bit to appear in the status register, it only disables
+interrupt generation for corresponding event.
 
-You could use of_device_get_match_data() and simplifiy code
+But currently we expect a bit different behavior: status bits to be in
+sync with their masks, i.e. if mask for bit A is set in the mask
+register then bit A won't appear in the interrupt status register.
 
-Regards
-Corentin Labbe
+This was proven to be incorrect assumption, see discussion here [1].
+That misunderstanding causes unexpected behaviour of the GMAC, for
+example we were happy enough to just see bogus messages about link
+state changes.
+
+So from now on we'll be only checking bits that really may trigger an
+interrupt.
+
+[1] https://lkml.org/lkml/2016/11/3/413
+
+Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Fabrice Gasnier <fabrice.gasnier@st.com>
+Cc: Joachim Eastwood <manabian@gmail.com>
+Cc: Phil Reid <preid@electromag.com.au>
+Cc: David Miller <davem@davemloft.net>
+Cc: Alexandre Torgue <alexandre.torgue@gmail.com>
+Cc: Vineet Gupta <vgupta@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index be3c91c7f211..5484fd726d5a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -305,8 +305,12 @@ static int dwmac1000_irq_status(struct mac_device_info *hw,
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+ 	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
++	u32 intr_mask = readl(ioaddr + GMAC_INT_MASK);
+ 	int ret = 0;
+ 
++	/* Discard masked bits */
++	intr_status &= ~intr_mask;
++
+ 	/* Not used events (e.g. MMC interrupts) are not handled. */
+ 	if ((intr_status & GMAC_INT_STATUS_MMCTIS))
+ 		x->mmc_tx_irq_n++;
+-- 
+2.7.4
