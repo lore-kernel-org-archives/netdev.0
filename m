@@ -1,38 +1,106 @@
-From: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
-Subject: [PATCH] net: phy: micrel: KSZ8795 do not set SUPPORTED_[Asym_]Pause
-Date: Fri, 27 Jan 2017 21:39:03 +0100
-Message-ID: <20170127203903.19171-1-sean.nyekjaer@prevas.dk>
-Cc: Sean Nyekjaer <sean.nyekjaer@prevas.dk>, f.fainelli@gmail.com
-To: netdev@vger.kernel.org
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Fri, 27 Jan 2017 09:58:23 +0100
+Message-ID: <a86b620e-2404-7adf-e973-137c8a23ade8@broadcom.com>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+ <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+ <87tw8lnei3.fsf@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>,
+        =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail02.prevas.se ([62.95.78.10]:20557 "EHLO mail02.prevas.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750790AbdA0UjK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 15:39:10 -0500
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34908 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754364AbdA0I6e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 03:58:34 -0500
+Received: by mail-pf0-f176.google.com with SMTP id f144so72100166pfa.2
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 00:58:34 -0800 (PST)
+In-Reply-To: <87tw8lnei3.fsf@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As pr commit "net: phy: phy drivers should not set SUPPORTED_[Asym_]Pause"
-this phy driver should not set these feature bits.
+On 27-1-2017 8:33, Kalle Valo wrote:
+> Pali Rohár <pali.rohar@gmail.com> writes:
+> 
+>> NVS calibration data for wl1251 are model specific. Every one device with
+>> wl1251 chip has different and calibrated in factory.
+>>
+>> Not all wl1251 chips have own EEPROM where are calibration data stored. And
+>> in that case there is no "standard" place. Every device has stored them on
+>> different place (some in rootfs file, some in dedicated nand partition,
+>> some in another proprietary structure).
+>>
+>> Kernel wl1251 driver cannot support every one different storage decided by
+>> device manufacture so it will use request_firmware_prefer_user() call for
+>> loading NVS calibration data and userspace helper will be responsible to
+>> prepare correct data.
+>>
+>> In case userspace helper fails request_firmware_prefer_user() still try to
+>> load data file directly from VFS as fallback mechanism.
+>>
+>> On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
+>> in CAL nand partition. CAL is proprietary Nokia key/value format for nand
+>> devices.
+>>
+>> With this patch it is finally possible to load correct model specific NVS
+>> calibration data for Nokia N900.
+>>
+>> Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
+>> ---
+>>  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
+>>  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
+>>  2 files changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
+>> index 7142ccf..affe154 100644
+>> --- a/drivers/net/wireless/ti/wl1251/Kconfig
+>> +++ b/drivers/net/wireless/ti/wl1251/Kconfig
+>> @@ -2,6 +2,7 @@ config WL1251
+>>  	tristate "TI wl1251 driver support"
+>>  	depends on MAC80211
+>>  	select FW_LOADER
+>> +	select FW_LOADER_USER_HELPER
+>>  	select CRC7
+>>  	---help---
+>>  	  This will enable TI wl1251 driver support. The drivers make
+>> diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
+>> index 208f062..24f8866 100644
+>> --- a/drivers/net/wireless/ti/wl1251/main.c
+>> +++ b/drivers/net/wireless/ti/wl1251/main.c
+>> @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
+>>  	struct device *dev = wiphy_dev(wl->hw->wiphy);
+>>  	int ret;
+>>  
+>> -	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
+>> +	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+> 
+> I don't see the need for this. Just remove the default nvs file from
+> filesystem and the fallback user helper will be always used, right?
 
-Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
-Fixes: 9d162ed69f51 ("net: phy: micrel: add support for KSZ8795")
----
- drivers/net/phy/micrel.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Indeed. The only remaining issue would be that an error message is
+logged. Also note the fallback is only used if selected in Kconfig.
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index e55809c5beb7..6742070ca676 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -1012,7 +1012,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id		= PHY_ID_KSZ8795,
- 	.phy_id_mask	= MICREL_PHY_ID_MASK,
- 	.name		= "Micrel KSZ8795",
--	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
-+	.features	= PHY_BASIC_FEATURES,
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= ksz8873mll_config_aneg,
--- 
-2.11.0
+> Like we discussed earlier, the default nvs file should not be used by
+> normal users.
+
+Yup.
+
+Regards,
+Arend
