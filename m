@@ -1,91 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net-next 1/2] ravb: Add tx and rx clock internal delays
- mode of APSR
-Date: Fri, 27 Jan 2017 22:05:58 +0300
-Message-ID: <0570b250-83eb-fbac-de2a-0ea99a7250c2@cogentembedded.com>
-References: <1485542120-10205-1-git-send-email-horms+renesas@verge.net.au>
- <1485542120-10205-2-git-send-email-horms+renesas@verge.net.au>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
+ hard_header_len bytes in skb_headlen() to the driver
+Date: Fri, 27 Jan 2017 14:29:06 -0500
+Message-ID: <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
+References: <1485274309-201670-1-git-send-email-sowmini.varadhan@oracle.com>
+ <CAF=yD-KXqpODBVQ0vUt1a1p_mMXzzQp=5GU33f9GY9_cbPJxDw@mail.gmail.com>
+ <20170126213742.GE29475@oracle.com> <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
+ <20170127020836.GH29475@oracle.com> <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
+ <20170127151119.GB25829@oracle.com> <CAF=yD-+LS6g572Uo5oErq7uazxxPwXXo0w2p4zcHDbXxkuah6Q@mail.gmail.com>
+ <20170127170320.GD25829@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1485542120-10205-2-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36252 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750818AbdA0T36 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 14:29:58 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r126so60383864wmr.3
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 11:29:53 -0800 (PST)
+In-Reply-To: <20170127170320.GD25829@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/27/2017 09:35 PM, Simon Horman wrote:
-
-> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> On (01/27/17 10:28), Willem de Bruijn wrote:
+>> > Would it make sense to only do the CAP_SYS_RAWIO branch if the
+>> > driver declares itself to have variable length L2 headers, via, e.g.,
+>> > some priv flag?
+>>
+>> At the time, the comments were not specific to AX25. Again, we should
+>> probably put that bypass behind a flag, enabling validating in the common case.
 >
-> This patch enables tx and rx clock internal delay modes (TDM and RDM).
->
-> This is to address a failure in the case of 1Gbps communication using the
-> by salvator-x board with the KSZ9031RNX phy. This has been reported to
-> occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
->
-> With this change APSR internal delay modes are enabled for
-> "rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
->
-> phy mode   | ASPR delay mode
-> -----------+----------------
-> rgmii-id   | TDM and RDM
-> rgmii-rxid | RDM
-> rgmii-txid | TDM
->
-> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> Just to make sure I'm on the same page as you (since you have more
+> history with this one..) we are going to have a priv_flags like
+> IFF_VAR_L2HDR which (today) would only be set for ax25, and
+> we would only take the CAP_SYS_RAWIO branch for IFF_VAR_L2HDR, right?
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+I suggested a sysctl. But either approach may cause test applications
+that depend on current behavior to start failing.
 
-> ---
-> v2 [Simon Horman]
-> * As suggested by Sergei Shtylyov
->   - Add a comment to indicate that APSR_DM appears to be undocumented.
->   - Move chip_id check outside of ravb_set_delay_mode for consistency
->   - Call ravb_modify() once in ravb_set_delay_mode()
-> * Enhance comment before calls to ravb_set_delay_mode()
+As your patch state, the contract is that any packet delivered to a
+driver has the entire L2 in its linear section. Drivers are not required
+to be robust against shorter packets, so there is no reason to test
+those.
 
-    Well, I meant to say that the comment should precede the body of the 
-function, not be repeated at every call...
+One option is to limit your fix to known fixed-header protocols.
+In these cases hard_header_len is the minimum, so anything
+smaller must be dropped.
 
-> * Remove unnecessary break from end of switch statement.
-
-   Come on, you did remove all the *switch*. :-)
-
->
-> v1 [Simon Horman]
-> - Combined patches
-> - Reworded changelog
->
-> v0 [Kazuya Mizuguchi]
-> ---
->  drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++++
->  drivers/net/ethernet/renesas/ravb_main.c | 24 ++++++++++++++++++++++++
->  2 files changed, 34 insertions(+)
->
-> diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-> index f1109661a533..0525bd696d5d 100644
-> --- a/drivers/net/ethernet/renesas/ravb.h
-> +++ b/drivers/net/ethernet/renesas/ravb.h
-[...]
-> @@ -248,6 +249,15 @@ enum ESR_BIT {
->  	ESR_EIL		= 0x00001000,
->  };
->
-> +/* APSR */
-> +enum APSR_BIT {
-> +	APSR_MEMS		= 0x00000002,
-> +	APSR_CMSW		= 0x00000010,
-> +	APSR_DM			= 0x00006000,	/* Undocumented? */
-> +	APSR_DM_RDM		= 0x00002000,
-> +	APSR_DM_TDM		= 0x00004000,
-
-    The field values are also undocumented if the field is...
-
-[...]
-
-MBR, Sergei
+For protocols with variable header length it is fine to send packets
+shorter than hard_header_len, even with corrupted content (i.e.,
+even if they would fail that protocol's validate callback), as long as
+they exceed the minimum length. ax25 already has a min length
+check through its protocol-specific validate callback.
