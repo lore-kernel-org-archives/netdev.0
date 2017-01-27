@@ -1,51 +1,38 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/9] net: dsa: preparatory patches for multi-chip
-Date: Fri, 27 Jan 2017 15:29:35 -0500
-Message-ID: <20170127202944.28598-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Subject: [PATCH] net: phy: micrel: KSZ8795 do not set SUPPORTED_[Asym_]Pause
+Date: Fri, 27 Jan 2017 21:39:03 +0100
+Message-ID: <20170127203903.19171-1-sean.nyekjaer@prevas.dk>
+Cc: Sean Nyekjaer <sean.nyekjaer@prevas.dk>, f.fainelli@gmail.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail02.prevas.se ([62.95.78.10]:20557 "EHLO mail02.prevas.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750790AbdA0UjK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Jan 2017 15:39:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In order to introduce support for multi-chip configuration, we need to
-do a few enhancements. This patchset makes the number of ports in a
-switch dynamic (instead of capping to DSA_MAX_PORTS), stores the switch
-and index of a port in the dsa_port structure, uses it in the slave
-private structure, and exposes the bridge device a port belongs to.
+As pr commit "net: phy: phy drivers should not set SUPPORTED_[Asym_]Pause"
+this phy driver should not set these feature bits.
 
-Vivien Didelot (9):
-  net: dsa: variable number of ports
-  net: dsa: use ds->num_ports when possible
-  net: dsa: add ds and index to dsa_port
-  net: dsa: store a dsa_port in dsa_slave_priv
-  net: dsa: move bridge device in dsa_port
-  net: dsa: pass bridge device when a port leaves
-  net: dsa: mv88e6xxx: use dsa_port's bridge pointer
-  net: dsa: qca8k: use dsa_port's bridge pointer
-  net: dsa: b53: use dsa_port's bridge pointer
+Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
+Fixes: 9d162ed69f51 ("net: phy: micrel: add support for KSZ8795")
+---
+ drivers/net/phy/micrel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/dsa/b53/b53_common.c      |  18 ++--
- drivers/net/dsa/b53/b53_priv.h        |   3 +-
- drivers/net/dsa/mv88e6xxx/chip.c      |  33 +++---
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |   6 --
- drivers/net/dsa/qca8k.c               |  17 ++--
- drivers/net/dsa/qca8k.h               |   1 -
- include/net/dsa.h                     |  12 ++-
- net/dsa/dsa.c                         |  21 ++--
- net/dsa/dsa2.c                        |  34 +++++--
- net/dsa/dsa_priv.h                    |   9 +-
- net/dsa/slave.c                       | 182 +++++++++++++++++-----------------
- net/dsa/tag_brcm.c                    |   6 +-
- net/dsa/tag_dsa.c                     |  10 +-
- net/dsa/tag_edsa.c                    |  10 +-
- net/dsa/tag_qca.c                     |   2 +-
- net/dsa/tag_trailer.c                 |   4 +-
- 16 files changed, 186 insertions(+), 182 deletions(-)
-
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index e55809c5beb7..6742070ca676 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -1012,7 +1012,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.phy_id		= PHY_ID_KSZ8795,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+ 	.name		= "Micrel KSZ8795",
+-	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
++	.features	= PHY_BASIC_FEATURES,
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+ 	.config_init	= kszphy_config_init,
+ 	.config_aneg	= ksz8873mll_config_aneg,
 -- 
 2.11.0
