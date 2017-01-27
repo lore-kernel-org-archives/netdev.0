@@ -1,77 +1,135 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [PATCH net-next v2] macb: Common code to enable ptp support for
- MACB/GEM
-Date: Fri, 27 Jan 2017 11:06:33 +0000
-Message-ID: <BN3PR07MB2516525EBCC11BE7E5AC3ADBC9760@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
- <BN3PR07MB25163747E1520E4CE1C6164FC9760@BN3PR07MB2516.namprd07.prod.outlook.com>
- <779c1540-f4da-90ee-1fa1-c94339a892aa@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
- "boris.brezillon@free-electrons.com" <boris.brezillon@free-electrons.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "alexandre.belloni@free-electrons.com" <alexandre.belloni@free-electrons.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "richardcochran@gmail.com" <richardcochran@gmail.com>,
- Andrei Pistirica <andrei.pistirica@microchip.com>,
- "michals@xilinx.com" <michals@xilinx.com>,
- "anirudh@xilinx.com" <anirudh@xilinx.com>,
- "punnaia@xilinx.com" <punnaia@xilinx.com>,
- "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, Harini Katakam
- <harinikatakamlinux@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <779c1540-f4da-90ee-1fa1-c94339a892aa@atmel.com>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH net-next 1/2] ravb: Add tx and rx clock internal delays mode of APSR
+Date: Fri, 27 Jan 2017 12:04:49 +0100
+Message-ID: <1485515090-7570-2-git-send-email-horms+renesas@verge.net.au>
+References: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org,
+        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
+        Simon Horman <horms+renesas@verge.net.au>
+To: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:60904 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933350AbdA0LGP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 06:06:15 -0500
+In-Reply-To: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogTmljb2xhcyBGZXJyZSBbbWFpbHRv
-Om5pY29sYXMuZmVycmVAYXRtZWwuY29tXSANCj5TZW50OiAyNyBzdHljem5pYSAyMDE3IDExOjI4
-DQo+U3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCB2Ml0gbWFjYjogQ29tbW9uIGNvZGUgdG8g
-ZW5hYmxlIHB0cCBzdXBwb3J0IGZvciBNQUNCL0dFTQ0KPg0KPkxlIDI3LzAxLzIwMTcgw6AgMTE6
-MjYsIFJhZmFsIE96aWVibG8gYSDDqWNyaXQgOg0KPj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
-LS0tDQo+Pj4gRnJvbTogSGFyaW5pIEthdGFrYW0gW21haWx0bzpoYXJpbmlrYXRha2FtbGludXhA
-Z21haWwuY29tXSANCj4+PiBTZW50OiAyNyBzdHljem5pYSAyMDE3IDA2OjQzDQo+Pj4gU3ViamVj
-dDogUmU6IFtQQVRDSCBuZXQtbmV4dCB2Ml0gbWFjYjogQ29tbW9uIGNvZGUgdG8gZW5hYmxlIHB0
-cCBzdXBwb3J0IGZvciBNQUNCL0dFTQ0KPj4+DQo+Pj4gSGkgUmFmYWwsDQo+Pj4NCj4+PiBPbiBU
-aHUsIEphbiAyNiwgMjAxNyBhdCA4OjQ1IFBNLCBSYWZhbCBPemllYmxvIDxyYWZhbG9AY2FkZW5j
-ZS5jb20+IHdyb3RlOg0KPj4+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4+Pj4+IEZy
-b206IEFuZHJlaSBQaXN0aXJpY2EgW21haWx0bzphbmRyZWkucGlzdGlyaWNhQG1pY3JvY2hpcC5j
-b21dDQo+Pj4+PiBTZW50OiAxOSBzdHljem5pYSAyMDE3IDE2OjU2DQo+Pj4+PiBTdWJqZWN0OiBb
-UEFUQ0ggbmV0LW5leHQgdjJdIG1hY2I6IENvbW1vbiBjb2RlIHRvIGVuYWJsZSBwdHAgc3VwcG9y
-dCBmb3IgTUFDQi9HRU0NCj4+Pj4+DQo+Pj4+Pg0KPj4+Pj4gK3N0YXRpYyBpbmxpbmUgYm9vbCBn
-ZW1faGFzX3B0cChzdHJ1Y3QgbWFjYiAqYnApDQo+Pj4+PiArew0KPj4+Pj4gKyAgICAgcmV0dXJu
-ICEhKGJwLT5jYXBzICYgTUFDQl9DQVBTX0dFTV9IQVNfUFRQKTsNCj4+Pj4+ICt9DQo+Pj4+IFdo
-eSBkb24ndCB5b3UgdXNlIGhhcmR3YXJlIGNhcGFiaWxpdGllcyBoZXJlPyBXb3VsZCBpdCBiZSBi
-ZXR0ZXIgdG8gcmVhZCBpdCBmcm9tIGhhcmR3YXJlIGluc3RlYWQgYWRkaW5nIGl0IHRvIG1hbnkg
-Y29uZmlndXJhdGlvbj8NCj4+Pg0KPj4+IElmIHlvdSBhcmUgcmVmZXJyaW5nIHRvIFRTVSBiaXQg
-aW4gRENGRzUsIHRoZW4gd2Ugd2lsbCBiZSByZWx5aW5nIG9uDQo+Pj4gQ2FkZW5jZSBJUCdzIGlu
-Zm9ybWF0aW9uIGlycmVzcGVjdGl2ZSBvZiB0aGUgU29DIGNhcGFiaWxpdHkNCj4+PiBhbmQgd2hl
-dGhlciB0aGUgUFRQIHN1cHBvcnQgd2FzIGFkZXF1YXRlLg0KPj4+IEkgdGhpbmsgdGhlIGNhcGFi
-aWxpdHkgYXBwcm9hY2ggZ2l2ZXMgYmV0dGVyIGNvbnRyb2wgYW5kDQo+Pj4gaXQgaXMgbm90IHJl
-YWxseSBtdWNoIHRvIGFkZC4NCj4+Pg0KPj4+IFJlZ2FyZHMsDQo+Pj4gSGFyaW5pDQo+Pj4NCj4+
-IFllcywgSSdtIHJlZmVycmluZyB0byBUU1UgYml0Lg0KPj4gV2hhdCBpZiBTb0MgY29udGFpbnMg
-bXVsdGlwbGUgQ2FkZW5jZSBHRU1zLCBzb21lIHdpdGggUFRQIHN1cHBvcnQgYW5kIG90aGVycyB3
-aXRob3V0Pw0KPg0KPlNpbXBseSBkZWZpbmUgZGlmZmVyZW50IERUIGNvbXBhdGliaWxpdHkgc3Ry
-aW5ncyBhbmQgd2UncmUgZ29vZC4NCg0KV2hhdCB3aXRoIEdFTSBvbiBQQ0kgPyBUaGVyZSBpcyBu
-byBEVC4NCg0KPj4gUmVsZXZhbnQgd2lsbCBiZSBjaGVja2luZyBib3RoLCBoYXJkd2FyZSBjYXBh
-YmlsaXRpZXMgYW5kIFNvQyBjYXBhYmlsaXRpZXMgZnJvbSAiY2FwcyIgZmllbGQuDQo+PiANCj4N
-Cj4NCj4tLSANCj5OaWNvbGFzIEZlcnJlDQo+DQpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1h
-cm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcv
-bWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+
+This patch enables tx and rx clock internal delay modes (TDM and RDM).
+
+This is to address a failure in the case of 1Gbps communication using the
+by salvator-x board with the KSZ9031RNX phy. This has been reported to
+occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
+
+With this change APSR internal delay modes are enabled for
+"rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
+
+phy mode   | ASPR delay mode
+-----------+----------------
+rgmii-id   | TDM and RDM
+rgmii-rxid | RDM
+rgmii-txid | TDM
+
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+---
+v1 [Simon Horman]
+- Combined patches
+- Reworded changelog
+
+v0 [Kazuya Mizuguchi]
+---
+ drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++++
+ drivers/net/ethernet/renesas/ravb_main.c | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 39 insertions(+)
+
+diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
+index f1109661a533..d7c91d48cc48 100644
+--- a/drivers/net/ethernet/renesas/ravb.h
++++ b/drivers/net/ethernet/renesas/ravb.h
+@@ -76,6 +76,7 @@ enum ravb_reg {
+ 	CDAR20	= 0x0060,
+ 	CDAR21	= 0x0064,
+ 	ESR	= 0x0088,
++	APSR	= 0x008C,	/* R-Car Gen3 only */
+ 	RCR	= 0x0090,
+ 	RQC0	= 0x0094,
+ 	RQC1	= 0x0098,
+@@ -248,6 +249,15 @@ enum ESR_BIT {
+ 	ESR_EIL		= 0x00001000,
+ };
+ 
++/* APSR */
++enum APSR_BIT {
++	APSR_MEMS		= 0x00000002,
++	APSR_CMSW		= 0x00000010,
++	APSR_DM			= 0x00006000,
++	APSR_DM_RDM		= 0x00002000,
++	APSR_DM_TDM		= 0x00004000,
++};
++
+ /* RCR */
+ enum RCR_BIT {
+ 	RCR_EFFS	= 0x00000001,
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 89ac1e3f6175..9fb4c04c5885 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1904,6 +1904,29 @@ static void ravb_set_config_mode(struct net_device *ndev)
+ 	}
+ }
+ 
++static void ravb_set_delay_mode(struct net_device *ndev)
++{
++	struct ravb_private *priv = netdev_priv(ndev);
++
++	if (priv->chip_id != RCAR_GEN2) {
++		switch (priv->phy_interface) {
++		case PHY_INTERFACE_MODE_RGMII_ID:
++			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM |
++				   APSR_DM_TDM);
++			break;
++		case PHY_INTERFACE_MODE_RGMII_RXID:
++			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM);
++			break;
++		case PHY_INTERFACE_MODE_RGMII_TXID:
++			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_TDM);
++			break;
++		default:
++			ravb_modify(ndev, APSR, APSR_DM, 0);
++			break;
++		}
++	}
++}
++
+ static int ravb_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+@@ -2016,6 +2039,9 @@ static int ravb_probe(struct platform_device *pdev)
+ 	/* Request GTI loading */
+ 	ravb_modify(ndev, GCCR, GCCR_LTI, GCCR_LTI);
+ 
++	/* Set APSR */
++	ravb_set_delay_mode(ndev);
++
+ 	/* Allocate descriptor base address table */
+ 	priv->desc_bat_size = sizeof(struct ravb_desc) * DBAT_ENTRY_NUM;
+ 	priv->desc_bat = dma_alloc_coherent(ndev->dev.parent, priv->desc_bat_size,
+@@ -2152,6 +2178,9 @@ static int __maybe_unused ravb_resume(struct device *dev)
+ 	/* Request GTI loading */
+ 	ravb_modify(ndev, GCCR, GCCR_LTI, GCCR_LTI);
+ 
++	/* Set APSR */
++	ravb_set_delay_mode(ndev);
++
+ 	/* Restore descriptor base address table */
+ 	ravb_write(ndev, priv->desc_bat_dma, DBAT);
+ 
+-- 
+2.7.0.rc3.207.g0ac5344
