@@ -1,62 +1,56 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Fri, 27 Jan 2017 20:05:07 +0200
-Message-ID: <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com> <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: netvsc NAPI patch process
+Date: Fri, 27 Jan 2017 09:39:53 -0800
+Message-ID: <20170127093953.5305de3c@xeon-e3>
+References: <20170126100405.0eac2dea@xeon-e3>
+        <20170126.130646.2180422281199593870.davem@davemloft.net>
+        <20170127075406.GC31443@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kys@microsoft.com,
+        netdev@vger.kernel.org
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:35178 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750917AbdA0Sbs (ORCPT
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:33512 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750896AbdA0Sbs (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:31:48 -0500
-Received: by mail-qt0-f195.google.com with SMTP id s58so6835926qtc.2
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:31:22 -0800 (PST)
-In-Reply-To: <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
+Received: by mail-pg0-f42.google.com with SMTP id 204so83240184pge.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:30:45 -0800 (PST)
+In-Reply-To: <20170127075406.GC31443@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 7:50 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Fri, Jan 27, 2017 at 9:38 AM, Saeed Mahameed
-> <saeedm@dev.mellanox.co.il> wrote:
->> On Fri, Jan 27, 2017 at 7:34 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
->>>> Add a configuration option (CONFIG_MLX5_CORE_ESWITCH) for controlling
->>>> whether the eswitch code is built. Change Kconfig and Makefile
->>>> accordingly.
->>>
->>> Tom, FWIW, please note that the basic e-switch functionality is needed
->>> also when SRIOV isn't of use, this is for a multi host configuration.
->>>
->>
->> Right, set_l2_table_entry@eswitch.c need to be called by PF for any UC
->> MAC address wanted by VF or PF.
->> To keep one flow in the code, the implementation is done as part of eswitch.
->>
->> so in multi-host configuration (where there are 4 PFs) each PF should
->> invoke set_l2_table_entry_cmd  for each one of its own UC MACs.
->>
->> populating the l2 table is done using the whole eswitch event driven
->> mechanisms, it is not easy and IMH not right to separate eswitch
->> tables from l2 table (same management logic, different tables).
->>
->> Anyways as Or stated this is just an FYI, eswitch needs to be enabled
->> on Multi-host configuration.
->>
-> What indicate a multi-host configuration?
+On Fri, 27 Jan 2017 08:54:06 +0100
+Greg KH <greg@kroah.com> wrote:
 
-nothing in the driver, it is transparent.
+> On Thu, Jan 26, 2017 at 01:06:46PM -0500, David Miller wrote:
+> > From: Stephen Hemminger <stephen@networkplumber.org>
+> > Date: Thu, 26 Jan 2017 10:04:05 -0800
+> >   
+> > > I have a working set of patches to enable NAPI in the netvsc driver.
+> > > The problem is that it requires a set of patches to vmbus layer as well.
+> > > Since vmbus patches have been going through char-misc-next tree rather
+> > > than net-next, it is difficult to stage these.
+> > > 
+> > > How about if I send the vmbus patches through normal driver-devel upstream
+> > > and during the 4.10 merge window send the last 3 patches for NAPI for linux-net
+> > > tree to get into 4.10?  
+> > 
+> > Another option is that the char-misc-next folks create a branch with just
+> > the commits you need for NAPI, I pull that into net-next, and then you
+> > can submit the NAPI changes to me.  
+> 
+> I can easily do that, or I have no problem with the vmbus changes going
+> through the net-next tree, if they are sane (i.e. let me review them
+> please...)  Which ever is easier for the networking developers, their
+> tree is much crazier than the tiny char-misc tree is :)
+> 
+> thanks,
+> 
+> greg k-h
 
->
->>> Or.
->>>
->>> My WW (and same for the rest of the IL team..) has ended so I will be
->>> able to further look on this series and comment on Sunday.
+I just want the least pain and the least overhead process. Waiting two releases
+and trying to deal with merge conflicts is a pain. Also it makes life harder
+with distro backports etc.
