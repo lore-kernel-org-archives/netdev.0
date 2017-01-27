@@ -1,319 +1,74 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [net 7/8] net/mlx5e: Fix update of hash function/key via ethtool
-Date: Fri, 27 Jan 2017 13:50:27 -0800
-Message-ID: <CALx6S35H0n5MTjzjMJxnRegWBsznqccAohih-GkioifBqZTR5g@mail.gmail.com>
-References: <20170127203843.3206-1-saeedm@mellanox.com> <20170127203843.3206-8-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Gal Pressman <galp@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH 1/5] [net-next] net: qcom/emac: display the phy driver info after we connect
+Date: Fri, 27 Jan 2017 16:43:43 -0600
+Message-ID: <1485557028-32510-2-git-send-email-timur@codeaurora.org>
+References: <1485557028-32510-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:36609 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751178AbdA0Vu2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:50:28 -0500
-Received: by mail-qt0-f194.google.com with SMTP id h53so12467138qth.3
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:50:28 -0800 (PST)
-In-Reply-To: <20170127203843.3206-8-saeedm@mellanox.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:57234 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750851AbdA0Wzl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 17:55:41 -0500
+In-Reply-To: <1485557028-32510-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 12:38 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
-> From: Gal Pressman <galp@mellanox.com>
->
-> Modifying TIR hash should change selected fields bitmask in addition to
-> the function and key.
-> Formerly, we would not set this field resulting in zeroing of its value,
-> which means no packet fields are used for RX RSS hash calculation thus
-> causing all traffic to arrive in RQ[0].
->
-This commit log is rather scant in details. Does this mean that RSS is
-somehow broken in mlx5? What is exact test that demonstrates bad
-behavior? Did you verify that this doesn't break IPv4 or IPv6?
+The PHY driver is attached only when the driver calls
+phy_connect_direct().  Calling phy_attached_print() to display
+information about the PHY driver prior to that point is meaningless.
+The interface can be brought down, a new PHY driver can be loaded,
+and the interface then brought back up.  This is the correct time
+to display information about the attached driver.
 
-> Fixes: bdfc028de1b3 ("net/mlx5e: Fix ethtool RX hash func configuration change")
-> Signed-off-by: Gal Pressman <galp@mellanox.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/en.h       |   3 +-
->  .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  13 +-
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 198 ++++++++++-----------
->  3 files changed, 109 insertions(+), 105 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> index 1619147a63e8..d5ecb8f53fd4 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> @@ -791,7 +791,8 @@ void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
->  int mlx5e_modify_rqs_vsd(struct mlx5e_priv *priv, bool vsd);
->
->  int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz, int ix);
-> -void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv);
-> +void mlx5e_build_indir_tir_ctx_hash(struct mlx5e_priv *priv, void *tirc,
-> +                                   enum mlx5e_traffic_types tt);
->
->  int mlx5e_open_locked(struct net_device *netdev);
->  int mlx5e_close_locked(struct net_device *netdev);
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-> index 6f4eb34259f0..bb67863aa361 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-> @@ -980,15 +980,18 @@ static int mlx5e_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
->
->  static void mlx5e_modify_tirs_hash(struct mlx5e_priv *priv, void *in, int inlen)
->  {
-> -       struct mlx5_core_dev *mdev = priv->mdev;
->         void *tirc = MLX5_ADDR_OF(modify_tir_in, in, ctx);
-> -       int i;
-> +       struct mlx5_core_dev *mdev = priv->mdev;
-> +       int ctxlen = MLX5_ST_SZ_BYTES(tirc);
-> +       int tt;
->
->         MLX5_SET(modify_tir_in, in, bitmask.hash, 1);
-> -       mlx5e_build_tir_ctx_hash(tirc, priv);
->
-> -       for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
-> -               mlx5_core_modify_tir(mdev, priv->indir_tir[i].tirn, in, inlen);
-> +       for (tt = 0; tt < MLX5E_NUM_INDIR_TIRS; tt++) {
-> +               memset(tirc, 0, ctxlen);
-> +               mlx5e_build_indir_tir_ctx_hash(priv, tirc, tt);
-> +               mlx5_core_modify_tir(mdev, priv->indir_tir[tt].tirn, in, inlen);
-> +       }
->  }
->
->  static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index 948351ae5bd2..f14ca3385fdd 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -2022,8 +2022,23 @@ static void mlx5e_build_tir_ctx_lro(void *tirc, struct mlx5e_priv *priv)
->         MLX5_SET(tirc, tirc, lro_timeout_period_usecs, priv->params.lro_timeout);
->  }
->
-> -void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv)
-> +void mlx5e_build_indir_tir_ctx_hash(struct mlx5e_priv *priv, void *tirc,
-> +                                   enum mlx5e_traffic_types tt)
->  {
-> +       void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
-> +
-> +#define MLX5_HASH_IP            (MLX5_HASH_FIELD_SEL_SRC_IP   |\
-> +                                MLX5_HASH_FIELD_SEL_DST_IP)
-> +
-> +#define MLX5_HASH_IP_L4PORTS    (MLX5_HASH_FIELD_SEL_SRC_IP   |\
-> +                                MLX5_HASH_FIELD_SEL_DST_IP   |\
-> +                                MLX5_HASH_FIELD_SEL_L4_SPORT |\
-> +                                MLX5_HASH_FIELD_SEL_L4_DPORT)
-> +
-> +#define MLX5_HASH_IP_IPSEC_SPI  (MLX5_HASH_FIELD_SEL_SRC_IP   |\
-> +                                MLX5_HASH_FIELD_SEL_DST_IP   |\
-> +                                MLX5_HASH_FIELD_SEL_IPSEC_SPI)
-> +
->         MLX5_SET(tirc, tirc, rx_hash_fn,
->                  mlx5e_rx_hash_fn(priv->params.rss_hfunc));
->         if (priv->params.rss_hfunc == ETH_RSS_HASH_TOP) {
-> @@ -2035,6 +2050,88 @@ void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv)
->                 MLX5_SET(tirc, tirc, rx_hash_symmetric, 1);
->                 memcpy(rss_key, priv->params.toeplitz_hash_key, len);
->         }
-> +
-> +       switch (tt) {
-> +       case MLX5E_TT_IPV4_TCP:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV4);
-> +               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> +                        MLX5_L4_PROT_TYPE_TCP);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_L4PORTS);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV6_TCP:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV6);
-> +               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> +                        MLX5_L4_PROT_TYPE_TCP);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_L4PORTS);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV4_UDP:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV4);
-> +               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> +                        MLX5_L4_PROT_TYPE_UDP);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_L4PORTS);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV6_UDP:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV6);
-> +               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> +                        MLX5_L4_PROT_TYPE_UDP);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_L4PORTS);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV4_IPSEC_AH:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV4);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_IPSEC_SPI);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV6_IPSEC_AH:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV6);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_IPSEC_SPI);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV4_IPSEC_ESP:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV4);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_IPSEC_SPI);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV6_IPSEC_ESP:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV6);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP_IPSEC_SPI);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV4:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV4);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP);
-> +               break;
-> +
-> +       case MLX5E_TT_IPV6:
-> +               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> +                        MLX5_L3_PROT_TYPE_IPV6);
-> +               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> +                        MLX5_HASH_IP);
-> +               break;
-> +       default:
-> +               WARN_ONCE(true, "%s: bad traffic type!\n", __func__);
-> +       }
->  }
->
->  static int mlx5e_modify_tirs_lro(struct mlx5e_priv *priv)
-> @@ -2404,110 +2501,13 @@ void mlx5e_cleanup_nic_tx(struct mlx5e_priv *priv)
->  static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
->                                       enum mlx5e_traffic_types tt)
->  {
-> -       void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
-> -
->         MLX5_SET(tirc, tirc, transport_domain, priv->mdev->mlx5e_res.td.tdn);
->
-> -#define MLX5_HASH_IP            (MLX5_HASH_FIELD_SEL_SRC_IP   |\
-> -                                MLX5_HASH_FIELD_SEL_DST_IP)
-> -
-> -#define MLX5_HASH_IP_L4PORTS    (MLX5_HASH_FIELD_SEL_SRC_IP   |\
-> -                                MLX5_HASH_FIELD_SEL_DST_IP   |\
-> -                                MLX5_HASH_FIELD_SEL_L4_SPORT |\
-> -                                MLX5_HASH_FIELD_SEL_L4_DPORT)
-> -
-> -#define MLX5_HASH_IP_IPSEC_SPI  (MLX5_HASH_FIELD_SEL_SRC_IP   |\
-> -                                MLX5_HASH_FIELD_SEL_DST_IP   |\
-> -                                MLX5_HASH_FIELD_SEL_IPSEC_SPI)
-> -
->         mlx5e_build_tir_ctx_lro(tirc, priv);
->
->         MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
->         MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
-> -       mlx5e_build_tir_ctx_hash(tirc, priv);
-> -
-> -       switch (tt) {
-> -       case MLX5E_TT_IPV4_TCP:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV4);
-> -               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> -                        MLX5_L4_PROT_TYPE_TCP);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_L4PORTS);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV6_TCP:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV6);
-> -               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> -                        MLX5_L4_PROT_TYPE_TCP);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_L4PORTS);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV4_UDP:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV4);
-> -               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> -                        MLX5_L4_PROT_TYPE_UDP);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_L4PORTS);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV6_UDP:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV6);
-> -               MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
-> -                        MLX5_L4_PROT_TYPE_UDP);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_L4PORTS);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV4_IPSEC_AH:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV4);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_IPSEC_SPI);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV6_IPSEC_AH:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV6);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_IPSEC_SPI);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV4_IPSEC_ESP:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV4);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_IPSEC_SPI);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV6_IPSEC_ESP:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV6);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP_IPSEC_SPI);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV4:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV4);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP);
-> -               break;
-> -
-> -       case MLX5E_TT_IPV6:
-> -               MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
-> -                        MLX5_L3_PROT_TYPE_IPV6);
-> -               MLX5_SET(rx_hash_field_select, hfso, selected_fields,
-> -                        MLX5_HASH_IP);
-> -               break;
-> -       default:
-> -               WARN_ONCE(true,
-> -                         "mlx5e_build_indir_tir_ctx: bad traffic type!\n");
-> -       }
-> +       mlx5e_build_indir_tir_ctx_hash(priv, tirc, tt);
->  }
->
->  static void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
-> --
-> 2.11.0
->
+Since phy_attached_print() also prints information about the
+interrupt, that needs to be set as well.
+
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c | 4 +++-
+ drivers/net/ethernet/qualcomm/emac/emac-phy.c | 3 ---
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+index e4793d7..155e273 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+@@ -981,6 +981,7 @@ int emac_mac_up(struct emac_adapter *adpt)
+ 	emac_mac_config(adpt);
+ 	emac_mac_rx_descs_refill(adpt, &adpt->rx_q);
+ 
++	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
+ 	ret = phy_connect_direct(netdev, adpt->phydev, emac_adjust_link,
+ 				 PHY_INTERFACE_MODE_SGMII);
+ 	if (ret) {
+@@ -988,11 +989,12 @@ int emac_mac_up(struct emac_adapter *adpt)
+ 		return ret;
+ 	}
+ 
++	phy_attached_print(adpt->phydev, NULL);
++
+ 	/* enable mac irq */
+ 	writel((u32)~DIS_INT, adpt->base + EMAC_INT_STATUS);
+ 	writel(adpt->irq.mask, adpt->base + EMAC_INT_MASK);
+ 
+-	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
+ 	phy_start(adpt->phydev);
+ 
+ 	napi_enable(&adpt->rx_q.napi);
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+index 1d7852f..441c1936 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-phy.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+@@ -226,8 +226,5 @@ int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 		return -ENODEV;
+ 	}
+ 
+-	if (adpt->phydev->drv)
+-		phy_attached_print(adpt->phydev, NULL);
+-
+ 	return 0;
+ }
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
