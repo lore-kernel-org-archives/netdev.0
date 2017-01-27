@@ -1,37 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] net: phy: broadcom: add support for
- BCM54210E
-Date: Fri, 27 Jan 2017 11:29:36 -0500 (EST)
-Message-ID: <20170127.112936.1094276411809218039.davem@davemloft.net>
-References: <20170127104705.25162-1-zajec5@gmail.com>
-        <20170127130701.4191-1-zajec5@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next 0/2] ravb: Support 1Gbps on R-Car H3 ES1.1+ and
+ R-Car M3-W
+Date: Fri, 27 Jan 2017 17:34:20 +0100
+Message-ID: <20170127163417.GA7336@verge.net.au>
+References: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
+ <CAMuHMdUdHVcFpQyqtngps__Z99vWBYbs1vVvVSLvKBWSEkOrgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: 8bit
-Cc: f.fainelli@gmail.com, xow@google.com, joel@jms.id.au,
-        jon.mason@broadcom.com, jaedon.shin@gmail.com,
-        netdev@vger.kernel.org, rafal@milecki.pl
-To: zajec5@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39490 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755123AbdA0Q3i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 11:29:38 -0500
-In-Reply-To: <20170127130701.4191-1-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdUdHVcFpQyqtngps__Z99vWBYbs1vVvVSLvKBWSEkOrgw@mail.gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rafa©© Mi©©ecki <zajec5@gmail.com>
-Date: Fri, 27 Jan 2017 14:07:01 +0100
-
-> From: Rafa©© Mi©©ecki <rafal@milecki.pl>
+On Fri, Jan 27, 2017 at 01:16:43PM +0100, Geert Uytterhoeven wrote:
+> Hi Simon,
 > 
-> It's Broadcom PHY simply described as single-port
-> RGMII 10/100/1000BASE-T PHY. It requires disabling delay skew and GTXCLK
-> bits.
+> On Fri, Jan 27, 2017 at 12:04 PM, Simon Horman
+> <horms+renesas@verge.net.au> wrote:
+> > The path from Mizuguchi-san is to address timing problems observed with
+> > gigabit transfers. I would like it considered although my own testing on
+> > M3-W did not show any timing problems.
 > 
-> Signed-off-by: Rafa©© Mi©©ecki <rafal@milecki.pl>
-> ---
-> V2: Include include/linux/brcmphy.h change I forgot to commit
+> Is there any relation with the *-skew-ps properties in the DTS in the BSP?
 
-Applied, thanks.
+Yes, I believe they are also intended to address timeouts.
+I plan to post them too.
