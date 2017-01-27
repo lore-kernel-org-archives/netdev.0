@@ -1,56 +1,137 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 net] net: free ip_vs_dest structs when refcnt=0
-Date: Fri, 27 Jan 2017 13:21:11 +0100
-Message-ID: <20170127122111.GA2495@salvia>
-References: <1485228269-21758-1-git-send-email-dwindsor@gmail.com>
- <alpine.LFD.2.11.1701262241280.3892@ja.home.ssi.bg>
- <20170127080738.GD21195@verge.net.au>
+From: Halil Pasic <pasic@linux.vnet.ibm.com>
+Subject: Re: [BUG/RFC] vhost: net: big endian viring access despite virtio 1
+Date: Fri, 27 Jan 2017 13:24:13 +0100
+Message-ID: <f5c0779f-f7b0-0e0c-5f20-4161b5c70394@linux.vnet.ibm.com>
+References: <a08f491a-1320-607e-f450-d32ce2c9e2f5@linux.vnet.ibm.com>
+	<20170126211511-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, David Windsor <dwindsor@gmail.com>,
-        netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-        netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-        wensong@linux-vs.org, keescook@chromium.org,
-        elena.reshetova@intel.com, ishkamiel@gmail.com
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170127080738.GD21195@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, Greg Kurz <groug@kaod.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170126211511-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2017 at 09:07:38AM +0100, Simon Horman wrote:
-> On Thu, Jan 26, 2017 at 10:49:10PM +0200, Julian Anastasov wrote:
-> > 
-> > 	Hello,
-> > 
-> > On Mon, 23 Jan 2017, David Windsor wrote:
-> > 
-> > > Currently, the ip_vs_dest cache frees ip_vs_dest objects when their
-> > > reference count becomes < 0.  Aside from not being semantically sound,
-> > > this is problematic for the new type refcount_t, which will be introduced
-> > > shortly in a separate patch. refcount_t is the new kernel type for
-> > > holding reference counts, and provides overflow protection and a
-> > > constrained interface relative to atomic_t (the type currently being
-> > > used for kernel reference counts).
-> > > 
-> > > Per Julian Anastasov: "The problem is that dest_trash currently holds
-> > > deleted dests (unlinked from RCU lists) with refcnt=0."  Changing
-> > > dest_trash to hold dest with refcnt=1 will allow us to free ip_vs_dest
-> > > structs when their refcnt=0, in ip_vs_dest_put_and_free().
-> > > 
-> > > Signed-off-by: David Windsor <dwindsor@gmail.com>
-> > 
-> > 	Thanks! I tested the first version and this one
-> > just adds the needed changes in comments, so
-> > 
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> > 
-> > 	Simon and Pablo, this is more appropriate for
-> > ipvs-next/nf-next. Please apply!
-> 
-> Pablo, would you mind taking this one directly into nf-next?
-> 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Sure, no problem. I'll take it. Thanks!
+
+On 01/26/2017 08:20 PM, Michael S. Tsirkin wrote:
+> On Thu, Jan 26, 2017 at 06:39:14PM +0100, Halil Pasic wrote:
+>>
+>> Hi!
+>>
+>> Recently I have been investigating some strange migration problems on
+>> s390x.
+>>
+>> It turned out under certain circumstances vhost_net corrupts avail.idx by
+>> using wrong endianness.
+
+[..]
+
+>> -------------------------8<--------------
+>> >From b26e2bbdc03832a0204ee2b42967a1b49a277dc8 Mon Sep 17 00:00:00 2001
+>> From: Halil Pasic <pasic@linux.vnet.ibm.com>
+>> Date: Thu, 26 Jan 2017 00:06:15 +0100
+>> Subject: [PATCH] vhost: remove useless/dangerous reset of is_le
+>>
+>> The reset of is_le does no good, but it contributes its fair share to a
+>> bug in vhost_net, which occurs if we have some oldubufs when stopping and
+>> setting a fd = -1 as a backend. Instead of doing something convoluted in
+>> vhost_net, let's just get rid of the reset.
+>>
+>> Signed-off-by: Halil Pasic <pasic@linux.vnet.ibm.com>
+>> Fixes: commit 2751c9882b94 
+>> ---
+>>  drivers/vhost/vhost.c | 4 +---
+>>  1 file changed, 1 insertion(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>> index d643260..08072a2 100644
+>> --- a/drivers/vhost/vhost.c
+>> +++ b/drivers/vhost/vhost.c
+>> @@ -1714,10 +1714,8 @@ int vhost_vq_init_access(struct vhost_virtqueue *vq)
+>>         int r;
+>>         bool is_le = vq->is_le;
+>>
+>> -       if (!vq->private_data) {
+>> -               vhost_reset_is_le(vq);
+>> +       if (!vq->private_data)
+>>                 return 0;
+>> -       }
+>>
+>>         vhost_init_is_le(vq);
+> 
+> 
+> I think you do need to reset it, just maybe within vhost_init_is_le.
+> 
+>         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
+>                 vq->is_le = true;
+> 	else
+> 		vhost_reset_is_le(vq);
+> 
+> 
+
+That is a very good point! I have overlooked that while the 
+CONFIG_VHOST_CROSS_ENDIAN_LEGACY variant
+
+static void vhost_init_is_le(struct vhost_virtqueue *vq)
+{
+        /* Note for legacy virtio: user_be is initialized at reset time
+         * according to the host endianness. If userspace does not set an
+         * explicit endianness, the default behavior is native endian, as
+         * expected by legacy virtio.
+         */
+        vq->is_le = vhost_has_feature(vq, VIRTIO_F_VERSION_1) || !vq->user_be;
+}
+
+is fine the other variant 
+
+static void vhost_init_is_le(struct vhost_virtqueue *vq)
+{
+        if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
+                vq->is_le = true;
+}
+is a very strange initializer (makes assumptions about the state
+to be initialized).
+
+I agree, setting native endianness there sounds very reasonable.
+
+I have a question regarding readability. IMHO the relationship
+of reset_is_le and int_is_le is a bit confusing, and I'm afraid
+it could become even more confusing with using reset in one of
+the init_is_le's.
+
+How about we do the following?
+
+static void vhost_init_is_le(struct vhost_virtqueue *vq)
+{
+        if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
+                vq->is_le = true;
++       else
++               vq->is_le = virtio_legacy_is_little_endian();
+
+}
+
+static void vhost_reset_is_le(struct vhost_virtqueue *vq)
+{
+-       vq->is_le = virtio_legacy_is_little_endian();
++       vhost_init_is_le(vq);
+}
+
+That way we would have correct endianness both after reset
+and after init, I think :).
+
+Thank you very much!
+
+Halil
