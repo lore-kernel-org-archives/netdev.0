@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 5/9] net: dsa: move bridge device in dsa_port
-Date: Fri, 27 Jan 2017 15:29:40 -0500
-Message-ID: <20170127202944.28598-6-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/9] net: dsa: variable number of ports
+Date: Fri, 27 Jan 2017 15:29:36 -0500
+Message-ID: <20170127202944.28598-2-vivien.didelot@savoirfairelinux.com>
 References: <20170127202944.28598-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,82 +14,156 @@ In-Reply-To: <20170127202944.28598-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the bridge_dev pointer from dsa_slave_priv to dsa_port so that DSA
-drivers can access this information and remove the need to cache it.
+Change the ports[DSA_MAX_PORTS] array of the dsa_switch structure for a
+zero-length array, allocated at the same time as the dsa_switch
+structure itself. A dsa_switch_alloc() helper is provided for that.
+
+This commit brings no functional change yet since we pass DSA_MAX_PORTS
+as the number of ports for the moment. Future patches can update the DSA
+drivers separately to support dynamic number of ports.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h  |  1 +
- net/dsa/dsa_priv.h |  1 -
- net/dsa/slave.c    | 10 +++++-----
- 3 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/dsa/b53/b53_common.c |  7 ++++---
+ drivers/net/dsa/mv88e6xxx/chip.c |  3 +--
+ drivers/net/dsa/qca8k.c          |  3 +--
+ include/net/dsa.h                |  6 +++++-
+ net/dsa/dsa.c                    |  5 ++---
+ net/dsa/dsa2.c                   | 16 ++++++++++++++++
+ 6 files changed, 29 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index bb210b12ad1b..31afc4d4b68b 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1790,14 +1790,15 @@ struct b53_device *b53_switch_alloc(struct device *base,
+ 	struct dsa_switch *ds;
+ 	struct b53_device *dev;
+ 
+-	ds = devm_kzalloc(base, sizeof(*ds) + sizeof(*dev), GFP_KERNEL);
++	ds = dsa_switch_alloc(base, DSA_MAX_PORTS);
+ 	if (!ds)
+ 		return NULL;
+ 
+-	dev = (struct b53_device *)(ds + 1);
++	dev = devm_kzalloc(base, sizeof(*dev), GFP_KERNEL);
++	if (!dev)
++		return NULL;
+ 
+ 	ds->priv = dev;
+-	ds->dev = base;
+ 	dev->dev = base;
+ 
+ 	dev->ds = ds;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 921e53351786..cb7b24748336 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -4361,11 +4361,10 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
+ 	struct device *dev = chip->dev;
+ 	struct dsa_switch *ds;
+ 
+-	ds = devm_kzalloc(dev, sizeof(*ds), GFP_KERNEL);
++	ds = dsa_switch_alloc(dev, DSA_MAX_PORTS);
+ 	if (!ds)
+ 		return -ENOMEM;
+ 
+-	ds->dev = dev;
+ 	ds->priv = chip;
+ 	ds->ops = &mv88e6xxx_switch_ops;
+ 
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index c084aa484d2b..f67c6a3cebff 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -954,12 +954,11 @@ qca8k_sw_probe(struct mdio_device *mdiodev)
+ 	if (id != QCA8K_ID_QCA8337)
+ 		return -ENODEV;
+ 
+-	priv->ds = devm_kzalloc(&mdiodev->dev, sizeof(*priv->ds), GFP_KERNEL);
++	priv->ds = dsa_switch_alloc(&mdiodev->dev, DSA_MAX_PORTS);
+ 	if (!priv->ds)
+ 		return -ENOMEM;
+ 
+ 	priv->ds->priv = priv;
+-	priv->ds->dev = &mdiodev->dev;
+ 	priv->ds->ops = &qca8k_switch_ops;
+ 	mutex_init(&priv->reg_mutex);
+ 	dev_set_drvdata(&mdiodev->dev, priv);
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 6bd1f8b05dbd..924533fd4425 100644
+index 92fd795e9573..24e1d935ae68 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -146,6 +146,7 @@ struct dsa_port {
- 	struct device_node	*dn;
- 	unsigned int		ageing_time;
- 	u8			stp_state;
-+	struct net_device	*bridge_dev;
+@@ -190,8 +190,11 @@ struct dsa_switch {
+ 	u32			cpu_port_mask;
+ 	u32			enabled_port_mask;
+ 	u32			phys_mii_mask;
+-	struct dsa_port		ports[DSA_MAX_PORTS];
+ 	struct mii_bus		*slave_mii_bus;
++
++	/* Dynamically allocated ports, keep last */
++	size_t num_ports;
++	struct dsa_port ports[];
  };
  
- struct dsa_switch {
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index c519bd0e9206..3022f2e42cdc 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -38,7 +38,6 @@ struct dsa_slave_priv {
- 	int			old_pause;
- 	int			old_duplex;
- 
--	struct net_device	*bridge_dev;
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll		*netpoll;
- #endif
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 2ea220bc4bba..3a7c28d64bd5 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -64,9 +64,9 @@ static int dsa_slave_get_iflink(const struct net_device *dev)
- 	return p->dp->ds->dst->master_netdev->ifindex;
+ static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
+@@ -386,6 +389,7 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+ 	return dst->rcv != NULL;
  }
  
--static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
-+static inline bool dsa_port_is_bridged(struct dsa_port *dp)
++struct dsa_switch *dsa_switch_alloc(struct device *dev, size_t n);
+ void dsa_unregister_switch(struct dsa_switch *ds);
+ int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
+ #ifdef CONFIG_PM_SLEEP
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 07e863369e04..de3ffb421ee4 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -347,8 +347,8 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	/*
+ 	 * Allocate and initialise switch state.
+ 	 */
+-	ds = devm_kzalloc(parent, sizeof(*ds), GFP_KERNEL);
+-	if (ds == NULL)
++	ds = dsa_switch_alloc(parent, DSA_MAX_PORTS);
++	if (!ds)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	ds->dst = dst;
+@@ -356,7 +356,6 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	ds->cd = cd;
+ 	ds->ops = ops;
+ 	ds->priv = priv;
+-	ds->dev = parent;
+ 
+ 	ret = dsa_switch_setup_one(ds, parent);
+ 	if (ret)
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 75f5d1f8554b..4b3a44bec5c8 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -666,6 +666,22 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ 	return err;
+ }
+ 
++struct dsa_switch *dsa_switch_alloc(struct device *dev, size_t n)
++{
++	size_t size = sizeof(struct dsa_switch) + n * sizeof(struct dsa_port);
++	struct dsa_switch *ds;
++
++	ds = devm_kzalloc(dev, size, GFP_KERNEL);
++	if (!ds)
++		return NULL;
++
++	ds->dev = dev;
++	ds->num_ports = n;
++
++	return ds;
++}
++EXPORT_SYMBOL_GPL(dsa_switch_alloc);
++
+ int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
  {
--	return !!p->bridge_dev;
-+	return !!dp->bridge_dev;
- }
- 
- static void dsa_port_set_stp_state(struct dsa_switch *ds, int port, u8 state)
-@@ -98,7 +98,7 @@ static int dsa_slave_open(struct net_device *dev)
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct net_device *master = p->dp->ds->dst->master_netdev;
- 	struct dsa_switch *ds = p->dp->ds;
--	u8 stp_state = dsa_port_is_bridged(p) ?
-+	u8 stp_state = dsa_port_is_bridged(p->dp) ?
- 			BR_STATE_BLOCKING : BR_STATE_FORWARDING;
  	int err;
- 
-@@ -557,7 +557,7 @@ static int dsa_slave_bridge_port_join(struct net_device *dev,
- 	struct dsa_switch *ds = p->dp->ds;
- 	int ret = -EOPNOTSUPP;
- 
--	p->bridge_dev = br;
-+	p->dp->bridge_dev = br;
- 
- 	if (ds->ops->port_bridge_join)
- 		ret = ds->ops->port_bridge_join(ds, p->dp->index, br);
-@@ -574,7 +574,7 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev)
- 	if (ds->ops->port_bridge_leave)
- 		ds->ops->port_bridge_leave(ds, p->dp->index);
- 
--	p->bridge_dev = NULL;
-+	p->dp->bridge_dev = NULL;
- 
- 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
- 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
 -- 
 2.11.0
