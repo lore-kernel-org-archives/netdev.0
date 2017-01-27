@@ -1,76 +1,41 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH net-next v2] macb: Common code to enable ptp support for
- MACB/GEM
-Date: Fri, 27 Jan 2017 11:27:36 +0100
-Message-ID: <779c1540-f4da-90ee-1fa1-c94339a892aa@atmel.com>
-References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
- <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
- <BN3PR07MB25163747E1520E4CE1C6164FC9760@BN3PR07MB2516.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "punnaia@xilinx.com" <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        "anirudh@xilinx.com" <anirudh@xilinx.com>,
-        "boris.brezillon@free-electrons.com"
-        <boris.brezillon@free-electrons.com>,
-        "alexandre.belloni@free-electrons.com"
-        <alexandre.belloni@free-electrons.com>,
-        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>
-To: Rafal Ozieblo <rafalo@cadence.com>,
-        Harini Katakam <harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN3PR07MB25163747E1520E4CE1C6164FC9760@BN3PR07MB2516.namprd07.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Harsh Jain <harsh@chelsio.com>
+Subject: [PATCH 0/8] Bug fixes
+Date: Fri, 27 Jan 2017 16:09:04 +0530
+Message-ID: <cover.1485501428.git.harsh@chelsio.com>
+Cc: Harsh Jain <harsh@chelsio.com>
+To: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
+        hariprasad@chelsio.com, netdev@vger.kernel.org, arjun@chelsio.com,
+        atul.gupta@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:40839 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932533AbdA0Kl0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 05:41:26 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 27/01/2017 à 11:26, Rafal Ozieblo a écrit :
->> -----Original Message-----
->> From: Harini Katakam [mailto:harinikatakamlinux@gmail.com] 
->> Sent: 27 stycznia 2017 06:43
->> Subject: Re: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
->>
->> Hi Rafal,
->>
->> On Thu, Jan 26, 2017 at 8:45 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
->>>> -----Original Message-----
->>>> From: Andrei Pistirica [mailto:andrei.pistirica@microchip.com]
->>>> Sent: 19 stycznia 2017 16:56
->>>> Subject: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
->>>>
->>>>
->>>> +static inline bool gem_has_ptp(struct macb *bp)
->>>> +{
->>>> +     return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
->>>> +}
->>> Why don't you use hardware capabilities here? Would it be better to read it from hardware instead adding it to many configuration?
->>
->> If you are referring to TSU bit in DCFG5, then we will be relying on
->> Cadence IP's information irrespective of the SoC capability
->> and whether the PTP support was adequate.
->> I think the capability approach gives better control and
->> it is not really much to add.
->>
->> Regards,
->> Harini
->>
-> Yes, I'm referring to TSU bit.
-> What if SoC contains multiple Cadence GEMs, some with PTP support and others without?
+This patch series is based on Herbert's cryptodev-2.6 tree and depends on 
+patch series "Bug Fixes for 4.10". It includes Bug Fixes.
 
-Simply define different DT compatibility strings and we're good.
+Atul Gupta (2)
+  crypto:chcr-Change flow IDs
+  crypto:chcr- Fix wrong typecasting
+Harsh Jain (8):
+  crypto:chcr- Fix key length for RFC4106
+  crypto:chcr-fix itnull.cocci warnings
+  crypto:chcr- Use cipher instead of Block Cipher in gcm setkey
+  crypto:chcr: Change cra_flags for cipher algos
+  crypto:chcr- Change algo priority
+  crypto:chcr-Fix Smatch Complaint
 
-> Relevant will be checking both, hardware capabilities and SoC capabilities from "caps" field.
-> 
-
+ drivers/crypto/chelsio/chcr_algo.c            | 53 ++++++++++++++-------------
+ drivers/crypto/chelsio/chcr_algo.h            |  9 +++--
+ drivers/crypto/chelsio/chcr_core.c            | 11 +++---
+ drivers/crypto/chelsio/chcr_core.h            |  1 +
+ drivers/crypto/chelsio/chcr_crypto.h          |  2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |  8 ++++
+ 6 files changed, 47 insertions(+), 37 deletions(-)
+ mode change 100644 => 100755 drivers/crypto/chelsio/chcr_algo.c
 
 -- 
-Nicolas Ferre
+1.8.2.3
