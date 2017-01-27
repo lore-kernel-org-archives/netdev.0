@@ -1,53 +1,100 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
-Date: Fri, 27 Jan 2017 11:12:43 +0530
-Message-ID: <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
-References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com> <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [patch net-next v2 2/4] net/sched: Introduce sample tc action
+Date: Fri, 27 Jan 2017 06:09:20 +0000
+Message-ID: <DB3PR05MB0764317D72ACC550EB2DE3E8AC760@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
+ <1485166031-4773-3-git-send-email-jiri@resnulli.us>
+ <CAM_iQpUHrhkVtgrA37btQ9sn0UPeYgkqnRx=3HZoLan-soT8hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "punnaia@xilinx.com" <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        "anirudh@xilinx.com" <anirudh@xilinx.com>,
-        "boris.brezillon@free-electrons.com"
-        <boris.brezillon@free-electrons.com>,
-        "alexandre.belloni@free-electrons.com"
-        <alexandre.belloni@free-electrons.com>,
-        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
-        "richardcochran@gmail.com" <ri
-To: Rafal Ozieblo <rafalo@cadence.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "geert+renesas@glider.be" <geert+renesas@glider.be>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Guenter Roeck <linux@roeck-us.net>,
+        "Roopa Prabhu" <roopa@cumulusnetworks.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        "Roman Mashak" <mrv@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr50072.outbound.protection.outlook.com ([40.107.5.72]:51120
+        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753870AbdA0GKn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Jan 2017 01:10:43 -0500
+In-Reply-To: <CAM_iQpUHrhkVtgrA37btQ9sn0UPeYgkqnRx=3HZoLan-soT8hg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafal,
-
-On Thu, Jan 26, 2017 at 8:45 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
->> -----Original Message-----
->> From: Andrei Pistirica [mailto:andrei.pistirica@microchip.com]
->> Sent: 19 stycznia 2017 16:56
->> Subject: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
->>
->>
->> +static inline bool gem_has_ptp(struct macb *bp)
->> +{
->> +     return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
->> +}
-> Why don't you use hardware capabilities here? Would it be better to read it from hardware instead adding it to many configuration?
-
-If you are referring to TSU bit in DCFG5, then we will be relying on
-Cadence IP's information irrespective of the SoC capability
-and whether the PTP support was adequate.
-I think the capability approach gives better control and
-it is not really much to add.
-
-Regards,
-Harini
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQ29uZyBXYW5nIFttYWlsdG86eGl5
+b3Uud2FuZ2NvbmdAZ21haWwuY29tXQ0KPlNlbnQ6IFRodXJzZGF5LCBKYW51YXJ5IDI2LCAyMDE3
+IDE6MzAgQU0NCj5UbzogSmlyaSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4NCj5DYzogTGludXgg
+S2VybmVsIE5ldHdvcmsgRGV2ZWxvcGVycyA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47IERhdmlk
+IE1pbGxlcg0KPjxkYXZlbUBkYXZlbWxvZnQubmV0PjsgWW90YW0gR2lnaSA8eW90YW1nQG1lbGxh
+bm94LmNvbT47IElkbyBTY2hpbW1lbA0KPjxpZG9zY2hAbWVsbGFub3guY29tPjsgRWxhZCBSYXog
+PGVsYWRyQG1lbGxhbm94LmNvbT47IE5vZ2FoIEZyYW5rZWwNCj48bm9nYWhmQG1lbGxhbm94LmNv
+bT47IE9yIEdlcmxpdHogPG9nZXJsaXR6QG1lbGxhbm94LmNvbT47IEphbWFsIEhhZGkgU2FsaW0N
+Cj48amhzQG1vamF0YXR1LmNvbT47IGdlZXJ0K3JlbmVzYXNAZ2xpZGVyLmJlOyBTdGVwaGVuIEhl
+bW1pbmdlcg0KPjxzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZz47IEd1ZW50ZXIgUm9lY2sgPGxp
+bnV4QHJvZWNrLXVzLm5ldD47IFJvb3BhDQo+UHJhYmh1IDxyb29wYUBjdW11bHVzbmV0d29ya3Mu
+Y29tPjsgSm9obiBGYXN0YWJlbmQNCj48am9obi5mYXN0YWJlbmRAZ21haWwuY29tPjsgU2ltb24g
+SG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT47DQo+Um9tYW4gTWFzaGFrIDxtcnZA
+bW9qYXRhdHUuY29tPg0KPlN1YmplY3Q6IFJlOiBbcGF0Y2ggbmV0LW5leHQgdjIgMi80XSBuZXQv
+c2NoZWQ6IEludHJvZHVjZSBzYW1wbGUgdGMgYWN0aW9uDQo+DQo+T24gTW9uLCBKYW4gMjMsIDIw
+MTcgYXQgMjowNyBBTSwgSmlyaSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4gd3JvdGU6DQo+PiAr
+DQo+PiArc3RhdGljIGludCB0Y2Zfc2FtcGxlX2luaXQoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qg
+bmxhdHRyICpubGEsDQo+PiArICAgICAgICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgbmxhdHRy
+ICplc3QsIHN0cnVjdCB0Y19hY3Rpb24gKiphLCBpbnQgb3ZyLA0KPj4gKyAgICAgICAgICAgICAg
+ICAgICAgICAgICAgaW50IGJpbmQpDQo+PiArew0KPj4gKyAgICAgICBzdHJ1Y3QgdGNfYWN0aW9u
+X25ldCAqdG4gPSBuZXRfZ2VuZXJpYyhuZXQsIHNhbXBsZV9uZXRfaWQpOw0KPj4gKyAgICAgICBz
+dHJ1Y3QgbmxhdHRyICp0YltUQ0FfU0FNUExFX01BWCArIDFdOw0KPj4gKyAgICAgICBzdHJ1Y3Qg
+cHNhbXBsZV9ncm91cCAqcHNhbXBsZV9ncm91cDsNCj4+ICsgICAgICAgc3RydWN0IHRjX3NhbXBs
+ZSAqcGFybTsNCj4+ICsgICAgICAgc3RydWN0IHRjZl9zYW1wbGUgKnM7DQo+PiArICAgICAgIGJv
+b2wgZXhpc3RzID0gZmFsc2U7DQo+PiArICAgICAgIGludCByZXQ7DQo+PiArDQo+PiArICAgICAg
+IGlmICghbmxhKQ0KPj4gKyAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOw0KPj4gKyAgICAg
+ICByZXQgPSBubGFfcGFyc2VfbmVzdGVkKHRiLCBUQ0FfU0FNUExFX01BWCwgbmxhLCBzYW1wbGVf
+cG9saWN5KTsNCj4+ICsgICAgICAgaWYgKHJldCA8IDApDQo+PiArICAgICAgICAgICAgICAgcmV0
+dXJuIHJldDsNCj4+ICsgICAgICAgaWYgKCF0YltUQ0FfU0FNUExFX1BBUk1TXSB8fCAhdGJbVENB
+X1NBTVBMRV9SQVRFXSB8fA0KPj4gKyAgICAgICAgICAgIXRiW1RDQV9TQU1QTEVfUFNBTVBMRV9H
+Uk9VUF0pDQo+PiArICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7DQo+PiArDQo+PiArICAg
+ICAgIHBhcm0gPSBubGFfZGF0YSh0YltUQ0FfU0FNUExFX1BBUk1TXSk7DQo+PiArDQo+PiArICAg
+ICAgIGV4aXN0cyA9IHRjZl9oYXNoX2NoZWNrKHRuLCBwYXJtLT5pbmRleCwgYSwgYmluZCk7DQo+
+PiArICAgICAgIGlmIChleGlzdHMgJiYgYmluZCkNCj4+ICsgICAgICAgICAgICAgICByZXR1cm4g
+MDsNCj4+ICsNCj4+ICsgICAgICAgaWYgKCFleGlzdHMpIHsNCj4+ICsgICAgICAgICAgICAgICBy
+ZXQgPSB0Y2ZfaGFzaF9jcmVhdGUodG4sIHBhcm0tPmluZGV4LCBlc3QsIGEsDQo+PiArICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICZhY3Rfc2FtcGxlX29wcywgYmluZCwgZmFs
+c2UpOw0KPj4gKyAgICAgICAgICAgICAgIGlmIChyZXQpDQo+PiArICAgICAgICAgICAgICAgICAg
+ICAgICByZXR1cm4gcmV0Ow0KPj4gKyAgICAgICAgICAgICAgIHJldCA9IEFDVF9QX0NSRUFURUQ7
+DQo+PiArICAgICAgIH0gZWxzZSB7DQo+PiArICAgICAgICAgICAgICAgdGNmX2hhc2hfcmVsZWFz
+ZSgqYSwgYmluZCk7DQo+PiArICAgICAgICAgICAgICAgaWYgKCFvdnIpDQo+PiArICAgICAgICAg
+ICAgICAgICAgICAgICByZXR1cm4gLUVFWElTVDsNCj4+ICsgICAgICAgfQ0KPj4gKyAgICAgICBz
+ID0gdG9fc2FtcGxlKCphKTsNCj4+ICsNCj4+ICsgICAgICAgQVNTRVJUX1JUTkwoKTsNCj4NCj5D
+b3B5LW4tcGFzdGUgZnJvbSBtaXJyZWQgYWNpdG9uPyBUaGlzIGlzIG5vdCBuZWVkZWQgZm9yIHlv
+dSwgbWlycmVkDQo+bmVlZHMgaXQgYmVjYXVzZSBvZiB0YXJnZXQgbmV0ZGV2aWNlLg0KDQpIbywg
+eW91IGFyZSByaWdodC4gSSB3aWxsIHJlbW92ZSBpdC4NCg0KPg0KPg0KPj4gKyAgICAgICBzLT50
+Y2ZfYWN0aW9uID0gcGFybS0+YWN0aW9uOw0KPj4gKyAgICAgICBzLT5yYXRlID0gbmxhX2dldF91
+MzIodGJbVENBX1NBTVBMRV9SQVRFXSk7DQo+PiArICAgICAgIHMtPnBzYW1wbGVfZ3JvdXBfbnVt
+ID0NCj5ubGFfZ2V0X3UzMih0YltUQ0FfU0FNUExFX1BTQU1QTEVfR1JPVVBdKTsNCj4+ICsgICAg
+ICAgcHNhbXBsZV9ncm91cCA9IHBzYW1wbGVfZ3JvdXBfZ2V0KG5ldCwgcy0+cHNhbXBsZV9ncm91
+cF9udW0pOw0KPj4gKyAgICAgICBpZiAoIXBzYW1wbGVfZ3JvdXApDQo+PiArICAgICAgICAgICAg
+ICAgcmV0dXJuIC1FTk9NRU07DQo+DQo+SSBkb24ndCB0aGluayB5b3UgY2FuIGp1c3QgcmV0dXJu
+IGhlcmUsIG5lZWRzIHRjZl9oYXNoX2NsZWFudXAoKSBmb3IgY3JlYXRlDQo+Y2FzZSwgcmlnaHQ/
+DQoNCldpbGwgZml4Lg0KDQo+DQo+DQo+PiArICAgICAgIFJDVV9JTklUX1BPSU5URVIocy0+cHNh
+bXBsZV9ncm91cCwgcHNhbXBsZV9ncm91cCk7DQo+PiArDQo+PiArICAgICAgIGlmICh0YltUQ0Ff
+U0FNUExFX1RSVU5DX1NJWkVdKSB7DQo+PiArICAgICAgICAgICAgICAgcy0+dHJ1bmNhdGUgPSB0
+cnVlOw0KPj4gKyAgICAgICAgICAgICAgIHMtPnRydW5jX3NpemUgPSBubGFfZ2V0X3UzMih0YltU
+Q0FfU0FNUExFX1RSVU5DX1NJWkVdKTsNCj4+ICsgICAgICAgfQ0KPg0KPg0KPkRvIHlvdSBuZWVk
+IHRjZl9sb2NrIGhlcmUgaWYgUkNVIG9ubHkgcHJvdGVjdHMgLT5wc2FtcGxlX2dyb3VwPz8NCj4N
+Cg0KWW91IGFyZSByaWdodC4gSSBuZWVkIHRvIHByb3RlY3QgaW4gY2FzZSBvZiB1cGRhdGUuDQoN
+Ckkgd2lsbCBzZW5kIGEgZml4dXAgcGF0Y2ggaW4gdGhlIGZvbGxvd2luZyBkYXlzLiBUaGFua3Mh
+DQoNCj4NCj4+ICsNCj4+ICsgICAgICAgaWYgKHJldCA9PSBBQ1RfUF9DUkVBVEVEKQ0KPj4gKyAg
+ICAgICAgICAgICAgIHRjZl9oYXNoX2luc2VydCh0biwgKmEpOw0KPj4gKyAgICAgICByZXR1cm4g
+cmV0Ow0KPj4gK30NCj4+ICsNCj4NCj4NCj5UaGFua3MuDQo=
