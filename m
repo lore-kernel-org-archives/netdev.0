@@ -1,56 +1,102 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] net: adjust skb->truesize in pskb_expand_head()
-Date: Fri, 27 Jan 2017 10:49:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0270970@AcuExch.aculab.com>
-References: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] net: phy: broadcom: add support for BCM54210E
+Date: Fri, 27 Jan 2017 11:47:05 +0100
+Message-ID: <20170127104705.25162-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-        Slava Shwartsman <slavash@mellanox.com>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Xo Wang <xow@google.com>, Joel Stanley <joel@jms.id.au>,
+        Jon Mason <jon.mason@broadcom.com>,
+        Jaedon Shin <jaedon.shin@gmail.com>, netdev@vger.kernel.org,
+        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
+To: "David S . Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:65124 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932649AbdA0KuD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 05:50:03 -0500
-In-Reply-To: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:35603 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932512AbdA0KrY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 05:47:24 -0500
+Received: by mail-lf0-f67.google.com with SMTP id v186so25712052lfa.2
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 02:47:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDI3IEphbnVhcnkgMjAxNyAwMDoyMQ0KPiBTbGF2
-YSBTaHdhcnRzbWFuIHJlcG9ydGVkIGEgd2FybmluZyBpbiBza2JfdHJ5X2NvYWxlc2NlKCksIHdo
-ZW4gd2UNCj4gZGV0ZWN0IHNrYi0+dHJ1ZXNpemUgaXMgY29tcGxldGVseSB3cm9uZy4NCj4gDQo+
-IEluIGhpcyBjYXNlLCBpc3N1ZSBjYW1lIGZyb20gSVB2NiByZWFzc2VtYmx5IGNvcGluZyB3aXRo
-IG1hbGljaW91cw0KPiBkYXRhZ3JhbXMsIHRoYXQgZm9yY2VkIHZhcmlvdXMgcHNrYl9tYXlfcHVs
-bCgpIHRvIHJlYWxsb2NhdGUgYSBiaWdnZXINCj4gc2tiLT5oZWFkIHRoYW4gdGhlIG9uZSBhbGxv
-Y2F0ZWQgYnkgTklDIGRyaXZlciBiZWZvcmUgZW50ZXJpbmcgR1JPDQo+IGxheWVyLg0KPiANCj4g
-Q3VycmVudCBjb2RlIGRvZXMgbm90IGNoYW5nZSBza2ItPnRydWVzaXplLCBsZWF2aW5nIHRoaXMg
-YnVyZGVuIHRvDQo+IGNhbGxlcnMgaWYgdGhleSBjYXJlIGVub3VnaC4NCj4gDQo+IEJsaW5kbHkg
-Y2hhbmdpbmcgc2tiLT50cnVlc2l6ZSBpbiBwc2tiX2V4cGFuZF9oZWFkKCkgaXMgbm90DQo+IGVh
-c3ksIGFzIHNvbWUgcHJvZHVjZXJzIG1pZ2h0IHRyYWNrIHNrYi0+dHJ1ZXNpemUsIGZvciBleGFt
-cGxlDQo+IGluIHhtaXQgcGF0aCBmb3IgYmFjayBwcmVzc3VyZSBmZWVkYmFjayAoc2stPnNrX3dt
-ZW1fYWxsb2MpDQo+IA0KPiBXZSBjYW4gZGV0ZWN0IHRoZSBjYXNlcyB3aGVyZSBpdCBzaG91bGQg
-YmUgc2FmZSB0byBjaGFuZ2UNCj4gc2tiLT50cnVlc2l6ZSA6DQo+IA0KPiAxKSBza2IgaXMgbm90
-IGF0dGFjaGVkIHRvIGEgc29ja2V0Lg0KPiAyKSBJZiBpdCBpcyBhdHRhY2hlZCB0byBhIHNvY2tl
-dCwgZGVzdHJ1Y3RvciBpcyBzb2NrX2VkZW11eCgpDQouLi4NCj4gIGludCBwc2tiX2V4cGFuZF9o
-ZWFkKHN0cnVjdCBza19idWZmICpza2IsIGludCBuaGVhZCwgaW50IG50YWlsLA0KPiAgCQkgICAg
-IGdmcF90IGdmcF9tYXNrKQ0KPiAgew0KPiArCWludCBpLCBvc2l6ZSA9IHNrYl9lbmRfb2Zmc2V0
-KHNrYik7DQo+ICsJaW50IHNpemUgPSBvc2l6ZSArIG5oZWFkICsgbnRhaWw7DQo+ICAJbG9uZyBv
-ZmY7DQo+ICsJdTggKmRhdGE7DQo+IA0KPiAgCUJVR19PTihuaGVhZCA8IDApOw0KPiANCj4gQEAg
-LTEyNTcsNiArMTI1NywxNCBAQCBpbnQgcHNrYl9leHBhbmRfaGVhZChzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLCBpbnQgbmhlYWQsIGludCBudGFpbCwNCj4gIAlza2ItPmhkcl9sZW4gID0gMDsNCj4gIAlz
-a2ItPm5vaGRyICAgID0gMDsNCj4gIAlhdG9taWNfc2V0KCZza2Jfc2hpbmZvKHNrYiktPmRhdGFy
-ZWYsIDEpOw0KPiArDQo+ICsJLyogSXQgaXMgbm90IGdlbmVyYWxseSBzYWZlIHRvIGNoYW5nZSBz
-a2ItPnRydWVzaXplLg0KPiArCSAqIEZvciB0aGUgbW9tZW50LCB3ZSByZWFsbHkgY2FyZSBvZiBy
-eCBwYXRoLCBvcg0KPiArCSAqIHdoZW4gc2tiIGlzIG9ycGhhbmVkIChub3QgYXR0YWNoZWQgdG8g
-YSBzb2NrZXQpDQo+ICsJICovDQo+ICsJaWYgKCFza2ItPnNrIHx8IHNrYi0+ZGVzdHJ1Y3RvciA9
-PSBzb2NrX2VkZW11eCkNCj4gKwkJc2tiLT50cnVlc2l6ZSArPSBzaXplIC0gb3NpemU7DQoNClRo
-YXQgY2FsY3VsYXRpb24gZG9lc24ndCBsb29rIHJpZ2h0IHRvIG1lIGF0IGFsbC4NCklzbid0ICd0
-cnVlc2l6ZScgc3VwcG9zZWQgdG8gcmVmbGVjdCB0aGUgYW1vdW50IG9mIG1lbW9yeSBhbGxvY2F0
-ZWQgdG8gdGhlIHNrYi4NClNvIHlvdSBuZWVkIHRoZSBkaWZmZXJlbmNlIGJldHdlZW4gdGhlIHNp
-emUgb2YgdGhlIG5ldyBhbmQgb2xkIG1lbW9yeSBibG9ja3MuDQoNCkknbSBhbHNvIGd1ZXNzaW5n
-IHRoYXQgZXh0cmEgaGVhZHJvb20gY2FuIGJlIGdlbmVyYXRlZCBieSBzdGVhbGluZyB1bnVzZWQg
-dGFpbHJvb20uDQoNCglEYXZpZA0KDQo=
+From: Rafał Miłecki <rafal@milecki.pl>
+
+It's Broadcom PHY simply described as single-port
+RGMII 10/100/1000BASE-T PHY. It requires disabling delay skew and GTXCLK
+bits.
+
+Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+---
+ drivers/net/phy/broadcom.c | 34 +++++++++++++++++++++++++++++++++-
+ 1 file changed, 33 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 97d1c057c0a1..794b9ec81ba5 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -30,6 +30,22 @@ MODULE_DESCRIPTION("Broadcom PHY driver");
+ MODULE_AUTHOR("Maciej W. Rozycki");
+ MODULE_LICENSE("GPL");
+ 
++static int bcm54210e_config_init(struct phy_device *phydev)
++{
++	int val;
++
++	val = bcm54xx_auxctl_read(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC);
++	val &= ~MII_BCM54XX_AUXCTL_SHDWSEL_MISC_RGMII_SKEW_EN;
++	val |= MII_BCM54XX_AUXCTL_MISC_WREN;
++	bcm54xx_auxctl_write(phydev, MII_BCM54XX_AUXCTL_SHDWSEL_MISC, val);
++
++	val = bcm_phy_read_shadow(phydev, BCM54810_SHD_CLK_CTL);
++	val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
++	bcm_phy_write_shadow(phydev, BCM54810_SHD_CLK_CTL, val);
++
++	return 0;
++}
++
+ static int bcm54810_config(struct phy_device *phydev)
+ {
+ 	int rc, val;
+@@ -230,7 +246,11 @@ static int bcm54xx_config_init(struct phy_device *phydev)
+ 	    (phydev->dev_flags & PHY_BRCM_AUTO_PWRDWN_ENABLE))
+ 		bcm54xx_adjust_rxrefclk(phydev);
+ 
+-	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810) {
++	if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54210E) {
++		err = bcm54210e_config_init(phydev);
++		if (err)
++			return err;
++	} else if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54810) {
+ 		err = bcm54810_config(phydev);
+ 		if (err)
+ 			return err;
+@@ -542,6 +562,17 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.ack_interrupt	= bcm_phy_ack_intr,
+ 	.config_intr	= bcm_phy_config_intr,
+ }, {
++	.phy_id		= PHY_ID_BCM54210E,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM54210E",
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= bcm54xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm_phy_ack_intr,
++	.config_intr	= bcm_phy_config_intr,
++}, {
+ 	.phy_id		= PHY_ID_BCM5461,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5461",
+@@ -680,6 +711,7 @@ module_phy_driver(broadcom_drivers);
+ static struct mdio_device_id __maybe_unused broadcom_tbl[] = {
+ 	{ PHY_ID_BCM5411, 0xfffffff0 },
+ 	{ PHY_ID_BCM5421, 0xfffffff0 },
++	{ PHY_ID_BCM54210E, 0xfffffff0 },
+ 	{ PHY_ID_BCM5461, 0xfffffff0 },
+ 	{ PHY_ID_BCM54612E, 0xfffffff0 },
+ 	{ PHY_ID_BCM54616S, 0xfffffff0 },
+-- 
+2.11.0
