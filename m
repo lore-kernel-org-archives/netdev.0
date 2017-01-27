@@ -1,159 +1,59 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: net: suspicious RCU usage in nf_hook
-Date: Fri, 27 Jan 2017 22:15:57 +0100
-Message-ID: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
+ hard_header_len bytes in skb_headlen() to the driver
+Date: Fri, 27 Jan 2017 16:58:48 -0500
+Message-ID: <20170127215848.GG25829@oracle.com>
+References: <20170126213742.GE29475@oracle.com>
+ <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
+ <20170127020836.GH29475@oracle.com>
+ <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
+ <20170127151119.GB25829@oracle.com>
+ <CAF=yD-+LS6g572Uo5oErq7uazxxPwXXo0w2p4zcHDbXxkuah6Q@mail.gmail.com>
+ <20170127170320.GD25829@oracle.com>
+ <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
+ <20170127200639.GF25829@oracle.com>
+ <CAF=yD-+GGAdvgXoZeMshyQXXh_3m9kjDGNFf9FQ43rxJgk__vw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>
-To: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Eric Dumazet <edumazet@google.com>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1050.oracle.com ([141.146.126.70]:31415 "EHLO
+        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751178AbdA0WBS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 17:01:18 -0500
+Received: from aserp1040.oracle.com (aserp1040.oracle.com [141.146.126.69])
+        by aserp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v0RM05eH008580
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 22:00:05 GMT
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-+GGAdvgXoZeMshyQXXh_3m9kjDGNFf9FQ43rxJgk__vw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On (01/27/17 15:51), Willem de Bruijn wrote:
+    :
+> - limit capable() check to drivers with with .validate callback  
+(aka second option below)
+    :
+> - let privileged applications shoot themselves in the foot (change nothing).
 
-I've got the following report while running syzkaller fuzzer on
-fd694aaa46c7ed811b72eb47d5eb11ce7ab3f7f1:
+> The second will break variable length header protocols unless
+> you exhaustively search for all variable length protocols and add
+> validate callbacks first.
 
-[ INFO: suspicious RCU usage. ]
-4.10.0-rc5+ #192 Not tainted
--------------------------------
-./include/linux/rcupdate.h:561 Illegal context switch in RCU read-side
-critical section!
+other than ax25, are there variable length header protocols out there
+without ->validate, and which need the CAP_RAW_SYSIO branch?
 
-other info that might help us debug this:
+I realize that, to an extent, even ethernet is a protocol whose
+header is > 14 with vlan, but from the google search, seems like it
+was mostly ax25 that really triggered a large part of the check.
 
-rcu_scheduler_active = 2, debug_locks = 0
-2 locks held by syz-executor14/23111:
- #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>] lock_sock
-include/net/sock.h:1454 [inline]
- #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>]
-rawv6_sendmsg+0x1e65/0x3ec0 net/ipv6/raw.c:919
- #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>] nf_hook
-include/linux/netfilter.h:201 [inline]
- #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>]
-__ip6_local_out+0x258/0x840 net/ipv6/output_core.c:160
+If we think that there are a large number of these (that dont have a 
+->validate, to fix up things as desired) I'd just go for the "change
+nothing in pf_packet" option.
 
-stack backtrace:
-CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
- lockdep_rcu_suspicious+0x139/0x180 kernel/locking/lockdep.c:4452
- rcu_preempt_sleep_check include/linux/rcupdate.h:560 [inline]
- ___might_sleep+0x560/0x650 kernel/sched/core.c:7748
- __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
- mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
- atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
- __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
- static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
- net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
- sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
- __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
- sk_destruct+0x47/0x80 net/core/sock.c:1460
- __sk_free+0x57/0x230 net/core/sock.c:1468
- sock_wfree+0xae/0x120 net/core/sock.c:1645
- skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
- skb_release_all+0x15/0x60 net/core/skbuff.c:668
- __kfree_skb+0x15/0x20 net/core/skbuff.c:684
- kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
- inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
- inet_frag_put include/net/inet_frag.h:133 [inline]
- nf_ct_frag6_gather+0x1106/0x3840 net/ipv6/netfilter/nf_conntrack_reasm.c:617
- ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
- nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
- nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
- nf_hook include/linux/netfilter.h:212 [inline]
- __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
- ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
- ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
- ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
- rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
- rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
- inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
- sock_sendmsg_nosec net/socket.c:635 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:645
- sock_write_iter+0x326/0x600 net/socket.c:848
- do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
- do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
- vfs_writev+0x87/0xc0 fs/read_write.c:911
- do_writev+0x110/0x2c0 fs/read_write.c:944
- SYSC_writev fs/read_write.c:1017 [inline]
- SyS_writev+0x27/0x30 fs/read_write.c:1014
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x445559
-RSP: 002b:00007f6f46fceb58 EFLAGS: 00000292 ORIG_RAX: 0000000000000014
-RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445559
-RDX: 0000000000000001 RSI: 0000000020f1eff0 RDI: 0000000000000005
-RBP: 00000000006e19c0 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000700000
-R13: 0000000020f59000 R14: 0000000000000015 R15: 0000000000020400
-BUG: sleeping function called from invalid context at kernel/locking/mutex.c:752
-in_atomic(): 1, irqs_disabled(): 0, pid: 23111, name: syz-executor14
-INFO: lockdep is turned off.
-CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
- ___might_sleep+0x47e/0x650 kernel/sched/core.c:7780
- __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
- mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
- atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
- __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
- static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
- net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
- sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
- __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
- sk_destruct+0x47/0x80 net/core/sock.c:1460
- __sk_free+0x57/0x230 net/core/sock.c:1468
- sock_wfree+0xae/0x120 net/core/sock.c:1645
- skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
- skb_release_all+0x15/0x60 net/core/skbuff.c:668
- __kfree_skb+0x15/0x20 net/core/skbuff.c:684
- kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
- inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
- inet_frag_put include/net/inet_frag.h:133 [inline]
- nf_ct_frag6_gather+0x1106/0x3840 net/ipv6/netfilter/nf_conntrack_reasm.c:617
- ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
- nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
- nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
- nf_hook include/linux/netfilter.h:212 [inline]
- __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
- ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
- ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
- ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
- rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
- rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
- inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
- sock_sendmsg_nosec net/socket.c:635 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:645
- sock_write_iter+0x326/0x600 net/socket.c:848
- do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
- do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
- vfs_writev+0x87/0xc0 fs/read_write.c:911
- do_writev+0x110/0x2c0 fs/read_write.c:944
- SYSC_writev fs/read_write.c:1017 [inline]
- SyS_writev+0x27/0x30 fs/read_write.c:1014
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x445559
-RSP: 002b:00007f6f46fceb58 EFLAGS: 00000292 ORIG_RAX: 0000000000000014
-RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445559
-RDX: 0000000000000001 RSI: 0000000020f1eff0 RDI: 0000000000000005
-RBP: 00000000006e19c0 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000700000
-R13: 0000000020f59000 R14: 0000000000000015 R15: 0000000000020400
-BUG: scheduling while atomic: syz-executor14/23111/0x00000002
-INFO: lockdep is turned off.
-Modules linked in:
-Kernel panic - not syncing: scheduling while atomic
+As I found out many drivers like ixgbe and sunvnet have defensive checks
+in the Tx path anyway, and xen_netfront can also join that group with
+a few simple checks.
