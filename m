@@ -1,74 +1,67 @@
-From: Pichugin Dmitry <smokeman85@gmail.com>
-Subject: [PATCH] cfg80211 debugfs: Cleanup some checkpatch issues
-Date: Fri, 27 Jan 2017 22:26:06 +0300
-Message-ID: <20170127192603.GA13522@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2 net-next 1/2] ravb: Add tx and rx clock internal
+ delays mode of APSR
+Date: Fri, 27 Jan 2017 20:40:33 +0100
+Message-ID: <20170127194030.GA18706@verge.net.au>
+References: <1485542120-10205-1-git-send-email-horms+renesas@verge.net.au>
+ <1485542120-10205-2-git-send-email-horms+renesas@verge.net.au>
+ <0570b250-83eb-fbac-de2a-0ea99a7250c2@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: johannes@sipsolutions.net, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:38209 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750790AbdA0TlW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 14:41:22 -0500
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <0570b250-83eb-fbac-de2a-0ea99a7250c2@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This fixes the checkpatch.pl warnings:
-* Macros should not use a trailing semicolon.
-* Spaces required around that '='.
-* Symbolic permissions 'S_IRUGO' are not preferred.
-* Macro argument reuse 'buflen' - possible side-effects
+On Fri, Jan 27, 2017 at 10:05:58PM +0300, Sergei Shtylyov wrote:
+> On 01/27/2017 09:35 PM, Simon Horman wrote:
+> 
+> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >
+> >This patch enables tx and rx clock internal delay modes (TDM and RDM).
+> >
+> >This is to address a failure in the case of 1Gbps communication using the
+> >by salvator-x board with the KSZ9031RNX phy. This has been reported to
+> >occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
+> >
+> >With this change APSR internal delay modes are enabled for
+> >"rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
+> >
+> >phy mode   | ASPR delay mode
+> >-----------+----------------
+> >rgmii-id   | TDM and RDM
+> >rgmii-rxid | RDM
+> >rgmii-txid | TDM
+> >
+> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> 
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> >---
+> >v2 [Simon Horman]
+> >* As suggested by Sergei Shtylyov
+> >  - Add a comment to indicate that APSR_DM appears to be undocumented.
+> >  - Move chip_id check outside of ravb_set_delay_mode for consistency
+> >  - Call ravb_modify() once in ravb_set_delay_mode()
+> >* Enhance comment before calls to ravb_set_delay_mode()
+> 
+>    Well, I meant to say that the comment should precede the body of the
+> function, not be repeated at every call...
 
-Signed-off-by: Pichugin Dmitry <smokeman85@gmail.com>
----
- net/wireless/debugfs.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+I scratched my head trying to work out what you meant... and guessed wrong.
 
-diff --git a/net/wireless/debugfs.c b/net/wireless/debugfs.c
-index 5d45391..96e3cff 100644
---- a/net/wireless/debugfs.c
-+++ b/net/wireless/debugfs.c
-@@ -17,11 +17,12 @@
- static ssize_t name## _read(struct file *file, char __user *userbuf,	\
- 			    size_t count, loff_t *ppos)			\
- {									\
--	struct wiphy *wiphy= file->private_data;		\
--	char buf[buflen];						\
-+	struct wiphy *wiphy = file->private_data;			\
-+	int __buflen = __builtin_constant_p(buflen) ? buflen : -1;	\
-+	char buf[__buflen];						\
- 	int res;							\
- 									\
--	res = scnprintf(buf, buflen, fmt "\n", ##value);		\
-+	res = scnprintf(buf, __buflen, fmt "\n", ##value);		\
- 	return simple_read_from_buffer(userbuf, count, ppos, buf, res);	\
- }									\
- 									\
-@@ -29,14 +30,14 @@ static const struct file_operations name## _ops = {			\
- 	.read = name## _read,						\
- 	.open = simple_open,						\
- 	.llseek = generic_file_llseek,					\
--};
-+}
- 
- DEBUGFS_READONLY_FILE(rts_threshold, 20, "%d",
--		      wiphy->rts_threshold)
-+		      wiphy->rts_threshold);
- DEBUGFS_READONLY_FILE(fragmentation_threshold, 20, "%d",
- 		      wiphy->frag_threshold);
- DEBUGFS_READONLY_FILE(short_retry_limit, 20, "%d",
--		      wiphy->retry_short)
-+		      wiphy->retry_short);
- DEBUGFS_READONLY_FILE(long_retry_limit, 20, "%d",
- 		      wiphy->retry_long);
- 
-@@ -103,7 +104,7 @@ static const struct file_operations ht40allow_map_ops = {
- };
- 
- #define DEBUGFS_ADD(name)						\
--	debugfs_create_file(#name, S_IRUGO, phyd, &rdev->wiphy, &name## _ops);
-+	debugfs_create_file(#name, 0444, phyd, &rdev->wiphy, &name## _ops)
- 
- void cfg80211_debugfs_rdev_add(struct cfg80211_registered_device *rdev)
- {
--- 
-2.7.4
+> >* Remove unnecessary break from end of switch statement.
+> 
+>   Come on, you did remove all the *switch*. :-)
+
+Yes, after I wrote the comment above :)
