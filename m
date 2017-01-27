@@ -1,100 +1,60 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for loading NVS calibration data
-Date: Fri, 27 Jan 2017 09:33:40 +0200
-Message-ID: <87tw8lnei3.fsf@codeaurora.org>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
-        <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Subject: Re: [PATCH v2 0/4] USB support for Broadcom NSP SoC
+Date: Fri, 27 Jan 2017 13:09:22 +0530
+Message-ID: <588AF92A.4060802@ti.com>
+References: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
+ <588A16FA.50507@ti.com> <241009ca-4b34-b160-2de1-4752d3ff114b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45276 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754073AbdA0Hfx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 02:35:53 -0500
-In-Reply-To: <1482598381-16513-3-git-send-email-pali.rohar@gmail.com> ("Pali
-        \=\?utf-8\?Q\?Roh\=C3\=A1r\=22's\?\= message of "Sat, 24 Dec 2016 17:52:57 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>, Yendapally Reddy Dhananjaya Reddy
+ <yendapally.reddy@broadcom.com>, Rob Herring <robh+dt@kernel.org>, Mark
+ Rutland <mark.rutland@arm.com>,
+ Russell King <linux@armlinux.org.uk>, Ray Jui <rjui@broadcom.com>,
+ Scott Branden <sbranden@broadcom.com>, Jon Mason <jonmason@broadcom.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <241009ca-4b34-b160-2de1-4752d3ff114b@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
+Hi,
 
-> NVS calibration data for wl1251 are model specific. Every one device with
-> wl1251 chip has different and calibrated in factory.
->
-> Not all wl1251 chips have own EEPROM where are calibration data stored. A=
-nd
-> in that case there is no "standard" place. Every device has stored them on
-> different place (some in rootfs file, some in dedicated nand partition,
-> some in another proprietary structure).
->
-> Kernel wl1251 driver cannot support every one different storage decided by
-> device manufacture so it will use request_firmware_prefer_user() call for
-> loading NVS calibration data and userspace helper will be responsible to
-> prepare correct data.
->
-> In case userspace helper fails request_firmware_prefer_user() still try to
-> load data file directly from VFS as fallback mechanism.
->
-> On Nokia N900 device which has wl1251 chip, NVS calibration data are stor=
-ed
-> in CAL nand partition. CAL is proprietary Nokia key/value format for nand
-> devices.
->
-> With this patch it is finally possible to load correct model specific NVS
-> calibration data for Nokia N900.
->
-> Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
-> ---
->  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
->  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
->  2 files changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireles=
-s/ti/wl1251/Kconfig
-> index 7142ccf..affe154 100644
-> --- a/drivers/net/wireless/ti/wl1251/Kconfig
-> +++ b/drivers/net/wireless/ti/wl1251/Kconfig
-> @@ -2,6 +2,7 @@ config WL1251
->  	tristate "TI wl1251 driver support"
->  	depends on MAC80211
->  	select FW_LOADER
-> +	select FW_LOADER_USER_HELPER
->  	select CRC7
->  	---help---
->  	  This will enable TI wl1251 driver support. The drivers make
-> diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless=
-/ti/wl1251/main.c
-> index 208f062..24f8866 100644
-> --- a/drivers/net/wireless/ti/wl1251/main.c
-> +++ b/drivers/net/wireless/ti/wl1251/main.c
-> @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
->  	struct device *dev =3D wiphy_dev(wl->hw->wiphy);
->  	int ret;
->=20=20
-> -	ret =3D request_firmware(&fw, WL1251_NVS_NAME, dev);
-> +	ret =3D request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+On Thursday 26 January 2017 10:57 PM, Florian Fainelli wrote:
+> On 01/26/2017 07:34 AM, Kishon Vijay Abraham I wrote:
+>>
+>>
+>> On Tuesday 17 January 2017 09:44 PM, Yendapally Reddy Dhananjaya Reddy wrote:
+>>> This patch set contains the usb support for Broadcom NSP SoC. The
+>>> usb3 phy is internal to the SoC and is accessed through mdio interface.
+>>> The mdio interface can be used to access either internal usb3 phy or
+>>> external ethernet phy using a multiplexer.
+>>>
+>>> The first patch provides the documentation details for usb3 phy. The
+>>> second patch provides the changes to the mdio bus driver. The third
+>>> patch provides the phy driver and fourth patch provides the enable
+>>> method for usb.
+>>
+>> merged the 1st and 4th patch to linux-phy.
+> 
+> You mean 1st and 3rd here, right? 4th is a Device Tree change that I
+> should take, and Patch 2 should be merged by David.
 
-I don't see the need for this. Just remove the default nvs file from
-filesystem and the fallback user helper will be always used, right?
+yeah, sorry!
+> 
+> What branch in your tree should we be looking at?
 
-Like we discussed earlier, the default nvs file should not be used by
-normal users.
+git://git.kernel.org/pub/scm/linux/kernel/git/kishon/linux-phy.git next
 
---=20
-Kalle Valo
+Thanks
+Kishon
