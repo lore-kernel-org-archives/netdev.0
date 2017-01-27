@@ -1,163 +1,177 @@
-From: Harsh Jain <harsh@chelsio.com>
-Subject: [PATCH 1/8] crypto:chcr-Change flow IDs
-Date: Fri, 27 Jan 2017 16:09:05 +0530
-Message-ID: <4d01998875eeca00637ec6316b397b631d4b5407.1485501429.git.harsh@chelsio.com>
-References: <cover.1485501428.git.harsh@chelsio.com>
-Cc: Harsh Jain <harsh@chelsio.com>
-To: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
-        hariprasad@chelsio.com, netdev@vger.kernel.org, arjun@chelsio.com,
-        atul.gupta@chelsio.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <cover.1485501428.git.harsh@chelsio.com>
-In-Reply-To: <cover.1485501428.git.harsh@chelsio.com>
-References: <cover.1485501428.git.harsh@chelsio.com>
-Sender: linux-crypto-owner@vger.kernel.org
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Fri, 27 Jan 2017 11:34:08 +0100
+Message-ID: <20170127103408.GG24223@pali>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+ <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+ <87tw8lnei3.fsf@codeaurora.org>
+ <20170127094342.GC24223@pali>
+ <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+ <20170127101043.GD24223@pali>
+ <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change assign flowc id to each outgoing request.Firmware use flowc id
-to schedule each request onto HW. FW reply may miss without this change.
+On Friday 27 January 2017 11:19:25 Arend Van Spriel wrote:
+> On 27-1-2017 11:10, Pali Rohár wrote:
+> > On Friday 27 January 2017 11:05:32 Arend Van Spriel wrote:
+> >> On 27-1-2017 10:43, Pali Rohár wrote:
+> >>> On Friday 27 January 2017 09:33:40 Kalle Valo wrote:
+> >>>> Pali Rohár <pali.rohar@gmail.com> writes:
+> >>>>
+> >>>>> NVS calibration data for wl1251 are model specific. Every one device with
+> >>>>> wl1251 chip has different and calibrated in factory.
+> >>>>>
+> >>>>> Not all wl1251 chips have own EEPROM where are calibration data stored. And
+> >>>>> in that case there is no "standard" place. Every device has stored them on
+> >>>>> different place (some in rootfs file, some in dedicated nand partition,
+> >>>>> some in another proprietary structure).
+> >>>>>
+> >>>>> Kernel wl1251 driver cannot support every one different storage decided by
+> >>>>> device manufacture so it will use request_firmware_prefer_user() call for
+> >>>>> loading NVS calibration data and userspace helper will be responsible to
+> >>>>> prepare correct data.
+> >>>>>
+> >>>>> In case userspace helper fails request_firmware_prefer_user() still try to
+> >>>>> load data file directly from VFS as fallback mechanism.
+> >>>>>
+> >>>>> On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
+> >>>>> in CAL nand partition. CAL is proprietary Nokia key/value format for nand
+> >>>>> devices.
+> >>>>>
+> >>>>> With this patch it is finally possible to load correct model specific NVS
+> >>>>> calibration data for Nokia N900.
+> >>>>>
+> >>>>> Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
+> >>>>> ---
+> >>>>>  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
+> >>>>>  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
+> >>>>>  2 files changed, 2 insertions(+), 1 deletion(-)
+> >>>>>
+> >>>>> diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
+> >>>>> index 7142ccf..affe154 100644
+> >>>>> --- a/drivers/net/wireless/ti/wl1251/Kconfig
+> >>>>> +++ b/drivers/net/wireless/ti/wl1251/Kconfig
+> >>>>> @@ -2,6 +2,7 @@ config WL1251
+> >>>>>  	tristate "TI wl1251 driver support"
+> >>>>>  	depends on MAC80211
+> >>>>>  	select FW_LOADER
+> >>>>> +	select FW_LOADER_USER_HELPER
+> >>>>>  	select CRC7
+> >>>>>  	---help---
+> >>>>>  	  This will enable TI wl1251 driver support. The drivers make
+> >>>>> diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
+> >>>>> index 208f062..24f8866 100644
+> >>>>> --- a/drivers/net/wireless/ti/wl1251/main.c
+> >>>>> +++ b/drivers/net/wireless/ti/wl1251/main.c
+> >>>>> @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
+> >>>>>  	struct device *dev = wiphy_dev(wl->hw->wiphy);
+> >>>>>  	int ret;
+> >>>>>  
+> >>>>> -	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
+> >>>>> +	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+> >>>>
+> >>>> I don't see the need for this. Just remove the default nvs file from
+> >>>> filesystem and the fallback user helper will be always used, right?
+> >>>
+> >>> It is part of linux-firmware repository. And already part of all
+> >>> previous versions of linux-firmware packages in lot of linux
+> >>> distributions. So removing it is not possible...
+> >>
+> >> You are probably saying that on your platform you can not remove
+> >> anything from /lib/firmware, right? I don't see how you come from "it is
+> >> part of firmware package" to "removing is not possible". Trying to
+> >> understand this and it makes no sense.
+> > 
+> > It is already in linux distribution packages. If I remove that file from
+> > file system it will be placed there again by package management or it it
+> > will throw error message about system integrity (missing file, etc...).
+> > 
+> > Also that file is already in linux-firmware git and so is propagated to
+> > /lib/firmware by anybody who is using linux-firmware.
+> > 
+> >>>> Like we discussed earlier, the default nvs file should not be used by
+> >>>> normal users.
+> >>>
+> >>> But already is and we need to deal with this fact.
+> >>
+> >> Why?
+> > 
+> > Because everybody has already installed it.
+> > 
+> >> Are there other platforms that use the default nvs file and have a
+> >> working wifi.
+> > 
+> > I do not know.
+> > 
+> >> So your "removing is not possible" would be about
+> >> regression for those?
+> > 
+> > Yes, that is possible.
+> > 
+> > Also you can use wifi on Nokia N900 with this default file. Yes it is
+> > not recommended and probably has performance problems... but more people
+> > use it for SSH and it is working. Pavel could confirm this.
+> > 
+> > So yes, if you remove that file *now* there is regression for Nokia N900
+> > when you are using SSH over wifi.
+> 
+> So you are changing the behavior for all platforms using wl1251, but the
+> user-helper preference is (probably) only applicable for N900, right?
 
-Reviewed-by: Hariprasad Shenai <hariprasad@chelsio.com>
-Signed-off-by: Atul Gupta <atul.gupta@chelsio.com>
----
- drivers/crypto/chelsio/chcr_algo.c            | 18 ++++++++++--------
- drivers/crypto/chelsio/chcr_algo.h            |  9 +++++----
- drivers/crypto/chelsio/chcr_core.h            |  1 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h |  8 ++++++++
- 4 files changed, 24 insertions(+), 12 deletions(-)
+No. Some wl1251 chips have internal EEPROM where is stored MAC address
+and NVS data. And kernel driver already can read it. So this change is
+only for platforms without internal EEPROM.
 
-diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-index d29c2b4..deec7c0 100644
---- a/drivers/crypto/chelsio/chcr_algo.c
-+++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -542,10 +542,11 @@ static inline void create_wreq(struct chcr_context *ctx,
- 				    (calc_tx_flits_ofld(skb) * 8), 16)));
- 	chcr_req->wreq.cookie = cpu_to_be64((uintptr_t)req);
- 	chcr_req->wreq.rx_chid_to_rx_q_id =
--		FILL_WR_RX_Q_ID(ctx->dev->tx_channel_id, qid,
--				is_iv ? iv_loc : IV_NOP);
-+		FILL_WR_RX_Q_ID(ctx->dev->rx_channel_id, qid,
-+				is_iv ? iv_loc : IV_NOP, ctx->tx_channel_id);
- 
--	chcr_req->ulptx.cmd_dest = FILL_ULPTX_CMD_DEST(ctx->dev->tx_channel_id);
-+	chcr_req->ulptx.cmd_dest = FILL_ULPTX_CMD_DEST(ctx->dev->tx_channel_id,
-+						       qid);
- 	chcr_req->ulptx.len = htonl((DIV_ROUND_UP((calc_tx_flits_ofld(skb) * 8),
- 					16) - ((sizeof(chcr_req->wreq)) >> 4)));
- 
-@@ -606,7 +607,7 @@ static inline void create_wreq(struct chcr_context *ctx,
- 	chcr_req = (struct chcr_wr *)__skb_put(skb, transhdr_len);
- 	memset(chcr_req, 0, transhdr_len);
- 	chcr_req->sec_cpl.op_ivinsrtofst =
--		FILL_SEC_CPL_OP_IVINSR(ctx->dev->tx_channel_id, 2, 1);
-+		FILL_SEC_CPL_OP_IVINSR(ctx->dev->rx_channel_id, 2, 1);
- 
- 	chcr_req->sec_cpl.pldlen = htonl(ivsize + req->nbytes);
- 	chcr_req->sec_cpl.aadstart_cipherstop_hi =
-@@ -782,6 +783,7 @@ static int chcr_device_init(struct chcr_context *ctx)
- 		spin_lock(&ctx->dev->lock_chcr_dev);
- 		ctx->tx_channel_id = rxq_idx;
- 		ctx->dev->tx_channel_id = !ctx->dev->tx_channel_id;
-+		ctx->dev->rx_channel_id = 0;
- 		spin_unlock(&ctx->dev->lock_chcr_dev);
- 	}
- out:
-@@ -874,7 +876,7 @@ static struct sk_buff *create_hash_wr(struct ahash_request *req,
- 	memset(chcr_req, 0, transhdr_len);
- 
- 	chcr_req->sec_cpl.op_ivinsrtofst =
--		FILL_SEC_CPL_OP_IVINSR(ctx->dev->tx_channel_id, 2, 0);
-+		FILL_SEC_CPL_OP_IVINSR(ctx->dev->rx_channel_id, 2, 0);
- 	chcr_req->sec_cpl.pldlen = htonl(param->bfr_len + param->sg_len);
- 
- 	chcr_req->sec_cpl.aadstart_cipherstop_hi =
-@@ -1425,7 +1427,7 @@ static struct sk_buff *create_authenc_wr(struct aead_request *req,
- 	 * to the hardware spec
- 	 */
- 	chcr_req->sec_cpl.op_ivinsrtofst =
--		FILL_SEC_CPL_OP_IVINSR(ctx->dev->tx_channel_id, 2,
-+		FILL_SEC_CPL_OP_IVINSR(ctx->dev->rx_channel_id, 2,
- 				       (ivsize ? (assoclen + 1) : 0));
- 	chcr_req->sec_cpl.pldlen = htonl(assoclen + ivsize + req->cryptlen);
- 	chcr_req->sec_cpl.aadstart_cipherstop_hi = FILL_SEC_CPL_CIPHERSTOP_HI(
-@@ -1601,7 +1603,7 @@ static void fill_sec_cpl_for_aead(struct cpl_tx_sec_pdu *sec_cpl,
- 	unsigned int ivsize = AES_BLOCK_SIZE;
- 	unsigned int cipher_mode = CHCR_SCMD_CIPHER_MODE_AES_CCM;
- 	unsigned int mac_mode = CHCR_SCMD_AUTH_MODE_CBCMAC;
--	unsigned int c_id = chcrctx->dev->tx_channel_id;
-+	unsigned int c_id = chcrctx->dev->rx_channel_id;
- 	unsigned int ccm_xtra;
- 	unsigned char tag_offset = 0, auth_offset = 0;
- 	unsigned char hmac_ctrl = get_hmac(crypto_aead_authsize(tfm));
-@@ -1877,7 +1879,7 @@ static struct sk_buff *create_gcm_wr(struct aead_request *req,
- 
- 	tag_offset = (op_type == CHCR_ENCRYPT_OP) ? 0 : authsize;
- 	chcr_req->sec_cpl.op_ivinsrtofst = FILL_SEC_CPL_OP_IVINSR(
--					ctx->dev->tx_channel_id, 2, (ivsize ?
-+					ctx->dev->rx_channel_id, 2, (ivsize ?
- 					(req->assoclen + 1) : 0));
- 	chcr_req->sec_cpl.pldlen = htonl(req->assoclen + ivsize + crypt_len);
- 	chcr_req->sec_cpl.aadstart_cipherstop_hi = FILL_SEC_CPL_CIPHERSTOP_HI(
-diff --git a/drivers/crypto/chelsio/chcr_algo.h b/drivers/crypto/chelsio/chcr_algo.h
-index 3c7c51f..ba38bae 100644
---- a/drivers/crypto/chelsio/chcr_algo.h
-+++ b/drivers/crypto/chelsio/chcr_algo.h
-@@ -185,20 +185,21 @@
- 			FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC_V(1) | \
- 			FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE_V((ctx_len)))
- 
--#define FILL_WR_RX_Q_ID(cid, qid, wr_iv) \
-+#define FILL_WR_RX_Q_ID(cid, qid, wr_iv, fid) \
- 		htonl( \
- 			FW_CRYPTO_LOOKASIDE_WR_RX_CHID_V((cid)) | \
- 			FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID_V((qid)) | \
- 			FW_CRYPTO_LOOKASIDE_WR_LCB_V(0) | \
--			FW_CRYPTO_LOOKASIDE_WR_IV_V((wr_iv)))
-+			FW_CRYPTO_LOOKASIDE_WR_IV_V((wr_iv)) | \
-+			FW_CRYPTO_LOOKASIDE_WR_FQIDX_V(fid))
- 
--#define FILL_ULPTX_CMD_DEST(cid) \
-+#define FILL_ULPTX_CMD_DEST(cid, qid) \
- 	htonl(ULPTX_CMD_V(ULP_TX_PKT) | \
- 	      ULP_TXPKT_DEST_V(0) | \
- 	      ULP_TXPKT_DATAMODIFY_V(0) | \
- 	      ULP_TXPKT_CHANNELID_V((cid)) | \
- 	      ULP_TXPKT_RO_V(1) | \
--	      ULP_TXPKT_FID_V(0))
-+	      ULP_TXPKT_FID_V(qid))
- 
- #define KEYCTX_ALIGN_PAD(bs) ({unsigned int _bs = (bs);\
- 			      _bs == SHA1_DIGEST_SIZE ? 12 : 0; })
-diff --git a/drivers/crypto/chelsio/chcr_core.h b/drivers/crypto/chelsio/chcr_core.h
-index c7088a4..79da22b 100644
---- a/drivers/crypto/chelsio/chcr_core.h
-+++ b/drivers/crypto/chelsio/chcr_core.h
-@@ -75,6 +75,7 @@ struct chcr_dev {
- 	spinlock_t lock_chcr_dev;
- 	struct uld_ctx *u_ctx;
- 	unsigned char tx_channel_id;
-+	unsigned char rx_channel_id;
- };
- 
- struct uld_ctx {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 8d9e4b7..ccc05f8 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -3385,6 +3385,14 @@ struct fw_crypto_lookaside_wr {
- #define FW_CRYPTO_LOOKASIDE_WR_IV_G(x) \
- 	(((x) >> FW_CRYPTO_LOOKASIDE_WR_IV_S) & FW_CRYPTO_LOOKASIDE_WR_IV_M)
- 
-+#define FW_CRYPTO_LOOKASIDE_WR_FQIDX_S   15
-+#define FW_CRYPTO_LOOKASIDE_WR_FQIDX_M   0xff
-+#define FW_CRYPTO_LOOKASIDE_WR_FQIDX_V(x) \
-+	((x) << FW_CRYPTO_LOOKASIDE_WR_FQIDX_S)
-+#define FW_CRYPTO_LOOKASIDE_WR_FQIDX_G(x) \
-+	(((x) >> FW_CRYPTO_LOOKASIDE_WR_FQIDX_S) & \
-+	 FW_CRYPTO_LOOKASIDE_WR_FQIDX_M)
-+
- #define FW_CRYPTO_LOOKASIDE_WR_TX_CH_S 10
- #define FW_CRYPTO_LOOKASIDE_WR_TX_CH_M 0x3
- #define FW_CRYPTO_LOOKASIDE_WR_TX_CH_V(x) \
+And all platforms without internal EEPROM should use userspace helper to
+provide correct NVS data (and ideally also MAC address).
+
+Except Nokia N900 I know just Pandora who has also wl1251 chip. But
+Pandora has EEPROM.
+
+Grepping linux source code... and I see only defines for Nokia N900 and
+Pandora. There can be also another user with external DTS file, but what
+is reality? Is there still really any other user of wl1251 chip with
+upstream kernel? If yes, we can prepare userspace helper if he does not
+have NVS stored in EEPROM...
+
+> So
+> for those other platforms there will be a delay waiting for user-mode
+> helper to fail, before trying to get nvs file from /lib/firmware.
+
+Yes, there will be. But there is no easy way to fix this problem that
+kernel is trying to use default/example NVS data...
+
+When helper is not available this patch just adds delay, but
+functionality is still there and same. With helper support will be
+finally fixed.
+
+And I have no idea if those default NVS data are somehow usable on other
+platforms...
+
 -- 
-1.8.2.3
+Pali Rohár
+pali.rohar@gmail.com
