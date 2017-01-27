@@ -1,94 +1,48 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/4] net: dsa: Hook {get,set}_rxnfc ethtool operations
-Date: Fri, 27 Jan 2017 13:05:12 -0800
-Message-ID: <20170127210516.16704-2-f.fainelli@gmail.com>
-References: <20170127210516.16704-1-f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/4] net: dsa: bcm_sf2: CFP support
+Date: Fri, 27 Jan 2017 13:05:11 -0800
+Message-ID: <20170127210516.16704-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32991 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751054AbdA0VM6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:12:58 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 194so25849918pgd.0
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:12:58 -0800 (PST)
-In-Reply-To: <20170127210516.16704-1-f.fainelli@gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33198 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751544AbdA0VOK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:14:10 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so25851501pgd.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:14:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for adding support for CFP/TCAMP in the bcm_sf2 driver add the
-plumbing to call into driver specific {get,set}_rxnfc operations.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/net/dsa.h |  8 ++++++++
- net/dsa/slave.c   | 26 ++++++++++++++++++++++++++
- 2 files changed, 34 insertions(+)
+This patch series adds support for the Broadcom Compact Field Processor (CFP)
+which is a classification and matching engine built into most Broadcom switches.
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 92fd795e9573..bcad7cc906d9 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -370,6 +370,14 @@ struct dsa_switch_ops {
- 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
- 				 struct switchdev_obj_port_mdb *mdb,
- 				 int (*cb)(struct switchdev_obj *obj));
-+
-+	/*
-+	 * RXNFC
-+	 */
-+	int	(*get_rxnfc)(struct dsa_switch *ds, int port,
-+			     struct ethtool_rxnfc *nfc, u32 *rule_locs);
-+	int	(*set_rxnfc)(struct dsa_switch *ds, int port,
-+			     struct ethtool_rxnfc *nfc);
- };
- 
- struct dsa_switch_driver {
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b8e58689a9a1..d30a98db004c 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1001,6 +1001,30 @@ void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
- 	ops->get_strings = dsa_cpu_port_get_strings;
- }
- 
-+static int dsa_slave_get_rxnfc(struct net_device *dev,
-+			       struct ethtool_rxnfc *nfc, u32 *rule_locs)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+
-+	if (!ds->ops->get_rxnfc)
-+		return -EOPNOTSUPP;
-+
-+	return ds->ops->get_rxnfc(ds, p->port, nfc, rule_locs);
-+}
-+
-+static int dsa_slave_set_rxnfc(struct net_device *dev,
-+			       struct ethtool_rxnfc *nfc)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+
-+	if (!ds->ops->set_rxnfc)
-+		return -EOPNOTSUPP;
-+
-+	return ds->ops->set_rxnfc(ds, p->port, nfc);
-+}
-+
- static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_drvinfo		= dsa_slave_get_drvinfo,
- 	.get_regs_len		= dsa_slave_get_regs_len,
-@@ -1019,6 +1043,8 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_eee		= dsa_slave_get_eee,
- 	.get_link_ksettings	= dsa_slave_get_link_ksettings,
- 	.set_link_ksettings	= dsa_slave_set_link_ksettings,
-+	.get_rxnfc		= dsa_slave_get_rxnfc,
-+	.set_rxnfc		= dsa_slave_set_rxnfc,
- };
- 
- static const struct net_device_ops dsa_slave_netdev_ops = {
+We support that using ethtool::rxnfc because it allows all known uses cases from
+the users I support to work, and more importantly, it allows the selection of a
+target rule index, which is later used by e.g: offloading hardware, this is an
+essential feature that I could not find being supported with cls_* for instance.
+
+Thanks
+
+Florian Fainelli (4):
+  net: dsa: Hook {get,set}_rxnfc ethtool operations
+  net: dsa: bcm_sf2: Configure traffic classes to queue mapping
+  net: dsa: bcm_sf2: Add CFP registers definitions
+  net: dsa: bcm_sf2: Add support for ethtool::rxnfc
+
+ drivers/net/dsa/Makefile       |   2 +-
+ drivers/net/dsa/bcm_sf2.c      |  23 ++
+ drivers/net/dsa/bcm_sf2.h      |  17 ++
+ drivers/net/dsa/bcm_sf2_cfp.c  | 613 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/bcm_sf2_regs.h | 150 ++++++++++
+ include/net/dsa.h              |   8 +
+ net/dsa/slave.c                |  26 ++
+ 7 files changed, 838 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/dsa/bcm_sf2_cfp.c
+
 -- 
 2.9.3
