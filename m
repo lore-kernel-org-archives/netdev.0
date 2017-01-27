@@ -1,70 +1,46 @@
-From: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
-Subject: [PATCH v2] net: phy: micrel: add support for KSZ8795
-Date: Fri, 27 Jan 2017 08:46:23 +0100
-Message-ID: <20170127074623.9200-1-sean.nyekjaer@prevas.dk>
+From: Greg KH <greg@kroah.com>
+Subject: Re: netvsc NAPI patch process
+Date: Fri, 27 Jan 2017 08:54:06 +0100
+Message-ID: <20170127075406.GC31443@kroah.com>
+References: <20170126100405.0eac2dea@xeon-e3>
+ <20170126.130646.2180422281199593870.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sean Nyekjaer <sean.nyekjaer@prevas.dk>, <andrew@lunn.ch>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stephen@networkplumber.org, kys@microsoft.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail02.prevas.se ([62.95.78.10]:29610 "EHLO mail02.prevas.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754214AbdA0HtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 02:49:23 -0500
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:35012 "EHLO
+        out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754291AbdA0HyU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 02:54:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20170126.130646.2180422281199593870.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is adds support for the PHYs in the KSZ8795 5port managed switch.
+On Thu, Jan 26, 2017 at 01:06:46PM -0500, David Miller wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Thu, 26 Jan 2017 10:04:05 -0800
+> 
+> > I have a working set of patches to enable NAPI in the netvsc driver.
+> > The problem is that it requires a set of patches to vmbus layer as well.
+> > Since vmbus patches have been going through char-misc-next tree rather
+> > than net-next, it is difficult to stage these.
+> > 
+> > How about if I send the vmbus patches through normal driver-devel upstream
+> > and during the 4.10 merge window send the last 3 patches for NAPI for linux-net
+> > tree to get into 4.10?
+> 
+> Another option is that the char-misc-next folks create a branch with just
+> the commits you need for NAPI, I pull that into net-next, and then you
+> can submit the NAPI changes to me.
 
-It will allow to detect the link between the switch and the soc
-and uses the same read_status functions as the KSZ8873MLL switch.
+I can easily do that, or I have no problem with the vmbus changes going
+through the net-next tree, if they are sane (i.e. let me review them
+please...)  Which ever is easier for the networking developers, their
+tree is much crazier than the tiny char-misc tree is :)
 
-Signed-off-by: Sean Nyekjaer <sean.nyekjaer@prevas.dk>
----
-Changes in v2:
- - Removed "switch" name
+thanks,
 
- drivers/net/phy/micrel.c   | 14 ++++++++++++++
- include/linux/micrel_phy.h |  2 ++
- 2 files changed, 16 insertions(+)
-
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index ea92d524d5a8..fab56c9350cf 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -1014,6 +1014,20 @@ static struct phy_driver ksphy_driver[] = {
- 	.get_stats	= kszphy_get_stats,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
-+}, {
-+	.phy_id		= PHY_ID_KSZ8795,
-+	.phy_id_mask	= MICREL_PHY_ID_MASK,
-+	.name		= "Micrel KSZ8795",
-+	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
-+	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-+	.config_init	= kszphy_config_init,
-+	.config_aneg	= ksz8873mll_config_aneg,
-+	.read_status	= ksz8873mll_read_status,
-+	.get_sset_count = kszphy_get_sset_count,
-+	.get_strings	= kszphy_get_strings,
-+	.get_stats	= kszphy_get_stats,
-+	.suspend	= genphy_suspend,
-+	.resume		= genphy_resume,
- } };
- 
- module_phy_driver(ksphy_driver);
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-index 257173e0095e..f541da68d1e7 100644
---- a/include/linux/micrel_phy.h
-+++ b/include/linux/micrel_phy.h
-@@ -35,6 +35,8 @@
- #define PHY_ID_KSZ886X		0x00221430
- #define PHY_ID_KSZ8863		0x00221435
- 
-+#define PHY_ID_KSZ8795		0x00221550
-+
- /* struct phy_device dev_flags definitions */
- #define MICREL_PHY_50MHZ_CLK	0x00000001
- #define MICREL_PHY_FXEN		0x00000002
--- 
-2.11.0
+greg k-h
