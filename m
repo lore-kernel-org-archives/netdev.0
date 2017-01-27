@@ -1,93 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/2] ravb: Add tx and rx clock internal delays
- mode of APSR
-Date: Fri, 27 Jan 2017 20:13:43 +0300
-Message-ID: <77488d7f-b94b-1053-7f55-2a16ee09c3c8@cogentembedded.com>
-References: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
- <1485515090-7570-2-git-send-email-horms+renesas@verge.net.au>
- <57812c3f-3130-7141-c479-6beefb237907@cogentembedded.com>
- <20170127165123.GC7336@verge.net.au>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
+Date: Fri, 27 Jan 2017 09:50:47 -0800
+Message-ID: <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
+ <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com> <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170127165123.GC7336@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:33479 "EHLO
+        mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934235AbdA0Rux (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 12:50:53 -0500
+Received: by mail-yw0-f194.google.com with SMTP id u68so24876506ywg.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 09:50:53 -0800 (PST)
+In-Reply-To: <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/27/2017 07:51 PM, Simon Horman wrote:
-
->>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>
->>> This patch enables tx and rx clock internal delay modes (TDM and RDM).
->>>
->>> This is to address a failure in the case of 1Gbps communication using the
->>> by salvator-x board with the KSZ9031RNX phy. This has been reported to
->>> occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
->>>
->>> With this change APSR internal delay modes are enabled for
->>> "rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
->>>
->>> phy mode   | ASPR delay mode
->>> -----------+----------------
->>> rgmii-id   | TDM and RDM
->>> rgmii-rxid | RDM
->>> rgmii-txid | TDM
->>>
->>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
->>>
->>> ---
->>> v1 [Simon Horman]
->>> - Combined patches
->>> - Reworded changelog
->>>
->>> v0 [Kazuya Mizuguchi]
->> [...]
->>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
->>> index 89ac1e3f6175..9fb4c04c5885 100644
->>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-[...]
->>> @@ -2016,6 +2039,9 @@ static int ravb_probe(struct platform_device *pdev)
->>> 	/* Request GTI loading */
->>> 	ravb_modify(ndev, GCCR, GCCR_LTI, GCCR_LTI);
->>>
->>> +	/* Set APSR */
->>> +	ravb_set_delay_mode(ndev);
->>> +
->>> 	/* Allocate descriptor base address table */
->>> 	priv->desc_bat_size = sizeof(struct ravb_desc) * DBAT_ENTRY_NUM;
->>> 	priv->desc_bat = dma_alloc_coherent(ndev->dev.parent, priv->desc_bat_size,
->>> @@ -2152,6 +2178,9 @@ static int __maybe_unused ravb_resume(struct device *dev)
->>> 	/* Request GTI loading */
->>> 	ravb_modify(ndev, GCCR, GCCR_LTI, GCCR_LTI);
->>>
->>> +	/* Set APSR */
->>> +	ravb_set_delay_mode(ndev);
->>> +
+On Fri, Jan 27, 2017 at 9:38 AM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+> On Fri, Jan 27, 2017 at 7:34 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>> Add a configuration option (CONFIG_MLX5_CORE_ESWITCH) for controlling
+>>> whether the eswitch code is built. Change Kconfig and Makefile
+>>> accordingly.
 >>
->>    So far the pattern was to first check if gen != 2, then calling a gen3
->> specific function. I'd like to keep it, rather than checking in the function
->> itself.
+>> Tom, FWIW, please note that the basic e-switch functionality is needed
+>> also when SRIOV isn't of use, this is for a multi host configuration.
+>>
 >
-> So you would like something like?
+> Right, set_l2_table_entry@eswitch.c need to be called by PF for any UC
+> MAC address wanted by VF or PF.
+> To keep one flow in the code, the implementation is done as part of eswitch.
 >
-> 	/* Set APSR */
-> 	if (priv->chip_id != RCAR_GEN2)
-> 		 ravb_set_delay_mode(ndev);
-
-    Yes (except the comment).
-
+> so in multi-host configuration (where there are 4 PFs) each PF should
+> invoke set_l2_table_entry_cmd  for each one of its own UC MACs.
 >
-> That does not seem better to me but I can make it so if that is your
-> preference.
+> populating the l2 table is done using the whole eswitch event driven
+> mechanisms, it is not easy and IMH not right to separate eswitch
+> tables from l2 table (same management logic, different tables).
+>
+> Anyways as Or stated this is just an FYI, eswitch needs to be enabled
+> on Multi-host configuration.
+>
+What indicate a multi-host configuration?
 
-    Yes, not better code-wise but more consistent.
-
-MBR, Sergei
+>> Or.
+>>
+>> My WW (and same for the rest of the IL team..) has ended so I will be
+>> able to further look on this series and comment on Sunday.
