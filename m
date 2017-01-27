@@ -1,67 +1,45 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2 net-next 1/2] ravb: Add tx and rx clock internal
- delays mode of APSR
-Date: Fri, 27 Jan 2017 20:40:33 +0100
-Message-ID: <20170127194030.GA18706@verge.net.au>
-References: <1485542120-10205-1-git-send-email-horms+renesas@verge.net.au>
- <1485542120-10205-2-git-send-email-horms+renesas@verge.net.au>
- <0570b250-83eb-fbac-de2a-0ea99a7250c2@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH v3 net-next 0/2] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
+Date: Fri, 27 Jan 2017 20:46:25 +0100
+Message-ID: <1485546387-30809-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
         linux-renesas-soc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:38209 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:38272 "EHLO
         kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbdA0TlW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 14:41:22 -0500
-Content-Disposition: inline
-In-Reply-To: <0570b250-83eb-fbac-de2a-0ea99a7250c2@cogentembedded.com>
+        with ESMTP id S1751115AbdA0Tqs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 14:46:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 10:05:58PM +0300, Sergei Shtylyov wrote:
-> On 01/27/2017 09:35 PM, Simon Horman wrote:
-> 
-> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >
-> >This patch enables tx and rx clock internal delay modes (TDM and RDM).
-> >
-> >This is to address a failure in the case of 1Gbps communication using the
-> >by salvator-x board with the KSZ9031RNX phy. This has been reported to
-> >occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
-> >
-> >With this change APSR internal delay modes are enabled for
-> >"rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
-> >
-> >phy mode   | ASPR delay mode
-> >-----------+----------------
-> >rgmii-id   | TDM and RDM
-> >rgmii-rxid | RDM
-> >rgmii-txid | TDM
-> >
-> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
-> >---
-> >v2 [Simon Horman]
-> >* As suggested by Sergei Shtylyov
-> >  - Add a comment to indicate that APSR_DM appears to be undocumented.
-> >  - Move chip_id check outside of ravb_set_delay_mode for consistency
-> >  - Call ravb_modify() once in ravb_set_delay_mode()
-> >* Enhance comment before calls to ravb_set_delay_mode()
-> 
->    Well, I meant to say that the comment should precede the body of the
-> function, not be repeated at every call...
+Hi,
 
-I scratched my head trying to work out what you meant... and guessed wrong.
+this series adds support for gigabit communication to the Renesas EthernetAVB
+controller when used in conjunction with  R-Car Gen3 H3 ES1.1+ and M3-W SoCs.
+Gigabit is already supported with R-Car Gen 2 SoCs.
 
-> >* Remove unnecessary break from end of switch statement.
-> 
->   Come on, you did remove all the *switch*. :-)
+The patch from Geert was previously posted for inclusion in v4.10 and
+acked by Dave for that purpose. It was, however, not accepted by the
+ARM SoC maintainers.
 
-Yes, after I wrote the comment above :)
+The path from Mizuguchi-san is to address timing problems observed with
+gigabit transfers. I would like it considered although my own testing on
+M3-W did not show any timing problems.
+
+Changes since v1:
+* Address various feedback for "APSR" patch as noted in its changelog
+
+Geert Uytterhoeven (1):
+  ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
+
+Kazuya Mizuguchi (1):
+  ravb: Add tx and rx clock internal delays mode of APSR
+
+ drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++++
+ drivers/net/ethernet/renesas/ravb_main.c | 33 ++++++++++++++++++++++++++++++--
+ 2 files changed, 41 insertions(+), 2 deletions(-)
+
+-- 
+2.7.0.rc3.207.g0ac5344
