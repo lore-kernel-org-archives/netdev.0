@@ -1,138 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] net: adjust skb->truesize in pskb_expand_head()
-Date: Fri, 27 Jan 2017 07:11:27 -0800
-Message-ID: <1485529887.6360.50.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3 0/3] various gtp fixes
+Date: Fri, 27 Jan 2017 10:40:12 -0500 (EST)
+Message-ID: <20170127.104012.823264164422411860.davem@davemloft.net>
+References: <20170127094058.7899-1-aschultz@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Slava Shwartsman <slavash@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Cc: pablo@netfilter.org, netdev@vger.kernel.org,
+        Lionel.Gauthier@eurecom.fr, openbsc@lists.osmocom.org,
+        laforge@gnumonks.org, elfring@users.sourceforge.net
+To: aschultz@tpip.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34669 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933132AbdA0Pjz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:39:55 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 3so7522036pgj.1
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 07:39:45 -0800 (PST)
-In-Reply-To: <1485476480.5145.194.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36694 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932733AbdA0Plr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 10:41:47 -0500
+In-Reply-To: <20170127094058.7899-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Andreas Schultz <aschultz@tpip.net>
+Date: Fri, 27 Jan 2017 10:40:55 +0100
 
-Slava Shwartsman reported a warning in skb_try_coalesce(), when we
-detect skb->truesize is completely wrong.
+> I'm sorry for the compile error mess up in the last version.
+> It's no excuse for not test compiling, but the hunks got lost in
+> a rebase.
+> 
+> This is the part of the previous "simple gtp improvements" series
+> that Pablo indicated should go into net.
+> 
+> The addition of the module alias fixes genl family autoloading,
+> clearing the DF bit fixes a protocol violation in regard to the
+> specification and the netns comparison fixes a corner case of
+> cross netns recv.
+> 
+> Andreas
+> 
+> v2->v3: fix compiler error introduced in rebase
 
-In his case, issue came from IPv6 reassembly coping with malicious
-datagrams, that forced various pskb_may_pull() to reallocate a bigger
-skb->head than the one allocated by NIC driver before entering GRO
-layer.
-
-Current code does not change skb->truesize, leaving this burden to
-callers if they care enough.
-
-Blindly changing skb->truesize in pskb_expand_head() is not
-easy, as some producers might track skb->truesize, for example
-in xmit path for back pressure feedback (sk->sk_wmem_alloc)
-
-We can detect the cases where it should be safe to change
-skb->truesize :
-
-1) skb is not attached to a socket.
-2) If it is attached to a socket, destructor is sock_edemux()
-
-My audit gave only two callers doing their own skb->truesize
-manipulation.
-
-I had to remove skb parameter in sock_edemux macro when
-CONFIG_INET is not set to avoid a compile error.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Slava Shwartsman <slavash@mellanox.com>
----
- include/net/sock.h       |    2 +-
- net/core/skbuff.c        |   14 +++++++++++---
- net/netlink/af_netlink.c |    8 +++-----
- net/wireless/util.c      |    2 --
- 4 files changed, 15 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 7144750d14e56b9d5392e43dc46cb40a87e3d397..94e65fd703548dd40e16c30207fd55c879ed0b60 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1534,7 +1534,7 @@ void sock_efree(struct sk_buff *skb);
- #ifdef CONFIG_INET
- void sock_edemux(struct sk_buff *skb);
- #else
--#define sock_edemux(skb) sock_efree(skb)
-+#define sock_edemux sock_efree
- #endif
- 
- int sock_setsockopt(struct socket *sock, int level, int op,
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f8dbe4a7ab46a9196c6683ce5c9c14d3d99dc1a1..6cd59da7ec583260748b9c45b99a824bcc6171f8 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1192,10 +1192,10 @@ EXPORT_SYMBOL(__pskb_copy_fclone);
- int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 		     gfp_t gfp_mask)
- {
--	int i;
--	u8 *data;
--	int size = nhead + skb_end_offset(skb) + ntail;
-+	int i, osize = skb_end_offset(skb);
-+	int size = osize + nhead + ntail;
- 	long off;
-+	u8 *data;
- 
- 	BUG_ON(nhead < 0);
- 
-@@ -1257,6 +1257,14 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 	skb->hdr_len  = 0;
- 	skb->nohdr    = 0;
- 	atomic_set(&skb_shinfo(skb)->dataref, 1);
-+
-+	/* It is not generally safe to change skb->truesize.
-+	 * For the moment, we really care of rx path, or
-+	 * when skb is orphaned (not attached to a socket).
-+	 */
-+	if (!skb->sk || skb->destructor == sock_edemux)
-+		skb->truesize += size - osize;
-+
- 	return 0;
- 
- nofrags:
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index edcc1e19ad532641f51f6809b8c90d1e377081ff..7b73c7c161a9680b8691a712c31073b7789620f7 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1210,11 +1210,9 @@ static struct sk_buff *netlink_trim(struct sk_buff *skb, gfp_t allocation)
- 		skb = nskb;
- 	}
- 
--	if (!pskb_expand_head(skb, 0, -delta,
--			      (allocation & ~__GFP_DIRECT_RECLAIM) |
--			      __GFP_NOWARN | __GFP_NORETRY))
--		skb->truesize -= delta;
--
-+	pskb_expand_head(skb, 0, -delta,
-+			 (allocation & ~__GFP_DIRECT_RECLAIM) |
-+			 __GFP_NOWARN | __GFP_NORETRY);
- 	return skb;
- }
- 
-diff --git a/net/wireless/util.c b/net/wireless/util.c
-index 1b9296882dcd6a0b585dfd604a30807e7f26290c..68e5f2ecee1aa22f17ab9a55eb566124e585740b 100644
---- a/net/wireless/util.c
-+++ b/net/wireless/util.c
-@@ -618,8 +618,6 @@ int ieee80211_data_from_8023(struct sk_buff *skb, const u8 *addr,
- 
- 		if (pskb_expand_head(skb, head_need, 0, GFP_ATOMIC))
- 			return -ENOMEM;
--
--		skb->truesize += head_need;
- 	}
- 
- 	if (encaps_data) {
+Looks better, series applied, thanks.
