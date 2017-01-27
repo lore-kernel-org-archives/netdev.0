@@ -1,100 +1,68 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 0/4] mlx5: Create build configuration options
-Date: Fri, 27 Jan 2017 10:13:17 -0800
-Message-ID: <CALx6S355U1g+OyEM9mC12TRtYZqwOciT=+OpsKXPwkuX-Xq0LQ@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
+Date: Fri, 27 Jan 2017 10:16:11 -0800
+Message-ID: <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
+ <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
+ <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
+ <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com> <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        David Miller <davem@davemloft.net>,
         Linux Netdev List <netdev@vger.kernel.org>,
         Kernel Team <kernel-team@fb.com>
 To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34241 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754698AbdA0SNT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:13:19 -0500
-Received: by mail-qt0-f193.google.com with SMTP id w20so14117484qtb.1
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:13:18 -0800 (PST)
-In-Reply-To: <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36032 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753567AbdA0SRR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:17:17 -0500
+Received: by mail-qt0-f195.google.com with SMTP id h53so11210479qth.3
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:16:12 -0800 (PST)
+In-Reply-To: <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 9:58 AM, Saeed Mahameed
+On Fri, Jan 27, 2017 at 10:05 AM, Saeed Mahameed
 <saeedm@dev.mellanox.co.il> wrote:
-> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
->> This patchset creates configuration options for sriov, vxlan, eswitch,
->> and tc features in the mlx5 driver. The purpose of this is to allow not
->> building these features. These features are optional advanced features
->> that are not required for a core Ethernet driver. A user can disable
->> these features which resuces the amount of code in the driver. Disabling
->> these features (and DCB) reduces the size of mlx5_core.o by about 16%.
->> This is also can reduce the complexity of backport and rebases since
->> user would no longer need to worry about dependencies with the rest of
->> the kernel that features which might not be of any interest to a user
->> may bring in.
->>
->> Tested: Build and ran the driver with all features enabled (the default)
->> and with none enabled (including DCB). Did not see any issues. I did
->> not explicity test operation of ayy of features in the list.
->>
+> On Fri, Jan 27, 2017 at 7:50 PM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Fri, Jan 27, 2017 at 9:38 AM, Saeed Mahameed
+>> <saeedm@dev.mellanox.co.il> wrote:
+>>> On Fri, Jan 27, 2017 at 7:34 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> Add a configuration option (CONFIG_MLX5_CORE_ESWITCH) for controlling
+>>>>> whether the eswitch code is built. Change Kconfig and Makefile
+>>>>> accordingly.
+>>>>
+>>>> Tom, FWIW, please note that the basic e-switch functionality is needed
+>>>> also when SRIOV isn't of use, this is for a multi host configuration.
+>>>>
+>>>
+>>> Right, set_l2_table_entry@eswitch.c need to be called by PF for any UC
+>>> MAC address wanted by VF or PF.
+>>> To keep one flow in the code, the implementation is done as part of eswitch.
+>>>
+>>> so in multi-host configuration (where there are 4 PFs) each PF should
+>>> invoke set_l2_table_entry_cmd  for each one of its own UC MACs.
+>>>
+>>> populating the l2 table is done using the whole eswitch event driven
+>>> mechanisms, it is not easy and IMH not right to separate eswitch
+>>> tables from l2 table (same management logic, different tables).
+>>>
+>>> Anyways as Or stated this is just an FYI, eswitch needs to be enabled
+>>> on Multi-host configuration.
+>>>
+>> What indicate a multi-host configuration?
 >
-> Basically I am not against this kind of change, infact i am with it,
-> although I would have done some restructuring in the driver before i
-> did such change ;), filling the code with ifdefs is not a neat thing.
+> nothing in the driver, it is transparent.
 >
-If you wish, please take this as an RFC and feel free to structure the
-code the right way. I think the intent is clear enough and looks like
-davem isn't going to allow the directory restructuring so something
-like this seems to be the best course of action now.
+So then we always need the eswitch code to be built even if someone
+never uses any of it?
 
-> I agree this will simplify backporting and provide some kind of
-> feature separation inside the driver.
-> But this will also increase the testing matrix we need to cover and
-> increase the likelihood of kbuild breaks by an order of magnitude.
->
-The testing matrix already exploded with the proliferation of
-supported features. If anything this reduces the test matrix problem.
-For instance, if we make a change to the core driver and functionality
-properly isolated there is a much better chance that this won't affect
-peripheral functionality and vice versa. It is just not feasible for
-us to test every combination of NIC features for every change being
-made.
-
-> One more thing, do we really need a device specific flag per feature
-> per vendor per device?  can't we just use the same kconfig flag for
-> all drivers and if there is a more generic system wide flag that
-> covers the same feature
-> can't we just use it, for instance instead of
-> CONFIG_<DRIVER_NAME>_SRIOV why not use already existing CONFIG_PCI_IOV
-> for all drivers ?
->
-That sounds good to me. We already have CONFIG_RFS_ACCEL and others
-that do that.
-
-Tom
-
-> Saeed.
->
 >>
->>
->> Tom Herbert (4):
->>   mlx5: Make building eswitch configurable
->>   mlx5: Make building SR-IOV configurable
->>   mlx5: Make building tc hardware offload configurable
->>   mlx5: Make building vxlan hardware offload configurable
->>
->>  drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  35 ++++++
->>  drivers/net/ethernet/mellanox/mlx5/core/Makefile  |  16 ++-
->>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 129 ++++++++++++++++------
->>  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   |  39 +++++--
->>  drivers/net/ethernet/mellanox/mlx5/core/eq.c      |   4 +-
->>  drivers/net/ethernet/mellanox/mlx5/core/lag.c     |   2 +
->>  drivers/net/ethernet/mellanox/mlx5/core/main.c    |  32 ++++--
->>  drivers/net/ethernet/mellanox/mlx5/core/sriov.c   |   6 +-
->>  8 files changed, 205 insertions(+), 58 deletions(-)
->>
->> --
->> 2.9.3
->>
+>>>> Or.
+>>>>
+>>>> My WW (and same for the rest of the IL team..) has ended so I will be
+>>>> able to further look on this series and comment on Sunday.
