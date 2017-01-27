@@ -1,67 +1,100 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v2 net-next 0/4] sfc: encapsulated filters
-Date: Fri, 27 Jan 2017 10:03:01 -0800
-Message-ID: <CALx6S359v=kUv2DAgkmDRSdMvM=sk+zYLxLKSAWhZEQwp=aTDQ@mail.gmail.com>
-References: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
+Subject: Re: [PATCH net-next 0/4] mlx5: Create build configuration options
+Date: Fri, 27 Jan 2017 10:13:17 -0800
+Message-ID: <CALx6S355U1g+OyEM9mC12TRtYZqwOciT=+OpsKXPwkuX-Xq0LQ@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-net-drivers@solarflare.com,
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34532 "EHLO
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34241 "EHLO
         mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755261AbdA0SMt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:12:49 -0500
-Received: by mail-qt0-f193.google.com with SMTP id w20so14109737qtb.1
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:12:01 -0800 (PST)
-In-Reply-To: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
+        with ESMTP id S1754698AbdA0SNT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:13:19 -0500
+Received: by mail-qt0-f193.google.com with SMTP id w20so14117484qtb.1
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:13:18 -0800 (PST)
+In-Reply-To: <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 7:00 AM, Edward Cree <ecree@solarflare.com> wrote:
-> This series adds support for setting up filters for encapsulated traffic on
-> SFC 8000-series adapters, which recognise VXLAN, GENEVE and NVGRE packets by
-> parsing packet headers.  (VXLAN and GENEVE will only be recognised if the
-> driver on the primary PF has notified the firmware of relevant UDP ports,
-> which this driver does not yet do.)
-> While the driver currently has no way of using these filters for flow
-> steering, it is nonetheless necessary to insert catch-all (aka 'default')
-> filters to direct this traffic, similar to the existing unencapsulated uni-
-> and multi-cast catch-all filters, as otherwise the traffic will be dropped
-> by the NIC - implementation details of the hardware filtering mean that the
-> traffic will not get matched on outer MAC address to unencapsulated catch-
-> all filters.  (Yes, this is a mess.)
+On Fri, Jan 27, 2017 at 9:58 AM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
+>> This patchset creates configuration options for sriov, vxlan, eswitch,
+>> and tc features in the mlx5 driver. The purpose of this is to allow not
+>> building these features. These features are optional advanced features
+>> that are not required for a core Ethernet driver. A user can disable
+>> these features which resuces the amount of code in the driver. Disabling
+>> these features (and DCB) reduces the size of mlx5_core.o by about 16%.
+>> This is also can reduce the complexity of backport and rebases since
+>> user would no longer need to worry about dependencies with the rest of
+>> the kernel that features which might not be of any interest to a user
+>> may bring in.
+>>
+>> Tested: Build and ran the driver with all features enabled (the default)
+>> and with none enabled (including DCB). Did not see any issues. I did
+>> not explicity test operation of ayy of features in the list.
+>>
+>
+> Basically I am not against this kind of change, infact i am with it,
+> although I would have done some restructuring in the driver before i
+> did such change ;), filling the code with ifdefs is not a neat thing.
+>
+If you wish, please take this as an RFC and feel free to structure the
+code the right way. I think the intent is clear enough and looks like
+davem isn't going to allow the directory restructuring so something
+like this seems to be the best course of action now.
 
-I don't understand this. You seem to be saying that unless there is
-filtering for VXLAN and GENEVE these packets will dropped. These are
-_just_ UDP packets. Anything that the NIC does special for them is at
-most an optimization, it can *NEVER* be a requirement for NICs to be
-able to parse these protocols. Please elaborate...
+> I agree this will simplify backporting and provide some kind of
+> feature separation inside the driver.
+> But this will also increase the testing matrix we need to cover and
+> increase the likelihood of kbuild breaks by an order of magnitude.
+>
+The testing matrix already exploded with the proliferation of
+supported features. If anything this reduces the test matrix problem.
+For instance, if we make a change to the core driver and functionality
+properly isolated there is a much better chance that this won't affect
+peripheral functionality and vice versa. It is just not feasible for
+us to test every combination of NIC features for every change being
+made.
+
+> One more thing, do we really need a device specific flag per feature
+> per vendor per device?  can't we just use the same kconfig flag for
+> all drivers and if there is a more generic system wide flag that
+> covers the same feature
+> can't we just use it, for instance instead of
+> CONFIG_<DRIVER_NAME>_SRIOV why not use already existing CONFIG_PCI_IOV
+> for all drivers ?
+>
+That sounds good to me. We already have CONFIG_RFS_ACCEL and others
+that do that.
 
 Tom
 
-
-> Although this is, therefore, fixing a bug in the existing driver, it's a bug
-> which has existed since 8000 series support was added, and the fix involves
-> quite a big patch with an 'adding features' flavour to it, hence why this is
-> for net-next rather than net and stable.
+> Saeed.
 >
-> v2: move netif_cond_dbg into netdevice.h and its own patch
->
-> ---
-> Edward Cree (2):
->   net: implement netif_cond_dbg macro
->   sfc: insert catch-all filters for encapsulated traffic
->
-> Jon Cooper (2):
->   sfc: fixes to filter restore handling
->   sfc: refactor debug-or-warnings printks
->
->  drivers/net/ethernet/sfc/ef10.c   | 582 ++++++++++++++++++++++++++++----------
->  drivers/net/ethernet/sfc/filter.h |  41 ++-
->  drivers/net/ethernet/sfc/mcdi.c   |  19 +-
->  include/linux/netdevice.h         |   9 +
->  4 files changed, 497 insertions(+), 154 deletions(-)
->
+>>
+>>
+>> Tom Herbert (4):
+>>   mlx5: Make building eswitch configurable
+>>   mlx5: Make building SR-IOV configurable
+>>   mlx5: Make building tc hardware offload configurable
+>>   mlx5: Make building vxlan hardware offload configurable
+>>
+>>  drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  35 ++++++
+>>  drivers/net/ethernet/mellanox/mlx5/core/Makefile  |  16 ++-
+>>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 129 ++++++++++++++++------
+>>  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   |  39 +++++--
+>>  drivers/net/ethernet/mellanox/mlx5/core/eq.c      |   4 +-
+>>  drivers/net/ethernet/mellanox/mlx5/core/lag.c     |   2 +
+>>  drivers/net/ethernet/mellanox/mlx5/core/main.c    |  32 ++++--
+>>  drivers/net/ethernet/mellanox/mlx5/core/sriov.c   |   6 +-
+>>  8 files changed, 205 insertions(+), 58 deletions(-)
+>>
+>> --
+>> 2.9.3
+>>
