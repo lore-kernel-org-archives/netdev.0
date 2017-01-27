@@ -1,54 +1,94 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 3/8] net/mlx5: E-Switch, Err when retrieving steering name-space fails
-Date: Fri, 27 Jan 2017 22:38:38 +0200
-Message-ID: <20170127203843.3206-4-saeedm@mellanox.com>
-References: <20170127203843.3206-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/4] net: dsa: Hook {get,set}_rxnfc ethtool operations
+Date: Fri, 27 Jan 2017 13:05:12 -0800
+Message-ID: <20170127210516.16704-2-f.fainelli@gmail.com>
+References: <20170127210516.16704-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33321 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751054AbdA0VL0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:11:26 -0500
-In-Reply-To: <20170127203843.3206-1-saeedm@mellanox.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:32991 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751054AbdA0VM6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:12:58 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 194so25849918pgd.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:12:58 -0800 (PST)
+In-Reply-To: <20170127210516.16704-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+In preparation for adding support for CFP/TCAMP in the bcm_sf2 driver add the
+plumbing to call into driver specific {get,set}_rxnfc operations.
 
-Make sure to return error when we failed retrieving the FDB steering
-name space. Also, while around, correctly print the error when mode
-change revert fails in the warning message.
-
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reported-by: Leon Romanovsky <leonro@mellanox.com>
-Reviewed-by: Roi Dayan <roid@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ include/net/dsa.h |  8 ++++++++
+ net/dsa/slave.c   | 26 ++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 5803216157cf..c61bca138e65 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -424,6 +424,7 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
- 	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
- 	if (!root_ns) {
- 		esw_warn(dev, "Failed to get FDB flow namespace\n");
-+		err = -EOPNOTSUPP;
- 		goto ns_err;
- 	}
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 92fd795e9573..bcad7cc906d9 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -370,6 +370,14 @@ struct dsa_switch_ops {
+ 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+ 				 struct switchdev_obj_port_mdb *mdb,
+ 				 int (*cb)(struct switchdev_obj *obj));
++
++	/*
++	 * RXNFC
++	 */
++	int	(*get_rxnfc)(struct dsa_switch *ds, int port,
++			     struct ethtool_rxnfc *nfc, u32 *rule_locs);
++	int	(*set_rxnfc)(struct dsa_switch *ds, int port,
++			     struct ethtool_rxnfc *nfc);
+ };
  
-@@ -655,7 +656,7 @@ static int esw_offloads_start(struct mlx5_eswitch *esw)
- 		esw_warn(esw->dev, "Failed setting eswitch to offloads, err %d\n", err);
- 		err1 = mlx5_eswitch_enable_sriov(esw, num_vfs, SRIOV_LEGACY);
- 		if (err1)
--			esw_warn(esw->dev, "Failed setting eswitch back to legacy, err %d\n", err);
-+			esw_warn(esw->dev, "Failed setting eswitch back to legacy, err %d\n", err1);
- 	}
- 	if (esw->offloads.inline_mode == MLX5_INLINE_MODE_NONE) {
- 		if (mlx5_eswitch_inline_mode_get(esw,
+ struct dsa_switch_driver {
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index b8e58689a9a1..d30a98db004c 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1001,6 +1001,30 @@ void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
+ 	ops->get_strings = dsa_cpu_port_get_strings;
+ }
+ 
++static int dsa_slave_get_rxnfc(struct net_device *dev,
++			       struct ethtool_rxnfc *nfc, u32 *rule_locs)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	if (!ds->ops->get_rxnfc)
++		return -EOPNOTSUPP;
++
++	return ds->ops->get_rxnfc(ds, p->port, nfc, rule_locs);
++}
++
++static int dsa_slave_set_rxnfc(struct net_device *dev,
++			       struct ethtool_rxnfc *nfc)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	if (!ds->ops->set_rxnfc)
++		return -EOPNOTSUPP;
++
++	return ds->ops->set_rxnfc(ds, p->port, nfc);
++}
++
+ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_drvinfo		= dsa_slave_get_drvinfo,
+ 	.get_regs_len		= dsa_slave_get_regs_len,
+@@ -1019,6 +1043,8 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_eee		= dsa_slave_get_eee,
+ 	.get_link_ksettings	= dsa_slave_get_link_ksettings,
+ 	.set_link_ksettings	= dsa_slave_set_link_ksettings,
++	.get_rxnfc		= dsa_slave_get_rxnfc,
++	.set_rxnfc		= dsa_slave_set_rxnfc,
+ };
+ 
+ static const struct net_device_ops dsa_slave_netdev_ops = {
 -- 
-2.11.0
+2.9.3
