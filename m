@@ -1,139 +1,61 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 1/2] ravb: Add tx and rx clock internal delays
- mode of APSR
-Date: Fri, 27 Jan 2017 17:49:21 +0100
-Message-ID: <20170127164921.GB7336@verge.net.au>
-References: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
- <1485515090-7570-2-git-send-email-horms+renesas@verge.net.au>
- <813af981-9a1b-8e45-1fed-788047ab26b5@cogentembedded.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2 0/2] net: ipv6: Improve user experience with
+ multipath routes
+Date: Fri, 27 Jan 2017 17:45:29 +0100
+Message-ID: <ac4440d4-994f-bc21-3e8d-43bf1eefa95e@6wind.com>
+References: <20170124.110616.2098461870069191491.davem@davemloft.net>
+ <4024f547-7f26-ab52-df9d-a0509048c7ff@6wind.com>
+ <c78afc85-8d18-0f63-68b3-63925e5d8c81@cumulusnetworks.com>
+ <20170126.130054.2221154789287701062.davem@davemloft.net>
+ <f30ab203-47f9-e333-3552-bf5e2dbeaaf9@6wind.com>
+ <582674ce-ed9e-9c9d-d88c-a7bfe6691d89@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <813af981-9a1b-8e45-1fed-788047ab26b5@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, roopa <roopa@cumulusnetworks.com>
+To: David Ahern <dsa@cumulusnetworks.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34818 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755146AbdA0Qpd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 11:45:33 -0500
+Received: by mail-wm0-f42.google.com with SMTP id r126so125292820wmr.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 08:45:33 -0800 (PST)
+In-Reply-To: <582674ce-ed9e-9c9d-d88c-a7bfe6691d89@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 03:42:05PM +0300, Sergei Shtylyov wrote:
-> Hello!
+Le 27/01/2017 à 17:36, David Ahern a écrit :
+> On 1/27/17 9:29 AM, Nicolas Dichtel wrote:
+>> Le 26/01/2017 à 19:00, David Miller a écrit :
+>>> From: David Ahern <dsa@cumulusnetworks.com>
+>> [snip]
+>>>> Quagga does not properly handle IPv6 multipath routes received from
+>>>> the kernel. I checked this with debian/jessie version and our
+>>>> version, and Donald reviewed the source. It is broken.
+>>>
+>>> If this is true, quagga is asbolutely not an argument for this "breaking"
+>>> something.  It doesn't break anything.
+>> Ok, my tests also shows that quagga is buggy.
+>> Let's change the way to advertise these routes.
+>>
+>> It would be great to also use RTA_MULTIPATH when a route is deleted (like in
+>> your patch 1/2).
 > 
-> On 01/27/2017 02:04 PM, Simon Horman wrote:
+> I have updated notifications to use RTA_MULTIPATH. Working on the multipath add/delete/replace permutations now and what the notification looks like. Add/replace is easy and the notifications use RTA_MULTIPATH. Notifications for the delete path are complicated given that a delete could remove only a subset of nexthops. Given that, we might have to settle for a notification for each nexthop delete.
+Ok, I give it a quick look and I agree it seems not so easy.
+
 > 
-> >From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >
-> >This patch enables tx and rx clock internal delay modes (TDM and RDM).
-> >
-> >This is to address a failure in the case of 1Gbps communication using the
-> >by salvator-x board with the KSZ9031RNX phy. This has been reported to
-> >occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
-> >
-> >With this change APSR internal delay modes are enabled for
-> >"rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
-> >
-> >phy mode   | ASPR delay mode
-> >-----------+----------------
-> >rgmii-id   | TDM and RDM
-> >rgmii-rxid | RDM
-> >rgmii-txid | TDM
-> >
-> >Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> >
-> >---
-> >v1 [Simon Horman]
-> >- Combined patches
-> >- Reworded changelog
-> >
-> >v0 [Kazuya Mizuguchi]
-> >---
-> > drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++++
-> > drivers/net/ethernet/renesas/ravb_main.c | 29 +++++++++++++++++++++++++++++
-> > 2 files changed, 39 insertions(+)
-> >
-> >diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
-> >index f1109661a533..d7c91d48cc48 100644
-> >--- a/drivers/net/ethernet/renesas/ravb.h
-> >+++ b/drivers/net/ethernet/renesas/ravb.h
-> [...]
-> >@@ -248,6 +249,15 @@ enum ESR_BIT {
-> > 	ESR_EIL		= 0x00001000,
-> > };
-> >
-> >+/* APSR */
-> >+enum APSR_BIT {
-> >+	APSR_MEMS		= 0x00000002,
+>>
+>> Note that there is still a difference between ipv4 and ipv6: in ipv4 when a
+>> nexthop is added/updated/removed, the whole route must be deleted and added
+>> again. In IPv6, nexthop can be managed one by one.
+>> It means that in ipv4, the full route is always dumped, which is not the case in
+>> ipv6.
+>>
 > 
->    Not documented in the revision 0.5 of the gen3 manual...
-
-It is in version 0.53 of the documentation but I think it can be dropped
-from this patch as its unused.
-
-> >+	APSR_CMSW		= 0x00000010,
-
-I think the above can also be dropped as it is unused.
-
-> >+	APSR_DM			= 0x00006000,
+> Yes. I have been working on how to delete a nexthop within an IPv4 route. It is much more complicated given how the route is stored compared to IPv6.
 > 
->    ... and neither this field. Are these documented in the latter revs?
-
-This one is not. I can ask Mizuguchi-san to confirm it exists (with himself).
-
-> >+	APSR_DM_RDM		= 0x00002000,
-> >+	APSR_DM_TDM		= 0x00004000,
-> >+};
-> >+
-> > /* RCR */
-> > enum RCR_BIT {
-> > 	RCR_EFFS	= 0x00000001,
-> >diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> >index 89ac1e3f6175..9fb4c04c5885 100644
-> >--- a/drivers/net/ethernet/renesas/ravb_main.c
-> >+++ b/drivers/net/ethernet/renesas/ravb_main.c
-> >@@ -1904,6 +1904,29 @@ static void ravb_set_config_mode(struct net_device *ndev)
-> > 	}
-> > }
-> >
-> >+static void ravb_set_delay_mode(struct net_device *ndev)
-> >+{
-> >+	struct ravb_private *priv = netdev_priv(ndev);
-> >+
-> >+	if (priv->chip_id != RCAR_GEN2) {
-> >+		switch (priv->phy_interface) {
-> >+		case PHY_INTERFACE_MODE_RGMII_ID:
-> >+			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM |
-> >+				   APSR_DM_TDM);
-> >+			break;
-> >+		case PHY_INTERFACE_MODE_RGMII_RXID:
-> >+			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM);
-> >+			break;
-> >+		case PHY_INTERFACE_MODE_RGMII_TXID:
-> >+			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_TDM);
-> >+			break;
-> >+		default:
-> >+			ravb_modify(ndev, APSR, APSR_DM, 0);
-> >+			break;
-> >+		}
-> 
->    How about doing ravb_modify() only once?
-
-Something like this?
-
-		int set = 0;
-
-		if (priv->phy_interface == PHY_INTERFACE_MODE_RGMII_ID ||
-		    priv->phy_interface == PHY_INTERFACE_MODE_RGMII_RXID)
-		    set |= APSR_DM_RDM;
-
-		if (priv->phy_interface == PHY_INTERFACE_MODE_RGMII_ID ||
-		    priv->phy_interface == PHY_INTERFACE_MODE_RGMII_TXID)
-		    set |= APSR_DM_TDM;
-
-		ravb_modify(ndev, APSR, APSR_DM, set);
-
-I don't really see any advantage to it but I can change things around
-however you like.
+Ok.
