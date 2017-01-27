@@ -1,60 +1,32 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 6/6] wl1251: Set generated MAC address back to NVS data
-Date: Fri, 27 Jan 2017 11:30:47 +0200
-Message-ID: <87poj87su0.fsf@kamboji.qca.qualcomm.com>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
-        <1482598381-16513-7-git-send-email-pali.rohar@gmail.com>
-        <87inp1ndgm.fsf@codeaurora.org> <20170127090538.GB24223@pali>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170127090538.GB24223@pali> ("Pali \=\?utf-8\?Q\?Roh\=C3\=A1r\=22'\?\=
- \=\?utf-8\?Q\?s\?\= message of "Fri, 27
-        Jan 2017 10:05:38 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH net v3 0/3] various gtp fixes
+Date: Fri, 27 Jan 2017 10:40:55 +0100
+Message-ID: <20170127094058.7899-1-aschultz@tpip.net>
+Cc: netdev@vger.kernel.org,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org, Harald Welte <laforge@gnumonks.org>,
+        SF Markus Elfring <elfring@users.sourceforge.net>
+To: Pablo Neira <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:41345 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932346AbdA0JlG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Jan 2017 04:41:06 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
+I'm sorry for the compile error mess up in the last version.
+It's no excuse for not test compiling, but the hunks got lost in
+a rebase.
 
-> On Friday 27 January 2017 09:56:09 Kalle Valo wrote:
->> Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
->>=20
->> > In case there is no valid MAC address kernel generates random one. This
->> > patch propagate this generated MAC address back to NVS data which will=
- be
->> > uploaded to wl1251 chip. So HW would have same MAC address as linux ke=
-rnel
->> > uses.
->> >
->> > Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
->>=20
->> Why? What issue does this fix?
->
-> Send permanent MAC address to wl1251 chip, same what is doing wl12xx
-> driver.
+This is the part of the previous "simple gtp improvements" series
+that Pablo indicated should go into net.
 
-Ok, so this doesn't change functionality in any way and you are adding
-it only because wl12xx does the same? You should document that in the
-the commit log.
+The addition of the module alias fixes genl family autoloading,
+clearing the DF bit fixes a protocol violation in regard to the
+specification and the netns comparison fixes a corner case of
+cross netns recv.
 
-If there's no change I don't really see the point of this. But if
-there's harm, hopefully, I guess it's ok.
+Andreas
 
---=20
-Kalle Valo
+v2->v3: fix compiler error introduced in rebase
