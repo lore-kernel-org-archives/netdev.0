@@ -1,44 +1,62 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH net-next 0/2] ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
-Date: Fri, 27 Jan 2017 12:04:48 +0100
-Message-ID: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Simon Horman <horms+renesas@verge.net.au>
-To: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for loading NVS calibration data
+Date: Fri, 27 Jan 2017 13:49:03 +0200
+Message-ID: <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+        <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+        <87tw8lnei3.fsf@codeaurora.org> <20170127094342.GC24223@pali>
+        <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+        <20170127101043.GD24223@pali>
+        <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
+        <20170127103408.GG24223@pali>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60904 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933579AbdA0LFu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 06:05:50 -0500
+Received: from smtp.codeaurora.org ([198.145.29.96]:33162 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933013AbdA0LtR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 06:49:17 -0500
+In-Reply-To: <20170127103408.GG24223@pali> ("Pali \=\?utf-8\?Q\?Roh\=C3\=A1r\=22'\?\=
+ \=\?utf-8\?Q\?s\?\= message of "Fri, 27
+        Jan 2017 11:34:08 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Pali Roh=C3=A1r <pali.rohar@gmail.com> writes:
 
-this series adds support for gigabit communication to the Renesas EthernetAVB
-controller when used in conjunction with  R-Car Gen3 H3 ES1.1+ and M3-W SoCs.
-Gigabit is already supported with R-Car Gen 2 SoCs.
+>> So
+>> for those other platforms there will be a delay waiting for user-mode
+>> helper to fail, before trying to get nvs file from /lib/firmware.
+>
+> Yes, there will be. But there is no easy way to fix this problem that
+> kernel is trying to use default/example NVS data...
 
-The patch from Geert was previously posted for inclusion in v4.10 and
-acked by Dave for that purpose. It was, however, not accepted by the
-ARM SoC maintainers.
+Kernel is doing correctly and requesting NVS data as expected, the
+problem here is that linux-firmware claims that the example NVS data is
+real calibration data (which it is not). Distros should not use that,
+only developers for testing purposes. We should not courage users using
+example calibration data.
 
-The path from Mizuguchi-san is to address timing problems observed with
-gigabit transfers. I would like it considered although my own testing on
-M3-W did not show any timing problems.
+The simple fix is to rename the NVS file in linux-firmware to something
+like wl1251-nvs.bin.example, no need to workaround this in kernel. If
+you send a patch to linux-firmware I'm happy to ack that.
 
-
-Geert Uytterhoeven (1):
-  ravb: Support 1Gbps on R-Car H3 ES1.1+ and R-Car M3-W
-
-Kazuya Mizuguchi (1):
-  ravb: Add tx and rx clock internal delays mode of APSR
-
- drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++
- drivers/net/ethernet/renesas/ravb_main.c | 39 ++++++++++++++++++++++++++++++--
- 2 files changed, 47 insertions(+), 2 deletions(-)
-
--- 
-2.7.0.rc3.207.g0ac5344
+--=20
+Kalle Valo
