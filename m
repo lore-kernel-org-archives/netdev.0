@@ -1,7 +1,7 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net v3 1/3] gtp: add genl family modules alias
-Date: Fri, 27 Jan 2017 10:40:56 +0100
-Message-ID: <20170127094058.7899-2-aschultz@tpip.net>
+Subject: [PATCH net v3 3/3] gtp: fix cross netns recv on gtp socket
+Date: Fri, 27 Jan 2017 10:40:58 +0100
+Message-ID: <20170127094058.7899-4-aschultz@tpip.net>
 References: <20170127094058.7899-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
@@ -9,32 +9,82 @@ Cc: netdev@vger.kernel.org,
         SF Markus Elfring <elfring@users.sourceforge.net>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:48459 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:52034 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932346AbdA0JlL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 04:41:11 -0500
+        id S932346AbdA0JlR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Jan 2017 04:41:17 -0500
 In-Reply-To: <20170127094058.7899-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Auto-load the module when userspace asks for the gtp netlink
-family.
+The use of the passed through netlink src_net to check for a
+cross netns operation was wrong. Using the GTP socket and the
+GTP netdevice is always correct (even if the netdev has been
+moved to new netns after link creation).
+
+Remove the now obsolete net field from gtp_dev.
 
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
-Acked-by: Harald Welte <laforge@netfilter.org>
 Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- drivers/net/gtp.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/gtp.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 8b6810b..7580ccc 100644
+index 1df54d6..99d3df7 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -1376,3 +1376,4 @@ MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Harald Welte <hwelte@sysmocom.de>");
- MODULE_DESCRIPTION("Interface driver for GTP encapsulated traffic");
- MODULE_ALIAS_RTNL_LINK("gtp");
-+MODULE_ALIAS_GENL_FAMILY("gtp");
+@@ -69,7 +69,6 @@ struct gtp_dev {
+ 	struct socket		*sock0;
+ 	struct socket		*sock1u;
+ 
+-	struct net		*net;
+ 	struct net_device	*dev;
+ 
+ 	unsigned int		hash_size;
+@@ -316,7 +315,7 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
+ 
+-	xnet = !net_eq(gtp->net, dev_net(gtp->dev));
++	xnet = !net_eq(sock_net(sk), dev_net(gtp->dev));
+ 
+ 	switch (udp_sk(sk)->encap_type) {
+ 	case UDP_ENCAP_GTP0:
+@@ -658,7 +657,7 @@ static void gtp_link_setup(struct net_device *dev)
+ static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
+ static void gtp_hashtable_free(struct gtp_dev *gtp);
+ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    int fd_gtp0, int fd_gtp1, struct net *src_net);
++			    int fd_gtp0, int fd_gtp1);
+ 
+ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 			struct nlattr *tb[], struct nlattr *data[])
+@@ -675,7 +674,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
+ 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+ 
+-	err = gtp_encap_enable(dev, gtp, fd0, fd1, src_net);
++	err = gtp_encap_enable(dev, gtp, fd0, fd1);
+ 	if (err < 0)
+ 		goto out_err;
+ 
+@@ -821,7 +820,7 @@ static void gtp_hashtable_free(struct gtp_dev *gtp)
+ }
+ 
+ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    int fd_gtp0, int fd_gtp1, struct net *src_net)
++			    int fd_gtp0, int fd_gtp1)
+ {
+ 	struct udp_tunnel_sock_cfg tuncfg = {NULL};
+ 	struct socket *sock0, *sock1u;
+@@ -858,7 +857,6 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+ 
+ 	gtp->sock0 = sock0;
+ 	gtp->sock1u = sock1u;
+-	gtp->net = src_net;
+ 
+ 	tuncfg.sk_user_data = gtp;
+ 	tuncfg.encap_rcv = gtp_encap_recv;
 -- 
 2.10.2
