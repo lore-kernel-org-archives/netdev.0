@@ -1,286 +1,308 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 1/8] net/mlx5: Change ENOTSUPP to EOPNOTSUPP
-Date: Fri, 27 Jan 2017 22:38:36 +0200
-Message-ID: <20170127203843.3206-2-saeedm@mellanox.com>
+Subject: [net 7/8] net/mlx5e: Fix update of hash function/key via ethtool
+Date: Fri, 27 Jan 2017 22:38:42 +0200
+Message-ID: <20170127203843.3206-8-saeedm@mellanox.com>
 References: <20170127203843.3206-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33323 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33320 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751341AbdA0VLL (ORCPT
+        with ESMTP id S1751358AbdA0VLL (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:11:11 -0500
 In-Reply-To: <20170127203843.3206-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-As ENOTSUPP is specific to NFS, change the return error value to
-EOPNOTSUPP in various places in the mlx5 driver.
+Modifying TIR hash should change selected fields bitmask in addition to
+the function and key.
+Formerly, we would not set this field resulting in zeroing of its value,
+which means no packet fields are used for RX RSS hash calculation thus
+causing all traffic to arrive in RQ[0].
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Suggested-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Matan Barak <matanb@mellanox.com>
+Fixes: bdfc028de1b3 ("net/mlx5e: Fix ethtool RX hash func configuration change")
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c              |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h               |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c         |  6 +++---
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c       | 10 +++++-----
- drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c          |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c          |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c           |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c             |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/port.c             |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/vport.c            |  2 +-
- 12 files changed, 22 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   3 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  13 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 198 ++++++++++-----------
+ 3 files changed, 109 insertions(+), 105 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 3797cc7c1288..caa837e5e2b9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -1728,7 +1728,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
- 	if (cmd->cmdif_rev > CMD_IF_REV) {
- 		dev_err(&dev->pdev->dev, "driver does not support command interface version. driver %d, firmware %d\n",
- 			CMD_IF_REV, cmd->cmdif_rev);
--		err = -ENOTSUPP;
-+		err = -EOPNOTSUPP;
- 		goto err_free_page;
- 	}
- 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 951dbd58594d..1619147a63e8 100644
+index 1619147a63e8..d5ecb8f53fd4 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -863,12 +863,12 @@ static inline void mlx5e_arfs_destroy_tables(struct mlx5e_priv *priv) {}
+@@ -791,7 +791,8 @@ void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
+ int mlx5e_modify_rqs_vsd(struct mlx5e_priv *priv, bool vsd);
  
- static inline int mlx5e_arfs_enable(struct mlx5e_priv *priv)
- {
--	return -ENOTSUPP;
-+	return -EOPNOTSUPP;
- }
+ int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz, int ix);
+-void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv);
++void mlx5e_build_indir_tir_ctx_hash(struct mlx5e_priv *priv, void *tirc,
++				    enum mlx5e_traffic_types tt);
  
- static inline int mlx5e_arfs_disable(struct mlx5e_priv *priv)
- {
--	return -ENOTSUPP;
-+	return -EOPNOTSUPP;
- }
- #else
- int mlx5e_arfs_create_tables(struct mlx5e_priv *priv);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index f0b460f47f29..35f9ae037ba0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -89,7 +89,7 @@ static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
- 	int i;
- 
- 	if (!MLX5_CAP_GEN(priv->mdev, ets))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	ets->ets_cap = mlx5_max_tc(priv->mdev) + 1;
- 	for (i = 0; i < ets->ets_cap; i++) {
-@@ -236,7 +236,7 @@ static int mlx5e_dcbnl_ieee_setets(struct net_device *netdev,
- 	int err;
- 
- 	if (!MLX5_CAP_GEN(priv->mdev, ets))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	err = mlx5e_dbcnl_validate_ets(netdev, ets);
- 	if (err)
-@@ -402,7 +402,7 @@ static u8 mlx5e_dcbnl_setall(struct net_device *netdev)
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 	struct ieee_ets ets;
- 	struct ieee_pfc pfc;
--	int err = -ENOTSUPP;
-+	int err = -EOPNOTSUPP;
- 	int i;
- 
- 	if (!MLX5_CAP_GEN(mdev, ets))
+ int mlx5e_open_locked(struct net_device *netdev);
+ int mlx5e_close_locked(struct net_device *netdev);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 5197817e4b2f..ffbdf9ee5a9b 100644
+index 6f4eb34259f0..bb67863aa361 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -595,7 +595,7 @@ static int mlx5e_get_coalesce(struct net_device *netdev,
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
+@@ -980,15 +980,18 @@ static int mlx5e_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
  
- 	if (!MLX5_CAP_GEN(priv->mdev, cq_moderation))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
+ static void mlx5e_modify_tirs_hash(struct mlx5e_priv *priv, void *in, int inlen)
+ {
+-	struct mlx5_core_dev *mdev = priv->mdev;
+ 	void *tirc = MLX5_ADDR_OF(modify_tir_in, in, ctx);
+-	int i;
++	struct mlx5_core_dev *mdev = priv->mdev;
++	int ctxlen = MLX5_ST_SZ_BYTES(tirc);
++	int tt;
  
- 	coal->rx_coalesce_usecs       = priv->params.rx_cq_moderation.usec;
- 	coal->rx_max_coalesced_frames = priv->params.rx_cq_moderation.pkts;
-@@ -620,7 +620,7 @@ static int mlx5e_set_coalesce(struct net_device *netdev,
- 	int i;
+ 	MLX5_SET(modify_tir_in, in, bitmask.hash, 1);
+-	mlx5e_build_tir_ctx_hash(tirc, priv);
  
- 	if (!MLX5_CAP_GEN(mdev, cq_moderation))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
+-	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
+-		mlx5_core_modify_tir(mdev, priv->indir_tir[i].tirn, in, inlen);
++	for (tt = 0; tt < MLX5E_NUM_INDIR_TIRS; tt++) {
++		memset(tirc, 0, ctxlen);
++		mlx5e_build_indir_tir_ctx_hash(priv, tirc, tt);
++		mlx5_core_modify_tir(mdev, priv->indir_tir[tt].tirn, in, inlen);
++	}
+ }
  
- 	mutex_lock(&priv->state_lock);
- 
-@@ -1296,7 +1296,7 @@ static int mlx5e_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	u32 mlx5_wol_mode;
- 
- 	if (!wol_supported)
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	if (wol->wolopts & ~wol_supported)
- 		return -EINVAL;
-@@ -1426,7 +1426,7 @@ static int set_pflag_rx_cqe_based_moder(struct net_device *netdev, bool enable)
- 
- 	if (rx_cq_period_mode == MLX5_CQ_PERIOD_MODE_START_FROM_CQE &&
- 	    !MLX5_CAP_GEN(mdev, cq_period_start_from_cqe))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	if (!rx_mode_changed)
- 		return 0;
-@@ -1452,7 +1452,7 @@ static int set_pflag_rx_cqe_compress(struct net_device *netdev,
- 	bool reset;
- 
- 	if (!MLX5_CAP_GEN(mdev, cqe_compression))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	if (enable && priv->tstamp.hwtstamp_config.rx_filter != HWTSTAMP_FILTER_NONE) {
- 		netdev_err(netdev, "Can't enable cqe compression while timestamping is enabled.\n");
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-index d088effd7160..f33f72d0237c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs_ethtool.c
-@@ -92,7 +92,7 @@ static struct mlx5e_ethtool_table *get_flow_table(struct mlx5e_priv *priv,
- 	ns = mlx5_get_flow_namespace(priv->mdev,
- 				     MLX5_FLOW_NAMESPACE_ETHTOOL);
- 	if (!ns)
--		return ERR_PTR(-ENOTSUPP);
-+		return ERR_PTR(-EOPNOTSUPP);
- 
- 	table_size = min_t(u32, BIT(MLX5_CAP_FLOWTABLE(priv->mdev,
- 						       flow_table_properties_nic_receive.log_max_ft_size)),
+ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 2b7dd315020c..948351ae5bd2 100644
+index 948351ae5bd2..f14ca3385fdd 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3331,7 +3331,7 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
- static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
+@@ -2022,8 +2022,23 @@ static void mlx5e_build_tir_ctx_lro(void *tirc, struct mlx5e_priv *priv)
+ 	MLX5_SET(tirc, tirc, lro_timeout_period_usecs, priv->params.lro_timeout);
+ }
+ 
+-void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv)
++void mlx5e_build_indir_tir_ctx_hash(struct mlx5e_priv *priv, void *tirc,
++				    enum mlx5e_traffic_types tt)
  {
- 	if (MLX5_CAP_GEN(mdev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 	if (!MLX5_CAP_GEN(mdev, eth_net_offloads) ||
- 	    !MLX5_CAP_GEN(mdev, nic_flow_table) ||
- 	    !MLX5_CAP_ETH(mdev, csum_cap) ||
-@@ -3343,7 +3343,7 @@ static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
- 			       < 3) {
- 		mlx5_core_warn(mdev,
- 			       "Not creating net device, some required device capabilities are missing\n");
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
++	void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
++
++#define MLX5_HASH_IP            (MLX5_HASH_FIELD_SEL_SRC_IP   |\
++				 MLX5_HASH_FIELD_SEL_DST_IP)
++
++#define MLX5_HASH_IP_L4PORTS    (MLX5_HASH_FIELD_SEL_SRC_IP   |\
++				 MLX5_HASH_FIELD_SEL_DST_IP   |\
++				 MLX5_HASH_FIELD_SEL_L4_SPORT |\
++				 MLX5_HASH_FIELD_SEL_L4_DPORT)
++
++#define MLX5_HASH_IP_IPSEC_SPI  (MLX5_HASH_FIELD_SEL_SRC_IP   |\
++				 MLX5_HASH_FIELD_SEL_DST_IP   |\
++				 MLX5_HASH_FIELD_SEL_IPSEC_SPI)
++
+ 	MLX5_SET(tirc, tirc, rx_hash_fn,
+ 		 mlx5e_rx_hash_fn(priv->params.rss_hfunc));
+ 	if (priv->params.rss_hfunc == ETH_RSS_HASH_TOP) {
+@@ -2035,6 +2050,88 @@ void mlx5e_build_tir_ctx_hash(void *tirc, struct mlx5e_priv *priv)
+ 		MLX5_SET(tirc, tirc, rx_hash_symmetric, 1);
+ 		memcpy(rss_key, priv->params.toeplitz_hash_key, len);
  	}
- 	if (!MLX5_CAP_ETH(mdev, self_lb_en_modifiable))
- 		mlx5_core_warn(mdev, "Self loop back prevention is not supported\n");
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index f14d9c9ba773..bb712139b36e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -133,7 +133,7 @@ static int modify_esw_vport_cvlan(struct mlx5_core_dev *dev, u32 vport,
- 
- 	if (!MLX5_CAP_ESW(dev, vport_cvlan_strip) ||
- 	    !MLX5_CAP_ESW(dev, vport_cvlan_insert_if_not_exist))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	esw_debug(dev, "Set Vport[%d] VLAN %d qos %d set=%x\n",
- 		  vport, vlan, qos, set_flags);
-@@ -1630,7 +1630,7 @@ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
- 	if (!MLX5_CAP_GEN(esw->dev, eswitch_flow_table) ||
- 	    !MLX5_CAP_ESW_FLOWTABLE_FDB(esw->dev, ft_support)) {
- 		esw_warn(esw->dev, "E-Switch FDB is not supported, aborting ...\n");
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 	}
- 
- 	if (!MLX5_CAP_ESW_INGRESS_ACL(esw->dev, ft_support))
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 03293ed1cc22..657d319fc4c6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -166,7 +166,7 @@ static int esw_add_vlan_action_check(struct mlx5_esw_flow_attr *attr,
- 	return 0;
- 
- out_notsupp:
--	return -ENOTSUPP;
-+	return -EOPNOTSUPP;
++
++	switch (tt) {
++	case MLX5E_TT_IPV4_TCP:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV4);
++		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
++			 MLX5_L4_PROT_TYPE_TCP);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_L4PORTS);
++		break;
++
++	case MLX5E_TT_IPV6_TCP:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV6);
++		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
++			 MLX5_L4_PROT_TYPE_TCP);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_L4PORTS);
++		break;
++
++	case MLX5E_TT_IPV4_UDP:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV4);
++		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
++			 MLX5_L4_PROT_TYPE_UDP);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_L4PORTS);
++		break;
++
++	case MLX5E_TT_IPV6_UDP:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV6);
++		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
++			 MLX5_L4_PROT_TYPE_UDP);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_L4PORTS);
++		break;
++
++	case MLX5E_TT_IPV4_IPSEC_AH:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV4);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_IPSEC_SPI);
++		break;
++
++	case MLX5E_TT_IPV6_IPSEC_AH:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV6);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_IPSEC_SPI);
++		break;
++
++	case MLX5E_TT_IPV4_IPSEC_ESP:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV4);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_IPSEC_SPI);
++		break;
++
++	case MLX5E_TT_IPV6_IPSEC_ESP:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV6);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP_IPSEC_SPI);
++		break;
++
++	case MLX5E_TT_IPV4:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV4);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP);
++		break;
++
++	case MLX5E_TT_IPV6:
++		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
++			 MLX5_L3_PROT_TYPE_IPV6);
++		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
++			 MLX5_HASH_IP);
++		break;
++	default:
++		WARN_ONCE(true, "%s: bad traffic type!\n", __func__);
++	}
  }
  
- int mlx5_eswitch_add_vlan_action(struct mlx5_eswitch *esw,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index c4478ecd8056..b53fc85a2375 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -322,7 +322,7 @@ int mlx5_cmd_update_fte(struct mlx5_core_dev *dev,
- 						flow_table_properties_nic_receive.
- 						flow_modify_en);
- 	if (!atomic_mod_cap)
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 	opmod = 1;
+ static int mlx5e_modify_tirs_lro(struct mlx5e_priv *priv)
+@@ -2404,110 +2501,13 @@ void mlx5e_cleanup_nic_tx(struct mlx5e_priv *priv)
+ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
+ 				      enum mlx5e_traffic_types tt)
+ {
+-	void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
+-
+ 	MLX5_SET(tirc, tirc, transport_domain, priv->mdev->mlx5e_res.td.tdn);
  
- 	return	mlx5_cmd_set_fte(dev, opmod, modify_mask, ft, group_id, fte);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index d01e9f21d469..3c315eb8d270 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -807,7 +807,7 @@ static int mlx5_core_set_issi(struct mlx5_core_dev *dev)
- 		return 0;
- 	}
+-#define MLX5_HASH_IP            (MLX5_HASH_FIELD_SEL_SRC_IP   |\
+-				 MLX5_HASH_FIELD_SEL_DST_IP)
+-
+-#define MLX5_HASH_IP_L4PORTS    (MLX5_HASH_FIELD_SEL_SRC_IP   |\
+-				 MLX5_HASH_FIELD_SEL_DST_IP   |\
+-				 MLX5_HASH_FIELD_SEL_L4_SPORT |\
+-				 MLX5_HASH_FIELD_SEL_L4_DPORT)
+-
+-#define MLX5_HASH_IP_IPSEC_SPI  (MLX5_HASH_FIELD_SEL_SRC_IP   |\
+-				 MLX5_HASH_FIELD_SEL_DST_IP   |\
+-				 MLX5_HASH_FIELD_SEL_IPSEC_SPI)
+-
+ 	mlx5e_build_tir_ctx_lro(tirc, priv);
  
--	return -ENOTSUPP;
-+	return -EOPNOTSUPP;
+ 	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
+ 	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
+-	mlx5e_build_tir_ctx_hash(tirc, priv);
+-
+-	switch (tt) {
+-	case MLX5E_TT_IPV4_TCP:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV4);
+-		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
+-			 MLX5_L4_PROT_TYPE_TCP);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_L4PORTS);
+-		break;
+-
+-	case MLX5E_TT_IPV6_TCP:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV6);
+-		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
+-			 MLX5_L4_PROT_TYPE_TCP);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_L4PORTS);
+-		break;
+-
+-	case MLX5E_TT_IPV4_UDP:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV4);
+-		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
+-			 MLX5_L4_PROT_TYPE_UDP);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_L4PORTS);
+-		break;
+-
+-	case MLX5E_TT_IPV6_UDP:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV6);
+-		MLX5_SET(rx_hash_field_select, hfso, l4_prot_type,
+-			 MLX5_L4_PROT_TYPE_UDP);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_L4PORTS);
+-		break;
+-
+-	case MLX5E_TT_IPV4_IPSEC_AH:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV4);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_IPSEC_SPI);
+-		break;
+-
+-	case MLX5E_TT_IPV6_IPSEC_AH:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV6);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_IPSEC_SPI);
+-		break;
+-
+-	case MLX5E_TT_IPV4_IPSEC_ESP:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV4);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_IPSEC_SPI);
+-		break;
+-
+-	case MLX5E_TT_IPV6_IPSEC_ESP:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV6);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP_IPSEC_SPI);
+-		break;
+-
+-	case MLX5E_TT_IPV4:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV4);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP);
+-		break;
+-
+-	case MLX5E_TT_IPV6:
+-		MLX5_SET(rx_hash_field_select, hfso, l3_prot_type,
+-			 MLX5_L3_PROT_TYPE_IPV6);
+-		MLX5_SET(rx_hash_field_select, hfso, selected_fields,
+-			 MLX5_HASH_IP);
+-		break;
+-	default:
+-		WARN_ONCE(true,
+-			  "mlx5e_build_indir_tir_ctx: bad traffic type!\n");
+-	}
++	mlx5e_build_indir_tir_ctx_hash(priv, tirc, tt);
  }
  
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index d2ec9d232a70..fd12e0a377a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -620,7 +620,7 @@ static int mlx5_set_port_qetcr_reg(struct mlx5_core_dev *mdev, u32 *in,
- 	u32 out[MLX5_ST_SZ_DW(qtct_reg)];
- 
- 	if (!MLX5_CAP_GEN(mdev, ets))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	return mlx5_core_access_reg(mdev, in, inlen, out, sizeof(out),
- 				    MLX5_REG_QETCR, 0, 1);
-@@ -632,7 +632,7 @@ static int mlx5_query_port_qetcr_reg(struct mlx5_core_dev *mdev, u32 *out,
- 	u32 in[MLX5_ST_SZ_DW(qtct_reg)];
- 
- 	if (!MLX5_CAP_GEN(mdev, ets))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	memset(in, 0, sizeof(in));
- 	return mlx5_core_access_reg(mdev, in, sizeof(in), out, outlen,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-index 269e4401c342..7129c30a2ab4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -532,7 +532,7 @@ int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
- 	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
- 		return -EACCES;
- 	if (!MLX5_CAP_ESW(mdev, nic_vport_node_guid_modify))
--		return -ENOTSUPP;
-+		return -EOPNOTSUPP;
- 
- 	in = mlx5_vzalloc(inlen);
- 	if (!in)
+ static void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
 -- 
 2.11.0
