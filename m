@@ -1,48 +1,118 @@
-From: =?UTF-8?Q?Sean_Nyekj=c3=a6r?= <sean.nyekjaer@prevas.dk>
-Subject: Re: [PATCH v1] net: phy: micrel: add KSZ8795 ethernet switch
-Date: Fri, 27 Jan 2017 08:42:39 +0100
-Message-ID: <5f3fa323-bf36-5fcd-248f-a3b9ad70ea6d@prevas.dk>
-References: <20170123075846.12888-1-sean.nyekjaer@prevas.dk>
- <20170123151219.GE10895@lunn.ch>
- <732c14ff-f0cf-67d5-bcf9-cbbf9a4391b3@prevas.dk>
- <20170126181207.GF5656@lunn.ch>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2017-01-24
+Date: Fri, 27 Jan 2017 10:02:09 +0100
+Message-ID: <37eedb82-54d7-c7a9-0cd6-ed26738efff7@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="dh1eeTtbluMUlt1NECpWQkkeCvjkBoAdc"
+Cc: David Miller <davem@davemloft.net>,
+        "kernel@pengutronix.de" <kernel@pengutronix.de>,
+        "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail02.prevas.se ([62.95.78.10]:42911 "EHLO mail02.prevas.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754247AbdA0IIY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 03:08:24 -0500
-In-Reply-To: <20170126181207.GF5656@lunn.ch>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:47495 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932191AbdA0JCd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 04:02:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--dh1eeTtbluMUlt1NECpWQkkeCvjkBoAdc
+Content-Type: multipart/mixed; boundary="6uv2CPvITEPI0pnPvA3U6JvlBFqrxFlXn";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+ "kernel@pengutronix.de" <kernel@pengutronix.de>,
+ "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Message-ID: <37eedb82-54d7-c7a9-0cd6-ed26738efff7@pengutronix.de>
+Subject: pull-request: can-next 2017-01-24
+
+--6uv2CPvITEPI0pnPvA3U6JvlBFqrxFlXn
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello David,
+
+this is a pull request of 4 patches for net-next/master.
+
+The first patch by Oliver Hartkopp adds a netlink API to configure the
+interface termination of a CAN card. The next two patches are by me and
+add a netlink API to query and configure CAN interfaces that only
+support fixed bitrates. The last patch by Colin Ian King simplifies the
+return path in the softing_cs driver's softingcs_probe() function.
+
+regards,
+Marc
+
+---
+
+The following changes since commit d140199af510ad4749dc5e38b7922135258ba5=
+fd:
+
+  bpf, lpm: fix kfree of im_node in trie_update_elem (2017-01-23 21:17:35=
+ -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.11-20170124
+
+for you to fetch changes up to 1e9bbb9bc2aa549d31fa0a0496ec33df0b3ae7a8:
+
+  can: softing_cs: ret is never non-zero, so remove non-zero check and -E=
+NODEV return (2017-01-24 13:52:00 +0100)
+
+----------------------------------------------------------------
+linux-can-next-for-4.11-20170124
+
+----------------------------------------------------------------
+Colin Ian King (1):
+      can: softing_cs: ret is never non-zero, so remove non-zero check an=
+d -ENODEV return
+
+Marc Kleine-Budde (2):
+      can: dev: can_changelink: allow to set bitrate on devices not provi=
+ding {data_,}bittiming_const
+      can: dev: add CAN interface API for fixed bitrates
+
+Oliver Hartkopp (1):
+      can: dev: add CAN interface termination API
+
+ drivers/net/can/dev.c                | 136 +++++++++++++++++++++++++++++=
++++---
+ drivers/net/can/softing/softing_cs.c |   2 +-
+ include/linux/can/dev.h              |   8 +++
+ include/uapi/linux/can/netlink.h     |   7 ++
+ 4 files changed, 142 insertions(+), 11 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-On 2017-01-26 19:12, Andrew Lunn wrote:
->> I remove the word "Switch" from the commit message and phy name.
->> The rest is okay?
-> Yes.
->
->> What is generally being done when to phy's have the same id, micrel
->> have done this many times...
-> It should not be a problem. When you write a switch driver for the
-> switch, it will be in device tree. Look at the Marvell Switches as an
-> example. Switches don't probe based on the ID in registers 2 and 3,
-> because switches often respond to many different addresses, or don't
-> have an ID in register 2 and 3.
->
-> So it should not matter if the switch and the PHYs embedded in the
-> switch have the same ID.
->
-> When do you plan to post your switch driver?
->
->         Andrew
-I was not planning on doing that, the managed part of the switch is not 
-needed in the project i'm working on.
-Maybe i will do it when i have some spare time, it could be fun :-)
 
-/Sean
+--6uv2CPvITEPI0pnPvA3U6JvlBFqrxFlXn--
+
+--dh1eeTtbluMUlt1NECpWQkkeCvjkBoAdc
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAliLDJkACgkQPTuqJayp
+JWpy4AgAvlInyuYr/imDWpEFnXCB/uCOVTgvpY8EZkqoubVUl00jwhOB5CHa38n/
+KMnZDYQtTB88E+Pu7vIb8DpjbSe2BTwQZgKHV/lHeB1Ho9ghCU/rNx6SmZlOlPdJ
+riF1FSDMN3YadSSiaFcntOJc0tWNEmUWyN3Elqm5mtJiSDo7VVyqSyrXie+NSSuc
+CK//rCscPJ+vgDizaEMK5GJiUtY3TjwuFE30PhtobC7rK08uhO3rMpcxhTVQG9tb
+aEUeDKTxzxop2nBDk6yEyw21LTlPoXCEFR3ibqjBpeE90NBWTnMvEPa12UGtXfhM
+0kigbwCVpi+vGQuGY0+ndh2VnJipNA==
+=W0by
+-----END PGP SIGNATURE-----
+
+--dh1eeTtbluMUlt1NECpWQkkeCvjkBoAdc--
