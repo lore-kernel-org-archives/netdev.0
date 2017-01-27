@@ -1,155 +1,67 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/2] ravb: Add tx and rx clock internal delays
- mode of APSR
-Date: Fri, 27 Jan 2017 21:11:35 +0300
-Message-ID: <77bad70c-49f5-e70c-1fd6-929a394f9cbe@cogentembedded.com>
-References: <1485515090-7570-1-git-send-email-horms+renesas@verge.net.au>
- <1485515090-7570-2-git-send-email-horms+renesas@verge.net.au>
- <813af981-9a1b-8e45-1fed-788047ab26b5@cogentembedded.com>
- <20170127164921.GB7336@verge.net.au>
- <d1e19006-b57f-9429-1e6e-ff906ced47a0@cogentembedded.com>
- <20170127180701.GA13402@verge.net.au>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2 net-next 0/4] sfc: encapsulated filters
+Date: Fri, 27 Jan 2017 10:03:01 -0800
+Message-ID: <CALx6S359v=kUv2DAgkmDRSdMvM=sk+zYLxLKSAWhZEQwp=aTDQ@mail.gmail.com>
+References: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170127180701.GA13402@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-net-drivers@solarflare.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34532 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755261AbdA0SMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 13:12:49 -0500
+Received: by mail-qt0-f193.google.com with SMTP id w20so14109737qtb.1
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 10:12:01 -0800 (PST)
+In-Reply-To: <9baa375c-b3b1-f640-04fb-e234c85a4e93@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/27/2017 09:07 PM, Simon Horman wrote:
+On Fri, Jan 27, 2017 at 7:00 AM, Edward Cree <ecree@solarflare.com> wrote:
+> This series adds support for setting up filters for encapsulated traffic on
+> SFC 8000-series adapters, which recognise VXLAN, GENEVE and NVGRE packets by
+> parsing packet headers.  (VXLAN and GENEVE will only be recognised if the
+> driver on the primary PF has notified the firmware of relevant UDP ports,
+> which this driver does not yet do.)
+> While the driver currently has no way of using these filters for flow
+> steering, it is nonetheless necessary to insert catch-all (aka 'default')
+> filters to direct this traffic, similar to the existing unencapsulated uni-
+> and multi-cast catch-all filters, as otherwise the traffic will be dropped
+> by the NIC - implementation details of the hardware filtering mean that the
+> traffic will not get matched on outer MAC address to unencapsulated catch-
+> all filters.  (Yes, this is a mess.)
 
->>>>> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>>>
->>>>> This patch enables tx and rx clock internal delay modes (TDM and RDM).
->>>>>
->>>>> This is to address a failure in the case of 1Gbps communication using the
->>>>> by salvator-x board with the KSZ9031RNX phy. This has been reported to
->>>>> occur with both the r8a7795 (H3) and r8a7796 (M3-W) SoCs.
->>>>>
->>>>> With this change APSR internal delay modes are enabled for
->>>>> "rgmii-id", "rgmii-rxid" and "rgmii-txid" phy modes as follows:
->>>>>
->>>>> phy mode   | ASPR delay mode
->>>>> -----------+----------------
->>>>> rgmii-id   | TDM and RDM
->>>>> rgmii-rxid | RDM
->>>>> rgmii-txid | TDM
->>>>>
->>>>> Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->>>>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
->>>>>
->>>>> ---
->>>>> v1 [Simon Horman]
->>>>> - Combined patches
->>>>> - Reworded changelog
->>>>>
->>>>> v0 [Kazuya Mizuguchi]
->>>>> ---
->>>>> drivers/net/ethernet/renesas/ravb.h      | 10 ++++++++++
->>>>> drivers/net/ethernet/renesas/ravb_main.c | 29 +++++++++++++++++++++++++++++
->>>>> 2 files changed, 39 insertions(+)
->>>>>
->>>>> diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
->>>>> index f1109661a533..d7c91d48cc48 100644
->>>>> --- a/drivers/net/ethernet/renesas/ravb.h
->>>>> +++ b/drivers/net/ethernet/renesas/ravb.h
->>>> [...]
->>>>> @@ -248,6 +249,15 @@ enum ESR_BIT {
->>>>> 	ESR_EIL		= 0x00001000,
->>>>> };
->>>>>
->>>>> +/* APSR */
->>>>> +enum APSR_BIT {
->>>>> +	APSR_MEMS		= 0x00000002,
->>>>
->>>>   Not documented in the revision 0.5 of the gen3 manual...
->>>
->>> It is in version 0.53 of the documentation but I think it can be dropped
->> >from this patch as its unused.
->>
->>    No need to drop, let it be. :-)
->>
->>>>> +	APSR_CMSW		= 0x00000010,
->>>
->>> I think the above can also be dropped as it is unused.
->>
->>    No need.
->
-> Ok, lets leave it and MEMS.
->
->>>>> +	APSR_DM			= 0x00006000,
->>>>
->>>>   ... and neither this field. Are these documented in the latter revs?
->>>
->>> This one is not. I can ask Mizuguchi-san to confirm it exists (with himself).
->>
->>    The whole patch depends on it! If it's not documented, I'd like a comment
->> added, like I did for the other undocumented things in this driver...
->
-> Sure.
->
->> [...]
->>>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
->>>>> index 89ac1e3f6175..9fb4c04c5885 100644
->>>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->>>>> @@ -1904,6 +1904,29 @@ static void ravb_set_config_mode(struct net_device *ndev)
->>>>> 	}
->>>>> }
->>>>>
->>>>> +static void ravb_set_delay_mode(struct net_device *ndev)
->>>>> +{
->>>>> +	struct ravb_private *priv = netdev_priv(ndev);
->>>>> +
->>>>> +	if (priv->chip_id != RCAR_GEN2) {
->>>>> +		switch (priv->phy_interface) {
->>>>> +		case PHY_INTERFACE_MODE_RGMII_ID:
->>>>> +			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM |
->>>>> +				   APSR_DM_TDM);
->>>>> +			break;
->>>>> +		case PHY_INTERFACE_MODE_RGMII_RXID:
->>>>> +			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_RDM);
->>>>> +			break;
->>>>> +		case PHY_INTERFACE_MODE_RGMII_TXID:
->>>>> +			ravb_modify(ndev, APSR, APSR_DM, APSR_DM_TDM);
->>>>> +			break;
->>>>> +		default:
->>>>> +			ravb_modify(ndev, APSR, APSR_DM, 0);
->>>>> +			break;
->>>>> +		}
->>>>
->>>>   How about doing ravb_modify() only once?
->>>
->>> Something like this?
->>>
->>> 		int set = 0;
->>>
->>> 		if (priv->phy_interface == PHY_INTERFACE_MODE_RGMII_ID ||
->>> 		    priv->phy_interface == PHY_INTERFACE_MODE_RGMII_RXID)
->>> 		    set |= APSR_DM_RDM;
->>>
->>> 		if (priv->phy_interface == PHY_INTERFACE_MODE_RGMII_ID ||
->>> 		    priv->phy_interface == PHY_INTERFACE_MODE_RGMII_TXID)
->>> 		    set |= APSR_DM_TDM;
->>>
->>> 		ravb_modify(ndev, APSR, APSR_DM, set);
->>>
->>> I don't really see any advantage to it but I can change things around
->>> however you like.
->>
->>    I didn't mean to replace *switch*, actually -- just to move ravb_modify()
->> out of it.
->
-> Ok, I will make it so.
+I don't understand this. You seem to be saying that unless there is
+filtering for VXLAN and GENEVE these packets will dropped. These are
+_just_ UDP packets. Anything that the NIC does special for them is at
+most an optimization, it can *NEVER* be a requirement for NICs to be
+able to parse these protocols. Please elaborate...
 
-    Your variant is probably even better! :-)
-    I'm not sure how good gcc is at merging the similar code paths, 
-simplifying its work seems worth it to me. The less repetitive code, the better.
+Tom
 
-MBR, Sergei
+
+> Although this is, therefore, fixing a bug in the existing driver, it's a bug
+> which has existed since 8000 series support was added, and the fix involves
+> quite a big patch with an 'adding features' flavour to it, hence why this is
+> for net-next rather than net and stable.
+>
+> v2: move netif_cond_dbg into netdevice.h and its own patch
+>
+> ---
+> Edward Cree (2):
+>   net: implement netif_cond_dbg macro
+>   sfc: insert catch-all filters for encapsulated traffic
+>
+> Jon Cooper (2):
+>   sfc: fixes to filter restore handling
+>   sfc: refactor debug-or-warnings printks
+>
+>  drivers/net/ethernet/sfc/ef10.c   | 582 ++++++++++++++++++++++++++++----------
+>  drivers/net/ethernet/sfc/filter.h |  41 ++-
+>  drivers/net/ethernet/sfc/mcdi.c   |  19 +-
+>  include/linux/netdevice.h         |   9 +
+>  4 files changed, 497 insertions(+), 154 deletions(-)
+>
