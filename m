@@ -1,35 +1,53 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Fri, 27 Jan 2017 07:34:38 +0200
-Message-ID: <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
+Date: Fri, 27 Jan 2017 11:12:43 +0530
+Message-ID: <CAFcVECLuWM65zXJWtMcwijZ1ZbtH0pvKnTUR=SJagPGHEr9amg@mail.gmail.com>
+References: <1484841375-11420-1-git-send-email-andrei.pistirica@microchip.com> <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:34290 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753487AbdA0Fmk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 00:42:40 -0500
-Received: by mail-ot0-f196.google.com with SMTP id 73so29889990otj.1
-        for <netdev@vger.kernel.org>; Thu, 26 Jan 2017 21:42:40 -0800 (PST)
-In-Reply-To: <20170126233241.2268449-2-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "punnaia@xilinx.com" <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        "anirudh@xilinx.com" <anirudh@xilinx.com>,
+        "boris.brezillon@free-electrons.com"
+        <boris.brezillon@free-electrons.com>,
+        "alexandre.belloni@free-electrons.com"
+        <alexandre.belloni@free-electrons.com>,
+        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
+        "richardcochran@gmail.com" <ri
+To: Rafal Ozieblo <rafalo@cadence.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BN3PR07MB25160FCBCF19918C495F43B4C9770@BN3PR07MB2516.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
-> Add a configuration option (CONFIG_MLX5_CORE_ESWITCH) for controlling
-> whether the eswitch code is built. Change Kconfig and Makefile
-> accordingly.
+Hi Rafal,
 
-Tom, FWIW, please note that the basic e-switch functionality is needed
-also when SRIOV isn't of use, this is for a multi host configuration.
+On Thu, Jan 26, 2017 at 8:45 PM, Rafal Ozieblo <rafalo@cadence.com> wrote:
+>> -----Original Message-----
+>> From: Andrei Pistirica [mailto:andrei.pistirica@microchip.com]
+>> Sent: 19 stycznia 2017 16:56
+>> Subject: [PATCH net-next v2] macb: Common code to enable ptp support for MACB/GEM
+>>
+>>
+>> +static inline bool gem_has_ptp(struct macb *bp)
+>> +{
+>> +     return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
+>> +}
+> Why don't you use hardware capabilities here? Would it be better to read it from hardware instead adding it to many configuration?
 
-Or.
+If you are referring to TSU bit in DCFG5, then we will be relying on
+Cadence IP's information irrespective of the SoC capability
+and whether the PTP support was adequate.
+I think the capability approach gives better control and
+it is not really much to add.
 
-My WW (and same for the rest of the IL team..) has ended so I will be
-able to further look on this series and comment on Sunday.
+Regards,
+Harini
