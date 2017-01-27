@@ -1,57 +1,74 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
- hard_header_len bytes in skb_headlen() to the driver
-Date: Fri, 27 Jan 2017 14:29:06 -0500
-Message-ID: <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
-References: <1485274309-201670-1-git-send-email-sowmini.varadhan@oracle.com>
- <CAF=yD-KXqpODBVQ0vUt1a1p_mMXzzQp=5GU33f9GY9_cbPJxDw@mail.gmail.com>
- <20170126213742.GE29475@oracle.com> <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
- <20170127020836.GH29475@oracle.com> <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
- <20170127151119.GB25829@oracle.com> <CAF=yD-+LS6g572Uo5oErq7uazxxPwXXo0w2p4zcHDbXxkuah6Q@mail.gmail.com>
- <20170127170320.GD25829@oracle.com>
+From: Pichugin Dmitry <smokeman85@gmail.com>
+Subject: [PATCH] cfg80211 debugfs: Cleanup some checkpatch issues
+Date: Fri, 27 Jan 2017 22:26:06 +0300
+Message-ID: <20170127192603.GA13522@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36252 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750818AbdA0T36 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 14:29:58 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r126so60383864wmr.3
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 11:29:53 -0800 (PST)
-In-Reply-To: <20170127170320.GD25829@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: johannes@sipsolutions.net, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On (01/27/17 10:28), Willem de Bruijn wrote:
->> > Would it make sense to only do the CAP_SYS_RAWIO branch if the
->> > driver declares itself to have variable length L2 headers, via, e.g.,
->> > some priv flag?
->>
->> At the time, the comments were not specific to AX25. Again, we should
->> probably put that bypass behind a flag, enabling validating in the common case.
->
-> Just to make sure I'm on the same page as you (since you have more
-> history with this one..) we are going to have a priv_flags like
-> IFF_VAR_L2HDR which (today) would only be set for ax25, and
-> we would only take the CAP_SYS_RAWIO branch for IFF_VAR_L2HDR, right?
+This fixes the checkpatch.pl warnings:
+* Macros should not use a trailing semicolon.
+* Spaces required around that '='.
+* Symbolic permissions 'S_IRUGO' are not preferred.
+* Macro argument reuse 'buflen' - possible side-effects
 
-I suggested a sysctl. But either approach may cause test applications
-that depend on current behavior to start failing.
+Signed-off-by: Pichugin Dmitry <smokeman85@gmail.com>
+---
+ net/wireless/debugfs.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-As your patch state, the contract is that any packet delivered to a
-driver has the entire L2 in its linear section. Drivers are not required
-to be robust against shorter packets, so there is no reason to test
-those.
-
-One option is to limit your fix to known fixed-header protocols.
-In these cases hard_header_len is the minimum, so anything
-smaller must be dropped.
-
-For protocols with variable header length it is fine to send packets
-shorter than hard_header_len, even with corrupted content (i.e.,
-even if they would fail that protocol's validate callback), as long as
-they exceed the minimum length. ax25 already has a min length
-check through its protocol-specific validate callback.
+diff --git a/net/wireless/debugfs.c b/net/wireless/debugfs.c
+index 5d45391..96e3cff 100644
+--- a/net/wireless/debugfs.c
++++ b/net/wireless/debugfs.c
+@@ -17,11 +17,12 @@
+ static ssize_t name## _read(struct file *file, char __user *userbuf,	\
+ 			    size_t count, loff_t *ppos)			\
+ {									\
+-	struct wiphy *wiphy= file->private_data;		\
+-	char buf[buflen];						\
++	struct wiphy *wiphy = file->private_data;			\
++	int __buflen = __builtin_constant_p(buflen) ? buflen : -1;	\
++	char buf[__buflen];						\
+ 	int res;							\
+ 									\
+-	res = scnprintf(buf, buflen, fmt "\n", ##value);		\
++	res = scnprintf(buf, __buflen, fmt "\n", ##value);		\
+ 	return simple_read_from_buffer(userbuf, count, ppos, buf, res);	\
+ }									\
+ 									\
+@@ -29,14 +30,14 @@ static const struct file_operations name## _ops = {			\
+ 	.read = name## _read,						\
+ 	.open = simple_open,						\
+ 	.llseek = generic_file_llseek,					\
+-};
++}
+ 
+ DEBUGFS_READONLY_FILE(rts_threshold, 20, "%d",
+-		      wiphy->rts_threshold)
++		      wiphy->rts_threshold);
+ DEBUGFS_READONLY_FILE(fragmentation_threshold, 20, "%d",
+ 		      wiphy->frag_threshold);
+ DEBUGFS_READONLY_FILE(short_retry_limit, 20, "%d",
+-		      wiphy->retry_short)
++		      wiphy->retry_short);
+ DEBUGFS_READONLY_FILE(long_retry_limit, 20, "%d",
+ 		      wiphy->retry_long);
+ 
+@@ -103,7 +104,7 @@ static const struct file_operations ht40allow_map_ops = {
+ };
+ 
+ #define DEBUGFS_ADD(name)						\
+-	debugfs_create_file(#name, S_IRUGO, phyd, &rdev->wiphy, &name## _ops);
++	debugfs_create_file(#name, 0444, phyd, &rdev->wiphy, &name## _ops)
+ 
+ void cfg80211_debugfs_rdev_add(struct cfg80211_registered_device *rdev)
+ {
+-- 
+2.7.4
