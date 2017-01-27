@@ -1,62 +1,70 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: Re: [net-next] openvswitch: Simplify do_execute_actions().
-Date: Fri, 27 Jan 2017 13:25:52 -0800
-Message-ID: <CABKoBm3=MGv+sdL6T3=2_=pTh+Wukp66ZdDUx99tD7t482nodA@mail.gmail.com>
-References: <1485408261-31999-1-git-send-email-azhou@ovn.org> <CAOrHB_C3C_pcPpS=TSvKD0pF8eKRZMVgCK6eNKfbJnT_-xs1xw@mail.gmail.com>
+From: Chris Healy <cphealy@gmail.com>
+Subject: Re: [PATCH net-next 0/4] net: dsa: bcm_sf2: CFP support
+Date: Fri, 27 Jan 2017 13:24:15 -0800
+Message-ID: <CAFXsbZohZy3ybi6Pe5hryGfuBPnstUAQpB0HM4++XFmwbYi+3w@mail.gmail.com>
+References: <20170127210516.16704-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@ovn.org>
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:56265 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751281AbdA0V1I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:27:08 -0500
-Received: from mfilter20-d.gandi.net (mfilter20-d.gandi.net [217.70.178.148])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 522C6FB89E
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 22:26:35 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter20-d.gandi.net (mfilter20-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 5tArDDQdpfSz for <netdev@vger.kernel.org>;
-        Fri, 27 Jan 2017 22:26:34 +0100 (CET)
-Received: from mail-ua0-f169.google.com (mail-ua0-f169.google.com [209.85.217.169])
-        (Authenticated sender: azhou@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id C469FFB87D
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 22:26:33 +0100 (CET)
-Received: by mail-ua0-f169.google.com with SMTP id i68so214023920uad.0
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:26:33 -0800 (PST)
-In-Reply-To: <CAOrHB_C3C_pcPpS=TSvKD0pF8eKRZMVgCK6eNKfbJnT_-xs1xw@mail.gmail.com>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:36774 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751774AbdA0Vat (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 16:30:49 -0500
+Received: by mail-io0-f195.google.com with SMTP id q20so9220505ioi.3
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 13:30:49 -0800 (PST)
+In-Reply-To: <20170127210516.16704-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 12:42 PM, Pravin Shelar <pshelar@ovn.org> wrote:
-> On Wed, Jan 25, 2017 at 9:24 PM, Andy Zhou <azhou@ovn.org> wrote:
->> do_execute_actions() implements a worthwhile optimization: in case
->> an output action is the last action in an action list, skb_clone()
->> can be avoided by outputing the current skb. However, the
->> implementation is more complicated than necessary.  This patch
->> simplify this logic.
->>
->> Signed-off-by: Andy Zhou <azhou@ovn.org>
->> ---
->>  net/openvswitch/actions.c | 40 +++++++++++++++++++---------------------
->>  1 file changed, 19 insertions(+), 21 deletions(-)
->>
->> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->> index 514f7bc..3866608 100644
->> --- a/net/openvswitch/actions.c
->> +++ b/net/openvswitch/actions.c
->> @@ -830,6 +830,9 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
->>  {
->>         struct vport *vport = ovs_vport_rcu(dp, out_port);
->>
->> +       if (unlikely(!skb))
->> +               return;
->> +
-> Patch looks good to me. But I wanted to know if you considered moving
-> this check to do_execute_actions() in case skb-clone is done? This way
-> we can avoid this unlikely check from likely case :)
+Hi Florian,
+
+In saying the below, I may just be showing my naivety but here goes:
+
+If I understand this correctly, what you are using is similar to the
+TCAM hardware present in the newer Marvell switches.  I think Pablo is
+doing some work with nftables and HW offload using TCAM HW.  Is there
+overlap here?  It seems that one or the other API should be used but
+not both.
+
+Regards,
+
+Chris
+
+On Fri, Jan 27, 2017 at 1:05 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> Hi all,
 >
-Good point.  O.K. I will repost a version without this check.  Thanks
-for the review and comment.
+> This patch series adds support for the Broadcom Compact Field Processor (CFP)
+> which is a classification and matching engine built into most Broadcom switches.
+>
+> We support that using ethtool::rxnfc because it allows all known uses cases from
+> the users I support to work, and more importantly, it allows the selection of a
+> target rule index, which is later used by e.g: offloading hardware, this is an
+> essential feature that I could not find being supported with cls_* for instance.
+>
+> Thanks
+>
+> Florian Fainelli (4):
+>   net: dsa: Hook {get,set}_rxnfc ethtool operations
+>   net: dsa: bcm_sf2: Configure traffic classes to queue mapping
+>   net: dsa: bcm_sf2: Add CFP registers definitions
+>   net: dsa: bcm_sf2: Add support for ethtool::rxnfc
+>
+>  drivers/net/dsa/Makefile       |   2 +-
+>  drivers/net/dsa/bcm_sf2.c      |  23 ++
+>  drivers/net/dsa/bcm_sf2.h      |  17 ++
+>  drivers/net/dsa/bcm_sf2_cfp.c  | 613 +++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/dsa/bcm_sf2_regs.h | 150 ++++++++++
+>  include/net/dsa.h              |   8 +
+>  net/dsa/slave.c                |  26 ++
+>  7 files changed, 838 insertions(+), 1 deletion(-)
+>  create mode 100644 drivers/net/dsa/bcm_sf2_cfp.c
+>
+> --
+> 2.9.3
+>
