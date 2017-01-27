@@ -1,106 +1,97 @@
-From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Fri, 27 Jan 2017 10:43:42 +0100
-Message-ID: <20170127094342.GC24223@pali>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
- <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
- <87tw8lnei3.fsf@codeaurora.org>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Fri, 27 Jan 2017 11:05:44 +0100
+Message-ID: <20170127100544.GF4143@dhcp22.suse.cz>
+References: <CAADnVQ+iGPFwTwQ03P1Ga2qM1nt14TfA+QO8-npkEYzPD+vpdw@mail.gmail.com>
+ <588907AA.1020704@iogearbox.net>
+ <20170126074354.GB8456@dhcp22.suse.cz>
+ <5889C331.7020101@iogearbox.net>
+ <20170126100802.GF6590@dhcp22.suse.cz>
+ <5889DEA3.7040106@iogearbox.net>
+ <20170126115833.GI6590@dhcp22.suse.cz>
+ <5889F52E.7030602@iogearbox.net>
+ <20170126134004.GM6590@dhcp22.suse.cz>
+ <588A5D3C.4060605@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36261 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754457AbdA0Jnv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 04:43:51 -0500
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+	Johannes Weiner <hannes@cmpxchg.org>, linux-mm <linux-mm@kvack.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	marcelo.leitner@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <87tw8lnei3.fsf@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <588A5D3C.4060605@iogearbox.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 27 January 2017 09:33:40 Kalle Valo wrote:
-> Pali Rohár <pali.rohar@gmail.com> writes:
+On Thu 26-01-17 21:34:04, Daniel Borkmann wrote:
+> On 01/26/2017 02:40 PM, Michal Hocko wrote:
+[...]
+> > But realistically, how big is this problem really? Is it really worth
+> > it? You said this is an admin only interface and admin can kill the
+> > machine by OOM and other means already.
+> > 
+> > Moreover and I should probably mention it explicitly, your d407bd25a204b
+> > reduced the likelyhood of oom for other reason. kmalloc used GPF_USER
+> > previously and with order > 0 && order <= PAGE_ALLOC_COSTLY_ORDER this
+> > could indeed hit the OOM e.g. due to memory fragmentation. It would be
+> > much harder to hit the OOM killer from vmalloc which doesn't issue
+> > higher order allocation requests. Or have you ever seen the OOM killer
+> > pointing to the vmalloc fallback path?
 > 
-> > NVS calibration data for wl1251 are model specific. Every one device with
-> > wl1251 chip has different and calibrated in factory.
-> >
-> > Not all wl1251 chips have own EEPROM where are calibration data stored. And
-> > in that case there is no "standard" place. Every device has stored them on
-> > different place (some in rootfs file, some in dedicated nand partition,
-> > some in another proprietary structure).
-> >
-> > Kernel wl1251 driver cannot support every one different storage decided by
-> > device manufacture so it will use request_firmware_prefer_user() call for
-> > loading NVS calibration data and userspace helper will be responsible to
-> > prepare correct data.
-> >
-> > In case userspace helper fails request_firmware_prefer_user() still try to
-> > load data file directly from VFS as fallback mechanism.
-> >
-> > On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
-> > in CAL nand partition. CAL is proprietary Nokia key/value format for nand
-> > devices.
-> >
-> > With this patch it is finally possible to load correct model specific NVS
-> > calibration data for Nokia N900.
-> >
-> > Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
-> > ---
-> >  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
-> >  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
-> >  2 files changed, 2 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
-> > index 7142ccf..affe154 100644
-> > --- a/drivers/net/wireless/ti/wl1251/Kconfig
-> > +++ b/drivers/net/wireless/ti/wl1251/Kconfig
-> > @@ -2,6 +2,7 @@ config WL1251
-> >  	tristate "TI wl1251 driver support"
-> >  	depends on MAC80211
-> >  	select FW_LOADER
-> > +	select FW_LOADER_USER_HELPER
-> >  	select CRC7
-> >  	---help---
-> >  	  This will enable TI wl1251 driver support. The drivers make
-> > diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
-> > index 208f062..24f8866 100644
-> > --- a/drivers/net/wireless/ti/wl1251/main.c
-> > +++ b/drivers/net/wireless/ti/wl1251/main.c
-> > @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
-> >  	struct device *dev = wiphy_dev(wl->hw->wiphy);
-> >  	int ret;
-> >  
-> > -	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
-> > +	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+> The case I was concerned about was from vmalloc() path, not kmalloc().
+> That was where the stack trace indicating OOM pointed to. As an example,
+> there could be really large allocation requests for maps where the map
+> has pre-allocated memory for its elements. Thus, if we get to the point
+> where we need to kill others due to shortage of mem for satisfying this,
+> I'd much much rather prefer to just not let vmalloc() work really hard
+> and fail early on instead. 
+
+I see, but as already mentioned, chances are that by the time you get
+close to the OOM somebody else will hit the OOM before the vmalloc path
+manages to free the allocated memory.
+
+> In my (crafted) test case, I was connected
+> via ssh and it each time reliably killed my connection, which is really
+> suboptimal.
 > 
-> I don't see the need for this. Just remove the default nvs file from
-> filesystem and the fallback user helper will be always used, right?
+> F.e., I could also imagine a buggy or miscalculated map definition for
+> a prog that is provisioned to multiple places, which then accidentally
+> triggers this. Or if large on purpose, but we crossed the line, it
+> could be handled more gracefully, f.e. I could imagine an option to
+> falling back to a non-pre-allocated map flavor from the application
+> loading the program. Trade-off for sure, but still allowing it to
+> operate up to a certain extend. Granted, if vmalloc() succeeded without
+> trying hard and we then OOM elsewhere, too bad, but we don't have much
+> control over that one anyway, only about our own request. Reason I
+> asked above was whether having __GFP_NORETRY in would be fatal
+> somewhere down the path, but seems not as you say.
+> 
+> So to answer your second email with the bpf and netfilter hunks, why
+> not replacing them with kvmalloc() and __GFP_NORETRY flag and add that
+> big fat FIXME comment above there, saying explicitly that __GFP_NORETRY
+> is not harmful though has only /partial/ effect right now and that full
+> support needs to be implemented in future. That would still be better
+> that not having it, imo, and the FIXME would make expectations clear
+> to anyone reading that code.
 
-It is part of linux-firmware repository. And already part of all
-previous versions of linux-firmware packages in lot of linux
-distributions. So removing it is not possible...
+Well, we can do that, I just would like to prevent from this (ab)use
+if there is no _real_ and _sensible_ usecase for it. Having a real bug
+report or a fallback mechanism you are mentioning above would justify
+the (ab)use IMHO. But that abuse would be documented properly and have a
+real reason to exist. That sounds like a better approach to me.
 
-> Like we discussed earlier, the default nvs file should not be used by
-> normal users.
-
-But already is and we need to deal with this fact.
-
+But if you absolutely _insist_ I can change that.
 -- 
-Pali Rohár
-pali.rohar@gmail.com
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
