@@ -1,58 +1,157 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH V3 net-next 02/14] net/ena: fix error handling when probe
- fails
-Date: Sat, 28 Jan 2017 00:33:33 +0100
-Message-ID: <174cba24-4bf4-4212-9756-2bedf4fa5a92@gmx.de>
-References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
- <1485469096-5271-3-git-send-email-netanel@annapurnalabs.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: suspicious RCU usage in nf_hook
+Date: Fri, 27 Jan 2017 15:35:24 -0800
+Message-ID: <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dwmw@amazon.com, zorik@annapurnalabs.com, alex@annapurnalabs.com,
-        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
-        nafea@annapurnalabs.com, eric.dumazet@gmail.com
-To: Netanel Belgazal <netanel@annapurnalabs.com>,
-        linux-kernel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.15]:52048 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750720AbdA0Xdu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Jan 2017 18:33:50 -0500
-In-Reply-To: <1485469096-5271-3-git-send-email-netanel@annapurnalabs.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <edumazet@google.com>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, 2017-01-27 at 22:15 +0100, Dmitry Vyukov wrote:
+> Hello,
+> 
+> I've got the following report while running syzkaller fuzzer on
+> fd694aaa46c7ed811b72eb47d5eb11ce7ab3f7f1:
+> 
+> [ INFO: suspicious RCU usage. ]
+> 4.10.0-rc5+ #192 Not tainted
+> -------------------------------
+> ./include/linux/rcupdate.h:561 Illegal context switch in RCU read-side
+> critical section!
+> 
+> other info that might help us debug this:
+> 
+> rcu_scheduler_active = 2, debug_locks = 0
+> 2 locks held by syz-executor14/23111:
+>  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>] lock_sock
+> include/net/sock.h:1454 [inline]
+>  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>]
+> rawv6_sendmsg+0x1e65/0x3ec0 net/ipv6/raw.c:919
+>  #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>] nf_hook
+> include/linux/netfilter.h:201 [inline]
+>  #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>]
+> __ip6_local_out+0x258/0x840 net/ipv6/output_core.c:160
+> 
+> stack backtrace:
+> CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:15 [inline]
+>  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+>  lockdep_rcu_suspicious+0x139/0x180 kernel/locking/lockdep.c:4452
+>  rcu_preempt_sleep_check include/linux/rcupdate.h:560 [inline]
+>  ___might_sleep+0x560/0x650 kernel/sched/core.c:7748
+>  __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
+>  mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
+>  atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
+>  __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
+>  static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
+>  net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
+>  sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
+>  __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
+>  sk_destruct+0x47/0x80 net/core/sock.c:1460
+>  __sk_free+0x57/0x230 net/core/sock.c:1468
+>  sock_wfree+0xae/0x120 net/core/sock.c:1645
+>  skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
+>  skb_release_all+0x15/0x60 net/core/skbuff.c:668
+>  __kfree_skb+0x15/0x20 net/core/skbuff.c:684
+>  kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
+>  inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
+>  inet_frag_put include/net/inet_frag.h:133 [inline]
+>  nf_ct_frag6_gather+0x1106/0x3840 net/ipv6/netfilter/nf_conntrack_reasm.c:617
+>  ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+>  nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
+>  nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
+>  nf_hook include/linux/netfilter.h:212 [inline]
+>  __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
+>  ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
+>  ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
+>  ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
+>  rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
+>  rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
+>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+>  sock_sendmsg_nosec net/socket.c:635 [inline]
+>  sock_sendmsg+0xca/0x110 net/socket.c:645
+>  sock_write_iter+0x326/0x600 net/socket.c:848
+>  do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
+>  do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
+>  vfs_writev+0x87/0xc0 fs/read_write.c:911
+>  do_writev+0x110/0x2c0 fs/read_write.c:944
+>  SYSC_writev fs/read_write.c:1017 [inline]
+>  SyS_writev+0x27/0x30 fs/read_write.c:1014
+>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> RIP: 0033:0x445559
+> RSP: 002b:00007f6f46fceb58 EFLAGS: 00000292 ORIG_RAX: 0000000000000014
+> RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445559
+> RDX: 0000000000000001 RSI: 0000000020f1eff0 RDI: 0000000000000005
+> RBP: 00000000006e19c0 R08: 0000000000000000 R09: 0000000000000000
+> R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000700000
+> R13: 0000000020f59000 R14: 0000000000000015 R15: 0000000000020400
+> BUG: sleeping function called from invalid context at kernel/locking/mutex.c:752
+> in_atomic(): 1, irqs_disabled(): 0, pid: 23111, name: syz-executor14
+> INFO: lockdep is turned off.
+> CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:15 [inline]
+>  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+>  ___might_sleep+0x47e/0x650 kernel/sched/core.c:7780
+>  __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
+>  mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
+>  atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
+>  __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
+>  static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
+>  net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
+>  sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
+>  __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
+>  sk_destruct+0x47/0x80 net/core/sock.c:1460
+>  __sk_free+0x57/0x230 net/core/sock.c:1468
+>  sock_wfree+0xae/0x120 net/core/sock.c:1645
+>  skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
+>  skb_release_all+0x15/0x60 net/core/skbuff.c:668
+>  __kfree_skb+0x15/0x20 net/core/skbuff.c:684
+>  kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
+>  inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
+>  inet_frag_put include/net/inet_frag.h:133 [inline]
+>  nf_ct_frag6_gather+0x1106/0x3840 net/ipv6/netfilter/nf_conntrack_reasm.c:617
+>  ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+>  nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
+>  nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
+>  nf_hook include/linux/netfilter.h:212 [inline]
+>  __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
+>  ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
+>  ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
+>  ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
+>  rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
+>  rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
+>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+>  sock_sendmsg_nosec net/socket.c:635 [inline]
+>  sock_sendmsg+0xca/0x110 net/socket.c:645
+>  sock_write_iter+0x326/0x600 net/socket.c:848
+>  do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
+>  do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
+>  vfs_writev+0x87/0xc0 fs/read_write.c:911
+>  do_writev+0x110/0x2c0 fs/read_write.c:944
+>  SYSC_writev fs/read_write.c:1017 [inline]
+>  SyS_writev+0x27/0x30 fs/read_write.c:1014
+>  entry_SYSCALL_64_fastpath+0x1f/0xc2
 
-On 26.01.2017 23:18, Netanel Belgazal wrote:
-> When driver fails in probe, it will release all resources,
-> including adapter.
-> In case of probe failure, ena_remove should not try to
-> free the adapter resources.
->
-> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
-> ---
->  drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-> index 7493ea3..cb60567 100644
-> --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-> +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-> @@ -3046,6 +3046,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
->  err_free_region:
->  	ena_release_bars(ena_dev, pdev);
->  err_free_ena_dev:
-> +	pci_set_drvdata(pdev, NULL);
->  	vfree(ena_dev);
->  err_disable_device:
->  	pci_disable_device(pdev);
->
+Oh well, I forgot to submit the official patch I think, Jan 9th.
 
-Is this change really a "fix"? remove() should only be called if
-probe() has been successful before, otherwise not. Did you experience
-something different?
-
-Regards,
-Lino
+https://groups.google.com/forum/#!topic/syzkaller/BhyN5OFd7sQ
