@@ -1,88 +1,60 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 4/4] dcbnl: Add some spaces for better code readability
-Date: Sat, 28 Jan 2017 10:37:39 +0100
-Message-ID: <37fec5d3-4697-f3b9-b780-d11585a0f494@users.sourceforge.net>
-References: <ab981a3f-e73e-9bef-09c5-9c6d077aef00@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Pan Bian <bianpan2016@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ab981a3f-e73e-9bef-09c5-9c6d077aef00@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 0/2] pull request for net-next: batman-adv
+	2017-01-28
+Date: Sat, 28 Jan 2017 11:56:49 +0100
+Message-ID: <20170128105651.3061-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 28 Jan 2017 10:15:59 +0100
+Hi David,
 
-Use space characters at some source code places according to
-the Linux coding style convention.
+here is another pull request for batman-adv in net-next. One of them fixes
+a regression introduced by a patch in the previous pull request two days ago.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- net/dcb/dcbnl.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Please pull or let me know of any problem!
 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 0903081a1212..0150de92c8ba 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -315,7 +315,7 @@ static int dcbnl_getcap(struct net_device *netdev, struct nlmsghdr *nlh,
- 	if (data[DCB_CAP_ATTR_ALL])
- 		getall = 1;
- 
--	for (i = DCB_CAP_ATTR_ALL+1; i <= DCB_CAP_ATTR_MAX; i++) {
-+	for (i = DCB_CAP_ATTR_ALL + 1; i <= DCB_CAP_ATTR_MAX; i++) {
- 		if (!getall && !data[i])
- 			continue;
- 
-@@ -359,7 +359,7 @@ static int dcbnl_getnumtcs(struct net_device *netdev, struct nlmsghdr *nlh,
- 	if (data[DCB_NUMTCS_ATTR_ALL])
- 		getall = 1;
- 
--	for (i = DCB_NUMTCS_ATTR_ALL+1; i <= DCB_NUMTCS_ATTR_MAX; i++) {
-+	for (i = DCB_NUMTCS_ATTR_ALL + 1; i <= DCB_NUMTCS_ATTR_MAX; i++) {
- 		if (!getall && !data[i])
- 			continue;
- 
-@@ -397,7 +397,7 @@ static int dcbnl_setnumtcs(struct net_device *netdev, struct nlmsghdr *nlh,
- 	if (ret)
- 		return ret;
- 
--	for (i = DCB_NUMTCS_ATTR_ALL+1; i <= DCB_NUMTCS_ATTR_MAX; i++) {
-+	for (i = DCB_NUMTCS_ATTR_ALL + 1; i <= DCB_NUMTCS_ATTR_MAX; i++) {
- 		if (!data[i])
- 			continue;
- 
-@@ -1593,7 +1593,7 @@ static int dcbnl_getfeatcfg(struct net_device *netdev, struct nlmsghdr *nlh,
- 	if (data[DCB_FEATCFG_ATTR_ALL])
- 		getall = 1;
- 
--	for (i = DCB_FEATCFG_ATTR_ALL+1; i <= DCB_FEATCFG_ATTR_MAX; i++) {
-+	for (i = DCB_FEATCFG_ATTR_ALL + 1; i <= DCB_FEATCFG_ATTR_MAX; i++) {
- 		if (!getall && !data[i])
- 			continue;
- 
-@@ -1631,7 +1631,7 @@ static int dcbnl_setfeatcfg(struct net_device *netdev, struct nlmsghdr *nlh,
- 	if (ret)
- 		goto err;
- 
--	for (i = DCB_FEATCFG_ATTR_ALL+1; i <= DCB_FEATCFG_ATTR_MAX; i++) {
-+	for (i = DCB_FEATCFG_ATTR_ALL + 1; i <= DCB_FEATCFG_ATTR_MAX; i++) {
- 		if (!data[i])
- 			continue;
- 
-@@ -1669,7 +1669,7 @@ struct reply_func {
- 		    struct nlattr **, struct sk_buff *);
- };
- 
--static const struct reply_func reply_funcs[DCB_CMD_MAX+1] = {
-+static const struct reply_func reply_funcs[DCB_CMD_MAX + 1] = {
- 	[DCB_CMD_GSTATE]	= { RTM_GETDCB, dcbnl_getstate },
- 	[DCB_CMD_SSTATE]	= { RTM_SETDCB, dcbnl_setstate },
- 	[DCB_CMD_PFC_GCFG]	= { RTM_GETDCB, dcbnl_getpfccfg },
--- 
-2.11.0
+Thank you,
+      Simon
+
+The following changes since commit c33705188c493b7de3b8dc2956d67de91b444727:
+
+  batman-adv: Treat NET_XMIT_CN as transmit successfully (2017-01-26 08:41:18 +0100)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20170128
+
+for you to fetch changes up to 3e7514afc7d728dd47c5fe9d7a1f5216fe659cda:
+
+  batman-adv: Fix includes for IS_ERR/ERR_PTR (2017-01-28 10:40:35 +0100)
+
+----------------------------------------------------------------
+Here are two fixes for batman-adv for net-next:
+
+ - fix double call of dev_queue_xmit(), caused by the recent introduction
+   of net_xmit_eval(), by Sven Eckelmann
+
+ - Fix includes for IS_ERR/ERR_PTR, by Sven Eckelmann
+
+----------------------------------------------------------------
+Sven Eckelmann (2):
+      batman-adv: Fix double call of dev_queue_xmit
+      batman-adv: Fix includes for IS_ERR/ERR_PTR
+
+ net/batman-adv/debugfs.c  | 2 +-
+ net/batman-adv/send.c     | 4 +++-
+ net/batman-adv/tp_meter.c | 2 +-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
