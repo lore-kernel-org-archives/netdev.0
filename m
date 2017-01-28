@@ -1,102 +1,89 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH net-next] net: add devm version of alloc_etherdev_mqs function
-Date: Sat, 28 Jan 2017 15:15:42 +0100
-Message-ID: <20170128141542.9676-1-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Andrew Lunn <andrew@lunn.ch>, Joe Perches <joe@perches.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-To: "David S . Miller" <davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCHv2 RFC net-next 7/7] net: pending_confirm is not used anymore
+Date: Sat, 28 Jan 2017 16:26:18 +0200
+Message-ID: <1485613578-19973-8-git-send-email-ja@ssi.bg>
+References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
+Cc: linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34243 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751848AbdA1OP4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 09:15:56 -0500
+Received: from ja.ssi.bg ([178.16.129.10]:43487 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752002AbdA1O1z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Jan 2017 09:27:55 -0500
+In-Reply-To: <1485613578-19973-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rafał Miłecki <rafal@milecki.pl>
+When same struct dst_entry can be used for many different
+neighbours we can not use it for pending confirmations.
+As last step, we can remove the pending_confirm flag.
 
-This patch adds devm_alloc_etherdev_mqs function and devm_alloc_etherdev
-macro. These can be used for simpler netdev allocation without having to
-care about calling free_netdev.
-
-Thanks to this change drivers, their error paths and removal paths may
-get simpler by a bit.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+Reported-by: YueHaibing <yuehaibing@huawei.com>
+Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
+Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
-I'm working on V2 of:
-[PATCH 0/3] net-next: use one struct bgmac & add PHY support
-and I just realized I could get a way simpler error path in bgmac with a
-devm_alloc_etherdev helper. So there is my suggestion for adding it.
----
- include/linux/etherdevice.h |  5 +++++
- net/ethernet/eth.c          | 28 ++++++++++++++++++++++++++++
- 2 files changed, 33 insertions(+)
+ include/net/dst.h | 14 ++------------
+ net/core/dst.c    |  1 -
+ 2 files changed, 2 insertions(+), 13 deletions(-)
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 42add77ae47d..c62b709b1ce0 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -54,6 +54,11 @@ struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int txqs,
- #define alloc_etherdev(sizeof_priv) alloc_etherdev_mq(sizeof_priv, 1)
- #define alloc_etherdev_mq(sizeof_priv, count) alloc_etherdev_mqs(sizeof_priv, count, count)
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 3a3b34b..84a1043 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -59,8 +59,6 @@ struct dst_entry {
+ #define DST_XFRM_QUEUE		0x0100
+ #define DST_METADATA		0x0200
  
-+struct net_device *devm_alloc_etherdev_mqs(struct device *dev, int sizeof_priv,
-+					   unsigned int txqs,
-+					   unsigned int rxqs);
-+#define devm_alloc_etherdev(dev, sizeof_priv) devm_alloc_etherdev_mqs(dev, sizeof_priv, 1, 1)
-+
- struct sk_buff **eth_gro_receive(struct sk_buff **head,
- 				 struct sk_buff *skb);
- int eth_gro_complete(struct sk_buff *skb, int nhoff);
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 8c5a479681ca..efdaaab735fc 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -392,6 +392,34 @@ struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int txqs,
- }
- EXPORT_SYMBOL(alloc_etherdev_mqs);
+-	unsigned short		pending_confirm;
+-
+ 	short			error;
  
-+static void devm_free_netdev(struct device *dev, void *res)
-+{
-+	free_netdev(*(struct net_device **)res);
-+}
+ 	/* A non-zero value of dst->obsolete forces by-hand validation
+@@ -78,6 +76,8 @@ struct dst_entry {
+ #define DST_OBSOLETE_KILL	-2
+ 	unsigned short		header_len;	/* more space at head required */
+ 	unsigned short		trailer_len;	/* space to reserve at tail */
++	unsigned short		__pad3;
 +
-+struct net_device *devm_alloc_etherdev_mqs(struct device *dev, int sizeof_priv,
-+					   unsigned int txqs, unsigned int rxqs)
-+{
-+	struct net_device **dr;
-+	struct net_device *netdev;
-+
-+	dr = devres_alloc(devm_free_netdev, sizeof(*dr), GFP_KERNEL);
-+	if (!dr)
-+		return NULL;
-+
-+	netdev = alloc_etherdev_mqs(sizeof_priv, txqs, rxqs);
-+	if (!netdev) {
-+		devres_free(dr);
-+		return NULL;
-+	}
-+
-+	*dr = netdev;
-+	devres_add(dev, dr);
-+
-+	return netdev;
-+}
-+EXPORT_SYMBOL(devm_alloc_etherdev_mqs);
-+
- ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len)
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 	__u32			tclassid;
+ #else
+@@ -440,7 +440,6 @@ static inline void dst_rcu_free(struct rcu_head *head)
+ 
+ static inline void dst_confirm(struct dst_entry *dst)
  {
- 	return scnprintf(buf, PAGE_SIZE, "%*phC\n", len, addr);
+-	dst->pending_confirm = 1;
+ }
+ 
+ static inline int dst_neigh_output(struct dst_entry *dst, struct neighbour *n,
+@@ -448,15 +447,6 @@ static inline int dst_neigh_output(struct dst_entry *dst, struct neighbour *n,
+ {
+ 	const struct hh_cache *hh;
+ 
+-	if (dst->pending_confirm) {
+-		unsigned long now = jiffies;
+-
+-		dst->pending_confirm = 0;
+-		/* avoid dirtying neighbour */
+-		if (n->confirmed != now)
+-			n->confirmed = now;
+-	}
+-
+ 	hh = &n->hh;
+ 	if ((n->nud_state & NUD_CONNECTED) && hh->hh_len)
+ 		return neigh_hh_output(hh, skb);
+diff --git a/net/core/dst.c b/net/core/dst.c
+index b5cbbe0..960e503 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -190,7 +190,6 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+ 	dst->__use = 0;
+ 	dst->lastuse = jiffies;
+ 	dst->flags = flags;
+-	dst->pending_confirm = 0;
+ 	dst->next = NULL;
+ 	if (!(flags & DST_NOCOUNT))
+ 		dst_entries_add(ops, 1);
 -- 
-2.11.0
+1.9.3
