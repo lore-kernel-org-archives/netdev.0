@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 2/2] batman-adv: Fix includes for
-	IS_ERR/ERR_PTR
-Date: Sat, 28 Jan 2017 11:56:51 +0100
-Message-ID: <20170128105651.3061-3-sw@simonwunderlich.de>
+Subject: [PATCH 1/2] batman-adv: Fix double call of
+	dev_queue_xmit
+Date: Sat, 28 Jan 2017 11:56:50 +0100
+Message-ID: <20170128105651.3061-2-sw@simonwunderlich.de>
 References: <20170128105651.3061-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -23,42 +23,52 @@ List-Id: netdev.vger.kernel.org
 
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-IS_ERR/ERR_PTR are not defined in linux/device.h but in linux/err.h. The
-files using these macros therefore have to include the correct one.
+The net_xmit_eval has side effects because it is not making sure that e
+isn't evaluated twice.
 
-Reported-by: Linus Luessing <linus.luessing-S0/GAf8tV78@public.gmane.org>
+    #define net_xmit_eval(e)        ((e) == NET_XMIT_CN ? 0 : (e))
+
+The code requested by David Miller [1]
+
+    return net_xmit_eval(dev_queue_xmit(skb));
+
+will get transformed into
+
+    return ((dev_queue_xmit(skb)) == NET_XMIT_CN ? 0 : (dev_queue_xmit(skb)))
+
+dev_queue_xmit will therefore be tried again (with an already consumed skb)
+whenever the return code is not NET_XMIT_CN.
+
+[1] https://lkml.kernel.org/r/20170125.225624.965229145391320056.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+
+Fixes: c33705188c49 ("batman-adv: Treat NET_XMIT_CN as transmit successfully")
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/debugfs.c  | 2 +-
- net/batman-adv/tp_meter.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/batman-adv/send.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/debugfs.c b/net/batman-adv/debugfs.c
-index 5406148b9497..e32ad47c6efd 100644
---- a/net/batman-adv/debugfs.c
-+++ b/net/batman-adv/debugfs.c
-@@ -19,7 +19,7 @@
- #include "main.h"
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index d9b2889064a6..1489ec27daff 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -77,6 +77,7 @@ int batadv_send_skb_packet(struct sk_buff *skb,
+ {
+ 	struct batadv_priv *bat_priv;
+ 	struct ethhdr *ethhdr;
++	int ret;
  
- #include <linux/debugfs.h>
--#include <linux/device.h>
-+#include <linux/err.h>
- #include <linux/errno.h>
- #include <linux/export.h>
- #include <linux/fs.h>
-diff --git a/net/batman-adv/tp_meter.c b/net/batman-adv/tp_meter.c
-index 07f64b60b528..c94ebdecdc3d 100644
---- a/net/batman-adv/tp_meter.c
-+++ b/net/batman-adv/tp_meter.c
-@@ -23,7 +23,7 @@
- #include <linux/byteorder/generic.h>
- #include <linux/cache.h>
- #include <linux/compiler.h>
--#include <linux/device.h>
-+#include <linux/err.h>
- #include <linux/etherdevice.h>
- #include <linux/fs.h>
- #include <linux/if_ether.h>
+ 	bat_priv = netdev_priv(hard_iface->soft_iface);
+ 
+@@ -115,7 +116,8 @@ int batadv_send_skb_packet(struct sk_buff *skb,
+ 	 * congestion and traffic shaping, it drops and returns NET_XMIT_DROP
+ 	 * (which is > 0). This will not be treated as an error.
+ 	 */
+-	return net_xmit_eval(dev_queue_xmit(skb));
++	ret = dev_queue_xmit(skb);
++	return net_xmit_eval(ret);
+ send_skb_err:
+ 	kfree_skb(skb);
+ 	return NET_XMIT_DROP;
 -- 
 2.11.0
