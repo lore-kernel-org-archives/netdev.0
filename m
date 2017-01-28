@@ -1,76 +1,91 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next 1/2] tcp: record pkts sent and retransmistted
-Date: Fri, 27 Jan 2017 16:24:38 -0800
-Message-ID: <20170128002439.128487-1-ycheng@google.com>
+Subject: [PATCH net-next 2/2] tcp: include locally failed retries in retransmission stats
+Date: Fri, 27 Jan 2017 16:24:39 -0800
+Message-ID: <20170128002439.128487-2-ycheng@google.com>
+References: <20170128002439.128487-1-ycheng@google.com>
 Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
         Yuchung Cheng <ycheng@google.com>,
         Soheil Hassas Yeganeh <soheil@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35333 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750782AbdA1AYt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:24:49 -0500
-Received: by mail-pf0-f182.google.com with SMTP id f144so76636289pfa.2
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 16:24:48 -0800 (PST)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34177 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750797AbdA1AYu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:24:50 -0500
+Received: by mail-pf0-f176.google.com with SMTP id e4so76373478pfg.1
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 16:24:49 -0800 (PST)
+In-Reply-To: <20170128002439.128487-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add two stats in SCM_TIMESTAMPING_OPT_STATS:
+Currently the retransmission stats are not incremented if the
+retransmit fails locally. But we always increment the other packet
+counters that track total packet/bytes sent.  Awkwardly while we
+don't count these failed retransmits in RETRANSSEGS, we do count
+them in FAILEDRETRANS.
 
-TCP_NLA_DATA_SEGS_OUT: total data packets sent including retransmission
-TCP_NLA_TOTAL_RETRANS: total data packets retransmitted
+If the qdisc is dropping many packets this could under-estimate
+TCP retransmission rate substantially from both SNMP or per-socket
+TCP_INFO stats. This patch changes this by always incrementing
+retransmission stats on retransmission attempts and failures.
 
-The names are picked to be consistent with corresponding fields in
-TCP_INFO. This allows applications that are using the timestamping
-API to measure latency stats to also retrive retransmission rate
-of application write.
+Another motivation is to properly track retransmists in
+SCM_TIMESTAMPING_OPT_STATS. Since SCM_TSTAMP_SCHED collection is
+triggered in tcp_transmit_skb(), If tp->total_retrans is incremented
+after the function, we'll always mis-count by the amount of the
+latest retransmission.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
 Acked-by: Neal Cardwell <ncardwell@google.com>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- include/uapi/linux/tcp.h | 2 ++
- net/ipv4/tcp.c           | 6 +++++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
+ net/ipv4/tcp_output.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 6ff35eb48d10..38a2b07afdff 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -227,6 +227,8 @@ enum {
- 	TCP_NLA_BUSY,		/* Time (usec) busy sending data */
- 	TCP_NLA_RWND_LIMITED,	/* Time (usec) limited by receive window */
- 	TCP_NLA_SNDBUF_LIMITED,	/* Time (usec) limited by send buffer */
-+	TCP_NLA_DATA_SEGS_OUT,	/* Data pkts sent including retransmission */
-+	TCP_NLA_TOTAL_RETRANS,	/* Data pkts retransmitted */
- };
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 671c69535671..7b2d8762f15f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2771,6 +2771,13 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+ 	if ((TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN_ECN) == TCPHDR_SYN_ECN)
+ 		tcp_ecn_clear_syn(sk, skb);
  
- /* for TCP_MD5SIG socket option */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 2ed472ebf3b5..b751abc56935 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2870,7 +2870,7 @@ struct sk_buff *tcp_get_timestamping_opt_stats(const struct sock *sk)
- 	struct sk_buff *stats;
- 	struct tcp_info info;
++	/* Update global and local TCP statistics. */
++	segs = tcp_skb_pcount(skb);
++	TCP_ADD_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS, segs);
++	if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
++		__NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
++	tp->total_retrans += segs;
++
+ 	/* make sure skb->data is aligned on arches that require it
+ 	 * and check if ack-trimming & collapsing extended the headroom
+ 	 * beyond what csum_start can cover.
+@@ -2788,14 +2795,9 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+ 	}
  
--	stats = alloc_skb(3 * nla_total_size_64bit(sizeof(u64)), GFP_ATOMIC);
-+	stats = alloc_skb(5 * nla_total_size_64bit(sizeof(u64)), GFP_ATOMIC);
- 	if (!stats)
- 		return NULL;
- 
-@@ -2881,6 +2881,10 @@ struct sk_buff *tcp_get_timestamping_opt_stats(const struct sock *sk)
- 			  info.tcpi_rwnd_limited, TCP_NLA_PAD);
- 	nla_put_u64_64bit(stats, TCP_NLA_SNDBUF_LIMITED,
- 			  info.tcpi_sndbuf_limited, TCP_NLA_PAD);
-+	nla_put_u64_64bit(stats, TCP_NLA_DATA_SEGS_OUT,
-+			  tp->data_segs_out, TCP_NLA_PAD);
-+	nla_put_u64_64bit(stats, TCP_NLA_TOTAL_RETRANS,
-+			  tp->total_retrans, TCP_NLA_PAD);
- 	return stats;
+ 	if (likely(!err)) {
+-		segs = tcp_skb_pcount(skb);
+-
+ 		TCP_SKB_CB(skb)->sacked |= TCPCB_EVER_RETRANS;
+-		/* Update global TCP statistics. */
+-		TCP_ADD_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS, segs);
+-		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
+-			__NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
+-		tp->total_retrans += segs;
++	} else if (err != -EBUSY) {
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
+ 	}
+ 	return err;
  }
+@@ -2818,8 +2820,6 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+ 		if (!tp->retrans_stamp)
+ 			tp->retrans_stamp = tcp_skb_timestamp(skb);
  
+-	} else if (err != -EBUSY) {
+-		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
+ 	}
+ 
+ 	if (tp->undo_retrans < 0)
 -- 
 2.11.0.483.g087da7b7c-goog
