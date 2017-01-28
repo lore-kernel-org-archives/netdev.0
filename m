@@ -1,114 +1,111 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv2 RFC net-next 4/7] tcp: replace dst_confirm with sk_dst_confirm
-Date: Sat, 28 Jan 2017 16:26:15 +0200
-Message-ID: <1485613578-19973-5-git-send-email-ja@ssi.bg>
+Subject: [PATCHv2 RFC net-next 1/7] sock: add sk_dst_pending_confirm flag
+Date: Sat, 28 Jan 2017 16:26:12 +0200
+Message-ID: <1485613578-19973-2-git-send-email-ja@ssi.bg>
 References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
 Cc: linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43486 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:43490 "EHLO ja.ssi.bg"
         rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751983AbdA1O1v (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Jan 2017 09:27:51 -0500
+        id S1752003AbdA1O1z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Jan 2017 09:27:55 -0500
 In-Reply-To: <1485613578-19973-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add new sock flag to allow sockets to confirm neighbour.
 When same struct dst_entry can be used for many different
 neighbours we can not use it for pending confirmations.
-Use the new sk_dst_confirm() helper to propagate the
-indication from received packets to sock_confirm_neigh().
+As not all call paths lock the socket use full word for
+the flag.
 
-Reported-by: YueHaibing <yuehaibing@huawei.com>
-Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
-Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
+Add sk_dst_confirm as replacement for dst_confirm when
+called for received packets.
+
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 ---
- net/ipv4/tcp_input.c   | 12 +++---------
- net/ipv4/tcp_metrics.c |  7 ++-----
- net/ipv4/tcp_output.c  |  2 ++
- 3 files changed, 7 insertions(+), 14 deletions(-)
+ include/net/sock.h | 12 ++++++++++++
+ net/core/sock.c    |  2 ++
+ 2 files changed, 14 insertions(+)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 3de6eba..b3e88bb 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3644,11 +3644,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	if (tp->tlp_high_seq)
- 		tcp_process_tlp_ack(sk, ack, flag);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 7144750..e113786 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -240,6 +240,7 @@ struct sock_common {
+   *	@sk_wq: sock wait queue and async head
+   *	@sk_rx_dst: receive input route used by early demux
+   *	@sk_dst_cache: destination cache
++  *	@sk_dst_pending_confirm: need to confirm neighbour
+   *	@sk_policy: flow policy
+   *	@sk_receive_queue: incoming packets
+   *	@sk_wmem_alloc: transmit queue bytes committed
+@@ -393,6 +394,8 @@ struct sock {
+ 	struct sk_buff_head	sk_write_queue;
+ 	__s32			sk_peek_off;
+ 	int			sk_write_pending;
++	__u32			sk_dst_pending_confirm;
++	/* Note: 32bit hole on 64bit arches */
+ 	long			sk_sndtimeo;
+ 	struct timer_list	sk_timer;
+ 	__u32			sk_priority;
+@@ -1764,6 +1767,7 @@ static inline void dst_negative_advice(struct sock *sk)
+ 		if (ndst != dst) {
+ 			rcu_assign_pointer(sk->sk_dst_cache, ndst);
+ 			sk_tx_queue_clear(sk);
++			sk->sk_dst_pending_confirm = 0;
+ 		}
+ 	}
+ }
+@@ -1774,6 +1778,7 @@ static inline void dst_negative_advice(struct sock *sk)
+ 	struct dst_entry *old_dst;
  
--	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP)) {
--		struct dst_entry *dst = __sk_dst_get(sk);
--		if (dst)
--			dst_confirm(dst);
--	}
-+	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
-+		sk_dst_confirm(sk);
+ 	sk_tx_queue_clear(sk);
++	sk->sk_dst_pending_confirm = 0;
+ 	/*
+ 	 * This can be called while sk is owned by the caller only,
+ 	 * with no state that can be checked in a rcu_dereference_check() cond
+@@ -1789,6 +1794,7 @@ static inline void dst_negative_advice(struct sock *sk)
+ 	struct dst_entry *old_dst;
  
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS)
- 		tcp_schedule_loss_probe(sk);
-@@ -5995,7 +5992,6 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		break;
+ 	sk_tx_queue_clear(sk);
++	sk->sk_dst_pending_confirm = 0;
+ 	old_dst = xchg((__force struct dst_entry **)&sk->sk_dst_cache, dst);
+ 	dst_release(old_dst);
+ }
+@@ -1809,6 +1815,12 @@ static inline void dst_negative_advice(struct sock *sk)
  
- 	case TCP_FIN_WAIT1: {
--		struct dst_entry *dst;
- 		int tmo;
+ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie);
  
- 		/* If we enter the TCP_FIN_WAIT1 state and we are a
-@@ -6022,9 +6018,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		tcp_set_state(sk, TCP_FIN_WAIT2);
- 		sk->sk_shutdown |= SEND_SHUTDOWN;
- 
--		dst = __sk_dst_get(sk);
--		if (dst)
--			dst_confirm(dst);
-+		sk_dst_confirm(sk);
- 
- 		if (!sock_flag(sk, SOCK_DEAD)) {
- 			/* Wake up lingering close() */
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index b9ed0d5..0f46e5f 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -375,12 +375,10 @@ void tcp_update_metrics(struct sock *sk)
- 	u32 val;
- 	int m;
- 
-+	sk_dst_confirm(sk);
- 	if (sysctl_tcp_nometrics_save || !dst)
- 		return;
- 
--	if (dst->flags & DST_HOST)
--		dst_confirm(dst);
--
- 	rcu_read_lock();
- 	if (icsk->icsk_backoff || !tp->srtt_us) {
- 		/* This session failed to estimate rtt. Why?
-@@ -493,11 +491,10 @@ void tcp_init_metrics(struct sock *sk)
- 	struct tcp_metrics_block *tm;
- 	u32 val, crtt = 0; /* cached RTT scaled by 8 */
- 
-+	sk_dst_confirm(sk);
- 	if (!dst)
- 		goto reset;
- 
--	dst_confirm(dst);
--
- 	rcu_read_lock();
- 	tm = tcp_get_metrics(sk, dst, true);
- 	if (!tm) {
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 671c695..c1f8a59 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -973,6 +973,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	skb_set_hash_from_sk(skb, sk);
- 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
- 
-+	skb_set_dst_pending_confirm(skb, sk->sk_dst_pending_confirm);
++static inline void sk_dst_confirm(struct sock *sk)
++{
++	if (!sk->sk_dst_pending_confirm)
++		sk->sk_dst_pending_confirm = 1;
++}
 +
- 	/* Build TCP header and checksum it. */
- 	th = (struct tcphdr *)skb->data;
- 	th->source		= inet->inet_sport;
+ bool sk_mc_loop(struct sock *sk);
+ 
+ static inline bool sk_can_gso(const struct sock *sk)
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8b35debf..b743565 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -502,6 +502,7 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
+ 
+ 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
+ 		sk_tx_queue_clear(sk);
++		sk->sk_dst_pending_confirm = 0;
+ 		RCU_INIT_POINTER(sk->sk_dst_cache, NULL);
+ 		dst_release(dst);
+ 		return NULL;
+@@ -1519,6 +1520,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 				af_family_clock_key_strings[newsk->sk_family]);
+ 
+ 		newsk->sk_dst_cache	= NULL;
++		newsk->sk_dst_pending_confirm = 0;
+ 		newsk->sk_wmem_queued	= 0;
+ 		newsk->sk_forward_alloc = 0;
+ 		atomic_set(&newsk->sk_drops, 0);
 -- 
 1.9.3
