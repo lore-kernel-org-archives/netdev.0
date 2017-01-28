@@ -1,51 +1,85 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/4] dcbnl: Use kmalloc_array() in dcbnl_build_peer_app()
-Date: Sat, 28 Jan 2017 10:33:44 +0100
-Message-ID: <ee60540c-0e30-4abf-2bf0-00ab5fe2aab8@users.sourceforge.net>
+Subject: [PATCH 3/4] dcbnl: Adjust five checks for null pointers
+Date: Sat, 28 Jan 2017 10:36:28 +0100
+Message-ID: <72caef1b-f525-2942-4c29-ea2976157ad6@users.sourceforge.net>
 References: <ab981a3f-e73e-9bef-09c5-9c6d077aef00@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Cc: LKML <linux-kernel@vger.kernel.org>,
         kernel-janitors@vger.kernel.org
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Pan Bian <bianpan2016@163.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <ab981a3f-e73e-9bef-09c5-9c6d077aef00@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 27 Jan 2017 22:30:09 +0100
+Date: Sat, 28 Jan 2017 09:56:36 +0100
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
-* A multiplication for the size determination of a memory allocation
-  indicated that an array data structure should be processed.
-  Thus use the corresponding function "kmalloc_array".
+The script "checkpatch.pl" pointed information out like the following.
 
-  This issue was detected by using the Coccinelle software.
+Comparison to NULL could be written !…
 
-* Replace the specification of a data structure by a pointer dereference
-  to make the corresponding size determination a bit safer according to
-  the Linux coding style convention.
+Thus fix the affected source code places.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- net/dcb/dcbnl.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/dcb/dcbnl.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 3202d75329b5..76fd727e2eb4 100644
+index f29e19d962ec..0903081a1212 100644
 --- a/net/dcb/dcbnl.c
 +++ b/net/dcb/dcbnl.c
-@@ -990,7 +990,7 @@ static int dcbnl_build_peer_app(struct net_device *netdev, struct sk_buff* skb,
- 	 */
- 	err = ops->peer_getappinfo(netdev, &info, &app_count);
- 	if (!err && app_count) {
--		table = kmalloc(sizeof(struct dcb_app) * app_count, GFP_KERNEL);
-+		table = kmalloc_array(app_count, sizeof(*table), GFP_KERNEL);
- 		if (!table)
- 			return -ENOMEM;
+@@ -398,7 +398,7 @@ static int dcbnl_setnumtcs(struct net_device *netdev, struct nlmsghdr *nlh,
+ 		return ret;
  
+ 	for (i = DCB_NUMTCS_ATTR_ALL+1; i <= DCB_NUMTCS_ATTR_MAX; i++) {
+-		if (data[i] == NULL)
++		if (!data[i])
+ 			continue;
+ 
+ 		value = nla_get_u8(data[i]);
+@@ -741,7 +741,7 @@ static int dcbnl_setpfccfg(struct net_device *netdev, struct nlmsghdr *nlh,
+ 		return ret;
+ 
+ 	for (i = DCB_PFC_UP_ATTR_0; i <= DCB_PFC_UP_ATTR_7; i++) {
+-		if (data[i] == NULL)
++		if (!data[i])
+ 			continue;
+ 		value = nla_get_u8(data[i]);
+ 		netdev->dcbnl_ops->setpfccfg(netdev,
+@@ -955,7 +955,7 @@ static int dcbnl_bcn_setcfg(struct net_device *netdev, struct nlmsghdr *nlh,
+ 		return ret;
+ 
+ 	for (i = DCB_BCN_ATTR_RP_0; i <= DCB_BCN_ATTR_RP_7; i++) {
+-		if (data[i] == NULL)
++		if (!data[i])
+ 			continue;
+ 		value_byte = nla_get_u8(data[i]);
+ 		netdev->dcbnl_ops->setbcnrp(netdev,
+@@ -963,7 +963,7 @@ static int dcbnl_bcn_setcfg(struct net_device *netdev, struct nlmsghdr *nlh,
+ 	}
+ 
+ 	for (i = DCB_BCN_ATTR_BCNA_0; i <= DCB_BCN_ATTR_RI; i++) {
+-		if (data[i] == NULL)
++		if (!data[i])
+ 			continue;
+ 		value_int = nla_get_u32(data[i]);
+ 		netdev->dcbnl_ops->setbcncfg(netdev,
+@@ -1632,7 +1632,7 @@ static int dcbnl_setfeatcfg(struct net_device *netdev, struct nlmsghdr *nlh,
+ 		goto err;
+ 
+ 	for (i = DCB_FEATCFG_ATTR_ALL+1; i <= DCB_FEATCFG_ATTR_MAX; i++) {
+-		if (data[i] == NULL)
++		if (!data[i])
+ 			continue;
+ 
+ 		value = nla_get_u8(data[i]);
 -- 
 2.11.0
-
