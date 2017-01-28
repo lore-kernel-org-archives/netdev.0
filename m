@@ -1,301 +1,132 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/4] net: dsa: Add plumbing for port mirroring
-Date: Fri, 27 Jan 2017 17:25:25 -0800
-Message-ID: <20170128012528.30524-2-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 3/4] net: dsa: b53: Add support for port mirroring
+Date: Fri, 27 Jan 2017 17:25:27 -0800
+Message-ID: <20170128012528.30524-4-f.fainelli@gmail.com>
 References: <20170128012528.30524-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36054 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750951AbdA1B3Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 20:29:25 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 19so19484877pfo.3
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 17:29:25 -0800 (PST)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33691 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751230AbdA1B31 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 20:29:27 -0500
+Received: by mail-pf0-f194.google.com with SMTP id e4so19456285pfg.0
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 17:29:27 -0800 (PST)
 In-Reply-To: <20170128012528.30524-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add necessary plumbing at the slave network device level to have switch
-drivers implement ndo_setup_tc() and most particularly the cls_matchall
-classifier. We add support for two switch operations:
-
-port_add_mirror and port_del_mirror() which configure, on a per-port
-basis the mirror parameters requested from the cls_matchall classifier.
-
-Code is largely borrowed from the Mellanox Spectrum switch driver.
+Add support for configuring port mirroring through the cls_matchall
+classifier. We do a full ingress or egress capture towards the capture
+port. Future improvements could include leveraging the divider to allow
+less frames to be captured, as well as matching specific MAC DA/SA.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/dsa.h  |  36 ++++++++++++++
- net/dsa/dsa_priv.h |   3 ++
- net/dsa/slave.c    | 143 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 181 insertions(+), 1 deletion(-)
+ drivers/net/dsa/b53/b53_common.c | 67 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/b53/b53_priv.h   |  4 +++
+ 2 files changed, 71 insertions(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 92fd795e9573..831a789594f1 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -20,6 +20,8 @@
- #include <linux/phy_fixed.h>
- #include <linux/ethtool.h>
- 
-+struct tc_action;
-+
- enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_NONE = 0,
- 	DSA_TAG_PROTO_DSA,
-@@ -139,6 +141,31 @@ struct dsa_switch_tree {
- 	const struct dsa_device_ops *tag_ops;
- };
- 
-+enum dsa_port_mall_action_type {
-+	DSA_PORT_MALL_MIRROR,
-+};
-+
-+/*
-+ * Mirroring TC entry
-+ */
-+struct dsa_mall_mirror_tc_entry {
-+	u8 to_local_port;
-+	bool ingress;
-+};
-+
-+/*
-+ * TC matchall entry
-+ */
-+struct dsa_mall_tc_entry {
-+	struct list_head list;
-+	unsigned long cookie;
-+	enum dsa_port_mall_action_type type;
-+	union {
-+		struct dsa_mall_mirror_tc_entry mirror;
-+	};
-+};
-+
-+
- struct dsa_port {
- 	struct net_device	*netdev;
- 	struct device_node	*dn;
-@@ -370,6 +397,15 @@ struct dsa_switch_ops {
- 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
- 				 struct switchdev_obj_port_mdb *mdb,
- 				 int (*cb)(struct switchdev_obj *obj));
-+
-+	/*
-+	 * TC integration
-+	 */
-+	int	(*port_mirror_add)(struct dsa_switch *ds, int port,
-+				   struct dsa_mall_mirror_tc_entry *mirror,
-+				   bool ingress);
-+	void	(*port_mirror_del)(struct dsa_switch *ds, int port,
-+				   struct dsa_mall_mirror_tc_entry *mirror);
- };
- 
- struct dsa_switch_driver {
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 16194a4bb2fe..b10b03028b24 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -46,6 +46,9 @@ struct dsa_slave_priv {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll		*netpoll;
- #endif
-+
-+	/* TC context */
-+	struct list_head	mall_tc_list;
- };
- 
- /* dsa.c */
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b8e58689a9a1..a5f9f1ebca2e 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -16,12 +16,17 @@
- #include <linux/of_net.h>
- #include <linux/of_mdio.h>
- #include <linux/mdio.h>
-+#include <linux/list.h>
- #include <net/rtnetlink.h>
- #include <net/switchdev.h>
-+#include <net/pkt_cls.h>
-+#include <net/tc_act/tc_mirred.h>
- #include <linux/if_bridge.h>
- #include <linux/netpoll.h>
- #include "dsa_priv.h"
- 
-+static bool dsa_slave_dev_check(struct net_device *dev);
-+
- /* slave mii_bus handling ***************************************************/
- static int dsa_slave_phy_read(struct mii_bus *bus, int addr, int reg)
- {
-@@ -994,6 +999,139 @@ static int dsa_slave_get_phys_port_name(struct net_device *dev,
- 	return 0;
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index bb210b12ad1b..052ff4c22667 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1453,6 +1453,71 @@ static enum dsa_tag_protocol b53_get_tag_protocol(struct dsa_switch *ds)
+ 	return DSA_TAG_PROTO_NONE;
  }
  
-+static struct dsa_mall_tc_entry *
-+dsa_slave_mall_tc_entry_find(struct dsa_slave_priv *p,
-+			     unsigned long cookie)
++int b53_mirror_add(struct dsa_switch *ds, int port,
++		   struct dsa_mall_mirror_tc_entry *mirror, bool ingress)
 +{
-+	struct dsa_mall_tc_entry *mall_tc_entry;
++	struct b53_device *dev = ds->priv;
++	u16 reg, loc;
 +
-+	list_for_each_entry(mall_tc_entry, &p->mall_tc_list, list)
-+		if (mall_tc_entry->cookie == cookie)
-+			return mall_tc_entry;
++	if (ingress)
++		loc = B53_IG_MIR_CTL;
++	else
++		loc = B53_EG_MIR_CTL;
 +
-+	return NULL;
-+}
++	b53_read16(dev, B53_MGMT_PAGE, loc, &reg);
++	reg &= ~MIRROR_MASK;
++	reg |= BIT(port);
++	b53_write16(dev, B53_MGMT_PAGE, loc, reg);
 +
-+static int dsa_slave_add_cls_matchall(struct net_device *dev,
-+				      __be16 protocol,
-+				      struct tc_cls_matchall_offload *cls,
-+				      bool ingress)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_mall_tc_entry *mall_tc_entry;
-+	struct dsa_switch *ds = p->parent;
-+	struct net *net = dev_net(dev);
-+	struct dsa_slave_priv *to_p;
-+	struct net_device *to_dev;
-+	const struct tc_action *a;
-+	int err = -EOPNOTSUPP;
-+	LIST_HEAD(actions);
-+	int ifindex;
++	b53_read16(dev, B53_MGMT_PAGE, B53_MIR_CAP_CTL, &reg);
++	reg &= ~CAP_PORT_MASK;
++	reg |= mirror->to_local_port;
++	reg |= MIRROR_EN;
++	b53_write16(dev, B53_MGMT_PAGE, B53_MIR_CAP_CTL, reg);
 +
-+	if (!ds->ops->port_mirror_add)
-+		return err;
-+
-+	if (!tc_single_action(cls->exts)) {
-+		netdev_err(dev, "only singular actions are supported\n");
-+		return err;
-+	}
-+
-+	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
-+	if (!mall_tc_entry)
-+		return -ENOMEM;
-+	mall_tc_entry->cookie = cls->cookie;
-+
-+	tcf_exts_to_list(cls->exts, &actions);
-+	a = list_first_entry(&actions, struct tc_action, list);
-+
-+	if (is_tcf_mirred_egress_mirror(a) && protocol == htons(ETH_P_ALL)) {
-+		struct dsa_mall_mirror_tc_entry *mirror;
-+
-+		mall_tc_entry->type = DSA_PORT_MALL_MIRROR;
-+		mirror = &mall_tc_entry->mirror;
-+
-+		ifindex = tcf_mirred_ifindex(a);
-+		to_dev = __dev_get_by_index(net, ifindex);
-+		if (!to_dev) {
-+			err = -EINVAL;
-+			goto err_add_action;
-+		}
-+
-+		if (!dsa_slave_dev_check(to_dev)) {
-+			err = -EOPNOTSUPP;
-+			goto err_add_action;
-+		}
-+
-+		to_p = netdev_priv(to_dev);
-+
-+		mirror->to_local_port = to_p->port;
-+		mirror->ingress = ingress;
-+
-+		err = ds->ops->port_mirror_add(ds, p->port, mirror, ingress);
-+	}
-+
-+	if (err)
-+		goto err_add_action;
-+
-+	list_add_tail(&mall_tc_entry->list, &p->mall_tc_list);
 +	return 0;
-+
-+err_add_action:
-+	kfree(mall_tc_entry);
-+	return err;
 +}
++EXPORT_SYMBOL(b53_mirror_add);
 +
-+static void dsa_slave_del_cls_matchall(struct net_device *dev,
-+				       struct tc_cls_matchall_offload *cls)
++void b53_mirror_del(struct dsa_switch *ds, int port,
++		    struct dsa_mall_mirror_tc_entry *mirror)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_mall_tc_entry *mall_tc_entry;
-+	struct dsa_switch *ds = p->parent;
++	struct b53_device *dev = ds->priv;
++	bool loc_disable = false, other_loc_disable = false;
++	u16 reg, loc;
 +
-+	if (!ds->ops->port_mirror_del)
-+		return;
++	if (mirror->ingress)
++		loc = B53_IG_MIR_CTL;
++	else
++		loc = B53_EG_MIR_CTL;
 +
-+	mall_tc_entry = dsa_slave_mall_tc_entry_find(p, cls->cookie);
-+	if (!mall_tc_entry)
-+		return;
++	/* Update the desired ingress/egress register */
++	b53_read16(dev, B53_MGMT_PAGE, loc, &reg);
++	reg &= ~BIT(port);
++	if (!(reg & MIRROR_MASK))
++		loc_disable = true;
++	b53_write16(dev, B53_MGMT_PAGE, loc, reg);
 +
-+	list_del(&mall_tc_entry->list);
++	/* Now look at the other one to know if we can disable mirroring
++	 * entirely
++	 */
++	if (mirror->ingress)
++		b53_read16(dev, B53_MGMT_PAGE, B53_EG_MIR_CTL, &reg);
++	else
++		b53_read16(dev, B53_MGMT_PAGE, B53_IG_MIR_CTL, &reg);
++	if (!(reg & MIRROR_MASK))
++		other_loc_disable = true;
 +
-+	switch (mall_tc_entry->type) {
-+	case DSA_PORT_MALL_MIRROR:
-+		ds->ops->port_mirror_del(ds, p->port, &mall_tc_entry->mirror);
-+		break;
-+	default:
-+		WARN_ON(1);
++	b53_read16(dev, B53_MGMT_PAGE, B53_MIR_CAP_CTL, &reg);
++	/* Both no longer have ports, let's disable mirroring */
++	if (loc_disable && other_loc_disable) {
++		reg &= ~MIRROR_EN;
++		reg &= ~mirror->to_local_port;
 +	}
-+
-+	kfree(mall_tc_entry);
++	b53_write16(dev, B53_MGMT_PAGE, B53_MIR_CAP_CTL, reg);
 +}
++EXPORT_SYMBOL(b53_mirror_del);
 +
-+static int dsa_slave_setup_tc(struct net_device *dev, u32 handle,
-+			      __be16 protocol, struct tc_to_netdev *tc)
-+{
-+	bool ingress = TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS);
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (tc->type) {
-+	case TC_SETUP_MATCHALL:
-+		switch (tc->cls_mall->command) {
-+		case TC_CLSMATCHALL_REPLACE:
-+			return dsa_slave_add_cls_matchall(dev, protocol,
-+							  tc->cls_mall,
-+							  ingress);
-+		case TC_CLSMATCHALL_DESTROY:
-+			dsa_slave_del_cls_matchall(dev, tc->cls_mall);
-+			return 0;
-+		}
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
- {
- 	ops->get_sset_count = dsa_cpu_port_get_sset_count;
-@@ -1042,6 +1180,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
- 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- 	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
-+	.ndo_setup_tc		= dsa_slave_setup_tc,
+ static const struct dsa_switch_ops b53_switch_ops = {
+ 	.get_tag_protocol	= b53_get_tag_protocol,
+ 	.setup			= b53_setup,
+@@ -1477,6 +1542,8 @@ static const struct dsa_switch_ops b53_switch_ops = {
+ 	.port_fdb_dump		= b53_fdb_dump,
+ 	.port_fdb_add		= b53_fdb_add,
+ 	.port_fdb_del		= b53_fdb_del,
++	.port_mirror_add	= b53_mirror_add,
++	.port_mirror_del	= b53_mirror_del,
  };
  
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
-@@ -1257,7 +1396,8 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	if (slave_dev == NULL)
- 		return -ENOMEM;
+ struct b53_chip_data {
+diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
+index a8031b382c55..28ffe255276f 100644
+--- a/drivers/net/dsa/b53/b53_priv.h
++++ b/drivers/net/dsa/b53/b53_priv.h
+@@ -408,5 +408,9 @@ int b53_fdb_del(struct dsa_switch *ds, int port,
+ int b53_fdb_dump(struct dsa_switch *ds, int port,
+ 		 struct switchdev_obj_port_fdb *fdb,
+ 		 int (*cb)(struct switchdev_obj *obj));
++int b53_mirror_add(struct dsa_switch *ds, int port,
++		   struct dsa_mall_mirror_tc_entry *mirror, bool ingress);
++void b53_mirror_del(struct dsa_switch *ds, int port,
++		    struct dsa_mall_mirror_tc_entry *mirror);
  
--	slave_dev->features = master->vlan_features;
-+	slave_dev->features = master->vlan_features | NETIF_F_HW_TC;
-+	slave_dev->hw_features |= NETIF_F_HW_TC;
- 	slave_dev->ethtool_ops = &dsa_slave_ethtool_ops;
- 	eth_hw_addr_inherit(slave_dev, master);
- 	slave_dev->priv_flags |= IFF_NO_QUEUE;
-@@ -1275,6 +1415,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	slave_dev->vlan_features = master->vlan_features;
- 
- 	p = netdev_priv(slave_dev);
-+	INIT_LIST_HEAD(&p->mall_tc_list);
- 	p->parent = ds;
- 	p->port = port;
- 	p->xmit = dst->tag_ops->xmit;
+ #endif
 -- 
 2.9.3
