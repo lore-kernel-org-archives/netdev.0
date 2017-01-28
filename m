@@ -1,187 +1,66 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: aquantia: atlantic: use new api ethtool_{get|set}_link_ksettings
-Date: Sat, 28 Jan 2017 14:37:41 +0100
-Message-ID: <1485610661-21099-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: Alexander.Loktionov@aquantia.com, Pavel.Belous@aquantia.com,
-        davem@davemloft.net, Dmitry.Bezrukov@aquantia.com,
-        vomlehn@texas.net
+From: Dmitriy Pichugin <smokeman85@gmail.com>
+Subject: [PATCH v2] cfg80211 debugfs: Cleanup some checkpatch issues
+Date: Sat, 28 Jan 2017 17:06:53 +0300
+Message-ID: <20170128140649.GA5567@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: johannes@sipsolutions.net, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+This fixes the checkpatch.pl warnings:
+* Macros should not use a trailing semicolon.
+* Spaces required around that '='.
+* Symbolic permissions 'S_IRUGO' are not preferred.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Dmitriy Pichugin <smokeman85@gmail.com>
 ---
- .../net/ethernet/aquantia/atlantic/aq_ethtool.c    |   23 +++++----
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c    |   49 ++++++++++++-------
- drivers/net/ethernet/aquantia/atlantic/aq_nic.h    |    6 ++-
- 3 files changed, 47 insertions(+), 31 deletions(-)
+ net/wireless/debugfs.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
-index c5b025e..a761e91 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c
-@@ -35,24 +35,25 @@ static u32 aq_ethtool_get_link(struct net_device *ndev)
- 	return ethtool_op_get_link(ndev);
- }
+diff --git a/net/wireless/debugfs.c b/net/wireless/debugfs.c
+index 5d45391..30fc6eb 100644
+--- a/net/wireless/debugfs.c
++++ b/net/wireless/debugfs.c
+@@ -17,7 +17,7 @@
+ static ssize_t name## _read(struct file *file, char __user *userbuf,	\
+ 			    size_t count, loff_t *ppos)			\
+ {									\
+-	struct wiphy *wiphy= file->private_data;		\
++	struct wiphy *wiphy = file->private_data;			\
+ 	char buf[buflen];						\
+ 	int res;							\
+ 									\
+@@ -29,14 +29,14 @@
+ 	.read = name## _read,						\
+ 	.open = simple_open,						\
+ 	.llseek = generic_file_llseek,					\
+-};
++}
  
--static int aq_ethtool_get_settings(struct net_device *ndev,
--				   struct ethtool_cmd *cmd)
-+static int aq_ethtool_get_link_ksettings(struct net_device *ndev,
-+					 struct ethtool_link_ksettings *cmd)
- {
- 	struct aq_nic_s *aq_nic = netdev_priv(ndev);
+ DEBUGFS_READONLY_FILE(rts_threshold, 20, "%d",
+-		      wiphy->rts_threshold)
++		      wiphy->rts_threshold);
+ DEBUGFS_READONLY_FILE(fragmentation_threshold, 20, "%d",
+ 		      wiphy->frag_threshold);
+ DEBUGFS_READONLY_FILE(short_retry_limit, 20, "%d",
+-		      wiphy->retry_short)
++		      wiphy->retry_short);
+ DEBUGFS_READONLY_FILE(long_retry_limit, 20, "%d",
+ 		      wiphy->retry_long);
  
--	aq_nic_get_link_settings(aq_nic, cmd);
--	ethtool_cmd_speed_set(cmd, netif_carrier_ok(ndev) ?
--				aq_nic_get_link_speed(aq_nic) : 0U);
-+	aq_nic_get_link_ksettings(aq_nic, cmd);
-+	cmd->base.speed = netif_carrier_ok(ndev) ?
-+				aq_nic_get_link_speed(aq_nic) : 0U;
- 
- 	return 0;
- }
- 
--static int aq_ethtool_set_settings(struct net_device *ndev,
--				   struct ethtool_cmd *cmd)
-+static int
-+aq_ethtool_set_link_ksettings(struct net_device *ndev,
-+			      const struct ethtool_link_ksettings *cmd)
- {
- 	struct aq_nic_s *aq_nic = netdev_priv(ndev);
- 
--	return aq_nic_set_link_settings(aq_nic, cmd);
-+	return aq_nic_set_link_ksettings(aq_nic, cmd);
- }
- 
- /* there "5U" is number of queue[#] stats lines (InPackets+...+InErrors) */
-@@ -248,8 +249,6 @@ static int aq_ethtool_get_rxnfc(struct net_device *ndev,
- 	.get_link            = aq_ethtool_get_link,
- 	.get_regs_len        = aq_ethtool_get_regs_len,
- 	.get_regs            = aq_ethtool_get_regs,
--	.get_settings        = aq_ethtool_get_settings,
--	.set_settings        = aq_ethtool_set_settings,
- 	.get_drvinfo         = aq_ethtool_get_drvinfo,
- 	.get_strings         = aq_ethtool_get_strings,
- 	.get_rxfh_indir_size = aq_ethtool_get_rss_indir_size,
-@@ -257,5 +256,7 @@ static int aq_ethtool_get_rxnfc(struct net_device *ndev,
- 	.get_rxfh            = aq_ethtool_get_rss,
- 	.get_rxnfc           = aq_ethtool_get_rxnfc,
- 	.get_sset_count      = aq_ethtool_get_sset_count,
--	.get_ethtool_stats   = aq_ethtool_stats
-+	.get_ethtool_stats   = aq_ethtool_stats,
-+	.get_link_ksettings  = aq_ethtool_get_link_ksettings,
-+	.set_link_ksettings  = aq_ethtool_set_link_ksettings,
+@@ -103,7 +103,7 @@ static ssize_t ht40allow_map_read(struct file *file,
  };
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index 84bb441..ea86801 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -734,50 +734,63 @@ void aq_nic_get_stats(struct aq_nic_s *self, u64 *data)
- 	(void)err;
- }
  
--void aq_nic_get_link_settings(struct aq_nic_s *self, struct ethtool_cmd *cmd)
-+void aq_nic_get_link_ksettings(struct aq_nic_s *self,
-+			       struct ethtool_link_ksettings *cmd)
+ #define DEBUGFS_ADD(name)						\
+-	debugfs_create_file(#name, S_IRUGO, phyd, &rdev->wiphy, &name## _ops);
++	debugfs_create_file(#name, 0444, phyd, &rdev->wiphy, &name## _ops)
+ 
+ void cfg80211_debugfs_rdev_add(struct cfg80211_registered_device *rdev)
  {
--	cmd->port = PORT_TP;
--	cmd->transceiver = XCVR_EXTERNAL;
-+	u32 supported, advertising;
-+
-+	cmd->base.port = PORT_TP;
- 	/* This driver supports only 10G capable adapters, so DUPLEX_FULL */
--	cmd->duplex = DUPLEX_FULL;
--	cmd->autoneg = self->aq_nic_cfg.is_autoneg;
-+	cmd->base.duplex = DUPLEX_FULL;
-+	cmd->base.autoneg = self->aq_nic_cfg.is_autoneg;
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&supported,
-+						cmd->link_modes.supported);
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
- 
--	cmd->supported |= (self->aq_hw_caps.link_speed_msk & AQ_NIC_RATE_10G) ?
-+	supported |= (self->aq_hw_caps.link_speed_msk & AQ_NIC_RATE_10G) ?
- 				ADVERTISED_10000baseT_Full : 0U;
--	cmd->supported |= (self->aq_hw_caps.link_speed_msk & AQ_NIC_RATE_1G) ?
-+	supported |= (self->aq_hw_caps.link_speed_msk & AQ_NIC_RATE_1G) ?
- 				ADVERTISED_1000baseT_Full : 0U;
--	cmd->supported |= (self->aq_hw_caps.link_speed_msk & AQ_NIC_RATE_100M) ?
-+	supported |= (self->aq_hw_caps.link_speed_msk & AQ_NIC_RATE_100M) ?
- 				ADVERTISED_100baseT_Full : 0U;
--	cmd->supported |= self->aq_hw_caps.flow_control ? SUPPORTED_Pause : 0;
--	cmd->supported |= SUPPORTED_Autoneg;
-+	supported |= self->aq_hw_caps.flow_control ? SUPPORTED_Pause : 0;
-+	supported |= SUPPORTED_Autoneg;
- 
--	cmd->advertising = (self->aq_nic_cfg.is_autoneg) ?
-+	advertising = (self->aq_nic_cfg.is_autoneg) ?
- 							ADVERTISED_Autoneg : 0U;
--	cmd->advertising |=
-+	advertising |=
- 			(self->aq_nic_cfg.link_speed_msk & AQ_NIC_RATE_10G) ?
- 			ADVERTISED_10000baseT_Full : 0U;
--	cmd->advertising |=
-+	advertising |=
- 			(self->aq_nic_cfg.link_speed_msk & AQ_NIC_RATE_1G) ?
- 			ADVERTISED_1000baseT_Full : 0U;
- 
--	cmd->advertising |=
-+	advertising |=
- 			(self->aq_nic_cfg.link_speed_msk & AQ_NIC_RATE_100M) ?
- 			ADVERTISED_100baseT_Full : 0U;
--	cmd->advertising |= (self->aq_nic_cfg.flow_control) ?
-+	advertising |= (self->aq_nic_cfg.flow_control) ?
- 				ADVERTISED_Pause : 0U;
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
- }
- 
--int aq_nic_set_link_settings(struct aq_nic_s *self, struct ethtool_cmd *cmd)
-+int aq_nic_set_link_ksettings(struct aq_nic_s *self,
-+			      const struct ethtool_link_ksettings *cmd)
- {
- 	u32 speed = 0U;
- 	u32 rate = 0U;
- 	int err = 0;
- 
--	if (cmd->autoneg == AUTONEG_ENABLE) {
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
- 		rate = self->aq_hw_caps.link_speed_msk;
- 		self->aq_nic_cfg.is_autoneg = true;
- 	} else {
--		speed = ethtool_cmd_speed(cmd);
-+		speed = cmd->base.speed;
- 
- 		switch (speed) {
- 		case SPEED_100:
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.h b/drivers/net/ethernet/aquantia/atlantic/aq_nic.h
-index 055e2cd..7fc2a5e 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.h
-@@ -99,8 +99,10 @@ void aq_nic_set_tx_ring(struct aq_nic_s *self, unsigned int idx,
- int aq_nic_set_packet_filter(struct aq_nic_s *self, unsigned int flags);
- int aq_nic_set_multicast_list(struct aq_nic_s *self, struct net_device *ndev);
- unsigned int aq_nic_get_link_speed(struct aq_nic_s *self);
--void aq_nic_get_link_settings(struct aq_nic_s *self, struct ethtool_cmd *cmd);
--int aq_nic_set_link_settings(struct aq_nic_s *self, struct ethtool_cmd *cmd);
-+void aq_nic_get_link_ksettings(struct aq_nic_s *self,
-+			       struct ethtool_link_ksettings *cmd);
-+int aq_nic_set_link_ksettings(struct aq_nic_s *self,
-+			      const struct ethtool_link_ksettings *cmd);
- struct aq_nic_cfg_s *aq_nic_get_cfg(struct aq_nic_s *self);
- u32 aq_nic_get_fw_version(struct aq_nic_s *self);
- int aq_nic_change_pm_state(struct aq_nic_s *self, pm_message_t *pm_msg);
 -- 
-1.7.4.4
+1.9.1
