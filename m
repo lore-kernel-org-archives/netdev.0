@@ -1,48 +1,61 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Fri, 27 Jan 2017 15:23:26 -0800
-Message-ID: <588BD66E.2050201@fb.com>
-References: <20170126233241.2268449-1-tom@herbertland.com>
- <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
- <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
- <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
- <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
- <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
- <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
- <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Tom Herbert <tom@herbertland.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/4] net: dsa: Port mirroring support
+Date: Fri, 27 Jan 2017 16:40:31 -0800
+Message-ID: <20170128004035.26035-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46083 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750775AbdA1AfR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:35:17 -0500
-In-Reply-To: <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34671 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751191AbdA1Ar6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:47:58 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so8407624pgj.1
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 16:47:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/27/17 1:15 PM, Saeed Mahameed wrote:
-> It is only mandatory for configurations that needs eswitch, where the
-> driver has no way to know about them, for a good old bare metal box,
-> eswitch is not needed.
->
-> we can do some work to strip the l2 table logic - needed for PFs to
-> work on multi-host - out of eswitch but again that would further
-> complicate the driver code since eswitch will still need to update l2
-> tables for VFs.
+Hi all,
 
-Saeed,
-for multi-host setups every host in that multi-host doesn't
-actually see the eswitch, no? Otherwise broken driver on one machine
-can affect the other hosts in the same bundle? Please double check,
-since this is absolutely critical HW requirement.
+This patch series adds support for port mirroring in the two
+Broadcom switch drivers. The major part of the functional are actually with
+the plumbing between tc and the drivers.
+
+David, this will most likely conflict a little bit with my other series:
+ net: dsa: bcm_sf2: CFP support, so just let me know if that happens, and
+I will provide a rebased version. Thanks!
+
+Tested using the two iproute2 examples:
+
+# ingress
+      tc qdisc  add dev eth1 handle ffff: ingress
+      tc filter add dev eth1 parent ffff:           \
+               matchall skip_sw                      \
+               action mirred egress mirror           \
+               dev eth2
+# egress
+      tc qdisc add dev eth1 handle 1: root prio
+      tc filter add dev eth1 parent 1:               \
+               matchall skip_sw                       \
+               action mirred egress mirror            \
+               dev eth2
+
+
+Florian Fainelli (4):
+  net: dsa: Add plumbing for port mirroring
+  net: dsa: b53: Add mirror capture register definitions
+  net: dsa: b53: Add support for port mirroring
+  net: dsa: bcm_sf2: Add support for port mirroring
+
+ drivers/net/dsa/b53/b53_common.c |  54 +++++++++++++++
+ drivers/net/dsa/b53/b53_priv.h   |   4 ++
+ drivers/net/dsa/b53/b53_regs.h   |  32 +++++++++
+ drivers/net/dsa/bcm_sf2.c        |   2 +
+ include/net/dsa.h                |  41 +++++++++++
+ net/dsa/dsa_priv.h               |   3 +
+ net/dsa/slave.c                  | 143 ++++++++++++++++++++++++++++++++++++++-
+ 7 files changed, 278 insertions(+), 1 deletion(-)
+
+-- 
+2.9.3
