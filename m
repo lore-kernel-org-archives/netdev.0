@@ -1,74 +1,45 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 1/2] batman-adv: Fix double call of
-	dev_queue_xmit
-Date: Sat, 28 Jan 2017 11:56:50 +0100
-Message-ID: <20170128105651.3061-2-sw@simonwunderlich.de>
-References: <20170128105651.3061-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170128105651.3061-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [net 7/8] net/mlx5e: Fix update of hash function/key via ethtool
+Date: Sat, 28 Jan 2017 13:06:31 +0200
+Message-ID: <CALzJLG_s=bsGm+KsLLbvCu07j485-bBs+sySYAqicXnqnSnkZA@mail.gmail.com>
+References: <20170127203843.3206-1-saeedm@mellanox.com> <20170127203843.3206-8-saeedm@mellanox.com>
+ <CALx6S35H0n5MTjzjMJxnRegWBsznqccAohih-GkioifBqZTR5g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Gal Pressman <galp@mellanox.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:33101 "EHLO
+        mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750828AbdA1LGw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 06:06:52 -0500
+Received: by mail-qk0-f170.google.com with SMTP id s140so87560864qke.0
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 03:06:52 -0800 (PST)
+In-Reply-To: <CALx6S35H0n5MTjzjMJxnRegWBsznqccAohih-GkioifBqZTR5g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+On Fri, Jan 27, 2017 at 11:50 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Fri, Jan 27, 2017 at 12:38 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+>> From: Gal Pressman <galp@mellanox.com>
+>>
+>> Modifying TIR hash should change selected fields bitmask in addition to
+>> the function and key.
+>> Formerly, we would not set this field resulting in zeroing of its value,
+>> which means no packet fields are used for RX RSS hash calculation thus
+>> causing all traffic to arrive in RQ[0].
+>>
+> This commit log is rather scant in details. Does this mean that RSS is
+> somehow broken in mlx5? What is exact test that demonstrates bad
+> behavior? Did you verify that this doesn't break IPv4 or IPv6?
+>
 
-The net_xmit_eval has side effects because it is not making sure that e
-isn't evaluated twice.
+before this fix out of the box RSS worked fine for both IPv4/IPv6, the
+only broken flow is when the user explicitly uses ethtoo -X to update
+the RSS indirection table or hash function.
 
-    #define net_xmit_eval(e)        ((e) == NET_XMIT_CN ? 0 : (e))
-
-The code requested by David Miller [1]
-
-    return net_xmit_eval(dev_queue_xmit(skb));
-
-will get transformed into
-
-    return ((dev_queue_xmit(skb)) == NET_XMIT_CN ? 0 : (dev_queue_xmit(skb)))
-
-dev_queue_xmit will therefore be tried again (with an already consumed skb)
-whenever the return code is not NET_XMIT_CN.
-
-[1] https://lkml.kernel.org/r/20170125.225624.965229145391320056.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-
-Fixes: c33705188c49 ("batman-adv: Treat NET_XMIT_CN as transmit successfully")
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
----
- net/batman-adv/send.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index d9b2889064a6..1489ec27daff 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -77,6 +77,7 @@ int batadv_send_skb_packet(struct sk_buff *skb,
- {
- 	struct batadv_priv *bat_priv;
- 	struct ethhdr *ethhdr;
-+	int ret;
- 
- 	bat_priv = netdev_priv(hard_iface->soft_iface);
- 
-@@ -115,7 +116,8 @@ int batadv_send_skb_packet(struct sk_buff *skb,
- 	 * congestion and traffic shaping, it drops and returns NET_XMIT_DROP
- 	 * (which is > 0). This will not be treated as an error.
- 	 */
--	return net_xmit_eval(dev_queue_xmit(skb));
-+	ret = dev_queue_xmit(skb);
-+	return net_xmit_eval(ret);
- send_skb_err:
- 	kfree_skb(skb);
- 	return NET_XMIT_DROP;
--- 
-2.11.0
+We did verify both IPv6 and IPv4 RSS worked fine after the user
+changes RSS configuration via ethtool -X
