@@ -1,173 +1,256 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv2 RFC net-next 0/7] net: dst_confirm replacement
-Date: Sat, 28 Jan 2017 16:26:11 +0200
-Message-ID: <1485613578-19973-1-git-send-email-ja@ssi.bg>
+Subject: [PATCHv2 RFC net-next 6/7] net: use dst_confirm_neigh for UDP, RAW, ICMP, L2TP
+Date: Sat, 28 Jan 2017 16:26:17 +0200
+Message-ID: <1485613578-19973-7-git-send-email-ja@ssi.bg>
+References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
 Cc: linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43491 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:43492 "EHLO ja.ssi.bg"
         rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752000AbdA1O1z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Jan 2017 09:27:55 -0500
+        id S1751279AbdA1O14 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Jan 2017 09:27:56 -0500
+In-Reply-To: <1485613578-19973-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1->v2:
-- patch 1:
-  put sk_dst_pending_confirm in TX cacheline
-- patch 2:
-  add skb_set_dst_pending_confirm and skb_get_dst_pending_confirm helpers
-- patch 3:
-  use skb_set_dst_pending_confirm
-  remove check from sctp_transport_dst_confirm, directly assign
-- patch 4:
-  use skb_set_dst_pending_confirm
-- patch 6:
-  use skb_set_dst_pending_confirm
+When same struct dst_entry can be used for many different
+neighbours we can not use it for pending confirmations.
 
-	This patchset addresses the problem of neighbour
-confirmation where received replies from one nexthop
-can cause confirmation of different nexthop when using
-the same dst. Thanks to YueHaibing <yuehaibing@huawei.com>
-for tracking the dst->pending_confirm problem.
+The datagram protocols can use MSG_CONFIRM to confirm the
+neighbour. When used with MSG_PROBE we do not reach the
+code where neighbour is confirmed, so we have to do the
+same slow lookup by using the dst_confirm_neigh() helper.
+When MSG_PROBE is not used, ip_append_data/ip6_append_data
+will set the skb flag dst_pending_confirm.
 
-	Sockets can obtain cached output route. Such
-routes can be to known nexthop (rt_gateway=IP) or to be
-used simultaneously for different nexthop IPs by different
-subnet prefixes (nh->nh_scope = RT_SCOPE_HOST, rt_gateway=0).
+Reported-by: YueHaibing <yuehaibing@huawei.com>
+Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
+Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv4/ip_output.c  |  6 ++++++
+ net/ipv4/ping.c       |  3 ++-
+ net/ipv4/raw.c        |  6 +++++-
+ net/ipv4/udp.c        |  3 ++-
+ net/ipv6/ip6_output.c |  6 ++++++
+ net/ipv6/raw.c        |  6 +++++-
+ net/ipv6/route.c      | 27 ++++++++++++++-------------
+ net/ipv6/udp.c        |  3 ++-
+ net/l2tp/l2tp_ip6.c   |  3 ++-
+ 9 files changed, 44 insertions(+), 19 deletions(-)
 
-	At first look, there are more problems:
-
-- dst_confirm() sets flag on dst and not on dst->path,
-as result, indication is lost when XFRM is used
-
-- DNAT can change the nexthop, so the really used nexthop is
-not confirmed
-
-	So, the following solution is to avoid using
-dst->pending_confirm.
-
-	The current dst_confirm() usage is as follows:
-
-Protocols confirming dst on received packets:
-- TCP (1 dst per socket)
-- SCTP (1 dst per transport)
-- CXGB*
-
-Protocols supporting sendmsg with MSG_CONFIRM [ | MSG_PROBE ] to
-confirm neighbour:
-- UDP IPv4/IPv6
-- ICMPv4 PING
-- RAW IPv4/IPv6
-- L2TP/IPv6
-
-MSG_CONFIRM for other purposes (fix not needed):
-- CAN
-
-Sending without locking the socket:
-- UDP (when no cork)
-- RAW (when hdrincl=1)
-
-Redirects from old to new GW:
-- rt6_do_redirect
-
-
-	The patchset includes the following changes:
-
-1. sock: add sk_dst_pending_confirm flag
-
-- used only by TCP with patch 4 to remember the received
-indication in sk->sk_dst_pending_confirm
-
-2. net: add dst_pending_confirm flag to skbuff
-
-- skb->dst_pending_confirm will be used by all protocols
-in following patches, via skb_{set,get}_dst_pending_confirm
-
-3. sctp: add dst_pending_confirm flag
-
-- SCTP uses per-transport dsts and can not use
-sk->sk_dst_pending_confirm like TCP
-
-4. tcp: replace dst_confirm with sk_dst_confirm
-
-5. net: add confirm_neigh method to dst_ops
-
-- IPv4 and IPv6 provision for slow neigh lookups for MSG_PROBE users.
-I decided to use neigh lookup only for this case because on
-MSG_PROBE the skb may pass MTU checks but it does not reach
-the neigh confirmation code. This patch will be used from patch 6.
-
-- xfrm_confirm_neigh: support is incomplete here, only routes with
-known nexthops (gateway) are supported because the tunnel address
-is slow to obtain. Or there is solution to this problem?
-
-6. net: use dst_confirm_neigh for UDP, RAW, ICMP, L2TP
-
-- dst_confirm conversion for UDP, RAW, ICMP and L2TP/IPv6
-
-- these protocols use MSG_CONFIRM propagated by ip*_append_data
-to skb->dst_pending_confirm. sk->sk_dst_pending_confirm is not
-used because some sending paths do not lock the socket. For
-MSG_PROBE we use the slow lookup (dst_confirm_neigh).
-
-- there are also 2 cases that need the slow lookup:
-__ip6_rt_update_pmtu and rt6_do_redirect. I hope
-&ipv6_hdr(skb)->saddr is the correct nexthop address to use here.
-
-7. net: pending_confirm is not used anymore
-
-- I failed to understand the CXGB* code, I see dst_confirm()
-calls but I'm not sure dst_neigh_output() was called. For now
-I just removed the dst->pending_confirm flag and left all
-dst_confirm() calls there. Any better idea?
-
-- Now may be old function neigh_output() should be restored
-instead of dst_neigh_output?
-
-
-Julian Anastasov (7):
-  sock: add sk_dst_pending_confirm flag
-  net: add dst_pending_confirm flag to skbuff
-  sctp: add dst_pending_confirm flag
-  tcp: replace dst_confirm with sk_dst_confirm
-  net: add confirm_neigh method to dst_ops
-  net: use dst_confirm_neigh for UDP, RAW, ICMP, L2TP
-  net: pending_confirm is not used anymore
-
- drivers/net/vrf.c          |  5 ++++-
- include/linux/skbuff.h     | 12 ++++++++++++
- include/net/arp.h          | 16 ++++++++++++++++
- include/net/dst.h          | 21 +++++++++------------
- include/net/dst_ops.h      |  2 ++
- include/net/ndisc.h        | 17 +++++++++++++++++
- include/net/sctp/sctp.h    |  6 ++----
- include/net/sctp/structs.h |  4 ++++
- include/net/sock.h         | 26 ++++++++++++++++++++++++++
- net/core/dst.c             |  1 -
- net/core/sock.c            |  2 ++
- net/ipv4/ip_output.c       | 11 ++++++++++-
- net/ipv4/ping.c            |  3 ++-
- net/ipv4/raw.c             |  6 +++++-
- net/ipv4/route.c           | 19 +++++++++++++++++++
- net/ipv4/tcp_input.c       | 12 +++---------
- net/ipv4/tcp_metrics.c     |  7 ++-----
- net/ipv4/tcp_output.c      |  2 ++
- net/ipv4/udp.c             |  3 ++-
- net/ipv6/ip6_output.c      |  7 +++++++
- net/ipv6/raw.c             |  6 +++++-
- net/ipv6/route.c           | 43 ++++++++++++++++++++++++++++++-------------
- net/ipv6/udp.c             |  3 ++-
- net/l2tp/l2tp_ip6.c        |  3 ++-
- net/sctp/associola.c       |  3 +--
- net/sctp/output.c          | 10 +++++++++-
- net/sctp/outqueue.c        |  2 +-
- net/sctp/sm_make_chunk.c   |  6 ++----
- net/sctp/sm_sideeffect.c   |  2 +-
- net/sctp/socket.c          |  4 ++--
- net/sctp/transport.c       | 17 ++++++++++++++++-
- net/xfrm/xfrm_policy.c     | 16 ++++++++++++++++
- 32 files changed, 233 insertions(+), 64 deletions(-)
-
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 27f1db7..ff0fcaa 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -889,6 +889,9 @@ static inline int ip_ufo_append_data(struct sock *sk,
+ 
+ 		skb->csum = 0;
+ 
++		if (flags & MSG_CONFIRM)
++			skb_set_dst_pending_confirm(skb, 1);
++
+ 		__skb_queue_tail(queue, skb);
+ 	} else if (skb_is_gso(skb)) {
+ 		goto append;
+@@ -1089,6 +1092,9 @@ static int __ip_append_data(struct sock *sk,
+ 			exthdrlen = 0;
+ 			csummode = CHECKSUM_NONE;
+ 
++			if ((flags & MSG_CONFIRM) && !skb_prev)
++				skb_set_dst_pending_confirm(skb, 1);
++
+ 			/*
+ 			 * Put the packet on the pending queue.
+ 			 */
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 592db6a..6ee792d 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -848,7 +848,8 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	return err;
+ 
+ do_confirm:
+-	dst_confirm(&rt->dst);
++	if (msg->msg_flags & MSG_PROBE)
++		dst_confirm_neigh(&rt->dst, &fl4.daddr);
+ 	if (!(msg->msg_flags & MSG_PROBE) || len)
+ 		goto back_from_confirm;
+ 	err = 0;
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 4e49e5c..8119e1f 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -383,6 +383,9 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+ 
+ 	sock_tx_timestamp(sk, sockc->tsflags, &skb_shinfo(skb)->tx_flags);
+ 
++	if (flags & MSG_CONFIRM)
++		skb_set_dst_pending_confirm(skb, 1);
++
+ 	skb->transport_header = skb->network_header;
+ 	err = -EFAULT;
+ 	if (memcpy_from_msg(iph, msg, length))
+@@ -666,7 +669,8 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	return len;
+ 
+ do_confirm:
+-	dst_confirm(&rt->dst);
++	if (msg->msg_flags & MSG_PROBE)
++		dst_confirm_neigh(&rt->dst, &fl4.daddr);
+ 	if (!(msg->msg_flags & MSG_PROBE) || len)
+ 		goto back_from_confirm;
+ 	err = 0;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index d6dddcf..4bdb358 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1088,7 +1088,8 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	return err;
+ 
+ do_confirm:
+-	dst_confirm(&rt->dst);
++	if (msg->msg_flags & MSG_PROBE)
++		dst_confirm_neigh(&rt->dst, &fl4->daddr);
+ 	if (!(msg->msg_flags&MSG_PROBE) || len)
+ 		goto back_from_confirm;
+ 	err = 0;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7d90cab..5d944c1 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1145,6 +1145,9 @@ static inline int ip6_ufo_append_data(struct sock *sk,
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		skb->csum = 0;
+ 
++		if (flags & MSG_CONFIRM)
++			skb_set_dst_pending_confirm(skb, 1);
++
+ 		__skb_queue_tail(queue, skb);
+ 	} else if (skb_is_gso(skb)) {
+ 		goto append;
+@@ -1517,6 +1520,9 @@ static int __ip6_append_data(struct sock *sk,
+ 			exthdrlen = 0;
+ 			dst_exthdrlen = 0;
+ 
++			if ((flags & MSG_CONFIRM) && !skb_prev)
++				skb_set_dst_pending_confirm(skb, 1);
++
+ 			/*
+ 			 * Put the packet on the pending queue
+ 			 */
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index ea89073..f174e76 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -654,6 +654,9 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
++	if (flags & MSG_CONFIRM)
++		skb_set_dst_pending_confirm(skb, 1);
++
+ 	skb->transport_header = skb->network_header;
+ 	err = memcpy_from_msg(iph, msg, length);
+ 	if (err)
+@@ -934,7 +937,8 @@ static int rawv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	txopt_put(opt_to_free);
+ 	return err < 0 ? err : len;
+ do_confirm:
+-	dst_confirm(dst);
++	if (msg->msg_flags & MSG_PROBE)
++		dst_confirm_neigh(dst, &fl6.daddr);
+ 	if (!(msg->msg_flags & MSG_PROBE) || len)
+ 		goto back_from_confirm;
+ 	err = 0;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c876940..15e45a6 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1375,6 +1375,7 @@ static bool rt6_cache_allowed_for_pmtu(const struct rt6_info *rt)
+ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
+ 				 const struct ipv6hdr *iph, u32 mtu)
+ {
++	const struct in6_addr *daddr, *saddr;
+ 	struct rt6_info *rt6 = (struct rt6_info *)dst;
+ 
+ 	if (rt6->rt6i_flags & RTF_LOCAL)
+@@ -1383,26 +1384,26 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
+ 	if (dst_metric_locked(dst, RTAX_MTU))
+ 		return;
+ 
+-	dst_confirm(dst);
++	if (iph) {
++		daddr = &iph->daddr;
++		saddr = &iph->saddr;
++	} else if (sk) {
++		daddr = &sk->sk_v6_daddr;
++		saddr = &inet6_sk(sk)->saddr;
++	} else {
++		daddr = NULL;
++		saddr = NULL;
++	}
++	dst_confirm_neigh(dst, daddr);
+ 	mtu = max_t(u32, mtu, IPV6_MIN_MTU);
+ 	if (mtu >= dst_mtu(dst))
+ 		return;
+ 
+ 	if (!rt6_cache_allowed_for_pmtu(rt6)) {
+ 		rt6_do_update_pmtu(rt6, mtu);
+-	} else {
+-		const struct in6_addr *daddr, *saddr;
++	} else if (daddr) {
+ 		struct rt6_info *nrt6;
+ 
+-		if (iph) {
+-			daddr = &iph->daddr;
+-			saddr = &iph->saddr;
+-		} else if (sk) {
+-			daddr = &sk->sk_v6_daddr;
+-			saddr = &inet6_sk(sk)->saddr;
+-		} else {
+-			return;
+-		}
+ 		nrt6 = ip6_rt_cache_alloc(rt6, daddr, saddr);
+ 		if (nrt6) {
+ 			rt6_do_update_pmtu(nrt6, mtu);
+@@ -2274,7 +2275,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 	 * Look, redirects are sent only in response to data packets,
+ 	 * so that this nexthop apparently is reachable. --ANK
+ 	 */
+-	dst_confirm(&rt->dst);
++	dst_confirm_neigh(&rt->dst, &ipv6_hdr(skb)->saddr);
+ 
+ 	neigh = __neigh_lookup(&nd_tbl, &msg->target, skb->dev, 1);
+ 	if (!neigh)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 05d6932..9402f7a 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1295,7 +1295,8 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	return err;
+ 
+ do_confirm:
+-	dst_confirm(dst);
++	if (msg->msg_flags & MSG_PROBE)
++		dst_confirm_neigh(dst, &fl6.daddr);
+ 	if (!(msg->msg_flags&MSG_PROBE) || len)
+ 		goto back_from_confirm;
+ 	err = 0;
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 4b06eb4..734798a 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -658,7 +658,8 @@ static int l2tp_ip6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	return err < 0 ? err : len;
+ 
+ do_confirm:
+-	dst_confirm(dst);
++	if (msg->msg_flags & MSG_PROBE)
++		dst_confirm_neigh(dst, &fl6.daddr);
+ 	if (!(msg->msg_flags & MSG_PROBE) || len)
+ 		goto back_from_confirm;
+ 	err = 0;
 -- 
 1.9.3
