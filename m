@@ -1,65 +1,111 @@
 From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Sat, 28 Jan 2017 13:20:26 +0200
-Message-ID: <CALzJLG_abLhT7wcrtB97KzurJ2-=OZv11cELjoRW79cOeyjxgw@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
- <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
- <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
- <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
- <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
- <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
- <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com> <588BD66E.2050201@fb.com>
+Subject: Re: [PATCH net-next 0/4] mlx5: Create build configuration options
+Date: Sat, 28 Jan 2017 13:38:21 +0200
+Message-ID: <CALzJLG8dh0TZPotrk-Xp6SZ=2UnjY2-C3TEQNxXDER5H8iwiQw@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
+ <CALx6S355U1g+OyEM9mC12TRtYZqwOciT=+OpsKXPwkuX-Xq0LQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
         Linux Netdev List <netdev@vger.kernel.org>,
         Kernel Team <kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34362 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750858AbdA1LVY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 06:21:24 -0500
-Received: by mail-qt0-f195.google.com with SMTP id w20so16742801qtb.1
-        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 03:20:47 -0800 (PST)
-In-Reply-To: <588BD66E.2050201@fb.com>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33359 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750891AbdA1Lim (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 06:38:42 -0500
+Received: by mail-qt0-f194.google.com with SMTP id n13so50191985qtc.0
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 03:38:42 -0800 (PST)
+In-Reply-To: <CALx6S355U1g+OyEM9mC12TRtYZqwOciT=+OpsKXPwkuX-Xq0LQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 28, 2017 at 1:23 AM, Alexei Starovoitov <ast@fb.com> wrote:
-> On 1/27/17 1:15 PM, Saeed Mahameed wrote:
+On Fri, Jan 27, 2017 at 8:13 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Fri, Jan 27, 2017 at 9:58 AM, Saeed Mahameed
+> <saeedm@dev.mellanox.co.il> wrote:
+>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>> This patchset creates configuration options for sriov, vxlan, eswitch,
+>>> and tc features in the mlx5 driver. The purpose of this is to allow not
+>>> building these features. These features are optional advanced features
+>>> that are not required for a core Ethernet driver. A user can disable
+>>> these features which resuces the amount of code in the driver. Disabling
+>>> these features (and DCB) reduces the size of mlx5_core.o by about 16%.
+>>> This is also can reduce the complexity of backport and rebases since
+>>> user would no longer need to worry about dependencies with the rest of
+>>> the kernel that features which might not be of any interest to a user
+>>> may bring in.
+>>>
+>>> Tested: Build and ran the driver with all features enabled (the default)
+>>> and with none enabled (including DCB). Did not see any issues. I did
+>>> not explicity test operation of ayy of features in the list.
+>>>
 >>
->> It is only mandatory for configurations that needs eswitch, where the
->> driver has no way to know about them, for a good old bare metal box,
->> eswitch is not needed.
+>> Basically I am not against this kind of change, infact i am with it,
+>> although I would have done some restructuring in the driver before i
+>> did such change ;), filling the code with ifdefs is not a neat thing.
 >>
->> we can do some work to strip the l2 table logic - needed for PFs to
->> work on multi-host - out of eswitch but again that would further
->> complicate the driver code since eswitch will still need to update l2
->> tables for VFs.
->
->
-> Saeed,
-> for multi-host setups every host in that multi-host doesn't
-> actually see the eswitch, no? Otherwise broken driver on one machine
-> can affect the other hosts in the same bundle? Please double check,
-
-each host (PF) has its own eswitch, and each eswitch lives in its own
-"steering-space"
- and it can't affect others.
-
-> since this is absolutely critical HW requirement.
+> If you wish, please take this as an RFC and feel free to structure the
+> code the right way. I think the intent is clear enough and looks like
+> davem isn't going to allow the directory restructuring so something
+> like this seems to be the best course of action now.
 >
 
-The only shared HW resources between hosts (PFs) is the simple l2 table,
-and the only thing a host can ask from the l2 talbe (FW) is: "forward
-UC MAC to me", and it is the responsibility of the the driver eswitch
-to do so.
+Right.
 
-the l2 table is created and managed by FW, SW eswitch can only request
-from FW, and the FW is trusted.
+>> I agree this will simplify backporting and provide some kind of
+>> feature separation inside the driver.
+>> But this will also increase the testing matrix we need to cover and
+>> increase the likelihood of kbuild breaks by an order of magnitude.
+>>
+> The testing matrix already exploded with the proliferation of
+> supported features. If anything this reduces the test matrix problem.
+> For instance, if we make a change to the core driver and functionality
+> properly isolated there is a much better chance that this won't affect
+> peripheral functionality and vice versa. It is just not feasible for
+> us to test every combination of NIC features for every change being
+> made.
+>
+
+Yes for isolated features, but for base functionality, we need to test
+it with all new device specific kconfig combinations on every patch!
+since a misplaced code inside or outside the correct ifdef
+can easily go unnoticed and break functionality.
+
+>> One more thing, do we really need a device specific flag per feature
+>> per vendor per device?  can't we just use the same kconfig flag for
+>> all drivers and if there is a more generic system wide flag that
+>> covers the same feature
+>> can't we just use it, for instance instead of
+>> CONFIG_<DRIVER_NAME>_SRIOV why not use already existing CONFIG_PCI_IOV
+>> for all drivers ?
+>>
+> That sounds good to me. We already have CONFIG_RFS_ACCEL and others
+> that do that.
+>
+> Tom
+>
+>> Saeed.
+>>
+>>>
+>>>
+>>> Tom Herbert (4):
+>>>   mlx5: Make building eswitch configurable
+>>>   mlx5: Make building SR-IOV configurable
+>>>   mlx5: Make building tc hardware offload configurable
+>>>   mlx5: Make building vxlan hardware offload configurable
+>>>
+>>>  drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  35 ++++++
+>>>  drivers/net/ethernet/mellanox/mlx5/core/Makefile  |  16 ++-
+>>>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 129 ++++++++++++++++------
+>>>  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   |  39 +++++--
+>>>  drivers/net/ethernet/mellanox/mlx5/core/eq.c      |   4 +-
+>>>  drivers/net/ethernet/mellanox/mlx5/core/lag.c     |   2 +
+>>>  drivers/net/ethernet/mellanox/mlx5/core/main.c    |  32 ++++--
+>>>  drivers/net/ethernet/mellanox/mlx5/core/sriov.c   |   6 +-
+>>>  8 files changed, 205 insertions(+), 58 deletions(-)
+>>>
+>>> --
+>>> 2.9.3
+>>>
