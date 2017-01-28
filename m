@@ -1,127 +1,137 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 0/4] mlx5: Create build configuration options
-Date: Sat, 28 Jan 2017 09:19:06 -0800
-Message-ID: <CALx6S34_k+uaCZAOR8=pOzisaQ0eryyZX=ABxk+Pnwx-vrj0VQ@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
- <CALx6S355U1g+OyEM9mC12TRtYZqwOciT=+OpsKXPwkuX-Xq0LQ@mail.gmail.com> <CALzJLG8dh0TZPotrk-Xp6SZ=2UnjY2-C3TEQNxXDER5H8iwiQw@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 1/4] net: dsa: Add plumbing for port mirroring
+Date: Sat, 28 Jan 2017 09:20:29 -0800
+Message-ID: <629f29d8-7766-5054-6878-6db9f1ae7a6f@gmail.com>
+References: <20170128012528.30524-1-f.fainelli@gmail.com>
+ <20170128012528.30524-2-f.fainelli@gmail.com>
+ <20170128091449.GA2033@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33073 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751171AbdA1RTh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 12:19:37 -0500
-Received: by mail-qk0-f195.google.com with SMTP id 11so13157401qkl.0
-        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 09:19:07 -0800 (PST)
-In-Reply-To: <CALzJLG8dh0TZPotrk-Xp6SZ=2UnjY2-C3TEQNxXDER5H8iwiQw@mail.gmail.com>
+Received: from mail-ot0-f196.google.com ([74.125.82.196]:34833 "EHLO
+        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751057AbdA1RUk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 12:20:40 -0500
+Received: by mail-ot0-f196.google.com with SMTP id 65so33970668otq.2
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 09:20:31 -0800 (PST)
+In-Reply-To: <20170128091449.GA2033@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 28, 2017 at 3:38 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Fri, Jan 27, 2017 at 8:13 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Fri, Jan 27, 2017 at 9:58 AM, Saeed Mahameed
->> <saeedm@dev.mellanox.co.il> wrote:
->>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
->>>> This patchset creates configuration options for sriov, vxlan, eswitch,
->>>> and tc features in the mlx5 driver. The purpose of this is to allow not
->>>> building these features. These features are optional advanced features
->>>> that are not required for a core Ethernet driver. A user can disable
->>>> these features which resuces the amount of code in the driver. Disabling
->>>> these features (and DCB) reduces the size of mlx5_core.o by about 16%.
->>>> This is also can reduce the complexity of backport and rebases since
->>>> user would no longer need to worry about dependencies with the rest of
->>>> the kernel that features which might not be of any interest to a user
->>>> may bring in.
->>>>
->>>> Tested: Build and ran the driver with all features enabled (the default)
->>>> and with none enabled (including DCB). Did not see any issues. I did
->>>> not explicity test operation of ayy of features in the list.
->>>>
->>>
->>> Basically I am not against this kind of change, infact i am with it,
->>> although I would have done some restructuring in the driver before i
->>> did such change ;), filling the code with ifdefs is not a neat thing.
->>>
->> If you wish, please take this as an RFC and feel free to structure the
->> code the right way. I think the intent is clear enough and looks like
->> davem isn't going to allow the directory restructuring so something
->> like this seems to be the best course of action now.
+Le 01/28/17 à 01:14, Jiri Pirko a écrit :
+> Sat, Jan 28, 2017 at 02:25:25AM CET, f.fainelli@gmail.com wrote:
+>> Add necessary plumbing at the slave network device level to have switch
+>> drivers implement ndo_setup_tc() and most particularly the cls_matchall
+>> classifier. We add support for two switch operations:
 >>
->
-> Right.
->
->>> I agree this will simplify backporting and provide some kind of
->>> feature separation inside the driver.
->>> But this will also increase the testing matrix we need to cover and
->>> increase the likelihood of kbuild breaks by an order of magnitude.
->>>
->> The testing matrix already exploded with the proliferation of
->> supported features. If anything this reduces the test matrix problem.
->> For instance, if we make a change to the core driver and functionality
->> properly isolated there is a much better chance that this won't affect
->> peripheral functionality and vice versa. It is just not feasible for
->> us to test every combination of NIC features for every change being
->> made.
+>> port_add_mirror and port_del_mirror() which configure, on a per-port
+>> basis the mirror parameters requested from the cls_matchall classifier.
 >>
->
-> Yes for isolated features, but for base functionality, we need to test
-> it with all new device specific kconfig combinations on every patch!
-
-Sorry, but that is the price you need to pay for a feature rich device.
-
-On the subject of testing, I don't really see any indication in these
-patches on how patches are being tested. Also, there are patches that
-fix things without any mention of how to repro the problems. It is
-critical that we know IPv6 is tested as much or more than IPv4 (just
-last week with hit yet another IPv6-only issue in an another upstream
-driver that should have been caught with a simple load test-- this
-really is not acceptable any more!). Please add a description of how
-patches were tested to commit logs.
-
-Tom
-
-> since a misplaced code inside or outside the correct ifdef
-> can easily go unnoticed and break functionality.
->
->>> One more thing, do we really need a device specific flag per feature
->>> per vendor per device?  can't we just use the same kconfig flag for
->>> all drivers and if there is a more generic system wide flag that
->>> covers the same feature
->>> can't we just use it, for instance instead of
->>> CONFIG_<DRIVER_NAME>_SRIOV why not use already existing CONFIG_PCI_IOV
->>> for all drivers ?
->>>
->> That sounds good to me. We already have CONFIG_RFS_ACCEL and others
->> that do that.
+>> Code is largely borrowed from the Mellanox Spectrum switch driver.
 >>
->> Tom
->>
->>> Saeed.
->>>
->>>>
->>>>
->>>> Tom Herbert (4):
->>>>   mlx5: Make building eswitch configurable
->>>>   mlx5: Make building SR-IOV configurable
->>>>   mlx5: Make building tc hardware offload configurable
->>>>   mlx5: Make building vxlan hardware offload configurable
->>>>
->>>>  drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  35 ++++++
->>>>  drivers/net/ethernet/mellanox/mlx5/core/Makefile  |  16 ++-
->>>>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 129 ++++++++++++++++------
->>>>  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   |  39 +++++--
->>>>  drivers/net/ethernet/mellanox/mlx5/core/eq.c      |   4 +-
->>>>  drivers/net/ethernet/mellanox/mlx5/core/lag.c     |   2 +
->>>>  drivers/net/ethernet/mellanox/mlx5/core/main.c    |  32 ++++--
->>>>  drivers/net/ethernet/mellanox/mlx5/core/sriov.c   |   6 +-
->>>>  8 files changed, 205 insertions(+), 58 deletions(-)
->>>>
->>>> --
->>>> 2.9.3
->>>>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+> 
+> [...]
+> 
+> 
+>> +/*
+>> + * Mirroring TC entry
+>> + */
+>> +struct dsa_mall_mirror_tc_entry {
+>> +	u8 to_local_port;
+>> +	bool ingress;
+>> +};
+>> +
+>> +/*
+>> + * TC matchall entry
+>> + */
+> 
+> Why are you using multiline comment format for single line comments?
+
+There are precedents in that file, but I will remove it.
+
+> 
+> 
+>> +struct dsa_mall_tc_entry {
+>> +	struct list_head list;
+>> +	unsigned long cookie;
+>> +	enum dsa_port_mall_action_type type;
+>> +	union {
+>> +		struct dsa_mall_mirror_tc_entry mirror;
+>> +	};
+>> +};
+>> +
+>> +
+>> struct dsa_port {
+>> 	struct net_device	*netdev;
+>> 	struct device_node	*dn;
+>> @@ -370,6 +397,15 @@ struct dsa_switch_ops {
+>> 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+>> 				 struct switchdev_obj_port_mdb *mdb,
+>> 				 int (*cb)(struct switchdev_obj *obj));
+>> +
+>> +	/*
+>> +	 * TC integration
+>> +	 */
+>> +	int	(*port_mirror_add)(struct dsa_switch *ds, int port,
+>> +				   struct dsa_mall_mirror_tc_entry *mirror,
+>> +				   bool ingress);
+>> +	void	(*port_mirror_del)(struct dsa_switch *ds, int port,
+>> +				   struct dsa_mall_mirror_tc_entry *mirror);
+>> };
+> 
+> [...]
+> 
+> 
+>> +static int dsa_slave_add_cls_matchall(struct net_device *dev,
+>> +				      __be16 protocol,
+>> +				      struct tc_cls_matchall_offload *cls,
+>> +				      bool ingress)
+>> +{
+>> +	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	struct dsa_mall_tc_entry *mall_tc_entry;
+>> +	struct dsa_switch *ds = p->parent;
+>> +	struct net *net = dev_net(dev);
+>> +	struct dsa_slave_priv *to_p;
+>> +	struct net_device *to_dev;
+>> +	const struct tc_action *a;
+>> +	int err = -EOPNOTSUPP;
+>> +	LIST_HEAD(actions);
+>> +	int ifindex;
+>> +
+>> +	if (!ds->ops->port_mirror_add)
+>> +		return err;
+>> +
+>> +	if (!tc_single_action(cls->exts)) {
+>> +		netdev_err(dev, "only singular actions are supported\n");
+> 
+> Why you note the user in this case, but in case he tries to add
+> non-supported action you don't note him?
+
+Will remove that message.
+
+> 
+> 
+>> +		return err;
+>> +	}
+>> +
+>> +	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
+>> +	if (!mall_tc_entry)
+>> +		return -ENOMEM;
+>> +	mall_tc_entry->cookie = cls->cookie;
+> 
+> Hmm, I believe that this allocation and initialization should go into
+> the "is_mirred if". You can do the checks in advance. That would also
+> make the error path simplier.
+
+Yes good point, seems like you may want to do the same in mlxsw since
+that part of the code was loosely based on that too.
+
+Thanks Jiri!
+-- 
+Florian
