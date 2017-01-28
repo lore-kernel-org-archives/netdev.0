@@ -1,232 +1,61 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv2 RFC net-next 5/7] net: add confirm_neigh method to dst_ops
-Date: Sat, 28 Jan 2017 16:26:16 +0200
-Message-ID: <1485613578-19973-6-git-send-email-ja@ssi.bg>
-References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
-Cc: linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
-To: netdev@vger.kernel.org
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2] bpf: Restrict cgroup bpf hooks to the init netns
+Date: Sat, 28 Jan 2017 09:43:54 -0500
+Message-ID: <20170128144354.GA8721@mtj.duckdns.org>
+References: <CALCETrVZqqfMO+=HGgebbAJ0TY6c3XSyY1G-Ve+g3VQiEfGwyA@mail.gmail.com>
+ <08f3f57e-8c51-c893-01ad-3ce23db8166d@cumulusnetworks.com>
+ <CALCETrVsqktjiPkfpcm_5uL0UL2Lzr106ZteLchJVnsKH_e-aw@mail.gmail.com>
+ <20170124174823.GA17813@ast-mbp.thefacebook.com>
+ <CALCETrW-Sj9eM+Nm9PVpqJky_30YSGhzc8hnzmddPkhHzb5_Fg@mail.gmail.com>
+ <242993d5-e27c-7177-a021-610d16b150e4@cumulusnetworks.com>
+ <CALCETrXzh-7BJ4Q_oG0hBkTdK+XgDWUYe0=gLwkqG6sncskv3g@mail.gmail.com>
+ <20170125001130.GA37299@ast-mbp.thefacebook.com>
+ <CALCETrWEDKMMwDFWM8L7hQ=T-Ffrwvmpd2VkvaFpKHuvVLFFEA@mail.gmail.com>
+ <87wpdiejjg.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Lutomirski <luto@amacapital.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43488 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752007AbdA1O14 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Jan 2017 09:27:56 -0500
-In-Reply-To: <1485613578-19973-1-git-send-email-ja@ssi.bg>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:33357 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751536AbdA1OoJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 09:44:09 -0500
+Received: by mail-qt0-f195.google.com with SMTP id n13so50558001qtc.0
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 06:44:01 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <87wpdiejjg.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add confirm_neigh method to dst_ops and use it from IPv4 and IPv6
-to lookup and confirm the neighbour. Its usage via the new helper
-dst_confirm_neigh() should be restricted to MSG_PROBE users for
-performance reasons.
+Hello, Eric.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- include/net/arp.h      | 16 ++++++++++++++++
- include/net/dst.h      |  7 +++++++
- include/net/dst_ops.h  |  2 ++
- include/net/ndisc.h    | 17 +++++++++++++++++
- net/ipv4/route.c       | 19 +++++++++++++++++++
- net/ipv6/route.c       | 16 ++++++++++++++++
- net/xfrm/xfrm_policy.c | 16 ++++++++++++++++
- 7 files changed, 93 insertions(+)
+On Thu, Jan 26, 2017 at 01:45:07PM +1300, Eric W. Biederman wrote:
+> > Eric, does this sound okay to you?  You're the authority on exposing
+> > things like namespace ids to users.
+> 
+> *Boggle*  Things that run across all network namespaces break any kind
+>  of sense I have about thinking about them.
+> 
+> Running across more than one network namespace by default seems very
+> broken to me.
 
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 5e0f891..65619a2 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -35,6 +35,22 @@ static inline struct neighbour *__ipv4_neigh_lookup(struct net_device *dev, u32
- 	return n;
- }
- 
-+static inline void __ipv4_confirm_neigh(struct net_device *dev, u32 key)
-+{
-+	struct neighbour *n;
-+
-+	rcu_read_lock_bh();
-+	n = __ipv4_neigh_lookup_noref(dev, key);
-+	if (n) {
-+		unsigned long now = jiffies;
-+
-+		/* avoid dirtying neighbour */
-+		if (n->confirmed != now)
-+			n->confirmed = now;
-+	}
-+	rcu_read_unlock_bh();
-+}
-+
- void arp_init(void);
- int arp_ioctl(struct net *net, unsigned int cmd, void __user *arg);
- void arp_send(int type, int ptype, __be32 dest_ip,
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 6835d22..3a3b34b 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -477,6 +477,13 @@ static inline struct neighbour *dst_neigh_lookup_skb(const struct dst_entry *dst
- 	return IS_ERR(n) ? NULL : n;
- }
- 
-+static inline void dst_confirm_neigh(const struct dst_entry *dst,
-+				     const void *daddr)
-+{
-+	if (dst->ops->confirm_neigh)
-+		dst->ops->confirm_neigh(dst, daddr);
-+}
-+
- static inline void dst_link_failure(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
-diff --git a/include/net/dst_ops.h b/include/net/dst_ops.h
-index 8a2b66d..13f6d59 100644
---- a/include/net/dst_ops.h
-+++ b/include/net/dst_ops.h
-@@ -33,6 +33,8 @@ struct dst_ops {
- 	struct neighbour *	(*neigh_lookup)(const struct dst_entry *dst,
- 						struct sk_buff *skb,
- 						const void *daddr);
-+	void			(*confirm_neigh)(const struct dst_entry *dst,
-+						 const void *daddr);
- 
- 	struct kmem_cache	*kmem_cachep;
- 
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index d562a2f..8a02146 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -391,6 +391,23 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
- 	return n;
- }
- 
-+static inline void __ipv6_confirm_neigh(struct net_device *dev,
-+					const void *pkey)
-+{
-+	struct neighbour *n;
-+
-+	rcu_read_lock_bh();
-+	n = __ipv6_neigh_lookup_noref(dev, pkey);
-+	if (n) {
-+		unsigned long now = jiffies;
-+
-+		/* avoid dirtying neighbour */
-+		if (n->confirmed != now)
-+			n->confirmed = now;
-+	}
-+	rcu_read_unlock_bh();
-+}
-+
- int ndisc_init(void);
- int ndisc_late_init(void);
- 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 4b7c231..cb494a5 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -154,6 +154,7 @@ static u32 *ipv4_cow_metrics(struct dst_entry *dst, unsigned long old)
- static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
- 					   struct sk_buff *skb,
- 					   const void *daddr);
-+static void ipv4_confirm_neigh(const struct dst_entry *dst, const void *daddr);
- 
- static struct dst_ops ipv4_dst_ops = {
- 	.family =		AF_INET,
-@@ -168,6 +169,7 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
- 	.redirect =		ip_do_redirect,
- 	.local_out =		__ip_local_out,
- 	.neigh_lookup =		ipv4_neigh_lookup,
-+	.confirm_neigh =	ipv4_confirm_neigh,
- };
- 
- #define ECN_OR_COST(class)	TC_PRIO_##class
-@@ -461,6 +463,23 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
- 	return neigh_create(&arp_tbl, pkey, dev);
- }
- 
-+static void ipv4_confirm_neigh(const struct dst_entry *dst, const void *daddr)
-+{
-+	struct net_device *dev = dst->dev;
-+	const __be32 *pkey = daddr;
-+	const struct rtable *rt;
-+
-+	rt = (const struct rtable *)dst;
-+	if (rt->rt_gateway)
-+		pkey = (const __be32 *)&rt->rt_gateway;
-+	else if (!daddr ||
-+		 (rt->rt_flags &
-+		  (RTCF_MULTICAST | RTCF_BROADCAST | RTCF_LOCAL)))
-+		return;
-+
-+	__ipv4_confirm_neigh(dev, *(__force u32 *)pkey);
-+}
-+
- #define IP_IDENTS_SZ 2048u
- 
- static atomic_t *ip_idents __read_mostly;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4b1f0f9..c876940 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -217,6 +217,21 @@ static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst,
- 	return neigh_create(&nd_tbl, daddr, dst->dev);
- }
- 
-+static void ip6_confirm_neigh(const struct dst_entry *dst, const void *daddr)
-+{
-+	struct net_device *dev = dst->dev;
-+	struct rt6_info *rt = (struct rt6_info *)dst;
-+
-+	daddr = choose_neigh_daddr(rt, NULL, daddr);
-+	if (!daddr)
-+		return;
-+	if (dev->flags & (IFF_NOARP | IFF_LOOPBACK))
-+		return;
-+	if (ipv6_addr_is_multicast((const struct in6_addr *)daddr))
-+		return;
-+	__ipv6_confirm_neigh(dev, daddr);
-+}
-+
- static struct dst_ops ip6_dst_ops_template = {
- 	.family			=	AF_INET6,
- 	.gc			=	ip6_dst_gc,
-@@ -233,6 +248,7 @@ static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst,
- 	.redirect		=	rt6_do_redirect,
- 	.local_out		=	__ip6_local_out,
- 	.neigh_lookup		=	ip6_neigh_lookup,
-+	.confirm_neigh		=	ip6_confirm_neigh,
- };
- 
- static unsigned int ip6_blackhole_mtu(const struct dst_entry *dst)
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 177e208..c010ee0 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2856,6 +2856,20 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
- 	return dst->path->ops->neigh_lookup(dst, skb, daddr);
- }
- 
-+static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
-+{
-+	const struct dst_entry *path = dst->path;
-+
-+	if (path == dst) {
-+		dst->ops->confirm_neigh(dst, daddr);
-+	} else {
-+		/* daddr can be from different family and we need the
-+		 * tunnel address. How to get it?
-+		 */
-+		path->ops->confirm_neigh(path, NULL);
-+	}
-+}
-+
- int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
- {
- 	int err = 0;
-@@ -2882,6 +2896,8 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
- 			dst_ops->link_failure = xfrm_link_failure;
- 		if (likely(dst_ops->neigh_lookup == NULL))
- 			dst_ops->neigh_lookup = xfrm_neigh_lookup;
-+		if (likely(!dst_ops->confirm_neigh))
-+			dst_ops->confirm_neigh = xfrm_confirm_neigh;
- 		if (likely(afinfo->garbage_collect == NULL))
- 			afinfo->garbage_collect = xfrm_garbage_collect_deferred;
- 		rcu_assign_pointer(xfrm_policy_afinfo[afinfo->family], afinfo);
+Can you explain why that is?  Other namespaces don't behave this way.
+For example, a PID namespace doesn't hide the processes at the system
+level.  It just gives additional nested names to the namespaced
+processes and having objects visible at the system level is very
+useful for monitoring and management.  Are there inherent reasons why
+network namespace should be very different from other namespaces in
+this regard?
+
+Thanks.
+
 -- 
-1.9.3
+tejun
