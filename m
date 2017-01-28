@@ -1,57 +1,61 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
-Date: Fri, 27 Jan 2017 16:17:33 -0600
-Message-ID: <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop>
-References: <20170124084606.GA11764@app09>
- <20170125.123448.742815192519658537.davem@davemloft.net>
- <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw@mail.gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
+ hard_header_len bytes in skb_headlen() to the driver
+Date: Fri, 27 Jan 2017 19:19:02 -0500
+Message-ID: <CAF=yD-KqQdPVn-CFAu3ak+c3NRO9gfT+8UwXXS4eSv9ax0iAnA@mail.gmail.com>
+References: <20170126213742.GE29475@oracle.com> <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
+ <20170127020836.GH29475@oracle.com> <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
+ <20170127151119.GB25829@oracle.com> <CAF=yD-+LS6g572Uo5oErq7uazxxPwXXo0w2p4zcHDbXxkuah6Q@mail.gmail.com>
+ <20170127170320.GD25829@oracle.com> <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
+ <20170127200639.GF25829@oracle.com> <CAF=yD-+GGAdvgXoZeMshyQXXh_3m9kjDGNFf9FQ43rxJgk__vw@mail.gmail.com>
+ <20170127215848.GG25829@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        andrew-g2DYL2Zd6BY@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36754 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750741AbdA1ATo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:19:44 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r126so61787960wmr.3
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 16:19:43 -0800 (PST)
+In-Reply-To: <20170127215848.GG25829@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 25, 2017 at 10:09:20PM +0100, Arnd Bergmann wrote:
-> On Wed, Jan 25, 2017 at 6:34 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> > From: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > Date: Tue, 24 Jan 2017 16:46:14 +0800
-> >> We also use the same binding document to describe the same faraday ethernet
-> >> controller and add faraday to vendor-prefixes.txt.
-> >
-> > Why are you renaming the MOXA binding file instead of adding a completely new one
-> > for faraday?  The MOXA one should stick around, I don't see a justification for
-> > removing it.
-> 
-> This was my suggestion, basically fixing the name of the existing
-> binding, which was
-> accidentally named after one of the users rather than the company that did the
-> hardware.
-> 
-> We can't change the compatible string, but I'd much prefer having only
-> one binding
-> file for this device rather than two separate ones that could possibly become
-> incompatible in case we add new properties to them. If there is only
-> one of them,
-> naming it according to the hardware design is the general policy.
-> 
-> Note that we currently have two separate device drivers, but that is more a
-> historic artifact, and if we ever get around to merging them into one driver,
-> that should not impact the binding.
+On Fri, Jan 27, 2017 at 4:58 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (01/27/17 15:51), Willem de Bruijn wrote:
+>     :
+>> - limit capable() check to drivers with with .validate callback
+> (aka second option below)
+>     :
+>> - let privileged applications shoot themselves in the foot (change nothing).
+>
+>> The second will break variable length header protocols unless
+>> you exhaustively search for all variable length protocols and add
+>> validate callbacks first.
+>
+> other than ax25, are there variable length header protocols out there
+> without ->validate, and which need the CAP_RAW_SYSIO branch?
 
-The change is fine with me, but the subject and commit message need some 
-work. I'm guessing faraday licensed this to MOXA or something? Why is 
-the new name preferred or better?
+I don't know. An exhaustive search of protocols (by header_ops) may be
+needed to say for sure.
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If there are none, then the solution indeed is quite simple.
+
+> I realize that, to an extent, even ethernet is a protocol whose
+> header is > 14 with vlan, but from the google search, seems like it
+> was mostly ax25 that really triggered a large part of the check.
+>
+> If we think that there are a large number of these (that dont have a
+> ->validate, to fix up things as desired) I'd just go for the "change
+> nothing in pf_packet" option.
+>
+> As I found out many drivers like ixgbe and sunvnet have defensive checks
+> in the Tx path anyway, and xen_netfront can also join that group with
+> a few simple checks.
+
+Okay. I suspect that there are few, if any. But this is fragile code.
