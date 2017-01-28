@@ -1,137 +1,79 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 1/4] net: dsa: Add plumbing for port mirroring
-Date: Sat, 28 Jan 2017 09:20:29 -0800
-Message-ID: <629f29d8-7766-5054-6878-6db9f1ae7a6f@gmail.com>
-References: <20170128012528.30524-1-f.fainelli@gmail.com>
- <20170128012528.30524-2-f.fainelli@gmail.com>
- <20170128091449.GA2033@nanopsycho>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
+Date: Sat, 28 Jan 2017 09:52:21 -0800
+Message-ID: <588CDA55.7030900@fb.com>
+References: <20170126233241.2268449-1-tom@herbertland.com>
+ <20170126233241.2268449-2-tom@herbertland.com>
+ <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
+ <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
+ <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
+ <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
+ <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
+ <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
+ <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
+ <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
+ <588BD66E.2050201@fb.com>
+ <CALzJLG_abLhT7wcrtB97KzurJ2-=OZv11cELjoRW79cOeyjxgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+        Or Gerlitz <gerlitz.or@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:34833 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751057AbdA1RUk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 12:20:40 -0500
-Received: by mail-ot0-f196.google.com with SMTP id 65so33970668otq.2
-        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 09:20:31 -0800 (PST)
-In-Reply-To: <20170128091449.GA2033@nanopsycho>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48037 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751220AbdA1RyI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 12:54:08 -0500
+In-Reply-To: <CALzJLG_abLhT7wcrtB97KzurJ2-=OZv11cELjoRW79cOeyjxgw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/28/17 à 01:14, Jiri Pirko a écrit :
-> Sat, Jan 28, 2017 at 02:25:25AM CET, f.fainelli@gmail.com wrote:
->> Add necessary plumbing at the slave network device level to have switch
->> drivers implement ndo_setup_tc() and most particularly the cls_matchall
->> classifier. We add support for two switch operations:
+On 1/28/17 3:20 AM, Saeed Mahameed wrote:
+> On Sat, Jan 28, 2017 at 1:23 AM, Alexei Starovoitov <ast@fb.com> wrote:
+>> On 1/27/17 1:15 PM, Saeed Mahameed wrote:
+>>>
+>>> It is only mandatory for configurations that needs eswitch, where the
+>>> driver has no way to know about them, for a good old bare metal box,
+>>> eswitch is not needed.
+>>>
+>>> we can do some work to strip the l2 table logic - needed for PFs to
+>>> work on multi-host - out of eswitch but again that would further
+>>> complicate the driver code since eswitch will still need to update l2
+>>> tables for VFs.
 >>
->> port_add_mirror and port_del_mirror() which configure, on a per-port
->> basis the mirror parameters requested from the cls_matchall classifier.
 >>
->> Code is largely borrowed from the Mellanox Spectrum switch driver.
+>> Saeed,
+>> for multi-host setups every host in that multi-host doesn't
+>> actually see the eswitch, no? Otherwise broken driver on one machine
+>> can affect the other hosts in the same bundle? Please double check,
+>
+> each host (PF) has its own eswitch, and each eswitch lives in its own
+> "steering-space"
+>   and it can't affect others.
+>
+>> since this is absolutely critical HW requirement.
 >>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
-> 
-> [...]
-> 
-> 
->> +/*
->> + * Mirroring TC entry
->> + */
->> +struct dsa_mall_mirror_tc_entry {
->> +	u8 to_local_port;
->> +	bool ingress;
->> +};
->> +
->> +/*
->> + * TC matchall entry
->> + */
-> 
-> Why are you using multiline comment format for single line comments?
+>
+> The only shared HW resources between hosts (PFs) is the simple l2 table,
+> and the only thing a host can ask from the l2 talbe (FW) is: "forward
+> UC MAC to me", and it is the responsibility of the the driver eswitch
+> to do so.
+>
+> the l2 table is created and managed by FW, SW eswitch can only request
+> from FW, and the FW is trusted.
 
-There are precedents in that file, but I will remove it.
-
-> 
-> 
->> +struct dsa_mall_tc_entry {
->> +	struct list_head list;
->> +	unsigned long cookie;
->> +	enum dsa_port_mall_action_type type;
->> +	union {
->> +		struct dsa_mall_mirror_tc_entry mirror;
->> +	};
->> +};
->> +
->> +
->> struct dsa_port {
->> 	struct net_device	*netdev;
->> 	struct device_node	*dn;
->> @@ -370,6 +397,15 @@ struct dsa_switch_ops {
->> 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
->> 				 struct switchdev_obj_port_mdb *mdb,
->> 				 int (*cb)(struct switchdev_obj *obj));
->> +
->> +	/*
->> +	 * TC integration
->> +	 */
->> +	int	(*port_mirror_add)(struct dsa_switch *ds, int port,
->> +				   struct dsa_mall_mirror_tc_entry *mirror,
->> +				   bool ingress);
->> +	void	(*port_mirror_del)(struct dsa_switch *ds, int port,
->> +				   struct dsa_mall_mirror_tc_entry *mirror);
->> };
-> 
-> [...]
-> 
-> 
->> +static int dsa_slave_add_cls_matchall(struct net_device *dev,
->> +				      __be16 protocol,
->> +				      struct tc_cls_matchall_offload *cls,
->> +				      bool ingress)
->> +{
->> +	struct dsa_slave_priv *p = netdev_priv(dev);
->> +	struct dsa_mall_tc_entry *mall_tc_entry;
->> +	struct dsa_switch *ds = p->parent;
->> +	struct net *net = dev_net(dev);
->> +	struct dsa_slave_priv *to_p;
->> +	struct net_device *to_dev;
->> +	const struct tc_action *a;
->> +	int err = -EOPNOTSUPP;
->> +	LIST_HEAD(actions);
->> +	int ifindex;
->> +
->> +	if (!ds->ops->port_mirror_add)
->> +		return err;
->> +
->> +	if (!tc_single_action(cls->exts)) {
->> +		netdev_err(dev, "only singular actions are supported\n");
-> 
-> Why you note the user in this case, but in case he tries to add
-> non-supported action you don't note him?
-
-Will remove that message.
-
-> 
-> 
->> +		return err;
->> +	}
->> +
->> +	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
->> +	if (!mall_tc_entry)
->> +		return -ENOMEM;
->> +	mall_tc_entry->cookie = cls->cookie;
-> 
-> Hmm, I believe that this allocation and initialization should go into
-> the "is_mirred if". You can do the checks in advance. That would also
-> make the error path simplier.
-
-Yes good point, seems like you may want to do the same in mlxsw since
-that part of the code was loosely based on that too.
-
-Thanks Jiri!
--- 
-Florian
+ok. clear. thanks for explaining.
+Could you describe the sequence of function calls within mlx5
+that does the assignment of uc mac for PF ?
+since I'm missing where eswitch is involved.
+I can see:
+mlx5e_nic_enable | mlx5e_set_mac
+   queue_work(priv->wq, &priv->set_rx_mode_work);
+     mlx5e_set_rx_mode_work
+       mlx5e_apply_netdev_addr
+         mlx5e_add_l2_flow_rule
