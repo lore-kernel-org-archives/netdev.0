@@ -1,61 +1,76 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
- hard_header_len bytes in skb_headlen() to the driver
-Date: Fri, 27 Jan 2017 19:19:02 -0500
-Message-ID: <CAF=yD-KqQdPVn-CFAu3ak+c3NRO9gfT+8UwXXS4eSv9ax0iAnA@mail.gmail.com>
-References: <20170126213742.GE29475@oracle.com> <CAF=yD-L66dFV64fx21A3059LRiot_-j0Ykp9GkRFwf52099upQ@mail.gmail.com>
- <20170127020836.GH29475@oracle.com> <CAF=yD-LWLDQhQMBA9O5T5k+di5VKMPtix+pHLb-zjUtd4+WZmQ@mail.gmail.com>
- <20170127151119.GB25829@oracle.com> <CAF=yD-+LS6g572Uo5oErq7uazxxPwXXo0w2p4zcHDbXxkuah6Q@mail.gmail.com>
- <20170127170320.GD25829@oracle.com> <CAF=yD-J6r+myVVAb5uNL8-Fua7Gr5q8U+veqPB=xm4gNOTp5Tg@mail.gmail.com>
- <20170127200639.GF25829@oracle.com> <CAF=yD-+GGAdvgXoZeMshyQXXh_3m9kjDGNFf9FQ43rxJgk__vw@mail.gmail.com>
- <20170127215848.GG25829@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next 1/2] tcp: record pkts sent and retransmistted
+Date: Fri, 27 Jan 2017 16:24:38 -0800
+Message-ID: <20170128002439.128487-1-ycheng@google.com>
+Cc: netdev@vger.kernel.org, ncardwell@google.com, edumazet@google.com,
+        Yuchung Cheng <ycheng@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36754 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750741AbdA1ATo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:19:44 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r126so61787960wmr.3
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 16:19:43 -0800 (PST)
-In-Reply-To: <20170127215848.GG25829@oracle.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35333 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750782AbdA1AYt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:24:49 -0500
+Received: by mail-pf0-f182.google.com with SMTP id f144so76636289pfa.2
+        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 16:24:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 27, 2017 at 4:58 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (01/27/17 15:51), Willem de Bruijn wrote:
->     :
->> - limit capable() check to drivers with with .validate callback
-> (aka second option below)
->     :
->> - let privileged applications shoot themselves in the foot (change nothing).
->
->> The second will break variable length header protocols unless
->> you exhaustively search for all variable length protocols and add
->> validate callbacks first.
->
-> other than ax25, are there variable length header protocols out there
-> without ->validate, and which need the CAP_RAW_SYSIO branch?
+Add two stats in SCM_TIMESTAMPING_OPT_STATS:
 
-I don't know. An exhaustive search of protocols (by header_ops) may be
-needed to say for sure.
+TCP_NLA_DATA_SEGS_OUT: total data packets sent including retransmission
+TCP_NLA_TOTAL_RETRANS: total data packets retransmitted
 
-If there are none, then the solution indeed is quite simple.
+The names are picked to be consistent with corresponding fields in
+TCP_INFO. This allows applications that are using the timestamping
+API to measure latency stats to also retrive retransmission rate
+of application write.
 
-> I realize that, to an extent, even ethernet is a protocol whose
-> header is > 14 with vlan, but from the google search, seems like it
-> was mostly ax25 that really triggered a large part of the check.
->
-> If we think that there are a large number of these (that dont have a
-> ->validate, to fix up things as desired) I'd just go for the "change
-> nothing in pf_packet" option.
->
-> As I found out many drivers like ixgbe and sunvnet have defensive checks
-> in the Tx path anyway, and xen_netfront can also join that group with
-> a few simple checks.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Acked-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ include/uapi/linux/tcp.h | 2 ++
+ net/ipv4/tcp.c           | 6 +++++-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
-Okay. I suspect that there are few, if any. But this is fragile code.
+diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+index 6ff35eb48d10..38a2b07afdff 100644
+--- a/include/uapi/linux/tcp.h
++++ b/include/uapi/linux/tcp.h
+@@ -227,6 +227,8 @@ enum {
+ 	TCP_NLA_BUSY,		/* Time (usec) busy sending data */
+ 	TCP_NLA_RWND_LIMITED,	/* Time (usec) limited by receive window */
+ 	TCP_NLA_SNDBUF_LIMITED,	/* Time (usec) limited by send buffer */
++	TCP_NLA_DATA_SEGS_OUT,	/* Data pkts sent including retransmission */
++	TCP_NLA_TOTAL_RETRANS,	/* Data pkts retransmitted */
+ };
+ 
+ /* for TCP_MD5SIG socket option */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 2ed472ebf3b5..b751abc56935 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2870,7 +2870,7 @@ struct sk_buff *tcp_get_timestamping_opt_stats(const struct sock *sk)
+ 	struct sk_buff *stats;
+ 	struct tcp_info info;
+ 
+-	stats = alloc_skb(3 * nla_total_size_64bit(sizeof(u64)), GFP_ATOMIC);
++	stats = alloc_skb(5 * nla_total_size_64bit(sizeof(u64)), GFP_ATOMIC);
+ 	if (!stats)
+ 		return NULL;
+ 
+@@ -2881,6 +2881,10 @@ struct sk_buff *tcp_get_timestamping_opt_stats(const struct sock *sk)
+ 			  info.tcpi_rwnd_limited, TCP_NLA_PAD);
+ 	nla_put_u64_64bit(stats, TCP_NLA_SNDBUF_LIMITED,
+ 			  info.tcpi_sndbuf_limited, TCP_NLA_PAD);
++	nla_put_u64_64bit(stats, TCP_NLA_DATA_SEGS_OUT,
++			  tp->data_segs_out, TCP_NLA_PAD);
++	nla_put_u64_64bit(stats, TCP_NLA_TOTAL_RETRANS,
++			  tp->total_retrans, TCP_NLA_PAD);
+ 	return stats;
+ }
+ 
+-- 
+2.11.0.483.g087da7b7c-goog
