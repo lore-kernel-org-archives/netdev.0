@@ -1,77 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: dsa: Port mirroring support
-Date: Fri, 27 Jan 2017 16:52:53 -0800
-Message-ID: <0345838c-dc61-3ce6-eed2-71b29be1cedc@gmail.com>
-References: <20170128004035.26035-1-f.fainelli@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net: suspicious RCU usage in nf_hook
+Date: Fri, 27 Jan 2017 17:00:25 -0800
+Message-ID: <CAM_iQpVvBPhP4q=Egsaoqf8ym-73jLZow8xDMbOq9RhYmL5XAQ@mail.gmail.com>
+References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
+ <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34530 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750789AbdA1Aw4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Jan 2017 19:52:56 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 3so8414725pgj.1
-        for <netdev@vger.kernel.org>; Fri, 27 Jan 2017 16:52:55 -0800 (PST)
-In-Reply-To: <20170128004035.26035-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <edumazet@google.com>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/27/2017 04:40 PM, Florian Fainelli wrote:
-> Hi all,
-> 
-> This patch series adds support for port mirroring in the two
-> Broadcom switch drivers. The major part of the functional are actually with
-> the plumbing between tc and the drivers.
+On Fri, Jan 27, 2017 at 3:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Oh well, I forgot to submit the official patch I think, Jan 9th.
+>
+> https://groups.google.com/forum/#!topic/syzkaller/BhyN5OFd7sQ
+>
 
-Meh, there are two issues that need fixing:
+Hmm, but why only fragments need skb_orphan()? It seems like
+any kfree_skb() inside a nf hook needs to have a preceding
+skb_orphan().
 
-- left a stray list_head in the dsa_port structure which we do not need
-- if we remove either the ingress, or egress filter, we end-up disabling
-the mirroring entirely, so need to rework the b53_mirror_del logic a bit
-
-Will re-submit shortly.
-
-> 
-> David, this will most likely conflict a little bit with my other series:
->  net: dsa: bcm_sf2: CFP support, so just let me know if that happens, and
-> I will provide a rebased version. Thanks!
-> 
-> Tested using the two iproute2 examples:
-> 
-> # ingress
->       tc qdisc  add dev eth1 handle ffff: ingress
->       tc filter add dev eth1 parent ffff:           \
->                matchall skip_sw                      \
->                action mirred egress mirror           \
->                dev eth2
-> # egress
->       tc qdisc add dev eth1 handle 1: root prio
->       tc filter add dev eth1 parent 1:               \
->                matchall skip_sw                       \
->                action mirred egress mirror            \
->                dev eth2
-> 
-> 
-> Florian Fainelli (4):
->   net: dsa: Add plumbing for port mirroring
->   net: dsa: b53: Add mirror capture register definitions
->   net: dsa: b53: Add support for port mirroring
->   net: dsa: bcm_sf2: Add support for port mirroring
-> 
->  drivers/net/dsa/b53/b53_common.c |  54 +++++++++++++++
->  drivers/net/dsa/b53/b53_priv.h   |   4 ++
->  drivers/net/dsa/b53/b53_regs.h   |  32 +++++++++
->  drivers/net/dsa/bcm_sf2.c        |   2 +
->  include/net/dsa.h                |  41 +++++++++++
->  net/dsa/dsa_priv.h               |   3 +
->  net/dsa/slave.c                  | 143 ++++++++++++++++++++++++++++++++++++++-
->  7 files changed, 278 insertions(+), 1 deletion(-)
-> 
-
-
--- 
-Florian
+Also, I am not convinced it is similar to commit 8282f27449bf15548
+which is on RX path.
