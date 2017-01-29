@@ -1,43 +1,71 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next v2 2/2] qede: Add driver support for PTP.
-Date: Sun, 29 Jan 2017 21:40:08 +0000
-Message-ID: <BL2PR07MB23062DCD33399E29B0475A028D480@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485674903-27689-3-git-send-email-Sudarsana.Kalluru@cavium.com>
- <20170129153536.GD2223@localhost.localdomain>
- <BL2PR07MB2306088B2179138BB4557FE58D480@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20170129210227.GB30336@localhost.localdomain>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during
+ network stress and OOM
+Date: Sun, 29 Jan 2017 18:09:21 -0500
+Message-ID: <38ccfaea-0a65-a6f3-c19a-e6f9c0d4ef76@oracle.com>
+References: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+ <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0081.outbound.protection.outlook.com ([104.47.42.81]:16750
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751012AbdA2V4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 29 Jan 2017 16:56:11 -0500
-In-Reply-To: <20170129210227.GB30336@localhost.localdomain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+To: Vineeth Remanan Pillai <vineethp@amazon.com>,
+ David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Wei Liu <wei.liu2@citrix.com>,
+ Paul Durrant <paul.durrant@citrix.com>, xen-devel <xen-devel@lists.xen.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-> > That's part of the driver structuring - qed is responsible for
-> > accessing HW so it implements api functions for accessing PTP-related
-> > configuration, while qede is responsible for the network interface and
-> > thus is the one to register the clock and implements its API.
->=20
-> But there is only one 'qed', and so the separation is just busy work.
-> Or is there another kind of qed that I missed?
-
-One 'qed'? We have 2 distinct models - QED which provides core functionalit=
-y
-and supports several other modules as well [qedi, qedr and soon qedf], and
-QEDE which contain the Ethernet networking logic.
-It's true that there's a one-to-one mapping of instances [ each qede device
-is connected to a single qed device], but there's a division of logic betwe=
-en
-the two.=20
+CgpPbiAwMS8xOS8yMDE3IDExOjM1IEFNLCBWaW5lZXRoIFJlbWFuYW4gUGlsbGFpIHdyb3RlOgo+
+IEZyb206IFZpbmVldGggUmVtYW5hbiBQaWxsYWkgPHZpbmVldGhwQGFtYXpvbi5jb20+Cj4KPiBE
+dXJpbmcgYW4gT09NIHNjZW5hcmlvLCByZXF1ZXN0IHNsb3RzIGNvdWxkIG5vdCBiZSBjcmVhdGVk
+IGFzIHNrYgo+IGFsbG9jYXRpb24gZmFpbHMuIFNvIHRoZSBuZXRiYWNrIGNhbm5vdCBwYXNzIGlu
+IHBhY2tldHMgYW5kIG5ldGZyb250Cj4gd3JvbmdseSBhc3N1bWVzIHRoYXQgdGhlcmUgaXMgbm8g
+bW9yZSB3b3JrIHRvIGJlIGRvbmUgYW5kIGl0IGRpc2FibGVzCj4gcG9sbGluZy4gVGhpcyBjYXVz
+ZXMgUnggdG8gc3RhbGwuCj4KPiBUaGUgaXNzdWUgaXMgd2l0aCB0aGUgcmV0cnkgbG9naWMgd2hp
+Y2ggc2NoZWR1bGVzIHRoZSB0aW1lciBpZiB0aGUKPiBjcmVhdGVkIHNsb3RzIGFyZSBsZXNzIHRo
+YW4gTkVUX1JYX1NMT1RTX01JTi4gVGhlIGNvdW50IG9mIG5ldyByZXF1ZXN0Cj4gc2xvdHMgdG8g
+YmUgcHVzaGVkIGFyZSBjYWxjdWxhdGVkIGFzIGEgZGlmZmVyZW5jZSBiZXR3ZWVuIG5ldyByZXFf
+cHJvZAo+IGFuZCByc3BfY29ucyB3aGljaCBjb3VsZCBiZSBtb3JlIHRoYW4gdGhlIGFjdHVhbCBz
+bG90cywgaWYgdGhlcmUgYXJlCj4gdW5jb25zdW1lZCByZXNwb25zZXMuCj4KPiBUaGUgZml4IGlz
+IHRvIGNhbGN1bGF0ZSB0aGUgY291bnQgb2YgbmV3bHkgY3JlYXRlZCBzbG90cyBhcyB0aGUKPiBk
+aWZmZXJlbmNlIGJldHdlZW4gbmV3IHJlcV9wcm9kIGFuZCBvbGQgcmVxX3Byb2QuCj4KPiBTaWdu
+ZWQtb2ZmLWJ5OiBWaW5lZXRoIFJlbWFuYW4gUGlsbGFpIDx2aW5lZXRocEBhbWF6b24uY29tPgo+
+IFJldmlld2VkLWJ5OiBKdWVyZ2VuIEdyb3NzIDxqZ3Jvc3NAc3VzZS5jb20+Cj4gLS0tCj4gQ2hh
+bmdlcyBpbiB2MjoKPiAgICAgLSBSZW1vdmVkIHRoZSBvbGQgaW1wbGVtZW50YXRpb24gb2YgZW5h
+YmxpbmcgcG9sbGluZyBvbgo+ICAgICAgIHNrYiBhbGxvY2F0aW9uIGVycm9yLgo+ICAgICAtIENv
+cnJlY3RlZCB0aGUgcmVmaWxsIHRpbWVyIGxvZ2ljIHRvIHNjaGVkdWxlIHdoZW4gbmV3bHkKPiAg
+ICAgICBjcmVhdGVkIHNsb3RzIHNpbmNlIGxhc3QgcHVzaCBpcyBsZXNzIHRoYW4gTkVUX1JYX1NM
+T1RTX01JTi4KCgpUaGVyZSBhcmUgY291cGxlIG9mIHByb2JsZW1zIHdpdGggdGhpcyBwYXRjaC4K
+MS4gVGhlICdpZicgY2xhdXNlIG5vdyBldmFsdWF0ZXMgdG8gdHJ1ZSBvbiBwcmV0dHkgbXVjaCBl
+dmVyeSBjYWxsIHRvIAp4ZW5uZXRfYWxsb2NfcnhfYnVmZmVycygpLgoyLiBJdCB0aWNrbGVzIGEg
+bGF0ZW50IGJ1ZyBkdXJpbmcgcmVzdW1lIHdoZXJlIHRoZSB0aW1lciB0cmlnZ2VycyBiZWZvcmUg
+CndlIHJlLWNvbm5lY3QuIFRoZSB0cm91YmxlIGlzIHRoYXQgd2Ugbm93IHRyeSB0byBkZXJlZmVy
+ZW5jZSAKcXVldWUtPnJ4LnNyaW5nIHdoaWNoIGlzIE5VTEwgc2luY2Ugd2UgZGlzY29ubmVjdCBp
+biBuZXRmcm9udF9yZXN1bWUoKS4gCihDdXJpb3VzbHksIEkgb25seSBvYnNlcnZlIGl0IHdpdGgg
+MzItYml0IGd1ZXN0cykKCkknbGwgc2VuZCBhIHBhdGNoIGxhdGVyIHRoYXQgd2lsbCBkZWxldGUg
+dGhlIHRpbWVyIHNpbmNlIGl0IGxvb2tzIGxpa2UgYSAKYnVnIHRvIG1lIGluIGFueSBjYXNlIGJ1
+dCB0aGUgZmlyc3QgcHJvYmxlbSBzZWVtcyB0byBiZSBtb3JlIHNlcmlvdXMgCnRoYW4gdGhlIHBy
+b2JsZW0gdGhhdCB0aGlzIHBhdGNoIGFkZHJlc3Nlcy4KCi1ib3JpcwoKPgo+ICBkcml2ZXJzL25l
+dC94ZW4tbmV0ZnJvbnQuYyB8IDIgKy0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCsp
+LCAxIGRlbGV0aW9uKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGZyb250
+LmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwo+IGluZGV4IDQwZjI2YjYuLjJjN2MyOWYg
+MTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMKPiArKysgYi9kcml2ZXJz
+L25ldC94ZW4tbmV0ZnJvbnQuYwo+IEBAIC0zMjEsNyArMzIxLDcgQEAgc3RhdGljIHZvaWQgeGVu
+bmV0X2FsbG9jX3J4X2J1ZmZlcnMoc3RydWN0Cj4gbmV0ZnJvbnRfcXVldWUgKnF1ZXVlKQo+ICAg
+ICAgcXVldWUtPnJ4LnJlcV9wcm9kX3B2dCA9IHJlcV9wcm9kOwo+Cj4gICAgICAvKiBOb3QgZW5v
+dWdoIHJlcXVlc3RzPyBUcnkgYWdhaW4gbGF0ZXIuICovCj4gLSAgICBpZiAocmVxX3Byb2QgLSBx
+dWV1ZS0+cngucnNwX2NvbnMgPCBORVRfUlhfU0xPVFNfTUlOKSB7Cj4gKyAgICBpZiAocmVxX3By
+b2QgLSBxdWV1ZS0+cnguc3JpbmctPnJlcV9wcm9kIDwgTkVUX1JYX1NMT1RTX01JTikgewo+ICAg
+ICAgICAgIG1vZF90aW1lcigmcXVldWUtPnJ4X3JlZmlsbF90aW1lciwgamlmZmllcyArIChIWi8x
+MCkpOwo+ICAgICAgICAgIHJldHVybjsKPiAgICAgIH0KCl9fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVs
+QGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
