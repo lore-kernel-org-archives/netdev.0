@@ -1,92 +1,186 @@
-From: Arseny Solokha <asolokha@kb.kras.ru>
-Subject: [PATCH] gianfar: synchronize DMA API usage by free_skb_rx_queue w/ gfar_new_page
-Date: Sun, 29 Jan 2017 19:52:20 +0700
-Message-ID: <20170129125220.12538-1-asolokha@kb.kras.ru>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Arseny Solokha <asolokha@kb.kras.ru>
-To: claudiu.manoil@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH stable v1 03/13] net: ethernet: aquantia: Add ring support
+ code
+Date: Sun, 29 Jan 2017 14:32:24 +0100
+Message-ID: <84e0a9bb-76a1-ef59-a422-3faa2737636a@gmx.de>
+References: <cover.1485665881.git.vomlehn@texas.net>
+ <52d034319a6de0b44f39cbdbb6b69605601786bf.1485665881.git.vomlehn@texas.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.15]:63449 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750803AbdA2Nj7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 29 Jan 2017 08:39:59 -0500
+In-Reply-To: <52d034319a6de0b44f39cbdbb6b69605601786bf.1485665881.git.vomlehn@texas.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arseny Solokha <asolokha@kb.kras.ru>
+Hi,
 
-In spite of switching to paged allocation of Rx buffers, the driver still
-called dma_unmap_single() in the Rx queues tear-down path.
 
-The DMA region unmapping code in free_skb_rx_queue() basically predates
-the introduction of paged allocation to the driver. While being refactored,
-it apparently hasn't reflected the change in the DMA API usage by its
-counterpart gfar_new_page().
+On 29.01.2017 06:09, Alexander Loktionov wrote:
 
-As a result, setting an interface to the DOWN state now yields the following:
+> +
+> +void aq_ring_tx_append_buffs(struct aq_ring_s *self,
+> +			     struct aq_ring_buff_s *buffer,
+> +			     unsigned int buffers)
+> +{
+> +	if (likely(self->sw_tail + buffers < self->size)) {
+> +		memcpy(&self->buff_ring[self->sw_tail], buffer,
+> +		       sizeof(buffer[0]) * buffers);
+> +	} else {
+> +		unsigned int first_part = self->size - self->sw_tail;
+> +		unsigned int second_part = buffers - first_part;
+> +
+> +		memcpy(&self->buff_ring[self->sw_tail], buffer,
+> +		       sizeof(buffer[0]) * first_part);
+> +
+> +		memcpy(&self->buff_ring[0], &buffer[first_part],
+> +		       sizeof(buffer[0]) * second_part);
+> +	}
+> +}
 
-  # ip link set eth2 down
-  fsl-gianfar ffe24000.ethernet: DMA-API: device driver frees DMA memory with wrong function [device address=0x000000001ecd0000] [size=40]
-  ------------[ cut here ]------------
-  WARNING: CPU: 1 PID: 189 at lib/dma-debug.c:1123 check_unmap+0x8e0/0xa28
-  CPU: 1 PID: 189 Comm: ip Tainted: G           O    4.9.5 #1
-  task: dee73400 task.stack: dede2000
-  NIP: c02101e8 LR: c02101e8 CTR: c0260d74
-  REGS: dede3bb0 TRAP: 0700   Tainted: G           O     (4.9.5)
-  MSR: 00021000 <CE,ME>  CR: 28002222  XER: 00000000
+Do you really have to copy each single frame? Copying is an expensive 
+operation that you normally want to avoid on the fast path.
 
-  GPR00: c02101e8 dede3c60 dee73400 000000b6 dfbd033c dfbd36c4 1f622000 dede2000
-  GPR08: 00000007 c05b1634 1f622000 00000000 22002484 100a9904 00000000 00000000
-  GPR16: 00000000 db4c849c 00000002 db4c8480 00000001 df142240 db4c84bc 00000000
-  GPR24: c0706148 c0700000 00029000 c07552e8 c07323b4 dede3cb8 c07605e0 db535540
-  NIP [c02101e8] check_unmap+0x8e0/0xa28
-  LR [c02101e8] check_unmap+0x8e0/0xa28
-  Call Trace:
-  [dede3c60] [c02101e8] check_unmap+0x8e0/0xa28 (unreliable)
-  [dede3cb0] [c02103b8] debug_dma_unmap_page+0x88/0x9c
-  [dede3d30] [c02dffbc] free_skb_resources+0x2c4/0x404
-  [dede3d80] [c02e39b4] gfar_close+0x24/0xc8
-  [dede3da0] [c0361550] __dev_close_many+0xa0/0xf8
-  [dede3dd0] [c03616f0] __dev_close+0x2c/0x4c
-  [dede3df0] [c036b1b8] __dev_change_flags+0xa0/0x174
-  [dede3e10] [c036b2ac] dev_change_flags+0x20/0x60
-  [dede3e30] [c03e130c] devinet_ioctl+0x540/0x824
-  [dede3e90] [c0347dcc] sock_ioctl+0x134/0x298
-  [dede3eb0] [c0111814] do_vfs_ioctl+0xac/0x854
-  [dede3f20] [c0111ffc] SyS_ioctl+0x40/0x74
-  [dede3f40] [c000f290] ret_from_syscall+0x0/0x3c
-  --- interrupt: c01 at 0xff45da0
-      LR = 0xff45cd0
-  Instruction dump:
-  811d001c 7c66482e 813d0020 9061000c 807f000c 5463103a 7cc6182e 3c60c052
-  386309ac 90c10008 4cc63182 4826b845 <0fe00000> 4bfffa60 3c80c052 388402c4
-  ---[ end trace 695ae6d7ac1d0c47 ]---
-  Mapped at:
-   [<c02e22a8>] gfar_alloc_rx_buffs+0x178/0x248
-   [<c02e3ef0>] startup_gfar+0x368/0x570
-   [<c036aeb4>] __dev_open+0xdc/0x150
-   [<c036b1b8>] __dev_change_flags+0xa0/0x174
-   [<c036b2ac>] dev_change_flags+0x20/0x60
 
-Even though the issue was discovered in 4.9 kernel, the code in question
-is identical in the current net and net-next trees.
+> +#define AQ_SKB_ALIGN SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
+> +int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
+> +{
+> +	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
+> +	int err = 0;
+> +	bool is_rsc_completed = true;
+> +
+> +	for (; (self->sw_head != self->hw_head) && budget;
+> +		self->sw_head = aq_ring_next_dx(self, self->sw_head),
+> +		--budget, ++(*work_done)) {
+> +		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
+> +		struct sk_buff *skb = NULL;
+> +		unsigned int next_ = 0U;
+> +		unsigned int i = 0U;
+> +		struct aq_ring_buff_s *buff_ = NULL;
+> +
+> +		if (buff->is_error) {
+> +			__free_pages(buff->page, 0);
+> +			continue;
+> +		}
+> +
+> +		if (buff->is_cleaned)
+> +			continue;
+> +
+> +		if (!buff->is_eop) {
+> +			for (next_ = buff->next,
+> +			     buff_ = &self->buff_ring[next_]; true;
+> +			     next_ = buff_->next,
+> +			     buff_ = &self->buff_ring[next_]) {
+> +				is_rsc_completed =
+> +					aq_ring_dx_in_range(self->sw_head,
+> +							    next_,
+> +							    self->hw_head);
+> +
+> +				if (unlikely(!is_rsc_completed)) {
+> +					is_rsc_completed = false;
+> +					break;
+> +				}
+> +
+> +				if (buff_->is_eop)
+> +					break;
+> +			}
+> +
+> +			if (!is_rsc_completed) {
+> +				err = 0;
+> +				goto err_exit;
+> +			}
+> +		}
+> +
+> +		/* for single fragment packets use build_skb() */
+> +		if (buff->is_eop) {
+> +			skb = build_skb(page_address(buff->page),
+> +					buff->len + AQ_SKB_ALIGN);
+> +			if (unlikely(!skb)) {
+> +				err = -ENOMEM;
+> +				goto err_exit;
+> +			}
+> +
+> +			skb->dev = ndev;
 
-Fixes: 75354148ce69 ("gianfar: Add paged allocation and Rx S/G")
-Signed-off-by: Arseny Solokha <asolokha@kb.kras.ru>
----
- drivers/net/ethernet/freescale/gianfar.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This is already done by eth_type_trans() below (as I already mentioned 
+in a review of a former version of this driver).
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index c1b671667920..957bfc220978 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2010,8 +2010,8 @@ static void free_skb_rx_queue(struct gfar_priv_rx_q *rx_queue)
- 		if (!rxb->page)
- 			continue;
- 
--		dma_unmap_single(rx_queue->dev, rxb->dma,
--				 PAGE_SIZE, DMA_FROM_DEVICE);
-+		dma_unmap_page(rx_queue->dev, rxb->dma,
-+			       PAGE_SIZE, DMA_FROM_DEVICE);
- 		__free_page(rxb->page);
- 
- 		rxb->page = NULL;
--- 
-2.11.0
+
+> +
+> +void aq_ring_rx_deinit(struct aq_ring_s *self)
+> +{
+> +	if (!self)
+> +		goto err_exit;
+
+Why not return immediately?
+
+
+> +void aq_ring_tx_deinit(struct aq_ring_s *self)
+> +{
+> +	if (!self)
+> +		goto err_exit;
+
+Same here.
+
+
+> +
+> +void aq_ring_free(struct aq_ring_s *self)
+> +{
+> +	if (!self)
+> +		goto err_exit;
+
+In which case can self be NULL?
+
+
+> index 0000000..0ac3f9e
+> --- /dev/null
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
+> @@ -0,0 +1,157 @@
+> +/*
+> + * aQuantia Corporation Network Driver
+> + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
+> + *
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + */
+> +
+> +/* File aq_ring.h: Declaration of functions for Rx/Tx rings. */
+> +
+> +#ifndef AQ_RING_H
+> +#define AQ_RING_H
+> +
+> +#include "aq_common.h"
+> +
+> +struct page;
+> +
+> +/*           TxC       SOP        DX         EOP
+> + *         +----------+----------+----------+-----------
+> + *   8bytes|len l3,l4 | pa       | pa       | pa
+> + *         +----------+----------+----------+-----------
+> + * 4/8bytes|len pkt   |len pkt   |          | skb
+> + *         +----------+----------+----------+-----------
+> + * 4/8bytes|is_txc    |len,flags |len       |len,is_eop
+> + *         +----------+----------+----------+-----------
+> + *
+> + *  This aq_ring_buff_s doesn't have endianness dependency.
+> + *  It is __packed for cache line optimizations.
+> + */
+> +struct __packed aq_ring_buff_s {
+
+__packed should be avoided if possible. There are macros like
+__cacheline_aligned that can be used to ensure cacheline alignment.
+
+Regard,
+Lino
