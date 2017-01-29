@@ -1,70 +1,55 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V3 0/8] mlx4 misc improvements
-Date: Sun, 29 Jan 2017 18:56:12 +0200
-Message-ID: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40185 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751838AbdA2Q5O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 11:57:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Sun, 29 Jan 2017 18:10:01 +0100
+Message-ID: <20170129171001.GE24047@wotan.suse.de>
+References: <87tw8lnei3.fsf@codeaurora.org>
+ <20170127094342.GC24223@pali>
+ <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+ <20170127101043.GD24223@pali>
+ <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
+ <20170127103408.GG24223@pali>
+ <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
+ <20170127115706.GH24223@pali>
+ <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
+ <20170127131146.GI24223@pali>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>,
+        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+        Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>,
+        Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
+        Grazvydas Ignotas <notasas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170127131146.GI24223@pali>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Fri, Jan 27, 2017 at 02:11:46PM +0100, Pali Rohár wrote:
+> So there are only two options:
+> 
+> 1) Disallow it and so these users will have non-working wifi.
+> 
+> 2) Allow those data to be used as fallback mechanism.
 
-This patchset contains several improvements and cleanups
-from the team to the mlx4 Eth and core drivers.
+There is one "custom fallback" user in kernel which we recently
+determined was a total mistake. A sysfs interface should have
+been defined to enable custom LED settings. Can't a series of
+sysfs interfaces be used to enable override ? So is that not a
+third option worth consideration?
 
-Series generated against net-next commit:
-4e8f2fc1a55d Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-
-Thanks,
-Tariq.
-
-v3:
-* Patch 6/9: forgot to actually update the commit message in v2, now it is.
-
-v2:
-* Patch 1/9: used EOPNOTSUPP and not ENOTSUPP.
-* Patch 3/9: dropped, to be submitted separately in the future.
-* Patch 6/9: updated commit message.
-
-Alaa Hleihel (1):
-  net/mlx4_core: Get num_tc using netdev_get_num_tc
-
-Ariel Levkovich (1):
-  net/mlx4_en: Adding support of turning off link autonegotiation via
-    ethtool
-
-Matan Barak (1):
-  net/mlx4_core: Add resource alloc/dealloc debugging
-
-Shaker Daibes (3):
-  net/mlx4_en: Pass user MTU value to Firmware at set port command
-  net/mlx4_en: Check the enabling mtu flag in SET_PORT wrapper flow
-  net/mlx4_en: Check the enabling pptx/pprx flags in SET_PORT wrapper
-    flow
-
-Tariq Toukan (1):
-  net/mlx4: Replace ENOSYS with better fitting error codes
-
-Yishai Hadas (1):
-  net/mlx4_core: Device revision support
-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  28 +++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   8 +
- drivers/net/ethernet/mellanox/mlx4/en_port.h       |   1 -
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   6 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |   6 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |  11 +-
- drivers/net/ethernet/mellanox/mlx4/port.c          | 170 ++++++++++++++++-----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  51 ++++++-
- include/linux/mlx4/device.h                        |   8 +-
- 10 files changed, 228 insertions(+), 63 deletions(-)
-
--- 
-1.8.3.1
+  Luis
