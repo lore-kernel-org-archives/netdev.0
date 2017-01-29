@@ -1,7 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH stable v1 12/13] net: ethernet: aquantia: Receive side scaling
-Date: Sat, 28 Jan 2017 21:09:12 -0800
-Message-ID: <e91f312513cbaf35000919e239b41d4f351c4f95.1485665881.git.vomlehn@texas.net>
+Subject: [PATCH stable v1 01/13] net: ethernet: aquantia: Make and configuration files.
+Date: Sat, 28 Jan 2017 21:09:01 -0800
+Message-ID: <904fb0f21ba5bd50d2ce6d615671313cf2d256fa.1485665881.git.vomlehn@texas.net>
 References: <cover.1485665881.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
@@ -11,9 +11,9 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:38103 "EHLO
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:38096 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751819AbdA2Fp0 (ORCPT
+        by vger.kernel.org with ESMTP id S1752108AbdA2Fp0 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 00:45:26 -0500
 In-Reply-To: <cover.1485665881.git.vomlehn@texas.net>
 In-Reply-To: <cover.1485665881.git.vomlehn@texas.net>
@@ -23,7 +23,7 @@ List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add definitions that support receive side scaling.
+Patches to create the make and configuration files.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
@@ -31,16 +31,111 @@ Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_rss.h | 26 +++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_rss.h
+ drivers/net/ethernet/aquantia/Kconfig           | 24 ++++++++++++++
+ drivers/net/ethernet/aquantia/Makefile          |  5 +++
+ drivers/net/ethernet/aquantia/atlantic/Makefile | 42 +++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/atlantic/ver.h    | 18 +++++++++++
+ 4 files changed, 89 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/ver.h
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_rss.h b/drivers/net/ethernet/aquantia/atlantic/aq_rss.h
+diff --git a/drivers/net/ethernet/aquantia/Kconfig b/drivers/net/ethernet/aquantia/Kconfig
 new file mode 100644
-index 0000000..1db6eb2
+index 0000000..cdf78e0
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_rss.h
-@@ -0,0 +1,26 @@
++++ b/drivers/net/ethernet/aquantia/Kconfig
+@@ -0,0 +1,24 @@
++#
++# aQuantia device configuration
++#
++
++config NET_VENDOR_AQUANTIA
++	bool "aQuantia devices"
++	default y
++	---help---
++	  Set this to y if you have an Ethernet network cards that uses the aQuantia
++	  AQC107/AQC108 chipset.
++
++	  This option does not build any drivers; it casues the aQuantia
++	  drivers that can be built to appear in the list of Ethernet drivers.
++
++
++if NET_VENDOR_AQUANTIA
++
++config AQTION
++	tristate "aQuantia AQtion(tm) Support"
++	depends on PCI && X86_64
++	---help---
++	  This enables the support for the aQuantia AQtion(tm) Ethernet card.
++
++endif # NET_VENDOR_AQUANTIA
+diff --git a/drivers/net/ethernet/aquantia/Makefile b/drivers/net/ethernet/aquantia/Makefile
+new file mode 100644
+index 0000000..4f4897b
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the aQuantia device drivers.
++#
++
++obj-$(CONFIG_AQTION) += atlantic/
+diff --git a/drivers/net/ethernet/aquantia/atlantic/Makefile b/drivers/net/ethernet/aquantia/atlantic/Makefile
+new file mode 100644
+index 0000000..e4ae696
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/Makefile
+@@ -0,0 +1,42 @@
++################################################################################
++#
++# aQuantia Ethernet Controller AQtion Linux Driver
++# Copyright(c) 2014-2017 aQuantia Corporation.
++#
++# This program is free software; you can redistribute it and/or modify it
++# under the terms and conditions of the GNU General Public License,
++# version 2, as published by the Free Software Foundation.
++#
++# This program is distributed in the hope it will be useful, but WITHOUT
++# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++# more details.
++#
++# You should have received a copy of the GNU General Public License along
++# with this program. If not, see <http://www.gnu.org/licenses/>.
++#
++# The full GNU General Public License is included in this distribution in
++# the file called "COPYING".
++#
++# Contact Information: <rdc-drv@aquantia.com>
++# aQuantia Corporation, 105 E. Tasman Dr. San Jose, CA 95134, USA
++#
++################################################################################
++
++#
++# Makefile for the AQtion(tm) Ethernet driver
++#
++
++obj-$(CONFIG_AQTION) += atlantic.o
++
++atlantic-objs := aq_main.o \
++	aq_nic.o \
++	aq_pci_func.o \
++	aq_vec.o \
++	aq_ring.o \
++	aq_hw_utils.o \
++	aq_ethtool.o \
++	hw_atl/hw_atl_a0.o \
++	hw_atl/hw_atl_b0.o \
++	hw_atl/hw_atl_utils.o \
++	hw_atl/hw_atl_llh.o
+diff --git a/drivers/net/ethernet/aquantia/atlantic/ver.h b/drivers/net/ethernet/aquantia/atlantic/ver.h
+new file mode 100644
+index 0000000..0de858d
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/ver.h
+@@ -0,0 +1,18 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -50,22 +145,14 @@ index 0000000..1db6eb2
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_rss.h: Receive Side Scaling definitions. */
++#ifndef VER_H
++#define VER_H
 +
-+#ifndef AQ_RSS_H
-+#define AQ_RSS_H
++#define NIC_MAJOR_DRIVER_VERSION           1
++#define NIC_MINOR_DRIVER_VERSION           5
++#define NIC_BUILD_DRIVER_VERSION           345
++#define NIC_REVISION_DRIVER_VERSION        0
 +
-+#include "aq_common.h"
-+#include "aq_cfg.h"
-+
-+struct aq_rss_parameters {
-+	u16 base_cpu_number;
-+	u16 indirection_table_size;
-+	u16 hash_secret_key_size;
-+	u32 hash_secret_key[AQ_CFG_RSS_HASHKEY_SIZE / sizeof(u32)];
-+	u8 indirection_table[AQ_CFG_RSS_INDIRECTION_TABLE_MAX];
-+};
-+
-+#endif /* AQ_RSS_H */
++#endif /* VER_H */
 -- 
 2.9.3
