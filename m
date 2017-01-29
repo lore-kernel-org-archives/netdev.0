@@ -1,107 +1,100 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V3 5/8] net/mlx4_en: Adding support of turning off link autonegotiation via ethtool
-Date: Sun, 29 Jan 2017 18:56:17 +0200
-Message-ID: <1485708980-23468-6-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next V3 1/8] net/mlx4: Replace ENOSYS with better fitting error codes
+Date: Sun, 29 Jan 2017 18:56:13 +0200
+Message-ID: <1485708980-23468-2-git-send-email-tariqt@mellanox.com>
 References: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Ariel Levkovich <lariel@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40222 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40184 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751842AbdA2Q5O (ORCPT
+        with ESMTP id S1751869AbdA2Q5O (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 11:57:14 -0500
 In-Reply-To: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Levkovich <lariel@mellanox.com>
+Conform the following warning:
+WARNING: ENOSYS means 'invalid syscall nr' and nothing else.
 
-This feature will allow the user to disable auto negotiation
-on the port for mlx4 devices while setting the speed is limited
-to 1GbE speeds.
-Other speeds will not be accepted in autoneg off mode.
-
-This functionality is permitted providing that the firmware
-is compatible with this feature.
-The above is determined by querying a new dedicated capability
-bit in the device.
-
-Signed-off-by: Ariel Levkovich <lariel@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 24 +++++++++++++++++++-----
- include/linux/mlx4/device.h                     |  7 ++++++-
- 2 files changed, 25 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c       | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c               | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c             | 6 +++---
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 785757f17687..ca730d4abbb4 100644
+index d5a9372ed84d..17a600b9f81b 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -902,6 +902,7 @@ static __be32 speed_set_ptys_admin(struct mlx4_en_priv *priv, u32 speed,
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_ptys_reg ptys_reg;
- 	__be32 proto_admin;
-+	u8 cur_autoneg;
- 	int ret;
- 
- 	u32 ptys_adv = ethtool2ptys_link_modes(
-@@ -931,10 +932,21 @@ static __be32 speed_set_ptys_admin(struct mlx4_en_priv *priv, u32 speed,
- 		return 0;
+@@ -1980,7 +1980,7 @@ static int mlx4_en_get_module_info(struct net_device *dev,
+ 		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+ 		break;
+ 	default:
+-		return -ENOSYS;
++		return -EINVAL;
  	}
  
--	proto_admin = link_ksettings->base.autoneg == AUTONEG_ENABLE ?
--		cpu_to_be32(ptys_adv) :
--		speed_set_ptys_admin(priv, speed,
--				     ptys_reg.eth_proto_cap);
-+	cur_autoneg = ptys_reg.flags & MLX4_PTYS_AN_DISABLE_ADMIN ?
-+				AUTONEG_DISABLE : AUTONEG_ENABLE;
-+
-+	if (link_ksettings->base.autoneg == AUTONEG_DISABLE) {
-+		proto_admin = speed_set_ptys_admin(priv, speed,
-+						   ptys_reg.eth_proto_cap);
-+		if ((be32_to_cpu(proto_admin) &
-+		     (MLX4_PROT_MASK(MLX4_1000BASE_CX_SGMII) |
-+		      MLX4_PROT_MASK(MLX4_1000BASE_KX))) &&
-+		    (ptys_reg.flags & MLX4_PTYS_AN_DISABLE_CAP))
-+			ptys_reg.flags |= MLX4_PTYS_AN_DISABLE_ADMIN;
-+	} else {
-+		proto_admin = cpu_to_be32(ptys_adv);
-+		ptys_reg.flags &= ~MLX4_PTYS_AN_DISABLE_ADMIN;
-+	}
- 
- 	proto_admin &= ptys_reg.eth_proto_cap;
- 	if (!proto_admin) {
-@@ -942,7 +954,9 @@ static __be32 speed_set_ptys_admin(struct mlx4_en_priv *priv, u32 speed,
- 		return -EINVAL; /* nothing to change due to bad input */
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 84bab9f0732e..25b5b32e958f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -672,7 +672,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
+ 	MLX4_GET(field, outbox, QUERY_FUNC_CAP_PHYS_PORT_OFFSET);
+ 	func_cap->physical_port = field;
+ 	if (func_cap->physical_port != gen_or_port) {
+-		err = -ENOSYS;
++		err = -EINVAL;
+ 		goto out;
  	}
  
--	if (proto_admin == ptys_reg.eth_proto_admin)
-+	if ((proto_admin == ptys_reg.eth_proto_admin) &&
-+	    ((ptys_reg.flags & MLX4_PTYS_AN_DISABLE_CAP) &&
-+	     (link_ksettings->base.autoneg == cur_autoneg)))
- 		return 0; /* Nothing to change */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index bffa6f345f2f..15ef787e71ba 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -838,7 +838,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 	 */
+ 	if (hca_param.global_caps) {
+ 		mlx4_err(dev, "Unknown hca global capabilities\n");
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
  
- 	en_dbg(DRV, priv, "mlx4_ACCESS_PTYS_REG SET: ptys_reg.eth_proto_admin = 0x%x\n",
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 6533c16e27ad..c3ac945b2759 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -1539,8 +1539,13 @@ enum mlx4_ptys_proto {
- 	MLX4_PTYS_EN = 1<<2,
- };
+ 	mlx4_log_num_mgm_entry_size = hca_param.log_mc_entry_sz;
+@@ -896,7 +896,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 	    PF_CONTEXT_BEHAVIOUR_MASK) {
+ 		mlx4_err(dev, "Unknown pf context behaviour %x known flags %x\n",
+ 			 func_cap.pf_context_behaviour, PF_CONTEXT_BEHAVIOUR_MASK);
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
  
-+enum mlx4_ptys_flags {
-+	MLX4_PTYS_AN_DISABLE_CAP   = 1 << 5,
-+	MLX4_PTYS_AN_DISABLE_ADMIN = 1 << 6,
-+};
-+
- struct mlx4_ptys_reg {
--	u8 resrvd1;
-+	u8 flags;
- 	u8 local_port;
- 	u8 resrvd2;
- 	u8 proto_mask;
+ 	dev->caps.num_ports		= func_cap.num_ports;
+@@ -3492,7 +3492,7 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
+ 	mlx4_enable_msi_x(dev);
+ 	if ((mlx4_is_mfunc(dev)) &&
+ 	    !(dev->flags & MLX4_FLAG_MSI_X)) {
+-		err = -ENOSYS;
++		err = -EOPNOTSUPP;
+ 		mlx4_err(dev, "INTx is not supported in multi-function mode, aborting\n");
+ 		goto err_free_eq;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 6da6e01d07bd..84c74a79752a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -1396,7 +1396,7 @@ static int remove_ok(struct res_common *res, enum mlx4_resource type, int extra)
+ 	case RES_MTT:
+ 		return remove_mtt_ok((struct res_mtt *)res, extra);
+ 	case RES_MAC:
+-		return -ENOSYS;
++		return -EOPNOTSUPP;
+ 	case RES_EQ:
+ 		return remove_eq_ok((struct res_eq *)res);
+ 	case RES_COUNTER:
 -- 
 1.8.3.1
