@@ -1,102 +1,133 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V2 5/8] net/mlx4_en: Adding support of turning off link autonegotiation via ethtool
-Date: Sun, 29 Jan 2017 13:22:27 +0200
-Message-ID: <1485688950-32443-6-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next V2 8/8] net/mlx4_en: Check the enabling pptx/pprx flags in SET_PORT wrapper flow
+Date: Sun, 29 Jan 2017 13:22:30 +0200
+Message-ID: <1485688950-32443-9-git-send-email-tariqt@mellanox.com>
 References: <1485688950-32443-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Ariel Levkovich <lariel@mellanox.com>,
+        Shaker Daibes <shakerd@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51132 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51140 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750843AbdA2LaO (ORCPT
+        with ESMTP id S1750941AbdA2LaO (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 06:30:14 -0500
 In-Reply-To: <1485688950-32443-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Levkovich <lariel@mellanox.com>
+From: Shaker Daibes <shakerd@mellanox.com>
 
-This feature will allow the user to disable auto negotiation
-on the port for mlx4 devices while setting the speed is limited
-to 1GbE speeds.
-Other speeds will not be accepted in autoneg off mode.
+Make sure pptx/pprx mask flag is set using new fields upon set port
+request. In addition, move this code into a helper function for better
+code readability.
 
-Signed-off-by: Ariel Levkovich <lariel@mellanox.com>
+Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 24 +++++++++++++++++++-----
- include/linux/mlx4/device.h                     |  7 ++++++-
- 2 files changed, 25 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_port.h |  1 -
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h    |  4 ++-
+ drivers/net/ethernet/mellanox/mlx4/port.c    | 42 ++++++++++++++++++----------
+ 3 files changed, 31 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 785757f17687..ca730d4abbb4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -902,6 +902,7 @@ static __be32 speed_set_ptys_admin(struct mlx4_en_priv *priv, u32 speed,
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_ptys_reg ptys_reg;
- 	__be32 proto_admin;
-+	u8 cur_autoneg;
- 	int ret;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+index 040da4b16b1c..930f961fee42 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.h
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+@@ -35,7 +35,6 @@
+ #define _MLX4_EN_PORT_H_
  
- 	u32 ptys_adv = ethtool2ptys_link_modes(
-@@ -931,10 +932,21 @@ static __be32 speed_set_ptys_admin(struct mlx4_en_priv *priv, u32 speed,
- 		return 0;
- 	}
  
--	proto_admin = link_ksettings->base.autoneg == AUTONEG_ENABLE ?
--		cpu_to_be32(ptys_adv) :
--		speed_set_ptys_admin(priv, speed,
--				     ptys_reg.eth_proto_cap);
-+	cur_autoneg = ptys_reg.flags & MLX4_PTYS_AN_DISABLE_ADMIN ?
-+				AUTONEG_DISABLE : AUTONEG_ENABLE;
-+
-+	if (link_ksettings->base.autoneg == AUTONEG_DISABLE) {
-+		proto_admin = speed_set_ptys_admin(priv, speed,
-+						   ptys_reg.eth_proto_cap);
-+		if ((be32_to_cpu(proto_admin) &
-+		     (MLX4_PROT_MASK(MLX4_1000BASE_CX_SGMII) |
-+		      MLX4_PROT_MASK(MLX4_1000BASE_KX))) &&
-+		    (ptys_reg.flags & MLX4_PTYS_AN_DISABLE_CAP))
-+			ptys_reg.flags |= MLX4_PTYS_AN_DISABLE_ADMIN;
-+	} else {
-+		proto_admin = cpu_to_be32(ptys_adv);
-+		ptys_reg.flags &= ~MLX4_PTYS_AN_DISABLE_ADMIN;
-+	}
+-#define SET_PORT_GEN_ALL_VALID	0x7
+ #define SET_PORT_PROMISC_SHIFT	31
+ #define SET_PORT_MC_PROMISC_SHIFT	30
  
- 	proto_admin &= ptys_reg.eth_proto_cap;
- 	if (!proto_admin) {
-@@ -942,7 +954,9 @@ static __be32 speed_set_ptys_admin(struct mlx4_en_priv *priv, u32 speed,
- 		return -EINVAL; /* nothing to change due to bad input */
- 	}
- 
--	if (proto_admin == ptys_reg.eth_proto_admin)
-+	if ((proto_admin == ptys_reg.eth_proto_admin) &&
-+	    ((ptys_reg.flags & MLX4_PTYS_AN_DISABLE_CAP) &&
-+	     (link_ksettings->base.autoneg == cur_autoneg)))
- 		return 0; /* Nothing to change */
- 
- 	en_dbg(DRV, priv, "mlx4_ACCESS_PTYS_REG SET: ptys_reg.eth_proto_admin = 0x%x\n",
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 6533c16e27ad..c3ac945b2759 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -1539,8 +1539,13 @@ enum mlx4_ptys_proto {
- 	MLX4_PTYS_EN = 1<<2,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 1132d76ddfdf..7a495090b0bc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -776,7 +776,9 @@ struct mlx4_vlan_table {
+ 	int			max;
  };
  
-+enum mlx4_ptys_flags {
-+	MLX4_PTYS_AN_DISABLE_CAP   = 1 << 5,
-+	MLX4_PTYS_AN_DISABLE_ADMIN = 1 << 6,
-+};
+-#define SET_PORT_GEN_ALL_VALID		0x7
++#define SET_PORT_GEN_ALL_VALID	(MLX4_FLAG_V_MTU_MASK	| \
++				 MLX4_FLAG_V_PPRX_MASK	| \
++				 MLX4_FLAG_V_PPTX_MASK)
+ #define SET_PORT_PROMISC_SHIFT		31
+ #define SET_PORT_MC_PROMISC_SHIFT	30
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 57a10575a7aa..5053c949148f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -53,6 +53,8 @@
+ #define MLX4_FLAG2_V_IGNORE_FCS_MASK		BIT(1)
+ #define MLX4_FLAG2_V_USER_MTU_MASK		BIT(5)
+ #define MLX4_FLAG_V_MTU_MASK			BIT(0)
++#define MLX4_FLAG_V_PPRX_MASK			BIT(1)
++#define MLX4_FLAG_V_PPTX_MASK			BIT(2)
+ #define MLX4_IGNORE_FCS_MASK			0x1
+ #define MLX4_TC_MAX_NUMBER			8
+ 
+@@ -1305,12 +1307,32 @@ void mlx4_reset_roce_gids(struct mlx4_dev *dev, int slave)
+ 	gen_context->user_mtu = cpu_to_be16(master->max_user_mtu[port]);
+ }
+ 
++static void
++mlx4_en_set_port_global_pause(struct mlx4_dev *dev, int slave,
++			      struct mlx4_set_port_general_context *gen_context)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
 +
- struct mlx4_ptys_reg {
--	u8 resrvd1;
-+	u8 flags;
- 	u8 local_port;
- 	u8 resrvd2;
- 	u8 proto_mask;
++	/* Slave cannot change Global Pause configuration */
++	if (slave != mlx4_master_func_num(dev) &&
++	    (gen_context->pptx != master->pptx ||
++	     gen_context->pprx != master->pprx)) {
++		gen_context->pptx = master->pptx;
++		gen_context->pprx = master->pprx;
++		mlx4_warn(dev, "denying Global Pause change for slave:%d\n",
++			  slave);
++	} else {
++		master->pptx = gen_context->pptx;
++		master->pprx = gen_context->pprx;
++	}
++}
++
+ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 				u8 op_mod, struct mlx4_cmd_mailbox *inbox)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_port_info *port_info;
+-	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
+ 	struct mlx4_set_port_rqp_calc_context *qpn_context;
+ 	struct mlx4_set_port_general_context *gen_context;
+ 	struct mlx4_roce_gid_entry *gid_entry_tbl, *gid_entry_mbox, *gid_entry_mb1;
+@@ -1372,19 +1394,11 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 				mlx4_en_set_port_user_mtu(dev, slave, port,
+ 							  gen_context);
+ 
+-			/* Slave cannot change Global Pause configuration */
+-			if (slave != mlx4_master_func_num(dev) &&
+-			    ((gen_context->pptx != master->pptx) ||
+-			     (gen_context->pprx != master->pprx))) {
+-				gen_context->pptx = master->pptx;
+-				gen_context->pprx = master->pprx;
+-				mlx4_warn(dev,
+-					  "denying Global Pause change for slave:%d\n",
+-					  slave);
+-			} else {
+-				master->pptx = gen_context->pptx;
+-				master->pprx = gen_context->pprx;
+-			}
++			if (gen_context->flags &
++			    (MLX4_FLAG_V_PPRX_MASK || MLX4_FLAG_V_PPTX_MASK))
++				mlx4_en_set_port_global_pause(dev, slave,
++							      gen_context);
++
+ 			break;
+ 		case MLX4_SET_PORT_GID_TABLE:
+ 			/* change to MULTIPLE entries: number of guest's gids
 -- 
 1.8.3.1
