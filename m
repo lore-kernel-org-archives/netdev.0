@@ -1,130 +1,133 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] qed: Add infrastructure for PTP support.
-Date: Sun, 29 Jan 2017 16:28:12 +0100
-Message-ID: <20170129152812.GB2223@localhost.localdomain>
-References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485674903-27689-2-git-send-email-Sudarsana.Kalluru@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, Yuval.Mintz@cavium.com
-To: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net-next V3 8/8] net/mlx4_en: Check the enabling pptx/pprx flags in SET_PORT wrapper flow
+Date: Sun, 29 Jan 2017 18:56:20 +0200
+Message-ID: <1485708980-23468-9-git-send-email-tariqt@mellanox.com>
+References: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Shaker Daibes <shakerd@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35989 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750990AbdA2Px5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 10:53:57 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r126so71441589wmr.3
-        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 07:52:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1485674903-27689-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40236 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751899AbdA2Q5O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 11:57:14 -0500
+In-Reply-To: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 28, 2017 at 11:28:22PM -0800, Sudarsana Kalluru wrote:
-> +/* Adjust the HW clock by a rate given in parts-per-million (ppm) units.
-> + * FW/HW accepts the adjustment value in terms of 3 parameters:
-> + *   Drift period - adjustment happens once in certain number of nano seconds.
-> + *   Drift value - time is adjusted by a certain value, for example by 5 ns.
-> + *   Drift direction - add or subtract the adjustment value.
-> + * The routine translates ppm into the adjustment triplet in an optimal manner.
-> + */
-> +static int qed_ptp_hw_adjfreq(struct qed_dev *cdev, s32 ppb)
-> +{
-> +	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-> +	s64 period, period1, period2, dif, dif1, dif2;
-> +	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-> +	int drift_dir, best_val, best_period;
-> +	s64 best_dif, temp, val;
-> +	u32 drift_ctr_cfg = 0;
-> +	u32 drift_state;
-> +
-> +	best_dif = 1000000000;
-> +	best_period = 1;
-> +	best_val = 0;
-> +	drift_dir = 1;
-> +
-> +	if (ppb < 0) {
-> +		ppb = -ppb;
-> +		drift_dir = 0;
-> +	}
-> +
-> +	if (ppb == 0) {
-> +		/* No clock adjustment required */
-> +		best_val = 0;
-> +		best_period = 0xFFFFFFF;
-> +	} else {
-> +		/* Adjustment value is up to +/-7ns, find an optimal value in
-> +		 * this range.
-> +		 */
-> +		for (val = 0; val <= 7; val++) {
-> +			period1 = val * 1000000000;
-> +			do_div(period1, ppb);
+From: Shaker Daibes <shakerd@mellanox.com>
 
-One,
+Make sure pptx/pprx mask flag is set using new fields upon set port
+request. In addition, move this code into a helper function for better
+code readability.
 
-> +			period1 -= 8;
-> +			do_div(period1, 16);
+Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_port.h |  1 -
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h    |  4 ++-
+ drivers/net/ethernet/mellanox/mlx4/port.c    | 42 ++++++++++++++++++----------
+ 3 files changed, 31 insertions(+), 16 deletions(-)
 
-two,
-
-> +			if (period1 < 1)
-> +				period1 = 1;
-> +			if (period1 > 0xFFFFFFE)
-> +				period1 = 0xFFFFFFE;
-> +			period2 = period1 + 1;
-> +
-> +			temp = val * 1000000000;
-> +			do_div(temp, (period1 * 16 + 8));
-
-three,
-
-> +			dif1 = ppb - temp;
-> +			if (dif1 < 0)
-> +				dif1 = -dif1;
-> +
-> +			temp = val * 1000000000;
-> +			do_div(temp, (period2 * 16 + 8));
-
-four times seven makes twenty-eight 64 bit divisions per adjustment!
-
-Isn't there a smarter way to do this?
-
-Also, the case where val=0 makes little sense.
-
-
-Thanks,
-Richard
-
-> +			dif2 = ppb - temp;
-> +			if (dif2 < 0)
-> +				dif2 = -dif2;
-> +
-> +			dif = min_t(s64, dif1, dif2);
-> +			period = (dif1 < dif2) ? period1 : period2;
-> +			if (dif < best_dif) {
-> +				best_dif = dif;
-> +				best_val = (int)val;
-> +				best_period = (int)period;
-> +			}
-> +		}
-> +	}
-> +
-> +	drift_ctr_cfg = (best_period << QED_DRIFT_CNTR_TIME_QUANTA_SHIFT) |
-> +			(best_val << QED_DRIFT_CNTR_ADJUSTMENT_SHIFT) |
-> +			(drift_dir << QED_DRIFT_CNTR_DIRECTION_SHIFT);
-> +
-> +	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x1);
-> +
-> +	drift_state = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR);
-> +	if (drift_state & 1) {
-> +		qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_DRIFT_CNTR_CONF,
-> +		       drift_ctr_cfg);
-> +	} else {
-> +		DP_INFO(p_hwfn, "Drift counter is not reset\n");
-> +		return -EINVAL;
-> +	}
-> +
-> +	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x0);
-> +
-> +	return 0;
-> +}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+index 040da4b16b1c..930f961fee42 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_port.h
++++ b/drivers/net/ethernet/mellanox/mlx4/en_port.h
+@@ -35,7 +35,6 @@
+ #define _MLX4_EN_PORT_H_
+ 
+ 
+-#define SET_PORT_GEN_ALL_VALID	0x7
+ #define SET_PORT_PROMISC_SHIFT	31
+ #define SET_PORT_MC_PROMISC_SHIFT	30
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 1132d76ddfdf..7a495090b0bc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -776,7 +776,9 @@ struct mlx4_vlan_table {
+ 	int			max;
+ };
+ 
+-#define SET_PORT_GEN_ALL_VALID		0x7
++#define SET_PORT_GEN_ALL_VALID	(MLX4_FLAG_V_MTU_MASK	| \
++				 MLX4_FLAG_V_PPRX_MASK	| \
++				 MLX4_FLAG_V_PPTX_MASK)
+ #define SET_PORT_PROMISC_SHIFT		31
+ #define SET_PORT_MC_PROMISC_SHIFT	30
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index 57a10575a7aa..5053c949148f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -53,6 +53,8 @@
+ #define MLX4_FLAG2_V_IGNORE_FCS_MASK		BIT(1)
+ #define MLX4_FLAG2_V_USER_MTU_MASK		BIT(5)
+ #define MLX4_FLAG_V_MTU_MASK			BIT(0)
++#define MLX4_FLAG_V_PPRX_MASK			BIT(1)
++#define MLX4_FLAG_V_PPTX_MASK			BIT(2)
+ #define MLX4_IGNORE_FCS_MASK			0x1
+ #define MLX4_TC_MAX_NUMBER			8
+ 
+@@ -1305,12 +1307,32 @@ void mlx4_reset_roce_gids(struct mlx4_dev *dev, int slave)
+ 	gen_context->user_mtu = cpu_to_be16(master->max_user_mtu[port]);
+ }
+ 
++static void
++mlx4_en_set_port_global_pause(struct mlx4_dev *dev, int slave,
++			      struct mlx4_set_port_general_context *gen_context)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
++
++	/* Slave cannot change Global Pause configuration */
++	if (slave != mlx4_master_func_num(dev) &&
++	    (gen_context->pptx != master->pptx ||
++	     gen_context->pprx != master->pprx)) {
++		gen_context->pptx = master->pptx;
++		gen_context->pprx = master->pprx;
++		mlx4_warn(dev, "denying Global Pause change for slave:%d\n",
++			  slave);
++	} else {
++		master->pptx = gen_context->pptx;
++		master->pprx = gen_context->pprx;
++	}
++}
++
+ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 				u8 op_mod, struct mlx4_cmd_mailbox *inbox)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_port_info *port_info;
+-	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
+ 	struct mlx4_set_port_rqp_calc_context *qpn_context;
+ 	struct mlx4_set_port_general_context *gen_context;
+ 	struct mlx4_roce_gid_entry *gid_entry_tbl, *gid_entry_mbox, *gid_entry_mb1;
+@@ -1372,19 +1394,11 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 				mlx4_en_set_port_user_mtu(dev, slave, port,
+ 							  gen_context);
+ 
+-			/* Slave cannot change Global Pause configuration */
+-			if (slave != mlx4_master_func_num(dev) &&
+-			    ((gen_context->pptx != master->pptx) ||
+-			     (gen_context->pprx != master->pprx))) {
+-				gen_context->pptx = master->pptx;
+-				gen_context->pprx = master->pprx;
+-				mlx4_warn(dev,
+-					  "denying Global Pause change for slave:%d\n",
+-					  slave);
+-			} else {
+-				master->pptx = gen_context->pptx;
+-				master->pprx = gen_context->pprx;
+-			}
++			if (gen_context->flags &
++			    (MLX4_FLAG_V_PPRX_MASK || MLX4_FLAG_V_PPTX_MASK))
++				mlx4_en_set_port_global_pause(dev, slave,
++							      gen_context);
++
+ 			break;
+ 		case MLX4_SET_PORT_GID_TABLE:
+ 			/* change to MULTIPLE entries: number of guest's gids
+-- 
+1.8.3.1
