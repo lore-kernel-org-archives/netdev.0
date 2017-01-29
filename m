@@ -1,32 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/2] gtp: simple gtp improvements
-Date: Sun, 29 Jan 2017 13:56:05 -0500 (EST)
-Message-ID: <20170129.135605.1273656353031937944.davem@davemloft.net>
-References: <20170126152149.3284-1-aschultz@tpip.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 RFC net-next 4/7] tcp: replace dst_confirm with
+ sk_dst_confirm
+Date: Sun, 29 Jan 2017 11:27:36 -0800
+Message-ID: <1485718056.6360.93.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
+         <1485613578-19973-5-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-        Lionel.Gauthier@eurecom.fr, openbsc@lists.osmocom.org,
-        laforge@gnumonks.org, elfring@users.sourceforge.net
-To: aschultz@tpip.net
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        YueHaibing <yuehaibing@huawei.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56080 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751509AbdA2S4m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 13:56:42 -0500
-In-Reply-To: <20170126152149.3284-1-aschultz@tpip.net>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35262 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751149AbdA2T1i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 14:27:38 -0500
+In-Reply-To: <1485613578-19973-5-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Schultz <aschultz@tpip.net>
-Date: Thu, 26 Jan 2017 16:21:47 +0100
-
-> This is the part of the previous "simple gtp improvements" series
-> that Pablo indicated should go into net-next.
+On Sat, 2017-01-28 at 16:26 +0200, Julian Anastasov wrote:
+> When same struct dst_entry can be used for many different
+> neighbours we can not use it for pending confirmations.
+> Use the new sk_dst_confirm() helper to propagate the
+> indication from received packets to sock_confirm_neigh().
 > 
-> The rcu_lock removal is small correctness changes. Passing invalid
-> to user space allows for more standards compliant handling of invalid
-> tunnels.
+> Reported-by: YueHaibing <yuehaibing@huawei.com>
+> Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
+> Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
 
-Series applied, thanks.
+For the whole series,
+
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
