@@ -1,33 +1,39 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] qed: Add infrastructure for PTP support.
-Date: Sun, 29 Jan 2017 21:51:56 +0100
-Message-ID: <20170129205156.GA30336@localhost.localdomain>
-References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485674903-27689-2-git-send-email-Sudarsana.Kalluru@cavium.com>
- <20170129153134.GC2223@localhost.localdomain>
- <BL2PR07MB23065AC5421859AAC6D334348D480@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [pull request][net 0/8] Mellanox mlx5 fixes 2017-01-27
+Date: Sun, 29 Jan 2017 22:57:14 +0200
+Message-ID: <CALzJLG_eFhFU7ZYD-n9J6hedRRvyqCHsgOA8ZDRnzAutK6wsmA@mail.gmail.com>
+References: <20170127203843.3206-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35112 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750744AbdA2UwC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 15:52:02 -0500
-Received: by mail-wm0-f67.google.com with SMTP id u63so4484872wmu.2
-        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 12:52:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <BL2PR07MB23065AC5421859AAC6D334348D480@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:33603 "EHLO
+        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750746AbdA2U5x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 15:57:53 -0500
+Received: by mail-qk0-f169.google.com with SMTP id s140so112071657qke.0
+        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 12:57:35 -0800 (PST)
+In-Reply-To: <20170127203843.3206-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 29, 2017 at 05:26:13PM +0000, Mintz, Yuval wrote:
-> We could - but what difference would it make?
+On Fri, Jan 27, 2017 at 10:38 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> Hi Dave,
+>
+> This pull request includes some mlx5 fixes for net, please see details
+> below.
+>
+> Please pull and let me know if there's any problem.
+>
+> For -stable:
+>       net/mlx5e: Modify TIRs hash only when it's needed
 
-It would reduce the chance of missing the next time stamp.
+Hi Dave,
+
+I am going to re-spin and post V2 to address Tom's comments on the
+above patch commit message
 
 Thanks,
-Richard
+Saeed.
