@@ -1,39 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 RFC net-next 4/7] tcp: replace dst_confirm with
- sk_dst_confirm
-Date: Sun, 29 Jan 2017 11:27:36 -0800
-Message-ID: <1485718056.6360.93.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
-         <1485613578-19973-5-git-send-email-ja@ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        YueHaibing <yuehaibing@huawei.com>
-To: Julian Anastasov <ja@ssi.bg>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 4/4] net: dsa: bcm_sf2: Add support for port mirroring
+Date: Sun, 29 Jan 2017 11:29:10 -0800
+Message-ID: <20170129192910.6069-5-f.fainelli@gmail.com>
+References: <20170129192910.6069-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        jiri@mellanox.com, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35262 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751149AbdA2T1i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 14:27:38 -0500
-In-Reply-To: <1485613578-19973-5-git-send-email-ja@ssi.bg>
+Received: from mail-ot0-f196.google.com ([74.125.82.196]:36025 "EHLO
+        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751750AbdA2TaS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 14:30:18 -0500
+Received: by mail-ot0-f196.google.com with SMTP id 36so36293897otx.3
+        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 11:29:21 -0800 (PST)
+In-Reply-To: <20170129192910.6069-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-01-28 at 16:26 +0200, Julian Anastasov wrote:
-> When same struct dst_entry can be used for many different
-> neighbours we can not use it for pending confirmations.
-> Use the new sk_dst_confirm() helper to propagate the
-> indication from received packets to sock_confirm_neigh().
-> 
-> Reported-by: YueHaibing <yuehaibing@huawei.com>
-> Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
-> Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> ---
+We can use b53_mirror_add and b53_mirror_del because the Starfighter 2
+is register compatible in that specific case.
 
-For the whole series,
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 8eecfd227e06..3e514d7af218 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1036,6 +1036,8 @@ static const struct dsa_switch_ops bcm_sf2_ops = {
+ 	.port_fdb_dump		= b53_fdb_dump,
+ 	.port_fdb_add		= b53_fdb_add,
+ 	.port_fdb_del		= b53_fdb_del,
++	.port_mirror_add	= b53_mirror_add,
++	.port_mirror_del	= b53_mirror_del,
+ };
+ 
+ struct bcm_sf2_of_data {
+-- 
+2.9.3
