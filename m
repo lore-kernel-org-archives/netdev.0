@@ -1,119 +1,101 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Sat, 28 Jan 2017 17:00:41 -0800
-Message-ID: <588D3EB9.1070107@cumulusnetworks.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next] net: ethtool: silence kmalloc warning
+Date: Sat, 28 Jan 2017 17:17:05 -0800
+Message-ID: <1485652625-2881838-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain
+Cc: Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:34827 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751778AbdA2BAn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 20:00:43 -0500
-Received: by mail-pg0-f53.google.com with SMTP id 194so91296518pgd.2
-        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 17:00:43 -0800 (PST)
-In-Reply-To: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59196 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752768AbdA2BSY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Jan 2017 20:18:24 -0500
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v0T1F6Uq006325
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 17:17:08 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 288qg01xe7-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 17:17:08 -0800
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
+ mx-out.facebook.com (10.223.100.99) with ESMTP id
+ a5cdc4b6e5c011e6983924be05956610-107f8a50 for <netdev@vger.kernel.org>;        Sat,
+ 28 Jan 2017 17:17:06 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/27/17, 3:20 PM, David Ahern wrote:
-> This series closes a couple of gaps between IPv4 and IPv6 with respect
-> to multipath routes:
->
-> 1. IPv4 allows all nexthops of multipath routes to be deleted using just
->    the prefix and length; IPv6 only deletes the first nexthop for the
->    route if only the prefix and length are given.
->
-> 2. IPv4 returns multipath routes encoded in the RTA_MULTIPATH attribute.
->    IPv6 returns a series of routes with the same prefix and length - one
->    for each nexthop. This happens for both dumps and notifications.
->
-> IPv6 does accept RTA_MULTIPATH encoded routes, but installs them as a
-> series of routes.
->
-> Patch 2 addresses the first item by allowing IPv6 multipath routes to be
-> deleted using just the prefix and length. Patch 3 addresses the second
-> allowing IPv6 multipath routes to be returned encoded in the RTA_MULTIPATH.
->
-> Patch 1 adds the NLM_F_APPEND flag to notifications when the flag is
-> present in the request. The lack of this flag was noted testing route
-> appends and comparing to IPv4.
->
-> Patch 4 prints IPv6 addresses in compressed format when showing route
-> replace errors. This was noticed testing REPLACE failures.
->
-> The end result for multipath routes:
-> 1. Route Add
->    - one notification with RTA_MULTIPATH attribute
->
-> 2. Route Replace
->    - notification for first route and all siblings that have
->      succeeded. This is needed regardless of success of remaining
->      nexthops to maintain add/delete consistency should a failure
->      happens on the second or following nexthop (ie., need to tell
->      userspace that original route has been replaced and then the
->      failure logic deletes all routes inserted thus far).
->      
-> 3. Route Delete
->    - for multipath route only given nexthops are deleted. This path
->      is hit when DELETE contains RTA_MULTIPATH. All other route deletes,
->      all nexthops are deleted for given prefix and length (and any
->      other specs if given)
->
->    - one notification sent per nexthop deleted. This is unavoidable
->      since IPv6 alllows a single nexthop to be deleted within a multipath
->      route
->
-> 4. Route Appends
->    - IPv6 allows nexthops to be appended to an existing route. In this
->      case one notification is sent per nexthop added
+under memory pressure 'ethtool -S' command may warn:
+[ 2374.385195] ethtool: page allocation failure: order:4, mode:0x242c0c0
+[ 2374.405573] CPU: 12 PID: 40211 Comm: ethtool Not tainted
+[ 2374.423071] Call Trace:
+[ 2374.423076]  [<ffffffff8148cb29>] dump_stack+0x4d/0x64
+[ 2374.423080]  [<ffffffff811667cb>] warn_alloc_failed+0xeb/0x150
+[ 2374.423082]  [<ffffffff81169cd3>] ? __alloc_pages_direct_compact+0x43/0xf0
+[ 2374.423084]  [<ffffffff8116a25c>] __alloc_pages_nodemask+0x4dc/0xbf0
+[ 2374.423091]  [<ffffffffa0023dc2>] ? cmd_exec+0x722/0xcd0 [mlx5_core]
+[ 2374.423095]  [<ffffffff811b3dcc>] alloc_pages_current+0x8c/0x110
+[ 2374.423097]  [<ffffffff81168859>] alloc_kmem_pages+0x19/0x90
+[ 2374.423099]  [<ffffffff81186e5e>] kmalloc_order_trace+0x2e/0xe0
+[ 2374.423101]  [<ffffffff811c0084>] __kmalloc+0x204/0x220
+[ 2374.423105]  [<ffffffff816c269e>] dev_ethtool+0xe4e/0x1f80
+[ 2374.423106]  [<ffffffff816b967e>] ? dev_get_by_name_rcu+0x5e/0x80
+[ 2374.423108]  [<ffffffff816d6926>] dev_ioctl+0x156/0x560
+[ 2374.423111]  [<ffffffff811d4c68>] ? mem_cgroup_commit_charge+0x78/0x3c0
+[ 2374.423117]  [<ffffffff8169d542>] sock_do_ioctl+0x42/0x50
+[ 2374.423119]  [<ffffffff8169d9c3>] sock_ioctl+0x1b3/0x250
+[ 2374.423121]  [<ffffffff811f0f42>] do_vfs_ioctl+0x92/0x580
+[ 2374.423123]  [<ffffffff8100222b>] ? do_audit_syscall_entry+0x4b/0x70
+[ 2374.423124]  [<ffffffff8100287c>] ? syscall_trace_enter_phase1+0xfc/0x120
+[ 2374.423126]  [<ffffffff811f14a9>] SyS_ioctl+0x79/0x90
+[ 2374.423127]  [<ffffffff81002bb0>] do_syscall_64+0x50/0xa0
+[ 2374.423129]  [<ffffffff817e19bc>] entry_SYSCALL64_slow_path+0x25/0x25
 
-thanks for listing all of these...I think you mentioned this case to me..
-but I don't remember now why this notification is
-sent per nexthop added. This is an update to an existing multipath route.
-so seems like the notification should be a RTM_NEWROUTE with the full RTA_MULTIPATH route
-(similar to route add)
+~1160 mlx5 counters ~= order 4 allocation which is unlikely to succeed
+under memory pressure.  Since 'get stats' command is not critical
+avoid reclaim and warning.
+Also convert to safer kmalloc_array.
 
-Same holds for replace, I know the code might be tricky here...but the route replace
-is also an update to an existing multipath route and hence should be a RTM_NEWROUTE
-with the full multipath route (RTA_MULTIPATH) that changed (from userspace semantics POV)
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+---
+Long term this place is a good candidate to use kvmalloc() once it's merged.
+---
+ net/core/ethtool.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-I don't have a better solution, but with the above still being different, wondering
-if its worth the risk changing the api for just a few notifications.
-
->
-> Addresses some of the inconsistencies also noted by Roopa at netdev0.1:
-> https://www.netdev01.org/docs/prabhu-linux_ipv4_ipv6_inconsistencies_talk_slides.pdf
->
-> v3
-> - removed the need for a user API to opt-in to change. Requiring an
->   API just shifts the difference from same API with different
->   behavior to different API to achieve equivalent behavior
->
-> - route notifications changed to use RTA_MULTIPATH for add and replace
->
-> - upated commit messages and cover letter
->
-> v2
-> - fixed locking in patch 1 as noted by DaveM
-> - changed user API for patch 2 to require an rtmsg with RTM_F_ALL_NEXTHOPS
->   set in rtm_flags
-> - revamped explanation of patch 2 and cover letter
->
-> David Ahern (4):
->   net: ipv6: add NLM_F_APPEND in notifications when applicable
->   net: ipv6: Allow shorthand delete of all nexthops in multipath route
->   net: ipv6: Add support to dump multipath routes via RTA_MULTIPATH
->     attribute
->   net: ipv6: Use compressed IPv6 addresses showing route replace error
->
->  include/net/ip6_fib.h |   4 +-
->  include/net/netlink.h |   1 +
->  net/ipv6/ip6_fib.c    |  19 +++++-
->  net/ipv6/route.c      | 163 ++++++++++++++++++++++++++++++++++++++++++++------
->  4 files changed, 165 insertions(+), 22 deletions(-)
->
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 236a21e3c878..be681a06bf3f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1820,7 +1820,8 @@ static int ethtool_get_strings(struct net_device *dev, void __user *useraddr)
+ 
+ 	gstrings.len = ret;
+ 
+-	data = kcalloc(gstrings.len, ETH_GSTRING_LEN, GFP_USER);
++	data = kcalloc(gstrings.len, ETH_GSTRING_LEN,
++		       GFP_USER | __GFP_NORETRY | __GFP_NOWARN);
+ 	if (!data)
+ 		return -ENOMEM;
+ 
+@@ -1918,7 +1919,8 @@ static int ethtool_get_stats(struct net_device *dev, void __user *useraddr)
+ 		return -EFAULT;
+ 
+ 	stats.n_stats = n_stats;
+-	data = kmalloc(n_stats * sizeof(u64), GFP_USER);
++	data = kmalloc_array(n_stats, sizeof(u64),
++			     GFP_USER | __GFP_NORETRY | __GFP_NOWARN);
+ 	if (!data)
+ 		return -ENOMEM;
+ 
+@@ -1957,7 +1959,8 @@ static int ethtool_get_phy_stats(struct net_device *dev, void __user *useraddr)
+ 		return -EFAULT;
+ 
+ 	stats.n_stats = n_stats;
+-	data = kmalloc_array(n_stats, sizeof(u64), GFP_USER);
++	data = kmalloc_array(n_stats, sizeof(u64),
++			     GFP_USER | __GFP_NORETRY | __GFP_NOWARN);
+ 	if (!data)
+ 		return -ENOMEM;
+ 
+-- 
+2.8.0
