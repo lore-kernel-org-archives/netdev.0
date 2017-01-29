@@ -1,67 +1,100 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V2 0/8] mlx4 misc improvements
-Date: Sun, 29 Jan 2017 13:22:22 +0200
-Message-ID: <1485688950-32443-1-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next V2 1/8] net/mlx4: Replace ENOSYS with better fitting error codes
+Date: Sun, 29 Jan 2017 13:22:23 +0200
+Message-ID: <1485688950-32443-2-git-send-email-tariqt@mellanox.com>
+References: <1485688950-32443-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51133 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51131 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750862AbdA2LaO (ORCPT
+        with ESMTP id S1750849AbdA2LaO (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 06:30:14 -0500
+In-Reply-To: <1485688950-32443-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Conform the following warning:
+WARNING: ENOSYS means 'invalid syscall nr' and nothing else.
 
-This patchset contains several improvements and cleanups
-from the team to the mlx4 Eth and core drivers.
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c       | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c               | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c             | 6 +++---
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-Series generated against net-next commit:
-4e8f2fc1a55d Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-
-Thanks,
-Tariq.
-
-v2:
-* Patch 1/9: used EOPNOTSUPP and not ENOTSUPP.
-* Patch 3/9: dropped, to be submitted separately in the future.
-* Patch 6/9: updated commit message.
-
-Alaa Hleihel (1):
-  net/mlx4_core: Get num_tc using netdev_get_num_tc
-
-Ariel Levkovich (1):
-  net/mlx4_en: Adding support of turning off link autonegotiation via
-    ethtool
-
-Matan Barak (1):
-  net/mlx4_core: Add resource alloc/dealloc debugging
-
-Shaker Daibes (3):
-  net/mlx4_en: Pass user MTU value to Firmware at set port command
-  net/mlx4_en: Check the enabling mtu flag in SET_PORT wrapper flow
-  net/mlx4_en: Check the enabling pptx/pprx flags in SET_PORT wrapper
-    flow
-
-Tariq Toukan (1):
-  net/mlx4: Replace ENOSYS with better fitting error codes
-
-Yishai Hadas (1):
-  net/mlx4_core: Device revision support
-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  28 +++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   8 +
- drivers/net/ethernet/mellanox/mlx4/en_port.h       |   1 -
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   6 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |   6 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |  11 +-
- drivers/net/ethernet/mellanox/mlx4/port.c          | 170 ++++++++++++++++-----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  51 ++++++-
- include/linux/mlx4/device.h                        |   8 +-
- 10 files changed, 228 insertions(+), 63 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index d5a9372ed84d..17a600b9f81b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1980,7 +1980,7 @@ static int mlx4_en_get_module_info(struct net_device *dev,
+ 		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+ 		break;
+ 	default:
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 84bab9f0732e..25b5b32e958f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -672,7 +672,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
+ 	MLX4_GET(field, outbox, QUERY_FUNC_CAP_PHYS_PORT_OFFSET);
+ 	func_cap->physical_port = field;
+ 	if (func_cap->physical_port != gen_or_port) {
+-		err = -ENOSYS;
++		err = -EINVAL;
+ 		goto out;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index bffa6f345f2f..15ef787e71ba 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -838,7 +838,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 	 */
+ 	if (hca_param.global_caps) {
+ 		mlx4_err(dev, "Unknown hca global capabilities\n");
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
+ 
+ 	mlx4_log_num_mgm_entry_size = hca_param.log_mc_entry_sz;
+@@ -896,7 +896,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 	    PF_CONTEXT_BEHAVIOUR_MASK) {
+ 		mlx4_err(dev, "Unknown pf context behaviour %x known flags %x\n",
+ 			 func_cap.pf_context_behaviour, PF_CONTEXT_BEHAVIOUR_MASK);
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
+ 
+ 	dev->caps.num_ports		= func_cap.num_ports;
+@@ -3492,7 +3492,7 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
+ 	mlx4_enable_msi_x(dev);
+ 	if ((mlx4_is_mfunc(dev)) &&
+ 	    !(dev->flags & MLX4_FLAG_MSI_X)) {
+-		err = -ENOSYS;
++		err = -EOPNOTSUPP;
+ 		mlx4_err(dev, "INTx is not supported in multi-function mode, aborting\n");
+ 		goto err_free_eq;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 6da6e01d07bd..84c74a79752a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -1396,7 +1396,7 @@ static int remove_ok(struct res_common *res, enum mlx4_resource type, int extra)
+ 	case RES_MTT:
+ 		return remove_mtt_ok((struct res_mtt *)res, extra);
+ 	case RES_MAC:
+-		return -ENOSYS;
++		return -EOPNOTSUPP;
+ 	case RES_EQ:
+ 		return remove_eq_ok((struct res_eq *)res);
+ 	case RES_COUNTER:
 -- 
 1.8.3.1
