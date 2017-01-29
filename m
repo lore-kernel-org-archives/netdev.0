@@ -1,108 +1,40 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH V2 3/3] net: bgmac: use PHY subsystem for initializing PHY
-Date: Sun, 29 Jan 2017 22:31:51 +0100
-Message-ID: <CACna6rzgX0PcNg77_hLs5XCvHnJF110Psyg3eES-ZejgVwb7rw@mail.gmail.com>
-References: <20170128210832.26174-1-zajec5@gmail.com> <20170128210832.26174-4-zajec5@gmail.com>
- <08f74e19-f9b2-a0ea-ee21-d35cbdf6ee76@gmail.com> <a041cb98-1555-7838-4e02-1d7a71cea90f@gmail.com>
- <03584f21-6ea2-a6ea-3100-cf5b1ead4f0f@gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next v2 1/2] qed: Add infrastructure for PTP support.
+Date: Sun, 29 Jan 2017 21:36:11 +0000
+Message-ID: <BL2PR07MB23063CA6DC624BDC4ABCCC268D480@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485674903-27689-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <20170129153134.GC2223@localhost.localdomain>
+ <BL2PR07MB23065AC5421859AAC6D334348D480@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20170129205156.GA30336@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Felix Fietkau <nbd@openwrt.org>,
-        Network Development <netdev@vger.kernel.org>,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34647 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750755AbdA2Vbw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 16:31:52 -0500
-Received: by mail-oi0-f65.google.com with SMTP id w144so24587411oiw.1
-        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 13:31:52 -0800 (PST)
-In-Reply-To: <03584f21-6ea2-a6ea-3100-cf5b1ead4f0f@gmail.com>
+Received: from mail-dm3nam03on0044.outbound.protection.outlook.com ([104.47.41.44]:55740
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750755AbdA2Vgw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 29 Jan 2017 16:36:52 -0500
+In-Reply-To: <20170129205156.GA30336@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29 January 2017 at 21:22, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 01/29/2017 12:14 PM, Rafa=C5=82 Mi=C5=82ecki wrote:
->> On 01/29/2017 04:08 AM, Florian Fainelli wrote:
->>> On 01/28/2017 01:08 PM, Rafa=C5=82 Mi=C5=82ecki wrote:
->>>> From: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
->>>>
->>>> This adds support for using bgmac with PHYs supported by standalone PH=
-Y
->>>> drivers. Having any PHY initialization in bgmac is hacky and shouldn't
->>>> be extended but rather removed if anyone has hardware to test it.
->>>>
->>>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl>
->>>> ---
->>>>  drivers/net/ethernet/broadcom/bgmac-bcma-mdio.c | 10 ++++++++++
->>>>  1 file changed, 10 insertions(+)
->>>>
->>>> diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma-mdio.c
->>>> b/drivers/net/ethernet/broadcom/bgmac-bcma-mdio.c
->>>> index 9d9984999dce..6ce80cbcb48e 100644
->>>> --- a/drivers/net/ethernet/broadcom/bgmac-bcma-mdio.c
->>>> +++ b/drivers/net/ethernet/broadcom/bgmac-bcma-mdio.c
->>>> @@ -132,6 +132,10 @@ static void bcma_mdio_phy_init(struct bgmac *bgma=
-c)
->>>>      struct bcma_chipinfo *ci =3D &bgmac->bcma.core->bus->chipinfo;
->>>>      u8 i;
->>>>
->>>> +    /* For some legacy hardware we do chipset-based PHY
->>>> initialization here
->>>> +     * without even detecting PHY ID. It's hacky and should be
->>>> cleaned as
->>>> +     * soon as someone can test it.
->>>> +     */
->>>>      if (ci->id =3D=3D BCMA_CHIP_ID_BCM5356) {
->>>>          for (i =3D 0; i < 5; i++) {
->>>>              bcma_mdio_phy_write(bgmac, i, 0x1f, 0x008b);
->>>> @@ -140,6 +144,7 @@ static void bcma_mdio_phy_init(struct bgmac *bgmac=
-)
->>>>              bcma_mdio_phy_write(bgmac, i, 0x12, 0x2aaa);
->>>>              bcma_mdio_phy_write(bgmac, i, 0x1f, 0x000b);
->>>>          }
->>>> +        return;
->>>
->>> That part is clearly initializing the built-in Ethernet switch's PHYs,
->>> and so the natural place for that would be to stick these init values
->>> into the Broadcom PHY driver. When b53-srab/b53_common attaches the
->>> switch, it will scan all of these port's builtin PHYs and bind to an
->>> appropriate PHY driver which could have this initialization as part of
->>> the config_init routine for instance. Right now, we are most likely
->>> using the Generic PHY.
->>
->> I don't think this code is for switch's PHYs. I believe this code is for
->> wireless access points that have no switch and have Ethernet interface
->> connected
->> directly to some single-port PHY. I saw 2 or 3 devices like this. They
->> often
->> also use PoE.
->
-> Humm, built-in PHYs would typically appear as 0-5 on the MDIO bus,
-> whereas external PHYs would have a different (and non conflicting)
-> address, also, there are restrictions on the Roboswitch devices as to
-> where you could wire these external PHYs (to port 5, or 7, 8).
+> > We could - but what difference would it make?
+>=20
+> It would reduce the chance of missing the next time stamp.
 
->From BCM47186B0:
-[    0.942419] bgmac_bcma bcma0:2: Found PHY addr: 25
+I might have gotten it all wrong, but I was under the assumption that time-
+stamped packets are periodic, and that the interval between two isn't
+going to be so small.
+Is so, how does having a couple of additional instructions in between
+jeopardizes the next time stamp?
 
->From BCM47189:
-[    1.758079] bgmac_bcma bcma0:5: Found PHY addr: 0
-
-I got one more AP device but I bricked it by corrupting NVRAM
-(bootloader doesn't start due to that).
-
-
-My BCM47186B0 seems to not have any switch. It isn't that clear in
-BCM47189 case. You may be right, some sources say BCM47189 has
-built-in switch so maybe it's indeed BCM54210E connected to switch's
-port. On the other hand I'm not using any switch driver on my BCM47189
-AP board, so how does it work? Just an accidentally working setup left
-by the bootloader?
-
---=20
-Rafa=C5=82
+[Don't take it as an objection - given that we'll send a v3 for this one
+we'd make the adjustment here; It's just that I feel like I'm missing
+something]
