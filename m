@@ -1,133 +1,60 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V3 8/8] net/mlx4_en: Check the enabling pptx/pprx flags in SET_PORT wrapper flow
-Date: Sun, 29 Jan 2017 18:56:20 +0200
-Message-ID: <1485708980-23468-9-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next V3 4/8] net/mlx4_core: Get num_tc using netdev_get_num_tc
+Date: Sun, 29 Jan 2017 18:56:16 +0200
+Message-ID: <1485708980-23468-5-git-send-email-tariqt@mellanox.com>
 References: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Shaker Daibes <shakerd@mellanox.com>,
+        Alaa Hleihel <alaa@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40236 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40223 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751899AbdA2Q5O (ORCPT
+        with ESMTP id S1751865AbdA2Q5O (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 11:57:14 -0500
 In-Reply-To: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shaker Daibes <shakerd@mellanox.com>
+From: Alaa Hleihel <alaa@mellanox.com>
 
-Make sure pptx/pprx mask flag is set using new fields upon set port
-request. In addition, move this code into a helper function for better
-code readability.
+Avoid reading num_tc directly from struct net_device, but use
+the helper function netdev_get_num_tc.
 
-Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
+Fixes: bc6a4744b827 ("net/mlx4_en: num cores tx rings for every UP")
+Fixes: f5b6345ba8da ("net/mlx4_en: User prio mapping gets corrupted when changing number of channels")
+Signed-off-by: Alaa Hleihel <alaa@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_port.h |  1 -
- drivers/net/ethernet/mellanox/mlx4/mlx4.h    |  4 ++-
- drivers/net/ethernet/mellanox/mlx4/port.c    | 42 ++++++++++++++++++----------
- 3 files changed, 31 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.h b/drivers/net/ethernet/mellanox/mlx4/en_port.h
-index 040da4b16b1c..930f961fee42 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.h
-@@ -35,7 +35,6 @@
- #define _MLX4_EN_PORT_H_
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 17a600b9f81b..785757f17687 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1788,7 +1788,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
+ 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num[TX]);
+ 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
  
+-	if (dev->num_tc)
++	if (netdev_get_num_tc(dev))
+ 		mlx4_en_setup_tc(dev, MLX4_EN_NUM_UP);
  
--#define SET_PORT_GEN_ALL_VALID	0x7
- #define SET_PORT_PROMISC_SHIFT	31
- #define SET_PORT_MC_PROMISC_SHIFT	30
+ 	en_warn(priv, "Using %d TX rings\n", priv->tx_ring_num[TX]);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 5886ad78058f..3ed42199d3f1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -710,7 +710,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	u16 rings_p_up = priv->num_tx_rings_p_up;
+ 	u8 up = 0;
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 1132d76ddfdf..7a495090b0bc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -776,7 +776,9 @@ struct mlx4_vlan_table {
- 	int			max;
- };
+-	if (dev->num_tc)
++	if (netdev_get_num_tc(dev))
+ 		return skb_tx_hash(dev, skb);
  
--#define SET_PORT_GEN_ALL_VALID		0x7
-+#define SET_PORT_GEN_ALL_VALID	(MLX4_FLAG_V_MTU_MASK	| \
-+				 MLX4_FLAG_V_PPRX_MASK	| \
-+				 MLX4_FLAG_V_PPTX_MASK)
- #define SET_PORT_PROMISC_SHIFT		31
- #define SET_PORT_MC_PROMISC_SHIFT	30
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 57a10575a7aa..5053c949148f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -53,6 +53,8 @@
- #define MLX4_FLAG2_V_IGNORE_FCS_MASK		BIT(1)
- #define MLX4_FLAG2_V_USER_MTU_MASK		BIT(5)
- #define MLX4_FLAG_V_MTU_MASK			BIT(0)
-+#define MLX4_FLAG_V_PPRX_MASK			BIT(1)
-+#define MLX4_FLAG_V_PPTX_MASK			BIT(2)
- #define MLX4_IGNORE_FCS_MASK			0x1
- #define MLX4_TC_MAX_NUMBER			8
- 
-@@ -1305,12 +1307,32 @@ void mlx4_reset_roce_gids(struct mlx4_dev *dev, int slave)
- 	gen_context->user_mtu = cpu_to_be16(master->max_user_mtu[port]);
- }
- 
-+static void
-+mlx4_en_set_port_global_pause(struct mlx4_dev *dev, int slave,
-+			      struct mlx4_set_port_general_context *gen_context)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
-+
-+	/* Slave cannot change Global Pause configuration */
-+	if (slave != mlx4_master_func_num(dev) &&
-+	    (gen_context->pptx != master->pptx ||
-+	     gen_context->pprx != master->pprx)) {
-+		gen_context->pptx = master->pptx;
-+		gen_context->pprx = master->pprx;
-+		mlx4_warn(dev, "denying Global Pause change for slave:%d\n",
-+			  slave);
-+	} else {
-+		master->pptx = gen_context->pptx;
-+		master->pprx = gen_context->pprx;
-+	}
-+}
-+
- static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 				u8 op_mod, struct mlx4_cmd_mailbox *inbox)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_port_info *port_info;
--	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
- 	struct mlx4_set_port_rqp_calc_context *qpn_context;
- 	struct mlx4_set_port_general_context *gen_context;
- 	struct mlx4_roce_gid_entry *gid_entry_tbl, *gid_entry_mbox, *gid_entry_mb1;
-@@ -1372,19 +1394,11 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 				mlx4_en_set_port_user_mtu(dev, slave, port,
- 							  gen_context);
- 
--			/* Slave cannot change Global Pause configuration */
--			if (slave != mlx4_master_func_num(dev) &&
--			    ((gen_context->pptx != master->pptx) ||
--			     (gen_context->pprx != master->pprx))) {
--				gen_context->pptx = master->pptx;
--				gen_context->pprx = master->pprx;
--				mlx4_warn(dev,
--					  "denying Global Pause change for slave:%d\n",
--					  slave);
--			} else {
--				master->pptx = gen_context->pptx;
--				master->pprx = gen_context->pprx;
--			}
-+			if (gen_context->flags &
-+			    (MLX4_FLAG_V_PPRX_MASK || MLX4_FLAG_V_PPTX_MASK))
-+				mlx4_en_set_port_global_pause(dev, slave,
-+							      gen_context);
-+
- 			break;
- 		case MLX4_SET_PORT_GID_TABLE:
- 			/* change to MULTIPLE entries: number of guest's gids
+ 	if (skb_vlan_tag_present(skb))
 -- 
 1.8.3.1
