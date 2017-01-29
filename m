@@ -1,37 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] ravb: Support 1Gbps on R-Car H3 ES1.1+
- and R-Car M3-W
-Date: Sun, 29 Jan 2017 18:36:37 -0500 (EST)
-Message-ID: <20170129.183637.1519401740877958836.davem@davemloft.net>
-References: <1485542120-10205-1-git-send-email-horms+renesas@verge.net.au>
+Subject: Re: [PATCH v3] can: Fix kernel panic at security_sock_rcv_skb
+Date: Sun, 29 Jan 2017 18:34:06 -0500 (EST)
+Message-ID: <20170129.183406.1410276231781823069.davem@davemloft.net>
+References: <0e458012-e97b-298d-296e-ed25e35689a0@hartkopp.net>
+        <1484226099.15816.25.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1485533504.6360.62.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, magnus.damm@gmail.com,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: horms+renesas@verge.net.au
+Cc: socketcan@hartkopp.net, shuo.a.liu@intel.com,
+        yanmin_zhang@linux.intel.com, shuox.liu@gmail.com,
+        yanmin.zhang@intel.com, bo.he@intel.com, mkl@pengutronix.de,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41282 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41332 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750805AbdA2Xgk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 18:36:40 -0500
-In-Reply-To: <1485542120-10205-1-git-send-email-horms+renesas@verge.net.au>
+        with ESMTP id S1751011AbdA2Xk4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 18:40:56 -0500
+In-Reply-To: <1485533504.6360.62.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms+renesas@verge.net.au>
-Date: Fri, 27 Jan 2017 19:35:18 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 27 Jan 2017 08:11:44 -0800
 
-> this series adds support for gigabit communication to the Renesas EthernetAVB
-> controller when used in conjunction with  R-Car Gen3 H3 ES1.1+ and M3-W SoCs.
-> Gigabit is already supported with R-Car Gen 2 SoCs.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The patch from Geert was previously posted for inclusion in v4.10 and
-> acked by Dave for that purpose. It was, however, not accepted by the
-> ARM SoC maintainers.
+> Zhang Yanmin reported crashes [1] and provided a patch adding a
+> synchronize_rcu() call in can_rx_unregister()
 > 
-> The path from Mizuguchi-san is to address timing problems observed with
-> gigabit transfers. I would like it considered although my own testing on
-> M3-W did not show any timing problems.
+> The main problem seems that the sockets themselves are not RCU
+> protected.
+> 
+> If CAN uses RCU for delivery, then sockets should be freed only after
+> one RCU grace period.
+> 
+> Recent kernels could use sock_set_flag(sk, SOCK_RCU_FREE), but let's
+> ease stable backports with the following fix instead.
+ ...
+> Reported-by: Zhang Yanmin <yanmin.zhang@intel.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks Simon.
+Applied and queued up for -stable, thanks Eric.
