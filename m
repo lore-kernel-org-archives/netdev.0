@@ -1,53 +1,147 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 0/4] net: dsa: bcm_sf2: CFP support
-Date: Sat, 28 Jan 2017 19:13:21 -0800
-Message-ID: <20170129031325.21911-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, cphealy@gmail.com,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 0/4] mlx5: Create build configuration options
+Date: Sun, 29 Jan 2017 10:07:01 +0200
+Message-ID: <CALzJLG9U8TB5rq40-uZ_ZvzqeTNObzu2gcfVBZL0swEqM4r9yw@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
+ <CALx6S355U1g+OyEM9mC12TRtYZqwOciT=+OpsKXPwkuX-Xq0LQ@mail.gmail.com>
+ <CALzJLG8dh0TZPotrk-Xp6SZ=2UnjY2-C3TEQNxXDER5H8iwiQw@mail.gmail.com> <CALx6S34_k+uaCZAOR8=pOzisaQ0eryyZX=ABxk+Pnwx-vrj0VQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35970 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750723AbdA2Hr5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 02:47:57 -0500
-Received: by mail-oi0-f66.google.com with SMTP id u143so23625334oif.3
-        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 23:47:56 -0800 (PST)
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36636 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750728AbdA2IH2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 03:07:28 -0500
+Received: by mail-qk0-f195.google.com with SMTP id i34so12108860qkh.3
+        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 00:07:22 -0800 (PST)
+In-Reply-To: <CALx6S34_k+uaCZAOR8=pOzisaQ0eryyZX=ABxk+Pnwx-vrj0VQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Sat, Jan 28, 2017 at 7:19 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Sat, Jan 28, 2017 at 3:38 AM, Saeed Mahameed
+> <saeedm@dev.mellanox.co.il> wrote:
+>> On Fri, Jan 27, 2017 at 8:13 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Fri, Jan 27, 2017 at 9:58 AM, Saeed Mahameed
+>>> <saeedm@dev.mellanox.co.il> wrote:
+>>>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> This patchset creates configuration options for sriov, vxlan, eswitch,
+>>>>> and tc features in the mlx5 driver. The purpose of this is to allow not
+>>>>> building these features. These features are optional advanced features
+>>>>> that are not required for a core Ethernet driver. A user can disable
+>>>>> these features which resuces the amount of code in the driver. Disabling
+>>>>> these features (and DCB) reduces the size of mlx5_core.o by about 16%.
+>>>>> This is also can reduce the complexity of backport and rebases since
+>>>>> user would no longer need to worry about dependencies with the rest of
+>>>>> the kernel that features which might not be of any interest to a user
+>>>>> may bring in.
+>>>>>
+>>>>> Tested: Build and ran the driver with all features enabled (the default)
+>>>>> and with none enabled (including DCB). Did not see any issues. I did
+>>>>> not explicity test operation of ayy of features in the list.
+>>>>>
+>>>>
+>>>> Basically I am not against this kind of change, infact i am with it,
+>>>> although I would have done some restructuring in the driver before i
+>>>> did such change ;), filling the code with ifdefs is not a neat thing.
+>>>>
+>>> If you wish, please take this as an RFC and feel free to structure the
+>>> code the right way. I think the intent is clear enough and looks like
+>>> davem isn't going to allow the directory restructuring so something
+>>> like this seems to be the best course of action now.
+>>>
+>>
+>> Right.
+>>
+>>>> I agree this will simplify backporting and provide some kind of
+>>>> feature separation inside the driver.
+>>>> But this will also increase the testing matrix we need to cover and
+>>>> increase the likelihood of kbuild breaks by an order of magnitude.
+>>>>
+>>> The testing matrix already exploded with the proliferation of
+>>> supported features. If anything this reduces the test matrix problem.
+>>> For instance, if we make a change to the core driver and functionality
+>>> properly isolated there is a much better chance that this won't affect
+>>> peripheral functionality and vice versa. It is just not feasible for
+>>> us to test every combination of NIC features for every change being
+>>> made.
+>>>
+>>
+>> Yes for isolated features, but for base functionality, we need to test
+>> it with all new device specific kconfig combinations on every patch!
+>
+> Sorry, but that is the price you need to pay for a feature rich device.
+>
+> On the subject of testing, I don't really see any indication in these
+> patches on how patches are being tested. Also, there are patches that
+> fix things without any mention of how to repro the problems. It is
 
-This patch series adds support for the Broadcom Compact Field Processor (CFP)
-which is a classification and matching engine built into most Broadcom switches.
+I Will do my best to provide more information in fixes commit
+messages, Thanks for the input.
 
-We support that using ethtool::rxnfc because it allows all known uses cases from
-the users I support to work, and more importantly, it allows the selection of a
-target rule index, which is later used by e.g: offloading hardware, this is an
-essential feature that I could not find being supported with cls_* for instance.
+> critical that we know IPv6 is tested as much or more than IPv4 (just
 
-Thanks!
+For the record, for every IPv4 test in our automatic regression system
+we have an IPv6 equivalent test,
+not to mention IPv6-only directed tests.
 
-Changes in v2:
+> last week with hit yet another IPv6-only issue in an another upstream
+> driver that should have been caught with a simple load test-- this
 
-- fixed modular builds reported by kbuild test robot
+Is there any IPv6-only functionality issues with mlx4/mlx5 that we
+don't know about ?
+If you do see any of those, please report them so we take the needed
+corrective actions to fix them and cover them in our regression.
 
+> really is not acceptable any more!). Please add a description of how
+> patches were tested to commit logs.
+>
 
-Florian Fainelli (4):
-  net: dsa: Hook {get,set}_rxnfc ethtool operations
-  net: dsa: bcm_sf2: Configure traffic classes to queue mapping
-  net: dsa: bcm_sf2: Add CFP registers definitions
-  net: dsa: bcm_sf2: Add support for ethtool::rxnfc
+Acknowledge.
 
- drivers/net/dsa/Makefile       |   1 +
- drivers/net/dsa/bcm_sf2.c      |  23 ++
- drivers/net/dsa/bcm_sf2.h      |  17 ++
- drivers/net/dsa/bcm_sf2_cfp.c  | 613 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/bcm_sf2_regs.h | 150 ++++++++++
- include/net/dsa.h              |   8 +
- net/dsa/slave.c                |  26 ++
- 7 files changed, 838 insertions(+)
- create mode 100644 drivers/net/dsa/bcm_sf2_cfp.c
-
--- 
-2.9.3
+> Tom
+>
+>> since a misplaced code inside or outside the correct ifdef
+>> can easily go unnoticed and break functionality.
+>>
+>>>> One more thing, do we really need a device specific flag per feature
+>>>> per vendor per device?  can't we just use the same kconfig flag for
+>>>> all drivers and if there is a more generic system wide flag that
+>>>> covers the same feature
+>>>> can't we just use it, for instance instead of
+>>>> CONFIG_<DRIVER_NAME>_SRIOV why not use already existing CONFIG_PCI_IOV
+>>>> for all drivers ?
+>>>>
+>>> That sounds good to me. We already have CONFIG_RFS_ACCEL and others
+>>> that do that.
+>>>
+>>> Tom
+>>>
+>>>> Saeed.
+>>>>
+>>>>>
+>>>>>
+>>>>> Tom Herbert (4):
+>>>>>   mlx5: Make building eswitch configurable
+>>>>>   mlx5: Make building SR-IOV configurable
+>>>>>   mlx5: Make building tc hardware offload configurable
+>>>>>   mlx5: Make building vxlan hardware offload configurable
+>>>>>
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  35 ++++++
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/Makefile  |  16 ++-
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 129 ++++++++++++++++------
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   |  39 +++++--
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/eq.c      |   4 +-
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/lag.c     |   2 +
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/main.c    |  32 ++++--
+>>>>>  drivers/net/ethernet/mellanox/mlx5/core/sriov.c   |   6 +-
+>>>>>  8 files changed, 205 insertions(+), 58 deletions(-)
+>>>>>
+>>>>> --
+>>>>> 2.9.3
+>>>>>
