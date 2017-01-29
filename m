@@ -1,290 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 1/4] net: dsa: Add plumbing for port mirroring
-Date: Sun, 29 Jan 2017 11:29:07 -0800
-Message-ID: <20170129192910.6069-2-f.fainelli@gmail.com>
-References: <20170129192910.6069-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
-        jiri@mellanox.com, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH V2 1/3] net: bgmac: allocate struct bgmac just once &
+ don't copy it
+Date: Sun, 29 Jan 2017 21:03:04 +0100
+Message-ID: <6074229e-cd2f-8aca-c1d8-02795b5aa39b@gmail.com>
+References: <201701290751.2sF8nmut%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, "David S . Miller" <davem@davemloft.net>,
+        Jon Mason <jon.mason@broadcom.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Felix Fietkau <nbd@openwrt.org>, netdev@vger.kernel.org,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:33534 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751493AbdA2UBh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 15:01:37 -0500
-Received: by mail-ot0-f194.google.com with SMTP id f9so36405178otd.0
-        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 12:01:36 -0800 (PST)
-In-Reply-To: <20170129192910.6069-1-f.fainelli@gmail.com>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33139 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751766AbdA2ULL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 15:11:11 -0500
+Received: by mail-lf0-f68.google.com with SMTP id x1so29984245lff.0
+        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 12:10:17 -0800 (PST)
+In-Reply-To: <201701290751.2sF8nmut%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add necessary plumbing at the slave network device level to have switch
-drivers implement ndo_setup_tc() and most particularly the cls_matchall
-classifier. We add support for two switch operations:
+On 01/29/2017 12:40 AM, kbuild test robot wrote:
+> [auto build test ERROR on net-next/master]
+> [also build test ERROR on v4.10-rc5 next-20170125]
+> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+>
+> url:    https://github.com/0day-ci/linux/commits/Rafa-Mi-ecki/net-next-use-one-struct-bgmac-add-PHY-support/20170129-062241
+> config: i386-allmodconfig (attached as .config)
+> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=i386
+>
+> All error/warnings (new ones prefixed by >>):
+>
+>    drivers/net/ethernet/broadcom/bgmac.c: In function 'bgmac_alloc':
+>>> drivers/net/ethernet/broadcom/bgmac.c:1455:12: error: implicit declaration of function 'devm_alloc_etherdev' [-Werror=implicit-function-declaration]
+>      net_dev = devm_alloc_etherdev(dev, sizeof(*bgmac));
+>                ^~~~~~~~~~~~~~~~~~~
 
-port_add_mirror and port_del_mirror() which configure, on a per-port
-basis the mirror parameters requested from the cls_matchall classifier.
+Thanks, this is expected as this patch depends on
+[PATCH net-next] net: add devm version of alloc_etherdev_mqs function
 
-Code is largely borrowed from the Mellanox Spectrum switch driver.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/net/dsa.h  |  33 +++++++++++++
- net/dsa/dsa_priv.h |   3 ++
- net/dsa/slave.c    | 135 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 170 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 92fd795e9573..9835bd9054f3 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -20,6 +20,8 @@
- #include <linux/phy_fixed.h>
- #include <linux/ethtool.h>
- 
-+struct tc_action;
-+
- enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_NONE = 0,
- 	DSA_TAG_PROTO_DSA,
-@@ -139,6 +141,28 @@ struct dsa_switch_tree {
- 	const struct dsa_device_ops *tag_ops;
- };
- 
-+/* TC matchall action types, only mirroring for now */
-+enum dsa_port_mall_action_type {
-+	DSA_PORT_MALL_MIRROR,
-+};
-+
-+/* TC mirroring entry */
-+struct dsa_mall_mirror_tc_entry {
-+	u8 to_local_port;
-+	bool ingress;
-+};
-+
-+/* TC matchall entry */
-+struct dsa_mall_tc_entry {
-+	struct list_head list;
-+	unsigned long cookie;
-+	enum dsa_port_mall_action_type type;
-+	union {
-+		struct dsa_mall_mirror_tc_entry mirror;
-+	};
-+};
-+
-+
- struct dsa_port {
- 	struct net_device	*netdev;
- 	struct device_node	*dn;
-@@ -370,6 +394,15 @@ struct dsa_switch_ops {
- 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
- 				 struct switchdev_obj_port_mdb *mdb,
- 				 int (*cb)(struct switchdev_obj *obj));
-+
-+	/*
-+	 * TC integration
-+	 */
-+	int	(*port_mirror_add)(struct dsa_switch *ds, int port,
-+				   struct dsa_mall_mirror_tc_entry *mirror,
-+				   bool ingress);
-+	void	(*port_mirror_del)(struct dsa_switch *ds, int port,
-+				   struct dsa_mall_mirror_tc_entry *mirror);
- };
- 
- struct dsa_switch_driver {
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 16194a4bb2fe..b10b03028b24 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -46,6 +46,9 @@ struct dsa_slave_priv {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll		*netpoll;
- #endif
-+
-+	/* TC context */
-+	struct list_head	mall_tc_list;
- };
- 
- /* dsa.c */
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9750dd6f8c17..02863334f06b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -16,12 +16,17 @@
- #include <linux/of_net.h>
- #include <linux/of_mdio.h>
- #include <linux/mdio.h>
-+#include <linux/list.h>
- #include <net/rtnetlink.h>
- #include <net/switchdev.h>
-+#include <net/pkt_cls.h>
-+#include <net/tc_act/tc_mirred.h>
- #include <linux/if_bridge.h>
- #include <linux/netpoll.h>
- #include "dsa_priv.h"
- 
-+static bool dsa_slave_dev_check(struct net_device *dev);
-+
- /* slave mii_bus handling ***************************************************/
- static int dsa_slave_phy_read(struct mii_bus *bus, int addr, int reg)
- {
-@@ -994,6 +999,131 @@ static int dsa_slave_get_phys_port_name(struct net_device *dev,
- 	return 0;
- }
- 
-+static struct dsa_mall_tc_entry *
-+dsa_slave_mall_tc_entry_find(struct dsa_slave_priv *p,
-+			     unsigned long cookie)
-+{
-+	struct dsa_mall_tc_entry *mall_tc_entry;
-+
-+	list_for_each_entry(mall_tc_entry, &p->mall_tc_list, list)
-+		if (mall_tc_entry->cookie == cookie)
-+			return mall_tc_entry;
-+
-+	return NULL;
-+}
-+
-+static int dsa_slave_add_cls_matchall(struct net_device *dev,
-+				      __be16 protocol,
-+				      struct tc_cls_matchall_offload *cls,
-+				      bool ingress)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_mall_tc_entry *mall_tc_entry;
-+	struct dsa_switch *ds = p->parent;
-+	struct net *net = dev_net(dev);
-+	struct dsa_slave_priv *to_p;
-+	struct net_device *to_dev;
-+	const struct tc_action *a;
-+	int err = -EOPNOTSUPP;
-+	LIST_HEAD(actions);
-+	int ifindex;
-+
-+	if (!ds->ops->port_mirror_add)
-+		return err;
-+
-+	if (!tc_single_action(cls->exts))
-+		return err;
-+
-+	tcf_exts_to_list(cls->exts, &actions);
-+	a = list_first_entry(&actions, struct tc_action, list);
-+
-+	if (is_tcf_mirred_egress_mirror(a) && protocol == htons(ETH_P_ALL)) {
-+		struct dsa_mall_mirror_tc_entry *mirror;
-+
-+		ifindex = tcf_mirred_ifindex(a);
-+		to_dev = __dev_get_by_index(net, ifindex);
-+		if (!to_dev)
-+			return -EINVAL;
-+
-+		if (!dsa_slave_dev_check(to_dev))
-+			return -EOPNOTSUPP;
-+
-+		mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
-+		if (!mall_tc_entry)
-+			return -ENOMEM;
-+
-+		mall_tc_entry->cookie = cls->cookie;
-+		mall_tc_entry->type = DSA_PORT_MALL_MIRROR;
-+		mirror = &mall_tc_entry->mirror;
-+
-+		to_p = netdev_priv(to_dev);
-+
-+		mirror->to_local_port = to_p->port;
-+		mirror->ingress = ingress;
-+
-+		err = ds->ops->port_mirror_add(ds, p->port, mirror, ingress);
-+		if (err) {
-+			kfree(mall_tc_entry);
-+			return err;
-+		}
-+
-+		list_add_tail(&mall_tc_entry->list, &p->mall_tc_list);
-+	}
-+
-+	return 0;
-+}
-+
-+static void dsa_slave_del_cls_matchall(struct net_device *dev,
-+				       struct tc_cls_matchall_offload *cls)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_mall_tc_entry *mall_tc_entry;
-+	struct dsa_switch *ds = p->parent;
-+
-+	if (!ds->ops->port_mirror_del)
-+		return;
-+
-+	mall_tc_entry = dsa_slave_mall_tc_entry_find(p, cls->cookie);
-+	if (!mall_tc_entry)
-+		return;
-+
-+	list_del(&mall_tc_entry->list);
-+
-+	switch (mall_tc_entry->type) {
-+	case DSA_PORT_MALL_MIRROR:
-+		ds->ops->port_mirror_del(ds, p->port, &mall_tc_entry->mirror);
-+		break;
-+	default:
-+		WARN_ON(1);
-+	}
-+
-+	kfree(mall_tc_entry);
-+}
-+
-+static int dsa_slave_setup_tc(struct net_device *dev, u32 handle,
-+			      __be16 protocol, struct tc_to_netdev *tc)
-+{
-+	bool ingress = TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS);
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (tc->type) {
-+	case TC_SETUP_MATCHALL:
-+		switch (tc->cls_mall->command) {
-+		case TC_CLSMATCHALL_REPLACE:
-+			return dsa_slave_add_cls_matchall(dev, protocol,
-+							  tc->cls_mall,
-+							  ingress);
-+		case TC_CLSMATCHALL_DESTROY:
-+			dsa_slave_del_cls_matchall(dev, tc->cls_mall);
-+			return 0;
-+		}
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
- {
- 	ops->get_sset_count = dsa_cpu_port_get_sset_count;
-@@ -1042,6 +1172,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
- 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- 	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
-+	.ndo_setup_tc		= dsa_slave_setup_tc,
- };
- 
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
-@@ -1257,7 +1388,8 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	if (slave_dev == NULL)
- 		return -ENOMEM;
- 
--	slave_dev->features = master->vlan_features;
-+	slave_dev->features = master->vlan_features | NETIF_F_HW_TC;
-+	slave_dev->hw_features |= NETIF_F_HW_TC;
- 	slave_dev->ethtool_ops = &dsa_slave_ethtool_ops;
- 	eth_hw_addr_inherit(slave_dev, master);
- 	slave_dev->priv_flags |= IFF_NO_QUEUE;
-@@ -1275,6 +1407,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	slave_dev->vlan_features = master->vlan_features;
- 
- 	p = netdev_priv(slave_dev);
-+	INIT_LIST_HEAD(&p->mall_tc_list);
- 	p->parent = ds;
- 	p->port = port;
- 	p->xmit = dst->tag_ops->xmit;
--- 
-2.9.3
+Let's see if net guys will find my devm_alloc_etherdev implementation
+acceptable.
