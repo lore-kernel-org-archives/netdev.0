@@ -1,135 +1,130 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V2 3/8] net/mlx4_core: Add resource alloc/dealloc debugging
-Date: Sun, 29 Jan 2017 13:22:25 +0200
-Message-ID: <1485688950-32443-4-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next V2 7/8] net/mlx4_en: Check the enabling mtu flag in SET_PORT wrapper flow
+Date: Sun, 29 Jan 2017 13:22:29 +0200
+Message-ID: <1485688950-32443-8-git-send-email-tariqt@mellanox.com>
 References: <1485688950-32443-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
+        Shaker Daibes <shakerd@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51141 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51272 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750972AbdA2LaO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 06:30:14 -0500
+        with ESMTP id S1751060AbdA2La2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 06:30:28 -0500
 In-Reply-To: <1485688950-32443-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+From: Shaker Daibes <shakerd@mellanox.com>
 
-In order to aid debugging of functions that take a resource but
-don't put it, add the last function name that successfully grabbed
-this resource.
+Make sure MTU mask flag is set using new field upon set port
+request. In addition, move this code into a helper function for better
+code readability.
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 49 ++++++++++++++++++++--
- 1 file changed, 45 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/port.c | 59 +++++++++++++++++++------------
+ 1 file changed, 37 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 84c74a79752a..6fe9f76ae656 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -77,6 +77,7 @@ struct res_common {
- 	int			from_state;
- 	int			to_state;
- 	int			removing;
-+	const char		*func_name;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index a7b0cdcb358a..57a10575a7aa 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -52,6 +52,7 @@
  
- enum {
-@@ -837,6 +838,36 @@ static int mpt_mask(struct mlx4_dev *dev)
- 	return dev->caps.num_mpts - 1;
+ #define MLX4_FLAG2_V_IGNORE_FCS_MASK		BIT(1)
+ #define MLX4_FLAG2_V_USER_MTU_MASK		BIT(5)
++#define MLX4_FLAG_V_MTU_MASK			BIT(0)
+ #define MLX4_IGNORE_FCS_MASK			0x1
+ #define MLX4_TC_MAX_NUMBER			8
+ 
+@@ -1241,6 +1242,38 @@ void mlx4_reset_roce_gids(struct mlx4_dev *dev, int slave)
  }
  
-+static const char *mlx4_resource_type_to_str(enum mlx4_resource t)
+ static void
++mlx4_en_set_port_mtu(struct mlx4_dev *dev, int slave, int port,
++		     struct mlx4_set_port_general_context *gen_context)
 +{
-+	switch (t) {
-+	case RES_QP:
-+		return "QP";
-+	case RES_CQ:
-+		return "CQ";
-+	case RES_SRQ:
-+		return "SRQ";
-+	case RES_XRCD:
-+		return "XRCD";
-+	case RES_MPT:
-+		return "MPT";
-+	case RES_MTT:
-+		return "MTT";
-+	case RES_MAC:
-+		return "MAC";
-+	case RES_VLAN:
-+		return "VLAN";
-+	case RES_COUNTER:
-+		return "COUNTER";
-+	case RES_FS_RULE:
-+		return "FS_RULE";
-+	case RES_EQ:
-+		return "EQ";
-+	default:
-+		return "INVALID RESOURCE";
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
++	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
++	u16 mtu, prev_mtu;
++
++	/* Mtu is configured as the max USER_MTU among all
++	 * the functions on the port.
++	 */
++	mtu = be16_to_cpu(gen_context->mtu);
++	mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port] +
++		    ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
++	prev_mtu = slave_st->mtu[port];
++	slave_st->mtu[port] = mtu;
++	if (mtu > master->max_mtu[port])
++		master->max_mtu[port] = mtu;
++	if (mtu < prev_mtu && prev_mtu == master->max_mtu[port]) {
++		int i;
++
++		slave_st->mtu[port] = mtu;
++		master->max_mtu[port] = mtu;
++		for (i = 0; i < dev->num_slaves; i++)
++			master->max_mtu[port] =
++				max_t(u16, master->max_mtu[port],
++				      master->slave_state[i].mtu[port]);
 +	}
++	gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
 +}
 +
- static void *find_res(struct mlx4_dev *dev, u64 res_id,
- 		      enum mlx4_resource type)
++static void
+ mlx4_en_set_port_user_mtu(struct mlx4_dev *dev, int slave, int port,
+ 			  struct mlx4_set_port_general_context *gen_context)
  {
-@@ -846,9 +877,9 @@ static void *find_res(struct mlx4_dev *dev, u64 res_id,
- 				  res_id);
- }
- 
--static int get_res(struct mlx4_dev *dev, int slave, u64 res_id,
--		   enum mlx4_resource type,
--		   void *res)
-+static int _get_res(struct mlx4_dev *dev, int slave, u64 res_id,
-+		    enum mlx4_resource type,
-+		    void *res, const char *func_name)
- {
- 	struct res_common *r;
- 	int err = 0;
-@@ -861,6 +892,10 @@ static int get_res(struct mlx4_dev *dev, int slave, u64 res_id,
- 	}
- 
- 	if (r->state == RES_ANY_BUSY) {
-+		mlx4_warn(dev,
-+			  "%s(%d) trying to get resource %llx of type %s, but it's already taken by %s\n",
-+			  func_name, slave, res_id, mlx4_resource_type_to_str(type),
-+			  r->func_name);
- 		err = -EBUSY;
- 		goto exit;
- 	}
-@@ -872,6 +907,7 @@ static int get_res(struct mlx4_dev *dev, int slave, u64 res_id,
- 
- 	r->from_state = r->state;
- 	r->state = RES_ANY_BUSY;
-+	r->func_name = func_name;
- 
- 	if (res)
- 		*((struct res_common **)res) = r;
-@@ -881,6 +917,9 @@ static int get_res(struct mlx4_dev *dev, int slave, u64 res_id,
- 	return err;
- }
- 
-+#define get_res(dev, slave, res_id, type, res) \
-+	_get_res((dev), (slave), (res_id), (type), (res), __func__)
+@@ -1278,7 +1311,6 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_port_info *port_info;
+ 	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
+-	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
+ 	struct mlx4_set_port_rqp_calc_context *qpn_context;
+ 	struct mlx4_set_port_general_context *gen_context;
+ 	struct mlx4_roce_gid_entry *gid_entry_tbl, *gid_entry_mbox, *gid_entry_mb1;
+@@ -1289,7 +1321,6 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 	int base;
+ 	u32 in_modifier;
+ 	u32 promisc;
+-	u16 mtu, prev_mtu;
+ 	int err;
+ 	int i, j;
+ 	int offset;
+@@ -1332,26 +1363,10 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 			break;
+ 		case MLX4_SET_PORT_GENERAL:
+ 			gen_context = inbox->buf;
+-			/* Mtu is configured as the max MTU among all the
+-			 * the functions on the port. */
+-			mtu = be16_to_cpu(gen_context->mtu);
+-			mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port] +
+-				    ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
+-			prev_mtu = slave_st->mtu[port];
+-			slave_st->mtu[port] = mtu;
+-			if (mtu > master->max_mtu[port])
+-				master->max_mtu[port] = mtu;
+-			if (mtu < prev_mtu && prev_mtu ==
+-						master->max_mtu[port]) {
+-				slave_st->mtu[port] = mtu;
+-				master->max_mtu[port] = mtu;
+-				for (i = 0; i < dev->num_slaves; i++) {
+-					master->max_mtu[port] =
+-					max(master->max_mtu[port],
+-					    master->slave_state[i].mtu[port]);
+-				}
+-			}
+-			gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
 +
- int mlx4_get_slave_from_resource_id(struct mlx4_dev *dev,
- 				    enum mlx4_resource type,
- 				    u64 res_id, int *slave)
-@@ -911,8 +950,10 @@ static void put_res(struct mlx4_dev *dev, int slave, u64 res_id,
++			if (gen_context->flags & MLX4_FLAG_V_MTU_MASK)
++				mlx4_en_set_port_mtu(dev, slave, port,
++						     gen_context);
  
- 	spin_lock_irq(mlx4_tlock(dev));
- 	r = find_res(dev, res_id, type);
--	if (r)
-+	if (r) {
- 		r->state = r->from_state;
-+		r->func_name = "";
-+	}
- 	spin_unlock_irq(mlx4_tlock(dev));
- }
- 
+ 			if (gen_context->flags2 & MLX4_FLAG2_V_USER_MTU_MASK)
+ 				mlx4_en_set_port_user_mtu(dev, slave, port,
 -- 
 1.8.3.1
