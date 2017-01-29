@@ -1,94 +1,212 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/4] net: dsa: Hook {get,set}_rxnfc ethtool operations
-Date: Sat, 28 Jan 2017 19:13:22 -0800
-Message-ID: <20170129031325.21911-2-f.fainelli@gmail.com>
-References: <20170129031325.21911-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, cphealy@gmail.com,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Subject: [PATCH stable v1 02/13] net: ethernet: aquantia: Common functions and definitions
+Date: Sat, 28 Jan 2017 21:09:02 -0800
+Message-ID: <28df3d40c06c3660acc1930bfc0fa57e436a6779.1485665881.git.vomlehn@texas.net>
+References: <cover.1485665881.git.vomlehn@texas.net>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34128 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752148AbdA2FqD (ORCPT
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:38137 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752581AbdA2FqD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 00:46:03 -0500
-Received: by mail-oi0-f68.google.com with SMTP id w144so23664908oiw.1
-        for <netdev@vger.kernel.org>; Sat, 28 Jan 2017 21:45:07 -0800 (PST)
-In-Reply-To: <20170129031325.21911-1-f.fainelli@gmail.com>
+In-Reply-To: <cover.1485665881.git.vomlehn@texas.net>
+In-Reply-To: <cover.1485665881.git.vomlehn@texas.net>
+References: <cover.1485665881.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for adding support for CFP/TCAMP in the bcm_sf2 driver add the
-plumbing to call into driver specific {get,set}_rxnfc operations.
+From: David VomLehn <vomlehn@texas.net>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Add files containing the functions and definitions used in common in
+different functional areas.
+
+Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- include/net/dsa.h |  8 ++++++++
- net/dsa/slave.c   | 26 ++++++++++++++++++++++++++
- 2 files changed, 34 insertions(+)
+ drivers/net/ethernet/aquantia/atlantic/aq_cfg.h    | 77 ++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_common.h | 23 +++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  | 50 ++++++++++++++
+ 3 files changed, 150 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_common.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_utils.h
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 92fd795e9573..bcad7cc906d9 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -370,6 +370,14 @@ struct dsa_switch_ops {
- 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
- 				 struct switchdev_obj_port_mdb *mdb,
- 				 int (*cb)(struct switchdev_obj *obj));
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+new file mode 100644
+index 0000000..5f99237
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+@@ -0,0 +1,77 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
 +
-+	/*
-+	 * RXNFC
-+	 */
-+	int	(*get_rxnfc)(struct dsa_switch *ds, int port,
-+			     struct ethtool_rxnfc *nfc, u32 *rule_locs);
-+	int	(*set_rxnfc)(struct dsa_switch *ds, int port,
-+			     struct ethtool_rxnfc *nfc);
- };
- 
- struct dsa_switch_driver {
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 9750dd6f8c17..bdae70f40a8a 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1001,6 +1001,30 @@ void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
- 	ops->get_strings = dsa_cpu_port_get_strings;
- }
- 
-+static int dsa_slave_get_rxnfc(struct net_device *dev,
-+			       struct ethtool_rxnfc *nfc, u32 *rule_locs)
++/* File aq_cfg.h: Definition of configuration parameters and constants. */
++
++#ifndef AQ_CFG_H
++#define AQ_CFG_H
++
++#define AQ_CFG_VECS_DEF   4U
++#define AQ_CFG_TCS_DEF    1U
++
++#define AQ_CFG_TXDS_DEF    4096U
++#define AQ_CFG_RXDS_DEF    1024U
++
++#define AQ_CFG_IS_POLLING_DEF 0U
++
++#define AQ_CFG_FORCE_LEGACY_INT 0U
++
++#define AQ_CFG_IS_INTERRUPT_MODERATION_DEF   1U
++#define AQ_CFG_INTERRUPT_MODERATION_RATE_DEF 0xFFFFU
++#define AQ_CFG_IRQ_MASK                      0x1FFU
++
++#define AQ_CFG_VECS_MAX   8U
++#define AQ_CFG_TCS_MAX    8U
++
++#define AQ_CFG_TX_FRAME_MAX  (16U * 1024U)
++#define AQ_CFG_RX_FRAME_MAX  (4U * 1024U)
++
++/* LRO */
++#define AQ_CFG_IS_LRO_DEF           1U
++
++/* RSS */
++#define AQ_CFG_RSS_INDIRECTION_TABLE_MAX  128U
++#define AQ_CFG_RSS_HASHKEY_SIZE           320U
++
++#define AQ_CFG_IS_RSS_DEF           1U
++#define AQ_CFG_NUM_RSS_QUEUES_DEF   AQ_CFG_VECS_DEF
++#define AQ_CFG_RSS_BASE_CPU_NUM_DEF 0U
++
++#define AQ_CFG_PCI_FUNC_MSIX_IRQS   9U
++#define AQ_CFG_PCI_FUNC_PORTS       2U
++
++#define AQ_CFG_SERVICE_TIMER_INTERVAL    (2 * HZ)
++#define AQ_CFG_POLLING_TIMER_INTERVAL   ((unsigned int)(2 * HZ))
++
++#define AQ_CFG_SKB_FRAGS_MAX   32U
++
++#define AQ_CFG_NAPI_WEIGHT     64U
++
++#define AQ_CFG_MULTICAST_ADDRESS_MAX     32U
++
++/*#define AQ_CFG_MAC_ADDR_PERMANENT {0x30, 0x0E, 0xE3, 0x12, 0x34, 0x56}*/
++
++#define AQ_CFG_FC_MODE 3U
++
++#define AQ_CFG_SPEED_MSK  0xFFFFU	/* 0xFFFFU==auto_neg */
++
++#define AQ_CFG_IS_AUTONEG_DEF       1U
++#define AQ_CFG_MTU_DEF              1514U
++
++#define AQ_CFG_LOCK_TRYS   100U
++
++#define AQ_CFG_DRV_AUTHOR      "aQuantia"
++#define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
++#define AQ_CFG_DRV_NAME        "aquantia"
++#define AQ_CFG_DRV_VERSION	__stringify(NIC_MAJOR_DRIVER_VERSION)"."\
++				__stringify(NIC_MINOR_DRIVER_VERSION)"."\
++				__stringify(NIC_BUILD_DRIVER_VERSION)"."\
++				__stringify(NIC_REVISION_DRIVER_VERSION)
++
++#endif /* AQ_CFG_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_common.h b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
+new file mode 100644
+index 0000000..9eb5e22
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
+@@ -0,0 +1,23 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_common.h: Basic includes for all files in project. */
++
++#ifndef AQ_COMMON_H
++#define AQ_COMMON_H
++
++#include <linux/etherdevice.h>
++#include <linux/pci.h>
++
++#include "ver.h"
++#include "aq_nic.h"
++#include "aq_cfg.h"
++#include "aq_utils.h"
++
++#endif /* AQ_COMMON_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+new file mode 100644
+index 0000000..4446bd9
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+@@ -0,0 +1,50 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_utils.h: Useful macro and structures used in all layers of driver. */
++
++#ifndef AQ_UTILS_H
++#define AQ_UTILS_H
++
++#include "aq_common.h"
++
++#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
++
++struct aq_obj_s {
++	spinlock_t lock; /* spinlock for nic/rings processing */
++	atomic_t flags;
++	atomic_t busy_count;
++};
++
++static inline void aq_utils_obj_set(atomic_t *flags, u32 mask)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
++	unsigned long flags_old, flags_new;
 +
-+	if (!ds->ops->get_rxnfc)
-+		return -EOPNOTSUPP;
-+
-+	return ds->ops->get_rxnfc(ds, p->port, nfc, rule_locs);
++	do {
++		flags_old = atomic_read(flags);
++		flags_new = flags_old | (mask);
++	} while (atomic_cmpxchg(flags, flags_old, flags_new) != flags_old);
 +}
 +
-+static int dsa_slave_set_rxnfc(struct net_device *dev,
-+			       struct ethtool_rxnfc *nfc)
++static inline void aq_utils_obj_clear(atomic_t *flags, u32 mask)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
++	unsigned long flags_old, flags_new;
 +
-+	if (!ds->ops->set_rxnfc)
-+		return -EOPNOTSUPP;
-+
-+	return ds->ops->set_rxnfc(ds, p->port, nfc);
++	do {
++		flags_old = atomic_read(flags);
++		flags_new = flags_old & ~(mask);
++	} while (atomic_cmpxchg(flags, flags_old, flags_new) != flags_old);
 +}
 +
- static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_drvinfo		= dsa_slave_get_drvinfo,
- 	.get_regs_len		= dsa_slave_get_regs_len,
-@@ -1019,6 +1043,8 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_eee		= dsa_slave_get_eee,
- 	.get_link_ksettings	= dsa_slave_get_link_ksettings,
- 	.set_link_ksettings	= dsa_slave_set_link_ksettings,
-+	.get_rxnfc		= dsa_slave_get_rxnfc,
-+	.set_rxnfc		= dsa_slave_set_rxnfc,
- };
- 
- static const struct net_device_ops dsa_slave_netdev_ops = {
++static inline bool aq_utils_obj_test(atomic_t *flags, u32 mask)
++{
++	return atomic_read(flags) & mask;
++}
++
++#endif /* AQ_UTILS_H */
 -- 
 2.9.3
