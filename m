@@ -1,144 +1,241 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH 6/9] net: use kvmalloc with __GFP_REPEAT rather than open
- coded variant
-Date: Mon, 30 Jan 2017 17:36:27 +0100
-Message-ID: <9e1f34ef-1038-cf0b-95c2-1df64f1a541b@suse.cz>
-References: <20170130094940.13546-1-mhocko@kernel.org>
- <20170130094940.13546-7-mhocko@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
- Johannes Weiner <hannes@cmpxchg.org>, Al Viro <viro@zeniv.linux.org.uk>,
- linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>,
- Michal Hocko <mhocko@suse.com>, Eric Dumazet <edumazet@google.com>,
- netdev@vger.kernel.org
-To: Michal Hocko <mhocko@kernel.org>,
- Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170130094940.13546-7-mhocko@kernel.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH net-next v2 1/6] gtp: make GTP sockets in gtp_newlink optional
+Date: Mon, 30 Jan 2017 17:37:08 +0100
+Message-ID: <20170130163713.17524-2-aschultz@tpip.net>
+References: <20170130163713.17524-1-aschultz@tpip.net>
+Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org
+To: Pablo Neira <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:50165 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932459AbdA3QhT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Jan 2017 11:37:19 -0500
+In-Reply-To: <20170130163713.17524-1-aschultz@tpip.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2017 10:49 AM, Michal Hocko wrote:
-> From: Michal Hocko <mhocko@suse.com>
->
-> fq_alloc_node, alloc_netdev_mqs and netif_alloc* open code kmalloc
-> with vmalloc fallback. Use the kvmalloc variant instead. Keep the
-> __GFP_REPEAT flag based on explanation from Eric:
-> "
-> At the time, tests on the hardware I had in my labs showed that
-> vmalloc() could deliver pages spread all over the memory and that was a
-> small penalty (once memory is fragmented enough, not at boot time)
-> "
->
-> The way how the code is constructed means, however, that we prefer to go
-> and hit the OOM killer before we fall back to the vmalloc for requests
-> <=32kB (with 4kB pages) in the current code. This is rather disruptive for
-> something that can be achived with the fallback. On the other hand
-> __GFP_REPEAT doesn't have any useful semantic for these requests. So the
-> effect of this patch is that requests smaller than 64kB will fallback to
-> vmalloc esier now.
+Having both GTPv0-U and GTPv1-U is not always desirable.
+Fallback from GTPv1-U to GTPv0-U was depreciated from 3GPP
+Rel-8 onwards. Post Rel-8 implementation are discuraged
+from listening on the v0 port (see 3GPP TS 29.281, Sect. 1).
 
-           easier
+A future change will completely decouple the sockets from the
+network device. Till then, at least one of the sockets needs to
+be specified (either v0 or v1), the other is optional.
 
-Although it's somewhat of an euphemism when compared to "basically never" :)
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ drivers/net/gtp.c | 142 +++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 76 insertions(+), 66 deletions(-)
 
->
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Michal Hocko <mhocko@suse.com>
-
-Acked-by: Vlastimil Babka <vbabka@suse.cz>
-
-> ---
->  net/core/dev.c     | 24 +++++++++---------------
->  net/sched/sch_fq.c | 12 +-----------
->  2 files changed, 10 insertions(+), 26 deletions(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index be11abac89b3..707e730821a6 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -7081,12 +7081,10 @@ static int netif_alloc_rx_queues(struct net_device *dev)
->
->  	BUG_ON(count < 1);
->
-> -	rx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-> -	if (!rx) {
-> -		rx = vzalloc(sz);
-> -		if (!rx)
-> -			return -ENOMEM;
-> -	}
-> +	rx = kvzalloc(sz, GFP_KERNEL | __GFP_REPEAT);
-> +	if (!rx)
-> +		return -ENOMEM;
-> +
->  	dev->_rx = rx;
->
->  	for (i = 0; i < count; i++)
-> @@ -7123,12 +7121,10 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
->  	if (count < 1 || count > 0xffff)
->  		return -EINVAL;
->
-> -	tx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-> -	if (!tx) {
-> -		tx = vzalloc(sz);
-> -		if (!tx)
-> -			return -ENOMEM;
-> -	}
-> +	tx = kvzalloc(sz, GFP_KERNEL | __GFP_REPEAT);
-> +	if (!tx)
-> +		return -ENOMEM;
-> +
->  	dev->_tx = tx;
->
->  	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
-> @@ -7661,9 +7657,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
->  	/* ensure 32-byte alignment of whole construct */
->  	alloc_size += NETDEV_ALIGN - 1;
->
-> -	p = kzalloc(alloc_size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-> -	if (!p)
-> -		p = vzalloc(alloc_size);
-> +	p = kvzalloc(alloc_size, GFP_KERNEL | __GFP_REPEAT);
->  	if (!p)
->  		return NULL;
->
-> diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-> index a4f738ac7728..594f77d89f6c 100644
-> --- a/net/sched/sch_fq.c
-> +++ b/net/sched/sch_fq.c
-> @@ -624,16 +624,6 @@ static void fq_rehash(struct fq_sched_data *q,
->  	q->stat_gc_flows += fcnt;
->  }
->
-> -static void *fq_alloc_node(size_t sz, int node)
-> -{
-> -	void *ptr;
-> -
-> -	ptr = kmalloc_node(sz, GFP_KERNEL | __GFP_REPEAT | __GFP_NOWARN, node);
-> -	if (!ptr)
-> -		ptr = vmalloc_node(sz, node);
-> -	return ptr;
-> -}
-> -
->  static void fq_free(void *addr)
->  {
->  	kvfree(addr);
-> @@ -650,7 +640,7 @@ static int fq_resize(struct Qdisc *sch, u32 log)
->  		return 0;
->
->  	/* If XPS was setup, we can allocate memory on right NUMA node */
-> -	array = fq_alloc_node(sizeof(struct rb_root) << log,
-> +	array = kvmalloc_node(sizeof(struct rb_root) << log, GFP_KERNEL | __GFP_REPEAT,
->  			      netdev_queue_numa_node_read(sch->dev_queue));
->  	if (!array)
->  		return -ENOMEM;
->
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index bda0c64..18944f4 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -259,28 +259,30 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
+ }
+ 
+-static void gtp_encap_disable(struct gtp_dev *gtp)
+-{
+-	if (gtp->sock0 && gtp->sock0->sk) {
+-		udp_sk(gtp->sock0->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock0->sk, NULL);
+-	}
+-	if (gtp->sock1u && gtp->sock1u->sk) {
+-		udp_sk(gtp->sock1u->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock1u->sk, NULL);
+-	}
+-
+-	gtp->sock0 = NULL;
+-	gtp->sock1u = NULL;
+-}
+-
+ static void gtp_encap_destroy(struct sock *sk)
+ {
+ 	struct gtp_dev *gtp;
+ 
+ 	gtp = rcu_dereference_sk_user_data(sk);
+-	if (gtp)
+-		gtp_encap_disable(gtp);
++	if (gtp) {
++		udp_sk(sk)->encap_type = 0;
++		rcu_assign_sk_user_data(sk, NULL);
++	}
++}
++
++static void gtp_encap_disable_sock(struct socket *sock)
++{
++	if (!sock || !sock->sk)
++		return;
++
++	gtp_encap_destroy(sock->sk);
++	sockfd_put(sock);
++}
++
++static void gtp_encap_disable(struct gtp_dev *gtp)
++{
++	gtp_encap_disable_sock(gtp->sock0);
++	gtp_encap_disable_sock(gtp->sock1u);
+ }
+ 
+ /* UDP encapsulation receive handler. See net/ipv4/udp.c.
+@@ -640,27 +642,24 @@ static void gtp_link_setup(struct net_device *dev)
+ 
+ static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
+ static void gtp_hashtable_free(struct gtp_dev *gtp);
+-static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    int fd_gtp0, int fd_gtp1);
++static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[]);
++static void gtp_encap_disable(struct gtp_dev *gtp);
+ 
+ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 			struct nlattr *tb[], struct nlattr *data[])
+ {
+-	int hashsize, err, fd0, fd1;
++	int hashsize, err;
+ 	struct gtp_dev *gtp;
+ 	struct gtp_net *gn;
+ 
+-	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
++	if (!data[IFLA_GTP_FD0] && !data[IFLA_GTP_FD1])
+ 		return -EINVAL;
+ 
+ 	gtp = netdev_priv(dev);
+ 
+-	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
+-	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+-
+-	err = gtp_encap_enable(dev, gtp, fd0, fd1);
++	err = gtp_encap_enable(gtp, data);
+ 	if (err < 0)
+-		goto out_err;
++		return err;
+ 
+ 	if (!data[IFLA_GTP_PDP_HASHSIZE])
+ 		hashsize = 1024;
+@@ -688,7 +687,6 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 	gtp_hashtable_free(gtp);
+ out_encap:
+ 	gtp_encap_disable(gtp);
+-out_err:
+ 	return err;
+ }
+ 
+@@ -803,61 +801,73 @@ static void gtp_hashtable_free(struct gtp_dev *gtp)
+ 	kfree(gtp->tid_hash);
+ }
+ 
+-static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    int fd_gtp0, int fd_gtp1)
++static struct socket *gtp_encap_enable_socket(int fd, int type,
++					      struct gtp_dev *gtp)
+ {
+ 	struct udp_tunnel_sock_cfg tuncfg = {NULL};
+-	struct socket *sock0, *sock1u;
++	struct socket *sock;
+ 	int err;
+ 
+-	netdev_dbg(dev, "enable gtp on %d, %d\n", fd_gtp0, fd_gtp1);
++	pr_debug("enable gtp on %d, %d\n", fd, type);
+ 
+-	sock0 = sockfd_lookup(fd_gtp0, &err);
+-	if (sock0 == NULL) {
+-		netdev_dbg(dev, "socket fd=%d not found (gtp0)\n", fd_gtp0);
+-		return -ENOENT;
++	sock = sockfd_lookup(fd, &err);
++	if (!sock) {
++		pr_debug("gtp socket fd=%d not found\n", fd);
++		return NULL;
+ 	}
+ 
+-	if (sock0->sk->sk_protocol != IPPROTO_UDP) {
+-		netdev_dbg(dev, "socket fd=%d not UDP\n", fd_gtp0);
++	if (sock->sk->sk_protocol != IPPROTO_UDP) {
++		pr_debug("socket fd=%d not UDP\n", fd);
+ 		err = -EINVAL;
+-		goto err1;
++		goto out_sock;
+ 	}
+ 
+-	sock1u = sockfd_lookup(fd_gtp1, &err);
+-	if (sock1u == NULL) {
+-		netdev_dbg(dev, "socket fd=%d not found (gtp1u)\n", fd_gtp1);
+-		err = -ENOENT;
+-		goto err1;
++	if (rcu_dereference_sk_user_data(sock->sk)) {
++		err = -EBUSY;
++		goto out_sock;
+ 	}
+ 
+-	if (sock1u->sk->sk_protocol != IPPROTO_UDP) {
+-		netdev_dbg(dev, "socket fd=%d not UDP\n", fd_gtp1);
+-		err = -EINVAL;
+-		goto err2;
+-	}
+-
+-	netdev_dbg(dev, "enable gtp on %p, %p\n", sock0, sock1u);
+-
+-	gtp->sock0 = sock0;
+-	gtp->sock1u = sock1u;
+-
+ 	tuncfg.sk_user_data = gtp;
++	tuncfg.encap_type = type;
+ 	tuncfg.encap_rcv = gtp_encap_recv;
+ 	tuncfg.encap_destroy = gtp_encap_destroy;
+ 
+-	tuncfg.encap_type = UDP_ENCAP_GTP0;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock0->sk), gtp->sock0, &tuncfg);
+-
+-	tuncfg.encap_type = UDP_ENCAP_GTP1U;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock1u->sk), gtp->sock1u, &tuncfg);
+-
+-	err = 0;
+-err2:
+-	sockfd_put(sock1u);
+-err1:
+-	sockfd_put(sock0);
+-	return err;
++	setup_udp_tunnel_sock(sock_net(sock->sk), sock, &tuncfg);
++	return sock;
++
++out_sock:
++	sockfd_put(sock);
++	return ERR_PTR(err);
++}
++
++static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[])
++{
++	struct socket *sock0 = NULL;
++	struct socket *sock1u = NULL;
++
++	if (data[IFLA_GTP_FD0]) {
++		u32 fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
++
++		sock0 = gtp_encap_enable_socket(fd0, UDP_ENCAP_GTP0, gtp);
++		if (IS_ERR(sock0))
++			return PTR_ERR(sock0);
++	}
++
++	if (data[IFLA_GTP_FD1]) {
++		u32 fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
++
++		sock1u = gtp_encap_enable_socket(fd1, UDP_ENCAP_GTP1U, gtp);
++		if (IS_ERR(sock1u)) {
++			if (sock0)
++				sockfd_put(sock0);
++			return PTR_ERR(sock1u);
++		}
++	}
++
++	gtp->sock0 = sock0;
++	gtp->sock1u = sock1u;
++
++	return 0;
+ }
+ 
+ static struct net_device *gtp_find_dev(struct net *net, int ifindex)
+-- 
+2.10.2
