@@ -1,249 +1,119 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Mon, 30 Jan 2017 15:46:47 +0530
-Message-ID: <CAHgaXdJW=-tprZtBcWBWxM1En-aCp4B++3DmoRyDKVAtqY6uuA@mail.gmail.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH 5/9] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Mon, 30 Jan 2017 12:21:55 +0200
+Message-ID: <20170130102155.GK6005@mtr-leonro.local>
+References: <20170130094940.13546-1-mhocko@kernel.org>
+ <20170130094940.13546-6-mhocko@kernel.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=001a114116f2fc73db05474d1c86
-Cc: netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org
-To: Kees Cook <keescook@chromium.org>, Daniel Borkmann <daniel@iogearbox.net>,
-	Mircea Gherzan <mgherzan@gmail.com>
-Return-path: <kernel-hardening-return-6193-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="LNKrWK8T5LDJo+fl"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Vlastimil Babka <vbabka@suse.cz>,
+	David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Al Viro <viro@zeniv.linux.org.uk>, linux-mm@kvack.org,
+	LKML <linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Anton Vorontsov <anton@enomsg.org>,
+	Colin Cross <ccross@android.com>, Kees Cook <keescook@chromium.org>,
+	Tony Luck <tony.luck@intel.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Ben Skeggs <bskeggs@redhat.com>,
+	Kent Overstreet <kent.overstreet@gmail.com>,
+	Santosh Raspatur <santosh@chelsio.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Oleg Drokin <oleg.drokin@intel.com>, "Yan, Zheng" <zyan@redhat.com>
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170130094940.13546-6-mhocko@kernel.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---001a114116f2fc73db05474d1c86
-Content-Type: text/plain; charset=UTF-8
 
-Hi all,
+--LNKrWK8T5LDJo+fl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Just starting a new thread with proper heading on the main kernel hardening
-and net-dev mailing list so that other people can be involved in this.
-Please don't take this as a personal mail.
-
-I am working on conversion of arm32 cBPF into eBPF JIT. I wanted some help,
-regarding understanding of kernel code, from the dev available on the
-mailing list. If you look at the ./arch/arm/net/bpf_jit_32.c code, you will
-see jit_ctx structure. If anybody could help me understand what each fields
-of this structure represent then it would be great.
-
-Also, currently I am mapping the eBPF registers to arm 32 bit registers in
-the following way.
-
-static const int bpf2a32[] = {
+On Mon, Jan 30, 2017 at 10:49:36AM +0100, Michal Hocko wrote:
+> From: Michal Hocko <mhocko@suse.com>
 >
->         /* return value from in-kernel function, and exit value from eBPF
-> */
->         [BPF_REG_0] = ARM_R0,
+> There are many code paths opencoding kvmalloc. Let's use the helper
+> instead. The main difference to kvmalloc is that those users are usually
+> not considering all the aspects of the memory allocator. E.g. allocation
+> requests <= 32kB (with 4kB pages) are basically never failing and invoke
+> OOM killer to satisfy the allocation. This sounds too disruptive for
+> something that has a reasonable fallback - the vmalloc. On the other
+> hand those requests might fallback to vmalloc even when the memory
+> allocator would succeed after several more reclaim/compaction attempts
+> previously. There is no guarantee something like that happens though.
 >
->         /* arguments from eBPF program to in-kernel function */
+> This patch converts many of those places to kv[mz]alloc* helpers because
+> they are more conservative.
 >
->         [BPF_REG_1] = ARM_R1,
+> Changes since v1
+> - add kvmalloc_array - this might silently fix some overflow issues
+>   because most users simply didn't check the overflow for the vmalloc
+>   fallback.
 >
->         [BPF_REG_2] = ARM_R2,
->
->         [BPF_REG_3] = ARM_R3,
->
->         [BPF_REG_4] = ARM_R4,
->
->         [BPF_REG_5] = ARM_R5,
->
->         /* callee saved registers that in-kernel function will preserve */
->
->         [BPF_REG_6] = ARM_R6,
->
->         [BPF_REG_7] = ARM_R7,
->
->         [BPF_REG_8] = ARM_R8,
->
->         [BPF_REG_9] = ARM_R9,
->
->         /* Read only Frame Pointer to access Stack */
->
->         [BPF_REG_FP] = ARM_FP,
->
->         /* Temperory Register for internal BPF JIT */
->
->         [TMP_REG_1] = ARM_R11,
->
->         /* temporary register for blinding constants */
->
->         [BPF_REG_AX] = ARM_R10,
->
-> };
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Anton Vorontsov <anton@enomsg.org>
+> Cc: Colin Cross <ccross@android.com>
+> Cc: Kees Cook <keescook@chromium.org>
+> Cc: Tony Luck <tony.luck@intel.com>
+> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+> Cc: Ben Skeggs <bskeggs@redhat.com>
+> Cc: Kent Overstreet <kent.overstreet@gmail.com>
+> Cc: Santosh Raspatur <santosh@chelsio.com>
+> Cc: Hariprasad S <hariprasad@chelsio.com>
+> Cc: Yishai Hadas <yishaih@mellanox.com>
+> Cc: Oleg Drokin <oleg.drokin@intel.com>
+> Cc: "Yan, Zheng" <zyan@redhat.com>
+> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: netdev@vger.kernel.org
+> Acked-by: Andreas Dilger <andreas.dilger@intel.com> # Lustre
+> Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com> # Xen bits
+> Acked-by: Christian Borntraeger <borntraeger@de.ibm.com> # KVM/s390
+> Acked-by: Dan Williams <dan.j.williams@intel.com> # nvdim
+> Acked-by: David Sterba <dsterba@suse.com> # btrfs
+> Acked-by: Ilya Dryomov <idryomov@gmail.com> # Ceph
+> Acked-by: Tariq Toukan <tariqt@mellanox.com> # mlx4
+> Signed-off-by: Michal Hocko <mhocko@suse.com>
 
+Acked-by: Leon Romanovsky <leonro@mellanox.com> # mlx5
 
-But I have some question if anybody could help with those.
+--LNKrWK8T5LDJo+fl
+Content-Type: application/pgp-signature; name="signature.asc"
 
-   - Currently, as eBPF uses 64 bit registers, I am mapping 64 bit eBPF
-   registers with 32 bit arm registers which looks wrong to me. Do anybody
-   have some idea about how to map eBPF->arm 32 bit registers ?
-   - Also, is my current mapping good enough to make the JIT fast enough ?
-   because as you might know, eBPF JIT mostly depends on 1-to-1 mapping of its
-   instructions with native instructions.
+-----BEGIN PGP SIGNATURE-----
 
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAliPE8MACgkQ5GN7iDZy
+WKfJfg//VOxtLjgK0HaPkAHu0w0PVT1lOHx8xasYvbhQVtdUGdmspMrgIhcAvkNt
+MN4/sLUPfm86tvwUlHqp36jmcXHXnauAZTUL/HYcwmEsLeAD65JlpR+KG2sz9ijb
+47FBDOd5nPzfIO0k7iXB8kSiEdp8H9SwTedV2MgiFfeHM180gTv2q2QzMCJry644
+eq/efEIcfvzhrSpzLboQ1b7p19HkuKhWRqZdSZB+PL8lp7WZoFL8jdUd6PeXAek7
+9TCrMZJvuyCgJgTRgijPJlcgERJ9rn2ri7k+YLuHdig8GV6D6LyxHICrPZvwsdLr
+Y+lyLWLAUwW3P3k1oa41CIo/f2HeKITYgfU4rdVLmzi0iXUFpl2A3PZDfxA6eYzk
+wMG+GHuwDsLYmbBE6XOMToL07MHh5GlZXchykRNit1bS4pACKfj9Jk9gqJLVd3gn
+Xte0WTaBVoqNB3uW6VH1ViwlmjKLD7y6aBMKwdFZIIuDLlYOk/ir6LZMb+qfvnU9
+CHZ221XyJhr2RgaynmaHiC8nOXIwVn1HJm/etDHWM05ohbyep8Rr3+Mk/OmZfDS/
+TQu9J9zono//KblkmaBY39Bcuw4bmncmKmT5dnT/0jPKtwFQL8vQ1OSDFk4b/GgL
+WnYF9bqB1XA2ZKmvTI0ye167CTCuBfsE5MGpOgds5FUjMg/QKDw=
+=qAIc
+-----END PGP SIGNATURE-----
 
-Appreciate the help from anybody from the mailing list.
+--LNKrWK8T5LDJo+fl--
 
-Best,
-Shubham Bansal
-
---001a114116f2fc73db05474d1c86
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr">Hi all,<div><br></div><div>Just starting a new thread with=
- proper heading on the main kernel hardening and net-dev mailing list so th=
-at other people can be involved in this. Please don&#39;t take this as a pe=
-rsonal mail.</div><div><br></div><div>I am working on conversion of arm32 c=
-BPF into eBPF JIT. I wanted some help, regarding understanding of kernel co=
-de, from the dev available on the mailing list. If you look at the ./arch/a=
-rm/net/bpf_jit_32.c code, you will see jit_ctx structure. If anybody could =
-help me understand what each fields of this structure represent then it wou=
-ld be great.</div><div><br></div><div>Also, currently I am mapping the eBPF=
- registers to arm 32 bit registers in the following way.</div><div><br></di=
-v><div>
-
-
-
-
-
-
-
-<blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;border-=
-left:1px solid rgb(204,204,204);padding-left:1ex"><font face=3D"arial, helv=
-etica, sans-serif" size=3D"1"><span class=3D"gmail-s1">static</span><span c=
-lass=3D"gmail-s2"> </span><span class=3D"gmail-s1">const</span><span class=
-=3D"gmail-s2"> </span><span class=3D"gmail-s1">int</span><span class=3D"gma=
-il-s2"> bpf2a32[] =3D {=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmai=
-l-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica, sans-serif" s=
-ize=3D"1"><span class=3D"gmail-s4">=C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span=
- class=3D"gmail-s2">/* return value from in-kernel function, and exit value=
- from eBPF */</span><span class=3D"gmail-s4">=C2=A0 =C2=A0 </span><span cla=
-ss=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica, san=
-s-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=A0 =C2=A0 [B=
-PF_REG_0] =3D ARM_R0, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmai=
-l-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica, sans-serif" s=
-ize=3D"1"><span class=3D"gmail-s4">=C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span=
- class=3D"gmail-s2">/* arguments from eBPF program to in-kernel function */=
-</span><span class=3D"gmail-s4"> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 </span><span class=3D"gmail-s3">=C2=A0<br></span></font><font=
- face=3D"arial, helvetica, sans-serif" size=3D"1"><span class=3D"gmail-s2">=
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 [BPF_REG_1] =3D ARM_R1, =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 </span><span class=3D"gmail-s3">=C2=A0<br></span></font><font face=
-=3D"arial, helvetica, sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 [BPF_REG_2] =3D ARM_R2, =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 </span><span class=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"a=
-rial, helvetica, sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 [BPF_REG_3] =3D ARM_R3, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </spa=
-n><span class=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, hel=
-vetica, sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 [BPF_REG_4] =3D ARM_R4, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span=
- class=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica,=
- sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 [BPF_REG_5] =3D ARM_R5, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=
-=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica, sans-=
-serif" size=3D"1"><span class=3D"gmail-s4">=C2=A0 =C2=A0 =C2=A0 =C2=A0 </sp=
-an><span class=3D"gmail-s2">/* callee saved registers that in-kernel functi=
-on will preserve */</span><span class=3D"gmail-s4">=C2=A0 =C2=A0 =C2=A0 </s=
-pan><span class=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, h=
-elvetica, sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 [BPF_REG_6] =3D ARM_R6, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span=
- class=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica,=
- sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 [BPF_REG_7] =3D ARM_R7, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=
-=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica, sans-=
-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=A0 =C2=A0 [BPF=
-_REG_8] =3D ARM_R8, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmail-s=
-3">=C2=A0<br></span></font><font face=3D"arial, helvetica, sans-serif" size=
-=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=A0 =C2=A0 [BPF_REG_9] =3D=
- ARM_R9, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmail-s3">=C2=A0<b=
-r></span></font><font face=3D"arial, helvetica, sans-serif" size=3D"1"><spa=
-n class=3D"gmail-s4">=C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmai=
-l-s2">/* Read only Frame Pointer to access Stack */</span><span class=3D"gm=
-ail-s4"> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmail-s3">=C2=A0<br></span><=
-/font><font face=3D"arial, helvetica, sans-serif" size=3D"1"><span class=3D=
-"gmail-s2">=C2=A0 =C2=A0 =C2=A0 =C2=A0 [BPF_REG_FP] =3D ARM_FP,=C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 </span><span class=3D"gmail-s3">=C2=A0<br></span></font><=
-font face=3D"arial, helvetica, sans-serif" size=3D"1"><span class=3D"gmail-=
-s4">=C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmail-s2">/* Temperor=
-y Register for internal BPF JIT */</span><span class=3D"gmail-s4"> =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 </span><span class=3D"gmail-s3">=C2=A0<br></span></font><font fa=
-ce=3D"arial, helvetica, sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 [TMP_REG_1] =3D ARM_R11,=C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 </span><span class=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"a=
-rial, helvetica, sans-serif" size=3D"1"><span class=3D"gmail-s4">=C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 </span><span class=3D"gmail-s2">/* temporary register for=
- blinding constants */</span><span class=3D"gmail-s4"> =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><spa=
-n class=3D"gmail-s3">=C2=A0<br></span></font><font face=3D"arial, helvetica=
-, sans-serif" size=3D"1"><span class=3D"gmail-s2">=C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 [BPF_REG_AX] =3D ARM_R10, =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 </span><span class=3D"gmai=
-l-s3">=C2=A0<br></span></font><span class=3D"gmail-s2"><font face=3D"arial,=
- helvetica, sans-serif" size=3D"1">};=C2=A0</font></span></blockquote><div>=
-<br></div><div>But I have some question if anybody could help with those.=
-=C2=A0</div><div><ul><li>Currently, as eBPF uses 64 bit registers, I am map=
-ping 64 bit eBPF registers with 32 bit arm registers which looks wrong to m=
-e. Do anybody have some idea about how to map eBPF-&gt;arm 32 bit registers=
- ?=C2=A0<br></li><li>Also, is my current mapping good enough to make the JI=
-T fast enough ? because as you might know, eBPF JIT mostly depends on 1-to-=
-1 mapping of its instructions with native instructions.<br></li></ul><div><=
-br></div></div><div>Appreciate the help from anybody from the mailing list.=
-</div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</div><div><br clear=3D"all"><div><div class=3D"gmail_signature"><div dir=
-=3D"ltr"><div>Best,<br></div>Shubham Bansal<br></div></div></div>
-</div></div>
-
---001a114116f2fc73db05474d1c86--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
