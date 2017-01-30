@@ -1,119 +1,48 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH 5/9] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Mon, 30 Jan 2017 12:21:55 +0200
-Message-ID: <20170130102155.GK6005@mtr-leonro.local>
-References: <20170130094940.13546-1-mhocko@kernel.org>
- <20170130094940.13546-6-mhocko@kernel.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="LNKrWK8T5LDJo+fl"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Vlastimil Babka <vbabka@suse.cz>,
-	David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	Al Viro <viro@zeniv.linux.org.uk>, linux-mm@kvack.org,
-	LKML <linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Anton Vorontsov <anton@enomsg.org>,
-	Colin Cross <ccross@android.com>, Kees Cook <keescook@chromium.org>,
-	Tony Luck <tony.luck@intel.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Ben Skeggs <bskeggs@redhat.com>,
-	Kent Overstreet <kent.overstreet@gmail.com>,
-	Santosh Raspatur <santosh@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Oleg Drokin <oleg.drokin@intel.com>, "Yan, Zheng" <zyan@redhat.com>
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20170130094940.13546-6-mhocko@kernel.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2017-01-30
+Date: Mon, 30 Jan 2017 11:11:00 +0100
+Message-ID: <20170130101101.14150-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:37439 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751216AbdA3Kad (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 05:30:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello David,
 
---LNKrWK8T5LDJo+fl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+this is a pull request of one patch.
 
-On Mon, Jan 30, 2017 at 10:49:36AM +0100, Michal Hocko wrote:
-> From: Michal Hocko <mhocko@suse.com>
->
-> There are many code paths opencoding kvmalloc. Let's use the helper
-> instead. The main difference to kvmalloc is that those users are usually
-> not considering all the aspects of the memory allocator. E.g. allocation
-> requests <= 32kB (with 4kB pages) are basically never failing and invoke
-> OOM killer to satisfy the allocation. This sounds too disruptive for
-> something that has a reasonable fallback - the vmalloc. On the other
-> hand those requests might fallback to vmalloc even when the memory
-> allocator would succeed after several more reclaim/compaction attempts
-> previously. There is no guarantee something like that happens though.
->
-> This patch converts many of those places to kv[mz]alloc* helpers because
-> they are more conservative.
->
-> Changes since v1
-> - add kvmalloc_array - this might silently fix some overflow issues
->   because most users simply didn't check the overflow for the vmalloc
->   fallback.
->
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Anton Vorontsov <anton@enomsg.org>
-> Cc: Colin Cross <ccross@android.com>
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-> Cc: Ben Skeggs <bskeggs@redhat.com>
-> Cc: Kent Overstreet <kent.overstreet@gmail.com>
-> Cc: Santosh Raspatur <santosh@chelsio.com>
-> Cc: Hariprasad S <hariprasad@chelsio.com>
-> Cc: Yishai Hadas <yishaih@mellanox.com>
-> Cc: Oleg Drokin <oleg.drokin@intel.com>
-> Cc: "Yan, Zheng" <zyan@redhat.com>
-> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: netdev@vger.kernel.org
-> Acked-by: Andreas Dilger <andreas.dilger@intel.com> # Lustre
-> Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com> # Xen bits
-> Acked-by: Christian Borntraeger <borntraeger@de.ibm.com> # KVM/s390
-> Acked-by: Dan Williams <dan.j.williams@intel.com> # nvdim
-> Acked-by: David Sterba <dsterba@suse.com> # btrfs
-> Acked-by: Ilya Dryomov <idryomov@gmail.com> # Ceph
-> Acked-by: Tariq Toukan <tariqt@mellanox.com> # mlx4
-> Signed-off-by: Michal Hocko <mhocko@suse.com>
+The patch is by Oliver Hartkopp and fixes the hrtimer/tasklet termination in
+bcm op removal.
 
-Acked-by: Leon Romanovsky <leonro@mellanox.com> # mlx5
+regards,
+Marc
 
---LNKrWK8T5LDJo+fl
-Content-Type: application/pgp-signature; name="signature.asc"
+---
 
------BEGIN PGP SIGNATURE-----
+The following changes since commit d1156b489fa734d1af763d6a07b1637c01bb0aed:
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAliPE8MACgkQ5GN7iDZy
-WKfJfg//VOxtLjgK0HaPkAHu0w0PVT1lOHx8xasYvbhQVtdUGdmspMrgIhcAvkNt
-MN4/sLUPfm86tvwUlHqp36jmcXHXnauAZTUL/HYcwmEsLeAD65JlpR+KG2sz9ijb
-47FBDOd5nPzfIO0k7iXB8kSiEdp8H9SwTedV2MgiFfeHM180gTv2q2QzMCJry644
-eq/efEIcfvzhrSpzLboQ1b7p19HkuKhWRqZdSZB+PL8lp7WZoFL8jdUd6PeXAek7
-9TCrMZJvuyCgJgTRgijPJlcgERJ9rn2ri7k+YLuHdig8GV6D6LyxHICrPZvwsdLr
-Y+lyLWLAUwW3P3k1oa41CIo/f2HeKITYgfU4rdVLmzi0iXUFpl2A3PZDfxA6eYzk
-wMG+GHuwDsLYmbBE6XOMToL07MHh5GlZXchykRNit1bS4pACKfj9Jk9gqJLVd3gn
-Xte0WTaBVoqNB3uW6VH1ViwlmjKLD7y6aBMKwdFZIIuDLlYOk/ir6LZMb+qfvnU9
-CHZ221XyJhr2RgaynmaHiC8nOXIwVn1HJm/etDHWM05ohbyep8Rr3+Mk/OmZfDS/
-TQu9J9zono//KblkmaBY39Bcuw4bmncmKmT5dnT/0jPKtwFQL8vQ1OSDFk4b/GgL
-WnYF9bqB1XA2ZKmvTI0ye167CTCuBfsE5MGpOgds5FUjMg/QKDw=
-=qAIc
------END PGP SIGNATURE-----
+  net: adaptec: starfire: add checks for dma mapping errors (2017-01-29 19:04:11 -0500)
 
---LNKrWK8T5LDJo+fl--
+are available in the git repository at:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.10-20170130
+
+for you to fetch changes up to a06393ed03167771246c4c43192d9c264bc48412:
+
+  can: bcm: fix hrtimer/tasklet termination in bcm op removal (2017-01-30 11:05:04 +0100)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.10-20170130
+
+----------------------------------------------------------------
+Oliver Hartkopp (1):
+      can: bcm: fix hrtimer/tasklet termination in bcm op removal
+
+ net/can/bcm.c | 23 ++++++++++++++++-------
+ 1 file changed, 16 insertions(+), 7 deletions(-)
