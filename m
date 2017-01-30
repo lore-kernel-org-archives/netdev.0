@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] pull request for net-next: batman-adv 2017-01-28
-Date: Sun, 29 Jan 2017 19:22:02 -0500 (EST)
-Message-ID: <20170129.192202.1740655180668610769.davem@davemloft.net>
-References: <20170128105651.3061-1-sw@simonwunderlich.de>
+Subject: Re: [PATCH net-next] net: add devm version of alloc_etherdev_mqs
+ function
+Date: Sun, 29 Jan 2017 19:24:34 -0500 (EST)
+Message-ID: <20170129.192434.339228303342526617.davem@davemloft.net>
+References: <20170128141542.9676-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: sw@simonwunderlich.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43016 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750775AbdA3AWE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 19:22:04 -0500
-In-Reply-To: <20170128105651.3061-1-sw@simonwunderlich.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: 8bit
+Cc: pablo@netfilter.org, andrew@lunn.ch, joe@perches.com,
+        tom@herbertland.com, aduyck@mirantis.com, brouer@redhat.com,
+        jarod@redhat.com, sd@queasysnail.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, rafal@milecki.pl
+To: zajec5@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170128141542.9676-1-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Date: Sat, 28 Jan 2017 11:56:49 +0100
+From: Rafa©© Mi©©ecki <zajec5@gmail.com>
+Date: Sat, 28 Jan 2017 15:15:42 +0100
 
-> here is another pull request for batman-adv in net-next. One of them fixes
-> a regression introduced by a patch in the previous pull request two days ago.
+> From: Rafa©© Mi©©ecki <rafal@milecki.pl>
 > 
-> Please pull or let me know of any problem!
+> This patch adds devm_alloc_etherdev_mqs function and devm_alloc_etherdev
+> macro. These can be used for simpler netdev allocation without having to
+> care about calling free_netdev.
+> 
+> Thanks to this change drivers, their error paths and removal paths may
+> get simpler by a bit.
+> 
+> Signed-off-by: Rafa©© Mi©©ecki <rafal@milecki.pl>
 
-Pulled, thanks Simon.
+This looks fine, thanks.
