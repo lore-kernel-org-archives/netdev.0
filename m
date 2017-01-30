@@ -1,93 +1,44 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Avoid command timeouts during VF driver device shutdown
-Date: Mon, 30 Jan 2017 15:11:45 +0200
-Message-ID: <1485781905-1511-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] qed: Add infrastructure for PTP support.
+Date: Mon, 30 Jan 2017 14:26:19 +0100
+Message-ID: <20170130132619.GA4854@localhost.localdomain>
+References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485674903-27689-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <20170129153134.GC2223@localhost.localdomain>
+ <BL2PR07MB23065AC5421859AAC6D334348D480@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20170129205156.GA30336@localhost.localdomain>
+ <BL2PR07MB23063CA6DC624BDC4ABCCC268D480@BL2PR07MB2306.namprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34182 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752959AbdA3NNm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 08:13:42 -0500
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:35741 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750801AbdA3NyK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 08:54:10 -0500
+Received: by mail-wj0-f193.google.com with SMTP id i7so7865550wjf.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 05:54:09 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <BL2PR07MB23063CA6DC624BDC4ABCCC268D480@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+On Sun, Jan 29, 2017 at 09:36:11PM +0000, Mintz, Yuval wrote:
+> I might have gotten it all wrong, but I was under the assumption that time-
+> stamped packets are periodic, and that the interval between two isn't
+> going to be so small.
 
-Some Hypervisors detach VFs from VMs by instantly causing an FLR event
-to be generated for a VF.
+That is an incorrect assumption.  Consider the Delay_Req packets
+arriving on a port in the MASTER state.
 
-In the mlx4 case, this will cause that VF's comm channel to be disabled
-before the VM has an opportunity to invoke the VF device's "shutdown"
-method.
+> Is so, how does having a couple of additional instructions in between
+> jeopardizes the next time stamp?
 
-The result is that the VF driver on the VM will experience a command
-timeout during the shutdown process when the Hypervisor does not deliver
-a command-completion event to the VM.
+It is not just about the few instructions, but there is also
+preemption possible.
 
-To avoid FW command timeouts on the VM when the driver's shutdown method
-is invoked, we detect the absence of the VF's comm channel at the very
-start of the shutdown process. If the comm-channel has already been
-disabled, we cause all FW commands during the device shutdown process to
-immediately return success (and thus avoid all command timeouts).
-
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/catas.c |  2 +-
- drivers/net/ethernet/mellanox/mlx4/intf.c  | 12 ++++++++++++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h  |  1 +
- 3 files changed, 14 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
-index c7e939945259..53daa6ca5d83 100644
---- a/drivers/net/ethernet/mellanox/mlx4/catas.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
-@@ -158,7 +158,7 @@ static int mlx4_reset_slave(struct mlx4_dev *dev)
- 	return -ETIMEDOUT;
- }
- 
--static int mlx4_comm_internal_err(u32 slave_read)
-+int mlx4_comm_internal_err(u32 slave_read)
- {
- 	return (u32)COMM_CHAN_EVENT_INTERNAL_ERR ==
- 		(slave_read & (u32)COMM_CHAN_EVENT_INTERNAL_ERR) ? 1 : 0;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/intf.c b/drivers/net/ethernet/mellanox/mlx4/intf.c
-index 0e8b7c44931f..8258d08acd8c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/intf.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/intf.c
-@@ -222,6 +222,18 @@ void mlx4_unregister_device(struct mlx4_dev *dev)
- 		return;
- 
- 	mlx4_stop_catas_poll(dev);
-+	if (dev->persist->interface_state & MLX4_INTERFACE_STATE_DELETION &&
-+	    mlx4_is_slave(dev)) {
-+		/* In mlx4_remove_one on a VF */
-+		u32 slave_read =
-+			swab32(readl(&mlx4_priv(dev)->mfunc.comm->slave_read));
-+
-+		if (mlx4_comm_internal_err(slave_read)) {
-+			mlx4_dbg(dev, "%s: comm channel is down, entering error state.\n",
-+				 __func__);
-+			mlx4_enter_error_state(dev->persist);
-+		}
-+	}
- 	mutex_lock(&intf_mutex);
- 
- 	list_for_each_entry(intf, &intf_list, list)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 88ee7d8a5923..086920b615af 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -1220,6 +1220,7 @@ int mlx4_comm_cmd(struct mlx4_dev *dev, u8 cmd, u16 param,
- void mlx4_srq_event(struct mlx4_dev *dev, u32 srqn, int event_type);
- 
- void mlx4_enter_error_state(struct mlx4_dev_persistent *persist);
-+int mlx4_comm_internal_err(u32 slave_read);
- 
- int mlx4_SENSE_PORT(struct mlx4_dev *dev, int port,
- 		    enum mlx4_port_type *type);
--- 
-1.8.3.1
+Thanks,
+Richard
