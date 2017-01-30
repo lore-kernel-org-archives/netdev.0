@@ -1,66 +1,56 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
- xennet_disconnect_backend()
-Date: Mon, 30 Jan 2017 13:23:27 -0500
-Message-ID: <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
-References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
- <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: jgross@suse.com, xen-devel@lists.xenproject.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        vineethp@amazon.com, wei.liu2@citrix.com, paul.durrant@citrix.com,
-        stable@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 0/4] net: dsa: bcm_sf2: CFP support
+Date: Mon, 30 Jan 2017 09:48:39 -0800
+Message-ID: <20170130174843.29497-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36603 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751406AbdA3SWu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 13:22:50 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 19so23758455pfo.3
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 10:22:16 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2017 01:07 PM, Eric Dumazet wrote:
-> On Mon, 2017-01-30 at 12:45 -0500, Boris Ostrovsky wrote:
->> rx_refill_timer should be deleted as soon as we disconnect from the
->> backend since otherwise it is possible for the timer to go off before
->> we get to xennet_destroy_queues(). If this happens we may dereference
->> queue->rx.sring which is set to NULL in xennet_disconnect_backend().
->>
->> Signed-off-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
->> CC: stable@vger.kernel.org
->> ---
->>  drivers/net/xen-netfront.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
->> index 8315fe7..722fe9f 100644
->> --- a/drivers/net/xen-netfront.c
->> +++ b/drivers/net/xen-netfront.c
->> @@ -1379,6 +1379,8 @@ static void xennet_disconnect_backend(struct netfront_info *info)
->>  	for (i = 0; i < num_queues && info->queues; ++i) {
->>  		struct netfront_queue *queue = &info->queues[i];
->>  
->> +		del_timer_sync(&queue->rx_refill_timer);
->> +
-> If napi_disable() was not called before this del_timer_sync(), another
-> RX might come here and rearm rx_refill_timer.
+Hi all,
 
-We do netif_carrier_off() first thing in xennet_disconnect_backend() and
-the only place where the timer is rearmed is xennet_alloc_rx_buffers(),
-which is guarded by netif_carrier_ok() check.
+This patch series adds support for the Broadcom Compact Field Processor (CFP)
+which is a classification and matching engine built into most Broadcom switches.
 
--boris
+We support that using ethtool::rxnfc because it allows all known uses cases from
+the users I support to work, and more importantly, it allows the selection of a
+target rule index, which is later used by e.g: offloading hardware, this is an
+essential feature that I could not find being supported with cls_* for instance.
 
+Thanks!
 
->
->>  		if (queue->tx_irq && (queue->tx_irq == queue->rx_irq))
->>  			unbind_from_irqhandler(queue->tx_irq, queue);
->>  		if (queue->tx_irq && (queue->tx_irq != queue->rx_irq)) {
->> @@ -1733,7 +1735,6 @@ static void xennet_destroy_queues(struct netfront_info *info)
->>  
->>  		if (netif_running(info->netdev))
->>  			napi_disable(&queue->napi);
->> -		del_timer_sync(&queue->rx_refill_timer);
->>  		netif_napi_del(&queue->napi);
->>  	}
->>  
->
+Changes in v3:
+
+- rebased against latest net-next/master after Vivien's changes
+
+Changes in v2:
+
+- fixed modular builds reported by kbuild test robot
+
+Florian Fainelli (4):
+  net: dsa: Hook {get,set}_rxnfc ethtool operations
+  net: dsa: bcm_sf2: Configure traffic classes to queue mapping
+  net: dsa: bcm_sf2: Add CFP registers definitions
+  net: dsa: bcm_sf2: Add support for ethtool::rxnfc
+
+ drivers/net/dsa/Makefile       |   1 +
+ drivers/net/dsa/bcm_sf2.c      |  23 ++
+ drivers/net/dsa/bcm_sf2.h      |  17 ++
+ drivers/net/dsa/bcm_sf2_cfp.c  | 613 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/bcm_sf2_regs.h | 150 ++++++++++
+ include/net/dsa.h              |   8 +
+ net/dsa/slave.c                |  26 ++
+ 7 files changed, 838 insertions(+)
+ create mode 100644 drivers/net/dsa/bcm_sf2_cfp.c
+
+-- 
+2.9.3
