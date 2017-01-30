@@ -1,67 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 0/6 v3] kvmalloc
-Date: Mon, 30 Jan 2017 17:15:08 +0100
-Message-ID: <588F668C.6090309@iogearbox.net>
-References: <20170126074354.GB8456@dhcp22.suse.cz> <5889C331.7020101@iogearbox.net> <20170126100802.GF6590@dhcp22.suse.cz> <5889DEA3.7040106@iogearbox.net> <20170126115833.GI6590@dhcp22.suse.cz> <5889F52E.7030602@iogearbox.net> <20170126134004.GM6590@dhcp22.suse.cz> <588A5D3C.4060605@iogearbox.net> <20170127100544.GF4143@dhcp22.suse.cz> <588BA9AA.8010805@iogearbox.net> <20170130075626.GC8443@dhcp22.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gianfar: synchronize DMA API usage by
+ free_skb_rx_queue w/ gfar_new_page
+Date: Mon, 30 Jan 2017 11:20:06 -0500 (EST)
+Message-ID: <20170130.112006.2176540808791679531.davem@davemloft.net>
+References: <20170129125220.12538-1-asolokha@kb.kras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
- Andrew Morton <akpm@linux-foundation.org>,
- Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
- Johannes Weiner <hannes@cmpxchg.org>,
- linux-mm <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- marcelo.leitner@gmail.com
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170130075626.GC8443@dhcp22.suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: claudiu.manoil@nxp.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: asolokha@kb.kras.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54472 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932165AbdA3QUS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:20:18 -0500
+In-Reply-To: <20170129125220.12538-1-asolokha@kb.kras.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2017 08:56 AM, Michal Hocko wrote:
-> On Fri 27-01-17 21:12:26, Daniel Borkmann wrote:
->> On 01/27/2017 11:05 AM, Michal Hocko wrote:
->>> On Thu 26-01-17 21:34:04, Daniel Borkmann wrote:
-> [...]
->>>> So to answer your second email with the bpf and netfilter hunks, why
->>>> not replacing them with kvmalloc() and __GFP_NORETRY flag and add that
->>>> big fat FIXME comment above there, saying explicitly that __GFP_NORETRY
->>>> is not harmful though has only /partial/ effect right now and that full
->>>> support needs to be implemented in future. That would still be better
->>>> that not having it, imo, and the FIXME would make expectations clear
->>>> to anyone reading that code.
->>>
->>> Well, we can do that, I just would like to prevent from this (ab)use
->>> if there is no _real_ and _sensible_ usecase for it. Having a real bug
->>
->> Understandable.
->>
->>> report or a fallback mechanism you are mentioning above would justify
->>> the (ab)use IMHO. But that abuse would be documented properly and have a
->>> real reason to exist. That sounds like a better approach to me.
->>>
->>> But if you absolutely _insist_ I can change that.
->>
->> Yeah, please do (with a big FIXME comment as mentioned), this originally
->> came from a real bug report. Anyway, feel free to add my Acked-by then.
->
-> Thanks! I will repost the whole series today.
+From: Arseny Solokha <asolokha@kb.kras.ru>
+Date: Sun, 29 Jan 2017 19:52:20 +0700
 
-Looks like I got only Cc'ed on the cover letter of your v3 from today
-(should have been v4 actually?). Anyway, I looked up the last patch
-on lkml [1] and it seems you forgot the __GFP_NORETRY we talked about?
-At least that was what was discussed above (insisting on __GFP_NORETRY
-plus FIXME comment) for providing my Acked-by then. Can you still fix
-that up in a final respin?
+> From: Arseny Solokha <asolokha@kb.kras.ru>
+> 
+> In spite of switching to paged allocation of Rx buffers, the driver still
+> called dma_unmap_single() in the Rx queues tear-down path.
+> 
+> The DMA region unmapping code in free_skb_rx_queue() basically predates
+> the introduction of paged allocation to the driver. While being refactored,
+> it apparently hasn't reflected the change in the DMA API usage by its
+> counterpart gfar_new_page().
+> 
+> As a result, setting an interface to the DOWN state now yields the following:
+ ...
+> Even though the issue was discovered in 4.9 kernel, the code in question
+> is identical in the current net and net-next trees.
+> 
+> Fixes: 75354148ce69 ("gianfar: Add paged allocation and Rx S/G")
+> Signed-off-by: Arseny Solokha <asolokha@kb.kras.ru>
 
-Thanks again,
-Daniel
-
-   [1] https://lkml.org/lkml/2017/1/30/129
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied, thanks.
