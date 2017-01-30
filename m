@@ -1,80 +1,66 @@
-From: Anoob Soman <anoob.soman@citrix.com>
-Subject: Re: [PATCH net] packet: call fanout_release, while UNREGISTERING a
- netdev
-Date: Mon, 30 Jan 2017 18:19:32 +0000
-Message-ID: <4414de9f-962a-97f8-22cd-627588ce3d51@citrix.com>
-References: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
- <20161006.205052.1380596858044266995.davem@davemloft.net>
- <1485797189.6360.98.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
+ xennet_disconnect_backend()
+Date: Mon, 30 Jan 2017 13:23:27 -0500
+Message-ID: <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
+References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+ <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:18641 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753605AbdA3STj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 13:19:39 -0500
-In-Reply-To: <1485797189.6360.98.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jgross@suse.com, xen-devel@lists.xenproject.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        vineethp@amazon.com, wei.liu2@citrix.com, paul.durrant@citrix.com,
+        stable@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 30/01/17 17:26, Eric Dumazet wrote:
-> On Thu, 2016-10-06 at 20:50 -0400, David Miller wrote:
->> From: Anoob Soman <anoob.soman@citrix.com>
->> Date: Wed, 5 Oct 2016 15:12:54 +0100
+On 01/30/2017 01:07 PM, Eric Dumazet wrote:
+> On Mon, 2017-01-30 at 12:45 -0500, Boris Ostrovsky wrote:
+>> rx_refill_timer should be deleted as soon as we disconnect from the
+>> backend since otherwise it is possible for the timer to go off before
+>> we get to xennet_destroy_queues(). If this happens we may dereference
+>> queue->rx.sring which is set to NULL in xennet_disconnect_backend().
 >>
->>> If a socket has FANOUT sockopt set, a new proto_hook is registered
->>> as part of fanout_add(). When processing a NETDEV_UNREGISTER event in
->>> af_packet, __fanout_unlink is called for all sockets, but prot_hook which was
->>> registered as part of fanout_add is not removed. Call fanout_release, on a
->>> NETDEV_UNREGISTER, which removes prot_hook and removes fanout from the
->>> fanout_list.
->>>
->>> This fixes BUG_ON(!list_empty(&dev->ptype_specific)) in netdev_run_todo()
->>>
->>> Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
->> Applied and queued up for -stable, thanks.
-> This commit (6664498280cf "packet: call fanout_release, while
-> UNREGISTERING a netdev")
-> looks buggy :
->
-> We end up calling fanout_release() while holding a spinlock
-> ( spin_lock(&po->bind_lock); )
->
-> But fanout_release() grabs a mutex ( mutex_lock(&fanout_mutex) ), and
-> this is absolutely not valid while holding a spinlock.
-Yes correct, that is wrong.
+>> Signed-off-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+>> CC: stable@vger.kernel.org
+>> ---
+>>  drivers/net/xen-netfront.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>> index 8315fe7..722fe9f 100644
+>> --- a/drivers/net/xen-netfront.c
+>> +++ b/drivers/net/xen-netfront.c
+>> @@ -1379,6 +1379,8 @@ static void xennet_disconnect_backend(struct netfront_info *info)
+>>  	for (i = 0; i < num_queues && info->queues; ++i) {
+>>  		struct netfront_queue *queue = &info->queues[i];
+>>  
+>> +		del_timer_sync(&queue->rx_refill_timer);
+>> +
+> If napi_disable() was not called before this del_timer_sync(), another
+> RX might come here and rearm rx_refill_timer.
+
+We do netif_carrier_off() first thing in xennet_disconnect_backend() and
+the only place where the timer is rearmed is xennet_alloc_rx_buffers(),
+which is guarded by netif_carrier_ok() check.
+
+-boris
+
 
 >
-> Anoob, can you cook a fix, I guess you have a way to reproduce the thing
-> that wanted a kernel patch ?
->
-> (Please build your test kernel with CONFIG_LOCKDEP=y)
-Sure, I am planning to move fanout_release(sk) after 
-spin_unlock(bond_lock). Something like this.
-                                 }
-                                 if (msg == NETDEV_UNREGISTER) {
-                                         packet_cached_dev_reset(po);
--                                       fanout_release(sk);
-                                         po->ifindex = -1;
-                                         if (po->prot_hook.dev)
-dev_put(po->prot_hook.dev);
-                                         po->prot_hook.dev = NULL;
-                                 }
-                                 spin_unlock(&po->bind_lock);
-+                               if (msg == NETDEV_UNREGISTER) {
-+                                       fanout_release(sk);
-+                               }
-                         }
-                         break;
-
-I will quickly test it out.
-
-> Thanks.
->
+>>  		if (queue->tx_irq && (queue->tx_irq == queue->rx_irq))
+>>  			unbind_from_irqhandler(queue->tx_irq, queue);
+>>  		if (queue->tx_irq && (queue->tx_irq != queue->rx_irq)) {
+>> @@ -1733,7 +1735,6 @@ static void xennet_destroy_queues(struct netfront_info *info)
+>>  
+>>  		if (netif_running(info->netdev))
+>>  			napi_disable(&queue->napi);
+>> -		del_timer_sync(&queue->rx_refill_timer);
+>>  		netif_napi_del(&queue->napi);
+>>  	}
+>>  
 >
