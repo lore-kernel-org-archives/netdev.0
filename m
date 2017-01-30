@@ -1,82 +1,43 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: pull-request: can 2017-01-27
-Date: Mon, 30 Jan 2017 10:12:48 +0100
-Message-ID: <3c82da6b-86fa-ae93-9ffe-456f013c5e8e@pengutronix.de>
-References: <20170127204627.11735-1-mkl@pengutronix.de>
- <20170129.184606.7321731386358543.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="xSSSn6d8FG7vBrSdURqmu8lxiBQH73Blq"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/1] smc: fix potential use after free
+Date: Mon, 30 Jan 2017 10:55:03 +0100
+Message-ID: <20170130095504.7940-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        ubraun@linux.vnet.ibm.com, dan.carpenter@oracle.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:50053 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751052AbdA3Ju2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 04:50:28 -0500
-In-Reply-To: <20170129.184606.7321731386358543.davem@davemloft.net>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:42138 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750898AbdA3J4l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 04:56:41 -0500
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v0U9rho2058596
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 04:55:14 -0500
+Received: from e06smtp09.uk.ibm.com (e06smtp09.uk.ibm.com [195.75.94.105])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 288rb7jm8k-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 04:55:14 -0500
+Received: from localhost
+        by e06smtp09.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Mon, 30 Jan 2017 09:55:11 -0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---xSSSn6d8FG7vBrSdURqmu8lxiBQH73Blq
-Content-Type: multipart/mixed; boundary="iF9QwdPLJnXQpbwoxsVrP0sQUBOddjEfm";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: David Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org, kernel@pengutronix.de
-Message-ID: <3c82da6b-86fa-ae93-9ffe-456f013c5e8e@pengutronix.de>
-Subject: Re: pull-request: can 2017-01-27
-References: <20170127204627.11735-1-mkl@pengutronix.de>
- <20170129.184606.7321731386358543.davem@davemloft.net>
-In-Reply-To: <20170129.184606.7321731386358543.davem@davemloft.net>
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
---iF9QwdPLJnXQpbwoxsVrP0sQUBOddjEfm
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Hi Dave,
 
-On 01/30/2017 12:46 AM, David Miller wrote:
-> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> Date: Fri, 27 Jan 2017 21:46:26 +0100
->=20
->> this is a pull request for net/master.
->>
->> It consists of a single patch by Eric Dumazet, it fixes a kernel panic=
- at
->> security_sock_rcv_skb.
->=20
-> Oops, I applied Eric's patch directly since you ACK'd it.
+please add Dan's fix for the smc-code. Thanks, Dan and Dave!
 
-It was Oliver who Ack'ed it, but no problem.
+Regards, Ursula Braun
 
-Marc
+Dan Carpenter (1):
+  smc: Reset rx/tx buffer descriptor in case of errors
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+ net/smc/smc_core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-
---iF9QwdPLJnXQpbwoxsVrP0sQUBOddjEfm--
-
---xSSSn6d8FG7vBrSdURqmu8lxiBQH73Blq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAliPA5IACgkQPTuqJayp
-JWpRXAf+PRrY19EpKVeQc9hIQ6nNHmeIxUf7cYCCiOzvNrO00oO9oRIAznxzwkHI
-TCpQ03yWoJwZZg1JachfzFn5bwKQlOYfiNFsHbE9KKMSJLX0QKxWYDYwR9sPFuUr
-jiR3AdwlR9W51Ap15aOkwB/GrNvJ96bqRnkgmHwhKdQgkT/k3kWP6qd3Ps4SAQo4
-NQ6JqGbExbOeYdTHqVJAUL1N6YYtqZXTi4QcyPYdS7RzBI4IP60Sy/XNnSoNjPKY
-gyVHTQSfQgb/L1raLGTs53ueo2KQv0VQDhntd0vdoj32SCmamlrGob/h6CQ6Mo2T
-rR88qrl1b8lmVPVR5vk8c3/Z3X/5dw==
-=oBs2
------END PGP SIGNATURE-----
-
---xSSSn6d8FG7vBrSdURqmu8lxiBQH73Blq--
+-- 
+2.8.4
