@@ -1,94 +1,31 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Mon, 30 Jan 2017 16:08:54 +0530
-Message-ID: <20170130103853.GA34633@in3o.xyz>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
+ multipath routes
+Date: Mon, 30 Jan 2017 12:07:43 +0100
+Message-ID: <8f5334f0-20a3-0eb2-6baa-1fe8331ad2db@6wind.com>
+References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
+ <588D3EB9.1070107@cumulusnetworks.com>
+ <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org
-To: Kees Cook <keescook@chromium.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Mircea Gherzan <mgherzan@gmail.com>
-Return-path: <kernel-hardening-return-6194-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:38849 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753137AbdA3LHx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 06:07:53 -0500
+Received: by mail-wm0-f54.google.com with SMTP id r141so27972471wmg.1
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 03:07:52 -0800 (PST)
+In-Reply-To: <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-Please ignore last copy of this mail. Kernel mailing lists bounced my
-last mail back because of HTML content.
-
-Just starting a new thread with proper heading on the main kernel
-hardening and net-dev mailing list so that other people can be involved
-in this. Please don't take this as a personal mail.
-
-I am working on conversion of arm32 cBPF into eBPF JIT. I wanted some
-help, regarding understanding of kernel code, from the dev available on
-the mailing list. If you look at the ./arch/arm/net/bpf_jit_32.c code,
-you will see jit_ctx structure. If anybody could help me understand what
-each fields of this structure represent then it would be great.
-
-Also, currently I am mapping the eBPF registers to arm 32 bit registers
-in the following way.
-
-> static const int bpf2a32[] = {
->
->         /* return value from in-kernel function, and exit value from
->         eBPF
-> */
->         [BPF_REG_0] = ARM_R0,
->
->         /* arguments from eBPF program to in-kernel function */
->
->         [BPF_REG_1] = ARM_R1,
->
->         [BPF_REG_2] = ARM_R2,
->
->         [BPF_REG_3] = ARM_R3,
->
->         [BPF_REG_4] = ARM_R4,
->
->         [BPF_REG_5] = ARM_R5,
->
->         /* callee saved registers that in-kernel function will
->         preserve */
->
->         [BPF_REG_6] = ARM_R6,
->
->         [BPF_REG_7] = ARM_R7,
->
->         [BPF_REG_8] = ARM_R8,
->
->         [BPF_REG_9] = ARM_R9,
->
->         /* Read only Frame Pointer to access Stack */
->
->         [BPF_REG_FP] = ARM_FP,
->
->         /* Temperory Register for internal BPF JIT */
->
->         [TMP_REG_1] = ARM_R11,
->
->         /* temporary register for blinding constants */
->
->         [BPF_REG_AX] = ARM_R10,
->
-> };
-
-But I have some question if anybody could help with those.
-
-1.) Currently, as eBPF uses 64 bit registers, I am mapping 64 bit eBPF
-registers with 32 bit arm registers which looks wrong to me. Do anybody
-have some idea about how to map eBPF->arm 32 bit registers ?
-2.) Also, is my current mapping good enough to make the JIT fast enough ?
-because as you might know, eBPF JIT mostly depends on 1-to-1 mapping of
-its instructions with native instructions.
-
-Appreciate the help from anybody from the mailing list.
-
-Best,
-Shubham Bansal
+Le 29/01/2017 à 19:02, David Ahern a écrit :
+[snip]
+> Data centers are moving to L3, and multipath is a big part of that. Anyone who looks at ip -6 route enough knows it gets painful mentally pulling the individual routes into a single one.
+I agree, but it's only an iproute2 problem. iproute2 could group routes to have
+a better output, there is no need to have a kernel patch for this ;-)
