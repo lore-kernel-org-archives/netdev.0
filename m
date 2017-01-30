@@ -1,202 +1,48 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: [PATCH net-next v7 2/3] net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341
-Date: Mon, 30 Jan 2017 20:29:34 +0100
-Message-ID: <e3122f300fd144e2b4ae299d74fe1e72389583bb.1485804488.git-series.gregory.clement@free-electrons.com>
-References: <cover.69cbc1ba8937d0fc442538f992d62fc88aa26dcc.1485804488.git-series.gregory.clement@free-electrons.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory CLEMENT <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Wilson Ding <dingwei@marvell.com>,
-        Kostya Porotchkin <kostap@marvell.com>,
-        Joe Zhou <shjzhou@marvell.com>,
-        Jon Pannell <jpannell@marvell.com>,
-        Bob Bernstein <robertb@marvell.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.69cbc1ba8937d0fc442538f992d62fc88aa26dcc.1485804488.git-series.gregory.clement@free-electrons.com>
-In-Reply-To: <cover.69cbc1ba8937d0fc442538f992d62fc88aa26dcc.1485804488.git-series.gregory.clement@free-electrons.com>
-References: <cover.69cbc1ba8937d0fc442538f992d62fc88aa26dcc.1485804488.git-series.gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
+ xennet_disconnect_backend()
+Date: Mon, 30 Jan 2017 14:31:58 -0500
+Message-ID: <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
+References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+ <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
+ <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
+ <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, stable@vger.kernel.org, vineethp@amazon.com,
+ xen-devel@lists.xenproject.org, paul.durrant@citrix.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-The Marvell 88E6341 device is single-chip, 6-port Ethernet switch with
-four integrated 10/100/1000Mbps Ethernet transceivers and one high speed
-SerDes interfaces. It is partially compatible with switches of family
-88E6352 and switches of family 88E6390.
-
-This commit adds an initial support for this switch by describing its
-capabilities to the driver and introducing a new family.
-
-Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
----
- drivers/net/dsa/mv88e6xxx/chip.c      | 54 ++++++++++++++++++++++++++--
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 19 +++++++++-
- 2 files changed, 69 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 1344dad21f46..6a583527917d 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -702,6 +702,11 @@ static bool mv88e6xxx_6320_family(struct mv88e6xxx_chip *chip)
- 	return chip->info->family == MV88E6XXX_FAMILY_6320;
- }
- 
-+static bool mv88e6xxx_6341_family(struct mv88e6xxx_chip *chip)
-+{
-+	return chip->info->family == MV88E6XXX_FAMILY_6341;
-+}
-+
- static bool mv88e6xxx_6351_family(struct mv88e6xxx_chip *chip)
- {
- 	return chip->info->family == MV88E6XXX_FAMILY_6351;
-@@ -1726,7 +1731,8 @@ static int _mv88e6xxx_vtu_new(struct mv88e6xxx_chip *chip, u16 vid,
- 			: GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER;
- 
- 	if (mv88e6xxx_6097_family(chip) || mv88e6xxx_6165_family(chip) ||
--	    mv88e6xxx_6351_family(chip) || mv88e6xxx_6352_family(chip)) {
-+	    mv88e6xxx_6351_family(chip) || mv88e6xxx_6352_family(chip) ||
-+	    mv88e6xxx_6341_family(chip)) {
- 		struct mv88e6xxx_vtu_entry vstp;
- 
- 		/* Adding a VTU entry requires a valid STU entry. As VSTP is not
-@@ -2577,7 +2583,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
- 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
- 	    mv88e6xxx_6095_family(chip) || mv88e6xxx_6320_family(chip) ||
--	    mv88e6xxx_6185_family(chip))
-+	    mv88e6xxx_6185_family(chip) || mv88e6xxx_6341_family(chip))
- 		reg = PORT_CONTROL_2_MAP_DA;
- 
- 	if (mv88e6xxx_6095_family(chip) || mv88e6xxx_6185_family(chip)) {
-@@ -2631,7 +2637,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- 
- 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
- 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
--	    mv88e6xxx_6320_family(chip)) {
-+	    mv88e6xxx_6320_family(chip) || mv88e6xxx_6341_family(chip)) {
- 		/* Port ATU control: disable limiting the number of
- 		 * address database entries that this port is allowed
- 		 * to use.
-@@ -3650,6 +3656,34 @@ static const struct mv88e6xxx_ops mv88e6352_ops = {
- 	.reset = mv88e6352_g1_reset,
- };
- 
-+static const struct mv88e6xxx_ops mv88e6341_ops = {
-+	/* MV88E6XXX_FAMILY_6341 */
-+	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
-+	.set_eeprom = mv88e6xxx_g2_set_eeprom8,
-+	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
-+	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_rgmii_delay = mv88e6390_port_set_rgmii_delay,
-+	.port_set_speed = mv88e6390_port_set_speed,
-+	.port_tag_remap = mv88e6095_port_tag_remap,
-+	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
-+	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
-+	.port_set_ether_type = mv88e6351_port_set_ether_type,
-+	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
-+	.port_pause_config = mv88e6097_port_pause_config,
-+	.stats_snapshot = mv88e6390_g1_stats_snapshot,
-+	.stats_get_sset_count = mv88e6320_stats_get_sset_count,
-+	.stats_get_strings = mv88e6320_stats_get_strings,
-+	.stats_get_stats = mv88e6390_stats_get_stats,
-+	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
-+	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.mgmt_rsvd2cpu =  mv88e6390_g1_mgmt_rsvd2cpu,
-+	.reset = mv88e6352_g1_reset,
-+};
-+
- static const struct mv88e6xxx_ops mv88e6390_ops = {
- 	/* MV88E6XXX_FAMILY_6390 */
- 	.get_eeprom = mv88e6xxx_g2_get_eeprom8,
-@@ -4037,6 +4071,20 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.ops = &mv88e6321_ops,
- 	},
- 
-+	[MV88E6341] = {
-+		.prod_num = PORT_SWITCH_ID_PROD_NUM_6341,
-+		.family = MV88E6XXX_FAMILY_6341,
-+		.name = "Marvell 88E6341",
-+		.num_databases = 4096,
-+		.num_ports = 6,
-+		.port_base_addr = 0x10,
-+		.global1_addr = 0x1b,
-+		.age_time_coeff = 3750,
-+		.tag_protocol = DSA_TAG_PROTO_EDSA,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6341,
-+		.ops = &mv88e6341_ops,
-+	},
-+
- 	[MV88E6350] = {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
- 		.family = MV88E6XXX_FAMILY_6351,
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index e126ed00937b..76837d2022bb 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -100,6 +100,7 @@
- #define PORT_SWITCH_ID_PROD_NUM_6240	0x240
- #define PORT_SWITCH_ID_PROD_NUM_6290	0x290
- #define PORT_SWITCH_ID_PROD_NUM_6321	0x310
-+#define PORT_SWITCH_ID_PROD_NUM_6341	0x341
- #define PORT_SWITCH_ID_PROD_NUM_6352	0x352
- #define PORT_SWITCH_ID_PROD_NUM_6350	0x371
- #define PORT_SWITCH_ID_PROD_NUM_6351	0x375
-@@ -382,7 +383,7 @@
- #define GLOBAL2_EEPROM_CMD_WRITE_EN	BIT(10)
- #define GLOBAL2_EEPROM_CMD_ADDR_MASK	0xff
- #define GLOBAL2_EEPROM_DATA	0x15
--#define GLOBAL2_EEPROM_ADDR	0x15 /* 6390 */
-+#define GLOBAL2_EEPROM_ADDR	0x15 /* 6390, 6341 */
- #define GLOBAL2_PTP_AVB_OP	0x16
- #define GLOBAL2_PTP_AVB_DATA	0x17
- #define GLOBAL2_SMI_PHY_CMD			0x18
-@@ -434,6 +435,7 @@ enum mv88e6xxx_model {
- 	MV88E6290,
- 	MV88E6320,
- 	MV88E6321,
-+	MV88E6341,
- 	MV88E6350,
- 	MV88E6351,
- 	MV88E6352,
-@@ -449,6 +451,7 @@ enum mv88e6xxx_family {
- 	MV88E6XXX_FAMILY_6165,	/* 6123 6161 6165 */
- 	MV88E6XXX_FAMILY_6185,	/* 6108 6121 6122 6131 6152 6155 6182 6185 */
- 	MV88E6XXX_FAMILY_6320,	/* 6320 6321 */
-+	MV88E6XXX_FAMILY_6341,	/* 6141 6341 */
- 	MV88E6XXX_FAMILY_6351,	/* 6171 6175 6350 6351 */
- 	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
- 	MV88E6XXX_FAMILY_6390,  /* 6190 6190X 6191 6290 6390 6390X */
-@@ -602,6 +605,20 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAGS_PVT)
- 
-+#define MV88E6XXX_FLAGS_FAMILY_6341	\
-+	(MV88E6XXX_FLAG_EEE |		\
-+	 MV88E6XXX_FLAG_G1_ATU_FID |	\
-+	 MV88E6XXX_FLAG_G1_VTU_FID |	\
-+	 MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_G2_INT |	\
-+	 MV88E6XXX_FLAG_G2_POT |	\
-+	 MV88E6XXX_FLAG_STU |		\
-+	 MV88E6XXX_FLAG_VTU |		\
-+	 MV88E6XXX_FLAGS_IRL |		\
-+	 MV88E6XXX_FLAGS_MULTI_CHIP |	\
-+	 MV88E6XXX_FLAGS_PVT |		\
-+	 MV88E6XXX_FLAGS_SERDES)
-+
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
- 	(MV88E6XXX_FLAG_G1_ATU_FID |	\
- 	 MV88E6XXX_FLAG_G1_VTU_FID |	\
--- 
-git-series 0.9.1
+T24gMDEvMzAvMjAxNyAwMjowNiBQTSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IE9uIE1vbiwgMjAx
+Ny0wMS0zMCBhdCAxMzoyMyAtMDUwMCwgQm9yaXMgT3N0cm92c2t5IHdyb3RlOgo+Cj4+IFdlIGRv
+IG5ldGlmX2NhcnJpZXJfb2ZmKCkgZmlyc3QgdGhpbmcgaW4geGVubmV0X2Rpc2Nvbm5lY3RfYmFj
+a2VuZCgpIGFuZAo+PiB0aGUgb25seSBwbGFjZSB3aGVyZSB0aGUgdGltZXIgaXMgcmVhcm1lZCBp
+cyB4ZW5uZXRfYWxsb2NfcnhfYnVmZmVycygpLAo+PiB3aGljaCBpcyBndWFyZGVkIGJ5IG5ldGlm
+X2NhcnJpZXJfb2soKSBjaGVjay4KPiBPaCB3ZWxsLCB0ZXN0aW5nIG5ldGlmX2NhcnJpZXJfb2so
+KSBpbiBwYWNrZXQgcHJvY2Vzc2luZyBmYXN0IHBhdGggbG9va3MKPiB1bnVzdWFsIGFuZCBhIHdh
+c3RlIG9mIGNwdSBjeWNsZXMuIEkndmUgbmV2ZXIgc2VlbiB0aGF0IHBhdHRlcm4gYmVmb3JlLgo+
+Cj4gSWYgb25lIGRheSwgd2UgcmVtb3ZlIHRoaXMgbmV0aWZfY2Fycmllcl9vaygpIHRlc3QgZHVy
+aW5nIGEgY2xlYW51cCwKPiB0aGVuIHRoZSByYWNlIHdpbmRvdyB3aWxsIG9wZW4gYWdhaW4uCgoK
+SSBkb24ndCBrbm93IG11Y2ggYWJvdXQgbmFwaSBidXQgSSB3b25kZXIgd2hldGhlciBJIGNhbiBp
+bmRlZWQgZGlzYWJsZQppdCBpbiB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKCkuIEkgZG9uJ3Qg
+c2VlIGhvdyBhbnl0aGluZyBjYW4gaGFwcGVuCmFmdGVyIGRpc2Nvbm5lY3Qgc2luY2UgaXQgdW5t
+YXBzIHRoZSByaW5ncy4gQW5kIHRoZW4gbmFwaSBpcyByZS1lbmFibGVkCmR1cmluZyByZWNvbm5l
+Y3Rpb24gaW4geGVubmV0X2NyZWF0ZV9xdWV1ZXMoKS4gSW4gd2hpY2ggY2FzZSBhbSBub3Qgc3Vy
+ZQp0aGVyZSBpcyBhbnkgbmVlZCBmb3IgeGVubmV0X2Rlc3Ryb3lfcXVldWVzKCkgYXMgZXZlcnl0
+aGluZyB0aGVyZSBjb3VsZApiZSBmb2xkZWQgaW50byB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5k
+KCkuCgotYm9yaXMKCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRw
+czovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
