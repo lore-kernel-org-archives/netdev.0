@@ -1,91 +1,191 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 0/6 v3] kvmalloc
-Date: Mon, 30 Jan 2017 17:28:22 +0100
-Message-ID: <20170130162822.GC4664@dhcp22.suse.cz>
-References: <20170126100802.GF6590@dhcp22.suse.cz>
- <5889DEA3.7040106@iogearbox.net>
- <20170126115833.GI6590@dhcp22.suse.cz>
- <5889F52E.7030602@iogearbox.net>
- <20170126134004.GM6590@dhcp22.suse.cz>
- <588A5D3C.4060605@iogearbox.net>
- <20170127100544.GF4143@dhcp22.suse.cz>
- <588BA9AA.8010805@iogearbox.net>
- <20170130075626.GC8443@dhcp22.suse.cz>
- <588F668C.6090309@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
-	Johannes Weiner <hannes@cmpxchg.org>, linux-mm <linux-mm@kvack.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	marcelo.leitner@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <588F668C.6090309@iogearbox.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH 5/6] gtp: add socket to pdp context
+Date: Mon, 30 Jan 2017 17:31:59 +0100
+Message-ID: <20170130163200.17070-6-aschultz@tpip.net>
+References: <20170130163200.17070-1-aschultz@tpip.net>
+Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org
+To: Pablo Neira <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:45592 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751160AbdA3QeX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Jan 2017 11:34:23 -0500
+In-Reply-To: <20170130163200.17070-1-aschultz@tpip.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon 30-01-17 17:15:08, Daniel Borkmann wrote:
-> On 01/30/2017 08:56 AM, Michal Hocko wrote:
-> > On Fri 27-01-17 21:12:26, Daniel Borkmann wrote:
-> > > On 01/27/2017 11:05 AM, Michal Hocko wrote:
-> > > > On Thu 26-01-17 21:34:04, Daniel Borkmann wrote:
-> > [...]
-> > > > > So to answer your second email with the bpf and netfilter hunks, why
-> > > > > not replacing them with kvmalloc() and __GFP_NORETRY flag and add that
-> > > > > big fat FIXME comment above there, saying explicitly that __GFP_NORETRY
-> > > > > is not harmful though has only /partial/ effect right now and that full
-> > > > > support needs to be implemented in future. That would still be better
-> > > > > that not having it, imo, and the FIXME would make expectations clear
-> > > > > to anyone reading that code.
-> > > > 
-> > > > Well, we can do that, I just would like to prevent from this (ab)use
-> > > > if there is no _real_ and _sensible_ usecase for it. Having a real bug
-> > > 
-> > > Understandable.
-> > > 
-> > > > report or a fallback mechanism you are mentioning above would justify
-> > > > the (ab)use IMHO. But that abuse would be documented properly and have a
-> > > > real reason to exist. That sounds like a better approach to me.
-> > > > 
-> > > > But if you absolutely _insist_ I can change that.
-> > > 
-> > > Yeah, please do (with a big FIXME comment as mentioned), this originally
-> > > came from a real bug report. Anyway, feel free to add my Acked-by then.
-> > 
-> > Thanks! I will repost the whole series today.
-> 
-> Looks like I got only Cc'ed on the cover letter of your v3 from today
-> (should have been v4 actually?).
+Having the socket present in context simplifies the sending logic.
+It also fixes the invalid assumption that we have to use the same
+sending socket for all client IP's on a specific gtp interface.
 
-Yes
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ drivers/net/gtp.c | 72 ++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 39 insertions(+), 33 deletions(-)
 
-> Anyway, I looked up the last patch
-> on lkml [1] and it seems you forgot the __GFP_NORETRY we talked about?
-
-I misread your response. I thought you were OK with the FIXME
-explanation.
-
-> At least that was what was discussed above (insisting on __GFP_NORETRY
-> plus FIXME comment) for providing my Acked-by then. Can you still fix
-> that up in a final respin?
-
-I will probably just drop that last patch instead. I am not convinced
-that we should bend the new API over and let people mimic that
-throughout the code. I have just seen too many examples of this pattern
-already.
-
-I would also like to prevent the next rebase, unless there any issues
-with some patches of course.
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 68c6c9b..ff00597 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -58,6 +58,8 @@ struct pdp_ctx {
+ 	struct in_addr		ms_addr_ip4;
+ 	struct in_addr		sgsn_addr_ip4;
+ 
++	struct sock		*sk;
++
+ 	atomic_t		tx_seq;
+ 	struct rcu_head		rcu_head;
+ };
+@@ -371,8 +373,9 @@ static void gtp_dev_uninit(struct net_device *dev)
+ 	free_percpu(dev->tstats);
+ }
+ 
+-static struct rtable *ip4_route_output_gtp(struct net *net, struct flowi4 *fl4,
+-					   const struct sock *sk, __be32 daddr)
++static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
++					   const struct sock *sk,
++					   __be32 daddr)
+ {
+ 	memset(fl4, 0, sizeof(*fl4));
+ 	fl4->flowi4_oif		= sk->sk_bound_dev_if;
+@@ -381,7 +384,7 @@ static struct rtable *ip4_route_output_gtp(struct net *net, struct flowi4 *fl4,
+ 	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
+ 	fl4->flowi4_proto	= sk->sk_protocol;
+ 
+-	return ip_route_output_key(net, fl4);
++	return ip_route_output_key(sock_net(sk), fl4);
+ }
+ 
+ static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+@@ -470,7 +473,6 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	struct rtable *rt;
+ 	struct flowi4 fl4;
+ 	struct iphdr *iph;
+-	struct sock *sk;
+ 	__be16 df;
+ 	int mtu;
+ 
+@@ -486,30 +488,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 	netdev_dbg(dev, "found PDP context %p\n", pctx);
+ 
+-	switch (pctx->gtp_version) {
+-	case GTP_V0:
+-		if (gtp->sock0)
+-			sk = gtp->sock0->sk;
+-		else
+-			sk = NULL;
+-		break;
+-	case GTP_V1:
+-		if (gtp->sock1u)
+-			sk = gtp->sock1u->sk;
+-		else
+-			sk = NULL;
+-		break;
+-	default:
+-		return -ENOENT;
+-	}
+-
+-	if (!sk) {
+-		netdev_dbg(dev, "no userspace socket is available, skip\n");
+-		return -ENOENT;
+-	}
+-
+-	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sock0->sk,
+-				  pctx->sgsn_addr_ip4.s_addr);
++	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->sgsn_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+ 			   &pctx->sgsn_addr_ip4.s_addr);
+@@ -554,7 +533,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 		goto err_rt;
+ 	}
+ 
+-	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
++	gtp_set_pktinfo_ipv4(pktinfo, pctx->sk, iph, pctx, rt, &fl4, dev);
+ 	gtp_push_header(skb, pktinfo);
+ 
+ 	return 0;
+@@ -908,7 +887,8 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
+ 	}
+ }
+ 
+-static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
++static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
++			struct genl_info *info)
+ {
+ 	u32 hash_ms, hash_tid = 0;
+ 	struct pdp_ctx *pctx;
+@@ -948,6 +928,8 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
+ 	if (pctx == NULL)
+ 		return -ENOMEM;
+ 
++	sock_hold(sk);
++	pctx->sk = sk;
+ 	ipv4_pdp_fill(pctx, info);
+ 	atomic_set(&pctx->tx_seq, 0);
+ 
+@@ -984,16 +966,26 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
+ 	return 0;
+ }
+ 
++static void pdp_context_free(struct rcu_head *head)
++{
++	struct pdp_ctx *pctx = container_of(head, struct pdp_ctx, rcu_head);
++
++	sock_put(pctx->sk);
++	kfree(pctx);
++}
++
+ static void pdp_context_delete(struct pdp_ctx *pctx)
+ {
+ 	hlist_del_rcu(&pctx->hlist_tid);
+ 	hlist_del_rcu(&pctx->hlist_addr);
+-	kfree(pctx);
++	call_rcu(&pctx->rcu_head, pdp_context_free);
+ }
+ 
+ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ {
++	unsigned int version;
+ 	struct gtp_dev *gtp;
++	struct socket *sock;
+ 	int err;
+ 
+ 	if (!info->attrs[GTPA_VERSION] ||
+@@ -1002,7 +994,9 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 	    !info->attrs[GTPA_MS_ADDRESS])
+ 		return -EINVAL;
+ 
+-	switch (nla_get_u32(info->attrs[GTPA_VERSION])) {
++	version = nla_get_u32(info->attrs[GTPA_VERSION]);
++
++	switch (version) {
+ 	case GTP_V0:
+ 		if (!info->attrs[GTPA_TID] ||
+ 		    !info->attrs[GTPA_FLOW])
+@@ -1026,7 +1020,19 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
+ 		goto out_unlock;
+ 	}
+ 
+-	err = ipv4_pdp_add(gtp, info);
++	if (version == GTP_V0)
++		sock = gtp->sock0;
++	else if (version == GTP_V1)
++		sock = gtp->sock1u;
++	else
++		sock = NULL;
++
++	if (!sock || !sock->sk) {
++		err = -ENODEV;
++		goto out_unlock;
++	}
++
++	err = ipv4_pdp_add(gtp, sock->sk, info);
+ 
+ out_unlock:
+ 	rcu_read_unlock();
 -- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.10.2
