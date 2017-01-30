@@ -1,67 +1,85 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Mon, 30 Jan 2017 17:41:38 +0100
-Message-ID: <bc2e1549-e02e-7cdf-b3d5-549c2a8287e8@6wind.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
- <588D3EB9.1070107@cumulusnetworks.com>
- <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
- <588E80DB.3070209@cumulusnetworks.com>
- <7a7dcae4-a01b-3217-3296-b0aa2c7052f3@6wind.com>
- <588F5F83.3050304@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Mon, 30 Jan 2017 17:45:03 +0100
+Message-ID: <588F6D8F.1010006@iogearbox.net>
+References: <20170126100802.GF6590@dhcp22.suse.cz> <5889DEA3.7040106@iogearbox.net> <20170126115833.GI6590@dhcp22.suse.cz> <5889F52E.7030602@iogearbox.net> <20170126134004.GM6590@dhcp22.suse.cz> <588A5D3C.4060605@iogearbox.net> <20170127100544.GF4143@dhcp22.suse.cz> <588BA9AA.8010805@iogearbox.net> <20170130075626.GC8443@dhcp22.suse.cz> <588F668C.6090309@iogearbox.net> <20170130162822.GC4664@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f174.google.com ([209.85.210.174]:34132 "EHLO
-        mail-wj0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751085AbdA3Qln (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:41:43 -0500
-Received: by mail-wj0-f174.google.com with SMTP id uo9so8224855wjc.1
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 08:41:42 -0800 (PST)
-In-Reply-To: <588F5F83.3050304@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+ Johannes Weiner <hannes@cmpxchg.org>,
+ linux-mm <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ marcelo.leitner@gmail.com
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170130162822.GC4664@dhcp22.suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Le 30/01/2017 à 16:45, Roopa Prabhu a écrit :
-> On 1/30/17, 3:08 AM, Nicolas Dichtel wrote:
->> Le 30/01/2017 à 00:55, Roopa Prabhu a écrit :
->>> On 1/29/17, 10:02 AM, David Ahern wrote:
->>>> On 1/28/17 6:00 PM, Roopa Prabhu wrote:
->>>>>> 4. Route Appends
->>>>>>    - IPv6 allows nexthops to be appended to an existing route. In this
->>>>>>      case one notification is sent per nexthop added
->>>>> thanks for listing all of these...I think you mentioned this case to me..
->>>>> but I don't remember now why this notification is
->>>>> sent per nexthop added. This is an update to an existing multipath route.
->>>>> so seems like the notification should be a RTM_NEWROUTE with the full RTA_MULTIPATH route
->>>>> (similar to route add)
->>>> It could be; it's a question of what should userspace get -- the full route or the change? Append to me suggests the latter - userspace is told what changed. It is simpler kernel code wise to send the full new route. The append changes were done after our conversation. ;-)
->>> ok, yeah. you listing all the cases here made it more simpler to understand in the context of other notifications :). I would prefer all
->>> RTM_NEWLINK notifications (ie new add or update to an existing route..replace/append), contain the full route via RTA_MULTIPATH.
->> I don't agree. With the previous proposal, you know *exactly* what happens with
->> each notification and this is the primary goal of the notifications. With the
->> last proposal, where RTA_MULTIPATH is used for replace and append, you have the
->> new result, but you don't know what has been done.
->> Usually, notifications are used to notify an event, not the result of an event.
->> If you want the result, you can use the dump cmd.
-> 
-> what has been done is conveyed by the APPEND and REPLACE flag in the notification. The user only cares about the updated multipath route...
-APPEND with a full route is bit ambiguous ;-)
+On 01/30/2017 05:28 PM, Michal Hocko wrote:
+> On Mon 30-01-17 17:15:08, Daniel Borkmann wrote:
+>> On 01/30/2017 08:56 AM, Michal Hocko wrote:
+>>> On Fri 27-01-17 21:12:26, Daniel Borkmann wrote:
+>>>> On 01/27/2017 11:05 AM, Michal Hocko wrote:
+>>>>> On Thu 26-01-17 21:34:04, Daniel Borkmann wrote:
+>>> [...]
+>>>>>> So to answer your second email with the bpf and netfilter hunks, why
+>>>>>> not replacing them with kvmalloc() and __GFP_NORETRY flag and add that
+>>>>>> big fat FIXME comment above there, saying explicitly that __GFP_NORETRY
+>>>>>> is not harmful though has only /partial/ effect right now and that full
+>>>>>> support needs to be implemented in future. That would still be better
+>>>>>> that not having it, imo, and the FIXME would make expectations clear
+>>>>>> to anyone reading that code.
+>>>>>
+>>>>> Well, we can do that, I just would like to prevent from this (ab)use
+>>>>> if there is no _real_ and _sensible_ usecase for it. Having a real bug
+>>>>
+>>>> Understandable.
+>>>>
+>>>>> report or a fallback mechanism you are mentioning above would justify
+>>>>> the (ab)use IMHO. But that abuse would be documented properly and have a
+>>>>> real reason to exist. That sounds like a better approach to me.
+>>>>>
+>>>>> But if you absolutely _insist_ I can change that.
+>>>>
+>>>> Yeah, please do (with a big FIXME comment as mentioned), this originally
+>>>> came from a real bug report. Anyway, feel free to add my Acked-by then.
+>>>
+>>> Thanks! I will repost the whole series today.
+>>
+>> Looks like I got only Cc'ed on the cover letter of your v3 from today
+>> (should have been v4 actually?).
+>
+> Yes
+>
+>> Anyway, I looked up the last patch
+>> on lkml [1] and it seems you forgot the __GFP_NORETRY we talked about?
+>
+> I misread your response. I thought you were OK with the FIXME
+> explanation.
+>
+>> At least that was what was discussed above (insisting on __GFP_NORETRY
+>> plus FIXME comment) for providing my Acked-by then. Can you still fix
+>> that up in a final respin?
+>
+> I will probably just drop that last patch instead. I am not convinced
+> that we should bend the new API over and let people mimic that
+> throughout the code. I have just seen too many examples of this pattern
+> already.
+>
+> I would also like to prevent the next rebase, unless there any issues
+> with some patches of course.
 
-> giving parts of the route has never been very useful... and this is consistent with ipv4.
-> 
-I don't agree, the user cares about what happens. The dump is here to have the
-result if you don't have it already (if the user has a cache, like the libnl,
-it's easy to have the result). Daemons that listen nl usually start by a dump
-and after they apply the change when they get notifications (they already know
-the previous state).
+Ok, I'm fine with that as well.
 
-And even if I agree that it's better to be consistent with ipv4, saying "it's
-like this in ipv4" is not an argument to made the behavior good/better.
-The need to fully remove an ecmp route to add a nexthop in ipv4 is really
-painful (see David's example about the 'interface removal' case). And this
-functional difference also impacts the notifications.
+Thanks,
+Daniel
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
