@@ -1,44 +1,44 @@
-From: Vineeth Remanan Pillai <vineethp@amazon.com>
-Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during
- network stress and OOM
-Date: Mon, 30 Jan 2017 08:47:52 -0800
-Message-ID: <989bd104-13a9-f25f-b857-24ec49781f9c@amazon.com>
-References: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
- <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
- <38ccfaea-0a65-a6f3-c19a-e6f9c0d4ef76@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
+ hard_header_len bytes in skb_headlen() to the driver
+Date: Mon, 30 Jan 2017 11:41:43 -0500 (EST)
+Message-ID: <20170130.114143.1357866047815335563.davem@davemloft.net>
+References: <20170127215848.GG25829@oracle.com>
+        <CAF=yD-KqQdPVn-CFAu3ak+c3NRO9gfT+8UwXXS4eSv9ax0iAnA@mail.gmail.com>
+        <20170130162603.GF3590@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Paul Durrant <paul.durrant@citrix.com>,
- Wei Liu <wei.liu2@citrix.com>, David Miller <davem@davemloft.net>,
- xen-devel <xen-devel@lists.xen.org>
-To: Boris Ostrovsky <boris.ostrovsky@oracle.com>,
- <linux-kernel@vger.kernel.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <38ccfaea-0a65-a6f3-c19a-e6f9c0d4ef76@oracle.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56248 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932355AbdA3Qlz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:41:55 -0500
+In-Reply-To: <20170130162603.GF3590@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ck9uIDAxLzI5LzIwMTcgMDM6MDkgUE0sIEJvcmlzIE9zdHJvdnNreSB3cm90ZToKPgo+IFRoZXJl
-IGFyZSBjb3VwbGUgb2YgcHJvYmxlbXMgd2l0aCB0aGlzIHBhdGNoLgo+IDEuIFRoZSAnaWYnIGNs
-YXVzZSBub3cgZXZhbHVhdGVzIHRvIHRydWUgb24gcHJldHR5IG11Y2ggZXZlcnkgY2FsbCB0byAK
-PiB4ZW5uZXRfYWxsb2NfcnhfYnVmZmVycygpLgpUaGFua3MgZm9yIGNhdGNoaW5nIHRoaXMuIElu
-IG15IHRlc3RpbmcgSSBkaWQgbm90IG5vdGljZSB0aGlzIC0gbW9zdGx5IApiZWNhdXNlIG9mIHRo
-ZSBuYXR1cmUgb2YgdGhlIHdvcmtsb2FkIGluIG15IHRlc3RpbmcuCgo+IDIuIEl0IHRpY2tsZXMg
-YSBsYXRlbnQgYnVnIGR1cmluZyByZXN1bWUgd2hlcmUgdGhlIHRpbWVyIHRyaWdnZXJzIAo+IGJl
-Zm9yZSB3ZSByZS1jb25uZWN0LiBUaGUgdHJvdWJsZSBpcyB0aGF0IHdlIG5vdyB0cnkgdG8gZGVy
-ZWZlcmVuY2UgCj4gcXVldWUtPnJ4LnNyaW5nIHdoaWNoIGlzIE5VTEwgc2luY2Ugd2UgZGlzY29u
-bmVjdCBpbiAKPiBuZXRmcm9udF9yZXN1bWUoKS4gKEN1cmlvdXNseSwgSSBvbmx5IG9ic2VydmUg
-aXQgd2l0aCAzMi1iaXQgZ3Vlc3RzKQpJIHRoaW5rIHdlIG1heSBoaXQgdGhpcyBidWcgYWZ0ZXIg
-cmVtb3ZpbmcgdGhlIHRpbWVyIGFzIHdlbGwuIFdlIGNhbGwgClJJTkdfUFVTSF9SRVFVRVNUU19B
-TkRfQ0hFQ0tfTk9USUZZIHNvb24gYWZ0ZXIsIHdoaWNoIGFsc28gZGVyZWZlcmVuY2UgCnF1ZXVl
-LT5yeC5zcmluZy4KClRoYW5rcywKVmluZWV0aAoKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxp
-c3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Mon, 30 Jan 2017 11:26:03 -0500
+
+> On (01/27/17 19:19), Willem de Bruijn wrote:
+>> > other than ax25, are there variable length header protocols out there
+>> > without ->validate, and which need the CAP_RAW_SYSIO branch?
+>> 
+>> I don't know. An exhaustive search of protocols (by header_ops) may be
+>> needed to say for sure.
+>> 
+>> If there are none, then the solution indeed is quite simple.
+> 
+> 
+> I tried to start that exhaustive search, and it can be quite daunting:
+> if you are doing this by just code-inspection, it's easy to get
+> it wrong.. I havent quite given up yet, but it may be simpler to have
+> the drivers support some defensive code against bogus skb's in the
+> Tx path (the drivers will know, for sure, what's the min non-paged
+> len they need anyway).
+
+I think it's easier to audit all the header_ops than to add defensive
+code to 500+ drivers.
