@@ -1,97 +1,45 @@
-From: Alexander Popov <alex.popov@linux.com>
-Subject: Re: BUG at net/sctp/socket.c:7425
-Date: Mon, 30 Jan 2017 14:19:53 +0300
-Message-ID: <6864a599-ed80-b6f8-d1eb-14b6d9cef913@linux.com>
-References: <48766e1c-99c9-3a88-0fec-998bf4db9a3a@linux.com>
- <20170129104002.GJ3781@localhost.localdomain>
-Reply-To: alex.popov@linux.com
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
+ multipath routes
+Date: Mon, 30 Jan 2017 12:13:54 +0100
+Message-ID: <ef322f4a-07d7-31af-b402-769b0f446fc7@6wind.com>
+References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
+ <588D3EB9.1070107@cumulusnetworks.com>
+ <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
+ <588E80DB.3070209@cumulusnetworks.com>
+ <71e661bd-e26d-2629-06bb-888f6a09b06d@cumulusnetworks.com>
+ <588EA2E8.2040302@cumulusnetworks.com>
+ <5be4a78e-64b8-abc4-4015-6751a2bab12b@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        syzkaller <syzkaller@googlegroups.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:35504 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751188AbdA3LUY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 06:20:24 -0500
-In-Reply-To: <20170129104002.GJ3781@localhost.localdomain>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:35541 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751395AbdA3LWn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 06:22:43 -0500
+Received: by mail-wm0-f53.google.com with SMTP id b65so28047423wmf.0
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 03:22:28 -0800 (PST)
+In-Reply-To: <5be4a78e-64b8-abc4-4015-6751a2bab12b@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29.01.2017 13:40, Marcelo Ricardo Leitner wrote:
-> On Sun, Jan 29, 2017 at 03:35:31AM +0300, Alexander Popov wrote:
->> Hello,
+Le 30/01/2017 à 03:57, David Ahern a écrit :
+> On 1/29/17 7:20 PM, Roopa Prabhu wrote:
+>>> 2. Delete - 1 notification for each hop for all combinations of delete commands
 >>
->> I'm running the syzkaller fuzzer for v4.10-rc4 (0aa0313f9d576affd7747cc3f179feb097d28990)
->> and have such a crash in sctp code:
->>
-> ...
->>
->> Unfortunately, I didn't manage to get a C program reproducing the crash (looks like race).
->> However, I stably hit it on my setup - so I can help fixing the issue.
->>
->> The crash happens here:
->> 	/* Let another process have a go.  Since we are going
->> 	 * to sleep anyway.
->> 	 */
->> 	release_sock(sk);
->> 	current_timeo = schedule_timeout(current_timeo);
->>> 	BUG_ON(sk != asoc->base.sk);
->> 	lock_sock(sk);
->>
->> I've added some debugging output and see, that the original value of asoc->base.sk is
->> changed to the address of another struct sock, which appeared in sctp_endpoint_init()
->> shortly before the crash.
+>> here I was trying to say, for people deleting the full multipath route, you should send a RTA_MULTIPATH.
 > 
-> You need some threading for this to happen.  asoc->base.sk will change
-> if you peeloff the association.
-> It seems you had one thread waiting for some sndbuf to be available on a
-> sendmsg() call and another thread did a peeloff on the association that
-> the first thread was using.
-> Yeah I think this will reproduce it.
-> And in this case, it's probably better if we just return -EPIPE as the
-> association doesn't exist in that socket anymore instead of the BUG_ON.
-
-Thanks for your reply and patch, Marcelo.
-I've checked your explanation and agree with it. The situation looks like this:
-...
-[   55.719561] sctp_endpoint_init: sk ffff88006718c8c0
-[   55.721158] sctp_association_init: asoc ffff880059e96818, base.sk = ffff88006718c8c0
-...
-[   56.144070] sctp_wait_for_sndbuf: asoc:ffff880059e96818, timeo:9223372036854775807,
-msg_len:24
-[   56.148650] sctp_endpoint_init: sk ffff880068bca480
-[   56.149216] sctp_sock_migrate: asoc ffff880059e96818 from oldsk ffff88006718c8c0 to
-newsk ffff880068bca480
-[   56.150442] sctp_assoc_migrate: asoc ffff880059e96818 to newsk ffff880068bca480
-[   56.168827] crash!!! asoc ffff880059e96818: sk ffff88006718c8c0 != base.sk ffff880068bca480
-[   56.169801] ------------[ cut here ]------------
-[   56.170151] kernel BUG at net/sctp/socket.c:7433!
-...
-
-
-> ---8<---
+> The only way to do that is to call inet6_rt_notify() *before* the route delete work has been done in fib6_del_route. Right now it is called at the end - after all sibling associations have been dropped, a time in which it can no longer fill in RTA_MULTIPATH.
 > 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 26a514269b92..e9870aead88b 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -6838,7 +6838,8 @@ static int sctp_wait_for_sndbuf(struct sctp_association *asoc, long *timeo_p,
->  		 */
->  		sctp_release_sock(sk);
->  		current_timeo = schedule_timeout(current_timeo);
-> -		BUG_ON(sk != asoc->base.sk);
-> +		if (sk != asoc->base.sk)
-> +			goto do_error;
->  		sctp_lock_sock(sk);
->  
->  		*timeo_p = current_timeo;
+> fib6_del_route function does not have any failure paths and is called with the write lock held, so moving the notification might be ok. But it also means ignoring all subsequent failures from fib6_del, again which might be ok since the only failure is ENOENT which can not happen if we are walking the sibling list.
+Is it not possible to prepare the RTA_MULTIPATH attribute during the deletion
+(when needed information are still available) and to use/copy it later when the
+notification is done?
 
-Tested your fix.
-Acked-by: Alexander Popov <alex.popov@linux.com>
+Or at least, having RTA_MUTLTIPATH with one nexthop only, so that the user knows
+that this route was part of an ECMP routes?
