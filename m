@@ -1,201 +1,67 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net-next v2 6/6] gtp: consolidate gtp socket rx path
-Date: Mon, 30 Jan 2017 17:37:13 +0100
-Message-ID: <20170130163713.17524-7-aschultz@tpip.net>
-References: <20170130163713.17524-1-aschultz@tpip.net>
-Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org
-To: Pablo Neira <pablo@netfilter.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
+ multipath routes
+Date: Mon, 30 Jan 2017 17:41:38 +0100
+Message-ID: <bc2e1549-e02e-7cdf-b3d5-549c2a8287e8@6wind.com>
+References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
+ <588D3EB9.1070107@cumulusnetworks.com>
+ <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
+ <588E80DB.3070209@cumulusnetworks.com>
+ <7a7dcae4-a01b-3217-3296-b0aa2c7052f3@6wind.com>
+ <588F5F83.3050304@cumulusnetworks.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:60060 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932445AbdA3QhV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Jan 2017 11:37:21 -0500
-In-Reply-To: <20170130163713.17524-1-aschultz@tpip.net>
+Received: from mail-wj0-f174.google.com ([209.85.210.174]:34132 "EHLO
+        mail-wj0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751085AbdA3Qln (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:41:43 -0500
+Received: by mail-wj0-f174.google.com with SMTP id uo9so8224855wjc.1
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 08:41:42 -0800 (PST)
+In-Reply-To: <588F5F83.3050304@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add network device to gtp context in preparation for splitting
-the TEID from the network device.
+Le 30/01/2017 à 16:45, Roopa Prabhu a écrit :
+> On 1/30/17, 3:08 AM, Nicolas Dichtel wrote:
+>> Le 30/01/2017 à 00:55, Roopa Prabhu a écrit :
+>>> On 1/29/17, 10:02 AM, David Ahern wrote:
+>>>> On 1/28/17 6:00 PM, Roopa Prabhu wrote:
+>>>>>> 4. Route Appends
+>>>>>>    - IPv6 allows nexthops to be appended to an existing route. In this
+>>>>>>      case one notification is sent per nexthop added
+>>>>> thanks for listing all of these...I think you mentioned this case to me..
+>>>>> but I don't remember now why this notification is
+>>>>> sent per nexthop added. This is an update to an existing multipath route.
+>>>>> so seems like the notification should be a RTM_NEWROUTE with the full RTA_MULTIPATH route
+>>>>> (similar to route add)
+>>>> It could be; it's a question of what should userspace get -- the full route or the change? Append to me suggests the latter - userspace is told what changed. It is simpler kernel code wise to send the full new route. The append changes were done after our conversation. ;-)
+>>> ok, yeah. you listing all the cases here made it more simpler to understand in the context of other notifications :). I would prefer all
+>>> RTM_NEWLINK notifications (ie new add or update to an existing route..replace/append), contain the full route via RTA_MULTIPATH.
+>> I don't agree. With the previous proposal, you know *exactly* what happens with
+>> each notification and this is the primary goal of the notifications. With the
+>> last proposal, where RTA_MULTIPATH is used for replace and append, you have the
+>> new result, but you don't know what has been done.
+>> Usually, notifications are used to notify an event, not the result of an event.
+>> If you want the result, you can use the dump cmd.
+> 
+> what has been done is conveyed by the APPEND and REPLACE flag in the notification. The user only cares about the updated multipath route...
+APPEND with a full route is bit ambiguous ;-)
 
-Use this to rework the socker rx path. Move the common RX part
-of v0 and v1 into a helper. Also move the final rx part into
-that helper as well.
+> giving parts of the route has never been very useful... and this is consistent with ipv4.
+> 
+I don't agree, the user cares about what happens. The dump is here to have the
+result if you don't have it already (if the user has a cache, like the libnl,
+it's easy to have the result). Daemons that listen nl usually start by a dump
+and after they apply the change when they get notifications (they already know
+the previous state).
 
-Signed-off-by: Andreas Schultz <aschultz@tpip.net>
----
- drivers/net/gtp.c | 92 ++++++++++++++++++++++++++++---------------------------
- 1 file changed, 47 insertions(+), 45 deletions(-)
-
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index ff00597..9c31e83 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -58,6 +58,7 @@ struct pdp_ctx {
- 	struct in_addr		ms_addr_ip4;
- 	struct in_addr		sgsn_addr_ip4;
- 
-+	struct net_device       *dev;
- 	struct sock		*sk;
- 
- 	atomic_t		tx_seq;
-@@ -179,9 +180,42 @@ static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
- 	return false;
- }
- 
-+static int gtp_rx(struct sk_buff *skb, struct pdp_ctx *pctx, unsigned int hdrlen)
-+{
-+	struct pcpu_sw_netstats *stats;
-+
-+	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+		pr_debug("No PDP ctx for this MS\n");
-+		return 1;
-+	}
-+
-+	/* Get rid of the GTP + UDP headers. */
-+	if (iptunnel_pull_header(skb, hdrlen, skb->protocol,
-+				 !net_eq(sock_net(pctx->sk), dev_net(pctx->dev))))
-+		return -1;
-+
-+	pr_debug("forwarding packet from GGSN to uplink\n");
-+
-+	/* Now that the UDP and the GTP header have been removed, set up the
-+	 * new network header. This is required by the upper layer to
-+	 * calculate the transport header.
-+	 */
-+	skb_reset_network_header(skb);
-+
-+	skb->dev = pctx->dev;
-+
-+	stats = this_cpu_ptr(pctx->dev->tstats);
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_packets++;
-+	stats->rx_bytes += skb->len;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	netif_rx(skb);
-+	return 0;
-+}
-+
- /* 1 means pass up to the stack, -1 means drop and 0 means decapsulated. */
--static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
--			       bool xnet)
-+static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- {
- 	unsigned int hdrlen = sizeof(struct udphdr) +
- 			      sizeof(struct gtp0_header);
-@@ -205,17 +239,10 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		return 1;
- 	}
- 
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
--		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
--		return 1;
--	}
--
--	/* Get rid of the GTP + UDP headers. */
--	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-+	return gtp_rx(skb, pctx, hdrlen);
- }
- 
--static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
--				bool xnet)
-+static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- {
- 	unsigned int hdrlen = sizeof(struct udphdr) +
- 			      sizeof(struct gtp1_header);
-@@ -254,13 +281,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		return 1;
- 	}
- 
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
--		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
--		return 1;
--	}
--
--	/* Get rid of the GTP + UDP headers. */
--	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-+	return gtp_rx(skb, pctx, hdrlen);
- }
- 
- static void gtp_encap_destroy(struct sock *sk)
-@@ -294,10 +315,8 @@ static void gtp_encap_disable(struct gtp_dev *gtp)
-  */
- static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- {
--	struct pcpu_sw_netstats *stats;
- 	struct gtp_dev *gtp;
--	bool xnet;
--	int ret;
-+	int ret = 0;
- 
- 	gtp = rcu_dereference_sk_user_data(sk);
- 	if (!gtp)
-@@ -305,16 +324,14 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
- 
--	xnet = !net_eq(sock_net(sk), dev_net(gtp->dev));
--
- 	switch (udp_sk(sk)->encap_type) {
- 	case UDP_ENCAP_GTP0:
- 		netdev_dbg(gtp->dev, "received GTP0 packet\n");
--		ret = gtp0_udp_encap_recv(gtp, skb, xnet);
-+		ret = gtp0_udp_encap_recv(gtp, skb);
- 		break;
- 	case UDP_ENCAP_GTP1U:
- 		netdev_dbg(gtp->dev, "received GTP1U packet\n");
--		ret = gtp1u_udp_encap_recv(gtp, skb, xnet);
-+		ret = gtp1u_udp_encap_recv(gtp, skb);
- 		break;
- 	default:
- 		ret = -1; /* Shouldn't happen. */
-@@ -323,33 +340,17 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	switch (ret) {
- 	case 1:
- 		netdev_dbg(gtp->dev, "pass up to the process\n");
--		return 1;
-+		break;
- 	case 0:
--		netdev_dbg(gtp->dev, "forwarding packet from GGSN to uplink\n");
- 		break;
- 	case -1:
- 		netdev_dbg(gtp->dev, "GTP packet has been dropped\n");
- 		kfree_skb(skb);
--		return 0;
-+		ret = 0;
-+		break;
- 	}
- 
--	/* Now that the UDP and the GTP header have been removed, set up the
--	 * new network header. This is required by the upper layer to
--	 * calculate the transport header.
--	 */
--	skb_reset_network_header(skb);
--
--	skb->dev = gtp->dev;
--
--	stats = this_cpu_ptr(gtp->dev->tstats);
--	u64_stats_update_begin(&stats->syncp);
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--	u64_stats_update_end(&stats->syncp);
--
--	netif_rx(skb);
--
--	return 0;
-+	return ret;
- }
- 
- static int gtp_dev_init(struct net_device *dev)
-@@ -930,6 +931,7 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
- 
- 	sock_hold(sk);
- 	pctx->sk = sk;
-+	pctx->dev = gtp->dev;
- 	ipv4_pdp_fill(pctx, info);
- 	atomic_set(&pctx->tx_seq, 0);
- 
--- 
-2.10.2
+And even if I agree that it's better to be consistent with ipv4, saying "it's
+like this in ipv4" is not an argument to made the behavior good/better.
+The need to fully remove an ecmp route to add a nexthop in ipv4 is really
+painful (see David's example about the 'interface removal' case). And this
+functional difference also impacts the notifications.
