@@ -1,81 +1,89 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCHv3 perf/core 1/6] tools lib bpf: Add BPF program pinning
- APIs.
-Date: Mon, 30 Jan 2017 17:28:13 -0300
-Message-ID: <20170130202813.GG4546@kernel.org>
-References: <20170126212001.14103-1-joe@ovn.org>
- <20170126212001.14103-2-joe@ovn.org>
- <20170130202506.GF4546@kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v4 0/4] net: dsa: Port mirroring support
+Date: Mon, 30 Jan 2017 12:32:59 -0800
+Message-ID: <182b4342-8e78-c2ce-eb25-ed39cb4ab50f@gmail.com>
+References: <20170130043026.28867-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Stringer <joe@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170130202506.GF4546@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        jiri@mellanox.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34262 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754273AbdA3UdG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:33:06 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y143so24049798pfb.1
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 12:33:02 -0800 (PST)
+In-Reply-To: <20170130043026.28867-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Mon, Jan 30, 2017 at 05:25:06PM -0300, Arnaldo Carvalho de Melo escreveu:
-> Em Thu, Jan 26, 2017 at 01:19:56PM -0800, Joe Stringer escreveu:
-> > Add new APIs to pin a BPF program (or specific instances) to the filesystem.
-> > The user can specify the path full path within a BPF filesystem to pin the
-> > program.
-> > 
-> > bpf_program__pin_instance(prog, path, n) will pin the nth instance of
-> > 'prog' to the specified path.
-> > bpf_program__pin(prog, path) will create the directory 'path' (if it
-> > does not exist) and pin each instance within that directory. For
-> > instance, path/0, path/1, path/2.
-> > 
-> > Signed-off-by: Joe Stringer <joe@ovn.org>
+On 01/29/2017 08:30 PM, Florian Fainelli wrote:
+> Hi all,
 > 
-> make: Entering directory '/home/acme/git/linux/tools/perf'
->   BUILD:   Doing 'make -j4' parallel build
->   CC       /tmp/build/perf/builtin-record.o
->   CC       /tmp/build/perf/libbpf.o
->   CC       /tmp/build/perf/util/parse-events.o
->   INSTALL  trace_plugins
-> libbpf.c: In function ‘make_dir’:
-> libbpf.c:1303:6: error: implicit declaration of function ‘mkdir’ [-Werror=implicit-function-declaration]
->   if (mkdir(path, 0700) && errno != EEXIST)
->       ^~~~~
-> libbpf.c:1303:2: error: nested extern declaration of ‘mkdir’ [-Werror=nested-externs]
->   if (mkdir(path, 0700) && errno != EEXIST)
->   ^~
-> cc1: all warnings being treated as errors
-> mv: cannot stat '/tmp/build/perf/.libbpf.o.tmp': No such file or directory
-> /home/acme/git/linux/tools/build/Makefile.build:101: recipe for target '/tmp/build/perf/libbpf.o' failed
+> This patch series adds support for port mirroring in the two
+> Broadcom switch drivers. The major part of the functional are actually with
+> the plumbing between tc and the drivers.
+> 
+> David, this will most likely conflict a little bit with my other series:
+>  net: dsa: bcm_sf2: CFP support, so just let me know if that happens, and
+> I will provide a rebased version. Thanks!
+
+David, since you have applied the CFP series, there are few conflicts,
+will post a v5. Thanks!
+
+> 
+> Changes in v4:
+> 
+> - rebased against latest net-next/master after Vivien's changes
+> 
+> Changes in v3:
+> 
+> - removed multiline comments from added structures
+> - simplify error handling in dsa_slave_add_cls_matchall
+> 
+> Changes in v2:
+> 
+> - fixed filter removal logic to disable the ingress or egress mirroring
+>   when there are no longer ports being monitored in ingress or egress
+> 
+> - removed a stray list_head in dsa_port structure that is not used
+> 
+> Tested using the two iproute2 examples:
+> 
+> # ingress
+>       tc qdisc  add dev eth1 handle ffff: ingress
+>       tc filter add dev eth1 parent ffff:           \
+>                matchall skip_sw                      \
+>                action mirred egress mirror           \
+>                dev eth2
+> # egress
+>       tc qdisc add dev eth1 handle 1: root prio
+>       tc filter add dev eth1 parent 1:               \
+>                matchall skip_sw                       \
+>                action mirred egress mirror            \
+>                dev eth2
 > 
 > 
-> And strdup() is not checked for failure, I'm fixing those,
+> Florian Fainelli (4):
+>   net: dsa: Add plumbing for port mirroring
+>   net: dsa: b53: Add mirror capture register definitions
+>   net: dsa: b53: Add support for port mirroring
+>   net: dsa: bcm_sf2: Add support for port mirroring
 > 
-> +++ b/tools/lib/bpf/libbpf.c
-> @@ -36,6 +36,8 @@
->  #include <linux/magic.h>
->  #include <linux/list.h>
->  #include <linux/limits.h>
-> +#include <sys/stat.h>
-> +#include <sys/types.h>
->  #include <sys/vfs.h>
-
-This as well:
-
-@@ -1338,7 +1343,7 @@ int bpf_program__pin(struct bpf_program *prog,
-const char *path)
-                len = snprintf(buf, PATH_MAX, "%s/%d", path, i);
-                if (len < 0)
-                        return -EINVAL;
--               else if (len > PATH_MAX)
-+               else if (len >= PATH_MAX)
-                        return -ENAMETOOLONG;
+>  drivers/net/dsa/b53/b53_common.c |  67 +++++++++++++++++++
+>  drivers/net/dsa/b53/b53_priv.h   |   4 ++
+>  drivers/net/dsa/b53/b53_regs.h   |  32 ++++++++++
+>  drivers/net/dsa/bcm_sf2.c        |   2 +
+>  include/net/dsa.h                |  33 ++++++++++
+>  net/dsa/dsa_priv.h               |   3 +
+>  net/dsa/slave.c                  | 135 ++++++++++++++++++++++++++++++++++++++-
+>  7 files changed, 275 insertions(+), 1 deletion(-)
+> 
 
 
-See 'man snprintf', return value:
-
----
-Thus, a return value of size or more means that the output was
-truncated.
----
+-- 
+Florian
