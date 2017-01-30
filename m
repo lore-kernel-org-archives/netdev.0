@@ -1,147 +1,172 @@
 From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Mon, 30 Jan 2017 23:18:50 +0200
-Message-ID: <CALzJLG9Ltw7UdptVj0DbcUf4xCvooC1CkFXhSXXdt-d5-pL4ug@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
- <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
- <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
- <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
- <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
- <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
- <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
- <588BD66E.2050201@fb.com> <CALzJLG_abLhT7wcrtB97KzurJ2-=OZv11cELjoRW79cOeyjxgw@mail.gmail.com>
- <588CDA55.7030900@fb.com> <CALzJLG9OksXW5JAZiPoSfKtTF_z8Te9UDP9bm_XhXAp-FwmwEw@mail.gmail.com>
- <588F6DC7.70904@fb.com>
+Subject: Re: [PATCH net-next 0/4] mlx5: Create build configuration options
+Date: Mon, 30 Jan 2017 23:26:22 +0200
+Message-ID: <CALzJLG9WNRoOLuhofAyQSX4_oaYPvJTf=3VT_tEBCRVoW1+_tw@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <CALzJLG9QpKfA3eDgQkz5MF0FFgkL91BditedDRZkOxx-ayGQSQ@mail.gmail.com>
+ <CALx6S355U1g+OyEM9mC12TRtYZqwOciT=+OpsKXPwkuX-Xq0LQ@mail.gmail.com>
+ <CALzJLG8dh0TZPotrk-Xp6SZ=2UnjY2-C3TEQNxXDER5H8iwiQw@mail.gmail.com>
+ <CALx6S34_k+uaCZAOR8=pOzisaQ0eryyZX=ABxk+Pnwx-vrj0VQ@mail.gmail.com>
+ <CALzJLG9U8TB5rq40-uZ_ZvzqeTNObzu2gcfVBZL0swEqM4r9yw@mail.gmail.com> <CALx6S36vBPMvsvDz2=9ipbsNGDaSXfSCR0Lwjdzt3AUTHOc8SA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
         Linux Netdev List <netdev@vger.kernel.org>,
         Kernel Team <kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:35002 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754363AbdA3VTL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 16:19:11 -0500
-Received: by mail-qk0-f193.google.com with SMTP id u25so20756607qki.2
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 13:19:11 -0800 (PST)
-In-Reply-To: <588F6DC7.70904@fb.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35211 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754386AbdA3Vev (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 16:34:51 -0500
+Received: by mail-qk0-f194.google.com with SMTP id u25so20813349qki.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 13:34:50 -0800 (PST)
+In-Reply-To: <CALx6S36vBPMvsvDz2=9ipbsNGDaSXfSCR0Lwjdzt3AUTHOc8SA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 30, 2017 at 6:45 PM, Alexei Starovoitov <ast@fb.com> wrote:
-> On 1/29/17 1:11 AM, Saeed Mahameed wrote:
+On Mon, Jan 30, 2017 at 10:00 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Sun, Jan 29, 2017 at 12:07 AM, Saeed Mahameed
+> <saeedm@dev.mellanox.co.il> wrote:
+>> On Sat, Jan 28, 2017 at 7:19 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Sat, Jan 28, 2017 at 3:38 AM, Saeed Mahameed
+>>> <saeedm@dev.mellanox.co.il> wrote:
+>>>> On Fri, Jan 27, 2017 at 8:13 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> On Fri, Jan 27, 2017 at 9:58 AM, Saeed Mahameed
+>>>>> <saeedm@dev.mellanox.co.il> wrote:
+>>>>>> On Fri, Jan 27, 2017 at 1:32 AM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>>>> This patchset creates configuration options for sriov, vxlan, eswitch,
+>>>>>>> and tc features in the mlx5 driver. The purpose of this is to allow not
+>>>>>>> building these features. These features are optional advanced features
+>>>>>>> that are not required for a core Ethernet driver. A user can disable
+>>>>>>> these features which resuces the amount of code in the driver. Disabling
+>>>>>>> these features (and DCB) reduces the size of mlx5_core.o by about 16%.
+>>>>>>> This is also can reduce the complexity of backport and rebases since
+>>>>>>> user would no longer need to worry about dependencies with the rest of
+>>>>>>> the kernel that features which might not be of any interest to a user
+>>>>>>> may bring in.
+>>>>>>>
+>>>>>>> Tested: Build and ran the driver with all features enabled (the default)
+>>>>>>> and with none enabled (including DCB). Did not see any issues. I did
+>>>>>>> not explicity test operation of ayy of features in the list.
+>>>>>>>
+>>>>>>
+>>>>>> Basically I am not against this kind of change, infact i am with it,
+>>>>>> although I would have done some restructuring in the driver before i
+>>>>>> did such change ;), filling the code with ifdefs is not a neat thing.
+>>>>>>
+>>>>> If you wish, please take this as an RFC and feel free to structure the
+>>>>> code the right way. I think the intent is clear enough and looks like
+>>>>> davem isn't going to allow the directory restructuring so something
+>>>>> like this seems to be the best course of action now.
+>>>>>
+>>>>
+>>>> Right.
+>>>>
+>>>>>> I agree this will simplify backporting and provide some kind of
+>>>>>> feature separation inside the driver.
+>>>>>> But this will also increase the testing matrix we need to cover and
+>>>>>> increase the likelihood of kbuild breaks by an order of magnitude.
+>>>>>>
+>>>>> The testing matrix already exploded with the proliferation of
+>>>>> supported features. If anything this reduces the test matrix problem.
+>>>>> For instance, if we make a change to the core driver and functionality
+>>>>> properly isolated there is a much better chance that this won't affect
+>>>>> peripheral functionality and vice versa. It is just not feasible for
+>>>>> us to test every combination of NIC features for every change being
+>>>>> made.
+>>>>>
+>>>>
+>>>> Yes for isolated features, but for base functionality, we need to test
+>>>> it with all new device specific kconfig combinations on every patch!
+>>>
+>>> Sorry, but that is the price you need to pay for a feature rich device.
+>>>
+>>> On the subject of testing, I don't really see any indication in these
+>>> patches on how patches are being tested. Also, there are patches that
+>>> fix things without any mention of how to repro the problems. It is
 >>
+>> I Will do my best to provide more information in fixes commit
+>> messages, Thanks for the input.
 >>
->> ConnectX4/5 and hopefully so on .. provide three different isolated
->> steering layers:
+>>> critical that we know IPv6 is tested as much or more than IPv4 (just
 >>
->> 3. vport layer: avaialbe for any PF/VF vport nic driver instance
->> (netdevice), it allows vlan/mac filtering
->>   ,RSS hashing and n-tuple steering (for both encapsulated and
->> nonencapsulated traffic) and RFS steering. ( the code above only
->> writes flow entries of a PF/VF to its own vport flow tables, there is
->> another mechanism to propagate l2 steering rules down to eswitch from
->> the vport layer.
+>> For the record, for every IPv4 test in our automatic regression system
+>> we have an IPv6 equivalent test,
+>> not to mention IPv6-only directed tests.
 >>
->> 2. eswitch layer: Available for PFs only with
->> HCA_CAP.vport_group_manager capability set.
->> it allows steering between PF and different VFs on the same host (vlan
->> mac steering and ACL filters in sriov legacy mode, and fancy n-tuple
->> steering and offloads for switchdev mode - eswitch_offloads.c - )
->> if this table is not create the default is pass-throu traffic to PF
->>
->> 1. L2 table: Available for PFs only with HCA_CAP.vport_group_manager
->> capability set.
->> needed for MH configurations and only PF is allowed and should write
->> "request UC MAC - set_l2_table_entry" on behalf of the PF itself and
->> it's own VFs.
->>
->> - On a bare metal machine only layer 3 is required (all traffic is
->> passed to the PF vport).
->> - On a MH configuration layer 3 and 1 are required.
->> - On a SRIOV configuration layer 3 and 2 are required.
->> - On MH with SRIOV all layers are required.
->>
->> in the driver, eswitch and L2 layers are handled by PF@eswitch.c.
->>
->> So for your question:
->>
->> PF always init_eswitch ( no eswitch -sriov- tables are created), and
->> the eswitch will start listening for vport_change_events.
->>
->> A PF/VF or netdev vport instance on any steering changes updates
->> should call  mlx5e_vport_context_update[1]
->>
->> vport_context_update is A FW command that will store the current
->> UC/MC/VLAN list and promiscuity info of a vport.
->>
->> The FW will generate an event to the PF driver eswitch manager (vport
->> manager) mlx5_eswitch_vport_event [2], and the PF eswitch will call
->> set_l2_table_entry for each UC mac on each vport change event of any
->> vport (including its own vport), in case of SRIOV is enabled it will
->> update eswitch tables as well.
->>
->> To simplify my answer the function calls are:
->> Vport VF/PF netdevice:
->> mlx5e_set_rx_mode_work
->>      mlx5e_vport_context_update
->>         mlx5e_vport_context_update_addr_list  --> FW event will be
->> generated to the PF esiwtch manager
->>
->> PF eswitch manager(eswitch.c) on a vport change FW event:
->> mlx5_eswitch_vport_event
->>        esw_vport_change_handler
->>             esw_vport_change_handle_locked
->>                     esw_apply_vport_addr_list
->>                                esw_add_uc_addr
->>                                       set_l2_table_entry --> this will
->> update the l2 table in case MH is enabled.
->
->
-> all makes sense. To test this logic I added printk-s
-> to above functions, but I only see:
-> # ip link set eth0 addr 24:8a:07:47:2b:6e
-> [  148.861914] mlx5e_vport_context_update_addr_list: is_uc 1 err 0
-> [  148.875152] mlx5e_vport_context_update_addr_list: is_uc 0 err 0
->
-> MLX5_EVENT_TYPE_NIC_VPORT_CHANGE doesn't come into mlx5_eq_int().
-
-Strange, just double checked and i got those events on latest net-next
-bare-metal box.
-
-> Yet nic seems to work fine. Packets come and go.
+> Great to know. Is there a publicly available description of what
+> specific tests are in the suite?
 >
 
-Is it multi host configuration or bare metal ?
-Do you have internal loopback traffic between different hosts ?
+Nothing public, but i can collect some information and share it with
+you if you wish.
+but mostly traffic oriented tests and stress tests.
+and configuration oriented tests:
+  - basic configuration stuff: IPv6 with MTU/ring/offloads changes, etc..
+  - Vxlan over IPv6, IPv6 over vxlan,
+  - and some more
 
-> broken firmware or expected behavior?
-
-which driver did you test ? backported or net-next ?
-
-if it is backported driver please verify that on driver load the
-following occurs :
-
-1. VPORTS change events are globally enabled:
-in mlx5_start_eqs@eq.c:
-async_event_mask |= (1ull << MLX5_EVENT_TYPE_NIC_VPORT_CHANGE);
-
-2. UC address change events are enabled for vport 0 (PF):
-In eswitch_attach or on eswitch_init (depends on the kernel version) @eswitch.c
-esw_enable_vport(esw, 0, UC_ADDR_CHANGE); is called.
-
+>>> last week with hit yet another IPv6-only issue in an another upstream
+>>> driver that should have been caught with a simple load test-- this
+>>
+>> Is there any IPv6-only functionality issues with mlx4/mlx5 that we
+>> don't know about ?
+>> If you do see any of those, please report them so we take the needed
+>> corrective actions to fix them and cover them in our regression.
+>>
+> If we see them we will certainly let you know. This is not just
+> functionality either, performance regression versus IPv4 should also
+> be considered serious issues.
 >
-> # ethtool -i eth0
-> driver: mlx5_core
-> version: 3.0-1 (January 2015)
-> firmware-version: 14.16.2024
+>>> really is not acceptable any more!). Please add a description of how
+>>> patches were tested to commit logs.
+>>>
+>>
+>> Acknowledge.
+>>
 >
-
-BTW folks, i am going to be on vacation for the rest of the week, so
-please expect slow responses.
+> Thanks,
+> Tom
+>
+>>> Tom
+>>>
+>>>> since a misplaced code inside or outside the correct ifdef
+>>>> can easily go unnoticed and break functionality.
+>>>>
+>>>>>> One more thing, do we really need a device specific flag per feature
+>>>>>> per vendor per device?  can't we just use the same kconfig flag for
+>>>>>> all drivers and if there is a more generic system wide flag that
+>>>>>> covers the same feature
+>>>>>> can't we just use it, for instance instead of
+>>>>>> CONFIG_<DRIVER_NAME>_SRIOV why not use already existing CONFIG_PCI_IOV
+>>>>>> for all drivers ?
+>>>>>>
+>>>>> That sounds good to me. We already have CONFIG_RFS_ACCEL and others
+>>>>> that do that.
+>>>>>
+>>>>> Tom
+>>>>>
+>>>>>> Saeed.
+>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>> Tom Herbert (4):
+>>>>>>>   mlx5: Make building eswitch configurable
+>>>>>>>   mlx5: Make building SR-IOV configurable
+>>>>>>>   mlx5: Make building tc hardware offload configurable
+>>>>>>>   mlx5: Make building vxlan hardware offload configurable
+>>>>>>>
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/Kconfig   |  35 ++++++
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/Makefile  |  16 ++-
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 129 ++++++++++++++++------
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   |  39 +++++--
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/eq.c      |   4 +-
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/lag.c     |   2 +
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/main.c    |  32 ++++--
+>>>>>>>  drivers/net/ethernet/mellanox/mlx5/core/sriov.c   |   6 +-
+>>>>>>>  8 files changed, 205 insertions(+), 58 deletions(-)
+>>>>>>>
+>>>>>>> --
+>>>>>>> 2.9.3
+>>>>>>>
