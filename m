@@ -1,117 +1,48 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH net] mlx4: xdp_prog becomes inactive after ethtool '-L' or
- '-G'
-Date: Mon, 30 Jan 2017 19:18:28 +0200
-Message-ID: <f2963258-62af-c7ed-b1ad-2924ba087880@mellanox.com>
-References: <1485589251-3896393-1-git-send-email-kafai@fb.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: [PATCH] xen-netfront: Delete rx_refill_timer in
+	xennet_disconnect_backend()
+Date: Mon, 30 Jan 2017 12:45:46 -0500
+Message-ID: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0040.outbound.protection.outlook.com ([104.47.2.40]:28256
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751066AbdA3Rgd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Jan 2017 12:36:33 -0500
-In-Reply-To: <1485589251-3896393-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: wei.liu2@citrix.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ stable@vger.kernel.org, vineethp@amazon.com, xen-devel@lists.xenproject.org,
+ Boris Ostrovsky <boris.ostrovsky@oracle.com>, paul.durrant@citrix.com
+To: jgross@suse.com
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Martin,
-
-Thanks for your patch.
-
-It looks good to me, in general.
-I just have one small comment below.
-
-On 28/01/2017 9:40 AM, Martin KaFai Lau wrote:
-> If the rx-queues ever get re-initialized (e.g. by changing the
-> number of rx-queues with ethtool -L), the existing xdp_prog becomes
-> inactive.
->
-> The bug is that the xdp_prog ptr has not been carried over from
-> the old rx-queues to the new rx-queues
->
-> Fixes: 47a38e155037 ("net/mlx4_en: add support for fast rx drop bpf program")
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-> ---
-...
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 761f8b12399c..f4179086b3c6 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -2184,23 +2184,57 @@ static void mlx4_en_update_priv(struct mlx4_en_priv *dst,
->   
->   int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
->   				struct mlx4_en_priv *tmp,
-> -				struct mlx4_en_port_profile *prof)
-> +				struct mlx4_en_port_profile *prof,
-> +				bool carry_xdp_prog)
->   {
-> -	int t;
-> +	struct bpf_prog *xdp_prog = NULL;
-> +	int err;
-> +	int i;
->   
->   	mlx4_en_copy_priv(tmp, priv, prof);
->   
-> +	if (carry_xdp_prog) {
-> +		/* All rx_rings has the same xdp_prog.  Pick the first one */
-> +		xdp_prog = rcu_dereference_protected(
-> +			priv->rx_ring[0]->xdp_prog,
-> +			lockdep_is_held(&priv->mdev->state_lock));
-> +
-> +		if (xdp_prog) {
-> +			xdp_prog = bpf_prog_add(xdp_prog, tmp->rx_ring_num);
-> +			if (IS_ERR(xdp_prog)) {
-> +				err = PTR_ERR(xdp_prog);
-> +				xdp_prog = NULL;
-> +				goto err_free;
-> +			}
-> +		}
-> +	}
-Why do you prefer dealing with xdp_prog in two stages? You can handle it 
-all at once, after "mlx4_en_alloc_resources()" succeeds.
-> +
->   	if (mlx4_en_alloc_resources(tmp)) {
->   		en_warn(priv,
->   			"%s: Resource allocation failed, using previous configuration\n",
->   			__func__);
-> -		for (t = 0; t < MLX4_EN_NUM_TX_TYPES; t++) {
-> -			kfree(tmp->tx_ring[t]);
-> -			kfree(tmp->tx_cq[t]);
-> -		}
-> -		return -ENOMEM;
-> +		err = -ENOMEM;
-> +		goto err_free;
-> +	}
-> +
-> +	if (xdp_prog) {
-> +		for (i = 0; i < tmp->rx_ring_num; i++)
-> +			rcu_assign_pointer(tmp->rx_ring[i]->xdp_prog,
-> +					   xdp_prog);
->   	}
-> +
->   	return 0;
-> +
-> +err_free:
-> +	if (xdp_prog)
-> +		bpf_prog_sub(xdp_prog, tmp->rx_ring_num);
-> +
-> +	for (i = 0; i < MLX4_EN_NUM_TX_TYPES; i++) {
-> +		kfree(tmp->tx_ring[i]);
-> +		kfree(tmp->tx_cq[i]);
-> +	}
-> +
-> +	return err;
->   }
->   
->   void mlx4_en_safe_replace_resources(struct mlx4_en_priv *priv,
->
-Regards,
-Tariq Toukan.
+cnhfcmVmaWxsX3RpbWVyIHNob3VsZCBiZSBkZWxldGVkIGFzIHNvb24gYXMgd2UgZGlzY29ubmVj
+dCBmcm9tIHRoZQpiYWNrZW5kIHNpbmNlIG90aGVyd2lzZSBpdCBpcyBwb3NzaWJsZSBmb3IgdGhl
+IHRpbWVyIHRvIGdvIG9mZiBiZWZvcmUKd2UgZ2V0IHRvIHhlbm5ldF9kZXN0cm95X3F1ZXVlcygp
+LiBJZiB0aGlzIGhhcHBlbnMgd2UgbWF5IGRlcmVmZXJlbmNlCnF1ZXVlLT5yeC5zcmluZyB3aGlj
+aCBpcyBzZXQgdG8gTlVMTCBpbiB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKCkuCgpTaWduZWQt
+b2ZmLWJ5OiBCb3JpcyBPc3Ryb3Zza3kgPGJvcmlzLm9zdHJvdnNreUBvcmFjbGUuY29tPgpDQzog
+c3RhYmxlQHZnZXIua2VybmVsLm9yZwotLS0KIGRyaXZlcnMvbmV0L3hlbi1uZXRmcm9udC5jIHwg
+MyArKy0KIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKCmRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYyBiL2RyaXZlcnMvbmV0L3hlbi1u
+ZXRmcm9udC5jCmluZGV4IDgzMTVmZTcuLjcyMmZlOWYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
+L3hlbi1uZXRmcm9udC5jCisrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRmcm9udC5jCkBAIC0xMzc5
+LDYgKzEzNzksOCBAQCBzdGF0aWMgdm9pZCB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKHN0cnVj
+dCBuZXRmcm9udF9pbmZvICppbmZvKQogCWZvciAoaSA9IDA7IGkgPCBudW1fcXVldWVzICYmIGlu
+Zm8tPnF1ZXVlczsgKytpKSB7CiAJCXN0cnVjdCBuZXRmcm9udF9xdWV1ZSAqcXVldWUgPSAmaW5m
+by0+cXVldWVzW2ldOwogCisJCWRlbF90aW1lcl9zeW5jKCZxdWV1ZS0+cnhfcmVmaWxsX3RpbWVy
+KTsKKwogCQlpZiAocXVldWUtPnR4X2lycSAmJiAocXVldWUtPnR4X2lycSA9PSBxdWV1ZS0+cnhf
+aXJxKSkKIAkJCXVuYmluZF9mcm9tX2lycWhhbmRsZXIocXVldWUtPnR4X2lycSwgcXVldWUpOwog
+CQlpZiAocXVldWUtPnR4X2lycSAmJiAocXVldWUtPnR4X2lycSAhPSBxdWV1ZS0+cnhfaXJxKSkg
+ewpAQCAtMTczMyw3ICsxNzM1LDYgQEAgc3RhdGljIHZvaWQgeGVubmV0X2Rlc3Ryb3lfcXVldWVz
+KHN0cnVjdCBuZXRmcm9udF9pbmZvICppbmZvKQogCiAJCWlmIChuZXRpZl9ydW5uaW5nKGluZm8t
+Pm5ldGRldikpCiAJCQluYXBpX2Rpc2FibGUoJnF1ZXVlLT5uYXBpKTsKLQkJZGVsX3RpbWVyX3N5
+bmMoJnF1ZXVlLT5yeF9yZWZpbGxfdGltZXIpOwogCQluZXRpZl9uYXBpX2RlbCgmcXVldWUtPm5h
+cGkpOwogCX0KIAotLSAKMS44LjMuMQoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhl
+bi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
