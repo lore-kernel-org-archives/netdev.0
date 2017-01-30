@@ -1,201 +1,144 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH 6/6] gtp: consolidate gtp socket rx path
-Date: Mon, 30 Jan 2017 17:32:00 +0100
-Message-ID: <20170130163200.17070-7-aschultz@tpip.net>
-References: <20170130163200.17070-1-aschultz@tpip.net>
-Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org
-To: Pablo Neira <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:33326 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750887AbdA3QeX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Jan 2017 11:34:23 -0500
-In-Reply-To: <20170130163200.17070-1-aschultz@tpip.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH 6/9] net: use kvmalloc with __GFP_REPEAT rather than open
+ coded variant
+Date: Mon, 30 Jan 2017 17:36:27 +0100
+Message-ID: <9e1f34ef-1038-cf0b-95c2-1df64f1a541b@suse.cz>
+References: <20170130094940.13546-1-mhocko@kernel.org>
+ <20170130094940.13546-7-mhocko@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
+ Johannes Weiner <hannes@cmpxchg.org>, Al Viro <viro@zeniv.linux.org.uk>,
+ linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>,
+ Michal Hocko <mhocko@suse.com>, Eric Dumazet <edumazet@google.com>,
+ netdev@vger.kernel.org
+To: Michal Hocko <mhocko@kernel.org>,
+ Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170130094940.13546-7-mhocko@kernel.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Add network device to gtp context in preparation for splitting
-the TEID from the network device.
+On 01/30/2017 10:49 AM, Michal Hocko wrote:
+> From: Michal Hocko <mhocko@suse.com>
+>
+> fq_alloc_node, alloc_netdev_mqs and netif_alloc* open code kmalloc
+> with vmalloc fallback. Use the kvmalloc variant instead. Keep the
+> __GFP_REPEAT flag based on explanation from Eric:
+> "
+> At the time, tests on the hardware I had in my labs showed that
+> vmalloc() could deliver pages spread all over the memory and that was a
+> small penalty (once memory is fragmented enough, not at boot time)
+> "
+>
+> The way how the code is constructed means, however, that we prefer to go
+> and hit the OOM killer before we fall back to the vmalloc for requests
+> <=32kB (with 4kB pages) in the current code. This is rather disruptive for
+> something that can be achived with the fallback. On the other hand
+> __GFP_REPEAT doesn't have any useful semantic for these requests. So the
+> effect of this patch is that requests smaller than 64kB will fallback to
+> vmalloc esier now.
 
-Use this to rework the socker rx path. Move the common RX part
-of v0 and v1 into a helper. Also move the final rx part into
-that helper as well.
+           easier
 
-Signed-off-by: Andreas Schultz <aschultz@tpip.net>
----
- drivers/net/gtp.c | 92 ++++++++++++++++++++++++++++---------------------------
- 1 file changed, 47 insertions(+), 45 deletions(-)
+Although it's somewhat of an euphemism when compared to "basically never" :)
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index ff00597..9c31e83 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -58,6 +58,7 @@ struct pdp_ctx {
- 	struct in_addr		ms_addr_ip4;
- 	struct in_addr		sgsn_addr_ip4;
- 
-+	struct net_device       *dev;
- 	struct sock		*sk;
- 
- 	atomic_t		tx_seq;
-@@ -179,9 +180,42 @@ static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
- 	return false;
- }
- 
-+static int gtp_rx(struct sk_buff *skb, struct pdp_ctx *pctx, unsigned int hdrlen)
-+{
-+	struct pcpu_sw_netstats *stats;
-+
-+	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+		pr_debug("No PDP ctx for this MS\n");
-+		return 1;
-+	}
-+
-+	/* Get rid of the GTP + UDP headers. */
-+	if (iptunnel_pull_header(skb, hdrlen, skb->protocol,
-+				 !net_eq(sock_net(pctx->sk), dev_net(pctx->dev))))
-+		return -1;
-+
-+	pr_debug("forwarding packet from GGSN to uplink\n");
-+
-+	/* Now that the UDP and the GTP header have been removed, set up the
-+	 * new network header. This is required by the upper layer to
-+	 * calculate the transport header.
-+	 */
-+	skb_reset_network_header(skb);
-+
-+	skb->dev = pctx->dev;
-+
-+	stats = this_cpu_ptr(pctx->dev->tstats);
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_packets++;
-+	stats->rx_bytes += skb->len;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	netif_rx(skb);
-+	return 0;
-+}
-+
- /* 1 means pass up to the stack, -1 means drop and 0 means decapsulated. */
--static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
--			       bool xnet)
-+static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- {
- 	unsigned int hdrlen = sizeof(struct udphdr) +
- 			      sizeof(struct gtp0_header);
-@@ -205,17 +239,10 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		return 1;
- 	}
- 
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
--		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
--		return 1;
--	}
--
--	/* Get rid of the GTP + UDP headers. */
--	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-+	return gtp_rx(skb, pctx, hdrlen);
- }
- 
--static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
--				bool xnet)
-+static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- {
- 	unsigned int hdrlen = sizeof(struct udphdr) +
- 			      sizeof(struct gtp1_header);
-@@ -254,13 +281,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		return 1;
- 	}
- 
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
--		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
--		return 1;
--	}
--
--	/* Get rid of the GTP + UDP headers. */
--	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-+	return gtp_rx(skb, pctx, hdrlen);
- }
- 
- static void gtp_encap_destroy(struct sock *sk)
-@@ -294,10 +315,8 @@ static void gtp_encap_disable(struct gtp_dev *gtp)
-  */
- static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- {
--	struct pcpu_sw_netstats *stats;
- 	struct gtp_dev *gtp;
--	bool xnet;
--	int ret;
-+	int ret = 0;
- 
- 	gtp = rcu_dereference_sk_user_data(sk);
- 	if (!gtp)
-@@ -305,16 +324,14 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 
- 	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
- 
--	xnet = !net_eq(sock_net(sk), dev_net(gtp->dev));
--
- 	switch (udp_sk(sk)->encap_type) {
- 	case UDP_ENCAP_GTP0:
- 		netdev_dbg(gtp->dev, "received GTP0 packet\n");
--		ret = gtp0_udp_encap_recv(gtp, skb, xnet);
-+		ret = gtp0_udp_encap_recv(gtp, skb);
- 		break;
- 	case UDP_ENCAP_GTP1U:
- 		netdev_dbg(gtp->dev, "received GTP1U packet\n");
--		ret = gtp1u_udp_encap_recv(gtp, skb, xnet);
-+		ret = gtp1u_udp_encap_recv(gtp, skb);
- 		break;
- 	default:
- 		ret = -1; /* Shouldn't happen. */
-@@ -323,33 +340,17 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	switch (ret) {
- 	case 1:
- 		netdev_dbg(gtp->dev, "pass up to the process\n");
--		return 1;
-+		break;
- 	case 0:
--		netdev_dbg(gtp->dev, "forwarding packet from GGSN to uplink\n");
- 		break;
- 	case -1:
- 		netdev_dbg(gtp->dev, "GTP packet has been dropped\n");
- 		kfree_skb(skb);
--		return 0;
-+		ret = 0;
-+		break;
- 	}
- 
--	/* Now that the UDP and the GTP header have been removed, set up the
--	 * new network header. This is required by the upper layer to
--	 * calculate the transport header.
--	 */
--	skb_reset_network_header(skb);
--
--	skb->dev = gtp->dev;
--
--	stats = this_cpu_ptr(gtp->dev->tstats);
--	u64_stats_update_begin(&stats->syncp);
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--	u64_stats_update_end(&stats->syncp);
--
--	netif_rx(skb);
--
--	return 0;
-+	return ret;
- }
- 
- static int gtp_dev_init(struct net_device *dev)
-@@ -930,6 +931,7 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
- 
- 	sock_hold(sk);
- 	pctx->sk = sk;
-+	pctx->dev = gtp->dev;
- 	ipv4_pdp_fill(pctx, info);
- 	atomic_set(&pctx->tx_seq, 0);
- 
--- 
-2.10.2
+>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Michal Hocko <mhocko@suse.com>
+
+Acked-by: Vlastimil Babka <vbabka@suse.cz>
+
+> ---
+>  net/core/dev.c     | 24 +++++++++---------------
+>  net/sched/sch_fq.c | 12 +-----------
+>  2 files changed, 10 insertions(+), 26 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index be11abac89b3..707e730821a6 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -7081,12 +7081,10 @@ static int netif_alloc_rx_queues(struct net_device *dev)
+>
+>  	BUG_ON(count < 1);
+>
+> -	rx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+> -	if (!rx) {
+> -		rx = vzalloc(sz);
+> -		if (!rx)
+> -			return -ENOMEM;
+> -	}
+> +	rx = kvzalloc(sz, GFP_KERNEL | __GFP_REPEAT);
+> +	if (!rx)
+> +		return -ENOMEM;
+> +
+>  	dev->_rx = rx;
+>
+>  	for (i = 0; i < count; i++)
+> @@ -7123,12 +7121,10 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
+>  	if (count < 1 || count > 0xffff)
+>  		return -EINVAL;
+>
+> -	tx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+> -	if (!tx) {
+> -		tx = vzalloc(sz);
+> -		if (!tx)
+> -			return -ENOMEM;
+> -	}
+> +	tx = kvzalloc(sz, GFP_KERNEL | __GFP_REPEAT);
+> +	if (!tx)
+> +		return -ENOMEM;
+> +
+>  	dev->_tx = tx;
+>
+>  	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+> @@ -7661,9 +7657,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+>  	/* ensure 32-byte alignment of whole construct */
+>  	alloc_size += NETDEV_ALIGN - 1;
+>
+> -	p = kzalloc(alloc_size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
+> -	if (!p)
+> -		p = vzalloc(alloc_size);
+> +	p = kvzalloc(alloc_size, GFP_KERNEL | __GFP_REPEAT);
+>  	if (!p)
+>  		return NULL;
+>
+> diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+> index a4f738ac7728..594f77d89f6c 100644
+> --- a/net/sched/sch_fq.c
+> +++ b/net/sched/sch_fq.c
+> @@ -624,16 +624,6 @@ static void fq_rehash(struct fq_sched_data *q,
+>  	q->stat_gc_flows += fcnt;
+>  }
+>
+> -static void *fq_alloc_node(size_t sz, int node)
+> -{
+> -	void *ptr;
+> -
+> -	ptr = kmalloc_node(sz, GFP_KERNEL | __GFP_REPEAT | __GFP_NOWARN, node);
+> -	if (!ptr)
+> -		ptr = vmalloc_node(sz, node);
+> -	return ptr;
+> -}
+> -
+>  static void fq_free(void *addr)
+>  {
+>  	kvfree(addr);
+> @@ -650,7 +640,7 @@ static int fq_resize(struct Qdisc *sch, u32 log)
+>  		return 0;
+>
+>  	/* If XPS was setup, we can allocate memory on right NUMA node */
+> -	array = fq_alloc_node(sizeof(struct rb_root) << log,
+> +	array = kvmalloc_node(sizeof(struct rb_root) << log, GFP_KERNEL | __GFP_REPEAT,
+>  			      netdev_queue_numa_node_read(sch->dev_queue));
+>  	if (!array)
+>  		return -ENOMEM;
+>
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
