@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] sh_eth: E-DMAC interrupt mask cleanups
-Date: Mon, 30 Jan 2017 11:18:16 -0500 (EST)
-Message-ID: <20170130.111816.407600624117593483.davem@davemloft.net>
-References: <3387005.NzsGXf10rT@wasted.cogentembedded.com>
+Subject: Re: [PATCH net-next v2 0/4] net: dsa: bcm_sf2: CFP support
+Date: Mon, 30 Jan 2017 11:17:05 -0500 (EST)
+Message-ID: <20170130.111705.2190123034134195739.davem@davemloft.net>
+References: <20170129031325.21911-1-f.fainelli@gmail.com>
+        <F1B63CEA-29D4-4BC7-9476-9D489E4A4FB9@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <3387005.NzsGXf10rT@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, cphealy@gmail.com,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54878 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753519AbdA3QZv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:25:51 -0500
+In-Reply-To: <F1B63CEA-29D4-4BC7-9476-9D489E4A4FB9@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 29 Jan 2017 15:06:39 +0300
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sun, 29 Jan 2017 22:46:01 -0800
 
->    Here's a set of 3 patches against DaveM's 'net-next.git' repo. The main goal
-> of this set is to stop using the bare numbers for the E-DMAC interrupt masks.
-> 
-> [1/3] sh_eth: rename EESIPR bits
-> [2/3] sh_eth: add missing EESIPR bits
-> [3/3] sh_eth: stop using bare numbers for EESIPR values
+> David, this needs to be rebase against net-next/master after
+> Vivien's changes. Will post an update tomorrow. Thanks!
 
-Series applied, thank you.
+Indeed I just ran into this, good thing I noticed it before pushing it
+out :-)
