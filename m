@@ -1,60 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
- xennet_disconnect_backend()
-Date: Mon, 30 Jan 2017 10:07:31 -0800
-Message-ID: <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: Re: [PATCH net-next v2 2/2] qede: Add driver support for PTP.
+Date: Mon, 30 Jan 2017 17:55:32 +0000
+Message-ID: <BL2PR07MB2306B5963EBDEF0AF5CD4E8F8D4B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485674903-27689-3-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <20170129153536.GD2223@localhost.localdomain>,<063D6719AE5E284EB5DD2968C1650D6DB0273BA8@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jgross@suse.com, xen-devel@lists.xenproject.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        vineethp@amazon.com, wei.liu2@citrix.com, paul.durrant@citrix.com,
-        stable@vger.kernel.org
-To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+        'Richard Cochran' <richardcochran@gmail.com>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35647 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750948AbdA3SHi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 13:07:38 -0500
-In-Reply-To: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+Received: from mail-dm3nam03on0058.outbound.protection.outlook.com ([104.47.41.58]:45504
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750866AbdA3SKu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Jan 2017 13:10:50 -0500
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0273BA8@AcuExch.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-30 at 12:45 -0500, Boris Ostrovsky wrote:
-> rx_refill_timer should be deleted as soon as we disconnect from the
-> backend since otherwise it is possible for the timer to go off before
-> we get to xennet_destroy_queues(). If this happens we may dereference
-> queue->rx.sring which is set to NULL in xennet_disconnect_backend().
-> 
-> Signed-off-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> CC: stable@vger.kernel.org
-> ---
->  drivers/net/xen-netfront.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 8315fe7..722fe9f 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1379,6 +1379,8 @@ static void xennet_disconnect_backend(struct netfront_info *info)
->  	for (i = 0; i < num_queues && info->queues; ++i) {
->  		struct netfront_queue *queue = &info->queues[i];
->  
-> +		del_timer_sync(&queue->rx_refill_timer);
-> +
+> How many different implementations of 'ops->adjfreq' are there?
+> If there is only one you don't need an indirect call.
 
-If napi_disable() was not called before this del_timer_sync(), another
-RX might come here and rearm rx_refill_timer.
-
->  		if (queue->tx_irq && (queue->tx_irq == queue->rx_irq))
->  			unbind_from_irqhandler(queue->tx_irq, queue);
->  		if (queue->tx_irq && (queue->tx_irq != queue->rx_irq)) {
-> @@ -1733,7 +1735,6 @@ static void xennet_destroy_queues(struct netfront_info *info)
->  
->  		if (netif_running(info->netdev))
->  			napi_disable(&queue->napi);
-> -		del_timer_sync(&queue->rx_refill_timer);
->  		netif_napi_del(&queue->napi);
->  	}
->  
+There's only one implementation. But qed publishes its functions to
+qede [and other modules] by structs of operations and not by
+exporting symbols directly, and I don't see a reason to change that
+paradigm here.
+[Although I might be mistaken about that last bit]
+     =
