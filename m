@@ -1,56 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 RFC net-next 0/7] net: dst_confirm replacement
-Date: Mon, 30 Jan 2017 10:13:39 -0500 (EST)
-Message-ID: <20170130.101339.2050288140097606206.davem@davemloft.net>
-References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
+Subject: Re: [PATCH net] mlx4: xdp_prog becomes inactive after ethtool '-L'
+ or '-G'
+Date: Mon, 30 Jan 2017 09:56:52 -0500 (EST)
+Message-ID: <20170130.095652.206333902555980419.davem@davemloft.net>
+References: <1485589251-3896393-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        yuehaibing@huawei.com
-To: ja@ssi.bg
+Cc: netdev@vger.kernel.org, bblanco@plumgrid.com, saeedm@mellanox.com,
+        tariqt@mellanox.com, kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51224 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52762 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753519AbdA3PO0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:14:26 -0500
-In-Reply-To: <1485613578-19973-1-git-send-email-ja@ssi.bg>
+        with ESMTP id S1753655AbdA3Puv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:50:51 -0500
+In-Reply-To: <1485589251-3896393-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Sat, 28 Jan 2017 16:26:11 +0200
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 27 Jan 2017 23:40:51 -0800
 
-> 	This patchset addresses the problem of neighbour
-> confirmation where received replies from one nexthop
-> can cause confirmation of different nexthop when using
-> the same dst. Thanks to YueHaibing <yuehaibing@huawei.com>
-> for tracking the dst->pending_confirm problem.
+> If the rx-queues ever get re-initialized (e.g. by changing the
+> number of rx-queues with ethtool -L), the existing xdp_prog becomes
+> inactive.
 > 
-> 	Sockets can obtain cached output route. Such
-> routes can be to known nexthop (rt_gateway=IP) or to be
-> used simultaneously for different nexthop IPs by different
-> subnet prefixes (nh->nh_scope = RT_SCOPE_HOST, rt_gateway=0).
+> The bug is that the xdp_prog ptr has not been carried over from
+> the old rx-queues to the new rx-queues
 > 
-> 	At first look, there are more problems:
-> 
-> - dst_confirm() sets flag on dst and not on dst->path,
-> as result, indication is lost when XFRM is used
-> 
-> - DNAT can change the nexthop, so the really used nexthop is
-> not confirmed
-> 
-> 	So, the following solution is to avoid using
-> dst->pending_confirm.
+> Fixes: 47a38e155037 ("net/mlx4_en: add support for fast rx drop bpf program")
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-For the most part this series looks good to me, nice work.
-
-> - I failed to understand the CXGB* code, I see dst_confirm()
-> calls but I'm not sure dst_neigh_output() was called. For now
-> I just removed the dst->pending_confirm flag and left all
-> dst_confirm() calls there. Any better idea?
-
-It is trying to manage the dst and neigh state for TCP connections
-managed by it's offload engine.  So you will not therefore see any
-actual packet output for the sessions it is performing confirmation
-for.
+Mellanox folks, please review.
