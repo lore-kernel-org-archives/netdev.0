@@ -1,57 +1,52 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Mon, 30 Jan 2017 10:45:57 -0800
-Message-ID: <588F89E5.9060503@cumulusnetworks.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com> <588D3EB9.1070107@cumulusnetworks.com> <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com> <588E80DB.3070209@cumulusnetworks.com> <71e661bd-e26d-2629-06bb-888f6a09b06d@cumulusnetworks.com> <588EA2E8.2040302@cumulusnetworks.com> <5be4a78e-64b8-abc4-4015-6751a2bab12b@cumulusnetworks.com> <588F607D.2050600@cumulusnetworks.com> <d987faff-ced4-8791-8bdb-ba8a66aec6f5@cumulusnetworks.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] net: Avoid receiving packets with an l3mdev on
+ unbound UDP sockets
+Date: Mon, 30 Jan 2017 11:52:01 -0700
+Message-ID: <e5618218-0de4-6bb6-1bb8-9e53e0ecb183@cumulusnetworks.com>
+References: <1485453744-5120-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: Robert Shearman <rshearma@brocade.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35281 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752959AbdA3Sqq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 13:46:46 -0500
-Received: by mail-pf0-f182.google.com with SMTP id f144so92246568pfa.2
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 10:45:58 -0800 (PST)
-In-Reply-To: <d987faff-ced4-8791-8bdb-ba8a66aec6f5@cumulusnetworks.com>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:32967 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753835AbdA3SwD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 13:52:03 -0500
+Received: by mail-pg0-f43.google.com with SMTP id 204so103342476pge.0
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 10:52:03 -0800 (PST)
+In-Reply-To: <1485453744-5120-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/17, 8:12 AM, David Ahern wrote:
-> On 1/30/17 8:49 AM, Roopa Prabhu wrote:
->>> Single next hop delete will be around because IPv6 allows it -- and because IPv4 needs to support it.
->>>
->> understand single next hop delete for ipv6 will be around..and my only point was to leave it around but not optimize for that case.
->> I don't think we should support single nexthop delete in ipv4 (I have not seen a requirement for that)... ipv4 is good as it is right now.
->> the additional complexity is not needed.
->>
-> IPv4 has a known bug -- delete a virtual interface in a multihop route and the entire route is deleted, including the nexthops for other devices. This does not happen for IPv6.
->
-> Simple example of that bug:
->
-> ip li add dummy1 type dummy
-> ip li add dummy2 type dummy
-> ip addr add dev dummy1 10.11.1.1/28
-> ip li set dummy1 up
-> ip addr add dev dummy2 10.11.2.1/28
-> ip li set dummy2 up
-> ip ro add 1.1.1.0/24 nexthop via 10.11.1.2 nexthop via 10.11.2.2
-> ip li del dummy2
->
-> --> the entire multipath route has been deleted.
->
->
-> And, fixing this bug enables work to make IPv4 append to be sane -- appending a route should modify an existing route by adding the nexthop, not adding a new route that I believe can never actually be hit.
->
-> Both cases mean modifying an IPv4 route -- adding or removing nexthops -- a capability that IPv6 allows so fixing this means closing another difference between the stacks.
+On 1/26/17 11:02 AM, Robert Shearman wrote:
+> Packets arriving in a VRF currently are delivered to UDP sockets that
+> aren't bound to any interface. TCP defaults to not delivering packets
+> arriving in a VRF to unbound sockets. IP route lookup and socket
+> transmit both assume that unbound means using the default table and
+> UDP applications that haven't been changed to be aware of VRFs may not
+> function correctly in this case since they may not be able to handle
+> overlapping IP address ranges, or be able to send packets back to the
+> original sender if required.
+> 
+> So add a sysctl, udp_l3mdev_accept, to control this behaviour with it
+> being analgous to the existing tcp_l3mdev_accept, namely to allow a
+> process to have a VRF-global listen socket. Have this default to off
+> as this is the behaviour that users will expect, given that there is
+> no explicit mechanism to set unmodified VRF-unaware application into a
+> default VRF.
+> 
+> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+> ---
+> I've targetted this for the net tree because I believe the expected
+> behaviour is different enough from the current behaviour to be
+> considered a bug. However, this should also apply to the net-next tree
+> as-is if this not deemed a bug.
 
-good point on the bug you point out. agree the bug needs to be fixed ...but routing daemons react to this behavior pretty well...because they get a link notification and a route notification. I was ok with fixing ipv6 to be similar to ipv4...but I am not in favor of bringing in design choices that ipv6 made into ipv4 :).
-In all cases, in my experience with routes, the update of ecmp route as a whole has always been ok (at-least not until now...maybe in the future
-for new usecases)
+Does not apply to net-next; collision in sysctl_net_ipv4.c
 
-In the case of the bug you point out, can the user be notified of the implicit update of the route in the kernel ...via replace flag or something ?.
-regarding append..., ipv4 never really supported appending to an existing route......even in the case of a non-ecmp routes.
-append just dictates the order where the route is added IIRC  (i maybe mistaken here..its been long i tried it).
+As for the code change, I have updated my unit tests and they all pass with this patch. Not sure why I marked my version as not working last November, but it is all good now.
+
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Tested-by: David Ahern <dsa@cumulusnetworks.com>
