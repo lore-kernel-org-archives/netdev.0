@@ -1,78 +1,94 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Mon, 30 Jan 2017 09:53:09 -0800
-Message-ID: <20170130175309.GY7403@atomide.com>
-References: <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
- <20170127101043.GD24223@pali>
- <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
- <20170127103408.GG24223@pali>
- <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
- <20170127115706.GH24223@pali>
- <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
- <20170127131146.GI24223@pali>
- <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
- <20170127194012.GE20571@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170127194012.GE20571@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 1/4] net: dsa: Hook {get,set}_rxnfc ethtool operations
+Date: Mon, 30 Jan 2017 09:48:40 -0800
+Message-ID: <20170130174843.29497-2-f.fainelli@gmail.com>
+References: <20170130174843.29497-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33648 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752538AbdA3Ryz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 12:54:55 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 194so32063832pgd.0
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 09:54:55 -0800 (PST)
+In-Reply-To: <20170130174843.29497-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Pavel Machek <pavel@ucw.cz> [170127 11:41]:
-> On Fri 2017-01-27 17:23:07, Kalle Valo wrote:
-> > Pali Rohár <pali.rohar@gmail.com> writes:
-> > 
-> > > On Friday 27 January 2017 14:26:22 Kalle Valo wrote:
-> > >> Pali Rohár <pali.rohar@gmail.com> writes:
-> > >> 
-> > >> > 2) It was already tested that example NVS data can be used for N900 e.g.
-> > >> > for SSH connection. If real correct data are not available it is better
-> > >> > to use at least those example (and probably log warning message) so user
-> > >> > can connect via SSH and start investigating where is problem.
-> > >> 
-> > >> I disagree. Allowing default calibration data to be used can be
-> > >> unnoticed by user and left her wondering why wifi works so badly.
-> > >
-> > > So there are only two options:
-> > >
-> > > 1) Disallow it and so these users will have non-working wifi.
-> > >
-> > > 2) Allow those data to be used as fallback mechanism.
-> > >
-> > > And personally I'm against 1) because it will break wifi support for
-> > > *all* Nokia N900 devices right now.
-> > 
-> > All two of them? :)
-> 
-> Umm. You clearly want a flock of angry penguins at your doorsteps :-).
+In preparation for adding support for CFP/TCAMP in the bcm_sf2 driver add the
+plumbing to call into driver specific {get,set}_rxnfc operations.
 
-Well this silly issue of symlinking and renaming nvs files in a standard
-Linux distro was also hitting me on various devices with wl12xx/wl18xx
-trying to use the same rootfs.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/net/dsa.h |  8 ++++++++
+ net/dsa/slave.c   | 26 ++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+)
 
-Why don't we just set a custom compatible property for n900 that then
-picks up some other nvs file instead of the default?
-
-Regards,
-
-Tony
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b951e2ebda75..d5d618c3de64 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -377,6 +377,14 @@ struct dsa_switch_ops {
+ 	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
+ 				 struct switchdev_obj_port_mdb *mdb,
+ 				 int (*cb)(struct switchdev_obj *obj));
++
++	/*
++	 * RXNFC
++	 */
++	int	(*get_rxnfc)(struct dsa_switch *ds, int port,
++			     struct ethtool_rxnfc *nfc, u32 *rule_locs);
++	int	(*set_rxnfc)(struct dsa_switch *ds, int port,
++			     struct ethtool_rxnfc *nfc);
+ };
+ 
+ struct dsa_switch_driver {
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 08725286f79d..6881889e1a9b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1002,6 +1002,30 @@ void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
+ 	ops->get_strings = dsa_cpu_port_get_strings;
+ }
+ 
++static int dsa_slave_get_rxnfc(struct net_device *dev,
++			       struct ethtool_rxnfc *nfc, u32 *rule_locs)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->dp->ds;
++
++	if (!ds->ops->get_rxnfc)
++		return -EOPNOTSUPP;
++
++	return ds->ops->get_rxnfc(ds, p->dp->index, nfc, rule_locs);
++}
++
++static int dsa_slave_set_rxnfc(struct net_device *dev,
++			       struct ethtool_rxnfc *nfc)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->dp->ds;
++
++	if (!ds->ops->set_rxnfc)
++		return -EOPNOTSUPP;
++
++	return ds->ops->set_rxnfc(ds, p->dp->index, nfc);
++}
++
+ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_drvinfo		= dsa_slave_get_drvinfo,
+ 	.get_regs_len		= dsa_slave_get_regs_len,
+@@ -1020,6 +1044,8 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_eee		= dsa_slave_get_eee,
+ 	.get_link_ksettings	= dsa_slave_get_link_ksettings,
+ 	.set_link_ksettings	= dsa_slave_set_link_ksettings,
++	.get_rxnfc		= dsa_slave_get_rxnfc,
++	.set_rxnfc		= dsa_slave_set_rxnfc,
+ };
+ 
+ static const struct net_device_ops dsa_slave_netdev_ops = {
+-- 
+2.9.3
