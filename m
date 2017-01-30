@@ -1,39 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] rtnetlink: Handle IFLA_MASTER parameter when processing
- rtnl_newlink
-Date: Mon, 30 Jan 2017 15:57:53 -0800
-Message-ID: <20170130155753.4f3bb068@xeon-e3>
-References: <20170130232346.29761-1-theuns.verwoerd@alliedtelesis.co.nz>
+From: Dimitris Michailidis <dmichail@google.com>
+Subject: Re: [PATCH] ipv6: fix flow labels when the traffic class is non-0
+Date: Mon, 30 Jan 2017 15:51:10 -0800
+Message-ID: <CAG76Sjb7J+pCZ4MhMYC-_L9_c587xA2XPqORGUFSZ9ESsouP5w@mail.gmail.com>
+References: <20170130220942.19105-1-dmichail@google.com> <CALx6S375e127OSj9cHk4JuJLdee6tUmnBz7gSrsWTSLFP84JaA@mail.gmail.com>
+ <CANn89iLCyo8RgjHAg7YsQJCpS-P=76M5ZN1Ps3HhAzm-gZJpGw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: Theuns Verwoerd <theuns.verwoerd@alliedtelesis.co.nz>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33775 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753362AbdA3X6O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 18:58:14 -0500
-Received: by mail-pf0-f174.google.com with SMTP id y143so95389632pfb.0
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 15:57:55 -0800 (PST)
-In-Reply-To: <20170130232346.29761-1-theuns.verwoerd@alliedtelesis.co.nz>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:35739 "EHLO
+        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753582AbdAaAAE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 19:00:04 -0500
+Received: by mail-io0-f177.google.com with SMTP id j18so120139119ioe.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 15:58:42 -0800 (PST)
+In-Reply-To: <CANn89iLCyo8RgjHAg7YsQJCpS-P=76M5ZN1Ps3HhAzm-gZJpGw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Jan 2017 12:23:46 +1300
-Theuns Verwoerd <theuns.verwoerd@alliedtelesis.co.nz> wrote:
+On Mon, Jan 30, 2017 at 3:45 PM, Eric Dumazet <edumazet@google.com> wrote:
+> On Mon, Jan 30, 2017 at 3:40 PM, Tom Herbert <tom@herbertland.com> wrote:
+>
+>> Thanks for pointing out the issue, but I don't think this fix is quite
+>> right. This would be discarding traffic class from being in the return
+>> value. I can try to fix that.
+>
+> Fix looks fine to me.
+>
+> ip6_make_flowlabel() is usually used in an enclosing ip6_flow_hdr(),
+> which gives the tclass.
+>
+> ip6_flow_hdr(hdr, tclass, ip6_make_flowlabel(net, skb, fl6->flowlabel,
+>
+>   np->autoflowlabel, fl6));
 
-> Allow a master interface to be specified as one of the parameters when
-> creating a new interface via rtnl_newlink.  Previously this would
-> require invoking interface creation, waiting for it to complete, and
-> then separately binding that new interface to a master.
-> 
-> In particular, this is used when creating a macvlan child interface for
-> VRRP in a VRF configuration, allowing the interface creator to specify
-> directly what master interface should be inherited by the child,
-> without having to deal with asynchronous complications and potential
-> race conditions.
-> 
-> Signed-off-by: Theuns Verwoerd <theuns.verwoerd@alliedtelesis.co.nz>
-
-Thanks it came through without modification by email client or server this time.
+Yes, all the callers of ip6_make_flowlabel() I've seen feed the result
+to ip6_flow_hdr().
