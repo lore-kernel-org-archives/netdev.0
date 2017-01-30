@@ -1,48 +1,78 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: [PATCH] xen-netfront: Delete rx_refill_timer in
-	xennet_disconnect_backend()
-Date: Mon, 30 Jan 2017 12:45:46 -0500
-Message-ID: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Mon, 30 Jan 2017 09:53:09 -0800
+Message-ID: <20170130175309.GY7403@atomide.com>
+References: <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
+ <20170127101043.GD24223@pali>
+ <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
+ <20170127103408.GG24223@pali>
+ <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
+ <20170127115706.GH24223@pali>
+ <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
+ <20170127131146.GI24223@pali>
+ <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
+ <20170127194012.GE20571@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: wei.liu2@citrix.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- stable@vger.kernel.org, vineethp@amazon.com, xen-devel@lists.xenproject.org,
- Boris Ostrovsky <boris.ostrovsky@oracle.com>, paul.durrant@citrix.com
-To: jgross@suse.com
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170127194012.GE20571@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-cnhfcmVmaWxsX3RpbWVyIHNob3VsZCBiZSBkZWxldGVkIGFzIHNvb24gYXMgd2UgZGlzY29ubmVj
-dCBmcm9tIHRoZQpiYWNrZW5kIHNpbmNlIG90aGVyd2lzZSBpdCBpcyBwb3NzaWJsZSBmb3IgdGhl
-IHRpbWVyIHRvIGdvIG9mZiBiZWZvcmUKd2UgZ2V0IHRvIHhlbm5ldF9kZXN0cm95X3F1ZXVlcygp
-LiBJZiB0aGlzIGhhcHBlbnMgd2UgbWF5IGRlcmVmZXJlbmNlCnF1ZXVlLT5yeC5zcmluZyB3aGlj
-aCBpcyBzZXQgdG8gTlVMTCBpbiB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKCkuCgpTaWduZWQt
-b2ZmLWJ5OiBCb3JpcyBPc3Ryb3Zza3kgPGJvcmlzLm9zdHJvdnNreUBvcmFjbGUuY29tPgpDQzog
-c3RhYmxlQHZnZXIua2VybmVsLm9yZwotLS0KIGRyaXZlcnMvbmV0L3hlbi1uZXRmcm9udC5jIHwg
-MyArKy0KIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkKCmRp
-ZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYyBiL2RyaXZlcnMvbmV0L3hlbi1u
-ZXRmcm9udC5jCmluZGV4IDgzMTVmZTcuLjcyMmZlOWYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
-L3hlbi1uZXRmcm9udC5jCisrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRmcm9udC5jCkBAIC0xMzc5
-LDYgKzEzNzksOCBAQCBzdGF0aWMgdm9pZCB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKHN0cnVj
-dCBuZXRmcm9udF9pbmZvICppbmZvKQogCWZvciAoaSA9IDA7IGkgPCBudW1fcXVldWVzICYmIGlu
-Zm8tPnF1ZXVlczsgKytpKSB7CiAJCXN0cnVjdCBuZXRmcm9udF9xdWV1ZSAqcXVldWUgPSAmaW5m
-by0+cXVldWVzW2ldOwogCisJCWRlbF90aW1lcl9zeW5jKCZxdWV1ZS0+cnhfcmVmaWxsX3RpbWVy
-KTsKKwogCQlpZiAocXVldWUtPnR4X2lycSAmJiAocXVldWUtPnR4X2lycSA9PSBxdWV1ZS0+cnhf
-aXJxKSkKIAkJCXVuYmluZF9mcm9tX2lycWhhbmRsZXIocXVldWUtPnR4X2lycSwgcXVldWUpOwog
-CQlpZiAocXVldWUtPnR4X2lycSAmJiAocXVldWUtPnR4X2lycSAhPSBxdWV1ZS0+cnhfaXJxKSkg
-ewpAQCAtMTczMyw3ICsxNzM1LDYgQEAgc3RhdGljIHZvaWQgeGVubmV0X2Rlc3Ryb3lfcXVldWVz
-KHN0cnVjdCBuZXRmcm9udF9pbmZvICppbmZvKQogCiAJCWlmIChuZXRpZl9ydW5uaW5nKGluZm8t
-Pm5ldGRldikpCiAJCQluYXBpX2Rpc2FibGUoJnF1ZXVlLT5uYXBpKTsKLQkJZGVsX3RpbWVyX3N5
-bmMoJnF1ZXVlLT5yeF9yZWZpbGxfdGltZXIpOwogCQluZXRpZl9uYXBpX2RlbCgmcXVldWUtPm5h
-cGkpOwogCX0KIAotLSAKMS44LjMuMQoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhl
-bi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+* Pavel Machek <pavel@ucw.cz> [170127 11:41]:
+> On Fri 2017-01-27 17:23:07, Kalle Valo wrote:
+> > Pali Rohár <pali.rohar@gmail.com> writes:
+> > 
+> > > On Friday 27 January 2017 14:26:22 Kalle Valo wrote:
+> > >> Pali Rohár <pali.rohar@gmail.com> writes:
+> > >> 
+> > >> > 2) It was already tested that example NVS data can be used for N900 e.g.
+> > >> > for SSH connection. If real correct data are not available it is better
+> > >> > to use at least those example (and probably log warning message) so user
+> > >> > can connect via SSH and start investigating where is problem.
+> > >> 
+> > >> I disagree. Allowing default calibration data to be used can be
+> > >> unnoticed by user and left her wondering why wifi works so badly.
+> > >
+> > > So there are only two options:
+> > >
+> > > 1) Disallow it and so these users will have non-working wifi.
+> > >
+> > > 2) Allow those data to be used as fallback mechanism.
+> > >
+> > > And personally I'm against 1) because it will break wifi support for
+> > > *all* Nokia N900 devices right now.
+> > 
+> > All two of them? :)
+> 
+> Umm. You clearly want a flock of angry penguins at your doorsteps :-).
+
+Well this silly issue of symlinking and renaming nvs files in a standard
+Linux distro was also hitting me on various devices with wl12xx/wl18xx
+trying to use the same rootfs.
+
+Why don't we just set a custom compatible property for n900 that then
+picks up some other nvs file instead of the default?
+
+Regards,
+
+Tony
