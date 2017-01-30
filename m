@@ -1,68 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
-Date: Mon, 30 Jan 2017 14:46:40 -0800
-Message-ID: <bc9e3b08-1722-5e24-5749-8860e10f1aa3@gmail.com>
-References: <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
- <20170115173949.GA19268@kroah.com>
- <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
- <20170115191632.GD5643@lunn.ch>
- <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
- <20170119142820.GA494@kroah.com> <20170119145315.GD21805@lunn.ch>
- <20170119165155.GH27312@n2100.armlinux.org.uk>
- <841dc133-e9af-e7ca-75bf-8371337d6281@gmail.com>
- <c98f3ff8-9d4e-a007-1fef-130fcf580201@gmail.com>
- <20170125212500.GA6052@kroah.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] rtnetlink: Handle IFLA_MASTER parameter when processing
+ rtnl_newlink
+Date: Mon, 30 Jan 2017 14:44:54 -0800
+Message-ID: <20170130144454.7ece3a73@xeon-e3>
+References: <38fc316c-a522-a8ca-d029-25fa5335a954@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
- Russell King - ARM Linux <linux@armlinux.org.uk>,
- open list <linux-kernel@vger.kernel.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S. Miller" <davem@davemloft.net>,
- "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170125212500.GA6052@kroah.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Theuns Verwoerd <Theuns.Verwoerd@alliedtelesis.co.nz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34345 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752347AbdA3WwT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 17:52:19 -0500
+Received: by mail-pf0-f176.google.com with SMTP id e4so94229273pfg.1
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 14:51:23 -0800 (PST)
+In-Reply-To: <38fc316c-a522-a8ca-d029-25fa5335a954@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/25/2017 01:25 PM, Greg KH wrote:
-> On Tue, Jan 24, 2017 at 10:59:15AM -0800, Florian Fainelli wrote:
->> On 01/19/2017 10:12 AM, Florian Fainelli wrote:
->>>
->>> Back to the actual code that triggered this discussion, the whole
->>> purpose is just a safeguard. Given a device reference, we can assume
->>> that it is indeed the backing device for a net_device, and we could do a
->>> to_net_device() right away (and crash if someone did not write correct
->>> platform_data structures), or, by walking the device tree (the device
->>> driver model one) we can make sure it does belong in the proper class
->>> and this is indeed what we think it is.
->>
->> Greg, did Russell's explanation clarify things, or do you still think
->> this is completely bogus and we need to re design the whole thing?
->>
->> Just asking so I can try to resubmit just the preparatory parts or just
->> the whole thing.
+On Mon, 30 Jan 2017 22:28:05 +0000
+Theuns Verwoerd <Theuns.Verwoerd@alliedtelesis.co.nz> wrote:
+
+> rtnetlink: Handle IFLA_MASTER parameter when processing rtnl_newlink
 > 
-> Sorry, I haven't gotten back to this, it's lower on my list.  Should try
-> to get to it tomorrow...
+> Allow a master interface to be specified as one of the parameters when
+> creating a new interface via rtnl_newlink.  Previously this would
+> require invoking interface creation, waiting for it to complete, and
+> then separately binding that new interface to a master.
+> 
+> In particular, this is used when creating a macvlan child interface for
+> VRRP in a VRF configuration, allowing the interface creator to specify
+> directly what master interface should be inherited by the child,
+> without having to deal with asynchronous complications and potential
+> race conditions.
+> 
+> Signed-off-by: Theuns Verwoerd <theuns.verwoerd@alliedtelesis.co.nz>
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 75e3ea7bda08..a24719c98238 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2571,7 +2571,7 @@ static int rtnl_newlink(struct sk_buff *skb, 
+> struct nlmsghdr *nlh)
+>                          return -ENODEV;
+>                  }
+> 
+> -               if (tb[IFLA_MAP] || tb[IFLA_MASTER] || tb[IFLA_PROTINFO])
+> +               if (tb[IFLA_MAP] || tb[IFLA_PROTINFO])
+>                          return -EOPNOTSUPP;
+> 
+>                  if (!ops) {
+> @@ -2653,6 +2653,11 @@ static int rtnl_newlink(struct sk_buff *skb, 
+> struct nlmsghdr *nlh)
+>                          if (err < 0)
+>                                  goto out_unregister;
+>                  }
+> +               if (tb[IFLA_MASTER]) {
+> +                       err = do_set_master(dev, 
+> nla_get_u32(tb[IFLA_MASTER]));
+> +                       if (err)
+> +                               goto out_unregister;
+> +               }
+>   out:
+>                  if (link_net)
+>                          put_net(link_net);
 
-Greg, please give some feedback here, I can only produce new patches as
-fast as I am given feedback, and I would really hate to miss the 4.11
-merge window because we have been sleeping on this. If there is a need
-to clarify things, I will be more than happy to try to provide information.
-
-Thank you!
--- 
-Florian
+Your mailer is reformatting text which corrupts patches.
+Please adjust your client settings, or use a different mail system.
