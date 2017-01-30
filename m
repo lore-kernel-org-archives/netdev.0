@@ -1,85 +1,32 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 0/6 v3] kvmalloc
-Date: Mon, 30 Jan 2017 17:45:03 +0100
-Message-ID: <588F6D8F.1010006@iogearbox.net>
-References: <20170126100802.GF6590@dhcp22.suse.cz> <5889DEA3.7040106@iogearbox.net> <20170126115833.GI6590@dhcp22.suse.cz> <5889F52E.7030602@iogearbox.net> <20170126134004.GM6590@dhcp22.suse.cz> <588A5D3C.4060605@iogearbox.net> <20170127100544.GF4143@dhcp22.suse.cz> <588BA9AA.8010805@iogearbox.net> <20170130075626.GC8443@dhcp22.suse.cz> <588F668C.6090309@iogearbox.net> <20170130162822.GC4664@dhcp22.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
- Andrew Morton <akpm@linux-foundation.org>,
- Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
- Johannes Weiner <hannes@cmpxchg.org>,
- linux-mm <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- marcelo.leitner@gmail.com
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170130162822.GC4664@dhcp22.suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH 0/6] gtp: misc improvements
+Date: Mon, 30 Jan 2017 17:31:54 +0100
+Message-ID: <20170130163200.17070-1-aschultz@tpip.net>
+Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org
+To: Pablo Neira <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tpip.net ([92.43.49.48]:58646 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750834AbdA3QmK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Jan 2017 11:42:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2017 05:28 PM, Michal Hocko wrote:
-> On Mon 30-01-17 17:15:08, Daniel Borkmann wrote:
->> On 01/30/2017 08:56 AM, Michal Hocko wrote:
->>> On Fri 27-01-17 21:12:26, Daniel Borkmann wrote:
->>>> On 01/27/2017 11:05 AM, Michal Hocko wrote:
->>>>> On Thu 26-01-17 21:34:04, Daniel Borkmann wrote:
->>> [...]
->>>>>> So to answer your second email with the bpf and netfilter hunks, why
->>>>>> not replacing them with kvmalloc() and __GFP_NORETRY flag and add that
->>>>>> big fat FIXME comment above there, saying explicitly that __GFP_NORETRY
->>>>>> is not harmful though has only /partial/ effect right now and that full
->>>>>> support needs to be implemented in future. That would still be better
->>>>>> that not having it, imo, and the FIXME would make expectations clear
->>>>>> to anyone reading that code.
->>>>>
->>>>> Well, we can do that, I just would like to prevent from this (ab)use
->>>>> if there is no _real_ and _sensible_ usecase for it. Having a real bug
->>>>
->>>> Understandable.
->>>>
->>>>> report or a fallback mechanism you are mentioning above would justify
->>>>> the (ab)use IMHO. But that abuse would be documented properly and have a
->>>>> real reason to exist. That sounds like a better approach to me.
->>>>>
->>>>> But if you absolutely _insist_ I can change that.
->>>>
->>>> Yeah, please do (with a big FIXME comment as mentioned), this originally
->>>> came from a real bug report. Anyway, feel free to add my Acked-by then.
->>>
->>> Thanks! I will repost the whole series today.
->>
->> Looks like I got only Cc'ed on the cover letter of your v3 from today
->> (should have been v4 actually?).
->
-> Yes
->
->> Anyway, I looked up the last patch
->> on lkml [1] and it seems you forgot the __GFP_NORETRY we talked about?
->
-> I misread your response. I thought you were OK with the FIXME
-> explanation.
->
->> At least that was what was discussed above (insisting on __GFP_NORETRY
->> plus FIXME comment) for providing my Acked-by then. Can you still fix
->> that up in a final respin?
->
-> I will probably just drop that last patch instead. I am not convinced
-> that we should bend the new API over and let people mimic that
-> throughout the code. I have just seen too many examples of this pattern
-> already.
->
-> I would also like to prevent the next rebase, unless there any issues
-> with some patches of course.
+Hi Pablo,
 
-Ok, I'm fine with that as well.
+This series lays the groundwork for removing the socket references from
+the GTP netdevice by removing duplicate code and simplifying the logic on
+some code paths.
 
-Thanks,
-Daniel
+It slighly changes the GTP genl API by making the socket parameters optional
+(though one of them is still required).
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+The removal of the socket references will break the 1:1 releation between
+GTP netdevice and GTP socket that prevents us to support multiple VRFs with
+overlaping IP addresse spaces attached to the same GTP socket (needed for
+multi APN support).
+
+Regards
+Andreas
