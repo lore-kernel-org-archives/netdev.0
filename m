@@ -1,87 +1,147 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCHv3 perf/core 1/6] tools lib bpf: Add BPF program pinning APIs.
-Date: Mon, 30 Jan 2017 13:16:18 -0800
-Message-ID: <CAPWQB7FDThp03e6DTHio8Myv5e8J6RcDXK-jG8W6B7Sh2Gvisw@mail.gmail.com>
-References: <20170126212001.14103-1-joe@ovn.org> <20170126212001.14103-2-joe@ovn.org>
- <20170130202506.GF4546@kernel.org> <20170130202813.GG4546@kernel.org>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
+Date: Mon, 30 Jan 2017 23:18:50 +0200
+Message-ID: <CALzJLG9Ltw7UdptVj0DbcUf4xCvooC1CkFXhSXXdt-d5-pL4ug@mail.gmail.com>
+References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
+ <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
+ <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
+ <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
+ <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
+ <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
+ <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
+ <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
+ <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
+ <588BD66E.2050201@fb.com> <CALzJLG_abLhT7wcrtB97KzurJ2-=OZv11cELjoRW79cOeyjxgw@mail.gmail.com>
+ <588CDA55.7030900@fb.com> <CALzJLG9OksXW5JAZiPoSfKtTF_z8Te9UDP9bm_XhXAp-FwmwEw@mail.gmail.com>
+ <588F6DC7.70904@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Wang Nan <wangnan0@huawei.com>, ast@fb.com,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170130202813.GG4546@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <tom@herbertland.com>,
+        Or Gerlitz <gerlitz.or@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:35002 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754363AbdA3VTL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 16:19:11 -0500
+Received: by mail-qk0-f193.google.com with SMTP id u25so20756607qki.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 13:19:11 -0800 (PST)
+In-Reply-To: <588F6DC7.70904@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30 January 2017 at 12:28, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
-> Em Mon, Jan 30, 2017 at 05:25:06PM -0300, Arnaldo Carvalho de Melo escreveu:
->> Em Thu, Jan 26, 2017 at 01:19:56PM -0800, Joe Stringer escreveu:
->> > Add new APIs to pin a BPF program (or specific instances) to the filesystem.
->> > The user can specify the path full path within a BPF filesystem to pin the
->> > program.
->> >
->> > bpf_program__pin_instance(prog, path, n) will pin the nth instance of
->> > 'prog' to the specified path.
->> > bpf_program__pin(prog, path) will create the directory 'path' (if it
->> > does not exist) and pin each instance within that directory. For
->> > instance, path/0, path/1, path/2.
->> >
->> > Signed-off-by: Joe Stringer <joe@ovn.org>
->>
->> make: Entering directory '/home/acme/git/linux/tools/perf'
->>   BUILD:   Doing 'make -j4' parallel build
->>   CC       /tmp/build/perf/builtin-record.o
->>   CC       /tmp/build/perf/libbpf.o
->>   CC       /tmp/build/perf/util/parse-events.o
->>   INSTALL  trace_plugins
->> libbpf.c: In function ‘make_dir’:
->> libbpf.c:1303:6: error: implicit declaration of function ‘mkdir’ [-Werror=implicit-function-declaration]
->>   if (mkdir(path, 0700) && errno != EEXIST)
->>       ^~~~~
->> libbpf.c:1303:2: error: nested extern declaration of ‘mkdir’ [-Werror=nested-externs]
->>   if (mkdir(path, 0700) && errno != EEXIST)
->>   ^~
->> cc1: all warnings being treated as errors
->> mv: cannot stat '/tmp/build/perf/.libbpf.o.tmp': No such file or directory
->> /home/acme/git/linux/tools/build/Makefile.build:101: recipe for target '/tmp/build/perf/libbpf.o' failed
-
-Not sure why but I didn't see this. Appreciate the fix.
-
+On Mon, Jan 30, 2017 at 6:45 PM, Alexei Starovoitov <ast@fb.com> wrote:
+> On 1/29/17 1:11 AM, Saeed Mahameed wrote:
 >>
 >>
->> And strdup() is not checked for failure, I'm fixing those,
+>> ConnectX4/5 and hopefully so on .. provide three different isolated
+>> steering layers:
 >>
->> +++ b/tools/lib/bpf/libbpf.c
->> @@ -36,6 +36,8 @@
->>  #include <linux/magic.h>
->>  #include <linux/list.h>
->>  #include <linux/limits.h>
->> +#include <sys/stat.h>
->> +#include <sys/types.h>
->>  #include <sys/vfs.h>
+>> 3. vport layer: avaialbe for any PF/VF vport nic driver instance
+>> (netdevice), it allows vlan/mac filtering
+>>   ,RSS hashing and n-tuple steering (for both encapsulated and
+>> nonencapsulated traffic) and RFS steering. ( the code above only
+>> writes flow entries of a PF/VF to its own vport flow tables, there is
+>> another mechanism to propagate l2 steering rules down to eswitch from
+>> the vport layer.
+>>
+>> 2. eswitch layer: Available for PFs only with
+>> HCA_CAP.vport_group_manager capability set.
+>> it allows steering between PF and different VFs on the same host (vlan
+>> mac steering and ACL filters in sriov legacy mode, and fancy n-tuple
+>> steering and offloads for switchdev mode - eswitch_offloads.c - )
+>> if this table is not create the default is pass-throu traffic to PF
+>>
+>> 1. L2 table: Available for PFs only with HCA_CAP.vport_group_manager
+>> capability set.
+>> needed for MH configurations and only PF is allowed and should write
+>> "request UC MAC - set_l2_table_entry" on behalf of the PF itself and
+>> it's own VFs.
+>>
+>> - On a bare metal machine only layer 3 is required (all traffic is
+>> passed to the PF vport).
+>> - On a MH configuration layer 3 and 1 are required.
+>> - On a SRIOV configuration layer 3 and 2 are required.
+>> - On MH with SRIOV all layers are required.
+>>
+>> in the driver, eswitch and L2 layers are handled by PF@eswitch.c.
+>>
+>> So for your question:
+>>
+>> PF always init_eswitch ( no eswitch -sriov- tables are created), and
+>> the eswitch will start listening for vport_change_events.
+>>
+>> A PF/VF or netdev vport instance on any steering changes updates
+>> should call  mlx5e_vport_context_update[1]
+>>
+>> vport_context_update is A FW command that will store the current
+>> UC/MC/VLAN list and promiscuity info of a vport.
+>>
+>> The FW will generate an event to the PF driver eswitch manager (vport
+>> manager) mlx5_eswitch_vport_event [2], and the PF eswitch will call
+>> set_l2_table_entry for each UC mac on each vport change event of any
+>> vport (including its own vport), in case of SRIOV is enabled it will
+>> update eswitch tables as well.
+>>
+>> To simplify my answer the function calls are:
+>> Vport VF/PF netdevice:
+>> mlx5e_set_rx_mode_work
+>>      mlx5e_vport_context_update
+>>         mlx5e_vport_context_update_addr_list  --> FW event will be
+>> generated to the PF esiwtch manager
+>>
+>> PF eswitch manager(eswitch.c) on a vport change FW event:
+>> mlx5_eswitch_vport_event
+>>        esw_vport_change_handler
+>>             esw_vport_change_handle_locked
+>>                     esw_apply_vport_addr_list
+>>                                esw_add_uc_addr
+>>                                       set_l2_table_entry --> this will
+>> update the l2 table in case MH is enabled.
 >
-> This as well:
 >
-> @@ -1338,7 +1343,7 @@ int bpf_program__pin(struct bpf_program *prog,
-> const char *path)
->                 len = snprintf(buf, PATH_MAX, "%s/%d", path, i);
->                 if (len < 0)
->                         return -EINVAL;
-> -               else if (len > PATH_MAX)
-> +               else if (len >= PATH_MAX)
->                         return -ENAMETOOLONG;
+> all makes sense. To test this logic I added printk-s
+> to above functions, but I only see:
+> # ip link set eth0 addr 24:8a:07:47:2b:6e
+> [  148.861914] mlx5e_vport_context_update_addr_list: is_uc 1 err 0
+> [  148.875152] mlx5e_vport_context_update_addr_list: is_uc 0 err 0
 >
->
-> See 'man snprintf', return value:
->
-> ---
-> Thus, a return value of size or more means that the output was
-> truncated.
-> ---
+> MLX5_EVENT_TYPE_NIC_VPORT_CHANGE doesn't come into mlx5_eq_int().
 
-Good spotting, I looked over the committed versions and tested them,
-they seem good to me. Thanks!
+Strange, just double checked and i got those events on latest net-next
+bare-metal box.
+
+> Yet nic seems to work fine. Packets come and go.
+>
+
+Is it multi host configuration or bare metal ?
+Do you have internal loopback traffic between different hosts ?
+
+> broken firmware or expected behavior?
+
+which driver did you test ? backported or net-next ?
+
+if it is backported driver please verify that on driver load the
+following occurs :
+
+1. VPORTS change events are globally enabled:
+in mlx5_start_eqs@eq.c:
+async_event_mask |= (1ull << MLX5_EVENT_TYPE_NIC_VPORT_CHANGE);
+
+2. UC address change events are enabled for vport 0 (PF):
+In eswitch_attach or on eswitch_init (depends on the kernel version) @eswitch.c
+esw_enable_vport(esw, 0, UC_ADDR_CHANGE); is called.
+
+>
+> # ethtool -i eth0
+> driver: mlx5_core
+> version: 3.0-1 (January 2015)
+> firmware-version: 14.16.2024
+>
+
+BTW folks, i am going to be on vacation for the rest of the week, so
+please expect slow responses.
