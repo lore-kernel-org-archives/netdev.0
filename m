@@ -1,56 +1,88 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Mon, 30 Jan 2017 09:12:05 -0700
-Message-ID: <d987faff-ced4-8791-8bdb-ba8a66aec6f5@cumulusnetworks.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
- <588D3EB9.1070107@cumulusnetworks.com>
- <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
- <588E80DB.3070209@cumulusnetworks.com>
- <71e661bd-e26d-2629-06bb-888f6a09b06d@cumulusnetworks.com>
- <588EA2E8.2040302@cumulusnetworks.com>
- <5be4a78e-64b8-abc4-4015-6751a2bab12b@cumulusnetworks.com>
- <588F607D.2050600@cumulusnetworks.com>
+From: Vlastimil Babka <vbabka@suse.cz>
+Subject: Re: [PATCH 5/9] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Mon, 30 Jan 2017 17:14:21 +0100
+Message-ID: <9793f9d3-4ef1-aad0-b38f-d8760e536ff9@suse.cz>
+References: <20170130094940.13546-1-mhocko@kernel.org>
+ <20170130094940.13546-6-mhocko@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=iso-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:36088 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753639AbdA3QMY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:12:24 -0500
-Received: by mail-pg0-f52.google.com with SMTP id 3so43581599pgj.3
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 08:12:07 -0800 (PST)
-In-Reply-To: <588F607D.2050600@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
+ Johannes Weiner <hannes@cmpxchg.org>, Al Viro <viro@zeniv.linux.org.uk>,
+ linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>,
+ Michal Hocko <mhocko@suse.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>,
+ Heiko Carstens <heiko.carstens@de.ibm.com>,
+ Herbert Xu <herbert@gondor.apana.org.au>, Anton Vorontsov
+ <anton@enomsg.org>, Colin Cross <ccross@android.com>,
+ Kees Cook <keescook@chromium.org>, Tony Luck <tony.luck@intel.com>,
+ "Rafael J. Wysocki" <rjw@rjwysocki.net>, Ben Skeggs <bskeggs@redhat.com>,
+ Kent Overstreet <kent.overstreet@gmail.com>,
+ Santosh Raspatur <santosh@chelsio.com>, Hariprasad S
+ <hariprasad@chelsio.com>, Yishai Hadas <yishaih@mellanox.com>,
+ Oleg Drokin <oleg.drokin@intel.com>, "Yan, Zheng" <zyan@redhat.com>,
+ Alexei Starovoitov <ast@kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
+ net
+To: Michal Hocko <mhocko@kernel.org>,
+ Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170130094940.13546-6-mhocko@kernel.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 1/30/17 8:49 AM, Roopa Prabhu wrote:
->> Single next hop delete will be around because IPv6 allows it -- and because IPv4 needs to support it.
->>
-> understand single next hop delete for ipv6 will be around..and my only point was to leave it around but not optimize for that case.
-> I don't think we should support single nexthop delete in ipv4 (I have not seen a requirement for that)... ipv4 is good as it is right now.
-> the additional complexity is not needed.
-> 
+On 01/30/2017 10:49 AM, Michal Hocko wrote:
+> From: Michal Hocko <mhocko@suse.com>
+>
+> There are many code paths opencoding kvmalloc. Let's use the helper
+> instead. The main difference to kvmalloc is that those users are usually
+> not considering all the aspects of the memory allocator. E.g. allocation
+> requests <= 32kB (with 4kB pages) are basically never failing and invoke
+> OOM killer to satisfy the allocation. This sounds too disruptive for
+> something that has a reasonable fallback - the vmalloc. On the other
+> hand those requests might fallback to vmalloc even when the memory
+> allocator would succeed after several more reclaim/compaction attempts
+> previously. There is no guarantee something like that happens though.
+>
+> This patch converts many of those places to kv[mz]alloc* helpers because
+> they are more conservative.
+>
+> Changes since v1
+> - add kvmalloc_array - this might silently fix some overflow issues
+>   because most users simply didn't check the overflow for the vmalloc
+>   fallback.
+>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Anton Vorontsov <anton@enomsg.org>
+> Cc: Colin Cross <ccross@android.com>
+> Cc: Kees Cook <keescook@chromium.org>
+> Cc: Tony Luck <tony.luck@intel.com>
+> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+> Cc: Ben Skeggs <bskeggs@redhat.com>
+> Cc: Kent Overstreet <kent.overstreet@gmail.com>
+> Cc: Santosh Raspatur <santosh@chelsio.com>
+> Cc: Hariprasad S <hariprasad@chelsio.com>
+> Cc: Yishai Hadas <yishaih@mellanox.com>
+> Cc: Oleg Drokin <oleg.drokin@intel.com>
+> Cc: "Yan, Zheng" <zyan@redhat.com>
+> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: netdev@vger.kernel.org
+> Acked-by: Andreas Dilger <andreas.dilger@intel.com> # Lustre
+> Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com> # Xen bits
+> Acked-by: Christian Borntraeger <borntraeger@de.ibm.com> # KVM/s390
+> Acked-by: Dan Williams <dan.j.williams@intel.com> # nvdim
+> Acked-by: David Sterba <dsterba@suse.com> # btrfs
+> Acked-by: Ilya Dryomov <idryomov@gmail.com> # Ceph
+> Acked-by: Tariq Toukan <tariqt@mellanox.com> # mlx4
+> Signed-off-by: Michal Hocko <mhocko@suse.com>
 
-IPv4 has a known bug -- delete a virtual interface in a multihop route and the entire route is deleted, including the nexthops for other devices. This does not happen for IPv6.
+Acked-by: Vlastimil Babka <vbabka@suse.cz>
 
-Simple example of that bug:
-
-ip li add dummy1 type dummy
-ip li add dummy2 type dummy
-ip addr add dev dummy1 10.11.1.1/28
-ip li set dummy1 up
-ip addr add dev dummy2 10.11.2.1/28
-ip li set dummy2 up
-ip ro add 1.1.1.0/24 nexthop via 10.11.1.2 nexthop via 10.11.2.2
-ip li del dummy2
-
---> the entire multipath route has been deleted.
-
-
-And, fixing this bug enables work to make IPv4 append to be sane -- appending a route should modify an existing route by adding the nexthop, not adding a new route that I believe can never actually be hit.
-
-Both cases mean modifying an IPv4 route -- adding or removing nexthops -- a capability that IPv6 allows so fixing this means closing another difference between the stacks.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
