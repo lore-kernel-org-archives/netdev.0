@@ -1,39 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ethtool: silence kmalloc warning
-Date: Mon, 30 Jan 2017 15:50:06 -0500 (EST)
-Message-ID: <20170130.155006.811869833463169479.davem@davemloft.net>
-References: <1485652625-2881838-1-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: ast@fb.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v5 2/4] net: dsa: b53: Add mirror capture register definitions
+Date: Mon, 30 Jan 2017 12:41:41 -0800
+Message-ID: <20170130204143.539-3-f.fainelli@gmail.com>
+References: <20170130204143.539-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, jiri@mellanox.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39532 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752816AbdA3UvB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:51:01 -0500
-In-Reply-To: <1485652625-2881838-1-git-send-email-ast@fb.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36232 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754449AbdA3UvJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:51:09 -0500
+Received: by mail-pf0-f196.google.com with SMTP id 19so24063016pfo.3
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 12:51:09 -0800 (PST)
+In-Reply-To: <20170130204143.539-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Sat, 28 Jan 2017 17:17:05 -0800
+Add definitions for the different Roboswitch registers relevant for
+ingress and egress mirroring.
 
-> under memory pressure 'ethtool -S' command may warn:
-> [ 2374.385195] ethtool: page allocation failure: order:4, mode:0x242c0c0
- ...
-> ~1160 mlx5 counters ~= order 4 allocation which is unlikely to succeed
-> under memory pressure.  Since 'get stats' command is not critical
-> avoid reclaim and warning.
-> Also convert to safer kmalloc_array.
-> 
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/b53/b53_regs.h | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
 
-Let's just fix this right, just like in ethtool_get_regs().
-
-Just use vzalloc() unconditionally.  It is an entirely similar
-situation.  But please be careful with the size calculations when
-you make this adjustment.
-
-Thank you.
+diff --git a/drivers/net/dsa/b53/b53_regs.h b/drivers/net/dsa/b53/b53_regs.h
+index dac0af4e2cd0..9fd24c418fa4 100644
+--- a/drivers/net/dsa/b53/b53_regs.h
++++ b/drivers/net/dsa/b53/b53_regs.h
+@@ -206,6 +206,38 @@
+ #define   BRCM_HDR_P8_EN		BIT(0) /* Enable tagging on port 8 */
+ #define   BRCM_HDR_P5_EN		BIT(1) /* Enable tagging on port 5 */
+ 
++/* Mirror capture control register (16 bit) */
++#define B53_MIR_CAP_CTL			0x10
++#define  CAP_PORT_MASK			0xf
++#define  BLK_NOT_MIR			BIT(14)
++#define  MIRROR_EN			BIT(15)
++
++/* Ingress mirror control register (16 bit) */
++#define B53_IG_MIR_CTL			0x12
++#define  MIRROR_MASK			0x1ff
++#define  DIV_EN				BIT(13)
++#define  MIRROR_FILTER_MASK		0x3
++#define  MIRROR_FILTER_SHIFT		14
++#define  MIRROR_ALL			0
++#define  MIRROR_DA			1
++#define  MIRROR_SA			2
++
++/* Ingress mirror divider register (16 bit) */
++#define B53_IG_MIR_DIV			0x14
++#define  IN_MIRROR_DIV_MASK		0x3ff
++
++/* Ingress mirror MAC address register (48 bit) */
++#define B53_IG_MIR_MAC			0x16
++
++/* Egress mirror control register (16 bit) */
++#define B53_EG_MIR_CTL			0x1C
++
++/* Egress mirror divider register (16 bit) */
++#define B53_EG_MIR_DIV			0x1E
++
++/* Egress mirror MAC address register (48 bit) */
++#define B53_EG_MIR_MAC			0x20
++
+ /* Device ID register (8 or 32 bit) */
+ #define B53_DEVICE_ID			0x30
+ 
+-- 
+2.9.3
