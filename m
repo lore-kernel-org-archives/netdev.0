@@ -1,46 +1,56 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Mon, 30 Jan 2017 07:45:07 -0800
-Message-ID: <588F5F83.3050304@cumulusnetworks.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com> <588D3EB9.1070107@cumulusnetworks.com> <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com> <588E80DB.3070209@cumulusnetworks.com> <7a7dcae4-a01b-3217-3296-b0aa2c7052f3@6wind.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 RFC net-next 0/7] net: dst_confirm replacement
+Date: Mon, 30 Jan 2017 10:13:39 -0500 (EST)
+Message-ID: <20170130.101339.2050288140097606206.davem@davemloft.net>
+References: <1485613578-19973-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        yuehaibing@huawei.com
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:35575 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932415AbdA3PpY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:45:24 -0500
-Received: by mail-pg0-f52.google.com with SMTP id 194so102041753pgd.2
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 07:45:08 -0800 (PST)
-In-Reply-To: <7a7dcae4-a01b-3217-3296-b0aa2c7052f3@6wind.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51224 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753519AbdA3PO0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:14:26 -0500
+In-Reply-To: <1485613578-19973-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/17, 3:08 AM, Nicolas Dichtel wrote:
-> Le 30/01/2017 à 00:55, Roopa Prabhu a écrit :
->> On 1/29/17, 10:02 AM, David Ahern wrote:
->>> On 1/28/17 6:00 PM, Roopa Prabhu wrote:
->>>>> 4. Route Appends
->>>>>    - IPv6 allows nexthops to be appended to an existing route. In this
->>>>>      case one notification is sent per nexthop added
->>>> thanks for listing all of these...I think you mentioned this case to me..
->>>> but I don't remember now why this notification is
->>>> sent per nexthop added. This is an update to an existing multipath route.
->>>> so seems like the notification should be a RTM_NEWROUTE with the full RTA_MULTIPATH route
->>>> (similar to route add)
->>> It could be; it's a question of what should userspace get -- the full route or the change? Append to me suggests the latter - userspace is told what changed. It is simpler kernel code wise to send the full new route. The append changes were done after our conversation. ;-)
->> ok, yeah. you listing all the cases here made it more simpler to understand in the context of other notifications :). I would prefer all
->> RTM_NEWLINK notifications (ie new add or update to an existing route..replace/append), contain the full route via RTA_MULTIPATH.
-> I don't agree. With the previous proposal, you know *exactly* what happens with
-> each notification and this is the primary goal of the notifications. With the
-> last proposal, where RTA_MULTIPATH is used for replace and append, you have the
-> new result, but you don't know what has been done.
-> Usually, notifications are used to notify an event, not the result of an event.
-> If you want the result, you can use the dump cmd.
+From: Julian Anastasov <ja@ssi.bg>
+Date: Sat, 28 Jan 2017 16:26:11 +0200
 
-what has been done is conveyed by the APPEND and REPLACE flag in the notification. The user only cares about the updated multipath route...
-giving parts of the route has never been very useful... and this is consistent with ipv4.
+> 	This patchset addresses the problem of neighbour
+> confirmation where received replies from one nexthop
+> can cause confirmation of different nexthop when using
+> the same dst. Thanks to YueHaibing <yuehaibing@huawei.com>
+> for tracking the dst->pending_confirm problem.
+> 
+> 	Sockets can obtain cached output route. Such
+> routes can be to known nexthop (rt_gateway=IP) or to be
+> used simultaneously for different nexthop IPs by different
+> subnet prefixes (nh->nh_scope = RT_SCOPE_HOST, rt_gateway=0).
+> 
+> 	At first look, there are more problems:
+> 
+> - dst_confirm() sets flag on dst and not on dst->path,
+> as result, indication is lost when XFRM is used
+> 
+> - DNAT can change the nexthop, so the really used nexthop is
+> not confirmed
+> 
+> 	So, the following solution is to avoid using
+> dst->pending_confirm.
+
+For the most part this series looks good to me, nice work.
+
+> - I failed to understand the CXGB* code, I see dst_confirm()
+> calls but I'm not sure dst_neigh_output() was called. For now
+> I just removed the dst->pending_confirm flag and left all
+> dst_confirm() calls there. Any better idea?
+
+It is trying to manage the dst and neigh state for TCP connections
+managed by it's offload engine.  So you will not therefore see any
+actual packet output for the sessions it is performing confirmation
+for.
