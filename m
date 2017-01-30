@@ -1,34 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net V2 0/8] Mellanox mlx5 fixes 2017-01-27
-Date: Mon, 30 Jan 2017 15:45:10 -0500 (EST)
-Message-ID: <20170130.154510.732270360823338547.davem@davemloft.net>
-References: <20170129214626.21977-1-saeedm@mellanox.com>
+Subject: Re: [PATCH net] net/mlx4_core: Avoid command timeouts during VF
+ driver device shutdown
+Date: Mon, 30 Jan 2017 15:45:40 -0500 (EST)
+Message-ID: <20170130.154540.1823715181237721096.davem@davemloft.net>
+References: <1485781905-1511-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com,
+        jackm@dev.mellanox.co.il
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39312 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39324 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932279AbdA3UpN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:45:13 -0500
-In-Reply-To: <20170129214626.21977-1-saeedm@mellanox.com>
+        with ESMTP id S932067AbdA3Upm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:45:42 -0500
+In-Reply-To: <1485781905-1511-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Sun, 29 Jan 2017 23:46:18 +0200
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Mon, 30 Jan 2017 15:11:45 +0200
 
-> This pull request includes some mlx5 fixes for net, please see details
-> below.
+> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 > 
-> Please pull and let me know if there's any problem.
+> Some Hypervisors detach VFs from VMs by instantly causing an FLR event
+> to be generated for a VF.
+> 
+> In the mlx4 case, this will cause that VF's comm channel to be disabled
+> before the VM has an opportunity to invoke the VF device's "shutdown"
+> method.
+> 
+> The result is that the VF driver on the VM will experience a command
+> timeout during the shutdown process when the Hypervisor does not deliver
+> a command-completion event to the VM.
+> 
+> To avoid FW command timeouts on the VM when the driver's shutdown method
+> is invoked, we detect the absence of the VF's comm channel at the very
+> start of the shutdown process. If the comm-channel has already been
+> disabled, we cause all FW commands during the device shutdown process to
+> immediately return success (and thus avoid all command timeouts).
+> 
+> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 
-Pulled...
-
-> For -stable:
->       net/mlx5e: Modify TIRs hash only when it's needed
->       net/mlx5e: Fix update of hash function/key via ethtool
-
-And queued up for -stable, thank you.
+Applied, thanks.
