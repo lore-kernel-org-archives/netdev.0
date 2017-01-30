@@ -1,45 +1,91 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Mon, 30 Jan 2017 18:03:38 +0100
-Message-ID: <b5948673-c30d-c4b3-1fcb-b5e984480b4a@6wind.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
- <588D3EB9.1070107@cumulusnetworks.com>
- <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
- <8f5334f0-20a3-0eb2-6baa-1fe8331ad2db@6wind.com>
- <0e9b2b4e-fc48-e21d-7b1f-3df45992e5e3@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
+From: Pavel Belous <pavel.s.belous@gmail.com>
+Subject: [PATCH] ethtool: Add support for 2500baseT/5000baseT link modes
+Date: Mon, 30 Jan 2017 20:03:30 +0300
+Message-ID: <1485795810-6558-1-git-send-email-pavel.s.belous@gmail.com>
 Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35463 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751429AbdA3RDm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 12:03:42 -0500
-Received: by mail-wm0-f50.google.com with SMTP id b65so41054213wmf.0
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 09:03:41 -0800 (PST)
-In-Reply-To: <0e9b2b4e-fc48-e21d-7b1f-3df45992e5e3@cumulusnetworks.com>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:35301 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750775AbdA3RE3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 12:04:29 -0500
+Received: by mail-lf0-f67.google.com with SMTP id v186so31896412lfa.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 09:04:28 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 30/01/2017 à 16:23, David Ahern a écrit :
-> On 1/30/17 4:07 AM, Nicolas Dichtel wrote:
->> Le 29/01/2017 à 19:02, David Ahern a écrit :
->> [snip]
->>> Data centers are moving to L3, and multipath is a big part of that. Anyone who looks at ip -6 route enough knows it gets painful mentally pulling the individual routes into a single one.
->> I agree, but it's only an iproute2 problem. iproute2 could group routes to have
->> a better output, there is no need to have a kernel patch for this ;-)
->>
-> 
-> iproute2 is not the only rtnetlink user. The comment above uses ip show as an example. libnl has a workaround for IPv6 to update route objects versus replacing them - unnecessary complexity that does not need to replicated to iproute2, Quagga/FRR or python libraries implementing rtnetlink. Really, RTA_MULTIPATH support in notifications should have been added when multipath support was added to the IPv6. Patch 3 is mostly a refactoring of rt6_fill_node to fill in nexthop information. This could have been done 4+ years ago when RTA_MULTIPATH route adds was added to the stack.
-> 
-Like I said, I fully agree that RTA_MULTIPATH is better for the dump. For the
-notifications, I'm not convinced. I did not this 4 years ago on purpose ;-)
+This patch introduce ethtool support for 2500BaseT and 5000BaseT link modes
+from new IEEE 802.3bz standard.
 
-I don't think that ipv4 is the right reference because the implementation is
-really different. ipv6 is more flexible and this implies differences in the
-notifications.
+ethtool-copy.h file sync with net.
+
+Signed-off-by: Pavel Belous <pavel.s.belous@gmail.com>
+---
+ ethtool-copy.h | 4 +++-
+ ethtool.8.in   | 4 +++-
+ ethtool.c      | 6 ++++++
+ 3 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 3d299e3..06fc04c 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -1382,6 +1382,8 @@ enum ethtool_link_mode_bit_indices {
+ 	ETHTOOL_LINK_MODE_10000baseLR_Full_BIT	= 44,
+ 	ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT	= 45,
+ 	ETHTOOL_LINK_MODE_10000baseER_Full_BIT	= 46,
++	ETHTOOL_LINK_MODE_2500baseT_Full_BIT = 47,
++	ETHTOOL_LINK_MODE_5000baseT_Full_BIT = 48,
+ 
+ 
+ 	/* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
+@@ -1391,7 +1393,7 @@ enum ethtool_link_mode_bit_indices {
+ 	 */
+ 
+ 	__ETHTOOL_LINK_MODE_LAST
+-	  = ETHTOOL_LINK_MODE_10000baseER_Full_BIT,
++	  = ETHTOOL_LINK_MODE_5000baseT_Full_BIT,
+ };
+ 
+ #define __ETHTOOL_LINK_MODE_LEGACY_MASK(base_name)	\
+diff --git a/ethtool.8.in b/ethtool.8.in
+index 5c36c06..1e564ae 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -588,7 +588,9 @@ lB	l	lB.
+ 0x020	1000baseT Full
+ 0x20000	1000baseKX Full
+ 0x20000000000	1000baseX Full
+-0x8000	2500baseX Full	(not supported by IEEE standards)
++0x800000000000  2500baseT Full
++0x8000	2500baseX Full	(not supported by IEEE standards)'
++0x1000000000000  5000baseT Full
+ 0x1000	10000baseT Full
+ 0x40000	10000baseKX4 Full
+ 0x80000	10000baseKR Full
+diff --git a/ethtool.c b/ethtool.c
+index 7af039e..031afe8 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -529,6 +529,8 @@ static void init_global_link_mode_masks(void)
+ 		ETHTOOL_LINK_MODE_10000baseLR_Full_BIT,
+ 		ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT,
+ 		ETHTOOL_LINK_MODE_10000baseER_Full_BIT,
++		ETHTOOL_LINK_MODE_2500baseT_Full_BIT,
++		ETHTOOL_LINK_MODE_5000baseT_Full_BIT,
+ 	};
+ 	static const enum ethtool_link_mode_bit_indices
+ 		additional_advertised_flags_bits[] = {
+@@ -681,6 +683,10 @@ static void dump_link_caps(const char *prefix, const char *an_prefix,
+ 		  "10000baseLRM/Full" },
+ 		{ 0, ETHTOOL_LINK_MODE_10000baseER_Full_BIT,
+ 		  "10000baseER/Full" },
++                { 0, ETHTOOL_LINK_MODE_2500baseT_Full_BIT,
++                  "2500baseT/Full" },
++                { 0, ETHTOOL_LINK_MODE_5000baseT_Full_BIT,
++                  "5000baseT/Full" },
+ 	};
+ 	int indent;
+ 	int did1, new_line_pend, i;
+-- 
+2.7.4
