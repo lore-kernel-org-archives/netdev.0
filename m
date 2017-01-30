@@ -1,45 +1,170 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Mon, 30 Jan 2017 12:13:54 +0100
-Message-ID: <ef322f4a-07d7-31af-b402-769b0f446fc7@6wind.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
- <588D3EB9.1070107@cumulusnetworks.com>
- <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
- <588E80DB.3070209@cumulusnetworks.com>
- <71e661bd-e26d-2629-06bb-888f6a09b06d@cumulusnetworks.com>
- <588EA2E8.2040302@cumulusnetworks.com>
- <5be4a78e-64b8-abc4-4015-6751a2bab12b@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Halil Pasic <pasic@linux.vnet.ibm.com>
+Subject: Re: [BUG/RFC] vhost: net: big endian viring access despite virtio 1
+Date: Mon, 30 Jan 2017 12:25:34 +0100
+Message-ID: <80141541-dfd4-1a0e-d8e7-e631ca273d26@linux.vnet.ibm.com>
+References: <a08f491a-1320-607e-f450-d32ce2c9e2f5@linux.vnet.ibm.com>
+	<20170126211511-mutt-send-email-mst@kernel.org>
+	<f5c0779f-f7b0-0e0c-5f20-4161b5c70394@linux.vnet.ibm.com>
+	<20170127143747.1313d9ee@bahia.lan>
+	<20170129023459-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:35541 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751395AbdA3LWn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 06:22:43 -0500
-Received: by mail-wm0-f53.google.com with SMTP id b65so28047423wmf.0
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 03:22:28 -0800 (PST)
-In-Reply-To: <5be4a78e-64b8-abc4-4015-6751a2bab12b@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>, Greg Kurz <groug@kaod.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170129023459-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Le 30/01/2017 à 03:57, David Ahern a écrit :
-> On 1/29/17 7:20 PM, Roopa Prabhu wrote:
->>> 2. Delete - 1 notification for each hop for all combinations of delete commands
+
+
+On 01/29/2017 01:35 AM, Michael S. Tsirkin wrote:
+> On Fri, Jan 27, 2017 at 02:37:47PM +0100, Greg Kurz wrote:
+>> On Fri, 27 Jan 2017 13:24:13 +0100
+>> Halil Pasic <pasic@linux.vnet.ibm.com> wrote:
 >>
->> here I was trying to say, for people deleting the full multipath route, you should send a RTA_MULTIPATH.
+>>> On 01/26/2017 08:20 PM, Michael S. Tsirkin wrote:
+>>>> On Thu, Jan 26, 2017 at 06:39:14PM +0100, Halil Pasic wrote:  
+>>>>>
+>>>>> Hi!
+>>>>>
+>>>>> Recently I have been investigating some strange migration problems on
+>>>>> s390x.
+>>>>>
+>>>>> It turned out under certain circumstances vhost_net corrupts avail.idx by
+>>>>> using wrong endianness.  
+>>>
+>>> [..]
+>>>
+>>>>> -------------------------8<--------------  
+>>>>> >From b26e2bbdc03832a0204ee2b42967a1b49a277dc8 Mon Sep 17 00:00:00 2001  
+>>>>> From: Halil Pasic <pasic@linux.vnet.ibm.com>
+>>>>> Date: Thu, 26 Jan 2017 00:06:15 +0100
+>>>>> Subject: [PATCH] vhost: remove useless/dangerous reset of is_le
+>>>>>
+>>>>> The reset of is_le does no good, but it contributes its fair share to a
+>>>>> bug in vhost_net, which occurs if we have some oldubufs when stopping and
+>>>>> setting a fd = -1 as a backend. Instead of doing something convoluted in
+>>>>> vhost_net, let's just get rid of the reset.
+>>>>>
+>>>>> Signed-off-by: Halil Pasic <pasic@linux.vnet.ibm.com>
+>>>>> Fixes: commit 2751c9882b94 
+>>>>> ---
+>>>>>  drivers/vhost/vhost.c | 4 +---
+>>>>>  1 file changed, 1 insertion(+), 3 deletions(-)
+>>>>>
+>>>>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>>>>> index d643260..08072a2 100644
+>>>>> --- a/drivers/vhost/vhost.c
+>>>>> +++ b/drivers/vhost/vhost.c
+>>>>> @@ -1714,10 +1714,8 @@ int vhost_vq_init_access(struct vhost_virtqueue *vq)
+>>>>>         int r;
+>>>>>         bool is_le = vq->is_le;
+>>>>>
+>>>>> -       if (!vq->private_data) {
+>>>>> -               vhost_reset_is_le(vq);
+>>>>> +       if (!vq->private_data)
+>>>>>                 return 0;
+>>>>> -       }
+>>>>>
+>>>>>         vhost_init_is_le(vq);  
+>>>>
+>>>>
+>>>> I think you do need to reset it, just maybe within vhost_init_is_le.
+>>>>
+>>>>         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
+>>>>                 vq->is_le = true;
+>>>> 	else
+>>>> 		vhost_reset_is_le(vq);
+>>>>
+>>>>   
+>>>
+>>> That is a very good point! I have overlooked that while the 
+>>> CONFIG_VHOST_CROSS_ENDIAN_LEGACY variant
+>>>
+>>> static void vhost_init_is_le(struct vhost_virtqueue *vq)
+>>> {
+>>>         /* Note for legacy virtio: user_be is initialized at reset time
+>>>          * according to the host endianness. If userspace does not set an
+>>>          * explicit endianness, the default behavior is native endian, as
+>>>          * expected by legacy virtio.
+>>>          */
+>>>         vq->is_le = vhost_has_feature(vq, VIRTIO_F_VERSION_1) || !vq->user_be;
+>>> }
+>>>
+>>> is fine the other variant 
+>>>
+>>> static void vhost_init_is_le(struct vhost_virtqueue *vq)
+>>> {
+>>>         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
+>>>                 vq->is_le = true;
+>>> }
+>>> is a very strange initializer (makes assumptions about the state
+>>> to be initialized).
+>>>
+>>> I agree, setting native endianness there sounds very reasonable.
+>>>
+>>> I have a question regarding readability. IMHO the relationship
+>>> of reset_is_le and int_is_le is a bit confusing, and I'm afraid
+>>> it could become even more confusing with using reset in one of
+>>> the init_is_le's.
+>>>
+>>> How about we do the following?
+>>>
+>>> static void vhost_init_is_le(struct vhost_virtqueue *vq)
+>>> {
+>>>         if (vhost_has_feature(vq, VIRTIO_F_VERSION_1))
+>>>                 vq->is_le = true;
+>>> +       else
+>>> +               vq->is_le = virtio_legacy_is_little_endian();
+>>>
+>>> }
+>>>
+>>> static void vhost_reset_is_le(struct vhost_virtqueue *vq)
+>>> {
+>>> -       vq->is_le = virtio_legacy_is_little_endian();
+>>> +       vhost_init_is_le(vq);
+>>> }
+>>>
+>>> That way we would have correct endianness both after reset
+>>> and after init, I think :).
+>>>
+>>
+>> Yes, I think this is what we need.
+>>
+>> Cheers.
 > 
-> The only way to do that is to call inet6_rt_notify() *before* the route delete work has been done in fib6_del_route. Right now it is called at the end - after all sibling associations have been dropped, a time in which it can no longer fill in RTA_MULTIPATH.
+> OK, pls test this patch.
 > 
-> fib6_del_route function does not have any failure paths and is called with the write lock held, so moving the notification might be ok. But it also means ignoring all subsequent failures from fib6_del, again which might be ok since the only failure is ENOENT which can not happen if we are walking the sibling list.
-Is it not possible to prepare the RTA_MULTIPATH attribute during the deletion
-(when needed information are still available) and to use/copy it later when the
-notification is done?
 
-Or at least, having RTA_MUTLTIPATH with one nexthop only, so that the user knows
-that this route was part of an ECMP routes?
+Have submitted a slightly modified version of the above patch
+with the subject "[PATCH] vhost: fix initialization for vq->is_le".
+
+I wrote to our tester guys to give it some good testing. Will
+post an update on the result of the testing there ASAP (or the
+someone from testing will).
+
+Regards,
+Halil
+
+
+>> --
+>> Greg
+>>
+>>> Thank you very much!
+>>>
+>>> Halil
+>>>
+>>>
+> 
