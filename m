@@ -1,48 +1,47 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
- xennet_disconnect_backend()
-Date: Mon, 30 Jan 2017 14:31:58 -0500
-Message-ID: <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
-References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
- <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
- <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
- <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v7 2/3] net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341
+Date: Mon, 30 Jan 2017 14:43:48 -0500
+Message-ID: <877f5cl4ej.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <cover.69cbc1ba8937d0fc442538f992d62fc88aa26dcc.1485804488.git-series.gregory.clement@free-electrons.com> <e3122f300fd144e2b4ae299d74fe1e72389583bb.1485804488.git-series.gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: jgross@suse.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, stable@vger.kernel.org, vineethp@amazon.com,
- xen-devel@lists.xenproject.org, paul.durrant@citrix.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Wilson Ding <dingwei@marvell.com>,
+        Kostya Porotchkin <kostap@marvell.com>,
+        Joe Zhou <shjzhou@marvell.com>,
+        Jon Pannell <jpannell@marvell.com>,
+        Bob Bernstein <robertb@marvell.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e3122f300fd144e2b4ae299d74fe1e72389583bb.1485804488.git-series.gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDEvMzAvMjAxNyAwMjowNiBQTSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IE9uIE1vbiwgMjAx
-Ny0wMS0zMCBhdCAxMzoyMyAtMDUwMCwgQm9yaXMgT3N0cm92c2t5IHdyb3RlOgo+Cj4+IFdlIGRv
-IG5ldGlmX2NhcnJpZXJfb2ZmKCkgZmlyc3QgdGhpbmcgaW4geGVubmV0X2Rpc2Nvbm5lY3RfYmFj
-a2VuZCgpIGFuZAo+PiB0aGUgb25seSBwbGFjZSB3aGVyZSB0aGUgdGltZXIgaXMgcmVhcm1lZCBp
-cyB4ZW5uZXRfYWxsb2NfcnhfYnVmZmVycygpLAo+PiB3aGljaCBpcyBndWFyZGVkIGJ5IG5ldGlm
-X2NhcnJpZXJfb2soKSBjaGVjay4KPiBPaCB3ZWxsLCB0ZXN0aW5nIG5ldGlmX2NhcnJpZXJfb2so
-KSBpbiBwYWNrZXQgcHJvY2Vzc2luZyBmYXN0IHBhdGggbG9va3MKPiB1bnVzdWFsIGFuZCBhIHdh
-c3RlIG9mIGNwdSBjeWNsZXMuIEkndmUgbmV2ZXIgc2VlbiB0aGF0IHBhdHRlcm4gYmVmb3JlLgo+
-Cj4gSWYgb25lIGRheSwgd2UgcmVtb3ZlIHRoaXMgbmV0aWZfY2Fycmllcl9vaygpIHRlc3QgZHVy
-aW5nIGEgY2xlYW51cCwKPiB0aGVuIHRoZSByYWNlIHdpbmRvdyB3aWxsIG9wZW4gYWdhaW4uCgoK
-SSBkb24ndCBrbm93IG11Y2ggYWJvdXQgbmFwaSBidXQgSSB3b25kZXIgd2hldGhlciBJIGNhbiBp
-bmRlZWQgZGlzYWJsZQppdCBpbiB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKCkuIEkgZG9uJ3Qg
-c2VlIGhvdyBhbnl0aGluZyBjYW4gaGFwcGVuCmFmdGVyIGRpc2Nvbm5lY3Qgc2luY2UgaXQgdW5t
-YXBzIHRoZSByaW5ncy4gQW5kIHRoZW4gbmFwaSBpcyByZS1lbmFibGVkCmR1cmluZyByZWNvbm5l
-Y3Rpb24gaW4geGVubmV0X2NyZWF0ZV9xdWV1ZXMoKS4gSW4gd2hpY2ggY2FzZSBhbSBub3Qgc3Vy
-ZQp0aGVyZSBpcyBhbnkgbmVlZCBmb3IgeGVubmV0X2Rlc3Ryb3lfcXVldWVzKCkgYXMgZXZlcnl0
-aGluZyB0aGVyZSBjb3VsZApiZSBmb2xkZWQgaW50byB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5k
-KCkuCgotYm9yaXMKCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRw
-czovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+Hi Gregory,
+
+Gregory CLEMENT <gregory.clement@free-electrons.com> writes:
+
+> The Marvell 88E6341 device is single-chip, 6-port Ethernet switch with
+> four integrated 10/100/1000Mbps Ethernet transceivers and one high speed
+> SerDes interfaces. It is partially compatible with switches of family
+> 88E6352 and switches of family 88E6390.
+>
+> This commit adds an initial support for this switch by describing its
+> capabilities to the driver and introducing a new family.
+>
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Thanks,
+
+        Vivien
