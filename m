@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers: net: generalize napi_complete_done()
-Date: Mon, 30 Jan 2017 15:11:20 -0500 (EST)
-Message-ID: <20170130.151120.835559657363649393.davem@davemloft.net>
-References: <20170130162201.8459-1-edumazet@google.com>
+Subject: Re: [PATCH net-next v2] lwtunnel: remove device arg to
+ lwtunnel_build_state
+Date: Mon, 30 Jan 2017 15:14:59 -0500 (EST)
+Message-ID: <20170130.151459.1514059390257376169.davem@davemloft.net>
+References: <1485806857-3651-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37796 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37828 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752362AbdA3ULW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:11:22 -0500
-In-Reply-To: <20170130162201.8459-1-edumazet@google.com>
+        with ESMTP id S1751033AbdA3UQj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:16:39 -0500
+In-Reply-To: <1485806857-3651-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Mon, 30 Jan 2017 08:22:01 -0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 30 Jan 2017 12:07:37 -0800
 
-> napi_complete_done() allows to opt-in for gro_flush_timeout,
-> added back in linux-3.19, commit 3b47d30396ba
-> ("net: gro: add a per device gro flush timer")
+> Nothing about lwt state requires a device reference, so remove the
+> input argument.
 > 
-> This allows for more efficient GRO aggregation without
-> sacrifying latencies.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> v2
+> - rebased to top of net-next tree
 
-Looks good to me.
-
-Will push it out assuming it passes my build tests.
-
-Thanks!
+Looks fine, applied, thanks David.
