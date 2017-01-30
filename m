@@ -1,54 +1,28 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v7 3/3] net: dsa: mv88e6xxx: Add support for
- ethernet switch 88E6141
-Date: Mon, 30 Jan 2017 14:44:48 -0500
-Message-ID: <874m0gl4cv.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <cover.69cbc1ba8937d0fc442538f992d62fc88aa26dcc.1485804488.git-series.gregory.clement@free-electrons.com>
- <4a96ab0b31a1617372cdbfab67e7ba585e10f984.1485804488.git-series.gregory.clement@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/4] net: dsa: bcm_sf2: CFP support
+Date: Mon, 30 Jan 2017 14:50:28 -0500 (EST)
+Message-ID: <20170130.145028.470358359053407673.davem@davemloft.net>
+References: <20170130174843.29497-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Bob Bernstein <robertb@marvell.com>, Jason Cooper <jason@lakedaemon.net>,
- Joe Zhou <shjzhou@marvell.com>, Jon Pannell <jpannell@marvell.com>,
- Nadav Haklai <nadavh@marvell.com>, Kostya Porotchkin <kostap@marvell.com>,
- Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Wilson Ding <dingwei@marvell.com>, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <4a96ab0b31a1617372cdbfab67e7ba585e10f984.1485804488.git-series.gregory.clement@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36726 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751033AbdA3Tuc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 14:50:32 -0500
+In-Reply-To: <20170130174843.29497-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gregory,
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 30 Jan 2017 09:48:39 -0800
 
-Gregory CLEMENT <gregory.clement@free-electrons.com> writes:
+> Changes in v3:
+> 
+> - rebased against latest net-next/master after Vivien's changes
 
-> The Marvell 88E6341 device is single-chip, 6-port Ethernet switch with
-> four integrated 10/100/1000Mbps Ethernet transceivers and one high speed
-> SerDes interfaces.
-
-I'm sure you meant 88E6141 here ;-)
-
-> It belongs to the Topaz family and unlike the 88E6341 it does not have
-> a TCAM.
->
-> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-
-Thanks,
-
-        Vivien
+Ok this looks better, series applied, thanks!
