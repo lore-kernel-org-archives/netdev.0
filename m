@@ -1,85 +1,64 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Subject: Re: [PATCH 5/9] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Mon, 30 Jan 2017 17:14:21 +0100
-Message-ID: <9793f9d3-4ef1-aad0-b38f-d8760e536ff9@suse.cz>
-References: <20170130094940.13546-1-mhocko@kernel.org>
- <20170130094940.13546-6-mhocko@kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 0/6 v3] kvmalloc
+Date: Mon, 30 Jan 2017 17:15:08 +0100
+Message-ID: <588F668C.6090309@iogearbox.net>
+References: <20170126074354.GB8456@dhcp22.suse.cz> <5889C331.7020101@iogearbox.net> <20170126100802.GF6590@dhcp22.suse.cz> <5889DEA3.7040106@iogearbox.net> <20170126115833.GI6590@dhcp22.suse.cz> <5889F52E.7030602@iogearbox.net> <20170126134004.GM6590@dhcp22.suse.cz> <588A5D3C.4060605@iogearbox.net> <20170127100544.GF4143@dhcp22.suse.cz> <588BA9AA.8010805@iogearbox.net> <20170130075626.GC8443@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
- Johannes Weiner <hannes@cmpxchg.org>, Al Viro <viro@zeniv.linux.org.uk>,
- linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>,
- Michal Hocko <mhocko@suse.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>,
- Heiko Carstens <heiko.carstens@de.ibm.com>,
- Herbert Xu <herbert@gondor.apana.org.au>, Anton Vorontsov
- <anton@enomsg.org>, Colin Cross <ccross@android.com>,
- Kees Cook <keescook@chromium.org>, Tony Luck <tony.luck@intel.com>,
- "Rafael J. Wysocki" <rjw@rjwysocki.net>, Ben Skeggs <bskeggs@redhat.com>,
- Kent Overstreet <kent.overstreet@gmail.com>,
- Santosh Raspatur <santosh@chelsio.com>, Hariprasad S
- <hariprasad@chelsio.com>, Yishai Hadas <yishaih@mellanox.com>,
- Oleg Drokin <oleg.drokin@intel.com>, "Yan, Zheng" <zyan@redhat.com>,
- Alexei Starovoitov <ast@kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
- net
-To: Michal Hocko <mhocko@kernel.org>,
- Andrew Morton <akpm@linux-foundation.org>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@suse.de>,
+ Johannes Weiner <hannes@cmpxchg.org>,
+ linux-mm <linux-mm@kvack.org>, LKML <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ marcelo.leitner@gmail.com
+To: Michal Hocko <mhocko@kernel.org>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170130094940.13546-6-mhocko@kernel.org>
+In-Reply-To: <20170130075626.GC8443@dhcp22.suse.cz>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 01/30/2017 10:49 AM, Michal Hocko wrote:
-> From: Michal Hocko <mhocko@suse.com>
+On 01/30/2017 08:56 AM, Michal Hocko wrote:
+> On Fri 27-01-17 21:12:26, Daniel Borkmann wrote:
+>> On 01/27/2017 11:05 AM, Michal Hocko wrote:
+>>> On Thu 26-01-17 21:34:04, Daniel Borkmann wrote:
+> [...]
+>>>> So to answer your second email with the bpf and netfilter hunks, why
+>>>> not replacing them with kvmalloc() and __GFP_NORETRY flag and add that
+>>>> big fat FIXME comment above there, saying explicitly that __GFP_NORETRY
+>>>> is not harmful though has only /partial/ effect right now and that full
+>>>> support needs to be implemented in future. That would still be better
+>>>> that not having it, imo, and the FIXME would make expectations clear
+>>>> to anyone reading that code.
+>>>
+>>> Well, we can do that, I just would like to prevent from this (ab)use
+>>> if there is no _real_ and _sensible_ usecase for it. Having a real bug
+>>
+>> Understandable.
+>>
+>>> report or a fallback mechanism you are mentioning above would justify
+>>> the (ab)use IMHO. But that abuse would be documented properly and have a
+>>> real reason to exist. That sounds like a better approach to me.
+>>>
+>>> But if you absolutely _insist_ I can change that.
+>>
+>> Yeah, please do (with a big FIXME comment as mentioned), this originally
+>> came from a real bug report. Anyway, feel free to add my Acked-by then.
 >
-> There are many code paths opencoding kvmalloc. Let's use the helper
-> instead. The main difference to kvmalloc is that those users are usually
-> not considering all the aspects of the memory allocator. E.g. allocation
-> requests <= 32kB (with 4kB pages) are basically never failing and invoke
-> OOM killer to satisfy the allocation. This sounds too disruptive for
-> something that has a reasonable fallback - the vmalloc. On the other
-> hand those requests might fallback to vmalloc even when the memory
-> allocator would succeed after several more reclaim/compaction attempts
-> previously. There is no guarantee something like that happens though.
->
-> This patch converts many of those places to kv[mz]alloc* helpers because
-> they are more conservative.
->
-> Changes since v1
-> - add kvmalloc_array - this might silently fix some overflow issues
->   because most users simply didn't check the overflow for the vmalloc
->   fallback.
->
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Anton Vorontsov <anton@enomsg.org>
-> Cc: Colin Cross <ccross@android.com>
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-> Cc: Ben Skeggs <bskeggs@redhat.com>
-> Cc: Kent Overstreet <kent.overstreet@gmail.com>
-> Cc: Santosh Raspatur <santosh@chelsio.com>
-> Cc: Hariprasad S <hariprasad@chelsio.com>
-> Cc: Yishai Hadas <yishaih@mellanox.com>
-> Cc: Oleg Drokin <oleg.drokin@intel.com>
-> Cc: "Yan, Zheng" <zyan@redhat.com>
-> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: netdev@vger.kernel.org
-> Acked-by: Andreas Dilger <andreas.dilger@intel.com> # Lustre
-> Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com> # Xen bits
-> Acked-by: Christian Borntraeger <borntraeger@de.ibm.com> # KVM/s390
-> Acked-by: Dan Williams <dan.j.williams@intel.com> # nvdim
-> Acked-by: David Sterba <dsterba@suse.com> # btrfs
-> Acked-by: Ilya Dryomov <idryomov@gmail.com> # Ceph
-> Acked-by: Tariq Toukan <tariqt@mellanox.com> # mlx4
-> Signed-off-by: Michal Hocko <mhocko@suse.com>
+> Thanks! I will repost the whole series today.
 
-Acked-by: Vlastimil Babka <vbabka@suse.cz>
+Looks like I got only Cc'ed on the cover letter of your v3 from today
+(should have been v4 actually?). Anyway, I looked up the last patch
+on lkml [1] and it seems you forgot the __GFP_NORETRY we talked about?
+At least that was what was discussed above (insisting on __GFP_NORETRY
+plus FIXME comment) for providing my Acked-by then. Can you still fix
+that up in a final respin?
+
+Thanks again,
+Daniel
+
+   [1] https://lkml.org/lkml/2017/1/30/129
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
