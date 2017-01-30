@@ -1,97 +1,609 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [linux-next] NULL pointer dereference in rt6_fill_node
-Date: Mon, 30 Jan 2017 06:07:52 -0800
-Message-ID: <1485785272.6360.94.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <201701302036.GGH60927.MFJLFOOStHOQFV@I-love.SAKURA.ne.jp>
+From: Gregory CLEMENT <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v6 4/5] arm: mvebu: Add device tree for 98DX3236 SoCs
+Date: Mon, 30 Jan 2017 15:29:18 +0100
+Message-ID: <87zii8tydd.fsf@free-electrons.com>
+References: <20170129232035.25189-1-chris.packham@alliedtelesis.co.nz>
+        <20170129232035.25189-5-chris.packham@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34972 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753590AbdA3OIG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 09:08:06 -0500
-Received: by mail-pf0-f194.google.com with SMTP id f144so23383728pfa.2
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 06:07:53 -0800 (PST)
-In-Reply-To: <201701302036.GGH60927.MFJLFOOStHOQFV@I-love.SAKURA.ne.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Chris Packham <chris.packham-6g8wRflRTwXFdCa3tKVlE6U/zSkkHjvu@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170129232035.25189-5-chris.packham-6g8wRflRTwXFdCa3tKVlE6U/zSkkHjvu@public.gmane.org> (Chris
+        Packham's message of "Mon, 30 Jan 2017 12:20:34 +1300")
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-01-30 at 20:36 +0900, Tetsuo Handa wrote:
-> Hello.
-> 
-> I'm hitting this with linux-next-20170125. Is this known?
-> ----------------------------------------
-> [  OK  ] Started Show Plymouth Reboot Screen.
-> 
-> [  OK  ] Stopped PostgreSQL database server.
-> 
-> [  OK  ] Stopped Dynamic System Tuning Daemon.
-> 
-> [  OK  ] Stopped target Network.
-> 
->          Stopping LSB: Bring up/down networking...
-> 
-> [  828.169782] BUG: unable to handle kernel NULL pointer dereference at 00000000000002a4
-> [  828.172557] IP: rt6_fill_node.isra.60+0x181/0x5c0
-> [  828.174211] PGD 0
-> [  828.174212]
-> [  828.175467] Oops: 0000 [#1] SMP DEBUG_PAGEALLOC
-> [  828.177068] Modules linked in: nf_conntrack_netbios_ns nf_conntrack_broadcast ip6t_rpfilter ipt_REJECT nf_reject_ipv4 ip6t_REJECT nf_reject_ipv6 xt_conntrack ip_set nfnetlink ebtable_nat ebtable_broute bridge stp llc ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_raw iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack iptable_mangle iptable_raw ebtable_filter ebtables ip6table_filter ip6_tables iptable_filter coretemp vmw_balloon pcspkr vmw_vmci i2c_piix4 shpchp ip_tables xfs libcrc32c sr_mod cdrom ata_generic sd_mod pata_acpi serio_raw vmwgfx drm_kms_helper syscopyarea sysfillrect sysimgblt mptspi fb_sys_fops scsi_transport_spi ttm ata_piix mptscsih drm i2c_core e1000 mptbase libata
-> [  828.200197] CPU: 3 PID: 539 Comm: NetworkManager Not tainted 4.10.0-rc5-next-20170125+ #45
-> [  828.203094] Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop Reference Platform, BIOS 6.00 07/31/2013
-> [  828.206835] task: ffff88006f984100 task.stack: ffffc90005afc000
-> [  828.208934] RIP: 0010:rt6_fill_node.isra.60+0x181/0x5c0
-> [  828.210701] RSP: 0018:ffffc90005aff938 EFLAGS: 00010246
-> [  828.212485] RAX: 0000000000000000 RBX: ffff88006c71ae00 RCX: 0000000000000000
-> [  828.214933] RDX: 0000000000000000 RSI: ffffc90005aff95c RDI: ffff880071773ee0
-> [  828.217394] RBP: ffffc90005aff9e0 R08: 0000000000000000 R09: 0000000000000004
-> [  828.219945] R10: ffff880071773ee4 R11: 0000000000000000 R12: ffff880071983f00
-> [  828.222381] R13: 0000000000000000 R14: 0000000000000000 R15: ffff880071773ec0
-> [  828.224920] FS:  00007ffaa9733940(0000) GS:ffff880075800000(0000) knlGS:0000000000000000
-> [  828.227664] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [  828.229670] CR2: 00000000000002a4 CR3: 0000000071269000 CR4: 00000000001406e0
-> [  828.232149] Call Trace:
-> [  828.232998]  ? slab_kernel_map+0xa0/0x130
-> [  828.234468]  rt6_dump_route+0x60/0x70
-> [  828.235717]  fib6_dump_node+0x2e/0x60
-> [  828.237005]  fib6_walk_continue+0x124/0x140
-> [  828.238425]  fib6_walk+0x64/0x90
-> [  828.239567]  ? _raw_read_lock_bh+0x6e/0x80
-> [  828.240962]  inet6_dump_fib+0x237/0x370
-> [  828.242309]  ? inet6_dump_fib+0x4b/0x370
-> [  828.243646]  netlink_dump+0x126/0x280
-> [  828.244963]  __netlink_dump_start+0x16f/0x210
-> [  828.246464]  ? fib6_flush_trees+0x40/0x40
-> [  828.247848]  rtnetlink_rcv_msg+0x13b/0x230
-> [  828.249275]  ? fib6_flush_trees+0x40/0x40
-> [  828.250641]  ? rtnl_newlink+0x880/0x880
-> [  828.252021]  netlink_rcv_skb+0x99/0xb0
-> [  828.253399]  rtnetlink_rcv+0x25/0x30
-> [  828.254646]  netlink_unicast+0x16d/0x200
-> [  828.255982]  netlink_sendmsg+0x36b/0x390
-> [  828.257348]  ___sys_sendmsg+0x1c9/0x2c0
-> [  828.259271]  ? ___cache_free+0x14a/0x5b0
-> [  828.261112]  ? __fget+0x117/0x210
-> [  828.262777]  ? expand_files+0x2e0/0x2e0
-> [  828.264657]  __sys_sendmsg+0x4f/0x90
-> [  828.266399]  SyS_sendmsg+0xd/0x20
-> [  828.268042]  do_syscall_64+0x67/0x1f0
-> [  828.269810]  entry_SYSCALL64_slow_path+0x25/0x25
-> [  828.271885] RIP: 0033:0x7ffaa7f639fd
-> [  828.273594] RSP: 002b:00007ffc0e0c13b0 EFLAGS: 00000293 ORIG_RAX: 000000000000002e
-> [  828.276704] RAX: ffffffffffffffda RBX: 000055f219737bd0 RCX: 00007ffaa7f639fd
-> [  828.279712] RDX: 0000000000000000 RSI: 00007ffc0e0c1460 RDI: 000000000000000c
-> [  828.282623] RBP: 000055f219737ae0 R08: 0000000000000001 R09: 0000000000001000
-> [  828.286019] R10: 0000000000000063 R11: 0000000000000293 R12: 000055f21977e4f0
-> [  828.288921] R13: 00007ffc0e0c1460 R14: 0000000000000000 R15: 000055f21977e4f0
-> [  828.291766] Code: c7 47 18 00 00 00 00 48 8b 43 18 48 8b 50 48 83 e2 01 74 08 48 8b 40 48 a8 04 74 21 41 c7 47 18 10 00 00 00 48 8b 83 58 01 00 00 <8b> 88 a4 02 00 00 85 c9 74 08 41 c7 47 18 11 00 00 00 41 c6 47
-> [  828.299024] RIP: rt6_fill_node.isra.60+0x181/0x5c0 RSP: ffffc90005aff938
-> [  828.301732] CR2: 00000000000002a4
+Hi Chris,
+ 
+ On lun., janv. 30 2017, Chris Packham <chris.packham-6g8wRflRTwXFdCa3tKVlE6U/zSkkHjvu@public.gmane.org> wrote:
 
-Hi Tetsuo, thanks for the report.
+> The Marvell 98DX3236, 98DX3336, 98DX4521 and variants are switch ASICs
+> with integrated CPUs. They are similar to the Armada XP SoCs but have
+> different I/O interfaces.
+>
+> Signed-off-by: Chris Packham <chris.packham-6g8wRflRTwXFdCa3tKVlE6U/zSkkHjvu@public.gmane.org>
+> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-Fix was sent few days back  : 
-https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1f17e2f2c8a8be3430813119fa7b633398f6185b
+Applied on mvebu/dt
+
+Thanks,
+
+Gregory
+
+> ---
+>
+> Notes:
+>     Changes in v2:
+>     - Update devicetree binding documentation to reflect that 98DX3336 and
+>       984251 are supersets of 98DX3236.
+>     - disable crypto block
+>     - disable sdio for 98DX3236, enable for 98DX4251
+>     Changes in v3:
+>     - fix typo 4521 -> 4251
+>     - document prestera bindings
+>     - rework corediv-clock binding
+>     - add label to packet processor node
+>     - add new compatible string for DFX server
+>     Changes in v4:
+>     - Collect ack from Rob
+>     Changes in v5:
+>     - Fixup license text. Add labels to nodes.
+>     Changes in v6:
+>     - None
+>
+>  .../devicetree/bindings/arm/marvell/98dx3236.txt   |  23 ++
+>  .../devicetree/bindings/net/marvell,prestera.txt   |  50 ++++
+>  arch/arm/boot/dts/armada-xp-98dx3236.dtsi          | 254 +++++++++++++++++++++
+>  arch/arm/boot/dts/armada-xp-98dx3336.dtsi          |  76 ++++++
+>  arch/arm/boot/dts/armada-xp-98dx4251.dtsi          |  90 ++++++++
+>  5 files changed, 493 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/arm/marvell/98dx3236.txt
+>  create mode 100644 Documentation/devicetree/bindings/net/marvell,prestera.txt
+>  create mode 100644 arch/arm/boot/dts/armada-xp-98dx3236.dtsi
+>  create mode 100644 arch/arm/boot/dts/armada-xp-98dx3336.dtsi
+>  create mode 100644 arch/arm/boot/dts/armada-xp-98dx4251.dtsi
+>
+> diff --git a/Documentation/devicetree/bindings/arm/marvell/98dx3236.txt b/Documentation/devicetree/bindings/arm/marvell/98dx3236.txt
+> new file mode 100644
+> index 000000000000..64e8c73fc5ab
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/arm/marvell/98dx3236.txt
+> @@ -0,0 +1,23 @@
+> +Marvell 98DX3236, 98DX3336 and 98DX4251 Platforms Device Tree Bindings
+> +----------------------------------------------------------------------
+> +
+> +Boards with a SoC of the Marvell 98DX3236, 98DX3336 and 98DX4251 families
+> +shall have the following property:
+> +
+> +Required root node property:
+> +
+> +compatible: must contain "marvell,armadaxp-98dx3236"
+> +
+> +In addition, boards using the Marvell 98DX3336 SoC shall have the
+> +following property:
+> +
+> +Required root node property:
+> +
+> +compatible: must contain "marvell,armadaxp-98dx3336"
+> +
+> +In addition, boards using the Marvell 98DX4251 SoC shall have the
+> +following property:
+> +
+> +Required root node property:
+> +
+> +compatible: must contain "marvell,armadaxp-98dx4251"
+> diff --git a/Documentation/devicetree/bindings/net/marvell,prestera.txt b/Documentation/devicetree/bindings/net/marvell,prestera.txt
+> new file mode 100644
+> index 000000000000..5fbab29718e8
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/marvell,prestera.txt
+> @@ -0,0 +1,50 @@
+> +Marvell Prestera Switch Chip bindings
+> +-------------------------------------
+> +
+> +Required properties:
+> +- compatible: one of the following
+> +	"marvell,prestera-98dx3236",
+> +	"marvell,prestera-98dx3336",
+> +	"marvell,prestera-98dx4251",
+> +- reg: address and length of the register set for the device.
+> +- interrupts: interrupt for the device
+> +
+> +Optional properties:
+> +- dfx: phandle reference to the "DFX Server" node
+> +
+> +Example:
+> +
+> +switch {
+> +	compatible = "simple-bus";
+> +	#address-cells = <1>;
+> +	#size-cells = <1>;
+> +	ranges = <0 MBUS_ID(0x03, 0x00) 0 0x100000>;
+> +
+> +	packet-processor@0 {
+> +		compatible = "marvell,prestera-98dx3236";
+> +		reg = <0 0x4000000>;
+> +		interrupts = <33>, <34>, <35>;
+> +		dfx = <&dfx>;
+> +	};
+> +};
+> +
+> +DFX Server bindings
+> +-------------------
+> +
+> +Required properties:
+> +- compatible: must be "marvell,dfx-server"
+> +- reg: address and length of the register set for the device.
+> +
+> +Example:
+> +
+> +dfx-registers {
+> +	compatible = "simple-bus";
+> +	#address-cells = <1>;
+> +	#size-cells = <1>;
+> +	ranges = <0 MBUS_ID(0x08, 0x00) 0 0x100000>;
+> +
+> +	dfx: dfx@0 {
+> +		compatible = "marvell,dfx-server";
+> +		reg = <0 0x100000>;
+> +	};
+> +};
+> diff --git a/arch/arm/boot/dts/armada-xp-98dx3236.dtsi b/arch/arm/boot/dts/armada-xp-98dx3236.dtsi
+> new file mode 100644
+> index 000000000000..9461128fae24
+> --- /dev/null
+> +++ b/arch/arm/boot/dts/armada-xp-98dx3236.dtsi
+> @@ -0,0 +1,254 @@
+> +/*
+> + * Device Tree Include file for Marvell 98dx3236 family SoC
+> + *
+> + * Copyright (C) 2016 Allied Telesis Labs
+> + *
+> + * This file is dual-licensed: you can use it either under the terms
+> + * of the GPL or the X11 license, at your option. Note that this dual
+> + * licensing only applies to this file, and not this project as a
+> + * whole.
+> + *
+> + *  a) This file is free software; you can redistribute it and/or
+> + *     modify it under the terms of the GNU General Public License as
+> + *     published by the Free Software Foundation; either version 2 of the
+> + *     License, or (at your option) any later version.
+> + *
+> + *     This file is distributed in the hope that it will be useful,
+> + *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + *     GNU General Public License for more details.
+> + *
+> + * Or, alternatively,
+> + *
+> + *  b) Permission is hereby granted, free of charge, to any person
+> + *     obtaining a copy of this software and associated documentation
+> + *     files (the "Software"), to deal in the Software without
+> + *     restriction, including without limitation the rights to use,
+> + *     copy, modify, merge, publish, distribute, sublicense, and/or
+> + *     sell copies of the Software, and to permit persons to whom the
+> + *     Software is furnished to do so, subject to the following
+> + *     conditions:
+> + *
+> + *     The above copyright notice and this permission notice shall be
+> + *     included in all copies or substantial portions of the Software.
+> + *
+> + *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+> + *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+> + *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+> + *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+> + *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+> + *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+> + *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+> + *     OTHER DEALINGS IN THE SOFTWARE.
+> + *
+> + * Contains definitions specific to the 98dx3236 SoC that are not
+> + * common to all Armada XP SoCs.
+> + */
+> +
+> +#include "armada-xp.dtsi"
+> +
+> +/ {
+> +	model = "Marvell 98DX3236 SoC";
+> +	compatible = "marvell,armadaxp-98dx3236", "marvell,armadaxp", "marvell,armada-370-xp";
+> +
+> +	aliases {
+> +		gpio0 = &gpio0;
+> +		gpio1 = &gpio1;
+> +		gpio2 = &gpio2;
+> +	};
+> +
+> +	cpus {
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		enable-method = "marvell,98dx3236-smp";
+> +
+> +		cpu@0 {
+> +			device_type = "cpu";
+> +			compatible = "marvell,sheeva-v7";
+> +			reg = <0>;
+> +			clocks = <&cpuclk 0>;
+> +			clock-latency = <1000000>;
+> +		};
+> +	};
+> +
+> +	soc {
+> +		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
+> +			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
+> +			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
+> +			  MBUS_ID(0x03, 0x00) 0 0 0xa8000000 0x4000000
+> +			  MBUS_ID(0x08, 0x00) 0 0 0xac000000 0x100000>;
+> +
+> +		/*
+> +		 * 98DX3236 has 1 x1 PCIe unit Gen2.0
+> +		 */
+> +		pciec: pcie-controller@82000000 {
+> +			compatible = "marvell,armada-xp-pcie";
+> +			status = "disabled";
+> +			device_type = "pci";
+> +
+> +			#address-cells = <3>;
+> +			#size-cells = <2>;
+> +
+> +			msi-parent = <&mpic>;
+> +			bus-range = <0x00 0xff>;
+> +
+> +			ranges =
+> +			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000   /* Port 0.0 registers */
+> +				0x82000000 0x1 0       MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
+> +				0x81000000 0x1 0       MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
+> +				0x82000000 0x2 0       MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */>;
+> +
+> +			pcie1: pcie@1,0 {
+> +				device_type = "pci";
+> +				assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
+> +				reg = <0x0800 0 0 0 0>;
+> +				#address-cells = <3>;
+> +				#size-cells = <2>;
+> +				#interrupt-cells = <1>;
+> +				ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
+> +					  0x81000000 0 0 0x81000000 0x1 0 1 0>;
+> +				interrupt-map-mask = <0 0 0 0>;
+> +				interrupt-map = <0 0 0 0 &mpic 58>;
+> +				marvell,pcie-port = <0>;
+> +				marvell,pcie-lane = <0>;
+> +				clocks = <&gateclk 5>;
+> +				status = "disabled";
+> +			};
+> +		};
+> +
+> +		internal-regs {
+> +			coreclk: mvebu-sar@18230 {
+> +				compatible = "marvell,mv98dx3236-core-clock";
+> +			};
+> +
+> +			cpuclk: clock-complex@18700 {
+> +				compatible = "marvell,mv98dx3236-cpu-clock";
+> +			};
+> +
+> +			corediv-clock@18740 {
+> +				status = "disabled";
+> +			};
+> +
+> +			xor@60900 {
+> +				status = "disabled";
+> +			};
+> +
+> +			crypto@90000 {
+> +				status = "disabled";
+> +			};
+> +
+> +			xor@f0900 {
+> +				status = "disabled";
+> +			};
+> +
+> +			xor@f0800 {
+> +				compatible = "marvell,orion-xor";
+> +				reg = <0xf0800 0x100
+> +				       0xf0a00 0x100>;
+> +				clocks = <&gateclk 22>;
+> +				status = "okay";
+> +
+> +				xor10 {
+> +					interrupts = <51>;
+> +					dmacap,memcpy;
+> +					dmacap,xor;
+> +				};
+> +				xor11 {
+> +					interrupts = <52>;
+> +					dmacap,memcpy;
+> +					dmacap,xor;
+> +					dmacap,memset;
+> +				};
+> +			};
+> +
+> +			gpio0: gpio@18100 {
+> +				compatible = "marvell,orion-gpio";
+> +				reg = <0x18100 0x40>;
+> +				ngpios = <32>;
+> +				gpio-controller;
+> +				#gpio-cells = <2>;
+> +				interrupt-controller;
+> +				#interrupt-cells = <2>;
+> +				interrupts = <82>, <83>, <84>, <85>;
+> +			};
+> +
+> +			/* does not exist */
+> +			gpio1: gpio@18140 {
+> +				compatible = "marvell,orion-gpio";
+> +				reg = <0x18140 0x40>;
+> +				status = "disabled";
+> +			};
+> +
+> +			gpio2: gpio@18180 { /* rework some properties */
+> +				compatible = "marvell,orion-gpio";
+> +				reg = <0x18180 0x40>;
+> +				ngpios = <1>; /* only gpio #32 */
+> +				gpio-controller;
+> +				#gpio-cells = <2>;
+> +				interrupt-controller;
+> +				#interrupt-cells = <2>;
+> +				interrupts = <87>;
+> +			};
+> +
+> +			nand: nand@d0000 {
+> +				clocks = <&dfx_coredivclk 0>;
+> +			};
+> +		};
+> +
+> +		dfxr: dfx-registers@ac000000 {
+> +			compatible = "simple-bus";
+> +			#address-cells = <1>;
+> +			#size-cells = <1>;
+> +			ranges = <0 MBUS_ID(0x08, 0x00) 0 0x100000>;
+> +
+> +                        dfx_coredivclk: corediv-clock@f8268 {
+> +                                compatible = "marvell,mv98dx3236-corediv-clock";
+> +                                reg = <0xf8268 0xc>;
+> +                                #clock-cells = <1>;
+> +                                clocks = <&mainpll>;
+> +                                clock-output-names = "nand";
+> +                        };
+> +
+> +			dfx: dfx@0 {
+> +				compatible = "marvell,dfx-server";
+> +				reg = <0 0x100000>;
+> +			};
+> +		};
+> +
+> +		switch: switch@a8000000 {
+> +			compatible = "simple-bus";
+> +			#address-cells = <1>;
+> +			#size-cells = <1>;
+> +			ranges = <0 MBUS_ID(0x03, 0x00) 0 0x100000>;
+> +
+> +			pp0: packet-processor@0 {
+> +				compatible = "marvell,prestera-98dx3236";
+> +				reg = <0 0x4000000>;
+> +				interrupts = <33>, <34>, <35>;
+> +				dfx = <&dfx>;
+> +			};
+> +		};
+> +	};
+> +};
+> +
+> +&pinctrl {
+> +	compatible = "marvell,98dx3236-pinctrl";
+> +
+> +	spi0_pins: spi0-pins {
+> +		marvell,pins = "mpp0", "mpp1",
+> +			       "mpp2", "mpp3";
+> +		marvell,function = "spi0";
+> +	};
+> +};
+> +
+> +&sdio {
+> +	status = "disabled";
+> +};
+> +
+> +&crypto_sram0 {
+> +	status = "disabled";
+> +};
+> +
+> +&crypto_sram1 {
+> +	status = "disabled";
+> +};
+> diff --git a/arch/arm/boot/dts/armada-xp-98dx3336.dtsi b/arch/arm/boot/dts/armada-xp-98dx3336.dtsi
+> new file mode 100644
+> index 000000000000..e1580afdc260
+> --- /dev/null
+> +++ b/arch/arm/boot/dts/armada-xp-98dx3336.dtsi
+> @@ -0,0 +1,76 @@
+> +/*
+> + * Device Tree Include file for Marvell 98dx3336 family SoC
+> + *
+> + * Copyright (C) 2016 Allied Telesis Labs
+> + *
+> + * This file is dual-licensed: you can use it either under the terms
+> + * of the GPL or the X11 license, at your option. Note that this dual
+> + * licensing only applies to this file, and not this project as a
+> + * whole.
+> + *
+> + *  a) This file is free software; you can redistribute it and/or
+> + *     modify it under the terms of the GNU General Public License as
+> + *     published by the Free Software Foundation; either version 2 of the
+> + *     License, or (at your option) any later version.
+> + *
+> + *     This file is distributed in the hope that it will be useful,
+> + *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + *     GNU General Public License for more details.
+> + *
+> + * Or, alternatively,
+> + *
+> + *  b) Permission is hereby granted, free of charge, to any person
+> + *     obtaining a copy of this software and associated documentation
+> + *     files (the "Software"), to deal in the Software without
+> + *     restriction, including without limitation the rights to use,
+> + *     copy, modify, merge, publish, distribute, sublicense, and/or
+> + *     sell copies of the Software, and to permit persons to whom the
+> + *     Software is furnished to do so, subject to the following
+> + *     conditions:
+> + *
+> + *     The above copyright notice and this permission notice shall be
+> + *     included in all copies or substantial portions of the Software.
+> + *
+> + *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+> + *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+> + *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+> + *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+> + *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+> + *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+> + *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+> + *     OTHER DEALINGS IN THE SOFTWARE.
+> + *
+> + * Contains definitions specific to the 98dx3236 SoC that are not
+> + * common to all Armada XP SoCs.
+> + */
+> +
+> +#include "armada-xp-98dx3236.dtsi"
+> +
+> +/ {
+> +	model = "Marvell 98DX3336 SoC";
+> +	compatible = "marvell,armadaxp-98dx3336", "marvell,armadaxp-98dx3236", "marvell,armadaxp", "marvell,armada-370-xp";
+> +
+> +	cpus {
+> +		cpu@1 {
+> +			device_type = "cpu";
+> +			compatible = "marvell,sheeva-v7";
+> +			reg = <1>;
+> +			clocks = <&cpuclk 1>;
+> +			clock-latency = <1000000>;
+> +		};
+> +	};
+> +
+> +	soc {
+> +		internal-regs {
+> +			resume@20980 {
+> +				compatible = "marvell,98dx3336-resume-ctrl";
+> +				reg = <0x20980 0x10>;
+> +			};
+> +		};
+> +	};
+> +};
+> +
+> +&pp0 {
+> +	compatible = "marvell,prestera-98dx3336";
+> +};
+> diff --git a/arch/arm/boot/dts/armada-xp-98dx4251.dtsi b/arch/arm/boot/dts/armada-xp-98dx4251.dtsi
+> new file mode 100644
+> index 000000000000..4b0533a4ccb7
+> --- /dev/null
+> +++ b/arch/arm/boot/dts/armada-xp-98dx4251.dtsi
+> @@ -0,0 +1,90 @@
+> +/*
+> + * Device Tree Include file for Marvell 98dx4521 family SoC
+> + *
+> + * Copyright (C) 2016 Allied Telesis Labs
+> + *
+> + * This file is dual-licensed: you can use it either under the terms
+> + * of the GPL or the X11 license, at your option. Note that this dual
+> + * licensing only applies to this file, and not this project as a
+> + * whole.
+> + *
+> + *  a) This file is free software; you can redistribute it and/or
+> + *     modify it under the terms of the GNU General Public License as
+> + *     published by the Free Software Foundation; either version 2 of the
+> + *     License, or (at your option) any later version.
+> + *
+> + *     This file is distributed in the hope that it will be useful,
+> + *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + *     GNU General Public License for more details.
+> + *
+> + * Or, alternatively,
+> + *
+> + *  b) Permission is hereby granted, free of charge, to any person
+> + *     obtaining a copy of this software and associated documentation
+> + *     files (the "Software"), to deal in the Software without
+> + *     restriction, including without limitation the rights to use,
+> + *     copy, modify, merge, publish, distribute, sublicense, and/or
+> + *     sell copies of the Software, and to permit persons to whom the
+> + *     Software is furnished to do so, subject to the following
+> + *     conditions:
+> + *
+> + *     The above copyright notice and this permission notice shall be
+> + *     included in all copies or substantial portions of the Software.
+> + *
+> + *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+> + *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+> + *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+> + *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+> + *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+> + *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+> + *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+> + *     OTHER DEALINGS IN THE SOFTWARE.
+> + *
+> + * Contains definitions specific to the 98dx4521 SoC that are not
+> + * common to all Armada XP SoCs.
+> + */
+> +
+> +#include "armada-xp-98dx3236.dtsi"
+> +
+> +/ {
+> +	model = "Marvell 98DX4251 SoC";
+> +	compatible = "marvell,armadaxp-98dx4521", "marvell,armadaxp-98dx3236", "marvell,armadaxp", "marvell,armada-370-xp";
+> +
+> +	cpus {
+> +		cpu@1 {
+> +			device_type = "cpu";
+> +			compatible = "marvell,sheeva-v7";
+> +			reg = <1>;
+> +			clocks = <&cpuclk 1>;
+> +			clock-latency = <1000000>;
+> +		};
+> +	};
+> +
+> +	soc {
+> +		internal-regs {
+> +			resume@20980 {
+> +				compatible = "marvell,98dx3336-resume-ctrl";
+> +				reg = <0x20980 0x10>;
+> +			};
+> +		};
+> +	};
+> +};
+> +
+> +&sdio {
+> +	status = "okay";
+> +};
+> +
+> +&pinctrl {
+> +	compatible = "marvell,98dx4251-pinctrl";
+> +
+> +	sdio_pins: sdio-pins {
+> +		marvell,pins = "mpp5", "mpp6", "mpp7",
+> +			       "mpp8", "mpp9", "mpp10";
+> +		marvell,function = "sd0";
+> +	};
+> +};
+> +
+> +&pp0 {
+> +	compatible = "marvell,prestera-98dx4251";
+> +};
+> -- 
+> 2.11.0.24.ge6920cf
+>
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
