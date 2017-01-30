@@ -1,43 +1,43 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: 4.9 conntrack performance issues
-Date: Mon, 30 Jan 2017 13:37:43 +0200
-Message-ID: <c18a30d1b61b758e8de93ea373247da7@nuclearcat.com>
-References: <1a71d807acf63135bb037c7144fcd8d9@nuclearcat.com>
- <20170130112630.pl2jdegnaydxxdpg@alphalink.fr>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH RFC ipsec-next 2/2] xfrm: Add a dummy network device for
+ napi.
+Date: Mon, 30 Jan 2017 12:45:30 +0100
+Message-ID: <20170130114530.GT30338@gauss.secunet.com>
+References: <1485501572-20908-1-git-send-email-steffen.klassert@secunet.com>
+ <1485501572-20908-3-git-send-email-steffen.klassert@secunet.com>
+ <1485528398.6360.39.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170127.095349.597744818419458840.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netfilter Devel <netfilter-devel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20170130112630.pl2jdegnaydxxdpg@alphalink.fr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
+        <sowmini.varadhan@oracle.com>, <ilant@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:36892 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753403AbdA3Lzw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Jan 2017 06:55:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20170127.095349.597744818419458840.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017-01-30 13:26, Guillaume Nault wrote:
-> On Sun, Jan 15, 2017 at 01:05:58AM +0200, Denys Fedoryshchenko wrote:
->> Hi!
->> 
->> Sorry if i added someone wrongly to CC, please let me know, if i 
->> should
->> remove.
->> I just run successfully 4.9 on my nat several days ago, and seems 
->> panic
->> issue disappeared.
->> 
-> Hi Denys,
+On Fri, Jan 27, 2017 at 09:53:49AM -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 27 Jan 2017 06:46:38 -0800
 > 
-> After two weeks running Linux 4.9, do you confirm that the original
-> issue[1] is gone?
+> > On Fri, 2017-01-27 at 08:19 +0100, Steffen Klassert wrote:
+> >> This patch adds a dummy network device so that we can
+> >> use gro_cells for IPsec GRO. With this, we handle IPsec
+> >> GRO with no impact on the generic networking code.
+> >> 
+> >> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> >> ---
+> >>  net/xfrm/xfrm_input.c | 12 +++++++++++-
+> >>  1 file changed, 11 insertions(+), 1 deletion(-)
+> > 
+> > That is nice ;)
 > 
-> Regards,
-> 
-> Guillaume
-> 
-> [1]: https://www.spinics.net/lists/netdev/msg410795.html
-Yes, no more reboots at all and 4.9 patched for gc issues seems 
-significantly better for NAT performance (CPU load lower almost twice 
-than previous kernels, i dont have exact numbers).
+> I like it too.
+
+I've applied both to ipsec-next, thanks for all the feedback!
