@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: synchronize DMA API usage by
- free_skb_rx_queue w/ gfar_new_page
-Date: Mon, 30 Jan 2017 11:20:06 -0500 (EST)
-Message-ID: <20170130.112006.2176540808791679531.davem@davemloft.net>
-References: <20170129125220.12538-1-asolokha@kb.kras.ru>
+Subject: Re: [PATCH net-next v2 0/4] net: dsa: bcm_sf2: CFP support
+Date: Mon, 30 Jan 2017 11:11:06 -0500 (EST)
+Message-ID: <20170130.111106.805457012223071538.davem@davemloft.net>
+References: <20170129031325.21911-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: claudiu.manoil@nxp.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: asolokha@kb.kras.ru
+Cc: netdev@vger.kernel.org, cphealy@gmail.com,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54472 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54510 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932165AbdA3QUS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:20:18 -0500
-In-Reply-To: <20170129125220.12538-1-asolokha@kb.kras.ru>
+        with ESMTP id S932130AbdA3QUv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 11:20:51 -0500
+In-Reply-To: <20170129031325.21911-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arseny Solokha <asolokha@kb.kras.ru>
-Date: Sun, 29 Jan 2017 19:52:20 +0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sat, 28 Jan 2017 19:13:21 -0800
 
-> From: Arseny Solokha <asolokha@kb.kras.ru>
+> This patch series adds support for the Broadcom Compact Field Processor (CFP)
+> which is a classification and matching engine built into most Broadcom switches.
 > 
-> In spite of switching to paged allocation of Rx buffers, the driver still
-> called dma_unmap_single() in the Rx queues tear-down path.
+> We support that using ethtool::rxnfc because it allows all known uses cases from
+> the users I support to work, and more importantly, it allows the selection of a
+> target rule index, which is later used by e.g: offloading hardware, this is an
+> essential feature that I could not find being supported with cls_* for instance.
 > 
-> The DMA region unmapping code in free_skb_rx_queue() basically predates
-> the introduction of paged allocation to the driver. While being refactored,
-> it apparently hasn't reflected the change in the DMA API usage by its
-> counterpart gfar_new_page().
+> Thanks!
 > 
-> As a result, setting an interface to the DOWN state now yields the following:
- ...
-> Even though the issue was discovered in 4.9 kernel, the code in question
-> is identical in the current net and net-next trees.
+> Changes in v2:
 > 
-> Fixes: 75354148ce69 ("gianfar: Add paged allocation and Rx S/G")
-> Signed-off-by: Arseny Solokha <asolokha@kb.kras.ru>
+> - fixed modular builds reported by kbuild test robot
 
-Applied, thanks.
+Series applied, thanks Florian.
