@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] smc: some potential use after free bugs
-Date: Mon, 30 Jan 2017 16:38:28 -0500 (EST)
-Message-ID: <20170130.163828.1269554309604072824.davem@davemloft.net>
-References: <20170130095504.7940-1-ubraun@linux.vnet.ibm.com>
-        <20170130095504.7940-2-ubraun@linux.vnet.ibm.com>
+Subject: Re: pull-request: can 2017-01-30
+Date: Mon, 30 Jan 2017 16:39:36 -0500 (EST)
+Message-ID: <20170130.163936.1777388116676735029.davem@davemloft.net>
+References: <20170130101101.14150-1-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        dan.carpenter@oracle.com
-To: ubraun@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41536 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41550 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754386AbdA3Vim (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 16:38:42 -0500
-In-Reply-To: <20170130095504.7940-2-ubraun@linux.vnet.ibm.com>
+        with ESMTP id S1754240AbdA3VmF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 16:42:05 -0500
+In-Reply-To: <20170130101101.14150-1-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Mon, 30 Jan 2017 10:55:04 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Mon, 30 Jan 2017 11:11:00 +0100
 
-> From: Dan Carpenter <dan.carpenter@oracle.com>
+> this is a pull request of one patch.
 > 
-> Say we got really unlucky and these failed on the last iteration, then
-> it could lead to a use after free bug.
-> 
-> Fixes: cd6851f30386 ("smc: remote memory buffers (RMBs)")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> The patch is by Oliver Hartkopp and fixes the hrtimer/tasklet termination in
+> bcm op removal.
 
-Applied, thank you.
+Pulled, thanks Marc.
