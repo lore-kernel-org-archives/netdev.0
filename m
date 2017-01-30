@@ -1,96 +1,55 @@
-From: Mihail Dakov <mihail@ng4t.com>
-Subject: fou: udp encapsulation - how to configure multiple ports per tunnel
-Date: Mon, 30 Jan 2017 15:52:00 +0100
-Message-ID: <d7f24185-46c4-d038-7a5e-a0bd3ee4ec58@ng4t.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="C1cWGSrmcd4ugQXiFcTde1kqlWhROam9x"
-To: netdev@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net] net/sched: cls_flower: Correct matching on ICMPv6 code
+Date: Mon, 30 Jan 2017 16:19:02 +0100
+Message-ID: <1485789542-6346-1-git-send-email-simon.horman@netronome.com>
+Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ud15.udmedia.de ([194.117.254.55]:50108 "EHLO
-        mail.ud15.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932341AbdA3PTH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:19:07 -0500
+Received: from mail-wj0-f180.google.com ([209.85.210.180]:35886 "EHLO
+        mail-wj0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932354AbdA3PTN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:19:13 -0500
+Received: by mail-wj0-f180.google.com with SMTP id n2so6911296wjq.3
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 07:19:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---C1cWGSrmcd4ugQXiFcTde1kqlWhROam9x
-Content-Type: multipart/mixed; boundary="0mMEnF4FfCGHXNb0r5VrUUBJ2bEKpKPs4";
- protected-headers="v1"
-From: Mihail Dakov <mihail@ng4t.com>
-To: netdev@vger.kernel.org
-Message-ID: <d7f24185-46c4-d038-7a5e-a0bd3ee4ec58@ng4t.com>
-Subject: fou: udp encapsulation - how to configure multiple ports per tunnel
+When matching on the ICMPv6 code ICMPV6_CODE rather than
+ICMPV4_CODE attributes should be used.
 
---0mMEnF4FfCGHXNb0r5VrUUBJ2bEKpKPs4
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+This corrects what appears to be a typo.
 
-Hi there,
+Sample usage:
 
-I am having trouble setting up the following tunnels on the tx path.
+tc qdisc add dev eth0 ingress
+tc filter add dev eth0 protocol ipv6 parent ffff: flower \
+	indev eth0 ip_proto icmpv6 type 128 code 0 action drop
 
-#!/bin/bash
+Without this change the code parameter above is effectively ignored.
 
-sudo ip link add name fou11 \
-type ipip \
-remote 192.168.1.1 \
-local 192.168.2.1 \
-encap fou \
-encap-sport 21001 \
-encap-dport 21001
+Fixes: 7b684884fbfa ("net/sched: cls_flower: Support matching on ICMP type and code")
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ net/sched/cls_flower.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
-sudo ip link add name fou21 \
-type ipip \
-remote 192.168.1.1 \
-local 192.168.2.1 \
-encap fou \
-encap-sport 21002 \
-encap-dport 21002
-
-this script returns:
-
-RTNETLINK answers: File exists
-
-which tells me that the kernel doesn't use sport and/or dport to
-identify a tunnel.
-
-Is it possible to configure a tunnel with different dport and/or sport?
-If so how?
-
-P.S. On the other hand if this was possible then the kernel would need
-some policy to decide which dport and/or sport to use for each packet
-arriving in this tunnel.
-
-br,md.
-
-
-
---0mMEnF4FfCGHXNb0r5VrUUBJ2bEKpKPs4--
-
---C1cWGSrmcd4ugQXiFcTde1kqlWhROam9x
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCgAdFiEE2ImKN9TTsa7xb26szkpnDjYz8AsFAliPUxQACgkQzkpnDjYz
-8AsM9w//QHD5zVh/xZ2Hi/b+7F/I/QDdfxCqrwQ5R4zK+Tmdjqz07RFF40yt1dZk
-B7fAvvXVuRbWo5d+lXm/5cV6DvTASreknO+PyYcN128FsQhc28lRr+V97t0WMUti
-7lWK/MtfNtKOU6cbWpBvQDryJGBumvfjmwUTZi8cu3cnX2gYQazxrw06e5Jlaelk
-Co14pCUMOGOojWdIZcz3vZRw/ozteaj2S2NdfFnZ7kXxE3MEIK24cfsxU2/2/rTU
-QhGtfza0WFZUAgfjTD5HFao+dYXVS9mGLRJHg5GFJhfG56L0iYBP3YXDB8FkjYFW
-vsxcBISSw2gdWCfsOVgDxQF2LvjeD8Y/WufkcPnA9bgY5w7R5Lfx3p6342GlfIjw
-Yz586y5O9L3yBGETaARs2qEBExZWXU46wWJLu4Wtkt8T9AGqOeA1W98f2kY/ytN1
-ihHJazAnn1MXdTbQWv54QqBWLEqkN6IwKZTrnzc07nvzGpkRy2c6Lokulm1FIS/q
-iOg2U3ULaI8LWyWdsy9I74S5sHsB3seQg8+qTfWdqpdcs9PQmf6dI5irzhKrFbKM
-4etdA1EwcLcxvHSJr5RjyYHeqDnr3pQYnozV/aYisWZVkiT10D5C5tc9k5vNbUdP
-gsPe7bz6dPwXLPTLstRAjMIJ0LmkacGFJxVbyrW+GcJedhdOVcA=
-=Y7OY
------END PGP SIGNATURE-----
-
---C1cWGSrmcd4ugQXiFcTde1kqlWhROam9x--
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 970db7a41684..5752789acc13 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -568,9 +568,9 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 			       &mask->icmp.type,
+ 			       TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,
+ 			       sizeof(key->icmp.type));
+-		fl_set_key_val(tb, &key->icmp.code, TCA_FLOWER_KEY_ICMPV4_CODE,
++		fl_set_key_val(tb, &key->icmp.code, TCA_FLOWER_KEY_ICMPV6_CODE,
+ 			       &mask->icmp.code,
+-			       TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
++			       TCA_FLOWER_KEY_ICMPV6_CODE_MASK,
+ 			       sizeof(key->icmp.code));
+ 	}
+ 
+-- 
+2.7.0.rc3.207.g0ac5344
