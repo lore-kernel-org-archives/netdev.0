@@ -1,34 +1,46 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 0/4] net: ipv6: Improve user experience with
- multipath routes
-Date: Mon, 30 Jan 2017 08:23:27 -0700
-Message-ID: <0e9b2b4e-fc48-e21d-7b1f-3df45992e5e3@cumulusnetworks.com>
-References: <1485559258-4856-1-git-send-email-dsa@cumulusnetworks.com>
- <588D3EB9.1070107@cumulusnetworks.com>
- <592be6dc-df0e-6185-ba6f-5acf5d042ae5@cumulusnetworks.com>
- <8f5334f0-20a3-0eb2-6baa-1fe8331ad2db@6wind.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next V3 5/8] net/mlx4_en: Adding support of turning
+ off link autonegotiation via ethtool
+Date: Mon, 30 Jan 2017 14:00:28 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0273B7E@AcuExch.aculab.com>
+References: <1485708980-23468-1-git-send-email-tariqt@mellanox.com>
+ <1485708980-23468-6-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com, Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Ariel Levkovich <lariel@mellanox.com>
+To: 'Tariq Toukan' <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36173 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753715AbdA3PYB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:24:01 -0500
-Received: by mail-pf0-f180.google.com with SMTP id 189so91259213pfu.3
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 07:23:28 -0800 (PST)
-In-Reply-To: <8f5334f0-20a3-0eb2-6baa-1fe8331ad2db@6wind.com>
+Received: from smtp-out6.electric.net ([192.162.217.189]:64870 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932260AbdA3Pj2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 10:39:28 -0500
+In-Reply-To: <1485708980-23468-6-git-send-email-tariqt@mellanox.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/17 4:07 AM, Nicolas Dichtel wrote:
-> Le 29/01/2017 à 19:02, David Ahern a écrit :
-> [snip]
->> Data centers are moving to L3, and multipath is a big part of that. Anyone who looks at ip -6 route enough knows it gets painful mentally pulling the individual routes into a single one.
-> I agree, but it's only an iproute2 problem. iproute2 could group routes to have
-> a better output, there is no need to have a kernel patch for this ;-)
+From: Tariq Toukan
+> Sent: 29 January 2017 16:56
+> From: Ariel Levkovich <lariel@mellanox.com>
 > 
+> This feature will allow the user to disable auto negotiation
+> on the port for mlx4 devices while setting the speed is limited
+> to 1GbE speeds.
+> Other speeds will not be accepted in autoneg off mode.
 
-iproute2 is not the only rtnetlink user. The comment above uses ip show as an example. libnl has a workaround for IPv6 to update route objects versus replacing them - unnecessary complexity that does not need to replicated to iproute2, Quagga/FRR or python libraries implementing rtnetlink. Really, RTA_MULTIPATH support in notifications should have been added when multipath support was added to the IPv6. Patch 3 is mostly a refactoring of rt6_fill_node to fill in nexthop information. This could have been done 4+ years ago when RTA_MULTIPATH route adds was added to the stack.
+What is the rationale behind this change?
+
+When I was writing ethernet drivers it was always better to
+leave autonegotiation enabled with restricted modes than to
+fix the speed.
+
+That ensures that far end is using the same mode.
+
+This was particularly important for FDX v HDX at 10/100 speeds,
+but I suspect it is equally relevant now.
+
+	David
