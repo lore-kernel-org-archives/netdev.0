@@ -1,123 +1,40 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [patch net-next v2 2/4] net/sched: Introduce sample tc action
-Date: Mon, 30 Jan 2017 16:49:30 +0000
-Message-ID: <DB3PR05MB0764257D27CD1EFA14207705AC4B0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1485166031-4773-1-git-send-email-jiri@resnulli.us>
- <1485166031-4773-3-git-send-email-jiri@resnulli.us>
- <CAM_iQpUHrhkVtgrA37btQ9sn0UPeYgkqnRx=3HZoLan-soT8hg@mail.gmail.com>
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during network stress and
+ OOM
+Date: Mon, 30 Jan 2017 09:13:57 -0800
+Message-ID: <d7f6178f-9d11-daaf-b73a-d572862fe7ea@amazon.com>
+References: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+ <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
+ <38ccfaea-0a65-a6f3-c19a-e6f9c0d4ef76@oracle.com>
+ <989bd104-13a9-f25f-b857-24ec49781f9c@amazon.com>
+ <30069778-9509-8112-5089-2eea7b679236@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>,
-        Nogah Frankel <nogahf@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "geert+renesas@glider.be" <geert+renesas@glider.be>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Guenter Roeck <linux@roeck-us.net>,
-        "Roopa Prabhu" <roopa@cumulusnetworks.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        "Roman Mashak" <mrv@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10066.outbound.protection.outlook.com ([40.107.1.66]:14632
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750765AbdA3RHY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Jan 2017 12:07:24 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, David Miller <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, Wei Liu <wei.liu2@citrix.com>,
+        Paul Durrant <paul.durrant@citrix.com>,
+        xen-devel <xen-devel@lists.xen.org>
+To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <30069778-9509-8112-5089-2eea7b679236@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogWW90YW0gR2lnaQ0KPlNlbnQ6IEZy
-aWRheSwgSmFudWFyeSAyNywgMjAxNyA4OjA5IEFNDQo+VG86ICdDb25nIFdhbmcnIDx4aXlvdS53
-YW5nY29uZ0BnbWFpbC5jb20+OyBKaXJpIFBpcmtvIDxqaXJpQHJlc251bGxpLnVzPg0KPkNjOiBM
-aW51eCBLZXJuZWwgTmV0d29yayBEZXZlbG9wZXJzIDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPjsg
-RGF2aWQgTWlsbGVyDQo+PGRhdmVtQGRhdmVtbG9mdC5uZXQ+OyBJZG8gU2NoaW1tZWwgPGlkb3Nj
-aEBtZWxsYW5veC5jb20+OyBFbGFkIFJheg0KPjxlbGFkckBtZWxsYW5veC5jb20+OyBOb2dhaCBG
-cmFua2VsIDxub2dhaGZAbWVsbGFub3guY29tPjsgT3IgR2VybGl0eg0KPjxvZ2VybGl0ekBtZWxs
-YW5veC5jb20+OyBKYW1hbCBIYWRpIFNhbGltIDxqaHNAbW9qYXRhdHUuY29tPjsNCj5nZWVydCty
-ZW5lc2FzQGdsaWRlci5iZTsgU3RlcGhlbiBIZW1taW5nZXIgPHN0ZXBoZW5AbmV0d29ya3BsdW1i
-ZXIub3JnPjsNCj5HdWVudGVyIFJvZWNrIDxsaW51eEByb2Vjay11cy5uZXQ+OyBSb29wYSBQcmFi
-aHUNCj48cm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbT47IEpvaG4gRmFzdGFiZW5kIDxqb2huLmZh
-c3RhYmVuZEBnbWFpbC5jb20+Ow0KPlNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5ldHJvbm9t
-ZS5jb20+OyBSb21hbiBNYXNoYWsNCj48bXJ2QG1vamF0YXR1LmNvbT4NCj5TdWJqZWN0OiBSRTog
-W3BhdGNoIG5ldC1uZXh0IHYyIDIvNF0gbmV0L3NjaGVkOiBJbnRyb2R1Y2Ugc2FtcGxlIHRjIGFj
-dGlvbg0KPg0KPj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPj5Gcm9tOiBDb25nIFdhbmcg
-W21haWx0bzp4aXlvdS53YW5nY29uZ0BnbWFpbC5jb21dDQo+PlNlbnQ6IFRodXJzZGF5LCBKYW51
-YXJ5IDI2LCAyMDE3IDE6MzAgQU0NCj4+VG86IEppcmkgUGlya28gPGppcmlAcmVzbnVsbGkudXM+
-DQo+PkNjOiBMaW51eCBLZXJuZWwgTmV0d29yayBEZXZlbG9wZXJzIDxuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnPjsgRGF2aWQgTWlsbGVyDQo+PjxkYXZlbUBkYXZlbWxvZnQubmV0PjsgWW90YW0gR2ln
-aSA8eW90YW1nQG1lbGxhbm94LmNvbT47IElkbyBTY2hpbW1lbA0KPj48aWRvc2NoQG1lbGxhbm94
-LmNvbT47IEVsYWQgUmF6IDxlbGFkckBtZWxsYW5veC5jb20+OyBOb2dhaCBGcmFua2VsDQo+Pjxu
-b2dhaGZAbWVsbGFub3guY29tPjsgT3IgR2VybGl0eiA8b2dlcmxpdHpAbWVsbGFub3guY29tPjsg
-SmFtYWwgSGFkaSBTYWxpbQ0KPj48amhzQG1vamF0YXR1LmNvbT47IGdlZXJ0K3JlbmVzYXNAZ2xp
-ZGVyLmJlOyBTdGVwaGVuIEhlbW1pbmdlcg0KPj48c3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmc+
-OyBHdWVudGVyIFJvZWNrIDxsaW51eEByb2Vjay11cy5uZXQ+OyBSb29wYQ0KPj5QcmFiaHUgPHJv
-b3BhQGN1bXVsdXNuZXR3b3Jrcy5jb20+OyBKb2huIEZhc3RhYmVuZA0KPj48am9obi5mYXN0YWJl
-bmRAZ21haWwuY29tPjsgU2ltb24gSG9ybWFuDQo+PHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29t
-PjsNCj4+Um9tYW4gTWFzaGFrIDxtcnZAbW9qYXRhdHUuY29tPg0KPj5TdWJqZWN0OiBSZTogW3Bh
-dGNoIG5ldC1uZXh0IHYyIDIvNF0gbmV0L3NjaGVkOiBJbnRyb2R1Y2Ugc2FtcGxlIHRjIGFjdGlv
-bg0KPj4NCj4+T24gTW9uLCBKYW4gMjMsIDIwMTcgYXQgMjowNyBBTSwgSmlyaSBQaXJrbyA8amly
-aUByZXNudWxsaS51cz4gd3JvdGU6DQo+Pj4gKw0KPj4+ICtzdGF0aWMgaW50IHRjZl9zYW1wbGVf
-aW5pdChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBubGF0dHIgKm5sYSwNCj4+PiArICAgICAgICAg
-ICAgICAgICAgICAgICAgICBzdHJ1Y3QgbmxhdHRyICplc3QsIHN0cnVjdCB0Y19hY3Rpb24gKiph
-LCBpbnQgb3ZyLA0KPj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgIGludCBiaW5kKQ0KPj4+
-ICt7DQo+Pj4gKyAgICAgICBzdHJ1Y3QgdGNfYWN0aW9uX25ldCAqdG4gPSBuZXRfZ2VuZXJpYyhu
-ZXQsIHNhbXBsZV9uZXRfaWQpOw0KPj4+ICsgICAgICAgc3RydWN0IG5sYXR0ciAqdGJbVENBX1NB
-TVBMRV9NQVggKyAxXTsNCj4+PiArICAgICAgIHN0cnVjdCBwc2FtcGxlX2dyb3VwICpwc2FtcGxl
-X2dyb3VwOw0KPj4+ICsgICAgICAgc3RydWN0IHRjX3NhbXBsZSAqcGFybTsNCj4+PiArICAgICAg
-IHN0cnVjdCB0Y2Zfc2FtcGxlICpzOw0KPj4+ICsgICAgICAgYm9vbCBleGlzdHMgPSBmYWxzZTsN
-Cj4+PiArICAgICAgIGludCByZXQ7DQo+Pj4gKw0KPj4+ICsgICAgICAgaWYgKCFubGEpDQo+Pj4g
-KyAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOw0KPj4+ICsgICAgICAgcmV0ID0gbmxhX3Bh
-cnNlX25lc3RlZCh0YiwgVENBX1NBTVBMRV9NQVgsIG5sYSwgc2FtcGxlX3BvbGljeSk7DQo+Pj4g
-KyAgICAgICBpZiAocmV0IDwgMCkNCj4+PiArICAgICAgICAgICAgICAgcmV0dXJuIHJldDsNCj4+
-PiArICAgICAgIGlmICghdGJbVENBX1NBTVBMRV9QQVJNU10gfHwgIXRiW1RDQV9TQU1QTEVfUkFU
-RV0gfHwNCj4+PiArICAgICAgICAgICAhdGJbVENBX1NBTVBMRV9QU0FNUExFX0dST1VQXSkNCj4+
-PiArICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7DQo+Pj4gKw0KPj4+ICsgICAgICAgcGFy
-bSA9IG5sYV9kYXRhKHRiW1RDQV9TQU1QTEVfUEFSTVNdKTsNCj4+PiArDQo+Pj4gKyAgICAgICBl
-eGlzdHMgPSB0Y2ZfaGFzaF9jaGVjayh0biwgcGFybS0+aW5kZXgsIGEsIGJpbmQpOw0KPj4+ICsg
-ICAgICAgaWYgKGV4aXN0cyAmJiBiaW5kKQ0KPj4+ICsgICAgICAgICAgICAgICByZXR1cm4gMDsN
-Cj4+PiArDQo+Pj4gKyAgICAgICBpZiAoIWV4aXN0cykgew0KPj4+ICsgICAgICAgICAgICAgICBy
-ZXQgPSB0Y2ZfaGFzaF9jcmVhdGUodG4sIHBhcm0tPmluZGV4LCBlc3QsIGEsDQo+Pj4gKyAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAmYWN0X3NhbXBsZV9vcHMsIGJpbmQsIGZh
-bHNlKTsNCj4+PiArICAgICAgICAgICAgICAgaWYgKHJldCkNCj4+PiArICAgICAgICAgICAgICAg
-ICAgICAgICByZXR1cm4gcmV0Ow0KPj4+ICsgICAgICAgICAgICAgICByZXQgPSBBQ1RfUF9DUkVB
-VEVEOw0KPj4+ICsgICAgICAgfSBlbHNlIHsNCj4+PiArICAgICAgICAgICAgICAgdGNmX2hhc2hf
-cmVsZWFzZSgqYSwgYmluZCk7DQo+Pj4gKyAgICAgICAgICAgICAgIGlmICghb3ZyKQ0KPj4+ICsg
-ICAgICAgICAgICAgICAgICAgICAgIHJldHVybiAtRUVYSVNUOw0KPj4+ICsgICAgICAgfQ0KPj4+
-ICsgICAgICAgcyA9IHRvX3NhbXBsZSgqYSk7DQo+Pj4gKw0KPj4+ICsgICAgICAgQVNTRVJUX1JU
-TkwoKTsNCj4+DQo+PkNvcHktbi1wYXN0ZSBmcm9tIG1pcnJlZCBhY2l0b24/IFRoaXMgaXMgbm90
-IG5lZWRlZCBmb3IgeW91LCBtaXJyZWQNCj4+bmVlZHMgaXQgYmVjYXVzZSBvZiB0YXJnZXQgbmV0
-ZGV2aWNlLg0KPg0KPkhvLCB5b3UgYXJlIHJpZ2h0LiBJIHdpbGwgcmVtb3ZlIGl0Lg0KPg0KPj4N
-Cj4+DQo+Pj4gKyAgICAgICBzLT50Y2ZfYWN0aW9uID0gcGFybS0+YWN0aW9uOw0KPj4+ICsgICAg
-ICAgcy0+cmF0ZSA9IG5sYV9nZXRfdTMyKHRiW1RDQV9TQU1QTEVfUkFURV0pOw0KPj4+ICsgICAg
-ICAgcy0+cHNhbXBsZV9ncm91cF9udW0gPQ0KPj5ubGFfZ2V0X3UzMih0YltUQ0FfU0FNUExFX1BT
-QU1QTEVfR1JPVVBdKTsNCj4+PiArICAgICAgIHBzYW1wbGVfZ3JvdXAgPSBwc2FtcGxlX2dyb3Vw
-X2dldChuZXQsIHMtPnBzYW1wbGVfZ3JvdXBfbnVtKTsNCj4+PiArICAgICAgIGlmICghcHNhbXBs
-ZV9ncm91cCkNCj4+PiArICAgICAgICAgICAgICAgcmV0dXJuIC1FTk9NRU07DQo+Pg0KPj5JIGRv
-bid0IHRoaW5rIHlvdSBjYW4ganVzdCByZXR1cm4gaGVyZSwgbmVlZHMgdGNmX2hhc2hfY2xlYW51
-cCgpIGZvciBjcmVhdGUNCj4+Y2FzZSwgcmlnaHQ/DQo+DQo+V2lsbCBmaXguDQo+DQo+Pg0KPj4N
-Cj4+PiArICAgICAgIFJDVV9JTklUX1BPSU5URVIocy0+cHNhbXBsZV9ncm91cCwgcHNhbXBsZV9n
-cm91cCk7DQo+Pj4gKw0KPj4+ICsgICAgICAgaWYgKHRiW1RDQV9TQU1QTEVfVFJVTkNfU0laRV0p
-IHsNCj4+PiArICAgICAgICAgICAgICAgcy0+dHJ1bmNhdGUgPSB0cnVlOw0KPj4+ICsgICAgICAg
-ICAgICAgICBzLT50cnVuY19zaXplID0gbmxhX2dldF91MzIodGJbVENBX1NBTVBMRV9UUlVOQ19T
-SVpFXSk7DQo+Pj4gKyAgICAgICB9DQo+Pg0KPj4NCj4+RG8geW91IG5lZWQgdGNmX2xvY2sgaGVy
-ZSBpZiBSQ1Ugb25seSBwcm90ZWN0cyAtPnBzYW1wbGVfZ3JvdXA/Pw0KPj4NCj4NCj5Zb3UgYXJl
-IHJpZ2h0LiBJIG5lZWQgdG8gcHJvdGVjdCBpbiBjYXNlIG9mIHVwZGF0ZS4NCg0KQ29uZywgYWZ0
-ZXIgc29tZSB0aGlua2luZyBJIHRoaW5rIEkgZG9uJ3QgcmVhbGx5IG5lZWQgdGhlIHRjZl9sb2Nr
-IGhlcmUuIEkNCmRvbid0IHJlYWxseSBjYXJlIGlmIHRoZSB0cnVuY2F0ZSwgdHJ1bmNfc2l6ZSwg
-cmF0ZSBhbmQgdGNmX2FjdGlvbiBhcmUNCmNvbnNpc3RlbnQgYW1vbmcgdGhlbXNlbHZlcyAtIHRo
-ZSBvbmx5IHBhcmFtZXRlciB0aGF0IEkgY2FyZSBhYm91dCBpcyB0aGUNCnBzYW1wbGVfZ3JvdXAg
-cG9pbnRlciwgYW5kIGl0IGlzIHByb3RlY3RlZCB2aWEgUkNVLiBBcyBmYXIgYXMgSSBzZWUsIHRo
-ZXJlIGlzDQpubyBuZWVkIHRvIGxvY2sgaGVyZS4NCg0KSSBkbyBuZWVkIHRvIHRha2UgdGhlIHRj
-Zl9sb2NrIHRvIHByb3RlY3QgdGhlIHN0YXRpc3RpY3MgdXBkYXRlIGluIHRoZSANCnRjZl9zYW1w
-bGVfYWN0IGNvZGUsIGFzIGZhciBhcyBJIHNlZS4NCg0KQW0gSSBtaXNzaW5nIHNvbWV0aGluZz8N
-Cg0KPg0KPkkgd2lsbCBzZW5kIGEgZml4dXAgcGF0Y2ggaW4gdGhlIGZvbGxvd2luZyBkYXlzLiBU
-aGFua3MhDQo+DQo+Pg0KPj4+ICsNCj4+PiArICAgICAgIGlmIChyZXQgPT0gQUNUX1BfQ1JFQVRF
-RCkNCj4+PiArICAgICAgICAgICAgICAgdGNmX2hhc2hfaW5zZXJ0KHRuLCAqYSk7DQo+Pj4gKyAg
-ICAgICByZXR1cm4gcmV0Ow0KPj4+ICt9DQo+Pj4gKw0KPj4NCj4+DQo+PlRoYW5rcy4NCg==
+
+On 01/30/2017 09:06 AM, Boris Ostrovsky wrote:
+> On 01/30/2017 11:47 AM, Vineeth Remanan Pillai wrote:
+>
+>>> 2. It tickles a latent bug during resume where the timer triggers
+>>> before we re-connect. The trouble is that we now try to dereference
+>>> queue->rx.sring which is NULL since we disconnect in
+>>> netfront_resume(). (Curiously, I only observe it with 32-bit guests)
+>> I think we may hit this bug after removing the timer as well. We call
+>> RING_PUSH_REQUESTS_AND_CHECK_NOTIFY soon after, which also dereference
+>> queue->rx.sring.
+> If the timer is deleted in xennet_disconnect_backend() then why would
+> anyone be pushing anything to the backend after that?
+Sorry, I got the ordering wrong. Thanks for the clarification..
+
+Thanks,
+Vineeth
