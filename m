@@ -1,46 +1,35 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: Re: [PATCH] net: aquantia: atlantic: use new api ethtool_{get|set}_link_ksettings
-Date: Mon, 30 Jan 2017 22:26:44 +0100
-Message-ID: <CAC=8w93PE4jv-j+66qOxtXvfb5jRNskWhunDwd3BfQsLsci78w@mail.gmail.com>
-References: <1485610661-21099-1-git-send-email-tremyfr@gmail.com> <1485792782-5634-1-git-send-email-pavel.s.belous@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] smc: some potential use after free bugs
+Date: Mon, 30 Jan 2017 16:38:28 -0500 (EST)
+Message-ID: <20170130.163828.1269554309604072824.davem@davemloft.net>
+References: <20170130095504.7940-1-ubraun@linux.vnet.ibm.com>
+        <20170130095504.7940-2-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Pavel Belous <pavel.s.belous@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        dan.carpenter@oracle.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36507 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754386AbdA3VfP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 16:35:15 -0500
-Received: by mail-wm0-f45.google.com with SMTP id c85so233909008wmi.1
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 13:35:15 -0800 (PST)
-In-Reply-To: <1485792782-5634-1-git-send-email-pavel.s.belous@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41536 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754386AbdA3Vim (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 16:38:42 -0500
+In-Reply-To: <20170130095504.7940-2-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pavel,
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Mon, 30 Jan 2017 10:55:04 +0100
 
-On 1/30/17, Pavel Belous <pavel.s.belous@gmail.com> wrote:
-> Hi Philippe,
->
-> thanks you for your patch, it looks good.
-> One improvement - could you please add support/advertising for TP?
->
->>+	supported |= SUPPORTED_Autoneg;
-> need:
-> 	supported |= SUPPORTED_TP;
->
->
->>+	advertising = (self->aq_nic_cfg.is_autoneg) ?
->> 							ADVERTISED_Autoneg : 0U;
->
-> need:
-> 	advertising |= ADVERTISED_TP;
->
+> From: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> Say we got really unlucky and these failed on the last iteration, then
+> it could lead to a use after free bug.
+> 
+> Fixes: cd6851f30386 ("smc: remote memory buffers (RMBs)")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 
-Yes, of course, I add send, and I send a v2.
-
-> Thank you.
-
-Regards,
-Philippe
+Applied, thank you.
