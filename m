@@ -1,73 +1,31 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v5 2/4] net: dsa: b53: Add mirror capture register definitions
-Date: Mon, 30 Jan 2017 12:41:41 -0800
-Message-ID: <20170130204143.539-3-f.fainelli@gmail.com>
-References: <20170130204143.539-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, jiri@mellanox.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: Paritially checksum full MTU frames
+Date: Mon, 30 Jan 2017 15:51:26 -0500 (EST)
+Message-ID: <20170130.155126.1842306899158752940.davem@davemloft.net>
+References: <1485748373-14909-1-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36232 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754449AbdA3UvJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:51:09 -0500
-Received: by mail-pf0-f196.google.com with SMTP id 19so24063016pfo.3
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 12:51:09 -0800 (PST)
-In-Reply-To: <20170130204143.539-1-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39690 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754449AbdA3Uv2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 15:51:28 -0500
+In-Reply-To: <1485748373-14909-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add definitions for the different Roboswitch registers relevant for
-ingress and egress mirroring.
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Date: Sun, 29 Jan 2017 22:52:53 -0500
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/b53/b53_regs.h | 32 ++++++++++++++++++++++++++++++++
- 1 file changed, 32 insertions(+)
+> IPv6 will mark data that is smaller that mtu - headersize as
+> CHECKSUM_PARTIAL, but if the data will completely fill the mtu,
+> the packet checksum will be computed in software instead.
+> Extend the conditional to include the data that fills the mtu
+> as well.
+> 
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 
-diff --git a/drivers/net/dsa/b53/b53_regs.h b/drivers/net/dsa/b53/b53_regs.h
-index dac0af4e2cd0..9fd24c418fa4 100644
---- a/drivers/net/dsa/b53/b53_regs.h
-+++ b/drivers/net/dsa/b53/b53_regs.h
-@@ -206,6 +206,38 @@
- #define   BRCM_HDR_P8_EN		BIT(0) /* Enable tagging on port 8 */
- #define   BRCM_HDR_P5_EN		BIT(1) /* Enable tagging on port 5 */
- 
-+/* Mirror capture control register (16 bit) */
-+#define B53_MIR_CAP_CTL			0x10
-+#define  CAP_PORT_MASK			0xf
-+#define  BLK_NOT_MIR			BIT(14)
-+#define  MIRROR_EN			BIT(15)
-+
-+/* Ingress mirror control register (16 bit) */
-+#define B53_IG_MIR_CTL			0x12
-+#define  MIRROR_MASK			0x1ff
-+#define  DIV_EN				BIT(13)
-+#define  MIRROR_FILTER_MASK		0x3
-+#define  MIRROR_FILTER_SHIFT		14
-+#define  MIRROR_ALL			0
-+#define  MIRROR_DA			1
-+#define  MIRROR_SA			2
-+
-+/* Ingress mirror divider register (16 bit) */
-+#define B53_IG_MIR_DIV			0x14
-+#define  IN_MIRROR_DIV_MASK		0x3ff
-+
-+/* Ingress mirror MAC address register (48 bit) */
-+#define B53_IG_MIR_MAC			0x16
-+
-+/* Egress mirror control register (16 bit) */
-+#define B53_EG_MIR_CTL			0x1C
-+
-+/* Egress mirror divider register (16 bit) */
-+#define B53_EG_MIR_DIV			0x1E
-+
-+/* Egress mirror MAC address register (48 bit) */
-+#define B53_EG_MIR_MAC			0x20
-+
- /* Device ID register (8 or 32 bit) */
- #define B53_DEVICE_ID			0x30
- 
--- 
-2.9.3
+Looks good, applied, thanks!
