@@ -1,95 +1,34 @@
-From: Dimitris Michailidis <dmichail@google.com>
-Subject: [PATCH] ipv6: fix flow labels when the traffic class is non-0
-Date: Mon, 30 Jan 2017 14:09:42 -0800
-Message-ID: <20170130220942.19105-1-dmichail@google.com>
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-        Dimitris Michailidis <dmichail@google.com>
-To: davem@davemloft.net, tom@herbertland.com
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH] ipv6: fix flow labels when the traffic class is non-0
+Date: Mon, 30 Jan 2017 14:23:23 -0800
+Message-ID: <CANn89iLUfp7Y+LkvZ80UsFEw8VZ23=F6_SDyPzpbyAvxxoNeLw@mail.gmail.com>
+References: <20170130220942.19105-1-dmichail@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Tom Herbert <tom@herbertland.com>,
+        netdev <netdev@vger.kernel.org>
+To: Dimitris Michailidis <dmichail@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34298 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753376AbdA3WJu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 17:09:50 -0500
-Received: by mail-pf0-f170.google.com with SMTP id e4so93728626pfg.1
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 14:09:50 -0800 (PST)
+Received: from mail-io0-f169.google.com ([209.85.223.169]:35232 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752851AbdA3WYA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 17:24:00 -0500
+Received: by mail-io0-f169.google.com with SMTP id j18so118652972ioe.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 14:23:24 -0800 (PST)
+In-Reply-To: <20170130220942.19105-1-dmichail@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip6_make_flowlabel() determines the flow label for IPv6 packets. It's
-supposed to be passed a flow label, which it returns as is if non-0 and
-in some other cases, otherwise it calculates a new value.
+On Mon, Jan 30, 2017 at 2:09 PM, Dimitris Michailidis
+<dmichail@google.com> wrote:
+> ip6_make_flowlabel() determines the flow label for IPv6 packets. It's
+> supposed to be passed a flow label, which it returns as is if non-0 and
+> in some other cases, otherwise it calculates a new value.
+>
+> The problem is callers often pass a flowi6.flowlabel, which may also
+> contain traffic class bits.
 
-The problem is callers often pass a flowi6.flowlabel, which may also
-contain traffic class bits. If the traffic class is non-0
-ip6_make_flowlabel() mistakes the non-0 it gets as a flow label and
-returns the whole thing. Thus it can return a 'flow label' longer than
-20b and the low 20b of that is typically 0 resulting in packets with 0
-label. Moreover, different packets of a flow may be labeled differently.
-For a TCP flow with ECN non-payload and payload packets get different
-labels as exemplified by this pair of consecutive packets:
+Do you have an idea which commit added this bug Dimitris ?
 
-(pure ACK)
-Internet Protocol Version 6, Src: 2002:af5:11a3::, Dst: 2002:af5:11a2::
-    0110 .... = Version: 6
-    .... 0000 0000 .... .... .... .... .... = Traffic Class: 0x00 (DSCP: CS0, ECN: Not-ECT)
-        .... 0000 00.. .... .... .... .... .... = Differentiated Services Codepoint: Default (0)
-        .... .... ..00 .... .... .... .... .... = Explicit Congestion Notification: Not ECN-Capable Transport (0)
-    .... .... .... 0001 1100 1110 0100 1001 = Flow Label: 0x1ce49
-    Payload Length: 32
-    Next Header: TCP (6)
-
-(payload)
-Internet Protocol Version 6, Src: 2002:af5:11a3::, Dst: 2002:af5:11a2::
-    0110 .... = Version: 6
-    .... 0000 0010 .... .... .... .... .... = Traffic Class: 0x02 (DSCP: CS0, ECN: ECT(0))
-        .... 0000 00.. .... .... .... .... .... = Differentiated Services Codepoint: Default (0)
-        .... .... ..10 .... .... .... .... .... = Explicit Congestion Notification: ECN-Capable Transport codepoint '10' (2)
-    .... .... .... 0000 0000 0000 0000 0000 = Flow Label: 0x00000
-    Payload Length: 688
-    Next Header: TCP (6)
-
-This patch allows ip6_make_flowlabel() to be passed more than just a
-flow label and has it extract the part it really wants. This was simpler
-than modifying the callers. With this patch packets like the above become
-
-Internet Protocol Version 6, Src: 2002:af5:11a3::, Dst: 2002:af5:11a2::
-    0110 .... = Version: 6
-    .... 0000 0000 .... .... .... .... .... = Traffic Class: 0x00 (DSCP: CS0, ECN: Not-ECT)
-        .... 0000 00.. .... .... .... .... .... = Differentiated Services Codepoint: Default (0)
-        .... .... ..00 .... .... .... .... .... = Explicit Congestion Notification: Not ECN-Capable Transport (0)
-    .... .... .... 1010 1111 1010 0101 1110 = Flow Label: 0xafa5e
-    Payload Length: 32
-    Next Header: TCP (6)
-
-Internet Protocol Version 6, Src: 2002:af5:11a3::, Dst: 2002:af5:11a2::
-    0110 .... = Version: 6
-    .... 0000 0010 .... .... .... .... .... = Traffic Class: 0x02 (DSCP: CS0, ECN: ECT(0))
-        .... 0000 00.. .... .... .... .... .... = Differentiated Services Codepoint: Default (0)
-        .... .... ..10 .... .... .... .... .... = Explicit Congestion Notification: ECN-Capable Transport codepoint '10' (2)
-    .... .... .... 1010 1111 1010 0101 1110 = Flow Label: 0xafa5e
-    Payload Length: 688
-    Next Header: TCP (6)
-
-Signed-off-by: Dimitris Michailidis <dmichail@google.com>
----
- include/net/ipv6.h | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 7afe991e900e..dbf0abba33b8 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -776,6 +776,11 @@ static inline __be32 ip6_make_flowlabel(struct net *net, struct sk_buff *skb,
- {
- 	u32 hash;
- 
-+	/* @flowlabel may include more than a flow label, eg, the traffic class.
-+	 * Here we want only the flow label value.
-+	 */
-+	flowlabel &= IPV6_FLOWLABEL_MASK;
-+
- 	if (flowlabel ||
- 	    net->ipv6.sysctl.auto_flowlabels == IP6_AUTO_FLOW_LABEL_OFF ||
- 	    (!autolabel &&
--- 
-2.11.0.483.g087da7b7c-goog
+Thanks !
