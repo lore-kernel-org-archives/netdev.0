@@ -1,94 +1,58 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for loading NVS calibration data
-Date: Tue, 31 Jan 2017 08:35:09 +0200
-Message-ID: <8737fzrb36.fsf@kamboji.qca.qualcomm.com>
-References: <def4c357-64c0-0681-a5d5-f49a6cb84a92@broadcom.com>
-        <20170127101043.GD24223@pali>
-        <f60cf2c0-bc1e-3a5f-991c-dc6c95a656af@broadcom.com>
-        <20170127103408.GG24223@pali>
-        <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
-        <20170127115706.GH24223@pali>
-        <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
-        <20170127131146.GI24223@pali>
-        <87bmus5xyc.fsf@kamboji.qca.qualcomm.com> <20170127194012.GE20571@amd>
-        <20170130175309.GY7403@atomide.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: fs, net: deadlock between bind/splice on af_unix
+Date: Mon, 30 Jan 2017 22:44:03 -0800
+Message-ID: <CAM_iQpWSRjh4sV-hQxSAFsmvXZ1P4u959vm+UfCP55szQUb0-g@mail.gmail.com>
+References: <CACT4Y+Z981V+QLHr=PnQy1Dvxrpp-nCDhQtf+5HuNAusH+Vqxw@mail.gmail.com>
+ <CACT4Y+a-fTzW95ViVP3knhNTa=h6XFB0bMddcyQVeeV+LbXKHw@mail.gmail.com>
+ <CAM_iQpXu+fyjmvrYRB9+VJCdSLS=7Jiet762hqWDANfsOM0XWw@mail.gmail.com>
+ <20161209013208.GW1555@ZenIV.linux.org.uk> <CAM_iQpXjeG5=wZyQP-yOKcB4WRfgGRjeQ+NDHyeSWwdU50Xh5g@mail.gmail.com>
+ <20161209064144.GZ1555@ZenIV.linux.org.uk> <CACT4Y+ad1s6HPdw-ocQ5YfFx7qCeWb3z1k7F9+9KsNmw6+Tszw@mail.gmail.com>
+ <CAM_iQpWu+V2E_uxJLUjS+xM+94CKKR+Bv95UrFPuswUAuAGM+w@mail.gmail.com>
+ <20170126232912.rgh6undqxd4tofqj@dhcp-1-212.brq.redhat.com>
+ <CAM_iQpXqqmAGPbo6jNJV4bOco9sfvXukNAxYPp4tfL=CNwF-RA@mail.gmail.com> <20170127064143.ddyt43iglu2odlld@dhcp-1-212.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
-        Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-        "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>,
-        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
-        Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>,
-        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
-        Grazvydas Ignotas <notasas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170130175309.GY7403-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org> (Tony Lindgren's message of
-        "Mon, 30 Jan 2017 09:53:09 -0800")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Mateusz Guzik <mguzik@redhat.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20170127064143.ddyt43iglu2odlld@dhcp-1-212.brq.redhat.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org> writes:
-
-> * Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org> [170127 11:41]:
->> On Fri 2017-01-27 17:23:07, Kalle Valo wrote:
->> > Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->> >=20
->> > > On Friday 27 January 2017 14:26:22 Kalle Valo wrote:
->> > >> Pali Roh=C3=A1r <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->> > >>=20
->> > >> > 2) It was already tested that example NVS data can be used for N9=
-00 e.g.
->> > >> > for SSH connection. If real correct data are not available it is =
-better
->> > >> > to use at least those example (and probably log warning message) =
-so user
->> > >> > can connect via SSH and start investigating where is problem.
->> > >>=20
->> > >> I disagree. Allowing default calibration data to be used can be
->> > >> unnoticed by user and left her wondering why wifi works so badly.
->> > >
->> > > So there are only two options:
->> > >
->> > > 1) Disallow it and so these users will have non-working wifi.
->> > >
->> > > 2) Allow those data to be used as fallback mechanism.
->> > >
->> > > And personally I'm against 1) because it will break wifi support for
->> > > *all* Nokia N900 devices right now.
->> >=20
->> > All two of them? :)
->>=20
->> Umm. You clearly want a flock of angry penguins at your doorsteps :-).
+On Thu, Jan 26, 2017 at 10:41 PM, Mateusz Guzik <mguzik@redhat.com> wrote:
+> On Thu, Jan 26, 2017 at 09:11:07PM -0800, Cong Wang wrote:
+>> On Thu, Jan 26, 2017 at 3:29 PM, Mateusz Guzik <mguzik@redhat.com> wrote:
+>> > Currently the file creation is potponed until unix_bind can no longer
+>> > fail otherwise. With it reordered, it may be someone races you with a
+>> > different path and now you are left with a file to clean up. Except it
+>> > is quite unclear for me if you can unlink it.
+>>
+>> What races do you mean here? If you mean someone could get a
+>> refcount of that file, it could happen no matter we have bindlock or not
+>> since it is visible once created. The filesystem layer should take care of
+>> the file refcount so all we need to do here is calling path_put() as in my
+>> patch. Or if you mean two threads calling unix_bind() could race without
+>> binlock, only one of them should succeed the other one just fails out.
 >
-> Well this silly issue of symlinking and renaming nvs files in a standard
-> Linux distro was also hitting me on various devices with wl12xx/wl18xx
-> trying to use the same rootfs.
+> Two threads can race and one fails with EINVAL.
 >
-> Why don't we just set a custom compatible property for n900 that then
-> picks up some other nvs file instead of the default?
+> With your patch there is a new file created and it is unclear what to
+> do with it - leaving it as it is sounds like the last resort and
+> unlinking it sounds extremely fishy as it opens you to games played by
+> the user.
 
-Please don't. An ugly kernel workaround in kernel because of user space
-problems is a bad idea. wl1251 should just ask for NVS file from user
-space, it shouldn't care if it's a "default" file or something else.
-That's a user space policy decision.
+But the file is created and visible to users too even without my patch,
+the file is also put when the unix sock is released. So the only difference
+my patch makes is bindlock is no longer taken during file creation, which
+does not seem to be the cause of the problem you complain here.
 
-Why can't you do something like this:
-
-* rename the NVS file linux-firmware to wl1251-nvs.bin.example
-
-* before distro updates linux-firmware create yours own deb/rpm/whatever
-  package "wl1251-firmware" which installs your flavor of nvs file (or
-  the user fallback helper if more dynamic functionality is preferred)
-
---=20
-Kalle Valo
+Mind being more specific?
