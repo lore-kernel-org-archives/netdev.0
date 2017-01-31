@@ -1,164 +1,75 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Mon, 30 Jan 2017 19:32:05 -0800
-Message-ID: <58900535.2050709@fb.com>
-References: <20170126233241.2268449-1-tom@herbertland.com>
- <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
- <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
- <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
- <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
- <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
- <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
- <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
- <588BD66E.2050201@fb.com>
- <CALzJLG_abLhT7wcrtB97KzurJ2-=OZv11cELjoRW79cOeyjxgw@mail.gmail.com>
- <588CDA55.7030900@fb.com>
- <CALzJLG9OksXW5JAZiPoSfKtTF_z8Te9UDP9bm_XhXAp-FwmwEw@mail.gmail.com>
- <588F6DC7.70904@fb.com>
- <CALzJLG9Ltw7UdptVj0DbcUf4xCvooC1CkFXhSXXdt-d5-pL4ug@mail.gmail.com>
+Subject: Re: [PATCH v2 net-next] net: ethtool: convert large order kmalloc
+ allocations to vzalloc
+Date: Mon, 30 Jan 2017 19:41:32 -0800
+Message-ID: <5890076C.5080305@fb.com>
+References: <1485829518-190263-1-git-send-email-ast@fb.com>
+ <1485833281.20550.17.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Cc: Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54394 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750834AbdAaDc0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 22:32:26 -0500
-In-Reply-To: <CALzJLG9Ltw7UdptVj0DbcUf4xCvooC1CkFXhSXXdt-d5-pL4ug@mail.gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33454 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751200AbdAaDls (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 22:41:48 -0500
+In-Reply-To: <1485833281.20550.17.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/17 1:18 PM, Saeed Mahameed wrote:
-> On Mon, Jan 30, 2017 at 6:45 PM, Alexei Starovoitov <ast@fb.com> wrote:
->> On 1/29/17 1:11 AM, Saeed Mahameed wrote:
->>>
->>>
->>> ConnectX4/5 and hopefully so on .. provide three different isolated
->>> steering layers:
->>>
->>> 3. vport layer: avaialbe for any PF/VF vport nic driver instance
->>> (netdevice), it allows vlan/mac filtering
->>>    ,RSS hashing and n-tuple steering (for both encapsulated and
->>> nonencapsulated traffic) and RFS steering. ( the code above only
->>> writes flow entries of a PF/VF to its own vport flow tables, there is
->>> another mechanism to propagate l2 steering rules down to eswitch from
->>> the vport layer.
->>>
->>> 2. eswitch layer: Available for PFs only with
->>> HCA_CAP.vport_group_manager capability set.
->>> it allows steering between PF and different VFs on the same host (vlan
->>> mac steering and ACL filters in sriov legacy mode, and fancy n-tuple
->>> steering and offloads for switchdev mode - eswitch_offloads.c - )
->>> if this table is not create the default is pass-throu traffic to PF
->>>
->>> 1. L2 table: Available for PFs only with HCA_CAP.vport_group_manager
->>> capability set.
->>> needed for MH configurations and only PF is allowed and should write
->>> "request UC MAC - set_l2_table_entry" on behalf of the PF itself and
->>> it's own VFs.
->>>
->>> - On a bare metal machine only layer 3 is required (all traffic is
->>> passed to the PF vport).
->>> - On a MH configuration layer 3 and 1 are required.
->>> - On a SRIOV configuration layer 3 and 2 are required.
->>> - On MH with SRIOV all layers are required.
->>>
->>> in the driver, eswitch and L2 layers are handled by PF@eswitch.c.
->>>
->>> So for your question:
->>>
->>> PF always init_eswitch ( no eswitch -sriov- tables are created), and
->>> the eswitch will start listening for vport_change_events.
->>>
->>> A PF/VF or netdev vport instance on any steering changes updates
->>> should call  mlx5e_vport_context_update[1]
->>>
->>> vport_context_update is A FW command that will store the current
->>> UC/MC/VLAN list and promiscuity info of a vport.
->>>
->>> The FW will generate an event to the PF driver eswitch manager (vport
->>> manager) mlx5_eswitch_vport_event [2], and the PF eswitch will call
->>> set_l2_table_entry for each UC mac on each vport change event of any
->>> vport (including its own vport), in case of SRIOV is enabled it will
->>> update eswitch tables as well.
->>>
->>> To simplify my answer the function calls are:
->>> Vport VF/PF netdevice:
->>> mlx5e_set_rx_mode_work
->>>       mlx5e_vport_context_update
->>>          mlx5e_vport_context_update_addr_list  --> FW event will be
->>> generated to the PF esiwtch manager
->>>
->>> PF eswitch manager(eswitch.c) on a vport change FW event:
->>> mlx5_eswitch_vport_event
->>>         esw_vport_change_handler
->>>              esw_vport_change_handle_locked
->>>                      esw_apply_vport_addr_list
->>>                                 esw_add_uc_addr
->>>                                        set_l2_table_entry --> this will
->>> update the l2 table in case MH is enabled.
+On 1/30/17 7:28 PM, Joe Perches wrote:
+> On Mon, 2017-01-30 at 18:25 -0800, Alexei Starovoitov wrote:
+>> under memory pressure 'ethtool -S' command may warn:
+>> [ 2374.385195] ethtool: page allocation failure: order:4, mode:0x242c0c0
+>> [ 2374.405573] CPU: 12 PID: 40211 Comm: ethtool Not tainted
+>> [ 2374.423071] Call Trace:
+>> [ 2374.423076]  [<ffffffff8148cb29>] dump_stack+0x4d/0x64
+>> [ 2374.423080]  [<ffffffff811667cb>] warn_alloc_failed+0xeb/0x150
+>> [ 2374.423082]  [<ffffffff81169cd3>] ? __alloc_pages_direct_compact+0x43/0xf0
+>> [ 2374.423084]  [<ffffffff8116a25c>] __alloc_pages_nodemask+0x4dc/0xbf0
+>> [ 2374.423091]  [<ffffffffa0023dc2>] ? cmd_exec+0x722/0xcd0 [mlx5_core]
+>> [ 2374.423095]  [<ffffffff811b3dcc>] alloc_pages_current+0x8c/0x110
+>> [ 2374.423097]  [<ffffffff81168859>] alloc_kmem_pages+0x19/0x90
+>> [ 2374.423099]  [<ffffffff81186e5e>] kmalloc_order_trace+0x2e/0xe0
+>> [ 2374.423101]  [<ffffffff811c0084>] __kmalloc+0x204/0x220
+>> [ 2374.423105]  [<ffffffff816c269e>] dev_ethtool+0xe4e/0x1f80
+>> [ 2374.423106]  [<ffffffff816b967e>] ? dev_get_by_name_rcu+0x5e/0x80
+>> [ 2374.423108]  [<ffffffff816d6926>] dev_ioctl+0x156/0x560
+>> [ 2374.423111]  [<ffffffff811d4c68>] ? mem_cgroup_commit_charge+0x78/0x3c0
+>> [ 2374.423117]  [<ffffffff8169d542>] sock_do_ioctl+0x42/0x50
+>> [ 2374.423119]  [<ffffffff8169d9c3>] sock_ioctl+0x1b3/0x250
+>> [ 2374.423121]  [<ffffffff811f0f42>] do_vfs_ioctl+0x92/0x580
+>> [ 2374.423123]  [<ffffffff8100222b>] ? do_audit_syscall_entry+0x4b/0x70
+>> [ 2374.423124]  [<ffffffff8100287c>] ? syscall_trace_enter_phase1+0xfc/0x120
+>> [ 2374.423126]  [<ffffffff811f14a9>] SyS_ioctl+0x79/0x90
+>> [ 2374.423127]  [<ffffffff81002bb0>] do_syscall_64+0x50/0xa0
+>> [ 2374.423129]  [<ffffffff817e19bc>] entry_SYSCALL64_slow_path+0x25/0x25
 >>
->>
->> all makes sense. To test this logic I added printk-s
->> to above functions, but I only see:
->> # ip link set eth0 addr 24:8a:07:47:2b:6e
->> [  148.861914] mlx5e_vport_context_update_addr_list: is_uc 1 err 0
->> [  148.875152] mlx5e_vport_context_update_addr_list: is_uc 0 err 0
->>
->> MLX5_EVENT_TYPE_NIC_VPORT_CHANGE doesn't come into mlx5_eq_int().
+>> ~1160 mlx5 counters ~= order 4 allocation which is unlikely to succeed
+>> under memory pressure. Convert them to vzalloc() as ethtool_get_regs() does.
+>> Also take care of drivers without counters similar to
+>> commit 67ae7cf1eeda ("ethtool: Allow zero-length register dumps again")
+>> and reduce warn_on to warn_on_once.
 >
-> Strange, just double checked and i got those events on latest net-next
-> bare-metal box.
->
->> Yet nic seems to work fine. Packets come and go.
->>
->
-> Is it multi host configuration or bare metal ?
+> I think this is generally not a good idea as
+> most uses already fit fine in a kcalloc.
 
-multihost
+most nics have large numbers of counters that don't fit into one page.
+that's already pushing mm.
+especially in this case control plane apps call 'ethtool -S'
+periodically.
 
-> Do you have internal loopback traffic between different hosts ?
+> Maybe use Michal Hocko's kvmalloc changes.
+> https://lkml.org/lkml/2017/1/30/120
 
-in a multihost? how can I check that?
-Is there an ethtool command?
-
->> broken firmware or expected behavior?
->
-> which driver did you test ? backported or net-next ?
-
-both backported and net-next with Tom's patches.
-
-> if it is backported driver please verify that on driver load the
-> following occurs :
->
-> 1. VPORTS change events are globally enabled:
-> in mlx5_start_eqs@eq.c:
-> async_event_mask |= (1ull << MLX5_EVENT_TYPE_NIC_VPORT_CHANGE);
-
-this one is done.
-
-> 2. UC address change events are enabled for vport 0 (PF):
-> In eswitch_attach or on eswitch_init (depends on the kernel version) @eswitch.c
-> esw_enable_vport(esw, 0, UC_ADDR_CHANGE); is called.
-
-this one is not. Tom's proposal to compile out eswitch.c
-removes invocation of mlx5_eswitch_attach() and
-corresponding esw_enable_vport() call as well.
-The question is why is it necessary?
-What will break if it's not done?
-so far we don't see any adverse effects in both multihost
-and baremetal setups.
-
-> BTW folks, i am going to be on vacation for the rest of the week, so
-> please expect slow responses.
-
-have a great time off. I hope other mlx folks can answer.
+v1 discussion here
+http://patchwork.ozlabs.org/patch/721122/
+as I mentioned there long term I don't mind using kvmalloc,
+but the issue has to be fixed now. Either via vzalloc or nowarn+noretry.
+My stress testing with memory hog shows that kmalloc fails
+quite often, thankfully user space daemon is ready for failures,
+whereas vzalloc approach works all the time and no extra headaches
+for user space.
