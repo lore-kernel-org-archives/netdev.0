@@ -1,59 +1,60 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
- xennet_disconnect_backend()
-Date: Tue, 31 Jan 2017 12:47:14 -0500
-Message-ID: <10b1d554-b395-88fa-eee3-a77754ad14bd@oracle.com>
-References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
- <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
- <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
- <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
- <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: ip_auto_config() prevents network device to be registered
+Date: Tue, 31 Jan 2017 14:49:52 -0300
+Message-ID: <b7ad0acb-1cad-3a45-0b0f-57d576ff1a36@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: jgross@suse.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, stable@vger.kernel.org, vineethp@amazon.com,
- xen-devel@lists.xenproject.org, paul.durrant@citrix.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
+        Kevin Hilman <khilman@baylibre.com>,
+        Shuah Khan <shuahkh@osg.samsung.com>,
+        LKML <linux-kernel@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDEvMzAvMjAxNyAwMjozMSBQTSwgQm9yaXMgT3N0cm92c2t5IHdyb3RlOgo+IE9uIDAxLzMw
-LzIwMTcgMDI6MDYgUE0sIEVyaWMgRHVtYXpldCB3cm90ZToKPj4gT24gTW9uLCAyMDE3LTAxLTMw
-IGF0IDEzOjIzIC0wNTAwLCBCb3JpcyBPc3Ryb3Zza3kgd3JvdGU6Cj4+Cj4+PiBXZSBkbyBuZXRp
-Zl9jYXJyaWVyX29mZigpIGZpcnN0IHRoaW5nIGluIHhlbm5ldF9kaXNjb25uZWN0X2JhY2tlbmQo
-KSBhbmQKPj4+IHRoZSBvbmx5IHBsYWNlIHdoZXJlIHRoZSB0aW1lciBpcyByZWFybWVkIGlzIHhl
-bm5ldF9hbGxvY19yeF9idWZmZXJzKCksCj4+PiB3aGljaCBpcyBndWFyZGVkIGJ5IG5ldGlmX2Nh
-cnJpZXJfb2soKSBjaGVjay4KPj4gT2ggd2VsbCwgdGVzdGluZyBuZXRpZl9jYXJyaWVyX29rKCkg
-aW4gcGFja2V0IHByb2Nlc3NpbmcgZmFzdCBwYXRoIGxvb2tzCj4+IHVudXN1YWwgYW5kIGEgd2Fz
-dGUgb2YgY3B1IGN5Y2xlcy4gSSd2ZSBuZXZlciBzZWVuIHRoYXQgcGF0dGVybiBiZWZvcmUuCj4+
-Cj4+IElmIG9uZSBkYXksIHdlIHJlbW92ZSB0aGlzIG5ldGlmX2NhcnJpZXJfb2soKSB0ZXN0IGR1
-cmluZyBhIGNsZWFudXAsCj4+IHRoZW4gdGhlIHJhY2Ugd2luZG93IHdpbGwgb3BlbiBhZ2Fpbi4K
-Pgo+IEkgZG9uJ3Qga25vdyBtdWNoIGFib3V0IG5hcGkgYnV0IEkgd29uZGVyIHdoZXRoZXIgSSBj
-YW4gaW5kZWVkIGRpc2FibGUKPiBpdCBpbiB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKCkuIEkg
-ZG9uJ3Qgc2VlIGhvdyBhbnl0aGluZyBjYW4gaGFwcGVuCj4gYWZ0ZXIgZGlzY29ubmVjdCBzaW5j
-ZSBpdCB1bm1hcHMgdGhlIHJpbmdzLiBBbmQgdGhlbiBuYXBpIGlzIHJlLWVuYWJsZWQKPiBkdXJp
-bmcgcmVjb25uZWN0aW9uIGluIHhlbm5ldF9jcmVhdGVfcXVldWVzKCkuIEluIHdoaWNoIGNhc2Ug
-YW0gbm90IHN1cmUKPiB0aGVyZSBpcyBhbnkgbmVlZCBmb3IgeGVubmV0X2Rlc3Ryb3lfcXVldWVz
-KCkgYXMgZXZlcnl0aGluZyB0aGVyZSBjb3VsZAo+IGJlIGZvbGRlZCBpbnRvIHhlbm5ldF9kaXNj
-b25uZWN0X2JhY2tlbmQoKS4KCldoaWxlIHRoaXMgZG9lcyB3b3JrLCB0aGVyZSB3YXMgYSByZWFz
-b24gd2h5IG5hcGlfZGlzYWJsZSgpIHdhcyBub3QKY2FsbGVkIGluIHhlbm5ldF9kaXNjb25uZWN0
-X2JhY2tlbmQoKSBhbmQgaXQgaXMgZXhwbGFpbmVkIGluIGNvbW1pdApjZTU4NzI1ZmVjNmUgLS0t
-IG5hcGlfZGlzYWJsZSgpIG1heSBzbGVlcCBhbmQgdGhhdCdzIHdoeSBpdCBpcyBjYWxsZWQgaW4K
-eGVubmV0X2Rlc3Ryb3lfcXVldWVzKCkuCgpPVE9ILCB0aGVyZSBpcyBhIG5hcGlfc3luY2hyb25p
-emUoKSBjYWxsIGluIHhlbm5ldF9kZXN0cm95X3F1ZXVlcygpLgpXaWxsIGRlc3Ryb3lpbmcgdGhl
-IHRpbWVyIGFmdGVyIGl0IGd1YXJhbnRlZSB0aGF0IGFsbCBwcmVjZWRpbmcgUlggaGF2ZQpiZWVu
-IGNvbXBsZXRlZD8gUlggaW50ZXJydXB0IGlzIGRpc2FibGVkIHByaW9yIHRvIG5hcGlfc3luY2hy
-b25pemUoKSBzbwpwcmVzdW1hYmx5IG5vdGhpbmcgbmV3IGNhbiBiZSByZWNlaXZlZC4KCgotYm9y
-aXMKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4t
-ZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMu
-eGVuLm9yZy94ZW4tZGV2ZWwK
+Hello,
+
+The kernelci folks pointed out that a Samsung Exynos based board was failing
+to boot when trying to mount the rootfs via NFS, due a networking issue [0].
+
+I looked at the issue and it turned out to be a race between ip_auto_config()
+and register_netdev() when using the ip=dhcp param in the kernel command line.
+
+The problem is that ip_auto_config() calls wait_for_devices() [1] and returns
+as soon as it finds a network device registered. Then ic_open_devs() [2] is
+called then to bring the network devs up and wait for their carrier signals.
+
+But ic_open_devs() grabs the rtnl_mutex lock [3] when doing this, which is the
+same lock that register_netdev() [4] grabs before registering a network device.
+
+And so if a network dev is found and wait_for_devices() returns, ic_open_devs()
+will be called and no new network dev could be registered in the meantime.
+
+So since ic_open_devs() waits up to CONF_CARRIER_TIMEOUT (120 secs) with this
+lock held, if the network dev that's supposed to get its IP over DHCP isn't the
+first to be registered, the boot test job may timeout and be considered a fail.
+
+A workaround is to use ip=:::::eth0:dhcp instead ip=dhcp, so wait_for_devices()
+waits for this specific device. Another workaround is to increase the timeout
+for the job to be much bigger than CONF_CARRIER_TIMEOUT so ip_auto_config() can
+retry and the network devices can be registered between tries.
+
+But I wonder if someone can suggest a proper way to fix this. Grabbing a mutex
+that prevents network devs to be registered for 120 secs doesn't sound correct.
+
+Thanks a lot for your help and please let me know if I misunderstood something.
+
+[0]: https://storage.kernelci.org/mainline/v4.9/arm-exynos_defconfig/lab-collabora/boot-exynos5422-odroidxu3_rootfs:nfs.html
+[1]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L1368
+[2]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L202
+[3]: http://lxr.free-electrons.com/source/net/core/rtnetlink.c#L68
+[4]: http://lxr.free-electrons.com/source/net/core/dev.c#L7326
+
+Best regards,
+-- 
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
