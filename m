@@ -1,104 +1,85 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix for iq and droq cnts going negative
-Date: Tue, 31 Jan 2017 13:04:42 -0800
-Message-ID: <20170131210442.GA5435@felix.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
-To: <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [pull request][net-next 0/8] Mellanox mlx5 updates 2017-01-31
+Date: Tue, 31 Jan 2017 22:58:35 +0200
+Message-ID: <20170131205843.23235-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0056.outbound.protection.outlook.com ([104.47.38.56]:60864
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750885AbdAaVFx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Jan 2017 16:05:53 -0500
-Content-Disposition: inline
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60061 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751240AbdAaVFo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 16:05:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Satanand Burla <satananda.burla@cavium.com>
+Hi Dave,
 
-Flush the mmio writes before releasing spin locks.
-if the maintained counts get too high > 2M force
-writeback of the counts to clear them
+This pull request includes two new features and two small fixes for net-next,
+Details are bleow.
 
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Please pull and let me know if there's any problem.
+
+Thanks,
+Saeed.
+
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c        | 6 +++++-
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c     | 6 +++++-
- drivers/net/ethernet/cavium/liquidio/liquidio_common.h | 1 +
- drivers/net/ethernet/cavium/liquidio/octeon_device.c   | 4 ++++
- 4 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index fbe1986..c12cfa4 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2445,7 +2445,11 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 			__func__, iq_no);
- 	}
- 
--	if ((work_done < budget) && (tx_done)) {
-+	/* force enable interrupt if reg cnts are high to avoid wraparound */
-+	if ((work_done < budget && tx_done) ||
-+	    (iq->pkt_in_done >= MAX_REG_CNT) ||
-+	    (droq->pkt_count >= MAX_REG_CNT)) {
-+		tx_done = 1;
- 		napi_complete_done(napi, work_done);
- 		octeon_process_droq_poll_cmd(droq->oct_dev, droq->q_no,
- 					     POLL_EVENT_ENABLE_INTR, 0);
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 78cfa8b..631f1c0f 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1630,7 +1630,11 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 			__func__, iq_no);
- 	}
- 
--	if ((work_done < budget) && (tx_done)) {
-+	/* force enable interrupt if reg cnts are high to avoid wraparound */
-+	if ((work_done < budget && tx_done) ||
-+	    (iq->pkt_in_done >= MAX_REG_CNT) ||
-+	    (droq->pkt_count >= MAX_REG_CNT)) {
-+		tx_done = 1;
- 		napi_complete_done(napi, work_done);
- 		octeon_process_droq_poll_cmd(droq->oct_dev, droq->q_no,
- 					     POLL_EVENT_ENABLE_INTR, 0);
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index bc0af8a..294c6f3 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -99,6 +99,7 @@ enum octeon_tag_type {
- #define CVM_DRV_APP_END             (CVM_DRV_INVALID_APP - 1)
- 
- #define BYTES_PER_DHLEN_UNIT        8
-+#define MAX_REG_CNT                 2000000U
- 
- static inline u32 incr_index(u32 index, u32 count, u32 max)
- {
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index a8df493..9675ffb 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -1361,6 +1361,8 @@ void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
- 		spin_lock_bh(&droq->lock);
- 		writel(droq->pkt_count, droq->pkts_sent_reg);
- 		droq->pkt_count = 0;
-+		/* this write needs to be flushed before we release the lock */
-+		mmiowb();
- 		spin_unlock_bh(&droq->lock);
- 		oct = droq->oct_dev;
- 	}
-@@ -1368,6 +1370,8 @@ void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
- 		spin_lock_bh(&iq->lock);
- 		writel(iq->pkt_in_done, iq->inst_cnt_reg);
- 		iq->pkt_in_done = 0;
-+		/* this write needs to be flushed before we release the lock */
-+		mmiowb();
- 		spin_unlock_bh(&iq->lock);
- 		oct = iq->oct_dev;
- 	}
+The following changes since commit 624374a56419c2d6d428c862f32cc1b20519095d:
+
+  Merge branch 'bgmac-phy-init' (2017-01-31 13:44:50 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-updates-2017-01-31
+
+for you to fetch changes up to 4abee9190fcac371116aa73c2e0f86c6b72f8fe3:
+
+  net/mlx5e: Bring back bfreg uar map dedicated pointer (2017-01-31 21:34:10 +0200)
+
+----------------------------------------------------------------
+mlx5-updates-2017-01-31
+
+This series includes some updates to mlx5 core and ethernet driver.
+
+We got one patch from Or to fix some static checker warnings.
+
+2nd and 3rd patches from Dan came to add the support for 128B cache line
+in the HCA, which will configures the hardware to use 128B alignment only
+on systems with 128B cache lines, otherwise it will be kept as the current
+default of 64B.
+
+>From me four patches to support no inline copy on TX on ConnectX-5 and
+later HCAs.  Starting with two small infrastructure changes and
+refactoring patches followed by two patches to add the actual support for
+both xmit ndo and XDP xmit routines.
+Last patch is a simple fix to return a mistakenly removed pointer from the
+SQ structure, which was remove in previous submission of mlx5 4K UAR.
+
+Saeed.
+
+----------------------------------------------------------------
+Daniel Jurgens (2):
+      net/mlx5: Configure cache line size for start and end padding
+      net/mlx5e: Lower bound MPWRQ stride by HCA cacheline
+
+Or Gerlitz (1):
+      net/mlx5: Fixed static checker warnings
+
+Saeed Mahameed (5):
+      net/mlx5: TX WQE update
+      net/mlx5e: Calc vlan_tag_present only once on xmit
+      net/mlx5e: Tx, no inline copy on ConnectX-5
+      net/mlx5e: XDP Tx, no inline copy on ConnectX-5
+      net/mlx5e: Bring back bfreg uar map dedicated pointer
+
+ drivers/infiniband/hw/mlx5/qp.c                   |  6 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      | 17 +++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 21 ++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 20 ++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c   |  8 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 47 +++++++++++++----------
+ drivers/net/ethernet/mellanox/mlx5/core/main.c    |  6 +++
+ include/linux/mlx5/device.h                       |  3 +-
+ include/linux/mlx5/mlx5_ifc.h                     |  9 +++--
+ include/linux/mlx5/qp.h                           | 16 +++++++-
+ 10 files changed, 99 insertions(+), 54 deletions(-)
