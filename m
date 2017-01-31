@@ -1,78 +1,93 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH -next] net/phy: fix phy_bcm_nsp_usb3.c build and kconfig
-Date: Mon, 30 Jan 2017 17:13:00 -0800
-Message-ID: <864afea8-2303-47e5-b116-bda93597b9d7@gmail.com>
-References: <8b028a54-08a1-8e53-04ab-3fa8c51d2369@infradead.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 31 Jan 2017 12:23:03 +1100
+Message-ID: <20170131122303.5a5bb47a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Randy Dunlap <rdunlap@infradead.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:33163 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754665AbdAaBND (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 20:13:03 -0500
-Received: by mail-it0-f66.google.com with SMTP id e137so17387611itc.0
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 17:13:02 -0800 (PST)
-In-Reply-To: <8b028a54-08a1-8e53-04ab-3fa8c51d2369@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/30/2017 05:02 PM, Randy Dunlap wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> 
-> This driver uses mdio* (PHYLIB) interfaces, so it should select
-> PHYLIB. PHYLIB depends on NETDEVICES to this driver should also
-> depend on NETDEVICES.
-> 
-> Fixes these build errors:
-> 
-> drivers/built-in.o: In function `nsp_usb3_phy_init':
-> phy-bcm-nsp-usb3.c:(.text+0x42d8): undefined reference to `mdiobus_write'
-> phy-bcm-nsp-usb3.c:(.text+0x42f4): undefined reference to `mdiobus_write'
-> phy-bcm-nsp-usb3.c:(.text+0x4310): undefined reference to `mdiobus_write'
-> phy-bcm-nsp-usb3.c:(.text+0x432c): undefined reference to `mdiobus_write'
-> phy-bcm-nsp-usb3.c:(.text+0x4348): undefined reference to `mdiobus_write'
-> drivers/built-in.o:phy-bcm-nsp-usb3.c:(.text+0x437a): more undefined references to `mdiobus_write' follow
-> drivers/built-in.o: In function `mdio_module_init':
-> phy-bcm-nsp-usb3.c:(.init.text+0x1e1): undefined reference to `mdio_driver_register'
-> drivers/built-in.o: In function `mdio_module_exit':
-> phy-bcm-nsp-usb3.c:(.exit.text+0xae): undefined reference to `mdio_driver_unregister'
-> 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-> Cc: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+Hi all,
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Today's linux-next merge of the net-next tree got a conflict in:
 
-This is certainly a good fix for now, but I think we really need to
-split the PHY library and its state machine from generic support for
-MDIO buses and devices, let me see if I can come up with something for that.
+  drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
 
-Thanks!
+between commit:
 
-> ---
->  drivers/phy/Kconfig |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> --- linux-next-20170130.orig/drivers/phy/Kconfig
-> +++ linux-next-20170130/drivers/phy/Kconfig
-> @@ -504,8 +504,9 @@ config PHY_MESON8B_USB2
->  
->  config PHY_NSP_USB3
->  	tristate "Broadcom NorthStar plus USB3 PHY driver"
-> -	depends on OF && (ARCH_BCM_NSP || COMPILE_TEST)
-> +	depends on OF && (ARCH_BCM_NSP || COMPILE_TEST) && NETDEVICES
->  	select GENERIC_PHY
-> +	select PHYLIB
->  	default ARCH_BCM_NSP
->  	help
->  	  Enable this to support the Broadcom Northstar plus USB3 PHY.
-> 
+  3e621b19b0bb ("net/mlx5e: Support TC encapsulation offloads with upper devices")
 
+from the net tree and commits:
+
+  75c33da82736 ("net/mlx5e: TC ipv4 tunnel encap offload cosmetic changes")
+  9a941117fb76 ("net/mlx5e: Maximize ip tunnel key usage on the TC offloading path")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
 
 -- 
-Florian
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index c5282b6aba8b,640f10f2e994..000000000000
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@@ -660,13 -684,10 +684,11 @@@ static int mlx5e_route_lookup_ipv4(stru
+  				   struct net_device **out_dev,
+  				   struct flowi4 *fl4,
+  				   struct neighbour **out_n,
+- 				   __be32 *saddr,
+  				   int *out_ttl)
+  {
+ +	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+  	struct rtable *rt;
+  	struct neighbour *n = NULL;
+- 	int ttl;
+  
+  #if IS_ENABLED(CONFIG_INET)
+  	int ret;
+@@@ -678,21 -699,21 +700,19 @@@
+  #else
+  	return -EOPNOTSUPP;
+  #endif
+ -
+ -	if (!switchdev_port_same_parent_id(priv->netdev, rt->dst.dev)) {
+ -		pr_warn("%s: can't offload, devices not on same HW e-switch\n", __func__);
+ -		ip_rt_put(rt);
+ -		return -EOPNOTSUPP;
+ -	}
+ +	/* if the egress device isn't on the same HW e-switch, we use the uplink */
+ +	if (!switchdev_port_same_parent_id(priv->netdev, rt->dst.dev))
+ +		*out_dev = mlx5_eswitch_get_uplink_netdev(esw);
+ +	else
+ +		*out_dev = rt->dst.dev;
+  
+- 	ttl = ip4_dst_hoplimit(&rt->dst);
++ 	*out_ttl = ip4_dst_hoplimit(&rt->dst);
+  	n = dst_neigh_lookup(&rt->dst, &fl4->daddr);
+  	ip_rt_put(rt);
+  	if (!n)
+  		return -ENOMEM;
+  
+  	*out_n = n;
+- 	*saddr = fl4->saddr;
+- 	*out_ttl = ttl;
+ -	*out_dev = rt->dst.dev;
+  
+  	return 0;
+  }
