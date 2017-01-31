@@ -1,67 +1,104 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 3/8] net/mlx5e: Lower bound MPWRQ stride by HCA cacheline
-Date: Tue, 31 Jan 2017 22:58:38 +0200
-Message-ID: <20170131205843.23235-4-saeedm@mellanox.com>
-References: <20170131205843.23235-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Daniel Jurgens <danielj@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix for iq and droq cnts going negative
+Date: Tue, 31 Jan 2017 13:04:42 -0800
+Message-ID: <20170131210442.GA5435@felix.cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60059 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751222AbdAaVFj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 16:05:39 -0500
-In-Reply-To: <20170131205843.23235-1-saeedm@mellanox.com>
+Received: from mail-bl2nam02on0056.outbound.protection.outlook.com ([104.47.38.56]:60864
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750885AbdAaVFx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 16:05:53 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Jurgens <danielj@mellanox.com>
+From: Satanand Burla <satananda.burla@cavium.com>
 
-MPWRQ stride should be at least the HCA cacheline, the current default
-is 64B which will cause data integrity issues in case
-HCA_CAP.cach_line_128byte capability is set.
+Flush the mmio writes before releasing spin locks.
+if the maintained counts get too high > 2M force
+writeback of the counts to clear them
 
-Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      | 9 +++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 ++--
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c        | 6 +++++-
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c     | 6 +++++-
+ drivers/net/ethernet/cavium/liquidio/liquidio_common.h | 1 +
+ drivers/net/ethernet/cavium/liquidio/octeon_device.c   | 4 ++++
+ 4 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 46f728de9e76..9193111ae05e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -70,8 +70,13 @@
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index fbe1986..c12cfa4 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2445,7 +2445,11 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
+ 			__func__, iq_no);
+ 	}
  
- #define MLX5_RX_HEADROOM NET_SKB_PAD
+-	if ((work_done < budget) && (tx_done)) {
++	/* force enable interrupt if reg cnts are high to avoid wraparound */
++	if ((work_done < budget && tx_done) ||
++	    (iq->pkt_in_done >= MAX_REG_CNT) ||
++	    (droq->pkt_count >= MAX_REG_CNT)) {
++		tx_done = 1;
+ 		napi_complete_done(napi, work_done);
+ 		octeon_process_droq_poll_cmd(droq->oct_dev, droq->q_no,
+ 					     POLL_EVENT_ENABLE_INTR, 0);
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 78cfa8b..631f1c0f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -1630,7 +1630,11 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
+ 			__func__, iq_no);
+ 	}
  
--#define MLX5_MPWRQ_LOG_STRIDE_SIZE		6  /* >= 6, HW restriction */
--#define MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS	8  /* >= 6, HW restriction */
-+#define MLX5_MPWRQ_MIN_LOG_STRIDE_SZ(mdev) \
-+	(6 + MLX5_CAP_GEN(mdev, cache_line_128byte)) /* HW restriction */
-+#define MLX5_MPWRQ_LOG_STRIDE_SZ(mdev, req) \
-+	max_t(u32, MLX5_MPWRQ_MIN_LOG_STRIDE_SZ(mdev), req)
-+#define MLX5_MPWRQ_DEF_LOG_STRIDE_SZ(mdev)       MLX5_MPWRQ_LOG_STRIDE_SZ(mdev, 6)
-+#define MLX5_MPWRQ_CQE_CMPRS_LOG_STRIDE_SZ(mdev) MLX5_MPWRQ_LOG_STRIDE_SZ(mdev, 8)
-+
- #define MLX5_MPWRQ_LOG_WQE_SZ			18
- #define MLX5_MPWRQ_WQE_PAGE_ORDER  (MLX5_MPWRQ_LOG_WQE_SZ - PAGE_SHIFT > 0 ? \
- 				    MLX5_MPWRQ_LOG_WQE_SZ - PAGE_SHIFT : 0)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index e829143efc14..e7a1da1ea4b7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -89,8 +89,8 @@ static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
- 			MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
- 		priv->params.mpwqe_log_stride_sz =
- 			MLX5E_GET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS) ?
--			MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS :
--			MLX5_MPWRQ_LOG_STRIDE_SIZE;
-+			MLX5_MPWRQ_CQE_CMPRS_LOG_STRIDE_SZ(priv->mdev) :
-+			MLX5_MPWRQ_DEF_LOG_STRIDE_SZ(priv->mdev);
- 		priv->params.mpwqe_log_num_strides = MLX5_MPWRQ_LOG_WQE_SZ -
- 			priv->params.mpwqe_log_stride_sz;
- 		break;
--- 
-2.11.0
+-	if ((work_done < budget) && (tx_done)) {
++	/* force enable interrupt if reg cnts are high to avoid wraparound */
++	if ((work_done < budget && tx_done) ||
++	    (iq->pkt_in_done >= MAX_REG_CNT) ||
++	    (droq->pkt_count >= MAX_REG_CNT)) {
++		tx_done = 1;
+ 		napi_complete_done(napi, work_done);
+ 		octeon_process_droq_poll_cmd(droq->oct_dev, droq->q_no,
+ 					     POLL_EVENT_ENABLE_INTR, 0);
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index bc0af8a..294c6f3 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -99,6 +99,7 @@ enum octeon_tag_type {
+ #define CVM_DRV_APP_END             (CVM_DRV_INVALID_APP - 1)
+ 
+ #define BYTES_PER_DHLEN_UNIT        8
++#define MAX_REG_CNT                 2000000U
+ 
+ static inline u32 incr_index(u32 index, u32 count, u32 max)
+ {
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index a8df493..9675ffb 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -1361,6 +1361,8 @@ void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
+ 		spin_lock_bh(&droq->lock);
+ 		writel(droq->pkt_count, droq->pkts_sent_reg);
+ 		droq->pkt_count = 0;
++		/* this write needs to be flushed before we release the lock */
++		mmiowb();
+ 		spin_unlock_bh(&droq->lock);
+ 		oct = droq->oct_dev;
+ 	}
+@@ -1368,6 +1370,8 @@ void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
+ 		spin_lock_bh(&iq->lock);
+ 		writel(iq->pkt_in_done, iq->inst_cnt_reg);
+ 		iq->pkt_in_done = 0;
++		/* this write needs to be flushed before we release the lock */
++		mmiowb();
+ 		spin_unlock_bh(&iq->lock);
+ 		oct = iq->oct_dev;
+ 	}
