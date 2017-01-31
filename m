@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 10/17] net: stmmac: Correct the error message about invalid speed
-Date: Tue, 31 Jan 2017 10:11:45 +0100
-Message-ID: <20170131091152.13842-11-clabbe.montjoie@gmail.com>
+Subject: [PATCH 08/17] net: stmmac: Use readl_poll_timeout
+Date: Tue, 31 Jan 2017 10:11:43 +0100
+Message-ID: <20170131091152.13842-9-clabbe.montjoie@gmail.com>
 References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -12,26 +12,50 @@ In-Reply-To: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add 1000 as a valid speed in the error message about invalid speed
-in stmmac_adjust_link()
+The dwmac_dma_reset function use an open coded of readl_poll_timeout().
+Replace the open coded handling with the proper function.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 98f544e..b0154d5 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -749,7 +749,7 @@ static void stmmac_adjust_link(struct net_device *dev)
- 				break;
- 			default:
- 				netif_warn(priv, link, priv->dev,
--					   "Speed (%d) not 10/100\n",
-+					   "Speed (%d) not 10/100/1000\n",
- 					   phydev->speed);
- 				break;
- 			}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+index e4cda39..e60bfca 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+@@ -17,6 +17,7 @@
+ *******************************************************************************/
+ 
+ #include <linux/io.h>
++#include <linux/iopoll.h>
+ #include "common.h"
+ #include "dwmac_dma.h"
+ 
+@@ -25,19 +26,16 @@
+ int dwmac_dma_reset(void __iomem *ioaddr)
+ {
+ 	u32 value = readl(ioaddr + DMA_BUS_MODE);
+-	int limit;
++	int err;
+ 
+ 	/* DMA SW reset */
+ 	value |= DMA_BUS_MODE_SFT_RESET;
+ 	writel(value, ioaddr + DMA_BUS_MODE);
+-	limit = 10;
+-	while (limit--) {
+-		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
+-			break;
+-		mdelay(10);
+-	}
+ 
+-	if (limit < 0)
++	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
++				 !(value & DMA_BUS_MODE_SFT_RESET),
++				 100000, 10000);
++	if (err)
+ 		return -EBUSY;
+ 
+ 	return 0;
 -- 
 2.10.2
