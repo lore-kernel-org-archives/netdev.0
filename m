@@ -1,37 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH V2 3/3] net: bgmac: use PHY subsystem for initializing PHY
-Date: Tue, 31 Jan 2017 10:07:34 -0800
-Message-ID: <87d6def2-cf61-605d-b6e9-7eb8f4241938@gmail.com>
-References: <20170128210832.26174-1-zajec5@gmail.com>
- <20170128210832.26174-4-zajec5@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
+Date: Tue, 31 Jan 2017 13:02:44 -0500 (EST)
+Message-ID: <20170131.130244.1009982199606738377.davem@davemloft.net>
+References: <1485401274-2836524-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jon Mason <jon.mason@broadcom.com>,
-        Felix Fietkau <nbd@openwrt.org>, netdev@vger.kernel.org,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, dsa@cumulusnetworks.com, tj@kernel.org,
+        luto@amacapital.net, ebiederm@xmission.com, tgraf@suug.ch,
+        netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33846 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751849AbdAaSHm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:07:42 -0500
-Received: by mail-pf0-f196.google.com with SMTP id y143so29050844pfb.1
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 10:07:41 -0800 (PST)
-In-Reply-To: <20170128210832.26174-4-zajec5@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39538 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751272AbdAaSCq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:02:46 -0500
+In-Reply-To: <1485401274-2836524-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/28/2017 01:08 PM, Rafał Miłecki wrote:
-> From: Rafał Miłecki <rafal@milecki.pl>
-> 
-> This adds support for using bgmac with PHYs supported by standalone PHY
-> drivers. Having any PHY initialization in bgmac is hacky and shouldn't
-> be extended but rather removed if anyone has hardware to test it.
-> 
-> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Eric, you cannot just stay silent on this thread for days at a time.
+
+Alexei has sought your feedback in his latest post in this thread,
+and your response is holding the entire discussion up.
+
+Do not just give a terse response, which will just trigger Alexei
+asking for more clarification.  Put time and effort into it so we
+can move forward.
+
+Thank you.
