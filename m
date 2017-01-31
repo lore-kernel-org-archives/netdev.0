@@ -1,30 +1,35 @@
-From: Anita Patrick <anita.patrick@kratosdefense.com>
-Subject: RE: Outlook Web Access
-Date: Tue, 31 Jan 2017 21:06:56 +0000
-Message-ID: <9F8FFA7B1F7DDA469B88692AD65C6FBDAA0CD9C5@SD-MB02.wfinet.com>
-References: <9F8FFA7B1F7DDA469B88692AD65C6FBDAA0C387F@SD-MB02.wfinet.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCHv2 RFC net-next 0/7] net: dst_confirm replacement
+Date: Tue, 31 Jan 2017 23:53:17 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1701312350110.2064@ja.home.ssi.bg>
+References: <1485613578-19973-1-git-send-email-ja@ssi.bg> <20170130.101339.2050288140097606206.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Anita Patrick <anita.patrick@kratosdefense.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        yuehaibing@huawei.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001f5801.pphosted.com ([148.163.157.244]:34885 "EHLO
-        mx0a-001f5801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750759AbdAaVsW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 16:48:22 -0500
-In-Reply-To: <9F8FFA7B1F7DDA469B88692AD65C6FBDAA0C387F@SD-MB02.wfinet.com>
-Content-Language: en-US
+Received: from ja.ssi.bg ([178.16.129.10]:58123 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750805AbdAaVxe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 16:53:34 -0500
+In-Reply-To: <20170130.101339.2050288140097606206.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-________________________________
-From: Anita Patrick
-Sent: Tuesday, January 31, 2017 12:50 PM
-Subject: Outlook Web Access
+	Hello,
 
-Dear E-mail User
+On Mon, 30 Jan 2017, David Miller wrote:
 
-Please Log on to OutlookWeb Access<http://outloookmaintenacedeesk.tripod.com> to update your outlook account to the new secured version 2017.
+> From: Julian Anastasov <ja@ssi.bg>
+> > 
+> > 	So, the following solution is to avoid using
+> > dst->pending_confirm.
+> 
+> For the most part this series looks good to me, nice work.
 
-Thank You
+	OK, I'm posting v3 after removing the RFC tag from v2,
+I just added the Acked-by tags.
+
+Regards
