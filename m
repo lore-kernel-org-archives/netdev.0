@@ -1,54 +1,59 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] qede: Add driver support for PTP.
-Date: Tue, 31 Jan 2017 18:43:27 +0100
-Message-ID: <20170131174327.GA21731@localhost.localdomain>
-References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485674903-27689-3-git-send-email-Sudarsana.Kalluru@cavium.com>
- <20170129153536.GD2223@localhost.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6DB0273BA8@AcuExch.aculab.com>
- <BL2PR07MB2306B5963EBDEF0AF5CD4E8F8D4B0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <063D6719AE5E284EB5DD2968C1650D6DB02749AC@AcuExch.aculab.com>
- <BL2PR07MB23068B30A71CB67A8DE673E48D4A0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20170131145318.GA18274@localhost.localdomain>
- <BL2PR07MB23069DF93C3944BAB27F807F8D4A0@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
+ xennet_disconnect_backend()
+Date: Tue, 31 Jan 2017 12:47:14 -0500
+Message-ID: <10b1d554-b395-88fa-eee3-a77754ad14bd@oracle.com>
+References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+ <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
+ <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
+ <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
+ <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:34628 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbdAaRnb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 12:43:31 -0500
-Received: by mail-wj0-f196.google.com with SMTP id ip10so11582678wjb.1
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 09:43:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <BL2PR07MB23069DF93C3944BAB27F807F8D4A0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, stable@vger.kernel.org, vineethp@amazon.com,
+ xen-devel@lists.xenproject.org, paul.durrant@citrix.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 31, 2017 at 03:08:11PM +0000, Mintz, Yuval wrote:
-> While it surely answers my question, I still don't think of an event
-> reoccurring 16 times a second as optimization-crucial.
-> Is there any reasonable scenario where the interval is
-> significantly smaller, or is it merely some theoretical specification?
-
-Its theoretical, like ipv6 addresses.
-
-> [I'd like to see the machine that can handle the 2^(-128) sec interval]
-
-;)
- 
-> Again, I don't see how we can achieve that given that qede has to check
-> Its internal state to check whether it's right to utilize the ptp-related hw
-> configurations and only then call the qed function. As qed can't do it for
-> qede, we can't directly map qed's function into the ptp_clock_info,
-> but rather have to call it after taking qede's state-lock.
-
-Fair enough.
-
-Thanks,
-Richard
+T24gMDEvMzAvMjAxNyAwMjozMSBQTSwgQm9yaXMgT3N0cm92c2t5IHdyb3RlOgo+IE9uIDAxLzMw
+LzIwMTcgMDI6MDYgUE0sIEVyaWMgRHVtYXpldCB3cm90ZToKPj4gT24gTW9uLCAyMDE3LTAxLTMw
+IGF0IDEzOjIzIC0wNTAwLCBCb3JpcyBPc3Ryb3Zza3kgd3JvdGU6Cj4+Cj4+PiBXZSBkbyBuZXRp
+Zl9jYXJyaWVyX29mZigpIGZpcnN0IHRoaW5nIGluIHhlbm5ldF9kaXNjb25uZWN0X2JhY2tlbmQo
+KSBhbmQKPj4+IHRoZSBvbmx5IHBsYWNlIHdoZXJlIHRoZSB0aW1lciBpcyByZWFybWVkIGlzIHhl
+bm5ldF9hbGxvY19yeF9idWZmZXJzKCksCj4+PiB3aGljaCBpcyBndWFyZGVkIGJ5IG5ldGlmX2Nh
+cnJpZXJfb2soKSBjaGVjay4KPj4gT2ggd2VsbCwgdGVzdGluZyBuZXRpZl9jYXJyaWVyX29rKCkg
+aW4gcGFja2V0IHByb2Nlc3NpbmcgZmFzdCBwYXRoIGxvb2tzCj4+IHVudXN1YWwgYW5kIGEgd2Fz
+dGUgb2YgY3B1IGN5Y2xlcy4gSSd2ZSBuZXZlciBzZWVuIHRoYXQgcGF0dGVybiBiZWZvcmUuCj4+
+Cj4+IElmIG9uZSBkYXksIHdlIHJlbW92ZSB0aGlzIG5ldGlmX2NhcnJpZXJfb2soKSB0ZXN0IGR1
+cmluZyBhIGNsZWFudXAsCj4+IHRoZW4gdGhlIHJhY2Ugd2luZG93IHdpbGwgb3BlbiBhZ2Fpbi4K
+Pgo+IEkgZG9uJ3Qga25vdyBtdWNoIGFib3V0IG5hcGkgYnV0IEkgd29uZGVyIHdoZXRoZXIgSSBj
+YW4gaW5kZWVkIGRpc2FibGUKPiBpdCBpbiB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKCkuIEkg
+ZG9uJ3Qgc2VlIGhvdyBhbnl0aGluZyBjYW4gaGFwcGVuCj4gYWZ0ZXIgZGlzY29ubmVjdCBzaW5j
+ZSBpdCB1bm1hcHMgdGhlIHJpbmdzLiBBbmQgdGhlbiBuYXBpIGlzIHJlLWVuYWJsZWQKPiBkdXJp
+bmcgcmVjb25uZWN0aW9uIGluIHhlbm5ldF9jcmVhdGVfcXVldWVzKCkuIEluIHdoaWNoIGNhc2Ug
+YW0gbm90IHN1cmUKPiB0aGVyZSBpcyBhbnkgbmVlZCBmb3IgeGVubmV0X2Rlc3Ryb3lfcXVldWVz
+KCkgYXMgZXZlcnl0aGluZyB0aGVyZSBjb3VsZAo+IGJlIGZvbGRlZCBpbnRvIHhlbm5ldF9kaXNj
+b25uZWN0X2JhY2tlbmQoKS4KCldoaWxlIHRoaXMgZG9lcyB3b3JrLCB0aGVyZSB3YXMgYSByZWFz
+b24gd2h5IG5hcGlfZGlzYWJsZSgpIHdhcyBub3QKY2FsbGVkIGluIHhlbm5ldF9kaXNjb25uZWN0
+X2JhY2tlbmQoKSBhbmQgaXQgaXMgZXhwbGFpbmVkIGluIGNvbW1pdApjZTU4NzI1ZmVjNmUgLS0t
+IG5hcGlfZGlzYWJsZSgpIG1heSBzbGVlcCBhbmQgdGhhdCdzIHdoeSBpdCBpcyBjYWxsZWQgaW4K
+eGVubmV0X2Rlc3Ryb3lfcXVldWVzKCkuCgpPVE9ILCB0aGVyZSBpcyBhIG5hcGlfc3luY2hyb25p
+emUoKSBjYWxsIGluIHhlbm5ldF9kZXN0cm95X3F1ZXVlcygpLgpXaWxsIGRlc3Ryb3lpbmcgdGhl
+IHRpbWVyIGFmdGVyIGl0IGd1YXJhbnRlZSB0aGF0IGFsbCBwcmVjZWRpbmcgUlggaGF2ZQpiZWVu
+IGNvbXBsZXRlZD8gUlggaW50ZXJydXB0IGlzIGRpc2FibGVkIHByaW9yIHRvIG5hcGlfc3luY2hy
+b25pemUoKSBzbwpwcmVzdW1hYmx5IG5vdGhpbmcgbmV3IGNhbiBiZSByZWNlaXZlZC4KCgotYm9y
+aXMKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4t
+ZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMu
+eGVuLm9yZy94ZW4tZGV2ZWwK
