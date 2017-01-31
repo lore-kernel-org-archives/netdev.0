@@ -1,75 +1,51 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 net-next] net: ethtool: convert large order kmalloc
- allocations to vzalloc
-Date: Mon, 30 Jan 2017 19:41:32 -0800
-Message-ID: <5890076C.5080305@fb.com>
-References: <1485829518-190263-1-git-send-email-ast@fb.com>
- <1485833281.20550.17.camel@perches.com>
+Subject: Re: [RFC PATCH 2/2] ixgbe: add af_packet direct copy support
+Date: Mon, 30 Jan 2017 18:53:05 -0800
+Message-ID: <588FFC11.9030403@fb.com>
+References: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
+ <20170127213411.14162.22553.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-        "David S . Miller" <davem@davemloft.net>
+Cc: <john.r.fastabend@intel.com>, <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>, <bjorn.topel@gmail.com>,
+        <jasowang@redhat.com>, <alexander.duyck@gmail.com>,
+        <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33454 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751200AbdAaDls (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 22:41:48 -0500
-In-Reply-To: <1485833281.20550.17.camel@perches.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37817 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750929AbdAaEMU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 23:12:20 -0500
+In-Reply-To: <20170127213411.14162.22553.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/17 7:28 PM, Joe Perches wrote:
-> On Mon, 2017-01-30 at 18:25 -0800, Alexei Starovoitov wrote:
->> under memory pressure 'ethtool -S' command may warn:
->> [ 2374.385195] ethtool: page allocation failure: order:4, mode:0x242c0c0
->> [ 2374.405573] CPU: 12 PID: 40211 Comm: ethtool Not tainted
->> [ 2374.423071] Call Trace:
->> [ 2374.423076]  [<ffffffff8148cb29>] dump_stack+0x4d/0x64
->> [ 2374.423080]  [<ffffffff811667cb>] warn_alloc_failed+0xeb/0x150
->> [ 2374.423082]  [<ffffffff81169cd3>] ? __alloc_pages_direct_compact+0x43/0xf0
->> [ 2374.423084]  [<ffffffff8116a25c>] __alloc_pages_nodemask+0x4dc/0xbf0
->> [ 2374.423091]  [<ffffffffa0023dc2>] ? cmd_exec+0x722/0xcd0 [mlx5_core]
->> [ 2374.423095]  [<ffffffff811b3dcc>] alloc_pages_current+0x8c/0x110
->> [ 2374.423097]  [<ffffffff81168859>] alloc_kmem_pages+0x19/0x90
->> [ 2374.423099]  [<ffffffff81186e5e>] kmalloc_order_trace+0x2e/0xe0
->> [ 2374.423101]  [<ffffffff811c0084>] __kmalloc+0x204/0x220
->> [ 2374.423105]  [<ffffffff816c269e>] dev_ethtool+0xe4e/0x1f80
->> [ 2374.423106]  [<ffffffff816b967e>] ? dev_get_by_name_rcu+0x5e/0x80
->> [ 2374.423108]  [<ffffffff816d6926>] dev_ioctl+0x156/0x560
->> [ 2374.423111]  [<ffffffff811d4c68>] ? mem_cgroup_commit_charge+0x78/0x3c0
->> [ 2374.423117]  [<ffffffff8169d542>] sock_do_ioctl+0x42/0x50
->> [ 2374.423119]  [<ffffffff8169d9c3>] sock_ioctl+0x1b3/0x250
->> [ 2374.423121]  [<ffffffff811f0f42>] do_vfs_ioctl+0x92/0x580
->> [ 2374.423123]  [<ffffffff8100222b>] ? do_audit_syscall_entry+0x4b/0x70
->> [ 2374.423124]  [<ffffffff8100287c>] ? syscall_trace_enter_phase1+0xfc/0x120
->> [ 2374.423126]  [<ffffffff811f14a9>] SyS_ioctl+0x79/0x90
->> [ 2374.423127]  [<ffffffff81002bb0>] do_syscall_64+0x50/0xa0
->> [ 2374.423129]  [<ffffffff817e19bc>] entry_SYSCALL64_slow_path+0x25/0x25
->>
->> ~1160 mlx5 counters ~= order 4 allocation which is unlikely to succeed
->> under memory pressure. Convert them to vzalloc() as ethtool_get_regs() does.
->> Also take care of drivers without counters similar to
->> commit 67ae7cf1eeda ("ethtool: Allow zero-length register dumps again")
->> and reduce warn_on to warn_on_once.
->
-> I think this is generally not a good idea as
-> most uses already fit fine in a kcalloc.
+On 1/27/17 1:34 PM, John Fastabend wrote:
+> +	h2 = page_address(rx_buffer->page) + rx_buffer->page_offset - hdrlen;
+> +	eth = page_address(rx_buffer->page) + rx_buffer->page_offset,
 
-most nics have large numbers of counters that don't fit into one page.
-that's already pushing mm.
-especially in this case control plane apps call 'ethtool -S'
-periodically.
+I don't think it compiles ;)
 
-> Maybe use Michal Hocko's kvmalloc changes.
-> https://lkml.org/lkml/2017/1/30/120
+> +	/* This indicates a bug in ixgbe leaving for testing purposes */
+> +	WARN_ON(TP_STATUS_USER & h2->tp_status);
+> +	len = le16_to_cpu(rx_desc->wb.upper.length);
+> +	h2->tp_len = len;
+> +	h2->tp_snaplen = len;
+> +	h2->tp_mac = ALIGN(TPACKET_ALIGN(TPACKET2_HDRLEN), L1_CACHE_BYTES);
+> +	h2->tp_net = h2->tp_mac + ETH_HLEN;
+> +	h2->tp_sec = div_s64_rem(ns, NSEC_PER_SEC, &rem);
+> +	h2->tp_nsec = rem;
+> +
+> +	sll = (void *)h2 + TPACKET_ALIGN(sizeof(struct tpacket2_hdr));
+> +	sll->sll_halen = ETH_HLEN;
+> +	memcpy(sll->sll_addr, eth->h_source, ETH_ALEN);
+> +	sll->sll_family = AF_PACKET;
+> +	sll->sll_hatype = rx_ring->netdev->type;
+> +	sll->sll_protocol = eth->h_proto;
+> +	sll->sll_pkttype = PACKET_HOST;
+> +	sll->sll_ifindex = rx_ring->netdev->ifindex;
 
-v1 discussion here
-http://patchwork.ozlabs.org/patch/721122/
-as I mentioned there long term I don't mind using kvmalloc,
-but the issue has to be fixed now. Either via vzalloc or nowarn+noretry.
-My stress testing with memory hog shows that kmalloc fails
-quite often, thankfully user space daemon is ready for failures,
-whereas vzalloc approach works all the time and no extra headaches
-for user space.
+performance wise it looks very expensive to do all these header copies
+and integer divide for every packet.
+I think unless we move to new dumb and simple header format
+performance of this approach is not going to be satisfactory.
