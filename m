@@ -1,29 +1,47 @@
-From: QUATIF OIL GROUP OF COMPANIES <dulceguillen@fisica.unam.mx>
-Subject: Business Proposal
-Date: Tue, 31 Jan 2017 08:35:11 +0000
-Message-ID: <20170131083511.Horde.AyXw_VQeUmuenOl8-vfgEQ1@fisica.unam.mx>
-Reply-To: adriensaif400@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed; DelSp=Yes
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fisica.unam.mx ([132.248.7.40]:36219 "EHLO fisica.unam.mx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750805AbdAaIo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Jan 2017 03:44:28 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 17/17] net: stmmac: replace unsigned by u32
+Date: Tue, 31 Jan 2017 10:11:52 +0100
+Message-ID: <20170131091152.13842-18-clabbe.montjoie@gmail.com>
+References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+checkpatch complains about two unsigned without type after.
+Since the value return is u32, it is simpler to replace it by u32 instead
+of "unsigned int"
 
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index f0ce780..6260b6f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -187,7 +187,7 @@ static void print_pkt(unsigned char *buf, int len)
+ 
+ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
+ {
+-	unsigned avail;
++	u32 avail;
+ 
+ 	if (priv->dirty_tx > priv->cur_tx)
+ 		avail = priv->dirty_tx - priv->cur_tx - 1;
+@@ -199,7 +199,7 @@ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
+ 
+ static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv)
+ {
+-	unsigned dirty;
++	u32 dirty;
+ 
+ 	if (priv->dirty_rx <= priv->cur_rx)
+ 		dirty = priv->cur_rx - priv->dirty_rx;
 -- 
-Dear Friend,
-
-I would like to discuss a very important issue with you. I am writing  
-to find out if this is your valid email. Please, let me know if this  
-email is valid
-
-Kind regards
-Adrien Saif
-Attorney to Quatif Group of Companies
+2.10.2
