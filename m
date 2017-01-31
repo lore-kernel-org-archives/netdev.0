@@ -1,50 +1,51 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 10/17] net: stmmac: Correct the error message about
- invalid speed
-Date: Tue, 31 Jan 2017 11:07:19 +0100
-Message-ID: <505d6fa5-852c-2c18-f940-964ee422d820@st.com>
+Subject: Re: [PATCH 11/17] net: stmmac: Rewrite two test against NULL value
+Date: Tue, 31 Jan 2017 11:07:41 +0100
+Message-ID: <ebd3a5e7-ee98-71b7-4978-6e6570f19497@st.com>
 References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
- <20170131091152.13842-11-clabbe.montjoie@gmail.com>
+ <20170131091152.13842-12-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>
 To: Corentin Labbe <clabbe.montjoie@gmail.com>,
         <alexandre.torgue@st.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:4038 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751507AbdAaKHa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 05:07:30 -0500
-In-Reply-To: <20170131091152.13842-11-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170131091152.13842-12-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On 1/31/2017 10:11 AM, Corentin Labbe wrote:
-> Add 1000 as a valid speed in the error message about invalid speed
-> in stmmac_adjust_link()
+> This patch rewrite two test against NULL value with correct style.
 >
 > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+
 > ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 >
 > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 98f544e..b0154d5 100644
+> index b0154d5..2df36bd 100644
 > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -749,7 +749,7 @@ static void stmmac_adjust_link(struct net_device *dev)
->  				break;
->  			default:
->  				netif_warn(priv, link, priv->dev,
-> -					   "Speed (%d) not 10/100\n",
-> +					   "Speed (%d) not 10/100/1000\n",
-
-maybe, it could be "broken speed: %d"
-
-peppe
-
->  					   phydev->speed);
->  				break;
->  			}
+> @@ -700,7 +700,7 @@ static void stmmac_adjust_link(struct net_device *dev)
+>  	int new_state = 0;
+>  	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
+>
+> -	if (phydev == NULL)
+> +	if (!phydev)
+>  		return;
+>
+>  	spin_lock_irqsave(&priv->lock, flags);
+> @@ -1143,7 +1143,7 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
+>  						 DMA_TO_DEVICE);
+>  		}
+>
+> -		if (priv->tx_skbuff[i] != NULL) {
+> +		if (priv->tx_skbuff[i]) {
+>  			dev_kfree_skb_any(priv->tx_skbuff[i]);
+>  			priv->tx_skbuff[i] = NULL;
+>  			priv->tx_skbuff_dma[i].buf = 0;
 >
