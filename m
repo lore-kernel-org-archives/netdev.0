@@ -1,60 +1,55 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: ip_auto_config() prevents network device to be registered
-Date: Tue, 31 Jan 2017 14:49:52 -0300
-Message-ID: <b7ad0acb-1cad-3a45-0b0f-57d576ff1a36@osg.samsung.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 5/7] tap: Extending tap device create/destroy APIs
+Date: Tue, 31 Jan 2017 12:51:12 -0500 (EST)
+Message-ID: <20170131.125112.287960842388784953.davem@davemloft.net>
+References: <1485803522-16564-1-git-send-email-sainath.grandhi@intel.com>
+        <1485803522-16564-6-git-send-email-sainath.grandhi@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Sjoerd Simons <sjoerd.simons@collabora.co.uk>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Shuah Khan <shuahkh@osg.samsung.com>,
-        LKML <linux-kernel@vger.kernel.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mahesh@bandewar.net,
+        linux-kernel@vger.kernel.org
+To: sainath.grandhi@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39138 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751232AbdAaRvU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 12:51:20 -0500
+In-Reply-To: <1485803522-16564-6-git-send-email-sainath.grandhi@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Sainath Grandhi <sainath.grandhi@intel.com>
+Date: Mon, 30 Jan 2017 11:12:00 -0800
 
-The kernelci folks pointed out that a Samsung Exynos based board was failing
-to boot when trying to mount the rootfs via NFS, due a networking issue [0].
+> +	list_for_each_entry_safe(tap_major, tmp, &major_list, next) {
+> +		if (tap_major->major == major) {
+> +			return tap_major;
+> +		}
+> +	}
 
-I looked at the issue and it turned out to be a race between ip_auto_config()
-and register_netdev() when using the ip=dhcp param in the kernel command line.
+Single line basic blocks, such as this 'if' statement, should not be
+surrounded by curly braces.
 
-The problem is that ip_auto_config() calls wait_for_devices() [1] and returns
-as soon as it finds a network device registered. Then ic_open_devs() [2] is
-called then to bring the network devs up and wait for their carrier signals.
+Also I see not mutual exclusion being implemented to protect this
+list.  If there is, it is not obvious, so it should be documented with
+a comment explaining what protects the list.
 
-But ic_open_devs() grabs the rtnl_mutex lock [3] when doing this, which is the
-same lock that register_netdev() [4] grabs before registering a network device.
+> @@ -1175,14 +1228,7 @@ int tap_create_cdev(struct cdev *tap_cdev,
+>  	if (err)
+>  		goto out2;
+>  
+> -	macvtap_major.major = MAJOR(*tap_major);
+> -
+> -	idr_init(&macvtap_major.minor_idr);
+> -	mutex_init(&macvtap_major.minor_lock);
+> -
+> -	macvtap_major.device_name = device_name;
+> -
+> -	return err;
+> +	return tap_list_add(*tap_major, device_name);
+>  
+>  out2:
+>  	unregister_chrdev_region(*tap_major, TAP_NUM_DEVS);
 
-And so if a network dev is found and wait_for_devices() returns, ic_open_devs()
-will be called and no new network dev could be registered in the meantime.
-
-So since ic_open_devs() waits up to CONF_CARRIER_TIMEOUT (120 secs) with this
-lock held, if the network dev that's supposed to get its IP over DHCP isn't the
-first to be registered, the boot test job may timeout and be considered a fail.
-
-A workaround is to use ip=:::::eth0:dhcp instead ip=dhcp, so wait_for_devices()
-waits for this specific device. Another workaround is to increase the timeout
-for the job to be much bigger than CONF_CARRIER_TIMEOUT so ip_auto_config() can
-retry and the network devices can be registered between tries.
-
-But I wonder if someone can suggest a proper way to fix this. Grabbing a mutex
-that prevents network devs to be registered for 120 secs doesn't sound correct.
-
-Thanks a lot for your help and please let me know if I misunderstood something.
-
-[0]: https://storage.kernelci.org/mainline/v4.9/arm-exynos_defconfig/lab-collabora/boot-exynos5422-odroidxu3_rootfs:nfs.html
-[1]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L1368
-[2]: http://lxr.free-electrons.com/source/net/ipv4/ipconfig.c#L202
-[3]: http://lxr.free-electrons.com/source/net/core/rtnetlink.c#L68
-[4]: http://lxr.free-electrons.com/source/net/core/dev.c#L7326
-
-Best regards,
--- 
-Javier Martinez Canillas
-Open Source Group
-Samsung Research America
+If tap_list_add() fails, you will leave the chrdev region registered.
