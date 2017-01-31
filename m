@@ -1,65 +1,329 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: net/tcp: warning in tcp_try_coalesce/skb_try_coalesce
-Date: Tue, 31 Jan 2017 14:17:11 +0100
-Message-ID: <CAAeHK+xaFar2pj1xkbkhfjN+3ucLsfMpoHWFAKcHq3-F_Zm+mw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: [PATCH net v2] net/sched: matchall: Fix configuration race
+Date: Tue, 31 Jan 2017 15:14:29 +0200
+Message-ID: <1485868469-6199-1-git-send-email-yotamg@mellanox.com>
+Cc: Yotam Gigi <yotamg@mellanox.com>
+To: jiri@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        daniel@iogearbox.net, jhs@mojatatu.com, davem@davemloft.net,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53343 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752322AbdAaNSt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 08:18:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+In the current version, the matchall internal state is split into two
+structs: cls_matchall_head and cls_matchall_filter. This makes little
+sense, as matchall instance supports only one filter, and there is no
+situation where one exists and the other does not. In addition, that led
+to some races when filter was deleted while packet was processed.
 
-I've got the following error report while running the syzkaller fuzzer.
+Unify that two structs into one, thus simplifying the process of matchall
+creation and deletion. As a result, the new, delete and get callbacks have
+a dummy implementation where all the work is done in destroy and change
+callbacks, as was done in cls_cgroup.
 
-On commit 566cf877a1fcb6d6dc0126b076aad062054c2637 (4.10-rc6).
+Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
+Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+---
+v1->v2:
+ - Rebased on net
 
-The fuzzer hits this issue quite often, but I don't have a working reproducer.
+When net is merged with net-next, this patch will probably conflict with
+ec2507d2a306 ("net/sched: cls_matchall: Fix error path").
+---
+ net/sched/cls_matchall.c | 127 +++++++++++++++++------------------------------
+ 1 file changed, 45 insertions(+), 82 deletions(-)
 
-WARNING: CPU: 3 PID: 7091 at net/core/skbuff.c:4331
-skb_try_coalesce+0x14b1/0x1f80 net/core/skbuff.c:4331
-Kernel panic - not syncing: panic_on_warn set ...
-
-CPU: 3 PID: 7091 Comm: syz-executor4 Not tainted 4.10.0-rc6+ #116
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x292/0x398 lib/dump_stack.c:51
- panic+0x1cb/0x3a9 kernel/panic.c:179
- __warn+0x1c4/0x1e0 kernel/panic.c:539
- warn_slowpath_null+0x2c/0x40 kernel/panic.c:582
- skb_try_coalesce+0x14b1/0x1f80 net/core/skbuff.c:4331
- tcp_try_coalesce+0x178/0x560 net/ipv4/tcp_input.c:4337
- tcp_queue_rcv+0x13c/0x7a0 net/ipv4/tcp_input.c:4572
- tcp_data_queue+0x97e/0x46b0 net/ipv4/tcp_input.c:4681
- tcp_rcv_state_process+0xd92/0x42d0 net/ipv4/tcp_input.c:6130
- tcp_v4_do_rcv+0x571/0x940 net/ipv4/tcp_ipv4.c:1426
- sk_backlog_rcv include/net/sock.h:893 [inline]
- __release_sock+0x127/0x3a0 net/core/sock.c:2053
- release_sock+0xa5/0x2b0 net/core/sock.c:2540
- inet_shutdown+0x1a8/0x350 net/ipv4/af_inet.c:833
- SYSC_shutdown net/socket.c:1840 [inline]
- SyS_shutdown+0x253/0x2f0 net/socket.c:1831
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x4457d9
-RSP: 002b:00007f73b41a5b58 EFLAGS: 00000282 ORIG_RAX: 0000000000000030
-RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 00000000004457d9
-RDX: 0000000000000000 RSI: 0000000000000001 RDI: 0000000000000005
-RBP: 00000000006e2170 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000282 R12: 0000000000708000
-R13: 0000000000000005 R14: 0000000000000029 R15: 000000000000003f
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Kernel Offset: disabled
-Rebooting in 86400 seconds..
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index f935429..b12bc2a 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -16,16 +16,11 @@
+ #include <net/sch_generic.h>
+ #include <net/pkt_cls.h>
+ 
+-struct cls_mall_filter {
++struct cls_mall_head {
+ 	struct tcf_exts exts;
+ 	struct tcf_result res;
+ 	u32 handle;
+-	struct rcu_head	rcu;
+ 	u32 flags;
+-};
+-
+-struct cls_mall_head {
+-	struct cls_mall_filter *filter;
+ 	struct rcu_head	rcu;
+ };
+ 
+@@ -33,38 +28,29 @@ static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			 struct tcf_result *res)
+ {
+ 	struct cls_mall_head *head = rcu_dereference_bh(tp->root);
+-	struct cls_mall_filter *f = head->filter;
+ 
+-	if (tc_skip_sw(f->flags))
++	if (tc_skip_sw(head->flags))
+ 		return -1;
+ 
+-	return tcf_exts_exec(skb, &f->exts, res);
++	return tcf_exts_exec(skb, &head->exts, res);
+ }
+ 
+ static int mall_init(struct tcf_proto *tp)
+ {
+-	struct cls_mall_head *head;
+-
+-	head = kzalloc(sizeof(*head), GFP_KERNEL);
+-	if (!head)
+-		return -ENOBUFS;
+-
+-	rcu_assign_pointer(tp->root, head);
+-
+ 	return 0;
+ }
+ 
+-static void mall_destroy_filter(struct rcu_head *head)
++static void mall_destroy_rcu(struct rcu_head *rcu)
+ {
+-	struct cls_mall_filter *f = container_of(head, struct cls_mall_filter, rcu);
++	struct cls_mall_head *head = container_of(rcu, struct cls_mall_head,
++						  rcu);
+ 
+-	tcf_exts_destroy(&f->exts);
+-
+-	kfree(f);
++	tcf_exts_destroy(&head->exts);
++	kfree(head);
+ }
+ 
+ static int mall_replace_hw_filter(struct tcf_proto *tp,
+-				  struct cls_mall_filter *f,
++				  struct cls_mall_head *head,
+ 				  unsigned long cookie)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+@@ -74,7 +60,7 @@ static int mall_replace_hw_filter(struct tcf_proto *tp,
+ 	offload.type = TC_SETUP_MATCHALL;
+ 	offload.cls_mall = &mall_offload;
+ 	offload.cls_mall->command = TC_CLSMATCHALL_REPLACE;
+-	offload.cls_mall->exts = &f->exts;
++	offload.cls_mall->exts = &head->exts;
+ 	offload.cls_mall->cookie = cookie;
+ 
+ 	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
+@@ -82,7 +68,7 @@ static int mall_replace_hw_filter(struct tcf_proto *tp,
+ }
+ 
+ static void mall_destroy_hw_filter(struct tcf_proto *tp,
+-				   struct cls_mall_filter *f,
++				   struct cls_mall_head *head,
+ 				   unsigned long cookie)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+@@ -103,29 +89,20 @@ static bool mall_destroy(struct tcf_proto *tp, bool force)
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+-	struct cls_mall_filter *f = head->filter;
+ 
+-	if (!force && f)
+-		return false;
++	if (!head)
++		return true;
+ 
+-	if (f) {
+-		if (tc_should_offload(dev, tp, f->flags))
+-			mall_destroy_hw_filter(tp, f, (unsigned long) f);
++	if (tc_should_offload(dev, tp, head->flags))
++		mall_destroy_hw_filter(tp, head, (unsigned long) head);
+ 
+-		call_rcu(&f->rcu, mall_destroy_filter);
+-	}
+-	kfree_rcu(head, rcu);
++	call_rcu(&head->rcu, mall_destroy_rcu);
+ 	return true;
+ }
+ 
+ static unsigned long mall_get(struct tcf_proto *tp, u32 handle)
+ {
+-	struct cls_mall_head *head = rtnl_dereference(tp->root);
+-	struct cls_mall_filter *f = head->filter;
+-
+-	if (f && f->handle == handle)
+-		return (unsigned long) f;
+-	return 0;
++	return 0UL;
+ }
+ 
+ static const struct nla_policy mall_policy[TCA_MATCHALL_MAX + 1] = {
+@@ -134,7 +111,7 @@ static const struct nla_policy mall_policy[TCA_MATCHALL_MAX + 1] = {
+ };
+ 
+ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
+-			  struct cls_mall_filter *f,
++			  struct cls_mall_head *head,
+ 			  unsigned long base, struct nlattr **tb,
+ 			  struct nlattr *est, bool ovr)
+ {
+@@ -147,11 +124,11 @@ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
+ 		return err;
+ 
+ 	if (tb[TCA_MATCHALL_CLASSID]) {
+-		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
+-		tcf_bind_filter(tp, &f->res, base);
++		head->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
++		tcf_bind_filter(tp, &head->res, base);
+ 	}
+ 
+-	tcf_exts_change(tp, &f->exts, &e);
++	tcf_exts_change(tp, &head->exts, &e);
+ 
+ 	return 0;
+ }
+@@ -162,21 +139,17 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 		       unsigned long *arg, bool ovr)
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
+-	struct cls_mall_filter *fold = (struct cls_mall_filter *) *arg;
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+-	struct cls_mall_filter *f;
+ 	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
++	struct cls_mall_head *new;
+ 	u32 flags = 0;
+ 	int err;
+ 
+ 	if (!tca[TCA_OPTIONS])
+ 		return -EINVAL;
+ 
+-	if (head->filter)
+-		return -EBUSY;
+-
+-	if (fold)
+-		return -EINVAL;
++	if (head)
++		return -EEXIST;
+ 
+ 	err = nla_parse_nested(tb, TCA_MATCHALL_MAX,
+ 			       tca[TCA_OPTIONS], mall_policy);
+@@ -189,23 +162,23 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 			return -EINVAL;
+ 	}
+ 
+-	f = kzalloc(sizeof(*f), GFP_KERNEL);
+-	if (!f)
++	new = kzalloc(sizeof(*new), GFP_KERNEL);
++	if (!new)
+ 		return -ENOBUFS;
+ 
+-	tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
++	tcf_exts_init(&new->exts, TCA_MATCHALL_ACT, 0);
+ 
+ 	if (!handle)
+ 		handle = 1;
+-	f->handle = handle;
+-	f->flags = flags;
++	new->handle = handle;
++	new->flags = flags;
+ 
+-	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
++	err = mall_set_parms(net, tp, new, base, tb, tca[TCA_RATE], ovr);
+ 	if (err)
+ 		goto errout;
+ 
+ 	if (tc_should_offload(dev, tp, flags)) {
+-		err = mall_replace_hw_filter(tp, f, (unsigned long) f);
++		err = mall_replace_hw_filter(tp, new, (unsigned long) new);
+ 		if (err) {
+ 			if (tc_skip_sw(flags))
+ 				goto errout;
+@@ -214,39 +187,29 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 		}
+ 	}
+ 
+-	*arg = (unsigned long) f;
+-	rcu_assign_pointer(head->filter, f);
+-
++	*arg = (unsigned long) head;
++	rcu_assign_pointer(tp->root, new);
++	if (head)
++		call_rcu(&head->rcu, mall_destroy_rcu);
+ 	return 0;
+ 
+ errout:
+-	kfree(f);
++	kfree(new);
+ 	return err;
+ }
+ 
+ static int mall_delete(struct tcf_proto *tp, unsigned long arg)
+ {
+-	struct cls_mall_head *head = rtnl_dereference(tp->root);
+-	struct cls_mall_filter *f = (struct cls_mall_filter *) arg;
+-	struct net_device *dev = tp->q->dev_queue->dev;
+-
+-	if (tc_should_offload(dev, tp, f->flags))
+-		mall_destroy_hw_filter(tp, f, (unsigned long) f);
+-
+-	RCU_INIT_POINTER(head->filter, NULL);
+-	tcf_unbind_filter(tp, &f->res);
+-	call_rcu(&f->rcu, mall_destroy_filter);
+-	return 0;
++	return -EOPNOTSUPP;
+ }
+ 
+ static void mall_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
+-	struct cls_mall_filter *f = head->filter;
+ 
+ 	if (arg->count < arg->skip)
+ 		goto skip;
+-	if (arg->fn(tp, (unsigned long) f, arg) < 0)
++	if (arg->fn(tp, (unsigned long) head, arg) < 0)
+ 		arg->stop = 1;
+ skip:
+ 	arg->count++;
+@@ -255,28 +218,28 @@ static void mall_walk(struct tcf_proto *tp, struct tcf_walker *arg)
+ static int mall_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 		     struct sk_buff *skb, struct tcmsg *t)
+ {
+-	struct cls_mall_filter *f = (struct cls_mall_filter *) fh;
++	struct cls_mall_head *head = (struct cls_mall_head *) fh;
+ 	struct nlattr *nest;
+ 
+-	if (!f)
++	if (!head)
+ 		return skb->len;
+ 
+-	t->tcm_handle = f->handle;
++	t->tcm_handle = head->handle;
+ 
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (!nest)
+ 		goto nla_put_failure;
+ 
+-	if (f->res.classid &&
+-	    nla_put_u32(skb, TCA_MATCHALL_CLASSID, f->res.classid))
++	if (head->res.classid &&
++	    nla_put_u32(skb, TCA_MATCHALL_CLASSID, head->res.classid))
+ 		goto nla_put_failure;
+ 
+-	if (tcf_exts_dump(skb, &f->exts))
++	if (tcf_exts_dump(skb, &head->exts))
+ 		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
+ 
+-	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
++	if (tcf_exts_dump_stats(skb, &head->exts) < 0)
+ 		goto nla_put_failure;
+ 
+ 	return skb->len;
+-- 
+2.4.11
