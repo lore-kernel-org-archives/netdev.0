@@ -1,38 +1,69 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH iproute] tc: man: matchall: Fix example indentation
-Date: Tue, 31 Jan 2017 11:47:47 +0200
-Message-ID: <1485856067-11529-1-git-send-email-yotamg@mellanox.com>
-Cc: Yotam Gigi <yotamg@mellanox.com>
-To: stephen@networkplumber.org, netdev@vger.kernel.org,
-        eladr@mellanox.com
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 06/17] net: stmmac: fix some code style problem
+Date: Tue, 31 Jan 2017 10:11:41 +0100
+Message-ID: <20170131091152.13842-7-clabbe.montjoie@gmail.com>
+References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48524 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751071AbdAaJpS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 04:45:18 -0500
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35704 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751071AbdAaJpf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 04:45:35 -0500
+In-Reply-To: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The man page contains two examples, which have different indentation. Fix
-the indentation of the two examples to match.
+Checkpatch complains about some code style problem on stmmac_mdio.c.
+This patch fix them.
 
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- man/man8/tc-matchall.8 | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/man/man8/tc-matchall.8 b/man/man8/tc-matchall.8
-index f920922..5aa11da 100644
---- a/man/man8/tc-matchall.8
-+++ b/man/man8/tc-matchall.8
-@@ -53,6 +53,7 @@ where the second command attaches a matchall filters on it that mirrors the
- packets to device eth2.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 3fdc6ec..c24bef2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -152,9 +152,9 @@ int stmmac_mdio_reset(struct mii_bus *bus)
  
- To create egress mirroring from port eth1 to port eth2:
-+.RS
- .EX
+ #ifdef CONFIG_OF
+ 	if (priv->device->of_node) {
+-
+ 		if (data->reset_gpio < 0) {
+ 			struct device_node *np = priv->device->of_node;
++
+ 			if (!np)
+ 				return 0;
  
- tc qdisc add dev eth1 handle 1: root prio
+@@ -221,7 +221,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		return 0;
+ 
+ 	new_bus = mdiobus_alloc();
+-	if (new_bus == NULL)
++	if (!new_bus)
+ 		return -ENOMEM;
+ 
+ 	if (mdio_bus_data->irqs)
+@@ -258,6 +258,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
++
+ 		if (phydev) {
+ 			int act = 0;
+ 			char irq_num[4];
+@@ -267,7 +268,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 			 * If an IRQ was provided to be assigned after
+ 			 * the bus probe, do it here.
+ 			 */
+-			if ((mdio_bus_data->irqs == NULL) &&
++			if ((!mdio_bus_data->irqs) &&
+ 			    (mdio_bus_data->probed_phy_irq > 0)) {
+ 				new_bus->irq[addr] =
+ 					mdio_bus_data->probed_phy_irq;
 -- 
-2.4.11
+2.10.2
