@@ -1,53 +1,69 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 00/10] bnxt_en: Add XDP support.
-Date: Mon, 30 Jan 2017 23:38:33 -0800
-Message-ID: <CACKFLikc7xUW7YpHcy4_S4KE3s+_EHht-VJGWp+ji+4ue7WoYg@mail.gmail.com>
-References: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
- <20170131044745.GA8082@ast-mbp.thefacebook.com> <20170130211346.6d637248@cakuba>
+From: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
+Subject: [PATCH net-next v3 0/2] qed*: Add support for PTP
+Date: Mon, 30 Jan 2017 23:47:47 -0800
+Message-ID: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
+        <Yuval.Mintz@cavium.com>,
+        Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f178.google.com ([209.85.217.178]:35274 "EHLO
-        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750764AbdAaHie (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 02:38:34 -0500
-Received: by mail-ua0-f178.google.com with SMTP id y9so268725334uae.2
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 23:38:34 -0800 (PST)
-In-Reply-To: <20170130211346.6d637248@cakuba>
+Received: from mail-cys01nam02on0062.outbound.protection.outlook.com ([104.47.37.62]:4496
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750776AbdAaHsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 02:48:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 30, 2017 at 9:13 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Mon, 30 Jan 2017 20:47:47 -0800, Alexei Starovoitov wrote:
->> On Mon, Jan 30, 2017 at 08:49:25PM -0500, Michael Chan wrote:
->> > The first 8 patches refactor the code (rx/tx code paths and ring logic)
->> > and add the basic infrastructure to support XDP.  The 9th patch adds
->> > basic ndo_xdp to support XDP_DROP and XDP_PASS only.  The 10th patch
->> > completes the series with XDP_TX.
->>
->> Looks great.
->> Could you please share performance numbers ?
->>
->> Also please add something like:
->>   if (prog && prog->xdp_adjust_head) {
->>           netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
->>           return -EOPNOTSUPP;
->>   }
->> unless you plan to add adjut_head support until net-next closes.
->> Note, it's must have for load balancer functionality.
->
-> I was about to ask whether it's OK at this point to add XDP support
-> without xdp_adjust_head()?  My understanding was that this is basic
-> functionality and therefore required?
+From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 
-I need to first figure out what xdp_adjust_head means.  If it is ok,
-I'd like to defer it.
+Hi David,
+    The patch series adds required changes for qed/qede drivers for
+supporting the IEEE Precision Time Protocol (PTP).
 
->
-> FWIW the check you requested is there in patch 9.
+Please consider applying this series to "net-next".
 
-Yes, it is in there.  I just copied the same code from other drivers.
+Thanks,
+Sudarsana
+
+Changes from previous versions:
+-------------------------------
+v3: Use div_s64 for 64-bit divisions as do_div gives error for signed
+    types.
+    Incorporated review comments from Richard Cochran.
+      - Clear timestamp resgisters as soon as timestamp is read.
+      - Use shift operation in the place of 'divide by 16'.
+
+v2: Use do_div for 64-bit divisions.
+
+Sudarsana Reddy Kalluru (2):
+  qed: Add infrastructure for PTP support.
+  qede: Add driver support for PTP.
+
+ drivers/net/ethernet/qlogic/Kconfig             |   1 +
+ drivers/net/ethernet/qlogic/qed/Makefile        |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed.h           |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.c        |   5 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.h        |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  15 +
+ drivers/net/ethernet/qlogic/qed/qed_ptp.c       | 318 ++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_ptp.h       |  47 +++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  31 ++
+ drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
+ drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
+ include/linux/qed/qed_eth_if.h                  |  22 +
+ 17 files changed, 1103 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
+
+-- 
+1.8.3.1
