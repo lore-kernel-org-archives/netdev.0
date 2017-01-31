@@ -1,52 +1,111 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: sock_create_kern() and network namespace reference counts
-Date: Tue, 31 Jan 2017 17:57:29 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0276FD9@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6DB0276D58@AcuExch.aculab.com>
- <CAM_iQpVs-_p8VeoRpUjBPSOCkCAi0q8gWWSx29699-UuLKQTrg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: reduce skb_warn_bad_offload() noise
+Date: Tue, 31 Jan 2017 10:20:32 -0800
+Message-ID: <1485886832.6360.133.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Cong Wang' <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.181]:57329 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751353AbdAaSUZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:20:25 -0500
-In-Reply-To: <CAM_iQpVs-_p8VeoRpUjBPSOCkCAi0q8gWWSx29699-UuLKQTrg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33649 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751585AbdAaSUf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:20:35 -0500
+Received: by mail-pf0-f194.google.com with SMTP id e4so29011909pfg.0
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 10:20:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQ29uZyBXYW5nDQo+IFNlbnQ6IDMxIEphbnVhcnkgMjAxNyAxNzozOA0KPiBPbiBUdWUs
-IEphbiAzMSwgMjAxNyBhdCA3OjQxIEFNLCBEYXZpZCBMYWlnaHQgPERhdmlkLkxhaWdodEBhY3Vs
-YWIuY29tPiB3cm90ZToNCj4gPiBDb21taXQgMjZhYmUxNDM3IGNoYW5nZWQgc29ja19jcmVhdGVf
-a2VybigpIHNvIHRoYXQgaXQgc3RvcHBlZA0KPiA+IGhvbGRpbmcgYSByZWZlcmVuY2UgdG8gdGhl
-IG5ldHdvcmsgbmFtZXNwYWNlLg0KPiA+IFRoZSByYXRpb25hbCBzZWVtZWQgdG8gYmUgJ3RvIGFs
-bG93IHRvIHN0b3AgaXQnIChwcmVzdW1hYmx5ICdiZSBkZWxldGVkJykuDQo+ID4gUHJpb3IgdG8g
-dGhpcyBjaGFuZ2Ugc29tZSBrZXJuZWwgcGF0aHMgdXNlZCBza19jaGFuZ2VfbmV0KCkgKGV0Yykg
-dG8NCj4gPiBjaGFuZ2UgdGhlIG5hbWVzcGFjZSBhZnRlciB0aGUgc29ja2V0IHdhcyBjcmVhdGVk
-Lg0KPiA+DQo+ID4gSWYgdGhlIHNvY2tldCBkb2Vzbid0IGhvbGQgYSByZWZlcmVuY2UgdG8gdGhl
-IG5hbWVzcGFjZSwgd2hhdCBhY3R1YWxseQ0KPiA+IGhhcHBlbnMgd2hlbiB0aGUgbmFtZXNwYWNl
-IGlzIGRlbGV0ZWQ/DQo+IA0KPiBLZXJuZWwgc29ja2V0IHNob3VsZCBoYXZlIHRoZSBzYW1lIGxp
-ZmV0aW1lIHdpdGggdGhlIG5ldCBuYW1lc3BhY2UsDQo+IHRoYXQgaXMsIGNyZWF0ZWQgaW4gbmV0
-X2luaXQgYW5kIHJlbGVhc2VkIGluIG5ldF9leGl0LiBUaGluayBhYm91dCBpdCwgaWYgaXQNCj4g
-cmVhbGx5IGhlbGQgYSByZWZjbnQgdG8gdGhpcyBuZXRucywgaG93IGNvdWxkIHRoaXMgbmV0bnMg
-YmUgdGVhcmVkIGRvd24/DQoNClRoYXQgcmF0aGVyIGRlcGVuZHMgb24gd2hhdCB0aGV5IGFyZSBi
-ZWluZyB1c2VkIGZvci4NCkNvbnNpZGVyIHNvbWV0aGluZyBsaWtlIGFuIGluIGtlcm5lbCBmdHAg
-Y2xpZW50LCBpdCBkb2Vzbid0IHJlYWxseSBjYXJlDQphYm91dCBuYW1lc3BhY2VzIGV4Y2VwdCBp
-biBhcyBtdWNoIGFzIHRoZSBjb25uZWN0aW9ucyBpdCBjcmVhdGVzIG11c3QNCmJlIGluc2lkZSB0
-aGUgY29ycmVjdCBuYW1lc3BhY2UuDQpUaGUgbmFtZXNwYWNlIHNob3VsZG4ndCBiZSB0b3JuIGRv
-d24gd2hpbGUgdGhhdCBjb25uZWN0aW9uIGV4aXN0cyBhbnkgbW9yZQ0KdGhhbiBpdCBzaG91bGQg
-YmUgdG9ybiBkb3duIHdoaWxlIGEgdXNlciBwcm9jZXNzIGhhcyBhbiBvcGVuIGNvbm5lY3Rpb24u
-DQooTGlzdGVuaW5nIHNvY2tldHMgYXJlIGxpa2VseSB0byBiZSBtb3JlIG9mIGEgcHJvYmxlbS4p
-DQoNCldlIGhhdmUgaW4ga2VybmVsIGNvZGUgdGhhdCBjcmVhdGVzIFNDVFAgc29ja2V0cyBmb3Ig
-TTNVQS4NClRoZXJlIGlzIG5vIHdheSB3ZSBjYW4gZmluZCBvdXQgdGhhdCBzb21ldGhpbmcgaGFz
-IGRlY2lkZWQgdG8gZGVsZXRlIGENCm5hbWVzcGFjZSBhbmQgSSdkIGV4cGVjdCB0aGUgY29ubmVj
-dGlvbnMgdG8gaG9sZCB0aGUgbmFtZXNwYWNlIGJ1c3kuDQpQcmlvciB0byBkZWxldGluZyB0aGUg
-bmFtZXNwYWNlIHlvdSBuZWVkIHRvIGRvIHdoYXRldmVyIGlzIG5lY2Vzc2FyeQ0KdG8gbWFrZSB0
-aGUgZHJpdmVyIGRlbGV0ZSBhbGwgaXRzIHNvY2tldHMuDQoNClBvdGVudGlhbGx5IHRoZXJlIGNv
-dWxkIGJlIHNvbWUgc3lzdGVtIGNhbGwgdGhhdCBjYXVzZXMgJ2Vycm9yJyBldmVudHMNCm9uIGFs
-bCB0aGUgc29ja2V0cyBzbyB0aGF0IHRoZSBkcml2ZXIgY29kZSBjYW4gZGVsZXRlIHRoZW0gYWxs
-b3dpbmcNCnRoZSBuYW1lc3BhY2UgYmUgZGVsZXRlZC4NCg0KCURhdmlkDQoNCg==
+From: Eric Dumazet <edumazet@google.com>
+
+Dmitry reported warnings occurring in __skb_gso_segment() [1]
+
+All SKB_GSO_DODGY producers can allow user space to feed
+packets that trigger the current check.
+
+We could prevent them from doing so, rejecting packets, but
+this might add regressions to existing programs.
+
+It turns out our SKB_GSO_DODGY handlers properly set up checksum
+information that is needed anyway when packets needs to be segmented.
+
+By checking again skb_needs_check() after skb_mac_gso_segment(),
+we should remove these pesky warnings, at a very minor cost.
+
+With help from Willem de Bruijn
+
+[1]
+WARNING: CPU: 1 PID: 6768 at net/core/dev.c:2439 skb_warn_bad_offload+0x2af/0x390 net/core/dev.c:2434
+lo: caps=(0x000000a2803b7c69, 0x0000000000000000) len=138 data_len=0 gso_size=15883 gso_type=4 ip_summed=0
+Kernel panic - not syncing: panic_on_warn set ...
+
+CPU: 1 PID: 6768 Comm: syz-executor1 Not tainted 4.9.0 #5
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+ ffff8801c063ecd8 ffffffff82346bdf ffffffff00000001 1ffff100380c7d2e
+ ffffed00380c7d26 0000000041b58ab3 ffffffff84b37e38 ffffffff823468f1
+ ffffffff84820740 ffffffff84f289c0 dffffc0000000000 ffff8801c063ee20
+Call Trace:
+ [<ffffffff82346bdf>] __dump_stack lib/dump_stack.c:15 [inline]
+ [<ffffffff82346bdf>] dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+ [<ffffffff81827e34>] panic+0x1fb/0x412 kernel/panic.c:179
+ [<ffffffff8141f704>] __warn+0x1c4/0x1e0 kernel/panic.c:542
+ [<ffffffff8141f7e5>] warn_slowpath_fmt+0xc5/0x100 kernel/panic.c:565
+ [<ffffffff8356cbaf>] skb_warn_bad_offload+0x2af/0x390 net/core/dev.c:2434
+ [<ffffffff83585cd2>] __skb_gso_segment+0x482/0x780 net/core/dev.c:2706
+ [<ffffffff83586f19>] skb_gso_segment include/linux/netdevice.h:3985 [inline]
+ [<ffffffff83586f19>] validate_xmit_skb+0x5c9/0xc20 net/core/dev.c:2969
+ [<ffffffff835892bb>] __dev_queue_xmit+0xe6b/0x1e70 net/core/dev.c:3383
+ [<ffffffff8358a2d7>] dev_queue_xmit+0x17/0x20 net/core/dev.c:3424
+ [<ffffffff83ad161d>] packet_snd net/packet/af_packet.c:2930 [inline]
+ [<ffffffff83ad161d>] packet_sendmsg+0x32ed/0x4d30 net/packet/af_packet.c:2955
+ [<ffffffff834f0aaa>] sock_sendmsg_nosec net/socket.c:621 [inline]
+ [<ffffffff834f0aaa>] sock_sendmsg+0xca/0x110 net/socket.c:631
+ [<ffffffff834f329a>] ___sys_sendmsg+0x8fa/0x9f0 net/socket.c:1954
+ [<ffffffff834f5e58>] __sys_sendmsg+0x138/0x300 net/socket.c:1988
+ [<ffffffff834f604d>] SYSC_sendmsg net/socket.c:1999 [inline]
+ [<ffffffff834f604d>] SyS_sendmsg+0x2d/0x50 net/socket.c:1995
+ [<ffffffff84371941>] entry_SYSCALL_64_fastpath+0x1f/0xc2
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov  <dvyukov@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ net/core/dev.c |   12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index be11abac89b3e6ce3013a6b905a268eaf4685609..6fe3d6f51e0a3fb421d6c63d6d20a3f46c408e93 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2658,11 +2658,12 @@ static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
+ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 				  netdev_features_t features, bool tx_path)
+ {
++	struct sk_buff *segs;
++
+ 	if (unlikely(skb_needs_check(skb, tx_path))) {
+ 		int err;
+ 
+-		skb_warn_bad_offload(skb);
+-
++		/* We're going to init ->check field in TCP or UDP header */
+ 		err = skb_cow_head(skb, 0);
+ 		if (err < 0)
+ 			return ERR_PTR(err);
+@@ -2690,7 +2691,12 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 	skb_reset_mac_header(skb);
+ 	skb_reset_mac_len(skb);
+ 
+-	return skb_mac_gso_segment(skb, features);
++	segs = skb_mac_gso_segment(skb, features);
++
++	if (unlikely(skb_needs_check(skb, tx_path)))
++		skb_warn_bad_offload(skb);
++
++	return segs;
+ }
+ EXPORT_SYMBOL(__skb_gso_segment);
+ 
