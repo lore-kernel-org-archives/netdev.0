@@ -1,37 +1,43 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
-Date: Tue, 31 Jan 2017 07:59:11 +0000
-Message-ID: <BL2PR07MB2306A81376F52504945038188D4A0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [Patch net-next 2/2] netns: avoid disabling irq for netns id
+Date: Tue, 31 Jan 2017 09:24:49 +0100
+Message-ID: <812a41b1-382c-af18-a0a7-ff4fbc2a96a6@6wind.com>
+References: <1472792025-14702-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1472792025-14702-3-git-send-email-xiyou.wangcong@gmail.com>
+ <7de98923-0cfb-5937-d32b-bdaee7ec10dc@6wind.com>
+ <CAA1AmC2KiuoDiuBmjFAS20UnzkfCCnvHYyXhm3MOrVBUty9EeQ@mail.gmail.com>
+ <CAM_iQpU8XPixg3g=NPbOcUPDu+o1bOccpnng=HrW8-VzY-xmgw@mail.gmail.com>
+ <CS1PR84MB00721E8E05290D70693B0EFECA4A0@CS1PR84MB0072.NAMPRD84.PROD.OUTLOOK.COM>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>
+To: "Elluru, Krishna Mohan" <elluru.kri.mohan@hpe.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, Elad Raz <e@eladraz.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0061.outbound.protection.outlook.com ([104.47.32.61]:58031
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750856AbdAaH7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Jan 2017 02:59:33 -0500
-In-Reply-To: <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
-Content-Language: en-US
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37474 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750726AbdAaIbB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 03:31:01 -0500
+Received: by mail-wm0-f48.google.com with SMTP id v77so82300374wmv.0
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 00:31:00 -0800 (PST)
+In-Reply-To: <CS1PR84MB00721E8E05290D70693B0EFECA4A0@CS1PR84MB0072.NAMPRD84.PROD.OUTLOOK.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
->=20
-> The patch adds the required qed interfaces for configuring/reading the PT=
-P
-> clock on the adapter.
->=20
-> Reviewed-by: Richard Cochran <richardcochran@gmail.com>
+Le 31/01/2017 à 07:47, Elluru, Krishna Mohan a écrit :
+> HI Cong,
+> 	Have you posted any patch for the same? I am looking for single netlink socket to handle multiple network namespace events using NETLINK_LISTEN_ALL_NSID. I don't see detection of new namespaces by this socket yet and causing updates to be missed.
+New namespaces are not automatically detected. You have to assign them a nsid
+(e.g. ip netns set).
+NETLINK_LISTEN_ALL_NSID enables notifications only for peer netns that have a
+nsid assign in the netns where the socket has been opened.
 
-This Reviewd-by Tag is incorrect; Should have been a CC.
-Sorry about that.
 
-> Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
+Regards,
+Nicolas
