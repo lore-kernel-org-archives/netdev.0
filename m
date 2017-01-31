@@ -1,61 +1,26 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 08/17] net: stmmac: Use readl_poll_timeout
-Date: Tue, 31 Jan 2017 10:11:43 +0100
-Message-ID: <20170131091152.13842-9-clabbe.montjoie@gmail.com>
-References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: [PATCH net-next 0/2] net/sched: act_sample: Little fixes
+Date: Tue, 31 Jan 2017 11:33:52 +0200
+Message-ID: <1485855234-9941-1-git-send-email-yotamg@mellanox.com>
+Cc: Yotam Gigi <yotamg@mellanox.com>
+To: davem@davemloft.net, jhs@mojatatu.com, netdev@vger.kernel.org,
+        jiri@mellanox.com, eladr@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:46476 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751098AbdAaJcH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 04:32:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dwmac_dma_reset function use an open coded of readl_poll_timeout().
-Replace the open coded handling with the proper function.
+Little fixes in sample tc action.
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+Yotam Gigi (2):
+  net/sched: act_sample: Fix error path in init
+  net/sched: act_psample: Remove unnecessary ASSERT_RTNL
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index e4cda39..e60bfca 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -17,6 +17,7 @@
- *******************************************************************************/
- 
- #include <linux/io.h>
-+#include <linux/iopoll.h>
- #include "common.h"
- #include "dwmac_dma.h"
- 
-@@ -25,19 +26,16 @@
- int dwmac_dma_reset(void __iomem *ioaddr)
- {
- 	u32 value = readl(ioaddr + DMA_BUS_MODE);
--	int limit;
-+	int err;
- 
- 	/* DMA SW reset */
- 	value |= DMA_BUS_MODE_SFT_RESET;
- 	writel(value, ioaddr + DMA_BUS_MODE);
--	limit = 10;
--	while (limit--) {
--		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
--			break;
--		mdelay(10);
--	}
- 
--	if (limit < 0)
-+	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
-+				 !(value & DMA_BUS_MODE_SFT_RESET),
-+				 100000, 10000);
-+	if (err)
- 		return -EBUSY;
- 
- 	return 0;
+ net/sched/act_sample.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
 -- 
-2.10.2
+2.4.11
