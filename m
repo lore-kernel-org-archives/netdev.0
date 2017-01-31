@@ -1,69 +1,124 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 8/8] net/mlx5e: Bring back bfreg uar map dedicated pointer
-Date: Tue, 31 Jan 2017 22:58:43 +0200
-Message-ID: <20170131205843.23235-9-saeedm@mellanox.com>
+Subject: [net-next 7/8] net/mlx5e: XDP Tx, no inline copy on ConnectX-5
+Date: Tue, 31 Jan 2017 22:58:42 +0200
+Message-ID: <20170131205843.23235-8-saeedm@mellanox.com>
 References: <20170131205843.23235-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60058 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60110 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751203AbdAaVFj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 16:05:39 -0500
+        with ESMTP id S1751028AbdAaVGT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 16:06:19 -0500
 In-Reply-To: <20170131205843.23235-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-4K Uar series modified the mlx5e driver to use the new bfreg API,
-and mistakenly removed the sq->uar_map iomem data path dedicated
-pointer, which was meant to be read from xmit path for cache locality
-utilization.
+ConnectX-5 and later HW generations will report min inline mode ==
+MLX5_INLINE_MODE_NONE, which means driver is not required to copy packet
+headers to inline fields of TX WQE.
 
-Fix that by returning that pointer to the SQ struct.
+Avoid copy to inline segment in XDP TX routine when HW inline mode doesn't
+require it.
 
-Fixes: 7309cb4ad71e ("IB/mlx5: Support 4k UAR for libmlx5")
+This will improve CPU utilization and boost XDP TX performance.
+
+Tested with xdp2 single flow:
+CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+HCA: Mellanox Technologies MT28800 Family [ConnectX-5 Ex]
+
+Before: 7.4Mpps
+After:  7.8Mpps
+Improvement: 5%
+
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      | 5 +++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 1 +
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  3 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  3 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 20 +++++++++++++-------
+ 3 files changed, 15 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index a1741d3833db..562cd8f193a8 100644
+index 9193111ae05e..a1741d3833db 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -475,6 +475,7 @@ struct mlx5e_sq {
- 	/* read only */
- 	struct mlx5_wq_cyc         wq;
- 	u32                        dma_fifo_mask;
-+	void __iomem              *uar_map;
- 	struct netdev_queue       *txq;
- 	u32                        sqn;
- 	u16                        bf_buf_size;
-@@ -830,9 +831,9 @@ static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
- 	 */
- 	wmb();
- 	if (bf_sz)
--		__iowrite64_copy(sq->bfreg.map + ofst, ctrl, bf_sz);
-+		__iowrite64_copy(sq->uar_map + ofst, ctrl, bf_sz);
- 	else
--		mlx5_write64((__be32 *)ctrl, sq->bfreg.map + ofst, NULL);
-+		mlx5_write64((__be32 *)ctrl, sq->uar_map + ofst, NULL);
- 	/* flush the write-combining mapped buffer */
- 	wmb();
+@@ -120,8 +120,7 @@
+ #define MLX5E_XDP_IHS_DS_COUNT \
+ 	DIV_ROUND_UP(MLX5E_XDP_MIN_INLINE - 2, MLX5_SEND_WQE_DS)
+ #define MLX5E_XDP_TX_DS_COUNT \
+-	(MLX5E_XDP_IHS_DS_COUNT + \
+-	 (sizeof(struct mlx5e_tx_wqe) / MLX5_SEND_WQE_DS) + 1 /* SG DS */)
++	((sizeof(struct mlx5e_tx_wqe) / MLX5_SEND_WQE_DS) + 1 /* SG DS */)
+ #define MLX5E_XDP_TX_WQEBBS \
+ 	DIV_ROUND_UP(MLX5E_XDP_TX_DS_COUNT, MLX5_SEND_WQEBB_NUM_DS)
  
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index e47ba0365f20..4146e8f4cae0 100644
+index 505f97aeb60c..e47ba0365f20 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1016,6 +1016,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
- 	if (err)
- 		return err;
+@@ -1806,8 +1806,7 @@ static void mlx5e_build_xdpsq_param(struct mlx5e_priv *priv,
+ 	MLX5_SET(wq, wq, log_wq_sz,     priv->params.log_sq_size);
  
-+	sq->uar_map = sq->bfreg.map;
- 	param->wq.db_numa_node = cpu_to_node(c->cpu);
+ 	param->max_inline = priv->params.tx_max_inline;
+-	/* FOR XDP SQs will support only L2 inline mode */
+-	param->min_inline_mode = MLX5_INLINE_MODE_NONE;
++	param->min_inline_mode = priv->params.tx_min_inline_mode;
+ 	param->type = MLX5E_SQ_XDP;
+ }
  
- 	err = mlx5_wq_cyc_create(mdev, &param->wq, sqc_wq, &sq->wq,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index 965e69e9ff1e..b039b87742a6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -657,9 +657,10 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+ 	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
+ 	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
+ 	struct mlx5_wqe_data_seg *dseg;
++	u8 ds_cnt = MLX5E_XDP_TX_DS_COUNT;
+ 
+ 	ptrdiff_t data_offset = xdp->data - xdp->data_hard_start;
+-	dma_addr_t dma_addr  = di->addr + data_offset + MLX5E_XDP_MIN_INLINE;
++	dma_addr_t dma_addr  = di->addr + data_offset;
+ 	unsigned int dma_len = xdp->data_end - xdp->data;
+ 
+ 	if (unlikely(dma_len < MLX5E_XDP_MIN_INLINE ||
+@@ -680,17 +681,22 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+ 		return false;
+ 	}
+ 
+-	dma_len -= MLX5E_XDP_MIN_INLINE;
+ 	dma_sync_single_for_device(sq->pdev, dma_addr, dma_len,
+ 				   PCI_DMA_TODEVICE);
+ 
+ 	memset(wqe, 0, sizeof(*wqe));
+ 
+-	/* copy the inline part */
+-	memcpy(eseg->inline_hdr.start, xdp->data, MLX5E_XDP_MIN_INLINE);
+-	eseg->inline_hdr.sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
++	dseg = (struct mlx5_wqe_data_seg *)eseg + 1;
++	/* copy the inline part if required */
++	if (sq->min_inline_mode != MLX5_INLINE_MODE_NONE) {
++		memcpy(eseg->inline_hdr.start, xdp->data, MLX5E_XDP_MIN_INLINE);
++		eseg->inline_hdr.sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
++		dma_len  -= MLX5E_XDP_MIN_INLINE;
++		dma_addr += MLX5E_XDP_MIN_INLINE;
+ 
+-	dseg = (struct mlx5_wqe_data_seg *)cseg + (MLX5E_XDP_TX_DS_COUNT - 1);
++		ds_cnt   += MLX5E_XDP_IHS_DS_COUNT;
++		dseg++;
++	}
+ 
+ 	/* write the dma part */
+ 	dseg->addr       = cpu_to_be64(dma_addr);
+@@ -698,7 +704,7 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+ 	dseg->lkey       = sq->mkey_be;
+ 
+ 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | MLX5_OPCODE_SEND);
+-	cseg->qpn_ds = cpu_to_be32((sq->sqn << 8) | MLX5E_XDP_TX_DS_COUNT);
++	cseg->qpn_ds = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+ 
+ 	sq->db.xdp.di[pi] = *di;
+ 	wi->opcode     = MLX5_OPCODE_SEND;
 -- 
 2.11.0
