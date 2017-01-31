@@ -1,62 +1,82 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 4.10-rc3 10/13] MIPS: Octeon: Remove unnecessary MODULE_*()
-Date: Tue, 31 Jan 2017 19:19:14 +0000
-Message-ID: <E1cYdxS-0000Wy-EM@rmk-PC.armlinux.org.uk>
+Subject: [PATCH 4.10-rc3 13/13] net: dsa: remove unnecessary phy*.h includes
+Date: Tue, 31 Jan 2017 19:19:29 +0000
+Message-ID: <E1cYdxh-0000XJ-RN@rmk-PC.armlinux.org.uk>
 References: <20170131191704.GA8281@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Ralf Baechle <ralf@linux-mips.org>
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
         linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         target-devel@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 In-Reply-To: <20170131191704.GA8281@n2100.armlinux.org.uk>
 Content-Disposition: inline
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-octeon-platform.c can not be built as a module for two reasons:
+Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
+unnecessary dependency for quite a large amount of the kernel.  There's
+very little which actually requires definitions from phy.h in net/dsa.h
+- the include itself only wants the declaration of a couple of
+structures and IFNAMSIZ.
 
-(a) the Makefile doesn't allow it:
-    obj-y := cpu.o setup.o octeon-platform.o octeon-irq.o csrc-octeon.o
+Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
+mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
+and phy_fixed.h from net/dsa.h.
 
-(b) the multiple *_initcall() statements, each of which are translated
-    to a module_init() call when attempting a module build, become
-    aliases to init_module().  Having more than one alias will cause a
-    build error.
+This patch reduces from around 800 files rebuilt to around 40 - even
+with ccache, the time difference is noticable.
 
-Hence, rather than adding a linux/module.h include, remove the redundant
-MODULE_*() from this file.
-
-Acked-by: David Daney <david.daney@cavium.com>
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- arch/mips/cavium-octeon/octeon-platform.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
+ include/net/dsa.h                     | 6 ++++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/arch/mips/cavium-octeon/octeon-platform.c b/arch/mips/cavium-octeon/octeon-platform.c
-index 37a932d9148c..8297ce714c5e 100644
---- a/arch/mips/cavium-octeon/octeon-platform.c
-+++ b/arch/mips/cavium-octeon/octeon-platform.c
-@@ -1060,7 +1060,3 @@ static int __init octeon_publish_devices(void)
- 	return of_platform_bus_probe(NULL, octeon_ids, NULL);
- }
- arch_initcall(octeon_publish_devices);
--
--MODULE_AUTHOR("David Daney <ddaney@caviumnetworks.com>");
--MODULE_LICENSE("GPL");
--MODULE_DESCRIPTION("Platform driver for Octeon SOC");
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index af54baea47cf..3a949095068a 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -15,6 +15,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/irq.h>
+ #include <linux/gpio/consumer.h>
++#include <linux/phy.h>
+ 
+ #ifndef UINT64_MAX
+ #define UINT64_MAX		(u64)(~((u64)0))
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b122196d5a1f..887b2f98f9ea 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -11,15 +11,17 @@
+ #ifndef __LINUX_NET_DSA_H
+ #define __LINUX_NET_DSA_H
+ 
++#include <linux/if.h>
+ #include <linux/if_ether.h>
+ #include <linux/list.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/of.h>
+-#include <linux/phy.h>
+-#include <linux/phy_fixed.h>
+ #include <linux/ethtool.h>
+ 
++struct phy_device;
++struct fixed_phy_status;
++
+ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_NONE = 0,
+ 	DSA_TAG_PROTO_DSA,
 -- 
 2.7.4
+
