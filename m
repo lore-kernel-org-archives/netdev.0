@@ -1,258 +1,76 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH] net: intel: e1000e: use new api
- ethtool_{get|set}_link_ksettings
-Date: Tue, 31 Jan 2017 08:13:22 +0200
-Message-ID: <eec980e8-ecee-182b-f438-edef32932b6a@intel.com>
-References: <1485465593-12561-1-git-send-email-tremyfr@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net: suspicious RCU usage in nf_hook
+Date: Mon, 30 Jan 2017 22:19:52 -0800
+Message-ID: <CAM_iQpXiQMH1zMJM6sYFNUySUYjaHnLZ3T2d34GwCMQ9u6RkwQ@mail.gmail.com>
+References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
+ <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVvBPhP4q=Egsaoqf8ym-73jLZow8xDMbOq9RhYmL5XAQ@mail.gmail.com> <1485567090.6360.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>, jeffrey.t.kirsher@intel.com,
-        davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <edumazet@google.com>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485465593-12561-1-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <1485567090.6360.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1/26/2017 23:19, Philippe Reynes wrote:
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
+On Fri, Jan 27, 2017 at 5:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-01-27 at 17:00 -0800, Cong Wang wrote:
+>> On Fri, Jan 27, 2017 at 3:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > Oh well, I forgot to submit the official patch I think, Jan 9th.
+>> >
+>> > https://groups.google.com/forum/#!topic/syzkaller/BhyN5OFd7sQ
+>> >
+>>
+>> Hmm, but why only fragments need skb_orphan()? It seems like
+>> any kfree_skb() inside a nf hook needs to have a preceding
+>> skb_orphan().
 >
-> As I don't have the hardware, I'd be very pleased if
-> someone may test this patch.
 >
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
->   drivers/net/ethernet/intel/e1000e/ethtool.c |   91 ++++++++++++++------------
->   1 files changed, 49 insertions(+), 42 deletions(-)
+>>
+>> Also, I am not convinced it is similar to commit 8282f27449bf15548
+>> which is on RX path.
 >
-> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> index 7aff68a..3768a5c 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> @@ -117,15 +117,15 @@ struct e1000_stats {
->   
->   #define E1000_TEST_LEN ARRAY_SIZE(e1000_gstrings_test)
->   
-> -static int e1000_get_settings(struct net_device *netdev,
-> -			      struct ethtool_cmd *ecmd)
-> +static int e1000_get_link_ksettings(struct net_device *netdev,
-> +				    struct ethtool_link_ksettings *cmd)
->   {
->   	struct e1000_adapter *adapter = netdev_priv(netdev);
->   	struct e1000_hw *hw = &adapter->hw;
-> -	u32 speed;
-> +	u32 speed, supported, advertising;
->   
->   	if (hw->phy.media_type == e1000_media_type_copper) {
-> -		ecmd->supported = (SUPPORTED_10baseT_Half |
-> +		supported = (SUPPORTED_10baseT_Half |
->   				   SUPPORTED_10baseT_Full |
->   				   SUPPORTED_100baseT_Half |
->   				   SUPPORTED_100baseT_Full |
-> @@ -133,39 +133,36 @@ static int e1000_get_settings(struct net_device *netdev,
->   				   SUPPORTED_Autoneg |
->   				   SUPPORTED_TP);
->   		if (hw->phy.type == e1000_phy_ife)
-> -			ecmd->supported &= ~SUPPORTED_1000baseT_Full;
-> -		ecmd->advertising = ADVERTISED_TP;
-> +			supported &= ~SUPPORTED_1000baseT_Full;
-> +		advertising = ADVERTISED_TP;
->   
->   		if (hw->mac.autoneg == 1) {
-> -			ecmd->advertising |= ADVERTISED_Autoneg;
-> +			advertising |= ADVERTISED_Autoneg;
->   			/* the e1000 autoneg seems to match ethtool nicely */
-> -			ecmd->advertising |= hw->phy.autoneg_advertised;
-> +			advertising |= hw->phy.autoneg_advertised;
->   		}
->   
-> -		ecmd->port = PORT_TP;
-> -		ecmd->phy_address = hw->phy.addr;
-> -		ecmd->transceiver = XCVR_INTERNAL;
-> -
-> +		cmd->base.port = PORT_TP;
-> +		cmd->base.phy_address = hw->phy.addr;
->   	} else {
-> -		ecmd->supported   = (SUPPORTED_1000baseT_Full |
-> +		supported   = (SUPPORTED_1000baseT_Full |
->   				     SUPPORTED_FIBRE |
->   				     SUPPORTED_Autoneg);
->   
-> -		ecmd->advertising = (ADVERTISED_1000baseT_Full |
-> +		advertising = (ADVERTISED_1000baseT_Full |
->   				     ADVERTISED_FIBRE |
->   				     ADVERTISED_Autoneg);
->   
-> -		ecmd->port = PORT_FIBRE;
-> -		ecmd->transceiver = XCVR_EXTERNAL;
-> +		cmd->base.port = PORT_FIBRE;
->   	}
->   
->   	speed = SPEED_UNKNOWN;
-> -	ecmd->duplex = DUPLEX_UNKNOWN;
-> +	cmd->base.duplex = DUPLEX_UNKNOWN;
->   
->   	if (netif_running(netdev)) {
->   		if (netif_carrier_ok(netdev)) {
->   			speed = adapter->link_speed;
-> -			ecmd->duplex = adapter->link_duplex - 1;
-> +			cmd->base.duplex = adapter->link_duplex - 1;
->   		}
->   	} else if (!pm_runtime_suspended(netdev->dev.parent)) {
->   		u32 status = er32(STATUS);
-> @@ -179,30 +176,36 @@ static int e1000_get_settings(struct net_device *netdev,
->   				speed = SPEED_10;
->   
->   			if (status & E1000_STATUS_FD)
-> -				ecmd->duplex = DUPLEX_FULL;
-> +				cmd->base.duplex = DUPLEX_FULL;
->   			else
-> -				ecmd->duplex = DUPLEX_HALF;
-> +				cmd->base.duplex = DUPLEX_HALF;
->   		}
->   	}
->   
-> -	ethtool_cmd_speed_set(ecmd, speed);
-> -	ecmd->autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
-> +	cmd->base.speed = speed;
-> +	cmd->base.autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
->   			 hw->mac.autoneg) ? AUTONEG_ENABLE : AUTONEG_DISABLE;
->   
->   	/* MDI-X => 2; MDI =>1; Invalid =>0 */
->   	if ((hw->phy.media_type == e1000_media_type_copper) &&
->   	    netif_carrier_ok(netdev))
-> -		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X : ETH_TP_MDI;
-> +		cmd->base.eth_tp_mdix = hw->phy.is_mdix ?
-> +			ETH_TP_MDI_X : ETH_TP_MDI;
->   	else
-> -		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
-> +		cmd->base.eth_tp_mdix = ETH_TP_MDI_INVALID;
->   
->   	if (hw->phy.mdix == AUTO_ALL_MODES)
-> -		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
-> +		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
->   	else
-> -		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
-> +		cmd->base.eth_tp_mdix_ctrl = hw->phy.mdix;
->   
->   	if (hw->phy.media_type != e1000_media_type_copper)
-> -		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
-> +		cmd->base.eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;
-> +
-> +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-> +						supported);
-> +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-> +						advertising);
->   
->   	return 0;
->   }
-> @@ -262,12 +265,16 @@ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u32 spd, u8 dplx)
->   	return -EINVAL;
->   }
->   
-> -static int e1000_set_settings(struct net_device *netdev,
-> -			      struct ethtool_cmd *ecmd)
-> +static int e1000_set_link_ksettings(struct net_device *netdev,
-> +				    const struct ethtool_link_ksettings *cmd)
->   {
->   	struct e1000_adapter *adapter = netdev_priv(netdev);
->   	struct e1000_hw *hw = &adapter->hw;
->   	int ret_val = 0;
-> +	u32 advertising;
-> +
-> +	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-> +						cmd->link_modes.advertising);
->   
->   	pm_runtime_get_sync(netdev->dev.parent);
->   
-> @@ -285,14 +292,14 @@ static int e1000_set_settings(struct net_device *netdev,
->   	 * some hardware doesn't allow MDI setting when speed or
->   	 * duplex is forced.
->   	 */
-> -	if (ecmd->eth_tp_mdix_ctrl) {
-> +	if (cmd->base.eth_tp_mdix_ctrl) {
->   		if (hw->phy.media_type != e1000_media_type_copper) {
->   			ret_val = -EOPNOTSUPP;
->   			goto out;
->   		}
->   
-> -		if ((ecmd->eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
-> -		    (ecmd->autoneg != AUTONEG_ENABLE)) {
-> +		if ((cmd->base.eth_tp_mdix_ctrl != ETH_TP_MDI_AUTO) &&
-> +		    (cmd->base.autoneg != AUTONEG_ENABLE)) {
->   			e_err("forcing MDI/MDI-X state is not supported when link speed and/or duplex are forced\n");
->   			ret_val = -EINVAL;
->   			goto out;
-> @@ -302,35 +309,35 @@ static int e1000_set_settings(struct net_device *netdev,
->   	while (test_and_set_bit(__E1000_RESETTING, &adapter->state))
->   		usleep_range(1000, 2000);
->   
-> -	if (ecmd->autoneg == AUTONEG_ENABLE) {
-> +	if (cmd->base.autoneg == AUTONEG_ENABLE) {
->   		hw->mac.autoneg = 1;
->   		if (hw->phy.media_type == e1000_media_type_fiber)
->   			hw->phy.autoneg_advertised = ADVERTISED_1000baseT_Full |
->   			    ADVERTISED_FIBRE | ADVERTISED_Autoneg;
->   		else
-> -			hw->phy.autoneg_advertised = ecmd->advertising |
-> +			hw->phy.autoneg_advertised = advertising |
->   			    ADVERTISED_TP | ADVERTISED_Autoneg;
-> -		ecmd->advertising = hw->phy.autoneg_advertised;
-> +		advertising = hw->phy.autoneg_advertised;
->   		if (adapter->fc_autoneg)
->   			hw->fc.requested_mode = e1000_fc_default;
->   	} else {
-> -		u32 speed = ethtool_cmd_speed(ecmd);
-> +		u32 speed = cmd->base.speed;
->   		/* calling this overrides forced MDI setting */
-> -		if (e1000_set_spd_dplx(adapter, speed, ecmd->duplex)) {
-> +		if (e1000_set_spd_dplx(adapter, speed, cmd->base.duplex)) {
->   			ret_val = -EINVAL;
->   			goto out;
->   		}
->   	}
->   
->   	/* MDI-X => 2; MDI => 1; Auto => 3 */
-> -	if (ecmd->eth_tp_mdix_ctrl) {
-> +	if (cmd->base.eth_tp_mdix_ctrl) {
->   		/* fix up the value for auto (3 => 0) as zero is mapped
->   		 * internally to auto
->   		 */
-> -		if (ecmd->eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
-> +		if (cmd->base.eth_tp_mdix_ctrl == ETH_TP_MDI_AUTO)
->   			hw->phy.mdix = AUTO_ALL_MODES;
->   		else
-> -			hw->phy.mdix = ecmd->eth_tp_mdix_ctrl;
-> +			hw->phy.mdix = cmd->base.eth_tp_mdix_ctrl;
->   	}
->   
->   	/* reset the link */
-> @@ -2313,8 +2320,6 @@ static int e1000e_get_ts_info(struct net_device *netdev,
->   }
->   
->   static const struct ethtool_ops e1000_ethtool_ops = {
-> -	.get_settings		= e1000_get_settings,
-> -	.set_settings		= e1000_set_settings,
->   	.get_drvinfo		= e1000_get_drvinfo,
->   	.get_regs_len		= e1000_get_regs_len,
->   	.get_regs		= e1000_get_regs,
-> @@ -2342,6 +2347,8 @@ static int e1000e_get_ts_info(struct net_device *netdev,
->   	.get_ts_info		= e1000e_get_ts_info,
->   	.get_eee		= e1000e_get_eee,
->   	.set_eee		= e1000e_set_eee,
-> +	.get_link_ksettings	= e1000_get_link_ksettings,
-> +	.set_link_ksettings	= e1000_set_link_ksettings,
->   };
->   
->   void e1000e_set_ethtool_ops(struct net_device *netdev)
+> Well, we clearly see IPv6 reassembly being part of the equation in both
+> cases.
 
-Philippe,
+Yeah, of course. My worry is that this problem is more than just
+IPv6 reassembly.
 
-We will look into and try test this patch. I would like ask question. I 
-see that this thread has been started from implementation for e1000 
-code. Why do you decide shift implementation to e1000e?
+>
+> I was replying to first part of the splat [1], which was already
+> diagnosed and had a non official patch.
+>
+> use after free is also a bug, regardless of jump label being used or
+> not.
+>
+> I still do not really understand this nf_hook issue, I thought we were
+> disabling BH in netfilter.
 
-Sasha
+It is a different warning from use-after-free, this one is about sleep
+in atomic context, mutex lock is acquired with RCU read lock held.
+
+
+>
+> So the in_interrupt() check in net_disable_timestamp() should trigger,
+> this was the intent of netstamp_needed_deferred existence.
+>
+> Not sure if we can test for rcu_read_lock() as well.
+>
+
+The context is process context (TX path before hitting qdisc), and
+BH is not disabled, so in_interrupt() doesn't catch it. Hmm, this
+makes me thinking maybe we really need to disable BH in this
+case for nf_hook()? But it is called in RX path too, and BH is
+already disabled there.
