@@ -1,41 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: ethtool: convert large order kmalloc
- allocations to vzalloc
-Date: Tue, 31 Jan 2017 13:29:18 -0500 (EST)
-Message-ID: <20170131.132918.802187583667317438.davem@davemloft.net>
-References: <1485829518-190263-1-git-send-email-ast@fb.com>
+Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: Fix build module
+Date: Tue, 31 Jan 2017 13:37:25 -0500 (EST)
+Message-ID: <20170131.133725.1452309965989023156.davem@davemloft.net>
+References: <20170131031716.31304-1-f.fainelli@gmail.com>
+        <20170131.003200.1606954363885799024.davem@davemloft.net>
+        <8cdf8334-7b1e-641b-44b8-aec6a37d1b8c@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: ast@fb.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41346 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41462 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751566AbdAaSfv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:35:51 -0500
-In-Reply-To: <1485829518-190263-1-git-send-email-ast@fb.com>
+        with ESMTP id S1751195AbdAaShc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:37:32 -0500
+In-Reply-To: <8cdf8334-7b1e-641b-44b8-aec6a37d1b8c@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Mon, 30 Jan 2017 18:25:18 -0800
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 31 Jan 2017 10:32:38 -0800
 
-> under memory pressure 'ethtool -S' command may warn:
- ...
-> ~1160 mlx5 counters ~= order 4 allocation which is unlikely to succeed
-> under memory pressure. Convert them to vzalloc() as ethtool_get_regs() does.
-> Also take care of drivers without counters similar to
-> commit 67ae7cf1eeda ("ethtool: Allow zero-length register dumps again")
-> and reduce warn_on to warn_on_once.
+> On 01/30/2017 09:32 PM, David Miller wrote:
+>> From: Florian Fainelli <f.fainelli@gmail.com>
+>> Date: Mon, 30 Jan 2017 19:17:16 -0800
+>> 
+>>> Commit 7318166cacad ("net: dsa: bcm_sf2: Add support for
+>>> ethtool::rxnfc") added a new object to build: bcm_sf2_cfp.o, but in
+>>> doing so, we essentially just built this object and no longer bcm_sf2.o.
+>>>
+>>> Fix this by creating a module named bcm-sf2.ko which links in bcm_sf2.o
+>>> and bcm_sf2_cfp.o.
+>>>
+>>> Fixes: 7318166cacad ("net: dsa: bcm_sf2: Add support for ethtool::rxnfc")
+>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> 
+>> Applied, thanks.
 > 
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> ---
-> Dave, I think by 'careful about size calculations' you mean
-> to take care of zero-length. Please let me know if I misunderstood.
+> I don't see it showing up on next-next yet, is it just queued locally?
+> Thanks!
 
-I was talking about the transformation from "count, size" to
-"count * size" when going from kcalloc() to vzalloc() which you
-did properly.
+The perils of working on different machines during the day :-)
 
-Applied, thank you :)
+It should be there now, sorry about that.
