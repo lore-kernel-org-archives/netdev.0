@@ -1,264 +1,87 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 10/10] bnxt_en: Add support for XDP_TX action.
-Date: Mon, 30 Jan 2017 20:49:35 -0500
-Message-ID: <1485827375-20421-11-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 06/10] bnxt_en: Add tx ring mapping logic.
+Date: Mon, 30 Jan 2017 20:49:31 -0500
+Message-ID: <1485827375-20421-7-git-send-email-michael.chan@broadcom.com>
 References: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35385 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752695AbdAaBur (ORCPT
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33760 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752199AbdAaBur (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 20:50:47 -0500
-Received: by mail-pf0-f174.google.com with SMTP id f144so96525362pfa.2
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 17:50:04 -0800 (PST)
+Received: by mail-pf0-f178.google.com with SMTP id y143so96530353pfb.0
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 17:50:01 -0800 (PST)
 In-Reply-To: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add dedicated transmit function and transmit completion handler for
-XDP which are a lot simpler than the original functions for SKB.
+To support XDP_TX, we need to add a set of dedicated TX rings, each
+associated with the NAPI of an RX ring.  To assign XDP rings and regular
+rings in a flexible way, we add a bp->tx_ring_map[] array to do the
+remapping.  In this patch, before we introduce XDP_TX, the mapping is 1:1.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
-Tested-by: Andy Gospodarek <gospo@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 34 +++++-----
- drivers/net/ethernet/broadcom/bnxt/bnxt.h     | 14 +++++
- drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 90 +++++++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h |  2 +
- 4 files changed, 125 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 11 ++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index ae1f400..826915c 100644
+index cb30ba4..db78103 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -212,16 +212,7 @@ static bool bnxt_vf_pciid(enum board_idx idx)
- #define BNXT_CP_DB_IRQ_DIS(db)						\
- 		writel(DB_CP_IRQ_DIS_FLAGS, db)
+@@ -262,8 +262,8 @@ static netdev_tx_t bnxt_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_OK;
+ 	}
  
--static inline u32 bnxt_tx_avail(struct bnxt *bp, struct bnxt_tx_ring_info *txr)
--{
--	/* Tell compiler to fetch tx indices from memory. */
--	barrier();
--
--	return bp->tx_ring_size -
--		((txr->tx_prod - txr->tx_cons) & bp->tx_ring_mask);
--}
--
--static const u16 bnxt_lhint_arr[] = {
-+const u16 bnxt_lhint_arr[] = {
- 	TX_BD_FLAGS_LHINT_512_AND_SMALLER,
- 	TX_BD_FLAGS_LHINT_512_TO_1023,
- 	TX_BD_FLAGS_LHINT_1024_TO_2047,
-@@ -613,9 +604,8 @@ static inline u8 *__bnxt_alloc_rx_data(struct bnxt *bp, dma_addr_t *mapping,
- 	return data;
- }
+-	txr = &bp->tx_ring[i];
+ 	txq = netdev_get_tx_queue(dev, i);
++	txr = &bp->tx_ring[bp->tx_ring_map[i]];
+ 	prod = txr->tx_prod;
  
--static inline int bnxt_alloc_rx_data(struct bnxt *bp,
--				     struct bnxt_rx_ring_info *rxr,
--				     u16 prod, gfp_t gfp)
-+int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
-+		       u16 prod, gfp_t gfp)
- {
- 	struct rx_bd *rxbd = &rxr->rx_desc_ring[RX_RING(prod)][RX_IDX(prod)];
- 	struct bnxt_sw_rx_bd *rx_buf = &rxr->rx_buf_ring[prod];
-@@ -1771,6 +1761,17 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
- 	if (tx_pkts)
- 		bnapi->tx_int(bp, bnapi, tx_pkts);
+ 	free_size = bnxt_tx_avail(bp, txr);
+@@ -2967,6 +2967,8 @@ static void bnxt_free_mem(struct bnxt *bp, bool irq_re_init)
+ 		bnxt_free_stats(bp);
+ 		bnxt_free_ring_grps(bp);
+ 		bnxt_free_vnics(bp);
++		kfree(bp->tx_ring_map);
++		bp->tx_ring_map = NULL;
+ 		kfree(bp->tx_ring);
+ 		bp->tx_ring = NULL;
+ 		kfree(bp->rx_ring);
+@@ -3019,6 +3021,12 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
+ 		if (!bp->tx_ring)
+ 			return -ENOMEM;
  
-+	if (event & BNXT_TX_EVENT) {
-+		struct bnxt_tx_ring_info *txr = bnapi->tx_ring;
-+		void __iomem *db = txr->tx_doorbell;
-+		u16 prod = txr->tx_prod;
++		bp->tx_ring_map = kcalloc(bp->tx_nr_rings, sizeof(u16),
++					  GFP_KERNEL);
 +
-+		/* Sync BD data before updating doorbell */
-+		wmb();
++		if (!bp->tx_ring_map)
++			return -ENOMEM;
 +
-+		writel(DB_KEY_TX | prod, db);
-+		writel(DB_KEY_TX | prod, db);
-+	}
- 	if (event & BNXT_RX_EVENT) {
- 		struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
- 
-@@ -3056,9 +3057,12 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
+ 		if (bp->flags & BNXT_FLAG_SHARED_RINGS)
+ 			j = 0;
+ 		else
+@@ -3027,6 +3035,7 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
+ 		for (i = 0; i < bp->tx_nr_rings; i++, j++) {
  			bp->tx_ring[i].bnapi = bp->bnapi[j];
  			bp->bnapi[j]->tx_ring = &bp->tx_ring[i];
- 			bp->tx_ring_map[i] = bp->tx_nr_rings_xdp + i;
--			if (i < bp->tx_nr_rings_xdp)
-+			if (i < bp->tx_nr_rings_xdp) {
- 				bp->bnapi[j]->flags |= BNXT_NAPI_FLAG_XDP;
--			bp->bnapi[j]->tx_int = bnxt_tx_int;
-+				bp->bnapi[j]->tx_int = bnxt_tx_int_xdp;
-+			} else {
-+				bp->bnapi[j]->tx_int = bnxt_tx_int;
-+			}
++			bp->tx_ring_map[i] = i;
  		}
  
  		rc = bnxt_alloc_stats(bp);
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 007e779..cf7d33f 100644
+index 44dcc26..924c1fa 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -513,6 +513,7 @@ struct rx_tpa_end_cmp_ext {
+@@ -995,6 +995,7 @@ struct bnxt {
  
- #define BNXT_RX_EVENT	1
- #define BNXT_AGG_EVENT	2
-+#define BNXT_TX_EVENT	4
+ 	struct bnxt_rx_ring_info	*rx_ring;
+ 	struct bnxt_tx_ring_info	*tx_ring;
++	u16			*tx_ring_map;
  
- struct bnxt_sw_tx_bd {
- 	union {
-@@ -1190,6 +1191,19 @@ struct bnxt {
- #define SFF_MODULE_ID_QSFP28			0x11
- #define BNXT_MAX_PHY_I2C_RESP_SIZE		64
- 
-+static inline u32 bnxt_tx_avail(struct bnxt *bp, struct bnxt_tx_ring_info *txr)
-+{
-+	/* Tell compiler to fetch tx indices from memory. */
-+	barrier();
-+
-+	return bp->tx_ring_size -
-+		((txr->tx_prod - txr->tx_cons) & bp->tx_ring_mask);
-+}
-+
-+extern const u16 bnxt_lhint_arr[];
-+
-+int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
-+		       u16 prod, gfp_t gfp);
- void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons, void *data);
- void bnxt_set_tpa_flags(struct bnxt *bp);
- void bnxt_set_ring_params(struct bnxt *);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-index 133e515..a9770ed 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-@@ -8,6 +8,7 @@
-  */
- #include <linux/kernel.h>
- #include <linux/errno.h>
-+#include <linux/pci.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/if_vlan.h>
-@@ -18,6 +19,69 @@
- #include "bnxt_xdp.h"
- 
- #ifdef CONFIG_BNXT_XDP
-+static int bnxt_xmit_xdp(struct bnxt *bp, struct bnxt_napi *bnapi,
-+			 struct page *page, dma_addr_t mapping, u32 offset,
-+			 u32 len)
-+{
-+	struct bnxt_tx_ring_info *txr = bnapi->tx_ring;
-+	struct bnxt_sw_tx_bd *tx_buf;
-+	struct tx_bd_ext *txbd1;
-+	struct tx_bd *txbd;
-+	u32 flags;
-+	u16 prod;
-+
-+	if (bnxt_tx_avail(bp, txr) < 2)
-+		return -ENOSPC;
-+
-+	prod = txr->tx_prod;
-+	txbd = &txr->tx_desc_ring[TX_RING(prod)][TX_IDX(prod)];
-+
-+	tx_buf = &txr->tx_buf_ring[prod];
-+	tx_buf->page = page;
-+	dma_unmap_addr_set(tx_buf, mapping, mapping);
-+	flags = (len << TX_BD_LEN_SHIFT) | TX_BD_TYPE_LONG_TX_BD |
-+		(2 << TX_BD_FLAGS_BD_CNT_SHIFT) | TX_BD_FLAGS_PACKET_END |
-+		bnxt_lhint_arr[len >> 9];
-+	txbd->tx_bd_len_flags_type = cpu_to_le32(flags);
-+	txbd->tx_bd_opaque = prod;
-+	txbd->tx_bd_haddr = cpu_to_le64(mapping + offset);
-+
-+	prod = NEXT_TX(prod);
-+	txbd1 = (struct tx_bd_ext *)
-+		&txr->tx_desc_ring[TX_RING(prod)][TX_IDX(prod)];
-+
-+	txbd1->tx_bd_hsize_lflags = cpu_to_le32(0);
-+	txbd1->tx_bd_mss = cpu_to_le32(0);
-+	txbd1->tx_bd_cfa_action = cpu_to_le32(0);
-+	txbd1->tx_bd_cfa_meta = cpu_to_le32(0);
-+
-+	prod = NEXT_TX(prod);
-+	txr->tx_prod = prod;
-+	return 0;
-+}
-+
-+void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
-+{
-+	struct bnxt_tx_ring_info *txr = bnapi->tx_ring;
-+	struct device *dev = &bp->pdev->dev;
-+	u16 cons = txr->tx_cons;
-+	int i;
-+
-+	for (i = 0; i < nr_pkts; i++) {
-+		struct bnxt_sw_tx_bd *tx_buf;
-+
-+		tx_buf = &txr->tx_buf_ring[cons];
-+		cons = NEXT_TX(cons);
-+		cons = NEXT_TX(cons);
-+
-+		dma_unmap_page(dev, dma_unmap_addr(tx_buf, mapping), PAGE_SIZE,
-+			       bp->rx_dir);
-+		__free_page(tx_buf->page);
-+		tx_buf->page = NULL;
-+	}
-+	txr->tx_cons = cons;
-+}
-+
- /* returns the following:
-  * true    - packet consumed by XDP and new buffer is allocated.
-  * false   - packet should be passed to the stack.
-@@ -43,6 +107,26 @@ bool bnxt_rx_xdp(struct bnxt_rx_ring_info *rxr, u16 cons, void *data,
- 	case XDP_PASS:
- 		return false;
- 
-+	case XDP_TX: {
-+		struct bnxt_napi *bnapi = rxr->bnapi;
-+		struct bnxt *bp = bnapi->bp;
-+		int rc;
-+
-+		rc = bnxt_alloc_rx_data(bp, rxr, rxr->rx_prod, GFP_ATOMIC);
-+		if (unlikely(rc)) {
-+			bnxt_reuse_rx_data(rxr, cons, data);
-+			return true;
-+		}
-+		if (bnxt_xmit_xdp(bp, bnapi, data, dma_addr, NET_IP_ALIGN,
-+				  len)) {
-+			dma_unmap_page(&bp->pdev->dev, dma_addr, PAGE_SIZE,
-+				       bp->rx_dir);
-+			__free_page(data);
-+			return true;
-+		}
-+		*event |= BNXT_TX_EVENT;
-+		return true;
-+	}
- 	default:
- 		bpf_warn_invalid_xdp_action(act);
- 		/* Fall thru */
-@@ -138,4 +222,10 @@ int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp)
- 	}
- 	return rc;
- }
-+
-+#else
-+
-+void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
-+{
-+}
- #endif
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
-index 066a411..835eca5 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
-@@ -10,6 +10,8 @@
- #ifndef BNXT_XDP_H
- #define BNXT_XDP_H
- 
-+void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts);
-+
- #ifdef CONFIG_BNXT_XDP
- bool bnxt_rx_xdp(struct bnxt_rx_ring_info *rxr, u16 cons, void *data,
- 		 u8 *data_ptr, unsigned int len, dma_addr_t dma_addr,
+ 	struct sk_buff *	(*gro_func)(struct bnxt_tpa_info *, int, int,
+ 					    struct sk_buff *);
 -- 
 1.8.3.1
