@@ -1,80 +1,57 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: Re: [userspace meter v3 0/5] Userspace meter
-Date: Mon, 30 Jan 2017 23:05:01 -0800
-Message-ID: <CABKoBm262Wy-NLHhSEkvSDrOQ4rymXo9aYUqWdUKGB5BPBKP9Q@mail.gmail.com>
-References: <1485844800-2873-1-git-send-email-azhou@ovn.org>
+From: "Elluru, Krishna Mohan" <elluru.kri.mohan@hpe.com>
+Subject: RE: [Patch net-next 2/2] netns: avoid disabling irq for netns id
+Date: Tue, 31 Jan 2017 07:10:08 +0000
+Message-ID: <CS1PR84MB0072BE86ADF00FBE07959F3DCA4A0@CS1PR84MB0072.NAMPRD84.PROD.OUTLOOK.COM>
+References: <1472792025-14702-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1472792025-14702-3-git-send-email-xiyou.wangcong@gmail.com>
+ <7de98923-0cfb-5937-d32b-bdaee7ec10dc@6wind.com>
+ <CAA1AmC2KiuoDiuBmjFAS20UnzkfCCnvHYyXhm3MOrVBUty9EeQ@mail.gmail.com>
+ <CAM_iQpU8XPixg3g=NPbOcUPDu+o1bOccpnng=HrW8-VzY-xmgw@mail.gmail.com>
+ <CS1PR84MB00721E8E05290D70693B0EFECA4A0@CS1PR84MB0072.NAMPRD84.PROD.OUTLOOK.COM>
+ <CAM_iQpWmygXWcda825XY0LsaYQ6KbG9cwsNYpTKbq4T0_2UwnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andy Zhou <azhou@ovn.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Elad Raz <e@eladraz.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:42050 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750808AbdAaHHK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 02:07:10 -0500
-Received: from mfilter22-d.gandi.net (mfilter22-d.gandi.net [217.70.178.150])
-        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 54E76C5A46
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 08:05:44 +0100 (CET)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-        by mfilter22-d.gandi.net (mfilter22-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id DLuRlynJmYKk for <netdev@vger.kernel.org>;
-        Tue, 31 Jan 2017 08:05:43 +0100 (CET)
-Received: from mail-ua0-f176.google.com (mail-ua0-f176.google.com [209.85.217.176])
-        (Authenticated sender: azhou@ovn.org)
-        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id CD6FCC5A55
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 08:05:42 +0100 (CET)
-Received: by mail-ua0-f176.google.com with SMTP id 96so266731386uaq.3
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 23:05:42 -0800 (PST)
-In-Reply-To: <1485844800-2873-1-git-send-email-azhou@ovn.org>
+Received: from mail-bl2nam02on0135.outbound.protection.outlook.com ([104.47.38.135]:31968
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750856AbdAaHKP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 02:10:15 -0500
+In-Reply-To: <CAM_iQpWmygXWcda825XY0LsaYQ6KbG9cwsNYpTKbq4T0_2UwnQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please discard this series. These are ovs user space changes, not
-kernel changes. They are sent in error. Sorry.
-
-
-On Mon, Jan 30, 2017 at 10:39 PM, Andy Zhou <azhou@ovn.org> wrote:
-> Repost user space meter support. This is based Jarno's original work
-> at: https://mail.openvswitch.org/pipermail/ovs-dev/2015-November/306304.html.
-> With some enhancements, and rebased to current master.
->
-> ---
-> v1-v2: rebase and repost.
-> v2-v3: simplify patch 2/5.
->
-> Andy Zhou (2):
->   netdev-dummy: Add --len option for netdev-dummy/receive command
->   dp-packet: Enhance packet batch APIs.
->
-> Jarno Rajahalme (3):
->   dpif: Meter framework.
->   ofproto: Meter translation.
->   dpif-netdev: Simple DROP meter implementation.
->
->  datapath/linux/compat/include/linux/openvswitch.h |   4 +-
->  include/openvswitch/ofp-actions.h                 |   1 +
->  lib/dp-packet.h                                   | 140 +++++--
->  lib/dpif-netdev.c                                 | 433 ++++++++++++++++++++--
->  lib/dpif-netlink.c                                |  46 ++-
->  lib/dpif-provider.h                               |  29 ++
->  lib/dpif.c                                        | 128 ++++++-
->  lib/dpif.h                                        |  13 +-
->  lib/netdev-dummy.c                                |  48 ++-
->  lib/netdev-linux.c                                |   3 +-
->  lib/netdev.c                                      |  24 +-
->  lib/odp-execute.c                                 |  58 +--
->  lib/odp-util.c                                    |  14 +
->  lib/ofp-actions.c                                 |   1 +
->  ofproto/ofproto-dpif-sflow.c                      |   1 +
->  ofproto/ofproto-dpif-xlate.c                      |  13 +-
->  ofproto/ofproto-dpif.c                            |  60 ++-
->  ofproto/ofproto-provider.h                        |  13 +-
->  ofproto/ofproto.c                                 |  51 +--
->  tests/dpif-netdev.at                              | 106 ++++++
->  tests/test-conntrack.c                            |  56 ++-
->  21 files changed, 1036 insertions(+), 206 deletions(-)
->
-> --
-> 1.9.1
->
+SSBhbSBvZiA0LjQuMTguIEkgc2VlIHRoZSBjb21taXQgaXMgbm90IHByZXNlbnQuIEkgd2lsbCBy
+ZWNvbXBpbGUgbXkga2VybmVsIHdpdGggYmVsb3cgcGF0Y2guDQoNClRoYW5rcyBmb3IgdGhlIHF1
+aWNrIHNoYSByZWZlcmVuY2UuDQoNClRoYW5rcw0KS3Jpc2huYSBNb2hhbi4NCg0KLS0tLS1Pcmln
+aW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IENvbmcgV2FuZyBbbWFpbHRvOnhpeW91Lndhbmdjb25n
+QGdtYWlsLmNvbV0gDQpTZW50OiBUdWVzZGF5LCBKYW51YXJ5IDMxLCAyMDE3IDEyOjIzIFBNDQpU
+bzogRWxsdXJ1LCBLcmlzaG5hIE1vaGFuIDxlbGx1cnUua3JpLm1vaGFuQGhwZS5jb20+DQpDYzog
+RWxhZCBSYXogPGVAZWxhZHJhei5jb20+OyBOaWNvbGFzIERpY2h0ZWwgPG5pY29sYXMuZGljaHRl
+bEA2d2luZC5jb20+OyBEYXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+OyBMaW51eCBO
+ZXRkZXYgTGlzdCA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47IEppcmkgUGlya28gPGppcmlAcmVz
+bnVsbGkudXM+OyBJZG8gU2NoaW1tZWwgPGlkb3NjaEBtZWxsYW5veC5jb20+OyBZb3RhbSBHaWdp
+IDx5b3RhbWdAbWVsbGFub3guY29tPg0KU3ViamVjdDogUmU6IFtQYXRjaCBuZXQtbmV4dCAyLzJd
+IG5ldG5zOiBhdm9pZCBkaXNhYmxpbmcgaXJxIGZvciBuZXRucyBpZA0KDQpPbiBNb24sIEphbiAz
+MCwgMjAxNyBhdCAxMDo0NyBQTSwgRWxsdXJ1LCBLcmlzaG5hIE1vaGFuIDxlbGx1cnUua3JpLm1v
+aGFuQGhwZS5jb20+IHdyb3RlOg0KPiBISSBDb25nLA0KPiAgICAgICAgIEhhdmUgeW91IHBvc3Rl
+ZCBhbnkgcGF0Y2ggZm9yIHRoZSBzYW1lPyBJIGFtIGxvb2tpbmcgZm9yIHNpbmdsZSBuZXRsaW5r
+IHNvY2tldCB0byBoYW5kbGUgbXVsdGlwbGUgbmV0d29yayBuYW1lc3BhY2UgZXZlbnRzIHVzaW5n
+IE5FVExJTktfTElTVEVOX0FMTF9OU0lELiBJIGRvbid0IHNlZSBkZXRlY3Rpb24gb2YgbmV3IG5h
+bWVzcGFjZXMgYnkgdGhpcyBzb2NrZXQgeWV0IGFuZCBjYXVzaW5nIHVwZGF0ZXMgdG8gYmUgbWlz
+c2VkLg0KDQpUaGUgcGF0Y2ggaW4gJHN1YmplY3Qgd2FzIHJlcG9zdGVkIGJ5IFBhdWwgYWZ0ZXIg
+Zml4aW5nIHRoZSBhdWRpdCBwYXJ0Og0KDQpjb21taXQgZmJhMTQzYzY2YWJiODEzMDdhNDUwNjc5
+ZjM4YWI5NTNmZTk2YTQxMw0KQXV0aG9yOiBQYXVsIE1vb3JlIDxwYXVsQHBhdWwtbW9vcmUuY29t
+Pg0KRGF0ZTogICBUdWUgTm92IDI5IDE2OjU3OjQ4IDIwMTYgLTA1MDANCg0KICAgIG5ldG5zOiBh
+dm9pZCBkaXNhYmxpbmcgaXJxIGZvciBuZXRucyBpZA0KDQpXaGljaCB2ZXJzaW9uIG9mIGtlcm5l
+bCBhcmUgeW91IHRlc3Rpbmc/IERvZXMgaXQgaGF2ZSB0aGlzIGNvbW1pdD8NCg0KVGhhbmtzLg0K
