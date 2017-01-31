@@ -1,57 +1,43 @@
-From: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Subject: Re: [PATCH] r8152: Allocate interrupt buffer as part of struct r8152
-Date: Tue, 31 Jan 2017 14:53:47 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1701311448250.2048-100000@iolanthe.rowland.org>
-References: <1485889577-4389-1-git-send-email-linux@roeck-us.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 4/6] drivers: net: xgene-v2: Add base driver
+Date: Tue, 31 Jan 2017 21:01:49 +0100
+Message-ID: <20170131200149.GM5656@lunn.ch>
+References: <1485889401-13909-1-git-send-email-isubramanian@apm.com>
+ <1485889401-13909-5-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1485889577-4389-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, patches@apm.com,
+        kchudgar@apm.com
+To: Iyappan Subramanian <isubramanian@apm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:51683 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751372AbdAaUBy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 15:01:54 -0500
+Content-Disposition: inline
+In-Reply-To: <1485889401-13909-5-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Jan 2017, Guenter Roeck wrote:
+> +	phy_mode = device_get_phy_mode(dev);
+> +	if (phy_mode < 0) {
+> +		dev_err(dev, "Unable to get phy-connection-type\n");
+> +		return phy_mode;
+> +	}
+> +	pdata->resources.phy_mode = phy_mode;
+> +
+> +	if (pdata->resources.phy_mode != PHY_INTERFACE_MODE_RGMII) {
+> +		dev_err(dev, "Incorrect phy-connection-type specified\n");
+> +		return -ENODEV;
+> +	}
 
-> When unloading the r8152 driver using the 'unbind' sysfs attribute
-> in a system with KASAN enabled, the following error message is seen
-> on a regular basis.
+This seems a bit limiting. What if you need to use:
 
-...
+PHY_INTERFACE_MODE_RGMII_ID,
+PHY_INTERFACE_MODE_RGMII_RXID,
+PHY_INTERFACE_MODE_RGMII_TXID,
 
-> The two-byte allocation in conjunction with code analysis suggests that
-> the interrupt buffer has been overwritten. Added instrumentation in the
-> driver shows that the interrupt handler is called after RTL8152_UNPLUG
-> was set, and that this event is associated with the error message above.
-> This suggests that there are situations where the interrupt buffer is used
-> after it has been freed.
-> 
-> To avoid the problem, allocate the interrupt buffer as part of struct
-> r8152.
-> 
-> Cc: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-> Signed-off-by: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-> ---
-> The problem is seen in chromeos-4.4, but there is not reason to believe
-> that it does not occur with the upstream kernel. It is still seen in
-> chromeos-4.4 after all patches from upstream and linux-next have been
-> applied to the driver.
-> 
-> While relatively simple, I am not really convinced that this is the best
-> (or even an acceptable) solution for this problem. I am open to suggestions
-> for a better fix.
+in order to set the RGMII delays.
 
-The proper approach is to keep the allocation as it is, but _before_
-deallocating the buffer, make sure that the interrupt buffer won't be
-accessed any more.  This may involve calling usb_kill_urb(), or
-synchronize_irq(), or something similar.
-
-Alan Stern
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   Andrew
