@@ -1,131 +1,144 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] r8152: Allocate interrupt buffer as part of struct r8152
-Date: Tue, 31 Jan 2017 11:06:17 -0800
-Message-ID: <1485889577-4389-1-git-send-email-linux@roeck-us.net>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
-        Hayes Wang <hayeswang@realtek.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Vecera <cera@cera.cz>
+Subject: [PATCH net v2] be2net: fix initial MAC setting
+Date: Tue, 31 Jan 2017 20:01:31 +0100
+Message-ID: <20170131190131.3347-1-cera@cera.cz>
+Cc: Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53950 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751754AbdAaTMQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 14:12:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When unloading the r8152 driver using the 'unbind' sysfs attribute
-in a system with KASAN enabled, the following error message is seen
-on a regular basis.
+Recent commit 34393529163a ("be2net: fix MAC addr setting on privileged
+BE3 VFs") allows privileged BE3 VFs to set its MAC address during
+initialization. Although the initial MAC for such VFs is already
+programmed by parent PF the subsequent setting performed by VF is OK,
+but in certain cases (after fresh boot) this command in VF can fail.
 
-BUG kmalloc-128 (Not tainted): Poison overwritten
------------------------------------------------------------------------------
-INFO: 0xffffffc0a9522a00-0xffffffc0a9522a01. First byte 0xee instead of 0x6b
-INFO: Allocated in rtl8152_open+0x318/0x5dc [r8152] age=69847 cpu=4 pid=1345
-init: mtpd main process (2372) terminated with status 253
-init: mtpd main process ended, respawning
-alloc_debug_processing+0x124/0x178
-___slab_alloc.constprop.59+0x530/0x65c
-__slab_alloc.isra.56.constprop.58+0x48/0x74
-kmem_cache_alloc_trace+0xd8/0x34c
-rtl8152_open+0x318/0x5dc [r8152]
-__dev_open+0xcc/0x140
-__dev_change_flags+0xc8/0x1a8
-dev_change_flags+0x50/0xa0
-do_setlink+0x440/0xcd4
-rtnl_newlink+0x414/0x7cc
-rtnetlink_rcv_msg+0x238/0x268
-netlink_rcv_skb+0xa4/0x128
-rtnetlink_rcv+0x2c/0x3c
-netlink_unicast+0x1e8/0x2e0
-netlink_sendmsg+0x4c0/0x4e4
-sock_sendmsg+0x70/0x8c
-INFO: Freed in free_all_mem+0x10c/0x12c [r8152] age=271 cpu=2 pid=5992
-free_debug_processing+0x278/0x37c
-__slab_free+0x84/0x440
-kfree+0x2d4/0x37c
-free_all_mem+0x10c/0x12c [r8152]
-rtl8152_close+0xf4/0x10c [r8152]
-__dev_close_many+0xe0/0x118
-dev_close_many+0xb8/0x174
-rollback_registered_many+0x19c/0x3fc
-unregister_netdevice_queue+0xe4/0x188
-unregister_netdev+0x28/0x38
-rtl8152_disconnect+0x7c/0xb0 [r8152]
-usb_unbind_interface+0xd8/0x2cc
-__device_release_driver+0x10c/0x1a8
-device_release_driver+0x30/0x44
-bus_remove_device+0x1e0/0x208
-device_del+0x21c/0x2cc
-INFO: Slab 0xffffffbdc2a5c880 objects=16 used=14 fp=0xffffffc0a9523400 flags=0x4080
-INFO: Object 0xffffffc0a9522a00 @offset=2560 fp=0xffffffc0a9522200
+The MAC should be initialized only when:
+1) no MAC is programmed (always except BE3 VFs during first init)
+2) programmed MAC is different from requested (e.g. MAC is set when
+   interface is down). In this case the initial MAC programmed by PF
+   needs to be deleted.
 
-Bytes b4 ffffffc0a95229f0: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a  ZZZZZZZZZZZZZZZZ
-Object ffffffc0a9522a00: ee 30 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  .0kkkkkkkkkkkkkk
-Object ffffffc0a9522a10: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-Object ffffffc0a9522a20: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-Object ffffffc0a9522a30: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-Object ffffffc0a9522a40: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-Object ffffffc0a9522a50: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-Object ffffffc0a9522a60: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-Object ffffffc0a9522a70: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b a5  kkkkkkkkkkkkkkk.
-Redzone ffffffc0a9522a80: bb bb bb bb bb bb bb bb                          ........
-Padding ffffffc0a9522bc0: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a  ZZZZZZZZZZZZZZZZ
+The adapter->dev_mac contains MAC address currently programmed in HW so
+it should be zeroed when the MAC is deleted from HW and should not be
+filled when MAC is set when interface is down in be_mac_addr_set() as
+no programming is performed in this case.
 
-The two-byte allocation in conjunction with code analysis suggests that
-the interrupt buffer has been overwritten. Added instrumentation in the
-driver shows that the interrupt handler is called after RTL8152_UNPLUG
-was set, and that this event is associated with the error message above.
-This suggests that there are situations where the interrupt buffer is used
-after it has been freed.
+Example of failure without the fix (immediately after fresh boot):
 
-To avoid the problem, allocate the interrupt buffer as part of struct
-r8152.
+# ip link set eth0 up  <- eth0 is BE3 PF
+be2net 0000:01:00.0 eth0: Link is Up
 
-Cc: Hayes Wang <hayeswang@realtek.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+# echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create 1 VF
+...
+be2net 0000:01:04.0: Emulex OneConnect(be3): VF  port 0
+
+# ip link set eth8 up  <- eth8 is created privileged VF
+be2net 0000:01:04.0: opcode 59-1 failed:status 1-76
+RTNETLINK answers: Input/output error
+
+# echo 0 > /sys/class/net/eth0/device/sriov_numvfs  <- Delete VF
+iommu: Removing device 0000:01:04.0 from group 33
+...
+
+# echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create it again
+iommu: Removing device 0000:01:04.0 from group 33
+...
+
+# ip link set eth8 up
+be2net 0000:01:04.0 eth8: Link is Up
+
+Initialization is now OK.
+
+v2 - Corrected the comment and condition check suggested by Suresh & Harsha
+
+Fixes: 34393529163a ("be2net: fix MAC addr setting on privileged BE3 VFs")
+Cc: Sathya Perla <sathya.perla@broadcom.com>
+Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
+Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Cc: Somnath Kotur <somnath.kotur@broadcom.com>
+Signed-off-by: Ivan Vecera <cera@cera.cz>
 ---
-The problem is seen in chromeos-4.4, but there is not reason to believe
-that it does not occur with the upstream kernel. It is still seen in
-chromeos-4.4 after all patches from upstream and linux-next have been
-applied to the driver.
+ drivers/net/ethernet/emulex/benet/be_main.c | 33 ++++++++++++++++++++++++-----
+ 1 file changed, 28 insertions(+), 5 deletions(-)
 
-While relatively simple, I am not really convinced that this is the best
-(or even an acceptable) solution for this problem. I am open to suggestions
-for a better fix.
-
- drivers/net/usb/r8152.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ad42295356dd..afbfa728b48e 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -641,7 +641,7 @@ struct r8152 {
- 	u32 coalesce;
- 	u16 ocp_base;
- 	u16 speed;
--	u8 *intr_buff;
-+	u8 intr_buff[INTBUFSIZE] ____cacheline_aligned;
- 	u8 version;
- 	u8 duplex;
- 	u8 autoneg;
-@@ -1342,9 +1342,6 @@ static void free_all_mem(struct r8152 *tp)
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 1a7f8ad7b9c6..cd49a54c538d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -362,8 +362,10 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+ 		status = -EPERM;
+ 		goto err;
+ 	}
+-done:
++
++	/* Remember currently programmed MAC */
+ 	ether_addr_copy(adapter->dev_mac, addr->sa_data);
++done:
+ 	ether_addr_copy(netdev->dev_addr, addr->sa_data);
+ 	dev_info(dev, "MAC address changed to %pM\n", addr->sa_data);
+ 	return 0;
+@@ -3618,8 +3620,10 @@ static void be_disable_if_filters(struct be_adapter *adapter)
+ {
+ 	/* Don't delete MAC on BE3 VFs without FILTMGMT privilege  */
+ 	if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
+-	    check_privilege(adapter, BE_PRIV_FILTMGMT))
++	    check_privilege(adapter, BE_PRIV_FILTMGMT)) {
+ 		be_dev_mac_del(adapter, adapter->pmac_id[0]);
++		eth_zero_addr(adapter->dev_mac);
++	}
  
- 	usb_free_urb(tp->intr_urb);
- 	tp->intr_urb = NULL;
--
--	kfree(tp->intr_buff);
--	tp->intr_buff = NULL;
- }
+ 	be_clear_uc_list(adapter);
+ 	be_clear_mc_list(adapter);
+@@ -3773,12 +3777,27 @@ static int be_enable_if_filters(struct be_adapter *adapter)
+ 	if (status)
+ 		return status;
  
- static int alloc_all_mem(struct r8152 *tp)
-@@ -1423,10 +1420,6 @@ static int alloc_all_mem(struct r8152 *tp)
- 	if (!tp->intr_urb)
- 		goto err1;
+-	/* Don't add MAC on BE3 VFs without FILTMGMT privilege */
+-	if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
+-	    check_privilege(adapter, BE_PRIV_FILTMGMT)) {
++	/* Normally this condition usually true as the ->dev_mac is zeroed.
++	 * But on BE3 VFs the initial MAC is pre-programmed by PF and
++	 * subsequent be_dev_mac_add() can fail (after fresh boot)
++	 */
++	if (!ether_addr_equal(adapter->dev_mac, adapter->netdev->dev_addr)) {
++		int old_pmac_id = -1;
++
++		/* Remember old programmed MAC if any - can happen on BE3 VF */
++		if (!is_zero_ether_addr(adapter->dev_mac))
++			old_pmac_id = adapter->pmac_id[0];
++
+ 		status = be_dev_mac_add(adapter, adapter->netdev->dev_addr);
+ 		if (status)
+ 			return status;
++
++		/* Delete the old programmed MAC as we successfully programmed
++		 * a new MAC
++		 */
++		if (old_pmac_id >= 0 && old_pmac_id != adapter->pmac_id[0])
++			be_dev_mac_del(adapter, old_pmac_id);
++
+ 		ether_addr_copy(adapter->dev_mac, adapter->netdev->dev_addr);
+ 	}
  
--	tp->intr_buff = kmalloc(INTBUFSIZE, GFP_KERNEL);
--	if (!tp->intr_buff)
--		goto err1;
--
- 	tp->intr_interval = (int)ep_intr->desc.bInterval;
- 	usb_fill_int_urb(tp->intr_urb, tp->udev, usb_rcvintpipe(tp->udev, 3),
- 			 tp->intr_buff, INTBUFSIZE, intr_callback,
+@@ -4552,6 +4571,10 @@ static int be_mac_setup(struct be_adapter *adapter)
+ 
+ 		memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
+ 		memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
++
++		/* Initial MAC for BE3 VFs is already programmed by PF */
++		if (BEx_chip(adapter) && be_virtfn(adapter))
++			memcpy(adapter->dev_mac, mac, ETH_ALEN);
+ 	}
+ 
+ 	return 0;
 -- 
-2.7.4
+2.10.2
