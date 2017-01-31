@@ -1,43 +1,131 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v2 2/2] qede: Add driver support for PTP.
-Date: Tue, 31 Jan 2017 10:03:26 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB02749AC@AcuExch.aculab.com>
-References: <1485674903-27689-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485674903-27689-3-git-send-email-Sudarsana.Kalluru@cavium.com>
- <20170129153536.GD2223@localhost.localdomain>,<063D6719AE5E284EB5DD2968C1650D6DB0273BA8@AcuExch.aculab.com>
- <BL2PR07MB2306B5963EBDEF0AF5CD4E8F8D4B0@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH 07/17] net: stmmac: replace stmmac_mdio_busy_wait by
+ readl_poll_timeout
+Date: Tue, 31 Jan 2017 11:13:49 +0100
+Message-ID: <299b8e9a-00fe-173e-a125-5e7e27f123d1@st.com>
+References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
+ <20170131091152.13842-8-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'Mintz, Yuval'" <Yuval.Mintz@cavium.com>,
-        'Richard Cochran' <richardcochran@gmail.com>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <linux-kernel@vger.kernel.org>
+To: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        <alexandre.torgue@st.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.190]:55099 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751303AbdAaKkp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 05:40:45 -0500
-In-Reply-To: <BL2PR07MB2306B5963EBDEF0AF5CD4E8F8D4B0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Content-Language: en-US
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:40868 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751430AbdAaKoq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 05:44:46 -0500
+In-Reply-To: <20170131091152.13842-8-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mintz, Yuval
-> Sent: 30 January 2017 17:56
-> > How many different implementations of 'ops->adjfreq' are there?
-> > If there is only one you don't need an indirect call.
-> 
-> There's only one implementation. But qed publishes its functions to
-> qede [and other modules] by structs of operations and not by
-> exporting symbols directly, and I don't see a reason to change that
-> paradigm here.
-> [Although I might be mistaken about that last bit]
+On 1/31/2017 10:11 AM, Corentin Labbe wrote:
+> The stmmac_mdio_busy_wait() function do the same job than
+> readl_poll_timeout().
+> So is is better to replace it.
+>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 
-If any of the functions are on 'hot paths' the cost of the indirect
-call is likely to be measurable.
-On a lot of cpus it will be a pipeline stall.
-The double-indirect almost certainly generates a stall.
+I just wonder if you also tested it, this impacts all the platforms
+where SMA block is used
 
-	David
+if yes, pls consider my:
+
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 33 ++++++++---------------
+>  1 file changed, 11 insertions(+), 22 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> index c24bef2..d9893cf 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> @@ -21,6 +21,7 @@
+>  *******************************************************************************/
+>
+>  #include <linux/io.h>
+> +#include <linux/iopoll.h>
+>  #include <linux/mii.h>
+>  #include <linux/of.h>
+>  #include <linux/of_gpio.h>
+> @@ -38,22 +39,6 @@
+>  #define MII_GMAC4_WRITE			(1 << MII_GMAC4_GOC_SHIFT)
+>  #define MII_GMAC4_READ			(3 << MII_GMAC4_GOC_SHIFT)
+>
+> -static int stmmac_mdio_busy_wait(void __iomem *ioaddr, unsigned int mii_addr)
+> -{
+> -	unsigned long curr;
+> -	unsigned long finish = jiffies + 3 * HZ;
+> -
+> -	do {
+> -		curr = jiffies;
+> -		if (readl(ioaddr + mii_addr) & MII_BUSY)
+> -			cpu_relax();
+> -		else
+> -			return 0;
+> -	} while (!time_after_eq(curr, finish));
+> -
+> -	return -EBUSY;
+> -}
+> -
+>  /**
+>   * stmmac_mdio_read
+>   * @bus: points to the mii_bus structure
+> @@ -70,7 +55,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+>  	struct stmmac_priv *priv = netdev_priv(ndev);
+>  	unsigned int mii_address = priv->hw->mii.addr;
+>  	unsigned int mii_data = priv->hw->mii.data;
+> -
+> +	u32 v;
+>  	int data;
+>  	u32 value = MII_BUSY;
+>
+> @@ -82,12 +67,14 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+>  	if (priv->plat->has_gmac4)
+>  		value |= MII_GMAC4_READ;
+>
+> -	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+> +	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+> +			       100, 10000))
+>  		return -EBUSY;
+>
+>  	writel(value, priv->ioaddr + mii_address);
+>
+> -	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+> +	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+> +			       100, 10000))
+>  		return -EBUSY;
+>
+>  	/* Read the data from the MII data register */
+> @@ -111,7 +98,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+>  	struct stmmac_priv *priv = netdev_priv(ndev);
+>  	unsigned int mii_address = priv->hw->mii.addr;
+>  	unsigned int mii_data = priv->hw->mii.data;
+> -
+> +	u32 v;
+>  	u32 value = MII_BUSY;
+>
+>  	value |= (phyaddr << priv->hw->mii.addr_shift)
+> @@ -126,7 +113,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+>  		value |= MII_WRITE;
+>
+>  	/* Wait until any existing MII operation is complete */
+> -	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
+> +	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+> +			       100, 10000))
+>  		return -EBUSY;
+>
+>  	/* Set the MII address register to write */
+> @@ -134,7 +122,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+>  	writel(value, priv->ioaddr + mii_address);
+>
+>  	/* Wait until any existing MII operation is complete */
+> -	return stmmac_mdio_busy_wait(priv->ioaddr, mii_address);
+> +	return readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+> +				  100, 10000);
+>  }
+>
+>  /**
+>
