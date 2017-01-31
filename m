@@ -1,86 +1,163 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 08/10] bnxt_en: Refactor tx completion path.
-Date: Mon, 30 Jan 2017 20:49:33 -0500
-Message-ID: <1485827375-20421-9-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 07/10] bnxt_en: Add a set of TX rings to support XDP.
+Date: Mon, 30 Jan 2017 20:49:32 -0500
+Message-ID: <1485827375-20421-8-git-send-email-michael.chan@broadcom.com>
 References: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34083 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752520AbdAaBur (ORCPT
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:34080 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752402AbdAaBur (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 20:50:47 -0500
-Received: by mail-pf0-f180.google.com with SMTP id e4so96193447pfg.1
-        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 17:50:02 -0800 (PST)
+Received: by mail-pf0-f175.google.com with SMTP id e4so96193241pfg.1
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 17:50:01 -0800 (PST)
 In-Reply-To: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-XDP_TX requires a different function to handle completion.  Add a
-function pointer to handle tx completion logic.  Regular TX rings
-will be assigned the current bnxt_tx_int() for the ->tx_int()
-function pointer.
-
-Also, add a struct page pointer as a union with the current skb pointer
-to the struct bnxt_sw_tx_bd.  XDP TX rings will use the struct page
-pointer.
+Add logic for an extra set of TX rings for XDP.  If enabled, this
+set of TX rings equals the number of RX rings and shares the same
+IRQ as the RX ring set.  A new field bp->tx_nr_rings_xdp is added
+to keep track of these TX XDP rings.  Adjust all other relevant functions
+to handle bp->tx_nr_rings_xdp.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c |  5 ++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h | 10 +++++++++-
- 2 files changed, 13 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 17 ++++++++++-------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  3 ++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 16 ++++++++++++----
+ 3 files changed, 24 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 295c91f..d9098ee 100644
+index db78103..295c91f 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1763,7 +1763,7 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
- 	BNXT_CP_DB(cpr->cp_doorbell, cpr->cp_raw_cons);
- 
- 	if (tx_pkts)
--		bnxt_tx_int(bp, bnapi, tx_pkts);
-+		bnapi->tx_int(bp, bnapi, tx_pkts);
- 
- 	if (event & BNXT_RX_EVENT) {
- 		struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
-@@ -3038,6 +3038,9 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
+@@ -2219,6 +2219,8 @@ static int bnxt_alloc_tx_rings(struct bnxt *bp)
+ 			memset(txr->tx_push, 0, sizeof(struct tx_push_bd));
+ 		}
+ 		ring->queue_id = bp->q_info[j].queue_id;
++		if (i < bp->tx_nr_rings_xdp)
++			continue;
+ 		if (i % bp->tx_nr_rings_per_tc == (bp->tx_nr_rings_per_tc - 1))
+ 			j++;
+ 	}
+@@ -3035,7 +3037,7 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
+ 		for (i = 0; i < bp->tx_nr_rings; i++, j++) {
  			bp->tx_ring[i].bnapi = bp->bnapi[j];
  			bp->bnapi[j]->tx_ring = &bp->tx_ring[i];
- 			bp->tx_ring_map[i] = bp->tx_nr_rings_xdp + i;
-+			if (i < bp->tx_nr_rings_xdp)
-+				bp->bnapi[j]->flags |= BNXT_NAPI_FLAG_XDP;
-+			bp->bnapi[j]->tx_int = bnxt_tx_int;
+-			bp->tx_ring_map[i] = i;
++			bp->tx_ring_map[i] = bp->tx_nr_rings_xdp + i;
  		}
  
  		rc = bnxt_alloc_stats(bp);
+@@ -4958,7 +4960,8 @@ static int bnxt_set_real_num_queues(struct bnxt *bp)
+ 	int rc;
+ 	struct net_device *dev = bp->dev;
+ 
+-	rc = netif_set_real_num_tx_queues(dev, bp->tx_nr_rings);
++	rc = netif_set_real_num_tx_queues(dev, bp->tx_nr_rings -
++					  bp->tx_nr_rings_xdp);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -6574,7 +6577,7 @@ static void bnxt_sp_task(struct work_struct *work)
+ }
+ 
+ /* Under rtnl_lock */
+-int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs)
++int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs, int tx_xdp)
+ {
+ 	int max_rx, max_tx, tx_sets = 1;
+ 	int tx_rings_needed;
+@@ -6594,12 +6597,12 @@ int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs)
+ 	if (max_rx < rx)
+ 		return -ENOMEM;
+ 
+-	tx_rings_needed = tx * tx_sets;
++	tx_rings_needed = tx * tx_sets + tx_xdp;
+ 	if (max_tx < tx_rings_needed)
+ 		return -ENOMEM;
+ 
+ 	if (bnxt_hwrm_reserve_tx_rings(bp, &tx_rings_needed) ||
+-	    tx_rings_needed < (tx * tx_sets))
++	    tx_rings_needed < (tx * tx_sets + tx_xdp))
+ 		return -ENOMEM;
+ 	return 0;
+ }
+@@ -6780,8 +6783,8 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
+ 	if (bp->flags & BNXT_FLAG_SHARED_RINGS)
+ 		sh = true;
+ 
+-	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc,
+-				bp->rx_nr_rings, tc);
++	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc, bp->rx_nr_rings,
++				tc, bp->tx_nr_rings_xdp);
+ 	if (rc)
+ 		return rc;
+ 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 9bd1a26..f5d5971 100644
+index 924c1fa..9bd1a26 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -515,7 +515,10 @@ struct rx_tpa_end_cmp_ext {
- #define BNXT_AGG_EVENT	2
+@@ -1023,6 +1023,7 @@ struct bnxt {
+ 	int			tx_nr_pages;
+ 	int			tx_nr_rings;
+ 	int			tx_nr_rings_per_tc;
++	int			tx_nr_rings_xdp;
  
- struct bnxt_sw_tx_bd {
--	struct sk_buff		*skb;
-+	union {
-+		struct sk_buff		*skb;
-+		struct page		*page;
-+	};
- 	DEFINE_DMA_UNMAP_ADDR(mapping);
- 	u8			is_gso;
- 	u8			is_push;
-@@ -663,6 +666,11 @@ struct bnxt_napi {
- 	struct bnxt_rx_ring_info	*rx_ring;
- 	struct bnxt_tx_ring_info	*tx_ring;
+ 	int			tx_wake_thresh;
+ 	int			tx_push_thresh;
+@@ -1200,7 +1201,7 @@ int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
+ int bnxt_hwrm_fw_set_time(struct bnxt *);
+ int bnxt_open_nic(struct bnxt *, bool, bool);
+ int bnxt_close_nic(struct bnxt *, bool, bool);
+-int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs);
++int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs, int tx_xdp);
+ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
+ int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
+ void bnxt_restore_pf_fw_resources(struct bnxt *bp);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index 6f2568d..7aa248d 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -389,6 +389,7 @@ static int bnxt_set_channels(struct net_device *dev,
+ 	struct bnxt *bp = netdev_priv(dev);
+ 	int req_tx_rings, req_rx_rings, tcs;
+ 	bool sh = false;
++	int tx_xdp = 0;
+ 	int rc = 0;
  
-+	void			(*tx_int)(struct bnxt *, struct bnxt_napi *,
-+					  int);
-+	u32			flags;
-+#define BNXT_NAPI_FLAG_XDP	0x1
-+
- 	bool			in_reset;
- };
+ 	if (channel->other_count)
+@@ -413,7 +414,14 @@ static int bnxt_set_channels(struct net_device *dev,
  
+ 	req_tx_rings = sh ? channel->combined_count : channel->tx_count;
+ 	req_rx_rings = sh ? channel->combined_count : channel->rx_count;
+-	rc = bnxt_reserve_rings(bp, req_tx_rings, req_rx_rings, tcs);
++	if (bp->tx_nr_rings_xdp) {
++		if (!sh) {
++			netdev_err(dev, "Only combined mode supported when XDP is enabled.\n");
++			return -EINVAL;
++		}
++		tx_xdp = req_rx_rings;
++	}
++	rc = bnxt_reserve_rings(bp, req_tx_rings, req_rx_rings, tcs, tx_xdp);
+ 	if (rc) {
+ 		netdev_warn(dev, "Unable to allocate the requested rings\n");
+ 		return rc;
+@@ -442,10 +450,10 @@ static int bnxt_set_channels(struct net_device *dev,
+ 		bp->rx_nr_rings = channel->rx_count;
+ 		bp->tx_nr_rings_per_tc = channel->tx_count;
+ 	}
+-
+-	bp->tx_nr_rings = bp->tx_nr_rings_per_tc;
++	bp->tx_nr_rings_xdp = tx_xdp;
++	bp->tx_nr_rings = bp->tx_nr_rings_per_tc + tx_xdp;
+ 	if (tcs > 1)
+-		bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
++		bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs + tx_xdp;
+ 
+ 	bp->cp_nr_rings = sh ? max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
+ 			       bp->tx_nr_rings + bp->rx_nr_rings;
 -- 
 1.8.3.1
