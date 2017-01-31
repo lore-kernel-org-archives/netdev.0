@@ -1,160 +1,147 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 1/4] mlx5: Make building eswitch configurable
-Date: Sun, 29 Jan 2017 11:11:40 +0200
-Message-ID: <CALzJLG9OksXW5JAZiPoSfKtTF_z8Te9UDP9bm_XhXAp-FwmwEw@mail.gmail.com>
-References: <20170126233241.2268449-1-tom@herbertland.com> <20170126233241.2268449-2-tom@herbertland.com>
- <CAJ3xEMhaQ4zsBxkWzs8qCv5KT-gAmdD9dNkSS+KDwB+VGw5SEw@mail.gmail.com>
- <CALzJLG_v2HxsdPdX5H=T51RGmaMMnXVxzihuPN66a9RxDadEcw@mail.gmail.com>
- <CALx6S34K-N7TWtEG0cCgq-zAXqqfNp9zp1JtR8bLvD=F90A2pg@mail.gmail.com>
- <CALzJLG9YXBzXAOrtth7SX8n3S5cN3ZSmKax4FOGiTr7SY8gobg@mail.gmail.com>
- <CALx6S375OVvSi5QLLCpsGc84iE3cJ3VH5Rm6sg8OJgDR=nqXfA@mail.gmail.com>
- <CALzJLG_WCiTei7CDoUCzM241gt0bSKqjGJ61ke2XbbQTOjZBkQ@mail.gmail.com>
- <CALx6S35-ecvO0k6-yqdLpO6mXA4Y6mycMD3HqHPCaUtMZd8GYA@mail.gmail.com>
- <CALzJLG-U2uLB2uqeVT1viP87oxDEp1XUymu-zVRhe9yGrBEc+w@mail.gmail.com>
- <588BD66E.2050201@fb.com> <CALzJLG_abLhT7wcrtB97KzurJ2-=OZv11cELjoRW79cOeyjxgw@mail.gmail.com>
- <588CDA55.7030900@fb.com>
+From: Jonathan Toppins <jtoppins@redhat.com>
+Subject: Re: [PATCH net-next 2/5] vxlan: support fdb and learning in
+ COLLECT_METADATA mode
+Date: Tue, 31 Jan 2017 18:37:20 -0500
+Message-ID: <7e4844ec-df5e-6140-c2f7-281619616416@redhat.com>
+References: <1485842235-32343-1-git-send-email-roopa@cumulusnetworks.com>
+ <1485842235-32343-3-git-send-email-roopa@cumulusnetworks.com>
+Reply-To: jtoppins@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+        nikolay@cumulusnetworks.com, tgraf@suug.ch,
+        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
+        dsa@cumulusnetworks.com, hadi@mojatatu.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:33003 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750803AbdA2NSA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jan 2017 08:18:00 -0500
-Received: by mail-qt0-f181.google.com with SMTP id v23so183786952qtb.0
-        for <netdev@vger.kernel.org>; Sun, 29 Jan 2017 05:17:53 -0800 (PST)
-In-Reply-To: <588CDA55.7030900@fb.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40038 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750796AbdAaXhb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 18:37:31 -0500
+In-Reply-To: <1485842235-32343-3-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 28, 2017 at 7:52 PM, Alexei Starovoitov <ast@fb.com> wrote:
-> On 1/28/17 3:20 AM, Saeed Mahameed wrote:
->>
->> On Sat, Jan 28, 2017 at 1:23 AM, Alexei Starovoitov <ast@fb.com> wrote:
->>>
->>> On 1/27/17 1:15 PM, Saeed Mahameed wrote:
->>>>
->>>>
->>>> It is only mandatory for configurations that needs eswitch, where the
->>>> driver has no way to know about them, for a good old bare metal box,
->>>> eswitch is not needed.
->>>>
->>>> we can do some work to strip the l2 table logic - needed for PFs to
->>>> work on multi-host - out of eswitch but again that would further
->>>> complicate the driver code since eswitch will still need to update l2
->>>> tables for VFs.
->>>
->>>
->>>
->>> Saeed,
->>> for multi-host setups every host in that multi-host doesn't
->>> actually see the eswitch, no? Otherwise broken driver on one machine
->>> can affect the other hosts in the same bundle? Please double check,
->>
->>
->> each host (PF) has its own eswitch, and each eswitch lives in its own
->> "steering-space"
->>   and it can't affect others.
->>
->>> since this is absolutely critical HW requirement.
->>>
->>
->> The only shared HW resources between hosts (PFs) is the simple l2 table,
->> and the only thing a host can ask from the l2 talbe (FW) is: "forward
->> UC MAC to me", and it is the responsibility of the the driver eswitch
->> to do so.
->>
->> the l2 table is created and managed by FW, SW eswitch can only request
->> from FW, and the FW is trusted.
->
->
-> ok. clear. thanks for explaining.
-> Could you describe the sequence of function calls within mlx5
-> that does the assignment of uc mac for PF ?
-> since I'm missing where eswitch is involved.
-> I can see:
-> mlx5e_nic_enable | mlx5e_set_mac
->   queue_work(priv->wq, &priv->set_rx_mode_work);
->     mlx5e_set_rx_mode_work
->       mlx5e_apply_netdev_addr
->         mlx5e_add_l2_flow_rule
->
+On 01/31/2017 12:57 AM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Vxlan COLLECT_METADATA mode today solves the per-vni netdev
+> scalability problem in l3 networks. It expects all forwarding
+> information to be present in dst_metadata. This patch series
+> enhances collect metadata mode to include the case where only
+> vni is present in dst_metadata, and the vxlan driver can then use
+> the rest of the forwarding information datbase to make forwarding
+> decisions. There is no change to default COLLECT_METADATA
+> behaviour. These changes only apply to COLLECT_METADATA when
+> used with the bridging use-case with a special dst_metadata
+> tunnel info flag (eg: where vxlan device is part of a bridge).
+> For all this to work, the vxlan driver will need to now support a
+> single fdb table hashed by mac + vni. This series essentially makes
+> this happen.
+> 
+> use-case and workflow:
+> vxlan collect metadata device participates in bridging vlan
+> to vn-segments. Bridge driver above the vxlan device,
+> sends the vni corresponding to the vlan in the dst_metadata.
+> vxlan driver will lookup forwarding database with (mac + vni)
+> for the required remote destination information to forward the
+> packet.
+> 
+> Changes introduced by this patch:
+>     - allow learning and forwarding database state in vxlan netdev in
+>       COLLECT_METADATA mode. Current behaviour is not changed
+>       by default. tunnel info flag IP_TUNNEL_INFO_BRIDGE is used
+>       to support the new bridge friendly mode.
+>     - A single fdb table hashed by (mac, vni) to allow fdb entries with
+>       multiple vnis in the same fdb table
+>     - rx path already has the vni
+>     - tx path expects a vni in the packet with dst_metadata
+>     - prior to this series, fdb remote_dsts carried remote vni and
+>       the vxlan device carrying the fdb table represented the
+>       source vni. With the vxlan device now representing multiple vnis,
+>       this patch adds a src vni attribute to the fdb entry. The remote
+>       vni already uses NDA_VNI attribute. This patch introduces
+>       NDA_SRC_VNI netlink attribute to represent the src vni in a multi
+>       vni fdb table.
+> 
+> iproute2 example (patched and pruned iproute2 output to just show
+> relevant fdb entries):
+> example shows same host mac learnt on two vni's.
+> 
+> before (netdev per vni):
+> $bridge fdb show | grep "00:02:00:00:00:03"
+> 00:02:00:00:00:03 dev vxlan1001 dst 12.0.0.8 self
+> 00:02:00:00:00:03 dev vxlan1000 dst 12.0.0.8 self
+> 
+> after this patch with collect metadata in bridged mode (single netdev):
+> $bridge fdb show | grep "00:02:00:00:00:03"
+> 00:02:00:00:00:03 dev vxlan0 src_vni 1001 dst 12.0.0.8 self
+> 00:02:00:00:00:03 dev vxlan0 src_vni 1000 dst 12.0.0.8 self
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  drivers/net/vxlan.c            |  211 +++++++++++++++++++++++++---------------
+>  include/uapi/linux/neighbour.h |    1 +
+>  2 files changed, 136 insertions(+), 76 deletions(-)
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 19b1653..b80c405 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -57,6 +57,8 @@
+>  
+>  static const u8 all_zeros_mac[ETH_ALEN + 2];
+>  
+> +static u32 fdb_salt __read_mostly;
+> +
+>  static int vxlan_sock_add(struct vxlan_dev *vxlan);
+>  
+>  /* per-network namespace private data for this module */
+> @@ -75,6 +77,7 @@ struct vxlan_fdb {
+>  	struct list_head  remotes;
+>  	u8		  eth_addr[ETH_ALEN];
+>  	u16		  state;	/* see ndm_state */
+> +	__be32		  vni;
+>  	u8		  flags;	/* see ndm_flags */
+>  };
+>  
+> @@ -302,6 +305,10 @@ static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
+>  	if (rdst->remote_vni != vxlan->default_dst.remote_vni &&
+>  	    nla_put_u32(skb, NDA_VNI, be32_to_cpu(rdst->remote_vni)))
+>  		goto nla_put_failure;
+> +	if ((vxlan->flags & VXLAN_F_COLLECT_METADATA) && fdb->vni &&
+> +	    nla_put_u32(skb, NDA_SRC_VNI,
+> +			be32_to_cpu(fdb->vni)))
+> +		goto nla_put_failure;
+>  	if (rdst->remote_ifindex &&
+>  	    nla_put_u32(skb, NDA_IFINDEX, rdst->remote_ifindex))
+>  		goto nla_put_failure;
+> @@ -400,34 +407,51 @@ static u32 eth_hash(const unsigned char *addr)
+>  	return hash_64(value, FDB_HASH_BITS);
+>  }
+>  
+> +static u32 eth_vni_hash(const unsigned char *addr, __be32 vni)
+> +{
+> +	/* use 1 byte of OUI and 3 bytes of NIC */
+> +	u32 key = get_unaligned((u32 *)(addr + 2));
+> +
+> +	return jhash_2words(key, vni, fdb_salt) & (FDB_HASH_SIZE - 1);
 
-It is a  little bit more complicated than this :).
+Not seeing where fdb_salt gets set to anything, why not just use a
+constant zero here?
 
-ConnectX4/5 and hopefully so on .. provide three different isolated
-steering layers:
-
-3. vport layer: avaialbe for any PF/VF vport nic driver instance
-(netdevice), it allows vlan/mac filtering
- ,RSS hashing and n-tuple steering (for both encapsulated and
-nonencapsulated traffic) and RFS steering. ( the code above only
-writes flow entries of a PF/VF to its own vport flow tables, there is
-another mechanism to propagate l2 steering rules down to eswitch from
-the vport layer.
-
-2. eswitch layer: Available for PFs only with
-HCA_CAP.vport_group_manager capability set.
-it allows steering between PF and different VFs on the same host (vlan
-mac steering and ACL filters in sriov legacy mode, and fancy n-tuple
-steering and offloads for switchdev mode - eswitch_offloads.c - )
-if this table is not create the default is pass-throu traffic to PF
-
-1. L2 table: Available for PFs only with HCA_CAP.vport_group_manager
-capability set.
-needed for MH configurations and only PF is allowed and should write
-"request UC MAC - set_l2_table_entry" on behalf of the PF itself and
-it's own VFs.
-
-- On a bare metal machine only layer 3 is required (all traffic is
-passed to the PF vport).
-- On a MH configuration layer 3 and 1 are required.
-- On a SRIOV configuration layer 3 and 2 are required.
-- On MH with SRIOV all layers are required.
-
-in the driver, eswitch and L2 layers are handled by PF@eswitch.c.
-
-So for your question:
-
-PF always init_eswitch ( no eswitch -sriov- tables are created), and
-the eswitch will start listening for vport_change_events.
-
-A PF/VF or netdev vport instance on any steering changes updates
-should call  mlx5e_vport_context_update[1]
-
-vport_context_update is A FW command that will store the current
-UC/MC/VLAN list and promiscuity info of a vport.
-
-The FW will generate an event to the PF driver eswitch manager (vport
-manager) mlx5_eswitch_vport_event [2], and the PF eswitch will call
-set_l2_table_entry for each UC mac on each vport change event of any
-vport (including its own vport), in case of SRIOV is enabled it will
-update eswitch tables as well.
-
-To simplify my answer the function calls are:
-Vport VF/PF netdevice:
-mlx5e_set_rx_mode_work
-    mlx5e_vport_context_update
-       mlx5e_vport_context_update_addr_list  --> FW event will be
-generated to the PF esiwtch manager
-
-PF eswitch manager(eswitch.c) on a vport change FW event:
-mlx5_eswitch_vport_event
-      esw_vport_change_handler
-           esw_vport_change_handle_locked
-                   esw_apply_vport_addr_list
-                              esw_add_uc_addr
-                                     set_l2_table_entry --> this will
-update the l2 table in case MH is enabled.
-
-Sorry for the long answer :)
--Saeed
-
-[1] http://lxr.free-electrons.com/source/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c#L440
-[2] http://lxr.free-electrons.com/source/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c#L1675
+> +}
+> +
+>  /* Hash chain to use given mac address */
+>  static inline struct hlist_head *vxlan_fdb_head(struct vxlan_dev *vxlan,
+> -						const u8 *mac)
+> +						const u8 *mac, __be32 vni)
+>  {
+> -	return &vxlan->fdb_head[eth_hash(mac)];
+> +	if (vxlan->flags & VXLAN_F_COLLECT_METADATA)
+> +		return &vxlan->fdb_head[eth_vni_hash(mac, vni)];
+> +	else
+> +		return &vxlan->fdb_head[eth_hash(mac)];
+>  }
+>  
