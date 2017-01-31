@@ -1,62 +1,37 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: update latest firmware version supported
-Date: Tue, 31 Jan 2017 13:21:50 +0530
-Message-ID: <1485849110-5650-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
+Date: Tue, 31 Jan 2017 07:59:11 +0000
+Message-ID: <BL2PR07MB2306A81376F52504945038188D4A0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:8637 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750765AbdAaHxM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 02:53:12 -0500
+Received: from mail-sn1nam01on0061.outbound.protection.outlook.com ([104.47.32.61]:58031
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750856AbdAaH7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Jan 2017 02:59:33 -0500
+In-Reply-To: <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change t4fw_version.h to update latest firmware version
-number 1.16.26.0.
+> From: Sudarsana Reddy Kalluru <sudarsana.kalluru@cavium.com>
+>=20
+> The patch adds the required qed interfaces for configuring/reading the PT=
+P
+> clock on the adapter.
+>=20
+> Reviewed-by: Richard Cochran <richardcochran@gmail.com>
 
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+This Reviewd-by Tag is incorrect; Should have been a CC.
+Sorry about that.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-index 2accab3..5fdaa16 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
-@@ -36,8 +36,8 @@
- #define __T4FW_VERSION_H__
- 
- #define T4FW_VERSION_MAJOR 0x01
--#define T4FW_VERSION_MINOR 0x0F
--#define T4FW_VERSION_MICRO 0x25
-+#define T4FW_VERSION_MINOR 0x10
-+#define T4FW_VERSION_MICRO 0x1A
- #define T4FW_VERSION_BUILD 0x00
- 
- #define T4FW_MIN_VERSION_MAJOR 0x01
-@@ -45,8 +45,8 @@
- #define T4FW_MIN_VERSION_MICRO 0x00
- 
- #define T5FW_VERSION_MAJOR 0x01
--#define T5FW_VERSION_MINOR 0x0F
--#define T5FW_VERSION_MICRO 0x25
-+#define T5FW_VERSION_MINOR 0x10
-+#define T5FW_VERSION_MICRO 0x1A
- #define T5FW_VERSION_BUILD 0x00
- 
- #define T5FW_MIN_VERSION_MAJOR 0x00
-@@ -54,8 +54,8 @@
- #define T5FW_MIN_VERSION_MICRO 0x00
- 
- #define T6FW_VERSION_MAJOR 0x01
--#define T6FW_VERSION_MINOR 0x0F
--#define T6FW_VERSION_MICRO 0x25
-+#define T6FW_VERSION_MINOR 0x10
-+#define T6FW_VERSION_MICRO 0x1A
- #define T6FW_VERSION_BUILD 0x00
- 
- #define T6FW_MIN_VERSION_MAJOR 0x00
--- 
-2.1.0
+> Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
