@@ -1,59 +1,155 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next] net: ethtool: convert large order kmalloc
- allocations to vzalloc
-Date: Mon, 30 Jan 2017 19:28:01 -0800
-Message-ID: <1485833281.20550.17.camel@perches.com>
-References: <1485829518-190263-1-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [RFC net-next] net: phy: Allow splitting MDIO bus/device support from PHYs
+Date: Mon, 30 Jan 2017 19:29:31 -0800
+Message-ID: <20170131032931.1494-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0149.hostedemail.com ([216.40.44.149]:40165 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750730AbdAaD24 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 22:28:56 -0500
-In-Reply-To: <1485829518-190263-1-git-send-email-ast@fb.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33063 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750730AbdAaD3h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 22:29:37 -0500
+Received: by mail-pf0-f195.google.com with SMTP id e4so25355758pfg.0
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 19:29:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-30 at 18:25 -0800, Alexei Starovoitov wrote:
-> under memory pressure 'ethtool -S' command may warn:
-> [ 2374.385195] ethtool: page allocation failure: order:4, mode:0x242c0c0
-> [ 2374.405573] CPU: 12 PID: 40211 Comm: ethtool Not tainted
-> [ 2374.423071] Call Trace:
-> [ 2374.423076]  [<ffffffff8148cb29>] dump_stack+0x4d/0x64
-> [ 2374.423080]  [<ffffffff811667cb>] warn_alloc_failed+0xeb/0x150
-> [ 2374.423082]  [<ffffffff81169cd3>] ? __alloc_pages_direct_compact+0x43/0xf0
-> [ 2374.423084]  [<ffffffff8116a25c>] __alloc_pages_nodemask+0x4dc/0xbf0
-> [ 2374.423091]  [<ffffffffa0023dc2>] ? cmd_exec+0x722/0xcd0 [mlx5_core]
-> [ 2374.423095]  [<ffffffff811b3dcc>] alloc_pages_current+0x8c/0x110
-> [ 2374.423097]  [<ffffffff81168859>] alloc_kmem_pages+0x19/0x90
-> [ 2374.423099]  [<ffffffff81186e5e>] kmalloc_order_trace+0x2e/0xe0
-> [ 2374.423101]  [<ffffffff811c0084>] __kmalloc+0x204/0x220
-> [ 2374.423105]  [<ffffffff816c269e>] dev_ethtool+0xe4e/0x1f80
-> [ 2374.423106]  [<ffffffff816b967e>] ? dev_get_by_name_rcu+0x5e/0x80
-> [ 2374.423108]  [<ffffffff816d6926>] dev_ioctl+0x156/0x560
-> [ 2374.423111]  [<ffffffff811d4c68>] ? mem_cgroup_commit_charge+0x78/0x3c0
-> [ 2374.423117]  [<ffffffff8169d542>] sock_do_ioctl+0x42/0x50
-> [ 2374.423119]  [<ffffffff8169d9c3>] sock_ioctl+0x1b3/0x250
-> [ 2374.423121]  [<ffffffff811f0f42>] do_vfs_ioctl+0x92/0x580
-> [ 2374.423123]  [<ffffffff8100222b>] ? do_audit_syscall_entry+0x4b/0x70
-> [ 2374.423124]  [<ffffffff8100287c>] ? syscall_trace_enter_phase1+0xfc/0x120
-> [ 2374.423126]  [<ffffffff811f14a9>] SyS_ioctl+0x79/0x90
-> [ 2374.423127]  [<ffffffff81002bb0>] do_syscall_64+0x50/0xa0
-> [ 2374.423129]  [<ffffffff817e19bc>] entry_SYSCALL64_slow_path+0x25/0x25
-> 
-> ~1160 mlx5 counters ~= order 4 allocation which is unlikely to succeed
-> under memory pressure. Convert them to vzalloc() as ethtool_get_regs() does.
-> Also take care of drivers without counters similar to
-> commit 67ae7cf1eeda ("ethtool: Allow zero-length register dumps again")
-> and reduce warn_on to warn_on_once.
+Introduce a new configuration symbol: MDIO_DEVICE which allows building
+the MDIO devices and bus code, without pulling in the entire Ethernet
+PHY library and devices code.
 
-I think this is generally not a good idea as
-most uses already fit fine in a kcalloc.
+PHYLIB nows select MDIO_DEVICE and the relevant Makefile files are
+updated to reflect that.
 
-Maybe use Michal Hocko's kvmalloc changes.
-https://lkml.org/lkml/2017/1/30/120
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/Makefile       |  2 +-
+ drivers/net/phy/Kconfig    | 59 ++++++++++++++++++++++++++--------------------
+ drivers/net/phy/Makefile   |  3 ++-
+ drivers/net/phy/mdio_bus.c |  2 ++
+ 4 files changed, 39 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 7336cbd3ef5d..a701e390d48f 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -17,7 +17,7 @@ obj-$(CONFIG_MII) += mii.o
+ obj-$(CONFIG_MDIO) += mdio.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NETCONSOLE) += netconsole.o
+-obj-$(CONFIG_PHYLIB) += phy/
++obj-$(CONFIG_MDIO_DEVICE) += phy/
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_NET_TEAM) += team/
+ obj-$(CONFIG_TUN) += tun.o
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 8dbd59baa34d..01152fb9cb76 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -2,33 +2,12 @@
+ # PHY Layer Configuration
+ #
+ 
+-menuconfig PHYLIB
+-	tristate "PHY Device support and infrastructure"
+-	depends on NETDEVICES
++menuconfig MDIO_DEVICE
++	tristate "MDIO bus device drivers"
+ 	help
+-	  Ethernet controllers are usually attached to PHY
+-	  devices.  This option provides infrastructure for
+-	  managing PHY devices.
+-
+-if PHYLIB
+-
+-config SWPHY
+-	bool
+-
+-config LED_TRIGGER_PHY
+-	bool "Support LED triggers for tracking link state"
+-	depends on LEDS_TRIGGERS
+-	---help---
+-	  Adds support for a set of LED trigger events per-PHY.  Link
+-	  state change will trigger the events, for consumption by an
+-	  LED class driver.  There are triggers for each link speed currently
+-	  supported by the phy, and are of the form:
+-	       <mii bus id>:<phy>:<speed>
+-
+-	  Where speed is in the form:
+-		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
++	   MDIO devices and driver infrastructure code.
+ 
+-comment "MDIO bus device drivers"
++if MDIO_DEVICE
+ 
+ config MDIO_BCM_IPROC
+ 	tristate "Broadcom iProc MDIO bus controller"
+@@ -160,6 +139,36 @@ config MDIO_XGENE
+ 	  This module provides a driver for the MDIO busses found in the
+ 	  APM X-Gene SoC's.
+ 
++endif
++
++menuconfig PHYLIB
++	tristate "PHY Device support and infrastructure"
++	depends on NETDEVICES
++	select MDIO_DEVICE
++	help
++	  Ethernet controllers are usually attached to PHY
++	  devices.  This option provides infrastructure for
++	  managing PHY devices.
++
++if PHYLIB
++
++config SWPHY
++	bool
++
++config LED_TRIGGER_PHY
++	bool "Support LED triggers for tracking link state"
++	depends on LEDS_TRIGGERS
++	---help---
++	  Adds support for a set of LED trigger events per-PHY.  Link
++	  state change will trigger the events, for consumption by an
++	  LED class driver.  There are triggers for each link speed currently
++	  supported by the phy, and are of the form:
++	       <mii bus id>:<phy>:<speed>
++
++	  Where speed is in the form:
++		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
++
++
+ comment "MII PHY device drivers"
+ 
+ config AMD_PHY
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 356859ac7c18..441d228f53ed 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -1,6 +1,7 @@
+ # Makefile for Linux PHY drivers and MDIO bus drivers
+ 
+-libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o
++libphy-y			:= phy.o phy_device.o
++obj-$(CONFIG_MDIO_DEVICE)	+= mdio_device.o mdio_bus.o
+ libphy-$(CONFIG_SWPHY)		+= swphy.o
+ libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
+ 
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 653d076eafe5..fa6bd2a2ce3e 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -644,9 +644,11 @@ int __init mdio_bus_init(void)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(mdio_bus_init);
+ 
+ void mdio_bus_exit(void)
+ {
+ 	class_unregister(&mdio_bus_class);
+ 	bus_unregister(&mdio_bus_type);
+ }
++EXPORT_SYMBOL_GPL(mdio_bus_exit);
+-- 
+2.9.3
