@@ -1,10 +1,10 @@
 From: Robert Shearman <rshearma@brocade.com>
 Subject: Re: [PATCH net-next] mpls: allow TTL propagation to/from IP packets
  to be configured
-Date: Tue, 31 Jan 2017 12:00:36 +0000
-Message-ID: <3d871254-5f00-0807-d716-2f9028bcfef4@brocade.com>
+Date: Tue, 31 Jan 2017 12:01:17 +0000
+Message-ID: <246db51e-1e78-8020-27aa-1707586aa860@brocade.com>
 References: <1485808575-16852-1-git-send-email-rshearma@brocade.com>
- <ba156f62-975d-bfbf-0912-e470ce9143b3@cumulusnetworks.com>
+ <8e29e6cc-c612-976a-b819-c9ddb8d5c27a@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,65 +12,69 @@ Cc: <netdev@vger.kernel.org>, roopa <roopa@cumulusnetworks.com>,
         <ebiederm@xmission.com>
 To: David Ahern <dsa@cumulusnetworks.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:36417 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751912AbdAaMAw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 07:00:52 -0500
-In-Reply-To: <ba156f62-975d-bfbf-0912-e470ce9143b3@cumulusnetworks.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:37092 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751841AbdAaMBc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 07:01:32 -0500
+In-Reply-To: <8e29e6cc-c612-976a-b819-c9ddb8d5c27a@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31/01/17 00:41, David Ahern wrote:
+On 31/01/17 01:09, David Ahern wrote:
 > On 1/30/17 1:36 PM, Robert Shearman wrote:
->> It is sometimes desirable to present an MPLS transport network as a
->> single hop to traffic transiting it because it prevents confusion when
->> diagnosing failures. An example of where confusion can be generated is
->> when addresses used in the provider network overlap with addresses in
->> the overlay network and the addresses get exposed through ICMP errors
->> generated as packets transit the provider network.
+>> @@ -243,24 +245,29 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+>>  		payload_type = ip_hdr(skb)->version;
 >>
->> Therefore, provide the ability to control whether the TTL value from
->> an MPLS packet is propagated to an IPv4/IPv6 packet when the last
->> label is popped through the addition of a new per-namespace sysctl:
->> "net.mpls.ip_ttl_propagate" which defaults to enabled.
->>
->> Use the same sysctl to control whether the TTL is propagated from IP
->> packets into the MPLS header. If the TTL isn't propagated then a
->> default TTL value is used which can be configured via a new sysctl:
->> "net.mpls.default_ttl".
->>
->> Signed-off-by: Robert Shearman <rshearma@brocade.com>
->> ---
->>  Documentation/networking/mpls-sysctl.txt | 19 +++++++++
->>  include/net/netns/mpls.h                 |  3 ++
->>  net/mpls/af_mpls.c                       | 70 ++++++++++++++++++++++++--------
->>  net/mpls/mpls_iptunnel.c                 | 12 +++++-
->>  4 files changed, 85 insertions(+), 19 deletions(-)
->>
->> diff --git a/Documentation/networking/mpls-sysctl.txt b/Documentation/networking/mpls-sysctl.txt
->> index 15d8d16934fd..b8f0725ff09e 100644
->> --- a/Documentation/networking/mpls-sysctl.txt
->> +++ b/Documentation/networking/mpls-sysctl.txt
->> @@ -19,6 +19,25 @@ platform_labels - INTEGER
->>  	Possible values: 0 - 1048575
->>  	Default: 0
->>
->> +ip_ttl_propagate - BOOL
->> +	Control whether TTL is propagated from the IPv4/IPv6 header to
->> +	the MPLS header on imposing labels and propagated from the
->> +	MPLS header to the IPv4/IPv6 header on popping the last label.
+>>  	switch (payload_type) {
+>> -	case MPT_IPV4: {
+>> -		struct iphdr *hdr4 = ip_hdr(skb);
+>> -		skb->protocol = htons(ETH_P_IP);
+>> -		csum_replace2(&hdr4->check,
+>> -			      htons(hdr4->ttl << 8),
+>> -			      htons(dec.ttl << 8));
+>> -		hdr4->ttl = dec.ttl;
+>> +	case MPT_IPV4:
+>> +		if (net->mpls.ip_ttl_propagate) {
+>> +			struct iphdr *hdr4 = ip_hdr(skb);
 >> +
->> +	If disabled, the MPLS transport network will appear as a
->> +	single hop to transit traffic.
->> +
->> +	0 - disabled
->> +	1 - enabled (default)
->> +
+>> +			skb->protocol = htons(ETH_P_IP);
 >
-> It seems like you are going after RFC 3443 with this change. Can you add comment to that effect? i.e.,  ip_ttl_propagate enabled is the Uniform Model and ip_ttl_propagate disabled is the Short Pipe Model.
+> The protocol setting here and ...
 >
+>> +			csum_replace2(&hdr4->check,
+>> +				      htons(hdr4->ttl << 8),
+>> +				      htons(dec.ttl << 8));
+>> +			hdr4->ttl = dec.ttl;
+>> +		}
+>>  		success = true;
+>>  		break;
+>> -	}
+>> -	case MPT_IPV6: {
+>> -		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+>> -		skb->protocol = htons(ETH_P_IPV6);
+>> -		hdr6->hop_limit = dec.ttl;
+>> +	case MPT_IPV6:
+>> +		if (net->mpls.ip_ttl_propagate) {
+>> +			struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+>> +
+>> +			skb->protocol = htons(ETH_P_IPV6);
+>
+> here need to be done outside of net->mpls.ip_ttl_propagate otherwise ...
+>
+>> +			hdr6->hop_limit = dec.ttl;
+>> +		}
+>>  		success = true;
+>>  		break;
+>> -	}
+>>  	case MPT_UNSPEC:
+>> +		/* Should have decided which protocol it is by now */
+>>  		break;
+>>  	}
+>>
+>
+> disabling ip_ttl_propagate causes a corrupted packet to show up at the end host (after the LSP):
 
-Good idea, will add it in the appropriate place depending on the chosen API.
+Oops, good catch. Will fix in v2.
 
 Thanks,
 Rob
