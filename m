@@ -1,38 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH V2 3/3] net: bgmac: use PHY subsystem for initializing PHY
-Date: Tue, 31 Jan 2017 10:06:34 -0800
-Message-ID: <1daad20f-f794-3c10-d020-fa08dbf228c2@gmail.com>
-References: <20170128210832.26174-1-zajec5@gmail.com>
- <20170128210832.26174-4-zajec5@gmail.com>
- <20170131.130429.1477789092223900995.davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 00/10] bnxt_en: Add XDP support.
+Date: Tue, 31 Jan 2017 09:57:33 -0800
+Message-ID: <CAADnVQL3s-ebRQyu-a_L7KQuHbXhTrCf3NrnQYP3kQ-Ecmu2SQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: jon.mason@broadcom.com, nbd@openwrt.org, netdev@vger.kernel.org,
-        rafal@milecki.pl
-To: David Miller <davem@davemloft.net>, zajec5@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Jakub Kicinski <kubakici@wp.pl>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35288 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751530AbdAaSGl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:06:41 -0500
-Received: by mail-pf0-f196.google.com with SMTP id f144so29048185pfa.2
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 10:06:41 -0800 (PST)
-In-Reply-To: <20170131.130429.1477789092223900995.davem@davemloft.net>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:34926 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752082AbdAaSHP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:07:15 -0500
+Received: by mail-lf0-f41.google.com with SMTP id n124so215295675lfd.2
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 10:07:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/31/2017 10:04 AM, David Miller wrote:
-> 
-> This entire series is being held up because there is still questions about
-> whether this is programming the internal PHYs and therefore whether the
-> code should be placed elsewhere.
-> 
-> Can we please move the discussion forward?
+On Mon, Jan 30, 2017 at 11:38 PM, Michael Chan
+<michael.chan@broadcom.com> wrote:
+>
+> I need to first figure out what xdp_adjust_head means.  If it is ok,
+> I'd like to defer it.
 
-The patches are good as-is, we can resolve the PHY programming later on
-when we have figured out the details of the 4749 chip we derailed on.
+I'd prefer if it's done asap.
 
-Thanks
--- 
-Florian
+mlx4 support added in
+commit ea3349a03519 ("mlx4: xdp: Reserve headroom for receiving packet
+when XDP prog is active")
+
+mlx5 support added in
+commit d8bec2b29a82 ("net/mlx5e: Support bpf_xdp_adjust_head()")
+
+both were relatively small changes to the driver.
