@@ -1,111 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: reduce skb_warn_bad_offload() noise
-Date: Tue, 31 Jan 2017 10:20:32 -0800
-Message-ID: <1485886832.6360.133.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] mlx4: xdp_prog becomes inactive after ethtool '-L'
+ or '-G'
+Date: Tue, 31 Jan 2017 13:11:40 -0500 (EST)
+Message-ID: <20170131.131140.289486047002034159.davem@davemloft.net>
+References: <1485589251-3896393-1-git-send-email-kafai@fb.com>
+        <f2963258-62af-c7ed-b1ad-2924ba087880@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: kafai@fb.com, netdev@vger.kernel.org, bblanco@plumgrid.com,
+        saeedm@mellanox.com, kernel-team@fb.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33649 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751585AbdAaSUf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:20:35 -0500
-Received: by mail-pf0-f194.google.com with SMTP id e4so29011909pfg.0
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 10:20:34 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:40440 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751883AbdAaSUw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:20:52 -0500
+In-Reply-To: <f2963258-62af-c7ed-b1ad-2924ba087880@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Mon, 30 Jan 2017 19:18:28 +0200
 
-Dmitry reported warnings occurring in __skb_gso_segment() [1]
+> It looks good to me, in general.
+> I just have one small comment below.
 
-All SKB_GSO_DODGY producers can allow user space to feed
-packets that trigger the current check.
+Martin, please address Tariq's feedback.
 
-We could prevent them from doing so, rejecting packets, but
-this might add regressions to existing programs.
-
-It turns out our SKB_GSO_DODGY handlers properly set up checksum
-information that is needed anyway when packets needs to be segmented.
-
-By checking again skb_needs_check() after skb_mac_gso_segment(),
-we should remove these pesky warnings, at a very minor cost.
-
-With help from Willem de Bruijn
-
-[1]
-WARNING: CPU: 1 PID: 6768 at net/core/dev.c:2439 skb_warn_bad_offload+0x2af/0x390 net/core/dev.c:2434
-lo: caps=(0x000000a2803b7c69, 0x0000000000000000) len=138 data_len=0 gso_size=15883 gso_type=4 ip_summed=0
-Kernel panic - not syncing: panic_on_warn set ...
-
-CPU: 1 PID: 6768 Comm: syz-executor1 Not tainted 4.9.0 #5
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
- ffff8801c063ecd8 ffffffff82346bdf ffffffff00000001 1ffff100380c7d2e
- ffffed00380c7d26 0000000041b58ab3 ffffffff84b37e38 ffffffff823468f1
- ffffffff84820740 ffffffff84f289c0 dffffc0000000000 ffff8801c063ee20
-Call Trace:
- [<ffffffff82346bdf>] __dump_stack lib/dump_stack.c:15 [inline]
- [<ffffffff82346bdf>] dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
- [<ffffffff81827e34>] panic+0x1fb/0x412 kernel/panic.c:179
- [<ffffffff8141f704>] __warn+0x1c4/0x1e0 kernel/panic.c:542
- [<ffffffff8141f7e5>] warn_slowpath_fmt+0xc5/0x100 kernel/panic.c:565
- [<ffffffff8356cbaf>] skb_warn_bad_offload+0x2af/0x390 net/core/dev.c:2434
- [<ffffffff83585cd2>] __skb_gso_segment+0x482/0x780 net/core/dev.c:2706
- [<ffffffff83586f19>] skb_gso_segment include/linux/netdevice.h:3985 [inline]
- [<ffffffff83586f19>] validate_xmit_skb+0x5c9/0xc20 net/core/dev.c:2969
- [<ffffffff835892bb>] __dev_queue_xmit+0xe6b/0x1e70 net/core/dev.c:3383
- [<ffffffff8358a2d7>] dev_queue_xmit+0x17/0x20 net/core/dev.c:3424
- [<ffffffff83ad161d>] packet_snd net/packet/af_packet.c:2930 [inline]
- [<ffffffff83ad161d>] packet_sendmsg+0x32ed/0x4d30 net/packet/af_packet.c:2955
- [<ffffffff834f0aaa>] sock_sendmsg_nosec net/socket.c:621 [inline]
- [<ffffffff834f0aaa>] sock_sendmsg+0xca/0x110 net/socket.c:631
- [<ffffffff834f329a>] ___sys_sendmsg+0x8fa/0x9f0 net/socket.c:1954
- [<ffffffff834f5e58>] __sys_sendmsg+0x138/0x300 net/socket.c:1988
- [<ffffffff834f604d>] SYSC_sendmsg net/socket.c:1999 [inline]
- [<ffffffff834f604d>] SyS_sendmsg+0x2d/0x50 net/socket.c:1995
- [<ffffffff84371941>] entry_SYSCALL_64_fastpath+0x1f/0xc2
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov  <dvyukov@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
----
- net/core/dev.c |   12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index be11abac89b3e6ce3013a6b905a268eaf4685609..6fe3d6f51e0a3fb421d6c63d6d20a3f46c408e93 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2658,11 +2658,12 @@ static inline bool skb_needs_check(struct sk_buff *skb, bool tx_path)
- struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 				  netdev_features_t features, bool tx_path)
- {
-+	struct sk_buff *segs;
-+
- 	if (unlikely(skb_needs_check(skb, tx_path))) {
- 		int err;
- 
--		skb_warn_bad_offload(skb);
--
-+		/* We're going to init ->check field in TCP or UDP header */
- 		err = skb_cow_head(skb, 0);
- 		if (err < 0)
- 			return ERR_PTR(err);
-@@ -2690,7 +2691,12 @@ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 	skb_reset_mac_header(skb);
- 	skb_reset_mac_len(skb);
- 
--	return skb_mac_gso_segment(skb, features);
-+	segs = skb_mac_gso_segment(skb, features);
-+
-+	if (unlikely(skb_needs_check(skb, tx_path)))
-+		skb_warn_bad_offload(skb);
-+
-+	return segs;
- }
- EXPORT_SYMBOL(__skb_gso_segment);
- 
+Thank you.
