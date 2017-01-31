@@ -1,52 +1,54 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] r8152: Allocate interrupt buffer as part of struct r8152
-Date: Tue, 31 Jan 2017 13:17:17 -0800
-Message-ID: <20170131211717.GB21758@roeck-us.net>
-References: <1485889577-4389-1-git-send-email-linux@roeck-us.net>
- <1485892411.6360.139.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
+Date: Tue, 31 Jan 2017 15:11:27 -0700
+Message-ID: <4c761626-b127-4419-55e4-902b03532507@cumulusnetworks.com>
+References: <1485401274-2836524-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:53804 "EHLO
-        bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751097AbdAaWLI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 17:11:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1485892411.6360.139.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:35124 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751167AbdAaWL3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 17:11:29 -0500
+Received: by mail-pf0-f171.google.com with SMTP id f144so112068969pfa.2
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 14:11:29 -0800 (PST)
+In-Reply-To: <1485401274-2836524-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2017 at 11:53:31AM -0800, Eric Dumazet wrote:
-> On Tue, 2017-01-31 at 11:06 -0800, Guenter Roeck wrote:
-> > When unloading the r8152 driver using the 'unbind' sysfs attribute
-> > in a system with KASAN enabled, the following error message is seen
-> > on a regular basis.
+On 1/25/17 8:27 PM, Alexei Starovoitov wrote:
+> in cases where bpf programs are looking at sockets and packets
+> that belong to different netns, it could be useful to read netns inode,
+> so that programs can make intelligent decisions.
+> For example to disallow raw sockets in all non-init netns the program can do:
+> if (sk->type == SOCK_RAW && sk->netns_inum != 0xf0000075)
+>   return 0;
+> where 0xf0000075 inode comes from /proc/pid/ns/net
 > 
-> >  
-> >  static int alloc_all_mem(struct r8152 *tp)
-> > @@ -1423,10 +1420,6 @@ static int alloc_all_mem(struct r8152 *tp)
-> >  	if (!tp->intr_urb)
-> >  		goto err1;
-> >  
-> > -	tp->intr_buff = kmalloc(INTBUFSIZE, GFP_KERNEL);
-> > -	if (!tp->intr_buff)
-> > -		goto err1;
-> > -
-> >  	tp->intr_interval = (int)ep_intr->desc.bInterval;
-> >  	usb_fill_int_urb(tp->intr_urb, tp->udev, usb_rcvintpipe(tp->udev, 3),
-> >  			 tp->intr_buff, INTBUFSIZE, intr_callback,
+> Similarly TC cls_bpf/act_bpf and socket filters can do
+> if (skb->netns_inum == expected_inode)
 > 
-> This might lead to intr_buff being backed by vzalloc() instead of
-> kzalloc() (check alloc_netdev_mqs())
+> The lack of netns awareness was a concern even for socket filters,
+> since the application can attach the same bpf program to sockets
+> in a different netns. Just like tc cls_bpf program can work in
+> different netns as well, so it has to be addressed uniformly
+> across all types of bpf programs.
 > 
-> It looks like it could cause a bug.
-> 
-I also strongly suspect that it just fixes the symptom, but not the root cause
-of the problem.
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+> with corresponding change in 'ip vrf' that David Ahern is working on,
+> this will address 'malfunction' concern that Andy discovered in 'ip vrf',
+> hence this fix is needed for 'net'.
 
-Thanks,
-Guenter
+FWIW, the iproute2 patch (along with a few other namespace related fixups) can be found here:
+
+    https://github.com/dsahern/iproute2
+
+vrf/ip-vrf branch.
