@@ -1,14 +1,16 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 4.10-rc3 02/13] net: cgroups: fix build errors when
+Subject: [PATCH 4.10-rc3 04/13] net: lan78xx: fix build errors when
  linux/phy*.h is removed from net/dsa.h
-Date: Tue, 31 Jan 2017 19:18:33 +0000
-Message-ID: <E1cYdwn-0000W0-Cz@rmk-PC.armlinux.org.uk>
+Date: Tue, 31 Jan 2017 19:18:43 +0000
+Message-ID: <E1cYdwx-0000WG-L9@rmk-PC.armlinux.org.uk>
 References: <20170131191704.GA8281@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Woojung Huh <woojung.huh@microchip.com>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
 To: linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
         linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
@@ -27,28 +29,30 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-net/core/netprio_cgroup.c:303:16: error: expected declaration specifiers or '...' before string constant
-    MODULE_LICENSE("GPL v2");
-                   ^~~~~~~~
+drivers/net/usb/lan78xx.c:394:33: sparse: expected ; at end of declaration
+drivers/net/usb/lan78xx.c:394:33: sparse: Expected } at end of struct-union-enum-specifier
+drivers/net/usb/lan78xx.c:394:33: sparse: got interface
+drivers/net/usb/lan78xx.c:403:1: sparse: Expected ; at the end of type declaration
+drivers/net/usb/lan78xx.c:403:1: sparse: got }
 
-Add linux/module.h to fix this.
+Add linux/phy.h to lan78xx.c
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- net/core/netprio_cgroup.c | 1 +
+ drivers/net/usb/lan78xx.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 2ec86fc552df..756637dc7a57 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -13,6 +13,7 @@
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 08f8703e4d54..9889a70ff4f6 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -35,6 +35,7 @@
+ #include <linux/irq.h>
+ #include <linux/irqchip/chained_irq.h>
+ #include <linux/microchipphy.h>
++#include <linux/phy.h>
+ #include "lan78xx.h"
  
- #include <linux/slab.h>
- #include <linux/types.h>
-+#include <linux/module.h>
- #include <linux/string.h>
- #include <linux/errno.h>
- #include <linux/skbuff.h>
+ #define DRIVER_AUTHOR	"WOOJUNG HUH <woojung.huh@microchip.com>"
 -- 
 2.7.4
