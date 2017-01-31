@@ -1,43 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 4/6] drivers: net: xgene-v2: Add base driver
-Date: Tue, 31 Jan 2017 21:01:49 +0100
-Message-ID: <20170131200149.GM5656@lunn.ch>
-References: <1485889401-13909-1-git-send-email-isubramanian@apm.com>
- <1485889401-13909-5-git-send-email-isubramanian@apm.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] net: ethernet: ti: cpsw: fix  NULL pointer dereference in switch mode
+Date: Tue, 31 Jan 2017 14:04:04 -0600
+Message-ID: <20170131200404.29150-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, patches@apm.com,
-        kchudgar@apm.com
-To: Iyappan Subramanian <isubramanian@apm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:51683 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751372AbdAaUBy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Jan 2017 15:01:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1485889401-13909-5-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +	phy_mode = device_get_phy_mode(dev);
-> +	if (phy_mode < 0) {
-> +		dev_err(dev, "Unable to get phy-connection-type\n");
-> +		return phy_mode;
-> +	}
-> +	pdata->resources.phy_mode = phy_mode;
-> +
-> +	if (pdata->resources.phy_mode != PHY_INTERFACE_MODE_RGMII) {
-> +		dev_err(dev, "Incorrect phy-connection-type specified\n");
-> +		return -ENODEV;
-> +	}
+In switch mode on struct cpsw_slave->ndev field will be initialized with
+proper value only for the one cpsw slave port, as result
+cpsw_get_usage_count() will generate "Unable to handle kernel NULL pointer
+dereference" exception when first ethernet interface is opening
+cpsw_ndo_open(). This issue causes boot regression on AM335x EVM and
+reproducible on am57xx-evm (switch mode).
+Fix it by adding additional check for !cpsw->slaves[i].ndev in
+cpsw_get_usage_count().
 
-This seems a bit limiting. What if you need to use:
+Cc: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+fixes: 03fd01ad0eea ("net: ethernet: ti: cpsw: don't duplicate ndev_running")
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-PHY_INTERFACE_MODE_RGMII_ID,
-PHY_INTERFACE_MODE_RGMII_RXID,
-PHY_INTERFACE_MODE_RGMII_TXID,
-
-in order to set the RGMII delays.
-
-   Andrew
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 67b7323..35a95dc 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -677,7 +677,7 @@ static int cpsw_get_usage_count(struct cpsw_common *cpsw)
+ 	u32 usage_count = 0;
+ 
+ 	for (i = 0; i < cpsw->data.slaves; i++)
+-		if (netif_running(cpsw->slaves[i].ndev))
++		if (cpsw->slaves[i].ndev && netif_running(cpsw->slaves[i].ndev))
+ 			usage_count++;
+ 
+ 	return usage_count;
+-- 
+2.10.1.dirty
