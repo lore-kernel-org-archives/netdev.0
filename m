@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: thunderx: avoid dereferencing xcv when NULL
-Date: Tue, 31 Jan 2017 13:09:44 -0500 (EST)
-Message-ID: <20170131.130944.1449047914150613032.davem@davemloft.net>
-References: <20170130140643.24182-1-vincent.stehle@laposte.net>
+Subject: Re: [PATCH v2] net: aquantia: atlantic: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Tue, 31 Jan 2017 13:12:10 -0500 (EST)
+Message-ID: <20170131.131210.33717135353496768.davem@davemloft.net>
+References: <1485813882-9887-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, sgoutham@cavium.com
-To: vincent.stehle@laposte.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Alexander.Loktionov@aquantia.com, Pavel.Belous@aquantia.com,
+        Dmitry.Bezrukov@aquantia.com, vomlehn@texas.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170130140643.24182-1-vincent.stehle@laposte.net>
+In-Reply-To: <1485813882-9887-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vincent Stehlé <vincent.stehle@laposte.net>
-Date: Mon, 30 Jan 2017 15:06:43 +0100
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Mon, 30 Jan 2017 23:04:42 +0100
 
-> This fixes the following smatch and coccinelle warnings:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
->   drivers/net/ethernet/cavium/thunder/thunder_xcv.c:119 xcv_setup_link() error: we previously assumed 'xcv' could be null (see line 118) [smatch]
->   drivers/net/ethernet/cavium/thunder/thunder_xcv.c:119:16-20: ERROR: xcv is NULL but dereferenced. [coccinelle]
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
 > 
-> Fixes: 6465859aba1e66a5 ("net: thunderx: Add RGMII interface type support")
-> Signed-off-by: Vincent Stehlé <vincent.stehle@laposte.net>
-> Cc: Sunil Goutham <sgoutham@cavium.com>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+> Changelog:
+> v2:
+> - add support and advertise for TP
 
-I've applied this, but wow this is some code that needs fixing on a more
-fundamental level.
-
-Having a global pointer for a device private and assuming only one instance
-of a PCI device ID will ever be probe in a system is really wrong.
-
-This is true even in all known machines or configurations this might
-be true.
-
-It leads to exactly the kinds of problems shown here.
-
-Objects should be probed by instance, and if operations need to
-be performed on it, a pointer to the software state for that object
-instance should be passed around.  Rather than having an implicit
-single object.
+Applied, thanks.
