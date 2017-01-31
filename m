@@ -1,158 +1,131 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 3/6] drivers: net: xgene-v2: Add ethernet hardware configuration
-Date: Tue, 31 Jan 2017 11:03:18 -0800
-Message-ID: <1485889401-13909-4-git-send-email-isubramanian@apm.com>
-References: <1485889401-13909-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-        kchudgar@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:36087 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751705AbdAaTFS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 14:05:18 -0500
-Received: by mail-pf0-f177.google.com with SMTP id 189so110094320pfu.3
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 11:03:25 -0800 (PST)
-In-Reply-To: <1485889401-13909-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] r8152: Allocate interrupt buffer as part of struct r8152
+Date: Tue, 31 Jan 2017 11:06:17 -0800
+Message-ID: <1485889577-4389-1-git-send-email-linux@roeck-us.net>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
+        Hayes Wang <hayeswang@realtek.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds functions to configure ethernet hardware.
+When unloading the r8152 driver using the 'unbind' sysfs attribute
+in a system with KASAN enabled, the following error message is seen
+on a regular basis.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+BUG kmalloc-128 (Not tainted): Poison overwritten
+-----------------------------------------------------------------------------
+INFO: 0xffffffc0a9522a00-0xffffffc0a9522a01. First byte 0xee instead of 0x6b
+INFO: Allocated in rtl8152_open+0x318/0x5dc [r8152] age=69847 cpu=4 pid=1345
+init: mtpd main process (2372) terminated with status 253
+init: mtpd main process ended, respawning
+alloc_debug_processing+0x124/0x178
+___slab_alloc.constprop.59+0x530/0x65c
+__slab_alloc.isra.56.constprop.58+0x48/0x74
+kmem_cache_alloc_trace+0xd8/0x34c
+rtl8152_open+0x318/0x5dc [r8152]
+__dev_open+0xcc/0x140
+__dev_change_flags+0xc8/0x1a8
+dev_change_flags+0x50/0xa0
+do_setlink+0x440/0xcd4
+rtnl_newlink+0x414/0x7cc
+rtnetlink_rcv_msg+0x238/0x268
+netlink_rcv_skb+0xa4/0x128
+rtnetlink_rcv+0x2c/0x3c
+netlink_unicast+0x1e8/0x2e0
+netlink_sendmsg+0x4c0/0x4e4
+sock_sendmsg+0x70/0x8c
+INFO: Freed in free_all_mem+0x10c/0x12c [r8152] age=271 cpu=2 pid=5992
+free_debug_processing+0x278/0x37c
+__slab_free+0x84/0x440
+kfree+0x2d4/0x37c
+free_all_mem+0x10c/0x12c [r8152]
+rtl8152_close+0xf4/0x10c [r8152]
+__dev_close_many+0xe0/0x118
+dev_close_many+0xb8/0x174
+rollback_registered_many+0x19c/0x3fc
+unregister_netdevice_queue+0xe4/0x188
+unregister_netdev+0x28/0x38
+rtl8152_disconnect+0x7c/0xb0 [r8152]
+usb_unbind_interface+0xd8/0x2cc
+__device_release_driver+0x10c/0x1a8
+device_release_driver+0x30/0x44
+bus_remove_device+0x1e0/0x208
+device_del+0x21c/0x2cc
+INFO: Slab 0xffffffbdc2a5c880 objects=16 used=14 fp=0xffffffc0a9523400 flags=0x4080
+INFO: Object 0xffffffc0a9522a00 @offset=2560 fp=0xffffffc0a9522200
+
+Bytes b4 ffffffc0a95229f0: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a  ZZZZZZZZZZZZZZZZ
+Object ffffffc0a9522a00: ee 30 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  .0kkkkkkkkkkkkkk
+Object ffffffc0a9522a10: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+Object ffffffc0a9522a20: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+Object ffffffc0a9522a30: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+Object ffffffc0a9522a40: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+Object ffffffc0a9522a50: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+Object ffffffc0a9522a60: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+Object ffffffc0a9522a70: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b a5  kkkkkkkkkkkkkkk.
+Redzone ffffffc0a9522a80: bb bb bb bb bb bb bb bb                          ........
+Padding ffffffc0a9522bc0: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a  ZZZZZZZZZZZZZZZZ
+
+The two-byte allocation in conjunction with code analysis suggests that
+the interrupt buffer has been overwritten. Added instrumentation in the
+driver shows that the interrupt handler is called after RTL8152_UNPLUG
+was set, and that this event is associated with the error message above.
+This suggests that there are situations where the interrupt buffer is used
+after it has been freed.
+
+To avoid the problem, allocate the interrupt buffer as part of struct
+r8152.
+
+Cc: Hayes Wang <hayeswang@realtek.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/net/ethernet/apm/xgene-v2/enet.c | 71 ++++++++++++++++++++++++++++++++
- drivers/net/ethernet/apm/xgene-v2/enet.h | 43 +++++++++++++++++++
- 2 files changed, 114 insertions(+)
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/enet.c
- create mode 100644 drivers/net/ethernet/apm/xgene-v2/enet.h
+The problem is seen in chromeos-4.4, but there is not reason to believe
+that it does not occur with the upstream kernel. It is still seen in
+chromeos-4.4 after all patches from upstream and linux-next have been
+applied to the driver.
 
-diff --git a/drivers/net/ethernet/apm/xgene-v2/enet.c b/drivers/net/ethernet/apm/xgene-v2/enet.c
-new file mode 100644
-index 0000000..b49edee
---- /dev/null
-+++ b/drivers/net/ethernet/apm/xgene-v2/enet.c
-@@ -0,0 +1,71 @@
-+/*
-+ * Applied Micro X-Gene SoC Ethernet v2 Driver
-+ *
-+ * Copyright (c) 2017, Applied Micro Circuits Corporation
-+ * Author(s): Iyappan Subramanian <isubramanian@apm.com>
-+ *	      Keyur Chudgar <kchudgar@apm.com>
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include "main.h"
-+
-+void xge_wr_csr(struct xge_pdata *pdata, u32 offset, u32 val)
-+{
-+	void __iomem *addr = pdata->resources.base_addr + offset;
-+
-+	iowrite32(val, addr);
-+}
-+
-+u32 xge_rd_csr(struct xge_pdata *pdata, u32 offset)
-+{
-+	void __iomem *addr = pdata->resources.base_addr + offset;
-+
-+	return ioread32(addr);
-+}
-+
-+int xge_port_reset(struct net_device *ndev)
-+{
-+	struct xge_pdata *pdata = netdev_priv(ndev);
-+
-+	xge_wr_csr(pdata, ENET_SRST, 0x3);
-+	xge_wr_csr(pdata, ENET_SRST, 0x2);
-+	xge_wr_csr(pdata, ENET_SRST, 0x0);
-+
-+	xge_wr_csr(pdata, ENET_SHIM, DEVM_ARAUX_COH | DEVM_AWAUX_COH);
-+
-+	return 0;
-+}
-+
-+static void xge_traffic_resume(struct net_device *ndev)
-+{
-+	struct xge_pdata *pdata = netdev_priv(ndev);
-+
-+	xge_wr_csr(pdata, CFG_FORCE_LINK_STATUS_EN, 1);
-+	xge_wr_csr(pdata, FORCE_LINK_STATUS, 1);
-+
-+	xge_wr_csr(pdata, CFG_LINK_AGGR_RESUME, 1);
-+	xge_wr_csr(pdata, RX_DV_GATE_REG, 1);
-+}
-+
-+int xge_port_init(struct net_device *ndev)
-+{
-+	struct xge_pdata *pdata = netdev_priv(ndev);
-+
-+	pdata->phy_speed = SPEED_1000;
-+	xge_mac_init(pdata);
-+	xge_traffic_resume(ndev);
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/apm/xgene-v2/enet.h b/drivers/net/ethernet/apm/xgene-v2/enet.h
-new file mode 100644
-index 0000000..40371cf
---- /dev/null
-+++ b/drivers/net/ethernet/apm/xgene-v2/enet.h
-@@ -0,0 +1,43 @@
-+/*
-+ * Applied Micro X-Gene SoC Ethernet v2 Driver
-+ *
-+ * Copyright (c) 2017, Applied Micro Circuits Corporation
-+ * Author(s): Iyappan Subramanian <isubramanian@apm.com>
-+ *	      Keyur Chudgar <kchudgar@apm.com>
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#ifndef __XGENE_ENET_V2_ENET_H__
-+#define __XGENE_ENET_V2_ENET_H__
-+
-+#define ENET_CLKEN		0xc008
-+#define ENET_SRST		0xc000
-+#define ENET_SHIM		0xc010
-+#define CFG_MEM_RAM_SHUTDOWN	0xd070
-+#define BLOCK_MEM_RDY		0xd074
-+
-+#define DEVM_ARAUX_COH		BIT(19)
-+#define DEVM_AWAUX_COH		BIT(3)
-+
-+#define CFG_FORCE_LINK_STATUS_EN	0x229c
-+#define FORCE_LINK_STATUS		0x22a0
-+#define CFG_LINK_AGGR_RESUME		0x27c8
-+#define RX_DV_GATE_REG			0x2dfc
-+
-+void xge_wr_csr(struct xge_pdata *pdata, u32 offset, u32 val);
-+u32 xge_rd_csr(struct xge_pdata *pdata, u32 offset);
-+int xge_port_reset(struct net_device *ndev);
-+
-+#endif  /* __XGENE_ENET_V2_ENET__H__ */
+While relatively simple, I am not really convinced that this is the best
+(or even an acceptable) solution for this problem. I am open to suggestions
+for a better fix.
+
+ drivers/net/usb/r8152.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index ad42295356dd..afbfa728b48e 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -641,7 +641,7 @@ struct r8152 {
+ 	u32 coalesce;
+ 	u16 ocp_base;
+ 	u16 speed;
+-	u8 *intr_buff;
++	u8 intr_buff[INTBUFSIZE] ____cacheline_aligned;
+ 	u8 version;
+ 	u8 duplex;
+ 	u8 autoneg;
+@@ -1342,9 +1342,6 @@ static void free_all_mem(struct r8152 *tp)
+ 
+ 	usb_free_urb(tp->intr_urb);
+ 	tp->intr_urb = NULL;
+-
+-	kfree(tp->intr_buff);
+-	tp->intr_buff = NULL;
+ }
+ 
+ static int alloc_all_mem(struct r8152 *tp)
+@@ -1423,10 +1420,6 @@ static int alloc_all_mem(struct r8152 *tp)
+ 	if (!tp->intr_urb)
+ 		goto err1;
+ 
+-	tp->intr_buff = kmalloc(INTBUFSIZE, GFP_KERNEL);
+-	if (!tp->intr_buff)
+-		goto err1;
+-
+ 	tp->intr_interval = (int)ep_intr->desc.bInterval;
+ 	usb_fill_int_urb(tp->intr_urb, tp->udev, usb_rcvintpipe(tp->udev, 3),
+ 			 tp->intr_buff, INTBUFSIZE, intr_callback,
 -- 
-1.9.1
+2.7.4
