@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix flow labels when the traffic class is non-0
-Date: Tue, 31 Jan 2017 13:17:47 -0500 (EST)
-Message-ID: <20170131.131747.527470210930915539.davem@davemloft.net>
-References: <20170130220942.19105-1-dmichail@google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: sock_create_kern() and network namespace reference counts
+Date: Tue, 31 Jan 2017 17:57:29 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0276FD9@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6DB0276D58@AcuExch.aculab.com>
+ <CAM_iQpVs-_p8VeoRpUjBPSOCkCAi0q8gWWSx29699-UuLKQTrg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org, edumazet@google.com
-To: dmichail@google.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Cong Wang' <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40350 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751353AbdAaSRy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:17:54 -0500
-In-Reply-To: <20170130220942.19105-1-dmichail@google.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:57329 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751353AbdAaSUZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:20:25 -0500
+In-Reply-To: <CAM_iQpVs-_p8VeoRpUjBPSOCkCAi0q8gWWSx29699-UuLKQTrg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dmichail@google.com>
-Date: Mon, 30 Jan 2017 14:09:42 -0800
-
-> ip6_make_flowlabel() determines the flow label for IPv6 packets. It's
-> supposed to be passed a flow label, which it returns as is if non-0 and
-> in some other cases, otherwise it calculates a new value.
-> 
-> The problem is callers often pass a flowi6.flowlabel, which may also
-> contain traffic class bits. If the traffic class is non-0
-> ip6_make_flowlabel() mistakes the non-0 it gets as a flow label and
-> returns the whole thing. Thus it can return a 'flow label' longer than
-> 20b and the low 20b of that is typically 0 resulting in packets with 0
-> label. Moreover, different packets of a flow may be labeled differently.
-> For a TCP flow with ECN non-payload and payload packets get different
-> labels as exemplified by this pair of consecutive packets:
- ...
-> Signed-off-by: Dimitris Michailidis <dmichail@google.com>
-
-Applied, thanks Dimitris.
+RnJvbTogQ29uZyBXYW5nDQo+IFNlbnQ6IDMxIEphbnVhcnkgMjAxNyAxNzozOA0KPiBPbiBUdWUs
+IEphbiAzMSwgMjAxNyBhdCA3OjQxIEFNLCBEYXZpZCBMYWlnaHQgPERhdmlkLkxhaWdodEBhY3Vs
+YWIuY29tPiB3cm90ZToNCj4gPiBDb21taXQgMjZhYmUxNDM3IGNoYW5nZWQgc29ja19jcmVhdGVf
+a2VybigpIHNvIHRoYXQgaXQgc3RvcHBlZA0KPiA+IGhvbGRpbmcgYSByZWZlcmVuY2UgdG8gdGhl
+IG5ldHdvcmsgbmFtZXNwYWNlLg0KPiA+IFRoZSByYXRpb25hbCBzZWVtZWQgdG8gYmUgJ3RvIGFs
+bG93IHRvIHN0b3AgaXQnIChwcmVzdW1hYmx5ICdiZSBkZWxldGVkJykuDQo+ID4gUHJpb3IgdG8g
+dGhpcyBjaGFuZ2Ugc29tZSBrZXJuZWwgcGF0aHMgdXNlZCBza19jaGFuZ2VfbmV0KCkgKGV0Yykg
+dG8NCj4gPiBjaGFuZ2UgdGhlIG5hbWVzcGFjZSBhZnRlciB0aGUgc29ja2V0IHdhcyBjcmVhdGVk
+Lg0KPiA+DQo+ID4gSWYgdGhlIHNvY2tldCBkb2Vzbid0IGhvbGQgYSByZWZlcmVuY2UgdG8gdGhl
+IG5hbWVzcGFjZSwgd2hhdCBhY3R1YWxseQ0KPiA+IGhhcHBlbnMgd2hlbiB0aGUgbmFtZXNwYWNl
+IGlzIGRlbGV0ZWQ/DQo+IA0KPiBLZXJuZWwgc29ja2V0IHNob3VsZCBoYXZlIHRoZSBzYW1lIGxp
+ZmV0aW1lIHdpdGggdGhlIG5ldCBuYW1lc3BhY2UsDQo+IHRoYXQgaXMsIGNyZWF0ZWQgaW4gbmV0
+X2luaXQgYW5kIHJlbGVhc2VkIGluIG5ldF9leGl0LiBUaGluayBhYm91dCBpdCwgaWYgaXQNCj4g
+cmVhbGx5IGhlbGQgYSByZWZjbnQgdG8gdGhpcyBuZXRucywgaG93IGNvdWxkIHRoaXMgbmV0bnMg
+YmUgdGVhcmVkIGRvd24/DQoNClRoYXQgcmF0aGVyIGRlcGVuZHMgb24gd2hhdCB0aGV5IGFyZSBi
+ZWluZyB1c2VkIGZvci4NCkNvbnNpZGVyIHNvbWV0aGluZyBsaWtlIGFuIGluIGtlcm5lbCBmdHAg
+Y2xpZW50LCBpdCBkb2Vzbid0IHJlYWxseSBjYXJlDQphYm91dCBuYW1lc3BhY2VzIGV4Y2VwdCBp
+biBhcyBtdWNoIGFzIHRoZSBjb25uZWN0aW9ucyBpdCBjcmVhdGVzIG11c3QNCmJlIGluc2lkZSB0
+aGUgY29ycmVjdCBuYW1lc3BhY2UuDQpUaGUgbmFtZXNwYWNlIHNob3VsZG4ndCBiZSB0b3JuIGRv
+d24gd2hpbGUgdGhhdCBjb25uZWN0aW9uIGV4aXN0cyBhbnkgbW9yZQ0KdGhhbiBpdCBzaG91bGQg
+YmUgdG9ybiBkb3duIHdoaWxlIGEgdXNlciBwcm9jZXNzIGhhcyBhbiBvcGVuIGNvbm5lY3Rpb24u
+DQooTGlzdGVuaW5nIHNvY2tldHMgYXJlIGxpa2VseSB0byBiZSBtb3JlIG9mIGEgcHJvYmxlbS4p
+DQoNCldlIGhhdmUgaW4ga2VybmVsIGNvZGUgdGhhdCBjcmVhdGVzIFNDVFAgc29ja2V0cyBmb3Ig
+TTNVQS4NClRoZXJlIGlzIG5vIHdheSB3ZSBjYW4gZmluZCBvdXQgdGhhdCBzb21ldGhpbmcgaGFz
+IGRlY2lkZWQgdG8gZGVsZXRlIGENCm5hbWVzcGFjZSBhbmQgSSdkIGV4cGVjdCB0aGUgY29ubmVj
+dGlvbnMgdG8gaG9sZCB0aGUgbmFtZXNwYWNlIGJ1c3kuDQpQcmlvciB0byBkZWxldGluZyB0aGUg
+bmFtZXNwYWNlIHlvdSBuZWVkIHRvIGRvIHdoYXRldmVyIGlzIG5lY2Vzc2FyeQ0KdG8gbWFrZSB0
+aGUgZHJpdmVyIGRlbGV0ZSBhbGwgaXRzIHNvY2tldHMuDQoNClBvdGVudGlhbGx5IHRoZXJlIGNv
+dWxkIGJlIHNvbWUgc3lzdGVtIGNhbGwgdGhhdCBjYXVzZXMgJ2Vycm9yJyBldmVudHMNCm9uIGFs
+bCB0aGUgc29ja2V0cyBzbyB0aGF0IHRoZSBkcml2ZXIgY29kZSBjYW4gZGVsZXRlIHRoZW0gYWxs
+b3dpbmcNCnRoZSBuYW1lc3BhY2UgYmUgZGVsZXRlZC4NCg0KCURhdmlkDQoNCg==
