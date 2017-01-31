@@ -1,45 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: broadcom: rehook BCM54612E specific init
-Date: Tue, 31 Jan 2017 14:14:05 -0800
-Message-ID: <dd85a0f9-1e32-b464-fe8b-b2980e652376@gmail.com>
-References: <20170131215454.7932-1-zajec5@gmail.com>
+From: Netanel Belgazal <netanel@annapurnalabs.com>
+Subject: Re: [PATCH V3 net-next 02/14] net/ena: fix error handling when probe
+ fails
+Date: Wed, 1 Feb 2017 00:14:31 +0200
+Message-ID: <f4e7ce8f-cbe4-015d-fa3f-be807ed451df@annapurnalabs.com>
+References: <1485469096-5271-1-git-send-email-netanel@annapurnalabs.com>
+ <1485469096-5271-3-git-send-email-netanel@annapurnalabs.com>
+ <174cba24-4bf4-4212-9756-2bedf4fa5a92@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Xo Wang <xow@google.com>, Joel Stanley <joel@jms.id.au>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Jaedon Shin <jaedon.shin@gmail.com>, netdev@vger.kernel.org,
-        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36368 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750868AbdAaWOI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 17:14:08 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 19so29933772pfo.3
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 14:14:07 -0800 (PST)
-In-Reply-To: <20170131215454.7932-1-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dwmw@amazon.com, zorik@annapurnalabs.com, alex@annapurnalabs.com,
+        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
+        nafea@annapurnalabs.com, eric.dumazet@gmail.com
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        linux-kernel@vger.kernel.org, davem@davemloft.net,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <174cba24-4bf4-4212-9756-2bedf4fa5a92@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/31/2017 01:54 PM, Rafał Miłecki wrote:
-> From: Rafał Miłecki <rafal@milecki.pl>
-> 
-> This extra BCM54612E code in PHY driver isn't really aneg specific. Even
-> without it aneg works OK but the problem is no packets pass through PHY.
-> 
-> Moreover putting this code inside config_aneg callback didn't allow
-> resuming PHY correctly. When driver called phy_stop and phy_start it was
-> putting PHY machine into RESUMING state. After that machine was
-> switching into AN and NOLINK without ever calling phy_start_aneg. This
-> prevented this extra setup from being called and PHY didn't work.
-> 
-> This change has been verified to fix network on BCM47186B0 SoC device
-> with BCM54612E.
-> 
-> Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+Hi,
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+You are right. I'll remove this patch.
+
+Regards,
+
+Netanel
+
+On 01/28/2017 01:33 AM, Lino Sanfilippo wrote:
+> Hi,
+>
+> On 26.01.2017 23:18, Netanel Belgazal wrote:
+>> When driver fails in probe, it will release all resources,
+>> including adapter.
+>> In case of probe failure, ena_remove should not try to
+>> free the adapter resources.
+>>
+>> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
+>> ---
+>>  drivers/net/ethernet/amazon/ena/ena_netdev.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c 
+>> b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+>> index 7493ea3..cb60567 100644
+>> --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
+>> +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+>> @@ -3046,6 +3046,7 @@ static int ena_probe(struct pci_dev *pdev, 
+>> const struct pci_device_id *ent)
+>>  err_free_region:
+>>      ena_release_bars(ena_dev, pdev);
+>>  err_free_ena_dev:
+>> +    pci_set_drvdata(pdev, NULL);
+>>      vfree(ena_dev);
+>>  err_disable_device:
+>>      pci_disable_device(pdev);
+>>
+>
+> Is this change really a "fix"? remove() should only be called if
+> probe() has been successful before, otherwise not. Did you experience
+> something different?
+>
+> Regards,
+> Lino
