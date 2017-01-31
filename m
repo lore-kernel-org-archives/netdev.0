@@ -1,37 +1,57 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCHv3 perf/core 1/6] tools lib bpf: Add BPF program pinning
- APIs.
-Date: Mon, 30 Jan 2017 21:58:05 -0300
-Message-ID: <20170131005805.GI4546@kernel.org>
-References: <20170126212001.14103-1-joe@ovn.org>
- <20170126212001.14103-2-joe@ovn.org>
- <20170130202506.GF4546@kernel.org>
- <20170130202813.GG4546@kernel.org>
- <CAPWQB7FDThp03e6DTHio8Myv5e8J6RcDXK-jG8W6B7Sh2Gvisw@mail.gmail.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH -next] net/phy: fix phy_bcm_nsp_usb3.c build and kconfig
+Date: Mon, 30 Jan 2017 17:02:44 -0800
+Message-ID: <8b028a54-08a1-8e53-04ab-3fa8c51d2369@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wang Nan <wangnan0@huawei.com>, ast@fb.com,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Joe Stringer <joe@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAPWQB7FDThp03e6DTHio8Myv5e8J6RcDXK-jG8W6B7Sh2Gvisw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([65.50.211.133]:38250 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754684AbdAaBD0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 20:03:26 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Mon, Jan 30, 2017 at 01:16:18PM -0800, Joe Stringer escreveu:
-> On 30 January 2017 at 12:28, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
-> > ---
-> > Thus, a return value of size or more means that the output was
-> > truncated.
-> > ---
+From: Randy Dunlap <rdunlap@infradead.org>
+
+This driver uses mdio* (PHYLIB) interfaces, so it should select
+PHYLIB. PHYLIB depends on NETDEVICES to this driver should also
+depend on NETDEVICES.
+
+Fixes these build errors:
+
+drivers/built-in.o: In function `nsp_usb3_phy_init':
+phy-bcm-nsp-usb3.c:(.text+0x42d8): undefined reference to `mdiobus_write'
+phy-bcm-nsp-usb3.c:(.text+0x42f4): undefined reference to `mdiobus_write'
+phy-bcm-nsp-usb3.c:(.text+0x4310): undefined reference to `mdiobus_write'
+phy-bcm-nsp-usb3.c:(.text+0x432c): undefined reference to `mdiobus_write'
+phy-bcm-nsp-usb3.c:(.text+0x4348): undefined reference to `mdiobus_write'
+drivers/built-in.o:phy-bcm-nsp-usb3.c:(.text+0x437a): more undefined references to `mdiobus_write' follow
+drivers/built-in.o: In function `mdio_module_init':
+phy-bcm-nsp-usb3.c:(.init.text+0x1e1): undefined reference to `mdio_driver_register'
+drivers/built-in.o: In function `mdio_module_exit':
+phy-bcm-nsp-usb3.c:(.exit.text+0xae): undefined reference to `mdio_driver_unregister'
+
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+---
+ drivers/phy/Kconfig |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- linux-next-20170130.orig/drivers/phy/Kconfig
++++ linux-next-20170130/drivers/phy/Kconfig
+@@ -504,8 +504,9 @@ config PHY_MESON8B_USB2
  
-> Good spotting, I looked over the committed versions and tested them,
-> they seem good to me. Thanks!
-
-Thanks for checking, will push Ingo's way after a battery of extra
-tests, tomorrow,
-
-- Arnaldo
+ config PHY_NSP_USB3
+ 	tristate "Broadcom NorthStar plus USB3 PHY driver"
+-	depends on OF && (ARCH_BCM_NSP || COMPILE_TEST)
++	depends on OF && (ARCH_BCM_NSP || COMPILE_TEST) && NETDEVICES
+ 	select GENERIC_PHY
++	select PHYLIB
+ 	default ARCH_BCM_NSP
+ 	help
+ 	  Enable this to support the Broadcom Northstar plus USB3 PHY.
