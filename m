@@ -1,67 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Inconsistency in packet drop due to MTU (eth vs veth)
-Date: Tue, 31 Jan 2017 08:27:09 -0800
-Message-ID: <1485880029.6360.118.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <159b79aa979.e23be6a5186096.2767722456700391441@gmail.com>
-         <1484852027.16328.33.camel@edumazet-glaptop3.roam.corp.google.com>
-         <159f4b9e4ab.12b79bda8122843.8859202944513905410@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [RFC PATCH 0/2] rx zero copy interface for af_packet
+Date: Tue, 31 Jan 2017 11:30:42 -0500
+Message-ID: <20170131163042.GF8649@oracle.com>
+References: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Evan Jones <ej@evanjones.ca>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <cwang@twopensource.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Vijay Pandurangan <vijayp@vijayp.ca>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        ebiederm <ebiederm@aristanetworks.com>
-To: Fredrik Markstrom <fredrik.markstrom@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <159f4b9e4ab.12b79bda8122843.8859202944513905410@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bjorn.topel@gmail.com, jasowang@redhat.com, ast@fb.com,
+        alexander.duyck@gmail.com, brouer@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:22092 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751124AbdAaQcX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 11:32:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-01-31 at 14:32 +0100, Fredrik Markstrom wrote:
->  ---- On Thu, 19 Jan 2017 19:53:47 +0100 Eric Dumazet <eric.dumazet@gmail.com> wrote ---- 
->  > On Thu, 2017-01-19 at 17:41 +0100, Fredrik Markstrom wrote: 
->  > > Hello, 
->  > >  
->  > > I've noticed an inconsistency between how physical ethernet and
-> veth handles mtu. 
->  > >  
->  > > If I setup two physical interfaces (directly connected) with
-> different mtu:s, only the size of the outgoing packets are limited by
-> the mtu. But with veth a packet is dropped if the mtu of the receiving
-> interface is smaller then the packet size.  
->  > >  
->  > > This seems inconsistent to me, but maybe there is a reason for
-> it ?  
->  > >  
->  > > Can someone confirm if it's a deliberate inconsistency or just a
-> side effect of using dev_forward_skb() ? 
->  >  
->  > It looks this was added in commit 
->  > 38d408152a86598a50680a82fe3353b506630409 
->  > ("veth: Allow setting the L3 MTU") 
->  >  
->  > But what was really needed here was a way to change MRU :( 
+On (01/27/17 13:33), John Fastabend wrote:
 > 
-> Ok, do we consider this correct and/or something we need to be
-> backwards compatible with ? Is it insane to believe that we can fix
-> this "inconsistency" by removing the check ?
+> This is an experimental implementation of rx zero copy for af_packet.
+> Its a bit rough and likely has errors but the plan is to clean it up
+> over the next few months.
 > 
-> The commit message reads "For consistency I drop packets on the
-> receive side when they are larger than the MTU", do we know what it's
-> supposed
-> to be consistent with or is that lost in history ?
+> And seeing I said I would post it in another thread a few days back
+> here it is.
 
-There is no consistency among existing Ethernet drivers.
+One question/comment about this: sure, this saves us an skb copy
+on the rx side, but at least for the Tx side, I think there may
+be a trade-off between the overhead from the skb setup and the
+ease of offloading checksum (and UFO where it is available) to
+consider, even for PF_PACKET.
 
-Many ethernet drivers size the buffers they post in RX ring buffer
-according to MTU.
+Using PF_PACKET works well for stateless datagram protocols like 
+UDP, and for UDP sockets, we find that just switching to Jumbo
+(to simulate a poor-man's-UFO) gives us significant improvement
+in both throughput and latency for our RDBMS workloads - and 
+having the sk_buff facilitates using existing driver-kernel interfaces
+for offload easily, so while we may gain some perf improvment by shaving
+of the sk_buff overhead, the trade-off needs to be considered.
 
-If MTU is set to 1500, RX buffers are sized to be about 1536 bytes,
-so you wont be able to receive a 1700 bytes frame.
-
-I guess that you could add a specific veth attribute to precisely
-control MRU, that would not break existing applications.
+--Sowmini
