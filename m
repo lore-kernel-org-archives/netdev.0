@@ -1,30 +1,64 @@
-From: Ivan Vecera <cera@cera.cz>
-Subject: Re: [PATCH net] be2net: fix initial MAC setting
-Date: Tue, 31 Jan 2017 19:58:49 +0100
-Message-ID: <CA+Nub0ZqrMnv1vP_rbNaeLHoy8X89UqPPMmBFian+fEp=_qOLg@mail.gmail.com>
-References: <20170126102801.18914-1-cera@cera.cz> <CAHHeUGXitTaXqQk8zDymcCX09vFq3CtM20FHJPL6AeVhc2iBPQ@mail.gmail.com>
- <CA+Nub0ZoPT0_k0gnc-d1j_5nK41MkUxt=NX=0Zv3YwtVK964-Q@mail.gmail.com> <20170131.130107.1307753849532001866.davem@davemloft.net>
-Reply-To: ivan.vecera@cera.cz
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next 0/6] drivers: net: xgene-v2: Add RGMII based 1G driver
+Date: Tue, 31 Jan 2017 11:03:15 -0800
+Message-ID: <1485889401-13909-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:34415 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751888AbdAaS7A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:59:00 -0500
-Received: by mail-io0-f195.google.com with SMTP id c80so18748033iod.1
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 10:59:00 -0800 (PST)
-In-Reply-To: <20170131.130107.1307753849532001866.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kchudgar@apm.com, patches@apm.com, linux-arm-kernel@lists.infradead.org,
+ Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-My apologies for my previous replies... Gmail sent them as HTML emails
-that are not acceptable for ML...
+This patch set adds support for RGMII based 1GbE hardware which uses a linked
+list of DMA descriptor architecture (v2) for APM X-Gene SoCs.
 
-Thanks,
-Ivan
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+---
+
+Iyappan Subramanian (6):
+  drivers: net: xgene-v2: Add DMA descriptor
+  drivers: net: xgene-v2: Add mac configuration
+  drivers: net: xgene-v2: Add ethernet hardware configuration
+  drivers: net: xgene-v2: Add base driver
+  drivers: net: xgene-v2: Add transmit and receive
+  MAINTAINERS: Add entry for APM X-Gene SoC Ethernet (v2) driver
+
+ MAINTAINERS                                |   6 +
+ drivers/net/ethernet/apm/Kconfig           |   1 +
+ drivers/net/ethernet/apm/Makefile          |   1 +
+ drivers/net/ethernet/apm/xgene-v2/Kconfig  |  11 +
+ drivers/net/ethernet/apm/xgene-v2/Makefile |   6 +
+ drivers/net/ethernet/apm/xgene-v2/enet.c   |  71 ++++
+ drivers/net/ethernet/apm/xgene-v2/enet.h   |  43 ++
+ drivers/net/ethernet/apm/xgene-v2/mac.c    | 116 +++++
+ drivers/net/ethernet/apm/xgene-v2/mac.h    | 132 ++++++
+ drivers/net/ethernet/apm/xgene-v2/main.c   | 657 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene-v2/main.h   |  88 ++++
+ drivers/net/ethernet/apm/xgene-v2/ring.c   |  73 ++++
+ drivers/net/ethernet/apm/xgene-v2/ring.h   |  77 ++++
+ 13 files changed, 1282 insertions(+)
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/Kconfig
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/Makefile
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/enet.c
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/enet.h
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/mac.c
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/mac.h
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/main.c
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/main.h
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/ring.c
+ create mode 100644 drivers/net/ethernet/apm/xgene-v2/ring.h
+
+-- 
+1.9.1
