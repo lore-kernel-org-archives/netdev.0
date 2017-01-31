@@ -1,15 +1,15 @@
 From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH 4.10-rc3 07/13] net: mvneta: fix build errors when
- linux/phy*.h is removed from net/dsa.h
-Date: Tue, 31 Jan 2017 19:18:59 +0000
-Message-ID: <E1cYdxD-0000Wd-1D@rmk-PC.armlinux.org.uk>
+Subject: [PATCH 4.10-rc3 08/13] net: emac: fix build errors when linux/phy*.h
+ is removed from net/dsa.h
+Date: Tue, 31 Jan 2017 19:19:04 +0000
+Message-ID: <E1cYdxI-0000Wk-5w@rmk-PC.armlinux.org.uk>
 References: <20170131191704.GA8281@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 Cc: "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+        Timur Tabi <timur@codeaurora.org>
 To: linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
         linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
@@ -28,29 +28,26 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-drivers/net/ethernet/marvell/mvneta.c:2694:26: error: storage size of 'status' isn't known
-drivers/net/ethernet/marvell/mvneta.c:2695:26: error: storage size of 'changed' isn't known
-drivers/net/ethernet/marvell/mvneta.c:2695:9: error: variable 'changed' has initializer but incomplete type
-drivers/net/ethernet/marvell/mvneta.c:2709:2: error: implicit declaration of function 'fixed_phy_update_state' [-Werror=implicit-function-declaration]
+drivers/net/ethernet/qualcomm/emac/emac-sgmii.c:58:12: error: dereferencing pointer to incomplete type 'struct phy_device'
 
-Add linux/phy_fixed.h to mvneta.c
+Add linux/phy.h to emac-sgmii.c
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 1 +
+ drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index e05e22705cf7..eb0eb3e62ca0 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -28,6 +28,7 @@
- #include <linux/of_mdio.h>
- #include <linux/of_net.h>
- #include <linux/phy.h>
-+#include <linux/phy_fixed.h>
- #include <linux/platform_device.h>
- #include <linux/skbuff.h>
- #include <net/hwbm.h>
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+index bf722a9bb09d..5e31fb7e4ab8 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
+@@ -16,6 +16,7 @@
+ #include <linux/iopoll.h>
+ #include <linux/acpi.h>
+ #include <linux/of_device.h>
++#include <linux/phy.h>
+ #include "emac.h"
+ #include "emac-mac.h"
+ #include "emac-sgmii.h"
 -- 
 2.7.4
