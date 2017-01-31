@@ -1,104 +1,132 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 5/8] net/mlx5e: Calc vlan_tag_present only once on xmit
-Date: Tue, 31 Jan 2017 22:58:40 +0200
-Message-ID: <20170131205843.23235-6-saeedm@mellanox.com>
+Subject: [net-next 6/8] net/mlx5e: Tx, no inline copy on ConnectX-5
+Date: Tue, 31 Jan 2017 22:58:41 +0200
+Message-ID: <20170131205843.23235-7-saeedm@mellanox.com>
 References: <20170131205843.23235-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60064 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60057 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751218AbdAaVFj (ORCPT
+        with ESMTP id S1751217AbdAaVFj (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 16:05:39 -0500
 In-Reply-To: <20170131205843.23235-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cache skb_vlan_tag_present(skb) and pass it wherever needed in xmit
-routines.
+ConnectX-5 and later HW generations will report min inline mode ==
+MLX5_INLINE_MODE_NONE, which means driver is not required to copy packet
+headers to inline fields of TX WQE.
+
+When inline is not required, vlan insertion will be handled in the
+TX descriptor rather than copy to inline.
+
+For LSO case driver is still required to copy headers, for the HW to
+duplicate on wire.
+
+This will improve CPU utilization and boost TX performance.
+
+Tested with pktgen burst single flow:
+CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+HCA: Mellanox Technologies MT28800 Family [ConnectX-5 Ex]
+
+Before: 15.1Mpps
+After:  17.2Mpps
+Improvement: 14%
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 13 ++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 29 +++++++++++++----------
+ 2 files changed, 26 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index e7a1da1ea4b7..505f97aeb60c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1029,9 +1029,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
+ 
+ 	sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
+ 	sq->max_inline  = param->max_inline;
+-	sq->min_inline_mode =
+-		MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT ?
+-		param->min_inline_mode : 0;
++	sq->min_inline_mode = param->min_inline_mode;
+ 
+ 	err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
+ 	if (err)
+@@ -1095,7 +1093,10 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
+ 	MLX5_SET(sqc,  sqc, tis_num_0, param->type == MLX5E_SQ_ICO ?
+ 				       0 : priv->tisn[sq->tc]);
+ 	MLX5_SET(sqc,  sqc, cqn,		sq->cq.mcq.cqn);
+-	MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
++
++	if (MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT)
++		MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
++
+ 	MLX5_SET(sqc,  sqc, state,		MLX5_SQC_STATE_RST);
+ 	MLX5_SET(sqc,  sqc, tis_lst_sz, param->type == MLX5E_SQ_ICO ? 0 : 1);
+ 
+@@ -3533,6 +3534,10 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 		MLX5E_PARAMS_DEFAULT_TX_CQ_MODERATION_PKTS;
+ 	priv->params.tx_max_inline         = mlx5e_get_max_inline_cap(mdev);
+ 	mlx5_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
++	if (priv->params.tx_min_inline_mode == MLX5_INLINE_MODE_NONE &&
++	    !MLX5_CAP_ETH(mdev, wqe_vlan_insert))
++		priv->params.tx_min_inline_mode = MLX5_INLINE_MODE_L2;
++
+ 	priv->params.num_tc                = 1;
+ 	priv->params.rss_hfunc             = ETH_RSS_HASH_XOR;
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 678c07c8fbb0..ac76fb4f5510 100644
+index ac76fb4f5510..27f70580e0e7 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -148,15 +148,16 @@ static inline int mlx5e_skb_l3_header_offset(struct sk_buff *skb)
- 		return mlx5e_skb_l2_header_offset(skb);
- }
- 
--static inline unsigned int mlx5e_calc_min_inline(enum mlx5_inline_modes mode,
--						 struct sk_buff *skb)
-+static inline unsigned int
-+mlx5e_calc_min_inline(enum mlx5_inline_modes mode, struct sk_buff *skb,
-+		      bool vlan_present)
- {
+@@ -155,6 +155,8 @@ mlx5e_calc_min_inline(enum mlx5_inline_modes mode, struct sk_buff *skb,
  	int hlen;
  
  	switch (mode) {
++	case MLX5_INLINE_MODE_NONE:
++		return 0;
  	case MLX5_INLINE_MODE_TCP_UDP:
  		hlen = eth_get_headlen(skb->data, skb_headlen(skb));
--		if (hlen == ETH_HLEN && !skb_vlan_tag_present(skb))
-+		if (hlen == ETH_HLEN && !vlan_present)
- 			hlen += VLAN_HLEN;
- 		return hlen;
- 	case MLX5_INLINE_MODE_IP:
-@@ -174,7 +175,8 @@ static inline unsigned int mlx5e_calc_min_inline(enum mlx5_inline_modes mode,
- }
- 
- static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
--					    struct sk_buff *skb, bool bf)
-+					    struct sk_buff *skb,
-+					    bool vlan_present, bool bf)
- {
- 	/* Some NIC TX decisions, e.g loopback, are based on the packet
- 	 * headers and occur before the data gather.
-@@ -183,13 +185,13 @@ static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
- 	if (bf) {
- 		u16 ihs = skb_headlen(skb);
- 
--		if (skb_vlan_tag_present(skb))
-+		if (vlan_present)
- 			ihs += VLAN_HLEN;
- 
- 		if (ihs <= sq->max_inline)
- 			return skb_headlen(skb);
- 	}
--	return mlx5e_calc_min_inline(sq->min_inline_mode, skb);
-+	return mlx5e_calc_min_inline(sq->min_inline_mode, skb, vlan_present);
- }
- 
- static inline void mlx5e_tx_skb_pull_inline(unsigned char **skb_data,
-@@ -228,6 +230,7 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
- 	struct mlx5_wqe_data_seg *dseg;
- 
-+	bool vlan_present = skb_vlan_tag_present(skb);
- 	unsigned char *skb_data = skb->data;
- 	unsigned int skb_len = skb->len;
- 	u8  opcode = MLX5_OPCODE_SEND;
-@@ -277,15 +280,14 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 		bf = sq->bf_budget &&
- 		     !skb->xmit_more &&
- 		     !skb_shinfo(skb)->nr_frags;
--		ihs = mlx5e_get_inline_hdr_size(sq, skb, bf);
-+		ihs = mlx5e_get_inline_hdr_size(sq, skb, vlan_present, bf);
- 		num_bytes = max_t(unsigned int, skb->len, ETH_ZLEN);
- 	}
+ 		if (hlen == ETH_HLEN && !vlan_present)
+@@ -286,20 +288,23 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
  
  	wi->num_bytes = num_bytes;
  
--	if (skb_vlan_tag_present(skb)) {
--		mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data,
--				  &skb_len);
-+	if (vlan_present) {
-+		mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data, &skb_len);
- 		ihs += VLAN_HLEN;
- 	} else {
- 		memcpy(eseg->inline_hdr.start, skb_data, ihs);
+-	if (vlan_present) {
+-		mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data, &skb_len);
+-		ihs += VLAN_HLEN;
+-	} else {
+-		memcpy(eseg->inline_hdr.start, skb_data, ihs);
+-		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
++	ds_cnt = sizeof(*wqe) / MLX5_SEND_WQE_DS;
++	if (ihs) {
++		if (vlan_present) {
++			mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data, &skb_len);
++			ihs += VLAN_HLEN;
++		} else {
++			memcpy(eseg->inline_hdr.start, skb_data, ihs);
++			mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
++		}
++		eseg->inline_hdr.sz = cpu_to_be16(ihs);
++		ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start), MLX5_SEND_WQE_DS);
++	} else if (vlan_present) {
++		eseg->insert.type = cpu_to_be16(MLX5_ETH_WQE_INSERT_VLAN);
++		eseg->insert.vlan_tci = cpu_to_be16(skb_vlan_tag_get(skb));
+ 	}
+ 
+-	eseg->inline_hdr.sz = cpu_to_be16(ihs);
+-
+-	ds_cnt  = sizeof(*wqe) / MLX5_SEND_WQE_DS;
+-	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start),
+-			       MLX5_SEND_WQE_DS);
+-	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
++	dseg = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
+ 
+ 	wi->num_dma = 0;
+ 
 -- 
 2.11.0
