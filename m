@@ -1,50 +1,64 @@
-From: Fredrik Markstrom <fredrik.markstrom@gmail.com>
-Subject: Re: Inconsistency in packet drop due to MTU (eth vs veth)
-Date: Tue, 31 Jan 2017 14:32:20 +0100
-Message-ID: <159f4b9e4ab.12b79bda8122843.8859202944513905410@gmail.com>
-References: <159b79aa979.e23be6a5186096.2767722456700391441@gmail.com> <1484852027.16328.33.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH 13/17] net: stmmac: Implement NAPI for TX
+Date: Tue, 31 Jan 2017 14:38:46 +0100
+Message-ID: <20170131133846.GA10939@Red>
+References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
+ <20170131091152.13842-14-clabbe.montjoie@gmail.com>
+ <cd8b200c-f419-80c3-714e-cb81a95da65c@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev" <netdev@vger.kernel.org>, "Evan Jones" <ej@evanjones.ca>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Cong Wang" <cwang@twopensource.com>,
-        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-        "Vijay Pandurangan" <vijayp@vijayp.ca>,
-        "linux-kernel" <linux-kernel@vger.kernel.org>,
-        "ebiederm" <ebiederm@aristanetworks.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484852027.16328.33.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: alexandre.torgue@st.com, netdev@vger.kernel.org,
+        davem@davemloft.net, linux-kernel@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36433 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752192AbdAaNlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 08:41:03 -0500
+Content-Disposition: inline
+In-Reply-To: <cd8b200c-f419-80c3-714e-cb81a95da65c@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- ---- On Thu, 19 Jan 2017 19:53:47 +0100 Eric Dumazet <eric.dumazet@gmail.com> wrote ---- 
- > On Thu, 2017-01-19 at 17:41 +0100, Fredrik Markstrom wrote: 
- > > Hello, 
- > >  
- > > I've noticed an inconsistency between how physical ethernet and veth handles mtu. 
- > >  
- > > If I setup two physical interfaces (directly connected) with different mtu:s, only the size of the outgoing packets are limited by the mtu. But with veth a packet is dropped if the mtu of the receiving interface is smaller then the packet size.  
- > >  
- > > This seems inconsistent to me, but maybe there is a reason for it ?  
- > >  
- > > Can someone confirm if it's a deliberate inconsistency or just a side effect of using dev_forward_skb() ? 
- >  
- > It looks this was added in commit 
- > 38d408152a86598a50680a82fe3353b506630409 
- > ("veth: Allow setting the L3 MTU") 
- >  
- > But what was really needed here was a way to change MRU :( 
+On Tue, Jan 31, 2017 at 11:28:03AM +0100, Giuseppe CAVALLARO wrote:
+> On 1/31/2017 10:11 AM, Corentin Labbe wrote:
+> > The stmmac driver run TX completion under NAPI but without checking the
+> > work done by the TX completion function.
+> >
+> > This patch add work/budget to the TX completion function.
+> >
+> > The visible effect is that it keep the driver longer under NAPI and
+> > boost performance.
+> > Under dwmac-sun8i the iperf goes from 140Mbit/s to 500Mbit/s.
+> > Under dwmac-sunxi an iperf run use half less interrupts.
+> 
+> I think that this patch should be sent separately with more details
+> about the implementation you are adopting and results.
+> 
 
-Ok, do we consider this correct and/or something we need to be backwards compatible with ? Is it insane to believe that we can fix this "inconsistency" by removing the check ?
+This patch is just implementing what NAPI documentation say.
+"The budget parameter places a limit on the amount of work the driver may do. Each received packet counts as one unit of work. The poll() function may also process TX completions, in which case if it processes the entire TX ring then it should count that work as the rest of the budget. Otherwise, TX completions are not counted."
 
-The commit message reads "For consistency I drop packets on the receive side when they are larger than the MTU", do we know what it's supposed
-to be consistent with or is that lost in history ?
+For the history, I have done the sun8i-emac driver for H3/A64 and get with if very good performance.
+Some people find that the hardware was in fact a modified version of dwmac and so I start working on dwmac-sun8i glue driver.
+Testing dwmac-sun8i give very bad performance and the only real difference between thoses two driver was the handling of NAPI TX mitigation.
 
-/Fredrik
+The performance are tested with a simple iperf.
+I will redo some test with some numbers
 
- >  
- >  
- >  
- > 
+> For example, in the timer callback you force 256 (it seems
+> DMA_TX_SIZE/2); do you think this should be tunable or fixed to
+> NAPI budget?
+
+I think that the whole "TX mitigation timer" is useless when using TX completion within NAPI.
+I will do some bench for checking with and without it.
+
+> 
+> I'd like to understand if performance you get are for TCP traffic;
+> can you tell me what happens on unidirectional traffic?
+> 
+> Thx a lot for your effort, pls let me know
+> 
+> Regards
+> peppe
+> 
