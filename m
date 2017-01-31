@@ -1,56 +1,63 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac: GMAC_RGSMIIIS reports bogus values
-Date: Tue, 31 Jan 2017 14:46:32 +0100
-Message-ID: <ce57ab03-ca3f-405e-a5b6-c69e311536b6@st.com>
-References: <1478189833.4072.65.camel@synopsys.com>
- <a1f114cc-6120-154c-a3f7-3e0389d38e36@st.com>
- <1485369563.7117.81.camel@synopsys.com>
- <1485512586.2693.35.camel@synopsys.com>
- <28d0ab2c-eb68-a520-e59a-83b15700fe44@st.com>
- <1485869040.2706.15.camel@synopsys.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: ANNOUNCE: Netdev 2.1 update
+Date: Tue, 31 Jan 2017 09:15:24 -0500
+Message-ID: <251ff72a-01b7-9c57-6181-eb45d66ba070@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1485869040.2706.15.camel@synopsys.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+        info@netdevconf.org, linux-wireless@vger.kernel.org,
+        tech-committee@netdevconf.org, David Miller <davem@davemloft.net>,
+        Stephen Jaworski <jaws@mojatatu.com>,
+        Rob Echlin <rob@echlin.ca>, lwn@lwn.net
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Alexey
+A few announcements:
+- We expect to open up registration and announce hotel and location
+next week.
 
-On 1/31/2017 2:24 PM, Alexey Brodkin wrote:
-> Hi Giuseppe,
->
-> On Tue, 2017-01-31 at 10:55 +0100, Giuseppe CAVALLARO wrote:
->> On 1/27/2017 11:23 AM, Alexey Brodkin wrote:
->>>
->>> That's why my initial proposal was to ignore whatever we read from this register
->>> if we have MDIO bus instantiated already.
->>
->> sorry for my late reply, I agree with this approach, according to the
->> HW and platform configuration the driver has to understand and then
->> work to use either SMA or PCS module.
->
-> I already submitted another solution which IMHO is much cleaner and appropriate,
-> see David has it already in master tree here:
-> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=0a764db103376cf69d04449b10688f3516cc0b88
->
+- We are pleased to announce the first netdev 2.1 talk has been accepted
+by the tech committee! The Call for Proposals is still open, submit 
+early to avoid the hazards of last minute traffic. Refer to:
+http://netdevconf.org/1.2/submit-proposal.html
 
-it's ok, thx for that
+On to the accepted talk:
+-------
+Title: Evaluating and improving kernel stack performance for datagram 
+sockets
+        from the perspective of RDBMS applications
 
-Peppe
+Authors: Sowmini Varadhan, Tushar Dave
 
-> -Alexey
->
+RDBMS applications heavily use stateless datagram sockets such as RDS
+and UDP. These workloads  are typically highly CPU-bound and sensitive
+to network latency, so any perf improvements to these parameters is 
+extremely
+desirable.
+
+At the same time, since I/O for these RDBMS  applications comes
+from various sources (network, disk, local file-system and NFS),
+APIs for perf enhancements is also a critical factor.
+
+Motivated by these goals and constraints, we have investigated a few
+kernel alternatives to UDP/IP, such as PF_PACKET.  We have used
+micro-benchmarks such as netperf, and are currently evaluating PF_PACKET
+usage in IPC libraries for actual transaction-oriented RDBMS workloads.
+
+We would like to share some of the findings from these experiments with
+the netdev community. In addition to the actual numbers themselves,
+interesting points that we'd like to discuss are the gaps between
+micro-benchmarks and real-world usage, what works well (and what
+doesn't matter so much) for real workloads, and practical factors
+that impact deployment for any solution.
+
+This is active work-in-progress, and some of our findings suggest areas
+of perf-improvement in the kernel for various datagram sockets
+that we'd like to bounce off netdev-ers for input.
+---------------
+
+cheers,
+jamal
