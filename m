@@ -1,89 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next] net: ethtool: convert large order kmalloc
- allocations to vzalloc
-Date: Mon, 30 Jan 2017 20:21:51 -0800
-Message-ID: <1485836511.20550.21.camel@perches.com>
-References: <1485829518-190263-1-git-send-email-ast@fb.com>
-         <1485833281.20550.17.camel@perches.com> <5890076C.5080305@fb.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 00/10] bnxt_en: Add XDP support.
+Date: Mon, 30 Jan 2017 20:47:47 -0800
+Message-ID: <20170131044745.GA8082@ast-mbp.thefacebook.com>
+References: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0224.hostedemail.com ([216.40.44.224]:56492 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750764AbdAaEVy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 23:21:54 -0500
-In-Reply-To: <5890076C.5080305@fb.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35583 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750799AbdAaErw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Jan 2017 23:47:52 -0500
+Received: by mail-pf0-f193.google.com with SMTP id f144so25760748pfa.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jan 2017 20:47:52 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-30 at 19:41 -0800, Alexei Starovoitov wrote:
-> On 1/30/17 7:28 PM, Joe Perches wrote:
-> > On Mon, 2017-01-30 at 18:25 -0800, Alexei Starovoitov wrote:
-> > > under memory pressure 'ethtool -S' command may warn:
-> > > [ 2374.385195] ethtool: page allocation failure: order:4, mode:0x242c0c0
-> > > [ 2374.405573] CPU: 12 PID: 40211 Comm: ethtool Not tainted
-> > > [ 2374.423071] Call Trace:
-> > > [ 2374.423076]  [<ffffffff8148cb29>] dump_stack+0x4d/0x64
-> > > [ 2374.423080]  [<ffffffff811667cb>] warn_alloc_failed+0xeb/0x150
-> > > [ 2374.423082]  [<ffffffff81169cd3>] ? __alloc_pages_direct_compact+0x43/0xf0
-> > > [ 2374.423084]  [<ffffffff8116a25c>] __alloc_pages_nodemask+0x4dc/0xbf0
-> > > [ 2374.423091]  [<ffffffffa0023dc2>] ? cmd_exec+0x722/0xcd0 [mlx5_core]
-> > > [ 2374.423095]  [<ffffffff811b3dcc>] alloc_pages_current+0x8c/0x110
-> > > [ 2374.423097]  [<ffffffff81168859>] alloc_kmem_pages+0x19/0x90
-> > > [ 2374.423099]  [<ffffffff81186e5e>] kmalloc_order_trace+0x2e/0xe0
-> > > [ 2374.423101]  [<ffffffff811c0084>] __kmalloc+0x204/0x220
-> > > [ 2374.423105]  [<ffffffff816c269e>] dev_ethtool+0xe4e/0x1f80
-> > > [ 2374.423106]  [<ffffffff816b967e>] ? dev_get_by_name_rcu+0x5e/0x80
-> > > [ 2374.423108]  [<ffffffff816d6926>] dev_ioctl+0x156/0x560
-> > > [ 2374.423111]  [<ffffffff811d4c68>] ? mem_cgroup_commit_charge+0x78/0x3c0
-> > > [ 2374.423117]  [<ffffffff8169d542>] sock_do_ioctl+0x42/0x50
-> > > [ 2374.423119]  [<ffffffff8169d9c3>] sock_ioctl+0x1b3/0x250
-> > > [ 2374.423121]  [<ffffffff811f0f42>] do_vfs_ioctl+0x92/0x580
-> > > [ 2374.423123]  [<ffffffff8100222b>] ? do_audit_syscall_entry+0x4b/0x70
-> > > [ 2374.423124]  [<ffffffff8100287c>] ? syscall_trace_enter_phase1+0xfc/0x120
-> > > [ 2374.423126]  [<ffffffff811f14a9>] SyS_ioctl+0x79/0x90
-> > > [ 2374.423127]  [<ffffffff81002bb0>] do_syscall_64+0x50/0xa0
-> > > [ 2374.423129]  [<ffffffff817e19bc>] entry_SYSCALL64_slow_path+0x25/0x25
-> > > 
-> > > ~1160 mlx5 counters ~= order 4 allocation which is unlikely to succeed
-> > > under memory pressure. Convert them to vzalloc() as ethtool_get_regs() does.
-> > > Also take care of drivers without counters similar to
-> > > commit 67ae7cf1eeda ("ethtool: Allow zero-length register dumps again")
-> > > and reduce warn_on to warn_on_once.
-> > 
-> > I think this is generally not a good idea as
-> > most uses already fit fine in a kcalloc.
-> 
-> most nics have large numbers of counters that don't fit into one page.
-> that's already pushing mm.
+On Mon, Jan 30, 2017 at 08:49:25PM -0500, Michael Chan wrote:
+> The first 8 patches refactor the code (rx/tx code paths and ring logic)
+> and add the basic infrastructure to support XDP.  The 9th patch adds
+> basic ndo_xdp to support XDP_DROP and XDP_PASS only.  The 10th patch
+> completes the series with XDP_TX.
 
-I think that's untrue.
+Looks great.
+Could you please share performance numbers ?
 
-Some nics have large numbers of counters, especially
-those with multiple tx and rx queues.
-
-A typical nic has a few dozen.
-
-> especially in this case control plane apps call 'ethtool -S'
-> periodically.
-> 
-> > Maybe use Michal Hocko's kvmalloc changes.
-> > https://lkml.org/lkml/2017/1/30/120
-> 
-> v1 discussion here
-> http://patchwork.ozlabs.org/patch/721122/
-> as I mentioned there long term I don't mind using kvmalloc,
-> but the issue has to be fixed now. Either via vzalloc or nowarn+noretry.
-> My stress testing with memory hog shows that kmalloc fails
-> quite often, thankfully user space daemon is ready for failures,
-> whereas vzalloc approach works all the time and no extra headaches
-> for user space.
-
-There is a much lower pool available for vmalloc than
-kmalloc and kmalloc should be preferred, but hey, fix
-it first, then maybe fix it better later after the
-kvmalloc stuff actually exists in the tree.
+Also please add something like:
+  if (prog && prog->xdp_adjust_head) {
+          netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
+          return -EOPNOTSUPP;
+  }
+unless you plan to add adjut_head support until net-next closes.
+Note, it's must have for load balancer functionality.
