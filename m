@@ -1,132 +1,67 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 6/8] net/mlx5e: Tx, no inline copy on ConnectX-5
-Date: Tue, 31 Jan 2017 22:58:41 +0200
-Message-ID: <20170131205843.23235-7-saeedm@mellanox.com>
+Subject: [net-next 3/8] net/mlx5e: Lower bound MPWRQ stride by HCA cacheline
+Date: Tue, 31 Jan 2017 22:58:38 +0200
+Message-ID: <20170131205843.23235-4-saeedm@mellanox.com>
 References: <20170131205843.23235-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Daniel Jurgens <danielj@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60057 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60059 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751217AbdAaVFj (ORCPT
+        with ESMTP id S1751222AbdAaVFj (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 16:05:39 -0500
 In-Reply-To: <20170131205843.23235-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ConnectX-5 and later HW generations will report min inline mode ==
-MLX5_INLINE_MODE_NONE, which means driver is not required to copy packet
-headers to inline fields of TX WQE.
+From: Daniel Jurgens <danielj@mellanox.com>
 
-When inline is not required, vlan insertion will be handled in the
-TX descriptor rather than copy to inline.
+MPWRQ stride should be at least the HCA cacheline, the current default
+is 64B which will cause data integrity issues in case
+HCA_CAP.cach_line_128byte capability is set.
 
-For LSO case driver is still required to copy headers, for the HW to
-duplicate on wire.
-
-This will improve CPU utilization and boost TX performance.
-
-Tested with pktgen burst single flow:
-CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
-HCA: Mellanox Technologies MT28800 Family [ConnectX-5 Ex]
-
-Before: 15.1Mpps
-After:  17.2Mpps
-Improvement: 14%
-
+Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 13 ++++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 29 +++++++++++++----------
- 2 files changed, 26 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      | 9 +++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 ++--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 46f728de9e76..9193111ae05e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -70,8 +70,13 @@
+ 
+ #define MLX5_RX_HEADROOM NET_SKB_PAD
+ 
+-#define MLX5_MPWRQ_LOG_STRIDE_SIZE		6  /* >= 6, HW restriction */
+-#define MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS	8  /* >= 6, HW restriction */
++#define MLX5_MPWRQ_MIN_LOG_STRIDE_SZ(mdev) \
++	(6 + MLX5_CAP_GEN(mdev, cache_line_128byte)) /* HW restriction */
++#define MLX5_MPWRQ_LOG_STRIDE_SZ(mdev, req) \
++	max_t(u32, MLX5_MPWRQ_MIN_LOG_STRIDE_SZ(mdev), req)
++#define MLX5_MPWRQ_DEF_LOG_STRIDE_SZ(mdev)       MLX5_MPWRQ_LOG_STRIDE_SZ(mdev, 6)
++#define MLX5_MPWRQ_CQE_CMPRS_LOG_STRIDE_SZ(mdev) MLX5_MPWRQ_LOG_STRIDE_SZ(mdev, 8)
++
+ #define MLX5_MPWRQ_LOG_WQE_SZ			18
+ #define MLX5_MPWRQ_WQE_PAGE_ORDER  (MLX5_MPWRQ_LOG_WQE_SZ - PAGE_SHIFT > 0 ? \
+ 				    MLX5_MPWRQ_LOG_WQE_SZ - PAGE_SHIFT : 0)
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index e7a1da1ea4b7..505f97aeb60c 100644
+index e829143efc14..e7a1da1ea4b7 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1029,9 +1029,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
- 
- 	sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
- 	sq->max_inline  = param->max_inline;
--	sq->min_inline_mode =
--		MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT ?
--		param->min_inline_mode : 0;
-+	sq->min_inline_mode = param->min_inline_mode;
- 
- 	err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
- 	if (err)
-@@ -1095,7 +1093,10 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
- 	MLX5_SET(sqc,  sqc, tis_num_0, param->type == MLX5E_SQ_ICO ?
- 				       0 : priv->tisn[sq->tc]);
- 	MLX5_SET(sqc,  sqc, cqn,		sq->cq.mcq.cqn);
--	MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
-+
-+	if (MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT)
-+		MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
-+
- 	MLX5_SET(sqc,  sqc, state,		MLX5_SQC_STATE_RST);
- 	MLX5_SET(sqc,  sqc, tis_lst_sz, param->type == MLX5E_SQ_ICO ? 0 : 1);
- 
-@@ -3533,6 +3534,10 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
- 		MLX5E_PARAMS_DEFAULT_TX_CQ_MODERATION_PKTS;
- 	priv->params.tx_max_inline         = mlx5e_get_max_inline_cap(mdev);
- 	mlx5_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
-+	if (priv->params.tx_min_inline_mode == MLX5_INLINE_MODE_NONE &&
-+	    !MLX5_CAP_ETH(mdev, wqe_vlan_insert))
-+		priv->params.tx_min_inline_mode = MLX5_INLINE_MODE_L2;
-+
- 	priv->params.num_tc                = 1;
- 	priv->params.rss_hfunc             = ETH_RSS_HASH_XOR;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index ac76fb4f5510..27f70580e0e7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -155,6 +155,8 @@ mlx5e_calc_min_inline(enum mlx5_inline_modes mode, struct sk_buff *skb,
- 	int hlen;
- 
- 	switch (mode) {
-+	case MLX5_INLINE_MODE_NONE:
-+		return 0;
- 	case MLX5_INLINE_MODE_TCP_UDP:
- 		hlen = eth_get_headlen(skb->data, skb_headlen(skb));
- 		if (hlen == ETH_HLEN && !vlan_present)
-@@ -286,20 +288,23 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 
- 	wi->num_bytes = num_bytes;
- 
--	if (vlan_present) {
--		mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data, &skb_len);
--		ihs += VLAN_HLEN;
--	} else {
--		memcpy(eseg->inline_hdr.start, skb_data, ihs);
--		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
-+	ds_cnt = sizeof(*wqe) / MLX5_SEND_WQE_DS;
-+	if (ihs) {
-+		if (vlan_present) {
-+			mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data, &skb_len);
-+			ihs += VLAN_HLEN;
-+		} else {
-+			memcpy(eseg->inline_hdr.start, skb_data, ihs);
-+			mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
-+		}
-+		eseg->inline_hdr.sz = cpu_to_be16(ihs);
-+		ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start), MLX5_SEND_WQE_DS);
-+	} else if (vlan_present) {
-+		eseg->insert.type = cpu_to_be16(MLX5_ETH_WQE_INSERT_VLAN);
-+		eseg->insert.vlan_tci = cpu_to_be16(skb_vlan_tag_get(skb));
- 	}
- 
--	eseg->inline_hdr.sz = cpu_to_be16(ihs);
--
--	ds_cnt  = sizeof(*wqe) / MLX5_SEND_WQE_DS;
--	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start),
--			       MLX5_SEND_WQE_DS);
--	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
-+	dseg = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
- 
- 	wi->num_dma = 0;
- 
+@@ -89,8 +89,8 @@ static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
+ 			MLX5E_PARAMS_DEFAULT_LOG_RQ_SIZE_MPW;
+ 		priv->params.mpwqe_log_stride_sz =
+ 			MLX5E_GET_PFLAG(priv, MLX5E_PFLAG_RX_CQE_COMPRESS) ?
+-			MLX5_MPWRQ_LOG_STRIDE_SIZE_CQE_COMPRESS :
+-			MLX5_MPWRQ_LOG_STRIDE_SIZE;
++			MLX5_MPWRQ_CQE_CMPRS_LOG_STRIDE_SZ(priv->mdev) :
++			MLX5_MPWRQ_DEF_LOG_STRIDE_SZ(priv->mdev);
+ 		priv->params.mpwqe_log_num_strides = MLX5_MPWRQ_LOG_WQE_SZ -
+ 			priv->params.mpwqe_log_stride_sz;
+ 		break;
 -- 
 2.11.0
