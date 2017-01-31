@@ -1,42 +1,61 @@
-From: tndave <tushar.n.dave@oracle.com>
-Subject: Re: [RFC PATCH 0/2] rx zero copy interface for af_packet
-Date: Tue, 31 Jan 2017 11:39:16 -0800
-Message-ID: <4f68b864-8b9d-a57f-0843-30f613260b17@oracle.com>
-References: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
+From: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 4.10-rc3 01/13] net: sunrpc: fix build errors when
+ linux/phy*.h is removed from net/dsa.h
+Date: Tue, 31 Jan 2017 14:48:02 -0500
+Message-ID: <52ceb082-1e0a-7210-833a-f4ac22df4b8c@Netapp.com>
+References: <20170131191704.GA8281@n2100.armlinux.org.uk>
+ <E1cYdwi-0000Vs-97@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>, bjorn.topel@gmail.com,
-        jasowang@redhat.com, ast@fb.com, alexander.duyck@gmail.com,
-        brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26035 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751873AbdAaTlB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 14:41:01 -0500
-In-Reply-To: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+To: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>, <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <E1cYdwi-0000Vs-97-eh5Bv4kxaXIk46pC+1QYvQNdhmdF6hFW@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Hi Russell,
 
+On 01/31/2017 02:18 PM, Russell King wrote:
+> Removing linux/phy.h from net/dsa.h reveals a build error in the sunrpc
+> code:
+> 
+> net/sunrpc/xprtrdma/svc_rdma_backchannel.c: In function 'xprt_rdma_bc_put':
+> net/sunrpc/xprtrdma/svc_rdma_backchannel.c:277:2: error: implicit declaration of function 'module_put' [-Werror=implicit-function-declaration]
+> net/sunrpc/xprtrdma/svc_rdma_backchannel.c: In function 'xprt_setup_rdma_bc':
+> net/sunrpc/xprtrdma/svc_rdma_backchannel.c:348:7: error: implicit declaration of function 'try_module_get' [-Werror=implicit-function-declaration]
+> 
+> Fix this by adding linux/module.h to svc_rdma_backchannel.c
+> 
+> Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
 
-On 01/27/2017 01:33 PM, John Fastabend wrote:
-> This is an experimental implementation of rx zero copy for af_packet.
-> Its a bit rough and likely has errors but the plan is to clean it up
-> over the next few months.
->
-> And seeing I said I would post it in another thread a few days back
-> here it is.
+This patch looks okay to me:
 
-This sounds good (believe me I have been thinking along the lines :)
- From driver Rx side, we always premap RX buffers so best to map them to
-shmem for PF_PACKET sockets.
-Also, I like the idea that user can put selected queue (may be queues in
-future?) to PF_PACKET mode keeping rest of the queues as it is.
-Zero copy and removing skb setup & processing overhead on RX certainly
-makes things faster and help latency. Zero copy is good on Tx however
-without skb should we figure out how to use segmentation and checksum 
-offloading features of HW. Can this be considered in tpacket V4 hdr!
+Acked-by: Anna Schumaker <Anna.Schumaker-ZwjVKphTwtPQT0dZR+AlfA@public.gmane.org>
 
--Tushar
+> ---
+>  net/sunrpc/xprtrdma/svc_rdma_backchannel.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/sunrpc/xprtrdma/svc_rdma_backchannel.c b/net/sunrpc/xprtrdma/svc_rdma_backchannel.c
+> index 288e35c2d8f4..cb1e48e54eb1 100644
+> --- a/net/sunrpc/xprtrdma/svc_rdma_backchannel.c
+> +++ b/net/sunrpc/xprtrdma/svc_rdma_backchannel.c
+> @@ -4,6 +4,7 @@
+>   * Support for backward direction RPCs on RPC/RDMA (server-side).
+>   */
+>  
+> +#include <linux/module.h>
+>  #include <linux/sunrpc/svc_rdma.h>
+>  #include "xprt_rdma.h"
+>  
+> 
