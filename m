@@ -1,80 +1,43 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCHv3 perf/core 1/6] tools lib bpf: Add BPF program pinning
- APIs.
-Date: Tue, 31 Jan 2017 13:42:03 -0300
-Message-ID: <20170131164203.GC4529@kernel.org>
-References: <20170126212001.14103-1-joe@ovn.org>
- <20170126212001.14103-2-joe@ovn.org>
- <20170130202506.GF4546@kernel.org>
- <20170130202813.GG4546@kernel.org>
- <CAPWQB7FDThp03e6DTHio8Myv5e8J6RcDXK-jG8W6B7Sh2Gvisw@mail.gmail.com>
- <20170131005805.GI4546@kernel.org>
- <20170131160827.GA4529@kernel.org>
- <20170131161320.GB4529@kernel.org>
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during
+ network stress and OOM
+Date: Tue, 31 Jan 2017 08:47:25 -0800
+Message-ID: <7780bf0c-9fd0-1abf-77d3-983f5e6c4e08@amazon.com>
+References: <1484771149-12699-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+ <66b10c64-936a-8001-6855-2ff1ed626642@amazon.com>
+ <38ccfaea-0a65-a6f3-c19a-e6f9c0d4ef76@oracle.com>
+ <989bd104-13a9-f25f-b857-24ec49781f9c@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wang Nan <wangnan0@huawei.com>, ast@fb.com,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Joe Stringer <joe@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:37914 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750883AbdAaQm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Jan 2017 11:42:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20170131161320.GB4529@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, xen-devel <xen-devel@lists.xen.org>,
+ Paul Durrant <paul.durrant@citrix.com>, David Miller <davem@davemloft.net>
+To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <989bd104-13a9-f25f-b857-24ec49781f9c@amazon.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-Em Tue, Jan 31, 2017 at 01:13:20PM -0300, Arnaldo Carvalho de Melo escreveu:
-> Em Tue, Jan 31, 2017 at 01:08:27PM -0300, Arnaldo Carvalho de Melo escreveu:
-> > Em Mon, Jan 30, 2017 at 09:58:05PM -0300, Arnaldo Carvalho de Melo escreveu:
-> > > Em Mon, Jan 30, 2017 at 01:16:18PM -0800, Joe Stringer escreveu:
-> > > > On 30 January 2017 at 12:28, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
-> > > > > ---
-> > > > > Thus, a return value of size or more means that the output was
-> > > > > truncated.
-> > > > > ---
-> > >  
-> > > > Good spotting, I looked over the committed versions and tested them,
-> > > > they seem good to me. Thanks!
-> > > 
-> > > Thanks for checking, will push Ingo's way after a battery of extra
-> > > tests, tomorrow,
-> > 
-> > Which failed for centos:5, centos:6, centos:7, debian:7, debian:8,
-> > debian:experimental and others, I stopped the test at this point,
-> > working on fixing it.
-> > 
-> > All seems related to:
-> > 
-> > libbpf.c:1267: error: 'BPF_FS_MAGIC' undeclared (first use in this function)
-> > libbpf.c:1267: error: (Each undeclared identifier is reported only once
-> > libbpf.c:1267: error: for each function it appears in.)
-> 
-> We need to carry a tools/include/uapi/linux/magic.c copy, check if it
-> drifts, remove the ifdefs for _FS_MAGIC defines from tools/ and use that
-> instead, etc, till then I'll just add the ifdef to libbpf.c.
-
-After also removing that
-
-#include <linux/magic.h>
-
-line, that is not used anywhere else in tools/{perf,include,lib}/ it is
-going further:
-
-[root@jouet ~]# time dm
-   1 83.120412349 alpine:3.4: Ok
-   2 35.486456929 android-ndk:r12b-arm: Ok
-   3 85.384259996 archlinux:latest: Ok
-   4 49.518031326 centos:5: Ok
-   5 70.417375831 centos:6: Ok
-   6 87.033156092 centos:7: Ok
-
-31 more to go
-
-:-)
-
-- Arnaldo
+Ck9uIDAxLzMwLzIwMTcgMDg6NDcgQU0sIFZpbmVldGggUmVtYW5hbiBQaWxsYWkgd3JvdGU6Cj4K
+PiBPbiAwMS8yOS8yMDE3IDAzOjA5IFBNLCBCb3JpcyBPc3Ryb3Zza3kgd3JvdGU6Cj4+Cj4+IFRo
+ZXJlIGFyZSBjb3VwbGUgb2YgcHJvYmxlbXMgd2l0aCB0aGlzIHBhdGNoLgo+PiAxLiBUaGUgJ2lm
+JyBjbGF1c2Ugbm93IGV2YWx1YXRlcyB0byB0cnVlIG9uIHByZXR0eSBtdWNoIGV2ZXJ5IGNhbGwg
+dG8gCj4+IHhlbm5ldF9hbGxvY19yeF9idWZmZXJzKCkuCj4gVGhhbmtzIGZvciBjYXRjaGluZyB0
+aGlzLiBJbiBteSB0ZXN0aW5nIEkgZGlkIG5vdCBub3RpY2UgdGhpcyAtIG1vc3RseSAKPiBiZWNh
+dXNlIG9mIHRoZSBuYXR1cmUgb2YgdGhlIHdvcmtsb2FkIGluIG15IHRlc3RpbmcuCkkgYW0gd29y
+a2luZyBvbiBhIHBhdGNoIHRvIHJldmVydCB0byB0aGUgb2xkIGJlaGF2aW9yIGFuZCBzb2x2ZSB0
+aGUgUnggCnN0YWxsIGlzc3VlIGJ5IHNjaGVkdWxpbmcgdGhlIHRpbWVyIGlmIGFueSBvZiB0aGUg
+Zm9sbG93aW5nCmNvbmRpdGlvbnMgYXJlIHRydWU6CiAgLSB1bmNvbnN1bWVkIHJlcXVlc3RzICsg
+bmV3IHJlcXVlc3RzIDwgTkVUX1JYX1NMT1RTX01JTiAob2xkIGJlaGF2aW9yKQogIC0gc2tiIGFs
+bG9jYXRpb25zIGZhaWwKCldpbGwgc2VuZCBvdXQgdGhlIHBhdGNoIGJ5IG5leHQgd2VlayBhZnRl
+ciBJIGNhbiBkbyBzb21lIHRlc3RpbmcuCgpUaGFua3MsClZpbmVldGgKCgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0
+Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
