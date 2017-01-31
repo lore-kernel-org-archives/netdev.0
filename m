@@ -1,45 +1,43 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [RFC PATCH 0/2] rx zero copy interface for af_packet
-Date: Tue, 31 Jan 2017 11:30:42 -0500
-Message-ID: <20170131163042.GF8649@oracle.com>
-References: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][net-next] sfc: fix an off-by-one compare on an array size
+Date: Tue, 31 Jan 2017 16:30:02 +0000
+Message-ID: <20170131163002.20882-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bjorn.topel@gmail.com, jasowang@redhat.com, ast@fb.com,
-        alexander.duyck@gmail.com, brouer@redhat.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:22092 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751124AbdAaQcX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 11:32:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+        Edward Cree <ecree@solarflare.com>,
+        Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On (01/27/17 13:33), John Fastabend wrote:
-> 
-> This is an experimental implementation of rx zero copy for af_packet.
-> Its a bit rough and likely has errors but the plan is to clean it up
-> over the next few months.
-> 
-> And seeing I said I would post it in another thread a few days back
-> here it is.
+From: Colin Ian King <colin.king@canonical.com>
 
-One question/comment about this: sure, this saves us an skb copy
-on the rx side, but at least for the Tx side, I think there may
-be a trade-off between the overhead from the skb setup and the
-ease of offloading checksum (and UFO where it is available) to
-consider, even for PF_PACKET.
+encap_type should be checked to see if it is greater or equal to
+the size of array map to fix an off-by-one array size check. This
+fixes an array overrun read as detected by static analysis by
+CoverityScan, CID#1398883 ("Out-of-bounds-read")
 
-Using PF_PACKET works well for stateless datagram protocols like 
-UDP, and for UDP sockets, we find that just switching to Jumbo
-(to simulate a poor-man's-UFO) gives us significant improvement
-in both throughput and latency for our RDBMS workloads - and 
-having the sk_buff facilitates using existing driver-kernel interfaces
-for offload easily, so while we may gain some perf improvment by shaving
-of the sk_buff overhead, the trade-off needs to be considered.
+Fixes: 9b41080125176841e ("sfc: insert catch-all filters for encapsulated traffic")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/sfc/ef10.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---Sowmini
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 8bec938..0475f18 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -5080,7 +5080,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx,
+ 
+ 		/* quick bounds check (BCAST result impossible) */
+ 		BUILD_BUG_ON(EFX_EF10_BCAST != 0);
+-		if (encap_type > ARRAY_SIZE(map) || map[encap_type] == 0) {
++		if (encap_type >= ARRAY_SIZE(map) || map[encap_type] == 0) {
+ 			WARN_ON(1);
+ 			return -EINVAL;
+ 		}
+-- 
+2.10.2
