@@ -1,144 +1,80 @@
-From: Ivan Vecera <cera@cera.cz>
-Subject: [PATCH net v2] be2net: fix initial MAC setting
-Date: Tue, 31 Jan 2017 20:01:31 +0100
-Message-ID: <20170131190131.3347-1-cera@cera.cz>
-Cc: Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53950 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751754AbdAaTMQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Jan 2017 14:12:16 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH 4.10-rc3 00/13] net: dsa: remove unnecessary phy.h include
+Date: Tue, 31 Jan 2017 19:17:04 +0000
+Message-ID: <20170131191704.GA8281@n2100.armlinux.org.uk>
+References: <20170118001403.GJ27312@n2100.armlinux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "J. Bruce Fields" <bfields@fieldses.org>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        Jiri Slaby <jirislaby@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+        Nick Kossifidis <mickflemm@gmail.com>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        Ralf Baechle <ralf@l
+To: linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
+        linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        target-devel@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170118001403.GJ27312@n2100.armlinux.org.uk>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recent commit 34393529163a ("be2net: fix MAC addr setting on privileged
-BE3 VFs") allows privileged BE3 VFs to set its MAC address during
-initialization. Although the initial MAC for such VFs is already
-programmed by parent PF the subsequent setting performed by VF is OK,
-but in certain cases (after fresh boot) this command in VF can fail.
+Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
+unnecessary dependency for quite a large amount of the kernel.  There's
+very little which actually requires definitions from phy.h in net/dsa.h
+- the include itself only wants the declaration of a couple of
+structures and IFNAMSIZ.
 
-The MAC should be initialized only when:
-1) no MAC is programmed (always except BE3 VFs during first init)
-2) programmed MAC is different from requested (e.g. MAC is set when
-   interface is down). In this case the initial MAC programmed by PF
-   needs to be deleted.
+Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
+mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
+and phy_fixed.h from net/dsa.h.
 
-The adapter->dev_mac contains MAC address currently programmed in HW so
-it should be zeroed when the MAC is deleted from HW and should not be
-filled when MAC is set when interface is down in be_mac_addr_set() as
-no programming is performed in this case.
+This patch reduces from around 800 files rebuilt to around 40 - even
+with ccache, the time difference is noticable.
 
-Example of failure without the fix (immediately after fresh boot):
+In order to make this change, several drivers need to be updated to
+include necessary headers that they were picking up through this
+include.  This has resulted in a much larger patch series.
 
-# ip link set eth0 up  <- eth0 is BE3 PF
-be2net 0000:01:00.0 eth0: Link is Up
+I'm assuming the 0-day builder has had 24 hours with this series, and
+hasn't reported any further issues with it - the last issue was two
+weeks ago (before I became ill) which I fixed over the last weekend.
 
-# echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create 1 VF
-...
-be2net 0000:01:04.0: Emulex OneConnect(be3): VF  port 0
+I'm hoping this doesn't conflict with what's already in net-next...
 
-# ip link set eth8 up  <- eth8 is created privileged VF
-be2net 0000:01:04.0: opcode 59-1 failed:status 1-76
-RTNETLINK answers: Input/output error
+ arch/mips/cavium-octeon/octeon-platform.c             | 4 ----
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h                 | 1 +
+ drivers/net/ethernet/broadcom/bgmac.c                 | 2 ++
+ drivers/net/ethernet/cadence/macb.h                   | 2 ++
+ drivers/net/ethernet/cavium/liquidio/lio_main.c       | 1 +
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c    | 1 +
+ drivers/net/ethernet/cavium/liquidio/octeon_console.c | 1 +
+ drivers/net/ethernet/freescale/fman/fman_memac.c      | 1 +
+ drivers/net/ethernet/marvell/mvneta.c                 | 1 +
+ drivers/net/ethernet/qualcomm/emac/emac-sgmii.c       | 1 +
+ drivers/net/usb/lan78xx.c                             | 1 +
+ drivers/net/wireless/ath/ath5k/ahb.c                  | 2 +-
+ drivers/target/iscsi/iscsi_target_login.c             | 1 +
+ include/net/dsa.h                                     | 6 ++++--
+ net/core/netprio_cgroup.c                             | 1 +
+ net/sunrpc/xprtrdma/svc_rdma_backchannel.c            | 1 +
+ 16 files changed, 20 insertions(+), 7 deletions(-)
 
-# echo 0 > /sys/class/net/eth0/device/sriov_numvfs  <- Delete VF
-iommu: Removing device 0000:01:04.0 from group 33
-...
-
-# echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create it again
-iommu: Removing device 0000:01:04.0 from group 33
-...
-
-# ip link set eth8 up
-be2net 0000:01:04.0 eth8: Link is Up
-
-Initialization is now OK.
-
-v2 - Corrected the comment and condition check suggested by Suresh & Harsha
-
-Fixes: 34393529163a ("be2net: fix MAC addr setting on privileged BE3 VFs")
-Cc: Sathya Perla <sathya.perla@broadcom.com>
-Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
-Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Cc: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Ivan Vecera <cera@cera.cz>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 33 ++++++++++++++++++++++++-----
- 1 file changed, 28 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 1a7f8ad7b9c6..cd49a54c538d 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -362,8 +362,10 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
- 		status = -EPERM;
- 		goto err;
- 	}
--done:
-+
-+	/* Remember currently programmed MAC */
- 	ether_addr_copy(adapter->dev_mac, addr->sa_data);
-+done:
- 	ether_addr_copy(netdev->dev_addr, addr->sa_data);
- 	dev_info(dev, "MAC address changed to %pM\n", addr->sa_data);
- 	return 0;
-@@ -3618,8 +3620,10 @@ static void be_disable_if_filters(struct be_adapter *adapter)
- {
- 	/* Don't delete MAC on BE3 VFs without FILTMGMT privilege  */
- 	if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
--	    check_privilege(adapter, BE_PRIV_FILTMGMT))
-+	    check_privilege(adapter, BE_PRIV_FILTMGMT)) {
- 		be_dev_mac_del(adapter, adapter->pmac_id[0]);
-+		eth_zero_addr(adapter->dev_mac);
-+	}
- 
- 	be_clear_uc_list(adapter);
- 	be_clear_mc_list(adapter);
-@@ -3773,12 +3777,27 @@ static int be_enable_if_filters(struct be_adapter *adapter)
- 	if (status)
- 		return status;
- 
--	/* Don't add MAC on BE3 VFs without FILTMGMT privilege */
--	if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
--	    check_privilege(adapter, BE_PRIV_FILTMGMT)) {
-+	/* Normally this condition usually true as the ->dev_mac is zeroed.
-+	 * But on BE3 VFs the initial MAC is pre-programmed by PF and
-+	 * subsequent be_dev_mac_add() can fail (after fresh boot)
-+	 */
-+	if (!ether_addr_equal(adapter->dev_mac, adapter->netdev->dev_addr)) {
-+		int old_pmac_id = -1;
-+
-+		/* Remember old programmed MAC if any - can happen on BE3 VF */
-+		if (!is_zero_ether_addr(adapter->dev_mac))
-+			old_pmac_id = adapter->pmac_id[0];
-+
- 		status = be_dev_mac_add(adapter, adapter->netdev->dev_addr);
- 		if (status)
- 			return status;
-+
-+		/* Delete the old programmed MAC as we successfully programmed
-+		 * a new MAC
-+		 */
-+		if (old_pmac_id >= 0 && old_pmac_id != adapter->pmac_id[0])
-+			be_dev_mac_del(adapter, old_pmac_id);
-+
- 		ether_addr_copy(adapter->dev_mac, adapter->netdev->dev_addr);
- 	}
- 
-@@ -4552,6 +4571,10 @@ static int be_mac_setup(struct be_adapter *adapter)
- 
- 		memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
- 		memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
-+
-+		/* Initial MAC for BE3 VFs is already programmed by PF */
-+		if (BEx_chip(adapter) && be_virtfn(adapter))
-+			memcpy(adapter->dev_mac, mac, ETH_ALEN);
- 	}
- 
- 	return 0;
 -- 
-2.10.2
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
