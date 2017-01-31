@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 3/3] net: bgmac: use PHY subsystem for initializing
- PHY
-Date: Tue, 31 Jan 2017 13:14:52 -0500 (EST)
-Message-ID: <20170131.131452.553487511329277271.davem@davemloft.net>
-References: <20170128210832.26174-4-zajec5@gmail.com>
-        <20170131.130429.1477789092223900995.davem@davemloft.net>
-        <1daad20f-f794-3c10-d020-fa08dbf228c2@gmail.com>
+Subject: Re: [PATCH net-next 01/10] bnxt_en: Refactor rx SKB function.
+Date: Tue, 31 Jan 2017 13:27:01 -0500 (EST)
+Message-ID: <20170131.132701.722163772922806769.davem@davemloft.net>
+References: <1485827375-20421-1-git-send-email-michael.chan@broadcom.com>
+        <1485827375-20421-2-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, jon.mason@broadcom.com, nbd@openwrt.org,
-        netdev@vger.kernel.org, rafal@milecki.pl
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40740 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40878 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751386AbdAaSZv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:25:51 -0500
-In-Reply-To: <1daad20f-f794-3c10-d020-fa08dbf228c2@gmail.com>
+        with ESMTP id S1751195AbdAaS1G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 13:27:06 -0500
+In-Reply-To: <1485827375-20421-2-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 31 Jan 2017 10:06:34 -0800
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Mon, 30 Jan 2017 20:49:26 -0500
 
-> On 01/31/2017 10:04 AM, David Miller wrote:
->> 
->> This entire series is being held up because there is still questions about
->> whether this is programming the internal PHYs and therefore whether the
->> code should be placed elsewhere.
->> 
->> Can we please move the discussion forward?
-> 
-> The patches are good as-is, we can resolve the PHY programming later on
-> when we have figured out the details of the 4749 chip we derailed on.
+> @@ -776,7 +778,7 @@ static struct sk_buff *bnxt_rx_skb(struct bnxt *bp,
+>  	}
+>  
+>  	skb_reserve(skb, BNXT_RX_OFFSET);
+> -	skb_put(skb, len);
+> +	skb_put(skb, len & 0xffff);
+>  	return skb;
+>  }
+>  
 
-Ok great, series applied, thanks.
+Like Jakub I wonder about this.
+
+The caller extracts the length field out of the descriptor using a
+right shift of an unsigned value by 16 bits.  The mask seems
+completely unnecessary.
+
+If it is needed, perhaps due to some subsequent change, then please
+document it and pair the change with the part the necessitates it.
+
+Thank you.
