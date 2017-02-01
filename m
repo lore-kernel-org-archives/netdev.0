@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 14/15] net: Drop secpath on free after gro merge.
-Date: Wed, 1 Feb 2017 09:17:56 +0100
-Message-ID: <1485937077-612-15-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 08/15] xfrm: fix possible null deref in xfrm_init_tempstate
+Date: Wed, 1 Feb 2017 09:17:50 +0100
+Message-ID: <1485937077-612-9-git-send-email-steffen.klassert@secunet.com>
 References: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,41 +10,69 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:37104 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:37068 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751814AbdBAISP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Feb 2017 03:18:15 -0500
+        id S1751817AbdBAISQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Feb 2017 03:18:16 -0500
 In-Reply-To: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With a followup patch, a gro merged skb can have a secpath.
-So drop it before freeing or reusing the skb.
+From: Florian Westphal <fw@strlen.de>
 
+Dan reports following smatch warning:
+ net/xfrm/xfrm_state.c:659
+ error: we previously assumed 'afinfo' could be null (see line 651)
+
+ 649  struct xfrm_state_afinfo *afinfo = xfrm_state_afinfo_get_rcu(family);
+ 651  if (afinfo)
+		...
+ 658  }
+ 659  afinfo->init_temprop(x, tmpl, daddr, saddr);
+
+I am resonably sure afinfo cannot be NULL here.
+
+xfrm_state4.c and state6.c are both part of ipv4/ipv6 (depends on
+CONFIG_XFRM, a boolean) but even if ipv6 is a module state6.c can't
+be removed (ipv6 lacks module_exit so it cannot be removed).
+
+The only callers for xfrm6_fini that leads to state backend unregister
+are error unwinding paths that can be called during ipv6 init function.
+
+So after ipv6 module is loaded successfully the state backend cannot go
+away anymore.
+
+The family value from policy lookup path is taken from dst_entry, so
+that should always be AF_INET(6).
+
+However, since this silences the warning and avoids readers of this
+code wondering about possible null deref it seems preferrable to
+be defensive and just add the old check back.
+
+Fixes: 711059b9752ad0 ("xfrm: add and use xfrm_state_afinfo_get_rcu")
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/core/dev.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/xfrm/xfrm_state.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 56818f7..ef3a969 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4623,6 +4623,7 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
- 	case GRO_MERGED_FREE:
- 		if (NAPI_GRO_CB(skb)->free == NAPI_GRO_FREE_STOLEN_HEAD) {
- 			skb_dst_drop(skb);
-+			secpath_reset(skb);
- 			kmem_cache_free(skbuff_head_cache, skb);
- 		} else {
- 			__kfree_skb(skb);
-@@ -4663,6 +4664,7 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- 	skb->encapsulation = 0;
- 	skb_shinfo(skb)->gso_type = 0;
- 	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
-+	secpath_reset(skb);
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index a62097e..5a597db 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -648,8 +648,10 @@ void xfrm_sad_getinfo(struct net *net, struct xfrmk_sadinfo *si)
+ {
+ 	struct xfrm_state_afinfo *afinfo = xfrm_state_afinfo_get_rcu(family);
  
- 	napi->skb = skb;
- }
+-	if (afinfo)
+-		afinfo->init_tempsel(&x->sel, fl);
++	if (!afinfo)
++		return;
++
++	afinfo->init_tempsel(&x->sel, fl);
+ 
+ 	if (family != tmpl->encap_family) {
+ 		afinfo = xfrm_state_afinfo_get_rcu(tmpl->encap_family);
 -- 
 1.9.1
