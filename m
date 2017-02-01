@@ -1,110 +1,64 @@
-From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] wcn36xx: Implement cancel_hw_scan
-Date: Wed,  1 Feb 2017 07:27:47 -0800
-Message-ID: <20170201152747.838-1-bjorn.andersson@linaro.org>
-Cc: wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mart Raudsepp <leio-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
+ xennet_disconnect_backend()
+Date: Wed, 1 Feb 2017 18:29:56 -0500
+Message-ID: <223ebf32-ba8b-a6be-2331-0644f9d347a0@oracle.com>
+References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+ <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
+ <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
+ <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
+ <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
+ <10b1d554-b395-88fa-eee3-a77754ad14bd@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: jgross@suse.com, xen-devel@lists.xenproject.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        vineethp@amazon.com, wei.liu2@citrix.com, paul.durrant@citrix.com,
+        stable@vger.kernel.org, Ross Lagerwall <ross.lagerwall@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <10b1d554-b395-88fa-eee3-a77754ad14bd@oracle.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the even that the wcn36xx interface is brought down while a hw_scan
-is active we must abort and wait for the ongoing scan to signal
-completion to mac80211.
+On 01/31/2017 12:47 PM, Boris Ostrovsky wrote:
+> On 01/30/2017 02:31 PM, Boris Ostrovsky wrote:
+>> On 01/30/2017 02:06 PM, Eric Dumazet wrote:
+>>> On Mon, 2017-01-30 at 13:23 -0500, Boris Ostrovsky wrote:
+>>>
+>>>> We do netif_carrier_off() first thing in xennet_disconnect_backend() and
+>>>> the only place where the timer is rearmed is xennet_alloc_rx_buffers(),
+>>>> which is guarded by netif_carrier_ok() check.
+>>> Oh well, testing netif_carrier_ok() in packet processing fast path looks
+>>> unusual and a waste of cpu cycles. I've never seen that pattern before.
+>>>
+>>> If one day, we remove this netif_carrier_ok() test during a cleanup,
+>>> then the race window will open again.
+>> I don't know much about napi but I wonder whether I can indeed disable
+>> it in xennet_disconnect_backend(). I don't see how anything can happen
+>> after disconnect since it unmaps the rings. And then napi is re-enabled
+>> during reconnection in xennet_create_queues(). In which case am not sure
+>> there is any need for xennet_destroy_queues() as everything there could
+>> be folded into xennet_disconnect_backend().
+> While this does work, there was a reason why napi_disable() was not
+> called in xennet_disconnect_backend() and it is explained in commit
+> ce58725fec6e --- napi_disable() may sleep and that's why it is called in
+> xennet_destroy_queues().
+>
+> OTOH, there is a napi_synchronize() call in xennet_destroy_queues().
+> Will destroying the timer after it guarantee that all preceding RX have
+> been completed? RX interrupt is disabled prior to napi_synchronize() so
+> presumably nothing new can be received.
 
-Reported-by: Mart Raudsepp <leio-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Fixes: 886039036c20 ("wcn36xx: Implement firmware assisted scan")
-Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
----
- drivers/net/wireless/ath/wcn36xx/main.c    | 25 ++++++++++++++++++++++++-
- drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  1 +
- 2 files changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-index a24edf33be93..bb7110f7fc86 100644
---- a/drivers/net/wireless/ath/wcn36xx/main.c
-+++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -574,6 +574,7 @@ static void wcn36xx_hw_scan_worker(struct work_struct *work)
- 	struct cfg80211_scan_request *req = wcn->scan_req;
- 	u8 channels[WCN36XX_HAL_PNO_MAX_NETW_CHANNELS_EX];
- 	struct cfg80211_scan_info scan_info = {};
-+	bool aborted = false;
- 	int i;
- 
- 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac80211 scan %d channels worker\n", req->n_channels);
-@@ -585,6 +586,13 @@ static void wcn36xx_hw_scan_worker(struct work_struct *work)
- 
- 	wcn36xx_smd_init_scan(wcn, HAL_SYS_MODE_SCAN);
- 	for (i = 0; i < req->n_channels; i++) {
-+		mutex_lock(&wcn->scan_lock);
-+		aborted = wcn->scan_aborted;
-+		mutex_unlock(&wcn->scan_lock);
-+
-+		if (aborted)
-+			break;
-+
- 		wcn->scan_freq = req->channels[i]->center_freq;
- 		wcn->scan_band = req->channels[i]->band;
- 
-@@ -596,7 +604,7 @@ static void wcn36xx_hw_scan_worker(struct work_struct *work)
- 	}
- 	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
- 
--	scan_info.aborted = false;
-+	scan_info.aborted = aborted;
- 	ieee80211_scan_completed(wcn->hw, &scan_info);
- 
- 	mutex_lock(&wcn->scan_lock);
-@@ -615,6 +623,8 @@ static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
- 		mutex_unlock(&wcn->scan_lock);
- 		return -EBUSY;
- 	}
-+
-+	wcn->scan_aborted = false;
- 	wcn->scan_req = &hw_req->req;
- 	mutex_unlock(&wcn->scan_lock);
- 
-@@ -623,6 +633,18 @@ static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
- 	return 0;
- }
- 
-+static void wcn36xx_cancel_hw_scan(struct ieee80211_hw *hw,
-+				   struct ieee80211_vif *vif)
-+{
-+	struct wcn36xx *wcn = hw->priv;
-+
-+	mutex_lock(&wcn->scan_lock);
-+	wcn->scan_aborted = true;
-+	mutex_unlock(&wcn->scan_lock);
-+
-+	cancel_work_sync(&wcn->scan_work);
-+}
-+
- static void wcn36xx_update_allowed_rates(struct ieee80211_sta *sta,
- 					 enum nl80211_band band)
- {
-@@ -1034,6 +1056,7 @@ static const struct ieee80211_ops wcn36xx_ops = {
- 	.tx			= wcn36xx_tx,
- 	.set_key		= wcn36xx_set_key,
- 	.hw_scan		= wcn36xx_hw_scan,
-+	.cancel_hw_scan		= wcn36xx_cancel_hw_scan,
- 	.bss_info_changed	= wcn36xx_bss_info_changed,
- 	.set_rts_threshold	= wcn36xx_set_rts_threshold,
- 	.sta_add		= wcn36xx_sta_add,
-diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-index 571e9f76da7e..b52b4da9a967 100644
---- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-+++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
-@@ -220,6 +220,7 @@ struct wcn36xx {
- 	int			scan_freq;
- 	int			scan_band;
- 	struct mutex		scan_lock;
-+	bool			scan_aborted;
- 
- 	/* DXE channels */
- 	struct wcn36xx_dxe_ch	dxe_tx_l_ch;	/* TX low */
--- 
-2.11.0
+I could not convince myself that napi_synchronize() is sufficient here
+(mostly because I am not familiar with napi flow). At the same time I
+would rather not make changes in anticipation of possible disappearance
+of netif_carrier_ok() in the future so I'd like this patch to go in as is.
+
+Unless there are other problems with the patch or if Eric (or others)
+feel strongly about usage of netif_carrier_ok() here.
+
+
+-boris
