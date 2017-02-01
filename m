@@ -1,53 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2017-02-01
-Date: Wed, 01 Feb 2017 11:38:47 -0500 (EST)
-Message-ID: <20170201.113847.394056137617535611.davem@davemloft.net>
-References: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next 1/8] net/mlx5: Fixed static checker warnings
+Date: Wed, 1 Feb 2017 18:39:48 +0200
+Message-ID: <CAJ3xEMgKUTGCr+AXuHgEm_r=KpMf0mEyp8sxC4o1PF3p9KjMRA@mail.gmail.com>
+References: <20170131205843.23235-1-saeedm@mellanox.com> <20170131205843.23235-2-saeedm@mellanox.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0277BE3@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38328 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750898AbdBAQiv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:38:51 -0500
-In-Reply-To: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
+Received: from mail-ot0-f196.google.com ([74.125.82.196]:33963 "EHLO
+        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751111AbdBAQjt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:39:49 -0500
+Received: by mail-ot0-f196.google.com with SMTP id 73so45922363otj.1
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 08:39:48 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0277BE3@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 1 Feb 2017 09:17:42 +0100
+On Wed, Feb 1, 2017 at 1:17 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Saeed Mahameed
+>> Sent: 31 January 2017 20:59
+>> From: Or Gerlitz <ogerlitz@mellanox.com>
+>>
+>> For some reason, sparse doesn't like using an expression of type (!x)
+>> with a bitwise | and &.  In order to mitigate that, we use a local
+>> variable.
+>>
+>> Since getting a typeof(bitfield) is incorrect, we cast such cases.
+> ...
+>> +                     MLX5_SET(fte_match_set_lyr_2_4, headers_c, first_prio, (u8)mask->vlan_priority);
+>
+> Ugg nasty casts...
+> ...
+>>  #define MLX5_SET(typ, p, fld, v) do { \
+>> +     typeof(v) _v = v; \
+> ..
+>
+> Why not just 'unsigned int _v = v;
 
-> 1) Some typo fixes, from Alexander Alemayhu.
-> 
-> 2) Don't acquire state lock in get_mtu functions.
->    The only rece against a dead state does not matter.
->    From Florian Westphal.
-> 
-> 3) Remove xfrm4_state_fini, it is unused for more than
->    10 years. From Florian Westphal.
-> 
-> 4) Various rcu usage improvements. From Florian Westphal.
-> 
-> 5) Properly handle crypto arrors in ah4/ah6.
->    From Gilad Ben-Yossef.
-> 
-> 6) Try to avoid skb linearization in esp4 and esp6.
-> 
-> 7) The esp trailer is now set up in different places,
->    add a helper for this.
-> 
-> 8) With the upcomming usage of gro_cells in IPsec,
->    a gro merged skb can have a secpath. Drop it
->    before freeing or reusing the skb.
-> 
-> 9) Add a xfrm dummy network device for napi. With
->    this we can use gro_cells from within xfrm,
->    it allows IPsec GRO without impact on the generic
->    networking code.
-> 
-> Please pull or let me know if there are problems.
+Yeah, basically we could have allocate (use) the max size and assign.
+We preferred to allocate the specific instance size and use this, as using t
+he required size is cleaner.
 
-Looks great, pulled, thanks a lot!
+Or.
