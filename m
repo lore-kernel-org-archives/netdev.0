@@ -1,55 +1,83 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH net] net: phy: Fix lack of reference count on PHY driver
-Date: Wed, 1 Feb 2017 19:10:24 +0000
-Message-ID: <20170201191024.GQ27312@n2100.armlinux.org.uk>
-References: <20170201102208.GM27312@n2100.armlinux.org.uk>
- <20170201105121.GA8191@n2100.armlinux.org.uk>
- <264c73a7-8294-23f0-88e9-1f27d558cbf8@gmail.com>
- <20170201.135938.186383946169055237.davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/5] bridge: per vlan dst_metadata support
+Date: Wed, 01 Feb 2017 11:12:22 -0800
+Message-ID: <58923316.60009@cumulusnetworks.com>
+References: <1485842235-32343-1-git-send-email-roopa@cumulusnetworks.com> <20170131084134.405043f8@xeon-e3> <5890F6E7.7040402@cumulusnetworks.com> <20170201083523.0b1bdac6@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, andrew@lunn.ch,
-        maowenan@huawei.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        nikolay@cumulusnetworks.com, tgraf@suug.ch,
+        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
+        dsa@cumulusnetworks.com, hadi@mojatatu.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:50824 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751093AbdBATKf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 14:10:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20170201.135938.186383946169055237.davem@davemloft.net>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33129 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751803AbdBATMZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 14:12:25 -0500
+Received: by mail-pf0-f181.google.com with SMTP id y143so120480406pfb.0
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 11:12:24 -0800 (PST)
+In-Reply-To: <20170201083523.0b1bdac6@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 01, 2017 at 01:59:38PM -0500, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Wed, 1 Feb 2017 10:55:46 -0800
-> 
-> > You are right, but there is still a fundamental problem IMHO in that you
-> > should not be able to rmmod a PHY driver as long as a network device is
-> > attached to the PHY, and if the PHY driver is attached from several
-> > different network devices, they should all have a way to prevent a PHY
-> > driver rmmod, each of them incrementing the driver refcount, which is
-> > what the patche from Maowan does here.
-> 
-> It briefly occurred to me that we might want to be able to disconnect
-> PHYs to allow an unload using notifiers, the same way that when you
-> take a netdevice down we emit notifiers so that all of the references
-> to the netdevice can release themselves.
-> 
-> I have no idea how well that would work, or whether it is valuable or
-> not.  But it is another way to handle this.
-> 
-> But that is a longer-term thing even if we want to go that way, and
-> thus grabbing the proper refs is the right things to do for now.
+On 2/1/17, 8:35 AM, Stephen Hemminger wrote:
+> On Tue, 31 Jan 2017 12:43:19 -0800
+> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>
+>> On 1/31/17, 8:41 AM, Stephen Hemminger wrote:
 
-It's something I'm effectively already doing as part of my phylink
-project for SFP support, since you can hot-unplug a copper SFP
-module, and the PHY on the copper SFP module will be gone.  phylink,
-however, sits between the network driver and phylib, which isn't
-ideal.
+[snip]
 
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+>> But, this is just discouraging people from using the bridge driver. sorry, but i think it is a bit too late for that now :) 
+> It is time for a new driver (like team was for bonding). That does less in the kernel,
+> and has a cleaner API for extension. Then the actual bridge forwarding path can be reduced
+> down to something more manageable. 
+sure. But, this patch series is an incremental extension to the already existing vlan filtering feature
+in the bridge driver.
+
+>> A few things:
+>> - Like I have said before, bridge driver vlan filtering and forwarding database has been
+>> ideal to offload to switch asics. We have many industry standard bridging
+>> networking features deployed using the bridge driver...even the vxlan bridging gateway
+>> I mention in the deployment section above (this patch series just helps with scaling those deployments).
+>> When bridge driver has all it takes to be deployed on a data center switch today, I am not understanding
+>> the argument on saving it from newer features. why not enable bridge for newer features when people are using it ?
+>>
+>> - vlan to tunnel-id (or vlan to vxlan id) mapping is not a hack. It is supported on every data center switch
+>> that supports l2 gateway functions today (google will give a few hits).
+>>
+>> - dst_metadata propagation is also not a hack. It is a generic infrastructure provided by the kernel
+>> that any subsystem can use...and is already in use in various parts in the kernel today.
+>>
+>> - We heavily use bridge driver forwarding database for our l2 deployments similar to the routing fib.
+>> With routing protocols like bgp being used as control plane for l2 overlays
+>>  https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07, bgp implementations like quagga will also
+>> now start looking at the bridge forwarding database.
+>>
+>> - this patchset enables a feature which is off by default, so i am not sure how it is adding additional
+>> complexity to the bridge driver.
+> The Openstack and Docker architectures have lots of small bridges. These are really endpoint vswitches
+> having something lighter would help them.
+
+the feature in this series is disabled by default and is an extension to the existing vlan filtering code.
+It is only enabled if CONFIG_BRIDGE_VLAN_FILTERING is enabled. If you did like me to add an additional
+CONFIG_*, I can do so.
+
+Openstack and Docker architectures don't have to enable vlan filtering,  it is disabled by default.
+seems like we need a new bridge driver that is lighter for these architectures....because the current
+one already supports vlan filtering and stp and igmp snooping for data center architectures.
+shutting the bridge driver for any incremental features for the data center would need more reasons
+ than this.
+>
+> I admit my bias. like Radia Perlman, it seems people keep reinventing L2 features to implement features
+> that belong in L3. Coddling along old broken applications that run on L2.
+>
+>
+l2 overlays are not uncommon in data center deployments ...and its not us who is re-inventing this.
+As you know we would love to move the industry and data center architectures to pure l3...,
+but it is not time for that yet.
+
+thanks,
+Roopa
