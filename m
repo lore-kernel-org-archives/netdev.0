@@ -1,106 +1,156 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 4.10-rc3 12/13] net: ath5k: fix build errors when linux/phy*.h is removed from net/dsa.h
-Date: Wed, 01 Feb 2017 07:34:19 +0200
-Message-ID: <87r33ibhk4.fsf@codeaurora.org>
-References: <20170131191704.GA8281@n2100.armlinux.org.uk>
-        <E1cYdxc-0000XC-N6@rmk-PC.armlinux.org.uk>
+From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Subject: Re: [PATCH net v2] be2net: fix initial MAC setting
+Date: Wed, 1 Feb 2017 11:21:29 +0530
+Message-ID: <CAHHeUGU_7XUmBpEhzOBEsGqaoMFy=ddwu8xSuDFenCXfoVapVw@mail.gmail.com>
+References: <20170131190131.3347-1-cera@cera.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
-        linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        target-devel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jiri Slaby <jirislaby@gmail.com>,
-        Nick Kossifidis <mickflemm@gmail.com>,
-        "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-To: Russell King <rmk+kernel@armlinux.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Ivan Vecera <cera@cera.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45380 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751004AbdBAFe0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 00:34:26 -0500
-In-Reply-To: <E1cYdxc-0000XC-N6@rmk-PC.armlinux.org.uk> (Russell King's
-        message of "Tue, 31 Jan 2017 19:19:24 +0000")
+Received: from mail-ot0-f180.google.com ([74.125.82.180]:36106 "EHLO
+        mail-ot0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750991AbdBAFva (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 00:51:30 -0500
+Received: by mail-ot0-f180.google.com with SMTP id 32so124289411oth.3
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 21:51:30 -0800 (PST)
+In-Reply-To: <20170131190131.3347-1-cera@cera.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Russell King <rmk+kernel@armlinux.org.uk> writes:
-
-> Fix these errors reported by the 0-day builder by replacing the
-> linux/export.h include with linux/module.h.
+On Wed, Feb 1, 2017 at 12:31 AM, Ivan Vecera <cera@cera.cz> wrote:
+> Recent commit 34393529163a ("be2net: fix MAC addr setting on privileged
+> BE3 VFs") allows privileged BE3 VFs to set its MAC address during
+> initialization. Although the initial MAC for such VFs is already
+> programmed by parent PF the subsequent setting performed by VF is OK,
+> but in certain cases (after fresh boot) this command in VF can fail.
 >
-> In file included from include/linux/platform_device.h:14:0,
->                  from drivers/net/wireless/ath/ath5k/ahb.c:20:
-> include/linux/device.h:1463:1: warning: data definition has no type or storage class
->  module_init(__driver##_init); \
->  ^
-> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
->   module_driver(__platform_driver, platform_driver_register, \
->   ^~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
->  module_platform_driver(ath_ahb_driver);
->  ^~~~~~~~~~~~~~~~~~~~~~
-> include/linux/device.h:1463:1: error: type defaults to 'int' in declaration of 'module_init' [-Werror=implicit-int]
->  module_init(__driver##_init); \
->  ^
-> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
->   module_driver(__platform_driver, platform_driver_register, \
->   ^~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
->  module_platform_driver(ath_ahb_driver);
->  ^~~~~~~~~~~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: warning: parameter names (without types) in function declaration
-> In file included from include/linux/platform_device.h:14:0,
->                  from drivers/net/wireless/ath/ath5k/ahb.c:20:
-> include/linux/device.h:1468:1: warning: data definition has no type or storage class
->  module_exit(__driver##_exit);
->  ^
-> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
->   module_driver(__platform_driver, platform_driver_register, \
->   ^~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
->  module_platform_driver(ath_ahb_driver);
->  ^~~~~~~~~~~~~~~~~~~~~~
-> include/linux/device.h:1468:1: error: type defaults to 'int' in declaration of 'module_exit' [-Werror=implicit-int]
->  module_exit(__driver##_exit);
->  ^
-> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
->   module_driver(__platform_driver, platform_driver_register, \
->   ^~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
->  module_platform_driver(ath_ahb_driver);
->  ^~~~~~~~~~~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: warning: parameter names (without types) in function declaration
-> In file included from include/linux/platform_device.h:14:0,
->                  from drivers/net/wireless/ath/ath5k/ahb.c:20:
-> drivers/net/wireless/ath/ath5k/ahb.c:233:24: warning: 'ath_ahb_driver_exit' defined but not used [-Wunused-function]
->  module_platform_driver(ath_ahb_driver);
->                         ^
-> include/linux/device.h:1464:20: note: in definition of macro 'module_driver'
->  static void __exit __driver##_exit(void) \
->                     ^~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
->  module_platform_driver(ath_ahb_driver);
->  ^~~~~~~~~~~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:24: warning: 'ath_ahb_driver_init' defined but not used [-Wunused-function]
->  module_platform_driver(ath_ahb_driver);
->                         ^
-> include/linux/device.h:1459:19: note: in definition of macro 'module_driver'
->  static int __init __driver##_init(void) \
->                    ^~~~~~~~
-> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
->  module_platform_driver(ath_ahb_driver);
->  ^~~~~~~~~~~~~~~~~~~~~~
+> The MAC should be initialized only when:
+> 1) no MAC is programmed (always except BE3 VFs during first init)
+> 2) programmed MAC is different from requested (e.g. MAC is set when
+>    interface is down). In this case the initial MAC programmed by PF
+>    needs to be deleted.
 >
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> The adapter->dev_mac contains MAC address currently programmed in HW so
+> it should be zeroed when the MAC is deleted from HW and should not be
+> filled when MAC is set when interface is down in be_mac_addr_set() as
+> no programming is performed in this case.
+>
+> Example of failure without the fix (immediately after fresh boot):
+>
+> # ip link set eth0 up  <- eth0 is BE3 PF
+> be2net 0000:01:00.0 eth0: Link is Up
+>
+> # echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create 1 VF
+> ...
+> be2net 0000:01:04.0: Emulex OneConnect(be3): VF  port 0
+>
+> # ip link set eth8 up  <- eth8 is created privileged VF
+> be2net 0000:01:04.0: opcode 59-1 failed:status 1-76
+> RTNETLINK answers: Input/output error
+>
+> # echo 0 > /sys/class/net/eth0/device/sriov_numvfs  <- Delete VF
+> iommu: Removing device 0000:01:04.0 from group 33
+> ...
+>
+> # echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create it again
+> iommu: Removing device 0000:01:04.0 from group 33
+> ...
+>
+> # ip link set eth8 up
+> be2net 0000:01:04.0 eth8: Link is Up
+>
+> Initialization is now OK.
+>
+> v2 - Corrected the comment and condition check suggested by Suresh & Harsha
+>
+> Fixes: 34393529163a ("be2net: fix MAC addr setting on privileged BE3 VFs")
+> Cc: Sathya Perla <sathya.perla@broadcom.com>
+> Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
+> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+> Cc: Somnath Kotur <somnath.kotur@broadcom.com>
+> Signed-off-by: Ivan Vecera <cera@cera.cz>
+> ---
+>  drivers/net/ethernet/emulex/benet/be_main.c | 33 ++++++++++++++++++++++++-----
+>  1 file changed, 28 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 1a7f8ad7b9c6..cd49a54c538d 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -362,8 +362,10 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
+>                 status = -EPERM;
+>                 goto err;
+>         }
+> -done:
+> +
+> +       /* Remember currently programmed MAC */
+>         ether_addr_copy(adapter->dev_mac, addr->sa_data);
+> +done:
+>         ether_addr_copy(netdev->dev_addr, addr->sa_data);
+>         dev_info(dev, "MAC address changed to %pM\n", addr->sa_data);
+>         return 0;
+> @@ -3618,8 +3620,10 @@ static void be_disable_if_filters(struct be_adapter *adapter)
+>  {
+>         /* Don't delete MAC on BE3 VFs without FILTMGMT privilege  */
+>         if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
+> -           check_privilege(adapter, BE_PRIV_FILTMGMT))
+> +           check_privilege(adapter, BE_PRIV_FILTMGMT)) {
+>                 be_dev_mac_del(adapter, adapter->pmac_id[0]);
+> +               eth_zero_addr(adapter->dev_mac);
+> +       }
+>
+>         be_clear_uc_list(adapter);
+>         be_clear_mc_list(adapter);
+> @@ -3773,12 +3777,27 @@ static int be_enable_if_filters(struct be_adapter *adapter)
+>         if (status)
+>                 return status;
+>
+> -       /* Don't add MAC on BE3 VFs without FILTMGMT privilege */
+> -       if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
+> -           check_privilege(adapter, BE_PRIV_FILTMGMT)) {
+> +       /* Normally this condition usually true as the ->dev_mac is zeroed.
+> +        * But on BE3 VFs the initial MAC is pre-programmed by PF and
+> +        * subsequent be_dev_mac_add() can fail (after fresh boot)
+> +        */
+> +       if (!ether_addr_equal(adapter->dev_mac, adapter->netdev->dev_addr)) {
+> +               int old_pmac_id = -1;
+> +
+> +               /* Remember old programmed MAC if any - can happen on BE3 VF */
+> +               if (!is_zero_ether_addr(adapter->dev_mac))
+> +                       old_pmac_id = adapter->pmac_id[0];
+> +
+>                 status = be_dev_mac_add(adapter, adapter->netdev->dev_addr);
+>                 if (status)
+>                         return status;
+> +
+> +               /* Delete the old programmed MAC as we successfully programmed
+> +                * a new MAC
+> +                */
+> +               if (old_pmac_id >= 0 && old_pmac_id != adapter->pmac_id[0])
+> +                       be_dev_mac_del(adapter, old_pmac_id);
+> +
+>                 ether_addr_copy(adapter->dev_mac, adapter->netdev->dev_addr);
+>         }
+>
+> @@ -4552,6 +4571,10 @@ static int be_mac_setup(struct be_adapter *adapter)
+>
+>                 memcpy(adapter->netdev->dev_addr, mac, ETH_ALEN);
+>                 memcpy(adapter->netdev->perm_addr, mac, ETH_ALEN);
+> +
+> +               /* Initial MAC for BE3 VFs is already programmed by PF */
+> +               if (BEx_chip(adapter) && be_virtfn(adapter))
+> +                       memcpy(adapter->dev_mac, mac, ETH_ALEN);
+>         }
+>
+>         return 0;
+> --
+> 2.10.2
+>
 
-Looks good to me:
+Thanks Ivan.
 
-Acked-by: Kalle Valo <kvalo@codeaurora.org>
-
-I assume Dave will take this so I'll drop the patch from my queue.
-
--- 
-Kalle Valo
+Acked-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
