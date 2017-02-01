@@ -1,64 +1,117 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
-Date: Wed, 01 Feb 2017 16:47:20 +0100
-Message-ID: <5763539.ftMn9eb5Wh@wuerfel>
-References: <20170124084606.GA11764@app09> <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw@mail.gmail.com> <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop>
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Subject: [PATCH] xen-netfront: Improve error handling during initialization
+Date: Wed, 1 Feb 2017 15:50:22 +0000
+Message-ID: <1485964222-1501-1-git-send-email-ross.lagerwall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: green.hu@gmail.com, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, devicetree@vger.kernel.org,
-        andrew@lunn.ch, jiri@resnulli.us,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        f.fainelli@gmail.com, Mark Rutland <mark.rutland@arm.com>
-To: Rob Herring <robh@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:51346 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750861AbdBAPrq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 10:47:46 -0500
-In-Reply-To: <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+        Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+        Juergen Gross <jgross@suse.com>,
+        <linux-kernel@vger.kernel.org>, <wei.liu2@citrix.com>,
+        Ross Lagerwall <ross.lagerwall@citrix.com>
+To: <xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday, January 27, 2017 4:17:33 PM CET Rob Herring wrote:
-> On Wed, Jan 25, 2017 at 10:09:20PM +0100, Arnd Bergmann wrote:
-> > On Wed, Jan 25, 2017 at 6:34 PM, David Miller <davem@davemloft.net> wrote:
-> > > From: Greentime Hu <green.hu@gmail.com>
-> > > Date: Tue, 24 Jan 2017 16:46:14 +0800
-> > >> We also use the same binding document to describe the same faraday ethernet
-> > >> controller and add faraday to vendor-prefixes.txt.
-> > >
-> > > Why are you renaming the MOXA binding file instead of adding a completely new one
-> > > for faraday?  The MOXA one should stick around, I don't see a justification for
-> > > removing it.
-> > 
-> > This was my suggestion, basically fixing the name of the existing
-> > binding, which was
-> > accidentally named after one of the users rather than the company that did the
-> > hardware.
-> > 
-> > We can't change the compatible string, but I'd much prefer having only
-> > one binding
-> > file for this device rather than two separate ones that could possibly become
-> > incompatible in case we add new properties to them. If there is only
-> > one of them,
-> > naming it according to the hardware design is the general policy.
-> > 
-> > Note that we currently have two separate device drivers, but that is more a
-> > historic artifact, and if we ever get around to merging them into one driver,
-> > that should not impact the binding.
-> 
-> The change is fine with me, but the subject and commit message need some 
-> work. I'm guessing faraday licensed this to MOXA or something?
+Improve error handling during initialization. This fixes a crash when
+running out of grant refs when creating many queues across many netdevs.
 
-Correct, Faraday just produces IP blocks.
+* Delay timer creation so that if initializing a queue fails, the timer
+has not been setup yet.
+* If creating queues fails (i.e. there are no grant refs available),
+call xenbus_dev_fatal() to ensure that the xenbus device is set to the
+closed state.
+* If no queues are created, don't call xennet_disconnect_backend as
+netdev->real_num_tx_queues will not have been set correctly.
+* If setup_netfront() fails, ensure that all the queues created are
+cleaned up, not just those that have been set up.
+* If any queues were set up and an error occurs, call
+xennet_destroy_queues() to stop the timer and clean up the napi context.
+* If any fatal error occurs, unregister and destroy the netdev to avoid
+leaving around a half setup network device.
 
-> Why is the new name preferred or better?
+Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+---
+ drivers/net/xen-netfront.c | 39 ++++++++++++++++++---------------------
+ 1 file changed, 18 insertions(+), 21 deletions(-)
 
-The situation is similar to the designware "dwmac", which for historic
-reasons is called "stmmac" in Linux, both for the binding and the driver
-name. I think this should have been dwmac from the start, but changing
-it earlier is much easier than changing it later.
-
-	Arnd
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 8315fe7..8ca85af 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1596,9 +1596,6 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 	spin_lock_init(&queue->tx_lock);
+ 	spin_lock_init(&queue->rx_lock);
+ 
+-	setup_timer(&queue->rx_refill_timer, rx_refill_timeout,
+-		    (unsigned long)queue);
+-
+ 	snprintf(queue->name, sizeof(queue->name), "%s-q%u",
+ 		 queue->info->netdev->name, queue->id);
+ 
+@@ -1632,6 +1629,9 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 		goto exit_free_tx;
+ 	}
+ 
++	setup_timer(&queue->rx_refill_timer, rx_refill_timeout,
++		    (unsigned long)queue);
++
+ 	return 0;
+ 
+  exit_free_tx:
+@@ -1822,27 +1822,23 @@ static int talk_to_netback(struct xenbus_device *dev,
+ 		xennet_destroy_queues(info);
+ 
+ 	err = xennet_create_queues(info, &num_queues);
+-	if (err < 0)
+-		goto destroy_ring;
++	if (err < 0) {
++		xenbus_dev_fatal(dev, err, "creating queues");
++		if (num_queues > 0) {
++			goto destroy_ring;
++		} else {
++			kfree(info->queues);
++			info->queues = NULL;
++			goto out;
++		}
++	}
+ 
+ 	/* Create shared ring, alloc event channel -- for each queue */
+ 	for (i = 0; i < num_queues; ++i) {
+ 		queue = &info->queues[i];
+ 		err = setup_netfront(dev, queue, feature_split_evtchn);
+-		if (err) {
+-			/* setup_netfront() will tidy up the current
+-			 * queue on error, but we need to clean up
+-			 * those already allocated.
+-			 */
+-			if (i > 0) {
+-				rtnl_lock();
+-				netif_set_real_num_tx_queues(info->netdev, i);
+-				rtnl_unlock();
+-				goto destroy_ring;
+-			} else {
+-				goto out;
+-			}
+-		}
++		if (err)
++			goto destroy_ring;
+ 	}
+ 
+ again:
+@@ -1932,9 +1928,10 @@ static int talk_to_netback(struct xenbus_device *dev,
+ 	xenbus_transaction_end(xbt, 1);
+  destroy_ring:
+ 	xennet_disconnect_backend(info);
+-	kfree(info->queues);
+-	info->queues = NULL;
++	xennet_destroy_queues(info);
+  out:
++	unregister_netdev(info->netdev);
++	xennet_free_netdev(info->netdev);
+ 	return err;
+ }
+ 
+-- 
+2.7.4
