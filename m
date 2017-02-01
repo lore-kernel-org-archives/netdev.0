@@ -1,63 +1,56 @@
 From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH 1/3] net/sched: act_ife: Unexport ife_tlv_meta_encode
-Date: Wed,  1 Feb 2017 15:30:01 +0200
-Message-ID: <1485955803-65065-2-git-send-email-yotamg@mellanox.com>
-References: <1485955803-65065-1-git-send-email-yotamg@mellanox.com>
+Subject: [PATCH v2 net-next 0/3] Extract IFE logic to module
+Date: Wed,  1 Feb 2017 15:30:00 +0200
+Message-ID: <1485955803-65065-1-git-send-email-yotamg@mellanox.com>
 Cc: Yotam Gigi <yotamg@mellanox.com>
 To: jhs@mojatatu.com, davem@davemloft.net, netdev@vger.kernel.org,
         mrv@mojatatu.com, eladr@mellanox.com, jiri@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41037 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41036 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751289AbdBAN1k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 08:27:40 -0500
-In-Reply-To: <1485955803-65065-1-git-send-email-yotamg@mellanox.com>
+        with ESMTP id S1750858AbdBAN1p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 08:27:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the function ife_tlv_meta_encode is not used by any other module,
-unexport it and make it static for the act_ife module.
+Extract ife logic from the tc_ife action into an independent module, and
+make the tc_ife action use it. This way, the ife encapsulation can be used
+by other modules other than tc_ife action.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
----
- include/net/tc_act/tc_ife.h | 2 --
- net/sched/act_ife.c         | 4 ++--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+v1->v2:
+Fix duplicate symbol error by introducing a new patch that makes the
+original symbol static.
 
-diff --git a/include/net/tc_act/tc_ife.h b/include/net/tc_act/tc_ife.h
-index 9fd2bea0..f37e751 100644
---- a/include/net/tc_act/tc_ife.h
-+++ b/include/net/tc_act/tc_ife.h
-@@ -45,8 +45,6 @@ struct tcf_meta_ops {
- 
- int ife_get_meta_u32(struct sk_buff *skb, struct tcf_meta_info *mi);
- int ife_get_meta_u16(struct sk_buff *skb, struct tcf_meta_info *mi);
--int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
--			const void *dval);
- int ife_alloc_meta_u32(struct tcf_meta_info *mi, void *metaval, gfp_t gfp);
- int ife_alloc_meta_u16(struct tcf_meta_info *mi, void *metaval, gfp_t gfp);
- int ife_check_meta_u32(u32 metaval, struct tcf_meta_info *mi);
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 921fb20..70148c1 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -48,7 +48,8 @@ static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
- 
- /* Caller takes care of presenting data in network order
- */
--int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
-+static int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
-+			       const void *dval)
- {
- 	u32 *tlv = (u32 *)(skbdata);
- 	u16 totlen = nla_total_size(dlen);	/*alignment + hdr */
-@@ -61,7 +62,6 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
- 
- 	return totlen;
- }
--EXPORT_SYMBOL_GPL(ife_tlv_meta_encode);
- 
- int ife_encode_meta_u16(u16 metaval, void *skbdata, struct tcf_meta_info *mi)
- {
+The symbol ife_tlv_meta_extract is exported in act_ife, though not being
+used by any other module. As the symbol is being moved to the new ife
+module, introducing the new module creates duplicate symbol. To fix it,
+add a new patch (1/3) that makes the ife_tlv_meta_extract symbol static in
+act_ife, thus the symbol does not collide.
+
+Yotam Gigi (3):
+  net/sched: act_ife: Unexport ife_tlv_meta_encode
+  net: Introduce ife encapsulation module
+  net/sched: act_ife: Change to use ife module
+
+ MAINTAINERS                        |   7 ++
+ include/net/ife.h                  |  51 +++++++++++++
+ include/net/tc_act/tc_ife.h        |   3 -
+ include/uapi/linux/Kbuild          |   1 +
+ include/uapi/linux/ife.h           |  18 +++++
+ include/uapi/linux/tc_act/tc_ife.h |  10 +--
+ net/Kconfig                        |   1 +
+ net/Makefile                       |   1 +
+ net/ife/Kconfig                    |  16 +++++
+ net/ife/Makefile                   |   5 ++
+ net/ife/ife.c                      | 142 +++++++++++++++++++++++++++++++++++++
+ net/sched/Kconfig                  |   1 +
+ net/sched/act_ife.c                | 110 +++++++++-------------------
+ 13 files changed, 276 insertions(+), 90 deletions(-)
+ create mode 100644 include/net/ife.h
+ create mode 100644 include/uapi/linux/ife.h
+ create mode 100644 net/ife/Kconfig
+ create mode 100644 net/ife/Makefile
+ create mode 100644 net/ife/ife.c
+
 -- 
 2.4.11
