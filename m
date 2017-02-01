@@ -1,35 +1,43 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH net] net: phy: Fix lack of reference count on PHY driver
-Date: Wed, 1 Feb 2017 10:22:09 +0000
-Message-ID: <20170201102208.GM27312@n2100.armlinux.org.uk>
-References: <20170201024643.2050-1-f.fainelli@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 4.10-rc3 07/13] net: mvneta: fix build errors when
+ linux/phy*.h is removed from net/dsa.h
+Date: Wed, 1 Feb 2017 11:27:14 +0100
+Message-ID: <20170201112714.03fc236e@free-electrons.com>
+References: <20170131191704.GA8281@n2100.armlinux.org.uk>
+        <E1cYdxD-0000Wd-1D@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
-        Mao Wenan <maowenan@huawei.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:43998 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751202AbdBAKWX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 05:22:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20170201024643.2050-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <E1cYdxD-0000Wd-1D-eh5Bv4kxaXIk46pC+1QYvQNdhmdF6hFW@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 31, 2017 at 06:46:43PM -0800, Florian Fainelli wrote:
-> From: Mao Wenan <maowenan@huawei.com>
+Hello,
+
+On Tue, 31 Jan 2017 19:18:59 +0000, Russell King wrote:
+> drivers/net/ethernet/marvell/mvneta.c:2694:26: error: storage size of 'status' isn't known
+> drivers/net/ethernet/marvell/mvneta.c:2695:26: error: storage size of 'changed' isn't known
+> drivers/net/ethernet/marvell/mvneta.c:2695:9: error: variable 'changed' has initializer but incomplete type
+> drivers/net/ethernet/marvell/mvneta.c:2709:2: error: implicit declaration of function 'fixed_phy_update_state' [-Werror=implicit-function-declaration]
 > 
-> There is currently no reference count being held on the PHY driver,
-> which makes it possible to remove the PHY driver module while the PHY
-> state machine is running and polling the PHY. This could cause crashes
-> similar to this one to show up:
+> Add linux/phy_fixed.h to mvneta.c
+> 
+> Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
 
-Does this really solve the problem?  What if you use sysfs to unbind the
-driver but without removing the module?
-
+Acked-by: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
