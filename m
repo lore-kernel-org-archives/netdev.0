@@ -1,98 +1,134 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request (net-next): ipsec-next 2017-02-01
-Date: Wed, 1 Feb 2017 09:17:42 +0100
-Message-ID: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Wed, 1 Feb 2017 09:33:12 +0100
+Message-ID: <20170201083312.GA6609@pali>
+References: <20170127103408.GG24223@pali>
+ <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
+ <20170127115706.GH24223@pali>
+ <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
+ <20170127131146.GI24223@pali>
+ <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
+ <20170127194012.GE20571@amd>
+ <20170130175309.GY7403@atomide.com>
+ <8737fzrb36.fsf@kamboji.qca.qualcomm.com>
+ <20170131155918.GD7403@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Tony Lindgren <tony@atomide.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:37042 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751696AbdBAISJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Feb 2017 03:18:09 -0500
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35477 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751679AbdBAIdU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 03:33:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20170131155918.GD7403@atomide.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) Some typo fixes, from Alexander Alemayhu.
+On Tuesday 31 January 2017 07:59:18 Tony Lindgren wrote:
+> * Kalle Valo <kvalo@codeaurora.org> [170130 22:36]:
+> > Tony Lindgren <tony@atomide.com> writes:
+> > 
+> > > * Pavel Machek <pavel@ucw.cz> [170127 11:41]:
+> > >> On Fri 2017-01-27 17:23:07, Kalle Valo wrote:
+> > >> > Pali Rohár <pali.rohar@gmail.com> writes:
+> > >> > 
+> > >> > > On Friday 27 January 2017 14:26:22 Kalle Valo wrote:
+> > >> > >> Pali Rohár <pali.rohar@gmail.com> writes:
+> > >> > >> 
+> > >> > >> > 2) It was already tested that example NVS data can be used for N900 e.g.
+> > >> > >> > for SSH connection. If real correct data are not available it is better
+> > >> > >> > to use at least those example (and probably log warning message) so user
+> > >> > >> > can connect via SSH and start investigating where is problem.
+> > >> > >> 
+> > >> > >> I disagree. Allowing default calibration data to be used can be
+> > >> > >> unnoticed by user and left her wondering why wifi works so badly.
+> > >> > >
+> > >> > > So there are only two options:
+> > >> > >
+> > >> > > 1) Disallow it and so these users will have non-working wifi.
+> > >> > >
+> > >> > > 2) Allow those data to be used as fallback mechanism.
+> > >> > >
+> > >> > > And personally I'm against 1) because it will break wifi support for
+> > >> > > *all* Nokia N900 devices right now.
+> > >> > 
+> > >> > All two of them? :)
+> > >> 
+> > >> Umm. You clearly want a flock of angry penguins at your doorsteps :-).
+> > >
+> > > Well this silly issue of symlinking and renaming nvs files in a standard
+> > > Linux distro was also hitting me on various devices with wl12xx/wl18xx
+> > > trying to use the same rootfs.
+> > >
+> > > Why don't we just set a custom compatible property for n900 that then
+> > > picks up some other nvs file instead of the default?
+> > 
+> > Please don't. An ugly kernel workaround in kernel because of user space
+> > problems is a bad idea. wl1251 should just ask for NVS file from user
+> > space, it shouldn't care if it's a "default" file or something else.
+> > That's a user space policy decision.
+> 
+> Grr I keep forgetting it needs to be for each device manufactured so
+> yeah that won't work.
+> 
+> The names of standard distro files are hardcoded into the kernel
+> driver so it's also a kernel problem though :p
+> 
+> How about a custom devices tree property saying "needs-custom-firmware"?
 
-2) Don't acquire state lock in get_mtu functions.
-   The only rece against a dead state does not matter.
-   From Florian Westphal.
+How does it help request_firmware() call which automatically loads
+firmware file from VFS (if is available)?
 
-3) Remove xfrm4_state_fini, it is unused for more than
-   10 years. From Florian Westphal.
+> Something that would prevent anything being loaded until user space
+> loads the firmware. It could also be set in the driver automatically
+> based on the compatible flag if we always want it enabled. And we could
+> have some cmdline option to ignore it. Or the other way around whatever
+> makes sense.
 
-4) Various rcu usage improvements. From Florian Westphal.
+So you just want to kernel automatically prevent loading firmware file
+(based on flag which driver can set). That is similar approach as mine.
 
-5) Properly handle crypto arrors in ah4/ah6.
-   From Gilad Ben-Yossef.
+> > Why can't you do something like this:
+> > 
+> > * rename the NVS file linux-firmware to wl1251-nvs.bin.example
+> 
+> As that name is hardcoded in the kernel and that file is provided by
+> all standard distros, let's assume we just have to deal with that ABI
+> forever.
 
-6) Try to avoid skb linearization in esp4 and esp6.
+Yes.
 
-7) The esp trailer is now set up in different places,
-   add a helper for this.
+> > * before distro updates linux-firmware create yours own deb/rpm/whatever
+> >   package "wl1251-firmware" which installs your flavor of nvs file (or
+> >   the user fallback helper if more dynamic functionality is preferred)
+> 
+> And that won't work when using the same file system on other machines.
+> 
+> Think NFSroot for example. At least I'm using the same NFSroot across
+> about 15 different machines including one n900 macro board with smc91x
+> Ethernet.
 
-8) With the upcomming usage of gro_cells in IPsec,
-   a gro merged skb can have a secpath. Drop it
-   before freeing or reusing the skb.
+Exactly problem which we already discussed in previous emails. You
+cannot serve one file (loaded by direct request_firmware) when your
+rootfs is readonly, e.g. comes via NFS shared for more devices...
 
-9) Add a xfrm dummy network device for napi. With
-   this we can use gro_cells from within xfrm,
-   it allows IPsec GRO without impact on the generic
-   networking code.
-
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit 0a0a8d6b0e88d947d7ab3198b325e31f677bebc2:
-
-  net: fealnx: use new api ethtool_{get|set}_link_ksettings (2017-01-02 16:59:10 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
-
-for you to fetch changes up to 1995876a06bcf6f9f7d7b699bdbf387831679771:
-
-  xfrm: Add a dummy network device for napi. (2017-01-30 06:45:43 +0100)
-
-----------------------------------------------------------------
-Alexander Alemayhu (1):
-      xfrm: trivial typos
-
-Florian Westphal (7):
-      xfrm: state: do not acquire lock in get_mtu helpers
-      xfrm: remove unused function
-      xfrm: avoid rcu sparse warning
-      xfrm: remove xfrm_state_put_afinfo
-      xfrm: add and use xfrm_state_afinfo_get_rcu
-      xfrm: state: simplify rcu_read_unlock handling in two spots
-      xfrm: fix possible null deref in xfrm_init_tempstate
-
-Gilad Ben-Yossef (2):
-      IPsec: do not ignore crypto err in ah4 input
-      IPsec: do not ignore crypto err in ah6 input
-
-Steffen Klassert (5):
-      esp4: Avoid skb_cow_data whenever possible
-      esp6: Avoid skb_cow_data whenever possible
-      esp: Introduce a helper to setup the trailer
-      net: Drop secpath on free after gro merge.
-      xfrm: Add a dummy network device for napi.
-
- include/net/xfrm.h     |   4 +-
- net/core/dev.c         |   2 +
- net/ipv4/ah4.c         |   3 +
- net/ipv4/esp4.c        | 332 ++++++++++++++++++++++++++++++++++++++-----------
- net/ipv4/xfrm4_state.c |   8 --
- net/ipv6/ah6.c         |   3 +
- net/ipv6/esp6.c        | 318 ++++++++++++++++++++++++++++++++++++----------
- net/xfrm/xfrm_input.c  |  12 +-
- net/xfrm/xfrm_output.c |   8 +-
- net/xfrm/xfrm_policy.c |   2 +-
- net/xfrm/xfrm_state.c  |  86 ++++++-------
- 11 files changed, 578 insertions(+), 200 deletions(-)
+-- 
+Pali Rohár
+pali.rohar@gmail.com
