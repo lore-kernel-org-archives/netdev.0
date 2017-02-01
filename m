@@ -1,63 +1,231 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next 00/10] bnxt_en: Add XDP support.
-Date: Wed, 1 Feb 2017 07:16:53 -0500
-Message-ID: <20170201121653.GA85883@C02RW35GFVH8>
-References: <CAADnVQ+8kCcd8MZYscbFYap6-0DjTp4hek0LPCUfMBA0kt550Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35012 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751266AbdBAMQ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 07:16:57 -0500
-Received: by mail-qk0-f194.google.com with SMTP id u25so28027427qki.2
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 04:16:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CAADnVQ+8kCcd8MZYscbFYap6-0DjTp4hek0LPCUfMBA0kt550Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: [PATCH 07/14] tools lib bpf: Add BPF program pinning APIs
+Date: Wed,  1 Feb 2017 09:25:00 -0300
+Message-ID: <20170201122507.29303-8-acme@kernel.org>
+References: <20170201122507.29303-1-acme@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170201122507.29303-1-acme@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 31, 2017 at 10:22:12PM -0800, Alexei Starovoitov wrote:
-> On Tue, Jan 31, 2017 at 9:33 PM, Andy Gospodarek <andy@greyhouse.net> wrote:
-> > On Tue, Jan 31, 2017 at 10:36 AM, Andy Gospodarek <andy@greyhouse.net> wrote:
-> >> On Mon, Jan 30, 2017 at 08:47:47PM -0800, Alexei Starovoitov wrote:
-> >>> On Mon, Jan 30, 2017 at 08:49:25PM -0500, Michael Chan wrote:
-> >>> > The first 8 patches refactor the code (rx/tx code paths and ring logic)
-> >>> > and add the basic infrastructure to support XDP.  The 9th patch adds
-> >>> > basic ndo_xdp to support XDP_DROP and XDP_PASS only.  The 10th patch
-> >>> > completes the series with XDP_TX.
-> >>>
-> >>> Looks great.
-> >>> Could you please share performance numbers ?
-> >>
-> >> I'll post some later today.
-> >
-> > I finally got my system moved around to what I'd hoped would be the
-> > right spot in my lab, but the system used for generating the traffic
-> > was only able to send 6Mpps with pktgen, so it was not a great test.
-> >
-> > My receiving system with i7-6700 CPU @ 3.40GHz seemed to have no issue
-> > handling this 6Mpps load -- mpstat showed only one core was ~25%
-> > utilitzed with all of that servicing softirqs.  The rest of the cores
-> > were 100% idle.
-> >
-> > I'm going to search for other traffic generation tools/systems to make
-> > sure I can get at least line-rate for the 10GbE cards I was using.
-> 
-> hmm. last time I tried pktgen on bnx2x it was easily doing 14Mpps with burst on.
-> Have you been using samples/pktgen/pktgen_sample03_burst_single_flow.sh ?
+From: Joe Stringer <joe@ovn.org>
 
-Yes I was.  I saw that Brenden has used it to produce some benchmarks, so
-that is what I was using as well.
+Add new APIs to pin a BPF program (or specific instances) to the
+filesystem.  The user can specify the path full path within a BPF
+filesystem to pin the program.
 
-> Waiting for this set to land to start benchmarking on bnxt.
-> So having a baseline will certainly help :)
+bpf_program__pin_instance(prog, path, n) will pin the nth instance of
+'prog' to the specified path.
 
-I was hoping to get a better baseline, too.  These results do not seem
-to approach the limit of what can be done with XDP on this hardware.
-I'm going to try and move some more gear around get to get something
-better setup.
+bpf_program__pin(prog, path) will create the directory 'path' (if it
+does not exist) and pin each instance within that directory. For
+instance, path/0, path/1, path/2.
+
+Committer notes:
+
+- Add missing headers for mkdir()
+
+- Check strdup() for failure
+
+- Check snprintf >= size, not >, as == also means truncated, see 'man
+  snprintf', return value.
+
+- Conditionally define BPF_FS_MAGIC, as it isn't in magic.h in older
+  systems and we're not yet having a tools/include/uapi/linux/magic.h
+  copy.
+
+- Do not include linux/magic.h, not present in older distros.
+
+Signed-off-by: Joe Stringer <joe@ovn.org>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Wang Nan <wangnan0@huawei.com>
+Cc: netdev@vger.kernel.org
+Link: http://lkml.kernel.org/r/20170126212001.14103-2-joe@ovn.org
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ tools/lib/bpf/libbpf.c | 120 +++++++++++++++++++++++++++++++++++++++++++++++++
+ tools/lib/bpf/libbpf.h |   3 ++
+ 2 files changed, 123 insertions(+)
+
+diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+index e6cd62b1264b..c4465b2fddf6 100644
+--- a/tools/lib/bpf/libbpf.c
++++ b/tools/lib/bpf/libbpf.c
+@@ -4,6 +4,7 @@
+  * Copyright (C) 2013-2015 Alexei Starovoitov <ast@kernel.org>
+  * Copyright (C) 2015 Wang Nan <wangnan0@huawei.com>
+  * Copyright (C) 2015 Huawei Inc.
++ * Copyright (C) 2017 Nicira, Inc.
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU Lesser General Public
+@@ -22,6 +23,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <stdarg.h>
++#include <libgen.h>
+ #include <inttypes.h>
+ #include <string.h>
+ #include <unistd.h>
+@@ -32,6 +34,10 @@
+ #include <linux/kernel.h>
+ #include <linux/bpf.h>
+ #include <linux/list.h>
++#include <linux/limits.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <sys/vfs.h>
+ #include <libelf.h>
+ #include <gelf.h>
+ 
+@@ -42,6 +48,10 @@
+ #define EM_BPF 247
+ #endif
+ 
++#ifndef BPF_FS_MAGIC
++#define BPF_FS_MAGIC		0xcafe4a11
++#endif
++
+ #define __printf(a, b)	__attribute__((format(printf, a, b)))
+ 
+ __printf(1, 2)
+@@ -1237,6 +1247,116 @@ int bpf_object__load(struct bpf_object *obj)
+ 	return err;
+ }
+ 
++static int check_path(const char *path)
++{
++	struct statfs st_fs;
++	char *dname, *dir;
++	int err = 0;
++
++	if (path == NULL)
++		return -EINVAL;
++
++	dname = strdup(path);
++	if (dname == NULL)
++		return -ENOMEM;
++
++	dir = dirname(dname);
++	if (statfs(dir, &st_fs)) {
++		pr_warning("failed to statfs %s: %s\n", dir, strerror(errno));
++		err = -errno;
++	}
++	free(dname);
++
++	if (!err && st_fs.f_type != BPF_FS_MAGIC) {
++		pr_warning("specified path %s is not on BPF FS\n", path);
++		err = -EINVAL;
++	}
++
++	return err;
++}
++
++int bpf_program__pin_instance(struct bpf_program *prog, const char *path,
++			      int instance)
++{
++	int err;
++
++	err = check_path(path);
++	if (err)
++		return err;
++
++	if (prog == NULL) {
++		pr_warning("invalid program pointer\n");
++		return -EINVAL;
++	}
++
++	if (instance < 0 || instance >= prog->instances.nr) {
++		pr_warning("invalid prog instance %d of prog %s (max %d)\n",
++			   instance, prog->section_name, prog->instances.nr);
++		return -EINVAL;
++	}
++
++	if (bpf_obj_pin(prog->instances.fds[instance], path)) {
++		pr_warning("failed to pin program: %s\n", strerror(errno));
++		return -errno;
++	}
++	pr_debug("pinned program '%s'\n", path);
++
++	return 0;
++}
++
++static int make_dir(const char *path)
++{
++	int err = 0;
++
++	if (mkdir(path, 0700) && errno != EEXIST)
++		err = -errno;
++
++	if (err)
++		pr_warning("failed to mkdir %s: %s\n", path, strerror(-err));
++	return err;
++}
++
++int bpf_program__pin(struct bpf_program *prog, const char *path)
++{
++	int i, err;
++
++	err = check_path(path);
++	if (err)
++		return err;
++
++	if (prog == NULL) {
++		pr_warning("invalid program pointer\n");
++		return -EINVAL;
++	}
++
++	if (prog->instances.nr <= 0) {
++		pr_warning("no instances of prog %s to pin\n",
++			   prog->section_name);
++		return -EINVAL;
++	}
++
++	err = make_dir(path);
++	if (err)
++		return err;
++
++	for (i = 0; i < prog->instances.nr; i++) {
++		char buf[PATH_MAX];
++		int len;
++
++		len = snprintf(buf, PATH_MAX, "%s/%d", path, i);
++		if (len < 0)
++			return -EINVAL;
++		else if (len >= PATH_MAX)
++			return -ENAMETOOLONG;
++
++		err = bpf_program__pin_instance(prog, buf, i);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
+ void bpf_object__close(struct bpf_object *obj)
+ {
+ 	size_t i;
+diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+index 4014d1ba5e3d..9f8aa63b95f4 100644
+--- a/tools/lib/bpf/libbpf.h
++++ b/tools/lib/bpf/libbpf.h
+@@ -106,6 +106,9 @@ void *bpf_program__priv(struct bpf_program *prog);
+ const char *bpf_program__title(struct bpf_program *prog, bool needs_copy);
+ 
+ int bpf_program__fd(struct bpf_program *prog);
++int bpf_program__pin_instance(struct bpf_program *prog, const char *path,
++			      int instance);
++int bpf_program__pin(struct bpf_program *prog, const char *path);
+ 
+ struct bpf_insn;
+ 
+-- 
+2.9.3
