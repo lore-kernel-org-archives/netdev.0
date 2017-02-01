@@ -1,49 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: sock_create_kern() and network namespace reference counts
-Date: Wed, 1 Feb 2017 09:19:39 -0800
-Message-ID: <CAM_iQpUuvibN=kgj-zwPKuFAEcA6yjTEoLwf4itrcADX3WxX1g@mail.gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6DB0276D58@AcuExch.aculab.com>
- <CAM_iQpVs-_p8VeoRpUjBPSOCkCAi0q8gWWSx29699-UuLKQTrg@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DB0276FD9@AcuExch.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 1/8] net/mlx5: Fixed static checker warnings
+Date: Wed, 01 Feb 2017 12:22:32 -0500 (EST)
+Message-ID: <20170201.122232.468887635709421897.davem@davemloft.net>
+References: <20170131205843.23235-1-saeedm@mellanox.com>
+        <20170131205843.23235-2-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, matanb@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35248 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752960AbdBARUB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:20:01 -0500
-Received: by mail-wm0-f50.google.com with SMTP id b65so48864131wmf.0
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 09:20:00 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0276FD9@AcuExch.aculab.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40258 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752791AbdBARWd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:22:33 -0500
+In-Reply-To: <20170131205843.23235-2-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2017 at 9:57 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: Cong Wang
->> Sent: 31 January 2017 17:38
->> On Tue, Jan 31, 2017 at 7:41 AM, David Laight <David.Laight@aculab.com> wrote:
->> > Commit 26abe1437 changed sock_create_kern() so that it stopped
->> > holding a reference to the network namespace.
->> > The rational seemed to be 'to allow to stop it' (presumably 'be deleted').
->> > Prior to this change some kernel paths used sk_change_net() (etc) to
->> > change the namespace after the socket was created.
->> >
->> > If the socket doesn't hold a reference to the namespace, what actually
->> > happens when the namespace is deleted?
->>
->> Kernel socket should have the same lifetime with the net namespace,
->> that is, created in net_init and released in net_exit. Think about it, if it
->> really held a refcnt to this netns, how could this netns be teared down?
->
-> That rather depends on what they are being used for.
-> Consider something like an in kernel ftp client, it doesn't really care
-> about namespaces except in as much as the connections it creates must
-> be inside the correct namespace.
-> The namespace shouldn't be torn down while that connection exists any more
-> than it should be torn down while a user process has an open connection.
-> (Listening sockets are likely to be more of a problem.)
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 31 Jan 2017 22:58:36 +0200
 
-If you don't care about netns, why not just use init_net which is never
-torn down and make your kernel socket global so that each netns
-can access it too?
+> @@ -487,11 +487,11 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+>  			MLX5_SET(fte_match_set_lyr_2_4, headers_c, cvlan_tag, 1);
+>  			MLX5_SET(fte_match_set_lyr_2_4, headers_v, cvlan_tag, 1);
+>  
+> -			MLX5_SET(fte_match_set_lyr_2_4, headers_c, first_vid, mask->vlan_id);
+> -			MLX5_SET(fte_match_set_lyr_2_4, headers_v, first_vid, key->vlan_id);
+> +			MLX5_SET(fte_match_set_lyr_2_4, headers_c, first_vid, (u16)mask->vlan_id);
+> +			MLX5_SET(fte_match_set_lyr_2_4, headers_v, first_vid, (u16)key->vlan_id);
+ ...
+> @@ -67,10 +67,11 @@
+>  
+>  /* insert a value to a struct */
+>  #define MLX5_SET(typ, p, fld, v) do { \
+> +	typeof(v) _v = v; \
+>  	BUILD_BUG_ON(__mlx5_st_sz_bits(typ) % 32);             \
+>  	*((__be32 *)(p) + __mlx5_dw_off(typ, fld)) = \
+>  	cpu_to_be32((be32_to_cpu(*((__be32 *)(p) + __mlx5_dw_off(typ, fld))) & \
+> -		     (~__mlx5_dw_mask(typ, fld))) | (((v) & __mlx5_mask(typ, fld)) \
+> +		     (~__mlx5_dw_mask(typ, fld))) | (((_v) & __mlx5_mask(typ, fld)) \
+>  		     << __mlx5_dw_bit_off(typ, fld))); \
+>  } while (0)
+
+I have to agree with others that this is really crummy.
+
+You're propagating values into a u32 field, which you are explicitly
+performing 32-bit endianness conversions upon.
+
+Just use "u32" for a local variable and get rid of all of these casts.
