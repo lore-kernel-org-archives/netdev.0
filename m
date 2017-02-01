@@ -1,43 +1,35 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 2/2] net: dsa: mv88e6xxx: Fix typ0 when configuring 2.5Gbps
-Date: Thu,  2 Feb 2017 00:46:16 +0100
-Message-ID: <1485992776-23750-3-git-send-email-andrew@lunn.ch>
-References: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 0/2] MV88E6390 fixes
+Date: Thu,  2 Feb 2017 00:46:14 +0100
+Message-ID: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52949 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:52953 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750898AbdBAXrC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Feb 2017 18:47:02 -0500
-In-Reply-To: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
+        id S1750873AbdBAXrR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Feb 2017 18:47:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to enable 2.5Gbps mode, we need the base speed of 10G, plus
-the Alt bit setting. Fix a typ0 that used 1Gb base speed.
+Two patches, which have been posted before. Fix simple issues in the
+mv88e6390 support. These don't need to go to stable, since the
+mv88e6390 support in stable is insufficient to be usable.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
-v2: Add Reviewed-by
----
- drivers/net/dsa/mv88e6xxx/port.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+To apply cleanly, these patches rely on "net: dsa: mv88e6xxx:
+Workaround missing PHY".
 
-diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index 0db7fa0373ae..d380a93b092c 100644
---- a/drivers/net/dsa/mv88e6xxx/port.c
-+++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -193,7 +193,7 @@ static int mv88e6xxx_port_set_speed(struct mv88e6xxx_chip *chip, int port,
- 		ctrl = PORT_PCS_CTRL_SPEED_1000;
- 		break;
- 	case 2500:
--		ctrl = PORT_PCS_CTRL_SPEED_1000 | PORT_PCS_CTRL_ALTSPEED;
-+		ctrl = PORT_PCS_CTRL_SPEED_10000 | PORT_PCS_CTRL_ALTSPEED;
- 		break;
- 	case 10000:
- 		/* all bits set, fall through... */
+v2: Added Reviewed-by.
+    Removed a redundant "the"
+
+Andrew Lunn (2):
+  net: dsa: mv88e6xxx: Fix ATU age timer for MV88E6390
+  net: dsa: mv88e6xxx: Fix typ0 when configuring 2.5Gbps
+
+ drivers/net/dsa/mv88e6xxx/chip.c | 12 ++++++------
+ drivers/net/dsa/mv88e6xxx/port.c |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
 -- 
 2.11.0
