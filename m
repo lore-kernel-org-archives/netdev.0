@@ -1,44 +1,141 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ipv6: add NLM_F_APPEND in notifications when applicable
-Date: Tue, 31 Jan 2017 16:51:37 -0800
-Message-ID: <1485910297-14092-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35461 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750828AbdBAAxO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 19:53:14 -0500
-Received: by mail-pf0-f179.google.com with SMTP id f144so113815847pfa.2
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 16:51:44 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the
+ char-misc.current tree
+Date: Wed, 1 Feb 2017 12:11:37 +1100
+Message-ID: <20170201121137.66ee94c7@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Dexuan Cui <decui@microsoft.com>,
+        stephen hemminger <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, Greg KH <greg@kroah.com>,
+        Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IPv6 does not set the NLM_F_APPEND flag in notifications to signal that
-a NEWROUTE is an append versus a new route or a replaced one. Add the
-flag if the request has it.
+Hi all,
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-sending this one outside of the multipath patch set since it has
-nothing to do with multipath.
+Today's linux-next merge of the net-next tree got a conflict in:
 
- net/ipv6/ip6_fib.c | 3 +++
- 1 file changed, 3 insertions(+)
+  drivers/net/hyperv/netvsc.c
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index ef5485204522..bcaf247232d7 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -746,6 +746,9 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 	u16 nlflags = NLM_F_EXCL;
- 	int err;
- 
-+	if (info->nlh && (info->nlh->nlmsg_flags & NLM_F_APPEND))
-+		nlflags |= NLM_F_APPEND;
-+
- 	ins = &fn->leaf;
- 
- 	for (iter = fn->leaf; iter; iter = iter->dst.rt6_next) {
+between commit:
+
+  433e19cf33d3 ("Drivers: hv: vmbus: finally fix hv_need_to_signal_on_read()")
+
+from the char-misc.current tree and commits:
+
+  0b307ebd6834 ("netvsc: remove no longer needed receive staging buffers")
+  46b4f7f5d1f7 ("netvsc: eliminate per-device outstanding send counter")
+
+from the net-next tree.
+
+I fixed it up (I think, but I have no idea what this code actually
+does :-) - see below) and can carry the fix as necessary. This is now
+fixed as far as linux-next is concerned, but any non trivial conflicts
+should be mentioned to your upstream maintainer when your tree is
+submitted for merging.  You may also want to consider cooperating with
+the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-2.1.4
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/hyperv/netvsc.c
+index 86e5749226ef,5cfdb1a1b4c1..000000000000
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@@ -1289,74 -1245,25 +1245,29 @@@ void netvsc_channel_cb(void *context
+  	else
+  		device = channel->device_obj;
+  
+- 	net_device = get_inbound_net_device(device);
+- 	if (!net_device)
+- 		return;
+  	ndev = hv_get_drvdata(device);
+- 	buffer = get_per_channel_state(channel);
++ 	if (unlikely(!ndev))
++ 		return;
++ 
++ 	net_device = net_device_to_netvsc_device(ndev);
++ 	if (unlikely(net_device->destroy) &&
++ 	    netvsc_channel_idle(net_device, q_idx))
++ 		return;
+  
+ +	/* commit_rd_index() -> hv_signal_on_read() needs this. */
+ +	init_cached_read_index(channel);
+ +
+- 	do {
+- 		desc = get_next_pkt_raw(channel);
+- 		if (desc != NULL) {
+- 			netvsc_process_raw_pkt(device,
+- 					       channel,
+- 					       net_device,
+- 					       ndev,
+- 					       desc->trans_id,
+- 					       desc);
+- 
+- 			put_pkt_raw(channel, desc);
+- 			need_to_commit = true;
+- 			continue;
+- 		}
+- 		if (need_to_commit) {
+- 			need_to_commit = false;
+- 			commit_rd_index(channel);
+- 		}
+- 
+- 		ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
+- 					   &bytes_recvd, &request_id);
+- 		if (ret == 0) {
+- 			if (bytes_recvd > 0) {
+- 				desc = (struct vmpacket_descriptor *)buffer;
+- 				netvsc_process_raw_pkt(device,
+- 						       channel,
+- 						       net_device,
+- 						       ndev,
+- 						       request_id,
+- 						       desc);
+- 			} else {
+- 				/*
+- 				 * We are done for this pass.
+- 				 */
+- 				break;
+- 			}
+- 
+- 		} else if (ret == -ENOBUFS) {
+- 			if (bufferlen > NETVSC_PACKET_SIZE)
+- 				kfree(buffer);
+- 			/* Handle large packet */
+- 			buffer = kmalloc(bytes_recvd, GFP_ATOMIC);
+- 			if (buffer == NULL) {
+- 				/* Try again next time around */
+- 				netdev_err(ndev,
+- 					   "unable to allocate buffer of size "
+- 					   "(%d)!!\n", bytes_recvd);
+- 				break;
+- 			}
+- 
+- 			bufferlen = bytes_recvd;
+- 		}
++ 	while ((desc = get_next_pkt_raw(channel)) != NULL) {
++ 		netvsc_process_raw_pkt(device, channel, net_device,
++ 				       ndev, desc->trans_id, desc);
+  
++ 		put_pkt_raw(channel, desc);
++ 		need_to_commit = true;
+ +		init_cached_read_index(channel);
++ 	}
+  
+- 	} while (1);
+- 
+- 	if (bufferlen > NETVSC_PACKET_SIZE)
+- 		kfree(buffer);
++ 	if (need_to_commit)
++ 		commit_rd_index(channel);
+  
+  	netvsc_chk_recv_comp(net_device, channel, q_idx);
+  }
