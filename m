@@ -1,56 +1,106 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next 00/10] bnxt_en: Add XDP support.
-Date: Wed, 1 Feb 2017 00:33:40 -0500
-Message-ID: <CAHashqCH53_6-fM=3-K86y76uEw7DpQgqtO9DBAShQgnz2dQdw@mail.gmail.com>
-References: <20170131153647.GA77071@C02RW35GFVH8.dhcp.broadcom.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 4.10-rc3 12/13] net: ath5k: fix build errors when linux/phy*.h is removed from net/dsa.h
+Date: Wed, 01 Feb 2017 07:34:19 +0200
+Message-ID: <87r33ibhk4.fsf@codeaurora.org>
+References: <20170131191704.GA8281@n2100.armlinux.org.uk>
+        <E1cYdxc-0000XC-N6@rmk-PC.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain
+Cc: linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
+        linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        target-devel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jiri Slaby <jirislaby@gmail.com>,
+        Nick Kossifidis <mickflemm@gmail.com>,
+        "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+To: Russell King <rmk+kernel@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36824 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750991AbdBAFeC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 00:34:02 -0500
-Received: by mail-qk0-f193.google.com with SMTP id i34so24386908qkh.3
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 21:34:01 -0800 (PST)
-In-Reply-To: <20170131153647.GA77071@C02RW35GFVH8.dhcp.broadcom.net>
+Received: from smtp.codeaurora.org ([198.145.29.96]:45380 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751004AbdBAFe0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 00:34:26 -0500
+In-Reply-To: <E1cYdxc-0000XC-N6@rmk-PC.armlinux.org.uk> (Russell King's
+        message of "Tue, 31 Jan 2017 19:19:24 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2017 at 10:36 AM, Andy Gospodarek <andy@greyhouse.net> wrote:
-> On Mon, Jan 30, 2017 at 08:47:47PM -0800, Alexei Starovoitov wrote:
->> On Mon, Jan 30, 2017 at 08:49:25PM -0500, Michael Chan wrote:
->> > The first 8 patches refactor the code (rx/tx code paths and ring logic)
->> > and add the basic infrastructure to support XDP.  The 9th patch adds
->> > basic ndo_xdp to support XDP_DROP and XDP_PASS only.  The 10th patch
->> > completes the series with XDP_TX.
->>
->> Looks great.
->> Could you please share performance numbers ?
+Russell King <rmk+kernel@armlinux.org.uk> writes:
+
+> Fix these errors reported by the 0-day builder by replacing the
+> linux/export.h include with linux/module.h.
 >
-> I'll post some later today.
-
-I finally got my system moved around to what I'd hoped would be the
-right spot in my lab, but the system used for generating the traffic
-was only able to send 6Mpps with pktgen, so it was not a great test.
-
-My receiving system with i7-6700 CPU @ 3.40GHz seemed to have no issue
-handling this 6Mpps load -- mpstat showed only one core was ~25%
-utilitzed with all of that servicing softirqs.  The rest of the cores
-were 100% idle.
-
-I'm going to search for other traffic generation tools/systems to make
-sure I can get at least line-rate for the 10GbE cards I was using.
-
+> In file included from include/linux/platform_device.h:14:0,
+>                  from drivers/net/wireless/ath/ath5k/ahb.c:20:
+> include/linux/device.h:1463:1: warning: data definition has no type or storage class
+>  module_init(__driver##_init); \
+>  ^
+> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
+>   module_driver(__platform_driver, platform_driver_register, \
+>   ^~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
+>  module_platform_driver(ath_ahb_driver);
+>  ^~~~~~~~~~~~~~~~~~~~~~
+> include/linux/device.h:1463:1: error: type defaults to 'int' in declaration of 'module_init' [-Werror=implicit-int]
+>  module_init(__driver##_init); \
+>  ^
+> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
+>   module_driver(__platform_driver, platform_driver_register, \
+>   ^~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
+>  module_platform_driver(ath_ahb_driver);
+>  ^~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: warning: parameter names (without types) in function declaration
+> In file included from include/linux/platform_device.h:14:0,
+>                  from drivers/net/wireless/ath/ath5k/ahb.c:20:
+> include/linux/device.h:1468:1: warning: data definition has no type or storage class
+>  module_exit(__driver##_exit);
+>  ^
+> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
+>   module_driver(__platform_driver, platform_driver_register, \
+>   ^~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
+>  module_platform_driver(ath_ahb_driver);
+>  ^~~~~~~~~~~~~~~~~~~~~~
+> include/linux/device.h:1468:1: error: type defaults to 'int' in declaration of 'module_exit' [-Werror=implicit-int]
+>  module_exit(__driver##_exit);
+>  ^
+> include/linux/platform_device.h:228:2: note: in expansion of macro 'module_driver'
+>   module_driver(__platform_driver, platform_driver_register, \
+>   ^~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
+>  module_platform_driver(ath_ahb_driver);
+>  ^~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: warning: parameter names (without types) in function declaration
+> In file included from include/linux/platform_device.h:14:0,
+>                  from drivers/net/wireless/ath/ath5k/ahb.c:20:
+> drivers/net/wireless/ath/ath5k/ahb.c:233:24: warning: 'ath_ahb_driver_exit' defined but not used [-Wunused-function]
+>  module_platform_driver(ath_ahb_driver);
+>                         ^
+> include/linux/device.h:1464:20: note: in definition of macro 'module_driver'
+>  static void __exit __driver##_exit(void) \
+>                     ^~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
+>  module_platform_driver(ath_ahb_driver);
+>  ^~~~~~~~~~~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:24: warning: 'ath_ahb_driver_init' defined but not used [-Wunused-function]
+>  module_platform_driver(ath_ahb_driver);
+>                         ^
+> include/linux/device.h:1459:19: note: in definition of macro 'module_driver'
+>  static int __init __driver##_init(void) \
+>                    ^~~~~~~~
+> drivers/net/wireless/ath/ath5k/ahb.c:233:1: note: in expansion of macro 'module_platform_driver'
+>  module_platform_driver(ath_ahb_driver);
+>  ^~~~~~~~~~~~~~~~~~~~~~
 >
->>
->> Also please add something like:
->>   if (prog && prog->xdp_adjust_head) {
->>           netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
->>           return -EOPNOTSUPP;
->>   }
->> unless you plan to add adjut_head support until net-next closes.
->> Note, it's must have for load balancer functionality.
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+
+Looks good to me:
+
+Acked-by: Kalle Valo <kvalo@codeaurora.org>
+
+I assume Dave will take this so I'll drop the patch from my queue.
+
+-- 
+Kalle Valo
