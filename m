@@ -1,7 +1,7 @@
 From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [PATCH 07/14] tools lib bpf: Add BPF program pinning APIs
-Date: Wed,  1 Feb 2017 09:25:00 -0300
-Message-ID: <20170201122507.29303-8-acme@kernel.org>
+Subject: [PATCH 12/14] perf test: Add libbpf pinning test
+Date: Wed,  1 Feb 2017 09:25:05 -0300
+Message-ID: <20170201122507.29303-13-acme@kernel.org>
 References: <20170201122507.29303-1-acme@kernel.org>
 Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
         Alexei Starovoitov <ast@fb.com>,
@@ -9,223 +9,139 @@ Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
         Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
         Arnaldo Carvalho de Melo <acme@redhat.com>
 To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:48626 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752342AbdBAMZs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 07:25:48 -0500
 In-Reply-To: <20170201122507.29303-1-acme@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Joe Stringer <joe@ovn.org>
 
-Add new APIs to pin a BPF program (or specific instances) to the
-filesystem.  The user can specify the path full path within a BPF
-filesystem to pin the program.
+Add a test for the newly added BPF object pinning functionality.
 
-bpf_program__pin_instance(prog, path, n) will pin the nth instance of
-'prog' to the specified path.
+For example:
 
-bpf_program__pin(prog, path) will create the directory 'path' (if it
-does not exist) and pin each instance within that directory. For
-instance, path/0, path/1, path/2.
+  # tools/perf/perf test 37
+    37: BPF filter                                 :
+    37.1: Basic BPF filtering                      : Ok
+    37.2: BPF pinning                              : Ok
+    37.3: BPF prologue generation                  : Ok
+    37.4: BPF relocation checker                   : Ok
 
-Committer notes:
-
-- Add missing headers for mkdir()
-
-- Check strdup() for failure
-
-- Check snprintf >= size, not >, as == also means truncated, see 'man
-  snprintf', return value.
-
-- Conditionally define BPF_FS_MAGIC, as it isn't in magic.h in older
-  systems and we're not yet having a tools/include/uapi/linux/magic.h
-  copy.
-
-- Do not include linux/magic.h, not present in older distros.
+  # tools/perf/perf test 37 -v 2>&1 | grep pinned
+    libbpf: pinned map '/sys/fs/bpf/perf_test/flip_table'
+    libbpf: pinned program '/sys/fs/bpf/perf_test/func=SyS_epoll_wait/0'
 
 Signed-off-by: Joe Stringer <joe@ovn.org>
+Requested-and-Tested-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 Cc: Alexei Starovoitov <ast@fb.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Wang Nan <wangnan0@huawei.com>
 Cc: netdev@vger.kernel.org
-Link: http://lkml.kernel.org/r/20170126212001.14103-2-joe@ovn.org
+Link: http://lkml.kernel.org/r/20170126212001.14103-7-joe@ovn.org
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- tools/lib/bpf/libbpf.c | 120 +++++++++++++++++++++++++++++++++++++++++++++++++
- tools/lib/bpf/libbpf.h |   3 ++
- 2 files changed, 123 insertions(+)
+ tools/perf/tests/bpf.c | 42 +++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 41 insertions(+), 1 deletion(-)
 
-diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-index e6cd62b1264b..c4465b2fddf6 100644
---- a/tools/lib/bpf/libbpf.c
-+++ b/tools/lib/bpf/libbpf.c
-@@ -4,6 +4,7 @@
-  * Copyright (C) 2013-2015 Alexei Starovoitov <ast@kernel.org>
-  * Copyright (C) 2015 Wang Nan <wangnan0@huawei.com>
-  * Copyright (C) 2015 Huawei Inc.
-+ * Copyright (C) 2017 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of the GNU Lesser General Public
-@@ -22,6 +23,7 @@
- #include <stdlib.h>
- #include <stdio.h>
- #include <stdarg.h>
-+#include <libgen.h>
- #include <inttypes.h>
- #include <string.h>
- #include <unistd.h>
-@@ -32,6 +34,10 @@
- #include <linux/kernel.h>
+diff --git a/tools/perf/tests/bpf.c b/tools/perf/tests/bpf.c
+index 92343f43e44a..1a04fe77487d 100644
+--- a/tools/perf/tests/bpf.c
++++ b/tools/perf/tests/bpf.c
+@@ -5,11 +5,13 @@
+ #include <util/evlist.h>
  #include <linux/bpf.h>
- #include <linux/list.h>
-+#include <linux/limits.h>
-+#include <sys/stat.h>
-+#include <sys/types.h>
-+#include <sys/vfs.h>
- #include <libelf.h>
- #include <gelf.h>
+ #include <linux/filter.h>
++#include <api/fs/fs.h>
+ #include <bpf/bpf.h>
+ #include "tests.h"
+ #include "llvm.h"
+ #include "debug.h"
+ #define NR_ITERS       111
++#define PERF_TEST_BPF_PATH "/sys/fs/bpf/perf_test"
  
-@@ -42,6 +48,10 @@
- #define EM_BPF 247
+ #ifdef HAVE_LIBBPF_SUPPORT
+ 
+@@ -54,6 +56,7 @@ static struct {
+ 	const char *msg_load_fail;
+ 	int (*target_func)(void);
+ 	int expect_result;
++	bool	pin;
+ } bpf_testcase_table[] = {
+ 	{
+ 		LLVM_TESTCASE_BASE,
+@@ -63,6 +66,17 @@ static struct {
+ 		"load bpf object failed",
+ 		&epoll_wait_loop,
+ 		(NR_ITERS + 1) / 2,
++		false,
++	},
++	{
++		LLVM_TESTCASE_BASE,
++		"BPF pinning",
++		"[bpf_pinning]",
++		"fix kbuild first",
++		"check your vmlinux setting?",
++		&epoll_wait_loop,
++		(NR_ITERS + 1) / 2,
++		true,
+ 	},
+ #ifdef HAVE_BPF_PROLOGUE
+ 	{
+@@ -73,6 +87,7 @@ static struct {
+ 		"check your vmlinux setting?",
+ 		&llseek_loop,
+ 		(NR_ITERS + 1) / 4,
++		false,
+ 	},
  #endif
+ 	{
+@@ -83,6 +98,7 @@ static struct {
+ 		"libbpf error when dealing with relocation",
+ 		NULL,
+ 		0,
++		false,
+ 	},
+ };
  
-+#ifndef BPF_FS_MAGIC
-+#define BPF_FS_MAGIC		0xcafe4a11
-+#endif
-+
- #define __printf(a, b)	__attribute__((format(printf, a, b)))
+@@ -226,10 +242,34 @@ static int __test__bpf(int idx)
+ 		goto out;
+ 	}
  
- __printf(1, 2)
-@@ -1237,6 +1247,116 @@ int bpf_object__load(struct bpf_object *obj)
- 	return err;
- }
- 
-+static int check_path(const char *path)
-+{
-+	struct statfs st_fs;
-+	char *dname, *dir;
-+	int err = 0;
+-	if (obj)
++	if (obj) {
+ 		ret = do_test(obj,
+ 			      bpf_testcase_table[idx].target_func,
+ 			      bpf_testcase_table[idx].expect_result);
++		if (ret != TEST_OK)
++			goto out;
++		if (bpf_testcase_table[idx].pin) {
++			int err;
 +
-+	if (path == NULL)
-+		return -EINVAL;
-+
-+	dname = strdup(path);
-+	if (dname == NULL)
-+		return -ENOMEM;
-+
-+	dir = dirname(dname);
-+	if (statfs(dir, &st_fs)) {
-+		pr_warning("failed to statfs %s: %s\n", dir, strerror(errno));
-+		err = -errno;
-+	}
-+	free(dname);
-+
-+	if (!err && st_fs.f_type != BPF_FS_MAGIC) {
-+		pr_warning("specified path %s is not on BPF FS\n", path);
-+		err = -EINVAL;
-+	}
-+
-+	return err;
-+}
-+
-+int bpf_program__pin_instance(struct bpf_program *prog, const char *path,
-+			      int instance)
-+{
-+	int err;
-+
-+	err = check_path(path);
-+	if (err)
-+		return err;
-+
-+	if (prog == NULL) {
-+		pr_warning("invalid program pointer\n");
-+		return -EINVAL;
++			if (!bpf_fs__mount()) {
++				pr_debug("BPF filesystem not mounted\n");
++				ret = TEST_FAIL;
++				goto out;
++			}
++			err = mkdir(PERF_TEST_BPF_PATH, 0777);
++			if (err && errno != EEXIST) {
++				pr_debug("Failed to make perf_test dir: %s\n",
++					 strerror(errno));
++				ret = TEST_FAIL;
++				goto out;
++			}
++			if (bpf_object__pin(obj, PERF_TEST_BPF_PATH))
++				ret = TEST_FAIL;
++			if (rm_rf(PERF_TEST_BPF_PATH))
++				ret = TEST_FAIL;
++		}
 +	}
 +
-+	if (instance < 0 || instance >= prog->instances.nr) {
-+		pr_warning("invalid prog instance %d of prog %s (max %d)\n",
-+			   instance, prog->section_name, prog->instances.nr);
-+		return -EINVAL;
-+	}
-+
-+	if (bpf_obj_pin(prog->instances.fds[instance], path)) {
-+		pr_warning("failed to pin program: %s\n", strerror(errno));
-+		return -errno;
-+	}
-+	pr_debug("pinned program '%s'\n", path);
-+
-+	return 0;
-+}
-+
-+static int make_dir(const char *path)
-+{
-+	int err = 0;
-+
-+	if (mkdir(path, 0700) && errno != EEXIST)
-+		err = -errno;
-+
-+	if (err)
-+		pr_warning("failed to mkdir %s: %s\n", path, strerror(-err));
-+	return err;
-+}
-+
-+int bpf_program__pin(struct bpf_program *prog, const char *path)
-+{
-+	int i, err;
-+
-+	err = check_path(path);
-+	if (err)
-+		return err;
-+
-+	if (prog == NULL) {
-+		pr_warning("invalid program pointer\n");
-+		return -EINVAL;
-+	}
-+
-+	if (prog->instances.nr <= 0) {
-+		pr_warning("no instances of prog %s to pin\n",
-+			   prog->section_name);
-+		return -EINVAL;
-+	}
-+
-+	err = make_dir(path);
-+	if (err)
-+		return err;
-+
-+	for (i = 0; i < prog->instances.nr; i++) {
-+		char buf[PATH_MAX];
-+		int len;
-+
-+		len = snprintf(buf, PATH_MAX, "%s/%d", path, i);
-+		if (len < 0)
-+			return -EINVAL;
-+		else if (len >= PATH_MAX)
-+			return -ENAMETOOLONG;
-+
-+		err = bpf_program__pin_instance(prog, buf, i);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
- void bpf_object__close(struct bpf_object *obj)
- {
- 	size_t i;
-diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
-index 4014d1ba5e3d..9f8aa63b95f4 100644
---- a/tools/lib/bpf/libbpf.h
-+++ b/tools/lib/bpf/libbpf.h
-@@ -106,6 +106,9 @@ void *bpf_program__priv(struct bpf_program *prog);
- const char *bpf_program__title(struct bpf_program *prog, bool needs_copy);
- 
- int bpf_program__fd(struct bpf_program *prog);
-+int bpf_program__pin_instance(struct bpf_program *prog, const char *path,
-+			      int instance);
-+int bpf_program__pin(struct bpf_program *prog, const char *path);
- 
- struct bpf_insn;
- 
+ out:
+ 	bpf__clear();
+ 	return ret;
 -- 
 2.9.3
