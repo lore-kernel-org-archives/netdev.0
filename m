@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtnetlink: Handle IFLA_MASTER parameter when
- processing rtnl_newlink
-Date: Wed, 01 Feb 2017 11:53:51 -0500 (EST)
-Message-ID: <20170201.115351.83909828706888379.davem@davemloft.net>
-References: <20170130232346.29761-1-theuns.verwoerd@alliedtelesis.co.nz>
+Subject: Re: [PATCH net v2] net/sched: matchall: Fix configuration race
+Date: Wed, 01 Feb 2017 11:58:28 -0500 (EST)
+Message-ID: <20170201.115828.2242919958813726618.davem@davemloft.net>
+References: <1485868469-6199-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: theuns.verwoerd@alliedtelesis.co.nz
+Cc: jiri@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        daniel@iogearbox.net, jhs@mojatatu.com, netdev@vger.kernel.org
+To: yotamg@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38918 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39116 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752960AbdBAQxw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:53:52 -0500
-In-Reply-To: <20170130232346.29761-1-theuns.verwoerd@alliedtelesis.co.nz>
+        with ESMTP id S1752759AbdBAQ6f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:58:35 -0500
+In-Reply-To: <1485868469-6199-1-git-send-email-yotamg@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Theuns Verwoerd <theuns.verwoerd@alliedtelesis.co.nz>
-Date: Tue, 31 Jan 2017 12:23:46 +1300
+From: Yotam Gigi <yotamg@mellanox.com>
+Date: Tue, 31 Jan 2017 15:14:29 +0200
 
-> Allow a master interface to be specified as one of the parameters when
-> creating a new interface via rtnl_newlink.  Previously this would
-> require invoking interface creation, waiting for it to complete, and
-> then separately binding that new interface to a master.
+> In the current version, the matchall internal state is split into two
+> structs: cls_matchall_head and cls_matchall_filter. This makes little
+> sense, as matchall instance supports only one filter, and there is no
+> situation where one exists and the other does not. In addition, that led
+> to some races when filter was deleted while packet was processed.
 > 
-> In particular, this is used when creating a macvlan child interface for
-> VRRP in a VRF configuration, allowing the interface creator to specify
-> directly what master interface should be inherited by the child,
-> without having to deal with asynchronous complications and potential
-> race conditions.
+> Unify that two structs into one, thus simplifying the process of matchall
+> creation and deletion. As a result, the new, delete and get callbacks have
+> a dummy implementation where all the work is done in destroy and change
+> callbacks, as was done in cls_cgroup.
 > 
-> Signed-off-by: Theuns Verwoerd <theuns.verwoerd@alliedtelesis.co.nz>
+> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
+> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Acked-by: Jiri Pirko <jiri@mellanox.com>
 
-Applied to net-next, thanks.
+Applied and queued up for -stable, thanks.
