@@ -1,180 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 0/5] bridge: per vlan dst_metadata support
-Date: Wed, 1 Feb 2017 08:35:23 -0800
-Message-ID: <20170201083523.0b1bdac6@xeon-e3>
-References: <1485842235-32343-1-git-send-email-roopa@cumulusnetworks.com>
-        <20170131084134.405043f8@xeon-e3>
-        <5890F6E7.7040402@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net-next): ipsec-next 2017-02-01
+Date: Wed, 01 Feb 2017 11:38:47 -0500 (EST)
+Message-ID: <20170201.113847.394056137617535611.davem@davemloft.net>
+References: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        nikolay@cumulusnetworks.com, tgraf@suug.ch,
-        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
-        dsa@cumulusnetworks.com, hadi@mojatatu.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:36680 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751114AbdBAQfc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:35:32 -0500
-Received: by mail-pg0-f43.google.com with SMTP id 3so51760453pgj.3
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 08:35:31 -0800 (PST)
-In-Reply-To: <5890F6E7.7040402@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38328 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750898AbdBAQiv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:38:51 -0500
+In-Reply-To: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Jan 2017 12:43:19 -0800
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 1 Feb 2017 09:17:42 +0100
 
-> On 1/31/17, 8:41 AM, Stephen Hemminger wrote:
-> > On Mon, 30 Jan 2017 21:57:10 -0800
-> > Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> >  
-> >> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> >>
-> >> High level summary:
-> >> lwt and dst_metadata have enabled vxlan l3 deployments
-> >> to use a single vxlan netdev for multiple vnis eliminating the scalability
-> >> problem with using a single vxlan netdev per vni. This series tries to
-> >> do the same for vxlan netdevs in pure l2 bridged networks.
-> >> Use-case/deployment and details are below.
-> >>
-> >> Deployment scerario details:
-> >> As we know VXLAN is used to build layer 2 virtual networks across the
-> >> underlay layer3 infrastructure. A VXLAN tunnel endpoint (VTEP)
-> >> originates and terminates VXLAN tunnels. And a VTEP can be a TOR switch
-> >> or a vswitch in the hypervisor. This patch series mainly
-> >> focuses on the TOR switch configured as a Vtep. Vxlan segment ID (vni)
-> >> along with vlan id is used to identify layer 2 segments in a vxlan
-> >> overlay network. Vxlan bridging is the function provided by Vteps to terminate
-> >> vxlan tunnels and map the vxlan vni to traditional end host vlan. This is
-> >> covered in the "VXLAN Deployment Scenarios" in sections 6 and 6.1 in RFC 7348.
-> >> To provide vxlan bridging function, a vtep has to map vlan to a vni. The rfc
-> >> says that the ingress VTEP device shall remove the IEEE 802.1Q VLAN tag in
-> >> the original Layer 2 packet if there is one before encapsulating the packet
-> >> into the VXLAN format to transmit it through the underlay network. The remote
-> >> VTEP devices have information about the VLAN in which the packet will be
-> >> placed based on their own VLAN-to-VXLAN VNI mapping configurations.
-> >>
-> >> Existing solution:
-> >> Without this patch series one can deploy such a vtep configuration by
-> >> adding the local ports and vxlan netdevs into a vlan filtering bridge.
-> >> The local ports are configured as trunk ports carrying all vlans.
-> >> A vxlan netdev per vni is added to the bridge. Vlan mapping to vni is
-> >> achieved by configuring the vlan as pvid on the corresponding vxlan netdev.
-> >> The vxlan netdev only receives traffic corresponding to the vlan it is mapped
-> >> to. This configuration maps traffic belonging to a vlan to the corresponding
-> >> vxlan segment.
-> >>
-> >>           -----------------------------------
-> >>          |              bridge               |
-> >>          |                                   |
-> >>           -----------------------------------
-> >>             |100,200       |100 (pvid)    |200 (pvid)
-> >>             |              |              |
-> >>            swp1          vxlan1000      vxlan2000
-> >>                     
-> >> This provides the required vxlan bridging function but poses a
-> >> scalability problem with using a separate vxlan netdev for each vni.
-> >>
-> >> Solution in this patch series:
-> >> The Goal is to use a single vxlan device to carry all vnis similar
-> >> to the vxlan collect metadata mode but additionally allowing the bridge
-> >> and vxlan driver to carry all the forwarding information and also learn.
-> >> This implementation uses the existing dst_metadata infrastructure to map
-> >> vlan to a tunnel id.
-> >> - vxlan driver changes:
-> >>     - enable collect metadata mode to be used with learning,
-> >>       replication and fdb
-> >>     - A single fdb table hashed by (mac, vni)
-> >>     - rx path already has the vni
-> >>     - tx path expects a vni in the packet with dst_metadata and relies
-> >>       on learnt or static forwarding information table to forward the packet
-> >>
-> >> - Bridge driver changes: per vlan dst_metadata support:
-> >>     - Our use case is vxlan and 1-1 mapping between vlan and vni, but I have
-> >>       kept the api generic for any tunnel info
-> >>     - Uapi to configure/unconfigure/dump per vlan tunnel data
-> >>     - new bridge port flag to turn this feature on/off. off by default
-> >>     - ingress hook:
-> >>         - if port is a tunnel port, use tunnel info in
-> >>           attached dst_metadata to map it to a local vlan
-> >>     - egress hook:
-> >>         - if port is a tunnel port, use tunnel info attached to vlan
-> >>           to set dst_metadata on the skb
-> >>
-> >> Other approaches tried and vetoed:
-> >> - tc vlan push/pop and tunnel metadata dst:
-> >>     - though tc can be used to do part of this, these patches address a deployment
-> >>       case where bridge driver vlan filtering and forwarding information
-> >>       database along with vxlan driver forwarding information table and learning
-> >>       are required.
-> >> - making vxlan driver understand vlan-vni mapping:
-> >>     - I had a series almost ready with this one but soon realized
-> >>       it duplicated a lot of vlan handling code in the vxlan driver
-> >>
-> >> Roopa Prabhu (5):
-> >>   ip_tunnels: new IP_TUNNEL_INFO_BRIDGE flag for ip_tunnel_info mode
-> >>   vxlan: support fdb and learning in COLLECT_METADATA mode
-> >>   bridge: uapi: add per vlan tunnel info
-> >>   bridge: per vlan dst_metadata netlink support
-> >>   bridge: vlan dst_metadata hooks in ingress and egress paths
-> >>
-> >>  drivers/net/vxlan.c            |  211 +++++++++++++++++-----------
-> >>  include/linux/if_bridge.h      |    1 +
-> >>  include/net/ip_tunnels.h       |    1 +
-> >>  include/uapi/linux/if_bridge.h |   11 ++
-> >>  include/uapi/linux/if_link.h   |    1 +
-> >>  include/uapi/linux/neighbour.h |    1 +
-> >>  net/bridge/Makefile            |    5 +-
-> >>  net/bridge/br_forward.c        |    2 +-
-> >>  net/bridge/br_input.c          |    8 +-
-> >>  net/bridge/br_netlink.c        |  140 +++++++++++++------
-> >>  net/bridge/br_netlink_tunnel.c |  296 ++++++++++++++++++++++++++++++++++++++++
-> >>  net/bridge/br_private.h        |   12 ++
-> >>  net/bridge/br_private_tunnel.h |   47 +++++++
-> >>  net/bridge/br_vlan.c           |   24 +++-
-> >>  net/bridge/br_vlan_tunnel.c    |  203 +++++++++++++++++++++++++++
-> >>  15 files changed, 837 insertions(+), 126 deletions(-)
-> >>  create mode 100644 net/bridge/br_netlink_tunnel.c
-> >>  create mode 100644 net/bridge/br_private_tunnel.h
-> >>  create mode 100644 net/bridge/br_vlan_tunnel.c
-> >>  
-> > I still think such complexity should be done with OVS where the architecture
-> > is much more flexible. Rather than adding lots more special case hacks into
-> > bridge.  
+> 1) Some typo fixes, from Alexander Alemayhu.
 > 
-> But, this is just discouraging people from using the bridge driver. sorry, but i think it is a bit too late for that now :)
+> 2) Don't acquire state lock in get_mtu functions.
+>    The only rece against a dead state does not matter.
+>    From Florian Westphal.
+> 
+> 3) Remove xfrm4_state_fini, it is unused for more than
+>    10 years. From Florian Westphal.
+> 
+> 4) Various rcu usage improvements. From Florian Westphal.
+> 
+> 5) Properly handle crypto arrors in ah4/ah6.
+>    From Gilad Ben-Yossef.
+> 
+> 6) Try to avoid skb linearization in esp4 and esp6.
+> 
+> 7) The esp trailer is now set up in different places,
+>    add a helper for this.
+> 
+> 8) With the upcomming usage of gro_cells in IPsec,
+>    a gro merged skb can have a secpath. Drop it
+>    before freeing or reusing the skb.
+> 
+> 9) Add a xfrm dummy network device for napi. With
+>    this we can use gro_cells from within xfrm,
+>    it allows IPsec GRO without impact on the generic
+>    networking code.
+> 
+> Please pull or let me know if there are problems.
 
-It is time for a new driver (like team was for bonding). That does less in the kernel,
-and has a cleaner API for extension. Then the actual bridge forwarding path can be reduced
-down to something more manageable. 
-
-> A few things:
-> - Like I have said before, bridge driver vlan filtering and forwarding database has been
-> ideal to offload to switch asics. We have many industry standard bridging
-> networking features deployed using the bridge driver...even the vxlan bridging gateway
-> I mention in the deployment section above (this patch series just helps with scaling those deployments).
-> When bridge driver has all it takes to be deployed on a data center switch today, I am not understanding
-> the argument on saving it from newer features. why not enable bridge for newer features when people are using it ?
-> 
-> - vlan to tunnel-id (or vlan to vxlan id) mapping is not a hack. It is supported on every data center switch
-> that supports l2 gateway functions today (google will give a few hits).
-> 
-> - dst_metadata propagation is also not a hack. It is a generic infrastructure provided by the kernel
-> that any subsystem can use...and is already in use in various parts in the kernel today.
-> 
-> - We heavily use bridge driver forwarding database for our l2 deployments similar to the routing fib.
-> With routing protocols like bgp being used as control plane for l2 overlays
->  https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07, bgp implementations like quagga will also
-> now start looking at the bridge forwarding database.
-> 
-> - this patchset enables a feature which is off by default, so i am not sure how it is adding additional
-> complexity to the bridge driver.
-
-The Openstack and Docker architectures have lots of small bridges. These are really endpoint vswitches
-having something lighter would help them.
-
-I admit my bias. like Radia Perlman, it seems people keep reinventing L2 features to implement features
-that belong in L3. Coddling along old broken applications that run on L2.
+Looks great, pulled, thanks a lot!
