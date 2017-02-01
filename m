@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 07/15] xfrm: state: simplify rcu_read_unlock handling in two spots
-Date: Wed, 1 Feb 2017 09:17:49 +0100
-Message-ID: <1485937077-612-8-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 10/15] IPsec: do not ignore crypto err in ah6 input
+Date: Wed, 1 Feb 2017 09:17:52 +0100
+Message-ID: <1485937077-612-11-git-send-email-steffen.klassert@secunet.com>
 References: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,82 +10,46 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:37088 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:37096 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751787AbdBAISQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751820AbdBAISQ (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 1 Feb 2017 03:18:16 -0500
 In-Reply-To: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Gilad Ben-Yossef <gilad@benyossef.com>
 
-Instead of:
-  if (foo) {
-      unlock();
-      return bar();
-   }
-   unlock();
-do:
-   unlock();
-   if (foo)
-       return bar();
+ah6 input processing uses the asynchronous hash crypto API which
+supplies an error code as part of the operation completion but
+the error code was being ignored.
 
-This is ok because rcu protected structure is only dereferenced before
-the conditional.
+Treat a crypto API error indication as a verification failure.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+While a crypto API reported error would almost certainly result
+in a memcpy of the digest failing anyway and thus the security
+risk seems minor, performing a memory compare on what might be
+uninitialized memory is wrong.
+
+Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_state.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ net/ipv6/ah6.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index b5dad89..a62097e 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -231,17 +231,18 @@ static const struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
- 		return NULL;
- 	typemap = afinfo->type_map;
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index 189eb10..dda6035 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -474,6 +474,9 @@ static void ah6_input_done(struct crypto_async_request *base, int err)
+ 	int hdr_len = skb_network_header_len(skb);
+ 	int ah_hlen = (ah->hdrlen + 2) << 2;
  
--	type = typemap[proto];
-+	type = READ_ONCE(typemap[proto]);
- 	if (unlikely(type && !try_module_get(type->owner)))
- 		type = NULL;
++	if (err)
++		goto out;
 +
-+	rcu_read_unlock();
-+
- 	if (!type && !modload_attempted) {
--		rcu_read_unlock();
- 		request_module("xfrm-type-%d-%d", family, proto);
- 		modload_attempted = 1;
- 		goto retry;
- 	}
- 
--	rcu_read_unlock();
- 	return type;
- }
- 
-@@ -327,17 +328,17 @@ static struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family)
- 	if (unlikely(afinfo == NULL))
- 		return NULL;
- 
--	mode = afinfo->mode_map[encap];
-+	mode = READ_ONCE(afinfo->mode_map[encap]);
- 	if (unlikely(mode && !try_module_get(mode->owner)))
- 		mode = NULL;
-+
-+	rcu_read_unlock();
- 	if (!mode && !modload_attempted) {
--		rcu_read_unlock();
- 		request_module("xfrm-mode-%d-%d", family, encap);
- 		modload_attempted = 1;
- 		goto retry;
- 	}
- 
--	rcu_read_unlock();
- 	return mode;
- }
- 
+ 	work_iph = AH_SKB_CB(skb)->tmp;
+ 	auth_data = ah_tmp_auth(work_iph, hdr_len);
+ 	icv = ah_tmp_icv(ahp->ahash, auth_data, ahp->icv_trunc_len);
 -- 
 1.9.1
