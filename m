@@ -1,226 +1,65 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Re: [PATCH net-next] net: phy: Add LED mode driver for Microsemi
- PHYs.
-Date: Wed, 1 Feb 2017 15:02:18 +0530
-Message-ID: <20170201093217.GA29715@microsemi.com>
-References: <1485841561-32056-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1485841561-32056-2-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20170131133009.GA6894@lunn.ch>
-Reply-To: <Raju.Lakkaraju@microsemi.com>
+From: Michal Kazior <michal.kazior@tieto.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Wed, 1 Feb 2017 10:35:03 +0100
+Message-ID: <CA+BoTQnNFWFNe1W9nO+Kwp0oZaPuGZX=0F=MX3+m7X-ekNYPPQ@mail.gmail.com>
+References: <20170127103408.GG24223@pali> <87bmus7mfk.fsf@kamboji.qca.qualcomm.com>
+ <20170127115706.GH24223@pali> <8737g47kpd.fsf@kamboji.qca.qualcomm.com>
+ <20170127131146.GI24223@pali> <87bmus5xyc.fsf@kamboji.qca.qualcomm.com>
+ <20170127194012.GE20571@amd> <20170130175309.GY7403@atomide.com>
+ <8737fzrb36.fsf@kamboji.qca.qualcomm.com> <20170131155918.GD7403@atomide.com> <20170201083312.GA6609@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Tony Lindgren <tony@atomide.com>,
+        Kalle Valo <kvalo@codeaurora.org>, Pavel Machek <pavel@ucw.cz>,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Daniel Wagner <wagi@monom.org>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0088.outbound.protection.outlook.com ([104.47.33.88]:10304
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751482AbdBAJcm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Feb 2017 04:32:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20170131133009.GA6894@lunn.ch>
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:34379 "EHLO
+        mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdBAJfF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 04:35:05 -0500
+Received: by mail-qk0-f176.google.com with SMTP id s186so11312713qkb.1
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 01:35:04 -0800 (PST)
+In-Reply-To: <20170201083312.GA6609@pali>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 1 February 2017 at 09:33, Pali Roh=C3=A1r <pali.rohar@gmail.com> wrote:
+> On Tuesday 31 January 2017 07:59:18 Tony Lindgren wrote:
+>> * Kalle Valo <kvalo@codeaurora.org> [170130 22:36]:
+[...]
+>> > * before distro updates linux-firmware create yours own deb/rpm/whatev=
+er
+>> >   package "wl1251-firmware" which installs your flavor of nvs file (or
+>> >   the user fallback helper if more dynamic functionality is preferred)
+>>
+>> And that won't work when using the same file system on other machines.
+>>
+>> Think NFSroot for example. At least I'm using the same NFSroot across
+>> about 15 different machines including one n900 macro board with smc91x
+>> Ethernet.
+>
+> Exactly problem which we already discussed in previous emails. You
+> cannot serve one file (loaded by direct request_firmware) when your
+> rootfs is readonly, e.g. comes via NFS shared for more devices...
 
-Thank you for review and valuable comments.
+You can extract the nvs blob, put it in tmpfs and bind-mount (or
+symlink) it to /lib/firmware/ via modprobe install hook (or init
+scripts).
 
-On Tue, Jan 31, 2017 at 02:30:09PM +0100, Andrew Lunn wrote:
-> EXTERNAL EMAIL
-> 
-> 
-> On Tue, Jan 31, 2017 at 11:16:01AM +0530, Raju Lakkaraju wrote:
-> > From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> >
-> > LED Mode:
-> > Microsemi PHY support 2 LEDs (LED[0] and LED[1]) to display different
-> > status information that can be selected by setting LED mode.
-> >
-> > LED Mode parameter (vddmac, led-0-mode) and (vddmac, led-1-mode) get
-> > from Device Tree.
-> 
-> Hi Raju
-> 
-> How is vddmac an LED mode parameter?
-> 
 
-Typo. I will correct.
-It should be "vsc8531, led-0-mode".
-
-> > Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> > ---
-> >  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 39 ++++++++++++
-> >  drivers/net/phy/mscc.c                             | 72 ++++++++++++++++++++++
-> >  2 files changed, 111 insertions(+)
-> >
-> > diff --git a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> > index bdefefc6..1abf4b6 100644
-> > --- a/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> > +++ b/Documentation/devicetree/bindings/net/mscc-phy-vsc8531.txt
-> > @@ -27,6 +27,12 @@ Optional properties:
-> >                         'vddmac'.
-> >                         Default value is 0%.
-> >                         Ref: Table:1 - Edge rate change (below).
-> > +- vsc8531,led-0-mode : LED mode. Specify how the LED[0] should behave.
-> > +                       Allowed values is listed in the 'PHY LED Mode' -
-> > +                       Table 2 (below).  Default value is 1.
-> > +- vsc8531,led-1-mode : LED mode. Specify how the LED[1] should behave.
-> > +                       Allowed values is listed in the 'PHY LED Mode' -
-> > +                       Table 2 (below).  Default value is 2.
-> >
-> >  Table: 1 - Edge rate change
-> >  ----------------------------------------------------------------|
-> > @@ -54,10 +60,43 @@ Table: 1 - Edge rate change
-> >  | (slowest)                                                  |
-> >  |---------------------------------------------------------------|
-> >
-> > +Table: 2 - PHY LED Mode
-> > +|-----------------------------------------------|
-> > +| LINK_ACTIVITY                      | 0             |
-> > +|-----------------------------------------------|
-> > +| LINK_1000_ACTIVITY         | 1             |
-> > +|-----------------------------------------------|
-> > +| LINK_100_ACTIVITY          | 2             |
-> > +|-----------------------------------------------|
-> > +| LINK_10_ACTIVITY           | 3             |
-> > +|-----------------------------------------------|
-> > +| LINK_100_1000_ACTIVITY     | 4             |
-> > +|-----------------------------------------------|
-> > +| LINK_10_1000_ACTIVITY              | 5             |
-> > +|-----------------------------------------------|
-> > +| LINK_10_100_ACTIVITY               | 6             |
-> > +|-----------------------------------------------|
-> > +| DUPLEX_COLLISION           | 8             |
-> > +|-----------------------------------------------|
-> > +| COLLISION                  | 9             |
-> > +|-----------------------------------------------|
-> > +| ACTIVITY                   | 10            |
-> > +|-----------------------------------------------|
-> > +| AUTONEG_FAULT                      | 12            |
-> > +|-----------------------------------------------|
-> > +| SERIAL_MODE                        | 13            |
-> > +|-----------------------------------------------|
-> > +| FORCE_LED_OFF                      | 14            |
-> > +|-----------------------------------------------|
-> > +| FORCE_LED_ON                       | 15            |
-> > +|-----------------------------------------------|
-> > +
-> >  Example:
-> >
-> >          vsc8531_0: ethernet-phy@0 {
-> >                  compatible = "ethernet-phy-id0007.0570";
-> >                  vsc8531,vddmac               = <3300>;
-> >                  vsc8531,edge-slowdown        = <7>;
-> > +                vsc8531,led-0-mode   = <1>;
-> > +                vsc8531,led-1-mode   = <2>;
-> 
-> Numbers like this are pretty unreadable. I would suggest adding a header file in
-> include/dt-bindings/net/
-> 
-
-Accpeted. I will create new header file for DT Macros.
-
-> > +static int vsc85xx_led_cntl_set(struct phy_device *phydev,
-> > +                             u8 led_num,
-> > +                             u8 mode)
-> > +{
-> > +     int rc;
-> > +     u16 reg_val;
-> > +
-> > +     mutex_lock(&phydev->lock);
-> > +     reg_val = phy_read(phydev, MSCC_PHY_LED_MODE_SEL);
-> > +     if (led_num) {
-> > +             reg_val &= ~LED_1_MODE_SEL_MASK;
-> > +             reg_val |= (((u16)mode << LED_1_MODE_SEL_POS) &
-> > +                         LED_1_MODE_SEL_MASK);
-> > +     } else {
-> > +             reg_val |= ((u16)mode & LED_0_MODE_SEL_MASK);
-> > +     }
-> 
-> The asymmetry here makes me think this is wrong.
-> 
-
-Yes. You are correct.
-I missed following line in else part:
-"reg_val &= ~LED_0_MODE_SEL_MASK;"
-
-> > +     rc = phy_write(phydev, MSCC_PHY_LED_MODE_SEL, reg_val);
-> > +     mutex_unlock(&phydev->lock);
-> > +
-> > +     return rc;
-> > +}
-> > +
-> >  static int vsc85xx_mdix_get(struct phy_device *phydev, u8 *mdix)
-> >  {
-> >       u16 reg_val;
-> > @@ -499,6 +547,13 @@ static int vsc85xx_config_init(struct phy_device *phydev)
-> >       if (rc)
-> >               return rc;
-> >
-> > +     rc = vsc85xx_led_cntl_set(phydev, 1, vsc8531->led_1_mode);
-> > +     if (rc)
-> > +             return rc;
-> > +     rc = vsc85xx_led_cntl_set(phydev, 0, vsc8531->led_0_mode);
-> > +     if (rc)
-> > +             return rc;
-> > +
-> >       rc = genphy_config_init(phydev);
-> >
-> >       return rc;
-> > @@ -555,8 +610,13 @@ static int vsc85xx_read_status(struct phy_device *phydev)
-> >
-> >  static int vsc85xx_probe(struct phy_device *phydev)
-> >  {
-> > +     int rc;
-> >       int rate_magic;
-> > +     u8 led_0_mode;
-> > +     u8 led_1_mode;
-> >       struct vsc8531_private *vsc8531;
-> > +     struct device *dev = &phydev->mdio.dev;
-> > +     struct device_node *of_node = dev->of_node;
-> 
-> declarations are supposed to be reverse Christmas tree. i.e. longest
-> lines first.
-> 
-
-Accpeted.
-
-> >
-> >       rate_magic = vsc85xx_edge_rate_magic_get(phydev);
-> >       if (rate_magic < 0)
-> > @@ -570,6 +630,18 @@ static int vsc85xx_probe(struct phy_device *phydev)
-> >
-> >       vsc8531->rate_magic = rate_magic;
-> >
-> > +     /* LED[0] and LED[1] mode */
-> > +     rc = of_property_read_u8(of_node, "vsc8531,led-0-mode", &led_0_mode);
-> > +     if (rc != 0)
-> 
-> Please simplify this to just if (rc). Actually, it can be even
-> simpler.  of_property_read_u8 guarantees not to modify the return
-> value unless it has a value to return. So
-> 
->         vsc8531->led_0_mode = LINK_1000_ACTIVITY;
->         err = of_property_read_u8(of_node, "vsc8531,led-0-mode", &led_0_mode);
->         if (err != EINVAL)
->                 return err;
-> 
->         vsc8531->led_1_mode = LINK_100_ACTIVITY;
->         err = of_property_read_u8(of_node, "vsc8531,led-1-mode", &led_1_mode);
->         if (err != EINVAL)
->                 return err;
-> 
-> What about range checking? I could put 42 in the device tree for led
-> 0, and it would set led 1 as well i think?
-> 
-
-Accpeted. I will add range check and error condition.
-If DT don't have LED parameters define, driver should program with default values.
-
->    Andrew
-
----
-Thanks,
-Raju.
+Micha=C5=82
