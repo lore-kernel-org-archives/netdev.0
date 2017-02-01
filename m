@@ -1,80 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] be2net: fix initial MAC setting
-Date: Wed, 01 Feb 2017 11:12:19 -0500 (EST)
-Message-ID: <20170201.111219.1380185836663861761.davem@davemloft.net>
-References: <20170131190131.3347-1-cera@cera.cz>
-        <CAHHeUGU_7XUmBpEhzOBEsGqaoMFy=ddwu8xSuDFenCXfoVapVw@mail.gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Strange ARP behaviour with VXLAN
+Date: Wed, 1 Feb 2017 16:20:13 +0000
+Message-ID: <8d73b8f8-0ac4-c4c1-4dfc-c120716d52df@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: cera@cera.cz, netdev@vger.kernel.org, sathya.perla@broadcom.com,
-        ajit.khaparde@broadcom.com, somnath.kotur@broadcom.com
-To: sriharsha.basavapatna@broadcom.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37130 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750828AbdBAQMa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:12:30 -0500
-In-Reply-To: <CAHHeUGU_7XUmBpEhzOBEsGqaoMFy=ddwu8xSuDFenCXfoVapVw@mail.gmail.com>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:62968 "EHLO
+        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750828AbdBAQUd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:20:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Date: Wed, 1 Feb 2017 11:21:29 +0530
+When I perform the following operations on a recent (net-next) kernel:
+[see later for exact commands]
+* remove IP address from physical interface
+* set up VXLAN tunnel on that interface
+* add IP address back to physical interface
+* ping over the tunnel
+the ping fails.
 
-> On Wed, Feb 1, 2017 at 12:31 AM, Ivan Vecera <cera@cera.cz> wrote:
->> Recent commit 34393529163a ("be2net: fix MAC addr setting on privileged
->> BE3 VFs") allows privileged BE3 VFs to set its MAC address during
->> initialization. Although the initial MAC for such VFs is already
->> programmed by parent PF the subsequent setting performed by VF is OK,
->> but in certain cases (after fresh boot) this command in VF can fail.
->>
->> The MAC should be initialized only when:
->> 1) no MAC is programmed (always except BE3 VFs during first init)
->> 2) programmed MAC is different from requested (e.g. MAC is set when
->>    interface is down). In this case the initial MAC programmed by PF
->>    needs to be deleted.
->>
->> The adapter->dev_mac contains MAC address currently programmed in HW so
->> it should be zeroed when the MAC is deleted from HW and should not be
->> filled when MAC is set when interface is down in be_mac_addr_set() as
->> no programming is performed in this case.
->>
->> Example of failure without the fix (immediately after fresh boot):
->>
->> # ip link set eth0 up  <- eth0 is BE3 PF
->> be2net 0000:01:00.0 eth0: Link is Up
->>
->> # echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create 1 VF
->> ...
->> be2net 0000:01:04.0: Emulex OneConnect(be3): VF  port 0
->>
->> # ip link set eth8 up  <- eth8 is created privileged VF
->> be2net 0000:01:04.0: opcode 59-1 failed:status 1-76
->> RTNETLINK answers: Input/output error
->>
->> # echo 0 > /sys/class/net/eth0/device/sriov_numvfs  <- Delete VF
->> iommu: Removing device 0000:01:04.0 from group 33
->> ...
->>
->> # echo 1 > /sys/class/net/eth0/device/sriov_numvfs  <- Create it again
->> iommu: Removing device 0000:01:04.0 from group 33
->> ...
->>
->> # ip link set eth8 up
->> be2net 0000:01:04.0 eth8: Link is Up
->>
->> Initialization is now OK.
->>
->> v2 - Corrected the comment and condition check suggested by Suresh & Harsha
->>
->> Fixes: 34393529163a ("be2net: fix MAC addr setting on privileged BE3 VFs")
->> Cc: Sathya Perla <sathya.perla@broadcom.com>
->> Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
->> Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
->> Cc: Somnath Kotur <somnath.kotur@broadcom.com>
->> Signed-off-by: Ivan Vecera <cera@cera.cz>
- ...
-> Acked-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+[ Specific kernel version: 624374a56419c2d6d428c862f32cc1b20519095d.
+Note that if I do the same on 3.10.327-el7.x86_64 (RHEL7u2) the problem
+does not occur.  I have not yet tested on older mainline kernels, but plan
+to do so shortly.  Also note that in both cases, the link partner is running
+3.10.327-el7.x86_64. ]
 
-Applied, thanks everyone.
+Investigating with tcpdump, I find that the (VXLAN-encapsulated) ARP which
+is sent over the physical interface has the wrong (outer) source IP address,
+namely that of another interface on the source host.  This despite the ARP
+being sent over the correct interface.
+
+To be more specific, I have two hosts, call them A and B.  They are
+connected both by a management network (IP addresses Ah and Bh, bnx2 NICs)
+and by a back-to-back link (IP addresses Al and Bl, sfc 8000-series NICs).
+On B, I run
+# ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev $sfc dstport 4789
+# ip addr add 172.16.154.74/21 broadcast 172.16.159.255 dev vxlan0
+# ip link set vxlan0 up
+# tcpdump -pi $sfc -w somefile
+On A, I run
+# ip addr del $Al dev $sfc
+# ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev $sfc dstport 4789
+# ip addr add 172.16.154.73/21 broadcast 172.16.159.255 dev vxlan0
+# ip link set vxlan0 up
+# ip addr add $Al brd $Al_bcast dev $sfc
+# ping 172.16.154.74
+and the ping fails (Dest host unreachable).
+In the tcpdump from B, I see VXLAN-encapsulated ARP requests, whose outer IP
+header has source address Ah, and no responses.  Actually I see first a
+gratuitous ARP reply for ~.73, then a gratuitous ARP request for ~.73, then
+a series of normal ARP requests for ~.74; all of these have an outer IP
+source address of Ah, even though they were all sent over $sfc.
+If I leave out the 'ip addr del' on A, the encapsulated ARPs' outer IP
+source address is Al, as expected, the reply is sent, and the ping succeeds.
+
+So: why is host A 'remembering' that the NIC was missing its IP address, and
+why is it sending packets out of the (Al) NIC with a source address of Ah?
+And, is this behaviour intentional, or a bug?
+
+-Ed
