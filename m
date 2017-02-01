@@ -1,96 +1,107 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/3] trace: add variant without spacing in trace_print_hex_seq
-Date: Wed, 01 Feb 2017 09:10:52 +0100
-Message-ID: <5891980C.9020203@iogearbox.net>
-References: <cover.1485306168.git.daniel@iogearbox.net> <f860273ed9fd0c423f4d1ee2ab93565992d76ff4.1485306168.git.daniel@iogearbox.net> <20170130154425.581bf631@gandalf.local.home>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 06/15] xfrm: add and use xfrm_state_afinfo_get_rcu
+Date: Wed, 1 Feb 2017 09:17:48 +0100
+Message-ID: <1485937077-612-7-git-send-email-steffen.klassert@secunet.com>
+References: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ast@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170130154425.581bf631@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:37074 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751437AbdBAISK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Feb 2017 03:18:10 -0500
+In-Reply-To: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2017 09:44 PM, Steven Rostedt wrote:
-> On Wed, 25 Jan 2017 02:28:16 +0100
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
->
->> For upcoming tracepoint support for BPF, we want to dump the program's
->> tag. Format should be similar to __print_hex(), but without spacing.
->> Add a __print_hex_str() variant for exactly that purpose that reuses
->> trace_print_hex_seq().
->>
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: Steven Rostedt <rostedt@goodmis.org>
->> Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
->> ---
->>   include/linux/trace_events.h | 3 ++-
->>   include/trace/trace_events.h | 8 +++++++-
->>   kernel/trace/trace_output.c  | 7 ++++---
->>   3 files changed, 13 insertions(+), 5 deletions(-)
->>
->> diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
->> index be00761..cfa475a 100644
->> --- a/include/linux/trace_events.h
->> +++ b/include/linux/trace_events.h
->> @@ -33,7 +33,8 @@ const char *trace_print_bitmask_seq(struct trace_seq *p, void *bitmask_ptr,
->>   				    unsigned int bitmask_size);
->>
->>   const char *trace_print_hex_seq(struct trace_seq *p,
->> -				const unsigned char *buf, int len);
->> +				const unsigned char *buf, int len,
->> +				bool spacing);
->
-> Hmm, "spacing" doesn't really mean much. What about the invert of it,
-> and have "concatenate"?
+From: Florian Westphal <fw@strlen.de>
 
-Sure, I'm fine with that.
+xfrm_init_tempstate is always called from within rcu read side section.
+We can thus use a simpler function that doesn't call rcu_read_lock
+again.
 
->>   const char *trace_print_array_seq(struct trace_seq *p,
->>   				   const void *buf, int count,
->> diff --git a/include/trace/trace_events.h b/include/trace/trace_events.h
->> index 467e12f..9f68462 100644
->> --- a/include/trace/trace_events.h
->> +++ b/include/trace/trace_events.h
->> @@ -297,7 +297,12 @@
->>   #endif
->>
->>   #undef __print_hex
->> -#define __print_hex(buf, buf_len) trace_print_hex_seq(p, buf, buf_len)
->> +#define __print_hex(buf, buf_len)					\
->> +	trace_print_hex_seq(p, buf, buf_len, true)
->> +
->> +#undef __print_hex_str
->> +#define __print_hex_str(buf, buf_len)					\
->> +	trace_print_hex_seq(p, buf, buf_len, false)
->>
->>   #undef __print_array
->>   #define __print_array(array, count, el_size)				\
->> @@ -711,6 +716,7 @@
->>   #undef __print_flags
->>   #undef __print_symbolic
->>   #undef __print_hex
->> +#undef __print_hex_str
->>   #undef __get_dynamic_array
->>   #undef __get_dynamic_array_len
->>   #undef __get_str
->> diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
->> index 5d33a73..30a144b1 100644
->> --- a/kernel/trace/trace_output.c
->> +++ b/kernel/trace/trace_output.c
->> @@ -163,14 +163,15 @@ enum print_line_t trace_print_printk_msg_only(struct trace_iterator *iter)
->>   EXPORT_SYMBOL_GPL(trace_print_bitmask_seq);
->
-> With the addition of this boolean parameter, this function shold
-> probably have a kernel doc header, that can explain the parameters.
+While at it, also make xfrm_init_tempstate return value void, the
+return value was never tested.
 
-Yeah, I can add that. Since the patch got already applied, I will send
-a follow-up for adding the kdoc and for changing the bool logic/name as
-concatenate.
+A followup patch will replace remaining callers of xfrm_state_get_afinfo
+with xfrm_state_afinfo_get_rcu variant and then remove the 'old'
+get_afinfo interface.
 
-Thanks for your review!
-Daniel
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/xfrm.h    |  1 +
+ net/xfrm/xfrm_state.c | 25 +++++++++++++++----------
+ 2 files changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 957d0cc..c52197c 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -343,6 +343,7 @@ struct xfrm_state_afinfo {
+ int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
+ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo);
+ struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
++struct xfrm_state_afinfo *xfrm_state_afinfo_get_rcu(unsigned int family);
+ 
+ struct xfrm_input_afinfo {
+ 	unsigned int		family;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 7830844..b5dad89 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -639,26 +639,23 @@ void xfrm_sad_getinfo(struct net *net, struct xfrmk_sadinfo *si)
+ }
+ EXPORT_SYMBOL(xfrm_sad_getinfo);
+ 
+-static int
++static void
+ xfrm_init_tempstate(struct xfrm_state *x, const struct flowi *fl,
+ 		    const struct xfrm_tmpl *tmpl,
+ 		    const xfrm_address_t *daddr, const xfrm_address_t *saddr,
+ 		    unsigned short family)
+ {
+-	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
+-	if (!afinfo)
+-		return -1;
+-	afinfo->init_tempsel(&x->sel, fl);
++	struct xfrm_state_afinfo *afinfo = xfrm_state_afinfo_get_rcu(family);
++
++	if (afinfo)
++		afinfo->init_tempsel(&x->sel, fl);
+ 
+ 	if (family != tmpl->encap_family) {
+-		rcu_read_unlock();
+-		afinfo = xfrm_state_get_afinfo(tmpl->encap_family);
++		afinfo = xfrm_state_afinfo_get_rcu(tmpl->encap_family);
+ 		if (!afinfo)
+-			return -1;
++			return;
+ 	}
+ 	afinfo->init_temprop(x, tmpl, daddr, saddr);
+-	rcu_read_unlock();
+-	return 0;
+ }
+ 
+ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
+@@ -1966,6 +1963,14 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo)
+ }
+ EXPORT_SYMBOL(xfrm_state_unregister_afinfo);
+ 
++struct xfrm_state_afinfo *xfrm_state_afinfo_get_rcu(unsigned int family)
++{
++	if (unlikely(family >= NPROTO))
++		return NULL;
++
++	return rcu_dereference(xfrm_state_afinfo[family]);
++}
++
+ struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+-- 
+1.9.1
