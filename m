@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net/sched: matchall: Fix configuration race
-Date: Wed, 01 Feb 2017 11:58:28 -0500 (EST)
-Message-ID: <20170201.115828.2242919958813726618.davem@davemloft.net>
-References: <1485868469-6199-1-git-send-email-yotamg@mellanox.com>
+Subject: Re: [PATCH net-next] net: reduce skb_warn_bad_offload() noise
+Date: Wed, 01 Feb 2017 12:03:06 -0500 (EST)
+Message-ID: <20170201.120306.1841734939749372887.davem@davemloft.net>
+References: <1485886832.6360.133.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        daniel@iogearbox.net, jhs@mojatatu.com, netdev@vger.kernel.org
-To: yotamg@mellanox.com
+Cc: netdev@vger.kernel.org, dvyukov@google.com, willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39116 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39366 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752759AbdBAQ6f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:58:35 -0500
-In-Reply-To: <1485868469-6199-1-git-send-email-yotamg@mellanox.com>
+        with ESMTP id S1752863AbdBARDH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:03:07 -0500
+In-Reply-To: <1485886832.6360.133.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
-Date: Tue, 31 Jan 2017 15:14:29 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 31 Jan 2017 10:20:32 -0800
 
-> In the current version, the matchall internal state is split into two
-> structs: cls_matchall_head and cls_matchall_filter. This makes little
-> sense, as matchall instance supports only one filter, and there is no
-> situation where one exists and the other does not. In addition, that led
-> to some races when filter was deleted while packet was processed.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Unify that two structs into one, thus simplifying the process of matchall
-> creation and deletion. As a result, the new, delete and get callbacks have
-> a dummy implementation where all the work is done in destroy and change
-> callbacks, as was done in cls_cgroup.
+> Dmitry reported warnings occurring in __skb_gso_segment() [1]
 > 
-> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> All SKB_GSO_DODGY producers can allow user space to feed
+> packets that trigger the current check.
+> 
+> We could prevent them from doing so, rejecting packets, but
+> this might add regressions to existing programs.
+> 
+> It turns out our SKB_GSO_DODGY handlers properly set up checksum
+> information that is needed anyway when packets needs to be segmented.
+> 
+> By checking again skb_needs_check() after skb_mac_gso_segment(),
+> we should remove these pesky warnings, at a very minor cost.
+> 
+> With help from Willem de Bruijn
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov  <dvyukov@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks Eric.
