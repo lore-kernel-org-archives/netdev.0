@@ -1,106 +1,24 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 1/2] af_packet: direct dma for packet ineterface
-Date: Tue, 31 Jan 2017 21:09:24 -0800
-Message-ID: <58916D84.7090706@gmail.com>
-References: <20170127213132.14162.82951.stgit@john-Precision-Tower-5810>
- <20170127213344.14162.59976.stgit@john-Precision-Tower-5810>
- <20170130191607.14d964e4@redhat.com> <588FB57B.1060507@gmail.com>
- <CAF=yD-J_2Y4eX_iG40rKm3tgs_xr2dr-Rw=JL_OsV0TnfOKhhQ@mail.gmail.com>
+From: Hyung Jin Jung <realbright@lgcns.com>
+Subject: net: macb: lack of statistics - tx_dropped
+Date: Wed, 1 Feb 2017 14:10:19 +0900
+Message-ID: <61FA15C5AEE1ED4E827ADEB50820C1443EBD111650@MAIL03.corp.lgcns.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, bjorn.topel@gmail.com,
-        jasowang@redhat.com, ast@fb.com, alexander.duyck@gmail.com,
-        john.r.fastabend@intel.com,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset="ks_c_5601-1987"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36839 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750917AbdBAFJr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 00:09:47 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 75so33044315pgf.3
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 21:09:46 -0800 (PST)
-In-Reply-To: <CAF=yD-J_2Y4eX_iG40rKm3tgs_xr2dr-Rw=JL_OsV0TnfOKhhQ@mail.gmail.com>
+Received: from mscreen02.lgcns.com ([165.244.227.196]:52331 "EHLO
+        mscreen01.lgcns.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751319AbdBAFVT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 00:21:19 -0500
+Content-Language: ko-KR
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-30 05:31 PM, Willem de Bruijn wrote:
->>>> V3 header formats added bulk polling via socket calls and timers
->>>> used in the polling interface to return every n milliseconds. Currently,
->>>> I don't see any way to support this in hardware because we can't
->>>> know if the hardware is in the middle of a DMA operation or not
->>>> on a slot. So when a timer fires I don't know how to advance the
->>>> descriptor ring leaving empty descriptors similar to how the software
->>>> ring works. The easiest (best?) route is to simply not support this.
->>>
->>> From a performance pov bulking is essential. Systems like netmap that
->>> also depend on transferring control between kernel and userspace,
->>> report[1] that they need at least bulking size 8, to amortize the overhead.
-> 
-> To introduce interrupt moderation, ixgbe_do_ddma only has to elide the
-> sk_data_ready, and schedule an hrtimer if one is not scheduled yet.
-> 
-> If I understand correctly, the difficulty lies in v3 requiring that the
-> timer "close" the block when the timer expires. That may not be worth
-> implementing, indeed.
-> 
-
-Yep that is where I just gave up and decided it wasn't worth it.
-
-> Hardware interrupt moderation and napi may already give some
-> moderation, even with a sock_def_readable call for each packet. If
-> considering a v4 format, I'll again suggest virtio virtqueues. Those
-> have interrupt suppression built in with EVENT_IDX.
-
-
-Agreed. On paper now I'm considering moving to something like this after
-getting some feedback here. Of course I'll need to play with the code a
-bit to see what it looks like. I'll need a couple weeks probably to get
-this sorted out.
-
-> 
->>> Likely, but I would like that we do a measurement based approach.  Lets
->>> benchmark with this V2 header format, and see how far we are from
->>> target, and see what lights-up in perf report and if it is something we
->>> can address.
->>
->> Yep I'm hoping to get to this sometime this week.
-> 
-> Perhaps also without filling in the optional metadata data fields
-> in tpacket and sockaddr_ll.
-> 
->>> E.g. how will you support XDP_TX?  AFAIK you cannot remove/detach a
->>> packet with this solution (and place it on a TX queue and wait for DMA
->>> TX completion).
->>>
->>
->> This is something worth exploring. tpacket_v2 uses a fixed ring with
->> slots so all the pages are allocated and assigned to the ring at init
->> time. To xmit a packet in this case the user space application would
->> be required to leave the packet descriptor on the rx side pinned
->> until the tx side DMA has completed. Then it can unpin the rx side
->> and return it to the driver. This works if the TX/RX processing is
->> fast enough to keep up. For many things this is good enough.
->>
->> For some work loads though this may not be sufficient. In which
->> case a tpacket_v4 would be useful that can push down a new set
->> of "slots" every n packets. Where n is sufficiently large to keep
->> the workload running.
-> 
-> Here, too, virtio rings may help.
-> 
-> The extra level of indirection allows out of order completions,
-> reducing the chance of running out of rx descriptors when redirecting
-> a subset of packets to a tx ring, as that does not block the entire ring.
-> 
-> And passing explicit descriptors from userspace enables pointing to
-> new memory regions. On the flipside, they now have to be checked for
-> safety against region bounds.
-> 
->> This is similar in many ways to virtio/vhost interaction.
-> 
-> Ah, I only saw this after writing the above :)
-> 
-
-yep but glad to get some validation on this idea.
+bWFjYiBkb2Vzbid0IG1haW50YWluIHN0YXRpc3RpY3Mgb2YgZHJvcHBlZCBwYWNrZXRzIHdoZW4g
+dHJhbnNtaXR0aW5nLg0Kc28gdGhhdCBpdCdzIG5vdCBwb3NzaWJsZSB0byBkZXRlY3QgcGFja2V0
+IGxvc3MgaW4gdXNlciBzcGFjZSAoc3lzZnMsIHByb2Nmcy4uLikNCg0KbWFjYl9zdGFydF94bWl0
+IHNob3VsZCB0byBpbmNyZWFzZSB0eF9kcm9wcGVkIGluIGNhc2Ugb2YgZXhjZXB0aW9uIC0gYnVm
+ZmVyIGZ1bGwsIGRtYSBtYXBwaW5nIGZhaWwNCg0KRGF2eQ0K
