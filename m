@@ -1,43 +1,199 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: fix 0 divide in __tcp_select_window()
-Date: Wed, 1 Feb 2017 11:41:49 -0500
-Message-ID: <CADVnQymvZ4Rvdx3mG=jA_9RMs79O5-r5quroN6Kjzso0WsUvgg@mail.gmail.com>
-References: <1485966833.6360.149.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:35279 "EHLO
-        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751114AbdBAQmV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:42:21 -0500
-Received: by mail-oi0-f47.google.com with SMTP id j15so237123195oih.2
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 08:42:20 -0800 (PST)
-In-Reply-To: <1485966833.6360.149.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] xgene_enet: remove bogus forward declarations
+Date: Wed,  1 Feb 2017 17:46:02 +0100
+Message-ID: <20170201164639.2474782-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Iyappan Subramanian <isubramanian@apm.com>,
+        Keyur Chudgar <kchudgar@apm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Quan Nguyen <qnguyen@apm.com>,
+        Tanmay Inamdar <tinamdar@apm.com>,
+        stephen hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 1, 2017 at 11:33 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> From: Eric Dumazet <edumazet@google.com>
->
-> syszkaller fuzzer was able to trigger a divide by zero, when
-> TCP window scaling is not enabled.
->
-> SO_RCVBUF can be used not only to increase sk_rcvbuf, also
-> to decrease it below current receive buffers utilization.
->
-> If mss is negative or 0, just return a zero TCP window.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov  <dvyukov@google.com>
-> ---
+The device match tables for both the xgene_enet driver and its phy driver
+have forward declarations that declare an array without a length, leading
+to a clang warning when they are not followed by an actual defitinition:
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+drivers/net/ethernet/apm/xgene/../../../phy/mdio-xgene.h:135:34: warning: tentative array definition assumed to have one element
+drivers/net/ethernet/apm/xgene/xgene_enet_main.c:33:36: warning: tentative array definition assumed to have one element
 
-Thanks, Eric!
+The declarations for the mdio driver are even in a header file, so they
+cause duplicate definitions of the tables for each file that includes
+them.
 
-neal
+This removes all four forward declarations and moves the actual
+definitions up a little, so they are in front of their first user. For
+the OF match tables, this means having to remove the #ifdef around them,
+and passing the actual structure into of_match_device(). This has no
+effect on the generated object code though, as the of_match_device
+function has an empty stub that does not evaluate its argument, and
+the symbol gets dropped either way.
+
+Fixes: 43b3cf6634a4 ("drivers: net: phy: xgene: Add MDIO driver")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+The bug is old, but relatively harmless, so not needed as a fixup for 4.10
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 50 ++++++++++++------------
+ drivers/net/phy/mdio-xgene.c                     | 50 ++++++++++++------------
+ drivers/net/phy/mdio-xgene.h                     |  4 --
+ 3 files changed, 48 insertions(+), 56 deletions(-)
+
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index ab43c52723df..d0d0d12b531f 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -1964,6 +1964,30 @@ static void xgene_enet_napi_add(struct xgene_enet_pdata *pdata)
+ 	}
+ }
+ 
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id xgene_enet_acpi_match[] = {
++	{ "APMC0D05", XGENE_ENET1},
++	{ "APMC0D30", XGENE_ENET1},
++	{ "APMC0D31", XGENE_ENET1},
++	{ "APMC0D3F", XGENE_ENET1},
++	{ "APMC0D26", XGENE_ENET2},
++	{ "APMC0D25", XGENE_ENET2},
++	{ }
++};
++MODULE_DEVICE_TABLE(acpi, xgene_enet_acpi_match);
++#endif
++
++static const struct of_device_id xgene_enet_of_match[] = {
++	{.compatible = "apm,xgene-enet",    .data = (void *)XGENE_ENET1},
++	{.compatible = "apm,xgene1-sgenet", .data = (void *)XGENE_ENET1},
++	{.compatible = "apm,xgene1-xgenet", .data = (void *)XGENE_ENET1},
++	{.compatible = "apm,xgene2-sgenet", .data = (void *)XGENE_ENET2},
++	{.compatible = "apm,xgene2-xgenet", .data = (void *)XGENE_ENET2},
++	{},
++};
++
++MODULE_DEVICE_TABLE(of, xgene_enet_of_match);
++
+ static int xgene_enet_probe(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev;
+@@ -2110,32 +2134,6 @@ static void xgene_enet_shutdown(struct platform_device *pdev)
+ 	xgene_enet_remove(pdev);
+ }
+ 
+-#ifdef CONFIG_ACPI
+-static const struct acpi_device_id xgene_enet_acpi_match[] = {
+-	{ "APMC0D05", XGENE_ENET1},
+-	{ "APMC0D30", XGENE_ENET1},
+-	{ "APMC0D31", XGENE_ENET1},
+-	{ "APMC0D3F", XGENE_ENET1},
+-	{ "APMC0D26", XGENE_ENET2},
+-	{ "APMC0D25", XGENE_ENET2},
+-	{ }
+-};
+-MODULE_DEVICE_TABLE(acpi, xgene_enet_acpi_match);
+-#endif
+-
+-#ifdef CONFIG_OF
+-static const struct of_device_id xgene_enet_of_match[] = {
+-	{.compatible = "apm,xgene-enet",    .data = (void *)XGENE_ENET1},
+-	{.compatible = "apm,xgene1-sgenet", .data = (void *)XGENE_ENET1},
+-	{.compatible = "apm,xgene1-xgenet", .data = (void *)XGENE_ENET1},
+-	{.compatible = "apm,xgene2-sgenet", .data = (void *)XGENE_ENET2},
+-	{.compatible = "apm,xgene2-xgenet", .data = (void *)XGENE_ENET2},
+-	{},
+-};
+-
+-MODULE_DEVICE_TABLE(of, xgene_enet_of_match);
+-#endif
+-
+ static struct platform_driver xgene_enet_driver = {
+ 	.driver = {
+ 		   .name = "xgene-enet",
+diff --git a/drivers/net/phy/mdio-xgene.c b/drivers/net/phy/mdio-xgene.c
+index 92af182951be..f095051beb54 100644
+--- a/drivers/net/phy/mdio-xgene.c
++++ b/drivers/net/phy/mdio-xgene.c
+@@ -311,6 +311,30 @@ static acpi_status acpi_register_phy(acpi_handle handle, u32 lvl,
+ }
+ #endif
+ 
++static const struct of_device_id xgene_mdio_of_match[] = {
++	{
++		.compatible = "apm,xgene-mdio-rgmii",
++		.data = (void *)XGENE_MDIO_RGMII
++	},
++	{
++		.compatible = "apm,xgene-mdio-xfi",
++		.data = (void *)XGENE_MDIO_XFI
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(of, xgene_mdio_of_match);
++
++#ifdef CONFIG_ACPI
++static const struct acpi_device_id xgene_mdio_acpi_match[] = {
++	{ "APMC0D65", XGENE_MDIO_RGMII },
++	{ "APMC0D66", XGENE_MDIO_XFI },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(acpi, xgene_mdio_acpi_match);
++#endif
++
++
+ static int xgene_mdio_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -430,32 +454,6 @@ static int xgene_mdio_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_OF
+-static const struct of_device_id xgene_mdio_of_match[] = {
+-	{
+-		.compatible = "apm,xgene-mdio-rgmii",
+-		.data = (void *)XGENE_MDIO_RGMII
+-	},
+-	{
+-		.compatible = "apm,xgene-mdio-xfi",
+-		.data = (void *)XGENE_MDIO_XFI
+-	},
+-	{},
+-};
+-
+-MODULE_DEVICE_TABLE(of, xgene_mdio_of_match);
+-#endif
+-
+-#ifdef CONFIG_ACPI
+-static const struct acpi_device_id xgene_mdio_acpi_match[] = {
+-	{ "APMC0D65", XGENE_MDIO_RGMII },
+-	{ "APMC0D66", XGENE_MDIO_XFI },
+-	{ }
+-};
+-
+-MODULE_DEVICE_TABLE(acpi, xgene_mdio_acpi_match);
+-#endif
+-
+ static struct platform_driver xgene_mdio_driver = {
+ 	.driver = {
+ 		.name = "xgene-mdio",
+diff --git a/drivers/net/phy/mdio-xgene.h b/drivers/net/phy/mdio-xgene.h
+index 354241b53c1d..594a11d42401 100644
+--- a/drivers/net/phy/mdio-xgene.h
++++ b/drivers/net/phy/mdio-xgene.h
+@@ -132,10 +132,6 @@ static inline u64 xgene_enet_get_field_value(int pos, int len, u64 src)
+ #define GET_BIT(field, src) \
+ 		xgene_enet_get_field_value(field ## _POS, 1, src)
+ 
+-static const struct of_device_id xgene_mdio_of_match[];
+-#ifdef CONFIG_ACPI
+-static const struct acpi_device_id xgene_mdio_acpi_match[];
+-#endif
+ int xgene_mdio_rgmii_read(struct mii_bus *bus, int phy_id, int reg);
+ int xgene_mdio_rgmii_write(struct mii_bus *bus, int phy_id, int reg, u16 data);
+ struct phy_device *xgene_enet_phy_register(struct mii_bus *bus, int phy_addr);
+-- 
+2.9.0
