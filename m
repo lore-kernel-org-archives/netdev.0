@@ -1,43 +1,49 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the DP83867
- TI's PHY driver
-Date: Wed, 1 Feb 2017 18:16:10 +0100
-Message-ID: <20170201171610.GC7395@lunn.ch>
-References: <1485960215-5148-1-git-send-email-lukma@denx.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: sock_create_kern() and network namespace reference counts
+Date: Wed, 1 Feb 2017 09:19:39 -0800
+Message-ID: <CAM_iQpUuvibN=kgj-zwPKuFAEcA6yjTEoLwf4itrcADX3WxX1g@mail.gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6DB0276D58@AcuExch.aculab.com>
+ <CAM_iQpVs-_p8VeoRpUjBPSOCkCAi0q8gWWSx29699-UuLKQTrg@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DB0276FD9@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        Karicheri Muralidharan <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
-        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Lukasz Majewski <lukma-ynQEQJNshbs@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1485960215-5148-1-git-send-email-lukma-ynQEQJNshbs@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35248 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752960AbdBARUB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:20:01 -0500
+Received: by mail-wm0-f50.google.com with SMTP id b65so48864131wmf.0
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 09:20:00 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0276FD9@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 01, 2017 at 03:43:35PM +0100, Lukasz Majewski wrote:
-> This patch adds support for enabling or disabling the port mirroring
-> feature of the DP83867 TI's PHY device.
-> 
-> One use case is when bootstrap configuration enables this feature (because
-> of e.g. LED wiring) so then one needs to disable it in software
-> (u-boot/Linux).
+On Tue, Jan 31, 2017 at 9:57 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Cong Wang
+>> Sent: 31 January 2017 17:38
+>> On Tue, Jan 31, 2017 at 7:41 AM, David Laight <David.Laight@aculab.com> wrote:
+>> > Commit 26abe1437 changed sock_create_kern() so that it stopped
+>> > holding a reference to the network namespace.
+>> > The rational seemed to be 'to allow to stop it' (presumably 'be deleted').
+>> > Prior to this change some kernel paths used sk_change_net() (etc) to
+>> > change the namespace after the socket was created.
+>> >
+>> > If the socket doesn't hold a reference to the namespace, what actually
+>> > happens when the namespace is deleted?
+>>
+>> Kernel socket should have the same lifetime with the net namespace,
+>> that is, created in net_init and released in net_exit. Think about it, if it
+>> really held a refcnt to this netns, how could this netns be teared down?
+>
+> That rather depends on what they are being used for.
+> Consider something like an in kernel ftp client, it doesn't really care
+> about namespaces except in as much as the connections it creates must
+> be inside the correct namespace.
+> The namespace shouldn't be torn down while that connection exists any more
+> than it should be torn down while a user process has an open connection.
+> (Listening sockets are likely to be more of a problem.)
 
-Hi Lukasz
-
-How does this differ from "enet-phy-lane-swap"?
-
-Thanks
-    Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If you don't care about netns, why not just use init_net which is never
+torn down and make your kernel socket global so that each netns
+can access it too?
