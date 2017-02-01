@@ -1,47 +1,42 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch net-next] sfc: a couple off by one bugs
-Date: Wed, 1 Feb 2017 11:50:40 +0300
-Message-ID: <20170201085040.GA31514@mwanda>
+Subject: [patch net-next] ethernet: aquantia: fix dma_mapping_error test
+Date: Wed, 1 Feb 2017 11:52:15 +0300
+Message-ID: <20170201085215.GB31514@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-        Edward Cree <ecree@solarflare.com>
+Cc: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:31263 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:32023 "EHLO
         aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751488AbdBAIvP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 03:51:15 -0500
+        with ESMTP id S1751420AbdBAIwg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 03:52:36 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These checks are off by one.  These are just sanity checks and we don't
-ever pass invalid values for "encap_type" so it's harmless.
+dma_mapping_error() returns 1 if there is an error and 0 if not.
 
-Fixes: 9b4108012517 ("sfc: insert catch-all filters for encapsulated traffic")
+Fixes: 018423e90bee ("net: ethernet: aquantia: Add ring support code")
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 8bec9383d754..dec0c8083ff3 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -5080,7 +5080,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx,
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+index 817c145520c8..dea9e9bbb8e7 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+@@ -298,9 +298,10 @@ int aq_ring_rx_fill(struct aq_ring_s *self)
+ 					buff->page, 0,
+ 					AQ_CFG_RX_FRAME_MAX, DMA_FROM_DEVICE);
  
- 		/* quick bounds check (BCAST result impossible) */
- 		BUILD_BUG_ON(EFX_EF10_BCAST != 0);
--		if (encap_type > ARRAY_SIZE(map) || map[encap_type] == 0) {
-+		if (encap_type >= ARRAY_SIZE(map) || map[encap_type] == 0) {
- 			WARN_ON(1);
- 			return -EINVAL;
- 		}
-@@ -5134,7 +5134,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx,
+-		err = dma_mapping_error(aq_nic_get_dev(self->aq_nic), buff->pa);
+-		if (err < 0)
++		if (dma_mapping_error(aq_nic_get_dev(self->aq_nic), buff->pa)) {
++			err = -ENOMEM;
+ 			goto err_exit;
++		}
  
- 		/* quick bounds check (BCAST result impossible) */
- 		BUILD_BUG_ON(EFX_EF10_BCAST != 0);
--		if (encap_type > ARRAY_SIZE(map) || map[encap_type] == 0) {
-+		if (encap_type >= ARRAY_SIZE(map) || map[encap_type] == 0) {
- 			WARN_ON(1);
- 			return -EINVAL;
- 		}
+ 		buff = NULL;
+ 	}
