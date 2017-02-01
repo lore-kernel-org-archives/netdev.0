@@ -1,64 +1,122 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
- xennet_disconnect_backend()
-Date: Wed, 1 Feb 2017 18:29:56 -0500
-Message-ID: <223ebf32-ba8b-a6be-2331-0644f9d347a0@oracle.com>
-References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
- <1485799651.6360.101.camel@edumazet-glaptop3.roam.corp.google.com>
- <40057d9d-c615-1a2b-63a2-ab717c29d659@oracle.com>
- <1485803209.6360.111.camel@edumazet-glaptop3.roam.corp.google.com>
- <07a315d6-7c97-6d11-fa18-548000107c2f@oracle.com>
- <10b1d554-b395-88fa-eee3-a77754ad14bd@oracle.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net: suspicious RCU usage in nf_hook
+Date: Wed, 1 Feb 2017 15:29:54 -0800
+Message-ID: <CAM_iQpWSpgNnEOn+euZAMEmdQCfDVcgk9EO=k5-kVEkB+EJrpg@mail.gmail.com>
+References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
+ <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVvBPhP4q=Egsaoqf8ym-73jLZow8xDMbOq9RhYmL5XAQ@mail.gmail.com>
+ <1485567090.6360.92.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXiQMH1zMJM6sYFNUySUYjaHnLZ3T2d34GwCMQ9u6RkwQ@mail.gmail.com>
+ <1485877498.6360.115.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpWnJbN=65D8PAxe7B_kBf7+Ay2M59T8brF0aXkfEbgnPg@mail.gmail.com> <1485983770.6360.158.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: jgross@suse.com, xen-devel@lists.xenproject.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        vineethp@amazon.com, wei.liu2@citrix.com, paul.durrant@citrix.com,
-        stable@vger.kernel.org, Ross Lagerwall <ross.lagerwall@citrix.com>
+Content-Type: multipart/mixed; boundary=001a1146ee9e473a960547806e7e
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <edumazet@google.com>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org,
+        syzkaller <syzkaller@googlegroups.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <10b1d554-b395-88fa-eee3-a77754ad14bd@oracle.com>
-Sender: stable-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485983770.6360.158.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/31/2017 12:47 PM, Boris Ostrovsky wrote:
-> On 01/30/2017 02:31 PM, Boris Ostrovsky wrote:
->> On 01/30/2017 02:06 PM, Eric Dumazet wrote:
->>> On Mon, 2017-01-30 at 13:23 -0500, Boris Ostrovsky wrote:
->>>
->>>> We do netif_carrier_off() first thing in xennet_disconnect_backend() and
->>>> the only place where the timer is rearmed is xennet_alloc_rx_buffers(),
->>>> which is guarded by netif_carrier_ok() check.
->>> Oh well, testing netif_carrier_ok() in packet processing fast path looks
->>> unusual and a waste of cpu cycles. I've never seen that pattern before.
->>>
->>> If one day, we remove this netif_carrier_ok() test during a cleanup,
->>> then the race window will open again.
->> I don't know much about napi but I wonder whether I can indeed disable
->> it in xennet_disconnect_backend(). I don't see how anything can happen
->> after disconnect since it unmaps the rings. And then napi is re-enabled
->> during reconnection in xennet_create_queues(). In which case am not sure
->> there is any need for xennet_destroy_queues() as everything there could
->> be folded into xennet_disconnect_backend().
-> While this does work, there was a reason why napi_disable() was not
-> called in xennet_disconnect_backend() and it is explained in commit
-> ce58725fec6e --- napi_disable() may sleep and that's why it is called in
-> xennet_destroy_queues().
+--001a1146ee9e473a960547806e7e
+Content-Type: text/plain; charset=UTF-8
+
+On Wed, Feb 1, 2017 at 1:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-02-01 at 12:51 -0800, Cong Wang wrote:
+>> On Tue, Jan 31, 2017 at 7:44 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Mon, 2017-01-30 at 22:19 -0800, Cong Wang wrote:
+>> >
+>> >>
+>> >> The context is process context (TX path before hitting qdisc), and
+>> >> BH is not disabled, so in_interrupt() doesn't catch it. Hmm, this
+>> >> makes me thinking maybe we really need to disable BH in this
+>> >> case for nf_hook()? But it is called in RX path too, and BH is
+>> >> already disabled there.
+>> >
+>> > ipt_do_table() and similar netfilter entry points disable BH.
+>> >
+>> > Maybe it is done too late.
+>>
+>> I think we need a fix like the following one for minimum impact.
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 727b6fd..eee7d63 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -1720,12 +1720,10 @@ EXPORT_SYMBOL(net_enable_timestamp);
+>>  void net_disable_timestamp(void)
+>>  {
+>>  #ifdef HAVE_JUMP_LABEL
+>> -       if (in_interrupt()) {
+>> -               atomic_inc(&netstamp_needed_deferred);
+>> -               return;
+>> -       }
+>> -#endif
+>> +       atomic_inc(&netstamp_needed_deferred);
+>> +#else
+>>         static_key_slow_dec(&netstamp_needed);
+>> +#endif
+>>  }
+>>  EXPORT_SYMBOL(net_disable_timestamp);
 >
-> OTOH, there is a napi_synchronize() call in xennet_destroy_queues().
-> Will destroying the timer after it guarantee that all preceding RX have
-> been completed? RX interrupt is disabled prior to napi_synchronize() so
-> presumably nothing new can be received.
+> This would permanently leave the kernel in the netstamp_needed state.
+>
+> I would prefer the patch using a process context to perform the
+> cleanup ? Note there is a race window, but probably not a big deal.
 
+Not sure if it is better. The difference is caught up in net_enable_timestamp(),
+which is called setsockopt() path and sk_clone() path, so we could be
+in netstamp_needed state for a long time too until user-space exercises
+these paths.
 
-I could not convince myself that napi_synchronize() is sufficient here
-(mostly because I am not familiar with napi flow). At the same time I
-would rather not make changes in anticipation of possible disappearance
-of netif_carrier_ok() in the future so I'd like this patch to go in as is.
+I am feeling we probably need to get rid of netstamp_needed_deferred,
+and simply defer the whole static_key_slow_dec(), like the attached patch
+(compile only).
 
-Unless there are other problems with the patch or if Eric (or others)
-feel strongly about usage of netif_carrier_ok() here.
+What do you think?
 
+--001a1146ee9e473a960547806e7e
+Content-Type: text/plain; charset=US-ASCII; name="net-timestamp.diff"
+Content-Disposition: attachment; filename="net-timestamp.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iynl4oub0
 
--boris
+ZGlmZiAtLWdpdCBhL25ldC9jb3JlL2Rldi5jIGIvbmV0L2NvcmUvZGV2LmMKaW5kZXggNzI3YjZm
+ZC4uMGVmMTczNCAxMDA2NDQKLS0tIGEvbmV0L2NvcmUvZGV2LmMKKysrIGIvbmV0L2NvcmUvZGV2
+LmMKQEAgLTE2OTQsMzggKzE2OTQsMjggQEAgRVhQT1JUX1NZTUJPTF9HUEwobmV0X2RlY19lZ3Jl
+c3NfcXVldWUpOwogI2VuZGlmCiAKIHN0YXRpYyBzdHJ1Y3Qgc3RhdGljX2tleSBuZXRzdGFtcF9u
+ZWVkZWQgX19yZWFkX21vc3RseTsKLSNpZmRlZiBIQVZFX0pVTVBfTEFCRUwKLS8qIFdlIGFyZSBu
+b3QgYWxsb3dlZCB0byBjYWxsIHN0YXRpY19rZXlfc2xvd19kZWMoKSBmcm9tIGlycSBjb250ZXh0
+Ci0gKiBJZiBuZXRfZGlzYWJsZV90aW1lc3RhbXAoKSBpcyBjYWxsZWQgZnJvbSBpcnEgY29udGV4
+dCwgZGVmZXIgdGhlCi0gKiBzdGF0aWNfa2V5X3Nsb3dfZGVjKCkgY2FsbHMuCi0gKi8KLXN0YXRp
+YyBhdG9taWNfdCBuZXRzdGFtcF9uZWVkZWRfZGVmZXJyZWQ7Ci0jZW5kaWYKIAotdm9pZCBuZXRf
+ZW5hYmxlX3RpbWVzdGFtcCh2b2lkKQorc3RhdGljIHZvaWQgbmV0c3RhbXBfY2xlYXIoc3RydWN0
+IHdvcmtfc3RydWN0ICp3b3JrKQogewotI2lmZGVmIEhBVkVfSlVNUF9MQUJFTAotCWludCBkZWZl
+cnJlZCA9IGF0b21pY194Y2hnKCZuZXRzdGFtcF9uZWVkZWRfZGVmZXJyZWQsIDApOworCXN0YXRp
+Y19rZXlfc2xvd19kZWMoJm5ldHN0YW1wX25lZWRlZCk7Cit9CiAKLQlpZiAoZGVmZXJyZWQpIHsK
+LQkJd2hpbGUgKC0tZGVmZXJyZWQpCi0JCQlzdGF0aWNfa2V5X3Nsb3dfZGVjKCZuZXRzdGFtcF9u
+ZWVkZWQpOwotCQlyZXR1cm47Ci0JfQotI2VuZGlmCitzdGF0aWMgREVDTEFSRV9XT1JLKG5ldHN0
+YW1wX3dvcmssIG5ldHN0YW1wX2NsZWFyKTsKKwordm9pZCBuZXRfZW5hYmxlX3RpbWVzdGFtcCh2
+b2lkKQoreworCWZsdXNoX3dvcmsoJm5ldHN0YW1wX3dvcmspOwogCXN0YXRpY19rZXlfc2xvd19p
+bmMoJm5ldHN0YW1wX25lZWRlZCk7CiB9CiBFWFBPUlRfU1lNQk9MKG5ldF9lbmFibGVfdGltZXN0
+YW1wKTsKIAogdm9pZCBuZXRfZGlzYWJsZV90aW1lc3RhbXAodm9pZCkKIHsKLSNpZmRlZiBIQVZF
+X0pVTVBfTEFCRUwKLQlpZiAoaW5faW50ZXJydXB0KCkpIHsKLQkJYXRvbWljX2luYygmbmV0c3Rh
+bXBfbmVlZGVkX2RlZmVycmVkKTsKLQkJcmV0dXJuOwotCX0KLSNlbmRpZgotCXN0YXRpY19rZXlf
+c2xvd19kZWMoJm5ldHN0YW1wX25lZWRlZCk7CisJLyogV2UgYXJlIG5vdCBhbGxvd2VkIHRvIGNh
+bGwgc3RhdGljX2tleV9zbG93X2RlYygpIGZyb20gaXJxIGNvbnRleHQKKwkgKiBJZiBuZXRfZGlz
+YWJsZV90aW1lc3RhbXAoKSBpcyBjYWxsZWQgZnJvbSBpcnEgY29udGV4dCwgZGVmZXIgdGhlCisJ
+ICogc3RhdGljX2tleV9zbG93X2RlYygpIGNhbGxzLgorCSAqLworCXNjaGVkdWxlX3dvcmsoJm5l
+dHN0YW1wX3dvcmspOwogfQogRVhQT1JUX1NZTUJPTChuZXRfZGlzYWJsZV90aW1lc3RhbXApOwog
+Cg==
+--001a1146ee9e473a960547806e7e--
