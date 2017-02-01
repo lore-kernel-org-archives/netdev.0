@@ -1,34 +1,49 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next 1/8] net/mlx5: Fixed static checker warnings
-Date: Thu, 2 Feb 2017 01:48:10 +0200
-Message-ID: <CAJ3xEMh6eiV_c5_s8i0HtFPFQAmU5He6iUdS7JP7h4VL1_+GqA@mail.gmail.com>
-References: <20170131205843.23235-1-saeedm@mellanox.com> <20170131205843.23235-2-saeedm@mellanox.com>
- <20170201.122232.468887635709421897.davem@davemloft.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net: suspicious RCU usage in nf_hook
+Date: Wed, 1 Feb 2017 15:48:33 -0800
+Message-ID: <CANn89iJb55jCppc9J=vL9n=7ofr1LSz3d+nKNo4W-BJeoH0m3A@mail.gmail.com>
+References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
+ <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVvBPhP4q=Egsaoqf8ym-73jLZow8xDMbOq9RhYmL5XAQ@mail.gmail.com>
+ <1485567090.6360.92.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXiQMH1zMJM6sYFNUySUYjaHnLZ3T2d34GwCMQ9u6RkwQ@mail.gmail.com>
+ <1485877498.6360.115.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpWnJbN=65D8PAxe7B_kBf7+Ay2M59T8brF0aXkfEbgnPg@mail.gmail.com>
+ <1485983770.6360.158.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpWSpgNnEOn+euZAMEmdQCfDVcgk9EO=k5-kVEkB+EJrpg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f169.google.com ([74.125.82.169]:35446 "EHLO
-        mail-ot0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750962AbdBAXsL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 18:48:11 -0500
-Received: by mail-ot0-f169.google.com with SMTP id 65so302970918otq.2
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 15:48:10 -0800 (PST)
-In-Reply-To: <20170201.122232.468887635709421897.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpWSpgNnEOn+euZAMEmdQCfDVcgk9EO=k5-kVEkB+EJrpg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 1, 2017 at 7:22 PM, David Miller <davem@davemloft.net> wrote:
+On Wed, Feb 1, 2017 at 3:29 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-[..]
+> Not sure if it is better. The difference is caught up in net_enable_timestamp(),
+> which is called setsockopt() path and sk_clone() path, so we could be
+> in netstamp_needed state for a long time too until user-space exercises
+> these paths.
+>
+> I am feeling we probably need to get rid of netstamp_needed_deferred,
+> and simply defer the whole static_key_slow_dec(), like the attached patch
+> (compile only).
+>
+> What do you think?
 
-> You're propagating values into a u32 field, which you are explicitly
-> performing 32-bit endianness conversions upon.
+I think we need to keep the atomic.
 
-> Just use "u32" for a local variable and get rid of all of these casts.
-
-ok, will do that
+If two cpus call net_disable_timestamp() roughly at the same time, the
+work will be scheduled once.
