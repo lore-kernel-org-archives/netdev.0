@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] ethernet: aquantia: fix dma_mapping_error test
-Date: Wed, 01 Feb 2017 12:45:38 -0500 (EST)
-Message-ID: <20170201.124538.2087709954972565603.davem@davemloft.net>
-References: <20170201085215.GB31514@mwanda>
+Subject: Re: pull-request: wireless-drivers-next 2017-02-01
+Date: Wed, 01 Feb 2017 12:47:09 -0500 (EST)
+Message-ID: <20170201.124709.2004482664731316247.davem@davemloft.net>
+References: <87efzip7z1.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vomlehn@texas.net, Dmitry.Bezrukov@aquantia.com,
-        Pavel.Belous@aquantia.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41218 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753524AbdBARpu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:45:50 -0500
-In-Reply-To: <20170201085215.GB31514@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87efzip7z1.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 1 Feb 2017 11:52:15 +0300
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Wed, 01 Feb 2017 11:37:38 +0200
 
-> dma_mapping_error() returns 1 if there is an error and 0 if not.
+> here's a pull request to 4.11, more details in the signed tag below.
 > 
-> Fixes: 018423e90bee ("net: ethernet: aquantia: Add ring support code")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> I forgot to mention in the tag that this includes one small change to
+> include/linux/soc/qcom/smem_state.h which was acked by Andy Gross in
+> commit 6c0b2e833f14. It was needed to fix a build problem with wcn36xx
+> using the SMD interface.
+> 
+> Please let me know if you have any problems.
 
-Applied, thanks Dan.
+Pulled, thank you.
