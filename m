@@ -1,66 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: phy: Add LED mode driver for Microsemi
-Date: Wed, 1 Feb 2017 10:04:08 -0800
-Message-ID: <6e89a748-f3ca-022f-032f-7fc45c68482d@gmail.com>
-References: <1485953626-25780-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+From: "Niklas =?iso-8859-1?Q?S=F6derlund?=" <niklas.soderlund@ragnatech.se>
+Subject: Re: [PATCH 0/2] sh_eth: fixes for MagicPacket handling
+Date: Wed, 1 Feb 2017 19:06:18 +0100
+Message-ID: <20170201180618.GB22023@bigcity.dyn.berto.se>
+References: <20170201144155.17123-1-niklas.soderlund+renesas@ragnatech.se>
+ <20170201.125441.297548008793869251.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Allan.Nielsen@microsemi.com, andrew@lunn.ch
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36211 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750919AbdBASEL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 13:04:11 -0500
-In-Reply-To: <1485953626-25780-1-git-send-email-Raju.Lakkaraju@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: sergei.shtylyov@cogentembedded.com, horms+renesas@verge.net.au,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        geert@linux-m68k.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170201.125441.297548008793869251.davem@davemloft.net>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/01/2017 04:53 AM, Raju Lakkaraju wrote:
-> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On 2017-02-01 12:54:41 -0500, David Miller wrote:
+> From: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+> Date: Wed,  1 Feb 2017 15:41:53 +0100
 > 
-> LED Mode:
-> Microsemi PHY support 2 LEDs (LED[0] and LED[1]) to display different
-> status information that can be selected by setting LED mode.
+> > This series contain two fixes for MagicPacket handling. It's based on 
+> > top of net-next and is tested on Koelsch.
+> 
+> Series applied, thanks.
+> 
+> I fixed the "register" --> "registered" thing in the commit message
+> for patch #2 when I applied this.
 
-Why is this LED selection done through Device Tree/initial configuration
-instead of coming up with a proper LED device registered by the PHY
-which allows you to select exactly how you want the modes to wind-up
-looking like?
-
-NB: you don't need a cover letter for single patches.
+Thanks for applying and thanks for fixing the typo.
 
 > 
-> LED Mode parameter (vsc8531, led-0-mode) and (vsc8531, led-1-mode) get from
-> Device Tree.
-> 
-> Tested on Beaglebone Black with VSC 8531 PHY.
-> 
-> Change set:
-> v0:
-> - Initial version of LED driver for Microsemi PHYs.
-> v1:
-> - Update all review comments given by Andrew.
-> - Add new header file "mscc-phy-vsc8531.h" to define DT macros.
-> - Add error/range check for DT LED mode input
-> v2:
-> - Fixed x86_64 build error.
-> 
-> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> 
-> 
-> Raju Lakkaraju (1):
->   net: phy: Add LED mode driver for Microsemi PHYs.
-> 
->  .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 10 +++
->  drivers/net/phy/mscc.c                             | 85 +++++++++++++++++++++-
->  include/dt-bindings/net/mscc-phy-vsc8531.h         | 29 ++++++++
->  3 files changed, 123 insertions(+), 1 deletion(-)
->  create mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
-> 
-
+> Thanks again.
 
 -- 
-Florian
+Regards,
+Niklas Söderlund
