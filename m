@@ -1,7 +1,7 @@
 From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [PATCH 08/14] tools lib bpf: Add bpf_map__pin()
-Date: Wed,  1 Feb 2017 09:25:01 -0300
-Message-ID: <20170201122507.29303-9-acme@kernel.org>
+Subject: [PATCH 11/14] tools lib api fs: Add bpf_fs filesystem detector
+Date: Wed,  1 Feb 2017 09:25:04 -0300
+Message-ID: <20170201122507.29303-12-acme@kernel.org>
 References: <20170201122507.29303-1-acme@kernel.org>
 Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
         Alexei Starovoitov <ast@fb.com>,
@@ -9,72 +9,97 @@ Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
         Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
         Arnaldo Carvalho de Melo <acme@redhat.com>
 To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:48614 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752282AbdBAMZi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 07:25:38 -0500
 In-Reply-To: <20170201122507.29303-1-acme@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Joe Stringer <joe@ovn.org>
 
-Add a new API to pin a BPF map to the filesystem. The user can specify
-the path full path within a BPF filesystem to pin the map.
+Allow mounting of the BPF filesystem at /sys/fs/bpf.
 
 Signed-off-by: Joe Stringer <joe@ovn.org>
 Cc: Alexei Starovoitov <ast@fb.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Wang Nan <wangnan0@huawei.com>
 Cc: netdev@vger.kernel.org
-Link: http://lkml.kernel.org/r/20170126212001.14103-3-joe@ovn.org
+Link: http://lkml.kernel.org/r/20170126212001.14103-6-joe@ovn.org
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- tools/lib/bpf/libbpf.c | 22 ++++++++++++++++++++++
- tools/lib/bpf/libbpf.h |  1 +
- 2 files changed, 23 insertions(+)
+ tools/lib/api/fs/fs.c | 16 ++++++++++++++++
+ tools/lib/api/fs/fs.h |  1 +
+ 2 files changed, 17 insertions(+)
 
-diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-index c4465b2fddf6..6a8c8beeb291 100644
---- a/tools/lib/bpf/libbpf.c
-+++ b/tools/lib/bpf/libbpf.c
-@@ -1357,6 +1357,28 @@ int bpf_program__pin(struct bpf_program *prog, const char *path)
- 	return 0;
- }
+diff --git a/tools/lib/api/fs/fs.c b/tools/lib/api/fs/fs.c
+index f99f49e4a31e..4b6bfc43cccf 100644
+--- a/tools/lib/api/fs/fs.c
++++ b/tools/lib/api/fs/fs.c
+@@ -38,6 +38,10 @@
+ #define HUGETLBFS_MAGIC        0x958458f6
+ #endif
  
-+int bpf_map__pin(struct bpf_map *map, const char *path)
-+{
-+	int err;
++#ifndef BPF_FS_MAGIC
++#define BPF_FS_MAGIC           0xcafe4a11
++#endif
 +
-+	err = check_path(path);
-+	if (err)
-+		return err;
+ static const char * const sysfs__fs_known_mountpoints[] = {
+ 	"/sys",
+ 	0,
+@@ -75,6 +79,11 @@ static const char * const hugetlbfs__known_mountpoints[] = {
+ 	0,
+ };
+ 
++static const char * const bpf_fs__known_mountpoints[] = {
++	"/sys/fs/bpf",
++	0,
++};
 +
-+	if (map == NULL) {
-+		pr_warning("invalid map pointer\n");
-+		return -EINVAL;
-+	}
-+
-+	if (bpf_obj_pin(map->fd, path)) {
-+		pr_warning("failed to pin map: %s\n", strerror(errno));
-+		return -errno;
-+	}
-+
-+	pr_debug("pinned map '%s'\n", path);
-+	return 0;
-+}
-+
- void bpf_object__close(struct bpf_object *obj)
+ struct fs {
+ 	const char		*name;
+ 	const char * const	*mounts;
+@@ -89,6 +98,7 @@ enum {
+ 	FS__DEBUGFS = 2,
+ 	FS__TRACEFS = 3,
+ 	FS__HUGETLBFS = 4,
++	FS__BPF_FS = 5,
+ };
+ 
+ #ifndef TRACEFS_MAGIC
+@@ -121,6 +131,11 @@ static struct fs fs__entries[] = {
+ 		.mounts = hugetlbfs__known_mountpoints,
+ 		.magic	= HUGETLBFS_MAGIC,
+ 	},
++	[FS__BPF_FS] = {
++		.name	= "bpf",
++		.mounts = bpf_fs__known_mountpoints,
++		.magic	= BPF_FS_MAGIC,
++	},
+ };
+ 
+ static bool fs__read_mounts(struct fs *fs)
+@@ -280,6 +295,7 @@ FS(procfs,  FS__PROCFS);
+ FS(debugfs, FS__DEBUGFS);
+ FS(tracefs, FS__TRACEFS);
+ FS(hugetlbfs, FS__HUGETLBFS);
++FS(bpf_fs, FS__BPF_FS);
+ 
+ int filename__read_int(const char *filename, int *value)
  {
- 	size_t i;
-diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
-index 9f8aa63b95f4..2addf9d5b13c 100644
---- a/tools/lib/bpf/libbpf.h
-+++ b/tools/lib/bpf/libbpf.h
-@@ -236,6 +236,7 @@ typedef void (*bpf_map_clear_priv_t)(struct bpf_map *, void *);
- int bpf_map__set_priv(struct bpf_map *map, void *priv,
- 		      bpf_map_clear_priv_t clear_priv);
- void *bpf_map__priv(struct bpf_map *map);
-+int bpf_map__pin(struct bpf_map *map, const char *path);
+diff --git a/tools/lib/api/fs/fs.h b/tools/lib/api/fs/fs.h
+index a63269f5d20c..6b332dc74498 100644
+--- a/tools/lib/api/fs/fs.h
++++ b/tools/lib/api/fs/fs.h
+@@ -22,6 +22,7 @@ FS(procfs)
+ FS(debugfs)
+ FS(tracefs)
+ FS(hugetlbfs)
++FS(bpf_fs)
  
- long libbpf_get_error(const void *ptr);
+ #undef FS
  
 -- 
 2.9.3
