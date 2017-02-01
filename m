@@ -1,59 +1,35 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-Subject: Re: [PATCH 4.10-rc3 05/13] net: bgmac: fix build errors when
- linux/phy*.h is removed from net/dsa.h
-Date: Wed, 1 Feb 2017 10:55:28 +0100
-Message-ID: <889087dc-aefe-4c09-45f1-a84d60b8869b@milecki.pl>
-References: <20170131191704.GA8281@n2100.armlinux.org.uk>
- <E1cYdx2-0000WP-Ot@rmk-PC.armlinux.org.uk>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH net] net: phy: Fix lack of reference count on PHY driver
+Date: Wed, 1 Feb 2017 10:22:09 +0000
+Message-ID: <20170201102208.GM27312@n2100.armlinux.org.uk>
+References: <20170201024643.2050-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Russell King <rmk+kernel@armlinux.org.uk>,
-        linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
-        linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        target-devel@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <E1cYdx2-0000WP-Ot@rmk-PC.armlinux.org.uk>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
+        Mao Wenan <maowenan@huawei.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:43998 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751202AbdBAKWX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 05:22:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20170201024643.2050-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/31/2017 08:18 PM, Russell King wrote:
-> drivers/net/ethernet/broadcom/bgmac.c:1015:17: error: dereferencing pointer to incomplete type 'struct mii_bus'
-> drivers/net/ethernet/broadcom/bgmac.c:1185:2: error: implicit declaration of function 'phy_start' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/broadcom/bgmac.c:1198:2: error: implicit declaration of function 'phy_stop' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/broadcom/bgmac.c:1239:9: error: implicit declaration of function 'phy_mii_ioctl' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/broadcom/bgmac.c:1389:28: error: 'phy_ethtool_get_link_ksettings' undeclared here (not in a function)
-> drivers/net/ethernet/broadcom/bgmac.c:1390:28: error: 'phy_ethtool_set_link_ksettings' undeclared here (not in a function)
-> drivers/net/ethernet/broadcom/bgmac.c:1403:13: error: dereferencing pointer to incomplete type 'struct phy_device'
-> drivers/net/ethernet/broadcom/bgmac.c:1417:3: error: implicit declaration of function 'phy_print_status' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/broadcom/bgmac.c:1424:26: error: storage size of 'fphy_status' isn't known
-> drivers/net/ethernet/broadcom/bgmac.c:1424:9: error: variable 'fphy_status' has initializer but incomplete type
-> drivers/net/ethernet/broadcom/bgmac.c:1425:11: warning: excess elements in struct initializer
-> drivers/net/ethernet/broadcom/bgmac.c:1425:3: error: unknown field 'link' specified in initializer
-> drivers/net/ethernet/broadcom/bgmac.c:1426:12: note: in expansion of macro 'SPEED_1000'
-> drivers/net/ethernet/broadcom/bgmac.c:1426:3: error: unknown field 'speed' specified in initializer
-> drivers/net/ethernet/broadcom/bgmac.c:1427:13: note: in expansion of macro 'DUPLEX_FULL'
-> drivers/net/ethernet/broadcom/bgmac.c:1427:3: error: unknown field 'duplex' specified in initializer
-> drivers/net/ethernet/broadcom/bgmac.c:1432:12: error: implicit declaration of function 'fixed_phy_register' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/broadcom/bgmac.c:1432:31: error: 'PHY_POLL' undeclared (first use in this function)
-> drivers/net/ethernet/broadcom/bgmac.c:1438:8: error: implicit declaration of function 'phy_connect_direct' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/broadcom/bgmac.c:1439:6: error: 'PHY_INTERFACE_MODE_MII' undeclared (first use in this function)
-> drivers/net/ethernet/broadcom/bgmac.c:1521:2: error: implicit declaration of function 'phy_disconnect' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/broadcom/bgmac.c:1541:15: error: expected declaration specifiers or '...' before string constant
->
-> Add linux/phy.h to bgmac.c
->
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+On Tue, Jan 31, 2017 at 06:46:43PM -0800, Florian Fainelli wrote:
+> From: Mao Wenan <maowenan@huawei.com>
+> 
+> There is currently no reference count being held on the PHY driver,
+> which makes it possible to remove the PHY driver module while the PHY
+> state machine is running and polling the PHY. This could cause crashes
+> similar to this one to show up:
 
-Acked-by: Rafał Miłecki <rafal@milecki.pl>
+Does this really solve the problem?  What if you use sysfs to unbind the
+driver but without removing the module?
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
