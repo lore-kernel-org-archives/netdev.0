@@ -1,35 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 0/2] MV88E6390 fixes
-Date: Thu,  2 Feb 2017 00:46:14 +0100
-Message-ID: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next 1/8] net/mlx5: Fixed static checker warnings
+Date: Thu, 2 Feb 2017 01:48:10 +0200
+Message-ID: <CAJ3xEMh6eiV_c5_s8i0HtFPFQAmU5He6iUdS7JP7h4VL1_+GqA@mail.gmail.com>
+References: <20170131205843.23235-1-saeedm@mellanox.com> <20170131205843.23235-2-saeedm@mellanox.com>
+ <20170201.122232.468887635709421897.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:52953 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750873AbdBAXrR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Feb 2017 18:47:17 -0500
+Received: from mail-ot0-f169.google.com ([74.125.82.169]:35446 "EHLO
+        mail-ot0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750962AbdBAXsL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 18:48:11 -0500
+Received: by mail-ot0-f169.google.com with SMTP id 65so302970918otq.2
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 15:48:10 -0800 (PST)
+In-Reply-To: <20170201.122232.468887635709421897.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Two patches, which have been posted before. Fix simple issues in the
-mv88e6390 support. These don't need to go to stable, since the
-mv88e6390 support in stable is insufficient to be usable.
+On Wed, Feb 1, 2017 at 7:22 PM, David Miller <davem@davemloft.net> wrote:
 
-To apply cleanly, these patches rely on "net: dsa: mv88e6xxx:
-Workaround missing PHY".
+[..]
 
-v2: Added Reviewed-by.
-    Removed a redundant "the"
+> You're propagating values into a u32 field, which you are explicitly
+> performing 32-bit endianness conversions upon.
 
-Andrew Lunn (2):
-  net: dsa: mv88e6xxx: Fix ATU age timer for MV88E6390
-  net: dsa: mv88e6xxx: Fix typ0 when configuring 2.5Gbps
+> Just use "u32" for a local variable and get rid of all of these casts.
 
- drivers/net/dsa/mv88e6xxx/chip.c | 12 ++++++------
- drivers/net/dsa/mv88e6xxx/port.c |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
-
--- 
-2.11.0
+ok, will do that
