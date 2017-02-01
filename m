@@ -1,289 +1,68 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH 3/3] net/sched: act_ife: Change to use ife module
-Date: Wed,  1 Feb 2017 15:30:03 +0200
-Message-ID: <1485955803-65065-4-git-send-email-yotamg@mellanox.com>
-References: <1485955803-65065-1-git-send-email-yotamg@mellanox.com>
-Cc: Yotam Gigi <yotamg@mellanox.com>
-To: jhs@mojatatu.com, davem@davemloft.net, netdev@vger.kernel.org,
-        mrv@mojatatu.com, eladr@mellanox.com, jiri@mellanox.com
+From: Colin Ian King <colin.king@canonical.com>
+Subject: Re: [patch net-next] sfc: a couple off by one bugs
+Date: Wed, 1 Feb 2017 13:34:49 +0000
+Message-ID: <d0791f09-a575-de0c-323c-e24f2cfe7dba@canonical.com>
+References: <20170201085040.GA31514@mwanda>
+ <60d163b6-0b49-172f-288c-e1712e04a84e@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Edward Cree <ecree@solarflare.com>,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41054 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750885AbdBAN1u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 08:27:50 -0500
-In-Reply-To: <1485955803-65065-1-git-send-email-yotamg@mellanox.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:33513 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750819AbdBANgU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 08:36:20 -0500
+In-Reply-To: <60d163b6-0b49-172f-288c-e1712e04a84e@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the encode/decode functionality from the ife module instead of using
-implementation inside the act_ife.
+On 01/02/17 13:24, Edward Cree wrote:
+> On 01/02/17 08:50, Dan Carpenter wrote:
+>> These checks are off by one.  These are just sanity checks and we don't
+>> ever pass invalid values for "encap_type" so it's harmless.
+>>
+>> Fixes: 9b4108012517 ("sfc: insert catch-all filters for encapsulated traffic")
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> One of these was already fixed by Colin Ian King in
+> e9904990e8e70a51574e6ec6b872f3c705ec75f0 ("sfc: fix an off-by-one compare on an
+> array size").
 
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
----
- include/net/tc_act/tc_ife.h        |   1 -
- include/uapi/linux/tc_act/tc_ife.h |  10 +---
- net/sched/Kconfig                  |   1 +
- net/sched/act_ife.c                | 110 +++++++++++--------------------------
- 4 files changed, 34 insertions(+), 88 deletions(-)
+Ugh, I missed one of those.
 
-diff --git a/include/net/tc_act/tc_ife.h b/include/net/tc_act/tc_ife.h
-index f37e751..30ba459 100644
---- a/include/net/tc_act/tc_ife.h
-+++ b/include/net/tc_act/tc_ife.h
-@@ -6,7 +6,6 @@
- #include <linux/rtnetlink.h>
- #include <linux/module.h>
- 
--#define IFE_METAHDRLEN 2
- struct tcf_ife_info {
- 	struct tc_action common;
- 	u8 eth_dst[ETH_ALEN];
-diff --git a/include/uapi/linux/tc_act/tc_ife.h b/include/uapi/linux/tc_act/tc_ife.h
-index cd18360..7c28178 100644
---- a/include/uapi/linux/tc_act/tc_ife.h
-+++ b/include/uapi/linux/tc_act/tc_ife.h
-@@ -3,6 +3,7 @@
- 
- #include <linux/types.h>
- #include <linux/pkt_cls.h>
-+#include <linux/ife.h>
- 
- #define TCA_ACT_IFE 25
- /* Flag bits for now just encoding/decoding; mutually exclusive */
-@@ -28,13 +29,4 @@ enum {
- };
- #define TCA_IFE_MAX (__TCA_IFE_MAX - 1)
- 
--#define IFE_META_SKBMARK 1
--#define IFE_META_HASHID 2
--#define	IFE_META_PRIO 3
--#define	IFE_META_QMAP 4
--#define	IFE_META_TCINDEX 5
--/*Can be overridden at runtime by module option*/
--#define	__IFE_META_MAX 6
--#define IFE_META_MAX (__IFE_META_MAX - 1)
--
- #endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 72cfa3a..403790c 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -776,6 +776,7 @@ config NET_ACT_SKBMOD
- config NET_ACT_IFE
-         tristate "Inter-FE action based on IETF ForCES InterFE LFB"
-         depends on NET_CLS_ACT
-+        select NET_IFE
-         ---help---
- 	  Say Y here to allow for sourcing and terminating metadata
- 	  For details refer to netdev01 paper:
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 70148c1..71e7ff22 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -32,6 +32,7 @@
- #include <uapi/linux/tc_act/tc_ife.h>
- #include <net/tc_act/tc_ife.h>
- #include <linux/etherdevice.h>
-+#include <net/ife.h>
- 
- #define IFE_TAB_MASK 15
- 
-@@ -46,23 +47,6 @@ static const struct nla_policy ife_policy[TCA_IFE_MAX + 1] = {
- 	[TCA_IFE_TYPE] = { .type = NLA_U16},
- };
- 
--/* Caller takes care of presenting data in network order
--*/
--static int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen,
--			       const void *dval)
--{
--	u32 *tlv = (u32 *)(skbdata);
--	u16 totlen = nla_total_size(dlen);	/*alignment + hdr */
--	char *dptr = (char *)tlv + NLA_HDRLEN;
--	u32 htlv = attrtype << 16 | (dlen + NLA_HDRLEN);
--
--	*tlv = htonl(htlv);
--	memset(dptr, 0, totlen - NLA_HDRLEN);
--	memcpy(dptr, dval, dlen);
--
--	return totlen;
--}
--
- int ife_encode_meta_u16(u16 metaval, void *skbdata, struct tcf_meta_info *mi)
- {
- 	u16 edata = 0;
-@@ -637,69 +621,59 @@ int find_decode_metaid(struct sk_buff *skb, struct tcf_ife_info *ife,
- 	return 0;
- }
- 
--struct ifeheadr {
--	__be16 metalen;
--	u8 tlv_data[];
--};
--
--struct meta_tlvhdr {
--	__be16 type;
--	__be16 len;
--};
--
- static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
- 			  struct tcf_result *res)
- {
- 	struct tcf_ife_info *ife = to_ife(a);
- 	int action = ife->tcf_action;
--	struct ifeheadr *ifehdr = (struct ifeheadr *)skb->data;
--	int ifehdrln = (int)ifehdr->metalen;
--	struct meta_tlvhdr *tlv = (struct meta_tlvhdr *)(ifehdr->tlv_data);
-+	u8 *ifehdr_end;
-+	u8 *tlv_data;
-+	u16 metalen;
- 
- 	spin_lock(&ife->tcf_lock);
- 	bstats_update(&ife->tcf_bstats, skb);
- 	tcf_lastuse_update(&ife->tcf_tm);
- 	spin_unlock(&ife->tcf_lock);
- 
--	ifehdrln = ntohs(ifehdrln);
--	if (unlikely(!pskb_may_pull(skb, ifehdrln))) {
-+	if (skb_at_tc_ingress(skb))
-+		skb_push(skb, skb->dev->hard_header_len);
-+
-+	tlv_data = ife_decode(skb, &metalen);
-+	if (unlikely(!tlv_data)) {
- 		spin_lock(&ife->tcf_lock);
- 		ife->tcf_qstats.drops++;
- 		spin_unlock(&ife->tcf_lock);
- 		return TC_ACT_SHOT;
- 	}
- 
--	skb_set_mac_header(skb, ifehdrln);
--	__skb_pull(skb, ifehdrln);
--	skb->protocol = eth_type_trans(skb, skb->dev);
--	ifehdrln -= IFE_METAHDRLEN;
--
--	while (ifehdrln > 0) {
--		u8 *tlvdata = (u8 *)tlv;
--		u16 mtype = tlv->type;
--		u16 mlen = tlv->len;
--		u16 alen;
-+	ifehdr_end = tlv_data + metalen;
-+	for (; tlv_data < ifehdr_end; tlv_data = ife_tlv_meta_next(tlv_data)) {
-+		u8 *curr_data;
-+		u16 mtype;
-+		u16 dlen;
- 
--		mtype = ntohs(mtype);
--		mlen = ntohs(mlen);
--		alen = NLA_ALIGN(mlen);
-+		curr_data = ife_tlv_meta_decode(tlv_data, &mtype, &dlen, NULL);
- 
--		if (find_decode_metaid(skb, ife, mtype, (mlen - NLA_HDRLEN),
--				       (void *)(tlvdata + NLA_HDRLEN))) {
-+		if (find_decode_metaid(skb, ife, mtype, dlen, curr_data)) {
- 			/* abuse overlimits to count when we receive metadata
- 			 * but dont have an ops for it
- 			 */
--			pr_info_ratelimited("Unknown metaid %d alnlen %d\n",
--					    mtype, mlen);
-+			pr_info_ratelimited("Unknown metaid %d dlen %d\n",
-+					    mtype, dlen);
- 			ife->tcf_qstats.overlimits++;
- 		}
-+	}
- 
--		tlvdata += alen;
--		ifehdrln -= alen;
--		tlv = (struct meta_tlvhdr *)tlvdata;
-+	if (WARN_ON(tlv_data != ifehdr_end)) {
-+		spin_lock(&ife->tcf_lock);
-+		ife->tcf_qstats.drops++;
-+		spin_unlock(&ife->tcf_lock);
-+		return TC_ACT_SHOT;
- 	}
- 
-+	skb->protocol = eth_type_trans(skb, skb->dev);
- 	skb_reset_network_header(skb);
-+
- 	return action;
- }
- 
-@@ -727,7 +701,6 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 	struct tcf_ife_info *ife = to_ife(a);
- 	int action = ife->tcf_action;
- 	struct ethhdr *oethh;	/* outer ether header */
--	struct ethhdr *iethh;	/* inner eth header */
- 	struct tcf_meta_info *e;
- 	/*
- 	   OUTERHDR:TOTMETALEN:{TLVHDR:Metadatum:TLVHDR..}:ORIGDATA
-@@ -735,10 +708,11 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 	 */
- 	u16 metalen = ife_get_sz(skb, ife);
- 	int hdrm = metalen + skb->dev->hard_header_len + IFE_METAHDRLEN;
--	unsigned int skboff = skb->dev->hard_header_len;
-+	unsigned int skboff = 0;
- 	int new_len = skb->len + hdrm;
- 	bool exceed_mtu = false;
--	int err;
-+	void *ife_meta;
-+	int err = 0;
- 
- 	if (!skb_at_tc_ingress(skb)) {
- 		if (new_len > skb->dev->mtu)
-@@ -765,27 +739,10 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 		return TC_ACT_SHOT;
- 	}
- 
--	err = skb_cow_head(skb, hdrm);
--	if (unlikely(err)) {
--		ife->tcf_qstats.drops++;
--		spin_unlock(&ife->tcf_lock);
--		return TC_ACT_SHOT;
--	}
--
- 	if (skb_at_tc_ingress(skb))
- 		skb_push(skb, skb->dev->hard_header_len);
- 
--	iethh = (struct ethhdr *)skb->data;
--	__skb_push(skb, hdrm);
--	memcpy(skb->data, iethh, skb->mac_len);
--	skb_reset_mac_header(skb);
--	oethh = eth_hdr(skb);
--
--	/*total metadata length */
--	metalen += IFE_METAHDRLEN;
--	metalen = htons(metalen);
--	memcpy((skb->data + skboff), &metalen, IFE_METAHDRLEN);
--	skboff += IFE_METAHDRLEN;
-+	ife_meta = ife_encode(skb, metalen);
- 
- 	/* XXX: we dont have a clever way of telling encode to
- 	 * not repeat some of the computations that are done by
-@@ -793,7 +750,7 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 	 */
- 	list_for_each_entry(e, &ife->metalist, metalist) {
- 		if (e->ops->encode) {
--			err = e->ops->encode(skb, (void *)(skb->data + skboff),
-+			err = e->ops->encode(skb, (void *)(ife_meta + skboff),
- 					     e);
- 		}
- 		if (err < 0) {
-@@ -804,15 +761,12 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
- 		}
- 		skboff += err;
- 	}
-+	oethh = (struct ethhdr *)skb->data;
- 
- 	if (!is_zero_ether_addr(ife->eth_src))
- 		ether_addr_copy(oethh->h_source, ife->eth_src);
--	else
--		ether_addr_copy(oethh->h_source, iethh->h_source);
- 	if (!is_zero_ether_addr(ife->eth_dst))
- 		ether_addr_copy(oethh->h_dest, ife->eth_dst);
--	else
--		ether_addr_copy(oethh->h_dest, iethh->h_dest);
- 	oethh->h_proto = htons(ife->eth_type);
- 
- 	if (skb_at_tc_ingress(skb))
--- 
-2.4.11
+> For the other one:
+> Acked-by: Edward Cree <ecree@solarflare.com>
+>> diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+>> index 8bec9383d754..dec0c8083ff3 100644
+>> --- a/drivers/net/ethernet/sfc/ef10.c
+>> +++ b/drivers/net/ethernet/sfc/ef10.c
+>> @@ -5080,7 +5080,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx,
+>>
+>>               /* quick bounds check (BCAST result impossible) */
+>>               BUILD_BUG_ON(EFX_EF10_BCAST != 0);
+>> -             if (encap_type > ARRAY_SIZE(map) || map[encap_type] == 0) {
+>> +             if (encap_type >= ARRAY_SIZE(map) || map[encap_type] == 0) {
+>>                       WARN_ON(1);
+>>                       return -EINVAL;
+>>               }
+>> @@ -5134,7 +5134,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx,
+>>
+>>               /* quick bounds check (BCAST result impossible) */
+>>               BUILD_BUG_ON(EFX_EF10_BCAST != 0);
+>> -             if (encap_type > ARRAY_SIZE(map) || map[encap_type] == 0) {
+>> +             if (encap_type >= ARRAY_SIZE(map) || map[encap_type] == 0) {
+>>                       WARN_ON(1);
+>>                       return -EINVAL;
+>>               }
+> 
+> 
+> The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
