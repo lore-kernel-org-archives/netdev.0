@@ -1,33 +1,111 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCHv2 net-next 1/2] net: dsa: mv88e6xxx: Workaround missing PHY ID on mv88e6390
-Date: Tue, 31 Jan 2017 21:49:07 -0500
-Message-ID: <87r33imxr0.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1485916806-27299-1-git-send-email-andrew@lunn.ch> <1485916806-27299-2-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: phy: Fix lack of reference count on PHY driver
+Date: Tue, 31 Jan 2017 18:46:43 -0800
+Message-ID: <20170201024643.2050-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
+        Mao Wenan <maowenan@huawei.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:56194 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750784AbdBACt5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 21:49:57 -0500
-In-Reply-To: <1485916806-27299-2-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35288 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750784AbdBACsV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Jan 2017 21:48:21 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 204so32698729pge.2
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 18:46:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+From: Mao Wenan <maowenan@huawei.com>
 
-Andrew Lunn <andrew@lunn.ch> writes:
+There is currently no reference count being held on the PHY driver,
+which makes it possible to remove the PHY driver module while the PHY
+state machine is running and polling the PHY. This could cause crashes
+similar to this one to show up:
 
-> The internal PHYs of the mv88e6390 do not have a model ID. Trap any
-> calls to the ID register, and if it is zero, return the ID for the
-> mv88e6390. The Marvell PHY driver can then bind to this ID.
->
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+[   43.361162] BUG: unable to handle kernel NULL pointer dereference at 0000000000000140
+[   43.361162] IP: phy_state_machine+0x32/0x490
+[   43.361162] PGD 59dc067
+[   43.361162] PUD 0
+[   43.361162]
+[   43.361162] Oops: 0000 [#1] SMP
+[   43.361162] Modules linked in: dsa_loop [last unloaded: broadcom]
+[   43.361162] CPU: 0 PID: 1299 Comm: kworker/0:3 Not tainted 4.10.0-rc5+ #415
+[   43.361162] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
+BIOS Ubuntu-1.8.2-1ubuntu2 04/01/2014
+[   43.361162] Workqueue: events_power_efficient phy_state_machine
+[   43.361162] task: ffff880006782b80 task.stack: ffffc90000184000
+[   43.361162] RIP: 0010:phy_state_machine+0x32/0x490
+[   43.361162] RSP: 0018:ffffc90000187e18 EFLAGS: 00000246
+[   43.361162] RAX: 0000000000000000 RBX: ffff8800059e53c0 RCX:
+ffff880006a15c60
+[   43.361162] RDX: ffff880006782b80 RSI: 0000000000000000 RDI:
+ffff8800059e5428
+[   43.361162] RBP: ffffc90000187e48 R08: ffff880006a15c40 R09:
+0000000000000000
+[   43.361162] R10: 0000000000000000 R11: 0000000000000000 R12:
+ffff8800059e5428
+[   43.361162] R13: ffff8800059e5000 R14: 0000000000000000 R15:
+ffff880006a15c40
+[   43.361162] FS:  0000000000000000(0000) GS:ffff880006a00000(0000)
+knlGS:0000000000000000
+[   43.361162] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   43.361162] CR2: 0000000000000140 CR3: 0000000005979000 CR4:
+00000000000006f0
+[   43.361162] Call Trace:
+[   43.361162]  process_one_work+0x1b4/0x3e0
+[   43.361162]  worker_thread+0x43/0x4d0
+[   43.361162]  ? __schedule+0x17f/0x4e0
+[   43.361162]  kthread+0xf7/0x130
+[   43.361162]  ? process_one_work+0x3e0/0x3e0
+[   43.361162]  ? kthread_create_on_node+0x40/0x40
+[   43.361162]  ret_from_fork+0x29/0x40
+[   43.361162] Code: 56 41 55 41 54 4c 8d 67 68 53 4c 8d af 40 fc ff ff
+48 89 fb 4c 89 e7 48 83 ec 08 e8 c9 9d 27 00 48 8b 83 60 ff ff ff 44 8b
+73 98 <48> 8b 90 40 01 00 00 44 89 f0 48 85 d2 74 08 4c 89 ef ff d2 8b
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Keep references on the PHY driver module right before we are going to
+utilize it in phy_attach_direct(), and conversely when we don't use it
+anymore in phy_detach().
 
-Thanks!
+Signed-off-by: Mao Wenan <maowenan@huawei.com>
+[florian: rebase, rework commit message]
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/phy_device.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-        Vivien
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 92b08383cafa..0d8f4d3847f6 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -920,6 +920,11 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		return -EIO;
+ 	}
+ 
++	if (!try_module_get(d->driver->owner)) {
++		dev_err(&dev->dev, "failed to get the device driver module\n");
++		return -EIO;
++	}
++
+ 	get_device(d);
+ 
+ 	/* Assume that if there is no driver, that it doesn't
+@@ -977,6 +982,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ error:
+ 	phy_detach(phydev);
+ 	put_device(d);
++	module_put(d->driver->owner);
+ 	if (ndev_owner != bus->owner)
+ 		module_put(bus->owner);
+ 	return err;
+@@ -1059,6 +1065,7 @@ void phy_detach(struct phy_device *phydev)
+ 	bus = phydev->mdio.bus;
+ 
+ 	put_device(&phydev->mdio.dev);
++	module_put(phydev->mdio.dev.driver->owner);
+ 	if (ndev_owner != bus->owner)
+ 		module_put(bus->owner);
+ }
+-- 
+2.9.3
