@@ -1,8 +1,8 @@
 From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
         <niklas.soderlund+renesas@ragnatech.se>
-Subject: [PATCH 1/2] sh_eth: align usage of sh_eth_modify() with rest of driver
-Date: Wed,  1 Feb 2017 15:41:54 +0100
-Message-ID: <20170201144155.17123-2-niklas.soderlund+renesas@ragnatech.se>
+Subject: [PATCH 2/2] sh_eth: fix wakeup event reporting from MagicPacket
+Date: Wed,  1 Feb 2017 15:41:55 +0100
+Message-ID: <20170201144155.17123-3-niklas.soderlund+renesas@ragnatech.se>
 References: <20170201144155.17123-1-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -14,33 +14,47 @@ Cc: linux-renesas-soc@vger.kernel.org,
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
         Simon Horman <horms+renesas@verge.net.au>,
         netdev@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-4.sys.kth.se ([130.237.48.193]:44078 "EHLO
+        smtp-4.sys.kth.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751103AbdBAOn1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 09:43:27 -0500
 In-Reply-To: <20170201144155.17123-1-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To be consistent with the rest of the driver when setting bits using
-sh_eth_modify() the same bit should also be cleared. This have no
-functional change and should have been done from the start.
+If a link change interrupt happens along side the MagicPacket interrupt
+and the link change interrupt is ignored the interrupt handler will
+return and the wakeup event is not register. Fix this by moving the
+MagicPacket check before the link change check.
 
 Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Reported-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/renesas/sh_eth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 2f08d2735fe25e4d..f9134c818ac6ef53 100644
+index f9134c818ac6ef53..54248775f227b062 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -3271,7 +3271,7 @@ static int sh_eth_wol_setup(struct net_device *ndev)
- 	sh_eth_write(ndev, EESIPR_ECIIP, EESIPR);
+@@ -1605,6 +1605,8 @@ static void sh_eth_emac_interrupt(struct net_device *ndev)
+ 	sh_eth_write(ndev, felic_stat, ECSR);	/* clear int */
+ 	if (felic_stat & ECSR_ICD)
+ 		ndev->stats.tx_carrier_errors++;
++	if (felic_stat & ECSR_MPD)
++		pm_wakeup_event(&mdp->pdev->dev, 0);
+ 	if (felic_stat & ECSR_LCHNG) {
+ 		/* Link Changed */
+ 		if (mdp->cd->no_psr || mdp->no_ether_link)
+@@ -1624,8 +1626,6 @@ static void sh_eth_emac_interrupt(struct net_device *ndev)
+ 			sh_eth_rcv_snd_enable(ndev);
+ 		}
+ 	}
+-	if (felic_stat & ECSR_MPD)
+-		pm_wakeup_event(&mdp->pdev->dev, 0);
+ }
  
- 	/* Enable MagicPacket */
--	sh_eth_modify(ndev, ECMR, 0, ECMR_MPDE);
-+	sh_eth_modify(ndev, ECMR, ECMR_MPDE, ECMR_MPDE);
- 
- 	/* Increased clock usage so device won't be suspended */
- 	clk_enable(mdp->clk);
+ /* error control function */
 -- 
 2.11.0
