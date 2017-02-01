@@ -1,118 +1,92 @@
-From: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
-Subject: Re: [PATCHv3 net-next 5/7] net: add confirm_neigh method to
- dst_ops
-Date: Thu, 2 Feb 2017 01:04:34 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1702012326130.2580@ja.home.ssi.bg>
-References: <1485899827-5212-1-git-send-email-ja@ssi.bg> <1485899827-5212-6-git-send-email-ja@ssi.bg> <20170201074402.GX30338@gauss.secunet.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
+Subject: Re: [PATCH 1/2] net: ethernet: bgmac: init sequence bug
+Date: Thu, 2 Feb 2017 00:06:44 +0100
+Message-ID: <12ceba49-5465-072c-1770-b57d265bee86@milecki.pl>
+References: <1485988752-21030-1-git-send-email-jon.mason@broadcom.com>
+ <1485988752-21030-2-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, YueHaibing <yuehaibing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Steffen Klassert <steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170201074402.GX30338-QbcZoYm+z/4HCNZ7eMmnrgC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Zac Schroff <zschroff@broadcom.com>
+To: Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 13.mo5.mail-out.ovh.net ([87.98.182.191]:51016 "EHLO
+        13.mo5.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751092AbdBAXN4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 18:13:56 -0500
+Received: from player760.ha.ovh.net (b9.ovh.net [213.186.33.59])
+        by mo5.mail-out.ovh.net (Postfix) with ESMTP id E508CA0785
+        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 00:06:51 +0100 (CET)
+In-Reply-To: <1485988752-21030-2-git-send-email-jon.mason@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On 02/01/2017 11:39 PM, Jon Mason wrote:
+> From: Zac Schroff <zschroff@broadcom.com>
+>
+> Fix a bug in the 'bgmac' driver init sequence that blind writes for init
+> sequence where it should preserve most bits other than the ones it is
+> deliberately manipulating.
+>
+> Signed-off-by: Zac Schroff <zschroff@broadcom.com>
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> Fixes: f6a95a24957 ("net: ethernet: bgmac: Add platform device support")
+> ---
+>  drivers/net/ethernet/broadcom/bgmac-platform.c | 10 +++++++---
+>  include/linux/bcma/bcma_regs.h                 |  1 +
+>  2 files changed, 8 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
+> index 6f736c1..9bbe05c 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac-platform.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
+> @@ -61,15 +61,19 @@ static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
+>
+>  static void platform_bgmac_clk_enable(struct bgmac *bgmac, u32 flags)
+>  {
+> -	bgmac_idm_write(bgmac, BCMA_IOCTL,
+> -			(BCMA_IOCTL_CLK | BCMA_IOCTL_FGC | flags));
+> +	u32 regval;
+> +
+> +	/* Some bits of BCMA_IOCTL set by HW/ATF & should not change */
+> +	regval = bgmac_idm_read(bgmac, BCMA_IOCTL) & BCMA_IOCTL_DO_NOT_MODIFY;
+> +	regval |= ((flags & (~BCMA_IOCTL_DO_NOT_MODIFY)) | BCMA_IOCTL_CLK);
+
+You don't need these braces around whole calculation.
+This should work the same:
+(flags & (~BCMA_IOCTL_DO_NOT_MODIFY)) | BCMA_IOCTL_CLK
 
 
-	Hello,
+> +	bgmac_idm_write(bgmac, BCMA_IOCTL, regval | BCMA_IOCTL_FGC);
+>  	bgmac_idm_read(bgmac, BCMA_IOCTL);
+>
+>  	bgmac_idm_write(bgmac, BCMA_RESET_CTL, 0);
+>  	bgmac_idm_read(bgmac, BCMA_RESET_CTL);
+>  	udelay(1);
+>
+> -	bgmac_idm_write(bgmac, BCMA_IOCTL, (BCMA_IOCTL_CLK | flags));
+> +	bgmac_idm_write(bgmac, BCMA_IOCTL, regval);
+>  	bgmac_idm_read(bgmac, BCMA_IOCTL);
+>  	udelay(1);
+>  }
+> diff --git a/include/linux/bcma/bcma_regs.h b/include/linux/bcma/bcma_regs.h
+> index 9986f82..41d7404 100644
+> --- a/include/linux/bcma/bcma_regs.h
+> +++ b/include/linux/bcma/bcma_regs.h
+> @@ -31,6 +31,7 @@
+>  #define  BCMA_IOCTL_CORE_BITS		0x3FFC
+>  #define  BCMA_IOCTL_PME_EN		0x4000
+>  #define  BCMA_IOCTL_BIST_EN		0x8000
+> +#define  BCMA_IOCTL_DO_NOT_MODIFY	0x7FFFFF80
 
-On Wed, 1 Feb 2017, Steffen Klassert wrote:
+This sounds like a pretty bad name.
 
-> On Tue, Jan 31, 2017 at 11:57:05PM +0200, Julian Anastasov wrote:
-> >  
-> > +static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
-> > +{
-> > +	const struct dst_entry *path = dst->path;
-> > +
-> > +	if (path == dst) {
-> 
-> I think path can not be equal to dst here, otherwise we would
-> have an infinite recursion.
+Take a look at brcmsmac and SICF_*:
+http://lxr.free-electrons.com/source/drivers/net/wireless/broadcom/brcm80211/brcmsmac/d11.h?v=4.9#L1737
 
-	Yep, I know that, this place remained unfinished.
+Or b43 and B43_BCMA_IOCTL_*:
+http://lxr.free-electrons.com/source/drivers/net/wireless/broadcom/b43/b43.h?v=4.9#L494
 
-> > +		dst->ops->confirm_neigh(dst, daddr);
-> > +	} else {
-> > +		/* daddr can be from different family and we need the
-> > +		 * tunnel address. How to get it?
-> > +		 */
-> 
-> This is only called on a xfrm_dst, so you should have dst->xfrm set.
-> You can get the daddr of this transform with:
-> 
-> xfrm_address_t *daddr = &xfrm->id.daddr;
-
-	I hope so but see below...
-
-> > +		path->ops->confirm_neigh(path, NULL);
-> 
-> I think here it is better to go through the whole chain
-> of transformations with
-> 
-> child->ops->confirm_neigh(path, daddr);
-
-	It may sounds good. But only dst->path->ops->confirm_neigh
-points to real IPv4/IPv6 function. And also, I guess, the
-family can change while walking the chain, so we should be
-careful while providing the original daddr (which comes from
-sendmsg). I had the idea to walk all xforms to get the latest
-tunnel address but this can be slow. Something like this?:
-
-static void xfrm_confirm_neigh(const struct dst_entry *dst, const void 
-*daddr)
-{
-	const struct dst_entry *path = dst->path;
-
-	/* By default, daddr is from sendmsg() if we have no tunnels */
-	for (;dst != path; dst = dst->child) {
-		const struct xfrm_state *xfrm = dst->xfrm;
-
-		/* Use address from last tunnel	*/
-		if (xfrm->props.mode != XFRM_MODE_TRANSPORT)
-			daddr = &xfrm->id.daddr;
-	}
-	path->ops->confirm_neigh(path, daddr);
-}
-
-	This should work as long as path and last tunnel are
-from same family. Also, after checking xfrm_dst_lookup() I'm not
-sure using just &xfrm->id.daddr is enough. Should we consider
-more places for daddr value?
-
-> >  int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
-> >  {
-> >  	int err = 0;
-> > @@ -2882,6 +2896,8 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
-> >  			dst_ops->link_failure = xfrm_link_failure;
-> >  		if (likely(dst_ops->neigh_lookup == NULL))
-> >  			dst_ops->neigh_lookup = xfrm_neigh_lookup;
-> > +		if (likely(!dst_ops->confirm_neigh))
-> > +			dst_ops->confirm_neigh = xfrm_confirm_neigh;
-> 
-> We also have address family depended dst_ops, look for
-> xfrm4_dst_ops_template/xfrm6_dst_ops_template.
-
-	For now I installed common handler, just like
-xfrm_neigh_lookup. BTW this function has problem from
-commit f894cbf847c9, it looks like dst is wrongly provided,
-first arg should be dst->path.
-
-	But as dst_ops contains the family, I think, we can know
-what kind of daddr is provided initially (dst->ops->family).
-So far, the above logic does not need to compare the families.
-But as I don't know the code well, I'm not sure, my assumptions are:
-
-- transports do not change the family
-- tunnels may change the family
-- last tunnel gets dst0->path route from its family
-
-Regards
-
---
-Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Both drives modify bits you marked as DO_NOT_MODIFY and they are OK.
