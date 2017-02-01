@@ -1,62 +1,55 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH] net: ethernet: ti: cpsw: fix  NULL pointer dereference
- in switch mode
-Date: Wed, 1 Feb 2017 18:30:49 +0200
-Message-ID: <20170201163048.GA15402@khorivan>
-References: <20170131200404.29150-1-grygorii.strashko@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: fix 0 divide in __tcp_select_window()
+Date: Wed, 01 Feb 2017 08:33:53 -0800
+Message-ID: <1485966833.6360.149.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Dmitry Vyukov <dvyukov@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:32921 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752722AbdBAQay (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:30:54 -0500
-Received: by mail-lf0-f47.google.com with SMTP id x1so144650563lff.0
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 08:30:53 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170131200404.29150-1-grygorii.strashko@ti.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34934 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750962AbdBAQdz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 11:33:55 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 204so34590770pge.2
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 08:33:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2017 at 02:04:04PM -0600, Grygorii Strashko wrote:
-> In switch mode on struct cpsw_slave->ndev field will be initialized with
-> proper value only for the one cpsw slave port, as result
-> cpsw_get_usage_count() will generate "Unable to handle kernel NULL pointer
-> dereference" exception when first ethernet interface is opening
-> cpsw_ndo_open(). This issue causes boot regression on AM335x EVM and
-> reproducible on am57xx-evm (switch mode).
-> Fix it by adding additional check for !cpsw->slaves[i].ndev in
-> cpsw_get_usage_count().
-> 
-> Cc: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> fixes: 03fd01ad0eea ("net: ethernet: ti: cpsw: don't duplicate ndev_running")
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
+From: Eric Dumazet <edumazet@google.com>
 
-Yes, unfortunately forgot to add it. Thanks.
-Reviewed-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+syszkaller fuzzer was able to trigger a divide by zero, when
+TCP window scaling is not enabled.
 
+SO_RCVBUF can be used not only to increase sk_rcvbuf, also
+to decrease it below current receive buffers utilization.
 
->  drivers/net/ethernet/ti/cpsw.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 67b7323..35a95dc 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -677,7 +677,7 @@ static int cpsw_get_usage_count(struct cpsw_common *cpsw)
->  	u32 usage_count = 0;
->  
->  	for (i = 0; i < cpsw->data.slaves; i++)
-> -		if (netif_running(cpsw->slaves[i].ndev))
-> +		if (cpsw->slaves[i].ndev && netif_running(cpsw->slaves[i].ndev))
->  			usage_count++;
->  
->  	return usage_count;
-> -- 
-> 2.10.1.dirty
-> 
+If mss is negative or 0, just return a zero TCP window.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov  <dvyukov@google.com>
+---
+No Fixes: tag, this is a day-0 bug.
+
+ net/ipv4/tcp_output.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1d5331a1b1dc2677316148ba9852c191e7ed0fd4..8ce50dc3ab8cac821b8a2c3e0d31f0aa42f5c9d5 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2518,9 +2518,11 @@ u32 __tcp_select_window(struct sock *sk)
+ 	int full_space = min_t(int, tp->window_clamp, allowed_space);
+ 	int window;
+ 
+-	if (mss > full_space)
++	if (unlikely(mss > full_space)) {
+ 		mss = full_space;
+-
++		if (mss <= 0)
++			return 0;
++	}
+ 	if (free_space < (full_space >> 1)) {
+ 		icsk->icsk_ack.quick = 0;
+ 
