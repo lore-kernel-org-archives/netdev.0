@@ -1,34 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 0/2] net/sched: act_sample: Little fixes
-Date: Wed, 1 Feb 2017 09:14:48 -0800
-Message-ID: <CAM_iQpVVP_Wkec4dwqM=kUiF3kyrQuBgFNFRN_0bftsWBYbOtw@mail.gmail.com>
-References: <1485855234-9941-1-git-send-email-yotamg@mellanox.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the DP83867
+ TI's PHY driver
+Date: Wed, 1 Feb 2017 18:16:10 +0100
+Message-ID: <20170201171610.GC7395@lunn.ch>
+References: <1485960215-5148-1-git-send-email-lukma@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>
-To: Yotam Gigi <yotamg@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33920 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752903AbdBARPK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:15:10 -0500
-Received: by mail-wm0-f65.google.com with SMTP id c85so6985085wmi.1
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 09:15:09 -0800 (PST)
-In-Reply-To: <1485855234-9941-1-git-send-email-yotamg@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Karicheri Muralidharan <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
+        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Lukasz Majewski <lukma-ynQEQJNshbs@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1485960215-5148-1-git-send-email-lukma-ynQEQJNshbs@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 31, 2017 at 1:33 AM, Yotam Gigi <yotamg@mellanox.com> wrote:
-> Little fixes in sample tc action.
->
-> Yotam Gigi (2):
->   net/sched: act_sample: Fix error path in init
->   net/sched: act_psample: Remove unnecessary ASSERT_RTNL
->
+On Wed, Feb 01, 2017 at 03:43:35PM +0100, Lukasz Majewski wrote:
+> This patch adds support for enabling or disabling the port mirroring
+> feature of the DP83867 TI's PHY device.
+> 
+> One use case is when bootstrap configuration enables this feature (because
+> of e.g. LED wiring) so then one needs to disable it in software
+> (u-boot/Linux).
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+Hi Lukasz
 
-Thanks!
+How does this differ from "enet-phy-lane-swap"?
+
+Thanks
+    Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
