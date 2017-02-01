@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 15/15] xfrm: Add a dummy network device for napi.
-Date: Wed, 1 Feb 2017 09:17:57 +0100
-Message-ID: <1485937077-612-16-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 14/15] net: Drop secpath on free after gro merge.
+Date: Wed, 1 Feb 2017 09:17:56 +0100
+Message-ID: <1485937077-612-15-git-send-email-steffen.klassert@secunet.com>
 References: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,59 +10,41 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:37132 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:37104 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751785AbdBAISP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751814AbdBAISP (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 1 Feb 2017 03:18:15 -0500
 In-Reply-To: <1485937077-612-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a dummy network device so that we can
-use gro_cells for IPsec GRO. With this, we handle IPsec
-GRO with no impact on the generic networking code.
+With a followup patch, a gro merged skb can have a secpath.
+So drop it before freeing or reusing the skb.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_input.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ net/core/dev.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 6e3f025..3213fe8 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -21,6 +21,9 @@
- static DEFINE_SPINLOCK(xfrm_input_afinfo_lock);
- static struct xfrm_input_afinfo __rcu *xfrm_input_afinfo[NPROTO];
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 56818f7..ef3a969 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4623,6 +4623,7 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ 	case GRO_MERGED_FREE:
+ 		if (NAPI_GRO_CB(skb)->free == NAPI_GRO_FREE_STOLEN_HEAD) {
+ 			skb_dst_drop(skb);
++			secpath_reset(skb);
+ 			kmem_cache_free(skbuff_head_cache, skb);
+ 		} else {
+ 			__kfree_skb(skb);
+@@ -4663,6 +4664,7 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
+ 	skb->encapsulation = 0;
+ 	skb_shinfo(skb)->gso_type = 0;
+ 	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
++	secpath_reset(skb);
  
-+static struct gro_cells gro_cells;
-+static struct net_device xfrm_napi_dev;
-+
- int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
- {
- 	int err = 0;
-@@ -371,7 +374,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 
- 	if (decaps) {
- 		skb_dst_drop(skb);
--		netif_rx(skb);
-+		gro_cells_receive(&gro_cells, skb);
- 		return 0;
- 	} else {
- 		return x->inner_mode->afinfo->transport_finish(skb, async);
-@@ -394,6 +397,13 @@ int xfrm_input_resume(struct sk_buff *skb, int nexthdr)
- 
- void __init xfrm_input_init(void)
- {
-+	int err;
-+
-+	init_dummy_netdev(&xfrm_napi_dev);
-+	err = gro_cells_init(&gro_cells, &xfrm_napi_dev);
-+	if (err)
-+		gro_cells.cells = NULL;
-+
- 	secpath_cachep = kmem_cache_create("secpath_cache",
- 					   sizeof(struct sec_path),
- 					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+ 	napi->skb = skb;
+ }
 -- 
 1.9.1
