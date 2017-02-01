@@ -1,31 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] ipv6: pointer math error in ip6_tnl_parse_tlv_enc_lim()
-Date: Wed, 01 Feb 2017 12:31:02 -0500 (EST)
-Message-ID: <20170201.123102.237978601616140108.davem@davemloft.net>
-References: <20170201084632.GA29912@mwanda>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: sock_create_kern() and network namespace reference counts
+Date: Wed, 1 Feb 2017 17:37:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0277F03@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6DB0276D58@AcuExch.aculab.com>
+ <CAM_iQpVs-_p8VeoRpUjBPSOCkCAi0q8gWWSx29699-UuLKQTrg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0276FD9@AcuExch.aculab.com>
+ <CAM_iQpUuvibN=kgj-zwPKuFAEcA6yjTEoLwf4itrcADX3WxX1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Cong Wang' <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40660 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753186AbdBARbF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:31:05 -0500
-In-Reply-To: <20170201084632.GA29912@mwanda>
+Received: from smtp-out6.electric.net ([192.162.217.192]:59779 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753050AbdBARh7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:37:59 -0500
+In-Reply-To: <CAM_iQpUuvibN=kgj-zwPKuFAEcA6yjTEoLwf4itrcADX3WxX1g@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 1 Feb 2017 11:46:32 +0300
-
-> Casting is a high precedence operation but "off" and "i" are in terms of
-> bytes so we need to have some parenthesis here.
-> 
-> Fixes: fbfa743a9d2a ("ipv6: fix ip6_tnl_parse_tlv_enc_lim()")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Applied, thanks Dan.
+RnJvbTogQ29uZyBXYW5nDQo+IFNlbnQ6IDAxIEZlYnJ1YXJ5IDIwMTcgMTc6MjANCj4gT24gVHVl
+LCBKYW4gMzEsIDIwMTcgYXQgOTo1NyBBTSwgRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1
+bGFiLmNvbT4gd3JvdGU6DQo+ID4gRnJvbTogQ29uZyBXYW5nDQo+ID4+IFNlbnQ6IDMxIEphbnVh
+cnkgMjAxNyAxNzozOA0KPiA+PiBPbiBUdWUsIEphbiAzMSwgMjAxNyBhdCA3OjQxIEFNLCBEYXZp
+ZCBMYWlnaHQgPERhdmlkLkxhaWdodEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPj4gPiBDb21taXQg
+MjZhYmUxNDM3IGNoYW5nZWQgc29ja19jcmVhdGVfa2VybigpIHNvIHRoYXQgaXQgc3RvcHBlZA0K
+PiA+PiA+IGhvbGRpbmcgYSByZWZlcmVuY2UgdG8gdGhlIG5ldHdvcmsgbmFtZXNwYWNlLg0KPiA+
+PiA+IFRoZSByYXRpb25hbCBzZWVtZWQgdG8gYmUgJ3RvIGFsbG93IHRvIHN0b3AgaXQnIChwcmVz
+dW1hYmx5ICdiZSBkZWxldGVkJykuDQo+ID4+ID4gUHJpb3IgdG8gdGhpcyBjaGFuZ2Ugc29tZSBr
+ZXJuZWwgcGF0aHMgdXNlZCBza19jaGFuZ2VfbmV0KCkgKGV0YykgdG8NCj4gPj4gPiBjaGFuZ2Ug
+dGhlIG5hbWVzcGFjZSBhZnRlciB0aGUgc29ja2V0IHdhcyBjcmVhdGVkLg0KPiA+PiA+DQo+ID4+
+ID4gSWYgdGhlIHNvY2tldCBkb2Vzbid0IGhvbGQgYSByZWZlcmVuY2UgdG8gdGhlIG5hbWVzcGFj
+ZSwgd2hhdCBhY3R1YWxseQ0KPiA+PiA+IGhhcHBlbnMgd2hlbiB0aGUgbmFtZXNwYWNlIGlzIGRl
+bGV0ZWQ/DQo+ID4+DQo+ID4+IEtlcm5lbCBzb2NrZXQgc2hvdWxkIGhhdmUgdGhlIHNhbWUgbGlm
+ZXRpbWUgd2l0aCB0aGUgbmV0IG5hbWVzcGFjZSwNCj4gPj4gdGhhdCBpcywgY3JlYXRlZCBpbiBu
+ZXRfaW5pdCBhbmQgcmVsZWFzZWQgaW4gbmV0X2V4aXQuIFRoaW5rIGFib3V0IGl0LCBpZiBpdA0K
+PiA+PiByZWFsbHkgaGVsZCBhIHJlZmNudCB0byB0aGlzIG5ldG5zLCBob3cgY291bGQgdGhpcyBu
+ZXRucyBiZSB0ZWFyZWQgZG93bj8NCj4gPg0KPiA+IFRoYXQgcmF0aGVyIGRlcGVuZHMgb24gd2hh
+dCB0aGV5IGFyZSBiZWluZyB1c2VkIGZvci4NCj4gPiBDb25zaWRlciBzb21ldGhpbmcgbGlrZSBh
+biBpbiBrZXJuZWwgZnRwIGNsaWVudCwgaXQgZG9lc24ndCByZWFsbHkgY2FyZQ0KPiA+IGFib3V0
+IG5hbWVzcGFjZXMgZXhjZXB0IGluIGFzIG11Y2ggYXMgdGhlIGNvbm5lY3Rpb25zIGl0IGNyZWF0
+ZXMgbXVzdA0KPiA+IGJlIGluc2lkZSB0aGUgY29ycmVjdCBuYW1lc3BhY2UuDQo+ID4gVGhlIG5h
+bWVzcGFjZSBzaG91bGRuJ3QgYmUgdG9ybiBkb3duIHdoaWxlIHRoYXQgY29ubmVjdGlvbiBleGlz
+dHMgYW55IG1vcmUNCj4gPiB0aGFuIGl0IHNob3VsZCBiZSB0b3JuIGRvd24gd2hpbGUgYSB1c2Vy
+IHByb2Nlc3MgaGFzIGFuIG9wZW4gY29ubmVjdGlvbi4NCj4gPiAoTGlzdGVuaW5nIHNvY2tldHMg
+YXJlIGxpa2VseSB0byBiZSBtb3JlIG9mIGEgcHJvYmxlbS4pDQo+IA0KPiBJZiB5b3UgZG9uJ3Qg
+Y2FyZSBhYm91dCBuZXRucywgd2h5IG5vdCBqdXN0IHVzZSBpbml0X25ldCB3aGljaCBpcyBuZXZl
+cg0KPiB0b3JuIGRvd24gYW5kIG1ha2UgeW91ciBrZXJuZWwgc29ja2V0IGdsb2JhbCBzbyB0aGF0
+IGVhY2ggbmV0bnMNCj4gY2FuIGFjY2VzcyBpdCB0b28/DQoNCklmIEkgY3JlYXRlIHRoZSBrZXJu
+ZWwgc29ja2V0IGluIGluaXRfbmV0IHRoZSBjb25uZWN0aW9ucyBkb24ndCB3b3JrLg0KSW4gcGFy
+dGljdWxhciBhIGNvbm5lY3Rpb24gdG8gMTI3LjAuMC4xIHRvIGEgcHJvY2VzcyBzdGFydGVkIGlu
+DQphIGRpZmZlcmVudCBuYW1lc3BhY2UgKHdoaWNoIGNvbnRhaW5zIGFuIGV4dGVybmFsIGV0aGVy
+bmV0IHBvcnQpLg0KDQpTbyBJIGNhcmUgZW5vdWdoIGFib3V0IHRoZW0gdG8gaGF2ZSB0byBjcmVh
+dGUgc29ja2V0cyBpbiB0aGUgcmlnaHQgb25lLg0KSSBkb24ndCBjYXJlIGFib3V0IG5hbWVzcGFj
+ZXMgYmVpbmcgY3JlYXRlZCBvciBkZWxldGVkLg0KDQpUaGV5IGRvIHdvcmsgaWYgSSBzYXZlIHRo
+ZSBuZXRfbnMgZnJvbSBhICdyYW5kb20nIG9wZW4gb2YgdGhlIGRyaXZlcg0KKGZyb20gYSBwcm9j
+ZXNzIHRoYXQgaGFwcGVucyB0byBiZSBydW5uaW5nIGluIHRoZSByaWdodCBuYW1lc3BhY2UpLg0K
+DQpIb3dldmVyIHRoYXQganVzdCBwcm92ZXMgdGhlIGtlcm5lbCBzb2NrZXQgbmVlZCB0byBiZSBp
+biB0aGUgcmlnaHQNCm5hbWVzcGFjZS4gSXQgaXNuJ3QgYSByZWFsIHNvbHV0aW9uIGFuZCBJIGNh
+bid0IGhvbGQgYSByZWZlcmVuY2UgY291bnQNCm9uIHRoZSBuYW1lc3BhY2UgYXQgYWxsICh3ZWxs
+IEkgY291bGQgY2FsbCBzb2NrX2NyZWF0ZSgpIGFuZCBob2xkIGl0DQp2aWEgYSB1c2VyIHNvY2tl
+dCkuDQoNCkFzIGEgbWF0dGVyIG9mIGludGVyZXN0LCBhIHByb2Nlc3MgY2FuIGNoYW5nZSBuYW1l
+c3BhY2UgYnkgZG9pbmc6DQoJc2V0X25zKG9wZW4oIi92YXIvcnVuL25ldG5zL25hbWVzcGFjZSIs
+Li4uKSwuLi4pDQpIb3cgY2FuIGl0IHNlbGVjdCBpbml0X25zID8/DQoNCglEYXZpZA0KDQoNCg==
