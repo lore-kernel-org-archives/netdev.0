@@ -1,33 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: Discard masked flags in interrupt status
- register
-Date: Wed, 01 Feb 2017 16:02:52 -0500 (EST)
-Message-ID: <20170201.160252.465001917585166032.davem@davemloft.net>
-References: <1485519883-24969-1-git-send-email-abrodkin@synopsys.com>
-        <20170129.181541.423447436903187089.davem@davemloft.net>
-        <4881796E12491D4BB15146FE0209CE64678ACDB7@DE02WEMBXB.internal.synopsys.com>
+From: Josef Bacik <jbacik@fb.com>
+Subject: [PATCH net-next] loopback: clear pfmemalloc on outgoing skb's
+Date: Wed, 1 Feb 2017 16:04:38 -0500
+Message-ID: <1485983078-2372-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, peppe.cavallaro@st.com,
-        fabrice.gasnier@st.com, manabian@gmail.com,
-        preid@electromag.com.au, alexandre.torgue@gmail.com,
-        Vineet.Gupta1@synopsys.com
-To: Alexey.Brodkin@synopsys.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <4881796E12491D4BB15146FE0209CE64678ACDB7@DE02WEMBXB.internal.synopsys.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <kernel-team@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36993 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751192AbdBAVE7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 16:04:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Date: Wed, 1 Feb 2017 20:22:22 +0000
+I was seeing random disconnects while testing NBD over loopback.  This turned
+out to be because NBD sets pfmemalloc on it's socket, however the receiving side
+is a user space application so does not have pfmemalloc set on its socket.  This
+means that sk_filter_trim_cap will simply drop this packet, under the assumption
+that the other side will simply retransmit.  Well we do retransmit, and then the
+packet is just dropped again for the same reason.  To keep this from happening
+simply clear skb->pfmemalloc on transmit so that we don't drop the packet on the
+receive side.
 
-> May we have that one back-ported to stable branches starting from 4.8.x?
-> 
-> That issue started to appear due to a change from pr_debug() to pr_info() in commit
-> 70523e639bf8 ("drivers: net: stmmac: reworking the PCS code.").
+Signed-off-by: Josef Bacik <jbacik@fb.com>
+---
+ drivers/net/loopback.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-Sure, queued up for -stable.
-
-Thanks.
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 1e05b7c..13c9126 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -81,6 +81,13 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	 */
+ 	skb_dst_force(skb);
+ 
++	/* If our transmitter was a pfmemalloc socket we need to clear
++	 * pfmemalloc here, otherwise the receiving socket may not be
++	 * pfmemalloc, and if this is a tcp packet then it'll get dropped and
++	 * all traffic will halt.
++	 */
++	skb->pfmemalloc = false;
++
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 
+ 	/* it's OK to use per_cpu_ptr() because BHs are off */
+-- 
+2.7.4
