@@ -1,92 +1,110 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-Subject: Re: [PATCH 1/2] net: ethernet: bgmac: init sequence bug
-Date: Thu, 2 Feb 2017 00:06:44 +0100
-Message-ID: <12ceba49-5465-072c-1770-b57d265bee86@milecki.pl>
-References: <1485988752-21030-1-git-send-email-jon.mason@broadcom.com>
- <1485988752-21030-2-git-send-email-jon.mason@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Zac Schroff <zschroff@broadcom.com>
-To: Jon Mason <jon.mason@broadcom.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 13.mo5.mail-out.ovh.net ([87.98.182.191]:51016 "EHLO
-        13.mo5.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751092AbdBAXN4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 18:13:56 -0500
-Received: from player760.ha.ovh.net (b9.ovh.net [213.186.33.59])
-        by mo5.mail-out.ovh.net (Postfix) with ESMTP id E508CA0785
-        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 00:06:51 +0100 (CET)
-In-Reply-To: <1485988752-21030-2-git-send-email-jon.mason@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] wcn36xx: Implement cancel_hw_scan
+Date: Wed,  1 Feb 2017 07:27:47 -0800
+Message-ID: <20170201152747.838-1-bjorn.andersson@linaro.org>
+Cc: wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mart Raudsepp <leio-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+To: Eugene Krasnikov <k.eugene.e-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/01/2017 11:39 PM, Jon Mason wrote:
-> From: Zac Schroff <zschroff@broadcom.com>
->
-> Fix a bug in the 'bgmac' driver init sequence that blind writes for init
-> sequence where it should preserve most bits other than the ones it is
-> deliberately manipulating.
->
-> Signed-off-by: Zac Schroff <zschroff@broadcom.com>
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-> Fixes: f6a95a24957 ("net: ethernet: bgmac: Add platform device support")
-> ---
->  drivers/net/ethernet/broadcom/bgmac-platform.c | 10 +++++++---
->  include/linux/bcma/bcma_regs.h                 |  1 +
->  2 files changed, 8 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
-> index 6f736c1..9bbe05c 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac-platform.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
-> @@ -61,15 +61,19 @@ static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
->
->  static void platform_bgmac_clk_enable(struct bgmac *bgmac, u32 flags)
->  {
-> -	bgmac_idm_write(bgmac, BCMA_IOCTL,
-> -			(BCMA_IOCTL_CLK | BCMA_IOCTL_FGC | flags));
-> +	u32 regval;
-> +
-> +	/* Some bits of BCMA_IOCTL set by HW/ATF & should not change */
-> +	regval = bgmac_idm_read(bgmac, BCMA_IOCTL) & BCMA_IOCTL_DO_NOT_MODIFY;
-> +	regval |= ((flags & (~BCMA_IOCTL_DO_NOT_MODIFY)) | BCMA_IOCTL_CLK);
+In the even that the wcn36xx interface is brought down while a hw_scan
+is active we must abort and wait for the ongoing scan to signal
+completion to mac80211.
 
-You don't need these braces around whole calculation.
-This should work the same:
-(flags & (~BCMA_IOCTL_DO_NOT_MODIFY)) | BCMA_IOCTL_CLK
+Reported-by: Mart Raudsepp <leio-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Fixes: 886039036c20 ("wcn36xx: Implement firmware assisted scan")
+Signed-off-by: Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
+ drivers/net/wireless/ath/wcn36xx/main.c    | 25 ++++++++++++++++++++++++-
+ drivers/net/wireless/ath/wcn36xx/wcn36xx.h |  1 +
+ 2 files changed, 25 insertions(+), 1 deletion(-)
 
-
-> +	bgmac_idm_write(bgmac, BCMA_IOCTL, regval | BCMA_IOCTL_FGC);
->  	bgmac_idm_read(bgmac, BCMA_IOCTL);
->
->  	bgmac_idm_write(bgmac, BCMA_RESET_CTL, 0);
->  	bgmac_idm_read(bgmac, BCMA_RESET_CTL);
->  	udelay(1);
->
-> -	bgmac_idm_write(bgmac, BCMA_IOCTL, (BCMA_IOCTL_CLK | flags));
-> +	bgmac_idm_write(bgmac, BCMA_IOCTL, regval);
->  	bgmac_idm_read(bgmac, BCMA_IOCTL);
->  	udelay(1);
->  }
-> diff --git a/include/linux/bcma/bcma_regs.h b/include/linux/bcma/bcma_regs.h
-> index 9986f82..41d7404 100644
-> --- a/include/linux/bcma/bcma_regs.h
-> +++ b/include/linux/bcma/bcma_regs.h
-> @@ -31,6 +31,7 @@
->  #define  BCMA_IOCTL_CORE_BITS		0x3FFC
->  #define  BCMA_IOCTL_PME_EN		0x4000
->  #define  BCMA_IOCTL_BIST_EN		0x8000
-> +#define  BCMA_IOCTL_DO_NOT_MODIFY	0x7FFFFF80
-
-This sounds like a pretty bad name.
-
-Take a look at brcmsmac and SICF_*:
-http://lxr.free-electrons.com/source/drivers/net/wireless/broadcom/brcm80211/brcmsmac/d11.h?v=4.9#L1737
-
-Or b43 and B43_BCMA_IOCTL_*:
-http://lxr.free-electrons.com/source/drivers/net/wireless/broadcom/b43/b43.h?v=4.9#L494
-
-Both drives modify bits you marked as DO_NOT_MODIFY and they are OK.
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index a24edf33be93..bb7110f7fc86 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -574,6 +574,7 @@ static void wcn36xx_hw_scan_worker(struct work_struct *work)
+ 	struct cfg80211_scan_request *req = wcn->scan_req;
+ 	u8 channels[WCN36XX_HAL_PNO_MAX_NETW_CHANNELS_EX];
+ 	struct cfg80211_scan_info scan_info = {};
++	bool aborted = false;
+ 	int i;
+ 
+ 	wcn36xx_dbg(WCN36XX_DBG_MAC, "mac80211 scan %d channels worker\n", req->n_channels);
+@@ -585,6 +586,13 @@ static void wcn36xx_hw_scan_worker(struct work_struct *work)
+ 
+ 	wcn36xx_smd_init_scan(wcn, HAL_SYS_MODE_SCAN);
+ 	for (i = 0; i < req->n_channels; i++) {
++		mutex_lock(&wcn->scan_lock);
++		aborted = wcn->scan_aborted;
++		mutex_unlock(&wcn->scan_lock);
++
++		if (aborted)
++			break;
++
+ 		wcn->scan_freq = req->channels[i]->center_freq;
+ 		wcn->scan_band = req->channels[i]->band;
+ 
+@@ -596,7 +604,7 @@ static void wcn36xx_hw_scan_worker(struct work_struct *work)
+ 	}
+ 	wcn36xx_smd_finish_scan(wcn, HAL_SYS_MODE_SCAN);
+ 
+-	scan_info.aborted = false;
++	scan_info.aborted = aborted;
+ 	ieee80211_scan_completed(wcn->hw, &scan_info);
+ 
+ 	mutex_lock(&wcn->scan_lock);
+@@ -615,6 +623,8 @@ static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
+ 		mutex_unlock(&wcn->scan_lock);
+ 		return -EBUSY;
+ 	}
++
++	wcn->scan_aborted = false;
+ 	wcn->scan_req = &hw_req->req;
+ 	mutex_unlock(&wcn->scan_lock);
+ 
+@@ -623,6 +633,18 @@ static int wcn36xx_hw_scan(struct ieee80211_hw *hw,
+ 	return 0;
+ }
+ 
++static void wcn36xx_cancel_hw_scan(struct ieee80211_hw *hw,
++				   struct ieee80211_vif *vif)
++{
++	struct wcn36xx *wcn = hw->priv;
++
++	mutex_lock(&wcn->scan_lock);
++	wcn->scan_aborted = true;
++	mutex_unlock(&wcn->scan_lock);
++
++	cancel_work_sync(&wcn->scan_work);
++}
++
+ static void wcn36xx_update_allowed_rates(struct ieee80211_sta *sta,
+ 					 enum nl80211_band band)
+ {
+@@ -1034,6 +1056,7 @@ static const struct ieee80211_ops wcn36xx_ops = {
+ 	.tx			= wcn36xx_tx,
+ 	.set_key		= wcn36xx_set_key,
+ 	.hw_scan		= wcn36xx_hw_scan,
++	.cancel_hw_scan		= wcn36xx_cancel_hw_scan,
+ 	.bss_info_changed	= wcn36xx_bss_info_changed,
+ 	.set_rts_threshold	= wcn36xx_set_rts_threshold,
+ 	.sta_add		= wcn36xx_sta_add,
+diff --git a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+index 571e9f76da7e..b52b4da9a967 100644
+--- a/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
++++ b/drivers/net/wireless/ath/wcn36xx/wcn36xx.h
+@@ -220,6 +220,7 @@ struct wcn36xx {
+ 	int			scan_freq;
+ 	int			scan_band;
+ 	struct mutex		scan_lock;
++	bool			scan_aborted;
+ 
+ 	/* DXE channels */
+ 	struct wcn36xx_dxe_ch	dxe_tx_l_ch;	/* TX low */
+-- 
+2.11.0
