@@ -1,65 +1,84 @@
-From: Lukasz Majewski <lukma@denx.de>
-Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the
- DP83867 TI's PHY driver
-Date: Wed, 1 Feb 2017 23:13:23 +0100
-Message-ID: <20170201231323.732dd327@jawa>
-References: <1485960215-5148-1-git-send-email-lukma@denx.de>
-        <20170201171610.GC7395@lunn.ch>
-        <2f3766f0-42df-6aab-dda1-14022c57fb30@gmail.com>
-        <20170201220500.29d478aa@jawa>
-        <20170201211440.GG7395@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Karicheri Muralidharan <m-karicheri2@ti.com>,
-        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
-        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        devicetree@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170201211440.GG7395@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v7 1/3] Bluetooth: btusb: Use an error label for error paths
+Date: Wed,  1 Feb 2017 14:24:08 -0800
+Message-ID: <20170201222410.145612-1-rajatja@google.com>
+Cc: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+Use a label to remove the repetetive cleanup, for error cases.
 
-> > We would need a tri-state device tree properly:
-> > 
-> > 1. Not defined - do nothing
-> > 2. Defined as 0 -> explicitly disable port mirroring
-> > 3. Defined as 1 -> explicitly enable port mirriring
-> > 
-> > The "net-phy-lane-swap" only fulfills points 1 and 3 above.
-> > 
-> > In my use case I do need point 2.
-> 
-> Looking at the datasheet, PORT_MIRROR_EN defaults to 0. So it seems
-> reasonable to unconditionally set it to 0 when the PHY driver
-> loads. Any device which needs a value of 1 can set "net-phy-lane-swap"
+Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+---
+v7: same as v6
+v6: same as v5
+v5: same as v4
+v4: same as v3
+v3: Added Brian's "Reviewed-by"
+v2: same as v1
 
-Unconditionally setting this field to 0 (as we expect the reset default
-setting) seems to me like a good solution. 
+ drivers/bluetooth/btusb.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-However, I was not sure if such approach is acceptable by the community.
-
-> 
->        Andrew
-
-
-
-
-Best regards,
-
-Lukasz Majewski
-
---
-
-DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 2f633df9f4e6..ce22cefceed1 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -2991,18 +2991,15 @@ static int btusb_probe(struct usb_interface *intf,
+ 		err = usb_set_interface(data->udev, 0, 0);
+ 		if (err < 0) {
+ 			BT_ERR("failed to set interface 0, alt 0 %d", err);
+-			hci_free_dev(hdev);
+-			return err;
++			goto out_free_dev;
+ 		}
+ 	}
+ 
+ 	if (data->isoc) {
+ 		err = usb_driver_claim_interface(&btusb_driver,
+ 						 data->isoc, data);
+-		if (err < 0) {
+-			hci_free_dev(hdev);
+-			return err;
+-		}
++		if (err < 0)
++			goto out_free_dev;
+ 	}
+ 
+ #ifdef CONFIG_BT_HCIBTUSB_BCM
+@@ -3016,14 +3013,16 @@ static int btusb_probe(struct usb_interface *intf,
+ #endif
+ 
+ 	err = hci_register_dev(hdev);
+-	if (err < 0) {
+-		hci_free_dev(hdev);
+-		return err;
+-	}
++	if (err < 0)
++		goto out_free_dev;
+ 
+ 	usb_set_intfdata(intf, data);
+ 
+ 	return 0;
++
++out_free_dev:
++	hci_free_dev(hdev);
++	return err;
+ }
+ 
+ static void btusb_disconnect(struct usb_interface *intf)
+-- 
+2.11.0.483.g087da7b7c-goog
