@@ -1,70 +1,41 @@
-From: Heiner Kallweit <hkallweit1@gmail.com>
-Subject: [PATCH] net: stmmac: don't set tx delay in RGMII_ID and RGMII_TXID
- mode
-Date: Wed, 1 Feb 2017 20:19:25 +0100
-Message-ID: <ed022e67-2494-209e-9e51-b7a57c219d02@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: broadcom: rehook BCM54612E specific init
+Date: Wed, 01 Feb 2017 14:20:32 -0500 (EST)
+Message-ID: <20170201.142032.218330612110187827.davem@davemloft.net>
+References: <20170131215454.7932-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-amlogic@lists.infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: 8bit
+Cc: f.fainelli@gmail.com, xow@google.com, joel@jms.id.au,
+        jon.mason@broadcom.com, jaedon.shin@gmail.com,
+        netdev@vger.kernel.org, rafal@milecki.pl
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:35809 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751781AbdBATTg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 14:19:36 -0500
-Received: by mail-wj0-f195.google.com with SMTP id i7so14138047wjf.2
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 11:19:35 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:45278 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751068AbdBATUe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 14:20:34 -0500
+In-Reply-To: <20170131215454.7932-1-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As documented in Documentation/devicetree/bindings/net/ethernet.txt,
-in RGMII_ID and RGMII_TXID mode the MAC should not add a tx delay.
+From: Rafa©© Mi©©ecki <zajec5@gmail.com>
+Date: Tue, 31 Jan 2017 22:54:54 +0100
 
-Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+> From: Rafa©© Mi©©ecki <rafal@milecki.pl>
+> 
+> This extra BCM54612E code in PHY driver isn't really aneg specific. Even
+> without it aneg works OK but the problem is no packets pass through PHY.
+> 
+> Moreover putting this code inside config_aneg callback didn't allow
+> resuming PHY correctly. When driver called phy_stop and phy_start it was
+> putting PHY machine into RESUMING state. After that machine was
+> switching into AN and NOLINK without ever calling phy_start_aneg. This
+> prevented this extra setup from being called and PHY didn't work.
+> 
+> This change has been verified to fix network on BCM47186B0 SoC device
+> with BCM54612E.
+> 
+> Signed-off-by: Rafa©© Mi©©ecki <rafal@milecki.pl>
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-index 8840a360..96855559 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-@@ -177,12 +177,19 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
- {
- 	int ret;
- 	unsigned long clk_rate;
--	u8 tx_dly_val;
-+	u8 tx_dly_val = 0;
- 
- 	switch (dwmac->phy_mode) {
- 	case PHY_INTERFACE_MODE_RGMII:
--	case PHY_INTERFACE_MODE_RGMII_ID:
- 	case PHY_INTERFACE_MODE_RGMII_RXID:
-+		/* TX clock delay in ns = "8ns / 4 * tx_dly_val" (where
-+		 * 8ns are exactly one cycle of the 125MHz RGMII TX clock):
-+		 * 0ns = 0x0, 2ns = 0x1, 4ns = 0x2, 6ns = 0x3
-+		 */
-+		tx_dly_val = dwmac->tx_delay_ns >> 1;
-+		/* fall through */
-+
-+	case PHY_INTERFACE_MODE_RGMII_ID:
- 	case PHY_INTERFACE_MODE_RGMII_TXID:
- 		/* Generate a 25MHz clock for the PHY */
- 		clk_rate = 25 * 1000 * 1000;
-@@ -195,11 +202,6 @@ static int meson8b_init_prg_eth(struct meson8b_dwmac *dwmac)
- 		meson8b_dwmac_mask_bits(dwmac, PRG_ETH0,
- 					PRG_ETH0_INVERTED_RMII_CLK, 0);
- 
--		/* TX clock delay in ns = "8ns / 4 * tx_dly_val" (where
--		 * 8ns are exactly one cycle of the 125MHz RGMII TX clock):
--		 * 0ns = 0x0, 2ns = 0x1, 4ns = 0x2, 6ns = 0x3
--		 */
--		tx_dly_val = dwmac->tx_delay_ns >> 1;
- 		meson8b_dwmac_mask_bits(dwmac, PRG_ETH0, PRG_ETH0_TXDLY_MASK,
- 					tx_dly_val << PRG_ETH0_TXDLY_SHIFT);
- 		break;
--- 
-2.11.0
+Applied to net-next, thanks.
