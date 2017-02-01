@@ -1,52 +1,48 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 00/10] bnxt_en: Add XDP support.
-Date: Tue, 31 Jan 2017 22:22:12 -0800
-Message-ID: <CAADnVQ+8kCcd8MZYscbFYap6-0DjTp4hek0LPCUfMBA0kt550Q@mail.gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net v2 0/2] mlx4: Misc bug fixes after reinitializing queues
+Date: Tue, 31 Jan 2017 22:35:31 -0800
+Message-ID: <1485930933-4159518-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35635 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750991AbdBAGWf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 01:22:35 -0500
-Received: by mail-lf0-f67.google.com with SMTP id v186so35618161lfa.2
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 22:22:34 -0800 (PST)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35229 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751004AbdBAGfh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 01:35:37 -0500
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v116ZYPi011340
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 22:35:36 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 28badcr0kt-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 22:35:36 -0800
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
+ mx-out.facebook.com (10.223.100.97) with ESMTP id
+ a2397de2e84811e6934024be0593f280-98b826d0 for <netdev@vger.kernel.org>;        Tue,
+ 31 Jan 2017 22:35:33 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2017 at 9:33 PM, Andy Gospodarek <andy@greyhouse.net> wrote:
-> On Tue, Jan 31, 2017 at 10:36 AM, Andy Gospodarek <andy@greyhouse.net> wrote:
->> On Mon, Jan 30, 2017 at 08:47:47PM -0800, Alexei Starovoitov wrote:
->>> On Mon, Jan 30, 2017 at 08:49:25PM -0500, Michael Chan wrote:
->>> > The first 8 patches refactor the code (rx/tx code paths and ring logic)
->>> > and add the basic infrastructure to support XDP.  The 9th patch adds
->>> > basic ndo_xdp to support XDP_DROP and XDP_PASS only.  The 10th patch
->>> > completes the series with XDP_TX.
->>>
->>> Looks great.
->>> Could you please share performance numbers ?
->>
->> I'll post some later today.
->
-> I finally got my system moved around to what I'd hoped would be the
-> right spot in my lab, but the system used for generating the traffic
-> was only able to send 6Mpps with pktgen, so it was not a great test.
->
-> My receiving system with i7-6700 CPU @ 3.40GHz seemed to have no issue
-> handling this 6Mpps load -- mpstat showed only one core was ~25%
-> utilitzed with all of that servicing softirqs.  The rest of the cores
-> were 100% idle.
->
-> I'm going to search for other traffic generation tools/systems to make
-> sure I can get at least line-rate for the 10GbE cards I was using.
+This patchset fixes misc bugs after reinitializing
+queues (e.g. by ethtool -L).
 
-hmm. last time I tried pktgen on bnx2x it was easily doing 14Mpps with burst on.
-Have you been using samples/pktgen/pktgen_sample03_burst_single_flow.sh ?
-Waiting for this set to land to start benchmarking on bnxt.
-So having a baseline will certainly help :)
+v2:
+* Add another fix to mem leak in tx_ring[t] and tx_cq[t]
+* In mlx4_en_try_alloc_resources(),
+  move all xdp_prog logic after calling mlx4_en_alloc_resources()
 
-Thanks!
+Martin KaFai Lau (2):
+  mlx4: Fix memory leak after mlx4_en_update_priv()
+  mlx4: xdp_prog becomes inactive after mlx4_en_try_alloc_resources()
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  4 +--
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 35 ++++++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  3 ++-
+ 3 files changed, 29 insertions(+), 13 deletions(-)
+
+-- 
+2.5.1
