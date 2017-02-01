@@ -1,69 +1,50 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH net] net: phy: Fix lack of reference count on PHY driver
-Date: Wed, 1 Feb 2017 10:51:21 +0000
-Message-ID: <20170201105121.GA8191@n2100.armlinux.org.uk>
-References: <20170201024643.2050-1-f.fainelli@gmail.com>
- <20170201102208.GM27312@n2100.armlinux.org.uk>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH v1 net-next] net: phy: Add LED mode driver for Microsemi
+Date: Wed, 1 Feb 2017 16:22:51 +0530
+Message-ID: <1485946372-16926-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
-        Mao Wenan <maowenan@huawei.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <Allan.Nielsen@microsemi.com>,
+        <andrew@lunn.ch>, Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+To: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:44348 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751336AbdBAKva (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 05:51:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20170201102208.GM27312@n2100.armlinux.org.uk>
+Received: from mail-cys01nam02on0062.outbound.protection.outlook.com ([104.47.37.62]:51840
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751374AbdBAKxB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Feb 2017 05:53:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 01, 2017 at 10:22:08AM +0000, Russell King - ARM Linux wrote:
-> On Tue, Jan 31, 2017 at 06:46:43PM -0800, Florian Fainelli wrote:
-> > From: Mao Wenan <maowenan@huawei.com>
-> > 
-> > There is currently no reference count being held on the PHY driver,
-> > which makes it possible to remove the PHY driver module while the PHY
-> > state machine is running and polling the PHY. This could cause crashes
-> > similar to this one to show up:
-> 
-> Does this really solve the problem?  What if you use sysfs to unbind the
-> driver but without removing the module?
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-I think that's a problem, and the patch is just solving a symptom of
-it.
+LED Mode:
+Microsemi PHY support 2 LEDs (LED[0] and LED[1]) to display different
+status information that can be selected by setting LED mode.
 
-If a phy driver is unbound from a device, phy_remove() will be called.
-This will set the state to PHY_DOWN (under the mutex) before calling
-the driver's remove function (if any), and finally setting phydev->drv
-to NULL.
+LED Mode parameter (vsc8531, led-0-mode) and (vsc8531, led-1-mode) get from
+Device Tree.
 
-If phy_state_machine() is called after that point, then:
+Tested on Beaglebone Black with VSC 8531 PHY.
 
-void phy_state_machine(struct work_struct *work)
-{
-...
-        if (phydev->drv->link_change_notify)
-                phydev->drv->link_change_notify(phydev);
+Change set:
+v0:
+- Initial version of LED driver for Microsemi PHYs.
+v1:
+- Update all review comments given by Andrew.
+- Add new header file "mscc-phy-vsc8531.h" to define DT macros.
+- Add error/range check for DT LED mode input
 
-which happens unconditionally, causes a NULL pointer dereference, which
-is probably the same NULL pointer dereference given in Mao Wenan's patch
-description.
+Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-It looks to me as if that's the only case where this can happen, so maybe
-the above needs to be:
+Raju Lakkaraju (1):
+  net: phy: Add LED mode driver for Microsemi PHYs.
 
-        if (phydev->drv && phydev->drv->link_change_notify)
-                phydev->drv->link_change_notify(phydev);
-
-Also, I'd suggest making sure that the workqueue is flushed in
-phy_remove() after setting phydev->drv to NULL to ensure that the
-workqueue isn't running while the phy driver is being unbound, which
-should also make module removal safe(r).  I haven't fully analysed
-that though.
+ .../devicetree/bindings/net/mscc-phy-vsc8531.txt   | 10 +++
+ drivers/net/phy/mscc.c                             | 85 +++++++++++++++++++++-
+ include/dt-bindings/net/mscc-phy-vsc8531.h         | 29 ++++++++
+ 3 files changed, 123 insertions(+), 1 deletion(-)
+ create mode 100644 include/dt-bindings/net/mscc-phy-vsc8531.h
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.7.4
