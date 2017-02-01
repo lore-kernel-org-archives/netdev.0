@@ -1,148 +1,136 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net v2 2/2] mlx4: xdp_prog becomes inactive after ethtool '-L' or '-G'
-Date: Tue, 31 Jan 2017 22:35:33 -0800
-Message-ID: <1485930933-4159518-3-git-send-email-kafai@fb.com>
-References: <1485930933-4159518-1-git-send-email-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Brenden Blanco <bblanco@plumgrid.com>
-To: <netdev@vger.kernel.org>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/5] bridge: per vlan dst_metadata support
+Date: Tue, 31 Jan 2017 22:59:50 -0800
+Message-ID: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+        nikolay@cumulusnetworks.com, tgraf@suug.ch,
+        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
+        dsa@cumulusnetworks.com, hadi@mojatatu.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:40921 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751004AbdBAGfk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 01:35:40 -0500
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v116Wtxp011375
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 22:35:34 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 28b7p18awm-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 22:35:34 -0800
-Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
- mx-out.facebook.com (10.102.107.99) with ESMTP id
- a1f938d6e84811e6b3ae0002c99293a0-ac1f7a50 for <netdev@vger.kernel.org>;        Tue,
- 31 Jan 2017 22:35:33 -0800
-In-Reply-To: <1485930933-4159518-1-git-send-email-kafai@fb.com>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:33383 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750991AbdBAHAB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 02:00:01 -0500
+Received: by mail-pg0-f41.google.com with SMTP id 204so106934788pge.0
+        for <netdev@vger.kernel.org>; Tue, 31 Jan 2017 23:00:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After calling mlx4_en_try_alloc_resources (e.g. by changing the
-number of rx-queues with ethtool -L), the existing xdp_prog becomes
-inactive.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-The bug is that the xdp_prog ptr has not been carried over from
-the old rx-queues to the new rx-queues
+High level summary:
+lwt and dst_metadata have enabled vxlan l3 deployments
+to use a single vxlan netdev for multiple vnis eliminating the scalability
+problem with using a single vxlan netdev per vni. This series tries to
+do the same for vxlan netdevs in pure l2 bridged networks.
+Use-case/deployment and details are below.
 
-Fixes: 47a38e155037 ("net/mlx4_en: add support for fast rx drop bpf program")
-Cc: Brenden Blanco <bblanco@plumgrid.com>
-Cc: Saeed Mahameed <saeedm@mellanox.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  4 ++--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 27 +++++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  3 ++-
- 3 files changed, 27 insertions(+), 7 deletions(-)
+Deployment scerario details:
+As we know VXLAN is used to build layer 2 virtual networks across the
+underlay layer3 infrastructure. A VXLAN tunnel endpoint (VTEP)
+originates and terminates VXLAN tunnels. And a VTEP can be a TOR switch
+or a vswitch in the hypervisor. This patch series mainly
+focuses on the TOR switch configured as a Vtep. Vxlan segment ID (vni)
+along with vlan id is used to identify layer 2 segments in a vxlan
+overlay network. Vxlan bridging is the function provided by Vteps to terminate
+vxlan tunnels and map the vxlan vni to traditional end host vlan. This is
+covered in the "VXLAN Deployment Scenarios" in sections 6 and 6.1 in RFC 7348.
+To provide vxlan bridging function, a vtep has to map vlan to a vni. The rfc
+says that the ingress VTEP device shall remove the IEEE 802.1Q VLAN tag in
+the original Layer 2 packet if there is one before encapsulating the packet
+into the VXLAN format to transmit it through the underlay network. The remote
+VTEP devices have information about the VLAN in which the packet will be
+placed based on their own VLAN-to-VXLAN VNI mapping configurations.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index d5a9372ed84d..9aa422691954 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1099,7 +1099,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
- 	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
- 	new_prof.tx_ring_size = tx_size;
- 	new_prof.rx_ring_size = rx_size;
--	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
-+	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, true);
- 	if (err)
- 		goto out;
- 
-@@ -1774,7 +1774,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 	new_prof.tx_ring_num[TX_XDP] = xdp_count;
- 	new_prof.rx_ring_num = channel->rx_count;
- 
--	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
-+	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, true);
- 	if (err)
- 		goto out;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 3abcead208d2..3b4961a8e8e4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2186,9 +2186,11 @@ static void mlx4_en_update_priv(struct mlx4_en_priv *dst,
- 
- int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
- 				struct mlx4_en_priv *tmp,
--				struct mlx4_en_port_profile *prof)
-+				struct mlx4_en_port_profile *prof,
-+				bool carry_xdp_prog)
- {
--	int t;
-+	struct bpf_prog *xdp_prog;
-+	int i, t;
- 
- 	mlx4_en_copy_priv(tmp, priv, prof);
- 
-@@ -2202,6 +2204,23 @@ int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
- 		}
- 		return -ENOMEM;
- 	}
-+
-+	/* All rx_rings has the same xdp_prog.  Pick the first one. */
-+	xdp_prog = rcu_dereference_protected(
-+		priv->rx_ring[0]->xdp_prog,
-+		lockdep_is_held(&priv->mdev->state_lock));
-+
-+	if (xdp_prog && carry_xdp_prog) {
-+		xdp_prog = bpf_prog_add(xdp_prog, tmp->rx_ring_num);
-+		if (IS_ERR(xdp_prog)) {
-+			mlx4_en_free_resources(tmp);
-+			return PTR_ERR(xdp_prog);
-+		}
-+		for (i = 0; i < tmp->rx_ring_num; i++)
-+			rcu_assign_pointer(tmp->rx_ring[i]->xdp_prog,
-+					   xdp_prog);
-+	}
-+
- 	return 0;
- }
- 
-@@ -2751,7 +2770,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 		en_warn(priv, "Reducing the number of TX rings, to not exceed the max total rings number.\n");
- 	}
- 
--	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
-+	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, false);
- 	if (err) {
- 		if (prog)
- 			bpf_prog_sub(prog, priv->rx_ring_num - 1);
-@@ -3495,7 +3514,7 @@ int mlx4_en_reset_config(struct net_device *dev,
- 	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
- 	memcpy(&new_prof.hwtstamp_config, &ts_config, sizeof(ts_config));
- 
--	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
-+	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, true);
- 	if (err)
- 		goto out;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index ba1c6cd0cc79..cec59bc264c9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -679,7 +679,8 @@ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
- 
- int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
- 				struct mlx4_en_priv *tmp,
--				struct mlx4_en_port_profile *prof);
-+				struct mlx4_en_port_profile *prof,
-+				bool carry_xdp_prog);
- void mlx4_en_safe_replace_resources(struct mlx4_en_priv *priv,
- 				    struct mlx4_en_priv *tmp);
- 
+Existing solution:
+Without this patch series one can deploy such a vtep configuration by
+adding the local ports and vxlan netdevs into a vlan filtering bridge.
+The local ports are configured as trunk ports carrying all vlans.
+A vxlan netdev per vni is added to the bridge. Vlan mapping to vni is
+achieved by configuring the vlan as pvid on the corresponding vxlan netdev.
+The vxlan netdev only receives traffic corresponding to the vlan it is mapped
+to. This configuration maps traffic belonging to a vlan to the corresponding
+vxlan segment.
+
+          -----------------------------------
+         |              bridge               |
+         |                                   |
+          -----------------------------------
+            |100,200       |100 (pvid)    |200 (pvid)
+            |              |              |
+           swp1          vxlan1000      vxlan2000
+                    
+This provides the required vxlan bridging function but poses a
+scalability problem with using a separate vxlan netdev for each vni.
+
+Solution in this patch series:
+The Goal is to use a single vxlan device to carry all vnis similar
+to the vxlan collect metadata mode but additionally allowing the bridge
+and vxlan driver to carry all the forwarding information and also learn.
+This implementation uses the existing dst_metadata infrastructure to map
+vlan to a tunnel id.
+- vxlan driver changes:
+    - enable collect metadata mode to be used with learning,
+      replication and fdb
+    - A single fdb table hashed by (mac, vni)
+    - rx path already has the vni
+    - tx path expects a vni in the packet with dst_metadata and relies
+      on learnt or static forwarding information table to forward the packet
+
+- Bridge driver changes: per vlan dst_metadata support:
+    - Our use case is vxlan and 1-1 mapping between vlan and vni, but I have
+      kept the api generic for any tunnel info
+    - Uapi to configure/unconfigure/dump per vlan tunnel data
+    - new bridge port flag to turn this feature on/off. off by default
+    - ingress hook:
+        - if port is a tunnel port, use tunnel info in
+          attached dst_metadata to map it to a local vlan
+    - egress hook:
+        - if port is a tunnel port, use tunnel info attached to vlan
+          to set dst_metadata on the skb
+
+Other approaches tried and vetoed:
+- tc vlan push/pop and tunnel metadata dst:
+    - though tc can be used to do part of this, these patches address a deployment
+      case where bridge driver vlan filtering and forwarding information
+      database along with vxlan driver forwarding information table and learning
+      are required.
+- making vxlan driver understand vlan-vni mapping:
+    - I had a series almost ready with this one but soon realized
+      it duplicated a lot of vlan handling code in the vxlan driver
+
+Roopa Prabhu (5):
+  ip_tunnels: new IP_TUNNEL_INFO_BRIDGE flag for ip_tunnel_info mode
+  vxlan: support fdb and learning in COLLECT_METADATA mode
+  bridge: uapi: add per vlan tunnel info
+  bridge: per vlan dst_metadata netlink support
+  bridge: vlan dst_metadata hooks in ingress and egress paths
+
+ drivers/net/vxlan.c            |  209 +++++++++++++++++-----------
+ include/linux/if_bridge.h      |    1 +
+ include/net/ip_tunnels.h       |    1 +
+ include/uapi/linux/if_bridge.h |   11 ++
+ include/uapi/linux/if_link.h   |    1 +
+ include/uapi/linux/neighbour.h |    1 +
+ net/bridge/Makefile            |    5 +-
+ net/bridge/br_forward.c        |    2 +-
+ net/bridge/br_input.c          |    8 +-
+ net/bridge/br_netlink.c        |  140 +++++++++++++------
+ net/bridge/br_netlink_tunnel.c |  296 ++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h        |   12 ++
+ net/bridge/br_private_tunnel.h |   83 +++++++++++
+ net/bridge/br_vlan.c           |   24 +++-
+ net/bridge/br_vlan_tunnel.c    |  203 +++++++++++++++++++++++++++
+ 15 files changed, 871 insertions(+), 126 deletions(-)
+ create mode 100644 net/bridge/br_netlink_tunnel.c
+ create mode 100644 net/bridge/br_private_tunnel.h
+ create mode 100644 net/bridge/br_vlan_tunnel.c
+
 -- 
-2.5.1
+
+v2 :
+        - fix kbuild robot reported warnings with CONFIG_BRIDGE_VLAN_FILTERING off
+        - remove uninitialized fdb_salt (jtoppins). replace fdb_salt with vxlan_salt
+        - few misc cleanups
+1.7.10.4
