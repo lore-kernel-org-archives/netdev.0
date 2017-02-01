@@ -1,33 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv6: add NLM_F_APPEND in notifications
- when applicable
-Date: Wed, 01 Feb 2017 12:14:08 -0500 (EST)
-Message-ID: <20170201.121408.899537853398999897.davem@davemloft.net>
-References: <1485910297-14092-1-git-send-email-dsa@cumulusnetworks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 0/2] net/sched: act_sample: Little fixes
+Date: Wed, 1 Feb 2017 09:14:48 -0800
+Message-ID: <CAM_iQpVVP_Wkec4dwqM=kUiF3kyrQuBgFNFRN_0bftsWBYbOtw@mail.gmail.com>
+References: <1485855234-9941-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>
+To: Yotam Gigi <yotamg@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39780 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752861AbdBAROJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:14:09 -0500
-In-Reply-To: <1485910297-14092-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33920 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752903AbdBARPK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 12:15:10 -0500
+Received: by mail-wm0-f65.google.com with SMTP id c85so6985085wmi.1
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 09:15:09 -0800 (PST)
+In-Reply-To: <1485855234-9941-1-git-send-email-yotamg@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue, 31 Jan 2017 16:51:37 -0800
+On Tue, Jan 31, 2017 at 1:33 AM, Yotam Gigi <yotamg@mellanox.com> wrote:
+> Little fixes in sample tc action.
+>
+> Yotam Gigi (2):
+>   net/sched: act_sample: Fix error path in init
+>   net/sched: act_psample: Remove unnecessary ASSERT_RTNL
+>
 
-> IPv6 does not set the NLM_F_APPEND flag in notifications to signal that
-> a NEWROUTE is an append versus a new route or a replaced one. Add the
-> flag if the request has it.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
-> sending this one outside of the multipath patch set since it has
-> nothing to do with multipath.
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Looks good Dave, applied, thank you.
+Thanks!
