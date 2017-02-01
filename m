@@ -1,78 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] loopback: clear pfmemalloc on outgoing skb's
-Date: Wed, 01 Feb 2017 15:38:05 -0800
-Message-ID: <1485992285.6360.168.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1485983078-2372-1-git-send-email-jbacik@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com,
-        "David S . Miller" <davem@davemloft.net>
-To: Josef Bacik <jbacik@fb.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCHv2 net-next 1/2] net: dsa: mv88e6xxx: Fix ATU age timer for MV88E6390
+Date: Thu,  2 Feb 2017 00:46:15 +0100
+Message-ID: <1485992776-23750-2-git-send-email-andrew@lunn.ch>
+References: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32917 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751066AbdBAXiM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 18:38:12 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 194so35516237pgd.0
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 15:38:07 -0800 (PST)
-In-Reply-To: <1485983078-2372-1-git-send-email-jbacik@fb.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:52945 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751123AbdBAXqq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Feb 2017 18:46:46 -0500
+In-Reply-To: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-01 at 16:04 -0500, Josef Bacik wrote:
-> I was seeing random disconnects while testing NBD over loopback.  This turned
-> out to be because NBD sets pfmemalloc on it's socket, however the receiving side
-> is a user space application so does not have pfmemalloc set on its socket.  This
-> means that sk_filter_trim_cap will simply drop this packet, under the assumption
-> that the other side will simply retransmit.  Well we do retransmit, and then the
-> packet is just dropped again for the same reason.  To keep this from happening
-> simply clear skb->pfmemalloc on transmit so that we don't drop the packet on the
-> receive side.
-> 
-> Signed-off-by: Josef Bacik <jbacik@fb.com>
-> ---
->  drivers/net/loopback.c | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-> index 1e05b7c..13c9126 100644
-> --- a/drivers/net/loopback.c
-> +++ b/drivers/net/loopback.c
-> @@ -81,6 +81,13 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
->  	 */
->  	skb_dst_force(skb);
->  
-> +	/* If our transmitter was a pfmemalloc socket we need to clear
-> +	 * pfmemalloc here, otherwise the receiving socket may not be
-> +	 * pfmemalloc, and if this is a tcp packet then it'll get dropped and
-> +	 * all traffic will halt.
-> +	 */
-> +	skb->pfmemalloc = false;
-> +
+The MV88E6390 family uses a different ATU age timer coefficient.
+Fix the info structures.
 
-I am not sure this is a proper fix.
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+v2: Remove redundant "the".
+    Add Reviewed-by
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-Presumably if the socket was able to store packets in its write queue,
-fact that it sends it to loopback or an Ethernet link should not matter.
-
-Only in RX path the pfmemalloc thing is really important.
-
-So I would rather not set skb->pfmemalloc for skbs allocated for the
-write queue, and more exactly the fast clone.
-
-This would actually speed up the stack a bit.
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 734c71468b013838516cfe8c744dcd0e797a6e2b..f91b81340dc5be80e0c26f9835d9192f35b75ad7 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -271,7 +271,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
-                atomic_set(&fclones->fclone_ref, 1);
- 
-                fclones->skb2.fclone = SKB_FCLONE_CLONE;
--               fclones->skb2.pfmemalloc = pfmemalloc;
-+               fclones->skb2.pfmemalloc = 0;
-        }
- out:
-        return skb;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 29190303ace0..22ce57256d34 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -4011,7 +4011,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+ 		.tag_protocol = DSA_TAG_PROTO_DSA,
+-		.age_time_coeff = 15000,
++		.age_time_coeff = 3750,
+ 		.g1_irqs = 9,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
+ 		.ops = &mv88e6190_ops,
+@@ -4025,7 +4025,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.num_ports = 11,	/* 10 + Z80 */
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+-		.age_time_coeff = 15000,
++		.age_time_coeff = 3750,
+ 		.g1_irqs = 9,
+ 		.tag_protocol = DSA_TAG_PROTO_DSA,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
+@@ -4040,7 +4040,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.num_ports = 11,	/* 10 + Z80 */
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+-		.age_time_coeff = 15000,
++		.age_time_coeff = 3750,
+ 		.g1_irqs = 9,
+ 		.tag_protocol = DSA_TAG_PROTO_DSA,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
+@@ -4070,7 +4070,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.num_ports = 11,	/* 10 + Z80 */
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+-		.age_time_coeff = 15000,
++		.age_time_coeff = 3750,
+ 		.g1_irqs = 9,
+ 		.tag_protocol = DSA_TAG_PROTO_DSA,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
+@@ -4187,7 +4187,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.num_ports = 11,	/* 10 + Z80 */
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+-		.age_time_coeff = 15000,
++		.age_time_coeff = 3750,
+ 		.g1_irqs = 9,
+ 		.tag_protocol = DSA_TAG_PROTO_DSA,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
+@@ -4201,7 +4201,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.num_ports = 11,	/* 10 + Z80 */
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+-		.age_time_coeff = 15000,
++		.age_time_coeff = 3750,
+ 		.g1_irqs = 9,
+ 		.tag_protocol = DSA_TAG_PROTO_DSA,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6390,
+-- 
+2.11.0
