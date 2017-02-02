@@ -1,179 +1,330 @@
-From: Sebastian Gottschall <s.gottschall@dd-wrt.com>
-Subject: Re: [PATCH 2/3] ath10k: use size_t for len variables
-Date: Thu, 2 Feb 2017 20:20:50 +0100
-Message-ID: <24b67aa9-53e0-a47b-d189-92ee337de671@dd-wrt.com>
-References: <1486030773-30600-1-git-send-email-amadeusz.slawinski@tieto.com>
- <1486030773-30600-2-git-send-email-amadeusz.slawinski@tieto.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] cxgb4: get rid of custom busy poll code
+Date: Thu, 02 Feb 2017 11:44:27 -0800
+Message-ID: <1486064667.21871.32.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
- linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?Amadeusz_S=c5=82awi=c5=84ski?= <amadeusz.slawinski@tieto.com>,
- ath10k@lists.infradead.org, Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1486030773-30600-2-git-send-email-amadeusz.slawinski@tieto.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
-List-Post: <mailto:ath10k@lists.infradead.org>
-List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
- <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
-Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
-Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35189 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751298AbdBBTot (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 14:44:49 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 204so2618105pge.2
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 11:44:29 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Y29uc2lkZXIgdGhhdCB5b3UgY2hhbmdlZCB0aGUgbGVuZ3RoIG9mIHRoaXMgZGF0YXR5cGUgb24g
-NjQgYml0IHN5c3RlbXMuCnVuc2lnbmVkIGludCBpcyBhbHdheXMgMzIgYml0LCBidXQgc2l6ZV90
-IG1heSBiZSA2NCBiaXQgdG9vCgoKQW0gMDIuMDIuMjAxNyB1bSAxMToxOSBzY2hyaWViIEFtYWRl
-dXN6IFPFgmF3acWEc2tpOgo+IGNsZWFudXAgdG8gY29uc29saWRhdGUgdHlwZSB1c2VkIGZvciBs
-ZW4gdmFyaWFibGVzCj4KPiBTaWduZWQtb2ZmLWJ5OiBBbWFkZXVzeiBTxYJhd2nFhHNraSA8YW1h
-ZGV1c3ouc2xhd2luc2tpQHRpZXRvLmNvbT4KPiAtLS0KPiAgIGRyaXZlcnMvbmV0L3dpcmVsZXNz
-L2F0aC9hdGgxMGsvY29yZS5jICAgICB8ICAyICstCj4gICBkcml2ZXJzL25ldC93aXJlbGVzcy9h
-dGgvYXRoMTBrL2RlYnVnLmMgICAgfCA0OSArKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0K
-PiAgIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvc3BlY3RyYWwuYyB8ICA3ICsrKy0t
-Cj4gICAzIGZpbGVzIGNoYW5nZWQsIDI5IGluc2VydGlvbnMoKyksIDI5IGRlbGV0aW9ucygtKQo+
-Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29yZS5jIGIv
-ZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9jb3JlLmMKPiBpbmRleCA3NDllMzgxLi4y
-YWE2YmM3IDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvY29y
-ZS5jCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9jb3JlLmMKPiBAQCAt
-MzQ5LDcgKzM0OSw3IEBAIHZvaWQgYXRoMTBrX2NvcmVfZ2V0X2Z3X2ZlYXR1cmVzX3N0cihzdHJ1
-Y3QgYXRoMTBrICphciwKPiAgIAkJCQkgICAgIGNoYXIgKmJ1ZiwKPiAgIAkJCQkgICAgIHNpemVf
-dCBidWZfbGVuKQo+ICAgewo+IC0JdW5zaWduZWQgaW50IGxlbiA9IDA7Cj4gKwlzaXplX3QgbGVu
-ID0gMDsKPiAgIAlpbnQgaTsKPiAgIAo+ICAgCWZvciAoaSA9IDA7IGkgPCBBVEgxMEtfRldfRkVB
-VFVSRV9DT1VOVDsgaSsrKSB7Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0
-aC9hdGgxMGsvZGVidWcuYyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGgxMGsvZGVidWcu
-Ywo+IGluZGV4IDgyYTRjNjcuLmY2NDkyMzYgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvd2ly
-ZWxlc3MvYXRoL2F0aDEway9kZWJ1Zy5jCj4gKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRo
-L2F0aDEway9kZWJ1Zy5jCj4gQEAgLTIzNSw3ICsyMzUsNyBAQCBzdGF0aWMgc3NpemVfdCBhdGgx
-MGtfcmVhZF93bWlfc2VydmljZXMoc3RydWN0IGZpbGUgKmZpbGUsCj4gICB7Cj4gICAJc3RydWN0
-IGF0aDEwayAqYXIgPSBmaWxlLT5wcml2YXRlX2RhdGE7Cj4gICAJY2hhciAqYnVmOwo+IC0JdW5z
-aWduZWQgaW50IGxlbiA9IDAsIGJ1Zl9sZW4gPSA0MDk2Owo+ICsJc2l6ZV90IGxlbiA9IDAsIGJ1
-Zl9sZW4gPSA0MDk2Owo+ICAgCWNvbnN0IGNoYXIgKm5hbWU7Cj4gICAJc3NpemVfdCByZXRfY250
-Owo+ICAgCWJvb2wgZW5hYmxlZDsKPiBAQCAtNTI0LDcgKzUyNCw3IEBAIHN0YXRpYyBzc2l6ZV90
-IGF0aDEwa19md19zdGF0c19yZWFkKHN0cnVjdCBmaWxlICpmaWxlLCBjaGFyIF9fdXNlciAqdXNl
-cl9idWYsCj4gICAJCQkJICAgIHNpemVfdCBjb3VudCwgbG9mZl90ICpwcG9zKQo+ICAgewo+ICAg
-CWNvbnN0IGNoYXIgKmJ1ZiA9IGZpbGUtPnByaXZhdGVfZGF0YTsKPiAtCXVuc2lnbmVkIGludCBs
-ZW4gPSBzdHJsZW4oYnVmKTsKPiArCXNpemVfdCBsZW4gPSBzdHJsZW4oYnVmKTsKPiAgIAo+ICAg
-CXJldHVybiBzaW1wbGVfcmVhZF9mcm9tX2J1ZmZlcih1c2VyX2J1ZiwgY291bnQsIHBwb3MsIGJ1
-ZiwgbGVuKTsKPiAgIH0KPiBAQCAtNTQyLDE3ICs1NDIsMTYgQEAgc3RhdGljIHNzaXplX3QgYXRo
-MTBrX2RlYnVnX2Z3X3Jlc2V0X3N0YXRzX3JlYWQoc3RydWN0IGZpbGUgKmZpbGUsCj4gICAJCQkJ
-CQlzaXplX3QgY291bnQsIGxvZmZfdCAqcHBvcykKPiAgIHsKPiAgIAlzdHJ1Y3QgYXRoMTBrICph
-ciA9IGZpbGUtPnByaXZhdGVfZGF0YTsKPiAtCWludCByZXQsIGxlbiwgYnVmX2xlbjsKPiArCWlu
-dCByZXQ7Cj4gKwlzaXplX3QgbGVuID0gMCwgYnVmX2xlbiA9IDUwMDsKPiAgIAljaGFyICpidWY7
-Cj4gICAKPiAtCWJ1Zl9sZW4gPSA1MDA7Cj4gICAJYnVmID0ga21hbGxvYyhidWZfbGVuLCBHRlBf
-S0VSTkVMKTsKPiAgIAlpZiAoIWJ1ZikKPiAgIAkJcmV0dXJuIC1FTk9NRU07Cj4gICAKPiAgIAlz
-cGluX2xvY2tfYmgoJmFyLT5kYXRhX2xvY2spOwo+ICAgCj4gLQlsZW4gPSAwOwo+ICAgCWxlbiAr
-PSBzY25wcmludGYoYnVmICsgbGVuLCBidWZfbGVuIC0gbGVuLAo+ICAgCQkJICJmd19jcmFzaF9j
-b3VudGVyXHRcdCVkXG4iLCBhci0+c3RhdHMuZndfY3Jhc2hfY291bnRlcik7Cj4gICAJbGVuICs9
-IHNjbnByaW50ZihidWYgKyBsZW4sIGJ1Zl9sZW4gLSBsZW4sCj4gQEAgLTY5MSw3ICs2OTAsNyBA
-QCBzdGF0aWMgc3NpemVfdCBhdGgxMGtfcmVhZF9jaGlwX2lkKHN0cnVjdCBmaWxlICpmaWxlLCBj
-aGFyIF9fdXNlciAqdXNlcl9idWYsCj4gICAJCQkJICAgc2l6ZV90IGNvdW50LCBsb2ZmX3QgKnBw
-b3MpCj4gICB7Cj4gICAJc3RydWN0IGF0aDEwayAqYXIgPSBmaWxlLT5wcml2YXRlX2RhdGE7Cj4g
-LQl1bnNpZ25lZCBpbnQgbGVuOwo+ICsJc2l6ZV90IGxlbjsKPiAgIAljaGFyIGJ1Zls1MF07Cj4g
-ICAKPiAgIAlsZW4gPSBzY25wcmludGYoYnVmLCBzaXplb2YoYnVmKSwgIjB4JTA4eFxuIiwgYXIt
-PmNoaXBfaWQpOwo+IEBAIC03MjYsOCArNzI1LDggQEAgc3RhdGljIHN0cnVjdCBhdGgxMGtfZHVt
-cF9maWxlX2RhdGEgKmF0aDEwa19idWlsZF9kdW1wX2ZpbGUoc3RydWN0IGF0aDEwayAqYXIpCj4g
-ICAJc3RydWN0IGF0aDEwa19md19jcmFzaF9kYXRhICpjcmFzaF9kYXRhID0gYXItPmRlYnVnLmZ3
-X2NyYXNoX2RhdGE7Cj4gICAJc3RydWN0IGF0aDEwa19kdW1wX2ZpbGVfZGF0YSAqZHVtcF9kYXRh
-Owo+ICAgCXN0cnVjdCBhdGgxMGtfdGx2X2R1bXBfZGF0YSAqZHVtcF90bHY7Cj4gLQlpbnQgaGRy
-X2xlbiA9IHNpemVvZigqZHVtcF9kYXRhKTsKPiAtCXVuc2lnbmVkIGludCBsZW4sIHNvZmFyID0g
-MDsKPiArCXNpemVfdCBoZHJfbGVuID0gc2l6ZW9mKCpkdW1wX2RhdGEpOwo+ICsJc2l6ZV90IGxl
-biwgc29mYXIgPSAwOwo+ICAgCXVuc2lnbmVkIGNoYXIgKmJ1ZjsKPiAgIAo+ICAgCWxlbiA9IGhk
-cl9sZW47Cj4gQEAgLTg0NCw3ICs4NDMsNyBAQCBzdGF0aWMgc3NpemVfdCBhdGgxMGtfcmVnX2Fk
-ZHJfcmVhZChzdHJ1Y3QgZmlsZSAqZmlsZSwKPiAgIHsKPiAgIAlzdHJ1Y3QgYXRoMTBrICphciA9
-IGZpbGUtPnByaXZhdGVfZGF0YTsKPiAgIAl1OCBidWZbMzJdOwo+IC0JdW5zaWduZWQgaW50IGxl
-biA9IDA7Cj4gKwlzaXplX3QgbGVuID0gMDsKPiAgIAl1MzIgcmVnX2FkZHI7Cj4gICAKPiAgIAlt
-dXRleF9sb2NrKCZhci0+Y29uZl9tdXRleCk7Cj4gQEAgLTg5Miw3ICs4OTEsNyBAQCBzdGF0aWMg
-c3NpemVfdCBhdGgxMGtfcmVnX3ZhbHVlX3JlYWQoc3RydWN0IGZpbGUgKmZpbGUsCj4gICB7Cj4g
-ICAJc3RydWN0IGF0aDEwayAqYXIgPSBmaWxlLT5wcml2YXRlX2RhdGE7Cj4gICAJdTggYnVmWzQ4
-XTsKPiAtCXVuc2lnbmVkIGludCBsZW47Cj4gKwlzaXplX3QgbGVuOwo+ICAgCXUzMiByZWdfYWRk
-ciwgcmVnX3ZhbDsKPiAgIAlpbnQgcmV0Owo+ICAgCj4gQEAgLTExMTUsNyArMTExNCw3IEBAIHN0
-YXRpYyBzc2l6ZV90IGF0aDEwa19yZWFkX2h0dF9zdGF0c19tYXNrKHN0cnVjdCBmaWxlICpmaWxl
-LAo+ICAgewo+ICAgCXN0cnVjdCBhdGgxMGsgKmFyID0gZmlsZS0+cHJpdmF0ZV9kYXRhOwo+ICAg
-CWNoYXIgYnVmWzMyXTsKPiAtCXVuc2lnbmVkIGludCBsZW47Cj4gKwlzaXplX3QgbGVuOwo+ICAg
-Cj4gICAJbGVuID0gc2NucHJpbnRmKGJ1Ziwgc2l6ZW9mKGJ1ZiksICIlbHVcbiIsIGFyLT5kZWJ1
-Zy5odHRfc3RhdHNfbWFzayk7Cj4gICAKPiBAQCAtMTE2OSw3ICsxMTY4LDcgQEAgc3RhdGljIHNz
-aXplX3QgYXRoMTBrX3JlYWRfaHR0X21heF9hbXNkdV9hbXBkdShzdHJ1Y3QgZmlsZSAqZmlsZSwK
-PiAgIAlzdHJ1Y3QgYXRoMTBrICphciA9IGZpbGUtPnByaXZhdGVfZGF0YTsKPiAgIAljaGFyIGJ1
-Zls2NF07Cj4gICAJdTggYW1zZHUsIGFtcGR1Owo+IC0JdW5zaWduZWQgaW50IGxlbjsKPiArCXNp
-emVfdCBsZW47Cj4gICAKPiAgIAltdXRleF9sb2NrKCZhci0+Y29uZl9tdXRleCk7Cj4gICAKPiBA
-QCAtMTIyOSw3ICsxMjI4LDcgQEAgc3RhdGljIHNzaXplX3QgYXRoMTBrX3JlYWRfZndfZGJnbG9n
-KHN0cnVjdCBmaWxlICpmaWxlLAo+ICAgCQkJCSAgICAgc2l6ZV90IGNvdW50LCBsb2ZmX3QgKnBw
-b3MpCj4gICB7Cj4gICAJc3RydWN0IGF0aDEwayAqYXIgPSBmaWxlLT5wcml2YXRlX2RhdGE7Cj4g
-LQl1bnNpZ25lZCBpbnQgbGVuOwo+ICsJc2l6ZV90IGxlbjsKPiAgIAljaGFyIGJ1Zls5Nl07Cj4g
-ICAKPiAgIAlsZW4gPSBzY25wcmludGYoYnVmLCBzaXplb2YoYnVmKSwgIjB4JTE2bGx4ICV1XG4i
-LAo+IEBAIC0xNTU1LDExICsxNTU0LDEwIEBAIHN0YXRpYyBzc2l6ZV90IGF0aDEwa19yZWFkX2Fu
-aV9lbmFibGUoc3RydWN0IGZpbGUgKmZpbGUsIGNoYXIgX191c2VyICp1c2VyX2J1ZiwKPiAgIAkJ
-CQkgICAgICBzaXplX3QgY291bnQsIGxvZmZfdCAqcHBvcykKPiAgIHsKPiAgIAlzdHJ1Y3QgYXRo
-MTBrICphciA9IGZpbGUtPnByaXZhdGVfZGF0YTsKPiAtCWludCBsZW4gPSAwOwo+ICsJc2l6ZV90
-IGxlbjsKPiAgIAljaGFyIGJ1ZlszMl07Cj4gICAKPiAtCWxlbiA9IHNjbnByaW50ZihidWYsIHNp
-emVvZihidWYpIC0gbGVuLCAiJWRcbiIsCj4gLQkJCWFyLT5hbmlfZW5hYmxlZCk7Cj4gKwlsZW4g
-PSBzY25wcmludGYoYnVmLCBzaXplb2YoYnVmKSwgIiVkXG4iLCBhci0+YW5pX2VuYWJsZWQpOwo+
-ICAgCj4gICAJcmV0dXJuIHNpbXBsZV9yZWFkX2Zyb21fYnVmZmVyKHVzZXJfYnVmLCBjb3VudCwg
-cHBvcywgYnVmLCBsZW4pOwo+ICAgfQo+IEBAIC0xNTg0LDExICsxNTgyLDEwIEBAIHN0YXRpYyBz
-c2l6ZV90IGF0aDEwa19yZWFkX25mX2NhbF9wZXJpb2Qoc3RydWN0IGZpbGUgKmZpbGUsCj4gICAJ
-CQkJCSBzaXplX3QgY291bnQsIGxvZmZfdCAqcHBvcykKPiAgIHsKPiAgIAlzdHJ1Y3QgYXRoMTBr
-ICphciA9IGZpbGUtPnByaXZhdGVfZGF0YTsKPiAtCXVuc2lnbmVkIGludCBsZW47Cj4gKwlzaXpl
-X3QgbGVuOwo+ICAgCWNoYXIgYnVmWzMyXTsKPiAgIAo+IC0JbGVuID0gc2NucHJpbnRmKGJ1Ziwg
-c2l6ZW9mKGJ1ZiksICIlZFxuIiwKPiAtCQkJYXItPmRlYnVnLm5mX2NhbF9wZXJpb2QpOwo+ICsJ
-bGVuID0gc2NucHJpbnRmKGJ1Ziwgc2l6ZW9mKGJ1ZiksICIlZFxuIiwgYXItPmRlYnVnLm5mX2Nh
-bF9wZXJpb2QpOwo+ICAgCj4gICAJcmV0dXJuIHNpbXBsZV9yZWFkX2Zyb21fYnVmZmVyKHVzZXJf
-YnVmLCBjb3VudCwgcHBvcywgYnVmLCBsZW4pOwo+ICAgfQo+IEBAIC0xNjg0LDkgKzE2ODEsMTAg
-QEAgdm9pZCBhdGgxMGtfZGVidWdfdHBjX3N0YXRzX3Byb2Nlc3Moc3RydWN0IGF0aDEwayAqYXIs
-Cj4gICB9Cj4gICAKPiAgIHN0YXRpYyB2b2lkIGF0aDEwa190cGNfc3RhdHNfcHJpbnQoc3RydWN0
-IGF0aDEwa190cGNfc3RhdHMgKnRwY19zdGF0cywKPiAtCQkJCSAgIHVuc2lnbmVkIGludCBqLCBj
-aGFyICpidWYsIHVuc2lnbmVkIGludCAqbGVuKQo+ICsJCQkJICAgdW5zaWduZWQgaW50IGosIGNo
-YXIgKmJ1Ziwgc2l6ZV90ICpsZW4pCj4gICB7Cj4gLQl1bnNpZ25lZCBpbnQgaSwgYnVmX2xlbjsK
-PiArCWludCBpOwo+ICsJc2l6ZV90IGJ1Zl9sZW47Cj4gICAJc3RhdGljIGNvbnN0IGNoYXIgdGFi
-bGVfc3RyW11bNV0gPSB7ICJDREQiLAo+ICAgCQkJCQkgICAgICJTVEJDIiwKPiAgIAkJCQkJICAg
-ICAiVFhCRiIgfTsKPiBAQCAtMTcyNiw3ICsxNzI0LDggQEAgc3RhdGljIHZvaWQgYXRoMTBrX3Rw
-Y19zdGF0c19maWxsKHN0cnVjdCBhdGgxMGsgKmFyLAo+ICAgCQkJCSAgc3RydWN0IGF0aDEwa190
-cGNfc3RhdHMgKnRwY19zdGF0cywKPiAgIAkJCQkgIGNoYXIgKmJ1ZikKPiAgIHsKPiAtCXVuc2ln
-bmVkIGludCBsZW4sIGosIGJ1Zl9sZW47Cj4gKwlpbnQgajsKPiArCXNpemVfdCBsZW4sIGJ1Zl9s
-ZW47Cj4gICAKPiAgIAlsZW4gPSAwOwo+ICAgCWJ1Zl9sZW4gPSBBVEgxMEtfVFBDX0NPTkZJR19C
-VUZfU0laRTsKPiBAQCAtMTg2MCw3ICsxODU5LDcgQEAgc3RhdGljIHNzaXplX3QgYXRoMTBrX3Rw
-Y19zdGF0c19yZWFkKHN0cnVjdCBmaWxlICpmaWxlLCBjaGFyIF9fdXNlciAqdXNlcl9idWYsCj4g
-ICAJCQkJICAgICBzaXplX3QgY291bnQsIGxvZmZfdCAqcHBvcykKPiAgIHsKPiAgIAljb25zdCBj
-aGFyICpidWYgPSBmaWxlLT5wcml2YXRlX2RhdGE7Cj4gLQl1bnNpZ25lZCBpbnQgbGVuID0gc3Ry
-bGVuKGJ1Zik7Cj4gKwlzaXplX3QgbGVuID0gc3RybGVuKGJ1Zik7Cj4gICAKPiAgIAlyZXR1cm4g
-c2ltcGxlX3JlYWRfZnJvbV9idWZmZXIodXNlcl9idWYsIGNvdW50LCBwcG9zLCBidWYsIGxlbik7
-Cj4gICB9Cj4gQEAgLTIyODQsNyArMjI4Myw3IEBAIHN0YXRpYyBzc2l6ZV90IGF0aDEwa19kZWJ1
-Z19md19jaGVja3N1bXNfcmVhZChzdHJ1Y3QgZmlsZSAqZmlsZSwKPiAgIAkJCQkJICAgICAgc2l6
-ZV90IGNvdW50LCBsb2ZmX3QgKnBwb3MpCj4gICB7Cj4gICAJc3RydWN0IGF0aDEwayAqYXIgPSBm
-aWxlLT5wcml2YXRlX2RhdGE7Cj4gLQl1bnNpZ25lZCBpbnQgbGVuID0gMCwgYnVmX2xlbiA9IDQw
-OTY7Cj4gKwlzaXplX3QgbGVuID0gMCwgYnVmX2xlbiA9IDQwOTY7Cj4gICAJc3NpemVfdCByZXRf
-Y250Owo+ICAgCWNoYXIgKmJ1ZjsKPiAgIAo+IEBAIC0yNTAwLDcgKzI0OTksNyBAQCB2b2lkIGF0
-aDEwa19kYmdfZHVtcChzdHJ1Y3QgYXRoMTBrICphciwKPiAgIAkJICAgICBjb25zdCB2b2lkICpi
-dWYsIHNpemVfdCBsZW4pCj4gICB7Cj4gICAJY2hhciBsaW5lYnVmWzI1Nl07Cj4gLQl1bnNpZ25l
-ZCBpbnQgbGluZWJ1ZmxlbjsKPiArCXNpemVfdCBsaW5lYnVmbGVuOwo+ICAgCWNvbnN0IHZvaWQg
-KnB0cjsKPiAgIAo+ICAgCWlmIChhdGgxMGtfZGVidWdfbWFzayAmIG1hc2spIHsKPiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9zcGVjdHJhbC5jIGIvZHJpdmVy
-cy9uZXQvd2lyZWxlc3MvYXRoL2F0aDEway9zcGVjdHJhbC5jCj4gaW5kZXggMmZmYzFmZS4uYzA2
-MWQ2OSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3NwZWN0
-cmFsLmMKPiArKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoMTBrL3NwZWN0cmFsLmMK
-PiBAQCAtMjc4LDcgKzI3OCw3IEBAIHN0YXRpYyBzc2l6ZV90IHJlYWRfZmlsZV9zcGVjX3NjYW5f
-Y3RsKHN0cnVjdCBmaWxlICpmaWxlLCBjaGFyIF9fdXNlciAqdXNlcl9idWYsCj4gICB7Cj4gICAJ
-c3RydWN0IGF0aDEwayAqYXIgPSBmaWxlLT5wcml2YXRlX2RhdGE7Cj4gICAJY2hhciAqbW9kZSA9
-ICIiOwo+IC0JdW5zaWduZWQgaW50IGxlbjsKPiArCXNpemVfdCBsZW47Cj4gICAJZW51bSBhdGgx
-MGtfc3BlY3RyYWxfbW9kZSBzcGVjdHJhbF9tb2RlOwo+ICAgCj4gICAJbXV0ZXhfbG9jaygmYXIt
-PmNvbmZfbXV0ZXgpOwo+IEBAIC0zNzAsNyArMzcwLDcgQEAgc3RhdGljIHNzaXplX3QgcmVhZF9m
-aWxlX3NwZWN0cmFsX2NvdW50KHN0cnVjdCBmaWxlICpmaWxlLAo+ICAgewo+ICAgCXN0cnVjdCBh
-dGgxMGsgKmFyID0gZmlsZS0+cHJpdmF0ZV9kYXRhOwo+ICAgCWNoYXIgYnVmWzMyXTsKPiAtCXVu
-c2lnbmVkIGludCBsZW47Cj4gKwlzaXplX3QgbGVuOwo+ICAgCXU4IHNwZWN0cmFsX2NvdW50Owo+
-ICAgCj4gICAJbXV0ZXhfbG9jaygmYXItPmNvbmZfbXV0ZXgpOwo+IEBAIC00MjIsNyArNDIyLDgg
-QEAgc3RhdGljIHNzaXplX3QgcmVhZF9maWxlX3NwZWN0cmFsX2JpbnMoc3RydWN0IGZpbGUgKmZp
-bGUsCj4gICB7Cj4gICAJc3RydWN0IGF0aDEwayAqYXIgPSBmaWxlLT5wcml2YXRlX2RhdGE7Cj4g
-ICAJY2hhciBidWZbMzJdOwo+IC0JdW5zaWduZWQgaW50IGxlbiwgYmlucywgZmZ0X3NpemUsIGJp
-bl9zY2FsZTsKPiArCXVuc2lnbmVkIGludCBiaW5zLCBmZnRfc2l6ZSwgYmluX3NjYWxlOwo+ICsJ
-c2l6ZV90IGxlbjsKPiAgIAo+ICAgCW11dGV4X2xvY2soJmFyLT5jb25mX211dGV4KTsKPiAgIAoK
-Ci0tIApNaXQgZnJldW5kbGljaGVuIEdyw7xzc2VuIC8gUmVnYXJkcwoKU2ViYXN0aWFuIEdvdHRz
-Y2hhbGwgLyBDVE8KCk5ld01lZGlhLU5FVCBHbWJIIC0gREQtV1JUCkZpcm1lbnNpdHo6ICBCZXJs
-aW5lciBSaW5nIDEwMSwgNjQ2MjUgQmVuc2hlaW0KUmVnaXN0ZXJnZXJpY2h0OiBBbXRzZ2VyaWNo
-dCBEYXJtc3RhZHQsIEhSQiAyNTQ3MwpHZXNjaMOkZnRzZsO8aHJlcjogUGV0ZXIgU3RlaW5ow6R1
-c2VyLCBDaHJpc3RpYW4gU2NoZWVsZQpodHRwOi8vd3d3LmRkLXdydC5jb20KZW1haWw6IHMuZ290
-dHNjaGFsbEBkZC13cnQuY29tClRlbC46ICs0OTYyNTEtNTgyNjUwIC8gRmF4OiArNDk2MjUxLTU4
-MjY1NjUKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwph
-dGgxMGsgbWFpbGluZyBsaXN0CmF0aDEwa0BsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0
-cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vYXRoMTBrCg==
+From: Eric Dumazet <edumazet@google.com>
+
+In linux-4.5, busy polling was implemented in core
+NAPI stack, meaning that all custom implementation can
+be removed from drivers.
+
+Not only we remove lot of code, we also remove one spin_lock()
+from driver fast path.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  113 --------------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   16 -
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c  |   12 -
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   39 ----
+ 4 files changed, 6 insertions(+), 174 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index ccb455f14d08b94542252287f48ce24f81e5c4ab..163543b1ea0bf1bec215f0613a6bce2a729fa337 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -586,22 +586,6 @@ struct sge_rspq {                   /* state for an SGE response queue */
+ 	rspq_handler_t handler;
+ 	rspq_flush_handler_t flush_handler;
+ 	struct t4_lro_mgr lro_mgr;
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-#define CXGB_POLL_STATE_IDLE		0
+-#define CXGB_POLL_STATE_NAPI		BIT(0) /* NAPI owns this poll */
+-#define CXGB_POLL_STATE_POLL		BIT(1) /* poll owns this poll */
+-#define CXGB_POLL_STATE_NAPI_YIELD	BIT(2) /* NAPI yielded this poll */
+-#define CXGB_POLL_STATE_POLL_YIELD	BIT(3) /* poll yielded this poll */
+-#define CXGB_POLL_YIELD			(CXGB_POLL_STATE_NAPI_YIELD |   \
+-					 CXGB_POLL_STATE_POLL_YIELD)
+-#define CXGB_POLL_LOCKED		(CXGB_POLL_STATE_NAPI |         \
+-					 CXGB_POLL_STATE_POLL)
+-#define CXGB_POLL_USER_PEND		(CXGB_POLL_STATE_POLL |         \
+-					 CXGB_POLL_STATE_POLL_YIELD)
+-	unsigned int bpoll_state;
+-	spinlock_t bpoll_lock;		/* lock for busy poll */
+-#endif /* CONFIG_NET_RX_BUSY_POLL */
+-
+ };
+ 
+ struct sge_eth_stats {              /* Ethernet queue statistics */
+@@ -1173,102 +1157,6 @@ static inline struct adapter *netdev2adap(const struct net_device *dev)
+ 	return netdev2pinfo(dev)->adapter;
+ }
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
+-{
+-	spin_lock_init(&q->bpoll_lock);
+-	q->bpoll_state = CXGB_POLL_STATE_IDLE;
+-}
+-
+-static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
+-{
+-	bool rc = true;
+-
+-	spin_lock(&q->bpoll_lock);
+-	if (q->bpoll_state & CXGB_POLL_LOCKED) {
+-		q->bpoll_state |= CXGB_POLL_STATE_NAPI_YIELD;
+-		rc = false;
+-	} else {
+-		q->bpoll_state = CXGB_POLL_STATE_NAPI;
+-	}
+-	spin_unlock(&q->bpoll_lock);
+-	return rc;
+-}
+-
+-static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
+-{
+-	bool rc = false;
+-
+-	spin_lock(&q->bpoll_lock);
+-	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
+-		rc = true;
+-	q->bpoll_state = CXGB_POLL_STATE_IDLE;
+-	spin_unlock(&q->bpoll_lock);
+-	return rc;
+-}
+-
+-static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
+-{
+-	bool rc = true;
+-
+-	spin_lock_bh(&q->bpoll_lock);
+-	if (q->bpoll_state & CXGB_POLL_LOCKED) {
+-		q->bpoll_state |= CXGB_POLL_STATE_POLL_YIELD;
+-		rc = false;
+-	} else {
+-		q->bpoll_state |= CXGB_POLL_STATE_POLL;
+-	}
+-	spin_unlock_bh(&q->bpoll_lock);
+-	return rc;
+-}
+-
+-static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
+-{
+-	bool rc = false;
+-
+-	spin_lock_bh(&q->bpoll_lock);
+-	if (q->bpoll_state & CXGB_POLL_STATE_POLL_YIELD)
+-		rc = true;
+-	q->bpoll_state = CXGB_POLL_STATE_IDLE;
+-	spin_unlock_bh(&q->bpoll_lock);
+-	return rc;
+-}
+-
+-static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
+-{
+-	return q->bpoll_state & CXGB_POLL_USER_PEND;
+-}
+-#else
+-static inline void cxgb_busy_poll_init_lock(struct sge_rspq *q)
+-{
+-}
+-
+-static inline bool cxgb_poll_lock_napi(struct sge_rspq *q)
+-{
+-	return true;
+-}
+-
+-static inline bool cxgb_poll_unlock_napi(struct sge_rspq *q)
+-{
+-	return false;
+-}
+-
+-static inline bool cxgb_poll_lock_poll(struct sge_rspq *q)
+-{
+-	return false;
+-}
+-
+-static inline bool cxgb_poll_unlock_poll(struct sge_rspq *q)
+-{
+-	return false;
+-}
+-
+-static inline bool cxgb_poll_busy_polling(struct sge_rspq *q)
+-{
+-	return false;
+-}
+-#endif /* CONFIG_NET_RX_BUSY_POLL */
+-
+ /* Return a version number to identify the type of adapter.  The scheme is:
+  * - bits 0..9: chip version
+  * - bits 10..15: chip revision
+@@ -1325,7 +1213,6 @@ irqreturn_t t4_sge_intr_msix(int irq, void *cookie);
+ int t4_sge_init(struct adapter *adap);
+ void t4_sge_start(struct adapter *adap);
+ void t4_sge_stop(struct adapter *adap);
+-int cxgb_busy_poll(struct napi_struct *napi);
+ void cxgb4_set_ethtool_ops(struct net_device *netdev);
+ int cxgb4_write_rss(const struct port_info *pi, const u16 *queues);
+ extern int dbfifo_int_thresh;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 49e000ebd2b9ce14a26d4b1d9dcaec9cb360d8b9..f4f569060689c833a320c1d854e125278420ac89 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -744,14 +744,8 @@ static void quiesce_rx(struct adapter *adap)
+ 	for (i = 0; i < adap->sge.ingr_sz; i++) {
+ 		struct sge_rspq *q = adap->sge.ingr_map[i];
+ 
+-		if (q && q->handler) {
++		if (q && q->handler)
+ 			napi_disable(&q->napi);
+-			local_bh_disable();
+-			while (!cxgb_poll_lock_napi(q))
+-				mdelay(1);
+-			local_bh_enable();
+-		}
+-
+ 	}
+ }
+ 
+@@ -782,10 +776,9 @@ static void enable_rx(struct adapter *adap)
+ 
+ 		if (!q)
+ 			continue;
+-		if (q->handler) {
+-			cxgb_busy_poll_init_lock(q);
++		if (q->handler)
+ 			napi_enable(&q->napi);
+-		}
++
+ 		/* 0-increment GTS to start the timer and enable interrupts */
+ 		t4_write_reg(adap, MYPF_REG(SGE_PF_GTS_A),
+ 			     SEINTARM_V(q->intr_params) |
+@@ -2763,9 +2756,6 @@ static const struct net_device_ops cxgb4_netdev_ops = {
+ 	.ndo_fcoe_enable      = cxgb_fcoe_enable,
+ 	.ndo_fcoe_disable     = cxgb_fcoe_disable,
+ #endif /* CONFIG_CHELSIO_T4_FCOE */
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	.ndo_busy_poll        = cxgb_busy_poll,
+-#endif
+ 	.ndo_set_tx_maxrate   = cxgb_set_tx_maxrate,
+ 	.ndo_setup_tc         = cxgb_setup_tc,
+ };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+index 8098902c094a1d6e9e340dfbd54102079823e488..36105b6837cbc0adf5a78b47ac286840517f0145 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+@@ -408,10 +408,9 @@ static void enable_rx(struct adapter *adap, struct sge_rspq *q)
+ 	if (!q)
+ 		return;
+ 
+-	if (q->handler) {
+-		cxgb_busy_poll_init_lock(q);
++	if (q->handler)
+ 		napi_enable(&q->napi);
+-	}
++
+ 	/* 0-increment GTS to start the timer and enable interrupts */
+ 	t4_write_reg(adap, MYPF_REG(SGE_PF_GTS_A),
+ 		     SEINTARM_V(q->intr_params) |
+@@ -420,13 +419,8 @@ static void enable_rx(struct adapter *adap, struct sge_rspq *q)
+ 
+ static void quiesce_rx(struct adapter *adap, struct sge_rspq *q)
+ {
+-	if (q && q->handler) {
++	if (q && q->handler)
+ 		napi_disable(&q->napi);
+-		local_bh_disable();
+-		while (!cxgb_poll_lock_napi(q))
+-			mdelay(1);
+-		local_bh_enable();
+-	}
+ }
+ 
+ static void enable_rx_uld(struct adapter *adap, unsigned int uld_type)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 0fe04b482c382cf1e0c4333fe371d6a5e3efa6e1..85d30b33151ffc83ece3d731f8084110b56bb131 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -43,9 +43,7 @@
+ #include <linux/export.h>
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+ #include <net/busy_poll.h>
+-#endif /* CONFIG_NET_RX_BUSY_POLL */
+ #ifdef CONFIG_CHELSIO_T4_FCOE
+ #include <scsi/fc/fc_fcoe.h>
+ #endif /* CONFIG_CHELSIO_T4_FCOE */
+@@ -2054,7 +2052,6 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
+ 	csum_ok = pkt->csum_calc && !err_vec &&
+ 		  (q->netdev->features & NETIF_F_RXCSUM);
+ 	if ((pkt->l2info & htonl(RXF_TCP_F)) &&
+-	    !(cxgb_poll_busy_polling(q)) &&
+ 	    (q->netdev->features & NETIF_F_GRO) && csum_ok && !pkt->ip_frag) {
+ 		do_gro(rxq, si, pkt);
+ 		return 0;
+@@ -2285,38 +2282,6 @@ static int process_responses(struct sge_rspq *q, int budget)
+ 	return budget - budget_left;
+ }
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-int cxgb_busy_poll(struct napi_struct *napi)
+-{
+-	struct sge_rspq *q = container_of(napi, struct sge_rspq, napi);
+-	unsigned int params, work_done;
+-	u32 val;
+-
+-	if (!cxgb_poll_lock_poll(q))
+-		return LL_FLUSH_BUSY;
+-
+-	work_done = process_responses(q, 4);
+-	params = QINTR_TIMER_IDX_V(TIMERREG_COUNTER0_X) | QINTR_CNT_EN_V(1);
+-	q->next_intr_params = params;
+-	val = CIDXINC_V(work_done) | SEINTARM_V(params);
+-
+-	/* If we don't have access to the new User GTS (T5+), use the old
+-	 * doorbell mechanism; otherwise use the new BAR2 mechanism.
+-	 */
+-	if (unlikely(!q->bar2_addr))
+-		t4_write_reg(q->adap, MYPF_REG(SGE_PF_GTS_A),
+-			     val | INGRESSQID_V((u32)q->cntxt_id));
+-	else {
+-		writel(val | INGRESSQID_V(q->bar2_qid),
+-		       q->bar2_addr + SGE_UDB_GTS);
+-		wmb();
+-	}
+-
+-	cxgb_poll_unlock_poll(q);
+-	return work_done;
+-}
+-#endif /* CONFIG_NET_RX_BUSY_POLL */
+-
+ /**
+  *	napi_rx_handler - the NAPI handler for Rx processing
+  *	@napi: the napi instance
+@@ -2335,9 +2300,6 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
+ 	int work_done;
+ 	u32 val;
+ 
+-	if (!cxgb_poll_lock_napi(q))
+-		return budget;
+-
+ 	work_done = process_responses(q, budget);
+ 	if (likely(work_done < budget)) {
+ 		int timer_index;
+@@ -2377,7 +2339,6 @@ static int napi_rx_handler(struct napi_struct *napi, int budget)
+ 		       q->bar2_addr + SGE_UDB_GTS);
+ 		wmb();
+ 	}
+-	cxgb_poll_unlock_napi(q);
+ 	return work_done;
+ }
+ 
