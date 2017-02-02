@@ -1,100 +1,89 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 03/12] net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
-Date: Thu,  2 Feb 2017 16:51:32 +0100
-Message-ID: <1486050701-27899-4-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Russell King <linux@arm.linux.org.uk>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Josef Bacik <jbacik@fb.com>
+Subject: Re: [PATCH net-next] loopback: clear pfmemalloc on outgoing skb's
+Date: Thu, 2 Feb 2017 10:56:11 -0500
+Message-ID: <1486050971.29885.24.camel@fb.com>
+References: <1485983078-2372-1-git-send-email-jbacik@fb.com>
+         <1485992285.6360.168.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:54646 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751377AbdBBPyD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:54:03 -0500
-In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41258 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751036AbdBBP4j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:56:39 -0500
+In-Reply-To: <1485992285.6360.168.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When configuring the MVPP2_ISR_RX_THRESHOLD_REG with the RX coalescing
-time threshold, we do not check for the maximum allowed value supported
-by the driver, which means we might overflow and use a bogus value. This
-commit adds a check for this situation, and if a value higher than what
-is supported by the hardware is provided, then we use the maximum value
-supported by the hardware.
+On Wed, 2017-02-01 at 15:38 -0800, Eric Dumazet wrote:
+> On Wed, 2017-02-01 at 16:04 -0500, Josef Bacik wrote:
+> > 
+> > I was seeing random disconnects while testing NBD over
+> > loopback.  This turned
+> > out to be because NBD sets pfmemalloc on it's socket, however the
+> > receiving side
+> > is a user space application so does not have pfmemalloc set on its
+> > socket.  This
+> > means that sk_filter_trim_cap will simply drop this packet, under
+> > the assumption
+> > that the other side will simply retransmit.  Well we do retransmit,
+> > and then the
+> > packet is just dropped again for the same reason.  To keep this
+> > from happening
+> > simply clear skb->pfmemalloc on transmit so that we don't drop the
+> > packet on the
+> > receive side.
+> > 
+> > Signed-off-by: Josef Bacik <jbacik@fb.com>
+> > ---
+> >  drivers/net/loopback.c | 7 +++++++
+> >  1 file changed, 7 insertions(+)
+> > 
+> > diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+> > index 1e05b7c..13c9126 100644
+> > --- a/drivers/net/loopback.c
+> > +++ b/drivers/net/loopback.c
+> > @@ -81,6 +81,13 @@ static netdev_tx_t loopback_xmit(struct sk_buff
+> > *skb,
+> >  	 */
+> >  	skb_dst_force(skb);
+> >  
+> > +	/* If our transmitter was a pfmemalloc socket we need to
+> > clear
+> > +	 * pfmemalloc here, otherwise the receiving socket may not
+> > be
+> > +	 * pfmemalloc, and if this is a tcp packet then it'll get
+> > dropped and
+> > +	 * all traffic will halt.
+> > +	 */
+> > +	skb->pfmemalloc = false;
+> > +
+> I am not sure this is a proper fix.
+> 
+> Presumably if the socket was able to store packets in its write
+> queue,
+> fact that it sends it to loopback or an Ethernet link should not
+> matter.
+> 
+> Only in RX path the pfmemalloc thing is really important.
+> 
+> So I would rather not set skb->pfmemalloc for skbs allocated for the
+> write queue, and more exactly the fast clone.
+> 
+> This would actually speed up the stack a bit.
 
-In order to achieve this in a way that avoids overflow and rounding
-errors, we introduce two utility functions mvpp2_usec_to_cycles() and
-cycles_to_usec(). Many thanks to Russell King for suggesting this
-implementation.
+The problem is we set skb->pfmemalloc a bunch of different places, such
+as __skb_fill_page_desc, which appears to be used in both the RX and TX
+path, so we can't just kill it there.  Do we want to go through and
+audit each one, provide a way for callers to indicate if we care about
+pfmemalloc and solve this problem that way?  I feel like that's more
+likely to bite us in the ass down the line, and somebody who doesn't
+know the context is going to come along and change it and regress us to
+the current situation.  The only place this is a problem is with
+loopback, and my change is contained to this one weird case.  Thanks,
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 3fd5a9f..d938996 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -154,6 +154,7 @@
- 
- /* Interrupt Cause and Mask registers */
- #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
-+#define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
- #define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
- #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
- #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
-@@ -4389,13 +4390,39 @@ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
- 		    rxq->pkts_coal);
- }
- 
-+static u32 mvpp2_usec_to_cycles(u32 usec, unsigned long clk_hz)
-+{
-+	u64 tmp = (u64)clk_hz * usec;
-+
-+	do_div(tmp, USEC_PER_SEC);
-+
-+	return tmp > U32_MAX ? U32_MAX : tmp;
-+}
-+
-+static u32 mvpp2_cycles_to_usec(u32 cycles, unsigned long clk_hz)
-+{
-+	u64 tmp = (u64)cycles * USEC_PER_SEC;
-+
-+	do_div(tmp, clk_hz);
-+
-+	return tmp > U32_MAX ? U32_MAX : tmp;
-+}
-+
- /* Set the time delay in usec before Rx interrupt */
- static void mvpp2_rx_time_coal_set(struct mvpp2_port *port,
- 				   struct mvpp2_rx_queue *rxq)
- {
--	u32 val;
-+	unsigned long freq = port->priv->tclk;
-+	u32 val = mvpp2_usec_to_cycles(rxq->time_coal, freq);
-+
-+	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
-+		rxq->time_coal =
-+			mvpp2_cycles_to_usec(MVPP2_MAX_ISR_RX_THRESHOLD, freq);
-+
-+		/* re-evaluate to get actual register value */
-+		val = mvpp2_usec_to_cycles(rxq->time_coal, freq);
-+	}
- 
--	val = (port->priv->tclk / USEC_PER_SEC) * rxq->time_coal;
- 	mvpp2_write(port->priv, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
- }
- 
--- 
-2.7.4
+Josef
