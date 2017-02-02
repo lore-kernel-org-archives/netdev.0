@@ -1,66 +1,46 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/tcp: warning in tcp_try_coalesce/skb_try_coalesce
-Date: Thu, 2 Feb 2017 13:59:29 +0100
-Message-ID: <CACT4Y+Z8uSWJaW+QXSOr7dCo5fSNrMu6fHxPcDBxL08qQUvRMw@mail.gmail.com>
-References: <CAAeHK+xaFar2pj1xkbkhfjN+3ucLsfMpoHWFAKcHq3-F_Zm+mw@mail.gmail.com>
- <CANn89iKSSmaSHJGfgR4AkRgMRfYx+52XXjWsxZovUzorpneL=g@mail.gmail.com>
- <CACT4Y+Yw8_ZkjajkGdZ=71Mo83O+K=NJTZO+cM-+8UzTzHC-=A@mail.gmail.com> <1486038029.13103.17.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the DP83867
+ TI's PHY driver
+Date: Thu, 2 Feb 2017 14:11:12 +0100
+Message-ID: <20170202131112.GI4967@lunn.ch>
+References: <1485960215-5148-1-git-send-email-lukma@denx.de>
+ <20170201171610.GC7395@lunn.ch>
+ <2f3766f0-42df-6aab-dda1-14022c57fb30@gmail.com>
+ <20170201220500.29d478aa@jawa>
+ <20170201211440.GG7395@lunn.ch>
+ <20170201231323.732dd327@jawa>
+ <20170202015416.GG4967@lunn.ch>
+ <20170202101739.67e7e6b3@jawa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Karicheri Muralidharan <m-karicheri2@ti.com>,
+        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
+        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        devicetree@vger.kernel.org
+To: Lukasz Majewski <lukma@denx.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486038029.13103.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Disposition: inline
+In-Reply-To: <20170202101739.67e7e6b3@jawa>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 2, 2017 at 1:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2017-02-02 at 10:05 +0100, Dmitry Vyukov wrote:
->> On Tue, Jan 31, 2017 at 3:27 PM, 'Eric Dumazet' via syzkaller
->> <syzkaller@googlegroups.com> wrote:
->> > On Tue, Jan 31, 2017 at 5:17 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> >> Hi,
->> >>
->> >> I've got the following error report while running the syzkaller fuzzer.
->> >>
->> >> On commit 566cf877a1fcb6d6dc0126b076aad062054c2637 (4.10-rc6).
->> >>
->> >> The fuzzer hits this issue quite often, but I don't have a working reproducer.
->> >>
->> >> WARNING: CPU: 3 PID: 7091 at net/core/skbuff.c:4331
->> >> skb_try_coalesce+0x14b1/0x1f80 net/core/skbuff.c:4331
->> >> Kernel panic - not syncing: panic_on_warn set ...
->> ...
->> > Have you tried the patch we added recently into net-next ?
->> >
->> > https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=158f323b9868b59967ad96957c4ca388161be321
->>
->>
->> I've tried this patch, and it does _not_ help.
->> I am currently on a2ca3d617944417e9dd5f09fc8a4549cda115f4f, and I
->> applied the patch on top (had to do a little merging in af_netlink.c):
->> https://gist.githubusercontent.com/dvyukov/b4fd206f7dde763b3113a4543c57e7bb/raw/784c5b1bcb06f2a22c55eb4c4f8f83d627cd1ab9/gistfile1.txt
->> Still getting the same warning.
->>
->> But now I have a repro:
->> https://gist.githubusercontent.com/dvyukov/88fdb6d93507b36f81377191b0694f9b/raw/81cc11e8b78b6bbc5cffc79b442ce998c49af226/gistfile1.txt
->>
->
-> Interesting. This repro does not trigger the bug on net-next.
+> The bootstrapping process in the PHY sets this bit. This is wrong since
+> the board lane layout is not "swapped"
+ 
+Ah, you mean a strapping pin? Resistor to ground/VCC?
+That is a different matter. It makes it a lot less likely to break
+some existing board with such a change.
 
+> I have thought a bit about that and I think that we should define
+> complementary "net-phy-lane-no-swap" as suggested by Florian. Then
+> affected boards could define it and use.
 
-Right, I can confirm that this is not happening on net-next tip
-(62e13097c46c69dbd7544ab2cd585ccf48f360a4).
-I reproduced it on a random month old commit on net-next, though
-(23a8ed4a624324dc696c328f09bd502c4a3816f0). Let's consider that this
-is accidentally fixed by something in that range.
+This is the most flexible solution. Yes, that is O.K. for me.
+
+     Andrew
