@@ -1,45 +1,73 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] man: ip-route.8: Fix 'expires' indenting
-Date: Thu,  2 Feb 2017 16:22:56 +0100
-Message-ID: <20170202152256.25191-1-phil@nwl.cc>
-Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:58795 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751147AbdBBPXC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Feb 2017 10:23:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 04/12] net: mvpp2: release reference to txq_cpu[]
+ entry after unmapping
+Date: Thu,  2 Feb 2017 16:51:33 +0100
+Message-ID: <1486050701-27899-5-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
+ Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Descriptions of each route sub-command's arguments are enclosed in
-.RS/.RE pairs. For 'replace' sub-command, '.RE' was incorrectly put
-before the last argument ('expires').
+The mvpp2_txq_bufs_free() function is called upon TX completion to DMA
+unmap TX buffers, and free the corresponding SKBs. It gets the
+references to the SKB to free and the DMA buffer to unmap from a per-CPU
+txq_pcpu data structure.
 
-Fixes: 3fbe7ca847367 ("iproute2: ip-route.8.in: Add expires option for ip route")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+However, the code currently increments the pointer to the next entry
+before doing the DMA unmap and freeing the SKB. It does not cause any
+visible problem because for a given SKB the TX completion is guaranteed
+to take place on the CPU where the TX was started. However, it is much
+more logical to increment the pointer to the next entry once the current
+entry has been completely unmapped/released.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- man/man8/ip-route.8.in | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index 85191531b688c..d6e06649a4640 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -704,13 +704,13 @@ is a set of encapsulation attributes specific to the
- .sp
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index d938996..30aaff8 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -4437,13 +4437,12 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
+ 		struct mvpp2_txq_pcpu_buf *tx_buf =
+ 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
  
- .in -8
--.RE
+-		mvpp2_txq_inc_get(txq_pcpu);
+-
+ 		dma_unmap_single(port->dev->dev.parent, tx_buf->phys,
+ 				 tx_buf->size, DMA_TO_DEVICE);
+-		if (!tx_buf->skb)
+-			continue;
+-		dev_kfree_skb_any(tx_buf->skb);
++		if (tx_buf->skb)
++			dev_kfree_skb_any(tx_buf->skb);
++
++		mvpp2_txq_inc_get(txq_pcpu);
+ 	}
+ }
  
- .TP
- .BI expires " TIME " "(4.4+ only)"
- the route will be deleted after the expires time.
- .B Only
- support IPv6 at present.
-+.RE
- 
- .TP
- ip route delete
 -- 
-2.11.0
+2.7.4
