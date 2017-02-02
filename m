@@ -1,10 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and preparation patches
-Date: Thu,  2 Feb 2017 16:51:29 +0100
-Message-ID: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCHv3 net-next 03/12] net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
+Date: Thu,  2 Feb 2017 16:51:32 +0100
+Message-ID: <1486050701-27899-4-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: linux-arm-kernel@lists.infradead.org,
         Nadav Haklai <nadavh@marvell.com>,
         Hanna Hawa <hannah@marvell.com>,
@@ -19,77 +17,84 @@ Cc: linux-arm-kernel@lists.infradead.org,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:54641 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:54646 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751931AbdBBPyD (ORCPT
+        with ESMTP id S1751377AbdBBPyD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:54:03 -0500
+In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+When configuring the MVPP2_ISR_RX_THRESHOLD_REG with the RX coalescing
+time threshold, we do not check for the maximum allowed value supported
+by the driver, which means we might overflow and use a bogus value. This
+commit adds a check for this situation, and if a value higher than what
+is supported by the hardware is provided, then we use the maximum value
+supported by the hardware.
 
-This series contains a number of misc improvements and preparation
-patches for an upcoming series that adds support for the new PPv2.2
-network controller to the mvpp2 driver.
+In order to achieve this in a way that avoids overflow and rounding
+errors, we introduce two utility functions mvpp2_usec_to_cycles() and
+cycles_to_usec(). Many thanks to Russell King for suggesting this
+implementation.
 
-Sorry for the long delay since v2, I was on
-vacation/conference/training in January, and therefore wasn't able to
-resend a new version earlier. Upcoming versions should arrive much
-faster, if there are further comments on this series.
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
 
-The most significant improvements are:
-
- - Switching to using build_skb(), which is necessary for the upcoming
-   PPv2.2 support, but anyway a good improvement to the current mvpp2
-   driver (supporting PPv2.1).
-
- - Making the driver build on 64-bit platforms.
-
-Changes since v2:
-
- - Fix remaining 64-bit build warning, reported by David Miller.
-
- - Adjust how bit mask related definitions are done in "net: mvpp2:
-   simplify MVPP2_PRS_RI_* definitions" according to Russell King
-   suggestions.
-
- - Add a patch "net: mvpp2: remove useless arguments in
-   mvpp2_rx_{pkts,time}_coal_set", suggested by Russell King.
-
- - Rework mvpp2_rx_time_coal_set() implementation to avoid overflows
-   and rounding errors. I've used the implementation suggested by
-   Russell King.
-
-Changes since v1:
-
- - This series is split as a separate series from the larger patch set
-   adding support for PPv2.2 in the mvpp2 driver, as requested by
-   David Miller.
-
- - Rebased on top of v4.10-rc1.
-
-Thanks!
-
-Thomas
-
-Thomas Petazzoni (12):
-  net: mvpp2: remove useless arguments in mvpp2_rx_{pkts,time}_coal_set
-  net: mvpp2: handle too large value handling in
-    mvpp2_rx_pkts_coal_set()
-  net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
-  net: mvpp2: release reference to txq_cpu[] entry after unmapping
-  net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
-  net: mvpp2: drop useless fields in mvpp2_bm_pool and related code
-  net: mvpp2: simplify mvpp2_bm_bufs_add()
-  net: mvpp2: remove unused register definitions
-  net: mvpp2: fix indentation of MVPP2_EXT_GLOBAL_CTRL_DEFAULT
-  net: mvpp2: simplify MVPP2_PRS_RI_* definitions
-  net: mvpp2: switch to build_skb() in the RX path
-  net: mvpp2: enable building on 64-bit platforms
-
- drivers/net/ethernet/marvell/Kconfig |   3 +-
- drivers/net/ethernet/marvell/mvpp2.c | 208 +++++++++++++++++++++--------------
- 2 files changed, 125 insertions(+), 86 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 3fd5a9f..d938996 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -154,6 +154,7 @@
+ 
+ /* Interrupt Cause and Mask registers */
+ #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
++#define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
+ #define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
+ #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
+ #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
+@@ -4389,13 +4390,39 @@ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
+ 		    rxq->pkts_coal);
+ }
+ 
++static u32 mvpp2_usec_to_cycles(u32 usec, unsigned long clk_hz)
++{
++	u64 tmp = (u64)clk_hz * usec;
++
++	do_div(tmp, USEC_PER_SEC);
++
++	return tmp > U32_MAX ? U32_MAX : tmp;
++}
++
++static u32 mvpp2_cycles_to_usec(u32 cycles, unsigned long clk_hz)
++{
++	u64 tmp = (u64)cycles * USEC_PER_SEC;
++
++	do_div(tmp, clk_hz);
++
++	return tmp > U32_MAX ? U32_MAX : tmp;
++}
++
+ /* Set the time delay in usec before Rx interrupt */
+ static void mvpp2_rx_time_coal_set(struct mvpp2_port *port,
+ 				   struct mvpp2_rx_queue *rxq)
+ {
+-	u32 val;
++	unsigned long freq = port->priv->tclk;
++	u32 val = mvpp2_usec_to_cycles(rxq->time_coal, freq);
++
++	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
++		rxq->time_coal =
++			mvpp2_cycles_to_usec(MVPP2_MAX_ISR_RX_THRESHOLD, freq);
++
++		/* re-evaluate to get actual register value */
++		val = mvpp2_usec_to_cycles(rxq->time_coal, freq);
++	}
+ 
+-	val = (port->priv->tclk / USEC_PER_SEC) * rxq->time_coal;
+ 	mvpp2_write(port->priv, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
+ }
+ 
 -- 
 2.7.4
