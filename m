@@ -1,104 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio_net: remove custom busy_poll
-Date: Thu, 2 Feb 2017 18:17:39 +0200
-Message-ID: <20170202181707-mutt-send-email-mst@kernel.org>
-References: <1486046136.13103.42.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
+Date: Thu, 2 Feb 2017 16:36:05 +0000
+Message-ID: <BL2PR07MB2306F69350DA91B9B2A2E3588D4C0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <20170202125637.GA3191@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tglx@linutronix.de" <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43882 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750777AbdBBQRj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Feb 2017 11:17:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1486046136.13103.42.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-bn3nam01on0088.outbound.protection.outlook.com ([104.47.33.88]:7744
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751298AbdBBQgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 11:36:09 -0500
+In-Reply-To: <20170202125637.GA3191@netboy>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 02, 2017 at 06:35:36AM -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Generic NAPI busy polling allows us to remove custom implementations
-> found in drivers.
-> 
-> It is possible further optimization could be done by testing
-> napi_complete_done() return value.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > +		for (val =3D 0; val <=3D 7; val++) {
+> > +			period1 =3D div_s64(val * 1000000000, ppb);
+> > +			period1 -=3D 8;
+> > +			period1 >>=3D 4;
+> > +			if (period1 < 1)
+> > +				period1 =3D 1;
+> > +			if (period1 > 0xFFFFFFE)
+> > +				period1 =3D 0xFFFFFFE;
+> > +			period2 =3D period1 + 1;
+> > +
+> > +			temp =3D div_s64(val * 1000000000, (period1 * 16 + 8));
+> > +			dif1 =3D ppb - temp;
+> > +			if (dif1 < 0)
+> > +				dif1 =3D -dif1;
+> > +
+> > +			temp =3D div_s64(val * 1000000000, (period2 * 16 + 8));
+>=20
+> Forgetting the useless val=3D0 case, this still takes 21 64-bit divisions=
+ on every
+> adjustment.  There must be a better way.
+>=20
+> @tglx - Do you have a hint for Sudarsana?
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Maybe we can improve it a bit by making it even uglier
+and save one of the divisions here; But that would still leave a 2-digit
+number of divisions. I don't have an alternative algorithm that would
+solve that.
 
-> ---
->  drivers/net/virtio_net.c |   41 -------------------------------------
->  1 file changed, 41 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index bd22cf306a9267cecf8c7ce03dccff8ebd16089e..0382827829d90b1d25d059609bae6d1c5ad2b6d9 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -29,7 +29,6 @@
->  #include <linux/slab.h>
->  #include <linux/cpu.h>
->  #include <linux/average.h>
-> -#include <net/busy_poll.h>
->  
->  static int napi_weight = NAPI_POLL_WEIGHT;
->  module_param(napi_weight, int, 0444);
-> @@ -1024,43 +1023,6 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
->  	return received;
->  }
->  
-> -#ifdef CONFIG_NET_RX_BUSY_POLL
-> -/* must be called with local_bh_disable()d */
-> -static int virtnet_busy_poll(struct napi_struct *napi)
-> -{
-> -	struct receive_queue *rq =
-> -		container_of(napi, struct receive_queue, napi);
-> -	struct virtnet_info *vi = rq->vq->vdev->priv;
-> -	int r, received = 0, budget = 4;
-> -
-> -	if (!(vi->status & VIRTIO_NET_S_LINK_UP))
-> -		return LL_FLUSH_FAILED;
-> -
-> -	if (!napi_schedule_prep(napi))
-> -		return LL_FLUSH_BUSY;
-> -
-> -	virtqueue_disable_cb(rq->vq);
-> -
-> -again:
-> -	received += virtnet_receive(rq, budget);
-> -
-> -	r = virtqueue_enable_cb_prepare(rq->vq);
-> -	clear_bit(NAPI_STATE_SCHED, &napi->state);
-> -	if (unlikely(virtqueue_poll(rq->vq, r)) &&
-> -	    napi_schedule_prep(napi)) {
-> -		virtqueue_disable_cb(rq->vq);
-> -		if (received < budget) {
-> -			budget -= received;
-> -			goto again;
-> -		} else {
-> -			__napi_schedule(napi);
-> -		}
-> -	}
-> -
-> -	return received;
-> -}
-> -#endif	/* CONFIG_NET_RX_BUSY_POLL */
-> -
->  static int virtnet_open(struct net_device *dev)
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
-> @@ -1817,9 +1779,6 @@ static const struct net_device_ops virtnet_netdev = {
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	.ndo_poll_controller = virtnet_netpoll,
->  #endif
-> -#ifdef CONFIG_NET_RX_BUSY_POLL
-> -	.ndo_busy_poll		= virtnet_busy_poll,
-> -#endif
->  	.ndo_xdp		= virtnet_xdp,
->  };
->  
-> 
+I have to say I still don't see the importance of this -
+I thought we've previously agree that the 'reasonable' scenario
+wouldn't use this more than 16 times a second, so it's clearly
+not datapath.
+Optimizing stuff is great, but optimizing less critical paths
+is partially wasted effort. As such - I don't think this should
+be a 'blocking' criteria for the submission.
+
+Having written all of that, If someone raises to the challenge
+and can efficiently improve the logic, we'd obviously
+be delighted to take whatever solution is given.
+
+Thanks,
+Yuval
