@@ -1,78 +1,120 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [PATCH v2] ethtool: do not vzalloc(0) on registers dump
-Date: Thu,  2 Feb 2017 13:32:10 +0100
-Message-ID: <1486038730-9469-1-git-send-email-sgruszka@redhat.com>
-Cc: Ben Hutchings <ben@decadent.org.uk>
-To: netdev@vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
+Date: Thu, 2 Feb 2017 13:56:37 +0100
+Message-ID: <20170202125637.GA3191@netboy>
+References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        Yuval.Mintz@cavium.com, tglx@linutronix.de
+To: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45706 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751452AbdBBMg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Feb 2017 07:36:56 -0500
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34102 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751545AbdBBM4s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 07:56:48 -0500
+Received: by mail-wm0-f68.google.com with SMTP id c85so3962968wmi.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 04:56:47 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If ->get_regs_len() callback return 0, we allocate 0 bytes of memory,
-what print ugly warning in dmesg, which can be found further below.
 
-This happen on mac80211 devices where ieee80211_get_regs_len() just
-return 0 and driver only fills ethtool_regs structure and actually
-do not provide any dump. However I assume this can happen on other
-drivers i.e. when for some devices driver provide regs dump and for
-others do not. Hence preventing to to print warning in ethtool code
-seems to be reasonable.
+(adding tglx on CC)
 
-ethtool: vmalloc: allocation failure: 0 bytes, mode:0x24080c2(GFP_KERNEL|__GFP_HIGHMEM|__GFP_ZERO)
-<snip>
-Call Trace:
-[<ffffffff813bde47>] dump_stack+0x63/0x8c
-[<ffffffff811b0a1f>] warn_alloc+0x13f/0x170
-[<ffffffff811f0476>] __vmalloc_node_range+0x1e6/0x2c0
-[<ffffffff811f0874>] vzalloc+0x54/0x60
-[<ffffffff8169986c>] dev_ethtool+0xb4c/0x1b30
-[<ffffffff816adbb1>] dev_ioctl+0x181/0x520
-[<ffffffff816714d2>] sock_do_ioctl+0x42/0x50
-<snip>
-Mem-Info:
-active_anon:435809 inactive_anon:173951 isolated_anon:0
- active_file:835822 inactive_file:196932 isolated_file:0
- unevictable:0 dirty:8 writeback:0 unstable:0
- slab_reclaimable:157732 slab_unreclaimable:10022
- mapped:83042 shmem:306356 pagetables:9507 bounce:0
- free:130041 free_pcp:1080 free_cma:0
-Node 0 active_anon:1743236kB inactive_anon:695804kB active_file:3343288kB inactive_file:787728kB unevictable:0kB isolated(anon):0kB isolated(file):0kB mapped:332168kB dirty:32kB writeback:0kB shmem:0kB shmem_thp: 0kB shmem_pmdmapped: 0kB anon_thp: 1225424kB writeback_tmp:0kB unstable:0kB pages_scanned:0 all_unreclaimable? no
-Node 0 DMA free:15900kB min:136kB low:168kB high:200kB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:0kB writepending:0kB present:15984kB managed:15900kB mlocked:0kB slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:0kB pagetables:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
-lowmem_reserve[]: 0 3187 7643 7643
-Node 0 DMA32 free:419732kB min:28124kB low:35152kB high:42180kB active_anon:541180kB inactive_anon:248988kB active_file:1466388kB inactive_file:389632kB unevictable:0kB writepending:0kB present:3370280kB managed:3290932kB mlocked:0kB slab_reclaimable:217184kB slab_unreclaimable:4180kB kernel_stack:160kB pagetables:984kB bounce:0kB free_pcp:2236kB local_pcp:660kB free_cma:0kB
-lowmem_reserve[]: 0 0 4456 4456
+On Mon, Jan 30, 2017 at 11:47:48PM -0800, Sudarsana Kalluru wrote:
+> +/* Adjust the HW clock by a rate given in parts-per-million (ppm) units.
+> + * FW/HW accepts the adjustment value in terms of 3 parameters:
+> + *   Drift period - adjustment happens once in certain number of nano seconds.
+> + *   Drift value - time is adjusted by a certain value, for example by 5 ns.
+> + *   Drift direction - add or subtract the adjustment value.
+> + * The routine translates ppm into the adjustment triplet in an optimal manner.
+> + */
+> +static int qed_ptp_hw_adjfreq(struct qed_dev *cdev, s32 ppb)
+> +{
+> +	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
+> +	s64 period, period1, period2, dif, dif1, dif2;
+> +	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
+> +	int drift_dir, best_val, best_period;
+> +	s64 best_dif, temp, val;
+> +	u32 drift_ctr_cfg = 0;
+> +	u32 drift_state;
+> +
+> +	best_dif = 1000000000;
+> +	best_period = 1;
+> +	best_val = 0;
+> +	drift_dir = 1;
+> +
+> +	if (ppb < 0) {
+> +		ppb = -ppb;
+> +		drift_dir = 0;
+> +	}
+> +
+> +	if (ppb == 0) {
+> +		/* No clock adjustment required */
+> +		best_val = 0;
+> +		best_period = 0xFFFFFFF;
+> +	} else {
+> +		/* Adjustment value is up to +/-7ns, find an optimal value in
+> +		 * this range.
+> +		 */
+> +		for (val = 0; val <= 7; val++) {
+> +			period1 = div_s64(val * 1000000000, ppb);
+> +			period1 -= 8;
+> +			period1 >>= 4;
+> +			if (period1 < 1)
+> +				period1 = 1;
+> +			if (period1 > 0xFFFFFFE)
+> +				period1 = 0xFFFFFFE;
+> +			period2 = period1 + 1;
+> +
+> +			temp = div_s64(val * 1000000000, (period1 * 16 + 8));
+> +			dif1 = ppb - temp;
+> +			if (dif1 < 0)
+> +				dif1 = -dif1;
+> +
+> +			temp = div_s64(val * 1000000000, (period2 * 16 + 8));
 
-Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
----
-v1 -> v2: nullify regbuf to avoid using uninitialized variable in line:
-          if (regbuf && copy_to_user(useraddr, regbuf, regs.len))
+Forgetting the useless val=0 case, this still takes 21 64-bit
+divisions on every adjustment.  There must be a better way.
 
- net/core/ethtool.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+@tglx - Do you have a hint for Sudarsana?
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 6b3eee0..4b6dc9b 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1405,9 +1405,12 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
- 	if (regs.len > reglen)
- 		regs.len = reglen;
- 
--	regbuf = vzalloc(reglen);
--	if (reglen && !regbuf)
--		return -ENOMEM;
-+	regbuf = NULL;
-+	if (reglen) {
-+		regbuf = vzalloc(reglen);
-+		if (!regbuf)
-+			return -ENOMEM;
-+	}
- 
- 	ops->get_regs(dev, &regs, regbuf);
- 
--- 
-1.8.3.1
+Thanks,
+Richard
+
+> +			dif2 = ppb - temp;
+> +			if (dif2 < 0)
+> +				dif2 = -dif2;
+> +
+> +			dif = min_t(s64, dif1, dif2);
+> +			period = (dif1 < dif2) ? period1 : period2;
+> +			if (dif < best_dif) {
+> +				best_dif = dif;
+> +				best_val = (int)val;
+> +				best_period = (int)period;
+> +			}
+> +		}
+> +	}
+> +
+> +	drift_ctr_cfg = (best_period << QED_DRIFT_CNTR_TIME_QUANTA_SHIFT) |
+> +			(best_val << QED_DRIFT_CNTR_ADJUSTMENT_SHIFT) |
+> +			(drift_dir << QED_DRIFT_CNTR_DIRECTION_SHIFT);
+> +
+> +	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x1);
+> +
+> +	drift_state = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR);
+> +	if (drift_state & 1) {
+> +		qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_DRIFT_CNTR_CONF,
+> +		       drift_ctr_cfg);
+> +	} else {
+> +		DP_INFO(p_hwfn, "Drift counter is not reset\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x0);
+> +
+> +	return 0;
+> +}
