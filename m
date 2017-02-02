@@ -1,36 +1,74 @@
-From: "Qatif Oil Group Of Companies." <cabrera@agr.unne.edu.ar>
-Subject: Did you get my message this time?
-Date: Thu, 02 Feb 2017 02:50:34 -0200
-Message-ID: <20170202025034.91734k96deuds7ms@agr.unne.edu.ar>
-Reply-To: adriensaif02@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH] ethtool: do not vzalloc(0) on registers dump
+Date: Thu,  2 Feb 2017 12:31:53 +0100
+Message-ID: <1486035113-2305-1-git-send-email-sgruszka@redhat.com>
+Cc: Ben Hutchings <ben@decadent.org.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agr-sol.unne.edu.ar ([200.45.54.152]:42519 "EHLO
-        agr-sol.unne.edu.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751209AbdBBLYY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 06:24:24 -0500
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:57030 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750970AbdBBLgj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 06:36:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If ->get_regs_len() callback return 0, we allocate 0 bytes of memory,
+what print ugly warning in dmesg, which can be found further below.
 
+This happen on mac80211 devices where ieee80211_get_regs_len() just
+return 0 and driver only fills ethtool_regs structure and actually
+do not provide any dump. However I assume this can happen on other
+drivers i.e. when for some devices driver provide regs dump and for
+others do not. Hence preventing to to print warning in ethtool code
+seems to be reasonable.
 
+ethtool: vmalloc: allocation failure: 0 bytes, mode:0x24080c2(GFP_KERNEL|__GFP_HIGHMEM|__GFP_ZERO)
+<snip>
+Call Trace:
+[<ffffffff813bde47>] dump_stack+0x63/0x8c
+[<ffffffff811b0a1f>] warn_alloc+0x13f/0x170
+[<ffffffff811f0476>] __vmalloc_node_range+0x1e6/0x2c0
+[<ffffffff811f0874>] vzalloc+0x54/0x60
+[<ffffffff8169986c>] dev_ethtool+0xb4c/0x1b30
+[<ffffffff816adbb1>] dev_ioctl+0x181/0x520
+[<ffffffff816714d2>] sock_do_ioctl+0x42/0x50
+<snip>
+Mem-Info:
+active_anon:435809 inactive_anon:173951 isolated_anon:0
+ active_file:835822 inactive_file:196932 isolated_file:0
+ unevictable:0 dirty:8 writeback:0 unstable:0
+ slab_reclaimable:157732 slab_unreclaimable:10022
+ mapped:83042 shmem:306356 pagetables:9507 bounce:0
+ free:130041 free_pcp:1080 free_cma:0
+Node 0 active_anon:1743236kB inactive_anon:695804kB active_file:3343288kB inactive_file:787728kB unevictable:0kB isolated(anon):0kB isolated(file):0kB mapped:332168kB dirty:32kB writeback:0kB shmem:0kB shmem_thp: 0kB shmem_pmdmapped: 0kB anon_thp: 1225424kB writeback_tmp:0kB unstable:0kB pages_scanned:0 all_unreclaimable? no
+Node 0 DMA free:15900kB min:136kB low:168kB high:200kB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:0kB writepending:0kB present:15984kB managed:15900kB mlocked:0kB slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:0kB pagetables:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
+lowmem_reserve[]: 0 3187 7643 7643
+Node 0 DMA32 free:419732kB min:28124kB low:35152kB high:42180kB active_anon:541180kB inactive_anon:248988kB active_file:1466388kB inactive_file:389632kB unevictable:0kB writepending:0kB present:3370280kB managed:3290932kB mlocked:0kB slab_reclaimable:217184kB slab_unreclaimable:4180kB kernel_stack:160kB pagetables:984kB bounce:0kB free_pcp:2236kB local_pcp:660kB free_cma:0kB
+lowmem_reserve[]: 0 0 4456 4456
+
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+ net/core/ethtool.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 6b3eee0..3ec897f 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1405,9 +1405,11 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
+ 	if (regs.len > reglen)
+ 		regs.len = reglen;
+ 
+-	regbuf = vzalloc(reglen);
+-	if (reglen && !regbuf)
+-		return -ENOMEM;
++	if (reglen) {
++		regbuf = vzalloc(reglen);
++		if (!regbuf)
++			return -ENOMEM;
++	}
+ 
+ 	ops->get_regs(dev, &regs, regbuf);
+ 
 -- 
-Dear Friend,
-
-I would like to discuss a very important issue with you. I am writing  
-to find out if this is your valid email. Please, let me know if this  
-email is valid
-
-Kind regards
-Adrien Saif
-Attorney to Qatif Group of Companies
-
-----------------------------------------------------------------
-This message was sent using IMP, the Internet Messaging Program.
+1.8.3.1
