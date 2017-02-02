@@ -1,97 +1,104 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] trace: rename trace_print_hex_seq arg and add kdoc
-Date: Thu,  2 Feb 2017 17:09:54 +0100
-Message-ID: <fefa5048a9834e7857fa399dc800054d4cebdd31.1486050724.git.daniel@iogearbox.net>
-Cc: rostedt@goodmis.org, ast@kernel.org, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCHv2 net-next 02/11] net: mvpp2: handle too large value in
+ mvpp2_rx_time_coal_set()
+Date: Thu, 2 Feb 2017 17:11:21 +0100
+Message-ID: <20170202171121.4540faf3@free-electrons.com>
+References: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <1482943567-12483-3-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170106125923.GA14217@n2100.armlinux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Hanna Hawa <hannah@marvell.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36244 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751730AbdBBQJ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:09:58 -0500
+Received: from mail.free-electrons.com ([62.4.15.54]:55528 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751883AbdBBQLY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:11:24 -0500
+In-Reply-To: <20170106125923.GA14217@n2100.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steven suggested to improve trace_print_hex_seq() a bit after commit
-2acae0d5b0f7 ("trace: add variant without spacing in trace_print_hex_seq")
-in two ways: i) by adding a kdoc comment for the helper function
-itself and ii) by renaming 'spacing' argument into 'concatenate'
-to better denote that we don't add spaces between each hex bytes.
+Russell,
 
-Suggested-by: Steven Rostedt <rostedt@goodmis.org>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- [ Sending as follow-up as original one is in net-next. ]
+On Fri, 6 Jan 2017 12:59:24 +0000, Russell King - ARM Linux wrote:
 
- include/linux/trace_events.h |  2 +-
- include/trace/trace_events.h |  4 ++--
- kernel/trace/trace_output.c  | 15 +++++++++++++--
- 3 files changed, 16 insertions(+), 5 deletions(-)
+> Beware of rounding and overflow errors.  usec and val are u32's.
 
-diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
-index cfa475a..0f16550 100644
---- a/include/linux/trace_events.h
-+++ b/include/linux/trace_events.h
-@@ -34,7 +34,7 @@ const char *trace_print_bitmask_seq(struct trace_seq *p, void *bitmask_ptr,
- 
- const char *trace_print_hex_seq(struct trace_seq *p,
- 				const unsigned char *buf, int len,
--				bool spacing);
-+				bool concatenate);
- 
- const char *trace_print_array_seq(struct trace_seq *p,
- 				   const void *buf, int count,
-diff --git a/include/trace/trace_events.h b/include/trace/trace_events.h
-index 9f68462..5c06f4a 100644
---- a/include/trace/trace_events.h
-+++ b/include/trace/trace_events.h
-@@ -298,11 +298,11 @@
- 
- #undef __print_hex
- #define __print_hex(buf, buf_len)					\
--	trace_print_hex_seq(p, buf, buf_len, true)
-+	trace_print_hex_seq(p, buf, buf_len, false)
- 
- #undef __print_hex_str
- #define __print_hex_str(buf, buf_len)					\
--	trace_print_hex_seq(p, buf, buf_len, false)
-+	trace_print_hex_seq(p, buf, buf_len, true)
- 
- #undef __print_array
- #define __print_array(array, count, el_size)				\
-diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
-index 30a144b1..aea6a12 100644
---- a/kernel/trace/trace_output.c
-+++ b/kernel/trace/trace_output.c
-@@ -162,15 +162,26 @@ enum print_line_t trace_print_printk_msg_only(struct trace_iterator *iter)
- }
- EXPORT_SYMBOL_GPL(trace_print_bitmask_seq);
- 
-+/**
-+ * trace_print_hex_seq - print buffer as hex sequence
-+ * @p: trace seq struct to write to
-+ * @buf: The buffer to print
-+ * @buf_len: Length of @buf in bytes
-+ * @concatenate: Print @buf as single hex string or with spacing
-+ *
-+ * Prints the passed buffer as a hex sequence either as a whole,
-+ * single hex string if @concatenate is true or with spacing after
-+ * each byte in case @concatenate is false.
-+ */
- const char *
- trace_print_hex_seq(struct trace_seq *p, const unsigned char *buf, int buf_len,
--		    bool spacing)
-+		    bool concatenate)
- {
- 	int i;
- 	const char *ret = trace_seq_buffer_ptr(p);
- 
- 	for (i = 0; i < buf_len; i++)
--		trace_seq_printf(p, "%s%2.2x", !spacing || i == 0 ? "" : " ",
-+		trace_seq_printf(p, "%s%2.2x", concatenate || i == 0 ? "" : " ",
- 				 buf[i]);
- 	trace_seq_putc(p, 0);
- 
+[...]
+
+Thanks for all the suggestions, I've taken this into account in my v3
+that I've sent a few minutes ago? I've re-used almost exactly your
+implementation, with a few changes (see below).
+
+> static u32 usec_to_cycles(u32 usec, unsigned long clock_rate_hz)
+> {
+> 	u64 tmp = clock_rate_hz * usec;
+
+I had to cast one of the variables to u64 here otherwise the
+multiplication was done on 32 bits, and then the result was expanded to
+64 bits.
+
+> 	do_div(tmp, USEC_PER_SEC);
+> 
+> 	return tmp > 0xffffffff ? 0xffffffff : tmp;
+
+I've used U32_MAX here.
+
+> static u32 cycles_to_usec(u32 cycles, unsigned long clock_rate_hz)
+> {
+> 	u64 tmp = cycles * USEC_PER_SEC;
+> 
+> 	do_div(tmp, clock_rate_hz);
+> 
+> 	return tmp > 0xffffffff ? 0xffffffff : tmp;
+
+Same comments for this function.
+
+> and:
+> 	u32 val = usec_to_cycles(usec, port->priv->tclk);
+> 
+> 	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
+> 		usec = cycles_to_usec(MVPP2_MAX_ISR_RX_THRESHOLD,
+> 				      port->priv->tclk);
+> 
+> 		/* re-evaluate to get actual register value for usec */
+> 		val = usec_to_cycles(usec, port->priv->tclk);
+> 	}
+> 
+> >  	mvpp2_write(port->priv, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
+> >  
+> >  	rxq->time_coal = usec;  
+> 
+> This function appears to be called from two places:
+> 
+> mvpp2_rxq_init():
+>         mvpp2_rx_time_coal_set(port, rxq, rxq->time_coal);
+> 
+> mvpp2_ethtool_set_coalesce():
+>                 rxq->time_coal = c->rx_coalesce_usecs;
+>                 mvpp2_rx_time_coal_set(port, rxq, rxq->time_coal);
+> 
+> It seems rather pointless to pass in rxq->time_coal when you're also
+> passing in rxq.
+
+Indeed, so I've added another patch in the series that does this.
+
+Thanks for the review!
+
+Thomas
 -- 
-1.9.3
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
