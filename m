@@ -1,36 +1,113 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next 0/2] net: core: Two Helper function about socket information
-Date: Thu,  2 Feb 2017 12:59:48 -0800
-Message-ID: <20170202205950.100334-1-chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next 2/2] Add a eBPF helper function to retrieve socket uid
+Date: Thu,  2 Feb 2017 12:59:50 -0800
+Message-ID: <20170202205950.100334-3-chenbofeng.kernel@gmail.com>
+References: <20170202205950.100334-1-chenbofeng.kernel@gmail.com>
 Cc: Willem de Bruijn <willemb@google.com>,
         Lorenzo Colitti <lorenzo@google.com>,
+        Chenbo Feng <fengc@google.com>,
         Chenbo Feng <chenbofeng.kernel@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>,
         Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34031 "EHLO
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34059 "EHLO
         mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751638AbdBBVAE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 16:00:04 -0500
-Received: by mail-pg0-f67.google.com with SMTP id v184so272443pgv.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 13:00:04 -0800 (PST)
+        with ESMTP id S1751730AbdBBVAJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 16:00:09 -0500
+Received: by mail-pg0-f67.google.com with SMTP id v184so272640pgv.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 13:00:09 -0800 (PST)
+In-Reply-To: <20170202205950.100334-1-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce two eBpf helper function to get the socket cookie and
-socket uid for each packet. The helper function is useful when
-the *sk field inside sk_buff is not empty.
+From: Chenbo Feng <fengc@google.com>
 
-Chenbo Feng (2):
-  Add a helper function to get socket cookie in eBPF
-  Add a eBPF helper function to retrieve socket uid
+Returns the owner uid of the socket inside a sk_buff. This is useful to
+perform per-UID accounting of network traffic or per-UID packet
+filtering.
 
- include/linux/bpf.h       |  2 ++
- include/linux/sock_diag.h |  1 +
- include/uapi/linux/bpf.h  | 16 +++++++++++++++-
- net/core/filter.c         | 34 ++++++++++++++++++++++++++++++++++
- net/core/sock_diag.c      |  3 ++-
- 5 files changed, 54 insertions(+), 2 deletions(-)
+Signed-off-by: Chenbo Feng <chenbofeng.kernel@gmail.com>
+---
+ include/linux/bpf.h      |  1 +
+ include/uapi/linux/bpf.h |  9 ++++++++-
+ net/core/filter.c        | 19 +++++++++++++++++++
+ 3 files changed, 28 insertions(+), 1 deletion(-)
 
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 3f2e0af28c6e..c775ca4678b7 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -350,6 +350,7 @@ extern const struct bpf_func_proto bpf_skb_vlan_push_proto;
+ extern const struct bpf_func_proto bpf_skb_vlan_pop_proto;
+ extern const struct bpf_func_proto bpf_get_stackid_proto;
+ extern const struct bpf_func_proto bpf_get_socket_cookie_proto;
++extern const struct bpf_func_proto bpf_get_socket_uid_proto;
+ 
+ /* Shared helpers among cBPF and eBPF. */
+ void bpf_user_rnd_init_once(void);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 62ee5fab08e5..dad4dc7aca49 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -436,6 +436,12 @@ union bpf_attr {
+  *     @skb: pointer to skb
+  *     Return: 8 Bytes non-decreasing number on success or 0 if the socket
+  *     field is missing inside sk_buff
++ *
++ * u32 bpf_get_socket_uid(skb)
++ *     Get the owner uid of the socket stored inside sk_buff.
++ *     @skb: pointer to skb
++ *     Return: uid of the socket owner on success or 0 if the socket pointer
++ *     inside sk_buff is NULL
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -483,7 +489,8 @@ union bpf_attr {
+ 	FN(get_numa_node_id),		\
+ 	FN(skb_change_head),		\
+ 	FN(xdp_adjust_head),		\
+-	FN(get_socket_cookie),
++	FN(get_socket_cookie),	\
++	FN(get_socket_uid),
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 913b14d3b484..bc36ed72551f 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2610,6 +2610,23 @@ const struct bpf_func_proto bpf_get_socket_cookie_proto = {
+ 	.arg1_type      = ARG_PTR_TO_CTX,
+ };
+ 
++BPF_CALL_1(bpf_get_socket_uid, struct sk_buff *, skb)
++{
++	struct sock *sk;
++	kuid_t kuid;
++
++	sk = skb->sk;
++	kuid = sock_net_uid(dev_net(skb->dev), sk);
++	return (u32)kuid.val;
++}
++
++const struct bpf_func_proto bpf_get_socket_uid_proto = {
++	.func           = bpf_get_socket_uid,
++	.gpl_only       = false,
++	.ret_type       = RET_INTEGER,
++	.arg1_type      = ARG_PTR_TO_CTX,
++};
++
+ static const struct bpf_func_proto *
+ sk_filter_func_proto(enum bpf_func_id func_id)
+ {
+@@ -2635,6 +2652,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
+ 			return bpf_get_trace_printk_proto();
+ 	case BPF_FUNC_get_socket_cookie:
+ 		return &bpf_get_socket_cookie_proto;
++	case BPF_FUNC_get_socket_uid:
++		return &bpf_get_socket_uid_proto;
+ 	default:
+ 		return NULL;
+ 	}
 -- 
 2.11.0.483.g087da7b7c-goog
