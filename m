@@ -1,86 +1,85 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: Re: [PATCH net-next v2 3/6] gtp: unify genl_find_pdp and prepare
- for per socket lookup
-Date: Thu, 2 Feb 2017 15:27:17 +0100 (CET)
-Message-ID: <1732401345.730492.1486045637611.JavaMail.zimbra@tpip.net>
-References: <20170130163713.17524-1-aschultz@tpip.net> <20170130163713.17524-4-aschultz@tpip.net> <20170202141951.GA3883@salvia>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next v2 5/6] gtp: add socket to pdp context
+Date: Thu, 2 Feb 2017 15:28:42 +0100
+Message-ID: <20170202142842.GA19643@salvia>
+References: <20170130163713.17524-1-aschultz@tpip.net>
+ <20170130163713.17524-6-aschultz@tpip.net>
+ <20170202135656.GA23901@salvia>
+ <858150010.730228.1486044775198.JavaMail.zimbra@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev <netdev@vger.kernel.org>, laforge <laforge@gnumonks.org>,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         openbsc <openbsc@lists.osmocom.org>
-To: pablo <pablo@netfilter.org>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:50333 "EHLO mail.tpip.net"
+Received: from mail.us.es ([193.147.175.20]:34856 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751349AbdBBO1U (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Feb 2017 09:27:20 -0500
-In-Reply-To: <20170202141951.GA3883@salvia>
+        id S1751443AbdBBO2z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 09:28:55 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 26653E04C6
+        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 15:28:53 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 17348DA85D
+        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 15:28:53 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id E1050DA84F
+        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 15:28:50 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <858150010.730228.1486044775198.JavaMail.zimbra@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
------ On Feb 2, 2017, at 3:19 PM, pablo pablo@netfilter.org wrote:
-
-> On Mon, Jan 30, 2017 at 05:37:10PM +0100, Andreas Schultz wrote:
->> This unifies duplicate code into a helper. It also prepares the
->> groundwork to add a lookup version that uses the socket to find
->> attache pdp contexts.
->> 
->> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
->> ---
->>  drivers/net/gtp.c | 120 +++++++++++++++++++++++-------------------------------
->>  1 file changed, 51 insertions(+), 69 deletions(-)
->> 
->> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
->> index c96c71f..6b7a3c2 100644
->> --- a/drivers/net/gtp.c
->> +++ b/drivers/net/gtp.c
-> [...]
->> +static struct pdp_ctx *gtp_genl_find_pdp(struct sk_buff *skb,
->> +					 struct genl_info *info)
->> +{
->> +	struct pdp_ctx *pctx;
->> +
->> +	if (info->attrs[GTPA_LINK])
->> +		pctx = gtp_genl_find_pdp_by_link(skb, info);
->> +	else
->> +		pctx = ERR_PTR(-EINVAL);
->> +	if (!pctx)
->> +		pctx = ERR_PTR(-ENOENT);
->> +
->> +	return pctx;
->> +}
+On Thu, Feb 02, 2017 at 03:12:55PM +0100, Andreas Schultz wrote:
+> Hi,
 > 
-> For gtp_genl_find_pdp(),  I think this is easier to read:
+> ----- On Feb 2, 2017, at 2:56 PM, pablo pablo@netfilter.org wrote:
 > 
->        if (!info->attrs[GTPA_LINK])
->                return ERR_PTR(-EINVAL);
+> > On Mon, Jan 30, 2017 at 05:37:12PM +0100, Andreas Schultz wrote:
+> >> Having the socket present in context simplifies the sending logic.
+> >> It also fixes the invalid assumption that we have to use the same
+> >> sending socket for all client IP's on a specific gtp interface.
+> >> 
+> >> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+> >> ---
+> >>  drivers/net/gtp.c | 72 ++++++++++++++++++++++++++++++-------------------------
+> >>  1 file changed, 39 insertions(+), 33 deletions(-)
+> >> 
+> >> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+> >> index 68c6c9b..ff00597 100644
+> >> --- a/drivers/net/gtp.c
+> >> +++ b/drivers/net/gtp.c
+> > [...]
+> >> @@ -984,16 +966,26 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct
+> >> genl_info *info)
+> >>  	return 0;
+> >>  }
+> >>  
+> >> +static void pdp_context_free(struct rcu_head *head)
+> >> +{
+> >> +	struct pdp_ctx *pctx = container_of(head, struct pdp_ctx, rcu_head);
+> >> +
+> >> +	sock_put(pctx->sk);
+> >> +	kfree(pctx);
+> >> +}
+> >> +
+> >>  static void pdp_context_delete(struct pdp_ctx *pctx)
+> >>  {
+> >>  	hlist_del_rcu(&pctx->hlist_tid);
+> >>  	hlist_del_rcu(&pctx->hlist_addr);
+> >> -	kfree(pctx);
+> >> +	call_rcu(&pctx->rcu_head, pdp_context_free);
+> > 
+> > This is fixing incorrect rcu conversion in 4/6. Please, fix this there.
 > 
->        pctx = gtp_genl_find_pdp_by_link(skb, info);
->	if (!pctx)
->		return ERR_PTR(-ENOENT);
+> Ehm, right, but the kfree in 4/6 could have been a kfree_rcu instead without
+> the call_rcu.
 > 
->         return pctx;
+> Do you prefer to introduce the call_rcu in 4/6 and then just add the sock_put
+> in this patch or should I change 4/6 to kfree_rcu and do the call_rcu
+> conversion here?
 
-Yes, but a later patch (will be submitted after this series is
-accepted) will change that to:
+I suggest you just call kfree_rcu() from 4/6.
 
-        if (info->attrs[GTPA_LINK])
-                pctx = gtp_genl_find_pdp_by_link(skb, info);
-        else if (info->attrs[GTPA_FD])
-                pctx = gtp_genl_find_pdp_by_socket(skb, info);
-        else
-                pctx = ERR_PTR(-EINVAL);
-
-        if (!pctx)
-                pctx = ERR_PTR(-ENOENT);
-
-        return pctx;
-
-I can use your form for this change, but have a larger change
-later. Which way do you prefer it?
-
-Andreas
+Regarding holding socket reference, see my comment for patch 1/6.
