@@ -1,66 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next v2 5/6] gtp: add socket to pdp context
-Date: Thu, 2 Feb 2017 14:56:56 +0100
-Message-ID: <20170202135656.GA23901@salvia>
-References: <20170130163713.17524-1-aschultz@tpip.net>
- <20170130163713.17524-6-aschultz@tpip.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
+ performance may be compromised." message with "ethtool -K eth0 gro off"
+Date: Thu, 02 Feb 2017 05:59:24 -0800
+Message-ID: <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170202115240.GH17590@x4>
+         <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170202123427.GA7212@x4>
+         <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc@lists.osmocom.org
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Markus Trippelsdorf <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50156 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751569AbdBBN5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Feb 2017 08:57:06 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 7D1F81DF5B9
-        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 14:56:59 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 6FCDFDA841
-        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 14:56:59 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 3F70CDA84B
-        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 14:56:57 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <20170130163713.17524-6-aschultz@tpip.net>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33430 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750808AbdBBN70 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 08:59:26 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so1921461pgd.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 05:59:25 -0800 (PST)
+In-Reply-To: <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 30, 2017 at 05:37:12PM +0100, Andreas Schultz wrote:
-> Having the socket present in context simplifies the sending logic.
-> It also fixes the invalid assumption that we have to use the same
-> sending socket for all client IP's on a specific gtp interface.
-> 
-> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
-> ---
->  drivers/net/gtp.c | 72 ++++++++++++++++++++++++++++++-------------------------
->  1 file changed, 39 insertions(+), 33 deletions(-)
-> 
-> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-> index 68c6c9b..ff00597 100644
-> --- a/drivers/net/gtp.c
-> +++ b/drivers/net/gtp.c
-[...]
-> @@ -984,16 +966,26 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
->  	return 0;
->  }
->  
-> +static void pdp_context_free(struct rcu_head *head)
-> +{
-> +	struct pdp_ctx *pctx = container_of(head, struct pdp_ctx, rcu_head);
-> +
-> +	sock_put(pctx->sk);
-> +	kfree(pctx);
-> +}
-> +
->  static void pdp_context_delete(struct pdp_ctx *pctx)
->  {
->  	hlist_del_rcu(&pctx->hlist_tid);
->  	hlist_del_rcu(&pctx->hlist_addr);
-> -	kfree(pctx);
-> +	call_rcu(&pctx->rcu_head, pdp_context_free);
+On Thu, 2017-02-02 at 05:31 -0800, Eric Dumazet wrote:
 
-This is fixing incorrect rcu conversion in 4/6. Please, fix this there.
+> Anyway, I suspect the test is simply buggy ;)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 41dcbd568cbe2403f2a9e659669afe462a42e228..5394a39fcce964a7fe7075b1531a8a1e05550a54 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -164,7 +164,7 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
+>  	if (len >= icsk->icsk_ack.rcv_mss) {
+>  		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
+>  					       tcp_sk(sk)->advmss);
+> -		if (unlikely(icsk->icsk_ack.rcv_mss != len))
+> +		if (unlikely(icsk->icsk_ack.rcv_mss != len && skb_is_gso(skb)))
+>  			tcp_gro_dev_warn(sk, skb);
+>  	} else {
+>  		/* Otherwise, we make more careful check taking into account,
+
+This wont really help.
+
+Our tcp_sk(sk)->advmss can be lower than the MSS used by the remote
+peer.
+
+ip ro add .... advmss 512
+
+So the test is not universal.
