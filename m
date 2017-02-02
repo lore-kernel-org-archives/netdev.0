@@ -1,74 +1,125 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH iproute2/net-next 1/7] tc: flower: Update documentation to indicate ARP takes IPv4 prefixes
-Date: Thu,  2 Feb 2017 11:38:34 +0100
-Message-ID: <1486031920-10784-2-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH iproute2/net-next 3/7] tc: flower: provide generic masked u8 parser helper
+Date: Thu,  2 Feb 2017 11:38:36 +0100
+Message-ID: <1486031920-10784-4-git-send-email-simon.horman@netronome.com>
 References: <1486031920-10784-1-git-send-email-simon.horman@netronome.com>
 Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
         netdev@vger.kernel.org, oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:38875 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751041AbdBBKiy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 05:38:54 -0500
-Received: by mail-wm0-f53.google.com with SMTP id r141so82624928wmg.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 02:38:54 -0800 (PST)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37888 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751041AbdBBKi5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 05:38:57 -0500
+Received: by mail-wm0-f41.google.com with SMTP id r141so82626439wmg.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 02:38:56 -0800 (PST)
 In-Reply-To: <1486031920-10784-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unlike other PREFIXES documented in the usage for tc flower,
-arp_sip and arp_tip take only IPV4 prefixes.
+Provide generic masked u8 paser helper and use it to parse arp operations.
+
+Also consistently use __u8 rather than uint8_t, in keeping with the
+pervasive style in the file.
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- man/man8/tc-flower.8 | 8 ++++----
- tc/f_flower.c        | 4 ++--
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ tc/f_flower.c | 55 ++++++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 40 insertions(+), 15 deletions(-)
 
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 2bdd2effd882..b1bef8b7637a 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -36,7 +36,7 @@ flower \- flow based traffic control filter
- .BR dst_port " | " src_port " } "
- .IR port_number " } | { "
- .BR arp_tip " | " arp_sip " } "
--.IR PREFIX " | "
-+.IR IPV4_PREFIX " | "
- .BR arp_op " { " request " | " reply " | "
- .IR OP " } | { "
- .BR arp_tha " | " arp_sha " } "
-@@ -139,11 +139,11 @@ Match on ICMP type or code. Only available for
- .BR ip_proto " values " icmp  " and " icmpv6
- which have to be specified in beforehand.
- .TP
--.BI arp_tip " PREFIX"
-+.BI arp_tip " IPV4_PREFIX"
- .TQ
--.BI arp_sip " PREFIX"
-+.BI arp_sip " IPV4_PREFIX"
- Match on ARP or RARP sender or target IP address.
--.I PREFIX
-+.I IPV4_PREFIX
- must be a valid IPv4 address optionally followed by a slash and the prefix
- length. If the prefix is missing, \fBtc\fR assumes a full-length host
- match.
 diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 403100c92af0..7cb2cd45a783 100644
+index 0f2251315975..5554cc05118b 100644
 --- a/tc/f_flower.c
 +++ b/tc/f_flower.c
-@@ -59,8 +59,8 @@ static void explain(void)
- 		"                       src_port PORT-NUMBER |\n"
- 		"                       type ICMP-TYPE |\n"
- 		"                       code ICMP-CODE |\n"
--		"                       arp_tip PREFIX |\n"
--		"                       arp_sip PREFIX |\n"
-+		"                       arp_tip IPV4-PREFIX |\n"
-+		"                       arp_sip IPV4-PREFIX |\n"
- 		"                       arp_op [ request | reply | OP ] |\n"
- 		"                       arp_tha MASKED-LLADDR |\n"
- 		"                       arp_sha MASKED-LLADDR |\n"
+@@ -309,33 +309,30 @@ static int flower_parse_arp_ip_addr(char *str, __be16 eth_type,
+ 				      TCA_FLOWER_UNSPEC, TCA_FLOWER_UNSPEC, n);
+ }
+ 
+-static int flower_parse_arp_op(char *str, __be16 eth_type,
+-			       int op_type, int mask_type,
+-			       struct nlmsghdr *n)
++static int flower_parse_u8(char *str, int value_type, int mask_type,
++			   int (*value_from_name)(const char *str,
++						 __u8 *value),
++			   bool (*value_validate)(__u8 value),
++			   struct nlmsghdr *n)
+ {
+ 	char *slash;
+ 	int ret, err = -1;
+-	uint8_t value, mask;
++	__u8 value, mask;
+ 
+ 	slash = strchr(str, '/');
+ 	if (slash)
+ 		*slash = '\0';
+ 
+-	if (!flower_eth_type_arp(eth_type))
+-		goto err;
+-
+-	if (!strcmp(str, "request")) {
+-		value = ARPOP_REQUEST;
+-	} else if (!strcmp(str, "reply")) {
+-		value = ARPOP_REPLY;
+-	} else {
++	ret = value_from_name ? value_from_name(str, &value) : -1;
++	if (ret < 0) {
+ 		ret = get_u8(&value, str, 10);
+ 		if (ret)
+ 			goto err;
+-		if (value && value != ARPOP_REQUEST && value != ARPOP_REPLY)
+-			goto err;
+ 	}
+ 
++	if (value_validate && !value_validate(value))
++		goto err;
++
+ 	if (slash) {
+ 		ret = get_u8(&mask, slash + 1, 10);
+ 		if (ret)
+@@ -345,7 +342,7 @@ static int flower_parse_arp_op(char *str, __be16 eth_type,
+ 		mask = UINT8_MAX;
+ 	}
+ 
+-	addattr8(n, MAX_MSG, op_type, value);
++	addattr8(n, MAX_MSG, value_type, value);
+ 	addattr8(n, MAX_MSG, mask_type, mask);
+ 
+ 	err = 0;
+@@ -355,6 +352,34 @@ err:
+ 	return err;
+ }
+ 
++static int flower_arp_op_from_name(const char *name, __u8 *op)
++{
++	if (!strcmp(name, "request"))
++		*op = ARPOP_REQUEST;
++	else if (!strcmp(name, "reply"))
++		*op = ARPOP_REPLY;
++	else
++		return -1;
++
++	return 0;
++}
++
++static bool flow_arp_op_validate(__u8 op)
++{
++	return !op || op == ARPOP_REQUEST || op == ARPOP_REPLY;
++}
++
++static int flower_parse_arp_op(char *str, __be16 eth_type,
++			       int op_type, int mask_type,
++			       struct nlmsghdr *n)
++{
++	if (!flower_eth_type_arp(eth_type))
++		return -1;
++
++	return flower_parse_u8(str, op_type, mask_type, flower_arp_op_from_name,
++			       flow_arp_op_validate, n);
++}
++
+ static int flower_icmp_attr_type(__be16 eth_type, __u8 ip_proto,
+ 				 enum flower_icmp_field field)
+ {
 -- 
 2.7.0.rc3.207.g0ac5344
