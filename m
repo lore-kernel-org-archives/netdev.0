@@ -1,52 +1,78 @@
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
- performance may be compromised." message with "ethtool -K eth0 gro off"
-Date: Thu, 2 Feb 2017 13:34:27 +0100
-Message-ID: <20170202123427.GA7212@x4>
-References: <20170202115240.GH17590@x4>
- <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH v2] ethtool: do not vzalloc(0) on registers dump
+Date: Thu,  2 Feb 2017 13:32:10 +0100
+Message-ID: <1486038730-9469-1-git-send-email-sgruszka@redhat.com>
+Cc: Ben Hutchings <ben@decadent.org.uk>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ud10.udmedia.de ([194.117.254.50]:51954 "EHLO
-        mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751350AbdBBMea (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 07:34:30 -0500
-Content-Disposition: inline
-In-Reply-To: <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45706 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751452AbdBBMg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 07:36:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017.02.02 at 04:32 -0800, Eric Dumazet wrote:
-> On Thu, 2017-02-02 at 12:52 +0100, Markus Trippelsdorf wrote:
-> > Hi,
-> > 
-> > from time to time I see the following warning in my kernel log:
-> > 
-> >  TCP: eth0: Driver has suspect GRO implementation, TCP performance may be compromised.
-> > 
-> > This happens although I run "/usr/sbin/ethtool -K eth0 gro off" in my
-> > local boot script. 
-> > What is the warning trying to tell me?
-> > 
-> 
-> Please report
-> 
-> ethtool -i eth0
+If ->get_regs_len() callback return 0, we allocate 0 bytes of memory,
+what print ugly warning in dmesg, which can be found further below.
 
-driver: ATL1E
-version: 1.0.0.7-NAPI
-firmware-version: L1e
-expansion-rom-version:
-bus-info: 0000:02:00.0
-supports-statistics: no
-supports-test: no
-supports-eeprom-access: no
-supports-register-dump: yes
-supports-priv-flags: no
+This happen on mac80211 devices where ieee80211_get_regs_len() just
+return 0 and driver only fills ethtool_regs structure and actually
+do not provide any dump. However I assume this can happen on other
+drivers i.e. when for some devices driver provide regs dump and for
+others do not. Hence preventing to to print warning in ethtool code
+seems to be reasonable.
 
+ethtool: vmalloc: allocation failure: 0 bytes, mode:0x24080c2(GFP_KERNEL|__GFP_HIGHMEM|__GFP_ZERO)
+<snip>
+Call Trace:
+[<ffffffff813bde47>] dump_stack+0x63/0x8c
+[<ffffffff811b0a1f>] warn_alloc+0x13f/0x170
+[<ffffffff811f0476>] __vmalloc_node_range+0x1e6/0x2c0
+[<ffffffff811f0874>] vzalloc+0x54/0x60
+[<ffffffff8169986c>] dev_ethtool+0xb4c/0x1b30
+[<ffffffff816adbb1>] dev_ioctl+0x181/0x520
+[<ffffffff816714d2>] sock_do_ioctl+0x42/0x50
+<snip>
+Mem-Info:
+active_anon:435809 inactive_anon:173951 isolated_anon:0
+ active_file:835822 inactive_file:196932 isolated_file:0
+ unevictable:0 dirty:8 writeback:0 unstable:0
+ slab_reclaimable:157732 slab_unreclaimable:10022
+ mapped:83042 shmem:306356 pagetables:9507 bounce:0
+ free:130041 free_pcp:1080 free_cma:0
+Node 0 active_anon:1743236kB inactive_anon:695804kB active_file:3343288kB inactive_file:787728kB unevictable:0kB isolated(anon):0kB isolated(file):0kB mapped:332168kB dirty:32kB writeback:0kB shmem:0kB shmem_thp: 0kB shmem_pmdmapped: 0kB anon_thp: 1225424kB writeback_tmp:0kB unstable:0kB pages_scanned:0 all_unreclaimable? no
+Node 0 DMA free:15900kB min:136kB low:168kB high:200kB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:0kB writepending:0kB present:15984kB managed:15900kB mlocked:0kB slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:0kB pagetables:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
+lowmem_reserve[]: 0 3187 7643 7643
+Node 0 DMA32 free:419732kB min:28124kB low:35152kB high:42180kB active_anon:541180kB inactive_anon:248988kB active_file:1466388kB inactive_file:389632kB unevictable:0kB writepending:0kB present:3370280kB managed:3290932kB mlocked:0kB slab_reclaimable:217184kB slab_unreclaimable:4180kB kernel_stack:160kB pagetables:984kB bounce:0kB free_pcp:2236kB local_pcp:660kB free_cma:0kB
+lowmem_reserve[]: 0 0 4456 4456
+
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+v1 -> v2: nullify regbuf to avoid using uninitialized variable in line:
+          if (regbuf && copy_to_user(useraddr, regbuf, regs.len))
+
+ net/core/ethtool.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 6b3eee0..4b6dc9b 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1405,9 +1405,12 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
+ 	if (regs.len > reglen)
+ 		regs.len = reglen;
+ 
+-	regbuf = vzalloc(reglen);
+-	if (reglen && !regbuf)
+-		return -ENOMEM;
++	regbuf = NULL;
++	if (reglen) {
++		regbuf = vzalloc(reglen);
++		if (!regbuf)
++			return -ENOMEM;
++	}
+ 
+ 	ops->get_regs(dev, &regs, regbuf);
+ 
 -- 
-Markus
+1.8.3.1
