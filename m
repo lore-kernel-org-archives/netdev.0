@@ -1,38 +1,37 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ipv4: remove fib_lookup.h from devinet.c include list
-Date: Wed,  1 Feb 2017 18:41:25 -0800
-Message-ID: <1486003285-2146-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] loopback: clear pfmemalloc on outgoing skb's
+Date: Wed, 01 Feb 2017 18:46:28 -0800
+Message-ID: <1486003588.13103.12.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1485983078-2372-1-git-send-email-jbacik@fb.com>
+         <1485992285.6360.168.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com,
+        "David S . Miller" <davem@davemloft.net>
+To: Josef Bacik <jbacik@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:34744 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750737AbdBBCld (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 21:41:33 -0500
-Received: by mail-pg0-f45.google.com with SMTP id 14so1231343pgg.1
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 18:41:33 -0800 (PST)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35897 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750726AbdBBCqa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 21:46:30 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 75so370856pgf.3
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 18:46:30 -0800 (PST)
+In-Reply-To: <1485992285.6360.168.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nothing in devinet.c relies on fib_lookup.h; remove it from the includes
+On Wed, 2017-02-01 at 15:38 -0800, Eric Dumazet wrote:
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv4/devinet.c | 2 --
- 1 file changed, 2 deletions(-)
+> I am not sure this is a proper fix.
+> 
+> Presumably if the socket was able to store packets in its write queue,
+> fact that it sends it to loopback or an Ethernet link should not matter.
+> 
+> Only in RX path the pfmemalloc thing is really important.
+> 
+> So I would rather not set skb->pfmemalloc for skbs allocated for the
+> write queue, and more exactly the fast clone.
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 4cd2ee8857d2..5d367b7ff542 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -65,8 +65,6 @@
- #include <net/net_namespace.h>
- #include <net/addrconf.h>
- 
--#include "fib_lookup.h"
--
- static struct ipv4_devconf ipv4_devconf = {
- 	.data = {
- 		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
--- 
-2.1.4
+Also note that any looped packet would have the problem : veth, macvlan,
+ipvlan, ...
