@@ -1,67 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net: suspicious RCU usage in nf_hook
-Date: Thu, 2 Feb 2017 10:01:02 -0800
-Message-ID: <CAM_iQpUVma3R7wGJ8T8FWyCpU9joiGM+8LSPMcV2xpJLiRD-pw@mail.gmail.com>
-References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
- <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVvBPhP4q=Egsaoqf8ym-73jLZow8xDMbOq9RhYmL5XAQ@mail.gmail.com>
- <1485567090.6360.92.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXiQMH1zMJM6sYFNUySUYjaHnLZ3T2d34GwCMQ9u6RkwQ@mail.gmail.com>
- <1485877498.6360.115.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWnJbN=65D8PAxe7B_kBf7+Ay2M59T8brF0aXkfEbgnPg@mail.gmail.com>
- <1485983770.6360.158.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWSpgNnEOn+euZAMEmdQCfDVcgk9EO=k5-kVEkB+EJrpg@mail.gmail.com>
- <CANn89iJb55jCppc9J=vL9n=7ofr1LSz3d+nKNo4W-BJeoH0m3A@mail.gmail.com> <1485993583.6360.172.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] bpf: test for AND edge cases
+Date: Thu, 2 Feb 2017 10:07:28 -0800
+Message-ID: <58937560.7060401@fb.com>
+References: <1486054838-5072-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel@vger.kernel.org,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485993583.6360.172.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Josef Bacik <jbacik@fb.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>, <jannh@google.com>, <daniel@iogearbox.net>,
+        <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35165 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752247AbdBBSH7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 13:07:59 -0500
+In-Reply-To: <1486054838-5072-1-git-send-email-jbacik@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 1, 2017 at 3:59 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-02-01 at 15:48 -0800, Eric Dumazet wrote:
->> On Wed, Feb 1, 2017 at 3:29 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>
->> > Not sure if it is better. The difference is caught up in net_enable_timestamp(),
->> > which is called setsockopt() path and sk_clone() path, so we could be
->> > in netstamp_needed state for a long time too until user-space exercises
->> > these paths.
->> >
->> > I am feeling we probably need to get rid of netstamp_needed_deferred,
->> > and simply defer the whole static_key_slow_dec(), like the attached patch
->> > (compile only).
->> >
->> > What do you think?
->>
->> I think we need to keep the atomic.
->>
->> If two cpus call net_disable_timestamp() roughly at the same time, the
->> work will be scheduled once.
-
-Good point! Yeah, the same work will not be schedule twice.
-
+On 2/2/17 9:00 AM, Josef Bacik wrote:
+> These two tests are based on the work done for f23cc643f9ba.  The first test is
+> just a basic one to make sure we don't allow AND'ing negative values, even if it
+> would result in a valid index for the array.  The second is a cleaned up version
+> of the original testcase provided by Jann Horn that resulted in the commit.
 >
-> Updated patch (but not tested yet)
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
 
-I can't think out a better way to fix this. I expect jump_label to provide
-an API for this, but it doesn't, static_key_slow_dec_deferred()
-is just for batching. Probably we should introduce one to avoid these
-ugly #ifdef HAVE_JUMP_LABEL here, but that is a -next material.
+Thanks for the tests! Much appreciated.
 
-So, please feel free to send it formally.
+> diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+> index 853d7e4..44404f1 100644
+> --- a/tools/testing/selftests/bpf/test_verifier.c
+> +++ b/tools/testing/selftests/bpf/test_verifier.c
+> @@ -2905,6 +2905,61 @@ static struct bpf_test tests[] = {
+>   		.result = REJECT,
+>   		.errstr = "invalid bpf_context access",
+>   	},
+> +	{
+> +		"invalid and of negative number",
+> +		.insns = {
+> +			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
+> +			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+> +			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
+> +			BPF_LD_MAP_FD(BPF_REG_1, 0),
+> +			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
+> +				     BPF_FUNC_map_lookup_elem),
+> +			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
+> +			BPF_MOV64_IMM(BPF_REG_1, 6),
+> +			BPF_ALU64_IMM(BPF_AND, BPF_REG_1, -4),
+> +			BPF_ALU64_IMM(BPF_LSH, BPF_REG_1, 2),
+> +			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
+> +			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0,
+> +				   offsetof(struct test_val, foo)),
+> +			BPF_EXIT_INSN(),
+> +		},
+> +		.fixup_map2 = { 3 },
+> +		.errstr_unpriv = "R0 pointer arithmetic prohibited",
+> +		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
 
-Thanks.
+the errstr doesn't have to compare the whole string. In case we find
+typos or adjust the hint message, we'd need to change the test as well,
+but I see it's being used as-is in other tests already, so we'll
+fix all of them at once when time comes.
+
+Acked-by: Alexei Starovoitov <ast@kernel.org>
