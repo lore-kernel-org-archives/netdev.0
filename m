@@ -1,125 +1,54 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH iproute2/net-next 3/7] tc: flower: provide generic masked u8 parser helper
-Date: Thu,  2 Feb 2017 11:38:36 +0100
-Message-ID: <1486031920-10784-4-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH iproute2/net-next 2/7] tc: flower: use correct type when calling flower_icmp_attr_type
+Date: Thu,  2 Feb 2017 11:38:35 +0100
+Message-ID: <1486031920-10784-3-git-send-email-simon.horman@netronome.com>
 References: <1486031920-10784-1-git-send-email-simon.horman@netronome.com>
 Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
         netdev@vger.kernel.org, oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37888 "EHLO
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37168 "EHLO
         mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751041AbdBBKi5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 05:38:57 -0500
-Received: by mail-wm0-f41.google.com with SMTP id r141so82626439wmg.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 02:38:56 -0800 (PST)
+        with ESMTP id S1751108AbdBBKiz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 05:38:55 -0500
+Received: by mail-wm0-f41.google.com with SMTP id v77so81432035wmv.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 02:38:55 -0800 (PST)
 In-Reply-To: <1486031920-10784-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Provide generic masked u8 paser helper and use it to parse arp operations.
+Use enum flower_icmp_field rather than bool as type of third parameter
+when calling flower_icmp_attr_type.
 
-Also consistently use __u8 rather than uint8_t, in keeping with the
-pervasive style in the file.
-
+Fixes: eb3b5696f163 ("tc: flower: support matching on ICMP type and code")
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
+--
+This should not have a run-time affect assuming both false and,
+FLOWER_ICMP_FIELD_TYPE, first value of enum flower_icmp_field rather,
+are zero.
 ---
- tc/f_flower.c | 55 ++++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 40 insertions(+), 15 deletions(-)
+ tc/f_flower.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 0f2251315975..5554cc05118b 100644
+index 7cb2cd45a783..0f2251315975 100644
 --- a/tc/f_flower.c
 +++ b/tc/f_flower.c
-@@ -309,33 +309,30 @@ static int flower_parse_arp_ip_addr(char *str, __be16 eth_type,
- 				      TCA_FLOWER_UNSPEC, TCA_FLOWER_UNSPEC, n);
- }
+@@ -1061,10 +1061,12 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 	if (nl_type >= 0)
+ 		flower_print_port(f, "src_port", tb[nl_type]);
  
--static int flower_parse_arp_op(char *str, __be16 eth_type,
--			       int op_type, int mask_type,
--			       struct nlmsghdr *n)
-+static int flower_parse_u8(char *str, int value_type, int mask_type,
-+			   int (*value_from_name)(const char *str,
-+						 __u8 *value),
-+			   bool (*value_validate)(__u8 value),
-+			   struct nlmsghdr *n)
- {
- 	char *slash;
- 	int ret, err = -1;
--	uint8_t value, mask;
-+	__u8 value, mask;
+-	nl_type = flower_icmp_attr_type(eth_type, ip_proto, false);
++	nl_type = flower_icmp_attr_type(eth_type, ip_proto,
++					FLOWER_ICMP_FIELD_TYPE);
+ 	if (nl_type >= 0)
+ 		flower_print_icmp(f, "icmp_type", tb[nl_type]);
+-	nl_type = flower_icmp_attr_type(eth_type, ip_proto, true);
++	nl_type = flower_icmp_attr_type(eth_type, ip_proto,
++					FLOWER_ICMP_FIELD_CODE);
+ 	if (nl_type >= 0)
+ 		flower_print_icmp(f, "icmp_code", tb[nl_type]);
  
- 	slash = strchr(str, '/');
- 	if (slash)
- 		*slash = '\0';
- 
--	if (!flower_eth_type_arp(eth_type))
--		goto err;
--
--	if (!strcmp(str, "request")) {
--		value = ARPOP_REQUEST;
--	} else if (!strcmp(str, "reply")) {
--		value = ARPOP_REPLY;
--	} else {
-+	ret = value_from_name ? value_from_name(str, &value) : -1;
-+	if (ret < 0) {
- 		ret = get_u8(&value, str, 10);
- 		if (ret)
- 			goto err;
--		if (value && value != ARPOP_REQUEST && value != ARPOP_REPLY)
--			goto err;
- 	}
- 
-+	if (value_validate && !value_validate(value))
-+		goto err;
-+
- 	if (slash) {
- 		ret = get_u8(&mask, slash + 1, 10);
- 		if (ret)
-@@ -345,7 +342,7 @@ static int flower_parse_arp_op(char *str, __be16 eth_type,
- 		mask = UINT8_MAX;
- 	}
- 
--	addattr8(n, MAX_MSG, op_type, value);
-+	addattr8(n, MAX_MSG, value_type, value);
- 	addattr8(n, MAX_MSG, mask_type, mask);
- 
- 	err = 0;
-@@ -355,6 +352,34 @@ err:
- 	return err;
- }
- 
-+static int flower_arp_op_from_name(const char *name, __u8 *op)
-+{
-+	if (!strcmp(name, "request"))
-+		*op = ARPOP_REQUEST;
-+	else if (!strcmp(name, "reply"))
-+		*op = ARPOP_REPLY;
-+	else
-+		return -1;
-+
-+	return 0;
-+}
-+
-+static bool flow_arp_op_validate(__u8 op)
-+{
-+	return !op || op == ARPOP_REQUEST || op == ARPOP_REPLY;
-+}
-+
-+static int flower_parse_arp_op(char *str, __be16 eth_type,
-+			       int op_type, int mask_type,
-+			       struct nlmsghdr *n)
-+{
-+	if (!flower_eth_type_arp(eth_type))
-+		return -1;
-+
-+	return flower_parse_u8(str, op_type, mask_type, flower_arp_op_from_name,
-+			       flow_arp_op_validate, n);
-+}
-+
- static int flower_icmp_attr_type(__be16 eth_type, __u8 ip_proto,
- 				 enum flower_icmp_field field)
- {
 -- 
 2.7.0.rc3.207.g0ac5344
