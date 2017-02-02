@@ -1,155 +1,67 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Thu, 2 Feb 2017 08:40:24 +0000
-Message-ID: <DB3PR05MB0764A96B7BB6DE69AD5F749FAC4C0@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <20170202124944.6c3fd4f4@canb.auug.org.au>
+From: Nogah Frankel <nogahf@mellanox.com>
+Subject: RE: [PATCH iproute2 v5 2/4] ifstat: Add extended statistics to ifstat
+Date: Thu, 2 Feb 2017 08:53:22 +0000
+Message-ID: <DB5PR05MB18954C88F4566581D584942CAC4C0@DB5PR05MB1895.eurprd05.prod.outlook.com>
+References: <1485434681-33947-1-git-send-email-nogahf@mellanox.com>
+        <1485434681-33947-3-git-send-email-nogahf@mellanox.com>
+ <20170129203425.070a27d6@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170202124944.6c3fd4f4@canb.auug.org.au>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        "roszenrami@gmail.com" <roszenrami@gmail.com>,
+        "jbenc@redhat.com" <jbenc@redhat.com>,
+        "sergei.shtylyov@cogentembedded.com"
+        <sergei.shtylyov@cogentembedded.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "Elad Raz" <eladr@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Yotam Gigi <yotamg@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0086.outbound.protection.outlook.com ([104.47.0.86]:26782
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750939AbdBBIx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 03:53:27 -0500
+In-Reply-To: <20170129203425.070a27d6@xeon-e3>
 Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] O=
-n
->Behalf Of Stephen Rothwell
->Sent: Thursday, February 02, 2017 3:50 AM
->To: David Miller <davem@davemloft.net>; Networking <netdev@vger.kernel.org=
->
->Cc: linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; Yotam Gigi
-><yotamg@mellanox.com>
->Subject: linux-next: manual merge of the net-next tree with Linus' tree
->
->Hi all,
->
->Today's linux-next merge of the net-next tree got a conflict in:
->
->  net/sched/cls_matchall.c
->
->between commit:
->
->  fd62d9f5c575 ("net/sched: matchall: Fix configuration race")
->
->from Linus' tree and commit:
->
->  ec2507d2a306 ("net/sched: cls_matchall: Fix error path")
->
->from the net-next tree.
->
->I fixed it up (see below) and can carry the fix as necessary. This
->is now fixed as far as linux-next is concerned, but any non trivial
->conflicts should be mentioned to your upstream maintainer when your tree
->is submitted for merging.  You may also want to consider cooperating
->with the maintainer of the conflicting tree to minimise any particularly
->complex conflicts.
-
-Looks good. Thanks!
-
->
->--
->Cheers,
->Stephen Rothwell
->
->diff --cc net/sched/cls_matchall.c
->index b12bc2abea93,fcecf5aac666..000000000000
->--- a/net/sched/cls_matchall.c
->+++ b/net/sched/cls_matchall.c
->@@@ -118,19 -141,24 +118,24 @@@ static int mall_set_parms(struct net *n
->  	struct tcf_exts e;
->  	int err;
->
->- 	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
->+ 	err =3D tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
->+ 	if (err)
->+ 		return err;
->  	err =3D tcf_exts_validate(net, tp, tb, est, &e, ovr);
->  	if (err < 0)
->- 		return err;
->+ 		goto errout;
->
->  	if (tb[TCA_MATCHALL_CLASSID]) {
-> -		f->res.classid =3D nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
-> -		tcf_bind_filter(tp, &f->res, base);
-> +		head->res.classid =3D nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
-> +		tcf_bind_filter(tp, &head->res, base);
->  	}
->
-> -	tcf_exts_change(tp, &f->exts, &e);
-> +	tcf_exts_change(tp, &head->exts, &e);
->
->  	return 0;
->+ errout:
->+ 	tcf_exts_destroy(&e);
->+ 	return err;
->  }
->
->  static int mall_change(struct net *net, struct sk_buff *in_skb,
->@@@ -162,39 -194,43 +167,44 @@@
->  			return -EINVAL;
->  	}
->
-> -	f =3D kzalloc(sizeof(*f), GFP_KERNEL);
-> -	if (!f)
-> +	new =3D kzalloc(sizeof(*new), GFP_KERNEL);
-> +	if (!new)
->  		return -ENOBUFS;
->
->- 	tcf_exts_init(&new->exts, TCA_MATCHALL_ACT, 0);
-> -	err =3D tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
->++	err =3D tcf_exts_init(&new->exts, TCA_MATCHALL_ACT, 0);
->+ 	if (err)
->+ 		goto err_exts_init;
->
->  	if (!handle)
->  		handle =3D 1;
-> -	f->handle =3D handle;
-> -	f->flags =3D flags;
-> +	new->handle =3D handle;
-> +	new->flags =3D flags;
->
-> -	err =3D mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
-> +	err =3D mall_set_parms(net, tp, new, base, tb, tca[TCA_RATE], ovr);
->  	if (err)
->- 		goto errout;
->+ 		goto err_set_parms;
->
->  	if (tc_should_offload(dev, tp, flags)) {
-> -		err =3D mall_replace_hw_filter(tp, f, (unsigned long) f);
-> +		err =3D mall_replace_hw_filter(tp, new, (unsigned long) new);
->  		if (err) {
->  			if (tc_skip_sw(flags))
->- 				goto errout;
->+ 				goto err_replace_hw_filter;
->  			else
->  				err =3D 0;
->  		}
->  	}
->
-> -	*arg =3D (unsigned long) f;
-> -	rcu_assign_pointer(head->filter, f);
-> -
-> +	*arg =3D (unsigned long) head;
-> +	rcu_assign_pointer(tp->root, new);
-> +	if (head)
-> +		call_rcu(&head->rcu, mall_destroy_rcu);
->  	return 0;
->
->- errout:
->+ err_replace_hw_filter:
->+ err_set_parms:
-> -	tcf_exts_destroy(&f->exts);
->++	tcf_exts_destroy(&new->exts);
->+ err_exts_init:
-> -	kfree(f);
-> +	kfree(new);
->  	return err;
->  }
->
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogU3RlcGhlbiBIZW1taW5n
+ZXIgW21haWx0bzpzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZ10NCj4gU2VudDogTW9uZGF5LCBK
+YW51YXJ5IDMwLCAyMDE3IDY6MzQgQU0NCj4gVG86IE5vZ2FoIEZyYW5rZWwgPG5vZ2FoZkBtZWxs
+YW5veC5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyByb29wYUBjdW11bHVzbmV0
+d29ya3MuY29tOyByb3N6ZW5yYW1pQGdtYWlsLmNvbTsNCj4gamJlbmNAcmVkaGF0LmNvbTsgc2Vy
+Z2VpLnNodHlseW92QGNvZ2VudGVtYmVkZGVkLmNvbTsgSmlyaSBQaXJrbw0KPiA8amlyaUBtZWxs
+YW5veC5jb20+OyBFbGFkIFJheiA8ZWxhZHJAbWVsbGFub3guY29tPjsgSWRvIFNjaGltbWVsDQo+
+IDxpZG9zY2hAbWVsbGFub3guY29tPjsgWW90YW0gR2lnaSA8eW90YW1nQG1lbGxhbm94LmNvbT47
+IE9yIEdlcmxpdHoNCj4gPG9nZXJsaXR6QG1lbGxhbm94LmNvbT4NCj4gU3ViamVjdDogUmU6IFtQ
+QVRDSCBpcHJvdXRlMiB2NSAyLzRdIGlmc3RhdDogQWRkIGV4dGVuZGVkIHN0YXRpc3RpY3MgdG8g
+aWZzdGF0DQo+IA0KPiBPbiBUaHUsIDI2IEphbiAyMDE3IDE0OjQ0OjM5ICswMjAwDQo+IE5vZ2Fo
+IEZyYW5rZWwgPG5vZ2FoZkBtZWxsYW5veC5jb20+IHdyb3RlOg0KPiANCj4gPiBFeHRlbmRlZCBz
+dGF0cyBhcmUgcGFydCBvZiB0aGUgUlRNX0dFVFNUQVRTIG1ldGhvZC4gVGhpcyBwYXRjaCBhZGRz
+IHRoZW0NCj4gPiB0byBpZnN0YXQuDQo+ID4gV2hpbGUgZXh0ZW5kZWQgc3RhdHMgY2FuIGNvbWUg
+aW4gbWFueSBmb3Jtcywgd2Ugc3VwcG9ydCBvbmx5IHRoZQ0KPiA+IHJ0bmxfbGlua19zdGF0czY0
+IHN0cnVjdCBmb3IgdGhlbSAod2hpY2ggaXMgdGhlIDY0IGJpdHMgdmVyc2lvbiBvZiBzdHJ1Y3QN
+Cj4gPiBydG5sX2xpbmtfc3RhdHMpLg0KPiA+IFdlIHN1cHBvcnQgc3RhdHMgaW4gdGhlIG1haW4g
+bmVzdGluZyBsZXZlbCwgb3Igb25lIGxvd2VyLg0KPiA+IFRoZSBleHRlbnNpb24gY2FuIGJlIGNh
+bGxlZCBieSBpdHMgbmFtZSBvciBhbnkgc2hvcnRlbiBvZiBpdC4gSWYgdGhlcmUgaXMNCj4gPiBt
+b3JlIHRoYW4gb25lIG1hdGNoZWQsIHRoZSBmaXJzdCBvbmUgd2lsbCBiZSBwaWNrZWQuDQo+ID4N
+Cj4gPiBUbyBnZXQgdGhlIGV4dGVuZGVkIHN0YXRzIHRoZSBmbGFnIC14IDxzdGF0cyB0eXBlPiBp
+cyB1c2VkLg0KPiANCj4gSXQgd291bGQgYmUgYmV0dGVyIGlmIHRoaXMgY29tbWFuZCB1c2VkIDY0
+IGJpdCBzdGF0aXN0aWNzIHRyYW5zcGFyZW50bHkNCj4gbGlrZSBvdGhlciB0b29scyBpbiBpcHJv
+dXRlMi4gVHJhbnNwYXJlbmN5IGlzIGFsd2F5cyBiZXR0ZXIgdXNlciBleHBlcmllbmNlLg0KDQpG
+cm9tIHVzZXIgcG9pbnQgb2YgdmlldywgYWxsIHRoZSBzdGF0aXN0aWNzIGluIGlmc3RhdCBhcmUg
+NjQgYml0cyBhbmQgYXJlIHNhdmVkIHRoYXQgd2F5Lg0KV2UgY3VycmVudGx5IGdldCB0aGUgc3Rh
+dHMgaW4gMzIgYml0cyBzdHJ1Y3RzIGFuZCB0cmFuc2xhdGUgdGhlbSB0byA2NCBiaXRzLiBJdCBr
+ZWVwcyB0cmFjaw0Kb2YgIGludCBvdmVyZmxvd3MgKGluIHRoZSAzMiBiaXRzKS4NClRoZSBwcm9i
+bGVtIHdpdGggaXQgaXMgIHRoYXQgaWYgYmV0d2VlbiBvbmUgaWZzdGF0IGNhbGwgdG8gYW5vdGhl
+ciBwYXNzZXMgdG9vIG11Y2ggdGltZSwNCm9uZSBtaWdodCBsb3NlIG9uZSBvZiB0aGUgb3ZlcmZs
+b3dzLiANCkJ1dCB0byBjaGFuZ2UgaXQgaXMgbm90IGEgdHJpdmlhbCBtYXR0ZXIsIGFuZCBJIGJl
+bGlldmUgaXQgaXMgbm90IHJlbGF0ZWQgdG8gdGhlIHhzdGF0IGZlYXR1cmUgSQ0Kd2FudCB0byBh
+ZGQuDQpJIGRvbid0IHRoaW5rIEkgdW5kZXJzdG9vZCB3aGF0IGlzIHRoZSBjaGFuZ2UgeW91IHdh
+bnQuDQo=
