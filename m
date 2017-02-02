@@ -1,48 +1,74 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v2 0/5] bridge: per vlan dst_metadata support
-Date: Wed, 1 Feb 2017 20:04:18 -0800
-Message-ID: <20170201200418.6f4ee3aa@xeon-e3>
-References: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com>
-        <20170202012301.GA74213@ast-mbp.thefacebook.com>
-        <28b36ff5-a54c-7af6-3cb3-adffa5cfad46@cumulusnetworks.com>
-        <5892AF5B.3040504@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: add LINUX_MIB_PFMEMALLOCDROP counter
+Date: Wed, 01 Feb 2017 20:47:59 -0800
+Message-ID: <1486010879.13103.16.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        nikolay@cumulusnetworks.com, tgraf@suug.ch,
-        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
-        hadi@mojatatu.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: netdev <netdev@vger.kernel.org>, Josef Bacik <jbacik@fb.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34537 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750774AbdBBEE0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 23:04:26 -0500
-Received: by mail-pf0-f172.google.com with SMTP id e4so1705610pfg.1
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 20:04:26 -0800 (PST)
-In-Reply-To: <5892AF5B.3040504@cumulusnetworks.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35659 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdBBEsB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 23:48:01 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 204so662265pge.2
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 20:48:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 01 Feb 2017 20:02:35 -0800
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> On 2/1/17, 5:59 PM, David Ahern wrote:
-> > On 2/1/17 6:23 PM, Alexei Starovoitov wrote:  
-> >> On Tue, Jan 31, 2017 at 10:59:50PM -0800, Roopa Prabhu wrote:  
-> >>>                     
-> >>> This provides the required vxlan bridging function but poses a
-> >>> scalability problem with using a separate vxlan netdev for each vni.  
-> >> if I remember correctly this issue was the main reason David Ahern
-> >> put netdev on diet. Sounds like no more fun at netconf ;)
-> >>  
-> > oh, it still needs a diet ...  
->  Even if the netdev went on diet, a netdev per vni for vxlan deployments is just too much overhead.
-> 
-> 
+Debugging issues caused by pfmemalloc is often tedious.
 
-But the intent was VNI == VLAN tag and there are cases where you need per VNI rules.
-Having them all smashed into one netdev seems like a step in the wrong direction.
+Add a new SNMP counter to more easily diagnose these problems.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Josef Bacik <jbacik@fb.com>
+---
+ include/uapi/linux/snmp.h |    1 +
+ net/core/filter.c         |    5 +++--
+ net/ipv4/proc.c           |    1 +
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index e7a31f8306903f53bc5881ae4c271f85cad2e361..3b2bed7ca9a4d92c5671e614f2bc598668805f75 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -240,6 +240,7 @@ enum
+ 	LINUX_MIB_SACKMERGED,
+ 	LINUX_MIB_SACKSHIFTFALLBACK,
+ 	LINUX_MIB_TCPBACKLOGDROP,
++	LINUX_MIB_PFMEMALLOCDROP,
+ 	LINUX_MIB_TCPMINTTLDROP, /* RFC 5082 */
+ 	LINUX_MIB_TCPDEFERACCEPTDROP,
+ 	LINUX_MIB_IPRPFILTER, /* IP Reverse Path Filter (rp_filter) */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 1e00737e3bc370bc6c1afaf602439c81208ea3ac..0b753cbb2536763de53d266c9b9126d63942d7e5 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -76,9 +76,10 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
+ 	 * allow SOCK_MEMALLOC sockets to use it as this socket is
+ 	 * helping free memory
+ 	 */
+-	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
++	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC)) {
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_PFMEMALLOCDROP);
+ 		return -ENOMEM;
+-
++	}
+ 	err = BPF_CGROUP_RUN_PROG_INET_INGRESS(sk, skb);
+ 	if (err)
+ 		return err;
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index a9deeb90dd36e0a8f94596b4f563ad63925344cf..69cf49e8356d0184f774840c9dc96560f2ae2f2b 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -262,6 +262,7 @@ static const struct snmp_mib snmp4_net_list[] = {
+ 	SNMP_MIB_ITEM("TCPSackMerged", LINUX_MIB_SACKMERGED),
+ 	SNMP_MIB_ITEM("TCPSackShiftFallback", LINUX_MIB_SACKSHIFTFALLBACK),
+ 	SNMP_MIB_ITEM("TCPBacklogDrop", LINUX_MIB_TCPBACKLOGDROP),
++	SNMP_MIB_ITEM("PFMemallocDrop", LINUX_MIB_PFMEMALLOCDROP),
+ 	SNMP_MIB_ITEM("TCPMinTTLDrop", LINUX_MIB_TCPMINTTLDROP),
+ 	SNMP_MIB_ITEM("TCPDeferAcceptDrop", LINUX_MIB_TCPDEFERACCEPTDROP),
+ 	SNMP_MIB_ITEM("IPReversePathFilter", LINUX_MIB_IPRPFILTER),
