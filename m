@@ -1,115 +1,246 @@
-From: "Jonathan T. Leighton" <jtleight@udel.edu>
-Subject: [PATCH RFC 2/2] ipv6: Handle IPv4-mapped src to in6addr_any dst.
-Date: Thu,  2 Feb 2017 13:27:55 -0500
-Message-ID: <18e704dab1030247c450f0d857b1de527cadbcba.1485894457.git.jtleight@udel.edu>
-References: <cover.1485894457.git.jtleight@udel.edu>
-Cc: "Jonathan T. Leighton" <jtleight@udel.edu>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net: use a work queue to defer net_disable_timestamp()
+ work
+Date: Thu, 02 Feb 2017 10:31:35 -0800
+Message-ID: <1486060295.21871.19.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
+         <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpVvBPhP4q=Egsaoqf8ym-73jLZow8xDMbOq9RhYmL5XAQ@mail.gmail.com>
+         <1485567090.6360.92.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpXiQMH1zMJM6sYFNUySUYjaHnLZ3T2d34GwCMQ9u6RkwQ@mail.gmail.com>
+         <1485877498.6360.115.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpWnJbN=65D8PAxe7B_kBf7+Ay2M59T8brF0aXkfEbgnPg@mail.gmail.com>
+         <1485983770.6360.158.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpWSpgNnEOn+euZAMEmdQCfDVcgk9EO=k5-kVEkB+EJrpg@mail.gmail.com>
+         <CANn89iJb55jCppc9J=vL9n=7ofr1LSz3d+nKNo4W-BJeoH0m3A@mail.gmail.com>
+         <1485993583.6360.172.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpUVma3R7wGJ8T8FWyCpU9joiGM+8LSPMcV2xpJLiRD-pw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36451 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751508AbdBBS2L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 13:28:11 -0500
-Received: by mail-qt0-f196.google.com with SMTP id h53so5710837qth.3
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 10:28:11 -0800 (PST)
-In-Reply-To: <cover.1485894457.git.jtleight@udel.edu>
-In-Reply-To: <cover.1485894457.git.jtleight@udel.edu>
-References: <cover.1485894457.git.jtleight@udel.edu>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35006 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751201AbdBBSbh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 13:31:37 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 204so2474506pge.2
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 10:31:37 -0800 (PST)
+In-Reply-To: <CAM_iQpUVma3R7wGJ8T8FWyCpU9joiGM+8LSPMcV2xpJLiRD-pw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a check on the type of the source address, for the case
-where the destination address is in6addr_any. If the source is an
-IPv4-mapped IPv6 source address, the destination is changed to
-::ffff:127.0.0.1, and otherwise the destination is changed to ::1. This
-is done in three locations to handle UDP calls to either connect() or
-sendmsg(), and TCP calls to connect(). Note that udpv6_sendmsg() delays
-handling an in6addr_any destination until very late, so the patch only
-needs to handle the case where the source is an IPv4-mapped IPv6
-address.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Jonathan T. Leighton <jtleight@udel.edu>
+Dmitry reported a warning [1] showing that we were calling 
+net_disable_timestamp() -> static_key_slow_dec() from a non
+process context.
+
+Grabbing a mutex while holding a spinlock or rcu_read_lock()
+is not allowed.
+
+As Cong suggested, we now use a work queue.
+
+It is possible netstamp_clear() exits while netstamp_needed_deferred
+is not zero, but it is probably not worth trying to do better than that.
+
+netstamp_needed_deferred atomic tracks the exact number of deferred
+decrements.
+
+[1]
+[ INFO: suspicious RCU usage. ]
+4.10.0-rc5+ #192 Not tainted
+-------------------------------
+./include/linux/rcupdate.h:561 Illegal context switch in RCU read-side
+critical section!
+
+other info that might help us debug this:
+
+rcu_scheduler_active = 2, debug_locks = 0
+2 locks held by syz-executor14/23111:
+ #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>] lock_sock
+include/net/sock.h:1454 [inline]
+ #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>]
+rawv6_sendmsg+0x1e65/0x3ec0 net/ipv6/raw.c:919
+ #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>] nf_hook
+include/linux/netfilter.h:201 [inline]
+ #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>]
+__ip6_local_out+0x258/0x840 net/ipv6/output_core.c:160
+
+stack backtrace:
+CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:15 [inline]
+ dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+ lockdep_rcu_suspicious+0x139/0x180 kernel/locking/lockdep.c:4452
+ rcu_preempt_sleep_check include/linux/rcupdate.h:560 [inline]
+ ___might_sleep+0x560/0x650 kernel/sched/core.c:7748
+ __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
+ mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
+ atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
+ __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
+ static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
+ net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
+ sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
+ __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
+ sk_destruct+0x47/0x80 net/core/sock.c:1460
+ __sk_free+0x57/0x230 net/core/sock.c:1468
+ sock_wfree+0xae/0x120 net/core/sock.c:1645
+ skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
+ skb_release_all+0x15/0x60 net/core/skbuff.c:668
+ __kfree_skb+0x15/0x20 net/core/skbuff.c:684
+ kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
+ inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
+ inet_frag_put include/net/inet_frag.h:133 [inline]
+ nf_ct_frag6_gather+0x1106/0x3840
+net/ipv6/netfilter/nf_conntrack_reasm.c:617
+ ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+ nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
+ nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
+ nf_hook include/linux/netfilter.h:212 [inline]
+ __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
+ ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
+ ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
+ ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
+ rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
+ rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
+ inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+ sock_sendmsg_nosec net/socket.c:635 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:645
+ sock_write_iter+0x326/0x600 net/socket.c:848
+ do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
+ do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
+ vfs_writev+0x87/0xc0 fs/read_write.c:911
+ do_writev+0x110/0x2c0 fs/read_write.c:944
+ SYSC_writev fs/read_write.c:1017 [inline]
+ SyS_writev+0x27/0x30 fs/read_write.c:1014
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x445559
+RSP: 002b:00007f6f46fceb58 EFLAGS: 00000292 ORIG_RAX: 0000000000000014
+RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445559
+RDX: 0000000000000001 RSI: 0000000020f1eff0 RDI: 0000000000000005
+RBP: 00000000006e19c0 R08: 0000000000000000 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000700000
+R13: 0000000020f59000 R14: 0000000000000015 R15: 0000000000020400
+BUG: sleeping function called from invalid context at
+kernel/locking/mutex.c:752
+in_atomic(): 1, irqs_disabled(): 0, pid: 23111, name: syz-executor14
+INFO: lockdep is turned off.
+CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
+01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:15 [inline]
+ dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+ ___might_sleep+0x47e/0x650 kernel/sched/core.c:7780
+ __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
+ mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
+ atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
+ __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
+ static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
+ net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
+ sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
+ __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
+ sk_destruct+0x47/0x80 net/core/sock.c:1460
+ __sk_free+0x57/0x230 net/core/sock.c:1468
+ sock_wfree+0xae/0x120 net/core/sock.c:1645
+ skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
+ skb_release_all+0x15/0x60 net/core/skbuff.c:668
+ __kfree_skb+0x15/0x20 net/core/skbuff.c:684
+ kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
+ inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
+ inet_frag_put include/net/inet_frag.h:133 [inline]
+ nf_ct_frag6_gather+0x1106/0x3840
+net/ipv6/netfilter/nf_conntrack_reasm.c:617
+ ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
+ nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
+ nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
+ nf_hook include/linux/netfilter.h:212 [inline]
+ __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
+ ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
+ ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
+ ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
+ rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
+ rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
+ inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+ sock_sendmsg_nosec net/socket.c:635 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:645
+ sock_write_iter+0x326/0x600 net/socket.c:848
+ do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
+ do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
+ vfs_writev+0x87/0xc0 fs/read_write.c:911
+ do_writev+0x110/0x2c0 fs/read_write.c:944
+ SYSC_writev fs/read_write.c:1017 [inline]
+ SyS_writev+0x27/0x30 fs/read_write.c:1014
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x445559
+
+Fixes: b90e5794c5bd ("net: dont call jump_label_dec from irq context")
+Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv6/datagram.c | 14 +++++++++-----
- net/ipv6/tcp_ipv6.c | 11 ++++++++---
- net/ipv6/udp.c      |  4 ++++
- 3 files changed, 21 insertions(+), 8 deletions(-)
+ net/core/dev.c |   31 +++++++++++++------------------
+ 1 file changed, 13 insertions(+), 18 deletions(-)
 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index a3eaafd..678a84e 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -167,18 +167,22 @@ int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr,
- 	if (np->sndflow)
- 		fl6_flowlabel = usin->sin6_flowinfo & IPV6_FLOWINFO_MASK;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7f218e095361520d11c243d650e053321ea7274f..29101c98399f40b6b8e42c31a255d8f1fb6bd7a1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1695,24 +1695,19 @@ EXPORT_SYMBOL_GPL(net_dec_egress_queue);
  
--	addr_type = ipv6_addr_type(&usin->sin6_addr);
+ static struct static_key netstamp_needed __read_mostly;
+ #ifdef HAVE_JUMP_LABEL
+-/* We are not allowed to call static_key_slow_dec() from irq context
+- * If net_disable_timestamp() is called from irq context, defer the
+- * static_key_slow_dec() calls.
+- */
+ static atomic_t netstamp_needed_deferred;
+-#endif
 -
--	if (addr_type == IPV6_ADDR_ANY) {
-+	if (ipv6_addr_any(&usin->sin6_addr)) {
- 		/*
- 		 *	connect to self
- 		 */
--		usin->sin6_addr.s6_addr[15] = 0x01;
-+		if (ipv6_addr_v4mapped(&sk->sk_v6_rcv_saddr))
-+			ipv6_addr_set_v4mapped(ntohl(INADDR_LOOPBACK),
-+					       &usin->sin6_addr);
-+		else
-+			usin->sin6_addr = in6addr_loopback;
- 	}
+-void net_enable_timestamp(void)
++static void netstamp_clear(struct work_struct *work)
+ {
+-#ifdef HAVE_JUMP_LABEL
+ 	int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
  
-+	addr_type = ipv6_addr_type(&usin->sin6_addr);
+-	if (deferred) {
+-		while (--deferred)
+-			static_key_slow_dec(&netstamp_needed);
+-		return;
+-	}
++	while (deferred--)
++		static_key_slow_dec(&netstamp_needed);
++}
++static DECLARE_WORK(netstamp_work, netstamp_clear);
+ #endif
 +
- 	daddr = &usin->sin6_addr;
++void net_enable_timestamp(void)
++{
+ 	static_key_slow_inc(&netstamp_needed);
+ }
+ EXPORT_SYMBOL(net_enable_timestamp);
+@@ -1720,12 +1715,12 @@ EXPORT_SYMBOL(net_enable_timestamp);
+ void net_disable_timestamp(void)
+ {
+ #ifdef HAVE_JUMP_LABEL
+-	if (in_interrupt()) {
+-		atomic_inc(&netstamp_needed_deferred);
+-		return;
+-	}
+-#endif
++	/* net_disable_timestamp() can be called from non process context */
++	atomic_inc(&netstamp_needed_deferred);
++	schedule_work(&netstamp_work);
++#else
+ 	static_key_slow_dec(&netstamp_needed);
++#endif
+ }
+ EXPORT_SYMBOL(net_disable_timestamp);
  
--	if (addr_type == IPV6_ADDR_MAPPED) {
-+	if (addr_type & IPV6_ADDR_MAPPED) {
- 		struct sockaddr_in sin;
- 
- 		if (__ipv6_only_sock(sk)) {
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 228965d..9e91da4 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -149,8 +149,13 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	 *	connect() to INADDR_ANY means loopback (BSD'ism).
- 	 */
- 
--	if (ipv6_addr_any(&usin->sin6_addr))
--		usin->sin6_addr.s6_addr[15] = 0x1;
-+	if (ipv6_addr_any(&usin->sin6_addr)) {
-+		if (ipv6_addr_v4mapped(&sk->sk_v6_rcv_saddr))
-+			ipv6_addr_set_v4mapped(ntohl(INADDR_LOOPBACK),
-+					       &usin->sin6_addr);
-+		else
-+			usin->sin6_addr = in6addr_loopback;
-+	}
- 
- 	addr_type = ipv6_addr_type(&usin->sin6_addr);
- 
-@@ -189,7 +194,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	 *	TCP over IPv4
- 	 */
- 
--	if (addr_type == IPV6_ADDR_MAPPED) {
-+	if (addr_type & IPV6_ADDR_MAPPED) {
- 		u32 exthdrlen = icsk->icsk_ext_hdr_len;
- 		struct sockaddr_in sin;
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4d5c4ee..bbdf7de 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1033,6 +1033,10 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 			if (addr_len < SIN6_LEN_RFC2133)
- 				return -EINVAL;
- 			daddr = &sin6->sin6_addr;
-+			if (ipv6_addr_any(daddr) &&
-+			    ipv6_addr_v4mapped(&np->saddr))
-+				ipv6_addr_set_v4mapped(ntohl(INADDR_LOOPBACK),
-+						       daddr);
- 			break;
- 		case AF_INET:
- 			goto do_udp_sendmsg;
--- 
-2.7.4
