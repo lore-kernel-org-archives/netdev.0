@@ -1,99 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] virtio_net: remove custom busy_poll
-Date: Thu, 02 Feb 2017 06:35:36 -0800
-Message-ID: <1486046136.13103.42.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: [PATCH net-next v2 5/6] gtp: add socket to pdp context
+Date: Thu, 2 Feb 2017 15:38:07 +0100 (CET)
+Message-ID: <249401941.730762.1486046287023.JavaMail.zimbra@tpip.net>
+References: <20170130163713.17524-1-aschultz@tpip.net> <20170130163713.17524-6-aschultz@tpip.net> <20170202135656.GA23901@salvia> <858150010.730228.1486044775198.JavaMail.zimbra@tpip.net> <20170202142842.GA19643@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>, laforge <laforge@gnumonks.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc <openbsc@lists.osmocom.org>
+To: pablo <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36560 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750890AbdBBOfi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 09:35:38 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 75so1988779pgf.3
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 06:35:38 -0800 (PST)
+Received: from mail.tpip.net ([92.43.49.48]:56028 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751201AbdBBOiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 09:38:09 -0500
+In-Reply-To: <20170202142842.GA19643@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-Generic NAPI busy polling allows us to remove custom implementations
-found in drivers.
 
-It is possible further optimization could be done by testing
-napi_complete_done() return value.
+----- On Feb 2, 2017, at 3:28 PM, pablo pablo@netfilter.org wrote:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/virtio_net.c |   41 -------------------------------------
- 1 file changed, 41 deletions(-)
+> On Thu, Feb 02, 2017 at 03:12:55PM +0100, Andreas Schultz wrote:
+>> Hi,
+>> 
+>> ----- On Feb 2, 2017, at 2:56 PM, pablo pablo@netfilter.org wrote:
+>> 
+>> > On Mon, Jan 30, 2017 at 05:37:12PM +0100, Andreas Schultz wrote:
+>> >> Having the socket present in context simplifies the sending logic.
+>> >> It also fixes the invalid assumption that we have to use the same
+>> >> sending socket for all client IP's on a specific gtp interface.
+>> >> 
+>> >> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+>> >> ---
+>> >>  drivers/net/gtp.c | 72 ++++++++++++++++++++++++++++++-------------------------
+>> >>  1 file changed, 39 insertions(+), 33 deletions(-)
+>> >> 
+>> >> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+>> >> index 68c6c9b..ff00597 100644
+>> >> --- a/drivers/net/gtp.c
+>> >> +++ b/drivers/net/gtp.c
+>> > [...]
+>> >> @@ -984,16 +966,26 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct
+>> >> genl_info *info)
+>> >>  	return 0;
+>> >>  }
+>> >>  
+>> >> +static void pdp_context_free(struct rcu_head *head)
+>> >> +{
+>> >> +	struct pdp_ctx *pctx = container_of(head, struct pdp_ctx, rcu_head);
+>> >> +
+>> >> +	sock_put(pctx->sk);
+>> >> +	kfree(pctx);
+>> >> +}
+>> >> +
+>> >>  static void pdp_context_delete(struct pdp_ctx *pctx)
+>> >>  {
+>> >>  	hlist_del_rcu(&pctx->hlist_tid);
+>> >>  	hlist_del_rcu(&pctx->hlist_addr);
+>> >> -	kfree(pctx);
+>> >> +	call_rcu(&pctx->rcu_head, pdp_context_free);
+>> > 
+>> > This is fixing incorrect rcu conversion in 4/6. Please, fix this there.
+>> 
+>> Ehm, right, but the kfree in 4/6 could have been a kfree_rcu instead without
+>> the call_rcu.
+>> 
+>> Do you prefer to introduce the call_rcu in 4/6 and then just add the sock_put
+>> in this patch or should I change 4/6 to kfree_rcu and do the call_rcu
+>> conversion here?
+> 
+> I suggest you just call kfree_rcu() from 4/6.
+> 
+> Regarding holding socket reference, see my comment for patch 1/6.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index bd22cf306a9267cecf8c7ce03dccff8ebd16089e..0382827829d90b1d25d059609bae6d1c5ad2b6d9 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -29,7 +29,6 @@
- #include <linux/slab.h>
- #include <linux/cpu.h>
- #include <linux/average.h>
--#include <net/busy_poll.h>
- 
- static int napi_weight = NAPI_POLL_WEIGHT;
- module_param(napi_weight, int, 0444);
-@@ -1024,43 +1023,6 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
- 	return received;
- }
- 
--#ifdef CONFIG_NET_RX_BUSY_POLL
--/* must be called with local_bh_disable()d */
--static int virtnet_busy_poll(struct napi_struct *napi)
--{
--	struct receive_queue *rq =
--		container_of(napi, struct receive_queue, napi);
--	struct virtnet_info *vi = rq->vq->vdev->priv;
--	int r, received = 0, budget = 4;
--
--	if (!(vi->status & VIRTIO_NET_S_LINK_UP))
--		return LL_FLUSH_FAILED;
--
--	if (!napi_schedule_prep(napi))
--		return LL_FLUSH_BUSY;
--
--	virtqueue_disable_cb(rq->vq);
--
--again:
--	received += virtnet_receive(rq, budget);
--
--	r = virtqueue_enable_cb_prepare(rq->vq);
--	clear_bit(NAPI_STATE_SCHED, &napi->state);
--	if (unlikely(virtqueue_poll(rq->vq, r)) &&
--	    napi_schedule_prep(napi)) {
--		virtqueue_disable_cb(rq->vq);
--		if (received < budget) {
--			budget -= received;
--			goto again;
--		} else {
--			__napi_schedule(napi);
--		}
--	}
--
--	return received;
--}
--#endif	/* CONFIG_NET_RX_BUSY_POLL */
--
- static int virtnet_open(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
-@@ -1817,9 +1779,6 @@ static const struct net_device_ops virtnet_netdev = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = virtnet_netpoll,
- #endif
--#ifdef CONFIG_NET_RX_BUSY_POLL
--	.ndo_busy_poll		= virtnet_busy_poll,
--#endif
- 	.ndo_xdp		= virtnet_xdp,
- };
- 
+This is going to be a problem at this stage of the changes.
+
+The final goal is to have a reference from the socket to the pdp context.
+Then, when the socket is closed, the pdp context can be destroyed.
+
+However, at this point, only the netdevice knows about the contexts. So
+when the socket is closed, the pdp context would have a dangling reference
+to the socket.
+
+I can integrate this change into the later one. But it will make that
+change larger and more difficult to review.
+
+I guess, I'm going to drop this change from this series and see if can
+reorder the next part so that it still makes and I easy to review....
+
+Andreas
