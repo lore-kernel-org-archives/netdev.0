@@ -1,61 +1,144 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] packet: call fanout_release, while UNREGISTERING a
- netdev
-Date: Thu, 02 Feb 2017 09:12:24 -0800
-Message-ID: <1486055544.13103.56.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
-         <20161006.205052.1380596858044266995.davem@davemloft.net>
-         <1485797189.6360.98.camel@edumazet-glaptop3.roam.corp.google.com>
-         <10e9ac4b-585e-2878-0141-f00020a027f0@citrix.com>
-         <1485805493.6360.113.camel@edumazet-glaptop3.roam.corp.google.com>
-         <d2b23842-f6db-c2c9-d22c-d7e0945abc15@citrix.com>
-         <1485885650.6360.122.camel@edumazet-glaptop3.roam.corp.google.com>
-         <61fb944f-776c-00ff-dd05-d33e263f205a@citrix.com>
-         <60cc2983-9985-055a-39cd-e9dbec4f7a57@citrix.com>
-         <1486050822.13103.44.camel@edumazet-glaptop3.roam.corp.google.com>
-         <36ea65c1-f8d4-9732-44b0-628294e2357c@citrix.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH net v2 2/2] mlx4: xdp_prog becomes inactive after ethtool
+ '-L' or '-G'
+Date: Thu, 2 Feb 2017 19:13:30 +0200
+Message-ID: <081f8447-42ff-cfe6-56e0-4e3be73bd23b@mellanox.com>
+References: <1485930933-4159518-1-git-send-email-kafai@fb.com>
+ <1485930933-4159518-3-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Anoob Soman <anoob.soman@citrix.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Brenden Blanco <bblanco@plumgrid.com>
+To: Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35633 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751465AbdBBRM0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 12:12:26 -0500
-Received: by mail-pf0-f196.google.com with SMTP id f144so1881993pfa.2
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 09:12:26 -0800 (PST)
-In-Reply-To: <36ea65c1-f8d4-9732-44b0-628294e2357c@citrix.com>
+Received: from mail-db5eur01on0071.outbound.protection.outlook.com ([104.47.2.71]:22432
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751495AbdBBRNk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 12:13:40 -0500
+In-Reply-To: <1485930933-4159518-3-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-02 at 16:44 +0000, Anoob Soman wrote:
-> On 02/02/17 15:53, Eric Dumazet wrote:
-> > On Thu, 2017-02-02 at 14:42 +0000, Anoob Soman wrote:
-> >
-> >> I have tested both the approaches and LOCKDEP doesn't seem to catch any
-> >> problem with the test I was doing.
-> > Yeah, I think I will cleanup this mess, we probably can remove rcu
-> > locking in control path, and stick to a single mutex to reduce all this
-> > lock complexity.
-> >
-> > But that will be for net-next, while we need your fix for net tree.
-> >
-> > Thanks.
-> >
-> >
-> Sorry, I didn't get it. You want me to post a patch for net tree, 
-> changing the way we do dev_{add,remove}_pack(fanout_prot_hook) and you 
-> will fix up the lock mess in net-next.
 
-Yes. Please send your patch.
+On 01/02/2017 8:35 AM, Martin KaFai Lau wrote:
+> After calling mlx4_en_try_alloc_resources (e.g. by changing the
+> number of rx-queues with ethtool -L), the existing xdp_prog becomes
+> inactive.
+>
+> The bug is that the xdp_prog ptr has not been carried over from
+> the old rx-queues to the new rx-queues
+>
+> Fixes: 47a38e155037 ("net/mlx4_en: add support for fast rx drop bpf program")
+> Cc: Brenden Blanco <bblanco@plumgrid.com>
+> Cc: Saeed Mahameed <saeedm@mellanox.com>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  4 ++--
+>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 27 +++++++++++++++++++++----
+>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  3 ++-
+>   3 files changed, 27 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> index d5a9372ed84d..9aa422691954 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+> @@ -1099,7 +1099,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
+>   	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
+>   	new_prof.tx_ring_size = tx_size;
+>   	new_prof.rx_ring_size = rx_size;
+> -	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
+> +	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, true);
+>   	if (err)
+>   		goto out;
+>   
+> @@ -1774,7 +1774,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
+>   	new_prof.tx_ring_num[TX_XDP] = xdp_count;
+>   	new_prof.rx_ring_num = channel->rx_count;
+>   
+> -	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
+> +	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, true);
+>   	if (err)
+>   		goto out;
+>   
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 3abcead208d2..3b4961a8e8e4 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -2186,9 +2186,11 @@ static void mlx4_en_update_priv(struct mlx4_en_priv *dst,
+>   
+>   int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
+>   				struct mlx4_en_priv *tmp,
+> -				struct mlx4_en_port_profile *prof)
+> +				struct mlx4_en_port_profile *prof,
+> +				bool carry_xdp_prog)
+>   {
+> -	int t;
+> +	struct bpf_prog *xdp_prog;
+> +	int i, t;
+>   
+>   	mlx4_en_copy_priv(tmp, priv, prof);
+>   
+> @@ -2202,6 +2204,23 @@ int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
+>   		}
+>   		return -ENOMEM;
+>   	}
+> +
+> +	/* All rx_rings has the same xdp_prog.  Pick the first one. */
+> +	xdp_prog = rcu_dereference_protected(
+> +		priv->rx_ring[0]->xdp_prog,
+> +		lockdep_is_held(&priv->mdev->state_lock));
+> +
+> +	if (xdp_prog && carry_xdp_prog) {
+> +		xdp_prog = bpf_prog_add(xdp_prog, tmp->rx_ring_num);
+> +		if (IS_ERR(xdp_prog)) {
+> +			mlx4_en_free_resources(tmp);
+> +			return PTR_ERR(xdp_prog);
+> +		}
+> +		for (i = 0; i < tmp->rx_ring_num; i++)
+> +			rcu_assign_pointer(tmp->rx_ring[i]->xdp_prog,
+> +					   xdp_prog);
+> +	}
+> +
+>   	return 0;
+>   }
+>   
+> @@ -2751,7 +2770,7 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   		en_warn(priv, "Reducing the number of TX rings, to not exceed the max total rings number.\n");
+>   	}
+>   
+> -	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
+> +	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, false);
+>   	if (err) {
+>   		if (prog)
+>   			bpf_prog_sub(prog, priv->rx_ring_num - 1);
+> @@ -3495,7 +3514,7 @@ int mlx4_en_reset_config(struct net_device *dev,
+>   	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
+>   	memcpy(&new_prof.hwtstamp_config, &ts_config, sizeof(ts_config));
+>   
+> -	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof);
+> +	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, true);
+>   	if (err)
+>   		goto out;
+>   
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index ba1c6cd0cc79..cec59bc264c9 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> @@ -679,7 +679,8 @@ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
+>   
+>   int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
+>   				struct mlx4_en_priv *tmp,
+> -				struct mlx4_en_port_profile *prof);
+> +				struct mlx4_en_port_profile *prof,
+> +				bool carry_xdp_prog);
+>   void mlx4_en_safe_replace_resources(struct mlx4_en_priv *priv,
+>   				    struct mlx4_en_priv *tmp);
+>   
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 
-In the future (~1 month when net-next is re-open) I will submit a patch
-to remove all these complexity out of af_packet.
-
-Once fast path uses RCU, control path does not need to use a galaxy of
-spinlocks and mutexes, and rcu.
-
-This is too complex to maintain. A single mutex should be more than
-enough.
+Thanks.
