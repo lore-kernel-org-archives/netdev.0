@@ -1,52 +1,60 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next v2 11/12] bnxt_en: Add basic XDP support.
-Date: Thu, 2 Feb 2017 17:18:35 +0000
-Message-ID: <BL2PR07MB2306262459A2F72761A5C28C8D4C0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
- <1486054540-366-12-git-send-email-michael.chan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <michael.chan@broadcom.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2] ip route: Make name of protocol 0 consistent
+Date: Thu,  2 Feb 2017 09:22:06 -0800
+Message-ID: <1486056126-23900-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0051.outbound.protection.outlook.com ([104.47.33.51]:45313
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751414AbdBBRSi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Feb 2017 12:18:38 -0500
-In-Reply-To: <1486054540-366-12-git-send-email-michael.chan@broadcom.com>
-Content-Language: en-US
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:34098 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751298AbdBBRWe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 12:22:34 -0500
+Received: by mail-pg0-f45.google.com with SMTP id 14so7274214pgg.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 09:22:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +config BNXT_XDP
-> +	bool "Xpress Data Path (XDP) driver support"
-> +	default n
-> +	depends on BNXT && BPF
-> +	---help---
-> +	  Say Y here if you want to enable XDP in the driver to support
-> +	  eBPF programs in the fast path.
-> +
+iproute2 can inconsistently show the name of protocol 0 if a route with
+a custom protocol is added. For example:
+  dsa@cartman:~$ ip -6 ro ls table all | egrep 'proto none|proto unspec'
+  local ::1 dev lo  table local  proto none  metric 0  pref medium
+  local fe80::225:90ff:fecb:1c18 dev lo  table local  proto none  metric 0  pref medium
+  local fe80::92e2:baff:fe5c:da5d dev lo  table local  proto none  metric 0  pref medium
 
-Wasn't it recently discussed that per-feature option is preferable
-to a per-feature per-device option?
-Assuming BPF > XDP and thus shouldn't directly imply that XDP
-should be supported, perhaps the right thing is to add a global
-XDP config option?
+protocol 0 is pretty printed as "none". Add a route with a custom protocol:
+  dsa@cartman:~$ sudo ip -6 ro add  2001:db8:200::1/128 dev eth0 proto 123
 
-> +	if (prog && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
-> +		netdev_err(dev, "MTU %d larger than largest XDP supported
-> MTU %d.\n",
-> +			   bp->dev->mtu, BNXT_MAX_PAGE_MODE_MTU);
-> +		return -EOPNOTSUPP;
-> +	}
+And now display has switched from "none" to "unspec":
+  dsa@cartman:~$ ip -6 ro ls table all | egrep 'proto none|proto unspec'
+  local ::1 dev lo  table local  proto unspec  metric 0  pref medium
+  local fe80::225:90ff:fecb:1c18 dev lo  table local  proto unspec  metric 0  pref medium
+  local fe80::92e2:baff:fe5c:da5d dev lo  table local  proto unspec  metric 0  pref medium
 
-Is it O.k. to print with netdev_err() for a user-provided unsupported
-configuration? Shouldn't that be limited?
+The rt_protos file has the id to name mapping as "unspec" while
+rtnl_rtprot_tab[0] has "none". The presence of a custom protocol id
+triggers reading the rt_protos file and overwriting the string in
+rtnl_rtprot_tab. All of this is logic from 2004 and earlier.
 
-> +		bool sh =3D (bp->flags & BNXT_FLAG_SHARED_RINGS) ? true :
-> false;
+The simplest change to achieve consistency is to update the rt_protos
+file to use "none" instead of "unspec".
 
-Didn't you already check this flag is set?
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ etc/iproute2/rt_protos | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/etc/iproute2/rt_protos b/etc/iproute2/rt_protos
+index 82cf9c46cf6f..21af85b9d7e1 100644
+--- a/etc/iproute2/rt_protos
++++ b/etc/iproute2/rt_protos
+@@ -1,7 +1,7 @@
+ #
+ # Reserved protocols.
+ #
+-0	unspec
++0	none
+ 1	redirect
+ 2	kernel
+ 3	boot
+-- 
+2.1.4
