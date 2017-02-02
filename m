@@ -1,249 +1,105 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 11/12] net: mvpp2: switch to build_skb() in the RX path
-Date: Thu,  2 Feb 2017 16:51:40 +0100
-Message-ID: <1486050701-27899-12-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 10/12] net: mvpp2: simplify MVPP2_PRS_RI_*
+ definitions
+Date: Thu,  2 Feb 2017 16:51:39 +0100
+Message-ID: <1486050701-27899-11-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Russell King <linux@arm.linux.org.uk>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:54846 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752070AbdBBPyI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:54:08 -0500
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
+ Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This commit adapts the mvpp2 RX path to use the build_skb() method. Not
-only build_skb() is now the recommended mechanism, but it also
-simplifies the addition of support for the PPv2.2 variant.
-
-Indeed, without build_skb(), we have to keep track for each RX
-descriptor of the physical address of the packet buffer, and the virtual
-address of the SKB. However, in PPv2.2 running on 64 bits platform,
-there is not enough space in the descriptor to store the virtual address
-of the SKB. So having to take care only of the address of the packet
-buffer, and building the SKB upon reception helps in supporting PPv2.2.
-
-The implementation is fairly straightforward:
-
- - mvpp2_skb_alloc() is renamed to mvpp2_buf_alloc() and no longer
-   allocates a SKB. Instead, it allocates a buffer using the new
-   mvpp2_frag_alloc() function, with enough space for the data and SKB.
-
- - The initialization of the RX buffers in mvpp2_bm_bufs_add() as well
-   as the refill of the RX buffers in mvpp2_rx_refill() is adjusted
-   accordingly.
-
- - Finally, the mvpp2_rx() is modified to use build_skb().
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 77 +++++++++++++++++++++++++-----------
- 1 file changed, 55 insertions(+), 22 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index ec8f452..4132dc8 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -918,6 +918,7 @@ struct mvpp2_bm_pool {
- 	int buf_size;
- 	/* Packet size */
- 	int pkt_size;
-+	int frag_size;
- 
- 	/* BPPE virtual base address */
- 	u32 *virt_addr;
-@@ -3354,6 +3355,22 @@ static void mvpp2_cls_oversize_rxq_set(struct mvpp2_port *port)
- 	mvpp2_write(port->priv, MVPP2_CLS_SWFWD_PCTRL_REG, val);
- }
- 
-+static void *mvpp2_frag_alloc(const struct mvpp2_bm_pool *pool)
-+{
-+	if (likely(pool->frag_size <= PAGE_SIZE))
-+		return netdev_alloc_frag(pool->frag_size);
-+	else
-+		return kmalloc(pool->frag_size, GFP_ATOMIC);
-+}
-+
-+static void mvpp2_frag_free(const struct mvpp2_bm_pool *pool, void *data)
-+{
-+	if (likely(pool->frag_size <= PAGE_SIZE))
-+		skb_free_frag(data);
-+	else
-+		kfree(data);
-+}
-+
- /* Buffer Manager configuration routines */
- 
- /* Create pool */
-@@ -3428,7 +3445,8 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
- 
- 		if (!vaddr)
- 			break;
--		dev_kfree_skb_any((struct sk_buff *)vaddr);
-+
-+		mvpp2_frag_free(bm_pool, (void *)vaddr);
- 	}
- 
- 	/* Update BM driver with number of buffers removed from pool */
-@@ -3542,29 +3560,28 @@ static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
- 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
- }
- 
--/* Allocate skb for BM pool */
--static struct sk_buff *mvpp2_skb_alloc(struct mvpp2_port *port,
--				       struct mvpp2_bm_pool *bm_pool,
--				       dma_addr_t *buf_phys_addr,
--				       gfp_t gfp_mask)
-+static void *mvpp2_buf_alloc(struct mvpp2_port *port,
-+			     struct mvpp2_bm_pool *bm_pool,
-+			     dma_addr_t *buf_phys_addr,
-+			     gfp_t gfp_mask)
- {
--	struct sk_buff *skb;
- 	dma_addr_t phys_addr;
-+	void *data;
- 
--	skb = __dev_alloc_skb(bm_pool->pkt_size, gfp_mask);
--	if (!skb)
-+	data = mvpp2_frag_alloc(bm_pool);
-+	if (!data)
- 		return NULL;
- 
--	phys_addr = dma_map_single(port->dev->dev.parent, skb->head,
-+	phys_addr = dma_map_single(port->dev->dev.parent, data,
- 				   MVPP2_RX_BUF_SIZE(bm_pool->pkt_size),
- 				    DMA_FROM_DEVICE);
- 	if (unlikely(dma_mapping_error(port->dev->dev.parent, phys_addr))) {
--		dev_kfree_skb_any(skb);
-+		mvpp2_frag_free(bm_pool, data);
- 		return NULL;
- 	}
- 	*buf_phys_addr = phys_addr;
- 
--	return skb;
-+	return data;
- }
- 
- /* Set pool number in a BM cookie */
-@@ -3620,9 +3637,9 @@ static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
- static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 			     struct mvpp2_bm_pool *bm_pool, int buf_num)
- {
--	struct sk_buff *skb;
- 	int i, buf_size, total_size;
- 	dma_addr_t phys_addr;
-+	void *buf;
- 
- 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
- 	total_size = MVPP2_RX_TOTAL_SIZE(buf_size);
-@@ -3636,11 +3653,11 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 	}
- 
- 	for (i = 0; i < buf_num; i++) {
--		skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
--		if (!skb)
-+		buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
-+		if (!buf)
- 			break;
- 
--		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)skb);
-+		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)buf);
- 	}
- 
- 	/* Update BM driver with number of buffers added to pool */
-@@ -3696,6 +3713,9 @@ mvpp2_bm_pool_use(struct mvpp2_port *port, int pool, enum mvpp2_bm_type type,
- 					   port->priv, new_pool);
- 
- 		new_pool->pkt_size = pkt_size;
-+		new_pool->frag_size =
-+			SKB_DATA_ALIGN(MVPP2_RX_BUF_SIZE(pkt_size)) +
-+			MVPP2_SKB_SHINFO_SIZE;
- 
- 		/* Allocate buffers for this pool */
- 		num = mvpp2_bm_bufs_add(port, new_pool, pkts_num);
-@@ -5004,15 +5024,15 @@ static void mvpp2_rx_csum(struct mvpp2_port *port, u32 status,
- static int mvpp2_rx_refill(struct mvpp2_port *port,
- 			   struct mvpp2_bm_pool *bm_pool, u32 bm)
- {
--	struct sk_buff *skb;
- 	dma_addr_t phys_addr;
-+	void *buf;
- 
- 	/* No recycle or too many buffers are in use, so allocate a new skb */
--	skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
--	if (!skb)
-+	buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
-+	if (!buf)
- 		return -ENOMEM;
- 
--	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
-+	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)buf);
- 
- 	return 0;
- }
-@@ -5104,14 +5124,17 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 		struct mvpp2_rx_desc *rx_desc = mvpp2_rxq_next_desc_get(rxq);
- 		struct mvpp2_bm_pool *bm_pool;
- 		struct sk_buff *skb;
-+		unsigned int frag_size;
- 		dma_addr_t phys_addr;
- 		u32 bm, rx_status;
- 		int pool, rx_bytes, err;
-+		void *data;
- 
- 		rx_done++;
- 		rx_status = rx_desc->status;
- 		rx_bytes = rx_desc->data_size - MVPP2_MH_SIZE;
- 		phys_addr = rx_desc->buf_phys_addr;
-+		data = (void *)rx_desc->buf_cookie;
- 
- 		bm = mvpp2_bm_cookie_build(rx_desc);
- 		pool = mvpp2_bm_cookie_pool_get(bm);
-@@ -5132,12 +5155,22 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 			dev->stats.rx_errors++;
- 			mvpp2_rx_error(port, rx_desc);
- 			/* Return the buffer to the pool */
-+
- 			mvpp2_pool_refill(port, bm, rx_desc->buf_phys_addr,
- 					  rx_desc->buf_cookie);
- 			continue;
- 		}
- 
--		skb = (struct sk_buff *)rx_desc->buf_cookie;
-+		if (bm_pool->frag_size > PAGE_SIZE)
-+			frag_size = 0;
-+		else
-+			frag_size = bm_pool->frag_size;
-+
-+		skb = build_skb(data, frag_size);
-+		if (!skb) {
-+			netdev_warn(port->dev, "skb build failed\n");
-+			goto err_drop_frame;
-+		}
- 
- 		err = mvpp2_rx_refill(port, bm_pool, bm);
- 		if (err) {
-@@ -5151,7 +5184,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 		rcvd_pkts++;
- 		rcvd_bytes += rx_bytes;
- 
--		skb_reserve(skb, MVPP2_MH_SIZE);
-+		skb_reserve(skb, MVPP2_MH_SIZE + NET_SKB_PAD);
- 		skb_put(skb, rx_bytes);
- 		skb->protocol = eth_type_trans(skb, dev);
- 		mvpp2_rx_csum(port, rx_status, skb);
--- 
-2.7.4
+U29tZSBvZiB0aGUgTVZQUDJfUFJTX1JJXyogZGVmaW5pdGlvbnMgdXNlIHRoZSB+KHZhbHVlKSBz
+eW50YXgsIHdoaWNoCmRvZXNuJ3QgY29tcGlsZSBuaWNlbHkgb24gNjQtYml0LiBNb3Jlb3Zlciwg
+dGhvc2UgZGVmaW5pdGlvbnMgYXJlIGluCmZhY3QgdW5uZWVkZWQsIHNpbmNlIHRoZXkgYXJlIGFs
+d2F5cyB1c2VkIGluIGNvbWJpbmF0aW9uIHdpdGggYSBiaXQKbWFzayB0aGF0IGVuc3VyZXMgb25s
+eSB0aGUgYXBwcm9wcmlhdGUgYml0cyBhcmUgbW9kaWZpZWQuCgpUaGVyZWZvcmUsIHN1Y2ggZGVm
+aW5pdGlvbnMgc2hvdWxkIGp1c3QgYmUgc2V0IHRvIDB4MC4gSW4gYWRkaXRpb24sIGFzCnN1Z2dl
+c3RlZCBieSBSdXNzZWxsIEtpbmcsIHdlIGNoYW5nZSB0aGUgX01BU0sgZGVmaW5pdGlvbnMgdG8g
+YWxzbyB1c2UKdGhlIEJJVCgpIG1hY3JvIHNvIHRoYXQgaXQgaXMgY2xlYXIgdGhleSBhcmUgcmVs
+YXRlZCB0byB0aGUgdmFsdWVzCmRlZmluZWQgYWZ0ZXJ3YXJkcy4KCkZvciBleGFtcGxlOgoKICNk
+ZWZpbmUgTVZQUDJfUFJTX1JJX0wyX0NBU1RfTUFTSyAgICAgICAgICAgICAgMHg2MDAKICNkZWZp
+bmUgTVZQUDJfUFJTX1JJX0wyX1VDQVNUICAgICAgICAgICAgICAgICAgfihCSVQoOSkgfCBCSVQo
+MTApKQogI2RlZmluZSBNVlBQMl9QUlNfUklfTDJfTUNBU1QgICAgICAgICAgICAgICAgICBCSVQo
+OSkKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wyX0JDQVNUICAgICAgICAgICAgICAgICAgQklUKDEw
+KQoKYmVjb21lcwoKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wyX0NBU1RfTUFTSyAgICAgICAgICAg
+ICAgKEJJVCg5KSB8IEJJVCgxMCkpCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9MMl9VQ0FTVCAgICAg
+ICAgICAgICAgICAgIDB4MAogI2RlZmluZSBNVlBQMl9QUlNfUklfTDJfTUNBU1QgICAgICAgICAg
+ICAgICAgICBCSVQoOSkKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wyX0JDQVNUICAgICAgICAgICAg
+ICAgICAgQklUKDEwKQoKQmVjYXVzZSB0aGUgdmFsdWVzIChNVlBQMl9QUlNfUklfTDJfVUNBU1Qs
+IE1WUFAyX1BSU19SSV9MMl9NQ0FTVCBhbmQKTVZQUDJfUFJTX1JJX0wyX0JDQVNUKSBhcmUgYWx3
+YXlzIGFwcGxpZWQgd2l0aApNVlBQMl9QUlNfUklfTDJfQ0FTVF9NQVNLLCBhbmQgdGhlcmVmb3Jl
+IHRoZXJlIGlzIG5vIG5lZWQgZm9yCk1WUFAyX1BSU19SSV9MMl9VQ0FTVCB0byBiZSBkZWZpbmVk
+IGFzIH4oQklUKDkpIHwgQklUKDEwKSkuCgpJdCBmaXhlcyB0aGUgZm9sbG93aW5nIHdhcm5pbmdz
+IHdoZW4gYnVpbGRpbmcgdGhlIGRyaXZlciBvbiBhIDY0LWJpdApwbGF0Zm9ybSAod2hpY2ggaXMg
+bm90IHBvc3NpYmxlIGFzIG9mIHRoaXMgY29tbWl0LCBidXQgd2lsbCBiZSBlbmFibGVkCmluIGEg
+Zm9sbG93LXVwIGNvbW1pdCk6Cgpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212cHAyLmM6
+IEluIGZ1bmN0aW9uIOKAmG12cHAyX3Byc19tYWNfcHJvbWlzY19zZXTigJk6CmRyaXZlcnMvbmV0
+L2V0aGVybmV0L21hcnZlbGwvbXZwcDIuYzo1MjQ6MzM6IHdhcm5pbmc6IGxhcmdlIGludGVnZXIg
+aW1wbGljaXRseSB0cnVuY2F0ZWQgdG8gdW5zaWduZWQgdHlwZSBbLVdvdmVyZmxvd10KICNkZWZp
+bmUgTVZQUDJfUFJTX1JJX0wyX1VDQVNUICAgfihCSVQoOSkgfCBCSVQoMTApKQogICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICBeCmRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZw
+cDIuYzoxNDU5OjMzOiBub3RlOiBpbiBleHBhbnNpb24gb2YgbWFjcm8g4oCYTVZQUDJfUFJTX1JJ
+X0wyX1VDQVNU4oCZCiAgIG12cHAyX3Byc19zcmFtX3JpX3VwZGF0ZSgmcGUsIE1WUFAyX1BSU19S
+SV9MMl9VQ0FTVCwKClNpZ25lZC1vZmYtYnk6IFRob21hcyBQZXRhenpvbmkgPHRob21hcy5wZXRh
+enpvbmlAZnJlZS1lbGVjdHJvbnMuY29tPgotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZl
+bGwvbXZwcDIuYyB8IDE2ICsrKysrKysrLS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA4IGluc2Vy
+dGlvbnMoKyksIDggZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvbWFydmVsbC9tdnBwMi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdnBwMi5j
+CmluZGV4IGIyMTliMGMuLmVjOGY0NTIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0
+L21hcnZlbGwvbXZwcDIuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212cHAy
+LmMKQEAgLTUxMCwyOCArNTEwLDI4IEBAIGVudW0gbXZwcDJfdGFnX3R5cGUgewogLyogU3JhbSBy
+ZXN1bHQgaW5mbyBiaXRzIGFzc2lnbm1lbnQgKi8KICNkZWZpbmUgTVZQUDJfUFJTX1JJX01BQ19N
+RV9NQVNLCQkweDEKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0RTQV9NQVNLCQkJMHgyCi0jZGVmaW5l
+IE1WUFAyX1BSU19SSV9WTEFOX01BU0sJCQkweGMKLSNkZWZpbmUgTVZQUDJfUFJTX1JJX1ZMQU5f
+Tk9ORQkJCX4oQklUKDIpIHwgQklUKDMpKQorI2RlZmluZSBNVlBQMl9QUlNfUklfVkxBTl9NQVNL
+CQkJKEJJVCgyKSB8IEJJVCgzKSkKKyNkZWZpbmUgTVZQUDJfUFJTX1JJX1ZMQU5fTk9ORQkJCTB4
+MAogI2RlZmluZSBNVlBQMl9QUlNfUklfVkxBTl9TSU5HTEUJCUJJVCgyKQogI2RlZmluZSBNVlBQ
+Ml9QUlNfUklfVkxBTl9ET1VCTEUJCUJJVCgzKQogI2RlZmluZSBNVlBQMl9QUlNfUklfVkxBTl9U
+UklQTEUJCShCSVQoMikgfCBCSVQoMykpCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9DUFVfQ09ERV9N
+QVNLCQkweDcwCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9DUFVfQ09ERV9SWF9TUEVDCQlCSVQoNCkK
+LSNkZWZpbmUgTVZQUDJfUFJTX1JJX0wyX0NBU1RfTUFTSwkJMHg2MDAKLSNkZWZpbmUgTVZQUDJf
+UFJTX1JJX0wyX1VDQVNUCQkJfihCSVQoOSkgfCBCSVQoMTApKQorI2RlZmluZSBNVlBQMl9QUlNf
+UklfTDJfQ0FTVF9NQVNLCQkoQklUKDkpIHwgQklUKDEwKSkKKyNkZWZpbmUgTVZQUDJfUFJTX1JJ
+X0wyX1VDQVNUCQkJMHgwCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9MMl9NQ0FTVAkJCUJJVCg5KQog
+I2RlZmluZSBNVlBQMl9QUlNfUklfTDJfQkNBU1QJCQlCSVQoMTApCiAjZGVmaW5lIE1WUFAyX1BS
+U19SSV9QUFBPRV9NQVNLCQkJMHg4MDAKLSNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX1BST1RPX01B
+U0sJCTB4NzAwMAotI2RlZmluZSBNVlBQMl9QUlNfUklfTDNfVU4JCQl+KEJJVCgxMikgfCBCSVQo
+MTMpIHwgQklUKDE0KSkKKyNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX1BST1RPX01BU0sJCShCSVQo
+MTIpIHwgQklUKDEzKSB8IEJJVCgxNCkpCisjZGVmaW5lIE1WUFAyX1BSU19SSV9MM19VTgkJCTB4
+MAogI2RlZmluZSBNVlBQMl9QUlNfUklfTDNfSVA0CQkJQklUKDEyKQogI2RlZmluZSBNVlBQMl9Q
+UlNfUklfTDNfSVA0X09QVAkJCUJJVCgxMykKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX0lQNF9P
+VEhFUgkJKEJJVCgxMikgfCBCSVQoMTMpKQogI2RlZmluZSBNVlBQMl9QUlNfUklfTDNfSVA2CQkJ
+QklUKDE0KQogI2RlZmluZSBNVlBQMl9QUlNfUklfTDNfSVA2X0VYVAkJCShCSVQoMTIpIHwgQklU
+KDE0KSkKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX0FSUAkJCShCSVQoMTMpIHwgQklUKDE0KSkK
+LSNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX0FERFJfTUFTSwkJMHgxODAwMAotI2RlZmluZSBNVlBQ
+Ml9QUlNfUklfTDNfVUNBU1QJCQl+KEJJVCgxNSkgfCBCSVQoMTYpKQorI2RlZmluZSBNVlBQMl9Q
+UlNfUklfTDNfQUREUl9NQVNLCQkoQklUKDE1KSB8IEJJVCgxNikpCisjZGVmaW5lIE1WUFAyX1BS
+U19SSV9MM19VQ0FTVAkJCTB4MAogI2RlZmluZSBNVlBQMl9QUlNfUklfTDNfTUNBU1QJCQlCSVQo
+MTUpCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9MM19CQ0FTVAkJCShCSVQoMTUpIHwgQklUKDE2KSkK
+ICNkZWZpbmUgTVZQUDJfUFJTX1JJX0lQX0ZSQUdfTUFTSwkJMHgyMDAwMAotLSAKMi43LjQKCgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0t
+a2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcK
+aHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2Vy
+bmVsCg==
