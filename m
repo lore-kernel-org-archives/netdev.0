@@ -1,30 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: phy: marvell: Add support for 88e1545 PHY
-Date: Wed, 1 Feb 2017 18:22:57 -0800
-Message-ID: <24fe9ef6-a81e-f59a-ac3f-d3f8bf2f25ef@gmail.com>
-References: <1485992103-23331-1-git-send-email-andrew@lunn.ch>
+From: Phil Reid <preid@electromag.com.au>
+Subject: Re: [PATCH] net: stmmac: Remove wrong message in
+ stmmac_probe_config_dt
+Date: Thu, 2 Feb 2017 10:20:15 +0800
+Message-ID: <1ceefa8c-c7ca-1927-810d-2dcf3c3f0a82@electromag.com.au>
+References: <b01bb0ae-361c-a28a-d372-f9a3881c0a9b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Heiner Kallweit <hkallweit1@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35300 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750808AbdBBCW7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 21:22:59 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 204so321882pge.2
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 18:22:59 -0800 (PST)
-In-Reply-To: <1485992103-23331-1-git-send-email-andrew@lunn.ch>
+Received: from anchovy1.45ru.net.au ([203.30.46.145]:48418 "EHLO
+        anchovy.45ru.net.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750808AbdBBC07 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 21:26:59 -0500
+In-Reply-To: <b01bb0ae-361c-a28a-d372-f9a3881c0a9b@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/01/2017 03:35 PM, Andrew Lunn wrote:
-> The 88e1545 PHYs are discrete Marvell PHYs, found in a quad package on
-> the zii-devel-b board. Add support for it to the Marvell PHY driver.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+On 2/02/2017 05:05, Heiner Kallweit wrote:
+> I can only imagine that this message ended up there by a copy & paste
+> mistake. The same message appears correctly a few lines later, but
+> here it doesn't make sense.
+>
+> Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+>  1 file changed, 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 460f94f5..5edf23dc 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -371,7 +371,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+>  	} else {
+>  		clk_prepare_enable(plat->clk_ptp_ref);
+>  		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
+> -		dev_info(&pdev->dev, "No reset control found\n");
+>  	}
+>
+>  	plat->stmmac_rst = devm_reset_control_get(&pdev->dev,
+>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+It was originally:
+		netdev_dbg(priv->dev, "PTP rate %d\n", priv->clk_ptp_rate);
+Before it got moved in:
+commit f573c0b9c4e02691cf87736bd0824fd37ec02e65
+stmmac: move stmmac_clk, pclk, clk_ptp_ref and stmmac_rst to platform structure
+
 -- 
-Florian
+Regards
+Phil Reid
