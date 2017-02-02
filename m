@@ -1,46 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [net-next] xgene_enet: remove bogus forward
- declarations
-Date: Thu, 02 Feb 2017 17:13:23 -0500 (EST)
-Message-ID: <20170202.171323.2101313074221520967.davem@davemloft.net>
-References: <20170201164639.2474782-1-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next 16/19] lib: Introduce priority array area
+ manager
+Date: Thu, 02 Feb 2017 14:28:40 -0800
+Message-ID: <1486074520.21871.34.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
+         <1486048379-19237-17-git-send-email-jiri@resnulli.us>
+         <CALx6S35TKCZG=6hsTFa=A3EOG8T_h3Eb4wkzcSbyY1yvKmmscw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: isubramanian@apm.com, kchudgar@apm.com, f.fainelli@gmail.com,
-        qnguyen@apm.com, tinamdar@apm.com, stephen@networkplumber.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170201164639.2474782-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:33774 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751720AbdBBW2m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 17:28:42 -0500
+Received: by mail-pg0-f45.google.com with SMTP id 204so516777pge.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 14:28:42 -0800 (PST)
+In-Reply-To: <CALx6S35TKCZG=6hsTFa=A3EOG8T_h3Eb4wkzcSbyY1yvKmmscw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed,  1 Feb 2017 17:46:02 +0100
+On Thu, 2017-02-02 at 13:58 -0800, Tom Herbert wrote:
+> I have no idea what a "priority array area manager" is. Googling it
+> comes up with nothing and there are no comments in this whole patch
+> that either describe what it is or how any of the functions should be
+> used. Am I missing something that is supposed to be obvious?
 
-> The device match tables for both the xgene_enet driver and its phy driver
-> have forward declarations that declare an array without a length, leading
-> to a clang warning when they are not followed by an actual defitinition:
-> 
-> drivers/net/ethernet/apm/xgene/../../../phy/mdio-xgene.h:135:34: warning: tentative array definition assumed to have one element
-> drivers/net/ethernet/apm/xgene/xgene_enet_main.c:33:36: warning: tentative array definition assumed to have one element
-> 
-> The declarations for the mdio driver are even in a header file, so they
-> cause duplicate definitions of the tables for each file that includes
-> them.
-> 
-> This removes all four forward declarations and moves the actual
-> definitions up a little, so they are in front of their first user. For
-> the OF match tables, this means having to remove the #ifdef around them,
-> and passing the actual structure into of_match_device(). This has no
-> effect on the generated object code though, as the of_match_device
-> function has an empty stub that does not evaluate its argument, and
-> the symbol gets dropped either way.
-> 
-> Fixes: 43b3cf6634a4 ("drivers: net: phy: xgene: Add MDIO driver")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-> The bug is old, but relatively harmless, so not needed as a fixup for 4.10
+Okay, but please trim your replies on netdev.
 
-Applied, thanks.
+Thanks.
