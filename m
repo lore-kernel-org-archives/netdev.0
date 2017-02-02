@@ -1,121 +1,43 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 06/12] net: mvpp2: drop useless fields in mvpp2_bm_pool and related code
-Date: Thu,  2 Feb 2017 16:51:35 +0100
-Message-ID: <1486050701-27899-7-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Russell King <linux@arm.linux.org.uk>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] packet: call fanout_release, while UNREGISTERING a
+ netdev
+Date: Thu, 02 Feb 2017 07:53:42 -0800
+Message-ID: <1486050822.13103.44.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1475676774-18726-1-git-send-email-anoob.soman@citrix.com>
+         <20161006.205052.1380596858044266995.davem@davemloft.net>
+         <1485797189.6360.98.camel@edumazet-glaptop3.roam.corp.google.com>
+         <10e9ac4b-585e-2878-0141-f00020a027f0@citrix.com>
+         <1485805493.6360.113.camel@edumazet-glaptop3.roam.corp.google.com>
+         <d2b23842-f6db-c2c9-d22c-d7e0945abc15@citrix.com>
+         <1485885650.6360.122.camel@edumazet-glaptop3.roam.corp.google.com>
+         <61fb944f-776c-00ff-dd05-d33e263f205a@citrix.com>
+         <60cc2983-9985-055a-39cd-e9dbec4f7a57@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Anoob Soman <anoob.soman@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:54837 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751905AbdBBPyI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:54:08 -0500
-In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36412 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751982AbdBBPyD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:54:03 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 19so1749857pfo.3
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:53:43 -0800 (PST)
+In-Reply-To: <60cc2983-9985-055a-39cd-e9dbec4f7a57@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit drops dead code from the mvpp2 driver. The 'in_use' and
-'in_use_thresh' fields of 'struct mvpp2_bm_pool' are
-incremented/decremented/initialized in various places. But they are only
-used in one place:
+On Thu, 2017-02-02 at 14:42 +0000, Anoob Soman wrote:
 
-       if (is_recycle &&
-           (atomic_read(&bm_pool->in_use) < bm_pool->in_use_thresh))
-               return 0;
+> 
+> I have tested both the approaches and LOCKDEP doesn't seem to catch any
+> problem with the test I was doing.
 
-However 'is_recycle', passed as argument to mvpp2_rx_refill() is always
-false. So in fact, this code is never reached, and the 'is_recycle'
-argument is useless. So let's drop this code.
+Yeah, I think I will cleanup this mess, we probably can remove rcu
+locking in control path, and stick to a single mutex to reduce all this
+lock complexity.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 18 +++---------------
- 1 file changed, 3 insertions(+), 15 deletions(-)
+But that will be for net-next, while we need your fix for net tree.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 907619c..ed550c4 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -930,10 +930,6 @@ struct mvpp2_bm_pool {
- 
- 	/* Ports using BM pool */
- 	u32 port_map;
--
--	/* Occupied buffers indicator */
--	atomic_t in_use;
--	int in_use_thresh;
- };
- 
- struct mvpp2_buff_hdr {
-@@ -3399,7 +3395,6 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
- 	bm_pool->size = size;
- 	bm_pool->pkt_size = 0;
- 	bm_pool->buf_num = 0;
--	atomic_set(&bm_pool->in_use, 0);
- 
- 	return 0;
- }
-@@ -3656,7 +3651,6 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 
- 	/* Update BM driver with number of buffers added to pool */
- 	bm_pool->buf_num += i;
--	bm_pool->in_use_thresh = bm_pool->buf_num / 4;
- 
- 	netdev_dbg(port->dev,
- 		   "%s pool %d: pkt_size=%4d, buf_size=%4d, total_size=%4d\n",
-@@ -5014,23 +5008,18 @@ static void mvpp2_rx_csum(struct mvpp2_port *port, u32 status,
- 
- /* Reuse skb if possible, or allocate a new skb and add it to BM pool */
- static int mvpp2_rx_refill(struct mvpp2_port *port,
--			   struct mvpp2_bm_pool *bm_pool,
--			   u32 bm, int is_recycle)
-+			   struct mvpp2_bm_pool *bm_pool, u32 bm)
- {
- 	struct sk_buff *skb;
- 	dma_addr_t phys_addr;
- 
--	if (is_recycle &&
--	    (atomic_read(&bm_pool->in_use) < bm_pool->in_use_thresh))
--		return 0;
--
- 	/* No recycle or too many buffers are in use, so allocate a new skb */
- 	skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
- 	if (!skb)
- 		return -ENOMEM;
- 
- 	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
--	atomic_dec(&bm_pool->in_use);
-+
- 	return 0;
- }
- 
-@@ -5156,7 +5145,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 
- 		skb = (struct sk_buff *)rx_desc->buf_cookie;
- 
--		err = mvpp2_rx_refill(port, bm_pool, bm, 0);
-+		err = mvpp2_rx_refill(port, bm_pool, bm);
- 		if (err) {
- 			netdev_err(port->dev, "failed to refill BM pools\n");
- 			goto err_drop_frame;
-@@ -5167,7 +5156,6 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 
- 		rcvd_pkts++;
- 		rcvd_bytes += rx_bytes;
--		atomic_inc(&bm_pool->in_use);
- 
- 		skb_reserve(skb, MVPP2_MH_SIZE);
- 		skb_put(skb, rx_bytes);
--- 
-2.7.4
+Thanks.
