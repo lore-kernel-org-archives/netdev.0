@@ -1,137 +1,75 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Thu, 2 Feb 2017 12:49:44 +1100
-Message-ID: <20170202124944.6c3fd4f4@canb.auug.org.au>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the DP83867
+ TI's PHY driver
+Date: Thu, 2 Feb 2017 02:54:16 +0100
+Message-ID: <20170202015416.GG4967@lunn.ch>
+References: <1485960215-5148-1-git-send-email-lukma@denx.de>
+ <20170201171610.GC7395@lunn.ch>
+ <2f3766f0-42df-6aab-dda1-14022c57fb30@gmail.com>
+ <20170201220500.29d478aa@jawa>
+ <20170201211440.GG7395@lunn.ch>
+ <20170201231323.732dd327@jawa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Yotam Gigi <yotamg@mellanox.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        Karicheri Muralidharan <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
+        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Lukasz Majewski <lukma-ynQEQJNshbs@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170201231323.732dd327@jawa>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, Feb 01, 2017 at 11:13:23PM +0100, Lukasz Majewski wrote:
+> Hi Andrew,
+> 
+> > > We would need a tri-state device tree properly:
+> > > 
+> > > 1. Not defined - do nothing
+> > > 2. Defined as 0 -> explicitly disable port mirroring
+> > > 3. Defined as 1 -> explicitly enable port mirriring
+> > > 
+> > > The "net-phy-lane-swap" only fulfills points 1 and 3 above.
+> > > 
+> > > In my use case I do need point 2.
+> > 
+> > Looking at the datasheet, PORT_MIRROR_EN defaults to 0. So it seems
+> > reasonable to unconditionally set it to 0 when the PHY driver
+> > loads. Any device which needs a value of 1 can set "net-phy-lane-swap"
+> 
+> Unconditionally setting this field to 0 (as we expect the reset default
+> setting) seems to me like a good solution. 
+> 
+> However, I was not sure if such approach is acceptable by the community.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+So the issue here is, are there boards with bootloaders which set this
+"lane swap" bit, and rely on Linux not changing it, because the
+hardware design has such a swap?
 
-  net/sched/cls_matchall.c
+It seems the bootloader you are using does this. But in your case, it
+does it wrongly. I'm guessing you have a vendor bootloader? And no
+easy access to the sources? Otherwise you would of fixed the
+bootloader. So can we assume there are vendor designed boards which
+require the swap? Do they run a mainline kernel? Or only the vendor
+kernel?
 
-between commit:
+If we know of mainline boards which are going to break, we should not
+do this.
 
-  fd62d9f5c575 ("net/sched: matchall: Fix configuration race")
+If however we do decide to reset it to default value, i think it would
+be good to implement net-phy-lane-swap as well, so giving people an
+easier path towards mainline.
 
-from Linus' tree and commit:
-
-  ec2507d2a306 ("net/sched: cls_matchall: Fix error path")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/sched/cls_matchall.c
-index b12bc2abea93,fcecf5aac666..000000000000
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@@ -118,19 -141,24 +118,24 @@@ static int mall_set_parms(struct net *n
-  	struct tcf_exts e;
-  	int err;
-  
-- 	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
-+ 	err = tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
-+ 	if (err)
-+ 		return err;
-  	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
-  	if (err < 0)
-- 		return err;
-+ 		goto errout;
-  
-  	if (tb[TCA_MATCHALL_CLASSID]) {
- -		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
- -		tcf_bind_filter(tp, &f->res, base);
- +		head->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
- +		tcf_bind_filter(tp, &head->res, base);
-  	}
-  
- -	tcf_exts_change(tp, &f->exts, &e);
- +	tcf_exts_change(tp, &head->exts, &e);
-  
-  	return 0;
-+ errout:
-+ 	tcf_exts_destroy(&e);
-+ 	return err;
-  }
-  
-  static int mall_change(struct net *net, struct sk_buff *in_skb,
-@@@ -162,39 -194,43 +167,44 @@@
-  			return -EINVAL;
-  	}
-  
- -	f = kzalloc(sizeof(*f), GFP_KERNEL);
- -	if (!f)
- +	new = kzalloc(sizeof(*new), GFP_KERNEL);
- +	if (!new)
-  		return -ENOBUFS;
-  
-- 	tcf_exts_init(&new->exts, TCA_MATCHALL_ACT, 0);
- -	err = tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
-++	err = tcf_exts_init(&new->exts, TCA_MATCHALL_ACT, 0);
-+ 	if (err)
-+ 		goto err_exts_init;
-  
-  	if (!handle)
-  		handle = 1;
- -	f->handle = handle;
- -	f->flags = flags;
- +	new->handle = handle;
- +	new->flags = flags;
-  
- -	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
- +	err = mall_set_parms(net, tp, new, base, tb, tca[TCA_RATE], ovr);
-  	if (err)
-- 		goto errout;
-+ 		goto err_set_parms;
-  
-  	if (tc_should_offload(dev, tp, flags)) {
- -		err = mall_replace_hw_filter(tp, f, (unsigned long) f);
- +		err = mall_replace_hw_filter(tp, new, (unsigned long) new);
-  		if (err) {
-  			if (tc_skip_sw(flags))
-- 				goto errout;
-+ 				goto err_replace_hw_filter;
-  			else
-  				err = 0;
-  		}
-  	}
-  
- -	*arg = (unsigned long) f;
- -	rcu_assign_pointer(head->filter, f);
- -
- +	*arg = (unsigned long) head;
- +	rcu_assign_pointer(tp->root, new);
- +	if (head)
- +		call_rcu(&head->rcu, mall_destroy_rcu);
-  	return 0;
-  
-- errout:
-+ err_replace_hw_filter:
-+ err_set_parms:
- -	tcf_exts_destroy(&f->exts);
-++	tcf_exts_destroy(&new->exts);
-+ err_exts_init:
- -	kfree(f);
- +	kfree(new);
-  	return err;
-  }
-  
+       Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
