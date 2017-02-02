@@ -1,53 +1,92 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ipv6: Set protocol to kernel for local routes
-Date: Thu,  2 Feb 2017 08:52:21 -0800
-Message-ID: <1486054341-22589-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH net-next 2/5] net: split skb_checksum_help
+Date: Thu, 2 Feb 2017 16:55:10 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0278B5F@AcuExch.aculab.com>
+References: <cover.1485177252.git.dcaratti@redhat.com>
+         <532e1db70b6c40f1b1e5c60b5b51be9f3437a30b.1485177252.git.dcaratti@redhat.com>
+         <CALx6S37E=OEkRego_u=oDuUgQUn9-NZLpupvbN_dge1rqF92CQ@mail.gmail.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB026CEA4@AcuExch.aculab.com>
+ <1486048043.2556.4.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: 'Davide Caratti' <dcaratti@redhat.com>,
+        'Tom Herbert' <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33552 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751308AbdBBQw1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:52:27 -0500
-Received: by mail-pg0-f51.google.com with SMTP id 204so7110829pge.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 08:52:26 -0800 (PST)
+Received: from smtp-out4.electric.net ([192.162.216.187]:65462 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751465AbdBBQzV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:55:21 -0500
+In-Reply-To: <1486048043.2556.4.camel@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 stack does not set the protocol for local routes, so those routes show
-up with proto "none":
-    $ ip -6 ro ls table local
-    local ::1 dev lo proto none metric 0  pref medium
-    local 2100:3:: dev lo proto none metric 0  pref medium
-    local 2100:3::4 dev lo proto none metric 0  pref medium
-    local fe80:: dev lo proto none metric 0  pref medium
-    ...
-
-Set rt6i_protocol to RTPROT_KERNEL for consistency with IPv4. Now routes
-show up with proto "kernel":
-    $ ip -6 ro ls table local
-    local ::1 dev lo proto kernel metric 0  pref medium
-    local 2100:3:: dev lo proto kernel metric 0  pref medium
-    local 2100:3::4 dev lo proto kernel metric 0  pref medium
-    local fe80:: dev lo proto kernel metric 0  pref medium
-    ...
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv6/route.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 2563331b0532..91eb3f7782dd 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2634,6 +2634,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
- 	rt->dst.output = ip6_output;
- 	rt->rt6i_idev = idev;
- 
-+	rt->rt6i_protocol = RTPROT_KERNEL;
- 	rt->rt6i_flags = RTF_UP | RTF_NONEXTHOP;
- 	if (anycast)
- 		rt->rt6i_flags |= RTF_ANYCAST;
--- 
-2.1.4
+RnJvbTogRGF2aWRlIENhcmF0dGkNCj4gU2VudDogMDIgRmVicnVhcnkgMjAxNyAxNTowNw0KPiA+
+IEZyb206IFRvbSBIZXJiZXJ0DQo+ID4gPg0KPiA+ID4gU2VudDogMjMgSmFudWFyeSAyMDE3IDIx
+OjAwDQo+ID4gLi4NCj4gPiA+DQo+ID4gPiBza2JfY2hlY2tzdW1faGVscCBpcyBzcGVjaWZpYyB0
+byB0aGUgSW50ZXJuZXQgY2hlY2tzdW0uIEZvciBpbnN0YW5jZSwNCj4gPiA+IENIRUNLU1VNX0NP
+TVBMRVRFIGNhbiBfb25seV8gcmVmZXIgdG8gSW50ZXJuZXQgY2hlY2tzdW0gY2FsY3VsYXRpb24N
+Cj4gPiA+IG5vdGhpbmcgZWxzZSB3aWxsIHdvcmsuIENoZWNrc3VtcyBhbmQgQ1JDcyBhcmUgdmVy
+eSBkaWZmZXJlbnQgdGhpbmdzDQo+ID4gPiB3aXRoIHZlcnkgZGlmZmVyZW50IHByb2Nlc3Npbmcu
+IFRoZXkgYXJlIG5vdCBpbnRlcmNoYW5nZWFibGUsIGhhdmUNCj4gPiA+IHZlcnkgZGlmZmVyZW50
+IHByb3BlcnRpZXMsIGFuZCBoZW5jZSBpdCBpcyBhIG1pc3Rha2UgdG8gdHJ5IHRvIHNob2UNCj4g
+PiA+IGhvcm4gdGhpbmdzIHNvIHRoYXQgdGhleSB1c2UgYSBjb21tb24gaW5mcmFzdHJ1Y3R1cmUu
+DQo+ID4gPg0KPiANCj4gdHJ1ZSwgd2UgZG9uJ3QgbmVlZCB0byB0ZXN0IENIRUNLU1VNX0NPTVBM
+RVRFIG9uIHNrYnMgY2FycnlpbmcgU0NUUC4NCj4gU28gbWF5YmUgd2UgY2FuIHNpbXBseSByZXBs
+YWNlIHBhdGNoZXMgMi81IGFuZCAzLzUgd2l0aCB0aGUgc21hbGxlciBvbmUgYXQNCj4gdGhlIGJv
+dHRvbSBvZiB0aGlzIG1lc3NhZ2UuDQoNCkkgaGF2ZSB0byBhZG1pdCB0byBub3Qga25vd2luZyBl
+eGFjdGx5IHdoYXQgdGhlIENIRUNLU1VNX3h4eCBmbGFncyBhY3R1YWxseSBtZWFuLg0KSSBoYXZl
+IGEgZ29vZCBpZGVhIGFib3V0IHdoYXQgdGhlIGludGVudGlvbiBpcyB0aG91Z2guDQoNCi4uLg0K
+PiBPbiBUdWUsIDIwMTctMDEtMjQgYXQgMTY6MzUgKzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToN
+Cj4gPg0KPiA+IEkgY2FuIGltYWdpbmUgaG9ycmlkIHRoaW5ncyBoYXBwZW5pbmcgaWYgc29tZW9u
+ZSB0cmllcyB0byBlbmNhcHN1bGF0ZQ0KPiA+IFNDVFAvSVAgaW4gVURQIChvciB3b3JzZSBVRFAv
+SVAgaW4gU0NUUCkuDQo+ID4NCj4gPiBGb3IgVURQIGluIFVEUCBJIHN1c3BlY3QgdGhhdCBDSEVD
+S1NVTV9DT01QTEVURSBvbiBhbiBpbm5lciBVRFAgcGFja2V0DQo+ID4gYWxsb3dzIHRoZSBvdXRl
+ciBjaGVja3N1bSBiZSBjYWxjdWxhdGVkIGJ5IGlnbm9yaW5nIHRoZSBpbm5lciBwYWNrZXQNCj4g
+PiAoc2luY2UgaXQgc3VtcyB0byB6ZXJvKS4NCj4gPiBUaGlzIGp1c3QgaXNuJ3QgdHJ1ZSBpZiBT
+Q1RQIGlzIGludm9sdmVkLg0KPiA+IFRoZXJlIGFyZSB0cmlja3MgdG8gZ2VuZXJhdGUgYSBjcmMg
+b2YgYSBsb25nZXIgcGFja2V0LCBidXQgdGhleSdkIG9ubHkNCj4gPiB3b3JrIGZvciBTQ1RQIGlu
+IFNDVFAuDQo+ID4NCj4gPiBGb3Igbm9uLWVuY2Fwc3VsYXRlZCBwYWNrZXRzIGl0IGlzIGEgZGlm
+ZmVyZW50IG1hdHRlci4NCj4gDQo+IElmIHdlIGxpbWl0IHRoZSBzY29wZSB0byBza2JzIGhhdmlu
+ZyBpcF9zdW1tZWQgZXF1YWwgdG8gQ0hFQ0tTVU1fUEFSVElBTCwNCj4gbGlrZSBpdCdzIGRvbmUg
+aW4gcGF0Y2ggNCwgd2Ugb25seSBuZWVkIGNoZWNrc3VtbWluZyB0aGUgcGFja2V0IHN0YXJ0aW5n
+DQo+IGZyb20gY3N1bV9zdGFydCB0byBpdHMgZW5kLCBhbmQgY29weSB0aGUgY29tcHV0ZWQgdmFs
+dWUgdG8gY3N1bV9vZmZzZXQuDQo+IFRoZSBkaWZmaWN1bHQgdGhpbmcgaXMgZGlzY3JpbWluYXRp
+bmcgc2ticyB0aGF0IG5lZWQgQ1JDMzJjLCBuYW1lbHkgU0NUUCwNCj4gZnJvbSB0aGUgcmVzdCBv
+ZiB0aGUgdHJhZmZpYyAodGhhdCB3aWxsIGxpa2VseSBiZSBjaGVja3N1bW1lZCBieQ0KPiBza2Jf
+Y2hlY2tzdW1faGVscCkuDQouLi4NCg0KSSdtIGd1ZXNzaW5nIHRoYXQgdGhlIFNDVFAgY29kZSBv
+bmx5IHNldHMgQ0hFQ0tTVU1fUEFSVElBTCAoYW5kIGRvZXNuJ3QNCnBlcmZvcm0gdGhlIGNoZWNr
+c3VtKSBpZiBpdCBzb21laG93IGtub3dzIHRoYXQgdGhlIHRhcmdldCBpbnRlcmZhY2UNCnN1cHBv
+cnRzIENSQzMyYyBjaGVja3N1bXMuDQoNCkknZCBwdXQgdGhlIG9udXMgb24gYW55IHN1Y2ggaW50
+ZXJmYWNlIHRvIHBlcmZvcm0gdGhlIGNoZWNrc3VtIChhbmQNCnNldCBDSEVDS1NVTV9DT01QTEVU
+RSAob3IgaXMgaXQgVU5ORUNFU1NBUlk/KSBiZWZvcmUgcGFzc2luZyB0aGUgDQptZXNzYWdlIG9u
+dG8gYW4gaW50ZXJmYWNlIHRoYXQgZG9lc24ndCBhZHZlcnRpc2UgQ1JDMzIgc3VwcG9ydC4NCg0K
+WW91IGNlcnRhaW5seSBkb24ndCB3YW50IHRvIGhhdmUgdG8gZ28gdGhyb3VnaCBhbGwgdGhlIGV0
+aGVybmV0IGRyaXZlcnMhDQoNCj4gDQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0gODwgLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0NCj4gLS0tIGEvaW5jbHVkZS9saW51eC9za2J1ZmYuaA0KPiArKysg
+Yi9pbmNsdWRlL2xpbnV4L3NrYnVmZi5oDQo+IEBAIC0yMDAsNyArMjAwLDggQEANCj4gICphY2Nv
+cmRpbmdseS4gTm90ZSB0aGUgdGhlcmUgaXMgbm8gaW5kaWNhdGlvbiBpbiB0aGUgc2tidWZmIHRo
+YXQgdGhlDQo+ICAqQ0hFQ0tTVU1fUEFSVElBTCByZWZlcnMgdG8gYW4gRkNPRSBjaGVja3N1bSwg
+YSBkcml2ZXIgdGhhdCBzdXBwb3J0cw0KPiAgKmJvdGggSVAgY2hlY2tzdW0gb2ZmbG9hZCBhbmQg
+RkNPRSBDUkMgb2ZmbG9hZCBtdXN0IHZlcmlmeSB3aGljaCBvZmZsb2FkDQo+IC0gKmlzIGNvbmZp
+Z3VyZWQgZm9yIGEgcGFja2V0IHByZXN1bWFibHkgYnkgaW5zcGVjdGluZyBwYWNrZXQgaGVhZGVy
+cy4NCj4gKyAqaXMgY29uZmlndXJlZCBmb3IgYSBwYWNrZXQgcHJlc3VtYWJseSBieSBpbnNwZWN0
+aW5nIHBhY2tldCBoZWFkZXJzOyBpbg0KPiArICpjYXNlLCBza2Jfc2N0cF9jc3VtX2hlbHAgaXMg
+cHJvdmlkZWQgdG8gY29tcHV0ZSBDUkMgb24gU0NUUCBwYWNrZXRzLg0KPiAgKg0KPiAgKiBFLiBD
+aGVja3N1bW1pbmcgb24gb3V0cHV0IHdpdGggR1NPLg0KPiAgKg0KPiBkaWZmIC0tZ2l0IGEvbmV0
+L2NvcmUvZGV2LmMgYi9uZXQvY29yZS9kZXYuYw0KPiBpbmRleCBhZDU5NTllLi5mYTliZTZkIDEw
+MDY0NA0KPiAtLS0gYS9uZXQvY29yZS9kZXYuYw0KPiArKysgYi9uZXQvY29yZS9kZXYuYw0KPiBA
+QCAtMjU4MCw2ICsyNTgwLDQyIEBAIGludCBza2JfY2hlY2tzdW1faGVscChzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiKQ0KPiB9DQo+IEVYUE9SVF9TWU1CT0woc2tiX2NoZWNrc3VtX2hlbHApOw0KPiANCj4g
+K2ludCBza2Jfc2N0cF9jc3VtX2hlbHAoc3RydWN0IHNrX2J1ZmYgKnNrYikNCj4gK3sNCj4gKwlf
+X2xlMzIgY3JjMzJjX2NzdW07DQo+ICsJaW50IHJldCA9IDAsIG9mZnNldDsNCj4gKw0KPiArCWlm
+IChza2ItPmlwX3N1bW1lZCAhPSBDSEVDS1NVTV9QQVJUSUFMKQ0KPiArCQlnb3RvIG91dDsNCj4g
+KwlpZiAodW5saWtlbHkoc2tiX2lzX2dzbyhza2IpKSkNCj4gKwkJZ290byBvdXQ7DQo+ICsJaWYg
+KHNrYl9oYXNfc2hhcmVkX2ZyYWcoc2tiKSkgew0KPiArCQlyZXQgPSBfX3NrYl9saW5lYXJpemUo
+c2tiKTsNCg0KSSBkb24ndCB0aGluayB5b3UgcmVhbGx5IHdhbnQgdG8gbGluZWFyaXplIHRoZSBw
+YWNrZXQuDQouLi4NCg0KCURhdmlkDQoNCg==
