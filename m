@@ -1,54 +1,36 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: Re: [net-next ovs clone action 3/3] openvswitch: kernel datapath
- clone action
-Date: Wed, 1 Feb 2017 19:31:03 -0800
-Message-ID: <CABKoBm38whikMMJPnjj_E71pbXOhO0FYogDosTyQ9nNMMPo3pQ@mail.gmail.com>
-References: <1485881247-6683-1-git-send-email-azhou@ovn.org>
- <1485881247-6683-3-git-send-email-azhou@ovn.org> <CAOrHB_D5_4+3MZ6yuU1FMJkjFO-Gv2fav55dg3=hZt8cB+g6SQ@mail.gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 0/5] bridge: per vlan dst_metadata support
+Date: Wed, 01 Feb 2017 20:02:35 -0800
+Message-ID: <5892AF5B.3040504@cumulusnetworks.com>
+References: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com> <20170202012301.GA74213@ast-mbp.thefacebook.com> <28b36ff5-a54c-7af6-3cb3-adffa5cfad46@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@ovn.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        stephen@networkplumber.org, nikolay@cumulusnetworks.com,
+        tgraf@suug.ch, hannes@stressinduktion.org, jbenc@redhat.com,
+        pshelar@ovn.org, hadi@mojatatu.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:42152 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750858AbdBBDbt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 22:31:49 -0500
-Received: from mfilter17-d.gandi.net (mfilter17-d.gandi.net [217.70.178.145])
-        by relay4-d.mail.gandi.net (Postfix) with ESMTP id EEC0F17209B
-        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 04:31:46 +0100 (CET)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-        by mfilter17-d.gandi.net (mfilter17-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 9rOkKTl7y326 for <netdev@vger.kernel.org>;
-        Thu,  2 Feb 2017 04:31:45 +0100 (CET)
-Received: from mail-ot0-f176.google.com (mail-ot0-f176.google.com [74.125.82.176])
-        (Authenticated sender: azhou@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 70673172095
-        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 04:31:45 +0100 (CET)
-Received: by mail-ot0-f176.google.com with SMTP id f9so2970091otd.1
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 19:31:45 -0800 (PST)
-In-Reply-To: <CAOrHB_D5_4+3MZ6yuU1FMJkjFO-Gv2fav55dg3=hZt8cB+g6SQ@mail.gmail.com>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:36591 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750774AbdBBECi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 23:02:38 -0500
+Received: by mail-pg0-f43.google.com with SMTP id 3so1803059pgj.3
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 20:02:38 -0800 (PST)
+In-Reply-To: <28b36ff5-a54c-7af6-3cb3-adffa5cfad46@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 1, 2017 at 6:30 PM, Pravin Shelar <pshelar@ovn.org> wrote:
-> On Tue, Jan 31, 2017 at 8:47 AM, Andy Zhou <azhou@ovn.org> wrote:
->> Add 'clone' kernel datapath support. In case the actions within clone
->> do not modify the current flow, the actions are executed without
->> making a copy of current key before execution. This analysis is
->> done once per flow installation.
+On 2/1/17, 5:59 PM, David Ahern wrote:
+> On 2/1/17 6:23 PM, Alexei Starovoitov wrote:
+>> On Tue, Jan 31, 2017 at 10:59:50PM -0800, Roopa Prabhu wrote:
+>>>                     
+>>> This provides the required vxlan bridging function but poses a
+>>> scalability problem with using a separate vxlan netdev for each vni.
+>> if I remember correctly this issue was the main reason David Ahern
+>> put netdev on diet. Sounds like no more fun at netconf ;)
 >>
->> On the other hand, in case the actions within clone may modify
->> current flow key, a key has to be copied. In case the percpu
->> 'flow_keys' is available for the next 'exec_actions_level', the clone
->> actions will be executed without using the deferred fifo. Otherwise,
->> deferred fifo is used this clone action.
->>
->
-> I think we can use sample action to clone packet and apply
-> optimization to sample action. That will allow greater use of existing
-> action without additional complexity.
->
-O.K. I will rework the patch series to apply the optimizations to the sample
-action.  Thanks for the review and comment.
+> oh, it still needs a diet ...
+ Even if the netdev went on diet, a netdev per vni for vxlan deployments is just too much overhead.
