@@ -1,69 +1,59 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 02/12] net: mvpp2: handle too large value handling
- in mvpp2_rx_pkts_coal_set()
-Date: Thu,  2 Feb 2017 16:51:31 +0100
-Message-ID: <1486050701-27899-3-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH] xen-netfront: Improve error handling during
+ initialization
+Date: Thu, 2 Feb 2017 10:54:01 -0500
+Message-ID: <cf782971-90fc-e9fc-57d6-e67033d044e1@oracle.com>
+References: <1485964222-1501-1-git-send-email-ross.lagerwall@citrix.com>
+ <78bd8aab-69db-30cb-45ac-d12e17870447@oracle.com>
+ <bbe85105-f5aa-79ea-6eab-0cfaea28555a@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
- Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
- Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Juergen Gross <jgross@suse.com>, xen-devel@lists.xenproject.org,
+ wei.liu2@citrix.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ross Lagerwall <ross.lagerwall@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <bbe85105-f5aa-79ea-6eab-0cfaea28555a@citrix.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-Currently, mvpp2_rx_pkts_coal_set() does the following to avoid setting
-a too large value for the RX coalescing by packet number:
-
-  val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
-
-This means that if you set a value that is slightly higher the the
-maximum number of packets, you in fact get a very low value. It makes a
-lot more sense to simply check if the value is too high, and if it's too
-high, limit it to the maximum possible value.
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 7613c4f..3fd5a9f 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4381,11 +4381,12 @@ static void mvpp2_txp_max_tx_size_set(struct mvpp2_port *port)
- static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
- 				   struct mvpp2_rx_queue *rxq)
- {
--	u32 val;
-+	if (rxq->pkts_coal > MVPP2_OCCUPIED_THRESH_MASK)
-+		rxq->pkts_coal = MVPP2_OCCUPIED_THRESH_MASK;
- 
--	val = (rxq->pkts_coal & MVPP2_OCCUPIED_THRESH_MASK);
- 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
--	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, val);
-+	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG,
-+		    rxq->pkts_coal);
- }
- 
- /* Set the time delay in usec before Rx interrupt */
--- 
-2.7.4
+T24gMDIvMDIvMjAxNyAwOTo1NCBBTSwgUm9zcyBMYWdlcndhbGwgd3JvdGU6Cj4gT24gMDIvMDEv
+MjAxNyAwNjo1NCBQTSwgQm9yaXMgT3N0cm92c2t5IHdyb3RlOgo+PiBPbiAwMi8wMS8yMDE3IDEw
+OjUwIEFNLCBSb3NzIExhZ2Vyd2FsbCB3cm90ZToKPj4+IEltcHJvdmUgZXJyb3IgaGFuZGxpbmcg
+ZHVyaW5nIGluaXRpYWxpemF0aW9uLiBUaGlzIGZpeGVzIGEgY3Jhc2ggd2hlbgo+Pj4gcnVubmlu
+ZyBvdXQgb2YgZ3JhbnQgcmVmcyB3aGVuIGNyZWF0aW5nIG1hbnkgcXVldWVzIGFjcm9zcyBtYW55
+Cj4+PiBuZXRkZXZzLgo+Pj4KPj4+ICogRGVsYXkgdGltZXIgY3JlYXRpb24gc28gdGhhdCBpZiBp
+bml0aWFsaXppbmcgYSBxdWV1ZSBmYWlscywgdGhlIHRpbWVyCj4+PiBoYXMgbm90IGJlZW4gc2V0
+dXAgeWV0Lgo+Pj4gKiBJZiBjcmVhdGluZyBxdWV1ZXMgZmFpbHMgKGkuZS4gdGhlcmUgYXJlIG5v
+IGdyYW50IHJlZnMgYXZhaWxhYmxlKSwKPj4+IGNhbGwgeGVuYnVzX2Rldl9mYXRhbCgpIHRvIGVu
+c3VyZSB0aGF0IHRoZSB4ZW5idXMgZGV2aWNlIGlzIHNldCB0byB0aGUKPj4+IGNsb3NlZCBzdGF0
+ZS4KPj4+ICogSWYgbm8gcXVldWVzIGFyZSBjcmVhdGVkLCBkb24ndCBjYWxsIHhlbm5ldF9kaXNj
+b25uZWN0X2JhY2tlbmQgYXMKPj4+IG5ldGRldi0+cmVhbF9udW1fdHhfcXVldWVzIHdpbGwgbm90
+IGhhdmUgYmVlbiBzZXQgY29ycmVjdGx5Lgo+Pj4gKiBJZiBzZXR1cF9uZXRmcm9udCgpIGZhaWxz
+LCBlbnN1cmUgdGhhdCBhbGwgdGhlIHF1ZXVlcyBjcmVhdGVkIGFyZQo+Pj4gY2xlYW5lZCB1cCwg
+bm90IGp1c3QgdGhvc2UgdGhhdCBoYXZlIGJlZW4gc2V0IHVwLgo+Pj4gKiBJZiBhbnkgcXVldWVz
+IHdlcmUgc2V0IHVwIGFuZCBhbiBlcnJvciBvY2N1cnMsIGNhbGwKPj4+IHhlbm5ldF9kZXN0cm95
+X3F1ZXVlcygpIHRvIHN0b3AgdGhlIHRpbWVyIGFuZCBjbGVhbiB1cCB0aGUgbmFwaQo+Pj4gY29u
+dGV4dC4KPj4KPj4gV2UgbmVlZCB0byBzdG9wIHRoZSB0aW1lciBpbiB4ZW5uZXRfZGlzY29ubmVj
+dF9iYWNrZW5kKCkuIEkgc2VudCBhIHBhdGNoCj4+IGEgY291cGxlIG9mIGRheSBhZ28KPj4KPj4g
+aHR0cHM6Ly9saXN0cy54ZW5wcm9qZWN0Lm9yZy9hcmNoaXZlcy9odG1sL3hlbi1kZXZlbC8yMDE3
+LTAxL21zZzAzMjY5Lmh0bWwKPj4KPj4KPj4gYnV0IHdhcyBhYm91dCB0byByZXNlbmQgaXQgd2l0
+aCBkZWxfdGltZXJfc3luYygpIG1vdmVkIGFmdGVyCj4+IG5hcGlfc3luY2hyb25pemUoKS4KPj4K
+Pgo+IE9LLCBidXQgdGhlIHBhdGNoIGlzIHN0aWxsIHJlbGV2YW50IHNpbmNlIEkgYmVsaWV2ZSB3
+ZSBzdGlsbCBuZWVkIHRvCj4gY2xlYW4gdXAgdGhlIG5hcGkgY29udGV4dCBpbiB0aGlzIGNhc2Ug
+KHBsdXMgdGhlIHBhdGNoIGZpeGVzIGEgbG90IG9mCj4gb3RoZXIgaXNzdWVzKS4KCkkgd2FzIG9u
+bHkgY29tbWVudGluZyBvbiB0aGF0IHNwZWNpZmljIGJ1bGxldCBpbiB0aGUgY29tbWl0IG1lc3Nh
+Z2UsIEkKYW0gbm90IGFyZ3VpbmcgYWdhaW5zdCB0aGUgcGF0Y2guCgo+Cj4gQnV0IEkgd2lsbCBy
+ZXNwaW4gaXQgb24gdG9wIG9mIHlvdXIgcGF0Y2goZXMpIGFuZCByZS10ZXN0IGl0IGJlZm9yZQo+
+IHJlc2VuZGluZy4KPgoKWW91IGNhbiByZS10ZXN0IHdpdGggdGhlIHBhdGNoIGluIHRoZSBsaW5r
+IGFib3ZlLCBJIHdpbGwgbm90IGJlCnJlLXNlbmRpbmcgbmV3IHZlcnNpb24uCgpUaGFua3MuCi1i
+b3JpcwoKCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+WGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xp
+c3RzLnhlbi5vcmcveGVuLWRldmVsCg==
