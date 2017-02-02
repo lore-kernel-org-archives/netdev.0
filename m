@@ -1,83 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] net: phy: marvell: Add support for 88e1545 PHY
-Date: Thu, 2 Feb 2017 21:19:16 +0300
-Message-ID: <c451efad-200f-dd55-c8bc-7d2b17182d1b@cogentembedded.com>
-References: <1485992103-23331-1-git-send-email-andrew@lunn.ch>
- <c9fb2430-d42b-0306-084d-6af2fb763fdf@cogentembedded.com>
- <20170202131741.GJ4967@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+From: "Jonathan T. Leighton" <jtleight@udel.edu>
+Subject: [PATCH RFC 0/2] ipv6: IPv4-mapped on wire, :: dst address issue
+Date: Thu,  2 Feb 2017 13:27:53 -0500
+Message-ID: <cover.1485894457.git.jtleight@udel.edu>
+Cc: "Jonathan T. Leighton" <jtleight@udel.edu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:35920 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750924AbdBBSTT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 13:19:19 -0500
-Received: by mail-lf0-f43.google.com with SMTP id z134so13042740lff.3
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 10:19:19 -0800 (PST)
-In-Reply-To: <20170202131741.GJ4967@lunn.ch>
+Received: from mail-qt0-f181.google.com ([209.85.216.181]:35840 "EHLO
+        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750885AbdBBS2G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 13:28:06 -0500
+Received: by mail-qt0-f181.google.com with SMTP id k15so44901242qtg.3
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 10:28:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/02/2017 04:17 PM, Andrew Lunn wrote:
+Under some circumstances IPv6 datagrams are sent with IPv4-mapped IPv6
+addresses as the source. Given an IPv6 socket bound to an IPv4-mapped
+IPv6 address, and an IPv6 destination address, both TCP and UDP will
+will send packets using the IPv4-mapped IPv6 address as the source. Per
+RFC 6890 (Table 20), IPv4-mapped IPv6 source addresses are not allowed
+in an IP datagram. The problem can be observed by attempting to
+connect() either a TCP or UDP socket, or by using sendmsg() with a UDP
+socket. The patch is intended to correct this issue for all socket
+types.
 
->>> The 88e1545 PHYs are discrete Marvell PHYs, found in a quad package on
->>> the zii-devel-b board. Add support for it to the Marvell PHY driver.
->>>
->>> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
->>> ---
->>>
->>> NOTE: To apply cleanly, the "Work around missing PHY product ID in mv88e6390"
->>> patches need to be applied first.
->>>
->>> drivers/net/phy/marvell.c   | 21 +++++++++++++++++++++
->>> include/linux/marvell_phy.h |  1 +
->>> 2 files changed, 22 insertions(+)
->>>
->>> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
->>> index 1a0ac48cbc50..f9d0fa315a47 100644
->>> --- a/drivers/net/phy/marvell.c
->>> +++ b/drivers/net/phy/marvell.c
->>> @@ -2123,6 +2123,26 @@ static struct phy_driver marvell_drivers[] = {
->>> 		.get_stats = marvell_get_stats,
->>> 	},
->>> 	{
->>> +		.phy_id = MARVELL_PHY_ID_88E1545,
->>> +		.phy_id_mask = MARVELL_PHY_ID_MASK,
->>> +		.name = "Marvell 88E1545",
->>> +		.probe = m88e1510_probe,
->>> +		.remove = &marvell_remove,
->>> +		.features = PHY_GBIT_FEATURES,
->>> +		.flags = PHY_HAS_INTERRUPT,
->>> +		.config_init = &marvell_config_init,
->>> +		.config_aneg = &m88e1510_config_aneg,
->>> +		.read_status = &marvell_read_status,
->>> +		.ack_interrupt = &marvell_ack_interrupt,
->>> +		.config_intr = &marvell_config_intr,
->>> +		.did_interrupt = &m88e1121_did_interrupt,
->>> +		.resume = &genphy_resume,
->>> +		.suspend = &genphy_suspend,
->>> +		.get_sset_count = marvell_get_sset_count,
->>> +		.get_strings = marvell_get_strings,
->>> +		.get_stats = marvell_get_stats,
->>
->>    Using & on some method inits and not using it on others doesn't
->> look very consistent...
->
-> Hi Sergei
->
-> Very true. I think it has been historically like that, and adding new
-> PHYs is mostly a cut/paste operation. With this list getting longer
-> all the time, i'm thinking we should start using some macros.
->
-> Are you O.K. with the patch as it is, and a follow-up series to follow
-> soon?
+linux follows the BSD convention that an IPv6 destination address
+specified as in6addr_any is converted to the loopback address.
+Currently, neither TCP nor UDP consider the possibility that the source
+address is an IPv4-mapped IPv6 address, and assume that the appropriate
+loopback address is ::1. The patch adds a check on whether or not the
+source address is an IPv4-mapped IPv6 address and then sets the
+destination address to either ::ffff:127.0.0.1 or ::1, as appropriate.
 
-    I don't care that much. :-)
+Jon
 
-> 	Thanks
-> 		Andrew
+Jonathan T. Leighton (2):
+  ipv6: Inhibit IPv4-mapped src address on the wire.
+  ipv6: Handle IPv4-mapped src to in6addr_any dst.
 
-MBR, Sergei
+ net/ipv6/datagram.c   | 14 +++++++++-----
+ net/ipv6/ip6_output.c |  3 +++
+ net/ipv6/tcp_ipv6.c   | 11 ++++++++---
+ net/ipv6/udp.c        |  4 ++++
+ 4 files changed, 24 insertions(+), 8 deletions(-)
+
+-- 
+2.7.4
