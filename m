@@ -1,152 +1,77 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/19] mlxsw: reg: Add Policy-Engine TCAM Entry Register Version 2
-Date: Thu,  2 Feb 2017 16:12:46 +0100
-Message-ID: <1486048379-19237-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 02/19] mlxsw: item: Add helpers for getting pointer into payload for char buffer item
+Date: Thu,  2 Feb 2017 16:12:42 +0100
+Message-ID: <1486048379-19237-3-git-send-email-jiri@resnulli.us>
 References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
         ivecera@redhat.com, jbenc@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34464 "EHLO
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:32827 "EHLO
         mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751668AbdBBPNJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:09 -0500
-Received: by mail-wm0-f68.google.com with SMTP id c85so4689990wmi.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:09 -0800 (PST)
+        with ESMTP id S1751634AbdBBPNE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:04 -0500
+Received: by mail-wm0-f68.google.com with SMTP id v77so4675723wmv.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:04 -0800 (PST)
 In-Reply-To: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The PTCE-V2 register is used for accessing rules within a TCAM region.
-It is a new version of PTCE in order to support wider key, mask and
-action within a TCAM region.
+Sometimes it is handy to get a pointer to a char buffer item and use it
+direcly to write/read data. So add these helpers.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 100 ++++++++++++++++++++++++++++++
- 1 file changed, 100 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/item.h | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 444f0a3..1008251 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -1957,6 +1957,105 @@ static inline void mlxsw_reg_ptar_unpack(char *payload, char *tcam_region_info)
- 	mlxsw_reg_ptar_tcam_region_info_memcpy_from(payload, tcam_region_info);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/item.h b/drivers/net/ethernet/mellanox/mlxsw/item.h
+index 09f35de..28427f0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/item.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/item.h
+@@ -225,6 +225,14 @@ static inline void __mlxsw_item_memcpy_to(char *buf, const char *src,
+ 	memcpy(&buf[offset], src, item->size.bytes);
  }
  
-+/* PTCE-V2 - Policy-Engine TCAM Entry Register Version 2
-+ * -----------------------------------------------------
-+ * This register is used for accessing rules within a TCAM region.
-+ * It is a new version of PTCE in order to support wider key,
-+ * mask and action within a TCAM region. This register is not supported
-+ * by SwitchX and SwitchX-2.
-+ */
-+#define MLXSW_REG_PTCE2_ID 0x3017
-+#define MLXSW_REG_PTCE2_LEN 0x1D8
-+
-+MLXSW_REG_DEFINE(ptce2, MLXSW_REG_PTCE2_ID, MLXSW_REG_PTCE2_LEN);
-+
-+/* reg_ptce2_v
-+ * Valid.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ptce2, v, 0x00, 31, 1);
-+
-+/* reg_ptce2_a
-+ * Activity. Set if a packet lookup has hit on the specific entry.
-+ * To clear the "a" bit, use "clear activity" op or "clear on read" op.
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, ptce2, a, 0x00, 30, 1);
-+
-+enum mlxsw_reg_ptce2_op {
-+	/* Read operation. */
-+	MLXSW_REG_PTCE2_OP_QUERY_READ = 0,
-+	/* clear on read operation. Used to read entry
-+	 * and clear Activity bit.
-+	 */
-+	MLXSW_REG_PTCE2_OP_QUERY_CLEAR_ON_READ = 1,
-+	/* Write operation. Used to write a new entry to the table.
-+	 * All R/W fields are relevant for new entry. Activity bit is set
-+	 * for new entries - Note write with v = 0 will delete the entry.
-+	 */
-+	MLXSW_REG_PTCE2_OP_WRITE_WRITE = 0,
-+	/* Update action. Only action set will be updated. */
-+	MLXSW_REG_PTCE2_OP_WRITE_UPDATE = 1,
-+	/* Clear activity. A bit is cleared for the entry. */
-+	MLXSW_REG_PTCE2_OP_WRITE_CLEAR_ACTIVITY = 2,
-+};
-+
-+/* reg_ptce2_op
-+ * Access: OP
-+ */
-+MLXSW_ITEM32(reg, ptce2, op, 0x00, 20, 3);
-+
-+/* reg_ptce2_offset
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, ptce2, offset, 0x00, 0, 16);
-+
-+/* reg_ptce2_tcam_region_info
-+ * Opaque object that represents the TCAM region.
-+ * Access: Index
-+ */
-+MLXSW_ITEM_BUF(reg, ptce2, tcam_region_info, 0x10,
-+	       MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN);
-+
-+#define MLXSW_REG_PTCE2_FLEX_KEY_BLOCKS_LEN 96
-+
-+/* reg_ptce2_flex_key_blocks
-+ * ACL Key.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, ptce2, flex_key_blocks, 0x20,
-+	       MLXSW_REG_PTCE2_FLEX_KEY_BLOCKS_LEN);
-+
-+/* reg_ptce2_mask
-+ * mask- in the same size as key. A bit that is set directs the TCAM
-+ * to compare the corresponding bit in key. A bit that is clear directs
-+ * the TCAM to ignore the corresponding bit in key.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, ptce2, mask, 0x80,
-+	       MLXSW_REG_PTCE2_FLEX_KEY_BLOCKS_LEN);
-+
-+#define MLXSW_REG_PTCE2_FLEX_ACTION_SET_LEN 0xA8
-+
-+/* reg_ptce2_flex_action_set
-+ * ACL action set.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, ptce2, flex_action_set, 0xE0,
-+	       MLXSW_REG_PTCE2_FLEX_ACTION_SET_LEN);
-+
-+static inline void mlxsw_reg_ptce2_pack(char *payload, bool valid,
-+					enum mlxsw_reg_ptce2_op op,
-+					const char *tcam_region_info,
-+					u16 offset)
++static inline char *__mlxsw_item_data(char *buf, const struct mlxsw_item *item,
++				      unsigned short index)
 +{
-+	MLXSW_REG_ZERO(ptce2, payload);
-+	mlxsw_reg_ptce2_v_set(payload, valid);
-+	mlxsw_reg_ptce2_op_set(payload, op);
-+	mlxsw_reg_ptce2_offset_set(payload, offset);
-+	mlxsw_reg_ptce2_tcam_region_info_memcpy_to(payload, tcam_region_info);
++	unsigned int offset = __mlxsw_item_offset(item, index, sizeof(char));
++
++	return &buf[offset];
 +}
 +
- /* QPCR - QoS Policer Configuration Register
-  * -----------------------------------------
-  * The QPCR register is used to create policers - that limit
-@@ -5637,6 +5736,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(pacl),
- 	MLXSW_REG(pagt),
- 	MLXSW_REG(ptar),
-+	MLXSW_REG(ptce2),
- 	MLXSW_REG(qpcr),
- 	MLXSW_REG(qtct),
- 	MLXSW_REG(qeec),
+ static inline u16
+ __mlxsw_item_bit_array_offset(const struct mlxsw_item *item,
+ 			      u16 index, u8 *shift)
+@@ -468,6 +476,11 @@ mlxsw_##_type##_##_cname##_##_iname##_memcpy_to(char *buf, const char *src)	\
+ {										\
+ 	__mlxsw_item_memcpy_to(buf, src,					\
+ 			       &__ITEM_NAME(_type, _cname, _iname), 0);		\
++}										\
++static inline char *								\
++mlxsw_##_type##_##_cname##_##_iname##_data(char *buf)				\
++{										\
++	return __mlxsw_item_data(buf, &__ITEM_NAME(_type, _cname, _iname), 0);	\
+ }
+ 
+ #define MLXSW_ITEM_BUF_INDEXED(_type, _cname, _iname, _offset, _sizebytes,	\
+@@ -494,6 +507,12 @@ mlxsw_##_type##_##_cname##_##_iname##_memcpy_to(char *buf,			\
+ {										\
+ 	__mlxsw_item_memcpy_to(buf, src,					\
+ 			       &__ITEM_NAME(_type, _cname, _iname), index);	\
++}										\
++static inline char *								\
++mlxsw_##_type##_##_cname##_##_iname##_data(char *buf, unsigned short index)	\
++{										\
++	return __mlxsw_item_data(buf,						\
++				 &__ITEM_NAME(_type, _cname, _iname), index);	\
+ }
+ 
+ #define MLXSW_ITEM_BIT_ARRAY(_type, _cname, _iname, _offset, _sizebytes,	\
 -- 
 2.7.4
