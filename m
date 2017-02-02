@@ -1,56 +1,99 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 0/5] bridge: per vlan dst_metadata support
-Date: Thu, 02 Feb 2017 06:33:21 -0800
-Message-ID: <58934331.1090106@cumulusnetworks.com>
-References: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com> <20170202012301.GA74213@ast-mbp.thefacebook.com> <5892CA81.1020804@cumulusnetworks.com> <20170201230614.0b2a2163@xeon-e3>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] virtio_net: remove custom busy_poll
+Date: Thu, 02 Feb 2017 06:35:36 -0800
+Message-ID: <1486046136.13103.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        nikolay@cumulusnetworks.com, tgraf@suug.ch,
-        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
-        dsa@cumulusnetworks.com, hadi@mojatatu.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33262 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750808AbdBBOdX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 09:33:23 -0500
-Received: by mail-pf0-f176.google.com with SMTP id y143so5794671pfb.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 06:33:23 -0800 (PST)
-In-Reply-To: <20170201230614.0b2a2163@xeon-e3>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36560 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750890AbdBBOfi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 09:35:38 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 75so1988779pgf.3
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 06:35:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/1/17, 11:06 PM, Stephen Hemminger wrote:
-> On Wed, 01 Feb 2017 21:58:25 -0800
-> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->
->> On 2/1/17, 5:23 PM, Alexei Starovoitov wrote:
->>> On Tue, Jan 31, 2017 at 10:59:50PM -0800, Roopa Prabhu wrote:
->>>  
->>
-[snip]
+From: Eric Dumazet <edumazet@google.com>
 
->>> I think most swith asics can do other tunnels too,
->>> so can this vlan->vxlan 1 to 1 be generalized to cover different
->>> types of tunnels that can be configured on the switch?  
->>
->> yes, it can be. Hence i have kept the tunnel info netlink attribute generic. similar to how LWT provides
->> various encaps at the L3 routing layer, this can provide such function at the L2 bridge layer. But, to keep it relatively lite I use the
->> already existing dst_metadata infra to bridge vlan to vxlan (Which is already done in the case of vxlan collect metadata mode.
->> I simply extend it to cover the bridge case).
->>
->> thanks,
-> I wonder if this is a case for a new driver (with same subset of bridge API). You probably
-> don't want all the baggage of STP, netfilter, VLAN filtering, etc when doing VXLAN VNI bridging.
+Generic NAPI busy polling allows us to remove custom implementations
+found in drivers.
 
-We do want stp, netfilter, VLAN filtering, igmp snooping on the same bridge. In-fact this vlan-to-tunnel incremental feature I add here is only
-available to the vlan filtering bridge.
+It is possible further optimization could be done by testing
+napi_complete_done() return value.
 
-It is in our best interest to make or keep the bridge driver suitable for all architectures. You have seen the bridge perf fixes from nikolay
-recently, all those are towards the same effort. Nikolay has had a bunch of cleanup ideas and has been contributing patches to that effect.
- I think we should work on cleaning up and fixing the current bridge driver instead of introducing a new one. The bridge driver has a nice api which has been working great for various deployments...(like i mention, also for the hardware offload case).
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/virtio_net.c |   41 -------------------------------------
+ 1 file changed, 41 deletions(-)
 
-If you have any performance numbers or data from other architectures, we would be happy to take a look and see what we can do more.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index bd22cf306a9267cecf8c7ce03dccff8ebd16089e..0382827829d90b1d25d059609bae6d1c5ad2b6d9 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -29,7 +29,6 @@
+ #include <linux/slab.h>
+ #include <linux/cpu.h>
+ #include <linux/average.h>
+-#include <net/busy_poll.h>
+ 
+ static int napi_weight = NAPI_POLL_WEIGHT;
+ module_param(napi_weight, int, 0444);
+@@ -1024,43 +1023,6 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
+ 	return received;
+ }
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-/* must be called with local_bh_disable()d */
+-static int virtnet_busy_poll(struct napi_struct *napi)
+-{
+-	struct receive_queue *rq =
+-		container_of(napi, struct receive_queue, napi);
+-	struct virtnet_info *vi = rq->vq->vdev->priv;
+-	int r, received = 0, budget = 4;
+-
+-	if (!(vi->status & VIRTIO_NET_S_LINK_UP))
+-		return LL_FLUSH_FAILED;
+-
+-	if (!napi_schedule_prep(napi))
+-		return LL_FLUSH_BUSY;
+-
+-	virtqueue_disable_cb(rq->vq);
+-
+-again:
+-	received += virtnet_receive(rq, budget);
+-
+-	r = virtqueue_enable_cb_prepare(rq->vq);
+-	clear_bit(NAPI_STATE_SCHED, &napi->state);
+-	if (unlikely(virtqueue_poll(rq->vq, r)) &&
+-	    napi_schedule_prep(napi)) {
+-		virtqueue_disable_cb(rq->vq);
+-		if (received < budget) {
+-			budget -= received;
+-			goto again;
+-		} else {
+-			__napi_schedule(napi);
+-		}
+-	}
+-
+-	return received;
+-}
+-#endif	/* CONFIG_NET_RX_BUSY_POLL */
+-
+ static int virtnet_open(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+@@ -1817,9 +1779,6 @@ static const struct net_device_ops virtnet_netdev = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = virtnet_netpoll,
+ #endif
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	.ndo_busy_poll		= virtnet_busy_poll,
+-#endif
+ 	.ndo_xdp		= virtnet_xdp,
+ };
+ 
