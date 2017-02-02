@@ -1,48 +1,137 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v2 0/5] bridge: per vlan dst_metadata support
-Date: Wed, 1 Feb 2017 17:23:03 -0800
-Message-ID: <20170202012301.GA74213@ast-mbp.thefacebook.com>
-References: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Thu, 2 Feb 2017 12:49:44 +1100
+Message-ID: <20170202124944.6c3fd4f4@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        stephen@networkplumber.org, nikolay@cumulusnetworks.com,
-        tgraf@suug.ch, hannes@stressinduktion.org, jbenc@redhat.com,
-        pshelar@ovn.org, dsa@cumulusnetworks.com, hadi@mojatatu.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33646 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751409AbdBBBXL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 20:23:11 -0500
-Received: by mail-pf0-f193.google.com with SMTP id e4so154810pfg.0
-        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 17:23:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Yotam Gigi <yotamg@mellanox.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 31, 2017 at 10:59:50PM -0800, Roopa Prabhu wrote:
->                     
-> This provides the required vxlan bridging function but poses a
-> scalability problem with using a separate vxlan netdev for each vni.
+Hi all,
 
-if I remember correctly this issue was the main reason David Ahern
-put netdev on diet. Sounds like no more fun at netconf ;)
+Today's linux-next merge of the net-next tree got a conflict in:
 
-> Solution in this patch series:
-> The Goal is to use a single vxlan device to carry all vnis similar
-> to the vxlan collect metadata mode but additionally allowing the bridge
-> and vxlan driver to carry all the forwarding information and also learn.
-> This implementation uses the existing dst_metadata infrastructure to map
-> vlan to a tunnel id.
+  net/sched/cls_matchall.c
 
-ovs and/or bpf can do the same already, but sounds like the main reason is
-to keep it integrated with bridge fdb to leverage your offload of bridge
-fdb into hw asic, right?
-If so, I guess, the extra complexity can be justified.
-The question is how do you program hw ? Is there really 1 to 1 mapping
-in the asics too? Or is it more flexible ?
-I think most swith asics can do other tunnels too,
-so can this vlan->vxlan 1 to 1 be generalized to cover different
-types of tunnels that can be configured on the switch?
+between commit:
+
+  fd62d9f5c575 ("net/sched: matchall: Fix configuration race")
+
+from Linus' tree and commit:
+
+  ec2507d2a306 ("net/sched: cls_matchall: Fix error path")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc net/sched/cls_matchall.c
+index b12bc2abea93,fcecf5aac666..000000000000
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@@ -118,19 -141,24 +118,24 @@@ static int mall_set_parms(struct net *n
+  	struct tcf_exts e;
+  	int err;
+  
+- 	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
++ 	err = tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
++ 	if (err)
++ 		return err;
+  	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
+  	if (err < 0)
+- 		return err;
++ 		goto errout;
+  
+  	if (tb[TCA_MATCHALL_CLASSID]) {
+ -		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
+ -		tcf_bind_filter(tp, &f->res, base);
+ +		head->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
+ +		tcf_bind_filter(tp, &head->res, base);
+  	}
+  
+ -	tcf_exts_change(tp, &f->exts, &e);
+ +	tcf_exts_change(tp, &head->exts, &e);
+  
+  	return 0;
++ errout:
++ 	tcf_exts_destroy(&e);
++ 	return err;
+  }
+  
+  static int mall_change(struct net *net, struct sk_buff *in_skb,
+@@@ -162,39 -194,43 +167,44 @@@
+  			return -EINVAL;
+  	}
+  
+ -	f = kzalloc(sizeof(*f), GFP_KERNEL);
+ -	if (!f)
+ +	new = kzalloc(sizeof(*new), GFP_KERNEL);
+ +	if (!new)
+  		return -ENOBUFS;
+  
+- 	tcf_exts_init(&new->exts, TCA_MATCHALL_ACT, 0);
+ -	err = tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
+++	err = tcf_exts_init(&new->exts, TCA_MATCHALL_ACT, 0);
++ 	if (err)
++ 		goto err_exts_init;
+  
+  	if (!handle)
+  		handle = 1;
+ -	f->handle = handle;
+ -	f->flags = flags;
+ +	new->handle = handle;
+ +	new->flags = flags;
+  
+ -	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
+ +	err = mall_set_parms(net, tp, new, base, tb, tca[TCA_RATE], ovr);
+  	if (err)
+- 		goto errout;
++ 		goto err_set_parms;
+  
+  	if (tc_should_offload(dev, tp, flags)) {
+ -		err = mall_replace_hw_filter(tp, f, (unsigned long) f);
+ +		err = mall_replace_hw_filter(tp, new, (unsigned long) new);
+  		if (err) {
+  			if (tc_skip_sw(flags))
+- 				goto errout;
++ 				goto err_replace_hw_filter;
+  			else
+  				err = 0;
+  		}
+  	}
+  
+ -	*arg = (unsigned long) f;
+ -	rcu_assign_pointer(head->filter, f);
+ -
+ +	*arg = (unsigned long) head;
+ +	rcu_assign_pointer(tp->root, new);
+ +	if (head)
+ +		call_rcu(&head->rcu, mall_destroy_rcu);
+  	return 0;
+  
+- errout:
++ err_replace_hw_filter:
++ err_set_parms:
+ -	tcf_exts_destroy(&f->exts);
+++	tcf_exts_destroy(&new->exts);
++ err_exts_init:
+ -	kfree(f);
+ +	kfree(new);
+  	return err;
+  }
+  
