@@ -1,38 +1,43 @@
-From: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <rafal@milecki.pl>
-Subject: Re: [PATCH 1/2] net: ethernet: bgmac: init sequence bug
-Date: Thu, 02 Feb 2017 21:15:51 +0100
-Message-ID: <efd17b6863565d63b37b1bf75082d7b9@milecki.pl>
-References: <1485988752-21030-1-git-send-email-jon.mason@broadcom.com>
- <1485988752-21030-2-git-send-email-jon.mason@broadcom.com>
- <12ceba49-5465-072c-1770-b57d265bee86@milecki.pl>
- <CAMER8-WtBTR74YYfTkZWjrPQjdJ6ykaTPntGeB0Oor5rDnYJfQ@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v2 11/12] bnxt_en: Add basic XDP support.
+Date: Thu, 2 Feb 2017 15:57:54 -0800
+Message-ID: <20170202235752.GA42563@ast-mbp.thefacebook.com>
+References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
+ <1486054540-366-12-git-send-email-michael.chan@broadcom.com>
+ <20170202150813.4d94b306@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jon Mason <jon.mason@broadcom.com>,
-        David Miller <davem@davemloft.net>,
-        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Zac Schroff <zschroff@broadcom.com>
-To: Zac Schroff <zachary.schroff@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <michael.chan@broadcom.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, Martin KaFai Lau <kafai@fb.com>
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 19.mo6.mail-out.ovh.net ([188.165.56.177]:33207 "EHLO
-        19.mo6.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751720AbdBBXxP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 18:53:15 -0500
-Received: from player787.ha.ovh.net (b9.ovh.net [213.186.33.59])
-        by mo6.mail-out.ovh.net (Postfix) with ESMTP id 218A7A6FB8
-        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 21:15:58 +0100 (CET)
-In-Reply-To: <CAMER8-WtBTR74YYfTkZWjrPQjdJ6ykaTPntGeB0Oor5rDnYJfQ@mail.gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36568 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751720AbdBBX56 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 18:57:58 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 75so296848pgf.3
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 15:57:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170202150813.4d94b306@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-02-02 01:31, Zac Schroff wrote:
-> How about BCMA_IOCTL_PRESERVE_ACROSS_INIT?
+On Thu, Feb 02, 2017 at 03:08:27PM -0800, Jakub Kicinski wrote:
+> > +	rcu_read_lock();
+> > +	act = bpf_prog_run_xdp(xdp_prog, &xdp);
+> > +	rcu_read_unlock();
+> > +
+> > +	if (orig_data != xdp.data) {
+> > +		offset = xdp.data - xdp.data_hard_start;
+> > +		len = xdp.data_end - xdp.data;
+> 
+> If BPF changed the start of the packet and returned XDP_PASS you should
+> make sure stack will see the modified packet.  I.e. with adjusted
+> offset and len.
 
-I think wireless drivers may still set some these bits during init.
-
-I've a simpler idea: make it bgmac specific. Call it sth like
-BGMAC_BCMA_IOCTL_PRESERVE
-BGMAC_BCMA_IOCTL_RESERVED
-BGMAC_BCMA_IOCTL_DONT_TOUCH
+that is correct.
+skb passed to the stack should see new packet start and len.
+Though today it's only useful with tc+cls_bpf on top that can
+take advantage of it. Certainly more work is needed in this area
+for xdp overall. I don't think we should mix that discussion
+with this patch set.
