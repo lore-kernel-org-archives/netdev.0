@@ -1,60 +1,57 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCHv2 net-next 01/16] dt-bindings: net: update Marvell PPv2
- binding for PPv2.2 support
-Date: Thu, 2 Feb 2017 17:44:57 +0100
-Message-ID: <20170202174457.17ceabe9@free-electrons.com>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <1482943592-12556-2-git-send-email-thomas.petazzoni@free-electrons.com>
-        <20170107093228.GI14217@n2100.armlinux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Pawel Moll <pawel.moll@arm.com>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Rob Herring <robh+dt@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
-        Kumar Gala <galak@codeaurora.org>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Stefan Chulski <stefanc@marvell.com>,
+Subject: [PATCH] dt-bindings: net: remove reference to fixed link support
+Date: Thu,  2 Feb 2017 17:47:44 +0100
+Message-ID: <1486054064-31093-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Russell King <linux@arm.linux.org.uk>,
         Marcin Wojtas <mw@semihalf.com>,
-        "David S. Miller" <davem@davemloft.net>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
         linux-arm-kernel@lists.infradead.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56943 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:57141 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751045AbdBBQpA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:45:00 -0500
-In-Reply-To: <20170107093228.GI14217@n2100.armlinux.org.uk>
+        with ESMTP id S1751377AbdBBQrz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:47:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Contrary to what the Device Tree binding indicates, the binding for the
+PPv2 network device currently doesn't provide any fixed link
+functionality. This commit adjusts the Device Tree binding documentation
+accordingly.
 
-On Sat, 7 Jan 2017 09:32:28 +0000, Russell King - ARM Linux wrote:
-> On Wed, Dec 28, 2016 at 05:46:17PM +0100, Thomas Petazzoni wrote:
-> > @@ -31,7 +43,7 @@ Optional properties (port):
-> >    then fixed link is assumed, and the 'fixed-link' property is
-> >    mandatory.  
-> 
-> Not directly related to this patch, but this context is wrong.  The
-> PP2 driver _requires_ a PHY.  It doesn't support fixed-link in its
-> current form.  I think the DT binding describes an expectation of
-> a future driver.
-> 
-> The side effect is that if trying to use a fixed-link on any port,
-> the ethernet driver fails to probe.
+Reported-by: Russell King - ARM Linux <linux@armlinux.org.uk>
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ Documentation/devicetree/bindings/net/marvell-pp2.txt | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-Correct. I will send a patch to adjust the Device Tree binding
-documentation accordingly. Thanks for noticing this mistake!
-
-Thomas
+diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+index aa4f423..4754364 100644
+--- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
++++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+@@ -27,9 +27,7 @@ Optional properties (port):
+ 
+ - marvell,loopback: port is loopback mode
+ - phy: a phandle to a phy node defining the PHY address (as the reg
+-  property, a single integer). Note: if this property isn't present,
+-  then fixed link is assumed, and the 'fixed-link' property is
+-  mandatory.
++  property, a single integer).
+ 
+ Example:
+ 
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+2.7.4
