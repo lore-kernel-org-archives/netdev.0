@@ -1,99 +1,135 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/19] mlxsw: Introduce TC Flower offload using TCAM
-Date: Thu,  2 Feb 2017 16:12:40 +0100
-Message-ID: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 01/19] mlxsw: item: Add 8bit item helpers
+Date: Thu,  2 Feb 2017 16:12:41 +0100
+Message-ID: <1486048379-19237-2-git-send-email-jiri@resnulli.us>
+References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
         ivecera@redhat.com, jbenc@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36245 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751528AbdBBPNC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:02 -0500
-Received: by mail-wm0-f67.google.com with SMTP id r18so13715964wmd.3
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:01 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34382 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751668AbdBBPND (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:03 -0500
+Received: by mail-wm0-f68.google.com with SMTP id c85so4689423wmi.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:03 -0800 (PST)
+In-Reply-To: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset introduces support for offloading TC cls_flower and actions
-to Spectrum TCAM-base policy engine.
+Item heplers for 8bit values are needed, let's add them.
 
-The patchset contains patches to allow work with flexible keys and actions
-which are used in Spectrum TCAM.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/item.h | 79 +++++++++++++++++++++++++++++-
+ 1 file changed, 77 insertions(+), 2 deletions(-)
 
-It also contains in-driver infrastructure for offloading TC rules to TCAM HW.
-The TCAM management code is simple and limited for now. It is going to be
-extended as a follow-up work.
-
-The last patch uses the previously introduced infra to allow to implement
-cls_flower offloading. Initially, only limited set of match-keys and only
-a drop and forward actions are supported.
-
-As a dependency, this patchset introduces parman - priority array
-area manager - as a library.
-
-Jiri Pirko (19):
-  mlxsw: item: Add 8bit item helpers
-  mlxsw: item: Add helpers for getting pointer into payload for char
-    buffer item
-  mlxsw: reg: Add Policy-Engine ACL Register
-  mlxsw: reg: Add Policy-Engine ACL Group Table register
-  mlxsw: reg: Add Policy-Engine TCAM Allocation Register
-  mlxsw: reg: Add Policy-Engine TCAM Entry Register Version 2
-  mlxsw: reg: Add Policy-Engine Port Binding Table
-  mlxsw: reg: Add Policy-Engine Rules Copy Register
-  mlxsw: reg: Add Policy-Engine Policy Based Switching Register
-  mlxsw: reg: Add Policy-Engine Extended Flexible Action Register
-  mlxsw: core: Introduce flexible keys support
-  mlxsw: core: Introduce flexible actions support
-  mlxsw: spectrum: Introduce basic set of flexible key blocks
-  mlxsw: resources: Add ACL related resources
-  list: introduce list_for_each_entry_from_reverse helper
-  lib: Introduce priority array area manager
-  mlxsw: spectrum: Introduce ACL core with simple TCAM implementation
-  sched: cls_flower: expose priority to offloading netdevice
-  mlxsw: spectrum: Implement TC flower offload
-
- MAINTAINERS                                        |    8 +
- drivers/net/ethernet/mellanox/mlxsw/Kconfig        |    1 +
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |    6 +-
- .../mellanox/mlxsw/core_acl_flex_actions.c         |  685 +++++++++++++
- .../mellanox/mlxsw/core_acl_flex_actions.h         |   66 ++
- .../ethernet/mellanox/mlxsw/core_acl_flex_keys.c   |  475 +++++++++
- .../ethernet/mellanox/mlxsw/core_acl_flex_keys.h   |  238 +++++
- drivers/net/ethernet/mellanox/mlxsw/item.h         |   98 +-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          |  511 ++++++++-
- drivers/net/ethernet/mellanox/mlxsw/resources.h    |   20 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   32 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  106 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |  572 +++++++++++
- .../mellanox/mlxsw/spectrum_acl_flex_keys.h        |  109 ++
- .../ethernet/mellanox/mlxsw/spectrum_acl_tcam.c    | 1084 ++++++++++++++++++++
- .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |  309 ++++++
- include/linux/list.h                               |   13 +
- include/linux/parman.h                             |   76 ++
- include/net/pkt_cls.h                              |    1 +
- lib/Kconfig                                        |    3 +
- lib/Kconfig.debug                                  |   10 +
- lib/Makefile                                       |    3 +
- lib/parman.c                                       |  294 ++++++
- lib/test_parman.c                                  |  395 +++++++
- net/sched/cls_flower.c                             |    3 +
- 25 files changed, 5102 insertions(+), 16 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
- create mode 100644 include/linux/parman.h
- create mode 100644 lib/parman.c
- create mode 100644 lib/test_parman.c
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/item.h b/drivers/net/ethernet/mellanox/mlxsw/item.h
+index 3c95e3d..09f35de 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/item.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/item.h
+@@ -1,7 +1,7 @@
+ /*
+  * drivers/net/ethernet/mellanox/mlxsw/item.h
+- * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
+- * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
++ * Copyright (c) 2015-2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2015-2017 Jiri Pirko <jiri@mellanox.com>
+  * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -72,6 +72,40 @@ __mlxsw_item_offset(const struct mlxsw_item *item, unsigned short index,
+ 		typesize);
+ }
+ 
++static inline u8 __mlxsw_item_get8(const char *buf,
++				   const struct mlxsw_item *item,
++				   unsigned short index)
++{
++	unsigned int offset = __mlxsw_item_offset(item, index, sizeof(u8));
++	u8 *b = (u8 *) buf;
++	u8 tmp;
++
++	tmp = b[offset];
++	tmp >>= item->shift;
++	tmp &= GENMASK(item->size.bits - 1, 0);
++	if (item->no_real_shift)
++		tmp <<= item->shift;
++	return tmp;
++}
++
++static inline void __mlxsw_item_set8(char *buf, const struct mlxsw_item *item,
++				     unsigned short index, u8 val)
++{
++	unsigned int offset = __mlxsw_item_offset(item, index,
++						  sizeof(u8));
++	u8 *b = (u8 *) buf;
++	u8 mask = GENMASK(item->size.bits - 1, 0) << item->shift;
++	u8 tmp;
++
++	if (!item->no_real_shift)
++		val <<= item->shift;
++	val &= mask;
++	tmp = b[offset];
++	tmp &= ~mask;
++	tmp |= val;
++	b[offset] = tmp;
++}
++
+ static inline u16 __mlxsw_item_get16(const char *buf,
+ 				     const struct mlxsw_item *item,
+ 				     unsigned short index)
+@@ -253,6 +287,47 @@ static inline void __mlxsw_item_bit_array_set(char *buf,
+  * _iname: item name within the container
+  */
+ 
++#define MLXSW_ITEM8(_type, _cname, _iname, _offset, _shift, _sizebits)		\
++static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
++	.offset = _offset,							\
++	.shift = _shift,							\
++	.size = {.bits = _sizebits,},						\
++	.name = #_type "_" #_cname "_" #_iname,					\
++};										\
++static inline u8 mlxsw_##_type##_##_cname##_##_iname##_get(const char *buf)	\
++{										\
++	return __mlxsw_item_get8(buf, &__ITEM_NAME(_type, _cname, _iname), 0);	\
++}										\
++static inline void mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, u8 val)\
++{										\
++	__mlxsw_item_set8(buf, &__ITEM_NAME(_type, _cname, _iname), 0, val);	\
++}
++
++#define MLXSW_ITEM8_INDEXED(_type, _cname, _iname, _offset, _shift, _sizebits,	\
++			    _step, _instepoffset, _norealshift)			\
++static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
++	.offset = _offset,							\
++	.step = _step,								\
++	.in_step_offset = _instepoffset,					\
++	.shift = _shift,							\
++	.no_real_shift = _norealshift,						\
++	.size = {.bits = _sizebits,},						\
++	.name = #_type "_" #_cname "_" #_iname,					\
++};										\
++static inline u8								\
++mlxsw_##_type##_##_cname##_##_iname##_get(const char *buf, unsigned short index)\
++{										\
++	return __mlxsw_item_get8(buf, &__ITEM_NAME(_type, _cname, _iname),	\
++				 index);					\
++}										\
++static inline void								\
++mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, unsigned short index,	\
++					  u8 val)				\
++{										\
++	__mlxsw_item_set8(buf, &__ITEM_NAME(_type, _cname, _iname),		\
++			  index, val);						\
++}
++
+ #define MLXSW_ITEM16(_type, _cname, _iname, _offset, _shift, _sizebits)		\
+ static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
+ 	.offset = _offset,							\
 -- 
 2.7.4
