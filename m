@@ -1,127 +1,901 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/19] mlxsw: reg: Add Policy-Engine Rules Copy Register
-Date: Thu,  2 Feb 2017 16:12:48 +0100
-Message-ID: <1486048379-19237-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 16/19] lib: Introduce priority array area manager
+Date: Thu,  2 Feb 2017 16:12:56 +0100
+Message-ID: <1486048379-19237-17-git-send-email-jiri@resnulli.us>
 References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
         ivecera@redhat.com, jbenc@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35627 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751668AbdBBPNR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:17 -0500
-Received: by mail-wm0-f68.google.com with SMTP id u63so4802601wmu.2
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:16 -0800 (PST)
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:33547 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751634AbdBBPNW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:22 -0500
+Received: by mail-wj0-f193.google.com with SMTP id le4so1336196wjb.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:21 -0800 (PST)
 In-Reply-To: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The PRCR register is used for accessing rules within a TCAM region.
+This introduces a infrastructure for management of linear priority
+areas. Priority order in an array matters, however order of items inside
+a priority group does not matter.
+
+As an initial implementation, L-sort algorithm is used. It is quite
+trivial. More advanced algorithm called P-sort will be introduced as a
+follow-up. The infrastructure is prepared for other algos.
+
+Alongside this, a testing module is introduced as well.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 77 +++++++++++++++++++++++++++++++
- 1 file changed, 77 insertions(+)
+ MAINTAINERS            |   8 +
+ include/linux/parman.h |  76 ++++++++++
+ lib/Kconfig            |   3 +
+ lib/Kconfig.debug      |  10 ++
+ lib/Makefile           |   3 +
+ lib/parman.c           | 294 ++++++++++++++++++++++++++++++++++++
+ lib/test_parman.c      | 395 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 789 insertions(+)
+ create mode 100644 include/linux/parman.h
+ create mode 100644 lib/parman.c
+ create mode 100644 lib/test_parman.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index ce6d85a..555cb80 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -2019,6 +2019,82 @@ static inline void mlxsw_reg_ptar_unpack(char *payload, char *tcam_region_info)
- 	mlxsw_reg_ptar_tcam_region_info_memcpy_from(payload, tcam_region_info);
- }
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 300d2ec..626758b 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9375,6 +9375,14 @@ F:	drivers/video/fbdev/sti*
+ F:	drivers/video/console/sti*
+ F:	drivers/video/logo/logo_parisc*
  
-+/* PRCR - Policy-Engine Rules Copy Register
-+ * ----------------------------------------
-+ * This register is used for accessing rules within a TCAM region.
++PARMAN
++M:	Jiri Pirko <jiri@mellanox.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	lib/parman.c
++F:	lib/test_parman.c
++F:	include/linux/parman.h
++
+ PC87360 HARDWARE MONITORING DRIVER
+ M:	Jim Cromie <jim.cromie@gmail.com>
+ L:	linux-hwmon@vger.kernel.org
+diff --git a/include/linux/parman.h b/include/linux/parman.h
+new file mode 100644
+index 0000000..3c8cccc
+--- /dev/null
++++ b/include/linux/parman.h
+@@ -0,0 +1,76 @@
++/*
++ * include/linux/parman.h - Manager for linear priority array areas
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
 + */
-+#define MLXSW_REG_PRCR_ID 0x300D
-+#define MLXSW_REG_PRCR_LEN 0x40
 +
-+MLXSW_REG_DEFINE(prcr, MLXSW_REG_PRCR_ID, MLXSW_REG_PRCR_LEN);
++#ifndef _PARMAN_H
++#define _PARMAN_H
 +
-+enum mlxsw_reg_prcr_op {
-+	/* Move rules. Moves the rules from "tcam_region_info" starting
-+	 * at offset "offset" to "dest_tcam_region_info"
-+	 * at offset "dest_offset."
-+	 */
-+	MLXSW_REG_PRCR_OP_MOVE,
-+	/* Copy rules. Copies the rules from "tcam_region_info" starting
-+	 * at offset "offset" to "dest_tcam_region_info"
-+	 * at offset "dest_offset."
-+	 */
-+	MLXSW_REG_PRCR_OP_COPY,
++#include <linux/list.h>
++
++enum parman_algo_type {
++	PARMAN_ALGO_TYPE_LSORT,
 +};
 +
-+/* reg_prcr_op
-+ * Access: OP
-+ */
-+MLXSW_ITEM32(reg, prcr, op, 0x00, 28, 4);
++struct parman_item {
++	struct list_head list;
++	unsigned long index;
++};
 +
-+/* reg_prcr_offset
-+ * Offset within the source region to copy/move from.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, prcr, offset, 0x00, 0, 16);
++struct parman_prio {
++	struct list_head list;
++	struct list_head item_list;
++	unsigned long priority;
++};
 +
-+/* reg_prcr_size
-+ * The number of rules to copy/move.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, prcr, size, 0x04, 0, 16);
++struct parman_ops {
++	unsigned long base_count;
++	unsigned long resize_step;
++	int (*resize)(void *priv, unsigned long new_count);
++	void (*move)(void *priv, unsigned long from_index,
++		     unsigned long to_index, unsigned long count);
++	enum parman_algo_type algo;
++};
 +
-+/* reg_prcr_tcam_region_info
-+ * Opaque object that represents the source TCAM region.
-+ * Access: Index
-+ */
-+MLXSW_ITEM_BUF(reg, prcr, tcam_region_info, 0x10,
-+	       MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN);
++struct parman;
 +
-+/* reg_prcr_dest_offset
-+ * Offset within the source region to copy/move to.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, prcr, dest_offset, 0x20, 0, 16);
++struct parman *parman_create(const struct parman_ops *ops, void *priv);
++void parman_destroy(struct parman *parman);
++void parman_prio_init(struct parman *parman, struct parman_prio *prio,
++		      unsigned long priority);
++void parman_prio_fini(struct parman_prio *prio);
++int parman_item_add(struct parman *parman, struct parman_prio *prio,
++		    struct parman_item *item);
++void parman_item_remove(struct parman *parman, struct parman_prio *prio,
++			struct parman_item *item);
 +
-+/* reg_prcr_dest_tcam_region_info
-+ * Opaque object that represents the destination TCAM region.
-+ * Access: Index
-+ */
-+MLXSW_ITEM_BUF(reg, prcr, dest_tcam_region_info, 0x30,
-+	       MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN);
++#endif
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 260a80e..5d644f1 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -550,4 +550,7 @@ config STACKDEPOT
+ config SBITMAP
+ 	bool
+ 
++config PARMAN
++	tristate "parman"
 +
-+static inline void mlxsw_reg_prcr_pack(char *payload, enum mlxsw_reg_prcr_op op,
-+				       const char *src_tcam_region_info,
-+				       u16 src_offset,
-+				       const char *dest_tcam_region_info,
-+				       u16 dest_offset, u16 size)
+ endmenu
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+index 15969ab..433a788 100644
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -1826,6 +1826,16 @@ config TEST_HASH
+ 	  This is intended to help people writing architecture-specific
+ 	  optimized versions.  If unsure, say N.
+ 
++config TEST_PARMAN
++	tristate "Perform selftest on priority array manager"
++	default n
++	depends on PARMAN
++	help
++	  Enable this option to test priority array manager on boot
++	  (or module load).
++
++	  If unsure, say N.
++
+ endmenu # runtime tests
+ 
+ config PROVIDE_OHCI1394_DMA_INIT
+diff --git a/lib/Makefile b/lib/Makefile
+index 7b3008d..1c039a4 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -56,6 +56,7 @@ obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_key_base.o
+ obj-$(CONFIG_TEST_PRINTF) += test_printf.o
+ obj-$(CONFIG_TEST_BITMAP) += test_bitmap.o
+ obj-$(CONFIG_TEST_UUID) += test_uuid.o
++obj-$(CONFIG_TEST_PARMAN) += test_parman.o
+ 
+ ifeq ($(CONFIG_DEBUG_KOBJECT),y)
+ CFLAGS_kobject.o += -DDEBUG
+@@ -230,3 +231,5 @@ obj-$(CONFIG_UBSAN) += ubsan.o
+ UBSAN_SANITIZE_ubsan.o := n
+ 
+ obj-$(CONFIG_SBITMAP) += sbitmap.o
++
++obj-$(CONFIG_PARMAN) += parman.o
+diff --git a/lib/parman.c b/lib/parman.c
+new file mode 100644
+index 0000000..5b6f4ec
+--- /dev/null
++++ b/lib/parman.c
+@@ -0,0 +1,294 @@
++/*
++ * lib/parman.c - Manager for linear priority array areas
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/export.h>
++#include <linux/list.h>
++#include <linux/err.h>
++#include <linux/parman.h>
++
++struct parman_algo {
++	int (*item_add)(struct parman *parman, struct parman_prio *prio,
++			struct parman_item *item);
++	void (*item_remove)(struct parman *parman, struct parman_prio *prio,
++			    struct parman_item *item);
++};
++
++struct parman {
++	const struct parman_ops *ops;
++	void *priv;
++	const struct parman_algo *algo;
++	unsigned long count;
++	unsigned long limit_count;
++	struct list_head prio_list;
++};
++
++static int parman_enlarge(struct parman *parman)
 +{
-+	MLXSW_REG_ZERO(prcr, payload);
-+	mlxsw_reg_prcr_op_set(payload, op);
-+	mlxsw_reg_prcr_offset_set(payload, src_offset);
-+	mlxsw_reg_prcr_size_set(payload, size);
-+	mlxsw_reg_prcr_tcam_region_info_memcpy_to(payload,
-+						  src_tcam_region_info);
-+	mlxsw_reg_prcr_dest_offset_set(payload, dest_offset);
-+	mlxsw_reg_prcr_dest_tcam_region_info_memcpy_to(payload,
-+						       dest_tcam_region_info);
++	unsigned long new_count = parman->limit_count +
++				  parman->ops->resize_step;
++	int err;
++
++	err = parman->ops->resize(parman->priv, new_count);
++	if (err)
++		return err;
++	parman->limit_count = new_count;
++	return 0;
 +}
 +
- /* PTCE-V2 - Policy-Engine TCAM Entry Register Version 2
-  * -----------------------------------------------------
-  * This register is used for accessing rules within a TCAM region.
-@@ -5799,6 +5875,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(pacl),
- 	MLXSW_REG(pagt),
- 	MLXSW_REG(ptar),
-+	MLXSW_REG(prcr),
- 	MLXSW_REG(ptce2),
- 	MLXSW_REG(qpcr),
- 	MLXSW_REG(qtct),
++static int parman_shrink(struct parman *parman)
++{
++	unsigned long new_count = parman->limit_count -
++				  parman->ops->resize_step;
++	int err;
++
++	if (new_count < parman->ops->base_count)
++		return 0;
++	err = parman->ops->resize(parman->priv, new_count);
++	if (err)
++		return err;
++	parman->limit_count = new_count;
++	return 0;
++}
++
++static bool parman_prio_used(struct parman_prio *prio)
++
++{
++	return !list_empty(&prio->item_list);
++}
++
++static struct parman_item *parman_prio_first_item(struct parman_prio *prio)
++{
++	return list_first_entry(&prio->item_list,
++				typeof(struct parman_item), list);
++}
++
++static unsigned long parman_prio_first_index(struct parman_prio *prio)
++{
++	return parman_prio_first_item(prio)->index;
++}
++
++static struct parman_item *parman_prio_last_item(struct parman_prio *prio)
++{
++	return list_last_entry(&prio->item_list,
++			       typeof(struct parman_item), list);
++}
++
++static unsigned long parman_prio_last_index(struct parman_prio *prio)
++{
++	return parman_prio_last_item(prio)->index;
++}
++
++static unsigned long parman_lsort_new_index_find(struct parman *parman,
++						 struct parman_prio *prio)
++{
++	list_for_each_entry_from_reverse(prio, &parman->prio_list, list) {
++		if (!parman_prio_used(prio))
++			continue;
++		return parman_prio_last_index(prio) + 1;
++	}
++	return 0;
++}
++
++static void __parman_prio_move(struct parman *parman, struct parman_prio *prio,
++			       struct parman_item *item, unsigned long to_index,
++			       unsigned long count)
++{
++	parman->ops->move(parman->priv, item->index, to_index, count);
++}
++
++static void parman_prio_shift_down(struct parman *parman,
++				   struct parman_prio *prio)
++{
++	struct parman_item *item;
++	unsigned long to_index;
++
++	if (!parman_prio_used(prio))
++		return;
++	item = parman_prio_first_item(prio);
++	to_index = parman_prio_last_index(prio) + 1;
++	__parman_prio_move(parman, prio, item, to_index, 1);
++	list_move_tail(&item->list, &prio->item_list);
++	item->index = to_index;
++}
++
++static void parman_prio_shift_up(struct parman *parman,
++				 struct parman_prio *prio)
++{
++	struct parman_item *item;
++	unsigned long to_index;
++
++	if (!parman_prio_used(prio))
++		return;
++	item = parman_prio_last_item(prio);
++	to_index = parman_prio_first_index(prio) - 1;
++	__parman_prio_move(parman, prio, item, to_index, 1);
++	list_move(&item->list, &prio->item_list);
++	item->index = to_index;
++}
++
++static void parman_prio_item_remove(struct parman *parman,
++				    struct parman_prio *prio,
++				    struct parman_item *item)
++{
++	struct parman_item *last_item;
++	unsigned long to_index;
++
++	last_item = parman_prio_last_item(prio);
++	if (last_item == item) {
++		list_del(&item->list);
++		return;
++	}
++	to_index = item->index;
++	__parman_prio_move(parman, prio, last_item, to_index, 1);
++	list_del(&last_item->list);
++	list_replace(&item->list, &last_item->list);
++	last_item->index = to_index;
++}
++
++static int parman_lsort_item_add(struct parman *parman,
++				 struct parman_prio *prio,
++				 struct parman_item *item)
++{
++	struct parman_prio *prio2;
++	unsigned long new_index;
++	int err;
++
++	if (parman->count + 1 > parman->limit_count) {
++		err = parman_enlarge(parman);
++		if (err)
++			return err;
++	}
++
++	new_index = parman_lsort_new_index_find(parman, prio);
++	list_for_each_entry_reverse(prio2, &parman->prio_list, list) {
++		if (prio2 == prio)
++			break;
++		parman_prio_shift_down(parman, prio2);
++	}
++	item->index = new_index;
++	list_add_tail(&item->list, &prio->item_list);
++	parman->count++;
++	return 0;
++}
++
++static void parman_lsort_item_remove(struct parman *parman,
++				     struct parman_prio *prio,
++				     struct parman_item *item)
++{
++	parman_prio_item_remove(parman, prio, item);
++	list_for_each_entry_continue(prio, &parman->prio_list, list)
++		parman_prio_shift_up(parman, prio);
++	parman->count--;
++	if (parman->limit_count - parman->count >= parman->ops->resize_step)
++		parman_shrink(parman);
++}
++
++static const struct parman_algo parman_lsort = {
++	.item_add	= parman_lsort_item_add,
++	.item_remove	= parman_lsort_item_remove,
++};
++
++static const struct parman_algo *parman_algos[] = {
++	&parman_lsort,
++};
++
++struct parman *parman_create(const struct parman_ops *ops, void *priv)
++{
++	struct parman *parman;
++
++	parman = kzalloc(sizeof(*parman), GFP_KERNEL);
++	if (!parman)
++		return NULL;
++	INIT_LIST_HEAD(&parman->prio_list);
++	parman->ops = ops;
++	parman->priv = priv;
++	parman->limit_count = ops->base_count;
++	parman->algo = parman_algos[ops->algo];
++	return parman;
++}
++EXPORT_SYMBOL(parman_create);
++
++void parman_destroy(struct parman *parman)
++{
++	WARN_ON(!list_empty(&parman->prio_list));
++	kfree(parman);
++}
++EXPORT_SYMBOL(parman_destroy);
++
++void parman_prio_init(struct parman *parman, struct parman_prio *prio,
++		      unsigned long priority)
++{
++	struct parman_prio *prio2;
++	struct list_head *pos;
++
++	INIT_LIST_HEAD(&prio->item_list);
++	prio->priority = priority;
++
++	/* Position inside the list according to priority */
++	list_for_each(pos, &parman->prio_list) {
++		prio2 = list_entry(pos, typeof(*prio2), list);
++		if (prio2->priority > prio->priority)
++			break;
++	}
++	list_add_tail(&prio->list, pos);
++}
++EXPORT_SYMBOL(parman_prio_init);
++
++void parman_prio_fini(struct parman_prio *prio)
++{
++	WARN_ON(parman_prio_used(prio));
++	list_del(&prio->list);
++}
++EXPORT_SYMBOL(parman_prio_fini);
++
++int parman_item_add(struct parman *parman, struct parman_prio *prio,
++		    struct parman_item *item)
++{
++	return parman->algo->item_add(parman, prio, item);
++}
++EXPORT_SYMBOL(parman_item_add);
++
++void parman_item_remove(struct parman *parman, struct parman_prio *prio,
++			struct parman_item *item)
++{
++	parman->algo->item_remove(parman, prio, item);
++}
++EXPORT_SYMBOL(parman_item_remove);
++
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
++MODULE_DESCRIPTION("Priority-based array manager");
+diff --git a/lib/test_parman.c b/lib/test_parman.c
+new file mode 100644
+index 0000000..fe9f3a7
+--- /dev/null
++++ b/lib/test_parman.c
+@@ -0,0 +1,395 @@
++/*
++ * lib/test_parman.c - Test module for parman
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/bitops.h>
++#include <linux/err.h>
++#include <linux/random.h>
++#include <linux/parman.h>
++
++#define TEST_PARMAN_PRIO_SHIFT 7 /* defines number of prios for testing */
++#define TEST_PARMAN_PRIO_COUNT BIT(TEST_PARMAN_PRIO_SHIFT)
++#define TEST_PARMAN_PRIO_MASK (TEST_PARMAN_PRIO_COUNT - 1)
++
++#define TEST_PARMAN_ITEM_SHIFT 13 /* defines a total number
++				   * of items for testing
++				   */
++#define TEST_PARMAN_ITEM_COUNT BIT(TEST_PARMAN_ITEM_SHIFT)
++#define TEST_PARMAN_ITEM_MASK (TEST_PARMAN_ITEM_COUNT - 1)
++
++#define TEST_PARMAN_BASE_SHIFT 8
++#define TEST_PARMAN_BASE_COUNT BIT(TEST_PARMAN_BASE_SHIFT)
++#define TEST_PARMAN_RESIZE_STEP_SHIFT 7
++#define TEST_PARMAN_RESIZE_STEP_COUNT BIT(TEST_PARMAN_RESIZE_STEP_SHIFT)
++
++#define TEST_PARMAN_BULK_MAX_SHIFT (2 + TEST_PARMAN_RESIZE_STEP_SHIFT)
++#define TEST_PARMAN_BULK_MAX_COUNT BIT(TEST_PARMAN_BULK_MAX_SHIFT)
++#define TEST_PARMAN_BULK_MAX_MASK (TEST_PARMAN_BULK_MAX_COUNT - 1)
++
++#define TEST_PARMAN_RUN_BUDGET (TEST_PARMAN_ITEM_COUNT * 256)
++
++struct test_parman_prio {
++	struct parman_prio parman_prio;
++	unsigned long priority;
++};
++
++struct test_parman_item {
++	struct parman_item parman_item;
++	struct test_parman_prio *prio;
++	bool used;
++};
++
++struct test_parman {
++	struct parman *parman;
++	struct test_parman_item **prio_array;
++	unsigned long prio_array_limit;
++	struct test_parman_prio prios[TEST_PARMAN_PRIO_COUNT];
++	struct test_parman_item items[TEST_PARMAN_ITEM_COUNT];
++	struct rnd_state rnd;
++	unsigned long run_budget;
++	unsigned long bulk_budget;
++	bool bulk_noop;
++	unsigned int used_items;
++};
++
++#define ITEM_PTRS_SIZE(count) (sizeof(struct test_parman_item *) * (count))
++
++static int test_parman_resize(void *priv, unsigned long new_count)
++{
++	struct test_parman *test_parman = priv;
++	struct test_parman_item **prio_array;
++	unsigned long old_count;
++
++	prio_array = krealloc(test_parman->prio_array,
++			      ITEM_PTRS_SIZE(new_count), GFP_KERNEL);
++	if (new_count == 0)
++		return 0;
++	if (!prio_array)
++		return -ENOMEM;
++	old_count = test_parman->prio_array_limit;
++	if (new_count > old_count)
++		memset(&prio_array[old_count], 0,
++		       ITEM_PTRS_SIZE(new_count - old_count));
++	test_parman->prio_array = prio_array;
++	test_parman->prio_array_limit = new_count;
++	return 0;
++}
++
++static void test_parman_move(void *priv, unsigned long from_index,
++			     unsigned long to_index, unsigned long count)
++{
++	struct test_parman *test_parman = priv;
++	struct test_parman_item **prio_array = test_parman->prio_array;
++
++	memmove(&prio_array[to_index], &prio_array[from_index],
++		ITEM_PTRS_SIZE(count));
++	memset(&prio_array[from_index], 0, ITEM_PTRS_SIZE(count));
++}
++
++static const struct parman_ops test_parman_lsort_ops = {
++	.base_count	= TEST_PARMAN_BASE_COUNT,
++	.resize_step	= TEST_PARMAN_RESIZE_STEP_COUNT,
++	.resize		= test_parman_resize,
++	.move		= test_parman_move,
++	.algo		= PARMAN_ALGO_TYPE_LSORT,
++};
++
++static void test_parman_rnd_init(struct test_parman *test_parman)
++{
++	prandom_seed_state(&test_parman->rnd, 3141592653589793238ULL);
++}
++
++static u32 test_parman_rnd_get(struct test_parman *test_parman)
++{
++	return prandom_u32_state(&test_parman->rnd);
++}
++
++static unsigned long test_parman_priority_gen(struct test_parman *test_parman)
++{
++	unsigned long priority;
++	int i;
++
++again:
++	priority = test_parman_rnd_get(test_parman);
++	if (priority == 0)
++		goto again;
++
++	for (i = 0; i < TEST_PARMAN_PRIO_COUNT; i++) {
++		struct test_parman_prio *prio = &test_parman->prios[i];
++
++		if (prio->priority == 0)
++			break;
++		if (prio->priority == priority)
++			goto again;
++	}
++	return priority;
++}
++
++static void test_parman_prios_init(struct test_parman *test_parman)
++{
++	int i;
++
++	for (i = 0; i < TEST_PARMAN_PRIO_COUNT; i++) {
++		struct test_parman_prio *prio = &test_parman->prios[i];
++
++		/* Assign random uniqueue priority to each prio structure */
++		prio->priority = test_parman_priority_gen(test_parman);
++		parman_prio_init(test_parman->parman, &prio->parman_prio,
++				 prio->priority);
++	}
++}
++
++static void test_parman_prios_fini(struct test_parman *test_parman)
++{
++	int i;
++
++	for (i = 0; i < TEST_PARMAN_PRIO_COUNT; i++) {
++		struct test_parman_prio *prio = &test_parman->prios[i];
++
++		parman_prio_fini(&prio->parman_prio);
++	}
++}
++
++static void test_parman_items_init(struct test_parman *test_parman)
++{
++	int i;
++
++	for (i = 0; i < TEST_PARMAN_ITEM_COUNT; i++) {
++		struct test_parman_item *item = &test_parman->items[i];
++		unsigned int prio_index = test_parman_rnd_get(test_parman) &
++					  TEST_PARMAN_PRIO_MASK;
++
++		/* Assign random prio to each item structure */
++		item->prio = &test_parman->prios[prio_index];
++	}
++}
++
++static void test_parman_items_fini(struct test_parman *test_parman)
++{
++	int i;
++
++	for (i = 0; i < TEST_PARMAN_ITEM_COUNT; i++) {
++		struct test_parman_item *item = &test_parman->items[i];
++
++		if (!item->used)
++			continue;
++		parman_item_remove(test_parman->parman,
++				   &item->prio->parman_prio,
++				   &item->parman_item);
++	}
++}
++
++static struct test_parman *test_parman_create(const struct parman_ops *ops)
++{
++	struct test_parman *test_parman;
++	int err;
++
++	test_parman = kzalloc(sizeof(*test_parman), GFP_KERNEL);
++	if (!test_parman)
++		return ERR_PTR(-ENOMEM);
++	err = test_parman_resize(test_parman, TEST_PARMAN_BASE_COUNT);
++	if (err)
++		goto err_resize;
++	test_parman->parman = parman_create(ops, test_parman);
++	if (!test_parman->parman) {
++		err = -ENOMEM;
++		goto err_parman_create;
++	}
++	test_parman_rnd_init(test_parman);
++	test_parman_prios_init(test_parman);
++	test_parman_items_init(test_parman);
++	test_parman->run_budget = TEST_PARMAN_RUN_BUDGET;
++	return test_parman;
++
++err_parman_create:
++	test_parman_resize(test_parman, 0);
++err_resize:
++	kfree(test_parman);
++	return ERR_PTR(err);
++}
++
++static void test_parman_destroy(struct test_parman *test_parman)
++{
++	test_parman_items_fini(test_parman);
++	test_parman_prios_fini(test_parman);
++	parman_destroy(test_parman->parman);
++	test_parman_resize(test_parman, 0);
++	kfree(test_parman);
++}
++
++static bool test_parman_run_check_budgets(struct test_parman *test_parman)
++{
++	if (test_parman->run_budget-- == 0)
++		return false;
++	if (test_parman->bulk_budget-- != 0)
++		return true;
++
++	test_parman->bulk_budget = test_parman_rnd_get(test_parman) &
++				   TEST_PARMAN_BULK_MAX_MASK;
++	test_parman->bulk_noop = test_parman_rnd_get(test_parman) & 1;
++	return true;
++}
++
++static int test_parman_run(struct test_parman *test_parman)
++{
++	unsigned int i = test_parman_rnd_get(test_parman);
++	int err;
++
++	while (test_parman_run_check_budgets(test_parman)) {
++		unsigned int item_index = i++ & TEST_PARMAN_ITEM_MASK;
++		struct test_parman_item *item = &test_parman->items[item_index];
++
++		if (test_parman->bulk_noop)
++			continue;
++
++		if (!item->used) {
++			err = parman_item_add(test_parman->parman,
++					      &item->prio->parman_prio,
++					      &item->parman_item);
++			if (err)
++				return err;
++			test_parman->prio_array[item->parman_item.index] = item;
++			test_parman->used_items++;
++		} else {
++			test_parman->prio_array[item->parman_item.index] = NULL;
++			parman_item_remove(test_parman->parman,
++					   &item->prio->parman_prio,
++					   &item->parman_item);
++			test_parman->used_items--;
++		}
++		item->used = !item->used;
++	}
++	return 0;
++}
++
++static int test_parman_check_array(struct test_parman *test_parman,
++				   bool gaps_allowed)
++{
++	unsigned int last_unused_items = 0;
++	unsigned long last_priority = 0;
++	unsigned int used_items = 0;
++	int i;
++
++	if (test_parman->prio_array_limit < TEST_PARMAN_BASE_COUNT) {
++		pr_err("Array limit is lower than the base count (%lu < %lu)\n",
++		       test_parman->prio_array_limit, TEST_PARMAN_BASE_COUNT);
++		return -EINVAL;
++	}
++
++	for (i = 0; i < test_parman->prio_array_limit; i++) {
++		struct test_parman_item *item = test_parman->prio_array[i];
++
++		if (!item) {
++			last_unused_items++;
++			continue;
++		}
++		if (last_unused_items && !gaps_allowed) {
++			pr_err("Gap found in array even though they are forbidden\n");
++			return -EINVAL;
++		}
++
++		last_unused_items = 0;
++		used_items++;
++
++		if (item->prio->priority < last_priority) {
++			pr_err("Item belongs under higher priority then the last one (current: %lu, previous: %lu)\n",
++			       item->prio->priority, last_priority);
++			return -EINVAL;
++		}
++		last_priority = item->prio->priority;
++
++		if (item->parman_item.index != i) {
++			pr_err("Item has different index in compare to where it actualy is (%lu != %d)\n",
++			       item->parman_item.index, i);
++			return -EINVAL;
++		}
++	}
++
++	if (used_items != test_parman->used_items) {
++		pr_err("Number of used items in array does not match (%u != %u)\n",
++		       used_items, test_parman->used_items);
++		return -EINVAL;
++	}
++
++	if (last_unused_items >= TEST_PARMAN_RESIZE_STEP_COUNT) {
++		pr_err("Number of unused item at the end of array is bigger than resize step (%u >= %lu)\n",
++		       last_unused_items, TEST_PARMAN_RESIZE_STEP_COUNT);
++		return -EINVAL;
++	}
++
++	pr_info("Priority array check successful\n");
++
++	return 0;
++}
++
++static int test_parman_lsort(void)
++{
++	struct test_parman *test_parman;
++	int err;
++
++	test_parman = test_parman_create(&test_parman_lsort_ops);
++	if (IS_ERR(test_parman))
++		return PTR_ERR(test_parman);
++
++	err = test_parman_run(test_parman);
++	if (err)
++		goto out;
++
++	err = test_parman_check_array(test_parman, false);
++	if (err)
++		goto out;
++out:
++	test_parman_destroy(test_parman);
++	return err;
++}
++
++static int __init test_parman_init(void)
++{
++	return test_parman_lsort();
++}
++
++static void __exit test_parman_exit(void)
++{
++}
++
++module_init(test_parman_init);
++module_exit(test_parman_exit);
++
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
++MODULE_DESCRIPTION("Test module for parman");
 -- 
 2.7.4
