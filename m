@@ -1,54 +1,51 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 08/12] net: mvpp2: remove unused register
- definitions
-Date: Thu,  2 Feb 2017 16:51:37 +0100
-Message-ID: <1486050701-27899-9-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 05/12] net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
+Date: Thu,  2 Feb 2017 16:51:34 +0100
+Message-ID: <1486050701-27899-6-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
- Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
- Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: linux-arm-kernel@lists.infradead.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Russell King <linux@arm.linux.org.uk>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:54838 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752062AbdBBPyH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:54:07 -0500
 In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This commit remove a field of 'struct mvpp2_tx_queue' that is not used
+anywhere.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index e7d0da6..ef68780 100644
+index 30aaff8..907619c 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -253,10 +253,6 @@
- #define MVPP2_SRC_ADDR_HIGH			0x28
- #define MVPP2_PHY_AN_CFG0_REG			0x34
- #define     MVPP2_PHY_AN_STOP_SMI0_MASK		BIT(7)
--#define MVPP2_MIB_COUNTERS_BASE(port)		(0x1000 + ((port) >> 1) * \
--						0x400 + (port) * 0x400)
--#define     MVPP2_MIB_LATE_COLLISION		0x7c
--#define MVPP2_ISR_SUM_MASK_REG			0x220c
- #define MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG	0x305c
- #define MVPP2_EXT_GLOBAL_CTRL_DEFAULT		0x27
+@@ -823,9 +823,6 @@ struct mvpp2_tx_queue {
+ 	/* Per-CPU control of physical Tx queues */
+ 	struct mvpp2_txq_pcpu __percpu *pcpu;
  
+-	/* Array of transmitted skb */
+-	struct sk_buff **tx_skb;
+-
+ 	u32 done_pkts_coal;
+ 
+ 	/* Virtual address of thex Tx DMA descriptors array */
 -- 
 2.7.4
