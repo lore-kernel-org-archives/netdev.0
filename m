@@ -1,118 +1,65 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 19/19] mlxsw: spectrum: Implement TC flower offload
-Date: Thu,  2 Feb 2017 16:12:59 +0100
-Message-ID: <1486048379-19237-20-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 12/19] mlxsw: core: Introduce flexible actions support
+Date: Thu,  2 Feb 2017 16:12:52 +0100
+Message-ID: <1486048379-19237-13-git-send-email-jiri@resnulli.us>
 References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
         ivecera@redhat.com, jbenc@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33088 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751968AbdBBPNa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:30 -0500
-Received: by mail-wm0-f65.google.com with SMTP id v77so4677806wmv.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:30 -0800 (PST)
+Received: from mail-wj0-f194.google.com ([209.85.210.194]:33524 "EHLO
+        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751925AbdBBPNR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:17 -0500
+Received: by mail-wj0-f194.google.com with SMTP id le4so1335909wjb.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:17 -0800 (PST)
 In-Reply-To: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Extend the existing setup_tc ndo call and allow to offload cls_flower
-rules. Only limited set of dissector keys and actions are supported now.
-Use previously introduced ACL infrastructure to offload cls_flower rules
-to be processed in the HW.
+Each entry which is matched during ACL lookup points to an action set.
+This action set contains up to three separate actions. If more actions
+are needed to be chained, the extended set is created to hold them
+in KVD linear area.
+
+This patch implements handling of sets and encoding of actions.
+Currectly, only two actions are supported. Drop and forward. Forward
+action uses PBS pointer to KVD linear area, so the action code needs to
+take care of this as well.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |   4 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  15 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   6 +
- .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  | 309 +++++++++++++++++++++
- 4 files changed, 331 insertions(+), 3 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |   3 +-
+ .../mellanox/mlxsw/core_acl_flex_actions.c         | 685 +++++++++++++++++++++
+ .../mellanox/mlxsw/core_acl_flex_actions.h         |  66 ++
+ 3 files changed, 753 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-index 1459716..6b6c30d 100644
+index 6a83768..c4c48ba 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
 +++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -14,8 +14,8 @@ mlxsw_switchx2-objs		:= switchx2.o
- obj-$(CONFIG_MLXSW_SPECTRUM)	+= mlxsw_spectrum.o
- mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
- 				   spectrum_switchdev.o spectrum_router.o \
--				   spectrum_kvdl.o spectrum_acl.o \
--				   spectrum_acl_tcam.o
-+				   spectrum_kvdl.o spectrum_acl_tcam.o \
-+				   spectrum_acl.o spectrum_flower.o
- mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
- obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
- mlxsw_minimal-objs		:= minimal.o
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index b1d77e1..8a52c86 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1355,7 +1355,8 @@ static int mlxsw_sp_setup_tc(struct net_device *dev, u32 handle,
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	bool ingress = TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS);
- 
--	if (tc->type == TC_SETUP_MATCHALL) {
-+	switch (tc->type) {
-+	case TC_SETUP_MATCHALL:
- 		switch (tc->cls_mall->command) {
- 		case TC_CLSMATCHALL_REPLACE:
- 			return mlxsw_sp_port_add_cls_matchall(mlxsw_sp_port,
-@@ -1369,6 +1370,18 @@ static int mlxsw_sp_setup_tc(struct net_device *dev, u32 handle,
- 		default:
- 			return -EINVAL;
- 		}
-+	case TC_SETUP_CLSFLOWER:
-+		switch (tc->cls_flower->command) {
-+		case TC_CLSFLOWER_REPLACE:
-+			return mlxsw_sp_flower_replace(mlxsw_sp_port, ingress,
-+						       proto, tc->cls_flower);
-+		case TC_CLSFLOWER_DESTROY:
-+			mlxsw_sp_flower_destroy(mlxsw_sp_port, ingress,
-+						tc->cls_flower);
-+			return 0;
-+		default:
-+			return -EOPNOTSUPP;
-+		}
- 	}
- 
- 	return -EOPNOTSUPP;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index cd9b4b2..4d251e0 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -47,6 +47,7 @@
- #include <linux/in6.h>
- #include <linux/notifier.h>
- #include <net/psample.h>
-+#include <net/pkt_cls.h>
- 
- #include "port.h"
- #include "core.h"
-@@ -698,4 +699,9 @@ void mlxsw_sp_acl_fini(struct mlxsw_sp *mlxsw_sp);
- 
- extern const struct mlxsw_sp_acl_ops mlxsw_sp_acl_tcam_ops;
- 
-+int mlxsw_sp_flower_replace(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
-+			    __be16 protocol, struct tc_cls_flower_offload *f);
-+void mlxsw_sp_flower_destroy(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
-+			     struct tc_cls_flower_offload *f);
-+
- #endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+@@ -1,5 +1,6 @@
+ obj-$(CONFIG_MLXSW_CORE)	+= mlxsw_core.o
+-mlxsw_core-objs			:= core.o core_acl_flex_keys.o
++mlxsw_core-objs			:= core.o core_acl_flex_keys.o \
++				   core_acl_flex_actions.o
+ mlxsw_core-$(CONFIG_MLXSW_CORE_HWMON) += core_hwmon.o
+ mlxsw_core-$(CONFIG_MLXSW_CORE_THERMAL) += core_thermal.o
+ obj-$(CONFIG_MLXSW_PCI)		+= mlxsw_pci.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
 new file mode 100644
-index 0000000..35b147a
+index 0000000..34e2fef
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
-@@ -0,0 +1,309 @@
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
+@@ -0,0 +1,685 @@
 +/*
-+ * drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
++ * drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
 + * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
 + * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
 + *
@@ -146,279 +93,727 @@ index 0000000..35b147a
 + */
 +
 +#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
 +#include <linux/errno.h>
-+#include <linux/netdevice.h>
-+#include <net/flow_dissector.h>
-+#include <net/pkt_cls.h>
-+#include <net/tc_act/tc_gact.h>
-+#include <net/tc_act/tc_mirred.h>
++#include <linux/rhashtable.h>
++#include <linux/list.h>
 +
-+#include "spectrum.h"
-+#include "core_acl_flex_keys.h"
++#include "item.h"
++#include "core_acl_flex_actions.h"
 +
-+static int mlxsw_sp_flower_parse_actions(struct mlxsw_sp *mlxsw_sp,
-+					 struct net_device *dev,
-+					 struct mlxsw_sp_acl_rule_info *rulei,
-+					 struct tcf_exts *exts)
++enum mlxsw_afa_set_type {
++	MLXSW_AFA_SET_TYPE_NEXT,
++	MLXSW_AFA_SET_TYPE_GOTO,
++};
++
++/* afa_set_type
++ * Type of the record at the end of the action set.
++ */
++MLXSW_ITEM32(afa, set, type, 0xA0, 28, 4);
++
++/* afa_set_next_action_set_ptr
++ * A pointer to the next action set in the KVD Centralized database.
++ */
++MLXSW_ITEM32(afa, set, next_action_set_ptr, 0xA4, 0, 24);
++
++/* afa_set_goto_g
++ * group - When set, the binding is of an ACL group. When cleared,
++ * the binding is of an ACL.
++ * Must be set to 1 for Spectrum.
++ */
++MLXSW_ITEM32(afa, set, goto_g, 0xA4, 29, 1);
++
++enum mlxsw_afa_set_goto_binding_cmd {
++	/* continue go the next binding point */
++	MLXSW_AFA_SET_GOTO_BINDING_CMD_NONE,
++	/* jump to the next binding point no return */
++	MLXSW_AFA_SET_GOTO_BINDING_CMD_JUMP,
++	/* terminate the acl binding */
++	MLXSW_AFA_SET_GOTO_BINDING_CMD_TERM = 4,
++};
++
++/* afa_set_goto_binding_cmd */
++MLXSW_ITEM32(afa, set, goto_binding_cmd, 0xA4, 24, 3);
++
++/* afa_set_goto_next_binding
++ * ACL/ACL group identifier. If the g bit is set, this field should hold
++ * the acl_group_id, else it should hold the acl_id.
++ */
++MLXSW_ITEM32(afa, set, goto_next_binding, 0xA4, 0, 16);
++
++/* afa_all_action_type
++ * Action Type.
++ */
++MLXSW_ITEM32(afa, all, action_type, 0x00, 24, 6);
++
++struct mlxsw_afa {
++	unsigned int max_acts_per_set;
++	const struct mlxsw_afa_ops *ops;
++	void *ops_priv;
++	struct rhashtable set_ht;
++	struct rhashtable fwd_entry_ht;
++};
++
++#define MLXSW_AFA_SET_LEN 0xA8
++
++struct mlxsw_afa_set_ht_key {
++	char enc_actions[MLXSW_AFA_SET_LEN]; /* Encoded set */
++	bool is_first;
++};
++
++/* Set structure holds one action set record. It contains up to three
++ * actions (depends on size of particular actions). The set is either
++ * put directly to a rule, or it is stored in KVD linear area.
++ * To prevent duplicate entries in KVD linear area, a hashtable is
++ * used to track sets that were previously inserted and may be shared.
++ */
++
++struct mlxsw_afa_set {
++	struct rhash_head ht_node;
++	struct mlxsw_afa_set_ht_key ht_key;
++	u32 kvdl_index;
++	bool shared; /* Inserted in hashtable (doesn't mean that
++		      * kvdl_index is valid).
++		      */
++	unsigned int ref_count;
++	struct mlxsw_afa_set *next; /* Pointer to the next set. */
++	struct mlxsw_afa_set *prev; /* Pointer to the previous set,
++				     * note that set may have multiple
++				     * sets from multiple blocks
++				     * pointing at it. This is only
++				     * usable until commit.
++				     */
++};
++
++static const struct rhashtable_params mlxsw_afa_set_ht_params = {
++	.key_len = sizeof(struct mlxsw_afa_set_ht_key),
++	.key_offset = offsetof(struct mlxsw_afa_set, ht_key),
++	.head_offset = offsetof(struct mlxsw_afa_set, ht_node),
++	.automatic_shrinking = true,
++};
++
++struct mlxsw_afa_fwd_entry_ht_key {
++	u8 local_port;
++};
++
++struct mlxsw_afa_fwd_entry {
++	struct rhash_head ht_node;
++	struct mlxsw_afa_fwd_entry_ht_key ht_key;
++	u32 kvdl_index;
++	unsigned int ref_count;
++};
++
++static const struct rhashtable_params mlxsw_afa_fwd_entry_ht_params = {
++	.key_len = sizeof(struct mlxsw_afa_fwd_entry_ht_key),
++	.key_offset = offsetof(struct mlxsw_afa_fwd_entry, ht_key),
++	.head_offset = offsetof(struct mlxsw_afa_fwd_entry, ht_node),
++	.automatic_shrinking = true,
++};
++
++struct mlxsw_afa *mlxsw_afa_create(unsigned int max_acts_per_set,
++				   const struct mlxsw_afa_ops *ops,
++				   void *ops_priv)
 +{
-+	const struct tc_action *a;
-+	LIST_HEAD(actions);
++	struct mlxsw_afa *mlxsw_afa;
 +	int err;
 +
-+	if (tc_no_actions(exts))
-+		return 0;
++	mlxsw_afa = kzalloc(sizeof(*mlxsw_afa), GFP_KERNEL);
++	if (!mlxsw_afa)
++		return ERR_PTR(-ENOMEM);
++	err = rhashtable_init(&mlxsw_afa->set_ht, &mlxsw_afa_set_ht_params);
++	if (err)
++		goto err_set_rhashtable_init;
++	err = rhashtable_init(&mlxsw_afa->fwd_entry_ht,
++			      &mlxsw_afa_fwd_entry_ht_params);
++	if (err)
++		goto err_fwd_entry_rhashtable_init;
++	mlxsw_afa->max_acts_per_set = max_acts_per_set;
++	mlxsw_afa->ops = ops;
++	mlxsw_afa->ops_priv = ops_priv;
++	return mlxsw_afa;
 +
-+	tcf_exts_to_list(exts, &actions);
-+	list_for_each_entry(a, &actions, list) {
-+		if (is_tcf_gact_shot(a)) {
-+			err = mlxsw_sp_acl_rulei_act_drop(rulei);
-+			if (err)
-+				return err;
-+		} else if (is_tcf_mirred_egress_redirect(a)) {
-+			int ifindex = tcf_mirred_ifindex(a);
-+			struct net_device *out_dev;
++err_fwd_entry_rhashtable_init:
++	rhashtable_destroy(&mlxsw_afa->set_ht);
++err_set_rhashtable_init:
++	kfree(mlxsw_afa);
++	return ERR_PTR(err);
++}
++EXPORT_SYMBOL(mlxsw_afa_create);
 +
-+			out_dev = __dev_get_by_index(dev_net(dev), ifindex);
-+			if (out_dev == dev)
-+				out_dev = NULL;
++void mlxsw_afa_destroy(struct mlxsw_afa *mlxsw_afa)
++{
++	rhashtable_destroy(&mlxsw_afa->fwd_entry_ht);
++	rhashtable_destroy(&mlxsw_afa->set_ht);
++	kfree(mlxsw_afa);
++}
++EXPORT_SYMBOL(mlxsw_afa_destroy);
 +
-+			err = mlxsw_sp_acl_rulei_act_fwd(mlxsw_sp, rulei,
-+							 out_dev);
-+			if (err)
-+				return err;
-+		} else {
-+			dev_err(mlxsw_sp->bus_info->dev, "Unsupported action\n");
-+			return -EOPNOTSUPP;
-+		}
-+	}
-+	return 0;
++static void mlxsw_afa_set_goto_set(struct mlxsw_afa_set *set,
++				   enum mlxsw_afa_set_goto_binding_cmd cmd,
++				   u16 group_id)
++{
++	char *actions = set->ht_key.enc_actions;
++
++	mlxsw_afa_set_type_set(actions, MLXSW_AFA_SET_TYPE_GOTO);
++	mlxsw_afa_set_goto_g_set(actions, true);
++	mlxsw_afa_set_goto_binding_cmd_set(actions, cmd);
++	mlxsw_afa_set_goto_next_binding_set(actions, group_id);
 +}
 +
-+static void mlxsw_sp_flower_parse_ipv4(struct mlxsw_sp_acl_rule_info *rulei,
-+				       struct tc_cls_flower_offload *f)
++static void mlxsw_afa_set_next_set(struct mlxsw_afa_set *set,
++				   u32 next_set_kvdl_index)
 +{
-+	struct flow_dissector_key_ipv4_addrs *key =
-+		skb_flow_dissector_target(f->dissector,
-+					  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-+					  f->key);
-+	struct flow_dissector_key_ipv4_addrs *mask =
-+		skb_flow_dissector_target(f->dissector,
-+					  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-+					  f->mask);
++	char *actions = set->ht_key.enc_actions;
 +
-+	mlxsw_sp_acl_rulei_keymask_u32(rulei, MLXSW_AFK_ELEMENT_SRC_IP4,
-+				       ntohl(key->src), ntohl(mask->src));
-+	mlxsw_sp_acl_rulei_keymask_u32(rulei, MLXSW_AFK_ELEMENT_DST_IP4,
-+				       ntohl(key->dst), ntohl(mask->dst));
++	mlxsw_afa_set_type_set(actions, MLXSW_AFA_SET_TYPE_NEXT);
++	mlxsw_afa_set_next_action_set_ptr_set(actions, next_set_kvdl_index);
 +}
 +
-+static void mlxsw_sp_flower_parse_ipv6(struct mlxsw_sp_acl_rule_info *rulei,
-+				       struct tc_cls_flower_offload *f)
++static struct mlxsw_afa_set *mlxsw_afa_set_create(bool is_first)
 +{
-+	struct flow_dissector_key_ipv6_addrs *key =
-+		skb_flow_dissector_target(f->dissector,
-+					  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-+					  f->key);
-+	struct flow_dissector_key_ipv6_addrs *mask =
-+		skb_flow_dissector_target(f->dissector,
-+					  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-+					  f->mask);
-+	size_t addr_half_size = sizeof(key->src) / 2;
++	struct mlxsw_afa_set *set;
 +
-+	mlxsw_sp_acl_rulei_keymask_buf(rulei, MLXSW_AFK_ELEMENT_SRC_IP6_HI,
-+				       &key->src.s6_addr[0],
-+				       &mask->src.s6_addr[0],
-+				       addr_half_size);
-+	mlxsw_sp_acl_rulei_keymask_buf(rulei, MLXSW_AFK_ELEMENT_SRC_IP6_LO,
-+				       &key->src.s6_addr[addr_half_size],
-+				       &mask->src.s6_addr[addr_half_size],
-+				       addr_half_size);
-+	mlxsw_sp_acl_rulei_keymask_buf(rulei, MLXSW_AFK_ELEMENT_DST_IP6_HI,
-+				       &key->dst.s6_addr[0],
-+				       &mask->dst.s6_addr[0],
-+				       addr_half_size);
-+	mlxsw_sp_acl_rulei_keymask_buf(rulei, MLXSW_AFK_ELEMENT_DST_IP6_LO,
-+				       &key->dst.s6_addr[addr_half_size],
-+				       &mask->dst.s6_addr[addr_half_size],
-+				       addr_half_size);
++	set = kzalloc(sizeof(*set), GFP_KERNEL);
++	if (!set)
++		return NULL;
++	/* Need to initialize the set to pass by default */
++	mlxsw_afa_set_goto_set(set, MLXSW_AFA_SET_GOTO_BINDING_CMD_TERM, 0);
++	set->ht_key.is_first = is_first;
++	set->ref_count = 1;
++	return set;
 +}
 +
-+static int mlxsw_sp_flower_parse_ports(struct mlxsw_sp *mlxsw_sp,
-+				       struct mlxsw_sp_acl_rule_info *rulei,
-+				       struct tc_cls_flower_offload *f,
-+				       u8 ip_proto)
++static void mlxsw_afa_set_destroy(struct mlxsw_afa_set *set)
 +{
-+	struct flow_dissector_key_ports *key, *mask;
-+
-+	if (!dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_PORTS))
-+		return 0;
-+
-+	if (ip_proto != IPPROTO_TCP && ip_proto != IPPROTO_UDP) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Only UDP and TCP keys are supported\n");
-+		return -EINVAL;
-+	}
-+
-+	key = skb_flow_dissector_target(f->dissector,
-+					FLOW_DISSECTOR_KEY_PORTS,
-+					f->key);
-+	mask = skb_flow_dissector_target(f->dissector,
-+					 FLOW_DISSECTOR_KEY_PORTS,
-+					 f->mask);
-+	mlxsw_sp_acl_rulei_keymask_u32(rulei, MLXSW_AFK_ELEMENT_DST_L4_PORT,
-+				       ntohs(key->dst), ntohs(mask->dst));
-+	mlxsw_sp_acl_rulei_keymask_u32(rulei, MLXSW_AFK_ELEMENT_SRC_L4_PORT,
-+				       ntohs(key->src), ntohs(mask->src));
-+	return 0;
++	kfree(set);
 +}
 +
-+static int mlxsw_sp_flower_parse(struct mlxsw_sp *mlxsw_sp,
-+				 struct net_device *dev,
-+				 struct mlxsw_sp_acl_rule_info *rulei,
-+				 struct tc_cls_flower_offload *f)
++static int mlxsw_afa_set_share(struct mlxsw_afa *mlxsw_afa,
++			       struct mlxsw_afa_set *set)
 +{
-+	u16 addr_type = 0;
-+	u8 ip_proto = 0;
 +	int err;
 +
-+	if (f->dissector->used_keys &
-+	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
-+	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
-+	      BIT(FLOW_DISSECTOR_KEY_ETH_ADDRS) |
-+	      BIT(FLOW_DISSECTOR_KEY_IPV4_ADDRS) |
-+	      BIT(FLOW_DISSECTOR_KEY_IPV6_ADDRS) |
-+	      BIT(FLOW_DISSECTOR_KEY_PORTS))) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Unsupported key\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	mlxsw_sp_acl_rulei_priority(rulei, f->prio);
-+
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
-+		struct flow_dissector_key_control *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_CONTROL,
-+						  f->key);
-+		addr_type = key->addr_type;
-+	}
-+
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
-+		struct flow_dissector_key_basic *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_BASIC,
-+						  f->key);
-+		struct flow_dissector_key_basic *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_BASIC,
-+						  f->mask);
-+		ip_proto = key->ip_proto;
-+		mlxsw_sp_acl_rulei_keymask_u32(rulei,
-+					       MLXSW_AFK_ELEMENT_ETHERTYPE,
-+					       ntohs(key->n_proto),
-+					       ntohs(mask->n_proto));
-+		mlxsw_sp_acl_rulei_keymask_u32(rulei,
-+					       MLXSW_AFK_ELEMENT_IP_PROTO,
-+					       key->ip_proto, mask->ip_proto);
-+	}
-+
-+	if (dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
-+		struct flow_dissector_key_eth_addrs *key =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_ETH_ADDRS,
-+						  f->key);
-+		struct flow_dissector_key_eth_addrs *mask =
-+			skb_flow_dissector_target(f->dissector,
-+						  FLOW_DISSECTOR_KEY_ETH_ADDRS,
-+						  f->mask);
-+
-+		mlxsw_sp_acl_rulei_keymask_buf(rulei,
-+					       MLXSW_AFK_ELEMENT_DMAC,
-+					       key->dst, mask->dst,
-+					       sizeof(key->dst));
-+		mlxsw_sp_acl_rulei_keymask_buf(rulei,
-+					       MLXSW_AFK_ELEMENT_SMAC,
-+					       key->src, mask->src,
-+					       sizeof(key->src));
-+	}
-+
-+	if (addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS)
-+		mlxsw_sp_flower_parse_ipv4(rulei, f);
-+
-+	if (addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS)
-+		mlxsw_sp_flower_parse_ipv6(rulei, f);
-+
-+	err = mlxsw_sp_flower_parse_ports(mlxsw_sp, rulei, f, ip_proto);
++	err = rhashtable_insert_fast(&mlxsw_afa->set_ht, &set->ht_node,
++				     mlxsw_afa_set_ht_params);
 +	if (err)
 +		return err;
-+
-+	return mlxsw_sp_flower_parse_actions(mlxsw_sp, dev, rulei, f->exts);
-+}
-+
-+int mlxsw_sp_flower_replace(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
-+			    __be16 protocol, struct tc_cls_flower_offload *f)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	struct net_device *dev = mlxsw_sp_port->dev;
-+	struct mlxsw_sp_acl_rule_info *rulei;
-+	struct mlxsw_sp_acl_ruleset *ruleset;
-+	struct mlxsw_sp_acl_rule *rule;
-+	int err;
-+
-+	ruleset = mlxsw_sp_acl_ruleset_get(mlxsw_sp, dev, ingress,
-+					   MLXSW_SP_ACL_PROFILE_FLOWER);
-+	if (IS_ERR(ruleset))
-+		return PTR_ERR(ruleset);
-+
-+	rule = mlxsw_sp_acl_rule_create(mlxsw_sp, ruleset, f->cookie);
-+	if (IS_ERR(rule)) {
-+		err = PTR_ERR(rule);
-+		goto err_rule_create;
-+	}
-+
-+	rulei = mlxsw_sp_acl_rule_rulei(rule);
-+	err = mlxsw_sp_flower_parse(mlxsw_sp, dev, rulei, f);
++	err = mlxsw_afa->ops->kvdl_set_add(mlxsw_afa->ops_priv,
++					   &set->kvdl_index,
++					   set->ht_key.enc_actions,
++					   set->ht_key.is_first);
 +	if (err)
-+		goto err_flower_parse;
-+
-+	err = mlxsw_sp_acl_rulei_commit(rulei);
-+	if (err)
-+		goto err_rulei_commit;
-+
-+	err = mlxsw_sp_acl_rule_add(mlxsw_sp, rule);
-+	if (err)
-+		goto err_rule_add;
-+
-+	mlxsw_sp_acl_ruleset_put(mlxsw_sp, ruleset);
++		goto err_kvdl_set_add;
++	set->shared = true;
++	set->prev = NULL;
 +	return 0;
 +
-+err_rule_add:
-+err_rulei_commit:
-+err_flower_parse:
-+	mlxsw_sp_acl_rule_destroy(mlxsw_sp, rule);
-+err_rule_create:
-+	mlxsw_sp_acl_ruleset_put(mlxsw_sp, ruleset);
++err_kvdl_set_add:
++	rhashtable_remove_fast(&mlxsw_afa->set_ht, &set->ht_node,
++			       mlxsw_afa_set_ht_params);
 +	return err;
 +}
 +
-+void mlxsw_sp_flower_destroy(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
-+			     struct tc_cls_flower_offload *f)
++static void mlxsw_afa_set_unshare(struct mlxsw_afa *mlxsw_afa,
++				  struct mlxsw_afa_set *set)
 +{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	struct mlxsw_sp_acl_ruleset *ruleset;
-+	struct mlxsw_sp_acl_rule *rule;
++	mlxsw_afa->ops->kvdl_set_del(mlxsw_afa->ops_priv,
++				     set->kvdl_index,
++				     set->ht_key.is_first);
++	rhashtable_remove_fast(&mlxsw_afa->set_ht, &set->ht_node,
++			       mlxsw_afa_set_ht_params);
++	set->shared = false;
++}
 +
-+	ruleset = mlxsw_sp_acl_ruleset_get(mlxsw_sp, mlxsw_sp_port->dev,
-+					   ingress,
-+					   MLXSW_SP_ACL_PROFILE_FLOWER);
-+	if (WARN_ON(IS_ERR(ruleset)))
++static void mlxsw_afa_set_put(struct mlxsw_afa *mlxsw_afa,
++			      struct mlxsw_afa_set *set)
++{
++	if (--set->ref_count)
 +		return;
++	if (set->shared)
++		mlxsw_afa_set_unshare(mlxsw_afa, set);
++	mlxsw_afa_set_destroy(set);
++}
 +
-+	rule = mlxsw_sp_acl_rule_lookup(mlxsw_sp, ruleset, f->cookie);
-+	if (!WARN_ON(!rule)) {
-+		mlxsw_sp_acl_rule_del(mlxsw_sp, rule);
-+		mlxsw_sp_acl_rule_destroy(mlxsw_sp, rule);
++static struct mlxsw_afa_set *mlxsw_afa_set_get(struct mlxsw_afa *mlxsw_afa,
++					       struct mlxsw_afa_set *orig_set)
++{
++	struct mlxsw_afa_set *set;
++	int err;
++
++	/* There is a hashtable of sets maintained. If a set with the exact
++	 * same encoding exists, we reuse it. Otherwise, the current set
++	 * is shared by making it available to others using the hash table.
++	 */
++	set = rhashtable_lookup_fast(&mlxsw_afa->set_ht, &orig_set->ht_key,
++				     mlxsw_afa_set_ht_params);
++	if (set) {
++		set->ref_count++;
++		mlxsw_afa_set_put(mlxsw_afa, orig_set);
++	} else {
++		set = orig_set;
++		err = mlxsw_afa_set_share(mlxsw_afa, set);
++		if (err)
++			return ERR_PTR(err);
++	}
++	return set;
++}
++
++/* Block structure holds a list of action sets. One action block
++ * represents one chain of actions executed upon match of a rule.
++ */
++
++struct mlxsw_afa_block {
++	struct mlxsw_afa *afa;
++	bool finished;
++	struct mlxsw_afa_set *first_set;
++	struct mlxsw_afa_set *cur_set;
++	unsigned int cur_act_index; /* In current set. */
++	struct list_head fwd_entry_ref_list;
++};
++
++struct mlxsw_afa_block *mlxsw_afa_block_create(struct mlxsw_afa *mlxsw_afa)
++{
++	struct mlxsw_afa_block *block;
++
++	block = kzalloc(sizeof(*block), GFP_KERNEL);
++	if (!block)
++		return NULL;
++	INIT_LIST_HEAD(&block->fwd_entry_ref_list);
++	block->afa = mlxsw_afa;
++
++	/* At least one action set is always present, so just create it here */
++	block->first_set = mlxsw_afa_set_create(true);
++	if (!block->first_set)
++		goto err_first_set_create;
++	block->cur_set = block->first_set;
++	return block;
++
++err_first_set_create:
++	kfree(block);
++	return NULL;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_create);
++
++static void mlxsw_afa_fwd_entry_refs_destroy(struct mlxsw_afa_block *block);
++
++void mlxsw_afa_block_destroy(struct mlxsw_afa_block *block)
++{
++	struct mlxsw_afa_set *set = block->first_set;
++	struct mlxsw_afa_set *next_set;
++
++	do {
++		next_set = set->next;
++		mlxsw_afa_set_put(block->afa, set);
++		set = next_set;
++	} while (set);
++	mlxsw_afa_fwd_entry_refs_destroy(block);
++	kfree(block);
++}
++EXPORT_SYMBOL(mlxsw_afa_block_destroy);
++
++int mlxsw_afa_block_commit(struct mlxsw_afa_block *block)
++{
++	struct mlxsw_afa_set *set = block->cur_set;
++	struct mlxsw_afa_set *prev_set;
++	int err;
++
++	block->cur_set = NULL;
++
++	/* Go over all linked sets starting from last
++	 * and try to find existing set in the hash table.
++	 * In case it is not there, assign a KVD linear index
++	 * and insert it.
++	 */
++	do {
++		prev_set = set->prev;
++		set = mlxsw_afa_set_get(block->afa, set);
++		if (IS_ERR(set)) {
++			err = PTR_ERR(set);
++			goto rollback;
++		}
++		if (prev_set) {
++			prev_set->next = set;
++			mlxsw_afa_set_next_set(prev_set, set->kvdl_index);
++			set = prev_set;
++		}
++	} while (prev_set);
++
++	block->first_set = set;
++	block->finished = true;
++	return 0;
++
++rollback:
++	while ((set = set->next))
++		mlxsw_afa_set_put(block->afa, set);
++	return err;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_commit);
++
++char *mlxsw_afa_block_first_set(struct mlxsw_afa_block *block)
++{
++	return block->first_set->ht_key.enc_actions;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_first_set);
++
++u32 mlxsw_afa_block_first_set_kvdl_index(struct mlxsw_afa_block *block)
++{
++	return block->first_set->kvdl_index;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_first_set_kvdl_index);
++
++void mlxsw_afa_block_continue(struct mlxsw_afa_block *block)
++{
++	if (WARN_ON(block->finished))
++		return;
++	mlxsw_afa_set_goto_set(block->cur_set,
++			       MLXSW_AFA_SET_GOTO_BINDING_CMD_NONE, 0);
++	block->finished = true;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_continue);
++
++void mlxsw_afa_block_jump(struct mlxsw_afa_block *block, u16 group_id)
++{
++	if (WARN_ON(block->finished))
++		return;
++	mlxsw_afa_set_goto_set(block->cur_set,
++			       MLXSW_AFA_SET_GOTO_BINDING_CMD_JUMP, group_id);
++	block->finished = true;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_jump);
++
++static struct mlxsw_afa_fwd_entry *
++mlxsw_afa_fwd_entry_create(struct mlxsw_afa *mlxsw_afa, u8 local_port)
++{
++	struct mlxsw_afa_fwd_entry *fwd_entry;
++	int err;
++
++	fwd_entry = kzalloc(sizeof(*fwd_entry), GFP_KERNEL);
++	if (!fwd_entry)
++		return ERR_PTR(-ENOMEM);
++	fwd_entry->ht_key.local_port = local_port;
++	fwd_entry->ref_count = 1;
++
++	err = rhashtable_insert_fast(&mlxsw_afa->fwd_entry_ht,
++				     &fwd_entry->ht_node,
++				     mlxsw_afa_fwd_entry_ht_params);
++	if (err)
++		goto err_rhashtable_insert;
++
++	err = mlxsw_afa->ops->kvdl_fwd_entry_add(mlxsw_afa->ops_priv,
++						 &fwd_entry->kvdl_index,
++						 local_port);
++	if (err)
++		goto err_kvdl_fwd_entry_add;
++	return fwd_entry;
++
++err_kvdl_fwd_entry_add:
++	rhashtable_remove_fast(&mlxsw_afa->fwd_entry_ht, &fwd_entry->ht_node,
++			       mlxsw_afa_fwd_entry_ht_params);
++err_rhashtable_insert:
++	kfree(fwd_entry);
++	return ERR_PTR(err);
++}
++
++static void mlxsw_afa_fwd_entry_destroy(struct mlxsw_afa *mlxsw_afa,
++					struct mlxsw_afa_fwd_entry *fwd_entry)
++{
++	mlxsw_afa->ops->kvdl_fwd_entry_del(mlxsw_afa->ops_priv,
++					   fwd_entry->kvdl_index);
++	rhashtable_remove_fast(&mlxsw_afa->fwd_entry_ht, &fwd_entry->ht_node,
++			       mlxsw_afa_fwd_entry_ht_params);
++	kfree(fwd_entry);
++}
++
++static struct mlxsw_afa_fwd_entry *
++mlxsw_afa_fwd_entry_get(struct mlxsw_afa *mlxsw_afa, u8 local_port)
++{
++	struct mlxsw_afa_fwd_entry_ht_key ht_key = {0};
++	struct mlxsw_afa_fwd_entry *fwd_entry;
++
++	ht_key.local_port = local_port;
++	fwd_entry = rhashtable_lookup_fast(&mlxsw_afa->fwd_entry_ht, &ht_key,
++					   mlxsw_afa_fwd_entry_ht_params);
++	if (fwd_entry) {
++		fwd_entry->ref_count++;
++		return fwd_entry;
++	}
++	return mlxsw_afa_fwd_entry_create(mlxsw_afa, local_port);
++}
++
++static void mlxsw_afa_fwd_entry_put(struct mlxsw_afa *mlxsw_afa,
++				    struct mlxsw_afa_fwd_entry *fwd_entry)
++{
++	if (--fwd_entry->ref_count)
++		return;
++	mlxsw_afa_fwd_entry_destroy(mlxsw_afa, fwd_entry);
++}
++
++struct mlxsw_afa_fwd_entry_ref {
++	struct list_head list;
++	struct mlxsw_afa_fwd_entry *fwd_entry;
++};
++
++static struct mlxsw_afa_fwd_entry_ref *
++mlxsw_afa_fwd_entry_ref_create(struct mlxsw_afa_block *block, u8 local_port)
++{
++	struct mlxsw_afa_fwd_entry_ref *fwd_entry_ref;
++	struct mlxsw_afa_fwd_entry *fwd_entry;
++	int err;
++
++	fwd_entry_ref = kzalloc(sizeof(*fwd_entry_ref), GFP_KERNEL);
++	if (!fwd_entry_ref)
++		return ERR_PTR(-ENOMEM);
++	fwd_entry = mlxsw_afa_fwd_entry_get(block->afa, local_port);
++	if (IS_ERR(fwd_entry)) {
++		err = PTR_ERR(fwd_entry);
++		goto err_fwd_entry_get;
++	}
++	fwd_entry_ref->fwd_entry = fwd_entry;
++	list_add(&fwd_entry_ref->list, &block->fwd_entry_ref_list);
++	return fwd_entry_ref;
++
++err_fwd_entry_get:
++	kfree(fwd_entry_ref);
++	return ERR_PTR(err);
++}
++
++static void
++mlxsw_afa_fwd_entry_ref_destroy(struct mlxsw_afa_block *block,
++				struct mlxsw_afa_fwd_entry_ref *fwd_entry_ref)
++{
++	list_del(&fwd_entry_ref->list);
++	mlxsw_afa_fwd_entry_put(block->afa, fwd_entry_ref->fwd_entry);
++	kfree(fwd_entry_ref);
++}
++
++static void mlxsw_afa_fwd_entry_refs_destroy(struct mlxsw_afa_block *block)
++{
++	struct mlxsw_afa_fwd_entry_ref *fwd_entry_ref;
++	struct mlxsw_afa_fwd_entry_ref *tmp;
++
++	list_for_each_entry_safe(fwd_entry_ref, tmp,
++				 &block->fwd_entry_ref_list, list)
++		mlxsw_afa_fwd_entry_ref_destroy(block, fwd_entry_ref);
++}
++
++#define MLXSW_AFA_ONE_ACTION_LEN 32
++#define MLXSW_AFA_PAYLOAD_OFFSET 4
++
++static char *mlxsw_afa_block_append_action(struct mlxsw_afa_block *block,
++					   u8 action_code, u8 action_size)
++{
++	char *oneact;
++	char *actions;
++
++	if (WARN_ON(block->finished))
++		return NULL;
++	if (block->cur_act_index + action_size >
++	    block->afa->max_acts_per_set) {
++		struct mlxsw_afa_set *set;
++
++		/* The appended action won't fit into the current action set,
++		 * so create a new set.
++		 */
++		set = mlxsw_afa_set_create(false);
++		if (!set)
++			return NULL;
++		set->prev = block->cur_set;
++		block->cur_act_index = 0;
++		block->cur_set->next = set;
++		block->cur_set = set;
 +	}
 +
-+	mlxsw_sp_acl_ruleset_put(mlxsw_sp, ruleset);
++	actions = block->cur_set->ht_key.enc_actions;
++	oneact = actions + block->cur_act_index * MLXSW_AFA_ONE_ACTION_LEN;
++	block->cur_act_index += action_size;
++	mlxsw_afa_all_action_type_set(oneact, action_code);
++	return oneact + MLXSW_AFA_PAYLOAD_OFFSET;
 +}
++
++/* Trap / Discard Action
++ * ---------------------
++ * The Trap / Discard action enables trapping / mirroring packets to the CPU
++ * as well as discarding packets.
++ * The ACL Trap / Discard separates the forward/discard control from CPU
++ * trap control. In addition, the Trap / Discard action enables activating
++ * SPAN (port mirroring).
++ */
++
++#define MLXSW_AFA_TRAPDISC_CODE 0x03
++#define MLXSW_AFA_TRAPDISC_SIZE 1
++
++enum mlxsw_afa_trapdisc_forward_action {
++	MLXSW_AFA_TRAPDISC_FORWARD_ACTION_DISCARD = 3,
++};
++
++/* afa_trapdisc_forward_action
++ * Forward Action.
++ */
++MLXSW_ITEM32(afa, trapdisc, forward_action, 0x00, 0, 4);
++
++static inline void
++mlxsw_afa_trapdisc_pack(char *payload,
++			enum mlxsw_afa_trapdisc_forward_action forward_action)
++{
++	mlxsw_afa_trapdisc_forward_action_set(payload, forward_action);
++}
++
++int mlxsw_afa_block_append_drop(struct mlxsw_afa_block *block)
++{
++	char *act = mlxsw_afa_block_append_action(block,
++						  MLXSW_AFA_TRAPDISC_CODE,
++						  MLXSW_AFA_TRAPDISC_SIZE);
++
++	if (!act)
++		return -ENOBUFS;
++	mlxsw_afa_trapdisc_pack(act, MLXSW_AFA_TRAPDISC_FORWARD_ACTION_DISCARD);
++	return 0;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_append_drop);
++
++/* Forwarding Action
++ * -----------------
++ * Forwarding Action can be used to implement Policy Based Switching (PBS)
++ * as well as OpenFlow related "Output" action.
++ */
++
++#define MLXSW_AFA_FORWARD_CODE 0x07
++#define MLXSW_AFA_FORWARD_SIZE 1
++
++enum mlxsw_afa_forward_type {
++	/* PBS, Policy Based Switching */
++	MLXSW_AFA_FORWARD_TYPE_PBS,
++	/* Output, OpenFlow output type */
++	MLXSW_AFA_FORWARD_TYPE_OUTPUT,
++};
++
++/* afa_forward_type */
++MLXSW_ITEM32(afa, forward, type, 0x00, 24, 2);
++
++/* afa_forward_pbs_ptr
++ * A pointer to the PBS entry configured by PPBS register.
++ * Reserved when in_port is set.
++ */
++MLXSW_ITEM32(afa, forward, pbs_ptr, 0x08, 0, 24);
++
++/* afa_forward_in_port
++ * Packet is forwarded back to the ingress port.
++ */
++MLXSW_ITEM32(afa, forward, in_port, 0x0C, 0, 1);
++
++static inline void
++mlxsw_afa_forward_pack(char *payload, enum mlxsw_afa_forward_type type,
++		       u32 pbs_ptr, bool in_port)
++{
++	mlxsw_afa_forward_type_set(payload, type);
++	mlxsw_afa_forward_pbs_ptr_set(payload, pbs_ptr);
++	mlxsw_afa_forward_in_port_set(payload, in_port);
++}
++
++int mlxsw_afa_block_append_fwd(struct mlxsw_afa_block *block,
++			       u8 local_port, bool in_port)
++{
++	struct mlxsw_afa_fwd_entry_ref *fwd_entry_ref;
++	u32 kvdl_index = 0;
++	char *act;
++	int err;
++
++	if (!in_port) {
++		fwd_entry_ref = mlxsw_afa_fwd_entry_ref_create(block,
++							       local_port);
++		if (IS_ERR(fwd_entry_ref))
++			return PTR_ERR(fwd_entry_ref);
++		kvdl_index = fwd_entry_ref->fwd_entry->kvdl_index;
++	}
++
++	act = mlxsw_afa_block_append_action(block, MLXSW_AFA_FORWARD_CODE,
++					    MLXSW_AFA_FORWARD_SIZE);
++	if (!act) {
++		err = -ENOBUFS;
++		goto err_append_action;
++	}
++	mlxsw_afa_forward_pack(act, MLXSW_AFA_FORWARD_TYPE_OUTPUT,
++			       kvdl_index, in_port);
++	return 0;
++
++err_append_action:
++	if (!in_port)
++		mlxsw_afa_fwd_entry_ref_destroy(block, fwd_entry_ref);
++	return err;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_append_fwd);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
+new file mode 100644
+index 0000000..43f78dc
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
+@@ -0,0 +1,66 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _MLXSW_CORE_ACL_FLEX_ACTIONS_H
++#define _MLXSW_CORE_ACL_FLEX_ACTIONS_H
++
++#include <linux/types.h>
++
++struct mlxsw_afa;
++struct mlxsw_afa_block;
++
++struct mlxsw_afa_ops {
++	int (*kvdl_set_add)(void *priv, u32 *p_kvdl_index,
++			    char *enc_actions, bool is_first);
++	void (*kvdl_set_del)(void *priv, u32 kvdl_index, bool is_first);
++	int (*kvdl_fwd_entry_add)(void *priv, u32 *p_kvdl_index, u8 local_port);
++	void (*kvdl_fwd_entry_del)(void *priv, u32 kvdl_index);
++};
++
++struct mlxsw_afa *mlxsw_afa_create(unsigned int max_acts_per_set,
++				   const struct mlxsw_afa_ops *ops,
++				   void *ops_priv);
++void mlxsw_afa_destroy(struct mlxsw_afa *mlxsw_afa);
++struct mlxsw_afa_block *mlxsw_afa_block_create(struct mlxsw_afa *mlxsw_afa);
++void mlxsw_afa_block_destroy(struct mlxsw_afa_block *block);
++int mlxsw_afa_block_commit(struct mlxsw_afa_block *block);
++char *mlxsw_afa_block_first_set(struct mlxsw_afa_block *block);
++u32 mlxsw_afa_block_first_set_kvdl_index(struct mlxsw_afa_block *block);
++void mlxsw_afa_block_continue(struct mlxsw_afa_block *block);
++void mlxsw_afa_block_jump(struct mlxsw_afa_block *block, u16 group_id);
++int mlxsw_afa_block_append_drop(struct mlxsw_afa_block *block);
++int mlxsw_afa_block_append_fwd(struct mlxsw_afa_block *block,
++			       u8 local_port, bool in_port);
++
++#endif
 -- 
 2.7.4
