@@ -1,120 +1,66 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
-Date: Thu, 2 Feb 2017 13:56:37 +0100
-Message-ID: <20170202125637.GA3191@netboy>
-References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net/tcp: warning in tcp_try_coalesce/skb_try_coalesce
+Date: Thu, 2 Feb 2017 13:59:29 +0100
+Message-ID: <CACT4Y+Z8uSWJaW+QXSOr7dCo5fSNrMu6fHxPcDBxL08qQUvRMw@mail.gmail.com>
+References: <CAAeHK+xaFar2pj1xkbkhfjN+3ucLsfMpoHWFAKcHq3-F_Zm+mw@mail.gmail.com>
+ <CANn89iKSSmaSHJGfgR4AkRgMRfYx+52XXjWsxZovUzorpneL=g@mail.gmail.com>
+ <CACT4Y+Yw8_ZkjajkGdZ=71Mo83O+K=NJTZO+cM-+8UzTzHC-=A@mail.gmail.com> <1486038029.13103.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        Yuval.Mintz@cavium.com, tglx@linutronix.de
-To: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34102 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751545AbdBBM4s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 07:56:48 -0500
-Received: by mail-wm0-f68.google.com with SMTP id c85so3962968wmi.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 04:56:47 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486038029.13103.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Thu, Feb 2, 2017 at 1:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2017-02-02 at 10:05 +0100, Dmitry Vyukov wrote:
+>> On Tue, Jan 31, 2017 at 3:27 PM, 'Eric Dumazet' via syzkaller
+>> <syzkaller@googlegroups.com> wrote:
+>> > On Tue, Jan 31, 2017 at 5:17 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+>> >> Hi,
+>> >>
+>> >> I've got the following error report while running the syzkaller fuzzer.
+>> >>
+>> >> On commit 566cf877a1fcb6d6dc0126b076aad062054c2637 (4.10-rc6).
+>> >>
+>> >> The fuzzer hits this issue quite often, but I don't have a working reproducer.
+>> >>
+>> >> WARNING: CPU: 3 PID: 7091 at net/core/skbuff.c:4331
+>> >> skb_try_coalesce+0x14b1/0x1f80 net/core/skbuff.c:4331
+>> >> Kernel panic - not syncing: panic_on_warn set ...
+>> ...
+>> > Have you tried the patch we added recently into net-next ?
+>> >
+>> > https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=158f323b9868b59967ad96957c4ca388161be321
+>>
+>>
+>> I've tried this patch, and it does _not_ help.
+>> I am currently on a2ca3d617944417e9dd5f09fc8a4549cda115f4f, and I
+>> applied the patch on top (had to do a little merging in af_netlink.c):
+>> https://gist.githubusercontent.com/dvyukov/b4fd206f7dde763b3113a4543c57e7bb/raw/784c5b1bcb06f2a22c55eb4c4f8f83d627cd1ab9/gistfile1.txt
+>> Still getting the same warning.
+>>
+>> But now I have a repro:
+>> https://gist.githubusercontent.com/dvyukov/88fdb6d93507b36f81377191b0694f9b/raw/81cc11e8b78b6bbc5cffc79b442ce998c49af226/gistfile1.txt
+>>
+>
+> Interesting. This repro does not trigger the bug on net-next.
 
 
-(adding tglx on CC)
-
-On Mon, Jan 30, 2017 at 11:47:48PM -0800, Sudarsana Kalluru wrote:
-> +/* Adjust the HW clock by a rate given in parts-per-million (ppm) units.
-> + * FW/HW accepts the adjustment value in terms of 3 parameters:
-> + *   Drift period - adjustment happens once in certain number of nano seconds.
-> + *   Drift value - time is adjusted by a certain value, for example by 5 ns.
-> + *   Drift direction - add or subtract the adjustment value.
-> + * The routine translates ppm into the adjustment triplet in an optimal manner.
-> + */
-> +static int qed_ptp_hw_adjfreq(struct qed_dev *cdev, s32 ppb)
-> +{
-> +	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-> +	s64 period, period1, period2, dif, dif1, dif2;
-> +	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-> +	int drift_dir, best_val, best_period;
-> +	s64 best_dif, temp, val;
-> +	u32 drift_ctr_cfg = 0;
-> +	u32 drift_state;
-> +
-> +	best_dif = 1000000000;
-> +	best_period = 1;
-> +	best_val = 0;
-> +	drift_dir = 1;
-> +
-> +	if (ppb < 0) {
-> +		ppb = -ppb;
-> +		drift_dir = 0;
-> +	}
-> +
-> +	if (ppb == 0) {
-> +		/* No clock adjustment required */
-> +		best_val = 0;
-> +		best_period = 0xFFFFFFF;
-> +	} else {
-> +		/* Adjustment value is up to +/-7ns, find an optimal value in
-> +		 * this range.
-> +		 */
-> +		for (val = 0; val <= 7; val++) {
-> +			period1 = div_s64(val * 1000000000, ppb);
-> +			period1 -= 8;
-> +			period1 >>= 4;
-> +			if (period1 < 1)
-> +				period1 = 1;
-> +			if (period1 > 0xFFFFFFE)
-> +				period1 = 0xFFFFFFE;
-> +			period2 = period1 + 1;
-> +
-> +			temp = div_s64(val * 1000000000, (period1 * 16 + 8));
-> +			dif1 = ppb - temp;
-> +			if (dif1 < 0)
-> +				dif1 = -dif1;
-> +
-> +			temp = div_s64(val * 1000000000, (period2 * 16 + 8));
-
-Forgetting the useless val=0 case, this still takes 21 64-bit
-divisions on every adjustment.  There must be a better way.
-
-@tglx - Do you have a hint for Sudarsana?
-
-Thanks,
-Richard
-
-> +			dif2 = ppb - temp;
-> +			if (dif2 < 0)
-> +				dif2 = -dif2;
-> +
-> +			dif = min_t(s64, dif1, dif2);
-> +			period = (dif1 < dif2) ? period1 : period2;
-> +			if (dif < best_dif) {
-> +				best_dif = dif;
-> +				best_val = (int)val;
-> +				best_period = (int)period;
-> +			}
-> +		}
-> +	}
-> +
-> +	drift_ctr_cfg = (best_period << QED_DRIFT_CNTR_TIME_QUANTA_SHIFT) |
-> +			(best_val << QED_DRIFT_CNTR_ADJUSTMENT_SHIFT) |
-> +			(drift_dir << QED_DRIFT_CNTR_DIRECTION_SHIFT);
-> +
-> +	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x1);
-> +
-> +	drift_state = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR);
-> +	if (drift_state & 1) {
-> +		qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_DRIFT_CNTR_CONF,
-> +		       drift_ctr_cfg);
-> +	} else {
-> +		DP_INFO(p_hwfn, "Drift counter is not reset\n");
-> +		return -EINVAL;
-> +	}
-> +
-> +	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x0);
-> +
-> +	return 0;
-> +}
+Right, I can confirm that this is not happening on net-next tip
+(62e13097c46c69dbd7544ab2cd585ccf48f360a4).
+I reproduced it on a random month old commit on net-next, though
+(23a8ed4a624324dc696c328f09bd502c4a3816f0). Let's consider that this
+is accidentally fixed by something in that range.
