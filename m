@@ -1,89 +1,53 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [PATCH net-next] loopback: clear pfmemalloc on outgoing skb's
-Date: Thu, 2 Feb 2017 10:56:11 -0500
-Message-ID: <1486050971.29885.24.camel@fb.com>
-References: <1485983078-2372-1-git-send-email-jbacik@fb.com>
-         <1485992285.6360.168.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
+Date: Thu, 2 Feb 2017 16:58:50 +0100
+Message-ID: <20170202155849.GA28482@penelope.horms.nl>
+References: <1486031855-10551-1-git-send-email-simon.horman@netronome.com>
+ <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
+ <1486038693.13103.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@vger.kernel.org>, <kernel-team@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41258 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751036AbdBBP4j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:56:39 -0500
-In-Reply-To: <1485992285.6360.168.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36483 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751147AbdBBP6x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:58:53 -0500
+Received: by mail-wm0-f45.google.com with SMTP id c85so96703911wmi.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:58:52 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1486038693.13103.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-01 at 15:38 -0800, Eric Dumazet wrote:
-> On Wed, 2017-02-01 at 16:04 -0500, Josef Bacik wrote:
+[Repost due to gmail account problem]
+
+On Thu, Feb 02, 2017 at 04:31:33AM -0800, Eric Dumazet wrote:
+> On Thu, 2017-02-02 at 11:37 +0100, Simon Horman wrote:
+> > Allow dissection of Neighbour Discovery target IP, and source and
+> > destination link-layer addresses for neighbour solicitation and
+> > advertisement messages.
 > > 
-> > I was seeing random disconnects while testing NBD over
-> > loopback.  This turned
-> > out to be because NBD sets pfmemalloc on it's socket, however the
-> > receiving side
-> > is a user space application so does not have pfmemalloc set on its
-> > socket.  This
-> > means that sk_filter_trim_cap will simply drop this packet, under
-> > the assumption
-> > that the other side will simply retransmit.  Well we do retransmit,
-> > and then the
-> > packet is just dropped again for the same reason.  To keep this
-> > from happening
-> > simply clear skb->pfmemalloc on transmit so that we don't drop the
-> > packet on the
-> > receive side.
-> > 
-> > Signed-off-by: Josef Bacik <jbacik@fb.com>
+> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
 > > ---
-> >  drivers/net/loopback.c | 7 +++++++
-> >  1 file changed, 7 insertions(+)
-> > 
-> > diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-> > index 1e05b7c..13c9126 100644
-> > --- a/drivers/net/loopback.c
-> > +++ b/drivers/net/loopback.c
-> > @@ -81,6 +81,13 @@ static netdev_tx_t loopback_xmit(struct sk_buff
-> > *skb,
-> >  	 */
-> >  	skb_dst_force(skb);
-> >  
-> > +	/* If our transmitter was a pfmemalloc socket we need to
-> > clear
-> > +	 * pfmemalloc here, otherwise the receiving socket may not
-> > be
-> > +	 * pfmemalloc, and if this is a tcp packet then it'll get
-> > dropped and
-> > +	 * all traffic will halt.
-> > +	 */
-> > +	skb->pfmemalloc = false;
-> > +
-> I am not sure this is a proper fix.
 > 
-> Presumably if the socket was able to store packets in its write
-> queue,
-> fact that it sends it to loopback or an Ethernet link should not
-> matter.
+> Hi Simon
 > 
-> Only in RX path the pfmemalloc thing is really important.
+> Why is this needed ?
 > 
-> So I would rather not set skb->pfmemalloc for skbs allocated for the
-> write queue, and more exactly the fast clone.
-> 
-> This would actually speed up the stack a bit.
+> Any code added in flow dissector needs to be extra careful,
+> we had various packet of deaths errors recently in this area.
 
-The problem is we set skb->pfmemalloc a bunch of different places, such
-as __skb_fill_page_desc, which appears to be used in both the RX and TX
-path, so we can't just kill it there.  Do we want to go through and
-audit each one, provide a way for callers to indicate if we care about
-pfmemalloc and solve this problem that way?  I feel like that's more
-likely to bite us in the ass down the line, and somebody who doesn't
-know the context is going to come along and change it and regress us to
-the current situation.  The only place this is a problem is with
-loopback, and my change is contained to this one weird case.  Thanks,
+Hi Eric,
 
-Josef
+there some activity to allow programming of OvS flows in hardware via TC
+with the flower classifier. As the ND fields in this patch are part of the
+OvS flow key I would like them considered for additions to flower and thus
+the dissector to allow compatibility with OvS.
+
+I apologise if any 'deaths' have resulted from my recent work on the
+dissector. I am of course very open to ideas on how to avoid any future
+incidents.
