@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 12/12] net: mvpp2: enable building on 64-bit platforms
-Date: Thu,  2 Feb 2017 16:51:41 +0100
-Message-ID: <1486050701-27899-13-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 11/12] net: mvpp2: switch to build_skb() in the RX path
+Date: Thu,  2 Feb 2017 16:51:40 +0100
+Message-ID: <1486050701-27899-12-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: linux-arm-kernel@lists.infradead.org,
         Nadav Haklai <nadavh@marvell.com>,
@@ -17,152 +17,233 @@ Cc: linux-arm-kernel@lists.infradead.org,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:54845 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:54846 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752069AbdBBPyI (ORCPT
+        with ESMTP id S1752070AbdBBPyI (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:54:08 -0500
 In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvpp2 is going to be extended to support the Marvell Armada 7K/8K
-platform, which is ARM64. As a preparation to this work, this commit
-enables building the mvpp2 driver on ARM64, by:
+This commit adapts the mvpp2 RX path to use the build_skb() method. Not
+only build_skb() is now the recommended mechanism, but it also
+simplifies the addition of support for the PPv2.2 variant.
 
- - Adjusting the Kconfig dependency
+Indeed, without build_skb(), we have to keep track for each RX
+descriptor of the physical address of the packet buffer, and the virtual
+address of the SKB. However, in PPv2.2 running on 64 bits platform,
+there is not enough space in the descriptor to store the virtual address
+of the SKB. So having to take care only of the address of the packet
+buffer, and building the SKB upon reception helps in supporting PPv2.2.
 
- - Fixing the types used in the driver so that they are 32/64-bits
-   compliant. We use dma_addr_t for DMA addresses, and unsigned long
-   for virtual addresses.
+The implementation is fairly straightforward:
 
-It is worth mentioning that after this commit, the driver is for now
-still only used on 32-bits platforms, and will only work on 32-bits
-platforms.
+ - mvpp2_skb_alloc() is renamed to mvpp2_buf_alloc() and no longer
+   allocates a SKB. Instead, it allocates a buffer using the new
+   mvpp2_frag_alloc() function, with enough space for the data and SKB.
+
+ - The initialization of the RX buffers in mvpp2_bm_bufs_add() as well
+   as the refill of the RX buffers in mvpp2_rx_refill() is adjusted
+   accordingly.
+
+ - Finally, the mvpp2_rx() is modified to use build_skb().
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/Kconfig |  3 +--
- drivers/net/ethernet/marvell/mvpp2.c | 31 ++++++++++++++++++-------------
- 2 files changed, 19 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 77 +++++++++++++++++++++++++-----------
+ 1 file changed, 55 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index f4b7cf1..d2555e8b 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -83,9 +83,8 @@ config MVNETA_BM
- 
- config MVPP2
- 	tristate "Marvell Armada 375 network interface support"
--	depends on MACH_ARMADA_375 || COMPILE_TEST
-+	depends on ARCH_MVEBU || COMPILE_TEST
- 	depends on HAS_DMA
--	depends on !64BIT
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 4132dc8..a785e3c 100644
+index ec8f452..4132dc8 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3388,7 +3388,8 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
- 	if (!bm_pool->virt_addr)
- 		return -ENOMEM;
+@@ -918,6 +918,7 @@ struct mvpp2_bm_pool {
+ 	int buf_size;
+ 	/* Packet size */
+ 	int pkt_size;
++	int frag_size;
  
--	if (!IS_ALIGNED((u32)bm_pool->virt_addr, MVPP2_BM_POOL_PTR_ALIGN)) {
-+	if (!IS_ALIGNED((unsigned long)bm_pool->virt_addr,
-+			MVPP2_BM_POOL_PTR_ALIGN)) {
- 		dma_free_coherent(&pdev->dev, size_bytes, bm_pool->virt_addr,
- 				  bm_pool->phys_addr);
- 		dev_err(&pdev->dev, "BM pool %d is not %d bytes aligned\n",
-@@ -3433,7 +3434,7 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
- 
- 	for (i = 0; i < bm_pool->buf_num; i++) {
- 		dma_addr_t buf_phys_addr;
--		u32 vaddr;
-+		unsigned long vaddr;
- 
- 		/* Get buffer virtual address (indirect access) */
- 		buf_phys_addr = mvpp2_read(priv,
-@@ -3596,14 +3597,15 @@ static inline u32 mvpp2_bm_cookie_pool_set(u32 cookie, int pool)
+ 	/* BPPE virtual base address */
+ 	u32 *virt_addr;
+@@ -3354,6 +3355,22 @@ static void mvpp2_cls_oversize_rxq_set(struct mvpp2_port *port)
+ 	mvpp2_write(port->priv, MVPP2_CLS_SWFWD_PCTRL_REG, val);
  }
  
- /* Get pool number from a BM cookie */
--static inline int mvpp2_bm_cookie_pool_get(u32 cookie)
-+static inline int mvpp2_bm_cookie_pool_get(unsigned long cookie)
- {
- 	return (cookie >> MVPP2_BM_COOKIE_POOL_OFFS) & 0xFF;
++static void *mvpp2_frag_alloc(const struct mvpp2_bm_pool *pool)
++{
++	if (likely(pool->frag_size <= PAGE_SIZE))
++		return netdev_alloc_frag(pool->frag_size);
++	else
++		return kmalloc(pool->frag_size, GFP_ATOMIC);
++}
++
++static void mvpp2_frag_free(const struct mvpp2_bm_pool *pool, void *data)
++{
++	if (likely(pool->frag_size <= PAGE_SIZE))
++		skb_free_frag(data);
++	else
++		kfree(data);
++}
++
+ /* Buffer Manager configuration routines */
+ 
+ /* Create pool */
+@@ -3428,7 +3445,8 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
+ 
+ 		if (!vaddr)
+ 			break;
+-		dev_kfree_skb_any((struct sk_buff *)vaddr);
++
++		mvpp2_frag_free(bm_pool, (void *)vaddr);
+ 	}
+ 
+ 	/* Update BM driver with number of buffers removed from pool */
+@@ -3542,29 +3560,28 @@ static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
+ 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
  }
  
- /* Release buffer to BM */
- static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
--				     u32 buf_phys_addr, u32 buf_virt_addr)
-+				     dma_addr_t buf_phys_addr,
-+				     unsigned long buf_virt_addr)
+-/* Allocate skb for BM pool */
+-static struct sk_buff *mvpp2_skb_alloc(struct mvpp2_port *port,
+-				       struct mvpp2_bm_pool *bm_pool,
+-				       dma_addr_t *buf_phys_addr,
+-				       gfp_t gfp_mask)
++static void *mvpp2_buf_alloc(struct mvpp2_port *port,
++			     struct mvpp2_bm_pool *bm_pool,
++			     dma_addr_t *buf_phys_addr,
++			     gfp_t gfp_mask)
  {
- 	mvpp2_write(port->priv, MVPP2_BM_VIRT_RLS_REG, buf_virt_addr);
- 	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_phys_addr);
-@@ -3611,7 +3613,8 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
+-	struct sk_buff *skb;
+ 	dma_addr_t phys_addr;
++	void *data;
  
- /* Release multicast buffer */
- static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
--				 u32 buf_phys_addr, u32 buf_virt_addr,
-+				 dma_addr_t buf_phys_addr,
-+				 unsigned long buf_virt_addr,
- 				 int mc_id)
+-	skb = __dev_alloc_skb(bm_pool->pkt_size, gfp_mask);
+-	if (!skb)
++	data = mvpp2_frag_alloc(bm_pool);
++	if (!data)
+ 		return NULL;
+ 
+-	phys_addr = dma_map_single(port->dev->dev.parent, skb->head,
++	phys_addr = dma_map_single(port->dev->dev.parent, data,
+ 				   MVPP2_RX_BUF_SIZE(bm_pool->pkt_size),
+ 				    DMA_FROM_DEVICE);
+ 	if (unlikely(dma_mapping_error(port->dev->dev.parent, phys_addr))) {
+-		dev_kfree_skb_any(skb);
++		mvpp2_frag_free(bm_pool, data);
+ 		return NULL;
+ 	}
+ 	*buf_phys_addr = phys_addr;
+ 
+-	return skb;
++	return data;
+ }
+ 
+ /* Set pool number in a BM cookie */
+@@ -3620,9 +3637,9 @@ static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
+ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 			     struct mvpp2_bm_pool *bm_pool, int buf_num)
  {
- 	u32 val = 0;
-@@ -3626,7 +3629,8 @@ static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
+-	struct sk_buff *skb;
+ 	int i, buf_size, total_size;
+ 	dma_addr_t phys_addr;
++	void *buf;
  
- /* Refill BM pool */
- static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
--			      u32 phys_addr, u32 cookie)
-+			      dma_addr_t phys_addr,
-+			      unsigned long cookie)
- {
- 	int pool = mvpp2_bm_cookie_pool_get(bm);
+ 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
+ 	total_size = MVPP2_RX_TOTAL_SIZE(buf_size);
+@@ -3636,11 +3653,11 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 	}
  
-@@ -3657,7 +3661,8 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 		if (!buf)
+ 	for (i = 0; i < buf_num; i++) {
+-		skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
+-		if (!skb)
++		buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
++		if (!buf)
  			break;
  
--		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)buf);
-+		mvpp2_bm_pool_put(port, bm_pool->id, phys_addr,
-+				  (unsigned long)buf);
+-		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)skb);
++		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)buf);
  	}
  
  	/* Update BM driver with number of buffers added to pool */
-@@ -5032,7 +5037,7 @@ static int mvpp2_rx_refill(struct mvpp2_port *port,
- 	if (!buf)
+@@ -3696,6 +3713,9 @@ mvpp2_bm_pool_use(struct mvpp2_port *port, int pool, enum mvpp2_bm_type type,
+ 					   port->priv, new_pool);
+ 
+ 		new_pool->pkt_size = pkt_size;
++		new_pool->frag_size =
++			SKB_DATA_ALIGN(MVPP2_RX_BUF_SIZE(pkt_size)) +
++			MVPP2_SKB_SHINFO_SIZE;
+ 
+ 		/* Allocate buffers for this pool */
+ 		num = mvpp2_bm_bufs_add(port, new_pool, pkts_num);
+@@ -5004,15 +5024,15 @@ static void mvpp2_rx_csum(struct mvpp2_port *port, u32 status,
+ static int mvpp2_rx_refill(struct mvpp2_port *port,
+ 			   struct mvpp2_bm_pool *bm_pool, u32 bm)
+ {
+-	struct sk_buff *skb;
+ 	dma_addr_t phys_addr;
++	void *buf;
+ 
+ 	/* No recycle or too many buffers are in use, so allocate a new skb */
+-	skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
+-	if (!skb)
++	buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
++	if (!buf)
  		return -ENOMEM;
  
--	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)buf);
-+	mvpp2_pool_refill(port, bm, phys_addr, (unsigned long)buf);
+-	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
++	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)buf);
  
  	return 0;
  }
-@@ -5074,10 +5079,10 @@ static void mvpp2_buff_hdr_rx(struct mvpp2_port *port,
- 	struct mvpp2_buff_hdr *buff_hdr;
- 	struct sk_buff *skb;
- 	u32 rx_status = rx_desc->status;
--	u32 buff_phys_addr;
--	u32 buff_virt_addr;
--	u32 buff_phys_addr_next;
--	u32 buff_virt_addr_next;
-+	dma_addr_t buff_phys_addr;
-+	unsigned long buff_virt_addr;
-+	dma_addr_t buff_phys_addr_next;
-+	unsigned long buff_virt_addr_next;
- 	int mc_id;
- 	int pool_id;
+@@ -5104,14 +5124,17 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		struct mvpp2_rx_desc *rx_desc = mvpp2_rxq_next_desc_get(rxq);
+ 		struct mvpp2_bm_pool *bm_pool;
+ 		struct sk_buff *skb;
++		unsigned int frag_size;
+ 		dma_addr_t phys_addr;
+ 		u32 bm, rx_status;
+ 		int pool, rx_bytes, err;
++		void *data;
  
-@@ -5134,7 +5139,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		rx_done++;
  		rx_status = rx_desc->status;
  		rx_bytes = rx_desc->data_size - MVPP2_MH_SIZE;
  		phys_addr = rx_desc->buf_phys_addr;
--		data = (void *)rx_desc->buf_cookie;
-+		data = (void *)(uintptr_t)rx_desc->buf_cookie;
++		data = (void *)rx_desc->buf_cookie;
  
  		bm = mvpp2_bm_cookie_build(rx_desc);
  		pool = mvpp2_bm_cookie_pool_get(bm);
+@@ -5132,12 +5155,22 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 			dev->stats.rx_errors++;
+ 			mvpp2_rx_error(port, rx_desc);
+ 			/* Return the buffer to the pool */
++
+ 			mvpp2_pool_refill(port, bm, rx_desc->buf_phys_addr,
+ 					  rx_desc->buf_cookie);
+ 			continue;
+ 		}
+ 
+-		skb = (struct sk_buff *)rx_desc->buf_cookie;
++		if (bm_pool->frag_size > PAGE_SIZE)
++			frag_size = 0;
++		else
++			frag_size = bm_pool->frag_size;
++
++		skb = build_skb(data, frag_size);
++		if (!skb) {
++			netdev_warn(port->dev, "skb build failed\n");
++			goto err_drop_frame;
++		}
+ 
+ 		err = mvpp2_rx_refill(port, bm_pool, bm);
+ 		if (err) {
+@@ -5151,7 +5184,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		rcvd_pkts++;
+ 		rcvd_bytes += rx_bytes;
+ 
+-		skb_reserve(skb, MVPP2_MH_SIZE);
++		skb_reserve(skb, MVPP2_MH_SIZE + NET_SKB_PAD);
+ 		skb_put(skb, rx_bytes);
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 		mvpp2_rx_csum(port, rx_status, skb);
 -- 
 2.7.4
