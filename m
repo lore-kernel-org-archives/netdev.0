@@ -1,8 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv3 net-next 04/12] net: mvpp2: release reference to txq_cpu[]
- entry after unmapping
-Date: Thu,  2 Feb 2017 16:51:33 +0100
-Message-ID: <1486050701-27899-5-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv3 net-next 02/12] net: mvpp2: handle too large value handling
+ in mvpp2_rx_pkts_coal_set()
+Date: Thu,  2 Feb 2017 16:51:31 +0100
+Message-ID: <1486050701-27899-3-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,44 +30,40 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-The mvpp2_txq_bufs_free() function is called upon TX completion to DMA
-unmap TX buffers, and free the corresponding SKBs. It gets the
-references to the SKB to free and the DMA buffer to unmap from a per-CPU
-txq_pcpu data structure.
+Currently, mvpp2_rx_pkts_coal_set() does the following to avoid setting
+a too large value for the RX coalescing by packet number:
 
-However, the code currently increments the pointer to the next entry
-before doing the DMA unmap and freeing the SKB. It does not cause any
-visible problem because for a given SKB the TX completion is guaranteed
-to take place on the CPU where the TX was started. However, it is much
-more logical to increment the pointer to the next entry once the current
-entry has been completely unmapped/released.
+  val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
+
+This means that if you set a value that is slightly higher the the
+maximum number of packets, you in fact get a very low value. It makes a
+lot more sense to simply check if the value is too high, and if it's too
+high, limit it to the maximum possible value.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index d938996..30aaff8 100644
+index 7613c4f..3fd5a9f 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4437,13 +4437,12 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
- 		struct mvpp2_txq_pcpu_buf *tx_buf =
- 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
+@@ -4381,11 +4381,12 @@ static void mvpp2_txp_max_tx_size_set(struct mvpp2_port *port)
+ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
+ 				   struct mvpp2_rx_queue *rxq)
+ {
+-	u32 val;
++	if (rxq->pkts_coal > MVPP2_OCCUPIED_THRESH_MASK)
++		rxq->pkts_coal = MVPP2_OCCUPIED_THRESH_MASK;
  
--		mvpp2_txq_inc_get(txq_pcpu);
--
- 		dma_unmap_single(port->dev->dev.parent, tx_buf->phys,
- 				 tx_buf->size, DMA_TO_DEVICE);
--		if (!tx_buf->skb)
--			continue;
--		dev_kfree_skb_any(tx_buf->skb);
-+		if (tx_buf->skb)
-+			dev_kfree_skb_any(tx_buf->skb);
-+
-+		mvpp2_txq_inc_get(txq_pcpu);
- 	}
+-	val = (rxq->pkts_coal & MVPP2_OCCUPIED_THRESH_MASK);
+ 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
+-	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, val);
++	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG,
++		    rxq->pkts_coal);
  }
  
+ /* Set the time delay in usec before Rx interrupt */
 -- 
 2.7.4
