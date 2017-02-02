@@ -1,232 +1,411 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 07/12] bnxt_en: Centralize logic to reserve rings.
-Date: Thu,  2 Feb 2017 11:55:35 -0500
-Message-ID: <1486054540-366-8-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 11/12] bnxt_en: Add basic XDP support.
+Date: Thu,  2 Feb 2017 11:55:39 -0500
+Message-ID: <1486054540-366-12-git-send-email-michael.chan@broadcom.com>
 References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:34927 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752119AbdBBQ4D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:56:03 -0500
-Received: by mail-pg0-f54.google.com with SMTP id 194so7099374pgd.2
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 08:56:02 -0800 (PST)
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33014 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751811AbdBBQ4M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:56:12 -0500
+Received: by mail-pf0-f174.google.com with SMTP id y143so6519069pfb.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 08:56:06 -0800 (PST)
 In-Reply-To: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, bnxt_setup_tc() and bnxt_set_channels() have similar and
-duplicated code to check and reserve rx and tx rings.  Add a new
-function bnxt_reserve_rings() to centralize the logic.  This will
-make it easier to add XDP_TX support which requires allocating a
-new set of TX rings.
+Add basic ndo_xdp support to setup and query program, configure the NIC
+to run in rx page mode, and support XDP_PASS, XDP_DROP, XDP_ABORTED
+actions only.  Use Kconfig option to enable XDP support.
 
-Also, the tx ring checking logic in bnxt_setup_msix() can be removed.
-The rings have been reserved before hand.
+v2: Added trace_xdp_exception()
+    Added dma_syncs.
+    Added XDP headroom support.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Tested-by: Andy Gospodarek <gospo@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 68 ++++++++++++++---------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 39 +++----------
- 3 files changed, 52 insertions(+), 57 deletions(-)
+ drivers/net/ethernet/broadcom/Kconfig         |   8 ++
+ drivers/net/ethernet/broadcom/bnxt/Makefile   |   2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     |  33 +++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h     |   9 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 157 ++++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h |  27 +++++
+ 6 files changed, 229 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
 
+diff --git a/drivers/net/ethernet/broadcom/Kconfig b/drivers/net/ethernet/broadcom/Kconfig
+index 940fb24..ca543a4 100644
+--- a/drivers/net/ethernet/broadcom/Kconfig
++++ b/drivers/net/ethernet/broadcom/Kconfig
+@@ -213,4 +213,12 @@ config BNXT_DCB
+ 
+ 	  If unsure, say N.
+ 
++config BNXT_XDP
++	bool "Xpress Data Path (XDP) driver support"
++	default n
++	depends on BNXT && BPF
++	---help---
++	  Say Y here if you want to enable XDP in the driver to support
++	  eBPF programs in the fast path.
++
+ endif # NET_VENDOR_BROADCOM
+diff --git a/drivers/net/ethernet/broadcom/bnxt/Makefile b/drivers/net/ethernet/broadcom/bnxt/Makefile
+index 6082ed1..a7ca45b 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/Makefile
++++ b/drivers/net/ethernet/broadcom/bnxt/Makefile
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_BNXT) += bnxt_en.o
+ 
+-bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o
++bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o bnxt_xdp.o
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index ef42c32..91fc72d 100644
+index ff651a0..4613702 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4209,7 +4209,7 @@ int __bnxt_hwrm_get_tx_rings(struct bnxt *bp, u16 fid, int *tx_rings)
- 	return rc;
+@@ -33,6 +33,7 @@
+ #include <linux/if.h>
+ #include <linux/if_vlan.h>
+ #include <linux/rtc.h>
++#include <linux/bpf.h>
+ #include <net/ip.h>
+ #include <net/tcp.h>
+ #include <net/udp.h>
+@@ -53,6 +54,7 @@
+ #include "bnxt_sriov.h"
+ #include "bnxt_ethtool.h"
+ #include "bnxt_dcb.h"
++#include "bnxt_xdp.h"
+ 
+ #define BNXT_TX_TIMEOUT		(5 * HZ)
+ 
+@@ -642,8 +644,7 @@ static inline int bnxt_alloc_rx_data(struct bnxt *bp,
+ 	return 0;
  }
  
--int bnxt_hwrm_reserve_tx_rings(struct bnxt *bp, int *tx_rings)
-+static int bnxt_hwrm_reserve_tx_rings(struct bnxt *bp, int *tx_rings)
+-static void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons,
+-			       void *data)
++void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons, void *data)
  {
- 	struct hwrm_func_cfg_input req = {0};
- 	int rc;
-@@ -5002,19 +5002,12 @@ static void bnxt_setup_msix(struct bnxt *bp)
+ 	u16 prod = rxr->rx_prod;
+ 	struct bnxt_sw_rx_bd *cons_rx_buf, *prod_rx_buf;
+@@ -1475,6 +1476,11 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ 	len = le32_to_cpu(rxcmp->rx_cmp_len_flags_type) >> RX_CMP_LEN_SHIFT;
+ 	dma_addr = rx_buf->mapping;
  
- 	tcs = netdev_get_num_tc(dev);
- 	if (tcs > 1) {
--		bp->tx_nr_rings_per_tc = bp->tx_nr_rings / tcs;
--		if (bp->tx_nr_rings_per_tc == 0) {
--			netdev_reset_tc(dev);
--			bp->tx_nr_rings_per_tc = bp->tx_nr_rings;
--		} else {
--			int i, off, count;
-+		int i, off, count;
++	if (bnxt_rx_xdp(bp, rxr, cons, data, len, event)) {
++		rc = 1;
++		goto next_rx;
++	}
++
+ 	if (len <= bp->rx_copy_thresh) {
+ 		skb = bnxt_copy_skb(bnapi, data_ptr, len, dma_addr);
+ 		bnxt_reuse_rx_data(rxr, cons, data);
+@@ -2077,6 +2083,9 @@ static void bnxt_free_rx_rings(struct bnxt *bp)
+ 		struct bnxt_rx_ring_info *rxr = &bp->rx_ring[i];
+ 		struct bnxt_ring_struct *ring;
  
--			bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
--			for (i = 0; i < tcs; i++) {
--				count = bp->tx_nr_rings_per_tc;
--				off = i * count;
--				netdev_set_tc_queue(dev, i, count, off);
--			}
-+		for (i = 0; i < tcs; i++) {
-+			count = bp->tx_nr_rings_per_tc;
-+			off = i * count;
-+			netdev_set_tc_queue(dev, i, count, off);
- 		}
- 	}
++		if (rxr->xdp_prog)
++			bpf_prog_put(rxr->xdp_prog);
++
+ 		kfree(rxr->rx_tpa);
+ 		rxr->rx_tpa = NULL;
  
-@@ -6576,6 +6569,37 @@ static void bnxt_sp_task(struct work_struct *work)
- 	clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
+@@ -2364,6 +2373,15 @@ static int bnxt_init_one_rx_ring(struct bnxt *bp, int ring_nr)
+ 	ring = &rxr->rx_ring_struct;
+ 	bnxt_init_rxbd_pages(ring, type);
+ 
++	if (BNXT_RX_PAGE_MODE(bp) && bp->xdp_prog) {
++		rxr->xdp_prog = bpf_prog_add(bp->xdp_prog, 1);
++		if (IS_ERR(rxr->xdp_prog)) {
++			int rc = PTR_ERR(rxr->xdp_prog);
++
++			rxr->xdp_prog = NULL;
++			return rc;
++		}
++	}
+ 	prod = rxr->rx_prod;
+ 	for (i = 0; i < bp->rx_ring_size; i++) {
+ 		if (bnxt_alloc_rx_data(bp, rxr, prod, GFP_KERNEL) != 0) {
+@@ -2427,8 +2445,8 @@ static int bnxt_init_rx_rings(struct bnxt *bp)
+ 	int i, rc = 0;
+ 
+ 	if (BNXT_RX_PAGE_MODE(bp)) {
+-		bp->rx_offset = NET_IP_ALIGN;
+-		bp->rx_dma_offset = 0;
++		bp->rx_offset = NET_IP_ALIGN + XDP_PACKET_HEADROOM;
++		bp->rx_dma_offset = XDP_PACKET_HEADROOM;
+ 	} else {
+ 		bp->rx_offset = BNXT_RX_OFFSET;
+ 		bp->rx_dma_offset = BNXT_RX_DMA_OFFSET;
+@@ -2557,7 +2575,7 @@ static int bnxt_calc_nr_ring_pages(u32 ring_size, int desc_per_pg)
+ 	return pages;
  }
  
-+/* Under rtnl_lock */
-+int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs)
+-static void bnxt_set_tpa_flags(struct bnxt *bp)
++void bnxt_set_tpa_flags(struct bnxt *bp)
+ {
+ 	bp->flags &= ~BNXT_FLAG_TPA;
+ 	if (bp->flags & BNXT_FLAG_NO_AGG_RINGS)
+@@ -7104,6 +7122,9 @@ static void bnxt_udp_tunnel_del(struct net_device *dev,
+ #endif
+ 	.ndo_udp_tunnel_add	= bnxt_udp_tunnel_add,
+ 	.ndo_udp_tunnel_del	= bnxt_udp_tunnel_del,
++#ifdef CONFIG_BNXT_XDP
++	.ndo_xdp		= bnxt_xdp,
++#endif
+ };
+ 
+ static void bnxt_remove_one(struct pci_dev *pdev)
+@@ -7128,6 +7149,8 @@ static void bnxt_remove_one(struct pci_dev *pdev)
+ 	pci_iounmap(pdev, bp->bar0);
+ 	kfree(bp->edev);
+ 	bp->edev = NULL;
++	if (bp->xdp_prog)
++		bpf_prog_put(bp->xdp_prog);
+ 	free_netdev(dev);
+ 
+ 	pci_release_regions(pdev);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 6bf9444..db9d5d9 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -418,7 +418,8 @@ struct rx_tpa_end_cmp_ext {
+ 
+ #define BNXT_MAX_MTU		9500
+ #define BNXT_MAX_PAGE_MODE_MTU	\
+-	((unsigned int)PAGE_SIZE - VLAN_ETH_HLEN - NET_IP_ALIGN)
++	((unsigned int)PAGE_SIZE - VLAN_ETH_HLEN - NET_IP_ALIGN -	\
++	 XDP_PACKET_HEADROOM)
+ 
+ #define BNXT_MIN_PKT_SIZE	52
+ 
+@@ -621,6 +622,8 @@ struct bnxt_rx_ring_info {
+ 	void __iomem		*rx_doorbell;
+ 	void __iomem		*rx_agg_doorbell;
+ 
++	struct bpf_prog		*xdp_prog;
++
+ 	struct rx_bd		*rx_desc_ring[MAX_RX_PAGES];
+ 	struct bnxt_sw_rx_bd	*rx_buf_ring;
+ 
+@@ -1170,6 +1173,8 @@ struct bnxt {
+ 
+ 	u8			num_leds;
+ 	struct bnxt_led_info	leds[BNXT_MAX_LED];
++
++	struct bpf_prog		*xdp_prog;
+ };
+ 
+ #define BNXT_RX_STATS_OFFSET(counter)			\
+@@ -1189,6 +1194,8 @@ struct bnxt {
+ #define SFF_MODULE_ID_QSFP28			0x11
+ #define BNXT_MAX_PHY_I2C_RESP_SIZE		64
+ 
++void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons, void *data);
++void bnxt_set_tpa_flags(struct bnxt *bp);
+ void bnxt_set_ring_params(struct bnxt *);
+ int bnxt_set_rx_skb_mode(struct bnxt *bp, bool page_mode);
+ void bnxt_hwrm_cmd_hdr_init(struct bnxt *, void *, u16, u16, u16);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+new file mode 100644
+index 0000000..50315d7
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+@@ -0,0 +1,157 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2016-2017 Broadcom Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/if_vlan.h>
++#include <linux/bpf.h>
++#include <linux/bpf_trace.h>
++#include <linux/filter.h>
++#include "bnxt_hsi.h"
++#include "bnxt.h"
++#include "bnxt_xdp.h"
++
++#ifdef CONFIG_BNXT_XDP
++/* returns the following:
++ * true    - packet consumed by XDP and new buffer is allocated.
++ * false   - packet should be passed to the stack.
++ */
++bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
++		 struct page *page, unsigned int len, u8 *event)
 +{
-+	int max_rx, max_tx, tx_sets = 1;
-+	int tx_rings_needed;
-+	bool sh = true;
-+	int rc;
++	struct bpf_prog *xdp_prog = READ_ONCE(rxr->xdp_prog);
++	struct bnxt_sw_rx_bd *cons_rx_buf;
++	struct pci_dev *pdev = bp->pdev;
++	u32 offset = bp->rx_offset;
++	struct xdp_buff xdp;
++	dma_addr_t mapping;
++	void *orig_data;
++	u32 act;
 +
-+	if (!(bp->flags & BNXT_FLAG_SHARED_RINGS))
-+		sh = false;
++	if (!xdp_prog)
++		return false;
 +
-+	if (tcs)
-+		tx_sets = tcs;
++	cons_rx_buf = &rxr->rx_buf_ring[cons];
 +
-+	rc = bnxt_get_max_rings(bp, &max_rx, &max_tx, sh);
-+	if (rc)
++	xdp.data_hard_start = cons_rx_buf->data_ptr - bp->rx_offset;
++	xdp.data = cons_rx_buf->data_ptr;
++	xdp.data_end = xdp.data + len;
++	orig_data = xdp.data;
++	mapping = cons_rx_buf->mapping - bp->rx_dma_offset;
++
++	dma_sync_single_for_cpu(&pdev->dev, mapping + offset, len, bp->rx_dir);
++
++	rcu_read_lock();
++	act = bpf_prog_run_xdp(xdp_prog, &xdp);
++	rcu_read_unlock();
++
++	if (orig_data != xdp.data) {
++		offset = xdp.data - xdp.data_hard_start;
++		len = xdp.data_end - xdp.data;
++	}
++	switch (act) {
++	case XDP_PASS:
++		return false;
++
++	default:
++		bpf_warn_invalid_xdp_action(act);
++		/* Fall thru */
++	case XDP_ABORTED:
++		trace_xdp_exception(bp->dev, xdp_prog, act);
++		/* Fall thru */
++	case XDP_DROP:
++		bnxt_reuse_rx_data(rxr, cons, page);
++		break;
++	}
++	return true;
++}
++
++/* Under rtnl_lock */
++static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
++{
++	struct net_device *dev = bp->dev;
++	int tx_xdp = 0, rc, tc;
++	struct bpf_prog *old;
++
++	if (prog && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
++		netdev_err(dev, "MTU %d larger than largest XDP supported MTU %d.\n",
++			   bp->dev->mtu, BNXT_MAX_PAGE_MODE_MTU);
++		return -EOPNOTSUPP;
++	}
++	if (!(bp->flags & BNXT_FLAG_SHARED_RINGS)) {
++		netdev_err(dev, "ethtool rx/tx channels must be combined to support XDP.\n");
++		return -EOPNOTSUPP;
++	}
++	if (prog)
++		tx_xdp = bp->rx_nr_rings;
++
++	tc = netdev_get_num_tc(dev);
++	if (!tc)
++		tc = 1;
++	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc, bp->rx_nr_rings,
++				tc, tx_xdp);
++	if (rc) {
++		netdev_err(dev, "Unable to reserve enough TX rings to support XDP.\n");
 +		return rc;
++	}
++	if (netif_running(dev))
++		bnxt_close_nic(bp, true, false);
 +
-+	if (max_rx < rx)
-+		return -ENOMEM;
++	old = xchg(&bp->xdp_prog, prog);
++	if (old)
++		bpf_prog_put(old);
 +
-+	tx_rings_needed = tx * tx_sets;
-+	if (max_tx < tx_rings_needed)
-+		return -ENOMEM;
++	if (prog) {
++		bnxt_set_rx_skb_mode(bp, true);
++	} else {
++		bool sh = (bp->flags & BNXT_FLAG_SHARED_RINGS) ? true : false;
++		int rx, tx;
 +
-+	if (bnxt_hwrm_reserve_tx_rings(bp, &tx_rings_needed) ||
-+	    tx_rings_needed < (tx * tx_sets))
-+		return -ENOMEM;
++		bnxt_set_rx_skb_mode(bp, false);
++		bnxt_get_max_rings(bp, &rx, &tx, sh);
++		if (rx > 1) {
++			bp->flags &= ~BNXT_FLAG_NO_AGG_RINGS;
++			bp->dev->hw_features |= NETIF_F_LRO;
++		}
++	}
++	bp->tx_nr_rings_xdp = tx_xdp;
++	bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tc + tx_xdp;
++	bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
++	bp->num_stat_ctxs = bp->cp_nr_rings;
++	bnxt_set_tpa_flags(bp);
++	bnxt_set_ring_params(bp);
++
++	if (netif_running(dev))
++		return bnxt_open_nic(bp, true, false);
++
 +	return 0;
 +}
 +
- static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
- {
- 	int rc;
-@@ -6738,6 +6762,7 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
- {
- 	struct bnxt *bp = netdev_priv(dev);
- 	bool sh = false;
++int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp)
++{
++	struct bnxt *bp = netdev_priv(dev);
 +	int rc;
- 
- 	if (tc > bp->max_tc) {
- 		netdev_err(dev, "too many traffic classes requested: %d Max supported is %d\n",
-@@ -6751,19 +6776,10 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
- 	if (bp->flags & BNXT_FLAG_SHARED_RINGS)
- 		sh = true;
- 
--	if (tc) {
--		int max_rx_rings, max_tx_rings, req_tx_rings, rsv_tx_rings, rc;
--
--		req_tx_rings = bp->tx_nr_rings_per_tc * tc;
--		rc = bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings, sh);
--		if (rc || req_tx_rings > max_tx_rings)
--			return -ENOMEM;
--
--		rsv_tx_rings = req_tx_rings;
--		if (bnxt_hwrm_reserve_tx_rings(bp, &rsv_tx_rings) ||
--		    rsv_tx_rings < req_tx_rings)
--			return -ENOMEM;
--	}
-+	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc,
-+				bp->rx_nr_rings, tc);
-+	if (rc)
-+		return rc;
- 
- 	/* Needs to close the device and do hw resource re-allocations */
- 	if (netif_running(bp->dev))
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 630e26a..e1d9056 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1188,7 +1188,6 @@ int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
- 				     int bmap_size);
- int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id);
- int __bnxt_hwrm_get_tx_rings(struct bnxt *bp, u16 fid, int *tx_rings);
--int bnxt_hwrm_reserve_tx_rings(struct bnxt *bp, int *tx_rings);
- int bnxt_hwrm_set_coal(struct bnxt *);
- unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp);
- void bnxt_set_max_func_stat_ctxs(struct bnxt *bp, unsigned int max);
-@@ -1202,6 +1201,7 @@ int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
- int bnxt_hwrm_fw_set_time(struct bnxt *);
- int bnxt_open_nic(struct bnxt *, bool, bool);
- int bnxt_close_nic(struct bnxt *, bool, bool);
-+int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs);
- int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
- int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
- void bnxt_restore_pf_fw_resources(struct bnxt *bp);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 24818e1..6f2568d 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -387,10 +387,9 @@ static int bnxt_set_channels(struct net_device *dev,
- 			     struct ethtool_channels *channel)
- {
- 	struct bnxt *bp = netdev_priv(dev);
--	int max_rx_rings, max_tx_rings, tcs;
--	int req_tx_rings, rsv_tx_rings;
--	u32 rc = 0;
-+	int req_tx_rings, req_rx_rings, tcs;
- 	bool sh = false;
-+	int rc = 0;
- 
- 	if (channel->other_count)
- 		return -EINVAL;
-@@ -410,32 +409,14 @@ static int bnxt_set_channels(struct net_device *dev,
- 	if (channel->combined_count)
- 		sh = true;
- 
--	bnxt_get_max_rings(bp, &max_rx_rings, &max_tx_rings, sh);
--
- 	tcs = netdev_get_num_tc(dev);
--	if (tcs > 1)
--		max_tx_rings /= tcs;
--
--	if (sh &&
--	    channel->combined_count > max_t(int, max_rx_rings, max_tx_rings))
--		return -ENOMEM;
--
--	if (!sh && (channel->rx_count > max_rx_rings ||
--		    channel->tx_count > max_tx_rings))
--		return -ENOMEM;
- 
- 	req_tx_rings = sh ? channel->combined_count : channel->tx_count;
--	req_tx_rings = min_t(int, req_tx_rings, max_tx_rings);
--	if (tcs > 1)
--		req_tx_rings *= tcs;
--
--	rsv_tx_rings = req_tx_rings;
--	if (bnxt_hwrm_reserve_tx_rings(bp, &rsv_tx_rings))
--		return -ENOMEM;
--
--	if (rsv_tx_rings < req_tx_rings) {
--		netdev_warn(dev, "Unable to allocate the requested tx rings\n");
--		return -ENOMEM;
-+	req_rx_rings = sh ? channel->combined_count : channel->rx_count;
-+	rc = bnxt_reserve_rings(bp, req_tx_rings, req_rx_rings, tcs);
-+	if (rc) {
-+		netdev_warn(dev, "Unable to allocate the requested rings\n");
-+		return rc;
- 	}
- 
- 	if (netif_running(dev)) {
-@@ -454,10 +435,8 @@ static int bnxt_set_channels(struct net_device *dev,
- 
- 	if (sh) {
- 		bp->flags |= BNXT_FLAG_SHARED_RINGS;
--		bp->rx_nr_rings = min_t(int, channel->combined_count,
--					max_rx_rings);
--		bp->tx_nr_rings_per_tc = min_t(int, channel->combined_count,
--					       max_tx_rings);
-+		bp->rx_nr_rings = channel->combined_count;
-+		bp->tx_nr_rings_per_tc = channel->combined_count;
- 	} else {
- 		bp->flags &= ~BNXT_FLAG_SHARED_RINGS;
- 		bp->rx_nr_rings = channel->rx_count;
++
++	switch (xdp->command) {
++	case XDP_SETUP_PROG:
++		rc = bnxt_xdp_set(bp, xdp->prog);
++		break;
++	case XDP_QUERY_PROG:
++		xdp->prog_attached = !!bp->xdp_prog;
++		rc = 0;
++		break;
++	default:
++		rc = -EINVAL;
++		break;
++	}
++	return rc;
++}
++#endif
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
+new file mode 100644
+index 0000000..85c01cc
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
+@@ -0,0 +1,27 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2016-2017 Broadcom Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++
++#ifndef BNXT_XDP_H
++#define BNXT_XDP_H
++
++#ifdef CONFIG_BNXT_XDP
++bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
++		 struct page *page, unsigned int len, u8 *event);
++
++int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp);
++
++#else
++static inline bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
++			       u16 cons, struct page *page, unsigned int len,
++			       u8 *event)
++{
++	return false;
++}
++#endif
++#endif
 -- 
 1.8.3.1
