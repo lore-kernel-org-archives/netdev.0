@@ -1,167 +1,162 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 09/12] bnxt_en: Add a set of TX rings to support XDP.
-Date: Thu,  2 Feb 2017 11:55:37 -0500
-Message-ID: <1486054540-366-10-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 06/12] bnxt_en: Use event bit map in RX path.
+Date: Thu,  2 Feb 2017 11:55:34 -0500
+Message-ID: <1486054540-366-7-git-send-email-michael.chan@broadcom.com>
 References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33832 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751811AbdBBQ4P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:56:15 -0500
-Received: by mail-pf0-f176.google.com with SMTP id e4so6480557pfg.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 08:56:14 -0800 (PST)
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:36133 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752099AbdBBQ4C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 11:56:02 -0500
+Received: by mail-pg0-f41.google.com with SMTP id 3so7077731pgj.3
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 08:56:01 -0800 (PST)
 In-Reply-To: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add logic for an extra set of TX rings for XDP.  If enabled, this
-set of TX rings equals the number of RX rings and shares the same
-IRQ as the RX ring set.  A new field bp->tx_nr_rings_xdp is added
-to keep track of these TX XDP rings.  Adjust all other relevant functions
-to handle bp->tx_nr_rings_xdp.
+In the current code, we have separate rx_event and agg_event parameters
+to keep track of rx and aggregation events.  Combine these events into
+an u8 event mask with different bits defined for different events.  This
+way, it is easier to expand the logic to include XDP tx events.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 21 +++++++++++++--------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  3 ++-
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 16 ++++++++++++----
- 3 files changed, 27 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 28 +++++++++++++---------------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  3 +++
+ 2 files changed, 16 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 5d402e957..0292bea 100644
+index 61f041b..ef42c32 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -2215,6 +2215,8 @@ static int bnxt_alloc_tx_rings(struct bnxt *bp)
- 			memset(txr->tx_push, 0, sizeof(struct tx_push_bd));
- 		}
- 		ring->queue_id = bp->q_info[j].queue_id;
-+		if (i < bp->tx_nr_rings_xdp)
-+			continue;
- 		if (i % bp->tx_nr_rings_per_tc == (bp->tx_nr_rings_per_tc - 1))
- 			j++;
- 	}
-@@ -3039,8 +3041,10 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
- 		for (i = 0; i < bp->tx_nr_rings; i++, j++) {
- 			bp->tx_ring[i].bnapi = bp->bnapi[j];
- 			bp->bnapi[j]->tx_ring = &bp->tx_ring[i];
--			bp->tx_ring_map[i] = i;
--			bp->tx_ring[i].txq_index = i;
-+			bp->tx_ring_map[i] = bp->tx_nr_rings_xdp + i;
-+			if (i >= bp->tx_nr_rings_xdp)
-+				bp->tx_ring[i].txq_index = i -
-+					bp->tx_nr_rings_xdp;
- 		}
- 
- 		rc = bnxt_alloc_stats(bp);
-@@ -4963,7 +4967,8 @@ static int bnxt_set_real_num_queues(struct bnxt *bp)
- 	int rc;
- 	struct net_device *dev = bp->dev;
- 
--	rc = netif_set_real_num_tx_queues(dev, bp->tx_nr_rings);
-+	rc = netif_set_real_num_tx_queues(dev, bp->tx_nr_rings -
-+					  bp->tx_nr_rings_xdp);
- 	if (rc)
- 		return rc;
- 
-@@ -6579,7 +6584,7 @@ static void bnxt_sp_task(struct work_struct *work)
- }
- 
- /* Under rtnl_lock */
--int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs)
-+int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs, int tx_xdp)
+@@ -1264,7 +1264,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+ 					   u32 *raw_cons,
+ 					   struct rx_tpa_end_cmp *tpa_end,
+ 					   struct rx_tpa_end_cmp_ext *tpa_end1,
+-					   bool *agg_event)
++					   u8 *event)
  {
- 	int max_rx, max_tx, tx_sets = 1;
- 	int tx_rings_needed;
-@@ -6599,12 +6604,12 @@ int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs)
- 	if (max_rx < rx)
- 		return -ENOMEM;
+ 	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
+ 	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
+@@ -1299,7 +1299,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+ 		if (!bnxt_agg_bufs_valid(bp, cpr, agg_bufs, raw_cons))
+ 			return ERR_PTR(-EBUSY);
  
--	tx_rings_needed = tx * tx_sets;
-+	tx_rings_needed = tx * tx_sets + tx_xdp;
- 	if (max_tx < tx_rings_needed)
- 		return -ENOMEM;
+-		*agg_event = true;
++		*event |= BNXT_AGG_EVENT;
+ 		cp_cons = NEXT_CMP(cp_cons);
+ 	}
  
- 	if (bnxt_hwrm_reserve_tx_rings(bp, &tx_rings_needed) ||
--	    tx_rings_needed < (tx * tx_sets))
-+	    tx_rings_needed < (tx * tx_sets + tx_xdp))
- 		return -ENOMEM;
- 	return 0;
- }
-@@ -6785,8 +6790,8 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
- 	if (bp->flags & BNXT_FLAG_SHARED_RINGS)
- 		sh = true;
+@@ -1385,7 +1385,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+  * -EIO    - packet aborted due to hw error indicated in BD
+  */
+ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+-		       bool *agg_event)
++		       u8 *event)
+ {
+ 	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
+ 	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
+@@ -1426,8 +1426,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ 	} else if (cmp_type == CMP_TYPE_RX_L2_TPA_END_CMP) {
+ 		skb = bnxt_tpa_end(bp, bnapi, &tmp_raw_cons,
+ 				   (struct rx_tpa_end_cmp *)rxcmp,
+-				   (struct rx_tpa_end_cmp_ext *)rxcmp1,
+-				   agg_event);
++				   (struct rx_tpa_end_cmp_ext *)rxcmp1, event);
  
--	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc,
--				bp->rx_nr_rings, tc);
-+	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc, bp->rx_nr_rings,
-+				tc, bp->tx_nr_rings_xdp);
- 	if (rc)
- 		return rc;
+ 		if (unlikely(IS_ERR(skb)))
+ 			return -EBUSY;
+@@ -1461,7 +1460,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ 			return -EBUSY;
  
+ 		cp_cons = NEXT_CMP(cp_cons);
+-		*agg_event = true;
++		*event |= BNXT_AGG_EVENT;
+ 	}
+ 
+ 	rx_buf->data = NULL;
+@@ -1714,8 +1713,7 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 	u32 cons;
+ 	int tx_pkts = 0;
+ 	int rx_pkts = 0;
+-	bool rx_event = false;
+-	bool agg_event = false;
++	u8 event = 0;
+ 	struct tx_cmp *txcmp;
+ 
+ 	while (1) {
+@@ -1737,12 +1735,12 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 			if (unlikely(tx_pkts > bp->tx_wake_thresh))
+ 				rx_pkts = budget;
+ 		} else if ((TX_CMP_TYPE(txcmp) & 0x30) == 0x10) {
+-			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
++			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
+ 			if (likely(rc >= 0))
+ 				rx_pkts += rc;
+ 			else if (rc == -EBUSY)	/* partial completion */
+ 				break;
+-			rx_event = true;
++			event |= BNXT_RX_EVENT;
+ 		} else if (unlikely((TX_CMP_TYPE(txcmp) ==
+ 				     CMPL_BASE_TYPE_HWRM_DONE) ||
+ 				    (TX_CMP_TYPE(txcmp) ==
+@@ -1767,12 +1765,12 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 	if (tx_pkts)
+ 		bnxt_tx_int(bp, bnapi, tx_pkts);
+ 
+-	if (rx_event) {
++	if (event & BNXT_RX_EVENT) {
+ 		struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
+ 
+ 		writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+ 		writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+-		if (agg_event) {
++		if (event & BNXT_AGG_EVENT) {
+ 			writel(DB_KEY_RX | rxr->rx_agg_prod,
+ 			       rxr->rx_agg_doorbell);
+ 			writel(DB_KEY_RX | rxr->rx_agg_prod,
+@@ -1793,7 +1791,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
+ 	u32 cp_cons, tmp_raw_cons;
+ 	u32 raw_cons = cpr->cp_raw_cons;
+ 	u32 rx_pkts = 0;
+-	bool agg_event = false;
++	u8 event = 0;
+ 
+ 	while (1) {
+ 		int rc;
+@@ -1817,7 +1815,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
+ 			rxcmp1->rx_cmp_cfa_code_errors_v2 |=
+ 				cpu_to_le32(RX_CMPL_ERRORS_CRC_ERROR);
+ 
+-			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
++			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
+ 			if (likely(rc == -EIO))
+ 				rx_pkts++;
+ 			else if (rc == -EBUSY)	/* partial completion */
+@@ -1840,7 +1838,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
+ 	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+ 	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+ 
+-	if (agg_event) {
++	if (event & BNXT_AGG_EVENT) {
+ 		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
+ 		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
+ 	}
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 0a7f045..9bc908f 100644
+index f5a9516..630e26a 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1026,6 +1026,7 @@ struct bnxt {
- 	int			tx_nr_pages;
- 	int			tx_nr_rings;
- 	int			tx_nr_rings_per_tc;
-+	int			tx_nr_rings_xdp;
+@@ -511,6 +511,9 @@ struct rx_tpa_end_cmp_ext {
+ #define BNXT_HWRM_REQS_PER_PAGE		(BNXT_PAGE_SIZE /	\
+ 					 BNXT_HWRM_REQ_MAX_SIZE)
  
- 	int			tx_wake_thresh;
- 	int			tx_push_thresh;
-@@ -1203,7 +1204,7 @@ int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
- int bnxt_hwrm_fw_set_time(struct bnxt *);
- int bnxt_open_nic(struct bnxt *, bool, bool);
- int bnxt_close_nic(struct bnxt *, bool, bool);
--int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs);
-+int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, int tcs, int tx_xdp);
- int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
- int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
- void bnxt_restore_pf_fw_resources(struct bnxt *bp);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 6f2568d..7aa248d 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -389,6 +389,7 @@ static int bnxt_set_channels(struct net_device *dev,
- 	struct bnxt *bp = netdev_priv(dev);
- 	int req_tx_rings, req_rx_rings, tcs;
- 	bool sh = false;
-+	int tx_xdp = 0;
- 	int rc = 0;
- 
- 	if (channel->other_count)
-@@ -413,7 +414,14 @@ static int bnxt_set_channels(struct net_device *dev,
- 
- 	req_tx_rings = sh ? channel->combined_count : channel->tx_count;
- 	req_rx_rings = sh ? channel->combined_count : channel->rx_count;
--	rc = bnxt_reserve_rings(bp, req_tx_rings, req_rx_rings, tcs);
-+	if (bp->tx_nr_rings_xdp) {
-+		if (!sh) {
-+			netdev_err(dev, "Only combined mode supported when XDP is enabled.\n");
-+			return -EINVAL;
-+		}
-+		tx_xdp = req_rx_rings;
-+	}
-+	rc = bnxt_reserve_rings(bp, req_tx_rings, req_rx_rings, tcs, tx_xdp);
- 	if (rc) {
- 		netdev_warn(dev, "Unable to allocate the requested rings\n");
- 		return rc;
-@@ -442,10 +450,10 @@ static int bnxt_set_channels(struct net_device *dev,
- 		bp->rx_nr_rings = channel->rx_count;
- 		bp->tx_nr_rings_per_tc = channel->tx_count;
- 	}
--
--	bp->tx_nr_rings = bp->tx_nr_rings_per_tc;
-+	bp->tx_nr_rings_xdp = tx_xdp;
-+	bp->tx_nr_rings = bp->tx_nr_rings_per_tc + tx_xdp;
- 	if (tcs > 1)
--		bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs;
-+		bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tcs + tx_xdp;
- 
- 	bp->cp_nr_rings = sh ? max_t(int, bp->tx_nr_rings, bp->rx_nr_rings) :
- 			       bp->tx_nr_rings + bp->rx_nr_rings;
++#define BNXT_RX_EVENT	1
++#define BNXT_AGG_EVENT	2
++
+ struct bnxt_sw_tx_bd {
+ 	struct sk_buff		*skb;
+ 	DEFINE_DMA_UNMAP_ADDR(mapping);
 -- 
 1.8.3.1
