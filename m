@@ -1,70 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [patch net-next 16/19] lib: Introduce priority array area
- manager
-Date: Thu, 02 Feb 2017 14:51:10 -0800
-Message-ID: <1486075870.22276.43.camel@perches.com>
-References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
-         <1486048379-19237-17-git-send-email-jiri@resnulli.us>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next v2 01/12] bnxt_en: Refactor rx SKB function.
+Date: Thu, 2 Feb 2017 14:56:55 -0800
+Message-ID: <20170202145655.6b1ae712@cakuba.netronome.com>
+References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
+        <1486054540-366-2-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
-        ivecera@redhat.com, jbenc@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0018.hostedemail.com ([216.40.44.18]:51861 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751726AbdBBWvS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 17:51:18 -0500
-In-Reply-To: <1486048379-19237-17-git-send-email-jiri@resnulli.us>
+Received: from mx4.wp.pl ([212.77.101.12]:43305 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751500AbdBBW5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 17:57:14 -0500
+In-Reply-To: <1486054540-366-2-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-02 at 16:12 +0100, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> This introduces a infrastructure for management of linear priority
-> areas. Priority order in an array matters, however order of items inside
-> a priority group does not matter.
-> 
-> As an initial implementation, L-sort algorithm is used. It is quite
-> trivial. More advanced algorithm called P-sort will be introduced as a
-> follow-up. The infrastructure is prepared for other algos.
-> 
-> Alongside this, a testing module is introduced as well.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  MAINTAINERS            |   8 +
->  include/linux/parman.h |  76 ++++++++++
-[]
-> diff --git a/MAINTAINERS b/MAINTAINERS
-[]
-> @@ -9375,6 +9375,14 @@ F:	drivers/video/fbdev/sti*
->  F:	drivers/video/console/sti*
->  F:	drivers/video/logo/logo_parisc*
+On Thu,  2 Feb 2017 11:55:29 -0500, Michael Chan wrote:
+> @@ -755,8 +757,8 @@ static void bnxt_reuse_rx_agg_bufs(struct bnxt_napi *bnapi, u16 cp_cons,
 >  
-> +PARMAN
-
-This is not particularly descriptive.
-Perhaps expand the section header a little like:
-
-PARMAN - Linear priority array areas manager
-
-> diff --git a/include/linux/parman.h b/include/linux/parman.h
-[]
-> @@ -0,0 +1,76 @@
-> +/*
-> + * include/linux/parman.h - Manager for linear priority array areas
-[]
-> diff --git a/lib/Kconfig b/lib/Kconfig
-[]
-> @@ -550,4 +550,7 @@ config STACKDEPOT
->  config SBITMAP
->  	bool
+>  static struct sk_buff *bnxt_rx_skb(struct bnxt *bp,
+>  				   struct bnxt_rx_ring_info *rxr, u16 cons,
+> -				   u16 prod, u8 *data, dma_addr_t dma_addr,
+> -				   unsigned int len)
+> +				   u16 prod, void *data, dma_addr_t dma_addr,
+> +				   unsigned int offset_and_len)
+>  {
+>  	int err;
+>  	struct sk_buff *skb;
+> @@ -776,7 +778,7 @@ static struct sk_buff *bnxt_rx_skb(struct bnxt *bp,
+>  	}
 >  
-> +config PARMAN
-> +	tristate "parman"
+>  	skb_reserve(skb, BNXT_RX_OFFSET);
+> -	skb_put(skb, len);
+> +	skb_put(skb, offset_and_len & 0xffff);
+>  	return skb;
+>  }
+>  
 
-help section?  Why should this be selected?
+Sorry to be a pain but I still don't understand (a) why you make this
+change in the first patch if it's only needed from patch 5 on; (b) why
+do you encode the two parameters in a single u32?  It's the seventh
+parameter so it's going on the stack anyway, no?
