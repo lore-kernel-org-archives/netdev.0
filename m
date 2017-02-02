@@ -1,72 +1,45 @@
-From: Lukasz Majewski <lukma-ynQEQJNshbs@public.gmane.org>
-Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the
- DP83867 TI's PHY driver
-Date: Thu, 2 Feb 2017 16:22:12 +0100
-Message-ID: <20170202162212.4d479fa5@jawa>
-References: <1485960215-5148-1-git-send-email-lukma@denx.de>
-        <20170201171610.GC7395@lunn.ch>
-        <2f3766f0-42df-6aab-dda1-14022c57fb30@gmail.com>
-        <20170201220500.29d478aa@jawa>
-        <20170201211440.GG7395@lunn.ch>
-        <20170201231323.732dd327@jawa>
-        <20170202015416.GG4967@lunn.ch>
-        <20170202101739.67e7e6b3@jawa>
-        <20170202131112.GI4967@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Karicheri Muralidharan <m-karicheri2-l0cyMroinI0@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
-        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170202131112.GI4967-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] man: ip-route.8: Fix 'expires' indenting
+Date: Thu,  2 Feb 2017 16:22:56 +0100
+Message-ID: <20170202152256.25191-1-phil@nwl.cc>
+Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58795 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751147AbdBBPXC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 10:23:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2 Feb 2017 14:11:12 +0100
-Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
+Descriptions of each route sub-command's arguments are enclosed in
+.RS/.RE pairs. For 'replace' sub-command, '.RE' was incorrectly put
+before the last argument ('expires').
 
-> > The bootstrapping process in the PHY sets this bit. This is wrong
-> > since the board lane layout is not "swapped"
->  
-> Ah, you mean a strapping pin? Resistor to ground/VCC?
+Fixes: 3fbe7ca847367 ("iproute2: ip-route.8.in: Add expires option for ip route")
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ man/man8/ip-route.8.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Yes, exactly.
-
-> That is a different matter. It makes it a lot less likely to break
-> some existing board with such a change.
-> 
-> > I have thought a bit about that and I think that we should define
-> > complementary "net-phy-lane-no-swap" as suggested by Florian. Then
-> > affected boards could define it and use.
-> 
-> This is the most flexible solution. Yes, that is O.K. for me.
-
-Ok. thanks.
-
-> 
->      Andrew
-
-
-
-
-Best regards,
-
-Lukasz Majewski
-
---
-
-DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd-ynQEQJNshbs@public.gmane.org
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 85191531b688c..d6e06649a4640 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -704,13 +704,13 @@ is a set of encapsulation attributes specific to the
+ .sp
+ 
+ .in -8
+-.RE
+ 
+ .TP
+ .BI expires " TIME " "(4.4+ only)"
+ the route will be deleted after the expires time.
+ .B Only
+ support IPv6 at present.
++.RE
+ 
+ .TP
+ ip route delete
+-- 
+2.11.0
