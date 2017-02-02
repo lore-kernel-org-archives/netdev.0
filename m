@@ -1,69 +1,28 @@
-From: "Grandhi, Sainath" <sainath.grandhi@intel.com>
-Subject: RE: [PATCHv3 5/7] tap: Extending tap device create/destroy APIs
-Date: Thu, 2 Feb 2017 23:22:48 +0000
-Message-ID: <2C5142675EC1274EAB6230F72F8DC95F28CAC487@ORSMSX113.amr.corp.intel.com>
-References: <1485803522-16564-1-git-send-email-sainath.grandhi@intel.com>
-        <1485803522-16564-6-git-send-email-sainath.grandhi@intel.com>
- <20170131.125112.287960842388784953.davem@davemloft.net>
+From: Silviana Olander <cobranzas@bertonati.cl>
+Subject: Hello Forgive My Intrusion From Silvia.
+Date: Thu, 2 Feb 2017 20:16:42 -0300 (CLST)
+Message-ID: <456561371.239158.1486077402723.JavaMail.zimbra@bertonati.cl>
+Reply-To: Silviana Eva Olander <independentm63@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "mahesh@bandewar.net" <mahesh@bandewar.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170131.125112.287960842388784953.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 106.211.196.190.orbyta.com.in-addr.arpa ([190.196.211.106]:38281
+        "EHLO mail.bertonati.cl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S1751595AbdBBXYf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 18:24:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, January 31, 2017 9:51 AM
-> To: Grandhi, Sainath <sainath.grandhi@intel.com>
-> Cc: netdev@vger.kernel.org; mahesh@bandewar.net; linux-
-> kernel@vger.kernel.org
-> Subject: Re: [PATCHv3 5/7] tap: Extending tap device create/destroy APIs
-> 
-> From: Sainath Grandhi <sainath.grandhi@intel.com>
-> Date: Mon, 30 Jan 2017 11:12:00 -0800
-> 
-> > +	list_for_each_entry_safe(tap_major, tmp, &major_list, next) {
-> > +		if (tap_major->major == major) {
-> > +			return tap_major;
-> > +		}
-> > +	}
-> 
-> Single line basic blocks, such as this 'if' statement, should not be surrounded
-> by curly braces.
-> 
-> Also I see not mutual exclusion being implemented to protect this list.  If there
-> is, it is not obvious, so it should be documented with a comment explaining
-> what protects the list.
-Ok. It's my fault to not include safe reading of the list.
-I would use the RCU API for list traversal, adding and deleting entries.
-Please look for it in my next version.
-
-> 
-> > @@ -1175,14 +1228,7 @@ int tap_create_cdev(struct cdev *tap_cdev,
-> >  	if (err)
-> >  		goto out2;
-> >
-> > -	macvtap_major.major = MAJOR(*tap_major);
-> > -
-> > -	idr_init(&macvtap_major.minor_idr);
-> > -	mutex_init(&macvtap_major.minor_lock);
-> > -
-> > -	macvtap_major.device_name = device_name;
-> > -
-> > -	return err;
-> > +	return tap_list_add(*tap_major, device_name);
-> >
-> >  out2:
-> >  	unregister_chrdev_region(*tap_major, TAP_NUM_DEVS);
-> 
-> If tap_list_add() fails, you will leave the chrdev region registered.
-Thanks. Would take care of it.
+Hello Friend,
+ 
+I'm Silviana Olander and I'm Swede. I found your email contact while surfing the Internet. I don't think you have a clue but my reason for writing you is to seek your friendship! Just being adventurous and decided to use this letter as a resource tool to get your attention.As a matter of fact, I've been wanting to try this a while now to chat, to ask you things, to comment on trivial matters or even to talk a bit about each other. But I've been clueless on how to go about it. Maybe you find it strange that I'm using something as cold as this means to reach you. But this is the best I can do for now.
+ 
+In short: the purpose of this letter is just to ask you if you want to be my friend. And if you agree, just say yes and we can take it on from there.
+ 
+I look forward to hear hearing from you.
+ 
+Yours Silvia.
