@@ -1,96 +1,90 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v2] ethtool: do not vzalloc(0) on registers dump
-Date: Thu, 2 Feb 2017 09:27:18 -0500
-Message-ID: <20170202142717.GA22745@tuxdriver.com>
-References: <1486038730-9469-1-git-send-email-sgruszka@redhat.com>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: [PATCH net-next v2 1/6] gtp: make GTP sockets in gtp_newlink
+ optional
+Date: Thu, 2 Feb 2017 15:30:51 +0100 (CET)
+Message-ID: <1114368875.730626.1486045851291.JavaMail.zimbra@tpip.net>
+References: <20170130163713.17524-1-aschultz@tpip.net> <20170130163713.17524-2-aschultz@tpip.net> <20170202141011.GB23901@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, laforge <laforge@gnumonks.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc <openbsc@lists.osmocom.org>
+To: pablo <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53439 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751734AbdBBOaa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 09:30:30 -0500
-Content-Disposition: inline
-In-Reply-To: <1486038730-9469-1-git-send-email-sgruszka@redhat.com>
+Received: from mail.tpip.net ([92.43.49.48]:42519 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751645AbdBBOax (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Feb 2017 09:30:53 -0500
+In-Reply-To: <20170202141011.GB23901@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 02, 2017 at 01:32:10PM +0100, Stanislaw Gruszka wrote:
-> If ->get_regs_len() callback return 0, we allocate 0 bytes of memory,
-> what print ugly warning in dmesg, which can be found further below.
-> 
-> This happen on mac80211 devices where ieee80211_get_regs_len() just
-> return 0 and driver only fills ethtool_regs structure and actually
-> do not provide any dump. However I assume this can happen on other
-> drivers i.e. when for some devices driver provide regs dump and for
-> others do not. Hence preventing to to print warning in ethtool code
-> seems to be reasonable.
-> 
-> ethtool: vmalloc: allocation failure: 0 bytes, mode:0x24080c2(GFP_KERNEL|__GFP_HIGHMEM|__GFP_ZERO)
-> <snip>
-> Call Trace:
-> [<ffffffff813bde47>] dump_stack+0x63/0x8c
-> [<ffffffff811b0a1f>] warn_alloc+0x13f/0x170
-> [<ffffffff811f0476>] __vmalloc_node_range+0x1e6/0x2c0
-> [<ffffffff811f0874>] vzalloc+0x54/0x60
-> [<ffffffff8169986c>] dev_ethtool+0xb4c/0x1b30
-> [<ffffffff816adbb1>] dev_ioctl+0x181/0x520
-> [<ffffffff816714d2>] sock_do_ioctl+0x42/0x50
-> <snip>
-> Mem-Info:
-> active_anon:435809 inactive_anon:173951 isolated_anon:0
->  active_file:835822 inactive_file:196932 isolated_file:0
->  unevictable:0 dirty:8 writeback:0 unstable:0
->  slab_reclaimable:157732 slab_unreclaimable:10022
->  mapped:83042 shmem:306356 pagetables:9507 bounce:0
->  free:130041 free_pcp:1080 free_cma:0
-> Node 0 active_anon:1743236kB inactive_anon:695804kB active_file:3343288kB inactive_file:787728kB unevictable:0kB isolated(anon):0kB isolated(file):0kB mapped:332168kB dirty:32kB writeback:0kB shmem:0kB shmem_thp: 0kB shmem_pmdmapped: 0kB anon_thp: 1225424kB writeback_tmp:0kB unstable:0kB pages_scanned:0 all_unreclaimable? no
-> Node 0 DMA free:15900kB min:136kB low:168kB high:200kB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:0kB writepending:0kB present:15984kB managed:15900kB mlocked:0kB slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:0kB pagetables:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
-> lowmem_reserve[]: 0 3187 7643 7643
-> Node 0 DMA32 free:419732kB min:28124kB low:35152kB high:42180kB active_anon:541180kB inactive_anon:248988kB active_file:1466388kB inactive_file:389632kB unevictable:0kB writepending:0kB present:3370280kB managed:3290932kB mlocked:0kB slab_reclaimable:217184kB slab_unreclaimable:4180kB kernel_stack:160kB pagetables:984kB bounce:0kB free_pcp:2236kB local_pcp:660kB free_cma:0kB
-> lowmem_reserve[]: 0 0 4456 4456
-> 
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
-> v1 -> v2: nullify regbuf to avoid using uninitialized variable in line:
->           if (regbuf && copy_to_user(useraddr, regbuf, regs.len))
-> 
->  net/core/ethtool.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 6b3eee0..4b6dc9b 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1405,9 +1405,12 @@ static int ethtool_get_regs(struct net_device *dev, char __user *useraddr)
->  	if (regs.len > reglen)
->  		regs.len = reglen;
->  
-> -	regbuf = vzalloc(reglen);
-> -	if (reglen && !regbuf)
-> -		return -ENOMEM;
-> +	regbuf = NULL;
 
-Any reason to prefer this over changing the declaration to include
-the assignment?
 
-	void *regbuf = NULL;
+----- On Feb 2, 2017, at 3:10 PM, pablo pablo@netfilter.org wrote:
 
-> +	if (reglen) {
-> +		regbuf = vzalloc(reglen);
-> +		if (!regbuf)
-> +			return -ENOMEM;
-> +	}
->  
->  	ops->get_regs(dev, &regs, regbuf);
->  
-> -- 
-> 1.8.3.1
+> On Mon, Jan 30, 2017 at 05:37:08PM +0100, Andreas Schultz wrote:
+>> Having both GTPv0-U and GTPv1-U is not always desirable.
+>> Fallback from GTPv1-U to GTPv0-U was depreciated from 3GPP
+>> Rel-8 onwards. Post Rel-8 implementation are discuraged
+>> from listening on the v0 port (see 3GPP TS 29.281, Sect. 1).
+>> 
+>> A future change will completely decouple the sockets from the
+>> network device. Till then, at least one of the sockets needs to
+>> be specified (either v0 or v1), the other is optional.
+>> 
+>> Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+>> ---
+>>  drivers/net/gtp.c | 142 +++++++++++++++++++++++++++++-------------------------
+>>  1 file changed, 76 insertions(+), 66 deletions(-)
+>> 
+>> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+>> index bda0c64..18944f4 100644
+>> --- a/drivers/net/gtp.c
+>> +++ b/drivers/net/gtp.c
+>> @@ -259,28 +259,30 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp,
+>> struct sk_buff *skb,
+>>  	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
+>>  }
+>>  
+>> -static void gtp_encap_disable(struct gtp_dev *gtp)
+>> -{
+>> -	if (gtp->sock0 && gtp->sock0->sk) {
+>> -		udp_sk(gtp->sock0->sk)->encap_type = 0;
+>> -		rcu_assign_sk_user_data(gtp->sock0->sk, NULL);
+>> -	}
+>> -	if (gtp->sock1u && gtp->sock1u->sk) {
+>> -		udp_sk(gtp->sock1u->sk)->encap_type = 0;
+>> -		rcu_assign_sk_user_data(gtp->sock1u->sk, NULL);
+>> -	}
+>> -
+>> -	gtp->sock0 = NULL;
+>> -	gtp->sock1u = NULL;
+>> -}
+>> -
+>>  static void gtp_encap_destroy(struct sock *sk)
+>>  {
+>>  	struct gtp_dev *gtp;
+>>  
+>>  	gtp = rcu_dereference_sk_user_data(sk);
+>> -	if (gtp)
+>> -		gtp_encap_disable(gtp);
+>> +	if (gtp) {
+>> +		udp_sk(sk)->encap_type = 0;
+>> +		rcu_assign_sk_user_data(sk, NULL);
+>> +	}
+>> +}
+>> +
+>> +static void gtp_encap_disable_sock(struct socket *sock)
 > 
+> Nitpick: Please, use sk for consistency:
+> 
+>        static void gtp_encap_disable_sock(struct socket *sk)
 > 
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Throughout the net subsystem 'struct socket` is always using sock
+for variable names and 'struct sock' is using sk. I have been
+following that convention, but can change to sk if you really want.
+
+Andreas
