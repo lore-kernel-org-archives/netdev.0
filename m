@@ -1,54 +1,45 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: fix verifier issue at check_packet_ptr_add
-Date: Fri, 03 Feb 2017 00:46:37 +0100
-Message-ID: <5893C4DD.9000701@iogearbox.net>
-References: <1486065553-5074-1-git-send-email-u9012063@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com
-To: William Tu <u9012063@gmail.com>
+From: Joel Cunningham <joel.cunningham@me.com>
+Subject: Understanding mutual exclusion between rtnl_lock and rcu_read_lock
+Date: Thu, 02 Feb 2017 17:47:23 -0600
+Message-ID: <FEDE3C6F-2C5C-4BCE-829F-C8E177C2AA36@me.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60498 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751508AbdBBXqj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 18:46:39 -0500
-In-Reply-To: <1486065553-5074-1-git-send-email-u9012063@gmail.com>
+Received: from pv38p43im-ztdg05071201.me.com ([17.133.183.8]:43917 "EHLO
+        pv38p43im-ztdg05071201.me.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751595AbdBBXr0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 18:47:26 -0500
+Received: from process-dkim-sign-daemon.pv38p43im-ztdg05071201.me.com by
+ pv38p43im-ztdg05071201.me.com
+ (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
+ id <0OKR00N00U03H900@pv38p43im-ztdg05071201.me.com> for
+ netdev@vger.kernel.org; Thu, 02 Feb 2017 23:47:25 +0000 (GMT)
+Received: from icloud.com ([127.0.0.1]) by pv38p43im-ztdg05071201.me.com
+ (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
+ with ESMTPSA id <0OKR003AIU2ZE840@pv38p43im-ztdg05071201.me.com> for
+ netdev@vger.kernel.org; Thu, 02 Feb 2017 23:47:25 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/02/2017 08:59 PM, William Tu wrote:
-> When adding a zero value to the packet pointer, the verifer
-> reports the following error:
->
-> R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=4) R2=pkt_end R3=fp-12 R4=imm4,min_value=4,max_value=4 R5=pkt(id=0,off=4,r=4) R6=ctx R7=imm0,min_value=0,max_value=0 R8=inv,min_value=0,max_value=0 R9=inv R10=fp
-> 269: (bf) r2 = r0
-> 270: (77) r2 >>= 3
-> 271: (bf) r4 = r1
-> 272: (0f) r4 += r2
-> addition of negative constant to packet pointer is not allowed
+Hi,
 
-How do we get here? I mean compiler is not optimizing this away
-as the reg is populated differently from various branches? Could
-you elaborate more on that resp. how we end up with this? Thanks!
+I=E2=80=99m studying the synchronization used on different parts of =
+struct net_device and I=E2=80=99m struggling to understand how structure =
+member modifications in dev_ioctl are synchronized.  Getters in =
+dev_ifsioc_locked() are only holding rcu_read_lock() while setters in =
+dev_ifsioc() are holding rtnl_lock, but not using RCU APIs.  I was =
+specifically looking at SIOCGIFHWADDR/SIOCSIFHWADDR.  What=E2=80=99s to =
+prevent one CPU from executing a getter and another CPU from executing a =
+setter resulting in possibly a torn read/write?  I didn=E2=80=99t see =
+anything in rtnl_lock() that would wait for any rcu_reader_lock() =
+critical sections (on other CPUs) to finish before acquiring the mutex.
 
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->   kernel/bpf/verifier.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index fb3513b..1a754e5 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -1397,7 +1397,7 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
->   		imm = insn->imm;
->
->   add_imm:
-> -		if (imm <= 0) {
-> +		if (imm < 0) {
->   			verbose("addition of negative constant to packet pointer is not allowed\n");
->   			return -EACCES;
->   		}
->
+Is there something about dev_ioctl that prevents parallel execution? or =
+maybe something I still don=E2=80=99t understand about the RCU =
+implementation?
+
+Thanks,
+
+Joel=
