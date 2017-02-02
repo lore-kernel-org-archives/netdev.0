@@ -1,246 +1,132 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: use a work queue to defer net_disable_timestamp()
- work
-Date: Thu, 02 Feb 2017 10:31:35 -0800
-Message-ID: <1486060295.21871.19.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+bpmwj1WH7g6inQBm+7PvHepv9tTmYBUqkJYFvquGDYCQ@mail.gmail.com>
-         <1485560124.6360.74.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpVvBPhP4q=Egsaoqf8ym-73jLZow8xDMbOq9RhYmL5XAQ@mail.gmail.com>
-         <1485567090.6360.92.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpXiQMH1zMJM6sYFNUySUYjaHnLZ3T2d34GwCMQ9u6RkwQ@mail.gmail.com>
-         <1485877498.6360.115.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpWnJbN=65D8PAxe7B_kBf7+Ay2M59T8brF0aXkfEbgnPg@mail.gmail.com>
-         <1485983770.6360.158.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpWSpgNnEOn+euZAMEmdQCfDVcgk9EO=k5-kVEkB+EJrpg@mail.gmail.com>
-         <CANn89iJb55jCppc9J=vL9n=7ofr1LSz3d+nKNo4W-BJeoH0m3A@mail.gmail.com>
-         <1485993583.6360.172.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpUVma3R7wGJ8T8FWyCpU9joiGM+8LSPMcV2xpJLiRD-pw@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
+Date: Thu, 2 Feb 2017 10:36:31 -0800
+Message-ID: <CALx6S37QtKgc14DFway-Ajme7JhbAN71M+83w28+4FELdv7Xew@mail.gmail.com>
+References: <1486031855-10551-1-git-send-email-simon.horman@netronome.com>
+ <1486031855-10551-2-git-send-email-simon.horman@netronome.com>
+ <1486038693.13103.20.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170202155849.GA28482@penelope.horms.nl> <CALx6S37b00GfUBQ5imVfOhg2Rbp_GtDntkwqyj3cN8kzt6gG0w@mail.gmail.com>
+ <20170202174803.GF1845@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Simon Horman <simon.horman@netronome.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
         David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35006 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751201AbdBBSbh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 13:31:37 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 204so2474506pge.2
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 10:31:37 -0800 (PST)
-In-Reply-To: <CAM_iQpUVma3R7wGJ8T8FWyCpU9joiGM+8LSPMcV2xpJLiRD-pw@mail.gmail.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:33811 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751979AbdBBSgd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 13:36:33 -0500
+Received: by mail-qt0-f196.google.com with SMTP id w20so5761394qtb.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 10:36:32 -0800 (PST)
+In-Reply-To: <20170202174803.GF1845@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Feb 2, 2017 at 9:48 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, Feb 02, 2017 at 06:24:40PM CET, tom@herbertland.com wrote:
+>>On Thu, Feb 2, 2017 at 7:58 AM, Simon Horman <simon.horman@netronome.com> wrote:
+>>> [Repost due to gmail account problem]
+>>>
+>>> On Thu, Feb 02, 2017 at 04:31:33AM -0800, Eric Dumazet wrote:
+>>>> On Thu, 2017-02-02 at 11:37 +0100, Simon Horman wrote:
+>>>> > Allow dissection of Neighbour Discovery target IP, and source and
+>>>> > destination link-layer addresses for neighbour solicitation and
+>>>> > advertisement messages.
+>>>> >
+>>>> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>>>> > ---
+>>>>
+>>>> Hi Simon
+>>>>
+>>>> Why is this needed ?
+>>>>
+>>>> Any code added in flow dissector needs to be extra careful,
+>>>> we had various packet of deaths errors recently in this area.
+>>>
+>>> Hi Eric,
+>>>
+>>> there some activity to allow programming of OvS flows in hardware via TC
+>>> with the flower classifier. As the ND fields in this patch are part of the
+>>> OvS flow key I would like them considered for additions to flower and thus
+>>> the dissector to allow compatibility with OvS.
+>>>
+>>Given that ARP is already there it seems only "fair" to have ND also.
+>>But Eric is correct, this is quite a sensitive area of code.
+>>
+>>> I apologise if any 'deaths' have resulted from my recent work on the
+>>> dissector. I am of course very open to ideas on how to avoid any future
+>>> incidents.
+>>
+>>That's a tough problem. flow_dissector started off as simple mechanism
+>>to just identify actual flows (really just TCP and UDP packets) for
+>>the purposes of packet steering. But given the benefits of its
+>>location low in the stack and the open ended capabilities for parsing
+>>it seems to have mushroomed into a general catchall to parse a whole
+>>bunch of different protocols. A lot of these go beyond simply
+>>identifying flows (ICMP parsing, ARP, or ND as in your patches). These
+>>new use cases may be valid, but the result is a convoluted function (>
+>>500 LOC by my count) and it seems to be quite easy to have subtle bugs
+>>mostly in edge cases, several of which could have been exploited in
+>>DDOS attacks.
+>
+> Agreed that we probably came to a point when we need to split
+> __skb_flow_dissect into modular and pluggable pieces. Will not be
+> trivial though.
+>
+> Also note that it depends on the __skb_flow_dissect user which code is
+> actually used or not. For the critical path, that keys are defined by:
+> flow_keys_dissector_keys
+>
+True, but the code doesn't separate out the critical path from all
+these extended features which is resulted in a jumbled mess with no
+modularity to speak of :-(
 
-Dmitry reported a warning [1] showing that we were calling 
-net_disable_timestamp() -> static_key_slow_dec() from a non
-process context.
+> Most of the code Simon is adding is noop for non-flower usecase if:
+> dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ND) == false
+>
+Sure, but that just makes this code corner cases which means it's hard
+to maintain and harder to find bugs in the long run.
 
-Grabbing a mutex while holding a spinlock or rcu_read_lock()
-is not allowed.
+>
+>>
+>>At some point we need to stop adding new protocols to parse in
+>>__skb_flow_dissect and push the processing back into the protocol
+>>modules with a callout interface from flow_dissector (for instance if
+>>we ever want VXLAN parsing in flow dissector this is the only
+>>reasonable way to do it). That moves the complexity but doesn't solve
+>>the problem of buggy code in this critical path. An alternative might
+>>be to put a cap on flow_dissector and add a hook to BPF program to
+>
+> Loks like BPF is becoming an answer for everything these days :O
+>
+In this case it makes sense though, we can't just continue accepting
+every poor little narrow use-case protocol that comes along into the
+kernel :-)
 
-As Cong suggested, we now use a work queue.
+>
+>>allow parsing of new protocols. This has the advantage of providing an
+>>constrained interface that could eliminate possibility of some types
+>>of bugs we've seen. Also, this allows adding support for "user"
+>>protocols that the kernel might not even know about (QUIC comes to
+>>mind).
+>
+> Not sure it is wise to make life easier for the proprietary
+> out-of-tree beasts...
 
-It is possible netstamp_clear() exits while netstamp_needed_deferred
-is not zero, but it is probably not worth trying to do better than that.
+It's going to be a problem with a whole host of application level
+protocols especially those run over UDP. QUIC is a great example. The
+actual protocol will probably only ever run in userspace, but it is
+inevitable that we want to provide targeted kernel support for packet
+steering. filtering, GRO/GSO if they have such things. Instead of
+implementing this in a specialized QUIC module, it will most likely
+make everyone happier to add these in a generic protocol-agnostic way.
+>From QUIC POV they want to minimize any dependencies on the kernel and
+be able to iterate quickly, from a kernel POV we really don't want to
+have to explicitly support an endless stream of protocols like this.
 
-netstamp_needed_deferred atomic tracks the exact number of deferred
-decrements.
-
-[1]
-[ INFO: suspicious RCU usage. ]
-4.10.0-rc5+ #192 Not tainted
--------------------------------
-./include/linux/rcupdate.h:561 Illegal context switch in RCU read-side
-critical section!
-
-other info that might help us debug this:
-
-rcu_scheduler_active = 2, debug_locks = 0
-2 locks held by syz-executor14/23111:
- #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>] lock_sock
-include/net/sock.h:1454 [inline]
- #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff83a35c35>]
-rawv6_sendmsg+0x1e65/0x3ec0 net/ipv6/raw.c:919
- #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>] nf_hook
-include/linux/netfilter.h:201 [inline]
- #1:  (rcu_read_lock){......}, at: [<ffffffff83ae2678>]
-__ip6_local_out+0x258/0x840 net/ipv6/output_core.c:160
-
-stack backtrace:
-CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
- lockdep_rcu_suspicious+0x139/0x180 kernel/locking/lockdep.c:4452
- rcu_preempt_sleep_check include/linux/rcupdate.h:560 [inline]
- ___might_sleep+0x560/0x650 kernel/sched/core.c:7748
- __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
- mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
- atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
- __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
- static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
- net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
- sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
- __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
- sk_destruct+0x47/0x80 net/core/sock.c:1460
- __sk_free+0x57/0x230 net/core/sock.c:1468
- sock_wfree+0xae/0x120 net/core/sock.c:1645
- skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
- skb_release_all+0x15/0x60 net/core/skbuff.c:668
- __kfree_skb+0x15/0x20 net/core/skbuff.c:684
- kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
- inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
- inet_frag_put include/net/inet_frag.h:133 [inline]
- nf_ct_frag6_gather+0x1106/0x3840
-net/ipv6/netfilter/nf_conntrack_reasm.c:617
- ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
- nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
- nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
- nf_hook include/linux/netfilter.h:212 [inline]
- __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
- ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
- ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
- ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
- rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
- rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
- inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
- sock_sendmsg_nosec net/socket.c:635 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:645
- sock_write_iter+0x326/0x600 net/socket.c:848
- do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
- do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
- vfs_writev+0x87/0xc0 fs/read_write.c:911
- do_writev+0x110/0x2c0 fs/read_write.c:944
- SYSC_writev fs/read_write.c:1017 [inline]
- SyS_writev+0x27/0x30 fs/read_write.c:1014
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x445559
-RSP: 002b:00007f6f46fceb58 EFLAGS: 00000292 ORIG_RAX: 0000000000000014
-RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445559
-RDX: 0000000000000001 RSI: 0000000020f1eff0 RDI: 0000000000000005
-RBP: 00000000006e19c0 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000700000
-R13: 0000000020f59000 R14: 0000000000000015 R15: 0000000000020400
-BUG: sleeping function called from invalid context at
-kernel/locking/mutex.c:752
-in_atomic(): 1, irqs_disabled(): 0, pid: 23111, name: syz-executor14
-INFO: lockdep is turned off.
-CPU: 2 PID: 23111 Comm: syz-executor14 Not tainted 4.10.0-rc5+ #192
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs
-01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
- ___might_sleep+0x47e/0x650 kernel/sched/core.c:7780
- __might_sleep+0x95/0x1a0 kernel/sched/core.c:7739
- mutex_lock_nested+0x24f/0x1730 kernel/locking/mutex.c:752
- atomic_dec_and_mutex_lock+0x119/0x160 kernel/locking/mutex.c:1060
- __static_key_slow_dec+0x7a/0x1e0 kernel/jump_label.c:149
- static_key_slow_dec+0x51/0x90 kernel/jump_label.c:174
- net_disable_timestamp+0x3b/0x50 net/core/dev.c:1728
- sock_disable_timestamp+0x98/0xc0 net/core/sock.c:403
- __sk_destruct+0x27d/0x6b0 net/core/sock.c:1441
- sk_destruct+0x47/0x80 net/core/sock.c:1460
- __sk_free+0x57/0x230 net/core/sock.c:1468
- sock_wfree+0xae/0x120 net/core/sock.c:1645
- skb_release_head_state+0xfc/0x200 net/core/skbuff.c:655
- skb_release_all+0x15/0x60 net/core/skbuff.c:668
- __kfree_skb+0x15/0x20 net/core/skbuff.c:684
- kfree_skb+0x16e/0x4c0 net/core/skbuff.c:705
- inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
- inet_frag_put include/net/inet_frag.h:133 [inline]
- nf_ct_frag6_gather+0x1106/0x3840
-net/ipv6/netfilter/nf_conntrack_reasm.c:617
- ipv6_defrag+0x1be/0x2b0 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
- nf_hook_entry_hookfn include/linux/netfilter.h:102 [inline]
- nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
- nf_hook include/linux/netfilter.h:212 [inline]
- __ip6_local_out+0x489/0x840 net/ipv6/output_core.c:160
- ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
- ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
- ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
- rawv6_push_pending_frames net/ipv6/raw.c:613 [inline]
- rawv6_sendmsg+0x2d1a/0x3ec0 net/ipv6/raw.c:927
- inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
- sock_sendmsg_nosec net/socket.c:635 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:645
- sock_write_iter+0x326/0x600 net/socket.c:848
- do_iter_readv_writev+0x2e3/0x5b0 fs/read_write.c:695
- do_readv_writev+0x42c/0x9b0 fs/read_write.c:872
- vfs_writev+0x87/0xc0 fs/read_write.c:911
- do_writev+0x110/0x2c0 fs/read_write.c:944
- SYSC_writev fs/read_write.c:1017 [inline]
- SyS_writev+0x27/0x30 fs/read_write.c:1014
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x445559
-
-Fixes: b90e5794c5bd ("net: dont call jump_label_dec from irq context")
-Suggested-by: Cong Wang <xiyou.wangcong@gmail.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |   31 +++++++++++++------------------
- 1 file changed, 13 insertions(+), 18 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7f218e095361520d11c243d650e053321ea7274f..29101c98399f40b6b8e42c31a255d8f1fb6bd7a1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1695,24 +1695,19 @@ EXPORT_SYMBOL_GPL(net_dec_egress_queue);
- 
- static struct static_key netstamp_needed __read_mostly;
- #ifdef HAVE_JUMP_LABEL
--/* We are not allowed to call static_key_slow_dec() from irq context
-- * If net_disable_timestamp() is called from irq context, defer the
-- * static_key_slow_dec() calls.
-- */
- static atomic_t netstamp_needed_deferred;
--#endif
--
--void net_enable_timestamp(void)
-+static void netstamp_clear(struct work_struct *work)
- {
--#ifdef HAVE_JUMP_LABEL
- 	int deferred = atomic_xchg(&netstamp_needed_deferred, 0);
- 
--	if (deferred) {
--		while (--deferred)
--			static_key_slow_dec(&netstamp_needed);
--		return;
--	}
-+	while (deferred--)
-+		static_key_slow_dec(&netstamp_needed);
-+}
-+static DECLARE_WORK(netstamp_work, netstamp_clear);
- #endif
-+
-+void net_enable_timestamp(void)
-+{
- 	static_key_slow_inc(&netstamp_needed);
- }
- EXPORT_SYMBOL(net_enable_timestamp);
-@@ -1720,12 +1715,12 @@ EXPORT_SYMBOL(net_enable_timestamp);
- void net_disable_timestamp(void)
- {
- #ifdef HAVE_JUMP_LABEL
--	if (in_interrupt()) {
--		atomic_inc(&netstamp_needed_deferred);
--		return;
--	}
--#endif
-+	/* net_disable_timestamp() can be called from non process context */
-+	atomic_inc(&netstamp_needed_deferred);
-+	schedule_work(&netstamp_work);
-+#else
- 	static_key_slow_dec(&netstamp_needed);
-+#endif
- }
- EXPORT_SYMBOL(net_disable_timestamp);
- 
+Tom
