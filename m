@@ -1,33 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next 16/19] lib: Introduce priority array area
- manager
-Date: Thu, 02 Feb 2017 14:28:40 -0800
-Message-ID: <1486074520.21871.34.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 17/19] mlxsw: spectrum: Introduce ACL core
+ with simple TCAM implementation
+Date: Thu, 02 Feb 2017 17:34:48 -0500 (EST)
+Message-ID: <20170202.173448.1101672639685186428.davem@davemloft.net>
 References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
-         <1486048379-19237-17-git-send-email-jiri@resnulli.us>
-         <CALx6S35TKCZG=6hsTFa=A3EOG8T_h3Eb4wkzcSbyY1yvKmmscw@mail.gmail.com>
+        <1486048379-19237-18-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, jbenc@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:33774 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751720AbdBBW2m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 17:28:42 -0500
-Received: by mail-pg0-f45.google.com with SMTP id 204so516777pge.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 14:28:42 -0800 (PST)
-In-Reply-To: <CALx6S35TKCZG=6hsTFa=A3EOG8T_h3Eb4wkzcSbyY1yvKmmscw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55306 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751858AbdBBWey (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 17:34:54 -0500
+In-Reply-To: <1486048379-19237-18-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-02 at 13:58 -0800, Tom Herbert wrote:
-> I have no idea what a "priority array area manager" is. Googling it
-> comes up with nothing and there are no comments in this whole patch
-> that either describe what it is or how any of the functions should be
-> used. Am I missing something that is supposed to be obvious?
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  2 Feb 2017 16:12:57 +0100
 
-Okay, but please trim your replies on netdev.
+> +static int mlxsw_sp_acl_tcam_region_id_get(struct mlxsw_sp_acl_tcam *tcam,
+> +					   u16 *p_id)
+> +{
+> +	u16 id;
+> +
+> +	id = find_first_zero_bit(tcam->used_regions, tcam->max_regions);
+> +	if (id < tcam->max_regions) {
+> +		set_bit(id, tcam->used_regions);
+ ...
+> +static void mlxsw_sp_acl_tcam_region_id_put(struct mlxsw_sp_acl_tcam *tcam,
+> +					    u16 id)
+> +{
+> +	clear_bit(id, tcam->used_regions);
+> +}
+> +
+> +static int mlxsw_sp_acl_tcam_group_id_get(struct mlxsw_sp_acl_tcam *tcam,
+> +					  u16 *p_id)
+> +{
+> +	u16 id;
+> +
+> +	id = find_first_zero_bit(tcam->used_groups, tcam->max_groups);
+> +	if (id < tcam->max_groups) {
+> +		set_bit(id, tcam->used_groups);
+ ...
+> +static void mlxsw_sp_acl_tcam_group_id_put(struct mlxsw_sp_acl_tcam *tcam,
+> +					   u16 id)
+> +{
+> +	clear_bit(id, tcam->used_groups);
+> +}
 
-Thanks.
+Please use __set_bit() and __clear_bit() here since it seems very clear that
+you do not require atomic operations.
