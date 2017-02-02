@@ -1,104 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/19] mlxsw: reg: Add Policy-Engine ACL Group Table register
-Date: Thu,  2 Feb 2017 16:12:44 +0100
-Message-ID: <1486048379-19237-5-git-send-email-jiri@resnulli.us>
-References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
-        ivecera@redhat.com, jbenc@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f194.google.com ([209.85.210.194]:35995 "EHLO
-        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751817AbdBBPNH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:07 -0500
-Received: by mail-wj0-f194.google.com with SMTP id kq3so1332939wjc.3
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:06 -0800 (PST)
-In-Reply-To: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lukasz Majewski <lukma-ynQEQJNshbs@public.gmane.org>
+Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the
+ DP83867 TI's PHY driver
+Date: Thu, 2 Feb 2017 16:22:12 +0100
+Message-ID: <20170202162212.4d479fa5@jawa>
+References: <1485960215-5148-1-git-send-email-lukma@denx.de>
+        <20170201171610.GC7395@lunn.ch>
+        <2f3766f0-42df-6aab-dda1-14022c57fb30@gmail.com>
+        <20170201220500.29d478aa@jawa>
+        <20170201211440.GG7395@lunn.ch>
+        <20170201231323.732dd327@jawa>
+        <20170202015416.GG4967@lunn.ch>
+        <20170202101739.67e7e6b3@jawa>
+        <20170202131112.GI4967@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Karicheri Muralidharan <m-karicheri2-l0cyMroinI0@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eric Engestrom <eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
+        Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170202131112.GI4967-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Thu, 2 Feb 2017 14:11:12 +0100
+Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
 
-The PAGT register is used for configuration of the ACL Group Table.
+> > The bootstrapping process in the PHY sets this bit. This is wrong
+> > since the board lane layout is not "swapped"
+>  
+> Ah, you mean a strapping pin? Resistor to ground/VCC?
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 54 +++++++++++++++++++++++++++++++
- 1 file changed, 54 insertions(+)
+Yes, exactly.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 18b2da4..5f76fbc 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -1799,6 +1799,59 @@ static inline void mlxsw_reg_pacl_pack(char *payload, u16 acl_id,
- 	mlxsw_reg_pacl_tcam_region_info_memcpy_to(payload, tcam_region_info);
- }
- 
-+/* PAGT - Policy-Engine ACL Group Table
-+ * ------------------------------------
-+ * This register is used for configuration of the ACL Group Table.
-+ */
-+#define MLXSW_REG_PAGT_ID 0x3005
-+#define MLXSW_REG_PAGT_BASE_LEN 0x30
-+#define MLXSW_REG_PAGT_ACL_LEN 4
-+#define MLXSW_REG_PAGT_ACL_MAX_NUM 16
-+#define MLXSW_REG_PAGT_LEN (MLXSW_REG_PAGT_BASE_LEN + \
-+		MLXSW_REG_PAGT_ACL_MAX_NUM * MLXSW_REG_PAGT_ACL_LEN)
-+
-+MLXSW_REG_DEFINE(pagt, MLXSW_REG_PAGT_ID, MLXSW_REG_PAGT_LEN);
-+
-+/* reg_pagt_size
-+ * Number of ACLs in the group.
-+ * Size 0 invalidates a group.
-+ * Range 0 .. cap_max_acl_group_size (hard coded to 16 for now)
-+ * Total number of ACLs in all groups must be lower or equal
-+ * to cap_max_acl_tot_groups
-+ * Note: a group which is binded must not be invalidated
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, pagt, size, 0x00, 0, 8);
-+
-+/* reg_pagt_acl_group_id
-+ * An identifier (numbered from 0..cap_max_acl_groups-1) representing
-+ * the ACL Group identifier (managed by software).
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, pagt, acl_group_id, 0x08, 0, 16);
-+
-+/* reg_pagt_acl_id
-+ * ACL identifier
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, pagt, acl_id, 0x30, 0, 16, 0x04, 0x00, false);
-+
-+static inline void mlxsw_reg_pagt_pack(char *payload, u16 acl_group_id)
-+{
-+	MLXSW_REG_ZERO(pagt, payload);
-+	mlxsw_reg_pagt_acl_group_id_set(payload, acl_group_id);
-+}
-+
-+static inline void mlxsw_reg_pagt_acl_id_pack(char *payload, int index,
-+					      u16 acl_id)
-+{
-+	u8 size = mlxsw_reg_pagt_size_get(payload);
-+
-+	if (index >= size)
-+		mlxsw_reg_pagt_size_set(payload, index + 1);
-+	mlxsw_reg_pagt_acl_id_set(payload, index, acl_id);
-+}
-+
- /* QPCR - QoS Policer Configuration Register
-  * -----------------------------------------
-  * The QPCR register is used to create policers - that limit
-@@ -5477,6 +5530,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(sfmr),
- 	MLXSW_REG(spvmlr),
- 	MLXSW_REG(pacl),
-+	MLXSW_REG(pagt),
- 	MLXSW_REG(qpcr),
- 	MLXSW_REG(qtct),
- 	MLXSW_REG(qeec),
--- 
-2.7.4
+> That is a different matter. It makes it a lot less likely to break
+> some existing board with such a change.
+> 
+> > I have thought a bit about that and I think that we should define
+> > complementary "net-phy-lane-no-swap" as suggested by Florian. Then
+> > affected boards could define it and use.
+> 
+> This is the most flexible solution. Yes, that is O.K. for me.
+
+Ok. thanks.
+
+> 
+>      Andrew
+
+
+
+
+Best regards,
+
+Lukasz Majewski
+
+--
+
+DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd-ynQEQJNshbs@public.gmane.org
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
