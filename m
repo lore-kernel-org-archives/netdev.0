@@ -1,38 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
 Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
  performance may be compromised." message with "ethtool -K eth0 gro off"
-Date: Thu, 02 Feb 2017 04:32:13 -0800
-Message-ID: <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Thu, 2 Feb 2017 13:34:27 +0100
+Message-ID: <20170202123427.GA7212@x4>
 References: <20170202115240.GH17590@x4>
+ <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Markus Trippelsdorf <markus@trippelsdorf.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35470 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751511AbdBBMcP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 07:32:15 -0500
-Received: by mail-pf0-f195.google.com with SMTP id f144so1420848pfa.2
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 04:32:15 -0800 (PST)
-In-Reply-To: <20170202115240.GH17590@x4>
+Received: from ud10.udmedia.de ([194.117.254.50]:51954 "EHLO
+        mail.ud10.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751350AbdBBMea (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 07:34:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-02 at 12:52 +0100, Markus Trippelsdorf wrote:
-> Hi,
+On 2017.02.02 at 04:32 -0800, Eric Dumazet wrote:
+> On Thu, 2017-02-02 at 12:52 +0100, Markus Trippelsdorf wrote:
+> > Hi,
+> > 
+> > from time to time I see the following warning in my kernel log:
+> > 
+> >  TCP: eth0: Driver has suspect GRO implementation, TCP performance may be compromised.
+> > 
+> > This happens although I run "/usr/sbin/ethtool -K eth0 gro off" in my
+> > local boot script. 
+> > What is the warning trying to tell me?
+> > 
 > 
-> from time to time I see the following warning in my kernel log:
+> Please report
 > 
->  TCP: eth0: Driver has suspect GRO implementation, TCP performance may be compromised.
-> 
-> This happens although I run "/usr/sbin/ethtool -K eth0 gro off" in my
-> local boot script. 
-> What is the warning trying to tell me?
-> 
+> ethtool -i eth0
 
-Please report
+driver: ATL1E
+version: 1.0.0.7-NAPI
+firmware-version: L1e
+expansion-rom-version:
+bus-info: 0000:02:00.0
+supports-statistics: no
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: yes
+supports-priv-flags: no
 
-ethtool -i eth0
+-- 
+Markus
