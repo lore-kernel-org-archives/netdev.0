@@ -1,149 +1,102 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 13/19] mlxsw: spectrum: Introduce basic set of flexible key blocks
-Date: Thu,  2 Feb 2017 16:12:53 +0100
-Message-ID: <1486048379-19237-14-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 10/19] mlxsw: reg: Add Policy-Engine Extended Flexible Action Register
+Date: Thu,  2 Feb 2017 16:12:50 +0100
+Message-ID: <1486048379-19237-11-git-send-email-jiri@resnulli.us>
 References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
         ivecera@redhat.com, jbenc@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:34414 "EHLO
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:35385 "EHLO
         mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751668AbdBBPNX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:23 -0500
-Received: by mail-wj0-f195.google.com with SMTP id ip10so1334797wjb.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:17 -0800 (PST)
+        with ESMTP id S1751648AbdBBPNO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 10:13:14 -0500
+Received: by mail-wj0-f195.google.com with SMTP id i7so1333846wjf.2
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 07:13:14 -0800 (PST)
 In-Reply-To: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Introduce basic set of Spectrum flexible key blocks. It contains blocks
-needed to carry all elements defined so far.
+PEFA register is used for accessing an extended flexible action entry
+in the central KVD Linear Database.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- .../mellanox/mlxsw/spectrum_acl_flex_keys.h        | 109 +++++++++++++++++++++
- 1 file changed, 109 insertions(+)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 39 ++++++++++++++++++++++++++++---
+ 1 file changed, 36 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h
-new file mode 100644
-index 0000000..82b81cf
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h
-@@ -0,0 +1,109 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index c503363..b50a312 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -2125,6 +2125,40 @@ static inline void mlxsw_reg_prcr_pack(char *payload, enum mlxsw_reg_prcr_op op,
+ 						       dest_tcam_region_info);
+ }
+ 
++/* PEFA - Policy-Engine Extended Flexible Action Register
++ * ------------------------------------------------------
++ * This register is used for accessing an extended flexible action entry
++ * in the central KVD Linear Database.
 + */
++#define MLXSW_REG_PEFA_ID 0x300F
++#define MLXSW_REG_PEFA_LEN 0xB0
 +
-+#ifndef _MLXSW_SPECTRUM_ACL_FLEX_KEYS_H
-+#define _MLXSW_SPECTRUM_ACL_FLEX_KEYS_H
++MLXSW_REG_DEFINE(pefa, MLXSW_REG_PEFA_ID, MLXSW_REG_PEFA_LEN);
 +
-+#include "core_acl_flex_keys.h"
++/* reg_pefa_index
++ * Index in the KVD Linear Centralized Database.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, pefa, index, 0x00, 0, 24);
 +
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_l2_dmac[] = {
-+	MLXSW_AFK_ELEMENT_INST_BUF(DMAC, 0x00, 6),
-+	MLXSW_AFK_ELEMENT_INST_U32(SRC_SYS_PORT, 0x0C, 0, 16),
-+};
++#define MLXSW_REG_PXXX_FLEX_ACTION_SET_LEN 0xA8
 +
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_l2_smac[] = {
-+	MLXSW_AFK_ELEMENT_INST_BUF(SMAC, 0x00, 6),
-+	MLXSW_AFK_ELEMENT_INST_U32(SRC_SYS_PORT, 0x0C, 0, 16),
-+};
++/* reg_pefa_flex_action_set
++ * Action-set to perform when rule is matched.
++ * Must be zero padded if action set is shorter.
++ * Access: RW
++ */
++MLXSW_ITEM_BUF(reg, pefa, flex_action_set, 0x08,
++	       MLXSW_REG_PXXX_FLEX_ACTION_SET_LEN);
 +
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_l2_smac_ex[] = {
-+	MLXSW_AFK_ELEMENT_INST_BUF(SMAC, 0x02, 6),
-+	MLXSW_AFK_ELEMENT_INST_U32(ETHERTYPE, 0x0C, 0, 16),
-+};
++static inline void mlxsw_reg_pefa_pack(char *payload, u32 index,
++				       const char *flex_action_set)
++{
++	MLXSW_REG_ZERO(pefa, payload);
++	mlxsw_reg_pefa_index_set(payload, index);
++	mlxsw_reg_pefa_flex_action_set_memcpy_to(payload, flex_action_set);
++}
 +
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_ipv4_sip[] = {
-+	MLXSW_AFK_ELEMENT_INST_U32(SRC_IP4, 0x00, 0, 32),
-+	MLXSW_AFK_ELEMENT_INST_U32(IP_PROTO, 0x08, 0, 8),
-+	MLXSW_AFK_ELEMENT_INST_U32(SRC_SYS_PORT, 0x0C, 0, 16),
-+};
-+
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_ipv4_dip[] = {
-+	MLXSW_AFK_ELEMENT_INST_U32(DST_IP4, 0x00, 0, 32),
-+	MLXSW_AFK_ELEMENT_INST_U32(IP_PROTO, 0x08, 0, 8),
-+	MLXSW_AFK_ELEMENT_INST_U32(SRC_SYS_PORT, 0x0C, 0, 16),
-+};
-+
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_ipv4_ex[] = {
-+	MLXSW_AFK_ELEMENT_INST_U32(SRC_L4_PORT, 0x08, 0, 16),
-+	MLXSW_AFK_ELEMENT_INST_U32(DST_L4_PORT, 0x0C, 0, 16),
-+};
-+
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_ipv6_dip[] = {
-+	MLXSW_AFK_ELEMENT_INST_BUF(DST_IP6_LO, 0x00, 8),
-+};
-+
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_ipv6_ex1[] = {
-+	MLXSW_AFK_ELEMENT_INST_BUF(DST_IP6_HI, 0x00, 8),
-+	MLXSW_AFK_ELEMENT_INST_U32(IP_PROTO, 0x08, 0, 8),
-+};
-+
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_ipv6_sip[] = {
-+	MLXSW_AFK_ELEMENT_INST_BUF(SRC_IP6_LO, 0x00, 8),
-+};
-+
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_ipv6_sip_ex[] = {
-+	MLXSW_AFK_ELEMENT_INST_BUF(SRC_IP6_HI, 0x00, 8),
-+};
-+
-+static struct mlxsw_afk_element_inst mlxsw_sp_afk_element_info_packet_type[] = {
-+	MLXSW_AFK_ELEMENT_INST_U32(ETHERTYPE, 0x00, 0, 16),
-+};
-+
-+static const struct mlxsw_afk_block mlxsw_sp_afk_blocks[] = {
-+	MLXSW_AFK_BLOCK(0x10, mlxsw_sp_afk_element_info_l2_dmac),
-+	MLXSW_AFK_BLOCK(0x11, mlxsw_sp_afk_element_info_l2_smac),
-+	MLXSW_AFK_BLOCK(0x12, mlxsw_sp_afk_element_info_l2_smac_ex),
-+	MLXSW_AFK_BLOCK(0x30, mlxsw_sp_afk_element_info_ipv4_sip),
-+	MLXSW_AFK_BLOCK(0x31, mlxsw_sp_afk_element_info_ipv4_dip),
-+	MLXSW_AFK_BLOCK(0x33, mlxsw_sp_afk_element_info_ipv4_ex),
-+	MLXSW_AFK_BLOCK(0x60, mlxsw_sp_afk_element_info_ipv6_dip),
-+	MLXSW_AFK_BLOCK(0x65, mlxsw_sp_afk_element_info_ipv6_ex1),
-+	MLXSW_AFK_BLOCK(0x62, mlxsw_sp_afk_element_info_ipv6_sip),
-+	MLXSW_AFK_BLOCK(0x63, mlxsw_sp_afk_element_info_ipv6_sip_ex),
-+	MLXSW_AFK_BLOCK(0xB0, mlxsw_sp_afk_element_info_packet_type),
-+};
-+
-+#define MLXSW_SP_AFK_BLOCKS_COUNT ARRAY_SIZE(mlxsw_sp_afk_blocks)
-+
-+#endif
+ /* PTCE-V2 - Policy-Engine TCAM Entry Register Version 2
+  * -----------------------------------------------------
+  * This register is used for accessing rules within a TCAM region.
+@@ -2203,14 +2237,12 @@ MLXSW_ITEM_BUF(reg, ptce2, flex_key_blocks, 0x20,
+ MLXSW_ITEM_BUF(reg, ptce2, mask, 0x80,
+ 	       MLXSW_REG_PTCE2_FLEX_KEY_BLOCKS_LEN);
+ 
+-#define MLXSW_REG_PTCE2_FLEX_ACTION_SET_LEN 0xA8
+-
+ /* reg_ptce2_flex_action_set
+  * ACL action set.
+  * Access: RW
+  */
+ MLXSW_ITEM_BUF(reg, ptce2, flex_action_set, 0xE0,
+-	       MLXSW_REG_PTCE2_FLEX_ACTION_SET_LEN);
++	       MLXSW_REG_PXXX_FLEX_ACTION_SET_LEN);
+ 
+ static inline void mlxsw_reg_ptce2_pack(char *payload, bool valid,
+ 					enum mlxsw_reg_ptce2_op op,
+@@ -5907,6 +5939,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(ptar),
+ 	MLXSW_REG(ppbs),
+ 	MLXSW_REG(prcr),
++	MLXSW_REG(pefa),
+ 	MLXSW_REG(ptce2),
+ 	MLXSW_REG(qpcr),
+ 	MLXSW_REG(qtct),
 -- 
 2.7.4
