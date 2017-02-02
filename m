@@ -1,97 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [net-next] hns_enet: use cpumask_var_t for on-stack mask
-Date: Thu,  2 Feb 2017 15:49:24 +0100
-Message-ID: <20170202145017.3761604-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        Kejian Yan <yankejian@huawei.com>,
-        Daode Huang <huangdaode@hisilicon.com>,
-        Qianqian Xie <xieqianqian@huawei.com>,
-        Sheng Li <lisheng011@huawei.com>,
-        lipeng <lipeng321@huawei.com>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Subject: Re: [PATCH] xen-netfront: Improve error handling during
+ initialization
+Date: Thu, 2 Feb 2017 14:54:31 +0000
+Message-ID: <bbe85105-f5aa-79ea-6eab-0cfaea28555a@citrix.com>
+References: <1485964222-1501-1-git-send-email-ross.lagerwall@citrix.com>
+ <78bd8aab-69db-30cb-45ac-d12e17870447@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+        Juergen Gross <jgross@suse.com>,
+        <linux-kernel@vger.kernel.org>, <wei.liu2@citrix.com>
+To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <78bd8aab-69db-30cb-45ac-d12e17870447@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On large SMP builds, we can run into a build warning:
+On 02/01/2017 06:54 PM, Boris Ostrovsky wrote:
+> On 02/01/2017 10:50 AM, Ross Lagerwall wrote:
+>> Improve error handling during initialization. This fixes a crash when
+>> running out of grant refs when creating many queues across many netdevs.
+>>
+>> * Delay timer creation so that if initializing a queue fails, the timer
+>> has not been setup yet.
+>> * If creating queues fails (i.e. there are no grant refs available),
+>> call xenbus_dev_fatal() to ensure that the xenbus device is set to the
+>> closed state.
+>> * If no queues are created, don't call xennet_disconnect_backend as
+>> netdev->real_num_tx_queues will not have been set correctly.
+>> * If setup_netfront() fails, ensure that all the queues created are
+>> cleaned up, not just those that have been set up.
+>> * If any queues were set up and an error occurs, call
+>> xennet_destroy_queues() to stop the timer and clean up the napi context.
+>
+> We need to stop the timer in xennet_disconnect_backend(). I sent a patch
+> a couple of day ago
+>
+> https://lists.xenproject.org/archives/html/xen-devel/2017-01/msg03269.html
+>
+> but was about to resend it with del_timer_sync() moved after
+> napi_synchronize().
+>
 
-drivers/net/ethernet/hisilicon/hns/hns_enet.c: In function 'hns_set_irq_affinity.isra.27':
-drivers/net/ethernet/hisilicon/hns/hns_enet.c:1242:1: warning: the frame size of 1032 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+OK, but the patch is still relevant since I believe we still need to 
+clean up the napi context in this case (plus the patch fixes a lot of 
+other issues).
 
-The solution here is to use cpumask_var_t, which can use dynamic
-allocation when CONFIG_CPUMASK_OFFSTACK is enabled.
+But I will respin it on top of your patch(es) and re-test it before 
+resending.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 25 +++++++++++++++----------
- 1 file changed, 15 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index f7b75e96c1c3..fefe371e5907 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -1202,43 +1202,48 @@ static void hns_set_irq_affinity(struct hns_nic_priv *priv)
- 	struct hns_nic_ring_data *rd;
- 	int i;
- 	int cpu;
--	cpumask_t mask;
-+	cpumask_var_t mask;
-+
-+	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-+		return;
- 
- 	/*diffrent irq banlance for 16core and 32core*/
- 	if (h->q_num == num_possible_cpus()) {
- 		for (i = 0; i < h->q_num * 2; i++) {
- 			rd = &priv->ring_data[i];
- 			if (cpu_online(rd->queue_index)) {
--				cpumask_clear(&mask);
-+				cpumask_clear(mask);
- 				cpu = rd->queue_index;
--				cpumask_set_cpu(cpu, &mask);
-+				cpumask_set_cpu(cpu, mask);
- 				(void)irq_set_affinity_hint(rd->ring->irq,
--							    &mask);
-+							    mask);
- 			}
- 		}
- 	} else {
- 		for (i = 0; i < h->q_num; i++) {
- 			rd = &priv->ring_data[i];
- 			if (cpu_online(rd->queue_index * 2)) {
--				cpumask_clear(&mask);
-+				cpumask_clear(mask);
- 				cpu = rd->queue_index * 2;
--				cpumask_set_cpu(cpu, &mask);
-+				cpumask_set_cpu(cpu, mask);
- 				(void)irq_set_affinity_hint(rd->ring->irq,
--							    &mask);
-+							    mask);
- 			}
- 		}
- 
- 		for (i = h->q_num; i < h->q_num * 2; i++) {
- 			rd = &priv->ring_data[i];
- 			if (cpu_online(rd->queue_index * 2 + 1)) {
--				cpumask_clear(&mask);
-+				cpumask_clear(mask);
- 				cpu = rd->queue_index * 2 + 1;
--				cpumask_set_cpu(cpu, &mask);
-+				cpumask_set_cpu(cpu, mask);
- 				(void)irq_set_affinity_hint(rd->ring->irq,
--							    &mask);
-+							    mask);
- 			}
- 		}
- 	}
-+
-+	free_cpumask_var(mask);
- }
- 
- static int hns_nic_init_irq(struct hns_nic_priv *priv)
 -- 
-2.9.0
+Ross Lagerwall
