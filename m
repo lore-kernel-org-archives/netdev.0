@@ -1,46 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: dp83867: Port mirroring support in the DP83867
- TI's PHY driver
-Date: Thu, 2 Feb 2017 14:11:12 +0100
-Message-ID: <20170202131112.GI4967@lunn.ch>
-References: <1485960215-5148-1-git-send-email-lukma@denx.de>
- <20170201171610.GC7395@lunn.ch>
- <2f3766f0-42df-6aab-dda1-14022c57fb30@gmail.com>
- <20170201220500.29d478aa@jawa>
- <20170201211440.GG7395@lunn.ch>
- <20170201231323.732dd327@jawa>
- <20170202015416.GG4967@lunn.ch>
- <20170202101739.67e7e6b3@jawa>
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] net: intel: e1000e: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Thu, 2 Feb 2017 15:24:52 +0200
+Message-ID: <388fcd93-2c4e-4dc6-db3c-2c1d361f032a@intel.com>
+References: <1485465593-12561-1-git-send-email-tremyfr@gmail.com>
+ <eec980e8-ecee-182b-f438-edef32932b6a@intel.com>
+ <CAC=8w93gHe60SXwHXn5OsJZkMfgO=BneEr63yzDvB_WAzsU=Fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Karicheri Muralidharan <m-karicheri2@ti.com>,
-        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
-        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        devicetree@vger.kernel.org
-To: Lukasz Majewski <lukma@denx.de>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, davem@davemloft.net,
+        netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170202101739.67e7e6b3@jawa>
+In-Reply-To: <CAC=8w93gHe60SXwHXn5OsJZkMfgO=BneEr63yzDvB_WAzsU=Fg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The bootstrapping process in the PHY sets this bit. This is wrong since
-> the board lane layout is not "swapped"
- 
-Ah, you mean a strapping pin? Resistor to ground/VCC?
-That is a different matter. It makes it a lot less likely to break
-some existing board with such a change.
+On 2/1/2017 00:01, Philippe Reynes wrote:
+> Hi Sasha,
+>
+> On 1/31/17, Neftin, Sasha <sasha.neftin@intel.com> wrote:
+>> Philippe,
+>>
+>> We will look into and try test this patch. I would like ask question. I
+>> see that this thread has been started from implementation for e1000
+>> code. Why do you decide shift implementation to e1000e?
+> I've just sent two patch for two drivers (e1000 and e1000e).
+>
+>
+>> Sasha
+>>
+>>
+> Philippe
 
-> I have thought a bit about that and I think that we should define
-> complementary "net-phy-lane-no-swap" as suggested by Florian. Then
-> affected boards could define it and use.
+Hello Philippe,
 
-This is the most flexible solution. Yes, that is O.K. for me.
+Great. We are responsible for e1000e. We will check patch for e1000e.
 
-     Andrew
+Sasha
