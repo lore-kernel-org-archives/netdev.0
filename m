@@ -1,26 +1,48 @@
-From: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Subject: =?utf-8?Q?=D0=9A=D0=9B=D0=98=D0=95=D0=9D=D0=A2=D0=A1=D0?=
-        =?utf-8?Q?=9A=D0=98=D0=95_=D0=91=D0=90=D0=97=D0=AB_=D1=82?=
-        =?utf-8?Q?=D0=B5=D0=BB_+79139230330_Skype=3A_prodawez390_?=
-        =?utf-8?Q?Email=3A_prodawez393=40gmail=2Ecom_=D0=A3=D0=B7?=
-        =?utf-8?Q?=D0=BD=D0=B0=D0=B9=D1=82=D0=B5_=D0=BF=D0=BE=D0?=
-        =?utf-8?Q?=B4=D1=80=D0=BE=D0=B1=D0=BD=D0=B5=D0=B5!?=
-Date: Wed, 1 Feb 2017 20:54:54 +0300
-Message-ID: <52A8AE5BB86C42F12D2861DDC95A8187@vger.kernel.org>
-Reply-To: "netdev@vger.kernel.org" <prodawez393@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v2 0/5] bridge: per vlan dst_metadata support
+Date: Wed, 1 Feb 2017 17:23:03 -0800
+Message-ID: <20170202012301.GA74213@ast-mbp.thefacebook.com>
+References: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8";
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        stephen@networkplumber.org, nikolay@cumulusnetworks.com,
+        tgraf@suug.ch, hannes@stressinduktion.org, jbenc@redhat.com,
+        pshelar@ovn.org, dsa@cumulusnetworks.com, hadi@mojatatu.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [188.208.141.193] ([188.208.141.193]:36551 "EHLO UNKNOWN"
-        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751293AbdBBBBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Feb 2017 20:01:16 -0500
-Received: from 188.208.141.193 (localhost [IPv6:::1])
-        by UNKNOWN (Postfix) with SMTP id 132164BC9F
-        for <netdev@vger.kernel.org>; Wed,  1 Feb 2017 02:56:45 -0500 (EST)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33646 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751409AbdBBBXL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Feb 2017 20:23:11 -0500
+Received: by mail-pf0-f193.google.com with SMTP id e4so154810pfg.0
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 17:23:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-КЛИЕНТСКИЕ БАЗЫ тел +79139230330 Skype: prodawez390 Email: prodawez393@gmail.com Узнайте подробнее!
+On Tue, Jan 31, 2017 at 10:59:50PM -0800, Roopa Prabhu wrote:
+>                     
+> This provides the required vxlan bridging function but poses a
+> scalability problem with using a separate vxlan netdev for each vni.
+
+if I remember correctly this issue was the main reason David Ahern
+put netdev on diet. Sounds like no more fun at netconf ;)
+
+> Solution in this patch series:
+> The Goal is to use a single vxlan device to carry all vnis similar
+> to the vxlan collect metadata mode but additionally allowing the bridge
+> and vxlan driver to carry all the forwarding information and also learn.
+> This implementation uses the existing dst_metadata infrastructure to map
+> vlan to a tunnel id.
+
+ovs and/or bpf can do the same already, but sounds like the main reason is
+to keep it integrated with bridge fdb to leverage your offload of bridge
+fdb into hw asic, right?
+If so, I guess, the extra complexity can be justified.
+The question is how do you program hw ? Is there really 1 to 1 mapping
+in the asics too? Or is it more flexible ?
+I think most swith asics can do other tunnels too,
+so can this vlan->vxlan 1 to 1 be generalized to cover different
+types of tunnels that can be configured on the switch?
