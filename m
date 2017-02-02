@@ -1,62 +1,80 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 3/4] phy: Add USB3 PHY support for Broadcom NSP SoC
-Date: Thu, 2 Feb 2017 07:48:35 +0100
-Message-ID: <6be62ef6-e90c-b5f8-adcd-0ea62ab73ced@gmail.com>
-References: <1484669670-4201-4-git-send-email-yendapally.reddy@broadcom.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v2 0/5] bridge: per vlan dst_metadata support
+Date: Wed, 1 Feb 2017 23:06:14 -0800
+Message-ID: <20170201230614.0b2a2163@xeon-e3>
+References: <1485932395-58422-1-git-send-email-roopa@cumulusnetworks.com>
+        <20170202012301.GA74213@ast-mbp.thefacebook.com>
+        <5892CA81.1020804@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Jon Mason <jonmason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1484669670-4201-4-git-send-email-yendapally.reddy-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        nikolay@cumulusnetworks.com, tgraf@suug.ch,
+        hannes@stressinduktion.org, jbenc@redhat.com, pshelar@ovn.org,
+        dsa@cumulusnetworks.com, hadi@mojatatu.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:33107 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750881AbdBBHGW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 02:06:22 -0500
+Received: by mail-pg0-f43.google.com with SMTP id 204so3362565pge.0
+        for <netdev@vger.kernel.org>; Wed, 01 Feb 2017 23:06:22 -0800 (PST)
+In-Reply-To: <5892CA81.1020804@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Resending with fixed/complete Cc-s]
+On Wed, 01 Feb 2017 21:58:25 -0800
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-On Tue, 17 Jan 2017 11:14:29 -0500, Yendapally Reddy Dhananjaya Reddy <yendapally.reddy-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:> This patch adds support for Broadcom NSP USB3 PHY
- >
- > Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> On 2/1/17, 5:23 PM, Alexei Starovoitov wrote:
+> > On Tue, Jan 31, 2017 at 10:59:50PM -0800, Roopa Prabhu wrote:
+> >  
+> 
+> [snip]
+> 
+> >> Solution in this patch series:
+> >> The Goal is to use a single vxlan device to carry all vnis similar
+> >> to the vxlan collect metadata mode but additionally allowing the bridge
+> >> and vxlan driver to carry all the forwarding information and also learn.
+> >> This implementation uses the existing dst_metadata infrastructure to map
+> >> vlan to a tunnel id.  
+> > ovs and/or bpf can do the same already, but sounds like the main reason is
+> > to keep it integrated with bridge fdb to leverage your offload of bridge
+> > fdb into hw asic, right?  
+> 
+> correct. We already use the bridge driver for vlan filtering and offloading. Having vlan to tunnel map
+> elsewhere is not feasible. It is also more than the hw offload asic case, we have routing protocols like bgp looking at bridge driver
+> l2 forwarding database for ethernet vpns (https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07)
+> and they need a single place to look at bridge fdb table, vxlan fdb table, vlan and tunnel info. Also, Bgp might not be the only
+> protocol needing this info...we support other controllers too. Hence this info cannot be in a bpf or
+> live outside the bridge driver.
+> 
+> We today have the vlan info, bridge fdb table, vxlan remote dst fdb table. the missing peice is the vlan to vxlan-id mapping
+> which this series provides (Well, to be correct, this series helps with scaling this mapping.
+> Today we use a vxlan netdev per vlan which does not scale well). And this is a very common configuration in
+> data center switches that provide vxlan bridging gateway function.
+> [Google for 'vlan to vxlan mapping' should give a couple hits. I did not want to paste a link
+> to any specific vendor guide here...but found a generic blog --> http://www.definethecloud.net/vxlan-deep-dive/]
+> 
+> > If so, I guess, the extra complexity can be justified.
+> > The question is how do you program hw ? Is there really 1 to 1 mapping
+> > in the asics too? Or is it more flexible ?  
+> yes, it is 1-1 mapping in asics too (might be variations on different chips but
+> this kind of function is supported by most asics).
+> 
+> > I think most swith asics can do other tunnels too,
+> > so can this vlan->vxlan 1 to 1 be generalized to cover different
+> > types of tunnels that can be configured on the switch?  
+> 
+> 
+> yes, it can be. Hence i have kept the tunnel info netlink attribute generic. similar to how LWT provides
+> various encaps at the L3 routing layer, this can provide such function at the L2 bridge layer. But, to keep it relatively lite I use the
+> already existing dst_metadata infra to bridge vlan to vxlan (Which is already done in the case of vxlan collect metadata mode.
+> I simply extend it to cover the bridge case).
+> 
+> thanks,
 
-Seriously?! I really dislike what you did there.
-
-NACK.
-
-You are aware this block is common for both: Northstar and Northstar Plus and
-we already have phy-bcm-ns-usb3.c! In fact Jon told me to rewrite my initial
-driver to make is possible to reuse it on NSP and I did that!
-
-This is old comment from Jon:
-
-In 30 March 2016 at 23:31, Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
- > On Mon, Mar 28, 2016 at 9:46 PM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
- > wrote:
- >>
- >> CC: bcm-kernel-feedback-list, Jon
- >
- >
- > This is a common IP block with NSP.  I believe with some minor changes it
- > can support both.  Please allow me 1-2 days to look at these in more detail
- > and see if I can get these patches working on NSP.
-
-Please start using existing code instead of inventing everything from the
-scratch internally at Broadcom. You did the same thing with (Q)SPI driver.
-
-
-This driver duplicates phy-bcm-ns-usb3.c and should have not been accepted. I
-strongly suggest *reverting* it and adjusting existing driver if needed.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I wonder if this is a case for a new driver (with same subset of bridge API). You probably
+don't want all the baggage of STP, netfilter, VLAN filtering, etc when doing VXLAN VNI bridging.
