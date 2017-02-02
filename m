@@ -1,53 +1,38 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: Understanding mutual exclusion between rtnl_lock and rcu_read_lock
-Date: Thu, 2 Feb 2017 15:52:06 -0800
-Message-ID: <CAKgT0Ufy1gii_tQ=puNnPfFeHiE=jti5ObFP3Js0U03ULPFyiQ@mail.gmail.com>
-References: <FEDE3C6F-2C5C-4BCE-829F-C8E177C2AA36@me.com>
+From: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <rafal@milecki.pl>
+Subject: Re: [PATCH 1/2] net: ethernet: bgmac: init sequence bug
+Date: Thu, 02 Feb 2017 21:15:51 +0100
+Message-ID: <efd17b6863565d63b37b1bf75082d7b9@milecki.pl>
+References: <1485988752-21030-1-git-send-email-jon.mason@broadcom.com>
+ <1485988752-21030-2-git-send-email-jon.mason@broadcom.com>
+ <12ceba49-5465-072c-1770-b57d265bee86@milecki.pl>
+ <CAMER8-WtBTR74YYfTkZWjrPQjdJ6ykaTPntGeB0Oor5rDnYJfQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Joel Cunningham <joel.cunningham@me.com>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>,
+        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Zac Schroff <zschroff@broadcom.com>
+To: Zac Schroff <zachary.schroff@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:36424 "EHLO
-        mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751595AbdBBXwH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 18:52:07 -0500
-Received: by mail-it0-f44.google.com with SMTP id c7so1164036itd.1
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 15:52:07 -0800 (PST)
-In-Reply-To: <FEDE3C6F-2C5C-4BCE-829F-C8E177C2AA36@me.com>
+Received: from 19.mo6.mail-out.ovh.net ([188.165.56.177]:33207 "EHLO
+        19.mo6.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751720AbdBBXxP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 18:53:15 -0500
+Received: from player787.ha.ovh.net (b9.ovh.net [213.186.33.59])
+        by mo6.mail-out.ovh.net (Postfix) with ESMTP id 218A7A6FB8
+        for <netdev@vger.kernel.org>; Thu,  2 Feb 2017 21:15:58 +0100 (CET)
+In-Reply-To: <CAMER8-WtBTR74YYfTkZWjrPQjdJ6ykaTPntGeB0Oor5rDnYJfQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 2, 2017 at 3:47 PM, Joel Cunningham <joel.cunningham@me.com> wr=
-ote:
-> Hi,
->
-> I=E2=80=99m studying the synchronization used on different parts of struc=
-t net_device and I=E2=80=99m struggling to understand how structure member =
-modifications in dev_ioctl are synchronized.  Getters in dev_ifsioc_locked(=
-) are only holding rcu_read_lock() while setters in dev_ifsioc() are holdin=
-g rtnl_lock, but not using RCU APIs.  I was specifically looking at SIOCGIF=
-HWADDR/SIOCSIFHWADDR.  What=E2=80=99s to prevent one CPU from executing a g=
-etter and another CPU from executing a setter resulting in possibly a torn =
-read/write?  I didn=E2=80=99t see anything in rtnl_lock() that would wait f=
-or any rcu_reader_lock() critical sections (on other CPUs) to finish before=
- acquiring the mutex.
->
-> Is there something about dev_ioctl that prevents parallel execution? or m=
-aybe something I still don=E2=80=99t understand about the RCU implementatio=
-n?
->
-> Thanks,
->
-> Joel
+On 2017-02-02 01:31, Zac Schroff wrote:
+> How about BCMA_IOCTL_PRESERVE_ACROSS_INIT?
 
-My advice would be to spend more time familiarizing yourself with RCU.
-The advantage of RCU is that it allows for updates while other threads
-are accessing the data.  The rtnl_lock is just meant to prevent
-multiple writers from updating the data simultaneously.  So between
-writers the rtnl_lock is used to keep things synchronized, but between
-writers and readers the mechanism that is meant to protect the data
-and keep it sane is RCU.
+I think wireless drivers may still set some these bits during init.
 
-- Alex
+I've a simpler idea: make it bgmac specific. Call it sth like
+BGMAC_BCMA_IOCTL_PRESERVE
+BGMAC_BCMA_IOCTL_RESERVED
+BGMAC_BCMA_IOCTL_DONT_TOUCH
