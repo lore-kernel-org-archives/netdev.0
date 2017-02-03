@@ -1,41 +1,78 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: dp83867: Fix for automatically detected PHYs
-Date: Fri, 3 Feb 2017 18:10:31 +0100
-Message-ID: <20170203171031.GC15900@lunn.ch>
-References: <20170203165237.22452-1-abrodkin@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-snps-arc@lists.infradead.org,
-        linux-kernel@vger.kernel.org,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Mugunthan V N <mugunthanvnm@ti.com>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170203165237.22452-1-abrodkin@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: William Tu <u9012063@gmail.com>
+Subject: [PATCH v2 net-next] bpf: enable verifier to add 0 to packet ptr
+Date: Fri,  3 Feb 2017 09:22:45 -0800
+Message-ID: <1486142565-2794-1-git-send-email-u9012063@gmail.com>
+Cc: Mihai Budiu <mbudiu@vmware.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33415 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750881AbdBCRXG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 12:23:06 -0500
+Received: by mail-pf0-f195.google.com with SMTP id e4so1961720pfg.0
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 09:23:06 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 03, 2017 at 07:52:37PM +0300, Alexey Brodkin wrote:
-> Current implemntation returns ENODEV if device tree node for
-> phy is absent. But in reality there're many boards with the one
-> and only PHY on board and MACs that may find a PHY by querying
-> MDIO bus. One good example is STMMAC.
+The patch fixes the case when adding a zero value to the packet
+pointer.  The verifer reports the following error:
+  [...]
+    R0=imm0,min_value=0,max_value=0
+    R1=pkt(id=0,off=0,r=4)
+    R2=pkt_end R3=fp-12
+    R4=imm4,min_value=4,max_value=4
+    R5=pkt(id=0,off=4,r=4)
+  269: (bf) r2 = r0	// r2 becomes imm0
+  270: (77) r2 >>= 3
+  271: (bf) r4 = r1	// r4 becomes pkt ptr
+  272: (0f) r4 += r2	// r4 += 0
+  addition of negative constant to packet pointer is not allowed
 
-Humm, not so sure about that. That check for an OF node has always
-been there, since day one for this driver.
+Signed-off-by: William Tu <u9012063@gmail.com>
+Signed-off-by: Mihai Budiu <mbudiu@vmware.com>
+---
+ kernel/bpf/verifier.c                       |  2 +-
+ tools/testing/selftests/bpf/test_verifier.c | 15 +++++++++++++++
+ 2 files changed, 16 insertions(+), 1 deletion(-)
 
-What has changed recently is where it looks for these device tree
-properties. It used to wrongly look in the MAC node. It was changed to
-look in the PHY node. So this is probably the reason you are having
-problems.
-
-Having said that, your patch looks O.K.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index fb3513b..1a754e5 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1397,7 +1397,7 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
+ 		imm = insn->imm;
+ 
+ add_imm:
+-		if (imm <= 0) {
++		if (imm < 0) {
+ 			verbose("addition of negative constant to packet pointer is not allowed\n");
+ 			return -EACCES;
+ 		}
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 0d0912c..a2b5c7e 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -2404,6 +2404,21 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
+ 	{
++		"direct packet access: test14 (pkt_ptr += 0, good access)",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct __sk_buff, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct __sk_buff, data_end)),
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 0),
++			BPF_MOV64_IMM(BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
++	{
+ 		"helper access to packet: test1, valid packet_ptr range",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+-- 
+2.7.4
