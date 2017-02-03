@@ -1,89 +1,130 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Understanding mutual exclusion between rtnl_lock and
- rcu_read_lock
-Date: Thu, 02 Feb 2017 21:21:23 -0800
-Message-ID: <1486099283.21871.73.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <FEDE3C6F-2C5C-4BCE-829F-C8E177C2AA36@me.com>
-         <CAKgT0Ufy1gii_tQ=puNnPfFeHiE=jti5ObFP3Js0U03ULPFyiQ@mail.gmail.com>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: [PATCH net-next] bpf: fix verifier issue at check_packet_ptr_add
+Date: Thu, 2 Feb 2017 21:31:06 -0800
+Message-ID: <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
+References: <1486065553-5074-1-git-send-email-u9012063@gmail.com>
+ <5893C4DD.9000701@iogearbox.net> <CALDO+SZCn452+Tp6cBjMb_J9Mu=08Em=0+jsKpa31b3Eoy-0SQ@mail.gmail.com>
+ <20170203034636.GA68213@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Joel Cunningham <joel.cunningham@me.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33309 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752230AbdBCFV0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 00:21:26 -0500
-Received: by mail-pf0-f195.google.com with SMTP id e4so777462pfg.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 21:21:26 -0800 (PST)
-In-Reply-To: <CAKgT0Ufy1gii_tQ=puNnPfFeHiE=jti5ObFP3Js0U03ULPFyiQ@mail.gmail.com>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:36356 "EHLO
+        mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752230AbdBCFbs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 00:31:48 -0500
+Received: by mail-io0-f176.google.com with SMTP id j13so10235413iod.3
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 21:31:48 -0800 (PST)
+In-Reply-To: <20170203034636.GA68213@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-02 at 15:52 -0800, Alexander Duyck wrote:
-> On Thu, Feb 2, 2017 at 3:47 PM, Joel Cunningham <joel.cunningham@me.com> wrote:
-> > Hi,
-> >
-> > I’m studying the synchronization used on different parts of struct net_device and I’m struggling to understand how structure member modifications in dev_ioctl are synchronized.  Getters in dev_ifsioc_locked() are only holding rcu_read_lock() while setters in dev_ifsioc() are holding rtnl_lock, but not using RCU APIs.  I was specifically looking at SIOCGIFHWADDR/SIOCSIFHWADDR.  What’s to prevent one CPU from executing a getter and another CPU from executing a setter resulting in possibly a torn read/write?  I didn’t see anything in rtnl_lock() that would wait for any rcu_reader_lock() critical sections (on other CPUs) to finish before acquiring the mutex.
-> >
-> > Is there something about dev_ioctl that prevents parallel execution? or maybe something I still don’t understand about the RCU implementation?
-> >
-> > Thanks,
-> >
-> > Joel
-> 
-> My advice would be to spend more time familiarizing yourself with RCU.
-> The advantage of RCU is that it allows for updates while other threads
-> are accessing the data.  The rtnl_lock is just meant to prevent
-> multiple writers from updating the data simultaneously.  So between
-> writers the rtnl_lock is used to keep things synchronized, but between
-> writers and readers the mechanism that is meant to protect the data
-> and keep it sane is RCU.
+On Thu, Feb 2, 2017 at 7:46 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Thu, Feb 02, 2017 at 07:26:44PM -0800, William Tu wrote:
+>> Thanks. below is my program. The verifier fails at line 272, when
+>> writing to ICMP header.
+>> -----
+>> ; ebpf_packetEnd = ((void*)(long)skb->data_end);
+>>      206:       r2 = *(u32 *)(r6 + 4)
+>> ; ebpf_packetStart = ((void*)(long)skb->data);
+>>      207:       r1 = *(u32 *)(r6 + 0)
+>> ...
+>> r10 is "struct hd" at local stack
+>> r1 is skb->data
+>> ...
+>> ; if (hd.icmp.ebpf_valid) {
+>>      261:       r4 = *(u64 *)(r10 - 40)
+>>      262:       if r4 == 0 goto 29
+>> ; if (ebpf_packetEnd < ebpf_packetStart + BYTES(ebpf_packetOffsetInBits + 32)) {
+>>      263:       r4 = r0
+>>      264:       r4 += 32
+>>      265:       r4 >>= 3
+>>      266:       r5 = r1
+>>      267:       r5 += r4
+>>      268:       if r5 > r2 goto 23
+>> ; write_byte(ebpf_packetStart, BYTES(ebpf_packetOffsetInBits) + 0,
+>> (ebpf_byte) << 0);
+>>      269:       r2 = r0
+>>      270:       r2 >>= 3
+>>      271:       r4 = r1
+>>      272:       r4 += r2
+>>      273:       r2 = *(u64 *)(r10 - 80)
+>>      274:       *(u8 *)(r4 + 0) = r2
+>>
+>> verifier log
+>> ========
+>> from 208 to 260: R0=inv,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=0)
+>> R2=pkt_end R3=fp-12 R6=ctx R7=imm0,min_value=0,max_value=0
+>> R8=inv,min_value=0,max_value=0 R9=inv R10=fp
+>> 260: (bf) r0 = r7
+>> 261: (79) r4 = *(u64 *)(r10 -40)
+>> 262: (15) if r4 == 0x0 goto pc+29
+>>  R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=0) R2=pkt_end
+>> R3=fp-12 R4=inv R6=ctx R7=imm0,min_value=0,max_value=0
+>> R8=inv,min_value=0,max_value=0 R9=inv R10=fp
+>> 263: (bf) r4 = r0
+>> 264: (07) r4 += 32
+>> 265: (77) r4 >>= 3
+>> 266: (bf) r5 = r1
+>> 267: (0f) r5 += r4
+>> 268: (2d) if r5 > r2 goto pc+23
+>>  R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=4) R2=pkt_end
+>> R3=fp-12 R4=imm4,min_value=4,max_value=4 R5=pkt(id=0,off=4,r=4) R6=ctx
+>> R7=imm0,min_value=0,max_value=0 R8=inv,min_value=0,max_value=0 R9=inv
+>> R10=fp
+>> 269: (bf) r2 = r0
+>> 270: (77) r2 >>= 3
+>> 271: (bf) r4 = r1
+>> 272: (0f) r4 += r2
+>> 273: (79) r2 = *(u64 *)(r10 -80)
+>> 274: (73) *(u8 *)(r4 +0) = r2
+>>
+>> ---
+>> The full C source code, llvm-objdump, and verifier log.
+>> https://gist.github.com/williamtu/abaeb11563872508d47cfabed23ac9ea
+>> https://gist.github.com/williamtu/3e308a14c5795c82d516f934be0560cc
+>> https://gist.github.com/williamtu/1ae888cea019d065eab3057f74d38905#file-gistfile1-txt
+>
+> thanks for sharing.
+> the C program looks auto-generated? Just curious what did you
+> use to do it?
 
-Note that sometimes we do not properly handle the case one field can be
-written by a writer holding RTNL (or socket lock or something else)
+Yes, this is auto-generated. We want to use P4 2016 as front end to
+generate ebpf for XDP.
 
-We often believe compiler wont do something stupid, but it can
-sometimes.
+>
+> The line 272 is r4 += r2
+> where R4=imm4 and R2=pkt_end
 
-We definitely should scrutinize things a bit more, or maybe add __rcu
-like annotations to catch potential problems earlier.
+R2 is no longer pkt_end, it's R2 == R0 == 0
+269: (bf) r2 = r0
+270: (77) r2 >>= 3
+271: (bf) r4 = r1
+272: (0f) r4 += r2
 
-We recently found an issue in drivers/net/macvtap.c and
-drivers/net/tun.c using q->vnet_hdr_sz without proper annotation.
+So at line 272, it's pkt_ptr = pkt_ptr + 0
+thus the following fix works for us.
+-               if (imm <= 0) {
++               if (imm < 0) {
 
-macvtap patch would be :
+> Right now verifier doesn't accept any arithmetic with pkt_end,
+> since it expects the programs to have cannonical form of
+> if (ptr > pkt_end)
+>   goto fail;
+>
+> Even if we add it, I'm not sure what 'pkt_end + 4' suppose to do.
+> It's a pointer after the valid packet range.
+>
+> I'm the most puzzled with the diff:
+> -               if (imm <= 0) {
+> +               if (imm < 0) {
+> how is it making the program to pass verifier?
+>
+> PS
+> gentle reminder to avoid top posting.
+thanks for letting me know we should avoid top posting.
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 4026185658381df004a7d641e2be7bcb9a45b509..d11a807565acf371f9bbb4afbfaca1aacd000138 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -681,7 +681,7 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q, struct msghdr *m,
- 	size_t linear;
- 
- 	if (q->flags & IFF_VNET_HDR) {
--		vnet_hdr_len = q->vnet_hdr_sz;
-+		vnet_hdr_len = READ_ONCE(q->vnet_hdr_sz);
- 
- 		err = -EINVAL;
- 		if (len < vnet_hdr_len)
-@@ -820,7 +820,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
- 
- 	if (q->flags & IFF_VNET_HDR) {
- 		struct virtio_net_hdr vnet_hdr;
--		vnet_hdr_len = q->vnet_hdr_sz;
-+		vnet_hdr_len = READ_ONCE(q->vnet_hdr_sz);
- 		if (iov_iter_count(iter) < vnet_hdr_len)
- 			return -EINVAL;
- 
-@@ -1090,7 +1090,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		if (s < (int)sizeof(struct virtio_net_hdr))
- 			return -EINVAL;
- 
--		q->vnet_hdr_sz = s;
-+		WRITE_ONCE(q->vnet_hdr_sz, s);
- 		return 0;
- 
- 	case TUNGETVNETLE:
+--William
