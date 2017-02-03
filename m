@@ -1,56 +1,77 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] [net-next] net/mlx5e: fix another maybe-uninitialized false-positive
-Date: Fri,  3 Feb 2017 17:37:03 +0100
-Message-ID: <20170203163716.3501713-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Roi Dayan <roid-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Amir Vadai <amirva-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Mark Bloch <markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 2/2] add one config to select relax order mode in
+ intel NIC's Kconfig
+Date: Fri, 3 Feb 2017 08:43:08 -0800
+Message-ID: <CAKgT0UdxwTDwSsHKj5GfWTdNOcPdsnHBeM0mDxGoifDr8G1DYQ@mail.gmail.com>
+References: <1486114233-9800-1-git-send-email-maowenan@huawei.com> <1486114233-9800-3-git-send-email-maowenan@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Mao Wenan <maowenan@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:32812 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751131AbdBCQnO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 11:43:14 -0500
+Received: by mail-io0-f194.google.com with SMTP id 101so2760103iom.0
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 08:43:14 -0800 (PST)
+In-Reply-To: <1486114233-9800-3-git-send-email-maowenan@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit abeffce ("net/mlx5e: Fix a -Wmaybe-uninitialized warning"), I fixed a
-gcc warning for the ipv4 offload handling. Now we get the same warning for the
-added ipv6 support:
+On Fri, Feb 3, 2017 at 1:30 AM, Mao Wenan <maowenan@huawei.com> wrote:
+> This patch allows one to enable relax order mode in intel NIC's
+> Kconfig. CONFIG_ARCH_WANT_RELAX_ORDER is a common macro for some
+> CPU architecture to use relax order mode in NIC's source codes.
+> CONFIG_ARCH_WANT_RELAX_ORDER can be defined in arch/xxx/Kconfig,
+> such as sparc system exists in arch/sparc/Kconfig, but not all
+> of arm64 systems can use relax order mode, so it can't be defined
+> in arch/arm64/Kconfig. Therefore PCI_RELAX_ORDER in NIC's Kconfig
+> provide one way to define macro CONFIG_ARCH_WANT_RELAX_ORDER.
+>
+> Signed-off-by: Mao Wenan <maowenan@huawei.com>
+> ---
+>  drivers/net/ethernet/intel/Kconfig | 15 +++++++++++++++
+>  1 file changed, 15 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+> index 1349b45..b366722 100644
+> --- a/drivers/net/ethernet/intel/Kconfig
+> +++ b/drivers/net/ethernet/intel/Kconfig
+> @@ -275,4 +275,19 @@ config FM10K
+>           To compile this driver as a module, choose M here. The module
+>           will be called fm10k.  MSI-X interrupt support is required
+>
+> +config PCI_RELAX_ORDER
+> +        bool "PCI relax order mode support"
+> +        default n
+> +        select ARCH_WANT_RELAX_ORDER
+> +        ---help---
+> +          This allows one to enable relax order mode in driver.
+> +          CONFIG_ARCH_WANT_RELAX_ORDER is a common macro for some
+> +          CPU architecture to use relax order mode in NIC's source codes.
+> +          CONFIG_ARCH_WANT_RELAX_ORDER can be defined in arch/xxx/Kconfig,
+> +          such as sparc system exists in arch/sparc/Kconfig, but not all
+> +          of arm64 systems can use relax order mode, so it can't be defined
+> +          in arch/arm64/Kconfig. Therefore PCI_RELAX_ORDER provide one way
+> +          to define macro CONFIG_ARCH_WANT_RELAX_ORDER. Say Y here if you
+> +          want to enable relax order.
+> +
+>  endif # NET_VENDOR_INTEL
 
-drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:815:40: warning: 'out_dev' may be used uninitialized in this function [-Wmaybe-uninitialized]
 
-We can apply the same workaround here as well.
+You can't be dropping configuration options like this in here.  The
+ARCH_WANT_RELAX_ORDER should be selected by the architecture as a
+def_bool, not by the user via a kconfig option.  In addition this
+option has no business in the Intel wired LAN directory as this
+impacts all architectures.
 
-Fixes: ce99f6b97fcd ("net/mlx5e: Support SRIOV TC encapsulation offloads for IPv6 tunnels")
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This is something that would be an architecture specific PCI option
+and could impact other PCI devices beyond what is just in networking.
+If you are wanting to target the arm64 architecture you should
+probably drop this in the /arch/arm64/Kconfig, then that way anyone
+familiar with the arm64 hardware can chime in if enabling relaxed
+ordering causes any known issues.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index e3cf5f484153..d87a82682cb5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -731,8 +731,8 @@ static int mlx5e_route_lookup_ipv6(struct mlx5e_priv *priv,
- 	int ret;
- 
- 	dst = ip6_route_output(dev_net(mirred_dev), NULL, fl6);
--	if (dst->error) {
--		ret = dst->error;
-+	ret = dst->error;
-+	if (ret) {
- 		dst_release(dst);
- 		return ret;
- 	}
--- 
-2.9.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Alex
