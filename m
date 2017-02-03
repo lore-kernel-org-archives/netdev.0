@@ -1,74 +1,143 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [next-queu 05/19] i40e: avoid O(n^2) loop when deleting all filters
-Date: Thu,  2 Feb 2017 23:25:39 -0800
-Message-ID: <20170203072553.168372-6-jeffrey.t.kirsher@intel.com>
+Subject: [next-queu 18/19] i40e/i40evf: Limit DMA sync of RX buffers to actual packet size
+Date: Thu,  2 Feb 2017 23:25:52 -0800
+Message-ID: <20170203072553.168372-19-jeffrey.t.kirsher@intel.com>
 References: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Scott Peterson <scott.d.peterson@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:17804 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:23823 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752708AbdBCHZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 02:25:57 -0500
+        id S1752733AbdBCHZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 02:25:59 -0500
 In-Reply-To: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Scott Peterson <scott.d.peterson@intel.com>
 
-Use __i40e_del_filter instead of using i40e_del_filter() which will
-avoid doing an additional search to delete a filter we already have the
-pointer for.
+On packet RX, we perform a DMA sync for CPU before passing the
+packet up.  Here we limit that sync to the actual length of the
+incoming packet, rather than always syncing the entire buffer.
 
-Change-ID: Iea5a7e3cafbf8c682ed9d3b6c69cf5ff53f44daf
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: I626aaf6c37275a8ce9e81efcaa773f327b331487
+Signed-off-by: Scott Peterson <scott.d.peterson@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             | 1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 2 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
- 3 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 16 +++++++++-------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 16 +++++++++-------
+ 2 files changed, 18 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 4a64884..8bb0f4b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -762,6 +762,7 @@ bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features);
- void i40e_set_ethtool_ops(struct net_device *netdev);
- struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
- 					const u8 *macaddr, s16 vlan);
-+void __i40e_del_filter(struct i40e_vsi *vsi, struct i40e_mac_filter *f);
- void i40e_del_filter(struct i40e_vsi *vsi, const u8 *macaddr, s16 vlan);
- int i40e_sync_vsi_filters(struct i40e_vsi *vsi);
- struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index da9f8d3..cabd728 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1434,7 +1434,7 @@ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
-  * the "safe" variants of any list iterators, e.g. list_for_each_entry_safe()
-  * instead of list_for_each_entry().
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index f5baeb1..4852445 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1525,7 +1525,7 @@ static inline bool i40e_page_is_reserved(struct page *page)
+  * i40e_add_rx_frag - Add contents of Rx buffer to sk_buff
+  * @rx_ring: rx descriptor ring to transact packets on
+  * @rx_buffer: buffer containing page to add
+- * @rx_desc: descriptor containing length of buffer written by hardware
++ * @size: packet length from rx_desc
+  * @skb: sk_buff to place the data into
+  *
+  * This function will add the data contained in rx_buffer->page to the skb.
+@@ -1538,13 +1538,10 @@ static inline bool i40e_page_is_reserved(struct page *page)
   **/
--static void __i40e_del_filter(struct i40e_vsi *vsi, struct i40e_mac_filter *f)
-+void __i40e_del_filter(struct i40e_vsi *vsi, struct i40e_mac_filter *f)
+ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
+ 			     struct i40e_rx_buffer *rx_buffer,
+-			     union i40e_rx_desc *rx_desc,
++			     unsigned int size,
+ 			     struct sk_buff *skb)
  {
- 	if (!f)
- 		return;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 1859911..49941dd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2725,7 +2725,7 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
- 	 * anyway.
- 	 */
- 	hash_for_each(vsi->mac_filter_hash, bkt, f, hlist)
--		i40e_del_filter(vsi, f->macaddr, f->vlan);
-+		__i40e_del_filter(vsi, f);
+ 	struct page *page = rx_buffer->page;
+-	u64 qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-	unsigned int size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+-			    I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = I40E_RXBUFFER_2048;
+ #else
+@@ -1613,6 +1610,11 @@ static inline
+ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 				     union i40e_rx_desc *rx_desc)
+ {
++	u64 local_status_error_len =
++		le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++	unsigned int size =
++		(local_status_error_len & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++		I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 	struct i40e_rx_buffer *rx_buffer;
+ 	struct sk_buff *skb;
+ 	struct page *page;
+@@ -1654,11 +1656,11 @@ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 	dma_sync_single_range_for_cpu(rx_ring->dev,
+ 				      rx_buffer->dma,
+ 				      rx_buffer->page_offset,
+-				      I40E_RXBUFFER_2048,
++				      size,
+ 				      DMA_FROM_DEVICE);
  
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 	/* pull page into skb */
+-	if (i40e_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb)) {
++	if (i40e_add_rx_frag(rx_ring, rx_buffer, size, skb)) {
+ 		/* hand second half of page back to the ring */
+ 		i40e_reuse_rx_page(rx_ring, rx_buffer);
+ 		rx_ring->rx_stats.page_reuse_count++;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index d4e4882..4264d91 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1003,7 +1003,7 @@ static inline bool i40e_page_is_reserved(struct page *page)
+  * i40e_add_rx_frag - Add contents of Rx buffer to sk_buff
+  * @rx_ring: rx descriptor ring to transact packets on
+  * @rx_buffer: buffer containing page to add
+- * @rx_desc: descriptor containing length of buffer written by hardware
++ * @size: packet length from rx_desc
+  * @skb: sk_buff to place the data into
+  *
+  * This function will add the data contained in rx_buffer->page to the skb.
+@@ -1016,13 +1016,10 @@ static inline bool i40e_page_is_reserved(struct page *page)
+  **/
+ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
+ 			     struct i40e_rx_buffer *rx_buffer,
+-			     union i40e_rx_desc *rx_desc,
++			     unsigned int size,
+ 			     struct sk_buff *skb)
+ {
+ 	struct page *page = rx_buffer->page;
+-	u64 qword = le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+-	unsigned int size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+-			    I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = I40E_RXBUFFER_2048;
+ #else
+@@ -1091,6 +1088,11 @@ static inline
+ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 				       union i40e_rx_desc *rx_desc)
+ {
++	u64 local_status_error_len =
++		le64_to_cpu(rx_desc->wb.qword1.status_error_len);
++	unsigned int size =
++		(local_status_error_len & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
++		I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 	struct i40e_rx_buffer *rx_buffer;
+ 	struct sk_buff *skb;
+ 	struct page *page;
+@@ -1132,11 +1134,11 @@ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 	dma_sync_single_range_for_cpu(rx_ring->dev,
+ 				      rx_buffer->dma,
+ 				      rx_buffer->page_offset,
+-				      I40E_RXBUFFER_2048,
++				      size,
+ 				      DMA_FROM_DEVICE);
  
+ 	/* pull page into skb */
+-	if (i40e_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb)) {
++	if (i40e_add_rx_frag(rx_ring, rx_buffer, size, skb)) {
+ 		/* hand second half of page back to the ring */
+ 		i40e_reuse_rx_page(rx_ring, rx_buffer);
+ 		rx_ring->rx_stats.page_reuse_count++;
 -- 
 2.10.2
