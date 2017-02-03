@@ -1,52 +1,32 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next] sctp: process fwd tsn chunk only when prsctp is enabled
-Date: Fri,  3 Feb 2017 17:37:06 +0800
-Message-ID: <16dcae6a3bff4b7e4c6d37bfa7dba217d5ca34b7.1486114626.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32931 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752937AbdBCJhO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:37:14 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Juergen Gross <jgross@suse.com>
+Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
+ xennet_disconnect_backend()
+Date: Fri, 3 Feb 2017 10:38:14 +0100
+Message-ID: <bc3bf927-568e-043a-2785-16e6c3628359@suse.com>
+References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, vineethp@amazon.com,
+        wei.liu2@citrix.com, paul.durrant@citrix.com,
+        stable@vger.kernel.org
+To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch is to check if asoc->peer.prsctp_capable is set before
-processing fwd tsn chunk, if not, it will return an ERROR to the
-peer, just as rfc3758 section 3.3.1 demands.
+On 30/01/17 18:45, Boris Ostrovsky wrote:
+> rx_refill_timer should be deleted as soon as we disconnect from the
+> backend since otherwise it is possible for the timer to go off before
+> we get to xennet_destroy_queues(). If this happens we may dereference
+> queue->rx.sring which is set to NULL in xennet_disconnect_backend().
+> 
+> Signed-off-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+> CC: stable@vger.kernel.org
 
-Reported-by: Julian Cordes <julian.cordes@gmail.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/sm_statefuns.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Reviewed-by: Juergen Gross <jgross@suse.com>
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 782e579..d8798dd 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3867,6 +3867,9 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(struct net *net,
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 	}
- 
-+	if (!asoc->peer.prsctp_capable)
-+		return sctp_sf_unk_chunk(net, ep, asoc, type, arg, commands);
-+
- 	/* Make sure that the FORWARD_TSN chunk has valid length.  */
- 	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_fwdtsn_chunk)))
- 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
-@@ -3935,6 +3938,9 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn_fast(
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
- 	}
- 
-+	if (!asoc->peer.prsctp_capable)
-+		return sctp_sf_unk_chunk(net, ep, asoc, type, arg, commands);
-+
- 	/* Make sure that the FORWARD_TSN chunk has a valid length.  */
- 	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_fwdtsn_chunk)))
- 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
--- 
-2.1.0
+
+Juergen
