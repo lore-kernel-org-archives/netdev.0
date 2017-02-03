@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: stmmac: Fix wrong message in
- stmmac_probe_config_dt
-Date: Thu, 02 Feb 2017 22:04:14 -0500 (EST)
-Message-ID: <20170202.220414.514941128272278213.davem@davemloft.net>
-References: <dc9df66b-022f-6a8b-8797-1965fc9b10bb@gmail.com>
+Subject: Re: [PATCH net-next] net: phy: marvell: Add support for 88e1545 PHY
+Date: Thu, 02 Feb 2017 22:05:38 -0500 (EST)
+Message-ID: <20170202.220538.96068843122164442.davem@davemloft.net>
+References: <1485992103-23331-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, preid@electromag.com.au,
-        Joao.Pinto@synopsys.com
-To: hkallweit1@gmail.com
+Cc: netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38414 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38428 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751867AbdBCDEQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 22:04:16 -0500
-In-Reply-To: <dc9df66b-022f-6a8b-8797-1965fc9b10bb@gmail.com>
+        with ESMTP id S1751867AbdBCDFk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 22:05:40 -0500
+In-Reply-To: <1485992103-23331-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heiner Kallweit <hkallweit1@gmail.com>
-Date: Thu, 2 Feb 2017 08:20:12 +0100
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu,  2 Feb 2017 00:35:03 +0100
 
-> Most likely a copy & paste error in referenced commit.
-> Restore the debug message to what it was before.
+> The 88e1545 PHYs are discrete Marvell PHYs, found in a quad package on
+> the zii-devel-b board. Add support for it to the Marvell PHY driver.
 > 
-> Fixes: f573c0b9c4e0 ("stmmac: move stmmac_clk, pclk, clk_ptp_ref and stmmac_rst to platform structure")
-> Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
-> ---
-> v2:
-> - Don't remove the wrong comment but replace it with what
->   was there before the referenced commit.
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Applied to net-next.
+Applied.
