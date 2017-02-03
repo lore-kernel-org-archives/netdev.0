@@ -1,86 +1,40 @@
-From: "Malinen, Jouni" <jouni@qca.qualcomm.com>
-Subject: Re: [RFC PATCH 0/2] mac80211: use crypto shash for AES cmac
-Date: Fri, 3 Feb 2017 21:47:15 +0000
-Message-ID: <20170203214707.GA14147@jouni.qca.qualcomm.com>
-References: <1486149955-11825-1-git-send-email-ard.biesheuvel@linaro.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 2/2] net: ethernet: bgmac: mac address change bug
+Date: Fri, 3 Feb 2017 13:49:32 -0800
+Message-ID: <98cd2c6a-8bd9-39c7-0288-ce84130627b5@gmail.com>
+References: <1486156133-5639-1-git-send-email-jon.mason@broadcom.com>
+ <1486156133-5639-3-git-send-email-jon.mason@broadcom.com>
+ <43694eda-e7fd-0df5-6bec-147770e04d5c@milecki.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "ard.biesheuvel@linaro.org" <ard.biesheuvel@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:26093 "EHLO
-        wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752268AbdBCVrT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:47:19 -0500
-In-Reply-To: <1486149955-11825-1-git-send-email-ard.biesheuvel@linaro.org>
-Content-Language: en-US
-Content-ID: <327B6F0662368142A9432E3F5656218F@qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Hari Vyas <hariv@broadcom.com>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
+        Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <43694eda-e7fd-0df5-6bec-147770e04d5c@milecki.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 03, 2017 at 07:25:53PM +0000, Ard Biesheuvel wrote:
-> The mac80211 aes_cmac code reimplements the CMAC algorithm based on the
-> core AES cipher, which is rather restrictive in how platforms can satisfy
-> the dependency on this algorithm. For instance, SIMD implementations may
-> have a considerable setup time, which cannot be amortized over the entire
-> input when calling into the crypto API one block at a time. Also, it prev=
-ents
-> the use of more secure fixed time implementations, since not all AES driv=
-ers
-> expose the cipher interface.
->=20
-> So switch aes_cmac to use a cmac(aes) shash. This requires a preparatory
-> patch so that we can remove the open coded implementation, which it share=
-s
-> with the fils aead driver. That driver could receive the same treatment, =
-in
-> which case we could replace patch #1 with one that carries it over first.
->=20
-> Note that this is an RFC. I have no idea how I would go about testing thi=
-s
-> code, but I am on a mission to remove as many dependencies on the generic
-> AES cipher as I can.
+On 02/03/2017 01:44 PM, Rafał Miłecki wrote:
+> On 02/03/2017 10:08 PM, Jon Mason wrote:
+>> From: Hari Vyas <hariv@broadcom.com>
+>>
+>> ndo_set_mac_address() passes struct sockaddr * as 2nd parameter to
+>> bgmac_set_mac_address() but code assumed u8 *.  This caused two bytes
+>> chopping and the wrong mac address was configured.
+>>
+>> Signed-off-by: Hari Vyas <hariv@broadcom.com>
+>> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+>> Fixes: 4e209001b86 ("bgmac: write mac address to hardware in
+>> ndo_set_mac_address")
+> 
+> I think you were going to Cc stable?
 
-Neither the BIP nor FILS cases have any real speed requirements taken
-into account how rarely they end up being used in practice (there is
-really no use case for BIP today and FILS is used only once per
-association). That said, there should be no issues with moving these to
-a more generic mechanism assuming one is available now (I don't think
-that was the case when I was working on BIP and I was too lazy to figure
-out how to convert it or the newer FILS implementation)..
+David takes care of queueing patches for -stable trees:
 
-mac80211_hwsim show allow some of the testing to be done with wlantest
-confirming the results in user space (*). I think that would cover all
-of BIP (net/mac80211/aes_cmac.c), but not FILS. For FILS, we do not
-currently have a convenient mechanism for running two different
-instances of kernel or even just mac80211 in the setup, so that would
-likely need testing with real WLAN hardware. I don't currently have a
-good setup for testing this (was using Backports-based solution in the
-past instead of full kernel build and Backports is a bit behind the
-current state..), but I guess I'll need to build something functional
-for this eventually.. Once that's in working condition on two devices,
-it would be straightforward to run a test (snapshot of hostap.git build
-to enable FILS functionality and go through one FILS authentication
-round)..
-
-Another alternative would be to extend wlantest to decrypt/validate FIPS
-AEAD use case based on keys exposed from hostapd or wpa_supplicant.
-There has not been sufficient use case for that so far and I have not
-bothered working on it yet.
-
-
-By the way, FILS AEAD uses SIV mode and I'm not sure it is supported in
-the current crypto code, so that would be one additional piece to take
-care of when considering net/mac80211/fils_aead.c conversion.
-
-
-(*)
-http://buildbot.w1.fi/hwsim/
-http://w1.fi/cgit/hostap/tree/tests/hwsim/vm/example-vm-setup.txt
-
---=20
-Jouni Malinen                                            PGP id EFC895FA=
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n114
+-- 
+Florian
