@@ -1,120 +1,146 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net-next 4/7] openvswitch: Inherit master's labels.
-Date: Thu,  2 Feb 2017 17:10:03 -0800
-Message-ID: <1486084206-109903-4-git-send-email-jarno@ovn.org>
+Subject: [PATCH net-next 6/7] openvswitch: Add force commit.
+Date: Thu,  2 Feb 2017 17:10:05 -0800
+Message-ID: <1486084206-109903-6-git-send-email-jarno@ovn.org>
 References: <1486084206-109903-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:55530 "EHLO
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:58325 "EHLO
         relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751949AbdBCBKp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 20:10:45 -0500
+        with ESMTP id S1751949AbdBCBKs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 20:10:48 -0500
 In-Reply-To: <1486084206-109903-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We avoid calling into nf_conntrack_in() for expected connections, as
-that would remove the expectation that we want to stick around until
-we are ready to commit the connection.  Instead, we do a lookup in the
-expectation table directly.  However, after a successful expectation
-lookup we have set the flow key label field from the master
-connection, whereas nf_conntrack_in() does not do this.  This leads to
-master's labels being iherited after an expectation lookup, but those
-labels not being inherited after the corresponding conntrack action
-with a commit flag.
+Stateful network admission policy may allow connections to one
+direction and reject connections initiated in the other direction.
+After policy change it is possible that for a new connection an
+overlapping conntrack entry already exist, where the connection
+original direction is opposed to the new connection's initial packet.
 
-This patch resolves the problem by changing the commit code path to
-also inherit the master's labels to the expected connection.
-Resolving this conflict in favor or inheriting the labels allows
-information be passed from the master connection to related
-connections, which would otherwise be much harder.  Labels can still
-be set explicitly, so this change only affects the default values of
-the labels in presense of a master connection.
+Most importantly, conntrack state relating to the current packet gets
+the "reply" designation based on whether the original direction tuple
+or the reply direction tuple matched.  If this "directionality" is
+wrong w.r.t. to the stateful network admission policy it may happen
+that packets in neither direction are correctly admitted.
 
-Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+This patch adds a new "force commit" option to the OVS conntrack
+action that checks the original direction of an existing conntrack
+entry.  If that direction is opposed to the current packet, the
+existing conntrack entry is deleted and a new one is subsequently
+created in the correct direction.
+
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- net/openvswitch/conntrack.c | 48 ++++++++++++++++++++++++++++++++-------------
- 1 file changed, 34 insertions(+), 14 deletions(-)
+ include/uapi/linux/openvswitch.h | 10 ++++++++++
+ net/openvswitch/conntrack.c      | 27 +++++++++++++++++++++++++--
+ 2 files changed, 35 insertions(+), 2 deletions(-)
 
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 90af8b8..d5ba9a9 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -674,6 +674,10 @@ struct ovs_action_hash {
+  * @OVS_CT_ATTR_HELPER: variable length string defining conntrack ALG.
+  * @OVS_CT_ATTR_NAT: Nested OVS_NAT_ATTR_* for performing L3 network address
+  * translation (NAT) on the packet.
++ * @OVS_CT_ATTR_FORCE_COMMIT: Like %OVS_CT_ATTR_COMMIT, but instead of doing
++ * nothing if the connection is already committed will check that the current
++ * packet is in conntrack entry's original direction.  If directionality does
++ * not match, will delete the existing conntrack entry and commit a new one.
+  */
+ enum ovs_ct_attr {
+ 	OVS_CT_ATTR_UNSPEC,
+@@ -684,6 +688,12 @@ enum ovs_ct_attr {
+ 	OVS_CT_ATTR_HELPER,     /* netlink helper to assist detection of
+ 				   related connections. */
+ 	OVS_CT_ATTR_NAT,        /* Nested OVS_NAT_ATTR_* */
++	OVS_CT_ATTR_FORCE_COMMIT,  /* No argument, commits connection.  If the
++				    * conntrack entry original direction tuple
++				    * does not match the current packet header
++				    * values, will delete the current conntrack
++				    * entry and create a new one.
++				    */
+ 	__OVS_CT_ATTR_MAX
+ };
+ 
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index a163c44..738a4fa 100644
+index 1afe153..1f27f44 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -265,6 +265,8 @@ static struct nf_conn_labels *ovs_ct_get_conn_labels(struct nf_conn *ct)
- 	return cl;
+@@ -65,6 +65,7 @@ struct ovs_conntrack_info {
+ 	struct nf_conn *ct;
+ 	u8 commit : 1;
+ 	u8 nat : 3;                 /* enum ovs_ct_nat */
++	u8 force : 1;
+ 	u16 family;
+ 	struct md_mark mark;
+ 	struct md_labels labels;
+@@ -631,10 +632,13 @@ static bool skb_nfct_cached(struct net *net,
+ 	 */
+ 	if (!ct && key->ct.state & OVS_CS_F_TRACKED &&
+ 	    !(key->ct.state & OVS_CS_F_INVALID) &&
+-	    key->ct.zone == info->zone.id)
++	    key->ct.zone == info->zone.id) {
+ 		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
+ 					  !!(key->ct.state
+ 					     & OVS_CS_F_NAT_MASK));
++		if (ct)
++			nf_ct_get(skb, &ctinfo);
++	}
+ 	if (!ct)
+ 		return false;
+ 	if (!net_eq(net, read_pnet(&ct->ct_net)))
+@@ -648,6 +652,19 @@ static bool skb_nfct_cached(struct net *net,
+ 		if (help && rcu_access_pointer(help->helper) != info->helper)
+ 			return false;
+ 	}
++	/* Force conntrack entry direction to the current packet? */
++	if (info->force && CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL) {
++		/* Delete the conntrack entry if confirmed, else just release
++		 * the reference.
++		 */
++		if (nf_ct_is_confirmed(ct))
++			nf_ct_delete(ct, 0, 0);
++		else
++			nf_ct_put(ct);
++		skb->nfct = NULL;
++		skb->nfctinfo = 0;
++		return false;
++	}
+ 
+ 	return true;
  }
+@@ -1226,6 +1243,7 @@ static int parse_nat(const struct nlattr *attr,
  
-+static bool labels_nonzero(const struct ovs_key_ct_labels *labels);
-+
- /* Initialize labels for a new, to be committed conntrack entry.  Note that
-  * since the new connection is not yet confirmed, and thus no-one else has
-  * access to it's labels, we simply write them over.  Also, we refrain from
-@@ -275,18 +277,35 @@ static int ovs_ct_init_labels(struct nf_conn *ct, struct sw_flow_key *key,
- 			      const struct ovs_key_ct_labels *labels,
- 			      const struct ovs_key_ct_labels *mask)
- {
--	struct nf_conn_labels *cl;
--	u32 *dst;
--	int i;
-+	struct nf_conn_labels *cl, *master_cl;
-+	bool have_mask = labels_nonzero(mask);
-+
-+	/* Inherit master's labels to the related connection? */
-+	master_cl = (ct->master) ? nf_ct_labels_find(ct->master) : NULL;
-+
-+	if (!master_cl && !have_mask)
-+		return 0;   /* Nothing to do. */
+ static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
+ 	[OVS_CT_ATTR_COMMIT]	= { .minlen = 0, .maxlen = 0 },
++	[OVS_CT_ATTR_FORCE_COMMIT]	= { .minlen = 0, .maxlen = 0 },
+ 	[OVS_CT_ATTR_ZONE]	= { .minlen = sizeof(u16),
+ 				    .maxlen = sizeof(u16) },
+ 	[OVS_CT_ATTR_MARK]	= { .minlen = sizeof(struct md_mark),
+@@ -1265,6 +1283,9 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
+ 		}
  
- 	cl = ovs_ct_get_conn_labels(ct);
- 	if (!cl)
- 		return -ENOSPC;
+ 		switch (type) {
++		case OVS_CT_ATTR_FORCE_COMMIT:
++			info->force = true;
++			/* fall through. */
+ 		case OVS_CT_ATTR_COMMIT:
+ 			info->commit = true;
+ 			break;
+@@ -1491,7 +1512,9 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
+ 	if (!start)
+ 		return -EMSGSIZE;
  
--	dst = (u32 *)cl->bits;
--	for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
--		dst[i] = (dst[i] & ~mask->ct_labels_32[i]) |
--			(labels->ct_labels_32[i] & mask->ct_labels_32[i]);
-+	/* Inherit the master's labels, if any. */
-+	if (master_cl) {
-+		size_t len = sizeof(master_cl->bits);
-+
-+		memcpy(&cl->bits, &master_cl->bits,
-+		       len > OVS_CT_LABELS_LEN ? OVS_CT_LABELS_LEN : len);
-+	}
-+	if (have_mask) {
-+		u32 *dst = (u32 *)cl->bits;
-+		int i;
-+
-+		for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
-+			dst[i] = (dst[i] & ~mask->ct_labels_32[i]) |
-+				(labels->ct_labels_32[i]
-+				 & mask->ct_labels_32[i]);
-+	}
- 
- 	memcpy(&key->ct.labels, cl->bits, OVS_CT_LABELS_LEN);
- 
-@@ -916,13 +935,14 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 		if (err)
- 			return err;
- 	}
--	if (labels_nonzero(&info->labels.mask)) {
--		if (!nf_ct_is_confirmed(ct))
--			err = ovs_ct_init_labels(ct, key, &info->labels.value,
--						 &info->labels.mask);
--		else
--			err = ovs_ct_set_labels(ct, key, &info->labels.value,
--						&info->labels.mask);
-+	if (!nf_ct_is_confirmed(ct)) {
-+		err = ovs_ct_init_labels(ct, key, &info->labels.value,
-+					 &info->labels.mask);
-+		if (err)
-+			return err;
-+	} else if (labels_nonzero(&info->labels.mask)) {
-+		err = ovs_ct_set_labels(ct, key, &info->labels.value,
-+					&info->labels.mask);
- 		if (err)
- 			return err;
- 	}
+-	if (ct_info->commit && nla_put_flag(skb, OVS_CT_ATTR_COMMIT))
++	if (ct_info->commit && nla_put_flag(skb, ct_info->force
++					    ? OVS_CT_ATTR_FORCE_COMMIT
++					    : OVS_CT_ATTR_COMMIT))
+ 		return -EMSGSIZE;
+ 	if (IS_ENABLED(CONFIG_NF_CONNTRACK_ZONES) &&
+ 	    nla_put_u16(skb, OVS_CT_ATTR_ZONE, ct_info->zone.id))
 -- 
 2.1.4
