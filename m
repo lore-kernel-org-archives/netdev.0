@@ -1,67 +1,106 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 20/27] netfilter: reset netfilter state when duplicating packet
-Date: Fri,  3 Feb 2017 13:25:31 +0100
-Message-ID: <1486124738-3013-21-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 24/27] netfilter: guarantee 8 byte minalign for template addresses
+Date: Fri,  3 Feb 2017 13:25:35 +0100
+Message-ID: <1486124738-3013-25-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58918 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753305AbdBCM2t (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 07:28:49 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 14BA0C51AB
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:43 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 04582DA855
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:43 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id CBCA2DA804
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:40 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-We should also toss nf_bridge_info, if any -- packet is leaving via
-ip_local_out, also, this skb isn't bridged -- it is a locally generated
-copy.  Also this avoids the need to touch this later when skb->nfct is
-replaced with 'unsigned long _nfct' in followup patch.
+The next change will merge skb->nfct pointer and skb->nfctinfo
+status bits into single skb->_nfct (unsigned long) area.
 
+For this to work nf_conn addresses must always be aligned at least on
+an 8 byte boundary since we will need the lower 3bits to store nfctinfo.
+
+Conntrack templates are allocated via kmalloc.
+kbuild test robot reported
+BUILD_BUG_ON failed: NFCT_INFOMASK >= ARCH_KMALLOC_MINALIGN
+on v1 of this patchset, so not all platforms meet this requirement.
+
+Do manual alignment if needed,  the alignment offset is stored in the
+nf_conn entry protocol area. This works because templates are not
+handed off to L4 protocol trackers.
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nf_dup_ipv4.c | 2 +-
- net/ipv6/netfilter/nf_dup_ipv6.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/net/netfilter/nf_conntrack.h |  2 ++
+ net/netfilter/nf_conntrack_core.c    | 29 ++++++++++++++++++++++++-----
+ 2 files changed, 26 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/netfilter/nf_dup_ipv4.c b/net/ipv4/netfilter/nf_dup_ipv4.c
-index cf986e1c7bbd..a981ef7151ca 100644
---- a/net/ipv4/netfilter/nf_dup_ipv4.c
-+++ b/net/ipv4/netfilter/nf_dup_ipv4.c
-@@ -68,7 +68,7 @@ void nf_dup_ipv4(struct net *net, struct sk_buff *skb, unsigned int hooknum,
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index d704aed11684..06d3d2d24fe0 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -163,6 +163,8 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
+ int nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
+ 			     const struct nf_conn *ignored_conntrack);
  
- #if IS_ENABLED(CONFIG_NF_CONNTRACK)
- 	/* Avoid counting cloned packets towards the original connection. */
--	nf_conntrack_put(skb->nfct);
-+	nf_reset(skb);
- 	skb->nfct     = &nf_ct_untracked_get()->ct_general;
- 	skb->nfctinfo = IP_CT_NEW;
- 	nf_conntrack_get(skb->nfct);
-diff --git a/net/ipv6/netfilter/nf_dup_ipv6.c b/net/ipv6/netfilter/nf_dup_ipv6.c
-index 4a84b5ad9ecb..5f52e5f90e7e 100644
---- a/net/ipv6/netfilter/nf_dup_ipv6.c
-+++ b/net/ipv6/netfilter/nf_dup_ipv6.c
-@@ -57,7 +57,7 @@ void nf_dup_ipv6(struct net *net, struct sk_buff *skb, unsigned int hooknum,
- 		return;
++#define NFCT_INFOMASK	7UL
++
+ /* Return conntrack_info and tuple hash for given skb. */
+ static inline struct nf_conn *
+ nf_ct_get(const struct sk_buff *skb, enum ip_conntrack_info *ctinfo)
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index c9bd10747864..768968fba7f6 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -350,16 +350,31 @@ static void nf_ct_del_from_dying_or_unconfirmed_list(struct nf_conn *ct)
+ 	spin_unlock(&pcpu->lock);
+ }
  
- #if IS_ENABLED(CONFIG_NF_CONNTRACK)
--	nf_conntrack_put(skb->nfct);
-+	nf_reset(skb);
- 	skb->nfct     = &nf_ct_untracked_get()->ct_general;
- 	skb->nfctinfo = IP_CT_NEW;
- 	nf_conntrack_get(skb->nfct);
++#define NFCT_ALIGN(len)	(((len) + NFCT_INFOMASK) & ~NFCT_INFOMASK)
++
+ /* Released via destroy_conntrack() */
+ struct nf_conn *nf_ct_tmpl_alloc(struct net *net,
+ 				 const struct nf_conntrack_zone *zone,
+ 				 gfp_t flags)
+ {
+-	struct nf_conn *tmpl;
++	struct nf_conn *tmpl, *p;
+ 
+-	tmpl = kzalloc(sizeof(*tmpl), flags);
+-	if (tmpl == NULL)
+-		return NULL;
++	if (ARCH_KMALLOC_MINALIGN <= NFCT_INFOMASK) {
++		tmpl = kzalloc(sizeof(*tmpl) + NFCT_INFOMASK, flags);
++		if (!tmpl)
++			return NULL;
++
++		p = tmpl;
++		tmpl = (struct nf_conn *)NFCT_ALIGN((unsigned long)p);
++		if (tmpl != p) {
++			tmpl = (struct nf_conn *)NFCT_ALIGN((unsigned long)p);
++			tmpl->proto.tmpl_padto = (char *)tmpl - (char *)p;
++		}
++	} else {
++		tmpl = kzalloc(sizeof(*tmpl), flags);
++		if (!tmpl)
++			return NULL;
++	}
+ 
+ 	tmpl->status = IPS_TEMPLATE;
+ 	write_pnet(&tmpl->ct_net, net);
+@@ -374,7 +389,11 @@ void nf_ct_tmpl_free(struct nf_conn *tmpl)
+ {
+ 	nf_ct_ext_destroy(tmpl);
+ 	nf_ct_ext_free(tmpl);
+-	kfree(tmpl);
++
++	if (ARCH_KMALLOC_MINALIGN <= NFCT_INFOMASK)
++		kfree((char *)tmpl - tmpl->proto.tmpl_padto);
++	else
++		kfree(tmpl);
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_tmpl_free);
+ 
 -- 
 2.1.4
+
