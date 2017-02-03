@@ -1,116 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [next-net 00/19][pull request] Intel Wired LAN Driver Updates 2017-02-02
-Date: Thu,  2 Feb 2017 23:25:34 -0800
-Message-ID: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [next-queu 01/19] i40e: don't allow i40e_vsi_(add|kill)_vlan to operate when VID<1
+Date: Thu,  2 Feb 2017 23:25:35 -0800
+Message-ID: <20170203072553.168372-2-jeffrey.t.kirsher@intel.com>
+References: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:50618 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752664AbdBCHZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 02:25:55 -0500
+        id S1752700AbdBCHZ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 02:25:56 -0500
+In-Reply-To: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e/i40evf only.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Jake fixes up the driver to not call i40e_vsi_kill_vlan() or
-i40e_vsi_add_vlan() when the PVID is set or when the VID is less than 1.
-Cleaned up a check which really is not needed since there is no real
-reason why we cannot just call i40e_del_mac_all_vlan() directly.  Renamed
-functions to better reflect their actual purpose and how they function
-in a more clear manner.
+Now that we have the separate i40e_(add|rm)_vlan_all_mac functions, we
+should not be using the i40e_vsi_kill_vlan or i40e_vsi_add_vlan
+functions when PVID is set or when VID is less than 1. This allows us to
+remove some checks in i40e_vsi_add_vlan and ensures that callers which
+need to handle VID=0 or VID=-1 don't accidentally invoke the VLAN mode
+handling used to convert filters when entering VLAN mode. We also update
+the functions to take u16 instead of s16 as well since they no longer
+expect to be called with VID=I40E_VLAN_ANY.
 
-Bimmy cleans up unused/deprecated macros.
+Change-ID: Ibddf44a8bb840dde8ceef2a4fdb92fd953b05a57
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h      |  4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++----
+ 2 files changed, 12 insertions(+), 6 deletions(-)
 
-Mitch cleans up unused device ids which were intended for use when
-running Linux VF drivers under Hyper-V, but found to be not needed.
-Then cleaned up a function that is no longer needed since the client
-open and close functions were refactored.  Adds a sleep without timeout
-until the reply from the PF driver has been received since the iWARP
-client cannot continue until the operation has been completed.
-
-Tushar Dave fixes an issue seen on SPARC where the use of the 'packed'
-directive was causing kernel unaligned errors.
-
-Alex does a refactor to pull some data off of the stack and store it
-in the transmit buffer info section of the transmit ring.
-
-Alan fixes a bug which was caused by passing a bad register value to the
-firmware, by refactoring the macro INTRL_USEC_TO_REG into a static
-inline function.  Also added feedback to the user as to the actual
-interrupt rate limit being used when it differs from the requested limit.
-
-Faisal adds function prototypes i40evf.h to fix warnings seen in the
-RDMA i40iwvf driver.
-
-Scott limits the DMA sync for CPU to the actual length of the incoming
-packet, rather than always syncing the entire buffer.
-
-The following are changes since commit 8fe809a992639b2013c0d8da2ba55cdea28a959a:
-  net: add LINUX_MIB_PFMEMALLOCDROP counter
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-Alan Brady (2):
-  i40e: refactor macro INTRL_USEC_TO_REG
-  i40e: add interrupt rate limit verbosity
-
-Alexander Duyck (1):
-  i40e: Quick refactor to start moving data off stack and into Tx buffer
-    info
-
-Bimmy Pujari (1):
-  i40e: Deprecating unused macro
-
-Faisal Latif (1):
-  i40evf: fix client warnings
-
-Jacob Keller (7):
-  i40e: don't allow i40e_vsi_(add|kill)_vlan to operate when VID<1
-  i40e: fold the i40e_is_vsi_in_vlan check into i40e_put_mac_in_vlan
-  i40e: no need to check is_vsi_in_vlan before calling
-    i40e_del_mac_all_vlan
-  i40e: rename i40e_put_mac_in_vlan and i40e_del_mac_all_vlan
-  i40e: avoid O(n^2) loop when deleting all filters
-  i40e: when adding or removing MAC filters, correctly handle VLANs
-  i40e: don't check params until after checking for client instance
-
-Jayaprakash Shanmugam (1):
-  i40e: Remove FPK HyperV VF device ID
-
-Mitch Williams (3):
-  i40evf: remove unused device ID
-  i40e: remove unused function
-  i40evf: track outstanding client request
-
-Scott Peterson (2):
-  i40e/i40evf: Limit DMA sync of RX buffers to actual packet size
-  i40e/i40evf: Moves skb from i40e_rx_buffer to i40e_ring
-
-Tushar Dave (1):
-  i40e: remove unnecessary __packed
-
- drivers/net/ethernet/intel/i40e/i40e.h             | 25 ++----
- drivers/net/ethernet/intel/i40e/i40e_client.c      | 39 +--------
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 15 +++-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 66 +++++++--------
- drivers/net/ethernet/intel/i40e/i40e_osdep.h       |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 94 ++++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        | 24 +++++-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  1 -
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 23 ++----
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_devids.h    |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 93 +++++++++++----------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  9 ++-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  1 +
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  8 ++
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  1 -
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  4 +
- 18 files changed, 208 insertions(+), 202 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 342007d..c164d50 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -852,9 +852,9 @@ int i40e_close(struct net_device *netdev);
+ int i40e_vsi_open(struct i40e_vsi *vsi);
+ void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
+ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
+-int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
++int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid);
+ void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
+-void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
++void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid);
+ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
+ 					     const u8 *macaddr);
+ int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, const u8 *macaddr);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b2f76d2..0b4adcc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2568,12 +2568,15 @@ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
+ /**
+  * i40e_vsi_add_vlan - Add VSI membership for given VLAN
+  * @vsi: the VSI being configured
+- * @vid: VLAN id to be added (0 = untagged only , -1 = any)
++ * @vid: VLAN id to be added
+  **/
+-int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
++int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid)
+ {
+ 	int err;
+ 
++	if (!vid || vsi->info.pvid)
++		return -EINVAL;
++
+ 	/* Locked once because all functions invoked below iterates list*/
+ 	spin_lock_bh(&vsi->mac_filter_hash_lock);
+ 	err = i40e_add_vlan_all_mac(vsi, vid);
+@@ -2616,10 +2619,13 @@ void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
+ /**
+  * i40e_vsi_kill_vlan - Remove VSI membership for given VLAN
+  * @vsi: the VSI being configured
+- * @vid: VLAN id to be removed (0 = untagged only , -1 = any)
++ * @vid: VLAN id to be removed
+  **/
+-void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
++void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid)
+ {
++	if (!vid || vsi->info.pvid)
++		return;
++
+ 	spin_lock_bh(&vsi->mac_filter_hash_lock);
+ 	i40e_rm_vlan_all_mac(vsi, vid);
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
 -- 
 2.10.2
