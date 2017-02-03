@@ -1,159 +1,956 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Fri, 3 Feb 2017 12:34:21 +0530
-Message-ID: <CAHgaXdLQ2B5ayLactn1uv5aS-_nTafS_kG3g6UqeBTg6pkJymg@mail.gmail.com>
-References: <20170130103853.GA34633@in3o.xyz> <CAGXu5j+7+D=N8U9Zpq1Uq526B4C4g=gQZtQ1iCMt3juDFgfgJA@mail.gmail.com>
- <CAHgaXd+nj69n-Xf46N=4M-j-0hKHVrrLfsvRZCG=2CCAtVF6ZA@mail.gmail.com>
- <CAGXu5j+NSLomuSgD40kys+pWc+J9aB6Bbk_gSP9Lp_ScimQn_w@mail.gmail.com>
- <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com> <76621BFF-B30B-4417-AB2B-DB21CA6092D9@netronome.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 16/19] lib: Introduce priority array area manager
+Date: Fri, 3 Feb 2017 08:08:57 +0100
+Message-ID: <20170203070857.GD1871@nanopsycho.orion>
+References: <1486048379-19237-1-git-send-email-jiri@resnulli.us>
+ <1486048379-19237-17-git-send-email-jiri@resnulli.us>
+ <CALx6S35TKCZG=6hsTFa=A3EOG8T_h3Eb4wkzcSbyY1yvKmmscw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Mircea Gherzan <mgherzan@gmail.com>, netdev@vger.kernel.org,
-        kernel-hardening@lists.openwall.com,
-        linux-arm-kernel@lists.infradead.org
-To: nick viljoen <nick.viljoen@netronome.com>,
-        Kees Cook <keescook@chromium.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, idosch@mellanox.com,
+        eladr@mellanox.com, mlxsw@mellanox.com,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>, ivecera@redhat.com,
+        Jiri Benc <jbenc@redhat.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:33457 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751520AbdBCHEX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 02:04:23 -0500
-Received: by mail-qt0-f175.google.com with SMTP id v23so21054401qtb.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 23:04:22 -0800 (PST)
-In-Reply-To: <76621BFF-B30B-4417-AB2B-DB21CA6092D9@netronome.com>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:34650 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751561AbdBCHJB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 02:09:01 -0500
+Received: by mail-wj0-f195.google.com with SMTP id ip10so70622wjb.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 23:09:00 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALx6S35TKCZG=6hsTFa=A3EOG8T_h3Eb4wkzcSbyY1yvKmmscw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Nick,
+Thu, Feb 02, 2017 at 10:58:15PM CET, tom@herbertland.com wrote:
+>I have no idea what a "priority array area manager" is. Googling it
+>comes up with nothing and there are no comments in this whole patch
+>that either describe what it is or how any of the functions should be
+>used. Am I missing something that is supposed to be obvious?
 
-On Thu, Feb 2, 2017 at 12:59 PM, nick viljoen
-<nick.viljoen@netronome.com> wrote:
-> Hey Shubham,
->
-> I have been doing some similar work-might be worth pooling
-> resource if there is interest?
+This lib manages array areas with chunks of rules with same priority.
+Consider folowing example:
 
-Sure. That sounds great.
+entry 1 with prio 10
+entry 2 with prio 10
+entry 3 with prio 10
+entry 4 with prio 20
+entry 5 with prio 20
+entry 6 with prio 20
+entry 7 with prio 30
+entry 8 with prio 30
+entry 9 with prio 30
 
->
-> We made a presentation at the previous netdev conference about
-> what we are doing-you can check it out here :)
->
-> https://www.youtube.com/watch?v=-5BzT1ch19s&t=45s
+In this example there are 3 priority chunks. The order of the prio
+matters, however the order within a single priority chunk does not
+matter. So the same array would be ordered as follows:
 
-Sorry for the late reply. I had to watch the whole video. Its was fun.
-Now. Its seems like a small of your complete project was related to
-eBPF 64 bit register to 32 bit register mapping, although I don't have
-any knowledge about the Hardware aspect of it.
-Now, getting back to your slides, on Page 7 you are mapping eBPF 64
-bit register to 32 bit register.
+entry 2 with prio 10
+entry 3 with prio 10
+entry 1 with prio 10
+entry 5 with prio 20
+entry 4 with prio 20
+entry 6 with prio 20
+entry 9 with prio 30
+entry 8 with prio 30
+entry 7 with prio 30
 
-1. Can you explain that to me? I didn't get this part from you presentation.
-2. How are you taking care of Race Condition on 64 bit eBPF registers
-Read/Write as you are using 32 bit registers to emulate them ?
+Our usecase of this is ordering of entries within TCAM regions.
+I could put it directly into mlxsw driver, yet I thought that this is
+solving a generic problem and could be re-used by other drivers.
+Therefore I decided to put it to lib, with test module.
 
->
-> What is your reason for looking at these problems?
+I will add some description to the code.
 
-I just wanted to contribute toward linux kernel. This is the only
-reason I think.
-
-> I was thinking of first implementing only instructions with 32 bit
-> register operands. It will hugely decrease the surface area of eBPF
-> instructions that I have to cover for the first patch.
->
-> So, What I am thinking is something like this :
->
-> - bpf_mov r0(64),r1(64) will be JITed like this :
-> - ar1(32) <- r1(64). Convert/Mask 64 bit ebpf register(r1) value into 32
-> bit and store it in arm register(ar1).
-> - Do MOV ar0(32),ar1(32) as an ARM instruction.
-> - ar0(32) -> r0(64). Zero Extend the ar0 32 bit register value
-> and store it in 64 bit ebpf register r0.
-
-What about this ? Does this makes sense to you ?
->
-> - Similarly, For all BPF_ALU class instructions.
-> - For BPF_ADD, I will mask the addition result to 32 bit only.
-> I am not sure, Overflow might be a problem.
-> - For BPF_SUB, I will mask the subtraction result to 32 bit only.
-> I am not sure, Underflow might be problem.
-> - For BPF_MUL, similar to BPF_ADD. Overflow Problem ?
-> - For BPF_DIV, 32 bit masking should be fine, I guess.
-> - For BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_MOD 32 bit
-> masking should be fine.
-> - For BPF_NEG and BPF_ARSH, might be a problem because of the sign bit.
-> - For BPF_END, 32 bit masking should work fine.
-> Let me know if any of the above point is wrong or need your suggestion.
-What about this ?
->
-> - Although, for ALU instructions, there is a big problem of register
->  flag manipulations. Generally, architecture's ABI takes care of this
->  part but as we are doing 64 bit Instructions emulation(kind of) on 32
->  bit machine, it needs to be done manually. Does that sound correct ?
->
-> - I am not JITing BPF_ALU64 class instructions as of now. As we have to
->  take care of atomic instructions and race conditions with these
->  instruction which looks complicated to me as of now. Will try to figure out
->  this part and implement it later. Currently, I will just let it be
->  interpreted by the ebpf interpreter.
->
-> - For BPF_JMP class, I am assuming that, although eBPF is 64 bit ABI,
->  the address pointers on 32 bit arch like arm will be of 32 bit only.
->  So, for BPF_JMP, masking the 64 bit destination address to 32 bit
->  should do the trick and no address will be corrupted in this way. Am I
->  correct to assume this ?
->  Also, I need to check for address getting out of the allowed memory
->  range.
->
-> - For BPF_LD, BPF_LDX, BPF_ST and BPF_STX class instructions, I am
->  assuming the same thing as above - All addresses and pointers are 32
->  bit - which can be taken care just by maksing the eBPF register
->  values. Does that sound correct ?
->  Also, I need to check for the address overflow, address getting out
->  of the allowed memory range and things like that.
->
-
-Nick, It would be great if you could give me your comments/suggestions
-on all of the above points for JIT implementation.
-
-> Do you have any code references for me to take a look? Otherwise, I think
-> its not possible for me to implement it without using any reference.
->
->
-> I don't know anything else, no.
-
-+Kees,
-
-I think drivers/net/ethernet/netronome/nfp/ could be a good reference for this.
 
 >
+>Thanks,
+>Tom
 >
-> I think, I will give it a try. Otherwise, my last 1 month which I used
-> to read about eBPF, eBPF linux code and arm32 ABI would be a complete
-> waste.
->
->
->
-> 2.) Also, is my current mapping good enough to make the JIT fast enough
-> ?
-> because as you might know, eBPF JIT mostly depends on 1-to-1 mapping of
-> its instructions with native instructions.
->
->
-> I don't know -- it might be tricky with needing to deal with 64-bit
-> registers. But if you can make it faster than the non-JIT, it should
-> be a win. :) Yay assembly.
->
->
-> Well, As I mentioned above about my thinking towards the implementation,
-> I am not sure it would be faster than non-JIT or even correct for that
-> matter.
-> It might be but I don't think I have enough knowledge to benchmark the
-> implementation as of now.
-
-Nick, How fast was your JIT as compared to interpreter if you had the
-chance to benchmark them?
-
--Shubham
+>On Thu, Feb 2, 2017 at 7:12 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> This introduces a infrastructure for management of linear priority
+>> areas. Priority order in an array matters, however order of items inside
+>> a priority group does not matter.
+>>
+>> As an initial implementation, L-sort algorithm is used. It is quite
+>> trivial. More advanced algorithm called P-sort will be introduced as a
+>> follow-up. The infrastructure is prepared for other algos.
+>>
+>> Alongside this, a testing module is introduced as well.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  MAINTAINERS            |   8 +
+>>  include/linux/parman.h |  76 ++++++++++
+>>  lib/Kconfig            |   3 +
+>>  lib/Kconfig.debug      |  10 ++
+>>  lib/Makefile           |   3 +
+>>  lib/parman.c           | 294 ++++++++++++++++++++++++++++++++++++
+>>  lib/test_parman.c      | 395 +++++++++++++++++++++++++++++++++++++++++++++++++
+>>  7 files changed, 789 insertions(+)
+>>  create mode 100644 include/linux/parman.h
+>>  create mode 100644 lib/parman.c
+>>  create mode 100644 lib/test_parman.c
+>>
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> index 300d2ec..626758b 100644
+>> --- a/MAINTAINERS
+>> +++ b/MAINTAINERS
+>> @@ -9375,6 +9375,14 @@ F:       drivers/video/fbdev/sti*
+>>  F:     drivers/video/console/sti*
+>>  F:     drivers/video/logo/logo_parisc*
+>>
+>> +PARMAN
+>> +M:     Jiri Pirko <jiri@mellanox.com>
+>> +L:     netdev@vger.kernel.org
+>> +S:     Supported
+>> +F:     lib/parman.c
+>> +F:     lib/test_parman.c
+>> +F:     include/linux/parman.h
+>> +
+>>  PC87360 HARDWARE MONITORING DRIVER
+>>  M:     Jim Cromie <jim.cromie@gmail.com>
+>>  L:     linux-hwmon@vger.kernel.org
+>> diff --git a/include/linux/parman.h b/include/linux/parman.h
+>> new file mode 100644
+>> index 0000000..3c8cccc
+>> --- /dev/null
+>> +++ b/include/linux/parman.h
+>> @@ -0,0 +1,76 @@
+>> +/*
+>> + * include/linux/parman.h - Manager for linear priority array areas
+>> + * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
+>> + * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
+>> + *
+>> + * Redistribution and use in source and binary forms, with or without
+>> + * modification, are permitted provided that the following conditions are met:
+>> + *
+>> + * 1. Redistributions of source code must retain the above copyright
+>> + *    notice, this list of conditions and the following disclaimer.
+>> + * 2. Redistributions in binary form must reproduce the above copyright
+>> + *    notice, this list of conditions and the following disclaimer in the
+>> + *    documentation and/or other materials provided with the distribution.
+>> + * 3. Neither the names of the copyright holders nor the names of its
+>> + *    contributors may be used to endorse or promote products derived from
+>> + *    this software without specific prior written permission.
+>> + *
+>> + * Alternatively, this software may be distributed under the terms of the
+>> + * GNU General Public License ("GPL") version 2 as published by the Free
+>> + * Software Foundation.
+>> + *
+>> + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+>> + * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+>> + * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+>> + * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+>> + * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+>> + * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+>> + * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+>> + * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+>> + * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+>> + * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+>> + * POSSIBILITY OF SUCH DAMAGE.
+>> + */
+>> +
+>> +#ifndef _PARMAN_H
+>> +#define _PARMAN_H
+>> +
+>> +#include <linux/list.h>
+>> +
+>> +enum parman_algo_type {
+>> +       PARMAN_ALGO_TYPE_LSORT,
+>> +};
+>> +
+>> +struct parman_item {
+>> +       struct list_head list;
+>> +       unsigned long index;
+>> +};
+>> +
+>> +struct parman_prio {
+>> +       struct list_head list;
+>> +       struct list_head item_list;
+>> +       unsigned long priority;
+>> +};
+>> +
+>> +struct parman_ops {
+>> +       unsigned long base_count;
+>> +       unsigned long resize_step;
+>> +       int (*resize)(void *priv, unsigned long new_count);
+>> +       void (*move)(void *priv, unsigned long from_index,
+>> +                    unsigned long to_index, unsigned long count);
+>> +       enum parman_algo_type algo;
+>> +};
+>> +
+>> +struct parman;
+>> +
+>> +struct parman *parman_create(const struct parman_ops *ops, void *priv);
+>> +void parman_destroy(struct parman *parman);
+>> +void parman_prio_init(struct parman *parman, struct parman_prio *prio,
+>> +                     unsigned long priority);
+>> +void parman_prio_fini(struct parman_prio *prio);
+>> +int parman_item_add(struct parman *parman, struct parman_prio *prio,
+>> +                   struct parman_item *item);
+>> +void parman_item_remove(struct parman *parman, struct parman_prio *prio,
+>> +                       struct parman_item *item);
+>> +
+>> +#endif
+>> diff --git a/lib/Kconfig b/lib/Kconfig
+>> index 260a80e..5d644f1 100644
+>> --- a/lib/Kconfig
+>> +++ b/lib/Kconfig
+>> @@ -550,4 +550,7 @@ config STACKDEPOT
+>>  config SBITMAP
+>>         bool
+>>
+>> +config PARMAN
+>> +       tristate "parman"
+>> +
+>>  endmenu
+>> diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+>> index 15969ab..433a788 100644
+>> --- a/lib/Kconfig.debug
+>> +++ b/lib/Kconfig.debug
+>> @@ -1826,6 +1826,16 @@ config TEST_HASH
+>>           This is intended to help people writing architecture-specific
+>>           optimized versions.  If unsure, say N.
+>>
+>> +config TEST_PARMAN
+>> +       tristate "Perform selftest on priority array manager"
+>> +       default n
+>> +       depends on PARMAN
+>> +       help
+>> +         Enable this option to test priority array manager on boot
+>> +         (or module load).
+>> +
+>> +         If unsure, say N.
+>> +
+>>  endmenu # runtime tests
+>>
+>>  config PROVIDE_OHCI1394_DMA_INIT
+>> diff --git a/lib/Makefile b/lib/Makefile
+>> index 7b3008d..1c039a4 100644
+>> --- a/lib/Makefile
+>> +++ b/lib/Makefile
+>> @@ -56,6 +56,7 @@ obj-$(CONFIG_TEST_STATIC_KEYS) += test_static_key_base.o
+>>  obj-$(CONFIG_TEST_PRINTF) += test_printf.o
+>>  obj-$(CONFIG_TEST_BITMAP) += test_bitmap.o
+>>  obj-$(CONFIG_TEST_UUID) += test_uuid.o
+>> +obj-$(CONFIG_TEST_PARMAN) += test_parman.o
+>>
+>>  ifeq ($(CONFIG_DEBUG_KOBJECT),y)
+>>  CFLAGS_kobject.o += -DDEBUG
+>> @@ -230,3 +231,5 @@ obj-$(CONFIG_UBSAN) += ubsan.o
+>>  UBSAN_SANITIZE_ubsan.o := n
+>>
+>>  obj-$(CONFIG_SBITMAP) += sbitmap.o
+>> +
+>> +obj-$(CONFIG_PARMAN) += parman.o
+>> diff --git a/lib/parman.c b/lib/parman.c
+>> new file mode 100644
+>> index 0000000..5b6f4ec
+>> --- /dev/null
+>> +++ b/lib/parman.c
+>> @@ -0,0 +1,294 @@
+>> +/*
+>> + * lib/parman.c - Manager for linear priority array areas
+>> + * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
+>> + * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
+>> + *
+>> + * Redistribution and use in source and binary forms, with or without
+>> + * modification, are permitted provided that the following conditions are met:
+>> + *
+>> + * 1. Redistributions of source code must retain the above copyright
+>> + *    notice, this list of conditions and the following disclaimer.
+>> + * 2. Redistributions in binary form must reproduce the above copyright
+>> + *    notice, this list of conditions and the following disclaimer in the
+>> + *    documentation and/or other materials provided with the distribution.
+>> + * 3. Neither the names of the copyright holders nor the names of its
+>> + *    contributors may be used to endorse or promote products derived from
+>> + *    this software without specific prior written permission.
+>> + *
+>> + * Alternatively, this software may be distributed under the terms of the
+>> + * GNU General Public License ("GPL") version 2 as published by the Free
+>> + * Software Foundation.
+>> + *
+>> + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+>> + * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+>> + * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+>> + * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+>> + * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+>> + * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+>> + * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+>> + * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+>> + * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+>> + * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+>> + * POSSIBILITY OF SUCH DAMAGE.
+>> + */
+>> +
+>> +#include <linux/kernel.h>
+>> +#include <linux/module.h>
+>> +#include <linux/slab.h>
+>> +#include <linux/export.h>
+>> +#include <linux/list.h>
+>> +#include <linux/err.h>
+>> +#include <linux/parman.h>
+>> +
+>> +struct parman_algo {
+>> +       int (*item_add)(struct parman *parman, struct parman_prio *prio,
+>> +                       struct parman_item *item);
+>> +       void (*item_remove)(struct parman *parman, struct parman_prio *prio,
+>> +                           struct parman_item *item);
+>> +};
+>> +
+>> +struct parman {
+>> +       const struct parman_ops *ops;
+>> +       void *priv;
+>> +       const struct parman_algo *algo;
+>> +       unsigned long count;
+>> +       unsigned long limit_count;
+>> +       struct list_head prio_list;
+>> +};
+>> +
+>> +static int parman_enlarge(struct parman *parman)
+>> +{
+>> +       unsigned long new_count = parman->limit_count +
+>> +                                 parman->ops->resize_step;
+>> +       int err;
+>> +
+>> +       err = parman->ops->resize(parman->priv, new_count);
+>> +       if (err)
+>> +               return err;
+>> +       parman->limit_count = new_count;
+>> +       return 0;
+>> +}
+>> +
+>> +static int parman_shrink(struct parman *parman)
+>> +{
+>> +       unsigned long new_count = parman->limit_count -
+>> +                                 parman->ops->resize_step;
+>> +       int err;
+>> +
+>> +       if (new_count < parman->ops->base_count)
+>> +               return 0;
+>> +       err = parman->ops->resize(parman->priv, new_count);
+>> +       if (err)
+>> +               return err;
+>> +       parman->limit_count = new_count;
+>> +       return 0;
+>> +}
+>> +
+>> +static bool parman_prio_used(struct parman_prio *prio)
+>> +
+>> +{
+>> +       return !list_empty(&prio->item_list);
+>> +}
+>> +
+>> +static struct parman_item *parman_prio_first_item(struct parman_prio *prio)
+>> +{
+>> +       return list_first_entry(&prio->item_list,
+>> +                               typeof(struct parman_item), list);
+>> +}
+>> +
+>> +static unsigned long parman_prio_first_index(struct parman_prio *prio)
+>> +{
+>> +       return parman_prio_first_item(prio)->index;
+>> +}
+>> +
+>> +static struct parman_item *parman_prio_last_item(struct parman_prio *prio)
+>> +{
+>> +       return list_last_entry(&prio->item_list,
+>> +                              typeof(struct parman_item), list);
+>> +}
+>> +
+>> +static unsigned long parman_prio_last_index(struct parman_prio *prio)
+>> +{
+>> +       return parman_prio_last_item(prio)->index;
+>> +}
+>> +
+>> +static unsigned long parman_lsort_new_index_find(struct parman *parman,
+>> +                                                struct parman_prio *prio)
+>> +{
+>> +       list_for_each_entry_from_reverse(prio, &parman->prio_list, list) {
+>> +               if (!parman_prio_used(prio))
+>> +                       continue;
+>> +               return parman_prio_last_index(prio) + 1;
+>> +       }
+>> +       return 0;
+>> +}
+>> +
+>> +static void __parman_prio_move(struct parman *parman, struct parman_prio *prio,
+>> +                              struct parman_item *item, unsigned long to_index,
+>> +                              unsigned long count)
+>> +{
+>> +       parman->ops->move(parman->priv, item->index, to_index, count);
+>> +}
+>> +
+>> +static void parman_prio_shift_down(struct parman *parman,
+>> +                                  struct parman_prio *prio)
+>> +{
+>> +       struct parman_item *item;
+>> +       unsigned long to_index;
+>> +
+>> +       if (!parman_prio_used(prio))
+>> +               return;
+>> +       item = parman_prio_first_item(prio);
+>> +       to_index = parman_prio_last_index(prio) + 1;
+>> +       __parman_prio_move(parman, prio, item, to_index, 1);
+>> +       list_move_tail(&item->list, &prio->item_list);
+>> +       item->index = to_index;
+>> +}
+>> +
+>> +static void parman_prio_shift_up(struct parman *parman,
+>> +                                struct parman_prio *prio)
+>> +{
+>> +       struct parman_item *item;
+>> +       unsigned long to_index;
+>> +
+>> +       if (!parman_prio_used(prio))
+>> +               return;
+>> +       item = parman_prio_last_item(prio);
+>> +       to_index = parman_prio_first_index(prio) - 1;
+>> +       __parman_prio_move(parman, prio, item, to_index, 1);
+>> +       list_move(&item->list, &prio->item_list);
+>> +       item->index = to_index;
+>> +}
+>> +
+>> +static void parman_prio_item_remove(struct parman *parman,
+>> +                                   struct parman_prio *prio,
+>> +                                   struct parman_item *item)
+>> +{
+>> +       struct parman_item *last_item;
+>> +       unsigned long to_index;
+>> +
+>> +       last_item = parman_prio_last_item(prio);
+>> +       if (last_item == item) {
+>> +               list_del(&item->list);
+>> +               return;
+>> +       }
+>> +       to_index = item->index;
+>> +       __parman_prio_move(parman, prio, last_item, to_index, 1);
+>> +       list_del(&last_item->list);
+>> +       list_replace(&item->list, &last_item->list);
+>> +       last_item->index = to_index;
+>> +}
+>> +
+>> +static int parman_lsort_item_add(struct parman *parman,
+>> +                                struct parman_prio *prio,
+>> +                                struct parman_item *item)
+>> +{
+>> +       struct parman_prio *prio2;
+>> +       unsigned long new_index;
+>> +       int err;
+>> +
+>> +       if (parman->count + 1 > parman->limit_count) {
+>> +               err = parman_enlarge(parman);
+>> +               if (err)
+>> +                       return err;
+>> +       }
+>> +
+>> +       new_index = parman_lsort_new_index_find(parman, prio);
+>> +       list_for_each_entry_reverse(prio2, &parman->prio_list, list) {
+>> +               if (prio2 == prio)
+>> +                       break;
+>> +               parman_prio_shift_down(parman, prio2);
+>> +       }
+>> +       item->index = new_index;
+>> +       list_add_tail(&item->list, &prio->item_list);
+>> +       parman->count++;
+>> +       return 0;
+>> +}
+>> +
+>> +static void parman_lsort_item_remove(struct parman *parman,
+>> +                                    struct parman_prio *prio,
+>> +                                    struct parman_item *item)
+>> +{
+>> +       parman_prio_item_remove(parman, prio, item);
+>> +       list_for_each_entry_continue(prio, &parman->prio_list, list)
+>> +               parman_prio_shift_up(parman, prio);
+>> +       parman->count--;
+>> +       if (parman->limit_count - parman->count >= parman->ops->resize_step)
+>> +               parman_shrink(parman);
+>> +}
+>> +
+>> +static const struct parman_algo parman_lsort = {
+>> +       .item_add       = parman_lsort_item_add,
+>> +       .item_remove    = parman_lsort_item_remove,
+>> +};
+>> +
+>> +static const struct parman_algo *parman_algos[] = {
+>> +       &parman_lsort,
+>> +};
+>> +
+>> +struct parman *parman_create(const struct parman_ops *ops, void *priv)
+>> +{
+>> +       struct parman *parman;
+>> +
+>> +       parman = kzalloc(sizeof(*parman), GFP_KERNEL);
+>> +       if (!parman)
+>> +               return NULL;
+>> +       INIT_LIST_HEAD(&parman->prio_list);
+>> +       parman->ops = ops;
+>> +       parman->priv = priv;
+>> +       parman->limit_count = ops->base_count;
+>> +       parman->algo = parman_algos[ops->algo];
+>> +       return parman;
+>> +}
+>> +EXPORT_SYMBOL(parman_create);
+>> +
+>> +void parman_destroy(struct parman *parman)
+>> +{
+>> +       WARN_ON(!list_empty(&parman->prio_list));
+>> +       kfree(parman);
+>> +}
+>> +EXPORT_SYMBOL(parman_destroy);
+>> +
+>> +void parman_prio_init(struct parman *parman, struct parman_prio *prio,
+>> +                     unsigned long priority)
+>> +{
+>> +       struct parman_prio *prio2;
+>> +       struct list_head *pos;
+>> +
+>> +       INIT_LIST_HEAD(&prio->item_list);
+>> +       prio->priority = priority;
+>> +
+>> +       /* Position inside the list according to priority */
+>> +       list_for_each(pos, &parman->prio_list) {
+>> +               prio2 = list_entry(pos, typeof(*prio2), list);
+>> +               if (prio2->priority > prio->priority)
+>> +                       break;
+>> +       }
+>> +       list_add_tail(&prio->list, pos);
+>> +}
+>> +EXPORT_SYMBOL(parman_prio_init);
+>> +
+>> +void parman_prio_fini(struct parman_prio *prio)
+>> +{
+>> +       WARN_ON(parman_prio_used(prio));
+>> +       list_del(&prio->list);
+>> +}
+>> +EXPORT_SYMBOL(parman_prio_fini);
+>> +
+>> +int parman_item_add(struct parman *parman, struct parman_prio *prio,
+>> +                   struct parman_item *item)
+>> +{
+>> +       return parman->algo->item_add(parman, prio, item);
+>> +}
+>> +EXPORT_SYMBOL(parman_item_add);
+>> +
+>> +void parman_item_remove(struct parman *parman, struct parman_prio *prio,
+>> +                       struct parman_item *item)
+>> +{
+>> +       parman->algo->item_remove(parman, prio, item);
+>> +}
+>> +EXPORT_SYMBOL(parman_item_remove);
+>> +
+>> +MODULE_LICENSE("Dual BSD/GPL");
+>> +MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
+>> +MODULE_DESCRIPTION("Priority-based array manager");
+>> diff --git a/lib/test_parman.c b/lib/test_parman.c
+>> new file mode 100644
+>> index 0000000..fe9f3a7
+>> --- /dev/null
+>> +++ b/lib/test_parman.c
+>> @@ -0,0 +1,395 @@
+>> +/*
+>> + * lib/test_parman.c - Test module for parman
+>> + * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
+>> + * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
+>> + *
+>> + * Redistribution and use in source and binary forms, with or without
+>> + * modification, are permitted provided that the following conditions are met:
+>> + *
+>> + * 1. Redistributions of source code must retain the above copyright
+>> + *    notice, this list of conditions and the following disclaimer.
+>> + * 2. Redistributions in binary form must reproduce the above copyright
+>> + *    notice, this list of conditions and the following disclaimer in the
+>> + *    documentation and/or other materials provided with the distribution.
+>> + * 3. Neither the names of the copyright holders nor the names of its
+>> + *    contributors may be used to endorse or promote products derived from
+>> + *    this software without specific prior written permission.
+>> + *
+>> + * Alternatively, this software may be distributed under the terms of the
+>> + * GNU General Public License ("GPL") version 2 as published by the Free
+>> + * Software Foundation.
+>> + *
+>> + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+>> + * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+>> + * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+>> + * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+>> + * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+>> + * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+>> + * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+>> + * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+>> + * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+>> + * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+>> + * POSSIBILITY OF SUCH DAMAGE.
+>> + */
+>> +
+>> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+>> +
+>> +#include <linux/kernel.h>
+>> +#include <linux/module.h>
+>> +#include <linux/slab.h>
+>> +#include <linux/bitops.h>
+>> +#include <linux/err.h>
+>> +#include <linux/random.h>
+>> +#include <linux/parman.h>
+>> +
+>> +#define TEST_PARMAN_PRIO_SHIFT 7 /* defines number of prios for testing */
+>> +#define TEST_PARMAN_PRIO_COUNT BIT(TEST_PARMAN_PRIO_SHIFT)
+>> +#define TEST_PARMAN_PRIO_MASK (TEST_PARMAN_PRIO_COUNT - 1)
+>> +
+>> +#define TEST_PARMAN_ITEM_SHIFT 13 /* defines a total number
+>> +                                  * of items for testing
+>> +                                  */
+>> +#define TEST_PARMAN_ITEM_COUNT BIT(TEST_PARMAN_ITEM_SHIFT)
+>> +#define TEST_PARMAN_ITEM_MASK (TEST_PARMAN_ITEM_COUNT - 1)
+>> +
+>> +#define TEST_PARMAN_BASE_SHIFT 8
+>> +#define TEST_PARMAN_BASE_COUNT BIT(TEST_PARMAN_BASE_SHIFT)
+>> +#define TEST_PARMAN_RESIZE_STEP_SHIFT 7
+>> +#define TEST_PARMAN_RESIZE_STEP_COUNT BIT(TEST_PARMAN_RESIZE_STEP_SHIFT)
+>> +
+>> +#define TEST_PARMAN_BULK_MAX_SHIFT (2 + TEST_PARMAN_RESIZE_STEP_SHIFT)
+>> +#define TEST_PARMAN_BULK_MAX_COUNT BIT(TEST_PARMAN_BULK_MAX_SHIFT)
+>> +#define TEST_PARMAN_BULK_MAX_MASK (TEST_PARMAN_BULK_MAX_COUNT - 1)
+>> +
+>> +#define TEST_PARMAN_RUN_BUDGET (TEST_PARMAN_ITEM_COUNT * 256)
+>> +
+>> +struct test_parman_prio {
+>> +       struct parman_prio parman_prio;
+>> +       unsigned long priority;
+>> +};
+>> +
+>> +struct test_parman_item {
+>> +       struct parman_item parman_item;
+>> +       struct test_parman_prio *prio;
+>> +       bool used;
+>> +};
+>> +
+>> +struct test_parman {
+>> +       struct parman *parman;
+>> +       struct test_parman_item **prio_array;
+>> +       unsigned long prio_array_limit;
+>> +       struct test_parman_prio prios[TEST_PARMAN_PRIO_COUNT];
+>> +       struct test_parman_item items[TEST_PARMAN_ITEM_COUNT];
+>> +       struct rnd_state rnd;
+>> +       unsigned long run_budget;
+>> +       unsigned long bulk_budget;
+>> +       bool bulk_noop;
+>> +       unsigned int used_items;
+>> +};
+>> +
+>> +#define ITEM_PTRS_SIZE(count) (sizeof(struct test_parman_item *) * (count))
+>> +
+>> +static int test_parman_resize(void *priv, unsigned long new_count)
+>> +{
+>> +       struct test_parman *test_parman = priv;
+>> +       struct test_parman_item **prio_array;
+>> +       unsigned long old_count;
+>> +
+>> +       prio_array = krealloc(test_parman->prio_array,
+>> +                             ITEM_PTRS_SIZE(new_count), GFP_KERNEL);
+>> +       if (new_count == 0)
+>> +               return 0;
+>> +       if (!prio_array)
+>> +               return -ENOMEM;
+>> +       old_count = test_parman->prio_array_limit;
+>> +       if (new_count > old_count)
+>> +               memset(&prio_array[old_count], 0,
+>> +                      ITEM_PTRS_SIZE(new_count - old_count));
+>> +       test_parman->prio_array = prio_array;
+>> +       test_parman->prio_array_limit = new_count;
+>> +       return 0;
+>> +}
+>> +
+>> +static void test_parman_move(void *priv, unsigned long from_index,
+>> +                            unsigned long to_index, unsigned long count)
+>> +{
+>> +       struct test_parman *test_parman = priv;
+>> +       struct test_parman_item **prio_array = test_parman->prio_array;
+>> +
+>> +       memmove(&prio_array[to_index], &prio_array[from_index],
+>> +               ITEM_PTRS_SIZE(count));
+>> +       memset(&prio_array[from_index], 0, ITEM_PTRS_SIZE(count));
+>> +}
+>> +
+>> +static const struct parman_ops test_parman_lsort_ops = {
+>> +       .base_count     = TEST_PARMAN_BASE_COUNT,
+>> +       .resize_step    = TEST_PARMAN_RESIZE_STEP_COUNT,
+>> +       .resize         = test_parman_resize,
+>> +       .move           = test_parman_move,
+>> +       .algo           = PARMAN_ALGO_TYPE_LSORT,
+>> +};
+>> +
+>> +static void test_parman_rnd_init(struct test_parman *test_parman)
+>> +{
+>> +       prandom_seed_state(&test_parman->rnd, 3141592653589793238ULL);
+>> +}
+>> +
+>> +static u32 test_parman_rnd_get(struct test_parman *test_parman)
+>> +{
+>> +       return prandom_u32_state(&test_parman->rnd);
+>> +}
+>> +
+>> +static unsigned long test_parman_priority_gen(struct test_parman *test_parman)
+>> +{
+>> +       unsigned long priority;
+>> +       int i;
+>> +
+>> +again:
+>> +       priority = test_parman_rnd_get(test_parman);
+>> +       if (priority == 0)
+>> +               goto again;
+>> +
+>> +       for (i = 0; i < TEST_PARMAN_PRIO_COUNT; i++) {
+>> +               struct test_parman_prio *prio = &test_parman->prios[i];
+>> +
+>> +               if (prio->priority == 0)
+>> +                       break;
+>> +               if (prio->priority == priority)
+>> +                       goto again;
+>> +       }
+>> +       return priority;
+>> +}
+>> +
+>> +static void test_parman_prios_init(struct test_parman *test_parman)
+>> +{
+>> +       int i;
+>> +
+>> +       for (i = 0; i < TEST_PARMAN_PRIO_COUNT; i++) {
+>> +               struct test_parman_prio *prio = &test_parman->prios[i];
+>> +
+>> +               /* Assign random uniqueue priority to each prio structure */
+>> +               prio->priority = test_parman_priority_gen(test_parman);
+>> +               parman_prio_init(test_parman->parman, &prio->parman_prio,
+>> +                                prio->priority);
+>> +       }
+>> +}
+>> +
+>> +static void test_parman_prios_fini(struct test_parman *test_parman)
+>> +{
+>> +       int i;
+>> +
+>> +       for (i = 0; i < TEST_PARMAN_PRIO_COUNT; i++) {
+>> +               struct test_parman_prio *prio = &test_parman->prios[i];
+>> +
+>> +               parman_prio_fini(&prio->parman_prio);
+>> +       }
+>> +}
+>> +
+>> +static void test_parman_items_init(struct test_parman *test_parman)
+>> +{
+>> +       int i;
+>> +
+>> +       for (i = 0; i < TEST_PARMAN_ITEM_COUNT; i++) {
+>> +               struct test_parman_item *item = &test_parman->items[i];
+>> +               unsigned int prio_index = test_parman_rnd_get(test_parman) &
+>> +                                         TEST_PARMAN_PRIO_MASK;
+>> +
+>> +               /* Assign random prio to each item structure */
+>> +               item->prio = &test_parman->prios[prio_index];
+>> +       }
+>> +}
+>> +
+>> +static void test_parman_items_fini(struct test_parman *test_parman)
+>> +{
+>> +       int i;
+>> +
+>> +       for (i = 0; i < TEST_PARMAN_ITEM_COUNT; i++) {
+>> +               struct test_parman_item *item = &test_parman->items[i];
+>> +
+>> +               if (!item->used)
+>> +                       continue;
+>> +               parman_item_remove(test_parman->parman,
+>> +                                  &item->prio->parman_prio,
+>> +                                  &item->parman_item);
+>> +       }
+>> +}
+>> +
+>> +static struct test_parman *test_parman_create(const struct parman_ops *ops)
+>> +{
+>> +       struct test_parman *test_parman;
+>> +       int err;
+>> +
+>> +       test_parman = kzalloc(sizeof(*test_parman), GFP_KERNEL);
+>> +       if (!test_parman)
+>> +               return ERR_PTR(-ENOMEM);
+>> +       err = test_parman_resize(test_parman, TEST_PARMAN_BASE_COUNT);
+>> +       if (err)
+>> +               goto err_resize;
+>> +       test_parman->parman = parman_create(ops, test_parman);
+>> +       if (!test_parman->parman) {
+>> +               err = -ENOMEM;
+>> +               goto err_parman_create;
+>> +       }
+>> +       test_parman_rnd_init(test_parman);
+>> +       test_parman_prios_init(test_parman);
+>> +       test_parman_items_init(test_parman);
+>> +       test_parman->run_budget = TEST_PARMAN_RUN_BUDGET;
+>> +       return test_parman;
+>> +
+>> +err_parman_create:
+>> +       test_parman_resize(test_parman, 0);
+>> +err_resize:
+>> +       kfree(test_parman);
+>> +       return ERR_PTR(err);
+>> +}
+>> +
+>> +static void test_parman_destroy(struct test_parman *test_parman)
+>> +{
+>> +       test_parman_items_fini(test_parman);
+>> +       test_parman_prios_fini(test_parman);
+>> +       parman_destroy(test_parman->parman);
+>> +       test_parman_resize(test_parman, 0);
+>> +       kfree(test_parman);
+>> +}
+>> +
+>> +static bool test_parman_run_check_budgets(struct test_parman *test_parman)
+>> +{
+>> +       if (test_parman->run_budget-- == 0)
+>> +               return false;
+>> +       if (test_parman->bulk_budget-- != 0)
+>> +               return true;
+>> +
+>> +       test_parman->bulk_budget = test_parman_rnd_get(test_parman) &
+>> +                                  TEST_PARMAN_BULK_MAX_MASK;
+>> +       test_parman->bulk_noop = test_parman_rnd_get(test_parman) & 1;
+>> +       return true;
+>> +}
+>> +
+>> +static int test_parman_run(struct test_parman *test_parman)
+>> +{
+>> +       unsigned int i = test_parman_rnd_get(test_parman);
+>> +       int err;
+>> +
+>> +       while (test_parman_run_check_budgets(test_parman)) {
+>> +               unsigned int item_index = i++ & TEST_PARMAN_ITEM_MASK;
+>> +               struct test_parman_item *item = &test_parman->items[item_index];
+>> +
+>> +               if (test_parman->bulk_noop)
+>> +                       continue;
+>> +
+>> +               if (!item->used) {
+>> +                       err = parman_item_add(test_parman->parman,
+>> +                                             &item->prio->parman_prio,
+>> +                                             &item->parman_item);
+>> +                       if (err)
+>> +                               return err;
+>> +                       test_parman->prio_array[item->parman_item.index] = item;
+>> +                       test_parman->used_items++;
+>> +               } else {
+>> +                       test_parman->prio_array[item->parman_item.index] = NULL;
+>> +                       parman_item_remove(test_parman->parman,
+>> +                                          &item->prio->parman_prio,
+>> +                                          &item->parman_item);
+>> +                       test_parman->used_items--;
+>> +               }
+>> +               item->used = !item->used;
+>> +       }
+>> +       return 0;
+>> +}
+>> +
+>> +static int test_parman_check_array(struct test_parman *test_parman,
+>> +                                  bool gaps_allowed)
+>> +{
+>> +       unsigned int last_unused_items = 0;
+>> +       unsigned long last_priority = 0;
+>> +       unsigned int used_items = 0;
+>> +       int i;
+>> +
+>> +       if (test_parman->prio_array_limit < TEST_PARMAN_BASE_COUNT) {
+>> +               pr_err("Array limit is lower than the base count (%lu < %lu)\n",
+>> +                      test_parman->prio_array_limit, TEST_PARMAN_BASE_COUNT);
+>> +               return -EINVAL;
+>> +       }
+>> +
+>> +       for (i = 0; i < test_parman->prio_array_limit; i++) {
+>> +               struct test_parman_item *item = test_parman->prio_array[i];
+>> +
+>> +               if (!item) {
+>> +                       last_unused_items++;
+>> +                       continue;
+>> +               }
+>> +               if (last_unused_items && !gaps_allowed) {
+>> +                       pr_err("Gap found in array even though they are forbidden\n");
+>> +                       return -EINVAL;
+>> +               }
+>> +
+>> +               last_unused_items = 0;
+>> +               used_items++;
+>> +
+>> +               if (item->prio->priority < last_priority) {
+>> +                       pr_err("Item belongs under higher priority then the last one (current: %lu, previous: %lu)\n",
+>> +                              item->prio->priority, last_priority);
+>> +                       return -EINVAL;
+>> +               }
+>> +               last_priority = item->prio->priority;
+>> +
+>> +               if (item->parman_item.index != i) {
+>> +                       pr_err("Item has different index in compare to where it actualy is (%lu != %d)\n",
+>> +                              item->parman_item.index, i);
+>> +                       return -EINVAL;
+>> +               }
+>> +       }
+>> +
+>> +       if (used_items != test_parman->used_items) {
+>> +               pr_err("Number of used items in array does not match (%u != %u)\n",
+>> +                      used_items, test_parman->used_items);
+>> +               return -EINVAL;
+>> +       }
+>> +
+>> +       if (last_unused_items >= TEST_PARMAN_RESIZE_STEP_COUNT) {
+>> +               pr_err("Number of unused item at the end of array is bigger than resize step (%u >= %lu)\n",
+>> +                      last_unused_items, TEST_PARMAN_RESIZE_STEP_COUNT);
+>> +               return -EINVAL;
+>> +       }
+>> +
+>> +       pr_info("Priority array check successful\n");
+>> +
+>> +       return 0;
+>> +}
+>> +
+>> +static int test_parman_lsort(void)
+>> +{
+>> +       struct test_parman *test_parman;
+>> +       int err;
+>> +
+>> +       test_parman = test_parman_create(&test_parman_lsort_ops);
+>> +       if (IS_ERR(test_parman))
+>> +               return PTR_ERR(test_parman);
+>> +
+>> +       err = test_parman_run(test_parman);
+>> +       if (err)
+>> +               goto out;
+>> +
+>> +       err = test_parman_check_array(test_parman, false);
+>> +       if (err)
+>> +               goto out;
+>> +out:
+>> +       test_parman_destroy(test_parman);
+>> +       return err;
+>> +}
+>> +
+>> +static int __init test_parman_init(void)
+>> +{
+>> +       return test_parman_lsort();
+>> +}
+>> +
+>> +static void __exit test_parman_exit(void)
+>> +{
+>> +}
+>> +
+>> +module_init(test_parman_init);
+>> +module_exit(test_parman_exit);
+>> +
+>> +MODULE_LICENSE("Dual BSD/GPL");
+>> +MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
+>> +MODULE_DESCRIPTION("Test module for parman");
+>> --
+>> 2.7.4
+>>
