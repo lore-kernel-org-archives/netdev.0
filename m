@@ -1,43 +1,27 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next] bpf: enable verifier to add 0 to packet ptr
-Date: Fri, 03 Feb 2017 21:39:44 +0100
-Message-ID: <5894EA90.4090807@iogearbox.net>
-References: <1486142565-2794-1-git-send-email-u9012063@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 00/12] bnxt_en: Add XDP support.
+Date: Fri, 03 Feb 2017 15:49:10 -0500 (EST)
+Message-ID: <20170203.154910.2213640966872850071.davem@davemloft.net>
+References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mihai Budiu <mbudiu@vmware.com>,
-        ast@kernel.org
-To: William Tu <u9012063@gmail.com>
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33840 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752359AbdBCUjq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 15:39:46 -0500
-In-Reply-To: <1486142565-2794-1-git-send-email-u9012063@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51712 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752284AbdBCUt3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 15:49:29 -0500
+In-Reply-To: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ please keep us Cc'ed ;) ]
 
-On 02/03/2017 06:22 PM, William Tu wrote:
-> The patch fixes the case when adding a zero value to the packet
-> pointer.  The verifer reports the following error:
->    [...]
->      R0=imm0,min_value=0,max_value=0
->      R1=pkt(id=0,off=0,r=4)
->      R2=pkt_end R3=fp-12
->      R4=imm4,min_value=4,max_value=4
->      R5=pkt(id=0,off=4,r=4)
->    269: (bf) r2 = r0	// r2 becomes imm0
->    270: (77) r2 >>= 3
->    271: (bf) r4 = r1	// r4 becomes pkt ptr
->    272: (0f) r4 += r2	// r4 += 0
->    addition of negative constant to packet pointer is not allowed
->
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Signed-off-by: Mihai Budiu <mbudiu@vmware.com>
+Please _DO NOT_ guard XDP support with an ifdef the user
+can modify.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Treat it like any other common netdev feature a driver might
+support such as checksum offloading or GRO.
 
-Thanks!
+Thanks.
