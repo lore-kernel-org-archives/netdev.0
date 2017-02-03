@@ -1,60 +1,41 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH net-next 7/9] sunvnet: remove extra rcu_read_unlocks
-Date: Fri,  3 Feb 2017 09:42:33 -0800
-Message-ID: <1486143755-192532-8-git-send-email-shannon.nelson@oracle.com>
-References: <1486143755-192532-1-git-send-email-shannon.nelson@oracle.com>
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Shannon Nelson <shannon.nelson@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486143755-192532-1-git-send-email-shannon.nelson@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: phy: dp83867: Fix for automatically detected PHYs
+Date: Fri, 3 Feb 2017 18:54:51 +0100
+Message-ID: <20170203175451.GG15900@lunn.ch>
+References: <20170203165237.22452-1-abrodkin@synopsys.com>
+ <20170203171031.GC15900@lunn.ch>
+ <1486143058.2853.27.camel@synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "nsekhar@ti.com" <nsekhar@ti.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "m-karicheri2@ti.com" <m-karicheri2@ti.com>,
+        "linux-snps-arc@lists.infradead.org"
+        <linux-snps-arc@lists.infradead.org>,
+        "grygorii.strashko@ti.com" <grygorii.strashko@ti.com>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:55092 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750863AbdBCRzC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 12:55:02 -0500
+Content-Disposition: inline
+In-Reply-To: <1486143058.2853.27.camel@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The RCU read lock is grabbed first thing in sunvnet_start_xmit_common()
-so it always needs to be released.  This removes the conditional release
-in the dropped packet error path and removes a couple of superfluous
-calls in the middle of the code.
+> This is especially nice because we may change the base-board and use
+> there another PHY and as long we have drivers for all possible PHY built
+> in the kernel (or available via modules) proper driver will be instantiated
+> based on PHY ID read from MDIO. I.e. having no PHY node in DT adds flexibility.
 
-Reported-by: Bijan Mottahedeh <bijan.mottahedeh@oracle.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet_common.c |    8 ++------
- 1 files changed, 2 insertions(+), 6 deletions(-)
+The device tree node does not prevent this. It will still load the
+driver based on the PHY ID in the PHY. You might run into problems if
+the address on the MDIO bus changes, but it is also possible to not
+have a reg property, and it will match the node to whatever PHY it
+finds during the scan of the bus.
 
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 160b35a..a479a58 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -1279,10 +1279,8 @@ int sunvnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
- 
- 	rcu_read_lock();
- 	port = vnet_tx_port(skb, dev);
--	if (unlikely(!port)) {
--		rcu_read_unlock();
-+	if (unlikely(!port))
- 		goto out_dropped;
--	}
- 
- 	if (skb_is_gso(skb) && skb->len > port->tsolen) {
- 		err = vnet_handle_offloads(port, skb, vnet_tx_port);
-@@ -1307,7 +1305,6 @@ int sunvnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
- 			fl4.saddr = ip_hdr(skb)->saddr;
- 
- 			rt = ip_route_output_key(dev_net(dev), &fl4);
--			rcu_read_unlock();
- 			if (!IS_ERR(rt)) {
- 				skb_dst_set(skb, &rt->dst);
- 				icmp_send(skb, ICMP_DEST_UNREACH,
-@@ -1481,8 +1478,7 @@ out_dropped:
- 				jiffies + VNET_CLEAN_TIMEOUT);
- 	else if (port)
- 		del_timer(&port->clean_timer);
--	if (port)
--		rcu_read_unlock();
-+	rcu_read_unlock();
- 	if (skb)
- 		dev_kfree_skb(skb);
- 	vnet_free_skbs(freeskbs);
--- 
-1.7.1
+      Andrew
