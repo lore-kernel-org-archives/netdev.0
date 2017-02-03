@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 13/27] xtables: use match, target and data copy_to_user helpers in compat
-Date: Fri,  3 Feb 2017 13:25:24 +0100
-Message-ID: <1486124738-3013-14-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/27] ip6tables: use match, target and data copy_to_user helpers
+Date: Fri,  3 Feb 2017 13:25:21 +0100
+Message-ID: <1486124738-3013-11-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,59 +12,67 @@ List-Id: netdev.vger.kernel.org
 
 From: Willem de Bruijn <willemb@google.com>
 
-Convert compat to copying entries, matches and targets one by one,
+Convert ip6tables to copying entries, matches and targets one by one,
 using the xt_match_to_user and xt_target_to_user helper functions.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/x_tables.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+ net/ipv6/netfilter/ip6_tables.c | 21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index feccf527abdd..016db6be94b9 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -619,17 +619,14 @@ int xt_compat_match_to_user(const struct xt_entry_match *m,
- 	int off = xt_compat_match_offset(match);
- 	u_int16_t msize = m->u.user.match_size - off;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 25a022d41a70..1e15c54fd5e2 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -855,10 +855,6 @@ copy_entries_to_user(unsigned int total_size,
+ 		return PTR_ERR(counters);
  
--	if (copy_to_user(cm, m, sizeof(*cm)) ||
--	    put_user(msize, &cm->u.user.match_size) ||
--	    copy_to_user(cm->u.user.name, m->u.kernel.match->name,
--			 strlen(m->u.kernel.match->name) + 1))
-+	if (XT_OBJ_TO_USER(cm, m, match, msize))
- 		return -EFAULT;
+ 	loc_cpu_entry = private->entries;
+-	if (copy_to_user(userptr, loc_cpu_entry, total_size) != 0) {
+-		ret = -EFAULT;
+-		goto free_counters;
+-	}
  
- 	if (match->compat_to_user) {
- 		if (match->compat_to_user((void __user *)cm->data, m->data))
- 			return -EFAULT;
- 	} else {
--		if (copy_to_user(cm->data, m->data, msize - sizeof(*cm)))
-+		if (XT_DATA_TO_USER(cm, m, match, msize - sizeof(*cm)))
- 			return -EFAULT;
- 	}
+ 	/* FIXME: use iterator macros --RR */
+ 	/* ... then go back and fix counters and names */
+@@ -868,6 +864,10 @@ copy_entries_to_user(unsigned int total_size,
+ 		const struct xt_entry_target *t;
  
-@@ -977,17 +974,14 @@ int xt_compat_target_to_user(const struct xt_entry_target *t,
- 	int off = xt_compat_target_offset(target);
- 	u_int16_t tsize = t->u.user.target_size - off;
+ 		e = (struct ip6t_entry *)(loc_cpu_entry + off);
++		if (copy_to_user(userptr + off, e, sizeof(*e))) {
++			ret = -EFAULT;
++			goto free_counters;
++		}
+ 		if (copy_to_user(userptr + off
+ 				 + offsetof(struct ip6t_entry, counters),
+ 				 &counters[num],
+@@ -881,23 +881,14 @@ copy_entries_to_user(unsigned int total_size,
+ 		     i += m->u.match_size) {
+ 			m = (void *)e + i;
  
--	if (copy_to_user(ct, t, sizeof(*ct)) ||
--	    put_user(tsize, &ct->u.user.target_size) ||
--	    copy_to_user(ct->u.user.name, t->u.kernel.target->name,
--			 strlen(t->u.kernel.target->name) + 1))
-+	if (XT_OBJ_TO_USER(ct, t, target, tsize))
- 		return -EFAULT;
+-			if (copy_to_user(userptr + off + i
+-					 + offsetof(struct xt_entry_match,
+-						    u.user.name),
+-					 m->u.kernel.match->name,
+-					 strlen(m->u.kernel.match->name)+1)
+-			    != 0) {
++			if (xt_match_to_user(m, userptr + off + i)) {
+ 				ret = -EFAULT;
+ 				goto free_counters;
+ 			}
+ 		}
  
- 	if (target->compat_to_user) {
- 		if (target->compat_to_user((void __user *)ct->data, t->data))
- 			return -EFAULT;
- 	} else {
--		if (copy_to_user(ct->data, t->data, tsize - sizeof(*ct)))
-+		if (XT_DATA_TO_USER(ct, t, target, tsize - sizeof(*ct)))
- 			return -EFAULT;
- 	}
- 
+ 		t = ip6t_get_target_c(e);
+-		if (copy_to_user(userptr + off + e->target_offset
+-				 + offsetof(struct xt_entry_target,
+-					    u.user.name),
+-				 t->u.kernel.target->name,
+-				 strlen(t->u.kernel.target->name)+1) != 0) {
++		if (xt_target_to_user(t, userptr + off + e->target_offset)) {
+ 			ret = -EFAULT;
+ 			goto free_counters;
+ 		}
 -- 
 2.1.4
 
