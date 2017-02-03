@@ -1,103 +1,109 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCHv3 net-next 5/7] net: add confirm_neigh method to
- dst_ops
-Date: Fri, 3 Feb 2017 11:16:16 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1702031101550.2584@ja.home.ssi.bg>
-References: <1485899827-5212-1-git-send-email-ja@ssi.bg> <1485899827-5212-6-git-send-email-ja@ssi.bg> <20170201074402.GX30338@gauss.secunet.com> <alpine.LFD.2.11.1702012326130.2580@ja.home.ssi.bg> <20170203074609.GA30338@gauss.secunet.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-        linux-rdma@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 00/19] mlxsw: Introduce TC Flower offload using TCAM
+Date: Fri,  3 Feb 2017 10:28:50 +0100
+Message-ID: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
+        ivecera@redhat.com, jbenc@redhat.com, tom@herbertland.com,
+        f.fainelli@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:52790 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752514AbdBCJRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 04:17:44 -0500
-In-Reply-To: <20170203074609.GA30338@gauss.secunet.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36316 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751878AbdBCJ3M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:29:12 -0500
+Received: by mail-wm0-f65.google.com with SMTP id r18so3089438wmd.3
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 01:29:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jiri@mellanox.com>
 
-	Hello,
+This patchset introduces support for offloading TC cls_flower and actions
+to Spectrum TCAM-base policy engine.
 
-On Fri, 3 Feb 2017, Steffen Klassert wrote:
+The patchset contains patches to allow work with flexible keys and actions
+which are used in Spectrum TCAM.
 
-> On Thu, Feb 02, 2017 at 01:04:34AM +0200, Julian Anastasov wrote:
-> > 
-> > 	It may sounds good. But only dst->path->ops->confirm_neigh
-> > points to real IPv4/IPv6 function. And also, I guess, the
-> > family can change while walking the chain, so we should be
-> > careful while providing the original daddr (which comes from
-> > sendmsg). I had the idea to walk all xforms to get the latest
-> > tunnel address but this can be slow. 
-> 
-> Is this a per packet call or is the information cached somewhere?
+It also contains in-driver infrastructure for offloading TC rules to TCAM HW.
+The TCAM management code is simple and limited for now. It is going to be
+extended as a follow-up work.
 
-	It is for every packet that is sent with both
-MSG_CONFIRM and MSG_PROBE, i.e. when nothing is sent
-on the wire. It is used by patch 6 just for UDP, RAW, ICMP, L2TP.
+The last patch uses the previously introduced infra to allow to implement
+cls_flower offloading. Initially, only limited set of match-keys and only
+a drop and forward actions are supported.
 
-> > Something like this?:
-> > 
-> > static void xfrm_confirm_neigh(const struct dst_entry *dst, const void 
-> > *daddr)
-> > {
-> > 	const struct dst_entry *path = dst->path;
-> > 
-> > 	/* By default, daddr is from sendmsg() if we have no tunnels */
-> > 	for (;dst != path; dst = dst->child) {
-> > 		const struct xfrm_state *xfrm = dst->xfrm;
-> > 
-> > 		/* Use address from last tunnel	*/
-> > 		if (xfrm->props.mode != XFRM_MODE_TRANSPORT)
-> > 			daddr = &xfrm->id.daddr;
-> > 	}
-> > 	path->ops->confirm_neigh(path, daddr);
-> > }
-> 
-> I thought about this (completely untested) one:
-> 
-> static void xfrm_confirm_neigh(const struct dst_entry *dst, const void
-> *daddr)
-> 
-> {
-> 	const struct dst_entry *dst = dst->child;
+As a dependency, this patchset introduces parman - priority array
+area manager - as a library.
 
-	When starting and dst arg is first xform, the above
-assignment skips it. May be both lines should be swapped.
+---
+v1->v2:
+- patch11:
+  - use __set_bit and __test_and_clear_bit as suggested by DaveM
+- patch16:
+  - Added documentation to the API functions as suggested by Tom Herbert
+- patch17:
+  - use __set_bit and __clear_bit as suggested by DaveM
 
-> 	const struct xfrm_state *xfrm = dst->xfrm;
-> 
-> 	if (xfrm)
-> 		daddr = &xfrm->id.daddr;
-> 
-> 	dst->ops->confirm_neigh(dst, daddr);
-> }
-> 
-> Only the last dst_entry in this call chain (path) sould
-> not have dst->xfrm set. So it finally calls path->ops->confirm_neigh
-> with the daddr of the last transformation. But your version
-> should do the same.
+Jiri Pirko (19):
+  mlxsw: item: Add 8bit item helpers
+  mlxsw: item: Add helpers for getting pointer into payload for char
+    buffer item
+  mlxsw: reg: Add Policy-Engine ACL Register
+  mlxsw: reg: Add Policy-Engine ACL Group Table register
+  mlxsw: reg: Add Policy-Engine TCAM Allocation Register
+  mlxsw: reg: Add Policy-Engine TCAM Entry Register Version 2
+  mlxsw: reg: Add Policy-Engine Port Binding Table
+  mlxsw: reg: Add Policy-Engine Rules Copy Register
+  mlxsw: reg: Add Policy-Engine Policy Based Switching Register
+  mlxsw: reg: Add Policy-Engine Extended Flexible Action Register
+  mlxsw: core: Introduce flexible keys support
+  mlxsw: core: Introduce flexible actions support
+  mlxsw: spectrum: Introduce basic set of flexible key blocks
+  mlxsw: resources: Add ACL related resources
+  list: introduce list_for_each_entry_from_reverse helper
+  lib: Introduce priority array area manager
+  mlxsw: spectrum: Introduce ACL core with simple TCAM implementation
+  sched: cls_flower: expose priority to offloading netdevice
+  mlxsw: spectrum: Implement TC flower offload
 
-	Above can be fixed but it is risky for the stack
-usage when using recursion. In practice, there should not be
-many xforms, though. Also, is id.daddr valid for transports?
+ MAINTAINERS                                        |    8 +
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig        |    1 +
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |    6 +-
+ .../mellanox/mlxsw/core_acl_flex_actions.c         |  685 +++++++++++++
+ .../mellanox/mlxsw/core_acl_flex_actions.h         |   66 ++
+ .../ethernet/mellanox/mlxsw/core_acl_flex_keys.c   |  475 +++++++++
+ .../ethernet/mellanox/mlxsw/core_acl_flex_keys.h   |  238 +++++
+ drivers/net/ethernet/mellanox/mlxsw/item.h         |   98 +-
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          |  511 ++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/resources.h    |   20 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   32 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  106 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |  572 +++++++++++
+ .../mellanox/mlxsw/spectrum_acl_flex_keys.h        |  109 ++
+ .../ethernet/mellanox/mlxsw/spectrum_acl_tcam.c    | 1084 ++++++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |  309 ++++++
+ include/linux/list.h                               |   13 +
+ include/linux/parman.h                             |   76 ++
+ include/net/pkt_cls.h                              |    1 +
+ lib/Kconfig                                        |    3 +
+ lib/Kconfig.debug                                  |   10 +
+ lib/Makefile                                       |    3 +
+ lib/parman.c                                       |  376 +++++++
+ lib/test_parman.c                                  |  395 +++++++
+ net/sched/cls_flower.c                             |    3 +
+ 25 files changed, 5184 insertions(+), 16 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+ create mode 100644 include/linux/parman.h
+ create mode 100644 lib/parman.c
+ create mode 100644 lib/test_parman.c
 
-> > 	This should work as long as path and last tunnel are
-> > from same family.
-> 
-> Yes, the outer mode of the last transformation has the same
-> family as path.
-> 
-> > Also, after checking xfrm_dst_lookup() I'm not
-> > sure using just &xfrm->id.daddr is enough. Should we consider
-> > more places for daddr value?
-> 
-> Yes, indeed. We should do it like xfrm_dst_lookup() does it.
-
-	OK, I'll get logic from there. Should I use loop or
-recursion?
-
-Regards
+-- 
+2.7.4
