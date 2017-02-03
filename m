@@ -1,98 +1,62 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Subject: Re: [PATCHv2 net-next 05/16] net: mvpp2: introduce PPv2.2 HW
- descriptors and adapt accessors
-Date: Fri, 3 Feb 2017 14:05:13 +0000
-Message-ID: <231514f4-2e35-8bde-4469-aada833635aa@arm.com>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482943592-12556-6-git-send-email-thomas.petazzoni@free-electrons.com>
- <20170106142901.GC14217@n2100.armlinux.org.uk>
- <113811b6-79a4-9c66-d302-add9fb0c5b1a@arm.com>
- <20170203142446.2ee517a7@free-electrons.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next] sctp: process fwd tsn chunk only when prsctp is
+ enabled
+Date: Fri, 3 Feb 2017 09:09:54 -0500
+Message-ID: <20170203140954.GA2535@hmswarspite.think-freely.org>
+References: <16dcae6a3bff4b7e4c6d37bfa7dba217d5ca34b7.1486114626.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        Mark Rutland <mark.rutland@arm.com>,
-        devicetree@vger.kernel.org, Yehuda Yitschak <yehuday@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Pawel Moll <pawel.moll@arm.com>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Rob Herring <robh+dt@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
-        Kumar Gala <galak@codeaurora.org>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:50276 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752407AbdBCOFU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 09:05:20 -0500
-In-Reply-To: <20170203142446.2ee517a7@free-electrons.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40743 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752169AbdBCOLF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 09:11:05 -0500
+Content-Disposition: inline
+In-Reply-To: <16dcae6a3bff4b7e4c6d37bfa7dba217d5ca34b7.1486114626.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/02/17 13:24, Thomas Petazzoni wrote:
-> Hello,
+On Fri, Feb 03, 2017 at 05:37:06PM +0800, Xin Long wrote:
+> This patch is to check if asoc->peer.prsctp_capable is set before
+> processing fwd tsn chunk, if not, it will return an ERROR to the
+> peer, just as rfc3758 section 3.3.1 demands.
 > 
-> On Fri, 6 Jan 2017 14:44:56 +0000, Robin Murphy wrote:
+> Reported-by: Julian Cordes <julian.cordes@gmail.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_statefuns.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
 > 
->>>> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
->>>> +		dma_addr_t dma_addr =
->>>> +			rx_desc->pp22.buf_phys_addr_key_hash & DMA_BIT_MASK(40);
->>>> +		phys_addr_t phys_addr =
->>>> +			dma_to_phys(port->dev->dev.parent, dma_addr);  
->>
->> Ugh, this looks bogus. dma_to_phys(), in the arm64 case at least, is
->> essentially a SWIOTLB internal helper function which has to be
->> implemented in architecture code because reasons. Calling it from a
->> driver is almost certainly wrong (it doesn't even exist on most
->> architectures). Besides, if this is really a genuine dma_addr_t obtained
->> from a DMA API call, you cannot infer it to be related to a CPU physical
->> address, or convertible to one at all.
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index 782e579..d8798dd 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -3867,6 +3867,9 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(struct net *net,
+>  		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
+>  	}
+>  
+> +	if (!asoc->peer.prsctp_capable)
+> +		return sctp_sf_unk_chunk(net, ep, asoc, type, arg, commands);
+> +
+>  	/* Make sure that the FORWARD_TSN chunk has valid length.  */
+>  	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_fwdtsn_chunk)))
+>  		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
+> @@ -3935,6 +3938,9 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn_fast(
+>  		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
+>  	}
+>  
+> +	if (!asoc->peer.prsctp_capable)
+> +		return sctp_sf_unk_chunk(net, ep, asoc, type, arg, commands);
+> +
+>  	/* Make sure that the FORWARD_TSN chunk has a valid length.  */
+>  	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_fwdtsn_chunk)))
+>  		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
+> -- 
+> 2.1.0
 > 
-> So do you have a better suggestion? The descriptors only have enough
-> space to store a 40-bit virtual address, which is not enough to fit the
-> virtual addresses used by Linux for SKBs. This is why I'm instead
-> relying on the fact that the descriptors can store the 40-bit physical
-> address, and convert it back to a virtual address, which should be fine
-> on ARM64 because the entire physical memory is part of the kernel linear
-> mapping.
-
-OK, that has nothing to do with DMA addresses then.
-
->>>> +		return (unsigned long)phys_to_virt(phys_addr);
->>>> +#else
->>>> +		return rx_desc->pp22.buf_cookie_misc & DMA_BIT_MASK(40);
->>>> +#endif  
->>>
->>> I'm not sure that's the best way of selecting the difference.  
->>
->> Given that CONFIG_ARCH_DMA_ADDR_T_64BIT could be enabled on 32-bit LPAE
->> systems, indeed it definitely isn't.
 > 
-> Russell proposal of testing the size of a virtual address
-> pointer instead would solve this I believe, correct?
-
-AFAICS, even that shouldn't really be necessary - for all VA/PA
-combinations of 32/32, 32/40 and 64/40, storing virt_to_phys() of the
-SKB VA won't overflow 40 bits, so a corresponding phys_to_virt() at the
-other end can't go wrong either. If you really do want to special-case
-things based on VA size, though, either CONFIG_64BIT or sizeof(void *)
-would indeed be infinitely more useful than the unrelated DMA address
-width - I know this driver's never going to run on SPARC64, but that's
-one example of where the above logic would lead to precisely the
-truncated VA it's trying to avoid.
-
-Robin.
-
-> 
-> Thanks,
-> 
-> Thomas
-> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
