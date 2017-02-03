@@ -1,23 +1,23 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/27] xtables: add xt_match, xt_target and data copy_to_user functions
-Date: Fri,  3 Feb 2017 13:25:19 +0100
-Message-ID: <1486124738-3013-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/27] iptables: use match, target and data copy_to_user helpers
+Date: Fri,  3 Feb 2017 13:25:20 +0100
+Message-ID: <1486124738-3013-10-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58908 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:58918 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752663AbdBCM2h (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 07:28:37 -0500
+        id S1753230AbdBCM2i (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 07:28:38 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 696CEC106C
+        by mail.us.es (Postfix) with ESMTP id C7850C1073
         for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:36 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 54819DA817
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B1B94DA817
         for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:36 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 206BEDA725
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A0678DA84F
         for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:34 +0100 (CET)
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
@@ -25,130 +25,66 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-xt_entry_target, xt_entry_match and their private data may contain
-kernel data.
-
-Introduce helper functions xt_match_to_user, xt_target_to_user and
-xt_data_to_user that copy only the expected fields. These replace
-existing logic that calls copy_to_user on entire structs, then
-overwrites select fields.
-
-Private data is defined in xt_match and xt_target. All matches and
-targets that maintain kernel data store this at the tail of their
-private structure. Extend xt_match and xt_target with .usersize to
-limit how many bytes of data are copied. The remainder is cleared.
-
-If compatsize is specified, usersize can only safely be used if all
-fields up to usersize use platform-independent types. Otherwise, the
-compat_to_user callback must be defined.
-
-This patch does not yet enable the support logic.
+Convert iptables to copying entries, matches and targets one by one,
+using the xt_match_to_user and xt_target_to_user helper functions.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/x_tables.h |  9 +++++++
- net/netfilter/x_tables.c           | 54 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 63 insertions(+)
+ net/ipv4/netfilter/ip_tables.c | 21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 5117e4d2ddfa..be378cf47fcc 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -167,6 +167,7 @@ struct xt_match {
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 91656a1d8fbd..384b85713e06 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -826,10 +826,6 @@ copy_entries_to_user(unsigned int total_size,
+ 		return PTR_ERR(counters);
  
- 	const char *table;
- 	unsigned int matchsize;
-+	unsigned int usersize;
- #ifdef CONFIG_COMPAT
- 	unsigned int compatsize;
- #endif
-@@ -207,6 +208,7 @@ struct xt_target {
+ 	loc_cpu_entry = private->entries;
+-	if (copy_to_user(userptr, loc_cpu_entry, total_size) != 0) {
+-		ret = -EFAULT;
+-		goto free_counters;
+-	}
  
- 	const char *table;
- 	unsigned int targetsize;
-+	unsigned int usersize;
- #ifdef CONFIG_COMPAT
- 	unsigned int compatsize;
- #endif
-@@ -287,6 +289,13 @@ int xt_check_match(struct xt_mtchk_param *, unsigned int size, u_int8_t proto,
- int xt_check_target(struct xt_tgchk_param *, unsigned int size, u_int8_t proto,
- 		    bool inv_proto);
+ 	/* FIXME: use iterator macros --RR */
+ 	/* ... then go back and fix counters and names */
+@@ -839,6 +835,10 @@ copy_entries_to_user(unsigned int total_size,
+ 		const struct xt_entry_target *t;
  
-+int xt_match_to_user(const struct xt_entry_match *m,
-+		     struct xt_entry_match __user *u);
-+int xt_target_to_user(const struct xt_entry_target *t,
-+		      struct xt_entry_target __user *u);
-+int xt_data_to_user(void __user *dst, const void *src,
-+		    int usersize, int size);
-+
- void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
- 				 struct xt_counters_info *info, bool compat);
+ 		e = (struct ipt_entry *)(loc_cpu_entry + off);
++		if (copy_to_user(userptr + off, e, sizeof(*e))) {
++			ret = -EFAULT;
++			goto free_counters;
++		}
+ 		if (copy_to_user(userptr + off
+ 				 + offsetof(struct ipt_entry, counters),
+ 				 &counters[num],
+@@ -852,23 +852,14 @@ copy_entries_to_user(unsigned int total_size,
+ 		     i += m->u.match_size) {
+ 			m = (void *)e + i;
  
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 2ff499680cc6..feccf527abdd 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -262,6 +262,60 @@ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
- }
- EXPORT_SYMBOL_GPL(xt_request_find_target);
+-			if (copy_to_user(userptr + off + i
+-					 + offsetof(struct xt_entry_match,
+-						    u.user.name),
+-					 m->u.kernel.match->name,
+-					 strlen(m->u.kernel.match->name)+1)
+-			    != 0) {
++			if (xt_match_to_user(m, userptr + off + i)) {
+ 				ret = -EFAULT;
+ 				goto free_counters;
+ 			}
+ 		}
  
-+
-+static int xt_obj_to_user(u16 __user *psize, u16 size,
-+			  void __user *pname, const char *name,
-+			  u8 __user *prev, u8 rev)
-+{
-+	if (put_user(size, psize))
-+		return -EFAULT;
-+	if (copy_to_user(pname, name, strlen(name) + 1))
-+		return -EFAULT;
-+	if (put_user(rev, prev))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
-+#define XT_OBJ_TO_USER(U, K, TYPE, C_SIZE)				\
-+	xt_obj_to_user(&U->u.TYPE##_size, C_SIZE ? : K->u.TYPE##_size,	\
-+		       U->u.user.name, K->u.kernel.TYPE->name,		\
-+		       &U->u.user.revision, K->u.kernel.TYPE->revision)
-+
-+int xt_data_to_user(void __user *dst, const void *src,
-+		    int usersize, int size)
-+{
-+	usersize = usersize ? : size;
-+	if (copy_to_user(dst, src, usersize))
-+		return -EFAULT;
-+	if (usersize != size && clear_user(dst + usersize, size - usersize))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(xt_data_to_user);
-+
-+#define XT_DATA_TO_USER(U, K, TYPE, C_SIZE)				\
-+	xt_data_to_user(U->data, K->data,				\
-+			K->u.kernel.TYPE->usersize,			\
-+			C_SIZE ? : K->u.kernel.TYPE->TYPE##size)
-+
-+int xt_match_to_user(const struct xt_entry_match *m,
-+		     struct xt_entry_match __user *u)
-+{
-+	return XT_OBJ_TO_USER(u, m, match, 0) ||
-+	       XT_DATA_TO_USER(u, m, match, 0);
-+}
-+EXPORT_SYMBOL_GPL(xt_match_to_user);
-+
-+int xt_target_to_user(const struct xt_entry_target *t,
-+		      struct xt_entry_target __user *u)
-+{
-+	return XT_OBJ_TO_USER(u, t, target, 0) ||
-+	       XT_DATA_TO_USER(u, t, target, 0);
-+}
-+EXPORT_SYMBOL_GPL(xt_target_to_user);
-+
- static int match_revfn(u8 af, const char *name, u8 revision, int *bestp)
- {
- 	const struct xt_match *m;
+ 		t = ipt_get_target_c(e);
+-		if (copy_to_user(userptr + off + e->target_offset
+-				 + offsetof(struct xt_entry_target,
+-					    u.user.name),
+-				 t->u.kernel.target->name,
+-				 strlen(t->u.kernel.target->name)+1) != 0) {
++		if (xt_target_to_user(t, userptr + off + e->target_offset)) {
+ 			ret = -EFAULT;
+ 			goto free_counters;
+ 		}
 -- 
 2.1.4
