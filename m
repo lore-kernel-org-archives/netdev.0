@@ -1,82 +1,286 @@
-From: Joel Cunningham <joel.cunningham@me.com>
-Subject: Re: Understanding mutual exclusion between rtnl_lock and rcu_read_lock
-Date: Thu, 02 Feb 2017 20:05:19 -0600
-Message-ID: <096DC091-F762-4401-9AE1-22AF6899BACB@me.com>
-References: <FEDE3C6F-2C5C-4BCE-829F-C8E177C2AA36@me.com>
- <CAKgT0Ufy1gii_tQ=puNnPfFeHiE=jti5ObFP3Js0U03ULPFyiQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sfc-falcon: get rid of custom busy polling code
+Date: Thu, 02 Feb 2017 18:22:28 -0800
+Message-ID: <1486088548.21871.50.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1486084399.21871.46.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Edward Cree <ecree@solarflare.com>,
+        Bert Kenward <bkenward@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pv38p43im-ztdg05071201.me.com ([17.133.183.8]:46455 "EHLO
-        pv38p43im-ztdg05071201.me.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751944AbdBCCFV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 21:05:21 -0500
-Received: from process-dkim-sign-daemon.pv38p43im-ztdg05071201.me.com by
- pv38p43im-ztdg05071201.me.com
- (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
- id <0OKS00O000DTDH00@pv38p43im-ztdg05071201.me.com> for
- netdev@vger.kernel.org; Fri, 03 Feb 2017 02:05:20 +0000 (GMT)
-In-reply-to: <CAKgT0Ufy1gii_tQ=puNnPfFeHiE=jti5ObFP3Js0U03ULPFyiQ@mail.gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33363 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751622AbdBCCWb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 21:22:31 -0500
+Received: by mail-pf0-f193.google.com with SMTP id e4so463504pfg.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 18:22:30 -0800 (PST)
+In-Reply-To: <1486084399.21871.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-> On Feb 2, 2017, at 5:52 PM, Alexander Duyck =
-<alexander.duyck@gmail.com> wrote:
->=20
-> On Thu, Feb 2, 2017 at 3:47 PM, Joel Cunningham =
-<joel.cunningham@me.com> wrote:
->> Hi,
->>=20
->> I=E2=80=99m studying the synchronization used on different parts of =
-struct net_device and I=E2=80=99m struggling to understand how structure =
-member modifications in dev_ioctl are synchronized.  Getters in =
-dev_ifsioc_locked() are only holding rcu_read_lock() while setters in =
-dev_ifsioc() are holding rtnl_lock, but not using RCU APIs.  I was =
-specifically looking at SIOCGIFHWADDR/SIOCSIFHWADDR.  What=E2=80=99s to =
-prevent one CPU from executing a getter and another CPU from executing a =
-setter resulting in possibly a torn read/write?  I didn=E2=80=99t see =
-anything in rtnl_lock() that would wait for any rcu_reader_lock() =
-critical sections (on other CPUs) to finish before acquiring the mutex.
->>=20
->> Is there something about dev_ioctl that prevents parallel execution? =
-or maybe something I still don=E2=80=99t understand about the RCU =
-implementation?
->>=20
->> Thanks,
->>=20
->> Joel
->=20
-> My advice would be to spend more time familiarizing yourself with RCU.
-> The advantage of RCU is that it allows for updates while other threads
-> are accessing the data.
+In linux-4.5, busy polling was implemented in core
+NAPI stack, meaning that all custom implementation can
+be removed from drivers.
 
-Thanks for the follow up!
+Not only we remove lot's of tricky code, we also remove
+one lock operation in fast path.
 
-I have been trying to find more examples of RCU where the writer updates =
-the structure in-place without using RCU APIs, but so far haven=E2=80=99t =
-found anything
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Edward Cree <ecree@solarflare.com>
+Cc: Bert Kenward <bkenward@solarflare.com>
+---
+ drivers/net/ethernet/sfc/falcon/efx.c        |   42 -----
+ drivers/net/ethernet/sfc/falcon/net_driver.h |  125 -----------------
+ drivers/net/ethernet/sfc/falcon/rx.c         |    3 
+ 3 files changed, 1 insertion(+), 169 deletions(-)
 
-In the case of SIOCSIFHWADDR, we get a pointer to the net_device through =
-__dev_get_by_name() and then pass it to dev_set_mac_address() to modify =
-through ndo_set_mac_address().  I didn=E2=80=99t see any uses of RCU =
-APIs on the writer side and that=E2=80=99s why I figured there was =
-something going on with rtnl_lock() that I didn=E2=80=99t understand or =
-that the dev_ioctl function wasn=E2=80=99t re-entrant from another CPU
-
-> The rtnl_lock is just meant to prevent
-> multiple writers from updating the data simultaneously.  So between
-> writers the rtnl_lock is used to keep things synchronized, but between
-> writers and readers the mechanism that is meant to protect the data
-> and keep it sane is RCU.
-
-Your description of rtnl_lock make sense.  I=E2=80=99m still confused =
-with how the setter side code (in dev_ifsioc) is using RCU since I =
-don=E2=80=99t see any APIs called.
-
-Thanks,
-
-Joel
+diff --git a/drivers/net/ethernet/sfc/falcon/efx.c b/drivers/net/ethernet/sfc/falcon/efx.c
+index c4ff3bb1a1ef48724f851b571fd206ae72d2d49f..f5e5cd1659a148fb63ce2078ef13a5ae12d048bc 100644
+--- a/drivers/net/ethernet/sfc/falcon/efx.c
++++ b/drivers/net/ethernet/sfc/falcon/efx.c
+@@ -304,9 +304,6 @@ static int ef4_poll(struct napi_struct *napi, int budget)
+ 	struct ef4_nic *efx = channel->efx;
+ 	int spent;
+ 
+-	if (!ef4_channel_lock_napi(channel))
+-		return budget;
+-
+ 	netif_vdbg(efx, intr, efx->net_dev,
+ 		   "channel %d NAPI poll executing on CPU %d\n",
+ 		   channel->channel, raw_smp_processor_id());
+@@ -331,7 +328,6 @@ static int ef4_poll(struct napi_struct *napi, int budget)
+ 		ef4_nic_eventq_read_ack(channel);
+ 	}
+ 
+-	ef4_channel_unlock_napi(channel);
+ 	return spent;
+ }
+ 
+@@ -387,7 +383,6 @@ void ef4_start_eventq(struct ef4_channel *channel)
+ 	channel->enabled = true;
+ 	smp_wmb();
+ 
+-	ef4_channel_enable(channel);
+ 	napi_enable(&channel->napi_str);
+ 	ef4_nic_eventq_read_ack(channel);
+ }
+@@ -399,8 +394,6 @@ void ef4_stop_eventq(struct ef4_channel *channel)
+ 		return;
+ 
+ 	napi_disable(&channel->napi_str);
+-	while (!ef4_channel_disable(channel))
+-		usleep_range(1000, 20000);
+ 	channel->enabled = false;
+ }
+ 
+@@ -2029,7 +2022,6 @@ static void ef4_init_napi_channel(struct ef4_channel *channel)
+ 	channel->napi_dev = efx->net_dev;
+ 	netif_napi_add(channel->napi_dev, &channel->napi_str,
+ 		       ef4_poll, napi_weight);
+-	ef4_channel_busy_poll_init(channel);
+ }
+ 
+ static void ef4_init_napi(struct ef4_nic *efx)
+@@ -2079,37 +2071,6 @@ static void ef4_netpoll(struct net_device *net_dev)
+ 
+ #endif
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-static int ef4_busy_poll(struct napi_struct *napi)
+-{
+-	struct ef4_channel *channel =
+-		container_of(napi, struct ef4_channel, napi_str);
+-	struct ef4_nic *efx = channel->efx;
+-	int budget = 4;
+-	int old_rx_packets, rx_packets;
+-
+-	if (!netif_running(efx->net_dev))
+-		return LL_FLUSH_FAILED;
+-
+-	if (!ef4_channel_try_lock_poll(channel))
+-		return LL_FLUSH_BUSY;
+-
+-	old_rx_packets = channel->rx_queue.rx_packets;
+-	ef4_process_channel(channel, budget);
+-
+-	rx_packets = channel->rx_queue.rx_packets - old_rx_packets;
+-
+-	/* There is no race condition with NAPI here.
+-	 * NAPI will automatically be rescheduled if it yielded during busy
+-	 * polling, because it was not able to take the lock and thus returned
+-	 * the full budget.
+-	 */
+-	ef4_channel_unlock_poll(channel);
+-
+-	return rx_packets;
+-}
+-#endif
+-
+ /**************************************************************************
+  *
+  * Kernel net device interface
+@@ -2289,9 +2250,6 @@ static const struct net_device_ops ef4_netdev_ops = {
+ 	.ndo_poll_controller = ef4_netpoll,
+ #endif
+ 	.ndo_setup_tc		= ef4_setup_tc,
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	.ndo_busy_poll		= ef4_busy_poll,
+-#endif
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= ef4_filter_rfs,
+ #endif
+diff --git a/drivers/net/ethernet/sfc/falcon/net_driver.h b/drivers/net/ethernet/sfc/falcon/net_driver.h
+index fe59dd67f9186bb9e2282ab00a3e04460ae80bc6..37a8bdf32206a44b82ff25d4111412062dd04a22 100644
+--- a/drivers/net/ethernet/sfc/falcon/net_driver.h
++++ b/drivers/net/ethernet/sfc/falcon/net_driver.h
+@@ -448,131 +448,6 @@ struct ef4_channel {
+ 	struct ef4_tx_queue tx_queue[EF4_TXQ_TYPES];
+ };
+ 
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-enum ef4_channel_busy_poll_state {
+-	EF4_CHANNEL_STATE_IDLE = 0,
+-	EF4_CHANNEL_STATE_NAPI = BIT(0),
+-	EF4_CHANNEL_STATE_NAPI_REQ_BIT = 1,
+-	EF4_CHANNEL_STATE_NAPI_REQ = BIT(1),
+-	EF4_CHANNEL_STATE_POLL_BIT = 2,
+-	EF4_CHANNEL_STATE_POLL = BIT(2),
+-	EF4_CHANNEL_STATE_DISABLE_BIT = 3,
+-};
+-
+-static inline void ef4_channel_busy_poll_init(struct ef4_channel *channel)
+-{
+-	WRITE_ONCE(channel->busy_poll_state, EF4_CHANNEL_STATE_IDLE);
+-}
+-
+-/* Called from the device poll routine to get ownership of a channel. */
+-static inline bool ef4_channel_lock_napi(struct ef4_channel *channel)
+-{
+-	unsigned long prev, old = READ_ONCE(channel->busy_poll_state);
+-
+-	while (1) {
+-		switch (old) {
+-		case EF4_CHANNEL_STATE_POLL:
+-			/* Ensure ef4_channel_try_lock_poll() wont starve us */
+-			set_bit(EF4_CHANNEL_STATE_NAPI_REQ_BIT,
+-				&channel->busy_poll_state);
+-			/* fallthrough */
+-		case EF4_CHANNEL_STATE_POLL | EF4_CHANNEL_STATE_NAPI_REQ:
+-			return false;
+-		default:
+-			break;
+-		}
+-		prev = cmpxchg(&channel->busy_poll_state, old,
+-			       EF4_CHANNEL_STATE_NAPI);
+-		if (unlikely(prev != old)) {
+-			/* This is likely to mean we've just entered polling
+-			 * state. Go back round to set the REQ bit.
+-			 */
+-			old = prev;
+-			continue;
+-		}
+-		return true;
+-	}
+-}
+-
+-static inline void ef4_channel_unlock_napi(struct ef4_channel *channel)
+-{
+-	/* Make sure write has completed from ef4_channel_lock_napi() */
+-	smp_wmb();
+-	WRITE_ONCE(channel->busy_poll_state, EF4_CHANNEL_STATE_IDLE);
+-}
+-
+-/* Called from ef4_busy_poll(). */
+-static inline bool ef4_channel_try_lock_poll(struct ef4_channel *channel)
+-{
+-	return cmpxchg(&channel->busy_poll_state, EF4_CHANNEL_STATE_IDLE,
+-			EF4_CHANNEL_STATE_POLL) == EF4_CHANNEL_STATE_IDLE;
+-}
+-
+-static inline void ef4_channel_unlock_poll(struct ef4_channel *channel)
+-{
+-	clear_bit_unlock(EF4_CHANNEL_STATE_POLL_BIT, &channel->busy_poll_state);
+-}
+-
+-static inline bool ef4_channel_busy_polling(struct ef4_channel *channel)
+-{
+-	return test_bit(EF4_CHANNEL_STATE_POLL_BIT, &channel->busy_poll_state);
+-}
+-
+-static inline void ef4_channel_enable(struct ef4_channel *channel)
+-{
+-	clear_bit_unlock(EF4_CHANNEL_STATE_DISABLE_BIT,
+-			 &channel->busy_poll_state);
+-}
+-
+-/* Stop further polling or napi access.
+- * Returns false if the channel is currently busy polling.
+- */
+-static inline bool ef4_channel_disable(struct ef4_channel *channel)
+-{
+-	set_bit(EF4_CHANNEL_STATE_DISABLE_BIT, &channel->busy_poll_state);
+-	/* Implicit barrier in ef4_channel_busy_polling() */
+-	return !ef4_channel_busy_polling(channel);
+-}
+-
+-#else /* CONFIG_NET_RX_BUSY_POLL */
+-
+-static inline void ef4_channel_busy_poll_init(struct ef4_channel *channel)
+-{
+-}
+-
+-static inline bool ef4_channel_lock_napi(struct ef4_channel *channel)
+-{
+-	return true;
+-}
+-
+-static inline void ef4_channel_unlock_napi(struct ef4_channel *channel)
+-{
+-}
+-
+-static inline bool ef4_channel_try_lock_poll(struct ef4_channel *channel)
+-{
+-	return false;
+-}
+-
+-static inline void ef4_channel_unlock_poll(struct ef4_channel *channel)
+-{
+-}
+-
+-static inline bool ef4_channel_busy_polling(struct ef4_channel *channel)
+-{
+-	return false;
+-}
+-
+-static inline void ef4_channel_enable(struct ef4_channel *channel)
+-{
+-}
+-
+-static inline bool ef4_channel_disable(struct ef4_channel *channel)
+-{
+-	return true;
+-}
+-#endif /* CONFIG_NET_RX_BUSY_POLL */
+-
+ /**
+  * struct ef4_msi_context - Context for each MSI
+  * @efx: The associated NIC
+diff --git a/drivers/net/ethernet/sfc/falcon/rx.c b/drivers/net/ethernet/sfc/falcon/rx.c
+index 250458cbdb4dcdd3700bdf520cee8c9865c4abdb..6a8406dc0c2b47dbdb4c2466e028ff04fd35e1c9 100644
+--- a/drivers/net/ethernet/sfc/falcon/rx.c
++++ b/drivers/net/ethernet/sfc/falcon/rx.c
+@@ -674,8 +674,7 @@ void __ef4_rx_packet(struct ef4_channel *channel)
+ 	if (unlikely(!(efx->net_dev->features & NETIF_F_RXCSUM)))
+ 		rx_buf->flags &= ~EF4_RX_PKT_CSUMMED;
+ 
+-	if ((rx_buf->flags & EF4_RX_PKT_TCP) && !channel->type->receive_skb &&
+-	    !ef4_channel_busy_polling(channel))
++	if ((rx_buf->flags & EF4_RX_PKT_TCP) && !channel->type->receive_skb)
+ 		ef4_rx_packet_gro(channel, rx_buf, channel->rx_pkt_n_frags, eh);
+ 	else
+ 		ef4_rx_deliver(channel, eh, rx_buf, channel->rx_pkt_n_frags);
