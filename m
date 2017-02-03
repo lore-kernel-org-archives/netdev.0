@@ -1,69 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/2] Add a eBPF helper function to retrieve socket
- uid
-Date: Fri, 03 Feb 2017 09:25:37 +0100
-Message-ID: <58943E81.4030802@iogearbox.net>
-References: <20170202205950.100334-1-chenbofeng.kernel@gmail.com>        <20170202205950.100334-3-chenbofeng.kernel@gmail.com>   <5893A587.6090000@iogearbox.net>        <CAKD1Yr30K4Yi8U0bnTOq60rPW6aYY1Vb4xxmRgZdz319UmLmRw@mail.gmail.com>    <1486081861.21871.39.camel@edumazet-glaptop3.roam.corp.google.com>      <CAKD1Yr1tPP-7ic4nreqzKk6Gb+ZgyKo8yqw-KP=w7oqABkiZQA@mail.gmail.com> <1486086708.21871.48.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH RFC net-next 4/4] bridge: add ability to turn off fdb used
+ updates
+Date: Fri, 3 Feb 2017 09:30:37 +0100
+Message-ID: <45f588fd-bece-647c-5b1e-2c64975e640d@cumulusnetworks.com>
+References: <1485876718-18091-1-git-send-email-nikolay@cumulusnetworks.com>
+ <1485876718-18091-5-git-send-email-nikolay@cumulusnetworks.com>
+ <20170202.214737.1978812863222769540.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Chenbo Feng <fengc@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Lorenzo Colitti <lorenzo@google.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56911 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752577AbdBCIZn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 03:25:43 -0500
-In-Reply-To: <1486086708.21871.48.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:37238 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751673AbdBCIaj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 03:30:39 -0500
+Received: by mail-wm0-f41.google.com with SMTP id v77so16268999wmv.0
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 00:30:39 -0800 (PST)
+In-Reply-To: <20170202.214737.1978812863222769540.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2017 02:51 AM, Eric Dumazet wrote:
-> On Fri, 2017-02-03 at 10:18 +0900, Lorenzo Colitti wrote:
->> On Fri, Feb 3, 2017 at 9:31 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>>> It should be safe to call sock_net_uid on any type of socket
->>>> (including NULL). sk_uid was added to struct sock in 86741ec25462
->>>> ("net: core: Add a UID field to struct sock.")
->>>
->>> But a request socket or a timewait socket do not have this field.
->>>
->>> Daniel point is valid.
->>
->> My bad. Yes.
->>
->> It would definitely be useful to have the UID available in request
->> sockets, and perhaps timewait sockets as well. That could be done by
->> moving the UID to sock_common, or with something along the lines of:
->>
->>   static inline kuid_t sock_net_uid(const struct net *net, const struct sock *sk)
->>   {
->> +       if (sk && sk->sk_state == TCP_NEW_SYN_RECV)
->> +               sk = sk->__sk_common.skc_listener;
->> +       else if (sk && !sk_fullsock(sk))
->> +               sk = NULL;
->> +
->>          return sk ? sk->sk_uid : make_kuid(net->user_ns, 0);
->>   }
->>
->> Any thoughts on which is better?
->
-> You could use
->
-> if (sk) {
->      sk = sk_to_full_sk(sk);
->      if (sk_fullsock(sk))
->          return sk->sk_uid;
-> }
+On 03/02/17 03:47, David Miller wrote:
+> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Date: Tue, 31 Jan 2017 16:31:58 +0100
+> 
+>> @@ -197,7 +197,8 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
+>>  		if (dst->is_local)
+>>  			return br_pass_frame_up(skb);
+>>  
+>> -		dst->used = jiffies;
+>> +		if (br->used_enabled)
+>> +			dst->used = jiffies;
+> 
+> Have you tried:
+> 
+> 	if (dst->used != jiffies)
+> 		dst->used = jiffies;
+> 
+> If that isn't effective, you can tweak the test to decrease the
+> granularity of the value.  Basically, if dst->used is within
+> 1 HZ of jiffies, don't do the write.
+> 
+> I suspect this might help a lot, and not require a new bridging
+> option.
+> 
 
-Yeah, if that moves into the sock_net_uid() helper, then you could
-remove the sk && sk_fullsock(sk) ? sk : NULL tests from the current
-sock_net_uid() call sites such as in tcp code. Maybe then also make
-the sock_net_uid() as __always_inline, so that most of the callers
-with sock_net_uid(net, NULL) are guaranteed to optimize away their
-sk checks at compile time?
+Yes, I actually have a patch titled "used granularity". :-) I've tested with different
+values and it does help but it either needs to be paired with another similar test for
+the "updated" field (since they share a write-heavy cache line) or they need to be
+in separate cache lines to avoid that dst's source port from causing the load HitM for
+all who check the value.
+
+I'll run some more tests and probably go this way for now.
+
+Thanks,
+ Nik
