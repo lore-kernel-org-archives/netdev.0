@@ -1,43 +1,83 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [PATCH 2/3] net: ethernet: bgmac: unify code of the same family
-Date: Fri, 3 Feb 2017 17:35:50 -0500
-Message-ID: <CAC3K-4rHRuSaDf_ks5kZB0cQiW-suXy=M+uE0ORRPV2LT2AqKQ@mail.gmail.com>
-References: <1486157970-6315-1-git-send-email-jon.mason@broadcom.com>
- <1486157970-6315-3-git-send-email-jon.mason@broadcom.com> <cdd5a5472af15d6da11e80306424d8b9@milecki.pl>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next] bpf: enable verifier to add 0 to packet ptr
+Date: Fri, 3 Feb 2017 14:53:58 -0800
+Message-ID: <20170203225355.GA26227@ast-mbp.thefacebook.com>
+References: <1486142565-2794-1-git-send-email-u9012063@gmail.com>
+ <20170203205513.GA24959@ast-mbp.thefacebook.com>
+ <CALDO+SYvAVbXCmMRca0jq7XxMYvQ0VJ0joNGpPLWRTEg=H4a6Q@mail.gmail.com>
+ <5895043F.8080007@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>,
-        BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-        Network Development <netdev@vger.kernel.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cdd5a5472af15d6da11e80306424d8b9@milecki.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: William Tu <u9012063@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Mihai Budiu <mbudiu@vmware.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35708 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752268AbdBCWyC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:54:02 -0500
+Received: by mail-pf0-f194.google.com with SMTP id f144so2398668pfa.2
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 14:54:02 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5895043F.8080007@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 3, 2017 at 4:48 PM, Rafa=C5=82 Mi=C5=82ecki <rafal@milecki.pl> =
-wrote:
-> On 2017-02-03 22:39, Jon Mason wrote:
->>
->> BCM471X and BCM535X are of the same family (from what I can derive from
->> internal documents).  Group them into the case statement together, which
->> results in more code reuse.
->>
->> Also, use existing helper variables to make the code a little more
->> readable too.
->>
->> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
->
->
-> I'd like to review it / test it on few devices. Please give me weekend fo=
-r
-> that.
+On Fri, Feb 03, 2017 at 11:29:19PM +0100, Daniel Borkmann wrote:
+> On 02/03/2017 10:10 PM, William Tu wrote:
+> >Hi Alexei,
+> >
+> >why it is bogus? on my system, it fails without the patch applied.
+> >
+> >--William
+> >
+> >On Fri, Feb 3, 2017 at 12:55 PM, Alexei Starovoitov
+> ><alexei.starovoitov@gmail.com> wrote:
+> >>On Fri, Feb 03, 2017 at 09:22:45AM -0800, William Tu wrote:
+> >>>The patch fixes the case when adding a zero value to the packet
+> >>>pointer.  The verifer reports the following error:
+> >>>   [...]
+> >>>     R0=imm0,min_value=0,max_value=0
+> >>>     R1=pkt(id=0,off=0,r=4)
+> >>>     R2=pkt_end R3=fp-12
+> >>>     R4=imm4,min_value=4,max_value=4
+> >>>     R5=pkt(id=0,off=4,r=4)
+> >>>   269: (bf) r2 = r0   // r2 becomes imm0
+> >>>   270: (77) r2 >>= 3
+> >>>   271: (bf) r4 = r1   // r4 becomes pkt ptr
+> >>>   272: (0f) r4 += r2  // r4 += 0
+> >>>   addition of negative constant to packet pointer is not allowed
+> >>>
+> >>>Signed-off-by: William Tu <u9012063@gmail.com>
+> >>>Signed-off-by: Mihai Budiu <mbudiu@vmware.com>
+> [...]
+> >>>       {
+> >>>+             "direct packet access: test14 (pkt_ptr += 0, good access)",
+> >>>+             .insns = {
+> >>>+                     BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+> >>>+                                 offsetof(struct __sk_buff, data)),
+> >>>+                     BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
+> >>>+                                 offsetof(struct __sk_buff, data_end)),
+> >>>+                     BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
+> >>>+                     BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 0),
+> >>
+> >>wait. the test is bogus.
+> >>please write the proper test for the feature
+> >>and check that it fails before the patch and passes afterwards.
+> 
+> But still same code path that is executed in verifier as BPF_K and
+> CONST_IMM tracked reg both share the same path under add_imm label
+> in check_packet_ptr_add(), no? So it becomes r2=pkt(id=0,off=0,r=0);
+> r0 = r2; r0 += 0 here in this test. Probably okay as well, though
+> there could be risk that in future both don't share the same path
+> for some reason. I guess you were referring to either adding tests
+> for BPF_K /and/ CONST_IMM reg or just the latter, right?
 
-Yes, please test this as much as you can.  The code move was pretty
-innocuous, and those are always the times when it comes back to bite
-me.
-
-Thanks,
-Jon
+yes. Sorry I wasn't clear.
+imo the 'r0 += 0' is not something that verifier should recognize,
+since such nop insns shouldn't be generated by the compiler.
+It happened that the code path in verifier covers that case
+as well, but I think we really need to test 'rX += rY' case
+where rY is recognized as imm0, since that what the original
+use case was about.
