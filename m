@@ -1,52 +1,172 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/27] netfilter: nf_tables: add missing descriptions in nft_ct_keys
-Date: Fri,  3 Feb 2017 13:25:14 +0100
-Message-ID: <1486124738-3013-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/27] ebtables: use match, target and data copy_to_user helpers
+Date: Fri,  3 Feb 2017 13:25:23 +0100
+Message-ID: <1486124738-3013-13-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58838 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752712AbdBCM2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 07:28:34 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 652E1BA70D
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:33 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 51E4BDA818
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:33 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 419D7DA841
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:31 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Liping Zhang <zlpnobody@gmail.com>
+From: Willem de Bruijn <willemb@google.com>
 
-We missed to add descriptions about NFT_CT_LABELS, NFT_CT_PKTS and
-NFT_CT_BYTES, now add it.
+Convert ebtables to copying entries, matches and targets one by one.
 
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+The solution is analogous to that of generic xt_(match|target)_to_user
+helpers, but is applied to different structs.
+
+Convert existing helpers ebt_make_XXXname helpers that overwrite
+fields of an already copy_to_user'd struct with ebt_XXX_to_user
+helpers that copy all relevant fields of the struct from scratch.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h | 3 +++
- 1 file changed, 3 insertions(+)
+ net/bridge/netfilter/ebtables.c | 78 +++++++++++++++++++++++++----------------
+ 1 file changed, 47 insertions(+), 31 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 881d49e94569..5726f90bfc2f 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -860,6 +860,9 @@ enum nft_rt_attributes {
-  * @NFT_CT_PROTOCOL: conntrack layer 4 protocol
-  * @NFT_CT_PROTO_SRC: conntrack layer 4 protocol source
-  * @NFT_CT_PROTO_DST: conntrack layer 4 protocol destination
-+ * @NFT_CT_LABELS: conntrack labels
-+ * @NFT_CT_PKTS: conntrack packets
-+ * @NFT_CT_BYTES: conntrack bytes
-  */
- enum nft_ct_keys {
- 	NFT_CT_STATE,
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 537e3d506fc2..79b69917f521 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1346,56 +1346,72 @@ static int update_counters(struct net *net, const void __user *user,
+ 				hlp.num_counters, user, len);
+ }
+ 
+-static inline int ebt_make_matchname(const struct ebt_entry_match *m,
+-				     const char *base, char __user *ubase)
++static inline int ebt_obj_to_user(char __user *um, const char *_name,
++				  const char *data, int entrysize,
++				  int usersize, int datasize)
+ {
+-	char __user *hlp = ubase + ((char *)m - base);
+-	char name[EBT_FUNCTION_MAXNAMELEN] = {};
++	char name[EBT_FUNCTION_MAXNAMELEN] = {0};
+ 
+ 	/* ebtables expects 32 bytes long names but xt_match names are 29 bytes
+ 	 * long. Copy 29 bytes and fill remaining bytes with zeroes.
+ 	 */
+-	strlcpy(name, m->u.match->name, sizeof(name));
+-	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
++	strlcpy(name, _name, sizeof(name));
++	if (copy_to_user(um, name, EBT_FUNCTION_MAXNAMELEN) ||
++	    put_user(datasize, (int __user *)(um + EBT_FUNCTION_MAXNAMELEN)) ||
++	    xt_data_to_user(um + entrysize, data, usersize, datasize))
+ 		return -EFAULT;
++
+ 	return 0;
+ }
+ 
+-static inline int ebt_make_watchername(const struct ebt_entry_watcher *w,
+-				       const char *base, char __user *ubase)
++static inline int ebt_match_to_user(const struct ebt_entry_match *m,
++				    const char *base, char __user *ubase)
+ {
+-	char __user *hlp = ubase + ((char *)w - base);
+-	char name[EBT_FUNCTION_MAXNAMELEN] = {};
++	return ebt_obj_to_user(ubase + ((char *)m - base),
++			       m->u.match->name, m->data, sizeof(*m),
++			       m->u.match->usersize, m->match_size);
++}
+ 
+-	strlcpy(name, w->u.watcher->name, sizeof(name));
+-	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
+-		return -EFAULT;
+-	return 0;
++static inline int ebt_watcher_to_user(const struct ebt_entry_watcher *w,
++				      const char *base, char __user *ubase)
++{
++	return ebt_obj_to_user(ubase + ((char *)w - base),
++			       w->u.watcher->name, w->data, sizeof(*w),
++			       w->u.watcher->usersize, w->watcher_size);
+ }
+ 
+-static inline int ebt_make_names(struct ebt_entry *e, const char *base,
+-				 char __user *ubase)
++static inline int ebt_entry_to_user(struct ebt_entry *e, const char *base,
++				    char __user *ubase)
+ {
+ 	int ret;
+ 	char __user *hlp;
+ 	const struct ebt_entry_target *t;
+-	char name[EBT_FUNCTION_MAXNAMELEN] = {};
+ 
+-	if (e->bitmask == 0)
++	if (e->bitmask == 0) {
++		/* special case !EBT_ENTRY_OR_ENTRIES */
++		if (copy_to_user(ubase + ((char *)e - base), e,
++				 sizeof(struct ebt_entries)))
++			return -EFAULT;
+ 		return 0;
++	}
++
++	if (copy_to_user(ubase + ((char *)e - base), e, sizeof(*e)))
++		return -EFAULT;
+ 
+ 	hlp = ubase + (((char *)e + e->target_offset) - base);
+ 	t = (struct ebt_entry_target *)(((char *)e) + e->target_offset);
+ 
+-	ret = EBT_MATCH_ITERATE(e, ebt_make_matchname, base, ubase);
++	ret = EBT_MATCH_ITERATE(e, ebt_match_to_user, base, ubase);
+ 	if (ret != 0)
+ 		return ret;
+-	ret = EBT_WATCHER_ITERATE(e, ebt_make_watchername, base, ubase);
++	ret = EBT_WATCHER_ITERATE(e, ebt_watcher_to_user, base, ubase);
+ 	if (ret != 0)
+ 		return ret;
+-	strlcpy(name, t->u.target->name, sizeof(name));
+-	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
+-		return -EFAULT;
++	ret = ebt_obj_to_user(hlp, t->u.target->name, t->data, sizeof(*t),
++			      t->u.target->usersize, t->target_size);
++	if (ret != 0)
++		return ret;
++
+ 	return 0;
+ }
+ 
+@@ -1475,13 +1491,9 @@ static int copy_everything_to_user(struct ebt_table *t, void __user *user,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (copy_to_user(tmp.entries, entries, entries_size)) {
+-		BUGPRINT("Couldn't copy entries to userspace\n");
+-		return -EFAULT;
+-	}
+ 	/* set the match/watcher/target names right */
+ 	return EBT_ENTRY_ITERATE(entries, entries_size,
+-	   ebt_make_names, entries, tmp.entries);
++	   ebt_entry_to_user, entries, tmp.entries);
+ }
+ 
+ static int do_ebt_set_ctl(struct sock *sk,
+@@ -1630,8 +1642,10 @@ static int compat_match_to_user(struct ebt_entry_match *m, void __user **dstptr,
+ 	if (match->compat_to_user) {
+ 		if (match->compat_to_user(cm->data, m->data))
+ 			return -EFAULT;
+-	} else if (copy_to_user(cm->data, m->data, msize))
++	} else {
++		if (xt_data_to_user(cm->data, m->data, match->usersize, msize))
+ 			return -EFAULT;
++	}
+ 
+ 	*size -= ebt_compat_entry_padsize() + off;
+ 	*dstptr = cm->data;
+@@ -1657,8 +1671,10 @@ static int compat_target_to_user(struct ebt_entry_target *t,
+ 	if (target->compat_to_user) {
+ 		if (target->compat_to_user(cm->data, t->data))
+ 			return -EFAULT;
+-	} else if (copy_to_user(cm->data, t->data, tsize))
+-		return -EFAULT;
++	} else {
++		if (xt_data_to_user(cm->data, t->data, target->usersize, tsize))
++			return -EFAULT;
++	}
+ 
+ 	*size -= ebt_compat_entry_padsize() + off;
+ 	*dstptr = cm->data;
 -- 
 2.1.4
+
