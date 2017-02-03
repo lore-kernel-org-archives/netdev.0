@@ -1,106 +1,205 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 24/27] netfilter: guarantee 8 byte minalign for template addresses
-Date: Fri,  3 Feb 2017 13:25:35 +0100
-Message-ID: <1486124738-3013-25-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 27/27] netfilter: allow logging from non-init namespaces
+Date: Fri,  3 Feb 2017 13:25:38 +0100
+Message-ID: <1486124738-3013-28-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58906 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753351AbdBCM27 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 07:28:59 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id B749CE04B7
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:47 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A5FE8DA793
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:47 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 23495DA807
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:45 +0100 (CET)
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Michal Kubeček <mkubecek@suse.cz>
 
-The next change will merge skb->nfct pointer and skb->nfctinfo
-status bits into single skb->_nfct (unsigned long) area.
+Commit 69b34fb996b2 ("netfilter: xt_LOG: add net namespace support for
+xt_LOG") disabled logging packets using the LOG target from non-init
+namespaces. The motivation was to prevent containers from flooding
+kernel log of the host. The plan was to keep it that way until syslog
+namespace implementation allows containers to log in a safe way.
 
-For this to work nf_conn addresses must always be aligned at least on
-an 8 byte boundary since we will need the lower 3bits to store nfctinfo.
+However, the work on syslog namespace seems to have hit a dead end
+somewhere in 2013 and there are users who want to use xt_LOG in all
+network namespaces. This patch allows to do so by setting
 
-Conntrack templates are allocated via kmalloc.
-kbuild test robot reported
-BUILD_BUG_ON failed: NFCT_INFOMASK >= ARCH_KMALLOC_MINALIGN
-on v1 of this patchset, so not all platforms meet this requirement.
+  /proc/sys/net/netfilter/nf_log_all_netns
 
-Do manual alignment if needed,  the alignment offset is stored in the
-nf_conn entry protocol area. This works because templates are not
-handed off to L4 protocol trackers.
+to a nonzero value. This sysctl is only accessible from init_net so that
+one cannot switch the behaviour from inside a container.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack.h |  2 ++
- net/netfilter/nf_conntrack_core.c    | 29 ++++++++++++++++++++++++-----
- 2 files changed, 26 insertions(+), 5 deletions(-)
+ Documentation/networking/netfilter-sysctl.txt | 10 ++++++++++
+ include/net/netfilter/nf_log.h                |  3 +++
+ net/bridge/netfilter/ebt_log.c                |  2 +-
+ net/ipv4/netfilter/nf_log_arp.c               |  2 +-
+ net/ipv4/netfilter/nf_log_ipv4.c              |  2 +-
+ net/ipv6/netfilter/nf_log_ipv6.c              |  2 +-
+ net/netfilter/nf_log.c                        | 24 ++++++++++++++++++++++++
+ 7 files changed, 41 insertions(+), 4 deletions(-)
+ create mode 100644 Documentation/networking/netfilter-sysctl.txt
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index d704aed11684..06d3d2d24fe0 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -163,6 +163,8 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
- int nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
- 			     const struct nf_conn *ignored_conntrack);
- 
-+#define NFCT_INFOMASK	7UL
+diff --git a/Documentation/networking/netfilter-sysctl.txt b/Documentation/networking/netfilter-sysctl.txt
+new file mode 100644
+index 000000000000..55791e50e169
+--- /dev/null
++++ b/Documentation/networking/netfilter-sysctl.txt
+@@ -0,0 +1,10 @@
++/proc/sys/net/netfilter/* Variables:
 +
- /* Return conntrack_info and tuple hash for given skb. */
- static inline struct nf_conn *
- nf_ct_get(const struct sk_buff *skb, enum ip_conntrack_info *ctinfo)
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index c9bd10747864..768968fba7f6 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -350,16 +350,31 @@ static void nf_ct_del_from_dying_or_unconfirmed_list(struct nf_conn *ct)
- 	spin_unlock(&pcpu->lock);
- }
- 
-+#define NFCT_ALIGN(len)	(((len) + NFCT_INFOMASK) & ~NFCT_INFOMASK)
++nf_log_all_netns - BOOLEAN
++	0 - disabled (default)
++	not 0 - enabled
 +
- /* Released via destroy_conntrack() */
- struct nf_conn *nf_ct_tmpl_alloc(struct net *net,
- 				 const struct nf_conntrack_zone *zone,
- 				 gfp_t flags)
- {
--	struct nf_conn *tmpl;
-+	struct nf_conn *tmpl, *p;
++	By default, only init_net namespace can log packets into kernel log
++	with LOG target; this aims to prevent containers from flooding host
++	kernel log. If enabled, this target also works in other network
++	namespaces. This variable is only accessible from init_net.
+diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
+index 450f87f95415..42e0696f38d8 100644
+--- a/include/net/netfilter/nf_log.h
++++ b/include/net/netfilter/nf_log.h
+@@ -51,6 +51,9 @@ struct nf_logger {
+ 	struct module		*me;
+ };
  
--	tmpl = kzalloc(sizeof(*tmpl), flags);
--	if (tmpl == NULL)
--		return NULL;
-+	if (ARCH_KMALLOC_MINALIGN <= NFCT_INFOMASK) {
-+		tmpl = kzalloc(sizeof(*tmpl) + NFCT_INFOMASK, flags);
-+		if (!tmpl)
-+			return NULL;
++/* sysctl_nf_log_all_netns - allow LOG target in all network namespaces */
++extern int sysctl_nf_log_all_netns;
 +
-+		p = tmpl;
-+		tmpl = (struct nf_conn *)NFCT_ALIGN((unsigned long)p);
-+		if (tmpl != p) {
-+			tmpl = (struct nf_conn *)NFCT_ALIGN((unsigned long)p);
-+			tmpl->proto.tmpl_padto = (char *)tmpl - (char *)p;
-+		}
-+	} else {
-+		tmpl = kzalloc(sizeof(*tmpl), flags);
-+		if (!tmpl)
-+			return NULL;
-+	}
+ /* Function to register/unregister log function. */
+ int nf_log_register(u_int8_t pf, struct nf_logger *logger);
+ void nf_log_unregister(struct nf_logger *logger);
+diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+index e88bd4827ac1..98b9c8e8615e 100644
+--- a/net/bridge/netfilter/ebt_log.c
++++ b/net/bridge/netfilter/ebt_log.c
+@@ -78,7 +78,7 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 	unsigned int bitmask;
  
- 	tmpl->status = IPS_TEMPLATE;
- 	write_pnet(&tmpl->ct_net, net);
-@@ -374,7 +389,11 @@ void nf_ct_tmpl_free(struct nf_conn *tmpl)
- {
- 	nf_ct_ext_destroy(tmpl);
- 	nf_ct_ext_free(tmpl);
--	kfree(tmpl);
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	spin_lock_bh(&ebt_log_lock);
+diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
+index b24795e2ee6d..f6f713376e6e 100644
+--- a/net/ipv4/netfilter/nf_log_arp.c
++++ b/net/ipv4/netfilter/nf_log_arp.c
+@@ -87,7 +87,7 @@ static void nf_log_arp_packet(struct net *net, u_int8_t pf,
+ 	struct nf_log_buf *m;
+ 
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	m = nf_log_buf_open();
+diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
+index 856648966f4c..c83a9963269b 100644
+--- a/net/ipv4/netfilter/nf_log_ipv4.c
++++ b/net/ipv4/netfilter/nf_log_ipv4.c
+@@ -319,7 +319,7 @@ static void nf_log_ip_packet(struct net *net, u_int8_t pf,
+ 	struct nf_log_buf *m;
+ 
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	m = nf_log_buf_open();
+diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
+index 57d86066a13b..055c51b80f5d 100644
+--- a/net/ipv6/netfilter/nf_log_ipv6.c
++++ b/net/ipv6/netfilter/nf_log_ipv6.c
+@@ -351,7 +351,7 @@ static void nf_log_ip6_packet(struct net *net, u_int8_t pf,
+ 	struct nf_log_buf *m;
+ 
+ 	/* FIXME: Disabled from containers until syslog ns is supported */
+-	if (!net_eq(net, &init_net))
++	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
+ 		return;
+ 
+ 	m = nf_log_buf_open();
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 3dca90dc24ad..0a034f52b912 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -16,6 +16,9 @@
+ #define NF_LOG_PREFIXLEN		128
+ #define NFLOGGER_NAME_LEN		64
+ 
++int sysctl_nf_log_all_netns __read_mostly;
++EXPORT_SYMBOL(sysctl_nf_log_all_netns);
 +
-+	if (ARCH_KMALLOC_MINALIGN <= NFCT_INFOMASK)
-+		kfree((char *)tmpl - tmpl->proto.tmpl_padto);
+ static struct nf_logger __rcu *loggers[NFPROTO_NUMPROTO][NF_LOG_TYPE_MAX] __read_mostly;
+ static DEFINE_MUTEX(nf_log_mutex);
+ 
+@@ -414,6 +417,18 @@ static const struct file_operations nflog_file_ops = {
+ #ifdef CONFIG_SYSCTL
+ static char nf_log_sysctl_fnames[NFPROTO_NUMPROTO-NFPROTO_UNSPEC][3];
+ static struct ctl_table nf_log_sysctl_table[NFPROTO_NUMPROTO+1];
++static struct ctl_table_header *nf_log_sysctl_fhdr;
++
++static struct ctl_table nf_log_sysctl_ftable[] = {
++	{
++		.procname	= "nf_log_all_netns",
++		.data		= &sysctl_nf_log_all_netns,
++		.maxlen		= sizeof(sysctl_nf_log_all_netns),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{ }
++};
+ 
+ static int nf_log_proc_dostring(struct ctl_table *table, int write,
+ 			 void __user *buffer, size_t *lenp, loff_t *ppos)
+@@ -483,6 +498,10 @@ static int netfilter_log_sysctl_init(struct net *net)
+ 			nf_log_sysctl_table[i].extra1 =
+ 				(void *)(unsigned long) i;
+ 		}
++		nf_log_sysctl_fhdr = register_net_sysctl(net, "net/netfilter",
++							 nf_log_sysctl_ftable);
++		if (!nf_log_sysctl_fhdr)
++			goto err_freg;
+ 	}
+ 
+ 	for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
+@@ -499,6 +518,9 @@ static int netfilter_log_sysctl_init(struct net *net)
+ err_reg:
+ 	if (!net_eq(net, &init_net))
+ 		kfree(table);
 +	else
-+		kfree(tmpl);
++		unregister_net_sysctl_table(nf_log_sysctl_fhdr);
++err_freg:
+ err_alloc:
+ 	return -ENOMEM;
  }
- EXPORT_SYMBOL_GPL(nf_ct_tmpl_free);
- 
+@@ -511,6 +533,8 @@ static void netfilter_log_sysctl_exit(struct net *net)
+ 	unregister_net_sysctl_table(net->nf.nf_log_dir_header);
+ 	if (!net_eq(net, &init_net))
+ 		kfree(table);
++	else
++		unregister_net_sysctl_table(nf_log_sysctl_fhdr);
+ }
+ #else
+ static int netfilter_log_sysctl_init(struct net *net)
 -- 
 2.1.4
-
