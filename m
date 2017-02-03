@@ -1,39 +1,51 @@
 From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH v2 0/2] net: ethernet: bgmac: bug fixes
-Date: Fri,  3 Feb 2017 16:08:51 -0500
-Message-ID: <1486156133-5639-1-git-send-email-jon.mason@broadcom.com>
+Subject: [PATCH v2 2/2] net: ethernet: bgmac: mac address change bug
+Date: Fri,  3 Feb 2017 16:08:53 -0500
+Message-ID: <1486156133-5639-3-git-send-email-jon.mason@broadcom.com>
+References: <1486156133-5639-1-git-send-email-jon.mason@broadcom.com>
 Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Hari Vyas <hariv@broadcom.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f178.google.com ([209.85.216.178]:33605 "EHLO
-        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752331AbdBCVJC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:09:02 -0500
-Received: by mail-qt0-f178.google.com with SMTP id v23so54601182qtb.0
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 13:09:02 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486156133-5639-1-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Changes in v2:
-* Reworked the first match to make it more obvious what portions of the
-  register were being preserved (Per Rafal Mileki) 
-* Style change to reorder the function variables in patch 2 (per Sergei
-  Shtylyov)
+From: Hari Vyas <hariv@broadcom.com>
 
+ndo_set_mac_address() passes struct sockaddr * as 2nd parameter to
+bgmac_set_mac_address() but code assumed u8 *.  This caused two bytes
+chopping and the wrong mac address was configured.
 
-Bug fixes for bgmac driver
+Signed-off-by: Hari Vyas <hariv@broadcom.com>
+Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+Fixes: 4e209001b86 ("bgmac: write mac address to hardware in ndo_set_mac_address")
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Hari Vyas (1):
-  net: ethernet: bgmac: mac address change bug
-
-Zac Schroff (1):
-  net: ethernet: bgmac: init sequence bug
-
- drivers/net/ethernet/broadcom/bgmac-platform.c | 14 +++++++++-----
- drivers/net/ethernet/broadcom/bgmac.c          |  6 +++++-
- drivers/net/ethernet/broadcom/bgmac.h          | 16 ++++++++++++++++
- 3 files changed, 30 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 0e066dc6..737be50 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1221,12 +1221,16 @@ static netdev_tx_t bgmac_start_xmit(struct sk_buff *skb,
+ static int bgmac_set_mac_address(struct net_device *net_dev, void *addr)
+ {
+ 	struct bgmac *bgmac = netdev_priv(net_dev);
++	struct sockaddr *sa = addr;
+ 	int ret;
+ 
+ 	ret = eth_prepare_mac_addr_change(net_dev, addr);
+ 	if (ret < 0)
+ 		return ret;
+-	bgmac_write_mac_address(bgmac, (u8 *)addr);
++
++	ether_addr_copy(bgmac->mac_addr, sa->sa_data);
++	bgmac_write_mac_address(bgmac, bgmac->mac_addr);
++
+ 	eth_commit_mac_addr_change(net_dev, addr);
+ 	return 0;
+ }
 -- 
 2.7.4
