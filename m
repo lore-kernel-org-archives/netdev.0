@@ -1,60 +1,42 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH RFC net-next 4/4] bridge: add ability to turn off fdb used
- updates
-Date: Fri, 3 Feb 2017 09:30:37 +0100
-Message-ID: <45f588fd-bece-647c-5b1e-2c64975e640d@cumulusnetworks.com>
-References: <1485876718-18091-1-git-send-email-nikolay@cumulusnetworks.com>
- <1485876718-18091-5-git-send-email-nikolay@cumulusnetworks.com>
- <20170202.214737.1978812863222769540.davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] bpf: fix verifier issue at check_packet_ptr_add
+Date: Fri, 03 Feb 2017 09:37:08 +0100
+Message-ID: <58944134.6060107@iogearbox.net>
+References: <1486065553-5074-1-git-send-email-u9012063@gmail.com> <5893C4DD.9000701@iogearbox.net> <CALDO+SZCn452+Tp6cBjMb_J9Mu=08Em=0+jsKpa31b3Eoy-0SQ@mail.gmail.com> <20170203034636.GA68213@ast-mbp.thefacebook.com> <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Tu <u9012063@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:37238 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751673AbdBCIaj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 03:30:39 -0500
-Received: by mail-wm0-f41.google.com with SMTP id v77so16268999wmv.0
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 00:30:39 -0800 (PST)
-In-Reply-To: <20170202.214737.1978812863222769540.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:59858 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751903AbdBCIhK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 03:37:10 -0500
+In-Reply-To: <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/02/17 03:47, David Miller wrote:
-> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Date: Tue, 31 Jan 2017 16:31:58 +0100
-> 
->> @@ -197,7 +197,8 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
->>  		if (dst->is_local)
->>  			return br_pass_frame_up(skb);
->>  
->> -		dst->used = jiffies;
->> +		if (br->used_enabled)
->> +			dst->used = jiffies;
-> 
-> Have you tried:
-> 
-> 	if (dst->used != jiffies)
-> 		dst->used = jiffies;
-> 
-> If that isn't effective, you can tweak the test to decrease the
-> granularity of the value.  Basically, if dst->used is within
-> 1 HZ of jiffies, don't do the write.
-> 
-> I suspect this might help a lot, and not require a new bridging
-> option.
-> 
+On 02/03/2017 06:31 AM, William Tu wrote:
+[...]
+> Yes, this is auto-generated. We want to use P4 2016 as front end to
+> generate ebpf for XDP.
+>
+[...]
+> R2 is no longer pkt_end, it's R2 == R0 == 0
+> 269: (bf) r2 = r0
+> 270: (77) r2 >>= 3
+> 271: (bf) r4 = r1
+> 272: (0f) r4 += r2
+>
+> So at line 272, it's pkt_ptr = pkt_ptr + 0
+> thus the following fix works for us.
+> -               if (imm <= 0) {
+> +               if (imm < 0) {
 
-Yes, I actually have a patch titled "used granularity". :-) I've tested with different
-values and it does help but it either needs to be paired with another similar test for
-the "updated" field (since they share a write-heavy cache line) or they need to be
-in separate cache lines to avoid that dst's source port from causing the load HitM for
-all who check the value.
-
-I'll run some more tests and probably go this way for now.
+Okay, makes sense. I'll wait with ACK for your respin with kselftest
+case.
 
 Thanks,
- Nik
+Daniel
