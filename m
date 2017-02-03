@@ -1,131 +1,137 @@
-From: Joel Cunningham <joel.cunningham@me.com>
-Subject: Re: Understanding mutual exclusion between rtnl_lock and rcu_read_lock
-Date: Fri, 03 Feb 2017 10:26:39 -0600
-Message-ID: <DBF55E98-9737-47EA-8FB1-1FBA48D7CA1B@me.com>
-References: <FEDE3C6F-2C5C-4BCE-829F-C8E177C2AA36@me.com>
- <CAKgT0Ufy1gii_tQ=puNnPfFeHiE=jti5ObFP3Js0U03ULPFyiQ@mail.gmail.com>
- <1486099283.21871.73.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pv38p43im-ztdg05071201.me.com ([17.133.183.8]:46284 "EHLO
-        pv38p43im-ztdg05071201.me.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750937AbdBCQ0j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 11:26:39 -0500
-Received: from process-dkim-sign-daemon.pv38p43im-ztdg05071201.me.com by
- pv38p43im-ztdg05071201.me.com
- (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
- id <0OKT00900451ID00@pv38p43im-ztdg05071201.me.com> for
- netdev@vger.kernel.org; Fri, 03 Feb 2017 16:26:38 +0000 (GMT)
-In-reply-to: <1486099283.21871.73.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Robin Murphy <robin.murphy-5wv7dgnIgG8@public.gmane.org>
+Subject: Re: [PATCHv2 net-next 05/16] net: mvpp2: introduce PPv2.2 HW
+ descriptors and adapt accessors
+Date: Fri, 3 Feb 2017 16:31:25 +0000
+Message-ID: <c2633b97-3a94-e22d-ddea-147327a5d3d6@arm.com>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1482943592-12556-6-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20170106142901.GC14217@n2100.armlinux.org.uk>
+ <113811b6-79a4-9c66-d302-add9fb0c5b1a@arm.com>
+ <20170203142446.2ee517a7@free-electrons.com>
+ <231514f4-2e35-8bde-4469-aada833635aa@arm.com>
+ <20170203160227.08b40c58@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170203160227.08b40c58-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 03/02/17 15:02, Thomas Petazzoni wrote:
+> Hello,
+> 
+> On Fri, 3 Feb 2017 14:05:13 +0000, Robin Murphy wrote:
+> 
+>>> So do you have a better suggestion? The descriptors only have enough
+>>> space to store a 40-bit virtual address, which is not enough to fit the
+>>> virtual addresses used by Linux for SKBs. This is why I'm instead
+>>> relying on the fact that the descriptors can store the 40-bit physical
+>>> address, and convert it back to a virtual address, which should be fine
+>>> on ARM64 because the entire physical memory is part of the kernel linear
+>>> mapping.  
+>>
+>> OK, that has nothing to do with DMA addresses then.
+> 
+> Well, it has to do with DMA in the sense that those buffers are
+> mapped with dma_map_single(). So the address that is given to us by the
+> hardware as the "physical address of the RX buffer" is the one that we
+> have initially given to the hardware and was the result of 
+> dma_map_single().
 
-> On Feb 2, 2017, at 11:21 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->=20
-> On Thu, 2017-02-02 at 15:52 -0800, Alexander Duyck wrote:
->> On Thu, Feb 2, 2017 at 3:47 PM, Joel Cunningham =
-<joel.cunningham@me.com> wrote:
->>> Hi,
->>>=20
->>> I=E2=80=99m studying the synchronization used on different parts of =
-struct net_device and I=E2=80=99m struggling to understand how structure =
-member modifications in dev_ioctl are synchronized.  Getters in =
-dev_ifsioc_locked() are only holding rcu_read_lock() while setters in =
-dev_ifsioc() are holding rtnl_lock, but not using RCU APIs.  I was =
-specifically looking at SIOCGIFHWADDR/SIOCSIFHWADDR.  What=E2=80=99s to =
-prevent one CPU from executing a getter and another CPU from executing a =
-setter resulting in possibly a torn read/write?  I didn=E2=80=99t see =
-anything in rtnl_lock() that would wait for any rcu_reader_lock() =
-critical sections (on other CPUs) to finish before acquiring the mutex.
->>>=20
->>> Is there something about dev_ioctl that prevents parallel execution? =
-or maybe something I still don=E2=80=99t understand about the RCU =
-implementation?
->>>=20
->>> Thanks,
->>>=20
->>> Joel
->>=20
->> My advice would be to spend more time familiarizing yourself with =
-RCU.
->> The advantage of RCU is that it allows for updates while other =
-threads
->> are accessing the data.  The rtnl_lock is just meant to prevent
->> multiple writers from updating the data simultaneously.  So between
->> writers the rtnl_lock is used to keep things synchronized, but =
-between
->> writers and readers the mechanism that is meant to protect the data
->> and keep it sane is RCU.
->=20
-> Note that sometimes we do not properly handle the case one field can =
-be
-> written by a writer holding RTNL (or socket lock or something else)
->=20
-> We often believe compiler wont do something stupid, but it can
-> sometimes.
->=20
-> We definitely should scrutinize things a bit more, or maybe add __rcu
-> like annotations to catch potential problems earlier.
+Ah, right. DMA addresses are not physical addresses. They may look very
+much alike on many platforms, but that cannot be relied upon. On some
+platforms, some of the "address bits" actually encode things like bus
+attributes. If the device is behind an IOMMU, the DMA address can be
+entirely arbitrary, and the only way to convert it back to a CPU address
+(physical or virtual) is to walk the IOMMU page table.
 
-This is my hunch from looking at dev_ioctl().  For some of the other =
-fields, there is additional support to detect a write during the read, =
-but not any of the ioctls handled in dev_ifsioc_locked().  For example, =
-SIOCGIFNAME, dev_ifname() calls netdev_get_name() to copy dev->name, =
-which uses devnet_rename_seq seqcount to detect if another thread called =
-dev_change_name() and updated the name.
+>>> Russell proposal of testing the size of a virtual address
+>>> pointer instead would solve this I believe, correct?  
+>>
+>> AFAICS, even that shouldn't really be necessary - for all VA/PA
+>> combinations of 32/32, 32/40 and 64/40, storing virt_to_phys() of the
+>> SKB VA won't overflow 40 bits,
+> 
+> I'm already lost here. Why are you talking about virt_to_phys() ? See
+> above: we have the dma_addr_t returned from dma_map_single(), and we
+> need to find back the corresponding virtual address, because there is
+> not enough room in the HW descriptors to store a full 64-bit VA.
 
-I found more examples of accessing net_device fields in net-sysfs.c and =
-these instances are all acquire dev_base_lock/rtnl_lock before reading =
-fields.  Maybe dev_ioctl should be implemented this way
+That's the wrong approach. You need to keep track of the VA which you
+gave to dma_map_single() in the first place; *that* can be packed into
+40 bits with a round-trip through a CPU physical address, assuming that
+this "VA" field in the hardware descriptor is in addition to the actual
+DMA address (and that the hardware descriptor is something different to
+the rx_desc struct to which you could presumably just add an extra pointer).
 
->=20
-> We recently found an issue in drivers/net/macvtap.c and
-> drivers/net/tun.c using q->vnet_hdr_sz without proper annotation.
->=20
-> macvtap patch would be :
->=20
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index =
-4026185658381df004a7d641e2be7bcb9a45b509..d11a807565acf371f9bbb4afbfaca1aa=
-cd000138 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -681,7 +681,7 @@ static ssize_t macvtap_get_user(struct =
-macvtap_queue *q, struct msghdr *m,
-> 	size_t linear;
->=20
-> 	if (q->flags & IFF_VNET_HDR) {
-> -		vnet_hdr_len =3D q->vnet_hdr_sz;
-> +		vnet_hdr_len =3D READ_ONCE(q->vnet_hdr_sz);
->=20
-> 		err =3D -EINVAL;
-> 		if (len < vnet_hdr_len)
-> @@ -820,7 +820,7 @@ static ssize_t macvtap_put_user(struct =
-macvtap_queue *q,
->=20
-> 	if (q->flags & IFF_VNET_HDR) {
-> 		struct virtio_net_hdr vnet_hdr;
-> -		vnet_hdr_len =3D q->vnet_hdr_sz;
-> +		vnet_hdr_len =3D READ_ONCE(q->vnet_hdr_sz);
-> 		if (iov_iter_count(iter) < vnet_hdr_len)
-> 			return -EINVAL;
->=20
-> @@ -1090,7 +1090,7 @@ static long macvtap_ioctl(struct file *file, =
-unsigned int cmd,
-> 		if (s < (int)sizeof(struct virtio_net_hdr))
-> 			return -EINVAL;
->=20
-> -		q->vnet_hdr_sz =3D s;
-> +		WRITE_ONCE(q->vnet_hdr_sz, s);
-> 		return 0;
->=20
-> 	case TUNGETVNETLE:
+>> so a corresponding phys_to_virt() at the other end can't go wrong
+>> either. If you really do want to special-case things based on VA
+>> size, though, either CONFIG_64BIT or sizeof(void *) would indeed be
+>> infinitely more useful than the unrelated DMA address width - I know
+>> this driver's never going to run on SPARC64, but that's one example
+>> of where the above logic would lead to precisely the truncated VA
+>> it's trying to avoid.
+> 
+> What is different on SPARC64 here?
 
-Joel
+void * and phys_addr_t are 64-bit, but dma_addr_t is 32-bit. The more
+realistic concern, though, is that this using dma_to_phys() - which is a
+DMA-API-internal helper for SWIOTLB - will break the driver's
+COMPILE_TEST dependency.
+
+> The situation we have is the following:
+> 
+>  - On systems where VAs are 32-bit wide, we have enough room to store
+>    the VA in the HW descriptor. So when we receive a packet, the HW
+>    descriptor provides us directly with the VA of the network packet,
+>    and the DMA address of the packet. We can dma_unmap_single() the
+>    packet, and do its processing.
+> 
+>  - On systems where VAs are 64-bit wide, we don't have enough room to
+>    store the VA in the HW descriptor. However, on 64-bit systems, the
+>    entire physical memory is mapped in the kernel linear mapping, so
+>    phys_to_virt() is valid on any physical address. And we use this
+>    property to retrieve the full 64-bit VA using the DMA address that
+>    we get from the HW descriptor.
+> 
+>    Since what we get from the HW descriptor is a DMA address, that's
+>    why we're using phys_to_virt(dma_to_phys(...)).
+
+Marvell's product page tells me that Armada7k/8k include an IOMMU; at
+some point, somebody's surely going to want to use it, and any invalid
+assumptions about physical addresses are going to go bang.  You need to
+treat CPU and DMA addresses as entirely separate, but since any CPU
+address used for streaming DMA - i.e. dma_map_*() - must be a valid
+linear map address, virtual and physical are relatively interchangeable
+if the latter works out more convenient.
+
+Robin.
+
+> 
+> Best regards,
+> 
+> Thomas
+> 
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
