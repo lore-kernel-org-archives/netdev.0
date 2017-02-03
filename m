@@ -1,35 +1,43 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: Re: [PATCH 3/3] net/sched: act_ife: Change to use ife module
-Date: Fri, 03 Feb 2017 08:31:32 -0500
-Message-ID: <85fujvo0y3.fsf@mojatatu.com>
-References: <1485955803-65065-1-git-send-email-yotamg@mellanox.com>
-        <1485955803-65065-4-git-send-email-yotamg@mellanox.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH 13/17] net: stmmac: Implement NAPI for TX
+Date: Fri, 3 Feb 2017 14:41:45 +0100
+Message-ID: <20170203134145.GB3653@Red>
+References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
+ <20170131091152.13842-14-clabbe.montjoie@gmail.com>
+ <20170131.231225.59679013563845652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: jhs@mojatatu.com, davem@davemloft.net, netdev@vger.kernel.org,
-        eladr@mellanox.com, jiri@mellanox.com
-To: Yotam Gigi <yotamg@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f41.google.com ([209.85.214.41]:35944 "EHLO
-        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752521AbdBCNbg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 08:31:36 -0500
-Received: by mail-it0-f41.google.com with SMTP id c7so11226694itd.1
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 05:31:36 -0800 (PST)
-In-Reply-To: <1485955803-65065-4-git-send-email-yotamg@mellanox.com> (Yotam
-        Gigi's message of "Wed, 1 Feb 2017 15:30:03 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170131.231225.59679013563845652.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Yotam Gigi <yotamg@mellanox.com> writes:
+On Tue, Jan 31, 2017 at 11:12:25PM -0500, David Miller wrote:
+> From: Corentin Labbe <clabbe.montjoie@gmail.com>
+> Date: Tue, 31 Jan 2017 10:11:48 +0100
+> 
+> > The stmmac driver run TX completion under NAPI but without checking
+> > the work done by the TX completion function.
+> 
+> The current behavior is correct and completely intentional.
+> 
+> A driver should _never_ account TX work to the NAPI poll budget.
+> 
+> This is because TX liberation is orders of magnitude cheaper than
+> receiving a packet, and such SKB freeing makes more SKBs available
+> for RX processing.
+> 
+> Therefore, TX work should never count against the NAPI budget.
+> 
+> Please do not fix something which is not broken.
 
-> Use the encode/decode functionality from the ife module instead of using
-> implementation inside the act_ife.
->
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+So at least the documentation I read must be fixed (https://wiki.linuxfoundation.org/networking/napi)
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+So perhaps the best way is to do like intel igb/ixgbe, keeping under NAPI until the stmmac_tx_clean function said that it finish handling the queue ?
 
--- 
-Roman Mashak
+Regards
+Corentin Labbe
