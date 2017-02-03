@@ -1,137 +1,40 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH 2/3] net: ethernet: bgmac: unify code of the same family
-Date: Fri,  3 Feb 2017 16:39:29 -0500
-Message-ID: <1486157970-6315-3-git-send-email-jon.mason@broadcom.com>
-References: <1486157970-6315-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486157970-6315-1-git-send-email-jon.mason@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Understanding mutual exclusion between rtnl_lock and rcu_read_lock
+Date: Fri, 3 Feb 2017 13:40:23 -0800
+Message-ID: <CAM_iQpU+5JP+tBcDuBnLd_WnY1DuymJ6ukxcJJSq4E3p9Pah=A@mail.gmail.com>
+References: <FEDE3C6F-2C5C-4BCE-829F-C8E177C2AA36@me.com> <CAKgT0Ufy1gii_tQ=puNnPfFeHiE=jti5ObFP3Js0U03ULPFyiQ@mail.gmail.com>
+ <096DC091-F762-4401-9AE1-22AF6899BACB@me.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Joel Cunningham <joel.cunningham@me.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33431 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752696AbdBCVkp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:40:45 -0500
+Received: by mail-wm0-f66.google.com with SMTP id v77so7188816wmv.0
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 13:40:44 -0800 (PST)
+In-Reply-To: <096DC091-F762-4401-9AE1-22AF6899BACB@me.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-BCM471X and BCM535X are of the same family (from what I can derive from
-internal documents).  Group them into the case statement together, which
-results in more code reuse.
+On Thu, Feb 2, 2017 at 6:05 PM, Joel Cunningham <joel.cunningham@me.com> wr=
+ote:
+>
+> In the case of SIOCSIFHWADDR, we get a pointer to the net_device through =
+__dev_get_by_name() and then pass it to dev_set_mac_address() to modify thr=
+ough ndo_set_mac_address().  I didn=E2=80=99t see any uses of RCU APIs on t=
+he writer side and that=E2=80=99s why I figured there was something going o=
+n with rtnl_lock() that I didn=E2=80=99t understand or that the dev_ioctl f=
+unction wasn=E2=80=99t re-entrant from another CPU
+>
 
-Also, use existing helper variables to make the code a little more
-readable too.
+You are right, that RCU read lock could merely protect the netdevice from
+being unregistered concurrently, can't prevent a concurrent dev_ifsioc().
 
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
----
- drivers/net/ethernet/broadcom/bgmac-bcma.c | 64 +++++++++++++-----------------
- 1 file changed, 28 insertions(+), 36 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-index 5ef60d4..f5c27f4 100644
---- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-@@ -192,36 +192,50 @@ static int bgmac_probe(struct bcma_device *core)
- 		goto err1;
- 	}
- 
--	bgmac->has_robosw = !!(core->bus->sprom.boardflags_lo &
--			       BGMAC_BFL_ENETROBO);
-+	bgmac->has_robosw = !!(sprom->boardflags_lo & BGMAC_BFL_ENETROBO);
- 	if (bgmac->has_robosw)
- 		dev_warn(bgmac->dev, "Support for Roboswitch not implemented\n");
- 
--	if (core->bus->sprom.boardflags_lo & BGMAC_BFL_ENETADM)
-+	if (sprom->boardflags_lo & BGMAC_BFL_ENETADM)
- 		dev_warn(bgmac->dev, "Support for ADMtek ethernet switch not implemented\n");
- 
- 	/* Feature Flags */
--	switch (core->bus->chipinfo.id) {
-+	switch (ci->id) {
-+	/* BCM 471X/535X family */
-+	case BCMA_CHIP_ID_BCM4716:
-+		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
-+		/* fallthrough */
-+	case BCMA_CHIP_ID_BCM47162:
-+		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL2;
-+		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
-+		break;
- 	case BCMA_CHIP_ID_BCM5357:
-+	case BCMA_CHIP_ID_BCM53572:
- 		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
- 		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL1;
- 		bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_PHY;
--		if (core->bus->chipinfo.pkg == BCMA_PKG_ID_BCM47186) {
--			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
-+		if (ci->pkg == BCMA_PKG_ID_BCM47188 ||
-+		    ci->pkg == BCMA_PKG_ID_BCM47186) {
- 			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_RGMII;
-+			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
- 		}
--		if (core->bus->chipinfo.pkg == BCMA_PKG_ID_BCM5358)
-+		if (ci->pkg == BCMA_PKG_ID_BCM5358)
- 			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_EPHYRMII;
- 		break;
--	case BCMA_CHIP_ID_BCM53572:
--		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
-+	case BCMA_CHIP_ID_BCM53573:
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
--		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL1;
--		bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_PHY;
--		if (core->bus->chipinfo.pkg == BCMA_PKG_ID_BCM47188) {
--			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_RGMII;
-+		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
-+		if (ci->pkg == BCMA_PKG_ID_BCM47189)
- 			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
-+		if (core->core_unit == 0) {
-+			bgmac->feature_flags |= BGMAC_FEAT_CC4_IF_SW_TYPE;
-+			if (ci->pkg == BCMA_PKG_ID_BCM47189)
-+				bgmac->feature_flags |=
-+					BGMAC_FEAT_CC4_IF_SW_TYPE_RGMII;
-+		} else if (core->core_unit == 1) {
-+			bgmac->feature_flags |= BGMAC_FEAT_IRQ_ID_OOB_6;
-+			bgmac->feature_flags |= BGMAC_FEAT_CC7_IF_TYPE_RGMII;
- 		}
- 		break;
- 	case BCMA_CHIP_ID_BCM4749:
-@@ -229,18 +243,11 @@ static int bgmac_probe(struct bcma_device *core)
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
- 		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL1;
- 		bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_PHY;
--		if (core->bus->chipinfo.pkg == 10) {
-+		if (ci->pkg == 10) {
- 			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_RGMII;
- 			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
- 		}
- 		break;
--	case BCMA_CHIP_ID_BCM4716:
--		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
--		/* fallthrough */
--	case BCMA_CHIP_ID_BCM47162:
--		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL2;
--		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
--		break;
- 	/* bcm4707_family */
- 	case BCMA_CHIP_ID_BCM4707:
- 	case BCMA_CHIP_ID_BCM47094:
-@@ -249,21 +256,6 @@ static int bgmac_probe(struct bcma_device *core)
- 		bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
- 		bgmac->feature_flags |= BGMAC_FEAT_FORCE_SPEED_2500;
- 		break;
--	case BCMA_CHIP_ID_BCM53573:
--		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
--		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
--		if (ci->pkg == BCMA_PKG_ID_BCM47189)
--			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
--		if (core->core_unit == 0) {
--			bgmac->feature_flags |= BGMAC_FEAT_CC4_IF_SW_TYPE;
--			if (ci->pkg == BCMA_PKG_ID_BCM47189)
--				bgmac->feature_flags |=
--					BGMAC_FEAT_CC4_IF_SW_TYPE_RGMII;
--		} else if (core->core_unit == 1) {
--			bgmac->feature_flags |= BGMAC_FEAT_IRQ_ID_OOB_6;
--			bgmac->feature_flags |= BGMAC_FEAT_CC7_IF_TYPE_RGMII;
--		}
--		break;
- 	default:
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
- 		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
--- 
-2.7.4
+I don't know why Eric changed it to RCU read lock, it is not a hot path, us=
+ing
+rtnl lock is fine and can guarantee a atomic read.
