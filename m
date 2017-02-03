@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: sr: remove cleanup flag and fix HMAC
- computation
-Date: Fri, 03 Feb 2017 11:05:41 -0500 (EST)
-Message-ID: <20170203.110541.1401279510396798868.davem@davemloft.net>
-References: <1486031378-3899-1-git-send-email-david.lebrun@uclouvain.be>
+Subject: Re: [PATCH v2] ethtool: do not vzalloc(0) on registers dump
+Date: Fri, 03 Feb 2017 11:11:52 -0500 (EST)
+Message-ID: <20170203.111152.2232032272459625954.davem@davemloft.net>
+References: <1486038730-9469-1-git-send-email-sgruszka@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.lebrun@uclouvain.be
+Cc: netdev@vger.kernel.org, ben@decadent.org.uk
+To: sgruszka@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37908 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38232 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751165AbdBCQFp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 11:05:45 -0500
-In-Reply-To: <1486031378-3899-1-git-send-email-david.lebrun@uclouvain.be>
+        with ESMTP id S1750851AbdBCQLy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 11:11:54 -0500
+In-Reply-To: <1486038730-9469-1-git-send-email-sgruszka@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lebrun <david.lebrun@uclouvain.be>
-Date: Thu, 2 Feb 2017 11:29:38 +0100
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Date: Thu,  2 Feb 2017 13:32:10 +0100
 
-> In the latest version of the IPv6 Segment Routing IETF draft [1] the
-> cleanup flag is removed and the flags field length is shrunk from 16 bits
-> to 8 bits. As a consequence, the input of the HMAC computation is modified
-> in a non-backward compatible way by covering the whole octet of flags
-> instead of only the cleanup bit. As such, if an implementation compatible
-> with the latest draft computes the HMAC of an SRH who has other flags set
-> to 1, then the HMAC result would differ from the current implementation.
+> If ->get_regs_len() callback return 0, we allocate 0 bytes of memory,
+> what print ugly warning in dmesg, which can be found further below.
 > 
-> This patch carries those modifications to prevent conflict with other
-> implementations of IPv6 SR.
-> 
-> [1] https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-05
-> 
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+> This happen on mac80211 devices where ieee80211_get_regs_len() just
+> return 0 and driver only fills ethtool_regs structure and actually
+> do not provide any dump. However I assume this can happen on other
+> drivers i.e. when for some devices driver provide regs dump and for
+> others do not. Hence preventing to to print warning in ethtool code
+> seems to be reasonable.
+ ...
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> ---
+> v1 -> v2: nullify regbuf to avoid using uninitialized variable in line:
+>           if (regbuf && copy_to_user(useraddr, regbuf, regs.len))
 
-Applied.
+Applied, thanks.
