@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [net-next] hns_enet: use cpumask_var_t for on-stack
- mask
-Date: Fri, 03 Feb 2017 11:15:10 -0500 (EST)
-Message-ID: <20170203.111510.2124248517173679920.davem@davemloft.net>
-References: <20170202145017.3761604-1-arnd@arndb.de>
+Subject: Re: [PATCH net-next] tcp: add tcp_mss_clamp() helper
+Date: Fri, 03 Feb 2017 11:19:49 -0500 (EST)
+Message-ID: <20170203.111949.1351920811825568342.davem@davemloft.net>
+References: <1486051496.13103.48.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        yankejian@huawei.com, huangdaode@hisilicon.com,
-        xieqianqian@huawei.com, lisheng011@huawei.com,
-        lipeng321@huawei.com, tremyfr@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170202145017.3761604-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38666 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750890AbdBCQTv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 11:19:51 -0500
+In-Reply-To: <1486051496.13103.48.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu,  2 Feb 2017 15:49:24 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 02 Feb 2017 08:04:56 -0800
 
-> On large SMP builds, we can run into a build warning:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> drivers/net/ethernet/hisilicon/hns/hns_enet.c: In function 'hns_set_irq_affinity.isra.27':
-> drivers/net/ethernet/hisilicon/hns/hns_enet.c:1242:1: warning: the frame size of 1032 bytes is larger than 1024 bytes [-Wframe-larger-than=]
+> Small cleanup factorizing code doing the TCP_MAXSEG clamping.
 > 
-> The solution here is to use cpumask_var_t, which can use dynamic
-> allocation when CONFIG_CPUMASK_OFFSTACK is enabled.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Arnd.
+Nice cleanup, applied, thanks.
