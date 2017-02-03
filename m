@@ -1,32 +1,47 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: Re: [PATCH] xen-netfront: Delete rx_refill_timer in
- xennet_disconnect_backend()
-Date: Fri, 3 Feb 2017 10:38:14 +0100
-Message-ID: <bc3bf927-568e-043a-2785-16e6c3628359@suse.com>
-References: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH net] net: phy: Fix lack of reference count on PHY driver
+Date: Fri, 3 Feb 2017 09:54:27 +0000
+Message-ID: <20170203095427.GA27312@n2100.armlinux.org.uk>
+References: <20170201024643.2050-1-f.fainelli@gmail.com>
+ <20170202.215407.606581158337251076.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, vineethp@amazon.com,
-        wei.liu2@citrix.com, paul.durrant@citrix.com,
-        stable@vger.kernel.org
-To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485798346-4425-1-git-send-email-boris.ostrovsky@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, andrew@lunn.ch,
+        maowenan@huawei.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:49996 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753038AbdBCJyp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:54:45 -0500
+Content-Disposition: inline
+In-Reply-To: <20170202.215407.606581158337251076.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30/01/17 18:45, Boris Ostrovsky wrote:
-> rx_refill_timer should be deleted as soon as we disconnect from the
-> backend since otherwise it is possible for the timer to go off before
-> we get to xennet_destroy_queues(). If this happens we may dereference
-> queue->rx.sring which is set to NULL in xennet_disconnect_backend().
-> 
-> Signed-off-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> CC: stable@vger.kernel.org
+On Thu, Feb 02, 2017 at 09:54:07PM -0500, David Miller wrote:
+> Hot plugging PHYs and notifications and all of that business is
+> net-next material.
 
-Reviewed-by: Juergen Gross <jgross@suse.com>
+I was talking more about unbinding of the driver, which is something
+that can be done today, eg:
 
+$ ls -l /sys/bus/mdio_bus/drivers/Atheros\ 8035\ ethernet/
+total 0
+lrwxrwxrwx 1 root root    0 Feb  3 09:49 2188000.ethernet:00 -> ../../../../devices/soc0/soc/2100000.aips-bus/2188000.ethernet/mdio_bus/2188000.ethernet/2188000.ethernet:00
+--w------- 1 root root 4096 Feb  3 09:49 bind
+--w------- 1 root root 4096 Feb  3 09:49 uevent
+--w------- 1 root root 4096 Feb  3 09:49 unbind
+$ echo 2188000.ethernet:00 > /sys/bus/mdio_bus/drivers/Atheros\ 8035\ ethernet/unbind
 
-Juergen
+is all it takes, and the same oops will happen.  Try it on a box
+you don't care about crashing. :)
+
+This is my point - locking the module into the kernel using
+try_module_get() doesn't actually fix the problem where drivers are
+concerned, it just has the illusion of being safe.
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
