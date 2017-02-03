@@ -1,109 +1,106 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 00/19] mlxsw: Introduce TC Flower offload using TCAM
-Date: Fri,  3 Feb 2017 10:28:50 +0100
-Message-ID: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 03/19] mlxsw: reg: Add Policy-Engine ACL Register
+Date: Fri,  3 Feb 2017 10:28:53 +0100
+Message-ID: <1486114149-7941-4-git-send-email-jiri@resnulli.us>
+References: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
         ivecera@redhat.com, jbenc@redhat.com, tom@herbertland.com,
         f.fainelli@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36316 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751878AbdBCJ3M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:29:12 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r18so3089438wmd.3
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 01:29:11 -0800 (PST)
+Received: from mail-wj0-f194.google.com ([209.85.210.194]:36530 "EHLO
+        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752436AbdBCJ3Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:29:16 -0500
+Received: by mail-wj0-f194.google.com with SMTP id kq3so261744wjc.3
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 01:29:15 -0800 (PST)
+In-Reply-To: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset introduces support for offloading TC cls_flower and actions
-to Spectrum TCAM-base policy engine.
+The PACL register is used for configuration of the ACL.
 
-The patchset contains patches to allow work with flexible keys and actions
-which are used in Spectrum TCAM.
-
-It also contains in-driver infrastructure for offloading TC rules to TCAM HW.
-The TCAM management code is simple and limited for now. It is going to be
-extended as a follow-up work.
-
-The last patch uses the previously introduced infra to allow to implement
-cls_flower offloading. Initially, only limited set of match-keys and only
-a drop and forward actions are supported.
-
-As a dependency, this patchset introduces parman - priority array
-area manager - as a library.
-
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
-v1->v2:
-- patch11:
-  - use __set_bit and __test_and_clear_bit as suggested by DaveM
-- patch16:
-  - Added documentation to the API functions as suggested by Tom Herbert
-- patch17:
-  - use __set_bit and __clear_bit as suggested by DaveM
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 47 +++++++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 2 deletions(-)
 
-Jiri Pirko (19):
-  mlxsw: item: Add 8bit item helpers
-  mlxsw: item: Add helpers for getting pointer into payload for char
-    buffer item
-  mlxsw: reg: Add Policy-Engine ACL Register
-  mlxsw: reg: Add Policy-Engine ACL Group Table register
-  mlxsw: reg: Add Policy-Engine TCAM Allocation Register
-  mlxsw: reg: Add Policy-Engine TCAM Entry Register Version 2
-  mlxsw: reg: Add Policy-Engine Port Binding Table
-  mlxsw: reg: Add Policy-Engine Rules Copy Register
-  mlxsw: reg: Add Policy-Engine Policy Based Switching Register
-  mlxsw: reg: Add Policy-Engine Extended Flexible Action Register
-  mlxsw: core: Introduce flexible keys support
-  mlxsw: core: Introduce flexible actions support
-  mlxsw: spectrum: Introduce basic set of flexible key blocks
-  mlxsw: resources: Add ACL related resources
-  list: introduce list_for_each_entry_from_reverse helper
-  lib: Introduce priority array area manager
-  mlxsw: spectrum: Introduce ACL core with simple TCAM implementation
-  sched: cls_flower: expose priority to offloading netdevice
-  mlxsw: spectrum: Implement TC flower offload
-
- MAINTAINERS                                        |    8 +
- drivers/net/ethernet/mellanox/mlxsw/Kconfig        |    1 +
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |    6 +-
- .../mellanox/mlxsw/core_acl_flex_actions.c         |  685 +++++++++++++
- .../mellanox/mlxsw/core_acl_flex_actions.h         |   66 ++
- .../ethernet/mellanox/mlxsw/core_acl_flex_keys.c   |  475 +++++++++
- .../ethernet/mellanox/mlxsw/core_acl_flex_keys.h   |  238 +++++
- drivers/net/ethernet/mellanox/mlxsw/item.h         |   98 +-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          |  511 ++++++++-
- drivers/net/ethernet/mellanox/mlxsw/resources.h    |   20 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   32 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  106 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |  572 +++++++++++
- .../mellanox/mlxsw/spectrum_acl_flex_keys.h        |  109 ++
- .../ethernet/mellanox/mlxsw/spectrum_acl_tcam.c    | 1084 ++++++++++++++++++++
- .../net/ethernet/mellanox/mlxsw/spectrum_flower.c  |  309 ++++++
- include/linux/list.h                               |   13 +
- include/linux/parman.h                             |   76 ++
- include/net/pkt_cls.h                              |    1 +
- lib/Kconfig                                        |    3 +
- lib/Kconfig.debug                                  |   10 +
- lib/Makefile                                       |    3 +
- lib/parman.c                                       |  376 +++++++
- lib/test_parman.c                                  |  395 +++++++
- net/sched/cls_flower.c                             |    3 +
- 25 files changed, 5184 insertions(+), 16 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_keys.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
- create mode 100644 include/linux/parman.h
- create mode 100644 lib/parman.c
- create mode 100644 lib/test_parman.c
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 9fb0316..18b2da4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -1,9 +1,9 @@
+ /*
+  * drivers/net/ethernet/mellanox/mlxsw/reg.h
+- * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2015-2017 Mellanox Technologies. All rights reserved.
+  * Copyright (c) 2015-2016 Ido Schimmel <idosch@mellanox.com>
+  * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
+- * Copyright (c) 2015-2016 Jiri Pirko <jiri@mellanox.com>
++ * Copyright (c) 2015-2017 Jiri Pirko <jiri@mellanox.com>
+  * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -1757,6 +1757,48 @@ static inline void mlxsw_reg_spvmlr_pack(char *payload, u8 local_port,
+ 	}
+ }
+ 
++/* PACL - Policy-Engine ACL Register
++ * ---------------------------------
++ * This register is used for configuration of the ACL.
++ */
++#define MLXSW_REG_PACL_ID 0x3004
++#define MLXSW_REG_PACL_LEN 0x70
++
++MLXSW_REG_DEFINE(pacl, MLXSW_REG_PACL_ID, MLXSW_REG_PACL_LEN);
++
++/* reg_pacl_v
++ * Valid. Setting the v bit makes the ACL valid. It should not be cleared
++ * while the ACL is bounded to either a port, VLAN or ACL rule.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, pacl, v, 0x00, 24, 1);
++
++/* reg_pacl_acl_id
++ * An identifier representing the ACL (managed by software)
++ * Range 0 .. cap_max_acl_regions - 1
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, pacl, acl_id, 0x08, 0, 16);
++
++#define MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN 16
++
++/* reg_pacl_tcam_region_info
++ * Opaque object that represents a TCAM region.
++ * Obtained through PTAR register.
++ * Access: RW
++ */
++MLXSW_ITEM_BUF(reg, pacl, tcam_region_info, 0x30,
++	       MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN);
++
++static inline void mlxsw_reg_pacl_pack(char *payload, u16 acl_id,
++				       bool valid, const char *tcam_region_info)
++{
++	MLXSW_REG_ZERO(pacl, payload);
++	mlxsw_reg_pacl_acl_id_set(payload, acl_id);
++	mlxsw_reg_pacl_v_set(payload, valid);
++	mlxsw_reg_pacl_tcam_region_info_memcpy_to(payload, tcam_region_info);
++}
++
+ /* QPCR - QoS Policer Configuration Register
+  * -----------------------------------------
+  * The QPCR register is used to create policers - that limit
+@@ -5434,6 +5476,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(svpe),
+ 	MLXSW_REG(sfmr),
+ 	MLXSW_REG(spvmlr),
++	MLXSW_REG(pacl),
+ 	MLXSW_REG(qpcr),
+ 	MLXSW_REG(qtct),
+ 	MLXSW_REG(qeec),
 -- 
 2.7.4
