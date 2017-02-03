@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 01/19] mlxsw: item: Add 8bit item helpers
-Date: Fri,  3 Feb 2017 10:28:51 +0100
-Message-ID: <1486114149-7941-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 05/19] mlxsw: reg: Add Policy-Engine TCAM Allocation Register
+Date: Fri,  3 Feb 2017 10:28:55 +0100
+Message-ID: <1486114149-7941-6-git-send-email-jiri@resnulli.us>
 References: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
@@ -9,128 +9,149 @@ Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         f.fainelli@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34768 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752069AbdBCJ3N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:29:13 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c85so3102662wmi.1
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 01:29:12 -0800 (PST)
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33008 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752507AbdBCJ3S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:29:18 -0500
+Received: by mail-wj0-f195.google.com with SMTP id le4so264977wjb.0
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 01:29:17 -0800 (PST)
 In-Reply-To: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Item heplers for 8bit values are needed, let's add them.
+The PTAR register is used for allocation of regions in the TCAM.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/item.h | 79 +++++++++++++++++++++++++++++-
- 1 file changed, 77 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 106 ++++++++++++++++++++++++++++++
+ 1 file changed, 106 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/item.h b/drivers/net/ethernet/mellanox/mlxsw/item.h
-index 3c95e3d..09f35de 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/item.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/item.h
-@@ -1,7 +1,7 @@
- /*
-  * drivers/net/ethernet/mellanox/mlxsw/item.h
-- * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-- * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015-2017 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2015-2017 Jiri Pirko <jiri@mellanox.com>
-  * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -72,6 +72,40 @@ __mlxsw_item_offset(const struct mlxsw_item *item, unsigned short index,
- 		typesize);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 5f76fbc..444f0a3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -1852,6 +1852,111 @@ static inline void mlxsw_reg_pagt_acl_id_pack(char *payload, int index,
+ 	mlxsw_reg_pagt_acl_id_set(payload, index, acl_id);
  }
  
-+static inline u8 __mlxsw_item_get8(const char *buf,
-+				   const struct mlxsw_item *item,
-+				   unsigned short index)
++/* PTAR - Policy-Engine TCAM Allocation Register
++ * ---------------------------------------------
++ * This register is used for allocation of regions in the TCAM.
++ * Note: Query method is not supported on this register.
++ */
++#define MLXSW_REG_PTAR_ID 0x3006
++#define MLXSW_REG_PTAR_BASE_LEN 0x20
++#define MLXSW_REG_PTAR_KEY_ID_LEN 1
++#define MLXSW_REG_PTAR_KEY_ID_MAX_NUM 16
++#define MLXSW_REG_PTAR_LEN (MLXSW_REG_PTAR_BASE_LEN + \
++		MLXSW_REG_PTAR_KEY_ID_MAX_NUM * MLXSW_REG_PTAR_KEY_ID_LEN)
++
++MLXSW_REG_DEFINE(ptar, MLXSW_REG_PTAR_ID, MLXSW_REG_PTAR_LEN);
++
++enum mlxsw_reg_ptar_op {
++	/* allocate a TCAM region */
++	MLXSW_REG_PTAR_OP_ALLOC,
++	/* resize a TCAM region */
++	MLXSW_REG_PTAR_OP_RESIZE,
++	/* deallocate TCAM region */
++	MLXSW_REG_PTAR_OP_FREE,
++	/* test allocation */
++	MLXSW_REG_PTAR_OP_TEST,
++};
++
++/* reg_ptar_op
++ * Access: OP
++ */
++MLXSW_ITEM32(reg, ptar, op, 0x00, 28, 4);
++
++/* reg_ptar_action_set_type
++ * Type of action set to be used on this region.
++ * For Spectrum, this is always type 2 - "flexible"
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, ptar, action_set_type, 0x00, 16, 8);
++
++/* reg_ptar_key_type
++ * TCAM key type for the region.
++ * For Spectrum, this is always type 0x50 - "FLEX_KEY"
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, ptar, key_type, 0x00, 0, 8);
++
++/* reg_ptar_region_size
++ * TCAM region size. When allocating/resizing this is the requested size,
++ * the response is the actual size. Note that actual size may be
++ * larger than requested.
++ * Allowed range 1 .. cap_max_rules-1
++ * Reserved during op deallocate.
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, ptar, region_size, 0x04, 0, 16);
++
++/* reg_ptar_region_id
++ * Region identifier
++ * Range 0 .. cap_max_regions-1
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, ptar, region_id, 0x08, 0, 16);
++
++/* reg_ptar_tcam_region_info
++ * Opaque object that represents the TCAM region.
++ * Returned when allocating a region.
++ * Provided by software for ACL generation and region deallocation and resize.
++ * Access: RW
++ */
++MLXSW_ITEM_BUF(reg, ptar, tcam_region_info, 0x10,
++	       MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN);
++
++/* reg_ptar_flexible_key_id
++ * Identifier of the Flexible Key.
++ * Only valid if key_type == "FLEX_KEY"
++ * The key size will be rounded up to one of the following values:
++ * 9B, 18B, 36B, 54B.
++ * This field is reserved for in resize operation.
++ * Access: WO
++ */
++MLXSW_ITEM8_INDEXED(reg, ptar, flexible_key_id, 0x20, 0, 8,
++		    MLXSW_REG_PTAR_KEY_ID_LEN, 0x00, false);
++
++static inline void mlxsw_reg_ptar_pack(char *payload, enum mlxsw_reg_ptar_op op,
++				       u16 region_size, u16 region_id,
++				       const char *tcam_region_info)
 +{
-+	unsigned int offset = __mlxsw_item_offset(item, index, sizeof(u8));
-+	u8 *b = (u8 *) buf;
-+	u8 tmp;
-+
-+	tmp = b[offset];
-+	tmp >>= item->shift;
-+	tmp &= GENMASK(item->size.bits - 1, 0);
-+	if (item->no_real_shift)
-+		tmp <<= item->shift;
-+	return tmp;
++	MLXSW_REG_ZERO(ptar, payload);
++	mlxsw_reg_ptar_op_set(payload, op);
++	mlxsw_reg_ptar_action_set_type_set(payload, 2); /* "flexible" */
++	mlxsw_reg_ptar_key_type_set(payload, 0x50); /* "FLEX_KEY" */
++	mlxsw_reg_ptar_region_size_set(payload, region_size);
++	mlxsw_reg_ptar_region_id_set(payload, region_id);
++	mlxsw_reg_ptar_tcam_region_info_memcpy_to(payload, tcam_region_info);
 +}
 +
-+static inline void __mlxsw_item_set8(char *buf, const struct mlxsw_item *item,
-+				     unsigned short index, u8 val)
++static inline void mlxsw_reg_ptar_key_id_pack(char *payload, int index,
++					      u16 key_id)
 +{
-+	unsigned int offset = __mlxsw_item_offset(item, index,
-+						  sizeof(u8));
-+	u8 *b = (u8 *) buf;
-+	u8 mask = GENMASK(item->size.bits - 1, 0) << item->shift;
-+	u8 tmp;
-+
-+	if (!item->no_real_shift)
-+		val <<= item->shift;
-+	val &= mask;
-+	tmp = b[offset];
-+	tmp &= ~mask;
-+	tmp |= val;
-+	b[offset] = tmp;
++	mlxsw_reg_ptar_flexible_key_id_set(payload, index, key_id);
 +}
 +
- static inline u16 __mlxsw_item_get16(const char *buf,
- 				     const struct mlxsw_item *item,
- 				     unsigned short index)
-@@ -253,6 +287,47 @@ static inline void __mlxsw_item_bit_array_set(char *buf,
-  * _iname: item name within the container
-  */
- 
-+#define MLXSW_ITEM8(_type, _cname, _iname, _offset, _shift, _sizebits)		\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.shift = _shift,							\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u8 mlxsw_##_type##_##_cname##_##_iname##_get(const char *buf)	\
-+{										\
-+	return __mlxsw_item_get8(buf, &__ITEM_NAME(_type, _cname, _iname), 0);	\
-+}										\
-+static inline void mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, u8 val)\
-+{										\
-+	__mlxsw_item_set8(buf, &__ITEM_NAME(_type, _cname, _iname), 0, val);	\
++static inline void mlxsw_reg_ptar_unpack(char *payload, char *tcam_region_info)
++{
++	mlxsw_reg_ptar_tcam_region_info_memcpy_from(payload, tcam_region_info);
 +}
 +
-+#define MLXSW_ITEM8_INDEXED(_type, _cname, _iname, _offset, _shift, _sizebits,	\
-+			    _step, _instepoffset, _norealshift)			\
-+static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
-+	.offset = _offset,							\
-+	.step = _step,								\
-+	.in_step_offset = _instepoffset,					\
-+	.shift = _shift,							\
-+	.no_real_shift = _norealshift,						\
-+	.size = {.bits = _sizebits,},						\
-+	.name = #_type "_" #_cname "_" #_iname,					\
-+};										\
-+static inline u8								\
-+mlxsw_##_type##_##_cname##_##_iname##_get(const char *buf, unsigned short index)\
-+{										\
-+	return __mlxsw_item_get8(buf, &__ITEM_NAME(_type, _cname, _iname),	\
-+				 index);					\
-+}										\
-+static inline void								\
-+mlxsw_##_type##_##_cname##_##_iname##_set(char *buf, unsigned short index,	\
-+					  u8 val)				\
-+{										\
-+	__mlxsw_item_set8(buf, &__ITEM_NAME(_type, _cname, _iname),		\
-+			  index, val);						\
-+}
-+
- #define MLXSW_ITEM16(_type, _cname, _iname, _offset, _shift, _sizebits)		\
- static struct mlxsw_item __ITEM_NAME(_type, _cname, _iname) = {			\
- 	.offset = _offset,							\
+ /* QPCR - QoS Policer Configuration Register
+  * -----------------------------------------
+  * The QPCR register is used to create policers - that limit
+@@ -5531,6 +5636,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(spvmlr),
+ 	MLXSW_REG(pacl),
+ 	MLXSW_REG(pagt),
++	MLXSW_REG(ptar),
+ 	MLXSW_REG(qpcr),
+ 	MLXSW_REG(qtct),
+ 	MLXSW_REG(qeec),
 -- 
 2.7.4
