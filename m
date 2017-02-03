@@ -1,79 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/12] bnxt_en: Add XDP support.
-Date: Fri, 03 Feb 2017 17:29:18 -0500 (EST)
-Message-ID: <20170203.172918.2084277179948808335.davem@davemloft.net>
-References: <CALx6S35rQa25soEiidnK12pbBPGcuhsE_Nr-epYNL-P+srwSOg@mail.gmail.com>
-        <20170203.170240.2175427621637065084.davem@davemloft.net>
-        <CALx6S36Gp_dk218X0zAUQzDNxhst+CnZFs7Y5zN4-mi5HWWKew@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next] bpf: enable verifier to add 0 to packet ptr
+Date: Fri, 03 Feb 2017 23:29:19 +0100
+Message-ID: <5895043F.8080007@iogearbox.net>
+References: <1486142565-2794-1-git-send-email-u9012063@gmail.com> <20170203205513.GA24959@ast-mbp.thefacebook.com> <CALDO+SYvAVbXCmMRca0jq7XxMYvQ0VJ0joNGpPLWRTEg=H4a6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: michael.chan@broadcom.com, netdev@vger.kernel.org
-To: tom@herbertland.com
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Mihai Budiu <mbudiu@vmware.com>
+To: William Tu <u9012063@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57430 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752376AbdBCW3T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:29:19 -0500
-In-Reply-To: <CALx6S36Gp_dk218X0zAUQzDNxhst+CnZFs7Y5zN4-mi5HWWKew@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:49825 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752376AbdBCW31 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:29:27 -0500
+In-Reply-To: <CALDO+SYvAVbXCmMRca0jq7XxMYvQ0VJ0joNGpPLWRTEg=H4a6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Fri, 3 Feb 2017 14:25:00 -0800
-
-> On Fri, Feb 3, 2017 at 2:02 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <tom@herbertland.com>
->> Date: Fri, 3 Feb 2017 13:58:56 -0800
->>
->>> On Fri, Feb 3, 2017 at 1:50 PM, David Miller <davem@davemloft.net> wrote:
->>>> From: Michael Chan <michael.chan@broadcom.com>
->>>> Date: Fri, 3 Feb 2017 13:13:47 -0800
->>>>
->>>>> On Fri, Feb 3, 2017 at 12:49 PM, David Miller <davem@davemloft.net> wrote:
->>>>>>
->>>>>> Please _DO NOT_ guard XDP support with an ifdef the user
->>>>>> can modify.
->>>>>>
->>>>>> Treat it like any other common netdev feature a driver might
->>>>>> support such as checksum offloading or GRO.
->>>>>>
->>>>>
->>>>> David, I want to make sure I understand completely.  Are you saying
->>>>> don't use Kconfig option for XDP?  Have it always available?
->>>>
->>>> Yes.
->>>>
->>>> I don't see a similar config option used in any other driver.
->>>>
->>>> What's really driving me completely mad about driver XDP adoption
->>>> is that there is so much inconsistency.
->>>>
->>>> If you do not see another XDP supporting driver do something, don't be
->>>> tempted to blaze your own trail and handle something in a unique way.
->>>>
->>>> We don't set precedence by one driver saying "hey it's better to do
->>>> things this way, forget what all the other drivers are doing."  Rather
->>>> we have a "discussion" about what the appropriate thing is to do and
->>>> convert all the drivers only after a decision has been made.
->>>>
->>>> Meanwhile we keep the status quo.
+On 02/03/2017 10:10 PM, William Tu wrote:
+> Hi Alexei,
+>
+> why it is bogus? on my system, it fails without the patch applied.
+>
+> --William
+>
+> On Fri, Feb 3, 2017 at 12:55 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+>> On Fri, Feb 03, 2017 at 09:22:45AM -0800, William Tu wrote:
+>>> The patch fixes the case when adding a zero value to the packet
+>>> pointer.  The verifer reports the following error:
+>>>    [...]
+>>>      R0=imm0,min_value=0,max_value=0
+>>>      R1=pkt(id=0,off=0,r=4)
+>>>      R2=pkt_end R3=fp-12
+>>>      R4=imm4,min_value=4,max_value=4
+>>>      R5=pkt(id=0,off=4,r=4)
+>>>    269: (bf) r2 = r0   // r2 becomes imm0
+>>>    270: (77) r2 >>= 3
+>>>    271: (bf) r4 = r1   // r4 becomes pkt ptr
+>>>    272: (0f) r4 += r2  // r4 += 0
+>>>    addition of negative constant to packet pointer is not allowed
 >>>
->>> I am working on some API changes that will hopefully get a little
->>> consistency across these drivers (this includes feature flag
->>> NETIF_F_XDP). This will reduce code some and should be good cleanup,
->>> but XDP is currently very intertwined with the critical data path so
->>> we might need to be looking at this for a while. There's now more
->>> drivers with XDP support than when I started this work, so I don't
->>> think bnxt should wait for this cleanup-- it's just one more driver
->>> we'll have to retrofit.
+>>> Signed-off-by: William Tu <u9012063@gmail.com>
+>>> Signed-off-by: Mihai Budiu <mbudiu@vmware.com>
+[...]
+>>>        {
+>>> +             "direct packet access: test14 (pkt_ptr += 0, good access)",
+>>> +             .insns = {
+>>> +                     BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+>>> +                                 offsetof(struct __sk_buff, data)),
+>>> +                     BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
+>>> +                                 offsetof(struct __sk_buff, data_end)),
+>>> +                     BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
+>>> +                     BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 0),
 >>
->> Of course.
->>
->> Michael just respin with the Kconfig change and I'll apply your
->> series.  In fact I was about to until I noticed the XDP Kconfig knob
->> :)
-> 
-> Meaning no Kconfig and no features flag I assume...
+>> wait. the test is bogus.
+>> please write the proper test for the feature
+>> and check that it fails before the patch and passes afterwards.
 
-For now, yes.
+But still same code path that is executed in verifier as BPF_K and
+CONST_IMM tracked reg both share the same path under add_imm label
+in check_packet_ptr_add(), no? So it becomes r2=pkt(id=0,off=0,r=0);
+r0 = r2; r0 += 0 here in this test. Probably okay as well, though
+there could be risk that in future both don't share the same path
+for some reason. I guess you were referring to either adding tests
+for BPF_K /and/ CONST_IMM reg or just the latter, right?
