@@ -1,84 +1,129 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] mpls: allow TTL propagation to/from IP packets to be configured
-Date: Fri, 03 Feb 2017 16:21:39 +1300
-Message-ID: <87bmukhscc.fsf@xmission.com>
-References: <1485808575-16852-1-git-send-email-rshearma@brocade.com>
-        <878tpst75o.fsf@xmission.com>
-        <9aff4996-3e8e-66e3-c806-80b3947fcf08@brocade.com>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: [PATCH net-next] bpf: fix verifier issue at check_packet_ptr_add
+Date: Thu, 2 Feb 2017 19:26:44 -0800
+Message-ID: <CALDO+SZCn452+Tp6cBjMb_J9Mu=08Em=0+jsKpa31b3Eoy-0SQ@mail.gmail.com>
+References: <1486065553-5074-1-git-send-email-u9012063@gmail.com> <5893C4DD.9000701@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        roopa <roopa@cumulusnetworks.com>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:53993 "EHLO
-        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752009AbdBCD0L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 22:26:11 -0500
-In-Reply-To: <9aff4996-3e8e-66e3-c806-80b3947fcf08@brocade.com> (Robert
-        Shearman's message of "Tue, 31 Jan 2017 11:59:24 +0000")
+Received: from mail-it0-f66.google.com ([209.85.214.66]:35960 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752040AbdBCD10 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 22:27:26 -0500
+Received: by mail-it0-f66.google.com with SMTP id f200so545767itf.3
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 19:27:25 -0800 (PST)
+In-Reply-To: <5893C4DD.9000701@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+Thanks. below is my program. The verifier fails at line 272, when
+writing to ICMP header.
+-----
+; ebpf_packetEnd = ((void*)(long)skb->data_end);
+     206:       r2 = *(u32 *)(r6 + 4)
+; ebpf_packetStart = ((void*)(long)skb->data);
+     207:       r1 = *(u32 *)(r6 + 0)
+...
+r10 is "struct hd" at local stack
+r1 is skb->data
+...
+; if (hd.icmp.ebpf_valid) {
+     261:       r4 = *(u64 *)(r10 - 40)
+     262:       if r4 == 0 goto 29
+; if (ebpf_packetEnd < ebpf_packetStart + BYTES(ebpf_packetOffsetInBits + 32)) {
+     263:       r4 = r0
+     264:       r4 += 32
+     265:       r4 >>= 3
+     266:       r5 = r1
+     267:       r5 += r4
+     268:       if r5 > r2 goto 23
+; write_byte(ebpf_packetStart, BYTES(ebpf_packetOffsetInBits) + 0,
+(ebpf_byte) << 0);
+     269:       r2 = r0
+     270:       r2 >>= 3
+     271:       r4 = r1
+     272:       r4 += r2
+     273:       r2 = *(u64 *)(r10 - 80)
+     274:       *(u8 *)(r4 + 0) = r2
 
-> On 31/01/17 00:17, Eric W. Biederman wrote:
->> Robert Shearman <rshearma@brocade.com> writes:
+verifier log
+========
+from 208 to 260: R0=inv,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=0)
+R2=pkt_end R3=fp-12 R6=ctx R7=imm0,min_value=0,max_value=0
+R8=inv,min_value=0,max_value=0 R9=inv R10=fp
+260: (bf) r0 = r7
+261: (79) r4 = *(u64 *)(r10 -40)
+262: (15) if r4 == 0x0 goto pc+29
+ R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=0) R2=pkt_end
+R3=fp-12 R4=inv R6=ctx R7=imm0,min_value=0,max_value=0
+R8=inv,min_value=0,max_value=0 R9=inv R10=fp
+263: (bf) r4 = r0
+264: (07) r4 += 32
+265: (77) r4 >>= 3
+266: (bf) r5 = r1
+267: (0f) r5 += r4
+268: (2d) if r5 > r2 goto pc+23
+ R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=4) R2=pkt_end
+R3=fp-12 R4=imm4,min_value=4,max_value=4 R5=pkt(id=0,off=4,r=4) R6=ctx
+R7=imm0,min_value=0,max_value=0 R8=inv,min_value=0,max_value=0 R9=inv
+R10=fp
+269: (bf) r2 = r0
+270: (77) r2 >>= 3
+271: (bf) r4 = r1
+272: (0f) r4 += r2
+273: (79) r2 = *(u64 *)(r10 -80)
+274: (73) *(u8 *)(r4 +0) = r2
+
+---
+The full C source code, llvm-objdump, and verifier log.
+https://gist.github.com/williamtu/abaeb11563872508d47cfabed23ac9ea
+https://gist.github.com/williamtu/3e308a14c5795c82d516f934be0560cc
+https://gist.github.com/williamtu/1ae888cea019d065eab3057f74d38905#file-gistfile1-txt
+
+On Thu, Feb 2, 2017 at 3:46 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 02/02/2017 08:59 PM, William Tu wrote:
 >>
->>> It is sometimes desirable to present an MPLS transport network as a
->>> single hop to traffic transiting it because it prevents confusion when
->>> diagnosing failures. An example of where confusion can be generated is
->>> when addresses used in the provider network overlap with addresses in
->>> the overlay network and the addresses get exposed through ICMP errors
->>> generated as packets transit the provider network.
->>>
->>> Therefore, provide the ability to control whether the TTL value from
->>> an MPLS packet is propagated to an IPv4/IPv6 packet when the last
->>> label is popped through the addition of a new per-namespace sysctl:
->>> "net.mpls.ip_ttl_propagate" which defaults to enabled.
->>>
->>> Use the same sysctl to control whether the TTL is propagated from IP
->>> packets into the MPLS header. If the TTL isn't propagated then a
->>> default TTL value is used which can be configured via a new sysctl:
->>> "net.mpls.default_ttl".
+>> When adding a zero value to the packet pointer, the verifer
+>> reports the following error:
 >>
->> Instead of having a global sysctl can we please have a different way
->> to configure the ingress/egress?
+>> R0=imm0,min_value=0,max_value=0 R1=pkt(id=0,off=0,r=4) R2=pkt_end R3=fp-12
+>> R4=imm4,min_value=4,max_value=4 R5=pkt(id=0,off=4,r=4) R6=ctx
+>> R7=imm0,min_value=0,max_value=0 R8=inv,min_value=0,max_value=0 R9=inv R10=fp
+>> 269: (bf) r2 = r0
+>> 270: (77) r2 >>= 3
+>> 271: (bf) r4 = r1
+>> 272: (0f) r4 += r2
+>> addition of negative constant to packet pointer is not allowed
+>
+>
+> How do we get here? I mean compiler is not optimizing this away
+> as the reg is populated differently from various branches? Could
+> you elaborate more on that resp. how we end up with this? Thanks!
+>
+>
+>> Signed-off-by: William Tu <u9012063@gmail.com>
+>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>> ---
+>>   kernel/bpf/verifier.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
 >>
->> My general memory is that this makes sense for a slightly different
->> tunnel type.   Making it a per mpls tunnel property instead of global
->> property feels like it should be much more maintainable.
+>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+>> index fb3513b..1a754e5 100644
+>> --- a/kernel/bpf/verifier.c
+>> +++ b/kernel/bpf/verifier.c
+>> @@ -1397,7 +1397,7 @@ static int check_packet_ptr_add(struct
+>> bpf_verifier_env *env,
+>>                 imm = insn->imm;
+>>
+>>   add_imm:
+>> -               if (imm <= 0) {
+>> +               if (imm < 0) {
+>>                         verbose("addition of negative constant to packet
+>> pointer is not allowed\n");
+>>                         return -EACCES;
+>>                 }
+>>
 >
-> RFC 3443 that David Ahern referenced does indeed infer that this
-> should be a per-LSP property. However, it says:
->
->>    We also note here that signaling the LSP type (Pipe, Short Pipe or
->>    Uniform Model) is out of the scope of this document, and that is also
->>    not addressed in the current versions of the label distribution
->>    protocols, e.g. LDP [MPLS-LDP] and RSVP-TE [MPLS-RSVP].  Currently,
->>    the LSP type is configured by the network operator manually by means
->>    of either a command line or network management interface.
->
-> AIUI, the situation of label distribution protocols not signaling this
-> property hasn't changed from when this RFC has written, which limits
-> the usefulness of a per-LSP property, and perhaps also indicates a
-> lack of desire from users of this.
->
-> Do you still feel it's worth implementing on a per-LSP basis? If so,
-> any opinion on how it should be done for the pop case? Either a new
-> per-path RTA attribute can be added, e.g. RTA_TTL_PROPAGATE, or a new
-> rtnh flag could be added, e.g. RTNH_F_TTL_PROPAGATE.
-
-My brain is mostly elswhere right now so I don't have an implementation
-on how it should be implemented.   However Linux fundamentally gets used
-interesting ways, and if we don't implement the option as per mpls exit
-now someone will come along and need to do the work later.
-
-Perhaps it will only be used with hard coded static configurations, and
-it is fundamentally a per tunnel property.
-
-It will be less work to maintain, and the code will run faster in the
-long run if we don't have two code paths to maintain.
-
-Eric
