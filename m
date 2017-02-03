@@ -1,32 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/2] Work around missing PHY prodcut ID in
- mv88e6390
-Date: Thu, 02 Feb 2017 21:51:15 -0500 (EST)
-Message-ID: <20170202.215115.95019232393263464.davem@davemloft.net>
-References: <1485916806-27299-1-git-send-email-andrew@lunn.ch>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 2/5] virtio_net: factor out xdp handler for
+ readability
+Date: Thu, 2 Feb 2017 18:52:33 -0800
+Message-ID: <5893F071.9090104@gmail.com>
+References: <20170202231404.14366.64298.stgit@john-Precision-Tower-5810>
+ <20170202232052.14366.25904.stgit@john-Precision-Tower-5810>
+ <20170202170548.74c9d1e3@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Cc: jasowang@redhat.com, ast@fb.com, mst@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37944 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751867AbdBCCvR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 21:51:17 -0500
-In-Reply-To: <1485916806-27299-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34083 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751771AbdBCCwq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 21:52:46 -0500
+Received: by mail-pg0-f67.google.com with SMTP id v184so657508pgv.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 18:52:46 -0800 (PST)
+In-Reply-To: <20170202170548.74c9d1e3@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Wed,  1 Feb 2017 03:40:04 +0100
-
-> The internal PHYs of the MV88E6390 have a Marvell OUI, but the product
-> ID is zero. Work around this by trapping reads to the ID, and if it is
-> zero, return the MV88E6390 family ID.
+On 17-02-02 05:05 PM, Jakub Kicinski wrote:
+> On Thu, 02 Feb 2017 15:20:52 -0800, John Fastabend wrote:
+>> At this point the do_xdp_prog is mostly if/else branches handling
+>> the different modes of virtio_net. So remove it and handle running
+>> the program in the per mode handlers.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 > 
-> v2: Move the workaround into the central mdio read function.
->     Enable the temperature sensor, even though it does not work on the 6390,
->     but it does on the 6341, which has the same ID problem.
+> I think you rebased away Daniel's tracepoints here :(
+> 
 
-Series applied, thanks Andrew.
+Ah dang yep. Thanks for spotting.
