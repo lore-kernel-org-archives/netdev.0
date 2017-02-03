@@ -1,48 +1,71 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH 14/17] net: stmmac: print phy information
-Date: Fri, 3 Feb 2017 14:16:03 +0100
-Message-ID: <20170203131603.GA3653@Red>
-References: <20170131091152.13842-1-clabbe.montjoie@gmail.com>
- <20170131091152.13842-15-clabbe.montjoie@gmail.com>
- <734d7c1c-bf82-c723-59b8-2abd003dc6d7@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
+ performance may be compromised." message with "ethtool -K eth0 gro off"
+Date: Fri, 03 Feb 2017 05:24:06 -0800
+Message-ID: <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170202115240.GH17590@x4>
+         <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170202123427.GA7212@x4>
+         <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170203115457.GA5296@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexandre.torgue@st.com, netdev@vger.kernel.org,
-        davem@davemloft.net, linux-kernel@vger.kernel.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <734d7c1c-bf82-c723-59b8-2abd003dc6d7@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+        netdev@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34542 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752169AbdBCNYI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 08:24:08 -0500
+Received: by mail-pg0-f68.google.com with SMTP id v184so2012035pgv.1
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 05:24:07 -0800 (PST)
+In-Reply-To: <20170203115457.GA5296@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2017 at 11:10:04AM +0100, Giuseppe CAVALLARO wrote:
-> On 1/31/2017 10:11 AM, Corentin Labbe wrote:
-> > When a PHY is found, printing which one was found (and which type/model) is
-> > a good information to know.
-> >
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > ---
-> >  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > index e53b727..3d52b8c 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > @@ -885,6 +885,7 @@ static int stmmac_init_phy(struct net_device *dev)
-> >  	netdev_dbg(priv->dev, "%s: attached to PHY (UID 0x%x) Link = %d\n",
-> >  		   __func__, phydev->phy_id, phydev->link);
-> >
-> > +	phy_attached_info(phydev);
+On Fri, 2017-02-03 at 09:54 -0200, Marcelo Ricardo Leitner wrote:
+> On Thu, Feb 02, 2017 at 05:59:24AM -0800, Eric Dumazet wrote:
+> > On Thu, 2017-02-02 at 05:31 -0800, Eric Dumazet wrote:
+> > 
+> > > Anyway, I suspect the test is simply buggy ;)
+> > > 
+> > > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> > > index 41dcbd568cbe2403f2a9e659669afe462a42e228..5394a39fcce964a7fe7075b1531a8a1e05550a54 100644
+> > > --- a/net/ipv4/tcp_input.c
+> > > +++ b/net/ipv4/tcp_input.c
+> > > @@ -164,7 +164,7 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
+> > >  	if (len >= icsk->icsk_ack.rcv_mss) {
+> > >  		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
+> > >  					       tcp_sk(sk)->advmss);
+> > > -		if (unlikely(icsk->icsk_ack.rcv_mss != len))
+> > > +		if (unlikely(icsk->icsk_ack.rcv_mss != len && skb_is_gso(skb)))
+> > >  			tcp_gro_dev_warn(sk, skb);
+> > >  	} else {
+> > >  		/* Otherwise, we make more careful check taking into account,
+> > 
+> > This wont really help.
+> > 
+> > Our tcp_sk(sk)->advmss can be lower than the MSS used by the remote
+> > peer.
+> > 
+> > ip ro add .... advmss 512
 > 
-> maybe we could remove the netdev_dbg above and just keep
-> phy_attached_info(phydev);
-> 
-> peppe
+> I don't follow. With a good driver, how can advmss be smaller than the
+> MSS used by the remote peer? Even with the route entry above, I get
+> segments just up to advmss, and no warning.
 > 
 
-Ok, I will remove it
+A TCP flow has two ends.
 
-Regards
-Corentin Labbe
+Common MTU = 1500
+
+One can have advmss 500, the other one no advmss (or the standard 1460
+one)
+
+So if we compare apple and orange, result might be shocking ;)
+
+If you want to reproduce this use the "ip ro add .... advmss 512" hint,
+and/or play with sysctl_tcp_mtu_probing
