@@ -1,82 +1,75 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 4/6] net: dsa: change state setter scope
-Date: Fri,  3 Feb 2017 13:20:19 -0500
-Message-ID: <20170203182021.14246-5-vivien.didelot@savoirfairelinux.com>
-References: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/6] net: dsa: add fabric notifier
+Date: Fri,  3 Feb 2017 13:20:15 -0500
+Message-ID: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>, cphealy@gmail.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:40010 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751834AbdBCSVQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 13:21:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The scope of the functions inside net/dsa/slave.c must be the slave
-net_device pointer. Change to state setter helper accordingly to
-simplify callers.
+When a switch fabric is composed of multiple switch chips, these chips
+must be programmed accordingly when an event occurred on one of them.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/slave.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+Examples of such event include hardware bridging: when a Linux bridge
+spans interconnected chips, they must be programmed to allow external
+ports to ingress frames on their internal ports.
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index d726307c7795..d8c3c0f00cf3 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -74,9 +74,12 @@ static inline bool dsa_port_is_bridged(struct dsa_port *dp)
- 	return !!dp->bridge_dev;
- }
- 
--static void dsa_port_set_stp_state(struct dsa_switch *ds, int port, u8 state)
-+static void dsa_slave_set_state(struct net_device *dev, u8 state)
- {
--	struct dsa_port *dp = &ds->ports[port];
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_port *dp = p->dp;
-+	struct dsa_switch *ds = dp->ds;
-+	int port = dp->index;
- 
- 	if (ds->ops->port_stp_state_set)
- 		ds->ops->port_stp_state_set(ds, port, state);
-@@ -133,7 +136,7 @@ static int dsa_slave_open(struct net_device *dev)
- 			goto clear_promisc;
- 	}
- 
--	dsa_port_set_stp_state(ds, p->dp->index, stp_state);
-+	dsa_slave_set_state(dev, stp_state);
- 
- 	if (p->phy)
- 		phy_start(p->phy);
-@@ -175,7 +178,7 @@ static int dsa_slave_close(struct net_device *dev)
- 	if (ds->ops->port_disable)
- 		ds->ops->port_disable(ds, p->dp->index, p->phy);
- 
--	dsa_port_set_stp_state(ds, p->dp->index, BR_STATE_DISABLED);
-+	dsa_slave_set_state(dev, BR_STATE_DISABLED);
- 
- 	return 0;
- }
-@@ -382,7 +385,7 @@ static int dsa_slave_stp_state_set(struct net_device *dev,
- 	if (switchdev_trans_ph_prepare(trans))
- 		return ds->ops->port_stp_state_set ? 0 : -EOPNOTSUPP;
- 
--	dsa_port_set_stp_state(ds, p->dp->index, attr->u.stp_state);
-+	dsa_slave_set_state(dev, attr->u.stp_state);
- 
- 	return 0;
- }
-@@ -596,7 +599,7 @@ static void dsa_slave_bridge_port_leave(struct net_device *dev,
- 	/* Port left the bridge, put in BR_STATE_DISABLED by the bridge layer,
- 	 * so allow it to be in BR_STATE_FORWARDING to be kept functional
- 	 */
--	dsa_port_set_stp_state(ds, p->dp->index, BR_STATE_FORWARDING);
-+	dsa_slave_set_state(dev, BR_STATE_FORWARDING);
- }
- 
- static int dsa_slave_port_attr_get(struct net_device *dev,
+Another example is cross-chip hardware VLANs. Switch chips in-between
+interconnected bridge ports must also configure a given VLAN to allow
+packets to pass through them.
+
+In order to support that, this patchset introduces a non-intrusive
+notifier mechanism. It adds a notifier head in every DSA switch tree
+(the said fabric), and a notifier block in every DSA switch chip.
+
+When an even occurs, it is chained to all notifiers of the fabric.
+Switch chips can react accordingly if they are cross-chip capable.
+
+On a dynamic debug enabled system, bridging a port in a multi-chip
+fabric will print something like this (ZII Rev B board):
+
+    # brctl addif br0 lan3
+    mv88e6085 0.1:00: crosschip DSA port 1.0 bridged to br0
+    mv88e6085 0.4:00: crosschip DSA port 1.0 bridged to br0
+    # brctl delif br0 lan3
+    mv88e6085 0.1:00: crosschip DSA port 1.0 unbridged from br0
+    mv88e6085 0.4:00: crosschip DSA port 1.0 unbridged from br0
+
+Currently only bridging events are added. A patchset introducing support
+for cross-chip hardware bridging configuration in mv88e6xxx will follow
+right after. Then events for switchdev operations are next on the line.
+
+We should note that non-switchdev events do not support rolling-back
+switch-wide operations. We'll have to work on closer integration with
+switchdev for that, like introducing new attributes or objects, to
+benefit from the prepare and commit phases.
+
+Vivien Didelot (6):
+  net: dsa: move netdevice notifier registration
+  net: dsa: simplify netdevice events handling
+  net: dsa: rollback bridging on error
+  net: dsa: change state setter scope
+  net: dsa: add switch notifier
+  net: dsa: introduce bridge notifier
+
+ include/net/dsa.h  |  17 ++++++++
+ net/dsa/Makefile   |   1 +
+ net/dsa/dsa.c      |  16 ++++---
+ net/dsa/dsa2.c     |   6 +++
+ net/dsa/dsa_priv.h |   8 +++-
+ net/dsa/slave.c    | 121 +++++++++++++++++++++++++++++++++++------------------
+ net/dsa/switch.c   |  85 +++++++++++++++++++++++++++++++++++++
+ 7 files changed, 205 insertions(+), 49 deletions(-)
+ create mode 100644 net/dsa/switch.c
+
 -- 
 2.11.0
