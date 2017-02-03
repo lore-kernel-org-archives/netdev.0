@@ -1,41 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: remove support for per driver
- ndo_busy_poll()
-Date: Fri, 03 Feb 2017 15:07:01 -0800
-Message-ID: <1486163221.21871.121.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486089808.21871.59.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170203.171820.956894207079399896.davem@davemloft.net>
-         <20170203.172853.2189881865706510657.davem@davemloft.net>
+From: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <rafal@milecki.pl>
+Subject: Re: [PATCH 2/3] net: ethernet: bgmac: unify code of the same family
+Date: Fri, 03 Feb 2017 22:48:15 +0100
+Message-ID: <cdd5a5472af15d6da11e80306424d8b9@milecki.pl>
+References: <1486157970-6315-1-git-send-email-jon.mason@broadcom.com>
+ <1486157970-6315-3-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34243 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752401AbdBCXHD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 18:07:03 -0500
-Received: by mail-pg0-f66.google.com with SMTP id v184so3073953pgv.1
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 15:07:03 -0800 (PST)
-In-Reply-To: <20170203.172853.2189881865706510657.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486157970-6315-3-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-02-03 at 17:28 -0500, David Miller wrote:
+On 2017-02-03 22:39, Jon Mason wrote:
+> BCM471X and BCM535X are of the same family (from what I can derive from
+> internal documents).  Group them into the case statement together, 
+> which
+> results in more code reuse.
+> 
+> Also, use existing helper variables to make the code a little more
+> readable too.
+> 
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 
-> Actually, one more driver needs converting, "enic".
-> 
-> I did a quick and dirty conversion:
-> 
-> ====================
-> From 7a655c6324a8968ea2f027bf3660c87c42ac3de4 Mon Sep 17 00:00:00 2001
-> From: "David S. Miller" <davem@davemloft.net>
-> Date: Fri, 3 Feb 2017 17:28:21 -0500
-> Subject: [PATCH] enic: Remove local ndo_busy_poll() implementation.
-> 
-> We do polling generically these days.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Oh sorry about that. Looks fine, thanks a lot !
+I'd like to review it / test it on few devices. Please give me weekend 
+for
+that.
