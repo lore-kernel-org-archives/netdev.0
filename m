@@ -1,53 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 00/19] mlxsw: Introduce TC Flower offload
- using TCAM
-Date: Fri, 03 Feb 2017 16:56:56 -0500 (EST)
-Message-ID: <20170203.165656.1477582799484401549.davem@davemloft.net>
-References: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
+Date: Fri, 03 Feb 2017 22:56:43 +0100
+Message-ID: <5894FC9B.8000108@iogearbox.net>
+References: <1485401274-2836524-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
-        ivecera@redhat.com, jbenc@redhat.com, tom@herbertland.com,
-        f.fainelli@gmail.com
-To: jiri@resnulli.us
+Cc: David Ahern <dsa@cumulusnetworks.com>, Tejun Heo <tj@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55600 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752441AbdBCV46 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:56:58 -0500
-In-Reply-To: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
+Received: from www62.your-server.de ([213.133.104.62]:45050 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752441AbdBCV5P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:57:15 -0500
+In-Reply-To: <1485401274-2836524-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri,  3 Feb 2017 10:28:50 +0100
+On 01/26/2017 04:27 AM, Alexei Starovoitov wrote:
+> in cases where bpf programs are looking at sockets and packets
+> that belong to different netns, it could be useful to read netns inode,
+> so that programs can make intelligent decisions.
+> For example to disallow raw sockets in all non-init netns the program can do:
+> if (sk->type == SOCK_RAW && sk->netns_inum != 0xf0000075)
+>    return 0;
+> where 0xf0000075 inode comes from /proc/pid/ns/net
+>
+> Similarly TC cls_bpf/act_bpf and socket filters can do
+> if (skb->netns_inum == expected_inode)
+>
+> The lack of netns awareness was a concern even for socket filters,
+> since the application can attach the same bpf program to sockets
+> in a different netns. Just like tc cls_bpf program can work in
+> different netns as well, so it has to be addressed uniformly
+> across all types of bpf programs.
 
-> This patchset introduces support for offloading TC cls_flower and actions
-> to Spectrum TCAM-base policy engine.
-> 
-> The patchset contains patches to allow work with flexible keys and actions
-> which are used in Spectrum TCAM.
-> 
-> It also contains in-driver infrastructure for offloading TC rules to TCAM HW.
-> The TCAM management code is simple and limited for now. It is going to be
-> extended as a follow-up work.
-> 
-> The last patch uses the previously introduced infra to allow to implement
-> cls_flower offloading. Initially, only limited set of match-keys and only
-> a drop and forward actions are supported.
-> 
-> As a dependency, this patchset introduces parman - priority array
-> area manager - as a library.
-> 
-> ---
-> v1->v2:
-> - patch11:
->   - use __set_bit and __test_and_clear_bit as suggested by DaveM
-> - patch16:
->   - Added documentation to the API functions as suggested by Tom Herbert
-> - patch17:
->   - use __set_bit and __clear_bit as suggested by DaveM
+Sorry for jumping in late, but my question is, isn't this helper
+really only relevant for BPF_PROG_TYPE_CGROUP_* typed programs?
+Thus other prog types making use of bpf_convert_ctx_access()
+should probably reject that in .is_valid_access() callback?
 
-Series applied, thanks Jiri.
+Reason why I'm asking is that for sockets or tc progs, you
+already have a netns context where you're attached to, and f.e.
+skbs leaving that netns context will be orphaned. Thus, why
+would tc or sock filter tailor a program with such a check,
+if it can only match/mismatch its own netns inum eventually?
+When making this effort to lookup and hardcode the dev/inode
+num into the prog, wouldn't it be easier for these types if
+the managing app that loads these progs tailors the progs for
+a given netns directly, so also such runtime check can generally
+be avoided? Am I missing something wrt 'concerns'? The cgroup
+ones are global, so there I can see that it could be used in
+some way f.e. to restrict access, account, etc.
+
+Thanks,
+Daniel
