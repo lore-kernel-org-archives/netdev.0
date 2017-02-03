@@ -1,36 +1,39 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next 0/2] net: core: Two Helper function about socket information
-Date: Sat, 4 Feb 2017 01:19:28 +0900
-Message-ID: <CAKD1Yr3REse_WBB0K3YpGsKKyFYDs6Y6Bpmhv4eE+C4c5d29+A@mail.gmail.com>
-References: <20170202205950.100334-1-chenbofeng.kernel@gmail.com> <20170203001329.GB42563@ast-mbp.thefacebook.com>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: [PATCH net-next] bpf: fix verifier issue at check_packet_ptr_add
+Date: Fri, 3 Feb 2017 08:20:19 -0800
+Message-ID: <CALDO+SbdmEh6paAT-x7PJvJN0ezTk14AmLXTxBtZ_A87PwVtmQ@mail.gmail.com>
+References: <1486065553-5074-1-git-send-email-u9012063@gmail.com>
+ <5893C4DD.9000701@iogearbox.net> <CALDO+SZCn452+Tp6cBjMb_J9Mu=08Em=0+jsKpa31b3Eoy-0SQ@mail.gmail.com>
+ <20170203034636.GA68213@ast-mbp.thefacebook.com> <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
+ <20170203061920.GB80764@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:35001 "EHLO
-        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750890AbdBCQTu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 11:19:50 -0500
-Received: by mail-vk0-f51.google.com with SMTP id x75so16041842vke.2
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 08:19:49 -0800 (PST)
-In-Reply-To: <20170203001329.GB42563@ast-mbp.thefacebook.com>
+Received: from mail-it0-f48.google.com ([209.85.214.48]:36172 "EHLO
+        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751064AbdBCQVG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 11:21:06 -0500
+Received: by mail-it0-f48.google.com with SMTP id c7so14670581itd.1
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 08:21:01 -0800 (PST)
+In-Reply-To: <20170203061920.GB80764@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 3, 2017 at 9:13 AM, Alexei Starovoitov
+On Thu, Feb 2, 2017 at 10:19 PM, Alexei Starovoitov
 <alexei.starovoitov@gmail.com> wrote:
-> I think sk_uid is self explanatory, but cookie is less so.
-> Please explain how you plan to use it.
+> On Thu, Feb 02, 2017 at 09:31:06PM -0800, William Tu wrote:
+>>
+>> Yes, this is auto-generated. We want to use P4 2016 as front end to
+>> generate ebpf for XDP.
+>
+> P4 2016 front-end ? is it public? Is there a 2017 version? ;)
+> just curious.
+>
+the P4_16 is the latest version.
+https://github.com/p4lang/p4c
+it has ebpf backend for tc, we want to add ebpf backend for xdp.
 
-The cookie is the only way to uniquely identify a given socket on the
-system (the 5-tuple is not sufficient in the presence of SO_REUSEPORT,
-for example). One goal for this infrastructure is to perform
-per-socket accounting (ultimately replace the out-of-tree xt_qtaguid
-code that is used for per-UID, per-socket-tag accounting on Android).
-The socket cookie would be a natural key to use in a BPF map where the
-values are socket accounting information.
+--William
