@@ -1,59 +1,335 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] bpf: fix verifier issue at check_packet_ptr_add
-Date: Thu, 2 Feb 2017 22:19:22 -0800
-Message-ID: <20170203061920.GB80764@ast-mbp.thefacebook.com>
-References: <1486065553-5074-1-git-send-email-u9012063@gmail.com>
- <5893C4DD.9000701@iogearbox.net>
- <CALDO+SZCn452+Tp6cBjMb_J9Mu=08Em=0+jsKpa31b3Eoy-0SQ@mail.gmail.com>
- <20170203034636.GA68213@ast-mbp.thefacebook.com>
- <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Tu <u9012063@gmail.com>
+From: Ben Serebrin <serebrin@google.com>
+Subject: [PATCH net-next] virtio: Fix affinity for >32 VCPUs
+Date: Thu,  2 Feb 2017 22:19:05 -0800
+Message-ID: <20170203061905.100283-1-serebrin@google.com>
+To: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
+        davem@davemloft.net, willemb@google.com, venkateshs@google.com,
+        jmattson@google.com, serebrin@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33577 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752230AbdBCGT0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 01:19:26 -0500
-Received: by mail-pf0-f182.google.com with SMTP id y143so3550401pfb.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 22:19:25 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33706 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752230AbdBCGUU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 01:20:20 -0500
+Received: by mail-pf0-f181.google.com with SMTP id y143so3557101pfb.0
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 22:20:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 02, 2017 at 09:31:06PM -0800, William Tu wrote:
-> 
-> Yes, this is auto-generated. We want to use P4 2016 as front end to
-> generate ebpf for XDP.
+From: Benjamin Serebrin <serebrin@google.com>
 
-P4 2016 front-end ? is it public? Is there a 2017 version? ;)
-just curious.
+If the number of virtio queue pairs is not equal to the
+number of VCPUs, the virtio guest driver doesn't assign
+any CPU affinity for the queue interrupts or the xps
+aggregation interrupt.
 
-> >
-> > The line 272 is r4 += r2
-> > where R4=imm4 and R2=pkt_end
-> 
-> R2 is no longer pkt_end, it's R2 == R0 == 0
-> 269: (bf) r2 = r0
-> 270: (77) r2 >>= 3
-> 271: (bf) r4 = r1
-> 272: (0f) r4 += r2
-> 
-> So at line 272, it's pkt_ptr = pkt_ptr + 0
-> thus the following fix works for us.
-> -               if (imm <= 0) {
-> +               if (imm < 0) {
+Google Compute Engine currently provides 1 queue pair for
+every VCPU, but limits that at a maximum of 32 queue pairs.
 
-got it. I forgot that we have:
-  if (src_reg->type == CONST_IMM) {
-          /* pkt_ptr += reg where reg is known constant */
-          imm = src_reg->imm;
-          goto add_imm;
-  }
-and got confused by if (BPF_SRC(insn->code) == BPF_K) bit.
-Thanks for explaining!
-Could you respin with the extra test for it in the test_verifier.c ?
-Since it's a rare case, would be good to keep it working.
+This code assigns interrupt affinity even when there are more than
+32 VCPUs.
+
+Tested:
+
+(on a 64-VCPU VM with debian 8, jessie-backports 4.9.2)
+
+Without the fix we see all queues affinitized to all CPUs:
+
+cd /proc/irq
+for i in `seq 24 92` ; do sudo grep ".*" $i/smp_affinity_list;  done
+0-63
+[...]
+0-63
+
+and we see all TX queues' xps_cpus affinitzed to no cores:
+
+for i in `seq 0 31` ; do sudo grep ".*" tx-$i/xps_cpus; done
+00000000,00000000
+[...]
+00000000,00000000
+
+With the fix, we see each queue assigned to the a single core,
+and xps affinity set to 1 unique cpu per TX queue.
+
+64 VCPU:
+
+cd /proc/irq
+for i in `seq 24 92` ; do sudo grep ".*" $i/smp_affinity_list;  done
+
+0-63
+0
+0
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+8
+8
+9
+9
+10
+10
+11
+11
+12
+12
+13
+13
+14
+14
+15
+15
+16
+16
+17
+17
+18
+18
+19
+19
+20
+20
+21
+21
+22
+22
+23
+23
+24
+24
+25
+25
+26
+26
+27
+27
+28
+28
+29
+29
+30
+30
+31
+31
+0-63
+0-63
+0-63
+0-63
+
+cd /sys/class/net/eth0/queues
+for i in `seq 0 31` ; do sudo grep ".*" tx-$i/xps_cpus;  done
+
+00000001,00000001
+00000002,00000002
+00000004,00000004
+00000008,00000008
+00000010,00000010
+00000020,00000020
+00000040,00000040
+00000080,00000080
+00000100,00000100
+00000200,00000200
+00000400,00000400
+00000800,00000800
+00001000,00001000
+00002000,00002000
+00004000,00004000
+00008000,00008000
+00010000,00010000
+00020000,00020000
+00040000,00040000
+00080000,00080000
+00100000,00100000
+00200000,00200000
+00400000,00400000
+00800000,00800000
+01000000,01000000
+02000000,02000000
+04000000,04000000
+08000000,08000000
+10000000,10000000
+20000000,20000000
+40000000,40000000
+80000000,80000000
+
+48 VCPU:
+
+cd /proc/irq
+for i in `seq 24 92` ; do sudo grep ".*" $i/smp_affinity_list;  done
+0-47
+0
+0
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+8
+8
+9
+9
+10
+10
+11
+11
+12
+12
+13
+13
+14
+14
+15
+15
+16
+16
+17
+17
+18
+18
+19
+19
+20
+20
+21
+21
+22
+22
+23
+23
+24
+24
+25
+25
+26
+26
+27
+27
+28
+28
+29
+29
+30
+30
+31
+31
+0-47
+0-47
+0-47
+0-47
+
+cd /sys/class/net/eth0/queues
+for i in `seq 0 31` ; do sudo grep ".*" tx-$i/xps_cpus;  done
+
+0001,00000001
+0002,00000002
+0004,00000004
+0008,00000008
+0010,00000010
+0020,00000020
+0040,00000040
+0080,00000080
+0100,00000100
+0200,00000200
+0400,00000400
+0800,00000800
+1000,00001000
+2000,00002000
+4000,00004000
+8000,00008000
+0000,00010000
+0000,00020000
+0000,00040000
+0000,00080000
+0000,00100000
+0000,00200000
+0000,00400000
+0000,00800000
+0000,01000000
+0000,02000000
+0000,04000000
+0000,08000000
+0000,10000000
+0000,20000000
+0000,40000000
+0000,80000000
+
+Signed-off-by: Ben Serebrin <serebrin@google.com>
+Acked-by: Willem de Bruijn <willemb@google.com>
+Acked-by: Jim Mattson <jmattson@google.com>
+Acked-by: Venkatesh Srinivas <venkateshs@google.com>
+
+Effort: kvm
+---
+ drivers/net/virtio_net.c | 30 +++++++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 765c2d6358da..0dc3a102bfc4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1502,20 +1502,44 @@ static void virtnet_set_affinity(struct virtnet_info *vi)
+ 	 * queue pairs, we let the queue pairs to be private to one cpu by
+ 	 * setting the affinity hint to eliminate the contention.
+ 	 */
+-	if (vi->curr_queue_pairs == 1 ||
+-	    vi->max_queue_pairs != num_online_cpus()) {
++	if (vi->curr_queue_pairs == 1) {
+ 		virtnet_clean_affinity(vi, -1);
+ 		return;
+ 	}
+ 
++	/* If there are more cpus than queues, then assign the queues'
++	 * interrupts to the first cpus until we run out.
++	 */
+ 	i = 0;
+ 	for_each_online_cpu(cpu) {
++		if (i == vi->max_queue_pairs)
++			break;
+ 		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+ 		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+-		netif_set_xps_queue(vi->dev, cpumask_of(cpu), i);
+ 		i++;
+ 	}
+ 
++	/* Stripe the XPS affinities across the online CPUs.
++	 * Hyperthread pairs are typically assigned such that Linux's
++	 * CPU X and X + (numcpus / 2) are hyperthread twins, so we cause
++	 * hyperthread twins to share TX queues, in the case where there are
++	 * more cpus than queues.
++	 */
++	for (i = 0; i < vi->max_queue_pairs; i++) {
++		struct cpumask mask;
++		int skip = i;
++
++		cpumask_clear(&mask);
++		for_each_online_cpu(cpu) {
++			while (skip--)
++				cpu = cpumask_next(cpu, cpu_online_mask);
++			if (cpu < num_possible_cpus())
++				cpumask_set_cpu(cpu, &mask);
++			skip = vi->max_queue_pairs - 1;
++		}
++		netif_set_xps_queue(vi->dev, &mask, i);
++	}
++
+ 	vi->affinity_hint_set = true;
+ }
+ 
