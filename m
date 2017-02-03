@@ -1,42 +1,40 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: fix verifier issue at check_packet_ptr_add
-Date: Fri, 03 Feb 2017 09:37:08 +0100
-Message-ID: <58944134.6060107@iogearbox.net>
-References: <1486065553-5074-1-git-send-email-u9012063@gmail.com> <5893C4DD.9000701@iogearbox.net> <CALDO+SZCn452+Tp6cBjMb_J9Mu=08Em=0+jsKpa31b3Eoy-0SQ@mail.gmail.com> <20170203034636.GA68213@ast-mbp.thefacebook.com> <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: Re: [PATCH net-next] sfc: get rid of custom busy polling code
+Date: Fri, 3 Feb 2017 09:14:04 +0000
+Message-ID: <437a945a-603b-1423-7f45-33ae62aef595@solarflare.com>
+References: <1486084399.21871.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: William Tu <u9012063@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Edward Cree <ecree@solarflare.com>,
+        Solarflare Linux Maintainers <linux-net-drivers@solarflare.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59858 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751903AbdBCIhK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 03:37:10 -0500
-In-Reply-To: <CALDO+SZrm3KpDDRrC6H9jkaMVxiwUPEFp+1vBaZbSvTdH8=09w@mail.gmail.com>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:58435 "EHLO
+        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752145AbdBCJON (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:14:13 -0500
+In-Reply-To: <1486084399.21871.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2017 06:31 AM, William Tu wrote:
-[...]
-> Yes, this is auto-generated. We want to use P4 2016 as front end to
-> generate ebpf for XDP.
->
-[...]
-> R2 is no longer pkt_end, it's R2 == R0 == 0
-> 269: (bf) r2 = r0
-> 270: (77) r2 >>= 3
-> 271: (bf) r4 = r1
-> 272: (0f) r4 += r2
->
-> So at line 272, it's pkt_ptr = pkt_ptr + 0
-> thus the following fix works for us.
-> -               if (imm <= 0) {
-> +               if (imm < 0) {
+On 03/02/17 01:13, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> In linux-4.5, busy polling was implemented in core
+> NAPI stack, meaning that all custom implementation can
+> be removed from drivers.
+> 
+> Not only we remove lot's of tricky code, we also remove
+> one lock operation in fast path.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Edward Cree <ecree@solarflare.com>
+> Cc: Bert Kenward <bkenward@solarflare.com>
 
-Okay, makes sense. I'll wait with ACK for your respin with kselftest
-case.
+We were talking about doing this just yesterday.
+Thanks Eric.
 
-Thanks,
-Daniel
+Acked-by: Bert Kenward <bkenward@solarflare.com>
