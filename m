@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: remove support for per driver
- ndo_busy_poll()
-Date: Fri, 03 Feb 2017 17:18:20 -0500 (EST)
-Message-ID: <20170203.171820.956894207079399896.davem@davemloft.net>
-References: <1486089808.21871.59.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
+Subject: Re: [PATCH v2 1/2] net: ethernet: bgmac: init sequence bug
+Date: Fri, 3 Feb 2017 22:41:48 +0100
+Message-ID: <8b0979e4-7202-869f-95b3-ab5d0381ed69@milecki.pl>
+References: <1486156133-5639-1-git-send-email-jon.mason@broadcom.com>
+ <1486156133-5639-2-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Zac Schroff <zschroff@broadcom.com>
+To: Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56844 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752376AbdBCWSW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:18:22 -0500
-In-Reply-To: <1486089808.21871.59.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mo173.mail-out.ovh.net ([178.32.228.173]:33803 "EHLO
+        mo173.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752377AbdBCWVj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:21:39 -0500
+Received: from player687.ha.ovh.net (b9.ovh.net [213.186.33.59])
+        by mo173.mail-out.ovh.net (Postfix) with ESMTP id A78501E38F
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 22:41:55 +0100 (CET)
+In-Reply-To: <1486156133-5639-2-git-send-email-jon.mason@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 02 Feb 2017 18:43:28 -0800
+On 02/03/2017 10:08 PM, Jon Mason wrote:
+> @@ -61,15 +60,20 @@ static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
+>
+>  static void platform_bgmac_clk_enable(struct bgmac *bgmac, u32 flags)
+>  {
+> -	bgmac_idm_write(bgmac, BCMA_IOCTL,
+> -			(BCMA_IOCTL_CLK | BCMA_IOCTL_FGC | flags));
+> +	u32 val;
+> +
+> +	val = bgmac_idm_read(bgmac, BCMA_IOCTL);
+> +	/* Some bits of BCMA_IOCTL set by HW/ATF and should not change */
+> +	val |= flags & ~(BGMAC_AWCACHE | BGMAC_ARCACHE | BGMAC_AWUSER |
+> +			 BGMAC_ARUSER);
+> +	val |= BGMAC_CLK_EN;
+>  	bgmac_idm_read(bgmac, BCMA_IOCTL);
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> We added generic support for busy polling in NAPI layer in linux-4.5
-> 
-> No network driver uses ndo_busy_poll() anymore, we can get rid
-> of the pointer in struct net_device_ops, and its use in sk_busy_loop()
-> 
-> Saves NETIF_F_BUSY_POLL features bit.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied.
+This read was previously following write op most likely to flush it or
+something. I don't think it makes any sense to read after read.
