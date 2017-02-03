@@ -1,118 +1,74 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [next-queu 07/19] i40e: Deprecating unused macro
-Date: Thu,  2 Feb 2017 23:25:41 -0800
-Message-ID: <20170203072553.168372-8-jeffrey.t.kirsher@intel.com>
+Subject: [next-queu 05/19] i40e: avoid O(n^2) loop when deleting all filters
+Date: Thu,  2 Feb 2017 23:25:39 -0800
+Message-ID: <20170203072553.168372-6-jeffrey.t.kirsher@intel.com>
 References: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
-Cc: Bimmy Pujari <bimmy.pujari@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:17804 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752711AbdBCHZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752708AbdBCHZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 3 Feb 2017 02:25:57 -0500
 In-Reply-To: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bimmy Pujari <bimmy.pujari@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-I40E_MAC_X710 was supposed to be for 10G and I40E_MAC_XL710
-was supposed to be for 40G. But function i40e_is_mac_710
-sets I40E_MAC_XL710 for all device IDS, I40E_MAC_X710 is not
-used at all. As there is nothing to compare there is no need
-for this function. Thus deprecating this extra macro and
-removing this function entirely and replacing it with a direct
-check.
+Use __i40e_del_filter instead of using i40e_del_filter() which will
+avoid doing an additional search to delete a filter we already have the
+pointer for.
 
-Change-ID: I7d1769954dccd574a290ac04adb836ebd156730e
-Signed-off-by: Bimmy Pujari <bimmy.pujari@intel.com>
+Change-ID: Iea5a7e3cafbf8c682ed9d3b6c69cf5ff53f44daf
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h        | 13 -------------
- drivers/net/ethernet/intel/i40e/i40e_main.c   |  6 +++---
- drivers/net/ethernet/intel/i40e/i40e_type.h   |  1 -
- drivers/net/ethernet/intel/i40evf/i40e_type.h |  1 -
- 4 files changed, 3 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h             | 1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 8bb0f4b..cdf812c 100644
+index 4a64884..8bb0f4b 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -134,19 +134,6 @@
- /* default to trying for four seconds */
- #define I40E_TRY_LINK_TIMEOUT	(4 * HZ)
- 
--/**
-- * i40e_is_mac_710 - Return true if MAC is X710/XL710
-- * @hw: ptr to the hardware info
-- **/
--static inline bool i40e_is_mac_710(struct i40e_hw *hw)
--{
--	if ((hw->mac.type == I40E_MAC_X710) ||
--	    (hw->mac.type == I40E_MAC_XL710))
--		return true;
--
--	return false;
--}
--
- /* driver state flags */
- enum i40e_state_t {
- 	__I40E_TESTING,
+@@ -762,6 +762,7 @@ bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features);
+ void i40e_set_ethtool_ops(struct net_device *netdev);
+ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
+ 					const u8 *macaddr, s16 vlan);
++void __i40e_del_filter(struct i40e_vsi *vsi, struct i40e_mac_filter *f);
+ void i40e_del_filter(struct i40e_vsi *vsi, const u8 *macaddr, s16 vlan);
+ int i40e_sync_vsi_filters(struct i40e_vsi *vsi);
+ struct i40e_vsi *i40e_vsi_setup(struct i40e_pf *pf, u8 type,
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2d689e0..2481924 100644
+index da9f8d3..cabd728 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8684,7 +8684,7 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 				 pf->hw.func_caps.fd_filters_best_effort;
- 	}
+@@ -1434,7 +1434,7 @@ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
+  * the "safe" variants of any list iterators, e.g. list_for_each_entry_safe()
+  * instead of list_for_each_entry().
+  **/
+-static void __i40e_del_filter(struct i40e_vsi *vsi, struct i40e_mac_filter *f)
++void __i40e_del_filter(struct i40e_vsi *vsi, struct i40e_mac_filter *f)
+ {
+ 	if (!f)
+ 		return;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 1859911..49941dd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2725,7 +2725,7 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
+ 	 * anyway.
+ 	 */
+ 	hash_for_each(vsi->mac_filter_hash, bkt, f, hlist)
+-		i40e_del_filter(vsi, f->macaddr, f->vlan);
++		__i40e_del_filter(vsi, f);
  
--	if (i40e_is_mac_710(&pf->hw) &&
-+	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
- 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
- 	    (pf->hw.aq.fw_maj_ver < 4))) {
- 		pf->flags |= I40E_FLAG_RESTART_AUTONEG;
-@@ -8693,13 +8693,13 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	}
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
  
- 	/* Disable FW LLDP if FW < v4.3 */
--	if (i40e_is_mac_710(&pf->hw) &&
-+	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
- 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 3)) ||
- 	    (pf->hw.aq.fw_maj_ver < 4)))
- 		pf->flags |= I40E_FLAG_STOP_FW_LLDP;
- 
- 	/* Use the FW Set LLDP MIB API if FW > v4.40 */
--	if (i40e_is_mac_710(&pf->hw) &&
-+	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
- 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver >= 40)) ||
- 	    (pf->hw.aq.fw_maj_ver >= 5)))
- 		pf->flags |= I40E_FLAG_USE_SET_LLDP_MIB;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index edc0abd..b6cf8d2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -125,7 +125,6 @@ enum i40e_debug_mask {
-  */
- enum i40e_mac_type {
- 	I40E_MAC_UNKNOWN = 0,
--	I40E_MAC_X710,
- 	I40E_MAC_XL710,
- 	I40E_MAC_VF,
- 	I40E_MAC_X722,
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index c85e8a3..92ac60d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -100,7 +100,6 @@ enum i40e_debug_mask {
-  */
- enum i40e_mac_type {
- 	I40E_MAC_UNKNOWN = 0,
--	I40E_MAC_X710,
- 	I40E_MAC_XL710,
- 	I40E_MAC_VF,
- 	I40E_MAC_X722,
 -- 
 2.10.2
