@@ -1,88 +1,119 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 6/8] net: ethernet: annapurna: add wol helpers to the Alpine driver
-Date: Fri,  3 Feb 2017 19:12:14 +0100
-Message-ID: <20170203181216.30214-7-antoine.tenart@free-electrons.com>
-References: <20170203181216.30214-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        tsahee@annapurnalabs.com, rshitrit@annapurnalabs.com,
-        saeed@annapurnalabs.com, barak@annapurnalabs.com,
-        talz@annapurnalabs.com, thomas.petazzoni@free-electrons.com,
-        arnd@arndb.de
+Subject: [PATCH net-next 0/8] ARM: Alpine: Ethernet support
+Date: Fri,  3 Feb 2017 19:12:08 +0100
+Message-ID: <20170203181216.30214-1-antoine.tenart@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, saeed@annapurnalabs.com, arnd@arndb.de,
+ Antoine Tenart <antoine.tenart@free-electrons.com>, talz@annapurnalabs.com,
+ rshitrit@annapurnalabs.com, barak@annapurnalabs.com, tsahee@annapurnalabs.com
 To: netdev@vger.kernel.org, davem@davemloft.net,
-        linux-arm-kernel@lists.infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36479 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751239AbdBCSPK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 13:15:10 -0500
-In-Reply-To: <20170203181216.30214-1-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Implement the get_wol() and set_wol() helpers in the Annapurna Labs
-Alpine Ethernet driver.
----
- drivers/net/ethernet/annapurna/al_eth.c | 44 +++++++++++++++++++++++++++++++++
- 1 file changed, 44 insertions(+)
+Hello all,
 
-diff --git a/drivers/net/ethernet/annapurna/al_eth.c b/drivers/net/ethernet/annapurna/al_eth.c
-index 8dd84f66b5d1..d06a75a49ce5 100644
---- a/drivers/net/ethernet/annapurna/al_eth.c
-+++ b/drivers/net/ethernet/annapurna/al_eth.c
-@@ -2519,10 +2519,54 @@ static u32 al_eth_get_rxfh_indir_size(struct net_device *netdev)
- 	return AL_ETH_RX_RSS_TABLE_SIZE;
- }
- 
-+static void al_eth_get_wol(struct net_device *netdev,
-+			   struct ethtool_wolinfo *wol)
-+{
-+	struct al_eth_adapter *adapter = netdev_priv(netdev);
-+	struct phy_device *phydev;
-+
-+	wol->wolopts = adapter->wol;
-+
-+	if ((adapter) && (adapter->phy_exist) && (adapter->mdio_bus)) {
-+		phydev = mdiobus_get_phy(adapter->mdio_bus, adapter->phy_addr);
-+		if (phydev) {
-+			phy_ethtool_get_wol(phydev, wol);
-+			wol->supported |= WAKE_PHY;
-+			return;
-+		}
-+	}
-+
-+	wol->supported |= WAKE_UCAST | WAKE_MCAST | WAKE_BCAST;
-+}
-+
-+static int al_eth_set_wol(struct net_device *netdev,
-+			  struct ethtool_wolinfo *wol)
-+{
-+	struct al_eth_adapter *adapter = netdev_priv(netdev);
-+	struct phy_device *phydev;
-+
-+	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE))
-+		return -EOPNOTSUPP;
-+
-+	adapter->wol = wol->wolopts;
-+
-+	if ((adapter) && (adapter->phy_exist) && (adapter->mdio_bus)) {
-+		phydev = mdiobus_get_phy(adapter->mdio_bus, adapter->phy_addr);
-+		if (phydev)
-+			return phy_ethtool_set_wol(phydev, wol);
-+	}
-+
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops al_eth_ethtool_ops = {
- 	.get_settings		= al_eth_get_settings,
- 	.set_settings		= al_eth_set_settings,
- 	.get_drvinfo		= al_eth_get_drvinfo,
-+	.get_wol		= al_eth_get_wol,
-+	.set_wol		= al_eth_set_wol,
- 	.get_msglevel		= al_eth_get_msglevel,
- 	.set_msglevel		= al_eth_set_msglevel,
- 
+This series intend to add Ethernet support for the Annapurna Labs Alpine
+v1 (ARM) and v2 (ARM64). The series first adds helpers for the I/O
+fabric interrupt controller that is found in many controllers on the
+Alpine, then helpers for the so called "Universal DMA" (UDMA) are also
+added and finally adds the Alpine Ethernet driver (split in a few
+patches, per functionality).
+
+Many units in the Alpine platform (as the Ethernet controller) are
+connected to what is called an I/O fabric bus. All these units share a
+common implementation of an interrupt controller (the IOFIC) and some
+share a DMA controller implementation (the UDMA). These controller are
+duplicated in each unit (and there can be more than one per unit) and
+use the same common definitions and functions. This is why SoC-specific
+helpers and headers are provided here, to abstract some code. As these
+controllers are not fully independent ones (they just happen to expose
+the same registers in the units register spaces), proper interrupt nor
+DMA drivers were not implemented.
+
+This Ethernet controller is connected over PCIe, uses MSIX interrupts,
+handle multiple UDMA controllers (4 rx queues + 4 tx queues per UDMA),
+and offloading helpers (TSO, checksum offloads...).
+
+This was tested on an Alpine v2 (ARM64) platform, and applies on top
+of net-next (8fe809a99263).
+
+Thanks,
+
+Antoine Tenart (8):
+  alpine: add I/O fabric interrupt controller (iofic) helpers
+  soc: alpine: add udma helpers
+  pci: add Annapurna Labs PCI id
+  net: ethernet: add the Alpine Ethernet driver
+  net: ethernet: annapurna: add statistics helper
+  net: ethernet: annapurna: add wol helpers to the Alpine driver
+  net: ethernet: annapurna: add eee helpers to the Alpine driver
+  net: ethernet: annapurna: add the coalesce helpers to the Alpine
+    driver
+
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/annapurna/Kconfig             |   29 +
+ drivers/net/ethernet/annapurna/Makefile            |    6 +
+ drivers/net/ethernet/annapurna/al_eth.c            | 3267 +++++++++++++++++++
+ drivers/net/ethernet/annapurna/al_eth.h            |  282 ++
+ drivers/net/ethernet/annapurna/al_hw_eth.h         | 1301 ++++++++
+ drivers/net/ethernet/annapurna/al_hw_eth_ec_regs.h | 1099 +++++++
+ .../net/ethernet/annapurna/al_hw_eth_mac_regs.h    |  738 +++++
+ drivers/net/ethernet/annapurna/al_hw_eth_main.c    | 3367 ++++++++++++++++++++
+ .../ethernet/annapurna/al_hw_unit_adapter_regs.h   |   24 +
+ drivers/soc/Kconfig                                |    1 +
+ drivers/soc/Makefile                               |    1 +
+ drivers/soc/alpine/Kconfig                         |   11 +
+ drivers/soc/alpine/Makefile                        |    1 +
+ drivers/soc/alpine/udma/Makefile                   |    1 +
+ drivers/soc/alpine/udma/al_udma_config.c           |  140 +
+ drivers/soc/alpine/udma/al_udma_iofic.c            |  110 +
+ drivers/soc/alpine/udma/al_udma_main.c             |  245 ++
+ drivers/soc/alpine/udma/al_udma_queue.c            |  232 ++
+ include/linux/pci_ids.h                            |    2 +
+ include/linux/soc/alpine/al_hw_udma.h              |  499 +++
+ include/linux/soc/alpine/al_hw_udma_config.h       |   75 +
+ include/linux/soc/alpine/al_hw_udma_iofic.h        |  199 ++
+ include/linux/soc/alpine/al_hw_udma_regs.h         |  134 +
+ include/linux/soc/alpine/al_hw_udma_regs_m2s.h     |  413 +++
+ include/linux/soc/alpine/al_hw_udma_regs_s2m.h     |  294 ++
+ include/linux/soc/alpine/iofic.h                   |  165 +
+ 28 files changed, 12638 insertions(+)
+ create mode 100644 drivers/net/ethernet/annapurna/Kconfig
+ create mode 100644 drivers/net/ethernet/annapurna/Makefile
+ create mode 100644 drivers/net/ethernet/annapurna/al_eth.c
+ create mode 100644 drivers/net/ethernet/annapurna/al_eth.h
+ create mode 100644 drivers/net/ethernet/annapurna/al_hw_eth.h
+ create mode 100644 drivers/net/ethernet/annapurna/al_hw_eth_ec_regs.h
+ create mode 100644 drivers/net/ethernet/annapurna/al_hw_eth_mac_regs.h
+ create mode 100644 drivers/net/ethernet/annapurna/al_hw_eth_main.c
+ create mode 100644 drivers/net/ethernet/annapurna/al_hw_unit_adapter_regs.h
+ create mode 100644 drivers/soc/alpine/Kconfig
+ create mode 100644 drivers/soc/alpine/Makefile
+ create mode 100644 drivers/soc/alpine/udma/Makefile
+ create mode 100644 drivers/soc/alpine/udma/al_udma_config.c
+ create mode 100644 drivers/soc/alpine/udma/al_udma_iofic.c
+ create mode 100644 drivers/soc/alpine/udma/al_udma_main.c
+ create mode 100644 drivers/soc/alpine/udma/al_udma_queue.c
+ create mode 100644 include/linux/soc/alpine/al_hw_udma.h
+ create mode 100644 include/linux/soc/alpine/al_hw_udma_config.h
+ create mode 100644 include/linux/soc/alpine/al_hw_udma_iofic.h
+ create mode 100644 include/linux/soc/alpine/al_hw_udma_regs.h
+ create mode 100644 include/linux/soc/alpine/al_hw_udma_regs_m2s.h
+ create mode 100644 include/linux/soc/alpine/al_hw_udma_regs_s2m.h
+ create mode 100644 include/linux/soc/alpine/iofic.h
+
 -- 
 2.11.0
