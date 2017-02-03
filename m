@@ -1,52 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/12] bnxt_en: Add XDP support.
-Date: Fri, 03 Feb 2017 16:50:54 -0500 (EST)
-Message-ID: <20170203.165054.437855043325795801.davem@davemloft.net>
-References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
-        <20170203.154910.2213640966872850071.davem@davemloft.net>
-        <CACKFLimXCkC1=9kvQnz-s5rjTOGe1gmb9Ozvt1tEeW+O=y7yAg@mail.gmail.com>
+Subject: Re: [PATCH net-next 5/9] sunvnet: add memory barrier before check
+ for tx enable
+Date: Fri, 03 Feb 2017 16:52:32 -0500 (EST)
+Message-ID: <20170203.165232.422151402304230861.davem@davemloft.net>
+References: <1486143755-192532-6-git-send-email-shannon.nelson@oracle.com>
+        <1486144585.21871.92.camel@edumazet-glaptop3.roam.corp.google.com>
+        <d9d5ba0c-35dc-d10b-6eef-4d056732b8cf@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55262 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752469AbdBCVu4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:50:56 -0500
-In-Reply-To: <CACKFLimXCkC1=9kvQnz-s5rjTOGe1gmb9Ozvt1tEeW+O=y7yAg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: shannon.nelson@oracle.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <d9d5ba0c-35dc-d10b-6eef-4d056732b8cf@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Fri, 3 Feb 2017 13:13:47 -0800
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Date: Fri, 3 Feb 2017 13:20:43 -0800
 
-> On Fri, Feb 3, 2017 at 12:49 PM, David Miller <davem@davemloft.net> wrote:
+> On 2/3/2017 9:56 AM, Eric Dumazet wrote:
+>> On Fri, 2017-02-03 at 09:42 -0800, Shannon Nelson wrote:
+>>> In order to allow the underlying LDC and outstanding memory operations
+>>> to potentially catch up with the driver's Tx requests, add a memory
+>>> barrier before checking again for available tx descriptors.
+>>>
+>>> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+>>> ---
+>>>  drivers/net/ethernet/sun/sunvnet_common.c |    1 +
+>>>  1 files changed, 1 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/sun/sunvnet_common.c
+>>> b/drivers/net/ethernet/sun/sunvnet_common.c
+>>> index 5d0d386..98e758e 100644
+>>> --- a/drivers/net/ethernet/sun/sunvnet_common.c
+>>> +++ b/drivers/net/ethernet/sun/sunvnet_common.c
+>>> @@ -1467,6 +1467,7 @@ ldc_start_done:
+>>>  	dr->prod = (dr->prod + 1) & (VNET_TX_RING_SIZE - 1);
+>>>  	if (unlikely(vnet_tx_dring_avail(dr) < 1)) {
+>>>  		netif_tx_stop_queue(txq);
+>>> +		dma_wmb();
 >>
->> Please _DO NOT_ guard XDP support with an ifdef the user
->> can modify.
+>> This does not look right.
 >>
->> Treat it like any other common netdev feature a driver might
->> support such as checksum offloading or GRO.
->>
+>> I believe you need smp_rmb() here.
 > 
-> David, I want to make sure I understand completely.  Are you saying
-> don't use Kconfig option for XDP?  Have it always available?
+> Well, it probably should be dma_rmb(), since regardless of the number
+> of cores we think we have, we're communicating with a peer ldom that
+> has its own core(s).  Either way, on sparc they all seem to boil down
+> to the same bit of asm, but using the "rmb" part makes more logical
+> sense. I'll respin with dma_rmb().
 
-Yes.
+DMA barriers are for ordering between CPUs and devices.
 
-I don't see a similar config option used in any other driver.
+SMP barriers are for ordering between CPUs, which is your situation
+here.
 
-What's really driving me completely mad about driver XDP adoption
-is that there is so much inconsistency.
-
-If you do not see another XDP supporting driver do something, don't be
-tempted to blaze your own trail and handle something in a unique way.
-
-We don't set precedence by one driver saying "hey it's better to do
-things this way, forget what all the other drivers are doing."  Rather
-we have a "discussion" about what the appropriate thing is to do and
-convert all the drivers only after a decision has been made.
-
-Meanwhile we keep the status quo.
+It is completely inappropriate to use DMA barriers in a virutalization
+device driver.
