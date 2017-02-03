@@ -1,138 +1,98 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
-Date: Sat, 04 Feb 2017 10:06:41 +1300
-Message-ID: <8737fvt25a.fsf@xmission.com>
-References: <1485401274-2836524-1-git-send-email-ast@fb.com>
-        <87efzq8jbi.fsf@xmission.com> <588995DE.9040707@fb.com>
-        <CALCETrXQ8JFV28xU7tnh3tVbe_mp5yOtHp6shi10GMNnVCQowg@mail.gmail.com>
-        <588A35F8.6050909@fb.com>
-        <CALCETrU7FYz=8c2a=FWvvCxFQC3_e0nYjSU6gj62w9K8mWj=Ww@mail.gmail.com>
-        <588A40D7.9070603@fb.com>
-        <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
-        <588A4D3C.9070601@fb.com> <87r33fevva.fsf@xmission.com>
-        <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: [PATCH v2 net-next] bpf: enable verifier to add 0 to packet ptr
+Date: Fri, 3 Feb 2017 13:10:46 -0800
+Message-ID: <CALDO+SYvAVbXCmMRca0jq7XxMYvQ0VJ0joNGpPLWRTEg=H4a6Q@mail.gmail.com>
+References: <1486142565-2794-1-git-send-email-u9012063@gmail.com> <20170203205513.GA24959@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
-        Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Mihai Budiu <mbudiu@vmware.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:56348 "EHLO
-        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752478AbdBCVLP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:11:15 -0500
-In-Reply-To: <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
-        (Andy Lutomirski's message of "Fri, 3 Feb 2017 13:00:47 -0800")
+Received: from mail-it0-f65.google.com ([209.85.214.65]:33507 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752478AbdBCVL1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:11:27 -0500
+Received: by mail-it0-f65.google.com with SMTP id e137so2820222itc.0
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 13:11:27 -0800 (PST)
+In-Reply-To: <20170203205513.GA24959@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Lutomirski <luto@amacapital.net> writes:
+Hi Alexei,
 
-> On Thu, Feb 2, 2017 at 8:33 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
->> Alexei Starovoitov <ast@fb.com> writes:
+why it is bogus? on my system, it fails without the patch applied.
+
+--William
+
+On Fri, Feb 3, 2017 at 12:55 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Feb 03, 2017 at 09:22:45AM -0800, William Tu wrote:
+>> The patch fixes the case when adding a zero value to the packet
+>> pointer.  The verifer reports the following error:
+>>   [...]
+>>     R0=imm0,min_value=0,max_value=0
+>>     R1=pkt(id=0,off=0,r=4)
+>>     R2=pkt_end R3=fp-12
+>>     R4=imm4,min_value=4,max_value=4
+>>     R5=pkt(id=0,off=4,r=4)
+>>   269: (bf) r2 = r0   // r2 becomes imm0
+>>   270: (77) r2 >>= 3
+>>   271: (bf) r4 = r1   // r4 becomes pkt ptr
+>>   272: (0f) r4 += r2  // r4 += 0
+>>   addition of negative constant to packet pointer is not allowed
 >>
->>> On 1/26/17 11:07 AM, Andy Lutomirski wrote:
->>>> On Thu, Jan 26, 2017 at 10:32 AM, Alexei Starovoitov <ast@fb.com> wrote:
->>>>> On 1/26/17 10:12 AM, Andy Lutomirski wrote:
->>>>>>
->>>>>> On Thu, Jan 26, 2017 at 9:46 AM, Alexei Starovoitov <ast@fb.com> wrote:
->>>>>>>
->>>>>>> On 1/26/17 8:37 AM, Andy Lutomirski wrote:
->>>>>>>>>
->>>>>>>>>
->>>>>>>>> Think of bpf programs as safe kernel modules. They don't have
->>>>>>>>> confined boundaries and program authors, if not careful, can shoot
->>>>>>>>> themselves in the foot. We're not trying to prevent that because
->>>>>>>>> it's impossible to check that the program is sane. Just like
->>>>>>>>> it's impossible to check that kernel module is sane.
->>>>>>>>> But in case of bpf we check that bpf program is _safe_ from the kernel
->>>>>>>>> point of view. If it's doing some garbage, it's program's business.
->>>>>>>>> Does it make more sense now?
->>>>>>>>>
->>>>>>>>
->>>>>>>> With all due respect, I think this is not an acceptable way to think
->>>>>>>> about BPF at all.  If you think of BPF this way, I think there needs
->>>>>>>> to be a real discussion at KS or similar as to whether this is okay.
->>>>>>>> The reason is simple: the kernel promises a stable ABI to userspace
->>>>>>>> but not to kernel modules.  By thinking of BPF as more like a module,
->>>>>>>> you're taking a big shortcut that will either result in ABI breakage
->>>>>>>> down the road or in committing to a problematic stable ABI.
->>>>>>>
->>>>>>>
->>>>>>>
->>>>>>> you misunderstood the analogy.
->>>>>>> bpf abi is certainly stable. that's why we were careful of not
->>>>>>> exposing anything to it that is not already stable.
->>>>>>>
->>>>>>
->>>>>> In that case I don't understand what you're trying to say.  Eric
->>>>>> thinks your patch exposes a bad interface.  A bad interface for
->>>>>> userspace is a very different thing from a bad interface available to
->>>>>> kernel modules.  Are you saying that BPF is kernel-module-like in that
->>>>>> the ABI exposed to BPF programs doesn't need to meet the same quality
->>>>>> standards as userspace ABIs?
->>>>>
->>>>>
->>>>> of course not.
->>>>> ns.inum is already exposed to user space as a value.
->>>>> This patch exposes it to bpf program in a convenient and stable way,
->>>>
->>>> Here's what I'm imaging Eric is thinking:
->>>>
->>>> ns.inum is currently exposed to userspace via procfs.  In principle,
->>>> the value could be local to a namespace, though, which would enable
->>>> CRIU to be able to preserve namespace inode numbers across a
->>>> checkpoint+restore operation.  If this happened, the contained and
->>>> restored procfs would see a different inode number than the outermost
->>>> procfs.
->>>
->>> sure. there are many different ways for the program to see inode
->>> that either was already reused or disappeared.
->>> What I'm saying that it is expected. We cannot prevent that from
->>> bpf side. Just like ifindex value read by the program can be bogus
->>> as in the example I just provided.
+>> Signed-off-by: William Tu <u9012063@gmail.com>
+>> Signed-off-by: Mihai Budiu <mbudiu@vmware.com>
+>> ---
+>>  kernel/bpf/verifier.c                       |  2 +-
+>>  tools/testing/selftests/bpf/test_verifier.c | 15 +++++++++++++++
+>>  2 files changed, 16 insertions(+), 1 deletion(-)
 >>
->> The point is that we can make the inode number stable across migration
->> and the user space API for namespaces has been designed with that
->> possibility in mind.
+>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+>> index fb3513b..1a754e5 100644
+>> --- a/kernel/bpf/verifier.c
+>> +++ b/kernel/bpf/verifier.c
+>> @@ -1397,7 +1397,7 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
+>>               imm = insn->imm;
+>>
+>>  add_imm:
+>> -             if (imm <= 0) {
+>> +             if (imm < 0) {
+>>                       verbose("addition of negative constant to packet pointer is not allowed\n");
+>>                       return -EACCES;
+>>               }
+>> diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+>> index 0d0912c..a2b5c7e 100644
+>> --- a/tools/testing/selftests/bpf/test_verifier.c
+>> +++ b/tools/testing/selftests/bpf/test_verifier.c
+>> @@ -2404,6 +2404,21 @@ static struct bpf_test tests[] = {
+>>               .prog_type = BPF_PROG_TYPE_SCHED_CLS,
+>>       },
+>>       {
+>> +             "direct packet access: test14 (pkt_ptr += 0, good access)",
+>> +             .insns = {
+>> +                     BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+>> +                                 offsetof(struct __sk_buff, data)),
+>> +                     BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
+>> +                                 offsetof(struct __sk_buff, data_end)),
+>> +                     BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
+>> +                     BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 0),
 >
-> How does it help if BPF starts exposing both inode number and device
-> number?
-
-Adding the device number comparison helps in that it is explicit what is
-being compared against.  That gives me at least a bit of a namespace
-for the namespaces, and a program from a sufficiently wrong context will
-have it's comparisons fail rather than having a match.
-
-I think the operation that is exported in the BPF should be a full
-comparison operation of device and inode number so that it could be
-optimized/compiled to something else depending upon the context.
-
-AKA the compilation of the bpf program would have the opportunity to
-remove the namespace dependency and make the program work in a global
-context.  So we don't have to carry namespace information around at run
-time.
-
-> ISTM any ability to migrate namespaces and to migrate eBPF programs
-> that know about namespaces needs to have the eBPF program firmly
-> rooted in some namespace (or perhaps cgroup in this case) so that it
-> can see a namespaced view of the world.  For this to work, presumably
-> we need to make sure that eBPF programs that are installed by programs
-> that are in a container don't see traffic that isn't in that
-> container.  This is part of why I think that we should consider
-> preventing programs that aren't in the root namespace (perhaps *all*
-> the root namespaces) from installing bpf+cgroup programs in the first
-> place until there's a clearer understanding of how this all fits
-> together.
-
-Andy I agree.  At least to the point those programs are
-reading attributes that are in a namespace.  Something that should be
-straight forward to verify in the bpf checker when installing the
-program.
-
-Eric
+> wait. the test is bogus.
+> please write the proper test for the feature
+> and check that it fails before the patch and passes afterwards.
+>
+>> +                     BPF_MOV64_IMM(BPF_REG_0, 1),
+>> +                     BPF_EXIT_INSN(),
+>> +             },
+>> +             .result = ACCEPT,
+>> +             .prog_type = BPF_PROG_TYPE_SCHED_CLS,
+>> +     },
+>> +     {
+>>               "helper access to packet: test1, valid packet_ptr range",
+>>               .insns = {
+>>                       BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+>> --
+>> 2.7.4
+>>
