@@ -1,41 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: dp83867: Fix for automatically detected PHYs
-Date: Fri, 3 Feb 2017 18:54:51 +0100
-Message-ID: <20170203175451.GG15900@lunn.ch>
-References: <20170203165237.22452-1-abrodkin@synopsys.com>
- <20170203171031.GC15900@lunn.ch>
- <1486143058.2853.27.camel@synopsys.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 5/9] sunvnet: add memory barrier before check
+ for tx enable
+Date: Fri, 03 Feb 2017 09:56:25 -0800
+Message-ID: <1486144585.21871.92.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1486143755-192532-1-git-send-email-shannon.nelson@oracle.com>
+         <1486143755-192532-6-git-send-email-shannon.nelson@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "nsekhar@ti.com" <nsekhar@ti.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "m-karicheri2@ti.com" <m-karicheri2@ti.com>,
-        "linux-snps-arc@lists.infradead.org"
-        <linux-snps-arc@lists.infradead.org>,
-        "grygorii.strashko@ti.com" <grygorii.strashko@ti.com>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shannon Nelson <shannon.nelson@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55092 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750863AbdBCRzC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 12:55:02 -0500
-Content-Disposition: inline
-In-Reply-To: <1486143058.2853.27.camel@synopsys.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33206 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751321AbdBCR41 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 12:56:27 -0500
+In-Reply-To: <1486143755-192532-6-git-send-email-shannon.nelson@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> This is especially nice because we may change the base-board and use
-> there another PHY and as long we have drivers for all possible PHY built
-> in the kernel (or available via modules) proper driver will be instantiated
-> based on PHY ID read from MDIO. I.e. having no PHY node in DT adds flexibility.
+On Fri, 2017-02-03 at 09:42 -0800, Shannon Nelson wrote:
+> In order to allow the underlying LDC and outstanding memory operations
+> to potentially catch up with the driver's Tx requests, add a memory
+> barrier before checking again for available tx descriptors.
+> 
+> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+> ---
+>  drivers/net/ethernet/sun/sunvnet_common.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
+> index 5d0d386..98e758e 100644
+> --- a/drivers/net/ethernet/sun/sunvnet_common.c
+> +++ b/drivers/net/ethernet/sun/sunvnet_common.c
+> @@ -1467,6 +1467,7 @@ ldc_start_done:
+>  	dr->prod = (dr->prod + 1) & (VNET_TX_RING_SIZE - 1);
+>  	if (unlikely(vnet_tx_dring_avail(dr) < 1)) {
+>  		netif_tx_stop_queue(txq);
+> +		dma_wmb();
 
-The device tree node does not prevent this. It will still load the
-driver based on the PHY ID in the PHY. You might run into problems if
-the address on the MDIO bus changes, but it is also possible to not
-have a reg property, and it will match the node to whatever PHY it
-finds during the scan of the bus.
+This does not look right.
 
-      Andrew
+I believe you need smp_rmb() here.
+
+>  		if (vnet_tx_dring_avail(dr) > VNET_TX_WAKEUP_THRESH(dr))
+>  			netif_tx_wake_queue(txq);
+>  	}
