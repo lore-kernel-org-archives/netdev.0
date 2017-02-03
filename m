@@ -1,100 +1,80 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
- performance may be compromised." message with "ethtool -K eth0 gro off"
-Date: Fri, 3 Feb 2017 12:28:28 -0200
-Message-ID: <20170203142828.GB3413@localhost.localdomain>
-References: <20170202115240.GH17590@x4>
- <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170202123427.GA7212@x4>
- <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
- <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170203115457.GA5296@localhost.localdomain>
- <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170203135355.GA3413@localhost.localdomain>
- <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: Inconsistency in packet drop due to MTU (eth vs veth)
+Date: Fri, 3 Feb 2017 23:42:32 +0900
+Message-ID: <1c93d9f3-bb4b-909e-d3da-2b6d42bfbca2@gmail.com>
+References: <159b79aa979.e23be6a5186096.2767722456700391441@gmail.com>
+ <1484852027.16328.33.camel@edumazet-glaptop3.roam.corp.google.com>
+ <159f4b9e4ab.12b79bda8122843.8859202944513905410@gmail.com>
+ <1485880029.6360.118.camel@edumazet-glaptop3.roam.corp.google.com>
+ <15a0303f544.b70bc5d115840.1387609337770969373@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44326 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752169AbdBCO2b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 09:28:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        netdev <netdev@vger.kernel.org>, Evan Jones <ej@evanjones.ca>,
+        "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <cwang@twopensource.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Vijay Pandurangan <vijayp@vijayp.ca>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        ebiederm <ebiederm@aristanetworks.com>
+To: Fredrik Markstrom <fredrik.markstrom@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <15a0303f544.b70bc5d115840.1387609337770969373@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 03, 2017 at 06:16:06AM -0800, Eric Dumazet wrote:
-> On Fri, 2017-02-03 at 11:53 -0200, Marcelo Ricardo Leitner wrote:
-> > On Fri, Feb 03, 2017 at 05:24:06AM -0800, Eric Dumazet wrote:
-> > > On Fri, 2017-02-03 at 09:54 -0200, Marcelo Ricardo Leitner wrote:
-> > > > On Thu, Feb 02, 2017 at 05:59:24AM -0800, Eric Dumazet wrote:
-> > > > > On Thu, 2017-02-02 at 05:31 -0800, Eric Dumazet wrote:
-> > > > > 
-> > > > > > Anyway, I suspect the test is simply buggy ;)
-> > > > > > 
-> > > > > > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > > > > > index 41dcbd568cbe2403f2a9e659669afe462a42e228..5394a39fcce964a7fe7075b1531a8a1e05550a54 100644
-> > > > > > --- a/net/ipv4/tcp_input.c
-> > > > > > +++ b/net/ipv4/tcp_input.c
-> > > > > > @@ -164,7 +164,7 @@ static void tcp_measure_rcv_mss(struct sock *sk, const struct sk_buff *skb)
-> > > > > >  	if (len >= icsk->icsk_ack.rcv_mss) {
-> > > > > >  		icsk->icsk_ack.rcv_mss = min_t(unsigned int, len,
-> > > > > >  					       tcp_sk(sk)->advmss);
-> > > > > > -		if (unlikely(icsk->icsk_ack.rcv_mss != len))
-> > > > > > +		if (unlikely(icsk->icsk_ack.rcv_mss != len && skb_is_gso(skb)))
-> > > > > >  			tcp_gro_dev_warn(sk, skb);
-> > > > > >  	} else {
-> > > > > >  		/* Otherwise, we make more careful check taking into account,
-> > > > > 
-> > > > > This wont really help.
-> > > > > 
-> > > > > Our tcp_sk(sk)->advmss can be lower than the MSS used by the remote
-> > > > > peer.
-> > > > > 
-> > > > > ip ro add .... advmss 512
-> > > > 
-> > > > I don't follow. With a good driver, how can advmss be smaller than the
-> > > > MSS used by the remote peer? Even with the route entry above, I get
-> > > > segments just up to advmss, and no warning.
-> > > > 
-> > > 
-> > > A TCP flow has two ends.
-> > 
-> > Indeed, though should be mostly about only one of them.
-> > 
-> > > 
-> > > Common MTU = 1500
-> > > 
-> > > One can have advmss 500, the other one no advmss (or the standard 1460
-> > > one)
-> > 
-> > Considering the rx side of peer A. Peer A advertises a given MSS to peer
-> > B and should not receive any segment from peer B larger than so.
-> > I'm failing to see how advmss can be smaller than the segment size just
-> > received.
-> 
-> tcp_sk(sk)->advmss records what the peer announced during its SYN (or
-> SYNACK) message, in the MSS option.
-> 
-> Nothing prevents the peer to change its mind later.
-> 
-> Eg starting with MSS 512, then switch later to sending packets of 1024
-> or 1400 bytes.
+On 17/02/03 (金) 17:07, Fredrik Markstrom wrote:
+>  ---- On Tue, 31 Jan 2017 17:27:09 +0100 Eric Dumazet <eric.dumazet@gmail.com> wrote ----
+>  > On Tue, 2017-01-31 at 14:32 +0100, Fredrik Markstrom wrote:
+>  > >  ---- On Thu, 19 Jan 2017 19:53:47 +0100 Eric Dumazet <eric.dumazet@gmail.com> wrote ----
+>  > >  > On Thu, 2017-01-19 at 17:41 +0100, Fredrik Markstrom wrote:
+>  > >  > > Hello,
+>  > >  > >
+>  > >  > > I've noticed an inconsistency between how physical ethernet and
+>  > > veth handles mtu.
+>  > >  > >
+>  > >  > > If I setup two physical interfaces (directly connected) with
+>  > > different mtu:s, only the size of the outgoing packets are limited by
+>  > > the mtu. But with veth a packet is dropped if the mtu of the receiving
+>  > > interface is smaller then the packet size.
+>  > >  > >
+>  > >  > > This seems inconsistent to me, but maybe there is a reason for
+>  > > it ?
+>  > >  > >
+>  > >  > > Can someone confirm if it's a deliberate inconsistency or just a
+>  > > side effect of using dev_forward_skb() ?
+>  > >  >
+>  > >  > It looks this was added in commit
+>  > >  > 38d408152a86598a50680a82fe3353b506630409
+>  > >  > ("veth: Allow setting the L3 MTU")
+>  > >  >
+>  > >  > But what was really needed here was a way to change MRU :(
+>  > >
+>  > > Ok, do we consider this correct and/or something we need to be
+>  > > backwards compatible with ? Is it insane to believe that we can fix
+>  > > this "inconsistency" by removing the check ?
+>  > >
+>  > > The commit message reads "For consistency I drop packets on the
+>  > > receive side when they are larger than the MTU", do we know what it's
+>  > > supposed
+>  > > to be consistent with or is that lost in history ?
+>  >
+>  > There is no consistency among existing Ethernet drivers.
+>  >
+>  > Many ethernet drivers size the buffers they post in RX ring buffer
+>  > according to MTU.
+>  >
+>  > If MTU is set to 1500, RX buffers are sized to be about 1536 bytes,
+>  > so you wont be able to receive a 1700 bytes frame.
+>  >
+>  > I guess that you could add a specific veth attribute to precisely
+>  > control MRU, that would not break existing applications.
+>
+> Ok, I will propose a patch shortly. And thanks, your response time is
+> awesome !
 
-Aren't you mixing the endpoints here? MSS is the largest amount of data
-that the peer can receive in a single segment, and not how much it will
-send. For the sending part, that depends on what the other peer
-announced, and we can have 2 different MSS in a single connection, one
-for each peer.
+But why do you want to configure MRU?
+What is the problem with setting MTU instead.
 
-If a peer later wants to send larger segments, it can, but it must
-respect the mss advertised by the other peer during handshake.
-
-> 
-> So the innocent NIC driver is not the problem here.
-> 
-> 
+Toshiaki Makita
