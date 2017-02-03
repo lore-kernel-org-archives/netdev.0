@@ -1,78 +1,59 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCH v2 net-next] bpf: enable verifier to add 0 to packet ptr
-Date: Fri,  3 Feb 2017 09:22:45 -0800
-Message-ID: <1486142565-2794-1-git-send-email-u9012063@gmail.com>
-Cc: Mihai Budiu <mbudiu@vmware.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33415 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750881AbdBCRXG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 12:23:06 -0500
-Received: by mail-pf0-f195.google.com with SMTP id e4so1961720pfg.0
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 09:23:06 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: [PATCH] net: phy: dp83867: Fix for automatically detected PHYs
+Date: Fri, 3 Feb 2017 17:30:59 +0000
+Message-ID: <1486143058.2853.27.camel@synopsys.com>
+References: <20170203165237.22452-1-abrodkin@synopsys.com>
+         <20170203171031.GC15900@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nsekhar@ti.com" <nsekhar@ti.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "m-karicheri2@ti.com" <m-karicheri2@ti.com>,
+        "linux-snps-arc@lists.infradead.org"
+        <linux-snps-arc@lists.infradead.org>,
+        "grygorii.strashko@ti.com" <grygorii.strashko@ti.com>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: "andrew@lunn.ch" <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170203171031.GC15900@lunn.ch>
+Content-Language: en-US
+Content-ID: <4FB9D816B5F6604D8607DB8E26B42005@internal.synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The patch fixes the case when adding a zero value to the packet
-pointer.  The verifer reports the following error:
-  [...]
-    R0=imm0,min_value=0,max_value=0
-    R1=pkt(id=0,off=0,r=4)
-    R2=pkt_end R3=fp-12
-    R4=imm4,min_value=4,max_value=4
-    R5=pkt(id=0,off=4,r=4)
-  269: (bf) r2 = r0	// r2 becomes imm0
-  270: (77) r2 >>= 3
-  271: (bf) r4 = r1	// r4 becomes pkt ptr
-  272: (0f) r4 += r2	// r4 += 0
-  addition of negative constant to packet pointer is not allowed
-
-Signed-off-by: William Tu <u9012063@gmail.com>
-Signed-off-by: Mihai Budiu <mbudiu@vmware.com>
----
- kernel/bpf/verifier.c                       |  2 +-
- tools/testing/selftests/bpf/test_verifier.c | 15 +++++++++++++++
- 2 files changed, 16 insertions(+), 1 deletion(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index fb3513b..1a754e5 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1397,7 +1397,7 @@ static int check_packet_ptr_add(struct bpf_verifier_env *env,
- 		imm = insn->imm;
- 
- add_imm:
--		if (imm <= 0) {
-+		if (imm < 0) {
- 			verbose("addition of negative constant to packet pointer is not allowed\n");
- 			return -EACCES;
- 		}
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 0d0912c..a2b5c7e 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -2404,6 +2404,21 @@ static struct bpf_test tests[] = {
- 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
- 	},
- 	{
-+		"direct packet access: test14 (pkt_ptr += 0, good access)",
-+		.insns = {
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data)),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-+				    offsetof(struct __sk_buff, data_end)),
-+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 0),
-+			BPF_MOV64_IMM(BPF_REG_0, 1),
-+			BPF_EXIT_INSN(),
-+		},
-+		.result = ACCEPT,
-+		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-+	},
-+	{
- 		"helper access to packet: test1, valid packet_ptr range",
- 		.insns = {
- 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
--- 
-2.7.4
+SGkgQW5kcmV3LA0KDQpPbiBGcmksIDIwMTctMDItMDMgYXQgMTg6MTAgKzAxMDAsIEFuZHJldyBM
+dW5uIHdyb3RlOg0KPiBPbiBGcmksIEZlYiAwMywgMjAxNyBhdCAwNzo1MjozN1BNICswMzAwLCBB
+bGV4ZXkgQnJvZGtpbiB3cm90ZToNCj4gPiANCj4gPiBDdXJyZW50IGltcGxlbW50YXRpb24gcmV0
+dXJucyBFTk9ERVYgaWYgZGV2aWNlIHRyZWUgbm9kZSBmb3INCj4gPiBwaHkgaXMgYWJzZW50LiBC
+dXQgaW4gcmVhbGl0eSB0aGVyZSdyZSBtYW55IGJvYXJkcyB3aXRoIHRoZSBvbmUNCj4gPiBhbmQg
+b25seSBQSFkgb24gYm9hcmQgYW5kIE1BQ3MgdGhhdCBtYXkgZmluZCBhIFBIWSBieSBxdWVyeWlu
+Zw0KPiA+IE1ESU8gYnVzLiBPbmUgZ29vZCBleGFtcGxlIGlzIFNUTU1BQy4NCj4gDQo+IEh1bW0s
+IG5vdCBzbyBzdXJlIGFib3V0IHRoYXQuIFRoYXQgY2hlY2sgZm9yIGFuIE9GIG5vZGUgaGFzIGFs
+d2F5cw0KPiBiZWVuIHRoZXJlLCBzaW5jZSBkYXkgb25lIGZvciB0aGlzIGRyaXZlci4NCj4gDQo+
+IFdoYXQgaGFzIGNoYW5nZWQgcmVjZW50bHkgaXMgd2hlcmUgaXQgbG9va3MgZm9yIHRoZXNlIGRl
+dmljZSB0cmVlDQo+IHByb3BlcnRpZXMuIEl0IHVzZWQgdG8gd3JvbmdseSBsb29rIGluIHRoZSBN
+QUMgbm9kZS4gSXQgd2FzIGNoYW5nZWQgdG8NCj4gbG9vayBpbiB0aGUgUEhZIG5vZGUuIFNvIHRo
+aXMgaXMgcHJvYmFibHkgdGhlIHJlYXNvbiB5b3UgYXJlIGhhdmluZw0KPiBwcm9ibGVtcy4NCg0K
+V2VsbCB3ZSBkb24ndCBtZW50aW9uIFBIWSBub2RlIGluIG91ciBkZXZpY2UgdHJlZXMgYmVjYXVz
+ZSB3aXRoDQoxIFBIWSBjb25uZWN0ZWQgdmlhIE1ESU8gYnVzIHRoZXJlJ3Mgbm8gcG9pbnQgaW4g
+c3BlbmRpbmcgZWxlY3Ryb25zDQpvbiBhZGRpbmcgZXh0cmEgc3R1ZmYuIFdlbGwgaW4gY2FzZSBp
+ZiBkZWZhdWx0IHNldHRpbmdzIHdvcmsgZmluZSAtDQp3aGljaCB1cCB1bnRpbCBub3cgd2FzIHRo
+ZSBjYXNlIGZvciB1cy4NCg0KSnVzdCBpbiBjYXNlIHRoYXQncyBhIHR5cGljYWwgZXhhbXBsZToN
+Cmh0dHA6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvdG9ydmFsZHMvbGlu
+dXguZ2l0L3RyZWUvYXJjaC9hcmMvYm9vdC9kdHMvYXhzMTB4X21iLmR0c2kjbjU4DQoNCi0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tPjgtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KCWV0aGVybmV0QDB4
+MTgwMDAgew0KCQkjaW50ZXJydXB0LWNlbGxzID0gPDE+Ow0KCQljb21wYXRpYmxlID0gInNucHMs
+ZHdtYWMiOw0KCQlyZWcgPSA8IDB4MTgwMDAgMHgyMDAwID47DQoJCWludGVycnVwdHMgPSA8IDQg
+PjsNCgkJaW50ZXJydXB0LW5hbWVzID0gIm1hY2lycSI7DQoJCXBoeS1tb2RlID0gInJnbWlpIjsN
+CgkJc25wcyxwYmwgPSA8IDMyID47DQoJCWNsb2NrcyA9IDwmYXBiY2xrPjsNCgkJY2xvY2stbmFt
+ZXMgPSAic3RtbWFjZXRoIjsNCgkJbWF4LXNwZWVkID0gPDEwMD47DQoJfTsNCi0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tPjgtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KDQpUaGlzIGlzIGVzcGVjaWFs
+bHkgbmljZSBiZWNhdXNlIHdlIG1heSBjaGFuZ2UgdGhlIGJhc2UtYm9hcmQgYW5kIHVzZQ0KdGhl
+cmUgYW5vdGhlciBQSFkgYW5kIGFzIGxvbmcgd2UgaGF2ZSBkcml2ZXJzIGZvciBhbGwgcG9zc2li
+bGUgUEhZIGJ1aWx0DQppbiB0aGUga2VybmVsIChvciBhdmFpbGFibGUgdmlhIG1vZHVsZXMpIHBy
+b3BlciBkcml2ZXIgd2lsbCBiZSBpbnN0YW50aWF0ZWQNCmJhc2VkIG9uIFBIWSBJRCByZWFkIGZy
+b20gTURJTy4gSS5lLiBoYXZpbmcgbm8gUEhZIG5vZGUgaW4gRFQgYWRkcyBmbGV4aWJpbGl0eS4N
+Cg0KLUFsZXhleQ==
