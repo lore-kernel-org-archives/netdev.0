@@ -1,273 +1,182 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/27] netfilter: merge udp and udplite conntrack helpers
-Date: Fri,  3 Feb 2017 13:25:12 +0100
-Message-ID: <1486124738-3013-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/27] netfilter: nat: merge udp and udplite helpers
+Date: Fri,  3 Feb 2017 13:25:13 +0100
+Message-ID: <1486124738-3013-3-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58830 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752651AbdBCM2e (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 07:28:34 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 200F0BA70A
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:33 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 052C2DA807
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:33 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id A9D97DA81C
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:30 +0100 (CET)
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-udplite was copied from udp, they are virtually 100% identical.
-
-This adds udplite tracker to udp instead, removes udplite module,
-and then makes the udplite tracker builtin.
-
-udplite will then simply re-use udp timeout settings.
-It makes little sense to add separate sysctls, nowadays we have
-fine-grained timeout policy support via the CT target.
+udplite nat was copied from udp nat, they are virtually 100% identical.
+Not really surprising given udplite is just udp with partial csum coverage.
 
 old:
- text    data     bss     dec     hex filename
- 1633     672       0    2305     901 nf_conntrack_proto_udp.o
- 1756     672       0    2428     97c nf_conntrack_proto_udplite.o
-69526   17937     268   87731   156b3 nf_conntrack.ko
-
+   text    data     bss     dec     hex filename
+  11606    1457     210   13273    33d9 nf_nat.ko
+    330       0       2     332     14c nf_nat_proto_udp.o
+    276       0       2     278     116 nf_nat_proto_udplite.o
 new:
- text    data     bss     dec     hex filename
- 2442    1184       0    3626     e2a nf_conntrack_proto_udp.o
-68565   17721     268   86554   1521a nf_conntrack.ko
+   text    data     bss     dec     hex filename
+  11598    1457     210   13265    33d1 nf_nat.ko
+    640       0       4     644     284 nf_nat_proto_udp.o
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/ipv4/nf_conntrack_ipv4.h |   1 +
- include/net/netfilter/ipv6/nf_conntrack_ipv6.h |   1 +
- include/net/netns/conntrack.h                  |  16 --
- net/netfilter/Makefile                         |   1 -
- net/netfilter/nf_conntrack_proto_udp.c         | 123 ++++++++++
- net/netfilter/nf_conntrack_proto_udplite.c     | 324 -------------------------
- 6 files changed, 125 insertions(+), 341 deletions(-)
- delete mode 100644 net/netfilter/nf_conntrack_proto_udplite.c
+ net/netfilter/Makefile               |  1 -
+ net/netfilter/nf_nat_proto_udp.c     | 78 ++++++++++++++++++++++++++++++------
+ net/netfilter/nf_nat_proto_udplite.c | 73 ---------------------------------
+ 3 files changed, 66 insertions(+), 86 deletions(-)
+ delete mode 100644 net/netfilter/nf_nat_proto_udplite.c
 
-diff --git a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
-index 919e4e8af327..6ff32815641b 100644
---- a/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
-+++ b/include/net/netfilter/ipv4/nf_conntrack_ipv4.h
-@@ -14,6 +14,7 @@ extern struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4;
- 
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4;
-+extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp;
- #ifdef CONFIG_NF_CT_PROTO_DCCP
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_dccp4;
-diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-index eaea968f8657..c59b82456f89 100644
---- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-+++ b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-@@ -5,6 +5,7 @@ extern struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6;
- 
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6;
-+extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite6;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6;
- #ifdef CONFIG_NF_CT_PROTO_DCCP
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_dccp6;
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index cf799fc3fdec..17724c62de97 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -69,19 +69,6 @@ struct nf_sctp_net {
- };
- #endif
- 
--#ifdef CONFIG_NF_CT_PROTO_UDPLITE
--enum udplite_conntrack {
--	UDPLITE_CT_UNREPLIED,
--	UDPLITE_CT_REPLIED,
--	UDPLITE_CT_MAX
--};
--
--struct nf_udplite_net {
--	struct nf_proto_net pn;
--	unsigned int timeouts[UDPLITE_CT_MAX];
--};
--#endif
--
- struct nf_ip_net {
- 	struct nf_generic_net   generic;
- 	struct nf_tcp_net	tcp;
-@@ -94,9 +81,6 @@ struct nf_ip_net {
- #ifdef CONFIG_NF_CT_PROTO_SCTP
- 	struct nf_sctp_net	sctp;
- #endif
--#ifdef CONFIG_NF_CT_PROTO_UDPLITE
--	struct nf_udplite_net	udplite;
--#endif
- };
- 
- struct ct_pcpu {
 diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index ca30d1960f1d..bf5c577113b6 100644
+index bf5c577113b6..6b3034f12661 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
-@@ -7,7 +7,6 @@ nf_conntrack-$(CONFIG_NF_CONNTRACK_EVENTS) += nf_conntrack_ecache.o
- nf_conntrack-$(CONFIG_NF_CONNTRACK_LABELS) += nf_conntrack_labels.o
- nf_conntrack-$(CONFIG_NF_CT_PROTO_DCCP) += nf_conntrack_proto_dccp.o
- nf_conntrack-$(CONFIG_NF_CT_PROTO_SCTP) += nf_conntrack_proto_sctp.o
--nf_conntrack-$(CONFIG_NF_CT_PROTO_UDPLITE) += nf_conntrack_proto_udplite.o
+@@ -46,7 +46,6 @@ nf_nat-y	:= nf_nat_core.o nf_nat_proto_unknown.o nf_nat_proto_common.o \
+ # NAT protocols (nf_nat)
+ nf_nat-$(CONFIG_NF_NAT_PROTO_DCCP) += nf_nat_proto_dccp.o
+ nf_nat-$(CONFIG_NF_NAT_PROTO_SCTP) += nf_nat_proto_sctp.o
+-nf_nat-$(CONFIG_NF_NAT_PROTO_UDPLITE) += nf_nat_proto_udplite.o
  
- obj-$(CONFIG_NETFILTER) = netfilter.o
+ # generic transport layer logging
+ obj-$(CONFIG_NF_LOG_COMMON) += nf_log_common.o
+diff --git a/net/netfilter/nf_nat_proto_udp.c b/net/netfilter/nf_nat_proto_udp.c
+index b1e627227b6e..edd4a77dc09a 100644
+--- a/net/netfilter/nf_nat_proto_udp.c
++++ b/net/netfilter/nf_nat_proto_udp.c
+@@ -30,20 +30,15 @@ udp_unique_tuple(const struct nf_nat_l3proto *l3proto,
+ 				    &udp_port_rover);
+ }
  
-diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index 20f35ed68030..ae63944c9dc4 100644
---- a/net/netfilter/nf_conntrack_proto_udp.c
-+++ b/net/netfilter/nf_conntrack_proto_udp.c
-@@ -108,6 +108,59 @@ static bool udp_new(struct nf_conn *ct, const struct sk_buff *skb,
+-static bool
+-udp_manip_pkt(struct sk_buff *skb,
+-	      const struct nf_nat_l3proto *l3proto,
+-	      unsigned int iphdroff, unsigned int hdroff,
+-	      const struct nf_conntrack_tuple *tuple,
+-	      enum nf_nat_manip_type maniptype)
++static void
++__udp_manip_pkt(struct sk_buff *skb,
++	        const struct nf_nat_l3proto *l3proto,
++	        unsigned int iphdroff, struct udphdr *hdr,
++	        const struct nf_conntrack_tuple *tuple,
++	        enum nf_nat_manip_type maniptype, bool do_csum)
+ {
+-	struct udphdr *hdr;
+ 	__be16 *portptr, newport;
+ 
+-	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
+-		return false;
+-	hdr = (struct udphdr *)(skb->data + hdroff);
+-
+ 	if (maniptype == NF_NAT_MANIP_SRC) {
+ 		/* Get rid of src port */
+ 		newport = tuple->src.u.udp.port;
+@@ -53,7 +48,7 @@ udp_manip_pkt(struct sk_buff *skb,
+ 		newport = tuple->dst.u.udp.port;
+ 		portptr = &hdr->dest;
+ 	}
+-	if (hdr->check || skb->ip_summed == CHECKSUM_PARTIAL) {
++	if (do_csum) {
+ 		l3proto->csum_update(skb, iphdroff, &hdr->check,
+ 				     tuple, maniptype);
+ 		inet_proto_csum_replace2(&hdr->check, skb, *portptr, newport,
+@@ -62,9 +57,68 @@ udp_manip_pkt(struct sk_buff *skb,
+ 			hdr->check = CSUM_MANGLED_0;
+ 	}
+ 	*portptr = newport;
++}
++
++static bool udp_manip_pkt(struct sk_buff *skb,
++			  const struct nf_nat_l3proto *l3proto,
++			  unsigned int iphdroff, unsigned int hdroff,
++			  const struct nf_conntrack_tuple *tuple,
++			  enum nf_nat_manip_type maniptype)
++{
++	struct udphdr *hdr;
++	bool do_csum;
++
++	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
++		return false;
++
++	hdr = (struct udphdr *)(skb->data + hdroff);
++	do_csum = hdr->check || skb->ip_summed == CHECKSUM_PARTIAL;
++
++	__udp_manip_pkt(skb, l3proto, iphdroff, hdr, tuple, maniptype, do_csum);
++	return true;
++}
++
++#ifdef CONFIG_NF_NAT_PROTO_UDPLITE
++static u16 udplite_port_rover;
++
++static bool udplite_manip_pkt(struct sk_buff *skb,
++			      const struct nf_nat_l3proto *l3proto,
++			      unsigned int iphdroff, unsigned int hdroff,
++			      const struct nf_conntrack_tuple *tuple,
++			      enum nf_nat_manip_type maniptype)
++{
++	struct udphdr *hdr;
++
++	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
++		return false;
++
++	hdr = (struct udphdr *)(skb->data + hdroff);
++	__udp_manip_pkt(skb, l3proto, iphdroff, hdr, tuple, maniptype, true);
  	return true;
  }
  
-+#ifdef CONFIG_NF_CT_PROTO_UDPLITE
-+static int udplite_error(struct net *net, struct nf_conn *tmpl,
-+			 struct sk_buff *skb,
-+			 unsigned int dataoff,
-+			 enum ip_conntrack_info *ctinfo,
-+			 u8 pf, unsigned int hooknum)
++static void
++udplite_unique_tuple(const struct nf_nat_l3proto *l3proto,
++		     struct nf_conntrack_tuple *tuple,
++		     const struct nf_nat_range *range,
++		     enum nf_nat_manip_type maniptype,
++		     const struct nf_conn *ct)
 +{
-+	unsigned int udplen = skb->len - dataoff;
-+	const struct udphdr *hdr;
-+	struct udphdr _hdr;
-+	unsigned int cscov;
-+
-+	/* Header is too small? */
-+	hdr = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
-+	if (!hdr) {
-+		if (LOG_INVALID(net, IPPROTO_UDPLITE))
-+			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
-+				      "nf_ct_udplite: short packet ");
-+		return -NF_ACCEPT;
-+	}
-+
-+	cscov = ntohs(hdr->len);
-+	if (cscov == 0) {
-+		cscov = udplen;
-+	} else if (cscov < sizeof(*hdr) || cscov > udplen) {
-+		if (LOG_INVALID(net, IPPROTO_UDPLITE))
-+			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
-+				      "nf_ct_udplite: invalid checksum coverage ");
-+		return -NF_ACCEPT;
-+	}
-+
-+	/* UDPLITE mandates checksums */
-+	if (!hdr->check) {
-+		if (LOG_INVALID(net, IPPROTO_UDPLITE))
-+			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
-+				      "nf_ct_udplite: checksum missing ");
-+		return -NF_ACCEPT;
-+	}
-+
-+	/* Checksum invalid? Ignore. */
-+	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
-+	    nf_checksum_partial(skb, hooknum, dataoff, cscov, IPPROTO_UDP,
-+				pf)) {
-+		if (LOG_INVALID(net, IPPROTO_UDPLITE))
-+			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
-+				      "nf_ct_udplite: bad UDPLite checksum ");
-+		return -NF_ACCEPT;
-+	}
-+
-+	return NF_ACCEPT;
++	nf_nat_l4proto_unique_tuple(l3proto, tuple, range, maniptype, ct,
++				    &udplite_port_rover);
 +}
-+#endif
 +
- static int udp_error(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
- 		     unsigned int dataoff, enum ip_conntrack_info *ctinfo,
- 		     u_int8_t pf,
-@@ -290,6 +343,41 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 __read_mostly =
- };
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp4);
- 
-+#ifdef CONFIG_NF_CT_PROTO_UDPLITE
-+struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
-+{
-+	.l3proto		= PF_INET,
++const struct nf_nat_l4proto nf_nat_l4proto_udplite = {
 +	.l4proto		= IPPROTO_UDPLITE,
-+	.name			= "udplite",
-+	.allow_clash		= true,
-+	.pkt_to_tuple		= udp_pkt_to_tuple,
-+	.invert_tuple		= udp_invert_tuple,
-+	.print_tuple		= udp_print_tuple,
-+	.packet			= udp_packet,
-+	.get_timeouts		= udp_get_timeouts,
-+	.new			= udp_new,
-+	.error			= udplite_error,
++	.manip_pkt		= udplite_manip_pkt,
++	.in_range		= nf_nat_l4proto_in_range,
++	.unique_tuple		= udplite_unique_tuple,
 +#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
-+	.tuple_to_nlattr	= nf_ct_port_tuple_to_nlattr,
-+	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
-+	.nlattr_tuple_size	= nf_ct_port_nlattr_tuple_size,
-+	.nla_policy		= nf_ct_port_nla_policy,
++	.nlattr_to_range	= nf_nat_l4proto_nlattr_to_range,
 +#endif
-+#if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
-+	.ctnl_timeout		= {
-+		.nlattr_to_obj	= udp_timeout_nlattr_to_obj,
-+		.obj_to_nlattr	= udp_timeout_obj_to_nlattr,
-+		.nlattr_max	= CTA_TIMEOUT_UDP_MAX,
-+		.obj_size	= sizeof(unsigned int) * CTA_TIMEOUT_UDP_MAX,
-+		.nla_policy	= udp_timeout_nla_policy,
-+	},
-+#endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
-+	.init_net		= udp_init_net,
-+	.get_net_proto		= udp_get_net_proto,
 +};
-+EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udplite4);
-+#endif
++#endif /* CONFIG_NF_NAT_PROTO_UDPLITE */
 +
- struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
- {
- 	.l3proto		= PF_INET6,
-@@ -322,3 +410,38 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 __read_mostly =
- 	.get_net_proto		= udp_get_net_proto,
- };
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udp6);
-+
-+#ifdef CONFIG_NF_CT_PROTO_UDPLITE
-+struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite6 __read_mostly =
-+{
-+	.l3proto		= PF_INET6,
-+	.l4proto		= IPPROTO_UDPLITE,
-+	.name			= "udplite",
-+	.allow_clash		= true,
-+	.pkt_to_tuple		= udp_pkt_to_tuple,
-+	.invert_tuple		= udp_invert_tuple,
-+	.print_tuple		= udp_print_tuple,
-+	.packet			= udp_packet,
-+	.get_timeouts		= udp_get_timeouts,
-+	.new			= udp_new,
-+	.error			= udplite_error,
-+#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
-+	.tuple_to_nlattr	= nf_ct_port_tuple_to_nlattr,
-+	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
-+	.nlattr_tuple_size	= nf_ct_port_nlattr_tuple_size,
-+	.nla_policy		= nf_ct_port_nla_policy,
-+#endif
-+#if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
-+	.ctnl_timeout		= {
-+		.nlattr_to_obj	= udp_timeout_nlattr_to_obj,
-+		.obj_to_nlattr	= udp_timeout_obj_to_nlattr,
-+		.nlattr_max	= CTA_TIMEOUT_UDP_MAX,
-+		.obj_size	= sizeof(unsigned int) * CTA_TIMEOUT_UDP_MAX,
-+		.nla_policy	= udp_timeout_nla_policy,
-+	},
-+#endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
-+	.init_net		= udp_init_net,
-+	.get_net_proto		= udp_get_net_proto,
-+};
-+EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udplite6);
-+#endif
-diff --git a/net/netfilter/nf_conntrack_proto_udplite.c b/net/netfilter/nf_conntrack_proto_udplite.c
+ const struct nf_nat_l4proto nf_nat_l4proto_udp = {
+ 	.l4proto		= IPPROTO_UDP,
+ 	.manip_pkt		= udp_manip_pkt,
+diff --git a/net/netfilter/nf_nat_proto_udplite.c b/net/netfilter/nf_nat_proto_udplite.c
 deleted file mode 100644
-index c35f7bf05d8c..000000000000
---- a/net/netfilter/nf_conntrack_proto_udplite.c
+index 366bfbfd82a1..000000000000
+--- a/net/netfilter/nf_nat_proto_udplite.c
 +++ /dev/null
-@@ -1,324 +0,0 @@
+@@ -1,73 +0,0 @@
 -/* (C) 1999-2001 Paul `Rusty' Russell
-- * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
-- * (C) 2007 Patrick McHardy <kaber@trash.net>
+- * (C) 2002-2006 Netfilter Core Team <coreteam@netfilter.org>
+- * (C) 2008 Patrick McHardy <kaber@trash.net>
 - *
 - * This program is free software; you can redistribute it and/or modify
 - * it under the terms of the GNU General Public License version 2 as
@@ -275,320 +184,68 @@ index c35f7bf05d8c..000000000000
 - */
 -
 -#include <linux/types.h>
--#include <linux/timer.h>
 -#include <linux/udp.h>
--#include <linux/seq_file.h>
--#include <linux/skbuff.h>
--#include <linux/ipv6.h>
--#include <net/ip6_checksum.h>
--#include <net/checksum.h>
 -
 -#include <linux/netfilter.h>
--#include <linux/netfilter_ipv4.h>
--#include <linux/netfilter_ipv6.h>
--#include <net/netfilter/nf_conntrack_l4proto.h>
--#include <net/netfilter/nf_conntrack_ecache.h>
--#include <net/netfilter/nf_log.h>
+-#include <net/netfilter/nf_nat.h>
+-#include <net/netfilter/nf_nat_l3proto.h>
+-#include <net/netfilter/nf_nat_l4proto.h>
 -
--static unsigned int udplite_timeouts[UDPLITE_CT_MAX] = {
--	[UDPLITE_CT_UNREPLIED]	= 30*HZ,
--	[UDPLITE_CT_REPLIED]	= 180*HZ,
--};
+-static u16 udplite_port_rover;
 -
--static inline struct nf_udplite_net *udplite_pernet(struct net *net)
+-static void
+-udplite_unique_tuple(const struct nf_nat_l3proto *l3proto,
+-		     struct nf_conntrack_tuple *tuple,
+-		     const struct nf_nat_range *range,
+-		     enum nf_nat_manip_type maniptype,
+-		     const struct nf_conn *ct)
 -{
--	return &net->ct.nf_ct_proto.udplite;
+-	nf_nat_l4proto_unique_tuple(l3proto, tuple, range, maniptype, ct,
+-				    &udplite_port_rover);
 -}
 -
--static bool udplite_pkt_to_tuple(const struct sk_buff *skb,
--				 unsigned int dataoff,
--				 struct net *net,
--				 struct nf_conntrack_tuple *tuple)
+-static bool
+-udplite_manip_pkt(struct sk_buff *skb,
+-		  const struct nf_nat_l3proto *l3proto,
+-		  unsigned int iphdroff, unsigned int hdroff,
+-		  const struct nf_conntrack_tuple *tuple,
+-		  enum nf_nat_manip_type maniptype)
 -{
--	const struct udphdr *hp;
--	struct udphdr _hdr;
+-	struct udphdr *hdr;
+-	__be16 *portptr, newport;
 -
--	/* Actually only need first 4 bytes to get ports. */
--	hp = skb_header_pointer(skb, dataoff, 4, &_hdr);
--	if (hp == NULL)
+-	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
 -		return false;
 -
--	tuple->src.u.udp.port = hp->source;
--	tuple->dst.u.udp.port = hp->dest;
--	return true;
--}
+-	hdr = (struct udphdr *)(skb->data + hdroff);
 -
--static bool udplite_invert_tuple(struct nf_conntrack_tuple *tuple,
--				 const struct nf_conntrack_tuple *orig)
--{
--	tuple->src.u.udp.port = orig->dst.u.udp.port;
--	tuple->dst.u.udp.port = orig->src.u.udp.port;
--	return true;
--}
--
--/* Print out the per-protocol part of the tuple. */
--static void udplite_print_tuple(struct seq_file *s,
--				const struct nf_conntrack_tuple *tuple)
--{
--	seq_printf(s, "sport=%hu dport=%hu ",
--		   ntohs(tuple->src.u.udp.port),
--		   ntohs(tuple->dst.u.udp.port));
--}
--
--static unsigned int *udplite_get_timeouts(struct net *net)
--{
--	return udplite_pernet(net)->timeouts;
--}
--
--/* Returns verdict for packet, and may modify conntracktype */
--static int udplite_packet(struct nf_conn *ct,
--			  const struct sk_buff *skb,
--			  unsigned int dataoff,
--			  enum ip_conntrack_info ctinfo,
--			  u_int8_t pf,
--			  unsigned int hooknum,
--			  unsigned int *timeouts)
--{
--	/* If we've seen traffic both ways, this is some kind of UDP
--	   stream.  Extend timeout. */
--	if (test_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
--		nf_ct_refresh_acct(ct, ctinfo, skb,
--				   timeouts[UDPLITE_CT_REPLIED]);
--		/* Also, more likely to be important, and not a probe */
--		if (!test_and_set_bit(IPS_ASSURED_BIT, &ct->status))
--			nf_conntrack_event_cache(IPCT_ASSURED, ct);
+-	if (maniptype == NF_NAT_MANIP_SRC) {
+-		/* Get rid of source port */
+-		newport = tuple->src.u.udp.port;
+-		portptr = &hdr->source;
 -	} else {
--		nf_ct_refresh_acct(ct, ctinfo, skb,
--				   timeouts[UDPLITE_CT_UNREPLIED]);
+-		/* Get rid of dst port */
+-		newport = tuple->dst.u.udp.port;
+-		portptr = &hdr->dest;
 -	}
--	return NF_ACCEPT;
--}
 -
--/* Called when a new connection for this protocol found. */
--static bool udplite_new(struct nf_conn *ct, const struct sk_buff *skb,
--			unsigned int dataoff, unsigned int *timeouts)
--{
+-	l3proto->csum_update(skb, iphdroff, &hdr->check, tuple, maniptype);
+-	inet_proto_csum_replace2(&hdr->check, skb, *portptr, newport, false);
+-	if (!hdr->check)
+-		hdr->check = CSUM_MANGLED_0;
+-
+-	*portptr = newport;
 -	return true;
 -}
 -
--static int udplite_error(struct net *net, struct nf_conn *tmpl,
--			 struct sk_buff *skb,
--			 unsigned int dataoff,
--			 enum ip_conntrack_info *ctinfo,
--			 u_int8_t pf,
--			 unsigned int hooknum)
--{
--	unsigned int udplen = skb->len - dataoff;
--	const struct udphdr *hdr;
--	struct udphdr _hdr;
--	unsigned int cscov;
--
--	/* Header is too small? */
--	hdr = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
--	if (hdr == NULL) {
--		if (LOG_INVALID(net, IPPROTO_UDPLITE))
--			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
--				      "nf_ct_udplite: short packet ");
--		return -NF_ACCEPT;
--	}
--
--	cscov = ntohs(hdr->len);
--	if (cscov == 0)
--		cscov = udplen;
--	else if (cscov < sizeof(*hdr) || cscov > udplen) {
--		if (LOG_INVALID(net, IPPROTO_UDPLITE))
--			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
--				"nf_ct_udplite: invalid checksum coverage ");
--		return -NF_ACCEPT;
--	}
--
--	/* UDPLITE mandates checksums */
--	if (!hdr->check) {
--		if (LOG_INVALID(net, IPPROTO_UDPLITE))
--			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
--				      "nf_ct_udplite: checksum missing ");
--		return -NF_ACCEPT;
--	}
--
--	/* Checksum invalid? Ignore. */
--	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
--	    nf_checksum_partial(skb, hooknum, dataoff, cscov, IPPROTO_UDP,
--	    			pf)) {
--		if (LOG_INVALID(net, IPPROTO_UDPLITE))
--			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
--				      "nf_ct_udplite: bad UDPLite checksum ");
--		return -NF_ACCEPT;
--	}
--
--	return NF_ACCEPT;
--}
--
--#if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
--
--#include <linux/netfilter/nfnetlink.h>
--#include <linux/netfilter/nfnetlink_cttimeout.h>
--
--static int udplite_timeout_nlattr_to_obj(struct nlattr *tb[],
--					 struct net *net, void *data)
--{
--	unsigned int *timeouts = data;
--	struct nf_udplite_net *un = udplite_pernet(net);
--
--	/* set default timeouts for UDPlite. */
--	timeouts[UDPLITE_CT_UNREPLIED] = un->timeouts[UDPLITE_CT_UNREPLIED];
--	timeouts[UDPLITE_CT_REPLIED] = un->timeouts[UDPLITE_CT_REPLIED];
--
--	if (tb[CTA_TIMEOUT_UDPLITE_UNREPLIED]) {
--		timeouts[UDPLITE_CT_UNREPLIED] =
--		  ntohl(nla_get_be32(tb[CTA_TIMEOUT_UDPLITE_UNREPLIED])) * HZ;
--	}
--	if (tb[CTA_TIMEOUT_UDPLITE_REPLIED]) {
--		timeouts[UDPLITE_CT_REPLIED] =
--		  ntohl(nla_get_be32(tb[CTA_TIMEOUT_UDPLITE_REPLIED])) * HZ;
--	}
--	return 0;
--}
--
--static int
--udplite_timeout_obj_to_nlattr(struct sk_buff *skb, const void *data)
--{
--	const unsigned int *timeouts = data;
--
--	if (nla_put_be32(skb, CTA_TIMEOUT_UDPLITE_UNREPLIED,
--			 htonl(timeouts[UDPLITE_CT_UNREPLIED] / HZ)) ||
--	    nla_put_be32(skb, CTA_TIMEOUT_UDPLITE_REPLIED,
--			 htonl(timeouts[UDPLITE_CT_REPLIED] / HZ)))
--		goto nla_put_failure;
--	return 0;
--
--nla_put_failure:
--	return -ENOSPC;
--}
--
--static const struct nla_policy
--udplite_timeout_nla_policy[CTA_TIMEOUT_UDPLITE_MAX+1] = {
--	[CTA_TIMEOUT_UDPLITE_UNREPLIED]	= { .type = NLA_U32 },
--	[CTA_TIMEOUT_UDPLITE_REPLIED]	= { .type = NLA_U32 },
--};
--#endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
--
--#ifdef CONFIG_SYSCTL
--static struct ctl_table udplite_sysctl_table[] = {
--	{
--		.procname	= "nf_conntrack_udplite_timeout",
--		.maxlen		= sizeof(unsigned int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "nf_conntrack_udplite_timeout_stream",
--		.maxlen		= sizeof(unsigned int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{ }
--};
--#endif /* CONFIG_SYSCTL */
--
--static int udplite_kmemdup_sysctl_table(struct nf_proto_net *pn,
--					struct nf_udplite_net *un)
--{
--#ifdef CONFIG_SYSCTL
--	if (pn->ctl_table)
--		return 0;
--
--	pn->ctl_table = kmemdup(udplite_sysctl_table,
--				sizeof(udplite_sysctl_table),
--				GFP_KERNEL);
--	if (!pn->ctl_table)
--		return -ENOMEM;
--
--	pn->ctl_table[0].data = &un->timeouts[UDPLITE_CT_UNREPLIED];
--	pn->ctl_table[1].data = &un->timeouts[UDPLITE_CT_REPLIED];
--#endif
--	return 0;
--}
--
--static int udplite_init_net(struct net *net, u_int16_t proto)
--{
--	struct nf_udplite_net *un = udplite_pernet(net);
--	struct nf_proto_net *pn = &un->pn;
--
--	if (!pn->users) {
--		int i;
--
--		for (i = 0 ; i < UDPLITE_CT_MAX; i++)
--			un->timeouts[i] = udplite_timeouts[i];
--	}
--
--	return udplite_kmemdup_sysctl_table(pn, un);
--}
--
--struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite4 __read_mostly =
--{
--	.l3proto		= PF_INET,
+-const struct nf_nat_l4proto nf_nat_l4proto_udplite = {
 -	.l4proto		= IPPROTO_UDPLITE,
--	.name			= "udplite",
--	.allow_clash		= true,
--	.pkt_to_tuple		= udplite_pkt_to_tuple,
--	.invert_tuple		= udplite_invert_tuple,
--	.print_tuple		= udplite_print_tuple,
--	.packet			= udplite_packet,
--	.get_timeouts		= udplite_get_timeouts,
--	.new			= udplite_new,
--	.error			= udplite_error,
+-	.manip_pkt		= udplite_manip_pkt,
+-	.in_range		= nf_nat_l4proto_in_range,
+-	.unique_tuple		= udplite_unique_tuple,
 -#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
--	.tuple_to_nlattr	= nf_ct_port_tuple_to_nlattr,
--	.nlattr_tuple_size	= nf_ct_port_nlattr_tuple_size,
--	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
--	.nla_policy		= nf_ct_port_nla_policy,
+-	.nlattr_to_range	= nf_nat_l4proto_nlattr_to_range,
 -#endif
--#if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
--	.ctnl_timeout		= {
--		.nlattr_to_obj	= udplite_timeout_nlattr_to_obj,
--		.obj_to_nlattr	= udplite_timeout_obj_to_nlattr,
--		.nlattr_max	= CTA_TIMEOUT_UDPLITE_MAX,
--		.obj_size	= sizeof(unsigned int) *
--					CTA_TIMEOUT_UDPLITE_MAX,
--		.nla_policy	= udplite_timeout_nla_policy,
--	},
--#endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
--	.init_net		= udplite_init_net,
 -};
--EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udplite4);
--
--struct nf_conntrack_l4proto nf_conntrack_l4proto_udplite6 __read_mostly =
--{
--	.l3proto		= PF_INET6,
--	.l4proto		= IPPROTO_UDPLITE,
--	.name			= "udplite",
--	.allow_clash		= true,
--	.pkt_to_tuple		= udplite_pkt_to_tuple,
--	.invert_tuple		= udplite_invert_tuple,
--	.print_tuple		= udplite_print_tuple,
--	.packet			= udplite_packet,
--	.get_timeouts		= udplite_get_timeouts,
--	.new			= udplite_new,
--	.error			= udplite_error,
--#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
--	.tuple_to_nlattr	= nf_ct_port_tuple_to_nlattr,
--	.nlattr_tuple_size	= nf_ct_port_nlattr_tuple_size,
--	.nlattr_to_tuple	= nf_ct_port_nlattr_to_tuple,
--	.nla_policy		= nf_ct_port_nla_policy,
--#endif
--#if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
--	.ctnl_timeout		= {
--		.nlattr_to_obj	= udplite_timeout_nlattr_to_obj,
--		.obj_to_nlattr	= udplite_timeout_obj_to_nlattr,
--		.nlattr_max	= CTA_TIMEOUT_UDPLITE_MAX,
--		.obj_size	= sizeof(unsigned int) *
--					CTA_TIMEOUT_UDPLITE_MAX,
--		.nla_policy	= udplite_timeout_nla_policy,
--	},
--#endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
--	.init_net		= udplite_init_net,
--};
--EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_udplite6);
 -- 
 2.1.4
-
