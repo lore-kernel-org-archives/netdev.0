@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: phy: marvell: Add support for 88e1545 PHY
-Date: Thu, 02 Feb 2017 22:05:38 -0500 (EST)
-Message-ID: <20170202.220538.96068843122164442.davem@davemloft.net>
-References: <1485992103-23331-1-git-send-email-andrew@lunn.ch>
+Subject: Re: [PATCHv2 net-next 0/2] MV88E6390 fixes
+Date: Thu, 02 Feb 2017 22:07:02 -0500 (EST)
+Message-ID: <20170202.220702.80320186945989587.davem@davemloft.net>
+References: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
 To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38428 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38526 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751867AbdBCDFk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 22:05:40 -0500
-In-Reply-To: <1485992103-23331-1-git-send-email-andrew@lunn.ch>
+        with ESMTP id S1751867AbdBCDHD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 22:07:03 -0500
+In-Reply-To: <1485992776-23750-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andrew Lunn <andrew@lunn.ch>
-Date: Thu,  2 Feb 2017 00:35:03 +0100
+Date: Thu,  2 Feb 2017 00:46:14 +0100
 
-> The 88e1545 PHYs are discrete Marvell PHYs, found in a quad package on
-> the zii-devel-b board. Add support for it to the Marvell PHY driver.
+> Two patches, which have been posted before. Fix simple issues in the
+> mv88e6390 support. These don't need to go to stable, since the
+> mv88e6390 support in stable is insufficient to be usable.
 > 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> To apply cleanly, these patches rely on "net: dsa: mv88e6xxx:
+> Workaround missing PHY".
+> 
+> v2: Added Reviewed-by.
+>     Removed a redundant "the"
 
-Applied.
+Series applied, thanks Andrew.
