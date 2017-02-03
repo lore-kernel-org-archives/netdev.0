@@ -1,35 +1,138 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC PATCH net-next 1/2] bpf: Save original ebpf instructions
-Date: Fri, 03 Feb 2017 22:09:46 +0100
-Message-ID: <5894F19A.60305@iogearbox.net>
-References: <1486154303-32278-1-git-send-email-dsa@cumulusnetworks.com> <1486154303-32278-2-git-send-email-dsa@cumulusnetworks.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
+Date: Sat, 04 Feb 2017 10:06:41 +1300
+Message-ID: <8737fvt25a.fsf@xmission.com>
+References: <1485401274-2836524-1-git-send-email-ast@fb.com>
+        <87efzq8jbi.fsf@xmission.com> <588995DE.9040707@fb.com>
+        <CALCETrXQ8JFV28xU7tnh3tVbe_mp5yOtHp6shi10GMNnVCQowg@mail.gmail.com>
+        <588A35F8.6050909@fb.com>
+        <CALCETrU7FYz=8c2a=FWvvCxFQC3_e0nYjSU6gj62w9K8mWj=Ww@mail.gmail.com>
+        <588A40D7.9070603@fb.com>
+        <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
+        <588A4D3C.9070601@fb.com> <87r33fevva.fsf@xmission.com>
+        <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37832 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752530AbdBCVJ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:09:59 -0500
-In-Reply-To: <1486154303-32278-2-git-send-email-dsa@cumulusnetworks.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:56348 "EHLO
+        out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752478AbdBCVLP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:11:15 -0500
+In-Reply-To: <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
+        (Andy Lutomirski's message of "Fri, 3 Feb 2017 13:00:47 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2017 09:38 PM, David Ahern wrote:
-> Similar to classic bpf, support saving original ebpf instructions
+Andy Lutomirski <luto@amacapital.net> writes:
+
+> On Thu, Feb 2, 2017 at 8:33 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>> Alexei Starovoitov <ast@fb.com> writes:
+>>
+>>> On 1/26/17 11:07 AM, Andy Lutomirski wrote:
+>>>> On Thu, Jan 26, 2017 at 10:32 AM, Alexei Starovoitov <ast@fb.com> wrote:
+>>>>> On 1/26/17 10:12 AM, Andy Lutomirski wrote:
+>>>>>>
+>>>>>> On Thu, Jan 26, 2017 at 9:46 AM, Alexei Starovoitov <ast@fb.com> wrote:
+>>>>>>>
+>>>>>>> On 1/26/17 8:37 AM, Andy Lutomirski wrote:
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> Think of bpf programs as safe kernel modules. They don't have
+>>>>>>>>> confined boundaries and program authors, if not careful, can shoot
+>>>>>>>>> themselves in the foot. We're not trying to prevent that because
+>>>>>>>>> it's impossible to check that the program is sane. Just like
+>>>>>>>>> it's impossible to check that kernel module is sane.
+>>>>>>>>> But in case of bpf we check that bpf program is _safe_ from the kernel
+>>>>>>>>> point of view. If it's doing some garbage, it's program's business.
+>>>>>>>>> Does it make more sense now?
+>>>>>>>>>
+>>>>>>>>
+>>>>>>>> With all due respect, I think this is not an acceptable way to think
+>>>>>>>> about BPF at all.  If you think of BPF this way, I think there needs
+>>>>>>>> to be a real discussion at KS or similar as to whether this is okay.
+>>>>>>>> The reason is simple: the kernel promises a stable ABI to userspace
+>>>>>>>> but not to kernel modules.  By thinking of BPF as more like a module,
+>>>>>>>> you're taking a big shortcut that will either result in ABI breakage
+>>>>>>>> down the road or in committing to a problematic stable ABI.
+>>>>>>>
+>>>>>>>
+>>>>>>>
+>>>>>>> you misunderstood the analogy.
+>>>>>>> bpf abi is certainly stable. that's why we were careful of not
+>>>>>>> exposing anything to it that is not already stable.
+>>>>>>>
+>>>>>>
+>>>>>> In that case I don't understand what you're trying to say.  Eric
+>>>>>> thinks your patch exposes a bad interface.  A bad interface for
+>>>>>> userspace is a very different thing from a bad interface available to
+>>>>>> kernel modules.  Are you saying that BPF is kernel-module-like in that
+>>>>>> the ABI exposed to BPF programs doesn't need to meet the same quality
+>>>>>> standards as userspace ABIs?
+>>>>>
+>>>>>
+>>>>> of course not.
+>>>>> ns.inum is already exposed to user space as a value.
+>>>>> This patch exposes it to bpf program in a convenient and stable way,
+>>>>
+>>>> Here's what I'm imaging Eric is thinking:
+>>>>
+>>>> ns.inum is currently exposed to userspace via procfs.  In principle,
+>>>> the value could be local to a namespace, though, which would enable
+>>>> CRIU to be able to preserve namespace inode numbers across a
+>>>> checkpoint+restore operation.  If this happened, the contained and
+>>>> restored procfs would see a different inode number than the outermost
+>>>> procfs.
+>>>
+>>> sure. there are many different ways for the program to see inode
+>>> that either was already reused or disappeared.
+>>> What I'm saying that it is expected. We cannot prevent that from
+>>> bpf side. Just like ifindex value read by the program can be bogus
+>>> as in the example I just provided.
+>>
+>> The point is that we can make the inode number stable across migration
+>> and the user space API for namespaces has been designed with that
+>> possibility in mind.
 >
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> How does it help if BPF starts exposing both inode number and device
+> number?
 
-Not convinced that this is in the right direction, this not only *significantly*
-increases mem footprint for each and every program, but also when you dump this,
-then map references from relocs inside the insns are meaningless (f.e. what about
-prog arrays used in tail calls?), so things like criu also won't be able to use
-this kind of interface for dump and restore. If it's just for debugging, then
-why not extend the existing tracing infrastructure around bpf that was started
-with intention to gain more visibility.
+Adding the device number comparison helps in that it is explicit what is
+being compared against.  That gives me at least a bit of a namespace
+for the namespaces, and a program from a sufficiently wrong context will
+have it's comparisons fail rather than having a match.
 
-Thanks,
-Daniel
+I think the operation that is exported in the BPF should be a full
+comparison operation of device and inode number so that it could be
+optimized/compiled to something else depending upon the context.
+
+AKA the compilation of the bpf program would have the opportunity to
+remove the namespace dependency and make the program work in a global
+context.  So we don't have to carry namespace information around at run
+time.
+
+> ISTM any ability to migrate namespaces and to migrate eBPF programs
+> that know about namespaces needs to have the eBPF program firmly
+> rooted in some namespace (or perhaps cgroup in this case) so that it
+> can see a namespaced view of the world.  For this to work, presumably
+> we need to make sure that eBPF programs that are installed by programs
+> that are in a container don't see traffic that isn't in that
+> container.  This is part of why I think that we should consider
+> preventing programs that aren't in the root namespace (perhaps *all*
+> the root namespaces) from installing bpf+cgroup programs in the first
+> place until there's a clearer understanding of how this all fits
+> together.
+
+Andy I agree.  At least to the point those programs are
+reading attributes that are in a namespace.  Something that should be
+straight forward to verify in the bpf checker when installing the
+program.
+
+Eric
