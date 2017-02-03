@@ -1,92 +1,44 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH RFC net-next 4/4] bridge: add ability to turn off fdb used
- updates
-Date: Fri, 3 Feb 2017 23:27:20 +0100
-Message-ID: <511809bf-0a48-3daf-51b7-148510419503@cumulusnetworks.com>
-References: <1485876718-18091-1-git-send-email-nikolay@cumulusnetworks.com>
- <1485876718-18091-5-git-send-email-nikolay@cumulusnetworks.com>
- <20170202.214737.1978812863222769540.davem@davemloft.net>
- <45f588fd-bece-647c-5b1e-2c64975e640d@cumulusnetworks.com>
- <20170203102825.363907ae@xeon-e3>
- <08ba3317-6ec0-1a4e-bdb5-68f5bb91495b@cumulusnetworks.com>
- <20170203142403.52eca52f@xeon-e3>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next 1/2] bpf: Save original ebpf instructions
+Date: Fri, 3 Feb 2017 15:28:01 -0700
+Message-ID: <34456681-46d1-0761-3b61-4e308f363126@cumulusnetworks.com>
+References: <1486154303-32278-1-git-send-email-dsa@cumulusnetworks.com>
+ <1486154303-32278-2-git-send-email-dsa@cumulusnetworks.com>
+ <5894F19A.60305@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        roopa@cumulusnetworks.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: roopa@cumulusnetworks.com
+To: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36141 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752356AbdBCW1W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:27:22 -0500
-Received: by mail-wm0-f50.google.com with SMTP id c85so50979067wmi.1
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 14:27:22 -0800 (PST)
-In-Reply-To: <20170203142403.52eca52f@xeon-e3>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:33757 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752376AbdBCW2D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:28:03 -0500
+Received: by mail-pg0-f47.google.com with SMTP id 204so9987940pge.0
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 14:28:03 -0800 (PST)
+In-Reply-To: <5894F19A.60305@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/02/17 23:24, Stephen Hemminger wrote:
-> On Fri, 3 Feb 2017 19:34:19 +0100
-> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
-> 
->> On 03/02/17 19:28, Stephen Hemminger wrote:
->>> On Fri, 3 Feb 2017 09:30:37 +0100
->>> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
->>>   
->>>> On 03/02/17 03:47, David Miller wrote:  
->>>>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->>>>> Date: Tue, 31 Jan 2017 16:31:58 +0100
->>>>>     
->>>>>> @@ -197,7 +197,8 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
->>>>>>  		if (dst->is_local)
->>>>>>  			return br_pass_frame_up(skb);
->>>>>>  
->>>>>> -		dst->used = jiffies;
->>>>>> +		if (br->used_enabled)
->>>>>> +			dst->used = jiffies;    
->>>>>
->>>>> Have you tried:
->>>>>
->>>>> 	if (dst->used != jiffies)
->>>>> 		dst->used = jiffies;
->>>>>
->>>>> If that isn't effective, you can tweak the test to decrease the
->>>>> granularity of the value.  Basically, if dst->used is within
->>>>> 1 HZ of jiffies, don't do the write.
->>>>>
->>>>> I suspect this might help a lot, and not require a new bridging
->>>>> option.
->>>>>     
->>>>
->>>> Yes, I actually have a patch titled "used granularity". :-) I've tested with different
->>>> values and it does help but it either needs to be paired with another similar test for
->>>> the "updated" field (since they share a write-heavy cache line) or they need to be
->>>> in separate cache lines to avoid that dst's source port from causing the load HitM for
->>>> all who check the value.
->>>>
->>>> I'll run some more tests and probably go this way for now.
->>>>
->>>> Thanks,
->>>>  Nik
->>>>  
->>>
->>> Since used doesn't need HZ granularity, it reports values in clock_t resolution so
->>> storing (and doing cmp and set would mean that it would only be 100 HZ
->>>   
+On 2/3/17 2:09 PM, Daniel Borkmann wrote:
+> On 02/03/2017 09:38 PM, David Ahern wrote:
+>> Similar to classic bpf, support saving original ebpf instructions
 >>
->> Yes, exactly what I'm currently testing. Will post the new set soon.
->> Since HZ can be different a generic way to obtain the granularity for
->> both should be clock_t_to_jiffies(1) if I'm not missing something.
->>
->>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 > 
-> USER_HZ is set by userspace ABI to 100 hz. HZ is configurable when kernel is built.
-> 
+> Not convinced that this is in the right direction, this not only *significantly*
+> increases mem footprint for each and every program, but also when you dump this,
+> then map references from relocs inside the insns are meaningless (f.e. what about
+> prog arrays used in tail calls?), so things like criu also won't be able to use
+> this kind of interface for dump and restore. If it's just for debugging, then
+> why not extend the existing tracing infrastructure around bpf that was started
+> with intention to gain more visibility.
 
-Yes, the point I was trying to make is that we want to take the number of jiffies
-we can skip by converting 1 clock_t to X jiffies because the user-space granularity
-is clock_t and HZ can change, thus clock_t_to_jiffies(1) should give us the number
-of updates we can skip for "used" and "updated".
-By "both" I meant "used" and "updated" fields, not HZ and USER_HZ.
+
+Yes, saving the original bpf increases the memory footprint. If you noticed, a kmemdup is used for the exact instruction size (no page round up). Right now programs are limited to a single page, so worst case  is an extra page per program. I am open to other suggestions. For example, bpf_prog is rounded up to a page which means there could be room at the end of the page for the original instructions. This is definitely true for the ip vrf programs which will be < 32 instructions even with the namespace checking and the conversions done kernel side.
+
+Tracepoints will not solve the problem for me for a number of reasons. Tracepoints have to be hit to return data, and there is no way the tracepoint can return relevant information for me to verify that the correct filter was downloaded. I want the original code. I want to audit what was installed. In my case there could be N VRFs, and I want 'ip vrf' or ifupdown2 or any other command to be able to verify that each cgroup has the correct program, and to verify that the default VRF does *not* have a program installed.
+
+Generically, the bpf code might contain relative data but that's for the user or decoder program to deal with. Surely there is no harm in returning the original, downloaded bpf code to a properly privileged process. If I am debugging some weird network behavior, I want to be able to determine what bpf code is running where and to see what it is doing to whatever degree possible. Saving the original code is the first part of this.
