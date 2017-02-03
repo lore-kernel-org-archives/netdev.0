@@ -1,32 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] MAINTAINERS: add Ivan as a switchdev
- maintainer
-Date: Fri, 03 Feb 2017 15:27:34 -0500 (EST)
-Message-ID: <20170203.152734.1751794837016132581.davem@davemloft.net>
-References: <1486051504-19623-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ivecera@redhat.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, jhs@mojatatu.com, roopa@cumulusnetworks.com,
-        f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com
-To: jiri@resnulli.us
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [RFC PATCH net-next 0/2] bpf: Allow retrieval of ebpf filters
+Date: Fri,  3 Feb 2017 12:38:21 -0800
+Message-ID: <1486154303-32278-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50840 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752243AbdBCU1j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 15:27:39 -0500
-In-Reply-To: <1486051504-19623-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:35419 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752260AbdBCUi3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 15:38:29 -0500
+Received: by mail-pg0-f42.google.com with SMTP id 194so9339406pgd.2
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 12:38:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu,  2 Feb 2017 17:05:04 +0100
+As mentioned at netconf in October, insight into bpf filters is an
+essential part of debugging and verifying a particular networking
+configuration. For example, classic bpf filters can be returned for
+packet sockets as part of the sock_diag infrastructure and the
+PACKET_DIAG_FILTER attribute. This capability is leveraged by
+'ss --bpf' to dump the filter when requested.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ivan will be taking care of switchdev code from now on.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+This series adds similar support to ebpf, starting with filters
+attached to a cgroup. The first patch saves the original bpf
+instructions in a manner similar to classic bpf. The second patch
+allows the retrieval of filters applied to a cgroup.
 
-Applied.
+David Ahern (2):
+  bpf: Save original ebpf instructions
+  bpf: Add support to retrieve program attached to a cgroup
+
+ include/linux/bpf-cgroup.h |  7 ++++
+ include/linux/filter.h     |  5 ++-
+ include/uapi/linux/bpf.h   |  9 +++++
+ kernel/bpf/cgroup.c        | 31 +++++++++++++++
+ kernel/bpf/syscall.c       | 97 ++++++++++++++++++++++++++++++++++++++++++++++
+ kernel/cgroup.c            | 12 ++++++
+ 6 files changed, 160 insertions(+), 1 deletion(-)
+
+-- 
+2.1.4
