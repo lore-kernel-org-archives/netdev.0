@@ -1,7 +1,7 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH net-next 6/9] sunvnet: straighten up message event handling logic
-Date: Fri,  3 Feb 2017 09:42:32 -0800
-Message-ID: <1486143755-192532-7-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH net-next 4/9] sunvnet: add driver stats for ethtool support
+Date: Fri,  3 Feb 2017 09:42:30 -0800
+Message-ID: <1486143755-192532-5-git-send-email-shannon.nelson@oracle.com>
 References: <1486143755-192532-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
         Shannon Nelson <shannon.nelson@oracle.com>
@@ -11,131 +11,186 @@ In-Reply-To: <1486143755-192532-1-git-send-email-shannon.nelson@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The use of gotos for handling the incoming events made this code
-harder to read and support than it should be.  This patch straightens
-out and clears up the logic.
+Since we're collecting some stats in the driver code, let's support use
+of the ethtool driver stats facility in both sunvnet and ldmvsw.
 
 Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet_common.c |   94 ++++++++++++++---------------
- 1 files changed, 45 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/sun/ldmvsw.c         |   63 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/sun/sunvnet.c        |   63 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/sun/sunvnet_common.c |    2 +
+ 3 files changed, 128 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+index bf5818a..7c5dab4 100644
+--- a/drivers/net/ethernet/sun/ldmvsw.c
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -81,11 +81,74 @@ static void vsw_set_msglevel(struct net_device *dev, u32 value)
+ 	port->vp->msg_enable = value;
+ }
+ 
++static const struct {
++	const char string[ETH_GSTRING_LEN];
++} ethtool_stats_keys[] = {
++	{ "rx_packets" },
++	{ "tx_packets" },
++	{ "rx_bytes" },
++	{ "tx_bytes" },
++	{ "rx_errors" },
++	{ "tx_errors" },
++	{ "rx_dropped" },
++	{ "tx_dropped" },
++	{ "multicast" },
++	{ "rx_length_errors" },
++	{ "rx_frame_errors" },
++	{ "rx_missed_errors" },
++	{ "tx_carrier_errors" },
++};
++
++static int vsw_get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(ethtool_stats_keys);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void vsw_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
++{
++	switch (stringset) {
++	case ETH_SS_STATS:
++		memcpy(buf, &ethtool_stats_keys, sizeof(ethtool_stats_keys));
++		break;
++	default:
++		WARN_ON(1);
++		break;
++	}
++}
++
++static void vsw_get_ethtool_stats(struct net_device *dev,
++				  struct ethtool_stats *estats, u64 *data)
++{
++	int i = 0;
++
++	data[i++] = dev->stats.rx_packets;
++	data[i++] = dev->stats.tx_packets;
++	data[i++] = dev->stats.rx_bytes;
++	data[i++] = dev->stats.tx_bytes;
++	data[i++] = dev->stats.rx_errors;
++	data[i++] = dev->stats.tx_errors;
++	data[i++] = dev->stats.rx_dropped;
++	data[i++] = dev->stats.tx_dropped;
++	data[i++] = dev->stats.multicast;
++	data[i++] = dev->stats.rx_length_errors;
++	data[i++] = dev->stats.rx_frame_errors;
++	data[i++] = dev->stats.rx_missed_errors;
++	data[i++] = dev->stats.tx_carrier_errors;
++}
++
+ static const struct ethtool_ops vsw_ethtool_ops = {
+ 	.get_drvinfo		= vsw_get_drvinfo,
+ 	.get_msglevel		= vsw_get_msglevel,
+ 	.set_msglevel		= vsw_set_msglevel,
+ 	.get_link		= ethtool_op_get_link,
++	.get_sset_count		= vsw_get_sset_count,
++	.get_strings		= vsw_get_strings,
++	.get_ethtool_stats	= vsw_get_ethtool_stats,
+ };
+ 
+ static LIST_HEAD(vnet_list);
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 883525a..9e385d1 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -77,11 +77,74 @@ static void vnet_set_msglevel(struct net_device *dev, u32 value)
+ 	vp->msg_enable = value;
+ }
+ 
++static const struct {
++	const char string[ETH_GSTRING_LEN];
++} ethtool_stats_keys[] = {
++	{ "rx_packets" },
++	{ "tx_packets" },
++	{ "rx_bytes" },
++	{ "tx_bytes" },
++	{ "rx_errors" },
++	{ "tx_errors" },
++	{ "rx_dropped" },
++	{ "tx_dropped" },
++	{ "multicast" },
++	{ "rx_length_errors" },
++	{ "rx_frame_errors" },
++	{ "rx_missed_errors" },
++	{ "tx_carrier_errors" },
++};
++
++static int vnet_get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(ethtool_stats_keys);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void vnet_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
++{
++	switch (stringset) {
++	case ETH_SS_STATS:
++		memcpy(buf, &ethtool_stats_keys, sizeof(ethtool_stats_keys));
++		break;
++	default:
++		WARN_ON(1);
++		break;
++	}
++}
++
++static void vnet_get_ethtool_stats(struct net_device *dev,
++				   struct ethtool_stats *estats, u64 *data)
++{
++	int i = 0;
++
++	data[i++] = dev->stats.rx_packets;
++	data[i++] = dev->stats.tx_packets;
++	data[i++] = dev->stats.rx_bytes;
++	data[i++] = dev->stats.tx_bytes;
++	data[i++] = dev->stats.rx_errors;
++	data[i++] = dev->stats.tx_errors;
++	data[i++] = dev->stats.rx_dropped;
++	data[i++] = dev->stats.tx_dropped;
++	data[i++] = dev->stats.multicast;
++	data[i++] = dev->stats.rx_length_errors;
++	data[i++] = dev->stats.rx_frame_errors;
++	data[i++] = dev->stats.rx_missed_errors;
++	data[i++] = dev->stats.tx_carrier_errors;
++}
++
+ static const struct ethtool_ops vnet_ethtool_ops = {
+ 	.get_drvinfo		= vnet_get_drvinfo,
+ 	.get_msglevel		= vnet_get_msglevel,
+ 	.set_msglevel		= vnet_set_msglevel,
+ 	.get_link		= ethtool_op_get_link,
++	.get_sset_count		= vnet_get_sset_count,
++	.get_strings		= vnet_get_strings,
++	.get_ethtool_stats	= vnet_get_ethtool_stats,
+ };
+ 
+ static LIST_HEAD(vnet_list);
 diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 98e758e..160b35a 100644
+index 63e3cec..5d0d386 100644
 --- a/drivers/net/ethernet/sun/sunvnet_common.c
 +++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -764,41 +764,37 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
- 	struct vio_driver_state *vio = &port->vio;
- 	int tx_wakeup, err;
- 	int npkts = 0;
--	int event = (port->rx_event & LDC_EVENT_RESET);
--
--ldc_ctrl:
--	if (unlikely(event == LDC_EVENT_RESET ||
--		     event == LDC_EVENT_UP)) {
--		vio_link_state_change(vio, event);
--
--		if (event == LDC_EVENT_RESET) {
--			vnet_port_reset(port);
--			vio_port_up(vio);
--
--			/* If the device is running but its tx queue was
--			 * stopped (due to flow control), restart it.
--			 * This is necessary since vnet_port_reset()
--			 * clears the tx drings and thus we may never get
--			 * back a VIO_TYPE_DATA ACK packet - which is
--			 * the normal mechanism to restart the tx queue.
--			 */
--			if (netif_running(dev))
--				maybe_tx_wakeup(port);
--		}
-+
-+	/* we don't expect any other bits */
-+	BUG_ON(port->rx_event & ~(LDC_EVENT_DATA_READY |
-+				  LDC_EVENT_RESET |
-+				  LDC_EVENT_UP));
-+
-+	/* RESET takes precedent over any other event */
-+	if (port->rx_event & LDC_EVENT_RESET) {
-+		vio_link_state_change(vio, LDC_EVENT_RESET);
-+		vnet_port_reset(port);
-+		vio_port_up(vio);
-+
-+		/* If the device is running but its tx queue was
-+		 * stopped (due to flow control), restart it.
-+		 * This is necessary since vnet_port_reset()
-+		 * clears the tx drings and thus we may never get
-+		 * back a VIO_TYPE_DATA ACK packet - which is
-+		 * the normal mechanism to restart the tx queue.
-+		 */
-+		if (netif_running(dev))
-+			maybe_tx_wakeup(port);
-+
- 		port->rx_event = 0;
- 		return 0;
- 	}
--	/* We may have multiple LDC events in rx_event. Unroll send_events() */
--	event = (port->rx_event & LDC_EVENT_UP);
--	port->rx_event &= ~(LDC_EVENT_RESET | LDC_EVENT_UP);
--	if (event == LDC_EVENT_UP)
--		goto ldc_ctrl;
--	event = port->rx_event;
--	if (!(event & LDC_EVENT_DATA_READY))
--		return 0;
+@@ -433,6 +433,8 @@ static int vnet_rx_one(struct vnet_port *port, struct vio_net_desc *desc)
  
--	/* we dont expect any other bits than RESET, UP, DATA_READY */
--	BUG_ON(event != LDC_EVENT_DATA_READY);
-+	if (port->rx_event & LDC_EVENT_UP) {
-+		vio_link_state_change(vio, LDC_EVENT_UP);
-+		port->rx_event = 0;
-+		return 0;
-+	}
+ 	skb->ip_summed = port->switch_port ? CHECKSUM_NONE : CHECKSUM_PARTIAL;
  
- 	err = 0;
- 	tx_wakeup = 0;
-@@ -821,25 +817,25 @@ ldc_ctrl:
- 			pkt->start_idx = vio_dring_next(dr,
- 							port->napi_stop_idx);
- 			pkt->end_idx = -1;
--			goto napi_resume;
--		}
--		err = ldc_read(vio->lp, &msgbuf, sizeof(msgbuf));
--		if (unlikely(err < 0)) {
--			if (err == -ECONNRESET)
--				vio_conn_reset(vio);
--			break;
-+		} else {
-+			err = ldc_read(vio->lp, &msgbuf, sizeof(msgbuf));
-+			if (unlikely(err < 0)) {
-+				if (err == -ECONNRESET)
-+					vio_conn_reset(vio);
-+				break;
-+			}
-+			if (err == 0)
-+				break;
-+			viodbg(DATA, "TAG [%02x:%02x:%04x:%08x]\n",
-+			       msgbuf.tag.type,
-+			       msgbuf.tag.stype,
-+			       msgbuf.tag.stype_env,
-+			       msgbuf.tag.sid);
-+			err = vio_validate_sid(vio, &msgbuf.tag);
-+			if (err < 0)
-+				break;
- 		}
--		if (err == 0)
--			break;
--		viodbg(DATA, "TAG [%02x:%02x:%04x:%08x]\n",
--		       msgbuf.tag.type,
--		       msgbuf.tag.stype,
--		       msgbuf.tag.stype_env,
--		       msgbuf.tag.sid);
--		err = vio_validate_sid(vio, &msgbuf.tag);
--		if (err < 0)
--			break;
--napi_resume:
-+
- 		if (likely(msgbuf.tag.type == VIO_TYPE_DATA)) {
- 			if (msgbuf.tag.stype == VIO_SUBTYPE_INFO) {
- 				if (!sunvnet_port_is_up_common(port)) {
++	if (unlikely(is_multicast_ether_addr(eth_hdr(skb)->h_dest)))
++		dev->stats.multicast++;
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += len;
+ 	napi_gro_receive(&port->napi, skb);
 -- 
 1.7.1
