@@ -1,63 +1,44 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] r8152: Allocate interrupt buffer as part of struct r8152
-Date: Fri, 3 Feb 2017 13:22:41 -0800
-Message-ID: <20170203212241.GA22198@roeck-us.net>
-References: <1485889577-4389-1-git-send-email-linux@roeck-us.net>
- <Pine.LNX.4.44L0.1701311448250.2048-100000@iolanthe.rowland.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: clear pfmemalloc on outgoing skb
+Date: Fri, 03 Feb 2017 16:24:08 -0500 (EST)
+Message-ID: <20170203.162408.851464918447697481.davem@davemloft.net>
+References: <1485983078-2372-1-git-send-email-jbacik@fb.com>
+        <1486096808.21871.67.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44L0.1701311448250.2048-100000@iolanthe.rowland.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jbacik@fb.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53780 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752331AbdBCVYJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:24:09 -0500
+In-Reply-To: <1486096808.21871.67.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 31, 2017 at 02:53:47PM -0500, Alan Stern wrote:
-> On Tue, 31 Jan 2017, Guenter Roeck wrote:
-> 
-> > When unloading the r8152 driver using the 'unbind' sysfs attribute
-> > in a system with KASAN enabled, the following error message is seen
-> > on a regular basis.
-> 
-> ...
-> 
-> > The two-byte allocation in conjunction with code analysis suggests that
-> > the interrupt buffer has been overwritten. Added instrumentation in the
-> > driver shows that the interrupt handler is called after RTL8152_UNPLUG
-> > was set, and that this event is associated with the error message above.
-> > This suggests that there are situations where the interrupt buffer is used
-> > after it has been freed.
-> > 
-> > To avoid the problem, allocate the interrupt buffer as part of struct
-> > r8152.
-> > 
-> > Cc: Hayes Wang <hayeswang@realtek.com>
-> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> > ---
-> > The problem is seen in chromeos-4.4, but there is not reason to believe
-> > that it does not occur with the upstream kernel. It is still seen in
-> > chromeos-4.4 after all patches from upstream and linux-next have been
-> > applied to the driver.
-> > 
-> > While relatively simple, I am not really convinced that this is the best
-> > (or even an acceptable) solution for this problem. I am open to suggestions
-> > for a better fix.
-> 
-> The proper approach is to keep the allocation as it is, but _before_
-> deallocating the buffer, make sure that the interrupt buffer won't be
-> accessed any more.  This may involve calling usb_kill_urb(), or
-> synchronize_irq(), or something similar.
-> 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 02 Feb 2017 20:40:08 -0800
 
-Just to keep everyone up to date, the problem was that the usb subsystem,
-due to bad platform code in chromeos-4.4, did not properly stop DMA from
-the hardware when the driver was removed. This resulted in a DMA transfer
-into the freed buffer. The r8152 driver is completely innocent.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Josef Bacik diagnosed following problem :
+> 
+>    I was seeing random disconnects while testing NBD over loopback.
+>    This turned out to be because NBD sets pfmemalloc on it's socket,
+>    however the receiving side is a user space application so does not
+>    have pfmemalloc set on its socket. This means that
+>    sk_filter_trim_cap will simply drop this packet, under the
+>    assumption that the other side will simply retransmit. Well we do
+>    retransmit, and then the packet is just dropped again for the same
+>    reason.
+> 
+> It seems the better way to address this problem is to clear pfmemalloc
+> in the TCP transmit path. pfmemalloc strict control really makes sense
+> on the receive path. 
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Josef Bacik <jbacik@fb.com>
 
-Sorry for the noise.
-
-Guenter
+Applied.
