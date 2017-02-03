@@ -1,44 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipv6: Set protocol to kernel for local
- routes
-Date: Fri, 03 Feb 2017 16:01:55 -0500 (EST)
-Message-ID: <20170203.160155.486447661633785659.davem@davemloft.net>
-References: <1486054341-22589-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bpf: test for AND edge cases
+Date: Fri, 03 Feb 2017 16:03:12 -0500 (EST)
+Message-ID: <20170203.160312.750256875522827441.davem@davemloft.net>
+References: <1486054838-5072-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, ast@fb.com,
+        jannh@google.com, daniel@iogearbox.net
+To: jbacik@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52540 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52588 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752449AbdBCVB5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:01:57 -0500
-In-Reply-To: <1486054341-22589-1-git-send-email-dsa@cumulusnetworks.com>
+        with ESMTP id S1752331AbdBCVDQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:03:16 -0500
+In-Reply-To: <1486054838-5072-1-git-send-email-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu,  2 Feb 2017 08:52:21 -0800
+From: Josef Bacik <jbacik@fb.com>
+Date: Thu, 2 Feb 2017 12:00:38 -0500
 
-> IPv6 stack does not set the protocol for local routes, so those routes show
-> up with proto "none":
->     $ ip -6 ro ls table local
->     local ::1 dev lo proto none metric 0  pref medium
->     local 2100:3:: dev lo proto none metric 0  pref medium
->     local 2100:3::4 dev lo proto none metric 0  pref medium
->     local fe80:: dev lo proto none metric 0  pref medium
->     ...
+> These two tests are based on the work done for f23cc643f9ba.  The first test is
+> just a basic one to make sure we don't allow AND'ing negative values, even if it
+> would result in a valid index for the array.  The second is a cleaned up version
+> of the original testcase provided by Jann Horn that resulted in the commit.
 > 
-> Set rt6i_protocol to RTPROT_KERNEL for consistency with IPv4. Now routes
-> show up with proto "kernel":
->     $ ip -6 ro ls table local
->     local ::1 dev lo proto kernel metric 0  pref medium
->     local 2100:3:: dev lo proto kernel metric 0  pref medium
->     local 2100:3::4 dev lo proto kernel metric 0  pref medium
->     local fe80:: dev lo proto kernel metric 0  pref medium
->     ...
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
 
-Applied.
+This doesn't apply cleanly to net-next, please respin.
