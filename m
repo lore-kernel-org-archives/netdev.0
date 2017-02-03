@@ -1,43 +1,83 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>
-Subject: Re: [PATCH v2 1/2] net: ethernet: bgmac: init sequence bug
-Date: Fri, 3 Feb 2017 22:41:48 +0100
-Message-ID: <8b0979e4-7202-869f-95b3-ab5d0381ed69@milecki.pl>
-References: <1486156133-5639-1-git-send-email-jon.mason@broadcom.com>
- <1486156133-5639-2-git-send-email-jon.mason@broadcom.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH RFC net-next 4/4] bridge: add ability to turn off fdb
+ used updates
+Date: Fri, 3 Feb 2017 14:24:03 -0800
+Message-ID: <20170203142403.52eca52f@xeon-e3>
+References: <1485876718-18091-1-git-send-email-nikolay@cumulusnetworks.com>
+        <1485876718-18091-5-git-send-email-nikolay@cumulusnetworks.com>
+        <20170202.214737.1978812863222769540.davem@davemloft.net>
+        <45f588fd-bece-647c-5b1e-2c64975e640d@cumulusnetworks.com>
+        <20170203102825.363907ae@xeon-e3>
+        <08ba3317-6ec0-1a4e-bdb5-68f5bb91495b@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Zac Schroff <zschroff@broadcom.com>
-To: Jon Mason <jon.mason@broadcom.com>,
-        David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        roopa@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo173.mail-out.ovh.net ([178.32.228.173]:33803 "EHLO
-        mo173.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752377AbdBCWVj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:21:39 -0500
-Received: from player687.ha.ovh.net (b9.ovh.net [213.186.33.59])
-        by mo173.mail-out.ovh.net (Postfix) with ESMTP id A78501E38F
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 22:41:55 +0100 (CET)
-In-Reply-To: <1486156133-5639-2-git-send-email-jon.mason@broadcom.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:35766 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752356AbdBCWYG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 17:24:06 -0500
+Received: by mail-pg0-f44.google.com with SMTP id 194so9937361pgd.2
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 14:24:05 -0800 (PST)
+In-Reply-To: <08ba3317-6ec0-1a4e-bdb5-68f5bb91495b@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2017 10:08 PM, Jon Mason wrote:
-> @@ -61,15 +60,20 @@ static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
->
->  static void platform_bgmac_clk_enable(struct bgmac *bgmac, u32 flags)
->  {
-> -	bgmac_idm_write(bgmac, BCMA_IOCTL,
-> -			(BCMA_IOCTL_CLK | BCMA_IOCTL_FGC | flags));
-> +	u32 val;
-> +
-> +	val = bgmac_idm_read(bgmac, BCMA_IOCTL);
-> +	/* Some bits of BCMA_IOCTL set by HW/ATF and should not change */
-> +	val |= flags & ~(BGMAC_AWCACHE | BGMAC_ARCACHE | BGMAC_AWUSER |
-> +			 BGMAC_ARUSER);
-> +	val |= BGMAC_CLK_EN;
->  	bgmac_idm_read(bgmac, BCMA_IOCTL);
+On Fri, 3 Feb 2017 19:34:19 +0100
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 
-This read was previously following write op most likely to flush it or
-something. I don't think it makes any sense to read after read.
+> On 03/02/17 19:28, Stephen Hemminger wrote:
+> > On Fri, 3 Feb 2017 09:30:37 +0100
+> > Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+> >   
+> >> On 03/02/17 03:47, David Miller wrote:  
+> >>> From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> >>> Date: Tue, 31 Jan 2017 16:31:58 +0100
+> >>>     
+> >>>> @@ -197,7 +197,8 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
+> >>>>  		if (dst->is_local)
+> >>>>  			return br_pass_frame_up(skb);
+> >>>>  
+> >>>> -		dst->used = jiffies;
+> >>>> +		if (br->used_enabled)
+> >>>> +			dst->used = jiffies;    
+> >>>
+> >>> Have you tried:
+> >>>
+> >>> 	if (dst->used != jiffies)
+> >>> 		dst->used = jiffies;
+> >>>
+> >>> If that isn't effective, you can tweak the test to decrease the
+> >>> granularity of the value.  Basically, if dst->used is within
+> >>> 1 HZ of jiffies, don't do the write.
+> >>>
+> >>> I suspect this might help a lot, and not require a new bridging
+> >>> option.
+> >>>     
+> >>
+> >> Yes, I actually have a patch titled "used granularity". :-) I've tested with different
+> >> values and it does help but it either needs to be paired with another similar test for
+> >> the "updated" field (since they share a write-heavy cache line) or they need to be
+> >> in separate cache lines to avoid that dst's source port from causing the load HitM for
+> >> all who check the value.
+> >>
+> >> I'll run some more tests and probably go this way for now.
+> >>
+> >> Thanks,
+> >>  Nik
+> >>  
+> > 
+> > Since used doesn't need HZ granularity, it reports values in clock_t resolution so
+> > storing (and doing cmp and set would mean that it would only be 100 HZ
+> >   
+> 
+> Yes, exactly what I'm currently testing. Will post the new set soon.
+> Since HZ can be different a generic way to obtain the granularity for
+> both should be clock_t_to_jiffies(1) if I'm not missing something.
+> 
+> 
+
+USER_HZ is set by userspace ABI to 100 hz. HZ is configurable when kernel is built.
