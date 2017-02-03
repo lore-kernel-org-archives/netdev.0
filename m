@@ -1,205 +1,107 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 27/27] netfilter: allow logging from non-init namespaces
-Date: Fri,  3 Feb 2017 13:25:38 +0100
-Message-ID: <1486124738-3013-28-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 26/27] ipvs: free ip_vs_dest structs when refcnt=0
+Date: Fri,  3 Feb 2017 13:25:37 +0100
+Message-ID: <1486124738-3013-27-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58906 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59050 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753351AbdBCM27 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 07:28:59 -0500
+        id S1753304AbdBCM2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 07:28:49 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id B749CE04B7
+        by mail.us.es (Postfix) with ESMTP id E08A6E04C6
         for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:47 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id A5FE8DA793
+        by antivirus1-rhel7.int (Postfix) with ESMTP id CF3BFDA801
         for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:47 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 23495DA807
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:45 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5FC00DA81B
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:44 +0100 (CET)
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubeček <mkubecek@suse.cz>
+From: David Windsor <dwindsor@gmail.com>
 
-Commit 69b34fb996b2 ("netfilter: xt_LOG: add net namespace support for
-xt_LOG") disabled logging packets using the LOG target from non-init
-namespaces. The motivation was to prevent containers from flooding
-kernel log of the host. The plan was to keep it that way until syslog
-namespace implementation allows containers to log in a safe way.
+Currently, the ip_vs_dest cache frees ip_vs_dest objects when their
+reference count becomes < 0.  Aside from not being semantically sound,
+this is problematic for the new type refcount_t, which will be introduced
+shortly in a separate patch. refcount_t is the new kernel type for
+holding reference counts, and provides overflow protection and a
+constrained interface relative to atomic_t (the type currently being
+used for kernel reference counts).
 
-However, the work on syslog namespace seems to have hit a dead end
-somewhere in 2013 and there are users who want to use xt_LOG in all
-network namespaces. This patch allows to do so by setting
+Per Julian Anastasov: "The problem is that dest_trash currently holds
+deleted dests (unlinked from RCU lists) with refcnt=0."  Changing
+dest_trash to hold dest with refcnt=1 will allow us to free ip_vs_dest
+structs when their refcnt=0, in ip_vs_dest_put_and_free().
 
-  /proc/sys/net/netfilter/nf_log_all_netns
-
-to a nonzero value. This sysctl is only accessible from init_net so that
-one cannot switch the behaviour from inside a container.
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Signed-off-by: David Windsor <dwindsor@gmail.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- Documentation/networking/netfilter-sysctl.txt | 10 ++++++++++
- include/net/netfilter/nf_log.h                |  3 +++
- net/bridge/netfilter/ebt_log.c                |  2 +-
- net/ipv4/netfilter/nf_log_arp.c               |  2 +-
- net/ipv4/netfilter/nf_log_ipv4.c              |  2 +-
- net/ipv6/netfilter/nf_log_ipv6.c              |  2 +-
- net/netfilter/nf_log.c                        | 24 ++++++++++++++++++++++++
- 7 files changed, 41 insertions(+), 4 deletions(-)
- create mode 100644 Documentation/networking/netfilter-sysctl.txt
+ include/net/ip_vs.h            | 2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c | 8 +++-----
+ 2 files changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/networking/netfilter-sysctl.txt b/Documentation/networking/netfilter-sysctl.txt
-new file mode 100644
-index 000000000000..55791e50e169
---- /dev/null
-+++ b/Documentation/networking/netfilter-sysctl.txt
-@@ -0,0 +1,10 @@
-+/proc/sys/net/netfilter/* Variables:
-+
-+nf_log_all_netns - BOOLEAN
-+	0 - disabled (default)
-+	not 0 - enabled
-+
-+	By default, only init_net namespace can log packets into kernel log
-+	with LOG target; this aims to prevent containers from flooding host
-+	kernel log. If enabled, this target also works in other network
-+	namespaces. This variable is only accessible from init_net.
-diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
-index 450f87f95415..42e0696f38d8 100644
---- a/include/net/netfilter/nf_log.h
-+++ b/include/net/netfilter/nf_log.h
-@@ -51,6 +51,9 @@ struct nf_logger {
- 	struct module		*me;
- };
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 4b46c591b542..7bdfa7d78363 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1421,7 +1421,7 @@ static inline void ip_vs_dest_put(struct ip_vs_dest *dest)
  
-+/* sysctl_nf_log_all_netns - allow LOG target in all network namespaces */
-+extern int sysctl_nf_log_all_netns;
-+
- /* Function to register/unregister log function. */
- int nf_log_register(u_int8_t pf, struct nf_logger *logger);
- void nf_log_unregister(struct nf_logger *logger);
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index e88bd4827ac1..98b9c8e8615e 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -78,7 +78,7 @@ ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
- 	unsigned int bitmask;
+ static inline void ip_vs_dest_put_and_free(struct ip_vs_dest *dest)
+ {
+-	if (atomic_dec_return(&dest->refcnt) < 0)
++	if (atomic_dec_and_test(&dest->refcnt))
+ 		kfree(dest);
+ }
  
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	spin_lock_bh(&ebt_log_lock);
-diff --git a/net/ipv4/netfilter/nf_log_arp.c b/net/ipv4/netfilter/nf_log_arp.c
-index b24795e2ee6d..f6f713376e6e 100644
---- a/net/ipv4/netfilter/nf_log_arp.c
-+++ b/net/ipv4/netfilter/nf_log_arp.c
-@@ -87,7 +87,7 @@ static void nf_log_arp_packet(struct net *net, u_int8_t pf,
- 	struct nf_log_buf *m;
- 
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	m = nf_log_buf_open();
-diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
-index 856648966f4c..c83a9963269b 100644
---- a/net/ipv4/netfilter/nf_log_ipv4.c
-+++ b/net/ipv4/netfilter/nf_log_ipv4.c
-@@ -319,7 +319,7 @@ static void nf_log_ip_packet(struct net *net, u_int8_t pf,
- 	struct nf_log_buf *m;
- 
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	m = nf_log_buf_open();
-diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
-index 57d86066a13b..055c51b80f5d 100644
---- a/net/ipv6/netfilter/nf_log_ipv6.c
-+++ b/net/ipv6/netfilter/nf_log_ipv6.c
-@@ -351,7 +351,7 @@ static void nf_log_ip6_packet(struct net *net, u_int8_t pf,
- 	struct nf_log_buf *m;
- 
- 	/* FIXME: Disabled from containers until syslog ns is supported */
--	if (!net_eq(net, &init_net))
-+	if (!net_eq(net, &init_net) && !sysctl_nf_log_all_netns)
- 		return;
- 
- 	m = nf_log_buf_open();
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index 3dca90dc24ad..0a034f52b912 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -16,6 +16,9 @@
- #define NF_LOG_PREFIXLEN		128
- #define NFLOGGER_NAME_LEN		64
- 
-+int sysctl_nf_log_all_netns __read_mostly;
-+EXPORT_SYMBOL(sysctl_nf_log_all_netns);
-+
- static struct nf_logger __rcu *loggers[NFPROTO_NUMPROTO][NF_LOG_TYPE_MAX] __read_mostly;
- static DEFINE_MUTEX(nf_log_mutex);
- 
-@@ -414,6 +417,18 @@ static const struct file_operations nflog_file_ops = {
- #ifdef CONFIG_SYSCTL
- static char nf_log_sysctl_fnames[NFPROTO_NUMPROTO-NFPROTO_UNSPEC][3];
- static struct ctl_table nf_log_sysctl_table[NFPROTO_NUMPROTO+1];
-+static struct ctl_table_header *nf_log_sysctl_fhdr;
-+
-+static struct ctl_table nf_log_sysctl_ftable[] = {
-+	{
-+		.procname	= "nf_log_all_netns",
-+		.data		= &sysctl_nf_log_all_netns,
-+		.maxlen		= sizeof(sysctl_nf_log_all_netns),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
-+	{ }
-+};
- 
- static int nf_log_proc_dostring(struct ctl_table *table, int write,
- 			 void __user *buffer, size_t *lenp, loff_t *ppos)
-@@ -483,6 +498,10 @@ static int netfilter_log_sysctl_init(struct net *net)
- 			nf_log_sysctl_table[i].extra1 =
- 				(void *)(unsigned long) i;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 55e0169caa4c..5fc4836e7c79 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -711,7 +711,6 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, int dest_af,
+ 		      dest->vport == svc->port))) {
+ 			/* HIT */
+ 			list_del(&dest->t_list);
+-			ip_vs_dest_hold(dest);
+ 			goto out;
  		}
-+		nf_log_sysctl_fhdr = register_net_sysctl(net, "net/netfilter",
-+							 nf_log_sysctl_ftable);
-+		if (!nf_log_sysctl_fhdr)
-+			goto err_freg;
  	}
+@@ -741,7 +740,7 @@ static void ip_vs_dest_free(struct ip_vs_dest *dest)
+  *  When the ip_vs_control_clearup is activated by ipvs module exit,
+  *  the service tables must have been flushed and all the connections
+  *  are expired, and the refcnt of each destination in the trash must
+- *  be 0, so we simply release them here.
++ *  be 1, so we simply release them here.
+  */
+ static void ip_vs_trash_cleanup(struct netns_ipvs *ipvs)
+ {
+@@ -1080,11 +1079,10 @@ static void __ip_vs_del_dest(struct netns_ipvs *ipvs, struct ip_vs_dest *dest,
+ 	if (list_empty(&ipvs->dest_trash) && !cleanup)
+ 		mod_timer(&ipvs->dest_trash_timer,
+ 			  jiffies + (IP_VS_DEST_TRASH_PERIOD >> 1));
+-	/* dest lives in trash without reference */
++	/* dest lives in trash with reference */
+ 	list_add(&dest->t_list, &ipvs->dest_trash);
+ 	dest->idle_start = 0;
+ 	spin_unlock_bh(&ipvs->dest_trash_lock);
+-	ip_vs_dest_put(dest);
+ }
  
- 	for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
-@@ -499,6 +518,9 @@ static int netfilter_log_sysctl_init(struct net *net)
- err_reg:
- 	if (!net_eq(net, &init_net))
- 		kfree(table);
-+	else
-+		unregister_net_sysctl_table(nf_log_sysctl_fhdr);
-+err_freg:
- err_alloc:
- 	return -ENOMEM;
- }
-@@ -511,6 +533,8 @@ static void netfilter_log_sysctl_exit(struct net *net)
- 	unregister_net_sysctl_table(net->nf.nf_log_dir_header);
- 	if (!net_eq(net, &init_net))
- 		kfree(table);
-+	else
-+		unregister_net_sysctl_table(nf_log_sysctl_fhdr);
- }
- #else
- static int netfilter_log_sysctl_init(struct net *net)
+ 
+@@ -1160,7 +1158,7 @@ static void ip_vs_dest_trash_expire(unsigned long data)
+ 
+ 	spin_lock(&ipvs->dest_trash_lock);
+ 	list_for_each_entry_safe(dest, next, &ipvs->dest_trash, t_list) {
+-		if (atomic_read(&dest->refcnt) > 0)
++		if (atomic_read(&dest->refcnt) > 1)
+ 			continue;
+ 		if (dest->idle_start) {
+ 			if (time_before(now, dest->idle_start +
 -- 
 2.1.4
