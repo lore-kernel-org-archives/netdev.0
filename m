@@ -1,191 +1,52 @@
-From: Jonas Bonn <jonas@southpole.se>
-Subject: [PATCH 1/1] gtp: support SGSN-side tunnels
-Date: Fri,  3 Feb 2017 10:12:31 +0100
-Message-ID: <20170203091231.10142-1-jonas@southpole.se>
-Cc: Jonas Bonn <jonas@southpole.se>
-To: laforge@gnumonks.org, pablo@netfilter.org, netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] sctp: process fwd tsn chunk only when prsctp is enabled
+Date: Fri,  3 Feb 2017 17:37:06 +0800
+Message-ID: <16dcae6a3bff4b7e4c6d37bfa7dba217d5ca34b7.1486114626.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.southpole.se ([37.247.8.11]:46893 "EHLO mail.southpole.se"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751958AbdBCJcy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 04:32:54 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:32931 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752937AbdBCJhO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:37:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
-contexts based on the incoming packets _destination_ address.  If we
-want to write an SGSN, then we want to be idenityfing PDP contexts
-based on _source_ address.
+This patch is to check if asoc->peer.prsctp_capable is set before
+processing fwd tsn chunk, if not, it will return an ERROR to the
+peer, just as rfc3758 section 3.3.1 demands.
 
-This patch adds a "flags" argument at GTP-link creation time to specify
-whether we are on the GGSN or SGSN side of the tunnel; this flag is then
-used to determine which part of the IP packet to use in determining
-the PDP context.
-
-Signed-off-by: Jonas Bonn <jonas@southpole.se>
+Reported-by: Julian Cordes <julian.cordes@gmail.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
+ net/sctp/sm_statefuns.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
- drivers/net/gtp.c            | 43 ++++++++++++++++++++++++++++++++-----------
- include/uapi/linux/gtp.h     |  2 +-
- include/uapi/linux/if_link.h |  5 +++++
- 3 files changed, 38 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 50349a9..1bbac69 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -72,6 +72,7 @@ struct gtp_dev {
- 	struct net		*net;
- 	struct net_device	*dev;
- 
-+	unsigned int		flags;
- 	unsigned int		hash_size;
- 	struct hlist_head	*tid_hash;
- 	struct hlist_head	*addr_hash;
-@@ -150,8 +151,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp, __be32 ms_addr)
- 	return NULL;
- }
- 
--static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
--				  unsigned int hdrlen)
-+static bool gtp_check_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
-+				  unsigned int hdrlen, unsigned int flags)
- {
- 	struct iphdr *iph;
- 
-@@ -160,18 +161,22 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
- 
- 	iph = (struct iphdr *)(skb->data + hdrlen);
- 
--	return iph->saddr == pctx->ms_addr_ip4.s_addr;
-+	if (flags & GTP_FLAGS_SGSN) {
-+		return iph->daddr == pctx->ms_addr_ip4.s_addr;
-+	} else {
-+		return iph->saddr == pctx->ms_addr_ip4.s_addr;
-+	}
- }
- 
--/* Check if the inner IP source address in this packet is assigned to any
-+/* Check if the inner IP address in this packet is assigned to any
-  * existing mobile subscriber.
-  */
--static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
--			     unsigned int hdrlen)
-+static bool gtp_check_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
-+			     unsigned int hdrlen, unsigned int flags)
- {
- 	switch (ntohs(skb->protocol)) {
- 	case ETH_P_IP:
--		return gtp_check_src_ms_ipv4(skb, pctx, hdrlen);
-+		return gtp_check_ms_ipv4(skb, pctx, hdrlen, flags);
- 	}
- 	return false;
- }
-@@ -205,7 +210,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 782e579..d8798dd 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -3867,6 +3867,9 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(struct net *net,
+ 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
  	}
  
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->flags)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -248,7 +253,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 	if (gtp1->flags & GTP1_F_MASK)
- 		hdrlen += 4;
- 
--	/* Make sure the header is larger enough, including extensions. */
-+	/* Make sure the header is large enough, including extensions. */
- 	if (!pskb_may_pull(skb, hdrlen))
- 		return -1;
- 
-@@ -262,7 +267,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		goto out_rcu;
++	if (!asoc->peer.prsctp_capable)
++		return sctp_sf_unk_chunk(net, ep, asoc, type, arg, commands);
++
+ 	/* Make sure that the FORWARD_TSN chunk has valid length.  */
+ 	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_fwdtsn_chunk)))
+ 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
+@@ -3935,6 +3938,9 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn_fast(
+ 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
  	}
  
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->flags)) {
- 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
- 		ret = -1;
- 		goto out_rcu;
-@@ -491,7 +496,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	 * Prepend PDP header with TEI/TID from PDP ctx.
- 	 */
- 	iph = ip_hdr(skb);
--	pctx = ipv4_pdp_find(gtp, iph->daddr);
-+	if (gtp->flags & GTP_FLAGS_SGSN) {
-+		pctx = ipv4_pdp_find(gtp, iph->saddr);
-+	} else {
-+		pctx = ipv4_pdp_find(gtp, iph->daddr);
-+	}
- 	if (!pctx) {
- 		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
- 			   &iph->daddr);
-@@ -666,12 +675,23 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
- 	int hashsize, err, fd0, fd1;
- 	struct gtp_dev *gtp;
- 	struct gtp_net *gn;
-+	unsigned int flags;
++	if (!asoc->peer.prsctp_capable)
++		return sctp_sf_unk_chunk(net, ep, asoc, type, arg, commands);
 +
-+	if (data[IFLA_GTP_FLAGS]) {
-+		flags = nla_get_u32(data[IFLA_GTP_FLAGS]);
-+		if (flags & ~GTP_FLAGS_MASK)
-+			return -EINVAL;
-+	} else {
-+		flags = 0;
-+	}
- 
- 	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
- 		return -EINVAL;
- 
- 	gtp = netdev_priv(dev);
- 
-+	gtp->flags = flags;
-+
- 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
- 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
- 
-@@ -723,6 +743,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
- 	[IFLA_GTP_FD0]			= { .type = NLA_U32 },
- 	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
- 	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
-+	[IFLA_GTP_FLAGS]		= { .type = NLA_U32 },
- };
- 
- static int gtp_validate(struct nlattr *tb[], struct nlattr *data[])
-diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
-index 72a04a0..79037cc 100644
---- a/include/uapi/linux/gtp.h
-+++ b/include/uapi/linux/gtp.h
-@@ -19,7 +19,7 @@ enum gtp_attrs {
- 	GTPA_LINK,
- 	GTPA_VERSION,
- 	GTPA_TID,	/* for GTPv0 only */
--	GTPA_SGSN_ADDRESS,
-+	GTPA_SGSN_ADDRESS, /* Remote GSN, either SGSN or GGSN */
- 	GTPA_MS_ADDRESS,
- 	GTPA_FLOW,
- 	GTPA_NET_NS_FD,
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index ccde456..a446e7b 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -533,11 +533,16 @@ enum {
- #define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
- 
- /* GTP section */
-+
-+#define GTP_FLAGS_SGSN		(1U << 0)
-+#define GTP_FLAGS_MASK		(GTP_FLAGS_SGSN)
-+
- enum {
- 	IFLA_GTP_UNSPEC,
- 	IFLA_GTP_FD0,
- 	IFLA_GTP_FD1,
- 	IFLA_GTP_PDP_HASHSIZE,
-+	IFLA_GTP_FLAGS,
- 	__IFLA_GTP_MAX,
- };
- #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
+ 	/* Make sure that the FORWARD_TSN chunk has a valid length.  */
+ 	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_fwdtsn_chunk)))
+ 		return sctp_sf_violation_chunklen(net, ep, asoc, type, arg,
 -- 
-2.9.3
+2.1.0
