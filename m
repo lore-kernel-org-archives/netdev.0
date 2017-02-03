@@ -1,80 +1,50 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: Inconsistency in packet drop due to MTU (eth vs veth)
-Date: Fri, 3 Feb 2017 23:42:32 +0900
-Message-ID: <1c93d9f3-bb4b-909e-d3da-2b6d42bfbca2@gmail.com>
-References: <159b79aa979.e23be6a5186096.2767722456700391441@gmail.com>
- <1484852027.16328.33.camel@edumazet-glaptop3.roam.corp.google.com>
- <159f4b9e4ab.12b79bda8122843.8859202944513905410@gmail.com>
- <1485880029.6360.118.camel@edumazet-glaptop3.roam.corp.google.com>
- <15a0303f544.b70bc5d115840.1387609337770969373@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
+ performance may be compromised." message with "ethtool -K eth0 gro off"
+Date: Fri, 03 Feb 2017 06:47:33 -0800
+Message-ID: <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170202115240.GH17590@x4>
+         <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170202123427.GA7212@x4>
+         <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170203115457.GA5296@localhost.localdomain>
+         <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170203135355.GA3413@localhost.localdomain>
+         <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170203142828.GB3413@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Evan Jones <ej@evanjones.ca>,
-        "David S. Miller" <davem@davemloft.net>,
-        Cong Wang <cwang@twopensource.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Vijay Pandurangan <vijayp@vijayp.ca>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        ebiederm <ebiederm@aristanetworks.com>
-To: Fredrik Markstrom <fredrik.markstrom@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <15a0303f544.b70bc5d115840.1387609337770969373@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
+        netdev@vger.kernel.org
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34084 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751958AbdBCOrf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 09:47:35 -0500
+Received: by mail-pg0-f67.google.com with SMTP id v184so2164861pgv.1
+        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 06:47:35 -0800 (PST)
+In-Reply-To: <20170203142828.GB3413@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17/02/03 (金) 17:07, Fredrik Markstrom wrote:
->  ---- On Tue, 31 Jan 2017 17:27:09 +0100 Eric Dumazet <eric.dumazet@gmail.com> wrote ----
->  > On Tue, 2017-01-31 at 14:32 +0100, Fredrik Markstrom wrote:
->  > >  ---- On Thu, 19 Jan 2017 19:53:47 +0100 Eric Dumazet <eric.dumazet@gmail.com> wrote ----
->  > >  > On Thu, 2017-01-19 at 17:41 +0100, Fredrik Markstrom wrote:
->  > >  > > Hello,
->  > >  > >
->  > >  > > I've noticed an inconsistency between how physical ethernet and
->  > > veth handles mtu.
->  > >  > >
->  > >  > > If I setup two physical interfaces (directly connected) with
->  > > different mtu:s, only the size of the outgoing packets are limited by
->  > > the mtu. But with veth a packet is dropped if the mtu of the receiving
->  > > interface is smaller then the packet size.
->  > >  > >
->  > >  > > This seems inconsistent to me, but maybe there is a reason for
->  > > it ?
->  > >  > >
->  > >  > > Can someone confirm if it's a deliberate inconsistency or just a
->  > > side effect of using dev_forward_skb() ?
->  > >  >
->  > >  > It looks this was added in commit
->  > >  > 38d408152a86598a50680a82fe3353b506630409
->  > >  > ("veth: Allow setting the L3 MTU")
->  > >  >
->  > >  > But what was really needed here was a way to change MRU :(
->  > >
->  > > Ok, do we consider this correct and/or something we need to be
->  > > backwards compatible with ? Is it insane to believe that we can fix
->  > > this "inconsistency" by removing the check ?
->  > >
->  > > The commit message reads "For consistency I drop packets on the
->  > > receive side when they are larger than the MTU", do we know what it's
->  > > supposed
->  > > to be consistent with or is that lost in history ?
->  >
->  > There is no consistency among existing Ethernet drivers.
->  >
->  > Many ethernet drivers size the buffers they post in RX ring buffer
->  > according to MTU.
->  >
->  > If MTU is set to 1500, RX buffers are sized to be about 1536 bytes,
->  > so you wont be able to receive a 1700 bytes frame.
->  >
->  > I guess that you could add a specific veth attribute to precisely
->  > control MRU, that would not break existing applications.
->
-> Ok, I will propose a patch shortly. And thanks, your response time is
-> awesome !
+On Fri, 2017-02-03 at 12:28 -0200, Marcelo Ricardo Leitner wrote:
 
-But why do you want to configure MRU?
-What is the problem with setting MTU instead.
+> Aren't you mixing the endpoints here? MSS is the largest amount of data
+> that the peer can receive in a single segment, and not how much it will
+> send. For the sending part, that depends on what the other peer
+> announced, and we can have 2 different MSS in a single connection, one
+> for each peer.
+> 
+> If a peer later wants to send larger segments, it can, but it must
+> respect the mss advertised by the other peer during handshake.
+> 
 
-Toshiaki Makita
+I am not mixing endpoints, you are.
+
+If you need to be convinced, please grab :
+https://patchwork.ozlabs.org/patch/723028/
+
+And just watch "ss -temoi ..." 
