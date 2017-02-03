@@ -1,289 +1,108 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/27] xtables: extend matches and targets with .usersize
-Date: Fri,  3 Feb 2017 13:25:25 +0100
-Message-ID: <1486124738-3013-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 21/27] netfilter: reduce direct skb->nfct usage
+Date: Fri,  3 Feb 2017 13:25:32 +0100
+Message-ID: <1486124738-3013-22-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58918 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59014 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752712AbdBCM2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 07:28:41 -0500
+        id S1753251AbdBCM2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 07:28:45 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 5C9C2C50EC
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:40 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id AED49C9EC7
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:43 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 4BF1FDA81A
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:40 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 9B58CDA80C
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:43 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 72D9BDA84C
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:37 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 6A4D6DA81F
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:41 +0100 (CET)
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+From: Florian Westphal <fw@strlen.de>
 
-In matches and targets that define a kernel-only tail to their
-xt_match and xt_target data structs, add a field .usersize that
-specifies up to where data is to be shared with userspace.
+Next patch makes direct skb->nfct access illegal, reduce noise
+in next patch by using accessors we already have.
 
-Performed a search for comment "Used internally by the kernel" to find
-relevant matches and targets. Manually inspected the structs to derive
-a valid offsetof.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/ebt_limit.c   | 1 +
- net/ipv4/netfilter/ipt_CLUSTERIP.c | 1 +
- net/ipv6/netfilter/ip6t_NPT.c      | 2 ++
- net/netfilter/xt_CT.c              | 3 +++
- net/netfilter/xt_RATEEST.c         | 1 +
- net/netfilter/xt_TEE.c             | 2 ++
- net/netfilter/xt_bpf.c             | 2 ++
- net/netfilter/xt_cgroup.c          | 1 +
- net/netfilter/xt_connlimit.c       | 1 +
- net/netfilter/xt_hashlimit.c       | 4 ++++
- net/netfilter/xt_limit.c           | 2 ++
- net/netfilter/xt_quota.c           | 1 +
- net/netfilter/xt_rateest.c         | 1 +
- net/netfilter/xt_string.c          | 1 +
- 14 files changed, 23 insertions(+)
+ include/net/ip_vs.h               |  9 ++++++---
+ net/netfilter/nf_conntrack_core.c | 15 +++++++++------
+ 2 files changed, 15 insertions(+), 9 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebt_limit.c b/net/bridge/netfilter/ebt_limit.c
-index 517e78befcb2..61a9f1be1263 100644
---- a/net/bridge/netfilter/ebt_limit.c
-+++ b/net/bridge/netfilter/ebt_limit.c
-@@ -105,6 +105,7 @@ static struct xt_match ebt_limit_mt_reg __read_mostly = {
- 	.match		= ebt_limit_mt,
- 	.checkentry	= ebt_limit_mt_check,
- 	.matchsize	= sizeof(struct ebt_limit_info),
-+	.usersize	= offsetof(struct ebt_limit_info, prev),
- #ifdef CONFIG_COMPAT
- 	.compatsize	= sizeof(struct ebt_compat_limit_info),
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index cd6018a9ee24..2a344ebd7ebe 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1554,10 +1554,13 @@ static inline void ip_vs_notrack(struct sk_buff *skb)
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 
+ 	if (!ct || !nf_ct_is_untracked(ct)) {
+-		nf_conntrack_put(skb->nfct);
+-		skb->nfct = &nf_ct_untracked_get()->ct_general;
++		struct nf_conn *untracked;
++
++		nf_conntrack_put(&ct->ct_general);
++		untracked = nf_ct_untracked_get();
++		nf_conntrack_get(&untracked->ct_general);
++		skb->nfct = &untracked->ct_general;
+ 		skb->nfctinfo = IP_CT_NEW;
+-		nf_conntrack_get(skb->nfct);
+ 	}
  #endif
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 21db00d0362b..8a3d20ebb815 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -468,6 +468,7 @@ static struct xt_target clusterip_tg_reg __read_mostly = {
- 	.checkentry	= clusterip_tg_check,
- 	.destroy	= clusterip_tg_destroy,
- 	.targetsize	= sizeof(struct ipt_clusterip_tgt_info),
-+	.usersize	= offsetof(struct ipt_clusterip_tgt_info, config),
- #ifdef CONFIG_COMPAT
- 	.compatsize	= sizeof(struct compat_ipt_clusterip_tgt_info),
- #endif /* CONFIG_COMPAT */
-diff --git a/net/ipv6/netfilter/ip6t_NPT.c b/net/ipv6/netfilter/ip6t_NPT.c
-index 590f767db5d4..a379d2f79b19 100644
---- a/net/ipv6/netfilter/ip6t_NPT.c
-+++ b/net/ipv6/netfilter/ip6t_NPT.c
-@@ -112,6 +112,7 @@ static struct xt_target ip6t_npt_target_reg[] __read_mostly = {
- 		.table		= "mangle",
- 		.target		= ip6t_snpt_tg,
- 		.targetsize	= sizeof(struct ip6t_npt_tginfo),
-+		.usersize	= offsetof(struct ip6t_npt_tginfo, adjustment),
- 		.checkentry	= ip6t_npt_checkentry,
- 		.family		= NFPROTO_IPV6,
- 		.hooks		= (1 << NF_INET_LOCAL_IN) |
-@@ -123,6 +124,7 @@ static struct xt_target ip6t_npt_target_reg[] __read_mostly = {
- 		.table		= "mangle",
- 		.target		= ip6t_dnpt_tg,
- 		.targetsize	= sizeof(struct ip6t_npt_tginfo),
-+		.usersize	= offsetof(struct ip6t_npt_tginfo, adjustment),
- 		.checkentry	= ip6t_npt_checkentry,
- 		.family		= NFPROTO_IPV6,
- 		.hooks		= (1 << NF_INET_PRE_ROUTING) |
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index 95c750358747..26b0bccfa0c5 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -373,6 +373,7 @@ static struct xt_target xt_ct_tg_reg[] __read_mostly = {
- 		.name		= "CT",
- 		.family		= NFPROTO_UNSPEC,
- 		.targetsize	= sizeof(struct xt_ct_target_info),
-+		.usersize	= offsetof(struct xt_ct_target_info, ct),
- 		.checkentry	= xt_ct_tg_check_v0,
- 		.destroy	= xt_ct_tg_destroy_v0,
- 		.target		= xt_ct_target_v0,
-@@ -384,6 +385,7 @@ static struct xt_target xt_ct_tg_reg[] __read_mostly = {
- 		.family		= NFPROTO_UNSPEC,
- 		.revision	= 1,
- 		.targetsize	= sizeof(struct xt_ct_target_info_v1),
-+		.usersize	= offsetof(struct xt_ct_target_info, ct),
- 		.checkentry	= xt_ct_tg_check_v1,
- 		.destroy	= xt_ct_tg_destroy_v1,
- 		.target		= xt_ct_target_v1,
-@@ -395,6 +397,7 @@ static struct xt_target xt_ct_tg_reg[] __read_mostly = {
- 		.family		= NFPROTO_UNSPEC,
- 		.revision	= 2,
- 		.targetsize	= sizeof(struct xt_ct_target_info_v1),
-+		.usersize	= offsetof(struct xt_ct_target_info, ct),
- 		.checkentry	= xt_ct_tg_check_v2,
- 		.destroy	= xt_ct_tg_destroy_v1,
- 		.target		= xt_ct_target_v1,
-diff --git a/net/netfilter/xt_RATEEST.c b/net/netfilter/xt_RATEEST.c
-index 91a373a3f534..498b54fd04d7 100644
---- a/net/netfilter/xt_RATEEST.c
-+++ b/net/netfilter/xt_RATEEST.c
-@@ -162,6 +162,7 @@ static struct xt_target xt_rateest_tg_reg __read_mostly = {
- 	.checkentry = xt_rateest_tg_checkentry,
- 	.destroy    = xt_rateest_tg_destroy,
- 	.targetsize = sizeof(struct xt_rateest_target_info),
-+	.usersize   = offsetof(struct xt_rateest_target_info, est),
- 	.me         = THIS_MODULE,
- };
+ }
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 86186a2e2715..adb7af3a4c4c 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -686,8 +686,11 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
+ 	    !nfct_nat(ct) &&
+ 	    !nf_ct_is_dying(ct) &&
+ 	    atomic_inc_not_zero(&ct->ct_general.use)) {
+-		nf_ct_acct_merge(ct, ctinfo, (struct nf_conn *)skb->nfct);
+-		nf_conntrack_put(skb->nfct);
++		enum ip_conntrack_info oldinfo;
++		struct nf_conn *loser_ct = nf_ct_get(skb, &oldinfo);
++
++		nf_ct_acct_merge(ct, ctinfo, loser_ct);
++		nf_conntrack_put(&loser_ct->ct_general);
+ 		/* Assign conntrack already in hashes to this skbuff. Don't
+ 		 * modify skb->nfctinfo to ensure consistent stateful filtering.
+ 		 */
+@@ -1288,7 +1291,7 @@ unsigned int
+ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 		struct sk_buff *skb)
+ {
+-	struct nf_conn *ct, *tmpl = NULL;
++	struct nf_conn *ct, *tmpl;
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conntrack_l3proto *l3proto;
+ 	struct nf_conntrack_l4proto *l4proto;
+@@ -1298,9 +1301,9 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 	int set_reply = 0;
+ 	int ret;
  
-diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
-index 1c57ace75ae6..86b0580b2216 100644
---- a/net/netfilter/xt_TEE.c
-+++ b/net/netfilter/xt_TEE.c
-@@ -133,6 +133,7 @@ static struct xt_target tee_tg_reg[] __read_mostly = {
- 		.family     = NFPROTO_IPV4,
- 		.target     = tee_tg4,
- 		.targetsize = sizeof(struct xt_tee_tginfo),
-+		.usersize   = offsetof(struct xt_tee_tginfo, priv),
- 		.checkentry = tee_tg_check,
- 		.destroy    = tee_tg_destroy,
- 		.me         = THIS_MODULE,
-@@ -144,6 +145,7 @@ static struct xt_target tee_tg_reg[] __read_mostly = {
- 		.family     = NFPROTO_IPV6,
- 		.target     = tee_tg6,
- 		.targetsize = sizeof(struct xt_tee_tginfo),
-+		.usersize   = offsetof(struct xt_tee_tginfo, priv),
- 		.checkentry = tee_tg_check,
- 		.destroy    = tee_tg_destroy,
- 		.me         = THIS_MODULE,
-diff --git a/net/netfilter/xt_bpf.c b/net/netfilter/xt_bpf.c
-index 2dedaa23ab0a..38986a95216c 100644
---- a/net/netfilter/xt_bpf.c
-+++ b/net/netfilter/xt_bpf.c
-@@ -110,6 +110,7 @@ static struct xt_match bpf_mt_reg[] __read_mostly = {
- 		.match		= bpf_mt,
- 		.destroy	= bpf_mt_destroy,
- 		.matchsize	= sizeof(struct xt_bpf_info),
-+		.usersize	= offsetof(struct xt_bpf_info, filter),
- 		.me		= THIS_MODULE,
- 	},
- 	{
-@@ -120,6 +121,7 @@ static struct xt_match bpf_mt_reg[] __read_mostly = {
- 		.match		= bpf_mt_v1,
- 		.destroy	= bpf_mt_destroy_v1,
- 		.matchsize	= sizeof(struct xt_bpf_info_v1),
-+		.usersize	= offsetof(struct xt_bpf_info_v1, filter),
- 		.me		= THIS_MODULE,
- 	},
- };
-diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
-index a086a914865f..1db1ce59079f 100644
---- a/net/netfilter/xt_cgroup.c
-+++ b/net/netfilter/xt_cgroup.c
-@@ -122,6 +122,7 @@ static struct xt_match cgroup_mt_reg[] __read_mostly = {
- 		.checkentry	= cgroup_mt_check_v1,
- 		.match		= cgroup_mt_v1,
- 		.matchsize	= sizeof(struct xt_cgroup_info_v1),
-+		.usersize	= offsetof(struct xt_cgroup_info_v1, priv),
- 		.destroy	= cgroup_mt_destroy_v1,
- 		.me		= THIS_MODULE,
- 		.hooks		= (1 << NF_INET_LOCAL_OUT) |
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index 660b61dbd776..b8fd4ab762ed 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -431,6 +431,7 @@ static struct xt_match connlimit_mt_reg __read_mostly = {
- 	.checkentry = connlimit_mt_check,
- 	.match      = connlimit_mt,
- 	.matchsize  = sizeof(struct xt_connlimit_info),
-+	.usersize   = offsetof(struct xt_connlimit_info, data),
- 	.destroy    = connlimit_mt_destroy,
- 	.me         = THIS_MODULE,
- };
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 10063408141d..26ef70c50e3b 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -838,6 +838,7 @@ static struct xt_match hashlimit_mt_reg[] __read_mostly = {
- 		.family         = NFPROTO_IPV4,
- 		.match          = hashlimit_mt_v1,
- 		.matchsize      = sizeof(struct xt_hashlimit_mtinfo1),
-+		.usersize	= offsetof(struct xt_hashlimit_mtinfo1, hinfo),
- 		.checkentry     = hashlimit_mt_check_v1,
- 		.destroy        = hashlimit_mt_destroy_v1,
- 		.me             = THIS_MODULE,
-@@ -848,6 +849,7 @@ static struct xt_match hashlimit_mt_reg[] __read_mostly = {
- 		.family         = NFPROTO_IPV4,
- 		.match          = hashlimit_mt,
- 		.matchsize      = sizeof(struct xt_hashlimit_mtinfo2),
-+		.usersize	= offsetof(struct xt_hashlimit_mtinfo2, hinfo),
- 		.checkentry     = hashlimit_mt_check,
- 		.destroy        = hashlimit_mt_destroy,
- 		.me             = THIS_MODULE,
-@@ -859,6 +861,7 @@ static struct xt_match hashlimit_mt_reg[] __read_mostly = {
- 		.family         = NFPROTO_IPV6,
- 		.match          = hashlimit_mt_v1,
- 		.matchsize      = sizeof(struct xt_hashlimit_mtinfo1),
-+		.usersize	= offsetof(struct xt_hashlimit_mtinfo1, hinfo),
- 		.checkentry     = hashlimit_mt_check_v1,
- 		.destroy        = hashlimit_mt_destroy_v1,
- 		.me             = THIS_MODULE,
-@@ -869,6 +872,7 @@ static struct xt_match hashlimit_mt_reg[] __read_mostly = {
- 		.family         = NFPROTO_IPV6,
- 		.match          = hashlimit_mt,
- 		.matchsize      = sizeof(struct xt_hashlimit_mtinfo2),
-+		.usersize	= offsetof(struct xt_hashlimit_mtinfo2, hinfo),
- 		.checkentry     = hashlimit_mt_check,
- 		.destroy        = hashlimit_mt_destroy,
- 		.me             = THIS_MODULE,
-diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
-index bef850596558..dab962df1787 100644
---- a/net/netfilter/xt_limit.c
-+++ b/net/netfilter/xt_limit.c
-@@ -192,6 +192,8 @@ static struct xt_match limit_mt_reg __read_mostly = {
- 	.compatsize       = sizeof(struct compat_xt_rateinfo),
- 	.compat_from_user = limit_mt_compat_from_user,
- 	.compat_to_user   = limit_mt_compat_to_user,
-+#else
-+	.usersize         = offsetof(struct xt_rateinfo, prev),
- #endif
- 	.me               = THIS_MODULE,
- };
-diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
-index 44c8eb4c9d66..10d61a6eed71 100644
---- a/net/netfilter/xt_quota.c
-+++ b/net/netfilter/xt_quota.c
-@@ -73,6 +73,7 @@ static struct xt_match quota_mt_reg __read_mostly = {
- 	.checkentry = quota_mt_check,
- 	.destroy    = quota_mt_destroy,
- 	.matchsize  = sizeof(struct xt_quota_info),
-+	.usersize   = offsetof(struct xt_quota_info, master),
- 	.me         = THIS_MODULE,
- };
- 
-diff --git a/net/netfilter/xt_rateest.c b/net/netfilter/xt_rateest.c
-index 1db02f6fca54..755d2f6693a2 100644
---- a/net/netfilter/xt_rateest.c
-+++ b/net/netfilter/xt_rateest.c
-@@ -133,6 +133,7 @@ static struct xt_match xt_rateest_mt_reg __read_mostly = {
- 	.checkentry = xt_rateest_mt_checkentry,
- 	.destroy    = xt_rateest_mt_destroy,
- 	.matchsize  = sizeof(struct xt_rateest_match_info),
-+	.usersize   = offsetof(struct xt_rateest_match_info, est1),
- 	.me         = THIS_MODULE,
- };
- 
-diff --git a/net/netfilter/xt_string.c b/net/netfilter/xt_string.c
-index 0bc3460319c8..423293ee57c2 100644
---- a/net/netfilter/xt_string.c
-+++ b/net/netfilter/xt_string.c
-@@ -77,6 +77,7 @@ static struct xt_match xt_string_mt_reg __read_mostly = {
- 	.match      = string_mt,
- 	.destroy    = string_mt_destroy,
- 	.matchsize  = sizeof(struct xt_string_info),
-+	.usersize   = offsetof(struct xt_string_info, config),
- 	.me         = THIS_MODULE,
- };
- 
+-	if (skb->nfct) {
++	tmpl = nf_ct_get(skb, &ctinfo);
++	if (tmpl) {
+ 		/* Previously seen (loopback or untracked)?  Ignore. */
+-		tmpl = (struct nf_conn *)skb->nfct;
+ 		if (!nf_ct_is_template(tmpl)) {
+ 			NF_CT_STAT_INC_ATOMIC(net, ignore);
+ 			return NF_ACCEPT;
+@@ -1364,7 +1367,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 		/* Invalid: inverse of the return code tells
+ 		 * the netfilter core what to do */
+ 		pr_debug("nf_conntrack_in: Can't track with proto module\n");
+-		nf_conntrack_put(skb->nfct);
++		nf_conntrack_put(&ct->ct_general);
+ 		skb->nfct = NULL;
+ 		NF_CT_STAT_INC_ATOMIC(net, invalid);
+ 		if (ret == -NF_DROP)
 -- 
 2.1.4
