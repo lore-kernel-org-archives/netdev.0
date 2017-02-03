@@ -1,157 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 05/19] mlxsw: reg: Add Policy-Engine TCAM Allocation Register
-Date: Fri,  3 Feb 2017 10:28:55 +0100
-Message-ID: <1486114149-7941-6-git-send-email-jiri@resnulli.us>
-References: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com, ogerlitz@mellanox.com, jhs@mojatatu.com,
-        ivecera@redhat.com, jbenc@redhat.com, tom@herbertland.com,
-        f.fainelli@gmail.com
-To: netdev@vger.kernel.org
+From: Mao Wenan <maowenan@huawei.com>
+Subject: [PATCH net-next 1/2] ixgbevf and 82598 relax order mode support
+Date: Fri, 3 Feb 2017 17:30:32 +0800
+Message-ID: <1486114233-9800-2-git-send-email-maowenan@huawei.com>
+References: <1486114233-9800-1-git-send-email-maowenan@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <alexander.duyck@gmail.com>,
+        <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:33008 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752507AbdBCJ3S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:29:18 -0500
-Received: by mail-wj0-f195.google.com with SMTP id le4so264977wjb.0
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 01:29:17 -0800 (PST)
-In-Reply-To: <1486114149-7941-1-git-send-email-jiri@resnulli.us>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:34305 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752729AbdBCJbq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 04:31:46 -0500
+In-Reply-To: <1486114233-9800-1-git-send-email-maowenan@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+This patch allows one to use common macro
+CONFIG_ARCH_WANT_RELAX_ORDER to enable or
+disable to relax order mode.
 
-The PTAR register is used for allocation of regions in the TCAM.
-
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Mao Wenan <maowenan@huawei.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 106 ++++++++++++++++++++++++++++++
- 1 file changed, 106 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    | 4 ++--
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 5f76fbc..444f0a3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -1852,6 +1852,111 @@ static inline void mlxsw_reg_pagt_acl_id_pack(char *payload, int index,
- 	mlxsw_reg_pagt_acl_id_set(payload, index, acl_id);
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 523f9d0..167d1fc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -175,7 +175,7 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
+ {
+-#ifndef CONFIG_SPARC
++#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
+ 	u32 regval;
+ 	u32 i;
+ #endif
+@@ -183,7 +183,7 @@ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
  
-+/* PTAR - Policy-Engine TCAM Allocation Register
-+ * ---------------------------------------------
-+ * This register is used for allocation of regions in the TCAM.
-+ * Note: Query method is not supported on this register.
-+ */
-+#define MLXSW_REG_PTAR_ID 0x3006
-+#define MLXSW_REG_PTAR_BASE_LEN 0x20
-+#define MLXSW_REG_PTAR_KEY_ID_LEN 1
-+#define MLXSW_REG_PTAR_KEY_ID_MAX_NUM 16
-+#define MLXSW_REG_PTAR_LEN (MLXSW_REG_PTAR_BASE_LEN + \
-+		MLXSW_REG_PTAR_KEY_ID_MAX_NUM * MLXSW_REG_PTAR_KEY_ID_LEN)
-+
-+MLXSW_REG_DEFINE(ptar, MLXSW_REG_PTAR_ID, MLXSW_REG_PTAR_LEN);
-+
-+enum mlxsw_reg_ptar_op {
-+	/* allocate a TCAM region */
-+	MLXSW_REG_PTAR_OP_ALLOC,
-+	/* resize a TCAM region */
-+	MLXSW_REG_PTAR_OP_RESIZE,
-+	/* deallocate TCAM region */
-+	MLXSW_REG_PTAR_OP_FREE,
-+	/* test allocation */
-+	MLXSW_REG_PTAR_OP_TEST,
-+};
-+
-+/* reg_ptar_op
-+ * Access: OP
-+ */
-+MLXSW_ITEM32(reg, ptar, op, 0x00, 28, 4);
-+
-+/* reg_ptar_action_set_type
-+ * Type of action set to be used on this region.
-+ * For Spectrum, this is always type 2 - "flexible"
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, ptar, action_set_type, 0x00, 16, 8);
-+
-+/* reg_ptar_key_type
-+ * TCAM key type for the region.
-+ * For Spectrum, this is always type 0x50 - "FLEX_KEY"
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, ptar, key_type, 0x00, 0, 8);
-+
-+/* reg_ptar_region_size
-+ * TCAM region size. When allocating/resizing this is the requested size,
-+ * the response is the actual size. Note that actual size may be
-+ * larger than requested.
-+ * Allowed range 1 .. cap_max_rules-1
-+ * Reserved during op deallocate.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, ptar, region_size, 0x04, 0, 16);
-+
-+/* reg_ptar_region_id
-+ * Region identifier
-+ * Range 0 .. cap_max_regions-1
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, ptar, region_id, 0x08, 0, 16);
-+
-+/* reg_ptar_tcam_region_info
-+ * Opaque object that represents the TCAM region.
-+ * Returned when allocating a region.
-+ * Provided by software for ACL generation and region deallocation and resize.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, ptar, tcam_region_info, 0x10,
-+	       MLXSW_REG_PXXX_TCAM_REGION_INFO_LEN);
-+
-+/* reg_ptar_flexible_key_id
-+ * Identifier of the Flexible Key.
-+ * Only valid if key_type == "FLEX_KEY"
-+ * The key size will be rounded up to one of the following values:
-+ * 9B, 18B, 36B, 54B.
-+ * This field is reserved for in resize operation.
-+ * Access: WO
-+ */
-+MLXSW_ITEM8_INDEXED(reg, ptar, flexible_key_id, 0x20, 0, 8,
-+		    MLXSW_REG_PTAR_KEY_ID_LEN, 0x00, false);
-+
-+static inline void mlxsw_reg_ptar_pack(char *payload, enum mlxsw_reg_ptar_op op,
-+				       u16 region_size, u16 region_id,
-+				       const char *tcam_region_info)
-+{
-+	MLXSW_REG_ZERO(ptar, payload);
-+	mlxsw_reg_ptar_op_set(payload, op);
-+	mlxsw_reg_ptar_action_set_type_set(payload, 2); /* "flexible" */
-+	mlxsw_reg_ptar_key_type_set(payload, 0x50); /* "FLEX_KEY" */
-+	mlxsw_reg_ptar_region_size_set(payload, region_size);
-+	mlxsw_reg_ptar_region_id_set(payload, region_id);
-+	mlxsw_reg_ptar_tcam_region_info_memcpy_to(payload, tcam_region_info);
-+}
-+
-+static inline void mlxsw_reg_ptar_key_id_pack(char *payload, int index,
-+					      u16 key_id)
-+{
-+	mlxsw_reg_ptar_flexible_key_id_set(payload, index, key_id);
-+}
-+
-+static inline void mlxsw_reg_ptar_unpack(char *payload, char *tcam_region_info)
-+{
-+	mlxsw_reg_ptar_tcam_region_info_memcpy_from(payload, tcam_region_info);
-+}
-+
- /* QPCR - QoS Policer Configuration Register
-  * -----------------------------------------
-  * The QPCR register is used to create policers - that limit
-@@ -5531,6 +5636,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(spvmlr),
- 	MLXSW_REG(pacl),
- 	MLXSW_REG(pagt),
-+	MLXSW_REG(ptar),
- 	MLXSW_REG(qpcr),
- 	MLXSW_REG(qtct),
- 	MLXSW_REG(qeec),
+ 	ret_val = ixgbe_start_hw_generic(hw);
+ 
+-#ifndef CONFIG_SPARC
++#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
+ 	/* Disable relaxed ordering */
+ 	for (i = 0; ((i < hw->mac.max_tx_queues) &&
+ 	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index b068635..0efbf0b 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1765,7 +1765,7 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFRDLEN(reg_idx),
+ 			ring->count * sizeof(union ixgbe_adv_rx_desc));
+ 
+-#ifndef CONFIG_SPARC
++#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
+ 	/* enable relaxed ordering */
+ 	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
+ 			IXGBE_DCA_RXCTRL_DESC_RRO_EN);
 -- 
-2.7.4
+2.7.0
