@@ -1,113 +1,110 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/27] netfilter: nft_ct: add average bytes per packet support
-Date: Fri,  3 Feb 2017 13:25:15 +0100
-Message-ID: <1486124738-3013-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/27] netfilter: conntrack: validate SCTP crc32c in PREROUTING
+Date: Fri,  3 Feb 2017 13:25:17 +0100
+Message-ID: <1486124738-3013-7-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58876 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:58896 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752888AbdBCM2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752872AbdBCM2h (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 3 Feb 2017 07:28:37 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 96AC9BA71F
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:34 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id 29CEBC0B54
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:35 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 81D49DA80C
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:34 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 186D5DA846
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:35 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id CC269DA84D
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:31 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id DACFEDA858
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:32 +0100 (CET)
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <zlpnobody@gmail.com>
+From: Davide Caratti <dcaratti@redhat.com>
 
-Similar to xt_connbytes, user can match how many average bytes per packet
-a connection has transferred so far.
+implement sctp_error to let nf_conntrack_in validate crc32c on the packet
+transport header. Assign skb->ip_summed to CHECKSUM_UNNECESSARY and return
+NF_ACCEPT in case of successful validation; otherwise, return -NF_ACCEPT to
+let netfilter skip connection tracking, like other protocols do.
 
-Signed-off-by: Liping Zhang <zlpnobody@gmail.com>
+Besides preventing corrupted packets from matching conntrack entries, this
+fixes functionality of REJECT target: it was not generating any ICMP upon
+reception of SCTP packets, because it was computing RFC 1624 checksum on
+the packet and systematically mismatching crc32c in the SCTP header.
+
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |  2 ++
- net/netfilter/nft_ct.c                   | 22 +++++++++++++++++++++-
- 2 files changed, 23 insertions(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_proto_sctp.c | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 5726f90bfc2f..b00a05d1ee56 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -863,6 +863,7 @@ enum nft_rt_attributes {
-  * @NFT_CT_LABELS: conntrack labels
-  * @NFT_CT_PKTS: conntrack packets
-  * @NFT_CT_BYTES: conntrack bytes
-+ * @NFT_CT_AVGPKT: conntrack average bytes per packet
-  */
- enum nft_ct_keys {
- 	NFT_CT_STATE,
-@@ -881,6 +882,7 @@ enum nft_ct_keys {
- 	NFT_CT_LABELS,
- 	NFT_CT_PKTS,
- 	NFT_CT_BYTES,
-+	NFT_CT_AVGPKT,
- };
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index a0efde38da44..44a647418948 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -22,7 +22,9 @@
+ #include <linux/seq_file.h>
+ #include <linux/spinlock.h>
+ #include <linux/interrupt.h>
++#include <net/sctp/checksum.h>
  
- /**
-diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-index e6baeaebe653..d774d7823688 100644
---- a/net/netfilter/nft_ct.c
-+++ b/net/netfilter/nft_ct.c
-@@ -129,6 +129,22 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
- 		memcpy(dest, &count, sizeof(count));
- 		return;
- 	}
-+	case NFT_CT_AVGPKT: {
-+		const struct nf_conn_acct *acct = nf_conn_acct_find(ct);
-+		u64 avgcnt = 0, bcnt = 0, pcnt = 0;
++#include <net/netfilter/nf_log.h>
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_ecache.h>
+@@ -505,6 +507,34 @@ static bool sctp_new(struct nf_conn *ct, const struct sk_buff *skb,
+ 	return true;
+ }
+ 
++static int sctp_error(struct net *net, struct nf_conn *tpl, struct sk_buff *skb,
++		      unsigned int dataoff, enum ip_conntrack_info *ctinfo,
++		      u8 pf, unsigned int hooknum)
++{
++	const struct sctphdr *sh;
++	struct sctphdr _sctph;
++	const char *logmsg;
 +
-+		if (acct) {
-+			pcnt = nft_ct_get_eval_counter(acct->counter,
-+						       NFT_CT_PKTS, priv->dir);
-+			bcnt = nft_ct_get_eval_counter(acct->counter,
-+						       NFT_CT_BYTES, priv->dir);
-+			if (pcnt != 0)
-+				avgcnt = div64_u64(bcnt, pcnt);
-+		}
-+
-+		memcpy(dest, &avgcnt, sizeof(avgcnt));
-+		return;
++	sh = skb_header_pointer(skb, dataoff, sizeof(_sctph), &_sctph);
++	if (!sh) {
++		logmsg = "nf_ct_sctp: short packet ";
++		goto out_invalid;
 +	}
- 	case NFT_CT_L3PROTOCOL:
- 		*dest = nf_ct_l3num(ct);
- 		return;
-@@ -316,6 +332,7 @@ static int nft_ct_get_init(const struct nft_ctx *ctx,
- 		break;
- 	case NFT_CT_BYTES:
- 	case NFT_CT_PKTS:
-+	case NFT_CT_AVGPKT:
- 		/* no direction? return sum of original + reply */
- 		if (tb[NFTA_CT_DIRECTION] == NULL)
- 			priv->dir = IP_CT_DIR_MAX;
-@@ -346,7 +363,9 @@ static int nft_ct_get_init(const struct nft_ctx *ctx,
- 	if (err < 0)
- 		return err;
++	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
++	    skb->ip_summed == CHECKSUM_NONE) {
++		if (sh->checksum != sctp_compute_cksum(skb, dataoff)) {
++			logmsg = "nf_ct_sctp: bad CRC ";
++			goto out_invalid;
++		}
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++	}
++	return NF_ACCEPT;
++out_invalid:
++	if (LOG_INVALID(net, IPPROTO_SCTP))
++		nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL, "%s", logmsg);
++	return -NF_ACCEPT;
++}
++
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
  
--	if (priv->key == NFT_CT_BYTES || priv->key == NFT_CT_PKTS)
-+	if (priv->key == NFT_CT_BYTES ||
-+	    priv->key == NFT_CT_PKTS  ||
-+	    priv->key == NFT_CT_AVGPKT)
- 		nf_ct_set_acct(ctx->net, true);
- 
- 	return 0;
-@@ -445,6 +464,7 @@ static int nft_ct_get_dump(struct sk_buff *skb, const struct nft_expr *expr)
- 		break;
- 	case NFT_CT_BYTES:
- 	case NFT_CT_PKTS:
-+	case NFT_CT_AVGPKT:
- 		if (priv->dir < IP_CT_DIR_MAX &&
- 		    nla_put_u8(skb, NFTA_CT_DIRECTION, priv->dir))
- 			goto nla_put_failure;
+ #include <linux/netfilter/nfnetlink.h>
+@@ -752,6 +782,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
+ 	.packet 		= sctp_packet,
+ 	.get_timeouts		= sctp_get_timeouts,
+ 	.new 			= sctp_new,
++	.error			= sctp_error,
+ 	.me 			= THIS_MODULE,
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ 	.to_nlattr		= sctp_to_nlattr,
+@@ -786,6 +817,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
+ 	.packet 		= sctp_packet,
+ 	.get_timeouts		= sctp_get_timeouts,
+ 	.new 			= sctp_new,
++	.error			= sctp_error,
+ 	.me 			= THIS_MODULE,
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ 	.to_nlattr		= sctp_to_nlattr,
 -- 
 2.1.4
