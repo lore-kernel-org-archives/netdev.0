@@ -1,99 +1,38 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH net-next][v2] bpf: test for AND edge cases
-Date: Fri, 3 Feb 2017 16:25:23 -0500
-Message-ID: <1486157123-11066-1-git-send-email-jbacik@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [next-net 00/19][pull request] Intel Wired LAN Driver Updates
+ 2017-02-02
+Date: Fri, 03 Feb 2017 16:28:46 -0500 (EST)
+Message-ID: <20170203.162846.1286497539881724174.davem@davemloft.net>
+References: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <kernel-team@fb.com>, <netdev@vger.kernel.org>,
-        <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59733 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752463AbdBCVZc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:25:32 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:54040 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752365AbdBCV2s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:28:48 -0500
+In-Reply-To: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These two tests are based on the work done for f23cc643f9ba.  The first test is
-just a basic one to make sure we don't allow AND'ing negative values, even if it
-would result in a valid index for the array.  The second is a cleaned up version
-of the original testcase provided by Jann Horn that resulted in the commit.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Josef Bacik <jbacik@fb.com>
----
-v1->v2:
--rebased onto net-next
+Pretty sloppy submission Jeff.
 
- tools/testing/selftests/bpf/test_verifier.c | 55 +++++++++++++++++++++++++++++
- 1 file changed, 55 insertions(+)
+First of all, things are getting backlogged way too much.  19 patches
+is too large, you need to keep it closer down to 10 and the very very
+low teens.  You need to send me pull requests more often so that this
+does not happen.
 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 0d0912c..df194e1 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -4370,6 +4370,61 @@ static struct bpf_test tests[] = {
- 		.result = ACCEPT,
- 		.prog_type = BPF_PROG_TYPE_TRACEPOINT,
- 	},
-+	{
-+		"invalid and of negative number",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
-+			BPF_MOV64_IMM(BPF_REG_1, 6),
-+			BPF_ALU64_IMM(BPF_AND, BPF_REG_1, -4),
-+			BPF_ALU64_IMM(BPF_LSH, BPF_REG_1, 2),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
-+			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0,
-+				   offsetof(struct test_val, foo)),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.errstr_unpriv = "R0 pointer arithmetic prohibited",
-+		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
-+		.result = REJECT,
-+		.result_unpriv = REJECT,
-+	},
-+	{
-+		"invalid range check",
-+		.insns = {
-+			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
-+			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
-+			BPF_LD_MAP_FD(BPF_REG_1, 0),
-+			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
-+				     BPF_FUNC_map_lookup_elem),
-+			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 12),
-+			BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_0, 0),
-+			BPF_MOV64_IMM(BPF_REG_9, 1),
-+			BPF_ALU32_IMM(BPF_MOD, BPF_REG_1, 2),
-+			BPF_ALU32_IMM(BPF_ADD, BPF_REG_1, 1),
-+			BPF_ALU32_REG(BPF_AND, BPF_REG_9, BPF_REG_1),
-+			BPF_ALU32_IMM(BPF_ADD, BPF_REG_9, 1),
-+			BPF_ALU32_IMM(BPF_RSH, BPF_REG_9, 1),
-+			BPF_MOV32_IMM(BPF_REG_3, 1),
-+			BPF_ALU32_REG(BPF_SUB, BPF_REG_3, BPF_REG_9),
-+			BPF_ALU32_IMM(BPF_MUL, BPF_REG_3, 0x10000000),
-+			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_3),
-+			BPF_STX_MEM(BPF_W, BPF_REG_0, BPF_REG_3, 0),
-+			BPF_MOV64_REG(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.fixup_map2 = { 3 },
-+		.errstr_unpriv = "R0 pointer arithmetic prohibited",
-+		.errstr = "R0 min value is negative, either use unsigned index or do a if (index >=0) check.",
-+		.result = REJECT,
-+		.result_unpriv = REJECT,
-+	}
- };
- 
- static int probe_filter_length(const struct bpf_insn *fp)
--- 
-2.7.4
+Second of all, all of your Subjects are messed up and have "queue"
+misspelled and things like this.
+
+Finally, there is nothing to even pull at the URL you provided:
+
+[davem@dhcp-10-15-49-210 net-next]$ git pull --no-ff git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
+>From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue
+ * branch            master     -> FETCH_HEAD
+Already up-to-date.
