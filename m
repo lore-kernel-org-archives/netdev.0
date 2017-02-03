@@ -1,40 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 2/2] net: ethernet: bgmac: mac address change bug
-Date: Fri, 3 Feb 2017 13:49:32 -0800
-Message-ID: <98cd2c6a-8bd9-39c7-0288-ce84130627b5@gmail.com>
-References: <1486156133-5639-1-git-send-email-jon.mason@broadcom.com>
- <1486156133-5639-3-git-send-email-jon.mason@broadcom.com>
- <43694eda-e7fd-0df5-6bec-147770e04d5c@milecki.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 00/12] bnxt_en: Add XDP support.
+Date: Fri, 03 Feb 2017 16:50:54 -0500 (EST)
+Message-ID: <20170203.165054.437855043325795801.davem@davemloft.net>
+References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
+        <20170203.154910.2213640966872850071.davem@davemloft.net>
+        <CACKFLimXCkC1=9kvQnz-s5rjTOGe1gmb9Ozvt1tEeW+O=y7yAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Hari Vyas <hariv@broadcom.com>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <rafal@milecki.pl>,
-        Jon Mason <jon.mason@broadcom.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <43694eda-e7fd-0df5-6bec-147770e04d5c@milecki.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55262 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752469AbdBCVu4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 16:50:56 -0500
+In-Reply-To: <CACKFLimXCkC1=9kvQnz-s5rjTOGe1gmb9Ozvt1tEeW+O=y7yAg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2017 01:44 PM, Rafał Miłecki wrote:
-> On 02/03/2017 10:08 PM, Jon Mason wrote:
->> From: Hari Vyas <hariv@broadcom.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Fri, 3 Feb 2017 13:13:47 -0800
+
+> On Fri, Feb 3, 2017 at 12:49 PM, David Miller <davem@davemloft.net> wrote:
 >>
->> ndo_set_mac_address() passes struct sockaddr * as 2nd parameter to
->> bgmac_set_mac_address() but code assumed u8 *.  This caused two bytes
->> chopping and the wrong mac address was configured.
+>> Please _DO NOT_ guard XDP support with an ifdef the user
+>> can modify.
 >>
->> Signed-off-by: Hari Vyas <hariv@broadcom.com>
->> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
->> Fixes: 4e209001b86 ("bgmac: write mac address to hardware in
->> ndo_set_mac_address")
+>> Treat it like any other common netdev feature a driver might
+>> support such as checksum offloading or GRO.
+>>
 > 
-> I think you were going to Cc stable?
+> David, I want to make sure I understand completely.  Are you saying
+> don't use Kconfig option for XDP?  Have it always available?
 
-David takes care of queueing patches for -stable trees:
+Yes.
 
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n114
--- 
-Florian
+I don't see a similar config option used in any other driver.
+
+What's really driving me completely mad about driver XDP adoption
+is that there is so much inconsistency.
+
+If you do not see another XDP supporting driver do something, don't be
+tempted to blaze your own trail and handle something in a unique way.
+
+We don't set precedence by one driver saying "hey it's better to do
+things this way, forget what all the other drivers are doing."  Rather
+we have a "discussion" about what the appropriate thing is to do and
+convert all the drivers only after a decision has been made.
+
+Meanwhile we keep the status quo.
