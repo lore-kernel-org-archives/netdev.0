@@ -1,110 +1,154 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/27] netfilter: conntrack: validate SCTP crc32c in PREROUTING
-Date: Fri,  3 Feb 2017 13:25:17 +0100
-Message-ID: <1486124738-3013-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/27] xtables: add xt_match, xt_target and data copy_to_user functions
+Date: Fri,  3 Feb 2017 13:25:19 +0100
+Message-ID: <1486124738-3013-9-git-send-email-pablo@netfilter.org>
 References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58896 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:58908 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752872AbdBCM2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752663AbdBCM2h (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 3 Feb 2017 07:28:37 -0500
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 29CEBC0B54
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:35 +0100 (CET)
+        by mail.us.es (Postfix) with ESMTP id 696CEC106C
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:36 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 186D5DA846
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:35 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 54819DA817
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:36 +0100 (CET)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DACFEDA858
-        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:32 +0100 (CET)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 206BEDA725
+        for <netdev@vger.kernel.org>; Fri,  3 Feb 2017 13:28:34 +0100 (CET)
 In-Reply-To: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Davide Caratti <dcaratti@redhat.com>
+From: Willem de Bruijn <willemb@google.com>
 
-implement sctp_error to let nf_conntrack_in validate crc32c on the packet
-transport header. Assign skb->ip_summed to CHECKSUM_UNNECESSARY and return
-NF_ACCEPT in case of successful validation; otherwise, return -NF_ACCEPT to
-let netfilter skip connection tracking, like other protocols do.
+xt_entry_target, xt_entry_match and their private data may contain
+kernel data.
 
-Besides preventing corrupted packets from matching conntrack entries, this
-fixes functionality of REJECT target: it was not generating any ICMP upon
-reception of SCTP packets, because it was computing RFC 1624 checksum on
-the packet and systematically mismatching crc32c in the SCTP header.
+Introduce helper functions xt_match_to_user, xt_target_to_user and
+xt_data_to_user that copy only the expected fields. These replace
+existing logic that calls copy_to_user on entire structs, then
+overwrites select fields.
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+Private data is defined in xt_match and xt_target. All matches and
+targets that maintain kernel data store this at the tail of their
+private structure. Extend xt_match and xt_target with .usersize to
+limit how many bytes of data are copied. The remainder is cleared.
+
+If compatsize is specified, usersize can only safely be used if all
+fields up to usersize use platform-independent types. Otherwise, the
+compat_to_user callback must be defined.
+
+This patch does not yet enable the support logic.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_proto_sctp.c | 32 ++++++++++++++++++++++++++++++++
- 1 file changed, 32 insertions(+)
+ include/linux/netfilter/x_tables.h |  9 +++++++
+ net/netfilter/x_tables.c           | 54 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 63 insertions(+)
 
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index a0efde38da44..44a647418948 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -22,7 +22,9 @@
- #include <linux/seq_file.h>
- #include <linux/spinlock.h>
- #include <linux/interrupt.h>
-+#include <net/sctp/checksum.h>
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 5117e4d2ddfa..be378cf47fcc 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -167,6 +167,7 @@ struct xt_match {
  
-+#include <net/netfilter/nf_log.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_ecache.h>
-@@ -505,6 +507,34 @@ static bool sctp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 	return true;
- }
+ 	const char *table;
+ 	unsigned int matchsize;
++	unsigned int usersize;
+ #ifdef CONFIG_COMPAT
+ 	unsigned int compatsize;
+ #endif
+@@ -207,6 +208,7 @@ struct xt_target {
  
-+static int sctp_error(struct net *net, struct nf_conn *tpl, struct sk_buff *skb,
-+		      unsigned int dataoff, enum ip_conntrack_info *ctinfo,
-+		      u8 pf, unsigned int hooknum)
-+{
-+	const struct sctphdr *sh;
-+	struct sctphdr _sctph;
-+	const char *logmsg;
+ 	const char *table;
+ 	unsigned int targetsize;
++	unsigned int usersize;
+ #ifdef CONFIG_COMPAT
+ 	unsigned int compatsize;
+ #endif
+@@ -287,6 +289,13 @@ int xt_check_match(struct xt_mtchk_param *, unsigned int size, u_int8_t proto,
+ int xt_check_target(struct xt_tgchk_param *, unsigned int size, u_int8_t proto,
+ 		    bool inv_proto);
+ 
++int xt_match_to_user(const struct xt_entry_match *m,
++		     struct xt_entry_match __user *u);
++int xt_target_to_user(const struct xt_entry_target *t,
++		      struct xt_entry_target __user *u);
++int xt_data_to_user(void __user *dst, const void *src,
++		    int usersize, int size);
 +
-+	sh = skb_header_pointer(skb, dataoff, sizeof(_sctph), &_sctph);
-+	if (!sh) {
-+		logmsg = "nf_ct_sctp: short packet ";
-+		goto out_invalid;
-+	}
-+	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
-+	    skb->ip_summed == CHECKSUM_NONE) {
-+		if (sh->checksum != sctp_compute_cksum(skb, dataoff)) {
-+			logmsg = "nf_ct_sctp: bad CRC ";
-+			goto out_invalid;
-+		}
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	}
-+	return NF_ACCEPT;
-+out_invalid:
-+	if (LOG_INVALID(net, IPPROTO_SCTP))
-+		nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL, "%s", logmsg);
-+	return -NF_ACCEPT;
+ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
+ 				 struct xt_counters_info *info, bool compat);
+ 
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 2ff499680cc6..feccf527abdd 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -262,6 +262,60 @@ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
+ }
+ EXPORT_SYMBOL_GPL(xt_request_find_target);
+ 
++
++static int xt_obj_to_user(u16 __user *psize, u16 size,
++			  void __user *pname, const char *name,
++			  u8 __user *prev, u8 rev)
++{
++	if (put_user(size, psize))
++		return -EFAULT;
++	if (copy_to_user(pname, name, strlen(name) + 1))
++		return -EFAULT;
++	if (put_user(rev, prev))
++		return -EFAULT;
++
++	return 0;
 +}
 +
- #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
- 
- #include <linux/netfilter/nfnetlink.h>
-@@ -752,6 +782,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp4 __read_mostly = {
- 	.packet 		= sctp_packet,
- 	.get_timeouts		= sctp_get_timeouts,
- 	.new 			= sctp_new,
-+	.error			= sctp_error,
- 	.me 			= THIS_MODULE,
- #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
- 	.to_nlattr		= sctp_to_nlattr,
-@@ -786,6 +817,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_sctp6 __read_mostly = {
- 	.packet 		= sctp_packet,
- 	.get_timeouts		= sctp_get_timeouts,
- 	.new 			= sctp_new,
-+	.error			= sctp_error,
- 	.me 			= THIS_MODULE,
- #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
- 	.to_nlattr		= sctp_to_nlattr,
++#define XT_OBJ_TO_USER(U, K, TYPE, C_SIZE)				\
++	xt_obj_to_user(&U->u.TYPE##_size, C_SIZE ? : K->u.TYPE##_size,	\
++		       U->u.user.name, K->u.kernel.TYPE->name,		\
++		       &U->u.user.revision, K->u.kernel.TYPE->revision)
++
++int xt_data_to_user(void __user *dst, const void *src,
++		    int usersize, int size)
++{
++	usersize = usersize ? : size;
++	if (copy_to_user(dst, src, usersize))
++		return -EFAULT;
++	if (usersize != size && clear_user(dst + usersize, size - usersize))
++		return -EFAULT;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(xt_data_to_user);
++
++#define XT_DATA_TO_USER(U, K, TYPE, C_SIZE)				\
++	xt_data_to_user(U->data, K->data,				\
++			K->u.kernel.TYPE->usersize,			\
++			C_SIZE ? : K->u.kernel.TYPE->TYPE##size)
++
++int xt_match_to_user(const struct xt_entry_match *m,
++		     struct xt_entry_match __user *u)
++{
++	return XT_OBJ_TO_USER(u, m, match, 0) ||
++	       XT_DATA_TO_USER(u, m, match, 0);
++}
++EXPORT_SYMBOL_GPL(xt_match_to_user);
++
++int xt_target_to_user(const struct xt_entry_target *t,
++		      struct xt_entry_target __user *u)
++{
++	return XT_OBJ_TO_USER(u, t, target, 0) ||
++	       XT_DATA_TO_USER(u, t, target, 0);
++}
++EXPORT_SYMBOL_GPL(xt_target_to_user);
++
+ static int match_revfn(u8 af, const char *name, u8 revision, int *bestp)
+ {
+ 	const struct xt_match *m;
 -- 
 2.1.4
