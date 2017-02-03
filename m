@@ -1,43 +1,65 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] mpls: allow TTL propagation to/from IP packets
- to be configured
-Date: Thu, 2 Feb 2017 21:02:47 -0700
-Message-ID: <bffe7633-9285-bd2a-8cfa-3b0918ca62ce@cumulusnetworks.com>
-References: <1485808575-16852-1-git-send-email-rshearma@brocade.com>
- <878tpst75o.fsf@xmission.com>
- <9aff4996-3e8e-66e3-c806-80b3947fcf08@brocade.com>
- <87bmukhscc.fsf@xmission.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH 5/5] virtio_net: XDP support for adjust_head
+Date: Thu, 2 Feb 2017 20:02:55 -0800
+Message-ID: <20170203040252.GA70530@ast-mbp.thefacebook.com>
+References: <20170202231404.14366.64298.stgit@john-Precision-Tower-5810>
+ <20170202232157.14366.63898.stgit@john-Precision-Tower-5810>
+ <20170203043342-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-        Robert Shearman <rshearma@brocade.com>,
-        roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>, kubakici@wp.pl,
+        jasowang@redhat.com, ast@fb.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:33435 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752280AbdBCECu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 23:02:50 -0500
-Received: by mail-pg0-f50.google.com with SMTP id 204so2851763pge.0
-        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 20:02:49 -0800 (PST)
-In-Reply-To: <87bmukhscc.fsf@xmission.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:34566 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752280AbdBCEC7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Feb 2017 23:02:59 -0500
+Received: by mail-pg0-f67.google.com with SMTP id v184so810055pgv.1
+        for <netdev@vger.kernel.org>; Thu, 02 Feb 2017 20:02:59 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170203043342-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/2/17 8:21 PM, Eric W. Biederman wrote:
+On Fri, Feb 03, 2017 at 05:42:54AM +0200, Michael S. Tsirkin wrote:
+> On Thu, Feb 02, 2017 at 03:21:57PM -0800, John Fastabend wrote:
+> > Add support for XDP adjust head by allocating a 256B header region
+> > that XDP programs can grow into. This is only enabled when a XDP
+> > program is loaded.
+> > 
+> > In order to ensure that we do not have to unwind queue headroom push
+> > queue setup below bpf_prog_add. It reads better to do a prog ref
+> > unwind vs another queue setup call.
+> > 
+> > At the moment this code must do a full reset to ensure old buffers
+> > without headroom on program add or with headroom on program removal
+> > are not used incorrectly in the datapath. Ideally we would only
+> > have to disable/enable the RX queues being updated but there is no
+> > API to do this at the moment in virtio so use the big hammer. In
+> > practice it is likely not that big of a problem as this will only
+> > happen when XDP is enabled/disabled changing programs does not
+> > require the reset. There is some risk that the driver may either
+> > have an allocation failure or for some reason fail to correctly
+> > negotiate with the underlying backend in this case the driver will
+> > be left uninitialized. I have not seen this ever happen on my test
+> > systems and for what its worth this same failure case can occur
+> > from probe and other contexts in virtio framework.
+> > 
+> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 > 
-> My brain is mostly elswhere right now so I don't have an implementation
-> on how it should be implemented.   However Linux fundamentally gets used
-> interesting ways, and if we don't implement the option as per mpls exit
-> now someone will come along and need to do the work later.
+> So I am currently testing what I consider a cleaner way to do this:
 > 
-> Perhaps it will only be used with hard coded static configurations, and
-> it is fundamentally a per tunnel property.
+> MERGEABLE_BUFFER_MIN_ALIGN_SHIFT by 1:
+> -#define MERGEABLE_BUFFER_MIN_ALIGN_SHIFT ((PAGE_SHIFT + 1) / 2)
+> +#define MERGEABLE_BUFFER_MIN_ALIGN_SHIFT (PAGE_SHIFT / 2 + 1)
 > 
-> It will be less work to maintain, and the code will run faster in the
-> long run if we don't have two code paths to maintain.
+> and then we do not need a reset as we get a free bit to store presence
+> of XDP buffer.
 
-I can see the argument for per-tunnel knobs, but looking at ios and nx-os docs it seems appropriate to have a global knob as well. In that regards having sysctl knobs solves the global setting and when/if needed we can add MPLS_IPTUNNEL_ZZZZZ encap attributes for the per-tunnel settings.
-
-Does that seem reasonable?
+That does indeed sounds cleaner. Do you have an ETA for this?
+Do you mind if John's set get applied for 4.11 while you're working
+on a better version?
+adjust_head support is a blocker for virtio+xdp adoption.
+I think we need a compromise for 4.11.
