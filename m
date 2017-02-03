@@ -1,104 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [next-queu 13/19] i40e: refactor macro INTRL_USEC_TO_REG
-Date: Thu,  2 Feb 2017 23:25:47 -0800
-Message-ID: <20170203072553.168372-14-jeffrey.t.kirsher@intel.com>
+Subject: [next-queu 11/19] i40e: Remove FPK HyperV VF device ID
+Date: Thu,  2 Feb 2017 23:25:45 -0800
+Message-ID: <20170203072553.168372-12-jeffrey.t.kirsher@intel.com>
 References: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
-Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jayaprakash Shanmugam <jayaprakash.shanmugam@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:17804 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:50618 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752707AbdBCHZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752716AbdBCHZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 3 Feb 2017 02:25:58 -0500
 In-Reply-To: <20170203072553.168372-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Brady <alan.brady@intel.com>
+From: Jayaprakash Shanmugam <jayaprakash.shanmugam@intel.com>
 
-This patch refactors the macro INTRL_USEC_TO_REG into a static inline
-function and fixes a couple subtle bugs caused by the macro.
+Requirement for VFs to use the VMBus has been removed that's why
+removing Hyper-V VF device ID.
 
-This patch fixes a bug which was caused by passing a bad register value
-to the firmware.  If enabling interrupt rate limiting, a non-zero value
-for the rate limit must be used.  Otherwise the firmware sets the
-interrupt rate limit to the maximum value.  Due to the limited
-resolution of the register, attempting to set a value of 1, 2, or 3
-would be rounded down to 0 and limiting was left enabled, causing
-unexpected behavior.
-
-This patch also fixes a possible bug in which using the macro itself can
-introduce unintended side-affects because the macro argument is used
-more than once in the macro definition (e.g. a variable post-increment
-argument would perform a double increment on the variable).
-
-Without this patch, attempting to set interrupt rate limits of 1, 2, or
-3 results in unexpected behavior and future use of this macro could
-cause subtle bugs.
-
-Change-Id: I83ac842de0ca9c86761923d6e3a4d7b1b95f2b3f
-Signed-off-by: Alan Brady <alan.brady@intel.com>
+Change-ID: I84f0964f443ee0db3e5e444b5ace996eb71b8280
+Signed-off-by: Jayaprakash Shanmugam <jayaprakash.shanmugam@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h    | 15 ++++++++++++++-
- 3 files changed, 16 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40e_common.c | 1 -
+ drivers/net/ethernet/intel/i40evf/i40e_devids.h | 1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index cc1465a..7500902 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2072,7 +2072,7 @@ static void i40e_set_itr_per_queue(struct i40e_vsi *vsi,
- 	struct i40e_q_vector *q_vector;
- 	u16 vector, intrl;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index aa63b7f..b5a59dd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -64,7 +64,6 @@ i40e_status i40e_set_mac_type(struct i40e_hw *hw)
+ 			hw->mac.type = I40E_MAC_X722;
+ 			break;
+ 		case I40E_DEV_ID_X722_VF:
+-		case I40E_DEV_ID_X722_VF_HV:
+ 			hw->mac.type = I40E_MAC_X722_VF;
+ 			break;
+ 		case I40E_DEV_ID_VF:
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_devids.h b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
+index 21dcaee..d76393c 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_devids.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
+@@ -48,7 +48,6 @@
+ #define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
+ #define I40E_DEV_ID_SFP_I_X722		0x37D3
+ #define I40E_DEV_ID_X722_VF		0x37CD
+-#define I40E_DEV_ID_X722_VF_HV		0x37D9
  
--	intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
-+	intrl = i40e_intrl_usec_to_reg(vsi->int_rate_limit);
- 
- 	vsi->rx_rings[queue]->rx_itr_setting = ec->rx_coalesce_usecs;
- 	vsi->tx_rings[queue]->tx_itr_setting = ec->tx_coalesce_usecs;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2481924..9f785c0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3268,7 +3268,7 @@ static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
- 		wr32(hw, I40E_PFINT_ITRN(I40E_TX_ITR, vector - 1),
- 		     q_vector->tx.itr);
- 		wr32(hw, I40E_PFINT_RATEN(vector - 1),
--		     INTRL_USEC_TO_REG(vsi->int_rate_limit));
-+		     i40e_intrl_usec_to_reg(vsi->int_rate_limit));
- 
- 		/* Linked list for the queuepairs assigned to this vector */
- 		wr32(hw, I40E_PFINT_LNKLSTN(vector - 1), qp);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index e065321..1ea820e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -52,7 +52,20 @@
-  */
- #define INTRL_ENA                  BIT(6)
- #define INTRL_REG_TO_USEC(intrl) ((intrl & ~INTRL_ENA) << 2)
--#define INTRL_USEC_TO_REG(set) ((set) ? ((set) >> 2) | INTRL_ENA : 0)
-+/**
-+ * i40e_intrl_usec_to_reg - convert interrupt rate limit to register
-+ * @intrl: interrupt rate limit to convert
-+ *
-+ * This function converts a decimal interrupt rate limit to the appropriate
-+ * register format expected by the firmware when setting interrupt rate limit.
-+ */
-+static inline u16 i40e_intrl_usec_to_reg(int intrl)
-+{
-+	if (intrl >> 2)
-+		return ((intrl >> 2) | INTRL_ENA);
-+	else
-+		return 0;
-+}
- #define I40E_INTRL_8K              125     /* 8000 ints/sec */
- #define I40E_INTRL_62K             16      /* 62500 ints/sec */
- #define I40E_INTRL_83K             12      /* 83333 ints/sec */
+ #define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
+ 					 (d) == I40E_DEV_ID_QSFP_B  || \
 -- 
 2.10.2
