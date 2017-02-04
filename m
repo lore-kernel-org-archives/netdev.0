@@ -1,7 +1,8 @@
 From: Lukasz Majewski <lukma@denx.de>
-Subject: [PATCH v2 1/2] net: phy: dp83867: Port mirroring support in the DP83867 TI's PHY driver
-Date: Sat,  4 Feb 2017 17:02:11 +0100
-Message-ID: <1486224132-15420-1-git-send-email-lukma@denx.de>
+Subject: [PATCH v2 2/2] net: phy: dp83867: Recover from "port mirroring" N/A MODE4
+Date: Sat,  4 Feb 2017 17:02:12 +0100
+Message-ID: <1486224132-15420-2-git-send-email-lukma@denx.de>
+References: <1486224132-15420-1-git-send-email-lukma@denx.de>
 Cc: Lukasz Majewski <lukma@denx.de>
 To: Florian Fainelli <f.fainelli@gmail.com>,
         "David S. Miller" <davem@davemloft.net>,
@@ -10,107 +11,95 @@ To: Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
         Kishon Vijay Abraham I <kishon@ti.com>,
         Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:34614 "EHLO
+        mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751226AbdBDQCj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 11:02:39 -0500
+In-Reply-To: <1486224132-15420-1-git-send-email-lukma@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for enabling or disabling the port mirroring 
-(at CFG4 register) feature of the DP83867 TI's PHY device.
+The DP83867 when not properly bootstrapped - especially with LED_0 pin -
+can enter N/A MODE4 for "port mirroring" feature.
 
-One use case is when bootstrap configuration enables this feature (because
-of e.g. LED wiring) so then one needs to disable it in software
-(u-boot/Linux).
+To provide normal operation of the PHY, one needs not only to explicitly
+disable the port mirroring feature, but as well stop some IC internal
+testing (which disables RGMII communication).
+
+To do that the STRAP_STS1 (0x006E) register must be read and RESERVED bit
+11 examined. When it is set, the another RESERVED bit (11) at PHYCR
+(0x0010) register must be clear to disable testing mode and enable RGMII
+communication.
+
+Thorough explanation of the problem can be found at following e2e thread:
+"DP83867IR: Problem with RESERVED bits in PHY Control Register (PHYCR) -
+Linux driver"
+
+https://e2e.ti.com/support/interface/ethernet/f/903/p/571313/2096954#2096954
 
 Signed-off-by: Lukasz Majewski <lukma@denx.de>
-
 ---
-Changes for v2:
-- use "net-phy-lane-swap" and "net-phy-lane-no-swap" generic PHY properties.
-  instead of TI specific one
----
- drivers/net/phy/dp83867.c | 37 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 37 insertions(+)
+ drivers/net/phy/dp83867.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-index ca1b462..b5f0c2d 100644
+index b5f0c2d..7a4208e 100644
 --- a/drivers/net/phy/dp83867.c
 +++ b/drivers/net/phy/dp83867.c
-@@ -32,6 +32,7 @@
- #define DP83867_CFG3		0x1e
- 
+@@ -34,6 +34,7 @@
  /* Extended Registers */
-+#define DP83867_CFG4            0x0031
+ #define DP83867_CFG4            0x0031
  #define DP83867_RGMIICTL	0x0032
++#define DP83867_STRAP_STS1	0x006E
  #define DP83867_RGMIIDCTL	0x0086
  #define DP83867_IO_MUX_CFG	0x0170
-@@ -70,11 +71,20 @@
- #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX	0x0
- #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN	0x1f
  
-+/* CFG4 bits */
-+#define DP83867_CFG4_PORT_MIRROR_EN              BIT(0)
-+
-+enum {
-+	DP83867_PORT_MIRROING_EN = 1,
-+	DP83867_PORT_MIRROING_DIS,
-+};
-+
- struct dp83867_private {
- 	int rx_id_delay;
- 	int tx_id_delay;
- 	int fifo_depth;
- 	int io_impedance;
-+	int port_mirroring;
- };
+@@ -58,9 +59,13 @@
+ #define DP83867_RGMII_TX_CLK_DELAY_EN		BIT(1)
+ #define DP83867_RGMII_RX_CLK_DELAY_EN		BIT(0)
  
- static int dp83867_ack_interrupt(struct phy_device *phydev)
-@@ -111,6 +121,24 @@ static int dp83867_config_intr(struct phy_device *phydev)
- 	return phy_write(phydev, MII_DP83867_MICR, micr_status);
- }
++/* STRAP_STS1 bits */
++#define DP83867_STRAP_STS1_RESERVED		BIT(11)
++
+ /* PHY CTRL bits */
+ #define DP83867_PHYCR_FIFO_DEPTH_SHIFT		14
+ #define DP83867_PHYCR_FIFO_DEPTH_MASK		(3 << 14)
++#define DP83867_PHYCR_RESERVED_MASK		BIT(11)
  
-+static int dp83867_config_port_mirroring(struct phy_device *phydev)
-+{
-+	struct dp83867_private *dp83867 =
-+		(struct dp83867_private *)phydev->priv;
-+	u16 val;
-+
-+	val = phy_read_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR);
-+
-+	if (dp83867->port_mirroring == DP83867_PORT_MIRROING_EN)
-+		val |= DP83867_CFG4_PORT_MIRROR_EN;
-+	else
-+		val &= ~DP83867_CFG4_PORT_MIRROR_EN;
-+
-+	phy_write_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR, val);
-+
-+	return 0;
-+}
-+
- #ifdef CONFIG_OF_MDIO
- static int dp83867_of_init(struct phy_device *phydev)
+ /* RGMIIDCTL bits */
+ #define DP83867_RGMII_TX_CLK_DELAY_SHIFT	4
+@@ -191,7 +196,7 @@ static int dp83867_of_init(struct phy_device *phydev)
+ static int dp83867_config_init(struct phy_device *phydev)
  {
-@@ -144,6 +172,12 @@ static int dp83867_of_init(struct phy_device *phydev)
- 	     phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID))
- 		return ret;
+ 	struct dp83867_private *dp83867;
+-	int ret, val;
++	int ret, val, bs;
+ 	u16 delay;
  
-+	if (of_property_read_bool(of_node, "enet-phy-lane-swap"))
-+		dp83867->port_mirroring = DP83867_PORT_MIRROING_EN;
+ 	if (!phydev->priv) {
+@@ -214,6 +219,22 @@ static int dp83867_config_init(struct phy_device *phydev)
+ 			return val;
+ 		val &= ~DP83867_PHYCR_FIFO_DEPTH_MASK;
+ 		val |= (dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT);
 +
-+	if (of_property_read_bool(of_node, "enet-phy-lane-no-swap"))
-+		dp83867->port_mirroring = DP83867_PORT_MIRROING_DIS;
++		/* The code below checks if "port mirroring" N/A MODE4 has been
++		 * enabled during power on bootstrap.
++		 *
++		 * Such N/A mode enabled by mistake can put PHY IC in some
++		 * internal testing mode and disable RGMII transmission.
++		 *
++		 * In this particular case one needs to check STRAP_STS1
++		 * register's bit 11 (marked as RESERVED).
++		 */
 +
- 	return of_property_read_u32(of_node, "ti,fifo-depth",
- 				   &dp83867->fifo_depth);
- }
-@@ -228,6 +262,9 @@ static int dp83867_config_init(struct phy_device *phydev)
- 		phy_write(phydev, DP83867_CFG3, val);
- 	}
- 
-+	if (dp83867->port_mirroring)
-+		dp83867_config_port_mirroring(phydev);
++		bs = phy_read_mmd_indirect(phydev, DP83867_STRAP_STS1,
++					   DP83867_DEVADDR);
++		if (bs & DP83867_STRAP_STS1_RESERVED)
++			val &= ~DP83867_PHYCR_RESERVED_MASK;
 +
- 	return 0;
- }
- 
+ 		ret = phy_write(phydev, MII_DP83867_PHYCTRL, val);
+ 		if (ret)
+ 			return ret;
 -- 
 2.1.4
