@@ -1,43 +1,88 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next v2 00/12] bnxt_en: Add XDP support.
-Date: Fri, 3 Feb 2017 17:32:16 -0800
-Message-ID: <CACKFLikT+o2Uov7Yx3U5zro=cmVasM1Ufa=xxCajDTTV5JeAAA@mail.gmail.com>
-References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
- <20170203.154910.2213640966872850071.davem@davemloft.net> <CACKFLimXCkC1=9kvQnz-s5rjTOGe1gmb9Ozvt1tEeW+O=y7yAg@mail.gmail.com>
- <20170203.165054.437855043325795801.davem@davemloft.net> <20170203163003.00d794dc@cakuba.netronome.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH net-next 2/2] add one config to select relax order mode
+ in intel NIC's Kconfig
+Date: Sat, 4 Feb 2017 01:36:25 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F201ED835A@szxemi502-mbx.china.huawei.com>
+References: <1486114233-9800-1-git-send-email-maowenan@huawei.com>
+ <1486114233-9800-3-git-send-email-maowenan@huawei.com>
+ <CAKgT0UdxwTDwSsHKj5GfWTdNOcPdsnHBeM0mDxGoifDr8G1DYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Netdev <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Dingtianhong <dingtianhong@huawei.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f47.google.com ([209.85.213.47]:33579 "EHLO
-        mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753324AbdBDBcR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 20:32:17 -0500
-Received: by mail-vk0-f47.google.com with SMTP id k127so24623144vke.0
-        for <netdev@vger.kernel.org>; Fri, 03 Feb 2017 17:32:17 -0800 (PST)
-In-Reply-To: <20170203163003.00d794dc@cakuba.netronome.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:4853 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753138AbdBDBgh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 3 Feb 2017 20:36:37 -0500
+In-Reply-To: <CAKgT0UdxwTDwSsHKj5GfWTdNOcPdsnHBeM0mDxGoifDr8G1DYQ@mail.gmail.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 3, 2017 at 4:33 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Fri, 03 Feb 2017 16:50:54 -0500 (EST), David Miller wrote:
->> We don't set precedence by one driver saying "hey it's better to do
->> things this way, forget what all the other drivers are doing."  Rather
->> we have a "discussion" about what the appropriate thing is to do and
->> convert all the drivers only after a decision has been made.
->
-> Would making sure that if xdp_adjust_head() changes the starting offset
-> (and length) of frame and the program returns XDP_PASS - the stack will
-> see the changes made by xdp_adjust_head() fall under the same follow
-> the precedent rule?  That is what Martin did for mlx4 and mlx5, and what
-> John did in virtio, but not what this patch set does (see my comment on
-> patch 11).
->
-> I should have double checked mlx4/mlx5 and made it clearer that there is
-> a precedent here in my review comment...
-
-Yes, I plan to also include this change (make modified offset and
-length visible to the stack) in the next version of the patch set.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQWxleGFuZGVyIER1eWNr
+IFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJkYXksIEZl
+YnJ1YXJ5IDA0LCAyMDE3IDEyOjQzIEFNDQo+IFRvOiBtYW93ZW5hbg0KPiBDYzogTmV0ZGV2OyBK
+ZWZmIEtpcnNoZXINCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCAyLzJdIGFkZCBvbmUg
+Y29uZmlnIHRvIHNlbGVjdCByZWxheCBvcmRlciBtb2RlIGluDQo+IGludGVsIE5JQydzIEtjb25m
+aWcNCj4gDQo+IE9uIEZyaSwgRmViIDMsIDIwMTcgYXQgMTozMCBBTSwgTWFvIFdlbmFuIDxtYW93
+ZW5hbkBodWF3ZWkuY29tPiB3cm90ZToNCj4gPiBUaGlzIHBhdGNoIGFsbG93cyBvbmUgdG8gZW5h
+YmxlIHJlbGF4IG9yZGVyIG1vZGUgaW4gaW50ZWwgTklDJ3MNCj4gPiBLY29uZmlnLiBDT05GSUdf
+QVJDSF9XQU5UX1JFTEFYX09SREVSIGlzIGEgY29tbW9uIG1hY3JvIGZvciBzb21lDQo+IENQVQ0K
+PiA+IGFyY2hpdGVjdHVyZSB0byB1c2UgcmVsYXggb3JkZXIgbW9kZSBpbiBOSUMncyBzb3VyY2Ug
+Y29kZXMuDQo+ID4gQ09ORklHX0FSQ0hfV0FOVF9SRUxBWF9PUkRFUiBjYW4gYmUgZGVmaW5lZCBp
+biBhcmNoL3h4eC9LY29uZmlnLA0KPiBzdWNoDQo+ID4gYXMgc3BhcmMgc3lzdGVtIGV4aXN0cyBp
+biBhcmNoL3NwYXJjL0tjb25maWcsIGJ1dCBub3QgYWxsIG9mIGFybTY0DQo+ID4gc3lzdGVtcyBj
+YW4gdXNlIHJlbGF4IG9yZGVyIG1vZGUsIHNvIGl0IGNhbid0IGJlIGRlZmluZWQgaW4NCj4gPiBh
+cmNoL2FybTY0L0tjb25maWcuIFRoZXJlZm9yZSBQQ0lfUkVMQVhfT1JERVIgaW4gTklDJ3MgS2Nv
+bmZpZyBwcm92aWRlDQo+ID4gb25lIHdheSB0byBkZWZpbmUgbWFjcm8gQ09ORklHX0FSQ0hfV0FO
+VF9SRUxBWF9PUkRFUi4NCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IE1hbyBXZW5hbiA8bWFvd2Vu
+YW5AaHVhd2VpLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+S2NvbmZpZyB8IDE1ICsrKysrKysrKysrKysrKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMTUgaW5z
+ZXJ0aW9ucygrKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL0tjb25maWcNCj4gPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL0tjb25maWcNCj4g
+PiBpbmRleCAxMzQ5YjQ1Li5iMzY2NzIyIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ludGVsL0tjb25maWcNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
+bC9LY29uZmlnDQo+ID4gQEAgLTI3NSw0ICsyNzUsMTkgQEAgY29uZmlnIEZNMTBLDQo+ID4gICAg
+ICAgICAgIFRvIGNvbXBpbGUgdGhpcyBkcml2ZXIgYXMgYSBtb2R1bGUsIGNob29zZSBNIGhlcmUu
+IFRoZSBtb2R1bGUNCj4gPiAgICAgICAgICAgd2lsbCBiZSBjYWxsZWQgZm0xMGsuICBNU0ktWCBp
+bnRlcnJ1cHQgc3VwcG9ydCBpcyByZXF1aXJlZA0KPiA+DQo+ID4gK2NvbmZpZyBQQ0lfUkVMQVhf
+T1JERVINCj4gPiArICAgICAgICBib29sICJQQ0kgcmVsYXggb3JkZXIgbW9kZSBzdXBwb3J0Ig0K
+PiA+ICsgICAgICAgIGRlZmF1bHQgbg0KPiA+ICsgICAgICAgIHNlbGVjdCBBUkNIX1dBTlRfUkVM
+QVhfT1JERVINCj4gPiArICAgICAgICAtLS1oZWxwLS0tDQo+ID4gKyAgICAgICAgICBUaGlzIGFs
+bG93cyBvbmUgdG8gZW5hYmxlIHJlbGF4IG9yZGVyIG1vZGUgaW4gZHJpdmVyLg0KPiA+ICsgICAg
+ICAgICAgQ09ORklHX0FSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpcyBhIGNvbW1vbiBtYWNybyBmb3IN
+Cj4gc29tZQ0KPiA+ICsgICAgICAgICAgQ1BVIGFyY2hpdGVjdHVyZSB0byB1c2UgcmVsYXggb3Jk
+ZXIgbW9kZSBpbiBOSUMncyBzb3VyY2UgY29kZXMuDQo+ID4gKyAgICAgICAgICBDT05GSUdfQVJD
+SF9XQU5UX1JFTEFYX09SREVSIGNhbiBiZSBkZWZpbmVkIGluDQo+IGFyY2gveHh4L0tjb25maWcs
+DQo+ID4gKyAgICAgICAgICBzdWNoIGFzIHNwYXJjIHN5c3RlbSBleGlzdHMgaW4gYXJjaC9zcGFy
+Yy9LY29uZmlnLCBidXQgbm90IGFsbA0KPiA+ICsgICAgICAgICAgb2YgYXJtNjQgc3lzdGVtcyBj
+YW4gdXNlIHJlbGF4IG9yZGVyIG1vZGUsIHNvIGl0IGNhbid0IGJlDQo+IGRlZmluZWQNCj4gPiAr
+ICAgICAgICAgIGluIGFyY2gvYXJtNjQvS2NvbmZpZy4gVGhlcmVmb3JlIFBDSV9SRUxBWF9PUkRF
+UiBwcm92aWRlDQo+IG9uZSB3YXkNCj4gPiArICAgICAgICAgIHRvIGRlZmluZSBtYWNybyBDT05G
+SUdfQVJDSF9XQU5UX1JFTEFYX09SREVSLiBTYXkgWQ0KPiBoZXJlIGlmIHlvdQ0KPiA+ICsgICAg
+ICAgICAgd2FudCB0byBlbmFibGUgcmVsYXggb3JkZXIuDQo+ID4gKw0KPiA+ICBlbmRpZiAjIE5F
+VF9WRU5ET1JfSU5URUwNCj4gDQo+IA0KPiBZb3UgY2FuJ3QgYmUgZHJvcHBpbmcgY29uZmlndXJh
+dGlvbiBvcHRpb25zIGxpa2UgdGhpcyBpbiBoZXJlLiAgVGhlDQo+IEFSQ0hfV0FOVF9SRUxBWF9P
+UkRFUiBzaG91bGQgYmUgc2VsZWN0ZWQgYnkgdGhlIGFyY2hpdGVjdHVyZSBhcyBhDQo+IGRlZl9i
+b29sLCBub3QgYnkgdGhlIHVzZXIgdmlhIGEga2NvbmZpZyBvcHRpb24uICBJbiBhZGRpdGlvbiB0
+aGlzIG9wdGlvbiBoYXMgbm8NCj4gYnVzaW5lc3MgaW4gdGhlIEludGVsIHdpcmVkIExBTiBkaXJl
+Y3RvcnkgYXMgdGhpcyBpbXBhY3RzIGFsbCBhcmNoaXRlY3R1cmVzLg0KPiANCj4gVGhpcyBpcyBz
+b21ldGhpbmcgdGhhdCB3b3VsZCBiZSBhbiBhcmNoaXRlY3R1cmUgc3BlY2lmaWMgUENJIG9wdGlv
+biBhbmQgY291bGQNCj4gaW1wYWN0IG90aGVyIFBDSSBkZXZpY2VzIGJleW9uZCB3aGF0IGlzIGp1
+c3QgaW4gbmV0d29ya2luZy4NCj4gSWYgeW91IGFyZSB3YW50aW5nIHRvIHRhcmdldCB0aGUgYXJt
+NjQgYXJjaGl0ZWN0dXJlIHlvdSBzaG91bGQgcHJvYmFibHkgZHJvcA0KPiB0aGlzIGluIHRoZSAv
+YXJjaC9hcm02NC9LY29uZmlnLCB0aGVuIHRoYXQgd2F5IGFueW9uZSBmYW1pbGlhciB3aXRoIHRo
+ZSBhcm02NA0KPiBoYXJkd2FyZSBjYW4gY2hpbWUgaW4gaWYgZW5hYmxpbmcgcmVsYXhlZCBvcmRl
+cmluZyBjYXVzZXMgYW55IGtub3duIGlzc3Vlcy4NCj4gDQo+IC0gQWxleA0KDQoNCkkgaGF2ZSB0
+cmllZCB0byBkcm9wIGNvbmZpZ3VyYXRpb24gdG8gYXJjaC9hcm02NC9LY29uZmlnLCBidXQgSSBm
+b3VuZCB0aGVyZSB3aWxsDQpiZSBzaWRlIGVmZmVjdCBhcyBub3QgYWxsIG9mIGFybTY0IHN5c3Rl
+bXMgcmVhbGx5IG5lZWQgcmVsYXggb3JkZXIsIHNvIEkgcHV0IGl0IGluIGludGVsDQpLY29uZmln
+IGJlY2F1c2UgaXQgaXMgYSBmZWF0dXJlIG9mIFBDSSBkZXZpY2UgYW5kIGNvbmZpZ3VyZWQgYnkg
+TklDJ3MgcmVnaXN0ZXIuDQpCeSB0aGUgd2F5LCBkbyB5b3UgYWdyZWUgdGhlIGZpcnN0IHBhdGNo
+IG9mIHRoaXMgc2VyaWVzLCBzaGFsbCBJIHJlcG9zdCBpdCBpbmRpdmlkdWFsbHk/IA0KW1BBVENI
+IG5ldC1uZXh0IDEvMl0gaXhnYmV2ZiBhbmQgODI1OTggcmVsYXggb3JkZXIgbW9kZSBzdXBwb3J0
+DQo=
