@@ -1,110 +1,52 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: intel: i40evf: use new api ethtool_{get|set}_link_ksettings
-Date: Sat,  4 Feb 2017 23:49:03 +0100
-Message-ID: <1486248543-14722-1-git-send-email-tremyfr@gmail.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: jeffrey.t.kirsher@intel.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 00/12] net: get rid of __napi_complete()
+Date: Sat,  4 Feb 2017 15:24:50 -0800
+Message-ID: <20170204232502.22361-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33305 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751237AbdBDXZH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 18:25:07 -0500
+Received: by mail-pf0-f172.google.com with SMTP id y143so14439319pfb.0
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 15:25:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+This patch series removes __napi_complete() calls, in an effort
+to make NAPI API simpler and generalize GRO and napi_complete_done()
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+Eric Dumazet (12):
+  8139too: use napi_complete_done()
+  8139cp: use napi_complete_done()
+  epic100: use napi_complete_done()
+  amd8111e: add GRO support
+  pcnet32: use napi_complete_done()
+  ep93xx_eth: add GRO support
+  skge: use napi_complete_done()
+  ks8695net: add GRO support
+  qla3xxx: add GRO support
+  ibm/emac: use napi_complete_done()
+  aeroflex/greth: use napi_complete_done()
+  net: remove __napi_complete()
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |   31 +++++++++----------
- 1 files changed, 15 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/aeroflex/greth.c    |   2 +-
+ drivers/net/ethernet/amd/amd8111e.c      | 164 ++++++++++++++-----------------
+ drivers/net/ethernet/amd/pcnet32.c       |  11 +--
+ drivers/net/ethernet/cirrus/ep93xx_eth.c |  29 ++----
+ drivers/net/ethernet/ibm/emac/mal.c      |  18 ++--
+ drivers/net/ethernet/marvell/skge.c      |   8 +-
+ drivers/net/ethernet/micrel/ks8695net.c  |  11 +--
+ drivers/net/ethernet/qlogic/qla3xxx.c    |  31 +++---
+ drivers/net/ethernet/realtek/8139cp.c    |  11 +--
+ drivers/net/ethernet/realtek/8139too.c   |   8 +-
+ drivers/net/ethernet/smsc/epic100.c      |  31 ++----
+ include/linux/netdevice.h                |   1 -
+ net/core/dev.c                           |  24 +----
+ 13 files changed, 127 insertions(+), 222 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index 272d600..122efbd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -64,51 +64,50 @@ struct i40evf_stats {
- 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
- 
- /**
-- * i40evf_get_settings - Get Link Speed and Duplex settings
-+ * i40evf_get_link_ksettings - Get Link Speed and Duplex settings
-  * @netdev: network interface device structure
-- * @ecmd: ethtool command
-+ * @cmd: ethtool command
-  *
-  * Reports speed/duplex settings. Because this is a VF, we don't know what
-  * kind of link we really have, so we fake it.
-  **/
--static int i40evf_get_settings(struct net_device *netdev,
--			       struct ethtool_cmd *ecmd)
-+static int i40evf_get_link_ksettings(struct net_device *netdev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
--	ecmd->supported = 0;
--	ecmd->autoneg = AUTONEG_DISABLE;
--	ecmd->transceiver = XCVR_DUMMY1;
--	ecmd->port = PORT_NONE;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	cmd->base.autoneg = AUTONEG_DISABLE;
-+	cmd->base.port = PORT_NONE;
- 	/* Set speed and duplex */
- 	switch (adapter->link_speed) {
- 	case I40E_LINK_SPEED_40GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_40000);
-+		cmd->base.speed = SPEED_40000;
- 		break;
- 	case I40E_LINK_SPEED_25GB:
- #ifdef SPEED_25000
--		ethtool_cmd_speed_set(ecmd, SPEED_25000);
-+		cmd->base.speed = SPEED_25000;
- #else
- 		netdev_info(netdev,
- 			    "Speed is 25G, display not supported by this version of ethtool.\n");
- #endif
- 		break;
- 	case I40E_LINK_SPEED_20GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_20000);
-+		cmd->base.speed = SPEED_20000;
- 		break;
- 	case I40E_LINK_SPEED_10GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_10000);
-+		cmd->base.speed = SPEED_10000;
- 		break;
- 	case I40E_LINK_SPEED_1GB:
--		ethtool_cmd_speed_set(ecmd, SPEED_1000);
-+		cmd->base.speed = SPEED_1000;
- 		break;
- 	case I40E_LINK_SPEED_100MB:
--		ethtool_cmd_speed_set(ecmd, SPEED_100);
-+		cmd->base.speed = SPEED_100;
- 		break;
- 	default:
- 		break;
- 	}
--	ecmd->duplex = DUPLEX_FULL;
-+	cmd->base.duplex = DUPLEX_FULL;
- 
- 	return 0;
- }
-@@ -643,7 +642,6 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
- }
- 
- static const struct ethtool_ops i40evf_ethtool_ops = {
--	.get_settings		= i40evf_get_settings,
- 	.get_drvinfo		= i40evf_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_ringparam		= i40evf_get_ringparam,
-@@ -663,6 +661,7 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
- 	.set_rxfh		= i40evf_set_rxfh,
- 	.get_channels		= i40evf_get_channels,
- 	.get_rxfh_key_size	= i40evf_get_rxfh_key_size,
-+	.get_link_ksettings	= i40evf_get_link_ksettings,
- };
- 
- /**
 -- 
-1.7.4.4
+2.11.0.483.g087da7b7c-goog
