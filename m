@@ -1,69 +1,57 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next 3/4] bridge: move write-heavy fdb members in their own cache line
-Date: Sat,  4 Feb 2017 18:05:08 +0100
-Message-ID: <1486227909-18319-4-git-send-email-nikolay@cumulusnetworks.com>
-References: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
-        davem@davemloft.net, bridge@lists.linux-foundation.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
+Date: Sat, 4 Feb 2017 09:07:19 -0800
+Message-ID: <CALCETrUb1Rf-BdSTHdKSgwnftHjpmcDt1HX1KX-cpN=N7ev+eg@mail.gmail.com>
+References: <87efzq8jbi.fsf@xmission.com> <588995DE.9040707@fb.com>
+ <CALCETrXQ8JFV28xU7tnh3tVbe_mp5yOtHp6shi10GMNnVCQowg@mail.gmail.com>
+ <588A35F8.6050909@fb.com> <CALCETrU7FYz=8c2a=FWvvCxFQC3_e0nYjSU6gj62w9K8mWj=Ww@mail.gmail.com>
+ <588A40D7.9070603@fb.com> <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
+ <588A4D3C.9070601@fb.com> <87r33fevva.fsf@xmission.com> <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
+ <20170203230830.GC26227@ast-mbp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:36668 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751120AbdBDRFT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 12:05:19 -0500
-Received: by mail-wm0-f47.google.com with SMTP id c85so74575867wmi.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 09:05:19 -0800 (PST)
-In-Reply-To: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-vk0-f50.google.com ([209.85.213.50]:33022 "EHLO
+        mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751425AbdBDRHl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 12:07:41 -0500
+Received: by mail-vk0-f50.google.com with SMTP id k127so32529777vke.0
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 09:07:41 -0800 (PST)
+In-Reply-To: <20170203230830.GC26227@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fdb's used and updated fields are written to on every packet forward and
-packet receive respectively. Thus if we are receiving packets from a
-particular fdb, they'll cause false-sharing with everyone who has looked
-it up (even if it didn't match, since mac/vid share cache line!). The
-"used" field is even worse since it is updated on every packet forward
-to that fdb, thus the standard config where X ports use a single gateway
-results in 100% fdb false-sharing. Note that this patch does not prevent
-the last scenario, but it makes it better for other bridge participants
-which are not using that fdb (and are only doing lookups over it).
-The point is with this move we make sure that only communicating parties
-get the false-sharing, in a later patch we'll show how to avoid that too.
+On Fri, Feb 3, 2017 at 3:08 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Feb 03, 2017 at 01:00:47PM -0800, Andy Lutomirski wrote:
+>>
+>> ISTM any ability to migrate namespaces and to migrate eBPF programs
+>> that know about namespaces needs to have the eBPF program firmly
+>> rooted in some namespace (or perhaps cgroup in this case) so that it
+>
+> programs are already global. We cannot break that.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_private.h | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+I don't know what you mean here.  It ought to be possible to have a
+(privileged) program that installs and uses cgroup+bpf programs run
+under CRIU and get migrated.  Maybe not yet, but some day.  This
+should be doable without the program noticing, and it would be
+unfortunate if the API makes this harder than necessary.
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 47fd64bf5022..1cbbf63a5ef7 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -160,19 +160,21 @@ struct net_bridge_vlan_group {
- 	u16				pvid;
- };
- 
--struct net_bridge_fdb_entry
--{
-+struct net_bridge_fdb_entry {
- 	struct hlist_node		hlist;
- 	struct net_bridge_port		*dst;
- 
--	unsigned long			updated;
--	unsigned long			used;
- 	mac_addr			addr;
- 	__u16				vlan_id;
- 	unsigned char			is_local:1,
- 					is_static:1,
- 					added_by_user:1,
- 					added_by_external_learn:1;
-+
-+	/* write-heavy members should not affect lookups */
-+	unsigned long			updated ____cacheline_aligned_in_smp;
-+	unsigned long			used;
-+
- 	struct rcu_head			rcu;
- };
- 
--- 
-2.1.4
+>
+>> can see a namespaced view of the world.  For this to work, presumably
+>> we need to make sure that eBPF programs that are installed by programs
+>> that are in a container don't see traffic that isn't in that
+>> container.
+>
+> such approach will break existing users.
+
+What existing users?  The whole feature has never been in a released kernel.
