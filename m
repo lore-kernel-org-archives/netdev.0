@@ -1,82 +1,110 @@
-From: Alban Browaeys <alban.browaeys@gmail.com>
-Subject: [PATCH] netfilter: xt_hashlimit: Fix integer divide round to zero.
-Date: Sat,  4 Feb 2017 23:47:31 +0100
-Message-ID: <20170204224731.3222-1-alban.browaeys@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Alban Browaeys <alban.browaeys@gmail.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: intel: i40evf: use new api ethtool_{get|set}_link_ksettings
+Date: Sat,  4 Feb 2017 23:49:03 +0100
+Message-ID: <1486248543-14722-1-git-send-email-tremyfr@gmail.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: jeffrey.t.kirsher@intel.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Diving the divider by the multiplier before applying to the input.
-When this would "divide by zero", divide the multiplier by the divider
-first then multiply the input by this value.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Currently user2creds outputs zero when input value is bigger than the
-number of slices and  lower than scale.
-This as then user input is applied an integer divide operation to
-a number greater than itself (scale).
-That rounds up to zero, then we mulitply zero by the credits slice size.
-  iptables -t filter -I INPUT --protocol tcp --match hashlimit
-  --hashlimit 40/second --hashlimit-burst 20 --hashlimit-mode srcip
-  --hashlimit-name syn-flood --jump RETURN
-thus trigger the overflow detection code:
-xt_hashlimit: overflow, try lower: 25000/20
-(25000 as hashlimit avd and 20 the burst)
-Here:
-134217 slices of (HZ * CREDITS_PER_JIFFY) size.
-500000 is user input value
-1000000 is XT_HASHLIMIT_SCALE_v2
-gives: 0 as user2creds output
-Setting burst to "1" typically solve the issue ...
-but setting it to "40" does too !
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-This is on 32bit arch calling into revision 2 of hashlimit.
-
-Signed-off-by: Alban Browaeys <alban.browaeys@gmail.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- net/netfilter/xt_hashlimit.c | 18 ++++++++----------
- 1 file changed, 8 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |   31 +++++++++----------
+ 1 files changed, 15 insertions(+), 16 deletions(-)
 
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 10063408141d..df75ad643eef 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -463,21 +463,19 @@ static u32 xt_hashlimit_len_to_chunks(u32 len)
- /* Precision saver. */
- static u64 user2credits(u64 user, int revision)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 272d600..122efbd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -64,51 +64,50 @@ struct i40evf_stats {
+ 	(I40EVF_GLOBAL_STATS_LEN + I40EVF_QUEUE_STATS_LEN(_dev))
+ 
+ /**
+- * i40evf_get_settings - Get Link Speed and Duplex settings
++ * i40evf_get_link_ksettings - Get Link Speed and Duplex settings
+  * @netdev: network interface device structure
+- * @ecmd: ethtool command
++ * @cmd: ethtool command
+  *
+  * Reports speed/duplex settings. Because this is a VF, we don't know what
+  * kind of link we really have, so we fake it.
+  **/
+-static int i40evf_get_settings(struct net_device *netdev,
+-			       struct ethtool_cmd *ecmd)
++static int i40evf_get_link_ksettings(struct net_device *netdev,
++				     struct ethtool_link_ksettings *cmd)
  {
-+	/* Avoid overflow: divide the constant operands first */
- 	if (revision == 1) {
--		/* If multiplying would overflow... */
--		if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
--			/* Divide first. */
--			return div64_u64(user, XT_HASHLIMIT_SCALE)
--				* HZ * CREDITS_PER_JIFFY_v1;
-+		return div64_u64(user, div64_u64(XT_HASHLIMIT_SCALE,
-+			HZ * CREDITS_PER_JIFFY_v1));
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
  
--		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
-+		return user * div64_u64(HZ * CREDITS_PER_JIFFY_v1,
- 				 XT_HASHLIMIT_SCALE);
- 	} else {
--		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
--			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
--				* HZ * CREDITS_PER_JIFFY;
-+		if (XT_HASHLIMIT_SCALE_v2 >= HZ * CREDITS_PER_JIFFY)
-+			return div64_u64(user, div64_u64(XT_HASHLIMIT_SCALE_v2,
-+				HZ * CREDITS_PER_JIFFY));
- 
--		return div64_u64(user * HZ * CREDITS_PER_JIFFY,
-+		return user * div64_u64(HZ * CREDITS_PER_JIFFY,
- 				 XT_HASHLIMIT_SCALE_v2);
+-	ecmd->supported = 0;
+-	ecmd->autoneg = AUTONEG_DISABLE;
+-	ecmd->transceiver = XCVR_DUMMY1;
+-	ecmd->port = PORT_NONE;
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	cmd->base.autoneg = AUTONEG_DISABLE;
++	cmd->base.port = PORT_NONE;
+ 	/* Set speed and duplex */
+ 	switch (adapter->link_speed) {
+ 	case I40E_LINK_SPEED_40GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_40000);
++		cmd->base.speed = SPEED_40000;
+ 		break;
+ 	case I40E_LINK_SPEED_25GB:
+ #ifdef SPEED_25000
+-		ethtool_cmd_speed_set(ecmd, SPEED_25000);
++		cmd->base.speed = SPEED_25000;
+ #else
+ 		netdev_info(netdev,
+ 			    "Speed is 25G, display not supported by this version of ethtool.\n");
+ #endif
+ 		break;
+ 	case I40E_LINK_SPEED_20GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_20000);
++		cmd->base.speed = SPEED_20000;
+ 		break;
+ 	case I40E_LINK_SPEED_10GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_10000);
++		cmd->base.speed = SPEED_10000;
+ 		break;
+ 	case I40E_LINK_SPEED_1GB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_1000);
++		cmd->base.speed = SPEED_1000;
+ 		break;
+ 	case I40E_LINK_SPEED_100MB:
+-		ethtool_cmd_speed_set(ecmd, SPEED_100);
++		cmd->base.speed = SPEED_100;
+ 		break;
+ 	default:
+ 		break;
  	}
+-	ecmd->duplex = DUPLEX_FULL;
++	cmd->base.duplex = DUPLEX_FULL;
+ 
+ 	return 0;
  }
+@@ -643,7 +642,6 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ }
+ 
+ static const struct ethtool_ops i40evf_ethtool_ops = {
+-	.get_settings		= i40evf_get_settings,
+ 	.get_drvinfo		= i40evf_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ringparam		= i40evf_get_ringparam,
+@@ -663,6 +661,7 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 	.set_rxfh		= i40evf_set_rxfh,
+ 	.get_channels		= i40evf_get_channels,
+ 	.get_rxfh_key_size	= i40evf_get_rxfh_key_size,
++	.get_link_ksettings	= i40evf_get_link_ksettings,
+ };
+ 
+ /**
 -- 
-2.11.0
-
+1.7.4.4
