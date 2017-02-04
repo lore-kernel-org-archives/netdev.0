@@ -1,155 +1,294 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 04/14] i40e: rename i40e_put_mac_in_vlan and i40e_del_mac_all_vlan
-Date: Fri,  3 Feb 2017 18:56:35 -0800
-Message-ID: <20170204025645.174793-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 10/14] i40e: Quick refactor to start moving data off stack and into Tx buffer info
+Date: Fri,  3 Feb 2017 18:56:41 -0800
+Message-ID: <20170204025645.174793-11-jeffrey.t.kirsher@intel.com>
 References: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64701 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:24543 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753519AbdBDC4t (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 21:56:49 -0500
+        id S1753528AbdBDC4u (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 21:56:50 -0500
 In-Reply-To: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-These functions purpose is to add a new MAC filter correctly, whether
-we're using VLANs or not. Their goal is to ensure that all active VLANs
-get the new MAC filter. Rename them so that their intent is clear. They
-function correctly regardless of whether we have any active VLANs or
-only have I40E_VLAN_ANY filters. The new names convey how they function
-in a more clear manner.
+This patch does some quick work to pull some of the data off of the stack
+and hopefully start storing it in the Tx buffer info section of the Tx
+ring.  Ideally we should be moving away from having to store much of
+anything on the stack and can just maintain it all in the descriptor rings.
 
-Change-ID: Iec1961f968c0223a7132724a74e26a665750b107
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: I4b4715ea1920e122502482b3f9e56a9a6cb1e9fe
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h             |  6 +++---
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 24 ++++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  4 ++--
- 3 files changed, 18 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 47 +++++++++++++++------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 47 +++++++++++++++------------
+ 2 files changed, 54 insertions(+), 40 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index c164d50..4a64884 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -855,9 +855,9 @@ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
- int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid);
- void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
- void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid);
--struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
--					     const u8 *macaddr);
--int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, const u8 *macaddr);
-+struct i40e_mac_filter *i40e_add_mac_filter(struct i40e_vsi *vsi,
-+					    const u8 *macaddr);
-+int i40e_del_mac_filter(struct i40e_vsi *vsi, const u8 *macaddr);
- bool i40e_is_vsi_in_vlan(struct i40e_vsi *vsi);
- struct i40e_mac_filter *i40e_find_mac(struct i40e_vsi *vsi, const u8 *macaddr);
- #ifdef I40E_FCOE
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ab0a04b..da9f8d3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1477,18 +1477,19 @@ void i40e_del_filter(struct i40e_vsi *vsi, const u8 *macaddr, s16 vlan)
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 352cf7c..f5baeb1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2251,14 +2251,16 @@ static inline int i40e_tx_prepare_vlan_flags(struct sk_buff *skb,
  
  /**
-- * i40e_put_mac_in_vlan - Make macvlan filters from macaddrs and vlans
-+ * i40e_add_mac_filter - Add a MAC filter for all active VLANs
-  * @vsi: the VSI to be searched
-  * @macaddr: the mac address to be filtered
+  * i40e_tso - set up the tso context descriptor
+- * @skb:      ptr to the skb we're sending
++ * @first:    pointer to first Tx buffer for xmit
+  * @hdr_len:  ptr to the size of the packet header
+  * @cd_type_cmd_tso_mss: Quad Word 1
   *
-- * Goes through all the macvlan filters and adds a macvlan filter for each
-+ * If we're not in VLAN mode, just add the filter to I40E_VLAN_ANY. Otherwise,
-+ * go through all the macvlan filters and add a macvlan filter for each
-  * unique vlan that already exists. If a PVID has been assigned, instead only
-  * add the macaddr to that VLAN.
-  *
-  * Returns last filter added on success, else NULL
+  * Returns 0 if no TSO can happen, 1 if tso is going, or error
   **/
--struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
--					     const u8 *macaddr)
-+struct i40e_mac_filter *i40e_add_mac_filter(struct i40e_vsi *vsi,
-+					    const u8 *macaddr)
+-static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
++static int i40e_tso(struct i40e_tx_buffer *first, u8 *hdr_len,
++		    u64 *cd_type_cmd_tso_mss)
  {
- 	struct i40e_mac_filter *f, *add = NULL;
- 	struct hlist_node *h;
-@@ -1513,15 +1514,16 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
++	struct sk_buff *skb = first->skb;
+ 	u64 cd_cmd, cd_tso_len, cd_mss;
+ 	union {
+ 		struct iphdr *v4;
+@@ -2271,6 +2273,7 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 		unsigned char *hdr;
+ 	} l4;
+ 	u32 paylen, l4_offset;
++	u16 gso_segs, gso_size;
+ 	int err;
+ 
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL)
+@@ -2335,10 +2338,18 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 	/* compute length of segmentation header */
+ 	*hdr_len = (l4.tcp->doff * 4) + l4_offset;
+ 
++	/* pull values out of skb_shinfo */
++	gso_size = skb_shinfo(skb)->gso_size;
++	gso_segs = skb_shinfo(skb)->gso_segs;
++
++	/* update GSO size and bytecount with header size */
++	first->gso_segs = gso_segs;
++	first->bytecount += (first->gso_segs - 1) * *hdr_len;
++
+ 	/* find the field values */
+ 	cd_cmd = I40E_TX_CTX_DESC_TSO;
+ 	cd_tso_len = skb->len - *hdr_len;
+-	cd_mss = skb_shinfo(skb)->gso_size;
++	cd_mss = gso_size;
+ 	*cd_type_cmd_tso_mss |= (cd_cmd << I40E_TXD_CTX_QW1_CMD_SHIFT) |
+ 				(cd_tso_len << I40E_TXD_CTX_QW1_TSO_LEN_SHIFT) |
+ 				(cd_mss << I40E_TXD_CTX_QW1_MSS_SHIFT);
+@@ -2699,7 +2710,6 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	u16 i = tx_ring->next_to_use;
+ 	u32 td_tag = 0;
+ 	dma_addr_t dma;
+-	u16 gso_segs;
+ 	u16 desc_count = 1;
+ 
+ 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
+@@ -2708,15 +2718,6 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 			 I40E_TX_FLAGS_VLAN_SHIFT;
+ 	}
+ 
+-	if (tx_flags & (I40E_TX_FLAGS_TSO | I40E_TX_FLAGS_FSO))
+-		gso_segs = skb_shinfo(skb)->gso_segs;
+-	else
+-		gso_segs = 1;
+-
+-	/* multiply data chunks by size of headers */
+-	first->bytecount = skb->len - hdr_len + (gso_segs * hdr_len);
+-	first->gso_segs = gso_segs;
+-	first->skb = skb;
+ 	first->tx_flags = tx_flags;
+ 
+ 	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
+@@ -2902,8 +2903,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 
+ 	count = i40e_xmit_descriptor_count(skb);
+ 	if (i40e_chk_linearize(skb, count)) {
+-		if (__skb_linearize(skb))
+-			goto out_drop;
++		if (__skb_linearize(skb)) {
++			dev_kfree_skb_any(skb);
++			return NETDEV_TX_OK;
++		}
+ 		count = i40e_txd_use_count(skb->len);
+ 		tx_ring->tx_stats.tx_linearize++;
+ 	}
+@@ -2919,6 +2922,12 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	/* record the location of the first descriptor for this packet */
++	first = &tx_ring->tx_bi[tx_ring->next_to_use];
++	first->skb = skb;
++	first->bytecount = skb->len;
++	first->gso_segs = 1;
++
+ 	/* prepare the xmit flags */
+ 	if (i40e_tx_prepare_vlan_flags(skb, tx_ring, &tx_flags))
+ 		goto out_drop;
+@@ -2926,16 +2935,13 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	/* obtain protocol of skb */
+ 	protocol = vlan_get_protocol(skb);
+ 
+-	/* record the location of the first descriptor for this packet */
+-	first = &tx_ring->tx_bi[tx_ring->next_to_use];
+-
+ 	/* setup IPv4/IPv6 offloads */
+ 	if (protocol == htons(ETH_P_IP))
+ 		tx_flags |= I40E_TX_FLAGS_IPV4;
+ 	else if (protocol == htons(ETH_P_IPV6))
+ 		tx_flags |= I40E_TX_FLAGS_IPV6;
+ 
+-	tso = i40e_tso(skb, &hdr_len, &cd_type_cmd_tso_mss);
++	tso = i40e_tso(first, &hdr_len, &cd_type_cmd_tso_mss);
+ 
+ 	if (tso < 0)
+ 		goto out_drop;
+@@ -2973,7 +2979,8 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
+-	dev_kfree_skb_any(skb);
++	dev_kfree_skb_any(first->skb);
++	first->skb = NULL;
+ 	return NETDEV_TX_OK;
  }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index df67ef3..d4e4882 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1549,14 +1549,16 @@ static inline int i40evf_tx_prepare_vlan_flags(struct sk_buff *skb,
  
  /**
-- * i40e_del_mac_all_vlan - Remove a MAC filter from all VLANS
-+ * i40e_del_mac_filter - Remove a MAC filter from all VLANs
-  * @vsi: the VSI to be searched
-  * @macaddr: the mac address to be removed
+  * i40e_tso - set up the tso context descriptor
+- * @skb:      ptr to the skb we're sending
++ * @first:    pointer to first Tx buffer for xmit
+  * @hdr_len:  ptr to the size of the packet header
+  * @cd_type_cmd_tso_mss: Quad Word 1
   *
-- * Removes a given MAC address from a VSI, regardless of VLAN
-+ * Removes a given MAC address from a VSI regardless of what VLAN it has been
-+ * associated with.
-  *
-  * Returns 0 for success, or error
+  * Returns 0 if no TSO can happen, 1 if tso is going, or error
   **/
--int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, const u8 *macaddr)
-+int i40e_del_mac_filter(struct i40e_vsi *vsi, const u8 *macaddr)
+-static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
++static int i40e_tso(struct i40e_tx_buffer *first, u8 *hdr_len,
++		    u64 *cd_type_cmd_tso_mss)
  {
- 	struct i40e_mac_filter *f;
- 	struct hlist_node *h;
-@@ -1582,8 +1584,8 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
- 		netdev_info(netdev, "set new mac address %pM\n", addr->sa_data);
++	struct sk_buff *skb = first->skb;
+ 	u64 cd_cmd, cd_tso_len, cd_mss;
+ 	union {
+ 		struct iphdr *v4;
+@@ -1569,6 +1571,7 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 		unsigned char *hdr;
+ 	} l4;
+ 	u32 paylen, l4_offset;
++	u16 gso_segs, gso_size;
+ 	int err;
  
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
--	i40e_del_mac_all_vlan(vsi, netdev->dev_addr);
--	i40e_put_mac_in_vlan(vsi, addr->sa_data);
-+	i40e_del_mac_filter(vsi, netdev->dev_addr);
-+	i40e_add_mac_filter(vsi, addr->sa_data);
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
- 	ether_addr_copy(netdev->dev_addr, addr->sa_data);
- 	if (vsi->type == I40E_VSI_MAIN) {
-@@ -1760,7 +1762,7 @@ static int i40e_addr_sync(struct net_device *netdev, const u8 *addr)
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL)
+@@ -1633,10 +1636,18 @@ static int i40e_tso(struct sk_buff *skb, u8 *hdr_len, u64 *cd_type_cmd_tso_mss)
+ 	/* compute length of segmentation header */
+ 	*hdr_len = (l4.tcp->doff * 4) + l4_offset;
  
--	if (i40e_put_mac_in_vlan(vsi, addr))
-+	if (i40e_add_mac_filter(vsi, addr))
- 		return 0;
- 	else
- 		return -ENOMEM;
-@@ -1779,7 +1781,7 @@ static int i40e_addr_unsync(struct net_device *netdev, const u8 *addr)
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
++	/* pull values out of skb_shinfo */
++	gso_size = skb_shinfo(skb)->gso_size;
++	gso_segs = skb_shinfo(skb)->gso_segs;
++
++	/* update GSO size and bytecount with header size */
++	first->gso_segs = gso_segs;
++	first->bytecount += (first->gso_segs - 1) * *hdr_len;
++
+ 	/* find the field values */
+ 	cd_cmd = I40E_TX_CTX_DESC_TSO;
+ 	cd_tso_len = skb->len - *hdr_len;
+-	cd_mss = skb_shinfo(skb)->gso_size;
++	cd_mss = gso_size;
+ 	*cd_type_cmd_tso_mss |= (cd_cmd << I40E_TXD_CTX_QW1_CMD_SHIFT) |
+ 				(cd_tso_len << I40E_TXD_CTX_QW1_TSO_LEN_SHIFT) |
+ 				(cd_mss << I40E_TXD_CTX_QW1_MSS_SHIFT);
+@@ -1949,7 +1960,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	u16 i = tx_ring->next_to_use;
+ 	u32 td_tag = 0;
+ 	dma_addr_t dma;
+-	u16 gso_segs;
+ 	u16 desc_count = 1;
  
--	i40e_del_mac_all_vlan(vsi, addr);
-+	i40e_del_mac_filter(vsi, addr);
+ 	if (tx_flags & I40E_TX_FLAGS_HW_VLAN) {
+@@ -1958,15 +1968,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 			 I40E_TX_FLAGS_VLAN_SHIFT;
+ 	}
  
- 	return 0;
+-	if (tx_flags & (I40E_TX_FLAGS_TSO | I40E_TX_FLAGS_FSO))
+-		gso_segs = skb_shinfo(skb)->gso_segs;
+-	else
+-		gso_segs = 1;
+-
+-	/* multiply data chunks by size of headers */
+-	first->bytecount = skb->len - hdr_len + (gso_segs * hdr_len);
+-	first->gso_segs = gso_segs;
+-	first->skb = skb;
+ 	first->tx_flags = tx_flags;
+ 
+ 	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
+@@ -2151,8 +2152,10 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 
+ 	count = i40e_xmit_descriptor_count(skb);
+ 	if (i40e_chk_linearize(skb, count)) {
+-		if (__skb_linearize(skb))
+-			goto out_drop;
++		if (__skb_linearize(skb)) {
++			dev_kfree_skb_any(skb);
++			return NETDEV_TX_OK;
++		}
+ 		count = i40e_txd_use_count(skb->len);
+ 		tx_ring->tx_stats.tx_linearize++;
+ 	}
+@@ -2168,6 +2171,12 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	/* record the location of the first descriptor for this packet */
++	first = &tx_ring->tx_bi[tx_ring->next_to_use];
++	first->skb = skb;
++	first->bytecount = skb->len;
++	first->gso_segs = 1;
++
+ 	/* prepare the xmit flags */
+ 	if (i40evf_tx_prepare_vlan_flags(skb, tx_ring, &tx_flags))
+ 		goto out_drop;
+@@ -2175,16 +2184,13 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	/* obtain protocol of skb */
+ 	protocol = vlan_get_protocol(skb);
+ 
+-	/* record the location of the first descriptor for this packet */
+-	first = &tx_ring->tx_bi[tx_ring->next_to_use];
+-
+ 	/* setup IPv4/IPv6 offloads */
+ 	if (protocol == htons(ETH_P_IP))
+ 		tx_flags |= I40E_TX_FLAGS_IPV4;
+ 	else if (protocol == htons(ETH_P_IPV6))
+ 		tx_flags |= I40E_TX_FLAGS_IPV6;
+ 
+-	tso = i40e_tso(skb, &hdr_len, &cd_type_cmd_tso_mss);
++	tso = i40e_tso(first, &hdr_len, &cd_type_cmd_tso_mss);
+ 
+ 	if (tso < 0)
+ 		goto out_drop;
+@@ -2211,7 +2217,8 @@ static netdev_tx_t i40e_xmit_frame_ring(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ 
+ out_drop:
+-	dev_kfree_skb_any(skb);
++	dev_kfree_skb_any(first->skb);
++	first->skb = NULL;
+ 	return NETDEV_TX_OK;
  }
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 0cdbdd3..1859911 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1943,7 +1943,7 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
  
- 		f = i40e_find_mac(vsi, al->list[i].addr);
- 		if (!f)
--			f = i40e_put_mac_in_vlan(vsi, al->list[i].addr);
-+			f = i40e_add_mac_filter(vsi, al->list[i].addr);
- 
- 		if (!f) {
- 			dev_err(&pf->pdev->dev,
-@@ -2008,7 +2008,7 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
- 	/* delete addresses from the list */
- 	for (i = 0; i < al->num_elements; i++)
--		if (i40e_del_mac_all_vlan(vsi, al->list[i].addr)) {
-+		if (i40e_del_mac_filter(vsi, al->list[i].addr)) {
- 			ret = I40E_ERR_INVALID_MAC_ADDR;
- 			spin_unlock_bh(&vsi->mac_filter_hash_lock);
- 			goto error_param;
 -- 
 2.10.2
