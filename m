@@ -1,212 +1,248 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next] net: dsa: mv88e6xxx: Implement Clause 45 access to SMI devices
-Date: Sat,  4 Feb 2017 20:12:24 +0100
-Message-ID: <1486235544-11640-1-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next] net: dsa: mv88e6xxx: Refactor remaining port setup
+Date: Sat,  4 Feb 2017 20:15:28 +0100
+Message-ID: <1486235728-11775-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55739 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:55744 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750876AbdBDTMo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 4 Feb 2017 14:12:44 -0500
+        id S1750944AbdBDTP6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 4 Feb 2017 14:15:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mv88e6390 MDIO bus controllers can support for clause 45 accesses.
-The internal SERDES interfaces need this, and it is likely external
-10GHz PHYs will be clause 45.
+Move the remaining port configuration code which varies per device
+into port.c, using ops were necessary. This makes
+mv88e6xxx_6185_family() and mv88e6xxx_6095_family() unused, so remove
+them.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
-v2:
-Reworded the commit message a bit, and rebased onto latest net-next.
-No comments, and no reviewed-by tags we received on the first posting.
----
- drivers/net/dsa/mv88e6xxx/global2.c   | 122 +++++++++++++++++++++++++++++++---
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |   7 ++
- 2 files changed, 120 insertions(+), 9 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 51 +++++++++++++----------------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  7 +++++
+ drivers/net/dsa/mv88e6xxx/port.c      | 48 +++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h      |  6 ++++-
+ 4 files changed, 78 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 353e26bea3c3..50e4e0be4227 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -501,18 +501,110 @@ static int mv88e6xxx_g2_smi_phy_cmd(struct mv88e6xxx_chip *chip, u16 cmd)
- 	return mv88e6xxx_g2_smi_phy_wait(chip);
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index e62d1476b63d..7b4e40b286e4 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -677,11 +677,6 @@ static int mv88e6xxx_phy_ppu_write(struct mv88e6xxx_chip *chip,
+ 	return err;
  }
  
-+static int mv88e6xxx_g2_smi_phy_write_addr(struct mv88e6xxx_chip *chip,
-+					   int addr, int device, int reg,
-+					   bool external)
-+{
-+	int cmd = SMI_CMD_OP_45_WRITE_ADDR | (addr << 5) | device;
-+	int err;
-+
-+	if (external)
-+		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
-+
-+	err = mv88e6xxx_g2_smi_phy_wait(chip);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g2_write(chip, GLOBAL2_SMI_PHY_DATA, reg);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
-+}
-+
-+int mv88e6xxx_g2_smi_phy_read_c45(struct mv88e6xxx_chip *chip, int addr,
-+				  int reg_c45, u16 *val, bool external)
-+{
-+	int device = (reg_c45 >> 16) & 0x1f;
-+	int reg = reg_c45 & 0xffff;
-+	int err;
-+	u16 cmd;
-+
-+	err = mv88e6xxx_g2_smi_phy_write_addr(chip, addr, device, reg,
-+					      external);
-+	if (err)
-+		return err;
-+
-+	cmd = GLOBAL2_SMI_PHY_CMD_OP_45_READ_DATA | (addr << 5) | device;
-+
-+	if (external)
-+		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
-+
-+	err = mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-+	if (err)
-+		return err;
-+
-+	err = *val;
-+
-+	return 0;
-+}
-+
-+int mv88e6xxx_g2_smi_phy_read_c22(struct mv88e6xxx_chip *chip, int addr,
-+				  int reg, u16 *val, bool external)
-+{
-+	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA | (addr << 5) | reg;
-+	int err;
-+
-+	if (external)
-+		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
-+
-+	err = mv88e6xxx_g2_smi_phy_wait(chip);
-+	if (err)
-+		return err;
-+
-+	err = mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-+}
-+
- int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip,
- 			      struct mii_bus *bus,
- 			      int addr, int reg, u16 *val)
+-static bool mv88e6xxx_6095_family(struct mv88e6xxx_chip *chip)
+-{
+-	return chip->info->family == MV88E6XXX_FAMILY_6095;
+-}
+-
+ static bool mv88e6xxx_6097_family(struct mv88e6xxx_chip *chip)
  {
--	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA | (addr << 5) | reg;
- 	struct mv88e6xxx_mdio_bus *mdio_bus = bus->priv;
-+	bool external = mdio_bus->external;
-+
-+	if (reg & MII_ADDR_C45)
-+		return mv88e6xxx_g2_smi_phy_read_c45(chip, addr, reg, val,
-+						     external);
-+	return mv88e6xxx_g2_smi_phy_read_c22(chip, addr, reg, val, external);
-+}
-+
-+int mv88e6xxx_g2_smi_phy_write_c45(struct mv88e6xxx_chip *chip, int addr,
-+				   int reg_c45, u16 val, bool external)
-+{
-+	int device = (reg_c45 >> 16) & 0x1f;
-+	int reg = reg_c45 & 0xffff;
- 	int err;
-+	u16 cmd;
- 
--	if (mdio_bus->external)
-+	err = mv88e6xxx_g2_smi_phy_write_addr(chip, addr, device, reg,
-+					      external);
-+	if (err)
-+		return err;
-+
-+	cmd = GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_DATA | (addr << 5) | device;
-+
-+	if (external)
- 		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
- 
--	err = mv88e6xxx_g2_smi_phy_wait(chip);
-+	err = mv88e6xxx_g2_write(chip, GLOBAL2_SMI_PHY_DATA, val);
- 	if (err)
- 		return err;
- 
-@@ -520,18 +612,16 @@ int mv88e6xxx_g2_smi_phy_read(struct mv88e6xxx_chip *chip,
- 	if (err)
- 		return err;
- 
--	return mv88e6xxx_g2_read(chip, GLOBAL2_SMI_PHY_DATA, val);
-+	return 0;
+ 	return chip->info->family == MV88E6XXX_FAMILY_6097;
+@@ -692,11 +687,6 @@ static bool mv88e6xxx_6165_family(struct mv88e6xxx_chip *chip)
+ 	return chip->info->family == MV88E6XXX_FAMILY_6165;
  }
  
--int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip,
--			       struct mii_bus *bus,
--			       int addr, int reg, u16 val)
-+int mv88e6xxx_g2_smi_phy_write_c22(struct mv88e6xxx_chip *chip, int addr,
-+				   int reg, u16 val, bool external)
+-static bool mv88e6xxx_6185_family(struct mv88e6xxx_chip *chip)
+-{
+-	return chip->info->family == MV88E6XXX_FAMILY_6185;
+-}
+-
+ static bool mv88e6xxx_6320_family(struct mv88e6xxx_chip *chip)
  {
- 	u16 cmd = GLOBAL2_SMI_PHY_CMD_OP_22_WRITE_DATA | (addr << 5) | reg;
--	struct mv88e6xxx_mdio_bus *mdio_bus = bus->priv;
- 	int err;
+ 	return chip->info->family == MV88E6XXX_FAMILY_6320;
+@@ -2585,31 +2575,23 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	 * received packets as usual, disable ARP mirroring and don't send a
+ 	 * copy of all transmitted/received frames on this port to the CPU.
+ 	 */
+-	reg = 0;
+-	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+-	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+-	    mv88e6xxx_6095_family(chip) || mv88e6xxx_6320_family(chip) ||
+-	    mv88e6xxx_6185_family(chip) || mv88e6xxx_6341_family(chip))
+-		reg = PORT_CONTROL_2_MAP_DA;
+-
+-	if (mv88e6xxx_6095_family(chip) || mv88e6xxx_6185_family(chip)) {
+-		/* Set the upstream port this port should use */
+-		reg |= dsa_upstream_port(ds);
+-		/* enable forwarding of unknown multicast addresses to
+-		 * the upstream port
+-		 */
+-		if (port == dsa_upstream_port(ds))
+-			reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
+-	}
+-
+-	reg |= PORT_CONTROL_2_8021Q_DISABLED;
++	err = mv88e6xxx_port_set_map_da(chip, port);
++	if (err)
++		return err;
  
--	if (mdio_bus->external)
-+	if (external)
- 		cmd |= GLOBAL2_SMI_PHY_CMD_EXTERNAL;
+-	if (reg) {
+-		err = mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
++	reg = 0;
++	if (chip->info->ops->port_set_upstream_port) {
++		err = chip->info->ops->port_set_upstream_port(
++			chip, port, dsa_upstream_port(ds));
+ 		if (err)
+ 			return err;
+ 	}
  
- 	err = mv88e6xxx_g2_smi_phy_wait(chip);
-@@ -545,6 +635,20 @@ int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip,
- 	return mv88e6xxx_g2_smi_phy_cmd(chip, cmd);
- }
- 
-+int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip,
-+			       struct mii_bus *bus,
-+			       int addr, int reg, u16 val)
-+{
-+	struct mv88e6xxx_mdio_bus *mdio_bus = bus->priv;
-+	bool external = mdio_bus->external;
++	err = mv88e6xxx_port_set_8021q_mode(chip, port,
++					    PORT_CONTROL_2_8021Q_DISABLED);
++	if (err)
++		return err;
 +
-+	if (reg & MII_ADDR_C45)
-+		return mv88e6xxx_g2_smi_phy_write_c45(chip, addr, reg, val,
-+						      external);
-+
-+	return mv88e6xxx_g2_smi_phy_write_c22(chip, addr, reg, val, external);
-+}
-+
- static void mv88e6xxx_g2_irq_mask(struct irq_data *d)
- {
- 	struct mv88e6xxx_chip *chip = irq_data_get_irq_chip_data(d);
+ 	if (chip->info->ops->port_jumbo_config) {
+ 		err = chip->info->ops->port_jumbo_config(chip, port);
+ 		if (err)
+@@ -3144,7 +3126,8 @@ static const struct mv88e6xxx_ops mv88e6095_ops = {
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ 	.port_set_speed = mv88e6185_port_set_speed,
+ 	.port_set_frame_mode = mv88e6085_port_set_frame_mode,
+-	.port_set_egress_unknowns = mv88e6085_port_set_egress_unknowns,
++	.port_set_egress_unknowns = mv88e6095_port_set_egress_unknowns,
++	.port_set_upstream_port = mv88e6095_port_set_upstream_port,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
+@@ -3210,8 +3193,9 @@ static const struct mv88e6xxx_ops mv88e6131_ops = {
+ 	.port_set_speed = mv88e6185_port_set_speed,
+ 	.port_tag_remap = mv88e6095_port_tag_remap,
+ 	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
+-	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
++	.port_set_egress_unknowns = mv88e6095_port_set_egress_unknowns,
+ 	.port_set_ether_type = mv88e6351_port_set_ether_type,
++	.port_set_upstream_port = mv88e6095_port_set_upstream_port,
+ 	.port_jumbo_config = mv88e6165_port_jumbo_config,
+ 	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
+ 	.port_pause_config = mv88e6097_port_pause_config,
+@@ -3387,8 +3371,9 @@ static const struct mv88e6xxx_ops mv88e6185_ops = {
+ 	.port_set_duplex = mv88e6xxx_port_set_duplex,
+ 	.port_set_speed = mv88e6185_port_set_speed,
+ 	.port_set_frame_mode = mv88e6085_port_set_frame_mode,
+-	.port_set_egress_unknowns = mv88e6085_port_set_egress_unknowns,
++	.port_set_egress_unknowns = mv88e6095_port_set_egress_unknowns,
+ 	.port_egress_rate_limiting = mv88e6095_port_egress_rate_limiting,
++	.port_set_upstream_port = mv88e6095_port_set_upstream_port,
+ 	.stats_snapshot = mv88e6xxx_g1_stats_snapshot,
+ 	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
+ 	.stats_get_strings = mv88e6095_stats_get_strings,
 diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 47ba2f73b879..c1d43ee11842 100644
+index c1d43ee11842..8a21800374f3 100644
 --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -400,6 +400,13 @@
- #define GLOBAL2_SMI_PHY_CMD_OP_22_READ_DATA	((0x2 << 10) | \
- 						 GLOBAL2_SMI_PHY_CMD_MODE_22 | \
- 						 GLOBAL2_SMI_PHY_CMD_BUSY)
-+#define GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_ADDR	((0x0 << 10) | \
-+						 GLOBAL2_SMI_PHY_CMD_BUSY)
-+#define GLOBAL2_SMI_PHY_CMD_OP_45_WRITE_DATA	((0x1 << 10) | \
-+						 GLOBAL2_SMI_PHY_CMD_BUSY)
-+#define GLOBAL2_SMI_PHY_CMD_OP_45_READ_DATA	((0x3 << 10) | \
-+						 GLOBAL2_SMI_PHY_CMD_BUSY)
+@@ -168,6 +168,7 @@
+ #define PORT_CONTROL_2_FORWARD_UNKNOWN	BIT(6)
+ #define PORT_CONTROL_2_EGRESS_MONITOR	BIT(5)
+ #define PORT_CONTROL_2_INGRESS_MONITOR	BIT(4)
++#define PORT_CONTROL_2_UPSTREAM_MASK	0x0f
+ #define PORT_RATE_CONTROL	0x09
+ #define PORT_RATE_CONTROL_2	0x0a
+ #define PORT_ASSOC_VECTOR	0x0b
+@@ -854,6 +855,12 @@ struct mv88e6xxx_ops {
+ 	int (*port_set_cmode)(struct mv88e6xxx_chip *chip, int port,
+ 			      phy_interface_t mode);
+ 
++	/* Some devices have a per port register indicating what is
++	 * the upstream port this port should forward to.
++	 */
++	int (*port_set_upstream_port)(struct mv88e6xxx_chip *chip, int port,
++				      int upstream_port);
 +
- #define GLOBAL2_SMI_PHY_DATA			0x19
- #define GLOBAL2_SCRATCH_MISC	0x1a
- #define GLOBAL2_SCRATCH_BUSY		BIT(15)
+ 	/* Snapshot the statistics for a port. The statistics can then
+ 	 * be read back a leisure but still with a consistent view.
+ 	 */
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index d543a6817d61..8875784c4718 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -672,6 +672,40 @@ static const char * const mv88e6xxx_port_8021q_mode_names[] = {
+ 	[PORT_CONTROL_2_8021Q_SECURE] = "Secure",
+ };
+ 
++int mv88e6095_port_set_egress_unknowns(struct mv88e6xxx_chip *chip, int port,
++				       bool on)
++{
++	int err;
++	u16 reg;
++
++	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_2, &reg);
++	if (err)
++		return err;
++
++	if (on)
++		reg |= PORT_CONTROL_2_FORWARD_UNKNOWN;
++	else
++		reg &= ~PORT_CONTROL_2_FORWARD_UNKNOWN;
++
++	return mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
++}
++
++int mv88e6095_port_set_upstream_port(struct mv88e6xxx_chip *chip, int port,
++				     int upstream_port)
++{
++	int err;
++	u16 reg;
++
++	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_2, &reg);
++	if (err)
++		return err;
++
++	reg &= ~PORT_CONTROL_2_UPSTREAM_MASK;
++	reg |= upstream_port;
++
++	return mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
++}
++
+ int mv88e6xxx_port_set_8021q_mode(struct mv88e6xxx_chip *chip, int port,
+ 				  u16 mode)
+ {
+@@ -695,6 +729,20 @@ int mv88e6xxx_port_set_8021q_mode(struct mv88e6xxx_chip *chip, int port,
+ 	return 0;
+ }
+ 
++int mv88e6xxx_port_set_map_da(struct mv88e6xxx_chip *chip, int port)
++{
++	u16 reg;
++	int err;
++
++	err = mv88e6xxx_port_read(chip, port, PORT_CONTROL_2, &reg);
++	if (err)
++		return err;
++
++	reg |= PORT_CONTROL_2_MAP_DA;
++
++	return mv88e6xxx_port_write(chip, port, PORT_CONTROL_2, reg);
++}
++
+ int mv88e6165_port_jumbo_config(struct mv88e6xxx_chip *chip, int port)
+ {
+ 	u16 reg;
+diff --git a/drivers/net/dsa/mv88e6xxx/port.h b/drivers/net/dsa/mv88e6xxx/port.h
+index cb871e306f62..c83cbb3f4491 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.h
++++ b/drivers/net/dsa/mv88e6xxx/port.h
+@@ -58,6 +58,8 @@ int mv88e6351_port_set_frame_mode(struct mv88e6xxx_chip *chip, int port,
+ 				  enum mv88e6xxx_frame_mode mode);
+ int mv88e6085_port_set_egress_unknowns(struct mv88e6xxx_chip *chip, int port,
+ 				       bool on);
++int mv88e6095_port_set_egress_unknowns(struct mv88e6xxx_chip *chip, int port,
++				       bool on);
+ int mv88e6351_port_set_egress_unknowns(struct mv88e6xxx_chip *chip, int port,
+ 				       bool on);
+ int mv88e6351_port_set_ether_type(struct mv88e6xxx_chip *chip, int port,
+@@ -70,5 +72,7 @@ int mv88e6390_port_pause_config(struct mv88e6xxx_chip *chip, int port);
+ int mv88e6390x_port_set_cmode(struct mv88e6xxx_chip *chip, int port,
+ 			      phy_interface_t mode);
+ int mv88e6xxx_port_get_cmode(struct mv88e6xxx_chip *chip, int port, u8 *cmode);
+-
++int mv88e6xxx_port_set_map_da(struct mv88e6xxx_chip *chip, int port);
++int mv88e6095_port_set_upstream_port(struct mv88e6xxx_chip *chip, int port,
++				     int upstream_port);
+ #endif /* _MV88E6XXX_PORT_H */
 -- 
 2.11.0
