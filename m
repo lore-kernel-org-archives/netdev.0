@@ -1,78 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/14] i40e: remove unnecessary __packed
-Date: Fri,  3 Feb 2017 18:56:40 -0800
-Message-ID: <20170204025645.174793-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/14] i40e: don't allow i40e_vsi_(add|kill)_vlan to operate when VID<1
+Date: Fri,  3 Feb 2017 18:56:32 -0800
+Message-ID: <20170204025645.174793-2-jeffrey.t.kirsher@intel.com>
 References: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
-Cc: Tushar Dave <tushar.n.dave@oracle.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64701 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:24543 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753523AbdBDC4u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 21:56:50 -0500
+        id S1753514AbdBDC4s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 21:56:48 -0500
 In-Reply-To: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tushar Dave <tushar.n.dave@oracle.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-'struct i40e_dma_mem' defined with 'packed' directive causing kernel
-unaligned errors on sparc.
+Now that we have the separate i40e_(add|rm)_vlan_all_mac functions, we
+should not be using the i40e_vsi_kill_vlan or i40e_vsi_add_vlan
+functions when PVID is set or when VID is less than 1. This allows us to
+remove some checks in i40e_vsi_add_vlan and ensures that callers which
+need to handle VID=0 or VID=-1 don't accidentally invoke the VLAN mode
+handling used to convert filters when entering VLAN mode. We also update
+the functions to take u16 instead of s16 as well since they no longer
+expect to be called with VID=I40E_VLAN_ANY.
 
-e.g.
-i40e: Intel(R) Ethernet Connection XL710 Network Driver - version
-1.6.16-k
-i40e: Copyright (c) 2013 - 2014 Intel Corporation.
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-Kernel unaligned access at TPC[44894c] dma_4v_alloc_coherent+0x1ac/0x300
-i40e 0000:03:00.0: fw 5.1.40981 api 1.5 nvm 5.04 0x80002548 0.0.0
-
-This can be fixed with get_unaligned/put_unaligned(). However no
-reference in driver shows that 'struct i40e_dma_mem' directly shoved
-into NIC hardware. But instead fields of the struct are being read and
-used for hardware. Therefore, __packed is unnecessary for 'struct
-i40e_dma_mem'.
-
-In addition, although 'struct i40e_virt_mem' doesn't cause any
-unaligned access, keeping it packed is unnecessary as well because
-of aforementioned reason.
-
-This change make 'struct i40e_dma_mem' and 'struct i40e_virt_mem'
-unpacked.
-
-Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+Change-ID: Ibddf44a8bb840dde8ceef2a4fdb92fd953b05a57
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_osdep.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++----
+ 2 files changed, 12 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_osdep.h b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-index 5b6feb7..be74bcf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
-@@ -55,7 +55,7 @@ struct i40e_dma_mem {
- 	void *va;
- 	dma_addr_t pa;
- 	u32 size;
--} __packed;
-+};
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 342007d..c164d50 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -852,9 +852,9 @@ int i40e_close(struct net_device *netdev);
+ int i40e_vsi_open(struct i40e_vsi *vsi);
+ void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
+ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
+-int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
++int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid);
+ void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
+-void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
++void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid);
+ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
+ 					     const u8 *macaddr);
+ int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, const u8 *macaddr);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b2f76d2..0b4adcc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2568,12 +2568,15 @@ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
+ /**
+  * i40e_vsi_add_vlan - Add VSI membership for given VLAN
+  * @vsi: the VSI being configured
+- * @vid: VLAN id to be added (0 = untagged only , -1 = any)
++ * @vid: VLAN id to be added
+  **/
+-int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
++int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid)
+ {
+ 	int err;
  
- #define i40e_allocate_dma_mem(h, m, unused, s, a) \
- 			i40e_allocate_dma_mem_d(h, m, s, a)
-@@ -64,7 +64,7 @@ struct i40e_dma_mem {
- struct i40e_virt_mem {
- 	void *va;
- 	u32 size;
--} __packed;
-+};
- 
- #define i40e_allocate_virt_mem(h, m, s) i40e_allocate_virt_mem_d(h, m, s)
- #define i40e_free_virt_mem(h, m) i40e_free_virt_mem_d(h, m)
++	if (!vid || vsi->info.pvid)
++		return -EINVAL;
++
+ 	/* Locked once because all functions invoked below iterates list*/
+ 	spin_lock_bh(&vsi->mac_filter_hash_lock);
+ 	err = i40e_add_vlan_all_mac(vsi, vid);
+@@ -2616,10 +2619,13 @@ void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
+ /**
+  * i40e_vsi_kill_vlan - Remove VSI membership for given VLAN
+  * @vsi: the VSI being configured
+- * @vid: VLAN id to be removed (0 = untagged only , -1 = any)
++ * @vid: VLAN id to be removed
+  **/
+-void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
++void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid)
+ {
++	if (!vid || vsi->info.pvid)
++		return;
++
+ 	spin_lock_bh(&vsi->mac_filter_hash_lock);
+ 	i40e_rm_vlan_all_mac(vsi, vid);
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
 -- 
 2.10.2
