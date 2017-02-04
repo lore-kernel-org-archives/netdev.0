@@ -1,40 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 6/6] net: dsa: introduce bridge notifier
-Date: Sat, 4 Feb 2017 18:55:17 +0100
-Message-ID: <20170204175517.GC8364@lunn.ch>
-References: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
- <20170203182021.14246-7-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/9] net: get rid of most __napi_complete() usages
+Date: Sat,  4 Feb 2017 10:20:29 -0800
+Message-ID: <20170204182038.3752-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55670 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751467AbdBDRzW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 4 Feb 2017 12:55:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20170203182021.14246-7-vivien.didelot@savoirfairelinux.com>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:32857 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750876AbdBDSUr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 13:20:47 -0500
+Received: by mail-pg0-f51.google.com with SMTP id 204so15931038pge.0
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 10:20:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +#define DSA_NOTIFIER_BRIDGE_JOIN		1
-> +#define DSA_NOTIFIER_BRIDGE_LEAVE		2
+This patch series removes nine __napi_complete() calls, in an effort
+to harmonize NAPI API and generalize GRO and napi_complete_done()
 
-Hi Vivien
+Two are left, I was not feeling lucky enough to patch them :/
+ ( aeroflex/greth.c & ibm/emac/mal.c )
 
-Is one notifier per event sufficient?
+Eric Dumazet (9):
+  8139too: use napi_complete_done()
+  8139cp: use napi_complete_done()
+  epic100: use napi_complete_done()
+  amd8111e: add GRO support
+  pcnet32: use napi_complete_done()
+  ep93xx_eth: add GRO support
+  skge: use napi_complete_done()
+  ks8695net: add GRO support
+  qla3xxx: add GRO support
 
-I've not looked at what actually needs to happen when a port joins a
-bridge, in a D in DSA setup. Do we need to both enable the flow of
-frames around the switch fabric, but also block those frames going out
-ports they should not? Do we need a first notifier to put in place
-the blocks, and then a second notifier to enable the flow of packets?
+ drivers/net/ethernet/amd/amd8111e.c      | 165 ++++++++++++++-----------------
+ drivers/net/ethernet/amd/pcnet32.c       |  11 +--
+ drivers/net/ethernet/cirrus/ep93xx_eth.c |  24 +----
+ drivers/net/ethernet/marvell/skge.c      |   8 +-
+ drivers/net/ethernet/micrel/ks8695net.c  |  11 +--
+ drivers/net/ethernet/qlogic/qla3xxx.c    |  31 +++---
+ drivers/net/ethernet/realtek/8139cp.c    |  19 ++--
+ drivers/net/ethernet/realtek/8139too.c   |  16 ++-
+ drivers/net/ethernet/smsc/epic100.c      |  33 ++-----
+ 9 files changed, 124 insertions(+), 194 deletions(-)
 
-What we don't want is a window of time during the fabric setup as a
-whole is inconsistent, and frames a leaking out ports they should not.
-
-      Andrew
+-- 
+2.11.0.483.g087da7b7c-goog
