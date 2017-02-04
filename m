@@ -1,42 +1,116 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net] tcp: correct memory barrier usage in
- tcp_check_space()
-Date: Sat, 4 Feb 2017 23:57:25 +0800
-Message-ID: <20170204155725.GA6244@gondor.apana.org.au>
-References: <20170204095954.GA5916@gondor.apana.org.au>
- <1486221577.21871.126.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Baron <jbaron@akamai.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, oleg@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:40961 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751237AbdBDP5t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 10:57:49 -0500
-Content-Disposition: inline
-In-Reply-To: <1486221577.21871.126.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lukasz Majewski <lukma@denx.de>
+Subject: [PATCH v2 1/2] net: phy: dp83867: Port mirroring support in the DP83867 TI's PHY driver
+Date: Sat,  4 Feb 2017 17:02:11 +0100
+Message-ID: <1486224132-15420-1-git-send-email-lukma@denx.de>
+Cc: Lukasz Majewski <lukma@denx.de>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Karicheri Muralidharan <m-karicheri2@ti.com>,
+        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        Kishon Vijay Abraham I <kishon@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 04, 2017 at 07:19:37AM -0800, Eric Dumazet wrote:
->
-> > The comment says that it's pairing with an mb in tcp_poll, but
-> > tcp_poll doesn't touch QUEUE_SHRUNK at all.  So what exactly is
-> > this barrier for?
-> 
-> Do not focus on QUEUE_SHRUNK flag, which is locally used by this thread
-> only.
-> 
-> The confusion comes because 3c7151275c0c9a80c3375f9874b1c7129a105eea
-> thought it could avoid the cost of smp_mb() by abusing the fact that
-> sock_reset_flag(sk, SOCK_QUEUE_SHRUNK) was doing an atomic,
-> but it was not.
+This patch adds support for enabling or disabling the port mirroring 
+(at CFG4 register) feature of the DP83867 TI's PHY device.
 
-Thanks for the explanation.  I see what it's protecting now.  And
-this could indeed be responsible for the race that Oleg reported.
+One use case is when bootstrap configuration enables this feature (because
+of e.g. LED wiring) so then one needs to disable it in software
+(u-boot/Linux).
+
+Signed-off-by: Lukasz Majewski <lukma@denx.de>
+
+---
+Changes for v2:
+- use "net-phy-lane-swap" and "net-phy-lane-no-swap" generic PHY properties.
+  instead of TI specific one
+---
+ drivers/net/phy/dp83867.c | 37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+index ca1b462..b5f0c2d 100644
+--- a/drivers/net/phy/dp83867.c
++++ b/drivers/net/phy/dp83867.c
+@@ -32,6 +32,7 @@
+ #define DP83867_CFG3		0x1e
+ 
+ /* Extended Registers */
++#define DP83867_CFG4            0x0031
+ #define DP83867_RGMIICTL	0x0032
+ #define DP83867_RGMIIDCTL	0x0086
+ #define DP83867_IO_MUX_CFG	0x0170
+@@ -70,11 +71,20 @@
+ #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX	0x0
+ #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN	0x1f
+ 
++/* CFG4 bits */
++#define DP83867_CFG4_PORT_MIRROR_EN              BIT(0)
++
++enum {
++	DP83867_PORT_MIRROING_EN = 1,
++	DP83867_PORT_MIRROING_DIS,
++};
++
+ struct dp83867_private {
+ 	int rx_id_delay;
+ 	int tx_id_delay;
+ 	int fifo_depth;
+ 	int io_impedance;
++	int port_mirroring;
+ };
+ 
+ static int dp83867_ack_interrupt(struct phy_device *phydev)
+@@ -111,6 +121,24 @@ static int dp83867_config_intr(struct phy_device *phydev)
+ 	return phy_write(phydev, MII_DP83867_MICR, micr_status);
+ }
+ 
++static int dp83867_config_port_mirroring(struct phy_device *phydev)
++{
++	struct dp83867_private *dp83867 =
++		(struct dp83867_private *)phydev->priv;
++	u16 val;
++
++	val = phy_read_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR);
++
++	if (dp83867->port_mirroring == DP83867_PORT_MIRROING_EN)
++		val |= DP83867_CFG4_PORT_MIRROR_EN;
++	else
++		val &= ~DP83867_CFG4_PORT_MIRROR_EN;
++
++	phy_write_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR, val);
++
++	return 0;
++}
++
+ #ifdef CONFIG_OF_MDIO
+ static int dp83867_of_init(struct phy_device *phydev)
+ {
+@@ -144,6 +172,12 @@ static int dp83867_of_init(struct phy_device *phydev)
+ 	     phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID))
+ 		return ret;
+ 
++	if (of_property_read_bool(of_node, "enet-phy-lane-swap"))
++		dp83867->port_mirroring = DP83867_PORT_MIRROING_EN;
++
++	if (of_property_read_bool(of_node, "enet-phy-lane-no-swap"))
++		dp83867->port_mirroring = DP83867_PORT_MIRROING_DIS;
++
+ 	return of_property_read_u32(of_node, "ti,fifo-depth",
+ 				   &dp83867->fifo_depth);
+ }
+@@ -228,6 +262,9 @@ static int dp83867_config_init(struct phy_device *phydev)
+ 		phy_write(phydev, DP83867_CFG3, val);
+ 	}
+ 
++	if (dp83867->port_mirroring)
++		dp83867_config_port_mirroring(phydev);
++
+ 	return 0;
+ }
+ 
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.4
