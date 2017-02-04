@@ -1,93 +1,55 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
-Date: Sat, 4 Feb 2017 09:08:38 -0800
-Message-ID: <CALCETrVnGP3DBAWQGFDXyXsN+tq+sSF+zirp4yPgiBo42qzV-g@mail.gmail.com>
-References: <1485401274-2836524-1-git-send-email-ast@fb.com>
- <5894FC9B.8000108@iogearbox.net> <20170203230627.GB26227@ast-mbp.thefacebook.com>
- <58951567.1030401@iogearbox.net>
+From: Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Sat, 4 Feb 2017 09:10:57 -0800
+Message-ID: <CALCETrUWhus3givcEOLxEmKhOcYGpWnuADXTJTfbVP1HcUmQQA@mail.gmail.com>
+References: <CALCETrW+ZQ1xMEfdEOzx6RK9ZoCvQiqQSnOyhDJ=-FZMwUbucg@mail.gmail.com>
+ <20170118224120.GG9171@mtj.duckdns.org> <CALCETrXv3k+=C=9D5YGypzPk8_f4yo8ShQ3tM2fOo++gJFBM4A@mail.gmail.com>
+ <20170119005925.GA18554@mtj.duckdns.org> <CALCETrVrEnL4cvkdDu2LUhxmeOZ+SMEmF=yKKsm9OYoW2y1Kpg@mail.gmail.com>
+ <20170120023907.GA3294@ast-mbp.thefacebook.com> <CALCETrV6NArtFa89iW+QO3udxpJYpMXLbOEk6ZYyWsw7oZDS2Q@mail.gmail.com>
+ <20170123043154.GA93519@ast-mbp.thefacebook.com> <CALCETrXK65itdDqYTdhB-Td8d-Hzj00dcDScUOUh9psCZN_cLA@mail.gmail.com>
+ <CALCETrVQyzoCDV5u_mui7KKCwLZ4+gJQFpjvz3XuNtvVTOqRcQ@mail.gmail.com> <20170203232154.GA30114@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        Thomas Graf <tgraf@suug.ch>,
-        Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f45.google.com ([209.85.213.45]:35908 "EHLO
-        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750950AbdBDRJA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 12:09:00 -0500
-Received: by mail-vk0-f45.google.com with SMTP id t8so32478408vke.3
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 09:09:00 -0800 (PST)
-In-Reply-To: <58951567.1030401@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170203232154.GA30114-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 3, 2017 at 3:42 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 02/04/2017 12:06 AM, Alexei Starovoitov wrote:
+On Fri, Feb 3, 2017 at 3:21 PM, Alexei Starovoitov
+<alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Fri, Feb 03, 2017 at 01:07:39PM -0800, Andy Lutomirski wrote:
 >>
->> On Fri, Feb 03, 2017 at 10:56:43PM +0100, Daniel Borkmann wrote:
->>>
->>> On 01/26/2017 04:27 AM, Alexei Starovoitov wrote:
->>>>
->>>> in cases where bpf programs are looking at sockets and packets
->>>> that belong to different netns, it could be useful to read netns inode,
->>>> so that programs can make intelligent decisions.
->>>> For example to disallow raw sockets in all non-init netns the program
->>>> can do:
->>>> if (sk->type == SOCK_RAW && sk->netns_inum != 0xf0000075)
->>>>    return 0;
->>>> where 0xf0000075 inode comes from /proc/pid/ns/net
->>>>
->>>> Similarly TC cls_bpf/act_bpf and socket filters can do
->>>> if (skb->netns_inum == expected_inode)
->>>>
->>>> The lack of netns awareness was a concern even for socket filters,
->>>> since the application can attach the same bpf program to sockets
->>>> in a different netns. Just like tc cls_bpf program can work in
->>>> different netns as well, so it has to be addressed uniformly
->>>> across all types of bpf programs.
->>>
->>>
->>> Sorry for jumping in late, but my question is, isn't this helper
->>> really only relevant for BPF_PROG_TYPE_CGROUP_* typed programs?
->>> Thus other prog types making use of bpf_convert_ctx_access()
->>> should probably reject that in .is_valid_access() callback?
->>>
->>> Reason why I'm asking is that for sockets or tc progs, you
->>> already have a netns context where you're attached to, and f.e.
->>> skbs leaving that netns context will be orphaned. Thus, why
->>> would tc or sock filter tailor a program with such a check,
->>> if it can only match/mismatch its own netns inum eventually?
->>
->>
->> Please see the example I provided earlier.
+>> Is there any plan to address this?  If not, I'll try to write that
+>> patch this weekend.
 >
+> yes. I'm working on 'disallow program override' flag.
+> It got stalled, because netns discussion got stalled.
+> Later today will send a patch for dev_id+inode and
+> will continue on the flag patch.
 >
-> That example for both socket filter and tc progs specifically
-> wasn't quite clear to me, hence my question wrt why it's right
-> now a "concern" for these ones. (Again, clear to me for cgroups
-> progs.)
->
->> We can have the same cls_bpf attached to all netns-es.
->> Same for socket filters and everything else.
->
->
-> So use-case would be that someone wants to attach the very same
-> prog via tc to various netdevs sitting in different netns, and
-> that prog looks up a map, controlled by initns, with skb->netns_inum
-> as key and the resulting value could contain allowed feature bits
-> for that specific netns prog the skbs goes through? That would be
-> a feature, not "concern", no? At the same time, it's up to the
-> user or mgmt app what gets loaded so f.e. it might just as well
-> tailor/optimize the progs individually for the devs sitting in
-> netns-es to avoid such map lookup.
 
-Agreed.  I don't see why you would install the exact same program on
-two sockets in different netnses if the program contains, say, an
-ifindex.  Why not just install a variant with the right ifindex into
-each socket?
+Would it make sense to try to document what your proposal does before
+writing the code?  I don't yet see how to get semantics that are both
+simple and sensible with a "disallow override" flag.
+
+I *do* see how to get simple, sensible semantics with an approach
+where all the programs in scope for the cgroup in question get called.
+If needed, I can imagine a special "overridable" program that would
+not be run if the socket in question is bound to a descendent cgroup
+that also has an "overridable" program but would still let all the
+normal hierarchical programs in scope get called.
