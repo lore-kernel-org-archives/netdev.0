@@ -1,85 +1,118 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/14] i40e: fold the i40e_is_vsi_in_vlan check into i40e_put_mac_in_vlan
-Date: Fri,  3 Feb 2017 18:56:33 -0800
-Message-ID: <20170204025645.174793-3-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 07/14] i40e: Deprecating unused macro
+Date: Fri,  3 Feb 2017 18:56:38 -0800
+Message-ID: <20170204025645.174793-8-jeffrey.t.kirsher@intel.com>
 References: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Bimmy Pujari <bimmy.pujari@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:64701 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:24543 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753508AbdBDC4s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 21:56:48 -0500
+        id S1753521AbdBDC4t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 3 Feb 2017 21:56:49 -0500
 In-Reply-To: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Bimmy Pujari <bimmy.pujari@intel.com>
 
-Fold the check for determining when to call i40e_put_mac_in_vlan directly
-into the function so that we don't need to decide which function to use
-ahead of time. This allows us to just call i40e_put_mac_in_vlan directly
-without having to check ahead of time.
+I40E_MAC_X710 was supposed to be for 10G and I40E_MAC_XL710
+was supposed to be for 40G. But function i40e_is_mac_710
+sets I40E_MAC_XL710 for all device IDS, I40E_MAC_X710 is not
+used at all. As there is nothing to compare there is no need
+for this function. Thus deprecating this extra macro and
+removing this function entirely and replacing it with a direct
+check.
 
-Change-ID: Ifff526940748ac14b8418be5df5a149502eed137
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: I7d1769954dccd574a290ac04adb836ebd156730e
+Signed-off-by: Bimmy Pujari <bimmy.pujari@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 11 ++++-------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  8 ++------
- 2 files changed, 6 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h        | 13 -------------
+ drivers/net/ethernet/intel/i40e/i40e_main.c   |  6 +++---
+ drivers/net/ethernet/intel/i40e/i40e_type.h   |  1 -
+ drivers/net/ethernet/intel/i40evf/i40e_type.h |  1 -
+ 4 files changed, 3 insertions(+), 18 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 8bb0f4b..cdf812c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -134,19 +134,6 @@
+ /* default to trying for four seconds */
+ #define I40E_TRY_LINK_TIMEOUT	(4 * HZ)
+ 
+-/**
+- * i40e_is_mac_710 - Return true if MAC is X710/XL710
+- * @hw: ptr to the hardware info
+- **/
+-static inline bool i40e_is_mac_710(struct i40e_hw *hw)
+-{
+-	if ((hw->mac.type == I40E_MAC_X710) ||
+-	    (hw->mac.type == I40E_MAC_XL710))
+-		return true;
+-
+-	return false;
+-}
+-
+ /* driver state flags */
+ enum i40e_state_t {
+ 	__I40E_TESTING,
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 0b4adcc..7a11d2b 100644
+index 2d689e0..2481924 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1498,6 +1498,9 @@ struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
- 		return i40e_add_filter(vsi, macaddr,
- 				       le16_to_cpu(vsi->info.pvid));
+@@ -8684,7 +8684,7 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 				 pf->hw.func_caps.fd_filters_best_effort;
+ 	}
  
-+	if (!i40e_is_vsi_in_vlan(vsi))
-+		return i40e_add_filter(vsi, macaddr, I40E_VLAN_ANY);
-+
- 	hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist) {
- 		if (f->state == I40E_FILTER_REMOVE)
- 			continue;
-@@ -1756,14 +1759,8 @@ static int i40e_addr_sync(struct net_device *netdev, const u8 *addr)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
--	struct i40e_mac_filter *f;
--
--	if (i40e_is_vsi_in_vlan(vsi))
--		f = i40e_put_mac_in_vlan(vsi, addr);
--	else
--		f = i40e_add_filter(vsi, addr, I40E_VLAN_ANY);
+-	if (i40e_is_mac_710(&pf->hw) &&
++	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
+ 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 33)) ||
+ 	    (pf->hw.aq.fw_maj_ver < 4))) {
+ 		pf->flags |= I40E_FLAG_RESTART_AUTONEG;
+@@ -8693,13 +8693,13 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	}
  
--	if (f)
-+	if (i40e_put_mac_in_vlan(vsi, addr))
- 		return 0;
- 	else
- 		return -ENOMEM;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index a6198b7..0cdbdd3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1942,12 +1942,8 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		struct i40e_mac_filter *f;
+ 	/* Disable FW LLDP if FW < v4.3 */
+-	if (i40e_is_mac_710(&pf->hw) &&
++	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
+ 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver < 3)) ||
+ 	    (pf->hw.aq.fw_maj_ver < 4)))
+ 		pf->flags |= I40E_FLAG_STOP_FW_LLDP;
  
- 		f = i40e_find_mac(vsi, al->list[i].addr);
--		if (!f) {
--			if (i40e_is_vsi_in_vlan(vsi))
--				f = i40e_put_mac_in_vlan(vsi, al->list[i].addr);
--			else
--				f = i40e_add_filter(vsi, al->list[i].addr, -1);
--		}
-+		if (!f)
-+			f = i40e_put_mac_in_vlan(vsi, al->list[i].addr);
- 
- 		if (!f) {
- 			dev_err(&pf->pdev->dev,
+ 	/* Use the FW Set LLDP MIB API if FW > v4.40 */
+-	if (i40e_is_mac_710(&pf->hw) &&
++	if ((pf->hw.mac.type == I40E_MAC_XL710) &&
+ 	    (((pf->hw.aq.fw_maj_ver == 4) && (pf->hw.aq.fw_min_ver >= 40)) ||
+ 	    (pf->hw.aq.fw_maj_ver >= 5)))
+ 		pf->flags |= I40E_FLAG_USE_SET_LLDP_MIB;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index edc0abd..b6cf8d2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -125,7 +125,6 @@ enum i40e_debug_mask {
+  */
+ enum i40e_mac_type {
+ 	I40E_MAC_UNKNOWN = 0,
+-	I40E_MAC_X710,
+ 	I40E_MAC_XL710,
+ 	I40E_MAC_VF,
+ 	I40E_MAC_X722,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index c85e8a3..92ac60d 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -100,7 +100,6 @@ enum i40e_debug_mask {
+  */
+ enum i40e_mac_type {
+ 	I40E_MAC_UNKNOWN = 0,
+-	I40E_MAC_X710,
+ 	I40E_MAC_XL710,
+ 	I40E_MAC_VF,
+ 	I40E_MAC_X722,
 -- 
 2.10.2
