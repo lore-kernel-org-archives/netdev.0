@@ -1,144 +1,60 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next 1/4] bridge: modify bridge and port to have often accessed fields in one cache line
-Date: Sat,  4 Feb 2017 18:05:06 +0100
-Message-ID: <1486227909-18319-2-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next 4/4] bridge: fdb: write to used and updated at most once per jiffy
+Date: Sat,  4 Feb 2017 18:05:09 +0100
+Message-ID: <1486227909-18319-5-git-send-email-nikolay@cumulusnetworks.com>
 References: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
         davem@davemloft.net, bridge@lists.linux-foundation.org,
         Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:38287 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751224AbdBDRFS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 12:05:18 -0500
-Received: by mail-wm0-f50.google.com with SMTP id r141so70760668wmg.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 09:05:17 -0800 (PST)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36673 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751542AbdBDRFU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 12:05:20 -0500
+Received: by mail-wm0-f47.google.com with SMTP id c85so74576183wmi.1
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 09:05:20 -0800 (PST)
 In-Reply-To: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move around net_bridge so the vlan fields are in the beginning since
-they're checked on every packet even if vlan filtering is disabled.
-For the port move flags & vlan group to the beginning, so they're in the
-same cache line with the port's state (both flags and state are checked
-on each packet).
+Writing once per jiffy is enough to limit the bridge's false sharing.
+After this change the bridge doesn't show up in the local load HitM stats.
 
+Suggested-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- net/bridge/br_private.h | 43 ++++++++++++++++++++-----------------------
- 1 file changed, 20 insertions(+), 23 deletions(-)
+ net/bridge/br_fdb.c   | 3 ++-
+ net/bridge/br_input.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 40177df45ba6..ec8560349b6f 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -212,12 +212,16 @@ struct net_bridge_mdb_htable
- 	u32				ver;
- };
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 5cbed5c0db88..5028691fa68a 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -597,7 +597,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 				fdb->dst = source;
+ 				fdb_modified = true;
+ 			}
+-			fdb->updated = jiffies;
++			if (jiffies != fdb->updated)
++				fdb->updated = jiffies;
+ 			if (unlikely(added_by_user))
+ 				fdb->added_by_user = 1;
+ 			if (unlikely(fdb_modified))
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index fba38d8a1a08..220943f920d2 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -198,7 +198,8 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
+ 		if (dst->is_local)
+ 			return br_pass_frame_up(skb);
  
--struct net_bridge_port
--{
-+struct net_bridge_port {
- 	struct net_bridge		*br;
- 	struct net_device		*dev;
- 	struct list_head		list;
- 
-+	unsigned long			flags;
-+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
-+	struct net_bridge_vlan_group	__rcu *vlgrp;
-+#endif
-+
- 	/* STP */
- 	u8				priority;
- 	u8				state;
-@@ -238,8 +242,6 @@ struct net_bridge_port
- 	struct kobject			kobj;
- 	struct rcu_head			rcu;
- 
--	unsigned long 			flags;
--
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	struct bridge_mcast_own_query	ip4_own_query;
- #if IS_ENABLED(CONFIG_IPV6)
-@@ -259,9 +261,6 @@ struct net_bridge_port
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll			*np;
- #endif
--#ifdef CONFIG_BRIDGE_VLAN_FILTERING
--	struct net_bridge_vlan_group	__rcu *vlgrp;
--#endif
- #ifdef CONFIG_NET_SWITCHDEV
- 	int				offload_fwd_mark;
- #endif
-@@ -283,14 +282,21 @@ static inline struct net_bridge_port *br_port_get_rtnl(const struct net_device *
- 		rtnl_dereference(dev->rx_handler_data) : NULL;
- }
- 
--struct net_bridge
--{
-+struct net_bridge {
- 	spinlock_t			lock;
-+	spinlock_t			hash_lock;
- 	struct list_head		port_list;
- 	struct net_device		*dev;
--
- 	struct pcpu_sw_netstats		__percpu *stats;
--	spinlock_t			hash_lock;
-+	/* These fields are accessed on each packet */
-+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
-+	u8				vlan_enabled;
-+	u8				vlan_stats_enabled;
-+	__be16				vlan_proto;
-+	u16				default_pvid;
-+	struct net_bridge_vlan_group	__rcu *vlgrp;
-+#endif
-+
- 	struct hlist_head		hash[BR_HASH_SIZE];
- #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
- 	union {
-@@ -308,6 +314,9 @@ struct net_bridge
- 	bridge_id			designated_root;
- 	bridge_id			bridge_id;
- 	u32				root_path_cost;
-+	unsigned char			topology_change;
-+	unsigned char			topology_change_detected;
-+	u16				root_port;
- 	unsigned long			max_age;
- 	unsigned long			hello_time;
- 	unsigned long			forward_delay;
-@@ -319,7 +328,6 @@ struct net_bridge
- 
- 	u8				group_addr[ETH_ALEN];
- 	bool				group_addr_set;
--	u16				root_port;
- 
- 	enum {
- 		BR_NO_STP, 		/* no spanning tree */
-@@ -327,9 +335,6 @@ struct net_bridge
- 		BR_USER_STP,		/* new RSTP in userspace */
- 	} stp_enabled;
- 
--	unsigned char			topology_change;
--	unsigned char			topology_change_detected;
--
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	unsigned char			multicast_router;
- 
-@@ -381,14 +386,6 @@ struct net_bridge
- #ifdef CONFIG_NET_SWITCHDEV
- 	int offload_fwd_mark;
- #endif
--
--#ifdef CONFIG_BRIDGE_VLAN_FILTERING
--	struct net_bridge_vlan_group	__rcu *vlgrp;
--	u8				vlan_enabled;
--	u8				vlan_stats_enabled;
--	__be16				vlan_proto;
--	u16				default_pvid;
--#endif
- };
- 
- struct br_input_skb_cb {
+-		dst->used = jiffies;
++		if (jiffies != dst->used)
++			dst->used = jiffies;
+ 		br_forward(dst->dst, skb, local_rcv, false);
+ 	} else {
+ 		if (!mcast_hit)
 -- 
 2.1.4
