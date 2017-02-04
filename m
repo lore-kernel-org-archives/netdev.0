@@ -1,94 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/14] i40e: don't allow i40e_vsi_(add|kill)_vlan to operate when VID<1
-Date: Fri,  3 Feb 2017 18:56:32 -0800
-Message-ID: <20170204025645.174793-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/14] i40e: refactor macro INTRL_USEC_TO_REG
+Date: Fri,  3 Feb 2017 18:56:44 -0800
+Message-ID: <20170204025645.174793-14-jeffrey.t.kirsher@intel.com>
 References: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:24543 "EHLO mga11.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:5271 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753514AbdBDC4s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753446AbdBDC4s (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 3 Feb 2017 21:56:48 -0500
 In-Reply-To: <20170204025645.174793-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-Now that we have the separate i40e_(add|rm)_vlan_all_mac functions, we
-should not be using the i40e_vsi_kill_vlan or i40e_vsi_add_vlan
-functions when PVID is set or when VID is less than 1. This allows us to
-remove some checks in i40e_vsi_add_vlan and ensures that callers which
-need to handle VID=0 or VID=-1 don't accidentally invoke the VLAN mode
-handling used to convert filters when entering VLAN mode. We also update
-the functions to take u16 instead of s16 as well since they no longer
-expect to be called with VID=I40E_VLAN_ANY.
+This patch refactors the macro INTRL_USEC_TO_REG into a static inline
+function and fixes a couple subtle bugs caused by the macro.
 
-Change-ID: Ibddf44a8bb840dde8ceef2a4fdb92fd953b05a57
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+This patch fixes a bug which was caused by passing a bad register value
+to the firmware.  If enabling interrupt rate limiting, a non-zero value
+for the rate limit must be used.  Otherwise the firmware sets the
+interrupt rate limit to the maximum value.  Due to the limited
+resolution of the register, attempting to set a value of 1, 2, or 3
+would be rounded down to 0 and limiting was left enabled, causing
+unexpected behavior.
+
+This patch also fixes a possible bug in which using the macro itself can
+introduce unintended side-affects because the macro argument is used
+more than once in the macro definition (e.g. a variable post-increment
+argument would perform a double increment on the variable).
+
+Without this patch, attempting to set interrupt rate limits of 1, 2, or
+3 results in unexpected behavior and future use of this macro could
+cause subtle bugs.
+
+Change-Id: I83ac842de0ca9c86761923d6e3a4d7b1b95f2b3f
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++----
- 2 files changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h    | 15 ++++++++++++++-
+ 3 files changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 342007d..c164d50 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -852,9 +852,9 @@ int i40e_close(struct net_device *netdev);
- int i40e_vsi_open(struct i40e_vsi *vsi);
- void i40e_vlan_stripping_disable(struct i40e_vsi *vsi);
- int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
--int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid);
-+int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid);
- void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid);
--void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid);
-+void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid);
- struct i40e_mac_filter *i40e_put_mac_in_vlan(struct i40e_vsi *vsi,
- 					     const u8 *macaddr);
- int i40e_del_mac_all_vlan(struct i40e_vsi *vsi, const u8 *macaddr);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index cc1465a..7500902 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2072,7 +2072,7 @@ static void i40e_set_itr_per_queue(struct i40e_vsi *vsi,
+ 	struct i40e_q_vector *q_vector;
+ 	u16 vector, intrl;
+ 
+-	intrl = INTRL_USEC_TO_REG(vsi->int_rate_limit);
++	intrl = i40e_intrl_usec_to_reg(vsi->int_rate_limit);
+ 
+ 	vsi->rx_rings[queue]->rx_itr_setting = ec->rx_coalesce_usecs;
+ 	vsi->tx_rings[queue]->tx_itr_setting = ec->tx_coalesce_usecs;
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b2f76d2..0b4adcc 100644
+index 2481924..9f785c0 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2568,12 +2568,15 @@ int i40e_add_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
- /**
-  * i40e_vsi_add_vlan - Add VSI membership for given VLAN
-  * @vsi: the VSI being configured
-- * @vid: VLAN id to be added (0 = untagged only , -1 = any)
-+ * @vid: VLAN id to be added
-  **/
--int i40e_vsi_add_vlan(struct i40e_vsi *vsi, s16 vid)
-+int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid)
- {
- 	int err;
+@@ -3268,7 +3268,7 @@ static void i40e_vsi_configure_msix(struct i40e_vsi *vsi)
+ 		wr32(hw, I40E_PFINT_ITRN(I40E_TX_ITR, vector - 1),
+ 		     q_vector->tx.itr);
+ 		wr32(hw, I40E_PFINT_RATEN(vector - 1),
+-		     INTRL_USEC_TO_REG(vsi->int_rate_limit));
++		     i40e_intrl_usec_to_reg(vsi->int_rate_limit));
  
-+	if (!vid || vsi->info.pvid)
-+		return -EINVAL;
-+
- 	/* Locked once because all functions invoked below iterates list*/
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
- 	err = i40e_add_vlan_all_mac(vsi, vid);
-@@ -2616,10 +2619,13 @@ void i40e_rm_vlan_all_mac(struct i40e_vsi *vsi, s16 vid)
- /**
-  * i40e_vsi_kill_vlan - Remove VSI membership for given VLAN
-  * @vsi: the VSI being configured
-- * @vid: VLAN id to be removed (0 = untagged only , -1 = any)
-+ * @vid: VLAN id to be removed
-  **/
--void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, s16 vid)
-+void i40e_vsi_kill_vlan(struct i40e_vsi *vsi, u16 vid)
- {
-+	if (!vid || vsi->info.pvid)
-+		return;
-+
- 	spin_lock_bh(&vsi->mac_filter_hash_lock);
- 	i40e_rm_vlan_all_mac(vsi, vid);
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 		/* Linked list for the queuepairs assigned to this vector */
+ 		wr32(hw, I40E_PFINT_LNKLSTN(vector - 1), qp);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index e065321..1ea820e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -52,7 +52,20 @@
+  */
+ #define INTRL_ENA                  BIT(6)
+ #define INTRL_REG_TO_USEC(intrl) ((intrl & ~INTRL_ENA) << 2)
+-#define INTRL_USEC_TO_REG(set) ((set) ? ((set) >> 2) | INTRL_ENA : 0)
++/**
++ * i40e_intrl_usec_to_reg - convert interrupt rate limit to register
++ * @intrl: interrupt rate limit to convert
++ *
++ * This function converts a decimal interrupt rate limit to the appropriate
++ * register format expected by the firmware when setting interrupt rate limit.
++ */
++static inline u16 i40e_intrl_usec_to_reg(int intrl)
++{
++	if (intrl >> 2)
++		return ((intrl >> 2) | INTRL_ENA);
++	else
++		return 0;
++}
+ #define I40E_INTRL_8K              125     /* 8000 ints/sec */
+ #define I40E_INTRL_62K             16      /* 62500 ints/sec */
+ #define I40E_INTRL_83K             12      /* 83333 ints/sec */
 -- 
 2.10.2
