@@ -1,63 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] virtio_net: exploit napi_complete_done() return
- value
-Date: Sat, 04 Feb 2017 07:49:21 -0800
-Message-ID: <1486223361.21871.136.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net] tcp: correct memory barrier usage in
+ tcp_check_space()
+Date: Sat, 4 Feb 2017 23:57:25 +0800
+Message-ID: <20170204155725.GA6244@gondor.apana.org.au>
+References: <20170204095954.GA5916@gondor.apana.org.au>
+ <1486221577.21871.126.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Baron <jbaron@akamai.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, oleg@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:33574 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751033AbdBDPtY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 10:49:24 -0500
-Received: by mail-it0-f66.google.com with SMTP id e137so4248884itc.0
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 07:49:24 -0800 (PST)
+Received: from helcar.hengli.com.au ([209.40.204.226]:40961 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751237AbdBDP5t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 10:57:49 -0500
+Content-Disposition: inline
+In-Reply-To: <1486221577.21871.126.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Sat, Feb 04, 2017 at 07:19:37AM -0800, Eric Dumazet wrote:
+>
+> > The comment says that it's pairing with an mb in tcp_poll, but
+> > tcp_poll doesn't touch QUEUE_SHRUNK at all.  So what exactly is
+> > this barrier for?
+> 
+> Do not focus on QUEUE_SHRUNK flag, which is locally used by this thread
+> only.
+> 
+> The confusion comes because 3c7151275c0c9a80c3375f9874b1c7129a105eea
+> thought it could avoid the cost of smp_mb() by abusing the fact that
+> sock_reset_flag(sk, SOCK_QUEUE_SHRUNK) was doing an atomic,
+> but it was not.
 
-Since commit 364b6055738b ("net: busy-poll: return busypolling status to
-drivers"), napi_complete_done() returns a boolean that can be used
-by drivers to conditionally rearm interrupts.
-
-This patch changes virtio_net to use this boolean to avoid a bit of
-overhead for busy-poll users.
-
-Jason reports about 1.1% improvement for 1 byte TCP_RR (burst 100).
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Jason Wang <jasowang@redhat.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Willem de Bruijn <willemb@google.com>
----
- drivers/net/virtio_net.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 0382827829d90b1d25d059609bae6d1c5ad2b6d9..29982c7f6080ae99f4753052dc80ff5310f1134b 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1012,11 +1012,12 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
- 	/* Out of packets? */
- 	if (received < budget) {
- 		r = virtqueue_enable_cb_prepare(rq->vq);
--		napi_complete_done(napi, received);
--		if (unlikely(virtqueue_poll(rq->vq, r)) &&
--		    napi_schedule_prep(napi)) {
--			virtqueue_disable_cb(rq->vq);
--			__napi_schedule(napi);
-+		if (napi_complete_done(napi, received)) {
-+			if (unlikely(virtqueue_poll(rq->vq, r)) &&
-+			    napi_schedule_prep(napi)) {
-+				virtqueue_disable_cb(rq->vq);
-+				__napi_schedule(napi);
-+			}
- 		}
- 	}
- 
+Thanks for the explanation.  I see what it's protecting now.  And
+this could indeed be responsible for the race that Oleg reported.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
