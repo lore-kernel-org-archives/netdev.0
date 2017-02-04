@@ -1,61 +1,93 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv1] net-next: treewide use is_vlan_dev() helper function.
-Date: Sat, 4 Feb 2017 13:54:29 -0800
-Message-ID: <20170204135429.394be376@xeon-e3>
-References: <1486227649-12648-1-git-send-email-parav@mellanox.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/4] bridge: improve cache utilization
+Date: Sat, 4 Feb 2017 22:58:45 +0100
+Message-ID: <cba97e67-90cc-09bc-a8b6-764feae156e9@cumulusnetworks.com>
+References: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
+ <20170204134626.311e3742@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: arvid.brodin@alten.se, swise@opengridcomputing.com, jbenc@redhat.com,
- jmaxwell37@gmail.com, sean.hefty@intel.com, sthemmin@microsoft.com,
- sagi@grimberg.me, leon@kernel.org, Dept-GELinuxNICDev@cavium.com,
- dledford@redhat.com, ganeshgr@chelsio.com, harish.patil@cavium.com,
- hal.rosenstock@gmail.com, manish.chopra@cavium.com, santosh@chelsio.com,
- arnd@arndb.de, haiyangz@microsoft.com, fcoe-devel@open-fcoe.org,
- bart.vanassche@sandisk.com, jejb@linux.vnet.ibm.com, rahul.verma@cavium.com,
- linux-scsi@vger.kernel.org, martin.petersen@oracle.com, netdev@vger.kernel.org,
- devel@linuxdriverproject.org, varun@chelsio.com, linux-rdma@vger.kernel.org,
- monis@mellanox.com, valex@mellanox.com, QLogic-Storage-Upstream@qlogic.com,
- jth@kernel.org, davem@davemloft.net
-To: Parav Pandit <parav@mellanox.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1486227649-12648-1-git-send-email-parav@mellanox.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        davem@davemloft.net, bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:34575 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750944AbdBDV6r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 16:58:47 -0500
+Received: by mail-wm0-f42.google.com with SMTP id 196so24873448wmm.1
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 13:58:47 -0800 (PST)
+In-Reply-To: <20170204134626.311e3742@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat,  4 Feb 2017 11:00:49 -0600
-Parav Pandit <parav@mellanox.com> wrote:
-
-> This patch makes use of is_vlan_dev() function instead of flag
-> comparison which is exactly done by is_vlan_dev() helper function.
+On 04/02/17 22:46, Stephen Hemminger wrote:
+> On Sat,  4 Feb 2017 18:05:05 +0100
+> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 > 
-> Signed-off-by: Parav Pandit <parav@mellanox.com>
-> Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
-> ---
->  drivers/infiniband/core/cma.c                        |  6 ++----
->  drivers/infiniband/sw/rxe/rxe_net.c                  |  2 +-
->  drivers/net/ethernet/broadcom/cnic.c                 |  2 +-
->  drivers/net/ethernet/chelsio/cxgb3/l2t.c             |  2 +-
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c      |  4 ++--
->  drivers/net/ethernet/chelsio/cxgb4/l2t.c             |  2 +-
->  drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c |  8 ++++----
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c     |  4 ++--
->  drivers/net/hyperv/netvsc_drv.c                      |  2 +-
->  drivers/scsi/bnx2fc/bnx2fc_fcoe.c                    |  6 +++---
->  drivers/scsi/cxgbi/libcxgbi.c                        |  6 +++---
->  drivers/scsi/fcoe/fcoe.c                             | 13 ++++++-------
->  include/rdma/ib_addr.h                               |  6 ++----
->  net/hsr/hsr_slave.c                                  |  3 ++-
->  14 files changed, 31 insertions(+), 35 deletions(-)
+>> Hi all,
+>> This is the first set which begins to deal with the bad bridge cache
+>> access patterns. The first patch rearranges the bridge and port structs
+>> a little so the frequently (and closely) accessed members are in the same
+>> cache line. The second patch then moves the garbage collection to a
+>> workqueue trying to improve system responsiveness under load (many fdbs)
+>> and more importantly removes the need to check if the matched entry is
+>> expired in __br_fdb_get which was a major source of false-sharing.
+>> The third patch is a preparation for the final one which
+>> If properly configured, i.e. ports bound to CPUs (thus updating "updated"
+>> locally) then the bridge's HitM goes from 100% to 0%, but even without
+>> binding we get a win because previously every lookup that iterated over
+>> the hash chain caused false-sharing due to the first cache line being
+>> used for both mac/vid and used/updated fields.
+>>
+>> Some results from tests I've run:
+>> (note that these were run in good conditions for the baseline, everything
+>>  ran on a single NUMA node and there were only 3 fdbs)
+>>
+>> 1. baseline
+>> 100% Load HitM on the fdbs (between everyone who has done lookups and hit
+>>                             one of the 3 hash chains of the communicating
+>>                             src/dst fdbs)
+>> Overall 5.06% Load HitM for the bridge, first place in the list
+>>
+>> 2. patched & ports bound to CPUs
+>> 0% Local load HitM, bridge is not even in the c2c report list
+>> Also there's 3% consistent improvement in netperf tests.
+> 
+> What tool are you using to measure this?
+> 
 
-Looks good thanks.
+I use perf c2c and perf custom cache events, for the traffic tested with
+netperf (stream and RR) and Jesper's udp_flood/udp_sink (showed over 200ns
+per packet saving by the way).
+The tests I ran on bare metal between namespaces with veth devices in a bridge,
+each namespace got its core bound.
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+>>
+>> Thanks,
+>>  Nik
+>>
+>> Nikolay Aleksandrov (4):
+>>   bridge: modify bridge and port to have often accessed fields in one
+>>     cache line
+>>   bridge: move to workqueue gc
+>>   bridge: move write-heavy fdb members in their own cache line
+>>   bridge: fdb: write to used and updated at most once per jiffy
+>>
+>>  net/bridge/br_device.c    |  1 +
+>>  net/bridge/br_fdb.c       | 34 +++++++++++++++++-----------
+>>  net/bridge/br_if.c        |  2 +-
+>>  net/bridge/br_input.c     |  3 ++-
+>>  net/bridge/br_ioctl.c     |  2 +-
+>>  net/bridge/br_netlink.c   |  2 +-
+>>  net/bridge/br_private.h   | 57 +++++++++++++++++++++++------------------------
+>>  net/bridge/br_stp.c       |  2 +-
+>>  net/bridge/br_stp_if.c    |  4 ++--
+>>  net/bridge/br_stp_timer.c |  2 --
+>>  net/bridge/br_sysfs_br.c  |  2 +-
+>>  11 files changed, 59 insertions(+), 52 deletions(-)
+> 
+> Looks good thanks, I wounder this impacts smaller work loads.
+> 
+> Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
