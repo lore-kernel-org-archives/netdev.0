@@ -1,19 +1,19 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 8/9] ks8695net: add GRO support
-Date: Sat,  4 Feb 2017 10:20:37 -0800
-Message-ID: <20170204182038.3752-9-edumazet@google.com>
+Subject: [PATCH net-next 7/9] skge: use napi_complete_done()
+Date: Sat,  4 Feb 2017 10:20:36 -0800
+Message-ID: <20170204182038.3752-8-edumazet@google.com>
 References: <20170204182038.3752-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:34117 "EHLO
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:35316 "EHLO
         mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751719AbdBDSVd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 13:21:33 -0500
-Received: by mail-pg0-f50.google.com with SMTP id 14so15912021pgg.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 10:21:33 -0800 (PST)
+        with ESMTP id S1751719AbdBDSVa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 13:21:30 -0500
+Received: by mail-pg0-f50.google.com with SMTP id 194so15904113pgd.2
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 10:21:30 -0800 (PST)
 In-Reply-To: <20170204182038.3752-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,51 +22,48 @@ Use napi_complete_done() instead of __napi_complete() to :
 
 1) Get support of gro_flush_timeout if opt-in
 2) Not rearm interrupts for busy-polling users.
-3) use standard NAPI API.
-
-Note that rx_lock seems to be useless, NAPI logic should
-not need this extra care.
+3) use standard NAPI API and get rid of napi_gro_flush()
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/micrel/ks8695net.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/marvell/skge.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
-index 20cb85bc0c5f8660a259dfb8dfd7213df713..f155e21240120061831fecb3537059cf4641 100644
---- a/drivers/net/ethernet/micrel/ks8695net.c
-+++ b/drivers/net/ethernet/micrel/ks8695net.c
-@@ -519,7 +519,7 @@ static int ks8695_rx(struct ks8695_priv *ksp, int budget)
- 			/* Relinquish the SKB to the network layer */
- 			skb_put(skb, pktlen);
- 			skb->protocol = eth_type_trans(skb, ndev);
--			netif_receive_skb(skb);
-+			napi_gro_receive(&ksp->napi, skb);
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 81106b73e468b3d542fbbef94503278103c7..d2cec5593655a6e442c19e1a32ae86768412 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -3201,7 +3201,7 @@ static void skge_tx_done(struct net_device *dev)
+ 	}
+ }
  
- 			/* Record stats */
- 			ndev->stats.rx_packets++;
-@@ -561,18 +561,17 @@ static int ks8695_rx(struct ks8695_priv *ksp, int budget)
- static int ks8695_poll(struct napi_struct *napi, int budget)
+-static int skge_poll(struct napi_struct *napi, int to_do)
++static int skge_poll(struct napi_struct *napi, int budget)
  {
- 	struct ks8695_priv *ksp = container_of(napi, struct ks8695_priv, napi);
--	unsigned long  work_done;
--
- 	unsigned long isr = readl(KS8695_IRQ_VA + KS8695_INTEN);
- 	unsigned long mask_bit = 1 << ks8695_get_rx_enable_bit(ksp);
-+	int work_done;
+ 	struct skge_port *skge = container_of(napi, struct skge_port, napi);
+ 	struct net_device *dev = skge->netdev;
+@@ -3214,7 +3214,7 @@ static int skge_poll(struct napi_struct *napi, int to_do)
  
- 	work_done = ks8695_rx(ksp, budget);
+ 	skge_write8(hw, Q_ADDR(rxqaddr[skge->port], Q_CSR), CSR_IRQ_CL_F);
  
--	if (work_done < budget) {
+-	for (e = ring->to_clean; prefetch(e->next), work_done < to_do; e = e->next) {
++	for (e = ring->to_clean; prefetch(e->next), work_done < budget; e = e->next) {
+ 		struct skge_rx_desc *rd = e->desc;
+ 		struct sk_buff *skb;
+ 		u32 control;
+@@ -3236,12 +3236,10 @@ static int skge_poll(struct napi_struct *napi, int to_do)
+ 	wmb();
+ 	skge_write8(hw, Q_ADDR(rxqaddr[skge->port], Q_CSR), CSR_START);
+ 
+-	if (work_done < to_do) {
 +	if ((work_done < budget) && napi_complete_done(napi, work_done)) {
  		unsigned long flags;
-+
- 		spin_lock_irqsave(&ksp->rx_lock, flags);
+ 
+-		napi_gro_flush(napi, false);
+ 		spin_lock_irqsave(&hw->hw_lock, flags);
 -		__napi_complete(napi);
--		/*enable rx interrupt*/
-+		/* enable rx interrupt */
- 		writel(isr | mask_bit, KS8695_IRQ_VA + KS8695_INTEN);
- 		spin_unlock_irqrestore(&ksp->rx_lock, flags);
- 	}
+ 		hw->intr_mask |= napimask[skge->port];
+ 		skge_write32(hw, B0_IMSK, hw->intr_mask);
+ 		skge_read32(hw, B0_IMSK);
 -- 
 2.11.0.483.g087da7b7c-goog
