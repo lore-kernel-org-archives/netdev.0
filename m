@@ -1,48 +1,94 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next v2 00/12] bnxt_en: Add XDP support.
-Date: Fri, 3 Feb 2017 17:41:43 -0800
-Message-ID: <20170203174143.016a5a29@cakuba.netronome.com>
-References: <1486054540-366-1-git-send-email-michael.chan@broadcom.com>
-        <20170203.154910.2213640966872850071.davem@davemloft.net>
-        <CACKFLimXCkC1=9kvQnz-s5rjTOGe1gmb9Ozvt1tEeW+O=y7yAg@mail.gmail.com>
-        <20170203.165054.437855043325795801.davem@davemloft.net>
-        <20170203163003.00d794dc@cakuba.netronome.com>
-        <CACKFLikT+o2Uov7Yx3U5zro=cmVasM1Ufa=xxCajDTTV5JeAAA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 3/3] net: ethernet: bgmac: driver power manangement
+Date: Fri, 3 Feb 2017 18:16:43 -0800
+Message-ID: <74efc661-f07d-93d5-613d-7f563c0fe732@gmail.com>
+References: <1486157970-6315-1-git-send-email-jon.mason@broadcom.com>
+ <1486157970-6315-4-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:9114 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753138AbdBDBmF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 3 Feb 2017 20:42:05 -0500
-In-Reply-To: <CACKFLikT+o2Uov7Yx3U5zro=cmVasM1Ufa=xxCajDTTV5JeAAA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Joey Zhong <zhongx@broadcom.com>
+To: Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486157970-6315-4-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 3 Feb 2017 17:32:16 -0800, Michael Chan wrote:
-> On Fri, Feb 3, 2017 at 4:33 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> > On Fri, 03 Feb 2017 16:50:54 -0500 (EST), David Miller wrote:  
-> >> We don't set precedence by one driver saying "hey it's better to do
-> >> things this way, forget what all the other drivers are doing."  Rather
-> >> we have a "discussion" about what the appropriate thing is to do and
-> >> convert all the drivers only after a decision has been made.  
-> >
-> > Would making sure that if xdp_adjust_head() changes the starting offset
-> > (and length) of frame and the program returns XDP_PASS - the stack will
-> > see the changes made by xdp_adjust_head() fall under the same follow
-> > the precedent rule?  That is what Martin did for mlx4 and mlx5, and what
-> > John did in virtio, but not what this patch set does (see my comment on
-> > patch 11).
-> >
-> > I should have double checked mlx4/mlx5 and made it clearer that there is
-> > a precedent here in my review comment...  
+On 02/03/2017 01:39 PM, Jon Mason wrote:
+> From: Joey Zhong <zhongx@broadcom.com>
 > 
-> Yes, I plan to also include this change (make modified offset and
-> length visible to the stack) in the next version of the patch set.
+> Implements suspend/resume, external phy 54810 is assumed
+> to remain powered up during deep-sleep for wake-on-lane.
 
-Awesome, thanks!
+s/wake-on-lane/Wake-on-LAN, are you positive phy_stop() is not
+suspending the PHY and issuing BMCR_PWRDOWN write?
+
+This also seems incomplete in that, if the device is really configured
+for Wake-on-LAN (through ethtool) you should call
+device_set_wakeup_capable() and then check for device_may_wakeup()
+during suspend or resume to know which part of the suspend/resume
+portion should be done. You could refer to bcmgenet for an example.
+
+>  
+> +int bgmac_enet_suspend(struct bgmac *bgmac)
+> +{
+> +	netdev_info(bgmac->net_dev, "Suspending\n");
+
+remove that message
+
+> +
+> +	if (netif_running(bgmac->net_dev)) {
+> +		netif_stop_queue(bgmac->net_dev);
+> +
+> +		napi_disable(&bgmac->napi);
+> +
+> +		netif_tx_lock(bgmac->net_dev);
+> +		netif_device_detach(bgmac->net_dev);
+> +		netif_tx_unlock(bgmac->net_dev);
+> +
+> +		bgmac_chip_intrs_off(bgmac);
+> +		bgmac_chip_reset(bgmac);
+> +		bgmac_dma_cleanup(bgmac);
+> +	}
+
+Can you change the indentation to test for netiff_running() first and
+return 0 in that case?
+
+> +
+> +	phy_stop(bgmac->net_dev->phydev);
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(bgmac_enet_suspend);
+> +
+> +int bgmac_enet_resume(struct bgmac *bgmac)
+> +{
+> +	int rc;
+> +
+> +	netdev_info(bgmac->net_dev, "Resuming\n");
+
+Same here, this needs to be removed.
+
+> +
+> +	phy_start(bgmac->net_dev->phydev);
+> +
+> +	if (netif_running(bgmac->net_dev)) {
+> +		rc = bgmac_dma_init(bgmac);
+> +		if (rc)
+> +			return rc;
+> +
+> +		bgmac_chip_init(bgmac);
+> +
+> +		napi_enable(&bgmac->napi);
+> +
+> +		netif_tx_lock(bgmac->net_dev);
+> +		netif_device_attach(bgmac->net_dev);
+> +		netif_tx_unlock(bgmac->net_dev);
+> +
+> +		netif_start_queue(bgmac->net_dev);
+> +	}
+-- 
+Florian
