@@ -1,72 +1,62 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Subject: Re: [RFC PATCH 0/2] mac80211: use crypto shash for AES cmac
-Date: Sat, 4 Feb 2017 14:44:15 +0000
-Message-ID: <CAKv+Gu_tn+wc=19_ZZELSXxVknqswFrM1+b2KJCHYBgvFbjo3A@mail.gmail.com>
-References: <1486149955-11825-1-git-send-email-ard.biesheuvel@linaro.org>
- <20170203214707.GA14147@jouni.qca.qualcomm.com> <CAKv+Gu9zp+vptF2mHP5MW=x_K5m7WQgMxNNSD5hn93aT_-99xA@mail.gmail.com>
- <20170204113514.GA4350@jouni.qca.qualcomm.com> <CAKv+Gu9p_yng=_=sri8VtRpBCpvL-r1iZ=YgEqNhuQf55p1xBA@mail.gmail.com>
- <20170204143913.GA24691@jouni.qca.qualcomm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: correct memory barrier usage in
+ tcp_check_space()
+Date: Sat, 04 Feb 2017 07:19:37 -0800
+Message-ID: <1486221577.21871.126.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170204095954.GA5916@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Malinen, Jouni" <jouni@qca.qualcomm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jason Baron <jbaron@akamai.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, oleg@redhat.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:34585 "EHLO
-        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750876AbdBDOoR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 09:44:17 -0500
-Received: by mail-io0-f178.google.com with SMTP id l66so38046117ioi.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 06:44:16 -0800 (PST)
-In-Reply-To: <20170204143913.GA24691@jouni.qca.qualcomm.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:36159 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750876AbdBDPUd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 10:20:33 -0500
+Received: by mail-it0-f65.google.com with SMTP id f200so4226497itf.3
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 07:19:40 -0800 (PST)
+In-Reply-To: <20170204095954.GA5916@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4 February 2017 at 14:39, Malinen, Jouni <jouni@qca.qualcomm.com> wrote:
-> On Sat, Feb 04, 2017 at 02:24:36PM +0000, Ard Biesheuvel wrote:
->> There is another issue I spotted: the skcipher you allocate may be of
->> the async variant, which may return from skcipher_encrypt() with
->> -EINPROGRESS as soon as it has queued the request. Since you don't
->> deal with that result, you should allocate a sync cipher explicitly:
->
->> diff --git a/net/mac80211/fils_aead.c b/net/mac80211/fils_aead.c
->> -       tfm2 = crypto_alloc_skcipher("ctr(aes)", 0, 0);
->> +       tfm2 = crypto_alloc_skcipher("ctr(aes)", 0, CRYPTO_ALG_ASYNC);
->
->> -       tfm2 = crypto_alloc_skcipher("ctr(aes)", 0, 0);
->> +       tfm2 = crypto_alloc_skcipher("ctr(aes)", 0, CRYPTO_ALG_ASYNC);
->
-> Thanks! Can you send this as a full contribution or do you want me to
-> do that?
+On Sat, 2017-02-04 at 17:59 +0800, Herbert Xu wrote:
+> Jason Baron <jbaron@akamai.com> wrote:
+> > From: Jason Baron <jbaron@akamai.com>
+> > 
+> > sock_reset_flag() maps to __clear_bit() not the atomic version clear_bit().
+> > Thus, we need smp_mb(), smp_mb__after_atomic() is not sufficient.
+> > 
+> > Fixes: 3c7151275c0c ("tcp: add memory barriers to write space paths")
+> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> > Cc: Oleg Nesterov <oleg@redhat.com>
+> > Signed-off-by: Jason Baron <jbaron@akamai.com>
+> 
+> This patch makes no sense.
+> 
+> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> > index bfa165cc455a..1e22ae4a5b38 100644
+> > --- a/net/ipv4/tcp_input.c
+> > +++ b/net/ipv4/tcp_input.c
+> > @@ -5028,7 +5028,7 @@ static void tcp_check_space(struct sock *sk)
+> >        if (sock_flag(sk, SOCK_QUEUE_SHRUNK)) {
+> >                sock_reset_flag(sk, SOCK_QUEUE_SHRUNK);
+> >                /* pairs with tcp_poll() */
+> > -               smp_mb__after_atomic();
+> > +               smp_mb();
+> >                if (sk->sk_socket &&
+> >                    test_bit(SOCK_NOSPACE, &sk->sk_socket->flags)) {
+> >                        tcp_new_space(sk);
+> 
+> The comment says that it's pairing with an mb in tcp_poll, but
+> tcp_poll doesn't touch QUEUE_SHRUNK at all.  So what exactly is
+> this barrier for?
 
-Please go ahead if you don't mind doing it
+Do not focus on QUEUE_SHRUNK flag, which is locally used by this thread
+only.
 
-> I did run this through all the FILS test cases with
-> mac80211_hwsim.
->
-
-Well, even async ciphers can act synchronously: the SIMD based async
-ciphers will only enqueue the request for deferred processing when
-called in interrupt context (on most architectures) but if you happen
-to run on a platform that has a h/w accelerator for ctr(aes), you are
-quite likely to see failures here.
-
->> Thanks for the instructions and thanks for testing. If I manage to run
->> this locally, I will follow up with an alternative patch #1 tha here
->> switches FILS to use cmac(aes) as well (which looks reasonably
->> feasible now that I understand the code)
->
-> If you have any issues in getting the hwsim test setup working, please
-> let me know. I'm trying to make it easy for anyone to run those tests in
-> hopes of improving quality of Linux WLAN contributions and what gets
-> applied into cfg80211 or mac80211 (or hostap.git for that matter). In
-> particular the latest step-by-step guide I added for the VM version (*)
-> was hoping to show how that can be done in 15 minutes from scratch..
->
->
-> (*) http://w1.fi/cgit/hostap/plain/tests/hwsim/vm/example-vm-setup.txt
->
-
-I will take a look on Monday
+The confusion comes because 3c7151275c0c9a80c3375f9874b1c7129a105eea
+thought it could avoid the cost of smp_mb() by abusing the fact that
+sock_reset_flag(sk, SOCK_QUEUE_SHRUNK) was doing an atomic,
+but it was not.
