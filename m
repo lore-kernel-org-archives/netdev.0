@@ -1,54 +1,40 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 1/2] net: phy: dp83867: Port mirroring support in the
- DP83867 TI's PHY driver
-Date: Sat, 4 Feb 2017 18:32:56 +0100
-Message-ID: <20170204173256.GB8364@lunn.ch>
-References: <1486224132-15420-1-git-send-email-lukma@denx.de>
+Subject: Re: [PATCH net-next 6/6] net: dsa: introduce bridge notifier
+Date: Sat, 4 Feb 2017 18:55:17 +0100
+Message-ID: <20170204175517.GC8364@lunn.ch>
+References: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
+ <20170203182021.14246-7-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Karicheri Muralidharan <m-karicheri2@ti.com>,
-        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
-        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: Lukasz Majewski <lukma@denx.de>
+        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55662 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:55670 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751209AbdBDRdR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 4 Feb 2017 12:33:17 -0500
+        id S1751467AbdBDRzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 4 Feb 2017 12:55:22 -0500
 Content-Disposition: inline
-In-Reply-To: <1486224132-15420-1-git-send-email-lukma@denx.de>
+In-Reply-To: <20170203182021.14246-7-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 04, 2017 at 05:02:11PM +0100, Lukasz Majewski wrote:
-> This patch adds support for enabling or disabling the port mirroring 
-> (at CFG4 register) feature of the DP83867 TI's PHY device.
+> +#define DSA_NOTIFIER_BRIDGE_JOIN		1
+> +#define DSA_NOTIFIER_BRIDGE_LEAVE		2
 
-As we discussed before, "port mirroring" is bad naming. Yes, we should
-use it, because that is what the datasheet calls this feature. But the
-commit message should also contain a description of what this means,
-and reference that the linux name for this concept is lane swapping.
+Hi Vivien
 
-> +enum {
+Is one notifier per event sufficient?
 
-Maybe give the 0 value a name. DP83867_PORT_MIRROING_KEEP?
+I've not looked at what actually needs to happen when a port joins a
+bridge, in a D in DSA setup. Do we need to both enable the flow of
+frames around the switch fabric, but also block those frames going out
+ports they should not? Do we need a first notifier to put in place
+the blocks, and then a second notifier to enable the flow of packets?
 
-> +	DP83867_PORT_MIRROING_EN = 1,
-> +	DP83867_PORT_MIRROING_DIS,
-> +};
-> +
+What we don't want is a window of time during the fabric setup as a
+whole is inconsistent, and frames a leaking out ports they should not.
 
-That extra enum value can then make this more obvious:
-  
-        if (dp83867->port_mirroring != DP83867_PORT_MIRROING_KEEP)
-		dp83867_config_port_mirroring(phydev);
-
-On the first reading of the patch, i though you were setting mirroring
-on/off under all conditions, but in fact you don't. This makes it
-clearer.
-
-	Thanks
-		Andrew
+      Andrew
