@@ -1,19 +1,19 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/9] 8139cp: use napi_complete_done()
-Date: Sat,  4 Feb 2017 10:20:31 -0800
-Message-ID: <20170204182038.3752-3-edumazet@google.com>
+Subject: [PATCH net-next 3/9] epic100: use napi_complete_done()
+Date: Sat,  4 Feb 2017 10:20:32 -0800
+Message-ID: <20170204182038.3752-4-edumazet@google.com>
 References: <20170204182038.3752-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35291 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751346AbdBDSU6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 13:20:58 -0500
-Received: by mail-pg0-f51.google.com with SMTP id 194so15902101pgd.2
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 10:20:58 -0800 (PST)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:34105 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751523AbdBDSVS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 13:21:18 -0500
+Received: by mail-pg0-f52.google.com with SMTP id 14so15911120pgg.1
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 10:21:18 -0800 (PST)
 In-Reply-To: <20170204182038.3752-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,51 +23,93 @@ Use napi_complete_done() instead of __napi_complete() to :
 1) Get support of gro_flush_timeout if opt-in
 2) Not rearm interrupts for busy-polling users.
 3) use standard NAPI API.
-4) Eventually get rid of napi_gro_flush() in the future.
+4) get rid of baroque code and ease maintenance.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/realtek/8139cp.c | 19 +++++++------------
- 1 file changed, 7 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/smsc/epic100.c | 33 +++++++++------------------------
+ 1 file changed, 9 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 0b3cd58093d5ecf00abef6eda1386f13ac5e..1ca3ff1d36923c09ddcbdc2ba1a36ae67f46 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -465,10 +465,8 @@ static int cp_rx_poll(struct napi_struct *napi, int budget)
- 	struct cp_private *cp = container_of(napi, struct cp_private, napi);
- 	struct net_device *dev = cp->dev;
- 	unsigned int rx_tail = cp->rx_tail;
--	int rx;
-+	int rx = 0;
+diff --git a/drivers/net/ethernet/smsc/epic100.c b/drivers/net/ethernet/smsc/epic100.c
+index 55a95e1d69d68b45ec85a8648e85d24e3673..2c67b7d71b3c2e3d10be019f1d95c9b191a0 100644
+--- a/drivers/net/ethernet/smsc/epic100.c
++++ b/drivers/net/ethernet/smsc/epic100.c
+@@ -264,7 +264,6 @@ struct epic_private {
+ 	spinlock_t lock;				/* Group with Tx control cache line. */
+ 	spinlock_t napi_lock;
+ 	struct napi_struct napi;
+-	unsigned int reschedule_in_poll;
+ 	unsigned int cur_tx, dirty_tx;
  
--	rx = 0;
--rx_status_loop:
- 	cpw16(IntrStatus, cp_rx_intr_mask);
+ 	unsigned int cur_rx, dirty_rx;
+@@ -400,7 +399,6 @@ static int epic_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	while (rx < budget) {
-@@ -557,16 +555,13 @@ static int cp_rx_poll(struct napi_struct *napi, int budget)
- 	 * this round of polling
- 	 */
- 	if (rx < budget) {
+ 	spin_lock_init(&ep->lock);
+ 	spin_lock_init(&ep->napi_lock);
+-	ep->reschedule_in_poll = 0;
+ 
+ 	/* Bring the chip out of low-power mode. */
+ 	ew32(GENCTL, 0x4200);
+@@ -1086,13 +1084,12 @@ static irqreturn_t epic_interrupt(int irq, void *dev_instance)
+ 
+ 	handled = 1;
+ 
+-	if ((status & EpicNapiEvent) && !ep->reschedule_in_poll) {
++	if (status & EpicNapiEvent) {
+ 		spin_lock(&ep->napi_lock);
+ 		if (napi_schedule_prep(&ep->napi)) {
+ 			epic_napi_irq_off(dev, ep);
+ 			__napi_schedule(&ep->napi);
+-		} else
+-			ep->reschedule_in_poll++;
++		}
+ 		spin_unlock(&ep->napi_lock);
+ 	}
+ 	status &= ~EpicNapiEvent;
+@@ -1248,37 +1245,25 @@ static int epic_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct epic_private *ep = container_of(napi, struct epic_private, napi);
+ 	struct net_device *dev = ep->mii.dev;
+-	int work_done = 0;
+ 	void __iomem *ioaddr = ep->ioaddr;
+-
+-rx_action:
++	int work_done;
+ 
+ 	epic_tx(dev, ep);
+ 
+-	work_done += epic_rx(dev, budget);
++	work_done = epic_rx(dev, budget);
+ 
+ 	epic_rx_err(dev, ep);
+ 
+ 	if (work_done < budget) {
 -		unsigned long flags;
-+		if (napi_complete_done(napi, rx)) {
+-		int more;
+-
+-		/* A bit baroque but it avoids a (space hungry) spin_unlock */
++		if (napi_complete_done(napi, work_done)) {
 +			unsigned long flags;
  
--		if (cpr16(IntrStatus) & cp_rx_intr_mask)
--			goto rx_status_loop;
+-		spin_lock_irqsave(&ep->napi_lock, flags);
++			spin_lock_irqsave(&ep->napi_lock, flags);
+ 
+-		more = ep->reschedule_in_poll;
+-		if (!more) {
+-			__napi_complete(napi);
+ 			ew32(INTSTAT, EpicNapiEvent);
+ 			epic_napi_irq_on(dev, ep);
+-		} else
+-			ep->reschedule_in_poll--;
 -
--		napi_gro_flush(napi, false);
--		spin_lock_irqsave(&cp->lock, flags);
--		__napi_complete(napi);
--		cpw16_f(IntrMask, cp_intr_mask);
--		spin_unlock_irqrestore(&cp->lock, flags);
-+			spin_lock_irqsave(&cp->lock, flags);
-+			cpw16_f(IntrMask, cp_intr_mask);
-+			spin_unlock_irqrestore(&cp->lock, flags);
+-		spin_unlock_irqrestore(&ep->napi_lock, flags);
+-
+-		if (more)
+-			goto rx_action;
++			spin_unlock_irqrestore(&ep->napi_lock, flags);
 +		}
  	}
  
- 	return rx;
+ 	return work_done;
 -- 
 2.11.0.483.g087da7b7c-goog
