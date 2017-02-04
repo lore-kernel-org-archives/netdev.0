@@ -1,109 +1,119 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
-Date: Sat, 4 Feb 2017 16:56:32 +0000
-Message-ID: <20170204165631.GW3442@decadent.org.uk>
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: [PATCH net 3/4] catc: Combine failure cleanup code in catc_probe()
+Date: Sat, 4 Feb 2017 16:56:56 +0000
+Message-ID: <20170204165656.GX3442@decadent.org.uk>
 References: <20170204165451.GU3442@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="9I0HVnGRacHebCDW"
-Cc: linux-usb@vger.kernel.org, Petko Manolov <petkan@nucleusys.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53597 "EHLO
-        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751299AbdBDQ4d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 11:56:33 -0500
+        protocol="application/pgp-signature"; boundary="3ioKt2kN+IccB5F4"
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170204165451.GU3442@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170204165451.GU3442-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---9I0HVnGRacHebCDW
+--3ioKt2kN+IccB5F4
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Allocating USB buffers on the stack is not portable, and no longer
-works on x86_64 (with VMAP_STACK enabled as per default).
-
-Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Signed-off-by: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
 ---
- drivers/net/usb/rtl8150.c | 34 +++++++++++++++++++++++++++-------
- 1 file changed, 27 insertions(+), 7 deletions(-)
+ drivers/net/usb/catc.c | 33 +++++++++++++++++----------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index 95b7bd0d7abc..c81c79110cef 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -155,16 +155,36 @@ static const char driver_name [] =3D "rtl8150";
- */
- static int get_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
- {
--	return usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
--			       RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
--			       indx, 0, data, size, 500);
-+	void *buf;
-+	int ret;
+diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
+index 3daa41bdd4ea..985909eab72c 100644
+--- a/drivers/net/usb/catc.c
++++ b/drivers/net/usb/catc.c
+@@ -776,7 +776,7 @@ static int catc_probe(struct usb_interface *intf, const=
+ struct usb_device_id *id
+ 	struct net_device *netdev;
+ 	struct catc *catc;
+ 	u8 broadcast[ETH_ALEN];
+-	int i, pktsz;
++	int i, pktsz, ret;
+=20
+ 	if (usb_set_interface(usbdev,
+ 			intf->altsetting->desc.bInterfaceNumber, 1)) {
+@@ -811,12 +811,8 @@ static int catc_probe(struct usb_interface *intf, cons=
+t struct usb_device_id *id
+ 	if ((!catc->ctrl_urb) || (!catc->tx_urb) ||=20
+ 	    (!catc->rx_urb) || (!catc->irq_urb)) {
+ 		dev_err(&intf->dev, "No free urbs available.\n");
+-		usb_free_urb(catc->ctrl_urb);
+-		usb_free_urb(catc->tx_urb);
+-		usb_free_urb(catc->rx_urb);
+-		usb_free_urb(catc->irq_urb);
+-		free_netdev(netdev);
+-		return -ENOMEM;
++		ret =3D -ENOMEM;
++		goto fail_free;
+ 	}
+=20
+ 	/* The F5U011 has the same vendor/product as the netmate but a device ver=
+sion of 0x130 */
+@@ -913,16 +909,21 @@ static int catc_probe(struct usb_interface *intf, con=
+st struct usb_device_id *id
+ 	usb_set_intfdata(intf, catc);
+=20
+ 	SET_NETDEV_DEV(netdev, &intf->dev);
+-	if (register_netdev(netdev) !=3D 0) {
+-		usb_set_intfdata(intf, NULL);
+-		usb_free_urb(catc->ctrl_urb);
+-		usb_free_urb(catc->tx_urb);
+-		usb_free_urb(catc->rx_urb);
+-		usb_free_urb(catc->irq_urb);
+-		free_netdev(netdev);
+-		return -EIO;
+-	}
++	ret =3D register_netdev(netdev);
++	if (ret)
++		goto fail_clear_intfdata;
 +
-+	buf =3D kmalloc(size, GFP_NOIO);
-+	if (!buf)
-+		return -ENOMEM;
+ 	return 0;
 +
-+	ret =3D usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-+			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
-+			      indx, 0, buf, size, 500);
-+	if (ret > 0 && ret <=3D size)
-+		memcpy(data, buf, ret);
-+	kfree(buf);
++fail_clear_intfdata:
++	usb_set_intfdata(intf, NULL);
++fail_free:
++	usb_free_urb(catc->ctrl_urb);
++	usb_free_urb(catc->tx_urb);
++	usb_free_urb(catc->rx_urb);
++	usb_free_urb(catc->irq_urb);
++	free_netdev(netdev);
 +	return ret;
  }
 =20
--static int set_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
-+static int set_registers(rtl8150_t * dev, u16 indx, u16 size, const void *=
-data)
- {
--	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--			       RTL8150_REQ_SET_REGS, RTL8150_REQT_WRITE,
--			       indx, 0, data, size, 500);
-+	void *buf;
-+	int ret;
-+
-+	buf =3D kmemdup(data, size, GFP_NOIO);
-+	if (!buf)
-+		return -ENOMEM;
-+
-+	ret =3D usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
-+			      RTL8150_REQ_SET_REGS, RTL8150_REQT_WRITE,
-+			      indx, 0, buf, size, 500);
-+	kfree(buf);
-+	return ret;
- }
-=20
- static void async_set_reg_cb(struct urb *urb)
+ static void catc_disconnect(struct usb_interface *intf)
 
 
---9I0HVnGRacHebCDW
+--3ioKt2kN+IccB5F4
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUBWJYHv+e/yOyVhhEJAQrWuRAAvvqzYnSYRkYt9iHOysbmwV8mgMmALLHd
-T7rMhjdhhqfuUdaCIsmU1fX76JxnOkYK80pjHFJDfaCBLf6wyCZARyj7MFyQIZrX
-kNLL8j8UMGSzmzb7eQeqnQrvd4jDQZyT/02O2MaCKyrS2RFWtjQKriNqlX9geBSr
-pt8rAnobXNendVxuQSPeYTiakKvmyCsgLXUFnUA/r246S/Gj7tmyOl4u819HAnYs
-DnSS9HKS0tI/AG7NxtRICUsxT26nZrxWdyXzj/yc6aM77bjIdAhyI5NpL5p2vw//
-qVpLTF4BKKisJxO860xuJtG3v7B+YzCFgF/YW+EWu1HYcx1JYMhE9e/sy2ixEuHv
-Xe2hnIVIMreLJRxEfOAJm17iUYoLOJ1VX1x6cXipmIsHw9zaV5GByz97R6AQOIDr
-jFKFMT5v45bju8SyJHuqjAX4fq7rw4sd6V838VK2d5BbVt345Zw4EpcUc6VrpYOi
-UdgGdSOav+oKEmMiVYEG3KFUl0k2t7tWdHkP264tpNklA/5AVXDDX9oQtsBlRV2n
-lR5adF5bDljxU8Zu+47771bG56WistjoOfeJFBCKwNsIr9mtlPllAK3jcr7/mJE/
-8rd2QQv1RqxOKQXIHC89UbK21sGsE9bn13mj4gtZUGf7VUatzeMixCiP15euICRE
-EmfgoAZTcYk=
-=m99u
+iQIVAwUBWJYH2Oe/yOyVhhEJAQoxug//T6elJGdJ8Cb8+qKjZVxieDauYuX23wgf
+cHIrXlg6lHfFeTXPYWq7FOADkuM++5WOmUPW84wRAeoZBaXuvOvpWGNhIPF9IU0n
+kCIkCzCkJ75EszcFDCm1GXkRdnkFqnR/nk/mscJfj0jxs3hvRu7h/0QhzR7i+LZU
+U07ng0IoB+u0XjZnWiv9E2yPKM3KyJoknMLazTTgzsU5r1QsXbHf/dVtpZD/o0AD
+Qax/X5KYPchSUxXlxK8ZXBpf3c/hteuAamt+58tAmNzd9SOniBcS+Uq3f5vhBkru
+WJeNgKBcrtPJzMZmSVQTw2J8aDFzznRk1ReuGSXfnTBTqz5pyZvlQf5zPHO4Ii/K
+1ehjF0K96bbRbPw4TUgq31va2/XP71C0luZiauq1gA2VTLam0RH0jzP/kvOOZ/r2
+D3z8XlajZsh5wYM7LplkPDe2TiJd9PU51dSNGLGbUoKajNpSsOYzqu5eM8FkhLq/
+y05XfEl5rKAz9edPS455q34jRiQa2pI8BNGCyvwHBusX/8M/basON/SNoj092l2K
+zhfOVKih5OeqcBRR5WRQLRwXEEWICFAw20aTWlaFXdNAw1/anYXHpqi8sBIFdGcW
+uRpKBk9Q5d/KqdOMOxsqmrK1hHbM79R1q9oiZKSDlZPdgBURN2jzZdzTytXR1+6R
+k7BbVQLFyOA=
+=sNnH
 -----END PGP SIGNATURE-----
 
---9I0HVnGRacHebCDW--
+--3ioKt2kN+IccB5F4--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
