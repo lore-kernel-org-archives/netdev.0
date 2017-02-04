@@ -1,90 +1,72 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 12/12] net: remove __napi_complete()
-Date: Sat,  4 Feb 2017 15:25:02 -0800
-Message-ID: <20170204232502.22361-13-edumazet@google.com>
+Subject: [PATCH v2 net-next 08/12] ks8695net: add GRO support
+Date: Sat,  4 Feb 2017 15:24:58 -0800
+Message-ID: <20170204232502.22361-9-edumazet@google.com>
 References: <20170204232502.22361-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:33915 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751821AbdBDXZn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 18:25:43 -0500
-Received: by mail-pg0-f48.google.com with SMTP id 14so17061637pgg.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 15:25:42 -0800 (PST)
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33908 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751821AbdBDXZf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 18:25:35 -0500
+Received: by mail-pg0-f49.google.com with SMTP id 14so17061097pgg.1
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 15:25:30 -0800 (PST)
 In-Reply-To: <20170204232502.22361-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All __napi_complete() callers have been converted to
-use the more standard napi_complete_done(),
-we can now remove this NAPI method for good.
+Use napi_complete_done() instead of __napi_complete() to :
+
+1) Get support of gro_flush_timeout if opt-in
+2) Not rearm interrupts for busy-polling users.
+3) use standard NAPI API.
+
+Note that rx_lock seems to be useless, NAPI logic should
+not need this extra care.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/netdevice.h |  1 -
- net/core/dev.c            | 24 +++---------------------
- 2 files changed, 3 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/micrel/ks8695net.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6f18b509fb2f473029561d85646713c149df..014fbe256d55f843b72595e881d646dd5762 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -463,7 +463,6 @@ static inline bool napi_reschedule(struct napi_struct *napi)
- 	return false;
- }
+diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
+index 20cb85bc0c5f8660a259dfb8dfd7213df713..d2106159473f24f576da2d965704476d1576 100644
+--- a/drivers/net/ethernet/micrel/ks8695net.c
++++ b/drivers/net/ethernet/micrel/ks8695net.c
+@@ -519,7 +519,7 @@ static int ks8695_rx(struct ks8695_priv *ksp, int budget)
+ 			/* Relinquish the SKB to the network layer */
+ 			skb_put(skb, pktlen);
+ 			skb->protocol = eth_type_trans(skb, ndev);
+-			netif_receive_skb(skb);
++			napi_gro_receive(&ksp->napi, skb);
  
--bool __napi_complete(struct napi_struct *n);
- bool napi_complete_done(struct napi_struct *n, int work_done);
- /**
-  *	napi_complete - NAPI processing complete
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 42ba0379575a28525052a36620bfb30d38af..404d2e6d5d3233ad95edee18581276841573 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4883,23 +4883,6 @@ void __napi_schedule_irqoff(struct napi_struct *n)
- }
- EXPORT_SYMBOL(__napi_schedule_irqoff);
- 
--bool __napi_complete(struct napi_struct *n)
--{
--	BUG_ON(!test_bit(NAPI_STATE_SCHED, &n->state));
--
--	/* Some drivers call us directly, instead of calling
--	 * napi_complete_done().
--	 */
--	if (unlikely(test_bit(NAPI_STATE_IN_BUSY_POLL, &n->state)))
--		return false;
--
--	list_del_init(&n->poll_list);
--	smp_mb__before_atomic();
--	clear_bit(NAPI_STATE_SCHED, &n->state);
--	return true;
--}
--EXPORT_SYMBOL(__napi_complete);
--
- bool napi_complete_done(struct napi_struct *n, int work_done)
+ 			/* Record stats */
+ 			ndev->stats.rx_packets++;
+@@ -561,18 +561,17 @@ static int ks8695_rx(struct ks8695_priv *ksp, int budget)
+ static int ks8695_poll(struct napi_struct *napi, int budget)
  {
- 	unsigned long flags;
-@@ -4926,14 +4909,13 @@ bool napi_complete_done(struct napi_struct *n, int work_done)
- 		else
- 			napi_gro_flush(n, false);
+ 	struct ks8695_priv *ksp = container_of(napi, struct ks8695_priv, napi);
+-	unsigned long  work_done;
+-
+ 	unsigned long isr = readl(KS8695_IRQ_VA + KS8695_INTEN);
+ 	unsigned long mask_bit = 1 << ks8695_get_rx_enable_bit(ksp);
++	int work_done;
+ 
+ 	work_done = ks8695_rx(ksp, budget);
+ 
+-	if (work_done < budget) {
++	if (work_done < budget && napi_complete_done(napi, work_done)) {
+ 		unsigned long flags;
++
+ 		spin_lock_irqsave(&ksp->rx_lock, flags);
+-		__napi_complete(napi);
+-		/*enable rx interrupt*/
++		/* enable rx interrupt */
+ 		writel(isr | mask_bit, KS8695_IRQ_VA + KS8695_INTEN);
+ 		spin_unlock_irqrestore(&ksp->rx_lock, flags);
  	}
--	if (likely(list_empty(&n->poll_list))) {
--		WARN_ON_ONCE(!test_and_clear_bit(NAPI_STATE_SCHED, &n->state));
--	} else {
-+	if (unlikely(!list_empty(&n->poll_list))) {
- 		/* If n->poll_list is not empty, we need to mask irqs */
- 		local_irq_save(flags);
--		__napi_complete(n);
-+		list_del_init(&n->poll_list);
- 		local_irq_restore(flags);
- 	}
-+	WARN_ON_ONCE(!test_and_clear_bit(NAPI_STATE_SCHED, &n->state));
- 	return true;
- }
- EXPORT_SYMBOL(napi_complete_done);
 -- 
 2.11.0.483.g087da7b7c-goog
