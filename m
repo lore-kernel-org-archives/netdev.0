@@ -1,32 +1,40 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 6/6] net: dsa: introduce bridge notifier
-Date: Sat, 4 Feb 2017 19:30:44 +0100
-Message-ID: <20170204183044.GF8364@lunn.ch>
-References: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
- <20170203182021.14246-7-vivien.didelot@savoirfairelinux.com>
- <20170204175517.GC8364@lunn.ch>
- <87tw89yfqf.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87tw89yfqf.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH v2 net-next 0/2] Set the CMODE for mv88e6390 ports
+Date: Sat,  4 Feb 2017 20:02:48 +0100
+Message-ID: <1486234970-11300-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:55718 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750921AbdBDTEJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 4 Feb 2017 14:04:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > What we don't want is a window of time during the fabric setup as a
-> > whole is inconsistent, and frames a leaking out ports they should not.
-> 
-> There is no such window.
+The mv88e6390 ports 9 & 10 allow there CMODE to be set. CMODE is part
+of what linux defines as phy-mode. Add the needed phy-modes to linux,
+and add code which will act upon the phy-mode property to configure
+the switch port.
 
-Hi Vivien
+These patches have been posted before as part of a bigger patchset
+which has now been broken up. I've added the received reviewed by
+tags, and added device tree documentation.
 
-Great, that is what i wanted to hear.
+Andrew Lunn (2):
+  net: phy: Add 2000base-x, 2500base-x and rxaui modes
+  net: dsa: mv88e6xxx: Set the CMODE for mv88e6390 ports 9 & 10
 
-Thanks
-	Andrew
+ Documentation/devicetree/bindings/net/ethernet.txt |  3 +
+ drivers/net/dsa/mv88e6xxx/chip.c                   |  8 +++
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h              |  9 +++
+ drivers/net/dsa/mv88e6xxx/port.c                   | 64 ++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/port.h                   |  3 +
+ include/linux/phy.h                                |  9 +++
+ 6 files changed, 96 insertions(+)
+
+-- 
+2.11.0
