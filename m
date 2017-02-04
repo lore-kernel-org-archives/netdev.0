@@ -1,100 +1,168 @@
-From: "Malinen, Jouni" <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [RFC PATCH 0/2] mac80211: use crypto shash for AES cmac
-Date: Sat, 4 Feb 2017 11:35:22 +0000
-Message-ID: <20170204113514.GA4350@jouni.qca.qualcomm.com>
-References: <1486149955-11825-1-git-send-email-ard.biesheuvel@linaro.org>
- <20170203214707.GA14147@jouni.qca.qualcomm.com>
- <CAKv+Gu9zp+vptF2mHP5MW=x_K5m7WQgMxNNSD5hn93aT_-99xA@mail.gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCHv2 net-next 05/16] net: mvpp2: introduce PPv2.2 HW
+ descriptors and adapt accessors
+Date: Sat, 4 Feb 2017 14:59:38 +0100
+Message-ID: <20170204145938.6e6380d9@free-electrons.com>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <1482943592-12556-6-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170106142901.GC14217@n2100.armlinux.org.uk>
+        <113811b6-79a4-9c66-d302-add9fb0c5b1a@arm.com>
+        <20170203142446.2ee517a7@free-electrons.com>
+        <231514f4-2e35-8bde-4469-aada833635aa@arm.com>
+        <20170203155449.GC27312@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKv+Gu9zp+vptF2mHP5MW=x_K5m7WQgMxNNSD5hn93aT_-99xA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Content-ID: <AD38CE1C2336A340847A963E8260F1FD-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Robin Murphy <robin.murphy@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        devicetree@vger.kernel.org, Yehuda Yitschak <yehuday@marvell.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Rob Herring <robh+dt@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
+        Kumar Gala <galak@codeaurora.org>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:47935 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750851AbdBDN7t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 08:59:49 -0500
+In-Reply-To: <20170203155449.GC27312@n2100.armlinux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 03, 2017 at 09:55:36PM +0000, Ard Biesheuvel wrote:
-> OK, that looks like something I could figure out how to use. But are
-> you saying the CMAC code is never called in practice?
+Hello,
 
-It will get called if there is a frame that were to need to use BIP.
-There are some APs that do send broadcast addressed Deauthentication and
-Disassociation frames when terminating the network and those would get
-here. In theory, someone could come up with a new Action frame use case
-as well with a group addressed Robust Action frame, but no such thing is
-defined today. Anyway, this will be needed for certification purposes
-and to block DoS with broadcast addressed Deauthentication and
-Disassociation frames even if there is not really a common use case
-using BIP frames today.
+On Fri, 3 Feb 2017 15:54:49 +0000, Russell King - ARM Linux wrote:
 
-> I did spot something peculiar when looking at the code: if I am
-> reading the following sequence correctly (from
-> fils_encrypt_assoc_req())
+> Now for a bit of a whinge.  Reading through this code is rather annoying
+> because of what's called a "physical" address which is actually a DMA
+> address as far as the kernel is concerned - this makes it much harder
+> when thinking about this issue because it causes all sorts of confusion.
+> Please can the next revision of the patches start calling things by their
+> right name - a dma_addr_t is a DMA address, not a physical address, even
+> though _numerically_ it may be the same thing.  From the point of view
+> of the kernel, you must not do phys_to_virt() on a dma_addr_t address.
+> Thanks.
 
-> addr[0] =3D mgmt->sa;
-...
-> addr[4] =3D capab;
-> len[4] =3D encr - capab;
->=20
-> crypt_len =3D skb->data + skb->len - encr;
-> skb_put(skb, AES_BLOCK_SIZE);
-> return aes_siv_encrypt(assoc_data->fils_kek, assoc_data->fils_kek_len,
->       encr, crypt_len, 1, addr, len, encr);
->=20
-> the addr[]/len[] arrays are populated with 5 (addr, len) pairs, but
-> only one is actually passed into aes_siv_encrypt()? This is actually
-> the main reason I stopped looking into whether I could convert it to
-> CMAC, because I couldn't figure it out.
+I do know that phys_addr_t is different from dma_addr_t. The case where
+you have an IOMMU makes this very obvious. The fact that the driver
+isn't completely correct in that respect indeed needs to be fixed.
 
-Argh.. Thanks for finding this!
+> Taking a step backwards...
+> 
+> How do DMA addresses and this cookie get into the receive ring - from what
+> I can see, the driver doesn't write these into the receive ring, it's the
+> hardware that writes it, and the only route I can see that they get there
+> is via writes performed in mvpp2_bm_pool_put().
 
-That is indeed supposed to have num_elems =3D=3D 5. This "works" since the
-other end of the exchange is actually in user space (hostapd) and a
-similar error is there..
+Correct. Here is a quick summary of my understand of the HW operation.
+The HW has a "buffer manager", i.e it can internally manage a list of
+buffers. At initialization time, we provide to the HW a list of buffers
+by pushing the DMA address and virtual address of each buffer into a
+register. Thanks to that the HW then knows about all the buffers we
+have given. Then, upon RX of a packet, the HW picks one of those
+buffers, and then fills a RX descriptor with the DMA address of the
+packet, and the VA in the "cookie" field. The "cookie" field can I
+believe be used for whatever we want, it's just "free" space in the
+descriptor.
 
-This comes from the development history of FILS support.. The draft
-standard changed this AES-SIV AAD design from P802.11ai/D7.0 to D8.0
-from a single AAD vector with concatenated fields to separate vectors.
-Clearly I added the vectors here in addr[] and len[] arrays, but forgot
-to update the num_elems parameter in this direction (STA->AP); the other
-direction for Association Response frame is actually using correct
-number of AAD vectors.
+> Now, from what I can see, the "buf_virt_addr" comes from:
+> 
+> +static void *mvpp2_frag_alloc(const struct mvpp2_bm_pool *pool)
+> +{
+> +       if (likely(pool->frag_size <= PAGE_SIZE))
+> +               return netdev_alloc_frag(pool->frag_size);
+> +       else
+> +               return kmalloc(pool->frag_size, GFP_ATOMIC);
+> +}
+> 
+> via mvpp2_buf_alloc().
+> 
+> Both kmalloc() and netdev_alloc_frag() guarantee that the virtual
+> address will be in lowmem.
 
-I'll fix this in hostapd and mac80211.
+*That* is the thing I didn't realize until now. If the buffers are
+always in lowmem, then it's much easier because we can indeed use
+virt_to_phys()/phys_to_virt() on them. But it's indeed obvious they are
+in lowmem, since we get a void* pointer for them.
 
+> Given that, I would suggest changing mvpp2_bm_pool_put() as follows -
+> and this is where my point above about separating the notion of "dma
+> address" and "physical address" becomes very important:
+> 
+>  static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
+> -                                    dma_addr_t buf_phys_addr,
+> -                                    unsigned long buf_virt_addr)
+> +                                    dma_addr_t dma, phys_addr_t phys)
+>  {
+> 
+> and updating it to write "phys" as the existing buf_virt_addr.
+> 
+> In mvpp2_bm_bufs_add():
+> 
+>                 buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
+>                 if (!buf)
+>                         break;
+>  
+>                 mvpp2_bm_pool_put(port, bm_pool->id, phys_addr,
+> -                                 (unsigned long)buf);
+> +                                 virt_to_phys(buf));
+> 
+> which I think means that mvpp2_rxdesc_virt_addr_get() can just become:
+> 
+>  	phys_addr_t cookie;
+>  
+>         /* PPv2.1 can only be used on 32 bits architectures, and there
+>          * are 32 bits in buf_cookie which are enough to store the
+>          * full virtual address, so things are easy.
+>          */
+>         if (port->priv->hw_version == MVPP21)
+>                 cookie = rx_desc->pp21.buf_cookie;
+>         else
+>  		cookie = rx_desc->pp22.buf_cookie_misc & FORTY_BIT_MASK;
+> 
+>  	return phys_to_virt(cookie);
 
-I did not actually remember that the AP side was still in hostapd for
-FILS AEAD in case of mac80211, but with that in mind, the answer to your
-earlier question about testing these becomes much simpler.. All you need
-to do is this with hostap.git hwsim tests:
+This makes complete sense. We use the cookie to store the phys_addr_t
+rather than the virtual address. I might be missing something, but it
+seems like a very good solution. Thanks for the suggestion, I'll try
+this!
 
-hostap/tests/hwsim/vm$ ./vm-run.sh ap_cipher_bip fils_sk_erp
-Starting test run in a virtual machine
-./run-all.sh: passing the following args to run-tests.py: ap_cipher_bip fil=
-s_sk_erp=20
-START ap_cipher_bip 1/2
-PASS ap_cipher_bip 0.703048 2017-02-04 11:21:35.341174
-START fils_sk_erp 2/2
-PASS fils_sk_erp 0.667927 2017-02-04 11:21:36.029205
-passed all 2 test case(s)
-ALL-PASSED
+> I'd suggest against using DMA_BIT_MASK(40) there - because it's not a
+> DMA address, even though it happens to resolve to the same number.
 
+Sure, will update this as well.
 
-ap_cipher_bip uses wlantest to verify the BIP (AES-128-CMAC) protection
-in the frames and fils_sk_erp goes through FILS AEAD exchange with one
-side of the operation in mac80211 and the other one in hostapd. This
-should be able to discover if something is broken in the AES related
-changes in crypto.
+> Again, I may have missed how the addresses end up getting into
+> buf_cookie_misc, so what I suggest above may not be possible.
 
-And this particular example run here was with your two patches applied,
-to the proposed net/mac80211/aes_cmac.c change seems to work fine.
+No, I think you got it right. At least it matches my own understanding
+of the HW.
 
---=20
-Jouni Malinen                                            PGP id EFC895FA=
+> I'd also suggest that there is some test in mvpp2_bm_bufs_add() to
+> verify that the physical addresses and DMA addresses do fit within
+> the available number of bits - if they don't we could end up scribbling
+> over memory that we shouldn't be, and it looks like we have a failure
+> path there to gracefully handle that situation - gracefully compared
+> to a nasty BUG_ON().
+
+For the DMA addresses, I have some additional changes on top of my v2
+to use dma_set_mask() to ensure that DMA addresses fit in 40 bits. But
+that's only for DMA addresses indeed.
+
+Thanks again for your suggestion!
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
