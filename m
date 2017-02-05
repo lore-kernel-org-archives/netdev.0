@@ -1,8 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v1 4/7] tools: Sync {,tools/}include/uapi/linux/bpf.h
-Date: Mon,  6 Feb 2017 00:14:25 +0100
-Message-ID: <20170205231428.23846-4-mic@digikod.net>
-References: <20170205231428.23846-1-mic@digikod.net>
+Subject: [PATCH net-next v1 1/7] bpf: Add missing header to the library
+Date: Mon,  6 Feb 2017 00:14:22 +0100
+Message-ID: <20170205231428.23846-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -10,86 +9,34 @@ Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
         Arnaldo Carvalho de Melo <acme@redhat.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>
+        Wang Nan <wangnan0@huawei.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170205231428.23846-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The tools version of this header is out of date; update it to the latest
-version from kernel header.
+Including stddef.h is needed to define size_t.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@fb.com>
 Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: David S. Miller <davem@davemloft.net>
+Cc: Wang Nan <wangnan0@huawei.com>
 ---
- tools/include/uapi/linux/bpf.h | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
+ tools/lib/bpf/bpf.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 0eb0e87dbe9f..e07fd5a324e6 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -63,6 +63,12 @@ struct bpf_insn {
- 	__s32	imm;		/* signed immediate constant */
- };
+diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+index a2f9853dd882..df6e186da788 100644
+--- a/tools/lib/bpf/bpf.h
++++ b/tools/lib/bpf/bpf.h
+@@ -22,6 +22,7 @@
+ #define __BPF_BPF_H
  
-+/* Key of an a BPF_MAP_TYPE_LPM_TRIE entry */
-+struct bpf_lpm_trie_key {
-+	__u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
-+	__u8	data[0];	/* Arbitrary size */
-+};
-+
- /* BPF syscall commands, see bpf(2) man-page for details. */
- enum bpf_cmd {
- 	BPF_MAP_CREATE,
-@@ -89,6 +95,7 @@ enum bpf_map_type {
- 	BPF_MAP_TYPE_CGROUP_ARRAY,
- 	BPF_MAP_TYPE_LRU_HASH,
- 	BPF_MAP_TYPE_LRU_PERCPU_HASH,
-+	BPF_MAP_TYPE_LPM_TRIE,
- };
+ #include <linux/bpf.h>
++#include <stddef.h>
  
- enum bpf_prog_type {
-@@ -430,6 +437,18 @@ union bpf_attr {
-  *     @xdp_md: pointer to xdp_md
-  *     @delta: An positive/negative integer to be added to xdp_md.data
-  *     Return: 0 on success or negative on error
-+ *
-+ * int bpf_probe_read_str(void *dst, int size, const void *unsafe_ptr)
-+ *     Copy a NUL terminated string from unsafe address. In case the string
-+ *     length is smaller than size, the target is not padded with further NUL
-+ *     bytes. In case the string length is larger than size, just count-1
-+ *     bytes are copied and the last byte is set to NUL.
-+ *     @dst: destination address
-+ *     @size: maximum number of bytes to copy, including the trailing NUL
-+ *     @unsafe_ptr: unsafe address
-+ *     Return:
-+ *       > 0 length of the string including the trailing NUL on success
-+ *       < 0 error
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -476,7 +495,8 @@ union bpf_attr {
- 	FN(set_hash_invalid),		\
- 	FN(get_numa_node_id),		\
- 	FN(skb_change_head),		\
--	FN(xdp_adjust_head),
-+	FN(xdp_adjust_head),		\
-+	FN(probe_read_str),
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-@@ -502,6 +522,7 @@ enum bpf_func_id {
- /* BPF_FUNC_l4_csum_replace flags. */
- #define BPF_F_PSEUDO_HDR		(1ULL << 4)
- #define BPF_F_MARK_MANGLED_0		(1ULL << 5)
-+#define BPF_F_MARK_ENFORCE		(1ULL << 6)
- 
- /* BPF_FUNC_clone_redirect and BPF_FUNC_redirect flags. */
- #define BPF_F_INGRESS			(1ULL << 0)
+ int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+ 		   int max_entries, __u32 map_flags);
 -- 
 2.11.0
