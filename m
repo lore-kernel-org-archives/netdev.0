@@ -1,97 +1,74 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
 Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
-Date: Sat, 4 Feb 2017 19:48:41 -0800
-Message-ID: <20170205034839.GG73775@ast-mbp.thefacebook.com>
-References: <CALCETrU7FYz=8c2a=FWvvCxFQC3_e0nYjSU6gj62w9K8mWj=Ww@mail.gmail.com>
- <588A40D7.9070603@fb.com>
- <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
- <588A4D3C.9070601@fb.com>
- <87r33fevva.fsf@xmission.com>
- <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
- <20170203230830.GC26227@ast-mbp.thefacebook.com>
- <CALCETrUb1Rf-BdSTHdKSgwnftHjpmcDt1HX1KX-cpN=N7ev+eg@mail.gmail.com>
- <20170205031045.GC73775@ast-mbp.thefacebook.com>
- <CALCETrUhE_Ga4PeobPFvhtLPVGKskTUaXe9H0v=kBXe4ii7dLw@mail.gmail.com>
+Date: Sat, 4 Feb 2017 19:49:44 -0800
+Message-ID: <CALCETrWZdSOMvQ-Jx+hOiPvJEUSJgKf0A3kJWj7Ys30qjLkNgQ@mail.gmail.com>
+References: <1485401274-2836524-1-git-send-email-ast@fb.com>
+ <5894FC9B.8000108@iogearbox.net> <20170203230627.GB26227@ast-mbp.thefacebook.com>
+ <58951567.1030401@iogearbox.net> <CALCETrVnGP3DBAWQGFDXyXsN+tq+sSF+zirp4yPgiBo42qzV-g@mail.gmail.com>
+ <20170205031854.GD73775@ast-mbp.thefacebook.com> <CALCETrWs-z_P5oJjg4--3EbNBV1zg8miPyYk3p+3N+H2=FkRrg@mail.gmail.com>
+ <20170205033520.GF73775@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
         Alexei Starovoitov <ast@fb.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
         "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
         David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        Tejun Heo <tj@kernel.org>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Thomas Graf <tgraf@suug.ch>,
         Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36218 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751386AbdBEDsr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 22:48:47 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 75so5738415pgf.3
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 19:48:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <CALCETrUhE_Ga4PeobPFvhtLPVGKskTUaXe9H0v=kBXe4ii7dLw@mail.gmail.com>
+Received: from mail-vk0-f53.google.com ([209.85.213.53]:35891 "EHLO
+        mail-vk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751201AbdBEDuF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 22:50:05 -0500
+Received: by mail-vk0-f53.google.com with SMTP id t8so37298682vke.3
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 19:50:05 -0800 (PST)
+In-Reply-To: <20170205033520.GF73775@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 04, 2017 at 07:27:01PM -0800, Andy Lutomirski wrote:
-> On Sat, Feb 4, 2017 at 7:10 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Sat, Feb 04, 2017 at 09:07:19AM -0800, Andy Lutomirski wrote:
-> >> >> can see a namespaced view of the world.  For this to work, presumably
-> >> >> we need to make sure that eBPF programs that are installed by programs
-> >> >> that are in a container don't see traffic that isn't in that
-> >> >> container.
-> >> >
-> >> > such approach will break existing users.
-> >>
-> >> What existing users?  The whole feature has never been in a released kernel.
-> >
-> > the v3 patch commit log explains the use cases that work across netns.
-> > And they would break if netns boundary is suddenly started to be
-> > enforced for networking program types.
-> 
-> This is why these issues should be addressed carefully before this
-> feature is stabilized in 4.10, and I'm increasingly unconvinced that
-> this will happen.  There may be a single week left, and the cgroup
-> override issue is still entirely unaddressed, for example.
+On Sat, Feb 4, 2017 at 7:35 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Sat, Feb 04, 2017 at 07:22:03PM -0800, Andy Lutomirski wrote:
+>> On Sat, Feb 4, 2017 at 7:18 PM, Alexei Starovoitov
+>> <alexei.starovoitov@gmail.com> wrote:
+>> > On Sat, Feb 04, 2017 at 09:08:38AM -0800, Andy Lutomirski wrote:
+>> >> > So use-case would be that someone wants to attach the very same
+>> >> > prog via tc to various netdevs sitting in different netns, and
+>> >> > that prog looks up a map, controlled by initns, with skb->netns_inum
+>> >> > as key and the resulting value could contain allowed feature bits
+>> >> > for that specific netns prog the skbs goes through? That would be
+>> >> > a feature, not "concern", no? At the same time, it's up to the
+>> >> > user or mgmt app what gets loaded so f.e. it might just as well
+>> >> > tailor/optimize the progs individually for the devs sitting in
+>> >> > netns-es to avoid such map lookup.
+>> >>
+>> >> Agreed.  I don't see why you would install the exact same program on
+>> >> two sockets in different netnses if the program contains, say, an
+>> >> ifindex.  Why not just install a variant with the right ifindex into
+>> >> each socket?
+>> >
+>> > In other cases people prefer to have one program compiled once
+>> > and thoroughly tested offline, since some folks are worried
+>> > that on-the-fly compilation may cause generated code to
+>> > be rejected by the verifier.
+>>
+>> I would be rather surprised if someone wrote a program that did had an
+>> expression like (ifindex == 17), tested it offline, and refused to
+>> update the 17 based on the actual ifindex in use.
+>
+> All programs have bugs. What bpf subsytem is trying to do is
+> to be flexible and satisfy as many use cases as possible.
+> Boxing users into "one way to do things" isn't a successful
+> strategy in my opinion. perl vs python, if you like :)
+> bpf is perl like. We don't enforce spaces vs tabs :)
+>
 
-imo cgroup override issue is not an issue and the api can be extended
-at any time. I offered to change the default to disable override,
-but I need override to be there, since it's the fastest and most
-flexible way. So the sooner we can land bpf_sk_netns_id() patch
-the faster I can post override disable.
-
-> Also, the v3 commit log's example seems a bit weak, since seccomp can
-> handle that case (block non-init-netns raw sockets) and it's not clear
-> to me that a filter like that serves a purpose regardless besides
-> kernel attack surface reduction.
-
-seccomp doesn't even support extended bpf yet and that makes it
-quite inflexible.
-
-> > If you're suggesting to limit root netns for cgroup_sock program type only
-> > then David explained weeks ago why it's not acceptable for vrf use
-> > case which was the main reason to add that program type in the first place.
-> > Also it would make one specific bpf program type to be different
-> > from all others which will be confusing.
-> >
-> 
-> I'm suggesting limiting it to the init netns for *all* cases.
-> (Specifically, limiting installing programs to the init netns.  But
-> perhaps limiting running of programs to the netns in which they're
-> installed would be the best solution after all.)  If there isn't a
-> well-understood solution that plays well with netns and that satisfies
-> ip vrf, the it's worth seriously thinking about whether ip vrf is
-> really ready for 4.10.
-
-The proposed v3 is imo solves the ip vrf 'malfunction' that you found.
-v1 was also solving it and iproute2 patch was ready, but as Eric pointed
-out just ns.inum is not enough.
-The 'malfunction' can also be addressed _without_ kernel changes,
-but the kernel can make it easier, hence v3 patch.
-
-Andy, can you please reply in one thread? In particular in v3 patch?
-I'm not sure why you making more or less the same points in
-different threads. I'm sure it's hard for everyone to follow.
+Daniel's asking what the netns query is good for in programs that are
+attached to sockets.  I think your example isn't relevant here.  In
+fact, I think your example of pre-tested programs is even less
+relevant, since a there's no way to know what the netns id will be
+prior to the creation of a netns, so you can't usefully hard-code a
+netns id into a precompiled BPF program.
