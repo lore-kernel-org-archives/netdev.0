@@ -1,65 +1,94 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH iproute2/net-next 1/3] tc: Add support for the sample tc
- action
-Date: Sun, 5 Feb 2017 10:36:59 -0800
-Message-ID: <18afef7b-22f4-e37f-4ea3-99d8307a1eb7@gmail.com>
-References: <1486281534-61663-1-git-send-email-yotamg@mellanox.com>
- <1486281534-61663-2-git-send-email-yotamg@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: Yotam Gigi <yotamg@mellanox.com>, stephen@networkplumber.org,
-        netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:33702 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751719AbdBEShB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 13:37:01 -0500
-Received: by mail-oi0-f67.google.com with SMTP id j15so5055902oih.0
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 10:37:01 -0800 (PST)
-In-Reply-To: <1486281534-61663-2-git-send-email-yotamg@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: [PATCH 3.10 257/319] net: sctp, forbid negative length
+Date: Sun,  5 Feb 2017 20:21:19 +0100
+Message-ID: <1486322541-8206-158-git-send-email-w@1wt.eu>
+References: <1486322541-8206-1-git-send-email-w@1wt.eu>
+Cc: Jiri Slaby <jslaby@suse.cz>, Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        Willy Tarreau <w@1wt.eu>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+        linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486322541-8206-1-git-send-email-w@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/04/2017 11:58 PM, Yotam Gigi wrote:
-> The sample tc action allows sampling packets matching a classifier. It
-> peeks randomly packets, and samples them using the psample netlink
-> channel. The user can specify the psample group, which the packet will be
-> sampled to, the sampling rate and the packet truncation (to save
-> kernel-user traffic).
-> 
-> The sampled packets contain informative metadata, for example, the input
-> interface and the original packet length.
-> 
-> The action syntax:
-> tc filter add [...] \
-> 	action sample rate <RATE> group <GROUP> [trunc <SIZE>]
-> 	[...]
-> 
-> Where:
->   RATE := The sampling rate which is the ratio of packets observed at the
-> 	  data source to the samples generated
->   GROUP := the psample module sampling group
->   SIZE := optional truncation size
-> 
-> An example for a common usecase of the sample tc action: to sample ingress
-> traffic from interface eth1, one may use the commands:
-> 
-> tc qdisc add dev eth1 handle ffff: ingress
-> 
-> tc filter add dev eth1 parent ffff: \
->        matchall action sample rate 12 group 4
-> 
-> Where the first command adds an ingress qdisc and the second starts
-> sampling randomly with an average of one sampled packet per 12 packets
-> on dev eth1 to psample group 4.
+From: Jiri Slaby <jslaby@suse.cz>
 
-The group argument seems to be mandatory from looking at the code, but
-what if just wanted to have a port mirroring between, say sw0p1 and
-sw0p2 with the sample rate specified instead (without using the psample
-netlink channel at all)? Could we make this group an optional argument
-instead?
+commit a4b8e71b05c27bae6bad3bdecddbc6b68a3ad8cf upstream.
 
-Thanks!
+Most of getsockopt handlers in net/sctp/socket.c check len against
+sizeof some structure like:
+        if (len < sizeof(int))
+                return -EINVAL;
+
+On the first look, the check seems to be correct. But since len is int
+and sizeof returns size_t, int gets promoted to unsigned size_t too. So
+the test returns false for negative lengths. Yes, (-1 < sizeof(long)) is
+false.
+
+Fix this in sctp by explicitly checking len < 0 before any getsockopt
+handler is called.
+
+Note that sctp_getsockopt_events already handled the negative case.
+Since we added the < 0 check elsewhere, this one can be removed.
+
+If not checked, this is the result:
+UBSAN: Undefined behaviour in ../mm/page_alloc.c:2722:19
+shift exponent 52 is too large for 32-bit type 'int'
+CPU: 1 PID: 24535 Comm: syz-executor Not tainted 4.8.1-0-syzkaller #1
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.1-0-gb3ef39f-prebuilt.qemu-project.org 04/01/2014
+ 0000000000000000 ffff88006d99f2a8 ffffffffb2f7bdea 0000000041b58ab3
+ ffffffffb4363c14 ffffffffb2f7bcde ffff88006d99f2d0 ffff88006d99f270
+ 0000000000000000 0000000000000000 0000000000000034 ffffffffb5096422
+Call Trace:
+ [<ffffffffb3051498>] ? __ubsan_handle_shift_out_of_bounds+0x29c/0x300
+...
+ [<ffffffffb273f0e4>] ? kmalloc_order+0x24/0x90
+ [<ffffffffb27416a4>] ? kmalloc_order_trace+0x24/0x220
+ [<ffffffffb2819a30>] ? __kmalloc+0x330/0x540
+ [<ffffffffc18c25f4>] ? sctp_getsockopt_local_addrs+0x174/0xca0 [sctp]
+ [<ffffffffc18d2bcd>] ? sctp_getsockopt+0x10d/0x1b0 [sctp]
+ [<ffffffffb37c1219>] ? sock_common_getsockopt+0xb9/0x150
+ [<ffffffffb37be2f5>] ? SyS_getsockopt+0x1a5/0x270
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-sctp@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+---
+ net/sctp/socket.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index bdc3fb6..86e7352 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4259,7 +4259,7 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
+ static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
+ 				  int __user *optlen)
+ {
+-	if (len <= 0)
++	if (len == 0)
+ 		return -EINVAL;
+ 	if (len > sizeof(struct sctp_event_subscribe))
+ 		len = sizeof(struct sctp_event_subscribe);
+@@ -5770,6 +5770,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 	if (get_user(len, optlen))
+ 		return -EFAULT;
+ 
++	if (len < 0)
++		return -EINVAL;
++
+ 	sctp_lock_sock(sk);
+ 
+ 	switch (optname) {
 -- 
-Florian
+2.8.0.rc2.1.gbe9624a
