@@ -1,111 +1,122 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 2/2] net: phy: Fix PHY driver bind and unbind events
-Date: Sun,  5 Feb 2017 14:25:57 -0800
-Message-ID: <20170205222557.24739-3-f.fainelli@gmail.com>
-References: <20170205222557.24739-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        Russell King <rmk+kernel@armlinux.org.uk>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: [RFC 1/2] dt: emac: document device-tree based phy discovery and setup
+Date: Sun,  5 Feb 2017 23:25:05 +0100
+Message-ID: <f57a340f615991ed2771d8af4b1a908dec436a5e.1486333475.git.chunkeey@googlemail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Ivan Mikhaylov <ivan@de.ibm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Rob Herring <robh+dt@kernel.org>
+To: netdev@vger.kernel.org, devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:36399 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750851AbdBEW0I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 17:26:08 -0500
-Received: by mail-ot0-f194.google.com with SMTP id 36so8503852otx.3
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 14:26:07 -0800 (PST)
-In-Reply-To: <20170205222557.24739-1-f.fainelli@gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34625 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750851AbdBEW1T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 17:27:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PHY library does not deal very well with bind and unbind events. The first
-thing we would see is that we were not properly canceling the PHY state machine
-workqueue, so we would be crashing while dereferencing phydev->drv since there
-is no driver attached anymore.
+This patch adds documentation for a new "phy-handler" property
+and "mdio" sub-node. These allows the enumeration of PHYs which
+are supported by the phy library under drivers/net/phy.
 
-Once we fix that, there are several things that did not quite work as expected:
+The EMAC ethernet controller in IBM and AMCC 4xx chips is
+currently stuck with a few privately defined phy
+implementations. It has no support for PHYs which
+are supported by the generic phylib.
 
-- if the PHY state machine was running, we were not stopping it properly, and
-  the state machine state would not be marked as such
-- when we rebind the driver, nothing would happen, since we would not know which
-  state we were before the unbind
-
-This patch takes the following approach:
-
-- if the PHY was attached, and the state machine was running we would stop it,
-  remember where we left, and schedule the state machine for restart upong
-  driver bind
-- if the PHY was attached, but HALTED, we would let it in that state, and do not
-  alter the state upon driver bind
-- in all other cases (detached) we would keep the PHY in DOWN state waiting for
-  a network driver to show up, and set PHY_READY on driver bind
-
-Suggested-by: Russell King <rmk+kernel@armlinux.org.uk>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
 ---
- drivers/net/phy/phy_device.c | 27 +++++++++++++++++++++++++--
- 1 file changed, 25 insertions(+), 2 deletions(-)
+ .../devicetree/bindings/powerpc/4xx/emac.txt       | 60 +++++++++++++++++++++-
+ 1 file changed, 58 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 0d8f4d3847f6..05888bd17b97 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1709,6 +1709,7 @@ static int phy_probe(struct device *dev)
- 	struct phy_device *phydev = to_phy_device(dev);
- 	struct device_driver *drv = phydev->mdio.dev.driver;
- 	struct phy_driver *phydrv = to_phy_driver(drv);
-+	bool should_start = false;
- 	int err = 0;
+diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+index 712baf6c3e24..0572d053c35a 100644
+--- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
++++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
+@@ -71,6 +71,8 @@
+ 			  For Axon it can be absent, though my current driver
+ 			  doesn't handle phy-address yet so for now, keep
+ 			  0x00ffffff in it.
++    - phy-handle	: See net/ethernet.txt file; used to describe
++			  configurations where a external PHY is used.
+     - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
+ 			  operations (if absent the value is the same as
+ 			  rx-fifo-size).  For Axon, either absent or 2048.
+@@ -82,7 +84,18 @@
+     - tah-channel       : 1 cell, optional. If appropriate, channel used on the
+ 			  TAH engine.
  
- 	phydev->drv = phydrv;
-@@ -1758,24 +1759,46 @@ static int phy_probe(struct device *dev)
- 	}
- 
- 	/* Set the state to READY by default */
--	phydev->state = PHY_READY;
-+	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
-+		should_start = true;
-+	else
-+		phydev->state = PHY_READY;
- 
- 	if (phydev->drv->probe)
- 		err = phydev->drv->probe(phydev);
- 
- 	mutex_unlock(&phydev->lock);
- 
-+	if (should_start)
-+		phy_start(phydev);
+-    Example:
++    - mdio subnode	: When the EMAC has a phy connected to its local
++			  mdio, which us supported by the kernel's network
++			  PHY library in drivers/net/phy, there must be device
++			  tree subnode with the following required properties:
++				- #address-cells: Must be <1>.
++				- #size-cells: Must be <0>.
 +
- 	return err;
- }
++			  For each phy on the mdio bus, there must be a node
++			  with the following fields:
++				- reg: phy id used to communicate to phy.
++				- device_type: Must be "ethernet-phy".
++    Examples:
  
- static int phy_remove(struct device *dev)
- {
- 	struct phy_device *phydev = to_phy_device(dev);
-+	bool should_stop = false;
-+	enum phy_state state;
+ 	EMAC0: ethernet@40000800 {
+ 		device_type = "network";
+@@ -104,6 +117,50 @@
+ 		zmii-channel = <0>;
+ 	};
+ 
++	EMAC1: ethernet@ef600c00 {
++		device_type = "network";
++		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
++		interrupt-parent = <&EMAC1>;
++		interrupts = <0 1>;
++		#interrupt-cells = <1>;
++		#address-cells = <0>;
++		#size-cells = <0>;
++		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
++				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
++		reg = <0xef600c00 0x000000c4>;
++		local-mac-address = [000000000000]; /* Filled in by U-Boot */
++		mal-device = <&MAL0>;
++		mal-tx-channel = <0>;
++		mal-rx-channel = <0>;
++		cell-index = <0>;
++		max-frame-size = <9000>;
++		rx-fifo-size = <16384>;
++		tx-fifo-size = <2048>;
++		fifo-entry-size = <10>;
++		phy-mode = "rgmii";
++		phy-map = <0x00000000>;
++		phy-handle = <&phy0>;
++		rgmii-device = <&RGMII0>;
++		rgmii-channel = <0>;
++		tah-device = <&TAH0>;
++		tah-channel = <0>;
++		has-inverted-stacr-oc;
++		has-new-stacr-staopc;
 +
-+	cancel_delayed_work_sync(&phydev->state_queue);
- 
- 	mutex_lock(&phydev->lock);
--	phydev->state = PHY_DOWN;
-+	state = phydev->state;
-+	if (state > PHY_UP && state != PHY_HALTED)
-+		should_stop = true;
-+	else
-+		phydev->state = PHY_DOWN;
- 	mutex_unlock(&phydev->lock);
- 
-+	/* phy_stop() sets the state to HALTED, undo that for the ->probe() function
-+	 * to have a chance to resume where we left
-+	 */
-+	if (should_stop) {
-+		phy_stop(phydev);
-+		phydev->state = state;
-+	}
++	        mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
 +
- 	if (phydev->drv->remove)
- 		phydev->drv->remove(phydev);
- 	phydev->drv = NULL;
++			phy0: ethernet-phy@0 {
++				device_type = "ethernet-phy";
++				reg = <0>;
++
++				qca,ar8327-initvals = <
++					0x0010 0x40000000>;
++		};
++	};
++
++
+       ii) McMAL node
+ 
+     Required properties:
+@@ -145,4 +202,3 @@
+     - revision           : as provided by the RGMII new version register if
+ 			   available.
+ 			   For Axon: 0x0000012a
+-
 -- 
-2.9.3
+2.11.0
