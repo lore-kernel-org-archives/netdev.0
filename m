@@ -1,53 +1,65 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: Add watchdog interrupt
- handler
-Date: Sun, 5 Feb 2017 10:31:22 -0800
-Message-ID: <82a06d33-b0c4-55bd-43ee-9953db9a559d@gmail.com>
-References: <1486240734-13157-1-git-send-email-andrew@lunn.ch>
- <6936eb05-bec7-a898-6dae-875eda888ce1@gmail.com>
- <20170205165259.GB26564@lunn.ch>
+Subject: Re: [PATCH iproute2/net-next 1/3] tc: Add support for the sample tc
+ action
+Date: Sun, 5 Feb 2017 10:36:59 -0800
+Message-ID: <18afef7b-22f4-e37f-4ea3-99d8307a1eb7@gmail.com>
+References: <1486281534-61663-1-git-send-email-yotamg@mellanox.com>
+ <1486281534-61663-2-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
+To: Yotam Gigi <yotamg@mellanox.com>, stephen@networkplumber.org,
+        netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:36687 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751751AbdBESbY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 13:31:24 -0500
-Received: by mail-ot0-f194.google.com with SMTP id 36so8048417otx.3
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 10:31:24 -0800 (PST)
-In-Reply-To: <20170205165259.GB26564@lunn.ch>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33702 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751719AbdBEShB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 13:37:01 -0500
+Received: by mail-oi0-f67.google.com with SMTP id j15so5055902oih.0
+        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 10:37:01 -0800 (PST)
+In-Reply-To: <1486281534-61663-2-git-send-email-yotamg@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 02/05/2017 08:52 AM, Andrew Lunn wrote:
->>> +static irqreturn_t mv88e6xxx_g2_watchdog_thread_fn(int irq, void *dev_id)
->>> +{
->>> +	u16 reg;
->>> +
->>> +	struct mv88e6xxx_chip *chip = dev_id;
->>> +
->>> +	mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
->>> +
->>> +	dev_info(chip->dev, "Watchdog event: %04x", reg);
->>
->> Should this be 0x%04x just to illustrate the value is hexadecimal? And
+On 02/04/2017 11:58 PM, Yotam Gigi wrote:
+> The sample tc action allows sampling packets matching a classifier. It
+> peeks randomly packets, and samples them using the psample netlink
+> channel. The user can specify the psample group, which the packet will be
+> sampled to, the sampling rate and the packet truncation (to save
+> kernel-user traffic).
 > 
-> Yes, the prefix would make sense.
+> The sampled packets contain informative metadata, for example, the input
+> interface and the original packet length.
 > 
->> should this be dev_info_once()?
+> The action syntax:
+> tc filter add [...] \
+> 	action sample rate <RATE> group <GROUP> [trunc <SIZE>]
+> 	[...]
 > 
-> Since the next action is to disable the interrupt, and there is no
-> code path to reenable it, _once does not seem needed. And if for some
-> reason the kernel log is spammed with these messages, i want to
-> know. It means my interrupt handling code is badly broken!
+> Where:
+>   RATE := The sampling rate which is the ratio of packets observed at the
+> 	  data source to the samples generated
+>   GROUP := the psample module sampling group
+>   SIZE := optional truncation size
+> 
+> An example for a common usecase of the sample tc action: to sample ingress
+> traffic from interface eth1, one may use the commands:
+> 
+> tc qdisc add dev eth1 handle ffff: ingress
+> 
+> tc filter add dev eth1 parent ffff: \
+>        matchall action sample rate 12 group 4
+> 
+> Where the first command adds an ingress qdisc and the second starts
+> sampling randomly with an average of one sampled packet per 12 packets
+> on dev eth1 to psample group 4.
 
-Sure, that makes sense then, thanks!
+The group argument seems to be mandatory from looking at the code, but
+what if just wanted to have a port mirroring between, say sw0p1 and
+sw0p2 with the sample rate specified instead (without using the psample
+netlink channel at all)? Could we make this group an optional argument
+instead?
+
+Thanks!
 -- 
 Florian
