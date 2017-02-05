@@ -1,104 +1,159 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
-Date: Sat, 4 Feb 2017 21:05:29 -0800
-Message-ID: <CALCETrUvnfRuN8=X9d7Hi5mF95n7XS6_muh7GTuKiLO_RtGbxw@mail.gmail.com>
-References: <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
- <588A4D3C.9070601@fb.com> <87r33fevva.fsf@xmission.com> <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
- <20170203230830.GC26227@ast-mbp.thefacebook.com> <CALCETrUb1Rf-BdSTHdKSgwnftHjpmcDt1HX1KX-cpN=N7ev+eg@mail.gmail.com>
- <20170205031045.GC73775@ast-mbp.thefacebook.com> <CALCETrUhE_Ga4PeobPFvhtLPVGKskTUaXe9H0v=kBXe4ii7dLw@mail.gmail.com>
- <20170205034839.GG73775@ast-mbp.thefacebook.com> <CALCETrXgBrWmWFghWxtV92RDvqYBHsT-L37ujvexyA6v+3M8sQ@mail.gmail.com>
- <20170205043716.GI73775@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
-        Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Igor Pylypiv <igor.pylypiv@gmail.com>
+Subject: [PATCH] Revert "net: Remove state argument from skb_find_text()"
+Date: Sat,  4 Feb 2017 21:48:30 -0800
+Message-ID: <1486273710-18457-1-git-send-email-igor.pylypiv@gmail.com>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f44.google.com ([209.85.213.44]:34664 "EHLO
-        mail-vk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751386AbdBEFFv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 00:05:51 -0500
-Received: by mail-vk0-f44.google.com with SMTP id r136so37830540vke.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 21:05:50 -0800 (PST)
-In-Reply-To: <20170205043716.GI73775@ast-mbp.thefacebook.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35109 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751734AbdBEFug (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 00:50:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 4, 2017 at 8:37 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Sat, Feb 04, 2017 at 07:54:20PM -0800, Andy Lutomirski wrote:
->>
->> I've repeatedly asked how you plan to make a "don't override" flag
->> have sensible semantics when someone tries to add a new flag or change
->> the behavior to "don't override but, rather then rejecting programs
->> down the hierarchy, just run them all".  You haven't answered that
->> question.
->
-> I explained already that I need to do combining on the bpf side instead
-> of running the list, since running several programs where 90% of
-> the logic is the same is the overhead that is not acceptable
-> for production server. It may be fine for desktop, but not
-> when every cycle matters. With one program per cgroup I can
-> combine multiple of them on bpf side. In networking the most of
-> the prep work like packet parsing and lookups are common,
-> but the actions are different, so for one part of the hieararchy
-> I can have program A monitoring tcp and in other
-> part I can have program B monitoring tcp and udp.
-> What you're saying that for tcp and udp monitoring
-> run two programs. One for udp and one for tcp.
-> That is not efficient. Hence the need to combine
-> the programs on bpf side and attach only one with override.
+This reverts commit 059a2440fd3cf4ec57735db2c0a90401cde84fca.
 
-I'm not saying that at all.  I'm saying that this use case sounds
-valid, but maybe it could be solved differently.  Here are some ideas:
+Textsearch state parameter should be passed by pointer because
+its resulting value is needed for call to textsearch_next().
 
- - Expose the actual cgroup (relative to the hooked cgroup) to the BPF
-program.  Then you could parse the headers, check what cgroup you're
-in, and proceed accordingly.  This could potentially be even faster
-for your use case if done carefully because it will stress the
-instruction cache less.
+Signed-off-by: Igor Pylypiv <igor.pylypiv@gmail.com>
+---
+ include/linux/skbuff.h              |  3 ++-
+ net/core/skbuff.c                   |  9 +++++----
+ net/netfilter/nf_conntrack_amanda.c | 10 +++++++---
+ net/netfilter/xt_string.c           |  3 ++-
+ net/sched/em_text.c                 |  3 ++-
+ 5 files changed, 18 insertions(+), 10 deletions(-)
 
- - Have a (non-default) flag that says "overridable".  The effect is
-that, if /A and /A/B both have overridable programs attached, then
-sockets in /A/B don't run /A's program.  If, however, /A has a
-non-overridable program and /A/B has an overridable program, then
-sockets in /A/B run both programs.  IOW overridable programs override
-other overridable programs, but non-overridable programs never
-override anything and are never overridden by anything.
-
->
-> The "dont override flag" was also explained before. Here it is again:
-> Without breaking above "override" scenario we can add a flag
-> that when the program is attached with that flag to one part of
-> the hierarchy the override of it will not be allowed in the descendent.
-> This extension can be done at any time in the future.
-> The only question is what is the default when such flag
-> is not present. The current default is override allowed.
-> You insist on changing the default right now.
-> I don't mind, therefore I'm working on such "dont override flag",
-> since if we need to change the default it needs to be done now,
-> but if it doesn't happen for 4.10, it's absolutely fine too.
-> For security use cases the flag will be added later
-> and sandboxing use cases will use that flag too.
-> There are no expections that if cgroup is there the program
-> attach command must always succeed. That's why we have error codes
-> and we can dissallow attach based on this flag or any future
-> restrictions. All of it is root now anyway and sandboxing/security
-> use cases need to wait until bpf side can be made unprivileged.
-> I see current api to have a ton of room for future extensions.
->
-
-Suppose someone wants to make CGROUP_BPF work right when a container
-and a container manager both use it.  It'll have to run both programs.
-What would the semantics be if this were to be added?  This is really
-a question, not an indictment of your approach.  For all I know,
-you're proposing exactly what I suggested above.
-
-And sandboxing needn't, and won't, wait until unprivileged bpf
-programs are added.  Plenty of sandboxes run as root.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 11b60b6..70110ca 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1028,7 +1028,8 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
+ void skb_abort_seq_read(struct skb_seq_state *st);
+ 
+ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
+-			   unsigned int to, struct ts_config *config);
++			   unsigned int to, struct ts_config *config,
++			   struct ts_state *state);
+ 
+ /*
+  * Packet hash types specify the type of hash in skb_set_hash.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index daa6058..3041763 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2918,6 +2918,7 @@ static void skb_ts_finish(struct ts_config *conf, struct ts_state *state)
+  * @from: search offset
+  * @to: search limit
+  * @config: textsearch configuration
++ * @state: uninitialized textsearch state variable
+  *
+  * Finds a pattern in the skb data according to the specified
+  * textsearch configuration. Use textsearch_next() to retrieve
+@@ -2925,17 +2926,17 @@ static void skb_ts_finish(struct ts_config *conf, struct ts_state *state)
+  * to the first occurrence or UINT_MAX if no match was found.
+  */
+ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
+-			   unsigned int to, struct ts_config *config)
++			   unsigned int to, struct ts_config *config,
++			   struct ts_state *state)
+ {
+-	struct ts_state state;
+ 	unsigned int ret;
+ 
+ 	config->get_next_block = skb_ts_get_next_block;
+ 	config->finish = skb_ts_finish;
+ 
+-	skb_prepare_seq_read(skb, from, to, TS_SKB_CB(&state));
++	skb_prepare_seq_read(skb, from, to, TS_SKB_CB(state));
+ 
+-	ret = textsearch_find(config, &state);
++	ret = textsearch_find(config, state);
+ 	return (ret <= to - from ? ret : UINT_MAX);
+ }
+ EXPORT_SYMBOL(skb_find_text);
+diff --git a/net/netfilter/nf_conntrack_amanda.c b/net/netfilter/nf_conntrack_amanda.c
+index 57a26cc..b8b95f4 100644
+--- a/net/netfilter/nf_conntrack_amanda.c
++++ b/net/netfilter/nf_conntrack_amanda.c
+@@ -88,6 +88,7 @@ static int amanda_help(struct sk_buff *skb,
+ 		       struct nf_conn *ct,
+ 		       enum ip_conntrack_info ctinfo)
+ {
++	struct ts_state ts;
+ 	struct nf_conntrack_expect *exp;
+ 	struct nf_conntrack_tuple *tuple;
+ 	unsigned int dataoff, start, stop, off, i;
+@@ -112,20 +113,23 @@ static int amanda_help(struct sk_buff *skb,
+ 		return NF_ACCEPT;
+ 	}
+ 
++	memset(&ts, 0, sizeof(ts));
+ 	start = skb_find_text(skb, dataoff, skb->len,
+-			      search[SEARCH_CONNECT].ts);
++			      search[SEARCH_CONNECT].ts, &ts);
+ 	if (start == UINT_MAX)
+ 		goto out;
+ 	start += dataoff + search[SEARCH_CONNECT].len;
+ 
++	memset(&ts, 0, sizeof(ts));
+ 	stop = skb_find_text(skb, start, skb->len,
+-			     search[SEARCH_NEWLINE].ts);
++			     search[SEARCH_NEWLINE].ts, &ts);
+ 	if (stop == UINT_MAX)
+ 		goto out;
+ 	stop += start;
+ 
+ 	for (i = SEARCH_DATA; i <= SEARCH_INDEX; i++) {
+-		off = skb_find_text(skb, start, stop, search[i].ts);
++		memset(&ts, 0, sizeof(ts));
++		off = skb_find_text(skb, start, stop, search[i].ts, &ts);
+ 		if (off == UINT_MAX)
+ 			continue;
+ 		off += start + search[i].len;
+diff --git a/net/netfilter/xt_string.c b/net/netfilter/xt_string.c
+index 423293e..055a6aa 100644
+--- a/net/netfilter/xt_string.c
++++ b/net/netfilter/xt_string.c
+@@ -26,12 +26,13 @@ static bool
+ string_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	const struct xt_string_info *conf = par->matchinfo;
++	struct ts_state state;
+ 	bool invert;
+ 
+ 	invert = conf->u.v1.flags & XT_STRING_FLAG_INVERT;
+ 
+ 	return (skb_find_text((struct sk_buff *)skb, conf->from_offset,
+-			     conf->to_offset, conf->config)
++			     conf->to_offset, conf->config, &state)
+ 			     != UINT_MAX) ^ invert;
+ }
+ 
+diff --git a/net/sched/em_text.c b/net/sched/em_text.c
+index 73e2ed5..f03c3de 100644
+--- a/net/sched/em_text.c
++++ b/net/sched/em_text.c
+@@ -34,6 +34,7 @@ static int em_text_match(struct sk_buff *skb, struct tcf_ematch *m,
+ {
+ 	struct text_match *tm = EM_TEXT_PRIV(m);
+ 	int from, to;
++	struct ts_state state;
+ 
+ 	from = tcf_get_base_ptr(skb, tm->from_layer) - skb->data;
+ 	from += tm->from_offset;
+@@ -41,7 +42,7 @@ static int em_text_match(struct sk_buff *skb, struct tcf_ematch *m,
+ 	to = tcf_get_base_ptr(skb, tm->to_layer) - skb->data;
+ 	to += tm->to_offset;
+ 
+-	return skb_find_text(skb, from, to, tm->config) != UINT_MAX;
++	return skb_find_text(skb, from, to, tm->config, &state) != UINT_MAX;
+ }
+ 
+ static int em_text_change(struct net *net, void *data, int len,
+-- 
+2.7.4
