@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v1 5/7] bpf: Simplify bpf_load_program() error handling in the library
-Date: Mon,  6 Feb 2017 00:14:26 +0100
-Message-ID: <20170205231428.23846-5-mic@digikod.net>
+Subject: [PATCH net-next v1 3/7] samples/bpf: Reset global variables
+Date: Mon,  6 Feb 2017 00:14:24 +0100
+Message-ID: <20170205231428.23846-3-mic@digikod.net>
 References: <20170205231428.23846-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,62 +10,40 @@ Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
         Arnaldo Carvalho de Melo <acme@redhat.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        Wang Nan <wangnan0@huawei.com>
+        "David S . Miller" <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170205231428.23846-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Do not call a second time bpf(2) when a program load failed.
+Before loading a new ELF, clean previous kernel version, license and
+processed sections.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@fb.com>
 Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Wang Nan <wangnan0@huawei.com>
+Cc: David S. Miller <davem@davemloft.net>
 ---
- tools/lib/bpf/bpf.c | 18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+ samples/bpf/bpf_load.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index 3ddb58a36d3c..fda3f494f1cd 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -73,7 +73,6 @@ int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
- 		     size_t insns_cnt, char *license,
- 		     __u32 kern_version, char *log_buf, size_t log_buf_sz)
- {
--	int fd;
- 	union bpf_attr attr;
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index e04fe09d7c2e..b86ee54da2d1 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -277,6 +277,11 @@ int load_bpf_file(char *path)
+ 	Elf_Data *data, *data_prog, *symbols = NULL;
+ 	char *shname, *shname_prog;
  
- 	bzero(&attr, sizeof(attr));
-@@ -81,20 +80,15 @@ int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
- 	attr.insn_cnt = (__u32)insns_cnt;
- 	attr.insns = ptr_to_u64(insns);
- 	attr.license = ptr_to_u64(license);
--	attr.log_buf = ptr_to_u64(NULL);
--	attr.log_size = 0;
--	attr.log_level = 0;
-+	attr.log_buf = ptr_to_u64(log_buf);
-+	attr.log_size = log_buf_sz;
- 	attr.kern_version = kern_version;
- 
--	fd = sys_bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
--	if (fd >= 0 || !log_buf || !log_buf_sz)
--		return fd;
-+	if (log_buf && log_buf_sz > 0) {
-+		attr.log_level = 1;
-+		log_buf[0] = 0;
-+	}
- 
--	/* Try again with log */
--	attr.log_buf = ptr_to_u64(log_buf);
--	attr.log_size = log_buf_sz;
--	attr.log_level = 1;
--	log_buf[0] = 0;
- 	return sys_bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
- }
++	/* reset global variables */
++	kern_version = 0;
++	memset(license, 0, sizeof(license));
++	memset(processed_sec, 0, sizeof(processed_sec));
++
+ 	if (elf_version(EV_CURRENT) == EV_NONE)
+ 		return 1;
  
 -- 
 2.11.0
