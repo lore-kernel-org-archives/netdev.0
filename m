@@ -1,55 +1,59 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
-Date: Sat, 4 Feb 2017 19:10:46 -0800
-Message-ID: <20170205031045.GC73775@ast-mbp.thefacebook.com>
-References: <CALCETrXQ8JFV28xU7tnh3tVbe_mp5yOtHp6shi10GMNnVCQowg@mail.gmail.com>
- <588A35F8.6050909@fb.com>
- <CALCETrU7FYz=8c2a=FWvvCxFQC3_e0nYjSU6gj62w9K8mWj=Ww@mail.gmail.com>
- <588A40D7.9070603@fb.com>
- <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
- <588A4D3C.9070601@fb.com>
- <87r33fevva.fsf@xmission.com>
- <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
- <20170203230830.GC26227@ast-mbp.thefacebook.com>
- <CALCETrUb1Rf-BdSTHdKSgwnftHjpmcDt1HX1KX-cpN=N7ev+eg@mail.gmail.com>
+Date: Sat, 4 Feb 2017 19:18:56 -0800
+Message-ID: <20170205031854.GD73775@ast-mbp.thefacebook.com>
+References: <1485401274-2836524-1-git-send-email-ast@fb.com>
+ <5894FC9B.8000108@iogearbox.net>
+ <20170203230627.GB26227@ast-mbp.thefacebook.com>
+ <58951567.1030401@iogearbox.net>
+ <CALCETrVnGP3DBAWQGFDXyXsN+tq+sSF+zirp4yPgiBo42qzV-g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
         Alexei Starovoitov <ast@fb.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
         "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
         David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        Tejun Heo <tj@kernel.org>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Thomas Graf <tgraf@suug.ch>,
         Network Development <netdev@vger.kernel.org>
 To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33157 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751293AbdBEDKw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 22:10:52 -0500
-Received: by mail-pf0-f193.google.com with SMTP id e4so4337994pfg.0
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 19:10:52 -0800 (PST)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35866 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751513AbdBEDTC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 22:19:02 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 75so5696069pgf.3
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 19:19:02 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CALCETrUb1Rf-BdSTHdKSgwnftHjpmcDt1HX1KX-cpN=N7ev+eg@mail.gmail.com>
+In-Reply-To: <CALCETrVnGP3DBAWQGFDXyXsN+tq+sSF+zirp4yPgiBo42qzV-g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 04, 2017 at 09:07:19AM -0800, Andy Lutomirski wrote:
-> >> can see a namespaced view of the world.  For this to work, presumably
-> >> we need to make sure that eBPF programs that are installed by programs
-> >> that are in a container don't see traffic that isn't in that
-> >> container.
-> >
-> > such approach will break existing users.
+On Sat, Feb 04, 2017 at 09:08:38AM -0800, Andy Lutomirski wrote:
+> > So use-case would be that someone wants to attach the very same
+> > prog via tc to various netdevs sitting in different netns, and
+> > that prog looks up a map, controlled by initns, with skb->netns_inum
+> > as key and the resulting value could contain allowed feature bits
+> > for that specific netns prog the skbs goes through? That would be
+> > a feature, not "concern", no? At the same time, it's up to the
+> > user or mgmt app what gets loaded so f.e. it might just as well
+> > tailor/optimize the progs individually for the devs sitting in
+> > netns-es to avoid such map lookup.
 > 
-> What existing users?  The whole feature has never been in a released kernel.
+> Agreed.  I don't see why you would install the exact same program on
+> two sockets in different netnses if the program contains, say, an
+> ifindex.  Why not just install a variant with the right ifindex into
+> each socket?
 
-the v3 patch commit log explains the use cases that work across netns.
-And they would break if netns boundary is suddenly started to be
-enforced for networking program types.
-If you're suggesting to limit root netns for cgroup_sock program type only
-then David explained weeks ago why it's not acceptable for vrf use
-case which was the main reason to add that program type in the first place.
-Also it would make one specific bpf program type to be different
-from all others which will be confusing.
+for some use cases it may be feasible to generate different
+program on the fly for every netns that is created. Some people
+generate them already for things like IP addresses. Like to stop
+an attack to particular vip the fastest xdp program has
+that vip built-in, then compiled on the fly and loaded.
+In other cases people prefer to have one program compiled once
+and thoroughly tested offline, since some folks are worried
+that on-the-fly compilation may cause generated code to
+be rejected by the verifier.
+Therefore new program for every netns may be acceptable
+to some users, but not all.
