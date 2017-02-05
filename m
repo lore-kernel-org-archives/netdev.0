@@ -1,45 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6_gre: fix ip6gre_err() invalid reads
-Date: Sun, 05 Feb 2017 17:23:39 -0500 (EST)
-Message-ID: <20170205.172339.2110599060625403300.davem@davemloft.net>
-References: <1486279135.7793.15.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andreyknvl@google.com
-To: eric.dumazet@gmail.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 0/2] net: phy: Unbind/bind fixes
+Date: Sun,  5 Feb 2017 14:25:55 -0800
+Message-ID: <20170205222557.24739-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        Russell King <rmk+kernel@armlinux.org.uk>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43922 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751923AbdBEWXk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 17:23:40 -0500
-In-Reply-To: <1486279135.7793.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-ot0-f194.google.com ([74.125.82.194]:33322 "EHLO
+        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750851AbdBEW0G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 17:26:06 -0500
+Received: by mail-ot0-f194.google.com with SMTP id f9so8516513otd.0
+        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 14:26:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 04 Feb 2017 23:18:55 -0800
+Hi all,
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Andrey Konovalov reported out of bound accesses in ip6gre_err()
-> 
-> If GRE flags contains GRE_KEY, the following expression
-> *(((__be32 *)p) + (grehlen / 4) - 1)
-> 
-> accesses data ~40 bytes after the expected point, since
-> grehlen includes the size of IPv6 headers.
-> 
-> Let's use a "struct gre_base_hdr *greh" pointer to make this
-> code more readable. 
-> 
-> p[1] becomes greh->protocol.
-> grhlen is the GRE header length.
-> 
-> Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+This patch series addresses the inability to safely unbind and bind
+PHY drivers by making the appropriate checks throught PHYLIB where we
+may be directly responding to user-space queries, as well as from within
+the kernel state machine.
 
-So the bug is that we include offset twice in the calculation.
+The second patch makes the unbind -> bind working by taking care of the
+PHY state machine state.
 
-Applied and queued up for -stable, thanks.
+Florian Fainelli (2):
+  net: phy: Check phydev->drv
+  net: phy: Fix PHY driver bind and unbind events
+
+ drivers/net/phy/phy.c        | 26 ++++++++++++++++++++++----
+ drivers/net/phy/phy_device.c | 27 +++++++++++++++++++++++++--
+ include/linux/phy.h          |  3 +++
+ 3 files changed, 50 insertions(+), 6 deletions(-)
+
+-- 
+2.9.3
