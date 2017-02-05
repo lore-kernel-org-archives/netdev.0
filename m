@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront: Improve error handling during
- initialization
-Date: Sat, 04 Feb 2017 19:47:14 -0500 (EST)
-Message-ID: <20170204.194714.2295825542000326986.davem@davemloft.net>
-References: <1485964222-1501-1-git-send-email-ross.lagerwall@citrix.com>
+Subject: Re: [PATCH net-next v4 0/5] net: ipv6: Improve user experience
+ with multipath routes
+Date: Sat, 04 Feb 2017 19:58:37 -0500 (EST)
+Message-ID: <20170204.195837.1582356568512640122.davem@davemloft.net>
+References: <1486067832-16350-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-        boris.ostrovsky@oracle.com, jgross@suse.com,
-        linux-kernel@vger.kernel.org, wei.liu2@citrix.com
-To: ross.lagerwall@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1485964222-1501-1-git-send-email-ross.lagerwall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        nicolas.dichtel@6wind.com
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56520 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751385AbdBEA6k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 19:58:40 -0500
+In-Reply-To: <1486067832-16350-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ross Lagerwall <ross.lagerwall@citrix.com>
-Date: Wed, 1 Feb 2017 15:50:22 +0000
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu,  2 Feb 2017 12:37:07 -0800
 
-> * Delay timer creation so that if initializing a queue fails, the timer
-> has not been setup yet.
+> This series closes a couple of gaps between IPv4 and IPv6 with respect
+> to multipath routes:
+ ...
 
-setup_timer() doesn't do anything that must be "undone" if an error
-occurs and we have to cleanup.
-
-It just assigns some values to some timer struct fields, that's it.
-
-Therefore this change is extraneous and unnecessary.
+Series applied, thanks David.
