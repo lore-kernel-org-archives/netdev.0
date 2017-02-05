@@ -1,143 +1,65 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC 1/2] dt: emac: document device-tree based phy discovery and
- setup
-Date: Sun, 5 Feb 2017 14:33:44 -0800
-Message-ID: <23e29bef-4c49-8ff6-b156-3b028ed592c4@gmail.com>
-References: <f57a340f615991ed2771d8af4b1a908dec436a5e.1486333475.git.chunkeey@googlemail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v2 0/5] XDP adjust head support for virtio
+Date: Sun, 05 Feb 2017 17:36:34 -0500 (EST)
+Message-ID: <20170205.173634.457797928882804290.davem@davemloft.net>
+References: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Ivan Mikhaylov <ivan-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <f57a340f615991ed2771d8af4b1a908dec436a5e.1486333475.git.chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kubakici@wp.pl, jasowang@redhat.com, ast@fb.com, mst@redhat.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: john.fastabend@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44332 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751319AbdBEWgg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 17:36:36 -0500
+In-Reply-To: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 02/05/17 à 14:25, Christian Lamparter a écrit :
-> This patch adds documentation for a new "phy-handler" property
-> and "mdio" sub-node. These allows the enumeration of PHYs which
-> are supported by the phy library under drivers/net/phy.
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Thu, 02 Feb 2017 19:14:05 -0800
+
+> This series adds adjust head support for virtio. The following is my
+> test setup. I use qemu + virtio as follows,
 > 
-> The EMAC ethernet controller in IBM and AMCC 4xx chips is
-> currently stuck with a few privately defined phy
-> implementations. It has no support for PHYs which
-> are supported by the generic phylib.
+> ./x86_64-softmmu/qemu-system-x86_64 \
+>   -hda /var/lib/libvirt/images/Fedora-test0.img \
+>   -m 4096  -enable-kvm -smp 2 -netdev tap,id=hn0,queues=4,vhost=on \
+>   -device virtio-net-pci,netdev=hn0,mq=on,guest_tso4=off,guest_tso6=off,guest_ecn=off,guest_ufo=off,vectors=9
 > 
-> Signed-off-by: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-> ---
->  .../devicetree/bindings/powerpc/4xx/emac.txt       | 60 +++++++++++++++++++++-
->  1 file changed, 58 insertions(+), 2 deletions(-)
+> In order to use XDP with virtio until LRO is supported TSO must be
+> turned off in the host. The important fields in the above command line
+> are the following,
 > 
-> diff --git a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-> index 712baf6c3e24..0572d053c35a 100644
-> --- a/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-> +++ b/Documentation/devicetree/bindings/powerpc/4xx/emac.txt
-> @@ -71,6 +71,8 @@
->  			  For Axon it can be absent, though my current driver
->  			  doesn't handle phy-address yet so for now, keep
->  			  0x00ffffff in it.
-> +    - phy-handle	: See net/ethernet.txt file; used to describe
-> +			  configurations where a external PHY is used.
->      - rx-fifo-size-gige : 1 cell, Rx fifo size in bytes for 1000 Mb/sec
->  			  operations (if absent the value is the same as
->  			  rx-fifo-size).  For Axon, either absent or 2048.
-> @@ -82,7 +84,18 @@
->      - tah-channel       : 1 cell, optional. If appropriate, channel used on the
->  			  TAH engine.
->  
-> -    Example:
-> +    - mdio subnode	: When the EMAC has a phy connected to its local
-> +			  mdio, which us supported by the kernel's network
-> +			  PHY library in drivers/net/phy, there must be device
-> +			  tree subnode with the following required properties:
-> +				- #address-cells: Must be <1>.
-> +				- #size-cells: Must be <0>.
-> +
-> +			  For each phy on the mdio bus, there must be a node
-> +			  with the following fields:
-> +				- reg: phy id used to communicate to phy.
-> +				- device_type: Must be "ethernet-phy".
-
-Just provide a reference to
-Documentation/devicetree/bindings/net/phy.txt and
-Documentation/devicetree/bindings/net/ethernet.txt here. device_type is
-not required.
-
-> +    Examples:
->  
->  	EMAC0: ethernet@40000800 {
->  		device_type = "network";
-> @@ -104,6 +117,50 @@
->  		zmii-channel = <0>;
->  	};
->  
-> +	EMAC1: ethernet@ef600c00 {
-> +		device_type = "network";
-> +		compatible = "ibm,emac-apm821xx", "ibm,emac4sync";
-> +		interrupt-parent = <&EMAC1>;
-> +		interrupts = <0 1>;
-> +		#interrupt-cells = <1>;
-> +		#address-cells = <0>;
-> +		#size-cells = <0>;
-> +		interrupt-map = <0 &UIC2 0x10 IRQ_TYPE_LEVEL_HIGH /* Status */
-> +				 1 &UIC2 0x14 IRQ_TYPE_LEVEL_HIGH /* Wake */>;
-> +		reg = <0xef600c00 0x000000c4>;
-> +		local-mac-address = [000000000000]; /* Filled in by U-Boot */
-> +		mal-device = <&MAL0>;
-> +		mal-tx-channel = <0>;
-> +		mal-rx-channel = <0>;
-> +		cell-index = <0>;
-> +		max-frame-size = <9000>;
-> +		rx-fifo-size = <16384>;
-> +		tx-fifo-size = <2048>;
-> +		fifo-entry-size = <10>;
-> +		phy-mode = "rgmii";
-> +		phy-map = <0x00000000>;
-
-If you have a proper mdio subnode, this property becomes irrelevant and
-should be unused.
-
-> +		phy-handle = <&phy0>;
-> +		rgmii-device = <&RGMII0>;
-> +		rgmii-channel = <0>;
-> +		tah-device = <&TAH0>;
-> +		tah-channel = <0>;
-> +		has-inverted-stacr-oc;
-> +		has-new-stacr-staopc;
-> +
-> +	        mdio {
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +
-> +			phy0: ethernet-phy@0 {
-> +				device_type = "ethernet-phy";
-> +				reg = <0>;
-> +
-> +				qca,ar8327-initvals = <
-> +					0x0010 0x40000000>;
-> +		};
-> +	};
-> +
-> +
->        ii) McMAL node
->  
->      Required properties:
-> @@ -145,4 +202,3 @@
->      - revision           : as provided by the RGMII new version register if
->  			   available.
->  			   For Axon: 0x0000012a
-> -
+>   guest_tso4=off,guest_tso6=off,guest_ecn=off,guest_ufo=off
 > 
+> Also note it is possible to conusme more queues than can be supported
+> because when XDP is enabled for retransmit XDP attempts to use a queue
+> per cpu. My standard queue count is 'queues=4'.
+> 
+> After loading the VM I run the relevant XDP test programs in,
+> 
+>   ./sammples/bpf
+> 
+> For this series I tested xdp1, xdp2, and xdp_tx_iptunnel. I usually test
+> with iperf (-d option to get bidirectional traffic), ping, and pktgen.
+> I also have a modified xdp1 that returns XDP_PASS on any packet to ensure
+> the normal traffic path to the stack continues to work with XDP loaded.
+> 
+> It would be great to automate this soon. At the moment I do it by hand
+> which is starting to get tedious.
+> 
+> v2: original series dropped trace points after merge.
 
+Michael, I just want to apply this right now.
 
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I don't think haggling over whether to allocate the adjust_head area
+unconditionally or not is a blocker for this series going in.  That
+can be addressed trivially in a follow-on patch.
+
+We want these new reset paths tested as much as possible and each day
+we delay this series is detrimental towards that goal.
+
+Thanks.
