@@ -1,104 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ip6_gre: fix ip6gre_err() invalid reads
-Date: Sat, 04 Feb 2017 23:18:55 -0800
-Message-ID: <1486279135.7793.15.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Miller <davem@davemloft.net>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: [PATCH iproute2/net-next 3/3] tc: man: matchall: Update examples to include sample
+Date: Sun,  5 Feb 2017 09:58:54 +0200
+Message-ID: <1486281534-61663-4-git-send-email-yotamg@mellanox.com>
+References: <1486281534-61663-1-git-send-email-yotamg@mellanox.com>
+Cc: Yotam Gigi <yotamg@mellanox.com>
+To: stephen@networkplumber.org, netdev@vger.kernel.org,
+        jiri@mellanox.com, eladr@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36409 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751385AbdBEHS6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 02:18:58 -0500
-Received: by mail-io0-f196.google.com with SMTP id q20so6264683ioi.3
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 23:18:58 -0800 (PST)
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55265 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752142AbdBEH4p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 02:56:45 -0500
+In-Reply-To: <1486281534-61663-1-git-send-email-yotamg@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Add an example of packet sampling to the tc-matchall man page examples
+section. The example uses the matchall classifier and the sample action to
+create packet sampling on a port.
 
-Andrey Konovalov reported out of bound accesses in ip6gre_err()
-
-If GRE flags contains GRE_KEY, the following expression
-*(((__be32 *)p) + (grehlen / 4) - 1)
-
-accesses data ~40 bytes after the expected point, since
-grehlen includes the size of IPv6 headers.
-
-Let's use a "struct gre_base_hdr *greh" pointer to make this
-code more readable. 
-
-p[1] becomes greh->protocol.
-grhlen is the GRE header length.
-
-Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 ---
- net/ipv6/ip6_gre.c |   40 +++++++++++++++++++++-------------------
- 1 file changed, 21 insertions(+), 19 deletions(-)
+ man/man8/tc-matchall.8 | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 558631860d91bbcb1321a4b566b6e92ddcaf7163..630b73be599977599c0021849fc6eb689cfefad7 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -367,35 +367,37 @@ static void ip6gre_tunnel_uninit(struct net_device *dev)
+diff --git a/man/man8/tc-matchall.8 b/man/man8/tc-matchall.8
+index f920922..799350a 100644
+--- a/man/man8/tc-matchall.8
++++ b/man/man8/tc-matchall.8
+@@ -70,6 +70,16 @@ that replaces the root qdisc on device
+ where the second command attaches a matchall filters on it that mirrors the
+ packets to device eth2.
  
++To sample one of every 100 packets flowing into interface eth0 to psample group
++12:
++.RS
++.EX
++
++tc qdisc add dev eth0 handle ffff: ingress
++tc filter add dev eth0 parent ffff: matchall \\
++     action sample rate 100 group 12
++.EE
++.RE
  
- static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
--		u8 type, u8 code, int offset, __be32 info)
-+		       u8 type, u8 code, int offset, __be32 info)
- {
--	const struct ipv6hdr *ipv6h = (const struct ipv6hdr *)skb->data;
--	__be16 *p = (__be16 *)(skb->data + offset);
--	int grehlen = offset + 4;
-+	const struct gre_base_hdr *greh;
-+	const struct ipv6hdr *ipv6h;
-+	int grehlen = sizeof(*greh);
- 	struct ip6_tnl *t;
-+	int key_off = 0;
- 	__be16 flags;
-+	__be32 key;
- 
--	flags = p[0];
--	if (flags&(GRE_CSUM|GRE_KEY|GRE_SEQ|GRE_ROUTING|GRE_VERSION)) {
--		if (flags&(GRE_VERSION|GRE_ROUTING))
--			return;
--		if (flags&GRE_KEY) {
--			grehlen += 4;
--			if (flags&GRE_CSUM)
--				grehlen += 4;
--		}
-+	if (!pskb_may_pull(skb, offset + grehlen))
-+		return;
-+	greh = (const struct gre_base_hdr *)(skb->data + offset);
-+	flags = greh->flags;
-+	if (flags & (GRE_VERSION | GRE_ROUTING))
-+		return;
-+	if (flags & GRE_CSUM)
-+		grehlen += 4;
-+	if (flags & GRE_KEY) {
-+		key_off = grehlen + offset;
-+		grehlen += 4;
- 	}
- 
--	/* If only 8 bytes returned, keyed message will be dropped here */
--	if (!pskb_may_pull(skb, grehlen))
-+	if (!pskb_may_pull(skb, offset + grehlen))
- 		return;
- 	ipv6h = (const struct ipv6hdr *)skb->data;
--	p = (__be16 *)(skb->data + offset);
-+	greh = (const struct gre_base_hdr *)(skb->data + offset);
-+	key = key_off ? *(__be32 *)(skb->data + key_off) : 0;
- 
- 	t = ip6gre_tunnel_lookup(skb->dev, &ipv6h->daddr, &ipv6h->saddr,
--				flags & GRE_KEY ?
--				*(((__be32 *)p) + (grehlen / 4) - 1) : 0,
--				p[1]);
-+				 key, greh->protocol);
- 	if (!t)
- 		return;
- 
+ .EE
+ .SH SEE ALSO
+-- 
+2.4.11
