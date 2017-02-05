@@ -1,79 +1,46 @@
-From: Lukasz Majewski <lukma@denx.de>
-Subject: Re: [PATCH v2 1/2] net: phy: dp83867: Port mirroring support in the
- DP83867 TI's PHY driver
-Date: Sun, 5 Feb 2017 15:32:19 +0100
-Message-ID: <20170205153219.570425df@jawa>
-References: <1486224132-15420-1-git-send-email-lukma@denx.de>
-        <20170204173256.GB8364@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Karicheri Muralidharan <m-karicheri2@ti.com>,
-        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
-        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170204173256.GB8364@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH v2 0/2] mac80211: use crypto shash for AES cmac
+Date: Sun,  5 Feb 2017 15:23:26 +0000
+Message-ID: <1486308208-3252-1-git-send-email-ard.biesheuvel@linaro.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+This is something I spotted while working on AES in various modes for
+ARM and arm64.
 
-> On Sat, Feb 04, 2017 at 05:02:11PM +0100, Lukasz Majewski wrote:
-> > This patch adds support for enabling or disabling the port
-> > mirroring (at CFG4 register) feature of the DP83867 TI's PHY device.
-> 
-> As we discussed before, "port mirroring" is bad naming. Yes, we should
-> use it, because that is what the datasheet calls this feature.
+The mac80211 aes_cmac code reimplements the CMAC algorithm based on the
+core AES cipher, which is rather restrictive in how platforms can satisfy
+the dependency on this algorithm. For instance, SIMD implementations may
+have a considerable setup time, which cannot be amortized over the entire
+input when calling into the crypto API one block at a time. Also, it prevents
+the use of more secure fixed time implementations, since not all AES drivers
+expose the cipher interface.
 
-That was my goal - to use naming from datasheet.
+So switch aes_cmac to use a cmac(aes) shash. Before updating the aes_cmac code
+in patch #2, the FILS AEAD code is moved to using a cmac(aes) shash supplied by
+the crypto API so that we can remove the open coded version entirely in the
+second patch.
 
-> But the
-> commit message should also contain a description of what this means,
-> and reference that the linux name for this concept is lane swapping.
+NOTE: Jouni has been so kind to test patch #2, and confirmed that it is working.
+      I have not tested patch #1 myself, mainly because the test methodology
+      requires downloading Ubuntu installer images, and I am currently on a
+      metered 3G connection (and will be for another couple of weeks)
 
-Ok. No problem with that.
+Ard Biesheuvel (2):
+  mac80211: fils_aead: Use crypto api CMAC shash rather than bare cipher
+  mac80211: aes-cmac: switch to shash CMAC driver
 
-> 
-> > +enum {
-> 
-> Maybe give the 0 value a name. DP83867_PORT_MIRROING_KEEP?
+ net/mac80211/Kconfig     |   1 +
+ net/mac80211/aes_cmac.c  | 130 +++++---------------
+ net/mac80211/aes_cmac.h  |  15 +--
+ net/mac80211/fils_aead.c |  74 +++++------
+ net/mac80211/key.h       |   2 +-
+ 5 files changed, 70 insertions(+), 152 deletions(-)
 
-I can add this - no problem.
-
-> 
-> > +	DP83867_PORT_MIRROING_EN = 1,
-> > +	DP83867_PORT_MIRROING_DIS,
-> > +};
-> > +
-> 
-> That extra enum value can then make this more obvious:
->   
->         if (dp83867->port_mirroring != DP83867_PORT_MIRROING_KEEP)
-> 		dp83867_config_port_mirroring(phydev);
-> 
-> On the first reading of the patch, i though you were setting mirroring
-> on/off under all conditions, but in fact you don't. This makes it
-> clearer.
-
-Ok. I see your point.
-
-> 
-> 	Thanks
-> 		Andrew
-
-Thanks for review :-)
-
-
-Best regards,
-
-Lukasz Majewski
-
---
-
-DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
+-- 
+2.7.4
