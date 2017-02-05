@@ -1,110 +1,138 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: intel: ixgb: use new api ethtool_{get|set}_link_ksettings
-Date: Mon,  6 Feb 2017 00:11:11 +0100
-Message-ID: <1486336271-25336-1-git-send-email-tremyfr@gmail.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: jeffrey.t.kirsher@intel.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35527 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752109AbdBEXLU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 18:11:20 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from the library
+Date: Mon,  6 Feb 2017 00:14:27 +0100
+Message-ID: <20170205231428.23846-6-mic@digikod.net>
+References: <20170205231428.23846-1-mic@digikod.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Shuah Khan <shuah@kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170205231428.23846-1-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Replace bpf_prog_load() with bpf_load_program() calls.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+Use the tools include directory instead of the installed one to allow
+builds from other kernels.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Shuah Khan <shuah@kernel.org>
 ---
- drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c |   39 ++++++++++++++----------
- 1 files changed, 23 insertions(+), 16 deletions(-)
+ tools/testing/selftests/bpf/Makefile        |  6 +++++-
+ tools/testing/selftests/bpf/bpf_sys.h       | 21 ---------------------
+ tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
+ tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
+ 4 files changed, 14 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
-index e5d7255..d10a0d2 100644
---- a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
-@@ -94,24 +94,30 @@ struct ixgb_stats {
- #define IXGB_STATS_LEN	ARRAY_SIZE(ixgb_gstrings_stats)
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 769a6cb42b4b..712861492278 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -1,12 +1,16 @@
+-CFLAGS += -Wall -O2 -I../../../../usr/include
++CFLAGS += -Wall -O2 -I../../../include/uapi -I../../../lib
  
- static int
--ixgb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+ixgb_get_link_ksettings(struct net_device *netdev,
-+			struct ethtool_link_ksettings *cmd)
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
  
--	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
--	ecmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
--	ecmd->port = PORT_FIBRE;
--	ecmd->transceiver = XCVR_EXTERNAL;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, 10000baseT_Full);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, FIBRE);
+ TEST_PROGS := $(test_objs) test_kmod.sh
+ TEST_FILES := $(test_objs)
++LIBBPF := ../../../lib/bpf/bpf.o
+ 
+ all: $(test_objs)
+ 
++test_verifier: $(LIBBPF)
++test_tag: $(LIBBPF)
 +
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	ethtool_link_ksettings_add_link_mode(cmd, advertising, 10000baseT_Full);
-+	ethtool_link_ksettings_add_link_mode(cmd, advertising, FIBRE);
+ include ../lib.mk
+ 
+ clean:
+diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
+index 6b4565f2a3f2..e7bbe3e5402e 100644
+--- a/tools/testing/selftests/bpf/bpf_sys.h
++++ b/tools/testing/selftests/bpf/bpf_sys.h
+@@ -84,25 +84,4 @@ static inline int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
+ 	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+ }
+ 
+-static inline int bpf_prog_load(enum bpf_prog_type type,
+-				const struct bpf_insn *insns, size_t size_insns,
+-				const char *license, char *log, size_t size_log)
+-{
+-	union bpf_attr attr = {};
+-
+-	attr.prog_type = type;
+-	attr.insns = bpf_ptr_to_u64(insns);
+-	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
+-	attr.license = bpf_ptr_to_u64(license);
+-
+-	if (size_log > 0) {
+-		attr.log_buf = bpf_ptr_to_u64(log);
+-		attr.log_size = size_log;
+-		attr.log_level = 1;
+-		log[0] = 0;
+-	}
+-
+-	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+-}
+-
+ #endif /* __BPF_SYS__ */
+diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
+index 5f7c602f47d1..b77dc4b03e77 100644
+--- a/tools/testing/selftests/bpf/test_tag.c
++++ b/tools/testing/selftests/bpf/test_tag.c
+@@ -16,6 +16,8 @@
+ #include <linux/bpf.h>
+ #include <linux/if_alg.h>
+ 
++#include <bpf/bpf.h>
 +
-+	cmd->base.port = PORT_FIBRE;
+ #include "../../../include/linux/filter.h"
  
- 	if (netif_carrier_ok(adapter->netdev)) {
--		ethtool_cmd_speed_set(ecmd, SPEED_10000);
--		ecmd->duplex = DUPLEX_FULL;
-+		cmd->base.speed = SPEED_10000;
-+		cmd->base.duplex = DUPLEX_FULL;
- 	} else {
--		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
--		ecmd->duplex = DUPLEX_UNKNOWN;
-+		cmd->base.speed = SPEED_UNKNOWN;
-+		cmd->base.duplex = DUPLEX_UNKNOWN;
- 	}
+ #include "bpf_sys.h"
+@@ -55,8 +57,8 @@ static int bpf_try_load_prog(int insns, int fd_map,
+ 	int fd_prog;
  
--	ecmd->autoneg = AUTONEG_DISABLE;
-+	cmd->base.autoneg = AUTONEG_DISABLE;
- 	return 0;
- }
+ 	bpf_filler(insns, fd_map);
+-	fd_prog = bpf_prog_load(BPF_PROG_TYPE_SCHED_CLS, prog, insns *
+-				sizeof(struct bpf_insn), "", NULL, 0);
++	fd_prog = bpf_load_program(BPF_PROG_TYPE_SCHED_CLS, prog, insns, "", 0,
++			NULL, 0);
+ 	assert(fd_prog > 0);
+ 	if (fd_map > 0)
+ 		bpf_filler(insns, 0);
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 0d0912c7f03c..04a549e54f61 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -23,6 +23,8 @@
+ #include <linux/bpf_perf_event.h>
+ #include <linux/bpf.h>
  
-@@ -126,13 +132,14 @@ void ixgb_set_speed_duplex(struct net_device *netdev)
- }
++#include <bpf/bpf.h>
++
+ #include "../../../include/linux/filter.h"
  
- static int
--ixgb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+ixgb_set_link_ksettings(struct net_device *netdev,
-+			const struct ethtool_link_ksettings *cmd)
- {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
--	u32 speed = ethtool_cmd_speed(ecmd);
-+	u32 speed = cmd->base.speed;
+ #include "bpf_sys.h"
+@@ -4456,9 +4458,9 @@ static void do_test_single(struct bpf_test *test, bool unpriv,
  
--	if (ecmd->autoneg == AUTONEG_ENABLE ||
--	    (speed + ecmd->duplex != SPEED_10000 + DUPLEX_FULL))
-+	if (cmd->base.autoneg == AUTONEG_ENABLE ||
-+	    (speed + cmd->base.duplex != SPEED_10000 + DUPLEX_FULL))
- 		return -EINVAL;
+ 	do_test_fixup(test, prog, &fd_f1, &fd_f2, &fd_f3);
  
- 	if (netif_running(adapter->netdev)) {
-@@ -630,8 +637,6 @@ void ixgb_set_speed_duplex(struct net_device *netdev)
- }
+-	fd_prog = bpf_prog_load(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
+-				prog, prog_len * sizeof(struct bpf_insn),
+-				"GPL", bpf_vlog, sizeof(bpf_vlog));
++	fd_prog = bpf_load_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
++				prog, prog_len, "GPL", 0, bpf_vlog,
++				sizeof(bpf_vlog));
  
- static const struct ethtool_ops ixgb_ethtool_ops = {
--	.get_settings = ixgb_get_settings,
--	.set_settings = ixgb_set_settings,
- 	.get_drvinfo = ixgb_get_drvinfo,
- 	.get_regs_len = ixgb_get_regs_len,
- 	.get_regs = ixgb_get_regs,
-@@ -649,6 +654,8 @@ void ixgb_set_speed_duplex(struct net_device *netdev)
- 	.set_phys_id = ixgb_set_phys_id,
- 	.get_sset_count = ixgb_get_sset_count,
- 	.get_ethtool_stats = ixgb_get_ethtool_stats,
-+	.get_link_ksettings = ixgb_get_link_ksettings,
-+	.set_link_ksettings = ixgb_set_link_ksettings,
- };
- 
- void ixgb_set_ethtool_ops(struct net_device *netdev)
+ 	expected_ret = unpriv && test->result_unpriv != UNDEF ?
+ 		       test->result_unpriv : test->result;
 -- 
-1.7.4.4
+2.11.0
