@@ -1,50 +1,79 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [net-next 2/8] net/mlx5: Configure cache line size for start and
- end padding
-Date: Sun, 5 Feb 2017 13:23:41 +0200
-Message-ID: <CALzJLG_v7kZrioA_VrHT78iatiEOSCp9uWUJFNv1XP6+sMvFzQ@mail.gmail.com>
-References: <20170131205843.23235-1-saeedm@mellanox.com> <20170131205843.23235-3-saeedm@mellanox.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0277BC4@AcuExch.aculab.com> <VI1PR0501MB2429398983643A6387BE91D0C44C0@VI1PR0501MB2429.eurprd05.prod.outlook.com>
+From: Lukasz Majewski <lukma@denx.de>
+Subject: Re: [PATCH v2 1/2] net: phy: dp83867: Port mirroring support in the
+ DP83867 TI's PHY driver
+Date: Sun, 5 Feb 2017 15:32:19 +0100
+Message-ID: <20170205153219.570425df@jawa>
+References: <1486224132-15420-1-git-send-email-lukma@denx.de>
+        <20170204173256.GB8364@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
         "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Daniel Jurgens <danielj@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:33845 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751442AbdBELYR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 06:24:17 -0500
-Received: by mail-qt0-f196.google.com with SMTP id w20so11360182qtb.1
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 03:24:02 -0800 (PST)
-In-Reply-To: <VI1PR0501MB2429398983643A6387BE91D0C44C0@VI1PR0501MB2429.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Karicheri Muralidharan <m-karicheri2@ti.com>,
+        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
+        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170204173256.GB8364@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 2, 2017 at 4:47 PM, Daniel Jurgens <danielj@mellanox.com> wrote:
-> On 2/1/2017 5:12 AM, David Laight wrote:
->> From: Saeed Mahameed
->>> Sent: 31 January 2017 20:59
->>> From: Daniel Jurgens <danielj@mellanox.com>
->>>
->>> There is a hardware feature that will pad the start or end of a DMA to
->>> be cache line aligned to avoid RMWs on the last cache line. The default
->>> cache line size setting for this feature is 64B. This change configures
->>> the hardware to use 128B alignment on systems with 128B cache lines.
->> What guarantees that the extra bytes are actually inside the receive skb's
->> head and tail room?
->>
->>       David
->>
->>
-> The hardware won't over write the length of the posted buffer.  This feature is already enabled and defaults to 64B stride, this patch just configures it properly for 128B cache line sizes.
->
-Right, and next patch will make sure RX stride is aligned to 128B in
-case 128B cacheline size configured into the HW.
+Hi Andrew,
 
-> Thanks for reviewing it.
->
-> Dan
->
+> On Sat, Feb 04, 2017 at 05:02:11PM +0100, Lukasz Majewski wrote:
+> > This patch adds support for enabling or disabling the port
+> > mirroring (at CFG4 register) feature of the DP83867 TI's PHY device.
+> 
+> As we discussed before, "port mirroring" is bad naming. Yes, we should
+> use it, because that is what the datasheet calls this feature.
+
+That was my goal - to use naming from datasheet.
+
+> But the
+> commit message should also contain a description of what this means,
+> and reference that the linux name for this concept is lane swapping.
+
+Ok. No problem with that.
+
+> 
+> > +enum {
+> 
+> Maybe give the 0 value a name. DP83867_PORT_MIRROING_KEEP?
+
+I can add this - no problem.
+
+> 
+> > +	DP83867_PORT_MIRROING_EN = 1,
+> > +	DP83867_PORT_MIRROING_DIS,
+> > +};
+> > +
+> 
+> That extra enum value can then make this more obvious:
+>   
+>         if (dp83867->port_mirroring != DP83867_PORT_MIRROING_KEEP)
+> 		dp83867_config_port_mirroring(phydev);
+> 
+> On the first reading of the patch, i though you were setting mirroring
+> on/off under all conditions, but in fact you don't. This makes it
+> clearer.
+
+Ok. I see your point.
+
+> 
+> 	Thanks
+> 		Andrew
+
+Thanks for review :-)
+
+
+Best regards,
+
+Lukasz Majewski
+
+--
+
+DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
