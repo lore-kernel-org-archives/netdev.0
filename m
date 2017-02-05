@@ -1,109 +1,86 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v2 net] bpf: add bpf_sk_netns_id() helper
-Date: Sat, 4 Feb 2017 20:17:57 -0800
-Message-ID: <CALCETrWvDZp0TFrw88i9gab5L6OhBwrmjYL-yMDwtMHz51HZ+A@mail.gmail.com>
-References: <1486171342-3310547-1-git-send-email-ast@fb.com>
- <CALCETrU6hAxyTGZXn1Eo=Pcq8gxLL2=Ai=Hks5-PjDW-3HtJjA@mail.gmail.com>
- <20170205032548.GE73775@ast-mbp.thefacebook.com> <CALCETrU4_y0qSJu4epTO9aNEVZzt9cXY52=bHyGutbAMuEd-VA@mail.gmail.com>
- <20170205040501.GH73775@ast-mbp.thefacebook.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
+Date: Sat, 4 Feb 2017 20:37:18 -0800
+Message-ID: <20170205043716.GI73775@ast-mbp.thefacebook.com>
+References: <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
+ <588A4D3C.9070601@fb.com>
+ <87r33fevva.fsf@xmission.com>
+ <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
+ <20170203230830.GC26227@ast-mbp.thefacebook.com>
+ <CALCETrUb1Rf-BdSTHdKSgwnftHjpmcDt1HX1KX-cpN=N7ev+eg@mail.gmail.com>
+ <20170205031045.GC73775@ast-mbp.thefacebook.com>
+ <CALCETrUhE_Ga4PeobPFvhtLPVGKskTUaXe9H0v=kBXe4ii7dLw@mail.gmail.com>
+ <20170205034839.GG73775@ast-mbp.thefacebook.com>
+ <CALCETrXgBrWmWFghWxtV92RDvqYBHsT-L37ujvexyA6v+3M8sQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@fb.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
         "David S . Miller" <davem@davemloft.net>,
         Daniel Borkmann <daniel@iogearbox.net>,
         David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
         Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:34160 "EHLO
-        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751237AbdBEEST (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 23:18:19 -0500
-Received: by mail-vk0-f51.google.com with SMTP id r136so37541590vke.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 20:18:19 -0800 (PST)
-In-Reply-To: <20170205040501.GH73775@ast-mbp.thefacebook.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36820 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751636AbdBEEhZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 23:37:25 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 19so4421841pfo.3
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 20:37:24 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALCETrXgBrWmWFghWxtV92RDvqYBHsT-L37ujvexyA6v+3M8sQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 4, 2017 at 8:05 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Sat, Feb 04, 2017 at 07:33:14PM -0800, Andy Lutomirski wrote:
->> On Sat, Feb 4, 2017 at 7:25 PM, Alexei Starovoitov
->> <alexei.starovoitov@gmail.com> wrote:
->> > On Sat, Feb 04, 2017 at 09:15:10AM -0800, Andy Lutomirski wrote:
->> >> On Fri, Feb 3, 2017 at 5:22 PM, Alexei Starovoitov <ast@fb.com> wrote:
->> >> > Note that all bpf programs types are global.
->> >>
->> >> I don't think this has a clear enough meaning to work with.  In
->> >
->> > Please clarify what you mean. The quoted part says
->> > "bpf programs are global". What is not "clear enough" there?
->>
->> What does "bpf programs are global" mean?  I am genuinely unable to
->> figure out what you mean.  Here are some example guesses of what you
->> might mean:
->>
->>  - BPF programs are compiled independently of a namespace.  This is
->> certainly true, but I don't think it matters.
->>
->>  - You want BPF programs to affect everything on the system.  But this
->> doesn't seem right to be -- they only affect things in the relevant
->> cgroup, so they're not global in that sense.
+On Sat, Feb 04, 2017 at 07:54:20PM -0800, Andy Lutomirski wrote:
 >
-> All bpf program types are global in the sense that you can
-> make all of them to operate across all possible scopes and namespaces.
+> I've repeatedly asked how you plan to make a "don't override" flag
+> have sensible semantics when someone tries to add a new flag or change
+> the behavior to "don't override but, rather then rejecting programs
+> down the hierarchy, just run them all".  You haven't answered that
+> question.
 
-I still don't understand what you mean here.  A seccomp program runs
-in the process that installs it and children -- it does not run in
-"all possible scopes".  A socket filter runs on a single socket and
-therefore runs in a single netns.  So presumably I'm still
-misunderstanding you
+I explained already that I need to do combining on the bpf side instead
+of running the list, since running several programs where 90% of
+the logic is the same is the overhead that is not acceptable
+for production server. It may be fine for desktop, but not
+when every cycle matters. With one program per cgroup I can
+combine multiple of them on bpf side. In networking the most of
+the prep work like packet parsing and lookups are common,
+but the actions are different, so for one part of the hieararchy
+I can have program A monitoring tcp and in other
+part I can have program B monitoring tcp and udp.
+What you're saying that for tcp and udp monitoring
+run two programs. One for udp and one for tcp.
+That is not efficient. Hence the need to combine
+the programs on bpf side and attach only one with override.
 
-> cgroup only gives a scope for the program to run, but it's
-> not limited by it. The user can have the same program
-> attached to two or more different cgroups, so one program
-> will run across multiple cgroups.
+The "dont override flag" was also explained before. Here it is again:
+Without breaking above "override" scenario we can add a flag
+that when the program is attached with that flag to one part of
+the hierarchy the override of it will not be allowed in the descendent.
+This extension can be done at any time in the future.
+The only question is what is the default when such flag
+is not present. The current default is override allowed.
+You insist on changing the default right now.
+I don't mind, therefore I'm working on such "dont override flag",
+since if we need to change the default it needs to be done now,
+but if it doesn't happen for 4.10, it's absolutely fine too.
+For security use cases the flag will be added later
+and sandboxing use cases will use that flag too.
+There are no expections that if cgroup is there the program
+attach command must always succeed. That's why we have error codes
+and we can dissallow attach based on this flag or any future
+restrictions. All of it is root now anyway and sandboxing/security
+use cases need to wait until bpf side can be made unprivileged.
+I see current api to have a ton of room for future extensions.
 
-Does this mean "BPF programs are compiled independently of a
-namespace?"  If so, I don't see why it's relevant at all.  Sure, you
-could compile a BPF program once and install it in two different
-scopes, but that doesn't mean that the kernel should *run* it globally
-in any sense.  Can you clarify?
+> Given that we're doing API design and it's waaaaay past the merge
+> window, I just don't see how any of this is ready for 4.10.
 
->
->>  - The set of BPF program types and the verification rules are
->> independent of cgroup and namespace.  This is true, but I don't think
->> it matters.
->
-> It matters. That's actually the key to understand. The loading part
-> verifies correctness for particular program type.
-> Afterwards the same program can be attached to any place.
-> Including different cgroups and different namespaces.
-> The 'attach' part is like 'switch on' that enables program
-> on particular hook. The scope (whether it's socket or netdev or cgroup)
-> is a scope that program author uses to narrow down the hook,
-> but it's not an ultimate restriction.
-> For example the socket program can be attached to sockets and
-> share information with cls_bpf program attached to netdev.
-> The kprobe tracing program can peek into kernel internal data
-> and share it with cls_bpf or any other type as long as
-> everything is root. The information flow is global to the whole system.
-
-Why does any of this imply that a cgroup+bpf program that is attached
-once should run for all network namespaces?
-
->
->> Because we're one week or so from 4.10 final, the 4.10-rc code is
->> problematic even for ip vrf, and there isn't a clear solution yet.
->> There are a bunch of requirements that seem to conflict, and something
->> has to give.
->
-> let's go back to the beginning:
-> - you've identified a 'malfunction' in ip vrf. It's valid one. Thank you.
-> - can it be fixed without kernel changes ? Yes. David offered to do so.
-
-He has (I think) a somewhat kludgey fix that gets the "ip netns" case
-right but not the "unshare -n" case.  I think the latter can't be
-fixed without kernel changes.
+We are NOT doing design now. Design and implementation was
+done back last summer. It took many interations and lots
+of discussions on public lists with netdev and cgroup lists cc-ed.
