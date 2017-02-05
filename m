@@ -1,84 +1,93 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v3 net] bpf: add bpf_sk_netns_id() helper
-Date: Sun, 5 Feb 2017 12:19:16 -0800
-Message-ID: <CALCETrWS4_NOL_MZFX=hK+RDaYaVyq-danMU3DY6BZ98SN_5dQ@mail.gmail.com>
-References: <1486179240-3574802-1-git-send-email-ast@fb.com> <92c34d0c-ec60-a44d-6542-00fde5aad082@cumulusnetworks.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [PATCH iproute2/net-next 1/3] tc: Add support for the sample tc
+ action
+Date: Sun, 5 Feb 2017 20:22:12 +0000
+Message-ID: <DB3PR05MB076475ADE956B146B97EEECBAC410@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1486281534-61663-1-git-send-email-yotamg@mellanox.com>
+ <1486281534-61663-2-git-send-email-yotamg@mellanox.com>
+ <18afef7b-22f4-e37f-4ea3-99d8307a1eb7@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
-Cc: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Tejun Heo <tj@kernel.org>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        Network Development <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f43.google.com ([209.85.213.43]:34900 "EHLO
-        mail-vk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753181AbdBEUTn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 15:19:43 -0500
-Received: by mail-vk0-f43.google.com with SMTP id x75so44429911vke.2
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 12:19:38 -0800 (PST)
-In-Reply-To: <92c34d0c-ec60-a44d-6542-00fde5aad082@cumulusnetworks.com>
+Received: from mail-eopbgr00074.outbound.protection.outlook.com ([40.107.0.74]:45440
+        "EHLO EUR02-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753203AbdBEUWR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 5 Feb 2017 15:22:17 -0500
+In-Reply-To: <18afef7b-22f4-e37f-4ea3-99d8307a1eb7@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 5, 2017 at 11:24 AM, David Ahern <dsa@cumulusnetworks.com> wrot=
-e:
-> On 2/3/17 8:34 PM, Alexei Starovoitov wrote:
->> Therefore introduce 'u64 bpf_sk_netns_id(sk);' helper. It returns
->> unique value that identifies netns of given socket or dev_net(skb->dev)
->> The upper 32-bits of the return value contain device id where namespace
->> filesystem resides and lower 32-bits contain inode number within that fi=
-lesystem.
->> It's the same as
->>  struct stat st;
->>  stat("/proc/pid/ns/net", &st);
->>  return (st->st_dev << 32)  | st->st_ino;
+>-----Original Message-----
+>From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+>Sent: Sunday, February 05, 2017 8:37 PM
+>To: Yotam Gigi <yotamg@mellanox.com>; stephen@networkplumber.org;
+>netdev@vger.kernel.org; Jiri Pirko <jiri@mellanox.com>; Elad Raz
+><eladr@mellanox.com>
+>Subject: Re: [PATCH iproute2/net-next 1/3] tc: Add support for the sample =
+tc action
+>
+>On 02/04/2017 11:58 PM, Yotam Gigi wrote:
+>> The sample tc action allows sampling packets matching a classifier. It
+>> peeks randomly packets, and samples them using the psample netlink
+>> channel. The user can specify the psample group, which the packet will b=
+e
+>> sampled to, the sampling rate and the packet truncation (to save
+>> kernel-user traffic).
 >>
-> ...
->
->> can be considered a new feature, whereas for cgroup_sock
->> programs that modify sk->bound_dev_if (like 'ip vrf' does)
->> it's a bug fix, since 'ip vrf' needs to be netns aware.
+>> The sampled packets contain informative metadata, for example, the input
+>> interface and the original packet length.
 >>
+>> The action syntax:
+>> tc filter add [...] \
+>> 	action sample rate <RATE> group <GROUP> [trunc <SIZE>]
+>> 	[...]
+>>
+>> Where:
+>>   RATE :=3D The sampling rate which is the ratio of packets observed at =
+the
+>> 	  data source to the samples generated
+>>   GROUP :=3D the psample module sampling group
+>>   SIZE :=3D optional truncation size
+>>
+>> An example for a common usecase of the sample tc action: to sample ingre=
+ss
+>> traffic from interface eth1, one may use the commands:
+>>
+>> tc qdisc add dev eth1 handle ffff: ingress
+>>
+>> tc filter add dev eth1 parent ffff: \
+>>        matchall action sample rate 12 group 4
+>>
+>> Where the first command adds an ingress qdisc and the second starts
+>> sampling randomly with an average of one sampled packet per 12 packets
+>> on dev eth1 to psample group 4.
 >
->
-> LGTM.
->
-> Reviewed-by: David Ahern <dsa@cumulusnetworks.com>
-> Tested-by: David Ahern <dsa@cumulusnetworks.com>
->
-> Updated patches for vrf in network namespaces are here:
->     https://github.com/dsahern/iproute2 vrf/ip-vrf
->
->
-> root@kenny-jessie2:~# ip vrf exec red bash
->
-> root@kenny-jessie2:red:~# ping -c1 -w1 10.100.1.254
-> PING 10.100.1.254 (10.100.1.254) 56(84) bytes of data.
-> 64 bytes from 10.100.1.254: icmp_seq=3D1 ttl=3D64 time=3D0.230 ms
->
-> --- 10.100.1.254 ping statistics ---
-> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
-> rtt min/avg/max/mdev =3D 0.230/0.230/0.230/0.000 ms
->
-> root@kenny-jessie2:red:~# unshare -n
->
-> root@kenny-jessie2:red:~# ping -c1 -w1 10.100.1.254
-> connect: Network is unreachable
->
->
-> Andy: thank you for the feedback on the 'ip vrf' use case. I believe this=
- kernel patch + my iproute2 patches address the issues mentioned so far. Sp=
-ecifically, the transcript above shows your concern about 'unshare -n' case=
- is handled. In one of the many responses last night, you mentioned I have =
-'a somewhat kludgey fix that gets the "ip netns" case'. If you can elaborat=
-e on 'somewhat kludgey', I can fix those this week as well.
+>The group argument seems to be mandatory from looking at the code, but
+>what if just wanted to have a port mirroring between, say sw0p1 and
+>sw0p2 with the sample rate specified instead (without using the psample
+>netlink channel at all)? Could we make this group an optional argument
+>instead?
 
-What I meant was: fixing it in iproute2 without kernel changes would
-be kludgey and incomplete.  You seem to have fixed it by depending on
-this kernel patch.
+The kernel action currently don't support it, and I am not sure it should.
 
---Andy
+If I understand you correctly, you want to make the sample action identical
+to mirred-mirror, only with random behavior. This can be done using the=20
+matchall and mirred action, plus the 'random' gact keyword.=20
+
+The sample action attaches some metadata in addition to the original packet
+data, and that cannot be achieved by mirroring the packets, thus making it
+unusable for our usecase. In the former version we attached the metadata
+using the IFE protocol, but we decided to use a dedicated netlink channel=20
+instead.
+
+>
+>Thanks!
+>--
+>Florian
