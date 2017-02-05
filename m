@@ -1,13 +1,17 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: intel: igbvf: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  5 Feb 2017 23:55:19 +0100
-Message-ID: <1486335319-16273-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH] net: intel: ixgb: use new api ethtool_{get|set}_link_ksettings
+Date: Mon,  6 Feb 2017 00:11:11 +0100
+Message-ID: <1486336271-25336-1-git-send-email-tremyfr@gmail.com>
 Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
 To: jeffrey.t.kirsher@intel.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35527 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752109AbdBEXLU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 18:11:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 The ethtool api {get|set}_settings is deprecated.
 We move this driver to new api {get|set}_link_ksettings.
@@ -17,56 +21,42 @@ someone may test this patch.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/intel/igbvf/ethtool.c |   38 ++++++++++++++--------------
- 1 files changed, 19 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c |   39 ++++++++++++++----------
+ 1 files changed, 23 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
-index 8dea1b1..34faa11 100644
---- a/drivers/net/ethernet/intel/igbvf/ethtool.c
-+++ b/drivers/net/ethernet/intel/igbvf/ethtool.c
-@@ -71,45 +71,45 @@ struct igbvf_stats {
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+index e5d7255..d10a0d2 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+@@ -94,24 +94,30 @@ struct ixgb_stats {
+ #define IXGB_STATS_LEN	ARRAY_SIZE(ixgb_gstrings_stats)
  
- #define IGBVF_TEST_LEN ARRAY_SIZE(igbvf_gstrings_test)
- 
--static int igbvf_get_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int igbvf_get_link_ksettings(struct net_device *netdev,
-+				    struct ethtool_link_ksettings *cmd)
+ static int
+-ixgb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
++ixgb_get_link_ksettings(struct net_device *netdev,
++			struct ethtool_link_ksettings *cmd)
  {
- 	struct igbvf_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 status;
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
  
--	ecmd->supported   = SUPPORTED_1000baseT_Full;
+-	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+-	ecmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
+-	ecmd->port = PORT_FIBRE;
+-	ecmd->transceiver = XCVR_EXTERNAL;
 +	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, 1000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(cmd, supported, 10000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(cmd, supported, FIBRE);
++
 +	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	ethtool_link_ksettings_add_link_mode(cmd, advertising, 1000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(cmd, advertising, 10000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(cmd, advertising, FIBRE);
++
++	cmd->base.port = PORT_FIBRE;
  
--	ecmd->advertising = ADVERTISED_1000baseT_Full;
--
--	ecmd->port = -1;
--	ecmd->transceiver = XCVR_DUMMY1;
-+	cmd->base.port = -1;
- 
- 	status = er32(STATUS);
- 	if (status & E1000_STATUS_LU) {
- 		if (status & E1000_STATUS_SPEED_1000)
--			ethtool_cmd_speed_set(ecmd, SPEED_1000);
-+			cmd->base.speed = SPEED_1000;
- 		else if (status & E1000_STATUS_SPEED_100)
--			ethtool_cmd_speed_set(ecmd, SPEED_100);
-+			cmd->base.speed = SPEED_100;
- 		else
--			ethtool_cmd_speed_set(ecmd, SPEED_10);
-+			cmd->base.speed = SPEED_10;
- 
- 		if (status & E1000_STATUS_FD)
--			ecmd->duplex = DUPLEX_FULL;
-+			cmd->base.duplex = DUPLEX_FULL;
- 		else
--			ecmd->duplex = DUPLEX_HALF;
-+			cmd->base.duplex = DUPLEX_HALF;
+ 	if (netif_carrier_ok(adapter->netdev)) {
+-		ethtool_cmd_speed_set(ecmd, SPEED_10000);
+-		ecmd->duplex = DUPLEX_FULL;
++		cmd->base.speed = SPEED_10000;
++		cmd->base.duplex = DUPLEX_FULL;
  	} else {
 -		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
 -		ecmd->duplex = DUPLEX_UNKNOWN;
@@ -76,34 +66,45 @@ index 8dea1b1..34faa11 100644
  
 -	ecmd->autoneg = AUTONEG_DISABLE;
 +	cmd->base.autoneg = AUTONEG_DISABLE;
- 
  	return 0;
  }
  
--static int igbvf_set_settings(struct net_device *netdev,
--			      struct ethtool_cmd *ecmd)
-+static int igbvf_set_link_ksettings(struct net_device *netdev,
-+				    const struct ethtool_link_ksettings *cmd)
- {
- 	return -EOPNOTSUPP;
- }
-@@ -443,8 +443,6 @@ static void igbvf_get_strings(struct net_device *netdev, u32 stringset,
+@@ -126,13 +132,14 @@ void ixgb_set_speed_duplex(struct net_device *netdev)
  }
  
- static const struct ethtool_ops igbvf_ethtool_ops = {
--	.get_settings		= igbvf_get_settings,
--	.set_settings		= igbvf_set_settings,
- 	.get_drvinfo		= igbvf_get_drvinfo,
- 	.get_regs_len		= igbvf_get_regs_len,
- 	.get_regs		= igbvf_get_regs,
-@@ -467,6 +465,8 @@ static void igbvf_get_strings(struct net_device *netdev, u32 stringset,
- 	.get_ethtool_stats	= igbvf_get_ethtool_stats,
- 	.get_coalesce		= igbvf_get_coalesce,
- 	.set_coalesce		= igbvf_set_coalesce,
-+	.get_link_ksettings	= igbvf_get_link_ksettings,
-+	.set_link_ksettings	= igbvf_set_link_ksettings,
+ static int
+-ixgb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
++ixgb_set_link_ksettings(struct net_device *netdev,
++			const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+-	u32 speed = ethtool_cmd_speed(ecmd);
++	u32 speed = cmd->base.speed;
+ 
+-	if (ecmd->autoneg == AUTONEG_ENABLE ||
+-	    (speed + ecmd->duplex != SPEED_10000 + DUPLEX_FULL))
++	if (cmd->base.autoneg == AUTONEG_ENABLE ||
++	    (speed + cmd->base.duplex != SPEED_10000 + DUPLEX_FULL))
+ 		return -EINVAL;
+ 
+ 	if (netif_running(adapter->netdev)) {
+@@ -630,8 +637,6 @@ void ixgb_set_speed_duplex(struct net_device *netdev)
+ }
+ 
+ static const struct ethtool_ops ixgb_ethtool_ops = {
+-	.get_settings = ixgb_get_settings,
+-	.set_settings = ixgb_set_settings,
+ 	.get_drvinfo = ixgb_get_drvinfo,
+ 	.get_regs_len = ixgb_get_regs_len,
+ 	.get_regs = ixgb_get_regs,
+@@ -649,6 +654,8 @@ void ixgb_set_speed_duplex(struct net_device *netdev)
+ 	.set_phys_id = ixgb_set_phys_id,
+ 	.get_sset_count = ixgb_get_sset_count,
+ 	.get_ethtool_stats = ixgb_get_ethtool_stats,
++	.get_link_ksettings = ixgb_get_link_ksettings,
++	.set_link_ksettings = ixgb_set_link_ksettings,
  };
  
- void igbvf_set_ethtool_ops(struct net_device *netdev)
+ void ixgb_set_ethtool_ops(struct net_device *netdev)
 -- 
 1.7.4.4
