@@ -1,33 +1,39 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
-Date: Sun, 5 Feb 2017 01:30:39 +0100
-Message-ID: <20170205003038.GB21184@kroah.com>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165603.GV3442@decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] virtio_net: exploit napi_complete_done()
+ return value
+Date: Sat, 04 Feb 2017 19:39:01 -0500 (EST)
+Message-ID: <20170204.193901.790935994094939434.davem@davemloft.net>
+References: <1486223361.21871.136.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        Petko Manolov <petkan@nucleusys.com>,
-        Lisandro =?iso-8859-1?Q?Dami=E1n_Nicanor_P=E9rez?= Meyer
-        <lisandro@debian.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
+        willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:48624 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751660AbdBEAaf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 19:30:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20170204165603.GV3442@decadent.org.uk>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55876 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751239AbdBEAjF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 19:39:05 -0500
+In-Reply-To: <1486223361.21871.136.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 04, 2017 at 04:56:03PM +0000, Ben Hutchings wrote:
-> Allocating USB buffers on the stack is not portable, and no longer
-> works on x86_64 (with VMAP_STACK enabled as per default).
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 04 Feb 2017 07:49:21 -0800
 
-It's never worked on other platforms, so these should go to the stable
-releases please.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Since commit 364b6055738b ("net: busy-poll: return busypolling status to
+> drivers"), napi_complete_done() returns a boolean that can be used
+> by drivers to conditionally rearm interrupts.
+> 
+> This patch changes virtio_net to use this boolean to avoid a bit of
+> overhead for busy-poll users.
+> 
+> Jason reports about 1.1% improvement for 1 byte TCP_RR (burst 100).
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Jason Wang <jasowang@redhat.com>
 
-thanks,
-
-greg k-h
+Applied.
