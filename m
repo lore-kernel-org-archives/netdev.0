@@ -1,121 +1,95 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net] bpf: expose netns inode to bpf programs
-Date: Sat, 4 Feb 2017 19:54:20 -0800
-Message-ID: <CALCETrXgBrWmWFghWxtV92RDvqYBHsT-L37ujvexyA6v+3M8sQ@mail.gmail.com>
-References: <CALCETrU7FYz=8c2a=FWvvCxFQC3_e0nYjSU6gj62w9K8mWj=Ww@mail.gmail.com>
- <588A40D7.9070603@fb.com> <CALCETrXgdY_Kt8wn4uiATUnNJ3YXttCUREgEeQReG7u29Lc44g@mail.gmail.com>
- <588A4D3C.9070601@fb.com> <87r33fevva.fsf@xmission.com> <CALCETrWDxVHc4_hpjLQRj-XbvGX0+tbGZ8o388-xn6rNcQTySQ@mail.gmail.com>
- <20170203230830.GC26227@ast-mbp.thefacebook.com> <CALCETrUb1Rf-BdSTHdKSgwnftHjpmcDt1HX1KX-cpN=N7ev+eg@mail.gmail.com>
- <20170205031045.GC73775@ast-mbp.thefacebook.com> <CALCETrUhE_Ga4PeobPFvhtLPVGKskTUaXe9H0v=kBXe4ii7dLw@mail.gmail.com>
- <20170205034839.GG73775@ast-mbp.thefacebook.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net] bpf: add bpf_sk_netns_id() helper
+Date: Sat, 4 Feb 2017 20:05:03 -0800
+Message-ID: <20170205040501.GH73775@ast-mbp.thefacebook.com>
+References: <1486171342-3310547-1-git-send-email-ast@fb.com>
+ <CALCETrU6hAxyTGZXn1Eo=Pcq8gxLL2=Ai=Hks5-PjDW-3HtJjA@mail.gmail.com>
+ <20170205032548.GE73775@ast-mbp.thefacebook.com>
+ <CALCETrU4_y0qSJu4epTO9aNEVZzt9cXY52=bHyGutbAMuEd-VA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@fb.com>,
         "David S . Miller" <davem@davemloft.net>,
         Daniel Borkmann <daniel@iogearbox.net>,
         David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+        Tejun Heo <tj@kernel.org>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
         Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f43.google.com ([209.85.213.43]:34472 "EHLO
-        mail-vk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751994AbdBEDym (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 22:54:42 -0500
-Received: by mail-vk0-f43.google.com with SMTP id r136so37395304vke.1
-        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 19:54:42 -0800 (PST)
-In-Reply-To: <20170205034839.GG73775@ast-mbp.thefacebook.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36511 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751386AbdBEEFI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 4 Feb 2017 23:05:08 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 19so4387762pfo.3
+        for <netdev@vger.kernel.org>; Sat, 04 Feb 2017 20:05:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CALCETrU4_y0qSJu4epTO9aNEVZzt9cXY52=bHyGutbAMuEd-VA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 4, 2017 at 7:48 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Sat, Feb 04, 2017 at 07:27:01PM -0800, Andy Lutomirski wrote:
->> On Sat, Feb 4, 2017 at 7:10 PM, Alexei Starovoitov
->> <alexei.starovoitov@gmail.com> wrote:
->> > On Sat, Feb 04, 2017 at 09:07:19AM -0800, Andy Lutomirski wrote:
->> >> >> can see a namespaced view of the world.  For this to work, presumably
->> >> >> we need to make sure that eBPF programs that are installed by programs
->> >> >> that are in a container don't see traffic that isn't in that
->> >> >> container.
->> >> >
->> >> > such approach will break existing users.
->> >>
->> >> What existing users?  The whole feature has never been in a released kernel.
->> >
->> > the v3 patch commit log explains the use cases that work across netns.
->> > And they would break if netns boundary is suddenly started to be
->> > enforced for networking program types.
->>
->> This is why these issues should be addressed carefully before this
->> feature is stabilized in 4.10, and I'm increasingly unconvinced that
->> this will happen.  There may be a single week left, and the cgroup
->> override issue is still entirely unaddressed, for example.
->
-> imo cgroup override issue is not an issue and the api can be extended
-> at any time. I offered to change the default to disable override,
-> but I need override to be there, since it's the fastest and most
-> flexible way. So the sooner we can land bpf_sk_netns_id() patch
-> the faster I can post override disable.
+On Sat, Feb 04, 2017 at 07:33:14PM -0800, Andy Lutomirski wrote:
+> On Sat, Feb 4, 2017 at 7:25 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+> > On Sat, Feb 04, 2017 at 09:15:10AM -0800, Andy Lutomirski wrote:
+> >> On Fri, Feb 3, 2017 at 5:22 PM, Alexei Starovoitov <ast@fb.com> wrote:
+> >> > Note that all bpf programs types are global.
+> >>
+> >> I don't think this has a clear enough meaning to work with.  In
+> >
+> > Please clarify what you mean. The quoted part says
+> > "bpf programs are global". What is not "clear enough" there?
+> 
+> What does "bpf programs are global" mean?  I am genuinely unable to
+> figure out what you mean.  Here are some example guesses of what you
+> might mean:
+> 
+>  - BPF programs are compiled independently of a namespace.  This is
+> certainly true, but I don't think it matters.
+> 
+>  - You want BPF programs to affect everything on the system.  But this
+> doesn't seem right to be -- they only affect things in the relevant
+> cgroup, so they're not global in that sense.
 
-Override is barely the fastest way.  Long ago in one of these threads,
-I showed how the full run-all-the-in-scope-programs behavior could be
-implemented with a single correctly-predicted branch worth of overhead
-compared to the current behavior.  The run-them-all behavior also
-seems like the least surprising, most secure, and most generally
-useful behavior.
+All bpf program types are global in the sense that you can
+make all of them to operate across all possible scopes and namespaces.
+cgroup only gives a scope for the program to run, but it's
+not limited by it. The user can have the same program
+attached to two or more different cgroups, so one program
+will run across multiple cgroups.
 
-I've repeatedly asked how you plan to make a "don't override" flag
-have sensible semantics when someone tries to add a new flag or change
-the behavior to "don't override but, rather then rejecting programs
-down the hierarchy, just run them all".  You haven't answered that
-question.
+>  - The set of BPF program types and the verification rules are
+> independent of cgroup and namespace.  This is true, but I don't think
+> it matters.
 
-Given that we're doing API design and it's waaaaay past the merge
-window, I just don't see how any of this is ready for 4.10.
+It matters. That's actually the key to understand. The loading part
+verifies correctness for particular program type.
+Afterwards the same program can be attached to any place.
+Including different cgroups and different namespaces.
+The 'attach' part is like 'switch on' that enables program
+on particular hook. The scope (whether it's socket or netdev or cgroup)
+is a scope that program author uses to narrow down the hook,
+but it's not an ultimate restriction.
+For example the socket program can be attached to sockets and
+share information with cls_bpf program attached to netdev.
+The kprobe tracing program can peek into kernel internal data
+and share it with cls_bpf or any other type as long as
+everything is root. The information flow is global to the whole system.
 
->
->> Also, the v3 commit log's example seems a bit weak, since seccomp can
->> handle that case (block non-init-netns raw sockets) and it's not clear
->> to me that a filter like that serves a purpose regardless besides
->> kernel attack surface reduction.
->
-> seccomp doesn't even support extended bpf yet and that makes it
-> quite inflexible.
+> Because we're one week or so from 4.10 final, the 4.10-rc code is
+> problematic even for ip vrf, and there isn't a clear solution yet.
+> There are a bunch of requirements that seem to conflict, and something
+> has to give.
 
-You can trivially write a seccomp filter that blocks raw sockets.
+let's go back to the beginning:
+- you've identified a 'malfunction' in ip vrf. It's valid one. Thank you.
+- can it be fixed without kernel changes ? Yes. David offered to do so.
+- can kernel make it easier to address? Yes. I posted v1.
+- proposed sk->netns_inum v1 patch together with posted iproute2 change
+addresses the 'malfunction' ? Yes, but Eric didn't like inode only. All fair.
+- proposed bpf_sk_netns_id() v3 patch together with upcoming iproute2
+change will address it? Yes.
 
->
->> > If you're suggesting to limit root netns for cgroup_sock program type only
->> > then David explained weeks ago why it's not acceptable for vrf use
->> > case which was the main reason to add that program type in the first place.
->> > Also it would make one specific bpf program type to be different
->> > from all others which will be confusing.
->> >
->>
->> I'm suggesting limiting it to the init netns for *all* cases.
->> (Specifically, limiting installing programs to the init netns.  But
->> perhaps limiting running of programs to the netns in which they're
->> installed would be the best solution after all.)  If there isn't a
->> well-understood solution that plays well with netns and that satisfies
->> ip vrf, the it's worth seriously thinking about whether ip vrf is
->> really ready for 4.10.
->
-> The proposed v3 is imo solves the ip vrf 'malfunction' that you found.
-> v1 was also solving it and iproute2 patch was ready, but as Eric pointed
-> out just ns.inum is not enough.
-> The 'malfunction' can also be addressed _without_ kernel changes,
-> but the kernel can make it easier, hence v3 patch.
-
-I don't know whether Eric will be okay with your v3.  I pointed out a
-possible problem.
-
->
-> Andy, can you please reply in one thread? In particular in v3 patch?
-> I'm not sure why you making more or less the same points in
-> different threads. I'm sure it's hard for everyone to follow.
->
-
-I can try.  Can you try the same thing so I can reply once?
+What's not to like? There were several clear solutions.
+The last one seems to be the best.
+And the sooner it lands the faster I can add override disable flag.
