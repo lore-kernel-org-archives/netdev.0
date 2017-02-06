@@ -1,69 +1,64 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next V2 6/6] net/mlx5e: Bring back bfreg uar map dedicated pointer
-Date: Tue,  7 Feb 2017 01:38:29 +0200
-Message-ID: <20170206233829.29716-7-saeedm@mellanox.com>
-References: <20170206233829.29716-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v3 net] bpf: add bpf_sk_netns_id() helper
+Date: Tue, 07 Feb 2017 00:39:03 +0100
+Message-ID: <58990917.8000406@iogearbox.net>
+References: <1486179240-3574802-1-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Ahern <dsa@cumulusnetworks.com>, Tejun Heo <tj@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52049 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751502AbdBFXjB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 18:39:01 -0500
-In-Reply-To: <20170206233829.29716-1-saeedm@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:36847 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752407AbdBFXjL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 18:39:11 -0500
+In-Reply-To: <1486179240-3574802-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-4K Uar series modified the mlx5e driver to use the new bfreg API,
-and mistakenly removed the sq->uar_map iomem data path dedicated
-pointer, which was meant to be read from xmit path for cache locality
-utilization.
+On 02/04/2017 04:34 AM, Alexei Starovoitov wrote:
+[...]
+> +BPF_CALL_1(bpf_skb_netns_id, struct sk_buff *, skb)
+> +{
+> +	struct net_device *dev = skb->dev;
+> +
+> +	if (!dev)
+> +		return 0;
+> +	return proc_get_ns_devid_inum(&dev_net(dev)->ns);
+> +}
+> +
+> +static const struct bpf_func_proto bpf_skb_netns_id_proto = {
+> +	.func		= bpf_skb_netns_id,
+> +	.gpl_only	= false,
+> +	.ret_type	= RET_INTEGER,
+> +	.arg1_type	= ARG_PTR_TO_CTX,
+> +};
+> +
+>   static const struct bpf_func_proto *
+>   sk_filter_func_proto(enum bpf_func_id func_id)
+>   {
+> @@ -2620,6 +2649,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
+>   	case BPF_FUNC_trace_printk:
+>   		if (capable(CAP_SYS_ADMIN))
+>   			return bpf_get_trace_printk_proto();
+> +	case BPF_FUNC_sk_netns_id:
+> +		return &bpf_skb_netns_id_proto;
+>   	default:
+>   		return NULL;
+>   	}
 
-Fix that by returning that pointer to the SQ struct.
+Btw, I think here's an oversight that would still need to be
+fixed. Above would mean that trace printk from unprivileged would
+fall through and use &bpf_skb_netns_id_proto as proto now instead
+of NULL. So BPF_FUNC_sk_netns_id needs to be placed above the
+BPF_FUNC_trace_printk case, not in its fall-through path. Looks
+like Chenbo in his get_socket_cookie missed this, too. Other than
+that BPF bits seem good to me.
 
-Fixes: 7309cb4ad71e ("IB/mlx5: Support 4k UAR for libmlx5")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h      | 5 +++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 1 +
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 8be4b12b5545..95ca03c0d9f5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -475,6 +475,7 @@ struct mlx5e_sq {
- 	/* read only */
- 	struct mlx5_wq_cyc         wq;
- 	u32                        dma_fifo_mask;
-+	void __iomem              *uar_map;
- 	struct netdev_queue       *txq;
- 	u32                        sqn;
- 	u16                        bf_buf_size;
-@@ -831,9 +832,9 @@ static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
- 	 */
- 	wmb();
- 	if (bf_sz)
--		__iowrite64_copy(sq->bfreg.map + ofst, ctrl, bf_sz);
-+		__iowrite64_copy(sq->uar_map + ofst, ctrl, bf_sz);
- 	else
--		mlx5_write64((__be32 *)ctrl, sq->bfreg.map + ofst, NULL);
-+		mlx5_write64((__be32 *)ctrl, sq->uar_map + ofst, NULL);
- 	/* flush the write-combining mapped buffer */
- 	wmb();
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index ed230757d9c5..3cce6281e075 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1016,6 +1016,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
- 	if (err)
- 		return err;
- 
-+	sq->uar_map = sq->bfreg.map;
- 	param->wq.db_numa_node = cpu_to_node(c->cpu);
- 
- 	err = mlx5_wq_cyc_create(mdev, &param->wq, sqc_wq, &sq->wq,
--- 
-2.11.0
+> @@ -2700,6 +2731,17 @@ xdp_func_proto(enum bpf_func_id func_id)
+>   }
