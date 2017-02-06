@@ -1,42 +1,44 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 8/8] mlxsw: spectrum_router: Fix typo in comment
-Date: Mon,  6 Feb 2017 16:20:17 +0100
-Message-ID: <1486394417-8011-9-git-send-email-jiri@resnulli.us>
-References: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33723 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753315AbdBFPUa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 10:20:30 -0500
-Received: by mail-wm0-f65.google.com with SMTP id v77so22464981wmv.0
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 07:20:29 -0800 (PST)
-In-Reply-To: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2017-02-06
+Date: Mon, 06 Feb 2017 17:19:52 +0200
+Message-ID: <874m07ny7b.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+Hi Dave,
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+one more fix I still would like to get to 4.10 if possible. Please let
+me know if there are any problems.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index ec022f9..b19f69f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1353,7 +1353,7 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
- 	/* Take a reference of neigh here ensuring that neigh would
- 	 * not be detructed before the nexthop entry is finished.
- 	 * The reference is taken either in neigh_lookup() or
--	 * in neith_create() in case n is not found.
-+	 * in neigh_create() in case n is not found.
- 	 */
- 	n = neigh_lookup(&arp_tbl, &fib_nh->nh_gw, dev);
- 	if (!n) {
--- 
-2.7.4
+Kalle
+
+The following changes since commit 2b1d530cb3157f828fcaadd259613f59db3c6d1c:
+
+  MAINTAINERS: ath9k-devel is closed (2017-01-28 09:15:50 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-02-06
+
+for you to fetch changes up to 52f5631a4c056ad01682393be56d2be237e81610:
+
+  rtlwifi: rtl8192ce: Fix loading of incorrect firmware (2017-01-31 09:05:25 +0200)
+
+----------------------------------------------------------------
+wireless-drivers fixes for 4.10
+
+Only one important fix for rtlwifi which fixes a regression introduced
+in 4.9 and which caused problems for many users.
+
+----------------------------------------------------------------
+Jurij Smakov (1):
+      rtlwifi: rtl8192ce: Fix loading of incorrect firmware
+
+ drivers/net/wireless/realtek/rtlwifi/rtl8192ce/sw.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
