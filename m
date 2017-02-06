@@ -1,43 +1,105 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from
- the library
-Date: Mon, 06 Feb 2017 20:18:07 +0100
-Message-ID: <5898CBEF.20201@iogearbox.net>
-References: <20170205231428.23846-1-mic@digikod.net> <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net> <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC PATCH net-next 1/2] bpf: Save original ebpf instructions
+Date: Mon, 6 Feb 2017 11:21:16 -0800
+Message-ID: <20170206192114.GA54756@ast-mbp.thefacebook.com>
+References: <1486154303-32278-1-git-send-email-dsa@cumulusnetworks.com>
+ <1486154303-32278-2-git-send-email-dsa@cumulusnetworks.com>
+ <5894F19A.60305@iogearbox.net>
+ <34456681-46d1-0761-3b61-4e308f363126@cumulusnetworks.com>
+ <ddfeb9be-31a7-a2ba-abe2-55a1f90cc548@6wind.com>
+ <5898847B.2060400@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Shuah Khan <shuah@kernel.org>
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Quentin Monnet <quentin.monnet@6wind.com>,
+        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
+        roopa@cumulusnetworks.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33619 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751471AbdBFTVV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 14:21:21 -0500
+Received: by mail-pf0-f193.google.com with SMTP id e4so7480134pfg.0
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 11:21:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <5898847B.2060400@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/06/2017 08:16 PM, Mickaël Salaün wrote:
-> On 06/02/2017 16:30, Daniel Borkmann wrote:
->> On 02/06/2017 12:14 AM, Mickaël Salaün wrote:
->>> Replace bpf_prog_load() with bpf_load_program() calls.
->>>
->>> Use the tools include directory instead of the installed one to allow
->>> builds from other kernels.
->>>
->>> Signed-off-by: Mickaël Salaün <mic@digikod.net>
->>> Cc: Alexei Starovoitov <ast@fb.com>
->>> Cc: Daniel Borkmann <daniel@iogearbox.net>
->>> Cc: Shuah Khan <shuah@kernel.org>
->>> ---
->>>    tools/testing/selftests/bpf/Makefile        |  6 +++++-
->>>    tools/testing/selftests/bpf/bpf_sys.h       | 21 ---------------------
->>>    tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
->>>    tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
->>>    4 files changed, 14 insertions(+), 27 deletions(-)
->>
->> No objections, but if so, can't we add the remaining missing
->> pieces to bpf lib, so we can remove bpf_sys.h altogether?
->
-> OK, I'll send a new patch replacing bpf_sys.h entirely.
+On Mon, Feb 06, 2017 at 03:13:15PM +0100, Daniel Borkmann wrote:
+> On 02/06/2017 11:56 AM, Quentin Monnet wrote:
+> >2017-02-03 (15:28 -0700) ~ David Ahern <dsa@cumulusnetworks.com>
+> >>On 2/3/17 2:09 PM, Daniel Borkmann wrote:
+> >>>On 02/03/2017 09:38 PM, David Ahern wrote:
+> >>>>Similar to classic bpf, support saving original ebpf instructions
+> >>>>
+> >>>>Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> >>>
+> >>>Not convinced that this is in the right direction, this not only *significantly*
+> >>>increases mem footprint for each and every program, but also when you dump this,
+> >>>then map references from relocs inside the insns are meaningless (f.e. what about
+> >>>prog arrays used in tail calls?), so things like criu also won't be able to use
+> >>>this kind of interface for dump and restore. If it's just for debugging, then
+> >>>why not extend the existing tracing infrastructure around bpf that was started
+> >>>with intention to gain more visibility.
+> >>
+> >>Yes, saving the original bpf increases the memory footprint. If you noticed, a kmemdup is used for the exact instruction size (no page round up). Right now programs are limited to a single page, so worst case  is an extra page per program. I am open to other suggestions. For example, bpf_prog is rounded up to a page which means there could be room at the end of the page for the original instructions. This is definitely true for the ip vrf programs which will be < 32 instructions even with the namespace checking and the conversions done kernel side.
+> >>
+> >>Tracepoints will not solve the problem for me for a number of reasons. Tracepoints have to be hit to return data, and there is no way the tracepoint can return relevant information for me to verify that the correct filter was downloaded. I want the original code. I want to audit what was installed. In my case there could be N VRFs, and I want 'ip vrf' or ifupdown2 or any other command to be able to verify that each cgroup has the correct program, and to verify that the default VRF does *not* have a program installed.
+> >>
+> >>Generically, the bpf code might contain relative data but that's for the user or decoder program to deal with. Surely there is no harm in returning the original, downloaded bpf code to a properly privileged process. If I am debugging some weird network behavior, I want to be able to determine what bpf code is running where and to see what it is doing to whatever degree possible. Saving the original code is the first part of this.
+> 
+> Well, worst case cost would be ~8 additional pages per program that
+> are very rarely used; assume you want to attach a prog per netdevice,
+> or worse, one for ingress, one for egress ... and yet we already
+> complain that netdevice itself is way too big and needs a diet ...
+> That makes it much much worse, though. Using the remainder of the
+> used page is thus not enough, I'm afraid.
+> 
+> But also then, what do you do with 4k insns (or multiple of these in
+> case of tail calls), is there a decompiler in the works? Understandably
+> that for vrf it might be trivial to just read disasm, but that's just
+> one very specific use-case. I can see the point of dumping for the
+> sake of CRIU use-case given that cBPF is supported there in the past,
+> and CRIU strives to catch up with all kind of kernel APIs. It's
+> restricted wrt restore to either the same kernel version or newer
+> kernels, but that's generic issue for CRIU. So far I'm not aware of
+> user requests for CRIU support, but it could come in future, though.
+> Thus, should we have some dump interface it definitely needs to be
+> i) generic and ii) usable for CRIU, so we don't end up with multiple
+> dump mechanisms due to one API not being designed good enough to
+> already cover it.
+> 
+> Dump result would need to look a bit similar to what we have in ELF
+> file, that is, you'd need to construct map descriptions and reference
+> them in the insn sequence similar to relocations in the loader. I
+> haven't looked into whether it's feasible, but we should definitely
+> evaluate possibilities to transform the post-verifier insn sequence
+> back into a pre-verifier one for dumping, so we don't need to pay the
+> huge additional cost (also a major fraction of the insns might be
+> just duplicated here as they weren't rewritten). Perhaps it could
+> be done with the help of small annotations, or some sort of diff
+> that we only need to store. Not saying it's trivial, but we should
+> definitely try hard first and design it carefully if we want to
+> support such API.
 
-Sounds great, thanks!
++1
+
+such instruction dump is meaningful only for stateless programs.
+Out of the top of my head the minium requirement is that they
+shouldn't use maps and no tailcalls.
+Also the extra memory is the concern, so I think we need a flag
+for BPF_PROG_LOAD command like 'store stateless original prog'.
+Then at load time we can check that maps are not used and so on.
+The get_attach approach from patch 2 is imo too specific.
+I think two independent commands would be better.
+One to return new prog_fd from attachment point and
+second to do the actual instruction dump based on given prog_fd.
+Most of the programs today are stateful, so I'm reluctant to add
+all that complexity for small fraction of programs, so I would
+like to understand the motivation first.
+'ss --bpf' is imo part of the answer. It would need to print
+attachment info as well, right? and this is for debugging only?
+In case of 'ip vrf' the programs are trivial, so it's really
+to debug 'ip vrf' only? and tracepoints somehow not enough?
+Or there is more to it that I'm missing?
