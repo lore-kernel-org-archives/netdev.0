@@ -1,124 +1,59 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] udp: properly cope with csum errors
-Date: Mon, 06 Feb 2017 10:08:02 +0100
-Message-ID: <1486372082.2514.3.camel@redhat.com>
-References: <1486315524.7793.22.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH v2 1/2] mac80211: fils_aead: Use crypto api CMAC shash
+ rather than bare cipher
+Date: Mon, 6 Feb 2017 09:08:39 +0000
+Message-ID: <CAKv+Gu9KdJCzkWtGYDaK_6_WgW4aZ4Wtm-O581STyDKj7RzyrA@mail.gmail.com>
+References: <1486308208-3252-1-git-send-email-ard.biesheuvel@linaro.org>
+ <1486308208-3252-2-git-send-email-ard.biesheuvel@linaro.org> <1486370872.14226.6.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jouni Malinen <jouni@qca.qualcomm.com>,
+        "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51820 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751002AbdBFJID (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 04:08:03 -0500
-In-Reply-To: <1486315524.7793.22.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-it0-f41.google.com ([209.85.214.41]:38359 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751463AbdBFJIq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 04:08:46 -0500
+Received: by mail-it0-f41.google.com with SMTP id c7so52675783itd.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 01:08:40 -0800 (PST)
+In-Reply-To: <1486370872.14226.6.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2017-02-05 at 09:25 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Dmitry reported that UDP sockets being destroyed would trigger the
-> WARN_ON(atomic_read(&sk->sk_rmem_alloc)); in inet_sock_destruct()
-> 
-> It turns out we do not properly destroy skb(s) that have wrong UDP
-> checksum.
-> 
-> Thanks again to syzkaller team.
-> 
-> Fixes : 7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Paolo Abeni <pabeni@redhat.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  include/net/sock.h  |    4 +++-
->  net/core/datagram.c |    8 ++++++--
->  net/ipv4/udp.c      |    2 +-
->  net/ipv6/udp.c      |    2 +-
->  4 files changed, 11 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index f0e867f58722..c4f5e6fca17c 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -2006,7 +2006,9 @@ void sk_reset_timer(struct sock *sk, struct timer_list *timer,
->  void sk_stop_timer(struct sock *sk, struct timer_list *timer);
->  
->  int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
-> -			unsigned int flags);
-> +			unsigned int flags,
-> +			void (*destructor)(struct sock *sk,
-> +					   struct sk_buff *skb));
->  int __sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
->  int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
->  
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> index 662bea587165..ea633342ab0d 100644
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -332,7 +332,9 @@ void __skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb, int len)
->  EXPORT_SYMBOL(__skb_free_datagram_locked);
->  
->  int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
-> -			unsigned int flags)
-> +			unsigned int flags,
-> +			void (*destructor)(struct sock *sk,
-> +					   struct sk_buff *skb))
->  {
->  	int err = 0;
->  
-> @@ -342,6 +344,8 @@ int __sk_queue_drop_skb(struct sock *sk, struct sk_buff *skb,
->  		if (skb == skb_peek(&sk->sk_receive_queue)) {
->  			__skb_unlink(skb, &sk->sk_receive_queue);
->  			atomic_dec(&skb->users);
-> +			if (destructor)
-> +				destructor(sk, skb);
->  			err = 0;
->  		}
->  		spin_unlock_bh(&sk->sk_receive_queue.lock);
-> @@ -375,7 +379,7 @@ EXPORT_SYMBOL(__sk_queue_drop_skb);
->  
->  int skb_kill_datagram(struct sock *sk, struct sk_buff *skb, unsigned int flags)
->  {
-> -	int err = __sk_queue_drop_skb(sk, skb, flags);
-> +	int err = __sk_queue_drop_skb(sk, skb, flags, NULL);
->  
->  	kfree_skb(skb);
->  	sk_mem_reclaim_partial(sk);
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 1307a7c2e544..8aab7d78d25b 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1501,7 +1501,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
->  	return err;
->  
->  csum_copy_err:
-> -	if (!__sk_queue_drop_skb(sk, skb, flags)) {
-> +	if (!__sk_queue_drop_skb(sk, skb, flags, udp_skb_destructor)) {
->  		UDP_INC_STATS(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
->  		UDP_INC_STATS(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
->  	}
-> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-> index 4d5c4eee4b3f..8990856f5101 100644
-> --- a/net/ipv6/udp.c
-> +++ b/net/ipv6/udp.c
-> @@ -441,7 +441,7 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
->  	return err;
->  
->  csum_copy_err:
-> -	if (!__sk_queue_drop_skb(sk, skb, flags)) {
-> +	if (!__sk_queue_drop_skb(sk, skb, flags, udp_skb_destructor)) {
->  		if (is_udp4) {
->  			UDP_INC_STATS(sock_net(sk),
->  				      UDP_MIB_CSUMERRORS, is_udplite);
+On 6 February 2017 at 08:47, Johannes Berg <johannes@sipsolutions.net> wrote:
+>
+>>  {
+>>       u8 d[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE];
+>> +     struct shash_desc *desc;
+>> +     u8 buf[sizeof(*desc) + crypto_shash_descsize(tfm)]
+>> CRYPTO_MINALIGN_ATTR;
 
+I realised we have a more idiomatic SHASH_DESC_ON_STACK for this.
 
-LGTM, Thanks Eric for fixing this!
+>>       size_t i;
+>> -     const u8 *data[2];
+>> -     size_t data_len[2], data_elems;
+>> +
+>> +     desc = (struct shash_desc *)buf;
+>> +     desc->tfm = tfm;
+>>
+>> +     crypto_shash_digest(desc, (u8[AES_BLOCK_SIZE]){},
+>> AES_BLOCK_SIZE, d);
+>
+> That's an interesting expression in there. Can we name it into a real
+> variable? :)
+>
 
-Acked-by: Paolo Abeni <pabeni@redhat.com>
+Sure, if you prefer.
+
+> I'm also slightly worried about stack usage now - do we know none of
+> this goes into an sg list eventually?
+>
+
+Shashes do not usually use scatterlists: the shash API does not use
+them, but uses u8[] arrays and lengths everywhere, and shashes are
+explicitly synchronous, which means they are unsuitable for being
+exposed on top of a high latency peripheral that uses DMA.
