@@ -1,114 +1,92 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv4 net-next 1/7] sock: add sk_dst_pending_confirm flag
-Date: Mon,  6 Feb 2017 23:14:11 +0200
-Message-ID: <1486415657-14714-2-git-send-email-ja@ssi.bg>
+Subject: [PATCHv4 net-next 7/7] net: pending_confirm is not used anymore
+Date: Mon,  6 Feb 2017 23:14:17 +0200
+Message-ID: <1486415657-14714-8-git-send-email-ja@ssi.bg>
 References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
         Steffen Klassert <steffen.klassert@secunet.com>,
         linux-rdma@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47235 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:47248 "EHLO ja.ssi.bg"
         rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752673AbdBFVQc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 16:16:32 -0500
+        id S1752185AbdBFVQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 16:16:46 -0500
 In-Reply-To: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new sock flag to allow sockets to confirm neighbour.
 When same struct dst_entry can be used for many different
 neighbours we can not use it for pending confirmations.
-As not all call paths lock the socket use full word for
-the flag.
+As last step, we can remove the pending_confirm flag.
 
-Add sk_dst_confirm as replacement for dst_confirm when
-called for received packets.
-
+Reported-by: YueHaibing <yuehaibing@huawei.com>
+Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
+Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/sock.h | 12 ++++++++++++
- net/core/sock.c    |  2 ++
- 2 files changed, 14 insertions(+)
+ include/net/dst.h | 14 ++------------
+ net/core/dst.c    |  1 -
+ 2 files changed, 2 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 94e65fd..85d856b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -240,6 +240,7 @@ struct sock_common {
-   *	@sk_wq: sock wait queue and async head
-   *	@sk_rx_dst: receive input route used by early demux
-   *	@sk_dst_cache: destination cache
-+  *	@sk_dst_pending_confirm: need to confirm neighbour
-   *	@sk_policy: flow policy
-   *	@sk_receive_queue: incoming packets
-   *	@sk_wmem_alloc: transmit queue bytes committed
-@@ -393,6 +394,8 @@ struct sock {
- 	struct sk_buff_head	sk_write_queue;
- 	__s32			sk_peek_off;
- 	int			sk_write_pending;
-+	__u32			sk_dst_pending_confirm;
-+	/* Note: 32bit hole on 64bit arches */
- 	long			sk_sndtimeo;
- 	struct timer_list	sk_timer;
- 	__u32			sk_priority;
-@@ -1764,6 +1767,7 @@ static inline void dst_negative_advice(struct sock *sk)
- 		if (ndst != dst) {
- 			rcu_assign_pointer(sk->sk_dst_cache, ndst);
- 			sk_tx_queue_clear(sk);
-+			sk->sk_dst_pending_confirm = 0;
- 		}
- 	}
- }
-@@ -1774,6 +1778,7 @@ static inline void dst_negative_advice(struct sock *sk)
- 	struct dst_entry *old_dst;
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 3a3b34b..84a1043 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -59,8 +59,6 @@ struct dst_entry {
+ #define DST_XFRM_QUEUE		0x0100
+ #define DST_METADATA		0x0200
  
- 	sk_tx_queue_clear(sk);
-+	sk->sk_dst_pending_confirm = 0;
- 	/*
- 	 * This can be called while sk is owned by the caller only,
- 	 * with no state that can be checked in a rcu_dereference_check() cond
-@@ -1789,6 +1794,7 @@ static inline void dst_negative_advice(struct sock *sk)
- 	struct dst_entry *old_dst;
+-	unsigned short		pending_confirm;
+-
+ 	short			error;
  
- 	sk_tx_queue_clear(sk);
-+	sk->sk_dst_pending_confirm = 0;
- 	old_dst = xchg((__force struct dst_entry **)&sk->sk_dst_cache, dst);
- 	dst_release(old_dst);
- }
-@@ -1809,6 +1815,12 @@ static inline void dst_negative_advice(struct sock *sk)
- 
- struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie);
- 
-+static inline void sk_dst_confirm(struct sock *sk)
-+{
-+	if (!sk->sk_dst_pending_confirm)
-+		sk->sk_dst_pending_confirm = 1;
-+}
+ 	/* A non-zero value of dst->obsolete forces by-hand validation
+@@ -78,6 +76,8 @@ struct dst_entry {
+ #define DST_OBSOLETE_KILL	-2
+ 	unsigned short		header_len;	/* more space at head required */
+ 	unsigned short		trailer_len;	/* space to reserve at tail */
++	unsigned short		__pad3;
 +
- bool sk_mc_loop(struct sock *sk);
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ 	__u32			tclassid;
+ #else
+@@ -440,7 +440,6 @@ static inline void dst_rcu_free(struct rcu_head *head)
  
- static inline bool sk_can_gso(const struct sock *sk)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8b35debf..b743565 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -502,6 +502,7 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
+ static inline void dst_confirm(struct dst_entry *dst)
+ {
+-	dst->pending_confirm = 1;
+ }
  
- 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
- 		sk_tx_queue_clear(sk);
-+		sk->sk_dst_pending_confirm = 0;
- 		RCU_INIT_POINTER(sk->sk_dst_cache, NULL);
- 		dst_release(dst);
- 		return NULL;
-@@ -1519,6 +1520,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 				af_family_clock_key_strings[newsk->sk_family]);
+ static inline int dst_neigh_output(struct dst_entry *dst, struct neighbour *n,
+@@ -448,15 +447,6 @@ static inline int dst_neigh_output(struct dst_entry *dst, struct neighbour *n,
+ {
+ 	const struct hh_cache *hh;
  
- 		newsk->sk_dst_cache	= NULL;
-+		newsk->sk_dst_pending_confirm = 0;
- 		newsk->sk_wmem_queued	= 0;
- 		newsk->sk_forward_alloc = 0;
- 		atomic_set(&newsk->sk_drops, 0);
+-	if (dst->pending_confirm) {
+-		unsigned long now = jiffies;
+-
+-		dst->pending_confirm = 0;
+-		/* avoid dirtying neighbour */
+-		if (n->confirmed != now)
+-			n->confirmed = now;
+-	}
+-
+ 	hh = &n->hh;
+ 	if ((n->nud_state & NUD_CONNECTED) && hh->hh_len)
+ 		return neigh_hh_output(hh, skb);
+diff --git a/net/core/dst.c b/net/core/dst.c
+index b5cbbe0..960e503 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -190,7 +190,6 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+ 	dst->__use = 0;
+ 	dst->lastuse = jiffies;
+ 	dst->flags = flags;
+-	dst->pending_confirm = 0;
+ 	dst->next = NULL;
+ 	if (!(flags & DST_NOCOUNT))
+ 		dst_entries_add(ops, 1);
 -- 
 1.9.3
