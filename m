@@ -1,50 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/7] openvswitch: Use inverted tuple in
- ovs_ct_find_existing() if NATted.
-Date: Mon, 06 Feb 2017 12:15:12 -0500 (EST)
-Message-ID: <20170206.121512.1686451353447088557.davem@davemloft.net>
-References: <1486084206-109903-1-git-send-email-jarno@ovn.org>
-        <20170205.172824.848224453582586032.davem@davemloft.net>
-        <CAOrHB_AWB7MFEHpeuKcG21s9QWjMHKC2zWNmXQLDo_5KZrnY6w@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Disabling msix interrupts
+Date: Mon, 6 Feb 2017 17:23:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB027CB6A@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6DB027C936@AcuExch.aculab.com>
+ <CAKgT0UeXXkUpsrF9gpf_gba56V+B8a1G84k0WWt5q85Rx2PVsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jarno@ovn.org, netdev@vger.kernel.org
-To: pshelar@ovn.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43490 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751001AbdBFRPN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 12:15:13 -0500
-In-Reply-To: <CAOrHB_AWB7MFEHpeuKcG21s9QWjMHKC2zWNmXQLDo_5KZrnY6w@mail.gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.190]:56282 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751001AbdBFRYC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 12:24:02 -0500
+In-Reply-To: <CAKgT0UeXXkUpsrF9gpf_gba56V+B8a1G84k0WWt5q85Rx2PVsA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin Shelar <pshelar@ovn.org>
-Date: Mon, 6 Feb 2017 09:06:29 -0800
-
-> On Sun, Feb 5, 2017 at 2:28 PM, David Miller <davem@davemloft.net> wrote:
->> From: Jarno Rajahalme <jarno@ovn.org>
->> Date: Thu,  2 Feb 2017 17:10:00 -0800
->>
->>> This does not match either of the conntrack tuples above.  Normally
->>> this does not matter, as the conntrack lookup was already done using
->>> the tuple (B,A), but if the current packet does not match any flow in
->>> the OVS datapath, the packet is sent to userspace via an upcall,
->>> during which the packet's skb is freed, and the conntrack entry
->>> pointer in the skb is lost.
->>
->> This is the real bug.
->>
->> If the metadata for a packet is important, as it obviously is here,
->> then upcalls should preserve that metadata across the upcall.  This
->> is exactly how NF_QUEUE handles this problem and so should OVS.
-> 
-> OVS kernel datapath serializes skb context and sends it along with skb
-> during upcall via genetlink parameters. userspace echoes same
-> information back to kernel modules. This way OVS does maintains
-> metadata across upcall.
-
-Then the conntrack state looked up before the NAT operation done in
-the upcall should be maintained and therefore this bug should not
-exist.
+RnJvbTogQWxleGFuZGVyIA0KPiBTZW50OiAwNiBGZWJydWFyeSAyMDE3IDE2OjI3DQo+IFRvOiBE
+YXZpZCBMYWlnaHQNCj4gT24gTW9uLCBGZWIgNiwgMjAxNyBhdCA3OjMzIEFNLCBEYXZpZCBMYWln
+aHQgPERhdmlkLkxhaWdodEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPiBuZXRkZXYgcHJvYmFibHkg
+aXNuJ3QgdGhlIHJpZ2h0IGxpc3QgZm9yIHRoaXMsIGJ1dCBJIHN1c3BlY3QgcGVvcGxlDQo+ID4g
+cmVhZGluZyBpdCB1bmRlcnN0YW5kIHdoYXQgaGFwcGVucy4NCj4gPg0KPiA+IEknbSBmYWlybHkg
+c3VyZSB0aGF0IGFuIG1zaXggaW50ZXJydXB0IGNhbiBnZXQgcmFpc2VkIGFmdGVyDQo+ID4gdGhl
+IGtlcm5lbCB0aGlua3MgaXQgaGFzIG1hc2tlZCBpdC4NCj4gPg0KPiA+IFdoZW4gYW4gbXNpeCBp
+bnRlcnJ1cHQgaXMgZGlzYWJsZWQgSSB0aGluayBtc2lfc2V0X21hc2tfYml0KCkNCj4gPiAoaW4g
+ZHJpdmVycy9wY2kvbXNpLmMpIGlzIGNhbGxlZCB0byB3cml0ZSBhICcxJyB0byB0aGUgY2FyZCdz
+DQo+ID4gaGFyZHdhcmUgTVNJWCBtYXNrIHJlZ2lzdGVyICh0aGUgbGFzdCAzMmJpdCB3b3JkIG9m
+IHRoZSBlbnRyeSkuDQo+ID4gVGhpcyBmdW5jdGlvbiBjYXJlZnVsbHkgcmVhZHMgYmFjayB0aGUg
+bWFzayByZWdpc3RlciB0byBmbHVzaA0KPiA+IHRoZSB3cml0ZSB0aHJvdWdoIHRoZSBwY2llIGJ1
+cy4NCj4gPiBFeGNlcHQgaXQgZG9lc24ndCwgaXQgcmVhZHMgdGhlICdhZGRyZXNzX2xvJyByZWdp
+c3RlciBpbnN0ZWFkISBbMV0NCj4gDQo+IFJlYWRpbmcgYW55IHJlZ2lzdGVyIHdpbGwgZm9yY2Ug
+dGhlIHdyaXRlIHRvIGJlIGZsdXNoZWQgYXMgYWxsIFBDSQ0KPiB3cml0ZXMgbXVzdCBiZSBjb21w
+bGV0ZWQgYmVmb3JlIGEgUENJIHJlYWQuICBGb3IgZXhhbXBsZSBpbiB0aGUgSW50ZWwNCj4gZHJp
+dmVycyB3ZSByZWFkIHJlZ2lzdGVyIDAgdG8gZmx1c2ggYSB3cml0ZSBvZiBhbnkgb2YgdGhlIG90
+aGVyDQo+IHJlZ2lzdGVycy4NCg0KU29ycnkgYnJhaW4gZmFkZSBvbiB0aGF0IG9uZS4NCkFsdGhv
+dWdoIHRoZSAnc3RvcmUgYnVmZmVyJyBvbiB0aGUgc3BhcmMgY3B1cyBJIHVzZWQgdG8gdXNlIHdv
+dWxkDQpsZXQgcmVhZHMgb3ZlcnRha2Ugd3JpdGVzLiBTbyB5b3UgZGlkIGhhdmUgdG8gcmVhZCBi
+YWNrIHRoZSBhZGRyZXNzDQpvZiB0aGUgbGFzdCB3cml0ZSAtIG5vdCBzdXJlIGFib3V0IG1vZGVy
+biBzcGFyYyBjcHVzLg0KDQo+ID4gV2hpbGUgdGhpcyB3aWxsIHN0b3AgdGhlIGhhcmR3YXJlIHJh
+aXNpbmcgYW55IG1vcmUgaW50ZXJydXB0cywNCj4gPiBpdCBjb3VsZCBlYXNpbHkgYmUgaW4gdGhl
+IHByb2Nlc3Mgb2YgcmFpc2luZyBvbmUuDQo+ID4gaWUgaGF2ZSByZWFkIHRoZSBtYXNrLCBmb3Vu
+ZCBpdCB6ZXJvLCByZWFkIHRoZSBhZGRyZXNzIGFuZA0KPiA+IGRhdGEsIGFuZCBiZSBpbiB0aGUg
+cHJvY2VzcyBvZiBpc3N1aW5nIHRoZSBwY2llIHdyaXRlLg0KPiA+DQo+ID4gVGhlIHBjaWUgd3Jp
+dGUgKHRvIGRpc2FibGUgdGhlIGludGVycnVwdCkgYW5kIHJlYWRiYWNrIGFyZSBzZWVuDQo+ID4g
+YnkgdGhlIGhhcmR3YXJlIGFzIChtb3JlIG9yIGxlc3MpIGJhY2sgdG8gYmFjayB0cmFuc2ZlcnMs
+IHNvIGNhbg0KPiA+IGJvdGggZWFzaWx5IG92ZXJ0YWtlIHRoZSByZXF1ZXN0IHRvIHJhaXNlIHRo
+ZSBpbnRlcnJ1cHQuDQo+IA0KPiBJIGRvbid0IGJlbGlldmUgdGhpcyBpcyBjb3JyZWN0LiAgT24g
+dGhlIFBDSSBidXMgd2hhdCB5b3Ugc2hvdWxkIHNlZQ0KPiBpcyB0aGUgZGV2aWNlIGF3YXJlIHRo
+YXQgaW50ZXJydXB0cyBhcmUgZGlzYWJsZWQgYmVmb3JlIHRoZSBjb21wbGV0aW9uDQo+IGFycml2
+ZXMgYW5kIGFueSBNU0kgbWVzc2FnZXMgc2hvdWxkIGFycml2ZSBiZWZvcmUgdGhlIGxhc3QgcmVh
+ZA0KPiBjb21wbGV0aW9uLg0KDQpZb3UgYXJlIG1ha2luZyB0aGUgYXNzdW1wdGlvbiB0aGF0IGl0
+IHRha2VzIHRoZSBoYXJkd2FyZSB6ZXJvDQp0aW1lIHRvIHJhaXNlIG1zaXggaW50ZXJydXB0cywg
+YW5kL29yIHRoYXQgdGhlIGhhcmR3YXJlIGxvZ2ljIHRoYXQNCnJhaXNlcyB0aGUgaW50ZXJydXB0
+cyBpcyB0aWdodGx5IGNvdXBsZWQgd2l0aCB0aGF0IHdoaWNoIGdlbmVyYXRlcw0KdGhlIHJlYWQg
+Y29tcGxldGlvbnMuDQoNClRoZSBmcGdhIGxvZ2ljIHdlIHVzZSBmb3IgcmFpc2luZyBpbnRlcnJ1
+cHRzIHJlYWRzIHRoZSBtYXNrIGxhc3QsDQpidXQgdGhlbiBoYXMgdG8gZG8gdGhyZWUgJ2J1cycg
+Y3ljbGVzIHRvIGdldCB0aGUgNjRiaXQgYWRkcmVzcw0KY29uZmlndXJlZCBhbmQgcmVxdWVzdCB0
+aGUgcGNpZSB3cml0ZS4NCk1lYW53aGlsZSB0aGUgcGNpZSA8PT4gbXNpeCB0YWJsZSBsb2dpYyB3
+aWxsIGJlIHJ1bm5pbmcgYXN5bmNocm9ub3VzbHkNCnNvIHdpbGwgcXVpdGUgZWFzaWx5IGNvbXBs
+ZXRlIHRoZSByZWFkYmFjayBiZWZvcmUgdGhlIHJlcXVlc3QgaXRzZWxmDQppcyBzZW50Lg0KSSdt
+IHByZXR0eSBzdXJlIHRoZXJlIGlzIGVub3VnaCBhc3luYyBpbiB0aGUgJ3dyaXRlJyBwYXRoIHRo
+YXQgZXZlbiBpZg0KSSBhYm9ydGVkIHJhaXNpbmcgdGhlIGludGVycnVwdCBpZiB0aGVyZSB3YXMg
+YSB3cml0ZSB0byB0aGUgbXNpeCB0YWJsZQ0KdGhlIHJlYWQgY29tcGxldGlvbiBjb3VsZCBzdGls
+bCBvdmVydGFrZSB0aGUgd3JpdGUuDQoNCj4gPiBUaGUgcGNpZSBidXMgaXMgYWxzbyBhbGxvd2Vk
+IHRvIG1ha2UgYSByZWFkIGNvbXBsZXRpb24gdGxwDQo+ID4gb3ZlcnRha2UgYSB3cml0ZSB0bHAu
+DQo+ID4gQWRkIGluIGFueSBob3N0LXNpZGUgZGVsYXlzIGluIHJhaXNpbmcgdGhlIGhhcmR3YXJl
+IGludGVycnVwdA0KPiA+IGl0c2VsZiwgYW5kIGFuIGludGVycnVwdCBjb3VsZCBoYXBwZW4gd2Vs
+bCBhZnRlciBpdCB3YXMgbWFza2VkLg0KPiANCj4gVGhhdCBpcyBvbmx5IGlmIHJlbGF4ZWQgb3Jk
+ZXJpbmcgaXMgZW5hYmxlZCwgd2hpY2ggSSBhbSBub3Qgc3VyZSBpcw0KPiBzdXBwb3J0ZWQgZm9y
+IE1TSS1YIGludGVycnVwdHMuDQoNClRoZSBQQ0lFIGJvb2sgb24gbXkgZGVzayBpcyBub3QgaGVs
+cGZ1bCB3cnQgcmVvcmRlcmluZy4NCkkga25vdyByZWFkcyBhbmQgcmVhZCBjb21wbGV0aW9uIGNh
+biBiZSByZW9yZGVyZWQgLSBJIGZpeGVkIHRoZSBmcGdhDQpsb2dpYyAoZnJvbSB0aGUgbWFudWZh
+Y3R1cmVyKSBzbyB0aGF0IGl0IGNvcnJlY3RseSBwcm9jZXNzZWQgaW50ZXJsZWF2ZWQNCnJlYWQg
+Y29tcGxldGlvbnMuDQpJIGRvbid0IHNlZSBhbnl0aGluZyBvYnZpb3VzIHRoYXQgd291bGQgcmVx
+dWlyZSB3cml0ZXMgYW5kIHJlYWQgY29tcGxldGlvbnMNCnRvIGJlIGtlcHQgaW4gb3JkZXIuDQoN
+Cj4gVGhhdCBiZWluZyBzYWlkIHRob3VnaCBJIGJlbGlldmUNCj4gdGhlcmUgYXJlIHNvbWUgcGxh
+dGZvcm1zIHRoYXQgY291bGQgZW5kIHVwIHNlZWluZyBhIGRlbGF5IGluIGhhbmRsaW5nDQo+IHRo
+ZSBpbnRlcnJ1cHQgaWYgZm9yIGV4YW1wbGUgdGhlIENQVSB0aGUgaW50ZXJydXB0IHdhcyBkZWxp
+dmVyZWQgdG8NCj4gd2FzIGluIGEgc2xlZXAgc3RhdGUuDQo+DQo+ID4gTW9yZSB3b3JyeWluZyB3
+b3VsZCBiZSBhbnkgY29kZSB0aGF0IHRyaWVzIHRvIGNoYW5nZSB0aGUgYWRkcmVzcw0KPiA+IGFu
+ZCBkYXRhIGFzc29jaWF0ZWQgd2l0aCBhbiBpbnRlcnJ1cHQuDQo+ID4gWW91J2QgbmVlZCBtb2Rl
+cmF0ZSBndWFyZCB0aW1lcyBhZnRlciB0aGUgZGlzYWJsZSBhbmQgYmVmb3JlIHRoZQ0KPiA+IGVu
+YWJsZSB0byBlbnN1cmUgdGhlIGhhcmR3YXJlIGRpZG4ndCByYWlzZSBhbiBpbnRlcnJ1cHQgd2l0
+aA0KPiA+IGEgbWlzbWF0Y2ggb2YgdGhlIG9sZCBhbmQgbmV3IHZhbHVlcy4NCj4gPg0KPiA+IFsx
+XSBNYXliZSBJJ2xsIGxvb2sgYXQgdGhlIG9yZGVyIHRob3NlIGN5Y2xlcyBhY3R1YWxseSBhcnJp
+dmUgaW4uDQo+ID4NCj4gPiAgICAgICAgIERhdmlkDQo+IA0KPiBTbyBJIGhhdmUgdGhyb3duIGlu
+IG15ICQuMDIgb24gdGhpcywgYW5kIGFkZGVkIHRoZSBsaW51eC1wY2kgbWFpbGluZw0KPiBsaXN0
+LiAgVGhhdCBpcyBhIG11Y2ggYmV0dGVyIHBsYWNlIHRvIGJyaW5nIHRoaXMgdXAgcmF0aGVyIHRo
+YW4NCj4gbmV0ZGV2Lg0KPiANCj4gVGhhbmtzLg0KPiANCj4gLSBBbGV4DQo=
