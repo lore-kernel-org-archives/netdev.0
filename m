@@ -1,84 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v5 3/4] net: phy: Allow pre-declaration of MDIO
- devices
-Date: Mon, 6 Feb 2017 11:17:32 -0800
-Message-ID: <ce6ee5a6-12c9-94ae-630e-549fc67a00d9@gmail.com>
-References: <20170204210245.14812-1-f.fainelli@gmail.com>
- <20170204210245.14812-4-f.fainelli@gmail.com>
- <20170206140443.GH32506@lunn.ch>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from
+ the library
+Date: Mon, 06 Feb 2017 20:18:07 +0100
+Message-ID: <5898CBEF.20201@iogearbox.net>
+References: <20170205231428.23846-1-mic@digikod.net> <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net> <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM/Marvell Dove/MV78xx0/Orion SOC support"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Shuah Khan <shuah@kernel.org>
+To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
+        linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206140443.GH32506@lunn.ch>
+In-Reply-To: <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/06/2017 06:04 AM, Andrew Lunn wrote:
->> +/**
->> + * mdio_register_board_info - register MDIO devices for a given board
->> + * @info: array of devices descriptors
->> + * @n: number of descriptors provided
->> + * Context: can sleep
->> + *
->> + * The board info passed can be marked with __initdata but be pointers
->> + * such as platform_data etc. are copied as-is
->> + */
->> +int mdiobus_register_board_info(const struct mdio_board_info *info,
->> +				unsigned int n)
->> +{
->> +	struct mdio_board_entry *be;
->> +	unsigned int i;
->> +
->> +	be = kcalloc(n, sizeof(*be), GFP_KERNEL);
->> +	if (!be)
->> +		return -ENOMEM;
->> +
->> +	for (i = 0; i < n; i++, be++, info++) {
->> +		memcpy(&be->board_info, info, sizeof(*info));
->> +		mutex_lock(&mdio_board_lock);
->> +		list_add_tail(&be->list, &mdio_board_list);
->> +		mutex_unlock(&mdio_board_lock);
->> +	}
->> +
->> +	return 0;
-> 
-> Hi Florian
-> 
-> I've recently been playing with a hot-pluggable SPI bus controller. It
-> is a USB device, hence can come and go. On the SPI bus i have an
-> SRAM. On order to instantiate the MTD device, i need SPI board info. I
-> cannot add the board info until after the SPI bus master appears,
-> since i need to know its ID to fill in the board info. At the moment,
-> i have udev script which when the SPI bus master appears loads a
-> little kernel module which registers the board info.
-> 
-> Such a scheme will not work here. You need to iterate the list of MDIO
-> devices at the end of mdiobus_register_board_info() to see if the just
-> registered board info applies to any existing MDIO bus.
+On 02/06/2017 08:16 PM, Mickaël Salaün wrote:
+> On 06/02/2017 16:30, Daniel Borkmann wrote:
+>> On 02/06/2017 12:14 AM, Mickaël Salaün wrote:
+>>> Replace bpf_prog_load() with bpf_load_program() calls.
+>>>
+>>> Use the tools include directory instead of the installed one to allow
+>>> builds from other kernels.
+>>>
+>>> Signed-off-by: Mickaël Salaün <mic@digikod.net>
+>>> Cc: Alexei Starovoitov <ast@fb.com>
+>>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>>> Cc: Shuah Khan <shuah@kernel.org>
+>>> ---
+>>>    tools/testing/selftests/bpf/Makefile        |  6 +++++-
+>>>    tools/testing/selftests/bpf/bpf_sys.h       | 21 ---------------------
+>>>    tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
+>>>    tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
+>>>    4 files changed, 14 insertions(+), 27 deletions(-)
+>>
+>> No objections, but if so, can't we add the remaining missing
+>> pieces to bpf lib, so we can remove bpf_sys.h altogether?
+>
+> OK, I'll send a new patch replacing bpf_sys.h entirely.
 
-I was thinking when mdio_device_register() is called, see if there is a
-matching board info for it, and if so, assign its platform_data
-accordingly. In the case where mdiobus_register_with_board
-
-> 
-> I don't think we yet have any hardware which would do this. But there
-> have been patches to one of the USB-Ethernet dongles to allow it run
-> without a PHY. My guess is, to allow an SFP module. But it is not too
-> big a step for somebody to make a USB attached Ethernet switch.
-> 
-> Maybe consider adding this functionality? Also an unregister call?
-
-Sure, makes sense.
--- 
-Florian
+Sounds great, thanks!
