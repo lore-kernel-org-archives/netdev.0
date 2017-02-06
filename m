@@ -1,35 +1,32 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 iproute2] ss: print tcpi_rcv_mss and tcpi_advmss
-Date: Mon, 6 Feb 2017 13:51:43 -0800
-Message-ID: <20170206135143.6f46f5fc@xeon-e3>
-References: <1485995810.13103.4.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1486043247.13103.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [iproute PATCH] man: ip-route.8: Fix 'expires' indenting
+Date: Mon, 6 Feb 2017 13:53:11 -0800
+Message-ID: <20170206135311.58ed4060@xeon-e3>
+References: <20170202152256.25191-1-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33005 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751115AbdBFVvp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:51:45 -0500
-Received: by mail-pf0-f170.google.com with SMTP id y143so26933337pfb.0
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:51:45 -0800 (PST)
-In-Reply-To: <1486043247.13103.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:35874 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751372AbdBFVxS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:53:18 -0500
+Received: by mail-pg0-f42.google.com with SMTP id v184so31784584pgv.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:53:18 -0800 (PST)
+In-Reply-To: <20170202152256.25191-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 02 Feb 2017 05:47:27 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu,  2 Feb 2017 16:22:56 +0100
+Phil Sutter <phil@nwl.cc> wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
+> Descriptions of each route sub-command's arguments are enclosed in
+> .RS/.RE pairs. For 'replace' sub-command, '.RE' was incorrectly put
+> before the last argument ('expires').
 > 
-> tcpi_rcv_mss and tcpi_advmss tcp info fields were not yet reported
-> by ss.
-> 
-> While adding GRO support to packetdrill, I found this was useful.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 3fbe7ca847367 ("iproute2: ip-route.8.in: Add expires option for ip route")
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Applied, thanks.
+Applied, thanks
