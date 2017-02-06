@@ -1,167 +1,95 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v2 7/8] bpf: Remove bpf_sys.h from selftests
-Date: Mon,  6 Feb 2017 23:49:40 +0100
-Message-ID: <20170206224941.14739-7-mic@digikod.net>
-References: <20170206224941.14739-1-mic@digikod.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/icmp: null-ptr-deref in ping_v4_push_pending_frames
+Date: Mon, 6 Feb 2017 14:50:43 -0800
+Message-ID: <CAM_iQpXD-+PSsVTTiWENwt80iBZNvVeAZi0WeZxkhVg-3ueiZQ@mail.gmail.com>
+References: <CAAeHK+w0hoTCrBcPiS84OJ8Lc7N4s+0YD2U6ey_+Gygzmc66=Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Shuah Khan <shuah@kernel.org>
-To: linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206224941.14739-1-mic@digikod.net>
+In-Reply-To: <CAAeHK+w0hoTCrBcPiS84OJ8Lc7N4s+0YD2U6ey_+Gygzmc66=Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add require dependency headers.
+On Mon, Feb 6, 2017 at 11:39 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while running the syzkaller fuzzer.
+>
+> The null-ptr-deref is caused by sendto() on a socket(PF_INET,
+> SOCK_DGRAM, PROT_ICMP).
+> Note, that this requires the ability to create such sockets, which can
+> be configured by net.ipv4.ping_group_range
+> (https://lwn.net/Articles/422330/).
+>
+> A reproducer and .config are attached.
+>
+> On commit a572a1b999489efb591287632279c6c9eca3e4ed.
+>
+> general protection fault: 0000 [#1] SMP KASAN
+> Dumping ftrace buffer:
+>    (ftrace buffer empty)
+> Modules linked in:
+> CPU: 2 PID: 3880 Comm: syz-executor1 Not tainted 4.10.0-rc6+ #124
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> task: ffff880060048040 task.stack: ffff880069be8000
+> RIP: 0010:ping_v4_push_pending_frames net/ipv4/ping.c:647 [inline]
+> RIP: 0010:ping_v4_sendmsg+0x1acd/0x23f0 net/ipv4/ping.c:837
+> RSP: 0018:ffff880069bef8b8 EFLAGS: 00010206
+> RAX: dffffc0000000000 RBX: ffff880069befb90 RCX: 0000000000000000
+> RDX: 0000000000000018 RSI: ffff880069befa30 RDI: 00000000000000c2
+> RBP: ffff880069befbb8 R08: 0000000000000008 R09: 0000000000000000
+> R10: 0000000000000002 R11: 0000000000000000 R12: ffff880069befab0
+> R13: ffff88006c624a80 R14: ffff880069befa70 R15: 0000000000000000
+> FS:  00007f6f7c716700(0000) GS:ffff88006de00000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 00000000004a6f28 CR3: 000000003a134000 CR4: 00000000000006e0
+> Call Trace:
+>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+>  sock_sendmsg_nosec net/socket.c:635 [inline]
+>  sock_sendmsg+0xca/0x110 net/socket.c:645
+>  SYSC_sendto+0x660/0x810 net/socket.c:1687
+>  SyS_sendto+0x40/0x50 net/socket.c:1655
+>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> RIP: 0033:0x445879
+> RSP: 002b:00007f6f7c715b58 EFLAGS: 00000282 ORIG_RAX: 000000000000002c
+> RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445879
+> RDX: 0000000000000008 RSI: 0000000020001000 RDI: 0000000000000005
+> RBP: 00000000006e1ca0 R08: 0000000020ed9ff0 R09: 0000000000000010
+> R10: 0000000020000010 R11: 0000000000000282 R12: 0000000000708000
+> R13: 0000000000000000 R14: 00007f6f7c7169c0 R15: 00007f6f7c716700
+> Code: 38 ca 7c 08 84 c9 0f 85 35 03 00 00 49 8d bf c2 00 00 00 66 89
+> 83 a2 fe ff ff 48 b8 00 00 00 00 00 fc ff df 48 89 fa 48 c1 ea 03 <0f>
+> b6 14 02 48 89 f8 83 e0 07 83 c0 01 38 d0 7c 08 84 d2 0f 85
+> RIP: ping_v4_push_pending_frames net/ipv4/ping.c:647 [inline] RSP:
+> ffff880069bef8b8
+> RIP: ping_v4_sendmsg+0x1acd/0x23f0 net/ipv4/ping.c:837 RSP: ffff880069bef8b8
+> ---[ end trace 13dad24b243d08a7 ]---
 
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Shuah Khan <shuah@kernel.org>
----
- tools/lib/bpf/bpf.c                         |  6 ++++++
- tools/testing/selftests/bpf/bpf_sys.h       | 27 ---------------------------
- tools/testing/selftests/bpf/test_lpm_map.c  |  1 -
- tools/testing/selftests/bpf/test_lru_map.c  |  1 -
- tools/testing/selftests/bpf/test_maps.c     |  1 -
- tools/testing/selftests/bpf/test_tag.c      |  3 +--
- tools/testing/selftests/bpf/test_verifier.c |  3 +--
- 7 files changed, 8 insertions(+), 34 deletions(-)
- delete mode 100644 tools/testing/selftests/bpf/bpf_sys.h
+This fixes it for me:
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index c7c3e2b34403..06a7d4ed1e11 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -50,7 +50,13 @@ static __u64 ptr_to_u64(const void *ptr)
- static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
- 		   unsigned int size)
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 86cca61..68d77b1 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -642,6 +642,8 @@ static int ping_v4_push_pending_frames(struct sock
+*sk, struct pingfakehdr *pfh,
  {
-+#ifdef __NR_bpf
- 	return syscall(__NR_bpf, cmd, attr, size);
-+#else
-+	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
-+	errno = ENOSYS;
-+	return -1;
-+#endif
- }
- 
- int bpf_create_map(enum bpf_map_type map_type, int key_size,
-diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
-deleted file mode 100644
-index aa076a8a07f7..000000000000
---- a/tools/testing/selftests/bpf/bpf_sys.h
-+++ /dev/null
-@@ -1,27 +0,0 @@
--#ifndef __BPF_SYS__
--#define __BPF_SYS__
--
--#include <stdint.h>
--#include <stdlib.h>
--
--#include <sys/syscall.h>
--
--#include <linux/bpf.h>
--
--static inline __u64 bpf_ptr_to_u64(const void *ptr)
--{
--	return (__u64)(unsigned long) ptr;
--}
--
--static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
--{
--#ifdef __NR_bpf
--	return syscall(__NR_bpf, cmd, attr, size);
--#else
--	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
--	errno = ENOSYS;
--	return -1;
--#endif
--}
--
--#endif /* __BPF_SYS__ */
-diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
-index 3cc812cac2d7..e97565243d59 100644
---- a/tools/testing/selftests/bpf/test_lpm_map.c
-+++ b/tools/testing/selftests/bpf/test_lpm_map.c
-@@ -23,7 +23,6 @@
- #include <sys/resource.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- struct tlpm_node {
-diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index 20fa3df20a01..5d9790ee14fb 100644
---- a/tools/testing/selftests/bpf/test_lru_map.c
-+++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -19,7 +19,6 @@
- #include <sys/resource.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- #define LOCAL_FREE_TARGET	(128)
-diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 050a5205c78d..a0090016372e 100644
---- a/tools/testing/selftests/bpf/test_maps.c
-+++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -22,7 +22,6 @@
- #include <linux/bpf.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- static int map_flags;
-diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
-index a76d695ab56e..4c7a1cc73f6c 100644
---- a/tools/testing/selftests/bpf/test_tag.c
-+++ b/tools/testing/selftests/bpf/test_tag.c
-@@ -1,5 +1,6 @@
- #include <stdio.h>
- #include <stdlib.h>
-+#include <stdint.h>
- #include <ctype.h>
- #include <time.h>
- #include <errno.h>
-@@ -20,8 +21,6 @@
- 
- #include "../../../include/linux/filter.h"
- 
--#include "bpf_sys.h"
--
- static struct bpf_insn prog[BPF_MAXINSNS];
- 
- static void bpf_gen_imm_prog(unsigned int insns, int fd_map)
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 1e3cae650474..24d64e5fec50 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <stdio.h>
-+#include <stdlib.h>
- #include <unistd.h>
- #include <errno.h>
- #include <string.h>
-@@ -28,8 +29,6 @@
- 
- #include "../../../include/linux/filter.h"
- 
--#include "bpf_sys.h"
--
- #ifndef ARRAY_SIZE
- # define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
- #endif
--- 
-2.11.0
+        struct sk_buff *skb = skb_peek(&sk->sk_write_queue);
+
++       if (!skb)
++               return 0;
+        pfh->wcheck = csum_partial((char *)&pfh->icmph,
+                sizeof(struct icmphdr), pfh->wcheck);
+        pfh->icmph.checksum = csum_fold(pfh->wcheck);
