@@ -1,89 +1,54 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH for bnxt_re V4 03/21] RDMA/bnxt_re: register with the
- NIC driver
-Date: Mon, 06 Feb 2017 15:26:20 -0500
-Message-ID: <1486412780.86943.5.camel@redhat.com>
-References: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
-         <1482320530-5344-4-git-send-email-selvin.xavier@broadcom.com>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH v2 4/5] samples/bpf: Reset global variables
+Date: Mon,  6 Feb 2017 21:40:26 +0100
+Message-ID: <20170206204027.29078-4-mic@digikod.net>
+References: <20170206204027.29078-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-slv+psxXWXxJ0tUuEfqg"
-Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Selvin Xavier <selvin.xavier@broadcom.com>,
-        linux-rdma@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49004 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752449AbdBFU0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 15:26:23 -0500
-In-Reply-To: <1482320530-5344-4-git-send-email-selvin.xavier@broadcom.com>
+Received: from smtp-sh2.infomaniak.ch ([128.65.195.6]:46408 "EHLO
+        smtp-sh2.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751471AbdBFUlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 15:41:03 -0500
+In-Reply-To: <20170206204027.29078-1-mic@digikod.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Before loading a new ELF, clean previous kernel version, license and
+processed sections.
 
---=-slv+psxXWXxJ0tUuEfqg
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ samples/bpf/bpf_load.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-T24gV2VkLCAyMDE2LTEyLTIxIGF0IDAzOjQxIC0wODAwLCBTZWx2aW4gWGF2aWVyIHdyb3RlOgo+
-ICtzdGF0aWMgdm9pZCBibnh0X3JlX2Rldl9yZW1vdmUoc3RydWN0IGJueHRfcmVfZGV2ICpyZGV2
-KQo+ICt7Cj4gK8KgwqDCoMKgwqDCoMKgaW50IGkgPSBCTlhUX1JFX1JFRl9XQUlUX0NPVU5UOwo+
-ICsKPiArwqDCoMKgwqDCoMKgwqAvKiBXYWl0IGZvciByZGV2IHJlZmNvdW50IHRvIGNvbWUgZG93
-biAqLwo+ICvCoMKgwqDCoMKgwqDCoHdoaWxlICgoYXRvbWljX3JlYWQoJnJkZXYtPnJlZl9jb3Vu
-dCkgPiAxKSAmJiBpLS0pCj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoG1zbGVlcCgx
-MDApOwo+ICsKPiArwqDCoMKgwqDCoMKgwqBpZiAoYXRvbWljX3JlYWQoJnJkZXYtPnJlZl9jb3Vu
-dCkgPiAxKQo+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBkZXZfZXJyKHJkZXZfdG9f
-ZGV2KHJkZXYpLAo+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgIkZhaWxlZCB3YWl0aW5nIGZvciByZWYgY291bnQgdG8gZGVwbGV0ZSAlZCIsCj4gK8KgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBhdG9taWNfcmVhZCgmcmRl
-di0+cmVmX2NvdW50KSk7Cj4gKwo+ICvCoMKgwqDCoMKgwqDCoGF0b21pY19zZXQoJnJkZXYtPnJl
-Zl9jb3VudCwgMCk7Cj4gK8KgwqDCoMKgwqDCoMKgZGV2X3B1dChyZGV2LT5uZXRkZXYpOwo+ICvC
-oMKgwqDCoMKgwqDCoHJkZXYtPm5ldGRldiA9IE5VTEw7Cj4gKwo+ICvCoMKgwqDCoMKgwqDCoG11
-dGV4X2xvY2soJmJueHRfcmVfZGV2X2xvY2spOwo+ICvCoMKgwqDCoMKgwqDCoGxpc3RfZGVsX3Jj
-dSgmcmRldi0+bGlzdCk7Cj4gK8KgwqDCoMKgwqDCoMKgbXV0ZXhfdW5sb2NrKCZibnh0X3JlX2Rl
-dl9sb2NrKTsKPiArCj4gK8KgwqDCoMKgwqDCoMKgc3luY2hyb25pemVfcmN1KCk7Cj4gK8KgwqDC
-oMKgwqDCoMKgZmx1c2hfd29ya3F1ZXVlKGJueHRfcmVfd3EpOwo+ICsKPiArwqDCoMKgwqDCoMKg
-wqBpYl9kZWFsbG9jX2RldmljZSgmcmRldi0+aWJkZXYpOwo+ICvCoMKgwqDCoMKgwqDCoC8qIHJk
-ZXYgaXMgZ29uZSAqLwo+ICt9CgpUaGlzIGxvb2tzIGJhZC4gwqBFaXRoZXIgeW91ciByZWYgY291
-bnRpbmcgaXMgcmlnaHQsIGFuZCB5b3VyIHJlZiBjb3VudApzaG91bGQgZ28gdG8gMSwgb3IgeW91
-IGhhdmUgYW4gaXNzdWUgdGhhdCB3b24ndCBiZSBoZWxwZWQgYnkgZm9yY2libHkKcmVtb3Zpbmcg
-dGhlIGRldmljZS4gwqBJbiBpdHMgY3VycmVudCBmb3JtLCB0aGlzIGxvb2tzIGxpa2UgYW4gb29w
-c2VyCndhaXRpbmcgdG8gaGFwcGVuLgoKSWYgeW91IGtub3cgeW91ciByZWYgY291bnRpbmcgaXMg
-cmlnaHQsIHRoZW4gc2ltcGx5IHdhaXQgdW50aWwgaXQgZ29lcwp0byAxLCBkb24ndCBoYXZlIHRo
-aXMgYmFpbG91dCBsb2dpYy4gwqBJZiB5b3UgdHJ1bHkgbmVlZCB0byBiYWlsb3V0IGZvcgpzb21l
-IHJlYXNvbiwgdGhlbiB5b3UgbmVlZCB0byBub3QgZnJlZSB0aGluZ3MuIMKgQmV0dGVyIHRvIHNo
-dXRkb3duIHRoZW4KbGVhayBhbmQgbGl2ZSB0aGFuIHJlbGVhc2UgYW5kIGhhdmUgYSB1c2UgYWZ0
-ZXIgZnJlZSBkYXRhIGNvcnJ1cHRlci4KCgotLSAKRG91ZyBMZWRmb3JkIDxkbGVkZm9yZEByZWRo
-YXQuY29tPgrCoCDCoCBHUEcgS2V5SUQ6IEI4MjZBMzMzMEU1NzJGREQKwqAgwqAKS2V5IGZpbmdl
-cnByaW50ID0gQUU2QiAxQkRBIDEyMkIgMjNCNCAyNjVCIMKgMTI3NCBCODI2IEEzMzMgMEU1NyAy
-RkRECg==
-
-
---=-slv+psxXWXxJ0tUuEfqg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCAAGBQJYmNvsAAoJELgmozMOVy/didUQALgPNV+KihXFWjntvxW4fAzh
-Vj2FEVteP9tgmm1+CJop/M6el7y7O5jb6VznS6L11YcxSKis7bS8V+VghYapbVOr
-H6/gDuAa1sJbPfxDDmp87ASHAfQ03/GLXTRm2VdxX6KwMEoCasb5jShU4mUcRc9U
-oM7aSJvihOcYFsmkyfMnJCbOU0MI9XNtDa1+EUw3y6gU7JetlwsiSbaV6RDGa4ft
-PgGapwoVrr1J6mzBqupmA+/syYBIAsv7Uf/LRcw17/HXQQQygsSjM9j2GZ0GSK+E
-3mKZH3anYiFtxQJqjkgOTjoLdTVMpNuUMXle4J7gtbaxxr86dfQAwVHrQnPUPPyC
-A945/ZLhyAOVcx04gX+zk4cUhCEfo87UI8sUlR/08DvVc5729Z0nW0z+7nG6grAn
-Tf7mElSZpwUT10Zte4cnpzjTFpXI5B6gIlwTyGtnOP2H66koJsygKVEPn3MOFa5j
-uj3IbYFf/jy4ic+pw5CjtBqDapYI1bfcTGv11dmPKlA5NgELN2inBQGslPsvAK6f
-L7AAkSOyYh4eqXZdRQCcUL4qDzsjNDTpvCXJkpuGws93foXJQSWchJtPwblRSohd
-uZlvGMtAZntMQLV/Lckwg0cNvVNf1SRSRofyLYAujWsrJAFUnYcKl2X8IE1yj0MH
-ATOnwEgVm8SDuBFxJsQ2
-=PUpB
------END PGP SIGNATURE-----
-
---=-slv+psxXWXxJ0tUuEfqg--
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index e04fe09d7c2e..b86ee54da2d1 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -277,6 +277,11 @@ int load_bpf_file(char *path)
+ 	Elf_Data *data, *data_prog, *symbols = NULL;
+ 	char *shname, *shname_prog;
+ 
++	/* reset global variables */
++	kern_version = 0;
++	memset(license, 0, sizeof(license));
++	memset(processed_sec, 0, sizeof(processed_sec));
++
+ 	if (elf_version(EV_CURRENT) == EV_NONE)
+ 		return 1;
+ 
+-- 
+2.11.0
