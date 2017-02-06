@@ -1,124 +1,155 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next V2 5/6] net/mlx5e: XDP Tx, no inline copy on ConnectX-5
-Date: Tue,  7 Feb 2017 01:38:28 +0200
-Message-ID: <20170206233829.29716-6-saeedm@mellanox.com>
+Subject: [net-next V2 3/6] net/mlx5: TX WQE update
+Date: Tue,  7 Feb 2017 01:38:26 +0200
+Message-ID: <20170206233829.29716-4-saeedm@mellanox.com>
 References: <20170206233829.29716-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52047 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52052 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751524AbdBFXjB (ORCPT
+        with ESMTP id S1751588AbdBFXjB (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 18:39:01 -0500
 In-Reply-To: <20170206233829.29716-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ConnectX-5 and later HW generations will report min inline mode ==
-MLX5_INLINE_MODE_NONE, which means driver is not required to copy packet
-headers to inline fields of TX WQE.
+Add new TX WQE fields for Connect-X5 vlan insertion support,
+type and vlan_tci, when type = MLX5_ETH_WQE_INSERT_VLAN the
+HW will insert the vlan and prio fields (vlan_tci) to the packet.
 
-Avoid copy to inline segment in XDP TX routine when HW inline mode doesn't
-require it.
-
-This will improve CPU utilization and boost XDP TX performance.
-
-Tested with xdp2 single flow:
-CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
-HCA: Mellanox Technologies MT28800 Family [ConnectX-5 Ex]
-
-Before: 7.4Mpps
-After:  7.8Mpps
-Improvement: 5%
+Those bits and the inline header fields are mutually exclusive, and
+valid only when:
+MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_NOT_REQUIRED
+and MLX5_CAP_ETH(mdev, wqe_vlan_insert),
+who will be set in ConnectX-5 and later HW generations.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  3 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  3 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 20 +++++++++++++-------
- 3 files changed, 15 insertions(+), 11 deletions(-)
+ drivers/infiniband/hw/mlx5/qp.c                 |  6 +++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |  4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |  8 ++++----
+ include/linux/mlx5/mlx5_ifc.h                   |  3 ++-
+ include/linux/mlx5/qp.h                         | 16 ++++++++++++++--
+ 5 files changed, 25 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 9b23d3329847..8be4b12b5545 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -120,8 +120,7 @@
- #define MLX5E_XDP_IHS_DS_COUNT \
- 	DIV_ROUND_UP(MLX5E_XDP_MIN_INLINE - 2, MLX5_SEND_WQE_DS)
- #define MLX5E_XDP_TX_DS_COUNT \
--	(MLX5E_XDP_IHS_DS_COUNT + \
--	 (sizeof(struct mlx5e_tx_wqe) / MLX5_SEND_WQE_DS) + 1 /* SG DS */)
-+	((sizeof(struct mlx5e_tx_wqe) / MLX5_SEND_WQE_DS) + 1 /* SG DS */)
- #define MLX5E_XDP_TX_WQEBBS \
- 	DIV_ROUND_UP(MLX5E_XDP_TX_DS_COUNT, MLX5_SEND_WQEBB_NUM_DS)
+diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
+index 6a83fb32599d..e31bf11ae64f 100644
+--- a/drivers/infiniband/hw/mlx5/qp.c
++++ b/drivers/infiniband/hw/mlx5/qp.c
+@@ -2984,20 +2984,20 @@ static void *set_eth_seg(struct mlx5_wqe_eth_seg *eseg,
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 9cd38401fdc9..ed230757d9c5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1806,8 +1806,7 @@ static void mlx5e_build_xdpsq_param(struct mlx5e_priv *priv,
- 	MLX5_SET(wq, wq, log_wq_sz,     priv->params.log_sq_size);
+ 	if (wr->opcode == IB_WR_LSO) {
+ 		struct ib_ud_wr *ud_wr = container_of(wr, struct ib_ud_wr, wr);
+-		int size_of_inl_hdr_start = sizeof(eseg->inline_hdr_start);
++		int size_of_inl_hdr_start = sizeof(eseg->inline_hdr.start);
+ 		u64 left, leftlen, copysz;
+ 		void *pdata = ud_wr->header;
  
- 	param->max_inline = priv->params.tx_max_inline;
--	/* FOR XDP SQs will support only L2 inline mode */
--	param->min_inline_mode = MLX5_INLINE_MODE_NONE;
-+	param->min_inline_mode = priv->params.tx_min_inline_mode;
- 	param->type = MLX5E_SQ_XDP;
- }
+ 		left = ud_wr->hlen;
+ 		eseg->mss = cpu_to_be16(ud_wr->mss);
+-		eseg->inline_hdr_sz = cpu_to_be16(left);
++		eseg->inline_hdr.sz = cpu_to_be16(left);
  
+ 		/*
+ 		 * check if there is space till the end of queue, if yes,
+ 		 * copy all in one shot, otherwise copy till the end of queue,
+ 		 * rollback and than the copy the left
+ 		 */
+-		leftlen = qend - (void *)eseg->inline_hdr_start;
++		leftlen = qend - (void *)eseg->inline_hdr.start;
+ 		copysz = min_t(u64, leftlen, left);
+ 
+ 		memcpy(seg - size_of_inl_hdr_start, pdata, copysz);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 965e69e9ff1e..b039b87742a6 100644
+index fd8dff6acc12..965e69e9ff1e 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -657,9 +657,10 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
- 	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
- 	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
- 	struct mlx5_wqe_data_seg *dseg;
-+	u8 ds_cnt = MLX5E_XDP_TX_DS_COUNT;
- 
- 	ptrdiff_t data_offset = xdp->data - xdp->data_hard_start;
--	dma_addr_t dma_addr  = di->addr + data_offset + MLX5E_XDP_MIN_INLINE;
-+	dma_addr_t dma_addr  = di->addr + data_offset;
- 	unsigned int dma_len = xdp->data_end - xdp->data;
- 
- 	if (unlikely(dma_len < MLX5E_XDP_MIN_INLINE ||
-@@ -680,17 +681,22 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
- 		return false;
- 	}
- 
--	dma_len -= MLX5E_XDP_MIN_INLINE;
- 	dma_sync_single_for_device(sq->pdev, dma_addr, dma_len,
- 				   PCI_DMA_TODEVICE);
- 
+@@ -687,8 +687,8 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
  	memset(wqe, 0, sizeof(*wqe));
  
--	/* copy the inline part */
--	memcpy(eseg->inline_hdr.start, xdp->data, MLX5E_XDP_MIN_INLINE);
--	eseg->inline_hdr.sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
-+	dseg = (struct mlx5_wqe_data_seg *)eseg + 1;
-+	/* copy the inline part if required */
-+	if (sq->min_inline_mode != MLX5_INLINE_MODE_NONE) {
-+		memcpy(eseg->inline_hdr.start, xdp->data, MLX5E_XDP_MIN_INLINE);
-+		eseg->inline_hdr.sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
-+		dma_len  -= MLX5E_XDP_MIN_INLINE;
-+		dma_addr += MLX5E_XDP_MIN_INLINE;
+ 	/* copy the inline part */
+-	memcpy(eseg->inline_hdr_start, xdp->data, MLX5E_XDP_MIN_INLINE);
+-	eseg->inline_hdr_sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
++	memcpy(eseg->inline_hdr.start, xdp->data, MLX5E_XDP_MIN_INLINE);
++	eseg->inline_hdr.sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
  
--	dseg = (struct mlx5_wqe_data_seg *)cseg + (MLX5E_XDP_TX_DS_COUNT - 1);
-+		ds_cnt   += MLX5E_XDP_IHS_DS_COUNT;
-+		dseg++;
-+	}
+ 	dseg = (struct mlx5_wqe_data_seg *)cseg + (MLX5E_XDP_TX_DS_COUNT - 1);
  
- 	/* write the dma part */
- 	dseg->addr       = cpu_to_be64(dma_addr);
-@@ -698,7 +704,7 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
- 	dseg->lkey       = sq->mkey_be;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index cfb68371c397..678c07c8fbb0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -284,18 +284,18 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 	wi->num_bytes = num_bytes;
  
- 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | MLX5_OPCODE_SEND);
--	cseg->qpn_ds = cpu_to_be32((sq->sqn << 8) | MLX5E_XDP_TX_DS_COUNT);
-+	cseg->qpn_ds = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+ 	if (skb_vlan_tag_present(skb)) {
+-		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
++		mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data,
+ 				  &skb_len);
+ 		ihs += VLAN_HLEN;
+ 	} else {
+-		memcpy(eseg->inline_hdr_start, skb_data, ihs);
++		memcpy(eseg->inline_hdr.start, skb_data, ihs);
+ 		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
+ 	}
  
- 	sq->db.xdp.di[pi] = *di;
- 	wi->opcode     = MLX5_OPCODE_SEND;
+-	eseg->inline_hdr_sz = cpu_to_be16(ihs);
++	eseg->inline_hdr.sz = cpu_to_be16(ihs);
+ 
+ 	ds_cnt  = sizeof(*wqe) / MLX5_SEND_WQE_DS;
+-	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr_start),
++	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start),
+ 			       MLX5_SEND_WQE_DS);
+ 	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
+ 
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index cc8ae860cd45..afcd4736d8df 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -577,7 +577,8 @@ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
+ 	u8         lro_cap[0x1];
+ 	u8         lro_psh_flag[0x1];
+ 	u8         lro_time_stamp[0x1];
+-	u8         reserved_at_5[0x3];
++	u8         reserved_at_5[0x2];
++	u8         wqe_vlan_insert[0x1];
+ 	u8         self_lb_en_modifiable[0x1];
+ 	u8         reserved_at_9[0x2];
+ 	u8         max_lso_cap[0x5];
+diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
+index 219c699c17b7..3096370fe831 100644
+--- a/include/linux/mlx5/qp.h
++++ b/include/linux/mlx5/qp.h
+@@ -221,14 +221,26 @@ enum {
+ 	MLX5_ETH_WQE_L4_CSUM            = 1 << 7,
+ };
+ 
++enum {
++	MLX5_ETH_WQE_INSERT_VLAN        = 1 << 15,
++};
++
+ struct mlx5_wqe_eth_seg {
+ 	u8              rsvd0[4];
+ 	u8              cs_flags;
+ 	u8              rsvd1;
+ 	__be16          mss;
+ 	__be32          rsvd2;
+-	__be16          inline_hdr_sz;
+-	u8              inline_hdr_start[2];
++	union {
++		struct {
++			__be16 sz;
++			u8     start[2];
++		} inline_hdr;
++		struct {
++			__be16 type;
++			__be16 vlan_tci;
++		} insert;
++	};
+ };
+ 
+ struct mlx5_wqe_xrc_seg {
 -- 
 2.11.0
