@@ -1,48 +1,33 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: [PATCH net-next] sfc: don't rearm interrupts if busy polling
-Date: Mon, 6 Feb 2017 16:50:55 +0000
-Message-ID: <ccee0048-9399-3d13-8274-790833b992d9@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sctp: process fwd tsn chunk only when prsctp
+ is enabled
+Date: Mon, 06 Feb 2017 11:57:29 -0500 (EST)
+Message-ID: <20170206.115729.1722855528495817146.davem@davemloft.net>
+References: <16dcae6a3bff4b7e4c6d37bfa7dba217d5ca34b7.1486114626.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Solarflare Linux Maintainers <linux-net-drivers@solarflare.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Dave Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:24963 "EHLO
-        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751001AbdBFQvM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 11:51:12 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:43026 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750950AbdBFQ5c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 11:57:32 -0500
+In-Reply-To: <16dcae6a3bff4b7e4c6d37bfa7dba217d5ca34b7.1486114626.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 364b6055738b ("net: busy-poll: return busypolling status
-to drivers"), napi_complete_done() returns a boolean that can be used
-by drivers to conditionally rearm interrupts.
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri,  3 Feb 2017 17:37:06 +0800
 
-Testing with a 7142 shows a small latency improvement of ~100 ns.
+> This patch is to check if asoc->peer.prsctp_capable is set before
+> processing fwd tsn chunk, if not, it will return an ERROR to the
+> peer, just as rfc3758 section 3.3.1 demands.
+> 
+> Reported-by: Julian Cordes <julian.cordes@gmail.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Signed-off-by: Bert Kenward <bkenward@solarflare.com>
-Cc: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/sfc/efx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index fcd4eeecfef4..c28cd9daf949 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -328,8 +328,8 @@ static int efx_poll(struct napi_struct *napi, int budget)
- 		 * since efx_nic_eventq_read_ack() will have no effect if
- 		 * interrupts have already been disabled.
- 		 */
--		napi_complete_done(napi, spent);
--		efx_nic_eventq_read_ack(channel);
-+		if (napi_complete_done(napi, spent))
-+			efx_nic_eventq_read_ack(channel);
- 	}
- 
- 	return spent;
--- 
-2.7.4
+Applied.
