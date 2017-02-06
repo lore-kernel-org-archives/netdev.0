@@ -1,63 +1,52 @@
-From: Mao Wenan <maowenan@huawei.com>
-Subject: [PATCH net-next] ixgbevf and 82598 relax order mode support
-Date: Mon, 6 Feb 2017 16:13:01 +0800
-Message-ID: <1486368781-10228-1-git-send-email-maowenan@huawei.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
+Date: Mon, 6 Feb 2017 09:28:22 +0100
+Message-ID: <20170206082822.GA23451@kroah.com>
+References: <20170204165451.GU3442@decadent.org.uk>
+ <20170204165603.GV3442@decadent.org.uk>
+ <20170205003038.GB21184@kroah.com>
+ <20170206081444.smcgjkmdepxoosb6@p310>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <alexander.duyck@gmail.com>,
-        <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org,
+        Lisandro =?iso-8859-1?Q?Dami=E1n_Nicanor_P=E9rez?= Meyer
+        <lisandro@debian.org>
+To: Petko Manolov <petkan@nucleusys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:46347 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750949AbdBFINW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 03:13:22 -0500
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:38398 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750909AbdBFI33 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 03:29:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20170206081444.smcgjkmdepxoosb6@p310>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows one to use common macro
-CONFIG_ARCH_WANT_RELAX_ORDER to enable
-relax order mode with ixgbevf and 82598.
+On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
+> On 17-02-05 01:30:39, Greg KH wrote:
+> > On Sat, Feb 04, 2017 at 04:56:03PM +0000, Ben Hutchings wrote:
+> > > Allocating USB buffers on the stack is not portable, and no longer
+> > > works on x86_64 (with VMAP_STACK enabled as per default).
+> > 
+> > It's never worked on other platforms, so these should go to the stable 
+> > releases please.
+> 
+> As far as i know both drivers works fine on other platforms, though I only 
+> tested it on arm and mipsel. ;)
 
-Signed-off-by: Mao Wenan <maowenan@huawei.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    | 4 ++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+It all depends on the arm and mips platforms, the ones that can not DMA
+from stack memory are the ones that would always fail here (since the
+2.2 kernel days).
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 523f9d0..167d1fc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -175,7 +175,7 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
- {
--#ifndef CONFIG_SPARC
-+#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
- 	u32 regval;
- 	u32 i;
- #endif
-@@ -183,7 +183,7 @@ static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
- 
- 	ret_val = ixgbe_start_hw_generic(hw);
- 
--#ifndef CONFIG_SPARC
-+#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
- 	/* Disable relaxed ordering */
- 	for (i = 0; ((i < hw->mac.max_tx_queues) &&
- 	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index b068635..0efbf0b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1765,7 +1765,7 @@ static void ixgbevf_configure_rx_ring(struct ixgbevf_adapter *adapter,
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRDLEN(reg_idx),
- 			ring->count * sizeof(union ixgbe_adv_rx_desc));
- 
--#ifndef CONFIG_SPARC
-+#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
- 	/* enable relaxed ordering */
- 	IXGBE_WRITE_REG(hw, IXGBE_VFDCA_RXCTRL(reg_idx),
- 			IXGBE_DCA_RXCTRL_DESC_RRO_EN);
--- 
-2.7.0
+> Random thought: isn't it better to add the alloc/free code in usb_control_msg() 
+> and avoid code duplication all over the driver space?
+
+A very long time ago we considered it, but realized that the majority of
+drivers already had the memory dynamically allocated, so we just went
+with this.  Perhaps we could revisit that if it turns out we were wrong,
+and would simplify things.
+
+thanks,
+
+greg k-h
