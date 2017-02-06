@@ -1,86 +1,62 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
-Date: Mon, 6 Feb 2017 10:10:07 +0200
-Message-ID: <20170206081007.3isiato45t7fnzre@p310>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165631.GW3442@decadent.org.uk>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH iproute2/net-next 7/7] tc: flower: Support matching on ND
+Date: Mon, 6 Feb 2017 10:44:59 +0100
+Message-ID: <20170206094459.GA2024@nanopsycho>
+References: <1486031920-10784-1-git-send-email-simon.horman@netronome.com>
+ <1486031920-10784-8-git-send-email-simon.horman@netronome.com>
+ <20170202172748.GE1845@nanopsycho.orion>
+ <20170206084359.GA20384@penelope.horms.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([92.247.61.126]:54198 "EHLO
-        zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751247AbdBFIyo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 03:54:44 -0500
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36190 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750980AbdBFJpC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 04:45:02 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r18so20806714wmd.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 01:45:02 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20170204165631.GW3442@decadent.org.uk>
+In-Reply-To: <20170206084359.GA20384@penelope.horms.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-02-04 16:56:32, Ben Hutchings wrote:
-> Allocating USB buffers on the stack is not portable, and no longer
-> works on x86_64 (with VMAP_STACK enabled as per default).
-> 
-> Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
->  drivers/net/usb/rtl8150.c | 34 +++++++++++++++++++++++++++-------
->  1 file changed, 27 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-> index 95b7bd0d7abc..c81c79110cef 100644
-> --- a/drivers/net/usb/rtl8150.c
-> +++ b/drivers/net/usb/rtl8150.c
-> @@ -155,16 +155,36 @@ static const char driver_name [] = "rtl8150";
->  */
->  static int get_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
->  {
-> -	return usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> -			       RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
-> -			       indx, 0, data, size, 500);
-> +	void *buf;
-> +	int ret;
-> +
-> +	buf = kmalloc(size, GFP_NOIO);
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> +			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
-> +			      indx, 0, buf, size, 500);
-> +	if (ret > 0 && ret <= size)
-> +		memcpy(data, buf, ret);
-> +	kfree(buf);
-> +	return ret;
->  }
->  
-> -static int set_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
-> +static int set_registers(rtl8150_t * dev, u16 indx, u16 size, const void *data)
->  {
-> -	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
-> -			       RTL8150_REQ_SET_REGS, RTL8150_REQT_WRITE,
-> -			       indx, 0, data, size, 500);
-> +	void *buf;
-> +	int ret;
-> +
-> +	buf = kmemdup(data, size, GFP_NOIO);
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	ret = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
-> +			      RTL8150_REQ_SET_REGS, RTL8150_REQT_WRITE,
-> +			      indx, 0, buf, size, 500);
-> +	kfree(buf);
-> +	return ret;
->  }
->  
->  static void async_set_reg_cb(struct urb *urb)
-> 
+Mon, Feb 06, 2017 at 09:44:00AM CET, simon.horman@netronome.com wrote:
+>On Thu, Feb 02, 2017 at 06:27:48PM +0100, Jiri Pirko wrote:
+>> Thu, Feb 02, 2017 at 11:38:40AM CET, simon.horman@netronome.com wrote:
+>> >Allow matching on Neighbour Discovery target IP, and source and
+>> >destination link-layer addresses for neighbour solicitation and
+>> >advertisement messages.
+>> >
+>> >Sample usage:
+>> >
+>> >tc qdisc add dev eth0 ingress
+>> >
+>> >tc filter add dev eth0 protocol ipv6 parent ffff: flower \
+>> >	indev eth0 ip_proto icmpv6 type 136 code 0 \
+>> >	nd_target 2001:470:7eb3:403:201:8eff:fe22:8fea \
+>> >	nd_tll 00:01:8e:22:8f:ea action drop
+>> >
+>> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>> 
+>> 
+>> Why you are adding this to iproute2? You only poster RFC for kernel.
+>> 
+>> Please push to kernel first, let it merge, then send iproute2 support.
+>
+>Hi Jiri,
+>
+>I think there is a value in making the user-space code available in
+>parallel with the kernel changes to allow testing and so by any interested
+>parties.
+
+Then mark it "RFC".
 
 
-ACK.
-
-
-cheers,
-Petko
+>
+>If this is not acceptable I'm happy to stop doing so. But in my ideal world
+>I'd be very happy to see other TC kernel updates accompanied by
+>implementations their user-space tool counterparts.
