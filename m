@@ -1,36 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2017-02-06,pull-request: can-next
- 2017-02-06
-Date: Mon, 06 Feb 2017 11:12:59 -0500 (EST)
-Message-ID: <20170206.111259.2261971436931731059.davem@davemloft.net>
-References: <2b600a5b-f928-fe73-5b30-8b2fc1398068@pengutronix.de>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH net-next] ipv6: sr: fix non static symbol warnings
+Date: Mon,  6 Feb 2017 16:15:05 +0000
+Message-ID: <20170206161505.10457-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-        linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <2b600a5b-f928-fe73-5b30-8b2fc1398068@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36207 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751372AbdBFQPN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 11:15:13 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 75so9457126pgf.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 08:15:13 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Mon, 6 Feb 2017 15:50:48 +0100
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-> this is a pull request of 16 patches for net-next/master.
-> 
-> The first two patches by David Jander and me add the rx-offload
-> framework for CAN devices to the kernel. The remaining 14 patches
-> convert the flexcan driver to make use of it.
+Fixes the following sparse warnings:
 
-Pulled, but I wonder if your comparisons does the right thing when the
-counters overflow.
+net/ipv6/seg6_iptunnel.c:58:5: warning:
+ symbol 'nla_put_srh' was not declared. Should it be static?
+net/ipv6/seg6_iptunnel.c:238:5: warning:
+ symbol 'seg6_input' was not declared. Should it be static?
+net/ipv6/seg6_iptunnel.c:254:5: warning:
+ symbol 'seg6_output' was not declared. Should it be static?
 
-I think you need to do the same thing we do for TCP sequence number
-comparisons and code it like:
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ net/ipv6/seg6_iptunnel.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-static inline bool before(__u32 seq1, __u32 seq2)
-{
-        return (__s32)(seq1-seq2) < 0;
-}
+diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
+index 6124e15..8558225 100644
+--- a/net/ipv6/seg6_iptunnel.c
++++ b/net/ipv6/seg6_iptunnel.c
+@@ -55,8 +55,8 @@ static const struct nla_policy seg6_iptunnel_policy[SEG6_IPTUNNEL_MAX + 1] = {
+ 	[SEG6_IPTUNNEL_SRH]	= { .type = NLA_BINARY },
+ };
+ 
+-int nla_put_srh(struct sk_buff *skb, int attrtype,
+-		struct seg6_iptunnel_encap *tuninfo)
++static int nla_put_srh(struct sk_buff *skb, int attrtype,
++		       struct seg6_iptunnel_encap *tuninfo)
+ {
+ 	struct seg6_iptunnel_encap *data;
+ 	struct nlattr *nla;
+@@ -235,7 +235,7 @@ static int seg6_do_srh(struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-int seg6_input(struct sk_buff *skb)
++static int seg6_input(struct sk_buff *skb)
+ {
+ 	int err;
+ 
+@@ -251,7 +251,7 @@ int seg6_input(struct sk_buff *skb)
+ 	return dst_input(skb);
+ }
+ 
+-int seg6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
++static int seg6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct dst_entry *orig_dst = skb_dst(skb);
+ 	struct dst_entry *dst = NULL;
