@@ -1,53 +1,53 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
-Date: Mon, 6 Feb 2017 14:32:23 +0100
-Message-ID: <20170206133223.GC3038@localhost>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165603.GV3442@decadent.org.uk>
- <20170205003038.GB21184@kroah.com>
- <20170206081444.smcgjkmdepxoosb6@p310>
- <20170206082822.GA23451@kroah.com>
- <20170206125108.d5vdur5rlvrkpr5j@localhost>
- <20170206132124.GA3038@localhost>
+From: Jonas Bonn <jonas@southpole.se>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Mon, 6 Feb 2017 14:33:07 +0100
+Message-ID: <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
+References: <20170203091231.10142-1-jonas@southpole.se>
+ <20170206110858.GA3896@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Ben Hutchings <ben@decadent.org.uk>,
-        netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        Lisandro =?iso-8859-1?Q?Dami=E1n_Nicanor_P=E9rez?= Meyer
-        <lisandro@debian.org>
-To: Petko Manolov <petkan@nucleusys.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: laforge@gnumonks.org, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:34783 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751528AbdBFNc0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 08:32:26 -0500
-Content-Disposition: inline
-In-Reply-To: <20170206132124.GA3038@localhost>
+Received: from mail.southpole.se ([37.247.8.11]:48070 "EHLO mail.southpole.se"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752764AbdBFNdM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 08:33:12 -0500
+In-Reply-To: <20170206110858.GA3896@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 06, 2017 at 02:21:24PM +0100, Johan Hovold wrote:
-> On Mon, Feb 06, 2017 at 02:51:09PM +0200, Petko Manolov wrote:
-> > On 17-02-06 09:28:22, Greg KH wrote:
-> > > On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
-> 
-> > > > Random thought: isn't it better to add the alloc/free code in 
-> > > > usb_control_msg() and avoid code duplication all over the driver space?
-> > > 
-> > > A very long time ago we considered it, but realized that the majority of 
-> > > drivers already had the memory dynamically allocated, so we just went with 
-> > > this.  Perhaps we could revisit that if it turns out we were wrong, and would 
-> > > simplify things.
-> > 
-> > A quick glance at usb_control_msg() users (looked only at .../net/usb and 
-> > .../usb/serial) shows that most of them have the buffer allocated in stack.  
-> 
-> That's simply not true at all for usb-serial. If you find an instance
-> were a stack allocated buffer is used for DMA that hasn't yet been
-> fixed in USB serial, then please point it out so we can fix it up (I
-> doubt you'll find one, though).
+Hi Pablo,
 
-Heh, I just found one myself (in ark3116) that I'll fix up. Please let
-me know if you find any more.
+On 02/06/2017 12:08 PM, Pablo Neira Ayuso wrote:
+> Hi Jonas,
+>
+> On Fri, Feb 03, 2017 at 10:12:31AM +0100, Jonas Bonn wrote:
+>> The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
+>> contexts based on the incoming packets _destination_ address.  If we
+>> want to write an SGSN, then we want to be idenityfing PDP contexts
+>> based on _source_ address.
+>>
+>> This patch adds a "flags" argument at GTP-link creation time to specify
+>> whether we are on the GGSN or SGSN side of the tunnel; this flag is then
+>> used to determine which part of the IP packet to use in determining
+>> the PDP context.
+> So far the implementation that I saw in osmocom relies on userspace code
+> to tunnel data from ME to the SSGN/SGW running on the base station.
+>
+> The data we get from GGSN -> SGSN needs to be places into a SN-PDU (via
+> SNDCP) when sending it to the BTS, right? So I wonder how this can be
+> useful given that we would need to see real IP packets coming to the
+> SSGN that we tunnel into GTP.
 
-Johan
+Fair enough.  The use-case I am looking at involves PGW load-testing 
+where the simulated load is generated locally on the SGSN so it _is_ 
+seeing IP packets and the SNDCP is left out altogether.  Perhaps this is 
+too pathological to warrant messing with the upstream driver... I don't 
+know: the symmetry does not cost much even if it's of limited use.
+
+Couldn't the SNDCP theoretically be a separate node and push IP packets 
+to the SGSN, thus making this useful?  Perhaps it's a stretch...
+
+/Jonas
