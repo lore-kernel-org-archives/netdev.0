@@ -1,131 +1,79 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v3 02/12] bnxt_en: Don't use DEFINE_DMA_UNMAP_ADDR to store DMA address in RX path.
-Date: Mon,  6 Feb 2017 16:55:33 -0500
-Message-ID: <1486418143-8958-3-git-send-email-michael.chan@broadcom.com>
-References: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip route: Make name of protocol 0 consistent
+Date: Mon, 6 Feb 2017 14:01:07 -0800
+Message-ID: <20170206140107.41569a73@xeon-e3>
+References: <1486056126-23900-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:34328 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751975AbdBFV4B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:56:01 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 14so31836015pgg.1
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:56:01 -0800 (PST)
-In-Reply-To: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:35069 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751813AbdBFWBP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 17:01:15 -0500
+Received: by mail-pg0-f49.google.com with SMTP id 194so31867278pgd.2
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 14:01:15 -0800 (PST)
+In-Reply-To: <1486056126-23900-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To support XDP_TX, we need the RX buffer's DMA address to transmit the
-packet.  Convert the DMA address field to a permanent field in
-bnxt_sw_rx_bd.
+On Thu,  2 Feb 2017 09:22:06 -0800
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 21 +++++++++------------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 +-
- 2 files changed, 10 insertions(+), 13 deletions(-)
+> iproute2 can inconsistently show the name of protocol 0 if a route with
+> a custom protocol is added. For example:
+>   dsa@cartman:~$ ip -6 ro ls table all | egrep 'proto none|proto unspec'
+>   local ::1 dev lo  table local  proto none  metric 0  pref medium
+>   local fe80::225:90ff:fecb:1c18 dev lo  table local  proto none  metric 0  pref medium
+>   local fe80::92e2:baff:fe5c:da5d dev lo  table local  proto none  metric 0  pref medium
+> 
+> protocol 0 is pretty printed as "none". Add a route with a custom protocol:
+>   dsa@cartman:~$ sudo ip -6 ro add  2001:db8:200::1/128 dev eth0 proto 123
+> 
+> And now display has switched from "none" to "unspec":
+>   dsa@cartman:~$ ip -6 ro ls table all | egrep 'proto none|proto unspec'
+>   local ::1 dev lo  table local  proto unspec  metric 0  pref medium
+>   local fe80::225:90ff:fecb:1c18 dev lo  table local  proto unspec  metric 0  pref medium
+>   local fe80::92e2:baff:fe5c:da5d dev lo  table local  proto unspec  metric 0  pref medium
+> 
+> The rt_protos file has the id to name mapping as "unspec" while
+> rtnl_rtprot_tab[0] has "none". The presence of a custom protocol id
+> triggers reading the rt_protos file and overwriting the string in
+> rtnl_rtprot_tab. All of this is logic from 2004 and earlier.
+> 
+> The simplest change to achieve consistency is to update the rt_protos
+> file to use "none" instead of "unspec".
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  etc/iproute2/rt_protos | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/etc/iproute2/rt_protos b/etc/iproute2/rt_protos
+> index 82cf9c46cf6f..21af85b9d7e1 100644
+> --- a/etc/iproute2/rt_protos
+> +++ b/etc/iproute2/rt_protos
+> @@ -1,7 +1,7 @@
+>  #
+>  # Reserved protocols.
+>  #
+> -0	unspec
+> +0	none
+>  1	redirect
+>  2	kernel
+>  3	boot
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 94f3d78..43eb52ce 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -608,7 +608,7 @@ static inline int bnxt_alloc_rx_data(struct bnxt *bp,
- 
- 	rx_buf->data = data;
- 	rx_buf->data_ptr = data + BNXT_RX_OFFSET;
--	dma_unmap_addr_set(rx_buf, mapping, mapping);
-+	rx_buf->mapping = mapping;
- 
- 	rxbd->rx_bd_haddr = cpu_to_le64(mapping);
- 
-@@ -628,8 +628,7 @@ static void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons,
- 	prod_rx_buf->data = data;
- 	prod_rx_buf->data_ptr = cons_rx_buf->data_ptr;
- 
--	dma_unmap_addr_set(prod_rx_buf, mapping,
--			   dma_unmap_addr(cons_rx_buf, mapping));
-+	prod_rx_buf->mapping = cons_rx_buf->mapping;
- 
- 	prod_bd = &rxr->rx_desc_ring[RX_RING(prod)][RX_IDX(prod)];
- 	cons_bd = &rxr->rx_desc_ring[RX_RING(cons)][RX_IDX(cons)];
-@@ -816,7 +815,7 @@ static struct sk_buff *bnxt_rx_pages(struct bnxt *bp, struct bnxt_napi *bnapi,
- 		 * a sw_prod index that equals the cons index, so we
- 		 * need to clear the cons entry now.
- 		 */
--		mapping = dma_unmap_addr(cons_rx_buf, mapping);
-+		mapping = cons_rx_buf->mapping;
- 		page = cons_rx_buf->page;
- 		cons_rx_buf->page = NULL;
- 
-@@ -959,7 +958,7 @@ static void bnxt_tpa_start(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
- 	prod_rx_buf->data_ptr = tpa_info->data_ptr;
- 
- 	mapping = tpa_info->mapping;
--	dma_unmap_addr_set(prod_rx_buf, mapping, mapping);
-+	prod_rx_buf->mapping = mapping;
- 
- 	prod_bd = &rxr->rx_desc_ring[RX_RING(prod)][RX_IDX(prod)];
- 
-@@ -968,7 +967,7 @@ static void bnxt_tpa_start(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
- 	tpa_info->data = cons_rx_buf->data;
- 	tpa_info->data_ptr = cons_rx_buf->data_ptr;
- 	cons_rx_buf->data = NULL;
--	tpa_info->mapping = dma_unmap_addr(cons_rx_buf, mapping);
-+	tpa_info->mapping = cons_rx_buf->mapping;
- 
- 	tpa_info->len =
- 		le32_to_cpu(tpa_start->rx_tpa_start_cmp_len_flags_type) >>
-@@ -1405,7 +1404,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
- 	}
- 
- 	len = le32_to_cpu(rxcmp->rx_cmp_len_flags_type) >> RX_CMP_LEN_SHIFT;
--	dma_addr = dma_unmap_addr(rx_buf, mapping);
-+	dma_addr = rx_buf->mapping;
- 
- 	if (len <= bp->rx_copy_thresh) {
- 		skb = bnxt_copy_skb(bnapi, data_ptr, len, dma_addr);
-@@ -1881,7 +1880,7 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
- 
- 				dma_unmap_single(
- 					&pdev->dev,
--					dma_unmap_addr(tpa_info, mapping),
-+					tpa_info->mapping,
- 					bp->rx_buf_use_size,
- 					PCI_DMA_FROMDEVICE);
- 
-@@ -1898,8 +1897,7 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
- 			if (!data)
- 				continue;
- 
--			dma_unmap_single(&pdev->dev,
--					 dma_unmap_addr(rx_buf, mapping),
-+			dma_unmap_single(&pdev->dev, rx_buf->mapping,
- 					 bp->rx_buf_use_size,
- 					 PCI_DMA_FROMDEVICE);
- 
-@@ -1916,8 +1914,7 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
- 			if (!page)
- 				continue;
- 
--			dma_unmap_page(&pdev->dev,
--				       dma_unmap_addr(rx_agg_buf, mapping),
-+			dma_unmap_page(&pdev->dev, rx_agg_buf->mapping,
- 				       BNXT_RX_PAGE_SIZE, PCI_DMA_FROMDEVICE);
- 
- 			rx_agg_buf->page = NULL;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 11b5a4a..b4a04a3 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -518,7 +518,7 @@ struct bnxt_sw_tx_bd {
- struct bnxt_sw_rx_bd {
- 	void			*data;
- 	u8			*data_ptr;
--	DEFINE_DMA_UNMAP_ADDR(mapping);
-+	dma_addr_t		mapping;
- };
- 
- struct bnxt_sw_rx_agg_bd {
--- 
-1.8.3.1
+This doesn't look like a good solution, you loose the value of unspec.
+
+Just to clarify. You added a custom protocol value to netlink.
+And then you are using upstream iproute2 source to display the value.
+
+The correct behavior in that case would be for upstream ip route show command to display
+a numeric value (rather than a symbolic name).
+
+But if you are shipping your own version of iproute then add an additional entry
+to rt_protos with your new name, and for sanity update the local copy of rtnetlink.h
+
+Of course, submitting your custom protocol upstream is the best long term solution.
