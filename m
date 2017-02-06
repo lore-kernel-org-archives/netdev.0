@@ -1,111 +1,131 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v3 04/12] bnxt_en: Parameterize RX buffer offsets.
-Date: Mon,  6 Feb 2017 16:55:35 -0500
-Message-ID: <1486418143-8958-5-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v3 02/12] bnxt_en: Don't use DEFINE_DMA_UNMAP_ADDR to store DMA address in RX path.
+Date: Mon,  6 Feb 2017 16:55:33 -0500
+Message-ID: <1486418143-8958-3-git-send-email-michael.chan@broadcom.com>
 References: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33467 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751365AbdBFV4D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:56:03 -0500
-Received: by mail-pf0-f180.google.com with SMTP id y143so26957831pfb.0
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:56:03 -0800 (PST)
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:34328 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751975AbdBFV4B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:56:01 -0500
+Received: by mail-pg0-f46.google.com with SMTP id 14so31836015pgg.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:56:01 -0800 (PST)
 In-Reply-To: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert the global constants BNXT_RX_OFFSET and BNXT_RX_DMA_OFFSET to
-device parameters.  This will make it easier to support XDP with
-headroom support which requires different RX buffer offsets.
+To support XDP_TX, we need the RX buffer's DMA address to transmit the
+packet.  Convert the DMA address field to a permanent field in
+bnxt_sw_rx_bd.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 15 +++++++++------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 ++
- 2 files changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 21 +++++++++------------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 +-
+ 2 files changed, 10 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index ee2cada..c0f2167 100644
+index 94f3d78..43eb52ce 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -583,7 +583,7 @@ static inline u8 *__bnxt_alloc_rx_data(struct bnxt *bp, dma_addr_t *mapping,
- 	if (!data)
- 		return NULL;
- 
--	*mapping = dma_map_single(&pdev->dev, data + BNXT_RX_DMA_OFFSET,
-+	*mapping = dma_map_single(&pdev->dev, data + bp->rx_dma_offset,
- 				  bp->rx_buf_use_size, bp->rx_dir);
- 
- 	if (dma_mapping_error(&pdev->dev, *mapping)) {
-@@ -607,7 +607,7 @@ static inline int bnxt_alloc_rx_data(struct bnxt *bp,
- 		return -ENOMEM;
+@@ -608,7 +608,7 @@ static inline int bnxt_alloc_rx_data(struct bnxt *bp,
  
  	rx_buf->data = data;
--	rx_buf->data_ptr = data + BNXT_RX_OFFSET;
-+	rx_buf->data_ptr = data + bp->rx_offset;
- 	rx_buf->mapping = mapping;
+ 	rx_buf->data_ptr = data + BNXT_RX_OFFSET;
+-	dma_unmap_addr_set(rx_buf, mapping, mapping);
++	rx_buf->mapping = mapping;
  
  	rxbd->rx_bd_haddr = cpu_to_le64(mapping);
-@@ -778,7 +778,7 @@ static struct sk_buff *bnxt_rx_skb(struct bnxt *bp,
- 		return NULL;
+ 
+@@ -628,8 +628,7 @@ static void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons,
+ 	prod_rx_buf->data = data;
+ 	prod_rx_buf->data_ptr = cons_rx_buf->data_ptr;
+ 
+-	dma_unmap_addr_set(prod_rx_buf, mapping,
+-			   dma_unmap_addr(cons_rx_buf, mapping));
++	prod_rx_buf->mapping = cons_rx_buf->mapping;
+ 
+ 	prod_bd = &rxr->rx_desc_ring[RX_RING(prod)][RX_IDX(prod)];
+ 	cons_bd = &rxr->rx_desc_ring[RX_RING(cons)][RX_IDX(cons)];
+@@ -816,7 +815,7 @@ static struct sk_buff *bnxt_rx_pages(struct bnxt *bp, struct bnxt_napi *bnapi,
+ 		 * a sw_prod index that equals the cons index, so we
+ 		 * need to clear the cons entry now.
+ 		 */
+-		mapping = dma_unmap_addr(cons_rx_buf, mapping);
++		mapping = cons_rx_buf->mapping;
+ 		page = cons_rx_buf->page;
+ 		cons_rx_buf->page = NULL;
+ 
+@@ -959,7 +958,7 @@ static void bnxt_tpa_start(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
+ 	prod_rx_buf->data_ptr = tpa_info->data_ptr;
+ 
+ 	mapping = tpa_info->mapping;
+-	dma_unmap_addr_set(prod_rx_buf, mapping, mapping);
++	prod_rx_buf->mapping = mapping;
+ 
+ 	prod_bd = &rxr->rx_desc_ring[RX_RING(prod)][RX_IDX(prod)];
+ 
+@@ -968,7 +967,7 @@ static void bnxt_tpa_start(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
+ 	tpa_info->data = cons_rx_buf->data;
+ 	tpa_info->data_ptr = cons_rx_buf->data_ptr;
+ 	cons_rx_buf->data = NULL;
+-	tpa_info->mapping = dma_unmap_addr(cons_rx_buf, mapping);
++	tpa_info->mapping = cons_rx_buf->mapping;
+ 
+ 	tpa_info->len =
+ 		le32_to_cpu(tpa_start->rx_tpa_start_cmp_len_flags_type) >>
+@@ -1405,7 +1404,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
  	}
  
--	skb_reserve(skb, BNXT_RX_OFFSET);
-+	skb_reserve(skb, bp->rx_offset);
- 	skb_put(skb, offset_and_len & 0xffff);
- 	return skb;
- }
-@@ -1255,7 +1255,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
- 		}
+ 	len = le32_to_cpu(rxcmp->rx_cmp_len_flags_type) >> RX_CMP_LEN_SHIFT;
+-	dma_addr = dma_unmap_addr(rx_buf, mapping);
++	dma_addr = rx_buf->mapping;
  
- 		tpa_info->data = new_data;
--		tpa_info->data_ptr = new_data + BNXT_RX_OFFSET;
-+		tpa_info->data_ptr = new_data + bp->rx_offset;
- 		tpa_info->mapping = new_mapping;
+ 	if (len <= bp->rx_copy_thresh) {
+ 		skb = bnxt_copy_skb(bnapi, data_ptr, len, dma_addr);
+@@ -1881,7 +1880,7 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
  
- 		skb = build_skb(data, 0);
-@@ -1267,7 +1267,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
- 			bnxt_abort_tpa(bp, bnapi, cp_cons, agg_bufs);
- 			return NULL;
- 		}
--		skb_reserve(skb, BNXT_RX_OFFSET);
-+		skb_reserve(skb, bp->rx_offset);
- 		skb_put(skb, len);
- 	}
+ 				dma_unmap_single(
+ 					&pdev->dev,
+-					dma_unmap_addr(tpa_info, mapping),
++					tpa_info->mapping,
+ 					bp->rx_buf_use_size,
+ 					PCI_DMA_FROMDEVICE);
  
-@@ -2332,7 +2332,7 @@ static int bnxt_init_one_rx_ring(struct bnxt *bp, int ring_nr)
- 					return -ENOMEM;
+@@ -1898,8 +1897,7 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 			if (!data)
+ 				continue;
  
- 				rxr->rx_tpa[i].data = data;
--				rxr->rx_tpa[i].data_ptr = data + BNXT_RX_OFFSET;
-+				rxr->rx_tpa[i].data_ptr = data + bp->rx_offset;
- 				rxr->rx_tpa[i].mapping = mapping;
- 			}
- 		} else {
-@@ -2348,6 +2348,9 @@ static int bnxt_init_rx_rings(struct bnxt *bp)
- {
- 	int i, rc = 0;
+-			dma_unmap_single(&pdev->dev,
+-					 dma_unmap_addr(rx_buf, mapping),
++			dma_unmap_single(&pdev->dev, rx_buf->mapping,
+ 					 bp->rx_buf_use_size,
+ 					 PCI_DMA_FROMDEVICE);
  
-+	bp->rx_offset = BNXT_RX_OFFSET;
-+	bp->rx_dma_offset = BNXT_RX_DMA_OFFSET;
-+
- 	for (i = 0; i < bp->rx_nr_rings; i++) {
- 		rc = bnxt_init_one_rx_ring(bp, i);
- 		if (rc)
+@@ -1916,8 +1914,7 @@ static void bnxt_free_rx_skbs(struct bnxt *bp)
+ 			if (!page)
+ 				continue;
+ 
+-			dma_unmap_page(&pdev->dev,
+-				       dma_unmap_addr(rx_agg_buf, mapping),
++			dma_unmap_page(&pdev->dev, rx_agg_buf->mapping,
+ 				       BNXT_RX_PAGE_SIZE, PCI_DMA_FROMDEVICE);
+ 
+ 			rx_agg_buf->page = NULL;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 353b6d1..d8fc871 100644
+index 11b5a4a..b4a04a3 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -997,6 +997,8 @@ struct bnxt {
+@@ -518,7 +518,7 @@ struct bnxt_sw_tx_bd {
+ struct bnxt_sw_rx_bd {
+ 	void			*data;
+ 	u8			*data_ptr;
+-	DEFINE_DMA_UNMAP_ADDR(mapping);
++	dma_addr_t		mapping;
+ };
  
- 	u32			rx_buf_size;
- 	u32			rx_buf_use_size;	/* useable size */
-+	u16			rx_offset;
-+	u16			rx_dma_offset;
- 	enum dma_data_direction	rx_dir;
- 	u32			rx_ring_size;
- 	u32			rx_agg_ring_size;
+ struct bnxt_sw_rx_agg_bd {
 -- 
 1.8.3.1
