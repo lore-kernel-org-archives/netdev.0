@@ -1,71 +1,48 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH net 2/4] rtl8150: Use heap buffers for all register
- access
-Date: Mon, 6 Feb 2017 16:09:18 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB027CA6E@AcuExch.aculab.com>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165631.GW3442@decadent.org.uk>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next v1 7/7] bpf: Always test unprivileged programs
+Date: Mon, 6 Feb 2017 08:09:04 -0800
+Message-ID: <58989FA0.7000906@fb.com>
+References: <20170205231428.23846-1-mic@digikod.net>
+ <20170205231428.23846-7-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
-To: 'Ben Hutchings' <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170204165631.GW3442-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, Daniel Borkmann <daniel@iogearbox.net>,
+        "Shuah Khan" <shuah@kernel.org>,
+        Arnaldo Carvalho de Melo <acme@infradead.org>
+To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
+        <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170205231428.23846-7-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings
-> Sent: 04 February 2017 16:57
-> Allocating USB buffers on the stack is not portable, and no longer
-> works on x86_64 (with VMAP_STACK enabled as per default).
-> 
-> Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
-> Signed-off-by: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-> ---
->  drivers/net/usb/rtl8150.c | 34 +++++++++++++++++++++++++++-------
->  1 file changed, 27 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-> index 95b7bd0d7abc..c81c79110cef 100644
-> --- a/drivers/net/usb/rtl8150.c
-> +++ b/drivers/net/usb/rtl8150.c
-> @@ -155,16 +155,36 @@ static const char driver_name [] = "rtl8150";
->  */
->  static int get_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
->  {
-> -	return usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> -			       RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
-> -			       indx, 0, data, size, 500);
-> +	void *buf;
-> +	int ret;
-> +
-> +	buf = kmalloc(size, GFP_NOIO);
-> +	if (!buf)
-> +		return -ENOMEM;
-> +
-> +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> +			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
-> +			      indx, 0, buf, size, 500);
-> +	if (ret > 0 && ret <= size)
-> +		memcpy(data, buf, ret);
+On 2/5/17 3:14 PM, Mickaël Salaün wrote:
+> -		if (unpriv && test->prog_type)
+> -			continue;
+> +		if (!test->prog_type) {
+> +			if (!unpriv)
+> +				set_admin(false);
+> +			printf("#%d/u %s ", i, test->descr);
+> +			do_test_single(test, true, &passes, &errors);
+> +			if (!unpriv)
+> +				set_admin(true);
+> +		}
+>
+> -		printf("#%d %s ", i, test->descr);
+> -		do_test_single(test, unpriv, &passes, &errors);
+> +		if (!unpriv) {
+> +			printf("#%d/p %s ", i, test->descr);
+> +			do_test_single(test, false, &passes, &errors);
+> +		}
 
-If ret > size something is horridly wrong.
-Silently not updating the callers buffer at all cannot be right.
+great idea.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-> +	kfree(buf);
-> +	return ret;
+as far as other patches.. we need to figure out how to avoid conflicts
+between net-next and Arnaldo's tree where Joe's patches went.
 
-I can't help feeling that it would be better to add a wrapper to
-usb_control_msg() that does the kmalloc() and memcpy()s and
-drop that into all the call sites.
-
-	David
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Mickael,
+can you see some way of splitting the patch set between trees?
+Like above test_verfier.c improvement needs to go into net-next.
+The rest can go via perf
