@@ -1,64 +1,59 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
-Date: Mon, 6 Feb 2017 18:27:09 +0100 (CET)
-Message-ID: <1174391417.758308.1486402029809.JavaMail.zimbra@tpip.net>
-References: <20170203091231.10142-1-jonas@southpole.se> <20170206110858.GA3896@salvia> <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
+From: Marcus Huewe <suse-tux@gmx.de>
+Subject: [PATCH net] ipv6: addrconf: fix generation of new temporary addresses
+Date: Mon, 6 Feb 2017 18:34:56 +0100
+Message-ID: <20170206173455.ghiltporvklvumsp@linux.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: pablo <pablo@netfilter.org>, laforge <laforge@gnumonks.org>,
-        netdev <netdev@vger.kernel.org>
-To: Jonas Bonn <jonas@southpole.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:48513 "EHLO mail.tpip.net"
+Received: from mout.gmx.net ([212.227.15.19]:52054 "EHLO mout.gmx.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750953AbdBFR1M (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 12:27:12 -0500
-In-Reply-To: <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
+        id S1751154AbdBFRfO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 12:35:14 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jonas,
+Under some circumstances it is possible that no new temporary addresses
+will be generated.
 
-Sorry, for later reply, I'm currently on vacation with almost no
-internet access.
+For instance, addrconf_prefix_rcv_add_addr() indirectly calls
+ipv6_create_tempaddr(), which creates a tentative temporary address and
+starts dad. Next, addrconf_prefix_rcv_add_addr() indirectly calls
+addrconf_verify_rtnl(). Now, assume that the previously created temporary
+address has the least preferred lifetime among all existing addresses and
+is still tentative (that is, dad is still running). Hence, the next run of
+addrconf_verify_rtnl() is performed when the preferred lifetime of the
+temporary address ends. If dad succeeds before the next run, the temporary
+address becomes deprecated during the next run, but no new temporary
+address is generated.
 
------ On Feb 6, 2017, at 2:33 PM, Jonas Bonn jonas@southpole.se wrote:
+In order to fix this, schedule the next addrconf_verify_rtnl() run slightly
+before the temporary address becomes deprecated, if dad succeeded.
 
-> Hi Pablo,
-> 
-> On 02/06/2017 12:08 PM, Pablo Neira Ayuso wrote:
->> Hi Jonas,
->>
->> On Fri, Feb 03, 2017 at 10:12:31AM +0100, Jonas Bonn wrote:
->>> The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
->>> contexts based on the incoming packets _destination_ address.  If we
->>> want to write an SGSN, then we want to be idenityfing PDP contexts
->>> based on _source_ address.
->>>
->>> This patch adds a "flags" argument at GTP-link creation time to specify
->>> whether we are on the GGSN or SGSN side of the tunnel; this flag is then
->>> used to determine which part of the IP packet to use in determining
->>> the PDP context.
->> So far the implementation that I saw in osmocom relies on userspace code
->> to tunnel data from ME to the SSGN/SGW running on the base station.
->>
->> The data we get from GGSN -> SGSN needs to be places into a SN-PDU (via
->> SNDCP) when sending it to the BTS, right? So I wonder how this can be
->> useful given that we would need to see real IP packets coming to the
->> SSGN that we tunnel into GTP.
-> 
-> Fair enough.  The use-case I am looking at involves PGW load-testing
-> where the simulated load is generated locally on the SGSN so it _is_
-> seeing IP packets and the SNDCP is left out altogether.  Perhaps this is
-> too pathological to warrant messing with the upstream driver... I don't
-> know: the symmetry does not cost much even if it's of limited use.
+Signed-off-by: Marcus Huewe <suse-tux@gmx.de>
+---
+ net/ipv6/addrconf.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Sounds reasonable. I'll review change with that in mind next week.
-
-Andreas
-
-> Couldn't the SNDCP theoretically be a separate node and push IP packets
-> to the SGSN, thus making this useful?  Perhaps it's a stretch...
-> 
-> /Jonas
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f60e88e56255..27a5cc3d375d 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4009,6 +4009,12 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp, bool bump_id)
+ 
+ 	if (bump_id)
+ 		rt_genid_bump_ipv6(dev_net(dev));
++
++	/* Make sure that a new temporary address will be created
++	 * before this temporary address becomes deprecated.
++	 */
++	if (ifp->flags & IFA_F_TEMPORARY)
++		addrconf_verify_rtnl();
+ }
+ 
+ static void addrconf_dad_run(struct inet6_dev *idev)
+-- 
+2.11.0
