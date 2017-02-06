@@ -1,61 +1,83 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/8] mlxsw: cleanup neigh handling
-Date: Mon,  6 Feb 2017 16:20:09 +0100
-Message-ID: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/8] mlxsw: spectrum_router: Use ordered workqueue for neigh updates
+Date: Mon,  6 Feb 2017 16:20:11 +0100
+Message-ID: <1486394417-8011-3-git-send-email-jiri@resnulli.us>
+References: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33605 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34536 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752379AbdBFPUU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 10:20:20 -0500
-Received: by mail-wm0-f65.google.com with SMTP id v77so22463909wmv.0
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 07:20:20 -0800 (PST)
+        with ESMTP id S1752428AbdBFPUW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 10:20:22 -0500
+Received: by mail-wm0-f65.google.com with SMTP id c85so22521171wmi.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 07:20:22 -0800 (PST)
+In-Reply-To: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Ido says:
+We currently associate each neighbour entry with a work item, so it's
+not possible to have multiple events queued for the same neighbour
+entry. However, this is about to be changed so that the neighbour entry
+is only resolved when the work item is scheduled.
 
-This series addresses long standing issues in the mlxsw driver
-concerning neighbour reflection. It also prepares the code for follow-up
-changes dealing with proper resource cleanup and nexthop reflection.
+The above can result in a mismatch between the kernel's and the device's
+neighbour table, unless the associated work items are processed in the
+order in which they were submitted.
 
-The first two patches convert the neighbour reflection code to use an
-ordered workqueue, to prevent re-ordering of NEIGH_UPDATE events that
-may happen following subsequent patches.
+Do that by migrating the NEIGH_UPDATE work items to be processed in the
+ordered workqueue which was recently introduced in mlxsw in commit
+a3832b31898f ("mlxsw: core: Create an ordered workqueue for FIB
+offload").
 
-The third to fifth patches remove the ndo_neigh_{construct,destroy}
-entry points from the driver, thereby relying only on NEIGH_UPDATE
-events for neighbour reflection. This simplifies the code considerably.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Last patches are fallout and adjust nits in the code I noticed while
-going over it.
-
-Ido Schimmel (8):
-  mlxsw: core: Queue work immediately instead of delaying it
-  mlxsw: spectrum_router: Use ordered workqueue for neigh updates
-  mlxsw: spectrum_router: Remove unused variable
-  mlxsw: spectrum_router: Simplify neighbour reflection
-  net: remove ndo_neigh_{construct,destroy} from stacked devices
-  mlxsw: spectrum_router: Remove redundant check
-  mlxsw: spectrum_router: Don't read 'nud_state' without lock
-  mlxsw: spectrum_router: Fix typo in comment
-
- drivers/net/bonding/bond_main.c                    |   2 -
- drivers/net/ethernet/mellanox/mlxsw/core.c         |   6 +-
- drivers/net/ethernet/mellanox/mlxsw/core.h         |   2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 -
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   4 -
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 287 +++++++++++----------
- drivers/net/team/team.c                            |   2 -
- include/linux/netdevice.h                          |   4 -
- net/8021q/vlan_dev.c                               |   2 -
- net/bridge/br_device.c                             |   2 -
- net/core/dev.c                                     |  44 ----
- 11 files changed, 148 insertions(+), 209 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 01e86e7..0d8201e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -614,7 +614,7 @@ struct mlxsw_sp_neigh_entry {
+ 	struct mlxsw_sp_neigh_key key;
+ 	u16 rif;
+ 	bool offloaded;
+-	struct delayed_work dw;
++	struct work_struct work;
+ 	struct mlxsw_sp_port *mlxsw_sp_port;
+ 	unsigned char ha[ETH_ALEN];
+ 	struct list_head nexthop_list; /* list of nexthops using
+@@ -659,7 +659,7 @@ mlxsw_sp_neigh_entry_create(struct neighbour *n, u16 rif)
+ 		return NULL;
+ 	neigh_entry->key.n = n;
+ 	neigh_entry->rif = rif;
+-	INIT_DELAYED_WORK(&neigh_entry->dw, mlxsw_sp_router_neigh_update_hw);
++	INIT_WORK(&neigh_entry->work, mlxsw_sp_router_neigh_update_hw);
+ 	INIT_LIST_HEAD(&neigh_entry->nexthop_list);
+ 	return neigh_entry;
+ }
+@@ -935,7 +935,7 @@ mlxsw_sp_nexthop_neigh_update(struct mlxsw_sp *mlxsw_sp,
+ static void mlxsw_sp_router_neigh_update_hw(struct work_struct *work)
+ {
+ 	struct mlxsw_sp_neigh_entry *neigh_entry =
+-		container_of(work, struct mlxsw_sp_neigh_entry, dw.work);
++		container_of(work, struct mlxsw_sp_neigh_entry, work);
+ 	struct neighbour *n = neigh_entry->key.n;
+ 	struct mlxsw_sp_port *mlxsw_sp_port = neigh_entry->mlxsw_sp_port;
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+@@ -1052,7 +1052,7 @@ int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
+ 		 * work.
+ 		 */
+ 		neigh_clone(n);
+-		if (!mlxsw_core_schedule_dw(&neigh_entry->dw, 0)) {
++		if (!mlxsw_core_schedule_work(&neigh_entry->work)) {
+ 			neigh_release(n);
+ 			mlxsw_sp_port_dev_put(mlxsw_sp_port);
+ 		}
 -- 
 2.7.4
