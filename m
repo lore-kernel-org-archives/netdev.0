@@ -1,70 +1,50 @@
 From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
-Date: Mon, 6 Feb 2017 14:44:20 +0100
-Message-ID: <20170206134420.7pwau56aiu3k54sy@nataraja>
-References: <20170203091231.10142-1-jonas@southpole.se>
+Subject: Re: [PATCH net-next v2 4/6] gtp: consolidate pdp context destruction
+ into helper
+Date: Mon, 6 Feb 2017 14:58:59 +0100
+Message-ID: <20170206135859.mq6pidofidnps2q6@nataraja>
+References: <20170130163713.17524-1-aschultz@tpip.net>
+ <20170130163713.17524-5-aschultz@tpip.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pablo@netfilter.org, netdev@vger.kernel.org
-To: Jonas Bonn <jonas@southpole.se>
+Cc: Pablo Neira <pablo@netfilter.org>, netdev@vger.kernel.org,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        openbsc@lists.osmocom.org
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:58506 "EHLO
+Received: from ganesha.gnumonks.org ([213.95.27.120]:58519 "EHLO
         ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752107AbdBFOEU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 09:04:20 -0500
+        with ESMTP id S1753232AbdBFOEj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 09:04:39 -0500
 Content-Disposition: inline
-In-Reply-To: <20170203091231.10142-1-jonas@southpole.se>
+In-Reply-To: <20170130163713.17524-5-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Jonas,
+Hi Andreas,
 
-On Fri, Feb 03, 2017 at 10:12:31AM +0100, Jonas Bonn wrote:
-> The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
-> contexts based on the incoming packets _destination_ address.  If we
-> want to write an SGSN, then we want to be idenityfing PDP contexts
-> based on _source_ address.
+On Mon, Jan 30, 2017 at 05:37:11PM +0100, Andreas Schultz wrote:
+> Consolidate duplicate code into helper.
 
-A SGSN should never see the "native" User-IP payload.  It either has a
-Gb interface towards the BSS which has a BSSGP/NS/UDP/IP protocol
-stacking (for GERAN) or an IuUP or GTP stacking (for UTRAN).
+Makes complete sense.
 
-The user-ip tunnel (PDP context) exists between the mobile station and
-the GGSN.  Any intermediate nodes (BTS, BSC, NodeB, RNC, SGSN, ...) do
-not appear as intermediate IP Layer nodes in that User IP tunnel, but
-only serve to transparently pass the user-ip inside that tunnel between
-the two tunnel end-points.
+However:
 
-As such, I am very surprised by your patch.  Exposing the User IP to the
-Linux network stack in the SGSN seems to be a severe layering violation
-and contradict everything I know about 3GPP network architecture.  But
-maybe I'm missing something here? Please explain.
+> +static void pdp_context_delete(struct pdp_ctx *pctx);
+> +
 
-The only SGSN-level user plane acceleration that I can think of is
-quite different:
+why introduce the forward-declaration and then define the function
+further down in the file?  I think in general, it is preferred to put
+helper functions on top, before their first use, so forward declarations
+can be avoided?  Particularly if the helper function doesn't call any
+other functions that are not yet declared at this point.
 
-For an UMTS SGSN that only supports IuPS, and only supports IuPS over
-IP (which is a sub-class of a sub-class of all use cases), what would
-make sense is some Kernel-level support to map from one GTP
-socket/tunnel to another GTP socket/tunnel based on the TEIDs.  So
-basically you have a GTP tunnel on the RAN side and another GTP tunnel
-on the CN side, without any decapsultaion.
+Please note the above might just be my personal taste, not sure if
+that's a general habit in the kernel networking code these days.
 
-The TEIDs on both sides *could* be identical, or *cold* be separate, as
-a matter of implementation policy.  
+So with or without the re-ordering:
 
-The IP addresses /port numbers on both sides will in almost all
-non-laboratory use cases be separate, as an operator typically doesn't
-want a transparent/routed IP network between the RAN and Core Network (CN).
-
-So the GTP tunnels between RNC/hNodeB/heNodeB on the RAN side get mapped
-1:1 to GTP tunnels between SGSN and GGSN on the CN side.  However, as no
-encapsulation/decapsulation is performed, this is outside of the scope
-of the current kernel GTP tunneling module.  Rather, it's more something
-similar to static NAT between two pairs of addresses.
-
-Regards,
-	Harald
+Acked-by: Harald Welte <laforge@gnumonks.org>
 
 -- 
 - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
