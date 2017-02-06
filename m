@@ -1,49 +1,50 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH net] mlx4: Invoke softirqs after napi_reschedule
-Date: Mon,  6 Feb 2017 09:10:46 -0800
-Message-ID: <20170206171046.3765-1-bpoirier@suse.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>,
-        Yishai Hadas <yishaih@mellanox.com>,
-        linux-rdma@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/7] openvswitch: Use inverted tuple in
+ ovs_ct_find_existing() if NATted.
+Date: Mon, 06 Feb 2017 12:15:12 -0500 (EST)
+Message-ID: <20170206.121512.1686451353447088557.davem@davemloft.net>
+References: <1486084206-109903-1-git-send-email-jarno@ovn.org>
+        <20170205.172824.848224453582586032.davem@davemloft.net>
+        <CAOrHB_AWB7MFEHpeuKcG21s9QWjMHKC2zWNmXQLDo_5KZrnY6w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jarno@ovn.org, netdev@vger.kernel.org
+To: pshelar@ovn.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33822 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751395AbdBFRLR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 12:11:17 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:43490 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751001AbdBFRPN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 12:15:13 -0500
+In-Reply-To: <CAOrHB_AWB7MFEHpeuKcG21s9QWjMHKC2zWNmXQLDo_5KZrnY6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mlx4 may schedule napi from a workqueue. Afterwards, softirqs are not run
-in a deterministic time frame and the following message may be logged:
-NOHZ: local_softirq_pending 08
+From: Pravin Shelar <pshelar@ovn.org>
+Date: Mon, 6 Feb 2017 09:06:29 -0800
 
-The problem is the same as what was described in commit ec13ee80145c
-("virtio_net: invoke softirqs after __napi_schedule") and this patch
-applies the same fix to mlx4.
+> On Sun, Feb 5, 2017 at 2:28 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Jarno Rajahalme <jarno@ovn.org>
+>> Date: Thu,  2 Feb 2017 17:10:00 -0800
+>>
+>>> This does not match either of the conntrack tuples above.  Normally
+>>> this does not matter, as the conntrack lookup was already done using
+>>> the tuple (B,A), but if the current packet does not match any flow in
+>>> the OVS datapath, the packet is sent to userspace via an upcall,
+>>> during which the packet's skb is freed, and the conntrack entry
+>>> pointer in the skb is lost.
+>>
+>> This is the real bug.
+>>
+>> If the metadata for a packet is important, as it obviously is here,
+>> then upcalls should preserve that metadata across the upcall.  This
+>> is exactly how NF_QUEUE handles this problem and so should OVS.
+> 
+> OVS kernel datapath serializes skb context and sends it along with skb
+> during upcall via genetlink parameters. userspace echoes same
+> information back to kernel modules. This way OVS does maintains
+> metadata across upcall.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index eac527e25ec9..14ce1549b638 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -513,10 +513,12 @@ void mlx4_en_recover_from_oom(struct mlx4_en_priv *priv)
- 	if (!priv->port_up)
- 		return;
- 
-+	local_bh_disable();
- 	for (ring = 0; ring < priv->rx_ring_num; ring++) {
- 		if (mlx4_en_is_ring_empty(priv->rx_ring[ring]))
- 			napi_reschedule(&priv->rx_cq[ring]->napi);
- 	}
-+	local_bh_enable();
- }
- 
- /* When the rx ring is running in page-per-packet mode, a released frame can go
--- 
-2.11.0
+Then the conntrack state looked up before the NAT operation done in
+the upcall should be maintained and therefore this bug should not
+exist.
