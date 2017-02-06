@@ -1,44 +1,50 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: pull-request: wireless-drivers 2017-02-06
-Date: Mon, 06 Feb 2017 17:19:52 +0200
-Message-ID: <874m07ny7b.fsf@kamboji.qca.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 7/8] mlxsw: spectrum_router: Don't read 'nud_state' without lock
+Date: Mon,  6 Feb 2017 16:20:16 +0100
+Message-ID: <1486394417-8011-8-git-send-email-jiri@resnulli.us>
+References: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33699 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752215AbdBFPUi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 10:20:38 -0500
+Received: by mail-wm0-f68.google.com with SMTP id v77so22464778wmv.0
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 07:20:38 -0800 (PST)
+In-Reply-To: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Ido Schimmel <idosch@mellanox.com>
 
-one more fix I still would like to get to 4.10 if possible. Please let
-me know if there are any problems.
+We periodically ask the neighbouring system to try and resolve
+neighbours that are used for nexthops, but aren't currently resolved.
 
-Kalle
+However, 'nud_state' is protected by the neighbour lock, so we shouldn't
+access it without taking it. Instead, we can simply check the
+'connected' field of the neighbour entry, which we update upon
+NEIGH_UPDATE events.
 
-The following changes since commit 2b1d530cb3157f828fcaadd259613f59db3c6d1c:
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  MAINTAINERS: ath9k-devel is closed (2017-01-28 09:15:50 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-02-06
-
-for you to fetch changes up to 52f5631a4c056ad01682393be56d2be237e81610:
-
-  rtlwifi: rtl8192ce: Fix loading of incorrect firmware (2017-01-31 09:05:25 +0200)
-
-----------------------------------------------------------------
-wireless-drivers fixes for 4.10
-
-Only one important fix for rtlwifi which fixes a regression introduced
-in 4.9 and which caused problems for many users.
-
-----------------------------------------------------------------
-Jurij Smakov (1):
-      rtlwifi: rtl8192ce: Fix loading of incorrect firmware
-
- drivers/net/wireless/realtek/rtlwifi/rtl8192ce/sw.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 98a6d03..ec022f9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -896,7 +896,7 @@ static void mlxsw_sp_router_probe_unresolved_nexthops(struct work_struct *work)
+ 	rtnl_lock();
+ 	list_for_each_entry(neigh_entry, &mlxsw_sp->router.nexthop_neighs_list,
+ 			    nexthop_neighs_list_node)
+-		if (!(neigh_entry->key.n->nud_state & NUD_VALID))
++		if (!neigh_entry->connected)
+ 			neigh_event_send(neigh_entry->key.n, NULL);
+ 	rtnl_unlock();
+ 
+-- 
+2.7.4
