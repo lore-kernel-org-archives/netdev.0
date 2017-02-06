@@ -1,42 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv1] net-next: treewide use is_vlan_dev() helper function.
-Date: Mon, 06 Feb 2017 16:35:43 -0500 (EST)
-Message-ID: <20170206.163543.1507099447218540784.davem@davemloft.net>
-References: <1486227649-12648-1-git-send-email-parav@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, monis@mellanox.com, santosh@chelsio.com,
-        ganeshgr@chelsio.com, manish.chopra@cavium.com,
-        rahul.verma@cavium.com, Dept-GELinuxNICDev@cavium.com,
-        harish.patil@cavium.com, kys@microsoft.com, haiyangz@microsoft.com,
-        sthemmin@microsoft.com, QLogic-Storage-Upstream@qlogic.com,
-        jejb@linux.vnet.ibm.com, martin.petersen@oracle.com,
-        jth@kernel.org, arvid.brodin@alten.se, leon@kernel.org,
-        sagi@grimberg.me, swise@opengridcomputing.com,
-        bart.vanassche@sandisk.com, valex@mellanox.com, arnd@arndb.de,
-        weiyj.lk@gmail.com, jmaxwell37@gmail.com, varun@chelsio.com,
-        jbenc@redhat.com, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, devel@linuxdriverproject.org,
-        linux-scsi@vger.kernel.org, fcoe-devel@open-fcoe.org
-To: parav@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49252 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751728AbdBFVfr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:35:47 -0500
-In-Reply-To: <1486227649-12648-1-git-send-email-parav@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sainath Grandhi <sainath.grandhi@intel.com>
+Subject: [PATCHv4 0/7]  Refactor macvtap to re-use tap functionality by other virtual intefaces
+Date: Mon,  6 Feb 2017 13:36:08 -0800
+Message-ID: <1486416975-14133-1-git-send-email-sainath.grandhi@intel.com>
+Cc: davem@davemloft.net, mahesh@bandewar.net,
+        linux-kernel@vger.kernel.org, sainath.grandhi@intel.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Parav Pandit <parav@mellanox.com>
-Date: Sat,  4 Feb 2017 11:00:49 -0600
+Tap character devices can be implemented on other virtual interfaces like
+ipvlan, similar to macvtap. Source code for tap functionality in macvtap
+can be re-used for this purpose.
 
-> This patch makes use of is_vlan_dev() function instead of flag
-> comparison which is exactly done by is_vlan_dev() helper function.
-> 
-> Signed-off-by: Parav Pandit <parav@mellanox.com>
-> Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
+This patch series splits macvtap source into two modules, macvtap and tap.
+This patch series also includes a patch for implementing tap character
+device driver based on the IP-VLAN network interface, called ipvtap.
 
-Applied.
+These patches are tested on x86 platform.
+
+Sainath Grandhi (7):
+  tap: Refactoring macvtap.c
+  tap: Renaming tap related APIs, data structures, macros
+  tap: Tap character device creation/destroy API
+  tap: Abstract type of virtual interface from tap  implementation
+  tap: Extending tap device create/destroy APIs
+  tap: tap as an independent module
+  ipvtap: IP-VLAN based tap driver
+
+ drivers/net/Kconfig              |   28 +
+ drivers/net/Makefile             |    2 +
+ drivers/net/ipvlan/Makefile      |    1 +
+ drivers/net/ipvlan/ipvlan.h      |    7 +
+ drivers/net/ipvlan/ipvlan_core.c |    5 +-
+ drivers/net/ipvlan/ipvlan_main.c |   27 +-
+ drivers/net/ipvlan/ipvtap.c      |  241 ++++++++
+ drivers/net/macvlan.c            |    2 +-
+ drivers/net/macvtap.c            | 1229 ++----------------------------------
+ drivers/net/tap.c                | 1268 ++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/Kconfig            |    2 +-
+ drivers/vhost/net.c              |    3 +-
+ include/linux/if_macvlan.h       |   17 +-
+ include/linux/if_tap.h           |   75 +++
+ 14 files changed, 1698 insertions(+), 1209 deletions(-)
+ create mode 100644 drivers/net/ipvlan/ipvtap.c
+ create mode 100644 drivers/net/tap.c
+ create mode 100644 include/linux/if_tap.h
+
+-- 
+2.7.4
