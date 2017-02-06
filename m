@@ -1,175 +1,39 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] [net-next] net: qcom/emac: add ethool support for setting pause parameters
-Date: Mon,  6 Feb 2017 15:34:52 -0600
-Message-ID: <1486416892-10927-1-git-send-email-timur@codeaurora.org>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46102 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751395AbdBFVfA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:35:00 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] [net-next] net/mlx5e: fix another maybe-uninitialized
+ false-positive
+Date: Mon, 06 Feb 2017 16:35:31 -0500 (EST)
+Message-ID: <20170206.163531.1565126009397840765.davem@davemloft.net>
+References: <20170203163716.3501713-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, roid-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        amirva-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, markb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: arnd-r2nGTMty4D4@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170203163716.3501713-1-arnd-r2nGTMty4D4@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-To support setting the pause parameters, the driver can no longer just
-mirror the PHY.  The set_pauseparam feature allows the driver to
-force the setting in the MAC, regardless of how the PHY is configured.
-This means that we now need to maintain an internal state for pause
-frame support, and so get_pauseparam also needs to be updated.
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Date: Fri,  3 Feb 2017 17:37:03 +0100
 
-If the interface is already running when the setting is changed, then
-the interface is reset.
+> In commit abeffce ("net/mlx5e: Fix a -Wmaybe-uninitialized warning"), I fixed a
+> gcc warning for the ipv4 offload handling. Now we get the same warning for the
+> added ipv6 support:
+> 
+> drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:815:40: warning: 'out_dev' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> 
+> We can apply the same workaround here as well.
+> 
+> Fixes: ce99f6b97fcd ("net/mlx5e: Support SRIOV TC encapsulation offloads for IPv6 tunnels")
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 
-Note that if the MAC is configured to enable RX pause frame support
-(i.e. it transmits pause frames to throttle the other end), but the
-PHY is configured to block those frames, then the feature will not work.
-
-Also some buffer size initialization code into emac_init_adapter(),
-so that it lives with similar code, including the initializtion of
-pause frame support.
-
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
- drivers/net/ethernet/qualcomm/emac/emac-ethtool.c | 30 ++++++++++++++++-------
- drivers/net/ethernet/qualcomm/emac/emac-mac.c     | 18 ++++++++++----
- drivers/net/ethernet/qualcomm/emac/emac.c         | 11 ++++++---
- drivers/net/ethernet/qualcomm/emac/emac.h         |  7 ++++++
- 4 files changed, 48 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-index cfc57d2..c418a6e 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-@@ -148,16 +148,26 @@ static void emac_get_ringparam(struct net_device *netdev,
- static void emac_get_pauseparam(struct net_device *netdev,
- 				struct ethtool_pauseparam *pause)
- {
--	struct phy_device *phydev = netdev->phydev;
-+	struct emac_adapter *adpt = netdev_priv(netdev);
- 
--	if (phydev) {
--		if (phydev->autoneg)
--			pause->autoneg = 1;
--		if (phydev->pause)
--			pause->rx_pause = 1;
--		if (phydev->pause != phydev->asym_pause)
--			pause->tx_pause = 1;
--	}
-+	pause->autoneg = adpt->automatic ? AUTONEG_ENABLE : AUTONEG_DISABLE;
-+	pause->rx_pause = adpt->rx_flow_control ? 1 : 0;
-+	pause->tx_pause = adpt->tx_flow_control ? 1 : 0;;
-+}
-+
-+static int emac_set_pauseparam(struct net_device *netdev,
-+			       struct ethtool_pauseparam *pause)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	adpt->automatic = pause->autoneg == AUTONEG_ENABLE;
-+	adpt->rx_flow_control = pause->rx_pause != 0;
-+	adpt->tx_flow_control = pause->tx_pause != 0;
-+
-+	if (netif_running(netdev))
-+		return emac_reinit_locked(adpt);
-+
-+	return 0;
- }
- 
- static const struct ethtool_ops emac_ethtool_ops = {
-@@ -172,7 +182,9 @@ static void emac_get_pauseparam(struct net_device *netdev,
- 	.get_ethtool_stats = emac_get_ethtool_stats,
- 
- 	.get_ringparam = emac_get_ringparam,
-+
- 	.get_pauseparam = emac_get_pauseparam,
-+	.set_pauseparam = emac_set_pauseparam,
- 
- 	.nway_reset = emac_nway_reset,
- 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index b991219..4b3e014 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -565,11 +565,19 @@ static void emac_mac_start(struct emac_adapter *adpt)
- 
- 	mac |= TXEN | RXEN;     /* enable RX/TX */
- 
--	/* Configure MAC flow control to match the PHY's settings. */
--	if (phydev->pause)
--		mac |= RXFC;
--	if (phydev->pause != phydev->asym_pause)
--		mac |= TXFC;
-+	/* Configure MAC flow control. If set to automatic, then match
-+	 * whatever the PHY does. Otherwise, enable or disable it, depending
-+	 * on what the user configured via ethtool.
-+	 */
-+	mac &= ~(RXFC | TXFC);
-+
-+	if (adpt->automatic) {
-+		/* If it's set to automatic, then update our local values */
-+		adpt->rx_flow_control = phydev->pause;
-+		adpt->tx_flow_control = phydev->pause != phydev->asym_pause;
-+	}
-+	mac |= adpt->rx_flow_control ? RXFC : 0;
-+	mac |= adpt->tx_flow_control ? TXFC : 0;
- 
- 	/* setup link speed */
- 	mac &= ~SPEED_MASK;
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-index 3387c0a..28a8cdc 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-@@ -436,6 +436,10 @@ static void emac_init_adapter(struct emac_adapter *adpt)
- {
- 	u32 reg;
- 
-+	adpt->rrd_size = EMAC_RRD_SIZE;
-+	adpt->tpd_size = EMAC_TPD_SIZE;
-+	adpt->rfd_size = EMAC_RFD_SIZE;
-+
- 	/* descriptors */
- 	adpt->tx_desc_cnt = EMAC_DEF_TX_DESCS;
- 	adpt->rx_desc_cnt = EMAC_DEF_RX_DESCS;
-@@ -456,6 +460,9 @@ static void emac_init_adapter(struct emac_adapter *adpt)
- 
- 	/* others */
- 	adpt->preamble = EMAC_PREAMBLE_DEF;
-+
-+	/* default to automatic flow control */
-+	adpt->automatic = true;
- }
- 
- /* Get the clock */
-@@ -675,10 +682,6 @@ static int emac_probe(struct platform_device *pdev)
- 	netdev->watchdog_timeo = EMAC_WATCHDOG_TIME;
- 	netdev->irq = adpt->irq.irq;
- 
--	adpt->rrd_size = EMAC_RRD_SIZE;
--	adpt->tpd_size = EMAC_TPD_SIZE;
--	adpt->rfd_size = EMAC_RFD_SIZE;
--
- 	netdev->netdev_ops = &emac_netdev_ops;
- 
- 	emac_init_adapter(adpt);
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
-index ef91dcc..e77fb69 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.h
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.h
-@@ -306,6 +306,13 @@ struct emac_adapter {
- 
- 	unsigned int			rxbuf_size;
- 
-+	/* Flow control / pause frames support. If automatic=True, do whatever
-+	 * the PHY does. Otherwise, use tx_flow_control and rx_flow_control.
-+	 */
-+	bool				automatic;
-+	bool				tx_flow_control;
-+	bool				rx_flow_control;
-+
- 	/* Ring parameter */
- 	u8				tpd_burst;
- 	u8				rfd_burst;
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
