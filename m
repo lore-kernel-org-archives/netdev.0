@@ -1,95 +1,94 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/icmp: null-ptr-deref in ping_v4_push_pending_frames
-Date: Mon, 6 Feb 2017 14:50:43 -0800
-Message-ID: <CAM_iQpXD-+PSsVTTiWENwt80iBZNvVeAZi0WeZxkhVg-3ueiZQ@mail.gmail.com>
-References: <CAAeHK+w0hoTCrBcPiS84OJ8Lc7N4s+0YD2U6ey_+Gygzmc66=Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
+From: Alban Browaeys <alban.browaeys@gmail.com>
+Subject: [PATCH v2] netfilter: xt_hashlimit: Fix integer divide round to zero.
+Date: Mon,  6 Feb 2017 23:50:33 +0100
+Message-ID: <20170206225033.26231-1-alban.browaeys@gmail.com>
+References: <1486391287.2374.1.camel@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Alban Browaeys <alban.browaeys@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+w0hoTCrBcPiS84OJ8Lc7N4s+0YD2U6ey_+Gygzmc66=Q@mail.gmail.com>
+In-Reply-To: <1486391287.2374.1.camel@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 6, 2017 at 11:39 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> Hi,
->
-> I've got the following error report while running the syzkaller fuzzer.
->
-> The null-ptr-deref is caused by sendto() on a socket(PF_INET,
-> SOCK_DGRAM, PROT_ICMP).
-> Note, that this requires the ability to create such sockets, which can
-> be configured by net.ipv4.ping_group_range
-> (https://lwn.net/Articles/422330/).
->
-> A reproducer and .config are attached.
->
-> On commit a572a1b999489efb591287632279c6c9eca3e4ed.
->
-> general protection fault: 0000 [#1] SMP KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 2 PID: 3880 Comm: syz-executor1 Not tainted 4.10.0-rc6+ #124
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff880060048040 task.stack: ffff880069be8000
-> RIP: 0010:ping_v4_push_pending_frames net/ipv4/ping.c:647 [inline]
-> RIP: 0010:ping_v4_sendmsg+0x1acd/0x23f0 net/ipv4/ping.c:837
-> RSP: 0018:ffff880069bef8b8 EFLAGS: 00010206
-> RAX: dffffc0000000000 RBX: ffff880069befb90 RCX: 0000000000000000
-> RDX: 0000000000000018 RSI: ffff880069befa30 RDI: 00000000000000c2
-> RBP: ffff880069befbb8 R08: 0000000000000008 R09: 0000000000000000
-> R10: 0000000000000002 R11: 0000000000000000 R12: ffff880069befab0
-> R13: ffff88006c624a80 R14: ffff880069befa70 R15: 0000000000000000
-> FS:  00007f6f7c716700(0000) GS:ffff88006de00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 00000000004a6f28 CR3: 000000003a134000 CR4: 00000000000006e0
-> Call Trace:
->  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
->  sock_sendmsg_nosec net/socket.c:635 [inline]
->  sock_sendmsg+0xca/0x110 net/socket.c:645
->  SYSC_sendto+0x660/0x810 net/socket.c:1687
->  SyS_sendto+0x40/0x50 net/socket.c:1655
->  entry_SYSCALL_64_fastpath+0x1f/0xc2
-> RIP: 0033:0x445879
-> RSP: 002b:00007f6f7c715b58 EFLAGS: 00000282 ORIG_RAX: 000000000000002c
-> RAX: ffffffffffffffda RBX: 0000000000000005 RCX: 0000000000445879
-> RDX: 0000000000000008 RSI: 0000000020001000 RDI: 0000000000000005
-> RBP: 00000000006e1ca0 R08: 0000000020ed9ff0 R09: 0000000000000010
-> R10: 0000000020000010 R11: 0000000000000282 R12: 0000000000708000
-> R13: 0000000000000000 R14: 00007f6f7c7169c0 R15: 00007f6f7c716700
-> Code: 38 ca 7c 08 84 c9 0f 85 35 03 00 00 49 8d bf c2 00 00 00 66 89
-> 83 a2 fe ff ff 48 b8 00 00 00 00 00 fc ff df 48 89 fa 48 c1 ea 03 <0f>
-> b6 14 02 48 89 f8 83 e0 07 83 c0 01 38 d0 7c 08 84 d2 0f 85
-> RIP: ping_v4_push_pending_frames net/ipv4/ping.c:647 [inline] RSP:
-> ffff880069bef8b8
-> RIP: ping_v4_sendmsg+0x1acd/0x23f0 net/ipv4/ping.c:837 RSP: ffff880069bef8b8
-> ---[ end trace 13dad24b243d08a7 ]---
+Diving the divider by the multiplier before applying to the input.
+When this would "divide by zero", divide the multiplier by the divider
+first then multiply the input by this value.
 
-This fixes it for me:
+Currently user2creds outputs zero when input value is bigger than the
+number of slices and  lower than scale.
+This as then user input is applied an integer divide operation to
+a number greater than itself (scale).
+That rounds up to zero, then we mulitply zero by the credits slice size.
+  iptables -t filter -I INPUT --protocol tcp --match hashlimit
+  --hashlimit 40/second --hashlimit-burst 20 --hashlimit-mode srcip
+  --hashlimit-name syn-flood --jump RETURN
+thus trigger the overflow detection code:
+xt_hashlimit: overflow, try lower: 25000/20
+(25000 as hashlimit avd and 20 the burst)
+Here:
+134217 slices of (HZ * CREDITS_PER_JIFFY) size.
+500000 is user input value
+1000000 is XT_HASHLIMIT_SCALE_v2
+gives: 0 as user2creds output
+Setting burst to "1" typically solve the issue ...
+but setting it to "40" does too !
 
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 86cca61..68d77b1 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -642,6 +642,8 @@ static int ping_v4_push_pending_frames(struct sock
-*sk, struct pingfakehdr *pfh,
+This is on 32bit arch calling into revision 2 of hashlimit.
+
+Signed-off-by: Alban Browaeys <alban.browaeys@gmail.com>
+---
+v2:
+- fix missing conditional statement in revision 1 case
+<Pablo Neira Ayuso>.
+
+I removed the code duplication between revision 1 and 2.
+
+v1: https://lkml.org/lkml/2017/2/4/173
+---
+ net/netfilter/xt_hashlimit.c | 25 +++++++++----------------
+ 1 file changed, 9 insertions(+), 16 deletions(-)
+
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 10063408141d..84ad5ab34558 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -463,23 +463,16 @@ static u32 xt_hashlimit_len_to_chunks(u32 len)
+ /* Precision saver. */
+ static u64 user2credits(u64 user, int revision)
  {
-        struct sk_buff *skb = skb_peek(&sk->sk_write_queue);
-
-+       if (!skb)
-+               return 0;
-        pfh->wcheck = csum_partial((char *)&pfh->icmph,
-                sizeof(struct icmphdr), pfh->wcheck);
-        pfh->icmph.checksum = csum_fold(pfh->wcheck);
+-	if (revision == 1) {
+-		/* If multiplying would overflow... */
+-		if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
+-			/* Divide first. */
+-			return div64_u64(user, XT_HASHLIMIT_SCALE)
+-				* HZ * CREDITS_PER_JIFFY_v1;
+-
+-		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
+-				 XT_HASHLIMIT_SCALE);
+-	} else {
+-		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
+-			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
+-				* HZ * CREDITS_PER_JIFFY;
++	u64 scale = (revision == 1) ?
++		XT_HASHLIMIT_SCALE : XT_HASHLIMIT_SCALE_v2;
++	u64 cpj = (revision == 1) ?
++		CREDITS_PER_JIFFY_v1 : CREDITS_PER_JIFFY;
+ 
+-		return div64_u64(user * HZ * CREDITS_PER_JIFFY,
+-				 XT_HASHLIMIT_SCALE_v2);
+-	}
++	/* Avoid overflow: divide the constant operands first */
++	if (scale >= HZ * cpj)
++		return div64_u64(user, div64_u64(scale, HZ * cpj));
++
++	return user * div64_u64(HZ * cpj, scale);
+ }
+ 
+ static u32 user2credits_byte(u32 user)
+-- 
+2.11.0
