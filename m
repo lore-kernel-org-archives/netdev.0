@@ -1,59 +1,151 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net: deadlock on genl_mutex
-Date: Sun, 5 Feb 2017 22:32:24 -0800
-Message-ID: <CAM_iQpWjt=mt2+ukaO_TxGZFzTEo8CCAXHXdO2ag+vm_=qr0eQ@mail.gmail.com>
-References: <CACT4Y+ZdSNVhF2MH0=t=kBUrgNSSnCSO5uwnnc5c0KNLG+VNFQ@mail.gmail.com>
- <CANn89iJ1G4e655RnfcGK9RwmSSb2L=ZBSq9e2gpHVNmkUOYUxg@mail.gmail.com>
- <0227d7e83cc5ac0a192d1ba0fee61413@codeaurora.org> <CACT4Y+auHN0Rdu2Hepk6DNFmz1K2XSA6s18PC=KZiHdoMG845Q@mail.gmail.com>
- <CACT4Y+Zy82UAJ55VbPbVadUM92ZSx1VJCFPdhhcmj53uxZ5PXQ@mail.gmail.com>
- <CAM_iQpXxF_N+3VYRqjd4jySBbySPsZAAVVkNCBEXqc8gHJ6ZMQ@mail.gmail.com>
- <CAM_iQpW2x5xeBpxnZx+k+vnKkjxWPycCBpiKZE41Kcp5gBsN4w@mail.gmail.com> <CACT4Y+bUNeDM5SeZa0cQSuSJ0rq3i0Y063wK9cUvG9oxuQP7YQ@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next PATCH v2 1/5] virtio_net: wrap rtnl_lock in test for
+ calling with lock already held
+Date: Mon, 6 Feb 2017 14:48:42 +0800
+Message-ID: <ed9d91da-621d-5fbf-b836-76c80db013c7@redhat.com>
+References: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
+ <20170203031432.23054.15091.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Matti Vaittinen <matti.vaittinen@nokia.com>,
-        Tycho Andersen <tycho.andersen@canonical.com>,
-        Florian Westphal <fw@strlen.de>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Tom Herbert <tom@herbertland.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Richard Guy Briggs <rgb@redhat.com>,
-        netdev-owner@vger.kernel.org
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+bUNeDM5SeZa0cQSuSJ0rq3i0Y063wK9cUvG9oxuQP7YQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>, kubakici@wp.pl,
+        ast@fb.com, mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42444 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751037AbdBFGst (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 01:48:49 -0500
+In-Reply-To: <20170203031432.23054.15091.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 29, 2017 at 2:11 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Fri, Dec 9, 2016 at 6:08 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>>> Chain exists of:
->>>>  Possible unsafe locking scenario:
->>>>
->>>>        CPU0                    CPU1
->>>>        ----                    ----
->>>>   lock(genl_mutex);
->>>>                                lock(nlk->cb_mutex);
->>>>                                lock(genl_mutex);
->>>>   lock(rtnl_mutex);
->>>>
->>>>  *** DEADLOCK ***
->>>
->>> This one looks legitimate, because nlk->cb_mutex could be rtnl_mutex.
->>> Let me think about it.
->>
->> Never mind. Actually both reports in this thread are legitimate.
->>
->> I know what happened now, the lock chain is so long, 4 locks are involved
->> to form a chain!!!
->>
->> Let me think about how to break the chain.
->
->
-> Cong, any success with breaking the chain?
 
-No luck yet. Each part of the chain seems legit, not sure which
-one could be reordered. :-/
+
+On 2017年02月03日 11:14, John Fastabend wrote:
+> For XDP use case and to allow ethtool reset tests it is useful to be
+> able to use reset paths from contexts where rtnl lock is already
+> held.
+>
+> This requries updating virtnet_set_queues and free_receive_bufs the
+> two places where rtnl_lock is taken in virtio_net. To do this we
+> use the following pattern,
+>
+> 	_foo(...) { do stuff }
+> 	foo(...) { rtnl_lock(); _foo(...); rtnl_unlock()};
+>
+> this allows us to use freeze()/restore() flow from both contexts.
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+
+Acked-by: Jason Wang <jasowang@redhat.com>
+
+> ---
+>   drivers/net/virtio_net.c |   31 +++++++++++++++++++++----------
+>   1 file changed, 21 insertions(+), 10 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index bd22cf3..f8ba586 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1342,7 +1342,7 @@ static void virtnet_ack_link_announce(struct virtnet_info *vi)
+>   	rtnl_unlock();
+>   }
+>   
+> -static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+> +static int _virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+>   {
+>   	struct scatterlist sg;
+>   	struct net_device *dev = vi->dev;
+> @@ -1368,6 +1368,16 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+>   	return 0;
+>   }
+>   
+> +static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+> +{
+> +	int err;
+> +
+> +	rtnl_lock();
+> +	err = _virtnet_set_queues(vi, queue_pairs);
+> +	rtnl_unlock();
+> +	return err;
+> +}
+> +
+>   static int virtnet_close(struct net_device *dev)
+>   {
+>   	struct virtnet_info *vi = netdev_priv(dev);
+> @@ -1620,7 +1630,7 @@ static int virtnet_set_channels(struct net_device *dev,
+>   		return -EINVAL;
+>   
+>   	get_online_cpus();
+> -	err = virtnet_set_queues(vi, queue_pairs);
+> +	err = _virtnet_set_queues(vi, queue_pairs);
+>   	if (!err) {
+>   		netif_set_real_num_tx_queues(dev, queue_pairs);
+>   		netif_set_real_num_rx_queues(dev, queue_pairs);
+> @@ -1752,7 +1762,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   		return -ENOMEM;
+>   	}
+>   
+> -	err = virtnet_set_queues(vi, curr_qp + xdp_qp);
+> +	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
+>   	if (err) {
+>   		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+>   		return err;
+> @@ -1761,7 +1771,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   	if (prog) {
+>   		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+>   		if (IS_ERR(prog)) {
+> -			virtnet_set_queues(vi, curr_qp);
+> +			_virtnet_set_queues(vi, curr_qp);
+>   			return PTR_ERR(prog);
+>   		}
+>   	}
+> @@ -1880,12 +1890,11 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+>   	kfree(vi->sq);
+>   }
+>   
+> -static void free_receive_bufs(struct virtnet_info *vi)
+> +static void _free_receive_bufs(struct virtnet_info *vi)
+>   {
+>   	struct bpf_prog *old_prog;
+>   	int i;
+>   
+> -	rtnl_lock();
+>   	for (i = 0; i < vi->max_queue_pairs; i++) {
+>   		while (vi->rq[i].pages)
+>   			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+> @@ -1895,6 +1904,12 @@ static void free_receive_bufs(struct virtnet_info *vi)
+>   		if (old_prog)
+>   			bpf_prog_put(old_prog);
+>   	}
+> +}
+> +
+> +static void free_receive_bufs(struct virtnet_info *vi)
+> +{
+> +	rtnl_lock();
+> +	_free_receive_bufs(vi);
+>   	rtnl_unlock();
+>   }
+>   
+> @@ -2333,9 +2348,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>   		goto free_unregister_netdev;
+>   	}
+>   
+> -	rtnl_lock();
+>   	virtnet_set_queues(vi, vi->curr_queue_pairs);
+> -	rtnl_unlock();
+>   
+>   	/* Assume link up if device can't report link status,
+>   	   otherwise get link status from config. */
+> @@ -2444,9 +2457,7 @@ static int virtnet_restore(struct virtio_device *vdev)
+>   
+>   	netif_device_attach(vi->dev);
+>   
+> -	rtnl_lock();
+>   	virtnet_set_queues(vi, vi->curr_queue_pairs);
+> -	rtnl_unlock();
+>   
+>   	err = virtnet_cpu_notif_add(vi);
+>   	if (err)
+>
