@@ -1,240 +1,229 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv4 net-next 5/7] net: add confirm_neigh method to dst_ops
-Date: Mon,  6 Feb 2017 23:14:15 +0200
-Message-ID: <1486415657-14714-6-git-send-email-ja@ssi.bg>
+Subject: [PATCHv4 net-next 3/7] sctp: add dst_pending_confirm flag
+Date: Mon,  6 Feb 2017 23:14:13 +0200
+Message-ID: <1486415657-14714-4-git-send-email-ja@ssi.bg>
 References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
         Steffen Klassert <steffen.klassert@secunet.com>,
         linux-rdma@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47247 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:47246 "EHLO ja.ssi.bg"
         rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752567AbdBFVQh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752705AbdBFVQh (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 6 Feb 2017 16:16:37 -0500
 In-Reply-To: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add confirm_neigh method to dst_ops and use it from IPv4 and IPv6
-to lookup and confirm the neighbour. Its usage via the new helper
-dst_confirm_neigh() should be restricted to MSG_PROBE users for
-performance reasons.
+Add new transport flag to allow sockets to confirm neighbour.
+When same struct dst_entry can be used for many different
+neighbours we can not use it for pending confirmations.
+The flag is propagated from transport to every packet.
+It is reset when cached dst is reset.
 
-For XFRM prefer the last tunnel address, if present. With help
-from Steffen Klassert.
-
+Reported-by: YueHaibing <yuehaibing@huawei.com>
+Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
+Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
 Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 ---
- include/net/arp.h      | 16 ++++++++++++++++
- include/net/dst.h      |  7 +++++++
- include/net/dst_ops.h  |  2 ++
- include/net/ndisc.h    | 17 +++++++++++++++++
- net/ipv4/route.c       | 19 +++++++++++++++++++
- net/ipv6/route.c       | 16 ++++++++++++++++
- net/xfrm/xfrm_policy.c | 19 +++++++++++++++++++
- 7 files changed, 96 insertions(+)
+ include/net/sctp/sctp.h    |  6 ++----
+ include/net/sctp/structs.h |  4 ++++
+ net/sctp/associola.c       |  3 +--
+ net/sctp/output.c          | 10 +++++++++-
+ net/sctp/outqueue.c        |  2 +-
+ net/sctp/sm_make_chunk.c   |  6 ++----
+ net/sctp/sm_sideeffect.c   |  2 +-
+ net/sctp/socket.c          |  4 ++--
+ net/sctp/transport.c       | 17 ++++++++++++++++-
+ 9 files changed, 38 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/arp.h b/include/net/arp.h
-index 5e0f891..65619a2 100644
---- a/include/net/arp.h
-+++ b/include/net/arp.h
-@@ -35,6 +35,22 @@ static inline struct neighbour *__ipv4_neigh_lookup(struct net_device *dev, u32
- 	return n;
- }
- 
-+static inline void __ipv4_confirm_neigh(struct net_device *dev, u32 key)
-+{
-+	struct neighbour *n;
-+
-+	rcu_read_lock_bh();
-+	n = __ipv4_neigh_lookup_noref(dev, key);
-+	if (n) {
-+		unsigned long now = jiffies;
-+
-+		/* avoid dirtying neighbour */
-+		if (n->confirmed != now)
-+			n->confirmed = now;
-+	}
-+	rcu_read_unlock_bh();
-+}
-+
- void arp_init(void);
- int arp_ioctl(struct net *net, unsigned int cmd, void __user *arg);
- void arp_send(int type, int ptype, __be32 dest_ip,
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 6835d22..3a3b34b 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -477,6 +477,13 @@ static inline struct neighbour *dst_neigh_lookup_skb(const struct dst_entry *dst
- 	return IS_ERR(n) ? NULL : n;
- }
- 
-+static inline void dst_confirm_neigh(const struct dst_entry *dst,
-+				     const void *daddr)
-+{
-+	if (dst->ops->confirm_neigh)
-+		dst->ops->confirm_neigh(dst, daddr);
-+}
-+
- static inline void dst_link_failure(struct sk_buff *skb)
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 3cfd365b..480b65a 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -593,10 +593,8 @@ static inline void sctp_v4_map_v6(union sctp_addr *addr)
+  */
+ static inline struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
  {
- 	struct dst_entry *dst = skb_dst(skb);
-diff --git a/include/net/dst_ops.h b/include/net/dst_ops.h
-index 8a2b66d..c84b328 100644
---- a/include/net/dst_ops.h
-+++ b/include/net/dst_ops.h
-@@ -33,6 +33,8 @@ struct dst_ops {
- 	struct neighbour *	(*neigh_lookup)(const struct dst_entry *dst,
- 						struct sk_buff *skb,
- 						const void *daddr);
-+	void			(*confirm_neigh)(const struct dst_entry *dst,
-+						 const void *daddr);
+-	if (t->dst && !dst_check(t->dst, t->dst_cookie)) {
+-		dst_release(t->dst);
+-		t->dst = NULL;
+-	}
++	if (t->dst && !dst_check(t->dst, t->dst_cookie))
++		sctp_transport_dst_release(t);
  
- 	struct kmem_cache	*kmem_cachep;
- 
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index d562a2f..8a02146 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -391,6 +391,23 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
- 	return n;
+ 	return t->dst;
  }
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 231fa9ac..6a68504 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -804,6 +804,8 @@ struct sctp_transport {
  
-+static inline void __ipv6_confirm_neigh(struct net_device *dev,
-+					const void *pkey)
-+{
-+	struct neighbour *n;
-+
-+	rcu_read_lock_bh();
-+	n = __ipv6_neigh_lookup_noref(dev, pkey);
-+	if (n) {
-+		unsigned long now = jiffies;
-+
-+		/* avoid dirtying neighbour */
-+		if (n->confirmed != now)
-+			n->confirmed = now;
-+	}
-+	rcu_read_unlock_bh();
-+}
-+
- int ndisc_init(void);
- int ndisc_late_init(void);
+ 	__u32 burst_limited;	/* Holds old cwnd when max.burst is applied */
  
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 4b7c231..cb494a5 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -154,6 +154,7 @@ static u32 *ipv4_cow_metrics(struct dst_entry *dst, unsigned long old)
- static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
- 					   struct sk_buff *skb,
- 					   const void *daddr);
-+static void ipv4_confirm_neigh(const struct dst_entry *dst, const void *daddr);
++	__u32 dst_pending_confirm;	/* need to confirm neighbour */
++
+ 	/* Destination */
+ 	struct dst_entry *dst;
+ 	/* Source address. */
+@@ -950,6 +952,8 @@ void sctp_transport_route(struct sctp_transport *, union sctp_addr *,
+ void sctp_transport_reset(struct sctp_transport *);
+ void sctp_transport_update_pmtu(struct sock *, struct sctp_transport *, u32);
+ void sctp_transport_immediate_rtx(struct sctp_transport *);
++void sctp_transport_dst_release(struct sctp_transport *t);
++void sctp_transport_dst_confirm(struct sctp_transport *t);
  
- static struct dst_ops ipv4_dst_ops = {
- 	.family =		AF_INET,
-@@ -168,6 +169,7 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
- 	.redirect =		ip_do_redirect,
- 	.local_out =		__ip_local_out,
- 	.neigh_lookup =		ipv4_neigh_lookup,
-+	.confirm_neigh =	ipv4_confirm_neigh,
- };
  
- #define ECN_OR_COST(class)	TC_PRIO_##class
-@@ -461,6 +463,23 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
- 	return neigh_create(&arp_tbl, pkey, dev);
- }
+ /* This is the structure we use to queue packets as they come into
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index e50dc6d..2a6835b 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -832,8 +832,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
+ 		if (transport->state != SCTP_UNCONFIRMED)
+ 			transport->state = SCTP_INACTIVE;
+ 		else {
+-			dst_release(transport->dst);
+-			transport->dst = NULL;
++			sctp_transport_dst_release(transport);
+ 			ulp_notify = false;
+ 		}
  
-+static void ipv4_confirm_neigh(const struct dst_entry *dst, const void *daddr)
-+{
-+	struct net_device *dev = dst->dev;
-+	const __be32 *pkey = daddr;
-+	const struct rtable *rt;
-+
-+	rt = (const struct rtable *)dst;
-+	if (rt->rt_gateway)
-+		pkey = (const __be32 *)&rt->rt_gateway;
-+	else if (!daddr ||
-+		 (rt->rt_flags &
-+		  (RTCF_MULTICAST | RTCF_BROADCAST | RTCF_LOCAL)))
-+		return;
-+
-+	__ipv4_confirm_neigh(dev, *(__force u32 *)pkey);
-+}
-+
- #define IP_IDENTS_SZ 2048u
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 07ab506..814eac0 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -546,6 +546,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 	struct sctp_association *asoc = tp->asoc;
+ 	struct sctp_chunk *chunk, *tmp;
+ 	int pkt_count, gso = 0;
++	int confirm;
+ 	struct dst_entry *dst;
+ 	struct sk_buff *head;
+ 	struct sctphdr *sh;
+@@ -624,7 +625,14 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 			asoc->peer.last_sent_to = tp;
+ 	}
+ 	head->ignore_df = packet->ipfragok;
+-	tp->af_specific->sctp_xmit(head, tp);
++	confirm = tp->dst_pending_confirm;
++	if (confirm)
++		skb_set_dst_pending_confirm(head, 1);
++	/* neighbour should be confirmed on successful transmission or
++	 * positive error
++	 */
++	if (tp->af_specific->sctp_xmit(head, tp) >= 0 && confirm)
++		tp->dst_pending_confirm = 0;
  
- static atomic_t *ip_idents __read_mostly;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 8ffa24c..98b183f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -223,6 +223,21 @@ static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst,
- 	return neigh_create(&nd_tbl, daddr, dst->dev);
- }
+ out:
+ 	list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 65abe22..db352e5 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -1654,7 +1654,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
  
-+static void ip6_confirm_neigh(const struct dst_entry *dst, const void *daddr)
-+{
-+	struct net_device *dev = dst->dev;
-+	struct rt6_info *rt = (struct rt6_info *)dst;
-+
-+	daddr = choose_neigh_daddr(rt, NULL, daddr);
-+	if (!daddr)
-+		return;
-+	if (dev->flags & (IFF_NOARP | IFF_LOOPBACK))
-+		return;
-+	if (ipv6_addr_is_multicast((const struct in6_addr *)daddr))
-+		return;
-+	__ipv6_confirm_neigh(dev, daddr);
-+}
-+
- static struct dst_ops ip6_dst_ops_template = {
- 	.family			=	AF_INET6,
- 	.gc			=	ip6_dst_gc,
-@@ -239,6 +254,7 @@ static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst,
- 	.redirect		=	rt6_do_redirect,
- 	.local_out		=	__ip6_local_out,
- 	.neigh_lookup		=	ip6_neigh_lookup,
-+	.confirm_neigh		=	ip6_confirm_neigh,
- };
+ 		if (forward_progress) {
+ 			if (transport->dst)
+-				dst_confirm(transport->dst);
++				sctp_transport_dst_confirm(transport);
+ 		}
+ 	}
  
- static unsigned int ip6_blackhole_mtu(const struct dst_entry *dst)
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 99ad1af2..0a0f63d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2856,6 +2856,23 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
- 	return dst->path->ops->neigh_lookup(dst, skb, daddr);
- }
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index ad3445b..c7d3249 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3333,8 +3333,7 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
+ 		local_bh_enable();
+ 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
+ 				transports) {
+-			dst_release(transport->dst);
+-			transport->dst = NULL;
++			sctp_transport_dst_release(transport);
+ 		}
+ 		break;
+ 	case SCTP_PARAM_DEL_IP:
+@@ -3348,8 +3347,7 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
+ 		local_bh_enable();
+ 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
+ 				transports) {
+-			dst_release(transport->dst);
+-			transport->dst = NULL;
++			sctp_transport_dst_release(transport);
+ 		}
+ 		break;
+ 	default:
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index a455271..51abcc9 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -755,7 +755,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
+ 	 * forward progress.
+ 	 */
+ 	if (t->dst)
+-		dst_confirm(t->dst);
++		sctp_transport_dst_confirm(t);
  
-+static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
-+{
-+	const struct dst_entry *path = dst->path;
-+
-+	for (; dst != path; dst = dst->child) {
-+		const struct xfrm_state *xfrm = dst->xfrm;
-+
-+		if (xfrm->props.mode == XFRM_MODE_TRANSPORT)
-+			continue;
-+		if (xfrm->type->flags & XFRM_TYPE_REMOTE_COADDR)
-+			daddr = xfrm->coaddr;
-+		else if (!(xfrm->type->flags & XFRM_TYPE_LOCAL_COADDR))
-+			daddr = &xfrm->id.daddr;
-+	}
-+	path->ops->confirm_neigh(path, daddr);
-+}
-+
- int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 	/* The receiver of the HEARTBEAT ACK should also perform an
+ 	 * RTT measurement for that destination transport address
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 5fc7122..a4609a0 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -592,7 +592,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
+ 			list_for_each_entry(trans,
+ 			    &asoc->peer.transport_addr_list, transports) {
+ 				/* Clear the source and route cache */
+-				dst_release(trans->dst);
++				sctp_transport_dst_release(trans);
+ 				trans->cwnd = min(4*asoc->pathmtu, max_t(__u32,
+ 				    2*asoc->pathmtu, 4380));
+ 				trans->ssthresh = asoc->peer.i.a_rwnd;
+@@ -843,7 +843,7 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
+ 		 */
+ 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
+ 					transports) {
+-			dst_release(transport->dst);
++			sctp_transport_dst_release(transport);
+ 			sctp_transport_route(transport, NULL,
+ 					     sctp_sk(asoc->base.sk));
+ 		}
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index baa1ac0..df274ff 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -240,7 +240,7 @@ void sctp_transport_pmtu(struct sctp_transport *transport, struct sock *sk)
  {
- 	int err = 0;
-@@ -2882,6 +2899,8 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
- 			dst_ops->link_failure = xfrm_link_failure;
- 		if (likely(dst_ops->neigh_lookup == NULL))
- 			dst_ops->neigh_lookup = xfrm_neigh_lookup;
-+		if (likely(!dst_ops->confirm_neigh))
-+			dst_ops->confirm_neigh = xfrm_confirm_neigh;
- 		if (likely(afinfo->garbage_collect == NULL))
- 			afinfo->garbage_collect = xfrm_garbage_collect_deferred;
- 		rcu_assign_pointer(xfrm_policy_afinfo[afinfo->family], afinfo);
+ 	/* If we don't have a fresh route, look one up */
+ 	if (!transport->dst || transport->dst->obsolete) {
+-		dst_release(transport->dst);
++		sctp_transport_dst_release(transport);
+ 		transport->af_specific->get_dst(transport, &transport->saddr,
+ 						&transport->fl, sk);
+ 	}
+@@ -672,3 +672,18 @@ void sctp_transport_immediate_rtx(struct sctp_transport *t)
+ 			sctp_transport_hold(t);
+ 	}
+ }
++
++/* Drop dst */
++void sctp_transport_dst_release(struct sctp_transport *t)
++{
++	dst_release(t->dst);
++	t->dst = NULL;
++	t->dst_pending_confirm = 0;
++}
++
++/* Schedule neighbour confirm */
++void sctp_transport_dst_confirm(struct sctp_transport *t)
++{
++	t->dst_pending_confirm = 1;
++}
++
 -- 
 1.9.3
