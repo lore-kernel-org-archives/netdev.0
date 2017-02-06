@@ -1,30 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next] net: mvneta: implement .set_wol and
- .get_wol
-Date: Mon, 06 Feb 2017 10:54:24 -0500 (EST)
-Message-ID: <20170206.105424.658086420075790490.davem@davemloft.net>
-References: <20170206065813.1971-1-jszhang@marvell.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2017-02-06
+Date: Mon, 06 Feb 2017 10:55:55 -0500 (EST)
+Message-ID: <20170206.105555.2143912222030576748.davem@davemloft.net>
+References: <20170206083637.31792-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        houjingj@marvell.com
-To: jszhang@marvell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206065813.1971-1-jszhang@marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170206083637.31792-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jisheng Zhang <jszhang@marvell.com>
-Date: Mon, 6 Feb 2017 14:58:13 +0800
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Mon,  6 Feb 2017 09:36:36 +0100
 
-> From: Jingju Hou <houjingj@marvell.com>
+> I know it's super late, but I was travelling last week and the
+> whole FILS AEAD thing only played out over the weekend anyway.
+> Since the FILS code is all new in this cycle, it'd be good to
+> have the fixes, and the others are a bit older but still would
+> be good to fix sooner rather than later, I think.
 > 
-> The mvneta itself does not support WOL, but the PHY might.
-> So pass the calls to the PHY
-> 
-> Signed-off-by: Jingju Hou <houjingj@marvell.com>
-> Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
+> Please pull and let me know if there's any problem.
 
-Applied.
+Ok, pulled, thanks Johannes.
