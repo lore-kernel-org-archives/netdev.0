@@ -1,52 +1,59 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
-Date: Mon, 6 Feb 2017 09:28:22 +0100
-Message-ID: <20170206082822.GA23451@kroah.com>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165603.GV3442@decadent.org.uk>
- <20170205003038.GB21184@kroah.com>
- <20170206081444.smcgjkmdepxoosb6@p310>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org,
-        Lisandro =?iso-8859-1?Q?Dami=E1n_Nicanor_P=E9rez?= Meyer
-        <lisandro@debian.org>
-To: Petko Manolov <petkan@nucleusys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:38398 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750909AbdBFI33 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 03:29:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20170206081444.smcgjkmdepxoosb6@p310>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2017-02-06
+Date: Mon,  6 Feb 2017 09:36:36 +0100
+Message-ID: <20170206083637.31792-1-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
-> On 17-02-05 01:30:39, Greg KH wrote:
-> > On Sat, Feb 04, 2017 at 04:56:03PM +0000, Ben Hutchings wrote:
-> > > Allocating USB buffers on the stack is not portable, and no longer
-> > > works on x86_64 (with VMAP_STACK enabled as per default).
-> > 
-> > It's never worked on other platforms, so these should go to the stable 
-> > releases please.
-> 
-> As far as i know both drivers works fine on other platforms, though I only 
-> tested it on arm and mipsel. ;)
+Hi Dave,
 
-It all depends on the arm and mips platforms, the ones that can not DMA
-from stack memory are the ones that would always fail here (since the
-2.2 kernel days).
+I know it's super late, but I was travelling last week and the
+whole FILS AEAD thing only played out over the weekend anyway.
+Since the FILS code is all new in this cycle, it'd be good to
+have the fixes, and the others are a bit older but still would
+be good to fix sooner rather than later, I think.
 
-> Random thought: isn't it better to add the alloc/free code in usb_control_msg() 
-> and avoid code duplication all over the driver space?
+Please pull and let me know if there's any problem.
 
-A very long time ago we considered it, but realized that the majority of
-drivers already had the memory dynamically allocated, so we just went
-with this.  Perhaps we could revisit that if it turns out we were wrong,
-and would simplify things.
+Thanks,
+johannes
 
-thanks,
 
-greg k-h
+
+The following changes since commit 7892032cfe67f4bde6fc2ee967e45a8fbaf33756:
+
+  ip6_gre: fix ip6gre_err() invalid reads (2017-02-05 17:23:04 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-02-06
+
+for you to fetch changes up to fd551bac4795854adaa87bad7e5136083719802b:
+
+  nl80211: Fix mesh HT operation check (2017-02-06 07:59:07 +0100)
+
+----------------------------------------------------------------
+A few simple fixes:
+ * fix FILS AEAD cipher usage to use the correct AAD vectors
+   and to use synchronous algorithms
+ * fix using mesh HT operation data from userspace
+ * fix adding mesh vendor elements to beacons & plink frames
+
+----------------------------------------------------------------
+Jouni Malinen (2):
+      mac80211: Fix FILS AEAD protection in Association Request frame
+      mac80211: Allocate a sync skcipher explicitly for FILS AEAD
+
+Masashi Honma (1):
+      nl80211: Fix mesh HT operation check
+
+Thorsten Horstmann (1):
+      mac80211: Fix adding of mesh vendor IEs
+
+ net/mac80211/fils_aead.c | 6 +++---
+ net/mac80211/mesh.c      | 2 +-
+ net/wireless/nl80211.c   | 1 +
+ 3 files changed, 5 insertions(+), 4 deletions(-)
