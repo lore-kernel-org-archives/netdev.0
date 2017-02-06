@@ -1,100 +1,190 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v1 7/7] bpf: Always test unprivileged programs
-Date: Mon, 6 Feb 2017 20:24:02 +0100
-Message-ID: <c943cdc9-03ee-8a7c-c04f-7e33cb4d7561@digikod.net>
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-7-mic@digikod.net> <58989FA0.7000906@fb.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v2 5/5] virtio_net: XDP support for adjust_head
+Date: Mon, 6 Feb 2017 11:29:59 -0800
+Message-ID: <5898CEB7.1020509@gmail.com>
+References: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
+ <20170203031629.23054.25622.stgit@john-Precision-Tower-5810>
+ <993d31de-57d9-fb7f-568e-c18fc9fadbc6@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="OSttKIiKoUqjn6ph6Klu5IxfXvMPxO8NV"
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-        Shuah Khan <shuah@kernel.org>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>
-To: Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58989FA0.7000906@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---OSttKIiKoUqjn6ph6Klu5IxfXvMPxO8NV
-Content-Type: multipart/mixed; boundary="dxNR28vkgqG05oDVUM46vHCuaNlMixncc";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Alexei Starovoitov <ast@fb.com>, linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
- Shuah Khan <shuah@kernel.org>, Arnaldo Carvalho de Melo <acme@infradead.org>
-Message-ID: <c943cdc9-03ee-8a7c-c04f-7e33cb4d7561@digikod.net>
-Subject: Re: [PATCH net-next v1 7/7] bpf: Always test unprivileged programs
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-7-mic@digikod.net> <58989FA0.7000906@fb.com>
-In-Reply-To: <58989FA0.7000906@fb.com>
-
---dxNR28vkgqG05oDVUM46vHCuaNlMixncc
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>, kubakici@wp.pl, ast@fb.com,
+        mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34498 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751810AbdBFTaR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 14:30:17 -0500
+Received: by mail-pg0-f65.google.com with SMTP id v184so9841196pgv.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 11:30:17 -0800 (PST)
+In-Reply-To: <993d31de-57d9-fb7f-568e-c18fc9fadbc6@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On 06/02/2017 17:09, Alexei Starovoitov wrote:
-> On 2/5/17 3:14 PM, Micka=C3=ABl Sala=C3=BCn wrote:
->> -        if (unpriv && test->prog_type)
->> -            continue;
->> +        if (!test->prog_type) {
->> +            if (!unpriv)
->> +                set_admin(false);
->> +            printf("#%d/u %s ", i, test->descr);
->> +            do_test_single(test, true, &passes, &errors);
->> +            if (!unpriv)
->> +                set_admin(true);
->> +        }
+On 17-02-05 11:08 PM, Jason Wang wrote:
+> 
+> 
+> On 2017年02月03日 11:16, John Fastabend wrote:
+>> Add support for XDP adjust head by allocating a 256B header region
+>> that XDP programs can grow into. This is only enabled when a XDP
+>> program is loaded.
 >>
->> -        printf("#%d %s ", i, test->descr);
->> -        do_test_single(test, unpriv, &passes, &errors);
->> +        if (!unpriv) {
->> +            printf("#%d/p %s ", i, test->descr);
->> +            do_test_single(test, false, &passes, &errors);
->> +        }
->=20
-> great idea.
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
->=20
-> as far as other patches.. we need to figure out how to avoid conflicts
-> between net-next and Arnaldo's tree where Joe's patches went.
-
-A merge between this series and Arnaldo's tree works fine. The only
-dependency is between patches 6 and 7.
-
->=20
-> Mickael,
-> can you see some way of splitting the patch set between trees?
-> Like above test_verfier.c improvement needs to go into net-next.
-> The rest can go via perf
->=20
->=20
-
-OK, I'll send a first series with the patches from 1 to 5 for the perf
-tree and a second series with the 6th and 7th patches (touching
-tools/testing/selftests/bpf only) to net-next.
+>> In order to ensure that we do not have to unwind queue headroom push
+>> queue setup below bpf_prog_add. It reads better to do a prog ref
+>> unwind vs another queue setup call.
+>>
+>> At the moment this code must do a full reset to ensure old buffers
+>> without headroom on program add or with headroom on program removal
+>> are not used incorrectly in the datapath. Ideally we would only
+>> have to disable/enable the RX queues being updated but there is no
+>> API to do this at the moment in virtio so use the big hammer. In
+>> practice it is likely not that big of a problem as this will only
+>> happen when XDP is enabled/disabled changing programs does not
+>> require the reset. There is some risk that the driver may either
+>> have an allocation failure or for some reason fail to correctly
+>> negotiate with the underlying backend in this case the driver will
+>> be left uninitialized. I have not seen this ever happen on my test
+>> systems and for what its worth this same failure case can occur
+>> from probe and other contexts in virtio framework.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
 
 
---dxNR28vkgqG05oDVUM46vHCuaNlMixncc--
+[...]
 
---OSttKIiKoUqjn6ph6Klu5IxfXvMPxO8NV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+>> @@ -412,7 +418,6 @@ static struct sk_buff *receive_small(struct net_device *dev,
+>>       struct bpf_prog *xdp_prog;
+>>         len -= vi->hdr_len;
+>> -    skb_trim(skb, len);
+>>         rcu_read_lock();
+>>       xdp_prog = rcu_dereference(rq->xdp_prog);
+>> @@ -424,12 +429,16 @@ static struct sk_buff *receive_small(struct net_device
+>> *dev,
+>>           if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+>>               goto err_xdp;
+>>   -        xdp.data = skb->data;
+>> +        xdp.data_hard_start = skb->data;
+>> +        xdp.data = skb->data + VIRTIO_XDP_HEADROOM;
+>>           xdp.data_end = xdp.data + len;
+>>           act = bpf_prog_run_xdp(xdp_prog, &xdp);
+>>             switch (act) {
+>>           case XDP_PASS:
+>> +            /* Recalculate length in case bpf program changed it */
+>> +            __skb_pull(skb, xdp.data - xdp.data_hard_start);
+> 
+> But skb->len were trimmed to len below which seems wrong.
 
------BEGIN PGP SIGNATURE-----
+I believe this is correct and it passes my basic iperf/ping tests.
 
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAliYzVIACgkQIt7+33O9
-apUgOQf8CLpQe3S9jZSJPDDZ2Dh617mgteq1cJ0tTxKMpAfIs+LxvamPYFLftNqM
-Q4WlhULWSKCY8fA8GkqhCBEYnYysLf5IuFgfrGCrJvCAm69SHrebsutvl4l+Xm1P
-d6mxVDKvRaI9hdmqktC9qTiK42KvDomn3NKMJdPQ0OJu028fBbbnxwOXaV4rtwjU
-S83tT12bpu0chKTx5070cu5gAK6f3yttqbVtcAn8I38A4S+urZqfk4g145AXmhP7
-cU7oh7Jkh7ni1oyeTs2Z4pEi3KOz7uXfpjPyXjHy5Oqduzpf07mki9oY5l8xrxEE
-sMsqio21NKRezmfrAcg7bkiOxa4euQ==
-=XnL0
------END PGP SIGNATURE-----
+When we are using small buffers with XDP, skb->data is pointing to the front
+of the buffer. This space includes the XDP headroom. When we pass the skb up
+to the stack we need to pull this off and point to the start of the data. But
+there still is likely a bunch of room at the end of the buffer assuming the
+packet is smaller than the buffer side.
 
---OSttKIiKoUqjn6ph6Klu5IxfXvMPxO8NV--
+> 
+>> +            len = xdp.data_end - xdp.data;
+>>               break;
+>>           case XDP_TX:
+>>               if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, skb)))
+>> @@ -446,6 +455,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
+>>       }
+>>       rcu_read_unlock();
+>>   +    skb_trim(skb, len);
+
+So here we trim the packet to set the length to the actual payload size. The
+'len' parameter passed into receive_small does not include the headroom so this
+gives us the correct length of the payload.
+
+Make sense?
+
+>>       return skb;
+>>     err_xdp:
+
+[...]
+
+>> @@ -569,7 +580,7 @@ static struct sk_buff *receive_mergeable(struct net_device
+>> *dev,
+>>                                 page, offset, &len);
+>>               if (!xdp_page)
+>>                   goto err_xdp;
+>> -            offset = 0;
+>> +            offset = VIRTIO_XDP_HEADROOM;
+>>           } else {
+>>               xdp_page = page;
+>>           }
+>> @@ -582,19 +593,30 @@ static struct sk_buff *receive_mergeable(struct
+>> net_device *dev,
+>>           if (unlikely(hdr->hdr.gso_type))
+>>               goto err_xdp;
+>>   +        /* Allow consuming headroom but reserve enough space to push
+>> +         * the descriptor on if we get an XDP_TX return code.
+>> +         */
+>>           data = page_address(xdp_page) + offset;
+>> +        xdp.data_hard_start = data - VIRTIO_XDP_HEADROOM + vi->hdr_len;
+> 
+> Should be data - VIRTIO_XDP_HEADROOM I think?
+> 
+
+If the XDP program does an adjust_head() and then a XDP_TX I want to ensure
+we reserve enough headroom to push the header onto the buffer when the packet
+is sent. So the additional hdr_len reserve here is intentional. Otherwise we
+would need to detect this and do some type of linearize action.
+
+>>           xdp.data = data + vi->hdr_len;
+>>           xdp.data_end = xdp.data + (len - vi->hdr_len);
+>>           act = bpf_prog_run_xdp(xdp_prog, &xdp);
+>>             switch (act) {
+>>           case XDP_PASS:
+>> +            /* recalculate offset to account for any header
+>> +             * adjustments. Note other cases do not build an
+>> +             * skb and avoid using offset
+>> +             */
+>> +            offset = xdp.data -
+>> +                    page_address(xdp_page) - vi->hdr_len;
+>> +
+>>               /* We can only create skb based on xdp_page. */
+>>               if (unlikely(xdp_page != page)) {
+>>                   rcu_read_unlock();
+>>                   put_page(page);
+>>                   head_skb = page_to_skb(vi, rq, xdp_page,
+>> -                               0, len, PAGE_SIZE);
+>> +                               offset, len, PAGE_SIZE);
+>>                   ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
+>>                   return head_skb;
+
+[...]
+
+>>   -static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+>> +static int add_recvbuf_mergeable(struct virtnet_info *vi,
+>> +                 struct receive_queue *rq, gfp_t gfp)
+>>   {
+>>       struct page_frag *alloc_frag = &rq->alloc_frag;
+>> +    unsigned int headroom = virtnet_get_headroom(vi);
+>>       char *buf;
+>>       unsigned long ctx;
+>>       int err;
+>>       unsigned int len, hole;
+>>         len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
+>> -    if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
+>> +    if (unlikely(!skb_page_frag_refill(len + headroom, alloc_frag, gfp)))
+>>           return -ENOMEM;
+>>         buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+>> +    buf += headroom; /* advance address leaving hole at front of pkt */
+> 
+> Note: the headroom will reduce the possibility of frag coalescing which may
+> damage the performance more or less.
+> 
+> [...]
+
+Right there are a few other performance optimizations I am looking at in
+virtio as well but these should go in as follow on series.
+
+Specifically, I'm looking at recycling buffers to see what sort of performance
+increase we can get out of that. Many of the hardware drivers do this and see
+a performance boost from it. However dynamic buffer sizes like this make it a
+bit challenging.
+
+.John
