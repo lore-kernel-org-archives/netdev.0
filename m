@@ -1,177 +1,292 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v3 06/12] bnxt_en: Use event bit map in RX path.
-Date: Mon,  6 Feb 2017 16:55:37 -0500
-Message-ID: <1486418143-8958-7-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next v3 12/12] bnxt_en: Add support for XDP_TX action.
+Date: Mon,  6 Feb 2017 16:55:43 -0500
+Message-ID: <1486418143-8958-13-git-send-email-michael.chan@broadcom.com>
 References: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:36203 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752115AbdBFV4V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:56:21 -0500
-Received: by mail-pg0-f54.google.com with SMTP id v184so31801866pgv.3
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:56:10 -0800 (PST)
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:33112 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752141AbdBFV4M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:56:12 -0500
+Received: by mail-pg0-f51.google.com with SMTP id 204so31843484pge.0
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:56:12 -0800 (PST)
 In-Reply-To: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the current code, we have separate rx_event and agg_event parameters
-to keep track of rx and aggregation events.  Combine these events into
-an u8 event mask with different bits defined for different events.  This
-way, it is easier to expand the logic to include XDP tx events.
+Add dedicated transmit function and transmit completion handler for
+XDP.  The XDP transmit logic and completion logic are different than
+regular TX ring.  The TX buffer is recycled back to the RX ring when
+it completes.
+
+v3: Improved the buffer recyling scheme for XDP_TX.
+
+v2: Add trace_xdp_exception().
+    Add dma_sync.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+Tested-by: Andy Gospodarek <gospo@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 30 +++++++++++++++---------------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  3 +++
- 2 files changed, 18 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 36 ++++++------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h     | 19 +++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 83 +++++++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h |  1 +
+ 4 files changed, 122 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 0bcd465..32c808f 100644
+index 665fe4f..cda1c78 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1265,7 +1265,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
- 					   u32 *raw_cons,
- 					   struct rx_tpa_end_cmp *tpa_end,
- 					   struct rx_tpa_end_cmp_ext *tpa_end1,
--					   bool *agg_event)
-+					   u8 *event)
- {
- 	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
- 	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
-@@ -1300,7 +1300,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
- 		if (!bnxt_agg_bufs_valid(bp, cpr, agg_bufs, raw_cons))
- 			return ERR_PTR(-EBUSY);
+@@ -212,16 +212,7 @@ static bool bnxt_vf_pciid(enum board_idx idx)
+ #define BNXT_CP_DB_IRQ_DIS(db)						\
+ 		writel(DB_CP_IRQ_DIS_FLAGS, db)
  
--		*agg_event = true;
-+		*event |= BNXT_AGG_EVENT;
- 		cp_cons = NEXT_CMP(cp_cons);
+-static inline u32 bnxt_tx_avail(struct bnxt *bp, struct bnxt_tx_ring_info *txr)
+-{
+-	/* Tell compiler to fetch tx indices from memory. */
+-	barrier();
+-
+-	return bp->tx_ring_size -
+-		((txr->tx_prod - txr->tx_cons) & bp->tx_ring_mask);
+-}
+-
+-static const u16 bnxt_lhint_arr[] = {
++const u16 bnxt_lhint_arr[] = {
+ 	TX_BD_FLAGS_LHINT_512_AND_SMALLER,
+ 	TX_BD_FLAGS_LHINT_512_TO_1023,
+ 	TX_BD_FLAGS_LHINT_1024_TO_2047,
+@@ -613,9 +604,8 @@ static inline u8 *__bnxt_alloc_rx_data(struct bnxt *bp, dma_addr_t *mapping,
+ 	return data;
+ }
+ 
+-static inline int bnxt_alloc_rx_data(struct bnxt *bp,
+-				     struct bnxt_rx_ring_info *rxr,
+-				     u16 prod, gfp_t gfp)
++int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
++		       u16 prod, gfp_t gfp)
+ {
+ 	struct rx_bd *rxbd = &rxr->rx_desc_ring[RX_RING(prod)][RX_IDX(prod)];
+ 	struct bnxt_sw_rx_bd *rx_buf = &rxr->rx_buf_ring[prod];
+@@ -1766,6 +1756,18 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 			break;
  	}
  
-@@ -1386,7 +1386,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
-  * -EIO    - packet aborted due to hw error indicated in BD
-  */
- static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
--		       bool *agg_event)
-+		       u8 *event)
- {
- 	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
- 	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
-@@ -1423,13 +1423,13 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
- 		bnxt_tpa_start(bp, rxr, (struct rx_tpa_start_cmp *)rxcmp,
- 			       (struct rx_tpa_start_cmp_ext *)rxcmp1);
- 
-+		*event |= BNXT_RX_EVENT;
- 		goto next_rx_no_prod;
- 
- 	} else if (cmp_type == CMP_TYPE_RX_L2_TPA_END_CMP) {
- 		skb = bnxt_tpa_end(bp, bnapi, &tmp_raw_cons,
- 				   (struct rx_tpa_end_cmp *)rxcmp,
--				   (struct rx_tpa_end_cmp_ext *)rxcmp1,
--				   agg_event);
-+				   (struct rx_tpa_end_cmp_ext *)rxcmp1, event);
- 
- 		if (unlikely(IS_ERR(skb)))
- 			return -EBUSY;
-@@ -1440,6 +1440,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
- 			napi_gro_receive(&bnapi->napi, skb);
- 			rc = 1;
++	if (event & BNXT_TX_EVENT) {
++		struct bnxt_tx_ring_info *txr = bnapi->tx_ring;
++		void __iomem *db = txr->tx_doorbell;
++		u16 prod = txr->tx_prod;
++
++		/* Sync BD data before updating doorbell */
++		wmb();
++
++		writel(DB_KEY_TX | prod, db);
++		writel(DB_KEY_TX | prod, db);
++	}
++
+ 	cpr->cp_raw_cons = raw_cons;
+ 	/* ACK completion ring before freeing tx ring and producing new
+ 	 * buffers in rx/agg rings to prevent overflowing the completion
+@@ -3066,12 +3068,14 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
+ 			bp->tx_ring[i].bnapi = bp->bnapi[j];
+ 			bp->bnapi[j]->tx_ring = &bp->tx_ring[i];
+ 			bp->tx_ring_map[i] = bp->tx_nr_rings_xdp + i;
+-			if (i >= bp->tx_nr_rings_xdp)
++			if (i >= bp->tx_nr_rings_xdp) {
+ 				bp->tx_ring[i].txq_index = i -
+ 					bp->tx_nr_rings_xdp;
+-			else
++				bp->bnapi[j]->tx_int = bnxt_tx_int;
++			} else {
+ 				bp->bnapi[j]->flags |= BNXT_NAPI_FLAG_XDP;
+-			bp->bnapi[j]->tx_int = bnxt_tx_int;
++				bp->bnapi[j]->tx_int = bnxt_tx_int_xdp;
++			}
  		}
-+		*event |= BNXT_RX_EVENT;
- 		goto next_rx_no_prod;
- 	}
  
-@@ -1463,8 +1464,9 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
- 			return -EBUSY;
- 
- 		cp_cons = NEXT_CMP(cp_cons);
--		*agg_event = true;
-+		*event |= BNXT_AGG_EVENT;
- 	}
-+	*event |= BNXT_RX_EVENT;
- 
- 	rx_buf->data = NULL;
- 	if (rxcmp1->rx_cmp_cfa_code_errors_v2 & RX_CMP_L2_ERRORS) {
-@@ -1715,8 +1717,7 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
- 	u32 cons;
- 	int tx_pkts = 0;
- 	int rx_pkts = 0;
--	bool rx_event = false;
--	bool agg_event = false;
-+	u8 event = 0;
- 	struct tx_cmp *txcmp;
- 
- 	while (1) {
-@@ -1738,12 +1739,11 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
- 			if (unlikely(tx_pkts > bp->tx_wake_thresh))
- 				rx_pkts = budget;
- 		} else if ((TX_CMP_TYPE(txcmp) & 0x30) == 0x10) {
--			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
-+			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
- 			if (likely(rc >= 0))
- 				rx_pkts += rc;
- 			else if (rc == -EBUSY)	/* partial completion */
- 				break;
--			rx_event = true;
- 		} else if (unlikely((TX_CMP_TYPE(txcmp) ==
- 				     CMPL_BASE_TYPE_HWRM_DONE) ||
- 				    (TX_CMP_TYPE(txcmp) ==
-@@ -1768,12 +1768,12 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
- 	if (tx_pkts)
- 		bnxt_tx_int(bp, bnapi, tx_pkts);
- 
--	if (rx_event) {
-+	if (event & BNXT_RX_EVENT) {
- 		struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
- 
- 		writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
- 		writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
--		if (agg_event) {
-+		if (event & BNXT_AGG_EVENT) {
- 			writel(DB_KEY_RX | rxr->rx_agg_prod,
- 			       rxr->rx_agg_doorbell);
- 			writel(DB_KEY_RX | rxr->rx_agg_prod,
-@@ -1794,7 +1794,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
- 	u32 cp_cons, tmp_raw_cons;
- 	u32 raw_cons = cpr->cp_raw_cons;
- 	u32 rx_pkts = 0;
--	bool agg_event = false;
-+	u8 event = 0;
- 
- 	while (1) {
- 		int rc;
-@@ -1818,7 +1818,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
- 			rxcmp1->rx_cmp_cfa_code_errors_v2 |=
- 				cpu_to_le32(RX_CMPL_ERRORS_CRC_ERROR);
- 
--			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
-+			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
- 			if (likely(rc == -EIO))
- 				rx_pkts++;
- 			else if (rc == -EBUSY)	/* partial completion */
-@@ -1841,7 +1841,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
- 	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
- 	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
- 
--	if (agg_event) {
-+	if (event & BNXT_AGG_EVENT) {
- 		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
- 		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
- 	}
+ 		rc = bnxt_alloc_stats(bp);
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 2144a0e..7f59ce9 100644
+index db4a410..9f07b9c 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -511,6 +511,9 @@ struct rx_tpa_end_cmp_ext {
- #define BNXT_HWRM_REQS_PER_PAGE		(BNXT_PAGE_SIZE /	\
- 					 BNXT_HWRM_REQ_MAX_SIZE)
+@@ -514,13 +514,17 @@ struct rx_tpa_end_cmp_ext {
  
-+#define BNXT_RX_EVENT	1
-+#define BNXT_AGG_EVENT	2
-+
+ #define BNXT_RX_EVENT	1
+ #define BNXT_AGG_EVENT	2
++#define BNXT_TX_EVENT	4
+ 
  struct bnxt_sw_tx_bd {
  	struct sk_buff		*skb;
  	DEFINE_DMA_UNMAP_ADDR(mapping);
+ 	u8			is_gso;
+ 	u8			is_push;
+-	unsigned short		nr_frags;
++	union {
++		unsigned short		nr_frags;
++		u16			rx_prod;
++	};
+ };
+ 
+ struct bnxt_sw_rx_bd {
+@@ -1191,6 +1195,19 @@ struct bnxt {
+ #define SFF_MODULE_ID_QSFP28			0x11
+ #define BNXT_MAX_PHY_I2C_RESP_SIZE		64
+ 
++static inline u32 bnxt_tx_avail(struct bnxt *bp, struct bnxt_tx_ring_info *txr)
++{
++	/* Tell compiler to fetch tx indices from memory. */
++	barrier();
++
++	return bp->tx_ring_size -
++		((txr->tx_prod - txr->tx_cons) & bp->tx_ring_mask);
++}
++
++extern const u16 bnxt_lhint_arr[];
++
++int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
++		       u16 prod, gfp_t gfp);
+ void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons, void *data);
+ void bnxt_set_tpa_flags(struct bnxt *bp);
+ void bnxt_set_ring_params(struct bnxt *);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+index b822e46..899c30f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+@@ -19,6 +19,65 @@
+ #include "bnxt.h"
+ #include "bnxt_xdp.h"
+ 
++static void bnxt_xmit_xdp(struct bnxt *bp, struct bnxt_tx_ring_info *txr,
++			  dma_addr_t mapping, u32 len, u16 rx_prod)
++{
++	struct bnxt_sw_tx_bd *tx_buf;
++	struct tx_bd_ext *txbd1;
++	struct tx_bd *txbd;
++	u32 flags;
++	u16 prod;
++
++	prod = txr->tx_prod;
++	tx_buf = &txr->tx_buf_ring[prod];
++	tx_buf->rx_prod = rx_prod;
++
++	txbd = &txr->tx_desc_ring[TX_RING(prod)][TX_IDX(prod)];
++	flags = (len << TX_BD_LEN_SHIFT) | TX_BD_TYPE_LONG_TX_BD |
++		(2 << TX_BD_FLAGS_BD_CNT_SHIFT) | TX_BD_FLAGS_COAL_NOW |
++		TX_BD_FLAGS_PACKET_END | bnxt_lhint_arr[len >> 9];
++	txbd->tx_bd_len_flags_type = cpu_to_le32(flags);
++	txbd->tx_bd_opaque = prod;
++	txbd->tx_bd_haddr = cpu_to_le64(mapping);
++
++	prod = NEXT_TX(prod);
++	txbd1 = (struct tx_bd_ext *)
++		&txr->tx_desc_ring[TX_RING(prod)][TX_IDX(prod)];
++
++	txbd1->tx_bd_hsize_lflags = cpu_to_le32(0);
++	txbd1->tx_bd_mss = cpu_to_le32(0);
++	txbd1->tx_bd_cfa_action = cpu_to_le32(0);
++	txbd1->tx_bd_cfa_meta = cpu_to_le32(0);
++
++	prod = NEXT_TX(prod);
++	txr->tx_prod = prod;
++}
++
++void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
++{
++	struct bnxt_tx_ring_info *txr = bnapi->tx_ring;
++	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
++	struct bnxt_sw_tx_bd *tx_buf;
++	u16 tx_cons = txr->tx_cons;
++	u16 last_tx_cons = tx_cons;
++	u16 rx_prod;
++	int i;
++
++	for (i = 0; i < nr_pkts; i++) {
++		last_tx_cons = tx_cons;
++		tx_cons = NEXT_TX(tx_cons);
++		tx_cons = NEXT_TX(tx_cons);
++	}
++	txr->tx_cons = tx_cons;
++	if (bnxt_tx_avail(bp, txr) == bp->tx_ring_size) {
++		rx_prod = rxr->rx_prod;
++	} else {
++		tx_buf = &txr->tx_buf_ring[last_tx_cons];
++		rx_prod = tx_buf->rx_prod;
++	}
++	writel(DB_KEY_RX | rx_prod, rxr->rx_doorbell);
++}
++
+ /* returns the following:
+  * true    - packet consumed by XDP and new buffer is allocated.
+  * false   - packet should be passed to the stack.
+@@ -27,11 +86,13 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 		 struct page *page, u8 **data_ptr, unsigned int *len, u8 *event)
+ {
+ 	struct bpf_prog *xdp_prog = READ_ONCE(rxr->xdp_prog);
++	struct bnxt_tx_ring_info *txr;
+ 	struct bnxt_sw_rx_bd *rx_buf;
+ 	struct pci_dev *pdev;
+ 	struct xdp_buff xdp;
+ 	dma_addr_t mapping;
+ 	void *orig_data;
++	u32 tx_avail;
+ 	u32 offset;
+ 	u32 act;
+ 
+@@ -39,6 +100,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 		return false;
+ 
+ 	pdev = bp->pdev;
++	txr = rxr->bnapi->tx_ring;
+ 	rx_buf = &rxr->rx_buf_ring[cons];
+ 	offset = bp->rx_offset;
+ 
+@@ -54,6 +116,13 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 	act = bpf_prog_run_xdp(xdp_prog, &xdp);
+ 	rcu_read_unlock();
+ 
++	tx_avail = bnxt_tx_avail(bp, txr);
++	/* If the tx ring is not full, we must not update the rx producer yet
++	 * because we may still be transmitting on some BDs.
++	 */
++	if (tx_avail != bp->tx_ring_size)
++		*event &= ~BNXT_RX_EVENT;
++
+ 	if (orig_data != xdp.data) {
+ 		offset = xdp.data - xdp.data_hard_start;
+ 		*data_ptr = xdp.data_hard_start + offset;
+@@ -63,6 +132,20 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 	case XDP_PASS:
+ 		return false;
+ 
++	case XDP_TX:
++		if (tx_avail < 2) {
++			trace_xdp_exception(bp->dev, xdp_prog, act);
++			bnxt_reuse_rx_data(rxr, cons, page);
++			return true;
++		}
++
++		*event = BNXT_TX_EVENT;
++		dma_sync_single_for_device(&pdev->dev, mapping + offset, *len,
++					   bp->rx_dir);
++		bnxt_xmit_xdp(bp, txr, mapping + offset, *len,
++			      NEXT_RX(rxr->rx_prod));
++		bnxt_reuse_rx_data(rxr, cons, page);
++		return true;
+ 	default:
+ 		bpf_warn_invalid_xdp_action(act);
+ 		/* Fall thru */
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
+index 0bb7b7d..b529f2c 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.h
+@@ -10,6 +10,7 @@
+ #ifndef BNXT_XDP_H
+ #define BNXT_XDP_H
+ 
++void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts);
+ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 		 struct page *page, u8 **data_ptr, unsigned int *len,
+ 		 u8 *event);
 -- 
 1.8.3.1
