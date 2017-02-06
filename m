@@ -1,73 +1,103 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Fw: [Bug 193911] New: net_prio.ifpriomap is not aware of the
- network namespace, and discloses all network interface
-Date: Sun, 5 Feb 2017 23:05:36 -0800
-Message-ID: <CAM_iQpVB_OvJy4Yz97MeOh9hNwm-mTG9aM1FWBpaaOmjroWvVw@mail.gmail.com>
-References: <20170203155330.06edece4@xeon-e3>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next PATCH v2 3/5] virtio_net: remove duplicate queue pair
+ binding in XDP
+Date: Mon, 6 Feb 2017 15:06:57 +0800
+Message-ID: <6068ccd4-b14e-f8a9-8845-0ed375b69541@redhat.com>
+References: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
+ <20170203031532.23054.52077.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tejun Heo <tj@kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        xgao01@email.wm.edu, "Eric W. Biederman" <ebiederm@xmission.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>, kubakici@wp.pl,
+        ast@fb.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33262 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdBFHGD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 02:06:03 -0500
-Received: by mail-wm0-f65.google.com with SMTP id v77so19882460wmv.0
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 23:05:57 -0800 (PST)
-In-Reply-To: <20170203155330.06edece4@xeon-e3>
+Received: from mx1.redhat.com ([209.132.183.28]:40186 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750881AbdBFHHI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 02:07:08 -0500
+In-Reply-To: <20170203031532.23054.52077.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 3, 2017 at 3:53 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->
->
-> Begin forwarded message:
->
-> Date: Fri, 03 Feb 2017 21:14:28 +0000
-> From: bugzilla-daemon@bugzilla.kernel.org
-> To: stephen@networkplumber.org
-> Subject: [Bug 193911] New: net_prio.ifpriomap is not aware of the network namespace, and discloses all network interface
->
->
-> https://bugzilla.kernel.org/show_bug.cgi?id=193911
->
->             Bug ID: 193911
->            Summary: net_prio.ifpriomap is not aware of the network
->                     namespace, and discloses all network interface
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 4.9
->           Hardware: All
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->           Assignee: stephen@networkplumber.org
->           Reporter: xgao01@email.wm.edu
->         Regression: No
->
-> The pseudo file net_prio.ifpriomap (under /sys/fs/cgroup/net_prio) contains a
-> map of the priorities assigned to traffic starting from processes in a cgroup
-> and leaving the system on various interfaces. The data format is in the form of
-> [ifname priority].
->
-> We find that the kernel handler function hooked at net_prio.ifpriomap is not
-> aware of the network namespace, and thus it discloses all network interfaces on
-> the physical machine to the containerized applications.
->
-> To be more specific, the read operation of net_prio.ifpriomap is handled by the
-> function read_priomap. Tracing from this function, we can find it invokes
-> for_each_netdev_rcu and set the first parameter as the address of init_net. It
-> iterates all network devices of the host regardless of the network namespace.
-> Thus, from the view of a container, it can read the names of all network
-> devices of the host.
 
-I think that is probably because cgroup files don't provide a net pointer
-for the context, if so we probably need some API similar to
-class_create_file_ns().
+
+On 2017年02月03日 11:15, John Fastabend wrote:
+> Factor out qp assignment.
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+
+Acked-by: Jason Wang <jasowang@redhat.com>
+
+> ---
+>   drivers/net/virtio_net.c |   20 +++++++-------------
+>   1 file changed, 7 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 3b49363..dba5afb 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -341,15 +341,19 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+>   
+>   static bool virtnet_xdp_xmit(struct virtnet_info *vi,
+>   			     struct receive_queue *rq,
+> -			     struct send_queue *sq,
+>   			     struct xdp_buff *xdp,
+>   			     void *data)
+>   {
+>   	struct virtio_net_hdr_mrg_rxbuf *hdr;
+>   	unsigned int num_sg, len;
+> +	struct send_queue *sq;
+> +	unsigned int qp;
+>   	void *xdp_sent;
+>   	int err;
+>   
+> +	qp = vi->curr_queue_pairs - vi->xdp_queue_pairs + smp_processor_id();
+> +	sq = &vi->sq[qp];
+> +
+>   	/* Free up any pending old buffers before queueing new ones. */
+>   	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+>   		if (vi->mergeable_rx_bufs) {
+> @@ -415,7 +419,6 @@ static struct sk_buff *receive_small(struct net_device *dev,
+>   	if (xdp_prog) {
+>   		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
+>   		struct xdp_buff xdp;
+> -		unsigned int qp;
+>   		u32 act;
+>   
+>   		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+> @@ -429,11 +432,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
+>   		case XDP_PASS:
+>   			break;
+>   		case XDP_TX:
+> -			qp = vi->curr_queue_pairs -
+> -				vi->xdp_queue_pairs +
+> -				smp_processor_id();
+> -			if (unlikely(!virtnet_xdp_xmit(vi, rq, &vi->sq[qp],
+> -						       &xdp, skb)))
+> +			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, skb)))
+>   				trace_xdp_exception(vi->dev, xdp_prog, act);
+>   			rcu_read_unlock();
+>   			goto xdp_xmit;
+> @@ -560,7 +559,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>   	if (xdp_prog) {
+>   		struct page *xdp_page;
+>   		struct xdp_buff xdp;
+> -		unsigned int qp;
+>   		void *data;
+>   		u32 act;
+>   
+> @@ -602,11 +600,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+>   			}
+>   			break;
+>   		case XDP_TX:
+> -			qp = vi->curr_queue_pairs -
+> -				vi->xdp_queue_pairs +
+> -				smp_processor_id();
+> -			if (unlikely(!virtnet_xdp_xmit(vi, rq, &vi->sq[qp],
+> -						       &xdp, data)))
+> +			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, data)))
+>   				trace_xdp_exception(vi->dev, xdp_prog, act);
+>   			ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
+>   			if (unlikely(xdp_page != page))
+>
