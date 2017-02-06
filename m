@@ -1,155 +1,89 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next V2 3/6] net/mlx5: TX WQE update
-Date: Tue,  7 Feb 2017 01:38:26 +0200
-Message-ID: <20170206233829.29716-4-saeedm@mellanox.com>
-References: <20170206233829.29716-1-saeedm@mellanox.com>
+Subject: [pull request][net-next V2 0/6] Mellanox mlx5 updates 2017-01-31
+Date: Tue,  7 Feb 2017 01:38:23 +0200
+Message-ID: <20170206233829.29716-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52052 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52051 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751588AbdBFXjB (ORCPT
+        with ESMTP id S1751690AbdBFXjB (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 18:39:01 -0500
-In-Reply-To: <20170206233829.29716-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new TX WQE fields for Connect-X5 vlan insertion support,
-type and vlan_tci, when type = MLX5_ETH_WQE_INSERT_VLAN the
-HW will insert the vlan and prio fields (vlan_tci) to the packet.
+Hi Dave,
 
-Those bits and the inline header fields are mutually exclusive, and
-valid only when:
-MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_NOT_REQUIRED
-and MLX5_CAP_ETH(mdev, wqe_vlan_insert),
-who will be set in ConnectX-5 and later HW generations.
+This pull request includes two new mlx5 features and two small fixes for net-next,
+Details are bleow.
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+Please pull and let me know if there's any problem.
+
+Sorry for the delay on addressing the comments.
+v1->v2:
+	- Addressed the comments on the static checker fix patch
+	- Squash cacheline patches (it is more correct they come as one).
+	- Dropped "net/mlx5e: Calc vlan_tag_present only once on xmit" 
+          as it doesn't seem to give any added value.
+
+Thanks,
+Saeed.
+
 ---
- drivers/infiniband/hw/mlx5/qp.c                 |  6 +++---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c |  4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c |  8 ++++----
- include/linux/mlx5/mlx5_ifc.h                   |  3 ++-
- include/linux/mlx5/qp.h                         | 16 ++++++++++++++--
- 5 files changed, 25 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index 6a83fb32599d..e31bf11ae64f 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -2984,20 +2984,20 @@ static void *set_eth_seg(struct mlx5_wqe_eth_seg *eseg,
- 
- 	if (wr->opcode == IB_WR_LSO) {
- 		struct ib_ud_wr *ud_wr = container_of(wr, struct ib_ud_wr, wr);
--		int size_of_inl_hdr_start = sizeof(eseg->inline_hdr_start);
-+		int size_of_inl_hdr_start = sizeof(eseg->inline_hdr.start);
- 		u64 left, leftlen, copysz;
- 		void *pdata = ud_wr->header;
- 
- 		left = ud_wr->hlen;
- 		eseg->mss = cpu_to_be16(ud_wr->mss);
--		eseg->inline_hdr_sz = cpu_to_be16(left);
-+		eseg->inline_hdr.sz = cpu_to_be16(left);
- 
- 		/*
- 		 * check if there is space till the end of queue, if yes,
- 		 * copy all in one shot, otherwise copy till the end of queue,
- 		 * rollback and than the copy the left
- 		 */
--		leftlen = qend - (void *)eseg->inline_hdr_start;
-+		leftlen = qend - (void *)eseg->inline_hdr.start;
- 		copysz = min_t(u64, leftlen, left);
- 
- 		memcpy(seg - size_of_inl_hdr_start, pdata, copysz);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index fd8dff6acc12..965e69e9ff1e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -687,8 +687,8 @@ static inline bool mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
- 	memset(wqe, 0, sizeof(*wqe));
- 
- 	/* copy the inline part */
--	memcpy(eseg->inline_hdr_start, xdp->data, MLX5E_XDP_MIN_INLINE);
--	eseg->inline_hdr_sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
-+	memcpy(eseg->inline_hdr.start, xdp->data, MLX5E_XDP_MIN_INLINE);
-+	eseg->inline_hdr.sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
- 
- 	dseg = (struct mlx5_wqe_data_seg *)cseg + (MLX5E_XDP_TX_DS_COUNT - 1);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index cfb68371c397..678c07c8fbb0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -284,18 +284,18 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	wi->num_bytes = num_bytes;
- 
- 	if (skb_vlan_tag_present(skb)) {
--		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs, &skb_data,
-+		mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data,
- 				  &skb_len);
- 		ihs += VLAN_HLEN;
- 	} else {
--		memcpy(eseg->inline_hdr_start, skb_data, ihs);
-+		memcpy(eseg->inline_hdr.start, skb_data, ihs);
- 		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
- 	}
- 
--	eseg->inline_hdr_sz = cpu_to_be16(ihs);
-+	eseg->inline_hdr.sz = cpu_to_be16(ihs);
- 
- 	ds_cnt  = sizeof(*wqe) / MLX5_SEND_WQE_DS;
--	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr_start),
-+	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start),
- 			       MLX5_SEND_WQE_DS);
- 	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
- 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index cc8ae860cd45..afcd4736d8df 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -577,7 +577,8 @@ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
- 	u8         lro_cap[0x1];
- 	u8         lro_psh_flag[0x1];
- 	u8         lro_time_stamp[0x1];
--	u8         reserved_at_5[0x3];
-+	u8         reserved_at_5[0x2];
-+	u8         wqe_vlan_insert[0x1];
- 	u8         self_lb_en_modifiable[0x1];
- 	u8         reserved_at_9[0x2];
- 	u8         max_lso_cap[0x5];
-diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
-index 219c699c17b7..3096370fe831 100644
---- a/include/linux/mlx5/qp.h
-+++ b/include/linux/mlx5/qp.h
-@@ -221,14 +221,26 @@ enum {
- 	MLX5_ETH_WQE_L4_CSUM            = 1 << 7,
- };
- 
-+enum {
-+	MLX5_ETH_WQE_INSERT_VLAN        = 1 << 15,
-+};
-+
- struct mlx5_wqe_eth_seg {
- 	u8              rsvd0[4];
- 	u8              cs_flags;
- 	u8              rsvd1;
- 	__be16          mss;
- 	__be32          rsvd2;
--	__be16          inline_hdr_sz;
--	u8              inline_hdr_start[2];
-+	union {
-+		struct {
-+			__be16 sz;
-+			u8     start[2];
-+		} inline_hdr;
-+		struct {
-+			__be16 type;
-+			__be16 vlan_tci;
-+		} insert;
-+	};
- };
- 
- struct mlx5_wqe_xrc_seg {
--- 
-2.11.0
+The following changes since commit bd092ad1463ca0990581fa992e12a9b0ed295d25:
+
+  Merge branch 'remove-__napi_complete_done' (2017-02-05 16:11:59 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-updates-2017-01-31
+
+for you to fetch changes up to 8ca967ab67671f07ac7daef4f854559bc66799a3:
+
+  net/mlx5e: Bring back bfreg uar map dedicated pointer (2017-02-06 18:20:18 +0200)
+
+----------------------------------------------------------------
+mlx5-updates-2017-01-31
+
+This series includes some updates to mlx5 core and ethernet driver.
+
+We got one patch from Or to fix some static checker warnings.
+
+2nd patche from Dan came to add the support for 128B cache line
+in the HCA, which will configures the hardware to use 128B alignment only
+on systems with 128B cache lines, otherwise it will be kept as the current
+default of 64B.
+
+>From me three patches to support no inline copy on TX on ConnectX-5 and
+later HCAs.  Starting with two small infrastructure changes and
+refactoring patches followed by two patches to add the actual support for
+both xmit ndo and XDP xmit routines.
+Last patch is a simple fix to return a mistakenly removed pointer from the
+SQ structure, which was remove in previous submission of mlx5 4K UAR.
+
+Saeed.
+
+----------------------------------------------------------------
+Daniel Jurgens (1):
+      net/mlx5: Configure cache line size for start and end padding
+
+Or Gerlitz (1):
+      net/mlx5: Fix static checker warnings
+
+Saeed Mahameed (4):
+      net/mlx5: TX WQE update
+      net/mlx5e: Tx, no inline copy on ConnectX-5
+      net/mlx5e: XDP Tx, no inline copy on ConnectX-5
+      net/mlx5e: Bring back bfreg uar map dedicated pointer
+
+ drivers/infiniband/hw/mlx5/qp.c                   |  6 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      | 17 ++++++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 21 ++++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 20 +++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 30 +++++++++++++----------
+ drivers/net/ethernet/mellanox/mlx5/core/main.c    |  6 +++++
+ include/linux/mlx5/device.h                       |  3 ++-
+ include/linux/mlx5/mlx5_ifc.h                     |  9 ++++---
+ include/linux/mlx5/qp.h                           | 16 ++++++++++--
+ 9 files changed, 85 insertions(+), 43 deletions(-)
