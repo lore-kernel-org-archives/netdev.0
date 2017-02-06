@@ -1,10 +1,10 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next PATCH v2 3/5] virtio_net: remove duplicate queue pair
- binding in XDP
-Date: Mon, 6 Feb 2017 15:06:57 +0800
-Message-ID: <6068ccd4-b14e-f8a9-8845-0ed375b69541@redhat.com>
+Subject: Re: [net-next PATCH v2 4/5] virtio_net: refactor freeze/restore logic
+ into virtnet reset logic
+Date: Mon, 6 Feb 2017 15:07:29 +0800
+Message-ID: <f7cab638-25e3-bf08-2cf3-004a15dcb82c@redhat.com>
 References: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
- <20170203031532.23054.52077.stgit@john-Precision-Tower-5810>
+ <20170203031601.23054.31610.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
@@ -12,92 +12,311 @@ Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
 To: John Fastabend <john.fastabend@gmail.com>, kubakici@wp.pl,
         ast@fb.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40186 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46910 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750881AbdBFHHI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 02:07:08 -0500
-In-Reply-To: <20170203031532.23054.52077.stgit@john-Precision-Tower-5810>
+        id S1750851AbdBFHHh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 02:07:37 -0500
+In-Reply-To: <20170203031601.23054.31610.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 2017年02月03日 11:15, John Fastabend wrote:
-> Factor out qp assignment.
+On 2017年02月03日 11:16, John Fastabend wrote:
+> For XDP we will need to reset the queues to allow for buffer headroom
+> to be configured. In order to do this we need to essentially run the
+> freeze()/restore() code path. Unfortunately the locking requirements
+> between the freeze/restore and reset paths are different however so
+> we can not simply reuse the code.
+>
+> This patch refactors the code path and adds a reset helper routine.
 >
 > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
 Acked-by: Jason Wang <jasowang@redhat.com>
 
 > ---
->   drivers/net/virtio_net.c |   20 +++++++-------------
->   1 file changed, 7 insertions(+), 13 deletions(-)
+>   drivers/net/virtio_net.c |   75 ++++++++++++++++++++++++++++------------------
+>   drivers/virtio/virtio.c  |   42 ++++++++++++++------------
+>   include/linux/virtio.h   |    4 ++
+>   3 files changed, 73 insertions(+), 48 deletions(-)
 >
 > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 3b49363..dba5afb 100644
+> index dba5afb..07f9076 100644
 > --- a/drivers/net/virtio_net.c
 > +++ b/drivers/net/virtio_net.c
-> @@ -341,15 +341,19 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+> @@ -1698,6 +1698,49 @@ static void virtnet_init_settings(struct net_device *dev)
+>   	.set_settings = virtnet_set_settings,
+>   };
 >   
->   static bool virtnet_xdp_xmit(struct virtnet_info *vi,
->   			     struct receive_queue *rq,
-> -			     struct send_queue *sq,
->   			     struct xdp_buff *xdp,
->   			     void *data)
->   {
->   	struct virtio_net_hdr_mrg_rxbuf *hdr;
->   	unsigned int num_sg, len;
-> +	struct send_queue *sq;
-> +	unsigned int qp;
->   	void *xdp_sent;
->   	int err;
->   
-> +	qp = vi->curr_queue_pairs - vi->xdp_queue_pairs + smp_processor_id();
-> +	sq = &vi->sq[qp];
+> +static void virtnet_freeze_down(struct virtio_device *vdev)
+> +{
+> +	struct virtnet_info *vi = vdev->priv;
+> +	int i;
 > +
->   	/* Free up any pending old buffers before queueing new ones. */
->   	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
->   		if (vi->mergeable_rx_bufs) {
-> @@ -415,7 +419,6 @@ static struct sk_buff *receive_small(struct net_device *dev,
->   	if (xdp_prog) {
->   		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
->   		struct xdp_buff xdp;
-> -		unsigned int qp;
->   		u32 act;
+> +	/* Make sure no work handler is accessing the device */
+> +	flush_work(&vi->config_work);
+> +
+> +	netif_device_detach(vi->dev);
+> +	cancel_delayed_work_sync(&vi->refill);
+> +
+> +	if (netif_running(vi->dev)) {
+> +		for (i = 0; i < vi->max_queue_pairs; i++)
+> +			napi_disable(&vi->rq[i].napi);
+> +	}
+> +}
+> +
+> +static int init_vqs(struct virtnet_info *vi);
+> +
+> +static int virtnet_restore_up(struct virtio_device *vdev)
+> +{
+> +	struct virtnet_info *vi = vdev->priv;
+> +	int err, i;
+> +
+> +	err = init_vqs(vi);
+> +	if (err)
+> +		return err;
+> +
+> +	virtio_device_ready(vdev);
+> +
+> +	if (netif_running(vi->dev)) {
+> +		for (i = 0; i < vi->curr_queue_pairs; i++)
+> +			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+> +				schedule_delayed_work(&vi->refill, 0);
+> +
+> +		for (i = 0; i < vi->max_queue_pairs; i++)
+> +			virtnet_napi_enable(&vi->rq[i]);
+> +	}
+> +
+> +	netif_device_attach(vi->dev);
+> +	return err;
+> +}
+> +
+>   static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   {
+>   	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+> @@ -2393,21 +2436,9 @@ static void virtnet_remove(struct virtio_device *vdev)
+>   static int virtnet_freeze(struct virtio_device *vdev)
+>   {
+>   	struct virtnet_info *vi = vdev->priv;
+> -	int i;
 >   
->   		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
-> @@ -429,11 +432,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
->   		case XDP_PASS:
->   			break;
->   		case XDP_TX:
-> -			qp = vi->curr_queue_pairs -
-> -				vi->xdp_queue_pairs +
-> -				smp_processor_id();
-> -			if (unlikely(!virtnet_xdp_xmit(vi, rq, &vi->sq[qp],
-> -						       &xdp, skb)))
-> +			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, skb)))
->   				trace_xdp_exception(vi->dev, xdp_prog, act);
->   			rcu_read_unlock();
->   			goto xdp_xmit;
-> @@ -560,7 +559,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
->   	if (xdp_prog) {
->   		struct page *xdp_page;
->   		struct xdp_buff xdp;
-> -		unsigned int qp;
->   		void *data;
->   		u32 act;
+>   	virtnet_cpu_notif_remove(vi);
+> -
+> -	/* Make sure no work handler is accessing the device */
+> -	flush_work(&vi->config_work);
+> -
+> -	netif_device_detach(vi->dev);
+> -	cancel_delayed_work_sync(&vi->refill);
+> -
+> -	if (netif_running(vi->dev)) {
+> -		for (i = 0; i < vi->max_queue_pairs; i++)
+> -			napi_disable(&vi->rq[i].napi);
+> -	}
+> -
+> +	virtnet_freeze_down(vdev);
+>   	remove_vq_common(vi);
 >   
-> @@ -602,11 +600,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
->   			}
->   			break;
->   		case XDP_TX:
-> -			qp = vi->curr_queue_pairs -
-> -				vi->xdp_queue_pairs +
-> -				smp_processor_id();
-> -			if (unlikely(!virtnet_xdp_xmit(vi, rq, &vi->sq[qp],
-> -						       &xdp, data)))
-> +			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, data)))
->   				trace_xdp_exception(vi->dev, xdp_prog, act);
->   			ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
->   			if (unlikely(xdp_page != page))
+>   	return 0;
+> @@ -2416,25 +2447,11 @@ static int virtnet_freeze(struct virtio_device *vdev)
+>   static int virtnet_restore(struct virtio_device *vdev)
+>   {
+>   	struct virtnet_info *vi = vdev->priv;
+> -	int err, i;
+> +	int err;
+>   
+> -	err = init_vqs(vi);
+> +	err = virtnet_restore_up(vdev);
+>   	if (err)
+>   		return err;
+> -
+> -	virtio_device_ready(vdev);
+> -
+> -	if (netif_running(vi->dev)) {
+> -		for (i = 0; i < vi->curr_queue_pairs; i++)
+> -			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+> -				schedule_delayed_work(&vi->refill, 0);
+> -
+> -		for (i = 0; i < vi->max_queue_pairs; i++)
+> -			virtnet_napi_enable(&vi->rq[i]);
+> -	}
+> -
+> -	netif_device_attach(vi->dev);
+> -
+>   	virtnet_set_queues(vi, vi->curr_queue_pairs);
+>   
+>   	err = virtnet_cpu_notif_add(vi);
+> diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+> index 7062bb0..400d70b 100644
+> --- a/drivers/virtio/virtio.c
+> +++ b/drivers/virtio/virtio.c
+> @@ -100,11 +100,6 @@ static int virtio_uevent(struct device *_dv, struct kobj_uevent_env *env)
+>   			      dev->id.device, dev->id.vendor);
+>   }
+>   
+> -static void add_status(struct virtio_device *dev, unsigned status)
+> -{
+> -	dev->config->set_status(dev, dev->config->get_status(dev) | status);
+> -}
+> -
+>   void virtio_check_driver_offered_feature(const struct virtio_device *vdev,
+>   					 unsigned int fbit)
+>   {
+> @@ -145,14 +140,15 @@ void virtio_config_changed(struct virtio_device *dev)
+>   }
+>   EXPORT_SYMBOL_GPL(virtio_config_changed);
+>   
+> -static void virtio_config_disable(struct virtio_device *dev)
+> +void virtio_config_disable(struct virtio_device *dev)
+>   {
+>   	spin_lock_irq(&dev->config_lock);
+>   	dev->config_enabled = false;
+>   	spin_unlock_irq(&dev->config_lock);
+>   }
+> +EXPORT_SYMBOL_GPL(virtio_config_disable);
+>   
+> -static void virtio_config_enable(struct virtio_device *dev)
+> +void virtio_config_enable(struct virtio_device *dev)
+>   {
+>   	spin_lock_irq(&dev->config_lock);
+>   	dev->config_enabled = true;
+> @@ -161,8 +157,15 @@ static void virtio_config_enable(struct virtio_device *dev)
+>   	dev->config_change_pending = false;
+>   	spin_unlock_irq(&dev->config_lock);
+>   }
+> +EXPORT_SYMBOL_GPL(virtio_config_enable);
+> +
+> +void virtio_add_status(struct virtio_device *dev, unsigned int status)
+> +{
+> +	dev->config->set_status(dev, dev->config->get_status(dev) | status);
+> +}
+> +EXPORT_SYMBOL_GPL(virtio_add_status);
+>   
+> -static int virtio_finalize_features(struct virtio_device *dev)
+> +int virtio_finalize_features(struct virtio_device *dev)
+>   {
+>   	int ret = dev->config->finalize_features(dev);
+>   	unsigned status;
+> @@ -173,7 +176,7 @@ static int virtio_finalize_features(struct virtio_device *dev)
+>   	if (!virtio_has_feature(dev, VIRTIO_F_VERSION_1))
+>   		return 0;
+>   
+> -	add_status(dev, VIRTIO_CONFIG_S_FEATURES_OK);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FEATURES_OK);
+>   	status = dev->config->get_status(dev);
+>   	if (!(status & VIRTIO_CONFIG_S_FEATURES_OK)) {
+>   		dev_err(&dev->dev, "virtio: device refuses features: %x\n",
+> @@ -182,6 +185,7 @@ static int virtio_finalize_features(struct virtio_device *dev)
+>   	}
+>   	return 0;
+>   }
+> +EXPORT_SYMBOL_GPL(virtio_finalize_features);
+>   
+>   static int virtio_dev_probe(struct device *_d)
+>   {
+> @@ -193,7 +197,7 @@ static int virtio_dev_probe(struct device *_d)
+>   	u64 driver_features_legacy;
+>   
+>   	/* We have a driver! */
+> -	add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+>   
+>   	/* Figure out what features the device supports. */
+>   	device_features = dev->config->get_features(dev);
+> @@ -247,7 +251,7 @@ static int virtio_dev_probe(struct device *_d)
+>   
+>   	return 0;
+>   err:
+> -	add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>   	return err;
+>   
+>   }
+> @@ -265,7 +269,7 @@ static int virtio_dev_remove(struct device *_d)
+>   	WARN_ON_ONCE(dev->config->get_status(dev));
+>   
+>   	/* Acknowledge the device's existence again. */
+> -	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>   	return 0;
+>   }
+>   
+> @@ -316,7 +320,7 @@ int register_virtio_device(struct virtio_device *dev)
+>   	dev->config->reset(dev);
+>   
+>   	/* Acknowledge that we've seen the device. */
+> -	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>   
+>   	INIT_LIST_HEAD(&dev->vqs);
+>   
+> @@ -325,7 +329,7 @@ int register_virtio_device(struct virtio_device *dev)
+>   	err = device_register(&dev->dev);
+>   out:
+>   	if (err)
+> -		add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +		virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>   	return err;
+>   }
+>   EXPORT_SYMBOL_GPL(register_virtio_device);
+> @@ -365,18 +369,18 @@ int virtio_device_restore(struct virtio_device *dev)
+>   	dev->config->reset(dev);
+>   
+>   	/* Acknowledge that we've seen the device. */
+> -	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>   
+>   	/* Maybe driver failed before freeze.
+>   	 * Restore the failed status, for debugging. */
+>   	if (dev->failed)
+> -		add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +		virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>   
+>   	if (!drv)
+>   		return 0;
+>   
+>   	/* We have a driver! */
+> -	add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+>   
+>   	ret = virtio_finalize_features(dev);
+>   	if (ret)
+> @@ -389,14 +393,14 @@ int virtio_device_restore(struct virtio_device *dev)
+>   	}
+>   
+>   	/* Finally, tell the device we're all set */
+> -	add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+>   
+>   	virtio_config_enable(dev);
+>   
+>   	return 0;
+>   
+>   err:
+> -	add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>   	return ret;
+>   }
+>   EXPORT_SYMBOL_GPL(virtio_device_restore);
+> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+> index d5eb547..04b0d3f 100644
+> --- a/include/linux/virtio.h
+> +++ b/include/linux/virtio.h
+> @@ -132,12 +132,16 @@ static inline struct virtio_device *dev_to_virtio(struct device *_dev)
+>   	return container_of(_dev, struct virtio_device, dev);
+>   }
+>   
+> +void virtio_add_status(struct virtio_device *dev, unsigned int status);
+>   int register_virtio_device(struct virtio_device *dev);
+>   void unregister_virtio_device(struct virtio_device *dev);
+>   
+>   void virtio_break_device(struct virtio_device *dev);
+>   
+>   void virtio_config_changed(struct virtio_device *dev);
+> +void virtio_config_disable(struct virtio_device *dev);
+> +void virtio_config_enable(struct virtio_device *dev);
+> +int virtio_finalize_features(struct virtio_device *dev);
+>   #ifdef CONFIG_PM_SLEEP
+>   int virtio_device_freeze(struct virtio_device *dev);
+>   int virtio_device_restore(struct virtio_device *dev);
 >
