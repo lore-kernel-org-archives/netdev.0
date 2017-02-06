@@ -1,161 +1,151 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv4 net-next 0/7] net: dst_confirm replacement
-Date: Mon,  6 Feb 2017 23:14:10 +0200
-Message-ID: <1486415657-14714-1-git-send-email-ja@ssi.bg>
+Subject: [PATCHv4 net-next 2/7] net: add dst_pending_confirm flag to skbuff
+Date: Mon,  6 Feb 2017 23:14:12 +0200
+Message-ID: <1486415657-14714-3-git-send-email-ja@ssi.bg>
+References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
         Steffen Klassert <steffen.klassert@secunet.com>,
         linux-rdma@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47227 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:47241 "EHLO ja.ssi.bg"
         rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752672AbdBFVQc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 16:16:32 -0500
+        id S1752707AbdBFVQh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 16:16:37 -0500
+In-Reply-To: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	This patchset addresses the problem of neighbour
-confirmation where received replies from one nexthop
-can cause confirmation of different nexthop when using
-the same dst. Thanks to YueHaibing <yuehaibing@huawei.com>
-for tracking the dst->pending_confirm problem.
+Add new skbuff flag to allow protocols to confirm neighbour.
+When same struct dst_entry can be used for many different
+neighbours we can not use it for pending confirmations.
 
-	Sockets can obtain cached output route. Such
-routes can be to known nexthop (rt_gateway=IP) or to be
-used simultaneously for different nexthop IPs by different
-subnet prefixes (nh->nh_scope = RT_SCOPE_HOST, rt_gateway=0).
+Add sock_confirm_neigh() helper to confirm the neighbour and
+use it for IPv4, IPv6 and VRF before dst_neigh_output.
 
-	At first look, there are more problems:
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/vrf.c      |  5 ++++-
+ include/linux/skbuff.h | 12 ++++++++++++
+ include/net/sock.h     | 14 ++++++++++++++
+ net/ipv4/ip_output.c   |  5 ++++-
+ net/ipv6/ip6_output.c  |  1 +
+ 5 files changed, 35 insertions(+), 2 deletions(-)
 
-- dst_confirm() sets flag on dst and not on dst->path,
-as result, indication is lost when XFRM is used
-
-- DNAT can change the nexthop, so the really used nexthop is
-not confirmed
-
-	So, the following solution is to avoid using
-dst->pending_confirm.
-
-	The current dst_confirm() usage is as follows:
-
-Protocols confirming dst on received packets:
-- TCP (1 dst per socket)
-- SCTP (1 dst per transport)
-- CXGB*
-
-Protocols supporting sendmsg with MSG_CONFIRM [ | MSG_PROBE ] to
-confirm neighbour:
-- UDP IPv4/IPv6
-- ICMPv4 PING
-- RAW IPv4/IPv6
-- L2TP/IPv6
-
-MSG_CONFIRM for other purposes (fix not needed):
-- CAN
-
-Sending without locking the socket:
-- UDP (when no cork)
-- RAW (when hdrincl=1)
-
-Redirects from old to new GW:
-- rt6_do_redirect
-
-
-	The patchset includes the following changes:
-
-1. sock: add sk_dst_pending_confirm flag
-
-- used only by TCP with patch 4 to remember the received
-indication in sk->sk_dst_pending_confirm
-
-2. net: add dst_pending_confirm flag to skbuff
-
-- skb->dst_pending_confirm will be used by all protocols
-in following patches, via skb_{set,get}_dst_pending_confirm
-
-3. sctp: add dst_pending_confirm flag
-
-- SCTP uses per-transport dsts and can not use
-sk->sk_dst_pending_confirm like TCP
-
-4. tcp: replace dst_confirm with sk_dst_confirm
-
-5. net: add confirm_neigh method to dst_ops
-
-- IPv4 and IPv6 provision for slow neigh lookups for MSG_PROBE users.
-I decided to use neigh lookup only for this case because on
-MSG_PROBE the skb may pass MTU checks but it does not reach
-the neigh confirmation code. This patch will be used from patch 6.
-
-- xfrm_confirm_neigh: we use the last tunnel address, if present.
-When there are only transports, the original dest address is used.
-
-6. net: use dst_confirm_neigh for UDP, RAW, ICMP, L2TP
-
-- dst_confirm conversion for UDP, RAW, ICMP and L2TP/IPv6
-
-- these protocols use MSG_CONFIRM propagated by ip*_append_data
-to skb->dst_pending_confirm. sk->sk_dst_pending_confirm is not
-used because some sending paths do not lock the socket. For
-MSG_PROBE we use the slow lookup (dst_confirm_neigh).
-
-- there are also 2 cases that need the slow lookup:
-__ip6_rt_update_pmtu and rt6_do_redirect. I hope
-&ipv6_hdr(skb)->saddr is the correct nexthop address to use here.
-
-7. net: pending_confirm is not used anymore
-
-- I failed to understand the CXGB* code, I see dst_confirm()
-calls but I'm not sure dst_neigh_output() was called. For now
-I just removed the dst->pending_confirm flag and left all
-dst_confirm() calls there. Any better idea?
-
-- Now may be old function neigh_output() should be restored
-instead of dst_neigh_output?
-
-
-Julian Anastasov (7):
-  sock: add sk_dst_pending_confirm flag
-  net: add dst_pending_confirm flag to skbuff
-  sctp: add dst_pending_confirm flag
-  tcp: replace dst_confirm with sk_dst_confirm
-  net: add confirm_neigh method to dst_ops
-  net: use dst_confirm_neigh for UDP, RAW, ICMP, L2TP
-  net: pending_confirm is not used anymore
-
- drivers/net/vrf.c          |  5 ++++-
- include/linux/skbuff.h     | 12 ++++++++++++
- include/net/arp.h          | 16 ++++++++++++++++
- include/net/dst.h          | 21 +++++++++------------
- include/net/dst_ops.h      |  2 ++
- include/net/ndisc.h        | 17 +++++++++++++++++
- include/net/sctp/sctp.h    |  6 ++----
- include/net/sctp/structs.h |  4 ++++
- include/net/sock.h         | 26 ++++++++++++++++++++++++++
- net/core/dst.c             |  1 -
- net/core/sock.c            |  2 ++
- net/ipv4/ip_output.c       | 11 ++++++++++-
- net/ipv4/ping.c            |  3 ++-
- net/ipv4/raw.c             |  6 +++++-
- net/ipv4/route.c           | 19 +++++++++++++++++++
- net/ipv4/tcp_input.c       | 12 +++---------
- net/ipv4/tcp_metrics.c     |  7 ++-----
- net/ipv4/tcp_output.c      |  2 ++
- net/ipv4/udp.c             |  3 ++-
- net/ipv6/ip6_output.c      |  7 +++++++
- net/ipv6/raw.c             |  6 +++++-
- net/ipv6/route.c           | 43 ++++++++++++++++++++++++++++++-------------
- net/ipv6/udp.c             |  3 ++-
- net/l2tp/l2tp_ip6.c        |  3 ++-
- net/sctp/associola.c       |  3 +--
- net/sctp/output.c          | 10 +++++++++-
- net/sctp/outqueue.c        |  2 +-
- net/sctp/sm_make_chunk.c   |  6 ++----
- net/sctp/sm_sideeffect.c   |  2 +-
- net/sctp/socket.c          |  4 ++--
- net/sctp/transport.c       | 17 ++++++++++++++++-
- net/xfrm/xfrm_policy.c     | 19 +++++++++++++++++++
- 32 files changed, 236 insertions(+), 64 deletions(-)
-
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 264fc15..630eafd 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -378,6 +378,7 @@ static int vrf_finish_output6(struct net *net, struct sock *sk,
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
+ 	if (!IS_ERR(neigh)) {
++		sock_confirm_neigh(skb, neigh);
+ 		ret = dst_neigh_output(dst, neigh, skb);
+ 		rcu_read_unlock_bh();
+ 		return ret;
+@@ -574,8 +575,10 @@ static int vrf_finish_output(struct net *net, struct sock *sk, struct sk_buff *s
+ 	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
+-	if (!IS_ERR(neigh))
++	if (!IS_ERR(neigh)) {
++		sock_confirm_neigh(skb, neigh);
+ 		ret = dst_neigh_output(dst, neigh, skb);
++	}
+ 
+ 	rcu_read_unlock_bh();
+ err:
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c6a78e1..f1adddc 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -612,6 +612,7 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
+  *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
++ *	@dst_pending_confirm: need to confirm neighbour
+   *	@napi_id: id of the NAPI struct this skb came from
+  *	@secmark: security marking
+  *	@mark: Generic packet mark
+@@ -741,6 +742,7 @@ struct sk_buff {
+ 	__u8			csum_level:2;
+ 	__u8			csum_bad:1;
+ 
++	__u8			dst_pending_confirm:1;
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+ 	__u8			ndisc_nodetype:2;
+ #endif
+@@ -3698,6 +3700,16 @@ static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
+ 	return skb->queue_mapping != 0;
+ }
+ 
++static inline void skb_set_dst_pending_confirm(struct sk_buff *skb, u32 val)
++{
++	skb->dst_pending_confirm = val;
++}
++
++static inline bool skb_get_dst_pending_confirm(const struct sk_buff *skb)
++{
++	return skb->dst_pending_confirm != 0;
++}
++
+ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
+ {
+ #ifdef CONFIG_XFRM
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 85d856b..6f83e78 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1821,6 +1821,20 @@ static inline void sk_dst_confirm(struct sock *sk)
+ 		sk->sk_dst_pending_confirm = 1;
+ }
+ 
++static inline void sock_confirm_neigh(struct sk_buff *skb, struct neighbour *n)
++{
++	if (skb_get_dst_pending_confirm(skb)) {
++		struct sock *sk = skb->sk;
++		unsigned long now = jiffies;
++
++		/* avoid dirtying neighbour */
++		if (n->confirmed != now)
++			n->confirmed = now;
++		if (sk && sk->sk_dst_pending_confirm)
++			sk->sk_dst_pending_confirm = 0;
++	}
++}
++
+ bool sk_mc_loop(struct sock *sk);
+ 
+ static inline bool sk_can_gso(const struct sock *sk)
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index b67719f..c9fc32f 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -222,7 +222,10 @@ static int ip_finish_output2(struct net *net, struct sock *sk, struct sk_buff *s
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
+ 	if (!IS_ERR(neigh)) {
+-		int res = dst_neigh_output(dst, neigh, skb);
++		int res;
++
++		sock_confirm_neigh(skb, neigh);
++		res = dst_neigh_output(dst, neigh, skb);
+ 
+ 		rcu_read_unlock_bh();
+ 		return res;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index b6a94ff..14d99fb 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -119,6 +119,7 @@ static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
+ 	if (!IS_ERR(neigh)) {
++		sock_confirm_neigh(skb, neigh);
+ 		ret = dst_neigh_output(dst, neigh, skb);
+ 		rcu_read_unlock_bh();
+ 		return ret;
 -- 
 1.9.3
