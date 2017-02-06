@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: don't rearm interrupts if busy polling
-Date: Mon, 06 Feb 2017 11:59:47 -0500 (EST)
-Message-ID: <20170206.115947.1451263729529424407.davem@davemloft.net>
-References: <ccee0048-9399-3d13-8274-790833b992d9@solarflare.com>
+Subject: Re: [patch net-next] net/mlx4_en: fix a condition
+Date: Mon, 06 Feb 2017 12:01:14 -0500 (EST)
+Message-ID: <20170206.120114.1158013558292422641.davem@davemloft.net>
+References: <20170203095459.GA5704@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-        edumazet@google.com
-To: bkenward@solarflare.com
+Cc: yishaih@mellanox.com, shakerd@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43080 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43168 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdBFQ7t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 11:59:49 -0500
-In-Reply-To: <ccee0048-9399-3d13-8274-790833b992d9@solarflare.com>
+        with ESMTP id S1751728AbdBFRBQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 12:01:16 -0500
+In-Reply-To: <20170203095459.GA5704@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Mon, 6 Feb 2017 16:50:55 +0000
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 3 Feb 2017 12:54:59 +0300
 
-> Since commit 364b6055738b ("net: busy-poll: return busypolling status
-> to drivers"), napi_complete_done() returns a boolean that can be used
-> by drivers to conditionally rearm interrupts.
+> There is a "||" vs "|" typo here so we test 0x1 instead of 0x6.
 > 
-> Testing with a 7142 shows a small latency improvement of ~100 ns.
-> 
-> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+> Fixes: 1f8176f7352a ("net/mlx4_en: Check the enabling pptx/pprx flags in SET_PORT wrapper flow")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
