@@ -1,43 +1,89 @@
-From: Johannes Thumshirn <jth@kernel.org>
-Subject: Re: [PATCHv1] net-next: treewide use is_vlan_dev() helper function.
-Date: Mon, 6 Feb 2017 08:31:45 +0100
-Message-ID: <5a1feeae-5c59-0930-e387-8352cf36018f@kernel.org>
-References: <1486227649-12648-1-git-send-email-parav@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [PATCH iproute2/net-next 1/3] tc: Add support for the sample tc
+ action
+Date: Mon, 6 Feb 2017 07:38:15 +0000
+Message-ID: <DB3PR05MB076405F63FA331BD005E95E4AC400@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1486281534-61663-1-git-send-email-yotamg@mellanox.com>
+ <1486281534-61663-2-git-send-email-yotamg@mellanox.com>
+ <18afef7b-22f4-e37f-4ea3-99d8307a1eb7@gmail.com>
+ <DB3PR05MB076475ADE956B146B97EEECBAC410@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <6b2477b7-5e88-fc85-48da-d5407e5b2cc2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Parav Pandit <parav@mellanox.com>, dledford@redhat.com,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com, monis@mellanox.com,
-        santosh@chelsio.com, ganeshgr@chelsio.com,
-        manish.chopra@cavium.com, rahul.verma@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
-        kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        QLogic-Storage-Upstream@qlogic.com, jejb@linux.vnet.ibm.com,
-        martin.petersen@oracle.com, arvid.brodin@alten.se,
-        davem@davemloft.net, leon@kernel.org, sagi@grimberg.me,
-        swise@opengridcomputing.com, bart.vanassche@sandisk.com,
-        valex@mellanox.com, arnd@arndb.de, weiyj.lk@gmail.com,
-        jmaxwell37@gmail.com, varun@chelsio.com, jbenc@redhat.com,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        devel@linuxdriverproject.org, linux-scsi@vger.kernel.org,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:33397 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750879AbdBFHbt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 02:31:49 -0500
-In-Reply-To: <1486227649-12648-1-git-send-email-parav@mellanox.com>
+Received: from mail-eopbgr10070.outbound.protection.outlook.com ([40.107.1.70]:37303
+        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751153AbdBFHiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 02:38:19 -0500
+In-Reply-To: <6b2477b7-5e88-fc85-48da-d5407e5b2cc2@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 02/04/2017 06:00 PM, Parav Pandit wrote:
-> This patch makes use of is_vlan_dev() function instead of flag
-> comparison which is exactly done by is_vlan_dev() helper function.
->
-> Signed-off-by: Parav Pandit <parav@mellanox.com>
-> Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
-> ---
->
-
-For drivers/scsi/fcoe/fcoe.c:
-Acked-by: Johannes Thumshirn <jth@kernel.org>
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRmxvcmlhbiBGYWluZWxsaSBbbWFp
+bHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPlNlbnQ6IFN1bmRheSwgRmVicnVhcnkgMDUsIDIw
+MTcgMTA6NTUgUE0NCj5UbzogWW90YW0gR2lnaSA8eW90YW1nQG1lbGxhbm94LmNvbT47IHN0ZXBo
+ZW5AbmV0d29ya3BsdW1iZXIub3JnOw0KPm5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEppcmkgUGly
+a28gPGppcmlAbWVsbGFub3guY29tPjsgRWxhZCBSYXoNCj48ZWxhZHJAbWVsbGFub3guY29tPg0K
+PlN1YmplY3Q6IFJlOiBbUEFUQ0ggaXByb3V0ZTIvbmV0LW5leHQgMS8zXSB0YzogQWRkIHN1cHBv
+cnQgZm9yIHRoZSBzYW1wbGUgdGMgYWN0aW9uDQo+DQo+TGUgMDIvMDUvMTcgw6AgMTI6MjIsIFlv
+dGFtIEdpZ2kgYSDDqWNyaXQgOg0KPj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+Pj4g
+RnJvbTogRmxvcmlhbiBGYWluZWxsaSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPj4+
+IFNlbnQ6IFN1bmRheSwgRmVicnVhcnkgMDUsIDIwMTcgODozNyBQTQ0KPj4+IFRvOiBZb3RhbSBH
+aWdpIDx5b3RhbWdAbWVsbGFub3guY29tPjsgc3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmc7DQo+
+Pj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgSmlyaSBQaXJrbyA8amlyaUBtZWxsYW5veC5jb20+
+OyBFbGFkIFJheg0KPj4+IDxlbGFkckBtZWxsYW5veC5jb20+DQo+Pj4gU3ViamVjdDogUmU6IFtQ
+QVRDSCBpcHJvdXRlMi9uZXQtbmV4dCAxLzNdIHRjOiBBZGQgc3VwcG9ydCBmb3IgdGhlIHNhbXBs
+ZSB0Yw0KPmFjdGlvbg0KPj4+DQo+Pj4gT24gMDIvMDQvMjAxNyAxMTo1OCBQTSwgWW90YW0gR2ln
+aSB3cm90ZToNCj4+Pj4gVGhlIHNhbXBsZSB0YyBhY3Rpb24gYWxsb3dzIHNhbXBsaW5nIHBhY2tl
+dHMgbWF0Y2hpbmcgYSBjbGFzc2lmaWVyLiBJdA0KPj4+PiBwZWVrcyByYW5kb21seSBwYWNrZXRz
+LCBhbmQgc2FtcGxlcyB0aGVtIHVzaW5nIHRoZSBwc2FtcGxlIG5ldGxpbmsNCj4+Pj4gY2hhbm5l
+bC4gVGhlIHVzZXIgY2FuIHNwZWNpZnkgdGhlIHBzYW1wbGUgZ3JvdXAsIHdoaWNoIHRoZSBwYWNr
+ZXQgd2lsbCBiZQ0KPj4+PiBzYW1wbGVkIHRvLCB0aGUgc2FtcGxpbmcgcmF0ZSBhbmQgdGhlIHBh
+Y2tldCB0cnVuY2F0aW9uICh0byBzYXZlDQo+Pj4+IGtlcm5lbC11c2VyIHRyYWZmaWMpLg0KPj4+
+Pg0KPj4+PiBUaGUgc2FtcGxlZCBwYWNrZXRzIGNvbnRhaW4gaW5mb3JtYXRpdmUgbWV0YWRhdGEs
+IGZvciBleGFtcGxlLCB0aGUgaW5wdXQNCj4+Pj4gaW50ZXJmYWNlIGFuZCB0aGUgb3JpZ2luYWwg
+cGFja2V0IGxlbmd0aC4NCj4+Pj4NCj4+Pj4gVGhlIGFjdGlvbiBzeW50YXg6DQo+Pj4+IHRjIGZp
+bHRlciBhZGQgWy4uLl0gXA0KPj4+PiAJYWN0aW9uIHNhbXBsZSByYXRlIDxSQVRFPiBncm91cCA8
+R1JPVVA+IFt0cnVuYyA8U0laRT5dDQo+Pj4+IAlbLi4uXQ0KPj4+Pg0KPj4+PiBXaGVyZToNCj4+
+Pj4gICBSQVRFIDo9IFRoZSBzYW1wbGluZyByYXRlIHdoaWNoIGlzIHRoZSByYXRpbyBvZiBwYWNr
+ZXRzIG9ic2VydmVkIGF0IHRoZQ0KPj4+PiAJICBkYXRhIHNvdXJjZSB0byB0aGUgc2FtcGxlcyBn
+ZW5lcmF0ZWQNCj4+Pj4gICBHUk9VUCA6PSB0aGUgcHNhbXBsZSBtb2R1bGUgc2FtcGxpbmcgZ3Jv
+dXANCj4+Pj4gICBTSVpFIDo9IG9wdGlvbmFsIHRydW5jYXRpb24gc2l6ZQ0KPj4+Pg0KPj4+PiBB
+biBleGFtcGxlIGZvciBhIGNvbW1vbiB1c2VjYXNlIG9mIHRoZSBzYW1wbGUgdGMgYWN0aW9uOiB0
+byBzYW1wbGUgaW5ncmVzcw0KPj4+PiB0cmFmZmljIGZyb20gaW50ZXJmYWNlIGV0aDEsIG9uZSBt
+YXkgdXNlIHRoZSBjb21tYW5kczoNCj4+Pj4NCj4+Pj4gdGMgcWRpc2MgYWRkIGRldiBldGgxIGhh
+bmRsZSBmZmZmOiBpbmdyZXNzDQo+Pj4+DQo+Pj4+IHRjIGZpbHRlciBhZGQgZGV2IGV0aDEgcGFy
+ZW50IGZmZmY6IFwNCj4+Pj4gICAgICAgIG1hdGNoYWxsIGFjdGlvbiBzYW1wbGUgcmF0ZSAxMiBn
+cm91cCA0DQo+Pj4+DQo+Pj4+IFdoZXJlIHRoZSBmaXJzdCBjb21tYW5kIGFkZHMgYW4gaW5ncmVz
+cyBxZGlzYyBhbmQgdGhlIHNlY29uZCBzdGFydHMNCj4+Pj4gc2FtcGxpbmcgcmFuZG9tbHkgd2l0
+aCBhbiBhdmVyYWdlIG9mIG9uZSBzYW1wbGVkIHBhY2tldCBwZXIgMTIgcGFja2V0cw0KPj4+PiBv
+biBkZXYgZXRoMSB0byBwc2FtcGxlIGdyb3VwIDQuDQo+Pj4NCj4+PiBUaGUgZ3JvdXAgYXJndW1l
+bnQgc2VlbXMgdG8gYmUgbWFuZGF0b3J5IGZyb20gbG9va2luZyBhdCB0aGUgY29kZSwgYnV0DQo+
+Pj4gd2hhdCBpZiBqdXN0IHdhbnRlZCB0byBoYXZlIGEgcG9ydCBtaXJyb3JpbmcgYmV0d2Vlbiwg
+c2F5IHN3MHAxIGFuZA0KPj4+IHN3MHAyIHdpdGggdGhlIHNhbXBsZSByYXRlIHNwZWNpZmllZCBp
+bnN0ZWFkICh3aXRob3V0IHVzaW5nIHRoZSBwc2FtcGxlDQo+Pj4gbmV0bGluayBjaGFubmVsIGF0
+IGFsbCk/IENvdWxkIHdlIG1ha2UgdGhpcyBncm91cCBhbiBvcHRpb25hbCBhcmd1bWVudA0KPj4+
+IGluc3RlYWQ/DQo+Pg0KPj4gVGhlIGtlcm5lbCBhY3Rpb24gY3VycmVudGx5IGRvbid0IHN1cHBv
+cnQgaXQsIGFuZCBJIGFtIG5vdCBzdXJlIGl0IHNob3VsZC4NCj4+DQo+PiBJZiBJIHVuZGVyc3Rh
+bmQgeW91IGNvcnJlY3RseSwgeW91IHdhbnQgdG8gbWFrZSB0aGUgc2FtcGxlIGFjdGlvbiBpZGVu
+dGljYWwNCj4+IHRvIG1pcnJlZC1taXJyb3IsIG9ubHkgd2l0aCByYW5kb20gYmVoYXZpb3IuIFRo
+aXMgY2FuIGJlIGRvbmUgdXNpbmcgdGhlDQo+PiBtYXRjaGFsbCBhbmQgbWlycmVkIGFjdGlvbiwg
+cGx1cyB0aGUgJ3JhbmRvbScgZ2FjdCBrZXl3b3JkLg0KPg0KPkl0IHNvdW5kcyBsaWtlIHdlIGNh
+biBpbmRlZWQsIHdpdGggcmFuZG9tIGRldGVybSBhbmQgdXNpbmcgdGhlIFZBTA0KPmFyZ3VtZW50
+IHdlIHNob3VsZCBiZSBhYmxlIHRvIGNvbmZpZ3VyZSB0aGUgY2FwdHVyZSBkaXZpZGVyOyB0aGFu
+a3MhDQoNCllvdSdyZSB3ZWxjb21lLiBJdCB0b29rIG1lIHNvbWUgdGltZSB0byBmaW5kIHRoYXQg
+a2V5d29yZCB0b28gOikNCg0KPg0KPj4NCj4+IFRoZSBzYW1wbGUgYWN0aW9uIGF0dGFjaGVzIHNv
+bWUgbWV0YWRhdGEgaW4gYWRkaXRpb24gdG8gdGhlIG9yaWdpbmFsIHBhY2tldA0KPj4gZGF0YSwg
+YW5kIHRoYXQgY2Fubm90IGJlIGFjaGlldmVkIGJ5IG1pcnJvcmluZyB0aGUgcGFja2V0cywgdGh1
+cyBtYWtpbmcgaXQNCj4+IHVudXNhYmxlIGZvciBvdXIgdXNlY2FzZS4gSW4gdGhlIGZvcm1lciB2
+ZXJzaW9uIHdlIGF0dGFjaGVkIHRoZSBtZXRhZGF0YQ0KPj4gdXNpbmcgdGhlIElGRSBwcm90b2Nv
+bCwgYnV0IHdlIGRlY2lkZWQgdG8gdXNlIGEgZGVkaWNhdGVkIG5ldGxpbmsgY2hhbm5lbA0KPj4g
+aW5zdGVhZC4NCj4NCj5ZZWFoIEkgc2VlIHRoYXQgbm93LCB0aGFua3MgZm9yIHRoZSBleHBsYW5h
+dGlvbiENCj4tLQ0KPkZsb3JpYW4NCg==
