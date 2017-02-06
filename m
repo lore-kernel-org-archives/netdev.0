@@ -1,69 +1,88 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
-Date: Mon, 6 Feb 2017 18:56:34 +0100
-Message-ID: <20170206175634.GA18938@salvia>
-References: <20170203091231.10142-1-jonas@southpole.se>
- <20170206110858.GA3896@salvia>
- <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] Documentation: devicetree: Add PHY no lane swap binding
+Date: Mon, 6 Feb 2017 09:58:30 -0800
+Message-ID: <c99f99ca-281b-065e-49e3-7fbbc5533517@gmail.com>
+References: <1486223267-11875-1-git-send-email-lukma@denx.de>
+ <20170204172329.GA8364@lunn.ch>
+ <509fadc4-164c-7333-1871-fd6e615e57c9@gmail.com>
+ <20170206151524.2ff0f799@jawa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: laforge@gnumonks.org, netdev@vger.kernel.org
-To: Jonas Bonn <jonas@southpole.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55174 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751492AbdBFR4m (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 12:56:42 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 5CEE81395C9
-        for <netdev@vger.kernel.org>; Mon,  6 Feb 2017 18:56:41 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 4D23CDA7E0
-        for <netdev@vger.kernel.org>; Mon,  6 Feb 2017 18:56:41 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 168ABDA818
-        for <netdev@vger.kernel.org>; Mon,  6 Feb 2017 18:56:39 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        jbrunet <jbrunet-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>,
+        Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Fabio Estevam <fabio.estevam-3arQi8VN3Tc@public.gmane.org>
+To: Lukasz Majewski <lukma-ynQEQJNshbs@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170206151524.2ff0f799@jawa>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jonas,
-
-On Mon, Feb 06, 2017 at 02:33:07PM +0100, Jonas Bonn wrote:
-> Hi Pablo,
+On 02/06/2017 06:15 AM, Lukasz Majewski wrote:
+> Hi Florian, Andrew,
 > 
-> On 02/06/2017 12:08 PM, Pablo Neira Ayuso wrote:
-> >Hi Jonas,
-> >
-> >On Fri, Feb 03, 2017 at 10:12:31AM +0100, Jonas Bonn wrote:
-> >>The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
-> >>contexts based on the incoming packets _destination_ address.  If we
-> >>want to write an SGSN, then we want to be idenityfing PDP contexts
-> >>based on _source_ address.
-> >>
-> >>This patch adds a "flags" argument at GTP-link creation time to specify
-> >>whether we are on the GGSN or SGSN side of the tunnel; this flag is then
-> >>used to determine which part of the IP packet to use in determining
-> >>the PDP context.
-> >So far the implementation that I saw in osmocom relies on userspace code
-> >to tunnel data from ME to the SSGN/SGW running on the base station.
-> >
-> >The data we get from GGSN -> SGSN needs to be places into a SN-PDU (via
-> >SNDCP) when sending it to the BTS, right? So I wonder how this can be
-> >useful given that we would need to see real IP packets coming to the
-> >SSGN that we tunnel into GTP.
+>> Le 02/04/17 à 09:23, Andrew Lunn a écrit :
+>>> On Sat, Feb 04, 2017 at 04:47:47PM +0100, Lukasz Majewski wrote:
+>>>> Add the documentation to avoid PHY lane swapping. This is a boolean
+>>>> entry to notify the phy device drivers that the TX/RX lanes NO need
+>>>
+>>> that the TX/RX lanes should not be swapped.
+>>>
+>>>> to be swapped.
+>>>> The use case for this binding mostly happens after wrong HW
+>>>> configuration of PHY IC during bootstrap.
+>>>>
+>>>> Signed-off-by: Lukasz Majewski <lukma-ynQEQJNshbs@public.gmane.org>
+>>>> ---
+>>>>  Documentation/devicetree/bindings/net/phy.txt | 4 ++++
+>>>>  1 file changed, 4 insertions(+)
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/phy.txt
+>>>> b/Documentation/devicetree/bindings/net/phy.txt index
+>>>> fb5056b..5e25bc9 100644 ---
+>>>> a/Documentation/devicetree/bindings/net/phy.txt +++
+>>>> b/Documentation/devicetree/bindings/net/phy.txt @@ -39,6 +39,10 @@
+>>>> Optional Properties:
+>>>>  - enet-phy-lane-swap: If set, indicates the PHY will swap the
+>>>> TX/RX lanes to compensate for the board being designed with the
+>>>> lanes swapped. 
+>>>> +- enet-phy-lane-no-swap: If set, indicates that PHY will disable
+>>>> swap of the
+>>>> +  TX/RX lanes. This binding allows the PHY to work correcly after
+>>>> e.g. wrong
+>>>> +  bootstrap configuration caused by issues in PCB layout design.
+>>
+>> s/binding/property/
+>>
+>>>> +
+>>>
+>>> We are leaving it undefined what it means if neither
+>>> enet-phy-lane-no-swap nor enet-phy-lane-swap properties are present.
+>>> Do we want to define this? That the swap should be left untouched by
+>>> the driver?
+>>
+>> Since this is a description of the hardware, absence of a properties
+>> should mean that the driver is at freedom to either keep the hardware
+>> defaults, or come up with its own settings that are sensible for that
+>> particular PHY device.
+>>
+>> What would you see clarified here?
 > 
-> Fair enough.  The use-case I am looking at involves PGW load-testing where
-> the simulated load is generated locally on the SGSN so it _is_ seeing IP
-> packets and the SNDCP is left out altogether.  Perhaps this is too
-> pathological to warrant messing with the upstream driver... I don't know:
-> the symmetry does not cost much even if it's of limited use.
+> Any more comments to this patch?
+> 
+> Is the explanation informative enough?
 
-Thanks for explaining your use-case.
-
-If some basic form of this load-testing tool ends up serving everyone,
-ie. landing some code in the libgtpnl library that we can all use to
-benchmark/stress test this driver, then I would be glad to take this.
-
-Thanks!
+Please resubmit as part of your PHY driver changes, and change binding
+in the description above for property.
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
