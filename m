@@ -1,63 +1,37 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the drm tree with the net-next tree
-Date: Mon, 6 Feb 2017 12:46:27 +1100
-Message-ID: <20170206124627.6d7e2543@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Chris Wilson <chris@chris-wilson.co.uk>,
-        Daniel Vetter <daniel.vetter@ffwll.ch>
-To: Dave Airlie <airlied@linux.ie>, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next v2 0/2] Two Helper function about socket information
+Date: Sun,  5 Feb 2017 18:17:26 -0800
+Message-ID: <1486347448-15393-1-git-send-email-chenbofeng.kernel@gmail.com>
+Cc: Lorenzo Colitti <lorenzo@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36608 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752036AbdBFCSI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 21:18:08 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 75so7670290pgf.3
+        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 18:18:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Chenbo Feng <fengc@google.com>
 
-Today's linux-next merge of the drm tree got a conflict in:
+Introduce two eBpf helper function to get the socket cookie and
+socket uid for each packet. The helper function is useful when
+the *sk field inside sk_buff is not empty.
 
-  lib/Kconfig
+Chenbo Feng (2):
+  Add a helper function to get socket cookie in eBPF
+  Add a eBPF helper function to retrieve socket uid
 
-between commit:
-
-  44091d29f207 ("lib: Introduce priority array area manager")
-
-from the net-next tree and commit:
-
-  cf4a7207b1cb ("lib: Add a simple prime number generator")
-
-from the drm tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
+ include/linux/sock_diag.h |  1 +
+ include/uapi/linux/bpf.h  | 16 +++++++++++++++-
+ net/core/filter.c         | 32 ++++++++++++++++++++++++++++++++
+ net/core/sock_diag.c      |  2 +-
+ 4 files changed, 49 insertions(+), 2 deletions(-)
 
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc lib/Kconfig
-index 5d644f180fe5,1788a1f50d28..000000000000
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@@ -550,7 -550,11 +550,14 @@@ config STACKDEPO
-  config SBITMAP
-  	bool
-  
- +config PARMAN
- +	tristate "parman"
- +
-+ config PRIME_NUMBERS
-+ 	tristate "Prime number generator"
-+ 	default n
-+ 	help
-+ 	  Provides a helper module to generate prime numbers. Useful for writing
-+ 	  test code, especially when checking multiplication and divison.
-+ 
-  endmenu
+2.7.4
