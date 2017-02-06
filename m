@@ -1,71 +1,42 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
-Date: Mon, 6 Feb 2017 14:51:09 +0200
-Message-ID: <20170206125108.d5vdur5rlvrkpr5j@localhost>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165603.GV3442@decadent.org.uk>
- <20170205003038.GB21184@kroah.com>
- <20170206081444.smcgjkmdepxoosb6@p310>
- <20170206082822.GA23451@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org,
-        Lisandro =?utf-8?Q?Dami=C3=A1n_Nicanor_P=C3=A9rez?= Meyer
-        <lisandro@debian.org>
-To: Greg KH <greg@kroah.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] mlxsw: reg: Fix HTGT register length
+Date: Mon,  6 Feb 2017 13:56:27 +0100
+Message-ID: <1486385787-2122-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, eladr@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([92.247.61.126]:54232 "EHLO
-        zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750950AbdBFMvV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 07:51:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20170206082822.GA23451@kroah.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36361 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751164AbdBFM4a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 07:56:30 -0500
+Received: by mail-wm0-f65.google.com with SMTP id r18so21791126wmd.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 04:56:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-02-06 09:28:22, Greg KH wrote:
-> On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
-> > On 17-02-05 01:30:39, Greg KH wrote:
-> > > On Sat, Feb 04, 2017 at 04:56:03PM +0000, Ben Hutchings wrote:
-> > > > Allocating USB buffers on the stack is not portable, and no longer works 
-> > > > on x86_64 (with VMAP_STACK enabled as per default).
-> > > 
-> > > It's never worked on other platforms, so these should go to the stable 
-> > > releases please.
-> > 
-> > As far as i know both drivers works fine on other platforms, though I only 
-> > tested it on arm and mipsel. ;)
-> 
-> It all depends on the arm and mips platforms, the ones that can not DMA from 
-> stack memory are the ones that would always fail here (since the 2.2 kernel 
-> days).
+From: Elad Raz <eladr@mellanox.com>
 
-Seems like most modern SOCs have decent DMA controllers.
+HTGT register length is limited to 32 bytes and not 256 bytes.
 
-> > Random thought: isn't it better to add the alloc/free code in 
-> > usb_control_msg() and avoid code duplication all over the driver space?
-> 
-> A very long time ago we considered it, but realized that the majority of 
-> drivers already had the memory dynamically allocated, so we just went with 
-> this.  Perhaps we could revisit that if it turns out we were wrong, and would 
-> simplify things.
+Signed-off-by: Elad Raz <eladr@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-A quick glance at usb_control_msg() users (looked only at .../net/usb and 
-.../usb/serial) shows that most of them have the buffer allocated in stack.  
-These transfers are relatively infrequent and quite small the performance hit 
-caused by memcpy() should also be negligible.
-
-I suspect getting the buffer allocation in usb_control_msg() will help with two 
-things in the same time:
-
- - allocate in DMA-able memory;
- - code reduction;
-
-On the bad side i've no idea who'll volunteer to go through all 
-usb_control_msg() sites and perform the fix.  Seems like the right job for an 
-intern to me. :D
-
-
-cheers,
-Petko
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index b50a312..0899e2d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3653,7 +3653,7 @@ static inline void mlxsw_reg_pspa_pack(char *payload, u8 swid, u8 local_port)
+  * Configures the properties for forwarding to CPU.
+  */
+ #define MLXSW_REG_HTGT_ID 0x7002
+-#define MLXSW_REG_HTGT_LEN 0x100
++#define MLXSW_REG_HTGT_LEN 0x20
+ 
+ MLXSW_REG_DEFINE(htgt, MLXSW_REG_HTGT_ID, MLXSW_REG_HTGT_LEN);
+ 
+-- 
+2.7.4
