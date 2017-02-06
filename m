@@ -1,78 +1,63 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
-Date: Mon, 6 Feb 2017 15:16:22 +0100
-Message-ID: <20170206141622.4szfsu6h4qqlhdvk@nataraja>
-References: <20170203091231.10142-1-jonas@southpole.se>
- <20170206110858.GA3896@salvia>
- <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [net-next 2/8] net/mlx5: Configure cache line size for start and
+ end padding
+Date: Mon, 6 Feb 2017 16:26:10 +0200
+Message-ID: <CALzJLG_=oqH_makhbC8NO6WkeDyW-CUDmh+q8tJJkSL+G4Hp6w@mail.gmail.com>
+References: <20170131205843.23235-1-saeedm@mellanox.com> <20170131205843.23235-3-saeedm@mellanox.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0277BC4@AcuExch.aculab.com>
+ <VI1PR0501MB2429398983643A6387BE91D0C44C0@VI1PR0501MB2429.eurprd05.prod.outlook.com>
+ <CALzJLG_v7kZrioA_VrHT78iatiEOSCp9uWUJFNv1XP6+sMvFzQ@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DB027C806@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org
-To: Jonas Bonn <jonas@southpole.se>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Jurgens <danielj@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:58706 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751669AbdBFOQh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 09:16:37 -0500
-Content-Disposition: inline
-In-Reply-To: <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:35193 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752359AbdBFO0c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 09:26:32 -0500
+Received: by mail-qt0-f195.google.com with SMTP id s58so15016903qtc.2
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 06:26:31 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027C806@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jonas,
+On Mon, Feb 6, 2017 at 3:50 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Saeed Mahameed
+>> Sent: 05 February 2017 11:24
+>> On Thu, Feb 2, 2017 at 4:47 PM, Daniel Jurgens <danielj@mellanox.com> wrote:
+>> > On 2/1/2017 5:12 AM, David Laight wrote:
+>> >> From: Saeed Mahameed
+>> >>> Sent: 31 January 2017 20:59
+>> >>> From: Daniel Jurgens <danielj@mellanox.com>
+>> >>>
+>> >>> There is a hardware feature that will pad the start or end of a DMA to
+>> >>> be cache line aligned to avoid RMWs on the last cache line. The default
+>> >>> cache line size setting for this feature is 64B. This change configures
+>> >>> the hardware to use 128B alignment on systems with 128B cache lines.
+>> >> What guarantees that the extra bytes are actually inside the receive skb's
+>> >> head and tail room?
+>> >>
+>> >>       David
+>> >>
+>> >>
+>> > The hardware won't over write the length of the posted buffer.  This feature is already enabled and
+>> defaults to 64B stride, this patch just configures it properly for 128B cache line sizes.
+>> >
+>> Right, and next patch will make sure RX stride is aligned to 128B in
+>> case 128B cacheline size configured into the HW.
+>
+> Doesn't that mean these patches are in the wrong order?
+>
 
-On Mon, Feb 06, 2017 at 02:33:07PM +0100, Jonas Bonn wrote:
-> Fair enough.  The use-case I am looking at involves PGW load-testing where
-> the simulated load is generated locally on the SGSN so it _is_ seeing IP
-> packets and the SNDCP is left out altogether.  
+Right, will fix that
 
-Ok, it would have been useful to document that test-only feature in the
-changelog and/or code.  Like "support simulated RAN-side tunnels" or
-"support SGSN/S-GW simulation".
-
-> Perhaps this is too pathological to warrant messing with the upstream
-> driver... I don't know: the symmetry does not cost much even if it's
-> of limited use.
-
-There are plenty of features in the mainline kernel related to testing,
-see pktgen for example.  So I think if it doesn't impose complexity,
-performance issues or stretches the existing architecture, I think
-there's no reason to keep it out.
-
-Looking at the code, I think the one conditional on the flags is not
-going to kill significant performance of the "normal" use case.  But
-that's of course just guessing, without any benchmark to back that up.
-
-Semantically, I'm not sure if the FLAGS and the re-use of the
-SGSN_ADDRESS TLV is the best choice.  If suddenly the meaning of the TLV
-is "Peer GSN Address" then it should be called that way.  We could have
-a #define SGSN_ADDRESS to GSN_PEER_ADDRESS to make old code compile.
-I'll let Pablo respond to this as he came up with the netlink interface,
-as far as I can remember :)
-
-Also, like with any changes to the kernel and netlink interface code, I
-think we should always mandate similar changes to be made to libgtpnl so
-the feature can actually be used/tested with the standard
-tools/utilities available to anyone.
-
-> Couldn't the SNDCP theoretically be a separate node and push IP packets to
-> the SGSN, thus making this useful?  Perhaps it's a stretch...
-
-No, because you would introduce an hop (or even two!) at the IP level,
-breaking
-* the notion of who the remote IP address is (remote poin-to-point address)
-  of the PDP context
-* packets get modified (TTL decrement, ...) where they are not supposed to
-* you suddenly might get TTL exceeded, dest unreachable, ...) out of
-  nowhere into your user IP
-* you introduce serious security issues by having the kernel IP routing
-  code between the outer IP (the operator RAN/core network) and the
-  inner user IP payload.
-
-Regards,
-	Harald
--- 
-- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-============================================================================
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+>> > Thanks for reviewing it.
+>
+> Don't assume I've done anything other than look for obvious fubars/
+>
+>         David
+>
