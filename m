@@ -1,152 +1,59 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v2 3/3] bpf: Always test unprivileged programs
-Date: Mon,  6 Feb 2017 21:52:25 +0100
-Message-ID: <20170206205225.32233-3-mic@digikod.net>
-References: <20170206205225.32233-1-mic@digikod.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Shuah Khan <shuah@kernel.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206205225.32233-1-mic@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: phy: bcm7xxx: Add BCM74371 PHY ID
+Date: Mon,  6 Feb 2017 13:01:16 -0800
+Message-ID: <20170206210116.24125-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36098 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750995AbdBFVBU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:01:20 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 19so7618459pfo.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:01:19 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If selftests are run as root, then execute the unprivileged checks as
-well. This switch from 240 to 364 tests.
+Add the BCM74371 PHY ID to the list of supported chips. This is a 28nm
+technology Gigabit PHY SoC.
 
-The test numbers are suffixed with "/u" when executed as unprivileged or
-with "/p" when executed as privileged.
-
-The geteuid() check is replaced with a capability check.
-
-Handling capabilities requires the libcap dependency.
-
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Shuah Khan <shuah@kernel.org>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- tools/testing/selftests/bpf/Makefile        |  2 +-
- tools/testing/selftests/bpf/test_verifier.c | 68 ++++++++++++++++++++++++++---
- 2 files changed, 64 insertions(+), 6 deletions(-)
+ drivers/net/phy/bcm7xxx.c | 2 ++
+ include/linux/brcmphy.h   | 1 +
+ 2 files changed, 3 insertions(+)
 
-diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
-index c470c7301636..f3d65ad53494 100644
---- a/tools/testing/selftests/bpf/Makefile
-+++ b/tools/testing/selftests/bpf/Makefile
-@@ -1,4 +1,4 @@
--CFLAGS += -Wall -O2 -I../../../include/uapi
-+CFLAGS += -Wall -O2 -lcap -I../../../include/uapi
- 
- test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
- 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 0d0912c7f03c..6a82e7db2c20 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -16,6 +16,7 @@
- #include <stdbool.h>
- #include <sched.h>
- 
-+#include <sys/capability.h>
- #include <sys/resource.h>
- 
- #include <linux/unistd.h>
-@@ -4496,6 +4497,55 @@ static void do_test_single(struct bpf_test *test, bool unpriv,
- 	goto close_fds;
- }
- 
-+static bool is_admin(void)
-+{
-+	cap_t caps;
-+	cap_flag_value_t sysadmin = CAP_CLEAR;
-+	const cap_value_t cap_val = CAP_SYS_ADMIN;
-+
-+	if (!CAP_IS_SUPPORTED(CAP_SETFCAP)) {
-+		perror("cap_get_flag");
-+		return false;
-+	}
-+	caps = cap_get_proc();
-+	if (!caps) {
-+		perror("cap_get_proc");
-+		return false;
-+	}
-+	if (cap_get_flag(caps, cap_val, CAP_EFFECTIVE, &sysadmin))
-+		perror("cap_get_flag");
-+	if (cap_free(caps))
-+		perror("cap_free");
-+	return (sysadmin == CAP_SET);
-+}
-+
-+static int set_admin(bool admin)
-+{
-+	cap_t caps;
-+	const cap_value_t cap_val = CAP_SYS_ADMIN;
-+	int ret = -1;
-+
-+	caps = cap_get_proc();
-+	if (!caps) {
-+		perror("cap_get_proc");
-+		return -1;
-+	}
-+	if (cap_set_flag(caps, CAP_EFFECTIVE, 1, &cap_val,
-+				admin ? CAP_SET : CAP_CLEAR)) {
-+		perror("cap_set_flag");
-+		goto out;
-+	}
-+	if (cap_set_proc(caps)) {
-+		perror("cap_set_proc");
-+		goto out;
-+	}
-+	ret = 0;
-+out:
-+	if (cap_free(caps))
-+		perror("cap_free");
-+	return ret;
-+}
-+
- static int do_test(bool unpriv, unsigned int from, unsigned int to)
- {
- 	int i, passes = 0, errors = 0;
-@@ -4506,11 +4556,19 @@ static int do_test(bool unpriv, unsigned int from, unsigned int to)
- 		/* Program types that are not supported by non-root we
- 		 * skip right away.
- 		 */
--		if (unpriv && test->prog_type)
--			continue;
-+		if (!test->prog_type) {
-+			if (!unpriv)
-+				set_admin(false);
-+			printf("#%d/u %s ", i, test->descr);
-+			do_test_single(test, true, &passes, &errors);
-+			if (!unpriv)
-+				set_admin(true);
-+		}
- 
--		printf("#%d %s ", i, test->descr);
--		do_test_single(test, unpriv, &passes, &errors);
-+		if (!unpriv) {
-+			printf("#%d/p %s ", i, test->descr);
-+			do_test_single(test, false, &passes, &errors);
-+		}
- 	}
- 
- 	printf("Summary: %d PASSED, %d FAILED\n", passes, errors);
-@@ -4522,7 +4580,7 @@ int main(int argc, char **argv)
- 	struct rlimit rinf = { RLIM_INFINITY, RLIM_INFINITY };
- 	struct rlimit rlim = { 1 << 20, 1 << 20 };
- 	unsigned int from = 0, to = ARRAY_SIZE(tests);
--	bool unpriv = geteuid() != 0;
-+	bool unpriv = !is_admin();
- 
- 	if (argc == 3) {
- 		unsigned int l = atoi(argv[argc - 2]);
+diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
+index aa01020ab1b9..d1c2614dad3a 100644
+--- a/drivers/net/phy/bcm7xxx.c
++++ b/drivers/net/phy/bcm7xxx.c
+@@ -453,6 +453,7 @@ static struct phy_driver bcm7xxx_driver[] = {
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7278, "Broadcom BCM7278"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7364, "Broadcom BCM7364"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7366, "Broadcom BCM7366"),
++	BCM7XXX_28NM_GPHY(PHY_ID_BCM74371, "Broadcom BCM74371"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439, "Broadcom BCM7439"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7439_2, "Broadcom BCM7439 (2)"),
+ 	BCM7XXX_28NM_GPHY(PHY_ID_BCM7445, "Broadcom BCM7445"),
+@@ -472,6 +473,7 @@ static struct mdio_device_id __maybe_unused bcm7xxx_tbl[] = {
+ 	{ PHY_ID_BCM7362, 0xfffffff0, },
+ 	{ PHY_ID_BCM7425, 0xfffffff0, },
+ 	{ PHY_ID_BCM7429, 0xfffffff0, },
++	{ PHY_ID_BCM74371, 0xfffffff0, },
+ 	{ PHY_ID_BCM7439, 0xfffffff0, },
+ 	{ PHY_ID_BCM7435, 0xfffffff0, },
+ 	{ PHY_ID_BCM7445, 0xfffffff0, },
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 5881d1fdc1fb..55e517130311 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -33,6 +33,7 @@
+ #define PHY_ID_BCM7425			0x600d86b0
+ #define PHY_ID_BCM7429			0x600d8730
+ #define PHY_ID_BCM7435			0x600d8750
++#define PHY_ID_BCM74371			0xae0252e0
+ #define PHY_ID_BCM7439			0x600d8480
+ #define PHY_ID_BCM7439_2		0xae025080
+ #define PHY_ID_BCM7445			0x600d8510
 -- 
-2.11.0
+2.9.3
