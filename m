@@ -1,94 +1,180 @@
-From: Alban Browaeys <alban.browaeys@gmail.com>
-Subject: [PATCH v2] netfilter: xt_hashlimit: Fix integer divide round to zero.
-Date: Mon,  6 Feb 2017 23:50:33 +0100
-Message-ID: <20170206225033.26231-1-alban.browaeys@gmail.com>
-References: <1486391287.2374.1.camel@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Alban Browaeys <alban.browaeys@gmail.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v2 1/8] bpf: Use bpf_load_program() from the library
+Date: Mon,  6 Feb 2017 23:49:34 +0100
+Message-ID: <20170206224941.14739-1-mic@digikod.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Shuah Khan <shuah@kernel.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486391287.2374.1.camel@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Diving the divider by the multiplier before applying to the input.
-When this would "divide by zero", divide the multiplier by the divider
-first then multiply the input by this value.
+Replace bpf_prog_load() with bpf_load_program() calls.
 
-Currently user2creds outputs zero when input value is bigger than the
-number of slices and  lower than scale.
-This as then user input is applied an integer divide operation to
-a number greater than itself (scale).
-That rounds up to zero, then we mulitply zero by the credits slice size.
-  iptables -t filter -I INPUT --protocol tcp --match hashlimit
-  --hashlimit 40/second --hashlimit-burst 20 --hashlimit-mode srcip
-  --hashlimit-name syn-flood --jump RETURN
-thus trigger the overflow detection code:
-xt_hashlimit: overflow, try lower: 25000/20
-(25000 as hashlimit avd and 20 the burst)
-Here:
-134217 slices of (HZ * CREDITS_PER_JIFFY) size.
-500000 is user input value
-1000000 is XT_HASHLIMIT_SCALE_v2
-gives: 0 as user2creds output
-Setting burst to "1" typically solve the issue ...
-but setting it to "40" does too !
-
-This is on 32bit arch calling into revision 2 of hashlimit.
-
-Signed-off-by: Alban Browaeys <alban.browaeys@gmail.com>
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Shuah Khan <shuah@kernel.org>
 ---
-v2:
-- fix missing conditional statement in revision 1 case
-<Pablo Neira Ayuso>.
+ tools/lib/bpf/bpf.c                         |  9 ++++-----
+ tools/lib/bpf/bpf.h                         |  4 ++--
+ tools/testing/selftests/bpf/Makefile        |  4 +++-
+ tools/testing/selftests/bpf/bpf_sys.h       | 21 ---------------------
+ tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
+ tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
+ 6 files changed, 18 insertions(+), 34 deletions(-)
 
-I removed the code duplication between revision 1 and 2.
-
-v1: https://lkml.org/lkml/2017/2/4/173
----
- net/netfilter/xt_hashlimit.c | 25 +++++++++----------------
- 1 file changed, 9 insertions(+), 16 deletions(-)
-
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 10063408141d..84ad5ab34558 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -463,23 +463,16 @@ static u32 xt_hashlimit_len_to_chunks(u32 len)
- /* Precision saver. */
- static u64 user2credits(u64 user, int revision)
- {
--	if (revision == 1) {
--		/* If multiplying would overflow... */
--		if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
--			/* Divide first. */
--			return div64_u64(user, XT_HASHLIMIT_SCALE)
--				* HZ * CREDITS_PER_JIFFY_v1;
--
--		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
--				 XT_HASHLIMIT_SCALE);
--	} else {
--		if (user > 0xFFFFFFFFFFFFFFFFULL / (HZ*CREDITS_PER_JIFFY))
--			return div64_u64(user, XT_HASHLIMIT_SCALE_v2)
--				* HZ * CREDITS_PER_JIFFY;
-+	u64 scale = (revision == 1) ?
-+		XT_HASHLIMIT_SCALE : XT_HASHLIMIT_SCALE_v2;
-+	u64 cpj = (revision == 1) ?
-+		CREDITS_PER_JIFFY_v1 : CREDITS_PER_JIFFY;
+diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+index 3ddb58a36d3c..e96e2a9a7742 100644
+--- a/tools/lib/bpf/bpf.c
++++ b/tools/lib/bpf/bpf.c
+@@ -42,7 +42,7 @@
+ # endif
+ #endif
  
--		return div64_u64(user * HZ * CREDITS_PER_JIFFY,
--				 XT_HASHLIMIT_SCALE_v2);
--	}
-+	/* Avoid overflow: divide the constant operands first */
-+	if (scale >= HZ * cpj)
-+		return div64_u64(user, div64_u64(scale, HZ * cpj));
-+
-+	return user * div64_u64(HZ * cpj, scale);
+-static __u64 ptr_to_u64(void *ptr)
++static __u64 ptr_to_u64(const void *ptr)
+ {
+ 	return (__u64) (unsigned long) ptr;
+ }
+@@ -69,14 +69,13 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
+ 	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
  }
  
- static u32 user2credits_byte(u32 user)
+-int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
+-		     size_t insns_cnt, char *license,
++int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
++		     size_t insns_cnt, const char *license,
+ 		     __u32 kern_version, char *log_buf, size_t log_buf_sz)
+ {
+ 	int fd;
+-	union bpf_attr attr;
++	union bpf_attr attr = {};
+ 
+-	bzero(&attr, sizeof(attr));
+ 	attr.prog_type = type;
+ 	attr.insn_cnt = (__u32)insns_cnt;
+ 	attr.insns = ptr_to_u64(insns);
+diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+index a2f9853dd882..bc959a2de023 100644
+--- a/tools/lib/bpf/bpf.h
++++ b/tools/lib/bpf/bpf.h
+@@ -28,8 +28,8 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+ 
+ /* Recommend log buffer size */
+ #define BPF_LOG_BUF_SIZE 65536
+-int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
+-		     size_t insns_cnt, char *license,
++int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
++		     size_t insns_cnt, const char *license,
+ 		     __u32 kern_version, char *log_buf,
+ 		     size_t log_buf_sz);
+ 
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index f3d65ad53494..a35f564f66a1 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -1,4 +1,4 @@
+-CFLAGS += -Wall -O2 -lcap -I../../../include/uapi
++CFLAGS += -Wall -O2 -lcap -I../../../include/uapi -I../../../lib
+ 
+ test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
+ 
+@@ -7,6 +7,8 @@ TEST_FILES := $(test_objs)
+ 
+ all: $(test_objs)
+ 
++$(test_objs): ../../../lib/bpf/bpf.o
++
+ include ../lib.mk
+ 
+ clean:
+diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
+index 6b4565f2a3f2..e7bbe3e5402e 100644
+--- a/tools/testing/selftests/bpf/bpf_sys.h
++++ b/tools/testing/selftests/bpf/bpf_sys.h
+@@ -84,25 +84,4 @@ static inline int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
+ 	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+ }
+ 
+-static inline int bpf_prog_load(enum bpf_prog_type type,
+-				const struct bpf_insn *insns, size_t size_insns,
+-				const char *license, char *log, size_t size_log)
+-{
+-	union bpf_attr attr = {};
+-
+-	attr.prog_type = type;
+-	attr.insns = bpf_ptr_to_u64(insns);
+-	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
+-	attr.license = bpf_ptr_to_u64(license);
+-
+-	if (size_log > 0) {
+-		attr.log_buf = bpf_ptr_to_u64(log);
+-		attr.log_size = size_log;
+-		attr.log_level = 1;
+-		log[0] = 0;
+-	}
+-
+-	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+-}
+-
+ #endif /* __BPF_SYS__ */
+diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
+index 5f7c602f47d1..b77dc4b03e77 100644
+--- a/tools/testing/selftests/bpf/test_tag.c
++++ b/tools/testing/selftests/bpf/test_tag.c
+@@ -16,6 +16,8 @@
+ #include <linux/bpf.h>
+ #include <linux/if_alg.h>
+ 
++#include <bpf/bpf.h>
++
+ #include "../../../include/linux/filter.h"
+ 
+ #include "bpf_sys.h"
+@@ -55,8 +57,8 @@ static int bpf_try_load_prog(int insns, int fd_map,
+ 	int fd_prog;
+ 
+ 	bpf_filler(insns, fd_map);
+-	fd_prog = bpf_prog_load(BPF_PROG_TYPE_SCHED_CLS, prog, insns *
+-				sizeof(struct bpf_insn), "", NULL, 0);
++	fd_prog = bpf_load_program(BPF_PROG_TYPE_SCHED_CLS, prog, insns, "", 0,
++			NULL, 0);
+ 	assert(fd_prog > 0);
+ 	if (fd_map > 0)
+ 		bpf_filler(insns, 0);
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 6a82e7db2c20..62ae4e7a2278 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -24,6 +24,8 @@
+ #include <linux/bpf_perf_event.h>
+ #include <linux/bpf.h>
+ 
++#include <bpf/bpf.h>
++
+ #include "../../../include/linux/filter.h"
+ 
+ #include "bpf_sys.h"
+@@ -4457,9 +4459,9 @@ static void do_test_single(struct bpf_test *test, bool unpriv,
+ 
+ 	do_test_fixup(test, prog, &fd_f1, &fd_f2, &fd_f3);
+ 
+-	fd_prog = bpf_prog_load(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
+-				prog, prog_len * sizeof(struct bpf_insn),
+-				"GPL", bpf_vlog, sizeof(bpf_vlog));
++	fd_prog = bpf_load_program(prog_type ? : BPF_PROG_TYPE_SOCKET_FILTER,
++				prog, prog_len, "GPL", 0, bpf_vlog,
++				sizeof(bpf_vlog));
+ 
+ 	expected_ret = unpriv && test->result_unpriv != UNDEF ?
+ 		       test->result_unpriv : test->result;
 -- 
 2.11.0
