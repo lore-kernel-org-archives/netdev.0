@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v2 5/8] bpf: Use bpf_map_get_next_key() from the library
-Date: Mon,  6 Feb 2017 23:49:38 +0100
-Message-ID: <20170206224941.14739-5-mic@digikod.net>
+Subject: [PATCH net-next v2 3/8] bpf: Use bpf_map_lookup_elem() from the library
+Date: Mon,  6 Feb 2017 23:49:36 +0100
+Message-ID: <20170206224941.14739-3-mic@digikod.net>
 References: <20170206224941.14739-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -13,16 +13,12 @@ Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         Daniel Borkmann <daniel@iogearbox.net>,
         Shuah Khan <shuah@kernel.org>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-sh2.infomaniak.ch ([128.65.195.6]:43203 "EHLO
-        smtp-sh2.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752203AbdBFWuW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 17:50:22 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170206224941.14739-1-mic@digikod.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Replace bpf_map_next_key() with bpf_map_get_next_key() calls.
+Replace bpf_map_lookup() with bpf_map_lookup_elem() calls.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@fb.com>
@@ -31,21 +27,22 @@ Cc: Shuah Khan <shuah@kernel.org>
 ---
  tools/lib/bpf/bpf.c                        |  5 ++---
  tools/lib/bpf/bpf.h                        |  2 +-
- tools/testing/selftests/bpf/bpf_sys.h      | 11 ----------
- tools/testing/selftests/bpf/test_lru_map.c |  2 +-
- tools/testing/selftests/bpf/test_maps.c    | 34 +++++++++++++++---------------
- 5 files changed, 21 insertions(+), 33 deletions(-)
+ tools/testing/selftests/bpf/bpf_sys.h      | 11 -----------
+ tools/testing/selftests/bpf/test_lpm_map.c | 16 ++++++++--------
+ tools/testing/selftests/bpf/test_lru_map.c | 28 ++++++++++++++--------------
+ tools/testing/selftests/bpf/test_maps.c    | 30 +++++++++++++++---------------
+ 6 files changed, 40 insertions(+), 52 deletions(-)
 
 diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index ee3a87de15ba..c7c3e2b34403 100644
+index ea3369b50321..81505801fa33 100644
 --- a/tools/lib/bpf/bpf.c
 +++ b/tools/lib/bpf/bpf.c
-@@ -131,11 +131,10 @@ int bpf_map_delete_elem(int fd, const void *key)
- 	return sys_bpf(BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
+@@ -110,11 +110,10 @@ int bpf_map_update_elem(int fd, const void *key, const void *value,
+ 	return sys_bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
  }
  
--int bpf_map_get_next_key(int fd, void *key, void *next_key)
-+int bpf_map_get_next_key(int fd, const void *key, void *next_key)
+-int bpf_map_lookup_elem(int fd, void *key, void *value)
++int bpf_map_lookup_elem(int fd, const void *key, void *value)
  {
 -	union bpf_attr attr;
 +	union bpf_attr attr = {};
@@ -53,161 +50,320 @@ index ee3a87de15ba..c7c3e2b34403 100644
 -	bzero(&attr, sizeof(attr));
  	attr.map_fd = fd;
  	attr.key = ptr_to_u64(key);
- 	attr.next_key = ptr_to_u64(next_key);
+ 	attr.value = ptr_to_u64(value);
 diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index f559f648db45..88f07c15423a 100644
+index 2458534c8b33..171cf594f782 100644
 --- a/tools/lib/bpf/bpf.h
 +++ b/tools/lib/bpf/bpf.h
-@@ -38,7 +38,7 @@ int bpf_map_update_elem(int fd, const void *key, const void *value,
+@@ -36,7 +36,7 @@ int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
+ int bpf_map_update_elem(int fd, const void *key, const void *value,
+ 			__u64 flags);
  
- int bpf_map_lookup_elem(int fd, const void *key, void *value);
- int bpf_map_delete_elem(int fd, const void *key);
--int bpf_map_get_next_key(int fd, void *key, void *next_key);
-+int bpf_map_get_next_key(int fd, const void *key, void *next_key);
+-int bpf_map_lookup_elem(int fd, void *key, void *value);
++int bpf_map_lookup_elem(int fd, const void *key, void *value);
+ int bpf_map_delete_elem(int fd, void *key);
+ int bpf_map_get_next_key(int fd, void *key, void *next_key);
  int bpf_obj_pin(int fd, const char *pathname);
- int bpf_obj_get(const char *pathname);
- int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
 diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
-index 17581a42e1d9..aeff99f0a411 100644
+index e08dec0db9e0..0a5a6060db70 100644
 --- a/tools/testing/selftests/bpf/bpf_sys.h
 +++ b/tools/testing/selftests/bpf/bpf_sys.h
 @@ -24,17 +24,6 @@ static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
  #endif
  }
  
--static inline int bpf_map_next_key(int fd, const void *key, void *next_key)
+-static inline int bpf_map_lookup(int fd, const void *key, void *value)
 -{
 -	union bpf_attr attr = {};
 -
 -	attr.map_fd = fd;
 -	attr.key = bpf_ptr_to_u64(key);
--	attr.next_key = bpf_ptr_to_u64(next_key);
+-	attr.value = bpf_ptr_to_u64(value);
 -
--	return bpf(BPF_MAP_GET_NEXT_KEY, &attr, sizeof(attr));
+-	return bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
 -}
 -
- static inline int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
- 				 uint32_t size_value, uint32_t max_elem,
- 				 uint32_t flags)
+ static inline int bpf_map_delete(int fd, const void *key)
+ {
+ 	union bpf_attr attr = {};
+diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
+index e29ffbcd2932..bd08394c26cb 100644
+--- a/tools/testing/selftests/bpf/test_lpm_map.c
++++ b/tools/testing/selftests/bpf/test_lpm_map.c
+@@ -211,7 +211,7 @@ static void test_lpm_map(int keysize)
+ 
+ 		key->prefixlen = 8 * keysize;
+ 		memcpy(key->data, data, keysize);
+-		r = bpf_map_lookup(map, key, value);
++		r = bpf_map_lookup_elem(map, key, value);
+ 		assert(!r || errno == ENOENT);
+ 		assert(!t == !!r);
+ 
+@@ -300,32 +300,32 @@ static void test_lpm_ipaddr(void)
+ 
+ 	/* Test some lookups that should come back with a value */
+ 	inet_pton(AF_INET, "192.168.128.23", key_ipv4->data);
+-	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == 0);
++	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == 0);
+ 	assert(value == 3);
+ 
+ 	inet_pton(AF_INET, "192.168.0.1", key_ipv4->data);
+-	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == 0);
++	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == 0);
+ 	assert(value == 2);
+ 
+ 	inet_pton(AF_INET6, "2a00:1450:4001:814::", key_ipv6->data);
+-	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == 0);
++	assert(bpf_map_lookup_elem(map_fd_ipv6, key_ipv6, &value) == 0);
+ 	assert(value == 0xdeadbeef);
+ 
+ 	inet_pton(AF_INET6, "2a00:1450:4001:814::1", key_ipv6->data);
+-	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == 0);
++	assert(bpf_map_lookup_elem(map_fd_ipv6, key_ipv6, &value) == 0);
+ 	assert(value == 0xdeadbeef);
+ 
+ 	/* Test some lookups that should not match any entry */
+ 	inet_pton(AF_INET, "10.0.0.1", key_ipv4->data);
+-	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == -1 &&
++	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == -1 &&
+ 	       errno == ENOENT);
+ 
+ 	inet_pton(AF_INET, "11.11.11.11", key_ipv4->data);
+-	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == -1 &&
++	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == -1 &&
+ 	       errno == ENOENT);
+ 
+ 	inet_pton(AF_INET6, "2a00:ffff::", key_ipv6->data);
+-	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == -1 &&
++	assert(bpf_map_lookup_elem(map_fd_ipv6, key_ipv6, &value) == -1 &&
+ 	       errno == ENOENT);
+ 
+ 	close(map_fd_ipv4);
 diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index d375fac1a49c..94ecd4c58d75 100644
+index 8011680248bd..53155009bdb6 100644
 --- a/tools/testing/selftests/bpf/test_lru_map.c
 +++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -46,7 +46,7 @@ static int map_subset(int map0, int map1)
- 	unsigned long long value0[nr_cpus], value1[nr_cpus];
+@@ -47,8 +47,8 @@ static int map_subset(int map0, int map1)
  	int ret;
  
--	while (!bpf_map_next_key(map1, &next_key, &next_key)) {
-+	while (!bpf_map_get_next_key(map1, &next_key, &next_key)) {
- 		assert(!bpf_map_lookup_elem(map1, &next_key, value1));
- 		ret = bpf_map_lookup_elem(map0, &next_key, value0);
+ 	while (!bpf_map_next_key(map1, &next_key, &next_key)) {
+-		assert(!bpf_map_lookup(map1, &next_key, value1));
+-		ret = bpf_map_lookup(map0, &next_key, value0);
++		assert(!bpf_map_lookup_elem(map1, &next_key, value1));
++		ret = bpf_map_lookup_elem(map0, &next_key, value0);
  		if (ret) {
+ 			printf("key:%llu not found from map. %s(%d)\n",
+ 			       next_key, strerror(errno), errno);
+@@ -135,7 +135,7 @@ static void test_lru_sanity0(int map_type, int map_flags)
+ 
+ 	/* check that key=2 is not found */
+ 	key = 2;
+-	assert(bpf_map_lookup(lru_map_fd, &key, value) == -1 &&
++	assert(bpf_map_lookup_elem(lru_map_fd, &key, value) == -1 &&
+ 	       errno == ENOENT);
+ 
+ 	/* BPF_EXIST means: update existing element */
+@@ -149,14 +149,14 @@ static void test_lru_sanity0(int map_type, int map_flags)
+ 
+ 	/* check that key=3 is not found */
+ 	key = 3;
+-	assert(bpf_map_lookup(lru_map_fd, &key, value) == -1 &&
++	assert(bpf_map_lookup_elem(lru_map_fd, &key, value) == -1 &&
+ 	       errno == ENOENT);
+ 
+ 	/* check that key=1 can be found and mark the ref bit to
+ 	 * stop LRU from removing key=1
+ 	 */
+ 	key = 1;
+-	assert(!bpf_map_lookup(lru_map_fd, &key, value));
++	assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 	assert(value[0] == 1234);
+ 
+ 	key = 3;
+@@ -165,7 +165,7 @@ static void test_lru_sanity0(int map_type, int map_flags)
+ 
+ 	/* key=2 has been removed from the LRU */
+ 	key = 2;
+-	assert(bpf_map_lookup(lru_map_fd, &key, value) == -1);
++	assert(bpf_map_lookup_elem(lru_map_fd, &key, value) == -1);
+ 
+ 	assert(map_equal(lru_map_fd, expected_map_fd));
+ 
+@@ -223,7 +223,7 @@ static void test_lru_sanity1(int map_type, int map_flags, unsigned int tgt_free)
+ 	/* Lookup 1 to tgt_free/2 */
+ 	end_key = 1 + batch_size;
+ 	for (key = 1; key < end_key; key++) {
+-		assert(!bpf_map_lookup(lru_map_fd, &key, value));
++		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+ 				       BPF_NOEXIST));
+ 	}
+@@ -329,9 +329,9 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 	end_key = 1 + batch_size;
+ 	value[0] = 4321;
+ 	for (key = 1; key < end_key; key++) {
+-		assert(bpf_map_lookup(lru_map_fd, &key, value));
++		assert(bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(!bpf_map_update_elem(lru_map_fd, &key, value, BPF_NOEXIST));
+-		assert(!bpf_map_lookup(lru_map_fd, &key, value));
++		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(value[0] == 4321);
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+ 				       BPF_NOEXIST));
+@@ -407,7 +407,7 @@ static void test_lru_sanity3(int map_type, int map_flags, unsigned int tgt_free)
+ 	/* Lookup key 1 to tgt_free*3/2 */
+ 	end_key = tgt_free + batch_size;
+ 	for (key = 1; key < end_key; key++) {
+-		assert(!bpf_map_lookup(lru_map_fd, &key, value));
++		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+ 				       BPF_NOEXIST));
+ 	}
+@@ -464,7 +464,7 @@ static void test_lru_sanity4(int map_type, int map_flags, unsigned int tgt_free)
+ 	assert(bpf_map_update_elem(lru_map_fd, &key, value, BPF_NOEXIST));
+ 
+ 	for (key = 1; key <= tgt_free; key++) {
+-		assert(!bpf_map_lookup(lru_map_fd, &key, value));
++		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
+ 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
+ 				       BPF_NOEXIST));
+ 	}
+@@ -494,16 +494,16 @@ static void do_test_lru_sanity5(unsigned long long last_key, int map_fd)
+ 	unsigned long long key, value[nr_cpus];
+ 
+ 	/* Ensure the last key inserted by previous CPU can be found */
+-	assert(!bpf_map_lookup(map_fd, &last_key, value));
++	assert(!bpf_map_lookup_elem(map_fd, &last_key, value));
+ 
+ 	value[0] = 1234;
+ 
+ 	key = last_key + 1;
+ 	assert(!bpf_map_update_elem(map_fd, &key, value, BPF_NOEXIST));
+-	assert(!bpf_map_lookup(map_fd, &key, value));
++	assert(!bpf_map_lookup_elem(map_fd, &key, value));
+ 
+ 	/* Cannot find the last key because it was removed by LRU */
+-	assert(bpf_map_lookup(map_fd, &last_key, value));
++	assert(bpf_map_lookup_elem(map_fd, &last_key, value));
+ }
+ 
+ /* Test map with only one element */
 diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index ae22fdc93172..c96f9c9661a0 100644
+index 2574cc7517b9..c73a1fbc5bcc 100644
 --- a/tools/testing/selftests/bpf/test_maps.c
 +++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -88,11 +88,11 @@ static void test_hashmap(int task, void *data)
- 	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
+@@ -54,11 +54,11 @@ static void test_hashmap(int task, void *data)
+ 	assert(bpf_map_update_elem(fd, &key, &value, -1) == -1 && errno == EINVAL);
  
- 	/* Iterate over two elements. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
- 	       (next_key == 1 || next_key == 2));
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
- 	       (next_key == 1 || next_key == 2));
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
- 	       errno == ENOENT);
+ 	/* Check that key=1 can be found. */
+-	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 1234);
++	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 1234);
  
- 	/* Delete both elements. */
-@@ -104,7 +104,7 @@ static void test_hashmap(int task, void *data)
+ 	key = 2;
+ 	/* Check that key=2 is not found. */
+-	assert(bpf_map_lookup(fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
  
- 	key = 0;
- 	/* Check that map is empty. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == -1 &&
- 	       errno == ENOENT);
+ 	/* BPF_EXIST means update existing element. */
+ 	assert(bpf_map_update_elem(fd, &key, &value, BPF_EXIST) == -1 &&
+@@ -146,11 +146,11 @@ static void test_hashmap_percpu(int task, void *data)
+ 	 * was run from a different CPU.
+ 	 */
+ 	value[0] = 1;
+-	assert(bpf_map_lookup(fd, &key, value) == 0 && value[0] == 100);
++	assert(bpf_map_lookup_elem(fd, &key, value) == 0 && value[0] == 100);
  
- 	close(fd);
-@@ -173,7 +173,7 @@ static void test_hashmap_percpu(int task, void *data)
- 	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
+ 	key = 2;
+ 	/* Check that key=2 is not found. */
+-	assert(bpf_map_lookup(fd, &key, value) == -1 && errno == ENOENT);
++	assert(bpf_map_lookup_elem(fd, &key, value) == -1 && errno == ENOENT);
  
- 	/* Iterate over two elements. */
--	while (!bpf_map_next_key(fd, &key, &next_key)) {
-+	while (!bpf_map_get_next_key(fd, &key, &next_key)) {
+ 	/* BPF_EXIST means update existing element. */
+ 	assert(bpf_map_update_elem(fd, &key, value, BPF_EXIST) == -1 &&
+@@ -177,7 +177,7 @@ static void test_hashmap_percpu(int task, void *data)
  		assert((expected_key_mask & next_key) == next_key);
  		expected_key_mask &= ~next_key;
  
-@@ -199,7 +199,7 @@ static void test_hashmap_percpu(int task, void *data)
+-		assert(bpf_map_lookup(fd, &next_key, value) == 0);
++		assert(bpf_map_lookup_elem(fd, &next_key, value) == 0);
+ 
+ 		for (i = 0; i < nr_cpus; i++)
+ 			assert(value[i] == i + 100);
+@@ -227,11 +227,11 @@ static void test_arraymap(int task, void *data)
+ 	       errno == EEXIST);
+ 
+ 	/* Check that key=1 can be found. */
+-	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 1234);
++	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 1234);
  
  	key = 0;
- 	/* Check that map is empty. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == -1 &&
- 	       errno == ENOENT);
+ 	/* Check that key=0 is also found and zero initialized. */
+-	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 0);
++	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 0);
  
- 	close(fd);
-@@ -244,11 +244,11 @@ static void test_arraymap(int task, void *data)
- 	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
+ 	/* key=0 and key=1 were inserted, check that key=2 cannot be inserted
+ 	 * due to max_entries limit.
+@@ -241,7 +241,7 @@ static void test_arraymap(int task, void *data)
+ 	       errno == E2BIG);
  
- 	/* Iterate over two elements. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
- 	       next_key == 0);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
- 	       next_key == 1);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
- 	       errno == ENOENT);
- 
- 	/* Delete shouldn't succeed. */
-@@ -299,11 +299,11 @@ static void test_arraymap_percpu(int task, void *data)
- 	assert(bpf_map_lookup_elem(fd, &key, values) == -1 && errno == ENOENT);
+ 	/* Check that key = 2 doesn't exist. */
+-	assert(bpf_map_lookup(fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
  
  	/* Iterate over two elements. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
- 	       next_key == 0);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
- 	       next_key == 1);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
- 	       errno == ENOENT);
+ 	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
+@@ -283,11 +283,11 @@ static void test_arraymap_percpu(int task, void *data)
+ 	       errno == EEXIST);
  
- 	/* Delete shouldn't succeed. */
-@@ -378,8 +378,8 @@ static void test_map_large(void)
+ 	/* Check that key=1 can be found. */
+-	assert(bpf_map_lookup(fd, &key, values) == 0 && values[0] == 100);
++	assert(bpf_map_lookup_elem(fd, &key, values) == 0 && values[0] == 100);
  
- 	/* Iterate through all elements. */
- 	for (i = 0; i < MAP_SIZE; i++)
--		assert(bpf_map_next_key(fd, &key, &key) == 0);
--	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
-+		assert(bpf_map_get_next_key(fd, &key, &key) == 0);
-+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+ 	key = 0;
+ 	/* Check that key=0 is also found and zero initialized. */
+-	assert(bpf_map_lookup(fd, &key, values) == 0 &&
++	assert(bpf_map_lookup_elem(fd, &key, values) == 0 &&
+ 	       values[0] == 0 && values[nr_cpus - 1] == 0);
+ 
+ 	/* Check that key=2 cannot be inserted due to max_entries limit. */
+@@ -296,7 +296,7 @@ static void test_arraymap_percpu(int task, void *data)
+ 	       errno == E2BIG);
+ 
+ 	/* Check that key = 2 doesn't exist. */
+-	assert(bpf_map_lookup(fd, &key, values) == -1 && errno == ENOENT);
++	assert(bpf_map_lookup_elem(fd, &key, values) == -1 && errno == ENOENT);
+ 
+ 	/* Iterate over two elements. */
+ 	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
+@@ -338,7 +338,7 @@ static void test_arraymap_percpu_many_keys(void)
+ 		for (i = 0; i < nr_cpus; i++)
+ 			values[i] = 0;
+ 
+-		assert(bpf_map_lookup(fd, &key, values) == 0);
++		assert(bpf_map_lookup_elem(fd, &key, values) == 0);
+ 
+ 		for (i = 0; i < nr_cpus; i++)
+ 			assert(values[i] == i + 10);
+@@ -382,9 +382,9 @@ static void test_map_large(void)
+ 	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
  
  	key.c = 0;
- 	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 0);
-@@ -475,8 +475,8 @@ static void test_map_parallel(void)
- 	/* Check that all elements were inserted. */
- 	key = -1;
- 	for (i = 0; i < MAP_SIZE; i++)
--		assert(bpf_map_next_key(fd, &key, &key) == 0);
--	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
-+		assert(bpf_map_get_next_key(fd, &key, &key) == 0);
-+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+-	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 0);
++	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 0);
+ 	key.a = 1;
+-	assert(bpf_map_lookup(fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
  
- 	/* Another check for all elements */
- 	for (i = 0; i < MAP_SIZE; i++) {
-@@ -492,7 +492,7 @@ static void test_map_parallel(void)
- 
- 	/* Nothing should be left. */
- 	key = -1;
--	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
-+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+ 	close(fd);
  }
+@@ -482,7 +482,7 @@ static void test_map_parallel(void)
+ 	for (i = 0; i < MAP_SIZE; i++) {
+ 		key = MAP_SIZE - i - 1;
  
- static void run_all_tests(void)
+-		assert(bpf_map_lookup(fd, &key, &value) == 0 &&
++		assert(bpf_map_lookup_elem(fd, &key, &value) == 0 &&
+ 		       value == key);
+ 	}
+ 
 -- 
 2.11.0
