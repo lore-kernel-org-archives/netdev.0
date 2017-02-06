@@ -1,7 +1,7 @@
 From: Sainath Grandhi <sainath.grandhi@intel.com>
-Subject: [PATCHv4 6/7] tap: tap as an independent module
-Date: Mon,  6 Feb 2017 13:36:14 -0800
-Message-ID: <1486416975-14133-7-git-send-email-sainath.grandhi@intel.com>
+Subject: [PATCHv4 7/7] ipvtap: IP-VLAN based tap driver
+Date: Mon,  6 Feb 2017 13:36:15 -0800
+Message-ID: <1486416975-14133-8-git-send-email-sainath.grandhi@intel.com>
 References: <1486416975-14133-1-git-send-email-sainath.grandhi@intel.com>
 Cc: davem@davemloft.net, mahesh@bandewar.net,
         linux-kernel@vger.kernel.org, sainath.grandhi@intel.com
@@ -11,172 +11,431 @@ In-Reply-To: <1486416975-14133-1-git-send-email-sainath.grandhi@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch makes tap a separate module for other types of virtual interfaces, for example,
-ipvlan to use.
+This patch adds a tap character device driver that is based on the
+IP-VLAN network interface, called ipvtap. An ipvtap device can be created
+in the same way as an ipvlan device, using 'type ipvtap', and then accessed
+using the tap user space interface.
 
 Signed-off-by: Sainath Grandhi <sainath.grandhi@intel.com>
 ---
- drivers/net/Kconfig                       | 15 +++++++++++++++
- drivers/net/Makefile                      |  3 +--
- drivers/net/{macvtap_main.c => macvtap.c} |  0
- drivers/net/tap.c                         | 11 +++++++++++
- drivers/vhost/Kconfig                     |  2 +-
- include/linux/if_tap.h                    |  4 ++--
- 6 files changed, 30 insertions(+), 5 deletions(-)
- rename drivers/net/{macvtap_main.c => macvtap.c} (100%)
+ drivers/net/Kconfig              |  13 +++
+ drivers/net/Makefile             |   1 +
+ drivers/net/ipvlan/Makefile      |   1 +
+ drivers/net/ipvlan/ipvlan.h      |   7 ++
+ drivers/net/ipvlan/ipvlan_core.c |   5 +-
+ drivers/net/ipvlan/ipvlan_main.c |  27 +++--
+ drivers/net/ipvlan/ipvtap.c      | 241 +++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 281 insertions(+), 14 deletions(-)
+ create mode 100644 drivers/net/ipvlan/ipvtap.c
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 95c32f2..1c88437 100644
+index 1c88437..d07b5f5 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -135,6 +135,7 @@ config MACVTAP
- 	tristate "MAC-VLAN based tap driver"
- 	depends on MACVLAN
- 	depends on INET
+@@ -166,6 +166,19 @@ config IPVLAN
+       To compile this driver as a module, choose M here: the module
+       will be called ipvlan.
+ 
++config IPVTAP
++	tristate "IP-VLAN based tap driver"
++	depends on IPVLAN
++	depends on INET
 +	depends on TAP
- 	help
- 	  This adds a specialized tap character device driver that is based
- 	  on the MAC-VLAN network interface, called macvtap. A macvtap device
-@@ -284,6 +285,20 @@ config TUN
++	---help---
++	  This adds a specialized tap character device driver that is based
++	  on the IP-VLAN network interface, called ipvtap. An ipvtap device
++	  can be added in the same way as a ipvlan device, using 'type
++	  ipvtap', and then be accessed through the tap user space interface.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called ipvtap.
  
- 	  If you don't know what to use this for, you don't need it.
- 
-+config TAP
-+        tristate "TAP module support for virtual interfaces"
-+        ---help---
-+          TAP module serves two purposes. This can be used as library of functions
-+          for virtual interfaces to implement tap functionality.
-+
-+          This module also includes character device file and socket operations
-+          that can be used by virtual interface implementing tap.
-+
-+          To compile this driver as a module, choose M here: the module
-+          will be called tap.
-+
-+          If you don't know what to use this for, you don't need it.
-+
- config TUN_VNET_CROSS_LE
- 	bool "Support for cross-endian vnet headers on little-endian kernels"
- 	default n
+ config VXLAN
+        tristate "Virtual eXtensible Local Area Network (VXLAN)"
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 19b03a9..7dd86ca 100644
+index 7dd86ca..98ed4d9 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -21,6 +21,7 @@ obj-$(CONFIG_PHYLIB) += phy/
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_NET_TEAM) += team/
- obj-$(CONFIG_TUN) += tun.o
-+obj-$(CONFIG_TAP) += tap.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_VXLAN) += vxlan.o
-@@ -29,8 +30,6 @@ obj-$(CONFIG_GTP) += gtp.o
- obj-$(CONFIG_NLMON) += nlmon.o
- obj-$(CONFIG_NET_VRF) += vrf.o
- 
--macvtap-objs := macvtap_main.o tap.o
--
+@@ -7,6 +7,7 @@
  #
- # Networking Drivers
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_IPVLAN) += ipvlan/
++obj-$(CONFIG_IPVTAP) += ipvlan/
+ obj-$(CONFIG_DUMMY) += dummy.o
+ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_IFB) += ifb.o
+diff --git a/drivers/net/ipvlan/Makefile b/drivers/net/ipvlan/Makefile
+index df79910..8a2c64d 100644
+--- a/drivers/net/ipvlan/Makefile
++++ b/drivers/net/ipvlan/Makefile
+@@ -3,5 +3,6 @@
  #
-diff --git a/drivers/net/macvtap_main.c b/drivers/net/macvtap.c
-similarity index 100%
-rename from drivers/net/macvtap_main.c
-rename to drivers/net/macvtap.c
-diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-index 427a113..b4266c8 100644
---- a/drivers/net/tap.c
-+++ b/drivers/net/tap.c
-@@ -312,6 +312,7 @@ void tap_del_queues(struct tap_dev *tap)
- 	/* guarantee that any future tap_set_queue will fail */
- 	tap->numvtaps = MAX_TAP_QUEUES;
- }
-+EXPORT_SYMBOL_GPL(tap_del_queues);
  
- rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
- {
-@@ -389,6 +390,7 @@ rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
- 	kfree_skb(skb);
- 	return RX_HANDLER_CONSUMED;
- }
-+EXPORT_SYMBOL_GPL(tap_handle_frame);
+ obj-$(CONFIG_IPVLAN) += ipvlan.o
++obj-$(CONFIG_IPVTAP) += ipvtap.o
  
- static struct major_info *tap_get_major(int major)
- {
-@@ -422,6 +424,7 @@ int tap_get_minor(dev_t major, struct tap_dev *tap)
- 	mutex_unlock(&tap_major->minor_lock);
- 	return retval < 0 ? retval : 0;
+ ipvlan-objs := ipvlan_core.o ipvlan_main.o
+diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+index dbfbb33..4362d88 100644
+--- a/drivers/net/ipvlan/ipvlan.h
++++ b/drivers/net/ipvlan/ipvlan.h
+@@ -133,4 +133,11 @@ struct sk_buff *ipvlan_l3_rcv(struct net_device *dev, struct sk_buff *skb,
+ 			      u16 proto);
+ unsigned int ipvlan_nf_input(void *priv, struct sk_buff *skb,
+ 			     const struct nf_hook_state *state);
++void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
++		     unsigned int len, bool success, bool mcast);
++int ipvlan_link_new(struct net *src_net, struct net_device *dev,
++		    struct nlattr *tb[], struct nlattr *data[]);
++void ipvlan_link_delete(struct net_device *dev, struct list_head *head);
++void ipvlan_link_setup(struct net_device *dev);
++int ipvlan_link_register(struct rtnl_link_ops *ops);
+ #endif /* __IPVLAN_H */
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index 83ce74a..9af16ab 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -16,8 +16,8 @@ void ipvlan_init_secret(void)
+ 	net_get_random_once(&ipvlan_jhash_secret, sizeof(ipvlan_jhash_secret));
  }
-+EXPORT_SYMBOL_GPL(tap_get_minor);
  
- void tap_free_minor(dev_t major, struct tap_dev *tap)
+-static void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
+-			    unsigned int len, bool success, bool mcast)
++void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
++		     unsigned int len, bool success, bool mcast)
  {
-@@ -438,6 +441,7 @@ void tap_free_minor(dev_t major, struct tap_dev *tap)
+ 	if (!ipvlan)
+ 		return;
+@@ -36,6 +36,7 @@ static void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
+ 		this_cpu_inc(ipvlan->pcpu_stats->rx_errs);
  	}
- 	mutex_unlock(&tap_major->minor_lock);
  }
-+EXPORT_SYMBOL_GPL(tap_free_minor);
++EXPORT_SYMBOL_GPL(ipvlan_count_rx);
  
- static struct tap_dev *dev_get_by_tap_file(int major, int minor)
+ static u8 ipvlan_get_v6_hash(const void *iaddr)
  {
-@@ -1193,6 +1197,7 @@ int tap_queue_resize(struct tap_dev *tap)
- 	kfree(arrays);
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 8b0f993..ed750e2 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -494,8 +494,8 @@ static int ipvlan_nl_fillinfo(struct sk_buff *skb,
  	return ret;
  }
-+EXPORT_SYMBOL_GPL(tap_queue_resize);
  
- static int tap_list_add(dev_t major, const char *device_name)
+-static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+-			   struct nlattr *tb[], struct nlattr *data[])
++int ipvlan_link_new(struct net *src_net, struct net_device *dev,
++		    struct nlattr *tb[], struct nlattr *data[])
  {
-@@ -1240,6 +1245,7 @@ int tap_create_cdev(struct cdev *tap_cdev,
- out1:
+ 	struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 	struct ipvl_port *port;
+@@ -567,8 +567,9 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 		ipvlan_port_destroy(phy_dev);
  	return err;
  }
-+EXPORT_SYMBOL_GPL(tap_create_cdev);
++EXPORT_SYMBOL_GPL(ipvlan_link_new);
  
- void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
+-static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
++void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
  {
-@@ -1255,3 +1261,8 @@ void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
- 	list_del_rcu(&tap_major->next);
- 	kfree_rcu(tap_major, rcu);
+ 	struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 	struct ipvl_addr *addr, *next;
+@@ -583,8 +584,9 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+ 	unregister_netdevice_queue(dev, head);
+ 	netdev_upper_dev_unlink(ipvlan->phy_dev, dev);
  }
-+EXPORT_SYMBOL_GPL(tap_destroy_cdev);
++EXPORT_SYMBOL_GPL(ipvlan_link_delete);
+ 
+-static void ipvlan_link_setup(struct net_device *dev)
++void ipvlan_link_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+ 
+@@ -595,6 +597,7 @@ static void ipvlan_link_setup(struct net_device *dev)
+ 	dev->header_ops = &ipvlan_header_ops;
+ 	dev->ethtool_ops = &ipvlan_ethtool_ops;
+ }
++EXPORT_SYMBOL_GPL(ipvlan_link_setup);
+ 
+ static const struct nla_policy ipvlan_nl_policy[IFLA_IPVLAN_MAX + 1] =
+ {
+@@ -605,22 +608,22 @@ static struct rtnl_link_ops ipvlan_link_ops = {
+ 	.kind		= "ipvlan",
+ 	.priv_size	= sizeof(struct ipvl_dev),
+ 
+-	.get_size	= ipvlan_nl_getsize,
+-	.policy		= ipvlan_nl_policy,
+-	.validate	= ipvlan_nl_validate,
+-	.fill_info	= ipvlan_nl_fillinfo,
+-	.changelink	= ipvlan_nl_changelink,
+-	.maxtype	= IFLA_IPVLAN_MAX,
+-
+ 	.setup		= ipvlan_link_setup,
+ 	.newlink	= ipvlan_link_new,
+ 	.dellink	= ipvlan_link_delete,
+ };
+ 
+-static int ipvlan_link_register(struct rtnl_link_ops *ops)
++int ipvlan_link_register(struct rtnl_link_ops *ops)
+ {
++	ops->get_size	= ipvlan_nl_getsize;
++	ops->policy	= ipvlan_nl_policy;
++	ops->validate	= ipvlan_nl_validate;
++	ops->fill_info	= ipvlan_nl_fillinfo;
++	ops->changelink = ipvlan_nl_changelink;
++	ops->maxtype	= IFLA_IPVLAN_MAX;
+ 	return rtnl_link_register(ops);
+ }
++EXPORT_SYMBOL_GPL(ipvlan_link_register);
+ 
+ static int ipvlan_device_event(struct notifier_block *unused,
+ 			       unsigned long event, void *ptr)
+diff --git a/drivers/net/ipvlan/ipvtap.c b/drivers/net/ipvlan/ipvtap.c
+new file mode 100644
+index 0000000..2b713b6
+--- /dev/null
++++ b/drivers/net/ipvlan/ipvtap.c
+@@ -0,0 +1,241 @@
++#include <linux/etherdevice.h>
++#include "ipvlan.h"
++#include <linux/if_vlan.h>
++#include <linux/if_tap.h>
++#include <linux/interrupt.h>
++#include <linux/nsproxy.h>
++#include <linux/compat.h>
++#include <linux/if_tun.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/cache.h>
++#include <linux/sched.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/wait.h>
++#include <linux/cdev.h>
++#include <linux/idr.h>
++#include <linux/fs.h>
++#include <linux/uio.h>
 +
-+MODULE_AUTHOR("Arnd Bergmann <arnd@arndb.de>");
++#include <net/net_namespace.h>
++#include <net/rtnetlink.h>
++#include <net/sock.h>
++#include <linux/virtio_net.h>
++
++#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
++		      NETIF_F_TSO6 | NETIF_F_UFO)
++
++static dev_t ipvtap_major;
++static struct cdev ipvtap_cdev;
++
++static const void *ipvtap_net_namespace(struct device *d)
++{
++	struct net_device *dev = to_net_dev(d->parent);
++	return dev_net(dev);
++}
++
++static struct class ipvtap_class = {
++	 .name = "ipvtap",
++	 .owner = THIS_MODULE,
++	 .ns_type = &net_ns_type_operations,
++	 .namespace = ipvtap_net_namespace,
++};
++
++struct ipvtap_dev {
++	struct ipvl_dev vlan;
++	struct tap_dev	  tap;
++};
++
++static void ipvtap_count_tx_dropped(struct tap_dev *tap)
++{
++	struct ipvtap_dev *vlantap = container_of(tap, struct ipvtap_dev, tap);
++	struct ipvl_dev *vlan = &vlantap->vlan;
++
++	this_cpu_inc(vlan->pcpu_stats->tx_drps);
++}
++
++static void ipvtap_count_rx_dropped(struct tap_dev *tap)
++{
++	struct ipvtap_dev *vlantap = container_of(tap, struct ipvtap_dev, tap);
++	struct ipvl_dev *vlan = &vlantap->vlan;
++
++	ipvlan_count_rx(vlan, 0, 0, 0);
++}
++
++static void ipvtap_update_features(struct tap_dev *tap,
++				   netdev_features_t features)
++{
++	struct ipvtap_dev *vlantap = container_of(tap, struct ipvtap_dev, tap);
++	struct ipvl_dev *vlan = &vlantap->vlan;
++
++	vlan->sfeatures = features;
++	netdev_update_features(vlan->dev);
++}
++
++static int ipvtap_newlink(struct net *src_net,
++			  struct net_device *dev,
++			  struct nlattr *tb[],
++			  struct nlattr *data[])
++{
++	struct ipvtap_dev *vlantap = netdev_priv(dev);
++	int err;
++
++	INIT_LIST_HEAD(&vlantap->tap.queue_list);
++
++	/* Since macvlan supports all offloads by default, make
++	 * tap support all offloads also.
++	 */
++	vlantap->tap.tap_features = TUN_OFFLOADS;
++	vlantap->tap.count_tx_dropped = ipvtap_count_tx_dropped;
++	vlantap->tap.update_features =	ipvtap_update_features;
++	vlantap->tap.count_rx_dropped = ipvtap_count_rx_dropped;
++
++	err = netdev_rx_handler_register(dev, tap_handle_frame, &vlantap->tap);
++	if (err)
++		return err;
++
++	/* Don't put anything that may fail after macvlan_common_newlink
++	 * because we can't undo what it does.
++	 */
++	err =  ipvlan_link_new(src_net, dev, tb, data);
++	if (err) {
++		netdev_rx_handler_unregister(dev);
++		return err;
++	}
++
++	vlantap->tap.dev = vlantap->vlan.dev;
++
++	return err;
++}
++
++static void ipvtap_dellink(struct net_device *dev,
++			   struct list_head *head)
++{
++	struct ipvtap_dev *vlan = netdev_priv(dev);
++
++	netdev_rx_handler_unregister(dev);
++	tap_del_queues(&vlan->tap);
++	ipvlan_link_delete(dev, head);
++}
++
++static void ipvtap_setup(struct net_device *dev)
++{
++	ipvlan_link_setup(dev);
++	dev->tx_queue_len = TUN_READQ_SIZE;
++	dev->priv_flags &= ~IFF_NO_QUEUE;
++}
++
++static struct rtnl_link_ops ipvtap_link_ops __read_mostly = {
++	.kind		= "ipvtap",
++	.setup		= ipvtap_setup,
++	.newlink	= ipvtap_newlink,
++	.dellink	= ipvtap_dellink,
++	.priv_size	= sizeof(struct ipvtap_dev),
++};
++
++static int ipvtap_device_event(struct notifier_block *unused,
++			       unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct ipvtap_dev *vlantap;
++	struct device *classdev;
++	dev_t devt;
++	int err;
++	char tap_name[IFNAMSIZ];
++
++	if (dev->rtnl_link_ops != &ipvtap_link_ops)
++		return NOTIFY_DONE;
++
++	snprintf(tap_name, IFNAMSIZ, "tap%d", dev->ifindex);
++	vlantap = netdev_priv(dev);
++
++	switch (event) {
++	case NETDEV_REGISTER:
++		/* Create the device node here after the network device has
++		 * been registered but before register_netdevice has
++		 * finished running.
++		 */
++		err = tap_get_minor(ipvtap_major, &vlantap->tap);
++		if (err)
++			return notifier_from_errno(err);
++
++		devt = MKDEV(MAJOR(ipvtap_major), vlantap->tap.minor);
++		classdev = device_create(&ipvtap_class, &dev->dev, devt,
++					 dev, tap_name);
++		if (IS_ERR(classdev)) {
++			tap_free_minor(ipvtap_major, &vlantap->tap);
++			return notifier_from_errno(PTR_ERR(classdev));
++		}
++		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
++					tap_name);
++		if (err)
++			return notifier_from_errno(err);
++		break;
++	case NETDEV_UNREGISTER:
++		/* vlan->minor == 0 if NETDEV_REGISTER above failed */
++		if (vlantap->tap.minor == 0)
++			break;
++		sysfs_remove_link(&dev->dev.kobj, tap_name);
++		devt = MKDEV(MAJOR(ipvtap_major), vlantap->tap.minor);
++		device_destroy(&ipvtap_class, devt);
++		tap_free_minor(ipvtap_major, &vlantap->tap);
++		break;
++	case NETDEV_CHANGE_TX_QUEUE_LEN:
++		if (tap_queue_resize(&vlantap->tap))
++			return NOTIFY_BAD;
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block ipvtap_notifier_block __read_mostly = {
++	.notifier_call	= ipvtap_device_event,
++};
++
++static int ipvtap_init(void)
++{
++	int err;
++
++	err = tap_create_cdev(&ipvtap_cdev, &ipvtap_major, "ipvtap");
++
++	if (err)
++		goto out1;
++
++	err = class_register(&ipvtap_class);
++	if (err)
++		goto out2;
++
++	err = register_netdevice_notifier(&ipvtap_notifier_block);
++	if (err)
++		goto out3;
++
++	err = ipvlan_link_register(&ipvtap_link_ops);
++	if (err)
++		goto out4;
++
++	return 0;
++
++out4:
++	unregister_netdevice_notifier(&ipvtap_notifier_block);
++out3:
++	class_unregister(&ipvtap_class);
++out2:
++	tap_destroy_cdev(ipvtap_major, &ipvtap_cdev);
++out1:
++	return err;
++}
++module_init(ipvtap_init);
++
++static void ipvtap_exit(void)
++{
++	rtnl_link_unregister(&ipvtap_link_ops);
++	unregister_netdevice_notifier(&ipvtap_notifier_block);
++	class_unregister(&ipvtap_class);
++	tap_destroy_cdev(ipvtap_major, &ipvtap_cdev);
++}
++module_exit(ipvtap_exit);
++MODULE_ALIAS_RTNL_LINK("ipvtap");
 +MODULE_AUTHOR("Sainath Grandhi <sainath.grandhi@intel.com>");
 +MODULE_LICENSE("GPL");
-diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
-index 40764ec..cfdecea 100644
---- a/drivers/vhost/Kconfig
-+++ b/drivers/vhost/Kconfig
-@@ -1,6 +1,6 @@
- config VHOST_NET
- 	tristate "Host kernel accelerator for virtio net"
--	depends on NET && EVENTFD && (TUN || !TUN) && (MACVTAP || !MACVTAP)
-+	depends on NET && EVENTFD && (TUN || !TUN) && (TAP || !TAP)
- 	select VHOST
- 	---help---
- 	  This kernel module can be loaded in host kernel to accelerate
-diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
-index 362e71c..3482c3c 100644
---- a/include/linux/if_tap.h
-+++ b/include/linux/if_tap.h
-@@ -1,7 +1,7 @@
- #ifndef _LINUX_IF_TAP_H_
- #define _LINUX_IF_TAP_H_
- 
--#if IS_ENABLED(CONFIG_MACVTAP)
-+#if IS_ENABLED(CONFIG_TAP)
- struct socket *tap_get_socket(struct file *);
- #else
- #include <linux/err.h>
-@@ -12,7 +12,7 @@ static inline struct socket *tap_get_socket(struct file *f)
- {
- 	return ERR_PTR(-EINVAL);
- }
--#endif /* CONFIG_MACVTAP */
-+#endif /* CONFIG_TAP */
- 
- #include <net/sock.h>
- #include <linux/skb_array.h>
 -- 
 2.7.4
