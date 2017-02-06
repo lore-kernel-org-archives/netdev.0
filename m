@@ -1,89 +1,81 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [PATCH iproute2/net-next 1/3] tc: Add support for the sample tc
- action
-Date: Mon, 6 Feb 2017 07:38:15 +0000
-Message-ID: <DB3PR05MB076405F63FA331BD005E95E4AC400@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1486281534-61663-1-git-send-email-yotamg@mellanox.com>
- <1486281534-61663-2-git-send-email-yotamg@mellanox.com>
- <18afef7b-22f4-e37f-4ea3-99d8307a1eb7@gmail.com>
- <DB3PR05MB076475ADE956B146B97EEECBAC410@DB3PR05MB0764.eurprd05.prod.outlook.com>
- <6b2477b7-5e88-fc85-48da-d5407e5b2cc2@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio: Fix affinity for >32 VCPUs
+Date: Mon, 6 Feb 2017 15:45:38 +0800
+Message-ID: <c9042cd9-c8aa-5569-4396-edd1f86bdca8@redhat.com>
+References: <20170203061905.100283-1-serebrin@google.com>
+ <6af5d025-4b94-e3e2-1a98-efde69ec8be9@redhat.com>
+ <CAN+hb0UScuWow6YsaG-kd21ZdUeZrbs1vq36ov8x2_RXHHQKRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Venkatesh Srinivas <venkateshs@google.com>,
+        James Mattson <jmattson@google.com>
+To: Benjamin Serebrin <serebrin@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10070.outbound.protection.outlook.com ([40.107.1.70]:37303
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751153AbdBFHiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 02:38:19 -0500
-In-Reply-To: <6b2477b7-5e88-fc85-48da-d5407e5b2cc2@gmail.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:61526 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750879AbdBFHpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 02:45:46 -0500
+In-Reply-To: <CAN+hb0UScuWow6YsaG-kd21ZdUeZrbs1vq36ov8x2_RXHHQKRA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRmxvcmlhbiBGYWluZWxsaSBbbWFp
-bHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPlNlbnQ6IFN1bmRheSwgRmVicnVhcnkgMDUsIDIw
-MTcgMTA6NTUgUE0NCj5UbzogWW90YW0gR2lnaSA8eW90YW1nQG1lbGxhbm94LmNvbT47IHN0ZXBo
-ZW5AbmV0d29ya3BsdW1iZXIub3JnOw0KPm5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEppcmkgUGly
-a28gPGppcmlAbWVsbGFub3guY29tPjsgRWxhZCBSYXoNCj48ZWxhZHJAbWVsbGFub3guY29tPg0K
-PlN1YmplY3Q6IFJlOiBbUEFUQ0ggaXByb3V0ZTIvbmV0LW5leHQgMS8zXSB0YzogQWRkIHN1cHBv
-cnQgZm9yIHRoZSBzYW1wbGUgdGMgYWN0aW9uDQo+DQo+TGUgMDIvMDUvMTcgw6AgMTI6MjIsIFlv
-dGFtIEdpZ2kgYSDDqWNyaXQgOg0KPj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+Pj4g
-RnJvbTogRmxvcmlhbiBGYWluZWxsaSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPj4+
-IFNlbnQ6IFN1bmRheSwgRmVicnVhcnkgMDUsIDIwMTcgODozNyBQTQ0KPj4+IFRvOiBZb3RhbSBH
-aWdpIDx5b3RhbWdAbWVsbGFub3guY29tPjsgc3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmc7DQo+
-Pj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgSmlyaSBQaXJrbyA8amlyaUBtZWxsYW5veC5jb20+
-OyBFbGFkIFJheg0KPj4+IDxlbGFkckBtZWxsYW5veC5jb20+DQo+Pj4gU3ViamVjdDogUmU6IFtQ
-QVRDSCBpcHJvdXRlMi9uZXQtbmV4dCAxLzNdIHRjOiBBZGQgc3VwcG9ydCBmb3IgdGhlIHNhbXBs
-ZSB0Yw0KPmFjdGlvbg0KPj4+DQo+Pj4gT24gMDIvMDQvMjAxNyAxMTo1OCBQTSwgWW90YW0gR2ln
-aSB3cm90ZToNCj4+Pj4gVGhlIHNhbXBsZSB0YyBhY3Rpb24gYWxsb3dzIHNhbXBsaW5nIHBhY2tl
-dHMgbWF0Y2hpbmcgYSBjbGFzc2lmaWVyLiBJdA0KPj4+PiBwZWVrcyByYW5kb21seSBwYWNrZXRz
-LCBhbmQgc2FtcGxlcyB0aGVtIHVzaW5nIHRoZSBwc2FtcGxlIG5ldGxpbmsNCj4+Pj4gY2hhbm5l
-bC4gVGhlIHVzZXIgY2FuIHNwZWNpZnkgdGhlIHBzYW1wbGUgZ3JvdXAsIHdoaWNoIHRoZSBwYWNr
-ZXQgd2lsbCBiZQ0KPj4+PiBzYW1wbGVkIHRvLCB0aGUgc2FtcGxpbmcgcmF0ZSBhbmQgdGhlIHBh
-Y2tldCB0cnVuY2F0aW9uICh0byBzYXZlDQo+Pj4+IGtlcm5lbC11c2VyIHRyYWZmaWMpLg0KPj4+
-Pg0KPj4+PiBUaGUgc2FtcGxlZCBwYWNrZXRzIGNvbnRhaW4gaW5mb3JtYXRpdmUgbWV0YWRhdGEs
-IGZvciBleGFtcGxlLCB0aGUgaW5wdXQNCj4+Pj4gaW50ZXJmYWNlIGFuZCB0aGUgb3JpZ2luYWwg
-cGFja2V0IGxlbmd0aC4NCj4+Pj4NCj4+Pj4gVGhlIGFjdGlvbiBzeW50YXg6DQo+Pj4+IHRjIGZp
-bHRlciBhZGQgWy4uLl0gXA0KPj4+PiAJYWN0aW9uIHNhbXBsZSByYXRlIDxSQVRFPiBncm91cCA8
-R1JPVVA+IFt0cnVuYyA8U0laRT5dDQo+Pj4+IAlbLi4uXQ0KPj4+Pg0KPj4+PiBXaGVyZToNCj4+
-Pj4gICBSQVRFIDo9IFRoZSBzYW1wbGluZyByYXRlIHdoaWNoIGlzIHRoZSByYXRpbyBvZiBwYWNr
-ZXRzIG9ic2VydmVkIGF0IHRoZQ0KPj4+PiAJICBkYXRhIHNvdXJjZSB0byB0aGUgc2FtcGxlcyBn
-ZW5lcmF0ZWQNCj4+Pj4gICBHUk9VUCA6PSB0aGUgcHNhbXBsZSBtb2R1bGUgc2FtcGxpbmcgZ3Jv
-dXANCj4+Pj4gICBTSVpFIDo9IG9wdGlvbmFsIHRydW5jYXRpb24gc2l6ZQ0KPj4+Pg0KPj4+PiBB
-biBleGFtcGxlIGZvciBhIGNvbW1vbiB1c2VjYXNlIG9mIHRoZSBzYW1wbGUgdGMgYWN0aW9uOiB0
-byBzYW1wbGUgaW5ncmVzcw0KPj4+PiB0cmFmZmljIGZyb20gaW50ZXJmYWNlIGV0aDEsIG9uZSBt
-YXkgdXNlIHRoZSBjb21tYW5kczoNCj4+Pj4NCj4+Pj4gdGMgcWRpc2MgYWRkIGRldiBldGgxIGhh
-bmRsZSBmZmZmOiBpbmdyZXNzDQo+Pj4+DQo+Pj4+IHRjIGZpbHRlciBhZGQgZGV2IGV0aDEgcGFy
-ZW50IGZmZmY6IFwNCj4+Pj4gICAgICAgIG1hdGNoYWxsIGFjdGlvbiBzYW1wbGUgcmF0ZSAxMiBn
-cm91cCA0DQo+Pj4+DQo+Pj4+IFdoZXJlIHRoZSBmaXJzdCBjb21tYW5kIGFkZHMgYW4gaW5ncmVz
-cyBxZGlzYyBhbmQgdGhlIHNlY29uZCBzdGFydHMNCj4+Pj4gc2FtcGxpbmcgcmFuZG9tbHkgd2l0
-aCBhbiBhdmVyYWdlIG9mIG9uZSBzYW1wbGVkIHBhY2tldCBwZXIgMTIgcGFja2V0cw0KPj4+PiBv
-biBkZXYgZXRoMSB0byBwc2FtcGxlIGdyb3VwIDQuDQo+Pj4NCj4+PiBUaGUgZ3JvdXAgYXJndW1l
-bnQgc2VlbXMgdG8gYmUgbWFuZGF0b3J5IGZyb20gbG9va2luZyBhdCB0aGUgY29kZSwgYnV0DQo+
-Pj4gd2hhdCBpZiBqdXN0IHdhbnRlZCB0byBoYXZlIGEgcG9ydCBtaXJyb3JpbmcgYmV0d2Vlbiwg
-c2F5IHN3MHAxIGFuZA0KPj4+IHN3MHAyIHdpdGggdGhlIHNhbXBsZSByYXRlIHNwZWNpZmllZCBp
-bnN0ZWFkICh3aXRob3V0IHVzaW5nIHRoZSBwc2FtcGxlDQo+Pj4gbmV0bGluayBjaGFubmVsIGF0
-IGFsbCk/IENvdWxkIHdlIG1ha2UgdGhpcyBncm91cCBhbiBvcHRpb25hbCBhcmd1bWVudA0KPj4+
-IGluc3RlYWQ/DQo+Pg0KPj4gVGhlIGtlcm5lbCBhY3Rpb24gY3VycmVudGx5IGRvbid0IHN1cHBv
-cnQgaXQsIGFuZCBJIGFtIG5vdCBzdXJlIGl0IHNob3VsZC4NCj4+DQo+PiBJZiBJIHVuZGVyc3Rh
-bmQgeW91IGNvcnJlY3RseSwgeW91IHdhbnQgdG8gbWFrZSB0aGUgc2FtcGxlIGFjdGlvbiBpZGVu
-dGljYWwNCj4+IHRvIG1pcnJlZC1taXJyb3IsIG9ubHkgd2l0aCByYW5kb20gYmVoYXZpb3IuIFRo
-aXMgY2FuIGJlIGRvbmUgdXNpbmcgdGhlDQo+PiBtYXRjaGFsbCBhbmQgbWlycmVkIGFjdGlvbiwg
-cGx1cyB0aGUgJ3JhbmRvbScgZ2FjdCBrZXl3b3JkLg0KPg0KPkl0IHNvdW5kcyBsaWtlIHdlIGNh
-biBpbmRlZWQsIHdpdGggcmFuZG9tIGRldGVybSBhbmQgdXNpbmcgdGhlIFZBTA0KPmFyZ3VtZW50
-IHdlIHNob3VsZCBiZSBhYmxlIHRvIGNvbmZpZ3VyZSB0aGUgY2FwdHVyZSBkaXZpZGVyOyB0aGFu
-a3MhDQoNCllvdSdyZSB3ZWxjb21lLiBJdCB0b29rIG1lIHNvbWUgdGltZSB0byBmaW5kIHRoYXQg
-a2V5d29yZCB0b28gOikNCg0KPg0KPj4NCj4+IFRoZSBzYW1wbGUgYWN0aW9uIGF0dGFjaGVzIHNv
-bWUgbWV0YWRhdGEgaW4gYWRkaXRpb24gdG8gdGhlIG9yaWdpbmFsIHBhY2tldA0KPj4gZGF0YSwg
-YW5kIHRoYXQgY2Fubm90IGJlIGFjaGlldmVkIGJ5IG1pcnJvcmluZyB0aGUgcGFja2V0cywgdGh1
-cyBtYWtpbmcgaXQNCj4+IHVudXNhYmxlIGZvciBvdXIgdXNlY2FzZS4gSW4gdGhlIGZvcm1lciB2
-ZXJzaW9uIHdlIGF0dGFjaGVkIHRoZSBtZXRhZGF0YQ0KPj4gdXNpbmcgdGhlIElGRSBwcm90b2Nv
-bCwgYnV0IHdlIGRlY2lkZWQgdG8gdXNlIGEgZGVkaWNhdGVkIG5ldGxpbmsgY2hhbm5lbA0KPj4g
-aW5zdGVhZC4NCj4NCj5ZZWFoIEkgc2VlIHRoYXQgbm93LCB0aGFua3MgZm9yIHRoZSBleHBsYW5h
-dGlvbiENCj4tLQ0KPkZsb3JpYW4NCg==
+
+
+On 2017年02月06日 15:28, Benjamin Serebrin wrote:
+> On Sun, Feb 5, 2017 at 11:24 PM, Jason Wang<jasowang@redhat.com>  wrote:
+>> On 2017年02月03日 14:19, Ben Serebrin wrote:
+>>> From: Benjamin Serebrin<serebrin@google.com>
+>>>
+>>> If the number of virtio queue pairs is not equal to the
+>>> number of VCPUs, the virtio guest driver doesn't assign
+>>> any CPU affinity for the queue interrupts or the xps
+>>> aggregation interrupt.
+>> So this in fact is not a affinity fixing for #cpus > 32 but adding  affinity
+>> for #cpus != #queue pairs.
+> Fair enough.  I'll adjust the title line in the subsequent version.
+>
+>
+>>> Google Compute Engine currently provides 1 queue pair for
+>>> every VCPU, but limits that at a maximum of 32 queue pairs.
+>>>
+>>> This code assigns interrupt affinity even when there are more than
+>>> 32 VCPUs.
+>>>
+>>> Tested:
+>>>
+>>> (on a 64-VCPU VM with debian 8, jessie-backports 4.9.2)
+>>>
+>>> Without the fix we see all queues affinitized to all CPUs:
+>> [...]
+>>
+>>>    +     /* If there are more cpus than queues, then assign the queues'
+>>> +        * interrupts to the first cpus until we run out.
+>>> +        */
+>>>          i = 0;
+>>>          for_each_online_cpu(cpu) {
+>>> +               if (i == vi->max_queue_pairs)
+>>> +                       break;
+>>>                  virtqueue_set_affinity(vi->rq[i].vq, cpu);
+>>>                  virtqueue_set_affinity(vi->sq[i].vq, cpu);
+>>> -               netif_set_xps_queue(vi->dev, cpumask_of(cpu), i);
+>>>                  i++;
+>>>          }
+>>>    +     /* Stripe the XPS affinities across the online CPUs.
+>>> +        * Hyperthread pairs are typically assigned such that Linux's
+>>> +        * CPU X and X + (numcpus / 2) are hyperthread twins, so we cause
+>>> +        * hyperthread twins to share TX queues, in the case where there
+>>> are
+>>> +        * more cpus than queues.
+>> Since we use combined queue pairs, why not use the same policy for RX?
+> XPS is for transmit only.
+>
+>
+
+Yes, but I mean, e.g consider you let hyperthread twins to share TX 
+queues (XPS), why not share TX and RX queue interrupts (affinity)?
+
+Thanks
