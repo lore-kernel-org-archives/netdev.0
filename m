@@ -1,76 +1,41 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: Disabling msix interrupts
-Date: Mon, 6 Feb 2017 08:26:42 -0800
-Message-ID: <CAKgT0UeXXkUpsrF9gpf_gba56V+B8a1G84k0WWt5q85Rx2PVsA@mail.gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6DB027C936@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027C936@AcuExch.aculab.com>
-Sender: linux-pci-owner@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] mlxsw: add psample dependency for spectrum
+Date: Mon,  6 Feb 2017 17:26:30 +0100
+Message-ID: <20170206162642.693506-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Vadim Pasternak <vadimp@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>, Ivan Vecera <cera@cera.cz>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 6, 2017 at 7:33 AM, David Laight <David.Laight@aculab.com> wrote:
-> netdev probably isn't the right list for this, but I suspect people
-> reading it understand what happens.
->
-> I'm fairly sure that an msix interrupt can get raised after
-> the kernel thinks it has masked it.
->
-> When an msix interrupt is disabled I think msi_set_mask_bit()
-> (in drivers/pci/msi.c) is called to write a '1' to the card's
-> hardware MSIX mask register (the last 32bit word of the entry).
-> This function carefully reads back the mask register to flush
-> the write through the pcie bus.
-> Except it doesn't, it reads the 'address_lo' register instead! [1]
+When PSAMPLE is a loadable module, spectrum must not be built-in:
 
-Reading any register will force the write to be flushed as all PCI
-writes must be completed before a PCI read.  For example in the Intel
-drivers we read register 0 to flush a write of any of the other
-registers.
+drivers/net/built-in.o: In function `mlxsw_sp_rx_listener_sample_func':
+spectrum.c:(.text+0xe357e): undefined reference to `psample_sample_packet'
 
-> While this will stop the hardware raising any more interrupts,
-> it could easily be in the process of raising one.
-> ie have read the mask, found it zero, read the address and
-> data, and be in the process of issuing the pcie write.
->
-> The pcie write (to disable the interrupt) and readback are seen
-> by the hardware as (more or less) back to back transfers, so can
-> both easily overtake the request to raise the interrupt.
+This adds a Kconfig dependency to enforce usable configurations.
 
-I don't believe this is correct.  On the PCI bus what you should see
-is the device aware that interrupts are disabled before the completion
-arrives and any MSI messages should arrive before the last read
-completion.
+Fixes: 98d0f7b9acda ("mlxsw: spectrum: Add packet sample offloading support")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/mellanox/mlxsw/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-> The pcie bus is also allowed to make a read completion tlp
-> overtake a write tlp.
-> Add in any host-side delays in raising the hardware interrupt
-> itself, and an interrupt could happen well after it was masked.
-
-That is only if relaxed ordering is enabled, which I am not sure is
-supported for MSI-X interrupts.  That being said though I believe
-there are some platforms that could end up seeing a delay in handling
-the interrupt if for example the CPU the interrupt was delivered to
-was in a sleep state.
-
-> More worrying would be any code that tries to change the address
-> and data associated with an interrupt.
-> You'd need moderate guard times after the disable and before the
-> enable to ensure the hardware didn't raise an interrupt with
-> a mismatch of the old and new values.
->
-> [1] Maybe I'll look at the order those cycles actually arrive in.
->
->         David
-
-So I have thrown in my $.02 on this, and added the linux-pci mailing
-list.  That is a much better place to bring this up rather than
-netdev.
-
-Thanks.
-
-- Alex
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+index 76a7574c3c7d..ef23eaedc2ff 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+@@ -73,6 +73,7 @@ config MLXSW_SWITCHX2
+ config MLXSW_SPECTRUM
+ 	tristate "Mellanox Technologies Spectrum support"
+ 	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV && VLAN_8021Q
++	depends on PSAMPLE || PSAMPLE=n
+ 	select PARMAN
+ 	default m
+ 	---help---
+-- 
+2.9.0
