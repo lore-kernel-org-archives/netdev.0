@@ -1,97 +1,175 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from the
- library
-Date: Mon, 6 Feb 2017 22:30:18 +0100
-Message-ID: <1136c1a4-1a73-a419-5550-4ebd8aee9d25@digikod.net>
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net>
- <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
- <5898CBEF.20201@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Otd08lEItf39hhpdDRwfhScQEKaFjurWd"
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Shuah Khan <shuah@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5898CBEF.20201@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] [net-next] net: qcom/emac: add ethool support for setting pause parameters
+Date: Mon,  6 Feb 2017 15:34:52 -0600
+Message-ID: <1486416892-10927-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:46102 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751395AbdBFVfA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:35:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Otd08lEItf39hhpdDRwfhScQEKaFjurWd
-Content-Type: multipart/mixed; boundary="bQawRxMqnpDhQ2D5UBPBao38K7DgTCgrV";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Daniel Borkmann <daniel@iogearbox.net>, linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
- Shuah Khan <shuah@kernel.org>
-Message-ID: <1136c1a4-1a73-a419-5550-4ebd8aee9d25@digikod.net>
-Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from the
- library
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net>
- <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
- <5898CBEF.20201@iogearbox.net>
-In-Reply-To: <5898CBEF.20201@iogearbox.net>
+To support setting the pause parameters, the driver can no longer just
+mirror the PHY.  The set_pauseparam feature allows the driver to
+force the setting in the MAC, regardless of how the PHY is configured.
+This means that we now need to maintain an internal state for pause
+frame support, and so get_pauseparam also needs to be updated.
 
---bQawRxMqnpDhQ2D5UBPBao38K7DgTCgrV
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+If the interface is already running when the setting is changed, then
+the interface is reset.
 
+Note that if the MAC is configured to enable RX pause frame support
+(i.e. it transmits pause frames to throttle the other end), but the
+PHY is configured to block those frames, then the feature will not work.
 
-On 06/02/2017 20:18, Daniel Borkmann wrote:
-> On 02/06/2017 08:16 PM, Micka=C3=ABl Sala=C3=BCn wrote:
->> On 06/02/2017 16:30, Daniel Borkmann wrote:
->>> On 02/06/2017 12:14 AM, Micka=C3=ABl Sala=C3=BCn wrote:
->>>> Replace bpf_prog_load() with bpf_load_program() calls.
->>>>
->>>> Use the tools include directory instead of the installed one to allo=
-w
->>>> builds from other kernels.
->>>>
->>>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->>>> Cc: Alexei Starovoitov <ast@fb.com>
->>>> Cc: Daniel Borkmann <daniel@iogearbox.net>
->>>> Cc: Shuah Khan <shuah@kernel.org>
->>>> ---
->>>>    tools/testing/selftests/bpf/Makefile        |  6 +++++-
->>>>    tools/testing/selftests/bpf/bpf_sys.h       | 21
->>>> ---------------------
->>>>    tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
->>>>    tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
->>>>    4 files changed, 14 insertions(+), 27 deletions(-)
->>>
->>> No objections, but if so, can't we add the remaining missing
->>> pieces to bpf lib, so we can remove bpf_sys.h altogether?
->>
->> OK, I'll send a new patch replacing bpf_sys.h entirely.
->=20
-> Sounds great, thanks!
->=20
+Also some buffer size initialization code into emac_init_adapter(),
+so that it lives with similar code, including the initializtion of
+pause frame support.
 
-Do you prefer a big patch or one for each replaced function?
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-ethtool.c | 30 ++++++++++++++++-------
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c     | 18 ++++++++++----
+ drivers/net/ethernet/qualcomm/emac/emac.c         | 11 ++++++---
+ drivers/net/ethernet/qualcomm/emac/emac.h         |  7 ++++++
+ 4 files changed, 48 insertions(+), 18 deletions(-)
 
-
---bQawRxMqnpDhQ2D5UBPBao38K7DgTCgrV--
-
---Otd08lEItf39hhpdDRwfhScQEKaFjurWd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAliY6uoACgkQIt7+33O9
-apVGIQf+PQi9gZUGXTqbZo8PO4uD/6agWUeiGfCwFk56+DGE06vNWvvU1vgZcGBT
-zvCt1rslw3EF4SSCbWwloUSKolLtIxB0DO/PiCLLPWa/+TdFHH+Twd+Fal1WNfC1
-u+U5uGY8y+uB8eUzqdDOx5H+HtBBoyKF2vXjGWPtdomSN5FXc0njzbxiH0QR7SiW
-yJeTum7JqkEb1VY6SrrvkNlauXmqQFfPaeLlkjaaf4gyYdo9nnD9Wt8pfz9HxM5C
-ddnkSbvDoq+DR+DErMK2HumQ2QjYETHKhtR6FVdB6mV/DPXv8LuDxzDrYRtweCwM
-3HH3L498FZinyA4L0G973v8gdnyTmw==
-=987W
------END PGP SIGNATURE-----
-
---Otd08lEItf39hhpdDRwfhScQEKaFjurWd--
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+index cfc57d2..c418a6e 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+@@ -148,16 +148,26 @@ static void emac_get_ringparam(struct net_device *netdev,
+ static void emac_get_pauseparam(struct net_device *netdev,
+ 				struct ethtool_pauseparam *pause)
+ {
+-	struct phy_device *phydev = netdev->phydev;
++	struct emac_adapter *adpt = netdev_priv(netdev);
+ 
+-	if (phydev) {
+-		if (phydev->autoneg)
+-			pause->autoneg = 1;
+-		if (phydev->pause)
+-			pause->rx_pause = 1;
+-		if (phydev->pause != phydev->asym_pause)
+-			pause->tx_pause = 1;
+-	}
++	pause->autoneg = adpt->automatic ? AUTONEG_ENABLE : AUTONEG_DISABLE;
++	pause->rx_pause = adpt->rx_flow_control ? 1 : 0;
++	pause->tx_pause = adpt->tx_flow_control ? 1 : 0;;
++}
++
++static int emac_set_pauseparam(struct net_device *netdev,
++			       struct ethtool_pauseparam *pause)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++
++	adpt->automatic = pause->autoneg == AUTONEG_ENABLE;
++	adpt->rx_flow_control = pause->rx_pause != 0;
++	adpt->tx_flow_control = pause->tx_pause != 0;
++
++	if (netif_running(netdev))
++		return emac_reinit_locked(adpt);
++
++	return 0;
+ }
+ 
+ static const struct ethtool_ops emac_ethtool_ops = {
+@@ -172,7 +182,9 @@ static void emac_get_pauseparam(struct net_device *netdev,
+ 	.get_ethtool_stats = emac_get_ethtool_stats,
+ 
+ 	.get_ringparam = emac_get_ringparam,
++
+ 	.get_pauseparam = emac_get_pauseparam,
++	.set_pauseparam = emac_set_pauseparam,
+ 
+ 	.nway_reset = emac_nway_reset,
+ 
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+index b991219..4b3e014 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+@@ -565,11 +565,19 @@ static void emac_mac_start(struct emac_adapter *adpt)
+ 
+ 	mac |= TXEN | RXEN;     /* enable RX/TX */
+ 
+-	/* Configure MAC flow control to match the PHY's settings. */
+-	if (phydev->pause)
+-		mac |= RXFC;
+-	if (phydev->pause != phydev->asym_pause)
+-		mac |= TXFC;
++	/* Configure MAC flow control. If set to automatic, then match
++	 * whatever the PHY does. Otherwise, enable or disable it, depending
++	 * on what the user configured via ethtool.
++	 */
++	mac &= ~(RXFC | TXFC);
++
++	if (adpt->automatic) {
++		/* If it's set to automatic, then update our local values */
++		adpt->rx_flow_control = phydev->pause;
++		adpt->tx_flow_control = phydev->pause != phydev->asym_pause;
++	}
++	mac |= adpt->rx_flow_control ? RXFC : 0;
++	mac |= adpt->tx_flow_control ? TXFC : 0;
+ 
+ 	/* setup link speed */
+ 	mac &= ~SPEED_MASK;
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 3387c0a..28a8cdc 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -436,6 +436,10 @@ static void emac_init_adapter(struct emac_adapter *adpt)
+ {
+ 	u32 reg;
+ 
++	adpt->rrd_size = EMAC_RRD_SIZE;
++	adpt->tpd_size = EMAC_TPD_SIZE;
++	adpt->rfd_size = EMAC_RFD_SIZE;
++
+ 	/* descriptors */
+ 	adpt->tx_desc_cnt = EMAC_DEF_TX_DESCS;
+ 	adpt->rx_desc_cnt = EMAC_DEF_RX_DESCS;
+@@ -456,6 +460,9 @@ static void emac_init_adapter(struct emac_adapter *adpt)
+ 
+ 	/* others */
+ 	adpt->preamble = EMAC_PREAMBLE_DEF;
++
++	/* default to automatic flow control */
++	adpt->automatic = true;
+ }
+ 
+ /* Get the clock */
+@@ -675,10 +682,6 @@ static int emac_probe(struct platform_device *pdev)
+ 	netdev->watchdog_timeo = EMAC_WATCHDOG_TIME;
+ 	netdev->irq = adpt->irq.irq;
+ 
+-	adpt->rrd_size = EMAC_RRD_SIZE;
+-	adpt->tpd_size = EMAC_TPD_SIZE;
+-	adpt->rfd_size = EMAC_RFD_SIZE;
+-
+ 	netdev->netdev_ops = &emac_netdev_ops;
+ 
+ 	emac_init_adapter(adpt);
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
+index ef91dcc..e77fb69 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.h
++++ b/drivers/net/ethernet/qualcomm/emac/emac.h
+@@ -306,6 +306,13 @@ struct emac_adapter {
+ 
+ 	unsigned int			rxbuf_size;
+ 
++	/* Flow control / pause frames support. If automatic=True, do whatever
++	 * the PHY does. Otherwise, use tx_flow_control and rx_flow_control.
++	 */
++	bool				automatic;
++	bool				tx_flow_control;
++	bool				rx_flow_control;
++
+ 	/* Ring parameter */
+ 	u8				tpd_burst;
+ 	u8				rfd_burst;
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
