@@ -1,64 +1,133 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v3 net] bpf: add bpf_sk_netns_id() helper
-Date: Tue, 07 Feb 2017 00:39:03 +0100
-Message-ID: <58990917.8000406@iogearbox.net>
-References: <1486179240-3574802-1-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>, Tejun Heo <tj@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next V2 4/6] net/mlx5e: Tx, no inline copy on ConnectX-5
+Date: Tue,  7 Feb 2017 01:38:27 +0200
+Message-ID: <20170206233829.29716-5-saeedm@mellanox.com>
+References: <20170206233829.29716-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36847 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752407AbdBFXjL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 18:39:11 -0500
-In-Reply-To: <1486179240-3574802-1-git-send-email-ast@fb.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52048 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751395AbdBFXjB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 18:39:01 -0500
+In-Reply-To: <20170206233829.29716-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/04/2017 04:34 AM, Alexei Starovoitov wrote:
-[...]
-> +BPF_CALL_1(bpf_skb_netns_id, struct sk_buff *, skb)
-> +{
-> +	struct net_device *dev = skb->dev;
-> +
-> +	if (!dev)
-> +		return 0;
-> +	return proc_get_ns_devid_inum(&dev_net(dev)->ns);
-> +}
-> +
-> +static const struct bpf_func_proto bpf_skb_netns_id_proto = {
-> +	.func		= bpf_skb_netns_id,
-> +	.gpl_only	= false,
-> +	.ret_type	= RET_INTEGER,
-> +	.arg1_type	= ARG_PTR_TO_CTX,
-> +};
-> +
->   static const struct bpf_func_proto *
->   sk_filter_func_proto(enum bpf_func_id func_id)
->   {
-> @@ -2620,6 +2649,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
->   	case BPF_FUNC_trace_printk:
->   		if (capable(CAP_SYS_ADMIN))
->   			return bpf_get_trace_printk_proto();
-> +	case BPF_FUNC_sk_netns_id:
-> +		return &bpf_skb_netns_id_proto;
->   	default:
->   		return NULL;
->   	}
+ConnectX-5 and later HW generations will report min inline mode ==
+MLX5_INLINE_MODE_NONE, which means driver is not required to copy packet
+headers to inline fields of TX WQE.
 
-Btw, I think here's an oversight that would still need to be
-fixed. Above would mean that trace printk from unprivileged would
-fall through and use &bpf_skb_netns_id_proto as proto now instead
-of NULL. So BPF_FUNC_sk_netns_id needs to be placed above the
-BPF_FUNC_trace_printk case, not in its fall-through path. Looks
-like Chenbo in his get_socket_cookie missed this, too. Other than
-that BPF bits seem good to me.
+When inline is not required, vlan insertion will be handled in the
+TX descriptor rather than copy to inline.
 
-> @@ -2700,6 +2731,17 @@ xdp_func_proto(enum bpf_func_id func_id)
->   }
+For LSO case driver is still required to copy headers, for the HW to
+duplicate on wire.
+
+This will improve CPU utilization and boost TX performance.
+
+Tested with pktgen burst single flow:
+CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+HCA: Mellanox Technologies MT28800 Family [ConnectX-5 Ex]
+
+Before: 15.1Mpps
+After:  17.2Mpps
+Improvement: 14%
+
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 13 +++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 30 +++++++++++++----------
+ 2 files changed, 26 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 1b7fe43ab22b..9cd38401fdc9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1029,9 +1029,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
+ 
+ 	sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
+ 	sq->max_inline  = param->max_inline;
+-	sq->min_inline_mode =
+-		MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT ?
+-		param->min_inline_mode : 0;
++	sq->min_inline_mode = param->min_inline_mode;
+ 
+ 	err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
+ 	if (err)
+@@ -1095,7 +1093,10 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
+ 	MLX5_SET(sqc,  sqc, tis_num_0, param->type == MLX5E_SQ_ICO ?
+ 				       0 : priv->tisn[sq->tc]);
+ 	MLX5_SET(sqc,  sqc, cqn,		sq->cq.mcq.cqn);
+-	MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
++
++	if (MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5_CAP_INLINE_MODE_VPORT_CONTEXT)
++		MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
++
+ 	MLX5_SET(sqc,  sqc, state,		MLX5_SQC_STATE_RST);
+ 	MLX5_SET(sqc,  sqc, tis_lst_sz, param->type == MLX5E_SQ_ICO ? 0 : 1);
+ 
+@@ -3533,6 +3534,10 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 		MLX5E_PARAMS_DEFAULT_TX_CQ_MODERATION_PKTS;
+ 	priv->params.tx_max_inline         = mlx5e_get_max_inline_cap(mdev);
+ 	mlx5_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
++	if (priv->params.tx_min_inline_mode == MLX5_INLINE_MODE_NONE &&
++	    !MLX5_CAP_ETH(mdev, wqe_vlan_insert))
++		priv->params.tx_min_inline_mode = MLX5_INLINE_MODE_L2;
++
+ 	priv->params.num_tc                = 1;
+ 	priv->params.rss_hfunc             = ETH_RSS_HASH_XOR;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+index 678c07c8fbb0..f193128bac4b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -154,6 +154,8 @@ static inline unsigned int mlx5e_calc_min_inline(enum mlx5_inline_modes mode,
+ 	int hlen;
+ 
+ 	switch (mode) {
++	case MLX5_INLINE_MODE_NONE:
++		return 0;
+ 	case MLX5_INLINE_MODE_TCP_UDP:
+ 		hlen = eth_get_headlen(skb->data, skb_headlen(skb));
+ 		if (hlen == ETH_HLEN && !skb_vlan_tag_present(skb))
+@@ -283,21 +285,23 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
+ 
+ 	wi->num_bytes = num_bytes;
+ 
+-	if (skb_vlan_tag_present(skb)) {
+-		mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data,
+-				  &skb_len);
+-		ihs += VLAN_HLEN;
+-	} else {
+-		memcpy(eseg->inline_hdr.start, skb_data, ihs);
+-		mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
++	ds_cnt = sizeof(*wqe) / MLX5_SEND_WQE_DS;
++	if (ihs) {
++		if (skb_vlan_tag_present(skb)) {
++			mlx5e_insert_vlan(eseg->inline_hdr.start, skb, ihs, &skb_data, &skb_len);
++			ihs += VLAN_HLEN;
++		} else {
++			memcpy(eseg->inline_hdr.start, skb_data, ihs);
++			mlx5e_tx_skb_pull_inline(&skb_data, &skb_len, ihs);
++		}
++		eseg->inline_hdr.sz = cpu_to_be16(ihs);
++		ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start), MLX5_SEND_WQE_DS);
++	} else if (skb_vlan_tag_present(skb)) {
++		eseg->insert.type = cpu_to_be16(MLX5_ETH_WQE_INSERT_VLAN);
++		eseg->insert.vlan_tci = cpu_to_be16(skb_vlan_tag_get(skb));
+ 	}
+ 
+-	eseg->inline_hdr.sz = cpu_to_be16(ihs);
+-
+-	ds_cnt  = sizeof(*wqe) / MLX5_SEND_WQE_DS;
+-	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr.start),
+-			       MLX5_SEND_WQE_DS);
+-	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
++	dseg = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
+ 
+ 	wi->num_dma = 0;
+ 
+-- 
+2.11.0
