@@ -1,110 +1,209 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from the
- library
-Date: Mon, 6 Feb 2017 23:46:16 +0100
-Message-ID: <8352d0c2-1544-4f37-7937-875dab2c4297@digikod.net>
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net>
- <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
- <5898CBEF.20201@iogearbox.net>
- <1136c1a4-1a73-a419-5550-4ebd8aee9d25@digikod.net>
- <5898FC39.90701@iogearbox.net>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v2 6/8] bpf: Use bpf_create_map() from the library
+Date: Mon,  6 Feb 2017 23:49:39 +0100
+Message-ID: <20170206224941.14739-6-mic@digikod.net>
+References: <20170206224941.14739-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="LKNSrWsIO6jxXV1jqUIQkxf8q1d4HFlcm"
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
         Shuah Khan <shuah@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5898FC39.90701@iogearbox.net>
+In-Reply-To: <20170206224941.14739-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---LKNSrWsIO6jxXV1jqUIQkxf8q1d4HFlcm
-Content-Type: multipart/mixed; boundary="wjGNGw1dHLD3C2ENSNaSpQuP1uD0X0CdJ";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Daniel Borkmann <daniel@iogearbox.net>, linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
- Shuah Khan <shuah@kernel.org>
-Message-ID: <8352d0c2-1544-4f37-7937-875dab2c4297@digikod.net>
-Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from the
- library
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net>
- <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
- <5898CBEF.20201@iogearbox.net>
- <1136c1a4-1a73-a419-5550-4ebd8aee9d25@digikod.net>
- <5898FC39.90701@iogearbox.net>
-In-Reply-To: <5898FC39.90701@iogearbox.net>
+Replace bpf_map_create() with bpf_create_map() calls.
 
---wjGNGw1dHLD3C2ENSNaSpQuP1uD0X0CdJ
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Shuah Khan <shuah@kernel.org>
+---
+ tools/testing/selftests/bpf/bpf_sys.h       | 15 ---------------
+ tools/testing/selftests/bpf/test_lpm_map.c  |  6 +++---
+ tools/testing/selftests/bpf/test_lru_map.c  |  4 ++--
+ tools/testing/selftests/bpf/test_maps.c     | 14 +++++++-------
+ tools/testing/selftests/bpf/test_tag.c      |  2 +-
+ tools/testing/selftests/bpf/test_verifier.c |  4 ++--
+ 6 files changed, 15 insertions(+), 30 deletions(-)
 
-
-
-On 06/02/2017 23:44, Daniel Borkmann wrote:
-> On 02/06/2017 10:30 PM, Micka=C3=ABl Sala=C3=BCn wrote:
->> On 06/02/2017 20:18, Daniel Borkmann wrote:
->>> On 02/06/2017 08:16 PM, Micka=C3=ABl Sala=C3=BCn wrote:
->>>> On 06/02/2017 16:30, Daniel Borkmann wrote:
->>>>> On 02/06/2017 12:14 AM, Micka=C3=ABl Sala=C3=BCn wrote:
->>>>>> Replace bpf_prog_load() with bpf_load_program() calls.
->>>>>>
->>>>>> Use the tools include directory instead of the installed one to al=
-low
->>>>>> builds from other kernels.
->>>>>>
->>>>>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->>>>>> Cc: Alexei Starovoitov <ast@fb.com>
->>>>>> Cc: Daniel Borkmann <daniel@iogearbox.net>
->>>>>> Cc: Shuah Khan <shuah@kernel.org>
->>>>>> ---
->>>>>>     tools/testing/selftests/bpf/Makefile        |  6 +++++-
->>>>>>     tools/testing/selftests/bpf/bpf_sys.h       | 21
->>>>>> ---------------------
->>>>>>     tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
->>>>>>     tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
->>>>>>     4 files changed, 14 insertions(+), 27 deletions(-)
->>>>>
->>>>> No objections, but if so, can't we add the remaining missing
->>>>> pieces to bpf lib, so we can remove bpf_sys.h altogether?
->>>>
->>>> OK, I'll send a new patch replacing bpf_sys.h entirely.
->>>
->>> Sounds great, thanks!
->>
->> Do you prefer a big patch or one for each replaced function?
->=20
-> I think it makes sense to split it into two: i) this patch as-is
-> for the prog part, and ii) rest for maps.
->=20
-
-Hum, I already split them to ease the review. I'm going to send this
-series now.
-
-
---wjGNGw1dHLD3C2ENSNaSpQuP1uD0X0CdJ--
-
---LKNSrWsIO6jxXV1jqUIQkxf8q1d4HFlcm
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAliY/LgACgkQIt7+33O9
-apVbpQgAnGeAc3cAmuFJZMdRwmGS82BJxNpbbFSWYWfxFhUkADEYJLbCseNjGaZG
-JIwfC6mOzA4Xe58f5p01d3735EWFJnItg2XSh1ZQuR6mEJGTHwrIsG5t/XtPAK6f
-QOcAF+a3as2HgzBQkkb06GTI4ljSZ9f4a0X4PtLfqDRDd0guBxfGKfPLGnDs6DAH
-Uq/qB2EmJ08QiQZyVzuqZz3ch/aWnFHIiIjPJ251hZQl4DFdFRnYolD8SF8VWONf
-ECWQJnD8BgA8GGDel1isPNWm0kAZDg/3yrOpz+L4ImhuVPUb8TlBbcuQ1xpKVOm2
-DNdxR2WqszTtaG3GjCOvbenG3JxEvQ==
-=g3QG
------END PGP SIGNATURE-----
-
---LKNSrWsIO6jxXV1jqUIQkxf8q1d4HFlcm--
+diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
+index aeff99f0a411..aa076a8a07f7 100644
+--- a/tools/testing/selftests/bpf/bpf_sys.h
++++ b/tools/testing/selftests/bpf/bpf_sys.h
+@@ -24,19 +24,4 @@ static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
+ #endif
+ }
+ 
+-static inline int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
+-				 uint32_t size_value, uint32_t max_elem,
+-				 uint32_t flags)
+-{
+-	union bpf_attr attr = {};
+-
+-	attr.map_type = type;
+-	attr.key_size = size_key;
+-	attr.value_size = size_value;
+-	attr.max_entries = max_elem;
+-	attr.map_flags = flags;
+-
+-	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+-}
+-
+ #endif /* __BPF_SYS__ */
+diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
+index bd08394c26cb..3cc812cac2d7 100644
+--- a/tools/testing/selftests/bpf/test_lpm_map.c
++++ b/tools/testing/selftests/bpf/test_lpm_map.c
+@@ -183,7 +183,7 @@ static void test_lpm_map(int keysize)
+ 	key = alloca(sizeof(*key) + keysize);
+ 	memset(key, 0, sizeof(*key) + keysize);
+ 
+-	map = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
++	map = bpf_create_map(BPF_MAP_TYPE_LPM_TRIE,
+ 			     sizeof(*key) + keysize,
+ 			     keysize + 1,
+ 			     4096,
+@@ -253,12 +253,12 @@ static void test_lpm_ipaddr(void)
+ 	key_ipv4 = alloca(key_size_ipv4);
+ 	key_ipv6 = alloca(key_size_ipv6);
+ 
+-	map_fd_ipv4 = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
++	map_fd_ipv4 = bpf_create_map(BPF_MAP_TYPE_LPM_TRIE,
+ 				     key_size_ipv4, sizeof(value),
+ 				     100, BPF_F_NO_PREALLOC);
+ 	assert(map_fd_ipv4 >= 0);
+ 
+-	map_fd_ipv6 = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
++	map_fd_ipv6 = bpf_create_map(BPF_MAP_TYPE_LPM_TRIE,
+ 				     key_size_ipv6, sizeof(value),
+ 				     100, BPF_F_NO_PREALLOC);
+ 	assert(map_fd_ipv6 >= 0);
+diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
+index 94ecd4c58d75..20fa3df20a01 100644
+--- a/tools/testing/selftests/bpf/test_lru_map.c
++++ b/tools/testing/selftests/bpf/test_lru_map.c
+@@ -31,11 +31,11 @@ static int create_map(int map_type, int map_flags, unsigned int size)
+ {
+ 	int map_fd;
+ 
+-	map_fd = bpf_map_create(map_type, sizeof(unsigned long long),
++	map_fd = bpf_create_map(map_type, sizeof(unsigned long long),
+ 				sizeof(unsigned long long), size, map_flags);
+ 
+ 	if (map_fd == -1)
+-		perror("bpf_map_create");
++		perror("bpf_create_map");
+ 
+ 	return map_fd;
+ }
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index c96f9c9661a0..050a5205c78d 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -32,7 +32,7 @@ static void test_hashmap(int task, void *data)
+ 	long long key, next_key, value;
+ 	int fd;
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
+ 			    2, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create hashmap '%s'!\n", strerror(errno));
+@@ -118,7 +118,7 @@ static void test_hashmap_percpu(int task, void *data)
+ 	int expected_key_mask = 0;
+ 	int fd, i;
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
++	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
+ 			    sizeof(value[0]), 2, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create hashmap '%s'!\n", strerror(errno));
+@@ -210,7 +210,7 @@ static void test_arraymap(int task, void *data)
+ 	int key, next_key, fd;
+ 	long long value;
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
+ 			    2, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create arraymap '%s'!\n", strerror(errno));
+@@ -264,7 +264,7 @@ static void test_arraymap_percpu(int task, void *data)
+ 	int key, next_key, fd, i;
+ 	long values[nr_cpus];
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
++	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
+ 			    sizeof(values[0]), 2, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create arraymap '%s'!\n", strerror(errno));
+@@ -320,7 +320,7 @@ static void test_arraymap_percpu_many_keys(void)
+ 	long values[nr_cpus];
+ 	int key, fd, i;
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
++	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
+ 			    sizeof(values[0]), nr_keys, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create per-cpu arraymap '%s'!\n",
+@@ -358,7 +358,7 @@ static void test_map_large(void)
+ 	} key;
+ 	int fd, i, value;
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
+ 			    MAP_SIZE, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create large map '%s'!\n", strerror(errno));
+@@ -451,7 +451,7 @@ static void test_map_parallel(void)
+ 	int i, fd, key = 0, value = 0;
+ 	int data[2];
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
+ 			    MAP_SIZE, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create map for parallel test '%s'!\n",
+diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
+index b77dc4b03e77..a76d695ab56e 100644
+--- a/tools/testing/selftests/bpf/test_tag.c
++++ b/tools/testing/selftests/bpf/test_tag.c
+@@ -189,7 +189,7 @@ int main(void)
+ 	int i, fd_map;
+ 
+ 	setrlimit(RLIMIT_MEMLOCK, &rinf);
+-	fd_map = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(int),
++	fd_map = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(int),
+ 				sizeof(int), 1, BPF_F_NO_PREALLOC);
+ 	assert(fd_map > 0);
+ 
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 62ae4e7a2278..1e3cae650474 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -4389,7 +4389,7 @@ static int create_map(uint32_t size_value, uint32_t max_elem)
+ {
+ 	int fd;
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(long long),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(long long),
+ 			    size_value, max_elem, BPF_F_NO_PREALLOC);
+ 	if (fd < 0)
+ 		printf("Failed to create hash map '%s'!\n", strerror(errno));
+@@ -4401,7 +4401,7 @@ static int create_prog_array(void)
+ {
+ 	int fd;
+ 
+-	fd = bpf_map_create(BPF_MAP_TYPE_PROG_ARRAY, sizeof(int),
++	fd = bpf_create_map(BPF_MAP_TYPE_PROG_ARRAY, sizeof(int),
+ 			    sizeof(int), 4, 0);
+ 	if (fd < 0)
+ 		printf("Failed to create prog array '%s'!\n", strerror(errno));
+-- 
+2.11.0
