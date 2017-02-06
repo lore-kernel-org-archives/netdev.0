@@ -1,90 +1,78 @@
-From: Lukasz Majewski <lukma@denx.de>
-Subject: Re: [PATCH] Documentation: devicetree: Add PHY no lane swap binding
-Date: Mon, 6 Feb 2017 15:15:24 +0100
-Message-ID: <20170206151524.2ff0f799@jawa>
-References: <1486223267-11875-1-git-send-email-lukma@denx.de>
-        <20170204172329.GA8364@lunn.ch>
-        <509fadc4-164c-7333-1871-fd6e615e57c9@gmail.com>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Mon, 6 Feb 2017 15:16:22 +0100
+Message-ID: <20170206141622.4szfsu6h4qqlhdvk@nataraja>
+References: <20170203091231.10142-1-jonas@southpole.se>
+ <20170206110858.GA3896@salvia>
+ <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        jbrunet <jbrunet@baylibre.com>, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        Uwe =?UTF-8?B?S2xlaW5lLUvDtm5pZw==?=
-        <u.kleine-koenig@pengutronix.de>,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <509fadc4-164c-7333-1871-fd6e615e57c9@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org
+To: Jonas Bonn <jonas@southpole.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:58706 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751669AbdBFOQh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 09:16:37 -0500
+Content-Disposition: inline
+In-Reply-To: <3efa90fe-3f66-1da0-6038-4fbf9ec2b7ce@southpole.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian, Andrew,
+Hi Jonas,
 
-> Le 02/04/17 à 09:23, Andrew Lunn a écrit :
-> > On Sat, Feb 04, 2017 at 04:47:47PM +0100, Lukasz Majewski wrote:
-> >> Add the documentation to avoid PHY lane swapping. This is a boolean
-> >> entry to notify the phy device drivers that the TX/RX lanes NO need
-> > 
-> > that the TX/RX lanes should not be swapped.
-> > 
-> >> to be swapped.
-> >> The use case for this binding mostly happens after wrong HW
-> >> configuration of PHY IC during bootstrap.
-> >>
-> >> Signed-off-by: Lukasz Majewski <lukma@denx.de>
-> >> ---
-> >>  Documentation/devicetree/bindings/net/phy.txt | 4 ++++
-> >>  1 file changed, 4 insertions(+)
-> >>
-> >> diff --git a/Documentation/devicetree/bindings/net/phy.txt
-> >> b/Documentation/devicetree/bindings/net/phy.txt index
-> >> fb5056b..5e25bc9 100644 ---
-> >> a/Documentation/devicetree/bindings/net/phy.txt +++
-> >> b/Documentation/devicetree/bindings/net/phy.txt @@ -39,6 +39,10 @@
-> >> Optional Properties:
-> >>  - enet-phy-lane-swap: If set, indicates the PHY will swap the
-> >> TX/RX lanes to compensate for the board being designed with the
-> >> lanes swapped. 
-> >> +- enet-phy-lane-no-swap: If set, indicates that PHY will disable
-> >> swap of the
-> >> +  TX/RX lanes. This binding allows the PHY to work correcly after
-> >> e.g. wrong
-> >> +  bootstrap configuration caused by issues in PCB layout design.
-> 
-> s/binding/property/
-> 
-> >> +
-> > 
-> > We are leaving it undefined what it means if neither
-> > enet-phy-lane-no-swap nor enet-phy-lane-swap properties are present.
-> > Do we want to define this? That the swap should be left untouched by
-> > the driver?
-> 
-> Since this is a description of the hardware, absence of a properties
-> should mean that the driver is at freedom to either keep the hardware
-> defaults, or come up with its own settings that are sensible for that
-> particular PHY device.
-> 
-> What would you see clarified here?
+On Mon, Feb 06, 2017 at 02:33:07PM +0100, Jonas Bonn wrote:
+> Fair enough.  The use-case I am looking at involves PGW load-testing where
+> the simulated load is generated locally on the SGSN so it _is_ seeing IP
+> packets and the SNDCP is left out altogether.  
 
-Any more comments to this patch?
+Ok, it would have been useful to document that test-only feature in the
+changelog and/or code.  Like "support simulated RAN-side tunnels" or
+"support SGSN/S-GW simulation".
 
-Is the explanation informative enough?
+> Perhaps this is too pathological to warrant messing with the upstream
+> driver... I don't know: the symmetry does not cost much even if it's
+> of limited use.
 
+There are plenty of features in the mainline kernel related to testing,
+see pktgen for example.  So I think if it doesn't impose complexity,
+performance issues or stretches the existing architecture, I think
+there's no reason to keep it out.
 
-Best regards,
+Looking at the code, I think the one conditional on the flags is not
+going to kill significant performance of the "normal" use case.  But
+that's of course just guessing, without any benchmark to back that up.
 
-Lukasz Majewski
+Semantically, I'm not sure if the FLAGS and the re-use of the
+SGSN_ADDRESS TLV is the best choice.  If suddenly the meaning of the TLV
+is "Peer GSN Address" then it should be called that way.  We could have
+a #define SGSN_ADDRESS to GSN_PEER_ADDRESS to make old code compile.
+I'll let Pablo respond to this as he came up with the netlink interface,
+as far as I can remember :)
 
---
+Also, like with any changes to the kernel and netlink interface code, I
+think we should always mandate similar changes to be made to libgtpnl so
+the feature can actually be used/tested with the standard
+tools/utilities available to anyone.
 
-DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
-Phone: (+49)-8142-66989-10 Fax: (+49)-8142-66989-80 Email: wd@denx.de
+> Couldn't the SNDCP theoretically be a separate node and push IP packets to
+> the SGSN, thus making this useful?  Perhaps it's a stretch...
+
+No, because you would introduce an hop (or even two!) at the IP level,
+breaking
+* the notion of who the remote IP address is (remote poin-to-point address)
+  of the PDP context
+* packets get modified (TTL decrement, ...) where they are not supposed to
+* you suddenly might get TTL exceeded, dest unreachable, ...) out of
+  nowhere into your user IP
+* you introduce serious security issues by having the kernel IP routing
+  code between the outer IP (the operator RAN/core network) and the
+  inner user IP payload.
+
+Regards,
+	Harald
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
