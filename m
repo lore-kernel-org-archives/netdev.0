@@ -1,66 +1,58 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [PATCH] [net-next] mlxsw: add psample dependency for spectrum
-Date: Mon, 6 Feb 2017 16:41:27 +0000
-Message-ID: <DB3PR05MB07645B7262AF8259EA80D973AC400@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <20170206162642.693506-1-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: Fix IPv6 packet loss in scenarios
+ involving roaming + snooping switches
+Date: Mon, 06 Feb 2017 11:43:29 -0500 (EST)
+Message-ID: <20170206.114329.1196570425826508517.davem@davemloft.net>
+References: <20170203071103.25976-1-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Vadim Pasternak <vadimp@mellanox.com>,
-        Elad Raz <eladr@mellanox.com>, Ivan Vecera <cera@cera.cz>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>, Jiri Pirko <jiri@mellanox.com>,
-        "Ido Schimmel" <idosch@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206162642.693506-1-arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, jmorris@namei.org,
+	linux-kernel@vger.kernel.org, monis@voltaire.com,
+	kuznet@ms2.inr.ac.ru, kaber@trash.net
+To: linus.luessing@c0d3.blue
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170203071103.25976-1-linus.luessing@c0d3.blue>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] O=
-n
->Behalf Of Arnd Bergmann
->Sent: Monday, February 06, 2017 6:27 PM
->To: Jiri Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>
->Cc: Arnd Bergmann <arnd@arndb.de>; David S. Miller <davem@davemloft.net>;
->Vadim Pasternak <vadimp@mellanox.com>; Elad Raz <eladr@mellanox.com>; Ivan
->Vecera <cera@cera.cz>; netdev@vger.kernel.org; linux-kernel@vger.kernel.or=
-g
->Subject: [PATCH] [net-next] mlxsw: add psample dependency for spectrum
->
->When PSAMPLE is a loadable module, spectrum must not be built-in:
->
->drivers/net/built-in.o: In function `mlxsw_sp_rx_listener_sample_func':
->spectrum.c:(.text+0xe357e): undefined reference to `psample_sample_packet'
->
->This adds a Kconfig dependency to enforce usable configurations.
->
->Fixes: 98d0f7b9acda ("mlxsw: spectrum: Add packet sample offloading suppor=
-t")
->Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+From: Linus L=FCssing <linus.luessing@c0d3.blue>
+Date: Fri,  3 Feb 2017 08:11:03 +0100
 
-Acked-by: Yotam Gigi <yotamg@mellanox.com>
+> When for instance a mobile Linux device roams from one access point t=
+o
+> another with both APs sharing the same broadcast domain and a
+> multicast snooping switch in between:
+> =
 
->---
-> drivers/net/ethernet/mellanox/mlxsw/Kconfig | 1 +
-> 1 file changed, 1 insertion(+)
->
->diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
->b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
->index 76a7574c3c7d..ef23eaedc2ff 100644
->--- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
->+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
->@@ -73,6 +73,7 @@ config MLXSW_SWITCHX2
-> config MLXSW_SPECTRUM
-> 	tristate "Mellanox Technologies Spectrum support"
-> 	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV &&
->VLAN_8021Q
->+	depends on PSAMPLE || PSAMPLE=3Dn
-> 	select PARMAN
-> 	default m
-> 	---help---
->--
->2.9.0
+> 1)    (c) <~~~> (AP1) <--[SSW]--> (AP2)
+> =
+
+> 2)              (AP1) <--[SSW]--> (AP2) <~~~> (c)
+> =
+
+> Then currently IPv6 multicast packets will get lost for (c) until an
+> MLD Querier sends its next query message. The packet loss occurs
+> because upon roaming the Linux host so far stayed silent regarding
+> MLD and the snooping switch will therefore be unaware of the
+> multicast topology change for a while.
+> =
+
+> This patch fixes this by always resending MLD reports when an interfa=
+ce
+> change happens, for instance from NO-CARRIER to CARRIER state.
+> =
+
+> Signed-off-by: Linus L=FCssing <linus.luessing@c0d3.blue>
+
+Looks good to me, applied, thanks.
