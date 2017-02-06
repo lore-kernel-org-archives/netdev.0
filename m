@@ -1,44 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2 0/5] XDP adjust head support for virtio
-Date: Mon, 06 Feb 2017 11:37:13 -0500 (EST)
-Message-ID: <20170206.113713.909254912988506474.davem@davemloft.net>
-References: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
-        <20170205.173634.457797928882804290.davem@davemloft.net>
-        <20170206045752-mutt-send-email-mst@kernel.org>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [PATCH] [net-next] mlxsw: add psample dependency for spectrum
+Date: Mon, 6 Feb 2017 16:41:27 +0000
+Message-ID: <DB3PR05MB07645B7262AF8259EA80D973AC400@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <20170206162642.693506-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, kubakici@wp.pl, jasowang@redhat.com,
-        ast@fb.com, john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42294 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752553AbdBFQhP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 11:37:15 -0500
-In-Reply-To: <20170206045752-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Vadim Pasternak <vadimp@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>, Ivan Vecera <cera@cera.cz>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, Jiri Pirko <jiri@mellanox.com>,
+        "Ido Schimmel" <idosch@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170206162642.693506-1-arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 6 Feb 2017 06:39:54 +0200
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] O=
+n
+>Behalf Of Arnd Bergmann
+>Sent: Monday, February 06, 2017 6:27 PM
+>To: Jiri Pirko <jiri@mellanox.com>; Ido Schimmel <idosch@mellanox.com>
+>Cc: Arnd Bergmann <arnd@arndb.de>; David S. Miller <davem@davemloft.net>;
+>Vadim Pasternak <vadimp@mellanox.com>; Elad Raz <eladr@mellanox.com>; Ivan
+>Vecera <cera@cera.cz>; netdev@vger.kernel.org; linux-kernel@vger.kernel.or=
+g
+>Subject: [PATCH] [net-next] mlxsw: add psample dependency for spectrum
+>
+>When PSAMPLE is a loadable module, spectrum must not be built-in:
+>
+>drivers/net/built-in.o: In function `mlxsw_sp_rx_listener_sample_func':
+>spectrum.c:(.text+0xe357e): undefined reference to `psample_sample_packet'
+>
+>This adds a Kconfig dependency to enforce usable configurations.
+>
+>Fixes: 98d0f7b9acda ("mlxsw: spectrum: Add packet sample offloading suppor=
+t")
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-> Well the point is to avoid resets completely, at the cost of extra 256 bytes
-> for packets > 128 bytes on ppc (64k pages) only.
-> 
-> Found a volunteer so I hope to have this idea tested on ppc Tuesday.
-> 
-> And really all we need to know is confirm whether this:
-> -#define MERGEABLE_BUFFER_MIN_ALIGN_SHIFT ((PAGE_SHIFT + 1) / 2)
-> +#define MERGEABLE_BUFFER_MIN_ALIGN_SHIFT (PAGE_SHIFT / 2 + 1)
-> 
-> affects performance in a measureable way.
-> 
-> So I would rather wait another day. But the patches themselves
-> look correct, from that POV.
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> but I would prefer that you waited another day for a Tested-by from me too.
+Acked-by: Yotam Gigi <yotamg@mellanox.com>
 
-Ok.
+>---
+> drivers/net/ethernet/mellanox/mlxsw/Kconfig | 1 +
+> 1 file changed, 1 insertion(+)
+>
+>diff --git a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+>b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+>index 76a7574c3c7d..ef23eaedc2ff 100644
+>--- a/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+>+++ b/drivers/net/ethernet/mellanox/mlxsw/Kconfig
+>@@ -73,6 +73,7 @@ config MLXSW_SWITCHX2
+> config MLXSW_SPECTRUM
+> 	tristate "Mellanox Technologies Spectrum support"
+> 	depends on MLXSW_CORE && MLXSW_PCI && NET_SWITCHDEV &&
+>VLAN_8021Q
+>+	depends on PSAMPLE || PSAMPLE=3Dn
+> 	select PARMAN
+> 	default m
+> 	---help---
+>--
+>2.9.0
