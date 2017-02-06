@@ -1,37 +1,177 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] net: dsa: add fabric notifier
-Date: Mon, 06 Feb 2017 16:56:08 -0500 (EST)
-Message-ID: <20170206.165608.1431079109938205254.davem@davemloft.net>
-References: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
-        cphealy@gmail.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170203182021.14246-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next v3 06/12] bnxt_en: Use event bit map in RX path.
+Date: Mon,  6 Feb 2017 16:55:37 -0500
+Message-ID: <1486418143-8958-7-git-send-email-michael.chan@broadcom.com>
+References: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36203 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752115AbdBFV4V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 16:56:21 -0500
+Received: by mail-pg0-f54.google.com with SMTP id v184so31801866pgv.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 13:56:10 -0800 (PST)
+In-Reply-To: <1486418143-8958-1-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri,  3 Feb 2017 13:20:15 -0500
+In the current code, we have separate rx_event and agg_event parameters
+to keep track of rx and aggregation events.  Combine these events into
+an u8 event mask with different bits defined for different events.  This
+way, it is easier to expand the logic to include XDP tx events.
 
-> When a switch fabric is composed of multiple switch chips, these chips
-> must be programmed accordingly when an event occurred on one of them.
-> 
-> Examples of such event include hardware bridging: when a Linux bridge
-> spans interconnected chips, they must be programmed to allow external
-> ports to ingress frames on their internal ports.
-> 
-> Another example is cross-chip hardware VLANs. Switch chips in-between
-> interconnected bridge ports must also configure a given VLAN to allow
-> packets to pass through them.
-> 
-> In order to support that, this patchset introduces a non-intrusive
-> notifier mechanism. It adds a notifier head in every DSA switch tree
-> (the said fabric), and a notifier block in every DSA switch chip.
- ...
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 30 +++++++++++++++---------------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  3 +++
+ 2 files changed, 18 insertions(+), 15 deletions(-)
 
-Series applied, thanks Vivien.
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 0bcd465..32c808f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -1265,7 +1265,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+ 					   u32 *raw_cons,
+ 					   struct rx_tpa_end_cmp *tpa_end,
+ 					   struct rx_tpa_end_cmp_ext *tpa_end1,
+-					   bool *agg_event)
++					   u8 *event)
+ {
+ 	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
+ 	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
+@@ -1300,7 +1300,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+ 		if (!bnxt_agg_bufs_valid(bp, cpr, agg_bufs, raw_cons))
+ 			return ERR_PTR(-EBUSY);
+ 
+-		*agg_event = true;
++		*event |= BNXT_AGG_EVENT;
+ 		cp_cons = NEXT_CMP(cp_cons);
+ 	}
+ 
+@@ -1386,7 +1386,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+  * -EIO    - packet aborted due to hw error indicated in BD
+  */
+ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+-		       bool *agg_event)
++		       u8 *event)
+ {
+ 	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
+ 	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
+@@ -1423,13 +1423,13 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ 		bnxt_tpa_start(bp, rxr, (struct rx_tpa_start_cmp *)rxcmp,
+ 			       (struct rx_tpa_start_cmp_ext *)rxcmp1);
+ 
++		*event |= BNXT_RX_EVENT;
+ 		goto next_rx_no_prod;
+ 
+ 	} else if (cmp_type == CMP_TYPE_RX_L2_TPA_END_CMP) {
+ 		skb = bnxt_tpa_end(bp, bnapi, &tmp_raw_cons,
+ 				   (struct rx_tpa_end_cmp *)rxcmp,
+-				   (struct rx_tpa_end_cmp_ext *)rxcmp1,
+-				   agg_event);
++				   (struct rx_tpa_end_cmp_ext *)rxcmp1, event);
+ 
+ 		if (unlikely(IS_ERR(skb)))
+ 			return -EBUSY;
+@@ -1440,6 +1440,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ 			napi_gro_receive(&bnapi->napi, skb);
+ 			rc = 1;
+ 		}
++		*event |= BNXT_RX_EVENT;
+ 		goto next_rx_no_prod;
+ 	}
+ 
+@@ -1463,8 +1464,9 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
+ 			return -EBUSY;
+ 
+ 		cp_cons = NEXT_CMP(cp_cons);
+-		*agg_event = true;
++		*event |= BNXT_AGG_EVENT;
+ 	}
++	*event |= BNXT_RX_EVENT;
+ 
+ 	rx_buf->data = NULL;
+ 	if (rxcmp1->rx_cmp_cfa_code_errors_v2 & RX_CMP_L2_ERRORS) {
+@@ -1715,8 +1717,7 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 	u32 cons;
+ 	int tx_pkts = 0;
+ 	int rx_pkts = 0;
+-	bool rx_event = false;
+-	bool agg_event = false;
++	u8 event = 0;
+ 	struct tx_cmp *txcmp;
+ 
+ 	while (1) {
+@@ -1738,12 +1739,11 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 			if (unlikely(tx_pkts > bp->tx_wake_thresh))
+ 				rx_pkts = budget;
+ 		} else if ((TX_CMP_TYPE(txcmp) & 0x30) == 0x10) {
+-			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
++			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
+ 			if (likely(rc >= 0))
+ 				rx_pkts += rc;
+ 			else if (rc == -EBUSY)	/* partial completion */
+ 				break;
+-			rx_event = true;
+ 		} else if (unlikely((TX_CMP_TYPE(txcmp) ==
+ 				     CMPL_BASE_TYPE_HWRM_DONE) ||
+ 				    (TX_CMP_TYPE(txcmp) ==
+@@ -1768,12 +1768,12 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
+ 	if (tx_pkts)
+ 		bnxt_tx_int(bp, bnapi, tx_pkts);
+ 
+-	if (rx_event) {
++	if (event & BNXT_RX_EVENT) {
+ 		struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
+ 
+ 		writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+ 		writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+-		if (agg_event) {
++		if (event & BNXT_AGG_EVENT) {
+ 			writel(DB_KEY_RX | rxr->rx_agg_prod,
+ 			       rxr->rx_agg_doorbell);
+ 			writel(DB_KEY_RX | rxr->rx_agg_prod,
+@@ -1794,7 +1794,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
+ 	u32 cp_cons, tmp_raw_cons;
+ 	u32 raw_cons = cpr->cp_raw_cons;
+ 	u32 rx_pkts = 0;
+-	bool agg_event = false;
++	u8 event = 0;
+ 
+ 	while (1) {
+ 		int rc;
+@@ -1818,7 +1818,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
+ 			rxcmp1->rx_cmp_cfa_code_errors_v2 |=
+ 				cpu_to_le32(RX_CMPL_ERRORS_CRC_ERROR);
+ 
+-			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
++			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &event);
+ 			if (likely(rc == -EIO))
+ 				rx_pkts++;
+ 			else if (rc == -EBUSY)	/* partial completion */
+@@ -1841,7 +1841,7 @@ static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
+ 	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+ 	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
+ 
+-	if (agg_event) {
++	if (event & BNXT_AGG_EVENT) {
+ 		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
+ 		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
+ 	}
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 2144a0e..7f59ce9 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -511,6 +511,9 @@ struct rx_tpa_end_cmp_ext {
+ #define BNXT_HWRM_REQS_PER_PAGE		(BNXT_PAGE_SIZE /	\
+ 					 BNXT_HWRM_REQ_MAX_SIZE)
+ 
++#define BNXT_RX_EVENT	1
++#define BNXT_AGG_EVENT	2
++
+ struct bnxt_sw_tx_bd {
+ 	struct sk_buff		*skb;
+ 	DEFINE_DMA_UNMAP_ADDR(mapping);
+-- 
+1.8.3.1
