@@ -1,91 +1,65 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from the
- library
-Date: Mon, 6 Feb 2017 20:16:09 +0100
-Message-ID: <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: [PATCH] net: phy: dp83867: Fix for automatically detected PHYs
+Date: Mon, 6 Feb 2017 19:16:48 +0000
+Message-ID: <1486408607.2857.9.camel@synopsys.com>
+References: <20170203165237.22452-1-abrodkin@synopsys.com>
+         <20170203171031.GC15900@lunn.ch> <1486143058.2853.27.camel@synopsys.com>
+         <9d81d661-de8d-5854-e352-d570bbb3aa43@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="fN7WiWQ99bonxdSQliH0IEx7JD1N7g8x6"
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Shuah Khan <shuah@kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "andrew@lunn.ch" <andrew@lunn.ch>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "nsekhar@ti.com" <nsekhar@ti.com>,
+        "m-karicheri2@ti.com" <m-karicheri2@ti.com>,
+        "linux-snps-arc@lists.infradead.org"
+        <linux-snps-arc@lists.infradead.org>,
+        "grygorii.strashko@ti.com" <grygorii.strashko@ti.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: "f.fainelli@gmail.com" <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58989691.7060403@iogearbox.net>
+In-Reply-To: <9d81d661-de8d-5854-e352-d570bbb3aa43@gmail.com>
+Content-Language: en-US
+Content-ID: <70C1357BF385BB4A932FD31B20A79796@internal.synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---fN7WiWQ99bonxdSQliH0IEx7JD1N7g8x6
-Content-Type: multipart/mixed; boundary="n1P4B4WighvD6tSHcavO5XUaxPc0R0Dwj";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Daniel Borkmann <daniel@iogearbox.net>, linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
- Shuah Khan <shuah@kernel.org>
-Message-ID: <ed6c904f-2ea3-ff6f-3f4e-e0d9050f9a1e@digikod.net>
-Subject: Re: [PATCH net-next v1 6/7] bpf: Use the bpf_load_program() from the
- library
-References: <20170205231428.23846-1-mic@digikod.net>
- <20170205231428.23846-6-mic@digikod.net> <58989691.7060403@iogearbox.net>
-In-Reply-To: <58989691.7060403@iogearbox.net>
-
---n1P4B4WighvD6tSHcavO5XUaxPc0R0Dwj
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-
-On 06/02/2017 16:30, Daniel Borkmann wrote:
-> On 02/06/2017 12:14 AM, Micka=C3=ABl Sala=C3=BCn wrote:
->> Replace bpf_prog_load() with bpf_load_program() calls.
->>
->> Use the tools include directory instead of the installed one to allow
->> builds from other kernels.
->>
->> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
->> Cc: Alexei Starovoitov <ast@fb.com>
->> Cc: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: Shuah Khan <shuah@kernel.org>
->> ---
->>   tools/testing/selftests/bpf/Makefile        |  6 +++++-
->>   tools/testing/selftests/bpf/bpf_sys.h       | 21 -------------------=
---
->>   tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
->>   tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
->>   4 files changed, 14 insertions(+), 27 deletions(-)
->=20
-> No objections, but if so, can't we add the remaining missing
-> pieces to bpf lib, so we can remove bpf_sys.h altogether?
->=20
-> Thanks,
-> Daniel
->=20
-
-OK, I'll send a new patch replacing bpf_sys.h entirely.
-
- Micka=C3=ABl
-
-
---n1P4B4WighvD6tSHcavO5XUaxPc0R0Dwj--
-
---fN7WiWQ99bonxdSQliH0IEx7JD1N7g8x6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAliYy3kACgkQIt7+33O9
-apUx3Qf/RbtD4TSB+o8+C3g68gCTa4sXUvFXK1jFnBGe/LCnHR5Bra2J6SLzSyQA
-6fhoG/XTQLGe3o2uDSOZ9BJXNgWp7HXpzvDV7uOMB2PnZzGgz26ot6gFJvaI5ctp
-VJ1qmpeHT4RyteYV3/Bc1RhiuAlIKh1fRsB3Xv5hpwfEdJPS+KwLukf1vcHEV+/8
-i8AKkpNHb8k4HYdZ4TH+Ci9TM05H1B3K5vzh1a35zNAJiT3neOpgqitc5XF1/nxl
-n7Se0TAUFcbmRi1vHcyRbLR1KqnI9ShUpvIajHJgvk10XfWsMlWD5JGH0VSP9j1u
-jbLizuexTNsG1IpiXx6MpU5Mf9ELRg==
-=rTwi
------END PGP SIGNATURE-----
-
---fN7WiWQ99bonxdSQliH0IEx7JD1N7g8x6--
+SGkgRmxvcmlhbiwgYWxsLA0KDQpPbiBGcmksIDIwMTctMDItMDMgYXQgMTA6MzQgLTA4MDAsIEZs
+b3JpYW4gRmFpbmVsbGkgd3JvdGU6DQo+IE9uIDAyLzAzLzIwMTcgMDk6MzAgQU0sIEFsZXhleSBC
+cm9ka2luIHdyb3RlOg0KPiA+IA0KPiA+IEhpIEFuZHJldywNCj4gPiANCj4gPiBPbiBGcmksIDIw
+MTctMDItMDMgYXQgMTg6MTAgKzAxMDAsIEFuZHJldyBMdW5uIHdyb3RlOg0KPiA+ID4gDQo+ID4g
+PiBPbiBGcmksIEZlYiAwMywgMjAxNyBhdCAwNzo1MjozN1BNICswMzAwLCBBbGV4ZXkgQnJvZGtp
+biB3cm90ZToNCj4gPiA+ID4gDQo+ID4gPiA+IA0KPiA+ID4gPiBDdXJyZW50IGltcGxlbW50YXRp
+b24gcmV0dXJucyBFTk9ERVYgaWYgZGV2aWNlIHRyZWUgbm9kZSBmb3INCj4gPiA+ID4gcGh5IGlz
+IGFic2VudC4gQnV0IGluIHJlYWxpdHkgdGhlcmUncmUgbWFueSBib2FyZHMgd2l0aCB0aGUgb25l
+DQo+ID4gPiA+IGFuZCBvbmx5IFBIWSBvbiBib2FyZCBhbmQgTUFDcyB0aGF0IG1heSBmaW5kIGEg
+UEhZIGJ5IHF1ZXJ5aW5nDQo+ID4gPiA+IE1ESU8gYnVzLiBPbmUgZ29vZCBleGFtcGxlIGlzIFNU
+TU1BQy4NCj4gPiA+IA0KPiA+ID4gSHVtbSwgbm90IHNvIHN1cmUgYWJvdXQgdGhhdC4gVGhhdCBj
+aGVjayBmb3IgYW4gT0Ygbm9kZSBoYXMgYWx3YXlzDQo+ID4gPiBiZWVuIHRoZXJlLCBzaW5jZSBk
+YXkgb25lIGZvciB0aGlzIGRyaXZlci4NCj4gPiA+IA0KPiA+ID4gV2hhdCBoYXMgY2hhbmdlZCBy
+ZWNlbnRseSBpcyB3aGVyZSBpdCBsb29rcyBmb3IgdGhlc2UgZGV2aWNlIHRyZWUNCj4gPiA+IHBy
+b3BlcnRpZXMuIEl0IHVzZWQgdG8gd3JvbmdseSBsb29rIGluIHRoZSBNQUMgbm9kZS4gSXQgd2Fz
+IGNoYW5nZWQgdG8NCj4gPiA+IGxvb2sgaW4gdGhlIFBIWSBub2RlLiBTbyB0aGlzIGlzIHByb2Jh
+Ymx5IHRoZSByZWFzb24geW91IGFyZSBoYXZpbmcNCj4gPiA+IHByb2JsZW1zLg0KPiA+IA0KPiA+
+IFdlbGwgd2UgZG9uJ3QgbWVudGlvbiBQSFkgbm9kZSBpbiBvdXIgZGV2aWNlIHRyZWVzIGJlY2F1
+c2Ugd2l0aA0KPiA+IDEgUEhZIGNvbm5lY3RlZCB2aWEgTURJTyBidXMgdGhlcmUncyBubyBwb2lu
+dCBpbiBzcGVuZGluZyBlbGVjdHJvbnMNCj4gPiBvbiBhZGRpbmcgZXh0cmEgc3R1ZmYuwqANCj4g
+DQo+IFRoYXQncyBhIHRlcnJpYmxlIGp1c3RpZmljYXRpb24sIHlvdSBhcmUgcnVubmluZyBMaW51
+eCBvbiBkZXZpY2VzLCBpZg0KPiB5b3UgY2FyZSBhYm91dCBlbGVjdHJvbnMgcnVuIGEgdGlueSBS
+VE9TIDspDQoNCkFncmVlIDopDQoNCj4gPiANCj4gPiBXZWxsIGluIGNhc2UgaWYgZGVmYXVsdCBz
+ZXR0aW5ncyB3b3JrIGZpbmUgLQ0KPiA+IHdoaWNoIHVwIHVudGlsIG5vdyB3YXMgdGhlIGNhc2Ug
+Zm9yIHVzLg0KPiANCj4gWW91IHNob3VsZCByZWFsbHkgY29uc2lkZXIgbGlzdGluZyB5b3VyIEV0
+aGVybmV0IFBIWSBhcyBhIGNoaWxkIG5vZGUgb2YNCj4gZHdtYWMgTURJTyBidXMgYmVjYXVzZSB0
+aGF0IHdpbGwgYmUgYSBjb3JyZWN0IGFuZCBhY2N1cmF0ZQ0KPiByZXByZXNlbnRhdGlvbiBvZiB0
+aGUgaGFyZHdhcmUsIGFuZCBpZiB0aGUgUEhZIGRyaXZlciBuZWVkcyBzcGVjaWZpYw0KPiBwcm9w
+ZXJ0aWVzIHRvIGJlIGdpdmVuIChlLmc6IHJhbmRvbSBUWC9SWCBkZWxheXMsIGV0Yy4pIHRoYXQg
+aXMgdGhlIG9ubHkNCj4gd2F5IHlvdSBjb3VsZCBjb21tdW5pY2F0ZSB0aG9zZSBwcm9wZXJseSB0
+byB0aGUgUEhZIGRyaXZlci4NCg0KQWdyZWUgaGVyZSBhcyB3ZWxsLCBpbmRlZWQgSSdtIGdvaW5n
+IHRvIHVwZGF0ZSBteSAuZHRzIGJlY2F1c2UNCnRoYXQgaXMgc3VwcG9zZWQgdG8gcmVmbGVjdCBy
+ZWFsIEhXIGFuZCBpdCB3aWxsIGJlIHRoYXQgd2F5Lg0KDQpCdXQgc3RpbGwgSSdtIHdvbmRlcmlu
+ZyBpZiB0aGF0J3MgYSBtdXN0Pw0KSW4gdGhhdCBjYXNlIHdlIG5lZWQgdG8gdXBkYXRlIGRyaXZl
+cnMgZm9yIG90aGVyIFBIWXMgYW5kIHByb2JhYmx5IHN0YXJ0DQpmcm9tIHRoZSBnZW5waHkgdG8g
+YWxpZ24gcmVxdWlyZW1lbnRzLg0KDQpPdGhlcndpc2UgcG9vciBndXlzIGxpa2UgbWUgd2hvIHN3
+aXRjaGVkIGZyb20gb25lIFBIWSB0byBhbm90aGVyIHdpbGwNCmVuZCB1cCBmcnVzdHJhdGluZyB3
+aHkgc3R1ZmYgdGhhdCB1c2VkIHRvIHdvcmsgbm8gbG9uZ2VyIHdvcmtzIDopDQoNCi1BbGV4ZXk=
