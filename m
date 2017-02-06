@@ -1,98 +1,88 @@
 From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH net-next/iproute 4/5] tc: bash-completion: Add support for filter actions
-Date: Mon,  6 Feb 2017 15:19:23 +0200
-Message-ID: <1486387164-40404-5-git-send-email-yotamg@mellanox.com>
+Subject: [PATCH net-next/iproute 3/5] tc: bash-completion: Make the *_KIND variables global
+Date: Mon,  6 Feb 2017 15:19:22 +0200
+Message-ID: <1486387164-40404-4-git-send-email-yotamg@mellanox.com>
 References: <1486387164-40404-1-git-send-email-yotamg@mellanox.com>
 Cc: Yotam Gigi <yotamg@mellanox.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org,
         eladr@mellanox.com, idosch@mellanox.com, jiri@mellanox.com,
         jhs@mojatatu.com, mrv@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51771 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51769 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750980AbdBFNQu (ORCPT
+        with ESMTP id S1750950AbdBFNQu (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 08:16:50 -0500
 In-Reply-To: <1486387164-40404-1-git-send-email-yotamg@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previously, the autocomplete routine did not complete actions after a
-filter keyword, for example:
-
-$ tc filter add dev eth0 u32 [...] action <TAB>
-
-did not suggest the actions list, and:
-
-$ tc filter add dev eth0 u32 [...] action mirred <TAB>
-
-did not suggest the specific mirred parameters. Add the support for this
-kind of completion by adding the _tc_filter_action_options routine and
-invoking it from inside _tc_filter_options.
+The QDISC_KIND, FILTER_KIND, ACTION_KIND variables may be used by other
+routines, thus make them global variables.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 ---
- bash-completion/tc | 38 +++++++++++++++++++++++++++++++++++---
- 1 file changed, 35 insertions(+), 3 deletions(-)
+ bash-completion/tc | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
 diff --git a/bash-completion/tc b/bash-completion/tc
-index e23f69c..e4c6804 100644
+index c854dc0..e23f69c 100644
 --- a/bash-completion/tc
 +++ b/bash-completion/tc
-@@ -386,11 +386,44 @@ _tc_bpf_options()
-     return 0
- }
+@@ -2,6 +2,12 @@
+ # Copyright 2016 6WIND S.A.
+ # Copyright 2016 Quentin Monnet <quentin.monnet@6wind.com>
  
-+# Complete with options names for filter actions.
-+# This function is recursive, thus allowing multiple actions statement to be
-+# parsed.
-+# Returns 0 is completion should stop after running this function, 1 otherwise.
-+_tc_filter_action_options()
-+{
-+    for ((acwd=$1; acwd < ${#words[@]}-1; acwd++));
-+    do
-+        if [[ action == ${words[acwd]} ]]; then
-+            _tc_filter_action_options $((acwd+1)) && return 0
-+        fi
-+    done
++QDISC_KIND=' choke codel bfifo pfifo pfifo_head_drop fq fq_codel gred hhf \
++            mqprio multiq netem pfifo_fast pie red rr sfb sfq tbf atm cbq drr \
++            dsmark hfsc htb prio qfq '
++FILTER_KIND=' basic bpf cgroup flow flower fw route rsvp tcindex u32 '
++ACTION_KIND=' gact mirred bpf sample '
 +
-+    local action acwd
-+    for ((acwd=$1; acwd < ${#words[@]}-1; acwd++)); do
-+        if [[ $ACTION_KIND =~ ' '${words[acwd]}' ' ]]; then
-+            _tc_one_of_list_from $acwd action
-+            _tc_action_options $acwd && return 0
-+        fi
-+    done
-+    _tc_one_of_list_from $acwd $ACTION_KIND
-+    return 0
-+}
-+
- # Complete with options names for filters.
- # Returns 0 is completion should stop after running this function, 1 otherwise.
- _tc_filter_options()
- {
--    case $1 in
-+
-+    for ((acwd=$1; acwd < ${#words[@]}-1; acwd++));
-+    do
-+        if [[ action == ${words[acwd]} ]]; then
-+            _tc_filter_action_options $((acwd+1)) && return 0
-+        fi
-+    done
-+
-+    filter=${words[$1]}
-+    case $filter in
-         basic)
-             _tc_once_attr 'match action classid'
-             return 0
-@@ -685,8 +718,7 @@ _tc()
+ # Takes a list of words in argument; each one of them is added to COMPREPLY if
+ # it is not already present on the command line. Returns no value.
+ _tc_once_attr()
+@@ -605,10 +611,7 @@ _tc()
+                         COMPREPLY=( $( compgen -W 'dev' -- "$cur" ) )
+                         return 0
+                     fi
+-                    local qdisc qdwd QDISC_KIND=' choke codel bfifo pfifo \
+-                        pfifo_head_drop fq fq_codel gred hhf mqprio multiq \
+-                        netem pfifo_fast pie red rr sfb sfq tbf atm cbq drr \
+-                        dsmark hfsc htb prio qfq '
++                    local qdisc qdwd
+                     for ((qdwd=$subcword; qdwd < ${#words[@]}-1; qdwd++)); do
+                         if [[ $QDISC_KIND =~ ' '${words[qdwd]}' ' ]]; then
+                             qdisc=${words[qdwd]}
+@@ -643,10 +646,7 @@ _tc()
+                         COMPREPLY=( $( compgen -W 'dev' -- "$cur" ) )
+                         return 0
+                     fi
+-                    local qdisc qdwd QDISC_KIND=' choke codel bfifo pfifo \
+-                        pfifo_head_drop fq fq_codel gred hhf mqprio multiq \
+-                        netem pfifo_fast pie red rr sfb sfq tbf atm cbq drr \
+-                        dsmark hfsc htb prio qfq '
++                    local qdisc qdwd
+                     for ((qdwd=$subcword; qdwd < ${#words[@]}-1; qdwd++)); do
+                         if [[ $QDISC_KIND =~ ' '${words[qdwd]}' ' ]]; then
+                             qdisc=${words[qdwd]}
+@@ -681,8 +681,7 @@ _tc()
+                         COMPREPLY=( $( compgen -W 'dev' -- "$cur" ) )
+                         return 0
+                     fi
+-                    local filter fltwd FILTER_KIND=' basic bpf cgroup flow \
+-                        flower fw route rsvp tcindex u32 '
++                    local filter fltwd
                      for ((fltwd=$subcword; fltwd < ${#words[@]}-1; fltwd++));
                      do
                          if [[ $FILTER_KIND =~ ' '${words[fltwd]}' ' ]]; then
--                            filter=${words[fltwd]}
--                            _tc_filter_options $filter && return 0
-+                            _tc_filter_options $fltwd && return 0
-                         fi
-                     done
-                     _tc_one_of_list $FILTER_KIND
+@@ -714,7 +713,7 @@ _tc()
+         action)
+             case $subcmd in
+                 add|change|replace)
+-                    local action acwd ACTION_KIND=' gact mirred bpf sample '
++                    local action acwd
+                     for ((acwd=$subcword; acwd < ${#words[@]}-1; acwd++)); do
+                         if [[ $ACTION_KIND =~ ' '${words[acwd]}' ' ]]; then
+                             _tc_action_options $acwd && return 0
 -- 
 2.4.11
