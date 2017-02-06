@@ -1,76 +1,73 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: [PATCH v5 net-next] net: mvneta: implement .set_wol and .get_wol
-Date: Mon, 6 Feb 2017 14:58:13 +0800
-Message-ID: <20170206065813.1971-1-jszhang@marvell.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Fw: [Bug 193911] New: net_prio.ifpriomap is not aware of the
+ network namespace, and discloses all network interface
+Date: Sun, 5 Feb 2017 23:05:36 -0800
+Message-ID: <CAM_iQpVB_OvJy4Yz97MeOh9hNwm-mTG9aM1FWBpaaOmjroWvVw@mail.gmail.com>
+References: <20170203155330.06edece4@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <andrew@lunn.ch>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Jingju Hou <houjingj@marvell.com>,
-        Jisheng Zhang <jszhang@marvell.com>
-To: <thomas.petazzoni@free-electrons.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tejun Heo <tj@kernel.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        xgao01@email.wm.edu, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33262 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751164AbdBFHGD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 02:06:03 -0500
+Received: by mail-wm0-f65.google.com with SMTP id v77so19882460wmv.0
+        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 23:05:57 -0800 (PST)
+In-Reply-To: <20170203155330.06edece4@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jingju Hou <houjingj@marvell.com>
+On Fri, Feb 3, 2017 at 3:53 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+>
+> Begin forwarded message:
+>
+> Date: Fri, 03 Feb 2017 21:14:28 +0000
+> From: bugzilla-daemon@bugzilla.kernel.org
+> To: stephen@networkplumber.org
+> Subject: [Bug 193911] New: net_prio.ifpriomap is not aware of the network namespace, and discloses all network interface
+>
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=193911
+>
+>             Bug ID: 193911
+>            Summary: net_prio.ifpriomap is not aware of the network
+>                     namespace, and discloses all network interface
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 4.9
+>           Hardware: All
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: stephen@networkplumber.org
+>           Reporter: xgao01@email.wm.edu
+>         Regression: No
+>
+> The pseudo file net_prio.ifpriomap (under /sys/fs/cgroup/net_prio) contains a
+> map of the priorities assigned to traffic starting from processes in a cgroup
+> and leaving the system on various interfaces. The data format is in the form of
+> [ifname priority].
+>
+> We find that the kernel handler function hooked at net_prio.ifpriomap is not
+> aware of the network namespace, and thus it discloses all network interfaces on
+> the physical machine to the containerized applications.
+>
+> To be more specific, the read operation of net_prio.ifpriomap is handled by the
+> function read_priomap. Tracing from this function, we can find it invokes
+> for_each_netdev_rcu and set the first parameter as the address of init_net. It
+> iterates all network devices of the host regardless of the network namespace.
+> Thus, from the view of a container, it can read the names of all network
+> devices of the host.
 
-The mvneta itself does not support WOL, but the PHY might.
-So pass the calls to the PHY
-
-Signed-off-by: Jingju Hou <houjingj@marvell.com>
-Signed-off-by: Jisheng Zhang <jszhang@marvell.com>
----
-since v4:
- - address Andrew Lunn's comment
-
-since v3:
- - really fix the build error
-
-since v2,v1:
- - using phy_dev member in struct net_device
- - add commit msg
-
- drivers/net/ethernet/marvell/mvneta.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index de6c47744b8e..0f4d1697be46 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3927,6 +3927,25 @@ static int mvneta_ethtool_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
- 	return 0;
- }
- 
-+static void mvneta_ethtool_get_wol(struct net_device *dev,
-+				   struct ethtool_wolinfo *wol)
-+{
-+	wol->supported = 0;
-+	wol->wolopts = 0;
-+
-+	if (dev->phydev)
-+		phy_ethtool_get_wol(dev->phydev, wol);
-+}
-+
-+static int mvneta_ethtool_set_wol(struct net_device *dev,
-+				  struct ethtool_wolinfo *wol)
-+{
-+	if (!dev->phydev)
-+		return -EOPNOTSUPP;
-+
-+	return phy_ethtool_set_wol(dev->phydev, wol);
-+}
-+
- static const struct net_device_ops mvneta_netdev_ops = {
- 	.ndo_open            = mvneta_open,
- 	.ndo_stop            = mvneta_stop,
-@@ -3956,6 +3975,8 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
- 	.set_rxfh	= mvneta_ethtool_set_rxfh,
- 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
- 	.set_link_ksettings = mvneta_ethtool_set_link_ksettings,
-+	.get_wol        = mvneta_ethtool_get_wol,
-+	.set_wol        = mvneta_ethtool_set_wol,
- };
- 
- /* Initialize hw */
--- 
-2.11.0
+I think that is probably because cgroup files don't provide a net pointer
+for the context, if so we probably need some API similar to
+class_create_file_ns().
