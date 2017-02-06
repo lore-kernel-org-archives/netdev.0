@@ -1,47 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [net-next?] hns: avoid stack overflow with CONFIG_KASAN
-Date: Mon, 06 Feb 2017 12:03:18 -0500 (EST)
-Message-ID: <20170206.120318.1268240226202516488.davem@davemloft.net>
-References: <20170203163607.3488037-1-arnd@arndb.de>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next 1/7] openvswitch: Use inverted tuple in
+ ovs_ct_find_existing() if NATted.
+Date: Mon, 6 Feb 2017 09:06:29 -0800
+Message-ID: <CAOrHB_AWB7MFEHpeuKcG21s9QWjMHKC2zWNmXQLDo_5KZrnY6w@mail.gmail.com>
+References: <1486084206-109903-1-git-send-email-jarno@ovn.org> <20170205.172824.848224453582586032.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, yisen.zhuang@huawei.com,
-        salil.mehta@huawei.com, huangdaode@hisilicon.com,
-        yankejian@huawei.com, lisheng011@huawei.com, oulijun@huawei.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170203163607.3488037-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jarno Rajahalme <jarno@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:38203 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751164AbdBFRGf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 12:06:35 -0500
+Received: from mfilter43-d.gandi.net (mfilter43-d.gandi.net [217.70.178.174])
+        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 7F086C5A86
+        for <netdev@vger.kernel.org>; Mon,  6 Feb 2017 18:06:32 +0100 (CET)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+        by mfilter43-d.gandi.net (mfilter43-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id hJwXPHER5h9K for <netdev@vger.kernel.org>;
+        Mon,  6 Feb 2017 18:06:31 +0100 (CET)
+Received: from mail-it0-f43.google.com (mail-it0-f43.google.com [209.85.214.43])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id EB009C5A8B
+        for <netdev@vger.kernel.org>; Mon,  6 Feb 2017 18:06:30 +0100 (CET)
+Received: by mail-it0-f43.google.com with SMTP id r185so61336844ita.0
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 09:06:30 -0800 (PST)
+In-Reply-To: <20170205.172824.848224453582586032.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri,  3 Feb 2017 17:35:46 +0100
+On Sun, Feb 5, 2017 at 2:28 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jarno Rajahalme <jarno@ovn.org>
+> Date: Thu,  2 Feb 2017 17:10:00 -0800
+>
+>> This does not match either of the conntrack tuples above.  Normally
+>> this does not matter, as the conntrack lookup was already done using
+>> the tuple (B,A), but if the current packet does not match any flow in
+>> the OVS datapath, the packet is sent to userspace via an upcall,
+>> during which the packet's skb is freed, and the conntrack entry
+>> pointer in the skb is lost.
+>
+> This is the real bug.
+>
+> If the metadata for a packet is important, as it obviously is here,
+> then upcalls should preserve that metadata across the upcall.  This
+> is exactly how NF_QUEUE handles this problem and so should OVS.
 
-> The use of ACCESS_ONCE() looks like a micro-optimization to force gcc to use
-> an indexed load for the register address, but it has an absolutely detrimental
-> effect on builds with gcc-5 and CONFIG_KASAN=y, leading to a very likely
-> kernel stack overflow aside from very complex object code:
- ...
-> This does not seem to happen any more with gcc-7, but removing the ACCESS_ONCE
-> seems safe anyway and it avoids a serious issue for some people. I have verified
-> that with gcc-5.3.1, the object code we get is better in the new version
-> both with and without CONFIG_KASAN, as we no longer allocate a 1344 byte
-> stack frame for hns_dsaf_get_regs() but otherwise have practically identical
-> object code.
-> 
-> With gcc-7.0.0, removing ACCESS_ONCE has no effect, the object code is already
-> good either way.
-> 
-> This patch is probably not urgent to get into 4.11 as only KASAN=y builds
-> with certain compilers are affected, but I still think it makes sense to
-> backport into older kernels.
-> 
-> Cc: stable@vger.kernel.org
-> Fixes: 511e6bc ("net: add Hisilicon Network Subsystem DSAF support")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-This is really terrible for the compiler to do, but what can we do about it.
-
-I'll apply this to 'net' and queue it up for -stable, thanks.
+OVS kernel datapath serializes skb context and sends it along with skb
+during upcall via genetlink parameters. userspace echoes same
+information back to kernel modules. This way OVS does maintains
+metadata across upcall.
