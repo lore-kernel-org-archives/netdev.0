@@ -1,37 +1,36 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v1 7/7] bpf: Always test unprivileged programs
-Date: Mon, 06 Feb 2017 16:43:59 +0100
-Message-ID: <589899BF.60007@iogearbox.net>
-References: <20170205231428.23846-1-mic@digikod.net> <20170205231428.23846-7-mic@digikod.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: tcp: add a missing tcp_v6_restore_cb()
+Date: Mon, 06 Feb 2017 10:53:22 -0500 (EST)
+Message-ID: <20170206.105322.954692203927224.davem@davemloft.net>
+References: <1486355002.7793.39.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Shuah Khan <shuah@kernel.org>
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170205231428.23846-7-mic@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dvyukov@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41274 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754126AbdBFPxY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 10:53:24 -0500
+In-Reply-To: <1486355002.7793.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/06/2017 12:14 AM, Mickaël Salaün wrote:
-> If selftests are run as root, then execute the unprivileged checks as
-> well. This switch from 240 to 364 tests.
->
-> The test numbers are suffixed with "/u" when executed as unprivileged or
-> with "/p" when executed as privileged.
->
-> The geteuid() check is replaced with a capability check.
->
-> Handling capabilities require the libcap dependency.
->
-> Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> Cc: Alexei Starovoitov <ast@fb.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Shuah Khan <shuah@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 05 Feb 2017 20:23:22 -0800
 
-Very useful! Could probably also go as stand-alone to net-next,
-but how you prefer.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Dmitry reported use-after-free in ip6_datagram_recv_specific_ctl()
+> 
+> A similar bug was fixed in commit 8ce48623f0cf ("ipv6: tcp: restore
+> IP6CB for pktoptions skbs"), but I missed another spot.
+> 
+> tcp_v6_syn_recv_sock() can indeed set np->pktoptions from ireq->pktopts
+> 
+> Fixes: 971f10eca186 ("tcp: better TCP_SKB_CB layout to reduce cache line misses")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+APplied and queued up for -stable, thanks Eric.
