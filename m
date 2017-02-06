@@ -1,49 +1,65 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: [PATCH 1/2] libceph: Remove unneeded stddef.h include
-Date: Mon, 6 Feb 2017 11:19:12 +0100
-Message-ID: <CAOi1vP-67FmaioEh_y9=J6Wp+G2+KmKhicy18-uKAPTy7t_1sw@mail.gmail.com>
-References: <cover.1486276931.git.shorne@gmail.com> <b49a86823ae528ff795c8931f68392535b0fccf7.1486276931.git.shorne@gmail.com>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
+Date: Mon, 6 Feb 2017 10:41:44 +0000
+Message-ID: <BL2PR07MB2306BFF942FD6EE54400D1288D400@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <20170202125637.GA3191@netboy>
+ <BL2PR07MB2306F69350DA91B9B2A2E3588D4C0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ceph Development <ceph-devel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Stafford Horne <shorne@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b49a86823ae528ff795c8931f68392535b0fccf7.1486276931.git.shorne@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tglx@linutronix.de" <tglx@linutronix.de>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0049.outbound.protection.outlook.com ([104.47.33.49]:48192
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750949AbdBFKlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 05:41:49 -0500
+In-Reply-To: <BL2PR07MB2306F69350DA91B9B2A2E3588D4C0@BL2PR07MB2306.namprd07.prod.outlook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 5, 2017 at 8:07 AM, Stafford Horne <shorne@gmail.com> wrote:
-> This was causing a build failure for openrisc when using musl and
-> gcc 5.4.0 since the file is not available in the toolchain.
->
-> It doesnt seem this is needed and removing it does not cause any build
-> warnings for me.
->
-> Signed-off-by: Stafford Horne <shorne@gmail.com>
-> ---
->  net/ceph/snapshot.c | 2 --
->  1 file changed, 2 deletions(-)
->
-> diff --git a/net/ceph/snapshot.c b/net/ceph/snapshot.c
-> index 154683f..705414e 100644
-> --- a/net/ceph/snapshot.c
-> +++ b/net/ceph/snapshot.c
-> @@ -18,8 +18,6 @@
->   * 02110-1301, USA.
->   */
->
-> -#include <stddef.h>
-> -
->  #include <linux/types.h>
->  #include <linux/export.h>
->  #include <linux/ceph/libceph.h>
+> > > +		for (val =3D 0; val <=3D 7; val++) {
+> > > +			period1 =3D div_s64(val * 1000000000, ppb);
+> > > +			period1 -=3D 8;
+> > > +			period1 >>=3D 4;
+> > > +			if (period1 < 1)
+> > > +				period1 =3D 1;
+> > > +			if (period1 > 0xFFFFFFE)
+> > > +				period1 =3D 0xFFFFFFE;
+> > > +			period2 =3D period1 + 1;
+> > > +
+> > > +			temp =3D div_s64(val * 1000000000, (period1 * 16 + 8));
+> > > +			dif1 =3D ppb - temp;
+> > > +			if (dif1 < 0)
+> > > +				dif1 =3D -dif1;
+> > > +
+> > > +			temp =3D div_s64(val * 1000000000, (period2 * 16 + 8));
+> >
+> > Forgetting the useless val=3D0 case, this still takes 21 64-bit
+> > divisions on every adjustment.  There must be a better way.
+> >
+> > @tglx - Do you have a hint for Sudarsana?
+>=20
+> Maybe we can improve it a bit by making it even uglier and save one of th=
+e
+> divisions here; But that would still leave a 2-digit number of divisions.=
+ I don't
+> have an alternative algorithm that would solve that.
 
-Applied.
+Apparently I was over optimistic; Tried pushing the ppb division
+out of the loop, but truncation was insufficient and resulted in reduced
+drift accuracy.
+
+Richard - we're planning on sending v4 with the existing algorithm
+[but without iterating on 'val =3D=3D 0']; If you have any suggestion for
+improving this, please share it.
 
 Thanks,
-
-                Ilya
+Yuval
