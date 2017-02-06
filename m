@@ -1,54 +1,40 @@
-From: Alban Browaeys <alban.browaeys@gmail.com>
-Subject: Re: [PATCH] netfilter: xt_hashlimit: Fix integer divide round to
- zero.
-Date: Mon, 06 Feb 2017 15:28:07 +0100
-Message-ID: <1486391287.2374.1.camel@gmail.com>
-References: <20170204224731.3222-1-alban.browaeys@gmail.com>
-         <20170206130443.GA10990@salvia>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] Documentation: devicetree: Add PHY no lane swap binding
+Date: Mon, 6 Feb 2017 15:38:35 +0100
+Message-ID: <20170206143835.GI32506@lunn.ch>
+References: <1486223267-11875-1-git-send-email-lukma@denx.de>
+ <20170204172329.GA8364@lunn.ch>
+ <509fadc4-164c-7333-1871-fd6e615e57c9@gmail.com>
+ <20170206151524.2ff0f799@jawa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
         "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+        jbrunet <jbrunet@baylibre.com>, linux-kernel@vger.kernel.org,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+        <u.kleine-koenig@pengutronix.de>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        Jon Mason <jon.mason@broadcom.com>,
+        Fabio Estevam <fabio.estevam@nxp.com>
+To: Lukasz Majewski <lukma@denx.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206130443.GA10990@salvia>
+Content-Disposition: inline
+In-Reply-To: <20170206151524.2ff0f799@jawa>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 06 février 2017 à 14:04 +0100, Pablo Neira Ayuso a écrit :
-> On Sat, Feb 04, 2017 at 11:47:31PM +0100, Alban Browaeys wrote:
-> > diff --git a/net/netfilter/xt_hashlimit.c
-> > b/net/netfilter/xt_hashlimit.c
-> > index 10063408141d..df75ad643eef 100644
-> > --- a/net/netfilter/xt_hashlimit.c
-> > +++ b/net/netfilter/xt_hashlimit.c
-> > @@ -463,21 +463,19 @@ static u32 xt_hashlimit_len_to_chunks(u32 len)
-> >  /* Precision saver. */
-> >  static u64 user2credits(u64 user, int revision)
-> >  {
-> > > > +	/* Avoid overflow: divide the constant operands first */
-> > > >  	if (revision == 1) {
-> > > > -		/* If multiplying would overflow... */
-> > > > -		if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY_v1))
-> > > > -			/* Divide first. */
-> > > > -			return div64_u64(user, XT_HASHLIMIT_SCALE)
-> > > > -				* HZ * CREDITS_PER_JIFFY_v1;
-> > > > +		return div64_u64(user, div64_u64(XT_HASHLIMIT_SCALE,
-> > > > +			HZ * CREDITS_PER_JIFFY_v1));
-> >  
-> > > > -		return div64_u64(user * HZ * CREDITS_PER_JIFFY_v1,
-> > > > +		return user * div64_u64(HZ * CREDITS_PER_JIFFY_v1,
-> >  				 XT_HASHLIMIT_SCALE);
+> > Since this is a description of the hardware, absence of a properties
+> > should mean that the driver is at freedom to either keep the hardware
+> > defaults, or come up with its own settings that are sensible for that
+> > particular PHY device.
+> > 
+> > What would you see clarified here?
 > 
-> I see two return statements here, the one coming later is
-> shadowed, this can't be right.
+> Any more comments to this patch?
 
-I fixed revision 2 case then copy the code to revision 1
- and lost the condition in the process.
-The code duplication is useless. I will rework it in v2.
+Nope.
 
-Thank you for the review.
+	Andrew
