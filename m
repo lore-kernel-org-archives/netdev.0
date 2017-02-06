@@ -1,85 +1,76 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
-Date: Mon, 6 Feb 2017 16:25:20 +0000
-Message-ID: <20170206162520.GA3442@decadent.org.uk>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165631.GW3442@decadent.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6DB027CA6E@AcuExch.aculab.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: Disabling msix interrupts
+Date: Mon, 6 Feb 2017 08:26:42 -0800
+Message-ID: <CAKgT0UeXXkUpsrF9gpf_gba56V+B8a1G84k0WWt5q85Rx2PVsA@mail.gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6DB027C936@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="Gv4AD2GulCTyUAWX"
+Content-Type: text/plain; charset=UTF-8
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-        Petko Manolov <petkan@nucleusys.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:39288 "EHLO
-        shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753425AbdBFQZW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 11:25:22 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027CA6E@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027C936@AcuExch.aculab.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Feb 6, 2017 at 7:33 AM, David Laight <David.Laight@aculab.com> wrote:
+> netdev probably isn't the right list for this, but I suspect people
+> reading it understand what happens.
+>
+> I'm fairly sure that an msix interrupt can get raised after
+> the kernel thinks it has masked it.
+>
+> When an msix interrupt is disabled I think msi_set_mask_bit()
+> (in drivers/pci/msi.c) is called to write a '1' to the card's
+> hardware MSIX mask register (the last 32bit word of the entry).
+> This function carefully reads back the mask register to flush
+> the write through the pcie bus.
+> Except it doesn't, it reads the 'address_lo' register instead! [1]
 
---Gv4AD2GulCTyUAWX
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Reading any register will force the write to be flushed as all PCI
+writes must be completed before a PCI read.  For example in the Intel
+drivers we read register 0 to flush a write of any of the other
+registers.
 
-On Mon, Feb 06, 2017 at 04:09:18PM +0000, David Laight wrote:
-> From: Ben Hutchings
-[...]
-> > +	ret =3D usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> > +			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
-> > +			      indx, 0, buf, size, 500);
-> > +	if (ret > 0 && ret <=3D size)
-> > +		memcpy(data, buf, ret);
->=20
-> If ret > size something is horridly wrong.
-> Silently not updating the callers buffer at all cannot be right.
+> While this will stop the hardware raising any more interrupts,
+> it could easily be in the process of raising one.
+> ie have read the mask, found it zero, read the address and
+> data, and be in the process of issuing the pcie write.
+>
+> The pcie write (to disable the interrupt) and readback are seen
+> by the hardware as (more or less) back to back transfers, so can
+> both easily overtake the request to raise the interrupt.
 
-Yes, it seems strange to check this.  I originally wrote this as ret >
-0, but then I checked the usbnet core and found __usbnet_read_cmd()
-has the second comparison as well.
+I don't believe this is correct.  On the PCI bus what you should see
+is the device aware that interrupts are disabled before the completion
+arrives and any MSI messages should arrive before the last read
+completion.
 
-> > +	kfree(buf);
-> > +	return ret;
->=20
-> I can't help feeling that it would be better to add a wrapper to
-> usb_control_msg() that does the kmalloc() and memcpy()s and
-> drop that into all the call sites.
+> The pcie bus is also allowed to make a read completion tlp
+> overtake a write tlp.
+> Add in any host-side delays in raising the hardware interrupt
+> itself, and an interrupt could happen well after it was masked.
 
-It might be.  Right now I'm trying to patch up a bunch of regressions
-rather than argue over an API change.
+That is only if relaxed ordering is enabled, which I am not sure is
+supported for MSI-X interrupts.  That being said though I believe
+there are some platforms that could end up seeing a delay in handling
+the interrupt if for example the CPU the interrupt was delivered to
+was in a sleep state.
 
-Ben.
+> More worrying would be any code that tries to change the address
+> and data associated with an interrupt.
+> You'd need moderate guard times after the disable and before the
+> enable to ensure the hardware didn't raise an interrupt with
+> a mismatch of the old and new values.
+>
+> [1] Maybe I'll look at the order those cycles actually arrive in.
+>
+>         David
 
---=20
-Ben Hutchings
-Experience is what causes a person to make new mistakes instead of old ones.
+So I have thrown in my $.02 on this, and added the linux-pci mailing
+list.  That is a much better place to bring this up rather than
+netdev.
 
---Gv4AD2GulCTyUAWX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Thanks.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUBWJijcOe/yOyVhhEJAQpbxRAAhWKV2wSltPIN//2bg0abUW/gjbmASsp3
-QBSmPhbySCe4CP93AswAsnFUNComx7BkWWfjqfitEnIyv2FAz5JRVhT+b5hTkZ0q
-XNhzGocUuSxH9w/KeslGoX5PSTzpNiS2rDLsOD1cihIygeWpy6g1A7ltfpOojGxB
-Yk/Gv2vYt2Bz5HwRqTxHsU4bzxSZnd6zAE6B6P0Klhu4fMdiFdKdylsnjYgoifoz
-ErXbprgxdx/BooGZXeJeDT3WAHj35Fo2/JdRqmXnefbxuPTXXOjQqcjYeGAWVR5G
-nPqY433zjWLwPu9EwqrLEHlWr7vujQpBDbnBWoVLEX8XBwuaEkb59pyeOXRmgJAj
-CNhVO39tuOvBVgKX/KYZt8/f9FVF3rEqEewCFsBfKt5EIbMiP9mr7r1ti58mk9+x
-u+PYs35AYThHigONIh8z21FRK0ev6aDVBDucV3iq0kPl2zSP1qimA+83qC9w0zIN
-k+wwO7t4CjPr4AecuY/ZYu7jC4MNDrLk9X08rM8jFTHDFHfyPLy82IxYkQMR1Lz8
-KeAChHf/ysyfiYZITodwupNLFJbHkUcyoAVFWvDem+N9Yj5jl9Nnhu2HfPLNLr3M
-fcsn/qhdfhwUzvv5pULBuefGjVbhoRlAfWvBkPPyWKeGZM3SaWEElLB/Sg/xetRq
-UAVjIcvlipc=
-=4bgB
------END PGP SIGNATURE-----
-
---Gv4AD2GulCTyUAWX--
+- Alex
