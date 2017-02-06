@@ -1,113 +1,71 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net/kcm: WARNING in kcm_write_msgs
-Date: Mon, 6 Feb 2017 13:43:31 +0100
-Message-ID: <CACT4Y+Y0m=-QP0taQqq3P2rwERrMEv-ntwk30eEbk+dDL0bPJg@mail.gmail.com>
-References: <CACT4Y+YSSKXzmJQ2J6nMCjD_32rgoqgLYkUjVGz8YswK1Uquvw@mail.gmail.com>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
+Date: Mon, 6 Feb 2017 14:51:09 +0200
+Message-ID: <20170206125108.d5vdur5rlvrkpr5j@localhost>
+References: <20170204165451.GU3442@decadent.org.uk>
+ <20170204165603.GV3442@decadent.org.uk>
+ <20170205003038.GB21184@kroah.com>
+ <20170206081444.smcgjkmdepxoosb6@p310>
+ <20170206082822.GA23451@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>
-To: David Miller <davem@davemloft.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+YSSKXzmJQ2J6nMCjD_32rgoqgLYkUjVGz8YswK1Uquvw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org,
+        Lisandro =?utf-8?Q?Dami=C3=A1n_Nicanor_P=C3=A9rez?= Meyer
+        <lisandro@debian.org>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lan.nucleusys.com ([92.247.61.126]:54232 "EHLO
+        zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750950AbdBFMvV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 07:51:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20170206082822.GA23451@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[resending as plain text]
+On 17-02-06 09:28:22, Greg KH wrote:
+> On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
+> > On 17-02-05 01:30:39, Greg KH wrote:
+> > > On Sat, Feb 04, 2017 at 04:56:03PM +0000, Ben Hutchings wrote:
+> > > > Allocating USB buffers on the stack is not portable, and no longer works 
+> > > > on x86_64 (with VMAP_STACK enabled as per default).
+> > > 
+> > > It's never worked on other platforms, so these should go to the stable 
+> > > releases please.
+> > 
+> > As far as i know both drivers works fine on other platforms, though I only 
+> > tested it on arm and mipsel. ;)
+> 
+> It all depends on the arm and mips platforms, the ones that can not DMA from 
+> stack memory are the ones that would always fail here (since the 2.2 kernel 
+> days).
 
-Hello,
+Seems like most modern SOCs have decent DMA controllers.
 
-The following program triggers WARNING in kcm_write_msgs:
+> > Random thought: isn't it better to add the alloc/free code in 
+> > usb_control_msg() and avoid code duplication all over the driver space?
+> 
+> A very long time ago we considered it, but realized that the majority of 
+> drivers already had the memory dynamically allocated, so we just went with 
+> this.  Perhaps we could revisit that if it turns out we were wrong, and would 
+> simplify things.
 
-WARNING: CPU: 3 PID: 2936 at net/kcm/kcmsock.c:627
-kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
-CPU: 3 PID: 2936 Comm: a.out Not tainted 4.10.0-rc6+ #209
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:15 [inline]
- dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
- panic+0x1fb/0x412 kernel/panic.c:179
- __warn+0x1c4/0x1e0 kernel/panic.c:539
- warn_slowpath_null+0x2c/0x40 kernel/panic.c:582
- kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
- kcm_sendmsg+0x163a/0x2200 net/kcm/kcmsock.c:1029
- sock_sendmsg_nosec net/socket.c:635 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:645
- sock_write_iter+0x326/0x600 net/socket.c:848
- new_sync_write fs/read_write.c:499 [inline]
- __vfs_write+0x483/0x740 fs/read_write.c:512
- vfs_write+0x187/0x530 fs/read_write.c:560
- SYSC_write fs/read_write.c:607 [inline]
- SyS_write+0xfb/0x230 fs/read_write.c:599
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x434c09
-RSP: 002b:00007fff40f2d7b8 EFLAGS: 00000217 ORIG_RAX: 0000000000000001
-RAX: ffffffffffffffda RBX: 0000000000401960 RCX: 0000000000434c09
-RDX: 0000000000000000 RSI: 00000000208aaf27 RDI: 0000000000000005
-RBP: 0000000000000000 R08: 0000000000000000 R09: 00007fff00000000
-R10: 0000000000000000 R11: 0000000000000217 R12: 00000000004002b0
-R13: 0000000000401960 R14: 00000000004019f0 R15: 0000000000000000
+A quick glance at usb_control_msg() users (looked only at .../net/usb and 
+.../usb/serial) shows that most of them have the buffer allocated in stack.  
+These transfers are relatively infrequent and quite small the performance hit 
+caused by memcpy() should also be negligible.
 
-// autogenerated by syzkaller (http://github.com/google/syzkaller)
-#define _GNU_SOURCE
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/syscall.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <linux/in.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+I suspect getting the buffer allocation in usb_control_msg() will help with two 
+things in the same time:
 
-#ifndef __NR_bpf
-#define __NR_bpf 321
-#endif
-#ifndef AF_KCM
-#define AF_KCM 0x29
-#endif
+ - allocate in DMA-able memory;
+ - code reduction;
 
-int main()
-{
-  syscall(__NR_mmap, 0x20000000ul, 0xfff000ul, 0x3ul, 0x32ul, -1, 0);
-  int sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_IP);
-  (*(uint32_t*)0x20b4ffd0 = (uint32_t)0x1);
-  (*(uint32_t*)0x20b4ffd4 = (uint32_t)0x2);
-  (*(uint64_t*)0x20b4ffd8 = (uint64_t)0x20b4f000);
-  (*(uint64_t*)0x20b4ffe0 = (uint64_t)0x2015a000);
-  (*(uint32_t*)0x20b4ffe8 = (uint32_t)0x9);
-  (*(uint32_t*)0x20b4ffec = (uint32_t)0x80);
-  (*(uint64_t*)0x20b4fff0 = (uint64_t)0x20b4f000);
-  (*(uint32_t*)0x20b4fff8 = (uint32_t)0x0);
-  (*(uint8_t*)0x20b4f000 = (uint8_t)0xffffffffffffffb7);
-  (*(uint8_t*)0x20b4f001 = (uint8_t)0x0);
-  (*(uint16_t*)0x20b4f002 = (uint16_t)0x0);
-  (*(uint32_t*)0x20b4f004 = (uint32_t)0x0);
-  (*(uint8_t*)0x20b4f008 = (uint8_t)0x9595);
-  (*(uint8_t*)0x20b4f009 = (uint8_t)0x0);
-  (*(uint16_t*)0x20b4f00a = (uint16_t)0x0);
-  (*(uint32_t*)0x20b4f00c = (uint32_t)0x0);
-  (memcpy((void*)0x2015a000, "\x00\x8b", 2));
-  int bpf = syscall(__NR_bpf, 0x5ul, 0x20b4ffd0ul, 0x30ul, 0, 0,
-                          0, 0, 0, 0);
-  int sock2 = syscall(__NR_socket, AF_KCM, 0x5ul, 0x0ul);
-  (*(uint32_t*)0x20b5c000 = sock);
-  (*(uint32_t*)0x20b5c004 = bpf);
-  syscall(__NR_ioctl, sock2, 0x89e0ul, 0x20b5c000ul);
-  syscall(__NR_write, sock2, 0x208aaf27ul, 0x0ul);
-  return 0;
-}
+On the bad side i've no idea who'll volunteer to go through all 
+usb_control_msg() sites and perform the fix.  Seems like the right job for an 
+intern to me. :D
 
 
-On commit a572a1b999489efb591287632279c6c9eca3e4ed
+cheers,
+Petko
