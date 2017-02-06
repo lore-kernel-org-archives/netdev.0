@@ -1,79 +1,51 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 6/8] net: ethernet: annapurna: add wol helpers to
- the Alpine driver
-Date: Mon, 6 Feb 2017 15:02:52 +0300
-Message-ID: <b83bc8ad-7f16-5757-b629-be296046ca1e@cogentembedded.com>
-References: <20170203181216.30214-1-antoine.tenart@free-electrons.com>
- <20170203181216.30214-7-antoine.tenart@free-electrons.com>
- <08b62752-8bb2-4633-c44f-74eb585e7e52@cogentembedded.com>
- <063D6719AE5E284EB5DD2968C1650D6DB027C6C3@AcuExch.aculab.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: Pseudo-Interface is returning wrong mac address
+Date: Mon, 6 Feb 2017 13:18:42 +0100
+Message-ID: <20170206121842.GA7008@unicorn.suse.cz>
+References: <CAOfznLKvVVsy7NGiZ3qECZLXgnTmmKahrO3ZbdprvZK4p8s4iw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "tsahee@annapurnalabs.com" <tsahee@annapurnalabs.com>,
-        "rshitrit@annapurnalabs.com" <rshitrit@annapurnalabs.com>,
-        "saeed@annapurnalabs.com" <saeed@annapurnalabs.com>,
-        "barak@annapurnalabs.com" <barak@annapurnalabs.com>,
-        "talz@annapurnalabs.com" <talz@annapurnalabs.com>,
-        "thomas.petazzoni@free-electrons.com"
-        <thomas.petazzoni@free-electrons.com>,
-        "arnd@arndb.de" <arnd@arndb.de>
-To: David Laight <David.Laight@ACULAB.COM>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shaaa <shaolinfinest@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:36754 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751617AbdBFMC5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 07:02:57 -0500
-Received: by mail-lf0-f50.google.com with SMTP id z134so43338995lff.3
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 04:02:56 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027C6C3@AcuExch.aculab.com>
+Received: from mx2.suse.de ([195.135.220.15]:55903 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752087AbdBFMSo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 07:18:44 -0500
+Content-Disposition: inline
+In-Reply-To: <CAOfznLKvVVsy7NGiZ3qECZLXgnTmmKahrO3ZbdprvZK4p8s4iw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/06/2017 02:35 PM, David Laight wrote:
+On Fri, Feb 03, 2017 at 05:56:31AM +0000, Shaaa wrote:
+> 
+> I am trying to setup macvlans on a centos7 box. The plan is to have
+> 10.1.1.1/24 on the *main* interface, and then a 10.1.1.10/32 on a
+> macvlan interface. Output below:
+> 
+> 2: ens33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+> state UP qlen 1000
+>     link/ether 01:0d:26:9d:cd:16 brd ff:ff:ff:ff:ff:ff
+>     inet 10.1.1.1/24 brd 10.1.1.1.255 scope global ens33
+>        valid_lft forever preferred_lft forever
+> 8: peth1@ens33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc
+> noqueue state UNKNOWN qlen 1000
+>     link/ether 02:1a:11:ed:22:ac brd ff:ff:ff:ff:ff:ff
+>     inet 10.1.1.10/32 scope global peth1
+>        valid_lft forever preferred_lft forever
+> 
+> 
+> The problem is whenever I do arping 10.1.1.10 from another another
+> host on the network, the mac address of ens33 is returned as opposed
+> to peth0. I am not entirely sure whether this is intended behaviour or
+> whether it is a bug, but from what I have gathered, the mac of peth0
+> should be returned.
 
->>> Implement the get_wol() and set_wol() helpers in the Annapurna Labs
->>> Alpine Ethernet driver.
->>> ---
->>>  drivers/net/ethernet/annapurna/al_eth.c | 44 +++++++++++++++++++++++++++++++++
->>>  1 file changed, 44 insertions(+)
->>>
->>> diff --git a/drivers/net/ethernet/annapurna/al_eth.c b/drivers/net/ethernet/annapurna/al_eth.c
->>> index 8dd84f66b5d1..d06a75a49ce5 100644
->>> --- a/drivers/net/ethernet/annapurna/al_eth.c
->>> +++ b/drivers/net/ethernet/annapurna/al_eth.c
->>> @@ -2519,10 +2519,54 @@ static u32 al_eth_get_rxfh_indir_size(struct net_device *netdev)
->>>  	return AL_ETH_RX_RSS_TABLE_SIZE;
->>>  }
->>>
->>> +static void al_eth_get_wol(struct net_device *netdev,
->>> +			   struct ethtool_wolinfo *wol)
->>> +{
->>> +	struct al_eth_adapter *adapter = netdev_priv(netdev);
->>> +	struct phy_device *phydev;
->>> +
->>> +	wol->wolopts = adapter->wol;
->>> +
->>> +	if ((adapter) && (adapter->phy_exist) && (adapter->mdio_bus)) {
->>
->>     Now that's somewhat stupid looking... does the whole driver use this "style"?
->
-> Not only that, in one of the two functions it is followed by:
->
-> +	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+Yes, it's intentional and it's not specific to macvlan; you can observe
+similar effect whenever you connect two interfaces to the same segment.
+By default, linux kernel responds to an ARP query for any local address
+on any interface (sometimes called "ARP flux"). This behaviour can be
+changed via sysctl, see arp_ignore and arp_filter in
+Documentation/networking/ip-sysctl.txt
 
-> Which assumes that 'adapter' is not NULL.
-> Some verifiers will detect that as a possible NULL pointer dereference.
-
-    I only meant unneeded parens. :-)
-
-[...]
-
-> 	David
-
-MBR, Sergei
+Michal Kubecek
