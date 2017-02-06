@@ -1,49 +1,48 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH v2 3/5] samples/bpf: Ignore already processed ELF sections
-Date: Mon,  6 Feb 2017 21:40:25 +0100
-Message-ID: <20170206204027.29078-3-mic@digikod.net>
-References: <20170206204027.29078-1-mic@digikod.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: Fw: [Bug 193911] New: net_prio.ifpriomap is not aware of the
+ network namespace, and discloses all network interface
+Date: Mon, 6 Feb 2017 15:47:28 -0500
+Message-ID: <20170206204728.GA23737@htj.duckdns.org>
+References: <20170203155330.06edece4@xeon-e3>
+ <CAM_iQpVB_OvJy4Yz97MeOh9hNwm-mTG9aM1FWBpaaOmjroWvVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        xgao01@email.wm.edu, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-sh2.infomaniak.ch ([128.65.195.6]:54837 "EHLO
-        smtp-sh2.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750995AbdBFUlD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 15:41:03 -0500
-In-Reply-To: <20170206204027.29078-1-mic@digikod.net>
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:34538 "EHLO
+        mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751517AbdBFUra (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 15:47:30 -0500
+Received: by mail-yw0-f194.google.com with SMTP id v73so7943793ywg.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 12:47:30 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpVB_OvJy4Yz97MeOh9hNwm-mTG9aM1FWBpaaOmjroWvVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a missing check for the map fixup loop.
+Hello,
 
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
----
- samples/bpf/bpf_load.c | 2 ++
- 1 file changed, 2 insertions(+)
+On Sun, Feb 05, 2017 at 11:05:36PM -0800, Cong Wang wrote:
+> > To be more specific, the read operation of net_prio.ifpriomap is handled by the
+> > function read_priomap. Tracing from this function, we can find it invokes
+> > for_each_netdev_rcu and set the first parameter as the address of init_net. It
+> > iterates all network devices of the host regardless of the network namespace.
+> > Thus, from the view of a container, it can read the names of all network
+> > devices of the host.
+> 
+> I think that is probably because cgroup files don't provide a net pointer
+> for the context, if so we probably need some API similar to
+> class_create_file_ns().
 
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 396e204888b3..e04fe09d7c2e 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -328,6 +328,8 @@ int load_bpf_file(char *path)
- 
- 	/* load programs that need map fixup (relocations) */
- 	for (i = 1; i < ehdr.e_shnum; i++) {
-+		if (processed_sec[i])
-+			continue;
- 
- 		if (get_sec(elf, i, &ehdr, &shname, &shdr, &data))
- 			continue;
+Yeah, the whole thing never considered netns or delegation.  Maybe the
+read function itself should probably filter on the namespace of the
+reader?  I'm not completely sure whether trying to fix it won't cause
+some of existing use cases to break.  Eric, what do you think?
+
+Thanks.
+
 -- 
-2.11.0
+tejun
