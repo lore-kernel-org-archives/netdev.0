@@ -1,49 +1,60 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v1 3/7] samples/bpf: Reset global variables
-Date: Mon,  6 Feb 2017 00:14:24 +0100
-Message-ID: <20170205231428.23846-3-mic@digikod.net>
-References: <20170205231428.23846-1-mic@digikod.net>
+From: Jonathan Maxwell <jmaxwell37@gmail.com>
+Subject: Re: [PATCHv1] net-next: treewide use is_vlan_dev() helper function.
+Date: Mon, 6 Feb 2017 11:28:04 +1100
+Message-ID: <CAGHK07BJvQ9U6MUuObDWJDagJpNU9XfH5=MAE3M-m9CRDO=jpw@mail.gmail.com>
+References: <1486227649-12648-1-git-send-email-parav@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170205231428.23846-1-mic@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: arvid.brodin@alten.se, swise@opengridcomputing.com, jbenc@redhat.com,
+ sean.hefty@intel.com, sthemmin@microsoft.com, sagi@grimberg.me,
+ leon@kernel.org, Dept-GELinuxNICDev@cavium.com, dledford@redhat.com,
+ ganeshgr@chelsio.com, harish.patil@cavium.com, hal.rosenstock@gmail.com,
+ manish.chopra@cavium.com, santosh@chelsio.com, arnd@arndb.de,
+ haiyangz@microsoft.com, fcoe-devel@open-fcoe.org, bart.vanassche@sandisk.com,
+ jejb@linux.vnet.ibm.com, rahul.verma@cavium.com, linux-scsi@vger.kernel.org,
+ martin.petersen@oracle.com, netdev@vger.kernel.org,
+ devel@linuxdriverproject.org, varun@chelsio.com, linux-rdma@vger.kernel.org,
+ monis@mellanox.com, valex@mellanox.com, QLogic-Storage-Upstream@qlogic.com,
+ jth@kernel.org, David Miller <davem@davemloft.net>
+To: Parav Pandit <parav@mellanox.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1486227649-12648-1-git-send-email-parav@mellanox.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Before loading a new ELF, clean previous kernel version, license and
-processed sections.
+On Sun, Feb 5, 2017 at 4:00 AM, Parav Pandit <parav@mellanox.com> wrote:
+> This patch makes use of is_vlan_dev() function instead of flag
+> comparison which is exactly done by is_vlan_dev() helper function.
+>
+> Signed-off-by: Parav Pandit <parav@mellanox.com>
+> Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
+> ---
+>  drivers/infiniband/core/cma.c                        |  6 ++----
+>  drivers/infiniband/sw/rxe/rxe_net.c                  |  2 +-
+>  drivers/net/ethernet/broadcom/cnic.c                 |  2 +-
+>  drivers/net/ethernet/chelsio/cxgb3/l2t.c             |  2 +-
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c      |  4 ++--
+>  drivers/net/ethernet/chelsio/cxgb4/l2t.c             |  2 +-
+>  drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c |  8 ++++----
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c     |  4 ++--
+>  drivers/net/hyperv/netvsc_drv.c                      |  2 +-
+>  drivers/scsi/bnx2fc/bnx2fc_fcoe.c                    |  6 +++---
+>  drivers/scsi/cxgbi/libcxgbi.c                        |  6 +++---
+>  drivers/scsi/fcoe/fcoe.c                             | 13 ++++++-------
+>  include/rdma/ib_addr.h                               |  6 ++----
+>  net/hsr/hsr_slave.c                                  |  3 ++-
+>  14 files changed, 31 insertions(+), 35 deletions(-)
+>
 
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: David S. Miller <davem@davemloft.net>
----
- samples/bpf/bpf_load.c | 5 +++++
- 1 file changed, 5 insertions(+)
+Neatens the code up nicely.
 
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index e04fe09d7c2e..b86ee54da2d1 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -277,6 +277,11 @@ int load_bpf_file(char *path)
- 	Elf_Data *data, *data_prog, *symbols = NULL;
- 	char *shname, *shname_prog;
- 
-+	/* reset global variables */
-+	kern_version = 0;
-+	memset(license, 0, sizeof(license));
-+	memset(processed_sec, 0, sizeof(processed_sec));
-+
- 	if (elf_version(EV_CURRENT) == EV_NONE)
- 		return 1;
- 
--- 
-2.11.0
+Acked-by: Jon Maxwell <jmaxwell37@gmail.com>
