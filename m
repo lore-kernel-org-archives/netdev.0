@@ -1,44 +1,76 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH] net: ethernet: ti: cpsw: remove netif_trans_update
-Date: Tue,  7 Feb 2017 00:53:45 +0200
-Message-ID: <1486421625-24413-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
-        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:35361 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751418AbdBFWxw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 17:53:52 -0500
-Received: by mail-lf0-f45.google.com with SMTP id n124so53034047lfd.2
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 14:53:51 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: net/icmp: null-ptr-deref in ping_v4_push_pending_frames
+Date: Tue, 7 Feb 2017 00:00:41 +0100
+Message-ID: <20170206230041.GB28402@breakpoint.cc>
+References: <CAAeHK+w0hoTCrBcPiS84OJ8Lc7N4s+0YD2U6ey_+Gygzmc66=Q@mail.gmail.com>
+ <CAM_iQpXD-+PSsVTTiWENwt80iBZNvVeAZi0WeZxkhVg-3ueiZQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpXD-+PSsVTTiWENwt80iBZNvVeAZi0WeZxkhVg-3ueiZQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No need to update jiffies in txq->trans_start twice, it's supposed to be
-done in netdev_start_xmit() and anyway is re-written. Also, no reason to
-update trans time in case of an error.
+Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Mon, Feb 6, 2017 at 11:39 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> > Hi,
+> >
+> > I've got the following error report while running the syzkaller fuzzer.
+> >
+> > The null-ptr-deref is caused by sendto() on a socket(PF_INET,
+> > SOCK_DGRAM, PROT_ICMP).
+> > Note, that this requires the ability to create such sockets, which can
+> > be configured by net.ipv4.ping_group_range
+> > (https://lwn.net/Articles/422330/).
+> >
+> > A reproducer and .config are attached.
+> >
+> > On commit a572a1b999489efb591287632279c6c9eca3e4ed.
+> >
+> > general protection fault: 0000 [#1] SMP KASAN
+> > Dumping ftrace buffer:
+> >    (ftrace buffer empty)
+> > Modules linked in:
+> > CPU: 2 PID: 3880 Comm: syz-executor1 Not tainted 4.10.0-rc6+ #124
+[..]
+> 
+> This fixes it for me:
+> 
+> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+> index 86cca61..68d77b1 100644
+> --- a/net/ipv4/ping.c
+> +++ b/net/ipv4/ping.c
+> @@ -642,6 +642,8 @@ static int ping_v4_push_pending_frames(struct sock
+> *sk, struct pingfakehdr *pfh,
+>  {
+>         struct sk_buff *skb = skb_peek(&sk->sk_write_queue);
+> 
+> +       if (!skb)
+> +               return 0;
+>         pfh->wcheck = csum_partial((char *)&pfh->icmph,
+>                 sizeof(struct icmphdr), pfh->wcheck);
+>         pfh->icmph.checksum = csum_fold(pfh->wcheck);
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
-Based on net-next/master
+Sigh.  I wonder if we can remove ping sockets.
 
- drivers/net/ethernet/ti/cpsw.c | 2 --
- 1 file changed, 2 deletions(-)
+IIRC they were born out of a 'no suid' requirement in combination
+with 'suid is insecure' but, alas, placing it in kernel evidently
+doesn't make things any more secure either.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 35a95dc..4d1c0c3 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1601,8 +1601,6 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
- 	struct cpdma_chan *txch;
- 	int ret, q_idx;
- 
--	netif_trans_update(ndev);
--
- 	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
- 		cpsw_err(priv, tx_err, "packet pad failed\n");
- 		ndev->stats.tx_dropped++;
--- 
-2.7.4
+Those that don't want a suid ping binary could probably convince systemd
+developers to provide systemd-icmpd instead with ping dbus interface
+(ok, I'll shut up now ;)
