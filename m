@@ -1,50 +1,46 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next 2/2] Add a eBPF helper function to retrieve
- socket uid
-Date: Mon, 6 Feb 2017 12:25:33 +0900
-Message-ID: <CAKD1Yr3SyKQ23P8F++cpS129kw5tUssCpPJyh8R+JTujNw0Nqg@mail.gmail.com>
-References: <20170202205950.100334-1-chenbofeng.kernel@gmail.com>
- <20170202205950.100334-3-chenbofeng.kernel@gmail.com> <5893A587.6090000@iogearbox.net>
- <CAKD1Yr30K4Yi8U0bnTOq60rPW6aYY1Vb4xxmRgZdz319UmLmRw@mail.gmail.com>
- <1486081861.21871.39.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKD1Yr1tPP-7ic4nreqzKk6Gb+ZgyKo8yqw-KP=w7oqABkiZQA@mail.gmail.com> <1486086708.21871.48.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] Add a helper function to get socket
+ cookie in eBPF
+Date: Sun, 05 Feb 2017 19:30:24 -0800
+Message-ID: <1486351824.7793.29.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1486347448-15393-1-git-send-email-chenbofeng.kernel@gmail.com>
+         <1486347448-15393-2-git-send-email-chenbofeng.kernel@gmail.com>
+         <CAKD1Yr0Jdj=KZ+MOs8V1WVYg_j3BkWQ6Ncmu9u4YYYu_pxS77A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@fb.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
         Willem de Bruijn <willemb@google.com>,
         Chenbo Feng <fengc@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:33537 "EHLO
-        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753173AbdBFDZ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 22:25:56 -0500
-Received: by mail-vk0-f46.google.com with SMTP id k127so47937456vke.0
-        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 19:25:56 -0800 (PST)
-In-Reply-To: <1486086708.21871.48.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35098 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752051AbdBFDa1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 5 Feb 2017 22:30:27 -0500
+Received: by mail-it0-f65.google.com with SMTP id 203so7378487ith.2
+        for <netdev@vger.kernel.org>; Sun, 05 Feb 2017 19:30:26 -0800 (PST)
+In-Reply-To: <CAKD1Yr0Jdj=KZ+MOs8V1WVYg_j3BkWQ6Ncmu9u4YYYu_pxS77A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 3, 2017 at 10:51 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> if (sk) {
->     sk = sk_to_full_sk(sk);
->     if (sk_fullsock(sk))
->         return sk->sk_uid;
-> }
+On Mon, 2017-02-06 at 12:01 +0900, Lorenzo Colitti wrote:
+> On Mon, Feb 6, 2017 at 11:17 AM, Chenbo Feng
+> <chenbofeng.kernel@gmail.com> wrote:
+> > +BPF_CALL_1(bpf_get_socket_cookie, struct sk_buff *, skb)
+> > +{
+> > +       return skb->sk ? sock_gen_cookie(skb->sk) : 0;
+> > +}
+> > +
+> 
+> Does this code need to increment the socket refcount, or call
+> ACCESS_ONCE to get skb->sk? The socket filter codepath should be safe,
+> but if this function is called in xt_ebpf, could it race with
+> something that sets skb->sk to null?
 
-Sure, though sk_to_full_sk is in inet_sock.h so I have to move some
-core around. Options I see:
+I do not see how this could possibly happen.
 
-1. Move sk_to_full_sk from inet_sock.h to sock.h.
-2. Move sock_net_uid to inet_sock.h.
-3. Move sock_net_uid to sock.c and EXPORT_SYMBOL_GPL it.
-
-Thoughts? #1 seems reasonable, since sk_fullsock is already in sock.h.
-#2 would mean that we can't call sock_net_uid from non-inet code.
-Currently the only code that accesses sk->sk_uid is inet code, but in
-the future perhaps some of the code around the tree that calls
-sock_i_uid could be migrated to use at sk->sk_uid instead.
+READ_ONCE() would not prevent the 'old' sk from disappearing anyway.
