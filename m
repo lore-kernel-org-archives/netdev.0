@@ -1,59 +1,56 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2017-02-06
-Date: Mon,  6 Feb 2017 09:36:36 +0100
-Message-ID: <20170206083637.31792-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH iproute2/net-next 7/7] tc: flower: Support matching on ND
+Date: Mon, 6 Feb 2017 09:44:00 +0100
+Message-ID: <20170206084359.GA20384@penelope.horms.nl>
+References: <1486031920-10784-1-git-send-email-simon.horman@netronome.com>
+ <1486031920-10784-8-git-send-email-simon.horman@netronome.com>
+ <20170202172748.GE1845@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:38544 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750942AbdBFIoE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 03:44:04 -0500
+Received: by mail-wm0-f49.google.com with SMTP id r141so103937887wmg.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 00:44:03 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170202172748.GE1845@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Thu, Feb 02, 2017 at 06:27:48PM +0100, Jiri Pirko wrote:
+> Thu, Feb 02, 2017 at 11:38:40AM CET, simon.horman@netronome.com wrote:
+> >Allow matching on Neighbour Discovery target IP, and source and
+> >destination link-layer addresses for neighbour solicitation and
+> >advertisement messages.
+> >
+> >Sample usage:
+> >
+> >tc qdisc add dev eth0 ingress
+> >
+> >tc filter add dev eth0 protocol ipv6 parent ffff: flower \
+> >	indev eth0 ip_proto icmpv6 type 136 code 0 \
+> >	nd_target 2001:470:7eb3:403:201:8eff:fe22:8fea \
+> >	nd_tll 00:01:8e:22:8f:ea action drop
+> >
+> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> 
+> 
+> Why you are adding this to iproute2? You only poster RFC for kernel.
+> 
+> Please push to kernel first, let it merge, then send iproute2 support.
 
-I know it's super late, but I was travelling last week and the
-whole FILS AEAD thing only played out over the weekend anyway.
-Since the FILS code is all new in this cycle, it'd be good to
-have the fixes, and the others are a bit older but still would
-be good to fix sooner rather than later, I think.
+Hi Jiri,
 
-Please pull and let me know if there's any problem.
+I think there is a value in making the user-space code available in
+parallel with the kernel changes to allow testing and so by any interested
+parties.
 
-Thanks,
-johannes
-
-
-
-The following changes since commit 7892032cfe67f4bde6fc2ee967e45a8fbaf33756:
-
-  ip6_gre: fix ip6gre_err() invalid reads (2017-02-05 17:23:04 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-02-06
-
-for you to fetch changes up to fd551bac4795854adaa87bad7e5136083719802b:
-
-  nl80211: Fix mesh HT operation check (2017-02-06 07:59:07 +0100)
-
-----------------------------------------------------------------
-A few simple fixes:
- * fix FILS AEAD cipher usage to use the correct AAD vectors
-   and to use synchronous algorithms
- * fix using mesh HT operation data from userspace
- * fix adding mesh vendor elements to beacons & plink frames
-
-----------------------------------------------------------------
-Jouni Malinen (2):
-      mac80211: Fix FILS AEAD protection in Association Request frame
-      mac80211: Allocate a sync skcipher explicitly for FILS AEAD
-
-Masashi Honma (1):
-      nl80211: Fix mesh HT operation check
-
-Thorsten Horstmann (1):
-      mac80211: Fix adding of mesh vendor IEs
-
- net/mac80211/fils_aead.c | 6 +++---
- net/mac80211/mesh.c      | 2 +-
- net/wireless/nl80211.c   | 1 +
- 3 files changed, 5 insertions(+), 4 deletions(-)
+If this is not acceptable I'm happy to stop doing so. But in my ideal world
+I'd be very happy to see other TC kernel updates accompanied by
+implementations their user-space tool counterparts.
