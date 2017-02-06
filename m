@@ -1,45 +1,40 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Subject: Re: [PATCH v2 0/2] mac80211: use crypto shash for AES cmac
-Date: Mon, 6 Feb 2017 10:08:12 +0000
-Message-ID: <CAKv+Gu9rrk7VosUg24nMqU=gyC_0D7UA=39UsoCgJ1fmh0yTdQ@mail.gmail.com>
-References: <1486308208-3252-1-git-send-email-ard.biesheuvel@linaro.org> <20170206100100.GA5905@jouni.qca.qualcomm.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 24/27] netfilter: guarantee 8 byte minalign for template
+ addresses
+Date: Mon, 6 Feb 2017 10:08:17 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB027C5AF@AcuExch.aculab.com>
+References: <1486124738-3013-1-git-send-email-pablo@netfilter.org>
+ <1486124738-3013-25-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: "Malinen, Jouni" <jouni@qca.qualcomm.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Pablo Neira Ayuso' <pablo@netfilter.org>,
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:34806 "EHLO
-        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751247AbdBFKIN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 05:08:13 -0500
-Received: by mail-io0-f178.google.com with SMTP id l66so61948433ioi.1
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 02:08:13 -0800 (PST)
-In-Reply-To: <20170206100100.GA5905@jouni.qca.qualcomm.com>
+Received: from smtp-out6.electric.net ([192.162.217.193]:54248 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751456AbdBFKI2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 05:08:28 -0500
+In-Reply-To: <1486124738-3013-25-git-send-email-pablo@netfilter.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6 February 2017 at 10:01, Malinen, Jouni <jouni@qca.qualcomm.com> wrote:
-> On Sun, Feb 05, 2017 at 03:23:26PM +0000, Ard Biesheuvel wrote:
->> NOTE: Jouni has been so kind to test patch #2, and confirmed that it is working.
->>       I have not tested patch #1 myself, mainly because the test methodology
->>       requires downloading Ubuntu installer images, and I am currently on a
->>       metered 3G connection (and will be for another couple of weeks)
->
-> These v2 patches pass the test cases as well.
->
+From: Pablo Neira Ayuso
+> Sent: 03 February 2017 12:26
+> The next change will merge skb->nfct pointer and skb->nfctinfo
+> status bits into single skb->_nfct (unsigned long) area.
+> 
+> For this to work nf_conn addresses must always be aligned at least on
+> an 8 byte boundary since we will need the lower 3bits to store nfctinfo.
 
-Thanks!
+Don't do it then.
+You are using a bit somewhere else to allow you to use a 'hack'
+that stores 3 status bits into the bottom of an address where there
+are only 2 'available' bits.
+That sounds like it just adds code everywhere.
+I suspect you'll regret doing it later on as well.
 
-> (And you don't really need Ubuntu to run the hwsim test cases; any
-> reasonably recent distribution that is capable of running kvm should
-> work.)
->
-
-Well, now that you have done my testing for me, I am not sure I will
-get around to trying the VM.
-
-Thanks,
-Ard.
+	David
