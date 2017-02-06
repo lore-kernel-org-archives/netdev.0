@@ -1,63 +1,113 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHv2 net-next 05/16] net: mvpp2: introduce PPv2.2 HW
- descriptors and adapt accessors
-Date: Mon, 6 Feb 2017 12:43:17 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB027C728@AcuExch.aculab.com>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <1482943592-12556-6-git-send-email-thomas.petazzoni@free-electrons.com>
-        <20170106142901.GC14217@n2100.armlinux.org.uk>
-        <113811b6-79a4-9c66-d302-add9fb0c5b1a@arm.com>
-        <20170203142446.2ee517a7@free-electrons.com>
-        <231514f4-2e35-8bde-4469-aada833635aa@arm.com>
-        <20170203155449.GC27312@n2100.armlinux.org.uk>
- <20170204145938.6e6380d9@free-electrons.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net/kcm: WARNING in kcm_write_msgs
+Date: Mon, 6 Feb 2017 13:43:31 +0100
+Message-ID: <CACT4Y+Y0m=-QP0taQqq3P2rwERrMEv-ntwk30eEbk+dDL0bPJg@mail.gmail.com>
+References: <CACT4Y+YSSKXzmJQ2J6nMCjD_32rgoqgLYkUjVGz8YswK1Uquvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Robin Murphy <robin.murphy@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Pawel Moll <pawel.moll@arm.com>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Hanna Hawa <hannah@marvell.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Rob Herring <robh+dt@kernel.org>, Andrew Lunn <andrew@lunn.ch>,
-        Kumar Gala <galak@codeaurora.org>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Stefan Chulski <stefanc@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-To: 'Thomas Petazzoni' <thomas.petazzoni@free-electrons.com>,
-        "Russell King - ARM Linux" <linux@armlinux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.188]:65212 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750997AbdBFMnd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 07:43:33 -0500
-In-Reply-To: <20170204145938.6e6380d9@free-electrons.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: David Miller <davem@davemloft.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+YSSKXzmJQ2J6nMCjD_32rgoqgLYkUjVGz8YswK1Uquvw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Petazzoni
-> Sent: 04 February 2017 14:00
-...
-> This makes complete sense. We use the cookie to store the phys_addr_t
-> rather than the virtual address. I might be missing something, but it
-> seems like a very good solution. Thanks for the suggestion, I'll try
-> this!
+[resending as plain text]
 
-Why not just store an array index for the buffer info?
-That would save you having to regenerate kernel virtual
-addresses from limited info.
+Hello,
 
-Or realise that the low bits (page offset) of the dma address
-and kernel virtual address (and kernel physical for that matter)
-will always match. 50 bits might be enough for a kernel virtual address.
+The following program triggers WARNING in kcm_write_msgs:
 
-	David
+WARNING: CPU: 3 PID: 2936 at net/kcm/kcmsock.c:627
+kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
+CPU: 3 PID: 2936 Comm: a.out Not tainted 4.10.0-rc6+ #209
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:15 [inline]
+ dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+ panic+0x1fb/0x412 kernel/panic.c:179
+ __warn+0x1c4/0x1e0 kernel/panic.c:539
+ warn_slowpath_null+0x2c/0x40 kernel/panic.c:582
+ kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
+ kcm_sendmsg+0x163a/0x2200 net/kcm/kcmsock.c:1029
+ sock_sendmsg_nosec net/socket.c:635 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:645
+ sock_write_iter+0x326/0x600 net/socket.c:848
+ new_sync_write fs/read_write.c:499 [inline]
+ __vfs_write+0x483/0x740 fs/read_write.c:512
+ vfs_write+0x187/0x530 fs/read_write.c:560
+ SYSC_write fs/read_write.c:607 [inline]
+ SyS_write+0xfb/0x230 fs/read_write.c:599
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x434c09
+RSP: 002b:00007fff40f2d7b8 EFLAGS: 00000217 ORIG_RAX: 0000000000000001
+RAX: ffffffffffffffda RBX: 0000000000401960 RCX: 0000000000434c09
+RDX: 0000000000000000 RSI: 00000000208aaf27 RDI: 0000000000000005
+RBP: 0000000000000000 R08: 0000000000000000 R09: 00007fff00000000
+R10: 0000000000000000 R11: 0000000000000217 R12: 00000000004002b0
+R13: 0000000000401960 R14: 00000000004019f0 R15: 0000000000000000
+
+// autogenerated by syzkaller (http://github.com/google/syzkaller)
+#define _GNU_SOURCE
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <linux/in.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#ifndef __NR_bpf
+#define __NR_bpf 321
+#endif
+#ifndef AF_KCM
+#define AF_KCM 0x29
+#endif
+
+int main()
+{
+  syscall(__NR_mmap, 0x20000000ul, 0xfff000ul, 0x3ul, 0x32ul, -1, 0);
+  int sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_IP);
+  (*(uint32_t*)0x20b4ffd0 = (uint32_t)0x1);
+  (*(uint32_t*)0x20b4ffd4 = (uint32_t)0x2);
+  (*(uint64_t*)0x20b4ffd8 = (uint64_t)0x20b4f000);
+  (*(uint64_t*)0x20b4ffe0 = (uint64_t)0x2015a000);
+  (*(uint32_t*)0x20b4ffe8 = (uint32_t)0x9);
+  (*(uint32_t*)0x20b4ffec = (uint32_t)0x80);
+  (*(uint64_t*)0x20b4fff0 = (uint64_t)0x20b4f000);
+  (*(uint32_t*)0x20b4fff8 = (uint32_t)0x0);
+  (*(uint8_t*)0x20b4f000 = (uint8_t)0xffffffffffffffb7);
+  (*(uint8_t*)0x20b4f001 = (uint8_t)0x0);
+  (*(uint16_t*)0x20b4f002 = (uint16_t)0x0);
+  (*(uint32_t*)0x20b4f004 = (uint32_t)0x0);
+  (*(uint8_t*)0x20b4f008 = (uint8_t)0x9595);
+  (*(uint8_t*)0x20b4f009 = (uint8_t)0x0);
+  (*(uint16_t*)0x20b4f00a = (uint16_t)0x0);
+  (*(uint32_t*)0x20b4f00c = (uint32_t)0x0);
+  (memcpy((void*)0x2015a000, "\x00\x8b", 2));
+  int bpf = syscall(__NR_bpf, 0x5ul, 0x20b4ffd0ul, 0x30ul, 0, 0,
+                          0, 0, 0, 0);
+  int sock2 = syscall(__NR_socket, AF_KCM, 0x5ul, 0x0ul);
+  (*(uint32_t*)0x20b5c000 = sock);
+  (*(uint32_t*)0x20b5c004 = bpf);
+  syscall(__NR_ioctl, sock2, 0x89e0ul, 0x20b5c000ul);
+  syscall(__NR_write, sock2, 0x208aaf27ul, 0x0ul);
+  return 0;
+}
+
+
+On commit a572a1b999489efb591287632279c6c9eca3e4ed
