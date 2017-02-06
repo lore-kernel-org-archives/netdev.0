@@ -1,54 +1,118 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: "TCP: eth0: Driver has suspect GRO implementation, TCP
- performance may be compromised." message with "ethtool -K eth0 gro off"
-Date: Mon, 6 Feb 2017 19:12:26 -0200
-Message-ID: <20170206211226.GC3413@localhost.localdomain>
-References: <1486038733.13103.21.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170202123427.GA7212@x4>
- <1486042270.13103.26.camel@edumazet-glaptop3.roam.corp.google.com>
- <1486043964.13103.33.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170203115457.GA5296@localhost.localdomain>
- <1486128246.21871.83.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170203135355.GA3413@localhost.localdomain>
- <1486131366.21871.87.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170203142828.GB3413@localhost.localdomain>
- <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Markus Trippelsdorf <markus@trippelsdorf.de>,
-        netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCHv4 net-next 4/7] tcp: replace dst_confirm with sk_dst_confirm
+Date: Mon,  6 Feb 2017 23:14:14 +0200
+Message-ID: <1486415657-14714-5-git-send-email-ja@ssi.bg>
+References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
+Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        linux-rdma@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51250 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752650AbdBFVM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 16:12:28 -0500
-Content-Disposition: inline
-In-Reply-To: <1486133253.21871.89.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from ja.ssi.bg ([178.16.129.10]:47236 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752567AbdBFVQb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 6 Feb 2017 16:16:31 -0500
+In-Reply-To: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 03, 2017 at 06:47:33AM -0800, Eric Dumazet wrote:
-> On Fri, 2017-02-03 at 12:28 -0200, Marcelo Ricardo Leitner wrote:
-> 
-> > Aren't you mixing the endpoints here? MSS is the largest amount of data
-> > that the peer can receive in a single segment, and not how much it will
-> > send. For the sending part, that depends on what the other peer
-> > announced, and we can have 2 different MSS in a single connection, one
-> > for each peer.
-> > 
-> > If a peer later wants to send larger segments, it can, but it must
-> > respect the mss advertised by the other peer during handshake.
-> > 
-> 
-> I am not mixing endpoints, you are.
-> 
-> If you need to be convinced, please grab :
-> https://patchwork.ozlabs.org/patch/723028/
-> 
-> And just watch "ss -temoi ..." 
+When same struct dst_entry can be used for many different
+neighbours we can not use it for pending confirmations.
+Use the new sk_dst_confirm() helper to propagate the
+indication from received packets to sock_confirm_neigh().
 
-I still don't get it, but I also hit the warning on my laptop, using
-iwlwifi. Not sure what I did in order to trigger it, it was by accident.
+Reported-by: YueHaibing <yuehaibing@huawei.com>
+Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
+Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
+Tested-by: YueHaibing <yuehaibing@huawei.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c   | 12 +++---------
+ net/ipv4/tcp_metrics.c |  7 ++-----
+ net/ipv4/tcp_output.c  |  2 ++
+ 3 files changed, 7 insertions(+), 14 deletions(-)
 
-  Marcelo
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 27c95ac..2c0ff32 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3644,11 +3644,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	if (tp->tlp_high_seq)
+ 		tcp_process_tlp_ack(sk, ack, flag);
+ 
+-	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP)) {
+-		struct dst_entry *dst = __sk_dst_get(sk);
+-		if (dst)
+-			dst_confirm(dst);
+-	}
++	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
++		sk_dst_confirm(sk);
+ 
+ 	if (icsk->icsk_pending == ICSK_TIME_RETRANS)
+ 		tcp_schedule_loss_probe(sk);
+@@ -5995,7 +5992,6 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+ 		break;
+ 
+ 	case TCP_FIN_WAIT1: {
+-		struct dst_entry *dst;
+ 		int tmo;
+ 
+ 		/* If we enter the TCP_FIN_WAIT1 state and we are a
+@@ -6022,9 +6018,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
+ 		tcp_set_state(sk, TCP_FIN_WAIT2);
+ 		sk->sk_shutdown |= SEND_SHUTDOWN;
+ 
+-		dst = __sk_dst_get(sk);
+-		if (dst)
+-			dst_confirm(dst);
++		sk_dst_confirm(sk);
+ 
+ 		if (!sock_flag(sk, SOCK_DEAD)) {
+ 			/* Wake up lingering close() */
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index b9ed0d5..0f46e5f 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -375,12 +375,10 @@ void tcp_update_metrics(struct sock *sk)
+ 	u32 val;
+ 	int m;
+ 
++	sk_dst_confirm(sk);
+ 	if (sysctl_tcp_nometrics_save || !dst)
+ 		return;
+ 
+-	if (dst->flags & DST_HOST)
+-		dst_confirm(dst);
+-
+ 	rcu_read_lock();
+ 	if (icsk->icsk_backoff || !tp->srtt_us) {
+ 		/* This session failed to estimate rtt. Why?
+@@ -493,11 +491,10 @@ void tcp_init_metrics(struct sock *sk)
+ 	struct tcp_metrics_block *tm;
+ 	u32 val, crtt = 0; /* cached RTT scaled by 8 */
+ 
++	sk_dst_confirm(sk);
+ 	if (!dst)
+ 		goto reset;
+ 
+-	dst_confirm(dst);
+-
+ 	rcu_read_lock();
+ 	tm = tcp_get_metrics(sk, dst, true);
+ 	if (!tm) {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index ccf1ef4..61f272a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -980,6 +980,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	skb_set_hash_from_sk(skb, sk);
+ 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+ 
++	skb_set_dst_pending_confirm(skb, sk->sk_dst_pending_confirm);
++
+ 	/* Build TCP header and checksum it. */
+ 	th = (struct tcphdr *)skb->data;
+ 	th->source		= inet->inet_sport;
+-- 
+1.9.3
