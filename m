@@ -1,45 +1,73 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH net 1/4] pegasus: Use heap buffers for all register
- access
-Date: Mon, 6 Feb 2017 13:30:11 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB027C7C7@AcuExch.aculab.com>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165603.GV3442@decadent.org.uk> <20170205003038.GB21184@kroah.com>
- <20170206081444.smcgjkmdepxoosb6@p310> <20170206082822.GA23451@kroah.com>
- <20170206125108.d5vdur5rlvrkpr5j@localhost>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Mon, 6 Feb 2017 14:44:20 +0100
+Message-ID: <20170206134420.7pwau56aiu3k54sy@nataraja>
+References: <20170203091231.10142-1-jonas@southpole.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        =?Windows-1252?Q?Lisandro_Dami=E1n_Nicanor_P=E9rez_Meyer?=
-        <lisandro-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
-To: 'Petko Manolov' <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170206125108.d5vdur5rlvrkpr5j@localhost>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, netdev@vger.kernel.org
+To: Jonas Bonn <jonas@southpole.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:58506 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752107AbdBFOEU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 09:04:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20170203091231.10142-1-jonas@southpole.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Petko Manolov
-> Sent: 06 February 2017 12:51
-...
-> I suspect getting the buffer allocation in usb_control_msg() will help with two
-> things in the same time:
-> 
->  - allocate in DMA-able memory;
->  - code reduction;
+Dear Jonas,
 
-Is there code around there to do 'bounce buffer' allocation
-for systems where not all dma memory is actually accessible
-by all devices??
+On Fri, Feb 03, 2017 at 10:12:31AM +0100, Jonas Bonn wrote:
+> The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
+> contexts based on the incoming packets _destination_ address.  If we
+> want to write an SGSN, then we want to be idenityfing PDP contexts
+> based on _source_ address.
 
-In which case it could (probably) be used for non-dma memory?
+A SGSN should never see the "native" User-IP payload.  It either has a
+Gb interface towards the BSS which has a BSSGP/NS/UDP/IP protocol
+stacking (for GERAN) or an IuUP or GTP stacking (for UTRAN).
 
-	David
+The user-ip tunnel (PDP context) exists between the mobile station and
+the GGSN.  Any intermediate nodes (BTS, BSC, NodeB, RNC, SGSN, ...) do
+not appear as intermediate IP Layer nodes in that User IP tunnel, but
+only serve to transparently pass the user-ip inside that tunnel between
+the two tunnel end-points.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+As such, I am very surprised by your patch.  Exposing the User IP to the
+Linux network stack in the SGSN seems to be a severe layering violation
+and contradict everything I know about 3GPP network architecture.  But
+maybe I'm missing something here? Please explain.
+
+The only SGSN-level user plane acceleration that I can think of is
+quite different:
+
+For an UMTS SGSN that only supports IuPS, and only supports IuPS over
+IP (which is a sub-class of a sub-class of all use cases), what would
+make sense is some Kernel-level support to map from one GTP
+socket/tunnel to another GTP socket/tunnel based on the TEIDs.  So
+basically you have a GTP tunnel on the RAN side and another GTP tunnel
+on the CN side, without any decapsultaion.
+
+The TEIDs on both sides *could* be identical, or *cold* be separate, as
+a matter of implementation policy.  
+
+The IP addresses /port numbers on both sides will in almost all
+non-laboratory use cases be separate, as an operator typically doesn't
+want a transparent/routed IP network between the RAN and Core Network (CN).
+
+So the GTP tunnels between RNC/hNodeB/heNodeB on the RAN side get mapped
+1:1 to GTP tunnels between SGSN and GGSN on the CN side.  However, as no
+encapsulation/decapsulation is performed, this is outside of the scope
+of the current kernel GTP tunneling module.  Rather, it's more something
+similar to static NAT between two pairs of addresses.
+
+Regards,
+	Harald
+
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
