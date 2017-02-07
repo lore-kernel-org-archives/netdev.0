@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 3/5] net: Prepare gro for packet consuming gro callbacks
-Date: Tue, 7 Feb 2017 10:14:09 +0100
-Message-ID: <1486458851-4920-4-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 1/5] xfrm: Add a secpath_set helper.
+Date: Tue, 7 Feb 2017 10:14:07 +0100
+Message-ID: <1486458851-4920-2-git-send-email-steffen.klassert@secunet.com>
 References: <1486458851-4920-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,101 +12,115 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:44776 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:44766 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753245AbdBGJOX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753236AbdBGJOX (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 7 Feb 2017 04:14:23 -0500
 In-Reply-To: <1486458851-4920-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The upcomming IPsec ESP gro callbacks will consume the skb,
-so prepare for that.
+Add a new helper to set the secpath to the skb.
+This avoids code duplication, as this is used
+in multiple places.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/linux/netdevice.h | 9 +++++++++
- net/core/dev.c            | 7 +++++++
- net/xfrm/Kconfig          | 4 ++++
- 3 files changed, 20 insertions(+)
+ include/net/xfrm.h     |  1 +
+ net/ipv6/xfrm6_input.c | 15 +++------------
+ net/xfrm/xfrm_input.c  | 35 +++++++++++++++++++++++------------
+ 3 files changed, 27 insertions(+), 24 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f9da3ac..9e5d1cd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -352,6 +352,7 @@ enum gro_result {
- 	GRO_HELD,
- 	GRO_NORMAL,
- 	GRO_DROP,
-+	GRO_CONSUMED,
- };
- typedef enum gro_result gro_result_t;
- 
-@@ -2661,10 +2662,18 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
- 	remcsum_unadjust((__sum16 *)ptr, grc->delta);
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index d9a81dc..25082e2 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1009,6 +1009,7 @@ static inline int secpath_exists(struct sk_buff *skb)
  }
  
-+#ifdef CONFIG_XFRM_OFFLOAD
-+static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
+ struct sec_path *secpath_dup(struct sec_path *src);
++int secpath_set(struct sk_buff *skb);
+ 
+ static inline void
+ secpath_reset(struct sk_buff *skb)
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index b578956..662fb2c 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -69,18 +69,9 @@ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
+ 	struct xfrm_state *x = NULL;
+ 	int i = 0;
+ 
+-	/* Allocate new secpath or COW existing one. */
+-	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+-		struct sec_path *sp;
+-
+-		sp = secpath_dup(skb->sp);
+-		if (!sp) {
+-			XFRM_INC_STATS(net, LINUX_MIB_XFRMINERROR);
+-			goto drop;
+-		}
+-		if (skb->sp)
+-			secpath_put(skb->sp);
+-		skb->sp = sp;
++	if (secpath_set(skb)) {
++		XFRM_INC_STATS(net, LINUX_MIB_XFRMINERROR);
++		goto drop;
+ 	}
+ 
+ 	if (1 + skb->sp->len == XFRM_MAX_DEPTH) {
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 3213fe8..58f5e44 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -126,6 +126,25 @@ struct sec_path *secpath_dup(struct sec_path *src)
+ }
+ EXPORT_SYMBOL(secpath_dup);
+ 
++int secpath_set(struct sk_buff *skb)
 +{
-+	if (PTR_ERR(pp) != -EINPROGRESS)
-+		NAPI_GRO_CB(skb)->flush |= flush;
-+}
-+#else
- static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
- {
- 	NAPI_GRO_CB(skb)->flush |= flush;
- }
-+#endif
- 
- static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- 				  unsigned short type,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3e1a601..0f5e606 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4505,6 +4505,11 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (&ptype->list == head)
- 		goto normal;
- 
-+	if (PTR_ERR(pp) == -EINPROGRESS) {
-+		ret = GRO_CONSUMED;
-+		goto ok;
++	struct sec_path *sp;
++
++	/* Allocate new secpath or COW existing one. */
++	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
++
++		sp = secpath_dup(skb->sp);
++		if (!sp) {
++			return -ENOMEM;
++		}
++		if (skb->sp)
++			secpath_put(skb->sp);
++		skb->sp = sp;
 +	}
++	return 0;
++}
++EXPORT_SYMBOL(secpath_set);
 +
- 	same_flow = NAPI_GRO_CB(skb)->same_flow;
- 	ret = NAPI_GRO_CB(skb)->free ? GRO_MERGED_FREE : GRO_MERGED;
+ /* Fetch spi and seq from ipsec header */
  
-@@ -4609,6 +4614,7 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
- 
- 	case GRO_HELD:
- 	case GRO_MERGED:
-+	case GRO_CONSUMED:
+ int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
+@@ -221,18 +240,10 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
  		break;
  	}
  
-@@ -4680,6 +4686,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi,
- 		break;
- 
- 	case GRO_MERGED:
-+	case GRO_CONSUMED:
- 		break;
+-	/* Allocate new secpath or COW existing one. */
+-	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+-		struct sec_path *sp;
+-
+-		sp = secpath_dup(skb->sp);
+-		if (!sp) {
+-			XFRM_INC_STATS(net, LINUX_MIB_XFRMINERROR);
+-			goto drop;
+-		}
+-		if (skb->sp)
+-			secpath_put(skb->sp);
+-		skb->sp = sp;
++	err = secpath_set(skb);
++	if (err) {
++		XFRM_INC_STATS(net, LINUX_MIB_XFRMINERROR);
++		goto drop;
  	}
  
-diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
-index bda1a13..a484451 100644
---- a/net/xfrm/Kconfig
-+++ b/net/xfrm/Kconfig
-@@ -5,6 +5,10 @@ config XFRM
-        bool
-        depends on NET
- 
-+config XFRM_OFFLOAD
-+       bool
-+       depends on XFRM
-+
- config XFRM_ALGO
- 	tristate
- 	select XFRM
+ 	seq = 0;
 -- 
 1.9.1
