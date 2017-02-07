@@ -1,36 +1,65 @@
-From: "Hefty, Sean" <sean.hefty@intel.com>
-Subject: RE: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
-Date: Tue, 7 Feb 2017 21:44:26 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373AB0E5B6C@ORSMSX109.amr.corp.intel.com>
-References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1486502926.2581.4.camel@sandisk.com>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v3 00/11] Improve BPF selftests and use the library (net-next tree)
+Date: Tue,  7 Feb 2017 22:44:49 +0100
+Message-ID: <20170207214500.27496-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
-        "Weiny, Ira" <ira.weiny@intel.com>
-To: Bart Van Assche <Bart.VanAssche@sandisk.com>,
-        "dledford@redhat.com" <dledford@redhat.com>,
-        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:41679 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932321AbdBGVon (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 16:44:43 -0500
-In-Reply-To: <1486502926.2581.4.camel@sandisk.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This may have been stated before, but what is missing from this
-> description
-> is an explanation of why accepting an Ethernet over RDMA driver in the
-> upstream kernel is considered useful. We already have an IPoIB driver,
-> so
-> why to add another driver to the kernel tree for communicating IP
-> packets
-> over an RDMA network?
+This series brings some fixes to selftests, add the ability to test
+unprivileged BPF programs as root and replace bpf_sys.h with calls to the BPF
+library.
 
-This is Ethernet - not IP - encapsulation over a non-InfiniBand device/protocol.
+This is intended for the net-next tree and apply on 76e0e70e6452 ("liquidio: do
+not dereference pointer if it's NULL").
+
+Changes since v2:
+* use the patches from two previous series (unprivileged tests and bpf_sys.h
+  replacement)
+* include one more stdint.h
+* rebase on net-next
+* add this cover letter
+
+Changes since v1:
+* exclude patches not intended for the net-next tree
+
+Regards,
+
+Mickaël Salaün (11):
+  tools: Sync {,tools/}include/uapi/linux/bpf.h
+  bpf: Change the include directory for selftest
+  bpf: Always test unprivileged programs
+  bpf: Use bpf_load_program() from the library
+  bpf: Use bpf_map_update_elem() from the library
+  bpf: Use bpf_map_lookup_elem() from the library
+  bpf: Use bpf_map_delete_elem() from the library
+  bpf: Use bpf_map_get_next_key() from the library
+  bpf: Use bpf_create_map() from the library
+  bpf: Remove bpf_sys.h from selftests
+  bpf: Add test_tag to .gitignore
+
+ tools/include/uapi/linux/bpf.h              |  23 +++-
+ tools/lib/bpf/bpf.c                         |  35 +++---
+ tools/lib/bpf/bpf.h                         |  12 +--
+ tools/testing/selftests/bpf/.gitignore      |   1 +
+ tools/testing/selftests/bpf/Makefile        |   4 +-
+ tools/testing/selftests/bpf/bpf_sys.h       | 108 -------------------
+ tools/testing/selftests/bpf/test_lpm_map.c  |  38 +++----
+ tools/testing/selftests/bpf/test_lru_map.c  | 106 +++++++++----------
+ tools/testing/selftests/bpf/test_maps.c     | 158 ++++++++++++++--------------
+ tools/testing/selftests/bpf/test_tag.c      |  11 +-
+ tools/testing/selftests/bpf/test_verifier.c |  84 ++++++++++++---
+ 11 files changed, 279 insertions(+), 301 deletions(-)
+ delete mode 100644 tools/testing/selftests/bpf/bpf_sys.h
+
+-- 
+2.11.0
