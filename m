@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 2/5] net: Add a skb_gro_flush_final helper.
-Date: Tue, 7 Feb 2017 10:14:08 +0100
-Message-ID: <1486458851-4920-3-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 3/5] net: Prepare gro for packet consuming gro callbacks
+Date: Tue, 7 Feb 2017 10:14:09 +0100
+Message-ID: <1486458851-4920-4-git-send-email-steffen.klassert@secunet.com>
 References: <1486458851-4920-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,84 +12,101 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:44798 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:44776 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753268AbdBGJOX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753245AbdBGJOX (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 7 Feb 2017 04:14:23 -0500
 In-Reply-To: <1486458851-4920-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a skb_gro_flush_final helper to prepare for  consuming
-skbs in call_gro_receive. We will extend this helper to not
-touch the skb if the skb is consumed by a gro callback with
-a followup patch. We need this to handle the upcomming IPsec
-ESP callbacks as they reinject the skb to the napi_gro_receive
-asynchronous. The handler is used in all gro_receive functions
-that can call the ESP gro handlers.
+The upcomming IPsec ESP gro callbacks will consume the skb,
+so prepare for that.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/linux/netdevice.h | 5 +++++
- net/ethernet/eth.c        | 2 +-
- net/ipv4/af_inet.c        | 2 +-
- net/ipv6/ip6_offload.c    | 2 +-
- 4 files changed, 8 insertions(+), 3 deletions(-)
+ include/linux/netdevice.h | 9 +++++++++
+ net/core/dev.c            | 7 +++++++
+ net/xfrm/Kconfig          | 4 ++++
+ 3 files changed, 20 insertions(+)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 58afbd1..f9da3ac 100644
+index f9da3ac..9e5d1cd 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -2661,6 +2661,11 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
+@@ -352,6 +352,7 @@ enum gro_result {
+ 	GRO_HELD,
+ 	GRO_NORMAL,
+ 	GRO_DROP,
++	GRO_CONSUMED,
+ };
+ typedef enum gro_result gro_result_t;
+ 
+@@ -2661,10 +2662,18 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
  	remcsum_unadjust((__sum16 *)ptr, grc->delta);
  }
  
++#ifdef CONFIG_XFRM_OFFLOAD
 +static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
 +{
-+	NAPI_GRO_CB(skb)->flush |= flush;
++	if (PTR_ERR(pp) != -EINPROGRESS)
++		NAPI_GRO_CB(skb)->flush |= flush;
 +}
-+
++#else
+ static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
+ {
+ 	NAPI_GRO_CB(skb)->flush |= flush;
+ }
++#endif
+ 
  static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
  				  unsigned short type,
- 				  const void *daddr, const void *saddr,
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index efdaaab..c666ff0 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -474,7 +474,7 @@ struct sk_buff **eth_gro_receive(struct sk_buff **head,
- out_unlock:
- 	rcu_read_unlock();
- out:
--	NAPI_GRO_CB(skb)->flush |= flush;
-+	skb_gro_flush_final(skb, pp, flush);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 3e1a601..0f5e606 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4505,6 +4505,11 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 	if (&ptype->list == head)
+ 		goto normal;
  
- 	return pp;
- }
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 685ba53..602d40f 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1423,7 +1423,7 @@ struct sk_buff **inet_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	rcu_read_unlock();
++	if (PTR_ERR(pp) == -EINPROGRESS) {
++		ret = GRO_CONSUMED;
++		goto ok;
++	}
++
+ 	same_flow = NAPI_GRO_CB(skb)->same_flow;
+ 	ret = NAPI_GRO_CB(skb)->free ? GRO_MERGED_FREE : GRO_MERGED;
  
- out:
--	NAPI_GRO_CB(skb)->flush |= flush;
-+	skb_gro_flush_final(skb, pp, flush);
+@@ -4609,6 +4614,7 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
  
- 	return pp;
- }
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index fc7b401..0838e6d 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -253,7 +253,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 	rcu_read_unlock();
+ 	case GRO_HELD:
+ 	case GRO_MERGED:
++	case GRO_CONSUMED:
+ 		break;
+ 	}
  
- out:
--	NAPI_GRO_CB(skb)->flush |= flush;
-+	skb_gro_flush_final(skb, pp, flush);
+@@ -4680,6 +4686,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi,
+ 		break;
  
- 	return pp;
- }
+ 	case GRO_MERGED:
++	case GRO_CONSUMED:
+ 		break;
+ 	}
+ 
+diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
+index bda1a13..a484451 100644
+--- a/net/xfrm/Kconfig
++++ b/net/xfrm/Kconfig
+@@ -5,6 +5,10 @@ config XFRM
+        bool
+        depends on NET
+ 
++config XFRM_OFFLOAD
++       bool
++       depends on XFRM
++
+ config XFRM_ALGO
+ 	tristate
+ 	select XFRM
 -- 
 1.9.1
