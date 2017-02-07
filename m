@@ -1,59 +1,47 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC net-next] packet: always ensure that we pass
- hard_header_len bytes in skb_headlen() to the driver
-Date: Tue, 7 Feb 2017 12:51:54 -0800
-Message-ID: <CAF=yD-LiptFZCM3akz8-uMA=UH1sTbsXtWQp1=xT52YaWrfqUA@mail.gmail.com>
-References: <20170127215848.GG25829@oracle.com> <CAF=yD-KqQdPVn-CFAu3ak+c3NRO9gfT+8UwXXS4eSv9ax0iAnA@mail.gmail.com>
- <20170130162603.GF3590@oracle.com> <20170130.114143.1357866047815335563.davem@davemloft.net>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH v3 0/5] Miscellaneous fixes for BPF (perf tree)
+Date: Tue,  7 Feb 2017 21:56:04 +0100
+Message-ID: <20170207205609.8035-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34394 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754874AbdBGUxS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 15:53:18 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c85so30540380wmi.1
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 12:52:36 -0800 (PST)
-In-Reply-To: <20170130.114143.1357866047815335563.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 30, 2017 at 8:41 AM, David Miller <davem@davemloft.net> wrote:
-> From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Date: Mon, 30 Jan 2017 11:26:03 -0500
->
->> On (01/27/17 19:19), Willem de Bruijn wrote:
->>> > other than ax25, are there variable length header protocols out there
->>> > without ->validate, and which need the CAP_RAW_SYSIO branch?
->>>
->>> I don't know. An exhaustive search of protocols (by header_ops) may be
->>> needed to say for sure.
->>>
->>> If there are none, then the solution indeed is quite simple.
->>
->>
->> I tried to start that exhaustive search, and it can be quite daunting:
->> if you are doing this by just code-inspection, it's easy to get
->> it wrong.. I havent quite given up yet, but it may be simpler to have
->> the drivers support some defensive code against bogus skb's in the
->> Tx path (the drivers will know, for sure, what's the min non-paged
->> len they need anyway).
->
-> I think it's easier to audit all the header_ops than to add defensive
-> code to 500+ drivers.
+This series brings some fixes and small improvements to the BPF library and
+samples.
 
-This issue came up again in a slightly different context. I scanned
-the implementations of header_ops. Variable length link layer headers
-are quite common. Not necessarily as malleable as ax25, but in
-the form of fixed headers with a limited set of optional extensions,
-such as ipgre. For this reason, adding ->validate implementations for
-each is infeasible, especially for a patch to net.
+This is intended for the perf tree and apply on e06094ab6755 ("Merge
+remote-tracking branch 'tip/perf/urgent' into perf/core").
 
-I think that the right approach is to finally introduce an explicit
-dev->min_header_length field, and initialize that at least for
-Ethernet and loopback.
+Changes since v2:
+* add this cover letter
 
-I will send that and a related patch.
+Changes since v1:
+* exclude patches not intended for the perf tree
+
+Regards,
+
+Mickaël Salaün (5):
+  bpf: Add missing header to the library
+  bpf: Simplify bpf_load_program() error handling in the library
+  samples/bpf: Ignore already processed ELF sections
+  samples/bpf: Reset global variables
+  samples/bpf: Add missing header
+
+ samples/bpf/bpf_load.c     |  7 +++++++
+ samples/bpf/tracex5_kern.c |  1 +
+ tools/lib/bpf/bpf.c        | 18 ++++++------------
+ tools/lib/bpf/bpf.h        |  1 +
+ 4 files changed, 15 insertions(+), 12 deletions(-)
+
+-- 
+2.11.0
