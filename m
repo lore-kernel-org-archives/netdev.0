@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 09/12] MIPS: Octeon: Remove unnecessary MODULE_*()
-Date: Tue,  7 Feb 2017 15:03:02 -0800
-Message-ID: <20170207230305.18222-10-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 12/12] net: dsa: remove unnecessary phy*.h includes
+Date: Tue,  7 Feb 2017 15:03:05 -0800
+Message-ID: <20170207230305.18222-13-f.fainelli@gmail.com>
 References: <20170207230305.18222-1-f.fainelli@gmail.com>
 Cc: Russell King <rmk+kernel@armlinux.org.uk>,
         Andrew Lunn <andrew@lunn.ch>,
@@ -32,36 +32,63 @@ List-Id: netdev.vger.kernel.org
 
 From: Russell King <rmk+kernel@armlinux.org.uk>
 
-octeon-platform.c can not be built as a module for two reasons:
+Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
+unnecessary dependency for quite a large amount of the kernel.  There's
+very little which actually requires definitions from phy.h in net/dsa.h
+- the include itself only wants the declaration of a couple of
+structures and IFNAMSIZ.
 
-(a) the Makefile doesn't allow it:
-    obj-y := cpu.o setup.o octeon-platform.o octeon-irq.o csrc-octeon.o
+Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
+mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
+and phy_fixed.h from net/dsa.h.
 
-(b) the multiple *_initcall() statements, each of which are translated
-    to a module_init() call when attempting a module build, become
-    aliases to init_module().  Having more than one alias will cause a
-    build error.
+This patch reduces from around 800 files rebuilt to around 40 - even
+with ccache, the time difference is noticable.
 
-Hence, rather than adding a linux/module.h include, remove the redundant
-MODULE_*() from this file.
-
-Acked-by: David Daney <david.daney@cavium.com>
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- arch/mips/cavium-octeon/octeon-platform.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
+ include/net/dsa.h                     | 5 +++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/arch/mips/cavium-octeon/octeon-platform.c b/arch/mips/cavium-octeon/octeon-platform.c
-index 37a932d9148c..8297ce714c5e 100644
---- a/arch/mips/cavium-octeon/octeon-platform.c
-+++ b/arch/mips/cavium-octeon/octeon-platform.c
-@@ -1060,7 +1060,3 @@ static int __init octeon_publish_devices(void)
- 	return of_platform_bus_probe(NULL, octeon_ids, NULL);
- }
- arch_initcall(octeon_publish_devices);
--
--MODULE_AUTHOR("David Daney <ddaney@caviumnetworks.com>");
--MODULE_LICENSE("GPL");
--MODULE_DESCRIPTION("Platform driver for Octeon SOC");
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 8a21800374f3..91c4dd25c2d3 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -15,6 +15,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/irq.h>
+ #include <linux/gpio/consumer.h>
++#include <linux/phy.h>
+ 
+ #ifndef UINT64_MAX
+ #define UINT64_MAX		(u64)(~((u64)0))
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b49b2004891e..4e13e695f025 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -11,17 +11,18 @@
+ #ifndef __LINUX_NET_DSA_H
+ #define __LINUX_NET_DSA_H
+ 
++#include <linux/if.h>
+ #include <linux/if_ether.h>
+ #include <linux/list.h>
+ #include <linux/notifier.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/of.h>
+-#include <linux/phy.h>
+-#include <linux/phy_fixed.h>
+ #include <linux/ethtool.h>
+ 
+ struct tc_action;
++struct phy_device;
++struct fixed_phy_status;
+ 
+ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_NONE = 0,
 -- 
 2.9.3
