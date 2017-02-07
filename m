@@ -1,79 +1,57 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH][net-next] net: bridge: remove redundant check to see if
- err is set
-Date: Tue, 7 Feb 2017 11:43:50 +0000
-Message-ID: <32024608-8430-9d89-eec2-98057d4e2eb4@canonical.com>
-References: <20170207105638.17918-1-colin.king@canonical.com>
- <d92d3afc-140f-8959-c6ea-9758eb1aa539@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next] bridge: tunnel: fix attribute checks in br_parse_vlan_tunnel_info
+Date: Tue,  7 Feb 2017 12:46:46 +0100
+Message-ID: <1486468006-8080-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <c341a60f-f3d1-29f6-b825-5ebd1432e5b9@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+        Colin Ian King <colin.king@canonical.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:46465 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753285AbdBGLpY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 06:45:24 -0500
-In-Reply-To: <d92d3afc-140f-8959-c6ea-9758eb1aa539@cumulusnetworks.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:38415 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753285AbdBGLrO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 06:47:14 -0500
+Received: by mail-wm0-f50.google.com with SMTP id r141so148888848wmg.1
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 03:47:14 -0800 (PST)
+In-Reply-To: <c341a60f-f3d1-29f6-b825-5ebd1432e5b9@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-..and one more thing, in net/bridge/br_netlink_tunnel.c,
-__get_num_vlan_tunnel_infos, are the args to vlan_tunnel_id_isrange()
-the wrong way around? I'm not 100% sure, but I'd thought I'd flag it up.
+These checks should go after the attributes have been parsed otherwise
+we're using tb uninitialized.
 
+Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
+Reported-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/bridge/br_netlink_tunnel.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-        if (v_start) {
-                if ((v_end->vid - v->vid) > 0 &&
-                    vlan_tunnel_id_isrange(v_end, v) > 0)
-                        num_tinfos += 2;
-                else
-                        num_tinfos += 1;
-        }
-
-
-
-On 07/02/17 11:30, Nikolay Aleksandrov wrote:
-> On 07/02/17 11:56, Colin King wrote:
->> From: Colin Ian King <colin.king@canonical.com>
->>
->> The error check on err is redundant as it is being checked
->> previously each time it has been updated.  Remove this redundant
->> check.
->>
->> Detected with CoverityScan, CID#140030("Logically dead code")
->>
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> ---
->>  net/bridge/br_netlink.c | 3 ---
->>  1 file changed, 3 deletions(-)
->>
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index fc5d885..cdc4e2a 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -612,9 +612,6 @@ static int br_afspec(struct net_bridge *br,
->>  				return err;
->>  			break;
->>  		}
->> -
->> -		if (err)
->> -			return err;
->>  	}
->>  
->>  	return err;
->>
-> 
-> Actually that code can be reduced further, I'll follow up with a patch later.
-> 
-> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/net/bridge/br_netlink_tunnel.c b/net/bridge/br_netlink_tunnel.c
+index 99c68012c9d4..62eaf750bd9e 100644
+--- a/net/bridge/br_netlink_tunnel.c
++++ b/net/bridge/br_netlink_tunnel.c
+@@ -229,15 +229,15 @@ int br_parse_vlan_tunnel_info(struct nlattr *attr,
+ 
+ 	memset(tinfo, 0, sizeof(*tinfo));
+ 
+-	if (!tb[IFLA_BRIDGE_VLAN_TUNNEL_ID] ||
+-	    !tb[IFLA_BRIDGE_VLAN_TUNNEL_VID])
+-		return -EINVAL;
+-
+ 	err = nla_parse_nested(tb, IFLA_BRIDGE_VLAN_TUNNEL_MAX,
+ 			       attr, vlan_tunnel_policy);
+ 	if (err < 0)
+ 		return err;
+ 
++	if (!tb[IFLA_BRIDGE_VLAN_TUNNEL_ID] ||
++	    !tb[IFLA_BRIDGE_VLAN_TUNNEL_VID])
++		return -EINVAL;
++
+ 	tun_id = nla_get_u32(tb[IFLA_BRIDGE_VLAN_TUNNEL_ID]);
+ 	vid = nla_get_u16(tb[IFLA_BRIDGE_VLAN_TUNNEL_VID]);
+ 	if (vid >= VLAN_VID_MASK)
+-- 
+2.1.4
