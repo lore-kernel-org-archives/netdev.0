@@ -1,75 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 03/12] net: macb: fix build errors when linux/phy*.h is removed from net/dsa.h
-Date: Tue,  7 Feb 2017 15:02:56 -0800
-Message-ID: <20170207230305.18222-4-f.fainelli@gmail.com>
-References: <20170207230305.18222-1-f.fainelli@gmail.com>
-Cc: Russell King <rmk+kernel@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "J. Bruce Fields" <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Jiri Slaby <jirislaby@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
-        "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-        Nick Kossifidis <mickflemm@gmail.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Raghu Vatsavayi <raghu.vatsavay
-To: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-        linux-nfs@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-        target-devel@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20170207230305.18222-1-f.fainelli@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH 0/2] Two minor testsuite fixes
+Date: Wed,  8 Feb 2017 00:04:20 +0100
+Message-ID: <20170207230422.31936-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:49547 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752702AbdBGXF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 18:05:29 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk+kernel@armlinux.org.uk>
+While playing around with testsuite, I noticed two minor nits which this
+series attempts to fix.
 
-drivers/net/ethernet/cadence/macb.h:862:33: sparse: expected ; at end of declaration
-drivers/net/ethernet/cadence/macb.h:862:33: sparse: Expected } at end of struct-union-enum-specifier
-drivers/net/ethernet/cadence/macb.h:862:33: sparse: got phy_interface
-drivers/net/ethernet/cadence/macb.h:877:1: sparse: Expected ; at the end of type declaration
-drivers/net/ethernet/cadence/macb.h:877:1: sparse: got }
-In file included from drivers/net/ethernet/cadence/macb_pci.c:29:0:
-drivers/net/ethernet/cadence/macb.h:862:2: error: unknown type name 'phy_interface_t'
-     phy_interface_t  phy_interface;
-     ^~~~~~~~~~~~~~~
+Phil Sutter (2):
+  testsuite: skip link show test on big endian systems
+  testsuite: Search kernel config in modules dir also
 
-Add linux/phy.h to macb.h
+ .gitignore                                    | 1 +
+ testsuite/Makefile                            | 7 +++++++
+ testsuite/tests/ip/link/show_dev_wo_vf_rate.t | 5 +++++
+ testsuite/tools/Makefile                      | 2 ++
+ testsuite/tools/is_big_endian.c               | 7 +++++++
+ 5 files changed, 22 insertions(+)
+ create mode 100644 testsuite/tools/Makefile
+ create mode 100644 testsuite/tools/is_big_endian.c
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.h | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index a2cf91223003..234a49eaccfd 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -10,6 +10,8 @@
- #ifndef _MACB_H
- #define _MACB_H
- 
-+#include <linux/phy.h>
-+
- #define MACB_GREGS_NBR 16
- #define MACB_GREGS_VERSION 2
- #define MACB_MAX_QUEUES 8
 -- 
-2.9.3
+2.11.0
