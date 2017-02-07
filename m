@@ -1,43 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 2/2] packet: round up linear to header len
-Date: Tue, 07 Feb 2017 13:23:51 -0800
-Message-ID: <1486502631.7793.68.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170207205721.23207-1-willemdebruijn.kernel@gmail.com>
-         <20170207205721.23207-3-willemdebruijn.kernel@gmail.com>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: [net-next PATCH 0/4] Documenting eBPF - extended Berkeley
+ Packet Filter
+Date: Tue, 7 Feb 2017 14:23:23 -0700
+Message-ID: <20170207142323.67f08f47@lwn.net>
+References: <148647756092.10567.10947541548678801938.stgit@localhost>
+        <20170207083717.1c98f608@lwn.net>
+        <20170207170908.492d71c0@redhat.com>
+        <20170207094608.60897ee0@lwn.net>
+        <20170207215149.55d17098@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        sowmini.varadhan@oracle.com, dvyukov@google.com,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36131 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754367AbdBGVaP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:30:15 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 75so13099207pgf.3
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 13:30:15 -0800 (PST)
-In-Reply-To: <20170207205721.23207-3-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+        Alexei Starovoitov <ast@fb.com>, alexander@alemayhu.com,
+        linux-kernel@vger.kernel.org, quentin.monnet@6wind.com,
+        Daniel Borkmann <borkmann@iogearbox.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170207215149.55d17098@redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-02-07 at 15:57 -0500, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> Link layer protocols may unconditionally pull headers, as Ethernet
-> does in eth_type_trans. Ensure that the entire link layer header
-> always lies in the skb linear segment. tpacket_snd has such a check.
-> Extend this to packet_snd.
-> 
-> Variable length link layer headers complicate the computation
-> somewhat. Here skb->len may be smaller than dev->hard_header_len.
-> 
-> Round up the linear length to be at least as long as the smallest of
-> the two.
-> 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
+On Tue, 7 Feb 2017 21:51:49 +0100
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+> I sounds like Daniel (see other email) have bigger plans for what
+> Documentation/BPF/ should contain.  E.g. consolidating
+> Documentation/networking/filter.txt which covers the cBPF/eBPF internals.
+> If that is the case (and I like the idea), then it goes beyond a
+> "userspace-guide".  And perhaps "BPF" is a "book" of its own?
+
+One of the real problems with the kernel's documentation is that there is
+really almost no thought given to who the audience is.  We have docs for
+kernel developers, for system admins, for user-space developers, etc., and
+it's all mixed up into one big jumble.
+
+An objective of mine in launching into this whole project is to try to fix
+that, so that people can readily find the documentation they need.  So I
+don't think a single top-level directory, with a mix of user-space API
+info and "internals", is the right direction to go.  The internals docs
+should, IMO, go elsewhere, probably in the core-api manual.
+
+See what I'm getting at here?
+
+> And it seems Daniel is proposing capital-letters BPF for the directory
+> name "Documentation/BPF/"?  Any opinions on that? (I'm neutral)
+
+I think we should paint it green; otherwise I'm not too concerned about
+this particular point...:)
+
+Thanks,
+
+jon
