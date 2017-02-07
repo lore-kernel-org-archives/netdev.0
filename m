@@ -1,8 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 4/4] doc/bpf: describe BCC the BPF Compiler
- Collection
-Date: Tue, 07 Feb 2017 15:30:32 +0100
-Message-ID: <148647783224.10567.17783943294570297203.stgit@localhost>
+Subject: [net-next PATCH 1/4] doc/bpf: start eBPF documentation tree bpf/
+Date: Tue, 07 Feb 2017 15:30:17 +0100
+Message-ID: <148647781693.10567.1655837312500141821.stgit@localhost>
 References: <148647756092.10567.10947541548678801938.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,84 +17,103 @@ In-Reply-To: <148647756092.10567.10947541548678801938.stgit@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is worth mentioning BCC (BPF Compiler Collection) in-order
-to direct developers into that community.
+The learning curve for eBPF programs is hard.  The purpose of this
+documentation (subtree) is to make it easier for developers to get
+started using and writing eBPF programs.
 
-Reviewed-by: Alexander Alemayhu <alexander@alemayhu.com>
+Including bpf/index under section User-oriented documentation.
+
+Thanks to Quentin Monnet <quentin.monnet@6wind.com> for improving
+this document with areas eBFP is used in and early review.
+
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- Documentation/bpf/bcc_tool_chain.rst |   37 ++++++++++++++++++++++++++++++++++
- Documentation/bpf/index.rst          |    5 ++---
- 2 files changed, 39 insertions(+), 3 deletions(-)
- create mode 100644 Documentation/bpf/bcc_tool_chain.rst
+ Documentation/bpf/index.rst |   66 +++++++++++++++++++++++++++++++++++++++++++
+ Documentation/index.rst     |    1 +
+ 2 files changed, 67 insertions(+)
+ create mode 100644 Documentation/bpf/index.rst
 
-diff --git a/Documentation/bpf/bcc_tool_chain.rst b/Documentation/bpf/bcc_tool_chain.rst
-new file mode 100644
-index 000000000000..b721875065bc
---- /dev/null
-+++ b/Documentation/bpf/bcc_tool_chain.rst
-@@ -0,0 +1,37 @@
-+=============================
-+BCC (BPF Compiler Collection)
-+=============================
-+
-+BCC is a toolkit to make eBPF programs easier to write, with
-+front-ends in Python and Lua.  BCC requires LLVM and clang (in version
-+3.7.1 or newer) to be available on target, because BCC programs do
-+runtime compilation of the restricted-C code into eBPF instructions.
-+
-+BCC includes several useful tools_ and examples_, developed by
-+recognized performance analyst `Brendan Gregg`_ and covered with a
-+tutorial_ and slides_.
-+
-+.. _tools:
-+   https://github.com/iovisor/bcc/tree/master/tools
-+
-+.. _examples:
-+   https://github.com/iovisor/bcc/tree/master/examples
-+
-+.. _`Brendan Gregg`: http://www.brendangregg.com/
-+
-+.. _tutorial:
-+   https://github.com/iovisor/bcc/blob/master/docs/tutorial.md
-+
-+.. _slides:
-+   http://www.slideshare.net/brendangregg/linux-bpf-superpowers/43/
-+
-+The project maintains an overview of `eBPF supported kernels`_ and
-+what versions got which specific features.  There is also a `BCC
-+Reference Guide`_.
-+
-+.. _eBPF supported kernels:
-+   https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md
-+
-+.. _BCC Reference Guide:
-+   https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md
-+
 diff --git a/Documentation/bpf/index.rst b/Documentation/bpf/index.rst
-index 618a28f7e959..686cc33fffab 100644
---- a/Documentation/bpf/index.rst
+new file mode 100644
+index 000000000000..f262fe8f9f95
+--- /dev/null
 +++ b/Documentation/bpf/index.rst
-@@ -35,7 +35,7 @@ the `bpf(2)`_ syscall.
+@@ -0,0 +1,66 @@
++======================================
++eBPF - extended Berkeley Packet Filter
++======================================
++
++Introduction
++============
++
++The Berkeley Packet Filter (BPF) started (`article 1992`_) as a
++special-purpose virtual machine (register based filter evaluator) for
++filtering network packets, best known for its use in tcpdump. It is
++documented in the kernel tree, in the first part of:
++`Documentation/networking/filter.txt`_
++
++The extended BPF (eBPF) variant has become a universal in-kernel
++virtual machine, that has hooks all over the kernel.  The eBPF
++instruction set is quite different, see description in section "BPF
++kernel internals" of `Documentation/networking/filter.txt`_ or look at
++this `presentation by Alexei`_.
++
++Areas using eBPF:
++ * XDP - eXpress Data Path
++ * `Traffic control`_
++ * Sockets
++ * Firewalling (``xt_bpf`` module)
++ * Tracing
++ * Tracepoints
++ * kprobe (dynamic tracing of a kernel function call)
++ * cgroups
++
++Documentation
++=============
++
++The primary user documentation for extended BPF is in the man-page for
++the `bpf(2)`_ syscall.
++
++This documentation is focused on the kernel tree's `samples/bpf/`_ and
++`tools/lib/bpf/`_.  It is worth mentioning that other projects exist,
++like BCC_, that has a slightly different user-facing
++syntax, but is interfacing with the same kernel facilities as those
++covered by this documentation.
++
++.. toctree::
++   :maxdepth: 1
++
++.. links:
++
++.. _article 1992: http://www.tcpdump.org/papers/bpf-usenix93.pdf
++
++.. _bpf(2): http://man7.org/linux/man-pages/man2/bpf.2.html
++
++.. _Documentation/networking/filter.txt:
++   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/filter.txt
++
++.. _presentation by Alexei:
++   http://www.slideshare.net/AlexeiStarovoitov/bpf-inkernel-virtual-machine
++
++.. _samples/bpf/:
++   https://github.com/torvalds/linux/blob/master/samples/bpf/
++
++.. _tools/lib/bpf/:
++   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/tools/lib/bpf/
++
++.. _Traffic control: http://man7.org/linux/man-pages/man8/tc-bpf.8.html
++
++.. _BCC: https://github.com/iovisor/bcc
++
+diff --git a/Documentation/index.rst b/Documentation/index.rst
+index cb5d77699c60..dacf202febb8 100644
+--- a/Documentation/index.rst
++++ b/Documentation/index.rst
+@@ -23,6 +23,7 @@ trying to get it to work optimally on a given system.
+    :maxdepth: 2
  
- This documentation is focused on the kernel tree's `samples/bpf/`_ and
- `tools/lib/bpf/`_.  It is worth mentioning that other projects exist,
--like BCC_, that has a slightly different user-facing
-+like :doc:`bcc_tool_chain`, that has a slightly different user-facing
- syntax, but is interfacing with the same kernel facilities as those
- covered by this documentation.
+    admin-guide/index
++   bpf/index
  
-@@ -44,6 +44,7 @@ covered by this documentation.
- 
-    ebpf_maps
-    ebpf_maps_types
-+   bcc_tool_chain
- 
- .. links:
- 
-@@ -65,5 +66,3 @@ covered by this documentation.
- 
- .. _Traffic control: http://man7.org/linux/man-pages/man8/tc-bpf.8.html
- 
--.. _BCC: https://github.com/iovisor/bcc
--
+ Introduction to kernel development
+ ----------------------------------
