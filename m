@@ -1,68 +1,34 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH 1/2] net: ethernet: ucc_geth: fix MEM_PART_MURAM mode
-Date: Tue,  7 Feb 2017 10:05:09 +0100 (CET)
-Message-ID: <d25ee7a13b60dcd005c59169feacb18fb69a06c1.1486456900.git.christophe.leroy@c-s.fr>
-References: <cover.1486456900.git.christophe.leroy@c-s.fr>
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Li Yang <leoli@freescale.com>, Qiang Zhao <qiang.zhao@nxp.com>,
-        Scott Wood <oss@buserror.net>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1486456900.git.christophe.leroy@c-s.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Steffen Klassert <steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCHv4 net-next 5/7] net: add confirm_neigh method to dst_ops
+Date: Tue, 7 Feb 2017 10:05:52 +0100
+Message-ID: <20170207090552.GM30338@gauss.secunet.com>
+References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
+ <1486415657-14714-6-git-send-email-ja@ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+        <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, YueHaibing <yuehaibing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1486415657-14714-6-git-send-email-ja-FgGsKACvmQM@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Since commit 5093bb965a163 ("powerpc/QE: switch to the cpm_muram
-implementation"), muram area is not part of immrbar mapping anymore
-so immrbar_virt_to_phys() is not usable anymore.
+On Mon, Feb 06, 2017 at 11:14:15PM +0200, Julian Anastasov wrote:
+> Add confirm_neigh method to dst_ops and use it from IPv4 and IPv6
+> to lookup and confirm the neighbour. Its usage via the new helper
+> dst_confirm_neigh() should be restricted to MSG_PROBE users for
+> performance reasons.
+> 
+> For XFRM prefer the last tunnel address, if present. With help
+> from Steffen Klassert.
+> 
+> Signed-off-by: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
 
-Fixes: 5093bb965a163 ("powerpc/QE: switch to the cpm_muram implementation)
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
----
- drivers/net/ethernet/freescale/ucc_geth.c | 8 +++-----
- include/soc/fsl/qe/qe.h                   | 1 +
- 2 files changed, 4 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 3f7ae9f..f77ba9f 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -2594,11 +2594,10 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
- 			   MEM_PART_MURAM) {
- 			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
--				 (u32) immrbar_virt_to_phys(ugeth->
--							    p_tx_bd_ring[i]));
-+				 (u32)qe_muram_dma(ugeth->p_tx_bd_ring[i]));
- 			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
- 				 last_bd_completed_address,
--				 (u32) immrbar_virt_to_phys(endOfRing));
-+				 (u32)qe_muram_dma(endOfRing));
- 		}
- 	}
- 
-@@ -2844,8 +2843,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
- 			   MEM_PART_MURAM) {
- 			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
--				 (u32) immrbar_virt_to_phys(ugeth->
--							    p_rx_bd_ring[i]));
-+				 (u32)qe_muram_dma(ugeth->p_rx_bd_ring[i]));
- 		}
- 		/* rest of fields handled by QE */
- 	}
-diff --git a/include/soc/fsl/qe/qe.h b/include/soc/fsl/qe/qe.h
-index 70339d7..0cd4c1147 100644
---- a/include/soc/fsl/qe/qe.h
-+++ b/include/soc/fsl/qe/qe.h
-@@ -243,6 +243,7 @@ static inline int qe_alive_during_sleep(void)
- #define qe_muram_free cpm_muram_free
- #define qe_muram_addr cpm_muram_addr
- #define qe_muram_offset cpm_muram_offset
-+#define qe_muram_dma cpm_muram_dma
- 
- #define qe_setbits32(_addr, _v) iowrite32be(ioread32be(_addr) |  (_v), (_addr))
- #define qe_clrbits32(_addr, _v) iowrite32be(ioread32be(_addr) & ~(_v), (_addr))
--- 
-2.10.1
+Acked-by: Steffen Klassert <steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
