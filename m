@@ -1,52 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/8] mlxsw: cleanup neigh handling
-Date: Tue, 7 Feb 2017 10:45:30 +0100
-Message-ID: <20170207094530.GA2066@nanopsycho>
-References: <1486394417-8011-1-git-send-email-jiri@resnulli.us>
- <20170206.112844.153468141426774611.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the akpm tree with the net-next
+ tree
+Date: Tue, 7 Feb 2017 20:45:36 +1100
+Message-ID: <20170207204501.23ef9b12@canb.auug.org.au>
+References: <20170207162322.3732a5a1@canb.auug.org.au>
+        <4cbbbce4-1318-9a75-d918-5b209cc418e6@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:36291 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753554AbdBGJpi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 04:45:38 -0500
-Received: by mail-wm0-f51.google.com with SMTP id c85so152770220wmi.1
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 01:45:38 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170206.112844.153468141426774611.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4cbbbce4-1318-9a75-d918-5b209cc418e6@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Feb 06, 2017 at 05:28:44PM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Mon,  6 Feb 2017 16:20:09 +0100
->
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Ido says:
->> 
->> This series addresses long standing issues in the mlxsw driver
->> concerning neighbour reflection. It also prepares the code for follow-up
->> changes dealing with proper resource cleanup and nexthop reflection.
->> 
->> The first two patches convert the neighbour reflection code to use an
->> ordered workqueue, to prevent re-ordering of NEIGH_UPDATE events that
->> may happen following subsequent patches.
->> 
->> The third to fifth patches remove the ndo_neigh_{construct,destroy}
->> entry points from the driver, thereby relying only on NEIGH_UPDATE
->> events for neighbour reflection. This simplifies the code considerably.
->> 
->> Last patches are fallout and adjust nits in the code I noticed while
->> going over it.
->
->Series applied, thanks.
->
->Looks like 6lowpan is the only remaining user of the ndo_neigh_*() ops
->now.
+Hi Marc,
 
-net/atm/clip.c
+On Tue, 7 Feb 2017 09:40:09 +0100 Marc Kleine-Budde <mkl@pengutronix.de> wrote:
+>
+> On 02/07/2017 06:23 AM, Stephen Rothwell wrote:
+> > diff --cc drivers/net/can/flexcan.c
+> > index ea57fed375c6,4dc71bce525c..000000000000
+> > --- a/drivers/net/can/flexcan.c
+> > +++ b/drivers/net/can/flexcan.c
+> > @@@ -195,9 -189,7 +195,9 @@@
+> >    */
+> >   #define FLEXCAN_QUIRK_BROKEN_ERR_STATE	BIT(1) /* [TR]WRN_INT not connected */
+> >   #define FLEXCAN_QUIRK_DISABLE_RXFG	BIT(2) /* Disable RX FIFO Global mask */
+> >  -#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(3) /* Disable Memory error detection */
+> >  +#define FLEXCAN_QUIRK_ENABLE_EACEN_RRS	BIT(3) /* Enable EACEN and RRS bit in ctrl2 */
+> > - #define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disble Memory error detection */
+> > ++#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disbale Memory error detection */  
+> 
+>                                                   ^^^^^^^
+> Should be "Disable". I'll send David Miller a fix for the typo.
+
+The "Disbale" typo is only in my merge resolution :-(  I will fix it there.
+
+-- 
+Cheers,
+Stephen Rothwell
