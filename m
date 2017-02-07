@@ -1,1243 +1,256 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
-Subject: [RFC v3 08/11] IB/hfi-vnic: VNIC Ethernet Management Agent (VEMA) function
-Date: Tue,  7 Feb 2017 12:23:07 -0800
-Message-ID: <1486498990-76562-9-git-send-email-niranjana.vishwanathapura@intel.com>
+Subject: [RFC v3 05/11] IB/hfi-vnic: VNIC statistics support
+Date: Tue,  7 Feb 2017 12:23:04 -0800
+Message-ID: <1486498990-76562-6-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         dennis.dalessandro@intel.com, ira.weiny@intel.com,
-        Sadanand Warrier <sadanand.warrier@intel.com>,
-        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>,
-        Tanya K Jajodia <tanya.k.jajodia@intel.com>,
-        Sudeep Dutt <sudeep.dutt@intel.com>
+        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:56521 "EHLO mga07.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:63728 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932197AbdBGUXq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 15:23:46 -0500
+        id S932245AbdBGUXt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 15:23:49 -0500
 In-Reply-To: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HFI VEMA function interfaces with the Infiniband MAD stack to exchange the
-management information packets with the Ethernet Manager (EM).
-It interfaces with the HFI VNIC netdev function to SET/GET the management
-information. The information exchanged with the EM includes class port
-details, encapsulation configuration, various counters, unicast and
-multicast MAC list and the MAC table. It also supports sending traps
-to the EM.
+HFI VNIC driver statistics support maintains various counters including
+standard netdev counters and the Ethernet manager defined counters.
+Add the Ethtool hook to read the counters.
 
 Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
 Reviewed-by: Ira Weiny <ira.weiny@intel.com>
-Signed-off-by: Sadanand Warrier <sadanand.warrier@intel.com>
 Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
-Signed-off-by: Tanya K Jajodia <tanya.k.jajodia@intel.com>
-Signed-off-by: Sudeep Dutt <sudeep.dutt@intel.com>
 ---
- drivers/infiniband/ulp/hfi_vnic/Makefile           |    2 +-
- drivers/infiniband/ulp/hfi_vnic/hfi_vnic_ethtool.c |   12 +
- .../infiniband/ulp/hfi_vnic/hfi_vnic_internal.h    |   17 +-
- drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema.c    | 1071 ++++++++++++++++++++
- .../infiniband/ulp/hfi_vnic/hfi_vnic_vema_iface.c  |    2 +-
- 5 files changed, 1099 insertions(+), 5 deletions(-)
- create mode 100644 drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema.c
+ drivers/infiniband/ulp/hfi_vnic/hfi_vnic_ethtool.c | 128 +++++++++++++++++++++
+ .../infiniband/ulp/hfi_vnic/hfi_vnic_internal.h    |   4 +
+ drivers/infiniband/ulp/hfi_vnic/hfi_vnic_netdev.c  |  20 ++++
+ 3 files changed, 152 insertions(+)
 
-diff --git a/drivers/infiniband/ulp/hfi_vnic/Makefile b/drivers/infiniband/ulp/hfi_vnic/Makefile
-index 32d6821..9262b6c 100644
---- a/drivers/infiniband/ulp/hfi_vnic/Makefile
-+++ b/drivers/infiniband/ulp/hfi_vnic/Makefile
-@@ -4,4 +4,4 @@
- obj-$(CONFIG_INFINIBAND_HFI_VNIC) += hfi_vnic.o
- 
- hfi_vnic-y := hfi_vnic_netdev.o hfi_vnic_encap.o hfi_vnic_ethtool.o \
--              hfi_vnic_vema_iface.o
-+              hfi_vnic_vema.o hfi_vnic_vema_iface.o
 diff --git a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_ethtool.c b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_ethtool.c
-index a9925df..aca54ca 100644
+index ca058a4..a9925df 100644
 --- a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_ethtool.c
 +++ b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_ethtool.c
-@@ -125,6 +125,17 @@ struct vnic_stats {
+@@ -53,9 +53,137 @@
  
- #define VNIC_STATS_LEN  ARRAY_SIZE(vnic_gstrings_stats)
+ #include "hfi_vnic_internal.h"
  
-+/* vnic_get_drvinfo - get driver info */
-+static void vnic_get_drvinfo(struct net_device *netdev,
-+			     struct ethtool_drvinfo *drvinfo)
++enum {NETDEV_STATS, VNIC_STATS};
++
++struct vnic_stats {
++	char stat_string[ETH_GSTRING_LEN];
++	struct {
++		int type;
++		int sizeof_stat;
++		int stat_offset;
++	};
++};
++
++#define VNIC_STAT(m)            { VNIC_STATS,                               \
++				  FIELD_SIZEOF(struct hfi_vnic_stats, m),   \
++				  offsetof(struct hfi_vnic_stats, m) }
++#define VNIC_NETDEV_STAT(m)     { NETDEV_STATS,                             \
++				  FIELD_SIZEOF(struct net_device, m),       \
++				  offsetof(struct net_device, m) }
++
++static struct vnic_stats vnic_gstrings_stats[] = {
++	/* NETDEV stats */
++	{"rx_packets", VNIC_NETDEV_STAT(stats.rx_packets)},
++	{"tx_packets", VNIC_NETDEV_STAT(stats.tx_packets)},
++	{"rx_bytes", VNIC_NETDEV_STAT(stats.rx_bytes)},
++	{"tx_bytes", VNIC_NETDEV_STAT(stats.tx_bytes)},
++	{"rx_errors", VNIC_NETDEV_STAT(stats.rx_errors)},
++	{"tx_errors", VNIC_NETDEV_STAT(stats.tx_errors)},
++	{"rx_dropped", VNIC_NETDEV_STAT(stats.rx_dropped)},
++	{"tx_dropped", VNIC_NETDEV_STAT(stats.tx_dropped)},
++
++	/* SUMMARY counters */
++	{"tx_unicast", VNIC_STAT(tx_grp.unicast)},
++	{"tx_mcastbcast", VNIC_STAT(tx_grp.mcastbcast)},
++	{"tx_untagged", VNIC_STAT(tx_grp.untagged)},
++	{"tx_vlan", VNIC_STAT(tx_grp.vlan)},
++
++	{"tx_64_size", VNIC_STAT(tx_grp.s_64)},
++	{"tx_65_127", VNIC_STAT(tx_grp.s_65_127)},
++	{"tx_128_255", VNIC_STAT(tx_grp.s_128_255)},
++	{"tx_256_511", VNIC_STAT(tx_grp.s_256_511)},
++	{"tx_512_1023", VNIC_STAT(tx_grp.s_512_1023)},
++	{"tx_1024_1518", VNIC_STAT(tx_grp.s_1024_1518)},
++	{"tx_1519_max", VNIC_STAT(tx_grp.s_1519_max)},
++
++	{"rx_unicast", VNIC_STAT(rx_grp.unicast)},
++	{"rx_mcastbcast", VNIC_STAT(rx_grp.mcastbcast)},
++	{"rx_untagged", VNIC_STAT(rx_grp.untagged)},
++	{"rx_vlan", VNIC_STAT(rx_grp.vlan)},
++
++	{"rx_64_size", VNIC_STAT(rx_grp.s_64)},
++	{"rx_65_127", VNIC_STAT(rx_grp.s_65_127)},
++	{"rx_128_255", VNIC_STAT(rx_grp.s_128_255)},
++	{"rx_256_511", VNIC_STAT(rx_grp.s_256_511)},
++	{"rx_512_1023", VNIC_STAT(rx_grp.s_512_1023)},
++	{"rx_1024_1518", VNIC_STAT(rx_grp.s_1024_1518)},
++	{"rx_1519_max", VNIC_STAT(rx_grp.s_1519_max)},
++
++	/* ERROR counters */
++	{"rx_fifo_errors", VNIC_NETDEV_STAT(stats.rx_fifo_errors)},
++	{"rx_length_errors", VNIC_NETDEV_STAT(stats.rx_length_errors)},
++
++	{"tx_fifo_errors", VNIC_NETDEV_STAT(stats.tx_fifo_errors)},
++	{"tx_carrier_errors", VNIC_NETDEV_STAT(stats.tx_carrier_errors)},
++
++	{"tx_dlid_zero", VNIC_STAT(tx_dlid_zero)},
++	{"tx_drop_state", VNIC_STAT(tx_drop_state)},
++	{"rx_drop_state", VNIC_STAT(rx_drop_state)},
++	{"rx_oversize", VNIC_STAT(rx_oversize)},
++	{"rx_runt", VNIC_STAT(rx_runt)},
++};
++
++#define VNIC_STATS_LEN  ARRAY_SIZE(vnic_gstrings_stats)
++
++/* vnic_get_sset_count - get string set count */
++static int vnic_get_sset_count(struct net_device *netdev, int sset)
 +{
-+	strlcpy(drvinfo->driver, hfi_vnic_driver_name, sizeof(drvinfo->driver));
-+	strlcpy(drvinfo->version, hfi_vnic_driver_version,
-+		sizeof(drvinfo->version));
-+	strlcpy(drvinfo->bus_info, dev_name(netdev->dev.parent),
-+		sizeof(drvinfo->bus_info));
++	return (sset == ETH_SS_STATS) ? VNIC_STATS_LEN : -EOPNOTSUPP;
 +}
 +
- /* vnic_get_sset_count - get string set count */
- static int vnic_get_sset_count(struct net_device *netdev, int sset)
- {
-@@ -180,6 +191,7 @@ static void vnic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 
++/* vnic_get_ethtool_stats - get statistics */
++static void vnic_get_ethtool_stats(struct net_device *netdev,
++				   struct ethtool_stats *stats, u64 *data)
++{
++	struct hfi_vnic_adapter *adapter = hfi_vnic_priv(netdev);
++	struct hfi_vnic_stats vstats;
++	char *p = NULL;
++	int i;
++
++	memset(&vstats, 0, sizeof(vstats));
++	mutex_lock(&adapter->stats_lock);
++	adapter->rn_ops->ndo_get_stats64(netdev, &vstats.netstats);
++	for (i = 0; i < VNIC_STATS_LEN; i++) {
++		switch (vnic_gstrings_stats[i].type) {
++		case NETDEV_STATS:
++			p = (char *)netdev +
++			  vnic_gstrings_stats[i].stat_offset;
++			break;
++		case VNIC_STATS:
++			p = (char *)&vstats +
++			  vnic_gstrings_stats[i].stat_offset;
++			break;
++		default:
++			p = NULL;
++		}
++
++		if (p)
++			data[i] = (vnic_gstrings_stats[i].sizeof_stat ==
++			   sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
++	}
++	mutex_unlock(&adapter->stats_lock);
++}
++
++/* vnic_get_strings - get strings */
++static void vnic_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
++{
++	int i;
++
++	if (stringset != ETH_SS_STATS)
++		return;
++
++	for (i = 0; i < VNIC_STATS_LEN; i++)
++		memcpy(data + i * ETH_GSTRING_LEN,
++		       vnic_gstrings_stats[i].stat_string,
++		       ETH_GSTRING_LEN);
++}
++
  /* ethtool ops */
  static const struct ethtool_ops hfi_vnic_ethtool_ops = {
-+	.get_drvinfo = vnic_get_drvinfo,
  	.get_link = ethtool_op_get_link,
- 	.get_strings = vnic_get_strings,
- 	.get_sset_count = vnic_get_sset_count,
++	.get_strings = vnic_get_strings,
++	.get_sset_count = vnic_get_sset_count,
++	.get_ethtool_stats = vnic_get_ethtool_stats,
+ };
+ 
+ /* hfi_vnic_set_ethtool_ops - set ethtool ops */
 diff --git a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_internal.h b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_internal.h
-index 2ee80a7..ad61624 100644
+index 5ce925f..d4fcf3b 100644
 --- a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_internal.h
 +++ b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_internal.h
-@@ -164,10 +164,12 @@ struct __hfi_veswport_trap {
-  * struct hfi_vnic_ctrl_port - HFI virtual NIC control port
-  * @ibdev: pointer to ib device
-  * @ops: hfi vnic control operations
-+ * @num_ports: number of hfi ports
-  */
- struct hfi_vnic_ctrl_port {
- 	struct ib_device           *ibdev;
- 	struct hfi_vnic_ctrl_ops   *ops;
-+	u8                          num_ports;
- };
- 
- /**
-@@ -187,6 +189,8 @@ struct hfi_vnic_ctrl_port {
-  * @mactbl_lock: mac table lock
-  * @stats_lock: statistics lock
+@@ -169,6 +169,7 @@ struct __hfi_veswport_trap {
+  * @vport_num: vesw port number
+  * @lock: adapter lock
+  * @info: virtual ethernet switch port information
++ * @stats_lock: statistics lock
   * @flow_tbl: flow to default port redirection table
-+ * @trap_timeout: trap timeout
-+ * @trap_count: no. of traps allowed within timeout period
   */
  struct hfi_vnic_adapter {
- 	struct net_device             *netdev;
-@@ -213,6 +217,9 @@ struct hfi_vnic_adapter {
- 	struct mutex stats_lock;
+@@ -184,6 +185,9 @@ struct hfi_vnic_adapter {
  
- 	u8 flow_tbl[HFI_VNIC_FLOW_TBL_SIZE];
+ 	struct __hfi_veswport_info info;
+ 
++	/* Lock used to protect access to vnic counters */
++	struct mutex stats_lock;
 +
-+	unsigned long trap_timeout;
-+	u8            trap_count;
+ 	u8 flow_tbl[HFI_VNIC_FLOW_TBL_SIZE];
  };
  
- /* Same as hfi_veswport_mactable_entry, but without bitwise attribute */
-@@ -247,6 +254,8 @@ struct hfi_vnic_mac_tbl_node {
- 	dev_err(&cport->ibdev->dev, format, ## arg)
- #define c_info(format, arg...) \
- 	dev_info(&cport->ibdev->dev, format, ## arg)
-+#define c_dbg(format, arg...) \
-+	dev_dbg(&cport->ibdev->dev, format, ## arg)
+diff --git a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_netdev.c b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_netdev.c
+index f04c8a834..ba045ac 100644
+--- a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_netdev.c
++++ b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_netdev.c
+@@ -59,6 +59,22 @@
+ #define HFI_VNIC_SKB_HEADROOM  \
+ 			ALIGN((HFI_VNIC_HDR_LEN + HFI_VNIC_SKB_MDATA_LEN), 8)
  
- /* The maximum allowed entries in the mac table */
- #define HFI_VNIC_MAC_TBL_MAX_ENTRIES  2048
-@@ -281,6 +290,9 @@ struct hfi_vnic_mac_tbl_node {
- 		    !obj && (bkt) < HFI_VNIC_MAC_TBL_SIZE; (bkt)++)           \
- 		hlist_for_each_entry(obj, &name[bkt], member)
++/* This function is overloaded for hfi_vnic specific implementation */
++static struct rtnl_link_stats64 *
++hfi_vnic_get_stats64(struct net_device *netdev,
++		     struct rtnl_link_stats64 *stats)
++{
++	struct hfi_vnic_adapter *adapter = hfi_vnic_priv(netdev);
++	struct hfi_vnic_stats vstats;
++
++	memset(&vstats, 0, sizeof(vstats));
++	mutex_lock(&adapter->stats_lock);
++	adapter->rn_ops->ndo_get_stats64(netdev, &vstats.netstats);
++	mutex_unlock(&adapter->stats_lock);
++	memcpy(stats, &vstats.netstats, sizeof(*stats));
++	return stats;
++}
++
+ /* hfi_netdev_start_xmit - transmit function */
+ static netdev_tx_t hfi_netdev_start_xmit(struct sk_buff *skb,
+ 					 struct net_device *netdev)
+@@ -150,6 +166,7 @@ static int hfi_netdev_close(struct net_device *netdev)
+ 	.ndo_open = hfi_netdev_open,
+ 	.ndo_stop = hfi_netdev_close,
+ 	.ndo_start_xmit = hfi_netdev_start_xmit,
++	.ndo_get_stats64 = hfi_vnic_get_stats64,
+ 	.ndo_select_queue = hfi_vnic_select_queue,
+ 	.ndo_set_mac_address = hfi_vnic_set_mac_addr,
+ };
+@@ -188,6 +205,7 @@ struct hfi_vnic_adapter *hfi_vnic_add_netdev(struct ib_device *ibdev,
+ 	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+ 	netdev->hard_header_len += HFI_VNIC_SKB_HEADROOM;
+ 	mutex_init(&adapter->lock);
++	mutex_init(&adapter->stats_lock);
  
-+extern char hfi_vnic_driver_name[];
-+extern const char hfi_vnic_driver_version[];
-+
- struct hfi_vnic_adapter *hfi_vnic_add_netdev(struct ib_device *ibdev,
- 					     u8 port_num, u8 vport_num);
- void hfi_vnic_rem_netdev(struct hfi_vnic_adapter *adapter);
-@@ -310,9 +322,8 @@ void hfi_vnic_get_per_veswport_info(struct hfi_vnic_adapter *adapter,
- void hfi_vnic_set_per_veswport_info(struct hfi_vnic_adapter *adapter,
- 				    struct hfi_per_veswport_info *info);
- void hfi_vnic_vema_report_event(struct hfi_vnic_adapter *adapter, u8 event);
--struct hfi_vnic_adapter *hfi_vnic_add_vport(struct hfi_vnic_ctrl_port *cport,
--					    u8 port_num, u8 vport_num);
--void hfi_vnic_rem_vport(struct hfi_vnic_adapter *adapter);
- void hfi_vnic_set_ethtool_ops(struct net_device *netdev);
-+void hfi_vnic_vema_send_trap(struct hfi_vnic_adapter *adapter,
-+			     struct __hfi_veswport_trap *data, u32 lid);
+ 	SET_NETDEV_DEV(netdev, ibdev->dma_device);
  
- #endif /* _HFI_VNIC_INTERNAL_H */
-diff --git a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema.c b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema.c
-new file mode 100644
-index 0000000..c1a7c81
---- /dev/null
-+++ b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema.c
-@@ -0,0 +1,1071 @@
-+/*
-+ * Copyright(c) 2017 Intel Corporation.
-+ *
-+ * This file is provided under a dual BSD/GPLv2 license.  When using or
-+ * redistributing this file, you may do so under either license.
-+ *
-+ * GPL LICENSE SUMMARY
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ *
-+ * BSD LICENSE
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *  - Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ *  - Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *  - Neither the name of Intel Corporation nor the names of its
-+ *    contributors may be used to endorse or promote products derived
-+ *    from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ */
-+
-+/*
-+ * This file contains HFI Virtual Network Interface Controller (VNIC)
-+ * Ethernet Management Agent (EMA) driver
-+ */
-+
-+#include <linux/module.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+
-+#include "hfi_vnic_internal.h"
-+
-+#define DRV_VERSION "1.0"
-+char hfi_vnic_driver_name[] = "hfi_vnic";
-+const char hfi_vnic_driver_version[] = DRV_VERSION;
-+
-+/*
-+ * The trap service level is kept in bits 3 to 7 in the trap_sl_rsvd
-+ * field in the class port info MAD.
-+ */
-+#define GET_TRAP_SL_FROM_CLASS_PORT_INFO(x)  (((x) >> 3) & 0x1f)
-+
-+/* Cap trap bursts to a reasonable limit good for normal cases */
-+#define HFI_VNIC_TRAP_BURST_LIMIT 4
-+
-+/*
-+ * VNIC trap limit timeout.
-+ * Inverse of cap2_mask response time out (1.0737 secs) = 0.9
-+ * secs approx IB spec 13.4.6.2.1 PortInfoSubnetTimeout and
-+ * 13.4.9 Traps.
-+ */
-+#define HFI_VNIC_TRAP_TIMEOUT  ((4096 * (1UL << 18)) / 1000)
-+
-+#define HFI_VNIC_UNSUP_ATTR  \
-+		cpu_to_be16(IB_MGMT_MAD_STATUS_UNSUPPORTED_METHOD_ATTRIB)
-+
-+#define HFI_VNIC_INVAL_ATTR  \
-+		cpu_to_be16(IB_MGMT_MAD_STATUS_INVALID_ATTRIB_VALUE)
-+
-+#define HFI_VNIC_CLASS_CAP_TRAP  cpu_to_be16(1 << 8)
-+
-+struct hfi_class_port_info {
-+	u8 base_version;
-+	u8 class_version;
-+	__be16 cap_mask;
-+	__be32 cap_mask2_resp_time;
-+
-+	u8 redirect_gid[16];
-+	__be32 redirect_tc_fl;
-+	__be32 redirect_lid;
-+	__be32 redirect_sl_qp;
-+	__be32 redirect_qkey;
-+
-+	u8 trap_gid[16];
-+	__be32 trap_tc_fl;
-+	__be32 trap_lid;
-+	__be32 trap_hl_qp;
-+	__be32 trap_qkey;
-+
-+	__be16 trap_pkey;
-+	__be16 redirect_pkey;
-+
-+	u8 trap_sl_rsvd;
-+	u8 reserved[3];
-+} __packed;
-+
-+/**
-+ * struct hfi_vnic_vema_port -- VNIC VEMA port details
-+ * @cport: pointer to port
-+ * @mad_agent: pointer to mad agent for port
-+ * @class_port_info: Class port info information.
-+ * @tid: Transaction id
-+ * @port_num: HFI port number
-+ * @vport_idr: vnic ports idr
-+ * @event_handler: ib event handler
-+ * @lock: adapter interface lock
-+ */
-+struct hfi_vnic_vema_port {
-+	struct hfi_vnic_ctrl_port      *cport;
-+	struct ib_mad_agent            *mad_agent;
-+	struct hfi_class_port_info      class_port_info;
-+	u64                             tid;
-+	u8                              port_num;
-+	struct idr                      vport_idr;
-+	struct ib_event_handler         event_handler;
-+
-+	/* Lock to query/update network adapter */
-+	struct mutex                    lock;
-+};
-+
-+static void hfi_vnic_vema_add_one(struct ib_device *device);
-+static void hfi_vnic_vema_rem_one(struct ib_device *device,
-+				  void *client_data);
-+
-+static struct ib_client hfi_vnic_client = {
-+	.name   = hfi_vnic_driver_name,
-+	.add    = hfi_vnic_vema_add_one,
-+	.remove = hfi_vnic_vema_rem_one,
-+};
-+
-+/**
-+ * vema_get_vport_num -- Get the vnic from the mad
-+ * @recvd_mad:  Received mad
-+ *
-+ * Return: returns value of the vnic port number
-+ */
-+static inline u8 vema_get_vport_num(struct hfi_vnic_vema_mad *recvd_mad)
-+{
-+	return be32_to_cpu(recvd_mad->mad_hdr.attr_mod) >> 16 & 0xff;
-+}
-+
-+/**
-+ * vema_get_vport_adapter -- Get vnic port adapter from recvd mad
-+ * @recvd_mad: received mad
-+ * @port: ptr to port struct on which MAD was recvd
-+ *
-+ * Return: vnic adapter
-+ */
-+static inline struct hfi_vnic_adapter *
-+vema_get_vport_adapter(struct hfi_vnic_vema_mad *recvd_mad,
-+		       struct hfi_vnic_vema_port *port)
-+{
-+	u8 vport_num = vema_get_vport_num(recvd_mad);
-+
-+	return idr_find(&port->vport_idr, vport_num);
-+}
-+
-+/**
-+ * vema_mac_tbl_req_ok -- Check if mac request has correct values
-+ * @mac_tbl: mac table
-+ *
-+ * This function checks for the validity of the offset and number of
-+ * entries required.
-+ *
-+ * Return: true if offset and num_entries are valid
-+ */
-+static inline bool vema_mac_tbl_req_ok(struct hfi_veswport_mactable *mac_tbl)
-+{
-+	u16 offset, num_entries;
-+	u16 req_entries = ((HFI_VNIC_EMA_DATA - sizeof(*mac_tbl)) /
-+			   sizeof(mac_tbl->tbl_entries[0]));
-+
-+	offset = be16_to_cpu(mac_tbl->offset);
-+	num_entries = be16_to_cpu(mac_tbl->num_entries);
-+
-+	return ((num_entries <= req_entries) &&
-+		(offset + num_entries <= HFI_VNIC_MAC_TBL_MAX_ENTRIES));
-+}
-+
-+/*
-+ * Return the power on default values in the port info structure
-+ * in big endian format as required by MAD.
-+ */
-+static inline void vema_get_pod_values(struct hfi_veswport_info *port_info)
-+{
-+	memset(port_info, 0, sizeof(*port_info));
-+	port_info->vport.max_mac_tbl_ent =
-+		cpu_to_be16(HFI_VNIC_MAC_TBL_MAX_ENTRIES);
-+	port_info->vport.max_smac_ent =
-+		cpu_to_be16(HFI_VNIC_MAX_SMAC_LIMIT);
-+	port_info->vport.oper_state = HFI_VNIC_STATE_DROP_ALL;
-+	port_info->vport.config_state = HFI_VNIC_STATE_DROP_ALL;
-+}
-+
-+/**
-+ * vema_add_vport -- Add a new vnic port
-+ * @port: ptr to hfi_vnic_vema_port struct
-+ * @vport_num: vnic port number (to be added)
-+ *
-+ * Return a pointer to the vnic adapter structure
-+ */
-+static struct hfi_vnic_adapter *vema_add_vport(struct hfi_vnic_vema_port *port,
-+					       u8 vport_num)
-+{
-+	struct hfi_vnic_ctrl_port *cport = port->cport;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = hfi_vnic_add_netdev(cport->ibdev, port->port_num, vport_num);
-+	if (!IS_ERR(adapter)) {
-+		int rc;
-+
-+		adapter->cport = cport;
-+		rc = idr_alloc(&port->vport_idr, adapter, vport_num,
-+			       vport_num + 1, GFP_NOWAIT);
-+		if (rc < 0) {
-+			hfi_vnic_rem_netdev(adapter);
-+			adapter = ERR_PTR(rc);
-+		}
-+	}
-+
-+	return adapter;
-+}
-+
-+/**
-+ * vema_get_class_port_info -- Get class info for port
-+ * @port:  Port on whic MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function copies the latest class port info value set for the
-+ * port and stores it for generating traps
-+ */
-+static void vema_get_class_port_info(struct hfi_vnic_vema_port *port,
-+				     struct hfi_vnic_vema_mad *recvd_mad,
-+				     struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_class_port_info *port_info;
-+
-+	port_info = (struct hfi_class_port_info *)rsp_mad->data;
-+	memcpy(port_info, &port->class_port_info, sizeof(*port_info));
-+	port_info->base_version = OPA_MGMT_BASE_VERSION,
-+	port_info->class_version = HFI_EMA_CLASS_VERSION;
-+
-+	/* Agent generates traps */
-+	port_info->cap_mask = HFI_VNIC_CLASS_CAP_TRAP;
-+
-+	/*
-+	 * Since a get routine is always sent by the EM first we
-+	 * set the expected response time to
-+	 * 4.096 usec * 2^18 == 1.0737 sec here.
-+	 */
-+	port_info->cap_mask2_resp_time = cpu_to_be32(18);
-+}
-+
-+/**
-+ * vema_set_class_port_info -- Get class info for port
-+ * @port:  Port on whic MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function updates the port class info for the specific vnic
-+ * and sets up the response mad data
-+ */
-+static void vema_set_class_port_info(struct hfi_vnic_vema_port *port,
-+				     struct hfi_vnic_vema_mad *recvd_mad,
-+				     struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	memcpy(&port->class_port_info, recvd_mad->data,
-+	       sizeof(port->class_port_info));
-+
-+	vema_get_class_port_info(port, recvd_mad, rsp_mad);
-+}
-+
-+/**
-+ * vema_get_veswport_info -- Get veswport info
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ */
-+static void vema_get_veswport_info(struct hfi_vnic_vema_port *port,
-+				   struct hfi_vnic_vema_mad *recvd_mad,
-+				   struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_veswport_info *port_info =
-+				  (struct hfi_veswport_info *)rsp_mad->data;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (adapter) {
-+		memset(port_info, 0, sizeof(*port_info));
-+		hfi_vnic_get_vesw_info(adapter, &port_info->vesw);
-+		hfi_vnic_get_per_veswport_info(adapter,
-+					       &port_info->vport);
-+	} else {
-+		vema_get_pod_values(port_info);
-+	}
-+}
-+
-+/**
-+ * vema_set_veswport_info -- Set veswport info
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function gets the port class infor for vnic
-+ */
-+static void vema_set_veswport_info(struct hfi_vnic_vema_port *port,
-+				   struct hfi_vnic_vema_mad *recvd_mad,
-+				   struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_vnic_ctrl_port *cport = port->cport;
-+	struct hfi_veswport_info *port_info;
-+	struct hfi_vnic_adapter *adapter;
-+	u8 vport_num;
-+
-+	vport_num = vema_get_vport_num(recvd_mad);
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		adapter = vema_add_vport(port, vport_num);
-+		if (IS_ERR(adapter)) {
-+			c_err("failed to add vport %d: %ld\n",
-+			      vport_num, PTR_ERR(adapter));
-+			goto err_exit;
-+		}
-+	}
-+
-+	port_info = (struct hfi_veswport_info *)recvd_mad->data;
-+	hfi_vnic_set_vesw_info(adapter, &port_info->vesw);
-+	hfi_vnic_set_per_veswport_info(adapter, &port_info->vport);
-+
-+	/* Process the new config settings */
-+	hfi_vnic_process_vema_config(adapter);
-+
-+	vema_get_veswport_info(port, recvd_mad, rsp_mad);
-+	return;
-+
-+err_exit:
-+	rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+}
-+
-+/**
-+ * vema_get_mac_entries -- Get MAC entries in VNIC MAC table
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function gets the MAC entries that are programmed into
-+ * the VNIC MAC forwarding table. It checks for the validity of
-+ * the index into the MAC table and the number of entries that
-+ * are to be retrieved.
-+ */
-+static void vema_get_mac_entries(struct hfi_vnic_vema_port *port,
-+				 struct hfi_vnic_vema_mad *recvd_mad,
-+				 struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_veswport_mactable *mac_tbl_in, *mac_tbl_out;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	mac_tbl_in = (struct hfi_veswport_mactable *)recvd_mad->data;
-+	mac_tbl_out = (struct hfi_veswport_mactable *)rsp_mad->data;
-+
-+	if (vema_mac_tbl_req_ok(mac_tbl_in)) {
-+		mac_tbl_out->offset = mac_tbl_in->offset;
-+		mac_tbl_out->num_entries = mac_tbl_in->num_entries;
-+		hfi_vnic_query_mac_tbl(adapter, mac_tbl_out);
-+	} else {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+	}
-+}
-+
-+/**
-+ * vema_set_mac_entries -- Set MAC entries in VNIC MAC table
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function sets the MAC entries in the VNIC forwarding table
-+ * It checks for the validity of the index and the number of forwarding
-+ * table entries to be programmed.
-+ */
-+static void vema_set_mac_entries(struct hfi_vnic_vema_port *port,
-+				 struct hfi_vnic_vema_mad *recvd_mad,
-+				 struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_veswport_mactable *mac_tbl;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	mac_tbl = (struct hfi_veswport_mactable *)recvd_mad->data;
-+	if (vema_mac_tbl_req_ok(mac_tbl)) {
-+		if (hfi_vnic_update_mac_tbl(adapter, mac_tbl))
-+			rsp_mad->mad_hdr.status = HFI_VNIC_UNSUP_ATTR;
-+	} else {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_UNSUP_ATTR;
-+	}
-+	vema_get_mac_entries(port, recvd_mad, rsp_mad);
-+}
-+
-+/**
-+ * vema_set_delete_vesw -- Reset VESW info to POD values
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: pointer to the received mad
-+ * @rsp_mad:   pointer to respose mad
-+ *
-+ * This function clears all the fields of veswport info for the requested vesw
-+ * and sets them back to the power-on default values. It does not delete the
-+ * vesw.
-+ */
-+static void vema_set_delete_vesw(struct hfi_vnic_vema_port *port,
-+				 struct hfi_vnic_vema_mad *recvd_mad,
-+				 struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_veswport_info *port_info =
-+				  (struct hfi_veswport_info *)rsp_mad->data;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	vema_get_pod_values(port_info);
-+	hfi_vnic_set_vesw_info(adapter, &port_info->vesw);
-+	hfi_vnic_set_per_veswport_info(adapter, &port_info->vport);
-+
-+	/* Process the new config settings */
-+	hfi_vnic_process_vema_config(adapter);
-+
-+	hfi_vnic_release_mac_tbl(adapter);
-+
-+	vema_get_veswport_info(port, recvd_mad, rsp_mad);
-+}
-+
-+/**
-+ * vema_get_mac_list -- Get the unicast/multicast macs.
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ * @attr_id:   Attribute ID indicating multicast or unicast mac list
-+ */
-+static void vema_get_mac_list(struct hfi_vnic_vema_port *port,
-+			      struct hfi_vnic_vema_mad *recvd_mad,
-+			      struct hfi_vnic_vema_mad *rsp_mad,
-+			      u16 attr_id)
-+{
-+	struct hfi_veswport_iface_macs *macs_in, *macs_out;
-+	int max_entries = (HFI_VNIC_EMA_DATA - sizeof(*macs_out)) / ETH_ALEN;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (!adapter) {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+		return;
-+	}
-+
-+	macs_in = (struct hfi_veswport_iface_macs *)recvd_mad->data;
-+	macs_out = (struct hfi_veswport_iface_macs *)rsp_mad->data;
-+
-+	macs_out->start_idx = macs_in->start_idx;
-+	if (macs_in->num_macs_in_msg)
-+		macs_out->num_macs_in_msg = macs_in->num_macs_in_msg;
-+	else
-+		macs_out->num_macs_in_msg = cpu_to_be16(max_entries);
-+
-+	if (attr_id == HFI_EM_ATTR_IFACE_MCAST_MACS)
-+		hfi_vnic_query_mcast_macs(adapter, macs_out);
-+	else
-+		hfi_vnic_query_ucast_macs(adapter, macs_out);
-+}
-+
-+/**
-+ * vema_get_summary_counters -- Gets summary counters.
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_get_summary_counters(struct hfi_vnic_vema_port *port,
-+				      struct hfi_vnic_vema_mad *recvd_mad,
-+				      struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_veswport_summary_counters *cntrs;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (adapter) {
-+		cntrs = (struct hfi_veswport_summary_counters *)rsp_mad->data;
-+		hfi_vnic_get_summary_counters(adapter, cntrs);
-+	} else {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+	}
-+}
-+
-+/**
-+ * vema_get_error_counters -- Gets summary counters.
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_get_error_counters(struct hfi_vnic_vema_port *port,
-+				    struct hfi_vnic_vema_mad *recvd_mad,
-+				    struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	struct hfi_veswport_error_counters *cntrs;
-+	struct hfi_vnic_adapter *adapter;
-+
-+	adapter = vema_get_vport_adapter(recvd_mad, port);
-+	if (adapter) {
-+		cntrs = (struct hfi_veswport_error_counters *)rsp_mad->data;
-+		hfi_vnic_get_error_counters(adapter, cntrs);
-+	} else {
-+		rsp_mad->mad_hdr.status = HFI_VNIC_INVAL_ATTR;
-+	}
-+}
-+
-+/**
-+ * vema_get -- Process received get MAD
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_get(struct hfi_vnic_vema_port *port,
-+		     struct hfi_vnic_vema_mad *recvd_mad,
-+		     struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	u16 attr_id = be16_to_cpu(recvd_mad->mad_hdr.attr_id);
-+
-+	switch (attr_id) {
-+	case HFI_EM_ATTR_CLASS_PORT_INFO:
-+		vema_get_class_port_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case HFI_EM_ATTR_VESWPORT_INFO:
-+		vema_get_veswport_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case HFI_EM_ATTR_VESWPORT_MAC_ENTRIES:
-+		vema_get_mac_entries(port, recvd_mad, rsp_mad);
-+		break;
-+	case HFI_EM_ATTR_IFACE_UCAST_MACS:
-+		/* fall through */
-+	case HFI_EM_ATTR_IFACE_MCAST_MACS:
-+		vema_get_mac_list(port, recvd_mad, rsp_mad, attr_id);
-+		break;
-+	case HFI_EM_ATTR_VESWPORT_SUMMARY_COUNTERS:
-+		vema_get_summary_counters(port, recvd_mad, rsp_mad);
-+		break;
-+	case HFI_EM_ATTR_VESWPORT_ERROR_COUNTERS:
-+		vema_get_error_counters(port, recvd_mad, rsp_mad);
-+		break;
-+	default:
-+		rsp_mad->mad_hdr.status = HFI_VNIC_UNSUP_ATTR;
-+		break;
-+	}
-+}
-+
-+/**
-+ * vema_set -- Process received set MAD
-+ * @port:      source port on which MAD was received
-+ * @recvd_mad: Received mad contains fields to set vnic parameters
-+ * @rsp_mad:   Response mad to be built
-+ */
-+static void vema_set(struct hfi_vnic_vema_port *port,
-+		     struct hfi_vnic_vema_mad *recvd_mad,
-+		     struct hfi_vnic_vema_mad *rsp_mad)
-+{
-+	u16 attr_id = be16_to_cpu(recvd_mad->mad_hdr.attr_id);
-+
-+	switch (attr_id) {
-+	case HFI_EM_ATTR_CLASS_PORT_INFO:
-+		vema_set_class_port_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case HFI_EM_ATTR_VESWPORT_INFO:
-+		vema_set_veswport_info(port, recvd_mad, rsp_mad);
-+		break;
-+	case HFI_EM_ATTR_VESWPORT_MAC_ENTRIES:
-+		vema_set_mac_entries(port, recvd_mad, rsp_mad);
-+		break;
-+	case HFI_EM_ATTR_DELETE_VESW:
-+		vema_set_delete_vesw(port, recvd_mad, rsp_mad);
-+		break;
-+	default:
-+		rsp_mad->mad_hdr.status = HFI_VNIC_UNSUP_ATTR;
-+		break;
-+	}
-+}
-+
-+/**
-+ * vema_send -- Send handler for VEMA MAD agent
-+ * @mad_agent: pointer to the mad agent
-+ * @mad_wc:    pointer to mad send work completion information
-+ *
-+ * Free all the data structures associated with the sent MAD
-+ */
-+static void vema_send(struct ib_mad_agent *mad_agent,
-+		      struct ib_mad_send_wc *mad_wc)
-+{
-+	ib_destroy_ah(mad_wc->send_buf->ah);
-+	ib_free_send_mad(mad_wc->send_buf);
-+}
-+
-+/**
-+ * vema_recv -- Recv handler for VEMA MAD agent
-+ * @mad_agent: pointer to the mad agent
-+ * @send_buf: Send buffer if found, else NULL
-+ * @mad_wc:    pointer to mad send work completion information
-+ *
-+ * Handle only set and get methods and respond to other methods
-+ * as unsupported. Allocate response buffer and address handle
-+ * for the response MAD.
-+ */
-+static void vema_recv(struct ib_mad_agent *mad_agent,
-+		      struct ib_mad_send_buf *send_buf,
-+		      struct ib_mad_recv_wc *mad_wc)
-+{
-+	struct hfi_vnic_vema_port *port;
-+	struct ib_ah              *ah;
-+	struct ib_mad_send_buf    *rsp;
-+	struct hfi_vnic_vema_mad  *vema_mad;
-+
-+	if (!mad_wc || !mad_wc->recv_buf.mad)
-+		return;
-+
-+	port = mad_agent->context;
-+	ah = ib_create_ah_from_wc(mad_agent->qp->pd, mad_wc->wc,
-+				  mad_wc->recv_buf.grh, mad_agent->port_num);
-+	if (IS_ERR(ah))
-+		goto free_recv_mad;
-+
-+	rsp = ib_create_send_mad(mad_agent, mad_wc->wc->src_qp,
-+				 mad_wc->wc->pkey_index, 0,
-+				 IB_MGMT_VENDOR_HDR, HFI_VNIC_EMA_DATA,
-+				 GFP_KERNEL, OPA_MGMT_BASE_VERSION);
-+	if (IS_ERR(rsp))
-+		goto err_rsp;
-+
-+	rsp->ah = ah;
-+	vema_mad = rsp->mad;
-+	memcpy(vema_mad, mad_wc->recv_buf.mad, IB_MGMT_VENDOR_HDR);
-+	vema_mad->mad_hdr.method = IB_MGMT_METHOD_GET_RESP;
-+	vema_mad->mad_hdr.status = 0;
-+
-+	/* Lock ensures network adapter is not removed */
-+	mutex_lock(&port->lock);
-+
-+	switch (mad_wc->recv_buf.mad->mad_hdr.method) {
-+	case IB_MGMT_METHOD_GET:
-+		vema_get(port, (struct hfi_vnic_vema_mad *)mad_wc->recv_buf.mad,
-+			 vema_mad);
-+		break;
-+	case IB_MGMT_METHOD_SET:
-+		vema_set(port, (struct hfi_vnic_vema_mad *)mad_wc->recv_buf.mad,
-+			 vema_mad);
-+		break;
-+	default:
-+		vema_mad->mad_hdr.status = HFI_VNIC_UNSUP_ATTR;
-+		break;
-+	}
-+	mutex_unlock(&port->lock);
-+
-+	if (!ib_post_send_mad(rsp, NULL)) {
-+		/*
-+		 * with post send successful ah and send mad
-+		 * will be destroyed in send handler
-+		 */
-+		goto free_recv_mad;
-+	}
-+
-+	ib_free_send_mad(rsp);
-+
-+err_rsp:
-+	ib_destroy_ah(ah);
-+free_recv_mad:
-+	ib_free_recv_mad(mad_wc);
-+}
-+
-+/**
-+ * vema_get_port -- Gets the hfi_vnic_vema_port
-+ * @cport: pointer to control dev
-+ * @port_num: Port number
-+ *
-+ * This function loops through the ports and returns
-+ * the hfi_vnic_vema port structure that is associated
-+ * with the HFI port number
-+ *
-+ * Return: ptr to requested hfi_vnic_vema_port strucure
-+ *         if success, NULL if not
-+ */
-+static struct hfi_vnic_vema_port *
-+vema_get_port(struct hfi_vnic_ctrl_port *cport, u8 port_num)
-+{
-+	struct hfi_vnic_vema_port *port = (void *)cport + sizeof(*cport);
-+
-+	if (port_num > cport->num_ports)
-+		return NULL;
-+
-+	return port + (port_num - 1);
-+}
-+
-+/**
-+ * hfi_vnic_vema_send_trap -- This function sends a trap to the EM
-+ * @cport: pointer to vnic control port
-+ * @data: pointer to trap data filled by calling function
-+ * @lid:  issuers lid (encap_slid from vesw_port_info)
-+ *
-+ * This function is called from the VNIC driver to send a trap if there
-+ * is somethng the EM should be notified about. These events currently
-+ * are
-+ * 1) UNICAST INTERFACE MACADDRESS changes
-+ * 2) MULTICAST INTERFACE MACADDRESS changes
-+ * 3) ETHERNET LINK STATUS changes
-+ * While allocating the send mad the remote site qpn used is 1
-+ * as this is the well known QP.
-+ *
-+ */
-+void hfi_vnic_vema_send_trap(struct hfi_vnic_adapter *adapter,
-+			     struct __hfi_veswport_trap *data, u32 lid)
-+{
-+	struct hfi_vnic_ctrl_port *cport = adapter->cport;
-+	struct ib_mad_send_buf *send_buf;
-+	struct hfi_vnic_vema_port *port;
-+	struct ib_device *ibp;
-+	struct hfi_vnic_vema_mad_trap *trap_mad;
-+	struct hfi_class_port_info *class;
-+	struct ib_ah_attr ah_attr;
-+	struct ib_ah *ah;
-+	struct hfi_veswport_trap *trap;
-+	u32 trap_lid;
-+	u16 pkey_idx;
-+
-+	if (!cport)
-+		goto err_exit;
-+	ibp = cport->ibdev;
-+	port = vema_get_port(cport, data->hfiportnum);
-+	if (!port || !port->mad_agent)
-+		goto err_exit;
-+
-+	if (time_before(jiffies, adapter->trap_timeout)) {
-+		if (adapter->trap_count == HFI_VNIC_TRAP_BURST_LIMIT) {
-+			v_warn("Trap rate exceeded\n");
-+			goto err_exit;
-+		} else {
-+			adapter->trap_count++;
-+		}
-+	} else {
-+		adapter->trap_count = 0;
-+	}
-+
-+	class = &port->class_port_info;
-+	/* Set up address handle */
-+	memset(&ah_attr, 0, sizeof(ah_attr));
-+	ah_attr.sl = GET_TRAP_SL_FROM_CLASS_PORT_INFO(class->trap_sl_rsvd);
-+	ah_attr.port_num = port->port_num;
-+	trap_lid = be32_to_cpu(class->trap_lid);
-+	/*
-+	 * check for trap lid validity, must not be zero
-+	 * The trap sink could change after we fashion the MAD but since traps
-+	 * are not guaranteed we won't use a lock as anyway the change will take
-+	 * place even with locking.
-+	 */
-+	if (!trap_lid) {
-+		c_err("%s: Invalid dlid\n", __func__);
-+		goto err_exit;
-+	}
-+
-+	ah_attr.dlid = trap_lid;
-+	ah = ib_create_ah(port->mad_agent->qp->pd, &ah_attr);
-+	if (IS_ERR(ah)) {
-+		c_err("%s:Couldn't create new AH = %p\n", __func__, ah);
-+		c_err("%s:dlid = %d, sl = %d, port = %d\n", __func__,
-+		      ah_attr.dlid, ah_attr.sl, ah_attr.port_num);
-+		goto err_exit;
-+	}
-+
-+	if (ib_find_pkey(ibp, data->hfiportnum, IB_DEFAULT_PKEY_FULL,
-+			 &pkey_idx) < 0) {
-+		c_err("%s:full key not found, defaulting to partial\n",
-+		      __func__);
-+		if (ib_find_pkey(ibp, data->hfiportnum, IB_DEFAULT_PKEY_PARTIAL,
-+				 &pkey_idx) < 0)
-+			pkey_idx = 1;
-+	}
-+
-+	send_buf = ib_create_send_mad(port->mad_agent, 1, pkey_idx, 0,
-+				      IB_MGMT_VENDOR_HDR, IB_MGMT_MAD_DATA,
-+				      GFP_KERNEL, OPA_MGMT_BASE_VERSION);
-+	if (IS_ERR(send_buf)) {
-+		c_err("%s:Couldn't allocate send buf\n", __func__);
-+		goto err_sndbuf;
-+	}
-+
-+	send_buf->ah = ah;
-+
-+	/* Set up common MAD hdr */
-+	trap_mad = send_buf->mad;
-+	trap_mad->mad_hdr.base_version = OPA_MGMT_BASE_VERSION;
-+	trap_mad->mad_hdr.mgmt_class = HFI_MGMT_CLASS_INTEL_EMA;
-+	trap_mad->mad_hdr.class_version = HFI_EMA_CLASS_VERSION;
-+	trap_mad->mad_hdr.method = IB_MGMT_METHOD_TRAP;
-+	port->tid++;
-+	trap_mad->mad_hdr.tid = cpu_to_be64(port->tid);
-+	trap_mad->mad_hdr.attr_id = IB_SMP_ATTR_NOTICE;
-+
-+	/* Set up vendor OUI */
-+	trap_mad->oui[0] = INTEL_OUI_1;
-+	trap_mad->oui[1] = INTEL_OUI_2;
-+	trap_mad->oui[2] = INTEL_OUI_3;
-+
-+	/* Setup notice attribute portion */
-+	trap_mad->notice.gen_type = HFI_INTEL_EMA_NOTICE_TYPE_INFO << 1;
-+	trap_mad->notice.oui_1 = INTEL_OUI_1;
-+	trap_mad->notice.oui_2 = INTEL_OUI_2;
-+	trap_mad->notice.oui_3 = INTEL_OUI_3;
-+	trap_mad->notice.issuer_lid = cpu_to_be32(lid);
-+
-+	/* copy the actual trap data */
-+	trap = (struct hfi_veswport_trap *)trap_mad->notice.raw_data;
-+	trap->fabric_id = cpu_to_be16(data->fabric_id);
-+	trap->veswid = cpu_to_be16(data->veswid);
-+	trap->veswportnum = cpu_to_be32(data->veswportnum);
-+	trap->hfiportnum = cpu_to_be16(data->hfiportnum);
-+	trap->veswportindex = data->veswportindex;
-+	trap->opcode = data->opcode;
-+
-+	/* If successful send set up rate limit timeout else bail */
-+	if (ib_post_send_mad(send_buf, NULL)) {
-+		ib_free_send_mad(send_buf);
-+	} else {
-+		if (adapter->trap_count)
-+			return;
-+		adapter->trap_timeout = jiffies +
-+					usecs_to_jiffies(HFI_VNIC_TRAP_TIMEOUT);
-+		return;
-+	}
-+
-+err_sndbuf:
-+	ib_destroy_ah(ah);
-+err_exit:
-+	v_err("Aborting trap\n");
-+}
-+
-+static int vema_rem_vport(int id, void *p, void *data)
-+{
-+	struct hfi_vnic_adapter *adapter = p;
-+
-+	hfi_vnic_rem_netdev(adapter);
-+	return 0;
-+}
-+
-+static int vema_enable_vport(int id, void *p, void *data)
-+{
-+	struct hfi_vnic_adapter *adapter = p;
-+
-+	netif_carrier_on(adapter->netdev);
-+	return 0;
-+}
-+
-+static int vema_disable_vport(int id, void *p, void *data)
-+{
-+	struct hfi_vnic_adapter *adapter = p;
-+
-+	netif_carrier_off(adapter->netdev);
-+	return 0;
-+}
-+
-+static void hfi_vnic_event(struct ib_event_handler *handler,
-+			   struct ib_event *record)
-+{
-+	struct hfi_vnic_vema_port *port =
-+		container_of(handler, struct hfi_vnic_vema_port, event_handler);
-+	struct hfi_vnic_ctrl_port *cport = port->cport;
-+
-+	if (record->element.port_num != port->port_num)
-+		return;
-+
-+	c_dbg("HFI_VNIC received event %d on device %s port %d\n",
-+	      record->event, record->device->name, record->element.port_num);
-+
-+	if (record->event == IB_EVENT_PORT_ERR)
-+		idr_for_each(&port->vport_idr, vema_disable_vport, NULL);
-+	if (record->event == IB_EVENT_PORT_ACTIVE)
-+		idr_for_each(&port->vport_idr, vema_enable_vport, NULL);
-+}
-+
-+/**
-+ * vema_unregister -- Unregisters agent
-+ * @cport: pointer to control port
-+ *
-+ * This deletes the registration by VEMA for MADs
-+ */
-+static void vema_unregister(struct hfi_vnic_ctrl_port *cport)
-+{
-+	int i;
-+
-+	for (i = 1; i <= cport->num_ports; i++) {
-+		struct hfi_vnic_vema_port *port = vema_get_port(cport, i);
-+
-+		if (!port->mad_agent)
-+			continue;
-+
-+		/* Lock ensures no MAD is being processed */
-+		mutex_lock(&port->lock);
-+		idr_for_each(&port->vport_idr, vema_rem_vport, NULL);
-+		mutex_unlock(&port->lock);
-+
-+		ib_unregister_mad_agent(port->mad_agent);
-+		port->mad_agent = NULL;
-+		mutex_destroy(&port->lock);
-+		idr_destroy(&port->vport_idr);
-+		ib_unregister_event_handler(&port->event_handler);
-+	}
-+}
-+
-+/**
-+ * vema_register -- Registers agent
-+ * @cport: pointer to control port
-+ *
-+ * This function registers the handlers for the VEMA MADs
-+ *
-+ * Return: returns 0 on success. non zero otherwise
-+ */
-+static int vema_register(struct hfi_vnic_ctrl_port *cport)
-+{
-+	struct ib_mad_reg_req reg_req = {
-+		.mgmt_class = HFI_MGMT_CLASS_INTEL_EMA,
-+		.mgmt_class_version = OPA_MGMT_BASE_VERSION,
-+		.oui = { INTEL_OUI_1, INTEL_OUI_2, INTEL_OUI_3 }
-+	};
-+	int i;
-+
-+	set_bit(IB_MGMT_METHOD_GET, reg_req.method_mask);
-+	set_bit(IB_MGMT_METHOD_SET, reg_req.method_mask);
-+
-+	/* register ib event handler and mad agent for each port on dev */
-+	for (i = 1; i <= cport->num_ports; i++) {
-+		struct hfi_vnic_vema_port *port = vema_get_port(cport, i);
-+		int ret;
-+
-+		port->cport = cport;
-+		port->port_num = i;
-+
-+		INIT_IB_EVENT_HANDLER(&port->event_handler,
-+				      cport->ibdev, hfi_vnic_event);
-+		ret = ib_register_event_handler(&port->event_handler);
-+		if (ret) {
-+			c_err("port %d: event handler register failed\n", i);
-+			vema_unregister(cport);
-+			return ret;
-+		}
-+
-+		idr_init(&port->vport_idr);
-+		mutex_init(&port->lock);
-+		port->mad_agent = ib_register_mad_agent(cport->ibdev, i,
-+							IB_QPT_GSI, &reg_req,
-+							IB_MGMT_RMPP_VERSION,
-+							vema_send, vema_recv,
-+							port, 0);
-+		if (IS_ERR(port->mad_agent)) {
-+			ret = PTR_ERR(port->mad_agent);
-+			port->mad_agent = NULL;
-+			mutex_destroy(&port->lock);
-+			idr_destroy(&port->vport_idr);
-+			vema_unregister(cport);
-+			return ret;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+/**
-+ * hfi_vnic_vema_add_one -- Handle new ib device
-+ * @device: ib device pointer
-+ *
-+ * Allocate the vnic control port and initialize it.
-+ */
-+static void hfi_vnic_vema_add_one(struct ib_device *device)
-+{
-+	struct hfi_vnic_ctrl_port *cport;
-+	int rc, size = sizeof(*cport);
-+
-+	if (!rdma_cap_hfi_vnic(device))
-+		return;
-+
-+	size += device->phys_port_cnt * sizeof(struct hfi_vnic_vema_port);
-+	cport = kzalloc(size, GFP_KERNEL);
-+	if (!cport)
-+		return;
-+
-+	cport->num_ports = device->phys_port_cnt;
-+	cport->ibdev = device;
-+
-+	/* Initialize hfi vnic management agent (vema) */
-+	rc = vema_register(cport);
-+	if (!rc)
-+		c_info("VNIC client initialized\n");
-+
-+	ib_set_client_data(device, &hfi_vnic_client, cport);
-+}
-+
-+/**
-+ * hfi_vnic_vema_rem_one -- Handle ib device removal
-+ * @device: ib device pointer
-+ * @client_data: ib client data
-+ *
-+ * Uninitialize and free the vnic control port.
-+ */
-+static void hfi_vnic_vema_rem_one(struct ib_device *device,
-+				  void *client_data)
-+{
-+	struct hfi_vnic_ctrl_port *cport = client_data;
-+
-+	if (!cport)
-+		return;
-+
-+	c_info("removing VNIC client\n");
-+	vema_unregister(cport);
-+	kfree(cport);
-+}
-+
-+static int __init hfi_vnic_init(void)
-+{
-+	int rc;
-+
-+	pr_info("HFI Virtual Network Driver - v%s\n",
-+		hfi_vnic_driver_version);
-+
-+	rc = ib_register_client(&hfi_vnic_client);
-+	if (rc)
-+		pr_err("VNIC driver register failed %d\n", rc);
-+
-+	return rc;
-+}
-+module_init(hfi_vnic_init);
-+
-+static void hfi_vnic_deinit(void)
-+{
-+	ib_unregister_client(&hfi_vnic_client);
-+}
-+module_exit(hfi_vnic_deinit);
-+
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_AUTHOR("Intel Corporation");
-+MODULE_DESCRIPTION("Intel HFI Virtual Network driver");
-+MODULE_VERSION(DRV_VERSION);
-diff --git a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema_iface.c b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema_iface.c
-index fca3bab..80b557b 100644
---- a/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema_iface.c
-+++ b/drivers/infiniband/ulp/hfi_vnic/hfi_vnic_vema_iface.c
-@@ -70,7 +70,7 @@ void hfi_vnic_vema_report_event(struct hfi_vnic_adapter *adapter, u8 event)
- 	trap_data.veswportindex = adapter->vport_num;
- 	trap_data.opcode = event;
- 
--	/* Need to send trap here */
-+	hfi_vnic_vema_send_trap(adapter, &trap_data, info->vport.encap_slid);
+@@ -203,6 +221,7 @@ struct hfi_vnic_adapter *hfi_vnic_add_netdev(struct ib_device *ibdev,
+ 	return adapter;
+ netdev_err:
+ 	mutex_destroy(&adapter->lock);
++	mutex_destroy(&adapter->stats_lock);
+ 	kfree(adapter);
+ adapter_err:
+ 	ibdev->free_rdma_netdev(netdev);
+@@ -219,6 +238,7 @@ void hfi_vnic_rem_netdev(struct hfi_vnic_adapter *adapter)
+ 	v_info("removing\n");
+ 	unregister_netdev(netdev);
+ 	mutex_destroy(&adapter->lock);
++	mutex_destroy(&adapter->stats_lock);
+ 	kfree(adapter);
+ 	ibdev->free_rdma_netdev(netdev);
  }
- 
- /**
 -- 
 1.8.3.1
