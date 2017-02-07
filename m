@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v3 10/11] bpf: Remove bpf_sys.h from selftests
-Date: Tue,  7 Feb 2017 22:44:59 +0100
-Message-ID: <20170207214500.27496-11-mic@digikod.net>
+Subject: [PATCH net-next v3 01/11] tools: Sync {,tools/}include/uapi/linux/bpf.h
+Date: Tue,  7 Feb 2017 22:44:50 +0100
+Message-ID: <20170207214500.27496-2-mic@digikod.net>
 References: <20170207214500.27496-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,157 +11,98 @@ Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
         Arnaldo Carvalho de Melo <acme@redhat.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
         "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Shuah Khan <shuah@kernel.org>
+        Daniel Mack <daniel@zonque.org>,
+        Gianluca Borello <g.borello@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-sh2.infomaniak.ch ([128.65.195.6]:57695 "EHLO
+        smtp-sh2.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932455AbdBGVpi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:45:38 -0500
 In-Reply-To: <20170207214500.27496-1-mic@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add require dependency headers.
+The tools version of this header is out of date; update it to the latest
+version from kernel header.
+
+Synchronize with the following commits:
+* b95a5c4db09b ("bpf: add a longest prefix match trie map implementation")
+* a5e8c07059d0 ("bpf: add bpf_probe_read_str helper")
+* d1b662adcdb8 ("bpf: allow option for setting bpf_l4_csum_replace from scratch")
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Shuah Khan <shuah@kernel.org>
+Cc: Daniel Mack <daniel@zonque.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Gianluca Borello <g.borello@gmail.com>
 ---
- tools/lib/bpf/bpf.c                         |  6 ++++++
- tools/testing/selftests/bpf/bpf_sys.h       | 27 ---------------------------
- tools/testing/selftests/bpf/test_lpm_map.c  |  1 -
- tools/testing/selftests/bpf/test_lru_map.c  |  1 -
- tools/testing/selftests/bpf/test_maps.c     |  1 -
- tools/testing/selftests/bpf/test_tag.c      |  3 +--
- tools/testing/selftests/bpf/test_verifier.c |  4 ++--
- 7 files changed, 9 insertions(+), 34 deletions(-)
- delete mode 100644 tools/testing/selftests/bpf/bpf_sys.h
+ tools/include/uapi/linux/bpf.h | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index c7c3e2b34403..06a7d4ed1e11 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -50,7 +50,13 @@ static __u64 ptr_to_u64(const void *ptr)
- static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
- 		   unsigned int size)
- {
-+#ifdef __NR_bpf
- 	return syscall(__NR_bpf, cmd, attr, size);
-+#else
-+	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
-+	errno = ENOSYS;
-+	return -1;
-+#endif
- }
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 0eb0e87dbe9f..e07fd5a324e6 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -63,6 +63,12 @@ struct bpf_insn {
+ 	__s32	imm;		/* signed immediate constant */
+ };
  
- int bpf_create_map(enum bpf_map_type map_type, int key_size,
-diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
-deleted file mode 100644
-index aa076a8a07f7..000000000000
---- a/tools/testing/selftests/bpf/bpf_sys.h
-+++ /dev/null
-@@ -1,27 +0,0 @@
--#ifndef __BPF_SYS__
--#define __BPF_SYS__
--
--#include <stdint.h>
--#include <stdlib.h>
--
--#include <sys/syscall.h>
--
--#include <linux/bpf.h>
--
--static inline __u64 bpf_ptr_to_u64(const void *ptr)
--{
--	return (__u64)(unsigned long) ptr;
--}
--
--static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
--{
--#ifdef __NR_bpf
--	return syscall(__NR_bpf, cmd, attr, size);
--#else
--	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
--	errno = ENOSYS;
--	return -1;
--#endif
--}
--
--#endif /* __BPF_SYS__ */
-diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
-index 3cc812cac2d7..e97565243d59 100644
---- a/tools/testing/selftests/bpf/test_lpm_map.c
-+++ b/tools/testing/selftests/bpf/test_lpm_map.c
-@@ -23,7 +23,6 @@
- #include <sys/resource.h>
++/* Key of an a BPF_MAP_TYPE_LPM_TRIE entry */
++struct bpf_lpm_trie_key {
++	__u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
++	__u8	data[0];	/* Arbitrary size */
++};
++
+ /* BPF syscall commands, see bpf(2) man-page for details. */
+ enum bpf_cmd {
+ 	BPF_MAP_CREATE,
+@@ -89,6 +95,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_CGROUP_ARRAY,
+ 	BPF_MAP_TYPE_LRU_HASH,
+ 	BPF_MAP_TYPE_LRU_PERCPU_HASH,
++	BPF_MAP_TYPE_LPM_TRIE,
+ };
  
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- struct tlpm_node {
-diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index 20fa3df20a01..5d9790ee14fb 100644
---- a/tools/testing/selftests/bpf/test_lru_map.c
-+++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -19,7 +19,6 @@
- #include <sys/resource.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- #define LOCAL_FREE_TARGET	(128)
-diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 050a5205c78d..a0090016372e 100644
---- a/tools/testing/selftests/bpf/test_maps.c
-+++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -22,7 +22,6 @@
- #include <linux/bpf.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- static int map_flags;
-diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
-index a76d695ab56e..99f1df1593f1 100644
---- a/tools/testing/selftests/bpf/test_tag.c
-+++ b/tools/testing/selftests/bpf/test_tag.c
-@@ -1,3 +1,4 @@
-+#include <stdint.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <ctype.h>
-@@ -20,8 +21,6 @@
- 
- #include "../../../include/linux/filter.h"
- 
--#include "bpf_sys.h"
--
- static struct bpf_insn prog[BPF_MAXINSNS];
- 
- static void bpf_gen_imm_prog(unsigned int insns, int fd_map)
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 967448aa5b16..5c958e20981f 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -8,7 +8,9 @@
-  * License as published by the Free Software Foundation.
+ enum bpf_prog_type {
+@@ -430,6 +437,18 @@ union bpf_attr {
+  *     @xdp_md: pointer to xdp_md
+  *     @delta: An positive/negative integer to be added to xdp_md.data
+  *     Return: 0 on success or negative on error
++ *
++ * int bpf_probe_read_str(void *dst, int size, const void *unsafe_ptr)
++ *     Copy a NUL terminated string from unsafe address. In case the string
++ *     length is smaller than size, the target is not padded with further NUL
++ *     bytes. In case the string length is larger than size, just count-1
++ *     bytes are copied and the last byte is set to NUL.
++ *     @dst: destination address
++ *     @size: maximum number of bytes to copy, including the trailing NUL
++ *     @unsafe_ptr: unsafe address
++ *     Return:
++ *       > 0 length of the string including the trailing NUL on success
++ *       < 0 error
   */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -476,7 +495,8 @@ union bpf_attr {
+ 	FN(set_hash_invalid),		\
+ 	FN(get_numa_node_id),		\
+ 	FN(skb_change_head),		\
+-	FN(xdp_adjust_head),
++	FN(xdp_adjust_head),		\
++	FN(probe_read_str),
  
-+#include <stdint.h>
- #include <stdio.h>
-+#include <stdlib.h>
- #include <unistd.h>
- #include <errno.h>
- #include <string.h>
-@@ -28,8 +30,6 @@
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+@@ -502,6 +522,7 @@ enum bpf_func_id {
+ /* BPF_FUNC_l4_csum_replace flags. */
+ #define BPF_F_PSEUDO_HDR		(1ULL << 4)
+ #define BPF_F_MARK_MANGLED_0		(1ULL << 5)
++#define BPF_F_MARK_ENFORCE		(1ULL << 6)
  
- #include "../../../include/linux/filter.h"
- 
--#include "bpf_sys.h"
--
- #ifndef ARRAY_SIZE
- # define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
- #endif
+ /* BPF_FUNC_clone_redirect and BPF_FUNC_redirect flags. */
+ #define BPF_F_INGRESS			(1ULL << 0)
 -- 
 2.11.0
