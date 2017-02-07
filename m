@@ -1,41 +1,36 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
-Subject: Re: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
-Date: Tue, 7 Feb 2017 13:43:03 -0800
-Message-ID: <20170207214303.GA76652@knc-06.sc.intel.com>
+From: "Hefty, Sean" <sean.hefty@intel.com>
+Subject: RE: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
+Date: Tue, 7 Feb 2017 21:44:26 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373AB0E5B6C@ORSMSX109.amr.corp.intel.com>
 References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170207203649.GW6005@mtr-leonro.local>
- <1828884A29C6694DAF28B7E6B8A82373AB0E5B0B@ORSMSX109.amr.corp.intel.com>
+ <1486502926.2581.4.camel@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Leon Romanovsky <leon@kernel.org>,
-        "dledford@redhat.com" <dledford@redhat.com>,
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
         "Weiny, Ira" <ira.weiny@intel.com>
-To: "Hefty, Sean" <sean.hefty@intel.com>
+To: Bart Van Assche <Bart.VanAssche@sandisk.com>,
+        "dledford@redhat.com" <dledford@redhat.com>,
+        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:30009 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:41679 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932313AbdBGVnG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 16:43:06 -0500
-Content-Disposition: inline
-In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373AB0E5B0B@ORSMSX109.amr.corp.intel.com>
+        id S932321AbdBGVon (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 16:44:43 -0500
+In-Reply-To: <1486502926.2581.4.camel@sandisk.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 01:00:05PM -0800, Hefty, Sean wrote:
->> I didn't read patches yet, and prefer to ask it in advance. Does this
->> new ULP work with all
->> drivers/infiniband/hw/* devices as it is expected from ULP?
->
->Like the way ipoib or srp work with all hw devices?  What is the real point of this question?
+> This may have been stated before, but what is missing from this
+> description
+> is an explanation of why accepting an Ethernet over RDMA driver in the
+> upstream kernel is considered useful. We already have an IPoIB driver,
+> so
+> why to add another driver to the kernel tree for communicating IP
+> packets
+> over an RDMA network?
 
-Leon,
-It was already discussed in below threads.
-
-https://www.spinics.net/lists/linux-rdma/msg44128.html
-https://www.spinics.net/lists/linux-rdma/msg44131.html
-https://www.spinics.net/lists/linux-rdma/msg44155.html
-
-Niranjana
+This is Ethernet - not IP - encapsulation over a non-InfiniBand device/protocol.
