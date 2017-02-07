@@ -1,112 +1,90 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/3] tipc: Fix tipc_sk_reinit race conditions
-Date: Tue, 07 Feb 2017 20:39:44 +0800
-Message-ID: <E1cb53g-0003pz-KV@gondobar>
-References: <20170207123827.GA14678@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:34337 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753829AbdBGMjx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 07:39:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: 'Greg KH' <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
+Date: Tue, 7 Feb 2017 13:42:04 +0100
+Message-ID: <20170207124204.GA11883@kroah.com>
+References: <20170204165451.GU3442@decadent.org.uk>
+ <20170204165631.GW3442@decadent.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6DB027CA6E@AcuExch.aculab.com>
+ <20170206162520.GA3442@decadent.org.uk>
+ <20170207103452.zb4frzltpdjaaf2s@p310>
+ <20170207105131.GA2700@kroah.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB027DB75@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>,
+        Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027DB75-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There are two problems with the function tipc_sk_reinit.  Firstly
-it's doing a manual walk over an rhashtable.  This is broken as
-an rhashtable can be resized and if you manually walk over it
-during a resize then you may miss entries.
+On Tue, Feb 07, 2017 at 11:56:51AM +0000, David Laight wrote:
+> From: Greg KH
+> > Sent: 07 February 2017 10:52
+> > To: Petko Manolov
+> > Cc: Ben Hutchings; David Laight; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > Subject: Re: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
+> > 
+> > On Tue, Feb 07, 2017 at 12:34:52PM +0200, Petko Manolov wrote:
+> > > On 17-02-06 16:25:20, Ben Hutchings wrote:
+> > > > On Mon, Feb 06, 2017 at 04:09:18PM +0000, David Laight wrote:
+> > > > > From: Ben Hutchings
+> > > > [...]
+> > > > > > +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+> > > > > > +			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
+> > > > > > +			      indx, 0, buf, size, 500);
+> > > > > > +	if (ret > 0 && ret <= size)
+> > > > > > +		memcpy(data, buf, ret);
+> > > > >
+> > > > > If ret > size something is horridly wrong.
+> > > > > Silently not updating the callers buffer at all cannot be right.
+> > > >
+> > > > Yes, it seems strange to check this.  I originally wrote this as ret >
+> > > > 0, but then I checked the usbnet core and found __usbnet_read_cmd()
+> > > > has the second comparison as well.
+> > > >
+> > > > > > +	kfree(buf);
+> > > > > > +	return ret;
+> > >
+> > > Since we return what usb_control_msg() told us to return i assume the error code
+> > > will be available to anybody who cares.
+> > >
+> > > > > I can't help feeling that it would be better to add a wrapper to
+> > > > > usb_control_msg() that does the kmalloc() and memcpy()s and
+> > > > > drop that into all the call sites.
+> > > >
+> > > > It might be.  Right now I'm trying to patch up a bunch of regressions rather
+> > > > than argue over an API change.
+> > >
+> > > Right, first thing first.
+> > >
+> > > I am in favor of changing the API, but this should not happen in the stable
+> > > releases.  I hope Greg will make up his mind and let us know.
+> > 
+> > make up my mind about what?  These are bugs, they should be fixed, I'm
+> > not taking a total api change at this point in time, sorry.
+> 
+> Adding a usb_control_msg_with_malloc() wrapper is a smaller change than those
+> proposed. The smaller churn probably makes back porting other changes easier.
+> 
+> Given the nature of this problem, and how common it seems to be,
+> it is almost worth renaming usb_control_msg() itself so that all the
+> callers are properly audited.
 
-Secondly it's missing memory barriers as previously the code used
-spinlocks which provide the barriers implicitly.
+As this is something that we have been auditing for a decade now, I
+don't think you will find all that many instances :)
 
-This patch fixes both problems.
+But for now, fixes like this are fine, if someone wants to tackle the
+larger issue here, with a new api function, that would be great.
 
-Fixes: 07f6c4bc048a ("tipc: convert tipc reference table to...")
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
+thanks,
 
- net/tipc/net.c    |    4 ++++
- net/tipc/socket.c |   30 +++++++++++++++++++-----------
- 2 files changed, 23 insertions(+), 11 deletions(-)
-
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index 28bf4fe..ab8a2d5 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -110,6 +110,10 @@ int tipc_net_start(struct net *net, u32 addr)
- 	char addr_string[16];
- 
- 	tn->own_addr = addr;
-+
-+	/* Ensure that the new address is visible before we reinit. */
-+	smp_mb();
-+
- 	tipc_named_reinit(net);
- 	tipc_sk_reinit(net);
- 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 333c5da..20240e1 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -384,8 +384,6 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 	INIT_LIST_HEAD(&tsk->publications);
- 	msg = &tsk->phdr;
- 	tn = net_generic(sock_net(sk), tipc_net_id);
--	tipc_msg_init(tn->own_addr, msg, TIPC_LOW_IMPORTANCE, TIPC_NAMED_MSG,
--		      NAMED_H_SIZE, 0);
- 
- 	/* Finish initializing socket data structures */
- 	sock->ops = ops;
-@@ -395,6 +393,13 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 		pr_warn("Socket create failed; port number exhausted\n");
- 		return -EINVAL;
- 	}
-+
-+	/* Ensure tsk is visible before we read own_addr. */
-+	smp_mb();
-+
-+	tipc_msg_init(tn->own_addr, msg, TIPC_LOW_IMPORTANCE, TIPC_NAMED_MSG,
-+		      NAMED_H_SIZE, 0);
-+
- 	msg_set_origport(msg, tsk->portid);
- 	setup_timer(&sk->sk_timer, tipc_sk_timeout, (unsigned long)tsk);
- 	sk->sk_shutdown = 0;
-@@ -2267,24 +2272,27 @@ static int tipc_sk_withdraw(struct tipc_sock *tsk, uint scope,
- void tipc_sk_reinit(struct net *net)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
--	const struct bucket_table *tbl;
--	struct rhash_head *pos;
-+	struct rhashtable_iter iter;
- 	struct tipc_sock *tsk;
- 	struct tipc_msg *msg;
--	int i;
- 
--	rcu_read_lock();
--	tbl = rht_dereference_rcu((&tn->sk_rht)->tbl, &tn->sk_rht);
--	for (i = 0; i < tbl->size; i++) {
--		rht_for_each_entry_rcu(tsk, pos, tbl, i, node) {
-+	rhashtable_walk_enter(&tn->sk_rht, &iter);
-+
-+	do {
-+		tsk = ERR_PTR(rhashtable_walk_start(&iter));
-+		if (tsk)
-+			continue;
-+
-+		while ((tsk = rhashtable_walk_next(&iter)) && !IS_ERR(tsk)) {
- 			spin_lock_bh(&tsk->sk.sk_lock.slock);
- 			msg = &tsk->phdr;
- 			msg_set_prevnode(msg, tn->own_addr);
- 			msg_set_orignode(msg, tn->own_addr);
- 			spin_unlock_bh(&tsk->sk.sk_lock.slock);
- 		}
--	}
--	rcu_read_unlock();
-+
-+		rhashtable_walk_stop(&iter);
-+	} while (tsk == ERR_PTR(-EAGAIN));
- }
- 
- static struct tipc_sock *tipc_sk_lookup(struct net *net, u32 portid)
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
