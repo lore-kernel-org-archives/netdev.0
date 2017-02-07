@@ -1,51 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 2/3] net: phy: dp83867: Add lane swapping support in
- the DP83867 TI's PHY driver
-Date: Tue, 7 Feb 2017 14:00:31 +0100
-Message-ID: <20170207130031.GA31560@lunn.ch>
-References: <1486444824-12733-1-git-send-email-lukma@denx.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 3/3] rhashtable: Add nested tables
+Date: Tue, 7 Feb 2017 14:17:28 +0100
+Message-ID: <20170207131728.GA11584@breakpoint.cc>
+References: <20170207123827.GA14678@gondor.apana.org.au>
+ <E1cb53h-0003qD-No@gondobar>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Karicheri Muralidharan <m-karicheri2@ti.com>,
-        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
-        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: Lukasz Majewski <lukma@denx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56466 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753378AbdBGNS1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 08:18:27 -0500
 Content-Disposition: inline
-In-Reply-To: <1486444824-12733-1-git-send-email-lukma@denx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <E1cb53h-0003qD-No@gondobar>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 06:20:23AM +0100, Lukasz Majewski wrote:
-> This patch adds support for enabling or disabling the lane swapping (called
-> "port mirroring" in PHY's CFG4 register) feature of the DP83867 TI's PHY
-> device.
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> This patch adds code that handles GFP_ATOMIC kmalloc failure on
+> insertion.  As we cannot use vmalloc, we solve it by making our
+> hash table nested.  That is, we allocate single pages at each level
+> and reach our desired table size by nesting them.
 > 
-> One use case is when bootstrap configuration enables this feature (because
-> of e.g. LED_0 wrong wiring) so then one needs to disable it in software
-> (at u-boot/Linux).
+> When a nested table is created, only a single page is allocated
+> at the top-level.  Lower levels are allocated on demand during
+> insertion.  Therefore for each insertion to succeed, only two
+> (non-consecutive) pages are needed.
 > 
-> Signed-off-by: Lukasz Majewski <lukma@denx.de>
-> ---
-> Changes for v3:
-> - Add "line swapping" to the patch description
-> - Add DP83867_PORT_MIRROING_KEEP enum for better code readability
-> 
-> Changes for v2:
-> - use "net-phy-lane-swap" and "net-phy-lane-no-swap" generic PHY properties.
->   instead of TI specific one
-> ---
->  drivers/net/phy/dp83867.c | 38 ++++++++++++++++++++++++++++++++++++++
->  1 file changed, 38 insertions(+)
+> After a nested table is created, a rehash will be scheduled in
+> order to switch to a vmalloced table as soon as possible.  Also,
+> the rehash code will never rehash into a nested table.  If we
+> detect a nested table during a rehash, the rehash will be aborted
+> and a new rehash will be scheduled.
 
-Hi Lukasz
+Ok, but why?
 
-You are missing the documentation update. Documentation/devicetree/binding/net/phy.h
+It seems to add a whole lot of complexity...
 
-Apart from that, this looks good.
+What users can't handle the insert failure case until resize
+has completed?
 
-Thanks
-  Andrew
+Would relaxing the max chain length (until rehash is done) be an
+alternative?
