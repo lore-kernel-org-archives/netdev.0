@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 02/12] net: cgroups: fix build errors when linux/phy*.h is removed from net/dsa.h
-Date: Tue,  7 Feb 2017 15:02:55 -0800
-Message-ID: <20170207230305.18222-3-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 03/12] net: macb: fix build errors when linux/phy*.h is removed from net/dsa.h
+Date: Tue,  7 Feb 2017 15:02:56 -0800
+Message-ID: <20170207230305.18222-4-f.fainelli@gmail.com>
 References: <20170207230305.18222-1-f.fainelli@gmail.com>
 Cc: Russell King <rmk+kernel@armlinux.org.uk>,
         Andrew Lunn <andrew@lunn.ch>,
@@ -40,28 +40,36 @@ List-Id: netdev.vger.kernel.org
 
 From: Russell King <rmk+kernel@armlinux.org.uk>
 
-net/core/netprio_cgroup.c:303:16: error: expected declaration specifiers or '...' before string constant
-    MODULE_LICENSE("GPL v2");
-                   ^~~~~~~~
+drivers/net/ethernet/cadence/macb.h:862:33: sparse: expected ; at end of declaration
+drivers/net/ethernet/cadence/macb.h:862:33: sparse: Expected } at end of struct-union-enum-specifier
+drivers/net/ethernet/cadence/macb.h:862:33: sparse: got phy_interface
+drivers/net/ethernet/cadence/macb.h:877:1: sparse: Expected ; at the end of type declaration
+drivers/net/ethernet/cadence/macb.h:877:1: sparse: got }
+In file included from drivers/net/ethernet/cadence/macb_pci.c:29:0:
+drivers/net/ethernet/cadence/macb.h:862:2: error: unknown type name 'phy_interface_t'
+     phy_interface_t  phy_interface;
+     ^~~~~~~~~~~~~~~
 
-Add linux/module.h to fix this.
+Add linux/phy.h to macb.h
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- net/core/netprio_cgroup.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/cadence/macb.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 2ec86fc552df..756637dc7a57 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -13,6 +13,7 @@
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index a2cf91223003..234a49eaccfd 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -10,6 +10,8 @@
+ #ifndef _MACB_H
+ #define _MACB_H
  
- #include <linux/slab.h>
- #include <linux/types.h>
-+#include <linux/module.h>
- #include <linux/string.h>
- #include <linux/errno.h>
- #include <linux/skbuff.h>
++#include <linux/phy.h>
++
+ #define MACB_GREGS_NBR 16
+ #define MACB_GREGS_VERSION 2
+ #define MACB_MAX_QUEUES 8
 -- 
 2.9.3
