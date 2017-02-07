@@ -1,78 +1,37 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: Extending socket timestamping API for NTP
-Date: Tue, 7 Feb 2017 17:45:37 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857D6DC87@ORSMSX115.amr.corp.intel.com>
-References: <20170207140144.GA11233@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] mlx4: Invoke softirqs after napi_reschedule
+Date: Tue, 07 Feb 2017 12:51:54 -0500 (EST)
+Message-ID: <20170207.125154.1590393488220239361.davem@davemloft.net>
+References: <1486403641.7793.43.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170206181431.9664-1-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Richard Cochran <richardcochran@gmail.com>,
-        Jiri Benc <jbenc@redhat.com>, Denny Page <dennypage@me.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, yishaih@mellanox.com,
+        linux-rdma@vger.kernel.org, eric.dumazet@gmail.com
+To: bpoirier@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22126 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751540AbdBGRsl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 12:48:41 -0500
-In-Reply-To: <20170207140144.GA11233@localhost>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:52808 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932194AbdBGRv4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 12:51:56 -0500
+In-Reply-To: <20170206181431.9664-1-bpoirier@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgTWlyb3NsYXYsDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTWly
-b3NsYXYgTGljaHZhciBbbWFpbHRvOm1saWNodmFyQHJlZGhhdC5jb21dDQo+IFNlbnQ6IFR1ZXNk
-YXksIEZlYnJ1YXJ5IDA3LCAyMDE3IDY6MDIgQU0NCj4gVG86IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gQ2M6IFJpY2hhcmQgQ29jaHJhbiA8cmljaGFyZGNvY2hyYW5AZ21haWwuY29tPjsgSmly
-aSBCZW5jDQo+IDxqYmVuY0ByZWRoYXQuY29tPjsgS2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtl
-bGxlckBpbnRlbC5jb20+OyBEZW5ueSBQYWdlDQo+IDxkZW5ueXBhZ2VAbWUuY29tPjsgV2lsbGVt
-IGRlIEJydWlqbiA8d2lsbGVtYkBnb29nbGUuY29tPg0KPiBTdWJqZWN0OiBFeHRlbmRpbmcgc29j
-a2V0IHRpbWVzdGFtcGluZyBBUEkgZm9yIE5UUA0KPiANCj4gSSdkIGxpa2UgdG8gcHJvcG9zZSBz
-b21lIGNoYW5nZXMgYW5kIG5ldyBvcHRpb25zIGZvciB0aGUgdGltZXN0YW1waW5nDQo+IGludGVy
-ZmFjZSB0aGF0IEkgdGhpbmsgd291bGQgYmUgdXNlZnVsIGZvciBOVFAgaW1wbGVtZW50YXRpb25z
-IGFuZA0KPiBtYXliZSBhbHNvIG90aGVyIGFwcGxpY2F0aW9ucy4gQmVmb3JlIEkgb3Igc29tZW9u
-ZSBlbHNlIHRyaWVzIHRvDQo+IGltcGxlbWVudCB0aGVtLCBkbyB5b3UgdGhpbmsgdGhleSB3b3Vs
-ZCBhY3R1YWxseSBtYWtlIHNlbnNlIGFuZCBmaXQNCj4gd2VsbCBpbiB0aGUgY3VycmVudCBjb2Rl
-Pw0KPiANCj4gMSkgbmV3IHJ4X2ZpbHRlciBmb3IgTlRQDQo+IA0KPiAgICBTb21lIE5JQ3MgY2Fu
-J3QgdGltZXN0YW1wIGFsbCByZWNlaXZlZCBwYWNrZXRzIGFuZCBhcmUgY3VycmVudGx5DQo+ICAg
-IHVudXNhYmxlIGZvciBOVFAgd2l0aCBIVyB0aW1lc3RhbXBpbmcuIFRoZSBuZXcgZmlsdGVyIHdv
-dWxkIGFsbG93DQo+ICAgIE5UUCBzdXBwb3J0IGluIG5ldyBOSUNzIGFuZCBhZGRpbmcgc3VwcG9y
-dCB0byBleGlzdGluZyBOSUNzIHdpdGgNCj4gICAgZmlybXdhcmUvZHJpdmVyIHVwZGF0ZXMuIFRo
-ZSBmaWx0ZXIgd291bGQgYXBwbHkgdG8gSVB2NCBhbmQgSVB2Ng0KPiAgICBVRFAgcGFja2V0cyBy
-ZWNlaXZlZCBmcm9tIG9yIHNlbnQgdG8gdGhlIHBvcnQgbnVtYmVyIDEyMy4NCg0KVGhlIG1haW4g
-cHJvYmxlbSBoZXJlIGlzIHRoYXQgbW9zdCBoYXJkd2FyZSB0aGF0ICpjYW4ndCogdGltZXN0YW1w
-IGFsbCBwYWNrZXRzIGlzIHByZXR0eSBsaW1pdGVkIHRvIHRpbWVzdGFtcGluZyBvbmx5IFBUUCBm
-cmFtZXMuIEl0J3MgcG9zc2libGUgd2l0aCBmaXJtd2FyZSB1cGdyYWRlcyB0aGlzIGNvdWxkIGJl
-IHdvcmtlZCBhcm91bmQsIGJ1dCBJIGRvIG5vdCBrbm93IGlmIGl0IHdvdWxkIGFjdHVhbGx5IGhh
-cHBlbi4gU3RpbGwsIGl0IGNhbid0IHJlYWxseSBodXJ0IHRvbyBtdWNoIHRvIGFkZCBhIG5ldyBm
-aWx0ZXIsIGFuZCB0aG9zZSBkcml2ZXJzIHdoaWNoIGNhbiBzdXBwb3J0IGl0IGFscmVhZHkgc2hv
-dWxkIGJlIGVhc3kgdG8gaW1wbGVtZW50Lg0KDQo+IA0KPiAgICBTaG91bGQgYmUgdGhlIGN1cnJl
-bnQgZHJpdmVycyBvZiBIVyB0aGF0IGNhbiB0aW1lc3RhbXAgYWxsIHBhY2tldHMNCj4gICAgdXBk
-YXRlZCB0byBmYWxsIGJhY2sgdG8gSFdUU1RBTVBfRklMVEVSX0FMTD8NCg0KR2VuZXJhbGx5LCB0
-aGUgZHJpdmVycyBJIGFtIGF3YXJlIG9mIHRoYXQgc3VwcG9ydCB0aW1lc3RhbXBpbmcgYWxsIHBh
-Y2tldHMgZG8gc28gZm9yIGFueSBmaWx0ZXIgcmVxdWVzdCwgcmF0aGVyIHRoYW4gYWN0dWFsbHkg
-bGltaXRpbmcgdGhlIHRpbWVzdGFtcGluZy4NCg0KPiANCj4gMikgbmV3IFNPX1RJTUVTVEFNUElO
-RyBvcHRpb24gdG8gcmVjZWl2ZSBmcm9tIHRoZSBlcnJvciBxdWV1ZSBvbmx5DQo+ICAgIHVzZXIg
-ZGF0YSBhcyB3YXMgcGFzc2VkIHRvIHNlbmRtc2coKSBpbnN0ZWFkIG9mIEV0aGVybmV0IGZyYW1l
-cw0KPiANCj4gICAgUGFyc2luZyBFdGhlcm5ldCBhbmQgSVAgaGVhZGVycyAoZXNwZWNpYWxseSBJ
-UHY2IG9wdGlvbnMpIGlzIG5vdA0KPiAgICBmdW4gYW5kIFNPRl9USU1FU1RBTVBJTkdfT1BUX0lE
-IGlzIG5vdCBhbHdheXMgcHJhY3RpY2FsLCBlLmcuIGluDQo+ICAgIGFwcGxpY2F0aW9ucyB3aGlj
-aCBwcm9jZXNzIG1lc3NhZ2VzIGZyb20gdGhlIGVycm9yIHF1ZXVlDQo+ICAgIGFzeW5jaHJvbm91
-c2x5IGFuZCBkb24ndCBiaW5kL2Nvbm5lY3QgdGhlaXIgc29ja2V0cy4NCg0KVGhpcyB3b3VsZCBi
-ZSB1c2VmdWwgZm9yIGFwcGxpY2F0aW9uIHdyaXRpbmcuDQoNCj4gDQo+IDMpIHRhcmdldCBhZGRy
-ZXNzIGluIG1zZ19uYW1lIG9mIG1lc3NhZ2VzIGZyb20gdGhlIGVycm9yIHF1ZXVlDQo+IA0KPiAg
-ICBXaXRoIDIpIGFuZCB1bmNvbm5lY3RlZCBzb2NrZXRzLCB0aGVyZSBuZWVkcyB0byBiZSBhIHdh
-eSB0byBnZXQgdGhlDQo+ICAgIGFkZHJlc3MgdG8gd2hpY2ggdGhlIHBhY2tldCB3YXMgc2VudC4g
-SXMgaXQgb2sgdG8gYWx3YXlzIGZpbGwNCj4gICAgbXNnX25hbWUsIG9yIGRvZXMgaXQgbmVlZCB0
-byBiZSBhIG5ldyBvcHRpb24/DQoNCg0KSSdtIG5vdCBzdXJlLg0KDQo+IA0KPiA0KSBhbGxvdyBz
-b2NrZXRzIHRvIHVzZSBib3RoIFNXIGFuZCBIVyBUWCB0aW1lc3RhbXBpbmcgYXQgdGhlIHNhbWUg
-dGltZQ0KPiANCj4gICAgV2hlbiB1c2luZyBhIHNvY2tldCB3aGljaCBpcyBub3QgYm91bmQgdG8g
-YSBzcGVjaWZpYyBpbnRlcmZhY2UsIGl0DQo+ICAgIHdvdWxkIGJlIG5pY2UgdG8gZ2V0IHRyYW5z
-bWl0IFNXIHRpbWVzdGFtcHMgd2hlbiBIVyB0aW1lc3RhbXBzIGFyZQ0KPiAgICBtaXNzaW5nLiBJ
-IHN1c3BlY3QgaXQncyBkaWZmaWN1bHQgdG8gcHJlZGljdCBpZiBhIEhXIHRpbWVzdGFtcCB3aWxs
-DQo+ICAgIGJlIGF2YWlsYWJsZS4gTWF5YmUgaXQgd291bGQgYmUgYWNjZXB0YWJsZSB0byBnZXQg
-ZnJvbSB0aGUgZXJyb3INCj4gICAgcXVldWUgdHdvIG1lc3NhZ2VzIHBlciB0cmFuc21pc3Npb24g
-aWYgdGhlIGludGVyZmFjZSBzdXBwb3J0cyBib3RoDQo+ICAgIFNXIGFuZCBIVyB0aW1lc3RhbXBp
-bmc/DQoNCg0KVGhpcyBzZWVtcyB1c2VmdWwsIGJ1dCBub3Qgc3VyZSBob3cgYmVzdCB0byBpbXBs
-ZW1lbnQgaXQuDQoNCj4gVGhvdWdodHM/DQo+IA0KPiAtLQ0KPiBNaXJvc2xhdiBMaWNodmFyDQo=
+From: Benjamin Poirier <bpoirier@suse.com>
+Date: Mon,  6 Feb 2017 10:14:31 -0800
+
+> mlx4 may schedule napi from a workqueue. Afterwards, softirqs are not run
+> in a deterministic time frame and the following message may be logged:
+> NOHZ: local_softirq_pending 08
+> 
+> The problem is the same as what was described in commit ec13ee80145c
+> ("virtio_net: invoke softirqs after __napi_schedule") and this patch
+> applies the same fix to mlx4.
+> 
+> Fixes: 07841f9d94c1 ("net/mlx4_en: Schedule napi when RX buffers allocation fails")
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+
+Applied and queued up for -stable, thanks!
