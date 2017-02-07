@@ -1,74 +1,155 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v3 net] bpf: add bpf_sk_netns_id() helper
-Date: Tue, 07 Feb 2017 01:09:20 +0100
-Message-ID: <58991030.1010102@iogearbox.net>
-References: <1486179240-3574802-1-git-send-email-ast@fb.com> <58990917.8000406@iogearbox.net> <58990EAF.6010205@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>, Tejun Heo <tj@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: phy: Allow splitting MDIO bus/device support from PHYs
+Date: Mon,  6 Feb 2017 16:11:12 -0800
+Message-ID: <20170207001112.1282-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39087 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751592AbdBGAJb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 19:09:31 -0500
-In-Reply-To: <58990EAF.6010205@fb.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33212 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751414AbdBGALR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 19:11:17 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so10352658pgd.0
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 16:11:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2017 01:02 AM, Alexei Starovoitov wrote:
-> On 2/6/17 3:39 PM, Daniel Borkmann wrote:
->> On 02/04/2017 04:34 AM, Alexei Starovoitov wrote:
->> [...]
->>> +BPF_CALL_1(bpf_skb_netns_id, struct sk_buff *, skb)
->>> +{
->>> +    struct net_device *dev = skb->dev;
->>> +
->>> +    if (!dev)
->>> +        return 0;
->>> +    return proc_get_ns_devid_inum(&dev_net(dev)->ns);
->>> +}
->>> +
->>> +static const struct bpf_func_proto bpf_skb_netns_id_proto = {
->>> +    .func        = bpf_skb_netns_id,
->>> +    .gpl_only    = false,
->>> +    .ret_type    = RET_INTEGER,
->>> +    .arg1_type    = ARG_PTR_TO_CTX,
->>> +};
->>> +
->>>   static const struct bpf_func_proto *
->>>   sk_filter_func_proto(enum bpf_func_id func_id)
->>>   {
->>> @@ -2620,6 +2649,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
->>>       case BPF_FUNC_trace_printk:
->>>           if (capable(CAP_SYS_ADMIN))
->>>               return bpf_get_trace_printk_proto();
->>> +    case BPF_FUNC_sk_netns_id:
->>> +        return &bpf_skb_netns_id_proto;
->>>       default:
->>>           return NULL;
->>>       }
->>
->> Btw, I think here's an oversight that would still need to be
->> fixed. Above would mean that trace printk from unprivileged would
->> fall through and use &bpf_skb_netns_id_proto as proto now instead
->> of NULL. So BPF_FUNC_sk_netns_id needs to be placed above the
->> BPF_FUNC_trace_printk case, not in its fall-through path. Looks
->> like Chenbo in his get_socket_cookie missed this, too. Other than
->> that BPF bits seem good to me.
->
-> Ahh, right. Good catch.
-> I'll add 'else return NULL;' otherwise somebody might step on it again.
-> Thanks Daniel!
+Introduce a new configuration symbol: MDIO_DEVICE which allows building
+the MDIO devices and bus code, without pulling in the entire Ethernet
+PHY library and devices code.
 
-I guess an explicit comment "/* fall-through */" would also be fine
-and get noticed. Thanks!
+PHYLIB nows select MDIO_DEVICE and the relevant Makefile files are
+updated to reflect that.
 
-> Eric,
-> still waiting for your review of nsfs.c bits.
->
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/Makefile       |  2 +-
+ drivers/net/phy/Kconfig    | 59 ++++++++++++++++++++++++++--------------------
+ drivers/net/phy/Makefile   |  3 ++-
+ drivers/net/phy/mdio_bus.c |  2 ++
+ 4 files changed, 39 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 7336cbd3ef5d..a701e390d48f 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -17,7 +17,7 @@ obj-$(CONFIG_MII) += mii.o
+ obj-$(CONFIG_MDIO) += mdio.o
+ obj-$(CONFIG_NET) += Space.o loopback.o
+ obj-$(CONFIG_NETCONSOLE) += netconsole.o
+-obj-$(CONFIG_PHYLIB) += phy/
++obj-$(CONFIG_MDIO_DEVICE) += phy/
+ obj-$(CONFIG_RIONET) += rionet.o
+ obj-$(CONFIG_NET_TEAM) += team/
+ obj-$(CONFIG_TUN) += tun.o
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 8dbd59baa34d..01152fb9cb76 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -2,33 +2,12 @@
+ # PHY Layer Configuration
+ #
+ 
+-menuconfig PHYLIB
+-	tristate "PHY Device support and infrastructure"
+-	depends on NETDEVICES
++menuconfig MDIO_DEVICE
++	tristate "MDIO bus device drivers"
+ 	help
+-	  Ethernet controllers are usually attached to PHY
+-	  devices.  This option provides infrastructure for
+-	  managing PHY devices.
+-
+-if PHYLIB
+-
+-config SWPHY
+-	bool
+-
+-config LED_TRIGGER_PHY
+-	bool "Support LED triggers for tracking link state"
+-	depends on LEDS_TRIGGERS
+-	---help---
+-	  Adds support for a set of LED trigger events per-PHY.  Link
+-	  state change will trigger the events, for consumption by an
+-	  LED class driver.  There are triggers for each link speed currently
+-	  supported by the phy, and are of the form:
+-	       <mii bus id>:<phy>:<speed>
+-
+-	  Where speed is in the form:
+-		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
++	   MDIO devices and driver infrastructure code.
+ 
+-comment "MDIO bus device drivers"
++if MDIO_DEVICE
+ 
+ config MDIO_BCM_IPROC
+ 	tristate "Broadcom iProc MDIO bus controller"
+@@ -160,6 +139,36 @@ config MDIO_XGENE
+ 	  This module provides a driver for the MDIO busses found in the
+ 	  APM X-Gene SoC's.
+ 
++endif
++
++menuconfig PHYLIB
++	tristate "PHY Device support and infrastructure"
++	depends on NETDEVICES
++	select MDIO_DEVICE
++	help
++	  Ethernet controllers are usually attached to PHY
++	  devices.  This option provides infrastructure for
++	  managing PHY devices.
++
++if PHYLIB
++
++config SWPHY
++	bool
++
++config LED_TRIGGER_PHY
++	bool "Support LED triggers for tracking link state"
++	depends on LEDS_TRIGGERS
++	---help---
++	  Adds support for a set of LED trigger events per-PHY.  Link
++	  state change will trigger the events, for consumption by an
++	  LED class driver.  There are triggers for each link speed currently
++	  supported by the phy, and are of the form:
++	       <mii bus id>:<phy>:<speed>
++
++	  Where speed is in the form:
++		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
++
++
+ comment "MII PHY device drivers"
+ 
+ config AMD_PHY
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 356859ac7c18..441d228f53ed 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -1,6 +1,7 @@
+ # Makefile for Linux PHY drivers and MDIO bus drivers
+ 
+-libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o
++libphy-y			:= phy.o phy_device.o
++obj-$(CONFIG_MDIO_DEVICE)	+= mdio_device.o mdio_bus.o
+ libphy-$(CONFIG_SWPHY)		+= swphy.o
+ libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
+ 
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 653d076eafe5..fa6bd2a2ce3e 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -644,9 +644,11 @@ int __init mdio_bus_init(void)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(mdio_bus_init);
+ 
+ void mdio_bus_exit(void)
+ {
+ 	class_unregister(&mdio_bus_class);
+ 	bus_unregister(&mdio_bus_type);
+ }
++EXPORT_SYMBOL_GPL(mdio_bus_exit);
+-- 
+2.9.3
