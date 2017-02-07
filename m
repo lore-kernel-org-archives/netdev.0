@@ -1,72 +1,33 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next] sctp: avoid list_del_init if it's freeing the
- memory right away
-Date: Tue, 7 Feb 2017 17:45:09 -0200
-Message-ID: <20170207194508.GD3414@localhost.localdomain>
-References: <e1b3b9b24f39ee82a3131a39a0413231ba54bc7c.1486494022.git.marcelo.leitner@gmail.com>
- <20170207.142121.1027174926882132252.davem@davemloft.net>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 376/390]
+ drivers/net/ethernet/qualcomm/emac/emac-ethtool.c:155:49-50: Unneeded
+ semicolon
+Date: Wed, 8 Feb 2017 03:41:56 +0800
+Message-ID: <201702080337.4IVnIpzh%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        vyasevich@gmail.com, nhorman@tuxdriver.com
-To: David Miller <davem@davemloft.net>
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: Timur Tabi <timur@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47044 "EHLO mx1.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:44566 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752943AbdBGTpM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 14:45:12 -0500
+        id S1754998AbdBGTpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 14:45:32 -0500
 Content-Disposition: inline
-In-Reply-To: <20170207.142121.1027174926882132252.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 02:21:21PM -0500, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Tue,  7 Feb 2017 17:03:21 -0200
-> 
-> > There is no reason to use list_del_init() in these places as we are
-> > going to free/destroy the memory in a few lines below.
-> > 
-> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > ---
-> >  net/sctp/associola.c     | 14 ++++----------
-> >  net/sctp/auth.c          |  8 ++------
-> >  net/sctp/chunk.c         |  4 ++--
-> >  net/sctp/outqueue.c      | 14 +++++++-------
-> >  net/sctp/sm_make_chunk.c |  3 +--
-> >  5 files changed, 16 insertions(+), 27 deletions(-)
-> > 
-> > diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> > index e50dc6d7543fd6acfa7442f3a9ee575203c7718d..7eb9dacfa53a438b20a34319cf01c6c9a591f0c3 100644
-> > --- a/net/sctp/associola.c
-> > +++ b/net/sctp/associola.c
-> > @@ -1638,25 +1638,19 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
-> >  static void sctp_assoc_free_asconf_queue(struct sctp_association *asoc)
-> >  {
-> >  	struct sctp_chunk *asconf;
-> > -	struct sctp_chunk *tmp;
-> >  
-> > -	list_for_each_entry_safe(asconf, tmp, &asoc->addip_chunk_list, list) {
-> > -		list_del_init(&asconf->list);
-> > +	list_for_each_entry(asconf, &asoc->addip_chunk_list, list)
-> >  		sctp_chunk_free(asconf);
-> > -	}
-> >  }
-> 
-> This leave freed memory on the asoc->addip_chunk_list, in fact why aren't you seeing
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   ca6d4480f87db9d9470d3d7bbe445953fa105e57
+commit: b44700e975848a9a569a509244672ff886ec99b3 [376/390] net: qcom/emac: add ethool support for setting pause parameters
 
-This should be alright, because here we are purging the entire list and
-the asoc will also be free right after.
 
-> the BUG_ON() in sctp_chunk_destroy() get triggered?  If you elide the list_del() here
-> then the "list_empty(&chunk->list)" check there will not be true.
-> 
+coccinelle warnings: (new ones prefixed by >>)
 
-Good question. I have to double check this, but you're probably right.
+>> drivers/net/ethernet/qualcomm/emac/emac-ethtool.c:155:49-50: Unneeded semicolon
 
-> I don't think this transformation here is legal at all.
+Please review and possibly fold the followup patch.
 
-I removed the BUG_ON check on sctp_auth_shkey_free() for the same
-reason, not sure why not for sctp_chunk_destroy().
-
-  Marcelo
+---
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
