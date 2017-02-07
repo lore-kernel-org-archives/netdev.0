@@ -1,51 +1,38 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Performance in stmmac
-Date: Tue, 7 Feb 2017 19:33:52 +0000
-Message-ID: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
+From: administrador <administrator@ancol.com>
+Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
+Date: Tue, 07 Feb 2017 22:38:29 +0530
+Message-ID: <20170207164842.ED31710A01CA@zimbra2.bawaslu.go.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: <niklas.cassel@axis.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:33808 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752003AbdBGTd5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:33:57 -0500
+Received: from mail.bawaslu.go.id ([103.249.227.34]:35015 "EHLO
+        zimbra2.bawaslu.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754249AbdBGTib (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:38:31 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi to all,
+ATENCIÓN;
 
-I finished implementing the multi-queue / multi-channel in stmmac and I am now
-making some tests.
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que
+vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-The mechanism is working properly, but the performance could be better
-(~440Mb/s) :). For measuring I am using iperf:
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
 
-synopsys@pt02ipk1:~$ iperf -c 192.168.0.3 --port 5001 -t 20 -i 5
-------------------------------------------------------------
-Client connecting to 192.168.0.3, TCP port 5001
-TCP window size: 85.0 KByte (default)
-------------------------------------------------------------
-[  3] local 192.168.0.2 port 34272 connected with 192.168.0.3 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0- 5.0 sec   260 MBytes   436 Mbits/sec
-[  3]  5.0-10.0 sec   262 MBytes   440 Mbits/sec
-[  3] 10.0-15.0 sec   262 MBytes   440 Mbits/sec
-[  3] 15.0-20.0 sec   257 MBytes   431 Mbits/sec
-[  3]  0.0-20.0 sec  1.02 GBytes   437 Mbits/sec
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
 
-I am seeing tx being performed in all queues, but rx is just being routed to
-queue 0. The reason why only queue 0 is processing the packets is because I am
-using priority tagged routing for now and iperf is not capable of producing
-priority tagged traffic.
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico © 2017
 
-I am sending you this e-mail in order to know if you could suggest me a tool to
-generate priority tagged traffic and if you have experience in tweaking stmmac
-to improve performance.
-
-Thanks,
-Joao
+¡gracias
+Sistemas administrador
