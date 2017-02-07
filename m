@@ -1,60 +1,101 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
-Date: Tue, 7 Feb 2017 16:52:44 +0200
-Message-ID: <20170207145244.ff5uffxb66wyezqz@p310>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165631.GW3442@decadent.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6DB027CA6E@AcuExch.aculab.com>
- <20170206162520.GA3442@decadent.org.uk>
- <20170207103452.zb4frzltpdjaaf2s@p310>
- <20170207105131.GA2700@kroah.com>
- <20170207125324.3mtjthle4pz6344v@p310>
- <20170207130102.GA24330@kroah.com>
- <20170207132052.lp3o7nm2qtrrv4w5@p310>
- <063D6719AE5E284EB5DD2968C1650D6DB027DD9F@AcuExch.aculab.com>
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Subject: [PATCH v2] xen-netfront: Improve error handling during initialization
+Date: Tue, 7 Feb 2017 14:55:12 +0000
+Message-ID: <1486479312-18424-1-git-send-email-ross.lagerwall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Ben Hutchings <ben@decadent.org.uk>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([92.247.61.126]:37332 "EHLO
-        zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754450AbdBGOxB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 09:53:01 -0500
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027DD9F@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+        Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+        Juergen Gross <jgross@suse.com>,
+        <linux-kernel@vger.kernel.org>, <wei.liu2@citrix.com>,
+        Ross Lagerwall <ross.lagerwall@citrix.com>
+To: <xen-devel@lists.xenproject.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-02-07 14:14:30, David Laight wrote:
-> From: Petko Manolov
-> > Sent: 07 February 2017 13:21
-> ...
-> > > > Would you consider what David proposed (usb_control_msg_with_malloc()) for 4.11,
-> > > > for example?  I for one will use something like that in all my drivers.
-> > >
-> > > Sure, but you might want to make it a bit smaller of a function name :)
-> > 
-> > Whatever i say may be taken as volunteering. :D
-> > 
-> > Second - i've got really bad taste when naming things.  asdfgl() is a short name
-> > although not very descriptive. ;)
-> ...
-> 
-> Actually, for short control transfers a field in the urb itself could be used 
-> (unless another 8 bytes makes the structure larger).
-> 
-> IIRC for xhci, the 8 byte pointer field can be marked as containing the actual 
-> data - saving the hardware from doing another dma as well.
+This fixes a crash when running out of grant refs when creating many
+queues across many netdevs.
 
-Unless set up for automatic triggering, 8 byte DMA transfer is an overkill (by 
-means of having to program a bunch of IO registers), especially on a 64bit 
-machine.
+* If creating queues fails (i.e. there are no grant refs available),
+call xenbus_dev_fatal() to ensure that the xenbus device is set to the
+closed state.
+* If no queues are created, don't call xennet_disconnect_backend as
+netdev->real_num_tx_queues will not have been set correctly.
+* If setup_netfront() fails, ensure that all the queues created are
+cleaned up, not just those that have been set up.
+* If any queues were set up and an error occurs, call
+xennet_destroy_queues() to clean up the napi context.
+* If any fatal error occurs, unregister and destroy the netdev to avoid
+leaving around a half setup network device.
 
-However, not knowing the USB host controllers specifics i'll shut up.
+Signed-off-by: Ross Lagerwall <ross.lagerwall@citrix.com>
+---
 
+Changed in V2:
+* Retested on top of v4.10-rc7 + "xen-netfront: Delete rx_refill_timer
+  in xennet_disconnect_backend()".
+* Don't move setup_timer as it is not necessary.
 
-cheers,
-Petko
+ drivers/net/xen-netfront.c | 33 +++++++++++++++------------------
+ 1 file changed, 15 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 722fe9f..5399a86 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1823,27 +1823,23 @@ static int talk_to_netback(struct xenbus_device *dev,
+ 		xennet_destroy_queues(info);
+ 
+ 	err = xennet_create_queues(info, &num_queues);
+-	if (err < 0)
+-		goto destroy_ring;
++	if (err < 0) {
++		xenbus_dev_fatal(dev, err, "creating queues");
++		if (num_queues > 0) {
++			goto destroy_ring;
++		} else {
++			kfree(info->queues);
++			info->queues = NULL;
++			goto out;
++		}
++	}
+ 
+ 	/* Create shared ring, alloc event channel -- for each queue */
+ 	for (i = 0; i < num_queues; ++i) {
+ 		queue = &info->queues[i];
+ 		err = setup_netfront(dev, queue, feature_split_evtchn);
+-		if (err) {
+-			/* setup_netfront() will tidy up the current
+-			 * queue on error, but we need to clean up
+-			 * those already allocated.
+-			 */
+-			if (i > 0) {
+-				rtnl_lock();
+-				netif_set_real_num_tx_queues(info->netdev, i);
+-				rtnl_unlock();
+-				goto destroy_ring;
+-			} else {
+-				goto out;
+-			}
+-		}
++		if (err)
++			goto destroy_ring;
+ 	}
+ 
+ again:
+@@ -1933,9 +1929,10 @@ static int talk_to_netback(struct xenbus_device *dev,
+ 	xenbus_transaction_end(xbt, 1);
+  destroy_ring:
+ 	xennet_disconnect_backend(info);
+-	kfree(info->queues);
+-	info->queues = NULL;
++	xennet_destroy_queues(info);
+  out:
++	unregister_netdev(info->netdev);
++	xennet_free_netdev(info->netdev);
+ 	return err;
+ }
+ 
+-- 
+2.7.4
