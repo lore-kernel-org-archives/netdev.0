@@ -1,33 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: gro_cells: move to net/core/gro_cells.c
-Date: Tue, 07 Feb 2017 15:48:53 -0800
-Message-ID: <1486511333.7793.74.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486510635.7793.72.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH 1/2] testsuite: skip link show test on big endian
+ systems
+Date: Wed, 8 Feb 2017 00:49:40 +0100
+Message-ID: <20170207234940.GN22796@orbyte.nwl.cc>
+References: <20170207230422.31936-1-phil@nwl.cc>
+ <20170207230422.31936-2-phil@nwl.cc>
+ <20170207151249.19de5192@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:33181 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752480AbdBGX5Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 18:57:25 -0500
-Received: by mail-pg0-f44.google.com with SMTP id 204so42891373pge.0
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 15:57:25 -0800 (PST)
-In-Reply-To: <1486510635.7793.72.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:42225 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932077AbdBGX7k (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 18:59:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20170207151249.19de5192@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-02-07 at 15:37 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Tue, Feb 07, 2017 at 03:12:49PM -0800, Stephen Hemminger wrote:
+> On Wed,  8 Feb 2017 00:04:21 +0100
+> Phil Sutter <phil@nwl.cc> wrote:
 > 
-> We have many gro cells users, so lets move the code to avoid
-> duplication.
+> > Netlink protocol is in host byte order, so the provided binary netlink
+> > message buffer being in little endian format will cause the test to fail
+> > on big endian systems.
+> > 
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
 > 
-> This creates a CONFIG_GRO_CELLS option.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Maybe better to figure out how to generate the files in host order?
 
-This is targeting net-next tree, just in case the lack of 
-[PATCH net-next] is confusing :/
+Yes, I had thought about that as well. Not sure whether it's worth the
+effort though to write a program which constructs the messages and dumps
+them into a file for 'ip monitor' to read. I think there's a certain
+chance this will eventually test the message builder instead of iproute.
+:)
+
+Cheers, Phil
