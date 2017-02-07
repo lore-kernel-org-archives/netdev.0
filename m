@@ -1,79 +1,52 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 3/3] rhashtable: Add nested tables
-Date: Tue, 7 Feb 2017 19:02:16 +0100
-Message-ID: <20170207180216.GC11584@breakpoint.cc>
-References: <20170207123827.GA14678@gondor.apana.org.au>
- <E1cb53h-0003qD-No@gondobar>
- <20170207131728.GA11584@breakpoint.cc>
- <20170207132911.GA14888@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv4 net-next 0/7] net: dst_confirm replacement
+Date: Tue, 07 Feb 2017 13:11:34 -0500 (EST)
+Message-ID: <20170207.131134.567606043153504044.davem@davemloft.net>
+References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        nhorman@tuxdriver.com, steffen.klassert@secunet.com,
+        linux-rdma@vger.kernel.org, yuehaibing@huawei.com
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:57836 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753651AbdBGSDy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 13:03:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20170207132911.GA14888@gondor.apana.org.au>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53246 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753961AbdBGSLg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 13:11:36 -0500
+In-Reply-To: <1486415657-14714-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Tue, Feb 07, 2017 at 02:17:28PM +0100, Florian Westphal wrote:
-> >
-> > Ok, but why?
-> 
-> Because people expect the hash table insertion to succeed, even
-> on softirq paths where you cannot vmalloc.
+From: Julian Anastasov <ja@ssi.bg>
+Date: Mon,  6 Feb 2017 23:14:10 +0200
 
-I can't really say anything here because *I* don't expect
-it to succeed.
+> 	This patchset addresses the problem of neighbour
+> confirmation where received replies from one nexthop
+> can cause confirmation of different nexthop when using
+> the same dst. Thanks to YueHaibing <yuehaibing@huawei.com>
+> for tracking the dst->pending_confirm problem.
 
-> > It seems to add a whole lot of complexity...
-> > 
-> > What users can't handle the insert failure case until resize
-> > has completed?
-> 
-> Users that need to insert on softirq that cannot throttle the
-> rate.
+This looks good enough to apply to net-next, so I have done
+so.  Thanks Julian!
 
-Even with this proposed patch things will eventually fail
-on OOM conditions.
+> - I failed to understand the CXGB* code, I see dst_confirm()
+> calls but I'm not sure dst_neigh_output() was called. For now
+> I just removed the dst->pending_confirm flag and left all
+> dst_confirm() calls there. Any better idea?
 
-Also, such period should be very short until rht has reached
-peak size for the workload.
+As I said, it is trying to confirm neighbours based upon traffic
+occurring in the chips TCP offload stack.  The 'cm' in "iwch_cm.c"
+means "connection manager".
 
-> > Would relaxing the max chain length (until rehash is done) be an
-> > alternative?
-> 
-> Considering that this is intended for users that cannot throttle
-> the rate of insertion, I think we'd be much better off just failing
-> them than sticking them on what will essentially be a linked list.
+We can probably get to the neigh that will end up being used
+since there should be a flow key somewhere that we can use to
+determine the nexthop address for neigh lookup.
 
-I think that would depend on the user and the requirement, but
-I don't know of any such users.
+> - Now may be old function neigh_output() should be restored
+> instead of dst_neigh_output?
 
-I get impression thatan (r)hashtable might be the wrong data
-structure for this in first place.
+Please elaborate.
 
-Also, given that we could easily oversubscribe a table by a factor
-of 10 or more while still keeping sane chain lengths I don't
-see why thats a problem (also, a 'rht_insert_force' or similar
-interface that doesn't do chain length checks makes it
-easy to spot places that need/want this behaviour).
-
-> As people don't like insertion failure, I think this level of
-> complexity is justified.
-
-I am not sure.
-
-I think rhastable is already bloated; I can't say I can understand
-all of the checks and knobs it has without looking at git history.
-
-(insecure_elasticity and/or insecure_max_entries come to mind, seems
- some of that might not even be needed anymore but I don't have time
- right now to investigate).
+Thanks.
