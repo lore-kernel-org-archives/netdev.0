@@ -1,47 +1,91 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 3/3] rhashtable: Add nested tables
-Date: Tue, 7 Feb 2017 14:17:28 +0100
-Message-ID: <20170207131728.GA11584@breakpoint.cc>
-References: <20170207123827.GA14678@gondor.apana.org.au>
- <E1cb53h-0003qD-No@gondobar>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
+Date: Tue, 7 Feb 2017 15:20:52 +0200
+Message-ID: <20170207132052.lp3o7nm2qtrrv4w5@p310>
+References: <20170204165451.GU3442@decadent.org.uk>
+ <20170204165631.GW3442@decadent.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6DB027CA6E@AcuExch.aculab.com>
+ <20170206162520.GA3442@decadent.org.uk>
+ <20170207103452.zb4frzltpdjaaf2s@p310>
+ <20170207105131.GA2700@kroah.com>
+ <20170207125324.3mtjthle4pz6344v@p310>
+ <20170207130102.GA24330@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56466 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753378AbdBGNS1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 08:18:27 -0500
+Received: from lan.nucleusys.com ([92.247.61.126]:37306 "EHLO
+        zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754666AbdBGNVG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 08:21:06 -0500
 Content-Disposition: inline
-In-Reply-To: <E1cb53h-0003qD-No@gondobar>
+In-Reply-To: <20170207130102.GA24330@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> This patch adds code that handles GFP_ATOMIC kmalloc failure on
-> insertion.  As we cannot use vmalloc, we solve it by making our
-> hash table nested.  That is, we allocate single pages at each level
-> and reach our desired table size by nesting them.
+On 17-02-07 14:01:02, Greg KH wrote:
+> On Tue, Feb 07, 2017 at 02:53:24PM +0200, Petko Manolov wrote:
+> > On 17-02-07 11:51:31, Greg KH wrote:
+> > > On Tue, Feb 07, 2017 at 12:34:52PM +0200, Petko Manolov wrote:
+> > > > On 17-02-06 16:25:20, Ben Hutchings wrote:
+> > > > > On Mon, Feb 06, 2017 at 04:09:18PM +0000, David Laight wrote:
+> > > > > > From: Ben Hutchings
+> > > > > [...]
+> > > > > > > +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+> > > > > > > +			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
+> > > > > > > +			      indx, 0, buf, size, 500);
+> > > > > > > +	if (ret > 0 && ret <= size)
+> > > > > > > +		memcpy(data, buf, ret);
+> > > > > > 
+> > > > > > If ret > size something is horridly wrong.
+> > > > > > Silently not updating the callers buffer at all cannot be right.
+> > > > > 
+> > > > > Yes, it seems strange to check this.  I originally wrote this as ret >
+> > > > > 0, but then I checked the usbnet core and found __usbnet_read_cmd()
+> > > > > has the second comparison as well.
+> > > > > 
+> > > > > > > +	kfree(buf);
+> > > > > > > +	return ret;
+> > > > 
+> > > > Since we return what usb_control_msg() told us to return i assume the error code 
+> > > > will be available to anybody who cares.
+> > > > 
+> > > > > > I can't help feeling that it would be better to add a wrapper to
+> > > > > > usb_control_msg() that does the kmalloc() and memcpy()s and
+> > > > > > drop that into all the call sites.
+> > > > > 
+> > > > > It might be.  Right now I'm trying to patch up a bunch of regressions rather 
+> > > > > than argue over an API change.
+> > > > 
+> > > > Right, first thing first.
+> > > > 
+> > > > I am in favor of changing the API, but this should not happen in the stable 
+> > > > releases.  I hope Greg will make up his mind and let us know.
+> > > 
+> > > make up my mind about what?  These are bugs, they should be fixed, I'm not 
+> > > taking a total api change at this point in time, sorry.
+> > 
+> > Exactly what i said above: " ... shoud not happen in the stable releases".  
+> > 
+> > Would you consider what David proposed (usb_control_msg_with_malloc()) for 4.11, 
+> > for example?  I for one will use something like that in all my drivers.
 > 
-> When a nested table is created, only a single page is allocated
-> at the top-level.  Lower levels are allocated on demand during
-> insertion.  Therefore for each insertion to succeed, only two
-> (non-consecutive) pages are needed.
-> 
-> After a nested table is created, a rehash will be scheduled in
-> order to switch to a vmalloced table as soon as possible.  Also,
-> the rehash code will never rehash into a nested table.  If we
-> detect a nested table during a rehash, the rehash will be aborted
-> and a new rehash will be scheduled.
+> Sure, but you might want to make it a bit smaller of a function name :)
 
-Ok, but why?
+Whatever i say may be taken as volunteering. :D
 
-It seems to add a whole lot of complexity...
+Second - i've got really bad taste when naming things.  asdfgl() is a short name 
+although not very descriptive. ;)
 
-What users can't handle the insert failure case until resize
-has completed?
 
-Would relaxing the max chain length (until rehash is done) be an
-alternative?
+Seriously, if nobody else step up i'll do my best to come up with a patch in the 
+next few days.
+
+
+
+cheers,
+Petko
