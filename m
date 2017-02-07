@@ -1,53 +1,106 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net-next 5/7] openvswitch: Add original direction
- conntrack tuple to sw_flow_key.
-Date: Tue, 7 Feb 2017 13:38:51 -0800
-Message-ID: <CAPWQB7FaWJL3ncLOoY=KZXxBR=gQ8A4G5UCEY2OP=PBsAZzMaA@mail.gmail.com>
-References: <1486084206-109903-1-git-send-email-jarno@ovn.org>
- <1486084206-109903-5-git-send-email-jarno@ovn.org> <CAPWQB7Hhm+dVqaOxU-56wV6MmDJw70716ir7cUAnxNnWs_a1LA@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip route: Make name of protocol 0 consistent
+Date: Tue, 7 Feb 2017 13:40:35 -0800
+Message-ID: <20170207134035.58fa3fab@xeon-e3>
+References: <1486056126-23900-1-git-send-email-dsa@cumulusnetworks.com>
+        <20170206140107.41569a73@xeon-e3>
+        <5f55d6bb-ef2e-dbb0-c677-006964f1b7fe@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:41481 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932387AbdBGVj5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:39:57 -0500
-Received: from mfilter15-d.gandi.net (mfilter15-d.gandi.net [217.70.178.143])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id BC8EDFB87D
-        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 22:39:14 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter15-d.gandi.net (mfilter15-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id L9EOFdFFeOLw for <netdev@vger.kernel.org>;
-        Tue,  7 Feb 2017 22:39:13 +0100 (CET)
-Received: from mail-qt0-f170.google.com (mail-qt0-f170.google.com [209.85.216.170])
-        (Authenticated sender: joe@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 24A33FB877
-        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 22:39:12 +0100 (CET)
-Received: by mail-qt0-f170.google.com with SMTP id x49so147746402qtc.2
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 13:39:12 -0800 (PST)
-In-Reply-To: <CAPWQB7Hhm+dVqaOxU-56wV6MmDJw70716ir7cUAnxNnWs_a1LA@mail.gmail.com>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:36724 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754207AbdBGVko (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:40:44 -0500
+Received: by mail-pg0-f54.google.com with SMTP id v184so41950839pgv.3
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 13:40:44 -0800 (PST)
+In-Reply-To: <5f55d6bb-ef2e-dbb0-c677-006964f1b7fe@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6 February 2017 at 23:15, Joe Stringer <joe@ovn.org> wrote:
-> On 2 February 2017 at 17:10, Jarno Rajahalme <jarno@ovn.org> wrote:
->> @@ -79,9 +80,17 @@ static inline void ovs_ct_fill_key(const struct sk_buff *skb,
->>         key->ct.zone = 0;
->>         key->ct.mark = 0;
->>         memset(&key->ct.labels, 0, sizeof(key->ct.labels));
->> +       key->ct.orig_proto = 0;
->> +       key->ct.orig_tp.src = 0;
->> +       key->ct.orig_tp.dst = 0;
->> +       if (key->eth.type == htons(ETH_P_IP))
->> +               memset(&key->ipv4.ct_orig, 0, sizeof(key->ipv4.ct_orig));
->> +       else if (key->eth.type == htons(ETH_P_IPV6) && !sw_flow_key_is_nd(key))
->> +               memset(&key->ipv6.ct_orig, 0, sizeof(key->ipv6.ct_orig));
->
-> If we only ever use these fields based on key->ct.orig_proto being
-> nonzero, then we m
+On Mon, 6 Feb 2017 16:03:35 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-I think I had my email opened in two windows so truncated this
-sentence somehow. I was wondering whether we can just initialize
-key->ct.orig_proto and only init the others on demand.
+> On 2/6/17 3:01 PM, Stephen Hemminger wrote:
+> > On Thu,  2 Feb 2017 09:22:06 -0800
+> > David Ahern <dsa@cumulusnetworks.com> wrote:
+> >   
+> >> iproute2 can inconsistently show the name of protocol 0 if a route with
+> >> a custom protocol is added. For example:
+> >>   dsa@cartman:~$ ip -6 ro ls table all | egrep 'proto none|proto unspec'
+> >>   local ::1 dev lo  table local  proto none  metric 0  pref medium
+> >>   local fe80::225:90ff:fecb:1c18 dev lo  table local  proto none  metric 0  pref medium
+> >>   local fe80::92e2:baff:fe5c:da5d dev lo  table local  proto none  metric 0  pref medium
+> >>
+> >> protocol 0 is pretty printed as "none". Add a route with a custom protocol:
+> >>   dsa@cartman:~$ sudo ip -6 ro add  2001:db8:200::1/128 dev eth0 proto 123
+> >>
+> >> And now display has switched from "none" to "unspec":
+> >>   dsa@cartman:~$ ip -6 ro ls table all | egrep 'proto none|proto unspec'
+> >>   local ::1 dev lo  table local  proto unspec  metric 0  pref medium
+> >>   local fe80::225:90ff:fecb:1c18 dev lo  table local  proto unspec  metric 0  pref medium
+> >>   local fe80::92e2:baff:fe5c:da5d dev lo  table local  proto unspec  metric 0  pref medium
+> >>
+> >> The rt_protos file has the id to name mapping as "unspec" while
+> >> rtnl_rtprot_tab[0] has "none". The presence of a custom protocol id
+> >> triggers reading the rt_protos file and overwriting the string in
+> >> rtnl_rtprot_tab. All of this is logic from 2004 and earlier.
+> >>
+> >> The simplest change to achieve consistency is to update the rt_protos
+> >> file to use "none" instead of "unspec".
+> >>
+> >> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> >> ---
+> >>  etc/iproute2/rt_protos | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> diff --git a/etc/iproute2/rt_protos b/etc/iproute2/rt_protos
+> >> index 82cf9c46cf6f..21af85b9d7e1 100644
+> >> --- a/etc/iproute2/rt_protos
+> >> +++ b/etc/iproute2/rt_protos
+> >> @@ -1,7 +1,7 @@
+> >>  #
+> >>  # Reserved protocols.
+> >>  #
+> >> -0	unspec
+> >> +0	none
+> >>  1	redirect
+> >>  2	kernel
+> >>  3	boot  
+> > 
+> > This doesn't look like a good solution, you loose the value of unspec.
+> > 
+> > Just to clarify. You added a custom protocol value to netlink.
+> > And then you are using upstream iproute2 source to display the value.  
+> 
+> no. I am saying the string displayed for protocol '0' is changing. This
+> is all within iproute2 code and files; it has 2 strings for protocol 0:
+> 
+> lib/rt_names.c:
+> static char *rtnl_rtprot_tab[256] = {
+>         [RTPROT_UNSPEC]   = "none",
+> 
+> and the rt_protos file above shows "unspec"
+> 
+> The presence of a custom protocol triggers the rt_protos file to be read:
+> 
+> const char *rtnl_rtprot_n2a(int id, char *buf, int len)
+> {
+>         if (id < 0 || id >= 256) {
+>                 snprintf(buf, len, "%u", id);
+>                 return buf;
+>         }
+>         if (!rtnl_rtprot_tab[id]) {
+>                 if (!rtnl_rtprot_init)
+>                         rtnl_rtprot_initialize();
+> 
+> 
+> Reading the file changes the string in rtnl_rtprot_tab for
+> RTPROT_UNSPEC. Both string values -- "none" and "unspec" come from
+> iproute2, so my point is that string is inconsistent within iproute2.
+
+Why not change the value in the table rtnl_rtprot_tab to be unspec this would
+make the command consistent with the value in the header file.
