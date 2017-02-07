@@ -1,34 +1,37 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net 1/2] net: introduce device min_header_len
-Date: Tue, 7 Feb 2017 13:24:09 -0800
-Message-ID: <20170207212409.GA9927@oracle.com>
-References: <20170207205721.23207-1-willemdebruijn.kernel@gmail.com>
- <20170207205721.23207-2-willemdebruijn.kernel@gmail.com>
+From: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
+Date: Tue, 7 Feb 2017 21:28:59 +0000
+Message-ID: <1486502926.2581.4.camel@sandisk.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        eric.dumazet@gmail.com, dvyukov@google.com,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:27009 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754367AbdBGV1J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:27:09 -0500
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v17LPVLB030807
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Tue, 7 Feb 2017 21:25:31 GMT
-Content-Disposition: inline
-In-Reply-To: <20170207205721.23207-2-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org"
+        <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Content-ID: <199F42699B90AA4293882924A97DE604-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On (02/07/17 15:57), Willem de Bruijn wrote:
-> 
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> The stack must not pass packets to device drivers that are shorter
-> than the minimum link layer header length.
+On Tue, 2017-02-07 at 12:22 -0800, Vishwanathapura, Niranjana wrote:
+> Intel Omni-Path Host Fabric Interface (HFI) Virtual Network Interface
+> Controller (VNIC) feature supports Ethernet functionality over Omni-Path
+> fabric by encapsulating the Ethernet packets between HFI nodes.
 
-Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+This may have been stated before, but what is missing from this description
+is an explanation of why accepting an Ethernet over RDMA driver in the
+upstream kernel is considered useful. We already have an IPoIB driver, so
+why to add another driver to the kernel tree for communicating IP packets
+over an RDMA network?
+
+Bart.--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
