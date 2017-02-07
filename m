@@ -1,65 +1,51 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch net-next] net: dsa: bcm_sf2: cleanup bcm_sf2_cfp_rule_get() a
- little
-Date: Tue, 7 Feb 2017 16:15:27 +0300
-Message-ID: <20170207131527.GB31552@mwanda>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 2/3] net: phy: dp83867: Add lane swapping support in
+ the DP83867 TI's PHY driver
+Date: Tue, 7 Feb 2017 14:00:31 +0100
+Message-ID: <20170207130031.GA31560@lunn.ch>
+References: <1486444824-12733-1-git-send-email-lukma@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:45092 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754984AbdBGNQO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 08:16:14 -0500
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Karicheri Muralidharan <m-karicheri2@ti.com>,
+        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
+        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: Lukasz Majewski <lukma@denx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1486444824-12733-1-git-send-email-lukma@denx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch doesn't affect how the code works.
+On Tue, Feb 07, 2017 at 06:20:23AM +0100, Lukasz Majewski wrote:
+> This patch adds support for enabling or disabling the lane swapping (called
+> "port mirroring" in PHY's CFG4 register) feature of the DP83867 TI's PHY
+> device.
+> 
+> One use case is when bootstrap configuration enables this feature (because
+> of e.g. LED_0 wrong wiring) so then one needs to disable it in software
+> (at u-boot/Linux).
+> 
+> Signed-off-by: Lukasz Majewski <lukma@denx.de>
+> ---
+> Changes for v3:
+> - Add "line swapping" to the patch description
+> - Add DP83867_PORT_MIRROING_KEEP enum for better code readability
+> 
+> Changes for v2:
+> - use "net-phy-lane-swap" and "net-phy-lane-no-swap" generic PHY properties.
+>   instead of TI specific one
+> ---
+>  drivers/net/phy/dp83867.c | 38 ++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 38 insertions(+)
 
-My static checker complains that the mask and shift doesn't make sense
-because 0xffffff << 16 goes beyond the end of 32 bits.  It should be
-0xffff instead but the existing code won't cause runtime bugs.
+Hi Lukasz
 
-Also the casting here is not needed and not consistent with the rest of
-the code.
+You are missing the documentation update. Documentation/devicetree/binding/net/phy.h
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Apart from that, this looks good.
 
-diff --git a/drivers/net/dsa/bcm_sf2_cfp.c b/drivers/net/dsa/bcm_sf2_cfp.c
-index c71be3e0dc2d..346dd9a1232d 100644
---- a/drivers/net/dsa/bcm_sf2_cfp.c
-+++ b/drivers/net/dsa/bcm_sf2_cfp.c
-@@ -441,17 +441,17 @@ static int bcm_sf2_cfp_rule_get(struct bcm_sf2_priv *priv, int port,
- 	nfc->fs.m_u.tcp_ip4_spec.psrc = cpu_to_be16(~0);
- 
- 	/* IPv4 dst [15:8] */
--	ipv4 = (u16)(reg & 0xff) << 8;
-+	ipv4 = (reg & 0xff) << 8;
- 	reg = core_readl(priv, CORE_CFP_DATA_PORT(1));
- 	/* IPv4 dst [31:16] */
--	ipv4 |= (u32)((reg >> 8) & 0xffffff) << 16;
-+	ipv4 |= ((reg >> 8) & 0xffff) << 16;
- 	/* IPv4 dst [7:0] */
- 	ipv4 |= (reg >> 24) & 0xff;
- 	v4_spec->ip4dst = cpu_to_be32(ipv4);
- 	nfc->fs.m_u.tcp_ip4_spec.ip4dst = cpu_to_be32(~0);
- 
- 	/* IPv4 src [15:8] */
--	ipv4 = (u16)(reg & 0xff) << 8;
-+	ipv4 = (reg & 0xff) << 8;
- 	reg = core_readl(priv, CORE_CFP_DATA_PORT(0));
- 
- 	if (!(reg & SLICE_VALID))
-@@ -460,7 +460,7 @@ static int bcm_sf2_cfp_rule_get(struct bcm_sf2_priv *priv, int port,
- 	/* IPv4 src [7:0] */
- 	ipv4 |= (reg >> 24) & 0xff;
- 	/* IPv4 src [31:16] */
--	ipv4 |= ((reg >> 8) & 0xffffff) << 16;
-+	ipv4 |= ((reg >> 8) & 0xffff) << 16;
- 	v4_spec->ip4src = cpu_to_be32(ipv4);
- 	nfc->fs.m_u.tcp_ip4_spec.ip4src = cpu_to_be32(~0);
- 
+Thanks
+  Andrew
