@@ -1,59 +1,38 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net-next 6/7] openvswitch: Add force commit.
-Date: Mon, 6 Feb 2017 23:28:45 -0800
-Message-ID: <CAPWQB7Hy02uM+kqnhgwhq0OhqnQUWTzWjtAeqaz6T2W55AD2pw@mail.gmail.com>
-References: <1486084206-109903-1-git-send-email-jarno@ovn.org>
- <1486084206-109903-6-git-send-email-jarno@ovn.org> <CAOrHB_DgjJ9cYpnAeS_dtt0d=rTxhtR4wH_OU_o-tunWUHfddQ@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2 net-next] sfc: fix an off by one bug
+Date: Tue, 7 Feb 2017 10:44:31 +0300
+Message-ID: <20170207074431.GA18377@mwanda>
+References: <60d163b6-0b49-172f-288c-e1712e04a84e@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jarno Rajahalme <jarno@ovn.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:40322 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752035AbdBGH3L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 02:29:11 -0500
-Received: from mfilter6-d.gandi.net (mfilter6-d.gandi.net [217.70.178.135])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 94068FB8B3
-        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 08:29:08 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter6-d.gandi.net (mfilter6-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id GotQWv35Jtcd for <netdev@vger.kernel.org>;
-        Tue,  7 Feb 2017 08:29:07 +0100 (CET)
-Received: from mail-qk0-f175.google.com (mail-qk0-f175.google.com [209.85.220.175])
-        (Authenticated sender: joe@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id D8E3DFB8C7
-        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 08:29:06 +0100 (CET)
-Received: by mail-qk0-f175.google.com with SMTP id 11so79779715qkl.3
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 23:29:06 -0800 (PST)
-In-Reply-To: <CAOrHB_DgjJ9cYpnAeS_dtt0d=rTxhtR4wH_OU_o-tunWUHfddQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bert Kenward <bkenward@solarflare.com>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+        Edward Cree <ecree@solarflare.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <60d163b6-0b49-172f-288c-e1712e04a84e@solarflare.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6 February 2017 at 09:08, Pravin Shelar <pshelar@ovn.org> wrote:
-> On Thu, Feb 2, 2017 at 5:10 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
->> Stateful network admission policy may allow connections to one
->> direction and reject connections initiated in the other direction.
->> After policy change it is possible that for a new connection an
->> overlapping conntrack entry already exist, where the connection
->> original direction is opposed to the new connection's initial packet.
->>
->> Most importantly, conntrack state relating to the current packet gets
->> the "reply" designation based on whether the original direction tuple
->> or the reply direction tuple matched.  If this "directionality" is
->> wrong w.r.t. to the stateful network admission policy it may happen
->> that packets in neither direction are correctly admitted.
->>
-> Why not have the check in all commit actions? I am not sure in which
-> case user would not want forced commit considering this can cause
-> packet admission issue?
+This bug is harmless because it's just a sanity check and we always
+pass valid values for "encap_type" but the test is off by one.
 
-Seems like this case has involved one direction of a connection being
-handled by a flow that committed the connection. Then something has
-changed and you end up with a flow handling the opposite direction,
-committing the connection. What if the first flow wasn't actually
-removed? Plausibly you could end up with constant ct entry churn as
-the connection is recreated each time there is a packet from an
-alternating direction. Having a separate flag may assist with respect
-to shooting one's own foot..
+Fixes: 9b4108012517 ("sfc: insert catch-all filters for encapsulated traffic")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: Rebased against last linux-next
+
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 0475f1831b92..dec0c8083ff3 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -5134,7 +5134,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx,
+ 
+ 		/* quick bounds check (BCAST result impossible) */
+ 		BUILD_BUG_ON(EFX_EF10_BCAST != 0);
+-		if (encap_type > ARRAY_SIZE(map) || map[encap_type] == 0) {
++		if (encap_type >= ARRAY_SIZE(map) || map[encap_type] == 0) {
+ 			WARN_ON(1);
+ 			return -EINVAL;
+ 		}
