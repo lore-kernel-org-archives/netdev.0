@@ -1,155 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: phy: Allow splitting MDIO bus/device support from PHYs
-Date: Mon,  6 Feb 2017 16:11:12 -0800
-Message-ID: <20170207001112.1282-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33212 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751414AbdBGALR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 19:11:17 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 194so10352658pgd.0
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 16:11:17 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 4/4] net: dsa: Do not clobber PHY link outside
+ of state machine
+Date: Tue, 7 Feb 2017 01:11:32 +0100
+Message-ID: <20170207001132.GB30169@lunn.ch>
+References: <20170206235523.23216-1-f.fainelli@gmail.com>
+ <20170206235523.23216-5-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, zefir.kurtisi@neratec.com,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Wingman Kwok <w-kwok2@ti.com>,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Jisheng Zhang <jszhang@marvell.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170206235523.23216-5-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Introduce a new configuration symbol: MDIO_DEVICE which allows building
-the MDIO devices and bus code, without pulling in the entire Ethernet
-PHY library and devices code.
+On Mon, Feb 06, 2017 at 03:55:23PM -0800, Florian Fainelli wrote:
+> Calling phy_read_status() means that we may call into
+> genphy_read_status() which in turn will use genphy_update_link() which
+> can make changes to phydev->link outside of the state machine's state
+> transitions. This is an invalid behavior that is now caught as of
+> 811a919135b9 ("phy state machine: failsafe leave invalid RUNNING state")
+> 
+> Reported-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  net/dsa/slave.c | 10 +++-------
+>  1 file changed, 3 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 09fc3e9462c1..4b6fb6b14de4 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -651,14 +651,10 @@ dsa_slave_get_link_ksettings(struct net_device *dev,
+>  			     struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct dsa_slave_priv *p = netdev_priv(dev);
+> -	int err;
+> +	int err = -EOPNOTSUPP;
+>  
+> -	err = -EOPNOTSUPP;
+> -	if (p->phy != NULL) {
+> -		err = phy_read_status(p->phy);
+> -		if (err == 0)
+> -			err = phy_ethtool_ksettings_get(p->phy, cmd);
+> -	}
+> +	if (p->phy != NULL)
+> +		err = phy_ethtool_ksettings_get(p->phy, cmd);
 
-PHYLIB nows select MDIO_DEVICE and the relevant Makefile files are
-updated to reflect that.
+Hi Florian
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/Makefile       |  2 +-
- drivers/net/phy/Kconfig    | 59 ++++++++++++++++++++++++++--------------------
- drivers/net/phy/Makefile   |  3 ++-
- drivers/net/phy/mdio_bus.c |  2 ++
- 4 files changed, 39 insertions(+), 27 deletions(-)
+So what we are effectively doing is returning the state from the last
+poll/interrupt. The poll information could be up to 1 second out of
+date, but those PHYs using interrupts should give more fresh
+information.
 
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 7336cbd3ef5d..a701e390d48f 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -17,7 +17,7 @@ obj-$(CONFIG_MII) += mii.o
- obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_NETCONSOLE) += netconsole.o
--obj-$(CONFIG_PHYLIB) += phy/
-+obj-$(CONFIG_MDIO_DEVICE) += phy/
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_NET_TEAM) += team/
- obj-$(CONFIG_TUN) += tun.o
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 8dbd59baa34d..01152fb9cb76 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -2,33 +2,12 @@
- # PHY Layer Configuration
- #
- 
--menuconfig PHYLIB
--	tristate "PHY Device support and infrastructure"
--	depends on NETDEVICES
-+menuconfig MDIO_DEVICE
-+	tristate "MDIO bus device drivers"
- 	help
--	  Ethernet controllers are usually attached to PHY
--	  devices.  This option provides infrastructure for
--	  managing PHY devices.
--
--if PHYLIB
--
--config SWPHY
--	bool
--
--config LED_TRIGGER_PHY
--	bool "Support LED triggers for tracking link state"
--	depends on LEDS_TRIGGERS
--	---help---
--	  Adds support for a set of LED trigger events per-PHY.  Link
--	  state change will trigger the events, for consumption by an
--	  LED class driver.  There are triggers for each link speed currently
--	  supported by the phy, and are of the form:
--	       <mii bus id>:<phy>:<speed>
--
--	  Where speed is in the form:
--		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-+	   MDIO devices and driver infrastructure code.
- 
--comment "MDIO bus device drivers"
-+if MDIO_DEVICE
- 
- config MDIO_BCM_IPROC
- 	tristate "Broadcom iProc MDIO bus controller"
-@@ -160,6 +139,36 @@ config MDIO_XGENE
- 	  This module provides a driver for the MDIO busses found in the
- 	  APM X-Gene SoC's.
- 
-+endif
-+
-+menuconfig PHYLIB
-+	tristate "PHY Device support and infrastructure"
-+	depends on NETDEVICES
-+	select MDIO_DEVICE
-+	help
-+	  Ethernet controllers are usually attached to PHY
-+	  devices.  This option provides infrastructure for
-+	  managing PHY devices.
-+
-+if PHYLIB
-+
-+config SWPHY
-+	bool
-+
-+config LED_TRIGGER_PHY
-+	bool "Support LED triggers for tracking link state"
-+	depends on LEDS_TRIGGERS
-+	---help---
-+	  Adds support for a set of LED trigger events per-PHY.  Link
-+	  state change will trigger the events, for consumption by an
-+	  LED class driver.  There are triggers for each link speed currently
-+	  supported by the phy, and are of the form:
-+	       <mii bus id>:<phy>:<speed>
-+
-+	  Where speed is in the form:
-+		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-+
-+
- comment "MII PHY device drivers"
- 
- config AMD_PHY
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 356859ac7c18..441d228f53ed 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -1,6 +1,7 @@
- # Makefile for Linux PHY drivers and MDIO bus drivers
- 
--libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o
-+libphy-y			:= phy.o phy_device.o
-+obj-$(CONFIG_MDIO_DEVICE)	+= mdio_device.o mdio_bus.o
- libphy-$(CONFIG_SWPHY)		+= swphy.o
- libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
- 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 653d076eafe5..fa6bd2a2ce3e 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -644,9 +644,11 @@ int __init mdio_bus_init(void)
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mdio_bus_init);
- 
- void mdio_bus_exit(void)
- {
- 	class_unregister(&mdio_bus_class);
- 	bus_unregister(&mdio_bus_type);
- }
-+EXPORT_SYMBOL_GPL(mdio_bus_exit);
--- 
-2.9.3
+Seems reasonable.
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
