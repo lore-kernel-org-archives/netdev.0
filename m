@@ -1,30 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "net: Remove state argument from
- skb_find_text()"
-Date: Tue, 07 Feb 2017 10:53:20 -0500 (EST)
-Message-ID: <20170207.105320.45609559819874123.davem@davemloft.net>
-References: <1486273710-18457-1-git-send-email-igor.pylypiv@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org
-To: igor.pylypiv@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1486273710-18457-1-git-send-email-igor.pylypiv@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: intel: ixgbevf: use new api ethtool_{get|set}_link_ksettings
+Date: Tue,  7 Feb 2017 16:56:33 +0100
+Message-ID: <1486482993-7818-1-git-send-email-tremyfr@gmail.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: jeffrey.t.kirsher@intel.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Igor Pylypiv <igor.pylypiv@gmail.com>
-Date: Sat,  4 Feb 2017 21:48:30 -0800
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-> This reverts commit 059a2440fd3cf4ec57735db2c0a90401cde84fca.
-> 
-> Textsearch state parameter should be passed by pointer because
-> its resulting value is needed for call to textsearch_next().
-> 
-> Signed-off-by: Igor Pylypiv <igor.pylypiv@gmail.com>
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-There are no users of this functionality.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
-Once you add one, you can submit this patch alongside of it.
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index 1f6c0ec..6bf7409 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -91,18 +91,18 @@ struct ixgbe_stats {
+ 
+ #define IXGBEVF_TEST_LEN (sizeof(ixgbe_gstrings_test) / ETH_GSTRING_LEN)
+ 
+-static int ixgbevf_get_settings(struct net_device *netdev,
+-				struct ethtool_cmd *ecmd)
++static int ixgbevf_get_link_ksettings(struct net_device *netdev,
++				      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 link_speed = 0;
+ 	bool link_up;
+ 
+-	ecmd->supported = SUPPORTED_10000baseT_Full;
+-	ecmd->autoneg = AUTONEG_DISABLE;
+-	ecmd->transceiver = XCVR_DUMMY1;
+-	ecmd->port = -1;
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	ethtool_link_ksettings_add_link_mode(cmd, supported, 10000baseT_Full);
++	cmd->base.autoneg = AUTONEG_DISABLE;
++	cmd->base.port = -1;
+ 
+ 	hw->mac.get_link_status = 1;
+ 	hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
+@@ -122,11 +122,11 @@ static int ixgbevf_get_settings(struct net_device *netdev,
+ 			break;
+ 		}
+ 
+-		ethtool_cmd_speed_set(ecmd, speed);
+-		ecmd->duplex = DUPLEX_FULL;
++		cmd->base.speed = speed;
++		cmd->base.duplex = DUPLEX_FULL;
+ 	} else {
+-		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+-		ecmd->duplex = DUPLEX_UNKNOWN;
++		cmd->base.speed = SPEED_UNKNOWN;
++		cmd->base.duplex = DUPLEX_UNKNOWN;
+ 	}
+ 
+ 	return 0;
+@@ -885,7 +885,6 @@ static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
+ }
+ 
+ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+-	.get_settings		= ixgbevf_get_settings,
+ 	.get_drvinfo		= ixgbevf_get_drvinfo,
+ 	.get_regs_len		= ixgbevf_get_regs_len,
+ 	.get_regs		= ixgbevf_get_regs,
+@@ -905,6 +904,7 @@ static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
+ 	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
+ 	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
+ 	.get_rxfh		= ixgbevf_get_rxfh,
++	.get_link_ksettings	= ixgbevf_get_link_ksettings,
+ };
+ 
+ void ixgbevf_set_ethtool_ops(struct net_device *netdev)
+-- 
+1.7.4.4
