@@ -1,48 +1,47 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v2 net-next 2/9] sunvnet: remove unused variable in maybe_tx_wakeup
-Date: Tue,  7 Feb 2017 14:12:55 -0800
-Message-ID: <1486505582-76823-3-git-send-email-shannon.nelson@oracle.com>
-References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Shannon Nelson <shannon.nelson@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) interface
+Date: Tue, 7 Feb 2017 15:19:25 -0700
+Message-ID: <20170207221925.GA30579@obsidianresearch.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20170207211901.GB28922@obsidianresearch.com>
+ <20170207220628.GB76652@knc-06.sc.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, dennis.dalessandro@intel.com,
+        ira.weiny@intel.com, Liran Liss <liranl@mellanox.com>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:35255 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932313AbdBGWT3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 17:19:29 -0500
+Content-Disposition: inline
+In-Reply-To: <20170207220628.GB76652@knc-06.sc.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+On Tue, Feb 07, 2017 at 02:06:30PM -0800, Vishwanathapura, Niranjana wrote:
 
-The vio_dring_state *dr variable is unused in maybe_tx_wakeup().
-As the comments indicate, we call maybe_tx_wakeup() whenever we
-get a STOPPED LDC message on the port. If the queue is stopped,
-we want to wake it up so that we will send another START message
-at the next TX and trigger the consumer to drain the dring.
+> >> 	IB_DEVICE_RAW_SCATTER_FCS		= (1ULL << 34),
+> >>+	IB_DEVICE_RDMA_NETDEV_HFI_VNIC		= (1ULL << 35),
+> >
+> >What is this called HFI_VNIC anyhow? Shouldn't this be OPA_VNIC? There
+> >is nothing really HFI specific, right?
+> 
+> Agreed, OPA_VNIC is more appropriate here. Will change it.
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
----
- drivers/net/ethernet/sun/sunvnet_common.c |    6 +-----
- 1 files changed, 1 insertions(+), 5 deletions(-)
+And probably lots of other places too.. :)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index e03cf13..add22d4 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -743,12 +743,8 @@ static void maybe_tx_wakeup(struct vnet_port *port)
- 	txq = netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
- 				  port->q_index);
- 	__netif_tx_lock(txq, smp_processor_id());
--	if (likely(netif_tx_queue_stopped(txq))) {
--		struct vio_dring_state *dr;
--
--		dr = &port->vio.drings[VIO_DRIVER_TX_RING];
-+	if (likely(netif_tx_queue_stopped(txq)))
- 		netif_tx_wake_queue(txq);
--	}
- 	__netif_tx_unlock(txq);
- }
- 
--- 
-1.7.1
+
+> >And this should be rn->dev_priv ?
+> 
+> Yah, both will result in same behavior. But yah, what you are suggesting
+> will remove any confusion. Will change in next PATCH series.
+
+Only because the struct has no members, as soon as someone adds
+something it would go booom.
+
+Jason
