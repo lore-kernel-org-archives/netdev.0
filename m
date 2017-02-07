@@ -1,47 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 1/2] net: introduce device min_header_len
-Date: Tue, 07 Feb 2017 13:20:18 -0800
-Message-ID: <1486502418.7793.67.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170207205721.23207-1-willemdebruijn.kernel@gmail.com>
-         <20170207205721.23207-2-willemdebruijn.kernel@gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) interface
+Date: Tue, 7 Feb 2017 14:19:01 -0700
+Message-ID: <20170207211901.GB28922@obsidianresearch.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        sowmini.varadhan@oracle.com, dvyukov@google.com,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, dennis.dalessandro@intel.com,
+        ira.weiny@intel.com, Liran Liss <liranl@mellanox.com>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33056 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754414AbdBGVVa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:21:30 -0500
-Received: by mail-pf0-f196.google.com with SMTP id e4so10032453pfg.0
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 13:20:20 -0800 (PST)
-In-Reply-To: <20170207205721.23207-2-willemdebruijn.kernel@gmail.com>
+Received: from quartz.orcorp.ca ([184.70.90.242]:56418 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752657AbdBGVVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 16:21:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-02-07 at 15:57 -0500, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> The stack must not pass packets to device drivers that are shorter
-> than the minimum link layer header length.
-> 
-> Previously, packet sockets would drop packets smaller than or equal
-> to dev->hard_header_len, but this has false positives. Zero length
-> payload is used over Ethernet. Other link layer protocols support
-> variable length headers. Support for validation of these protocols
-> removed the min length check for all protocols.
-> 
-> Introduce an explicit dev->min_header_len parameter and drop all
-> packets below this value. Initially, set it to non-zero only for
-> Ethernet and loopback. Other protocols can follow in a patch to
-> net-next.
-> 
-> Fixes: 9ed988cd5915 ("packet: validate variable length ll headers")
-> Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
+On Tue, Feb 07, 2017 at 12:23:01PM -0800, Vishwanathapura, Niranjana wrote:
+> Add rdma netdev interface to ib device structure allowing rdma netdev
+> devices to be allocated by ib clients.
+> Define HFI VNIC interface between hardware independent VNIC
+> functionality and the hardware dependent VNIC functionality.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+This commit message could be a bit clearer.
+
+The alloc_rdma_netdev multiplexer is inteded as a new general
+interface and this adds a protocol definition for ethernet VNIC on
+OPA.
+
+The hope is that ipoib can follow the same example and use the same
+alloc_rdma_netdev entry point. Hopefully Mellanox will look at this
+patch as I have talked to them in the past about doing this...
+
+It looks like HFI turned out fairly well, the driver code and higher
+level code have a reasonably nice split in my quick look.
+
+>  	IB_DEVICE_RAW_SCATTER_FCS		= (1ULL << 34),
+> +	IB_DEVICE_RDMA_NETDEV_HFI_VNIC		= (1ULL << 35),
+
+What is this called HFI_VNIC anyhow? Shouldn't this be OPA_VNIC? There
+is nothing really HFI specific, right?
+
+> +/* hfi vnic rdma netdev's private data structure */
+> +struct hfi_vnic_rdma_netdev {
+> +	struct rdma_netdev rn;  /* keep this first */
+> +	/* followed by device private data */
+> +	char *dev_priv[0];
+> +};
+> +
+> +static inline void *hfi_vnic_priv(const struct net_device *dev)
+> +{
+> +	struct rdma_netdev *rn = netdev_priv(dev);
+> +
+> +	return rn->clnt_priv;
+> +}
+> +
+> +static inline void *hfi_vnic_dev_priv(const struct net_device *dev)
+> +{
+> +	struct rdma_netdev *rn = netdev_priv(dev);
+
+Shouldn't this be hfi_vnic_rdma_netdev ?
+
+> +	return rn + 1;
+
+And this should be rn->dev_priv ?
+
+Jason
