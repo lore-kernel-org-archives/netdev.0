@@ -1,31 +1,47 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
-Date: Tue, 7 Feb 2017 21:00:05 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373AB0E5B0B@ORSMSX109.amr.corp.intel.com>
-References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170207203649.GW6005@mtr-leonro.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 1/2] net: introduce device min_header_len
+Date: Tue, 07 Feb 2017 13:20:18 -0800
+Message-ID: <1486502418.7793.67.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170207205721.23207-1-willemdebruijn.kernel@gmail.com>
+         <20170207205721.23207-2-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "Dalessandro, Dennis" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170207203649.GW6005-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        sowmini.varadhan@oracle.com, dvyukov@google.com,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33056 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754414AbdBGVVa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:21:30 -0500
+Received: by mail-pf0-f196.google.com with SMTP id e4so10032453pfg.0
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 13:20:20 -0800 (PST)
+In-Reply-To: <20170207205721.23207-2-willemdebruijn.kernel@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I didn't read patches yet, and prefer to ask it in advance. Does this
-> new ULP work with all
-> drivers/infiniband/hw/* devices as it is expected from ULP?
+On Tue, 2017-02-07 at 15:57 -0500, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> The stack must not pass packets to device drivers that are shorter
+> than the minimum link layer header length.
+> 
+> Previously, packet sockets would drop packets smaller than or equal
+> to dev->hard_header_len, but this has false positives. Zero length
+> payload is used over Ethernet. Other link layer protocols support
+> variable length headers. Support for validation of these protocols
+> removed the min length check for all protocols.
+> 
+> Introduce an explicit dev->min_header_len parameter and drop all
+> packets below this value. Initially, set it to non-zero only for
+> Ethernet and loopback. Other protocols can follow in a patch to
+> net-next.
+> 
+> Fixes: 9ed988cd5915 ("packet: validate variable length ll headers")
+> Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
 
-Like the way ipoib or srp work with all hw devices?  What is the real point of this question?
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Eric Dumazet <edumazet@google.com>
