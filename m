@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 01/12] net: sunrpc: fix build errors when linux/phy*.h is removed from net/dsa.h
-Date: Tue,  7 Feb 2017 15:02:54 -0800
-Message-ID: <20170207230305.18222-2-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 02/12] net: cgroups: fix build errors when linux/phy*.h is removed from net/dsa.h
+Date: Tue,  7 Feb 2017 15:02:55 -0800
+Message-ID: <20170207230305.18222-3-f.fainelli@gmail.com>
 References: <20170207230305.18222-1-f.fainelli@gmail.com>
 Cc: Russell King <rmk+kernel@armlinux.org.uk>,
         Andrew Lunn <andrew@lunn.ch>,
@@ -40,33 +40,28 @@ List-Id: netdev.vger.kernel.org
 
 From: Russell King <rmk+kernel@armlinux.org.uk>
 
-Removing linux/phy.h from net/dsa.h reveals a build error in the sunrpc
-code:
+net/core/netprio_cgroup.c:303:16: error: expected declaration specifiers or '...' before string constant
+    MODULE_LICENSE("GPL v2");
+                   ^~~~~~~~
 
-net/sunrpc/xprtrdma/svc_rdma_backchannel.c: In function 'xprt_rdma_bc_put':
-net/sunrpc/xprtrdma/svc_rdma_backchannel.c:277:2: error: implicit declaration of function 'module_put' [-Werror=implicit-function-declaration]
-net/sunrpc/xprtrdma/svc_rdma_backchannel.c: In function 'xprt_setup_rdma_bc':
-net/sunrpc/xprtrdma/svc_rdma_backchannel.c:348:7: error: implicit declaration of function 'try_module_get' [-Werror=implicit-function-declaration]
-
-Fix this by adding linux/module.h to svc_rdma_backchannel.c
+Add linux/module.h to fix this.
 
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-Acked-by: Anna Schumaker <Anna.Schumaker@Netapp.com>
 ---
- net/sunrpc/xprtrdma/svc_rdma_backchannel.c | 1 +
+ net/core/netprio_cgroup.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/net/sunrpc/xprtrdma/svc_rdma_backchannel.c b/net/sunrpc/xprtrdma/svc_rdma_backchannel.c
-index 288e35c2d8f4..cb1e48e54eb1 100644
---- a/net/sunrpc/xprtrdma/svc_rdma_backchannel.c
-+++ b/net/sunrpc/xprtrdma/svc_rdma_backchannel.c
-@@ -4,6 +4,7 @@
-  * Support for backward direction RPCs on RPC/RDMA (server-side).
-  */
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 2ec86fc552df..756637dc7a57 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -13,6 +13,7 @@
  
+ #include <linux/slab.h>
+ #include <linux/types.h>
 +#include <linux/module.h>
- #include <linux/sunrpc/svc_rdma.h>
- #include "xprt_rdma.h"
- 
+ #include <linux/string.h>
+ #include <linux/errno.h>
+ #include <linux/skbuff.h>
 -- 
 2.9.3
