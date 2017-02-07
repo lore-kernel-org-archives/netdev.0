@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] mlx4: Invoke softirqs after napi_reschedule
-Date: Tue, 07 Feb 2017 12:51:54 -0500 (EST)
-Message-ID: <20170207.125154.1590393488220239361.davem@davemloft.net>
-References: <1486403641.7793.43.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170206181431.9664-1-bpoirier@suse.com>
+Subject: Re: [PATCH net] sctp: avoid BUG_ON on sctp_wait_for_sndbuf
+Date: Tue, 07 Feb 2017 12:55:54 -0500 (EST)
+Message-ID: <20170207.125554.925905416124561370.davem@davemloft.net>
+References: <90df61dca0e882ccc175bcec200b341b171b7406.1486411622.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com, yishaih@mellanox.com,
-        linux-rdma@vger.kernel.org, eric.dumazet@gmail.com
-To: bpoirier@suse.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        vyasevich@gmail.com, nhorman@tuxdriver.com, alex.popov@linux.com
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52808 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52880 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932194AbdBGRv4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 12:51:56 -0500
-In-Reply-To: <20170206181431.9664-1-bpoirier@suse.com>
+        with ESMTP id S1753345AbdBGRz4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 12:55:56 -0500
+In-Reply-To: <90df61dca0e882ccc175bcec200b341b171b7406.1486411622.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.com>
-Date: Mon,  6 Feb 2017 10:14:31 -0800
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Mon,  6 Feb 2017 18:10:31 -0200
 
-> mlx4 may schedule napi from a workqueue. Afterwards, softirqs are not run
-> in a deterministic time frame and the following message may be logged:
-> NOHZ: local_softirq_pending 08
+> Alexander Popov reported that an application may trigger a BUG_ON in
+> sctp_wait_for_sndbuf if the socket tx buffer is full, a thread is
+> waiting on it to queue more data and meanwhile another thread peels off
+> the association being used by the first thread.
 > 
-> The problem is the same as what was described in commit ec13ee80145c
-> ("virtio_net: invoke softirqs after __napi_schedule") and this patch
-> applies the same fix to mlx4.
+> This patch replaces the BUG_ON call with a proper error handling. It
+> will return -EPIPE to the original sendmsg call, similarly to what would
+> have been done if the association wasn't found in the first place.
 > 
-> Fixes: 07841f9d94c1 ("net/mlx4_en: Schedule napi when RX buffers allocation fails")
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> Acked-by: Alexander Popov <alex.popov@linux.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+> Please consider this to -stable. Thanks
 
-Applied and queued up for -stable, thanks!
+Applied and queued up for -stable, thanks a lot.
