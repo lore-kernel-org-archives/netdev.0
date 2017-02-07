@@ -1,58 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sctp: avoid list_del_init if it's freeing the
- memory right away
-Date: Tue, 07 Feb 2017 14:21:21 -0500 (EST)
-Message-ID: <20170207.142121.1027174926882132252.davem@davemloft.net>
-References: <e1b3b9b24f39ee82a3131a39a0413231ba54bc7c.1486494022.git.marcelo.leitner@gmail.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Performance in stmmac
+Date: Tue, 7 Feb 2017 19:33:52 +0000
+Message-ID: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        vyasevich@gmail.com, nhorman@tuxdriver.com
-To: marcelo.leitner@gmail.com
+Cc: netdev <netdev@vger.kernel.org>
+To: <niklas.cassel@axis.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55414 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754912AbdBGTWN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:22:13 -0500
-In-Reply-To: <e1b3b9b24f39ee82a3131a39a0413231ba54bc7c.1486494022.git.marcelo.leitner@gmail.com>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:33808 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752003AbdBGTd5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:33:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Tue,  7 Feb 2017 17:03:21 -0200
+Hi to all,
 
-> There is no reason to use list_del_init() in these places as we are
-> going to free/destroy the memory in a few lines below.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  net/sctp/associola.c     | 14 ++++----------
->  net/sctp/auth.c          |  8 ++------
->  net/sctp/chunk.c         |  4 ++--
->  net/sctp/outqueue.c      | 14 +++++++-------
->  net/sctp/sm_make_chunk.c |  3 +--
->  5 files changed, 16 insertions(+), 27 deletions(-)
-> 
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index e50dc6d7543fd6acfa7442f3a9ee575203c7718d..7eb9dacfa53a438b20a34319cf01c6c9a591f0c3 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -1638,25 +1638,19 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
->  static void sctp_assoc_free_asconf_queue(struct sctp_association *asoc)
->  {
->  	struct sctp_chunk *asconf;
-> -	struct sctp_chunk *tmp;
->  
-> -	list_for_each_entry_safe(asconf, tmp, &asoc->addip_chunk_list, list) {
-> -		list_del_init(&asconf->list);
-> +	list_for_each_entry(asconf, &asoc->addip_chunk_list, list)
->  		sctp_chunk_free(asconf);
-> -	}
->  }
+I finished implementing the multi-queue / multi-channel in stmmac and I am now
+making some tests.
 
-This leave freed memory on the asoc->addip_chunk_list, in fact why aren't you seeing
-the BUG_ON() in sctp_chunk_destroy() get triggered?  If you elide the list_del() here
-then the "list_empty(&chunk->list)" check there will not be true.
+The mechanism is working properly, but the performance could be better
+(~440Mb/s) :). For measuring I am using iperf:
 
-I don't think this transformation here is legal at all.
+synopsys@pt02ipk1:~$ iperf -c 192.168.0.3 --port 5001 -t 20 -i 5
+------------------------------------------------------------
+Client connecting to 192.168.0.3, TCP port 5001
+TCP window size: 85.0 KByte (default)
+------------------------------------------------------------
+[  3] local 192.168.0.2 port 34272 connected with 192.168.0.3 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0- 5.0 sec   260 MBytes   436 Mbits/sec
+[  3]  5.0-10.0 sec   262 MBytes   440 Mbits/sec
+[  3] 10.0-15.0 sec   262 MBytes   440 Mbits/sec
+[  3] 15.0-20.0 sec   257 MBytes   431 Mbits/sec
+[  3]  0.0-20.0 sec  1.02 GBytes   437 Mbits/sec
+
+I am seeing tx being performed in all queues, but rx is just being routed to
+queue 0. The reason why only queue 0 is processing the packets is because I am
+using priority tagged routing for now and iperf is not capable of producing
+priority tagged traffic.
+
+I am sending you this e-mail in order to know if you could suggest me a tool to
+generate priority tagged traffic and if you have experience in tweaking stmmac
+to improve performance.
+
+Thanks,
+Joao
