@@ -1,90 +1,72 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) interface
-Date: Tue, 7 Feb 2017 14:06:30 -0800
-Message-ID: <20170207220628.GB76652@knc-06.sc.intel.com>
-References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170207211901.GB28922@obsidianresearch.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170207211901.GB28922-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH v2 net-next 3/9] sunvnet: update version and version printing
+Date: Tue,  7 Feb 2017 14:12:56 -0800
+Message-ID: <1486505582-76823-4-git-send-email-shannon.nelson@oracle.com>
+References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Shannon Nelson <shannon.nelson@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 07, 2017 at 02:19:01PM -0700, Jason Gunthorpe wrote:
->On Tue, Feb 07, 2017 at 12:23:01PM -0800, Vishwanathapura, Niranjana wrote:
->> Add rdma netdev interface to ib device structure allowing rdma netdev
->> devices to be allocated by ib clients.
->> Define HFI VNIC interface between hardware independent VNIC
->> functionality and the hardware dependent VNIC functionality.
->
->This commit message could be a bit clearer.
->
->The alloc_rdma_netdev multiplexer is inteded as a new general
->interface and this adds a protocol definition for ethernet VNIC on
->OPA.
->
+There have been several changes since the first version of this code, so
+we bump the version number.  While we're at it, we can simplify the
+version printing a bit and drop a couple lines of code.
 
-Ok, will add the statement to the commit message in PATCH series.
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet.c |   14 ++++----------
+ 1 files changed, 4 insertions(+), 10 deletions(-)
 
->The hope is that ipoib can follow the same example and use the same
->alloc_rdma_netdev entry point. Hopefully Mellanox will look at this
->patch as I have talked to them in the past about doing this...
->
->It looks like HFI turned out fairly well, the driver code and higher
->level code have a reasonably nice split in my quick look.
->
-
-Yes, HFI_VNIC design is leaner now with standard netdev interface.
-
->>  	IB_DEVICE_RAW_SCATTER_FCS		= (1ULL << 34),
->> +	IB_DEVICE_RDMA_NETDEV_HFI_VNIC		= (1ULL << 35),
->
->What is this called HFI_VNIC anyhow? Shouldn't this be OPA_VNIC? There
->is nothing really HFI specific, right?
->
-
-Agreed, OPA_VNIC is more appropriate here. Will change it.
-
->> +/* hfi vnic rdma netdev's private data structure */
->> +struct hfi_vnic_rdma_netdev {
->> +	struct rdma_netdev rn;  /* keep this first */
->> +	/* followed by device private data */
->> +	char *dev_priv[0];
->> +};
->> +
->> +static inline void *hfi_vnic_priv(const struct net_device *dev)
->> +{
->> +	struct rdma_netdev *rn = netdev_priv(dev);
->> +
->> +	return rn->clnt_priv;
->> +}
->> +
->> +static inline void *hfi_vnic_dev_priv(const struct net_device *dev)
->> +{
->> +	struct rdma_netdev *rn = netdev_priv(dev);
->
->Shouldn't this be hfi_vnic_rdma_netdev ?
->
->> +	return rn + 1;
->
->And this should be rn->dev_priv ?
->
-
-Yah, both will result in same behavior. But yah, what you are suggesting will 
-remove any confusion. Will change in next PATCH series.
-
-Niranjana
-
->Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 5356a70..4cc2571 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -38,11 +38,11 @@
+ #define VNET_TX_TIMEOUT			(5 * HZ)
+ 
+ #define DRV_MODULE_NAME		"sunvnet"
+-#define DRV_MODULE_VERSION	"1.0"
+-#define DRV_MODULE_RELDATE	"June 25, 2007"
++#define DRV_MODULE_VERSION	"2.0"
++#define DRV_MODULE_RELDATE	"February 3, 2017"
+ 
+ static char version[] =
+-	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
++	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
+ MODULE_AUTHOR("David S. Miller (davem@davemloft.net)");
+ MODULE_DESCRIPTION("Sun LDOM virtual network driver");
+ MODULE_LICENSE("GPL");
+@@ -303,11 +303,6 @@ static void vnet_cleanup(void)
+ 	.handshake_complete	= sunvnet_handshake_complete_common,
+ };
+ 
+-static void print_version(void)
+-{
+-	printk_once(KERN_INFO "%s", version);
+-}
+-
+ const char *remote_macaddr_prop = "remote-mac-address";
+ 
+ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+@@ -319,8 +314,6 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 	const u64 *rmac;
+ 	int len, i, err, switch_port;
+ 
+-	print_version();
+-
+ 	hp = mdesc_grab();
+ 
+ 	vp = vnet_find_parent(hp, vdev->mp, vdev);
+@@ -446,6 +439,7 @@ static int vnet_port_remove(struct vio_dev *vdev)
+ 
+ static int __init vnet_init(void)
+ {
++	pr_info("%s\n", version);
+ 	return vio_register_driver(&vnet_port_driver);
+ }
+ 
+-- 
+1.7.1
