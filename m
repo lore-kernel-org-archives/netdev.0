@@ -1,79 +1,325 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH v2] xen-netfront: Improve error handling
- during initialization
-Date: Tue, 7 Feb 2017 18:33:23 -0500
-Message-ID: <7c5ef464-59c7-e99f-7d79-3ecad6dfd6c3@oracle.com>
-References: <1486479312-18424-1-git-send-email-ross.lagerwall@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: gro_cells: move to net/core/gro_cells.c
+Date: Tue, 07 Feb 2017 15:37:15 -0800
+Message-ID: <1486510635.7793.72.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, netdev@vger.kernel.org,
- wei.liu2@citrix.com, linux-kernel@vger.kernel.org
-To: Ross Lagerwall <ross.lagerwall@citrix.com>, xen-devel@lists.xenproject.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1486479312-18424-1-git-send-email-ross.lagerwall@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33383 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751336AbdBGXn3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 18:43:29 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 194so13340772pgd.0
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 15:43:29 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDIvMDcvMjAxNyAwOTo1NSBBTSwgUm9zcyBMYWdlcndhbGwgd3JvdGU6Cj4gVGhpcyBmaXhl
-cyBhIGNyYXNoIHdoZW4gcnVubmluZyBvdXQgb2YgZ3JhbnQgcmVmcyB3aGVuIGNyZWF0aW5nIG1h
-bnkKPiBxdWV1ZXMgYWNyb3NzIG1hbnkgbmV0ZGV2cy4KPgo+ICogSWYgY3JlYXRpbmcgcXVldWVz
-IGZhaWxzIChpLmUuIHRoZXJlIGFyZSBubyBncmFudCByZWZzIGF2YWlsYWJsZSksCj4gY2FsbCB4
-ZW5idXNfZGV2X2ZhdGFsKCkgdG8gZW5zdXJlIHRoYXQgdGhlIHhlbmJ1cyBkZXZpY2UgaXMgc2V0
-IHRvIHRoZQo+IGNsb3NlZCBzdGF0ZS4KPiAqIElmIG5vIHF1ZXVlcyBhcmUgY3JlYXRlZCwgZG9u
-J3QgY2FsbCB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kIGFzCj4gbmV0ZGV2LT5yZWFsX251bV90
-eF9xdWV1ZXMgd2lsbCBub3QgaGF2ZSBiZWVuIHNldCBjb3JyZWN0bHkuCj4gKiBJZiBzZXR1cF9u
-ZXRmcm9udCgpIGZhaWxzLCBlbnN1cmUgdGhhdCBhbGwgdGhlIHF1ZXVlcyBjcmVhdGVkIGFyZQo+
-IGNsZWFuZWQgdXAsIG5vdCBqdXN0IHRob3NlIHRoYXQgaGF2ZSBiZWVuIHNldCB1cC4KPiAqIElm
-IGFueSBxdWV1ZXMgd2VyZSBzZXQgdXAgYW5kIGFuIGVycm9yIG9jY3VycywgY2FsbAo+IHhlbm5l
-dF9kZXN0cm95X3F1ZXVlcygpIHRvIGNsZWFuIHVwIHRoZSBuYXBpIGNvbnRleHQuCj4gKiBJZiBh
-bnkgZmF0YWwgZXJyb3Igb2NjdXJzLCB1bnJlZ2lzdGVyIGFuZCBkZXN0cm95IHRoZSBuZXRkZXYg
-dG8gYXZvaWQKPiBsZWF2aW5nIGFyb3VuZCBhIGhhbGYgc2V0dXAgbmV0d29yayBkZXZpY2UuCj4K
-PiBTaWduZWQtb2ZmLWJ5OiBSb3NzIExhZ2Vyd2FsbCA8cm9zcy5sYWdlcndhbGxAY2l0cml4LmNv
-bT4KPiAtLS0KPgo+IENoYW5nZWQgaW4gVjI6Cj4gKiBSZXRlc3RlZCBvbiB0b3Agb2YgdjQuMTAt
-cmM3ICsgInhlbi1uZXRmcm9udDogRGVsZXRlIHJ4X3JlZmlsbF90aW1lcgo+ICAgaW4geGVubmV0
-X2Rpc2Nvbm5lY3RfYmFja2VuZCgpIi4KPiAqIERvbid0IG1vdmUgc2V0dXBfdGltZXIgYXMgaXQg
-aXMgbm90IG5lY2Vzc2FyeS4KPgo+ICBkcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYyB8IDMzICsr
-KysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLQo+ICAxIGZpbGUgY2hhbmdlZCwgMTUgaW5z
-ZXJ0aW9ucygrKSwgMTggZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
-eGVuLW5ldGZyb250LmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwo+IGluZGV4IDcyMmZl
-OWYuLjUzOTlhODYgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMKPiAr
-KysgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwo+IEBAIC0xODIzLDI3ICsxODIzLDIzIEBA
-IHN0YXRpYyBpbnQgdGFsa190b19uZXRiYWNrKHN0cnVjdCB4ZW5idXNfZGV2aWNlICpkZXYsCj4g
-IAkJeGVubmV0X2Rlc3Ryb3lfcXVldWVzKGluZm8pOwo+ICAKPiAgCWVyciA9IHhlbm5ldF9jcmVh
-dGVfcXVldWVzKGluZm8sICZudW1fcXVldWVzKTsKPiAtCWlmIChlcnIgPCAwKQo+IC0JCWdvdG8g
-ZGVzdHJveV9yaW5nOwo+ICsJaWYgKGVyciA8IDApIHsKPiArCQl4ZW5idXNfZGV2X2ZhdGFsKGRl
-diwgZXJyLCAiY3JlYXRpbmcgcXVldWVzIik7Cj4gKwkJaWYgKG51bV9xdWV1ZXMgPiAwKSB7Cj4g
-KwkJCWdvdG8gZGVzdHJveV9yaW5nOwoKVGhlIG9ubHkgd2F5IGZvciB1cyB0byBoYXZlIChlcnI8
-MCkgJiYgKG51bV9xdWV1ZXM+MCkgaXMgd2hlbiB3ZSBnZXQgYQotRU5PTUVNIHJpZ2h0IGF0IHRo
-ZSB0b3AsIGlzbid0IGl0PyBTbyB0aGVyZSBpcyBub3RoaW5nIHRvIGRpc2Nvbm5lY3Qgb3IKZGVz
-dHJveSwgaXQgc2VlbXMgdG8gbWUuIEFuZCBpZiB0aGF0J3MgdHJ1ZSB5b3UgY2FuIGRpcmVjdGx5
-ICdnb3RvIG91dCcuCgotYm9yaXMKCj4gKwkJfSBlbHNlIHsKPiArCQkJa2ZyZWUoaW5mby0+cXVl
-dWVzKTsKPiArCQkJaW5mby0+cXVldWVzID0gTlVMTDsKPiArCQkJZ290byBvdXQ7Cj4gKwkJfQo+
-ICsJfQo+ICAKPiAgCS8qIENyZWF0ZSBzaGFyZWQgcmluZywgYWxsb2MgZXZlbnQgY2hhbm5lbCAt
-LSBmb3IgZWFjaCBxdWV1ZSAqLwo+ICAJZm9yIChpID0gMDsgaSA8IG51bV9xdWV1ZXM7ICsraSkg
-ewo+ICAJCXF1ZXVlID0gJmluZm8tPnF1ZXVlc1tpXTsKPiAgCQllcnIgPSBzZXR1cF9uZXRmcm9u
-dChkZXYsIHF1ZXVlLCBmZWF0dXJlX3NwbGl0X2V2dGNobik7Cj4gLQkJaWYgKGVycikgewo+IC0J
-CQkvKiBzZXR1cF9uZXRmcm9udCgpIHdpbGwgdGlkeSB1cCB0aGUgY3VycmVudAo+IC0JCQkgKiBx
-dWV1ZSBvbiBlcnJvciwgYnV0IHdlIG5lZWQgdG8gY2xlYW4gdXAKPiAtCQkJICogdGhvc2UgYWxy
-ZWFkeSBhbGxvY2F0ZWQuCj4gLQkJCSAqLwo+IC0JCQlpZiAoaSA+IDApIHsKPiAtCQkJCXJ0bmxf
-bG9jaygpOwo+IC0JCQkJbmV0aWZfc2V0X3JlYWxfbnVtX3R4X3F1ZXVlcyhpbmZvLT5uZXRkZXYs
-IGkpOwo+IC0JCQkJcnRubF91bmxvY2soKTsKPiAtCQkJCWdvdG8gZGVzdHJveV9yaW5nOwo+IC0J
-CQl9IGVsc2Ugewo+IC0JCQkJZ290byBvdXQ7Cj4gLQkJCX0KPiAtCQl9Cj4gKwkJaWYgKGVycikK
-PiArCQkJZ290byBkZXN0cm95X3Jpbmc7Cj4gIAl9Cj4gIAo+ICBhZ2FpbjoKPiBAQCAtMTkzMyw5
-ICsxOTI5LDEwIEBAIHN0YXRpYyBpbnQgdGFsa190b19uZXRiYWNrKHN0cnVjdCB4ZW5idXNfZGV2
-aWNlICpkZXYsCj4gIAl4ZW5idXNfdHJhbnNhY3Rpb25fZW5kKHhidCwgMSk7Cj4gICBkZXN0cm95
-X3Jpbmc6Cj4gIAl4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKGluZm8pOwo+IC0Ja2ZyZWUoaW5m
-by0+cXVldWVzKTsKPiAtCWluZm8tPnF1ZXVlcyA9IE5VTEw7Cj4gKwl4ZW5uZXRfZGVzdHJveV9x
-dWV1ZXMoaW5mbyk7Cj4gICBvdXQ6Cj4gKwl1bnJlZ2lzdGVyX25ldGRldihpbmZvLT5uZXRkZXYp
-Owo+ICsJeGVubmV0X2ZyZWVfbmV0ZGV2KGluZm8tPm5ldGRldik7Cj4gIAlyZXR1cm4gZXJyOwo+
-ICB9Cj4gIAoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8v
-bGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
+From: Eric Dumazet <edumazet@google.com>
+
+We have many gro cells users, so lets move the code to avoid
+duplication.
+
+This creates a CONFIG_GRO_CELLS option.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/Kconfig     |    3 +
+ include/net/gro_cells.h |   86 +----------------------------------
+ net/Kconfig             |    4 +
+ net/core/Makefile       |    1 
+ net/core/gro_cells.c    |   92 ++++++++++++++++++++++++++++++++++++++
+ net/ipv4/Kconfig        |    1 
+ net/ipv6/Kconfig        |    1 
+ net/xfrm/Kconfig        |    1 
+ 8 files changed, 107 insertions(+), 82 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 95c32f2d7601b9180d43b77e1c143d4988f5..a993cbeb9e0c84326a63369226b14ed00870 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -170,6 +170,7 @@ config VXLAN
+        tristate "Virtual eXtensible Local Area Network (VXLAN)"
+        depends on INET
+        select NET_UDP_TUNNEL
++       select GRO_CELLS
+        ---help---
+ 	  This allows one to create vxlan virtual interfaces that provide
+ 	  Layer 2 Networks over Layer 3 Networks. VXLAN is often used
+@@ -184,6 +185,7 @@ config GENEVE
+        tristate "Generic Network Virtualization Encapsulation"
+        depends on INET && NET_UDP_TUNNEL
+        select NET_IP_TUNNEL
++       select GRO_CELLS
+        ---help---
+ 	  This allows one to create geneve virtual interfaces that provide
+ 	  Layer 2 Networks over Layer 3 Networks. GENEVE is often used
+@@ -216,6 +218,7 @@ config MACSEC
+ 	select CRYPTO
+ 	select CRYPTO_AES
+ 	select CRYPTO_GCM
++	select GRO_CELLS
+ 	---help---
+ 	   MACsec is an encryption standard for Ethernet.
+ 
+diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
+index 2a1abbf8da74368cd01adc40cef6c0644e05..fcaf8f47913054543e97d606518f78eabf06 100644
+--- a/include/net/gro_cells.h
++++ b/include/net/gro_cells.h
+@@ -5,92 +5,14 @@
+ #include <linux/slab.h>
+ #include <linux/netdevice.h>
+ 
+-struct gro_cell {
+-	struct sk_buff_head	napi_skbs;
+-	struct napi_struct	napi;
+-};
++struct gro_cell;
+ 
+ struct gro_cells {
+ 	struct gro_cell __percpu	*cells;
+ };
+ 
+-static inline int gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
+-{
+-	struct gro_cell *cell;
+-	struct net_device *dev = skb->dev;
+-
+-	if (!gcells->cells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO))
+-		return netif_rx(skb);
+-
+-	cell = this_cpu_ptr(gcells->cells);
+-
+-	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
+-		atomic_long_inc(&dev->rx_dropped);
+-		kfree_skb(skb);
+-		return NET_RX_DROP;
+-	}
+-
+-	__skb_queue_tail(&cell->napi_skbs, skb);
+-	if (skb_queue_len(&cell->napi_skbs) == 1)
+-		napi_schedule(&cell->napi);
+-	return NET_RX_SUCCESS;
+-}
+-
+-/* called under BH context */
+-static inline int gro_cell_poll(struct napi_struct *napi, int budget)
+-{
+-	struct gro_cell *cell = container_of(napi, struct gro_cell, napi);
+-	struct sk_buff *skb;
+-	int work_done = 0;
+-
+-	while (work_done < budget) {
+-		skb = __skb_dequeue(&cell->napi_skbs);
+-		if (!skb)
+-			break;
+-		napi_gro_receive(napi, skb);
+-		work_done++;
+-	}
+-
+-	if (work_done < budget)
+-		napi_complete_done(napi, work_done);
+-	return work_done;
+-}
+-
+-static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *dev)
+-{
+-	int i;
+-
+-	gcells->cells = alloc_percpu(struct gro_cell);
+-	if (!gcells->cells)
+-		return -ENOMEM;
+-
+-	for_each_possible_cpu(i) {
+-		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
+-
+-		__skb_queue_head_init(&cell->napi_skbs);
+-
+-		set_bit(NAPI_STATE_NO_BUSY_POLL, &cell->napi.state);
+-
+-		netif_napi_add(dev, &cell->napi, gro_cell_poll, 64);
+-		napi_enable(&cell->napi);
+-	}
+-	return 0;
+-}
+-
+-static inline void gro_cells_destroy(struct gro_cells *gcells)
+-{
+-	int i;
+-
+-	if (!gcells->cells)
+-		return;
+-	for_each_possible_cpu(i) {
+-		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
+-
+-		netif_napi_del(&cell->napi);
+-		__skb_queue_purge(&cell->napi_skbs);
+-	}
+-	free_percpu(gcells->cells);
+-	gcells->cells = NULL;
+-}
++int gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb);
++int gro_cells_init(struct gro_cells *gcells, struct net_device *dev);
++void gro_cells_destroy(struct gro_cells *gcells);
+ 
+ #endif
+diff --git a/net/Kconfig b/net/Kconfig
+index 2f2842d2d3edde3f13574923953d4c33aff0..f19c0c3b9589757856502bc91398e6ee17d8 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -413,6 +413,10 @@ config DST_CACHE
+ 	bool
+ 	default n
+ 
++config GRO_CELLS
++	bool
++	default n
++
+ config NET_DEVLINK
+ 	tristate "Network physical/parent device Netlink interface"
+ 	help
+diff --git a/net/core/Makefile b/net/core/Makefile
+index f6761b6e3b29bc4c645585bfdcb38ca94bda..79f9479e965812c635b5337ff89d393a7176 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -28,3 +28,4 @@ obj-$(CONFIG_LWTUNNEL_BPF) += lwt_bpf.o
+ obj-$(CONFIG_DST_CACHE) += dst_cache.o
+ obj-$(CONFIG_HWBM) += hwbm.o
+ obj-$(CONFIG_NET_DEVLINK) += devlink.o
++obj-$(CONFIG_GRO_CELLS) += gro_cells.o
+diff --git a/net/core/gro_cells.c b/net/core/gro_cells.c
+new file mode 100644
+index 000000000000000000000000000000000000..c98bbfbd26b8645bb2a273bdee61f285606e
+--- /dev/null
++++ b/net/core/gro_cells.c
+@@ -0,0 +1,92 @@
++#include <linux/skbuff.h>
++#include <linux/slab.h>
++#include <linux/netdevice.h>
++#include <net/gro_cells.h>
++
++struct gro_cell {
++	struct sk_buff_head	napi_skbs;
++	struct napi_struct	napi;
++};
++
++int gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
++{
++	struct net_device *dev = skb->dev;
++	struct gro_cell *cell;
++
++	if (!gcells->cells || skb_cloned(skb) || !(dev->features & NETIF_F_GRO))
++		return netif_rx(skb);
++
++	cell = this_cpu_ptr(gcells->cells);
++
++	if (skb_queue_len(&cell->napi_skbs) > netdev_max_backlog) {
++		atomic_long_inc(&dev->rx_dropped);
++		kfree_skb(skb);
++		return NET_RX_DROP;
++	}
++
++	__skb_queue_tail(&cell->napi_skbs, skb);
++	if (skb_queue_len(&cell->napi_skbs) == 1)
++		napi_schedule(&cell->napi);
++	return NET_RX_SUCCESS;
++}
++EXPORT_SYMBOL(gro_cells_receive);
++
++/* called under BH context */
++static int gro_cell_poll(struct napi_struct *napi, int budget)
++{
++	struct gro_cell *cell = container_of(napi, struct gro_cell, napi);
++	struct sk_buff *skb;
++	int work_done = 0;
++
++	while (work_done < budget) {
++		skb = __skb_dequeue(&cell->napi_skbs);
++		if (!skb)
++			break;
++		napi_gro_receive(napi, skb);
++		work_done++;
++	}
++
++	if (work_done < budget)
++		napi_complete_done(napi, work_done);
++	return work_done;
++}
++
++int gro_cells_init(struct gro_cells *gcells, struct net_device *dev)
++{
++	int i;
++
++	gcells->cells = alloc_percpu(struct gro_cell);
++	if (!gcells->cells)
++		return -ENOMEM;
++
++	for_each_possible_cpu(i) {
++		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
++
++		__skb_queue_head_init(&cell->napi_skbs);
++
++		set_bit(NAPI_STATE_NO_BUSY_POLL, &cell->napi.state);
++
++		netif_napi_add(dev, &cell->napi, gro_cell_poll,
++			       NAPI_POLL_WEIGHT);
++		napi_enable(&cell->napi);
++	}
++	return 0;
++}
++EXPORT_SYMBOL(gro_cells_init);
++
++void gro_cells_destroy(struct gro_cells *gcells)
++{
++	int i;
++
++	if (!gcells->cells)
++		return;
++	for_each_possible_cpu(i) {
++		struct gro_cell *cell = per_cpu_ptr(gcells->cells, i);
++
++		netif_napi_del(&cell->napi);
++		__skb_queue_purge(&cell->napi_skbs);
++	}
++	free_percpu(gcells->cells);
++	gcells->cells = NULL;
++}
++EXPORT_SYMBOL(gro_cells_destroy);
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 6e7baaf814c608b4e222406c42287382d4ee..e30f9caddae8a221c693b97e1b81acff491c 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -187,6 +187,7 @@ config NET_IPGRE_DEMUX
+ config NET_IP_TUNNEL
+ 	tristate
+ 	select DST_CACHE
++	select GRO_CELLS
+ 	default n
+ 
+ config NET_IPGRE
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index ec1267e2bd1f8c9168687513010cec7a7271..3c7c76b2a7baafc1a67df8c5be2166aafcd9 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -208,6 +208,7 @@ config IPV6_TUNNEL
+ 	tristate "IPv6: IP-in-IPv6 tunnel (RFC2473)"
+ 	select INET6_TUNNEL
+ 	select DST_CACHE
++	select GRO_CELLS
+ 	---help---
+ 	  Support for IPv6-in-IPv6 and IPv4-in-IPv6 tunnels described in
+ 	  RFC 2473.
+diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
+index bda1a13628a8143b812554d0d29fd83cac3a..c06d3997c6e7b11e32d086d015945918468e 100644
+--- a/net/xfrm/Kconfig
++++ b/net/xfrm/Kconfig
+@@ -4,6 +4,7 @@
+ config XFRM
+        bool
+        depends on NET
++       select GRO_CELLS
+ 
+ config XFRM_ALGO
+ 	tristate
