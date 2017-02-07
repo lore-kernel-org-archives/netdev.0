@@ -1,51 +1,53 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH net-next 9/9] mlx4: add page recycling in receive path
-Date: Tue, 7 Feb 2017 18:20:12 +0200
-Message-ID: <92a6e32b-6f0a-88a6-52d3-6ca352c26b22@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/9] mlx4: order-0 allocations and page
+ recycling
+Date: Tue, 07 Feb 2017 08:26:23 -0800
+Message-ID: <1486484783.7793.61.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <20170207030240.31357-1-edumazet@google.com>
- <20170207030240.31357-10-edumazet@google.com>
+         <3b996d14-0471-1fa3-e686-15cf48db4c19@gmail.com>
+         <1486483592.7793.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
         Martin KaFai Lau <kafai@fb.com>,
         Willem de Bruijn <willemb@google.com>,
         Jesper Dangaard Brouer <brouer@redhat.com>,
         Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>
+        Alexei Starovoitov <ast@kernel.org>
+To: Tariq Toukan <ttoukan.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33163 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753894AbdBGQUP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 11:20:15 -0500
-Received: by mail-wr0-f196.google.com with SMTP id i10so5993566wrb.0
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 08:20:15 -0800 (PST)
-In-Reply-To: <20170207030240.31357-10-edumazet@google.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36805 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755282AbdBGQ0Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 11:26:25 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 75so12518689pgf.3
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 08:26:25 -0800 (PST)
+In-Reply-To: <1486483592.7793.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2017-02-07 at 08:06 -0800, Eric Dumazet wrote:
 
+>  		/*
+>  		 * make sure we read the CQE after we read the ownership bit
+>  		 */
+>  		dma_rmb();
+> +		prefetch(frags[0].page);
 
-On 07/02/2017 5:02 AM, Eric Dumazet wrote:
-> Same technique than some Intel drivers, for arches where PAGE_SIZE = 4096
->
-> In most cases, pages are reused because they were consumed
-> before we could loop around the RX ring.
-This might not be true when multiple streams are handled in the same ring.
-As the process time in stack will be longer.
-We will test this scenario as well.
->
-> This brings back performance, and is even better,
-> a single TCP flow reaches 30Gbit on my hosts.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 238 ++++++++-------------------
->   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |   1 -
->   2 files changed, 68 insertions(+), 171 deletions(-)
->
->
+Note that I would like to instead do a prefetch(frags[1].page)
+
+So I will probably change how ring->rx_info is allocated
+
+wasting all that space and forcing vmalloc() is silly :
+
+tmp = size * roundup_pow_of_two(MLX4_EN_MAX_RX_FRAGS *
+                                sizeof(struct mlx4_en_rx_alloc));
+ring->rx_info = vzalloc_node(tmp, node);
+
+In most cases, using exactly 12 bytes per slot would allow better
+packing. Only one cpu is using this area, no need to force strange
+alignments, for the sake of avoiding a multiply !
