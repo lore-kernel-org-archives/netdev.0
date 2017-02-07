@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v3 06/11] bpf: Use bpf_map_lookup_elem() from the library
-Date: Tue,  7 Feb 2017 22:44:55 +0100
-Message-ID: <20170207214500.27496-7-mic@digikod.net>
+Subject: [PATCH net-next v3 09/11] bpf: Use bpf_create_map() from the library
+Date: Tue,  7 Feb 2017 22:44:58 +0100
+Message-ID: <20170207214500.27496-10-mic@digikod.net>
 References: <20170207214500.27496-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -18,352 +18,192 @@ In-Reply-To: <20170207214500.27496-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace bpf_map_lookup() with bpf_map_lookup_elem() calls.
+Replace bpf_map_create() with bpf_create_map() calls.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Cc: Alexei Starovoitov <ast@fb.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Shuah Khan <shuah@kernel.org>
 ---
- tools/lib/bpf/bpf.c                        |  5 ++---
- tools/lib/bpf/bpf.h                        |  2 +-
- tools/testing/selftests/bpf/bpf_sys.h      | 11 -----------
- tools/testing/selftests/bpf/test_lpm_map.c | 16 ++++++++--------
- tools/testing/selftests/bpf/test_lru_map.c | 28 ++++++++++++++--------------
- tools/testing/selftests/bpf/test_maps.c    | 30 +++++++++++++++---------------
- 6 files changed, 40 insertions(+), 52 deletions(-)
+ tools/testing/selftests/bpf/bpf_sys.h       | 15 ---------------
+ tools/testing/selftests/bpf/test_lpm_map.c  |  6 +++---
+ tools/testing/selftests/bpf/test_lru_map.c  |  4 ++--
+ tools/testing/selftests/bpf/test_maps.c     | 14 +++++++-------
+ tools/testing/selftests/bpf/test_tag.c      |  2 +-
+ tools/testing/selftests/bpf/test_verifier.c |  4 ++--
+ 6 files changed, 15 insertions(+), 30 deletions(-)
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index ea3369b50321..81505801fa33 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -110,11 +110,10 @@ int bpf_map_update_elem(int fd, const void *key, const void *value,
- 	return sys_bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
- }
- 
--int bpf_map_lookup_elem(int fd, void *key, void *value)
-+int bpf_map_lookup_elem(int fd, const void *key, void *value)
- {
--	union bpf_attr attr;
-+	union bpf_attr attr = {};
- 
--	bzero(&attr, sizeof(attr));
- 	attr.map_fd = fd;
- 	attr.key = ptr_to_u64(key);
- 	attr.value = ptr_to_u64(value);
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index 2458534c8b33..171cf594f782 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -36,7 +36,7 @@ int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
- int bpf_map_update_elem(int fd, const void *key, const void *value,
- 			__u64 flags);
- 
--int bpf_map_lookup_elem(int fd, void *key, void *value);
-+int bpf_map_lookup_elem(int fd, const void *key, void *value);
- int bpf_map_delete_elem(int fd, void *key);
- int bpf_map_get_next_key(int fd, void *key, void *next_key);
- int bpf_obj_pin(int fd, const char *pathname);
 diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
-index e08dec0db9e0..0a5a6060db70 100644
+index aeff99f0a411..aa076a8a07f7 100644
 --- a/tools/testing/selftests/bpf/bpf_sys.h
 +++ b/tools/testing/selftests/bpf/bpf_sys.h
-@@ -24,17 +24,6 @@ static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
+@@ -24,19 +24,4 @@ static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
  #endif
  }
  
--static inline int bpf_map_lookup(int fd, const void *key, void *value)
+-static inline int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
+-				 uint32_t size_value, uint32_t max_elem,
+-				 uint32_t flags)
 -{
 -	union bpf_attr attr = {};
 -
--	attr.map_fd = fd;
--	attr.key = bpf_ptr_to_u64(key);
--	attr.value = bpf_ptr_to_u64(value);
+-	attr.map_type = type;
+-	attr.key_size = size_key;
+-	attr.value_size = size_value;
+-	attr.max_entries = max_elem;
+-	attr.map_flags = flags;
 -
--	return bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
+-	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
 -}
 -
- static inline int bpf_map_delete(int fd, const void *key)
- {
- 	union bpf_attr attr = {};
+ #endif /* __BPF_SYS__ */
 diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
-index e29ffbcd2932..bd08394c26cb 100644
+index bd08394c26cb..3cc812cac2d7 100644
 --- a/tools/testing/selftests/bpf/test_lpm_map.c
 +++ b/tools/testing/selftests/bpf/test_lpm_map.c
-@@ -211,7 +211,7 @@ static void test_lpm_map(int keysize)
+@@ -183,7 +183,7 @@ static void test_lpm_map(int keysize)
+ 	key = alloca(sizeof(*key) + keysize);
+ 	memset(key, 0, sizeof(*key) + keysize);
  
- 		key->prefixlen = 8 * keysize;
- 		memcpy(key->data, data, keysize);
--		r = bpf_map_lookup(map, key, value);
-+		r = bpf_map_lookup_elem(map, key, value);
- 		assert(!r || errno == ENOENT);
- 		assert(!t == !!r);
+-	map = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
++	map = bpf_create_map(BPF_MAP_TYPE_LPM_TRIE,
+ 			     sizeof(*key) + keysize,
+ 			     keysize + 1,
+ 			     4096,
+@@ -253,12 +253,12 @@ static void test_lpm_ipaddr(void)
+ 	key_ipv4 = alloca(key_size_ipv4);
+ 	key_ipv6 = alloca(key_size_ipv6);
  
-@@ -300,32 +300,32 @@ static void test_lpm_ipaddr(void)
+-	map_fd_ipv4 = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
++	map_fd_ipv4 = bpf_create_map(BPF_MAP_TYPE_LPM_TRIE,
+ 				     key_size_ipv4, sizeof(value),
+ 				     100, BPF_F_NO_PREALLOC);
+ 	assert(map_fd_ipv4 >= 0);
  
- 	/* Test some lookups that should come back with a value */
- 	inet_pton(AF_INET, "192.168.128.23", key_ipv4->data);
--	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == 0);
-+	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == 0);
- 	assert(value == 3);
- 
- 	inet_pton(AF_INET, "192.168.0.1", key_ipv4->data);
--	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == 0);
-+	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == 0);
- 	assert(value == 2);
- 
- 	inet_pton(AF_INET6, "2a00:1450:4001:814::", key_ipv6->data);
--	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == 0);
-+	assert(bpf_map_lookup_elem(map_fd_ipv6, key_ipv6, &value) == 0);
- 	assert(value == 0xdeadbeef);
- 
- 	inet_pton(AF_INET6, "2a00:1450:4001:814::1", key_ipv6->data);
--	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == 0);
-+	assert(bpf_map_lookup_elem(map_fd_ipv6, key_ipv6, &value) == 0);
- 	assert(value == 0xdeadbeef);
- 
- 	/* Test some lookups that should not match any entry */
- 	inet_pton(AF_INET, "10.0.0.1", key_ipv4->data);
--	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == -1 &&
-+	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == -1 &&
- 	       errno == ENOENT);
- 
- 	inet_pton(AF_INET, "11.11.11.11", key_ipv4->data);
--	assert(bpf_map_lookup(map_fd_ipv4, key_ipv4, &value) == -1 &&
-+	assert(bpf_map_lookup_elem(map_fd_ipv4, key_ipv4, &value) == -1 &&
- 	       errno == ENOENT);
- 
- 	inet_pton(AF_INET6, "2a00:ffff::", key_ipv6->data);
--	assert(bpf_map_lookup(map_fd_ipv6, key_ipv6, &value) == -1 &&
-+	assert(bpf_map_lookup_elem(map_fd_ipv6, key_ipv6, &value) == -1 &&
- 	       errno == ENOENT);
- 
- 	close(map_fd_ipv4);
+-	map_fd_ipv6 = bpf_map_create(BPF_MAP_TYPE_LPM_TRIE,
++	map_fd_ipv6 = bpf_create_map(BPF_MAP_TYPE_LPM_TRIE,
+ 				     key_size_ipv6, sizeof(value),
+ 				     100, BPF_F_NO_PREALLOC);
+ 	assert(map_fd_ipv6 >= 0);
 diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index 8011680248bd..53155009bdb6 100644
+index 94ecd4c58d75..20fa3df20a01 100644
 --- a/tools/testing/selftests/bpf/test_lru_map.c
 +++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -47,8 +47,8 @@ static int map_subset(int map0, int map1)
- 	int ret;
+@@ -31,11 +31,11 @@ static int create_map(int map_type, int map_flags, unsigned int size)
+ {
+ 	int map_fd;
  
- 	while (!bpf_map_next_key(map1, &next_key, &next_key)) {
--		assert(!bpf_map_lookup(map1, &next_key, value1));
--		ret = bpf_map_lookup(map0, &next_key, value0);
-+		assert(!bpf_map_lookup_elem(map1, &next_key, value1));
-+		ret = bpf_map_lookup_elem(map0, &next_key, value0);
- 		if (ret) {
- 			printf("key:%llu not found from map. %s(%d)\n",
- 			       next_key, strerror(errno), errno);
-@@ -135,7 +135,7 @@ static void test_lru_sanity0(int map_type, int map_flags)
+-	map_fd = bpf_map_create(map_type, sizeof(unsigned long long),
++	map_fd = bpf_create_map(map_type, sizeof(unsigned long long),
+ 				sizeof(unsigned long long), size, map_flags);
  
- 	/* check that key=2 is not found */
- 	key = 2;
--	assert(bpf_map_lookup(lru_map_fd, &key, value) == -1 &&
-+	assert(bpf_map_lookup_elem(lru_map_fd, &key, value) == -1 &&
- 	       errno == ENOENT);
+ 	if (map_fd == -1)
+-		perror("bpf_map_create");
++		perror("bpf_create_map");
  
- 	/* BPF_EXIST means: update existing element */
-@@ -149,14 +149,14 @@ static void test_lru_sanity0(int map_type, int map_flags)
- 
- 	/* check that key=3 is not found */
- 	key = 3;
--	assert(bpf_map_lookup(lru_map_fd, &key, value) == -1 &&
-+	assert(bpf_map_lookup_elem(lru_map_fd, &key, value) == -1 &&
- 	       errno == ENOENT);
- 
- 	/* check that key=1 can be found and mark the ref bit to
- 	 * stop LRU from removing key=1
- 	 */
- 	key = 1;
--	assert(!bpf_map_lookup(lru_map_fd, &key, value));
-+	assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
- 	assert(value[0] == 1234);
- 
- 	key = 3;
-@@ -165,7 +165,7 @@ static void test_lru_sanity0(int map_type, int map_flags)
- 
- 	/* key=2 has been removed from the LRU */
- 	key = 2;
--	assert(bpf_map_lookup(lru_map_fd, &key, value) == -1);
-+	assert(bpf_map_lookup_elem(lru_map_fd, &key, value) == -1);
- 
- 	assert(map_equal(lru_map_fd, expected_map_fd));
- 
-@@ -223,7 +223,7 @@ static void test_lru_sanity1(int map_type, int map_flags, unsigned int tgt_free)
- 	/* Lookup 1 to tgt_free/2 */
- 	end_key = 1 + batch_size;
- 	for (key = 1; key < end_key; key++) {
--		assert(!bpf_map_lookup(lru_map_fd, &key, value));
-+		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
- 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
- 				       BPF_NOEXIST));
- 	}
-@@ -329,9 +329,9 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
- 	end_key = 1 + batch_size;
- 	value[0] = 4321;
- 	for (key = 1; key < end_key; key++) {
--		assert(bpf_map_lookup(lru_map_fd, &key, value));
-+		assert(bpf_map_lookup_elem(lru_map_fd, &key, value));
- 		assert(!bpf_map_update_elem(lru_map_fd, &key, value, BPF_NOEXIST));
--		assert(!bpf_map_lookup(lru_map_fd, &key, value));
-+		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
- 		assert(value[0] == 4321);
- 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
- 				       BPF_NOEXIST));
-@@ -407,7 +407,7 @@ static void test_lru_sanity3(int map_type, int map_flags, unsigned int tgt_free)
- 	/* Lookup key 1 to tgt_free*3/2 */
- 	end_key = tgt_free + batch_size;
- 	for (key = 1; key < end_key; key++) {
--		assert(!bpf_map_lookup(lru_map_fd, &key, value));
-+		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
- 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
- 				       BPF_NOEXIST));
- 	}
-@@ -464,7 +464,7 @@ static void test_lru_sanity4(int map_type, int map_flags, unsigned int tgt_free)
- 	assert(bpf_map_update_elem(lru_map_fd, &key, value, BPF_NOEXIST));
- 
- 	for (key = 1; key <= tgt_free; key++) {
--		assert(!bpf_map_lookup(lru_map_fd, &key, value));
-+		assert(!bpf_map_lookup_elem(lru_map_fd, &key, value));
- 		assert(!bpf_map_update_elem(expected_map_fd, &key, value,
- 				       BPF_NOEXIST));
- 	}
-@@ -494,16 +494,16 @@ static void do_test_lru_sanity5(unsigned long long last_key, int map_fd)
- 	unsigned long long key, value[nr_cpus];
- 
- 	/* Ensure the last key inserted by previous CPU can be found */
--	assert(!bpf_map_lookup(map_fd, &last_key, value));
-+	assert(!bpf_map_lookup_elem(map_fd, &last_key, value));
- 
- 	value[0] = 1234;
- 
- 	key = last_key + 1;
- 	assert(!bpf_map_update_elem(map_fd, &key, value, BPF_NOEXIST));
--	assert(!bpf_map_lookup(map_fd, &key, value));
-+	assert(!bpf_map_lookup_elem(map_fd, &key, value));
- 
- 	/* Cannot find the last key because it was removed by LRU */
--	assert(bpf_map_lookup(map_fd, &last_key, value));
-+	assert(bpf_map_lookup_elem(map_fd, &last_key, value));
+ 	return map_fd;
  }
- 
- /* Test map with only one element */
 diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 2574cc7517b9..c73a1fbc5bcc 100644
+index c96f9c9661a0..050a5205c78d 100644
 --- a/tools/testing/selftests/bpf/test_maps.c
 +++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -54,11 +54,11 @@ static void test_hashmap(int task, void *data)
- 	assert(bpf_map_update_elem(fd, &key, &value, -1) == -1 && errno == EINVAL);
+@@ -32,7 +32,7 @@ static void test_hashmap(int task, void *data)
+ 	long long key, next_key, value;
+ 	int fd;
  
- 	/* Check that key=1 can be found. */
--	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 1234);
-+	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 1234);
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
+ 			    2, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create hashmap '%s'!\n", strerror(errno));
+@@ -118,7 +118,7 @@ static void test_hashmap_percpu(int task, void *data)
+ 	int expected_key_mask = 0;
+ 	int fd, i;
  
- 	key = 2;
- 	/* Check that key=2 is not found. */
--	assert(bpf_map_lookup(fd, &key, &value) == -1 && errno == ENOENT);
-+	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
+-	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
++	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_HASH, sizeof(key),
+ 			    sizeof(value[0]), 2, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create hashmap '%s'!\n", strerror(errno));
+@@ -210,7 +210,7 @@ static void test_arraymap(int task, void *data)
+ 	int key, next_key, fd;
+ 	long long value;
  
- 	/* BPF_EXIST means update existing element. */
- 	assert(bpf_map_update_elem(fd, &key, &value, BPF_EXIST) == -1 &&
-@@ -146,11 +146,11 @@ static void test_hashmap_percpu(int task, void *data)
- 	 * was run from a different CPU.
- 	 */
- 	value[0] = 1;
--	assert(bpf_map_lookup(fd, &key, value) == 0 && value[0] == 100);
-+	assert(bpf_map_lookup_elem(fd, &key, value) == 0 && value[0] == 100);
+-	fd = bpf_map_create(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
+ 			    2, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create arraymap '%s'!\n", strerror(errno));
+@@ -264,7 +264,7 @@ static void test_arraymap_percpu(int task, void *data)
+ 	int key, next_key, fd, i;
+ 	long values[nr_cpus];
  
- 	key = 2;
- 	/* Check that key=2 is not found. */
--	assert(bpf_map_lookup(fd, &key, value) == -1 && errno == ENOENT);
-+	assert(bpf_map_lookup_elem(fd, &key, value) == -1 && errno == ENOENT);
+-	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
++	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
+ 			    sizeof(values[0]), 2, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create arraymap '%s'!\n", strerror(errno));
+@@ -320,7 +320,7 @@ static void test_arraymap_percpu_many_keys(void)
+ 	long values[nr_cpus];
+ 	int key, fd, i;
  
- 	/* BPF_EXIST means update existing element. */
- 	assert(bpf_map_update_elem(fd, &key, value, BPF_EXIST) == -1 &&
-@@ -177,7 +177,7 @@ static void test_hashmap_percpu(int task, void *data)
- 		assert((expected_key_mask & next_key) == next_key);
- 		expected_key_mask &= ~next_key;
+-	fd = bpf_map_create(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
++	fd = bpf_create_map(BPF_MAP_TYPE_PERCPU_ARRAY, sizeof(key),
+ 			    sizeof(values[0]), nr_keys, 0);
+ 	if (fd < 0) {
+ 		printf("Failed to create per-cpu arraymap '%s'!\n",
+@@ -358,7 +358,7 @@ static void test_map_large(void)
+ 	} key;
+ 	int fd, i, value;
  
--		assert(bpf_map_lookup(fd, &next_key, value) == 0);
-+		assert(bpf_map_lookup_elem(fd, &next_key, value) == 0);
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
+ 			    MAP_SIZE, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create large map '%s'!\n", strerror(errno));
+@@ -451,7 +451,7 @@ static void test_map_parallel(void)
+ 	int i, fd, key = 0, value = 0;
+ 	int data[2];
  
- 		for (i = 0; i < nr_cpus; i++)
- 			assert(value[i] == i + 100);
-@@ -227,11 +227,11 @@ static void test_arraymap(int task, void *data)
- 	       errno == EEXIST);
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
+ 			    MAP_SIZE, map_flags);
+ 	if (fd < 0) {
+ 		printf("Failed to create map for parallel test '%s'!\n",
+diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
+index b77dc4b03e77..a76d695ab56e 100644
+--- a/tools/testing/selftests/bpf/test_tag.c
++++ b/tools/testing/selftests/bpf/test_tag.c
+@@ -189,7 +189,7 @@ int main(void)
+ 	int i, fd_map;
  
- 	/* Check that key=1 can be found. */
--	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 1234);
-+	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 1234);
+ 	setrlimit(RLIMIT_MEMLOCK, &rinf);
+-	fd_map = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(int),
++	fd_map = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(int),
+ 				sizeof(int), 1, BPF_F_NO_PREALLOC);
+ 	assert(fd_map > 0);
  
- 	key = 0;
- 	/* Check that key=0 is also found and zero initialized. */
--	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 0);
-+	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 0);
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 3bdd1ddda6c1..967448aa5b16 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -4467,7 +4467,7 @@ static int create_map(uint32_t size_value, uint32_t max_elem)
+ {
+ 	int fd;
  
- 	/* key=0 and key=1 were inserted, check that key=2 cannot be inserted
- 	 * due to max_entries limit.
-@@ -241,7 +241,7 @@ static void test_arraymap(int task, void *data)
- 	       errno == E2BIG);
+-	fd = bpf_map_create(BPF_MAP_TYPE_HASH, sizeof(long long),
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(long long),
+ 			    size_value, max_elem, BPF_F_NO_PREALLOC);
+ 	if (fd < 0)
+ 		printf("Failed to create hash map '%s'!\n", strerror(errno));
+@@ -4479,7 +4479,7 @@ static int create_prog_array(void)
+ {
+ 	int fd;
  
- 	/* Check that key = 2 doesn't exist. */
--	assert(bpf_map_lookup(fd, &key, &value) == -1 && errno == ENOENT);
-+	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
- 
- 	/* Iterate over two elements. */
- 	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-@@ -283,11 +283,11 @@ static void test_arraymap_percpu(int task, void *data)
- 	       errno == EEXIST);
- 
- 	/* Check that key=1 can be found. */
--	assert(bpf_map_lookup(fd, &key, values) == 0 && values[0] == 100);
-+	assert(bpf_map_lookup_elem(fd, &key, values) == 0 && values[0] == 100);
- 
- 	key = 0;
- 	/* Check that key=0 is also found and zero initialized. */
--	assert(bpf_map_lookup(fd, &key, values) == 0 &&
-+	assert(bpf_map_lookup_elem(fd, &key, values) == 0 &&
- 	       values[0] == 0 && values[nr_cpus - 1] == 0);
- 
- 	/* Check that key=2 cannot be inserted due to max_entries limit. */
-@@ -296,7 +296,7 @@ static void test_arraymap_percpu(int task, void *data)
- 	       errno == E2BIG);
- 
- 	/* Check that key = 2 doesn't exist. */
--	assert(bpf_map_lookup(fd, &key, values) == -1 && errno == ENOENT);
-+	assert(bpf_map_lookup_elem(fd, &key, values) == -1 && errno == ENOENT);
- 
- 	/* Iterate over two elements. */
- 	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-@@ -338,7 +338,7 @@ static void test_arraymap_percpu_many_keys(void)
- 		for (i = 0; i < nr_cpus; i++)
- 			values[i] = 0;
- 
--		assert(bpf_map_lookup(fd, &key, values) == 0);
-+		assert(bpf_map_lookup_elem(fd, &key, values) == 0);
- 
- 		for (i = 0; i < nr_cpus; i++)
- 			assert(values[i] == i + 10);
-@@ -382,9 +382,9 @@ static void test_map_large(void)
- 	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
- 
- 	key.c = 0;
--	assert(bpf_map_lookup(fd, &key, &value) == 0 && value == 0);
-+	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 0);
- 	key.a = 1;
--	assert(bpf_map_lookup(fd, &key, &value) == -1 && errno == ENOENT);
-+	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
- 
- 	close(fd);
- }
-@@ -482,7 +482,7 @@ static void test_map_parallel(void)
- 	for (i = 0; i < MAP_SIZE; i++) {
- 		key = MAP_SIZE - i - 1;
- 
--		assert(bpf_map_lookup(fd, &key, &value) == 0 &&
-+		assert(bpf_map_lookup_elem(fd, &key, &value) == 0 &&
- 		       value == key);
- 	}
- 
+-	fd = bpf_map_create(BPF_MAP_TYPE_PROG_ARRAY, sizeof(int),
++	fd = bpf_create_map(BPF_MAP_TYPE_PROG_ARRAY, sizeof(int),
+ 			    sizeof(int), 4, 0);
+ 	if (fd < 0)
+ 		printf("Failed to create prog array '%s'!\n", strerror(errno));
 -- 
 2.11.0
