@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/9] mlx4: dma_dir is a mlx4_en_priv attribute
-Date: Mon,  6 Feb 2017 19:02:33 -0800
-Message-ID: <20170207030240.31357-3-edumazet@google.com>
+Subject: [PATCH net-next 3/9] mlx4: remove order field from mlx4_en_frag_info
+Date: Mon,  6 Feb 2017 19:02:34 -0800
+Message-ID: <20170207030240.31357-4-edumazet@google.com>
 References: <20170207030240.31357-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
@@ -14,142 +14,80 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33766 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752172AbdBGDD1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 22:03:27 -0500
-Received: by mail-pf0-f182.google.com with SMTP id y143so28973340pfb.0
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 19:03:26 -0800 (PST)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33113 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752489AbdBGDD3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 22:03:29 -0500
+Received: by mail-pg0-f52.google.com with SMTP id 204so34072604pge.0
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 19:03:29 -0800 (PST)
 In-Reply-To: <20170207030240.31357-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to duplicate it for all queues and frags.
-
-num_frags & log_rx_info become u8 to save space.
-u8 accesses are a bit faster than u16 anyway.
+This is really a port attribute, no need to duplicate it per
+RX queue and per frag.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 16 ++++++++--------
- drivers/net/ethernet/mellanox/mlx4/en_tx.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  6 +++---
- 3 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 6 +++---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 03f1713c94c7fa57e9eaaf87fe38a0a6d372..9bb22eb5bfcc3037e92d06cca75d514dd52e 100644
+index 9bb22eb5bfcc3037e92d06cca75d514dd52e..f868cb330039f5730ab8f59eca451c3d5272 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -72,7 +72,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
- 			return -ENOMEM;
- 	}
- 	dma = dma_map_page(priv->ddev, page, 0, PAGE_SIZE << order,
--			   frag_info->dma_dir);
-+			   priv->dma_dir);
- 	if (unlikely(dma_mapping_error(priv->ddev, dma))) {
- 		put_page(page);
- 		return -ENOMEM;
-@@ -128,7 +128,7 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
- 		if (page_alloc[i].page != ring_alloc[i].page) {
- 			dma_unmap_page(priv->ddev, page_alloc[i].dma,
- 				page_alloc[i].page_size,
--				priv->frag_info[i].dma_dir);
-+				priv->dma_dir);
- 			page = page_alloc[i].page;
- 			/* Revert changes done by mlx4_alloc_pages */
- 			page_ref_sub(page, page_alloc[i].page_size /
-@@ -149,7 +149,7 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
+@@ -59,7 +59,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
+ 	struct page *page;
+ 	dma_addr_t dma;
  
- 	if (next_frag_end > frags[i].page_size)
- 		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].page_size,
--			       frag_info->dma_dir);
-+			       priv->dma_dir);
+-	for (order = frag_info->order; ;) {
++	for (order = priv->rx_page_order; ;) {
+ 		gfp_t gfp = _gfp;
  
- 	if (frags[i].page)
- 		put_page(frags[i].page);
-@@ -181,7 +181,7 @@ static int mlx4_en_init_allocator(struct mlx4_en_priv *priv,
- 		page_alloc = &ring->page_alloc[i];
- 		dma_unmap_page(priv->ddev, page_alloc->dma,
- 			       page_alloc->page_size,
--			       priv->frag_info[i].dma_dir);
-+			       priv->dma_dir);
- 		page = page_alloc->page;
- 		/* Revert changes done by mlx4_alloc_pages */
- 		page_ref_sub(page, page_alloc->page_size /
-@@ -206,7 +206,7 @@ static void mlx4_en_destroy_allocator(struct mlx4_en_priv *priv,
- 		       i, page_count(page_alloc->page));
+ 		if (order)
+@@ -1192,7 +1192,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 	 * This only works when num_frags == 1.
+ 	 */
+ 	if (priv->tx_ring_num[TX_XDP]) {
+-		priv->frag_info[0].order = 0;
++		priv->rx_page_order = 0;
+ 		priv->frag_info[0].frag_size = eff_mtu;
+ 		priv->frag_info[0].frag_prefix_size = 0;
+ 		/* This will gain efficient xdp frame recycling at the
+@@ -1206,7 +1206,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 		int buf_size = 0;
  
- 		dma_unmap_page(priv->ddev, page_alloc->dma,
--				page_alloc->page_size, frag_info->dma_dir);
-+				page_alloc->page_size, priv->dma_dir);
- 		while (page_alloc->page_offset + frag_info->frag_stride <
- 		       page_alloc->page_size) {
- 			put_page(page_alloc->page);
-@@ -567,7 +567,7 @@ void mlx4_en_deactivate_rx_ring(struct mlx4_en_priv *priv,
- 		struct mlx4_en_rx_alloc *frame = &ring->page_cache.buf[i];
- 
- 		dma_unmap_page(priv->ddev, frame->dma, frame->page_size,
--			       priv->frag_info[0].dma_dir);
-+			       priv->dma_dir);
- 		put_page(frame->page);
- 	}
- 	ring->page_cache.index = 0;
-@@ -1199,7 +1199,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 		 * expense of more costly truesize accounting
- 		 */
- 		priv->frag_info[0].frag_stride = PAGE_SIZE;
--		priv->frag_info[0].dma_dir = PCI_DMA_BIDIRECTIONAL;
-+		priv->dma_dir = PCI_DMA_BIDIRECTIONAL;
- 		priv->frag_info[0].rx_headroom = XDP_PACKET_HEADROOM;
- 		i = 1;
- 	} else {
-@@ -1214,11 +1214,11 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 			priv->frag_info[i].frag_stride =
- 				ALIGN(priv->frag_info[i].frag_size,
- 				      SMP_CACHE_BYTES);
--			priv->frag_info[i].dma_dir = PCI_DMA_FROMDEVICE;
- 			priv->frag_info[i].rx_headroom = 0;
+ 		while (buf_size < eff_mtu) {
+-			priv->frag_info[i].order = MLX4_EN_ALLOC_PREFER_ORDER;
+ 			priv->frag_info[i].frag_size =
+ 				(eff_mtu > buf_size + frag_sizes[i]) ?
+ 					frag_sizes[i] : eff_mtu - buf_size;
+@@ -1218,6 +1217,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
  			buf_size += priv->frag_info[i].frag_size;
  			i++;
  		}
-+		priv->dma_dir = PCI_DMA_FROMDEVICE;
- 	}
- 
- 	priv->num_frags = i;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 3ed42199d3f1275f77560e92a430c0dde181..98bc67a7249b14f8857fe1fd6baa40ae3ec5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -360,7 +360,7 @@ u32 mlx4_en_recycle_tx_desc(struct mlx4_en_priv *priv,
- 
- 	if (!mlx4_en_rx_recycle(ring->recycle_ring, &frame)) {
- 		dma_unmap_page(priv->ddev, tx_info->map0_dma,
--			       PAGE_SIZE, priv->frag_info[0].dma_dir);
-+			       PAGE_SIZE, priv->dma_dir);
- 		put_page(tx_info->page);
++		priv->rx_page_order = MLX4_EN_ALLOC_PREFER_ORDER;
+ 		priv->dma_dir = PCI_DMA_FROMDEVICE;
  	}
  
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index ba1c6cd0cc79590075f4420a930b613c9fde..549f88b9becd9f2dd96282a44f6d374f14a4 100644
+index 549f88b9becd9f2dd96282a44f6d374f14a4..11898550f87c077f6687903790d329e4aa1e 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 @@ -474,7 +474,6 @@ struct mlx4_en_frag_info {
  	u16 frag_size;
  	u16 frag_prefix_size;
  	u32 frag_stride;
--	enum dma_data_direction dma_dir;
- 	u16 order;
+-	u16 order;
  	u16 rx_headroom;
  };
-@@ -584,8 +583,9 @@ struct mlx4_en_priv {
- 	u32 rx_ring_num;
- 	u32 rx_skb_size;
- 	struct mlx4_en_frag_info frag_info[MLX4_EN_MAX_RX_FRAGS];
--	u16 num_frags;
--	u16 log_rx_info;
-+	u8 num_frags;
-+	u8 log_rx_info;
-+	u8 dma_dir;
+ 
+@@ -586,6 +585,7 @@ struct mlx4_en_priv {
+ 	u8 num_frags;
+ 	u8 log_rx_info;
+ 	u8 dma_dir;
++	u8 rx_page_order;
  
  	struct mlx4_en_tx_ring **tx_ring[MLX4_EN_NUM_TX_TYPES];
  	struct mlx4_en_rx_ring *rx_ring[MAX_RX_RINGS];
