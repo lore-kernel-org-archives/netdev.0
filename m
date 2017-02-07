@@ -1,114 +1,121 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: RE: [PATCH net-next/iproute 2/5] tc: bash-completion: Prepare action
- autocomplete to support several actions
-Date: Tue, 7 Feb 2017 05:09:38 +0000
-Message-ID: <DB3PR05MB07640AEE7C65C37ACCB67A20AC430@DB3PR05MB0764.eurprd05.prod.outlook.com>
-References: <1486387164-40404-1-git-send-email-yotamg@mellanox.com>
-        <1486387164-40404-3-git-send-email-yotamg@mellanox.com>
- <20170206141055.5c9f7610@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Elad Raz <eladr@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "mrv@mojatatu.com" <mrv@mojatatu.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr40077.outbound.protection.outlook.com ([40.107.4.77]:32288
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751164AbdBGFJn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 00:09:43 -0500
-In-Reply-To: <20170206141055.5c9f7610@xeon-e3>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lukasz Majewski <lukma@denx.de>
+Subject: [PATCH v3 2/3] net: phy: dp83867: Add lane swapping support in the DP83867 TI's PHY driver
+Date: Tue,  7 Feb 2017 06:20:23 +0100
+Message-ID: <1486444824-12733-1-git-send-email-lukma@denx.de>
+Cc: Lukasz Majewski <lukma@denx.de>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Karicheri Muralidharan <m-karicheri2@ti.com>,
+        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        Kishon Vijay Abraham I <kishon@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Stephen Hemminger [mailto:stephen@networkplumber.org]
->Sent: Tuesday, February 07, 2017 12:11 AM
->To: Yotam Gigi <yotamg@mellanox.com>
->Cc: netdev@vger.kernel.org; Elad Raz <eladr@mellanox.com>; Ido Schimmel
-><idosch@mellanox.com>; Jiri Pirko <jiri@mellanox.com>; jhs@mojatatu.com;
->mrv@mojatatu.com
->Subject: Re: [PATCH net-next/iproute 2/5] tc: bash-completion: Prepare act=
-ion
->autocomplete to support several actions
->
->On Mon,  6 Feb 2017 15:19:21 +0200
->Yotam Gigi <yotamg@mellanox.com> wrote:
->
->> The action autocomplete routine (_tc_action_options) currently does not
->> support several actions statements in one tc command line as it uses the
->> _tc_once_attr and _tc_one_from_list.
->>
->> For example, in that case:
->>
->> $ tc filter add dev eth0 handle ffff: u32 [...]  \
->> 	   action sample group 5 rate 12 	 \
->> 	   action sample <TAB>
->>
->> the _tc_once_attr function, when invoked with "group rate" will not
->> suggest those as they already exist on the command line.
->>
->> Fix the function to use the _from variant, thus allowing each action
->> autocomplete start from the action keyword, and not from the beginning o=
-f
->> the command line.
->>
->> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->
->This patch does not apply cleanly to current iproute2 net-next tree.
->Please rebase and resubmit the whole series again.
+This patch adds support for enabling or disabling the lane swapping (called
+"port mirroring" in PHY's CFG4 register) feature of the DP83867 TI's PHY
+device.
 
-Sorry for that. I will send it again.
+One use case is when bootstrap configuration enables this feature (because
+of e.g. LED_0 wrong wiring) so then one needs to disable it in software
+(at u-boot/Linux).
 
-Thanks!
+Signed-off-by: Lukasz Majewski <lukma@denx.de>
+---
+Changes for v3:
+- Add "line swapping" to the patch description
+- Add DP83867_PORT_MIRROING_KEEP enum for better code readability
 
->
->
->$ cat bash-completion/tc.rej
->--- bash-completion/tc
->+++ bash-completion/tc
->@@ -454,26 +454,28 @@ _tc_filter_options()
-> # Returns 0 is completion should stop after running this function, 1 othe=
-rwise.
-> _tc_action_options()
-> {
->-    case $1 in
->+    local from=3D$1
->+    local action=3D${words[from]}
->+    case $action in
->         bpf)
->             _tc_bpf_options
->             return 0
->             ;;
->         mirred)
->-            _tc_one_of_list 'ingress egress'
->-            _tc_one_of_list 'mirror redirect'
->-            _tc_once_attr 'index dev'
->+            _tc_one_of_list_from $from 'ingress egress'
->+            _tc_one_of_list_from $from 'mirror redirect'
->+            _tc_once_attr_from $from 'index dev'
->             return 0
->             ;;
->         sample)
->-            _tc_once_attr 'rate'
->-            _tc_once_attr 'trunc'
->-            _tc_once_attr 'group'
->+            _tc_once_attr_from $from 'rate'
->+            _tc_once_attr_from $from 'trunc'
->+            _tc_once_attr_from $from 'group'
->             return 0
->             ;;
->         gact)
->-            _tc_one_of_list 'reclassify drop continue pass'
->-            _tc_once_attr 'random'
->+            _tc_one_of_list_from $from 'reclassify drop continue pass'
->+            _tc_once_attr_from $from 'random'
->             return 0
->             ;;
->     esac
+Changes for v2:
+- use "net-phy-lane-swap" and "net-phy-lane-no-swap" generic PHY properties.
+  instead of TI specific one
+---
+ drivers/net/phy/dp83867.c | 38 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+index ca1b462..be6fa24 100644
+--- a/drivers/net/phy/dp83867.c
++++ b/drivers/net/phy/dp83867.c
+@@ -32,6 +32,7 @@
+ #define DP83867_CFG3		0x1e
+ 
+ /* Extended Registers */
++#define DP83867_CFG4            0x0031
+ #define DP83867_RGMIICTL	0x0032
+ #define DP83867_RGMIIDCTL	0x0086
+ #define DP83867_IO_MUX_CFG	0x0170
+@@ -70,11 +71,21 @@
+ #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX	0x0
+ #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN	0x1f
+ 
++/* CFG4 bits */
++#define DP83867_CFG4_PORT_MIRROR_EN              BIT(0)
++
++enum {
++	DP83867_PORT_MIRROING_KEEP,
++	DP83867_PORT_MIRROING_EN,
++	DP83867_PORT_MIRROING_DIS,
++};
++
+ struct dp83867_private {
+ 	int rx_id_delay;
+ 	int tx_id_delay;
+ 	int fifo_depth;
+ 	int io_impedance;
++	int port_mirroring;
+ };
+ 
+ static int dp83867_ack_interrupt(struct phy_device *phydev)
+@@ -111,6 +122,24 @@ static int dp83867_config_intr(struct phy_device *phydev)
+ 	return phy_write(phydev, MII_DP83867_MICR, micr_status);
+ }
+ 
++static int dp83867_config_port_mirroring(struct phy_device *phydev)
++{
++	struct dp83867_private *dp83867 =
++		(struct dp83867_private *)phydev->priv;
++	u16 val;
++
++	val = phy_read_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR);
++
++	if (dp83867->port_mirroring == DP83867_PORT_MIRROING_EN)
++		val |= DP83867_CFG4_PORT_MIRROR_EN;
++	else
++		val &= ~DP83867_CFG4_PORT_MIRROR_EN;
++
++	phy_write_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR, val);
++
++	return 0;
++}
++
+ #ifdef CONFIG_OF_MDIO
+ static int dp83867_of_init(struct phy_device *phydev)
+ {
+@@ -144,6 +173,12 @@ static int dp83867_of_init(struct phy_device *phydev)
+ 	     phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID))
+ 		return ret;
+ 
++	if (of_property_read_bool(of_node, "enet-phy-lane-swap"))
++		dp83867->port_mirroring = DP83867_PORT_MIRROING_EN;
++
++	if (of_property_read_bool(of_node, "enet-phy-lane-no-swap"))
++		dp83867->port_mirroring = DP83867_PORT_MIRROING_DIS;
++
+ 	return of_property_read_u32(of_node, "ti,fifo-depth",
+ 				   &dp83867->fifo_depth);
+ }
+@@ -228,6 +263,9 @@ static int dp83867_config_init(struct phy_device *phydev)
+ 		phy_write(phydev, DP83867_CFG3, val);
+ 	}
+ 
++	if (dp83867->port_mirroring != DP83867_PORT_MIRROING_KEEP)
++		dp83867_config_port_mirroring(phydev);
++
+ 	return 0;
+ }
+ 
+-- 
+2.1.4
