@@ -1,28 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: netvsc merge conflicts...
-Date: Tue, 07 Feb 2017 16:41:41 -0500 (EST)
-Message-ID: <20170207.164141.2253747431048804570.davem@davemloft.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] ip route: Make name of protocol 0 consistent
+Date: Tue, 7 Feb 2017 14:51:45 -0700
+Message-ID: <5d4b2d3f-300d-2486-c660-b4704c41cacd@cumulusnetworks.com>
+References: <1486056126-23900-1-git-send-email-dsa@cumulusnetworks.com>
+ <20170206140107.41569a73@xeon-e3>
+ <5f55d6bb-ef2e-dbb0-c677-006964f1b7fe@cumulusnetworks.com>
+ <20170207134035.58fa3fab@xeon-e3>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58370 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932378AbdBGVu7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:50:59 -0500
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:35320 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754207AbdBGVvs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:51:48 -0500
+Received: by mail-pf0-f169.google.com with SMTP id f144so36096515pfa.2
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 13:51:47 -0800 (PST)
+In-Reply-To: <20170207134035.58fa3fab@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 2/7/17 2:40 PM, Stephen Hemminger wrote:
+>> Reading the file changes the string in rtnl_rtprot_tab for
+>> RTPROT_UNSPEC. Both string values -- "none" and "unspec" come from
+>> iproute2, so my point is that string is inconsistent within iproute2.
+> 
+> Why not change the value in the table rtnl_rtprot_tab to be unspec this would
+> make the command consistent with the value in the header file.
+> 
 
-Stephen, I just did a merge of net into net-next and had to
-resolve a merge conflict in the netvsc driver.
+I flipped a coin; it landed on config file.
 
-The problem was that in 'net' the hyperv bug fix that added
-the calls to "init_cache_read_index()" in netvsc_channel_cb()
-collided with your RX path cleanups.
-
-Please double check my work and send me any needed fixups.
-
-Thanks!
+"none" is the value that has shown up for 13+ years unless a custom
+protocol value is used triggering the 'unspec'. Seems to me a custom
+protocol value is a rare event suggesting conformity to "none" over
+"unspsec". I really don't care what the string is, but it should be
+consistent. If you want 'unspec' I'll change rtnl_rtprot_tab
