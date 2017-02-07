@@ -1,51 +1,36 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/4] net: mv643xx_eth: Do not clobber PHY link outside of state machine
-Date: Mon,  6 Feb 2017 15:55:20 -0800
-Message-ID: <20170206235523.23216-2-f.fainelli@gmail.com>
-References: <20170206235523.23216-1-f.fainelli@gmail.com>
-Cc: zefir.kurtisi@neratec.com, Florian Fainelli <f.fainelli@gmail.com>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Wingman Kwok <w-kwok2@ti.com>,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Jisheng Zhang <jszhang@marvell.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206235523.23216-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: [RFC net-next] net: phy: Allow splitting MDIO bus/device support
+ from PHYs
+Date: Mon, 6 Feb 2017 16:01:27 -0800
+Message-ID: <34f35da1-086a-0809-b962-7d0dbcf9df8d@gmail.com>
+References: <20170131032931.1494-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
+        rmk+kernel@armlinux.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35081 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751164AbdBGAB3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 19:01:29 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 204so10326694pge.2
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 16:01:29 -0800 (PST)
+In-Reply-To: <20170131032931.1494-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Calling phy_read_status() means that we may call into
-genphy_read_status() which in turn will use genphy_update_link() which
-can make changes to phydev->link outside of the state machine's state
-transitions. This is an invalid behavior that is now caught as of
-811a919135b9 ("phy state machine: failsafe leave invalid RUNNING state")
+On 01/30/2017 07:29 PM, Florian Fainelli wrote:
+> Introduce a new configuration symbol: MDIO_DEVICE which allows building
+> the MDIO devices and bus code, without pulling in the entire Ethernet
+> PHY library and devices code.
+> 
+> PHYLIB nows select MDIO_DEVICE and the relevant Makefile files are
+> updated to reflect that.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 20cb7f0de601..25642dee49d3 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1504,9 +1504,7 @@ mv643xx_eth_get_link_ksettings_phy(struct mv643xx_eth_private *mp,
- 	int err;
- 	u32 supported, advertising;
- 
--	err = phy_read_status(dev->phydev);
--	if (err == 0)
--		err = phy_ethtool_ksettings_get(dev->phydev, cmd);
-+	err = phy_ethtool_ksettings_get(dev->phydev, cmd);
- 
- 	/*
- 	 * The MAC does not support 1000baseT_Half.
+Andrew, Russell, does that seem sensible to you, shall I re-submit this
+as a proper patch?
 -- 
-2.9.3
+Florian
