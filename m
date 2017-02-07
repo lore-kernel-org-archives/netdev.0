@@ -1,52 +1,337 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next 0/7] net: dst_confirm replacement
-Date: Tue, 07 Feb 2017 13:11:34 -0500 (EST)
-Message-ID: <20170207.131134.567606043153504044.davem@davemloft.net>
-References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        nhorman@tuxdriver.com, steffen.klassert@secunet.com,
-        linux-rdma@vger.kernel.org, yuehaibing@huawei.com
-To: ja@ssi.bg
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53246 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753961AbdBGSLg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 13:11:36 -0500
-In-Reply-To: <1486415657-14714-1-git-send-email-ja@ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Serebrin <serebrin@google.com>
+Subject: [PATCH v2 net-next] virtio: Fix affinity for #VCPUs != #queue pairs
+Date: Tue,  7 Feb 2017 10:15:06 -0800
+Message-ID: <20170207181506.36668-1-serebrin@google.com>
+Cc: Benjamin Serebrin <serebrin@google.com>
+To: Christian Borntraeger <borntraeger@de.ibm.com>,
+        netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
+        davem@davemloft.net, willemb@google.com, venkateshs@google.com,
+        jonolson@google.com, willemdebruijn.kernel@gmail.com,
+        rick.jones2@hpe.com, jmattson@google.com,
+        linux-s390 <linux-s390@vger.kernel.org>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
-Date: Mon,  6 Feb 2017 23:14:10 +0200
+From: Benjamin Serebrin <serebrin@google.com>
 
-> 	This patchset addresses the problem of neighbour
-> confirmation where received replies from one nexthop
-> can cause confirmation of different nexthop when using
-> the same dst. Thanks to YueHaibing <yuehaibing@huawei.com>
-> for tracking the dst->pending_confirm problem.
+If the number of virtio queue pairs is not equal to the
+number of VCPUs, the virtio guest driver doesn't assign
+any CPU affinity for the queue interrupts or the xps
+aggregation interrupt.  (In contrast, the driver does assign
+both if the counts of VCPUs and queues are equal, which is a good
+default behavior.)
 
-This looks good enough to apply to net-next, so I have done
-so.  Thanks Julian!
+Google Compute Engine currently provides 1 queue pair for
+every VCPU, but limits that at a maximum of 32 queue pairs.
 
-> - I failed to understand the CXGB* code, I see dst_confirm()
-> calls but I'm not sure dst_neigh_output() was called. For now
-> I just removed the dst->pending_confirm flag and left all
-> dst_confirm() calls there. Any better idea?
+This code extends the driver's default interrupt affinity
+and transmit affinity settings for the case where there
+are mismatching queue and VCPU counts.  Userspace affinity
+adjustment may always be needed to tune for a given workload.
 
-As I said, it is trying to confirm neighbours based upon traffic
-occurring in the chips TCP offload stack.  The 'cm' in "iwch_cm.c"
-means "connection manager".
+Tested:
 
-We can probably get to the neigh that will end up being used
-since there should be a flow key somewhere that we can use to
-determine the nexthop address for neigh lookup.
+(on a 64-VCPU VM with debian 8, jessie-backports 4.9.2)
 
-> - Now may be old function neigh_output() should be restored
-> instead of dst_neigh_output?
+Without the fix we see all queues affinitized to all CPUs:
 
-Please elaborate.
+cd /proc/irq
+for i in `seq 24 92` ; do sudo grep ".*" $i/smp_affinity_list;  done
+0-63
+[...]
+0-63
 
-Thanks.
+and we see all TX queues' xps_cpus affinitzed to no cores:
+
+for i in `seq 0 31` ; do sudo grep ".*" tx-$i/xps_cpus; done
+00000000,00000000
+[...]
+00000000,00000000
+
+With the fix, we see each queue assigned to the a single core,
+and xps affinity set to 1 unique cpu per TX queue.
+
+64 VCPU:
+
+cd /proc/irq
+for i in `seq 24 92` ; do sudo grep ".*" $i/smp_affinity_list;  done
+
+0-63
+0
+0
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+8
+8
+9
+9
+10
+10
+11
+11
+12
+12
+13
+13
+14
+14
+15
+15
+16
+16
+17
+17
+18
+18
+19
+19
+20
+20
+21
+21
+22
+22
+23
+23
+24
+24
+25
+25
+26
+26
+27
+27
+28
+28
+29
+29
+30
+30
+31
+31
+0-63
+0-63
+0-63
+0-63
+
+cd /sys/class/net/eth0/queues
+for i in `seq 0 31` ; do sudo grep ".*" tx-$i/xps_cpus;  done
+
+00000001,00000001
+00000002,00000002
+00000004,00000004
+00000008,00000008
+00000010,00000010
+00000020,00000020
+00000040,00000040
+00000080,00000080
+00000100,00000100
+00000200,00000200
+00000400,00000400
+00000800,00000800
+00001000,00001000
+00002000,00002000
+00004000,00004000
+00008000,00008000
+00010000,00010000
+00020000,00020000
+00040000,00040000
+00080000,00080000
+00100000,00100000
+00200000,00200000
+00400000,00400000
+00800000,00800000
+01000000,01000000
+02000000,02000000
+04000000,04000000
+08000000,08000000
+10000000,10000000
+20000000,20000000
+40000000,40000000
+80000000,80000000
+
+48 VCPU:
+
+cd /proc/irq
+for i in `seq 24 92` ; do sudo grep ".*" $i/smp_affinity_list;  done
+0-47
+0
+0
+1
+1
+2
+2
+3
+3
+4
+4
+5
+5
+6
+6
+7
+7
+8
+8
+9
+9
+10
+10
+11
+11
+12
+12
+13
+13
+14
+14
+15
+15
+16
+16
+17
+17
+18
+18
+19
+19
+20
+20
+21
+21
+22
+22
+23
+23
+24
+24
+25
+25
+26
+26
+27
+27
+28
+28
+29
+29
+30
+30
+31
+31
+0-47
+0-47
+0-47
+0-47
+
+cd /sys/class/net/eth0/queues
+for i in `seq 0 31` ; do sudo grep ".*" tx-$i/xps_cpus;  done
+
+0001,00000001
+0002,00000002
+0004,00000004
+0008,00000008
+0010,00000010
+0020,00000020
+0040,00000040
+0080,00000080
+0100,00000100
+0200,00000200
+0400,00000400
+0800,00000800
+1000,00001000
+2000,00002000
+4000,00004000
+8000,00008000
+0000,00010000
+0000,00020000
+0000,00040000
+0000,00080000
+0000,00100000
+0000,00200000
+0000,00400000
+0000,00800000
+0000,01000000
+0000,02000000
+0000,04000000
+0000,08000000
+0000,10000000
+0000,20000000
+0000,40000000
+0000,80000000
+
+Acked-by: Willem de Bruijn <willemb@google.com>
+Acked-by: Jim Mattson <jmattson@google.com>
+Acked-by: Venkatesh Srinivas <venkateshs@google.com>
+
+Signed-off-by: Ben Serebrin <serebrin@google.com>
+---
+ drivers/net/virtio_net.c | 30 +++++++++++++++++++++++++++---
+ 1 file changed, 27 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 765c2d6358da..0dc3a102bfc4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1502,20 +1502,44 @@ static void virtnet_set_affinity(struct virtnet_info *vi)
+ 	 * queue pairs, we let the queue pairs to be private to one cpu by
+ 	 * setting the affinity hint to eliminate the contention.
+ 	 */
+-	if (vi->curr_queue_pairs == 1 ||
+-	    vi->max_queue_pairs != num_online_cpus()) {
++	if (vi->curr_queue_pairs == 1) {
+ 		virtnet_clean_affinity(vi, -1);
+ 		return;
+ 	}
+ 
++	/* If there are more cpus than queues, then assign the queues'
++	 * interrupts to the first cpus until we run out.
++	 */
+ 	i = 0;
+ 	for_each_online_cpu(cpu) {
++		if (i == vi->max_queue_pairs)
++			break;
+ 		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+ 		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+-		netif_set_xps_queue(vi->dev, cpumask_of(cpu), i);
+ 		i++;
+ 	}
+ 
++	/* Stripe the XPS affinities across the online CPUs.
++	 * Hyperthread pairs are typically assigned such that Linux's
++	 * CPU X and X + (numcpus / 2) are hyperthread twins, so we cause
++	 * hyperthread twins to share TX queues, in the case where there are
++	 * more cpus than queues.
++	 */
++	for (i = 0; i < vi->max_queue_pairs; i++) {
++		struct cpumask mask;
++		int skip = i;
++
++		cpumask_clear(&mask);
++		for_each_online_cpu(cpu) {
++			while (skip--)
++				cpu = cpumask_next(cpu, cpu_online_mask);
++			if (cpu < num_possible_cpus())
++				cpumask_set_cpu(cpu, &mask);
++			skip = vi->max_queue_pairs - 1;
++		}
++		netif_set_xps_queue(vi->dev, &mask, i);
++	}
++
+ 	vi->affinity_hint_set = true;
+ }
+ 
