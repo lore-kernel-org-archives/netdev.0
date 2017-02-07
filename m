@@ -1,47 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [patch net-next] spectrum: acl_tcam: Fix catchall prio value
-Date: Tue, 7 Feb 2017 14:33:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB027DE02@AcuExch.aculab.com>
-References: <1486477643-5920-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "idosch@mellanox.com" <idosch@mellanox.com>,
-        "eladr@mellanox.com" <eladr@mellanox.com>,
-        "mlxsw@mellanox.com" <mlxsw@mellanox.com>
-To: 'Jiri Pirko' <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.182]:61351 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754159AbdBGOeF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 09:34:05 -0500
-In-Reply-To: <1486477643-5920-1-git-send-email-jiri@resnulli.us>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roopa Prabhu via Bridge <bridge@lists.linux-foundation.org>
+Subject: [PATCH net-next] bridge: remove unnecessary check for
+	vtbegin in br_fill_vlan_tinfo_range
+Date: Tue,  7 Feb 2017 06:43:23 -0800
+Message-ID: <1486478603-38776-1-git-send-email-roopa@cumulusnetworks.com>
+Reply-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, dan.carpenter@oracle.com
+To: davem@davemloft.net
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko
-> Sent: 07 February 2017 14:27
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> This fixes an issue reported by smatch:
-> mlxsw_sp_acl_tcam_chunk_create() warn: impossible condition '(priority == (-1)) => (0-u32max ==
-> u64max)'
-...
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
-> b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
-> index a0a968e..1ec3dd0 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_tcam.c
-> @@ -561,7 +561,7 @@ mlxsw_sp_acl_tcam_region_entry_remove(struct mlxsw_sp *mlxsw_sp,
->  	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ptce2), ptce2_pl);
->  }
-> 
-> -#define MLXSW_SP_ACL_TCAM_CATCHALL_PRIO (-1UL)
-> +#define MLXSW_SP_ACL_TCAM_CATCHALL_PRIO (-1U)
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Either (-1) or (~0u) is probably better.
+vtbegin should not be NULL in this function, Its already checked by the
+caller.
 
-	David
+this should silence the below smatch complaint:
+  net/bridge/br_netlink_tunnel.c:144 br_fill_vlan_tinfo_range()
+    error: we previously assumed 'vtbegin' could be null (see line 130)
+
+net/bridge/br_netlink_tunnel.c
+   129
+   130      if (vtbegin && vtend && (vtend->vid - vtbegin->vid) > 0) {
+                    ^^^^^^^
+Check for NULL.
+
+Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
+Reported-By: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/bridge/br_netlink_tunnel.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_netlink_tunnel.c b/net/bridge/br_netlink_tunnel.c
+index 99c6801..4c1303b 100644
+--- a/net/bridge/br_netlink_tunnel.c
++++ b/net/bridge/br_netlink_tunnel.c
+@@ -127,7 +127,7 @@ static int br_fill_vlan_tinfo_range(struct sk_buff *skb,
+ {
+ 	int err;
+ 
+-	if (vtbegin && vtend && (vtend->vid - vtbegin->vid) > 0) {
++	if (vtend && (vtend->vid - vtbegin->vid) > 0) {
+ 		/* add range to skb */
+ 		err = br_fill_vlan_tinfo(skb, vtbegin->vid,
+ 					 vtbegin->tinfo.tunnel_id,
+-- 
+1.7.10.4
