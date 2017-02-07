@@ -1,117 +1,71 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] kcm: fix 0-length case for kcm_sendmsg()
-Date: Tue,  7 Feb 2017 12:59:47 -0800
-Message-ID: <1486501187-12869-2-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net] ping: fix a null pointer dereference
+Date: Tue,  7 Feb 2017 12:59:46 -0800
+Message-ID: <1486501187-12869-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: andreyknvl@google.com, dvyukov@google.com,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Tom Herbert <tom@herbertland.com>
+        Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36084 "EHLO
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36075 "EHLO
         mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932379AbdBGVAA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:00:00 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 75so13040439pgf.3
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 12:59:59 -0800 (PST)
+        with ESMTP id S1753893AbdBGU76 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 15:59:58 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 75so13040384pgf.3
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 12:59:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dmitry reported a kernel warning:
+Andrey reported a kernel crash:
 
- WARNING: CPU: 3 PID: 2936 at net/kcm/kcmsock.c:627
- kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
- CPU: 3 PID: 2936 Comm: a.out Not tainted 4.10.0-rc6+ #209
- Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- Call Trace:
-  __dump_stack lib/dump_stack.c:15 [inline]
-  dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
-  panic+0x1fb/0x412 kernel/panic.c:179
-  __warn+0x1c4/0x1e0 kernel/panic.c:539
-  warn_slowpath_null+0x2c/0x40 kernel/panic.c:582
-  kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
-  kcm_sendmsg+0x163a/0x2200 net/kcm/kcmsock.c:1029
-  sock_sendmsg_nosec net/socket.c:635 [inline]
-  sock_sendmsg+0xca/0x110 net/socket.c:645
-  sock_write_iter+0x326/0x600 net/socket.c:848
-  new_sync_write fs/read_write.c:499 [inline]
-  __vfs_write+0x483/0x740 fs/read_write.c:512
-  vfs_write+0x187/0x530 fs/read_write.c:560
-  SYSC_write fs/read_write.c:607 [inline]
-  SyS_write+0xfb/0x230 fs/read_write.c:599
-  entry_SYSCALL_64_fastpath+0x1f/0xc2
+  general protection fault: 0000 [#1] SMP KASAN
+  Dumping ftrace buffer:
+     (ftrace buffer empty)
+  Modules linked in:
+  CPU: 2 PID: 3880 Comm: syz-executor1 Not tainted 4.10.0-rc6+ #124
+  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+  task: ffff880060048040 task.stack: ffff880069be8000
+  RIP: 0010:ping_v4_push_pending_frames net/ipv4/ping.c:647 [inline]
+  RIP: 0010:ping_v4_sendmsg+0x1acd/0x23f0 net/ipv4/ping.c:837
+  RSP: 0018:ffff880069bef8b8 EFLAGS: 00010206
+  RAX: dffffc0000000000 RBX: ffff880069befb90 RCX: 0000000000000000
+  RDX: 0000000000000018 RSI: ffff880069befa30 RDI: 00000000000000c2
+  RBP: ffff880069befbb8 R08: 0000000000000008 R09: 0000000000000000
+  R10: 0000000000000002 R11: 0000000000000000 R12: ffff880069befab0
+  R13: ffff88006c624a80 R14: ffff880069befa70 R15: 0000000000000000
+  FS:  00007f6f7c716700(0000) GS:ffff88006de00000(0000) knlGS:0000000000000000
+  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+  CR2: 00000000004a6f28 CR3: 000000003a134000 CR4: 00000000000006e0
+  Call Trace:
+   inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+   sock_sendmsg_nosec net/socket.c:635 [inline]
+   sock_sendmsg+0xca/0x110 net/socket.c:645
+   SYSC_sendto+0x660/0x810 net/socket.c:1687
+   SyS_sendto+0x40/0x50 net/socket.c:1655
+   entry_SYSCALL_64_fastpath+0x1f/0xc2
 
-when calling syscall(__NR_write, sock2, 0x208aaf27ul, 0x0ul) on a KCM
-seqpacket socket. It appears that kcm_sendmsg() does not handle len==0
-case correctly, which causes an empty skb is allocated and queued.
-Fix this by skipping the skb allocation for len==0 case.
+This is because we miss a check for NULL pointer for skb_peek() when
+the queue is empty. Other places already have the same check.
 
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Tom Herbert <tom@herbertland.com>
+Fixes: c319b4d76b9e ("net: ipv4: add IPPROTO_ICMP socket kind")
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Tested-by: Andrey Konovalov <andreyknvl@google.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/kcm/kcmsock.c | 40 ++++++++++++++++++++++------------------
- 1 file changed, 22 insertions(+), 18 deletions(-)
+ net/ipv4/ping.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
-index 7e08a4d..64f0e85 100644
---- a/net/kcm/kcmsock.c
-+++ b/net/kcm/kcmsock.c
-@@ -929,23 +929,25 @@ static int kcm_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 			goto out_error;
- 	}
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 86cca61..68d77b1 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -642,6 +642,8 @@ static int ping_v4_push_pending_frames(struct sock *sk, struct pingfakehdr *pfh,
+ {
+ 	struct sk_buff *skb = skb_peek(&sk->sk_write_queue);
  
--	/* New message, alloc head skb */
--	head = alloc_skb(0, sk->sk_allocation);
--	while (!head) {
--		kcm_push(kcm);
--		err = sk_stream_wait_memory(sk, &timeo);
--		if (err)
--			goto out_error;
--
-+	if (msg_data_left(msg)) {
-+		/* New message, alloc head skb */
- 		head = alloc_skb(0, sk->sk_allocation);
--	}
-+		while (!head) {
-+			kcm_push(kcm);
-+			err = sk_stream_wait_memory(sk, &timeo);
-+			if (err)
-+				goto out_error;
- 
--	skb = head;
-+			head = alloc_skb(0, sk->sk_allocation);
-+		}
- 
--	/* Set ip_summed to CHECKSUM_UNNECESSARY to avoid calling
--	 * csum_and_copy_from_iter from skb_do_copy_data_nocache.
--	 */
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		skb = head;
-+
-+		/* Set ip_summed to CHECKSUM_UNNECESSARY to avoid calling
-+		 * csum_and_copy_from_iter from skb_do_copy_data_nocache.
-+		 */
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	}
- 
- start:
- 	while (msg_data_left(msg)) {
-@@ -1018,10 +1020,12 @@ static int kcm_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 	if (eor) {
- 		bool not_busy = skb_queue_empty(&sk->sk_write_queue);
- 
--		/* Message complete, queue it on send buffer */
--		__skb_queue_tail(&sk->sk_write_queue, head);
--		kcm->seq_skb = NULL;
--		KCM_STATS_INCR(kcm->stats.tx_msgs);
-+		if (head) {
-+			/* Message complete, queue it on send buffer */
-+			__skb_queue_tail(&sk->sk_write_queue, head);
-+			kcm->seq_skb = NULL;
-+			KCM_STATS_INCR(kcm->stats.tx_msgs);
-+		}
- 
- 		if (msg->msg_flags & MSG_BATCH) {
- 			kcm->tx_wait_more = true;
++	if (!skb)
++		return 0;
+ 	pfh->wcheck = csum_partial((char *)&pfh->icmph,
+ 		sizeof(struct icmphdr), pfh->wcheck);
+ 	pfh->icmph.checksum = csum_fold(pfh->wcheck);
 -- 
 2.5.5
