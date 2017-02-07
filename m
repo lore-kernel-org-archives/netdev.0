@@ -1,30 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net: Incorrect use of phy_read_status()
-Date: Tue, 07 Feb 2017 13:48:46 -0500 (EST)
-Message-ID: <20170207.134846.1084414639114098837.davem@davemloft.net>
-References: <20170206235523.23216-1-f.fainelli@gmail.com>
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+Subject: [PATCH] xen-netfront: Rework the fix for Rx stall during OOM and network stress
+Date: Tue, 7 Feb 2017 18:59:01 +0000
+Message-ID: <1486493941-15696-1-git-send-email-vineethp@amazon.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zefir.kurtisi@neratec.com,
-        sebastian.hesselbarth@gmail.com, w-kwok2@ti.com,
-        m-karicheri2@ti.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, tremyfr@gmail.com,
-        sergei.shtylyov@cogentembedded.com, jszhang@marvell.com,
-        jarod@redhat.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170206235523.23216-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Vineeth Remanan Pillai <vineethp@amazon.com>, <kamatam@amazon.com>,
+        <aliguori@amazon.com>, <guruanb@amazon.com>
+To: <boris.ostrovsky@oracle.com>, <jgross@suse.com>,
+        <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-fw-2101.amazon.com ([72.21.196.25]:7634 "EHLO
+        smtp-fw-2101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754530AbdBGS7J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 13:59:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon,  6 Feb 2017 15:55:19 -0800
+The commit 90c311b0eeea ("xen-netfront: Fix Rx stall during network
+stress and OOM") caused the refill timer to be triggerred almost on
+all invocations of xennet_alloc_rx_buffers for certain workloads.
+This reworks the fix by reverting to the old behaviour and taking into
+consideration the skb allocation failure. Refill timer is now triggered
+on insufficient requests or skb allocation failure.
 
-> This patch series removes incorrect uses of phy_read_status() which can clobber
-> the PHY device link while we are executing with the state machine running.
-> 
-> greth was potentially another candidate, but it does funky stuff with
-> auto-negotation that I am still trying to understand.
+Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
+Fixes: 90c311b0eeea (xen-netfront: Fix Rx stall during network stress and OOM)
+Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+---
+ drivers/net/xen-netfront.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-Series applied, thanks.
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 8315fe7..9dba697 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -281,6 +281,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ {
+ 	RING_IDX req_prod = queue->rx.req_prod_pvt;
+ 	int notify;
++	int err = 0;
+ 
+ 	if (unlikely(!netif_carrier_ok(queue->info->netdev)))
+ 		return;
+@@ -295,8 +296,10 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 		struct xen_netif_rx_request *req;
+ 
+ 		skb = xennet_alloc_one_rx_buffer(queue);
+-		if (!skb)
++		if (!skb) {
++			err = -ENOMEM;
+ 			break;
++		}
+ 
+ 		id = xennet_rxidx(req_prod);
+ 
+@@ -320,8 +323,13 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 
+ 	queue->rx.req_prod_pvt = req_prod;
+ 
+-	/* Not enough requests? Try again later. */
+-	if (req_prod - queue->rx.sring->req_prod < NET_RX_SLOTS_MIN) {
++	/* Try again later if there are not enough requests or skb allocation
++	 * failed.
++	 * Enough requests is quantified as the sum of newly created slots and
++	 * the unconsumed slots at the backend.
++	 */
++	if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN ||
++	    unlikely(err)) {
+ 		mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
+ 		return;
+ 	}
+-- 
+2.1.2.AMZN
