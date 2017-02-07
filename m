@@ -1,46 +1,33 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Tue, 7 Feb 2017 10:54:22 -0800
-Message-ID: <CACSApva7DeBcRUFG13Xb7YoegHcLWwwd=ecLVf9wSgNSKFbUDA@mail.gmail.com>
-References: <20170207140144.GA11233@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] sierra_net: Add support for IPv6 and Dual-Stack
+ Link Sense Indications
+Date: Tue, 07 Feb 2017 13:53:12 -0500 (EST)
+Message-ID: <20170207.135312.2024064918721070962.davem@davemloft.net>
+References: <20170207023317.29192-1-stefan.bruens@rwth-aachen.de>
+        <94f1dec53f614c76802adf350f495922@rwthex-w2-b.rwth-ad.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:33426 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932166AbdBGTBU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:01:20 -0500
-Received: by mail-it0-f46.google.com with SMTP id d9so29119427itc.0
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 11:01:19 -0800 (PST)
-In-Reply-To: <20170207140144.GA11233@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: stefan.bruens@rwth-aachen.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <94f1dec53f614c76802adf350f495922@rwthex-w2-b.rwth-ad.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 7, 2017 at 6:01 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> 2) new SO_TIMESTAMPING option to receive from the error queue only
->    user data as was passed to sendmsg() instead of Ethernet frames
->
->    Parsing Ethernet and IP headers (especially IPv6 options) is not
->    fun and SOF_TIMESTAMPING_OPT_ID is not always practical, e.g. in
->    applications which process messages from the error queue
->    asynchronously and don't bind/connect their sockets.
+From: Stefan Brüns <stefan.bruens@rwth-aachen.de>
+Date: Tue, 7 Feb 2017 03:33:16 +0100
 
-This is going to be quite useful. However, I'm not sure if sending
-back the original packet would be a proper API. Instead, one option is
-to add a control message, so that applications can set the OPT_ID for
-the timestamp. Perhaps, something like from user's perspective:
+> If a context is configured as dualstack ("IPv4v6"), the modem indicates
+> the context activation with a slightly different indication message.
+> The dual-stack indication omits the link_type (IPv4/v6) and adds
+> additional address fields.
+> IPv6 LSIs are identical to IPv4 LSIs, but have a different link type.
+> 
+> Signed-off-by: Stefan Brüns <stefan.bruens@rwth-aachen.de>
 
-cmsg->cmsg_level             = SOL_SOCKET;
-cmsg->cmsg_type              = SCM_TIMESTAMPING_OPT_ID;
-cmsg->cmsg_len               = CMSG_LEN(sizeof(__u32));
-*((__u32 *) CMSG_DATA(cmsg)) = my_id;
+Applied.
 
-Thanks,
-Soheil
+Ignore my earlier comments about the UMTS comment, it is still
+accurate of course. :-)
