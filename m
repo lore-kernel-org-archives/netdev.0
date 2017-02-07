@@ -1,44 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sctp: drop __packed from almost all SCTP
- structures
-Date: Tue, 07 Feb 2017 14:11:23 -0500 (EST)
-Message-ID: <20170207.141123.633919678220393477.davem@davemloft.net>
-References: <bb920bcd9cec538d7fe7abc548b56606f3c836a5.1486474498.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next] sctp: avoid list_del_init if it's freeing the
+ memory right away
+Date: Tue, 07 Feb 2017 14:21:21 -0500 (EST)
+Message-ID: <20170207.142121.1027174926882132252.davem@davemloft.net>
+References: <e1b3b9b24f39ee82a3131a39a0413231ba54bc7c.1486494022.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        vyasevich@gmail.com, nhorman@tuxdriver.com, David.Laight@ACULAB.COM
+        vyasevich@gmail.com, nhorman@tuxdriver.com
 To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55386 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55414 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754323AbdBGTU4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:20:56 -0500
-In-Reply-To: <bb920bcd9cec538d7fe7abc548b56606f3c836a5.1486474498.git.marcelo.leitner@gmail.com>
+        with ESMTP id S1754912AbdBGTWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:22:13 -0500
+In-Reply-To: <e1b3b9b24f39ee82a3131a39a0413231ba54bc7c.1486494022.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Tue,  7 Feb 2017 11:37:56 -0200
+Date: Tue,  7 Feb 2017 17:03:21 -0200
 
-> __packed is considered harmful as it potentially generates code that
-> doesn't perform well and its usage should be avoided as much as
-> possible.
+> There is no reason to use list_del_init() in these places as we are
+> going to free/destroy the memory in a few lines below.
 > 
-> This patch drops __packed from all SCTP structures except one, which is
-> sctp_signed_cookie. In there it's required, as per changelog on
-> commit 9834a2bb4970 ("[SCTP]: Fix sctp_cookie alignment in the packet.").
-> 
-> After this patch, no alignment changes neither in x86 or x86_64 and
-> no exceptions were noticed during testing on both archs.
-> 
-> Code size for SCTP module also didn't change with this patch.
-> 
-> Cc: David Miller <davem@davemloft.net>
-> Cc: David Laight <David.Laight@ACULAB.COM>
 > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> ---
+>  net/sctp/associola.c     | 14 ++++----------
+>  net/sctp/auth.c          |  8 ++------
+>  net/sctp/chunk.c         |  4 ++--
+>  net/sctp/outqueue.c      | 14 +++++++-------
+>  net/sctp/sm_make_chunk.c |  3 +--
+>  5 files changed, 16 insertions(+), 27 deletions(-)
+> 
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index e50dc6d7543fd6acfa7442f3a9ee575203c7718d..7eb9dacfa53a438b20a34319cf01c6c9a591f0c3 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -1638,25 +1638,19 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
+>  static void sctp_assoc_free_asconf_queue(struct sctp_association *asoc)
+>  {
+>  	struct sctp_chunk *asconf;
+> -	struct sctp_chunk *tmp;
+>  
+> -	list_for_each_entry_safe(asconf, tmp, &asoc->addip_chunk_list, list) {
+> -		list_del_init(&asconf->list);
+> +	list_for_each_entry(asconf, &asoc->addip_chunk_list, list)
+>  		sctp_chunk_free(asconf);
+> -	}
+>  }
 
-Looks great, thanks so much for following through on this!
+This leave freed memory on the asoc->addip_chunk_list, in fact why aren't you seeing
+the BUG_ON() in sctp_chunk_destroy() get triggered?  If you elide the list_del() here
+then the "list_empty(&chunk->list)" check there will not be true.
 
-Applied.
+I don't think this transformation here is legal at all.
