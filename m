@@ -1,55 +1,69 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/9] mlx4: use __skb_fill_page_desc()
-Date: Mon,  6 Feb 2017 19:02:32 -0800
-Message-ID: <20170207030240.31357-2-edumazet@google.com>
-References: <20170207030240.31357-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:33101 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752579AbdBGDDY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 22:03:24 -0500
-Received: by mail-pg0-f41.google.com with SMTP id 204so34071890pge.0
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 19:03:24 -0800 (PST)
-In-Reply-To: <20170207030240.31357-1-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] igmp: address pmc kmemleak from on igmpv3_del_delrec()
+Date: Mon, 06 Feb 2017 22:35:12 -0500 (EST)
+Message-ID: <20170206.223512.698362451560656620.davem@davemloft.net>
+References: <20170203212047.31653-1-mcgrof@kernel.org>
+        <CAM_iQpXDk5SOX3sM32M+DdLG=J0mKZ9JZ9gdVDLkLxVzaSGprA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mcgrof@kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel@kyup.com, liuhangbin@gmail.com
+To: xiyou.wangcong@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpXDk5SOX3sM32M+DdLG=J0mKZ9JZ9gdVDLkLxVzaSGprA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Or we might miss the fact that a page was allocated from memory reserves.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 6 Feb 2017 16:32:14 -0800
 
-Fixes: dceeab0e5258 ("mlx4: support __GFP_MEMALLOC for rx")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> On Fri, Feb 3, 2017 at 1:20 PM, Luis R. Rodriguez <mcgrof@kernel.org> wrote:
+>> When we igmpv3_add_delrec() we kzalloc the pmc, but when users
+>> call    igmpv3_del_delrec() we never free the pmc. This was caught
+>> by the following kmemleak splat:
+>>
+>> unreferenced object 0xffff99666ff43b40 (size 192):
+>>   comm "systemd-resolve", pid 1258, jiffies 4309905600 (age 2138.352s)
+>>   hex dump (first 32 bytes):
+>>     00 6a 64 72 66 99 ff ff e0 00 00 fc 00 00 00 00  .jdrf...........
+>>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>>   backtrace:
+>>     [<ffffffffb3a5f7ea>] kmemleak_alloc+0x4a/0xa0
+>>     [<ffffffffb36044e7>] kmem_cache_alloc_trace+0x107/0x240
+>>     [<ffffffffb39ddbed>] igmp_group_dropped+0xfd/0x270
+>>     [<ffffffffb39de5cf>] ip_mc_dec_group+0xaf/0x110
+>>     [<ffffffffb39de6e6>] ip_mc_leave_group+0xb6/0x140
+>>     [<ffffffffb39a55d7>] do_ip_setsockopt.isra.13+0x4c7/0xed0
+>>     [<ffffffffb39a6014>] ip_setsockopt+0x34/0xb0
+>>     [<ffffffffb39ced9b>] udp_setsockopt+0x1b/0x30
+>>     [<ffffffffb393f064>] sock_common_setsockopt+0x14/0x20
+>>     [<ffffffffb393dd10>] SyS_setsockopt+0x80/0xe0
+>>     [<ffffffffb3403b4b>] do_syscall_64+0x5b/0xc0
+>>     [<ffffffffb3a6b3af>] return_from_SYSCALL_64+0x0/0x6a
+>>     [<ffffffffffffffff>] 0xffffffffffffffff
+>>
+>> Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+>> ---
+>>
+>> I can reproduce this over time on a qemu box running next-20170125.
+>> After running this for a while I no longer see the splat. This needs
+>> confirmation form folks more familiar with the code, hence RFC. If
+>> this is a real fix we need appropriate tags for the patch.
+> 
+> 
+> Looks good to me. Adding some people who recent touched it to CC.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index f15ddba3659aac38471059c6bcbf05071794..03f1713c94c7fa57e9eaaf87fe38a0a6d372 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -601,10 +601,10 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 		dma_sync_single_for_cpu(priv->ddev, dma, frag_info->frag_size,
- 					DMA_FROM_DEVICE);
- 
--		/* Save page reference in skb */
--		__skb_frag_set_page(&skb_frags_rx[nr], frags[nr].page);
--		skb_frag_size_set(&skb_frags_rx[nr], frag_info->frag_size);
--		skb_frags_rx[nr].page_offset = frags[nr].page_offset;
-+		__skb_fill_page_desc(skb, nr, frags[nr].page,
-+				     frags[nr].page_offset,
-+				     frag_info->frag_size);
-+
- 		skb->truesize += frag_info->frag_stride;
- 		frags[nr].page = NULL;
- 	}
--- 
-2.11.0.483.g087da7b7c-goog
+The kfree() was removed in commit:
+
+====================
+commit 24803f38a5c0b6c57ed800b47e695f9ce474bc3a
+Author: Hangbin Liu <liuhangbin@gmail.com>
+Date:   Mon Nov 14 16:16:28 2016 +0800
+
+    igmp: do not remove igmp souce list info when set link down
+====================
+
+But I don't see what could possibly continue to reference this
+pmc after we unlink it from the list.
