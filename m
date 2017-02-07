@@ -1,43 +1,75 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: mlxsw: spectrum: Introduce ACL core with simple TCAM
- implementation
-Date: Tue, 7 Feb 2017 14:13:34 +0000
-Message-ID: <91866877-9d0a-61fd-8bab-4e5a2f5294e3@canonical.com>
+From: Mateusz Guzik <mguzik@redhat.com>
+Subject: Re: fs, net: deadlock between bind/splice on af_unix
+Date: Tue, 7 Feb 2017 15:20:35 +0100
+Message-ID: <20170207142035.vfnyrbggb6kbfzgd@dhcp-1-212.brq.redhat.com>
+References: <CAM_iQpXjeG5=wZyQP-yOKcB4WRfgGRjeQ+NDHyeSWwdU50Xh5g@mail.gmail.com>
+ <20161209064144.GZ1555@ZenIV.linux.org.uk>
+ <CACT4Y+ad1s6HPdw-ocQ5YfFx7qCeWb3z1k7F9+9KsNmw6+Tszw@mail.gmail.com>
+ <CAM_iQpWu+V2E_uxJLUjS+xM+94CKKR+Bv95UrFPuswUAuAGM+w@mail.gmail.com>
+ <20170126232912.rgh6undqxd4tofqj@dhcp-1-212.brq.redhat.com>
+ <CAM_iQpXqqmAGPbo6jNJV4bOco9sfvXukNAxYPp4tfL=CNwF-RA@mail.gmail.com>
+ <20170127064143.ddyt43iglu2odlld@dhcp-1-212.brq.redhat.com>
+ <CAM_iQpWSRjh4sV-hQxSAFsmvXZ1P4u959vm+UfCP55szQUb0-g@mail.gmail.com>
+ <20170131181411.cq3o7yxrnhq6thpt@dhcp-1-212.brq.redhat.com>
+ <CAM_iQpVG+ybcv1DAc01y3c=CRmUgMqocEnp-efhVM0c-t4hZ0w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Ido Schimmel <idosch@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:48190 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754265AbdBGOPH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 09:15:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpVG+ybcv1DAc01y3c=CRmUgMqocEnp-efhVM0c-t4hZ0w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jiri,
+On Sun, Feb 05, 2017 at 11:22:12PM -0800, Cong Wang wrote:
+> On Tue, Jan 31, 2017 at 10:14 AM, Mateusz Guzik <mguzik@redhat.com> wrote:
+> > On Mon, Jan 30, 2017 at 10:44:03PM -0800, Cong Wang wrote:
+> >> Mind being more specific?
+> >
+> > Consider 2 threads which bind the same socket, but with different paths.
+> >
+> > Currently exactly one file will get created, the one used to bind.
+> >
+> > With your patch both threads can succeed creating their respective
+> > files, but only one will manage to bind. The other one must error out,
+> > but it already created a file it is unclear what to do with.
+> 
+> In this case, it simply puts the path back:
+> 
+>         err = -EINVAL;
+>         if (u->addr)
+>                 goto out_up;
+> [...]
+> 
+> out_up:
+>         mutex_unlock(&u->bindlock);
+> out_put:
+>         if (err)
+>                 path_put(&path);
+> out:
+>         return err;
+> 
+> 
+> Which is what unix_release_sock() does too:
+> 
+>         if (path.dentry)
+>                 path_put(&path);
 
-mlxsw_sp_acl_tcam_chunk_create has an issue picked up by static analysis:
+Yes, but unix_release_sock is expected to leave the file behind.
+Note I'm not claiming there is a leak, but that racing threads will be
+able to trigger a condition where you create a file and fail to bind it.
 
- 816        struct mlxsw_sp_acl_tcam_chunk *chunk;
- 817        int err;
- 818
-    CID 1400029 (#1 of 1): Operands don't affect result
-(CONSTANT_EXPRESSION_RESULT)result_independent_of_operands: priority ==
-18446744073709551615UL is always false regardless of the values of its
-operands. This occurs as the logical operand of "if".
+What to do with the file now?
 
- 819        if (priority == MLXSW_SP_ACL_TCAM_CATCHALL_PRIO)
- 820                return ERR_PTR(-EINVAL);
- 821
-
-priority is an unsigned int, where as MLXSW_SP_ACL_TCAM_CATCHALL_PRIO is
-(-1UL), so the unsigned comparison to a signed long (-1UL) will never be
-true. So I think this needs some reworking, especially as
-MLXSW_SP_ACL_TCAM_CATCHALL_PRIO priority is being used as an unsigned
-long priority in some places, and priority is an unsigned int in other
-places of the code.
-
-Colin
+Untested, but likely a working solution would rework the code so that
+e.g. a flag is set and the lock can be dropped.
