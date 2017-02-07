@@ -1,88 +1,84 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH] vhost: try avoiding avail index access when getting descriptor
-Date: Tue,  7 Feb 2017 15:49:50 +0800
-Message-ID: <1486453790-32460-1-git-send-email-jasowang@redhat.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH iproute2/net-next 0/7] tc: flower: Masked ICMP match and
+ ND match
+Date: Tue, 7 Feb 2017 08:52:00 +0100
+Message-ID: <CAJqx_ny5A414XO8K=FGtvz6HgPQC-VWFE9h84JfGL-CDkJW0ag@mail.gmail.com>
+References: <1486031920-10784-1-git-send-email-simon.horman@netronome.com> <20170206142847.3462ae48@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev <netdev@vger.kernel.org>, oss-drivers@netronome.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:34331 "EHLO
+        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751865AbdBGHwC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 02:52:02 -0500
+Received: by mail-lf0-f52.google.com with SMTP id v186so58112165lfa.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 23:52:02 -0800 (PST)
+In-Reply-To: <20170206142847.3462ae48@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If last avail idx is not equal to cached avail idx, we're sure there's
-still available buffers in the virtqueue so there's no need to re-read
-avail idx. So let's skip this to avoid unnecessary userspace memory
-access and memory barrier. Pktgen test show about 3% improvement on rx
-pps.
+On Mon, Feb 6, 2017 at 11:28 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Thu,  2 Feb 2017 11:38:33 +0100
+> Simon Horman <simon.horman@netronome.com> wrote:
+>
+>> Hi,
+>>
+>> this series have several related parts.
+>>
+>> * tc: flower: Update documentation to indicate ARP takes IPv4 prefixes
+>>
+>>   Enhance documentation for consistency with later documentation changes.
+>>
+>> * tc: flower: use correct type when calling flower_icmp_attr_type
+>>
+>>   Type correction to ICMP code; should not have runtime effect
+>>
+>> * tc: flower: provide generic masked u8 parser helper
+>>   tc: flower: provide generic masked u8 print helper
+>>
+>>   Generic parsing and printing of masked u8 options
+>>
+>> * tc: flower: support masked ICMP code and type match
+>>
+>>   Support masking ICMP code and type matches.
+>>   Unmasked matching is already supported by iproute2
+>>   Masked matching is already supported by the kernel.
+>>
+>>   This is used by the ND patches
+>>
+>> * tc: flower: Add TCA_FLOWER_KEY_ND_*
+>>   tc: flower: Support matching on ND
+>>
+>> The last two patches are marked as RFC as they support functionality
+>> submitted to but not yet not yet present in the kernel.
+>>
+>>
+>> Simon Horman (7):
+>>   tc: flower: Update documentation to indicate ARP takes IPv4 prefixes
+>>   tc: flower: use correct type when calling flower_icmp_attr_type
+>>   tc: flower: provide generic masked u8 parser helper
+>>   tc: flower: provide generic masked u8 print helper
+>>   tc: flower: support masked ICMP code and type match
+>>   tc: flower: Add TCA_FLOWER_KEY_ND_*
+>>   tc: flower: Support matching on ND
+>>
+>>  include/linux/pkt_cls.h |   7 ++
+>>  man/man8/tc-flower.8    |  58 +++++++++--
+>>  tc/f_flower.c           | 260 +++++++++++++++++++++++++++++++++++++-----------
+>>  3 files changed, 258 insertions(+), 67 deletions(-)
+>>
+>
+> Since this patchset depended on changes to pkt_cls.h which are not accepted upstream
+> into net-next, I marked it as awaiting upstream.  When the corresponding kernel changes
+> are accepted into net-next please resubmit it.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/vhost.c | 39 +++++++++++++++++++++++----------------
- 1 file changed, 23 insertions(+), 16 deletions(-)
+Hi Stephen,
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 9f11838..bffbeeb 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1932,25 +1932,32 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
- 
- 	/* Check it isn't doing very strange things with descriptor numbers. */
- 	last_avail_idx = vq->last_avail_idx;
--	if (unlikely(vhost_get_user(vq, avail_idx, &vq->avail->idx))) {
--		vq_err(vq, "Failed to access avail idx at %p\n",
--		       &vq->avail->idx);
--		return -EFAULT;
--	}
--	vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
- 
--	if (unlikely((u16)(vq->avail_idx - last_avail_idx) > vq->num)) {
--		vq_err(vq, "Guest moved used index from %u to %u",
--		       last_avail_idx, vq->avail_idx);
--		return -EFAULT;
--	}
-+	if (vq->avail_idx == vq->last_avail_idx) {
-+		if (unlikely(vhost_get_user(vq, avail_idx, &vq->avail->idx))) {
-+			vq_err(vq, "Failed to access avail idx at %p\n",
-+				&vq->avail->idx);
-+			return -EFAULT;
-+		}
-+		vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
- 
--	/* If there's nothing new since last we looked, return invalid. */
--	if (vq->avail_idx == last_avail_idx)
--		return vq->num;
-+		if (unlikely((u16)(vq->avail_idx - last_avail_idx) > vq->num)) {
-+			vq_err(vq, "Guest moved used index from %u to %u",
-+				last_avail_idx, vq->avail_idx);
-+			return -EFAULT;
-+		}
-+
-+		/* If there's nothing new since last we looked, return
-+		 * invalid.
-+		 */
-+		if (vq->avail_idx == last_avail_idx)
-+			return vq->num;
- 
--	/* Only get avail ring entries after they have been exposed by guest. */
--	smp_rmb();
-+		/* Only get avail ring entries after they have been
-+		 * exposed by guest.
-+		 */
-+		smp_rmb();
-+	}
- 
- 	/* Grab the next descriptor number they're advertising, and increment
- 	 * the index we've seen. */
--- 
-2.7.4
+I think that the first 5 patches can be considered independently of
+the last two which have the dependency you describe. Sorry for not
+making this clearer; e.g. by posting them separately. Would it help if
+I reposted the first five patches?
