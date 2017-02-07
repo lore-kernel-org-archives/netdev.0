@@ -1,61 +1,40 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the akpm tree with the net-next tree
-Date: Tue, 7 Feb 2017 16:23:22 +1100
-Message-ID: <20170207162322.3732a5a1@canb.auug.org.au>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
+Date: Tue, 7 Feb 2017 07:44:40 +0100
+Message-ID: <20170207064440.GA1853@localhost.localdomain>
+References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <20170202125637.GA3191@netboy>
+ <BL2PR07MB2306F69350DA91B9B2A2E3588D4C0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <BL2PR07MB2306BFF942FD6EE54400D1288D400@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>
-To: Andrew Morton <akpm@linux-foundation.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tglx@linutronix.de" <tglx@linutronix.de>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34711 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751654AbdBGGot (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 01:44:49 -0500
+Received: by mail-wr0-f194.google.com with SMTP id 89so4809539wrr.1
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 22:44:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <BL2PR07MB2306BFF942FD6EE54400D1288D400@BL2PR07MB2306.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Mon, Feb 06, 2017 at 10:41:44AM +0000, Mintz, Yuval wrote:
+> Richard - we're planning on sending v4 with the existing algorithm
+> [but without iterating on 'val == 0']; If you have any suggestion for
+> improving this, please share it.
 
-Today's linux-next merge of the akpm tree got a conflict in:
+Sorry, haven't had the time to look at your issue.
 
-  drivers/net/can/flexcan.c
+BTW, you said you think the performance impact is small, but did you
+measure it on typical HW?
 
-between commits:
-
-  9eb7aa891101 ("can: flexcan: add quirk FLEXCAN_QUIRK_ENABLE_EACEN_RRS")
-  b3cf53e988ce ("can: flexcan: add support for timestamp based rx-offload")
-
-from the net-next tree and commit:
-
-  "scripts/spelling.txt: add "disble(d)" pattern and fix typo instances"
-
-from the akpm tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/can/flexcan.c
-index ea57fed375c6,4dc71bce525c..000000000000
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@@ -195,9 -189,7 +195,9 @@@
-   */
-  #define FLEXCAN_QUIRK_BROKEN_ERR_STATE	BIT(1) /* [TR]WRN_INT not connected */
-  #define FLEXCAN_QUIRK_DISABLE_RXFG	BIT(2) /* Disable RX FIFO Global mask */
- -#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(3) /* Disable Memory error detection */
- +#define FLEXCAN_QUIRK_ENABLE_EACEN_RRS	BIT(3) /* Enable EACEN and RRS bit in ctrl2 */
-- #define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disble Memory error detection */
-++#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disbale Memory error detection */
- +#define FLEXCAN_QUIRK_USE_OFF_TIMESTAMP	BIT(5) /* Use timestamp based offloading */
-  
-  /* Structure of the message buffer */
-  struct flexcan_mb {
+Thanks,
+Richard
