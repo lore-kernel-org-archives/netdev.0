@@ -1,63 +1,41 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v2 net-next] net: phy: Add LED mode driver for Microsemi
- PHYs.
-Date: Tue, 7 Feb 2017 14:12:23 +0100
-Message-ID: <20170207131223.GE31560@lunn.ch>
-References: <1485953626-25780-1-git-send-email-Raju.Lakkaraju@microsemi.com>
- <1485953626-25780-2-git-send-email-Raju.Lakkaraju@microsemi.com>
- <20170201135555.GE4967@lunn.ch>
- <20170207091737.GA24582@microsemi.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 4/4] net: dsa: Do not clobber PHY link outside
+ of state machine
+Date: Tue, 7 Feb 2017 14:14:40 +0100
+Message-ID: <20170207131440.GF31560@lunn.ch>
+References: <20170206235523.23216-1-f.fainelli@gmail.com>
+ <20170206235523.23216-5-f.fainelli@gmail.com>
+ <20170207001132.GB30169@lunn.ch>
+ <063D6719AE5E284EB5DD2968C1650D6DB027DB40@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Allan.Nielsen-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org
-To: Raju Lakkaraju <Raju.Lakkaraju-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "zefir.kurtisi@neratec.com" <zefir.kurtisi@neratec.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Wingman Kwok <w-kwok2@ti.com>,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Jisheng Zhang <jszhang@marvell.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        open list <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170207091737.GA24582-dzo6w/eZyo2tG0bUXCXiUA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027DB40@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > > +- vsc8531,led-1-mode : LED mode. Specify how the LED[1] should behave.
-> > > +                       Allowed values are define in
-> > > +     int rc;
-> > > +
-> > > +     if (!of_node)
-> > > +             return -ENODEV;
-> > > +
-> > > +     rc = of_property_read_u8(of_node, led, &led_mode);
-> > > +     if ((rc == 0) &&
-> > > +         ((led_mode > 15) || (led_mode == 7) || (led_mode == 11))) {
-> > > +             phydev_err(phydev, "DT %s invalid\n", led);
-> > > +             return -EINVAL;
-> > > +     } else if (rc == -EINVAL) {
-> > > +             return default_mode;
-> > > +     }
-> > 
-> > I don't think you understood my comment about of_property_read_u8()
-> > not modifying &led_mode on error. Please read the comment again, and
-> > simplify this.
-> > 
-> 
-> If i understand your comment correctly
+> Related is that polling the phy status every second can be bad news for
+> system latency.
+> Typically it involves bit-bashing an interface with spin-delays to
+> meet the slow timings (with extra delays to allow for posted writes).
+> An alternative would be to do a very slow bit-bang on each timer tick,
+> this would need to be sped up and finished before any other actions.
 
-Nope, you don't.
+Or just use PHY interrupts. That completely stops the MDIO polling.
 
-     rc = of_property_read_u8(of_node, led, &led_mode);
-
-If rc indicates an error, led_mode is not touched. Read the
-documentation for this function. So you can simplifiy the code:
-
-	led_mode = default_mode;
-	err = of_property_read_u8(of_node, led, &led_mode);
-	if (!err && (led_mode > 15 || led_mode == 7) | (led_mode == 11) {
-             phydev_err(phydev, "DT %s invalid\n", led);
-             return -EINVAL;
-	}
-	return led_mode;
-
-	Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   Andrew
