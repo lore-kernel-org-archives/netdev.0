@@ -1,45 +1,43 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] dt-bindings: net: remove reference to fixed link support
-Date: Tue, 7 Feb 2017 12:46:43 -0600
-Message-ID: <20170207184643.janfd47zureahrc4@rob-hp-laptop>
-References: <1486054064-31093-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20170203.155938.1981764313840579677.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] sierra_net: Add support for IPv6 and Dual-Stack
+ Link Sense Indications
+Date: Tue, 07 Feb 2017 13:55:48 -0500 (EST)
+Message-ID: <20170207.135548.37750516957060303.davem@davemloft.net>
+References: <20170207023317.29192-1-stefan.bruens@rwth-aachen.de>
+        <94f1dec53f614c76802adf350f495922@rwthex-w2-b.rwth-ad.de>
+        <20170207.135312.2024064918721070962.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org, jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org,
-        andrew-g2DYL2Zd6BY@public.gmane.org, sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170203.155938.1981764313840579677.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: stefan.bruens@rwth-aachen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54582 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754141AbdBGS4m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 13:56:42 -0500
+In-Reply-To: <20170207.135312.2024064918721070962.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 03, 2017 at 03:59:38PM -0500, David Miller wrote:
-> From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> Date: Thu,  2 Feb 2017 17:47:44 +0100
-> 
-> > Contrary to what the Device Tree binding indicates, the binding for the
-> > PPv2 network device currently doesn't provide any fixed link
-> > functionality. This commit adjusts the Device Tree binding documentation
-> > accordingly.
-> > 
-> > Reported-by: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-> > Signed-off-by: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> 
-> What tree is this intended to go into?  Mine?
-
-I've applied to DT tree.
-
-Rob
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAwNyBG
+ZWIgMjAxNyAxMzo1MzoxMiAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IFN0ZWZhbiBCcsO8bnMgPHN0
+ZWZhbi5icnVlbnNAcnd0aC1hYWNoZW4uZGU+DQo+IERhdGU6IFR1ZSwgNyBGZWIgMjAxNyAwMzoz
+MzoxNiArMDEwMA0KPiANCj4+IElmIGEgY29udGV4dCBpcyBjb25maWd1cmVkIGFzIGR1YWxzdGFj
+ayAoIklQdjR2NiIpLCB0aGUgbW9kZW0gaW5kaWNhdGVzDQo+PiB0aGUgY29udGV4dCBhY3RpdmF0
+aW9uIHdpdGggYSBzbGlnaHRseSBkaWZmZXJlbnQgaW5kaWNhdGlvbiBtZXNzYWdlLg0KPj4gVGhl
+IGR1YWwtc3RhY2sgaW5kaWNhdGlvbiBvbWl0cyB0aGUgbGlua190eXBlIChJUHY0L3Y2KSBhbmQg
+YWRkcw0KPj4gYWRkaXRpb25hbCBhZGRyZXNzIGZpZWxkcy4NCj4+IElQdjYgTFNJcyBhcmUgaWRl
+bnRpY2FsIHRvIElQdjQgTFNJcywgYnV0IGhhdmUgYSBkaWZmZXJlbnQgbGluayB0eXBlLg0KPj4g
+DQo+PiBTaWduZWQtb2ZmLWJ5OiBTdGVmYW4gQnLDvG5zIDxzdGVmYW4uYnJ1ZW5zQHJ3dGgtYWFj
+aGVuLmRlPg0KPiANCj4gQXBwbGllZC4NCj4gDQo+IElnbm9yZSBteSBlYXJsaWVyIGNvbW1lbnRz
+IGFib3V0IHRoZSBVTVRTIGNvbW1lbnQsIGl0IGlzIHN0aWxsDQo+IGFjY3VyYXRlIG9mIGNvdXJz
+ZS4gOi0pDQoNCkFjdXRhbGx5LCB0aGlzIHN0aWxsIG5lZWQgd29yay4gIEkgaGFkIHRvIHJldmVy
+dC4NCg0KWW91IHJlbW92ZWQgdGhlIGNvZGUgdXNpbmcgdGhlICdldGgnIHZhcmlhYmxlIGZyb20g
+c2llcnJhX25ldF9iaW5kKCkgYnV0DQpsZWZ0IHRoZSB1bnVzZWQgdmFyaWFibGUgZGVjbGFyZWQu
+DQoNClBsZWFzZSByZXNwaW4gdGhpcyBzZXJpZXMgd2l0aCBpdCByZW1vdmVkIHNvIHdlIGRvbid0
+IGdldCB0aGUgd2FybmluZzoNCg0KZHJpdmVycy9uZXQvdXNiL3NpZXJyYV9uZXQuYzogSW4gZnVu
+Y3Rpb24g4oCYc2llcnJhX25ldF9iaW5k4oCZOg0KZHJpdmVycy9uZXQvdXNiL3NpZXJyYV9uZXQu
+Yzo2ODc6MTc6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSDigJhldGjigJkgWy1XdW51c2VkLXZh
+cmlhYmxlXQ0KICBzdHJ1Y3QgZXRoaGRyICpldGg7DQo=
