@@ -1,84 +1,84 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH iproute2/net-next 0/7] tc: flower: Masked ICMP match and
- ND match
-Date: Tue, 7 Feb 2017 08:52:00 +0100
-Message-ID: <CAJqx_ny5A414XO8K=FGtvz6HgPQC-VWFE9h84JfGL-CDkJW0ag@mail.gmail.com>
-References: <1486031920-10784-1-git-send-email-simon.horman@netronome.com> <20170206142847.3462ae48@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev <netdev@vger.kernel.org>, oss-drivers@netronome.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH net-next V3 0/3] net/sched: act_pedit: Use offset relative to conventional network headers
+Date: Tue,  7 Feb 2017 09:56:05 +0200
+Message-ID: <20170207075608.8430-1-amir@vadai.me>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Amir Vadai <amir@vadai.me>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:34331 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751865AbdBGHwC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 02:52:02 -0500
-Received: by mail-lf0-f52.google.com with SMTP id v186so58112165lfa.1
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 23:52:02 -0800 (PST)
-In-Reply-To: <20170206142847.3462ae48@xeon-e3>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:36531 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752003AbdBGH4Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 02:56:24 -0500
+Received: by mail-wr0-f193.google.com with SMTP id k90so4942971wrc.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 23:56:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 6, 2017 at 11:28 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Thu,  2 Feb 2017 11:38:33 +0100
-> Simon Horman <simon.horman@netronome.com> wrote:
->
->> Hi,
->>
->> this series have several related parts.
->>
->> * tc: flower: Update documentation to indicate ARP takes IPv4 prefixes
->>
->>   Enhance documentation for consistency with later documentation changes.
->>
->> * tc: flower: use correct type when calling flower_icmp_attr_type
->>
->>   Type correction to ICMP code; should not have runtime effect
->>
->> * tc: flower: provide generic masked u8 parser helper
->>   tc: flower: provide generic masked u8 print helper
->>
->>   Generic parsing and printing of masked u8 options
->>
->> * tc: flower: support masked ICMP code and type match
->>
->>   Support masking ICMP code and type matches.
->>   Unmasked matching is already supported by iproute2
->>   Masked matching is already supported by the kernel.
->>
->>   This is used by the ND patches
->>
->> * tc: flower: Add TCA_FLOWER_KEY_ND_*
->>   tc: flower: Support matching on ND
->>
->> The last two patches are marked as RFC as they support functionality
->> submitted to but not yet not yet present in the kernel.
->>
->>
->> Simon Horman (7):
->>   tc: flower: Update documentation to indicate ARP takes IPv4 prefixes
->>   tc: flower: use correct type when calling flower_icmp_attr_type
->>   tc: flower: provide generic masked u8 parser helper
->>   tc: flower: provide generic masked u8 print helper
->>   tc: flower: support masked ICMP code and type match
->>   tc: flower: Add TCA_FLOWER_KEY_ND_*
->>   tc: flower: Support matching on ND
->>
->>  include/linux/pkt_cls.h |   7 ++
->>  man/man8/tc-flower.8    |  58 +++++++++--
->>  tc/f_flower.c           | 260 +++++++++++++++++++++++++++++++++++++-----------
->>  3 files changed, 258 insertions(+), 67 deletions(-)
->>
->
-> Since this patchset depended on changes to pkt_cls.h which are not accepted upstream
-> into net-next, I marked it as awaiting upstream.  When the corresponding kernel changes
-> are accepted into net-next please resubmit it.
+Hi Dave,
 
-Hi Stephen,
+Some FW/HW parser APIs are such that they need to get the specific header type (e.g
+IPV4 or IPV6, TCP or UDP) and not only the networking level (e.g network or transport).
 
-I think that the first 5 patches can be considered independently of
-the last two which have the dependency you describe. Sorry for not
-making this clearer; e.g. by posting them separately. Would it help if
-I reposted the first five patches?
+Enhancing the UAPI to allow for specifying that, would allow the same flows to be
+set into both SW and HW.
+
+This patchset also makes pedit more robust. Currently fields offset is specified
+by offset relative to the ip header, while using negative offsets for 
+MAC layer fields.
+
+This series enables the user to set offset relative to the relevant header.
+
+Usage example:
+$ tc filter add dev enp0s9 protocol ip parent ffff: \
+   flower \
+     ip_proto tcp \
+    dst_port 80 \
+   action \
+       pedit munge ip ttl add 0xff \
+       pedit munge tcp dport set 8080 \
+     pipe action mirred egress redirect dev veth0
+
+Will forward traffic destined to tcp dport 80, while modifying the
+destination port to 8080, and decreasing the ttl by one.
+
+I've uploaded a draft for the userspace [2] to make it easier to review and
+test the patchset.
+
+[1] - http://patchwork.ozlabs.org/patch/700909/
+[2] - git: https://bitbucket.org/av42/iproute2.git
+      branch: pedit
+
+Patchset was tested and applied on top of upstream commit bd092ad1463c ("Merge
+branch 'remove-__napi_complete_done'")
+
+Thanks,
+Amir
+
+Changes since V2:
+- Instead of reusing unused bits in existing uapi fields, using new netlink
+	attributes for the new information. This way new/old user space and new/old
+	kernel can live together without having misunderstandings.
+
+Changes since V1:
+- No changes - V1 was sent and didn't make it for 4.10.
+- You asked me [1] why did I use specific header names instead of layers (L2,
+	L3...), and I explained that it is on purpose, this extra information is
+	planned to be used by hardware drivers to offload the action.
+
+
+Amir Vadai (3):
+  net/skbuff: Introduce skb_mac_offset()
+  net/act_pedit: Support using offset relative to the conventional
+    network headers
+  net/act_pedit: Introduce 'add' operation
+
+ include/linux/skbuff.h               |   5 +
+ include/net/tc_act/tc_pedit.h        |   6 +
+ include/uapi/linux/tc_act/tc_pedit.h |  31 +++++
+ net/sched/act_pedit.c                | 220 ++++++++++++++++++++++++++++++++---
+ 4 files changed, 245 insertions(+), 17 deletions(-)
+
+-- 
+2.11.0
