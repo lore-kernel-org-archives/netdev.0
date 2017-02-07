@@ -1,105 +1,61 @@
-From: Heiko Schocher <hs@denx.de>
-Subject: [PATCH] Make EN2 pin optional in the TRF7970A driver
-Date: Tue,  7 Feb 2017 06:22:04 +0100
-Message-ID: <1486444924-18444-1-git-send-email-hs@denx.de>
-Cc: Guan Ben <ben.guan@cn.bosch.com>,
-        Mark Jonas <mark.jonas@de.bosch.com>,
-        Heiko Schocher <hs@denx.de>, devicetree@vger.kernel.org,
-        linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Rob Herring <robh+dt@kernel.org>,
-        Samuel Ortiz <sameo@linux.intel.com>,
-        Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Mark Rutland <mark.rutland@arm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:35581 "EHLO
-        mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752149AbdBGFWN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 00:22:13 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net-next tree
+Date: Tue, 7 Feb 2017 16:23:22 +1100
+Message-ID: <20170207162322.3732a5a1@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guan Ben <ben.guan@cn.bosch.com>
+Hi Andrew,
 
-Make the EN2 pin optional. This is useful for boards,
-which have this pin fix wired, for example to ground.
+Today's linux-next merge of the akpm tree got a conflict in:
 
-Signed-off-by: Guan Ben <ben.guan@cn.bosch.com>
-Signed-off-by: Mark Jonas <mark.jonas@de.bosch.com>
-Signed-off-by: Heiko Schocher <hs@denx.de>
+  drivers/net/can/flexcan.c
 
----
+between commits:
 
- .../devicetree/bindings/net/nfc/trf7970a.txt       |  4 ++--
- drivers/nfc/trf7970a.c                             | 26 ++++++++++++----------
- 2 files changed, 16 insertions(+), 14 deletions(-)
+  9eb7aa891101 ("can: flexcan: add quirk FLEXCAN_QUIRK_ENABLE_EACEN_RRS")
+  b3cf53e988ce ("can: flexcan: add support for timestamp based rx-offload")
 
-diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-index 32b35a0..5889a3d 100644
---- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-+++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-@@ -5,8 +5,8 @@ Required properties:
- - spi-max-frequency: Maximum SPI frequency (<= 2000000).
- - interrupt-parent: phandle of parent interrupt handler.
- - interrupts: A single interrupt specifier.
--- ti,enable-gpios: Two GPIO entries used for 'EN' and 'EN2' pins on the
--  TRF7970A.
-+- ti,enable-gpios: One or two GPIO entries used for 'EN' and 'EN2' pins on the
-+  TRF7970A. EN2 is optional.
- - vin-supply: Regulator for supply voltage to VIN pin
- 
- Optional SoC Specific Properties:
-diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
-index 26c9dbb..75079fb 100644
---- a/drivers/nfc/trf7970a.c
-+++ b/drivers/nfc/trf7970a.c
-@@ -1885,8 +1885,10 @@ static int trf7970a_power_up(struct trf7970a *trf)
- 	usleep_range(5000, 6000);
- 
- 	if (!(trf->quirks & TRF7970A_QUIRK_EN2_MUST_STAY_LOW)) {
--		gpio_set_value(trf->en2_gpio, 1);
--		usleep_range(1000, 2000);
-+		if (gpio_is_valid(trf->en2_gpio)) {
-+			gpio_set_value(trf->en2_gpio, 1);
-+			usleep_range(1000, 2000);
-+		}
- 	}
- 
- 	gpio_set_value(trf->en_gpio, 1);
-@@ -1914,7 +1916,8 @@ static int trf7970a_power_down(struct trf7970a *trf)
- 	}
- 
- 	gpio_set_value(trf->en_gpio, 0);
--	gpio_set_value(trf->en2_gpio, 0);
-+	if (gpio_is_valid(trf->en2_gpio))
-+		gpio_set_value(trf->en2_gpio, 0);
- 
- 	ret = regulator_disable(trf->regulator);
- 	if (ret)
-@@ -2032,15 +2035,14 @@ static int trf7970a_probe(struct spi_device *spi)
- 
- 	trf->en2_gpio = of_get_named_gpio(np, "ti,enable-gpios", 1);
- 	if (!gpio_is_valid(trf->en2_gpio)) {
--		dev_err(trf->dev, "No EN2 GPIO property\n");
--		return trf->en2_gpio;
--	}
--
--	ret = devm_gpio_request_one(trf->dev, trf->en2_gpio,
--			GPIOF_DIR_OUT | GPIOF_INIT_LOW, "trf7970a EN2");
--	if (ret) {
--		dev_err(trf->dev, "Can't request EN2 GPIO: %d\n", ret);
--		return ret;
-+		dev_info(trf->dev, "No EN2 GPIO property\n");
-+	} else {
-+		ret = devm_gpio_request_one(trf->dev, trf->en2_gpio,
-+				GPIOF_DIR_OUT | GPIOF_INIT_LOW, "trf7970a EN2");
-+		if (ret) {
-+			dev_err(trf->dev, "Can't request EN2 GPIO: %d\n", ret);
-+			return ret;
-+		}
- 	}
- 
- 	if (of_property_read_bool(np, "en2-rf-quirk"))
+from the net-next tree and commit:
+
+  "scripts/spelling.txt: add "disble(d)" pattern and fix typo instances"
+
+from the akpm tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-2.7.4
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/can/flexcan.c
+index ea57fed375c6,4dc71bce525c..000000000000
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@@ -195,9 -189,7 +195,9 @@@
+   */
+  #define FLEXCAN_QUIRK_BROKEN_ERR_STATE	BIT(1) /* [TR]WRN_INT not connected */
+  #define FLEXCAN_QUIRK_DISABLE_RXFG	BIT(2) /* Disable RX FIFO Global mask */
+ -#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(3) /* Disable Memory error detection */
+ +#define FLEXCAN_QUIRK_ENABLE_EACEN_RRS	BIT(3) /* Enable EACEN and RRS bit in ctrl2 */
+- #define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disble Memory error detection */
+++#define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disbale Memory error detection */
+ +#define FLEXCAN_QUIRK_USE_OFF_TIMESTAMP	BIT(5) /* Use timestamp based offloading */
+  
+  /* Structure of the message buffer */
+  struct flexcan_mb {
