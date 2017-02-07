@@ -1,46 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATHv3 net-next] bpf: enable verifier to add 0 to packet ptr
-Date: Mon, 06 Feb 2017 22:50:15 -0500 (EST)
-Message-ID: <20170206.225015.897322994264531777.davem@davemloft.net>
-References: <1486226249-1851-1-git-send-email-u9012063@gmail.com>
+Subject: Re: [PATCH net-next 0/4] bridge: improve cache utilization
+Date: Mon, 06 Feb 2017 22:53:35 -0500 (EST)
+Message-ID: <20170206.225335.2275258471740874933.davem@davemloft.net>
+References: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mbudiu@vmware.com, daniel@iogearbox.net,
-        ast@kernel.org
-To: u9012063@gmail.com
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+        roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56900 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56954 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdBGDuR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 22:50:17 -0500
-In-Reply-To: <1486226249-1851-1-git-send-email-u9012063@gmail.com>
+        with ESMTP id S1751164AbdBGDxh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 22:53:37 -0500
+In-Reply-To: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Tu <u9012063@gmail.com>
-Date: Sat,  4 Feb 2017 08:37:29 -0800
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Sat,  4 Feb 2017 18:05:05 +0100
 
-> The patch fixes the case when adding a zero value to the packet
-> pointer.  The zero value could come from src_reg equals type
-> BPF_K or CONST_IMM.  The patch fixes both, otherwise the verifer
-> reports the following error:
->   [...]
->     R0=imm0,min_value=0,max_value=0
->     R1=pkt(id=0,off=0,r=4)
->     R2=pkt_end R3=fp-12
->     R4=imm4,min_value=4,max_value=4
->     R5=pkt(id=0,off=4,r=4)
->   269: (bf) r2 = r0     // r2 becomes imm0
->   270: (77) r2 >>= 3
->   271: (bf) r4 = r1     // r4 becomes pkt ptr
->   272: (0f) r4 += r2    // r4 += 0
->   addition of negative constant to packet pointer is not allowed
+> This is the first set which begins to deal with the bad bridge cache
+> access patterns. The first patch rearranges the bridge and port structs
+> a little so the frequently (and closely) accessed members are in the same
+> cache line. The second patch then moves the garbage collection to a
+> workqueue trying to improve system responsiveness under load (many fdbs)
+> and more importantly removes the need to check if the matched entry is
+> expired in __br_fdb_get which was a major source of false-sharing.
+> The third patch is a preparation for the final one which
+> If properly configured, i.e. ports bound to CPUs (thus updating "updated"
+> locally) then the bridge's HitM goes from 100% to 0%, but even without
+> binding we get a win because previously every lookup that iterated over
+> the hash chain caused false-sharing due to the first cache line being
+> used for both mac/vid and used/updated fields.
 > 
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Signed-off-by: Mihai Budiu <mbudiu@vmware.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Some results from tests I've run:
+> (note that these were run in good conditions for the baseline, everything
+>  ran on a single NUMA node and there were only 3 fdbs)
+> 
+> 1. baseline
+> 100% Load HitM on the fdbs (between everyone who has done lookups and hit
+>                             one of the 3 hash chains of the communicating
+>                             src/dst fdbs)
+> Overall 5.06% Load HitM for the bridge, first place in the list
+> 
+> 2. patched & ports bound to CPUs
+> 0% Local load HitM, bridge is not even in the c2c report list
+> Also there's 3% consistent improvement in netperf tests.
 
-Applied, thanks.
+Looks great, series applied, thanks!
