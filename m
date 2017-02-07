@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 2/4] doc/bpf: document interacting with eBPF maps
-Date: Tue, 07 Feb 2017 15:30:22 +0100
-Message-ID: <148647782206.10567.16235671715611188966.stgit@localhost>
+Subject: [net-next PATCH 4/4] doc/bpf: describe BCC the BPF Compiler
+ Collection
+Date: Tue, 07 Feb 2017 15:30:32 +0100
+Message-ID: <148647783224.10567.17783943294570297203.stgit@localhost>
 References: <148647756092.10567.10947541548678801938.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,290 +18,84 @@ In-Reply-To: <148647756092.10567.10947541548678801938.stgit@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Describe what eBPF maps are, how to create them, and how to
-interact with them.
+It is worth mentioning BCC (BPF Compiler Collection) in-order
+to direct developers into that community.
 
-Thanks to Quentin Monnet <quentin.monnet@6wind.com> for improving
-this document by fixing many typos and early review.
-
+Reviewed-by: Alexander Alemayhu <alexander@alemayhu.com>
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- Documentation/bpf/ebpf_maps.rst |  255 +++++++++++++++++++++++++++++++++++++++
- Documentation/bpf/index.rst     |    2 
- 2 files changed, 257 insertions(+)
- create mode 100644 Documentation/bpf/ebpf_maps.rst
+ Documentation/bpf/bcc_tool_chain.rst |   37 ++++++++++++++++++++++++++++++++++
+ Documentation/bpf/index.rst          |    5 ++---
+ 2 files changed, 39 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/bpf/bcc_tool_chain.rst
 
-diff --git a/Documentation/bpf/ebpf_maps.rst b/Documentation/bpf/ebpf_maps.rst
+diff --git a/Documentation/bpf/bcc_tool_chain.rst b/Documentation/bpf/bcc_tool_chain.rst
 new file mode 100644
-index 000000000000..b8808f3bc31c
+index 000000000000..b721875065bc
 --- /dev/null
-+++ b/Documentation/bpf/ebpf_maps.rst
-@@ -0,0 +1,255 @@
-+=========
-+eBPF maps
-+=========
++++ b/Documentation/bpf/bcc_tool_chain.rst
+@@ -0,0 +1,37 @@
++=============================
++BCC (BPF Compiler Collection)
++=============================
 +
-+This document describes what eBPF maps are, how you create them
-+(`Creating a map`_), and how to interact with them (`Interacting with
-+maps`_).
++BCC is a toolkit to make eBPF programs easier to write, with
++front-ends in Python and Lua.  BCC requires LLVM and clang (in version
++3.7.1 or newer) to be available on target, because BCC programs do
++runtime compilation of the restricted-C code into eBPF instructions.
 +
-+Using eBPF maps is a method to keep state between invocations of the
-+eBPF program, and allows sharing data between eBPF kernel programs,
-+and also between kernel and user-space applications.
++BCC includes several useful tools_ and examples_, developed by
++recognized performance analyst `Brendan Gregg`_ and covered with a
++tutorial_ and slides_.
 +
-+Basically a key/value store with arbitrary structure (from man-page
-+`bpf(2)`_):
++.. _tools:
++   https://github.com/iovisor/bcc/tree/master/tools
 +
-+ eBPF maps are a generic data structure for storage of different data
-+ types.  Data types are generally treated as binary blobs, so a user
-+ just specifies the size of the key and the size of the value at
-+ map-creation time.  In other words, a key/value for a given map can
-+ have an arbitrary structure.
++.. _examples:
++   https://github.com/iovisor/bcc/tree/master/examples
 +
-+The map handles are file descriptors, and multiple maps can be created
-+and accessed by multiple programs (from man-page `bpf(2)`_):
++.. _`Brendan Gregg`: http://www.brendangregg.com/
 +
-+ A user process can create multiple maps (with key/value-pairs being
-+ opaque bytes of data) and access them via file descriptors.
-+ Different eBPF programs can access the same maps in parallel.  It's
-+ up to the user process and eBPF program to decide what they store
-+ inside maps.
++.. _tutorial:
++   https://github.com/iovisor/bcc/blob/master/docs/tutorial.md
 +
-+.. _`Creating a map`:
++.. _slides:
++   http://www.slideshare.net/brendangregg/linux-bpf-superpowers/43/
 +
-+Creating a map
-+==============
++The project maintains an overview of `eBPF supported kernels`_ and
++what versions got which specific features.  There is also a `BCC
++Reference Guide`_.
 +
-+A map is created based on a request from userspace, via the `bpf`_
-+syscall (specifically `bpf_cmd`_ BPF_MAP_CREATE), which returns a new
-+file descriptor that refers to the map.  On error, -1 is returned and
-+errno is set to EINVAL, EPERM, or ENOMEM. These are the struct
-+``bpf_attr`` setup arguments to use when creating a map via the
-+syscall:
++.. _eBPF supported kernels:
++   https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md
 +
-+.. code-block:: c
++.. _BCC Reference Guide:
++   https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md
 +
-+ bpf(BPF_MAP_CREATE, &bpf_attr, sizeof(bpf_attr));
-+
-+Notice how this kernel ABI is extensible, as more struct arguments can
-+easily be added later as the sizeof(bpf_attr) is passed along to the
-+syscall.  This also implies that API users must clear/zero
-+sizeof(bpf_attr), as compiler can size-align the struct differently,
-+to avoid garbage data to be interpreted as parameters by future
-+kernels.
-+
-+The following configuration attributes are needed when creating the map:
-+
-+.. code-block:: c
-+
-+ union bpf_attr {
-+  struct { /* anonymous struct used by BPF_MAP_CREATE command */
-+         __u32   map_type;       /* one of enum bpf_map_type */
-+         __u32   key_size;       /* size of key in bytes */
-+         __u32   value_size;     /* size of value in bytes */
-+         __u32   max_entries;    /* max number of entries in a map */
-+         __u32   map_flags;      /* prealloc or not */
-+  };
-+ }
-+
-+.. _bpf_cmd: http://lxr.free-electrons.com/ident?i=bpf_cmd
-+
-+
-+Kernel sample/bpf ELF convention
-+--------------------------------
-+
-+For programs under samples/bpf/, defining a map have been integrated
-+with ELF binary generated by LLVM.  This is purely one example of a
-+userspace convention and not part of the kernel ABI.  It still invokes
-+the bpf syscall.
-+
-+Map definitions are done by defining a ``struct bpf_map_def`` with an
-+elf section __attribute__ ``SEC("maps")``, in the xxx_kern.c file.
-+The maps file descriptor is available in the userspace xxx_user.c
-+file, via global array variable ``map_fd[]``, and the array map index
-+corresponds to the order the maps sections were defined in elf file of
-+xxx_kern.c file.  Behind the scenes it is the ``load_bpf_file()`` call
-+(from `samples/bpf/bpf_load`_) that takes care of parsing ELF file
-+compiled by LLVM, pickup 'maps' section and creates maps via the bpf
-+syscall.
-+
-+.. code-block:: c
-+
-+  struct bpf_map_def {
-+	unsigned int type;
-+	unsigned int key_size;
-+	unsigned int value_size;
-+	unsigned int max_entries;
-+	unsigned int map_flags;
-+  };
-+
-+  struct bpf_map_def SEC("maps") my_map = {
-+	.type        = BPF_MAP_TYPE_XXX,
-+	.key_size    = sizeof(u32),
-+	.value_size  = sizeof(u64),
-+	.max_entries = 42,
-+	.map_flags   = 0
-+  };
-+
-+.. section links
-+
-+.. _samples/bpf/bpf_load:
-+   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/samples/bpf/bpf_load.c
-+
-+Qdisc Traffic Control convention
-+--------------------------------
-+
-+It is worth mentioning, that qdisc TC (Traffic Control), also use ELF
-+files for defining the maps, but it uses another layout.  See man-page
-+`tc-bpf(8)`_ and `tc bpf examples`_ in iproute2.git_ tree.
-+
-+.. _iproute2.git:
-+   https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/about/
-+
-+.. _tc bpf examples:
-+   https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/tree/examples/bpf
-+
-+.. _tc-bpf(8): http://man7.org/linux/man-pages/man8/tc-bpf.8.html
-+
-+
-+Interacting with maps
-+=====================
-+
-+Interacting with eBPF maps happens through some **lookup/update/delete**
-+primitives.
-+
-+When writing eBFP programs using load helpers and libraries from
-+samples/bpf/ and tools/lib/bpf/.  Common function name API have been
-+created that hides the details of how kernel vs. userspace access
-+these primitives (which is quite different).
-+
-+The common function names (parameters and return values differs):
-+
-+.. code-block:: c
-+
-+  void bpf_map_lookup_elem(map, void *key. ...);
-+  void bpf_map_update_elem(map, void *key, ..., __u64 flags);
-+  void bpf_map_delete_elem(map, void *key);
-+
-+The ``flags`` argument in ``bpf_map_update_elem()`` allows to define
-+semantics on whether the element exists:
-+
-+.. code-block:: c
-+
-+  /* File: include/uapi/linux/bpf.h */
-+  /* flags for BPF_MAP_UPDATE_ELEM command */
-+  #define BPF_ANY	0 /* create new element or update existing */
-+  #define BPF_NOEXIST	1 /* create new element only if it didn't exist */
-+  #define BPF_EXIST	2 /* only update existing element */
-+
-+Userspace
-+---------
-+The userspace API map helpers are defined in `tools/lib/bpf/bpf.h`_
-+and looks like this:
-+
-+.. code-block:: c
-+
-+  /* Userspace helpers */
-+  int bpf_map_lookup_elem(int fd, void *key, void *value);
-+  int bpf_map_update_elem(int fd, void *key, void *value, __u64 flags);
-+  int bpf_map_delete_elem(int fd, void *key);
-+  /* Only userspace: */
-+  int bpf_map_get_next_key(int fd, void *key, void *next_key);
-+
-+
-+Interacting with an eBPF map from **userspace**, happens through the
-+`bpf`_ syscall and a file descriptor.  See how the map handle ``int
-+fd`` is a file descriptor .  On success, zero is returned, on
-+failures -1 is returned and errno is set.
-+
-+Wrappers for the bpf syscall is implemented in `tools/lib/bpf/bpf.c`_,
-+and ends up calling functions in `kernel/bpf/syscall.c`_, like
-+`map_lookup_elem`_.
-+
-+.. code-block:: c
-+
-+  /* Corresponding syscall bpf commands from userspace */
-+  enum bpf_cmd {
-+	[...]
-+	BPF_MAP_LOOKUP_ELEM,
-+	BPF_MAP_UPDATE_ELEM,
-+	BPF_MAP_DELETE_ELEM,
-+	BPF_MAP_GET_NEXT_KEY,
-+	[...]
-+  };
-+
-+Notice how ``void *key`` and ``void *value`` are passed as a void
-+pointers.  Given the memory seperation between kernel and userspace,
-+this is a copy of the value.  Kernel primitives like
-+``copy_from_user()`` and ``copy_to_user()`` are used, e.g. see
-+`map_lookup_elem`_, which also kmalloc+kfree memory for a short
-+period.
-+
-+From userspace, there is no function call to atomically increment or
-+decrement the value 'in-place'. The bpf_map_update_elem() call will
-+overwrite the existing value, with a copy of the value supplied.
-+Depending on the map type, the overwrite will happen in an atomic way,
-+e.g. using locking mechanisms specific to the map type.
-+
-+.. section links
-+
-+.. _tools/lib/bpf/bpf.h:
-+   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/tools/lib/bpf/bpf.h
-+
-+.. _tools/lib/bpf/bpf.c:
-+   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/tools/lib/bpf/bpf.c
-+
-+.. _map_lookup_elem: http://lxr.free-electrons.com/ident?i=map_lookup_elem
-+
-+.. _kernel/bpf/syscall.c:
-+   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/kernel/bpf/syscall.c
-+
-+
-+Kernel-side eBPF program
-+------------------------
-+
-+The API mapping for eBPF programs on the kernel-side is fairly hard to
-+follow. It related to `samples/bpf/bpf_helpers.h`_ and maps into
-+`kernel/bpf/helpers.c`_ via macros.
-+
-+.. code-block:: c
-+
-+  /* eBPF program helpers */
-+  void *bpf_map_lookup_elem(void *map, void *key);
-+  int bpf_map_update_elem(void *map, void *key, void *value, unsigned long long flags);
-+  int bpf_map_delete_elem(void *map, void *key);
-+
-+The eBPF-program running kernel-side interacts more directly with the
-+map data structures. For example the call ``bpf_map_lookup_elem()``
-+returns a direct pointer to the 'value' memory-element inside the
-+kernel (while userspace gets a copy).  This allows the eBPF-program to
-+atomically increment or decrement the value 'in-place', by using
-+appropiate compiler primitives like ``__sync_fetch_and_add()``, which
-+is understood by LLVM when generating eBPF instructions.
-+
-+.. section links
-+
-+.. _samples/bpf/bpf_helpers.h:
-+   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/samples/bpf/bpf_helpers.h
-+
-+.. _kernel/bpf/helpers.c:
-+   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/kernel/bpf/helpers.c
-+
-+.. links
-+
-+.. _bpf(2): http://man7.org/linux/man-pages/man2/bpf.2.html
-+
-+.. _bpf: http://man7.org/linux/man-pages/man2/bpf.2.html
 diff --git a/Documentation/bpf/index.rst b/Documentation/bpf/index.rst
-index f262fe8f9f95..738d17aaf6d7 100644
+index 618a28f7e959..686cc33fffab 100644
 --- a/Documentation/bpf/index.rst
 +++ b/Documentation/bpf/index.rst
-@@ -42,6 +42,8 @@ covered by this documentation.
- .. toctree::
-    :maxdepth: 1
+@@ -35,7 +35,7 @@ the `bpf(2)`_ syscall.
  
-+   ebpf_maps
-+
+ This documentation is focused on the kernel tree's `samples/bpf/`_ and
+ `tools/lib/bpf/`_.  It is worth mentioning that other projects exist,
+-like BCC_, that has a slightly different user-facing
++like :doc:`bcc_tool_chain`, that has a slightly different user-facing
+ syntax, but is interfacing with the same kernel facilities as those
+ covered by this documentation.
+ 
+@@ -44,6 +44,7 @@ covered by this documentation.
+ 
+    ebpf_maps
+    ebpf_maps_types
++   bcc_tool_chain
+ 
  .. links:
  
- .. _article 1992: http://www.tcpdump.org/papers/bpf-usenix93.pdf
+@@ -65,5 +66,3 @@ covered by this documentation.
+ 
+ .. _Traffic control: http://man7.org/linux/man-pages/man8/tc-bpf.8.html
+ 
+-.. _BCC: https://github.com/iovisor/bcc
+-
