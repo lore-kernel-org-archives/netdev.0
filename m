@@ -1,82 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC ipsec-next 5/5] esp: Add a software GRO codepath
-Date: Tue, 07 Feb 2017 11:45:06 -0800
-Message-ID: <1486496706.7793.66.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486458851-4920-1-git-send-email-steffen.klassert@secunet.com>
-         <1486458851-4920-6-git-send-email-steffen.klassert@secunet.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next] sctp: avoid list_del_init if it's freeing the
+ memory right away
+Date: Tue, 7 Feb 2017 17:45:09 -0200
+Message-ID: <20170207194508.GD3414@localhost.localdomain>
+References: <e1b3b9b24f39ee82a3131a39a0413231ba54bc7c.1486494022.git.marcelo.leitner@gmail.com>
+ <20170207.142121.1027174926882132252.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        vyasevich@gmail.com, nhorman@tuxdriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33724 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752042AbdBGTpI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:45:08 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 194so12905473pgd.0
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 11:45:08 -0800 (PST)
-In-Reply-To: <1486458851-4920-6-git-send-email-steffen.klassert@secunet.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47044 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752943AbdBGTpM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 14:45:12 -0500
+Content-Disposition: inline
+In-Reply-To: <20170207.142121.1027174926882132252.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-02-07 at 10:14 +0100, Steffen Klassert wrote:
-> This patch adds GRO ifrastructure and callbacks for ESP on
-> ipv4 and ipv6.
+On Tue, Feb 07, 2017 at 02:21:21PM -0500, David Miller wrote:
+> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Date: Tue,  7 Feb 2017 17:03:21 -0200
+> 
+> > There is no reason to use list_del_init() in these places as we are
+> > going to free/destroy the memory in a few lines below.
+> > 
+> > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> > ---
+> >  net/sctp/associola.c     | 14 ++++----------
+> >  net/sctp/auth.c          |  8 ++------
+> >  net/sctp/chunk.c         |  4 ++--
+> >  net/sctp/outqueue.c      | 14 +++++++-------
+> >  net/sctp/sm_make_chunk.c |  3 +--
+> >  5 files changed, 16 insertions(+), 27 deletions(-)
+> > 
+> > diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> > index e50dc6d7543fd6acfa7442f3a9ee575203c7718d..7eb9dacfa53a438b20a34319cf01c6c9a591f0c3 100644
+> > --- a/net/sctp/associola.c
+> > +++ b/net/sctp/associola.c
+> > @@ -1638,25 +1638,19 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
+> >  static void sctp_assoc_free_asconf_queue(struct sctp_association *asoc)
+> >  {
+> >  	struct sctp_chunk *asconf;
+> > -	struct sctp_chunk *tmp;
+> >  
+> > -	list_for_each_entry_safe(asconf, tmp, &asoc->addip_chunk_list, list) {
+> > -		list_del_init(&asconf->list);
+> > +	list_for_each_entry(asconf, &asoc->addip_chunk_list, list)
+> >  		sctp_chunk_free(asconf);
+> > -	}
+> >  }
+> 
+> This leave freed memory on the asoc->addip_chunk_list, in fact why aren't you seeing
+
+This should be alright, because here we are purging the entire list and
+the asoc will also be free right after.
+
+> the BUG_ON() in sctp_chunk_destroy() get triggered?  If you elide the list_del() here
+> then the "list_empty(&chunk->list)" check there will not be true.
 > 
 
+Good question. I have to double check this, but you're probably right.
 
-I am a bit confused.
+> I don't think this transformation here is legal at all.
 
->  
-> -struct xfrm_tunnel_skb_cb {
-> +/*
-> + * This structure is used if we get the packet from the gro layer.
-> + */
-> +struct xfrm_gro_skb_cb {
->  	union {
->  		struct inet_skb_parm h4;
->  		struct inet6_skb_parm h6;
-> -	} header;
-> +
-> +		struct {
-> +			__be32 seq;
-> +			bool skb_is_gro;
-> +		} input;
-> +	} gro;
-> +};
-> +
-> +#define XFRM_GRO_SKB_CB(__skb) ((struct xfrm_gro_skb_cb *)&((__skb)->cb[0]))
-> +
+I removed the BUG_ON check on sctp_auth_shkey_free() for the same
+reason, not sure why not for sctp_chunk_destroy().
 
-Then :
-
-> +
-> +	x = xfrm_state_lookup(dev_net(skb->dev), skb->mark,
-> +			      (xfrm_address_t *)&ip_hdr(skb)->daddr,
-> +			      spi, IPPROTO_ESP, AF_INET);
-> +	if (!x)
-> +		goto out;
-> +
-> +	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
-> +	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
-> +	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
-> +	XFRM_GRO_SKB_CB(skb)->gro.input.seq = seq;
-> +	skb->sp->xvec[skb->sp->len++] = x;
-> +
-> +	/* We don't need to handle errors from xfrm_input, it does all
-> +	 * the error handling and frees the resources on error. */
-> +	xfrm_input(skb, IPPROTO_ESP, spi, -2);
-> +
-> +	return ERR_PTR(-EINPROGRESS);
-> +out:
-> +	skb_push(skb, offset);
-> +	NAPI_GRO_CB(skb)->same_flow = 0;
-> +	NAPI_GRO_CB(skb)->flush = 1;
-> +
-
-
-How can you mix XFRM_SPI_SKB_CB(), XFRM_GRO_SKB_CB() and NAPI_GRO_CB()
-at the same time on one skb ?
+  Marcelo
