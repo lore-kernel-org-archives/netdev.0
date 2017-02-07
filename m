@@ -1,136 +1,114 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH ipsec-next 6/6] xfrm: policy: make policy backend const
-Date: Tue,  7 Feb 2017 15:00:19 +0100
-Message-ID: <20170207140019.20269-7-fw@strlen.de>
+Subject: [PATCH ipsec-next 5/6] xfrm: policy: remove xfrm_policy_put_afinfo
+Date: Tue,  7 Feb 2017 15:00:18 +0100
+Message-ID: <20170207140019.20269-6-fw@strlen.de>
 References: <20170207140019.20269-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56654 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56652 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754499AbdBGOCR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 09:02:17 -0500
+        by vger.kernel.org with ESMTP id S1754499AbdBGOCY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 09:02:24 -0500
 In-Reply-To: <20170207140019.20269-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Alternative is to keep it an make the (unused) afinfo arg const to avoid
+the compiler warnings once the afinfo structs get constified.
+
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/ipv4/xfrm4_policy.c |  2 +-
- net/ipv6/xfrm6_policy.c |  2 +-
- net/xfrm/xfrm_policy.c  | 18 +++++++++---------
- 3 files changed, 11 insertions(+), 11 deletions(-)
+ net/xfrm/xfrm_policy.c | 21 ++++++++-------------
+ 1 file changed, 8 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 25613539766f..71b4ecc195c7 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -269,7 +269,7 @@ static struct dst_ops xfrm4_dst_ops_template = {
- 	.gc_thresh =		INT_MAX,
- };
- 
--static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
-+static const struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
- 	.dst_ops =		&xfrm4_dst_ops_template,
- 	.dst_lookup =		xfrm4_dst_lookup,
- 	.get_saddr =		xfrm4_get_saddr,
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 3217e85334e3..79651bc71bf0 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -289,7 +289,7 @@ static struct dst_ops xfrm6_dst_ops_template = {
- 	.gc_thresh =		INT_MAX,
- };
- 
--static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
-+static const struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
- 	.dst_ops =		&xfrm6_dst_ops_template,
- 	.dst_lookup =		xfrm6_dst_lookup,
- 	.get_saddr =		xfrm6_get_saddr,
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 80ef0dcf0e29..04ed1a1ae019 100644
+index 7698785876d7..80ef0dcf0e29 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -45,7 +45,7 @@ struct xfrm_flo {
- };
+@@ -116,11 +116,6 @@ static const struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short fa
+ 	return afinfo;
+ }
  
- static DEFINE_SPINLOCK(xfrm_policy_afinfo_lock);
--static struct xfrm_policy_afinfo __rcu *xfrm_policy_afinfo[AF_INET6 + 1]
-+static struct xfrm_policy_afinfo const __rcu *xfrm_policy_afinfo[AF_INET6 + 1]
- 						__read_mostly;
+-static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo)
+-{
+-	rcu_read_unlock();
+-}
+-
+ static inline struct dst_entry *__xfrm_dst_lookup(struct net *net,
+ 						  int tos, int oif,
+ 						  const xfrm_address_t *saddr,
+@@ -136,7 +131,7 @@ static inline struct dst_entry *__xfrm_dst_lookup(struct net *net,
  
- static struct kmem_cache *xfrm_dst_cache __read_mostly;
-@@ -122,7 +122,7 @@ static inline struct dst_entry *__xfrm_dst_lookup(struct net *net,
- 						  const xfrm_address_t *daddr,
- 						  int family)
- {
--	struct xfrm_policy_afinfo *afinfo;
-+	const struct xfrm_policy_afinfo *afinfo;
- 	struct dst_entry *dst;
+ 	dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr);
  
- 	afinfo = xfrm_policy_get_afinfo(family);
-@@ -1426,7 +1426,7 @@ xfrm_get_saddr(struct net *net, int oif, xfrm_address_t *local,
- 	       xfrm_address_t *remote, unsigned short family)
- {
- 	int err;
--	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
-+	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
  
+ 	return dst;
+ }
+@@ -1436,7 +1431,7 @@ xfrm_get_saddr(struct net *net, int oif, xfrm_address_t *local,
  	if (unlikely(afinfo == NULL))
  		return -EINVAL;
-@@ -1535,7 +1535,7 @@ xfrm_tmpl_resolve(struct xfrm_policy **pols, int npols, const struct flowi *fl,
+ 	err = afinfo->get_saddr(net, oif, local, remote);
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
+ 	return err;
+ }
  
- static int xfrm_get_tos(const struct flowi *fl, int family)
- {
--	struct xfrm_policy_afinfo *afinfo;
-+	const struct xfrm_policy_afinfo *afinfo;
- 	int tos = 0;
- 
+@@ -1546,7 +1541,7 @@ static int xfrm_get_tos(const struct flowi *fl, int family)
  	afinfo = xfrm_policy_get_afinfo(family);
-@@ -1598,7 +1598,7 @@ static const struct flow_cache_ops xfrm_bundle_fc_ops = {
+ 	tos = afinfo ? afinfo->get_tos(fl) : 0;
  
- static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
- {
--	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
-+	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
- 	struct dst_ops *dst_ops;
- 	struct xfrm_dst *xdst;
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
  
-@@ -1635,7 +1635,7 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
- static inline int xfrm_init_path(struct xfrm_dst *path, struct dst_entry *dst,
- 				 int nfheader_len)
- {
--	struct xfrm_policy_afinfo *afinfo =
-+	const struct xfrm_policy_afinfo *afinfo =
- 		xfrm_policy_get_afinfo(dst->ops->family);
- 	int err;
+ 	return tos;
+ }
+@@ -1632,7 +1627,7 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
+ 	} else
+ 		xdst = ERR_PTR(-ENOBUFS);
  
-@@ -1652,7 +1652,7 @@ static inline int xfrm_init_path(struct xfrm_dst *path, struct dst_entry *dst,
- static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
- 				const struct flowi *fl)
- {
--	struct xfrm_policy_afinfo *afinfo =
-+	const struct xfrm_policy_afinfo *afinfo =
- 		xfrm_policy_get_afinfo(xdst->u.dst.ops->family);
- 	int err;
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
  
-@@ -2201,7 +2201,7 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
- static struct dst_entry *make_blackhole(struct net *net, u16 family,
- 					struct dst_entry *dst_orig)
- {
--	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
-+	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
- 	struct dst_entry *ret;
+ 	return xdst;
+ }
+@@ -1649,7 +1644,7 @@ static inline int xfrm_init_path(struct xfrm_dst *path, struct dst_entry *dst,
  
- 	if (!afinfo) {
-@@ -2452,7 +2452,7 @@ xfrm_policy_ok(const struct xfrm_tmpl *tmpl, const struct sec_path *sp, int star
- int __xfrm_decode_session(struct sk_buff *skb, struct flowi *fl,
- 			  unsigned int family, int reverse)
- {
--	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
-+	const struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
- 	int err;
+ 	err = afinfo->init_path(path, dst, nfheader_len);
  
- 	if (unlikely(afinfo == NULL))
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
+ 
+ 	return err;
+ }
+@@ -1666,7 +1661,7 @@ static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 
+ 	err = afinfo->fill_dst(xdst, dev, fl);
+ 
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
+ 
+ 	return err;
+ }
+@@ -2215,7 +2210,7 @@ static struct dst_entry *make_blackhole(struct net *net, u16 family,
+ 	} else {
+ 		ret = afinfo->blackhole_route(net, dst_orig);
+ 	}
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
+ 
+ 	return ret;
+ }
+@@ -2465,7 +2460,7 @@ int __xfrm_decode_session(struct sk_buff *skb, struct flowi *fl,
+ 
+ 	afinfo->decode_session(skb, fl, reverse);
+ 	err = security_xfrm_decode_session(skb, &fl->flowi_secid);
+-	xfrm_policy_put_afinfo(afinfo);
++	rcu_read_unlock();
+ 	return err;
+ }
+ EXPORT_SYMBOL(__xfrm_decode_session);
 -- 
 2.10.2
