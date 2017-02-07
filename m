@@ -1,33 +1,79 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH 1/2] testsuite: skip link show test on big
- endian systems
-Date: Tue, 7 Feb 2017 15:12:49 -0800
-Message-ID: <20170207151249.19de5192@xeon-e3>
-References: <20170207230422.31936-1-phil@nwl.cc>
-        <20170207230422.31936-2-phil@nwl.cc>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH v2] xen-netfront: Improve error handling
+ during initialization
+Date: Tue, 7 Feb 2017 18:33:23 -0500
+Message-ID: <7c5ef464-59c7-e99f-7d79-3ecad6dfd6c3@oracle.com>
+References: <1486479312-18424-1-git-send-email-ross.lagerwall@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34325 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755382AbdBGXM5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 18:12:57 -0500
-Received: by mail-pf0-f179.google.com with SMTP id e4so36489608pfg.1
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 15:12:57 -0800 (PST)
-In-Reply-To: <20170207230422.31936-2-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Juergen Gross <jgross@suse.com>, netdev@vger.kernel.org,
+ wei.liu2@citrix.com, linux-kernel@vger.kernel.org
+To: Ross Lagerwall <ross.lagerwall@citrix.com>, xen-devel@lists.xenproject.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1486479312-18424-1-git-send-email-ross.lagerwall@citrix.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed,  8 Feb 2017 00:04:21 +0100
-Phil Sutter <phil@nwl.cc> wrote:
-
-> Netlink protocol is in host byte order, so the provided binary netlink
-> message buffer being in little endian format will cause the test to fail
-> on big endian systems.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-
-Maybe better to figure out how to generate the files in host order?
+T24gMDIvMDcvMjAxNyAwOTo1NSBBTSwgUm9zcyBMYWdlcndhbGwgd3JvdGU6Cj4gVGhpcyBmaXhl
+cyBhIGNyYXNoIHdoZW4gcnVubmluZyBvdXQgb2YgZ3JhbnQgcmVmcyB3aGVuIGNyZWF0aW5nIG1h
+bnkKPiBxdWV1ZXMgYWNyb3NzIG1hbnkgbmV0ZGV2cy4KPgo+ICogSWYgY3JlYXRpbmcgcXVldWVz
+IGZhaWxzIChpLmUuIHRoZXJlIGFyZSBubyBncmFudCByZWZzIGF2YWlsYWJsZSksCj4gY2FsbCB4
+ZW5idXNfZGV2X2ZhdGFsKCkgdG8gZW5zdXJlIHRoYXQgdGhlIHhlbmJ1cyBkZXZpY2UgaXMgc2V0
+IHRvIHRoZQo+IGNsb3NlZCBzdGF0ZS4KPiAqIElmIG5vIHF1ZXVlcyBhcmUgY3JlYXRlZCwgZG9u
+J3QgY2FsbCB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kIGFzCj4gbmV0ZGV2LT5yZWFsX251bV90
+eF9xdWV1ZXMgd2lsbCBub3QgaGF2ZSBiZWVuIHNldCBjb3JyZWN0bHkuCj4gKiBJZiBzZXR1cF9u
+ZXRmcm9udCgpIGZhaWxzLCBlbnN1cmUgdGhhdCBhbGwgdGhlIHF1ZXVlcyBjcmVhdGVkIGFyZQo+
+IGNsZWFuZWQgdXAsIG5vdCBqdXN0IHRob3NlIHRoYXQgaGF2ZSBiZWVuIHNldCB1cC4KPiAqIElm
+IGFueSBxdWV1ZXMgd2VyZSBzZXQgdXAgYW5kIGFuIGVycm9yIG9jY3VycywgY2FsbAo+IHhlbm5l
+dF9kZXN0cm95X3F1ZXVlcygpIHRvIGNsZWFuIHVwIHRoZSBuYXBpIGNvbnRleHQuCj4gKiBJZiBh
+bnkgZmF0YWwgZXJyb3Igb2NjdXJzLCB1bnJlZ2lzdGVyIGFuZCBkZXN0cm95IHRoZSBuZXRkZXYg
+dG8gYXZvaWQKPiBsZWF2aW5nIGFyb3VuZCBhIGhhbGYgc2V0dXAgbmV0d29yayBkZXZpY2UuCj4K
+PiBTaWduZWQtb2ZmLWJ5OiBSb3NzIExhZ2Vyd2FsbCA8cm9zcy5sYWdlcndhbGxAY2l0cml4LmNv
+bT4KPiAtLS0KPgo+IENoYW5nZWQgaW4gVjI6Cj4gKiBSZXRlc3RlZCBvbiB0b3Agb2YgdjQuMTAt
+cmM3ICsgInhlbi1uZXRmcm9udDogRGVsZXRlIHJ4X3JlZmlsbF90aW1lcgo+ICAgaW4geGVubmV0
+X2Rpc2Nvbm5lY3RfYmFja2VuZCgpIi4KPiAqIERvbid0IG1vdmUgc2V0dXBfdGltZXIgYXMgaXQg
+aXMgbm90IG5lY2Vzc2FyeS4KPgo+ICBkcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYyB8IDMzICsr
+KysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLQo+ICAxIGZpbGUgY2hhbmdlZCwgMTUgaW5z
+ZXJ0aW9ucygrKSwgMTggZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+eGVuLW5ldGZyb250LmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwo+IGluZGV4IDcyMmZl
+OWYuLjUzOTlhODYgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMKPiAr
+KysgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwo+IEBAIC0xODIzLDI3ICsxODIzLDIzIEBA
+IHN0YXRpYyBpbnQgdGFsa190b19uZXRiYWNrKHN0cnVjdCB4ZW5idXNfZGV2aWNlICpkZXYsCj4g
+IAkJeGVubmV0X2Rlc3Ryb3lfcXVldWVzKGluZm8pOwo+ICAKPiAgCWVyciA9IHhlbm5ldF9jcmVh
+dGVfcXVldWVzKGluZm8sICZudW1fcXVldWVzKTsKPiAtCWlmIChlcnIgPCAwKQo+IC0JCWdvdG8g
+ZGVzdHJveV9yaW5nOwo+ICsJaWYgKGVyciA8IDApIHsKPiArCQl4ZW5idXNfZGV2X2ZhdGFsKGRl
+diwgZXJyLCAiY3JlYXRpbmcgcXVldWVzIik7Cj4gKwkJaWYgKG51bV9xdWV1ZXMgPiAwKSB7Cj4g
+KwkJCWdvdG8gZGVzdHJveV9yaW5nOwoKVGhlIG9ubHkgd2F5IGZvciB1cyB0byBoYXZlIChlcnI8
+MCkgJiYgKG51bV9xdWV1ZXM+MCkgaXMgd2hlbiB3ZSBnZXQgYQotRU5PTUVNIHJpZ2h0IGF0IHRo
+ZSB0b3AsIGlzbid0IGl0PyBTbyB0aGVyZSBpcyBub3RoaW5nIHRvIGRpc2Nvbm5lY3Qgb3IKZGVz
+dHJveSwgaXQgc2VlbXMgdG8gbWUuIEFuZCBpZiB0aGF0J3MgdHJ1ZSB5b3UgY2FuIGRpcmVjdGx5
+ICdnb3RvIG91dCcuCgotYm9yaXMKCj4gKwkJfSBlbHNlIHsKPiArCQkJa2ZyZWUoaW5mby0+cXVl
+dWVzKTsKPiArCQkJaW5mby0+cXVldWVzID0gTlVMTDsKPiArCQkJZ290byBvdXQ7Cj4gKwkJfQo+
+ICsJfQo+ICAKPiAgCS8qIENyZWF0ZSBzaGFyZWQgcmluZywgYWxsb2MgZXZlbnQgY2hhbm5lbCAt
+LSBmb3IgZWFjaCBxdWV1ZSAqLwo+ICAJZm9yIChpID0gMDsgaSA8IG51bV9xdWV1ZXM7ICsraSkg
+ewo+ICAJCXF1ZXVlID0gJmluZm8tPnF1ZXVlc1tpXTsKPiAgCQllcnIgPSBzZXR1cF9uZXRmcm9u
+dChkZXYsIHF1ZXVlLCBmZWF0dXJlX3NwbGl0X2V2dGNobik7Cj4gLQkJaWYgKGVycikgewo+IC0J
+CQkvKiBzZXR1cF9uZXRmcm9udCgpIHdpbGwgdGlkeSB1cCB0aGUgY3VycmVudAo+IC0JCQkgKiBx
+dWV1ZSBvbiBlcnJvciwgYnV0IHdlIG5lZWQgdG8gY2xlYW4gdXAKPiAtCQkJICogdGhvc2UgYWxy
+ZWFkeSBhbGxvY2F0ZWQuCj4gLQkJCSAqLwo+IC0JCQlpZiAoaSA+IDApIHsKPiAtCQkJCXJ0bmxf
+bG9jaygpOwo+IC0JCQkJbmV0aWZfc2V0X3JlYWxfbnVtX3R4X3F1ZXVlcyhpbmZvLT5uZXRkZXYs
+IGkpOwo+IC0JCQkJcnRubF91bmxvY2soKTsKPiAtCQkJCWdvdG8gZGVzdHJveV9yaW5nOwo+IC0J
+CQl9IGVsc2Ugewo+IC0JCQkJZ290byBvdXQ7Cj4gLQkJCX0KPiAtCQl9Cj4gKwkJaWYgKGVycikK
+PiArCQkJZ290byBkZXN0cm95X3Jpbmc7Cj4gIAl9Cj4gIAo+ICBhZ2FpbjoKPiBAQCAtMTkzMyw5
+ICsxOTI5LDEwIEBAIHN0YXRpYyBpbnQgdGFsa190b19uZXRiYWNrKHN0cnVjdCB4ZW5idXNfZGV2
+aWNlICpkZXYsCj4gIAl4ZW5idXNfdHJhbnNhY3Rpb25fZW5kKHhidCwgMSk7Cj4gICBkZXN0cm95
+X3Jpbmc6Cj4gIAl4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kKGluZm8pOwo+IC0Ja2ZyZWUoaW5m
+by0+cXVldWVzKTsKPiAtCWluZm8tPnF1ZXVlcyA9IE5VTEw7Cj4gKwl4ZW5uZXRfZGVzdHJveV9x
+dWV1ZXMoaW5mbyk7Cj4gICBvdXQ6Cj4gKwl1bnJlZ2lzdGVyX25ldGRldihpbmZvLT5uZXRkZXYp
+Owo+ICsJeGVubmV0X2ZyZWVfbmV0ZGV2KGluZm8tPm5ldGRldik7Cj4gIAlyZXR1cm4gZXJyOwo+
+ICB9Cj4gIAoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8v
+bGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
