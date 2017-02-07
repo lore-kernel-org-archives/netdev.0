@@ -1,136 +1,75 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 2/3] net: phy: dp83867: Add lane swapping support in
- the DP83867 TI's PHY driver
-Date: Tue, 7 Feb 2017 14:03:15 +0100
-Message-ID: <20170207130315.GC31560@lunn.ch>
-References: <1486444824-12733-1-git-send-email-lukma@denx.de>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH net 2/4] rtl8150: Use heap buffers for all register access
+Date: Tue, 7 Feb 2017 14:01:02 +0100
+Message-ID: <20170207130102.GA24330@kroah.com>
+References: <20170204165451.GU3442@decadent.org.uk>
+ <20170204165631.GW3442@decadent.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6DB027CA6E@AcuExch.aculab.com>
+ <20170206162520.GA3442@decadent.org.uk>
+ <20170207103452.zb4frzltpdjaaf2s@p310>
+ <20170207105131.GA2700@kroah.com>
+ <20170207125324.3mtjthle4pz6344v@p310>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Karicheri Muralidharan <m-karicheri2@ti.com>,
-        linux-kernel@vger.kernel.org, Eric Engestrom <eric@engestrom.ch>,
-        netdev@vger.kernel.org, Kishon Vijay Abraham I <kishon@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: Lukasz Majewski <lukma@denx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>
+To: Petko Manolov <petkan@nucleusys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:49098 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754201AbdBGND2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 08:03:28 -0500
 Content-Disposition: inline
-In-Reply-To: <1486444824-12733-1-git-send-email-lukma@denx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170207125324.3mtjthle4pz6344v@p310>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 06:20:23AM +0100, Lukasz Majewski wrote:
-> This patch adds support for enabling or disabling the lane swapping (called
-> "port mirroring" in PHY's CFG4 register) feature of the DP83867 TI's PHY
-> device.
+On Tue, Feb 07, 2017 at 02:53:24PM +0200, Petko Manolov wrote:
+> On 17-02-07 11:51:31, Greg KH wrote:
+> > On Tue, Feb 07, 2017 at 12:34:52PM +0200, Petko Manolov wrote:
+> > > On 17-02-06 16:25:20, Ben Hutchings wrote:
+> > > > On Mon, Feb 06, 2017 at 04:09:18PM +0000, David Laight wrote:
+> > > > > From: Ben Hutchings
+> > > > [...]
+> > > > > > +	ret = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+> > > > > > +			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
+> > > > > > +			      indx, 0, buf, size, 500);
+> > > > > > +	if (ret > 0 && ret <= size)
+> > > > > > +		memcpy(data, buf, ret);
+> > > > > 
+> > > > > If ret > size something is horridly wrong.
+> > > > > Silently not updating the callers buffer at all cannot be right.
+> > > > 
+> > > > Yes, it seems strange to check this.  I originally wrote this as ret >
+> > > > 0, but then I checked the usbnet core and found __usbnet_read_cmd()
+> > > > has the second comparison as well.
+> > > > 
+> > > > > > +	kfree(buf);
+> > > > > > +	return ret;
+> > > 
+> > > Since we return what usb_control_msg() told us to return i assume the error code 
+> > > will be available to anybody who cares.
+> > > 
+> > > > > I can't help feeling that it would be better to add a wrapper to
+> > > > > usb_control_msg() that does the kmalloc() and memcpy()s and
+> > > > > drop that into all the call sites.
+> > > > 
+> > > > It might be.  Right now I'm trying to patch up a bunch of regressions rather 
+> > > > than argue over an API change.
+> > > 
+> > > Right, first thing first.
+> > > 
+> > > I am in favor of changing the API, but this should not happen in the stable 
+> > > releases.  I hope Greg will make up his mind and let us know.
+> > 
+> > make up my mind about what?  These are bugs, they should be fixed, I'm not 
+> > taking a total api change at this point in time, sorry.
 > 
-> One use case is when bootstrap configuration enables this feature (because
-> of e.g. LED_0 wrong wiring) so then one needs to disable it in software
-> (at u-boot/Linux).
+> Exactly what i said above: " ... shoud not happen in the stable releases".  
 > 
-> Signed-off-by: Lukasz Majewski <lukma@denx.de>
+> Would you consider what David proposed (usb_control_msg_with_malloc()) for 4.11, 
+> for example?  I for one will use something like that in all my drivers.
 
-So it is documented, in a separate patch, which is out of order.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
-
-
-> ---
-> Changes for v3:
-> - Add "line swapping" to the patch description
-> - Add DP83867_PORT_MIRROING_KEEP enum for better code readability
-> 
-> Changes for v2:
-> - use "net-phy-lane-swap" and "net-phy-lane-no-swap" generic PHY properties.
->   instead of TI specific one
-> ---
->  drivers/net/phy/dp83867.c | 38 ++++++++++++++++++++++++++++++++++++++
->  1 file changed, 38 insertions(+)
-> 
-> diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-> index ca1b462..be6fa24 100644
-> --- a/drivers/net/phy/dp83867.c
-> +++ b/drivers/net/phy/dp83867.c
-> @@ -32,6 +32,7 @@
->  #define DP83867_CFG3		0x1e
->  
->  /* Extended Registers */
-> +#define DP83867_CFG4            0x0031
->  #define DP83867_RGMIICTL	0x0032
->  #define DP83867_RGMIIDCTL	0x0086
->  #define DP83867_IO_MUX_CFG	0x0170
-> @@ -70,11 +71,21 @@
->  #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MAX	0x0
->  #define DP83867_IO_MUX_CFG_IO_IMPEDANCE_MIN	0x1f
->  
-> +/* CFG4 bits */
-> +#define DP83867_CFG4_PORT_MIRROR_EN              BIT(0)
-> +
-> +enum {
-> +	DP83867_PORT_MIRROING_KEEP,
-> +	DP83867_PORT_MIRROING_EN,
-> +	DP83867_PORT_MIRROING_DIS,
-> +};
-> +
->  struct dp83867_private {
->  	int rx_id_delay;
->  	int tx_id_delay;
->  	int fifo_depth;
->  	int io_impedance;
-> +	int port_mirroring;
->  };
->  
->  static int dp83867_ack_interrupt(struct phy_device *phydev)
-> @@ -111,6 +122,24 @@ static int dp83867_config_intr(struct phy_device *phydev)
->  	return phy_write(phydev, MII_DP83867_MICR, micr_status);
->  }
->  
-> +static int dp83867_config_port_mirroring(struct phy_device *phydev)
-> +{
-> +	struct dp83867_private *dp83867 =
-> +		(struct dp83867_private *)phydev->priv;
-> +	u16 val;
-> +
-> +	val = phy_read_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR);
-> +
-> +	if (dp83867->port_mirroring == DP83867_PORT_MIRROING_EN)
-> +		val |= DP83867_CFG4_PORT_MIRROR_EN;
-> +	else
-> +		val &= ~DP83867_CFG4_PORT_MIRROR_EN;
-> +
-> +	phy_write_mmd_indirect(phydev, DP83867_CFG4, DP83867_DEVADDR, val);
-> +
-> +	return 0;
-> +}
-> +
->  #ifdef CONFIG_OF_MDIO
->  static int dp83867_of_init(struct phy_device *phydev)
->  {
-> @@ -144,6 +173,12 @@ static int dp83867_of_init(struct phy_device *phydev)
->  	     phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID))
->  		return ret;
->  
-> +	if (of_property_read_bool(of_node, "enet-phy-lane-swap"))
-> +		dp83867->port_mirroring = DP83867_PORT_MIRROING_EN;
-> +
-> +	if (of_property_read_bool(of_node, "enet-phy-lane-no-swap"))
-> +		dp83867->port_mirroring = DP83867_PORT_MIRROING_DIS;
-> +
->  	return of_property_read_u32(of_node, "ti,fifo-depth",
->  				   &dp83867->fifo_depth);
->  }
-> @@ -228,6 +263,9 @@ static int dp83867_config_init(struct phy_device *phydev)
->  		phy_write(phydev, DP83867_CFG3, val);
->  	}
->  
-> +	if (dp83867->port_mirroring != DP83867_PORT_MIRROING_KEEP)
-> +		dp83867_config_port_mirroring(phydev);
-> +
->  	return 0;
->  }
->  
-> -- 
-> 2.1.4
-> 
+Sure, but you might want to make it a bit smaller of a function name :)
