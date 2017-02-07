@@ -1,48 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: remove unnecessary check for
- vtbegin in br_fill_vlan_tinfo_range
-Date: Tue, 07 Feb 2017 14:14:30 -0500 (EST)
-Message-ID: <20170207.141430.837924902975646212.davem@davemloft.net>
-References: <1486478603-38776-1-git-send-email-roopa@cumulusnetworks.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 0/9] mlx4: order-0 allocations and page recycling
+Date: Tue, 7 Feb 2017 11:05:49 -0800
+Message-ID: <20170207190546.GA51444@ast-mbp.thefacebook.com>
+References: <20170207030240.31357-1-edumazet@google.com>
+ <3b996d14-0471-1fa3-e686-15cf48db4c19@gmail.com>
+ <1486483592.7793.56.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1486484783.7793.61.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, dan.carpenter@oracle.com
-To: roopa@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1486478603-38776-1-git-send-email-roopa@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tariq Toukan <ttoukan.linux@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36081 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754585AbdBGTOu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:14:50 -0500
+Received: by mail-pf0-f195.google.com with SMTP id 19so9860382pfo.3
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 11:14:50 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1486484783.7793.61.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Tue,  7 Feb 2017 06:43:23 -0800
+On Tue, Feb 07, 2017 at 08:26:23AM -0800, Eric Dumazet wrote:
+> On Tue, 2017-02-07 at 08:06 -0800, Eric Dumazet wrote:
+>
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> vtbegin should not be NULL in this function, Its already checked by the
-> caller.
-> 
-> this should silence the below smatch complaint:
->   net/bridge/br_netlink_tunnel.c:144 br_fill_vlan_tinfo_range()
->     error: we previously assumed 'vtbegin' could be null (see line 130)
-> 
-> net/bridge/br_netlink_tunnel.c
->    129
->    130      if (vtbegin && vtend && (vtend->vid - vtbegin->vid) > 0) {
->                     ^^^^^^^
-> Check for NULL.
-> 
-> Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
-> Reported-By: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Awesome that you've started working on this. I think it's correct approach
+and mlx5 should be cleaned up in similar way.
+Long term we should be able to move all page alloc/free out of the drivers
+completely.
 
-Applied.
+> >  		/*
+> >  		 * make sure we read the CQE after we read the ownership bit
+> >  		 */
+> >  		dma_rmb();
+> > +		prefetch(frags[0].page);
+> 
+> Note that I would like to instead do a prefetch(frags[1].page)
+
+yeah, this two look weird:
++               prefetch(frags[0].page);
++               va = page_address(frags[0].page) + frags[0].page_offset;
+
+on most archs page_addres() is just math (not a load from memory),
+but the result != frags[0].page, so I'm missing what are you trying to prefetch?
+
+prefetch(frags[1].page)
+is even more confusing. what will it prefetch?
+
+btw we had a patch that was doing prefetch of 'va' of next packet
+and it was very helpful. Like this:
+   pref_index = (index + 1) & ring->size_mask;
+   pref = ring->rx_info + (pref_index << priv->log_rx_info);
+   prefetch(page_address(pref->page) + pref->page_offset);
+
+but since you're redesigning rxing->rx_info... not sure how will it fit.
+
+> So I will probably change how ring->rx_info is allocated
+> 
+> wasting all that space and forcing vmalloc() is silly :
+> 
+> tmp = size * roundup_pow_of_two(MLX4_EN_MAX_RX_FRAGS *
+>                                 sizeof(struct mlx4_en_rx_alloc));
+
+I think you'd still need roundup_pow_of_two otherwise priv->log_rx_info
+optimization won't work.
