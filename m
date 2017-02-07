@@ -1,40 +1,55 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v3 1/2] qed: Add infrastructure for PTP support.
-Date: Tue, 7 Feb 2017 07:44:40 +0100
-Message-ID: <20170207064440.GA1853@localhost.localdomain>
-References: <1485848869-22834-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1485848869-22834-2-git-send-email-Sudarsana.Kalluru@cavium.com>
- <20170202125637.GA3191@netboy>
- <BL2PR07MB2306F69350DA91B9B2A2E3588D4C0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <BL2PR07MB2306BFF942FD6EE54400D1288D400@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: WESTERN FINANCE LOAN <uters.mda@mda.gov.br>
+Subject: =?utf-8?Q?l=C3=A5ne?=
+Date: Tue, 7 Feb 2017 04:39:19 -0200 (BRST)
+Message-ID: <1589954511.403545.1486449559370.JavaMail.zimbra@mda.gov.br>
+Reply-To: "westernfinances@gmail.com" <westernfinances@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "tglx@linutronix.de" <tglx@linutronix.de>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34711 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbdBGGot (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 01:44:49 -0500
-Received: by mail-wr0-f194.google.com with SMTP id 89so4809539wrr.1
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 22:44:48 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <BL2PR07MB2306BFF942FD6EE54400D1288D400@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from mx1.mda.gov.br ([200.198.212.36]:53650 "EHLO mx1.mda.gov.br"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751502AbdBGG7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 01:59:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 06, 2017 at 10:41:44AM +0000, Mintz, Yuval wrote:
-> Richard - we're planning on sending v4 with the existing algorithm
-> [but without iterating on 'val == 0']; If you have any suggestion for
-> improving this, please share it.
 
-Sorry, haven't had the time to look at your issue.
 
-BTW, you said you think the performance impact is small, but did you
-measure it on typical HW?
+God dag,
 
-Thanks,
-Richard
+     =20
+    Vi er WESTERN Regnskap for selskapet =C3=A5 gi ut l=C3=A5n i posten ann=
+onse. Vi tilbyr ulike typer l=C3=A5n (kortsiktige og langsiktige l=C3=A5n, =
+personlige l=C3=A5n, l=C3=A5n til selskaper mv) ved 3% rente. Vi utsteder l=
+=C3=A5n til mennesker i n=C3=B8d ikke uavhengig av hvor de befinner seg, kj=
+=C3=B8nn, sivilstand, utdanning, jobbstatus, men m=C3=A5 ha et lovlige midl=
+er for tilbakebetaling. V=C3=A5re l=C3=A5n varierer mellom 5,000.00 =C3=A5 =
+10,000,000.00 US-Dollar eller Euro eller pund, med en maksimal varighet p=
+=C3=A5 15 =C3=A5r. Hvis du er interessert i mer informasjon, fyll ut skjema=
+et nedenfor og send det til v=C3=A5r e-postadresse: westernfinances@gmail.c=
+om
+
+informasjon som er n=C3=B8dvendig
+
+
+Ditt navn:
+
+Adresse: ...........
+Telefon: ...........
+Bel=C3=B8pet som trengs: .......
+Varighet: ...............
+Okkupasjon: ...........
+M=C3=A5nedlig Inntekt Niv=C3=A5: ......
+Kj=C3=B8nn: ..............
+F=C3=B8dselsdato: .......
+Stat: ...............
+Land: .........
+Hensikt: .........
+
+"Vi viser deg en bedre m=C3=A5te til =C3=B8konomisk frihet"
+
+Med vennlig hilsen,
+
+Mr.Ross McLelland
