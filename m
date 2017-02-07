@@ -1,40 +1,70 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v4 net] bpf: add bpf_sk_netns_id() helper
-Date: Tue, 07 Feb 2017 11:41:40 +0100
-Message-ID: <5899A464.8080508@iogearbox.net>
-References: <1486432968-3255218-1-git-send-email-ast@fb.com>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
+Date: Tue, 7 Feb 2017 11:45:06 +0100
+Message-ID: <20170207104506.GB32583@kroah.com>
+References: <20170204165451.GU3442@decadent.org.uk>
+ <20170204165603.GV3442@decadent.org.uk>
+ <20170205003038.GB21184@kroah.com>
+ <20170206081444.smcgjkmdepxoosb6@p310>
+ <20170206082822.GA23451@kroah.com>
+ <20170206125108.d5vdur5rlvrkpr5j@localhost>
+ <20170206132124.GA3038@localhost>
+ <20170206133223.GC3038@localhost>
+ <20170206134621.GD3038@localhost>
+ <20170207102412.ljwcp5kcmhoagwfn@p310>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>, Tejun Heo <tj@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37924 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753268AbdBGKlu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 05:41:50 -0500
-In-Reply-To: <1486432968-3255218-1-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <johan-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Lisandro =?iso-8859-1?Q?Dami=E1n_Nicanor_P=E9rez?= Meyer
+        <lisandro-8fiUuRrzOP0dnm+yROfE0A@public.gmane.org>
+To: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170207102412.ljwcp5kcmhoagwfn@p310>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/07/2017 03:02 AM, Alexei Starovoitov wrote:
-> in cases where bpf programs are looking at sockets and packets
-> that belong to different netns, it could be useful to get an id
-> that uniquely identify a netns within the whole system.
->
-> Therefore introduce 'u64 bpf_sk_netns_id(sk);' helper. It returns
-> unique value that identifies netns of given socket or dev_net(skb->dev)
-> The upper 32-bits of the return value contain device id where namespace
-> filesystem resides and lower 32-bits contain inode number within that filesystem.
-[...]
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> Reviewed-by: David Ahern <dsa@cumulusnetworks.com>
-> Tested-by: David Ahern <dsa@cumulusnetworks.com>
+On Tue, Feb 07, 2017 at 12:24:12PM +0200, Petko Manolov wrote:
+> On 17-02-06 14:46:21, Johan Hovold wrote:
+> > On Mon, Feb 06, 2017 at 02:32:23PM +0100, Johan Hovold wrote:
+> > > On Mon, Feb 06, 2017 at 02:21:24PM +0100, Johan Hovold wrote:
+> > > > On Mon, Feb 06, 2017 at 02:51:09PM +0200, Petko Manolov wrote:
+> > > > > On 17-02-06 09:28:22, Greg KH wrote:
+> > > > > > On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
+> > > > 
+> > > > > > > Random thought: isn't it better to add the alloc/free code in 
+> > > > > > > usb_control_msg() and avoid code duplication all over the driver space?
+> > > > > > 
+> > > > > > A very long time ago we considered it, but realized that the majority of 
+> > > > > > drivers already had the memory dynamically allocated, so we just went with 
+> > > > > > this.  Perhaps we could revisit that if it turns out we were wrong, and would 
+> > > > > > simplify things.
+> > > > > 
+> > > > > A quick glance at usb_control_msg() users (looked only at .../net/usb and 
+> > > > > .../usb/serial) shows that most of them have the buffer allocated in stack.  
+> > > > 
+> > > > That's simply not true at all for usb-serial. If you find an instance
+> > > > were a stack allocated buffer is used for DMA that hasn't yet been
+> > > > fixed in USB serial, then please point it out so we can fix it up (I
+> > > > doubt you'll find one, though).
+> > > 
+> > > Heh, I just found one myself (in ark3116) that I'll fix up. Please let
+> > > me know if you find any more.
+> > 
+> > False alarm, the ark3116 driver is fine too.
+> 
+> You may want to check pl2303_vendor_read() in drivers/usb/serial/pl2303.c
+> It seems to me that 'buf' is allocated in the stack. ;)
 
-For the BPF bits:
+Really?  Doesn't look like it to me, it's passed in from the caller and
+it's allocated in that caller.  What am I missing here?
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+thanks,
+
+greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
