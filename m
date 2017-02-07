@@ -1,40 +1,38 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] ip route: Make name of protocol 0 consistent
-Date: Tue, 7 Feb 2017 14:51:45 -0700
-Message-ID: <5d4b2d3f-300d-2486-c660-b4704c41cacd@cumulusnetworks.com>
-References: <1486056126-23900-1-git-send-email-dsa@cumulusnetworks.com>
- <20170206140107.41569a73@xeon-e3>
- <5f55d6bb-ef2e-dbb0-c677-006964f1b7fe@cumulusnetworks.com>
- <20170207134035.58fa3fab@xeon-e3>
+From: Bart Van Assche <Bart.VanAssche@sandisk.com>
+Subject: Re: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
+Date: Tue, 7 Feb 2017 21:58:50 +0000
+Message-ID: <1486504716.2581.8.camel@sandisk.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
+         <1486502926.2581.4.camel@sandisk.com>
+         <1828884A29C6694DAF28B7E6B8A82373AB0E5B6C@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
+        "ira.weiny@intel.com" <ira.weiny@intel.com>
+To: "dledford@redhat.com" <dledford@redhat.com>,
+        "sean.hefty@intel.com" <sean.hefty@intel.com>,
+        "niranjana.vishwanathapura@intel.com"
+        <niranjana.vishwanathapura@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35320 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754207AbdBGVvs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:51:48 -0500
-Received: by mail-pf0-f169.google.com with SMTP id f144so36096515pfa.2
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 13:51:47 -0800 (PST)
-In-Reply-To: <20170207134035.58fa3fab@xeon-e3>
+Received: from esa1.hgst.iphmx.com ([68.232.141.245]:44215 "EHLO
+        esa1.hgst.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755409AbdBGV7e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 16:59:34 -0500
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373AB0E5B6C@ORSMSX109.amr.corp.intel.com>
+Content-Language: en-US
+Content-ID: <B95E13BFA1010D45A1220FA2FBB89C67@sandisk.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/7/17 2:40 PM, Stephen Hemminger wrote:
->> Reading the file changes the string in rtnl_rtprot_tab for
->> RTPROT_UNSPEC. Both string values -- "none" and "unspec" come from
->> iproute2, so my point is that string is inconsistent within iproute2.
-> 
-> Why not change the value in the table rtnl_rtprot_tab to be unspec this would
-> make the command consistent with the value in the header file.
-> 
+On Tue, 2017-02-07 at 21:44 +0000, Hefty, Sean wrote:
+> This is Ethernet - not IP - encapsulation over a non-InfiniBand device/protocol.
 
-I flipped a coin; it landed on config file.
+That's more than clear from the cover letter. In my opinion the cover letter
+should explain why it is considered useful to have such a driver upstream
+and what the use cases are of encapsulating Ethernet frames inside RDMA
+packets.
 
-"none" is the value that has shown up for 13+ years unless a custom
-protocol value is used triggering the 'unspec'. Seems to me a custom
-protocol value is a rare event suggesting conformity to "none" over
-"unspsec". I really don't care what the string is, but it should be
-consistent. If you want 'unspec' I'll change rtnl_rtprot_tab
+Bart.
