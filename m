@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 12/12] net: dsa: remove unnecessary phy*.h includes
-Date: Tue,  7 Feb 2017 15:03:05 -0800
-Message-ID: <20170207230305.18222-13-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 07/12] net: mvneta: fix build errors when linux/phy*.h is removed from net/dsa.h
+Date: Tue,  7 Feb 2017 15:03:00 -0800
+Message-ID: <20170207230305.18222-8-f.fainelli@gmail.com>
 References: <20170207230305.18222-1-f.fainelli@gmail.com>
 Cc: Russell King <rmk+kernel@armlinux.org.uk>,
         Andrew Lunn <andrew@lunn.ch>,
@@ -32,63 +32,30 @@ List-Id: netdev.vger.kernel.org
 
 From: Russell King <rmk+kernel@armlinux.org.uk>
 
-Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
-unnecessary dependency for quite a large amount of the kernel.  There's
-very little which actually requires definitions from phy.h in net/dsa.h
-- the include itself only wants the declaration of a couple of
-structures and IFNAMSIZ.
+drivers/net/ethernet/marvell/mvneta.c:2694:26: error: storage size of 'status' isn't known
+drivers/net/ethernet/marvell/mvneta.c:2695:26: error: storage size of 'changed' isn't known
+drivers/net/ethernet/marvell/mvneta.c:2695:9: error: variable 'changed' has initializer but incomplete type
+drivers/net/ethernet/marvell/mvneta.c:2709:2: error: implicit declaration of function 'fixed_phy_update_state' [-Werror=implicit-function-declaration]
 
-Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
-mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
-and phy_fixed.h from net/dsa.h.
+Add linux/phy_fixed.h to mvneta.c
 
-This patch reduces from around 800 files rebuilt to around 40 - even
-with ccache, the time difference is noticable.
-
-Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
- include/net/dsa.h                     | 5 +++--
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 8a21800374f3..91c4dd25c2d3 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -15,6 +15,7 @@
- #include <linux/if_vlan.h>
- #include <linux/irq.h>
- #include <linux/gpio/consumer.h>
-+#include <linux/phy.h>
- 
- #ifndef UINT64_MAX
- #define UINT64_MAX		(u64)(~((u64)0))
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b49b2004891e..4e13e695f025 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -11,17 +11,18 @@
- #ifndef __LINUX_NET_DSA_H
- #define __LINUX_NET_DSA_H
- 
-+#include <linux/if.h>
- #include <linux/if_ether.h>
- #include <linux/list.h>
- #include <linux/notifier.h>
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- #include <linux/of.h>
--#include <linux/phy.h>
--#include <linux/phy_fixed.h>
- #include <linux/ethtool.h>
- 
- struct tc_action;
-+struct phy_device;
-+struct fixed_phy_status;
- 
- enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_NONE = 0,
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 0f4d1697be46..fdf71720e707 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -28,6 +28,7 @@
+ #include <linux/of_mdio.h>
+ #include <linux/of_net.h>
+ #include <linux/phy.h>
++#include <linux/phy_fixed.h>
+ #include <linux/platform_device.h>
+ #include <linux/skbuff.h>
+ #include <net/hwbm.h>
 -- 
 2.9.3
