@@ -1,36 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC net-next] net: phy: Allow splitting MDIO bus/device support
- from PHYs
-Date: Mon, 6 Feb 2017 16:01:27 -0800
-Message-ID: <34f35da1-086a-0809-b962-7d0dbcf9df8d@gmail.com>
-References: <20170131032931.1494-1-f.fainelli@gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH v3 net] bpf: add bpf_sk_netns_id() helper
+Date: Mon, 6 Feb 2017 16:02:55 -0800
+Message-ID: <58990EAF.6010205@fb.com>
+References: <1486179240-3574802-1-git-send-email-ast@fb.com>
+ <58990917.8000406@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
-        rmk+kernel@armlinux.org.uk
+Cc: David Ahern <dsa@cumulusnetworks.com>, Tejun Heo <tj@kernel.org>,
+        "Andy Lutomirski" <luto@amacapital.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35081 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdBGAB3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 19:01:29 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 204so10326694pge.2
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 16:01:29 -0800 (PST)
-In-Reply-To: <20170131032931.1494-1-f.fainelli@gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33542 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751545AbdBGADX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 6 Feb 2017 19:03:23 -0500
+In-Reply-To: <58990917.8000406@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2017 07:29 PM, Florian Fainelli wrote:
-> Introduce a new configuration symbol: MDIO_DEVICE which allows building
-> the MDIO devices and bus code, without pulling in the entire Ethernet
-> PHY library and devices code.
-> 
-> PHYLIB nows select MDIO_DEVICE and the relevant Makefile files are
-> updated to reflect that.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+On 2/6/17 3:39 PM, Daniel Borkmann wrote:
+> On 02/04/2017 04:34 AM, Alexei Starovoitov wrote:
+> [...]
+>> +BPF_CALL_1(bpf_skb_netns_id, struct sk_buff *, skb)
+>> +{
+>> +    struct net_device *dev = skb->dev;
+>> +
+>> +    if (!dev)
+>> +        return 0;
+>> +    return proc_get_ns_devid_inum(&dev_net(dev)->ns);
+>> +}
+>> +
+>> +static const struct bpf_func_proto bpf_skb_netns_id_proto = {
+>> +    .func        = bpf_skb_netns_id,
+>> +    .gpl_only    = false,
+>> +    .ret_type    = RET_INTEGER,
+>> +    .arg1_type    = ARG_PTR_TO_CTX,
+>> +};
+>> +
+>>   static const struct bpf_func_proto *
+>>   sk_filter_func_proto(enum bpf_func_id func_id)
+>>   {
+>> @@ -2620,6 +2649,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
+>>       case BPF_FUNC_trace_printk:
+>>           if (capable(CAP_SYS_ADMIN))
+>>               return bpf_get_trace_printk_proto();
+>> +    case BPF_FUNC_sk_netns_id:
+>> +        return &bpf_skb_netns_id_proto;
+>>       default:
+>>           return NULL;
+>>       }
+>
+> Btw, I think here's an oversight that would still need to be
+> fixed. Above would mean that trace printk from unprivileged would
+> fall through and use &bpf_skb_netns_id_proto as proto now instead
+> of NULL. So BPF_FUNC_sk_netns_id needs to be placed above the
+> BPF_FUNC_trace_printk case, not in its fall-through path. Looks
+> like Chenbo in his get_socket_cookie missed this, too. Other than
+> that BPF bits seem good to me.
 
-Andrew, Russell, does that seem sensible to you, shall I re-submit this
-as a proper patch?
--- 
-Florian
+Ahh, right. Good catch.
+I'll add 'else return NULL;' otherwise somebody might step on it again.
+Thanks Daniel!
+
+Eric,
+still waiting for your review of nsfs.c bits.
