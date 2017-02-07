@@ -1,192 +1,237 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next PATCH v2 5/5] virtio_net: XDP support for adjust_head
-Date: Tue, 7 Feb 2017 10:23:23 +0800
-Message-ID: <abeb882e-0b44-12d6-d30d-d037c0813941@redhat.com>
-References: <20170203031251.23054.25387.stgit@john-Precision-Tower-5810>
- <20170203031629.23054.25622.stgit@john-Precision-Tower-5810>
- <993d31de-57d9-fb7f-568e-c18fc9fadbc6@redhat.com>
- <5898CEB7.1020509@gmail.com>
+From: =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens@rwth-aachen.de>
+Subject: [PATCH v2 1/2] sierra_net: Add support for IPv6 and Dual-Stack Link Sense Indications
+Date: Tue, 7 Feb 2017 03:33:16 +0100
+Message-ID: <94f1dec53f614c76802adf350f495922@rwthex-w2-b.rwth-ad.de>
+References: <20170207023317.29192-1-stefan.bruens@rwth-aachen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>, kubakici@wp.pl,
-        ast@fb.com, mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47560 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752565AbdBGCX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 6 Feb 2017 21:23:29 -0500
-In-Reply-To: <5898CEB7.1020509@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens@rwth-aachen.de>
+To: <linux-usb@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170207023317.29192-1-stefan.bruens@rwth-aachen.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+If a context is configured as dualstack ("IPv4v6"), the modem indicates
+the context activation with a slightly different indication message.
+The dual-stack indication omits the link_type (IPv4/v6) and adds
+additional address fields.
+IPv6 LSIs are identical to IPv4 LSIs, but have a different link type.
 
+Signed-off-by: Stefan Brüns <stefan.bruens@rwth-aachen.de>
+---
+v2: Do not overwrite protocol field in rx_fixup
 
-On 2017年02月07日 03:29, John Fastabend wrote:
-> On 17-02-05 11:08 PM, Jason Wang wrote:
->>
->> On 2017年02月03日 11:16, John Fastabend wrote:
->>> Add support for XDP adjust head by allocating a 256B header region
->>> that XDP programs can grow into. This is only enabled when a XDP
->>> program is loaded.
->>>
->>> In order to ensure that we do not have to unwind queue headroom push
->>> queue setup below bpf_prog_add. It reads better to do a prog ref
->>> unwind vs another queue setup call.
->>>
->>> At the moment this code must do a full reset to ensure old buffers
->>> without headroom on program add or with headroom on program removal
->>> are not used incorrectly in the datapath. Ideally we would only
->>> have to disable/enable the RX queues being updated but there is no
->>> API to do this at the moment in virtio so use the big hammer. In
->>> practice it is likely not that big of a problem as this will only
->>> happen when XDP is enabled/disabled changing programs does not
->>> require the reset. There is some risk that the driver may either
->>> have an allocation failure or for some reason fail to correctly
->>> negotiate with the underlying backend in this case the driver will
->>> be left uninitialized. I have not seen this ever happen on my test
->>> systems and for what its worth this same failure case can occur
->>> from probe and other contexts in virtio framework.
->>>
->>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->>> ---
->
-> [...]
->
->>> @@ -412,7 +418,6 @@ static struct sk_buff *receive_small(struct net_device *dev,
->>>        struct bpf_prog *xdp_prog;
->>>          len -= vi->hdr_len;
->>> -    skb_trim(skb, len);
->>>          rcu_read_lock();
->>>        xdp_prog = rcu_dereference(rq->xdp_prog);
->>> @@ -424,12 +429,16 @@ static struct sk_buff *receive_small(struct net_device
->>> *dev,
->>>            if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
->>>                goto err_xdp;
->>>    -        xdp.data = skb->data;
->>> +        xdp.data_hard_start = skb->data;
->>> +        xdp.data = skb->data + VIRTIO_XDP_HEADROOM;
->>>            xdp.data_end = xdp.data + len;
->>>            act = bpf_prog_run_xdp(xdp_prog, &xdp);
->>>              switch (act) {
->>>            case XDP_PASS:
->>> +            /* Recalculate length in case bpf program changed it */
->>> +            __skb_pull(skb, xdp.data - xdp.data_hard_start);
->> But skb->len were trimmed to len below which seems wrong.
-> I believe this is correct and it passes my basic iperf/ping tests.
->
-> When we are using small buffers with XDP, skb->data is pointing to the front
-> of the buffer. This space includes the XDP headroom. When we pass the skb up
-> to the stack we need to pull this off and point to the start of the data. But
-> there still is likely a bunch of room at the end of the buffer assuming the
-> packet is smaller than the buffer side.
->
->>> +            len = xdp.data_end - xdp.data;
->>>                break;
->>>            case XDP_TX:
->>>                if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, skb)))
->>> @@ -446,6 +455,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
->>>        }
->>>        rcu_read_unlock();
->>>    +    skb_trim(skb, len);
-> So here we trim the packet to set the length to the actual payload size. The
-> 'len' parameter passed into receive_small does not include the headroom so this
-> gives us the correct length of the payload.
->
-> Make sense?
+Example LSI LINK UP indication:
 
-Yes, you are right.
+0000   00 ed 78 00 04 01 00 e9 0a 14 00 54 00 65 00 6c  ..x........T.e.l
+0010   00 65 00 6b 00 6f 00 6d 00 2e 00 64 00 65 48 03  .e.k.o.m...d.eH.
+0020   c8 be d1 00 62 00 00 00 2c 80 f0 01 00 00 00 00  ....b...,.......
+0030   30 cb 04 4c 49 4e 4b 20 55 50 00 00 00 00 00 00  0..LINK UP......
+0040   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0050   00 00 00 00 04 0a 23 38 db 10 2a 01 05 98 88 c0  ......#8..*.....
+0060   1f da 00 01 00 01 91 23 a8 f9 00 00 00 00 00 00  .......#........
+0070   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0080   00 04 0a 4a d2 d2 10 2a 01 05 98 07 ff 00 00 00  ...J...*........
+0090   10 00 74 02 10 02 10 04 0a 4a d2 d3 10 2a 01 05  ..t......J...*..
+00a0   98 07 ff 00 00 00 10 00 74 02 10 02 11 00 00 00  ........t.......
+00b0   00 00 00 00 00 00 00 00 00 00 00 00 00 ff ff 00  ................
+00c0   00 00 00 00 00 c3 50 04 00 00 00 00 10 fe 80 00  ......P.........
+00d0   00 00 00 00 00 00 00 00 00 00 00 00 05 00 00 00  ................
+00e0   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+00f0   00
+---
+ drivers/net/usb/sierra_net.c | 100 ++++++++++++++++++++++++++++---------------
+ 1 file changed, 66 insertions(+), 34 deletions(-)
 
->
->>>        return skb;
->>>      err_xdp:
-> [...]
->
->>> @@ -569,7 +580,7 @@ static struct sk_buff *receive_mergeable(struct net_device
->>> *dev,
->>>                                  page, offset, &len);
->>>                if (!xdp_page)
->>>                    goto err_xdp;
->>> -            offset = 0;
->>> +            offset = VIRTIO_XDP_HEADROOM;
->>>            } else {
->>>                xdp_page = page;
->>>            }
->>> @@ -582,19 +593,30 @@ static struct sk_buff *receive_mergeable(struct
->>> net_device *dev,
->>>            if (unlikely(hdr->hdr.gso_type))
->>>                goto err_xdp;
->>>    +        /* Allow consuming headroom but reserve enough space to push
->>> +         * the descriptor on if we get an XDP_TX return code.
->>> +         */
->>>            data = page_address(xdp_page) + offset;
->>> +        xdp.data_hard_start = data - VIRTIO_XDP_HEADROOM + vi->hdr_len;
->> Should be data - VIRTIO_XDP_HEADROOM I think?
->>
-> If the XDP program does an adjust_head() and then a XDP_TX I want to ensure
-> we reserve enough headroom to push the header onto the buffer when the packet
-> is sent. So the additional hdr_len reserve here is intentional. Otherwise we
-> would need to detect this and do some type of linearize action.
-
-I get the point.
-
->
->>>            xdp.data = data + vi->hdr_len;
->>>            xdp.data_end = xdp.data + (len - vi->hdr_len);
->>>            act = bpf_prog_run_xdp(xdp_prog, &xdp);
->>>              switch (act) {
->>>            case XDP_PASS:
->>> +            /* recalculate offset to account for any header
->>> +             * adjustments. Note other cases do not build an
->>> +             * skb and avoid using offset
->>> +             */
->>> +            offset = xdp.data -
->>> +                    page_address(xdp_page) - vi->hdr_len;
->>> +
->>>                /* We can only create skb based on xdp_page. */
->>>                if (unlikely(xdp_page != page)) {
->>>                    rcu_read_unlock();
->>>                    put_page(page);
->>>                    head_skb = page_to_skb(vi, rq, xdp_page,
->>> -                               0, len, PAGE_SIZE);
->>> +                               offset, len, PAGE_SIZE);
->>>                    ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
->>>                    return head_skb;
-> [...]
->
->>>    -static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
->>> +static int add_recvbuf_mergeable(struct virtnet_info *vi,
->>> +                 struct receive_queue *rq, gfp_t gfp)
->>>    {
->>>        struct page_frag *alloc_frag = &rq->alloc_frag;
->>> +    unsigned int headroom = virtnet_get_headroom(vi);
->>>        char *buf;
->>>        unsigned long ctx;
->>>        int err;
->>>        unsigned int len, hole;
->>>          len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
->>> -    if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
->>> +    if (unlikely(!skb_page_frag_refill(len + headroom, alloc_frag, gfp)))
->>>            return -ENOMEM;
->>>          buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
->>> +    buf += headroom; /* advance address leaving hole at front of pkt */
->> Note: the headroom will reduce the possibility of frag coalescing which may
->> damage the performance more or less.
->>
->> [...]
-> Right there are a few other performance optimizations I am looking at in
-> virtio as well but these should go in as follow on series.
->
-> Specifically, I'm looking at recycling buffers to see what sort of performance
-> increase we can get out of that. Many of the hardware drivers do this and see
-> a performance boost from it. However dynamic buffer sizes like this make it a
-> bit challenging.
->
-> .John
-
-Right.
-
-Acked-by: Jason Wang <jasowang@redhat.com>
-
-Thanks
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
+index a251588762ec..977afe74ed54 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -73,8 +73,6 @@ static	atomic_t iface_counter = ATOMIC_INIT(0);
+ /* Private data structure */
+ struct sierra_net_data {
+ 
+-	u8 ethr_hdr_tmpl[ETH_HLEN]; /* ethernet header template for rx'd pkts */
+-
+ 	u16 link_up;		/* air link up or down */
+ 	u8 tx_hdr_template[4];	/* part of HIP hdr for tx'd packets */
+ 
+@@ -122,6 +120,7 @@ struct param {
+ 
+ /* LSI Protocol types */
+ #define SIERRA_NET_PROTOCOL_UMTS      0x01
++#define SIERRA_NET_PROTOCOL_UMTS_DS   0x04
+ /* LSI Coverage */
+ #define SIERRA_NET_COVERAGE_NONE      0x00
+ #define SIERRA_NET_COVERAGE_NOPACKET  0x01
+@@ -129,7 +128,8 @@ struct param {
+ /* LSI Session */
+ #define SIERRA_NET_SESSION_IDLE       0x00
+ /* LSI Link types */
+-#define SIERRA_NET_AS_LINK_TYPE_IPv4  0x00
++#define SIERRA_NET_AS_LINK_TYPE_IPV4  0x00
++#define SIERRA_NET_AS_LINK_TYPE_IPV6  0x02
+ 
+ struct lsi_umts {
+ 	u8 protocol;
+@@ -137,9 +137,14 @@ struct lsi_umts {
+ 	__be16 length;
+ 	/* eventually use a union for the rest - assume umts for now */
+ 	u8 coverage;
+-	u8 unused2[41];
++	u8 network_len; /* network name len */
++	u8 network[40]; /* network name (UCS2, bigendian) */
+ 	u8 session_state;
+ 	u8 unused3[33];
++} __packed;
++
++struct lsi_umts_single {
++	struct lsi_umts lsi;
+ 	u8 link_type;
+ 	u8 pdp_addr_len; /* NW-supplied PDP address len */
+ 	u8 pdp_addr[16]; /* NW-supplied PDP address (bigendian)) */
+@@ -158,10 +163,31 @@ struct lsi_umts {
+ 	u8 reserved[8];
+ } __packed;
+ 
++struct lsi_umts_dual {
++	struct lsi_umts lsi;
++	u8 pdp_addr4_len; /* NW-supplied PDP IPv4 address len */
++	u8 pdp_addr4[4];  /* NW-supplied PDP IPv4 address (bigendian)) */
++	u8 pdp_addr6_len; /* NW-supplied PDP IPv6 address len */
++	u8 pdp_addr6[16]; /* NW-supplied PDP IPv6 address (bigendian)) */
++	u8 unused4[23];
++	u8 dns1_addr4_len; /* NW-supplied 1st DNS v4 address len (bigendian) */
++	u8 dns1_addr4[4];  /* NW-supplied 1st DNS v4 address */
++	u8 dns1_addr6_len; /* NW-supplied 1st DNS v6 address len */
++	u8 dns1_addr6[16]; /* NW-supplied 1st DNS v6 address (bigendian)*/
++	u8 dns2_addr4_len; /* NW-supplied 2nd DNS v4 address len (bigendian) */
++	u8 dns2_addr4[4];  /* NW-supplied 2nd DNS v4 address */
++	u8 dns2_addr6_len; /* NW-supplied 2nd DNS v6 address len */
++	u8 dns2_addr6[16]; /* NW-supplied 2nd DNS v6 address (bigendian)*/
++	u8 unused5[68];
++} __packed;
++
+ #define SIERRA_NET_LSI_COMMON_LEN      4
+-#define SIERRA_NET_LSI_UMTS_LEN        (sizeof(struct lsi_umts))
++#define SIERRA_NET_LSI_UMTS_LEN        (sizeof(struct lsi_umts_single))
+ #define SIERRA_NET_LSI_UMTS_STATUS_LEN \
+ 	(SIERRA_NET_LSI_UMTS_LEN - SIERRA_NET_LSI_COMMON_LEN)
++#define SIERRA_NET_LSI_UMTS_DS_LEN     (sizeof(struct lsi_umts_dual))
++#define SIERRA_NET_LSI_UMTS_DS_STATUS_LEN \
++	(SIERRA_NET_LSI_UMTS_DS_LEN - SIERRA_NET_LSI_COMMON_LEN)
+ 
+ /* Forward definitions */
+ static void sierra_sync_timer(unsigned long syncdata);
+@@ -191,10 +217,11 @@ static inline void sierra_net_set_private(struct usbnet *dev,
+ 	dev->data[0] = (unsigned long)priv;
+ }
+ 
+-/* is packet IPv4 */
++/* is packet IPv4/IPv6 */
+ static inline int is_ip(struct sk_buff *skb)
+ {
+-	return skb->protocol == cpu_to_be16(ETH_P_IP);
++	return skb->protocol == cpu_to_be16(ETH_P_IP) ||
++	       skb->protocol == cpu_to_be16(ETH_P_IPV6);
+ }
+ 
+ /*
+@@ -350,38 +377,43 @@ static inline int sierra_net_is_valid_addrlen(u8 len)
+ static int sierra_net_parse_lsi(struct usbnet *dev, char *data, int datalen)
+ {
+ 	struct lsi_umts *lsi = (struct lsi_umts *)data;
++	u32 expected_length;
+ 
+-	if (datalen < sizeof(struct lsi_umts)) {
+-		netdev_err(dev->net, "%s: Data length %d, exp %Zu\n",
+-				__func__, datalen,
+-				sizeof(struct lsi_umts));
+-		return -1;
+-	}
+-
+-	if (lsi->length != cpu_to_be16(SIERRA_NET_LSI_UMTS_STATUS_LEN)) {
+-		netdev_err(dev->net, "%s: LSI_UMTS_STATUS_LEN %d, exp %u\n",
+-				__func__, be16_to_cpu(lsi->length),
+-				(u32)SIERRA_NET_LSI_UMTS_STATUS_LEN);
++	if (datalen < sizeof(struct lsi_umts_single)) {
++		netdev_err(dev->net, "%s: Data length %d, exp >= %Zu\n",
++			   __func__, datalen, sizeof(struct lsi_umts_single));
+ 		return -1;
+ 	}
+ 
+ 	/* Validate the protocol  - only support UMTS for now */
+-	if (lsi->protocol != SIERRA_NET_PROTOCOL_UMTS) {
++	if (lsi->protocol == SIERRA_NET_PROTOCOL_UMTS) {
++		struct lsi_umts_single *single = (struct lsi_umts_single *)lsi;
++
++		/* Validate the link type */
++		if (single->link_type != SIERRA_NET_AS_LINK_TYPE_IPV4 &&
++		    single->link_type != SIERRA_NET_AS_LINK_TYPE_IPV6) {
++			netdev_err(dev->net, "Link type unsupported: 0x%02x\n",
++				   single->link_type);
++			return -1;
++		}
++		expected_length = SIERRA_NET_LSI_UMTS_STATUS_LEN;
++	} else if (lsi->protocol == SIERRA_NET_PROTOCOL_UMTS_DS) {
++		expected_length = SIERRA_NET_LSI_UMTS_DS_STATUS_LEN;
++	} else {
+ 		netdev_err(dev->net, "Protocol unsupported, 0x%02x\n",
+-			lsi->protocol);
++			   lsi->protocol);
+ 		return -1;
+ 	}
+ 
+-	/* Validate the link type */
+-	if (lsi->link_type != SIERRA_NET_AS_LINK_TYPE_IPv4) {
+-		netdev_err(dev->net, "Link type unsupported: 0x%02x\n",
+-			lsi->link_type);
++	if (be16_to_cpu(lsi->length) != expected_length) {
++		netdev_err(dev->net, "%s: LSI_UMTS_STATUS_LEN %d, exp %u\n",
++			   __func__, be16_to_cpu(lsi->length), expected_length);
+ 		return -1;
+ 	}
+ 
+ 	/* Validate the coverage */
+-	if (lsi->coverage == SIERRA_NET_COVERAGE_NONE
+-	   || lsi->coverage == SIERRA_NET_COVERAGE_NOPACKET) {
++	if (lsi->coverage == SIERRA_NET_COVERAGE_NONE ||
++	    lsi->coverage == SIERRA_NET_COVERAGE_NOPACKET) {
+ 		netdev_err(dev->net, "No coverage, 0x%02x\n", lsi->coverage);
+ 		return 0;
+ 	}
+@@ -700,11 +732,6 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	dev->net->dev_addr[ETH_ALEN-2] = atomic_inc_return(&iface_counter);
+ 	dev->net->dev_addr[ETH_ALEN-1] = ifacenum;
+ 
+-	/* we will have to manufacture ethernet headers, prepare template */
+-	eth = (struct ethhdr *)priv->ethr_hdr_tmpl;
+-	memcpy(&eth->h_dest, dev->net->dev_addr, ETH_ALEN);
+-	eth->h_proto = cpu_to_be16(ETH_P_IP);
+-
+ 	/* prepare shutdown message template */
+ 	memcpy(priv->shdwn_msg, shdwn_tmplate, sizeof(priv->shdwn_msg));
+ 	/* set context index initially to 0 - prepares tx hdr template */
+@@ -833,9 +860,14 @@ static int sierra_net_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 
+ 		skb_pull(skb, hh.hdrlen);
+ 
+-		/* We are going to accept this packet, prepare it */
+-		memcpy(skb->data, sierra_net_get_private(dev)->ethr_hdr_tmpl,
+-			ETH_HLEN);
++		/* We are going to accept this packet, prepare it.
++		 * In case protocol is IPv6, keep it, otherwise force IPv4.
++		 */
++		skb_reset_mac_header(skb);
++		if (eth_hdr(skb)->h_proto != cpu_to_be16(ETH_P_IPV6))
++			eth_hdr(skb)->h_proto = cpu_to_be16(ETH_P_IP);
++		eth_zero_addr(eth_hdr(skb)->h_source);
++		memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
+ 
+ 		/* Last packet in batch handled by usbnet */
+ 		if (hh.payload_len.word == skb->len)
+-- 
+2.11.0
