@@ -1,47 +1,47 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) interface
-Date: Tue, 7 Feb 2017 15:19:25 -0700
-Message-ID: <20170207221925.GA30579@obsidianresearch.com>
-References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170207211901.GB28922@obsidianresearch.com>
- <20170207220628.GB76652@knc-06.sc.intel.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip route: Make name of protocol 0 consistent
+Date: Tue, 7 Feb 2017 14:19:07 -0800
+Message-ID: <20170207141907.175b89a7@xeon-e3>
+References: <1486056126-23900-1-git-send-email-dsa@cumulusnetworks.com>
+        <20170206140107.41569a73@xeon-e3>
+        <5f55d6bb-ef2e-dbb0-c677-006964f1b7fe@cumulusnetworks.com>
+        <20170207134035.58fa3fab@xeon-e3>
+        <5d4b2d3f-300d-2486-c660-b4704c41cacd@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, dennis.dalessandro@intel.com,
-        ira.weiny@intel.com, Liran Liss <liranl@mellanox.com>
-To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:35255 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932313AbdBGWT3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 17:19:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20170207220628.GB76652@knc-06.sc.intel.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:34045 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932387AbdBGWTa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 17:19:30 -0500
+Received: by mail-pf0-f169.google.com with SMTP id e4so36173238pfg.1
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 14:19:20 -0800 (PST)
+In-Reply-To: <5d4b2d3f-300d-2486-c660-b4704c41cacd@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 02:06:30PM -0800, Vishwanathapura, Niranjana wrote:
+On Tue, 7 Feb 2017 14:51:45 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-> >> 	IB_DEVICE_RAW_SCATTER_FCS		= (1ULL << 34),
-> >>+	IB_DEVICE_RDMA_NETDEV_HFI_VNIC		= (1ULL << 35),
-> >
-> >What is this called HFI_VNIC anyhow? Shouldn't this be OPA_VNIC? There
-> >is nothing really HFI specific, right?
+> On 2/7/17 2:40 PM, Stephen Hemminger wrote:
+> >> Reading the file changes the string in rtnl_rtprot_tab for
+> >> RTPROT_UNSPEC. Both string values -- "none" and "unspec" come from
+> >> iproute2, so my point is that string is inconsistent within iproute2.  
+> > 
+> > Why not change the value in the table rtnl_rtprot_tab to be unspec this would
+> > make the command consistent with the value in the header file.
+> >   
 > 
-> Agreed, OPA_VNIC is more appropriate here. Will change it.
-
-And probably lots of other places too.. :)
-
-
-> >And this should be rn->dev_priv ?
+> I flipped a coin; it landed on config file.
 > 
-> Yah, both will result in same behavior. But yah, what you are suggesting
-> will remove any confusion. Will change in next PATCH series.
+> "none" is the value that has shown up for 13+ years unless a custom
+> protocol value is used triggering the 'unspec'. Seems to me a custom
+> protocol value is a rare event suggesting conformity to "none" over
+> "unspsec". I really don't care what the string is, but it should be
+> consistent. If you want 'unspec' I'll change rtnl_rtprot_tab
 
-Only because the struct has no members, as soon as someone adds
-something it would go booom.
-
-Jason
+Agree it was a coin toss, there were two values in iproute2, but the
+kernel header file enum value should supersede.
