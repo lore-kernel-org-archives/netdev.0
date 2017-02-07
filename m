@@ -1,8 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 3/4] doc/bpf: describes the different types of eBPF
- maps available
-Date: Tue, 07 Feb 2017 15:30:27 +0100
-Message-ID: <148647782713.10567.13108187306600978138.stgit@localhost>
+Subject: [net-next PATCH 2/4] doc/bpf: document interacting with eBPF maps
+Date: Tue, 07 Feb 2017 15:30:22 +0100
+Message-ID: <148647782206.10567.16235671715611188966.stgit@localhost>
 References: <148647756092.10567.10947541548678801938.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,168 +17,290 @@ In-Reply-To: <148647756092.10567.10947541548678801938.stgit@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The purpose is to help choose the right map type based on the
-individual use-case.
+Describe what eBPF maps are, how to create them, and how to
+interact with them.
 
-To start with, only BPF_MAP_TYPE_ARRAY is described. It is the plan
-that all types should have descriptions here.
+Thanks to Quentin Monnet <quentin.monnet@6wind.com> for improving
+this document by fixing many typos and early review.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- Documentation/bpf/ebpf_maps.rst       |    3 +
- Documentation/bpf/ebpf_maps_types.rst |  119 +++++++++++++++++++++++++++++++++
- Documentation/bpf/index.rst           |    1 
- 3 files changed, 122 insertions(+), 1 deletion(-)
- create mode 100644 Documentation/bpf/ebpf_maps_types.rst
+ Documentation/bpf/ebpf_maps.rst |  255 +++++++++++++++++++++++++++++++++++++++
+ Documentation/bpf/index.rst     |    2 
+ 2 files changed, 257 insertions(+)
+ create mode 100644 Documentation/bpf/ebpf_maps.rst
 
 diff --git a/Documentation/bpf/ebpf_maps.rst b/Documentation/bpf/ebpf_maps.rst
-index b8808f3bc31c..a5ba49f07cf5 100644
---- a/Documentation/bpf/ebpf_maps.rst
-+++ b/Documentation/bpf/ebpf_maps.rst
-@@ -4,7 +4,8 @@ eBPF maps
- 
- This document describes what eBPF maps are, how you create them
- (`Creating a map`_), and how to interact with them (`Interacting with
--maps`_).
-+maps`_).  The different map types available are described here:
-+:doc:`ebpf_maps_types`.
- 
- Using eBPF maps is a method to keep state between invocations of the
- eBPF program, and allows sharing data between eBPF kernel programs,
-diff --git a/Documentation/bpf/ebpf_maps_types.rst b/Documentation/bpf/ebpf_maps_types.rst
 new file mode 100644
-index 000000000000..82136efecb04
+index 000000000000..b8808f3bc31c
 --- /dev/null
-+++ b/Documentation/bpf/ebpf_maps_types.rst
-@@ -0,0 +1,119 @@
-+==================
-+Types of eBPF maps
-+==================
++++ b/Documentation/bpf/ebpf_maps.rst
+@@ -0,0 +1,255 @@
++=========
++eBPF maps
++=========
 +
-+This document describes the different types of eBPF maps available,
-+and goes into details about the individual map types.  The purpose is
-+to help choose the right type based on the individual use-case.
-+Creating and interacting with maps are described in another document
-+here: :doc:`ebpf_maps`.
++This document describes what eBPF maps are, how you create them
++(`Creating a map`_), and how to interact with them (`Interacting with
++maps`_).
 +
-+The different types of maps available, are defined by ``enum
-+bpf_map_type`` in include/uapi/linux/bpf.h.  These type definition
-+"names" are needed when creating the map. Example of ``bpf_map_type``,
-+but remember to `lookup latest`_ available maps in the source code.
++Using eBPF maps is a method to keep state between invocations of the
++eBPF program, and allows sharing data between eBPF kernel programs,
++and also between kernel and user-space applications.
++
++Basically a key/value store with arbitrary structure (from man-page
++`bpf(2)`_):
++
++ eBPF maps are a generic data structure for storage of different data
++ types.  Data types are generally treated as binary blobs, so a user
++ just specifies the size of the key and the size of the value at
++ map-creation time.  In other words, a key/value for a given map can
++ have an arbitrary structure.
++
++The map handles are file descriptors, and multiple maps can be created
++and accessed by multiple programs (from man-page `bpf(2)`_):
++
++ A user process can create multiple maps (with key/value-pairs being
++ opaque bytes of data) and access them via file descriptors.
++ Different eBPF programs can access the same maps in parallel.  It's
++ up to the user process and eBPF program to decide what they store
++ inside maps.
++
++.. _`Creating a map`:
++
++Creating a map
++==============
++
++A map is created based on a request from userspace, via the `bpf`_
++syscall (specifically `bpf_cmd`_ BPF_MAP_CREATE), which returns a new
++file descriptor that refers to the map.  On error, -1 is returned and
++errno is set to EINVAL, EPERM, or ENOMEM. These are the struct
++``bpf_attr`` setup arguments to use when creating a map via the
++syscall:
 +
 +.. code-block:: c
 +
-+ enum bpf_map_type {
-+	BPF_MAP_TYPE_UNSPEC,
-+	BPF_MAP_TYPE_HASH,
-+	BPF_MAP_TYPE_ARRAY,
-+	BPF_MAP_TYPE_PROG_ARRAY,
-+	BPF_MAP_TYPE_PERF_EVENT_ARRAY,
-+	BPF_MAP_TYPE_PERCPU_HASH,
-+	BPF_MAP_TYPE_PERCPU_ARRAY,
-+	BPF_MAP_TYPE_STACK_TRACE,
-+	BPF_MAP_TYPE_CGROUP_ARRAY,
-+	BPF_MAP_TYPE_LRU_HASH,
-+	BPF_MAP_TYPE_LRU_PERCPU_HASH,
-+ };
++ bpf(BPF_MAP_CREATE, &bpf_attr, sizeof(bpf_attr));
++
++Notice how this kernel ABI is extensible, as more struct arguments can
++easily be added later as the sizeof(bpf_attr) is passed along to the
++syscall.  This also implies that API users must clear/zero
++sizeof(bpf_attr), as compiler can size-align the struct differently,
++to avoid garbage data to be interpreted as parameters by future
++kernels.
++
++The following configuration attributes are needed when creating the map:
++
++.. code-block:: c
++
++ union bpf_attr {
++  struct { /* anonymous struct used by BPF_MAP_CREATE command */
++         __u32   map_type;       /* one of enum bpf_map_type */
++         __u32   key_size;       /* size of key in bytes */
++         __u32   value_size;     /* size of value in bytes */
++         __u32   max_entries;    /* max number of entries in a map */
++         __u32   map_flags;      /* prealloc or not */
++  };
++ }
++
++.. _bpf_cmd: http://lxr.free-electrons.com/ident?i=bpf_cmd
++
++
++Kernel sample/bpf ELF convention
++--------------------------------
++
++For programs under samples/bpf/, defining a map have been integrated
++with ELF binary generated by LLVM.  This is purely one example of a
++userspace convention and not part of the kernel ABI.  It still invokes
++the bpf syscall.
++
++Map definitions are done by defining a ``struct bpf_map_def`` with an
++elf section __attribute__ ``SEC("maps")``, in the xxx_kern.c file.
++The maps file descriptor is available in the userspace xxx_user.c
++file, via global array variable ``map_fd[]``, and the array map index
++corresponds to the order the maps sections were defined in elf file of
++xxx_kern.c file.  Behind the scenes it is the ``load_bpf_file()`` call
++(from `samples/bpf/bpf_load`_) that takes care of parsing ELF file
++compiled by LLVM, pickup 'maps' section and creates maps via the bpf
++syscall.
++
++.. code-block:: c
++
++  struct bpf_map_def {
++	unsigned int type;
++	unsigned int key_size;
++	unsigned int value_size;
++	unsigned int max_entries;
++	unsigned int map_flags;
++  };
++
++  struct bpf_map_def SEC("maps") my_map = {
++	.type        = BPF_MAP_TYPE_XXX,
++	.key_size    = sizeof(u32),
++	.value_size  = sizeof(u64),
++	.max_entries = 42,
++	.map_flags   = 0
++  };
 +
 +.. section links
 +
-+.. _lookup latest:
-+   http://lxr.free-electrons.com/ident?i=bpf_map_type
++.. _samples/bpf/bpf_load:
++   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/samples/bpf/bpf_load.c
 +
-+Implementation details
-+======================
++Qdisc Traffic Control convention
++--------------------------------
 +
-+In-order to understand and follow the descriptions of the different
-+map types, in is useful for the reader to understand how a map type is
-+implemented by the kernel.
++It is worth mentioning, that qdisc TC (Traffic Control), also use ELF
++files for defining the maps, but it uses another layout.  See man-page
++`tc-bpf(8)`_ and `tc bpf examples`_ in iproute2.git_ tree.
 +
-+On the kernel side, implementing a map type requires defining some
-+function call (pointers) via `struct bpf_map_ops`_.  The eBPF programs
-+(and userspace) have access to the functions calls
-+``map_lookup_elem``, ``map_update_elem`` and ``map_delete_elem``,
-+which get invoked from eBPF via bpf-helpers in `kernel/bpf/helpers.c`_,
-+or via userspace the bpf syscall (as described in :doc:`ebpf_maps`).
++.. _iproute2.git:
++   https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/about/
 +
-+:ref:`Creating a map` requires supplying the following configuration
-+attributes: map_type, key_size, value_size, max_entries and map_flags.
++.. _tc bpf examples:
++   https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/tree/examples/bpf
++
++.. _tc-bpf(8): http://man7.org/linux/man-pages/man8/tc-bpf.8.html
++
++
++Interacting with maps
++=====================
++
++Interacting with eBPF maps happens through some **lookup/update/delete**
++primitives.
++
++When writing eBFP programs using load helpers and libraries from
++samples/bpf/ and tools/lib/bpf/.  Common function name API have been
++created that hides the details of how kernel vs. userspace access
++these primitives (which is quite different).
++
++The common function names (parameters and return values differs):
++
++.. code-block:: c
++
++  void bpf_map_lookup_elem(map, void *key. ...);
++  void bpf_map_update_elem(map, void *key, ..., __u64 flags);
++  void bpf_map_delete_elem(map, void *key);
++
++The ``flags`` argument in ``bpf_map_update_elem()`` allows to define
++semantics on whether the element exists:
++
++.. code-block:: c
++
++  /* File: include/uapi/linux/bpf.h */
++  /* flags for BPF_MAP_UPDATE_ELEM command */
++  #define BPF_ANY	0 /* create new element or update existing */
++  #define BPF_NOEXIST	1 /* create new element only if it didn't exist */
++  #define BPF_EXIST	2 /* only update existing element */
++
++Userspace
++---------
++The userspace API map helpers are defined in `tools/lib/bpf/bpf.h`_
++and looks like this:
++
++.. code-block:: c
++
++  /* Userspace helpers */
++  int bpf_map_lookup_elem(int fd, void *key, void *value);
++  int bpf_map_update_elem(int fd, void *key, void *value, __u64 flags);
++  int bpf_map_delete_elem(int fd, void *key);
++  /* Only userspace: */
++  int bpf_map_get_next_key(int fd, void *key, void *next_key);
++
++
++Interacting with an eBPF map from **userspace**, happens through the
++`bpf`_ syscall and a file descriptor.  See how the map handle ``int
++fd`` is a file descriptor .  On success, zero is returned, on
++failures -1 is returned and errno is set.
++
++Wrappers for the bpf syscall is implemented in `tools/lib/bpf/bpf.c`_,
++and ends up calling functions in `kernel/bpf/syscall.c`_, like
++`map_lookup_elem`_.
++
++.. code-block:: c
++
++  /* Corresponding syscall bpf commands from userspace */
++  enum bpf_cmd {
++	[...]
++	BPF_MAP_LOOKUP_ELEM,
++	BPF_MAP_UPDATE_ELEM,
++	BPF_MAP_DELETE_ELEM,
++	BPF_MAP_GET_NEXT_KEY,
++	[...]
++  };
++
++Notice how ``void *key`` and ``void *value`` are passed as a void
++pointers.  Given the memory seperation between kernel and userspace,
++this is a copy of the value.  Kernel primitives like
++``copy_from_user()`` and ``copy_to_user()`` are used, e.g. see
++`map_lookup_elem`_, which also kmalloc+kfree memory for a short
++period.
++
++From userspace, there is no function call to atomically increment or
++decrement the value 'in-place'. The bpf_map_update_elem() call will
++overwrite the existing value, with a copy of the value supplied.
++Depending on the map type, the overwrite will happen in an atomic way,
++e.g. using locking mechanisms specific to the map type.
 +
 +.. section links
 +
-+.. _struct bpf_map_ops: http://lxr.free-electrons.com/ident?i=bpf_map_ops
++.. _tools/lib/bpf/bpf.h:
++   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/tools/lib/bpf/bpf.h
++
++.. _tools/lib/bpf/bpf.c:
++   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/tools/lib/bpf/bpf.c
++
++.. _map_lookup_elem: http://lxr.free-electrons.com/ident?i=map_lookup_elem
++
++.. _kernel/bpf/syscall.c:
++   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/kernel/bpf/syscall.c
++
++
++Kernel-side eBPF program
++------------------------
++
++The API mapping for eBPF programs on the kernel-side is fairly hard to
++follow. It related to `samples/bpf/bpf_helpers.h`_ and maps into
++`kernel/bpf/helpers.c`_ via macros.
++
++.. code-block:: c
++
++  /* eBPF program helpers */
++  void *bpf_map_lookup_elem(void *map, void *key);
++  int bpf_map_update_elem(void *map, void *key, void *value, unsigned long long flags);
++  int bpf_map_delete_elem(void *map, void *key);
++
++The eBPF-program running kernel-side interacts more directly with the
++map data structures. For example the call ``bpf_map_lookup_elem()``
++returns a direct pointer to the 'value' memory-element inside the
++kernel (while userspace gets a copy).  This allows the eBPF-program to
++atomically increment or decrement the value 'in-place', by using
++appropiate compiler primitives like ``__sync_fetch_and_add()``, which
++is understood by LLVM when generating eBPF instructions.
++
++.. section links
++
++.. _samples/bpf/bpf_helpers.h:
++   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/samples/bpf/bpf_helpers.h
 +
 +.. _kernel/bpf/helpers.c:
 +   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/kernel/bpf/helpers.c
 +
++.. links
 +
-+BPF_MAP_TYPE_ARRAY
-+==================
++.. _bpf(2): http://man7.org/linux/man-pages/man2/bpf.2.html
 +
-+Implementation defined in `kernel/bpf/arraymap.c`_ via struct
-+bpf_map_ops `array_ops`_.
-+
-+As the name ``BPF_MAP_TYPE_ARRAY`` indicates, this can be seen as an
-+array.  All array elements are pre-allocated and zero initialized at
-+init time.  Key is an index in array and can only be 4 bytes (32-bit).
-+The constant size is defined by ``max_entries``.  This init-time
-+constant also implies bpf_map_delete_elem (`array_map_delete_elem`_)
-+is an invalid operation.
-+
-+Optimized for fastest possible lookup. The size is constant for the
-+life of the eBPF program, which allows verifier+JIT to perform a wider
-+range of optimizations.  E.g. `array_map_lookup_elem()`_ may be
-+'inlined' by JIT.
-+
-+Small size gotcha, the ``value_size`` is rounded up to 8 bytes.
-+
-+Example usage BPF_MAP_TYPE_ARRAY, based on `samples/bpf/sockex1_kern.c`_:
-+
-+.. code-block:: c
-+
-+  struct bpf_map_def SEC("maps") my_map = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = 256,
-+  };
-+
-+  u32 index = 42;
-+  long *value;
-+  value = bpf_map_lookup_elem(&my_map, &index);
-+	if (value)
-+		__sync_fetch_and_add(value, 1);
-+
-+The lookup (from kernel side) ``bpf_map_lookup_elem()`` returns a pointer
-+into the array element.  To avoid data races with userspace reading
-+the value, the API-user must use primitives like ``__sync_fetch_and_add()``
-+when updating the value in-place.
-+
-+.. section links
-+
-+.. _kernel/bpf/arraymap.c:
-+   http://lxr.free-electrons.com/source/kernel/bpf/arraymap.c
-+
-+.. _array_ops:
-+   http://lxr.free-electrons.com/ident?i=array_ops
-+
-+.. _array_map_delete_elem:
-+   http://lxr.free-electrons.com/ident?i=array_map_delete_elem
-+
-+.. _array_map_lookup_elem():
-+   http://lxr.free-electrons.com/ident?i=array_map_lookup_elem
-+
-+.. _samples/bpf/sockex1_kern.c:
-+   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/samples/bpf/sockex1_kern.c
++.. _bpf: http://man7.org/linux/man-pages/man2/bpf.2.html
 diff --git a/Documentation/bpf/index.rst b/Documentation/bpf/index.rst
-index 738d17aaf6d7..618a28f7e959 100644
+index f262fe8f9f95..738d17aaf6d7 100644
 --- a/Documentation/bpf/index.rst
 +++ b/Documentation/bpf/index.rst
-@@ -43,6 +43,7 @@ covered by this documentation.
+@@ -42,6 +42,8 @@ covered by this documentation.
+ .. toctree::
     :maxdepth: 1
  
-    ebpf_maps
-+   ebpf_maps_types
- 
++   ebpf_maps
++
  .. links:
  
+ .. _article 1992: http://www.tcpdump.org/papers/bpf-usenix93.pdf
