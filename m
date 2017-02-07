@@ -1,42 +1,59 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net-next 7/7] openvswitch: Pack struct sw_flow_key.
-Date: Mon, 6 Feb 2017 23:15:30 -0800
-Message-ID: <CAPWQB7GF8Zy8qskmKu5sNhj2q93pqwK_-Cd20Qm0yZRNvgbZqA@mail.gmail.com>
-References: <1486084206-109903-1-git-send-email-jarno@ovn.org> <1486084206-109903-7-git-send-email-jarno@ovn.org>
+Subject: Re: [PATCH net-next 6/7] openvswitch: Add force commit.
+Date: Mon, 6 Feb 2017 23:28:45 -0800
+Message-ID: <CAPWQB7Hy02uM+kqnhgwhq0OhqnQUWTzWjtAeqaz6T2W55AD2pw@mail.gmail.com>
+References: <1486084206-109903-1-git-send-email-jarno@ovn.org>
+ <1486084206-109903-6-git-send-email-jarno@ovn.org> <CAOrHB_DgjJ9cYpnAeS_dtt0d=rTxhtR4wH_OU_o-tunWUHfddQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Jarno Rajahalme <jarno@ovn.org>
+Cc: Jarno Rajahalme <jarno@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:44368 "EHLO
-        relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751988AbdBGHPz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 02:15:55 -0500
-Received: from mfilter31-d.gandi.net (mfilter31-d.gandi.net [217.70.178.162])
-        by relay5-d.mail.gandi.net (Postfix) with ESMTP id EFFC641C074
-        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 08:15:52 +0100 (CET)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-        by mfilter31-d.gandi.net (mfilter31-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 0h3Qgy1PjxGZ for <netdev@vger.kernel.org>;
-        Tue,  7 Feb 2017 08:15:51 +0100 (CET)
-Received: from mail-qk0-f176.google.com (mail-qk0-f176.google.com [209.85.220.176])
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:40322 "EHLO
+        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752035AbdBGH3L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 02:29:11 -0500
+Received: from mfilter6-d.gandi.net (mfilter6-d.gandi.net [217.70.178.135])
+        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 94068FB8B3
+        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 08:29:08 +0100 (CET)
+Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
+        by mfilter6-d.gandi.net (mfilter6-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id GotQWv35Jtcd for <netdev@vger.kernel.org>;
+        Tue,  7 Feb 2017 08:29:07 +0100 (CET)
+Received: from mail-qk0-f175.google.com (mail-qk0-f175.google.com [209.85.220.175])
         (Authenticated sender: joe@ovn.org)
-        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 6DDA541C084
-        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 08:15:51 +0100 (CET)
-Received: by mail-qk0-f176.google.com with SMTP id 11so79555055qkl.3
-        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 23:15:51 -0800 (PST)
-In-Reply-To: <1486084206-109903-7-git-send-email-jarno@ovn.org>
+        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id D8E3DFB8C7
+        for <netdev@vger.kernel.org>; Tue,  7 Feb 2017 08:29:06 +0100 (CET)
+Received: by mail-qk0-f175.google.com with SMTP id 11so79779715qkl.3
+        for <netdev@vger.kernel.org>; Mon, 06 Feb 2017 23:29:06 -0800 (PST)
+In-Reply-To: <CAOrHB_DgjJ9cYpnAeS_dtt0d=rTxhtR4wH_OU_o-tunWUHfddQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2 February 2017 at 17:10, Jarno Rajahalme <jarno@ovn.org> wrote:
-> struct sw_flow_key has two 16-bit holes. Move the most matched
-> conntrack match fields there.  In some typical cases this reduces the
-> size of the key that needs to be hashed into half and into one cache
-> line.
->
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+On 6 February 2017 at 09:08, Pravin Shelar <pshelar@ovn.org> wrote:
+> On Thu, Feb 2, 2017 at 5:10 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
+>> Stateful network admission policy may allow connections to one
+>> direction and reject connections initiated in the other direction.
+>> After policy change it is possible that for a new connection an
+>> overlapping conntrack entry already exist, where the connection
+>> original direction is opposed to the new connection's initial packet.
+>>
+>> Most importantly, conntrack state relating to the current packet gets
+>> the "reply" designation based on whether the original direction tuple
+>> or the reply direction tuple matched.  If this "directionality" is
+>> wrong w.r.t. to the stateful network admission policy it may happen
+>> that packets in neither direction are correctly admitted.
+>>
+> Why not have the check in all commit actions? I am not sure in which
+> case user would not want forced commit considering this can cause
+> packet admission issue?
 
-Looks like this misses the zeroing in ovs_nla_get_flow_metadata();
-might want to double-check for any other memset/copies of the key->ct
-field.
+Seems like this case has involved one direction of a connection being
+handled by a flow that committed the connection. Then something has
+changed and you end up with a flow handling the opposite direction,
+committing the connection. What if the first flow wasn't actually
+removed? Plausibly you could end up with constant ct entry churn as
+the connection is recreated each time there is a packet from an
+alternating direction. Having a separate flag may assist with respect
+to shooting one's own foot..
