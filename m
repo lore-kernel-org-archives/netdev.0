@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2] spectrum: acl_tcam: Fix catchall prio value
-Date: Tue, 07 Feb 2017 14:16:16 -0500 (EST)
-Message-ID: <20170207.141616.1968546832439148215.davem@davemloft.net>
-References: <1486484867-8058-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net-next] bridge: avoid unnecessary read of
+	jiffies
+Date: Tue, 07 Feb 2017 14:16:30 -0500 (EST)
+Message-ID: <20170207.141630.1294831074568265709.davem@davemloft.net>
+References: <1486227909-18319-1-git-send-email-nikolay@cumulusnetworks.com>
+	<1486227909-18319-5-git-send-email-nikolay@cumulusnetworks.com>
+	<20170207084646.70dc888a@xeon-e3>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com, dan.carpenter@oracle.com,
-        David.Laight@ACULAB.COM
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55322 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755011AbdBGTQS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:16:18 -0500
-In-Reply-To: <1486484867-8058-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org
+To: stephen@networkplumber.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170207084646.70dc888a@xeon-e3>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue,  7 Feb 2017 17:27:47 +0100
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 7 Feb 2017 08:46:46 -0800
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> Jiffies is volatile so read it once.
 > 
-> This fixes an issue reported by smatch:
-> mlxsw_sp_acl_tcam_chunk_create() warn: impossible condition '(priority == (-1)) => (0-u32max == u64max)'
-> 
-> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reported-by: Ido Schimmel <idosch@mellanox.com>
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Fixes: 22a677661f56 ("mlxsw: spectrum: Introduce ACL core with simple TCAM implementation")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Acked-by: Ido Schimmel <idosch@mellanox.com>
-> ---
-> v1->v2:
-> - using (~0u) as suggested by David Laight
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Applied.
+Applied, thanks Stephen.
