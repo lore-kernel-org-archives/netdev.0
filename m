@@ -1,68 +1,94 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH ipsec-next 1/6] xfrm: policy: xfrm_get_tos cannot fail
-Date: Tue,  7 Feb 2017 15:00:14 +0100
-Message-ID: <20170207140019.20269-2-fw@strlen.de>
+Subject: [PATCH ipsec-next 2/6] xfrm: policy: xfrm_policy_unregister_afinfo can return void
+Date: Tue,  7 Feb 2017 15:00:15 +0100
+Message-ID: <20170207140019.20269-3-fw@strlen.de>
 References: <20170207140019.20269-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56632 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:56638 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754315AbdBGOB7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 09:01:59 -0500
+        by vger.kernel.org with ESMTP id S1754435AbdBGOCD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 09:02:03 -0500
 In-Reply-To: <20170207140019.20269-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The comment makes it look like get_tos() is used to validate something,
-but it turns out the comment was about xfrm_find_bundle() which got removed
-years ago.
-
-xfrm_get_tos will return either the tos (ipv4) or 0 (ipv6).
+Nothing checks the return value. Also, the errors returned on unregister
+are impossible (we only support INET and INET6, so no way
+xfrm_policy_afinfo[afinfo->family] can be anything other than 'afinfo'
+itself).
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/xfrm/xfrm_policy.c | 19 +++++--------------
- 1 file changed, 5 insertions(+), 14 deletions(-)
+ include/net/xfrm.h     |  2 +-
+ net/xfrm/xfrm_policy.c | 35 +++++++++++++----------------------
+ 2 files changed, 14 insertions(+), 23 deletions(-)
 
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index da0e4dd653e2..39037b1cce7a 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -304,7 +304,7 @@ struct xfrm_policy_afinfo {
+ };
+ 
+ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo);
+-int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo);
++void xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo);
+ void km_policy_notify(struct xfrm_policy *xp, int dir,
+ 		      const struct km_event *c);
+ void km_state_notify(struct xfrm_state *x, const struct km_event *c);
 diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 99ad1af2927f..6fffa2fac607 100644
+index 6fffa2fac607..794148f76ae2 100644
 --- a/net/xfrm/xfrm_policy.c
 +++ b/net/xfrm/xfrm_policy.c
-@@ -1538,19 +1538,13 @@ xfrm_tmpl_resolve(struct xfrm_policy **pols, int npols, const struct flowi *fl,
- 
+@@ -2883,34 +2883,25 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
  }
+ EXPORT_SYMBOL(xfrm_policy_register_afinfo);
  
--/* Check that the bundle accepts the flow and its components are
-- * still valid.
-- */
--
--static inline int xfrm_get_tos(const struct flowi *fl, int family)
-+static int xfrm_get_tos(const struct flowi *fl, int family)
+-int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
++void xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
  {
--	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
--	int tos;
--
--	if (!afinfo)
+-	int err = 0;
+-	if (unlikely(afinfo == NULL))
 -		return -EINVAL;
-+	struct xfrm_policy_afinfo *afinfo;
-+	int tos = 0;
++	struct dst_ops *dst_ops = afinfo->dst_ops;
++
+ 	if (unlikely(afinfo->family >= NPROTO))
+-		return -EAFNOSUPPORT;
+-	spin_lock(&xfrm_policy_afinfo_lock);
+-	if (likely(xfrm_policy_afinfo[afinfo->family] != NULL)) {
+-		if (unlikely(xfrm_policy_afinfo[afinfo->family] != afinfo))
+-			err = -EINVAL;
+-		else
+-			RCU_INIT_POINTER(xfrm_policy_afinfo[afinfo->family],
++		return;
++
++	if (likely(xfrm_policy_afinfo[afinfo->family] != afinfo)) {
++		RCU_INIT_POINTER(xfrm_policy_afinfo[afinfo->family],
+ 					 NULL);
+ 	}
+-	spin_unlock(&xfrm_policy_afinfo_lock);
+-	if (!err) {
+-		struct dst_ops *dst_ops = afinfo->dst_ops;
  
--	tos = afinfo->get_tos(fl);
-+	afinfo = xfrm_policy_get_afinfo(family);
-+	tos = afinfo ? afinfo->get_tos(fl) : 0;
+-		synchronize_rcu();
++	synchronize_rcu();
  
- 	xfrm_policy_put_afinfo(afinfo);
- 
-@@ -1705,9 +1699,6 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 	xfrm_flowi_addr_get(fl, &saddr, &daddr, family);
- 
- 	tos = xfrm_get_tos(fl, family);
--	err = tos;
--	if (tos < 0)
--		goto put_states;
- 
- 	dst_hold(dst);
+-		dst_ops->kmem_cachep = NULL;
+-		dst_ops->check = NULL;
+-		dst_ops->negative_advice = NULL;
+-		dst_ops->link_failure = NULL;
+-		afinfo->garbage_collect = NULL;
+-	}
+-	return err;
++	dst_ops->kmem_cachep = NULL;
++	dst_ops->check = NULL;
++	dst_ops->negative_advice = NULL;
++	dst_ops->link_failure = NULL;
++	afinfo->garbage_collect = NULL;
+ }
+ EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
  
 -- 
 2.10.2
