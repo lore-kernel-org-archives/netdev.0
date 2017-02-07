@@ -1,52 +1,34 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 9/9] mlx4: add page recycling in receive path
-Date: Tue, 7 Feb 2017 08:34:45 -0800
-Message-ID: <CANn89iLVDLmnLU-CpLag=Rh31HgsaYE6JV--r+=Ahoc3QDwF8w@mail.gmail.com>
-References: <20170207030240.31357-1-edumazet@google.com> <20170207030240.31357-10-edumazet@google.com>
- <92a6e32b-6f0a-88a6-52d3-6ca352c26b22@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] net: wan: slic_ds26522: Use
+ module_spi_driver to simplify the code
+Date: Tue, 07 Feb 2017 11:42:46 -0500 (EST)
+Message-ID: <20170207.114246.682073329893222093.davem@davemloft.net>
+References: <1476715845-27691-1-git-send-email-weiyj.lk@gmail.com>
+        <20170206152552.8549-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Tariq Toukan <ttoukan.linux@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: javier@osg.samsung.com, qiang.zhao@nxp.com,
+        colin.king@canonical.com, weiyongjun1@huawei.com,
+        netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:33801 "EHLO
-        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754663AbdBGQer (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 11:34:47 -0500
-Received: by mail-io0-f182.google.com with SMTP id l66so94300478ioi.1
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 08:34:46 -0800 (PST)
-In-Reply-To: <92a6e32b-6f0a-88a6-52d3-6ca352c26b22@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51318 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755420AbdBGQmu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 11:42:50 -0500
+In-Reply-To: <20170206152552.8549-1-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 7, 2017 at 8:20 AM, Tariq Toukan <ttoukan.linux@gmail.com> wrote:
->
->
-> On 07/02/2017 5:02 AM, Eric Dumazet wrote:
->>
->> Same technique than some Intel drivers, for arches where PAGE_SIZE = 4096
->>
->> In most cases, pages are reused because they were consumed
->> before we could loop around the RX ring.
->
-> This might not be true when multiple streams are handled in the same ring.
-> As the process time in stack will be longer.
-> We will test this scenario as well.
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Mon,  6 Feb 2017 15:25:52 +0000
 
-Sure thing. I already did ;)
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> module_spi_driver() makes the code simpler by eliminating
+> boilerplate code.
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-I had a local patch adding a new "ethtool -S ... | grep
-rx_page_allocs"  counter.
-
-I could probably add it to the series.  (I noticed that
-rx_alloc_failed was a dead counter)
-
-Thanks.
+Applied.
