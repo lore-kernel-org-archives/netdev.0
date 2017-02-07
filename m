@@ -1,7 +1,7 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v2 net-next 3/9] sunvnet: update version and version printing
-Date: Tue,  7 Feb 2017 14:12:56 -0800
-Message-ID: <1486505582-76823-4-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH v2 net-next 8/9] ldmvsw: update and simplify version string
+Date: Tue,  7 Feb 2017 14:13:01 -0800
+Message-ID: <1486505582-76823-9-git-send-email-shannon.nelson@oracle.com>
 References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
         Shannon Nelson <shannon.nelson@oracle.com>
@@ -11,35 +11,33 @@ In-Reply-To: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There have been several changes since the first version of this code, so
-we bump the version number.  While we're at it, we can simplify the
-version printing a bit and drop a couple lines of code.
+New version and simplify the print code.
 
 Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c |   14 ++++----------
+ drivers/net/ethernet/sun/ldmvsw.c |   14 ++++----------
  1 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 5356a70..4cc2571 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -38,11 +38,11 @@
- #define VNET_TX_TIMEOUT			(5 * HZ)
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+index 3999fb7..3ef5c08 100644
+--- a/drivers/net/ethernet/sun/ldmvsw.c
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -41,11 +41,11 @@
+ static u8 vsw_port_hwaddr[ETH_ALEN] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
  
- #define DRV_MODULE_NAME		"sunvnet"
+ #define DRV_MODULE_NAME		"ldmvsw"
 -#define DRV_MODULE_VERSION	"1.0"
--#define DRV_MODULE_RELDATE	"June 25, 2007"
-+#define DRV_MODULE_VERSION	"2.0"
+-#define DRV_MODULE_RELDATE	"Jan 15, 2016"
++#define DRV_MODULE_VERSION	"1.1"
 +#define DRV_MODULE_RELDATE	"February 3, 2017"
  
  static char version[] =
 -	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
 +	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
- MODULE_AUTHOR("David S. Miller (davem@davemloft.net)");
- MODULE_DESCRIPTION("Sun LDOM virtual network driver");
+ MODULE_AUTHOR("Oracle");
+ MODULE_DESCRIPTION("Sun4v LDOM Virtual Switch Driver");
  MODULE_LICENSE("GPL");
-@@ -303,11 +303,6 @@ static void vnet_cleanup(void)
+@@ -322,11 +322,6 @@ static void vsw_poll_controller(struct net_device *dev)
  	.handshake_complete	= sunvnet_handshake_complete_common,
  };
  
@@ -48,24 +46,24 @@ index 5356a70..4cc2571 100644
 -	printk_once(KERN_INFO "%s", version);
 -}
 -
- const char *remote_macaddr_prop = "remote-mac-address";
+ static const char *remote_macaddr_prop = "remote-mac-address";
+ static const char *id_prop = "id";
  
- static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
-@@ -319,8 +314,6 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	const u64 *rmac;
- 	int len, i, err, switch_port;
+@@ -342,8 +337,6 @@ static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 	const u64 *port_id;
+ 	u64 handle;
  
 -	print_version();
 -
  	hp = mdesc_grab();
  
- 	vp = vnet_find_parent(hp, vdev->mp, vdev);
-@@ -446,6 +439,7 @@ static int vnet_port_remove(struct vio_dev *vdev)
+ 	rmac = mdesc_get_property(hp, vdev->mp, remote_macaddr_prop, &len);
+@@ -520,6 +513,7 @@ static void vsw_cleanup(void)
  
- static int __init vnet_init(void)
+ static int __init vsw_init(void)
  {
 +	pr_info("%s\n", version);
- 	return vio_register_driver(&vnet_port_driver);
+ 	return vio_register_driver(&vsw_port_driver);
  }
  
 -- 
