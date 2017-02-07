@@ -1,37 +1,61 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v2 net-next 0/9] sunvnet driver updates
-Date: Tue,  7 Feb 2017 14:12:53 -0800
-Message-ID: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH v2 net-next 7/9] sunvnet: remove extra rcu_read_unlocks
+Date: Tue,  7 Feb 2017 14:13:00 -0800
+Message-ID: <1486505582-76823-8-git-send-email-shannon.nelson@oracle.com>
+References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
         Shannon Nelson <shannon.nelson@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sunvnet ldom virtual network driver was due for some updates and
-a bugfix or two.  These patches address a few items left over from
-last year's make-over.
+The RCU read lock is grabbed first thing in sunvnet_start_xmit_common()
+so it always needs to be released.  This removes the conditional release
+in the dropped packet error path and removes a couple of superfluous
+calls in the middle of the code.
 
-v2:
- - changed memory barrier fix to use smp_wmb
- - put NETIF_F_SG back into the advertised ldmvsw hw_features
+Reported-by: Bijan Mottahedeh <bijan.mottahedeh@oracle.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet_common.c |    8 ++------
+ 1 files changed, 2 insertions(+), 6 deletions(-)
 
-Shannon Nelson (8):
-  sunvnet: make sunvnet common code dynamically loadable
-  sunvnet: update version and version printing
-  sunvnet: add driver stats for ethtool support
-  sunvnet: add memory barrier before check for tx enable
-  sunvnet: straighten up message event handling logic
-  sunvnet: remove extra rcu_read_unlocks
-  ldmvsw: update and simplify version string
-  ldmvsw: disable tso and gso for bridge operations
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
+index d2aed2c..9384db0 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.c
++++ b/drivers/net/ethernet/sun/sunvnet_common.c
+@@ -1279,10 +1279,8 @@ int sunvnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	rcu_read_lock();
+ 	port = vnet_tx_port(skb, dev);
+-	if (unlikely(!port)) {
+-		rcu_read_unlock();
++	if (unlikely(!port))
+ 		goto out_dropped;
+-	}
+ 
+ 	if (skb_is_gso(skb) && skb->len > port->tsolen) {
+ 		err = vnet_handle_offloads(port, skb, vnet_tx_port);
+@@ -1307,7 +1305,6 @@ int sunvnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
+ 			fl4.saddr = ip_hdr(skb)->saddr;
+ 
+ 			rt = ip_route_output_key(dev_net(dev), &fl4);
+-			rcu_read_unlock();
+ 			if (!IS_ERR(rt)) {
+ 				skb_dst_set(skb, &rt->dst);
+ 				icmp_send(skb, ICMP_DEST_UNREACH,
+@@ -1467,8 +1464,7 @@ int sunvnet_start_xmit_common(struct sk_buff *skb, struct net_device *dev,
+ 				jiffies + VNET_CLEAN_TIMEOUT);
+ 	else if (port)
+ 		del_timer(&port->clean_timer);
+-	if (port)
+-		rcu_read_unlock();
++	rcu_read_unlock();
+ 	if (skb)
+ 		dev_kfree_skb(skb);
+ 	vnet_free_skbs(freeskbs);
+-- 
+1.7.1
 
-Sowmini Varadhan (1):
-  sunvnet: remove unused variable in maybe_tx_wakeup
-
- drivers/net/ethernet/sun/Kconfig          |    8 +-
- drivers/net/ethernet/sun/ldmvsw.c         |   82 ++++++++++++++---
- drivers/net/ethernet/sun/sunvnet.c        |   77 ++++++++++++++--
- drivers/net/ethernet/sun/sunvnet_common.c |  143 ++++++++++++++++------------
- 4 files changed, 224 insertions(+), 86 deletions(-)
