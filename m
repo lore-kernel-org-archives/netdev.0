@@ -1,31 +1,40 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: Re: [patch v2 net-next] sfc: fix an off by one bug
-Date: Tue, 7 Feb 2017 08:43:06 +0000
-Message-ID: <bac041b8-d30f-cd06-359d-6347765d9879@solarflare.com>
-References: <20170207074431.GA18377@mwanda>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: wcn36xx: Implement cancel_hw_scan
+Date: Tue, 7 Feb 2017 01:00:06 -0800
+Message-ID: <f5840edc6a4f41d7a8183b8a90219235@eusanexr01a.eu.qualcomm.com>
+References: <20170201152747.838-1-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-        Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:17084 "EHLO
-        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753752AbdBGInP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 03:43:15 -0500
-In-Reply-To: <20170207074431.GA18377@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-msm@vger.kernel.org>, "Mart Raudsepp" <leio@gentoo.org>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170201152747.838-1-bjorn.andersson@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/02/17 07:44, Dan Carpenter wrote:
-> This bug is harmless because it's just a sanity check and we always
-> pass valid values for "encap_type" but the test is off by one.
+Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
+> In the event that the wcn36xx interface is brought down while a hw_scan
+> is active we must abort and wait for the ongoing scan to signal
+> completion to mac80211.
 > 
-> Fixes: 9b4108012517 ("sfc: insert catch-all filters for encapsulated traffic")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Reported-by: Mart Raudsepp <leio@gentoo.org>
+> Fixes: 886039036c20 ("wcn36xx: Implement firmware assisted scan")
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> Tested-by: Mart Raudsepp <leio@gentoo.org>
 
-Thanks Dan.
+Patch applied to ath-next branch of ath.git, thanks.
 
-Acked-by: Bert Kenward <bkenward@solarflare.com>
+03c95dbef642 wcn36xx: Implement cancel_hw_scan
+
+-- 
+https://patchwork.kernel.org/patch/9550795/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
