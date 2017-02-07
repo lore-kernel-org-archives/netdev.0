@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: check af before verify address in
- sctp_addr_id2transport
-Date: Tue, 07 Feb 2017 14:08:46 -0500 (EST)
-Message-ID: <20170207.140846.1728839010237371851.davem@davemloft.net>
-References: <d4c232a9f69f9eae6537f74078dc0d2a0574e8eb.1486472168.git.lucien.xin@gmail.com>
+Subject: Re: [patch net-next v2] spectrum: acl_tcam: Fix catchall prio value
+Date: Tue, 07 Feb 2017 14:16:16 -0500 (EST)
+Message-ID: <20170207.141616.1968546832439148215.davem@davemloft.net>
+References: <1486484867-8058-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        mlxsw@mellanox.com, dan.carpenter@oracle.com,
+        David.Laight@ACULAB.COM
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55288 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55322 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754861AbdBGTP4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:15:56 -0500
-In-Reply-To: <d4c232a9f69f9eae6537f74078dc0d2a0574e8eb.1486472168.git.lucien.xin@gmail.com>
+        with ESMTP id S1755011AbdBGTQS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 14:16:18 -0500
+In-Reply-To: <1486484867-8058-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Tue,  7 Feb 2017 20:56:08 +0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue,  7 Feb 2017 17:27:47 +0100
 
-> Commit 6f29a1306131 ("sctp: sctp_addr_id2transport should verify the
-> addr before looking up assoc") invoked sctp_verify_addr to verify the
-> addr.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> But it didn't check af variable beforehand, once users pass an address
-> with family = 0 through sockopt, sctp_get_af_specific will return NULL
-> and NULL pointer dereference will be caused by af->sockaddr_len.
+> This fixes an issue reported by smatch:
+> mlxsw_sp_acl_tcam_chunk_create() warn: impossible condition '(priority == (-1)) => (0-u32max == u64max)'
 > 
-> This patch is to fix it by returning NULL if af variable is NULL.
-> 
-> Fixes: 6f29a1306131 ("sctp: sctp_addr_id2transport should verify the addr before looking up assoc")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Reported-by: Ido Schimmel <idosch@mellanox.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Fixes: 22a677661f56 ("mlxsw: spectrum: Introduce ACL core with simple TCAM implementation")
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Acked-by: Ido Schimmel <idosch@mellanox.com>
+> ---
+> v1->v2:
+> - using (~0u) as suggested by David Laight
 
-Applied, thank you.
+Applied.
