@@ -1,59 +1,63 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: ANNOUNCE: Netdev 2.1 Location and Hotel
-Date: Tue, 7 Feb 2017 07:58:52 -0500
-Message-ID: <e0a0bc78-0333-6715-5d2e-61e89482eab5@mojatatu.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: check af before verify address in
+ sctp_addr_id2transport
+Date: Tue, 7 Feb 2017 10:58:55 -0200
+Message-ID: <20170207125855.GB3414@localhost.localdomain>
+References: <d4c232a9f69f9eae6537f74078dc0d2a0574e8eb.1486472168.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        info-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        tech-committee-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Stephen Jaworski <jaws-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Rob Echlin <rob-XjY9sGI/8jX3fQ9qLvQP4Q@public.gmane.org>, lwn-T1hC0tSOHrs@public.gmane.org
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38738 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754015AbdBGM7D (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 07:59:03 -0500
+Content-Disposition: inline
+In-Reply-To: <d4c232a9f69f9eae6537f74078dc0d2a0574e8eb.1486472168.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Feb 07, 2017 at 08:56:08PM +0800, Xin Long wrote:
+> Commit 6f29a1306131 ("sctp: sctp_addr_id2transport should verify the
+> addr before looking up assoc") invoked sctp_verify_addr to verify the
+> addr.
+> 
+> But it didn't check af variable beforehand, once users pass an address
+> with family = 0 through sockopt, sctp_get_af_specific will return NULL
+> and NULL pointer dereference will be caused by af->sockaddr_len.
+> 
+> This patch is to fix it by returning NULL if af variable is NULL.
+> 
+> Fixes: 6f29a1306131 ("sctp: sctp_addr_id2transport should verify the addr before looking up assoc")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Two important announcements
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-1) We are pleased to announce a location for netdev 2.1:
-
-Le Westin Montréal
-270 Rue St. Antoine Ouest, Montreal, QC H2Y 0A3, Canada
-
-Le Westin will also be the conference hotel. We have a speacial
-arrangement for all attendees to get speacial rates at the hotel.
-We would like to encourage attendees to book at this hotel.
-If you can find a better deal for this hotel anywhere else
-on the net for the conference days, please notify us immediately
-at info-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org and we'll contact the hotel.
-
-The hotel registration is at:
-https://www.starwoodmeeting.com/Book/netdev2017
-
-The room rates are:
-Traditional King: $189
-Traditional 2 Queuen: $209
-Premium Junior Suite: $269
-
-Extra 3rd and 4th person sharing a room is
-$30 CAD per person, per night.
-
-All above rates are in Canadian $ excluding taxes.
-Rates are available 3 days before and 3 days after events.
-Rates will no longer be available after March 22, 2017.
-
-The Call for Proposals is still open, submit early
-to avoid the hazards of last minute traffic. Refer to:
-http://netdevconf.org/2.1/submit-proposal.html
-
-2) We would like to announce the registration is now open.
-
-Please go ahead and register sooner than later. It helps us
-plan better:
-https://onlineregistrations.ca/netdev21/
-
-cheers,
-jamal
+> ---
+>  net/sctp/socket.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 37eeab7..f354375 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -239,7 +239,7 @@ static struct sctp_transport *sctp_addr_id2transport(struct sock *sk,
+>  	union sctp_addr *laddr = (union sctp_addr *)addr;
+>  	struct sctp_transport *transport;
+>  
+> -	if (sctp_verify_addr(sk, laddr, af->sockaddr_len))
+> +	if (!af || sctp_verify_addr(sk, laddr, af->sockaddr_len))
+>  		return NULL;
+>  
+>  	addr_asoc = sctp_endpoint_lookup_assoc(sctp_sk(sk)->ep,
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
