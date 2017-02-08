@@ -1,8 +1,7 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 3/6] sfc: harden driver against MC resets during
- initial probe
-Date: Wed, 8 Feb 2017 16:51:18 +0000
-Message-ID: <d64c6a95-978b-a6f1-360c-ae3a23370b38@solarflare.com>
+Subject: [PATCH net-next 2/6] sfc: set csum_level for encapsulated packets
+Date: Wed, 8 Feb 2017 16:51:02 +0000
+Message-ID: <2d3d1808-bf59-5007-33af-cf038a8a8738@solarflare.com>
 References: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,9 +9,9 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:51896 "EHLO
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:60868 "EHLO
         nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752707AbdBHQ6b (ORCPT
+        by vger.kernel.org with ESMTP id S1752682AbdBHQ6b (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:58:31 -0500
 In-Reply-To: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,139 +19,83 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jon Cooper <jcooper@solarflare.com>
 
-This is mainly to prepare for a future overlay networking patch that
- could cause an MC reset at probe time if the UDP tunnel port list is
- set immediately upon driver load.
+Set the csum_level for encapsulated packets where the encapsulation
+ type, l3 class and l4 class are sets that need it.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/efx.c | 99 +++++++++++++++++++++++++++---------------
- 1 file changed, 64 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c       | 23 ++++++++++++++++++++---
+ drivers/net/ethernet/sfc/net_driver.h |  1 +
+ drivers/net/ethernet/sfc/rx.c         |  5 ++++-
+ 3 files changed, 25 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index c28cd9d..baab0a2 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -3136,6 +3136,51 @@ static int efx_pci_probe_main(struct efx_nic *efx)
- 	return rc;
- }
- 
-+static int efx_pci_probe_post_io(struct efx_nic *efx)
-+{
-+	struct net_device *net_dev = efx->net_dev;
-+	int rc = efx_pci_probe_main(efx);
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index fd1008d..c738b11 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -3339,9 +3339,26 @@ static int efx_ef10_handle_rx_event(struct efx_channel *channel,
+ 							 rx_l3_class, rx_l4_class,
+ 							 rx_encap_hdr, event);
+ 	} else {
+-		if (rx_l4_class == ESE_DZ_L4_CLASS_TCP ||
+-		    rx_l4_class == ESE_DZ_L4_CLASS_UDP)
+-			flags |= EFX_RX_PKT_CSUMMED;
++		bool tcpudp = rx_l4_class == ESE_DZ_L4_CLASS_TCP ||
++			      rx_l4_class == ESE_DZ_L4_CLASS_UDP;
 +
-+	if (rc)
-+		return rc;
-+
-+	if (efx->type->sriov_init) {
-+		rc = efx->type->sriov_init(efx);
-+		if (rc)
-+			netif_err(efx, probe, efx->net_dev,
-+				  "SR-IOV can't be enabled rc %d\n", rc);
-+	}
-+
-+	/* Determine netdevice features */
-+	net_dev->features |= (efx->type->offload_features | NETIF_F_SG |
-+			      NETIF_F_TSO | NETIF_F_RXCSUM);
-+	if (efx->type->offload_features & (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))
-+		net_dev->features |= NETIF_F_TSO6;
-+	/* Check whether device supports TSO */
-+	if (!efx->type->tso_versions || !efx->type->tso_versions(efx))
-+		net_dev->features &= ~NETIF_F_ALL_TSO;
-+	/* Mask for features that also apply to VLAN devices */
-+	net_dev->vlan_features |= (NETIF_F_HW_CSUM | NETIF_F_SG |
-+				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
-+				   NETIF_F_RXCSUM);
-+
-+	net_dev->hw_features = net_dev->features & ~efx->fixed_features;
-+
-+	/* Disable VLAN filtering by default.  It may be enforced if
-+	 * the feature is fixed (i.e. VLAN filters are required to
-+	 * receive VLAN tagged packets due to vPort restrictions).
-+	 */
-+	net_dev->features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
-+	net_dev->features |= efx->fixed_features;
-+
-+	rc = efx_register_netdev(efx);
-+	if (!rc)
-+		return 0;
-+
-+	efx_pci_remove_main(efx);
-+	return rc;
-+}
-+
- /* NIC initialisation
-  *
-  * This is called at module load (or hotplug insertion,
-@@ -3178,42 +3223,28 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
- 	if (rc)
- 		goto fail2;
- 
--	rc = efx_pci_probe_main(efx);
-+	rc = efx_pci_probe_post_io(efx);
-+	if (rc) {
-+		/* On failure, retry once immediately.
-+		 * If we aborted probe due to a scheduled reset, dismiss it.
-+		 */
-+		efx->reset_pending = 0;
-+		rc = efx_pci_probe_post_io(efx);
-+		if (rc) {
-+			/* On another failure, retry once more
-+			 * after a 50-305ms delay.
-+			 */
-+			unsigned char r;
-+
-+			get_random_bytes(&r, 1);
-+			msleep((unsigned int)r + 50);
-+			efx->reset_pending = 0;
-+			rc = efx_pci_probe_post_io(efx);
++		switch (rx_encap_hdr) {
++		case ESE_EZ_ENCAP_HDR_VXLAN: /* VxLAN or GENEVE */
++			flags |= EFX_RX_PKT_CSUMMED; /* outer UDP csum */
++			if (tcpudp)
++				flags |= EFX_RX_PKT_CSUM_LEVEL; /* inner L4 */
++			break;
++		case ESE_EZ_ENCAP_HDR_GRE:
++		case ESE_EZ_ENCAP_HDR_NONE:
++			if (tcpudp)
++				flags |= EFX_RX_PKT_CSUMMED;
++			break;
++		default:
++			netdev_WARN(efx->net_dev,
++				    "unknown encapsulation type: event="
++				    EFX_QWORD_FMT "\n",
++				    EFX_QWORD_VAL(*event));
 +		}
+ 	}
+ 
+ 	if (rx_l4_class == ESE_DZ_L4_CLASS_TCP)
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 3b15110..e64e933 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -307,6 +307,7 @@ struct efx_rx_buffer {
+ #define EFX_RX_PKT_DISCARD	0x0004
+ #define EFX_RX_PKT_TCP		0x0040
+ #define EFX_RX_PKT_PREFIX_LEN	0x0080	/* length is in prefix only */
++#define EFX_RX_PKT_CSUM_LEVEL	0x0200
+ 
+ /**
+  * struct efx_rx_page_state - Page-based rx buffer state
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 31587f4..42443f4 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -434,6 +434,7 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
+ 			     PKT_HASH_TYPE_L3);
+ 	skb->ip_summed = ((rx_buf->flags & EFX_RX_PKT_CSUMMED) ?
+ 			  CHECKSUM_UNNECESSARY : CHECKSUM_NONE);
++	skb->csum_level = !!(rx_buf->flags & EFX_RX_PKT_CSUM_LEVEL);
+ 
+ 	for (;;) {
+ 		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+@@ -621,8 +622,10 @@ static void efx_rx_deliver(struct efx_channel *channel, u8 *eh,
+ 
+ 	/* Set the SKB flags */
+ 	skb_checksum_none_assert(skb);
+-	if (likely(rx_buf->flags & EFX_RX_PKT_CSUMMED))
++	if (likely(rx_buf->flags & EFX_RX_PKT_CSUMMED)) {
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		skb->csum_level = !!(rx_buf->flags & EFX_RX_PKT_CSUM_LEVEL);
 +	}
- 	if (rc)
- 		goto fail3;
  
--	net_dev->features |= (efx->type->offload_features | NETIF_F_SG |
--			      NETIF_F_TSO | NETIF_F_RXCSUM);
--	if (efx->type->offload_features & (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))
--		net_dev->features |= NETIF_F_TSO6;
--	/* Check whether device supports TSO */
--	if (!efx->type->tso_versions || !efx->type->tso_versions(efx))
--		net_dev->features &= ~NETIF_F_ALL_TSO;
--	/* Mask for features that also apply to VLAN devices */
--	net_dev->vlan_features |= (NETIF_F_HW_CSUM | NETIF_F_SG |
--				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
--				   NETIF_F_RXCSUM);
--
--	net_dev->hw_features = net_dev->features & ~efx->fixed_features;
--
--	/* Disable VLAN filtering by default.  It may be enforced if
--	 * the feature is fixed (i.e. VLAN filters are required to
--	 * receive VLAN tagged packets due to vPort restrictions).
--	 */
--	net_dev->features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
--	net_dev->features |= efx->fixed_features;
--
--	rc = efx_register_netdev(efx);
--	if (rc)
--		goto fail4;
--
--	if (efx->type->sriov_init) {
--		rc = efx->type->sriov_init(efx);
--		if (rc)
--			netif_err(efx, probe, efx->net_dev,
--				  "SR-IOV can't be enabled rc %d\n", rc);
--	}
--
- 	netif_dbg(efx, probe, efx->net_dev, "initialisation successful\n");
+ 	efx_rx_skb_attach_timestamp(channel, skb);
  
- 	/* Try to create MTDs, but allow this to fail */
-@@ -3232,8 +3263,6 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
- 
- 	return 0;
- 
-- fail4:
--	efx_pci_remove_main(efx);
-  fail3:
- 	efx_fini_io(efx);
-  fail2:
