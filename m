@@ -1,72 +1,41 @@
-From: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
-Subject: [PATCH net-next v4 0/2] qed*: Add support for PTP
-Date: Tue, 7 Feb 2017 22:43:12 -0800
-Message-ID: <1486536194-30872-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH v3 1/2] mac80211: fils_aead: Use crypto api CMAC shash
+ rather than bare cipher
+Date: Wed, 08 Feb 2017 08:00:27 +0100
+Message-ID: <1486537227.4603.2.camel@sipsolutions.net>
+References: <1486378168-31028-1-git-send-email-ard.biesheuvel@linaro.org>
+         <1486378168-31028-2-git-send-email-ard.biesheuvel@linaro.org>
+         (sfid-20170206_114945_027134_93100C60)
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
-        <Yuval.Mintz@cavium.com>,
-        Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0061.outbound.protection.outlook.com ([104.47.37.61]:52640
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932135AbdBHG7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 01:59:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org
+To: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1486378168-31028-2-git-send-email-ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> (sfid-20170206_114945_027134_93100C60)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+This looks strange to me:
 
-Hi David,
-    The patch series adds required changes for qed/qede drivers for
-supporting the IEEE Precision Time Protocol (PTP).
+> +static int aes_s2v(struct crypto_shash *tfm,
+>  		   size_t num_elem, const u8 *addr[], size_t len[],
+> u8 *v)
+>  {
+> -	u8 d[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE];
+> +	u8 d[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE] = {};
+> +	SHASH_DESC_ON_STACK(desc, tfm);
 
-Please consider applying this series to "net-next".
+desc declared
 
-Thanks,
-Sudarsana
+> 
+> +	crypto_shash_digest(desc, tmp, AES_BLOCK_SIZE, d);
 
-Changes from previous versions:
--------------------------------
-v4: Remove the loop iteration for value '0' in the qed_ptp_hw_adjfreq()
-    implementation.
+used here
+ 
+> +	crypto_shash_init(desc);
 
-v3: Use div_s64 for 64-bit divisions as do_div gives error for signed
-    types.
-    Incorporated review comments from Richard Cochran.
-      - Clear timestamp resgisters as soon as timestamp is read.
-      - Use shift operation in the place of 'divide by 16'.
+but initialized now?
 
-v2: Use do_div for 64-bit divisions.
-
-Sudarsana Reddy Kalluru (2):
-  qed: Add infrastructure for PTP support.
-  qede: Add driver support for PTP.
-
- drivers/net/ethernet/qlogic/Kconfig             |   1 +
- drivers/net/ethernet/qlogic/qed/Makefile        |   2 +-
- drivers/net/ethernet/qlogic/qed/qed.h           |   2 +
- drivers/net/ethernet/qlogic/qed/qed_l2.c        |   5 +
- drivers/net/ethernet/qlogic/qed/qed_l2.h        |   1 +
- drivers/net/ethernet/qlogic/qed/qed_main.c      |  15 +
- drivers/net/ethernet/qlogic/qed/qed_ptp.c       | 316 ++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_ptp.h       |  47 +++
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  31 ++
- drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
- drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
- drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
- drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
- drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
- include/linux/qed/qed_eth_if.h                  |  22 +
- 17 files changed, 1101 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
- create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
- create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
-
--- 
-1.8.3.1
+johannes
