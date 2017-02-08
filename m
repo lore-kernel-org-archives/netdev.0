@@ -1,72 +1,53 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv6 net-next 4/6] sctp: implement sender-side procedures
- for SSN/TSN Reset Request Parameter
-Date: Wed, 8 Feb 2017 19:50:06 -0200
-Message-ID: <20170208215006.GG3414@localhost.localdomain>
-References: <cover.1486573727.git.lucien.xin@gmail.com>
- <7095f88e0d93a7189df08fec56b3db89deb0397c.1486573728.git.lucien.xin@gmail.com>
- <20170208214801.GF3414@localhost.localdomain>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: Re: [PATCH v2 net-next 1/9] sunvnet: make sunvnet common code
+ dynamically loadable
+Date: Wed, 8 Feb 2017 13:50:27 -0800
+Message-ID: <ad857b9d-7f8b-cf65-5f1c-5d66b4cf60b9@oracle.com>
+References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+ <1486505582-76823-2-git-send-email-shannon.nelson@oracle.com>
+ <20170208.142918.491209108288972402.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53572 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751011AbdBHVvJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 16:51:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20170208214801.GF3414@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170208.142918.491209108288972402.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2017 at 07:48:01PM -0200, Marcelo Ricardo Leitner wrote:
-> Hi Xin,
-> 
-> On Thu, Feb 09, 2017 at 01:18:18AM +0800, Xin Long wrote:
-> > This patch is to implement Sender-Side Procedures for the SSN/TSN
-> > Reset Request Parameter descibed in rfc6525 section 5.1.4.
-> > 
-> > It is also to add sockopt SCTP_RESET_ASSOC in rfc6525 section 6.3.3
-> > for users.
-> > 
-> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ...
-> > +
-> > +int sctp_send_reset_assoc(struct sctp_association *asoc)
-> > +{
-> > +	struct sctp_chunk *chunk = NULL;
-> > +	int retval;
-> > +	__u16 i;
-> > +
-> > +	if (!asoc->peer.reconf_capable ||
-> > +	    !(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
-> > +		return -ENOPROTOOPT;
-> > +
-> > +	if (asoc->strreset_outstanding)
-> > +		return -EINPROGRESS;
-> > +
-> > +	chunk = sctp_make_strreset_tsnreq(asoc);
->           ^--- refcnf = 1 (as per sctp_chunkify())
-> 
-> > +	if (!chunk)
-> > +		return -ENOMEM;
-> > +
-> > +	/* Block further xmit of data until this request is completed */
-> > +	for (i = 0; i < asoc->stream->outcnt; i++)
-> > +		asoc->stream->out[i].state = SCTP_STREAM_CLOSED;
-> > +
-> > +	asoc->strreset_chunk = chunk;
-> > +	sctp_chunk_hold(asoc->strreset_chunk);
->                                  ^--- refcnf = 2
-> > +
-> > +	retval = sctp_send_reconf(asoc, chunk);
-> > +	if (retval) {
-> > +		sctp_chunk_put(asoc->strreset_chunk);
->                                           ^--- refcnf = 1
-> 
-> Won't we leak the chunk here?
+On 2/8/2017 11:29 AM, David Miller wrote:
+> From: Shannon Nelson <shannon.nelson@oracle.com>
+> Date: Tue,  7 Feb 2017 14:12:54 -0800
+>
+>> +static int __init sunvnet_common_init(void)
+>> +{
+>> +	pr_info("%s\n", version);
+>> +	return 0;
+>> +}
+>> +module_init(sunvnet_common_init);
+>> +
+>> +static void __exit sunvnet_common_exit(void)
+>> +{
+>> +	/* Empty function, just here to fill the exit function pointer
+>> +	 * slot.  In some combinations of older gcc and newer kernel,
+>> +	 * leaving this undefined results in the kernel marking it as a
+>> +	 * permanent module; it will show up in lsmod output as [permanent]
+>> +	 * and not be unloadable.
+>> +	 */
+>> +}
+>> +module_exit(sunvnet_common_exit);
+>> +
+>
+> This module is just providing infrastructure for other modules.
+>
+> So skip the init function, and that way you don't need the exit
+> function either.
+>
+> The kernel log message when the real sunvnet driver loads is
+> sufficient, you don't need one here.
+>
 
-No we won't, sctp_send_reconf() frees it for us, aye.
+Sure - thanks,
+sln
