@@ -1,44 +1,56 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
-Date: Tue, 7 Feb 2017 16:54:16 -0800
-Message-ID: <20170208005416.GA76793@knc-06.sc.intel.com>
+Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) interface
+Date: Tue, 7 Feb 2017 17:04:47 -0800
+Message-ID: <20170208010447.GB76793@knc-06.sc.intel.com>
 References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1486502926.2581.4.camel@sandisk.com>
- <1828884A29C6694DAF28B7E6B8A82373AB0E5B6C@ORSMSX109.amr.corp.intel.com>
- <1486504716.2581.8.camel@sandisk.com>
+ <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20170207211901.GB28922@obsidianresearch.com>
+ <20170207220628.GB76652@knc-06.sc.intel.com>
+ <20170207221925.GA30579@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1486504716.2581.8.camel-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+In-Reply-To: <20170207221925.GA30579-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 07, 2017 at 09:58:50PM +0000, Bart Van Assche wrote:
->On Tue, 2017-02-07 at 21:44 +0000, Hefty, Sean wrote:
->> This is Ethernet - not IP - encapsulation over a non-InfiniBand device/protocol.
+On Tue, Feb 07, 2017 at 03:19:25PM -0700, Jason Gunthorpe wrote:
+>On Tue, Feb 07, 2017 at 02:06:30PM -0800, Vishwanathapura, Niranjana wrote:
 >
->That's more than clear from the cover letter. In my opinion the cover letter
->should explain why it is considered useful to have such a driver upstream
->and what the use cases are of encapsulating Ethernet frames inside RDMA
->packets.
+>> >> 	IB_DEVICE_RAW_SCATTER_FCS		= (1ULL << 34),
+>> >>+	IB_DEVICE_RDMA_NETDEV_HFI_VNIC		= (1ULL << 35),
+>> >
+>> >What is this called HFI_VNIC anyhow? Shouldn't this be OPA_VNIC? There
+>> >is nothing really HFI specific, right?
+>>
+>> Agreed, OPA_VNIC is more appropriate here. Will change it.
+>
+>And probably lots of other places too.. :)
 >
 
-We believe on our HW, HFI VNIC design gives better hardware resource usage 
-which is also scalable and hence room for better performance.
-Also as evident in the cover letter, it gives us better manageability by 
-defining virtual Ethernet switches overlaid on the fabric and
-use standard Ethernet support provided by Linux.
+Well, our driver is called HFI1 and HFI_VNIC is in accordance with our naming 
+convention. I will only change the above device attribute name to OPA_VNIC in 
+the ib interface just to be consitant with other such defintions here.
 
-Niranjana
 >
+>> >And this should be rn->dev_priv ?
+>>
+>> Yah, both will result in same behavior. But yah, what you are suggesting
+>> will remove any confusion. Will change in next PATCH series.
+>
+>Only because the struct has no members, as soon as someone adds
+>something it would go booom.
+>
+
+Agreed.
+
+>Jason
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
