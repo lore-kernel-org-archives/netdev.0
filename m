@@ -1,76 +1,44 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH v3] xen-netfront: Improve error handling
- during initialization
-Date: Wed, 8 Feb 2017 09:34:51 -0500
-Message-ID: <a67bf6ee-ca23-2cd9-2656-729442514b12@oracle.com>
-References: <1486551457-25963-1-git-send-email-ross.lagerwall@citrix.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: Kernel crashes in phy_attach_direct()
+Date: Wed, 8 Feb 2017 12:34:19 -0200
+Message-ID: <CAOMZO5BzLh4az9t=fJkG80GW3_xdD3YxUbagL4dJp7Hwr4koZw@mail.gmail.com>
+References: <CAOMZO5C58--W1q+i26-+DBcton0Bk_o3zVfyuumM+Y=OemQ_Aw@mail.gmail.com>
+ <20170208142857.GD10855@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, netdev@vger.kernel.org,
- wei.liu2@citrix.com, linux-kernel@vger.kernel.org
-To: Ross Lagerwall <ross.lagerwall@citrix.com>, xen-devel@lists.xenproject.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1486551457-25963-1-git-send-email-ross.lagerwall@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ot0-f171.google.com ([74.125.82.171]:36031 "EHLO
+        mail-ot0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753754AbdBHOev (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 09:34:51 -0500
+Received: by mail-ot0-f171.google.com with SMTP id 32so114017250oth.3
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 06:34:20 -0800 (PST)
+In-Reply-To: <20170208142857.GD10855@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDIvMDgvMjAxNyAwNTo1NyBBTSwgUm9zcyBMYWdlcndhbGwgd3JvdGU6Cj4gVGhpcyBmaXhl
-cyBhIGNyYXNoIHdoZW4gcnVubmluZyBvdXQgb2YgZ3JhbnQgcmVmcyB3aGVuIGNyZWF0aW5nIG1h
-bnkKPiBxdWV1ZXMgYWNyb3NzIG1hbnkgbmV0ZGV2cy4KPgo+ICogSWYgY3JlYXRpbmcgcXVldWVz
-IGZhaWxzIChpLmUuIHRoZXJlIGFyZSBubyBncmFudCByZWZzIGF2YWlsYWJsZSksCj4gY2FsbCB4
-ZW5idXNfZGV2X2ZhdGFsKCkgdG8gZW5zdXJlIHRoYXQgdGhlIHhlbmJ1cyBkZXZpY2UgaXMgc2V0
-IHRvIHRoZQo+IGNsb3NlZCBzdGF0ZS4KPiAqIElmIG5vIHF1ZXVlcyBhcmUgY3JlYXRlZCwgZG9u
-J3QgY2FsbCB4ZW5uZXRfZGlzY29ubmVjdF9iYWNrZW5kIGFzCj4gbmV0ZGV2LT5yZWFsX251bV90
-eF9xdWV1ZXMgd2lsbCBub3QgaGF2ZSBiZWVuIHNldCBjb3JyZWN0bHkuCj4gKiBJZiBzZXR1cF9u
-ZXRmcm9udCgpIGZhaWxzLCBlbnN1cmUgdGhhdCBhbGwgdGhlIHF1ZXVlcyBjcmVhdGVkIGFyZQo+
-IGNsZWFuZWQgdXAsIG5vdCBqdXN0IHRob3NlIHRoYXQgaGF2ZSBiZWVuIHNldCB1cC4KPiAqIElm
-IGFueSBxdWV1ZXMgd2VyZSBzZXQgdXAgYW5kIGFuIGVycm9yIG9jY3VycywgY2FsbAo+IHhlbm5l
-dF9kZXN0cm95X3F1ZXVlcygpIHRvIGNsZWFuIHVwIHRoZSBuYXBpIGNvbnRleHQuCj4gKiBJZiBh
-bnkgZmF0YWwgZXJyb3Igb2NjdXJzLCB1bnJlZ2lzdGVyIGFuZCBkZXN0cm95IHRoZSBuZXRkZXYg
-dG8gYXZvaWQKPiBsZWF2aW5nIGFyb3VuZCBhIGhhbGYgc2V0dXAgbmV0d29yayBkZXZpY2UuCj4K
-PiBTaWduZWQtb2ZmLWJ5OiBSb3NzIExhZ2Vyd2FsbCA8cm9zcy5sYWdlcndhbGxAY2l0cml4LmNv
-bT4KPiAtLS0KPgo+IENoYW5nZWQgaW4gVjM6Cj4gKiBJZiB4ZW5uZXRfY3JlYXRlX3F1ZXVlcyBy
-ZXR1cm5zIDwgMCwgaXQgd2lsbCBub3QgaGF2ZSBjcmVhdGVkIGFueQo+ICAgcXVldWVzIHNvIHRo
-ZXJlJ3Mgbm8gbmVlZCB0byBnbyB0byBkZXN0cm95X3JpbmcuCj4KPiAgZHJpdmVycy9uZXQveGVu
-LW5ldGZyb250LmMgfCAyOSArKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLQo+ICAxIGZpbGUg
-Y2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMTggZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQu
-Ywo+IGluZGV4IDcyMmZlOWYuLmY5MGZjNzIgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQveGVu
-LW5ldGZyb250LmMKPiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwo+IEBAIC0xODIz
-LDI3ICsxODIzLDE5IEBAIHN0YXRpYyBpbnQgdGFsa190b19uZXRiYWNrKHN0cnVjdCB4ZW5idXNf
-ZGV2aWNlICpkZXYsCj4gIAkJeGVubmV0X2Rlc3Ryb3lfcXVldWVzKGluZm8pOwo+ICAKPiAgCWVy
-ciA9IHhlbm5ldF9jcmVhdGVfcXVldWVzKGluZm8sICZudW1fcXVldWVzKTsKPiAtCWlmIChlcnIg
-PCAwKQo+IC0JCWdvdG8gZGVzdHJveV9yaW5nOwo+ICsJaWYgKGVyciA8IDApIHsKPiArCQl4ZW5i
-dXNfZGV2X2ZhdGFsKGRldiwgZXJyLCAiY3JlYXRpbmcgcXVldWVzIik7Cj4gKwkJa2ZyZWUoaW5m
-by0+cXVldWVzKTsKPiArCQlpbmZvLT5xdWV1ZXMgPSBOVUxMOwo+ICsJCWdvdG8gb3V0Owo+ICsJ
-fQoKSSB0aGluayBpdCBtaWdodCBiZSBiZXR0ZXIgdG8ga2ZyZWUoKSBpbiB4ZW5uZXRfY3JlYXRl
-X3F1ZXVlcygpIChhbmQgc2V0Cm51bV9xdWV1ZXMgdG8gemVybywgd2hpbGUgYXQgaXQpLiBCdXQg
-ZWl0aGVyIHdheToKClJldmlld2VkLWJ5OiBCb3JpcyBPc3Ryb3Zza3kgPGJvcmlzLm9zdHJvdnNr
-eUBvcmFjbGUuY29tPgoKCj4gIAo+ICAJLyogQ3JlYXRlIHNoYXJlZCByaW5nLCBhbGxvYyBldmVu
-dCBjaGFubmVsIC0tIGZvciBlYWNoIHF1ZXVlICovCj4gIAlmb3IgKGkgPSAwOyBpIDwgbnVtX3F1
-ZXVlczsgKytpKSB7Cj4gIAkJcXVldWUgPSAmaW5mby0+cXVldWVzW2ldOwo+ICAJCWVyciA9IHNl
-dHVwX25ldGZyb250KGRldiwgcXVldWUsIGZlYXR1cmVfc3BsaXRfZXZ0Y2huKTsKPiAtCQlpZiAo
-ZXJyKSB7Cj4gLQkJCS8qIHNldHVwX25ldGZyb250KCkgd2lsbCB0aWR5IHVwIHRoZSBjdXJyZW50
-Cj4gLQkJCSAqIHF1ZXVlIG9uIGVycm9yLCBidXQgd2UgbmVlZCB0byBjbGVhbiB1cAo+IC0JCQkg
-KiB0aG9zZSBhbHJlYWR5IGFsbG9jYXRlZC4KPiAtCQkJICovCj4gLQkJCWlmIChpID4gMCkgewo+
-IC0JCQkJcnRubF9sb2NrKCk7Cj4gLQkJCQluZXRpZl9zZXRfcmVhbF9udW1fdHhfcXVldWVzKGlu
-Zm8tPm5ldGRldiwgaSk7Cj4gLQkJCQlydG5sX3VubG9jaygpOwo+IC0JCQkJZ290byBkZXN0cm95
-X3Jpbmc7Cj4gLQkJCX0gZWxzZSB7Cj4gLQkJCQlnb3RvIG91dDsKPiAtCQkJfQo+IC0JCX0KPiAr
-CQlpZiAoZXJyKQo+ICsJCQlnb3RvIGRlc3Ryb3lfcmluZzsKPiAgCX0KPiAgCj4gIGFnYWluOgo+
-IEBAIC0xOTMzLDkgKzE5MjUsMTAgQEAgc3RhdGljIGludCB0YWxrX3RvX25ldGJhY2soc3RydWN0
-IHhlbmJ1c19kZXZpY2UgKmRldiwKPiAgCXhlbmJ1c190cmFuc2FjdGlvbl9lbmQoeGJ0LCAxKTsK
-PiAgIGRlc3Ryb3lfcmluZzoKPiAgCXhlbm5ldF9kaXNjb25uZWN0X2JhY2tlbmQoaW5mbyk7Cj4g
-LQlrZnJlZShpbmZvLT5xdWV1ZXMpOwo+IC0JaW5mby0+cXVldWVzID0gTlVMTDsKPiArCXhlbm5l
-dF9kZXN0cm95X3F1ZXVlcyhpbmZvKTsKPiAgIG91dDoKPiArCXVucmVnaXN0ZXJfbmV0ZGV2KGlu
-Zm8tPm5ldGRldik7Cj4gKwl4ZW5uZXRfZnJlZV9uZXRkZXYoaW5mby0+bmV0ZGV2KTsKPiAgCXJl
-dHVybiBlcnI7Cj4gIH0KPiAgCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9y
-ZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+Hi Andrew,
+
+On Wed, Feb 8, 2017 at 12:28 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+
+> Hi Fabio
+>
+> Could you try reverting:
+>
+> commit cafe8df8b9bc9aa3dffa827c1a6757c6cd36f657
+> Author: Mao Wenan <maowenan@huawei.com>
+> Date:   Tue Jan 31 18:46:43 2017 -0800
+>
+>     net: phy: Fix lack of reference count on PHY driver
+>
+>     There is currently no reference count being held on the PHY driver,
+>     which makes it possible to remove the PHY driver module while the PHY
+>     state machine is running and polling the PHY. This could cause crashes
+>     similar to this one to show up:
+
+Yes, after reverting this commit I no longer get the kernel crash.
+
+Thanks
