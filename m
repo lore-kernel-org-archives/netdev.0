@@ -1,36 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] virtio: Fix affinity for #VCPUs != #queue
- pairs
-Date: Wed, 08 Feb 2017 13:37:44 -0500 (EST)
-Message-ID: <20170208.133744.558863839333233338.davem@davemloft.net>
-References: <20170207181506.36668-1-serebrin@google.com>
+From: Peter Senna Tschudin <peter.senna@collabora.com>
+Subject: Re: [RFC 15/19] usb: gadget: amd5536udc: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:43:02 +0100
+Message-ID: <20170208184302.GO16878@collabora.com>
+References: <20170208163457.28853-1-romain.perier@collabora.com>
+ <20170208163457.28853-16-romain.perier@collabora.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: borntraeger@de.ibm.com, netdev@vger.kernel.org, mst@redhat.com,
-        jasowang@redhat.com, willemb@google.com, venkateshs@google.com,
-        jonolson@google.com, willemdebruijn.kernel@gmail.com,
-        rick.jones2@hpe.com, jmattson@google.com,
-        linux-s390@vger.kernel.org, linux-arch@vger.kernel.org
-To: serebrin@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56462 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751940AbdBHSp4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:45:56 -0500
-In-Reply-To: <20170207181506.36668-1-serebrin@google.com>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:34273 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751555AbdBHSoF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:44:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20170208163457.28853-16-romain.perier@collabora.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Serebrin <serebrin@google.com>
-Date: Tue,  7 Feb 2017 10:15:06 -0800
+On Wed, Feb 08, 2017 at 05:34:53PM +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commits replaces the PCI pool old
+> API by the appropriated function with the DMA pool API.
+> 
+Tested by compilation only.
 
-> If the number of virtio queue pairs is not equal to the
-> number of VCPUs, the virtio guest driver doesn't assign
-> any CPU affinity for the queue interrupts or the xps
-> aggregation interrupt.  (In contrast, the driver does assign
-> both if the counts of VCPUs and queues are equal, which is a good
-> default behavior.)
- ...
-
-Can I get some reviews, please?
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> ---
+>  drivers/usb/gadget/udc/amd5536udc.c | 8 ++++----
+>  drivers/usb/gadget/udc/amd5536udc.h | 4 ++--
+>  2 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/usb/gadget/udc/amd5536udc.c b/drivers/usb/gadget/udc/amd5536udc.c
+> index ea03ca7..270876b 100644
+> --- a/drivers/usb/gadget/udc/amd5536udc.c
+> +++ b/drivers/usb/gadget/udc/amd5536udc.c
+> @@ -583,7 +583,7 @@ udc_alloc_request(struct usb_ep *usbep, gfp_t gfp)
+>  
+>  	if (ep->dma) {
+>  		/* ep0 in requests are allocated from data pool here */
+> -		dma_desc = pci_pool_alloc(ep->dev->data_requests, gfp,
+> +		dma_desc = dma_pool_alloc(ep->dev->data_requests, gfp,
+>  						&req->td_phys);
+>  		if (!dma_desc) {
+>  			kfree(req);
+> @@ -622,7 +622,7 @@ static int udc_free_dma_chain(struct udc *dev, struct udc_request *req)
+>  	td = phys_to_virt(td_last->next);
+>  
+>  	for (i = 1; i < req->chain_len; i++) {
+> -		pci_pool_free(dev->data_requests, td,
+> +		dma_pool_free(dev->data_requests, td,
+>  			      (dma_addr_t)td_last->next);
+>  		td_last = td;
+>  		td = phys_to_virt(td_last->next);
+> @@ -652,7 +652,7 @@ udc_free_request(struct usb_ep *usbep, struct usb_request *usbreq)
+>  		if (req->chain_len > 1)
+>  			udc_free_dma_chain(ep->dev, req);
+>  
+> -		pci_pool_free(ep->dev->data_requests, req->td_data,
+> +		dma_pool_free(ep->dev->data_requests, req->td_data,
+>  							req->td_phys);
+>  	}
+>  	kfree(req);
+> @@ -847,7 +847,7 @@ static int udc_create_dma_chain(
+>  	for (i = buf_len; i < bytes; i += buf_len) {
+>  		/* create or determine next desc. */
+>  		if (create_new_chain) {
+> -			td = pci_pool_alloc(ep->dev->data_requests,
+> +			td = dma_pool_alloc(ep->dev->data_requests,
+>  					    gfp_flags, &dma_addr);
+>  			if (!td)
+>  				return -ENOMEM;
+> diff --git a/drivers/usb/gadget/udc/amd5536udc.h b/drivers/usb/gadget/udc/amd5536udc.h
+> index 4638d70..85d5aa5 100644
+> --- a/drivers/usb/gadget/udc/amd5536udc.h
+> +++ b/drivers/usb/gadget/udc/amd5536udc.h
+> @@ -545,8 +545,8 @@ struct udc {
+>  	u32 __iomem			*txfifo;
+>  
+>  	/* DMA desc pools */
+> -	struct pci_pool			*data_requests;
+> -	struct pci_pool			*stp_requests;
+> +	struct dma_pool			*data_requests;
+> +	struct dma_pool			*stp_requests;
+>  
+>  	/* device data */
+>  	unsigned long			phys_addr;
+> -- 
+> 2.9.3
+> 
