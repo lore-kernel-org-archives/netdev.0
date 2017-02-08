@@ -1,53 +1,61 @@
-From: =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
-Subject: [PATCH v3 2/2] sierra_net: Skip validating irrelevant fields for IDLE LSIs
-Date: Wed, 8 Feb 2017 02:46:33 +0100
-Message-ID: <726527c0cdc54849a8f82287472faac8@rwthex-w2-b.rwth-ad.de>
-References: <20170208014633.15438-1-stefan.bruens@rwth-aachen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
-To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170208014633.15438-1-stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Denny Page <dennypage@me.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Tue, 07 Feb 2017 17:52:52 -0800
+Message-ID: <BBA8C11E-44DF-4693-957F-0354BEC75FC3@me.com>
+References: <20170207140144.GA11233@localhost>
+ <02874ECE860811409154E81DA85FBB5857D6DC87@ORSMSX115.amr.corp.intel.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Miroslav Lichvar <mlichvar@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:60808 "EHLO
+        st11p06im-asmtp001.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932644AbdBHBxU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 20:53:20 -0500
+Received: from process-dkim-sign-daemon.st11p06im-asmtp001.me.com by
+ st11p06im-asmtp001.me.com
+ (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
+ id <0OL100R0095M4500@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
+ Wed, 08 Feb 2017 01:52:55 +0000 (GMT)
+In-reply-to: <02874ECE860811409154E81DA85FBB5857D6DC87@ORSMSX115.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the context is deactivated, the link_type is set to 0xff, which
-triggers a warning message, and results in a wrong link status, as
-the LSI is ignored.
+[Resend without rich text]
 
-Signed-off-by: Stefan Brüns <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
----
- drivers/net/usb/sierra_net.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+> On Feb 07, 2017, at 09:45, Keller, Jacob E <jacob.e.keller@intel.com> =
+wrote:
+>=20
+> The main problem here is that most hardware that *can't* timestamp all =
+packets is pretty limited to timestamping only PTP frames.
 
-diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
-index 6300a4454ae5..0b5a84c9022c 100644
---- a/drivers/net/usb/sierra_net.c
-+++ b/drivers/net/usb/sierra_net.c
-@@ -385,6 +385,13 @@ static int sierra_net_parse_lsi(struct usbnet *dev, char *data, int datalen)
- 		return -1;
- 	}
- 
-+	/* Validate the session state */
-+	if (lsi->session_state == SIERRA_NET_SESSION_IDLE) {
-+		netdev_err(dev->net, "Session idle, 0x%02x\n",
-+			   lsi->session_state);
-+		return 0;
-+	}
-+
- 	/* Validate the protocol  - only support UMTS for now */
- 	if (lsi->protocol == SIERRA_NET_PROTOCOL_UMTS) {
- 		struct lsi_umts_single *single = (struct lsi_umts_single *)lsi;
-@@ -418,13 +425,6 @@ static int sierra_net_parse_lsi(struct usbnet *dev, char *data, int datalen)
- 		return 0;
- 	}
- 
--	/* Validate the session state */
--	if (lsi->session_state == SIERRA_NET_SESSION_IDLE) {
--		netdev_err(dev->net, "Session idle, 0x%02x\n",
--			lsi->session_state);
--		return 0;
--	}
+
+Most, but not all. The TI DP83630 doesn=E2=80=99t support timestamping =
+for all packets, but it does support either PTP or NTP:
+
+=3D=3D=3D
+2.3.2.3 NTP Packet Timestamp
+The DP83630 may be programmed to timestamp NTP packets instead of PTP =
+packets. This operation is enabled by setting the NTP_TS_EN control in =
+the PTP_TXCFG0 register. When configured for NTP timestamps, the DP83630 =
+will timestamp packets with the NTP UDP port number rather than the PTP =
+port number (note that the device cannot be configured to timestamp both =
+PTP and NTP packets). One-Step operation is not supported for NTP =
+timestamps, so transmit timestamps cannot be inserted directly into =
+outgoing NTP packets. Timestamp insertion is available for receive =
+timestamps but must use a single, fixed location.=20
+=3D=3D=3D
+
+Right now, there is no API to signal to the driver that NTP timestamping =
+is desired.
+
+Even if the hardware does not directly support filtering, it can be =
+implemented in the driver.
+
+Denny=
