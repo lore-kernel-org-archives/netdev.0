@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 13/16] net: stmmac: print phy information
-Date: Wed,  8 Feb 2017 09:31:18 +0100
-Message-ID: <20170208083121.27949-14-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 06/16] net: stmmac: fix some code style problem
+Date: Wed,  8 Feb 2017 09:31:11 +0100
+Message-ID: <20170208083121.27949-7-clabbe.montjoie@gmail.com>
 References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Cc: linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -12,28 +12,55 @@ In-Reply-To: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a PHY is found, printing which one was found (and which type/model) is
-a good information to know.
+Checkpatch complains about some code style problem on stmmac_mdio.c.
+This patch fix them.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index cc88bdb..9805aa8 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -870,9 +870,7 @@ static int stmmac_init_phy(struct net_device *dev)
- 	if (phydev->is_pseudo_fixed_link)
- 		phydev->irq = PHY_POLL;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 3fdc6ec..c24bef2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -152,9 +152,9 @@ int stmmac_mdio_reset(struct mii_bus *bus)
  
--	netdev_dbg(priv->dev, "%s: attached to PHY (UID 0x%x) Link = %d\n",
--		   __func__, phydev->phy_id, phydev->link);
+ #ifdef CONFIG_OF
+ 	if (priv->device->of_node) {
 -
-+	phy_attached_info(phydev);
- 	return 0;
- }
+ 		if (data->reset_gpio < 0) {
+ 			struct device_node *np = priv->device->of_node;
++
+ 			if (!np)
+ 				return 0;
  
+@@ -221,7 +221,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		return 0;
+ 
+ 	new_bus = mdiobus_alloc();
+-	if (new_bus == NULL)
++	if (!new_bus)
+ 		return -ENOMEM;
+ 
+ 	if (mdio_bus_data->irqs)
+@@ -258,6 +258,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
++
+ 		if (phydev) {
+ 			int act = 0;
+ 			char irq_num[4];
+@@ -267,7 +268,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 			 * If an IRQ was provided to be assigned after
+ 			 * the bus probe, do it here.
+ 			 */
+-			if ((mdio_bus_data->irqs == NULL) &&
++			if ((!mdio_bus_data->irqs) &&
+ 			    (mdio_bus_data->probed_phy_irq > 0)) {
+ 				new_bus->irq[addr] =
+ 					mdio_bus_data->probed_phy_irq;
 -- 
 2.10.2
