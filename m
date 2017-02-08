@@ -1,80 +1,100 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
-Date: Wed, 8 Feb 2017 09:57:36 +0200
-Message-ID: <20170208075736.clhgooyed5rvr3ng@p310>
-References: <20170204165451.GU3442@decadent.org.uk>
- <20170204165603.GV3442@decadent.org.uk>
- <20170205003038.GB21184@kroah.com>
- <20170206081444.smcgjkmdepxoosb6@p310>
- <20170206082822.GA23451@kroah.com>
- <20170206125108.d5vdur5rlvrkpr5j@localhost>
- <CAJJ6jxt-47saW=B260j0v_Gdt-dwb4YepRZTWQ-nYfLBGQUT=w@mail.gmail.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH net v2 1/3] net: phy: Fix PHY module checks
+Date: Wed, 8 Feb 2017 07:57:58 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F201ED9E4E@szxemi502-mbx.china.huawei.com>
+References: <20170208073746.10963-1-f.fainelli@gmail.com>
+ <20170208073746.10963-2-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Ben Hutchings <ben@decadent.org.uk>,
-        netdev@vger.kernel.org, USB list <linux-usb@vger.kernel.org>,
-        Lisandro =?utf-8?Q?Dami=C3=A1n_Nicanor_P=C3=A9rez?= Meyer
-        <lisandro@debian.org>
-To: Steve Calfee <stevecalfee@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "rmk+kernel@armlinux.org.uk" <rmk+kernel@armlinux.org.uk>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([92.247.61.126]:37524 "EHLO
-        zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752061AbdBHH6R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:58:17 -0500
-Content-Disposition: inline
-In-Reply-To: <CAJJ6jxt-47saW=B260j0v_Gdt-dwb4YepRZTWQ-nYfLBGQUT=w@mail.gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:4778 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752142AbdBHH6S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:58:18 -0500
+In-Reply-To: <20170208073746.10963-2-f.fainelli@gmail.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-02-07 10:32:16, Steve Calfee wrote:
-> On Mon, Feb 6, 2017 at 4:51 AM, Petko Manolov <petkan@nucleusys.com> wrote:
-> > On 17-02-06 09:28:22, Greg KH wrote:
-> >> On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
-> >> > On 17-02-05 01:30:39, Greg KH wrote:
-> >> > > On Sat, Feb 04, 2017 at 04:56:03PM +0000, Ben Hutchings wrote:
-> >> > > > Allocating USB buffers on the stack is not portable, and no longer works
-> >> > > > on x86_64 (with VMAP_STACK enabled as per default).
-> >> > >
-> >> > > It's never worked on other platforms, so these should go to the stable
-> >> > > releases please.
-> >> >
-> >> > As far as i know both drivers works fine on other platforms, though I only
-> >> > tested it on arm and mipsel. ;)
-> >>
-> >> It all depends on the arm and mips platforms, the ones that can not DMA 
-> >> from stack memory are the ones that would always fail here (since the 2.2 
-> >> kernel days).
-> >
-> > Seems like most modern SOCs have decent DMA controllers.
-> >
+
+
+> -----Original Message-----
+> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+> Sent: Wednesday, February 08, 2017 3:38 PM
+> To: netdev@vger.kernel.org
+> Cc: davem@davemloft.net; andrew@lunn.ch; rmk+kernel@armlinux.org.uk;
+> maowenan; Florian Fainelli
+> Subject: [PATCH net v2 1/3] net: phy: Fix PHY module checks
 > 
-> The real problem is not DMA exactly, it is cache coherency.
+> The Generic PHY drivers gets assigned after we checked that the current PHY
+> driver is NULL, so we need to check a few things before we can safely
+> derference d->driver. Update phy_attach_direct() and phy_detach() accordingly
+> to be resilient to these cases.
 > 
-> X86 has a coherent cache and all the cpu cores watch DMA transfers and keep 
-> the cpu caches up to date.
+> Even though the Generic PHY driver defaults to phy_probe() which can hardly
+> fail at the moment, let's fix the label so we don't call phy_detach() on a network
+> device we have not attached yet.
+> 
+> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/phy/phy_device.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c index
+> 0d8f4d3847f6..bde240bf8d7b 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -920,7 +920,7 @@ int phy_attach_direct(struct net_device *dev, struct
+> phy_device *phydev,
+>  		return -EIO;
+>  	}
+> 
+> -	if (!try_module_get(d->driver->owner)) {
+> +	if (d->driver && !try_module_get(d->driver->owner)) {
+>  		dev_err(&dev->dev, "failed to get the device driver module\n");
+>  		return -EIO;
 
-Yep, these cpus are more user friendly.
+Hi Florian,
+  Here "return -EIO" will miss decreasing bus->owner reference count.
 
-> Most ARMs and MIPS processors have incoherent cache, so DMA can change memory 
-> without the CPU cache updates. CPU cache view of what is in memory can be 
-> different from what was DMAed in, this makes failures very hard to detect, 
-> reproduce and racy.
+Mao Wenan
 
-Except for a very few purposes (like framebuffer memory) one should be crazy to 
-use anything but kseg1 for accessing the peripherals.  One of the real problems 
-here is the 512MB limit of the uncached segment.  While the DMA controller can 
-typically access all available RAM you'll run into the issues that you describe 
-with more than that amount of memory.
-
-MIPS like doing things small and simple.  Everybody knows that software can 
-compensate for hardware omissions. ;)
-
-> So all DMA buffers should always be separate allocations from the stack AND 
-> not be embedded in structs. Memory allocations are always at least cache line 
-> aligned, so coherency is not a problem.
-
-I do agree.
-
-
-cheers,
-Petko
+>  	}
+> @@ -943,7 +943,7 @@ int phy_attach_direct(struct net_device *dev, struct
+> phy_device *phydev,
+>  			err = device_bind_driver(d);
+> 
+>  		if (err)
+> -			goto error;
+> +			goto error_put_device;
+>  	}
+> 
+>  	if (phydev->attached_dev) {
+> @@ -981,6 +981,7 @@ int phy_attach_direct(struct net_device *dev, struct
+> phy_device *phydev,
+> 
+>  error:
+>  	phy_detach(phydev);
+> +error_put_device:
+>  	put_device(d);
+>  	module_put(d->driver->owner);
+>  	if (ndev_owner != bus->owner)
+> @@ -1065,7 +1066,8 @@ void phy_detach(struct phy_device *phydev)
+>  	bus = phydev->mdio.bus;
+> 
+>  	put_device(&phydev->mdio.dev);
+> -	module_put(phydev->mdio.dev.driver->owner);
+> +	if (phydev->mdio.dev.driver)
+> +		module_put(phydev->mdio.dev.driver->owner);
+>  	if (ndev_owner != bus->owner)
+>  		module_put(bus->owner);
+>  }
+> --
+> 2.9.3
