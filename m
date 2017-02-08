@@ -1,63 +1,91 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) interface
-Date: Tue, 7 Feb 2017 17:12:46 -0800
-Message-ID: <20170208011246.GC76793@knc-06.sc.intel.com>
-References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
- <VI1PR0502MB3008911E9587F4C004BFEF13D1420@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the kspp tree with the net-next tree
+Date: Wed, 8 Feb 2017 12:30:05 +1100
+Message-ID: <20170208123005.1ffc070f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Parav Pandit <parav-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <VI1PR0502MB3008911E9587F4C004BFEF13D1420-o1MPJYiShExKsLr+rGaxW8DSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Mao Wenan <maowenan@huawei.com>,
+        Laura Abbott <labbott@redhat.com>
+To: Kees Cook <keescook@google.com>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2017 at 12:43:40AM +0000, Parav Pandit wrote:
->> @@ -2096,6 +2114,15 @@ struct ib_device {
->>  							   struct
->> ib_rwq_ind_table_init_attr *init_attr,
->>  							   struct ib_udata
->> *udata);
->>  	int                        (*destroy_rwq_ind_table)(struct ib_rwq_ind_table
->> *wq_ind_table);
->> +	/* rdma netdev operations */
->> +	struct net_device *(*alloc_rdma_netdev)(
->> +					struct ib_device *device,
->> +					u8 port_num,
->> +					enum rdma_netdev_t type,
->> +					const char *name,
->> +					unsigned char name_assign_type,
->> +					void (*setup)(struct net_device *));
->> +	void (*free_rdma_netdev)(struct net_device *netdev);
->>  	struct ib_dma_mapping_ops   *dma_ops;
->>
->>  	struct module               *owner;
->
->As its clear from the cover letter and from the request to place this in drivers/infiniband/ulp,
->Instead of increasing the ib_dev structure further,
->Can you change the code to make use of ib_register_client() and friend functions to register vnic as ULP.
->(similar to other ULP such as uverbs, srp, ipoib).
->This will also allow you get to get notified for removing the vnic device when underlying rdma device gets removed.
->Based on the property that gets exposed by the ibdev, vnic driver filters whether it needs to load its vnic to specific device or not.
->This way modules are isolated between core and ULP little better.
->Would it work for you?
+Hi Kees,
 
-HFI_VNIC driver is using ib_register_client() and friend fucntions. Below patch 
-in this series does that.
-[RFC v3 08/11] IB/hfi-vnic: VNIC Ethernet Management Agent (VEMA) function
+Today's linux-next merge of the kspp tree got a conflict in:
 
-Niranjana
+  arch/Kconfig
 
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+between commit:
+
+  1a8b6d76dc5b ("net:add one common config ARCH_WANT_RELAX_ORDER to support relax ordering")
+
+from the net-next tree and commits:
+
+  ad21fc4faa2a ("arch: Move CONFIG_DEBUG_RODATA and CONFIG_SET_MODULE_RONX to be common")
+  0f5bf6d0afe4 ("arch: Rename CONFIG_DEBUG_RODATA and CONFIG_DEBUG_MODULE_RONX")
+
+from the kspp tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc arch/Kconfig
+index bd04eace455c,7425fde9c723..000000000000
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@@ -781,7 -843,38 +843,41 @@@ config VMAP_STAC
+  	  the stack to map directly to the KASAN shadow map using a formula
+  	  that is incorrect if the stack is in vmalloc space.
+  
+ +config ARCH_WANT_RELAX_ORDER
+ +	bool
+ +
++ config ARCH_OPTIONAL_KERNEL_RWX
++ 	def_bool n
++ 
++ config ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
++ 	def_bool n
++ 
++ config ARCH_HAS_STRICT_KERNEL_RWX
++ 	def_bool n
++ 
++ config STRICT_KERNEL_RWX
++ 	bool "Make kernel text and rodata read-only" if ARCH_OPTIONAL_KERNEL_RWX
++ 	depends on ARCH_HAS_STRICT_KERNEL_RWX
++ 	default !ARCH_OPTIONAL_KERNEL_RWX || ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
++ 	help
++ 	  If this is set, kernel text and rodata memory will be made read-only,
++ 	  and non-text memory will be made non-executable. This provides
++ 	  protection against certain security exploits (e.g. executing the heap
++ 	  or modifying text)
++ 
++ 	  These features are considered standard security practice these days.
++ 	  You should say Y here in almost all cases.
++ 
++ config ARCH_HAS_STRICT_MODULE_RWX
++ 	def_bool n
++ 
++ config STRICT_MODULE_RWX
++ 	bool "Set loadable kernel module data as NX and text as RO" if ARCH_OPTIONAL_KERNEL_RWX
++ 	depends on ARCH_HAS_STRICT_MODULE_RWX && MODULES
++ 	default !ARCH_OPTIONAL_KERNEL_RWX || ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
++ 	help
++ 	  If this is set, module text and rodata memory will be made read-only,
++ 	  and non-text memory will be made non-executable. This provides
++ 	  protection against certain security exploits (e.g. writing to text)
++ 
+  source "kernel/gcov/Kconfig"
