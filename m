@@ -1,202 +1,86 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 2/2] net: dsa: mv88e6xxx: Add mv88e6390 watchdog interrupt support
-Date: Wed,  8 Feb 2017 01:34:40 +0100
-Message-ID: <1486514080-28329-3-git-send-email-andrew@lunn.ch>
-References: <1486514080-28329-1-git-send-email-andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Parav Pandit <parav@mellanox.com>
+Subject: RE: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) interface
+Date: Wed, 8 Feb 2017 00:43:40 +0000
+Message-ID: <VI1PR0502MB3008911E9587F4C004BFEF13D1420@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dennis.dalessandro@intel.com" <dennis.dalessandro@intel.com>,
+        "ira.weiny@intel.com" <ira.weiny@intel.com>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
+        "dledford@redhat.com" <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59391 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932077AbdBHAfU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 7 Feb 2017 19:35:20 -0500
-In-Reply-To: <1486514080-28329-1-git-send-email-andrew@lunn.ch>
+Received: from mail-eopbgr30081.outbound.protection.outlook.com ([40.107.3.81]:17920
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753026AbdBHAob (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 7 Feb 2017 19:44:31 -0500
+In-Reply-To: <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement the ops needed to support the watchdog for the MV88E6390
-family.
+Hi=20
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
-v2
-  Completely new.
+> -----Original Message-----
+> From: linux-rdma-owner@vger.kernel.org [mailto:linux-rdma-
+> owner@vger.kernel.org] On Behalf Of Vishwanathapura, Niranjana
+> Sent: Tuesday, February 7, 2017 2:23 PM
+> To: dledford@redhat.com
+> Cc: linux-rdma@vger.kernel.org; netdev@vger.kernel.org;
+> dennis.dalessandro@intel.com; ira.weiny@intel.com; Niranjana
+> Vishwanathapura <niranjana.vishwanathapura@intel.com>
+> Subject: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
+> (VNIC) interface
+>=20
+> Add rdma netdev interface to ib device structure allowing rdma netdev
+> devices to be allocated by ib clients.
+> Define HFI VNIC interface between hardware independent VNIC
+> functionality and the hardware dependent VNIC functionality.
+>=20
+> Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
+> Reviewed-by: Ira Weiny <ira.weiny@intel.com>
+> Signed-off-by: Niranjana Vishwanathapura
+> <niranjana.vishwanathapura@intel.com>
+> ---
+>  struct ib_device {
+>  	struct device                *dma_device;
+>=20
+> @@ -2096,6 +2114,15 @@ struct ib_device {
+>  							   struct
+> ib_rwq_ind_table_init_attr *init_attr,
+>  							   struct ib_udata
+> *udata);
+>  	int                        (*destroy_rwq_ind_table)(struct ib_rwq_ind_t=
+able
+> *wq_ind_table);
+> +	/* rdma netdev operations */
+> +	struct net_device *(*alloc_rdma_netdev)(
+> +					struct ib_device *device,
+> +					u8 port_num,
+> +					enum rdma_netdev_t type,
+> +					const char *name,
+> +					unsigned char name_assign_type,
+> +					void (*setup)(struct net_device *));
+> +	void (*free_rdma_netdev)(struct net_device *netdev);
+>  	struct ib_dma_mapping_ops   *dma_ops;
+>=20
+>  	struct module               *owner;
 
-drivers/net/dsa/mv88e6xxx/chip.c      |  7 +++++
- drivers/net/dsa/mv88e6xxx/global2.c   | 48 +++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/global2.h   |  2 ++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 12 +++++++++
- 4 files changed, 69 insertions(+)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 357a65d8f02f..7be4419db01f 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3419,6 +3419,7 @@ static const struct mv88e6xxx_ops mv88e6190_ops = {
- 	.stats_get_stats = mv88e6390_stats_get_stats,
- 	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
- 	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.g2_watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- };
-@@ -3446,6 +3447,7 @@ static const struct mv88e6xxx_ops mv88e6190x_ops = {
- 	.stats_get_stats = mv88e6390_stats_get_stats,
- 	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
- 	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.g2_watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- };
-@@ -3473,6 +3475,7 @@ static const struct mv88e6xxx_ops mv88e6191_ops = {
- 	.stats_get_stats = mv88e6390_stats_get_stats,
- 	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
- 	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.g2_watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- };
-@@ -3530,6 +3533,7 @@ static const struct mv88e6xxx_ops mv88e6290_ops = {
- 	.stats_get_stats = mv88e6390_stats_get_stats,
- 	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
- 	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.g2_watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- };
-@@ -3754,6 +3758,7 @@ static const struct mv88e6xxx_ops mv88e6390_ops = {
- 	.stats_get_stats = mv88e6390_stats_get_stats,
- 	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
- 	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.g2_watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- };
-@@ -3783,6 +3788,7 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
- 	.stats_get_stats = mv88e6390_stats_get_stats,
- 	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
- 	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.g2_watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- };
-@@ -3810,6 +3816,7 @@ static const struct mv88e6xxx_ops mv88e6391_ops = {
- 	.stats_get_stats = mv88e6390_stats_get_stats,
- 	.g1_set_cpu_port = mv88e6390_g1_set_cpu_port,
- 	.g1_set_egress_port = mv88e6390_g1_set_egress_port,
-+	.g2_watchdog_ops = &mv88e6390_watchdog_ops,
- 	.mgmt_rsvd2cpu = mv88e6390_g1_mgmt_rsvd2cpu,
- 	.reset = mv88e6352_g1_reset,
- };
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
-index 200c08196fa0..e065c00df9e5 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.c
-+++ b/drivers/net/dsa/mv88e6xxx/global2.c
-@@ -686,6 +686,54 @@ const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops = {
- 	.irq_free = mv88e6097_watchdog_free,
- };
- 
-+static int mv88e6390_watchdog_setup(struct mv88e6xxx_chip *chip)
-+{
-+	return mv88e6xxx_g2_update(chip, GLOBAL2_WDOG_CONTROL,
-+				   GLOBAL2_WDOG_INT_ENABLE |
-+				   GLOBAL2_WDOG_CUT_THROUGH |
-+				   GLOBAL2_WDOG_QUEUE_CONTROLLER |
-+				   GLOBAL2_WDOG_EGRESS |
-+				   GLOBAL2_WDOG_FORCE_IRQ);
-+}
-+
-+static int mv88e6390_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
-+{
-+	int err;
-+	u16 reg;
-+
-+	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, GLOBAL2_WDOG_EVENT);
-+	err = mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-+
-+	dev_info(chip->dev, "Watchdog event: 0x%04x",
-+		 reg & GLOBAL2_WDOG_DATA_MASK);
-+
-+	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, GLOBAL2_WDOG_HISTORY);
-+	err = mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-+
-+	dev_info(chip->dev, "Watchdog history: 0x%04x",
-+		 reg & GLOBAL2_WDOG_DATA_MASK);
-+
-+	/* Trigger a software reset to try to recover the switch */
-+	if (chip->info->ops->reset)
-+		chip->info->ops->reset(chip);
-+
-+	mv88e6390_watchdog_setup(chip);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static void mv88e6390_watchdog_free(struct mv88e6xxx_chip *chip)
-+{
-+	mv88e6xxx_g2_update(chip, GLOBAL2_WDOG_CONTROL,
-+			    GLOBAL2_WDOG_INT_ENABLE);
-+}
-+
-+const struct mv88e6xxx_irq_ops mv88e6390_watchdog_ops = {
-+	.irq_action = mv88e6390_watchdog_action,
-+	.irq_setup = mv88e6390_watchdog_setup,
-+	.irq_free = mv88e6390_watchdog_free,
-+};
-+
- static irqreturn_t mv88e6xxx_g2_watchdog_thread_fn(int irq, void *dev_id)
- {
- 	struct mv88e6xxx_chip *chip = dev_id;
-diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
-index 8305f6941fd1..a8b2f9486a4a 100644
---- a/drivers/net/dsa/mv88e6xxx/global2.h
-+++ b/drivers/net/dsa/mv88e6xxx/global2.h
-@@ -47,6 +47,7 @@ void mv88e6xxx_g2_irq_free(struct mv88e6xxx_chip *chip);
- int mv88e6095_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip);
- 
- extern const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops;
-+extern const struct mv88e6xxx_irq_ops mv88e6390_watchdog_ops;
- 
- #else /* !CONFIG_NET_DSA_MV88E6XXX_GLOBAL2 */
- 
-@@ -128,6 +129,7 @@ static inline int mv88e6095_g2_mgmt_rsvd2cpu(struct mv88e6xxx_chip *chip)
- }
- 
- static const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops = {};
-+static const struct mv88e6xxx_irq_ops mv88e6390_watchdog_ops = {};
- 
- #endif /* CONFIG_NET_DSA_MV88E6XXX_GLOBAL2 */
- 
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 1e06666105e2..b43303949f44 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -423,6 +423,17 @@
- #define GLOBAL2_WDOG_CONTROL_FORCE_IRQ		BIT(2)
- #define GLOBAL2_WDOG_CONTROL_HISTORY		BIT(1)
- #define GLOBAL2_WDOG_CONTROL_SWRESET		BIT(0)
-+#define GLOBAL2_WDOG_UPDATE			BIT(15)
-+#define GLOBAL2_WDOG_INT_SOURCE			(0x00 << 8)
-+#define GLOBAL2_WDOG_INT_STATUS			(0x10 << 8)
-+#define GLOBAL2_WDOG_INT_ENABLE			(0x11 << 8)
-+#define GLOBAL2_WDOG_EVENT			(0x12 << 8)
-+#define GLOBAL2_WDOG_HISTORY			(0x13 << 8)
-+#define GLOBAL2_WDOG_DATA_MASK			0xff
-+#define GLOBAL2_WDOG_CUT_THROUGH		BIT(3)
-+#define GLOBAL2_WDOG_QUEUE_CONTROLLER		BIT(2)
-+#define GLOBAL2_WDOG_EGRESS			BIT(1)
-+#define GLOBAL2_WDOG_FORCE_IRQ			BIT(0)
- #define GLOBAL2_QOS_WEIGHT	0x1c
- #define GLOBAL2_MISC		0x1d
- 
-@@ -676,6 +687,7 @@ struct mv88e6xxx_ops;
- #define MV88E6XXX_FLAGS_FAMILY_6390	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_G2_INT |        \
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_VTU |		\
- 	 MV88E6XXX_FLAGS_IRL |		\
--- 
-2.11.0
+As its clear from the cover letter and from the request to place this in dr=
+ivers/infiniband/ulp,
+Instead of increasing the ib_dev structure further,
+Can you change the code to make use of ib_register_client() and friend func=
+tions to register vnic as ULP.
+(similar to other ULP such as uverbs, srp, ipoib).
+This will also allow you get to get notified for removing the vnic device w=
+hen underlying rdma device gets removed.
+Based on the property that gets exposed by the ibdev, vnic driver filters w=
+hether it needs to load its vnic to specific device or not.
+This way modules are isolated between core and ULP little better.
+Would it work for you?
