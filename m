@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] get rid of immrbar_virt_to_phys()
-Date: Wed, 08 Feb 2017 13:17:32 -0500 (EST)
-Message-ID: <20170208.131732.767256319781283002.davem@davemloft.net>
-References: <cover.1486456900.git.christophe.leroy@c-s.fr>
+Subject: Re: [PATCH RFC ipsec-next 1/5] xfrm: Add a secpath_set helper.
+Date: Wed, 08 Feb 2017 13:18:57 -0500 (EST)
+Message-ID: <20170208.131857.813682261784593072.davem@davemloft.net>
+References: <1486458851-4920-1-git-send-email-steffen.klassert@secunet.com>
+        <1486458851-4920-2-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: leoli@freescale.com, qiang.zhao@nxp.com, oss@buserror.net,
-        linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: christophe.leroy@c-s.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1486456900.git.christophe.leroy@c-s.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+        sowmini.varadhan@oracle.com, ilant@mellanox.com
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55860 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750940AbdBHSS7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:18:59 -0500
+In-Reply-To: <1486458851-4920-2-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Date: Tue,  7 Feb 2017 10:05:07 +0100 (CET)
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 7 Feb 2017 10:14:07 +0100
 
-> ucc_geth ethernet driver is the only driver using immrbar_virt_to_phys() and it uses it incorrectly.
-> 
-> This patch fixes ucc_geth driver then removes immrbar_virt_to_phys()
+> +int secpath_set(struct sk_buff *skb)
+> +{
+> +	struct sec_path *sp;
+> +
+> +	/* Allocate new secpath or COW existing one. */
+> +	if (!skb->sp || atomic_read(&skb->sp->refcnt) != 1) {
+> +
+> +		sp = secpath_dup(skb->sp);
 
-Feel free to merge this via whatever tree handles that SOC fsl driver.
+Please remove this empty line.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Thanks.
