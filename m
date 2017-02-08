@@ -1,91 +1,39 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the kspp tree with the net-next tree
-Date: Wed, 8 Feb 2017 12:30:05 +1100
-Message-ID: <20170208123005.1ffc070f@canb.auug.org.au>
+From: =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
+Subject: [PATCH v3 0/2] Fixes for sierra_net driver
+Date: Wed, 8 Feb 2017 02:46:31 +0100
+Message-ID: <cad9ab0b146e4391a4c870290450214e@rwthex-w2-b.rwth-ad.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Mao Wenan <maowenan@huawei.com>,
-        Laura Abbott <labbott@redhat.com>
-To: Kees Cook <keescook@google.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
+To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Kees,
+When trying to initiate a dual-stack (ipv4v6) connection, a MC7710, FW
+version SWI9200X_03.05.24.00ap answers with an unsupported LSI. Add support
+for this LSI.
+Also the link_type should be ignored when going idle, otherwise the modem
+is stuck in a bad link state.
+Tested on MC7710, T-Mobile DE, APN internet.telekom, IPv4v6 PDP type. Both
+IPv4 and IPv6 connections work.
 
-Today's linux-next merge of the kspp tree got a conflict in:
+v2: Do not overwrite protocol field in rx_fixup
+v3: Remove leftover struct ethhdr *eth declaration
 
-  arch/Kconfig
+Stefan Brüns (2):
+  sierra_net: Add support for IPv6 and Dual-Stack Link Sense Indications
+  sierra_net: Skip validating irrelevant fields for IDLE LSIs
 
-between commit:
-
-  1a8b6d76dc5b ("net:add one common config ARCH_WANT_RELAX_ORDER to support relax ordering")
-
-from the net-next tree and commits:
-
-  ad21fc4faa2a ("arch: Move CONFIG_DEBUG_RODATA and CONFIG_SET_MODULE_RONX to be common")
-  0f5bf6d0afe4 ("arch: Rename CONFIG_DEBUG_RODATA and CONFIG_DEBUG_MODULE_RONX")
-
-from the kspp tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
+ drivers/net/usb/sierra_net.c | 111 +++++++++++++++++++++++++++----------------
+ 1 file changed, 71 insertions(+), 40 deletions(-)
 
 -- 
-Cheers,
-Stephen Rothwell
+2.11.0
 
-diff --cc arch/Kconfig
-index bd04eace455c,7425fde9c723..000000000000
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@@ -781,7 -843,38 +843,41 @@@ config VMAP_STAC
-  	  the stack to map directly to the KASAN shadow map using a formula
-  	  that is incorrect if the stack is in vmalloc space.
-  
- +config ARCH_WANT_RELAX_ORDER
- +	bool
- +
-+ config ARCH_OPTIONAL_KERNEL_RWX
-+ 	def_bool n
-+ 
-+ config ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
-+ 	def_bool n
-+ 
-+ config ARCH_HAS_STRICT_KERNEL_RWX
-+ 	def_bool n
-+ 
-+ config STRICT_KERNEL_RWX
-+ 	bool "Make kernel text and rodata read-only" if ARCH_OPTIONAL_KERNEL_RWX
-+ 	depends on ARCH_HAS_STRICT_KERNEL_RWX
-+ 	default !ARCH_OPTIONAL_KERNEL_RWX || ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
-+ 	help
-+ 	  If this is set, kernel text and rodata memory will be made read-only,
-+ 	  and non-text memory will be made non-executable. This provides
-+ 	  protection against certain security exploits (e.g. executing the heap
-+ 	  or modifying text)
-+ 
-+ 	  These features are considered standard security practice these days.
-+ 	  You should say Y here in almost all cases.
-+ 
-+ config ARCH_HAS_STRICT_MODULE_RWX
-+ 	def_bool n
-+ 
-+ config STRICT_MODULE_RWX
-+ 	bool "Set loadable kernel module data as NX and text as RO" if ARCH_OPTIONAL_KERNEL_RWX
-+ 	depends on ARCH_HAS_STRICT_MODULE_RWX && MODULES
-+ 	default !ARCH_OPTIONAL_KERNEL_RWX || ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
-+ 	help
-+ 	  If this is set, module text and rodata memory will be made read-only,
-+ 	  and non-text memory will be made non-executable. This provides
-+ 	  protection against certain security exploits (e.g. writing to text)
-+ 
-  source "kernel/gcov/Kconfig"
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
