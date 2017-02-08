@@ -1,8 +1,8 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 4/6] sfc: call mcdi_reboot_detected() when MC reboots
- during an MCDI command
-Date: Wed, 8 Feb 2017 16:51:33 +0000
-Message-ID: <3d6ee549-3003-3426-7eb2-5b8aa288944c@solarflare.com>
+Subject: [PATCH net-next 5/6] sfc: update mcdi_pcol definitions for
+ MC_CMD_SET_TUNNEL_ENCAP_UDP_PORTS
+Date: Wed, 8 Feb 2017 16:51:50 +0000
+Message-ID: <0a697ad5-6126-2dba-b967-cb59af96d854@solarflare.com>
 References: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,40 +10,50 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
 To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:35837 "EHLO
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:34775 "EHLO
         nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751618AbdBHQze (ORCPT
+        by vger.kernel.org with ESMTP id S1751654AbdBHQze (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:55:34 -0500
 In-Reply-To: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Cooper <jcooper@solarflare.com>
-
-This function wasn't being called in this particular case when the MC
- reboots. This caused resource reallocations to not be handled properly
- and often ended up disabling the interface.
+From: Matthew Slattery <mslattery@solarflare.com>
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/mcdi_pcol.h | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 24b271b..fae647d 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -716,8 +716,11 @@ static int _efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned int cmd,
- 		if (cmd == MC_CMD_REBOOT && rc == -EIO) {
- 			/* Don't reset if MC_CMD_REBOOT returns EIO */
- 		} else if (rc == -EIO || rc == -EINTR) {
--			netif_err(efx, hw, efx->net_dev, "MC fatal error %d\n",
--				  -rc);
-+			netif_err(efx, hw, efx->net_dev, "MC reboot detected\n");
-+			netif_dbg(efx, hw, efx->net_dev, "MC rebooted during command %d rc %d\n",
-+				  cmd, -rc);
-+			if (efx->type->mcdi_reboot_detected)
-+				efx->type->mcdi_reboot_detected(efx);
- 			efx_schedule_reset(efx, RESET_TYPE_MC_FAILURE);
- 		} else if (proxy_handle && (rc == -EPROTO) &&
- 			   efx_mcdi_get_proxy_handle(efx, hdr_len, data_len,
+diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
+index 35cc3d4..47ced8a 100644
+--- a/drivers/net/ethernet/sfc/mcdi_pcol.h
++++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
+@@ -11913,6 +11913,27 @@
+ #define        MC_CMD_SET_TUNNEL_ENCAP_UDP_PORTS_OUT_RESETTING_LBN 0
+ #define        MC_CMD_SET_TUNNEL_ENCAP_UDP_PORTS_OUT_RESETTING_WIDTH 1
+ 
++/* TUNNEL_ENCAP_UDP_PORT_ENTRY structuredef */
++#define    TUNNEL_ENCAP_UDP_PORT_ENTRY_LEN 4
++/* UDP port (the standard ports are named below but any port may be used) */
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_UDP_PORT_OFST 0
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_UDP_PORT_LEN 2
++/* enum: the IANA allocated UDP port for VXLAN */
++#define          TUNNEL_ENCAP_UDP_PORT_ENTRY_IANA_VXLAN_UDP_PORT  0x12b5
++/* enum: the IANA allocated UDP port for Geneve */
++#define          TUNNEL_ENCAP_UDP_PORT_ENTRY_IANA_GENEVE_UDP_PORT  0x17c1
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_UDP_PORT_LBN 0
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_UDP_PORT_WIDTH 16
++/* tunnel encapsulation protocol (only those named below are supported) */
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_PROTOCOL_OFST 2
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_PROTOCOL_LEN 2
++/* enum: VXLAN */
++#define          TUNNEL_ENCAP_UDP_PORT_ENTRY_VXLAN  0x0
++/* enum: Geneve */
++#define          TUNNEL_ENCAP_UDP_PORT_ENTRY_GENEVE  0x1
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_PROTOCOL_LBN 16
++#define       TUNNEL_ENCAP_UDP_PORT_ENTRY_PROTOCOL_WIDTH 16
++
+ 
+ /***********************************/
+ /* MC_CMD_RX_BALANCING
