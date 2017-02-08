@@ -1,61 +1,142 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 1/2] flow dissector: ND
- support
-Date: Wed, 8 Feb 2017 21:09:17 +0100
-Message-ID: <20170208200917.GA20719@nanopsycho>
-References: <20170207.123831.1038511845714033360.davem@davemloft.net>
- <20170208092823.GA17615@penelope.horms.nl>
- <CALx6S36VrtQM5G2XPzpcrP=y3RyBwTnYJcaKqXtwyFgpGiz+Jg@mail.gmail.com>
- <20170208.135415.601520734521006340.davem@davemloft.net>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [PATCH v3 2/5] bpf: Simplify bpf_load_program() error handling in
+ the library
+Date: Wed, 8 Feb 2017 21:03:48 +0100
+Message-ID: <957ec638-1b72-1327-41e2-e924231cc7ff@digikod.net>
+References: <20170207205609.8035-1-mic@digikod.net>
+ <20170207205609.8035-3-mic@digikod.net>
+ <59c4e38e-baa3-e130-3d74-14aa6b11bda5@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@herbertland.com, simon.horman@netronome.com,
-        eric.dumazet@gmail.com, dinan.gunawardena@netronome.com,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="waXsuuIj70tSccReNUP3kw75AIj4gnc1L"
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:38166 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751671AbdBHUJU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 15:09:20 -0500
-Received: by mail-wm0-f41.google.com with SMTP id r141so200042929wmg.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 12:09:20 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170208.135415.601520734521006340.davem@davemloft.net>
+Received: from smtp-sh.infomaniak.ch ([128.65.195.4]:44897 "EHLO
+        smtp-sh.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750940AbdBHUNj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 15:13:39 -0500
+In-Reply-To: <59c4e38e-baa3-e130-3d74-14aa6b11bda5@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Feb 08, 2017 at 07:54:15PM CET, davem@davemloft.net wrote:
->From: Tom Herbert <tom@herbertland.com>
->Date: Wed, 8 Feb 2017 10:33:46 -0800
->
->> On Wed, Feb 8, 2017 at 1:28 AM, Simon Horman <simon.horman@netronome.com> wrote:
->>> I think the above paragraph gets back to Tom's original question regarding
->>> making things more complex just for OvS (use-cases). Possibly ND is an edge
->>> case even for OvS and on reflection my timing for posting it seems to have
->>> been less than ideal.
->> 
->> If it wasn't ND it would be something else... with all the activity
->> happening in networking features and HW this is a timely discussion.
->> Flow dissector presents a good example of a function that might become
->> a dumping ground for an endless stream of features if we don't figure
->> out how exercise some restraint.
->
->I agree on most points.
->
->But, I would say that in this specific case, since we have ARP support in
->there already it behooves us to support the ipv6 side in the form of ND
->too.
->
->Then we can put a line in the sand and say that future feature additions
->in this area require serious discussion.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--waXsuuIj70tSccReNUP3kw75AIj4gnc1L
+Content-Type: multipart/mixed; boundary="fBW7iMFu4qQnAJigblv90Q9q5ANu00oad";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: "Wangnan (F)" <wangnan0@huawei.com>, linux-kernel@vger.kernel.org
+Cc: Alexei Starovoitov <ast@fb.com>,
+ Arnaldo Carvalho de Melo <acme@redhat.com>,
+ Daniel Borkmann <daniel@iogearbox.net>,
+ "David S . Miller" <davem@davemloft.net>, Joe Stringer <joe@ovn.org>,
+ netdev@vger.kernel.org
+Message-ID: <957ec638-1b72-1327-41e2-e924231cc7ff@digikod.net>
+Subject: Re: [PATCH v3 2/5] bpf: Simplify bpf_load_program() error handling in
+ the library
+References: <20170207205609.8035-1-mic@digikod.net>
+ <20170207205609.8035-3-mic@digikod.net>
+ <59c4e38e-baa3-e130-3d74-14aa6b11bda5@huawei.com>
+In-Reply-To: <59c4e38e-baa3-e130-3d74-14aa6b11bda5@huawei.com>
 
-Yeah, well, and if there is a functinality that is unacceptable for any
-reason to put into flow_dissector, we have to do a flow_dissector2?
+--fBW7iMFu4qQnAJigblv90Q9q5ANu00oad
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Note that I originally had separate dissection in cls_flower, you
-suggested to use the existing flow_dissector. And I still believe it was
-the right way to do it.
 
-I think that better is to make existing flow dissector more modular.
-I'll look into this.
+On 08/02/2017 03:35, Wangnan (F) wrote:
+>=20
+>=20
+> On 2017/2/8 4:56, Micka=C3=ABl Sala=C3=BCn wrote:
+>> Do not call a second time bpf(2) when a program load failed.
+>=20
+> BPF_PROG_LOAD should success most of the time. Setting log_level to
+> 0 by default and require log buffer when failure can make it faster
+> in normal case.
+
+OK, I'm not sure if this is relevant for a test but I'm going to remove
+this patch.
+
+Thanks
+
+>=20
+> Thank you.
+>=20
+>> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
+>> Cc: Alexei Starovoitov <ast@fb.com>
+>> Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>> Cc: Wang Nan <wangnan0@huawei.com>
+>> ---
+>>   tools/lib/bpf/bpf.c | 18 ++++++------------
+>>   1 file changed, 6 insertions(+), 12 deletions(-)
+>>
+>> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+>> index 3ddb58a36d3c..fda3f494f1cd 100644
+>> --- a/tools/lib/bpf/bpf.c
+>> +++ b/tools/lib/bpf/bpf.c
+>> @@ -73,7 +73,6 @@ int bpf_load_program(enum bpf_prog_type type, struct=
+
+>> bpf_insn *insns,
+>>                size_t insns_cnt, char *license,
+>>                __u32 kern_version, char *log_buf, size_t log_buf_sz)
+>>   {
+>> -    int fd;
+>>       union bpf_attr attr;
+>>         bzero(&attr, sizeof(attr));
+>> @@ -81,20 +80,15 @@ int bpf_load_program(enum bpf_prog_type type,
+>> struct bpf_insn *insns,
+>>       attr.insn_cnt =3D (__u32)insns_cnt;
+>>       attr.insns =3D ptr_to_u64(insns);
+>>       attr.license =3D ptr_to_u64(license);
+>> -    attr.log_buf =3D ptr_to_u64(NULL);
+>> -    attr.log_size =3D 0;
+>> -    attr.log_level =3D 0;
+>> +    attr.log_buf =3D ptr_to_u64(log_buf);
+>> +    attr.log_size =3D log_buf_sz;
+>>       attr.kern_version =3D kern_version;
+>>   -    fd =3D sys_bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+>> -    if (fd >=3D 0 || !log_buf || !log_buf_sz)
+>> -        return fd;
+>> +    if (log_buf && log_buf_sz > 0) {
+>> +        attr.log_level =3D 1;
+>> +        log_buf[0] =3D 0;
+>> +    }
+>>   -    /* Try again with log */
+>> -    attr.log_buf =3D ptr_to_u64(log_buf);
+>> -    attr.log_size =3D log_buf_sz;
+>> -    attr.log_level =3D 1;
+>> -    log_buf[0] =3D 0;
+>>       return sys_bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+>>   }
+>>  =20
+>=20
+>=20
+>=20
+
+
+--fBW7iMFu4qQnAJigblv90Q9q5ANu00oad--
+
+--waXsuuIj70tSccReNUP3kw75AIj4gnc1L
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlibeaQACgkQIt7+33O9
+apXR0Af+JckYhWB/Gs52BjyauUQNlRWzB46hkpgva5Y6N5+NmNF/0vNLrx6H4e0D
+Z5tcciCwO6HccT9Fhdb8AAvG6zDCQJW55NzPhETNSCiXYsYJn3ERUFHS3OBIeAHB
+JpFUdRIk7JVrC2TqSybyuCQNsE4danvUG1Vj79g91NAJxSG5lrxdnyOgAHmmKtE5
+cihhadY8XskiLun7WBCxhBL5LtLtXAHq+oiQuDgK/YTZ5P4nSc0wSHZUK4g/aEOi
+D6aux4jMxVaRHDRQBWHnMa5WTuQW0AKfSYBjpMEELg2QJgSfcHVx17Ct619x3WiC
+2IhHKl10q0kpW9gpYCwlWuSughAQJA==
+=Id1v
+-----END PGP SIGNATURE-----
+
+--waXsuuIj70tSccReNUP3kw75AIj4gnc1L--
