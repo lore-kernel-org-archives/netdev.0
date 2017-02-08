@@ -1,39 +1,73 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH net v2 1/3] net: phy: Fix PHY module checks
-Date: Wed, 8 Feb 2017 14:46:13 -0200
-Message-ID: <CAOMZO5COWf8Ojw=nF5JXv54AweK17sBAb+aYk7VCOoMcj1t8kQ@mail.gmail.com>
-References: <20170208073746.10963-1-f.fainelli@gmail.com> <20170208073746.10963-2-f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Kernel crashes in phy_attach_direct()
+Date: Wed, 8 Feb 2017 08:39:53 -0800
+Message-ID: <c71ed92e-b4de-2fbc-28c8-7afbc474049f@gmail.com>
+References: <CAOMZO5C58--W1q+i26-+DBcton0Bk_o3zVfyuumM+Y=OemQ_Aw@mail.gmail.com>
+ <20170208142857.GD10855@lunn.ch>
+ <CAOMZO5BzLh4az9t=fJkG80GW3_xdD3YxUbagL4dJp7Hwr4koZw@mail.gmail.com>
+ <20170208144029.GE10855@lunn.ch>
+ <CAOMZO5CjRbvPJjNDGkOFjz+AZ1ydN9+SRBsypCPyNocPoFOdRA@mail.gmail.com>
+ <20170208145148.GF10855@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Russell King <rmk+kernel@armlinux.org.uk>, maowenan@huawei.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+To: Andrew Lunn <andrew@lunn.ch>, Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f193.google.com ([74.125.82.193]:33723 "EHLO
-        mail-ot0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752563AbdBHQqQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:46:16 -0500
-Received: by mail-ot0-f193.google.com with SMTP id f9so18576193otd.0
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 08:46:14 -0800 (PST)
-In-Reply-To: <20170208073746.10963-2-f.fainelli@gmail.com>
+Received: from mail-ot0-f170.google.com ([74.125.82.170]:35510 "EHLO
+        mail-ot0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752531AbdBHQr7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:47:59 -0500
+Received: by mail-ot0-f170.google.com with SMTP id 65so117156051otq.2
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 08:47:59 -0800 (PST)
+In-Reply-To: <20170208145148.GF10855@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 8, 2017 at 5:37 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> The Generic PHY drivers gets assigned after we checked that the current PHY
-> driver is NULL, so we need to check a few things before we can safely
-> derference d->driver. Update phy_attach_direct() and phy_detach() accordingly
-> to be resilient to these cases.
->
-> Even though the Generic PHY driver defaults to phy_probe() which can hardly
-> fail at the moment, let's fix the label so we don't call phy_detach() on a
-> network device we have not attached yet.
->
-> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-This fixes the kernel crash:
 
-Tested-by: Fabio Estevam <fabio.estevam@nxp.com>
+On 02/08/2017 06:51 AM, Andrew Lunn wrote:
+>> Yes, this is what I am using right now:
+>>
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -920,11 +920,6 @@ int phy_attach_direct(struct net_device *dev,
+>> struct phy_device *phydev,
+>>                 return -EIO;
+>>         }
+>>
+>> -       if (!try_module_get(d->driver->owner)) {
+>> -               dev_err(&dev->dev, "failed to get the device driver module\n");
+>> -               return -EIO;
+>> -       }
+>> -
+>>         get_device(d);
+>>
+>>         /* Assume that if there is no driver, that it doesn't
+>> @@ -946,6 +941,11 @@ int phy_attach_direct(struct net_device *dev,
+>> struct phy_device *phydev,
+>>                         goto error;
+>>         }
+>>
+>> +       if (!try_module_get(d->driver->owner)) {
+>> +               dev_err(&dev->dev, "failed to get the device driver module\n");
+>> +               return -EIO;
+>> +       }
+>> +
+>>         if (phydev->attached_dev) {
+>>                 dev_err(&dev->dev, "PHY already attached\n");
+>>                 err = -EBUSY;
+>>
+>> Would you like me to submit this one?
+> 
+> I'm just wondering about the get_device(d); Does the ordering matter
+> here? Lets wait for Florian before submitting a patch.
+
+I sent a fix for that last night:
+
+https://patchwork.ozlabs.org/patch/725522/
+
+Sorry about that!
+-- 
+Florian
