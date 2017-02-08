@@ -1,116 +1,162 @@
-From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 09/19] scsi: csiostor: Replace PCI pool old API
-Date: Wed, 8 Feb 2017 19:29:20 +0100
-Message-ID: <20170208182920.GI16878@collabora.com>
+From: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Subject: Re: [RFC 03/19] IB/mthca: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:22:50 +0100
+Message-ID: <20170208182250.GC16878@collabora.com>
 References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-10-romain.perier@collabora.com>
+ <20170208163457.28853-4-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Romain Perier <romain.perier@collabora.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:34180 "EHLO
-        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751000AbdBHS3l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:29:41 -0500
+Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
+To: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-10-romain.perier@collabora.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170208163457.28853-4-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2017 at 05:34:47PM +0100, Romain Perier wrote:
+On Wed, Feb 08, 2017 at 05:34:41PM +0100, Romain Perier wrote:
 > The PCI pool API is deprecated. This commits replaces the PCI pool old
 > API by the appropriated function with the DMA pool API.
-> 
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> ---
->  drivers/scsi/csiostor/csio_hw.h   | 2 +-
->  drivers/scsi/csiostor/csio_init.c | 4 ++--
->  drivers/scsi/csiostor/csio_scsi.c | 6 +++---
->  3 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
-> index 029bef8..c35c7bf 100644
-> --- a/drivers/scsi/csiostor/csio_hw.h
-> +++ b/drivers/scsi/csiostor/csio_hw.h
-> @@ -465,7 +465,7 @@ struct csio_hw {
->  	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
->  	struct csio_hw_params	params;			/* Hw parameters */
->  
-> -	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
-> +	struct dma_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
->  	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
->  	mempool_t		*rnode_mempool;		/* rnode memory pool */
->  
-> diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
-> index dbe416f..6206a72 100644
-> --- a/drivers/scsi/csiostor/csio_init.c
-> +++ b/drivers/scsi/csiostor/csio_init.c
-> @@ -485,7 +485,7 @@ csio_resource_alloc(struct csio_hw *hw)
->  	if (!hw->rnode_mempool)
->  		goto err_free_mb_mempool;
->  
-> -	hw->scsi_pci_pool = pci_pool_create("csio_scsi_pci_pool", hw->pdev,
-> +	hw->scsi_pci_pool = dma_pool_create("csio_scsi_pci_pool", &hw->pdev->dev,
-Introduces line over 80 characters warning. Please fix and resubmit.
-Other than that looks good. Tested by compiling it.
 
->  					    CSIO_SCSI_RSP_LEN, 8, 0);
->  	if (!hw->scsi_pci_pool)
->  		goto err_free_rn_pool;
-> @@ -505,7 +505,7 @@ csio_resource_alloc(struct csio_hw *hw)
->  static void
->  csio_resource_free(struct csio_hw *hw)
+Tested by compilation only.
+
+Acked-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Tested-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> 
+> Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> ---
+>  drivers/infiniband/hw/mthca/mthca_av.c  | 10 +++++-----
+>  drivers/infiniband/hw/mthca/mthca_cmd.c |  8 ++++----
+>  drivers/infiniband/hw/mthca/mthca_dev.h |  4 ++--
+>  3 files changed, 11 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/infiniband/hw/mthca/mthca_av.c b/drivers/infiniband/hw/mthca/mthca_av.c
+> index c9f0f36..9d041b6 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_av.c
+> +++ b/drivers/infiniband/hw/mthca/mthca_av.c
+> @@ -186,7 +186,7 @@ int mthca_create_ah(struct mthca_dev *dev,
+>  
+>  on_hca_fail:
+>  	if (ah->type == MTHCA_AH_PCI_POOL) {
+> -		ah->av = pci_pool_zalloc(dev->av_table.pool,
+> +		ah->av = dma_pool_zalloc(dev->av_table.pool,
+>  					 GFP_ATOMIC, &ah->avdma);
+>  		if (!ah->av)
+>  			return -ENOMEM;
+> @@ -245,7 +245,7 @@ int mthca_destroy_ah(struct mthca_dev *dev, struct mthca_ah *ah)
+>  		break;
+>  
+>  	case MTHCA_AH_PCI_POOL:
+> -		pci_pool_free(dev->av_table.pool, ah->av, ah->avdma);
+> +		dma_pool_free(dev->av_table.pool, ah->av, ah->avdma);
+>  		break;
+>  
+>  	case MTHCA_AH_KMALLOC:
+> @@ -333,7 +333,7 @@ int mthca_init_av_table(struct mthca_dev *dev)
+>  	if (err)
+>  		return err;
+>  
+> -	dev->av_table.pool = pci_pool_create("mthca_av", dev->pdev,
+> +	dev->av_table.pool = dma_pool_create("mthca_av", &dev->pdev->dev,
+>  					     MTHCA_AV_SIZE,
+>  					     MTHCA_AV_SIZE, 0);
+>  	if (!dev->av_table.pool)
+> @@ -353,7 +353,7 @@ int mthca_init_av_table(struct mthca_dev *dev)
+>  	return 0;
+>  
+>   out_free_pool:
+> -	pci_pool_destroy(dev->av_table.pool);
+> +	dma_pool_destroy(dev->av_table.pool);
+>  
+>   out_free_alloc:
+>  	mthca_alloc_cleanup(&dev->av_table.alloc);
+> @@ -367,6 +367,6 @@ void mthca_cleanup_av_table(struct mthca_dev *dev)
+>  
+>  	if (dev->av_table.av_map)
+>  		iounmap(dev->av_table.av_map);
+> -	pci_pool_destroy(dev->av_table.pool);
+> +	dma_pool_destroy(dev->av_table.pool);
+>  	mthca_alloc_cleanup(&dev->av_table.alloc);
+>  }
+> diff --git a/drivers/infiniband/hw/mthca/mthca_cmd.c b/drivers/infiniband/hw/mthca/mthca_cmd.c
+> index c7f49bb..7f219c8 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_cmd.c
+> +++ b/drivers/infiniband/hw/mthca/mthca_cmd.c
+> @@ -530,7 +530,7 @@ int mthca_cmd_init(struct mthca_dev *dev)
+>  		return -ENOMEM;
+>  	}
+>  
+> -	dev->cmd.pool = pci_pool_create("mthca_cmd", dev->pdev,
+> +	dev->cmd.pool = dma_pool_create("mthca_cmd", &dev->pdev->dev,
+>  					MTHCA_MAILBOX_SIZE,
+>  					MTHCA_MAILBOX_SIZE, 0);
+>  	if (!dev->cmd.pool) {
+> @@ -543,7 +543,7 @@ int mthca_cmd_init(struct mthca_dev *dev)
+>  
+>  void mthca_cmd_cleanup(struct mthca_dev *dev)
 >  {
-> -	pci_pool_destroy(hw->scsi_pci_pool);
-> +	dma_pool_destroy(hw->scsi_pci_pool);
->  	hw->scsi_pci_pool = NULL;
->  	mempool_destroy(hw->rnode_mempool);
->  	hw->rnode_mempool = NULL;
-> diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
-> index a1ff75f..49b36b0 100644
-> --- a/drivers/scsi/csiostor/csio_scsi.c
-> +++ b/drivers/scsi/csiostor/csio_scsi.c
-> @@ -2445,7 +2445,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
+> -	pci_pool_destroy(dev->cmd.pool);
+> +	dma_pool_destroy(dev->cmd.pool);
+>  	iounmap(dev->hcr);
+>  	if (dev->cmd.flags & MTHCA_CMD_POST_DOORBELLS)
+>  		iounmap(dev->cmd.dbell_map);
+> @@ -613,7 +613,7 @@ struct mthca_mailbox *mthca_alloc_mailbox(struct mthca_dev *dev,
+>  	if (!mailbox)
+>  		return ERR_PTR(-ENOMEM);
 >  
->  		/* Allocate Dma buffers for Response Payload */
->  		dma_buf = &ioreq->dma_buf;
-> -		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
-> +		dma_buf->vaddr = dma_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
->  						&dma_buf->paddr);
->  		if (!dma_buf->vaddr) {
->  			csio_err(hw,
-> @@ -2485,7 +2485,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
->  		ioreq = (struct csio_ioreq *)tmp;
+> -	mailbox->buf = pci_pool_alloc(dev->cmd.pool, gfp_mask, &mailbox->dma);
+> +	mailbox->buf = dma_pool_alloc(dev->cmd.pool, gfp_mask, &mailbox->dma);
+>  	if (!mailbox->buf) {
+>  		kfree(mailbox);
+>  		return ERR_PTR(-ENOMEM);
+> @@ -627,7 +627,7 @@ void mthca_free_mailbox(struct mthca_dev *dev, struct mthca_mailbox *mailbox)
+>  	if (!mailbox)
+>  		return;
 >  
->  		dma_buf = &ioreq->dma_buf;
-> -		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
-> +		dma_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
->  			      dma_buf->paddr);
+> -	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
+> +	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
+>  	kfree(mailbox);
+>  }
 >  
->  		kfree(ioreq);
-> @@ -2516,7 +2516,7 @@ csio_scsim_exit(struct csio_scsim *scm)
->  		ioreq = (struct csio_ioreq *)tmp;
+> diff --git a/drivers/infiniband/hw/mthca/mthca_dev.h b/drivers/infiniband/hw/mthca/mthca_dev.h
+> index 4393a02..8c3f6ed 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_dev.h
+> +++ b/drivers/infiniband/hw/mthca/mthca_dev.h
+> @@ -118,7 +118,7 @@ enum {
+>  };
 >  
->  		dma_buf = &ioreq->dma_buf;
-> -		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
-> +		dma_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
->  			      dma_buf->paddr);
+>  struct mthca_cmd {
+> -	struct pci_pool          *pool;
+> +	struct dma_pool          *pool;
+>  	struct mutex              hcr_mutex;
+>  	struct semaphore 	  poll_sem;
+>  	struct semaphore 	  event_sem;
+> @@ -263,7 +263,7 @@ struct mthca_qp_table {
+>  };
 >  
->  		kfree(ioreq);
+>  struct mthca_av_table {
+> -	struct pci_pool   *pool;
+> +	struct dma_pool   *pool;
+>  	int                num_ddr_avs;
+>  	u64                ddr_av_base;
+>  	void __iomem      *av_map;
 > -- 
 > 2.9.3
 > 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
