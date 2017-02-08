@@ -1,146 +1,76 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2 2/3] net: phy: Check phydev->drv
-Date: Tue,  7 Feb 2017 23:37:45 -0800
-Message-ID: <20170208073746.10963-3-f.fainelli@gmail.com>
+Subject: [PATCH net v2 1/3] net: phy: Fix PHY module checks
+Date: Tue,  7 Feb 2017 23:37:44 -0800
+Message-ID: <20170208073746.10963-2-f.fainelli@gmail.com>
 References: <20170208073746.10963-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
         maowenan@huawei.com, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:33435 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932193AbdBHHhw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:37:52 -0500
-Received: by mail-ot0-f194.google.com with SMTP id f9so17146013otd.0
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 23:37:52 -0800 (PST)
+Received: from mail-ot0-f196.google.com ([74.125.82.196]:35370 "EHLO
+        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932440AbdBHHhv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:37:51 -0500
+Received: by mail-ot0-f196.google.com with SMTP id 65so17113268otq.2
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 23:37:51 -0800 (PST)
 In-Reply-To: <20170208073746.10963-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for supporting driver bind/unbind properly, sprinkle checks on
-phydev->drv where we may call into PHYLIB from user-space or other parts of the
-kernel.
+The Generic PHY drivers gets assigned after we checked that the current PHY
+driver is NULL, so we need to check a few things before we can safely
+derference d->driver. Update phy_attach_direct() and phy_detach() accordingly
+to be resilient to these cases.
 
-Suggested-by: Russell King <rmk+kernel@armlinux.org.uk>
+Even though the Generic PHY driver defaults to phy_probe() which can hardly
+fail at the moment, let's fix the label so we don't call phy_detach() on a
+network device we have not attached yet.
+
+Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/phy.c | 26 ++++++++++++++++++++++----
- include/linux/phy.h   |  3 +++
- 2 files changed, 25 insertions(+), 4 deletions(-)
+ drivers/net/phy/phy_device.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 7cc1b7dcfe05..d6f7838455dd 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -580,7 +580,7 @@ int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd)
- 		return 0;
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 0d8f4d3847f6..bde240bf8d7b 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -920,7 +920,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 		return -EIO;
+ 	}
  
- 	case SIOCSHWTSTAMP:
--		if (phydev->drv->hwtstamp)
-+		if (phydev->drv && phydev->drv->hwtstamp)
- 			return phydev->drv->hwtstamp(phydev, ifr);
- 		/* fall through */
+-	if (!try_module_get(d->driver->owner)) {
++	if (d->driver && !try_module_get(d->driver->owner)) {
+ 		dev_err(&dev->dev, "failed to get the device driver module\n");
+ 		return -EIO;
+ 	}
+@@ -943,7 +943,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+ 			err = device_bind_driver(d);
  
-@@ -603,6 +603,9 @@ int phy_start_aneg(struct phy_device *phydev)
- {
- 	int err;
+ 		if (err)
+-			goto error;
++			goto error_put_device;
+ 	}
  
-+	if (!phydev->drv)
-+		return -EIO;
-+
- 	mutex_lock(&phydev->lock);
+ 	if (phydev->attached_dev) {
+@@ -981,6 +981,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
  
- 	if (AUTONEG_DISABLE == phydev->autoneg)
-@@ -975,7 +978,7 @@ void phy_state_machine(struct work_struct *work)
+ error:
+ 	phy_detach(phydev);
++error_put_device:
+ 	put_device(d);
+ 	module_put(d->driver->owner);
+ 	if (ndev_owner != bus->owner)
+@@ -1065,7 +1066,8 @@ void phy_detach(struct phy_device *phydev)
+ 	bus = phydev->mdio.bus;
  
- 	old_state = phydev->state;
- 
--	if (phydev->drv->link_change_notify)
-+	if (phydev->drv && phydev->drv->link_change_notify)
- 		phydev->drv->link_change_notify(phydev);
- 
- 	switch (phydev->state) {
-@@ -1286,6 +1289,9 @@ EXPORT_SYMBOL(phy_write_mmd_indirect);
-  */
- int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- {
-+	if (!phydev->drv)
-+		return -EIO;
-+
- 	/* According to 802.3az,the EEE is supported only in full duplex-mode.
- 	 * Also EEE feature is active when core is operating with MII, GMII
- 	 * or RGMII (all kinds). Internal PHYs are also allowed to proceed and
-@@ -1363,6 +1369,9 @@ EXPORT_SYMBOL(phy_init_eee);
-  */
- int phy_get_eee_err(struct phy_device *phydev)
- {
-+	if (!phydev->drv)
-+		return -EIO;
-+
- 	return phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_WK_ERR, MDIO_MMD_PCS);
+ 	put_device(&phydev->mdio.dev);
+-	module_put(phydev->mdio.dev.driver->owner);
++	if (phydev->mdio.dev.driver)
++		module_put(phydev->mdio.dev.driver->owner);
+ 	if (ndev_owner != bus->owner)
+ 		module_put(bus->owner);
  }
- EXPORT_SYMBOL(phy_get_eee_err);
-@@ -1379,6 +1388,9 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
- {
- 	int val;
- 
-+	if (!phydev->drv)
-+		return -EIO;
-+
- 	/* Get Supported EEE */
- 	val = phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_ABLE, MDIO_MMD_PCS);
- 	if (val < 0)
-@@ -1412,6 +1424,9 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
- {
- 	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
- 
-+	if (!phydev->drv)
-+		return -EIO;
-+
- 	/* Mask prohibited EEE modes */
- 	val &= ~phydev->eee_broken_modes;
- 
-@@ -1423,7 +1438,7 @@ EXPORT_SYMBOL(phy_ethtool_set_eee);
- 
- int phy_ethtool_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
- {
--	if (phydev->drv->set_wol)
-+	if (phydev->drv && phydev->drv->set_wol)
- 		return phydev->drv->set_wol(phydev, wol);
- 
- 	return -EOPNOTSUPP;
-@@ -1432,7 +1447,7 @@ EXPORT_SYMBOL(phy_ethtool_set_wol);
- 
- void phy_ethtool_get_wol(struct phy_device *phydev, struct ethtool_wolinfo *wol)
- {
--	if (phydev->drv->get_wol)
-+	if (phydev->drv && phydev->drv->get_wol)
- 		phydev->drv->get_wol(phydev, wol);
- }
- EXPORT_SYMBOL(phy_ethtool_get_wol);
-@@ -1468,6 +1483,9 @@ int phy_ethtool_nway_reset(struct net_device *ndev)
- 	if (!phydev)
- 		return -ENODEV;
- 
-+	if (!phydev->drv)
-+		return -EIO;
-+
- 	return genphy_restart_aneg(phydev);
- }
- EXPORT_SYMBOL(phy_ethtool_nway_reset);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 7fc1105605bf..231e07bb0d76 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -802,6 +802,9 @@ int phy_stop_interrupts(struct phy_device *phydev);
- 
- static inline int phy_read_status(struct phy_device *phydev)
- {
-+	if (!phydev->drv)
-+		return -EIO;
-+
- 	return phydev->drv->read_status(phydev);
- }
- 
 -- 
 2.9.3
