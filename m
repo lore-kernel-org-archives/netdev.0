@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 09/16] net: stmmac: replace ENOSYS by EINVAL
-Date: Wed,  8 Feb 2017 09:31:14 +0100
-Message-ID: <20170208083121.27949-10-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 16/16] net: stmmac: replace unsigned by u32
+Date: Wed,  8 Feb 2017 09:31:21 +0100
+Message-ID: <20170208083121.27949-17-clabbe.montjoie@gmail.com>
 References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Cc: linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -12,28 +12,37 @@ In-Reply-To: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As said by checkpatch ENOSYS means 'invalid syscall nr' and nothing
-else.
-This patch replace ENOSYS by the more appropriate value EINVAL.
+checkpatch complains about two unsigned without type after.
+Since the value return is u32, it is simpler to replace it by u32 instead
+of "unsigned int"
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 320f46e..433a842 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -411,7 +411,7 @@ void stmmac_remove_config_dt(struct platform_device *pdev,
- struct plat_stmmacenet_data *
- stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
- {
--	return ERR_PTR(-ENOSYS);
-+	return ERR_PTR(-EINVAL);
- }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index d1b2e1e..7251871 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -187,7 +187,7 @@ static void print_pkt(unsigned char *buf, int len)
  
- void stmmac_remove_config_dt(struct platform_device *pdev,
+ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
+ {
+-	unsigned avail;
++	u32 avail;
+ 
+ 	if (priv->dirty_tx > priv->cur_tx)
+ 		avail = priv->dirty_tx - priv->cur_tx - 1;
+@@ -199,7 +199,7 @@ static inline u32 stmmac_tx_avail(struct stmmac_priv *priv)
+ 
+ static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv)
+ {
+-	unsigned dirty;
++	u32 dirty;
+ 
+ 	if (priv->dirty_rx <= priv->cur_rx)
+ 		dirty = priv->cur_rx - priv->dirty_rx;
 -- 
 2.10.2
