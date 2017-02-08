@@ -1,115 +1,36 @@
-From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 08/19] scsi: be2iscsi: Replace PCI pool old API
-Date: Wed, 8 Feb 2017 19:28:39 +0100
-Message-ID: <20170208182839.GH16878@collabora.com>
-References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-9-romain.perier@collabora.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] net: phy: Add LED mode driver for
+ Microsemi PHYs.
+Date: Wed, 08 Feb 2017 13:29:19 -0500 (EST)
+Message-ID: <20170208.132919.1842467149726317786.davem@davemloft.net>
+References: <1486474826-29426-1-git-send-email-Raju.Lakkaraju@microsemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Romain Perier <romain.perier@collabora.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-9-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        f.fainelli@gmail.com, Allan.Nielsen@microsemi.com, andrew@lunn.ch
+To: Raju.Lakkaraju@microsemi.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56078 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751376AbdBHS3V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:29:21 -0500
+In-Reply-To: <1486474826-29426-1-git-send-email-Raju.Lakkaraju@microsemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 08, 2017 at 05:34:46PM +0100, Romain Perier wrote:
-> The PCI pool API is deprecated. This commits replaces the PCI pool old
-> API by the appropriated function with the DMA pool API.
-> 
-Tested by compilation only.
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Date: Tue, 7 Feb 2017 19:10:26 +0530
 
-Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> ---
->  drivers/scsi/be2iscsi/be_iscsi.c | 6 +++---
->  drivers/scsi/be2iscsi/be_main.c  | 6 +++---
->  drivers/scsi/be2iscsi/be_main.h  | 2 +-
->  3 files changed, 7 insertions(+), 7 deletions(-)
+> From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 > 
-> diff --git a/drivers/scsi/be2iscsi/be_iscsi.c b/drivers/scsi/be2iscsi/be_iscsi.c
-> index a484457..d76ef77 100644
-> --- a/drivers/scsi/be2iscsi/be_iscsi.c
-> +++ b/drivers/scsi/be2iscsi/be_iscsi.c
-> @@ -87,8 +87,8 @@ struct iscsi_cls_session *beiscsi_session_create(struct iscsi_endpoint *ep,
->  		return NULL;
->  	sess = cls_session->dd_data;
->  	beiscsi_sess = sess->dd_data;
-> -	beiscsi_sess->bhs_pool =  pci_pool_create("beiscsi_bhs_pool",
-> -						   phba->pcidev,
-> +	beiscsi_sess->bhs_pool =  dma_pool_create("beiscsi_bhs_pool",
-> +						   &phba->pcidev->dev,
->  						   sizeof(struct be_cmd_bhs),
->  						   64, 0);
->  	if (!beiscsi_sess->bhs_pool)
-> @@ -113,7 +113,7 @@ void beiscsi_session_destroy(struct iscsi_cls_session *cls_session)
->  	struct beiscsi_session *beiscsi_sess = sess->dd_data;
->  
->  	printk(KERN_INFO "In beiscsi_session_destroy\n");
-> -	pci_pool_destroy(beiscsi_sess->bhs_pool);
-> +	dma_pool_destroy(beiscsi_sess->bhs_pool);
->  	iscsi_session_teardown(cls_session);
->  }
->  
-> diff --git a/drivers/scsi/be2iscsi/be_main.c b/drivers/scsi/be2iscsi/be_main.c
-> index 32b2713..dd43480 100644
-> --- a/drivers/scsi/be2iscsi/be_main.c
-> +++ b/drivers/scsi/be2iscsi/be_main.c
-> @@ -4307,7 +4307,7 @@ static void beiscsi_cleanup_task(struct iscsi_task *task)
->  	pwrb_context = &phwi_ctrlr->wrb_context[cri_index];
->  
->  	if (io_task->cmd_bhs) {
-> -		pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
-> +		dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
->  			      io_task->bhs_pa.u.a64.address);
->  		io_task->cmd_bhs = NULL;
->  		task->hdr = NULL;
-> @@ -4424,7 +4424,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
->  	struct beiscsi_session *beiscsi_sess = beiscsi_conn->beiscsi_sess;
->  	dma_addr_t paddr;
->  
-> -	io_task->cmd_bhs = pci_pool_alloc(beiscsi_sess->bhs_pool,
-> +	io_task->cmd_bhs = dma_pool_alloc(beiscsi_sess->bhs_pool,
->  					  GFP_ATOMIC, &paddr);
->  	if (!io_task->cmd_bhs)
->  		return -ENOMEM;
-> @@ -4551,7 +4551,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
->  	if (io_task->pwrb_handle)
->  		free_wrb_handle(phba, pwrb_context, io_task->pwrb_handle);
->  	io_task->pwrb_handle = NULL;
-> -	pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
-> +	dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
->  		      io_task->bhs_pa.u.a64.address);
->  	io_task->cmd_bhs = NULL;
->  	return -ENOMEM;
-> diff --git a/drivers/scsi/be2iscsi/be_main.h b/drivers/scsi/be2iscsi/be_main.h
-> index 2188579..cf58d31 100644
-> --- a/drivers/scsi/be2iscsi/be_main.h
-> +++ b/drivers/scsi/be2iscsi/be_main.h
-> @@ -446,7 +446,7 @@ struct beiscsi_hba {
->  	 test_bit(BEISCSI_HBA_ONLINE, &phba->state))
->  
->  struct beiscsi_session {
-> -	struct pci_pool *bhs_pool;
-> +	struct dma_pool *bhs_pool;
->  };
->  
->  /**
-> -- 
-> 2.9.3
+> LED Mode:
+> Microsemi PHY support 2 LEDs (LED[0] and LED[1]) to display different
+> status information that can be selected by setting LED mode.
 > 
+> LED Mode parameter (vsc8531, led-0-mode) and (vsc8531, led-1-mode) get
+> from Device Tree.
+> 
+> Signed-off-by: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+
+Applied, thank you.
