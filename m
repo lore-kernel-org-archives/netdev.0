@@ -1,82 +1,47 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH v2 net-next 3/9] openvswitch: Simplify labels length logic.
-Date: Wed,  8 Feb 2017 11:32:04 -0800
-Message-ID: <1486582330-31152-4-git-send-email-jarno@ovn.org>
-References: <1486582330-31152-1-git-send-email-jarno@ovn.org>
-Cc: jarno@ovn.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:55180 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751058AbdBHTeE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:34:04 -0500
-Received: from relay3-d.mail.gandi.net (relay3-d.mail.gandi.net [217.70.183.195])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 76B5647EB03
-        for <netdev@vger.kernel.org>; Wed,  8 Feb 2017 20:33:30 +0100 (CET)
-In-Reply-To: <1486582330-31152-1-git-send-email-jarno@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/9] sunvnet: make sunvnet common code
+ dynamically loadable
+Date: Wed, 08 Feb 2017 14:29:18 -0500 (EST)
+Message-ID: <20170208.142918.491209108288972402.davem@davemloft.net>
+References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+        <1486505582-76823-2-git-send-email-shannon.nelson@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: shannon.nelson@oracle.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <1486505582-76823-2-git-send-email-shannon.nelson@oracle.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since 23014011ba42 ("netfilter: conntrack: support a fixed size of 128
-distinct labels"), the size of conntrack labels extension has fixed to
-128 bits, so we do not need to check for labels sizes shorter than 128
-at run-time.  This patch simplifies labels length logic accordingly,
-but allows the conntrack labels size to be increased in the future
-without breaking the build.  In the event of conntrack labels
-increasing in size OVS would still be able to deal with the 128 first
-label bits.
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Date: Tue,  7 Feb 2017 14:12:54 -0800
 
-Suggested-by: Joe Stringer <joe@ovn.org>
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/openvswitch/conntrack.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+> +static int __init sunvnet_common_init(void)
+> +{
+> +	pr_info("%s\n", version);
+> +	return 0;
+> +}
+> +module_init(sunvnet_common_init);
+> +
+> +static void __exit sunvnet_common_exit(void)
+> +{
+> +	/* Empty function, just here to fill the exit function pointer
+> +	 * slot.  In some combinations of older gcc and newer kernel,
+> +	 * leaving this undefined results in the kernel marking it as a
+> +	 * permanent module; it will show up in lsmod output as [permanent]
+> +	 * and not be unloadable.
+> +	 */
+> +}
+> +module_exit(sunvnet_common_exit);
+> +
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 6730f09..a07e5cd 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -129,22 +129,22 @@ static u32 ovs_ct_get_mark(const struct nf_conn *ct)
- #endif
- }
- 
-+/* Guard against conntrack labels max size shrinking below 128 bits. */
-+#if NF_CT_LABELS_MAX_SIZE < 16
-+#error NF_CT_LABELS_MAX_SIZE must be at least 16 bytes
-+#endif
-+
- static void ovs_ct_get_labels(const struct nf_conn *ct,
- 			      struct ovs_key_ct_labels *labels)
- {
- 	struct nf_conn_labels *cl = ct ? nf_ct_labels_find(ct) : NULL;
- 
--	if (cl) {
--		size_t len = sizeof(cl->bits);
--
--		if (len > OVS_CT_LABELS_LEN)
--			len = OVS_CT_LABELS_LEN;
--		else if (len < OVS_CT_LABELS_LEN)
--			memset(labels, 0, OVS_CT_LABELS_LEN);
--		memcpy(labels, cl->bits, len);
--	} else {
-+	if (cl)
-+		memcpy(labels, cl->bits,
-+		       sizeof(cl->bits) > OVS_CT_LABELS_LEN
-+		       ? OVS_CT_LABELS_LEN : sizeof(cl->bits));
-+	else
- 		memset(labels, 0, OVS_CT_LABELS_LEN);
--	}
- }
- 
- static void __ovs_ct_update_key(struct sw_flow_key *key, u8 state,
-@@ -274,7 +274,7 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
- 		nf_ct_labels_ext_add(ct);
- 		cl = nf_ct_labels_find(ct);
- 	}
--	if (!cl || sizeof(cl->bits) < OVS_CT_LABELS_LEN)
-+	if (!cl)
- 		return -ENOSPC;
- 
- 	err = nf_connlabels_replace(ct, labels->ct_labels_32,
--- 
-2.1.4
+This module is just providing infrastructure for other modules.
+
+So skip the init function, and that way you don't need the exit
+function either.
+
+The kernel log message when the real sunvnet driver loads is
+sufficient, you don't need one here.
