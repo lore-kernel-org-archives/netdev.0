@@ -1,100 +1,61 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v3 04/11] bpf: Use bpf_load_program() from the
- library
-Date: Wed, 8 Feb 2017 21:08:29 +0100
-Message-ID: <c082fd66-aee7-f4dc-fb69-69462423062c@digikod.net>
-References: <20170207214500.27496-1-mic@digikod.net>
- <20170207214500.27496-5-mic@digikod.net> <589A5597.7090107@fb.com>
- <20170208194657.GC2162@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 1/2] flow dissector: ND
+ support
+Date: Wed, 8 Feb 2017 21:09:17 +0100
+Message-ID: <20170208200917.GA20719@nanopsycho>
+References: <20170207.123831.1038511845714033360.davem@davemloft.net>
+ <20170208092823.GA17615@penelope.horms.nl>
+ <CALx6S36VrtQM5G2XPzpcrP=y3RyBwTnYJcaKqXtwyFgpGiz+Jg@mail.gmail.com>
+ <20170208.135415.601520734521006340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="X5wOG7EJTiVF4NGrXcob43o2oddlrfjPG"
-Cc: linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Shuah Khan <shuah@kernel.org>
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Alexei Starovoitov <ast@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170208194657.GC2162@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tom@herbertland.com, simon.horman@netronome.com,
+        eric.dumazet@gmail.com, dinan.gunawardena@netronome.com,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:38166 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751671AbdBHUJU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 15:09:20 -0500
+Received: by mail-wm0-f41.google.com with SMTP id r141so200042929wmg.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 12:09:20 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170208.135415.601520734521006340.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---X5wOG7EJTiVF4NGrXcob43o2oddlrfjPG
-Content-Type: multipart/mixed; boundary="waT4poUNBwmF0TgqipnMGaGSjw4OFW8xn";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Arnaldo Carvalho de Melo <acme@redhat.com>,
- Alexei Starovoitov <ast@fb.com>
-Cc: linux-kernel@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
- "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
- Shuah Khan <shuah@kernel.org>
-Message-ID: <c082fd66-aee7-f4dc-fb69-69462423062c@digikod.net>
-Subject: Re: [PATCH net-next v3 04/11] bpf: Use bpf_load_program() from the
- library
-References: <20170207214500.27496-1-mic@digikod.net>
- <20170207214500.27496-5-mic@digikod.net> <589A5597.7090107@fb.com>
- <20170208194657.GC2162@redhat.com>
-In-Reply-To: <20170208194657.GC2162@redhat.com>
+Wed, Feb 08, 2017 at 07:54:15PM CET, davem@davemloft.net wrote:
+>From: Tom Herbert <tom@herbertland.com>
+>Date: Wed, 8 Feb 2017 10:33:46 -0800
+>
+>> On Wed, Feb 8, 2017 at 1:28 AM, Simon Horman <simon.horman@netronome.com> wrote:
+>>> I think the above paragraph gets back to Tom's original question regarding
+>>> making things more complex just for OvS (use-cases). Possibly ND is an edge
+>>> case even for OvS and on reflection my timing for posting it seems to have
+>>> been less than ideal.
+>> 
+>> If it wasn't ND it would be something else... with all the activity
+>> happening in networking features and HW this is a timely discussion.
+>> Flow dissector presents a good example of a function that might become
+>> a dumping ground for an endless stream of features if we don't figure
+>> out how exercise some restraint.
+>
+>I agree on most points.
+>
+>But, I would say that in this specific case, since we have ARP support in
+>there already it behooves us to support the ipv6 side in the form of ND
+>too.
+>
+>Then we can put a line in the sand and say that future feature additions
+>in this area require serious discussion.
 
---waT4poUNBwmF0TgqipnMGaGSjw4OFW8xn
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Yeah, well, and if there is a functinality that is unacceptable for any
+reason to put into flow_dissector, we have to do a flow_dissector2?
 
+Note that I originally had separate dissection in cls_flower, you
+suggested to use the existing flow_dissector. And I still believe it was
+the right way to do it.
 
-On 08/02/2017 20:46, Arnaldo Carvalho de Melo wrote:
-> Em Tue, Feb 07, 2017 at 03:17:43PM -0800, Alexei Starovoitov escreveu:
->> On 2/7/17 1:44 PM, Micka=EBl Sala=FCn wrote:
->>> -	union bpf_attr attr;
->>> +	union bpf_attr attr =3D {};
->>>
->>> -	bzero(&attr, sizeof(attr));
->>
->> I think somebody mentioned that there are compilers out there
->> that don't do it correctly, hence it was done with explicit bzero.
->> Arnaldo, Wang, do you remember the details?
->=20
-> https://www.spinics.net/lists/netdev/msg411144.html
->=20
-> But this was when some named initializers are used in a union with
-> unnamed members like 'union bpf_attr', unsure if this would break with
-> the above case where no named initializers are being used.
->=20
-> Having that said, the above is gratuitous, the code that is being
-> replaced is not related to the patch at hand, and conceptually the end
-> result should be the same.
->=20
-> So, please, just leave it as is, i.e. using bzero() and make your patch=
-
-> a bit smaller, remember, small is good, smaller is even better ;-)
->=20
-> - Arnaldo
->=20
-
-Right, I'll do it.
-
-Thanks
-
-
---waT4poUNBwmF0TgqipnMGaGSjw4OFW8xn--
-
---X5wOG7EJTiVF4NGrXcob43o2oddlrfjPG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAliber0ACgkQIt7+33O9
-apW58wf+IcqviHziqHE4sd64DTJOUZ/K65orjslCsiC35M3na3VQmnQ+f1B73NoY
-emFbtQOssOJrGBOqk3ZpMAI8Iujdz/nFKeJxKx36btqHXDdGgDsl/l96prpyCVBZ
-yBnP1HxdI4QgBZsCAFLoUnCKA1EQ3IIPXdPjx35/kMV5Jm0sRUMVx9WeSPK0wG61
-2u5kVcmPmM4zXaPoNlU5AIB07Ua+wMJtPabVp7jVwVSlCKaxRwAbD6jvn4qhNRVI
-zRhiworY/woEQKOfcFFY25L3X3qacBC3T7xFsk+Qj9skW7WAHG5Yes18BMKbh9sa
-9iviZDCn5PIvwkATyP/Uk/9e/FX2zg==
-=LIag
------END PGP SIGNATURE-----
-
---X5wOG7EJTiVF4NGrXcob43o2oddlrfjPG--
+I think that better is to make existing flow dissector more modular.
+I'll look into this.
