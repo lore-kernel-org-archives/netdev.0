@@ -1,31 +1,43 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH] xen-netfront: Rework the fix for Rx stall during OOM and
- network stress
-Date: Wed, 8 Feb 2017 10:08:19 -0500
-Message-ID: <e81a8a0a-5364-433b-3c9b-93d6b1680a89@oracle.com>
-References: <1486493941-15696-1-git-send-email-vineethp@amazon.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v2 06/16] net: stmmac: fix some code style problem
+Date: Wed, 8 Feb 2017 16:06:45 +0100
+Message-ID: <20170208150645.GA11421@Red>
+References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
+ <20170208083121.27949-7-clabbe.montjoie@gmail.com>
+ <1486550518.27834.13.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: kamatam@amazon.com, aliguori@amazon.com, guruanb@amazon.com
-To: Vineeth Remanan Pillai <vineethp@amazon.com>, jgross@suse.com,
-        xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486493941-15696-1-git-send-email-vineethp@amazon.com>
+Content-Disposition: inline
+In-Reply-To: <1486550518.27834.13.camel@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/07/2017 01:59 PM, Vineeth Remanan Pillai wrote:
-> The commit 90c311b0eeea ("xen-netfront: Fix Rx stall during network
-> stress and OOM") caused the refill timer to be triggerred almost on
-> all invocations of xennet_alloc_rx_buffers for certain workloads.
-> This reworks the fix by reverting to the old behaviour and taking into
-> consideration the skb allocation failure. Refill timer is now triggered
-> on insufficient requests or skb allocation failure.
->
-> Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
-> Fixes: 90c311b0eeea (xen-netfront: Fix Rx stall during network stress and OOM)
-> Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+On Wed, Feb 08, 2017 at 02:41:58AM -0800, Joe Perches wrote:
+> On Wed, 2017-02-08 at 09:31 +0100, Corentin Labbe wrote:
+> > Checkpatch complains about some code style problem on stmmac_mdio.c.
+> > This patch fix them.
+> []
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> []
+> > @@ -258,6 +258,7 @@ int stmmac_mdio_register(struct net_device *ndev)
+> >  	found = 0;
+> >  	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+> >  		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+> > +
+> >  		if (phydev) {
+> >  			int act = 0;
+> >  			char irq_num[4];
+> 
+> Maybe use
+> 		if (!phydev)
+> 			continue;
+> to reduce indentation
 
-Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Thanks I will do it in a subsequent patch
+
+Regards
+Corentin Labbe
