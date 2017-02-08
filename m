@@ -1,68 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3 net-next] enic: add vxlan offload on tx path
-Date: Wed, 08 Feb 2017 14:57:05 -0500 (EST)
-Message-ID: <20170208.145705.1739874934577587584.davem@davemloft.net>
-References: <20170208072825.3144-1-gvaradar@cisco.com>
-        <20170208072825.3144-4-gvaradar@cisco.com>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v4 00/11] Improve BPF selftests and use the library (net-next tree)
+Date: Wed,  8 Feb 2017 21:49:29 +0100
+Message-ID: <20170208204940.26023-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benve@cisco.com
-To: gvaradar@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58770 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751942AbdBHUu4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 15:50:56 -0500
-In-Reply-To: <20170208072825.3144-4-gvaradar@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Govindarajulu Varadarajan <gvaradar@cisco.com>
-Date: Tue,  7 Feb 2017 23:28:25 -0800
+This series brings some fixes to selftests, add the ability to test
+unprivileged BPF programs as root and replace bpf_sys.h with calls to the BPF
+library.
 
-> Define ndo_features_check. Hw supports offload only for ipv4 inner and
-> ipv4 outer pkt.
-> 
-> Code refactor for setting inner tcp pseudo csum.
-> 
-> Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
-> ---
->  drivers/net/ethernet/cisco/enic/enic_main.c | 126 +++++++++++++++++++++++++---
->  1 file changed, 114 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-> index ce5ce394a810..9cfebdb22e81 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-> @@ -263,6 +263,48 @@ static void enic_udp_tunnel_del(struct net_device *netdev,
->  	spin_unlock_bh(&enic->devcmd_lock);
->  }
->  
-> +static netdev_features_t enic_features_check(struct sk_buff *skb,
-> +					     struct net_device *dev,
-> +					     netdev_features_t features)
-> +{
-> +	struct enic *enic = netdev_priv(dev);
-> +	struct udphdr *udph;
-> +	u16 proto;
-> +	u16 port = 0;
-> +	const struct ethhdr *eth = (struct ethhdr *)skb_inner_mac_header(skb);
+This is intended for the net-next tree and apply on d9e1661dab02 ("Merge branch
+'mlxsw-Reflect-nexthop-status-changes'").
 
-Order variables from longest to shortest line.
+Changes since v3:
+* keep the bzero() calls
 
-> +static int enic_queue_wq_skb_tso(struct enic *enic, struct vnic_wq *wq,
-> +				 struct sk_buff *skb, unsigned int mss,
-> +				 int vlan_tag_insert, unsigned int vlan_tag,
-> +				 int loopback)
-> +{
-> +	unsigned int frag_len_left = skb_headlen(skb);
-> +	unsigned int len_left = skb->len - frag_len_left;
-> +	unsigned int hdr_len;
-> +	int eop = (len_left == 0);
-> +	unsigned int len;
-> +	dma_addr_t dma_addr;
-> +	unsigned int offset = 0;
-> +	skb_frag_t *frag;
+Changes since v2:
+* use the patches from two previous series (unprivileged tests and bpf_sys.h
+  replacement)
+* include one more stdint.h
+* rebase on net-next
+* add this cover letter
 
-Likewise.
+Changes since v1:
+* exclude patches not intended for the net-next tree
+
+Regards,
+
+Mickaël Salaün (11):
+  tools: Sync {,tools/}include/uapi/linux/bpf.h
+  bpf: Change the include directory for selftest
+  bpf: Always test unprivileged programs
+  bpf: Use bpf_load_program() from the library
+  bpf: Use bpf_map_update_elem() from the library
+  bpf: Use bpf_map_lookup_elem() from the library
+  bpf: Use bpf_map_delete_elem() from the library
+  bpf: Use bpf_map_get_next_key() from the library
+  bpf: Use bpf_create_map() from the library
+  bpf: Remove bpf_sys.h from selftests
+  bpf: Add test_tag to .gitignore
+
+ tools/include/uapi/linux/bpf.h              |  23 +++-
+ tools/lib/bpf/bpf.c                         |  20 ++--
+ tools/lib/bpf/bpf.h                         |  12 +--
+ tools/testing/selftests/bpf/.gitignore      |   1 +
+ tools/testing/selftests/bpf/Makefile        |   4 +-
+ tools/testing/selftests/bpf/bpf_sys.h       | 108 -------------------
+ tools/testing/selftests/bpf/test_lpm_map.c  |  38 +++----
+ tools/testing/selftests/bpf/test_lru_map.c  | 106 +++++++++----------
+ tools/testing/selftests/bpf/test_maps.c     | 158 ++++++++++++++--------------
+ tools/testing/selftests/bpf/test_tag.c      |  11 +-
+ tools/testing/selftests/bpf/test_verifier.c |  84 ++++++++++++---
+ 11 files changed, 274 insertions(+), 291 deletions(-)
+ delete mode 100644 tools/testing/selftests/bpf/bpf_sys.h
+
+-- 
+2.11.0
