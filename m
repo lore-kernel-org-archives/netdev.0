@@ -1,81 +1,115 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: use-after-free in tw_timer_handler
-Date: Wed, 08 Feb 2017 09:58:36 -0800
-Message-ID: <1486576716.7793.84.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
-         <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
-         <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
-         <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
-         <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
+Date: Wed, 8 Feb 2017 10:33:46 -0800
+Message-ID: <CALx6S36VrtQM5G2XPzpcrP=y3RyBwTnYJcaKqXtwyFgpGiz+Jg@mail.gmail.com>
+References: <CALx6S37QtKgc14DFway-Ajme7JhbAN71M+83w28+4FELdv7Xew@mail.gmail.com>
+ <20170206091253.GB20384@penelope.horms.nl> <CALx6S351OxEtGhjBdGVGUF7JcBRjpY3hwft-hXjxix7EVAfhQg@mail.gmail.com>
+ <20170207.123831.1038511845714033360.davem@davemloft.net> <20170208092823.GA17615@penelope.horms.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34635 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751266AbdBHSan (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:30:43 -0500
-In-Reply-To: <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:33948 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750911AbdBHSfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:35:07 -0500
+Received: by mail-qt0-f195.google.com with SMTP id w20so24171080qtb.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 10:33:47 -0800 (PST)
+In-Reply-To: <20170208092823.GA17615@penelope.horms.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-08 at 18:36 +0100, Dmitry Vyukov wrote:
-> On Tue, Jan 24, 2017 at 4:52 PM, Eric Dumazet <edumazet@google.com> wrote:
-> > On Tue, Jan 24, 2017 at 7:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> >>>
-> >>> This code was changed a long time ago :
-> >>>
-> >>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
-> >>>
-> >>> So I suspect a recent patch broke the logic.
-> >>>
-> >>> You might start a bisection :
-> >>>
-> >>> I would check if 4.7 and 4.8 trigger the issue you noticed.
-> >>
-> >>
-> >> It happens with too low rate for bisecting (few times per day). I
-> >> could add some additional checks into code, but I don't know what
-> >> checks could be useful.
-> >
-> > If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
-> > we are able to help.
-> 
-> 
-> There are also chances that the problem is older.
-> 
-> Looking at the code, this part of inet_twsk_purge looks fishy:
-> 
-> 285                         if (unlikely((tw->tw_family != family) ||
-> 286                                      atomic_read(&twsk_net(tw)->count))) {
-> 
-> It uses net->count == 0 check to find the right sockets. But what if
-> there are several nets with count == 0 in flight, can't there be
-> several inet_twsk_purge calls running concurrently freeing each other
-> sockets? If so it looks like inet_twsk_purge can call
-> inet_twsk_deschedule_put twice for a socket. Namely, two calls for
-> different nets discover the socket, check that net->count==0 and both
-> call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
-> net that it needs to purge?
+On Wed, Feb 8, 2017 at 1:28 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> On Tue, Feb 07, 2017 at 12:38:31PM -0500, David Miller wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Tue, 7 Feb 2017 09:36:20 -0800
+>>
+>> > Okay, but can you give us an idea of how many more of these protocols
+>> > are going to be added to flow_dissector. TBH I'm not very enthused
+>> > about making more flow_dissector more complex for the benefit of OVS.
+>>
+>> Especially since the kernel datapath of OVS has been marked
+>> experimental.
+>
+> Hi Dave, Hi Tom,
+>
+> Firstly I'd like to apologise for posing what has turned out to be a
+> somewhat divisive patch.
+>
+> After looking through things a little more I think the simple answer to
+> Tom's question is only ND. But there are also some fields of already
+> supported protocols which are covered in the OvS flow key but not the flow
+> dissector.
+>
+> My analysis of OvS flow key fields for non-tunnel packet data - which I
+> think is the extent of what is relevant to the flow dissector - yields the
+> following list:
+>
+>   New protocols:
+>   * ND (this patch)
+>
+>   Fields of already supported protocols:
+>   * MPLS.lse (currently the label of the LSE is handled by the dissector
+>               so this could also be described as MPLS.lse.{tc,s,ttl})
+>   * IPV4.tos
+>   * IPV4.ttl
+>   * IPV6.hlimit
+>   * IPV6.tclass
+>
+>   I do expect that some of the above will not be appropriate for existing
+>   users of the flow dissector; e.g. IPV4.ttl does not seem much use when
+>   calculating the hash of a flow for steering purposes. And I do not yet
+>   have a good idea of how to approach that beyond using different dissector
+>   keys.
+>
+>   Further support for to already supported fields.
+>   * IPV[46].frag (supported by flow dissector : 1st frag flag;
+>                   not supported by flow dissector: subsequent frag flag)
+>
+> From my point of view some parts of what is above is more important than
+> others. In particular ND is probably not particularly important at least at
+> this time. I would be happy to withdraw this patchset if the complexity is
+> not deemed worth it at this time.
+>
+>
+> I'd like to take a moment to give a little background and restate that my
+> goal is not to create a burden for existing users of the flow dissector
+> - or any other part of the stack.
+>
+> Netronome has worked on various approaches to an upstream offload of OvS.
+> One was hooks added to the OvS kernel datapath; an idea which was rejected
+> at least twice but none the less I'd be happy to revisit if there is
+> interest in it.
+>
+> The result of trying various approaches is that it seems the most
+> acceptable is to use TC for programming flows into hardware which is where
+> my work on TC flower and the flow dissector is coming from.  A key part of
+> the reasoning being, as I understand it, that the flows could also be
+> programmed into hardware for non-OvS use-cases; technology that could be
+> useful e.g. in a post-OvS world.
+>
+It's not an issue specific OVS, it's part of a broader problem in that
+we are see more case where the core kernel paths are modified to
+support somewhat narrow use case functionality (like OVS, advanced HW
+accelerations, etc.). As we have seen recently this can make
+maintainability and backports very difficult (see my comments about
+backporting mlx5).
 
-Yes, atomic_read() is not a proper sync point.
+> I think the above paragraph gets back to Tom's original question regarding
+> making things more complex just for OvS (use-cases). Possibly ND is an edge
+> case even for OvS and on reflection my timing for posting it seems to have
+> been less than ideal.
 
-> The second issue that I noticed is that tw_refcnt is set to 4 _after_
-> we schedule the timer. The timer will probably won't fire before we
-> set tw_refcnt, but if it somehow does it will corrupt the ref count. I
-> don't think that it's what I am seeing, though. More likely it's the
-> first issues (if it's real).
-> 
+If it wasn't ND it would be something else... with all the activity
+happening in networking features and HW this is a timely discussion.
+Flow dissector presents a good example of a function that might become
+a dumping ground for an endless stream of features if we don't figure
+out how exercise some restraint.
 
-Timer is pinned, it cannot fire under us on this cpu.
+Tom
