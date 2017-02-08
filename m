@@ -1,81 +1,43 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH v3 2/5] bpf: Simplify bpf_load_program() error handling in
- the library
-Date: Wed, 8 Feb 2017 10:35:46 +0800
-Message-ID: <59c4e38e-baa3-e130-3d74-14aa6b11bda5@huawei.com>
-References: <20170207205609.8035-1-mic@digikod.net>
- <20170207205609.8035-3-mic@digikod.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Joe Stringer <joe@ovn.org>, <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170207205609.8035-3-mic@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Igor Pylypiv <igor.pylypiv@gmail.com>
+Subject: [PATCH] net: fix description of skb_find_text() according to removed functionality
+Date: Tue,  7 Feb 2017 18:45:37 -0800
+Message-ID: <1486521937-10638-1-git-send-email-igor.pylypiv@gmail.com>
+References: <20170207.105320.45609559819874123.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33816 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751698AbdBHCrr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 21:47:47 -0500
+In-Reply-To: <20170207.105320.45609559819874123.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Textsearch state parameter was moved to local scope of the function.
+This eliminates usage of textsearch_next() to find subsequent occurrences.
 
+Fixes: 59a2440fd3cf ("net: Remove state argument from skb_find_text()")
+Signed-off-by: Igor Pylypiv <igor.pylypiv@gmail.com>
+---
+ net/core/skbuff.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-On 2017/2/8 4:56, Mickaël Salaün wrote:
-> Do not call a second time bpf(2) when a program load failed.
-
-BPF_PROG_LOAD should success most of the time. Setting log_level to
-0 by default and require log buffer when failure can make it faster
-in normal case.
-
-Thank you.
-
-> Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> Cc: Alexei Starovoitov <ast@fb.com>
-> Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Wang Nan <wangnan0@huawei.com>
-> ---
->   tools/lib/bpf/bpf.c | 18 ++++++------------
->   1 file changed, 6 insertions(+), 12 deletions(-)
->
-> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-> index 3ddb58a36d3c..fda3f494f1cd 100644
-> --- a/tools/lib/bpf/bpf.c
-> +++ b/tools/lib/bpf/bpf.c
-> @@ -73,7 +73,6 @@ int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
->   		     size_t insns_cnt, char *license,
->   		     __u32 kern_version, char *log_buf, size_t log_buf_sz)
->   {
-> -	int fd;
->   	union bpf_attr attr;
->   
->   	bzero(&attr, sizeof(attr));
-> @@ -81,20 +80,15 @@ int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
->   	attr.insn_cnt = (__u32)insns_cnt;
->   	attr.insns = ptr_to_u64(insns);
->   	attr.license = ptr_to_u64(license);
-> -	attr.log_buf = ptr_to_u64(NULL);
-> -	attr.log_size = 0;
-> -	attr.log_level = 0;
-> +	attr.log_buf = ptr_to_u64(log_buf);
-> +	attr.log_size = log_buf_sz;
->   	attr.kern_version = kern_version;
->   
-> -	fd = sys_bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
-> -	if (fd >= 0 || !log_buf || !log_buf_sz)
-> -		return fd;
-> +	if (log_buf && log_buf_sz > 0) {
-> +		attr.log_level = 1;
-> +		log_buf[0] = 0;
-> +	}
->   
-> -	/* Try again with log */
-> -	attr.log_buf = ptr_to_u64(log_buf);
-> -	attr.log_size = log_buf_sz;
-> -	attr.log_level = 1;
-> -	log_buf[0] = 0;
->   	return sys_bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
->   }
->   
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 9ccba86..90366c5 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2919,9 +2919,8 @@ static void skb_ts_finish(struct ts_config *conf, struct ts_state *state)
+  * @config: textsearch configuration
+  *
+  * Finds a pattern in the skb data according to the specified
+- * textsearch configuration. Use textsearch_next() to retrieve
+- * subsequent occurrences of the pattern. Returns the offset
+- * to the first occurrence or UINT_MAX if no match was found.
++ * textsearch configuration. Returns the offset to the first
++ * occurrence or UINT_MAX if no match was found.
+  */
+ unsigned int skb_find_text(struct sk_buff *skb, unsigned int from,
+ 			   unsigned int to, struct ts_config *config)
