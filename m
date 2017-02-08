@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 05/16] net: stmmac: remplace asm/io.h by linux/io.h
-Date: Wed,  8 Feb 2017 09:31:10 +0100
-Message-ID: <20170208083121.27949-6-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 08/16] net: stmmac: Use readl_poll_timeout
+Date: Wed,  8 Feb 2017 09:31:13 +0100
+Message-ID: <20170208083121.27949-9-clabbe.montjoie@gmail.com>
 References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Cc: linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -12,34 +12,50 @@ In-Reply-To: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fix the checkpatch warning about asm/io.h.
-Sorting all includes in the process.
+The dwmac_dma_reset function use an open coded of readl_poll_timeout().
+Replace the open coded handling with the proper function.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 738d5c7..3fdc6ec 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -20,13 +20,13 @@
-   Maintainer: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+index e4cda39..e60bfca 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
+@@ -17,6 +17,7 @@
  *******************************************************************************/
  
-+#include <linux/io.h>
- #include <linux/mii.h>
--#include <linux/phy.h>
--#include <linux/slab.h>
- #include <linux/of.h>
- #include <linux/of_gpio.h>
- #include <linux/of_mdio.h>
--#include <asm/io.h>
-+#include <linux/phy.h>
-+#include <linux/slab.h>
+ #include <linux/io.h>
++#include <linux/iopoll.h>
+ #include "common.h"
+ #include "dwmac_dma.h"
  
- #include "stmmac.h"
+@@ -25,19 +26,16 @@
+ int dwmac_dma_reset(void __iomem *ioaddr)
+ {
+ 	u32 value = readl(ioaddr + DMA_BUS_MODE);
+-	int limit;
++	int err;
  
+ 	/* DMA SW reset */
+ 	value |= DMA_BUS_MODE_SFT_RESET;
+ 	writel(value, ioaddr + DMA_BUS_MODE);
+-	limit = 10;
+-	while (limit--) {
+-		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
+-			break;
+-		mdelay(10);
+-	}
+ 
+-	if (limit < 0)
++	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
++				 !(value & DMA_BUS_MODE_SFT_RESET),
++				 100000, 10000);
++	if (err)
+ 		return -EBUSY;
+ 
+ 	return 0;
 -- 
 2.10.2
