@@ -1,46 +1,51 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH net v3 0/2] net: ethernet: bgmac: bug fixes
-Date: Wed,  8 Feb 2017 16:12:55 -0500
-Message-ID: <1486588377-7681-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:33793 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751128AbdBHVho (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 16:37:44 -0500
-Received: by mail-qt0-f180.google.com with SMTP id w20so173674938qtb.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 13:37:44 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sainath Grandhi <sainath.grandhi@intel.com>
+Subject: [PATCHv5 0/7] Refactor macvtap to re-use tap functionality by other virtual intefaces
+Date: Wed,  8 Feb 2017 13:37:09 -0800
+Message-ID: <1486589836-53858-1-git-send-email-sainath.grandhi@intel.com>
+Cc: davem@davemloft.net, mahesh@bandewar.net,
+        linux-kernel@vger.kernel.org, sainath.grandhi@intel.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Changes in v3:
-* Reworked the init sequence patch to only remove the device reset if
-  the device is actually in reset.  Given that this code doesn't bear
-  much resemblance to the original code, I'm changing the author of the
-  patch.  This was tested on NS2 SVK.
+Tap character devices can be implemented on other virtual interfaces like
+ipvlan, similar to macvtap. Source code for tap functionality in macvtap
+can be re-used for this purpose.
 
-Changes in v2:
-* Reworked the first match to make it more obvious what portions of the
-  register were being preserved (Per Rafal Mileki)
-* Style change to reorder the function variables in patch 2 (per Sergei
-  Shtylyov)
+This patch series splits macvtap source into two modules, macvtap and tap.
+This patch series also includes a patch for implementing tap character
+device driver based on the IP-VLAN network interface, called ipvtap.
 
+These patches are tested on x86 platform.
 
-Bug fixes for bgmac driver
+Sainath Grandhi (7):
+  tap: Refactoring macvtap.c
+  tap: Renaming tap related APIs, data structures, macros
+  tap: Tap character device creation/destroy API
+  tap: Abstract type of virtual interface from tap  implementation
+  tap: Extending tap device create/destroy APIs
+  tap: tap as an independent module
+  ipvtap: IP-VLAN based tap driver
 
-
-Hari Vyas (1):
-  net: ethernet: bgmac: mac address change bug
-
-Jon Mason (1):
-  net: ethernet: bgmac: init sequence bug
-
- drivers/net/ethernet/broadcom/bgmac-platform.c | 27 ++++++++++++++++----------
- drivers/net/ethernet/broadcom/bgmac.c          |  6 +++++-
- drivers/net/ethernet/broadcom/bgmac.h          | 16 +++++++++++++++
- 3 files changed, 38 insertions(+), 11 deletions(-)
+ drivers/net/Kconfig              |   20 +
+ drivers/net/Makefile             |    2 +
+ drivers/net/ipvlan/Makefile      |    1 +
+ drivers/net/ipvlan/ipvlan.h      |    7 +
+ drivers/net/ipvlan/ipvlan_core.c |    5 +-
+ drivers/net/ipvlan/ipvlan_main.c |   27 +-
+ drivers/net/ipvlan/ipvtap.c      |  241 ++++++++
+ drivers/net/macvlan.c            |    2 +-
+ drivers/net/macvtap.c            | 1229 ++----------------------------------
+ drivers/net/tap.c                | 1268 ++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/Kconfig            |    2 +-
+ drivers/vhost/net.c              |    3 +-
+ include/linux/if_macvlan.h       |   17 +-
+ include/linux/if_tap.h           |   75 +++
+ 14 files changed, 1690 insertions(+), 1209 deletions(-)
+ create mode 100644 drivers/net/ipvlan/ipvtap.c
+ create mode 100644 drivers/net/tap.c
+ create mode 100644 include/linux/if_tap.h
 
 -- 
 2.7.4
