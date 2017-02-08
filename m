@@ -1,57 +1,69 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) interface
-Date: Tue, 7 Feb 2017 17:04:47 -0800
-Message-ID: <20170208010447.GB76793@knc-06.sc.intel.com>
-References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170207211901.GB28922@obsidianresearch.com>
- <20170207220628.GB76652@knc-06.sc.intel.com>
- <20170207221925.GA30579@obsidianresearch.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] rhashtable: Add nested tables
+Date: Wed, 8 Feb 2017 09:09:33 +0800
+Message-ID: <20170208010933.GA15623@gondor.apana.org.au>
+References: <20170207123827.GA14678@gondor.apana.org.au>
+ <E1cb53h-0003qD-No@gondobar>
+ <20170207131728.GA11584@breakpoint.cc>
+ <20170207132911.GA14888@gondor.apana.org.au>
+ <20170207180216.GC11584@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:49905 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753576AbdBHBJx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 20:09:53 -0500
 Content-Disposition: inline
-In-Reply-To: <20170207221925.GA30579-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170207180216.GC11584@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 03:19:25PM -0700, Jason Gunthorpe wrote:
->On Tue, Feb 07, 2017 at 02:06:30PM -0800, Vishwanathapura, Niranjana wrote:
+On Tue, Feb 07, 2017 at 07:02:16PM +0100, Florian Westphal wrote:
 >
->> >> 	IB_DEVICE_RAW_SCATTER_FCS		= (1ULL << 34),
->> >>+	IB_DEVICE_RDMA_NETDEV_HFI_VNIC		= (1ULL << 35),
->> >
->> >What is this called HFI_VNIC anyhow? Shouldn't this be OPA_VNIC? There
->> >is nothing really HFI specific, right?
->>
->> Agreed, OPA_VNIC is more appropriate here. Will change it.
->
->And probably lots of other places too.. :)
->
+> I can't really say anything here because *I* don't expect
+> it to succeed.
 
-Well, our driver is called HFI1 and HFI_VNIC is in accordance with our naming 
-convention. I will only change the above device attribute name to OPA_VNIC in 
-the ib interface just to be consitant with other such defintions here.
+Think about incoming TCP connections, you can't rate-limit that
+without defeating yourself.
 
->
->> >And this should be rn->dev_priv ?
->>
->> Yah, both will result in same behavior. But yah, what you are suggesting
->> will remove any confusion. Will change in next PATCH series.
->
->Only because the struct has no members, as soon as someone adds
->something it would go booom.
->
+> Even with this proposed patch things will eventually fail
+> on OOM conditions.
 
-Agreed.
+Exactly.  That's the only case where it should fail.  Previously
+it would fail if we cannot allocate a large number of consecutive
+pages, which can happen even if you have lots of memory left.  With
+my patch it will only fail if it cannot allocate at most two non-
+consecutive pages, i.e., a real OOM.
 
->Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Also, such period should be very short until rht has reached
+> peak size for the workload.
+
+How would you know? The rate of insertions could be extremely
+high.
+ 
+> Also, given that we could easily oversubscribe a table by a factor
+> of 10 or more while still keeping sane chain lengths I don't
+> see why thats a problem (also, a 'rht_insert_force' or similar
+> interface that doesn't do chain length checks makes it
+> easy to spot places that need/want this behaviour).
+
+But you would still have to impose a limit, whether it's 1 or
+10.  IOW you will still fail insertions at some point even though
+you have sufficient memory to perform the insertion.
+ 
+> (insecure_elasticity and/or insecure_max_entries come to mind, seems
+>  some of that might not even be needed anymore but I don't have time
+>  right now to investigate).
+
+Yes insecure_elasticity is now obsolete and anyone using it should
+switch over to rhlist.  Once nobody uses it then it can be removed.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
