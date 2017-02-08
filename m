@@ -1,9 +1,9 @@
 From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 18/19] PCI: Remove PCI pool macro functions
-Date: Wed, 8 Feb 2017 19:49:45 +0100
-Message-ID: <20170208184945.GR16878@collabora.com>
+Subject: Re: [RFC 02/19] dmaengine: pch_dma: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:21:37 +0100
+Message-ID: <20170208182137.GB16878@collabora.com>
 References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-19-romain.perier@collabora.com>
+ <20170208163457.28853-3-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams@intel.com>,
@@ -23,73 +23,82 @@ Cc: Dan Williams <dan.j.williams@intel.com>,
 To: Romain Perier <romain.perier@collabora.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-19-romain.perier@collabora.com>
+In-Reply-To: <20170208163457.28853-3-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2017 at 05:34:56PM +0100, Romain Perier wrote:
-> Now that all the drivers use dma pool API, we can remove the macro
-> functions for PCI pool.
-
-Good news: make allyesconfig;make succeed after the changes until this
-point, but:
-
-$ grep -R pci_pool
-...
-drivers/usb/gadget/udc/pch_udc.c: *	-ENOMEM:	pci_pool_alloc
-invocation fails
-drivers/usb/host/oxu210hp-hcd.c:	 * pci_pool consistent memory
-always uses segment zero.
-drivers/usb/host/fotg210-hcd.c:	 * pci_pool consistent memory always
-uses segment zero.
-drivers/usb/host/ehci-hcd.c:	 * pci_pool consistent memory always
-uses segment zero.
-drivers/scsi/lpfc/lpfc_mem.c: * Allocates from generic pci_pool_alloc
-function first and if that fails and
-drivers/scsi/csiostor/csio_init.c:	hw->scsi_pci_pool =
-dma_pool_create("csio_scsi_pci_pool", &hw->pdev->dev,
-drivers/scsi/csiostor/csio_init.c:	if (!hw->scsi_pci_pool)
-drivers/scsi/csiostor/csio_init.c:
-dma_pool_destroy(hw->scsi_pci_pool);
-drivers/scsi/csiostor/csio_init.c:	hw->scsi_pci_pool = NULL;
-drivers/scsi/csiostor/csio_scsi.c:		dma_buf->vaddr =
-dma_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
-drivers/scsi/csiostor/csio_scsi.c:
-dma_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
-drivers/scsi/csiostor/csio_scsi.c:
-dma_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
-drivers/scsi/csiostor/csio_hw.h:	struct dma_pool
-*scsi_pci_pool;		/* PCI pool for SCSI */
-
-this can be updated or removed, needs to check:
-scripts/coccinelle/api/alloc/pool_zalloc-simple.cocci
-
+On Wed, Feb 08, 2017 at 05:34:40PM +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commits replaces the PCI pool old
+> API by the appropriated function with the DMA pool API.
 > 
+
+Tested by compilation only.
+
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 > Signed-off-by: Romain Perier <romain.perier@collabora.com>
 > ---
->  include/linux/pci.h | 9 ---------
->  1 file changed, 9 deletions(-)
+>  drivers/dma/pch_dma.c | 12 ++++++------
+>  1 file changed, 6 insertions(+), 6 deletions(-)
 > 
-> diff --git a/include/linux/pci.h b/include/linux/pci.h
-> index 11d15d4..c3a93e4 100644
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -1284,15 +1284,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
->  #include <linux/pci-dma.h>
->  #include <linux/dmapool.h>
+> diff --git a/drivers/dma/pch_dma.c b/drivers/dma/pch_dma.c
+> index f9028e9..afd8f27 100644
+> --- a/drivers/dma/pch_dma.c
+> +++ b/drivers/dma/pch_dma.c
+> @@ -123,7 +123,7 @@ struct pch_dma_chan {
+>  struct pch_dma {
+>  	struct dma_device	dma;
+>  	void __iomem *membase;
+> -	struct pci_pool		*pool;
+> +	struct dma_pool		*pool;
+>  	struct pch_dma_regs	regs;
+>  	struct pch_dma_desc_regs ch_regs[MAX_CHAN_NR];
+>  	struct pch_dma_chan	channels[MAX_CHAN_NR];
+> @@ -437,7 +437,7 @@ static struct pch_dma_desc *pdc_alloc_desc(struct dma_chan *chan, gfp_t flags)
+>  	struct pch_dma *pd = to_pd(chan->device);
+>  	dma_addr_t addr;
 >  
-> -#define	pci_pool dma_pool
-> -#define pci_pool_create(name, pdev, size, align, allocation) \
-> -		dma_pool_create(name, &pdev->dev, size, align, allocation)
-> -#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
-> -#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
-> -#define	pci_pool_zalloc(pool, flags, handle) \
-> -		dma_pool_zalloc(pool, flags, handle)
-> -#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
-> -
->  struct msix_entry {
->  	u32	vector;	/* kernel uses to write allocated vector */
->  	u16	entry;	/* driver uses to specify entry, OS writes */
+> -	desc = pci_pool_zalloc(pd->pool, flags, &addr);
+> +	desc = dma_pool_zalloc(pd->pool, flags, &addr);
+>  	if (desc) {
+>  		INIT_LIST_HEAD(&desc->tx_list);
+>  		dma_async_tx_descriptor_init(&desc->txd, chan);
+> @@ -549,7 +549,7 @@ static void pd_free_chan_resources(struct dma_chan *chan)
+>  	spin_unlock_irq(&pd_chan->lock);
+>  
+>  	list_for_each_entry_safe(desc, _d, &tmp_list, desc_node)
+> -		pci_pool_free(pd->pool, desc, desc->txd.phys);
+> +		dma_pool_free(pd->pool, desc, desc->txd.phys);
+>  
+>  	pdc_enable_irq(chan, 0);
+>  }
+> @@ -880,7 +880,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
+>  		goto err_iounmap;
+>  	}
+>  
+> -	pd->pool = pci_pool_create("pch_dma_desc_pool", pdev,
+> +	pd->pool = dma_pool_create("pch_dma_desc_pool", &pdev->dev,
+>  				   sizeof(struct pch_dma_desc), 4, 0);
+>  	if (!pd->pool) {
+>  		dev_err(&pdev->dev, "Failed to alloc DMA descriptors\n");
+> @@ -931,7 +931,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
+>  	return 0;
+>  
+>  err_free_pool:
+> -	pci_pool_destroy(pd->pool);
+> +	dma_pool_destroy(pd->pool);
+>  err_free_irq:
+>  	free_irq(pdev->irq, pd);
+>  err_iounmap:
+> @@ -963,7 +963,7 @@ static void pch_dma_remove(struct pci_dev *pdev)
+>  			tasklet_kill(&pd_chan->tasklet);
+>  		}
+>  
+> -		pci_pool_destroy(pd->pool);
+> +		dma_pool_destroy(pd->pool);
+>  		pci_iounmap(pdev, pd->membase);
+>  		pci_release_regions(pdev);
+>  		pci_disable_device(pdev);
 > -- 
 > 2.9.3
 > 
