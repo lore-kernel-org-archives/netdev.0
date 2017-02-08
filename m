@@ -1,72 +1,80 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3 1/2] mac80211: fils_aead: Use crypto api CMAC shash
- rather than bare cipher
-Date: Wed, 08 Feb 2017 08:46:48 +0100
-Message-ID: <1486540008.4603.3.camel@sipsolutions.net>
-References: <1486378168-31028-1-git-send-email-ard.biesheuvel@linaro.org>
-         <1486378168-31028-2-git-send-email-ard.biesheuvel@linaro.org>
-         <1486537227.4603.2.camel@sipsolutions.net>
-         <CAKv+Gu9Be-bA-Trn5cMwVvf4+yMm8w2Krm59WGAhdM3bxBSJfw@mail.gmail.com>
-         (sfid-20170208_084553_216930_7D2DAE1D)
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH net 1/4] pegasus: Use heap buffers for all register access
+Date: Wed, 8 Feb 2017 09:57:36 +0200
+Message-ID: <20170208075736.clhgooyed5rvr3ng@p310>
+References: <20170204165451.GU3442@decadent.org.uk>
+ <20170204165603.GV3442@decadent.org.uk>
+ <20170205003038.GB21184@kroah.com>
+ <20170206081444.smcgjkmdepxoosb6@p310>
+ <20170206082822.GA23451@kroah.com>
+ <20170206125108.d5vdur5rlvrkpr5j@localhost>
+ <CAJJ6jxt-47saW=B260j0v_Gdt-dwb4YepRZTWQ-nYfLBGQUT=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "<linux-wireless@vger.kernel.org>" <linux-wireless@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>,
-        Jouni Malinen <jouni@qca.qualcomm.com>
-To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, Ben Hutchings <ben@decadent.org.uk>,
+        netdev@vger.kernel.org, USB list <linux-usb@vger.kernel.org>,
+        Lisandro =?utf-8?Q?Dami=C3=A1n_Nicanor_P=C3=A9rez?= Meyer
+        <lisandro@debian.org>
+To: Steve Calfee <stevecalfee@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:40450 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753604AbdBHHra (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 02:47:30 -0500
-In-Reply-To: <CAKv+Gu9Be-bA-Trn5cMwVvf4+yMm8w2Krm59WGAhdM3bxBSJfw@mail.gmail.com> (sfid-20170208_084553_216930_7D2DAE1D)
+Received: from lan.nucleusys.com ([92.247.61.126]:37524 "EHLO
+        zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752061AbdBHH6R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:58:17 -0500
+Content-Disposition: inline
+In-Reply-To: <CAJJ6jxt-47saW=B260j0v_Gdt-dwb4YepRZTWQ-nYfLBGQUT=w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-08 at 07:45 +0000, Ard Biesheuvel wrote:
-> On 8 February 2017 at 07:00, Johannes Berg <johannes@sipsolutions.net
-> > wrote:
-> > This looks strange to me:
-> > 
-> > > +static int aes_s2v(struct crypto_shash *tfm,
-> > >                  size_t num_elem, const u8 *addr[], size_t len[],
-> > > u8 *v)
-> > >  {
-> > > -     u8 d[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE];
-> > > +     u8 d[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE] = {};
-> > > +     SHASH_DESC_ON_STACK(desc, tfm);
-> > 
-> > desc declared
-> > 
-> > > 
-> > > +     crypto_shash_digest(desc, tmp, AES_BLOCK_SIZE, d);
-> > 
-> > used here
-> > 
+On 17-02-07 10:32:16, Steve Calfee wrote:
+> On Mon, Feb 6, 2017 at 4:51 AM, Petko Manolov <petkan@nucleusys.com> wrote:
+> > On 17-02-06 09:28:22, Greg KH wrote:
+> >> On Mon, Feb 06, 2017 at 10:14:44AM +0200, Petko Manolov wrote:
+> >> > On 17-02-05 01:30:39, Greg KH wrote:
+> >> > > On Sat, Feb 04, 2017 at 04:56:03PM +0000, Ben Hutchings wrote:
+> >> > > > Allocating USB buffers on the stack is not portable, and no longer works
+> >> > > > on x86_64 (with VMAP_STACK enabled as per default).
+> >> > >
+> >> > > It's never worked on other platforms, so these should go to the stable
+> >> > > releases please.
+> >> >
+> >> > As far as i know both drivers works fine on other platforms, though I only
+> >> > tested it on arm and mipsel. ;)
+> >>
+> >> It all depends on the arm and mips platforms, the ones that can not DMA 
+> >> from stack memory are the ones that would always fail here (since the 2.2 
+> >> kernel days).
+> >
+> > Seems like most modern SOCs have decent DMA controllers.
+> >
 > 
-> Each digest() call combines a init()/update()/final() sequence
+> The real problem is not DMA exactly, it is cache coherency.
 > 
-> > > +     crypto_shash_init(desc);
-> > 
-> > but initialized now?
-> > 
-> 
-> ... for the 6th time, or so. The final vector may require two
-> update()s, so we cannot use digest() here. But we can use finup() for
-> the last one, which combines update() and final().
-> 
-> Hence,
-> 
-> init()/finup()
-> 
-> or
-> 
-> init()/update()/finup()
-> 
-> depending on the length of the last vector.
+> X86 has a coherent cache and all the cpu cores watch DMA transfers and keep 
+> the cpu caches up to date.
 
-Great, thanks for the explanation :)
+Yep, these cpus are more user friendly.
 
-johannes
+> Most ARMs and MIPS processors have incoherent cache, so DMA can change memory 
+> without the CPU cache updates. CPU cache view of what is in memory can be 
+> different from what was DMAed in, this makes failures very hard to detect, 
+> reproduce and racy.
+
+Except for a very few purposes (like framebuffer memory) one should be crazy to 
+use anything but kseg1 for accessing the peripherals.  One of the real problems 
+here is the 512MB limit of the uncached segment.  While the DMA controller can 
+typically access all available RAM you'll run into the issues that you describe 
+with more than that amount of memory.
+
+MIPS like doing things small and simple.  Everybody knows that software can 
+compensate for hardware omissions. ;)
+
+> So all DMA buffers should always be separate allocations from the stack AND 
+> not be embedded in structs. Memory allocations are always at least cache line 
+> aligned, so coherency is not a problem.
+
+I do agree.
+
+
+cheers,
+Petko
