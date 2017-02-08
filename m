@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: KASAN+netlink, was: [PATCH] [net-next?] hns: avoid stack
- overflow with CONFIG_KASAN
-Date: Wed, 08 Feb 2017 11:27:16 -0500 (EST)
-Message-ID: <20170208.112716.1778159455570583655.davem@davemloft.net>
-References: <20170203163607.3488037-1-arnd@arndb.de>
-        <20170206.120318.1268240226202516488.davem@davemloft.net>
-        <4910112.l20yySyWnA@wuerfel>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH v2 net-next 6/9] sunvnet: straighten up message event
+ handling logic
+Date: Wed, 8 Feb 2017 08:34:51 -0800
+Message-ID: <20170208163451.GF30741@oracle.com>
+References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+ <1486505582-76823-7-git-send-email-shannon.nelson@oracle.com>
+ <20170208155947.GE30741@oracle.com>
+ <792566dd-8f05-ed1b-50ad-d40f958aa2c7@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
-        linux-kernel@vger.kernel.org, a.ryabinin@samsung.com,
-        johannes.berg@intel.com, nikolay@cumulusnetworks.com,
-        nicolas.dichtel@6wind.com, adobriyan@gmail.com
-To: arnd@arndb.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shannon Nelson <shannon.nelson@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4910112.l20yySyWnA@wuerfel>
+Content-Disposition: inline
+In-Reply-To: <792566dd-8f05-ed1b-50ad-d40f958aa2c7@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 08 Feb 2017 13:03:59 +0100
-
-> Things I've tried here are:
+On (02/08/17 08:28), Shannon Nelson wrote:
+> The existing code does this as well - if it first finds a RESET, it handles
+> it then hits the return 0.  Next if it finds the UP, it does the goto back
+> to the ldc_ctrl: to process, and hits the same return 0.  Only if neither of
+> these bits have been seen does the code move on to process the DATA_READY
+> event.
 > 
-> - Moving nla_put_{u8,u16,u32} out of line is probably uncontroversial and
->   it helps enough with br_netlink.c, but nl820211 is worse and needs some
->   additional fiddling.
+> If we're seeing cases of both UP and DATA_READY, then yes we'll wnat to look
+> at changing this logic.  I think that should be a separate patch.
+> 
 
-This is probably the least intrusive solution if it works.
+Ok. probably we just make one redundant loop out and back into the function.
+
+Other than that, the patchset looks good to me.
+
+--Sowmini
