@@ -1,41 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 1/1] net: sock: Use double send/recv buff value to
- compare with max value
-Date: Wed, 08 Feb 2017 08:00:01 -0800
-Message-ID: <1486569601.7793.83.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486559235-13633-1-git-send-email-fgao@ikuai8.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH v2 net-next 6/9] sunvnet: straighten up message event
+ handling logic
+Date: Wed, 8 Feb 2017 07:59:47 -0800
+Message-ID: <20170208155947.GE30741@oracle.com>
+References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
+ <1486505582-76823-7-git-send-email-shannon.nelson@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shannon Nelson <shannon.nelson@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35913 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751859AbdBHQAc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:00:32 -0500
-Received: by mail-pf0-f193.google.com with SMTP id 19so11937854pfo.3
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 08:00:03 -0800 (PST)
-In-Reply-To: <1486559235-13633-1-git-send-email-fgao@ikuai8.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:29318 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751618AbdBHQAd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:00:33 -0500
+Content-Disposition: inline
+In-Reply-To: <1486505582-76823-7-git-send-email-shannon.nelson@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-02-08 at 21:07 +0800, fgao@ikuai8.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> Because the value of SO_SNDBUF and SO_RCVBUF is doubled before
-> assignment, so the real value of send and recv buffer could be more
-> than the max sysctl config sysctl_wmem_max and sysctl_rmem_max.
-> 
-> Now use doulbe send/recv buffer value to compare with sysctl_wmem_max
-> and sysctl_rmem_max, and it keeps consistence with SOCK_MIN_SNDBUF
-> and SOCK_MIN_RCVBUF.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> ---
+On (02/07/17 14:12), Shannon Nelson wrote:
+> +
+> +	/* we don't expect any other bits */
+> +	BUG_ON(port->rx_event & ~(LDC_EVENT_DATA_READY |
+> +				  LDC_EVENT_RESET |
+> +				  LDC_EVENT_UP));
+> +
+> +	/* RESET takes precedent over any other event */
+> +	if (port->rx_event & LDC_EVENT_RESET) { 
+                  :
+>  		port->rx_event = 0;
+>  		return 0;
+>  	}
+> +	if (port->rx_event & LDC_EVENT_UP) {
+> +		vio_link_state_change(vio, LDC_EVENT_UP);
+> +		port->rx_event = 0;
+> +		return 0;
+> +	}
+>  
+>  	err = 0;
+>  	tx_wakeup = 0;
 
-Looks completely bogus, based on your comprehension of this code.
+IIRC there were timing-related situations where you can get woken up with
+both UP and DATA_READY, and if my reading of your patch is 
+correct, we would ignore the DATA_READY, and return, right?
 
-If you need to, fix the doc, not this code.
-
-Unless you give more details of course, why we should take your patch.
+--Sowmini
