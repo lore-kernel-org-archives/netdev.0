@@ -1,44 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] rhashtable: Handle table allocation failure during
- insertion
-Date: Wed, 08 Feb 2017 13:26:42 -0500 (EST)
-Message-ID: <20170208.132642.68242478649592606.davem@davemloft.net>
-References: <20170207123827.GA14678@gondor.apana.org.au>
+From: Peter Senna Tschudin <peter.senna@collabora.com>
+Subject: Re: [RFC 07/19] wireless: ipw2200: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:27:58 +0100
+Message-ID: <20170208182758.GG16878@collabora.com>
+References: <20170208163457.28853-1-romain.perier@collabora.com>
+ <20170208163457.28853-8-romain.perier@collabora.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56012 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750957AbdBHS2P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:28:15 -0500
-In-Reply-To: <20170207123827.GA14678@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170208163457.28853-8-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 7 Feb 2017 20:38:27 +0800
+On Wed, Feb 08, 2017 at 05:34:45PM +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commits replaces the PCI pool old
+> API by the appropriated function with the DMA pool API.
 
-> This series tackles the problem of table allocation failures during
-> insertion.  The issue is that we cannot vmalloc during insertion.
-> This series deals with this by introducing nested tables.
+
+
 > 
-> The first two patches removes manual hash table walks which cannot
-> work on a nested table.
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> ---
+>  drivers/net/wireless/intel/ipw2x00/ipw2200.c | 12 ++++++------
+>  1 file changed, 6 insertions(+), 6 deletions(-)
 > 
-> The final patch introduces nested tables.
+> diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+> index 5ef3c5c..6d77870 100644
+> --- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+> +++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+> @@ -3211,7 +3211,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+>  	struct fw_chunk *chunk;
+>  	int total_nr = 0;
+>  	int i;
+> -	struct pci_pool *pool;
+> +	struct dma_pool *pool;
+>  	void **virts;
+>  	dma_addr_t *phys;
+>  
+> @@ -3228,9 +3228,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+>  		kfree(virts);
+>  		return -ENOMEM;
+>  	}
+> -	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
+> +	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0, 0);
+Introduces line over 80 characters warning. Please fix and resubmit.
+Other than that looks good. Tested by compiling it.
+>  	if (!pool) {
+> -		IPW_ERROR("pci_pool_create failed\n");
+> +		IPW_ERROR("dma_pool_create failed\n");
+>  		kfree(phys);
+>  		kfree(virts);
+>  		return -ENOMEM;
+> @@ -3255,7 +3255,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+>  
+>  		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
+>  		for (i = 0; i < nr; i++) {
+> -			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
+> +			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
+>  							 &phys[total_nr]);
+>  			if (!virts[total_nr]) {
+>  				ret = -ENOMEM;
+> @@ -3299,9 +3299,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+>  	}
+>   out:
+>  	for (i = 0; i < total_nr; i++)
+> -		pci_pool_free(pool, virts[i], phys[i]);
+> +		dma_pool_free(pool, virts[i], phys[i]);
+>  
+> -	pci_pool_destroy(pool);
+> +	dma_pool_destroy(pool);
+>  	kfree(phys);
+>  	kfree(virts);
+>  
+> -- 
+> 2.9.3
 > 
-> I've tested this with test_rhashtable and it appears to work.
-
-rhashtable is indeed getting quite complex, but I understand your
-motivation for doing this work.
-
-I also agree that only true OOM situations should cause insertion
-failures.
-
-Given the delicate nature of change rhashtable this way, I'm going
-to let these changes sit for a couple days before applying them.
-
-Thanks Herbert.
