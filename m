@@ -1,51 +1,61 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: net/ipv4: warning in nf_nat_ipv4_fn
-Date: Wed, 8 Feb 2017 23:10:06 +0100
-Message-ID: <20170208221006.GA11820@breakpoint.cc>
-References: <CAAeHK+zHXNetfauvokxZCrVxNc23oFEPtF2CTzvOkO-2DxQ93A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: [PATCH net] net: phy: Initialize mdio clock at probe function
+Date: Wed,  8 Feb 2017 17:14:26 -0500
+Message-ID: <1486592066-9097-1-git-send-email-jon.mason@broadcom.com>
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Yendapally Reddy Dhananjaya Reddy
+        <yendapally.reddy@broadcom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAAeHK+zHXNetfauvokxZCrVxNc23oFEPtF2CTzvOkO-2DxQ93A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrey Konovalov <andreyknvl@google.com> wrote:
-> Hi,
-> 
-> I've got the following error report while fuzzing the kernel with syzkaller.
-> 
-> On commit 926af6273fc683cd98cd0ce7bf0d04a02eed6742.
-> 
-> A reproducer and .config are attached.
-> 
-> WARNING: CPU: 2 PID: 26582 at
-> net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:261
-> nf_nat_ipv4_fn+0x7f2/0xa50
-> net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:261
-> Kernel panic - not syncing: panic_on_warn set ...
+From: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
 
-Thats this assert:
-/* We never see fragments: conntrack defrags on pre-routing
- * and local-out, and nf_nat_out protects post-routing.
- */
-NF_CT_ASSERT(!ip_is_fragment(ip_hdr(skb)));
+USB PHYs need the MDIO clock divisor enabled earlier to work.
+Initialize mdio clock divisor in probe function. The ext bus
+bit available in the same register will be used by mdio mux
+to enable external mdio.
 
+Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+Fixes: ddc24ae1 ("net: phy: Broadcom iProc MDIO bus driver")
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+---
+ drivers/net/phy/mdio-bcm-iproc.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-... and its wrong. I will send a patch to remove it.
+diff --git a/drivers/net/phy/mdio-bcm-iproc.c b/drivers/net/phy/mdio-bcm-iproc.c
+index c0b4e65..46fe1ae 100644
+--- a/drivers/net/phy/mdio-bcm-iproc.c
++++ b/drivers/net/phy/mdio-bcm-iproc.c
+@@ -81,8 +81,6 @@ static int iproc_mdio_read(struct mii_bus *bus, int phy_id, int reg)
+ 	if (rc)
+ 		return rc;
+ 
+-	iproc_mdio_config_clk(priv->base);
+-
+ 	/* Prepare the read operation */
+ 	cmd = (MII_DATA_TA_VAL << MII_DATA_TA_SHIFT) |
+ 		(reg << MII_DATA_RA_SHIFT) |
+@@ -112,8 +110,6 @@ static int iproc_mdio_write(struct mii_bus *bus, int phy_id,
+ 	if (rc)
+ 		return rc;
+ 
+-	iproc_mdio_config_clk(priv->base);
+-
+ 	/* Prepare the write operation */
+ 	cmd = (MII_DATA_TA_VAL << MII_DATA_TA_SHIFT) |
+ 		(reg << MII_DATA_RA_SHIFT) |
+@@ -163,6 +159,8 @@ static int iproc_mdio_probe(struct platform_device *pdev)
+ 	bus->read = iproc_mdio_read;
+ 	bus->write = iproc_mdio_write;
+ 
++	iproc_mdio_config_clk(priv->base);
++
+ 	rc = of_mdiobus_register(bus, pdev->dev.of_node);
+ 	if (rc) {
+ 		dev_err(&pdev->dev, "MDIO bus registration failed\n");
+-- 
+2.7.4
