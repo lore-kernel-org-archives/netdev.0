@@ -1,49 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 1/2] flow dissector: ND
- support
-Date: Wed, 08 Feb 2017 13:54:15 -0500 (EST)
-Message-ID: <20170208.135415.601520734521006340.davem@davemloft.net>
-References: <20170207.123831.1038511845714033360.davem@davemloft.net>
-        <20170208092823.GA17615@penelope.horms.nl>
-        <CALx6S36VrtQM5G2XPzpcrP=y3RyBwTnYJcaKqXtwyFgpGiz+Jg@mail.gmail.com>
+From: Peter Senna Tschudin <peter.senna@collabora.com>
+Subject: Re: [RFC 19/19] checkpatch: warn for use of old PCI pool API
+Date: Wed, 8 Feb 2017 19:55:50 +0100
+Message-ID: <20170208185550.GS16878@collabora.com>
+References: <20170208163457.28853-1-romain.perier@collabora.com>
+ <20170208163457.28853-20-romain.perier@collabora.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: simon.horman@netronome.com, jiri@resnulli.us,
-        eric.dumazet@gmail.com, dinan.gunawardena@netronome.com,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56734 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752412AbdBHTA4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:00:56 -0500
-In-Reply-To: <CALx6S36VrtQM5G2XPzpcrP=y3RyBwTnYJcaKqXtwyFgpGiz+Jg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Romain Perier <romain.perier@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170208163457.28853-20-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Wed, 8 Feb 2017 10:33:46 -0800
+On Wed, Feb 08, 2017 at 05:34:57PM +0100, Romain Perier wrote:
+> pci_pool_*() functions should be replaced by the corresponding functions
+> in the DMA pool API. This adds support to check for use of these pci
+> functions and display a warning when it is the case.
 
-> On Wed, Feb 8, 2017 at 1:28 AM, Simon Horman <simon.horman@netronome.com> wrote:
->> I think the above paragraph gets back to Tom's original question regarding
->> making things more complex just for OvS (use-cases). Possibly ND is an edge
->> case even for OvS and on reflection my timing for posting it seems to have
->> been less than ideal.
+Don't know if relevant, but did not catch the struct. Other than that
+works fine.
+
 > 
-> If it wasn't ND it would be something else... with all the activity
-> happening in networking features and HW this is a timely discussion.
-> Flow dissector presents a good example of a function that might become
-> a dumping ground for an endless stream of features if we don't figure
-> out how exercise some restraint.
-
-I agree on most points.
-
-But, I would say that in this specific case, since we have ARP support in
-there already it behooves us to support the ipv6 side in the form of ND
-too.
-
-Then we can put a line in the sand and say that future feature additions
-in this area require serious discussion.
-
-Ok Tom?
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> ---
+>  scripts/checkpatch.pl | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> index 8e96af5..026920e 100755
+> --- a/scripts/checkpatch.pl
+> +++ b/scripts/checkpatch.pl
+> @@ -6058,6 +6058,11 @@ sub process {
+>  			WARN("USE_DEVICE_INITCALL",
+>  			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
+>  		}
+> +# check for old PCI api pci_pool_*(), use dma_pool_*() instead
+> +		if ($line =~ /\bpci_pool_.+\(/) {
+> +			WARN("USE_PCI_POOL",
+> +			     "please use the dma pool api or more appropriate function instead of the old pci pool api\n" . $herecurr);
+> +		}
+>  
+>  # check for various structs that are normally const (ops, kgdb, device_tree)
+>  		if ($line !~ /\bconst\b/ &&
+> -- 
+> 2.9.3
+> 
