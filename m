@@ -1,61 +1,31 @@
-From: Andrey Ryabinin <ryabinin.a.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: KASAN+netlink, was: [PATCH] [net-next?] hns: avoid stack overflow
- with CONFIG_KASAN
-Date: Wed, 8 Feb 2017 17:58:44 +0300
-Message-ID: <CAPAsAGx4UoUv3tyef56Dfvo7bfinY-hUHhUeDTGWbCxsw72Bqw@mail.gmail.com>
-References: <20170203163607.3488037-1-arnd@arndb.de> <20170206.120318.1268240226202516488.davem@davemloft.net>
- <4910112.l20yySyWnA@wuerfel> <1486556665.24745.6.camel@sipsolutions.net> <CAK8P3a2fHm9j7roYjTAXJ_zsdXF88p_6Y-hCF6aWjJzcAaQ3Uw@mail.gmail.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH] xen-netfront: Rework the fix for Rx stall during OOM and
+ network stress
+Date: Wed, 8 Feb 2017 10:08:19 -0500
+Message-ID: <e81a8a0a-5364-433b-3c9b-93d6b1680a89@oracle.com>
+References: <1486493941-15696-1-git-send-email-vineethp@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        nikolay-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
-        adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAK8P3a2fHm9j7roYjTAXJ_zsdXF88p_6Y-hCF6aWjJzcAaQ3Uw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kamatam@amazon.com, aliguori@amazon.com, guruanb@amazon.com
+To: Vineeth Remanan Pillai <vineethp@amazon.com>, jgross@suse.com,
+        xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486493941-15696-1-git-send-email-vineethp@amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2017-02-08 16:10 GMT+03:00 Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>:
-> On Wed, Feb 8, 2017 at 1:24 PM, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
-
+On 02/07/2017 01:59 PM, Vineeth Remanan Pillai wrote:
+> The commit 90c311b0eeea ("xen-netfront: Fix Rx stall during network
+> stress and OOM") caused the refill timer to be triggerred almost on
+> all invocations of xennet_alloc_rx_buffers for certain workloads.
+> This reworks the fix by reverting to the old behaviour and taking into
+> consideration the skb allocation failure. Refill timer is now triggered
+> on insufficient requests or skb allocation failure.
 >
->> Btw, what's causing this to start with? Can't the compiler reuse the
->> stack places?
->
-> I have no idea. It's trying to find out of bounds accesses for
-> objects on the stack, so maybe it gives each variable a separate
-> stack location in order to see which one caused problems?
->
+> Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
+> Fixes: 90c311b0eeea (xen-netfront: Fix Rx stall during network stress and OOM)
+> Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
 
-If compiler cannot prove that access to the local variable is valid it
-will add redzones around that variable
-to be able to detect out of bounds accesses.
-
-For example:
-    static inline int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value)
-    {
-           return nla_put(skb, attrtype, sizeof(u8), &value);
-    }
-compiler will surround 'value' with redzones to catch potential oob
-access in nla_put().
-
-
-Another way to fix this, would be something like this:
-
-#ifdef CONFIG_KASAN
-/* don't bloat stack */
-#define __noinline_for_kasan    __noinline __maybe_unused
-#else
-#define __noinline_for_kasan    inline
-#endif
-
-static __noinline_for_kasan int nla_put_u8(struct sk_buff *skb, int
-attrtype, u8 value)
-{
-       return nla_put(skb, attrtype, sizeof(u8), &value);
-}
+Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
