@@ -1,158 +1,54 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv6 net-next 4/6] sctp: implement sender-side procedures for SSN/TSN Reset Request Parameter
-Date: Thu,  9 Feb 2017 01:18:18 +0800
-Message-ID: <7095f88e0d93a7189df08fec56b3db89deb0397c.1486573728.git.lucien.xin@gmail.com>
-References: <cover.1486573727.git.lucien.xin@gmail.com>
- <5f2d5aa54716217f68f724e4165289bd964b8755.1486573728.git.lucien.xin@gmail.com>
- <3d1180fcc5c72dea7d6cb7c7fafae4c4a7782cb3.1486573728.git.lucien.xin@gmail.com>
- <376d8794b81d7c5efe02b588ca381b88ed5f05ad.1486573728.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net] lwtunnel: valid encap attr check should return 0 when lwtunnel is disabled
+Date: Wed,  8 Feb 2017 09:29:00 -0800
+Message-ID: <1486574940-6513-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: pupilla@libero.it, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32830 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752939AbdBHR1R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:27:17 -0500
-In-Reply-To: <376d8794b81d7c5efe02b588ca381b88ed5f05ad.1486573728.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1486573727.git.lucien.xin@gmail.com>
-References: <cover.1486573727.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:34878 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932926AbdBHR3G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:29:06 -0500
+Received: by mail-pg0-f47.google.com with SMTP id 194so50606672pgd.2
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 09:29:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to implement Sender-Side Procedures for the SSN/TSN
-Reset Request Parameter descibed in rfc6525 section 5.1.4.
+An error was reported upgrading to 4.9.8:
+    root@Typhoon:~# ip route add default table 210 nexthop dev eth0 via 10.68.64.1
+    weight 1 nexthop dev eth0 via 10.68.64.2 weight 1
+    RTNETLINK answers: Operation not supported
 
-It is also to add sockopt SCTP_RESET_ASSOC in rfc6525 section 6.3.3
-for users.
+The problem occurs when CONFIG_LWTUNNEL is not enabled and a multipath
+route is submitted.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+The point of lwtunnel_valid_encap_type_attr is catch modules that
+need to be loaded before any references are taken with rntl held. With
+CONFIG_LWTUNNEL disabled, there will be no modules to load so the
+lwtunnel_valid_encap_type_attr stub should just return 0.
+
+Fixes: 9ed59592e3e3 ("lwtunnel: fix autoload of lwt modules")
+Reported-by: pupilla@libero.it
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/sctp/sctp.h   |  1 +
- include/uapi/linux/sctp.h |  1 +
- net/sctp/socket.c         | 29 +++++++++++++++++++++++++++++
- net/sctp/stream.c         | 40 ++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 71 insertions(+)
+ include/net/lwtunnel.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 480b65a..b60ca14 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -198,6 +198,7 @@ int sctp_offload_init(void);
-  */
- int sctp_send_reset_streams(struct sctp_association *asoc,
- 			    struct sctp_reset_streams *params);
-+int sctp_send_reset_assoc(struct sctp_association *asoc);
- 
- /*
-  * Module global variables
-diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index 03c27ce..c0bd8c3 100644
---- a/include/uapi/linux/sctp.h
-+++ b/include/uapi/linux/sctp.h
-@@ -117,6 +117,7 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_PR_ASSOC_STATUS	115
- #define SCTP_ENABLE_STREAM_RESET	118
- #define SCTP_RESET_STREAMS	119
-+#define SCTP_RESET_ASSOC	120
- 
- /* PR-SCTP policies */
- #define SCTP_PR_SCTP_NONE	0x0000
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index a8b4252f..45a7c41 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3818,6 +3818,32 @@ static int sctp_setsockopt_reset_streams(struct sock *sk,
- 	return retval;
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index 73dd87647460..0388b9c5f5e2 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -178,7 +178,10 @@ static inline int lwtunnel_valid_encap_type(u16 encap_type)
  }
- 
-+static int sctp_setsockopt_reset_assoc(struct sock *sk,
-+				       char __user *optval,
-+				       unsigned int optlen)
-+{
-+	struct sctp_association *asoc;
-+	sctp_assoc_t associd;
-+	int retval = -EINVAL;
-+
-+	if (optlen != sizeof(associd))
-+		goto out;
-+
-+	if (copy_from_user(&associd, optval, optlen)) {
-+		retval = -EFAULT;
-+		goto out;
-+	}
-+
-+	asoc = sctp_id2assoc(sk, associd);
-+	if (!asoc)
-+		goto out;
-+
-+	retval = sctp_send_reset_assoc(asoc);
-+
-+out:
-+	return retval;
-+}
-+
- /* API 6.2 setsockopt(), getsockopt()
-  *
-  * Applications use setsockopt() and getsockopt() to set or retrieve
-@@ -3990,6 +4016,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_RESET_STREAMS:
- 		retval = sctp_setsockopt_reset_streams(sk, optval, optlen);
- 		break;
-+	case SCTP_RESET_ASSOC:
-+		retval = sctp_setsockopt_reset_assoc(sk, optval, optlen);
-+		break;
- 	default:
- 		retval = -ENOPROTOOPT;
- 		break;
-diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index 6a686e3..53e49fc 100644
---- a/net/sctp/stream.c
-+++ b/net/sctp/stream.c
-@@ -177,3 +177,43 @@ int sctp_send_reset_streams(struct sctp_association *asoc,
- out:
- 	return retval;
- }
-+
-+int sctp_send_reset_assoc(struct sctp_association *asoc)
-+{
-+	struct sctp_chunk *chunk = NULL;
-+	int retval;
-+	__u16 i;
-+
-+	if (!asoc->peer.reconf_capable ||
-+	    !(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
-+		return -ENOPROTOOPT;
-+
-+	if (asoc->strreset_outstanding)
-+		return -EINPROGRESS;
-+
-+	chunk = sctp_make_strreset_tsnreq(asoc);
-+	if (!chunk)
-+		return -ENOMEM;
-+
-+	/* Block further xmit of data until this request is completed */
-+	for (i = 0; i < asoc->stream->outcnt; i++)
-+		asoc->stream->out[i].state = SCTP_STREAM_CLOSED;
-+
-+	asoc->strreset_chunk = chunk;
-+	sctp_chunk_hold(asoc->strreset_chunk);
-+
-+	retval = sctp_send_reconf(asoc, chunk);
-+	if (retval) {
-+		sctp_chunk_put(asoc->strreset_chunk);
-+		asoc->strreset_chunk = NULL;
-+
-+		for (i = 0; i < asoc->stream->outcnt; i++)
-+			asoc->stream->out[i].state = SCTP_STREAM_OPEN;
-+
-+		return retval;
-+	}
-+
-+	asoc->strreset_outstanding = 1;
-+
+ static inline int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len)
+ {
+-	return -EOPNOTSUPP;
++	/* return 0 since we are not walking attr looking for
++	 * RTA_ENCAP_TYPE attribute on nexthops.
++	 */
 +	return 0;
-+}
+ }
+ 
+ static inline int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
 -- 
-2.1.0
+2.1.4
