@@ -1,38 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: acl: Fix mlxsw_afa_block_commit error
- path
-Date: Wed, 08 Feb 2017 15:14:08 -0500 (EST)
-Message-ID: <20170208.151408.2292767944646557589.davem@davemloft.net>
-References: <1486546756-1950-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net-next] bridge: vlan tunnel id info range fill size
+ calc cleanups
+Date: Wed, 08 Feb 2017 14:39:32 -0500 (EST)
+Message-ID: <20170208.143932.1043944264336559559.davem@davemloft.net>
+References: <1486512720-1071-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com, dan.carpenter@oracle.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, colin.king@canonical.com,
+        nikolay@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58052 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58088 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751501AbdBHUOj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 15:14:39 -0500
-In-Reply-To: <1486546756-1950-1-git-send-email-jiri@resnulli.us>
+        with ESMTP id S1751324AbdBHUQA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 15:16:00 -0500
+In-Reply-To: <1486512720-1071-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed,  8 Feb 2017 10:39:16 +0100
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Tue,  7 Feb 2017 16:12:00 -0800
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> No rollback is needed since the chain is in consistent state and
-> mlxsw_afa_block_destroy() will take care of putting it away. So remove
-> the one we have now which is wrong. Also move the set of 'finished' flag
-> to the beginning of the function, because the block is certainly unusable
-> for future action addition no matter if the function succeeds or not.
+> This fixes a bug and cleans up tunnelid range size
+> calculation code by using consistent variable names
+> and checks in size calculation and fill functions.
 > 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Fixes: 4cda7d8d7098 ("mlxsw: core: Introduce flexible actions support")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Acked-by: Ido Schimmel <idosch@mellanox.com>
+> tested for a few cases of vlan-vni range mappings:
+> (output from patched iproute2):
+> $bridge vlan showtunnel
+> port     vid        tunid
+> vxlan0   100-105    1000-1005
+>          200        2000
+>          210        2100
+>          211-213    2100-2102
+>          214        2104
+>          216-217    2108-2109
+>          219        2119
+> 
+> Fixes: efa5356b0d97 ("bridge: per vlan dst_metadata netlink support")
+> Reported-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Applied.
+Applied, thanks Roopa.
