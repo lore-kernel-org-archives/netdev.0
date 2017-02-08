@@ -1,34 +1,77 @@
-From: Nikita Yushchenko <nikita.yoush@cogentembedded.com>
+From: Fabio Estevam <festevam@gmail.com>
 Subject: Re: Kernel crashes in phy_attach_direct()
-Date: Wed, 8 Feb 2017 17:41:37 +0300
-Message-ID: <0cabd359-a048-87a5-c78c-3b803525e4fa@cogentembedded.com>
+Date: Wed, 8 Feb 2017 12:47:47 -0200
+Message-ID: <CAOMZO5CjRbvPJjNDGkOFjz+AZ1ydN9+SRBsypCPyNocPoFOdRA@mail.gmail.com>
+References: <CAOMZO5C58--W1q+i26-+DBcton0Bk_o3zVfyuumM+Y=OemQ_Aw@mail.gmail.com>
+ <20170208142857.GD10855@lunn.ch> <CAOMZO5BzLh4az9t=fJkG80GW3_xdD3YxUbagL4dJp7Hwr4koZw@mail.gmail.com>
+ <20170208144029.GE10855@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Fabio Estevam <festevam@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:33763 "EHLO
-        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753874AbdBHOlu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 09:41:50 -0500
-Received: by mail-lf0-f53.google.com with SMTP id x1so83244013lff.0
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 06:41:41 -0800 (PST)
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:34766 "EHLO
+        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753700AbdBHOsf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 09:48:35 -0500
+Received: by mail-oi0-f45.google.com with SMTP id s203so83028407oie.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 06:47:48 -0800 (PST)
+In-Reply-To: <20170208144029.GE10855@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hi,
+On Wed, Feb 8, 2017 at 12:40 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+
+> And i guess you don't have a specific PHY driver for you PHYs. You are
+> using the generic PHY driver?
+
+Yes, I am:
+Generic PHY 63fec000.ethernet-1:00: attached PHY driver [Generic PHY]
+(mii_bus:phy_addr=63fec000.ethernet-1:00, irq=-1)
+
 >
-> I am getting the following kernel crash with linux-next 20170208
-> running on a imx53-qsb board.
+> Could you try modifying phy_attach_direct() such that the
+> try_module_get() is after:
 >
-> Any ideas?
+>        /* Assume that if there is no driver, that it doesn't
+>          * exist, and we should use the genphy driver.
+>          */
+>         if (!d->driver) {
+>         <snip>
+>         }
 
-Same here, on zii-dev-revB and zii-dev-revC boards.
+Yes, this is what I am using right now:
 
-Crash is in phy_attach_direct() in line
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -920,11 +920,6 @@ int phy_attach_direct(struct net_device *dev,
+struct phy_device *phydev,
+                return -EIO;
+        }
 
-    if (!try_module_get(d->driver->owner)) {
+-       if (!try_module_get(d->driver->owner)) {
+-               dev_err(&dev->dev, "failed to get the device driver module\n");
+-               return -EIO;
+-       }
+-
+        get_device(d);
 
-caused by d->driver being NULL.
+        /* Assume that if there is no driver, that it doesn't
+@@ -946,6 +941,11 @@ int phy_attach_direct(struct net_device *dev,
+struct phy_device *phydev,
+                        goto error;
+        }
 
-Nikita
++       if (!try_module_get(d->driver->owner)) {
++               dev_err(&dev->dev, "failed to get the device driver module\n");
++               return -EIO;
++       }
++
+        if (phydev->attached_dev) {
+                dev_err(&dev->dev, "PHY already attached\n");
+                err = -EBUSY;
+
+Would you like me to submit this one?
+
+Thanks
