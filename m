@@ -1,60 +1,49 @@
-From: Miroslav Lichvar <mlichvar@redhat.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Wed, 8 Feb 2017 11:14:46 +0100
-Message-ID: <20170208101446.GA23304@localhost>
-References: <20170207140144.GA11233@localhost>
- <CACSApva7DeBcRUFG13Xb7YoegHcLWwwd=ecLVf9wSgNSKFbUDA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Soheil Hassas Yeganeh <soheil@google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 10/15] mlxsw: spectrum_router: Determine offload status using generic function
+Date: Wed,  8 Feb 2017 11:16:37 +0100
+Message-ID: <1486549002-2056-11-git-send-email-jiri@resnulli.us>
+References: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41208 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752404AbdBHKPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 05:15:16 -0500
-Content-Disposition: inline
-In-Reply-To: <CACSApva7DeBcRUFG13Xb7YoegHcLWwwd=ecLVf9wSgNSKFbUDA@mail.gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35239 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753414AbdBHKQ4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 05:16:56 -0500
+Received: by mail-wm0-f68.google.com with SMTP id u63so32404274wmu.2
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 02:16:56 -0800 (PST)
+In-Reply-To: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 10:54:22AM -0800, Soheil Hassas Yeganeh wrote:
-> On Tue, Feb 7, 2017 at 6:01 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
-> > 2) new SO_TIMESTAMPING option to receive from the error queue only
-> >    user data as was passed to sendmsg() instead of Ethernet frames
-> >
-> >    Parsing Ethernet and IP headers (especially IPv6 options) is not
-> >    fun and SOF_TIMESTAMPING_OPT_ID is not always practical, e.g. in
-> >    applications which process messages from the error queue
-> >    asynchronously and don't bind/connect their sockets.
-> 
-> This is going to be quite useful. However, I'm not sure if sending
-> back the original packet would be a proper API. Instead, one option is
-> to add a control message, so that applications can set the OPT_ID for
-> the timestamp. Perhaps, something like from user's perspective:
-> 
-> cmsg->cmsg_level             = SOL_SOCKET;
-> cmsg->cmsg_type              = SCM_TIMESTAMPING_OPT_ID;
-> cmsg->cmsg_len               = CMSG_LEN(sizeof(__u32));
-> *((__u32 *) CMSG_DATA(cmsg)) = my_id;
+From: Ido Schimmel <idosch@mellanox.com>
 
-That could be very useful. The question is if 32 bits worth of user
-data would be good enough for all applications. In the case of the NTP
-server, I currently save 128 bits per client in order to support the
-interleaved mode. Half of that is the receive timestamp, which is
-compared to the receive timestamp from messages received from the
-error queue. Matching only lower 32 bits of the timestamp would
-probably still work fine. However, if NTP supported follow up messages
-like PTP, 32 bits would not be enough to create a valid message for
-the client without saving some additional state. Getting the original
-message would be very convenient here. NTP packets are normally very
-short, so I'm not sure how much benefit there would be in using the
-OPT_ID.
+The previous patch introduced a generic function to determine whether a
+route should be offloaded or not. Make use of it here.
 
+In the future we're going to add more conditions to this test (e.g.,
+whether TOS is non-zero), so it makes sense to centralize it instead of
+open coding it in a few places.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index acabb35..c452bd3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1696,7 +1696,7 @@ static int mlxsw_sp_fib_entry_op4_remote(struct mlxsw_sp *mlxsw_sp,
+ 	 * with provided ECMP size. Otherwise, setup trap and pass
+ 	 * traffic to kernel.
+ 	 */
+-	if (fib_entry->nh_group->adj_index_valid) {
++	if (mlxsw_sp_fib_entry_should_offload(fib_entry)) {
+ 		trap_action = MLXSW_REG_RALUE_TRAP_ACTION_NOP;
+ 		adjacency_index = fib_entry->nh_group->adj_index;
+ 		ecmp_size = fib_entry->nh_group->ecmp_size;
 -- 
-Miroslav Lichvar
+2.7.4
