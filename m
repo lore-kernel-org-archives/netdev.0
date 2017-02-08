@@ -1,88 +1,123 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: use-after-free in tw_timer_handler
-Date: Wed, 8 Feb 2017 20:32:37 +0100
-Message-ID: <CACT4Y+aagYbMz=3w4zrXaZYJXn65LxZRd7ud1nje9SfS39d+eQ@mail.gmail.com>
-References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
- <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
- <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
- <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
- <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
- <1486576716.7793.84.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+ZqSi_v+ie5MCRggJSZeKQgWqGPKrsRRyaE_GVAfkgLjA@mail.gmail.com> <1486581462.7793.86.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
+Date: Wed, 8 Feb 2017 11:41:44 -0800
+Message-ID: <CAGXu5jLo8UvpNSQZBHjWZoO959ha6KFQxFzmg7SK44wz=R_QSg@mail.gmail.com>
+References: <20170130103853.GA34633@in3o.xyz> <CAGXu5j+7+D=N8U9Zpq1Uq526B4C4g=gQZtQ1iCMt3juDFgfgJA@mail.gmail.com>
+ <CAHgaXd+nj69n-Xf46N=4M-j-0hKHVrrLfsvRZCG=2CCAtVF6ZA@mail.gmail.com>
+ <CAGXu5j+NSLomuSgD40kys+pWc+J9aB6Bbk_gSP9Lp_ScimQn_w@mail.gmail.com> <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Mircea Gherzan <mgherzan@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Shubham Bansal <illusionist.neo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:35583 "EHLO
-        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751495AbdBHTl2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:41:28 -0500
-Received: by mail-vk0-f51.google.com with SMTP id x75so108521972vke.2
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 11:41:28 -0800 (PST)
-In-Reply-To: <1486581462.7793.86.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-it0-f52.google.com ([209.85.214.52]:35023 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751625AbdBHTl4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:41:56 -0500
+Received: by mail-it0-f52.google.com with SMTP id 203so108296533ith.0
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 11:41:50 -0800 (PST)
+In-Reply-To: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 8, 2017 at 8:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-02-08 at 19:55 +0100, Dmitry Vyukov wrote:
->> On Wed, Feb 8, 2017 at 6:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Wed, 2017-02-08 at 18:36 +0100, Dmitry Vyukov wrote:
->> >> On Tue, Jan 24, 2017 at 4:52 PM, Eric Dumazet <edumazet@google.com> wrote:
->> >> > On Tue, Jan 24, 2017 at 7:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> >> >>>
->> >> >>> This code was changed a long time ago :
->> >> >>>
->> >> >>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
->> >> >>>
->> >> >>> So I suspect a recent patch broke the logic.
->> >> >>>
->> >> >>> You might start a bisection :
->> >> >>>
->> >> >>> I would check if 4.7 and 4.8 trigger the issue you noticed.
->> >> >>
->> >> >>
->> >> >> It happens with too low rate for bisecting (few times per day). I
->> >> >> could add some additional checks into code, but I don't know what
->> >> >> checks could be useful.
->> >> >
->> >> > If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
->> >> > we are able to help.
+On Wed, Feb 1, 2017 at 5:01 AM, Shubham Bansal
+<illusionist.neo@gmail.com> wrote:
+> Hi Kees & Daniel,
+>
+> On Tue, Jan 31, 2017 at 09:44:56AM -0800, Kees Cook wrote:
+>> >> > 1.) Currently, as eBPF uses 64 bit registers, I am mapping 64 bit eBPF
+>> >> > registers with 32 bit arm registers which looks wrong to me. Do anybody
+>> >> > have some idea about how to map eBPF->arm 32 bit registers ?
 >> >>
->> >>
->> >> There are also chances that the problem is older.
->> >>
->> >> Looking at the code, this part of inet_twsk_purge looks fishy:
->> >>
->> >> 285                         if (unlikely((tw->tw_family != family) ||
->> >> 286                                      atomic_read(&twsk_net(tw)->count))) {
->> >>
->> >> It uses net->count == 0 check to find the right sockets. But what if
->> >> there are several nets with count == 0 in flight, can't there be
->> >> several inet_twsk_purge calls running concurrently freeing each other
->> >> sockets? If so it looks like inet_twsk_purge can call
->> >> inet_twsk_deschedule_put twice for a socket. Namely, two calls for
->> >> different nets discover the socket, check that net->count==0 and both
->> >> call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
->> >> net that it needs to purge?
+>> >> I was going to say "look at the x86 32-bit implementation." ... But
+>> >> there isn't one. :( I'm going to guess that there isn't a very good
+>> >> answer here. I assume you'll have to build some kind of stack scratch
+>> >> space to load/save.
 >> >
->> > Yes, atomic_read() is not a proper sync point.
+>> >
+>> > Now I see why nobody has implemented eBPF JIT for the 32 bit systems. I
+>> > think its very difficult to implement it without any complications and
+>> > errors.
 >>
->> Do you mean that it does not include read barrier?
->> I more mean that we can call inet_twsk_deschedule_put twice for the same socket.
->
-> I meant that this code assumed RTNL being held.
->
-> This might not be the case now, after some old change.
+>> Yeah, that does seem to make it much more difficult.
+> I was thinking of first implementing only instructions with 32 bit
+> register operands. It will hugely decrease the surface area of eBPF
+> instructions that I have to cover for the first patch.
 
+I don't know much about eBPF internals, but I can take a crack at
+answering this... I assume whatever you implement would need to pass
+the BPF regression tests...
 
-cleanup_net releases rtnl lock right before calling these callbacks.
+> So, What I am thinking is something like this :
+>
+> - bpf_mov r0(64),r1(64) will be JITed like this :
+> - ar1(32) <- r1(64). Convert/Mask 64 bit ebpf register(r1) value into 32
+> bit and store it in arm register(ar1).
+> - Do MOV ar0(32),ar1(32) as an ARM instruction.
+> - ar0(32) -> r0(64). Zero Extend the ar0 32 bit register value
+> and store it in 64 bit ebpf register r0.
+
+It seems like you're suggesting truncating the 64-bit register values?
+I think your best solution is going to be to use a memory scratch
+space and build 64-bit operations using 32-bit registers and memory
+operations.
+
+> - Similarly, For all BPF_ALU class instructions.
+> - For BPF_ADD, I will mask the addition result to 32 bit only.
+>  I am not sure, Overflow might be a problem.
+> - For BPF_SUB, I will mask the subtraction result to 32 bit only.
+>  I am not sure, Underflow might be problem.
+> - For BPF_MUL, similar to BPF_ADD. Overflow Problem ?
+> - For BPF_DIV, 32 bit masking should be fine, I guess.
+> - For BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_MOD 32 bit
+>  masking should be fine.
+> - For BPF_NEG and BPF_ARSH, might be a problem because of the sign bit.
+> - For BPF_END, 32 bit masking should work fine.
+>  Let me know if any of the above point is wrong or need your suggestion.
+>
+> - Although, for ALU instructions, there is a big problem of register
+>   flag manipulations. Generally, architecture's ABI takes care of this
+>   part but as we are doing 64 bit Instructions emulation(kind of) on 32
+>   bit machine, it needs to be done manually. Does that sound correct ?
+
+You can't truncate, but you'll have to build 64-bit ops using 32-bit registers.
+
+>
+> - I am not JITing BPF_ALU64 class instructions as of now. As we have to
+>   take care of atomic instructions and race conditions with these
+>   instruction which looks complicated to me as of now. Will try to figure out
+>   this part and implement it later. Currently, I will just let it be
+>   interpreted by the ebpf interpreter.
+>
+> - For BPF_JMP class, I am assuming that, although eBPF is 64 bit ABI,
+>   the address pointers on 32 bit arch like arm will be of 32 bit only.
+>   So, for BPF_JMP, masking the 64 bit destination address to 32 bit
+>   should do the trick and no address will be corrupted in this way. Am I
+>   correct to assume this ?
+>   Also, I need to check for address getting out of the allowed memory
+>   range.
+
+That's probably true, but the JIT should likely detect a truncation
+here, if you're going to depend on it, and reject the BPF.
+
+> - For BPF_LD, BPF_LDX, BPF_ST and BPF_STX class instructions, I am
+>   assuming the same thing as above - All addresses and pointers are 32
+>   bit - which can be taken care just by maksing the eBPF register
+>   values. Does that sound correct ?
+>   Also, I need to check for the address overflow, address getting out
+>   of the allowed memory range and things like that.
+
+I'd say, get something working and send a patch -- that's likely the
+best way to get more detailed feedback. :)
+
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
