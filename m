@@ -1,34 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] sit: fix a double free on error path
-Date: Wed, 08 Feb 2017 13:12:59 -0500 (EST)
-Message-ID: <20170208.131259.2256112727442196980.davem@davemloft.net>
-References: <1486576933-25561-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: phy: dp83867: Fall-back to default values of
+ clock delay and FIFO depth
+Date: Wed, 08 Feb 2017 13:15:19 -0500 (EST)
+Message-ID: <20170208.131519.1313210815958231832.davem@davemloft.net>
+References: <20170206192445.35829-1-abrodkin@synopsys.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dvyukov@google.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55720 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750990AbdBHSNB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:13:01 -0500
-In-Reply-To: <1486576933-25561-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com, andrew@lunn.ch,
+ netdev@vger.kernel.org, nsekhar@ti.com, linux-kernel@vger.kernel.org,
+ m-karicheri2@ti.com, f.fainelli@gmail.com, linux-snps-arc@lists.infradead.org
+To: Alexey.Brodkin@synopsys.com
+Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170206192445.35829-1-abrodkin@synopsys.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
+List-Post: <mailto:linux-snps-arc@lists.infradead.org>
+List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
+ <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
+Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed,  8 Feb 2017 10:02:13 -0800
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Date: Mon,  6 Feb 2017 22:24:45 +0300
 
-> Dmitry reported a double free in sit_init_net():
- ...
-> This is because when tunnel->dst_cache init fails, we free dev->tstats
-> once in ipip6_tunnel_init() and twice in sit_init_net(). This looks
-> redundant but its ndo_uinit() does not seem enough to clean up everything
-> here. So avoid this by setting dev->tstats to NULL after the first free,
-> at least for -net.
+> Given there're default values mentioned in the PHY datasheet
+> fall-back gracefully to them instead of silently return an error
+> through the whole call-chain.
 > 
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> This allows to use minimalistic description in DT if no special
+> features are required.
+> 
+> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
 
-Good catch, applied and queued up for -stable, thanks!
+If these defaults are legitimate to use, then you should probably also
+set them in the non-CONFIG_OF_MDIO case implementation of
+dp83867_of_init().
+
+But I'd like to see feedback and reviews from other PHY area experts
+before I even consider that updated version of this change.
+
+Thanks.
