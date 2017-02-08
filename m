@@ -1,67 +1,51 @@
-From: Simon Xiao <sixiao@microsoft.com>
-Subject: RE: [PATCH 1/1] hv_netvsc: fix a netvsc stats typo
-Date: Wed, 8 Feb 2017 22:06:57 +0000
-Message-ID: <BN3PR03MB22410ABC136E974396BD8BA4C4420@BN3PR03MB2241.namprd03.prod.outlook.com>
-References: <1486490605-28980-1-git-send-email-sixiao@microsoft.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: net/ipv4: warning in nf_nat_ipv4_fn
+Date: Wed, 8 Feb 2017 23:10:06 +0100
+Message-ID: <20170208221006.GA11820@breakpoint.cc>
+References: <CAAeHK+zHXNetfauvokxZCrVxNc23oFEPtF2CTzvOkO-2DxQ93A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Simon Xiao <sixiao@microsoft.com>, KY Srinivasan <kys@microsoft.com>,
- Haiyang Zhang <haiyangz@microsoft.com>, Stephen Hemminger
- <sthemmin@microsoft.com>, "devel@linuxdriverproject.org"
- <devel@linuxdriverproject.org>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1486490605-28980-1-git-send-email-sixiao@microsoft.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAAeHK+zHXNetfauvokxZCrVxNc23oFEPtF2CTzvOkO-2DxQ93A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please ignore this patch. I will resubmit it to net-next.
+Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi,
+> 
+> I've got the following error report while fuzzing the kernel with syzkaller.
+> 
+> On commit 926af6273fc683cd98cd0ce7bf0d04a02eed6742.
+> 
+> A reproducer and .config are attached.
+> 
+> WARNING: CPU: 2 PID: 26582 at
+> net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:261
+> nf_nat_ipv4_fn+0x7f2/0xa50
+> net/ipv4/netfilter/nf_nat_l3proto_ipv4.c:261
+> Kernel panic - not syncing: panic_on_warn set ...
 
-> -----Original Message-----
-> From: Simon Xiao [mailto:sixiao@microsoft.com]
-> Sent: Tuesday, February 7, 2017 10:03 AM
-> To: KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> <haiyangz@microsoft.com>; Stephen Hemminger
-> <sthemmin@microsoft.com>; devel@linuxdriverproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Cc: Simon Xiao <sixiao@microsoft.com>
-> Subject: [PATCH 1/1] hv_netvsc: fix a netvsc stats typo
-> 
-> [This sender failed our fraud detection checks and may not be who they
-> appear to be. Learn about spoofing at http://aka.ms/LearnAboutSpoofing]
-> 
-> Now, return the correct tx_errors stats in netvsc.
-> 
-> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
-> ---
->  drivers/net/hyperv/netvsc_drv.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/hyperv/netvsc_drv.c
-> b/drivers/net/hyperv/netvsc_drv.c
-> index 72b0c1f..725ac19 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -920,7 +920,7 @@ static void netvsc_get_stats64(struct net_device *net,
->         }
-> 
->         t->tx_dropped   = net->stats.tx_dropped;
-> -       t->tx_errors    = net->stats.tx_dropped;
-> +       t->tx_errors    = net->stats.tx_errors;
-> 
->         t->rx_dropped   = net->stats.rx_dropped;
->         t->rx_errors    = net->stats.rx_errors;
-> --
-> 2.7.4
+Thats this assert:
+/* We never see fragments: conntrack defrags on pre-routing
+ * and local-out, and nf_nat_out protects post-routing.
+ */
+NF_CT_ASSERT(!ip_is_fragment(ip_hdr(skb)));
+
+
+... and its wrong. I will send a patch to remove it.
