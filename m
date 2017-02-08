@@ -1,177 +1,110 @@
-From: Govindarajulu Varadarajan <gvaradar@cisco.com>
-Subject: [PATCH 1/3 net-next] enic: add devcmds for vxlan offload
-Date: Tue,  7 Feb 2017 23:28:23 -0800
-Message-ID: <20170208072825.3144-2-gvaradar@cisco.com>
-References: <20170208072825.3144-1-gvaradar@cisco.com>
-Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net v2 3/3] net: phy: Fix PHY driver bind and unbind events
+Date: Tue,  7 Feb 2017 23:37:46 -0800
+Message-ID: <20170208073746.10963-4-f.fainelli@gmail.com>
+References: <20170208073746.10963-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
+        maowenan@huawei.com, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcdn-iport-1.cisco.com ([173.37.86.72]:3429 "EHLO
-        rcdn-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753478AbdBHHhh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:37:37 -0500
-In-Reply-To: <20170208072825.3144-1-gvaradar@cisco.com>
+Received: from mail-ot0-f193.google.com ([74.125.82.193]:33934 "EHLO
+        mail-ot0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932143AbdBHHja (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:39:30 -0500
+Received: by mail-ot0-f193.google.com with SMTP id 73so17118959otj.1
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 23:37:53 -0800 (PST)
+In-Reply-To: <20170208073746.10963-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds devcmds needed for vxlan offload. Implement 3 new devcmd
+The PHY library does not deal very well with bind and unbind events. The first
+thing we would see is that we were not properly canceling the PHY state machine
+workqueue, so we would be crashing while dereferencing phydev->drv since there
+is no driver attached anymore.
 
-overlay_offload_ctrl: enable/disable offload
-overlay_offload_cfg: update offload udp port number
-get_supported_feature_ver: get hw supported offload version. Each
-			   version has different bitmap for csum_ok/encap
+Once we fix that, there are several things that did not quite work as expected:
 
-Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
+- if the PHY state machine was running, we were not stopping it properly, and
+  the state machine state would not be marked as such
+- when we rebind the driver, nothing would happen, since we would not know which
+  state we were before the unbind
+
+This patch takes the following approach:
+
+- if the PHY was attached, and the state machine was running we would stop it,
+  remember where we left, and schedule the state machine for restart upong
+  driver bind
+- if the PHY was attached, but HALTED, we would let it in that state, and do not
+  alter the state upon driver bind
+- in all other cases (detached) we would keep the PHY in DOWN state waiting for
+  a network driver to show up, and set PHY_READY on driver bind
+
+Suggested-by: Russell King <rmk+kernel@armlinux.org.uk>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/cisco/enic/vnic_dev.c    | 42 ++++++++++++++++++++++
- drivers/net/ethernet/cisco/enic/vnic_dev.h    |  5 +++
- drivers/net/ethernet/cisco/enic/vnic_devcmd.h | 51 +++++++++++++++++++++++++++
- drivers/net/ethernet/cisco/enic/vnic_enet.h   |  1 +
- 4 files changed, 99 insertions(+)
+ drivers/net/phy/phy_device.c | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index 8f27df3207bc..9b3d670e1aa9 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -1247,3 +1247,45 @@ int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index bde240bf8d7b..5314e764a387 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1711,6 +1711,7 @@ static int phy_probe(struct device *dev)
+ 	struct phy_device *phydev = to_phy_device(dev);
+ 	struct device_driver *drv = phydev->mdio.dev.driver;
+ 	struct phy_driver *phydrv = to_phy_driver(drv);
++	bool should_start = false;
+ 	int err = 0;
  
- 	return ret;
+ 	phydev->drv = phydrv;
+@@ -1760,24 +1761,46 @@ static int phy_probe(struct device *dev)
+ 	}
+ 
+ 	/* Set the state to READY by default */
+-	phydev->state = PHY_READY;
++	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
++		should_start = true;
++	else
++		phydev->state = PHY_READY;
+ 
+ 	if (phydev->drv->probe)
+ 		err = phydev->drv->probe(phydev);
+ 
+ 	mutex_unlock(&phydev->lock);
+ 
++	if (should_start)
++		phy_start(phydev);
++
+ 	return err;
  }
-+
-+int vnic_dev_overlay_offload_ctrl(struct vnic_dev *vdev, u8 overlay, u8 config)
-+{
-+	u64 a0;
-+	u64 a1;
-+	int wait = 1000;
-+	int ret;
-+
-+	a0 = overlay;
-+	a1 = config;
-+
-+	ret = vnic_dev_cmd(vdev, CMD_OVERLAY_OFFLOAD_CTRL, &a0, &a1, wait);
-+
-+	return ret;
-+}
-+
-+int vnic_dev_overlay_offload_cfg(struct vnic_dev *vdev, u8 overlay,
-+				 u16 vxlan_udp_port_number)
-+{
-+	u64 a0, a1;
-+	int wait = 1000;
-+
-+	a0 = overlay;
-+	a1 = vxlan_udp_port_number;
-+
-+	return vnic_dev_cmd(vdev, CMD_OVERLAY_OFFLOAD_CFG, &a0, &a1, wait);
-+}
-+
-+int vnic_dev_get_supported_feature_ver(struct vnic_dev *vdev, u8 feature,
-+				       u64 *supported_versions)
-+{
-+	u64 a0 = feature;
-+	u64  a1 = 0;
-+	int wait = 1000;
-+	int ret;
-+
-+	ret = vnic_dev_cmd(vdev, CMD_GET_SUPP_FEATURE_VER, &a0, &a1, wait);
-+	if (!ret)
-+		*supported_versions = a0;
-+
-+	return ret;
-+}
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.h b/drivers/net/ethernet/cisco/enic/vnic_dev.h
-index 54156c484424..9d43d6bb9907 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.h
-@@ -179,5 +179,10 @@ int vnic_dev_set_mac_addr(struct vnic_dev *vdev, u8 *mac_addr);
- int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
- 			struct filter *data);
- int vnic_devcmd_init(struct vnic_dev *vdev);
-+int vnic_dev_overlay_offload_ctrl(struct vnic_dev *vdev, u8 overlay, u8 config);
-+int vnic_dev_overlay_offload_cfg(struct vnic_dev *vdev, u8 overlay,
-+				 u16 vxlan_udp_port_number);
-+int vnic_dev_get_supported_feature_ver(struct vnic_dev *vdev, u8 feature,
-+				       u64 *supported_versions);
  
- #endif /* _VNIC_DEV_H_ */
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-index 2a812880b884..d83880b0d468 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-@@ -406,6 +406,31 @@ enum vnic_devcmd_cmd {
- 	 * in: (u32) a0=Queue Pair number
- 	 */
- 	CMD_QP_STATS_CLEAR = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 63),
+ static int phy_remove(struct device *dev)
+ {
+ 	struct phy_device *phydev = to_phy_device(dev);
++	bool should_stop = false;
++	enum phy_state state;
 +
-+	/* Use this devcmd for agreeing on the highest common version supported
-+	 * by both driver and fw for features who need such a facility.
-+	 * in:	(u64) a0 = feature (driver requests for the supported versions
-+	 *	on this feature)
-+	 * out: (u64) a0 = bitmap of all supported versions for that feature
++	cancel_delayed_work_sync(&phydev->state_queue);
+ 
+ 	mutex_lock(&phydev->lock);
+-	phydev->state = PHY_DOWN;
++	state = phydev->state;
++	if (state > PHY_UP && state != PHY_HALTED)
++		should_stop = true;
++	else
++		phydev->state = PHY_DOWN;
+ 	mutex_unlock(&phydev->lock);
+ 
++	/* phy_stop() sets the state to HALTED, undo that for the ->probe() function
++	 * to have a chance to resume where we left
 +	 */
-+	CMD_GET_SUPP_FEATURE_VER = _CMDC(_CMD_DIR_RW, _CMD_VTYPE_ENET, 69),
++	if (should_stop) {
++		phy_stop(phydev);
++		phydev->state = state;
++	}
 +
-+	/* Control (Enable/Disable) overlay offloads on the given vnic
-+	 * in: (u8) a0 = OVERLAY_FEATURE_NVGRE : NVGRE
-+	 *	    a0 = OVERLAY_FEATURE_VXLAN : VxLAN
-+	 * in: (u8) a1 = OVERLAY_OFFLOAD_ENABLE : Enable or
-+	 *	    a1 = OVERLAY_OFFLOAD_DISABLE : Disable or
-+	 *	    a1 = OVERLAY_OFFLOAD_ENABLE_V2 : Enable with version 2
-+	 */
-+	CMD_OVERLAY_OFFLOAD_CTRL = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 72),
-+
-+	/* Configuration of overlay offloads feature on a given vNIC
-+	 * in: (u8) a0 = DEVCMD_OVERLAY_NVGRE : NVGRE
-+	 *	    a0 = DEVCMD_OVERLAY_VXLAN : VxLAN
-+	 * in: (u8) a1 = VXLAN_PORT_UPDATE : VxLAN
-+	 * in: (u16) a2 = unsigned short int port information
-+	 */
-+	CMD_OVERLAY_OFFLOAD_CFG = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 73),
- };
- 
- /* CMD_ENABLE2 flags */
-@@ -657,4 +682,30 @@ struct devcmd2_result {
- #define DEVCMD2_RING_SIZE	32
- #define DEVCMD2_DESC_SIZE	128
- 
-+enum overlay_feature_t {
-+	OVERLAY_FEATURE_NVGRE = 1,
-+	OVERLAY_FEATURE_VXLAN,
-+	OVERLAY_FEATURE_MAX,
-+};
-+
-+enum overlay_ofld_cmd {
-+	OVERLAY_OFFLOAD_ENABLE,
-+	OVERLAY_OFFLOAD_DISABLE,
-+	OVERLAY_OFFLOAD_ENABLE_P2,
-+	OVERLAY_OFFLOAD_MAX,
-+};
-+
-+#define OVERLAY_CFG_VXLAN_PORT_UPDATE	0
-+
-+/* Use this enum to get the supported versions for each of these features
-+ * If you need to use the devcmd_get_supported_feature_version(), add
-+ * the new feature into this enum and install function handler in devcmd.c
-+ */
-+enum vic_feature_t {
-+	VIC_FEATURE_VXLAN,
-+	VIC_FEATURE_RDMA,
-+	VIC_FEATURE_VXLAN_PATCH,
-+	VIC_FEATURE_MAX,
-+};
-+
- #endif /* _VNIC_DEVCMD_H_ */
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_enet.h b/drivers/net/ethernet/cisco/enic/vnic_enet.h
-index 75aced2de869..7d6fbb5635a4 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_enet.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_enet.h
-@@ -48,6 +48,7 @@ struct vnic_enet_config {
- #define VENETF_RSSHASH_IPV6_EX	0x200	/* Hash on IPv6 extended fields */
- #define VENETF_RSSHASH_TCPIPV6_EX 0x400	/* Hash on TCP + IPv6 ext. fields */
- #define VENETF_LOOP		0x800	/* Loopback enabled */
-+#define VENETF_VXLAN		0x10000	/* VxLAN offload */
- 
- #define VENET_INTR_TYPE_MIN	0	/* Timer specs min interrupt spacing */
- #define VENET_INTR_TYPE_IDLE	1	/* Timer specs idle time before irq */
+ 	if (phydev->drv->remove)
+ 		phydev->drv->remove(phydev);
+ 	phydev->drv = NULL;
 -- 
-2.11.0
+2.9.3
