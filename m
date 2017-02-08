@@ -1,68 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net v2 1/3] net: phy: Fix PHY module checks
-Date: Wed, 8 Feb 2017 17:57:13 +0100
-Message-ID: <20170208165713.GD13281@lunn.ch>
-References: <20170208073746.10963-1-f.fainelli@gmail.com>
- <20170208073746.10963-2-f.fainelli@gmail.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
+Date: Wed, 8 Feb 2017 10:45:35 -0700
+Message-ID: <20170208174535.GD30720@obsidianresearch.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1486502926.2581.4.camel@sandisk.com>
+ <1828884A29C6694DAF28B7E6B8A82373AB0E5B6C@ORSMSX109.amr.corp.intel.com>
+ <1486504716.2581.8.camel@sandisk.com>
+ <20170208005416.GA76793@knc-06.sc.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        rmk+kernel@armlinux.org.uk, maowenan@huawei.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:60135 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751906AbdBHRkz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 12:40:55 -0500
+Cc: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170208073746.10963-2-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170208005416.GA76793-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -920,7 +920,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->  		return -EIO;
->  	}
->  
-> -	if (!try_module_get(d->driver->owner)) {
-> +	if (d->driver && !try_module_get(d->driver->owner)) {
->  		dev_err(&dev->dev, "failed to get the device driver module\n");
->  		return -EIO;
->  	}
-> @@ -943,7 +943,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->  			err = device_bind_driver(d);
->  
->  		if (err)
-> -			goto error;
-> +			goto error_put_device;
->  	}
->  
->  	if (phydev->attached_dev) {
-> @@ -981,6 +981,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->  
->  error:
->  	phy_detach(phydev);
-> +error_put_device:
->  	put_device(d);
->  	module_put(d->driver->owner);
+On Tue, Feb 07, 2017 at 04:54:16PM -0800, Vishwanathapura, Niranjana wrote:
+> On Tue, Feb 07, 2017 at 09:58:50PM +0000, Bart Van Assche wrote:
+> >On Tue, 2017-02-07 at 21:44 +0000, Hefty, Sean wrote:
+> >>This is Ethernet - not IP - encapsulation over a non-InfiniBand device/protocol.
+> >
+> >That's more than clear from the cover letter. In my opinion the cover letter
+> >should explain why it is considered useful to have such a driver upstream
+> >and what the use cases are of encapsulating Ethernet frames inside RDMA
+> >packets.
+> >
+> 
+> We believe on our HW, HFI VNIC design gives better hardware resource usage
+> which is also scalable and hence room for better performance.
 
-Can we get into problems here? Maybe we did not do a get?
+Lets not go overboard here, you are mainly getting better performance
+because vnic has the new netdev interface to the HFI driver. There is
+nothing stopping ipoib from having the same capability and a similar
+HFI driver implementation.
 
+> Also as evident in the cover letter, it gives us better manageability by
+> defining virtual Ethernet switches overlaid on the fabric and
+> use standard Ethernet support provided by Linux.
 
->  	if (ndev_owner != bus->owner)
-> @@ -1065,7 +1066,8 @@ void phy_detach(struct phy_device *phydev)
->  	bus = phydev->mdio.bus;
->  
->  	put_device(&phydev->mdio.dev);
-> -	module_put(phydev->mdio.dev.driver->owner);
-> +	if (phydev->mdio.dev.driver)
-> +		module_put(phydev->mdio.dev.driver->owner);
+This is true and probably the most important reason..
 
-Humm. By this point, havn't we assigned d->driver to genphy_driver?
-So this decrements something we never incremented?
-
-To me, it seems better to move the try_module_get() after assigning
-genphy_driver if needed. We then don't have any special conditions.
-
-      Andrew
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
