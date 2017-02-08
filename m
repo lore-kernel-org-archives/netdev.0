@@ -1,9 +1,9 @@
 From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 17/19] usb: gadget: pch_udc: Replace PCI pool old API
-Date: Wed, 8 Feb 2017 19:45:58 +0100
-Message-ID: <20170208184558.GQ16878@collabora.com>
+Subject: Re: [RFC 14/19] scsi: pmcraid: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:42:35 +0100
+Message-ID: <20170208184235.GN16878@collabora.com>
 References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-18-romain.perier@collabora.com>
+ <20170208163457.28853-15-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams@intel.com>,
@@ -21,137 +21,83 @@ Cc: Dan Williams <dan.j.williams@intel.com>,
         linux-kernel@vger.kernel.org,
         Peter Senna Tschudin <peter.senna@collabora.co.uk>
 To: Romain Perier <romain.perier@collabora.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:34314 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751816AbdBHS5A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:57:00 -0500
 Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-18-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170208163457.28853-15-romain.perier@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 08, 2017 at 05:34:55PM +0100, Romain Perier wrote:
+On Wed, Feb 08, 2017 at 05:34:52PM +0100, Romain Perier wrote:
 > The PCI pool API is deprecated. This commits replaces the PCI pool old
 > API by the appropriated function with the DMA pool API.
 > 
+Tested by compilation only.
+
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 > Signed-off-by: Romain Perier <romain.perier@collabora.com>
 > ---
->  drivers/usb/gadget/udc/pch_udc.c | 28 ++++++++++++++--------------
->  1 file changed, 14 insertions(+), 14 deletions(-)
+>  drivers/scsi/pmcraid.c | 10 +++++-----
+>  drivers/scsi/pmcraid.h |  2 +-
+>  2 files changed, 6 insertions(+), 6 deletions(-)
 > 
-> diff --git a/drivers/usb/gadget/udc/pch_udc.c b/drivers/usb/gadget/udc/pch_udc.c
-> index a97da64..37045fc 100644
-> --- a/drivers/usb/gadget/udc/pch_udc.c
-> +++ b/drivers/usb/gadget/udc/pch_udc.c
-> @@ -355,8 +355,8 @@ struct pch_udc_dev {
->  			vbus_session:1,
->  			set_cfg_not_acked:1,
->  			waiting_zlp_ack:1;
-> -	struct pci_pool		*data_requests;
-> -	struct pci_pool		*stp_requests;
-> +	struct dma_pool		*data_requests;
-> +	struct dma_pool		*stp_requests;
->  	dma_addr_t			dma_addr;
->  	struct usb_ctrlrequest		setup_data;
->  	void __iomem			*base_addr;
-> @@ -1522,7 +1522,7 @@ static void pch_udc_free_dma_chain(struct pch_udc_dev *dev,
->  		/* do not free first desc., will be done by free for request */
->  		td = phys_to_virt(addr);
->  		addr2 = (dma_addr_t)td->next;
-> -		pci_pool_free(dev->data_requests, td, addr);
-> +		dma_pool_free(dev->data_requests, td, addr);
->  		td->next = 0x00;
->  		addr = addr2;
->  	}
-> @@ -1565,7 +1565,7 @@ static int pch_udc_create_dma_chain(struct pch_udc_ep *ep,
->  		if (bytes <= buf_len)
->  			break;
->  		last = td;
-> -		td = pci_pool_alloc(ep->dev->data_requests, gfp_flags,
-> +		td = dma_pool_alloc(ep->dev->data_requests, gfp_flags,
->  				    &dma_addr);
->  		if (!td)
->  			goto nomem;
-> @@ -1770,7 +1770,7 @@ static struct usb_request *pch_udc_alloc_request(struct usb_ep *usbep,
->  	if (!ep->dev->dma_addr)
->  		return &req->req;
->  	/* ep0 in requests are allocated from data pool here */
-> -	dma_desc = pci_pool_alloc(ep->dev->data_requests, gfp,
-> +	dma_desc = dma_pool_alloc(ep->dev->data_requests, gfp,
->  				  &req->td_data_phys);
->  	if (NULL == dma_desc) {
->  		kfree(req);
-> @@ -1809,7 +1809,7 @@ static void pch_udc_free_request(struct usb_ep *usbep,
->  	if (req->td_data != NULL) {
->  		if (req->chain_len > 1)
->  			pch_udc_free_dma_chain(ep->dev, req);
-> -		pci_pool_free(ep->dev->data_requests, req->td_data,
-> +		dma_pool_free(ep->dev->data_requests, req->td_data,
->  			      req->td_data_phys);
->  	}
->  	kfree(req);
-> @@ -2914,7 +2914,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
->  	void				*ep0out_buf;
+> diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
+> index 49e70a3..0f893c4 100644
+> --- a/drivers/scsi/pmcraid.c
+> +++ b/drivers/scsi/pmcraid.c
+> @@ -4699,13 +4699,13 @@ pmcraid_release_control_blocks(
+>  		return;
 >  
->  	/* DMA setup */
-> -	dev->data_requests = pci_pool_create("data_requests", dev->pdev,
-> +	dev->data_requests = dma_pool_create("data_requests", &dev->pdev->dev,
->  		sizeof(struct pch_udc_data_dma_desc), 0, 0);
->  	if (!dev->data_requests) {
->  		dev_err(&dev->pdev->dev, "%s: can't get request data pool\n",
-> @@ -2923,7 +2923,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
+>  	for (i = 0; i < max_index; i++) {
+> -		pci_pool_free(pinstance->control_pool,
+> +		dma_pool_free(pinstance->control_pool,
+>  			      pinstance->cmd_list[i]->ioa_cb,
+>  			      pinstance->cmd_list[i]->ioa_cb_bus_addr);
+>  		pinstance->cmd_list[i]->ioa_cb = NULL;
+>  		pinstance->cmd_list[i]->ioa_cb_bus_addr = 0;
 >  	}
+> -	pci_pool_destroy(pinstance->control_pool);
+> +	dma_pool_destroy(pinstance->control_pool);
+>  	pinstance->control_pool = NULL;
+>  }
 >  
->  	/* dma desc for setup data */
-> -	dev->stp_requests = pci_pool_create("setup requests", dev->pdev,
-> +	dev->stp_requests = dma_pool_create("setup requests", &dev->pdev->dev,
->  		sizeof(struct pch_udc_stp_dma_desc), 0, 0);
->  	if (!dev->stp_requests) {
->  		dev_err(&dev->pdev->dev, "%s: can't get setup request pool\n",
-> @@ -2931,7 +2931,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
->  		return -ENOMEM;
->  	}
->  	/* setup */
-> -	td_stp = pci_pool_alloc(dev->stp_requests, GFP_KERNEL,
-> +	td_stp = dma_pool_alloc(dev->stp_requests, GFP_KERNEL,
->  				&dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
->  	if (!td_stp) {
->  		dev_err(&dev->pdev->dev,
-> @@ -2941,7 +2941,7 @@ static int init_dma_pools(struct pch_udc_dev *dev)
->  	dev->ep[UDC_EP0OUT_IDX].td_stp = td_stp;
+> @@ -4762,8 +4762,8 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
+>  		pinstance->host->unique_id);
 >  
->  	/* data: 0 packets !? */
-> -	td_data = pci_pool_alloc(dev->data_requests, GFP_KERNEL,
-> +	td_data = dma_pool_alloc(dev->data_requests, GFP_KERNEL,
->  				&dev->ep[UDC_EP0OUT_IDX].td_data_phys);
->  	if (!td_data) {
->  		dev_err(&dev->pdev->dev,
-> @@ -3022,21 +3022,21 @@ static void pch_udc_remove(struct pci_dev *pdev)
->  			"%s: gadget driver still bound!!!\n", __func__);
->  	/* dma pool cleanup */
->  	if (dev->data_requests)
-dma_pool_destroy(NULL) is safe and this check is probably not required.
-Other than that looks good. Tested by compiling it.
-
-> -		pci_pool_destroy(dev->data_requests);
-> +		dma_pool_destroy(dev->data_requests);
+>  	pinstance->control_pool =
+> -		pci_pool_create(pinstance->ctl_pool_name,
+> -				pinstance->pdev,
+> +		dma_pool_create(pinstance->ctl_pool_name,
+> +				&pinstance->pdev->dev,
+>  				sizeof(struct pmcraid_control_block),
+>  				PMCRAID_IOARCB_ALIGNMENT, 0);
 >  
->  	if (dev->stp_requests) {
->  		/* cleanup DMA desc's for ep0in */
->  		if (dev->ep[UDC_EP0OUT_IDX].td_stp) {
-> -			pci_pool_free(dev->stp_requests,
-> +			dma_pool_free(dev->stp_requests,
->  				dev->ep[UDC_EP0OUT_IDX].td_stp,
->  				dev->ep[UDC_EP0OUT_IDX].td_stp_phys);
->  		}
->  		if (dev->ep[UDC_EP0OUT_IDX].td_data) {
-> -			pci_pool_free(dev->stp_requests,
-> +			dma_pool_free(dev->stp_requests,
->  				dev->ep[UDC_EP0OUT_IDX].td_data,
->  				dev->ep[UDC_EP0OUT_IDX].td_data_phys);
->  		}
-> -		pci_pool_destroy(dev->stp_requests);
-> +		dma_pool_destroy(dev->stp_requests);
->  	}
+> @@ -4772,7 +4772,7 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
 >  
->  	if (dev->dma_addr)
+>  	for (i = 0; i < PMCRAID_MAX_CMD; i++) {
+>  		pinstance->cmd_list[i]->ioa_cb =
+> -			pci_pool_alloc(
+> +			dma_pool_alloc(
+>  				pinstance->control_pool,
+>  				GFP_KERNEL,
+>  				&(pinstance->cmd_list[i]->ioa_cb_bus_addr));
+> diff --git a/drivers/scsi/pmcraid.h b/drivers/scsi/pmcraid.h
+> index 568b18a..acf5a7b 100644
+> --- a/drivers/scsi/pmcraid.h
+> +++ b/drivers/scsi/pmcraid.h
+> @@ -755,7 +755,7 @@ struct pmcraid_instance {
+>  
+>  	/* structures related to command blocks */
+>  	struct kmem_cache *cmd_cachep;		/* cache for cmd blocks */
+> -	struct pci_pool *control_pool;		/* pool for control blocks */
+> +	struct dma_pool *control_pool;		/* pool for control blocks */
+>  	char   cmd_pool_name[64];		/* name of cmd cache */
+>  	char   ctl_pool_name[64];		/* name of control cache */
+>  
 > -- 
 > 2.9.3
 > 
