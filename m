@@ -1,41 +1,39 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: KASAN+netlink, was: [PATCH] [net-next?] hns: avoid stack
- overflow with CONFIG_KASAN
-Date: Wed, 8 Feb 2017 16:00:24 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB027F2B4@AcuExch.aculab.com>
-References: <20170203163607.3488037-1-arnd@arndb.de>
-         <20170206.120318.1268240226202516488.davem@davemloft.net>
-         <4910112.l20yySyWnA@wuerfel> (sfid-20170208_130733_449950_64BEF84C)
- <1486556665.24745.6.camel@sipsolutions.net>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH net v2 1/3] net: phy: Fix PHY module checks
+Date: Wed, 8 Feb 2017 14:46:13 -0200
+Message-ID: <CAOMZO5COWf8Ojw=nF5JXv54AweK17sBAb+aYk7VCOoMcj1t8kQ@mail.gmail.com>
+References: <20170208073746.10963-1-f.fainelli@gmail.com> <20170208073746.10963-2-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "stable@vger.kernel.org" <stable@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Andrey Ryabinin" <a.ryabinin@samsung.com>,
-        "nikolay@cumulusnetworks.com" <nikolay@cumulusnetworks.com>,
-        "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
-        "adobriyan@gmail.com" <adobriyan@gmail.com>,
-        linux-wireless <linux-wireless@vger.kernel.org>
-To: 'Johannes Berg' <johannes@sipsolutions.net>,
-        Arnd Bergmann <arnd@arndb.de>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486556665.24745.6.camel@sipsolutions.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Russell King <rmk+kernel@armlinux.org.uk>, maowenan@huawei.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ot0-f193.google.com ([74.125.82.193]:33723 "EHLO
+        mail-ot0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752563AbdBHQqQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:46:16 -0500
+Received: by mail-ot0-f193.google.com with SMTP id f9so18576193otd.0
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 08:46:14 -0800 (PST)
+In-Reply-To: <20170208073746.10963-2-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBKb2hhbm5lcyBCZXJnDQo+IFNlbnQ6IDA4IEZlYnJ1YXJ5IDIwMTcgMTI6MjQNCi4u
-Lg0KPiBCdHcsIHdoYXQncyBjYXVzaW5nIHRoaXMgdG8gc3RhcnQgd2l0aD8gQ2FuJ3QgdGhlIGNv
-bXBpbGVyIHJldXNlIHRoZQ0KPiBzdGFjayBwbGFjZXM/DQoNCk9ubHkgaWYgaXQgcmVhbGlzZXMg
-dGhleSd2ZSBnb25lIG91dCBvZiBzY29wZSAtIHdoaWNoIHByb2JhYmx5DQpkb2Vzbid0IGhhcHBl
-biB3aGVuIHRoZSBmdW5jdGlvbnMgYXJlIGlubGluZWQuDQpUaGUgYWRkcmVzcyBvZiB0aGUgcGFy
-YW1ldGVyIGNhbiBiZSBzYXZlZCBieSB0aGUgY2FsbGluZyBmdW5jdGlvbg0KYW5kIHVzZWQgaW4g
-YSBsYXRlciBjYWxsLg0KDQpTb21ldGhpbmcgbGlrZSB0aGlzIGlzIHZhbGlkOg0KDQppbnQgZm9v
-KGludCAqcCwgaW50IHYpDQp7DQoJc3RhdGljIGludCAqc3Y7DQoJaW50IG9sZCA9IC0xOw0KCWlm
-IChzdikge29sZCA9ICpzdjsgKnN2ID0gdjt9DQoJc3YgPSB2Ow0KCXJldHVybiBvbGQ7DQp9DQoN
-CnZvaWQgYmFyKC4uLikgew0KCWludCBhLCBiOw0KCS4uLg0KCWZvbygmYSwgMCk7DQoJLi4uDQoJ
-Zm9vKCZiLCAxKTsNCgkuLi4NCglmb28oTlVMTCwgMik7DQoJLi4uDQoNCklmIHRoZSBjb21waWxl
-ciBzdGFydHMgc2hhcmluZyBzdGFjayBpdCBhbGwgZ29lcyB3cm9uZy4NCg0KCURhdmlkDQoNCg0K
+On Wed, Feb 8, 2017 at 5:37 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> The Generic PHY drivers gets assigned after we checked that the current PHY
+> driver is NULL, so we need to check a few things before we can safely
+> derference d->driver. Update phy_attach_direct() and phy_detach() accordingly
+> to be resilient to these cases.
+>
+> Even though the Generic PHY driver defaults to phy_probe() which can hardly
+> fail at the moment, let's fix the label so we don't call phy_detach() on a
+> network device we have not attached yet.
+>
+> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+This fixes the kernel crash:
+
+Tested-by: Fabio Estevam <fabio.estevam@nxp.com>
