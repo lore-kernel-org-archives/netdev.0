@@ -1,99 +1,73 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 1/2] flow dissector: ND
- support
-Date: Wed, 8 Feb 2017 10:28:24 +0100
-Message-ID: <20170208092823.GA17615@penelope.horms.nl>
-References: <CALx6S37QtKgc14DFway-Ajme7JhbAN71M+83w28+4FELdv7Xew@mail.gmail.com>
- <20170206091253.GB20384@penelope.horms.nl>
- <CALx6S351OxEtGhjBdGVGUF7JcBRjpY3hwft-hXjxix7EVAfhQg@mail.gmail.com>
- <20170207.123831.1038511845714033360.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@herbertland.com, jiri@resnulli.us, eric.dumazet@gmail.com,
-        dinan.gunawardena@netronome.com, netdev@vger.kernel.org,
-        oss-drivers@netronome.com
-To: David Miller <davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv6 net-next 0/6] sctp: add sender-side procedures for stream reconf asoc reset and add streams
+Date: Thu,  9 Feb 2017 01:18:14 +0800
+Message-ID: <cover.1486573727.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:38389 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754208AbdBHRRn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:17:43 -0500
-Received: by mail-wm0-f46.google.com with SMTP id r141so195113406wmg.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 09:16:37 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170207.123831.1038511845714033360.davem@davemloft.net>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35476 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754122AbdBHRSd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:18:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 12:38:31PM -0500, David Miller wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Tue, 7 Feb 2017 09:36:20 -0800
-> 
-> > Okay, but can you give us an idea of how many more of these protocols
-> > are going to be added to flow_dissector. TBH I'm not very enthused
-> > about making more flow_dissector more complex for the benefit of OVS.
-> 
-> Especially since the kernel datapath of OVS has been marked
-> experimental.
+Patch 4/6 is to implement sender-side procedures for the SSN/TSN Reset
+Request Parameter described in rfc6525 section 5.1.4, patch 3/6 is
+ahead of it to define a function to make the request chunk for it.
 
-Hi Dave, Hi Tom,
+Patch 6/6 is to implement sender-side procedures for the Add Incoming
+and Outgoing Streams Request Parameter Request Parameter described in
+rfc6525 section 5.1.5 and 5.1.6, patch 5/6 is ahead of it to define a
+function to make the request chunk for it.
 
-Firstly I'd like to apologise for posing what has turned out to be a
-somewhat divisive patch.
+Patch 2/6 is a fix to recover streams states when it fails to send
+request and Patch 1/6 is to drop some unncessary __packed from some
+old structures.
 
-After looking through things a little more I think the simple answer to
-Tom's question is only ND. But there are also some fields of already
-supported protocols which are covered in the OvS flow key but not the flow
-dissector.
+v1->v2:
+  - put these into a smaller group.
+  - rename some temporary variables in the codes.
+  - rename the titles of the commits and improve some changelogs.
+v2->v3:
+  - re-split the patchset and make sure it has no dead codes for review.
+  - move some codes into stream.c from socket.c.
+v3->v4:
+  - add one more patch to fix a send reset stream request issue.
+  - doing actual work only when request is sent successfully.
+  - reduce some indents in sctp_send_add_streams.
+v4->v5:
+  - close streams before sending request and recover them when sending
+    fails in patch 1/5 and patch 3/5
+v5->v6:
+  - add patch 1/6 to drop some unncessary __packed from some old structures.
+  - remove __packed from some new structures in patch 3/6 and 5/6.
+  - define unsigned int outcnt and incnt to make codes smaller in patch 6/6.
+  - use krealloc instead of kcalloc and remove ksize check in patch 6/6, as
+    ksize check is acutally used in krealloc already.
 
-My analysis of OvS flow key fields for non-tunnel packet data - which I
-think is the extent of what is relevant to the flow dissector - yields the
-following list:
+Xin Long (6):
+  sctp: drop unnecessary __packed from some stream reconf structures
+  sctp: streams should be recovered when it fails to send request.
+  sctp: add support for generating stream reconf ssn/tsn reset request
+    chunk
+  sctp: implement sender-side procedures for SSN/TSN Reset Request
+    Parameter
+  sctp: add support for generating stream reconf add incoming/outgoing
+    streams request chunk
+  sctp: implement sender-side procedures for Add Incoming/Outgoing
+    Streams Request Parameter
 
-  New protocols:
-  * ND (this patch)
+ include/linux/sctp.h      |  18 +++++--
+ include/net/sctp/sctp.h   |   3 ++
+ include/net/sctp/sm.h     |   5 ++
+ include/uapi/linux/sctp.h |   8 +++
+ net/sctp/sm_make_chunk.c  |  75 ++++++++++++++++++++++++++
+ net/sctp/socket.c         |  58 ++++++++++++++++++++
+ net/sctp/stream.c         | 134 +++++++++++++++++++++++++++++++++++++++++++++-
+ 7 files changed, 297 insertions(+), 4 deletions(-)
 
-  Fields of already supported protocols:
-  * MPLS.lse (currently the label of the LSE is handled by the dissector
-              so this could also be described as MPLS.lse.{tc,s,ttl})
-  * IPV4.tos
-  * IPV4.ttl
-  * IPV6.hlimit
-  * IPV6.tclass
-
-  I do expect that some of the above will not be appropriate for existing
-  users of the flow dissector; e.g. IPV4.ttl does not seem much use when
-  calculating the hash of a flow for steering purposes. And I do not yet
-  have a good idea of how to approach that beyond using different dissector
-  keys.
-
-  Further support for to already supported fields.
-  * IPV[46].frag (supported by flow dissector : 1st frag flag;
-                  not supported by flow dissector: subsequent frag flag)
-
->From my point of view some parts of what is above is more important than
-others. In particular ND is probably not particularly important at least at
-this time. I would be happy to withdraw this patchset if the complexity is
-not deemed worth it at this time.
-
-
-I'd like to take a moment to give a little background and restate that my
-goal is not to create a burden for existing users of the flow dissector
-- or any other part of the stack.
-
-Netronome has worked on various approaches to an upstream offload of OvS.
-One was hooks added to the OvS kernel datapath; an idea which was rejected
-at least twice but none the less I'd be happy to revisit if there is
-interest in it.
-
-The result of trying various approaches is that it seems the most
-acceptable is to use TC for programming flows into hardware which is where
-my work on TC flower and the flow dissector is coming from.  A key part of
-the reasoning being, as I understand it, that the flows could also be
-programmed into hardware for non-OvS use-cases; technology that could be
-useful e.g. in a post-OvS world.
-
-I think the above paragraph gets back to Tom's original question regarding
-making things more complex just for OvS (use-cases). Possibly ND is an edge
-case even for OvS and on reflection my timing for posting it seems to have
-been less than ideal.
+-- 
+2.1.0
