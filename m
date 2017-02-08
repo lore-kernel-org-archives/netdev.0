@@ -1,78 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] sit: fix a double free on error path
-Date: Wed,  8 Feb 2017 10:02:13 -0800
-Message-ID: <1486576933-25561-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [patch net-next 12/15] ipv4: fib: Notify about nexthop status
+ changes
+Date: Wed, 8 Feb 2017 11:05:54 -0700
+Message-ID: <a21e02bf-e146-6a02-d1cc-229be629dcb0@cumulusnetworks.com>
+References: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
+ <1486549002-2056-13-git-send-email-jiri@resnulli.us>
+ <20170208145600.GA48568@C02RW35GFVH8.dhcp.broadcom.net>
+ <20170208153226.GA24185@splinter.mtl.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+        davem@davemloft.net, eladr@mellanox.com, mlxsw@mellanox.com,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Ido Schimmel <idosch@mellanox.com>,
+        Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34132 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751123AbdBHSKY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:10:24 -0500
-Received: by mail-pf0-f196.google.com with SMTP id y143so12157008pfb.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 10:10:24 -0800 (PST)
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:35905 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750940AbdBHSLT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:11:19 -0500
+Received: by mail-pg0-f43.google.com with SMTP id v184so50831796pgv.3
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 10:11:19 -0800 (PST)
+In-Reply-To: <20170208153226.GA24185@splinter.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dmitry reported a double free in sit_init_net():
+On 2/8/17 8:32 AM, Ido Schimmel wrote:
+> In the case of multipath routes, if some of the nexthops can be
+> reflected, then we do so, but periodically ask the kernel to try and
+> resolve the others. Otherwise, these nexthops will never be resolved, as
+> the kernel doesn't see the packets hitting the multipath route and
+> therefore lacks the motivation to resolve its nexthops.
 
-  kernel BUG at mm/percpu.c:689!
-  invalid opcode: 0000 [#1] SMP KASAN
-  Dumping ftrace buffer:
-     (ftrace buffer empty)
-  Modules linked in:
-  CPU: 0 PID: 15692 Comm: syz-executor1 Not tainted 4.10.0-rc6-next-20170206 #1
-  Hardware name: Google Google Compute Engine/Google Compute Engine,
-  BIOS Google 01/01/2011
-  task: ffff8801c9cc27c0 task.stack: ffff88017d1d8000
-  RIP: 0010:pcpu_free_area+0x68b/0x810 mm/percpu.c:689
-  RSP: 0018:ffff88017d1df488 EFLAGS: 00010046
-  RAX: 0000000000010000 RBX: 00000000000007c0 RCX: ffffc90002829000
-  RDX: 0000000000010000 RSI: ffffffff81940efb RDI: ffff8801db841d94
-  RBP: ffff88017d1df590 R08: dffffc0000000000 R09: 1ffffffff0bb3bdd
-  R10: dffffc0000000000 R11: 00000000000135dd R12: ffff8801db841d80
-  R13: 0000000000038e40 R14: 00000000000007c0 R15: 00000000000007c0
-  FS:  00007f6ea608f700(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
-  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-  CR2: 000000002000aff8 CR3: 00000001c8d44000 CR4: 00000000001426f0
-  DR0: 0000000020000000 DR1: 0000000020000000 DR2: 0000000000000000
-  DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
-  Call Trace:
-   free_percpu+0x212/0x520 mm/percpu.c:1264
-   ipip6_dev_free+0x43/0x60 net/ipv6/sit.c:1335
-   sit_init_net+0x3cb/0xa10 net/ipv6/sit.c:1831
-   ops_init+0x10a/0x530 net/core/net_namespace.c:115
-   setup_net+0x2ed/0x690 net/core/net_namespace.c:291
-   copy_net_ns+0x26c/0x530 net/core/net_namespace.c:396
-   create_new_namespaces+0x409/0x860 kernel/nsproxy.c:106
-   unshare_nsproxy_namespaces+0xae/0x1e0 kernel/nsproxy.c:205
-   SYSC_unshare kernel/fork.c:2281 [inline]
-   SyS_unshare+0x64e/0xfc0 kernel/fork.c:2231
-   entry_SYSCALL_64_fastpath+0x1f/0xc2
-
-This is because when tunnel->dst_cache init fails, we free dev->tstats
-once in ipip6_tunnel_init() and twice in sit_init_net(). This looks
-redundant but its ndo_uinit() does not seem enough to clean up everything
-here. So avoid this by setting dev->tstats to NULL after the first free,
-at least for -net.
-
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/ipv6/sit.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index fad992a..99853c6 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1380,6 +1380,7 @@ static int ipip6_tunnel_init(struct net_device *dev)
- 	err = dst_cache_init(&tunnel->dst_cache, GFP_KERNEL);
- 	if (err) {
- 		free_percpu(dev->tstats);
-+		dev->tstats = NULL;
- 		return err;
- 	}
- 
--- 
-2.5.5
+It should get the motivation once the neigh entry is cleaned up. That
+can take a long time based on gc settings, but it can also happen from
+the remote side if it sends an arp message.
