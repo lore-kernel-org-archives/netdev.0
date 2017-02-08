@@ -1,100 +1,49 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH net v2 1/3] net: phy: Fix PHY module checks
-Date: Wed, 8 Feb 2017 07:57:58 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F201ED9E4E@szxemi502-mbx.china.huawei.com>
-References: <20170208073746.10963-1-f.fainelli@gmail.com>
- <20170208073746.10963-2-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "rmk+kernel@armlinux.org.uk" <rmk+kernel@armlinux.org.uk>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: [PATCH 0/3 net-next] enic: add vxlan offload support
+Date: Tue,  7 Feb 2017 23:28:22 -0800
+Message-ID: <20170208072825.3144-1-gvaradar@cisco.com>
+Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:4778 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752142AbdBHH6S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:58:18 -0500
-In-Reply-To: <20170208073746.10963-2-f.fainelli@gmail.com>
-Content-Language: zh-CN
+Received: from rcdn-iport-3.cisco.com ([173.37.86.74]:42377 "EHLO
+        rcdn-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932294AbdBHH7c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:59:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This series adds vxlan offload support for enic driver. The first
+patch adds vxlan devcmd for configuring vxland offload parameters.
+Second patch adds ndo_udp_tunnel_add/del and offload on rx path.
+There are to modes in which fw supports vxlan offload.
 
+mode 0: fcoe bit is set for encapsulated packet. fcoe_fc_crc_ok is set
+if checksum of csum is ok. This bit is or of ip_csum_ok and
+tcp_udp_csum_ok
 
-> -----Original Message-----
-> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
-> Sent: Wednesday, February 08, 2017 3:38 PM
-> To: netdev@vger.kernel.org
-> Cc: davem@davemloft.net; andrew@lunn.ch; rmk+kernel@armlinux.org.uk;
-> maowenan; Florian Fainelli
-> Subject: [PATCH net v2 1/3] net: phy: Fix PHY module checks
-> 
-> The Generic PHY drivers gets assigned after we checked that the current PHY
-> driver is NULL, so we need to check a few things before we can safely
-> derference d->driver. Update phy_attach_direct() and phy_detach() accordingly
-> to be resilient to these cases.
-> 
-> Even though the Generic PHY driver defaults to phy_probe() which can hardly
-> fail at the moment, let's fix the label so we don't call phy_detach() on a network
-> device we have not attached yet.
-> 
-> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/net/phy/phy_device.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c index
-> 0d8f4d3847f6..bde240bf8d7b 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -920,7 +920,7 @@ int phy_attach_direct(struct net_device *dev, struct
-> phy_device *phydev,
->  		return -EIO;
->  	}
-> 
-> -	if (!try_module_get(d->driver->owner)) {
-> +	if (d->driver && !try_module_get(d->driver->owner)) {
->  		dev_err(&dev->dev, "failed to get the device driver module\n");
->  		return -EIO;
+mode 2: BIT(0) in rss_hash is set if it is encapsulated packet.
+	BIT(1) is set if outer_ip_csum_ok/
+	BIT(2) is set if outer_tcp_csum_ok
 
-Hi Florian,
-  Here "return -EIO" will miss decreasing bus->owner reference count.
+Some hw supports only mode 0, some support mode 0 and 2. Driver gets
+the supported modes bitmap using get_supported_feature_ver devcmd
+and selects the highest mode both driver and fw supports.
 
-Mao Wenan
+Third patch adds offload support on tx path by adding
+enic_features_check().
 
->  	}
-> @@ -943,7 +943,7 @@ int phy_attach_direct(struct net_device *dev, struct
-> phy_device *phydev,
->  			err = device_bind_driver(d);
-> 
->  		if (err)
-> -			goto error;
-> +			goto error_put_device;
->  	}
-> 
->  	if (phydev->attached_dev) {
-> @@ -981,6 +981,7 @@ int phy_attach_direct(struct net_device *dev, struct
-> phy_device *phydev,
-> 
->  error:
->  	phy_detach(phydev);
-> +error_put_device:
->  	put_device(d);
->  	module_put(d->driver->owner);
->  	if (ndev_owner != bus->owner)
-> @@ -1065,7 +1066,8 @@ void phy_detach(struct phy_device *phydev)
->  	bus = phydev->mdio.bus;
-> 
->  	put_device(&phydev->mdio.dev);
-> -	module_put(phydev->mdio.dev.driver->owner);
-> +	if (phydev->mdio.dev.driver)
-> +		module_put(phydev->mdio.dev.driver->owner);
->  	if (ndev_owner != bus->owner)
->  		module_put(bus->owner);
->  }
-> --
-> 2.9.3
+Govindarajulu Varadarajan (3):
+  enic: add devcmds for vxlan offload
+  enic: add udp_tunnel ndo for vxlan offload
+  enic: add vxlan offload on tx path
+
+ drivers/net/ethernet/cisco/enic/enic.h        |   6 +
+ drivers/net/ethernet/cisco/enic/enic_main.c   | 282 ++++++++++++++++++++++++--
+ drivers/net/ethernet/cisco/enic/vnic_dev.c    |  42 ++++
+ drivers/net/ethernet/cisco/enic/vnic_dev.h    |   5 +
+ drivers/net/ethernet/cisco/enic/vnic_devcmd.h |  51 +++++
+ drivers/net/ethernet/cisco/enic/vnic_enet.h   |   1 +
+ 6 files changed, 372 insertions(+), 15 deletions(-)
+
+-- 
+2.11.0
