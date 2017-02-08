@@ -1,73 +1,165 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 00/15] mlxsw: Reflect nexthop status changes
-Date: Wed, 08 Feb 2017 16:00:07 -0500 (EST)
-Message-ID: <20170208.160007.1721195899296415551.davem@davemloft.net>
-References: <20170208.152848.118275722298964427.davem@davemloft.net>
-        <20170208.154345.288561019647245358.davem@davemloft.net>
-        <20170208205835.GC20719@nanopsycho>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netlink: move nla_put_{u8,u16,u32} out of line
+Date: Wed,  8 Feb 2017 22:18:26 +0100
+Message-ID: <20170208211843.2822208-1-arnd@arndb.de>
+Cc: David Laight <David.Laight@aculab.com>, netdev@vger.kernel.org,
+        johannes.berg@intel.com, Arnd Bergmann <arnd@arndb.de>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>, kasan-dev@googlegroups.com,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Thomas Graf <tgraf@suug.ch>,
+        Eric Dumazet <edumazet@google.com>,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59424 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751155AbdBHV0c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 16:26:32 -0500
-In-Reply-To: <20170208205835.GC20719@nanopsycho>
+Received: from mout.kundenserver.de ([217.72.192.75]:53820 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751338AbdBHV2I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 16:28:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 8 Feb 2017 21:58:35 +0100
+When CONFIG_KASAN is enabled, the "--param asan-stack=1" causes rather large
+stack frames in some functions. This goes unnoticed normally because
+CONFIG_FRAME_WARN is disabled with CONFIG_KASAN by default as of commit
+3f181b4d8652 ("lib/Kconfig.debug: disable -Wframe-larger-than warnings with
+KASAN=y").
 
-> Wed, Feb 08, 2017 at 09:43:45PM CET, davem@davemloft.net wrote:
->>From: David Miller <davem@davemloft.net>
->>Date: Wed, 08 Feb 2017 15:28:48 -0500 (EST)
->>
->>> Looks really nice, series applied, thanks!
->>
->>Jiri, just FYI, I bungled up merging this.  And I am trying to fix
->>that up.
->>
->>I forgot to include patch #14, but I'll apply that now in the
->>mainline.
-> 
-> Yeah, the lost patch #14. I had to resend it to get it to patchwork.
-> That's probably what confused your tools.
-> 
-> 
->>
->>I get a warning, in mlxsw_sp_nexthop_group_create() because the
->>compiler thinks that 'nh' can be use uninitialized.  And I think
->>the compiler is pointing out something legitimate.
->>
->>This cleanup loop in err_nexthop_group_insert and err_nexthop_init
->>needs to take the 'nh' from &nh_grp->nexthops[i] instead of using
->>whatever is left in 'nh' for all mlxsw_sp_nexthop_fini() calls.
->>
->>So I'm going to augment the commit of patch #14 to make it go:
->>
->>@@ -1667,8 +1667,10 @@ mlxsw_sp_nexthop_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
->> 
->> err_nexthop_group_insert:
->> err_nexthop_init:
->>-	for (i--; i >= 0; i--)
->>+	for (i--; i >= 0; i--) {
->>+		nh = &nh_grp->nexthops[i];
->> 		mlxsw_sp_nexthop_fini(mlxsw_sp, nh);
->>+	}
->> 	kfree(nh_grp);
->> 	return ERR_PTR(err);
->> }
-> 
-> Oh. I did not catch is. But this is totally unrelated to this patchset.
-> Please send it as a separate fix. Or I can do it if yo want.
-> 
-> Fixes: a7ff87acd995 ("mlxsw: spectrum_router: Implement next-hop routing")
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+The kernelci.org build bot however has the warning enabled and that led
+me to investigate it a little further, as every build produces these warnings:
 
-Sorry, I integrated it into the patch #14 commit, and it's already pushed
-out.
+net/wireless/nl80211.c:4389:1: warning: the frame size of 2240 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+net/wireless/nl80211.c:1895:1: warning: the frame size of 3776 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+net/wireless/nl80211.c:1410:1: warning: the frame size of 2208 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+net/bridge/br_netlink.c:1282:1: warning: the frame size of 2544 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+
+It turns out that there is a relatively simple workaround for the netlink
+users that currently use a local variable in order to do the type conversion:
+Moving the three functions (for each of the typical sizes) to lib/nlattr.c
+avoids using local variables in the caller, which drastically reduces the
+stack usage for nl80211 and br_netlink.
+
+It would be good if we could enable the frame size check after that again,
+but that should be a separate patch and it requires some more testing
+to see which the largest acceptable frame size should be.
+
+Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Cc: Alexander Potapenko <glider@google.com>
+Cc: Dmitry Vyukov <dvyukov@google.com>
+Cc: kasan-dev@googlegroups.com
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ include/net/netlink.h | 23 +++++++----------------
+ lib/nlattr.c          | 18 ++++++++++++++++++
+ 2 files changed, 25 insertions(+), 16 deletions(-)
+
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index b239fcd33d80..48b117e80509 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -755,10 +755,7 @@ static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+  * @attrtype: attribute type
+  * @value: numeric value
+  */
+-static inline int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value)
+-{
+-	return nla_put(skb, attrtype, sizeof(u8), &value);
+-}
++extern int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value);
+ 
+ /**
+  * nla_put_u16 - Add a u16 netlink attribute to a socket buffer
+@@ -766,10 +763,7 @@ static inline int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value)
+  * @attrtype: attribute type
+  * @value: numeric value
+  */
+-static inline int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value)
+-{
+-	return nla_put(skb, attrtype, sizeof(u16), &value);
+-}
++extern int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value);
+ 
+ /**
+  * nla_put_be16 - Add a __be16 netlink attribute to a socket buffer
+@@ -779,7 +773,7 @@ static inline int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value)
+  */
+ static inline int nla_put_be16(struct sk_buff *skb, int attrtype, __be16 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(__be16), &value);
++	return nla_put_u16(skb, attrtype, (u16 __force)value);
+ }
+ 
+ /**
+@@ -801,7 +795,7 @@ static inline int nla_put_net16(struct sk_buff *skb, int attrtype, __be16 value)
+  */
+ static inline int nla_put_le16(struct sk_buff *skb, int attrtype, __le16 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(__le16), &value);
++	return nla_put_u16(skb, attrtype, (u16 __force)value);
+ }
+ 
+ /**
+@@ -810,10 +804,7 @@ static inline int nla_put_le16(struct sk_buff *skb, int attrtype, __le16 value)
+  * @attrtype: attribute type
+  * @value: numeric value
+  */
+-static inline int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
+-{
+-	return nla_put(skb, attrtype, sizeof(u32), &value);
+-}
++int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value);
+ 
+ /**
+  * nla_put_be32 - Add a __be32 netlink attribute to a socket buffer
+@@ -823,7 +814,7 @@ static inline int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
+  */
+ static inline int nla_put_be32(struct sk_buff *skb, int attrtype, __be32 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(__be32), &value);
++	return nla_put_u32(skb, attrtype, (u32 __force)value);
+ }
+ 
+ /**
+@@ -845,7 +836,7 @@ static inline int nla_put_net32(struct sk_buff *skb, int attrtype, __be32 value)
+  */
+ static inline int nla_put_le32(struct sk_buff *skb, int attrtype, __le32 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(__le32), &value);
++	return nla_put_u32(skb, attrtype, (u32 __force)value);
+ }
+ 
+ /**
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index b42b8577fc23..2988b08a7e4d 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -548,6 +548,24 @@ int nla_put(struct sk_buff *skb, int attrtype, int attrlen, const void *data)
+ }
+ EXPORT_SYMBOL(nla_put);
+ 
++int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value)
++{
++	return nla_put(skb, attrtype, sizeof(u8), &value);
++}
++EXPORT_SYMBOL(nla_put_u8);
++
++int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value)
++{
++	return nla_put(skb, attrtype, sizeof(u16), &value);
++}
++EXPORT_SYMBOL(nla_put_u16);
++
++int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
++{
++	return nla_put(skb, attrtype, sizeof(u32), &value);
++}
++EXPORT_SYMBOL(nla_put_u32);
++
+ /**
+  * nla_put_64bit - Add a netlink attribute to a socket buffer and align it
+  * @skb: socket buffer to add attribute to
+-- 
+2.9.0
