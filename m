@@ -1,28 +1,28 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC v2 2/8] mlx4: Changes to use generic XDP infrastructure
-Date: Wed, 8 Feb 2017 15:41:21 -0800
-Message-ID: <20170208234127.3041579-3-tom@herbertland.com>
+Subject: [PATCH RFC v2 7/8] bnxt: Changes to use generic XDP infrastructure
+Date: Wed, 8 Feb 2017 15:41:26 -0800
+Message-ID: <20170208234127.3041579-8-tom@herbertland.com>
 References: <20170208234127.3041579-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48843 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751636AbdBIBGi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:06:38 -0500
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-        by mx0b-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v18NfR5v029253
-        for <netdev@vger.kernel.org>; Wed, 8 Feb 2017 15:41:48 -0800
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55491 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751812AbdBIBQw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:16:52 -0500
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v18NXZk0025163
+        for <netdev@vger.kernel.org>; Wed, 8 Feb 2017 15:41:51 -0800
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0b-00082601.pphosted.com with ESMTP id 28fs1uavw8-1
+        by mx0a-00082601.pphosted.com with ESMTP id 28g59k2082-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 15:41:48 -0800
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 15:41:51 -0800
 Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
  mx-out.facebook.com (10.223.100.99) with ESMTP id
- 271d0226ee5811e6923324be05956610-251e8a50 for <netdev@vger.kernel.org>;        Wed,
- 08 Feb 2017 15:41:46 -0800
+ 2982c370ee5811e6a8b624be05956610-1fad0a50 for <netdev@vger.kernel.org>;        Wed,
+ 08 Feb 2017 15:41:50 -0800
 In-Reply-To: <20170208234127.3041579-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -32,312 +32,198 @@ XDP API.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 92 +++++---------------------
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 27 ++++----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     |  1 +
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 -
- 4 files changed, 29 insertions(+), 92 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 14 --------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h     |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 46 +++++++++++++++------------
+ 3 files changed, 27 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 748e9f6..613786a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -42,6 +42,7 @@
- #include <net/busy_poll.h>
- #include <net/vxlan.h>
- #include <net/devlink.h>
-+#include <net/xdp.h>
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index cda1c78..ce311fb 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -2091,9 +2091,6 @@ static void bnxt_free_rx_rings(struct bnxt *bp)
+ 		struct bnxt_rx_ring_info *rxr = &bp->rx_ring[i];
+ 		struct bnxt_ring_struct *ring;
  
- #include <linux/mlx4/driver.h>
- #include <linux/mlx4/device.h>
-@@ -2195,8 +2196,7 @@ int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
- 				struct mlx4_en_port_profile *prof,
- 				bool carry_xdp_prog)
- {
--	struct bpf_prog *xdp_prog;
--	int i, t;
-+	int t;
- 
- 	mlx4_en_copy_priv(tmp, priv, prof);
- 
-@@ -2211,22 +2211,6 @@ int mlx4_en_try_alloc_resources(struct mlx4_en_priv *priv,
- 		return -ENOMEM;
- 	}
- 
--	/* All rx_rings has the same xdp_prog.  Pick the first one. */
--	xdp_prog = rcu_dereference_protected(
--		priv->rx_ring[0]->xdp_prog,
--		lockdep_is_held(&priv->mdev->state_lock));
+-		if (rxr->xdp_prog)
+-			bpf_prog_put(rxr->xdp_prog);
 -
--	if (xdp_prog && carry_xdp_prog) {
--		xdp_prog = bpf_prog_add(xdp_prog, tmp->rx_ring_num);
--		if (IS_ERR(xdp_prog)) {
--			mlx4_en_free_resources(tmp);
--			return PTR_ERR(xdp_prog);
+ 		kfree(rxr->rx_tpa);
+ 		rxr->rx_tpa = NULL;
+ 
+@@ -2381,15 +2378,6 @@ static int bnxt_init_one_rx_ring(struct bnxt *bp, int ring_nr)
+ 	ring = &rxr->rx_ring_struct;
+ 	bnxt_init_rxbd_pages(ring, type);
+ 
+-	if (BNXT_RX_PAGE_MODE(bp) && bp->xdp_prog) {
+-		rxr->xdp_prog = bpf_prog_add(bp->xdp_prog, 1);
+-		if (IS_ERR(rxr->xdp_prog)) {
+-			int rc = PTR_ERR(rxr->xdp_prog);
+-
+-			rxr->xdp_prog = NULL;
+-			return rc;
 -		}
--		for (i = 0; i < tmp->rx_ring_num; i++)
--			rcu_assign_pointer(tmp->rx_ring[i]->xdp_prog,
--					   xdp_prog);
 -	}
+ 	prod = rxr->rx_prod;
+ 	for (i = 0; i < bp->rx_ring_size; i++) {
+ 		if (bnxt_alloc_rx_data(bp, rxr, prod, GFP_KERNEL) != 0) {
+@@ -7157,8 +7145,6 @@ static void bnxt_remove_one(struct pci_dev *pdev)
+ 	pci_iounmap(pdev, bp->bar0);
+ 	kfree(bp->edev);
+ 	bp->edev = NULL;
+-	if (bp->xdp_prog)
+-		bpf_prog_put(bp->xdp_prog);
+ 	free_netdev(dev);
+ 
+ 	pci_release_regions(pdev);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 9f07b9c..3efe7af 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -1175,7 +1175,7 @@ struct bnxt {
+ 	u8			num_leds;
+ 	struct bnxt_led_info	leds[BNXT_MAX_LED];
+ 
+-	struct bpf_prog		*xdp_prog;
++	bool			xdp_enabled;
+ };
+ 
+ #define BNXT_RX_STATS_OFFSET(counter)			\
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+index 899c30f..3cfdc94 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+@@ -85,18 +85,18 @@ void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
+ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 		 struct page *page, u8 **data_ptr, unsigned int *len, u8 *event)
+ {
+-	struct bpf_prog *xdp_prog = READ_ONCE(rxr->xdp_prog);
+ 	struct bnxt_tx_ring_info *txr;
+ 	struct bnxt_sw_rx_bd *rx_buf;
+ 	struct pci_dev *pdev;
+ 	struct xdp_buff xdp;
++	struct xdp_hook *last_hook;
+ 	dma_addr_t mapping;
+ 	void *orig_data;
+ 	u32 tx_avail;
+ 	u32 offset;
+ 	u32 act;
+ 
+-	if (!xdp_prog)
++	if (!xdp_hook_run_needed_check(bp->dev, &rxr->bnapi->napi))
+ 		return false;
+ 
+ 	pdev = bp->pdev;
+@@ -113,7 +113,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 	dma_sync_single_for_cpu(&pdev->dev, mapping + offset, *len, bp->rx_dir);
+ 
+ 	rcu_read_lock();
+-	act = bpf_prog_run_xdp(xdp_prog, &xdp);
++	act = xdp_hook_run_ret_last(&rxr->bnapi->napi, &xdp, &last_hook);
+ 	rcu_read_unlock();
+ 
+ 	tx_avail = bnxt_tx_avail(bp, txr);
+@@ -134,7 +134,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 
+ 	case XDP_TX:
+ 		if (tx_avail < 2) {
+-			trace_xdp_exception(bp->dev, xdp_prog, act);
++			trace_xdp_hook_exception(bp->dev, last_hook, act);
+ 			bnxt_reuse_rx_data(rxr, cons, page);
+ 			return true;
+ 		}
+@@ -147,10 +147,10 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 		bnxt_reuse_rx_data(rxr, cons, page);
+ 		return true;
+ 	default:
+-		bpf_warn_invalid_xdp_action(act);
++		xdp_warn_invalid_action(act);
+ 		/* Fall thru */
+ 	case XDP_ABORTED:
+-		trace_xdp_exception(bp->dev, xdp_prog, act);
++		trace_xdp_hook_exception(bp->dev, last_hook, act);
+ 		/* Fall thru */
+ 	case XDP_DROP:
+ 		bnxt_reuse_rx_data(rxr, cons, page);
+@@ -160,13 +160,15 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ }
+ 
+ /* Under rtnl_lock */
+-static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
++static int bnxt_xdp_init(struct bnxt *bp, bool enable)
+ {
+ 	struct net_device *dev = bp->dev;
+ 	int tx_xdp = 0, rc, tc;
+-	struct bpf_prog *old;
+ 
+-	if (prog && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
++	if (bp->xdp_enabled == enable)
++		return 0;
++
++	if (enable && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
+ 		netdev_warn(dev, "MTU %d larger than largest XDP supported MTU %d.\n",
+ 			    bp->dev->mtu, BNXT_MAX_PAGE_MODE_MTU);
+ 		return -EOPNOTSUPP;
+@@ -175,7 +177,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
+ 		netdev_warn(dev, "ethtool rx/tx channels must be combined to support XDP.\n");
+ 		return -EOPNOTSUPP;
+ 	}
+-	if (prog)
++	if (enable)
+ 		tx_xdp = bp->rx_nr_rings;
+ 
+ 	tc = netdev_get_num_tc(dev);
+@@ -190,11 +192,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
+ 	if (netif_running(dev))
+ 		bnxt_close_nic(bp, true, false);
+ 
+-	old = xchg(&bp->xdp_prog, prog);
+-	if (old)
+-		bpf_prog_put(old);
 -
+-	if (prog) {
++	if (enable) {
+ 		bnxt_set_rx_skb_mode(bp, true);
+ 	} else {
+ 		int rx, tx;
+@@ -210,6 +208,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
+ 	bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tc + tx_xdp;
+ 	bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
+ 	bp->num_stat_ctxs = bp->cp_nr_rings;
++	bp->xdp_enabled = enable;
+ 	bnxt_set_tpa_flags(bp);
+ 	bnxt_set_ring_params(bp);
+ 
+@@ -219,18 +218,25 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
  	return 0;
  }
  
-@@ -2713,42 +2697,20 @@ static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 m
- 	return err;
- }
- 
--static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-+static int mlx4_xdp_init(struct net_device *dev, bool enable)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_port_profile new_prof;
--	struct bpf_prog *old_prog;
- 	struct mlx4_en_priv *tmp;
- 	int tx_changed = 0;
--	int xdp_ring_num;
- 	int port_up = 0;
--	int err;
--	int i;
-+	int xdp_ring_num, err;
- 
--	xdp_ring_num = prog ? priv->rx_ring_num : 0;
-+	xdp_ring_num = enable ? ALIGN(priv->rx_ring_num, MLX4_EN_NUM_UP) : 0;
- 
--	/* No need to reconfigure buffers when simply swapping the
--	 * program for a new one.
--	 */
--	if (priv->tx_ring_num[TX_XDP] == xdp_ring_num) {
--		if (prog) {
--			prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
--			if (IS_ERR(prog))
--				return PTR_ERR(prog);
--		}
--		mutex_lock(&mdev->state_lock);
--		for (i = 0; i < priv->rx_ring_num; i++) {
--			old_prog = rcu_dereference_protected(
--					priv->rx_ring[i]->xdp_prog,
--					lockdep_is_held(&mdev->state_lock));
--			rcu_assign_pointer(priv->rx_ring[i]->xdp_prog, prog);
--			if (old_prog)
--				bpf_prog_put(old_prog);
--		}
--		mutex_unlock(&mdev->state_lock);
-+	if (priv->tx_ring_num[TX_XDP] == xdp_ring_num)
- 		return 0;
--	}
- 
- 	if (!mlx4_en_check_xdp_mtu(dev, dev->mtu))
- 		return -EOPNOTSUPP;
-@@ -2757,14 +2719,6 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	if (!tmp)
- 		return -ENOMEM;
- 
--	if (prog) {
--		prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
--		if (IS_ERR(prog)) {
--			err = PTR_ERR(prog);
--			goto out;
--		}
--	}
--
- 	mutex_lock(&mdev->state_lock);
- 	memcpy(&new_prof, priv->prof, sizeof(struct mlx4_en_port_profile));
- 	new_prof.tx_ring_num[TX_XDP] = xdp_ring_num;
-@@ -2777,11 +2731,8 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	}
- 
- 	err = mlx4_en_try_alloc_resources(priv, tmp, &new_prof, false);
--	if (err) {
--		if (prog)
--			bpf_prog_sub(prog, priv->rx_ring_num - 1);
-+	if (err)
- 		goto unlock_out;
--	}
- 
- 	if (priv->port_up) {
- 		port_up = 1;
-@@ -2792,15 +2743,6 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	if (tx_changed)
- 		netif_set_real_num_tx_queues(dev, priv->tx_ring_num[TX]);
- 
--	for (i = 0; i < priv->rx_ring_num; i++) {
--		old_prog = rcu_dereference_protected(
--					priv->rx_ring[i]->xdp_prog,
--					lockdep_is_held(&mdev->state_lock));
--		rcu_assign_pointer(priv->rx_ring[i]->xdp_prog, prog);
--		if (old_prog)
--			bpf_prog_put(old_prog);
--	}
--
- 	if (port_up) {
- 		err = mlx4_en_start_port(dev);
- 		if (err) {
-@@ -2812,26 +2754,24 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 
- unlock_out:
- 	mutex_unlock(&mdev->state_lock);
--out:
- 	kfree(tmp);
- 	return err;
- }
- 
--static bool mlx4_xdp_attached(struct net_device *dev)
-+static int mlx4_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
- {
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--
--	return !!priv->tx_ring_num[TX_XDP];
++static int bnxt_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
++{
 +	return 0;
- }
- 
- static int mlx4_xdp(struct net_device *dev, struct netdev_xdp *xdp)
++}
++
+ int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp)
  {
+ 	struct bnxt *bp = netdev_priv(dev);
+ 	int rc;
+ 
  	switch (xdp->command) {
 -	case XDP_SETUP_PROG:
--		return mlx4_xdp_set(dev, xdp->prog);
--	case XDP_QUERY_PROG:
--		xdp->prog_attached = mlx4_xdp_attached(dev);
--		return 0;
+-		rc = bnxt_xdp_set(bp, xdp->prog);
 +	case XDP_MODE_ON:
-+		return mlx4_xdp_init(dev, true);
++		rc = bnxt_xdp_init(bp, true);
++		break;
 +	case XDP_MODE_OFF:
-+		return mlx4_xdp_init(dev, false);
++		rc = bnxt_xdp_init(bp, false);
+ 		break;
+-	case XDP_QUERY_PROG:
+-		xdp->prog_attached = !!bp->xdp_prog;
+-		rc = 0;
 +	case XDP_CHECK_BPF_PROG:
-+		return mlx4_xdp_check_bpf(dev, xdp->prog);
++		rc = bnxt_xdp_check_bpf(dev, xdp->prog);
+ 		break;
  	default:
- 		return -EINVAL;
- 	}
-@@ -3331,7 +3271,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 
- 	dev->vlan_features = dev->hw_features;
- 
--	dev->hw_features |= NETIF_F_RXCSUM | NETIF_F_RXHASH;
-+	dev->hw_features |= NETIF_F_RXCSUM | NETIF_F_RXHASH | NETIF_F_XDP;
- 	dev->features = dev->hw_features | NETIF_F_HIGHDMA |
- 			NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX |
- 			NETIF_F_HW_VLAN_CTAG_FILTER;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index d85e644..a8fddc0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -43,6 +43,7 @@
- #include <linux/if_vlan.h>
- #include <linux/vmalloc.h>
- #include <linux/irq.h>
-+#include <net/xdp.h>
- 
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ip6_checksum.h>
-@@ -547,13 +548,7 @@ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_rx_ring *ring = *pring;
--	struct bpf_prog *old_prog;
- 
--	old_prog = rcu_dereference_protected(
--					ring->xdp_prog,
--					lockdep_is_held(&mdev->state_lock));
--	if (old_prog)
--		bpf_prog_put(old_prog);
- 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
- 	vfree(ring->rx_info);
- 	ring->rx_info = NULL;
-@@ -802,7 +797,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
- 	struct mlx4_en_rx_alloc *frags;
- 	struct mlx4_en_rx_desc *rx_desc;
--	struct bpf_prog *xdp_prog;
- 	int doorbell_pending;
- 	struct sk_buff *skb;
- 	int index;
-@@ -813,6 +807,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	int factor = priv->cqe_factor;
- 	u64 timestamp;
- 	bool l2_tunnel;
-+	bool run_xdp;
- 
- 	if (unlikely(!priv->port_up))
- 		return 0;
-@@ -820,9 +815,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	if (unlikely(budget <= 0))
- 		return polled;
- 
--	/* Protect accesses to: ring->xdp_prog, priv->mac_hash list */
-+	/* Protect accesses to: XDP hooks, priv->mac_hash list */
- 	rcu_read_lock();
--	xdp_prog = rcu_dereference(ring->xdp_prog);
-+	run_xdp = xdp_hook_run_needed_check(dev, &cq->napi);
- 	doorbell_pending = 0;
- 
- 	/* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
-@@ -895,13 +890,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
- 			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
- 
--		/* A bpf program gets first chance to drop the packet. It may
-+		/* An xdp program gets first chance to drop the packet. It may
- 		 * read bytes but not past the end of the frag.
- 		 */
--		if (xdp_prog) {
-+		if (run_xdp) {
- 			struct xdp_buff xdp;
- 			dma_addr_t dma;
- 			void *orig_data;
-+			struct xdp_hook *last_hook;
- 			u32 act;
- 
- 			dma = be64_to_cpu(rx_desc->data[0].addr);
-@@ -914,7 +910,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			xdp.data_end = xdp.data + length;
- 			orig_data = xdp.data;
- 
--			act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+			act = xdp_hook_run_ret_last(&cq->napi, &xdp,
-+						    &last_hook);
- 
- 			if (xdp.data != orig_data) {
- 				length = xdp.data_end - xdp.data;
-@@ -930,12 +927,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 							length, cq->ring,
- 							&doorbell_pending)))
- 					goto consumed;
--				trace_xdp_exception(dev, xdp_prog, act);
-+				trace_xdp_hook_exception(dev, last_hook, act);
- 				goto xdp_drop_no_cnt; /* Drop on xmit failure */
- 			default:
--				bpf_warn_invalid_xdp_action(act);
-+				xdp_warn_invalid_action(act);
- 			case XDP_ABORTED:
--				trace_xdp_exception(dev, xdp_prog, act);
-+				trace_xdp_hook_exception(dev, last_hook, act);
- 			case XDP_DROP:
- 				ring->xdp_drop++;
- xdp_drop_no_cnt:
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 3ed4219..870acb7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -43,6 +43,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/moduleparam.h>
-+#include <net/xdp.h>
- 
- #include "mlx4_en.h"
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index cec59bc..fbd1764 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -347,7 +347,6 @@ struct mlx4_en_rx_ring {
- 	u8  fcs_del;
- 	void *buf;
- 	void *rx_info;
--	struct bpf_prog __rcu *xdp_prog;
- 	struct mlx4_en_page_cache page_cache;
- 	unsigned long bytes;
- 	unsigned long packets;
+ 		rc = -EINVAL;
 -- 
 2.9.3
