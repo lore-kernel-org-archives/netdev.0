@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 15/16] net: stmmac: remove unused variable in sysfs_display_ring
-Date: Wed,  8 Feb 2017 09:31:20 +0100
-Message-ID: <20170208083121.27949-16-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 11/16] net: stmmac: Rewrite two test against NULL value
+Date: Wed,  8 Feb 2017 09:31:16 +0100
+Message-ID: <20170208083121.27949-12-clabbe.montjoie@gmail.com>
 References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Cc: linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -12,36 +12,35 @@ In-Reply-To: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The u64 x variable in sysfs_display_ring is unused.
-This patch remove it.
+This patch rewrite two test against NULL value with correct style.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c5dc3f9..d1b2e1e 100644
+index ed81375..cc88bdb 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2893,9 +2893,7 @@ static void sysfs_display_ring(void *head, int size, int extend_desc,
- 	struct dma_desc *p = (struct dma_desc *)head;
+@@ -689,7 +689,7 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 	int new_state = 0;
+ 	unsigned int fc = priv->flow_ctrl, pause_time = priv->pause;
  
- 	for (i = 0; i < size; i++) {
--		u64 x;
- 		if (extend_desc) {
--			x = *(u64 *) ep;
- 			seq_printf(seq, "%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
- 				   i, (unsigned int)virt_to_phys(ep),
- 				   le32_to_cpu(ep->basic.des0),
-@@ -2904,7 +2902,6 @@ static void sysfs_display_ring(void *head, int size, int extend_desc,
- 				   le32_to_cpu(ep->basic.des3));
- 			ep++;
- 		} else {
--			x = *(u64 *) p;
- 			seq_printf(seq, "%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
- 				   i, (unsigned int)virt_to_phys(ep),
- 				   le32_to_cpu(p->des0), le32_to_cpu(p->des1),
+-	if (phydev == NULL)
++	if (!phydev)
+ 		return;
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+@@ -1131,7 +1131,7 @@ static void dma_free_tx_skbufs(struct stmmac_priv *priv)
+ 						 DMA_TO_DEVICE);
+ 		}
+ 
+-		if (priv->tx_skbuff[i] != NULL) {
++		if (priv->tx_skbuff[i]) {
+ 			dev_kfree_skb_any(priv->tx_skbuff[i]);
+ 			priv->tx_skbuff[i] = NULL;
+ 			priv->tx_skbuff_dma[i].buf = 0;
 -- 
 2.10.2
