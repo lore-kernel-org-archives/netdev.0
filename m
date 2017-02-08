@@ -1,49 +1,71 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH v2 13/16] net: stmmac: print phy information
-Date: Wed, 8 Feb 2017 14:18:52 +0100
-Message-ID: <bd9e2968-943f-693a-1376-8f6fa2703ec7@st.com>
-References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
- <20170208083121.27949-14-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>
-To: Corentin Labbe <clabbe.montjoie@gmail.com>,
-        <alexandre.torgue@st.com>, <netdev@vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 14/15] mlxsw: spectrum_router: Don't reflect LINKDOWN nexthops
+Date: Wed,  8 Feb 2017 14:36:49 +0100
+Message-ID: <1486561009-2432-1-git-send-email-jiri@resnulli.us>
+References: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:17515 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933127AbdBHNTC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 08:19:02 -0500
-In-Reply-To: <20170208083121.27949-14-clabbe.montjoie@gmail.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34028 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751714AbdBHNiY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 08:38:24 -0500
+Received: by mail-wr0-f194.google.com with SMTP id 89so8760929wrr.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 05:36:52 -0800 (PST)
+In-Reply-To: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/8/2017 9:31 AM, Corentin Labbe wrote:
-> When a PHY is found, printing which one was found (and which type/model) is
-> a good information to know.
->
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+The kernel resolves the nexthops for a given route using
+FIB_LOOKUP_IGNORE_LINKSTATE which means a notification can be sent for a
+route with one of its nexthops being LINKDOWN.
 
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index cc88bdb..9805aa8 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -870,9 +870,7 @@ static int stmmac_init_phy(struct net_device *dev)
->  	if (phydev->is_pseudo_fixed_link)
->  		phydev->irq = PHY_POLL;
->
-> -	netdev_dbg(priv->dev, "%s: attached to PHY (UID 0x%x) Link = %d\n",
-> -		   __func__, phydev->phy_id, phydev->link);
-> -
-> +	phy_attached_info(phydev);
->  	return 0;
->  }
->
->
+In case IGNORE_ROUTES_WITH_LINKDOWN is set for the nexthop netdev, then
+we shouldn't reflect the nexthop to the device's table.
+
+Once the nexthop netdev's carrier goes up we'll be notified using NH_ADD
+and reflect it to the device.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 1c68b40..8dfc025 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -40,6 +40,7 @@
+ #include <linux/bitops.h>
+ #include <linux/in6.h>
+ #include <linux/notifier.h>
++#include <linux/inetdevice.h>
+ #include <net/netevent.h>
+ #include <net/neighbour.h>
+ #include <net/arp.h>
+@@ -1503,6 +1504,7 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
+ 				 struct fib_nh *fib_nh)
+ {
+ 	struct net_device *dev = fib_nh->nh_dev;
++	struct in_device *in_dev;
+ 	struct mlxsw_sp_rif *r;
+ 	int err;
+ 
+@@ -1512,6 +1514,11 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
+ 	if (err)
+ 		return err;
+ 
++	in_dev = __in_dev_get_rtnl(dev);
++	if (in_dev && IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
++	    fib_nh->nh_flags & RTNH_F_LINKDOWN)
++		return 0;
++
+ 	r = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+ 	if (!r)
+ 		return 0;
+-- 
+2.7.4
