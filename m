@@ -1,44 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: addrconf: fix generation of new temporary
- addresses
-Date: Wed, 08 Feb 2017 11:55:19 -0500 (EST)
-Message-ID: <20170208.115519.683941247979533576.davem@davemloft.net>
-References: <20170206173455.ghiltporvklvumsp@linux.fritz.box>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 4/6] sfc: call mcdi_reboot_detected() when MC reboots
+ during an MCDI command
+Date: Wed, 8 Feb 2017 16:51:33 +0000
+Message-ID: <3d6ee549-3003-3426-7eb2-5b8aa288944c@solarflare.com>
+References: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, netdev@vger.kernel.org
-To: suse-tux@gmx.de
+Cc: <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54122 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752009AbdBHQze (ORCPT
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:35837 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751618AbdBHQze (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:55:34 -0500
-In-Reply-To: <20170206173455.ghiltporvklvumsp@linux.fritz.box>
+In-Reply-To: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcus Huewe <suse-tux@gmx.de>
-Date: Mon, 6 Feb 2017 18:34:56 +0100
+From: Jon Cooper <jcooper@solarflare.com>
 
-> Under some circumstances it is possible that no new temporary addresses
-> will be generated.
-> 
-> For instance, addrconf_prefix_rcv_add_addr() indirectly calls
-> ipv6_create_tempaddr(), which creates a tentative temporary address and
-> starts dad. Next, addrconf_prefix_rcv_add_addr() indirectly calls
-> addrconf_verify_rtnl(). Now, assume that the previously created temporary
-> address has the least preferred lifetime among all existing addresses and
-> is still tentative (that is, dad is still running). Hence, the next run of
-> addrconf_verify_rtnl() is performed when the preferred lifetime of the
-> temporary address ends. If dad succeeds before the next run, the temporary
-> address becomes deprecated during the next run, but no new temporary
-> address is generated.
-> 
-> In order to fix this, schedule the next addrconf_verify_rtnl() run slightly
-> before the temporary address becomes deprecated, if dad succeeded.
-> 
-> Signed-off-by: Marcus Huewe <suse-tux@gmx.de>
+This function wasn't being called in this particular case when the MC
+ reboots. This caused resource reallocations to not be handled properly
+ and often ended up disabling the interface.
 
-Applied, thank you.
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ drivers/net/ethernet/sfc/mcdi.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 24b271b..fae647d 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -716,8 +716,11 @@ static int _efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned int cmd,
+ 		if (cmd == MC_CMD_REBOOT && rc == -EIO) {
+ 			/* Don't reset if MC_CMD_REBOOT returns EIO */
+ 		} else if (rc == -EIO || rc == -EINTR) {
+-			netif_err(efx, hw, efx->net_dev, "MC fatal error %d\n",
+-				  -rc);
++			netif_err(efx, hw, efx->net_dev, "MC reboot detected\n");
++			netif_dbg(efx, hw, efx->net_dev, "MC rebooted during command %d rc %d\n",
++				  cmd, -rc);
++			if (efx->type->mcdi_reboot_detected)
++				efx->type->mcdi_reboot_detected(efx);
+ 			efx_schedule_reset(efx, RESET_TYPE_MC_FAILURE);
+ 		} else if (proxy_handle && (rc == -EPROTO) &&
+ 			   efx_mcdi_get_proxy_handle(efx, hdr_len, data_len,
