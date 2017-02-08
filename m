@@ -1,201 +1,290 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 3/3] net: ethernet: bgmac: driver power
- manangement
-Date: Wed, 8 Feb 2017 16:51:15 -0800
-Message-ID: <a8c605dc-3320-5b6a-a36b-81058785fd58@gmail.com>
-References: <1486589066-8302-1-git-send-email-jon.mason@broadcom.com>
- <1486589066-8302-4-git-send-email-jon.mason@broadcom.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH RFC v2 5/8] virt_net: Changes to use generic XDP infrastructure
+Date: Wed, 8 Feb 2017 15:41:24 -0800
+Message-ID: <20170208234127.3041579-6-tom@herbertland.com>
+References: <20170208234127.3041579-1-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Joey Zhong <zhongx@broadcom.com>
-To: Jon Mason <jon.mason@broadcom.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:35366 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751643AbdBIAvp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:51:45 -0500
-In-Reply-To: <1486589066-8302-4-git-send-email-jon.mason@broadcom.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53516 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752445AbdBIA6R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:58:17 -0500
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v18NXuOx025723
+        for <netdev@vger.kernel.org>; Wed, 8 Feb 2017 15:41:50 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 28g59k207x-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 15:41:50 -0800
+Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
+ mx-out.facebook.com (10.223.100.97) with ESMTP id
+ 289a5982ee5811e6b71424be0593f280-fb7f5a50 for <netdev@vger.kernel.org>;        Wed,
+ 08 Feb 2017 15:41:48 -0800
+In-Reply-To: <20170208234127.3041579-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/08/2017 01:24 PM, Jon Mason wrote:
-> From: Joey Zhong <zhongx@broadcom.com>
-> 
-> Implement suspend/resume callbacks in the bgmac driver. This makes sure
-> that we de-initialize and re-initialize the hardware correctly before
-> entering suspend and when resuming.
-> 
-> Signed-off-by: Joey Zhong <zhongx@broadcom.com>
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/bgmac-platform.c | 34 +++++++++++++++++
->  drivers/net/ethernet/broadcom/bgmac.c          | 51 ++++++++++++++++++++++++++
->  drivers/net/ethernet/broadcom/bgmac.h          |  2 +
->  3 files changed, 87 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
-> index 2d153f7..3df91e7 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac-platform.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
-> @@ -21,8 +21,12 @@
->  #include <linux/of_net.h>
->  #include "bgmac.h"
->  
-> +#define NICPM_PADRING_CFG		0x00000004
->  #define NICPM_IOMUX_CTRL		0x00000008
->  
-> +#define NICPM_PADRING_CFG_INIT_VAL	0x74000000
-> +#define NICPM_IOMUX_CTRL_INIT_VAL_AX	0x21880000
-> +
->  #define NICPM_IOMUX_CTRL_INIT_VAL	0x3196e000
->  #define NICPM_IOMUX_CTRL_SPD_SHIFT	10
->  #define NICPM_IOMUX_CTRL_SPD_10M	0
-> @@ -108,6 +112,10 @@ static void bgmac_nicpm_speed_set(struct net_device *net_dev)
->  	if (!bgmac->plat.nicpm_base)
->  		return;
->  
-> +	/* SET RGMII IO CONFIG */
-> +	writel(NICPM_PADRING_CFG_INIT_VAL,
-> +	       bgmac->plat.nicpm_base + NICPM_PADRING_CFG);
-> +
->  	val = NICPM_IOMUX_CTRL_INIT_VAL;
->  	switch (bgmac->net_dev->phydev->speed) {
->  	default:
-> @@ -239,6 +247,31 @@ static int bgmac_remove(struct platform_device *pdev)
->  	return 0;
->  }
->  
-> +#ifdef CONFIG_PM
-> +static int bgmac_suspend(struct device *dev)
-> +{
-> +	struct bgmac *bgmac = dev_get_drvdata(dev);
-> +
-> +	return bgmac_enet_suspend(bgmac);
-> +}
-> +
-> +static int bgmac_resume(struct device *dev)
-> +{
-> +	struct bgmac *bgmac = dev_get_drvdata(dev);
-> +
-> +	return bgmac_enet_resume(bgmac);
-> +}
-> +
-> +static const struct dev_pm_ops bgmac_pm_ops = {
-> +	.suspend = bgmac_suspend,
-> +	.resume = bgmac_resume
-> +};
-> +
-> +#define BGMAC_PM_OPS (&bgmac_pm_ops)
-> +#else
-> +#define BGMAC_PM_OPS NULL
-> +#endif /* CONFIG_PM */
-> +
->  static const struct of_device_id bgmac_of_enet_match[] = {
->  	{.compatible = "brcm,amac",},
->  	{.compatible = "brcm,nsp-amac",},
-> @@ -252,6 +285,7 @@ static struct platform_driver bgmac_enet_driver = {
->  	.driver = {
->  		.name  = "bgmac-enet",
->  		.of_match_table = bgmac_of_enet_match,
-> +		.pm = BGMAC_PM_OPS
->  	},
->  	.probe = bgmac_probe,
->  	.remove = bgmac_remove,
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-> index bd549f8..e78c91d 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -1478,6 +1478,7 @@ int bgmac_enet_probe(struct bgmac *bgmac)
->  
->  	net_dev->irq = bgmac->irq;
->  	SET_NETDEV_DEV(net_dev, bgmac->dev);
-> +	dev_set_drvdata(bgmac->dev, bgmac);
->  
->  	if (!is_valid_ether_addr(bgmac->mac_addr)) {
->  		dev_err(bgmac->dev, "Invalid MAC addr: %pM\n",
-> @@ -1551,5 +1552,55 @@ void bgmac_enet_remove(struct bgmac *bgmac)
->  }
->  EXPORT_SYMBOL_GPL(bgmac_enet_remove);
->  
-> +int bgmac_enet_suspend(struct bgmac *bgmac)
-> +{
-> +	if (!netif_running(bgmac->net_dev))
-> +		return 0;
-> +
-> +	phy_stop(bgmac->net_dev->phydev);
-> +
-> +	netif_stop_queue(bgmac->net_dev);
-> +
-> +	napi_disable(&bgmac->napi);
-> +
-> +	netif_tx_lock(bgmac->net_dev);
-> +	netif_device_detach(bgmac->net_dev);
-> +	netif_tx_unlock(bgmac->net_dev);
-> +
-> +	bgmac_chip_intrs_off(bgmac);
-> +	bgmac_chip_reset(bgmac);
-> +	bgmac_dma_cleanup(bgmac);
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(bgmac_enet_suspend);
-> +
-> +int bgmac_enet_resume(struct bgmac *bgmac)
-> +{
-> +	int rc;
-> +
-> +	if (netif_running(bgmac->net_dev))
-> +		return 0;
+Change XDP program management functional interface to correspond to new
+XDP API.
 
-This should be if (!netif_running()) here, if it is running, we need to
-do all of what is below.
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ drivers/net/virtio_net.c | 98 +++++++++++++++++++-----------------------------
+ 1 file changed, 38 insertions(+), 60 deletions(-)
 
-With that fixed:
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> +
-> +	rc = bgmac_dma_init(bgmac);
-> +	if (rc)
-> +		return rc;
-> +
-> +	bgmac_chip_init(bgmac);
-> +
-> +	napi_enable(&bgmac->napi);
-> +
-> +	netif_tx_lock(bgmac->net_dev);
-> +	netif_device_attach(bgmac->net_dev);
-> +	netif_tx_unlock(bgmac->net_dev);
-> +
-> +	netif_start_queue(bgmac->net_dev);
-> +
-> +	phy_start(bgmac->net_dev->phydev);
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(bgmac_enet_resume);
-> +
->  MODULE_AUTHOR("Rafał Miłecki");
->  MODULE_LICENSE("GPL");
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-> index 5a518fe..741ca27 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.h
-> +++ b/drivers/net/ethernet/broadcom/bgmac.h
-> @@ -538,6 +538,8 @@ int bgmac_enet_probe(struct bgmac *bgmac);
->  void bgmac_enet_remove(struct bgmac *bgmac);
->  void bgmac_adjust_link(struct net_device *net_dev);
->  int bgmac_phy_connect_direct(struct bgmac *bgmac);
-> +int bgmac_enet_suspend(struct bgmac *bgmac);
-> +int bgmac_enet_resume(struct bgmac *bgmac);
->  
->  struct mii_bus *bcma_mdio_mii_register(struct bgmac *bgmac);
->  void bcma_mdio_mii_unregister(struct mii_bus *mii_bus);
-> 
-
-
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 11e2853..e8b1747 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -93,8 +93,6 @@ struct receive_queue {
+ 
+ 	struct napi_struct napi;
+ 
+-	struct bpf_prog __rcu *xdp_prog;
+-
+ 	/* Chain pages by the private ptr. */
+ 	struct page *pages;
+ 
+@@ -140,6 +138,9 @@ struct virtnet_info {
+ 	/* Host can handle any s/g split between our header and packet data */
+ 	bool any_header_sg;
+ 
++	/* XDP has been enabled in device */
++	bool xdp_enabled;
++
+ 	/* Packet virtio header size */
+ 	u8 hdr_len;
+ 
+@@ -414,13 +415,12 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ 				     void *buf, unsigned int len)
+ {
+ 	struct sk_buff * skb = buf;
+-	struct bpf_prog *xdp_prog;
++	struct xdp_hook *last_hook;
+ 
+ 	len -= vi->hdr_len;
+ 
+ 	rcu_read_lock();
+-	xdp_prog = rcu_dereference(rq->xdp_prog);
+-	if (xdp_prog) {
++	if (xdp_hook_run_needed_check(dev, &rq->napi)) {
+ 		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
+ 		struct xdp_buff xdp;
+ 		u32 act;
+@@ -431,8 +431,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ 		xdp.data_hard_start = skb->data;
+ 		xdp.data = skb->data + VIRTIO_XDP_HEADROOM;
+ 		xdp.data_end = xdp.data + len;
+-		act = bpf_prog_run_xdp(xdp_prog, &xdp);
+-
++		act = xdp_hook_run_ret_last(&rq->napi, &xdp, &last_hook);
+ 		switch (act) {
+ 		case XDP_PASS:
+ 			/* Recalculate length in case bpf program changed it */
+@@ -441,13 +440,13 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ 			break;
+ 		case XDP_TX:
+ 			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, skb)))
+-				trace_xdp_exception(vi->dev, xdp_prog, act);
++				trace_xdp_hook_exception(vi->dev, last_hook, act);
+ 			rcu_read_unlock();
+ 			goto xdp_xmit;
+ 		default:
+-			bpf_warn_invalid_xdp_action(act);
++			xdp_warn_invalid_action(act);
+ 		case XDP_ABORTED:
+-			trace_xdp_exception(vi->dev, xdp_prog, act);
++			trace_xdp_hook_exception(vi->dev, last_hook, act);
+ 		case XDP_DROP:
+ 			goto err_xdp;
+ 		}
+@@ -559,16 +558,15 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	struct page *page = virt_to_head_page(buf);
+ 	int offset = buf - page_address(page);
+ 	struct sk_buff *head_skb, *curr_skb;
+-	struct bpf_prog *xdp_prog;
+ 	unsigned int truesize;
+ 
+ 	head_skb = NULL;
+ 
+ 	rcu_read_lock();
+-	xdp_prog = rcu_dereference(rq->xdp_prog);
+-	if (xdp_prog) {
++	if (xdp_hook_run_needed_check(dev, &rq->napi)) {
+ 		struct page *xdp_page;
+ 		struct xdp_buff xdp;
++		struct xdp_hook *last_hook;
+ 		void *data;
+ 		u32 act;
+ 
+@@ -599,7 +597,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		xdp.data_hard_start = data - VIRTIO_XDP_HEADROOM + vi->hdr_len;
+ 		xdp.data = data + vi->hdr_len;
+ 		xdp.data_end = xdp.data + (len - vi->hdr_len);
+-		act = bpf_prog_run_xdp(xdp_prog, &xdp);
++		act = xdp_hook_run_ret_last(&rq->napi, &xdp, &last_hook);
+ 
+ 		switch (act) {
+ 		case XDP_PASS:
+@@ -622,16 +620,16 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 			break;
+ 		case XDP_TX:
+ 			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, data)))
+-				trace_xdp_exception(vi->dev, xdp_prog, act);
++				trace_xdp_hook_exception(vi->dev, last_hook, act);
+ 			ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
+ 			if (unlikely(xdp_page != page))
+ 				goto err_xdp;
+ 			rcu_read_unlock();
+ 			goto xdp_xmit;
+ 		default:
+-			bpf_warn_invalid_xdp_action(act);
++			xdp_warn_invalid_action(act);
+ 		case XDP_ABORTED:
+-			trace_xdp_exception(vi->dev, xdp_prog, act);
++			trace_xdp_hook_exception(vi->dev, last_hook, act);
+ 		case XDP_DROP:
+ 			if (unlikely(xdp_page != page))
+ 				__free_pages(xdp_page, 0);
+@@ -1599,7 +1597,7 @@ static int virtnet_set_channels(struct net_device *dev,
+ 	 * also when XDP is loaded all RX queues have XDP programs so we only
+ 	 * need to check a single RX queue.
+ 	 */
+-	if (vi->rq[0].xdp_prog)
++	if (vi->xdp_enabled)
+ 		return -EINVAL;
+ 
+ 	get_online_cpus();
+@@ -1770,13 +1768,22 @@ static int virtnet_reset(struct virtnet_info *vi)
+ 	return ret;
+ }
+ 
+-static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
++static int virtnet_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
++{
++	if (prog && prog->xdp_adjust_head) {
++		netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++
++static int virtnet_xdp_init(struct net_device *dev, bool enable)
+ {
+ 	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-	struct bpf_prog *old_prog;
+ 	u16 oxdp_qp, xdp_qp = 0, curr_qp;
+-	int i, err;
++	int err;
+ 
+ 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+ 	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
+@@ -1797,7 +1804,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 	}
+ 
+ 	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
+-	if (prog)
++	if (enable)
+ 		xdp_qp = nr_cpu_ids;
+ 
+ 	/* XDP requires extra queues for XDP_TX */
+@@ -1807,12 +1814,6 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 		return -ENOMEM;
+ 	}
+ 
+-	if (prog) {
+-		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+-		if (IS_ERR(prog))
+-			return PTR_ERR(prog);
+-	}
+-
+ 	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
+ 	if (err) {
+ 		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
+@@ -1835,12 +1836,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 
+ 	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
+ 
+-	for (i = 0; i < vi->max_queue_pairs; i++) {
+-		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+-		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
+-		if (old_prog)
+-			bpf_prog_put(old_prog);
+-	}
++	vi->xdp_enabled = enable;
+ 
+ 	return 0;
+ 
+@@ -1855,31 +1851,18 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 	/* On queue set error we can unwind bpf ref count and user space can
+ 	 * retry this is most likely an allocation failure.
+ 	 */
+-	if (prog)
+-		bpf_prog_sub(prog, vi->max_queue_pairs - 1);
+ 	return err;
+ }
+ 
+-static bool virtnet_xdp_query(struct net_device *dev)
+-{
+-	struct virtnet_info *vi = netdev_priv(dev);
+-	int i;
+-
+-	for (i = 0; i < vi->max_queue_pairs; i++) {
+-		if (vi->rq[i].xdp_prog)
+-			return true;
+-	}
+-	return false;
+-}
+-
+ static int virtnet_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+ {
+ 	switch (xdp->command) {
+-	case XDP_SETUP_PROG:
+-		return virtnet_xdp_set(dev, xdp->prog);
+-	case XDP_QUERY_PROG:
+-		xdp->prog_attached = virtnet_xdp_query(dev);
+-		return 0;
++	case XDP_MODE_ON:
++		return virtnet_xdp_init(dev, true);
++	case XDP_MODE_OFF:
++		return virtnet_xdp_init(dev, false);
++	case XDP_CHECK_BPF_PROG:
++		return virtnet_xdp_check_bpf(dev, xdp->prog);
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -1960,17 +1943,11 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+ 
+ static void _free_receive_bufs(struct virtnet_info *vi)
+ {
+-	struct bpf_prog *old_prog;
+ 	int i;
+ 
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		while (vi->rq[i].pages)
+ 			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+-
+-		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
+-		RCU_INIT_POINTER(vi->rq[i].xdp_prog, NULL);
+-		if (old_prog)
+-			bpf_prog_put(old_prog);
+ 	}
+ }
+ 
+@@ -2283,7 +2260,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	/* Do we support "hardware" checksums? */
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
+ 		/* This opens up the world of extra features. */
+-		dev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_SG;
++		dev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_SG |
++				    NETIF_F_XDP;
+ 		if (csum)
+ 			dev->features |= NETIF_F_HW_CSUM | NETIF_F_SG;
+ 
 -- 
-Florian
+2.9.3
