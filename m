@@ -1,41 +1,49 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: Re: [PATCH net-next 7/7] openvswitch: Pack struct sw_flow_key.
-Date: Tue, 7 Feb 2017 21:31:33 -0800
-Message-ID: <AE943ACB-5F01-4B1A-8F59-4135D7942B85@ovn.org>
-References: <1486084206-109903-1-git-send-email-jarno@ovn.org> <1486084206-109903-7-git-send-email-jarno@ovn.org> <CAPWQB7GF8Zy8qskmKu5sNhj2q93pqwK_-Cd20Qm0yZRNvgbZqA@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Joe Stringer <joe@ovn.org>
+From: Denny Page <dennypage@me.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Tue, 07 Feb 2017 21:48:42 -0800
+Message-ID: <7A536474-7181-4C40-97C6-23F0D94FC90C@me.com>
+References: <20170207140144.GA11233@localhost>
+ <02874ECE860811409154E81DA85FBB5857D6DC87@ORSMSX115.amr.corp.intel.com>
+ <BBA8C11E-44DF-4693-957F-0354BEC75FC3@me.com>
+ <20170208052746.GA1779@localhost.localdomain>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Miroslav Lichvar <mlichvar@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Benc <jbenc@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33251 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932177AbdBHFbg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 00:31:36 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 194so14123177pgd.0
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 21:31:36 -0800 (PST)
-In-Reply-To: <CAPWQB7GF8Zy8qskmKu5sNhj2q93pqwK_-Cd20Qm0yZRNvgbZqA@mail.gmail.com>
+Received: from st11p06im-asmtp002.me.com ([17.172.125.150]:54945 "EHLO
+        st11p06im-asmtp002.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751567AbdBHFsq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 00:48:46 -0500
+Received: from process-dkim-sign-daemon.st11p06im-asmtp002.me.com by
+ st11p06im-asmtp002.me.com
+ (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
+ id <0OL100D00JOBM500@st11p06im-asmtp002.me.com> for netdev@vger.kernel.org;
+ Wed, 08 Feb 2017 05:48:45 +0000 (GMT)
+In-reply-to: <20170208052746.GA1779@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Feb 07, 2017, at 21:27, Richard Cochran <richardcochran@gmail.com> =
+wrote:
+>=20
+> On Tue, Feb 07, 2017 at 05:52:52PM -0800, Denny Page wrote:
+>> Most, but not all. The TI DP83630 doesn=E2=80=99t support =
+timestamping for all packets, but it does support either PTP or NTP:
+>=20
+> That is the one and only device that explicitly supports NTP. This is
+> a nice idea, of course, but it just did not take off among other
+> products.
 
-> On Feb 6, 2017, at 11:15 PM, Joe Stringer <joe@ovn.org> wrote:
-> 
-> On 2 February 2017 at 17:10, Jarno Rajahalme <jarno@ovn.org> wrote:
->> struct sw_flow_key has two 16-bit holes. Move the most matched
->> conntrack match fields there.  In some typical cases this reduces the
->> size of the key that needs to be hashed into half and into one cache
->> line.
->> 
->> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> 
-> Looks like this misses the zeroing in ovs_nla_get_flow_metadata();
-> might want to double-check for any other memset/copies of the key->ct
-> field.
+I have to say I haven=E2=80=99t gone looking for others, and will take =
+your word regarding the DP83630 being the one and only. I only learned =
+about the DP83630 because I have a couple of stratum 1 devices that use =
+this phy and have been working with the vendor regarding integration of =
+hardware timestamps for NTP.
 
-Good catch. Looked, there are no other places to change.
-
-Will rebase to current net-next and repost.
-
- Jarno
+Denny
