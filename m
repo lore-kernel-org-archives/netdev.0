@@ -1,53 +1,273 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: Re: [PATCH v2 net-next 1/9] sunvnet: make sunvnet common code
- dynamically loadable
-Date: Wed, 8 Feb 2017 13:50:27 -0800
-Message-ID: <ad857b9d-7f8b-cf65-5f1c-5d66b4cf60b9@oracle.com>
-References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
- <1486505582-76823-2-git-send-email-shannon.nelson@oracle.com>
- <20170208.142918.491209108288972402.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170208.142918.491209108288972402.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH 1/2] net: qcom/emac: add ethtool support for reading hardware registers
+Date: Wed,  8 Feb 2017 15:49:27 -0600
+Message-ID: <1486590568-31398-2-git-send-email-timur@codeaurora.org>
+References: <1486590568-31398-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:35952 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751418AbdBHVzs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 16:55:48 -0500
+In-Reply-To: <1486590568-31398-1-git-send-email-timur@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/8/2017 11:29 AM, David Miller wrote:
-> From: Shannon Nelson <shannon.nelson@oracle.com>
-> Date: Tue,  7 Feb 2017 14:12:54 -0800
->
->> +static int __init sunvnet_common_init(void)
->> +{
->> +	pr_info("%s\n", version);
->> +	return 0;
->> +}
->> +module_init(sunvnet_common_init);
->> +
->> +static void __exit sunvnet_common_exit(void)
->> +{
->> +	/* Empty function, just here to fill the exit function pointer
->> +	 * slot.  In some combinations of older gcc and newer kernel,
->> +	 * leaving this undefined results in the kernel marking it as a
->> +	 * permanent module; it will show up in lsmod output as [permanent]
->> +	 * and not be unloadable.
->> +	 */
->> +}
->> +module_exit(sunvnet_common_exit);
->> +
->
-> This module is just providing infrastructure for other modules.
->
-> So skip the init function, and that way you don't need the exit
-> function either.
->
-> The kernel log message when the real sunvnet driver loads is
-> sufficient, you don't need one here.
->
+Implement the get_regs_len and get_regs ethtool methods.  The driver
+returns the values of selected hardware registers.
 
-Sure - thanks,
-sln
+The make the register offsets known to emac_ethtool, the the register
+offset macros are all combined into one header file.  They were
+inexplicably and arbitrarily split between two files.
+
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-ethtool.c |  40 ++++++++
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c     |  52 -----------
+ drivers/net/ethernet/qualcomm/emac/emac.h         | 108 ++++++++++++++++------
+ 3 files changed, 119 insertions(+), 81 deletions(-)
+
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+index c418a6e..abb9df5 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+@@ -170,6 +170,43 @@ static int emac_set_pauseparam(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++/* Selected registers that might want to track during runtime. */
++static const u16 emac_regs[] = {
++	EMAC_DMA_MAS_CTRL,
++	EMAC_MAC_CTRL,
++	EMAC_TXQ_CTRL_0,
++	EMAC_RXQ_CTRL_0,
++	EMAC_DMA_CTRL,
++	EMAC_INT_MASK,
++	EMAC_AXI_MAST_CTRL,
++	EMAC_CORE_HW_VERSION,
++	EMAC_MISC_CTRL,
++};
++
++/* Every time emac_regs[] above is changed, increase this version number. */
++#define EMAC_REGS_VERSION	0
++
++#define EMAC_MAX_REG_SIZE	ARRAY_SIZE(emac_regs)
++
++static void emac_get_regs(struct net_device *netdev,
++			  struct ethtool_regs *regs, void *buff)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++	u32 *val = buff;
++	unsigned int i;
++
++	regs->version = EMAC_REGS_VERSION;
++	regs->len = EMAC_MAX_REG_SIZE * sizeof(u32);
++
++	for (i = 0; i < EMAC_MAX_REG_SIZE; i++)
++		val[i] = readl(adpt->base + emac_regs[i]);
++}
++
++static int emac_get_regs_len(struct net_device *netdev)
++{
++	return EMAC_MAX_REG_SIZE * sizeof(32);
++}
++
+ static const struct ethtool_ops emac_ethtool_ops = {
+ 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
+ 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+@@ -189,6 +226,9 @@ static int emac_set_pauseparam(struct net_device *netdev,
+ 	.nway_reset = emac_nway_reset,
+ 
+ 	.get_link = ethtool_op_get_link,
++
++	.get_regs_len    = emac_get_regs_len,
++	.get_regs        = emac_get_regs,
+ };
+ 
+ void emac_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+index 4b3e014..cc065ff 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+@@ -25,58 +25,6 @@
+ #include "emac.h"
+ #include "emac-sgmii.h"
+ 
+-/* EMAC base register offsets */
+-#define EMAC_MAC_CTRL			0x001480
+-#define EMAC_WOL_CTRL0			0x0014a0
+-#define EMAC_RSS_KEY0			0x0014b0
+-#define EMAC_H1TPD_BASE_ADDR_LO		0x0014e0
+-#define EMAC_H2TPD_BASE_ADDR_LO		0x0014e4
+-#define EMAC_H3TPD_BASE_ADDR_LO		0x0014e8
+-#define EMAC_INTER_SRAM_PART9		0x001534
+-#define EMAC_DESC_CTRL_0		0x001540
+-#define EMAC_DESC_CTRL_1		0x001544
+-#define EMAC_DESC_CTRL_2		0x001550
+-#define EMAC_DESC_CTRL_10		0x001554
+-#define EMAC_DESC_CTRL_12		0x001558
+-#define EMAC_DESC_CTRL_13		0x00155c
+-#define EMAC_DESC_CTRL_3		0x001560
+-#define EMAC_DESC_CTRL_4		0x001564
+-#define EMAC_DESC_CTRL_5		0x001568
+-#define EMAC_DESC_CTRL_14		0x00156c
+-#define EMAC_DESC_CTRL_15		0x001570
+-#define EMAC_DESC_CTRL_16		0x001574
+-#define EMAC_DESC_CTRL_6		0x001578
+-#define EMAC_DESC_CTRL_8		0x001580
+-#define EMAC_DESC_CTRL_9		0x001584
+-#define EMAC_DESC_CTRL_11		0x001588
+-#define EMAC_TXQ_CTRL_0			0x001590
+-#define EMAC_TXQ_CTRL_1			0x001594
+-#define EMAC_TXQ_CTRL_2			0x001598
+-#define EMAC_RXQ_CTRL_0			0x0015a0
+-#define EMAC_RXQ_CTRL_1			0x0015a4
+-#define EMAC_RXQ_CTRL_2			0x0015a8
+-#define EMAC_RXQ_CTRL_3			0x0015ac
+-#define EMAC_BASE_CPU_NUMBER		0x0015b8
+-#define EMAC_DMA_CTRL			0x0015c0
+-#define EMAC_MAILBOX_0			0x0015e0
+-#define EMAC_MAILBOX_5			0x0015e4
+-#define EMAC_MAILBOX_6			0x0015e8
+-#define EMAC_MAILBOX_13			0x0015ec
+-#define EMAC_MAILBOX_2			0x0015f4
+-#define EMAC_MAILBOX_3			0x0015f8
+-#define EMAC_MAILBOX_11			0x00160c
+-#define EMAC_AXI_MAST_CTRL		0x001610
+-#define EMAC_MAILBOX_12			0x001614
+-#define EMAC_MAILBOX_9			0x001618
+-#define EMAC_MAILBOX_10			0x00161c
+-#define EMAC_ATHR_HEADER_CTRL		0x001620
+-#define EMAC_CLK_GATE_CTRL		0x001814
+-#define EMAC_MISC_CTRL			0x001990
+-#define EMAC_MAILBOX_7			0x0019e0
+-#define EMAC_MAILBOX_8			0x0019e4
+-#define EMAC_MAILBOX_15			0x001bd4
+-#define EMAC_MAILBOX_16			0x001bd8
+-
+ /* EMAC_MAC_CTRL */
+ #define SINGLE_PAUSE_MODE       	0x10000000
+ #define DEBUG_MODE                      0x08000000
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
+index e77fb69..8ee4ec6 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.h
++++ b/drivers/net/ethernet/qualcomm/emac/emac.h
+@@ -22,35 +22,85 @@
+ #include "emac-sgmii.h"
+ 
+ /* EMAC base register offsets */
+-#define EMAC_DMA_MAS_CTRL                                     0x001400
+-#define EMAC_IRQ_MOD_TIM_INIT                                 0x001408
+-#define EMAC_BLK_IDLE_STS                                     0x00140c
+-#define EMAC_PHY_LINK_DELAY                                   0x00141c
+-#define EMAC_SYS_ALIV_CTRL                                    0x001434
+-#define EMAC_MAC_IPGIFG_CTRL                                  0x001484
+-#define EMAC_MAC_STA_ADDR0                                    0x001488
+-#define EMAC_MAC_STA_ADDR1                                    0x00148c
+-#define EMAC_HASH_TAB_REG0                                    0x001490
+-#define EMAC_HASH_TAB_REG1                                    0x001494
+-#define EMAC_MAC_HALF_DPLX_CTRL                               0x001498
+-#define EMAC_MAX_FRAM_LEN_CTRL                                0x00149c
+-#define EMAC_INT_STATUS                                       0x001600
+-#define EMAC_INT_MASK                                         0x001604
+-#define EMAC_RXMAC_STATC_REG0                                 0x001700
+-#define EMAC_RXMAC_STATC_REG22                                0x001758
+-#define EMAC_TXMAC_STATC_REG0                                 0x001760
+-#define EMAC_TXMAC_STATC_REG24                                0x0017c0
+-#define EMAC_CORE_HW_VERSION                                  0x001974
+-#define EMAC_IDT_TABLE0                                       0x001b00
+-#define EMAC_RXMAC_STATC_REG23                                0x001bc8
+-#define EMAC_RXMAC_STATC_REG24                                0x001bcc
+-#define EMAC_TXMAC_STATC_REG25                                0x001bd0
+-#define EMAC_INT1_MASK                                        0x001bf0
+-#define EMAC_INT1_STATUS                                      0x001bf4
+-#define EMAC_INT2_MASK                                        0x001bf8
+-#define EMAC_INT2_STATUS                                      0x001bfc
+-#define EMAC_INT3_MASK                                        0x001c00
+-#define EMAC_INT3_STATUS                                      0x001c04
++#define EMAC_DMA_MAS_CTRL		0x1400
++#define EMAC_IRQ_MOD_TIM_INIT		0x1408
++#define EMAC_BLK_IDLE_STS		0x140c
++#define EMAC_PHY_LINK_DELAY		0x141c
++#define EMAC_SYS_ALIV_CTRL		0x1434
++#define EMAC_MAC_CTRL			0x1480
++#define EMAC_MAC_IPGIFG_CTRL		0x1484
++#define EMAC_MAC_STA_ADDR0		0x1488
++#define EMAC_MAC_STA_ADDR1		0x148c
++#define EMAC_HASH_TAB_REG0		0x1490
++#define EMAC_HASH_TAB_REG1		0x1494
++#define EMAC_MAC_HALF_DPLX_CTRL		0x1498
++#define EMAC_MAX_FRAM_LEN_CTRL		0x149c
++#define EMAC_WOL_CTRL0			0x14a0
++#define EMAC_RSS_KEY0			0x14b0
++#define EMAC_H1TPD_BASE_ADDR_LO		0x14e0
++#define EMAC_H2TPD_BASE_ADDR_LO		0x14e4
++#define EMAC_H3TPD_BASE_ADDR_LO		0x14e8
++#define EMAC_INTER_SRAM_PART9		0x1534
++#define EMAC_DESC_CTRL_0		0x1540
++#define EMAC_DESC_CTRL_1		0x1544
++#define EMAC_DESC_CTRL_2		0x1550
++#define EMAC_DESC_CTRL_10		0x1554
++#define EMAC_DESC_CTRL_12		0x1558
++#define EMAC_DESC_CTRL_13		0x155c
++#define EMAC_DESC_CTRL_3		0x1560
++#define EMAC_DESC_CTRL_4		0x1564
++#define EMAC_DESC_CTRL_5		0x1568
++#define EMAC_DESC_CTRL_14		0x156c
++#define EMAC_DESC_CTRL_15		0x1570
++#define EMAC_DESC_CTRL_16		0x1574
++#define EMAC_DESC_CTRL_6		0x1578
++#define EMAC_DESC_CTRL_8		0x1580
++#define EMAC_DESC_CTRL_9		0x1584
++#define EMAC_DESC_CTRL_11		0x1588
++#define EMAC_TXQ_CTRL_0			0x1590
++#define EMAC_TXQ_CTRL_1			0x1594
++#define EMAC_TXQ_CTRL_2			0x1598
++#define EMAC_RXQ_CTRL_0			0x15a0
++#define EMAC_RXQ_CTRL_1			0x15a4
++#define EMAC_RXQ_CTRL_2			0x15a8
++#define EMAC_RXQ_CTRL_3			0x15ac
++#define EMAC_BASE_CPU_NUMBER		0x15b8
++#define EMAC_DMA_CTRL			0x15c0
++#define EMAC_MAILBOX_0			0x15e0
++#define EMAC_MAILBOX_5			0x15e4
++#define EMAC_MAILBOX_6			0x15e8
++#define EMAC_MAILBOX_13			0x15ec
++#define EMAC_MAILBOX_2			0x15f4
++#define EMAC_MAILBOX_3			0x15f8
++#define EMAC_INT_STATUS			0x1600
++#define EMAC_INT_MASK			0x1604
++#define EMAC_MAILBOX_11			0x160c
++#define EMAC_AXI_MAST_CTRL		0x1610
++#define EMAC_MAILBOX_12			0x1614
++#define EMAC_MAILBOX_9			0x1618
++#define EMAC_MAILBOX_10			0x161c
++#define EMAC_ATHR_HEADER_CTRL		0x1620
++#define EMAC_RXMAC_STATC_REG0		0x1700
++#define EMAC_RXMAC_STATC_REG22		0x1758
++#define EMAC_TXMAC_STATC_REG0		0x1760
++#define EMAC_TXMAC_STATC_REG24		0x17c0
++#define EMAC_CLK_GATE_CTRL		0x1814
++#define EMAC_CORE_HW_VERSION		0x1974
++#define EMAC_MISC_CTRL			0x1990
++#define EMAC_MAILBOX_7			0x19e0
++#define EMAC_MAILBOX_8			0x19e4
++#define EMAC_IDT_TABLE0			0x1b00
++#define EMAC_RXMAC_STATC_REG23		0x1bc8
++#define EMAC_RXMAC_STATC_REG24		0x1bcc
++#define EMAC_TXMAC_STATC_REG25		0x1bd0
++#define EMAC_MAILBOX_15			0x1bd4
++#define EMAC_MAILBOX_16			0x1bd8
++#define EMAC_INT1_MASK			0x1bf0
++#define EMAC_INT1_STATUS		0x1bf4
++#define EMAC_INT2_MASK			0x1bf8
++#define EMAC_INT2_STATUS		0x1bfc
++#define EMAC_INT3_MASK			0x1c00
++#define EMAC_INT3_STATUS		0x1c04
+ 
+ /* EMAC_DMA_MAS_CTRL */
+ #define DEV_ID_NUM_BMSK                                     0x7f000000
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
