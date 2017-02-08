@@ -1,36 +1,67 @@
-From: "pupilla@libero.it" <pupilla@libero.it>
-Subject: ip route add give rtnetlink message after update from 4.9.6 to
- 4.9.8
-Date: Wed, 8 Feb 2017 11:17:48 +0100 (CET)
-Message-ID: <224940468.86611486549068694.JavaMail.httpd@webmail-37.iol.local>
-Reply-To: "pupilla@libero.it" <pupilla@libero.it>
+From: Ross Lagerwall <ross.lagerwall@citrix.com>
+Subject: Re: [PATCH v2] xen-netfront: Improve error handling
+ during initialization
+Date: Wed, 8 Feb 2017 10:32:59 +0000
+Message-ID: <19a75074-5826-d905-f818-25dfe18875bd@citrix.com>
+References: <1486479312-18424-1-git-send-email-ross.lagerwall@citrix.com>
+ <7c5ef464-59c7-e99f-7d79-3ecad6dfd6c3@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-16.italiaonline.it ([212.48.25.144]:38828 "EHLO libero.it"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753940AbdBHKXE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 05:23:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Juergen Gross <jgross@suse.com>, netdev@vger.kernel.org,
+ wei.liu2@citrix.com, linux-kernel@vger.kernel.org
+To: Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+ <xen-devel@lists.xenproject.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <7c5ef464-59c7-e99f-7d79-3ecad6dfd6c3@oracle.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Folks,
-
-After kernel update from 4.9.6 to 4.9.8, I get the below error
-message when I run this command:
-
-root@Typhoon:~# ip route add default table 210 nexthop dev eth0 via 10.68.64.1 
-weight 1 nexthop dev eth0 via 10.68.64.2 weight 1
-RTNETLINK answers: Operation not supported
-root@Typhoon:~# uname -a
-Linux Typhoon 4.9.8 #1 SMP Tue Feb 7 17:14:54 CET 2017 x86_64 Intel(R) Core
-(TM) i5-2520M CPU @ 2.50GHz GenuineIntel GNU/Linux
-
-Is this the expected behaviour?
-
-Any response are welcome
-TIA
-
-Marco
+T24gMDIvMDcvMjAxNyAxMTozMyBQTSwgQm9yaXMgT3N0cm92c2t5IHdyb3RlOgo+IE9uIDAyLzA3
+LzIwMTcgMDk6NTUgQU0sIFJvc3MgTGFnZXJ3YWxsIHdyb3RlOgo+PiBUaGlzIGZpeGVzIGEgY3Jh
+c2ggd2hlbiBydW5uaW5nIG91dCBvZiBncmFudCByZWZzIHdoZW4gY3JlYXRpbmcgbWFueQo+PiBx
+dWV1ZXMgYWNyb3NzIG1hbnkgbmV0ZGV2cy4KPj4KPj4gKiBJZiBjcmVhdGluZyBxdWV1ZXMgZmFp
+bHMgKGkuZS4gdGhlcmUgYXJlIG5vIGdyYW50IHJlZnMgYXZhaWxhYmxlKSwKPj4gY2FsbCB4ZW5i
+dXNfZGV2X2ZhdGFsKCkgdG8gZW5zdXJlIHRoYXQgdGhlIHhlbmJ1cyBkZXZpY2UgaXMgc2V0IHRv
+IHRoZQo+PiBjbG9zZWQgc3RhdGUuCj4+ICogSWYgbm8gcXVldWVzIGFyZSBjcmVhdGVkLCBkb24n
+dCBjYWxsIHhlbm5ldF9kaXNjb25uZWN0X2JhY2tlbmQgYXMKPj4gbmV0ZGV2LT5yZWFsX251bV90
+eF9xdWV1ZXMgd2lsbCBub3QgaGF2ZSBiZWVuIHNldCBjb3JyZWN0bHkuCj4+ICogSWYgc2V0dXBf
+bmV0ZnJvbnQoKSBmYWlscywgZW5zdXJlIHRoYXQgYWxsIHRoZSBxdWV1ZXMgY3JlYXRlZCBhcmUK
+Pj4gY2xlYW5lZCB1cCwgbm90IGp1c3QgdGhvc2UgdGhhdCBoYXZlIGJlZW4gc2V0IHVwLgo+PiAq
+IElmIGFueSBxdWV1ZXMgd2VyZSBzZXQgdXAgYW5kIGFuIGVycm9yIG9jY3VycywgY2FsbAo+PiB4
+ZW5uZXRfZGVzdHJveV9xdWV1ZXMoKSB0byBjbGVhbiB1cCB0aGUgbmFwaSBjb250ZXh0Lgo+PiAq
+IElmIGFueSBmYXRhbCBlcnJvciBvY2N1cnMsIHVucmVnaXN0ZXIgYW5kIGRlc3Ryb3kgdGhlIG5l
+dGRldiB0byBhdm9pZAo+PiBsZWF2aW5nIGFyb3VuZCBhIGhhbGYgc2V0dXAgbmV0d29yayBkZXZp
+Y2UuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFJvc3MgTGFnZXJ3YWxsIDxyb3NzLmxhZ2Vyd2FsbEBj
+aXRyaXguY29tPgo+PiAtLS0KPj4KPj4gQ2hhbmdlZCBpbiBWMjoKPj4gKiBSZXRlc3RlZCBvbiB0
+b3Agb2YgdjQuMTAtcmM3ICsgInhlbi1uZXRmcm9udDogRGVsZXRlIHJ4X3JlZmlsbF90aW1lcgo+
+PiAgIGluIHhlbm5ldF9kaXNjb25uZWN0X2JhY2tlbmQoKSIuCj4+ICogRG9uJ3QgbW92ZSBzZXR1
+cF90aW1lciBhcyBpdCBpcyBub3QgbmVjZXNzYXJ5Lgo+Pgo+PiAgZHJpdmVycy9uZXQveGVuLW5l
+dGZyb250LmMgfCAzMyArKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0KPj4gIDEgZmls
+ZSBjaGFuZ2VkLCAxNSBpbnNlcnRpb25zKCspLCAxOCBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRmcm9udC5jIGIvZHJpdmVycy9uZXQveGVuLW5ldGZy
+b250LmMKPj4gaW5kZXggNzIyZmU5Zi4uNTM5OWE4NiAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9u
+ZXQveGVuLW5ldGZyb250LmMKPj4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMKPj4g
+QEAgLTE4MjMsMjcgKzE4MjMsMjMgQEAgc3RhdGljIGludCB0YWxrX3RvX25ldGJhY2soc3RydWN0
+IHhlbmJ1c19kZXZpY2UgKmRldiwKPj4gIAkJeGVubmV0X2Rlc3Ryb3lfcXVldWVzKGluZm8pOwo+
+Pgo+PiAgCWVyciA9IHhlbm5ldF9jcmVhdGVfcXVldWVzKGluZm8sICZudW1fcXVldWVzKTsKPj4g
+LQlpZiAoZXJyIDwgMCkKPj4gLQkJZ290byBkZXN0cm95X3Jpbmc7Cj4+ICsJaWYgKGVyciA8IDAp
+IHsKPj4gKwkJeGVuYnVzX2Rldl9mYXRhbChkZXYsIGVyciwgImNyZWF0aW5nIHF1ZXVlcyIpOwo+
+PiArCQlpZiAobnVtX3F1ZXVlcyA+IDApIHsKPj4gKwkJCWdvdG8gZGVzdHJveV9yaW5nOwo+Cj4g
+VGhlIG9ubHkgd2F5IGZvciB1cyB0byBoYXZlIChlcnI8MCkgJiYgKG51bV9xdWV1ZXM+MCkgaXMg
+d2hlbiB3ZSBnZXQgYQo+IC1FTk9NRU0gcmlnaHQgYXQgdGhlIHRvcCwgaXNuJ3QgaXQ/IFNvIHRo
+ZXJlIGlzIG5vdGhpbmcgdG8gZGlzY29ubmVjdCBvcgo+IGRlc3Ryb3ksIGl0IHNlZW1zIHRvIG1l
+LiBBbmQgaWYgdGhhdCdzIHRydWUgeW91IGNhbiBkaXJlY3RseSAnZ290byBvdXQnLgo+CgpZb3Un
+cmUgcmlnaHQsIGFsdGhvdWdoIHRoYXQgbWlnaHQgbWFrZSBpdCBhIGJpdCBtb3JlIGZyYWdpbGUg
+aWYgCnNvbWV0aGluZyBpbiB4ZW5uZXRfY3JlYXRlX3F1ZXVlcygpIGNoYW5nZXMgaW4gdGhlIGZ1
+dHVyZS4gTmV2ZXJ0aGVsZXNzLCAKSSdsbCB1cGRhdGUgdGhlIHBhdGNoLgoKLS0gClJvc3MgTGFn
+ZXJ3YWxsCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpY
+ZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlz
+dHMueGVuLm9yZy94ZW4tZGV2ZWwK
