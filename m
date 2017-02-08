@@ -1,41 +1,88 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH net-next v3 04/11] bpf: Use bpf_load_program() from the
- library
-Date: Wed, 8 Feb 2017 17:41:10 -0200
-Message-ID: <20170208194110.GB2162@redhat.com>
-References: <20170207214500.27496-1-mic@digikod.net>
- <20170207214500.27496-5-mic@digikod.net>
- <589A5597.7090107@fb.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: use-after-free in tw_timer_handler
+Date: Wed, 8 Feb 2017 20:32:37 +0100
+Message-ID: <CACT4Y+aagYbMz=3w4zrXaZYJXn65LxZRd7ud1nje9SfS39d+eQ@mail.gmail.com>
+References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
+ <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
+ <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
+ <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
+ <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
+ <1486576716.7793.84.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+ZqSi_v+ie5MCRggJSZeKQgWqGPKrsRRyaE_GVAfkgLjA@mail.gmail.com> <1486581462.7793.86.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
-        linux-kernel@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Shuah Khan <shuah@kernel.org>
-To: Alexei Starovoitov <ast@fb.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53130 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751498AbdBHTl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 14:41:29 -0500
-Content-Disposition: inline
-In-Reply-To: <589A5597.7090107@fb.com>
+Received: from mail-vk0-f51.google.com ([209.85.213.51]:35583 "EHLO
+        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751495AbdBHTl2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:41:28 -0500
+Received: by mail-vk0-f51.google.com with SMTP id x75so108521972vke.2
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 11:41:28 -0800 (PST)
+In-Reply-To: <1486581462.7793.86.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Feb 07, 2017 at 03:17:43PM -0800, Alexei Starovoitov escreveu:
-> On 2/7/17 1:44 PM, Mickaël Salaün wrote:
-> >-	union bpf_attr attr;
-> >+	union bpf_attr attr = {};
-> >
-> >-	bzero(&attr, sizeof(attr));
- 
-> I think somebody mentioned that there are compilers out there
-> that don't do it correctly, hence it was done with explicit bzero.
-> Arnaldo, Wang, do you remember the details?
+On Wed, Feb 8, 2017 at 8:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-02-08 at 19:55 +0100, Dmitry Vyukov wrote:
+>> On Wed, Feb 8, 2017 at 6:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Wed, 2017-02-08 at 18:36 +0100, Dmitry Vyukov wrote:
+>> >> On Tue, Jan 24, 2017 at 4:52 PM, Eric Dumazet <edumazet@google.com> wrote:
+>> >> > On Tue, Jan 24, 2017 at 7:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> >> >>>
+>> >> >>> This code was changed a long time ago :
+>> >> >>>
+>> >> >>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
+>> >> >>>
+>> >> >>> So I suspect a recent patch broke the logic.
+>> >> >>>
+>> >> >>> You might start a bisection :
+>> >> >>>
+>> >> >>> I would check if 4.7 and 4.8 trigger the issue you noticed.
+>> >> >>
+>> >> >>
+>> >> >> It happens with too low rate for bisecting (few times per day). I
+>> >> >> could add some additional checks into code, but I don't know what
+>> >> >> checks could be useful.
+>> >> >
+>> >> > If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
+>> >> > we are able to help.
+>> >>
+>> >>
+>> >> There are also chances that the problem is older.
+>> >>
+>> >> Looking at the code, this part of inet_twsk_purge looks fishy:
+>> >>
+>> >> 285                         if (unlikely((tw->tw_family != family) ||
+>> >> 286                                      atomic_read(&twsk_net(tw)->count))) {
+>> >>
+>> >> It uses net->count == 0 check to find the right sockets. But what if
+>> >> there are several nets with count == 0 in flight, can't there be
+>> >> several inet_twsk_purge calls running concurrently freeing each other
+>> >> sockets? If so it looks like inet_twsk_purge can call
+>> >> inet_twsk_deschedule_put twice for a socket. Namely, two calls for
+>> >> different nets discover the socket, check that net->count==0 and both
+>> >> call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
+>> >> net that it needs to purge?
+>> >
+>> > Yes, atomic_read() is not a proper sync point.
+>>
+>> Do you mean that it does not include read barrier?
+>> I more mean that we can call inet_twsk_deschedule_put twice for the same socket.
+>
+> I meant that this code assumed RTNL being held.
+>
+> This might not be the case now, after some old change.
 
-Yeah, lemme dig it...
 
-- Arnaldo
+cleanup_net releases rtnl lock right before calling these callbacks.
