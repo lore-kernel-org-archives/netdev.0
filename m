@@ -1,9 +1,9 @@
 From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 06/19] mlx5: Replace PCI pool old API
-Date: Wed, 8 Feb 2017 19:26:33 +0100
-Message-ID: <20170208182633.GF16878@collabora.com>
+Subject: Re: [RFC 08/19] scsi: be2iscsi: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:28:39 +0100
+Message-ID: <20170208182839.GH16878@collabora.com>
 References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-7-romain.perier@collabora.com>
+ <20170208163457.28853-9-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams@intel.com>,
@@ -23,87 +23,93 @@ Cc: Dan Williams <dan.j.williams@intel.com>,
 To: Romain Perier <romain.perier@collabora.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-7-romain.perier@collabora.com>
+In-Reply-To: <20170208163457.28853-9-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2017 at 05:34:44PM +0100, Romain Perier wrote:
+On Wed, Feb 08, 2017 at 05:34:46PM +0100, Romain Perier wrote:
 > The PCI pool API is deprecated. This commits replaces the PCI pool old
 > API by the appropriated function with the DMA pool API.
-
-
-
 > 
+Tested by compilation only.
+
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 > Signed-off-by: Romain Perier <romain.perier@collabora.com>
 > ---
->  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 10 +++++-----
->  include/linux/mlx5/driver.h                   |  2 +-
->  2 files changed, 6 insertions(+), 6 deletions(-)
+>  drivers/scsi/be2iscsi/be_iscsi.c | 6 +++---
+>  drivers/scsi/be2iscsi/be_main.c  | 6 +++---
+>  drivers/scsi/be2iscsi/be_main.h  | 2 +-
+>  3 files changed, 7 insertions(+), 7 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> index caa837e..7885e2b 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> @@ -1061,7 +1061,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
->  	if (!mailbox)
->  		return ERR_PTR(-ENOMEM);
+> diff --git a/drivers/scsi/be2iscsi/be_iscsi.c b/drivers/scsi/be2iscsi/be_iscsi.c
+> index a484457..d76ef77 100644
+> --- a/drivers/scsi/be2iscsi/be_iscsi.c
+> +++ b/drivers/scsi/be2iscsi/be_iscsi.c
+> @@ -87,8 +87,8 @@ struct iscsi_cls_session *beiscsi_session_create(struct iscsi_endpoint *ep,
+>  		return NULL;
+>  	sess = cls_session->dd_data;
+>  	beiscsi_sess = sess->dd_data;
+> -	beiscsi_sess->bhs_pool =  pci_pool_create("beiscsi_bhs_pool",
+> -						   phba->pcidev,
+> +	beiscsi_sess->bhs_pool =  dma_pool_create("beiscsi_bhs_pool",
+> +						   &phba->pcidev->dev,
+>  						   sizeof(struct be_cmd_bhs),
+>  						   64, 0);
+>  	if (!beiscsi_sess->bhs_pool)
+> @@ -113,7 +113,7 @@ void beiscsi_session_destroy(struct iscsi_cls_session *cls_session)
+>  	struct beiscsi_session *beiscsi_sess = sess->dd_data;
 >  
-> -	mailbox->buf = pci_pool_zalloc(dev->cmd.pool, flags,
-> +	mailbox->buf = dma_pool_zalloc(dev->cmd.pool, flags,
->  				       &mailbox->dma);
->  	if (!mailbox->buf) {
->  		mlx5_core_dbg(dev, "failed allocation\n");
-> @@ -1076,7 +1076,7 @@ static struct mlx5_cmd_mailbox *alloc_cmd_box(struct mlx5_core_dev *dev,
->  static void free_cmd_box(struct mlx5_core_dev *dev,
->  			 struct mlx5_cmd_mailbox *mailbox)
->  {
-> -	pci_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
-> +	dma_pool_free(dev->cmd.pool, mailbox->buf, mailbox->dma);
->  	kfree(mailbox);
+>  	printk(KERN_INFO "In beiscsi_session_destroy\n");
+> -	pci_pool_destroy(beiscsi_sess->bhs_pool);
+> +	dma_pool_destroy(beiscsi_sess->bhs_pool);
+>  	iscsi_session_teardown(cls_session);
 >  }
 >  
-> @@ -1696,7 +1696,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
->  		return -EINVAL;
->  	}
+> diff --git a/drivers/scsi/be2iscsi/be_main.c b/drivers/scsi/be2iscsi/be_main.c
+> index 32b2713..dd43480 100644
+> --- a/drivers/scsi/be2iscsi/be_main.c
+> +++ b/drivers/scsi/be2iscsi/be_main.c
+> @@ -4307,7 +4307,7 @@ static void beiscsi_cleanup_task(struct iscsi_task *task)
+>  	pwrb_context = &phwi_ctrlr->wrb_context[cri_index];
 >  
-> -	cmd->pool = pci_pool_create("mlx5_cmd", dev->pdev, size, align, 0);
-> +	cmd->pool = dma_pool_create("mlx5_cmd", &dev->pdev->dev, size, align, 0);
-This introduces line over 80 characters warning. Please fix and
-resubmit. Other than that, looks good. I tested by compiling it.
-
->  	if (!cmd->pool)
+>  	if (io_task->cmd_bhs) {
+> -		pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+> +		dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+>  			      io_task->bhs_pa.u.a64.address);
+>  		io_task->cmd_bhs = NULL;
+>  		task->hdr = NULL;
+> @@ -4424,7 +4424,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+>  	struct beiscsi_session *beiscsi_sess = beiscsi_conn->beiscsi_sess;
+>  	dma_addr_t paddr;
+>  
+> -	io_task->cmd_bhs = pci_pool_alloc(beiscsi_sess->bhs_pool,
+> +	io_task->cmd_bhs = dma_pool_alloc(beiscsi_sess->bhs_pool,
+>  					  GFP_ATOMIC, &paddr);
+>  	if (!io_task->cmd_bhs)
 >  		return -ENOMEM;
+> @@ -4551,7 +4551,7 @@ static int beiscsi_alloc_pdu(struct iscsi_task *task, uint8_t opcode)
+>  	if (io_task->pwrb_handle)
+>  		free_wrb_handle(phba, pwrb_context, io_task->pwrb_handle);
+>  	io_task->pwrb_handle = NULL;
+> -	pci_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+> +	dma_pool_free(beiscsi_sess->bhs_pool, io_task->cmd_bhs,
+>  		      io_task->bhs_pa.u.a64.address);
+>  	io_task->cmd_bhs = NULL;
+>  	return -ENOMEM;
+> diff --git a/drivers/scsi/be2iscsi/be_main.h b/drivers/scsi/be2iscsi/be_main.h
+> index 2188579..cf58d31 100644
+> --- a/drivers/scsi/be2iscsi/be_main.h
+> +++ b/drivers/scsi/be2iscsi/be_main.h
+> @@ -446,7 +446,7 @@ struct beiscsi_hba {
+>  	 test_bit(BEISCSI_HBA_ONLINE, &phba->state))
 >  
-> @@ -1786,7 +1786,7 @@ int mlx5_cmd_init(struct mlx5_core_dev *dev)
->  	free_cmd_page(dev, cmd);
+>  struct beiscsi_session {
+> -	struct pci_pool *bhs_pool;
+> +	struct dma_pool *bhs_pool;
+>  };
 >  
->  err_free_pool:
-> -	pci_pool_destroy(cmd->pool);
-> +	dma_pool_destroy(cmd->pool);
->  
->  	return err;
->  }
-> @@ -1800,6 +1800,6 @@ void mlx5_cmd_cleanup(struct mlx5_core_dev *dev)
->  	destroy_workqueue(cmd->wq);
->  	destroy_msg_cache(dev);
->  	free_cmd_page(dev, cmd);
-> -	pci_pool_destroy(cmd->pool);
-> +	dma_pool_destroy(cmd->pool);
->  }
->  EXPORT_SYMBOL(mlx5_cmd_cleanup);
-> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-> index 2fcff6b..13a267c 100644
-> --- a/include/linux/mlx5/driver.h
-> +++ b/include/linux/mlx5/driver.h
-> @@ -284,7 +284,7 @@ struct mlx5_cmd {
->  	struct semaphore pages_sem;
->  	int	mode;
->  	struct mlx5_cmd_work_ent *ent_arr[MLX5_MAX_COMMANDS];
-> -	struct pci_pool *pool;
-> +	struct dma_pool *pool;
->  	struct mlx5_cmd_debug dbg;
->  	struct cmd_msg_cache cache[MLX5_NUM_COMMAND_CACHES];
->  	int checksum_disabled;
+>  /**
 > -- 
 > 2.9.3
 > 
