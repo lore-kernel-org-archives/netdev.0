@@ -1,110 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2 3/3] net: phy: Fix PHY driver bind and unbind events
-Date: Tue,  7 Feb 2017 23:37:46 -0800
-Message-ID: <20170208073746.10963-4-f.fainelli@gmail.com>
-References: <20170208073746.10963-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
-        maowenan@huawei.com, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f193.google.com ([74.125.82.193]:33934 "EHLO
-        mail-ot0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932143AbdBHHja (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:39:30 -0500
-Received: by mail-ot0-f193.google.com with SMTP id 73so17118959otj.1
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 23:37:53 -0800 (PST)
-In-Reply-To: <20170208073746.10963-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 1/2] mac80211: fils_aead: Use crypto api CMAC shash
+ rather than bare cipher
+Date: Wed, 8 Feb 2017 07:45:51 +0000
+Message-ID: <CAKv+Gu9Be-bA-Trn5cMwVvf4+yMm8w2Krm59WGAhdM3bxBSJfw@mail.gmail.com>
+References: <1486378168-31028-1-git-send-email-ard.biesheuvel@linaro.org>
+ <1486378168-31028-2-git-send-email-ard.biesheuvel@linaro.org> <1486537227.4603.2.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Jouni Malinen <jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1486537227.4603.2.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The PHY library does not deal very well with bind and unbind events. The first
-thing we would see is that we were not properly canceling the PHY state machine
-workqueue, so we would be crashing while dereferencing phydev->drv since there
-is no driver attached anymore.
+On 8 February 2017 at 07:00, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> This looks strange to me:
+>
+>> +static int aes_s2v(struct crypto_shash *tfm,
+>>                  size_t num_elem, const u8 *addr[], size_t len[],
+>> u8 *v)
+>>  {
+>> -     u8 d[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE];
+>> +     u8 d[AES_BLOCK_SIZE], tmp[AES_BLOCK_SIZE] = {};
+>> +     SHASH_DESC_ON_STACK(desc, tfm);
+>
+> desc declared
+>
+>>
+>> +     crypto_shash_digest(desc, tmp, AES_BLOCK_SIZE, d);
+>
+> used here
+>
 
-Once we fix that, there are several things that did not quite work as expected:
+Each digest() call combines a init()/update()/final() sequence
 
-- if the PHY state machine was running, we were not stopping it properly, and
-  the state machine state would not be marked as such
-- when we rebind the driver, nothing would happen, since we would not know which
-  state we were before the unbind
+>> +     crypto_shash_init(desc);
+>
+> but initialized now?
+>
 
-This patch takes the following approach:
+... for the 6th time, or so. The final vector may require two
+update()s, so we cannot use digest() here. But we can use finup() for
+the last one, which combines update() and final().
 
-- if the PHY was attached, and the state machine was running we would stop it,
-  remember where we left, and schedule the state machine for restart upong
-  driver bind
-- if the PHY was attached, but HALTED, we would let it in that state, and do not
-  alter the state upon driver bind
-- in all other cases (detached) we would keep the PHY in DOWN state waiting for
-  a network driver to show up, and set PHY_READY on driver bind
+Hence,
 
-Suggested-by: Russell King <rmk+kernel@armlinux.org.uk>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy_device.c | 27 +++++++++++++++++++++++++--
- 1 file changed, 25 insertions(+), 2 deletions(-)
+init()/finup()
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index bde240bf8d7b..5314e764a387 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1711,6 +1711,7 @@ static int phy_probe(struct device *dev)
- 	struct phy_device *phydev = to_phy_device(dev);
- 	struct device_driver *drv = phydev->mdio.dev.driver;
- 	struct phy_driver *phydrv = to_phy_driver(drv);
-+	bool should_start = false;
- 	int err = 0;
- 
- 	phydev->drv = phydrv;
-@@ -1760,24 +1761,46 @@ static int phy_probe(struct device *dev)
- 	}
- 
- 	/* Set the state to READY by default */
--	phydev->state = PHY_READY;
-+	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
-+		should_start = true;
-+	else
-+		phydev->state = PHY_READY;
- 
- 	if (phydev->drv->probe)
- 		err = phydev->drv->probe(phydev);
- 
- 	mutex_unlock(&phydev->lock);
- 
-+	if (should_start)
-+		phy_start(phydev);
-+
- 	return err;
- }
- 
- static int phy_remove(struct device *dev)
- {
- 	struct phy_device *phydev = to_phy_device(dev);
-+	bool should_stop = false;
-+	enum phy_state state;
-+
-+	cancel_delayed_work_sync(&phydev->state_queue);
- 
- 	mutex_lock(&phydev->lock);
--	phydev->state = PHY_DOWN;
-+	state = phydev->state;
-+	if (state > PHY_UP && state != PHY_HALTED)
-+		should_stop = true;
-+	else
-+		phydev->state = PHY_DOWN;
- 	mutex_unlock(&phydev->lock);
- 
-+	/* phy_stop() sets the state to HALTED, undo that for the ->probe() function
-+	 * to have a chance to resume where we left
-+	 */
-+	if (should_stop) {
-+		phy_stop(phydev);
-+		phydev->state = state;
-+	}
-+
- 	if (phydev->drv->remove)
- 		phydev->drv->remove(phydev);
- 	phydev->drv = NULL;
--- 
-2.9.3
+or
+
+init()/update()/finup()
+
+depending on the length of the last vector.
