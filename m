@@ -1,76 +1,177 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2 1/3] net: phy: Fix PHY module checks
-Date: Tue,  7 Feb 2017 23:37:44 -0800
-Message-ID: <20170208073746.10963-2-f.fainelli@gmail.com>
-References: <20170208073746.10963-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
-        maowenan@huawei.com, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: [PATCH 1/3 net-next] enic: add devcmds for vxlan offload
+Date: Tue,  7 Feb 2017 23:28:23 -0800
+Message-ID: <20170208072825.3144-2-gvaradar@cisco.com>
+References: <20170208072825.3144-1-gvaradar@cisco.com>
+Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:35370 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932440AbdBHHhv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:37:51 -0500
-Received: by mail-ot0-f196.google.com with SMTP id 65so17113268otq.2
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 23:37:51 -0800 (PST)
-In-Reply-To: <20170208073746.10963-1-f.fainelli@gmail.com>
+Received: from rcdn-iport-1.cisco.com ([173.37.86.72]:3429 "EHLO
+        rcdn-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753478AbdBHHhh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:37:37 -0500
+In-Reply-To: <20170208072825.3144-1-gvaradar@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Generic PHY drivers gets assigned after we checked that the current PHY
-driver is NULL, so we need to check a few things before we can safely
-derference d->driver. Update phy_attach_direct() and phy_detach() accordingly
-to be resilient to these cases.
+This patch adds devcmds needed for vxlan offload. Implement 3 new devcmd
 
-Even though the Generic PHY driver defaults to phy_probe() which can hardly
-fail at the moment, let's fix the label so we don't call phy_detach() on a
-network device we have not attached yet.
+overlay_offload_ctrl: enable/disable offload
+overlay_offload_cfg: update offload udp port number
+get_supported_feature_ver: get hw supported offload version. Each
+			   version has different bitmap for csum_ok/encap
 
-Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
 ---
- drivers/net/phy/phy_device.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cisco/enic/vnic_dev.c    | 42 ++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/vnic_dev.h    |  5 +++
+ drivers/net/ethernet/cisco/enic/vnic_devcmd.h | 51 +++++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/vnic_enet.h   |  1 +
+ 4 files changed, 99 insertions(+)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 0d8f4d3847f6..bde240bf8d7b 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -920,7 +920,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		return -EIO;
- 	}
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
+index 8f27df3207bc..9b3d670e1aa9 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
++++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
+@@ -1247,3 +1247,45 @@ int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
  
--	if (!try_module_get(d->driver->owner)) {
-+	if (d->driver && !try_module_get(d->driver->owner)) {
- 		dev_err(&dev->dev, "failed to get the device driver module\n");
- 		return -EIO;
- 	}
-@@ -943,7 +943,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 			err = device_bind_driver(d);
- 
- 		if (err)
--			goto error;
-+			goto error_put_device;
- 	}
- 
- 	if (phydev->attached_dev) {
-@@ -981,6 +981,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 
- error:
- 	phy_detach(phydev);
-+error_put_device:
- 	put_device(d);
- 	module_put(d->driver->owner);
- 	if (ndev_owner != bus->owner)
-@@ -1065,7 +1066,8 @@ void phy_detach(struct phy_device *phydev)
- 	bus = phydev->mdio.bus;
- 
- 	put_device(&phydev->mdio.dev);
--	module_put(phydev->mdio.dev.driver->owner);
-+	if (phydev->mdio.dev.driver)
-+		module_put(phydev->mdio.dev.driver->owner);
- 	if (ndev_owner != bus->owner)
- 		module_put(bus->owner);
+ 	return ret;
  }
++
++int vnic_dev_overlay_offload_ctrl(struct vnic_dev *vdev, u8 overlay, u8 config)
++{
++	u64 a0;
++	u64 a1;
++	int wait = 1000;
++	int ret;
++
++	a0 = overlay;
++	a1 = config;
++
++	ret = vnic_dev_cmd(vdev, CMD_OVERLAY_OFFLOAD_CTRL, &a0, &a1, wait);
++
++	return ret;
++}
++
++int vnic_dev_overlay_offload_cfg(struct vnic_dev *vdev, u8 overlay,
++				 u16 vxlan_udp_port_number)
++{
++	u64 a0, a1;
++	int wait = 1000;
++
++	a0 = overlay;
++	a1 = vxlan_udp_port_number;
++
++	return vnic_dev_cmd(vdev, CMD_OVERLAY_OFFLOAD_CFG, &a0, &a1, wait);
++}
++
++int vnic_dev_get_supported_feature_ver(struct vnic_dev *vdev, u8 feature,
++				       u64 *supported_versions)
++{
++	u64 a0 = feature;
++	u64  a1 = 0;
++	int wait = 1000;
++	int ret;
++
++	ret = vnic_dev_cmd(vdev, CMD_GET_SUPP_FEATURE_VER, &a0, &a1, wait);
++	if (!ret)
++		*supported_versions = a0;
++
++	return ret;
++}
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.h b/drivers/net/ethernet/cisco/enic/vnic_dev.h
+index 54156c484424..9d43d6bb9907 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_dev.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_dev.h
+@@ -179,5 +179,10 @@ int vnic_dev_set_mac_addr(struct vnic_dev *vdev, u8 *mac_addr);
+ int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
+ 			struct filter *data);
+ int vnic_devcmd_init(struct vnic_dev *vdev);
++int vnic_dev_overlay_offload_ctrl(struct vnic_dev *vdev, u8 overlay, u8 config);
++int vnic_dev_overlay_offload_cfg(struct vnic_dev *vdev, u8 overlay,
++				 u16 vxlan_udp_port_number);
++int vnic_dev_get_supported_feature_ver(struct vnic_dev *vdev, u8 feature,
++				       u64 *supported_versions);
+ 
+ #endif /* _VNIC_DEV_H_ */
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
+index 2a812880b884..d83880b0d468 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
+@@ -406,6 +406,31 @@ enum vnic_devcmd_cmd {
+ 	 * in: (u32) a0=Queue Pair number
+ 	 */
+ 	CMD_QP_STATS_CLEAR = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 63),
++
++	/* Use this devcmd for agreeing on the highest common version supported
++	 * by both driver and fw for features who need such a facility.
++	 * in:	(u64) a0 = feature (driver requests for the supported versions
++	 *	on this feature)
++	 * out: (u64) a0 = bitmap of all supported versions for that feature
++	 */
++	CMD_GET_SUPP_FEATURE_VER = _CMDC(_CMD_DIR_RW, _CMD_VTYPE_ENET, 69),
++
++	/* Control (Enable/Disable) overlay offloads on the given vnic
++	 * in: (u8) a0 = OVERLAY_FEATURE_NVGRE : NVGRE
++	 *	    a0 = OVERLAY_FEATURE_VXLAN : VxLAN
++	 * in: (u8) a1 = OVERLAY_OFFLOAD_ENABLE : Enable or
++	 *	    a1 = OVERLAY_OFFLOAD_DISABLE : Disable or
++	 *	    a1 = OVERLAY_OFFLOAD_ENABLE_V2 : Enable with version 2
++	 */
++	CMD_OVERLAY_OFFLOAD_CTRL = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 72),
++
++	/* Configuration of overlay offloads feature on a given vNIC
++	 * in: (u8) a0 = DEVCMD_OVERLAY_NVGRE : NVGRE
++	 *	    a0 = DEVCMD_OVERLAY_VXLAN : VxLAN
++	 * in: (u8) a1 = VXLAN_PORT_UPDATE : VxLAN
++	 * in: (u16) a2 = unsigned short int port information
++	 */
++	CMD_OVERLAY_OFFLOAD_CFG = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 73),
+ };
+ 
+ /* CMD_ENABLE2 flags */
+@@ -657,4 +682,30 @@ struct devcmd2_result {
+ #define DEVCMD2_RING_SIZE	32
+ #define DEVCMD2_DESC_SIZE	128
+ 
++enum overlay_feature_t {
++	OVERLAY_FEATURE_NVGRE = 1,
++	OVERLAY_FEATURE_VXLAN,
++	OVERLAY_FEATURE_MAX,
++};
++
++enum overlay_ofld_cmd {
++	OVERLAY_OFFLOAD_ENABLE,
++	OVERLAY_OFFLOAD_DISABLE,
++	OVERLAY_OFFLOAD_ENABLE_P2,
++	OVERLAY_OFFLOAD_MAX,
++};
++
++#define OVERLAY_CFG_VXLAN_PORT_UPDATE	0
++
++/* Use this enum to get the supported versions for each of these features
++ * If you need to use the devcmd_get_supported_feature_version(), add
++ * the new feature into this enum and install function handler in devcmd.c
++ */
++enum vic_feature_t {
++	VIC_FEATURE_VXLAN,
++	VIC_FEATURE_RDMA,
++	VIC_FEATURE_VXLAN_PATCH,
++	VIC_FEATURE_MAX,
++};
++
+ #endif /* _VNIC_DEVCMD_H_ */
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_enet.h b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+index 75aced2de869..7d6fbb5635a4 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_enet.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+@@ -48,6 +48,7 @@ struct vnic_enet_config {
+ #define VENETF_RSSHASH_IPV6_EX	0x200	/* Hash on IPv6 extended fields */
+ #define VENETF_RSSHASH_TCPIPV6_EX 0x400	/* Hash on TCP + IPv6 ext. fields */
+ #define VENETF_LOOP		0x800	/* Loopback enabled */
++#define VENETF_VXLAN		0x10000	/* VxLAN offload */
+ 
+ #define VENET_INTR_TYPE_MIN	0	/* Timer specs min interrupt spacing */
+ #define VENET_INTR_TYPE_IDLE	1	/* Timer specs idle time before irq */
 -- 
-2.9.3
+2.11.0
