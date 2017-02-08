@@ -1,103 +1,89 @@
-From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 14/19] scsi: pmcraid: Replace PCI pool old API
-Date: Wed, 8 Feb 2017 19:42:35 +0100
-Message-ID: <20170208184235.GN16878@collabora.com>
-References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-15-romain.perier@collabora.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: use-after-free in tw_timer_handler
+Date: Wed, 8 Feb 2017 19:55:57 +0100
+Message-ID: <CACT4Y+ZqSi_v+ie5MCRggJSZeKQgWqGPKrsRRyaE_GVAfkgLjA@mail.gmail.com>
+References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
+ <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
+ <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
+ <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
+ <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com> <1486576716.7793.84.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Felipe Balbi <balbi@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Peter Senna Tschudin <peter.senna@collabora.co.uk>
-To: Romain Perier <romain.perier@collabora.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([46.235.227.227]:34314 "EHLO
-        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751816AbdBHS5A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:57:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-15-romain.perier@collabora.com>
+Received: from mail-vk0-f45.google.com ([209.85.213.45]:36587 "EHLO
+        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751889AbdBHS5f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:57:35 -0500
+Received: by mail-vk0-f45.google.com with SMTP id t8so107764354vke.3
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 10:56:18 -0800 (PST)
+In-Reply-To: <1486576716.7793.84.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 08, 2017 at 05:34:52PM +0100, Romain Perier wrote:
-> The PCI pool API is deprecated. This commits replaces the PCI pool old
-> API by the appropriated function with the DMA pool API.
-> 
-Tested by compilation only.
+On Wed, Feb 8, 2017 at 6:58 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-02-08 at 18:36 +0100, Dmitry Vyukov wrote:
+>> On Tue, Jan 24, 2017 at 4:52 PM, Eric Dumazet <edumazet@google.com> wrote:
+>> > On Tue, Jan 24, 2017 at 7:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>> >>>
+>> >>> This code was changed a long time ago :
+>> >>>
+>> >>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
+>> >>>
+>> >>> So I suspect a recent patch broke the logic.
+>> >>>
+>> >>> You might start a bisection :
+>> >>>
+>> >>> I would check if 4.7 and 4.8 trigger the issue you noticed.
+>> >>
+>> >>
+>> >> It happens with too low rate for bisecting (few times per day). I
+>> >> could add some additional checks into code, but I don't know what
+>> >> checks could be useful.
+>> >
+>> > If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
+>> > we are able to help.
+>>
+>>
+>> There are also chances that the problem is older.
+>>
+>> Looking at the code, this part of inet_twsk_purge looks fishy:
+>>
+>> 285                         if (unlikely((tw->tw_family != family) ||
+>> 286                                      atomic_read(&twsk_net(tw)->count))) {
+>>
+>> It uses net->count == 0 check to find the right sockets. But what if
+>> there are several nets with count == 0 in flight, can't there be
+>> several inet_twsk_purge calls running concurrently freeing each other
+>> sockets? If so it looks like inet_twsk_purge can call
+>> inet_twsk_deschedule_put twice for a socket. Namely, two calls for
+>> different nets discover the socket, check that net->count==0 and both
+>> call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
+>> net that it needs to purge?
+>
+> Yes, atomic_read() is not a proper sync point.
 
-Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> ---
->  drivers/scsi/pmcraid.c | 10 +++++-----
->  drivers/scsi/pmcraid.h |  2 +-
->  2 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/scsi/pmcraid.c b/drivers/scsi/pmcraid.c
-> index 49e70a3..0f893c4 100644
-> --- a/drivers/scsi/pmcraid.c
-> +++ b/drivers/scsi/pmcraid.c
-> @@ -4699,13 +4699,13 @@ pmcraid_release_control_blocks(
->  		return;
->  
->  	for (i = 0; i < max_index; i++) {
-> -		pci_pool_free(pinstance->control_pool,
-> +		dma_pool_free(pinstance->control_pool,
->  			      pinstance->cmd_list[i]->ioa_cb,
->  			      pinstance->cmd_list[i]->ioa_cb_bus_addr);
->  		pinstance->cmd_list[i]->ioa_cb = NULL;
->  		pinstance->cmd_list[i]->ioa_cb_bus_addr = 0;
->  	}
-> -	pci_pool_destroy(pinstance->control_pool);
-> +	dma_pool_destroy(pinstance->control_pool);
->  	pinstance->control_pool = NULL;
->  }
->  
-> @@ -4762,8 +4762,8 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
->  		pinstance->host->unique_id);
->  
->  	pinstance->control_pool =
-> -		pci_pool_create(pinstance->ctl_pool_name,
-> -				pinstance->pdev,
-> +		dma_pool_create(pinstance->ctl_pool_name,
-> +				&pinstance->pdev->dev,
->  				sizeof(struct pmcraid_control_block),
->  				PMCRAID_IOARCB_ALIGNMENT, 0);
->  
-> @@ -4772,7 +4772,7 @@ static int pmcraid_allocate_control_blocks(struct pmcraid_instance *pinstance)
->  
->  	for (i = 0; i < PMCRAID_MAX_CMD; i++) {
->  		pinstance->cmd_list[i]->ioa_cb =
-> -			pci_pool_alloc(
-> +			dma_pool_alloc(
->  				pinstance->control_pool,
->  				GFP_KERNEL,
->  				&(pinstance->cmd_list[i]->ioa_cb_bus_addr));
-> diff --git a/drivers/scsi/pmcraid.h b/drivers/scsi/pmcraid.h
-> index 568b18a..acf5a7b 100644
-> --- a/drivers/scsi/pmcraid.h
-> +++ b/drivers/scsi/pmcraid.h
-> @@ -755,7 +755,7 @@ struct pmcraid_instance {
->  
->  	/* structures related to command blocks */
->  	struct kmem_cache *cmd_cachep;		/* cache for cmd blocks */
-> -	struct pci_pool *control_pool;		/* pool for control blocks */
-> +	struct dma_pool *control_pool;		/* pool for control blocks */
->  	char   cmd_pool_name[64];		/* name of cmd cache */
->  	char   ctl_pool_name[64];		/* name of control cache */
->  
-> -- 
-> 2.9.3
-> 
+Do you mean that it does not include read barrier?
+I more mean that we can call inet_twsk_deschedule_put twice for the same socket.
+
+
+>> The second issue that I noticed is that tw_refcnt is set to 4 _after_
+>> we schedule the timer. The timer will probably won't fire before we
+>> set tw_refcnt, but if it somehow does it will corrupt the ref count. I
+>> don't think that it's what I am seeing, though. More likely it's the
+>> first issues (if it's real).
+>>
+>
+> Timer is pinned, it cannot fire under us on this cpu.
+
+Ack
