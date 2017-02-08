@@ -1,123 +1,209 @@
-From: Shubham Bansal <illusionist.neo@gmail.com>
-Subject: Re: arch: arm: bpf: Converting cBPF to eBPF for arm 32 bit
-Date: Wed, 8 Feb 2017 12:59:29 +0530
-Message-ID: <CAHgaXd+cUbmQ20sPVVG88c7QAPMQzSw710tRA8BFTU5sCafuRw@mail.gmail.com>
-References: <20170130103853.GA34633@in3o.xyz> <CAGXu5j+7+D=N8U9Zpq1Uq526B4C4g=gQZtQ1iCMt3juDFgfgJA@mail.gmail.com>
- <CAHgaXd+nj69n-Xf46N=4M-j-0hKHVrrLfsvRZCG=2CCAtVF6ZA@mail.gmail.com>
- <CAGXu5j+NSLomuSgD40kys+pWc+J9aB6Bbk_gSP9Lp_ScimQn_w@mail.gmail.com> <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>, Mircea Gherzan <mgherzan@gmail.com>, netdev@vger.kernel.org,
-	kernel-hardening@lists.openwall.com, linux-arm-kernel@lists.infradead.org
-To: Kees Cook <keescook@chromium.org>
-Return-path: <kernel-hardening-return-6386-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAHgaXd+EKJ0FWaaPojsNJtgY_YpdQXu6eMEp97uOpTFAWs4qTQ@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: [PATCH 3/3 net-next] enic: add vxlan offload on tx path
+Date: Tue,  7 Feb 2017 23:28:25 -0800
+Message-ID: <20170208072825.3144-4-gvaradar@cisco.com>
+References: <20170208072825.3144-1-gvaradar@cisco.com>
+Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcdn-iport-4.cisco.com ([173.37.86.75]:36937 "EHLO
+        rcdn-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753425AbdBHHhS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 02:37:18 -0500
+In-Reply-To: <20170208072825.3144-1-gvaradar@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Anybody willing to take swing at my following comments ?
+Define ndo_features_check. Hw supports offload only for ipv4 inner and
+ipv4 outer pkt.
 
-On Wed, Feb 1, 2017 at 6:31 PM, Shubham Bansal
-<illusionist.neo@gmail.com> wrote:
-> Hi Kees & Daniel,
->
-> On Tue, Jan 31, 2017 at 09:44:56AM -0800, Kees Cook wrote:
->> >> > 1.) Currently, as eBPF uses 64 bit registers, I am mapping 64 bit eBPF
->> >> > registers with 32 bit arm registers which looks wrong to me. Do anybody
->> >> > have some idea about how to map eBPF->arm 32 bit registers ?
->> >>
->> >> I was going to say "look at the x86 32-bit implementation." ... But
->> >> there isn't one. :( I'm going to guess that there isn't a very good
->> >> answer here. I assume you'll have to build some kind of stack scratch
->> >> space to load/save.
->> >
->> >
->> > Now I see why nobody has implemented eBPF JIT for the 32 bit systems. I
->> > think its very difficult to implement it without any complications and
->> > errors.
->>
->> Yeah, that does seem to make it much more difficult.
-> I was thinking of first implementing only instructions with 32 bit
-> register operands. It will hugely decrease the surface area of eBPF
-> instructions that I have to cover for the first patch.
->
-> So, What I am thinking is something like this :
->
-> - bpf_mov r0(64),r1(64) will be JITed like this :
-> - ar1(32) <- r1(64). Convert/Mask 64 bit ebpf register(r1) value into 32
-> bit and store it in arm register(ar1).
-> - Do MOV ar0(32),ar1(32) as an ARM instruction.
-> - ar0(32) -> r0(64). Zero Extend the ar0 32 bit register value
-> and store it in 64 bit ebpf register r0.
->
-> - Similarly, For all BPF_ALU class instructions.
-> - For BPF_ADD, I will mask the addition result to 32 bit only.
->  I am not sure, Overflow might be a problem.
-> - For BPF_SUB, I will mask the subtraction result to 32 bit only.
->  I am not sure, Underflow might be problem.
-> - For BPF_MUL, similar to BPF_ADD. Overflow Problem ?
-> - For BPF_DIV, 32 bit masking should be fine, I guess.
-> - For BPF_OR, BPF_AND, BPF_XOR, BPF_LSH, BPF_RSH, BPF_MOD 32 bit
->  masking should be fine.
-> - For BPF_NEG and BPF_ARSH, might be a problem because of the sign bit.
-> - For BPF_END, 32 bit masking should work fine.
->  Let me know if any of the above point is wrong or need your suggestion.
->
-> - Although, for ALU instructions, there is a big problem of register
->   flag manipulations. Generally, architecture's ABI takes care of this
->   part but as we are doing 64 bit Instructions emulation(kind of) on 32
->   bit machine, it needs to be done manually. Does that sound correct ?
->
-> - I am not JITing BPF_ALU64 class instructions as of now. As we have to
->   take care of atomic instructions and race conditions with these
->   instruction which looks complicated to me as of now. Will try to figure out
->   this part and implement it later. Currently, I will just let it be
->   interpreted by the ebpf interpreter.
->
-> - For BPF_JMP class, I am assuming that, although eBPF is 64 bit ABI,
->   the address pointers on 32 bit arch like arm will be of 32 bit only.
->   So, for BPF_JMP, masking the 64 bit destination address to 32 bit
->   should do the trick and no address will be corrupted in this way. Am I
->   correct to assume this ?
->   Also, I need to check for address getting out of the allowed memory
->   range.
->
-> - For BPF_LD, BPF_LDX, BPF_ST and BPF_STX class instructions, I am
->   assuming the same thing as above - All addresses and pointers are 32
->   bit - which can be taken care just by maksing the eBPF register
->   values. Does that sound correct ?
->   Also, I need to check for the address overflow, address getting out
->   of the allowed memory range and things like that.
->
->> > Do you have any code references for me to take a look? Otherwise, I think
->> > its not possible for me to implement it without using any reference.
->>
->> I don't know anything else, no.
->
-> I think, I will give it a try. Otherwise, my last 1 month which I used
-> to read about eBPF, eBPF linux code and arm32 ABI would be a complete
-> waste.
->
->> >>
->> >>
->> >> > 2.) Also, is my current mapping good enough to make the JIT fast enough
->> >> > ?
->> >> > because as you might know, eBPF JIT mostly depends on 1-to-1 mapping of
->> >> > its instructions with native instructions.
->> >>
->> >> I don't know -- it might be tricky with needing to deal with 64-bit
->> >> registers. But if you can make it faster than the non-JIT, it should
->> >> be a win. :) Yay assembly.
->
-> Well, As I mentioned above about my thinking towards the implementation,
-> I am not sure it would be faster than non-JIT or even correct for that matter.
-> It might be but I don't think I have enough knowledge to benchmark the
-> implementation as of now.
->
->
-> -Shubham Bansal
+Code refactor for setting inner tcp pseudo csum.
 
--Shubham
+Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_main.c | 126 +++++++++++++++++++++++++---
+ 1 file changed, 114 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index ce5ce394a810..9cfebdb22e81 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -263,6 +263,48 @@ static void enic_udp_tunnel_del(struct net_device *netdev,
+ 	spin_unlock_bh(&enic->devcmd_lock);
+ }
+ 
++static netdev_features_t enic_features_check(struct sk_buff *skb,
++					     struct net_device *dev,
++					     netdev_features_t features)
++{
++	struct enic *enic = netdev_priv(dev);
++	struct udphdr *udph;
++	u16 proto;
++	u16 port = 0;
++	const struct ethhdr *eth = (struct ethhdr *)skb_inner_mac_header(skb);
++
++	if (!skb->encapsulation)
++		return features;
++
++	features = vxlan_features_check(skb, features);
++
++	/* hardware only supports IPv4 vxlan tunnel */
++	if (vlan_get_protocol(skb) != htons(ETH_P_IP))
++		goto out;
++
++	/* hardware does not support offload of ipv6 inner pkt */
++	if (eth->h_proto != ntohs(ETH_P_IP))
++		goto out;
++
++	proto = ip_hdr(skb)->protocol;
++
++	if (proto == IPPROTO_UDP) {
++		udph = udp_hdr(skb);
++		port = be16_to_cpu(udph->dest);
++	}
++
++	/* HW supports offload of only one UDP port. Remove CSUM and GSO MASK
++	 * for other UDP port tunnels
++	 */
++	if (port  != enic->vxlan.vxlan_udp_port_number)
++		goto out;
++
++	return features;
++
++out:
++	return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
++}
++
+ int enic_is_dynamic(struct enic *enic)
+ {
+ 	return enic->pdev->device == PCI_DEVICE_ID_CISCO_VIC_ENET_DYN;
+@@ -591,20 +633,19 @@ static int enic_queue_wq_skb_csum_l4(struct enic *enic, struct vnic_wq *wq,
+ 	return err;
+ }
+ 
+-static int enic_queue_wq_skb_tso(struct enic *enic, struct vnic_wq *wq,
+-				 struct sk_buff *skb, unsigned int mss,
+-				 int vlan_tag_insert, unsigned int vlan_tag,
+-				 int loopback)
++static void enic_preload_tcp_csum_encap(struct sk_buff *skb)
+ {
+-	unsigned int frag_len_left = skb_headlen(skb);
+-	unsigned int len_left = skb->len - frag_len_left;
+-	unsigned int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+-	int eop = (len_left == 0);
+-	unsigned int len;
+-	dma_addr_t dma_addr;
+-	unsigned int offset = 0;
+-	skb_frag_t *frag;
++	if (skb->protocol == cpu_to_be16(ETH_P_IP)) {
++		inner_ip_hdr(skb)->check = 0;
++		inner_tcp_hdr(skb)->check =
++			~csum_tcpudp_magic(inner_ip_hdr(skb)->saddr,
++					   inner_ip_hdr(skb)->daddr, 0,
++					   IPPROTO_TCP, 0);
++	}
++}
+ 
++static void enic_preload_tcp_csum(struct sk_buff *skb)
++{
+ 	/* Preload TCP csum field with IP pseudo hdr calculated
+ 	 * with IP length set to zero.  HW will later add in length
+ 	 * to each TCP segment resulting from the TSO.
+@@ -618,6 +659,30 @@ static int enic_queue_wq_skb_tso(struct enic *enic, struct vnic_wq *wq,
+ 		tcp_hdr(skb)->check = ~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 			&ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
+ 	}
++}
++
++static int enic_queue_wq_skb_tso(struct enic *enic, struct vnic_wq *wq,
++				 struct sk_buff *skb, unsigned int mss,
++				 int vlan_tag_insert, unsigned int vlan_tag,
++				 int loopback)
++{
++	unsigned int frag_len_left = skb_headlen(skb);
++	unsigned int len_left = skb->len - frag_len_left;
++	unsigned int hdr_len;
++	int eop = (len_left == 0);
++	unsigned int len;
++	dma_addr_t dma_addr;
++	unsigned int offset = 0;
++	skb_frag_t *frag;
++
++	if (skb->encapsulation) {
++		hdr_len = skb_inner_transport_header(skb) - skb->data;
++		hdr_len += inner_tcp_hdrlen(skb);
++		enic_preload_tcp_csum_encap(skb);
++	} else {
++		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
++		enic_preload_tcp_csum(skb);
++	}
+ 
+ 	/* Queue WQ_ENET_MAX_DESC_LEN length descriptors
+ 	 * for the main skb fragment
+@@ -666,6 +731,38 @@ static int enic_queue_wq_skb_tso(struct enic *enic, struct vnic_wq *wq,
+ 	return 0;
+ }
+ 
++static inline int enic_queue_wq_skb_encap(struct enic *enic, struct vnic_wq *wq,
++					  struct sk_buff *skb,
++					  int vlan_tag_insert,
++					  unsigned int vlan_tag, int loopback)
++{
++	unsigned int head_len = skb_headlen(skb);
++	unsigned int len_left = skb->len - head_len;
++	/* Hardware will overwrite the checksum fields, calculating from
++	 * scratch and ignoring the value placed by software.
++	 * Offload mode = 00
++	 * mss[2], mss[1], mss[0] bits are set
++	 */
++	unsigned int mss_or_csum = 7;
++	int eop = (len_left == 0);
++	dma_addr_t dma_addr;
++	int err = 0;
++
++	dma_addr = pci_map_single(enic->pdev, skb->data, head_len,
++				  PCI_DMA_TODEVICE);
++	if (unlikely(enic_dma_map_check(enic, dma_addr)))
++		return -ENOMEM;
++
++	enic_queue_wq_desc_ex(wq, skb, dma_addr, head_len, mss_or_csum, 0,
++			      vlan_tag_insert, vlan_tag,
++			      WQ_ENET_OFFLOAD_MODE_CSUM, eop, 1 /* SOP */, eop,
++			      loopback);
++	if (!eop)
++		err = enic_queue_wq_skb_cont(enic, wq, skb, len_left, loopback);
++
++	return err;
++}
++
+ static inline void enic_queue_wq_skb(struct enic *enic,
+ 	struct vnic_wq *wq, struct sk_buff *skb)
+ {
+@@ -688,6 +785,9 @@ static inline void enic_queue_wq_skb(struct enic *enic,
+ 		err = enic_queue_wq_skb_tso(enic, wq, skb, mss,
+ 					    vlan_tag_insert, vlan_tag,
+ 					    loopback);
++	else if (skb->encapsulation)
++		err = enic_queue_wq_skb_encap(enic, wq, skb, vlan_tag_insert,
++					      vlan_tag, loopback);
+ 	else if	(skb->ip_summed == CHECKSUM_PARTIAL)
+ 		err = enic_queue_wq_skb_csum_l4(enic, wq, skb, vlan_tag_insert,
+ 						vlan_tag, loopback);
+@@ -2400,6 +2500,7 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
+ #endif
+ 	.ndo_udp_tunnel_add	= enic_udp_tunnel_add,
+ 	.ndo_udp_tunnel_del	= enic_udp_tunnel_del,
++	.ndo_features_check	= enic_features_check,
+ };
+ 
+ static const struct net_device_ops enic_netdev_ops = {
+@@ -2425,6 +2526,7 @@ static const struct net_device_ops enic_netdev_ops = {
+ #endif
+ 	.ndo_udp_tunnel_add	= enic_udp_tunnel_add,
+ 	.ndo_udp_tunnel_del	= enic_udp_tunnel_del,
++	.ndo_features_check	= enic_features_check,
+ };
+ 
+ static void enic_dev_deinit(struct enic *enic)
+-- 
+2.11.0
