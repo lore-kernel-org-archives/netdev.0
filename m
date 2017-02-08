@@ -1,69 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] rhashtable: Add nested tables
-Date: Wed, 8 Feb 2017 09:09:33 +0800
-Message-ID: <20170208010933.GA15623@gondor.apana.org.au>
-References: <20170207123827.GA14678@gondor.apana.org.au>
- <E1cb53h-0003qD-No@gondobar>
- <20170207131728.GA11584@breakpoint.cc>
- <20170207132911.GA14888@gondor.apana.org.au>
- <20170207180216.GC11584@breakpoint.cc>
+From: Bart Van Assche <Bart.VanAssche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
+Date: Wed, 8 Feb 2017 01:09:41 +0000
+Message-ID: <1486516168.2581.21.camel@sandisk.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
+         <1486502926.2581.4.camel@sandisk.com>
+         <1828884A29C6694DAF28B7E6B8A82373AB0E5B6C@ORSMSX109.amr.corp.intel.com>
+         <1486504716.2581.8.camel@sandisk.com>
+         <20170208005416.GA76793@knc-06.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:49905 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753576AbdBHBJx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 20:09:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20170207180216.GC11584@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: "ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org"
+        <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170208005416.GA76793-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
+Content-Language: en-US
+Content-ID: <D37C559519745445B5AF39718D476279-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 07, 2017 at 07:02:16PM +0100, Florian Westphal wrote:
->
-> I can't really say anything here because *I* don't expect
-> it to succeed.
+On Tue, 2017-02-07 at 16:54 -0800, Vishwanathapura, Niranjana wrote:
+> On Tue, Feb 07, 2017 at 09:58:50PM +0000, Bart Van Assche wrote:
+> > On Tue, 2017-02-07 at 21:44 +0000, Hefty, Sean wrote:
+> > > This is Ethernet - not IP - encapsulation over a non-InfiniBand device/protocol.
+> > 
+> > That's more than clear from the cover letter. In my opinion the cover letter
+> > should explain why it is considered useful to have such a driver upstream
+> > and what the use cases are of encapsulating Ethernet frames inside RDMA
+> > packets.
+> 
+> We believe on our HW, HFI VNIC design gives better hardware resource usage 
+> which is also scalable and hence room for better performance.
+> Also as evident in the cover letter, it gives us better manageability by 
+> defining virtual Ethernet switches overlaid on the fabric and
+> use standard Ethernet support provided by Linux.
 
-Think about incoming TCP connections, you can't rate-limit that
-without defeating yourself.
+That kind of language is appropriate for a marketing brochure but not for a
+technical forum. Even reading your statement twice did not make me any wiser.
+You mentioned "better hardware resource usage". Compared to what? Is that
+perhaps compared to IPoIB? Since Ethernet frames have an extra header and are
+larger than IPoIB frames, how can larger frames result in better hardware
+resource usage? And what is a virtual Ethernet switch? Is this perhaps packet
+forwarding by software? If so, why are virtual Ethernet switches needed since
+the Linux networking stack already supports packet forwarding?
 
-> Even with this proposed patch things will eventually fail
-> on OOM conditions.
+Thanks,
 
-Exactly.  That's the only case where it should fail.  Previously
-it would fail if we cannot allocate a large number of consecutive
-pages, which can happen even if you have lots of memory left.  With
-my patch it will only fail if it cannot allocate at most two non-
-consecutive pages, i.e., a real OOM.
-
-> Also, such period should be very short until rht has reached
-> peak size for the workload.
-
-How would you know? The rate of insertions could be extremely
-high.
- 
-> Also, given that we could easily oversubscribe a table by a factor
-> of 10 or more while still keeping sane chain lengths I don't
-> see why thats a problem (also, a 'rht_insert_force' or similar
-> interface that doesn't do chain length checks makes it
-> easy to spot places that need/want this behaviour).
-
-But you would still have to impose a limit, whether it's 1 or
-10.  IOW you will still fail insertions at some point even though
-you have sufficient memory to perform the insertion.
- 
-> (insecure_elasticity and/or insecure_max_entries come to mind, seems
->  some of that might not even be needed anymore but I don't have time
->  right now to investigate).
-
-Yes insecure_elasticity is now obsolete and anyone using it should
-switch over to rhlist.  Once nobody uses it then it can be removed.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Bart.--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
