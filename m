@@ -1,115 +1,42 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 1/2] flow dissector: ND support
-Date: Wed, 8 Feb 2017 10:33:46 -0800
-Message-ID: <CALx6S36VrtQM5G2XPzpcrP=y3RyBwTnYJcaKqXtwyFgpGiz+Jg@mail.gmail.com>
-References: <CALx6S37QtKgc14DFway-Ajme7JhbAN71M+83w28+4FELdv7Xew@mail.gmail.com>
- <20170206091253.GB20384@penelope.horms.nl> <CALx6S351OxEtGhjBdGVGUF7JcBRjpY3hwft-hXjxix7EVAfhQg@mail.gmail.com>
- <20170207.123831.1038511845714033360.davem@davemloft.net> <20170208092823.GA17615@penelope.horms.nl>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net-next 12/15] ipv4: fib: Notify about nexthop status
+ changes
+Date: Wed, 8 Feb 2017 20:20:38 +0200
+Message-ID: <20170208182038.GA14683@splinter.mtl.com>
+References: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
+ <1486549002-2056-13-git-send-email-jiri@resnulli.us>
+ <20170208145600.GA48568@C02RW35GFVH8.dhcp.broadcom.net>
+ <20170208153226.GA24185@splinter.mtl.com>
+ <a21e02bf-e146-6a02-d1cc-229be629dcb0@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+        Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
+        <davem@davemloft.net>, <eladr@mellanox.com>, <mlxsw@mellanox.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:33948 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750911AbdBHSfH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:35:07 -0500
-Received: by mail-qt0-f195.google.com with SMTP id w20so24171080qtb.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 10:33:47 -0800 (PST)
-In-Reply-To: <20170208092823.GA17615@penelope.horms.nl>
+Received: from mail-eopbgr10047.outbound.protection.outlook.com ([40.107.1.47]:47808
+        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751092AbdBHSjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 8 Feb 2017 13:39:16 -0500
+Content-Disposition: inline
+In-Reply-To: <a21e02bf-e146-6a02-d1cc-229be629dcb0@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 8, 2017 at 1:28 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> On Tue, Feb 07, 2017 at 12:38:31PM -0500, David Miller wrote:
->> From: Tom Herbert <tom@herbertland.com>
->> Date: Tue, 7 Feb 2017 09:36:20 -0800
->>
->> > Okay, but can you give us an idea of how many more of these protocols
->> > are going to be added to flow_dissector. TBH I'm not very enthused
->> > about making more flow_dissector more complex for the benefit of OVS.
->>
->> Especially since the kernel datapath of OVS has been marked
->> experimental.
->
-> Hi Dave, Hi Tom,
->
-> Firstly I'd like to apologise for posing what has turned out to be a
-> somewhat divisive patch.
->
-> After looking through things a little more I think the simple answer to
-> Tom's question is only ND. But there are also some fields of already
-> supported protocols which are covered in the OvS flow key but not the flow
-> dissector.
->
-> My analysis of OvS flow key fields for non-tunnel packet data - which I
-> think is the extent of what is relevant to the flow dissector - yields the
-> following list:
->
->   New protocols:
->   * ND (this patch)
->
->   Fields of already supported protocols:
->   * MPLS.lse (currently the label of the LSE is handled by the dissector
->               so this could also be described as MPLS.lse.{tc,s,ttl})
->   * IPV4.tos
->   * IPV4.ttl
->   * IPV6.hlimit
->   * IPV6.tclass
->
->   I do expect that some of the above will not be appropriate for existing
->   users of the flow dissector; e.g. IPV4.ttl does not seem much use when
->   calculating the hash of a flow for steering purposes. And I do not yet
->   have a good idea of how to approach that beyond using different dissector
->   keys.
->
->   Further support for to already supported fields.
->   * IPV[46].frag (supported by flow dissector : 1st frag flag;
->                   not supported by flow dissector: subsequent frag flag)
->
-> From my point of view some parts of what is above is more important than
-> others. In particular ND is probably not particularly important at least at
-> this time. I would be happy to withdraw this patchset if the complexity is
-> not deemed worth it at this time.
->
->
-> I'd like to take a moment to give a little background and restate that my
-> goal is not to create a burden for existing users of the flow dissector
-> - or any other part of the stack.
->
-> Netronome has worked on various approaches to an upstream offload of OvS.
-> One was hooks added to the OvS kernel datapath; an idea which was rejected
-> at least twice but none the less I'd be happy to revisit if there is
-> interest in it.
->
-> The result of trying various approaches is that it seems the most
-> acceptable is to use TC for programming flows into hardware which is where
-> my work on TC flower and the flow dissector is coming from.  A key part of
-> the reasoning being, as I understand it, that the flows could also be
-> programmed into hardware for non-OvS use-cases; technology that could be
-> useful e.g. in a post-OvS world.
->
-It's not an issue specific OVS, it's part of a broader problem in that
-we are see more case where the core kernel paths are modified to
-support somewhat narrow use case functionality (like OVS, advanced HW
-accelerations, etc.). As we have seen recently this can make
-maintainability and backports very difficult (see my comments about
-backporting mlx5).
+On Wed, Feb 08, 2017 at 11:05:54AM -0700, David Ahern wrote:
+> On 2/8/17 8:32 AM, Ido Schimmel wrote:
+> > In the case of multipath routes, if some of the nexthops can be
+> > reflected, then we do so, but periodically ask the kernel to try and
+> > resolve the others. Otherwise, these nexthops will never be resolved, as
+> > the kernel doesn't see the packets hitting the multipath route and
+> > therefore lacks the motivation to resolve its nexthops.
+> 
+> It should get the motivation once the neigh entry is cleaned up. That
+> can take a long time based on gc settings, but it can also happen from
+> the remote side if it sends an arp message.
 
-> I think the above paragraph gets back to Tom's original question regarding
-> making things more complex just for OvS (use-cases). Possibly ND is an edge
-> case even for OvS and on reflection my timing for posting it seems to have
-> been less than ideal.
-
-If it wasn't ND it would be something else... with all the activity
-happening in networking features and HW this is a timely discussion.
-Flow dissector presents a good example of a function that might become
-a dumping ground for an endless stream of features if we don't figure
-out how exercise some restraint.
-
-Tom
+And when the remote side does that and the neighbour becomes valid we no
+longer try to actively resolve it.
