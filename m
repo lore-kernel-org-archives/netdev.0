@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ip route add give rtnetlink message after update from 4.9.6 to
- 4.9.8
-Date: Wed, 08 Feb 2017 10:44:43 -0500 (EST)
-Message-ID: <20170208.104443.1740615905192284560.davem@davemloft.net>
-References: <224940468.86611486549068694.JavaMail.httpd@webmail-37.iol.local>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH net 2/2] packet: round up linear to header len
+Date: Wed, 8 Feb 2017 07:34:54 -0800
+Message-ID: <20170208153454.GD30741@oracle.com>
+References: <20170207205721.23207-1-willemdebruijn.kernel@gmail.com>
+ <20170207205721.23207-3-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
-To: pupilla@libero.it
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        eric.dumazet@gmail.com, dvyukov@google.com,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52816 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753928AbdBHPve (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 10:51:34 -0500
-In-Reply-To: <224940468.86611486549068694.JavaMail.httpd@webmail-37.iol.local>
+Received: from aserp1050.oracle.com ([141.146.126.70]:44747 "EHLO
+        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751906AbdBHP5F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 10:57:05 -0500
+Received: from aserp1040.oracle.com (aserp1040.oracle.com [141.146.126.69])
+        by aserp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v18FaCme015094
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+        for <netdev@vger.kernel.org>; Wed, 8 Feb 2017 15:36:12 GMT
+Content-Disposition: inline
+In-Reply-To: <20170207205721.23207-3-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "pupilla@libero.it" <pupilla@libero.it>
-Date: Wed, 8 Feb 2017 11:17:48 +0100 (CET)
+On (02/07/17 15:57), Willem de Bruijn wrote:
+> @@ -2816,8 +2816,9 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>  	err = -ENOBUFS;
+>  	hlen = LL_RESERVED_SPACE(dev);
+>  	tlen = dev->needed_tailroom;
+> -	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len,
+> -			       __virtio16_to_cpu(vio_le(), vnet_hdr.hdr_len),
+> +	linear = __virtio16_to_cpu(vio_le(), vnet_hdr.hdr_len);
+> +	linear = max(linear, min_t(int, len, dev->hard_header_len));
+> +	skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, linear,
+>  			       msg->msg_flags & MSG_DONTWAIT, &err);
 
-> Hi Folks,
-> 
-> After kernel update from 4.9.6 to 4.9.8, I get the below error
-> message when I run this command:
-> 
-> root@Typhoon:~# ip route add default table 210 nexthop dev eth0 via 10.68.64.1 
-> weight 1 nexthop dev eth0 via 10.68.64.2 weight 1
-> RTNETLINK answers: Operation not supported
-> root@Typhoon:~# uname -a
-> Linux Typhoon 4.9.8 #1 SMP Tue Feb 7 17:14:54 CET 2017 x86_64 Intel(R) Core
-> (TM) i5-2520M CPU @ 2.50GHz GenuineIntel GNU/Linux
-> 
-> Is this the expected behaviour?
+do we need a similar check in packet_sendsmg_spkt (even if it
+is deprecated, would be better to get it to align with packet_snd?)
 
-David, maybe this was an unintended side effect of commit
-9ed59592e3e379b2e9557dc1d9e9ec8fcbb33f16 ("lwtunnel: fix autoload of
-lwt modules").
+Also tpacket_fill_skb should ensure that copylen is set up like
+the code above?
+
+--Sowmini
