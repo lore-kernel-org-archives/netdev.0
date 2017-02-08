@@ -1,53 +1,65 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net 1/1] net: sock: Use double send/recv buff value to compare with max value
-Date: Wed,  8 Feb 2017 21:07:15 +0800
-Message-ID: <1486559235-13633-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH v2 02/16] net: stmmac: Remove the bus_setup function
+ pointer
+Date: Wed, 8 Feb 2017 14:17:14 +0100
+Message-ID: <1ca83b31-3c14-b8d1-18e8-a1c920053589@st.com>
+References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
+ <20170208083121.27949-3-clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>
+To: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        <alexandre.torgue@st.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG179.QQ.COM ([119.147.194.222]:36556 "EHLO
-        smtpbg179.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932489AbdBHNRO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 08:17:14 -0500
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:53168 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932288AbdBHNRX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 08:17:23 -0500
+In-Reply-To: <20170208083121.27949-3-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On 2/8/2017 9:31 AM, Corentin Labbe wrote:
+> The bus_setup function pointer is not used at all, this patch remove it.
+>
+                                     no longer used...
 
-Because the value of SO_SNDBUF and SO_RCVBUF is doubled before
-assignment, so the real value of send and recv buffer could be more
-than the max sysctl config sysctl_wmem_max and sysctl_rmem_max.
 
-Now use doulbe send/recv buffer value to compare with sysctl_wmem_max
-and sysctl_rmem_max, and it keeps consistence with SOCK_MIN_SNDBUF
-and SOCK_MIN_RCVBUF.
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/core/sock.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 4eca27d..fa40dff 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -712,7 +712,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 		 * play 'guess the biggest size' games. RCVBUF/SNDBUF
- 		 * are treated in BSD as hints
- 		 */
--		val = min_t(u32, val, sysctl_wmem_max);
-+		val = min_t(u32, val * 2, sysctl_wmem_max);
- set_sndbuf:
- 		sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
- 		sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
-@@ -733,7 +733,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 		 * play 'guess the biggest size' games. RCVBUF/SNDBUF
- 		 * are treated in BSD as hints
- 		 */
--		val = min_t(u32, val, sysctl_rmem_max);
-+		val = min_t(u32, val * 2, sysctl_rmem_max);
- set_rcvbuf:
- 		sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
- 		/*
--- 
-1.9.1
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ----
+>  include/linux/stmmac.h                            | 1 -
+>  2 files changed, 5 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index bd83bf9..1ef60282 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1682,10 +1682,6 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>  	/* Copy the MAC addr into the HW  */
+>  	priv->hw->mac->set_umac_addr(priv->hw, dev->dev_addr, 0);
+>
+> -	/* If required, perform hw setup of the bus. */
+> -	if (priv->plat->bus_setup)
+> -		priv->plat->bus_setup(priv->ioaddr);
+> -
+>  	/* PS and related bits will be programmed according to the speed */
+>  	if (priv->hw->pcs) {
+>  		int speed = priv->plat->mac_port_sel_speed;
+> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+> index d76033d6..fc273e9 100644
+> --- a/include/linux/stmmac.h
+> +++ b/include/linux/stmmac.h
+> @@ -134,7 +134,6 @@ struct plat_stmmacenet_data {
+>  	int tx_fifo_size;
+>  	int rx_fifo_size;
+>  	void (*fix_mac_speed)(void *priv, unsigned int speed);
+> -	void (*bus_setup)(void __iomem *ioaddr);
+>  	int (*init)(struct platform_device *pdev, void *priv);
+>  	void (*exit)(struct platform_device *pdev, void *priv);
+>  	void *bsp_priv;
+>
