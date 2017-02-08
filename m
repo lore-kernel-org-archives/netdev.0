@@ -1,36 +1,44 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v2 net-next 6/9] sunvnet: straighten up message event
- handling logic
-Date: Wed, 8 Feb 2017 08:34:51 -0800
-Message-ID: <20170208163451.GF30741@oracle.com>
-References: <1486505582-76823-1-git-send-email-shannon.nelson@oracle.com>
- <1486505582-76823-7-git-send-email-shannon.nelson@oracle.com>
- <20170208155947.GE30741@oracle.com>
- <792566dd-8f05-ed1b-50ad-d40f958aa2c7@oracle.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCHv2 net-next 0/2] mv88e6xxx Watchdog support
+Date: Wed, 08 Feb 2017 11:34:52 -0500
+Message-ID: <87a89wwsib.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1486514080-28329-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shannon Nelson <shannon.nelson@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <792566dd-8f05-ed1b-50ad-d40f958aa2c7@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:42994 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752834AbdBHQfo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 11:35:44 -0500
+In-Reply-To: <1486514080-28329-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (02/08/17 08:28), Shannon Nelson wrote:
-> The existing code does this as well - if it first finds a RESET, it handles
-> it then hits the return 0.  Next if it finds the UP, it does the goto back
-> to the ldc_ctrl: to process, and hits the same return 0.  Only if neither of
-> these bits have been seen does the code move on to process the DATA_READY
-> event.
-> 
-> If we're seeing cases of both UP and DATA_READY, then yes we'll wnat to look
-> at changing this logic.  I think that should be a separate patch.
-> 
+Hi Andrew,
 
-Ok. probably we just make one redundant loop out and back into the function.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Other than that, the patchset looks good to me.
+> The Marvell switches have an in built watchdog over some of the
+> internal state machine. The watchdog can be configured to raise an
+> interrupt on error. The problem the watchdog found is then logged to
+> the kernel log.
+>
+> The older switches can automagically perform a software reset when the
+> watchdog triggers. This just resets the internal state machine, but
+> leaves the switch configuration unchanged.
+>
+> The 6390 family of switches cannot both raise an interrupt and
+> automagically perform a software reset. So the interrupt handler has
+> to perform the switch reset, and then re-enable the watchdog
+> interrupts.
+>
+> This has been tested using hacked together debugfs code which allows
+> the "force" bit to be set, so cause a watchdog interrupt.
 
---Sowmini
+Please remove the "g2_" prefix in the mv88e6xxx_ops members...
+
+Thanks,
+
+        Vivien
