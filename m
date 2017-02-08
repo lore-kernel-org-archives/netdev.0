@@ -1,97 +1,60 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC ipsec-next 5/5] esp: Add a software GRO codepath
-Date: Wed, 8 Feb 2017 12:43:11 +0100
-Message-ID: <20170208114311.GU30338@gauss.secunet.com>
-References: <1486458851-4920-1-git-send-email-steffen.klassert@secunet.com>
- <1486458851-4920-6-git-send-email-steffen.klassert@secunet.com>
- <1486496706.7793.66.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
+Date: Wed, 8 Feb 2017 19:59:50 +0800
+Message-ID: <CAEbi=3fZddPR8L+B6gW+yUraAK_wu=4oOyk3ff-Ez-Qy-LEBfQ@mail.gmail.com>
+References: <20170124084606.GA11764@app09> <20170125.123448.742815192519658537.davem@davemloft.net>
+ <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw@mail.gmail.com> <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-        "Sowmini Varadhan" <sowmini.varadhan@oracle.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:52680 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752949AbdBHLom (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 06:44:42 -0500
-Content-Disposition: inline
-In-Reply-To: <1486496706.7793.66.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 07, 2017 at 11:45:06AM -0800, Eric Dumazet wrote:
-> On Tue, 2017-02-07 at 10:14 +0100, Steffen Klassert wrote:
-> > This patch adds GRO ifrastructure and callbacks for ESP on
-> > ipv4 and ipv6.
-> > 
-> 
-> 
-> I am a bit confused.
-> 
-> >  
-> > -struct xfrm_tunnel_skb_cb {
-> > +/*
-> > + * This structure is used if we get the packet from the gro layer.
-> > + */
-> > +struct xfrm_gro_skb_cb {
-> >  	union {
-> >  		struct inet_skb_parm h4;
-> >  		struct inet6_skb_parm h6;
-> > -	} header;
-> > +
-> > +		struct {
-> > +			__be32 seq;
-> > +			bool skb_is_gro;
-> > +		} input;
-> > +	} gro;
-> > +};
-> > +
-> > +#define XFRM_GRO_SKB_CB(__skb) ((struct xfrm_gro_skb_cb *)&((__skb)->cb[0]))
-> > +
-> 
-> Then :
-> 
-> > +
-> > +	x = xfrm_state_lookup(dev_net(skb->dev), skb->mark,
-> > +			      (xfrm_address_t *)&ip_hdr(skb)->daddr,
-> > +			      spi, IPPROTO_ESP, AF_INET);
-> > +	if (!x)
-> > +		goto out;
-> > +
-> > +	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4 = NULL;
-> > +	XFRM_SPI_SKB_CB(skb)->family = AF_INET;
-> > +	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct iphdr, daddr);
-> > +	XFRM_GRO_SKB_CB(skb)->gro.input.seq = seq;
-> > +	skb->sp->xvec[skb->sp->len++] = x;
-> > +
-> > +	/* We don't need to handle errors from xfrm_input, it does all
-> > +	 * the error handling and frees the resources on error. */
-> > +	xfrm_input(skb, IPPROTO_ESP, spi, -2);
-> > +
-> > +	return ERR_PTR(-EINPROGRESS);
-> > +out:
-> > +	skb_push(skb, offset);
-> > +	NAPI_GRO_CB(skb)->same_flow = 0;
-> > +	NAPI_GRO_CB(skb)->flush = 1;
-> > +
-> 
-> 
-> How can you mix XFRM_SPI_SKB_CB(), XFRM_GRO_SKB_CB() and NAPI_GRO_CB()
-> at the same time on one skb ?
+On Sat, Jan 28, 2017 at 6:17 AM, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>
+> On Wed, Jan 25, 2017 at 10:09:20PM +0100, Arnd Bergmann wrote:
+> > On Wed, Jan 25, 2017 at 6:34 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> > > From: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > Date: Tue, 24 Jan 2017 16:46:14 +0800
+> > >> We also use the same binding document to describe the same faraday ethernet
+> > >> controller and add faraday to vendor-prefixes.txt.
+> > >
+> > > Why are you renaming the MOXA binding file instead of adding a completely new one
+> > > for faraday?  The MOXA one should stick around, I don't see a justification for
+> > > removing it.
+> >
+> > This was my suggestion, basically fixing the name of the existing
+> > binding, which was
+> > accidentally named after one of the users rather than the company that did the
+> > hardware.
+> >
+> > We can't change the compatible string, but I'd much prefer having only
+> > one binding
+> > file for this device rather than two separate ones that could possibly become
+> > incompatible in case we add new properties to them. If there is only
+> > one of them,
+> > naming it according to the hardware design is the general policy.
+> >
+> > Note that we currently have two separate device drivers, but that is more a
+> > historic artifact, and if we ever get around to merging them into one driver,
+> > that should not impact the binding.
+>
+> The change is fine with me, but the subject and commit message need some
+> work.
 
-The fields of XFRM_SPI_SKB_CB start behind XFRM_GRO_SKB_CB, it is
-stacked.
+Hi, Rob:
 
-I hope not to mix NAPI_GRO_CB with XFRM_*_SKB_CB. If I don't find a
-xfrm_state, I use only NAPI_GRO_CB and return to the calling GRO handlers.
-
-If I find a xfrm_state, I use only the XFRM_*_SKB_CB and notify the calling
-GRO handlers that the packet is consumed. Patch 3 changed the potential
-callers to not touch the skb anymore in this case.
-
-Anyway, I think I can remove xfrm_gro_skb_cb, the sequence number fits
-on xfrm_spi_skb_cb, and the skb_is_gro flag can be added to the secpath.
-We have to extend the secpath anyway to carry HW offloading informations,
-so this flag could be there too.
+Would you please advise me of the proper subject and commit messages?
+Thanks~
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
