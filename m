@@ -1,61 +1,47 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/ipv6: double free in ipip6_dev_free
-Date: Wed, 8 Feb 2017 09:11:11 -0800
-Message-ID: <CAM_iQpXpRc9qVQQ2SkULTzvfNEeQHG-CVbS6SCvB=cj+EFVhWg@mail.gmail.com>
-References: <CACT4Y+Yu2mdo7w13nskZCnNwfcOaPY_SS5KDoLciGRg0E=u57A@mail.gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: ip route add give rtnetlink message after update from 4.9.6 to
+ 4.9.8
+Date: Wed, 8 Feb 2017 10:14:36 -0700
+Message-ID: <9aae2c9f-1d1a-64d2-d541-71cfe6235433@cumulusnetworks.com>
+References: <224940468.86611486549068694.JavaMail.httpd@webmail-37.iol.local>
+ <20170208.104443.1740615905192284560.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+Yu2mdo7w13nskZCnNwfcOaPY_SS5KDoLciGRg0E=u57A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, pupilla@libero.it
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33579 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751809AbdBHRPn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:15:43 -0500
+Received: by mail-pg0-f52.google.com with SMTP id 204so50513275pge.0
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 09:14:38 -0800 (PST)
+In-Reply-To: <20170208.104443.1740615905192284560.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 8, 2017 at 5:56 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> First dev->tstats was freed here:
->
-> 1376 static int ipip6_tunnel_init(struct net_device *dev)
-> 1377 {
-> 1378         struct ip_tunnel *tunnel = netdev_priv(dev);
-> 1379         int err;
-> 1380
-> 1381         tunnel->dev = dev;
-> 1382         tunnel->net = dev_net(dev);
-> 1383         strcpy(tunnel->parms.name, dev->name);
-> 1384
-> 1385         ipip6_tunnel_bind_dev(dev);
-> 1386         dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-> 1387         if (!dev->tstats)
-> 1388                 return -ENOMEM;
-> 1389
-> 1390         err = dst_cache_init(&tunnel->dst_cache, GFP_KERNEL);
-> 1391         if (err) {
-> 1392                 free_percpu(dev->tstats);
-> 1393                 return err;
-> 1394         }
-> 1395
-> 1396         return 0;
-> 1397 }
->
-> And then again here:
->
-> 1342 static void ipip6_dev_free(struct net_device *dev)
-> 1343 {
-> 1344         struct ip_tunnel *tunnel = netdev_priv(dev);
-> 1345
-> 1346         dst_cache_destroy(&tunnel->dst_cache);
-> 1347         free_percpu(dev->tstats);
-> 1348         free_netdev(dev);
-> 1349 }
+On 2/8/17 8:44 AM, David Miller wrote:
+> From: "pupilla@libero.it" <pupilla@libero.it>
+> Date: Wed, 8 Feb 2017 11:17:48 +0100 (CET)
+> 
+>> Hi Folks,
+>>
+>> After kernel update from 4.9.6 to 4.9.8, I get the below error
+>> message when I run this command:
+>>
+>> root@Typhoon:~# ip route add default table 210 nexthop dev eth0 via 10.68.64.1 
+>> weight 1 nexthop dev eth0 via 10.68.64.2 weight 1
+>> RTNETLINK answers: Operation not supported
+>> root@Typhoon:~# uname -a
+>> Linux Typhoon 4.9.8 #1 SMP Tue Feb 7 17:14:54 CET 2017 x86_64 Intel(R) Core
+>> (TM) i5-2520M CPU @ 2.50GHz GenuineIntel GNU/Linux
+>>
+>> Is this the expected behaviour?
+> 
+> David, maybe this was an unintended side effect of commit
+> 9ed59592e3e379b2e9557dc1d9e9ec8fcbb33f16 ("lwtunnel: fix autoload of
+> lwt modules").
+> 
 
-Probably we need to NULL dev->tstats in the ndo_init(),
-and ipip6 tunnel seems not the only one missing it.
+Missed the multihop case with LWTUNNEL disabled. patch coming.
