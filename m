@@ -1,151 +1,276 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: Re: [PATCH net-next 4/7] openvswitch: Inherit master's labels.
-Date: Tue, 7 Feb 2017 21:31:05 -0800
-Message-ID: <A0D51CE7-1226-4F71-B53F-4DDC4DEFBBA0@ovn.org>
-References: <1486084206-109903-1-git-send-email-jarno@ovn.org> <1486084206-109903-4-git-send-email-jarno@ovn.org> <CAPWQB7HLGN7LpROpD1XW4+9TH27ZTM14earFB+Cx5fExRXeUAQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 5/7] openvswitch: Add original direction conntrack tuple to sw_flow_key.
+Date: Tue, 7 Feb 2017 21:31:16 -0800
+Message-ID: <DBED96B8-64E3-480B-93B2-1175682FF3B4@ovn.org>
+References: <1486084206-109903-1-git-send-email-jarno@ovn.org> <1486084206-109903-5-git-send-email-jarno@ovn.org> <CAPWQB7Hhm+dVqaOxU-56wV6MmDJw70716ir7cUAnxNnWs_a1LA@mail.gmail.com>
 Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8BIT
 Cc: netdev <netdev@vger.kernel.org>
 To: Joe Stringer <joe@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34843 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752759AbdBHFbH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 00:31:07 -0500
-Received: by mail-pf0-f193.google.com with SMTP id f144so10833369pfa.2
-        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 21:31:07 -0800 (PST)
-In-Reply-To: <CAPWQB7HLGN7LpROpD1XW4+9TH27ZTM14earFB+Cx5fExRXeUAQ@mail.gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34784 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753535AbdBHFbT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 00:31:19 -0500
+Received: by mail-pg0-f68.google.com with SMTP id v184so14112999pgv.1
+        for <netdev@vger.kernel.org>; Tue, 07 Feb 2017 21:31:19 -0800 (PST)
+In-Reply-To: <CAPWQB7Hhm+dVqaOxU-56wV6MmDJw70716ir7cUAnxNnWs_a1LA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-> On Feb 6, 2017, at 1:53 PM, Joe Stringer <joe@ovn.org> wrote:
+> On Feb 6, 2017, at 11:15 PM, Joe Stringer <joe@ovn.org> wrote:
 > 
 > On 2 February 2017 at 17:10, Jarno Rajahalme <jarno@ovn.org> wrote:
->> We avoid calling into nf_conntrack_in() for expected connections, as
->> that would remove the expectation that we want to stick around until
->> we are ready to commit the connection.  Instead, we do a lookup in the
->> expectation table directly.  However, after a successful expectation
->> lookup we have set the flow key label field from the master
->> connection, whereas nf_conntrack_in() does not do this.  This leads to
->> master's labels being iherited after an expectation lookup, but those
->> labels not being inherited after the corresponding conntrack action
->> with a commit flag.
+>> Add the fields of the conntrack original direction 5-tuple to struct
+>> sw_flow_key.  The new fields are initially zeroed, and are populated
+>> whenever a conntrack action is executed and either finds or generates
+>> a conntrack entry.  This means that these fields exist for all packets
+>> were not rejected by conntrack as untrackable.
 >> 
->> This patch resolves the problem by changing the commit code path to
->> also inherit the master's labels to the expected connection.
->> Resolving this conflict in favor or inheriting the labels allows
->> information be passed from the master connection to related
->> connections, which would otherwise be much harder.  Labels can still
->> be set explicitly, so this change only affects the default values of
->> the labels in presense of a master connection.
+>> The original tuple fields in the sw_flow_key are filled from the
+>> original direction tuple of the conntrack entry relating to the
+>> current packet, or from the original direction tuple of the master
+>> conntrack entry, if the current conntrack entry has a master.
+>> Generally, expected connections of connections having an assigned
+>> helper (e.g., FTP), have a master conntrack entry.
 >> 
->> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+>> The main purpose of the new conntrack original tuple fields is to
+>> allow matching on them for policy decision purposes, with the premise
+>> that the admissibility of tracked connections reply packets (as well
+>> as original direction packets), and both direction packets of any
+>> related connections may be based on ACL rules applying to the master
+>> connection's original direction 5-tuple.  This also makes it easier to
+>> make policy decisions when the actual packet headers might have been
+>> transformed by NAT, as the original direction 5-tuple represents the
+>> packet headers before any such transformation.
+>> 
+>> When using the original direction 5-tuple the admissibility of return
+>> and/or related packets need not be based on the mere existence of a
+>> conntrack entry, allowing separation of admission policy from the
+>> established conntrack state.  While existence of a conntrack entry is
+>> required for admission of the return or related packets, policy
+>> changes can render connections that were initially admitted to be
+>> rejected or dropped afterwards.  If the admission of the return and
+>> related packets was based on mere conntrack state (e.g., connection
+>> being in an established state), a policy change that would make the
+>> connection rejected or dropped would need to find and delete all
+>> conntrack entries affected by such a change.  When using the original
+>> direction 5-tuple matching the affected conntrack entries can be
+>> allowed to time out instead, as the established state of the
+>> connection would not need to be the basis for packet admission any
+>> more.
+>> 
+>> It should be noted that the directionality of related connections may
+>> be the same or different than that of the master connection, and
+>> neither the original direction 5-tuple nor the conntrack state bits
+>> carry this information.  If needed, the directionality of the master
+>> connection can be stored in master's conntrack mark or labels, which
+>> are automatically inherited by the expected related connections.
+>> 
+>> The fact that neither ARP not ND packets are trackable by conntrack
+>> allows mutual exclusion between ARP/ND and the new conntrack original
+>> tuple fields.  Hence, the IP addresses are overlaid in union with ARP
+>> and ND fields.  This allows the sw_flow_key to not grow much due to
+>> this patch, but it also means that we must be careful to never use the
+>> new key fields with ARP or ND packets.  ARP is easy to distinguish and
+>> keep mutually exclusive based on the ethernet type, but ND being an
+>> ICMPv6 protocol requires a bit more attention.
+>> 
 >> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 >> ---
->> net/openvswitch/conntrack.c | 48 ++++++++++++++++++++++++++++++++-------------
->> 1 file changed, 34 insertions(+), 14 deletions(-)
->> 
+> 
+> OK, maybe we need to do something a bit more to handle the NATed
+> related connections to address the problem in patch 1.
+> 
+> <snip>
+> 
 >> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->> index a163c44..738a4fa 100644
+>> index 738a4fa..1afe153 100644
 >> --- a/net/openvswitch/conntrack.c
 >> +++ b/net/openvswitch/conntrack.c
->> @@ -265,6 +265,8 @@ static struct nf_conn_labels *ovs_ct_get_conn_labels(struct nf_conn *ct)
->>        return cl;
+>> @@ -155,6 +155,59 @@ static void __ovs_ct_update_key(struct sw_flow_key *key, u8 state,
+>>        key->ct.zone = zone->id;
+>>        key->ct.mark = ovs_ct_get_mark(ct);
+>>        ovs_ct_get_labels(ct, &key->ct.labels);
+>> +
+>> +       /* Use the master if we have one. */
+>> +       if (ct && ct->master)
+>> +               ct = ct->master;
+> 
+> Perhaps:
+> 
+> if (!ct || sw_flow_key_is_nd(key) || !is_ip_any(key->eth.type)) {
+>    /* zero everything */
+>    return;
+> }
+> 
+> One of the things this helps us to avoid is having a comment in the
+> middle of an if statement.
+> 
+> Then afterwards,
+> if (ct->master)
+>    ct = ct->master;
+> 
+>> +
+>> +       key->ct.orig_proto = 0;
+>> +       key->ct.orig_tp.src = 0;
+>> +       key->ct.orig_tp.dst = 0;
+>> +       if (key->eth.type == htons(ETH_P_IP)) {
+>> +               /* IP version must match. */
+>> +               if (ct && nf_ct_l3num(ct) == NFPROTO_IPV4) {
+> 
+> I don't quite understand how we could end up with a connection NFPROTO
+> that is mismatched with an IP version that we should handle here, but
+> if there are some legitimite cases perhaps we can pick them up and
+> handle them in the early exit condition above?
+> 
+
+One would be if an IPv4 FTP control connection opened an IPv6 data connection. Our flow key layout assumes the IP versions between master and related connection match. I added a comment to that effect.
+
+> We can probably share a few more lines between IPv4 and IPv6 here.
+> 
+
+I refactored all the repeated code away for v2.
+
+
+>> @@ -208,24 +261,54 @@ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
+>>        ovs_ct_update_key(skb, NULL, key, false, false);
 >> }
 >> 
->> +static bool labels_nonzero(const struct ovs_key_ct_labels *labels);
->> +
+>> -int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb)
+>> +#define IN6_ADDR_INITIALIZER(ADDR) \
+>> +       { (ADDR).s6_addr32[0], (ADDR).s6_addr32[1], \
+>> +         (ADDR).s6_addr32[2], (ADDR).s6_addr32[3] }
 > 
-> These declarations typically live at the top of the file, not
-> somewhere in the middle.
+> scripts/checkpatch.pl asks:
 > 
-
-Moved.
-
->> /* Initialize labels for a new, to be committed conntrack entry.  Note that
->>  * since the new connection is not yet confirmed, and thus no-one else has
->>  * access to it's labels, we simply write them over.  Also, we refrain from
->> @@ -275,18 +277,35 @@ static int ovs_ct_init_labels(struct nf_conn *ct, struct sw_flow_key *key,
->>                              const struct ovs_key_ct_labels *labels,
->>                              const struct ovs_key_ct_labels *mask)
->> {
->> -       struct nf_conn_labels *cl;
->> -       u32 *dst;
->> -       int i;
->> +       struct nf_conn_labels *cl, *master_cl;
->> +       bool have_mask = labels_nonzero(mask);
->> +
->> +       /* Inherit master's labels to the related connection? */
->> +       master_cl = (ct->master) ? nf_ct_labels_find(ct->master) : NULL;
->> +
->> +       if (!master_cl && !have_mask)
->> +               return 0;   /* Nothing to do. */
->> 
->>        cl = ovs_ct_get_conn_labels(ct);
->>        if (!cl)
->>                return -ENOSPC;
->> 
->> -       dst = (u32 *)cl->bits;
->> -       for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
->> -               dst[i] = (dst[i] & ~mask->ct_labels_32[i]) |
->> -                       (labels->ct_labels_32[i] & mask->ct_labels_32[i]);
->> +       /* Inherit the master's labels, if any. */
->> +       if (master_cl) {
->> +               size_t len = sizeof(master_cl->bits);
->> +
->> +               memcpy(&cl->bits, &master_cl->bits,
->> +                      len > OVS_CT_LABELS_LEN ? OVS_CT_LABELS_LEN : len);
+> CHECK: Macro argument reuse 'ADDR' - possible side-effects?
+> #704: FILE: net/openvswitch/conntrack.c:264:
+> +#define IN6_ADDR_INITIALIZER(ADDR) \
+> +       { (ADDR).s6_addr32[0], (ADDR).s6_addr32[1], \
+> +         (ADDR).s6_addr32[2], (ADDR).s6_addr32[3] }
 > 
-> Looks like this is another spot where we're trying to handle differing
-> label lengths, which we could simplify if there was a stronger
-> guarantee they're the same.
+> I'm guessing it just doesn't like your use of the name 'ADDR’.
 
-Indeed, here the ‘cl’s are different instances of the same structure, so we do need not worry about the sizes at all. I’ll change this to an simple structure assignment for v2.
+Rather it is recommending caution about ‘ADDR’ being evaluated multiple times, which is no problem here.
 
 > 
->> +       }
->> +       if (have_mask) {
->> +               u32 *dst = (u32 *)cl->bits;
->> +               int i;
->> +
->> +               for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
->> +                       dst[i] = (dst[i] & ~mask->ct_labels_32[i]) |
->> +                               (labels->ct_labels_32[i]
->> +                                & mask->ct_labels_32[i]);
+>> +       if (swkey->eth.type == htons(ETH_P_IP) && swkey->ct.orig_proto) {
+>> +               struct ovs_key_ct_tuple_ipv4 orig = {
+>> +                       output->ipv4.ct_orig.src,
+>> +                       output->ipv4.ct_orig.dst,
+>> +                       output->ct.orig_tp.src,
+>> +                       output->ct.orig_tp.dst,
+>> +                       output->ct.orig_proto,
+>> +               };
+>> +               if (nla_put(skb, OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4, sizeof(orig),
+>> +                           &orig))
+>> +                       return -EMSGSIZE;
+>> +       } else if (swkey->eth.type == htons(ETH_P_IPV6) &&
+>> +                  swkey->ct.orig_proto) {
+>> +               struct ovs_key_ct_tuple_ipv6 orig = {
+>> +                       IN6_ADDR_INITIALIZER(output->ipv6.ct_orig.src),
+>> +                       IN6_ADDR_INITIALIZER(output->ipv6.ct_orig.dst),
+>> +                       output->ct.orig_tp.src,
+>> +                       output->ct.orig_tp.dst,
+>> +                       output->ct.orig_proto,
+>> +               };
+>> +               if (nla_put(skb, OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6, sizeof(orig),
+>> +                           &orig))
+>> +                       return -EMSGSIZE;
 >> +       }
 > 
-> By the way, is this open-coding nf_connlabels_replace()? Can
-> ovs_ct_set_labels() and this share the code?
+> swkey->ct.orig_proto check is common across both conditions, maybe
+> check that first then nest the other logic within?
 
-nf_connlabels_replace() uses the compare-and-exchange function to change each 32-bit unit individually, and also triggers the nf netlink change event, first of which we do not need and the second of which we do not want.
+Done.
 
 > 
+>> +
+>>        return 0;
+>> }
 >> 
->>        memcpy(&key->ct.labels, cl->bits, OVS_CT_LABELS_LEN);
+>> diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
+>> index 8f6230b..8573ab3 100644
+>> --- a/net/openvswitch/conntrack.h
+>> +++ b/net/openvswitch/conntrack.h
+>> @@ -32,7 +32,8 @@ int ovs_ct_execute(struct net *, struct sk_buff *, struct sw_flow_key *,
+>>                   const struct ovs_conntrack_info *);
 >> 
->> @@ -916,13 +935,14 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
->>                if (err)
->>                        return err;
+>> void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key);
+>> -int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb);
+>> +int ovs_ct_put_key(const struct sw_flow_key *swkey,
+>> +                  const struct sw_flow_key *output, struct sk_buff *skb);
+>> void ovs_ct_free_action(const struct nlattr *a);
+>> 
+>> #define CT_SUPPORTED_MASK (OVS_CS_F_NEW | OVS_CS_F_ESTABLISHED | \
+>> @@ -79,9 +80,17 @@ static inline void ovs_ct_fill_key(const struct sk_buff *skb,
+>>        key->ct.zone = 0;
+>>        key->ct.mark = 0;
+>>        memset(&key->ct.labels, 0, sizeof(key->ct.labels));
+>> +       key->ct.orig_proto = 0;
+>> +       key->ct.orig_tp.src = 0;
+>> +       key->ct.orig_tp.dst = 0;
+>> +       if (key->eth.type == htons(ETH_P_IP))
+>> +               memset(&key->ipv4.ct_orig, 0, sizeof(key->ipv4.ct_orig));
+>> +       else if (key->eth.type == htons(ETH_P_IPV6) && !sw_flow_key_is_nd(key))
+>> +               memset(&key->ipv6.ct_orig, 0, sizeof(key->ipv6.ct_orig));
+> 
+> If we only ever use these fields based on key->ct.orig_proto being
+> nonzero, then we m
+> 
+
+All these fields need to be initialized for megaflow matching purposes. We use orig_proto non-zero check to avoid encoding all-zero netlink attribute.
+
+> <snip>
+> 
+>> +static inline bool sw_flow_key_is_nd(const struct sw_flow_key *key)
+>> +{
+>> +       return key->eth.type == htons(ETH_P_IPV6) &&
+>> +               key->ip.proto == NEXTHDR_ICMP &&
+>> +               key->tp.dst == 0 &&
+>> +               (key->tp.src == ntohs(NDISC_NEIGHBOUR_SOLICITATION) ||
+>> +                key->tp.src == ntohs(NDISC_NEIGHBOUR_ADVERTISEMENT));
+> 
+> Sparse complains:
+> 
+> net/openvswitch/flow.h:163:33: warning: cast to restricted __be16
+> net/openvswitch/flow.h:163:25: warning: restricted __be16 degrades to integer
+> net/openvswitch/flow.h:164:33: warning: cast to restricted __be16
+> net/openvswitch/flow.h:164:25: warning: restricted __be16 degrades to integer
+> 
+
+Oops, should have used htons() instead.
+
+>> @@ -161,8 +163,11 @@ static bool match_validate(const struct sw_flow_match *match,
+>> 
+>>        if (match->key->eth.type == htons(ETH_P_IP)) {
+>>                key_expected |= 1 << OVS_KEY_ATTR_IPV4;
+>> -               if (match->mask && (match->mask->key.eth.type == htons(0xffff)))
+>> +               if (match->mask &&
+>> +                   (match->mask->key.eth.type == htons(0xffff))) {
+> 
+> Minor nit, can probably drop the parentheses and keep this to one line?
+> 
+
+OK.
+
+>> @@ -1430,6 +1476,10 @@ int ovs_nla_get_match(struct net *net, struct sw_flow_match *match,
+>>                        goto free_newmask;
 >>        }
->> -       if (labels_nonzero(&info->labels.mask)) {
->> -               if (!nf_ct_is_confirmed(ct))
->> -                       err = ovs_ct_init_labels(ct, key, &info->labels.value,
->> -                                                &info->labels.mask);
->> -               else
->> -                       err = ovs_ct_set_labels(ct, key, &info->labels.value,
->> -                                               &info->labels.mask);
->> +       if (!nf_ct_is_confirmed(ct)) {
->> +               err = ovs_ct_init_labels(ct, key, &info->labels.value,
->> +                                        &info->labels.mask);
->> +               if (err)
->> +                       return err;
->> +       } else if (labels_nonzero(&info->labels.mask)) {
->> +               err = ovs_ct_set_labels(ct, key, &info->labels.value,
->> +                                       &info->labels.mask);
->>                if (err)
->>                        return err;
->>        }
->> --
->> 2.1.4
+>> 
+>> +       /* This also checks that conntrack original direction metadata exists
+>> +        * only for packets for which it makes sense.  Otherwise the key may be
+>> +        * corrupted due to overlapping key fields.
+>> +        */
+>>        if (!match_validate(match, key_attrs, mask_attrs, log))
+>>                err = -EINVAL;
+>> 
+> 
+> I believe that this is already explained in the relevant portion of
+> match_validate(), not sure it's worth highlighting that particular
+> piece of validation above a call to such a general function.
+
+Removed.
