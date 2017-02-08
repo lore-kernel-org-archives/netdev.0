@@ -1,36 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Performance in stmmac
-Date: Wed, 08 Feb 2017 13:40:15 -0500 (EST)
-Message-ID: <20170208.134015.2186033581160265708.davem@davemloft.net>
-References: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH v3 1/5] bpf: Add missing header to the library
+Date: Wed, 8 Feb 2017 17:40:33 -0200
+Message-ID: <20170208194033.GA2162@redhat.com>
+References: <20170207205609.8035-1-mic@digikod.net>
+ <20170207205609.8035-2-mic@digikod.net>
+ <b3db796c-b4a5-ffb4-4dc7-4bb28fc1fd00@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: niklas.cassel@axis.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57296 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751357AbdBHTf4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:35:56 -0500
-In-Reply-To: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
+To: "Wangnan (F)" <wangnan0@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b3db796c-b4a5-ffb4-4dc7-4bb28fc1fd00@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Tue, 7 Feb 2017 19:33:52 +0000
-
-> I am seeing tx being performed in all queues, but rx is just being routed to
-> queue 0. The reason why only queue 0 is processing the packets is because I am
-> using priority tagged routing for now and iperf is not capable of producing
-> priority tagged traffic.
+Em Wed, Feb 08, 2017 at 10:47:18AM +0800, Wangnan (F) escreveu:
+> >+++ b/tools/lib/bpf/bpf.h
+> >@@ -22,6 +22,7 @@
+> >  #define __BPF_BPF_H
+> >  #include <linux/bpf.h>
+> >+#include <stddef.h>
+> >  int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+> >  		   int max_entries, __u32 map_flags);
+> Looks good to me.
 > 
-> I am sending you this e-mail in order to know if you could suggest me a tool to
-> generate priority tagged traffic and if you have experience in tweaking stmmac
-> to improve performance.
+> Thank you.
 
-Multi-queue is only going to be effective on RX if you can do proper hashed
-flow separation.  That's the entire performance point of the feature.
+Applied, took the "Thank you" as an "Acked-by: Wang",
 
-If the chip cannot do this, your performance will be thusly limited.
+Regards,
+
+- Arnaldo
