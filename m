@@ -1,126 +1,79 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 12/15] ipv4: fib: Notify about nexthop status changes
-Date: Wed,  8 Feb 2017 11:16:39 +0100
-Message-ID: <1486549002-2056-13-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 05/15] mlxsw: spectrum_router: Add gateway indication to nexthop group
+Date: Wed,  8 Feb 2017 11:16:32 +0100
+Message-ID: <1486549002-2056-6-git-send-email-jiri@resnulli.us>
 References: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com, Roopa Prabhu <roopa@cumulusnetworks.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Andy Gospodarek <andy@greyhouse.net>
+        mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36372 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753153AbdBHKRU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 05:17:20 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r18so32479787wmd.3
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 02:16:58 -0800 (PST)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34866 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752949AbdBHKQu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 05:16:50 -0500
+Received: by mail-wr0-f193.google.com with SMTP id o16so8291315wra.2
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 02:16:50 -0800 (PST)
 In-Reply-To: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When a multipath route is hit the kernel doesn't consider nexthops that
-are DEAD or LINKDOWN when IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN is set.
-Devices that offload multipath routes need to be made aware of nexthop
-status changes. Otherwise, the device will keep forwarding packets to
-non-functional nexthops.
+The next patch is going to generalize the way in which we store routes.
+Instead of attaching a nexthop group only to gatewayed routes, one will
+be attached to each route, in a similar way to the way the FIB code
+stores its routes.
 
-Add the FIB_EVENT_NH_{ADD,DEL} events to the fib notification chain,
-which notify capable devices when they should add or delete a nexthop
-from their tables.
+The above means that any function operating on a nexthop group cannot
+assume the group represents only gatewayed nexthops. One such function
+is the one that refreshes a nexthop group and updates the adjacency
+table following nexthop changes.
 
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
+For a nexthop group that doesn't represent any gateways this function
+would essentially be a NOP, but it would be useful if it did update the
+action associated with any route using it. This will allow us to later
+consolidate code paths when a nexthop changes following NH_{ADD,DEL}
+events.
+
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/ip_fib.h     |  7 +++++++
- net/ipv4/fib_semantics.c | 33 +++++++++++++++++++++++++++++++++
- 2 files changed, 40 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 57c2a86..45a184e 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -214,11 +214,18 @@ struct fib_entry_notifier_info {
- 	u32 nlflags;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index cad7e9a..110a7bb 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1121,7 +1121,8 @@ struct mlxsw_sp_nexthop_group {
+ 	struct rhash_head ht_node;
+ 	struct list_head fib_list; /* list of fib entries that use this group */
+ 	struct mlxsw_sp_nexthop_group_key key;
+-	u8 adj_index_valid:1;
++	u8 adj_index_valid:1,
++	   gateway:1; /* routes using the group use a gateway */
+ 	u32 adj_index;
+ 	u16 ecmp_size;
+ 	u16 count;
+@@ -1292,6 +1293,11 @@ mlxsw_sp_nexthop_group_refresh(struct mlxsw_sp *mlxsw_sp,
+ 	int i;
+ 	int err;
  
-+struct fib_nh_notifier_info {
-+	struct fib_notifier_info info; /* must be first */
-+	struct fib_nh *fib_nh;
-+};
-+
- enum fib_event_type {
- 	FIB_EVENT_ENTRY_ADD,
- 	FIB_EVENT_ENTRY_DEL,
- 	FIB_EVENT_RULE_ADD,
- 	FIB_EVENT_RULE_DEL,
-+	FIB_EVENT_NH_ADD,
-+	FIB_EVENT_NH_DEL,
- };
- 
- int register_fib_notifier(struct notifier_block *nb,
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 6306a67..317026a 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1355,6 +1355,36 @@ int fib_sync_down_addr(struct net_device *dev, __be32 local)
- 	return ret;
- }
- 
-+static int call_fib_nh_notifiers(struct fib_nh *fib_nh,
-+				 enum fib_event_type event_type)
-+{
-+	struct in_device *in_dev = __in_dev_get_rtnl(fib_nh->nh_dev);
-+	struct fib_nh_notifier_info info = {
-+		.fib_nh = fib_nh,
-+	};
-+
-+	switch (event_type) {
-+	case FIB_EVENT_NH_ADD:
-+		if (fib_nh->nh_flags & RTNH_F_DEAD)
-+			break;
-+		if (IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-+		    fib_nh->nh_flags & RTNH_F_LINKDOWN)
-+			break;
-+		return call_fib_notifiers(dev_net(fib_nh->nh_dev), event_type,
-+					  &info.info);
-+	case FIB_EVENT_NH_DEL:
-+		if ((IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-+		     fib_nh->nh_flags & RTNH_F_LINKDOWN) ||
-+		    (fib_nh->nh_flags & RTNH_F_DEAD))
-+			return call_fib_notifiers(dev_net(fib_nh->nh_dev),
-+						  event_type, &info.info);
-+	default:
-+		break;
++	if (!nh_grp->gateway) {
++		mlxsw_sp_nexthop_fib_entries_update(mlxsw_sp, nh_grp);
++		return;
 +	}
 +
-+	return NOTIFY_DONE;
-+}
-+
- /* Event              force Flags           Description
-  * NETDEV_CHANGE      0     LINKDOWN        Carrier OFF, not for scope host
-  * NETDEV_DOWN        0     LINKDOWN|DEAD   Link down, not for scope host
-@@ -1396,6 +1426,8 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event, bool force)
- 					nexthop_nh->nh_flags |= RTNH_F_LINKDOWN;
- 					break;
- 				}
-+				call_fib_nh_notifiers(nexthop_nh,
-+						      FIB_EVENT_NH_DEL);
- 				dead++;
- 			}
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
-@@ -1550,6 +1582,7 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
- 				continue;
- 			alive++;
- 			nexthop_nh->nh_flags &= ~nh_flags;
-+			call_fib_nh_notifiers(nexthop_nh, FIB_EVENT_NH_ADD);
- 		} endfor_nexthops(fi)
+ 	for (i = 0; i < nh_grp->count; i++) {
+ 		nh = &nh_grp->nexthops[i];
  
- 		if (alive > 0) {
+@@ -1505,6 +1511,7 @@ mlxsw_sp_nexthop_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
+ 	if (!nh_grp)
+ 		return ERR_PTR(-ENOMEM);
+ 	INIT_LIST_HEAD(&nh_grp->fib_list);
++	nh_grp->gateway = fi->fib_nh->nh_scope == RT_SCOPE_LINK;
+ 	nh_grp->count = fi->fib_nhs;
+ 	nh_grp->key.fi = fi;
+ 	for (i = 0; i < nh_grp->count; i++) {
 -- 
 2.7.4
