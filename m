@@ -1,73 +1,78 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net v2 1/3] net: phy: Fix PHY module checks
-Date: Wed, 8 Feb 2017 09:46:27 -0800
-Message-ID: <34e621b5-9fb7-aad5-126f-291b52af30be@gmail.com>
-References: <20170208073746.10963-1-f.fainelli@gmail.com>
- <20170208073746.10963-2-f.fainelli@gmail.com>
- <F95AC9340317A84688A5F0DF0246F3F201ED9E4E@szxemi502-mbx.china.huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "rmk+kernel@armlinux.org.uk" <rmk+kernel@armlinux.org.uk>
-To: maowenan <maowenan@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] sit: fix a double free on error path
+Date: Wed,  8 Feb 2017 10:02:13 -0800
+Message-ID: <1486576933-25561-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:33081 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754150AbdBHR4A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:56:00 -0500
-Received: by mail-qt0-f193.google.com with SMTP id n13so24319658qtc.0
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 09:55:59 -0800 (PST)
-In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F201ED9E4E@szxemi502-mbx.china.huawei.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34132 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751123AbdBHSKY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:10:24 -0500
+Received: by mail-pf0-f196.google.com with SMTP id y143so12157008pfb.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 10:10:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2017 11:57 PM, maowenan wrote:
-> 
-> 
->> -----Original Message-----
->> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
->> Sent: Wednesday, February 08, 2017 3:38 PM
->> To: netdev@vger.kernel.org
->> Cc: davem@davemloft.net; andrew@lunn.ch; rmk+kernel@armlinux.org.uk;
->> maowenan; Florian Fainelli
->> Subject: [PATCH net v2 1/3] net: phy: Fix PHY module checks
->>
->> The Generic PHY drivers gets assigned after we checked that the current PHY
->> driver is NULL, so we need to check a few things before we can safely
->> derference d->driver. Update phy_attach_direct() and phy_detach() accordingly
->> to be resilient to these cases.
->>
->> Even though the Generic PHY driver defaults to phy_probe() which can hardly
->> fail at the moment, let's fix the label so we don't call phy_detach() on a network
->> device we have not attached yet.
->>
->> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  drivers/net/phy/phy_device.c | 8 +++++---
->>  1 file changed, 5 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c index
->> 0d8f4d3847f6..bde240bf8d7b 100644
->> --- a/drivers/net/phy/phy_device.c
->> +++ b/drivers/net/phy/phy_device.c
->> @@ -920,7 +920,7 @@ int phy_attach_direct(struct net_device *dev, struct
->> phy_device *phydev,
->>  		return -EIO;
->>  	}
->>
->> -	if (!try_module_get(d->driver->owner)) {
->> +	if (d->driver && !try_module_get(d->driver->owner)) {
->>  		dev_err(&dev->dev, "failed to get the device driver module\n");
->>  		return -EIO;
-> 
-> Hi Florian,
->   Here "return -EIO" will miss decreasing bus->owner reference count.
+Dmitry reported a double free in sit_init_net():
 
-Good catch thanks!
+  kernel BUG at mm/percpu.c:689!
+  invalid opcode: 0000 [#1] SMP KASAN
+  Dumping ftrace buffer:
+     (ftrace buffer empty)
+  Modules linked in:
+  CPU: 0 PID: 15692 Comm: syz-executor1 Not tainted 4.10.0-rc6-next-20170206 #1
+  Hardware name: Google Google Compute Engine/Google Compute Engine,
+  BIOS Google 01/01/2011
+  task: ffff8801c9cc27c0 task.stack: ffff88017d1d8000
+  RIP: 0010:pcpu_free_area+0x68b/0x810 mm/percpu.c:689
+  RSP: 0018:ffff88017d1df488 EFLAGS: 00010046
+  RAX: 0000000000010000 RBX: 00000000000007c0 RCX: ffffc90002829000
+  RDX: 0000000000010000 RSI: ffffffff81940efb RDI: ffff8801db841d94
+  RBP: ffff88017d1df590 R08: dffffc0000000000 R09: 1ffffffff0bb3bdd
+  R10: dffffc0000000000 R11: 00000000000135dd R12: ffff8801db841d80
+  R13: 0000000000038e40 R14: 00000000000007c0 R15: 00000000000007c0
+  FS:  00007f6ea608f700(0000) GS:ffff8801dbe00000(0000) knlGS:0000000000000000
+  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+  CR2: 000000002000aff8 CR3: 00000001c8d44000 CR4: 00000000001426f0
+  DR0: 0000000020000000 DR1: 0000000020000000 DR2: 0000000000000000
+  DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+  Call Trace:
+   free_percpu+0x212/0x520 mm/percpu.c:1264
+   ipip6_dev_free+0x43/0x60 net/ipv6/sit.c:1335
+   sit_init_net+0x3cb/0xa10 net/ipv6/sit.c:1831
+   ops_init+0x10a/0x530 net/core/net_namespace.c:115
+   setup_net+0x2ed/0x690 net/core/net_namespace.c:291
+   copy_net_ns+0x26c/0x530 net/core/net_namespace.c:396
+   create_new_namespaces+0x409/0x860 kernel/nsproxy.c:106
+   unshare_nsproxy_namespaces+0xae/0x1e0 kernel/nsproxy.c:205
+   SYSC_unshare kernel/fork.c:2281 [inline]
+   SyS_unshare+0x64e/0xfc0 kernel/fork.c:2231
+   entry_SYSCALL_64_fastpath+0x1f/0xc2
 
+This is because when tunnel->dst_cache init fails, we free dev->tstats
+once in ipip6_tunnel_init() and twice in sit_init_net(). This looks
+redundant but its ndo_uinit() does not seem enough to clean up everything
+here. So avoid this by setting dev->tstats to NULL after the first free,
+at least for -net.
+
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv6/sit.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index fad992a..99853c6 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1380,6 +1380,7 @@ static int ipip6_tunnel_init(struct net_device *dev)
+ 	err = dst_cache_init(&tunnel->dst_cache, GFP_KERNEL);
+ 	if (err) {
+ 		free_percpu(dev->tstats);
++		dev->tstats = NULL;
+ 		return err;
+ 	}
+ 
 -- 
-Florian
+2.5.5
