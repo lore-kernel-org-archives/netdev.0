@@ -1,78 +1,72 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC v3 02/11] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) interface
-Date: Wed, 8 Feb 2017 08:54:37 +0200
-Message-ID: <20170208065437.GA6005@mtr-leonro.local>
-References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1486498990-76562-3-git-send-email-niranjana.vishwanathapura@intel.com>
- <20170207211901.GB28922@obsidianresearch.com>
+From: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
+Subject: [PATCH net-next v4 0/2] qed*: Add support for PTP
+Date: Tue, 7 Feb 2017 22:43:12 -0800
+Message-ID: <1486536194-30872-1-git-send-email-Sudarsana.Kalluru@cavium.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="N619HKiDy45kBi0v"
-Cc: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170207211901.GB28922-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>,
+        <Yuval.Mintz@cavium.com>,
+        Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0061.outbound.protection.outlook.com ([104.47.37.61]:52640
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932135AbdBHG7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 8 Feb 2017 01:59:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 
---N619HKiDy45kBi0v
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi David,
+    The patch series adds required changes for qed/qede drivers for
+supporting the IEEE Precision Time Protocol (PTP).
 
-On Tue, Feb 07, 2017 at 02:19:01PM -0700, Jason Gunthorpe wrote:
-> On Tue, Feb 07, 2017 at 12:23:01PM -0800, Vishwanathapura, Niranjana wrote:
-> > Add rdma netdev interface to ib device structure allowing rdma netdev
-> > devices to be allocated by ib clients.
-> > Define HFI VNIC interface between hardware independent VNIC
-> > functionality and the hardware dependent VNIC functionality.
->
-> This commit message could be a bit clearer.
->
-> The alloc_rdma_netdev multiplexer is inteded as a new general
-> interface and this adds a protocol definition for ethernet VNIC on
-> OPA.
->
-> The hope is that ipoib can follow the same example and use the same
-> alloc_rdma_netdev entry point. Hopefully Mellanox will look at this
-> patch as I have talked to them in the past about doing this...
+Please consider applying this series to "net-next".
 
-Jason,
+Thanks,
+Sudarsana
 
-We looked on it and it is useless for us, mainly because of the fact
-that most  of the work is done in our net part of the driver.
+Changes from previous versions:
+-------------------------------
+v4: Remove the loop iteration for value '0' in the qed_ptp_hw_adjfreq()
+    implementation.
 
-So, as it looks for now, this ULP exercise will be for HFI only.
+v3: Use div_s64 for 64-bit divisions as do_div gives error for signed
+    types.
+    Incorporated review comments from Richard Cochran.
+      - Clear timestamp resgisters as soon as timestamp is read.
+      - Use shift operation in the place of 'divide by 16'.
 
-Thanks
+v2: Use do_div for 64-bit divisions.
 
---N619HKiDy45kBi0v
-Content-Type: application/pgp-signature; name="signature.asc"
+Sudarsana Reddy Kalluru (2):
+  qed: Add infrastructure for PTP support.
+  qede: Add driver support for PTP.
 
------BEGIN PGP SIGNATURE-----
+ drivers/net/ethernet/qlogic/Kconfig             |   1 +
+ drivers/net/ethernet/qlogic/qed/Makefile        |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed.h           |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.c        |   5 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.h        |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  15 +
+ drivers/net/ethernet/qlogic/qed/qed_ptp.c       | 316 ++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_ptp.h       |  47 +++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  31 ++
+ drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
+ drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
+ include/linux/qed/qed_eth_if.h                  |  22 +
+ 17 files changed, 1101 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAliawKwACgkQ5GN7iDZy
-WKeTFRAAhcslIXE7u0hZTLiEG+dJBVM94LuAZ9v3sg+xAVMT7Ty688XJqqn6vfhb
-hL9V9wvzCLBf08csVrcERqT3fmwQLznSZ6J4KkB3Kd+j3yzvD9WtHeZMNMPiAlH6
-8zdupZFtVLPGN6NgonD7ryZBoDptq4swFcEqXyRJ7go9gQjHW6m1SPx8O1I0zTmt
-FxX02ikV2TJ/KodojQEkbmwOWb+N+GyTioNDJYIsvZCDS9koLhacX81ktz/7gRK4
-kcZ7yu6lnskzovFiZzfFIGOVdfsc1CC0l81dY/BoZ+fAxIk/t6XT3PMpOuJEWnGA
-GBzYxj1dLV0wKn5HZNkb/vP8R/u68JIEJju4SCaU5QD6ZPSu0vHS7nUjrchUYdAG
-MQXVT8HfRWuqjle+lFK+ikPvTwGNXzxy5njKxTsV3YgAJ0ZL/5kG3GI96fm3BowL
-Sd8Ilq/8YlXRCDhbUjwOeP/ueb3fsXr9H/MqWnaQDs+irDBIcR8P47dlqHOtDHGa
-JI8XxtOtgImt1c/y1/oWkspjw1IPI8SZdRWO6rE7H3HVhONkwbyj0MtasGhcUPTH
-H580g6Ds7E9aAS+D2t2hfFk621IQlMobdlqxLMF7p8lhA2+OM3tczy60Df0ByJ3+
-9t5mFR/odrNPUF1/AG5VXPp8tEADdUPaCSemD8fv0/fCAWmsJYE=
-=mrgt
------END PGP SIGNATURE-----
-
---N619HKiDy45kBi0v--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+1.8.3.1
