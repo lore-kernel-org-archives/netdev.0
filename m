@@ -1,34 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2/net-next repost] tc: flower: Update
- documentation to indicate ARP takes IPv4 prefixes
-Date: Wed, 8 Feb 2017 11:39:59 -0800
-Message-ID: <20170208113959.0df80a36@xeon-e3>
-References: <1486555264-18257-1-git-send-email-simon.horman@netronome.com>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH net-next v3 04/11] bpf: Use bpf_load_program() from the
+ library
+Date: Wed, 8 Feb 2017 17:41:10 -0200
+Message-ID: <20170208194110.GB2162@redhat.com>
+References: <20170207214500.27496-1-mic@digikod.net>
+ <20170207214500.27496-5-mic@digikod.net>
+ <589A5597.7090107@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        linux-kernel@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Shuah Khan <shuah@kernel.org>
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:33496 "EHLO
-        mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751007AbdBHTkf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:40:35 -0500
-Received: by mail-io0-f178.google.com with SMTP id v96so124800869ioi.0
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 11:40:07 -0800 (PST)
-In-Reply-To: <1486555264-18257-1-git-send-email-simon.horman@netronome.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53130 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751498AbdBHTl3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 8 Feb 2017 14:41:29 -0500
+Content-Disposition: inline
+In-Reply-To: <589A5597.7090107@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  8 Feb 2017 13:01:04 +0100
-Simon Horman <simon.horman@netronome.com> wrote:
+Em Tue, Feb 07, 2017 at 03:17:43PM -0800, Alexei Starovoitov escreveu:
+> On 2/7/17 1:44 PM, Mickaël Salaün wrote:
+> >-	union bpf_attr attr;
+> >+	union bpf_attr attr = {};
+> >
+> >-	bzero(&attr, sizeof(attr));
+ 
+> I think somebody mentioned that there are compilers out there
+> that don't do it correctly, hence it was done with explicit bzero.
+> Arnaldo, Wang, do you remember the details?
 
-> Unlike other PREFIXes documented in the usage for tc flower, which accept
-> both IPv4 and IPv6 prefixes, arp_sip and arp_tip only accepts IPv4
-> prefixes.
-> 
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
->
-Applied to net-next
+Yeah, lemme dig it...
+
+- Arnaldo
