@@ -1,65 +1,47 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net 2/2] packet: round up linear to header len
-Date: Wed, 8 Feb 2017 09:27:04 -0800
-Message-ID: <CAF=yD-+=bRWn6FZK35vGNrX58KP=H02P0Tg2eJR1is-uDWdSvw@mail.gmail.com>
-References: <20170207205721.23207-1-willemdebruijn.kernel@gmail.com>
- <20170207205721.23207-3-willemdebruijn.kernel@gmail.com> <20170208153454.GD30741@oracle.com>
- <CAF=yD-KoijEsct9YWm5zK3F7Eas3GS+=5zks7-fZw-bgZhi-3Q@mail.gmail.com> <20170208165851.GG30741@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
+From: Denny Page <dennypage@me.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Wed, 08 Feb 2017 09:27:22 -0800
+Message-ID: <937450EB-BF9D-4963-B690-D6B58C8A197E@me.com>
+References: <20170207140144.GA11233@localhost>
+ <02874ECE860811409154E81DA85FBB5857D6DC87@ORSMSX115.amr.corp.intel.com>
+ <BBA8C11E-44DF-4693-957F-0354BEC75FC3@me.com>
+ <20170208052746.GA1779@localhost.localdomain>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Miroslav Lichvar <mlichvar@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Benc <jbenc@redhat.com>,
         Willem de Bruijn <willemb@google.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34311 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932091AbdBHR1q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:27:46 -0500
-Received: by mail-wr0-f196.google.com with SMTP id 89so9356159wrr.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 09:27:45 -0800 (PST)
-In-Reply-To: <20170208165851.GG30741@oracle.com>
+Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:55290 "EHLO
+        st11p06im-asmtp001.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752061AbdBHR1x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:27:53 -0500
+Received: from process-dkim-sign-daemon.st11p06im-asmtp001.me.com by
+ st11p06im-asmtp001.me.com
+ (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
+ id <0OL201600GGDXM00@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
+ Wed, 08 Feb 2017 17:27:25 +0000 (GMT)
+In-reply-to: <20170208052746.GA1779@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 8, 2017 at 8:58 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (02/08/17 08:37), Willem de Bruijn wrote:
->> Date: Wed, 8 Feb 2017 08:37:19 -0800
->> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
->> To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
->> Cc: Network Development <netdev@vger.kernel.org>, David Miller
->>  <davem@davemloft.net>, Eric Dumazet <eric.dumazet@gmail.com>, Dmitry
->>  Vyukov <dvyukov@google.com>, Willem de Bruijn <willemb@google.com>
->> Subject: Re: [PATCH net 2/2] packet: round up linear to header len
->>
->> On Wed, Feb 8, 2017 at 7:34 AM, Sowmini Varadhan
->> <sowmini.varadhan@oracle.com> wrote:
->> > On (02/07/17 15:57), Willem de Bruijn wrote:
->> >> @@ -2816,8 +2816,9 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
->> >>       err = -ENOBUFS;
->> >>       hlen = LL_RESERVED_SPACE(dev);
->> >>       tlen = dev->needed_tailroom;
->> >> -     skb = packet_alloc_skb(sk, hlen + tlen, hlen, len,
->> >> -                            __virtio16_to_cpu(vio_le(), vnet_hdr.hdr_len),
->> >> +     linear = __virtio16_to_cpu(vio_le(), vnet_hdr.hdr_len);
->> >> +     linear = max(linear, min_t(int, len, dev->hard_header_len));
->> >> +     skb = packet_alloc_skb(sk, hlen + tlen, hlen, len, linear,
->> >>                              msg->msg_flags & MSG_DONTWAIT, &err);
->> >
->   :
->> Do you mean the difference that it unconditionally pulls
->> hard_header_len, optionally with zero padding, whereas this new
->> path can check against new min_header_len and thus allows
->> packets shorter than hard_header_len?
->
-> yes, maybe it doesnt matter, becaues hard_header_len >= min_header_len
-> at all times
 
-The code is not subject to this bug, so I'd rather not touch it in
-this fix for stable.
+> On Feb 07, 2017, at 21:27, Richard Cochran <richardcochran@gmail.com> =
+wrote:
+>=20
+> On Tue, Feb 07, 2017 at 05:52:52PM -0800, Denny Page wrote:
+>> Most, but not all. The TI DP83630 doesn=E2=80=99t support =
+timestamping for all packets, but it does support either PTP or NTP:
+>=20
+> That is the one and only device that explicitly supports NTP. This is
+> a nice idea, of course, but it just did not take off among other
+> products.
 
-But you raise a good point. This logic is subtle and fragile. It will be good to
-deduplicate across packet_snd and tpacket_snd in a follow-up to net-next.
+With a commonly available NTP implementation supporting hardware =
+timestamping, this might get a bit more traction with manufacturers.=20
+
+Denny
