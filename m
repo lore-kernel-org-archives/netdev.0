@@ -1,7 +1,8 @@
 From: =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
-Subject: [PATCH v3 0/2] Fixes for sierra_net driver
-Date: Wed, 8 Feb 2017 02:46:31 +0100
-Message-ID: <cad9ab0b146e4391a4c870290450214e@rwthex-w2-b.rwth-ad.de>
+Subject: [PATCH v3 1/2] sierra_net: Add support for IPv6 and Dual-Stack Link Sense Indications
+Date: Wed, 8 Feb 2017 02:46:32 +0100
+Message-ID: <916d0ee7460a4fcfaa1a951cf39e8607@rwthex-w2-b.rwth-ad.de>
+References: <20170208014633.15438-1-stefan.bruens@rwth-aachen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
@@ -9,31 +10,213 @@ Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY7
         =?UTF-8?q?Stefan=20Br=C3=BCns?= <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
 To: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170208014633.15438-1-stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When trying to initiate a dual-stack (ipv4v6) connection, a MC7710, FW
-version SWI9200X_03.05.24.00ap answers with an unsupported LSI. Add support
-for this LSI.
-Also the link_type should be ignored when going idle, otherwise the modem
-is stuck in a bad link state.
-Tested on MC7710, T-Mobile DE, APN internet.telekom, IPv4v6 PDP type. Both
-IPv4 and IPv6 connections work.
+If a context is configured as dualstack ("IPv4v6"), the modem indicates
+the context activation with a slightly different indication message.
+The dual-stack indication omits the link_type (IPv4/v6) and adds
+additional address fields.
+IPv6 LSIs are identical to IPv4 LSIs, but have a different link type.
 
+Signed-off-by: Stefan Brüns <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
+---
 v2: Do not overwrite protocol field in rx_fixup
 v3: Remove leftover struct ethhdr *eth declaration
 
-Stefan Brüns (2):
-  sierra_net: Add support for IPv6 and Dual-Stack Link Sense Indications
-  sierra_net: Skip validating irrelevant fields for IDLE LSIs
+Example LSI LINK UP indication:
 
- drivers/net/usb/sierra_net.c | 111 +++++++++++++++++++++++++++----------------
- 1 file changed, 71 insertions(+), 40 deletions(-)
+0000   00 ed 78 00 04 01 00 e9 0a 14 00 54 00 65 00 6c  ..x........T.e.l
+0010   00 65 00 6b 00 6f 00 6d 00 2e 00 64 00 65 48 03  .e.k.o.m...d.eH.
+0020   c8 be d1 00 62 00 00 00 2c 80 f0 01 00 00 00 00  ....b...,.......
+0030   30 cb 04 4c 49 4e 4b 20 55 50 00 00 00 00 00 00  0..LINK UP......
+0040   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0050   00 00 00 00 04 0a 23 38 db 10 2a 01 05 98 88 c0  ......#8..*.....
+0060   1f da 00 01 00 01 91 23 a8 f9 00 00 00 00 00 00  .......#........
+0070   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0080   00 04 0a 4a d2 d2 10 2a 01 05 98 07 ff 00 00 00  ...J...*........
+0090   10 00 74 02 10 02 10 04 0a 4a d2 d3 10 2a 01 05  ..t......J...*..
+00a0   98 07 ff 00 00 00 10 00 74 02 10 02 11 00 00 00  ........t.......
+00b0   00 00 00 00 00 00 00 00 00 00 00 00 00 ff ff 00  ................
+00c0   00 00 00 00 00 c3 50 04 00 00 00 00 10 fe 80 00  ......P.........
+00d0   00 00 00 00 00 00 00 00 00 00 00 00 05 00 00 00  ................
+00e0   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+00f0   00
+---
+ drivers/net/usb/sierra_net.c | 101 ++++++++++++++++++++++++++++---------------
+ 1 file changed, 66 insertions(+), 35 deletions(-)
 
--- 
-2.11.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
+index a251588762ec..6300a4454ae5 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -73,8 +73,6 @@ static	atomic_t iface_counter = ATOMIC_INIT(0);
+ /* Private data structure */
+ struct sierra_net_data {
+ 
+-	u8 ethr_hdr_tmpl[ETH_HLEN]; /* ethernet header template for rx'd pkts */
+-
+ 	u16 link_up;		/* air link up or down */
+ 	u8 tx_hdr_template[4];	/* part of HIP hdr for tx'd packets */
+ 
+@@ -122,6 +120,7 @@ struct param {
+ 
+ /* LSI Protocol types */
+ #define SIERRA_NET_PROTOCOL_UMTS      0x01
++#define SIERRA_NET_PROTOCOL_UMTS_DS   0x04
+ /* LSI Coverage */
+ #define SIERRA_NET_COVERAGE_NONE      0x00
+ #define SIERRA_NET_COVERAGE_NOPACKET  0x01
+@@ -129,7 +128,8 @@ struct param {
+ /* LSI Session */
+ #define SIERRA_NET_SESSION_IDLE       0x00
+ /* LSI Link types */
+-#define SIERRA_NET_AS_LINK_TYPE_IPv4  0x00
++#define SIERRA_NET_AS_LINK_TYPE_IPV4  0x00
++#define SIERRA_NET_AS_LINK_TYPE_IPV6  0x02
+ 
+ struct lsi_umts {
+ 	u8 protocol;
+@@ -137,9 +137,14 @@ struct lsi_umts {
+ 	__be16 length;
+ 	/* eventually use a union for the rest - assume umts for now */
+ 	u8 coverage;
+-	u8 unused2[41];
++	u8 network_len; /* network name len */
++	u8 network[40]; /* network name (UCS2, bigendian) */
+ 	u8 session_state;
+ 	u8 unused3[33];
++} __packed;
++
++struct lsi_umts_single {
++	struct lsi_umts lsi;
+ 	u8 link_type;
+ 	u8 pdp_addr_len; /* NW-supplied PDP address len */
+ 	u8 pdp_addr[16]; /* NW-supplied PDP address (bigendian)) */
+@@ -158,10 +163,31 @@ struct lsi_umts {
+ 	u8 reserved[8];
+ } __packed;
+ 
++struct lsi_umts_dual {
++	struct lsi_umts lsi;
++	u8 pdp_addr4_len; /* NW-supplied PDP IPv4 address len */
++	u8 pdp_addr4[4];  /* NW-supplied PDP IPv4 address (bigendian)) */
++	u8 pdp_addr6_len; /* NW-supplied PDP IPv6 address len */
++	u8 pdp_addr6[16]; /* NW-supplied PDP IPv6 address (bigendian)) */
++	u8 unused4[23];
++	u8 dns1_addr4_len; /* NW-supplied 1st DNS v4 address len (bigendian) */
++	u8 dns1_addr4[4];  /* NW-supplied 1st DNS v4 address */
++	u8 dns1_addr6_len; /* NW-supplied 1st DNS v6 address len */
++	u8 dns1_addr6[16]; /* NW-supplied 1st DNS v6 address (bigendian)*/
++	u8 dns2_addr4_len; /* NW-supplied 2nd DNS v4 address len (bigendian) */
++	u8 dns2_addr4[4];  /* NW-supplied 2nd DNS v4 address */
++	u8 dns2_addr6_len; /* NW-supplied 2nd DNS v6 address len */
++	u8 dns2_addr6[16]; /* NW-supplied 2nd DNS v6 address (bigendian)*/
++	u8 unused5[68];
++} __packed;
++
+ #define SIERRA_NET_LSI_COMMON_LEN      4
+-#define SIERRA_NET_LSI_UMTS_LEN        (sizeof(struct lsi_umts))
++#define SIERRA_NET_LSI_UMTS_LEN        (sizeof(struct lsi_umts_single))
+ #define SIERRA_NET_LSI_UMTS_STATUS_LEN \
+ 	(SIERRA_NET_LSI_UMTS_LEN - SIERRA_NET_LSI_COMMON_LEN)
++#define SIERRA_NET_LSI_UMTS_DS_LEN     (sizeof(struct lsi_umts_dual))
++#define SIERRA_NET_LSI_UMTS_DS_STATUS_LEN \
++	(SIERRA_NET_LSI_UMTS_DS_LEN - SIERRA_NET_LSI_COMMON_LEN)
+ 
+ /* Forward definitions */
+ static void sierra_sync_timer(unsigned long syncdata);
+@@ -191,10 +217,11 @@ static inline void sierra_net_set_private(struct usbnet *dev,
+ 	dev->data[0] = (unsigned long)priv;
+ }
+ 
+-/* is packet IPv4 */
++/* is packet IPv4/IPv6 */
+ static inline int is_ip(struct sk_buff *skb)
+ {
+-	return skb->protocol == cpu_to_be16(ETH_P_IP);
++	return skb->protocol == cpu_to_be16(ETH_P_IP) ||
++	       skb->protocol == cpu_to_be16(ETH_P_IPV6);
+ }
+ 
+ /*
+@@ -350,38 +377,43 @@ static inline int sierra_net_is_valid_addrlen(u8 len)
+ static int sierra_net_parse_lsi(struct usbnet *dev, char *data, int datalen)
+ {
+ 	struct lsi_umts *lsi = (struct lsi_umts *)data;
++	u32 expected_length;
+ 
+-	if (datalen < sizeof(struct lsi_umts)) {
+-		netdev_err(dev->net, "%s: Data length %d, exp %Zu\n",
+-				__func__, datalen,
+-				sizeof(struct lsi_umts));
+-		return -1;
+-	}
+-
+-	if (lsi->length != cpu_to_be16(SIERRA_NET_LSI_UMTS_STATUS_LEN)) {
+-		netdev_err(dev->net, "%s: LSI_UMTS_STATUS_LEN %d, exp %u\n",
+-				__func__, be16_to_cpu(lsi->length),
+-				(u32)SIERRA_NET_LSI_UMTS_STATUS_LEN);
++	if (datalen < sizeof(struct lsi_umts_single)) {
++		netdev_err(dev->net, "%s: Data length %d, exp >= %Zu\n",
++			   __func__, datalen, sizeof(struct lsi_umts_single));
+ 		return -1;
+ 	}
+ 
+ 	/* Validate the protocol  - only support UMTS for now */
+-	if (lsi->protocol != SIERRA_NET_PROTOCOL_UMTS) {
++	if (lsi->protocol == SIERRA_NET_PROTOCOL_UMTS) {
++		struct lsi_umts_single *single = (struct lsi_umts_single *)lsi;
++
++		/* Validate the link type */
++		if (single->link_type != SIERRA_NET_AS_LINK_TYPE_IPV4 &&
++		    single->link_type != SIERRA_NET_AS_LINK_TYPE_IPV6) {
++			netdev_err(dev->net, "Link type unsupported: 0x%02x\n",
++				   single->link_type);
++			return -1;
++		}
++		expected_length = SIERRA_NET_LSI_UMTS_STATUS_LEN;
++	} else if (lsi->protocol == SIERRA_NET_PROTOCOL_UMTS_DS) {
++		expected_length = SIERRA_NET_LSI_UMTS_DS_STATUS_LEN;
++	} else {
+ 		netdev_err(dev->net, "Protocol unsupported, 0x%02x\n",
+-			lsi->protocol);
++			   lsi->protocol);
+ 		return -1;
+ 	}
+ 
+-	/* Validate the link type */
+-	if (lsi->link_type != SIERRA_NET_AS_LINK_TYPE_IPv4) {
+-		netdev_err(dev->net, "Link type unsupported: 0x%02x\n",
+-			lsi->link_type);
++	if (be16_to_cpu(lsi->length) != expected_length) {
++		netdev_err(dev->net, "%s: LSI_UMTS_STATUS_LEN %d, exp %u\n",
++			   __func__, be16_to_cpu(lsi->length), expected_length);
+ 		return -1;
+ 	}
+ 
+ 	/* Validate the coverage */
+-	if (lsi->coverage == SIERRA_NET_COVERAGE_NONE
+-	   || lsi->coverage == SIERRA_NET_COVERAGE_NOPACKET) {
++	if (lsi->coverage == SIERRA_NET_COVERAGE_NONE ||
++	    lsi->coverage == SIERRA_NET_COVERAGE_NOPACKET) {
+ 		netdev_err(dev->net, "No coverage, 0x%02x\n", lsi->coverage);
+ 		return 0;
+ 	}
+@@ -662,7 +694,6 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	u8	numendpoints;
+ 	u16	fwattr = 0;
+ 	int	status;
+-	struct ethhdr *eth;
+ 	struct sierra_net_data *priv;
+ 	static const u8 sync_tmplate[sizeof(priv->sync_msg)] = {
+ 		0x00, 0x00, SIERRA_NET_HIP_MSYNC_ID, 0x00};
+@@ -700,11 +731,6 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	dev->net->dev_addr[ETH_ALEN-2] = atomic_inc_return(&iface_counter);
+ 	dev->net->dev_addr[ETH_ALEN-1] = ifacenum;
+ 
+-	/* we will have to manufacture ethernet headers, prepare template */
+-	eth = (struct ethhdr *)priv->ethr_hdr_tmpl;
+-	memcpy(&eth->h_dest, dev->net->dev_addr, ETH_ALEN);
+-	eth->h_proto = cpu_to_be16(ETH_P_IP);
