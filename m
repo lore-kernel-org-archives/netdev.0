@@ -1,47 +1,70 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: ip route add give rtnetlink message after update from 4.9.6 to
- 4.9.8
-Date: Wed, 8 Feb 2017 09:27:26 -0700
-Message-ID: <ab6f6ef5-dbd4-f04d-8253-c9fafda3aadf@cumulusnetworks.com>
-References: <224940468.86611486549068694.JavaMail.httpd@webmail-37.iol.local>
- <20170208.104443.1740615905192284560.davem@davemloft.net>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: use-after-free in tw_timer_handler
+Date: Wed, 8 Feb 2017 18:36:07 +0100
+Message-ID: <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
+References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
+ <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
+ <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com> <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, pupilla@libero.it
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34140 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932725AbdBHRck (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 12:32:40 -0500
-Received: by mail-pf0-f181.google.com with SMTP id e4so43653035pfg.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 09:32:39 -0800 (PST)
-In-Reply-To: <20170208.104443.1740615905192284560.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/8/17 8:44 AM, David Miller wrote:
-> From: "pupilla@libero.it" <pupilla@libero.it>
-> Date: Wed, 8 Feb 2017 11:17:48 +0100 (CET)
-> 
->> Hi Folks,
+On Tue, Jan 24, 2017 at 4:52 PM, Eric Dumazet <edumazet@google.com> wrote:
+> On Tue, Jan 24, 2017 at 7:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>>>
+>>> This code was changed a long time ago :
+>>>
+>>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
+>>>
+>>> So I suspect a recent patch broke the logic.
+>>>
+>>> You might start a bisection :
+>>>
+>>> I would check if 4.7 and 4.8 trigger the issue you noticed.
 >>
->> After kernel update from 4.9.6 to 4.9.8, I get the below error
->> message when I run this command:
 >>
->> root@Typhoon:~# ip route add default table 210 nexthop dev eth0 via 10.68.64.1 
->> weight 1 nexthop dev eth0 via 10.68.64.2 weight 1
->> RTNETLINK answers: Operation not supported
->> root@Typhoon:~# uname -a
->> Linux Typhoon 4.9.8 #1 SMP Tue Feb 7 17:14:54 CET 2017 x86_64 Intel(R) Core
->> (TM) i5-2520M CPU @ 2.50GHz GenuineIntel GNU/Linux
->>
->> Is this the expected behaviour?
-> 
-> David, maybe this was an unintended side effect of commit
-> 9ed59592e3e379b2e9557dc1d9e9ec8fcbb33f16 ("lwtunnel: fix autoload of
-> lwt modules").
-> 
+>> It happens with too low rate for bisecting (few times per day). I
+>> could add some additional checks into code, but I don't know what
+>> checks could be useful.
+>
+> If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
+> we are able to help.
 
-I'll take a look
+
+There are also chances that the problem is older.
+
+Looking at the code, this part of inet_twsk_purge looks fishy:
+
+285                         if (unlikely((tw->tw_family != family) ||
+286                                      atomic_read(&twsk_net(tw)->count))) {
+
+It uses net->count == 0 check to find the right sockets. But what if
+there are several nets with count == 0 in flight, can't there be
+several inet_twsk_purge calls running concurrently freeing each other
+sockets? If so it looks like inet_twsk_purge can call
+inet_twsk_deschedule_put twice for a socket. Namely, two calls for
+different nets discover the socket, check that net->count==0 and both
+call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
+net that it needs to purge?
+
+The second issue that I noticed is that tw_refcnt is set to 4 _after_
+we schedule the timer. The timer will probably won't fire before we
+set tw_refcnt, but if it somehow does it will corrupt the ref count. I
+don't think that it's what I am seeing, though. More likely it's the
+first issues (if it's real).
+
+Does it make any sense?
