@@ -1,186 +1,126 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/15] mlxsw: spectrum_router: Store nexthops in a hash table
-Date: Wed,  8 Feb 2017 11:16:30 +0100
-Message-ID: <1486549002-2056-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 12/15] ipv4: fib: Notify about nexthop status changes
+Date: Wed,  8 Feb 2017 11:16:39 +0100
+Message-ID: <1486549002-2056-13-git-send-email-jiri@resnulli.us>
 References: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com
+        mlxsw@mellanox.com, Roopa Prabhu <roopa@cumulusnetworks.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34670 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36372 "EHLO
         mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752759AbdBHKQs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 05:16:48 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c85so32407142wmi.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 02:16:47 -0800 (PST)
+        with ESMTP id S1753153AbdBHKRU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 05:17:20 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r18so32479787wmd.3
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 02:16:58 -0800 (PST)
 In-Reply-To: <1486549002-2056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Later in the patchset we'll add the NH_{ADD,DEL} events which will let
-us know when a nexthop is considered to be dead. Based on these events
-we need to be able to add or remove the nexthop from the device's
-tables.
+When a multipath route is hit the kernel doesn't consider nexthops that
+are DEAD or LINKDOWN when IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN is set.
+Devices that offload multipath routes need to be made aware of nexthop
+status changes. Otherwise, the device will keep forwarding packets to
+non-functional nexthops.
 
-Therefore, store the private nexthop structs in a hash table and use the
-kernel's fib_nh struct as the key, so that we'll be able to easily find
-them when the events are received.
+Add the FIB_EVENT_NH_{ADD,DEL} events to the fib notification chain,
+which notify capable devices when they should add or delete a nexthop
+from their tables.
 
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  1 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 58 ++++++++++++++++++++--
- 2 files changed, 55 insertions(+), 4 deletions(-)
+ include/net/ip_fib.h     |  7 +++++++
+ net/ipv4/fib_semantics.c | 33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 8014d15..eb743fe 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -255,6 +255,7 @@ struct mlxsw_sp_router {
- 	struct mlxsw_sp_vr *vrs;
- 	struct rhashtable neigh_ht;
- 	struct rhashtable nexthop_group_ht;
-+	struct rhashtable nexthop_ht;
- 	struct {
- 		struct delayed_work dw;
- 		unsigned long interval;	/* ms */
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index a511b95..3d540d9 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1090,11 +1090,17 @@ static void mlxsw_sp_neigh_fini(struct mlxsw_sp *mlxsw_sp)
- 	rhashtable_destroy(&mlxsw_sp->router.neigh_ht);
- }
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 57c2a86..45a184e 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -214,11 +214,18 @@ struct fib_entry_notifier_info {
+ 	u32 nlflags;
+ };
  
-+struct mlxsw_sp_nexthop_key {
++struct fib_nh_notifier_info {
++	struct fib_notifier_info info; /* must be first */
 +	struct fib_nh *fib_nh;
 +};
 +
- struct mlxsw_sp_nexthop {
- 	struct list_head neigh_list_node; /* member of neigh entry list */
- 	struct mlxsw_sp_nexthop_group *nh_grp; /* pointer back to the group
- 						* this belongs to
- 						*/
-+	struct rhash_head ht_node;
-+	struct mlxsw_sp_nexthop_key key;
- 	u8 should_offload:1, /* set indicates this neigh is connected and
- 			      * should be put to KVD linear area of this group.
- 			      */
-@@ -1152,6 +1158,26 @@ mlxsw_sp_nexthop_group_lookup(struct mlxsw_sp *mlxsw_sp,
- 				      mlxsw_sp_nexthop_group_ht_params);
+ enum fib_event_type {
+ 	FIB_EVENT_ENTRY_ADD,
+ 	FIB_EVENT_ENTRY_DEL,
+ 	FIB_EVENT_RULE_ADD,
+ 	FIB_EVENT_RULE_DEL,
++	FIB_EVENT_NH_ADD,
++	FIB_EVENT_NH_DEL,
+ };
+ 
+ int register_fib_notifier(struct notifier_block *nb,
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 6306a67..317026a 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1355,6 +1355,36 @@ int fib_sync_down_addr(struct net_device *dev, __be32 local)
+ 	return ret;
  }
  
-+static const struct rhashtable_params mlxsw_sp_nexthop_ht_params = {
-+	.key_offset = offsetof(struct mlxsw_sp_nexthop, key),
-+	.head_offset = offsetof(struct mlxsw_sp_nexthop, ht_node),
-+	.key_len = sizeof(struct mlxsw_sp_nexthop_key),
-+};
-+
-+static int mlxsw_sp_nexthop_insert(struct mlxsw_sp *mlxsw_sp,
-+				   struct mlxsw_sp_nexthop *nh)
++static int call_fib_nh_notifiers(struct fib_nh *fib_nh,
++				 enum fib_event_type event_type)
 +{
-+	return rhashtable_insert_fast(&mlxsw_sp->router.nexthop_ht,
-+				      &nh->ht_node, mlxsw_sp_nexthop_ht_params);
++	struct in_device *in_dev = __in_dev_get_rtnl(fib_nh->nh_dev);
++	struct fib_nh_notifier_info info = {
++		.fib_nh = fib_nh,
++	};
++
++	switch (event_type) {
++	case FIB_EVENT_NH_ADD:
++		if (fib_nh->nh_flags & RTNH_F_DEAD)
++			break;
++		if (IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
++		    fib_nh->nh_flags & RTNH_F_LINKDOWN)
++			break;
++		return call_fib_notifiers(dev_net(fib_nh->nh_dev), event_type,
++					  &info.info);
++	case FIB_EVENT_NH_DEL:
++		if ((IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
++		     fib_nh->nh_flags & RTNH_F_LINKDOWN) ||
++		    (fib_nh->nh_flags & RTNH_F_DEAD))
++			return call_fib_notifiers(dev_net(fib_nh->nh_dev),
++						  event_type, &info.info);
++	default:
++		break;
++	}
++
++	return NOTIFY_DONE;
 +}
 +
-+static void mlxsw_sp_nexthop_remove(struct mlxsw_sp *mlxsw_sp,
-+				    struct mlxsw_sp_nexthop *nh)
-+{
-+	rhashtable_remove_fast(&mlxsw_sp->router.nexthop_ht, &nh->ht_node,
-+			       mlxsw_sp_nexthop_ht_params);
-+}
-+
- static int mlxsw_sp_adj_index_mass_update_vr(struct mlxsw_sp *mlxsw_sp,
- 					     struct mlxsw_sp_vr *vr,
- 					     u32 adj_index, u16 ecmp_size,
-@@ -1384,6 +1410,12 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
- 	struct net_device *dev = fib_nh->nh_dev;
- 	struct neighbour *n;
- 	u8 nud_state, dead;
-+	int err;
-+
-+	nh->key.fib_nh = fib_nh;
-+	err = mlxsw_sp_nexthop_insert(mlxsw_sp, nh);
-+	if (err)
-+		return err;
+ /* Event              force Flags           Description
+  * NETDEV_CHANGE      0     LINKDOWN        Carrier OFF, not for scope host
+  * NETDEV_DOWN        0     LINKDOWN|DEAD   Link down, not for scope host
+@@ -1396,6 +1426,8 @@ int fib_sync_down_dev(struct net_device *dev, unsigned long event, bool force)
+ 					nexthop_nh->nh_flags |= RTNH_F_LINKDOWN;
+ 					break;
+ 				}
++				call_fib_nh_notifiers(nexthop_nh,
++						      FIB_EVENT_NH_DEL);
+ 				dead++;
+ 			}
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+@@ -1550,6 +1582,7 @@ int fib_sync_up(struct net_device *dev, unsigned int nh_flags)
+ 				continue;
+ 			alive++;
+ 			nexthop_nh->nh_flags &= ~nh_flags;
++			call_fib_nh_notifiers(nexthop_nh, FIB_EVENT_NH_ADD);
+ 		} endfor_nexthops(fi)
  
- 	/* Take a reference of neigh here ensuring that neigh would
- 	 * not be detructed before the nexthop entry is finished.
-@@ -1393,16 +1425,18 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
- 	n = neigh_lookup(&arp_tbl, &fib_nh->nh_gw, dev);
- 	if (!n) {
- 		n = neigh_create(&arp_tbl, &fib_nh->nh_gw, dev);
--		if (IS_ERR(n))
--			return PTR_ERR(n);
-+		if (IS_ERR(n)) {
-+			err = PTR_ERR(n);
-+			goto err_neigh_create;
-+		}
- 		neigh_event_send(n, NULL);
- 	}
- 	neigh_entry = mlxsw_sp_neigh_entry_lookup(mlxsw_sp, n);
- 	if (!neigh_entry) {
- 		neigh_entry = mlxsw_sp_neigh_entry_create(mlxsw_sp, n);
- 		if (IS_ERR(neigh_entry)) {
--			neigh_release(n);
--			return -EINVAL;
-+			err = -EINVAL;
-+			goto err_neigh_entry_create;
- 		}
- 	}
- 
-@@ -1423,6 +1457,12 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
- 	__mlxsw_sp_nexthop_neigh_update(nh, !(nud_state & NUD_VALID && !dead));
- 
- 	return 0;
-+
-+err_neigh_entry_create:
-+	neigh_release(n);
-+err_neigh_create:
-+	mlxsw_sp_nexthop_remove(mlxsw_sp, nh);
-+	return err;
- }
- 
- static void mlxsw_sp_nexthop_fini(struct mlxsw_sp *mlxsw_sp,
-@@ -1445,6 +1485,8 @@ static void mlxsw_sp_nexthop_fini(struct mlxsw_sp *mlxsw_sp,
- 		mlxsw_sp_neigh_entry_destroy(mlxsw_sp, neigh_entry);
- 
- 	neigh_release(n);
-+
-+	mlxsw_sp_nexthop_remove(mlxsw_sp, nh);
- }
- 
- static struct mlxsw_sp_nexthop_group *
-@@ -2052,6 +2094,11 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
- 	if (err)
- 		return err;
- 
-+	err = rhashtable_init(&mlxsw_sp->router.nexthop_ht,
-+			      &mlxsw_sp_nexthop_ht_params);
-+	if (err)
-+		goto err_nexthop_ht_init;
-+
- 	err = rhashtable_init(&mlxsw_sp->router.nexthop_group_ht,
- 			      &mlxsw_sp_nexthop_group_ht_params);
- 	if (err)
-@@ -2081,6 +2128,8 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
- err_vrs_init:
- 	rhashtable_destroy(&mlxsw_sp->router.nexthop_group_ht);
- err_nexthop_group_ht_init:
-+	rhashtable_destroy(&mlxsw_sp->router.nexthop_ht);
-+err_nexthop_ht_init:
- 	__mlxsw_sp_router_fini(mlxsw_sp);
- 	return err;
- }
-@@ -2091,5 +2140,6 @@ void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
- 	mlxsw_sp_neigh_fini(mlxsw_sp);
- 	mlxsw_sp_vrs_fini(mlxsw_sp);
- 	rhashtable_destroy(&mlxsw_sp->router.nexthop_group_ht);
-+	rhashtable_destroy(&mlxsw_sp->router.nexthop_ht);
- 	__mlxsw_sp_router_fini(mlxsw_sp);
- }
+ 		if (alive > 0) {
 -- 
 2.7.4
