@@ -1,161 +1,59 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH 2/2] net: ethernet: ti: cpsw: fix resume because of usage count
-Date: Thu,  9 Feb 2017 02:07:36 +0200
-Message-ID: <1486598856-3512-3-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1486598856-3512-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
-        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
-        AStarikovskiy@topcon.com,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com
+From: sdncurious <sdncurious@gmail.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Wed, 8 Feb 2017 15:34:52 -0800
+Message-ID: <CAHoNx58XJ3bcPNaJTwvDVfhetwqhU89G_xuvyfVqZ2hp7rcadg@mail.gmail.com>
+References: <20170207140144.GA11233@localhost> <CAHoNx59VwLbACPp_3a5doyi=Y1hUqU5oVvJqxpsv777W2g+Z8w@mail.gmail.com>
+ <20170208102623.GC11233@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:35658 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751882AbdBIAHq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:07:46 -0500
-Received: by mail-lf0-f52.google.com with SMTP id n124so91640068lfd.2
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 16:07:44 -0800 (PST)
-In-Reply-To: <1486598856-3512-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:36367 "EHLO
+        mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751827AbdBIAKH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:10:07 -0500
+Received: by mail-it0-f49.google.com with SMTP id c7so113993415itd.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 16:10:07 -0800 (PST)
+In-Reply-To: <20170208102623.GC11233@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The usage count function is based on ndev_running flag that is
-updated before calling ndo_open/close, but if ndo is called in
-another place, in this case in suspend/resume, the counter is not
-changed, that breaks sus/resume. For common resource no difference
-which device is using it, does matter only device count. So, replace
-usage count function on var and inc and dec it in ndo_open/close.
+On Wed, Feb 8, 2017 at 2:26 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+> On Tue, Feb 07, 2017 at 12:37:15PM -0800, sdncurious wrote:
+>> On Tue, Feb 7, 2017 at 6:01 AM, Miroslav Lichvar <mlichvar@redhat.com> wrote:
+>> > 6) new SO_TIMESTAMPING option to get PHC index with HW timestamps
+>> >
+>> >    With bridges, bonding and other things it's difficult to determine
+>> >    which PHC timestamped the packet. It would be very useful if the
+>> >    PHC index was provided with each HW timestamp.
+>> >
+>> >    I'm not sure what would be the best place to put it. I guess the
+>> >    second timespec in scm_timestamping could be reused for this, but
+>> >    that sounds like a gross hack. Do we need to define a new struct?
+>>
+>> What is the use case for this. even if the delay though the PHY's how
+>> would that be compensated ?
+>
+> The idea was that applications like NTP servers and clients wouldn't
+> have to care about interfaces and how they map together with addresses
+> to PHCs over time. Currently, I use the interface index from
+> IP_PKTINFO to get the PHC, but that doesn't work with bridges and
+> other virtual interfaces. Another possibility would be an option to
+> modify the behavior of IP_PKTINFO to save the index of the real
+> interface. I'm not sure how would that compare in difficulty to
+> extending SCM_TIMESTAMPING with PHC index.
 
-Fixes: 03fd01ad0eead23eb79294b6fb4d71dcac493855
-"net: ethernet: ti: cpsw: don't duplicate ndev_running"
+Why not just return the digest that is in the message ?
+Though I am not sure if the least 32 bits will result in too many collisions.
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
- drivers/net/ethernet/ti/cpsw.c | 42 ++++++++++++------------------------------
- 1 file changed, 12 insertions(+), 30 deletions(-)
+RMS
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 9714fab..1ffaad1 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -399,6 +399,7 @@ struct cpsw_common {
- 	struct cpts			*cpts;
- 	int				rx_ch_num, tx_ch_num;
- 	int				speed;
-+	int				usage_count;
- };
- 
- struct cpsw_priv {
-@@ -671,18 +672,6 @@ static void cpsw_intr_disable(struct cpsw_common *cpsw)
- 	return;
- }
- 
--static int cpsw_get_usage_count(struct cpsw_common *cpsw)
--{
--	u32 i;
--	u32 usage_count = 0;
--
--	for (i = 0; i < cpsw->data.slaves; i++)
--		if (cpsw->slaves[i].ndev && netif_running(cpsw->slaves[i].ndev))
--			usage_count++;
--
--	return usage_count;
--}
--
- static void cpsw_tx_handler(void *token, int len, int status)
- {
- 	struct netdev_queue	*txq;
-@@ -716,8 +705,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
- 
- 	if (unlikely(status < 0) || unlikely(!netif_running(ndev))) {
- 		/* In dual emac mode check for all interfaces */
--		if (cpsw->data.dual_emac &&
--		    cpsw_get_usage_count(cpsw) &&
-+		if (cpsw->data.dual_emac && cpsw->usage_count &&
- 		    (status >= 0)) {
- 			/* The packet received is for the interface which
- 			 * is already down and the other interface is up
-@@ -1492,11 +1480,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 		 CPSW_MAJOR_VERSION(reg), CPSW_MINOR_VERSION(reg),
- 		 CPSW_RTL_VERSION(reg));
- 
--	/* Initialize host and slave ports.
--	 * Given ndev is marked as opened already, so init port only if 1 ndev
--	 * is opened
--	 */
--	if (cpsw_get_usage_count(cpsw) < 2)
-+	/* Initialize host and slave ports */
-+	if (!cpsw->usage_count)
- 		cpsw_init_host_port(priv);
- 	for_each_slave(priv, cpsw_slave_open, priv);
- 
-@@ -1507,10 +1492,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 		cpsw_ale_add_vlan(cpsw->ale, cpsw->data.default_vlan,
- 				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
- 
--	/* Given ndev is marked as opened already, so if more ndev
--	 * are opened - no need to init shared resources.
--	 */
--	if (cpsw_get_usage_count(cpsw) < 2) {
-+	/* initialize shared resources for every ndev */
-+	if (!cpsw->usage_count) {
- 		/* disable priority elevation */
- 		__raw_writel(0, &cpsw->regs->ptype);
- 
-@@ -1552,6 +1535,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 
- 	cpdma_ctlr_start(cpsw->dma);
- 	cpsw_intr_enable(cpsw);
-+	cpsw->usage_count++;
- 
- 	return 0;
- 
-@@ -1572,10 +1556,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
- 	netif_tx_stop_all_queues(priv->ndev);
- 	netif_carrier_off(priv->ndev);
- 
--	/* Given ndev is marked as close already,
--	 * so disable shared resources if no open devices
--	 */
--	if (!cpsw_get_usage_count(cpsw)) {
-+	if (cpsw->usage_count <= 1) {
- 		napi_disable(&cpsw->napi_rx);
- 		napi_disable(&cpsw->napi_tx);
- 		cpts_unregister(cpsw->cpts);
-@@ -1588,6 +1569,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
- 	if (cpsw_need_resplit(cpsw))
- 		cpsw_split_res(ndev);
- 
-+	cpsw->usage_count--;
- 	pm_runtime_put_sync(cpsw->dev);
- 	return 0;
- }
-@@ -2393,7 +2375,7 @@ static int cpsw_resume_data_pass(struct net_device *ndev)
- 			netif_dormant_off(slave->ndev);
- 
- 	/* After this receive is started */
--	if (cpsw_get_usage_count(cpsw)) {
-+	if (cpsw->usage_count) {
- 		ret = cpsw_fill_rx_channels(priv);
- 		if (ret)
- 			return ret;
-@@ -2447,7 +2429,7 @@ static int cpsw_set_channels(struct net_device *ndev,
- 		}
- 	}
- 
--	if (cpsw_get_usage_count(cpsw))
-+	if (cpsw->usage_count)
- 		cpsw_split_res(ndev);
- 
- 	ret = cpsw_resume_data_pass(ndev);
-@@ -2529,7 +2511,7 @@ static int cpsw_set_ringparam(struct net_device *ndev,
- 
- 	cpdma_set_num_rx_descs(cpsw->dma, ering->rx_pending);
- 
--	if (cpsw_get_usage_count(cpsw))
-+	if (cpsw->usage_count)
- 		cpdma_chan_split_pool(cpsw->dma);
- 
- 	ret = cpsw_resume_data_pass(ndev);
--- 
-2.7.4
+>
+> --
+> Miroslav Lichvar
