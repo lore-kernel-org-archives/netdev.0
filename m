@@ -1,57 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 06/16] net: stmmac: fix some code style problem
-Date: Wed, 8 Feb 2017 14:57:20 +0300
-Message-ID: <2b6652d7-6a5c-ab68-2e74-c6e83f12a87a@cogentembedded.com>
-References: <20170208083121.27949-1-clabbe.montjoie@gmail.com>
- <20170208083121.27949-7-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, netdev@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH iproute2/net-next repost] tc: flower: use correct type when calling flower_icmp_attr_type
+Date: Wed,  8 Feb 2017 12:34:47 +0100
+Message-ID: <1486553687-14652-1-git-send-email-simon.horman@netronome.com>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Simon Horman <simon.horman@netronome.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:34197 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932096AbdBHMEm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 07:04:42 -0500
-Received: by mail-lf0-f52.google.com with SMTP id v186so80641555lfa.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 04:04:36 -0800 (PST)
-In-Reply-To: <20170208083121.27949-7-clabbe.montjoie@gmail.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33808 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753599AbdBHMET (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 07:04:19 -0500
+Received: by mail-wm0-f41.google.com with SMTP id 196so49848240wmm.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 04:04:03 -0800 (PST)
+Received: from penelope.horms.nl ([217.111.208.18])
+        by smtp.gmail.com with ESMTPSA id 8sm8954345wmg.1.2017.02.08.03.55.03
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 08 Feb 2017 03:55:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Use enum flower_icmp_field rather than bool as type of third parameter
+when calling flower_icmp_attr_type.
 
-On 2/8/2017 11:31 AM, Corentin Labbe wrote:
+Fixes: eb3b5696f163 ("tc: flower: support matching on ICMP type and code")
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+* Reposted after breaking out of a larger patch-set
+* This should not have a run-time affect assuming both false and
+  FLOWER_ICMP_FIELD_TYPE - the first value of enum flower_icmp_field -
+  are zero.
+---
+ tc/f_flower.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-> Checkpatch complains about some code style problem on stmmac_mdio.c.
-> This patch fix them.
-
-    Fixes.
-
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> index 3fdc6ec..c24bef2 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-[...]
-> @@ -267,7 +268,7 @@ int stmmac_mdio_register(struct net_device *ndev)
->  			 * If an IRQ was provided to be assigned after
->  			 * the bus probe, do it here.
->  			 */
-> -			if ((mdio_bus_data->irqs == NULL) &&
-> +			if ((!mdio_bus_data->irqs) &&
-
-    Innermost parens not needed (and weren't needed before).
-
->  			    (mdio_bus_data->probed_phy_irq > 0)) {
->  				new_bus->irq[addr] =
->  					mdio_bus_data->probed_phy_irq;
-
-MBR, Sergei
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index 403100c92af0..c9d56211b040 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -1061,10 +1061,12 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 	if (nl_type >= 0)
+ 		flower_print_port(f, "src_port", tb[nl_type]);
+ 
+-	nl_type = flower_icmp_attr_type(eth_type, ip_proto, false);
++	nl_type = flower_icmp_attr_type(eth_type, ip_proto,
++					FLOWER_ICMP_FIELD_TYPE);
+ 	if (nl_type >= 0)
+ 		flower_print_icmp(f, "icmp_type", tb[nl_type]);
+-	nl_type = flower_icmp_attr_type(eth_type, ip_proto, true);
++	nl_type = flower_icmp_attr_type(eth_type, ip_proto,
++					FLOWER_ICMP_FIELD_CODE);
+ 	if (nl_type >= 0)
+ 		flower_print_icmp(f, "icmp_code", tb[nl_type]);
+ 
+-- 
+2.7.0.rc3.207.g0ac5344
