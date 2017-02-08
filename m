@@ -1,70 +1,68 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: net: use-after-free in tw_timer_handler
-Date: Wed, 8 Feb 2017 18:36:07 +0100
-Message-ID: <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
-References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
- <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
- <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com> <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net v2 1/3] net: phy: Fix PHY module checks
+Date: Wed, 8 Feb 2017 17:57:13 +0100
+Message-ID: <20170208165713.GD13281@lunn.ch>
+References: <20170208073746.10963-1-f.fainelli@gmail.com>
+ <20170208073746.10963-2-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        rmk+kernel@armlinux.org.uk, maowenan@huawei.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:60135 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751906AbdBHRkz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 8 Feb 2017 12:40:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20170208073746.10963-2-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 24, 2017 at 4:52 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Tue, Jan 24, 2017 at 7:06 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>>
->>> This code was changed a long time ago :
->>>
->>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
->>>
->>> So I suspect a recent patch broke the logic.
->>>
->>> You might start a bisection :
->>>
->>> I would check if 4.7 and 4.8 trigger the issue you noticed.
->>
->>
->> It happens with too low rate for bisecting (few times per day). I
->> could add some additional checks into code, but I don't know what
->> checks could be useful.
->
-> If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
-> we are able to help.
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -920,7 +920,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>  		return -EIO;
+>  	}
+>  
+> -	if (!try_module_get(d->driver->owner)) {
+> +	if (d->driver && !try_module_get(d->driver->owner)) {
+>  		dev_err(&dev->dev, "failed to get the device driver module\n");
+>  		return -EIO;
+>  	}
+> @@ -943,7 +943,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>  			err = device_bind_driver(d);
+>  
+>  		if (err)
+> -			goto error;
+> +			goto error_put_device;
+>  	}
+>  
+>  	if (phydev->attached_dev) {
+> @@ -981,6 +981,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>  
+>  error:
+>  	phy_detach(phydev);
+> +error_put_device:
+>  	put_device(d);
+>  	module_put(d->driver->owner);
+
+Can we get into problems here? Maybe we did not do a get?
 
 
-There are also chances that the problem is older.
+>  	if (ndev_owner != bus->owner)
+> @@ -1065,7 +1066,8 @@ void phy_detach(struct phy_device *phydev)
+>  	bus = phydev->mdio.bus;
+>  
+>  	put_device(&phydev->mdio.dev);
+> -	module_put(phydev->mdio.dev.driver->owner);
+> +	if (phydev->mdio.dev.driver)
+> +		module_put(phydev->mdio.dev.driver->owner);
 
-Looking at the code, this part of inet_twsk_purge looks fishy:
+Humm. By this point, havn't we assigned d->driver to genphy_driver?
+So this decrements something we never incremented?
 
-285                         if (unlikely((tw->tw_family != family) ||
-286                                      atomic_read(&twsk_net(tw)->count))) {
+To me, it seems better to move the try_module_get() after assigning
+genphy_driver if needed. We then don't have any special conditions.
 
-It uses net->count == 0 check to find the right sockets. But what if
-there are several nets with count == 0 in flight, can't there be
-several inet_twsk_purge calls running concurrently freeing each other
-sockets? If so it looks like inet_twsk_purge can call
-inet_twsk_deschedule_put twice for a socket. Namely, two calls for
-different nets discover the socket, check that net->count==0 and both
-call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
-net that it needs to purge?
-
-The second issue that I noticed is that tw_refcnt is set to 4 _after_
-we schedule the timer. The timer will probably won't fire before we
-set tw_refcnt, but if it somehow does it will corrupt the ref count. I
-don't think that it's what I am seeing, though. More likely it's the
-first issues (if it's real).
-
-Does it make any sense?
+      Andrew
