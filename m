@@ -1,77 +1,61 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: Kernel crashes in phy_attach_direct()
-Date: Wed, 8 Feb 2017 12:47:47 -0200
-Message-ID: <CAOMZO5CjRbvPJjNDGkOFjz+AZ1ydN9+SRBsypCPyNocPoFOdRA@mail.gmail.com>
-References: <CAOMZO5C58--W1q+i26-+DBcton0Bk_o3zVfyuumM+Y=OemQ_Aw@mail.gmail.com>
- <20170208142857.GD10855@lunn.ch> <CAOMZO5BzLh4az9t=fJkG80GW3_xdD3YxUbagL4dJp7Hwr4koZw@mail.gmail.com>
- <20170208144029.GE10855@lunn.ch>
+From: Andrey Ryabinin <ryabinin.a.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: KASAN+netlink, was: [PATCH] [net-next?] hns: avoid stack overflow
+ with CONFIG_KASAN
+Date: Wed, 8 Feb 2017 17:58:44 +0300
+Message-ID: <CAPAsAGx4UoUv3tyef56Dfvo7bfinY-hUHhUeDTGWbCxsw72Bqw@mail.gmail.com>
+References: <20170203163607.3488037-1-arnd@arndb.de> <20170206.120318.1268240226202516488.davem@davemloft.net>
+ <4910112.l20yySyWnA@wuerfel> <1486556665.24745.6.camel@sipsolutions.net> <CAK8P3a2fHm9j7roYjTAXJ_zsdXF88p_6Y-hCF6aWjJzcAaQ3Uw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:34766 "EHLO
-        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753700AbdBHOsf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 09:48:35 -0500
-Received: by mail-oi0-f45.google.com with SMTP id s203so83028407oie.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 06:47:48 -0800 (PST)
-In-Reply-To: <20170208144029.GE10855@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Networking <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        nikolay-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+        adobriyan-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAK8P3a2fHm9j7roYjTAXJ_zsdXF88p_6Y-hCF6aWjJzcAaQ3Uw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 8, 2017 at 12:40 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-
-> And i guess you don't have a specific PHY driver for you PHYs. You are
-> using the generic PHY driver?
-
-Yes, I am:
-Generic PHY 63fec000.ethernet-1:00: attached PHY driver [Generic PHY]
-(mii_bus:phy_addr=63fec000.ethernet-1:00, irq=-1)
+2017-02-08 16:10 GMT+03:00 Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>:
+> On Wed, Feb 8, 2017 at 1:24 PM, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
 
 >
-> Could you try modifying phy_attach_direct() such that the
-> try_module_get() is after:
+>> Btw, what's causing this to start with? Can't the compiler reuse the
+>> stack places?
 >
->        /* Assume that if there is no driver, that it doesn't
->          * exist, and we should use the genphy driver.
->          */
->         if (!d->driver) {
->         <snip>
->         }
+> I have no idea. It's trying to find out of bounds accesses for
+> objects on the stack, so maybe it gives each variable a separate
+> stack location in order to see which one caused problems?
+>
 
-Yes, this is what I am using right now:
+If compiler cannot prove that access to the local variable is valid it
+will add redzones around that variable
+to be able to detect out of bounds accesses.
 
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -920,11 +920,6 @@ int phy_attach_direct(struct net_device *dev,
-struct phy_device *phydev,
-                return -EIO;
-        }
+For example:
+    static inline int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value)
+    {
+           return nla_put(skb, attrtype, sizeof(u8), &value);
+    }
+compiler will surround 'value' with redzones to catch potential oob
+access in nla_put().
 
--       if (!try_module_get(d->driver->owner)) {
--               dev_err(&dev->dev, "failed to get the device driver module\n");
--               return -EIO;
--       }
--
-        get_device(d);
 
-        /* Assume that if there is no driver, that it doesn't
-@@ -946,6 +941,11 @@ int phy_attach_direct(struct net_device *dev,
-struct phy_device *phydev,
-                        goto error;
-        }
+Another way to fix this, would be something like this:
 
-+       if (!try_module_get(d->driver->owner)) {
-+               dev_err(&dev->dev, "failed to get the device driver module\n");
-+               return -EIO;
-+       }
-+
-        if (phydev->attached_dev) {
-                dev_err(&dev->dev, "PHY already attached\n");
-                err = -EBUSY;
+#ifdef CONFIG_KASAN
+/* don't bloat stack */
+#define __noinline_for_kasan    __noinline __maybe_unused
+#else
+#define __noinline_for_kasan    inline
+#endif
 
-Would you like me to submit this one?
-
-Thanks
+static __noinline_for_kasan int nla_put_u8(struct sk_buff *skb, int
+attrtype, u8 value)
+{
+       return nla_put(skb, attrtype, sizeof(u8), &value);
+}
