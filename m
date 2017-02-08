@@ -1,78 +1,97 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next] sctp: avoid list_del_init if it's freeing the
- memory right away
-Date: Wed, 8 Feb 2017 17:57:47 -0200
-Message-ID: <20170208195747.GE3414@localhost.localdomain>
-References: <e1b3b9b24f39ee82a3131a39a0413231ba54bc7c.1486494022.git.marcelo.leitner@gmail.com>
- <20170207.142121.1027174926882132252.davem@davemloft.net>
- <20170207194508.GD3414@localhost.localdomain>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC 19/19] checkpatch: warn for use of old PCI pool API
+Date: Wed, 08 Feb 2017 11:53:29 -0800
+Message-ID: <1486583609.27834.21.camel@perches.com>
+References: <20170208163457.28853-1-romain.perier@collabora.com>
+         <20170208163457.28853-20-romain.perier@collabora.com>
+         <20170208185550.GS16878@collabora.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        vyasevich@gmail.com, nhorman@tuxdriver.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Felipe Balbi <balbi@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Peter Senna Tschudin <peter.senna@collabora.co.uk>
+To: Peter Senna Tschudin <peter.senna@collabora.com>,
+        Romain Perier <romain.perier@collabora.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43970 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751025AbdBHT6T (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 8 Feb 2017 14:58:19 -0500
-Content-Disposition: inline
-In-Reply-To: <20170207194508.GD3414@localhost.localdomain>
+Received: from smtprelay0108.hostedemail.com ([216.40.44.108]:39439 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751052AbdBHT6T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 14:58:19 -0500
+In-Reply-To: <20170208185550.GS16878@collabora.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 05:45:09PM -0200, Marcelo Ricardo Leitner wrote:
-> On Tue, Feb 07, 2017 at 02:21:21PM -0500, David Miller wrote:
-> > From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > Date: Tue,  7 Feb 2017 17:03:21 -0200
+On Wed, 2017-02-08 at 19:55 +0100, Peter Senna Tschudin wrote:
+> On Wed, Feb 08, 2017 at 05:34:57PM +0100, Romain Perier wrote:
+> > pci_pool_*() functions should be replaced by the corresponding functions
+> > in the DMA pool API. This adds support to check for use of these pci
+> > functions and display a warning when it is the case.
+> 
+> Don't know if relevant, but did not catch the struct. Other than that
+> works fine.
+> 
 > > 
-> > > There is no reason to use list_del_init() in these places as we are
-> > > going to free/destroy the memory in a few lines below.
-> > > 
-> > > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> > > ---
-> > >  net/sctp/associola.c     | 14 ++++----------
-> > >  net/sctp/auth.c          |  8 ++------
-> > >  net/sctp/chunk.c         |  4 ++--
-> > >  net/sctp/outqueue.c      | 14 +++++++-------
-> > >  net/sctp/sm_make_chunk.c |  3 +--
-> > >  5 files changed, 16 insertions(+), 27 deletions(-)
-> > > 
-> > > diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> > > index e50dc6d7543fd6acfa7442f3a9ee575203c7718d..7eb9dacfa53a438b20a34319cf01c6c9a591f0c3 100644
-> > > --- a/net/sctp/associola.c
-> > > +++ b/net/sctp/associola.c
-> > > @@ -1638,25 +1638,19 @@ int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
-> > >  static void sctp_assoc_free_asconf_queue(struct sctp_association *asoc)
-> > >  {
-> > >  	struct sctp_chunk *asconf;
-> > > -	struct sctp_chunk *tmp;
-> > >  
-> > > -	list_for_each_entry_safe(asconf, tmp, &asoc->addip_chunk_list, list) {
-> > > -		list_del_init(&asconf->list);
-> > > +	list_for_each_entry(asconf, &asoc->addip_chunk_list, list)
-> > >  		sctp_chunk_free(asconf);
-> > > -	}
-> > >  }
+> > Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> > ---
+> >  scripts/checkpatch.pl | 5 +++++
+> >  1 file changed, 5 insertions(+)
 > > 
-> > This leave freed memory on the asoc->addip_chunk_list, in fact why aren't you seeing
-> 
-> This should be alright, because here we are purging the entire list and
-> the asoc will also be free right after.
-> 
-> > the BUG_ON() in sctp_chunk_destroy() get triggered?  If you elide the list_del() here
-> > then the "list_empty(&chunk->list)" check there will not be true.
+> > diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> > index 8e96af5..026920e 100755
+> > --- a/scripts/checkpatch.pl
+> > +++ b/scripts/checkpatch.pl
+> > @@ -6058,6 +6058,11 @@ sub process {
+> >  			WARN("USE_DEVICE_INITCALL",
+> >  			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
+> >  		}
+> > +# check for old PCI api pci_pool_*(), use dma_pool_*() instead
+> > +		if ($line =~ /\bpci_pool_.+\(/) {
+> > +			WARN("USE_PCI_POOL",
+> > +			     "please use the dma pool api or more appropriate function instead of the old pci pool api\n" . $herecurr);
+> > +		}
+> >  
+> >  # check for various structs that are normally const (ops, kgdb, device_tree)
+> >  		if ($line !~ /\bconst\b/ &&
+> > -- 
+> > 2.9.3
 > > 
-> 
-> Good question. I have to double check this, but you're probably right.
 
-Now I managed to trigger the BUG_ON, as you anticipated.
+Did this patch get to lkml?
 
-> 
-> > I don't think this transformation here is legal at all.
+Perhaps this would be more complete:
 
-Yeah it's not. It would be relying on freed memory to find the next
-elements. Uff, sorry.
+ scripts/checkpatch.pl | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-Thanks,
-Marcelo
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 8e96af53611c..600f81cc1ec1 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -6059,6 +6059,15 @@ sub process {
+ 			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
+ 		}
+ 
++# check for old PCI api pci_pool_*(), use dma_pool_*() instead
++		if ($line =~ /\bpci_pool(?:_(?:create|destroy|alloc|zalloc|free)|)\b/) {
++			if (WARN("USE_DMA_POOL",
++				 "please use the dma pool api or more appropriate function instead of the old pci pool api\n" . $herecurr) &&
++			    $fix) {
++				while ($fixed[$fixlinenr] =~ s/\bpci_pool(_(?:create|destroy|alloc|zalloc|free)|)\b/dma_pool$1/) {}
++			}
++		}
++
+ # check for various structs that are normally const (ops, kgdb, device_tree)
+ 		if ($line !~ /\bconst\b/ &&
+ 		    $line =~ /\bstruct\s+($const_structs)\b/) {
