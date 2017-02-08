@@ -1,70 +1,75 @@
-From: Ross Lagerwall <ross.lagerwall@citrix.com>
-Subject: [PATCH v3] xen-netfront: Improve error handling during
-	initialization
-Date: Wed, 8 Feb 2017 10:57:37 +0000
-Message-ID: <1486551457-25963-1-git-send-email-ross.lagerwall@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, wei.liu2@citrix.com,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- Ross Lagerwall <ross.lagerwall@citrix.com>,
- Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: <xen-devel@lists.xenproject.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH ipsec] xfrm: policy: init locks early
+Date: Wed,  8 Feb 2017 11:52:29 +0100
+Message-ID: <20170208105229.27285-1-fw@strlen.de>
+References: <CACT4Y+Yd3zgOgtsAjdsREY3vm=bCNif-keYgvFeWGMckWrrjEw@mail.gmail.com>
+Cc: dvyukov@google.com, steffen.klassert@secunet.com,
+        linux-kernel@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:33110 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752739AbdBHL2X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 06:28:23 -0500
+In-Reply-To: <CACT4Y+Yd3zgOgtsAjdsREY3vm=bCNif-keYgvFeWGMckWrrjEw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBmaXhlcyBhIGNyYXNoIHdoZW4gcnVubmluZyBvdXQgb2YgZ3JhbnQgcmVmcyB3aGVuIGNy
-ZWF0aW5nIG1hbnkKcXVldWVzIGFjcm9zcyBtYW55IG5ldGRldnMuCgoqIElmIGNyZWF0aW5nIHF1
-ZXVlcyBmYWlscyAoaS5lLiB0aGVyZSBhcmUgbm8gZ3JhbnQgcmVmcyBhdmFpbGFibGUpLApjYWxs
-IHhlbmJ1c19kZXZfZmF0YWwoKSB0byBlbnN1cmUgdGhhdCB0aGUgeGVuYnVzIGRldmljZSBpcyBz
-ZXQgdG8gdGhlCmNsb3NlZCBzdGF0ZS4KKiBJZiBubyBxdWV1ZXMgYXJlIGNyZWF0ZWQsIGRvbid0
-IGNhbGwgeGVubmV0X2Rpc2Nvbm5lY3RfYmFja2VuZCBhcwpuZXRkZXYtPnJlYWxfbnVtX3R4X3F1
-ZXVlcyB3aWxsIG5vdCBoYXZlIGJlZW4gc2V0IGNvcnJlY3RseS4KKiBJZiBzZXR1cF9uZXRmcm9u
-dCgpIGZhaWxzLCBlbnN1cmUgdGhhdCBhbGwgdGhlIHF1ZXVlcyBjcmVhdGVkIGFyZQpjbGVhbmVk
-IHVwLCBub3QganVzdCB0aG9zZSB0aGF0IGhhdmUgYmVlbiBzZXQgdXAuCiogSWYgYW55IHF1ZXVl
-cyB3ZXJlIHNldCB1cCBhbmQgYW4gZXJyb3Igb2NjdXJzLCBjYWxsCnhlbm5ldF9kZXN0cm95X3F1
-ZXVlcygpIHRvIGNsZWFuIHVwIHRoZSBuYXBpIGNvbnRleHQuCiogSWYgYW55IGZhdGFsIGVycm9y
-IG9jY3VycywgdW5yZWdpc3RlciBhbmQgZGVzdHJveSB0aGUgbmV0ZGV2IHRvIGF2b2lkCmxlYXZp
-bmcgYXJvdW5kIGEgaGFsZiBzZXR1cCBuZXR3b3JrIGRldmljZS4KClNpZ25lZC1vZmYtYnk6IFJv
-c3MgTGFnZXJ3YWxsIDxyb3NzLmxhZ2Vyd2FsbEBjaXRyaXguY29tPgotLS0KCkNoYW5nZWQgaW4g
-VjM6CiogSWYgeGVubmV0X2NyZWF0ZV9xdWV1ZXMgcmV0dXJucyA8IDAsIGl0IHdpbGwgbm90IGhh
-dmUgY3JlYXRlZCBhbnkKICBxdWV1ZXMgc28gdGhlcmUncyBubyBuZWVkIHRvIGdvIHRvIGRlc3Ry
-b3lfcmluZy4KCiBkcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYyB8IDI5ICsrKysrKysrKysrLS0t
-LS0tLS0tLS0tLS0tLS0tCiAxIGZpbGUgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMTggZGVs
-ZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMgYi9kcml2
-ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwppbmRleCA3MjJmZTlmLi5mOTBmYzcyIDEwMDY0NAotLS0g
-YS9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYworKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJv
-bnQuYwpAQCAtMTgyMywyNyArMTgyMywxOSBAQCBzdGF0aWMgaW50IHRhbGtfdG9fbmV0YmFjayhz
-dHJ1Y3QgeGVuYnVzX2RldmljZSAqZGV2LAogCQl4ZW5uZXRfZGVzdHJveV9xdWV1ZXMoaW5mbyk7
-CiAKIAllcnIgPSB4ZW5uZXRfY3JlYXRlX3F1ZXVlcyhpbmZvLCAmbnVtX3F1ZXVlcyk7Ci0JaWYg
-KGVyciA8IDApCi0JCWdvdG8gZGVzdHJveV9yaW5nOworCWlmIChlcnIgPCAwKSB7CisJCXhlbmJ1
-c19kZXZfZmF0YWwoZGV2LCBlcnIsICJjcmVhdGluZyBxdWV1ZXMiKTsKKwkJa2ZyZWUoaW5mby0+
-cXVldWVzKTsKKwkJaW5mby0+cXVldWVzID0gTlVMTDsKKwkJZ290byBvdXQ7CisJfQogCiAJLyog
-Q3JlYXRlIHNoYXJlZCByaW5nLCBhbGxvYyBldmVudCBjaGFubmVsIC0tIGZvciBlYWNoIHF1ZXVl
-ICovCiAJZm9yIChpID0gMDsgaSA8IG51bV9xdWV1ZXM7ICsraSkgewogCQlxdWV1ZSA9ICZpbmZv
-LT5xdWV1ZXNbaV07CiAJCWVyciA9IHNldHVwX25ldGZyb250KGRldiwgcXVldWUsIGZlYXR1cmVf
-c3BsaXRfZXZ0Y2huKTsKLQkJaWYgKGVycikgewotCQkJLyogc2V0dXBfbmV0ZnJvbnQoKSB3aWxs
-IHRpZHkgdXAgdGhlIGN1cnJlbnQKLQkJCSAqIHF1ZXVlIG9uIGVycm9yLCBidXQgd2UgbmVlZCB0
-byBjbGVhbiB1cAotCQkJICogdGhvc2UgYWxyZWFkeSBhbGxvY2F0ZWQuCi0JCQkgKi8KLQkJCWlm
-IChpID4gMCkgewotCQkJCXJ0bmxfbG9jaygpOwotCQkJCW5ldGlmX3NldF9yZWFsX251bV90eF9x
-dWV1ZXMoaW5mby0+bmV0ZGV2LCBpKTsKLQkJCQlydG5sX3VubG9jaygpOwotCQkJCWdvdG8gZGVz
-dHJveV9yaW5nOwotCQkJfSBlbHNlIHsKLQkJCQlnb3RvIG91dDsKLQkJCX0KLQkJfQorCQlpZiAo
-ZXJyKQorCQkJZ290byBkZXN0cm95X3Jpbmc7CiAJfQogCiBhZ2FpbjoKQEAgLTE5MzMsOSArMTky
-NSwxMCBAQCBzdGF0aWMgaW50IHRhbGtfdG9fbmV0YmFjayhzdHJ1Y3QgeGVuYnVzX2RldmljZSAq
-ZGV2LAogCXhlbmJ1c190cmFuc2FjdGlvbl9lbmQoeGJ0LCAxKTsKICBkZXN0cm95X3Jpbmc6CiAJ
-eGVubmV0X2Rpc2Nvbm5lY3RfYmFja2VuZChpbmZvKTsKLQlrZnJlZShpbmZvLT5xdWV1ZXMpOwot
-CWluZm8tPnF1ZXVlcyA9IE5VTEw7CisJeGVubmV0X2Rlc3Ryb3lfcXVldWVzKGluZm8pOwogIG91
-dDoKKwl1bnJlZ2lzdGVyX25ldGRldihpbmZvLT5uZXRkZXYpOworCXhlbm5ldF9mcmVlX25ldGRl
-dihpbmZvLT5uZXRkZXYpOwogCXJldHVybiBlcnI7CiB9CiAKLS0gCjIuNy40CgoKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcg
-bGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRl
-dmVsCg==
+Dmitry reports following splat:
+ INFO: trying to register non-static key.
+ the code is fine but needs lockdep annotation.
+ turning off the locking correctness validator.
+ CPU: 0 PID: 13059 Comm: syz-executor1 Not tainted 4.10.0-rc7-next-20170207 #1
+[..]
+ spin_lock_bh include/linux/spinlock.h:304 [inline]
+ xfrm_policy_flush+0x32/0x470 net/xfrm/xfrm_policy.c:963
+ xfrm_policy_fini+0xbf/0x560 net/xfrm/xfrm_policy.c:3041
+ xfrm_net_init+0x79f/0x9e0 net/xfrm/xfrm_policy.c:3091
+ ops_init+0x10a/0x530 net/core/net_namespace.c:115
+ setup_net+0x2ed/0x690 net/core/net_namespace.c:291
+ copy_net_ns+0x26c/0x530 net/core/net_namespace.c:396
+ create_new_namespaces+0x409/0x860 kernel/nsproxy.c:106
+ unshare_nsproxy_namespaces+0xae/0x1e0 kernel/nsproxy.c:205
+ SYSC_unshare kernel/fork.c:2281 [inline]
+
+Problem is that when we get error during xfrm_net_init we will call
+xfrm_policy_fini which will acquire xfrm_policy_lock before it was
+initialized.  Just move it around so locks get set up first.
+
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Fixes: 283bc9f35bbbcb0e9 ("xfrm: Namespacify xfrm state/policy locks")
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/xfrm/xfrm_policy.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 177e208e8ff5..3c8f5b70abf8 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -3062,6 +3062,11 @@ static int __net_init xfrm_net_init(struct net *net)
+ {
+ 	int rv;
+ 
++	/* Initialize the per-net locks here */
++	spin_lock_init(&net->xfrm.xfrm_state_lock);
++	spin_lock_init(&net->xfrm.xfrm_policy_lock);
++	mutex_init(&net->xfrm.xfrm_cfg_mutex);
++
+ 	rv = xfrm_statistics_init(net);
+ 	if (rv < 0)
+ 		goto out_statistics;
+@@ -3078,11 +3083,6 @@ static int __net_init xfrm_net_init(struct net *net)
+ 	if (rv < 0)
+ 		goto out;
+ 
+-	/* Initialize the per-net locks here */
+-	spin_lock_init(&net->xfrm.xfrm_state_lock);
+-	spin_lock_init(&net->xfrm.xfrm_policy_lock);
+-	mutex_init(&net->xfrm.xfrm_cfg_mutex);
+-
+ 	return 0;
+ 
+ out:
+-- 
+2.10.2
