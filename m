@@ -1,143 +1,58 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH net-next v2 2/3] net: ethernet: bgmac: unify code of the same family
-Date: Wed,  8 Feb 2017 16:24:25 -0500
-Message-ID: <1486589066-8302-3-git-send-email-jon.mason@broadcom.com>
-References: <1486589066-8302-1-git-send-email-jon.mason@broadcom.com>
-Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:35939 "EHLO
-        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751045AbdBHVYx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 16:24:53 -0500
-Received: by mail-qk0-f172.google.com with SMTP id 11so136912766qkl.3
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 13:24:48 -0800 (PST)
-In-Reply-To: <1486589066-8302-1-git-send-email-jon.mason@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] ARM: orion: remove unused wnr854t_switch_plat_data
+Date: Wed,  8 Feb 2017 22:24:19 +0100
+Message-ID: <20170208212431.2924390-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
+ netdev@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
+ linux-kernel@vger.kernel.org,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-BCM471X and BCM535X are of the same family (from what I can derive from
-internal documents).  Group them into the case statement together, which
-results in more code reuse.
+The other instances of this structure got removed along with the MDIO
+device change, but this one was left behind and needs to be removed
+as well:
 
-Also, use existing helper variables to make the code a little more
-readable too.
+arch/arm/mach-orion5x/wnr854t-setup.c:109:44: error: 'wnr854t_switch_plat_data' defined but not used [-Werror=unused-variable]
+ static struct dsa_platform_data __initdata wnr854t_switch_plat_data = {
 
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+Fixes: 575e93f7b5e6 ("ARM: orion: Register DSA switch as a MDIO device")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/broadcom/bgmac-bcma.c | 64 +++++++++++++-----------------
- 1 file changed, 28 insertions(+), 36 deletions(-)
+ arch/arm/mach-orion5x/wnr854t-setup.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-index 5ef60d4..f5c27f4 100644
---- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-@@ -192,36 +192,50 @@ static int bgmac_probe(struct bcma_device *core)
- 		goto err1;
- 	}
+diff --git a/arch/arm/mach-orion5x/wnr854t-setup.c b/arch/arm/mach-orion5x/wnr854t-setup.c
+index ac3376fc269f..d162d4c7f85d 100644
+--- a/arch/arm/mach-orion5x/wnr854t-setup.c
++++ b/arch/arm/mach-orion5x/wnr854t-setup.c
+@@ -106,11 +106,6 @@ static struct dsa_chip_data wnr854t_switch_chip_data = {
+ 	.port_names[7] = "lan2",
+ };
  
--	bgmac->has_robosw = !!(core->bus->sprom.boardflags_lo &
--			       BGMAC_BFL_ENETROBO);
-+	bgmac->has_robosw = !!(sprom->boardflags_lo & BGMAC_BFL_ENETROBO);
- 	if (bgmac->has_robosw)
- 		dev_warn(bgmac->dev, "Support for Roboswitch not implemented\n");
- 
--	if (core->bus->sprom.boardflags_lo & BGMAC_BFL_ENETADM)
-+	if (sprom->boardflags_lo & BGMAC_BFL_ENETADM)
- 		dev_warn(bgmac->dev, "Support for ADMtek ethernet switch not implemented\n");
- 
- 	/* Feature Flags */
--	switch (core->bus->chipinfo.id) {
-+	switch (ci->id) {
-+	/* BCM 471X/535X family */
-+	case BCMA_CHIP_ID_BCM4716:
-+		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
-+		/* fallthrough */
-+	case BCMA_CHIP_ID_BCM47162:
-+		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL2;
-+		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
-+		break;
- 	case BCMA_CHIP_ID_BCM5357:
-+	case BCMA_CHIP_ID_BCM53572:
- 		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
- 		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL1;
- 		bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_PHY;
--		if (core->bus->chipinfo.pkg == BCMA_PKG_ID_BCM47186) {
--			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
-+		if (ci->pkg == BCMA_PKG_ID_BCM47188 ||
-+		    ci->pkg == BCMA_PKG_ID_BCM47186) {
- 			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_RGMII;
-+			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
- 		}
--		if (core->bus->chipinfo.pkg == BCMA_PKG_ID_BCM5358)
-+		if (ci->pkg == BCMA_PKG_ID_BCM5358)
- 			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_EPHYRMII;
- 		break;
--	case BCMA_CHIP_ID_BCM53572:
--		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
-+	case BCMA_CHIP_ID_BCM53573:
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
--		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL1;
--		bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_PHY;
--		if (core->bus->chipinfo.pkg == BCMA_PKG_ID_BCM47188) {
--			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_RGMII;
-+		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
-+		if (ci->pkg == BCMA_PKG_ID_BCM47189)
- 			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
-+		if (core->core_unit == 0) {
-+			bgmac->feature_flags |= BGMAC_FEAT_CC4_IF_SW_TYPE;
-+			if (ci->pkg == BCMA_PKG_ID_BCM47189)
-+				bgmac->feature_flags |=
-+					BGMAC_FEAT_CC4_IF_SW_TYPE_RGMII;
-+		} else if (core->core_unit == 1) {
-+			bgmac->feature_flags |= BGMAC_FEAT_IRQ_ID_OOB_6;
-+			bgmac->feature_flags |= BGMAC_FEAT_CC7_IF_TYPE_RGMII;
- 		}
- 		break;
- 	case BCMA_CHIP_ID_BCM4749:
-@@ -229,18 +243,11 @@ static int bgmac_probe(struct bcma_device *core)
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
- 		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL1;
- 		bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_PHY;
--		if (core->bus->chipinfo.pkg == 10) {
-+		if (ci->pkg == 10) {
- 			bgmac->feature_flags |= BGMAC_FEAT_SW_TYPE_RGMII;
- 			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
- 		}
- 		break;
--	case BCMA_CHIP_ID_BCM4716:
--		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
--		/* fallthrough */
--	case BCMA_CHIP_ID_BCM47162:
--		bgmac->feature_flags |= BGMAC_FEAT_FLW_CTRL2;
--		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
--		break;
- 	/* bcm4707_family */
- 	case BCMA_CHIP_ID_BCM4707:
- 	case BCMA_CHIP_ID_BCM47094:
-@@ -249,21 +256,6 @@ static int bgmac_probe(struct bcma_device *core)
- 		bgmac->feature_flags |= BGMAC_FEAT_NO_RESET;
- 		bgmac->feature_flags |= BGMAC_FEAT_FORCE_SPEED_2500;
- 		break;
--	case BCMA_CHIP_ID_BCM53573:
--		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
--		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
--		if (ci->pkg == BCMA_PKG_ID_BCM47189)
--			bgmac->feature_flags |= BGMAC_FEAT_IOST_ATTACHED;
--		if (core->core_unit == 0) {
--			bgmac->feature_flags |= BGMAC_FEAT_CC4_IF_SW_TYPE;
--			if (ci->pkg == BCMA_PKG_ID_BCM47189)
--				bgmac->feature_flags |=
--					BGMAC_FEAT_CC4_IF_SW_TYPE_RGMII;
--		} else if (core->core_unit == 1) {
--			bgmac->feature_flags |= BGMAC_FEAT_IRQ_ID_OOB_6;
--			bgmac->feature_flags |= BGMAC_FEAT_CC7_IF_TYPE_RGMII;
--		}
--		break;
- 	default:
- 		bgmac->feature_flags |= BGMAC_FEAT_CLKCTLST;
- 		bgmac->feature_flags |= BGMAC_FEAT_SET_RXQ_CLK;
+-static struct dsa_platform_data __initdata wnr854t_switch_plat_data = {
+-	.nr_chips	= 1,
+-	.chip		= &wnr854t_switch_chip_data,
+-};
+-
+ static void __init wnr854t_init(void)
+ {
+ 	/*
 -- 
-2.7.4
+2.9.0
