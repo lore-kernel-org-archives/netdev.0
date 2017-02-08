@@ -1,8 +1,9 @@
 From: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Subject: Re: [RFC 00/19] Replace PCI pool by DMA pool API
-Date: Wed, 8 Feb 2017 20:00:59 +0100
-Message-ID: <20170208190059.GT16878@collabora.com>
+Subject: Re: [RFC 04/19] net: e100: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:23:39 +0100
+Message-ID: <20170208182339.GD16878@collabora.com>
 References: <20170208163457.28853-1-romain.perier@collabora.com>
+ <20170208163457.28853-5-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
@@ -20,102 +21,80 @@ Cc: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
         linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Peter Senna Tschudin <peter.senna-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
 To: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-1-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20170208163457.28853-5-romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2017 at 05:34:38PM +0100, Romain Perier wrote:
-Hi Romain,
+On Wed, Feb 08, 2017 at 05:34:42PM +0100, Romain Perier wrote:
+> The PCI pool API is deprecated. This commits replaces the PCI pool old
+> API by the appropriated function with the DMA pool API.
 
-Nice set of patches! Thank you.
+Tested by compilation only.
 
-I sent a few comments, but basically you missed to run checkpatch.pl on
-your patches. Also you can take the chance to fix some white space
-issues that are on the lines you are changing like space before , and
-trailing white space.
-
-But maybe the part that I missed more is that you can also adrress the
-fact that dma_pool_destroy(NULL) is safe and that checking for NULL may
-not be needed. So I would fix this NULL test at least on all files that
-you are changing, not only around your changes, but on the entire file.
-
-Peter
-> The current PCI pool API are simple macro functions direct expanded to
-> the appropriated dma pool functions. The prototypes are almost the same
-> and semantically, they are very similar. I propose to use the DMA pool
-> API directly and get rid of the old API.
+Acked-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Tested-by: Peter Senna Tschudin <peter.senna-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> Signed-off-by: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+> ---
+>  drivers/net/ethernet/intel/e100.c | 12 ++++++------
+>  1 file changed, 6 insertions(+), 6 deletions(-)
 > 
-> This set of patches, replaces the old API by the dma pool API, adds
-> support to warn about this old API in checkpath.pl and remove the
-> defines.
-> 
-> Romain Perier (19):
->   block: DAC960: Replace PCI pool old API
->   dmaengine: pch_dma: Replace PCI pool old API
->   IB/mthca: Replace PCI pool old API
->   net: e100: Replace PCI pool old API
->   mlx4: Replace PCI pool old API
->   mlx5: Replace PCI pool old API
->   wireless: ipw2200: Replace PCI pool old API
->   scsi: be2iscsi: Replace PCI pool old API
->   scsi: csiostor: Replace PCI pool old API
->   scsi: lpfc: Replace PCI pool old API
->   scsi: megaraid: Replace PCI pool old API
->   scsi: mpt3sas: Replace PCI pool old API
->   scsi: mvsas: Replace PCI pool old API
->   scsi: pmcraid: Replace PCI pool old API
->   usb: gadget: amd5536udc: Replace PCI pool old API
->   usb: gadget: net2280: Replace PCI pool old API
->   usb: gadget: pch_udc: Replace PCI pool old API
->   PCI: Remove PCI pool macro functions
->   checkpatch: warn for use of old PCI pool API
-> 
->  drivers/block/DAC960.c                        | 36 +++++++--------
->  drivers/block/DAC960.h                        |  4 +-
->  drivers/dma/pch_dma.c                         | 12 ++---
->  drivers/infiniband/hw/mthca/mthca_av.c        | 10 ++---
->  drivers/infiniband/hw/mthca/mthca_cmd.c       |  8 ++--
->  drivers/infiniband/hw/mthca/mthca_dev.h       |  4 +-
->  drivers/net/ethernet/intel/e100.c             | 12 ++---
->  drivers/net/ethernet/mellanox/mlx4/cmd.c      | 10 ++---
->  drivers/net/ethernet/mellanox/mlx4/mlx4.h     |  2 +-
->  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 10 ++---
->  drivers/net/wireless/intel/ipw2x00/ipw2200.c  | 12 ++---
->  drivers/scsi/be2iscsi/be_iscsi.c              |  6 +--
->  drivers/scsi/be2iscsi/be_main.c               |  6 +--
->  drivers/scsi/be2iscsi/be_main.h               |  2 +-
->  drivers/scsi/csiostor/csio_hw.h               |  2 +-
->  drivers/scsi/csiostor/csio_init.c             |  4 +-
->  drivers/scsi/csiostor/csio_scsi.c             |  6 +--
->  drivers/scsi/lpfc/lpfc.h                      | 10 ++---
->  drivers/scsi/lpfc/lpfc_init.c                 |  6 +--
->  drivers/scsi/lpfc/lpfc_mem.c                  | 62 +++++++++++++-------------
->  drivers/scsi/lpfc/lpfc_scsi.c                 | 12 ++---
->  drivers/scsi/megaraid/megaraid_mbox.c         | 30 ++++++-------
->  drivers/scsi/megaraid/megaraid_mm.c           | 28 ++++++------
->  drivers/scsi/megaraid/megaraid_sas_base.c     | 24 +++++-----
->  drivers/scsi/megaraid/megaraid_sas_fusion.c   | 44 +++++++++---------
->  drivers/scsi/mpt3sas/mpt3sas_base.c           | 64 +++++++++++++--------------
->  drivers/scsi/mvsas/mv_init.c                  |  4 +-
->  drivers/scsi/mvsas/mv_sas.c                   |  6 +--
->  drivers/scsi/pmcraid.c                        | 10 ++---
->  drivers/scsi/pmcraid.h                        |  2 +-
->  drivers/usb/gadget/udc/amd5536udc.c           |  8 ++--
->  drivers/usb/gadget/udc/amd5536udc.h           |  4 +-
->  drivers/usb/gadget/udc/net2280.c              | 12 ++---
->  drivers/usb/gadget/udc/net2280.h              |  2 +-
->  drivers/usb/gadget/udc/pch_udc.c              | 28 ++++++------
->  include/linux/mlx5/driver.h                   |  2 +-
->  include/linux/pci.h                           |  9 ----
->  scripts/checkpatch.pl                         |  5 +++
->  38 files changed, 257 insertions(+), 261 deletions(-)
-> 
+> diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+> index 2b7323d..d1002c2 100644
+> --- a/drivers/net/ethernet/intel/e100.c
+> +++ b/drivers/net/ethernet/intel/e100.c
+> @@ -607,7 +607,7 @@ struct nic {
+>  	struct mem *mem;
+>  	dma_addr_t dma_addr;
+>  
+> -	struct pci_pool *cbs_pool;
+> +	struct dma_pool *cbs_pool;
+>  	dma_addr_t cbs_dma_addr;
+>  	u8 adaptive_ifs;
+>  	u8 tx_threshold;
+> @@ -1892,7 +1892,7 @@ static void e100_clean_cbs(struct nic *nic)
+>  			nic->cb_to_clean = nic->cb_to_clean->next;
+>  			nic->cbs_avail++;
+>  		}
+> -		pci_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
+> +		dma_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
+>  		nic->cbs = NULL;
+>  		nic->cbs_avail = 0;
+>  	}
+> @@ -1910,7 +1910,7 @@ static int e100_alloc_cbs(struct nic *nic)
+>  	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = NULL;
+>  	nic->cbs_avail = 0;
+>  
+> -	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
+> +	nic->cbs = dma_pool_alloc(nic->cbs_pool, GFP_KERNEL,
+>  				  &nic->cbs_dma_addr);
+>  	if (!nic->cbs)
+>  		return -ENOMEM;
+> @@ -2958,8 +2958,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  		netif_err(nic, probe, nic->netdev, "Cannot register net device, aborting\n");
+>  		goto err_out_free;
+>  	}
+> -	nic->cbs_pool = pci_pool_create(netdev->name,
+> -			   nic->pdev,
+> +	nic->cbs_pool = dma_pool_create(netdev->name,
+> +			   &nic->pdev->dev,
+>  			   nic->params.cbs.max * sizeof(struct cb),
+>  			   sizeof(u32),
+>  			   0);
+> @@ -2999,7 +2999,7 @@ static void e100_remove(struct pci_dev *pdev)
+>  		unregister_netdev(netdev);
+>  		e100_free(nic);
+>  		pci_iounmap(pdev, nic->csr);
+> -		pci_pool_destroy(nic->cbs_pool);
+> +		dma_pool_destroy(nic->cbs_pool);
+>  		free_netdev(netdev);
+>  		pci_release_regions(pdev);
+>  		pci_disable_device(pdev);
 > -- 
 > 2.9.3
 > 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
