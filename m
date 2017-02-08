@@ -1,9 +1,9 @@
 From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 01/19] block: DAC960: Replace PCI pool old API
-Date: Wed, 8 Feb 2017 19:20:17 +0100
-Message-ID: <20170208182017.GA16878@collabora.com>
+Subject: Re: [RFC 09/19] scsi: csiostor: Replace PCI pool old API
+Date: Wed, 8 Feb 2017 19:29:20 +0100
+Message-ID: <20170208182920.GI16878@collabora.com>
 References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-2-romain.perier@collabora.com>
+ <20170208163457.28853-10-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams@intel.com>,
@@ -21,158 +21,96 @@ Cc: Dan Williams <dan.j.williams@intel.com>,
         linux-kernel@vger.kernel.org,
         Peter Senna Tschudin <peter.senna@collabora.co.uk>
 To: Romain Perier <romain.perier@collabora.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:34180 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdBHS3l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 13:29:41 -0500
 Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-2-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170208163457.28853-10-romain.perier@collabora.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 08, 2017 at 05:34:39PM +0100, Romain Perier wrote:
+On Wed, Feb 08, 2017 at 05:34:47PM +0100, Romain Perier wrote:
 > The PCI pool API is deprecated. This commits replaces the PCI pool old
 > API by the appropriated function with the DMA pool API.
 > 
 > Signed-off-by: Romain Perier <romain.perier@collabora.com>
-
-Tested by compilation only. Some whitespace errors, but the patch do not
-add new ones.
-
-Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 > ---
->  drivers/block/DAC960.c | 36 ++++++++++++++++++------------------
->  drivers/block/DAC960.h |  4 ++--
->  2 files changed, 20 insertions(+), 20 deletions(-)
+>  drivers/scsi/csiostor/csio_hw.h   | 2 +-
+>  drivers/scsi/csiostor/csio_init.c | 4 ++--
+>  drivers/scsi/csiostor/csio_scsi.c | 6 +++---
+>  3 files changed, 6 insertions(+), 6 deletions(-)
 > 
-> diff --git a/drivers/block/DAC960.c b/drivers/block/DAC960.c
-> index 26a51be..2b221cc 100644
-> --- a/drivers/block/DAC960.c
-> +++ b/drivers/block/DAC960.c
-> @@ -268,17 +268,17 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
->    void *AllocationPointer = NULL;
->    void *ScatterGatherCPU = NULL;
->    dma_addr_t ScatterGatherDMA;
-> -  struct pci_pool *ScatterGatherPool;
-> +  struct dma_pool *ScatterGatherPool;
->    void *RequestSenseCPU = NULL;
->    dma_addr_t RequestSenseDMA;
-> -  struct pci_pool *RequestSensePool = NULL;
-> +  struct dma_pool *RequestSensePool = NULL;
+> diff --git a/drivers/scsi/csiostor/csio_hw.h b/drivers/scsi/csiostor/csio_hw.h
+> index 029bef8..c35c7bf 100644
+> --- a/drivers/scsi/csiostor/csio_hw.h
+> +++ b/drivers/scsi/csiostor/csio_hw.h
+> @@ -465,7 +465,7 @@ struct csio_hw {
+>  	struct csio_pport	pport[CSIO_MAX_PPORTS];	/* Ports (XGMACs) */
+>  	struct csio_hw_params	params;			/* Hw parameters */
 >  
->    if (Controller->FirmwareType == DAC960_V1_Controller)
->      {
->        CommandAllocationLength = offsetof(DAC960_Command_T, V1.EndMarker);
->        CommandAllocationGroupSize = DAC960_V1_CommandAllocationGroupSize;
-> -      ScatterGatherPool = pci_pool_create("DAC960_V1_ScatterGather",
-> -		Controller->PCIDevice,
-> +      ScatterGatherPool = dma_pool_create("DAC960_V1_ScatterGather",
-> +		&Controller->PCIDevice->dev,
->  	DAC960_V1_ScatterGatherLimit * sizeof(DAC960_V1_ScatterGatherSegment_T),
->  	sizeof(DAC960_V1_ScatterGatherSegment_T), 0);
->        if (ScatterGatherPool == NULL)
-> @@ -290,18 +290,18 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
->      {
->        CommandAllocationLength = offsetof(DAC960_Command_T, V2.EndMarker);
->        CommandAllocationGroupSize = DAC960_V2_CommandAllocationGroupSize;
-> -      ScatterGatherPool = pci_pool_create("DAC960_V2_ScatterGather",
-> -		Controller->PCIDevice,
-> +      ScatterGatherPool = dma_pool_create("DAC960_V2_ScatterGather",
-> +		&Controller->PCIDevice->dev,
->  	DAC960_V2_ScatterGatherLimit * sizeof(DAC960_V2_ScatterGatherSegment_T),
->  	sizeof(DAC960_V2_ScatterGatherSegment_T), 0);
->        if (ScatterGatherPool == NULL)
->  	    return DAC960_Failure(Controller,
->  			"AUXILIARY STRUCTURE CREATION (SG)");
-> -      RequestSensePool = pci_pool_create("DAC960_V2_RequestSense",
-> -		Controller->PCIDevice, sizeof(DAC960_SCSI_RequestSense_T),
-> +      RequestSensePool = dma_pool_create("DAC960_V2_RequestSense",
-> +		&Controller->PCIDevice->dev, sizeof(DAC960_SCSI_RequestSense_T),
->  		sizeof(int), 0);
->        if (RequestSensePool == NULL) {
-> -	    pci_pool_destroy(ScatterGatherPool);
-> +	    dma_pool_destroy(ScatterGatherPool);
->  	    return DAC960_Failure(Controller,
->  			"AUXILIARY STRUCTURE CREATION (SG)");
->        }
-> @@ -335,16 +335,16 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
->        Command->Next = Controller->FreeCommands;
->        Controller->FreeCommands = Command;
->        Controller->Commands[CommandIdentifier-1] = Command;
-> -      ScatterGatherCPU = pci_pool_alloc(ScatterGatherPool, GFP_ATOMIC,
-> +      ScatterGatherCPU = dma_pool_alloc(ScatterGatherPool, GFP_ATOMIC,
->  							&ScatterGatherDMA);
->        if (ScatterGatherCPU == NULL)
->  	  return DAC960_Failure(Controller, "AUXILIARY STRUCTURE CREATION");
+> -	struct pci_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
+> +	struct dma_pool		*scsi_pci_pool;		/* PCI pool for SCSI */
+>  	mempool_t		*mb_mempool;		/* Mailbox memory pool*/
+>  	mempool_t		*rnode_mempool;		/* rnode memory pool */
 >  
->        if (RequestSensePool != NULL) {
-> -  	  RequestSenseCPU = pci_pool_alloc(RequestSensePool, GFP_ATOMIC,
-> +  	  RequestSenseCPU = dma_pool_alloc(RequestSensePool, GFP_ATOMIC,
->  						&RequestSenseDMA);
->    	  if (RequestSenseCPU == NULL) {
-> -                pci_pool_free(ScatterGatherPool, ScatterGatherCPU,
-> +                dma_pool_free(ScatterGatherPool, ScatterGatherCPU,
->                                  ScatterGatherDMA);
->      		return DAC960_Failure(Controller,
->  					"AUXILIARY STRUCTURE CREATION");
-> @@ -379,8 +379,8 @@ static bool DAC960_CreateAuxiliaryStructures(DAC960_Controller_T *Controller)
->  static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
+> diff --git a/drivers/scsi/csiostor/csio_init.c b/drivers/scsi/csiostor/csio_init.c
+> index dbe416f..6206a72 100644
+> --- a/drivers/scsi/csiostor/csio_init.c
+> +++ b/drivers/scsi/csiostor/csio_init.c
+> @@ -485,7 +485,7 @@ csio_resource_alloc(struct csio_hw *hw)
+>  	if (!hw->rnode_mempool)
+>  		goto err_free_mb_mempool;
+>  
+> -	hw->scsi_pci_pool = pci_pool_create("csio_scsi_pci_pool", hw->pdev,
+> +	hw->scsi_pci_pool = dma_pool_create("csio_scsi_pci_pool", &hw->pdev->dev,
+Introduces line over 80 characters warning. Please fix and resubmit.
+Other than that looks good. Tested by compiling it.
+
+>  					    CSIO_SCSI_RSP_LEN, 8, 0);
+>  	if (!hw->scsi_pci_pool)
+>  		goto err_free_rn_pool;
+> @@ -505,7 +505,7 @@ csio_resource_alloc(struct csio_hw *hw)
+>  static void
+>  csio_resource_free(struct csio_hw *hw)
 >  {
->    int i;
-> -  struct pci_pool *ScatterGatherPool = Controller->ScatterGatherPool;
-> -  struct pci_pool *RequestSensePool = NULL;
-> +  struct dma_pool *ScatterGatherPool = Controller->ScatterGatherPool;
-> +  struct dma_pool *RequestSensePool = NULL;
->    void *ScatterGatherCPU;
->    dma_addr_t ScatterGatherDMA;
->    void *RequestSenseCPU;
-> @@ -411,9 +411,9 @@ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
->  	  RequestSenseDMA = Command->V2.RequestSenseDMA;
->        }
->        if (ScatterGatherCPU != NULL)
-> -          pci_pool_free(ScatterGatherPool, ScatterGatherCPU, ScatterGatherDMA);
-> +          dma_pool_free(ScatterGatherPool, ScatterGatherCPU, ScatterGatherDMA);
->        if (RequestSenseCPU != NULL)
-> -          pci_pool_free(RequestSensePool, RequestSenseCPU, RequestSenseDMA);
-> +          dma_pool_free(RequestSensePool, RequestSenseCPU, RequestSenseDMA);
+> -	pci_pool_destroy(hw->scsi_pci_pool);
+> +	dma_pool_destroy(hw->scsi_pci_pool);
+>  	hw->scsi_pci_pool = NULL;
+>  	mempool_destroy(hw->rnode_mempool);
+>  	hw->rnode_mempool = NULL;
+> diff --git a/drivers/scsi/csiostor/csio_scsi.c b/drivers/scsi/csiostor/csio_scsi.c
+> index a1ff75f..49b36b0 100644
+> --- a/drivers/scsi/csiostor/csio_scsi.c
+> +++ b/drivers/scsi/csiostor/csio_scsi.c
+> @@ -2445,7 +2445,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
 >  
->        if ((Command->CommandIdentifier
->  	   % Controller->CommandAllocationGroupSize) == 1) {
-> @@ -438,12 +438,12 @@ static void DAC960_DestroyAuxiliaryStructures(DAC960_Controller_T *Controller)
->      }
+>  		/* Allocate Dma buffers for Response Payload */
+>  		dma_buf = &ioreq->dma_buf;
+> -		dma_buf->vaddr = pci_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
+> +		dma_buf->vaddr = dma_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
+>  						&dma_buf->paddr);
+>  		if (!dma_buf->vaddr) {
+>  			csio_err(hw,
+> @@ -2485,7 +2485,7 @@ csio_scsim_init(struct csio_scsim *scm, struct csio_hw *hw)
+>  		ioreq = (struct csio_ioreq *)tmp;
 >  
->    if (ScatterGatherPool != NULL)
-> -  	pci_pool_destroy(ScatterGatherPool);
-> +  	dma_pool_destroy(ScatterGatherPool);
->    if (Controller->FirmwareType == DAC960_V1_Controller)
->    	return;
+>  		dma_buf = &ioreq->dma_buf;
+> -		pci_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
+> +		dma_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
+>  			      dma_buf->paddr);
 >  
->    if (RequestSensePool != NULL)
-> -	pci_pool_destroy(RequestSensePool);
-> +	dma_pool_destroy(RequestSensePool);
+>  		kfree(ioreq);
+> @@ -2516,7 +2516,7 @@ csio_scsim_exit(struct csio_scsim *scm)
+>  		ioreq = (struct csio_ioreq *)tmp;
 >  
->    for (i = 0; i < DAC960_MaxLogicalDrives; i++) {
->  	kfree(Controller->V2.LogicalDeviceInformation[i]);
-> diff --git a/drivers/block/DAC960.h b/drivers/block/DAC960.h
-> index 85fa9bb..47d7d69 100644
-> --- a/drivers/block/DAC960.h
-> +++ b/drivers/block/DAC960.h
-> @@ -2316,7 +2316,7 @@ typedef struct DAC960_Controller
->    bool SuppressEnclosureMessages;
->    struct timer_list MonitoringTimer;
->    struct gendisk *disks[DAC960_MaxLogicalDrives];
-> -  struct pci_pool *ScatterGatherPool;
-> +  struct dma_pool *ScatterGatherPool;
->    DAC960_Command_T *FreeCommands;
->    unsigned char *CombinedStatusBuffer;
->    unsigned char *CurrentStatusBuffer;
-> @@ -2429,7 +2429,7 @@ typedef struct DAC960_Controller
->        bool NeedDeviceSerialNumberInformation;
->        bool StartLogicalDeviceInformationScan;
->        bool StartPhysicalDeviceInformationScan;
-> -      struct pci_pool *RequestSensePool;
-> +      struct dma_pool *RequestSensePool;
+>  		dma_buf = &ioreq->dma_buf;
+> -		pci_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
+> +		dma_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
+>  			      dma_buf->paddr);
 >  
->        dma_addr_t	FirstCommandMailboxDMA;
->        DAC960_V2_CommandMailbox_T *FirstCommandMailbox;
+>  		kfree(ioreq);
 > -- 
 > 2.9.3
 > 
