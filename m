@@ -1,9 +1,8 @@
 From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH v3 1/5] bpf: Add missing header to the library
-Date: Wed, 8 Feb 2017 10:47:18 +0800
-Message-ID: <b3db796c-b4a5-ffb4-4dc7-4bb28fc1fd00@huawei.com>
-References: <20170207205609.8035-1-mic@digikod.net>
- <20170207205609.8035-2-mic@digikod.net>
+Subject: Re: [PATCH v2 1/5] bpf: Add missing header to the library
+Date: Wed, 8 Feb 2017 10:52:01 +0800
+Message-ID: <c83cb57a-c997-3785-b763-a63b4b7114d4@huawei.com>
+References: <20170206204027.29078-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 8bit
@@ -14,18 +13,16 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Joe Stringer <joe@ovn.org>, <netdev@vger.kernel.org>
 To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
         <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:12408 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbdBHCtU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 7 Feb 2017 21:49:20 -0500
-In-Reply-To: <20170207205609.8035-2-mic@digikod.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170206204027.29078-1-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Please add me into the cc list of all of the 5 patches.
 
+Thank you.
 
-On 2017/2/8 4:56, Mickaël Salaün wrote:
+On 2017/2/7 4:40, Mickaël Salaün wrote:
 > Include stddef.h to define size_t.
 >
 > Signed-off-by: Mickaël Salaün <mic@digikod.net>
@@ -49,6 +46,3 @@ On 2017/2/8 4:56, Mickaël Salaün wrote:
 >   
 >   int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
 >   		   int max_entries, __u32 map_flags);
-Looks good to me.
-
-Thank you.
