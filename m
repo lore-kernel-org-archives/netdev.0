@@ -1,9 +1,9 @@
 From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: Re: [RFC 16/19] usb: gadget: net2280: Replace PCI pool old API
-Date: Wed, 8 Feb 2017 19:45:08 +0100
-Message-ID: <20170208184508.GP16878@collabora.com>
+Subject: Re: [RFC 18/19] PCI: Remove PCI pool macro functions
+Date: Wed, 8 Feb 2017 19:49:45 +0100
+Message-ID: <20170208184945.GR16878@collabora.com>
 References: <20170208163457.28853-1-romain.perier@collabora.com>
- <20170208163457.28853-17-romain.perier@collabora.com>
+ <20170208163457.28853-19-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Dan Williams <dan.j.williams@intel.com>,
@@ -23,90 +23,73 @@ Cc: Dan Williams <dan.j.williams@intel.com>,
 To: Romain Perier <romain.perier@collabora.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170208163457.28853-17-romain.perier@collabora.com>
+In-Reply-To: <20170208163457.28853-19-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 08, 2017 at 05:34:54PM +0100, Romain Perier wrote:
-> The PCI pool API is deprecated. This commits replaces the PCI pool old
-> API by the appropriated function with the DMA pool API.
-> 
-Tested by compilation only.
+On Wed, Feb 08, 2017 at 05:34:56PM +0100, Romain Perier wrote:
+> Now that all the drivers use dma pool API, we can remove the macro
+> functions for PCI pool.
 
-Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Good news: make allyesconfig;make succeed after the changes until this
+point, but:
+
+$ grep -R pci_pool
+...
+drivers/usb/gadget/udc/pch_udc.c: *	-ENOMEM:	pci_pool_alloc
+invocation fails
+drivers/usb/host/oxu210hp-hcd.c:	 * pci_pool consistent memory
+always uses segment zero.
+drivers/usb/host/fotg210-hcd.c:	 * pci_pool consistent memory always
+uses segment zero.
+drivers/usb/host/ehci-hcd.c:	 * pci_pool consistent memory always
+uses segment zero.
+drivers/scsi/lpfc/lpfc_mem.c: * Allocates from generic pci_pool_alloc
+function first and if that fails and
+drivers/scsi/csiostor/csio_init.c:	hw->scsi_pci_pool =
+dma_pool_create("csio_scsi_pci_pool", &hw->pdev->dev,
+drivers/scsi/csiostor/csio_init.c:	if (!hw->scsi_pci_pool)
+drivers/scsi/csiostor/csio_init.c:
+dma_pool_destroy(hw->scsi_pci_pool);
+drivers/scsi/csiostor/csio_init.c:	hw->scsi_pci_pool = NULL;
+drivers/scsi/csiostor/csio_scsi.c:		dma_buf->vaddr =
+dma_pool_alloc(hw->scsi_pci_pool, GFP_KERNEL,
+drivers/scsi/csiostor/csio_scsi.c:
+dma_pool_free(hw->scsi_pci_pool, dma_buf->vaddr,
+drivers/scsi/csiostor/csio_scsi.c:
+dma_pool_free(scm->hw->scsi_pci_pool, dma_buf->vaddr,
+drivers/scsi/csiostor/csio_hw.h:	struct dma_pool
+*scsi_pci_pool;		/* PCI pool for SCSI */
+
+this can be updated or removed, needs to check:
+scripts/coccinelle/api/alloc/pool_zalloc-simple.cocci
+
+> 
 > Signed-off-by: Romain Perier <romain.perier@collabora.com>
 > ---
->  drivers/usb/gadget/udc/net2280.c | 12 ++++++------
->  drivers/usb/gadget/udc/net2280.h |  2 +-
->  2 files changed, 7 insertions(+), 7 deletions(-)
+>  include/linux/pci.h | 9 ---------
+>  1 file changed, 9 deletions(-)
 > 
-> diff --git a/drivers/usb/gadget/udc/net2280.c b/drivers/usb/gadget/udc/net2280.c
-> index 8550441..089081e 100644
-> --- a/drivers/usb/gadget/udc/net2280.c
-> +++ b/drivers/usb/gadget/udc/net2280.c
-> @@ -569,7 +569,7 @@ static struct usb_request
->  	if (ep->dma) {
->  		struct net2280_dma	*td;
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 11d15d4..c3a93e4 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -1284,15 +1284,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
+>  #include <linux/pci-dma.h>
+>  #include <linux/dmapool.h>
 >  
-> -		td = pci_pool_alloc(ep->dev->requests, gfp_flags,
-> +		td = dma_pool_alloc(ep->dev->requests, gfp_flags,
->  				&req->td_dma);
->  		if (!td) {
->  			kfree(req);
-> @@ -597,7 +597,7 @@ static void net2280_free_request(struct usb_ep *_ep, struct usb_request *_req)
->  	req = container_of(_req, struct net2280_request, req);
->  	WARN_ON(!list_empty(&req->queue));
->  	if (req->td)
-> -		pci_pool_free(ep->dev->requests, req->td, req->td_dma);
-> +		dma_pool_free(ep->dev->requests, req->td, req->td_dma);
->  	kfree(req);
->  }
->  
-> @@ -3578,10 +3578,10 @@ static void net2280_remove(struct pci_dev *pdev)
->  		for (i = 1; i < 5; i++) {
->  			if (!dev->ep[i].dummy)
->  				continue;
-> -			pci_pool_free(dev->requests, dev->ep[i].dummy,
-> +			dma_pool_free(dev->requests, dev->ep[i].dummy,
->  					dev->ep[i].td_dma);
->  		}
-> -		pci_pool_destroy(dev->requests);
-> +		dma_pool_destroy(dev->requests);
->  	}
->  	if (dev->got_irq)
->  		free_irq(pdev->irq, dev);
-> @@ -3723,7 +3723,7 @@ static int net2280_probe(struct pci_dev *pdev, const struct pci_device_id *id)
->  
->  	/* DMA setup */
->  	/* NOTE:  we know only the 32 LSBs of dma addresses may be nonzero */
-> -	dev->requests = pci_pool_create("requests", pdev,
-> +	dev->requests = dma_pool_create("requests", &pdev->dev,
->  		sizeof(struct net2280_dma),
->  		0 /* no alignment requirements */,
->  		0 /* or page-crossing issues */);
-> @@ -3735,7 +3735,7 @@ static int net2280_probe(struct pci_dev *pdev, const struct pci_device_id *id)
->  	for (i = 1; i < 5; i++) {
->  		struct net2280_dma	*td;
->  
-> -		td = pci_pool_alloc(dev->requests, GFP_KERNEL,
-> +		td = dma_pool_alloc(dev->requests, GFP_KERNEL,
->  				&dev->ep[i].td_dma);
->  		if (!td) {
->  			ep_dbg(dev, "can't get dummy %d\n", i);
-> diff --git a/drivers/usb/gadget/udc/net2280.h b/drivers/usb/gadget/udc/net2280.h
-> index 2736a95..1088c37 100644
-> --- a/drivers/usb/gadget/udc/net2280.h
-> +++ b/drivers/usb/gadget/udc/net2280.h
-> @@ -187,7 +187,7 @@ struct net2280 {
->  	struct usb338x_ll_chi_regs	__iomem *ll_chicken_reg;
->  	struct usb338x_pl_regs		__iomem *plregs;
->  
-> -	struct pci_pool			*requests;
-> +	struct dma_pool			*requests;
->  	/* statistics...*/
->  };
->  
+> -#define	pci_pool dma_pool
+> -#define pci_pool_create(name, pdev, size, align, allocation) \
+> -		dma_pool_create(name, &pdev->dev, size, align, allocation)
+> -#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
+> -#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
+> -#define	pci_pool_zalloc(pool, flags, handle) \
+> -		dma_pool_zalloc(pool, flags, handle)
+> -#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
+> -
+>  struct msix_entry {
+>  	u32	vector;	/* kernel uses to write allocated vector */
+>  	u16	entry;	/* driver uses to specify entry, OS writes */
 > -- 
 > 2.9.3
 > 
