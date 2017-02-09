@@ -1,53 +1,201 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v3 0/3] net: phy: Fix PHY module checks and NULL deref in phy_attach_direct()
-Date: Wed,  8 Feb 2017 16:13:58 -0800
-Message-ID: <20170209001401.2564-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        maowenan <maowenan@huawei.com>, andrew@lunn.ch,
-        rmk+kernel@armlinux.org.uk, festevam@gmail.com,
-        davem@davemloft.net, nikita.yoush@cogentembedded.com
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH net-next v2 3/3] net: ethernet: bgmac: driver power
+ manangement
+Date: Wed, 8 Feb 2017 16:51:15 -0800
+Message-ID: <a8c605dc-3320-5b6a-a36b-81058785fd58@gmail.com>
+References: <1486589066-8302-1-git-send-email-jon.mason@broadcom.com>
+ <1486589066-8302-4-git-send-email-jon.mason@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Joey Zhong <zhongx@broadcom.com>
+To: Jon Mason <jon.mason@broadcom.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:35022 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750941AbdBIAsM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:48:12 -0500
-Received: by mail-qk0-f193.google.com with SMTP id u25so20179043qki.2
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 16:48:12 -0800 (PST)
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:35366 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751643AbdBIAvp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:51:45 -0500
+In-Reply-To: <1486589066-8302-4-git-send-email-jon.mason@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On 02/08/2017 01:24 PM, Jon Mason wrote:
+> From: Joey Zhong <zhongx@broadcom.com>
+> 
+> Implement suspend/resume callbacks in the bgmac driver. This makes sure
+> that we de-initialize and re-initialize the hardware correctly before
+> entering suspend and when resuming.
+> 
+> Signed-off-by: Joey Zhong <zhongx@broadcom.com>
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/bgmac-platform.c | 34 +++++++++++++++++
+>  drivers/net/ethernet/broadcom/bgmac.c          | 51 ++++++++++++++++++++++++++
+>  drivers/net/ethernet/broadcom/bgmac.h          |  2 +
+>  3 files changed, 87 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c b/drivers/net/ethernet/broadcom/bgmac-platform.c
+> index 2d153f7..3df91e7 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac-platform.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
+> @@ -21,8 +21,12 @@
+>  #include <linux/of_net.h>
+>  #include "bgmac.h"
+>  
+> +#define NICPM_PADRING_CFG		0x00000004
+>  #define NICPM_IOMUX_CTRL		0x00000008
+>  
+> +#define NICPM_PADRING_CFG_INIT_VAL	0x74000000
+> +#define NICPM_IOMUX_CTRL_INIT_VAL_AX	0x21880000
+> +
+>  #define NICPM_IOMUX_CTRL_INIT_VAL	0x3196e000
+>  #define NICPM_IOMUX_CTRL_SPD_SHIFT	10
+>  #define NICPM_IOMUX_CTRL_SPD_10M	0
+> @@ -108,6 +112,10 @@ static void bgmac_nicpm_speed_set(struct net_device *net_dev)
+>  	if (!bgmac->plat.nicpm_base)
+>  		return;
+>  
+> +	/* SET RGMII IO CONFIG */
+> +	writel(NICPM_PADRING_CFG_INIT_VAL,
+> +	       bgmac->plat.nicpm_base + NICPM_PADRING_CFG);
+> +
+>  	val = NICPM_IOMUX_CTRL_INIT_VAL;
+>  	switch (bgmac->net_dev->phydev->speed) {
+>  	default:
+> @@ -239,6 +247,31 @@ static int bgmac_remove(struct platform_device *pdev)
+>  	return 0;
+>  }
+>  
+> +#ifdef CONFIG_PM
+> +static int bgmac_suspend(struct device *dev)
+> +{
+> +	struct bgmac *bgmac = dev_get_drvdata(dev);
+> +
+> +	return bgmac_enet_suspend(bgmac);
+> +}
+> +
+> +static int bgmac_resume(struct device *dev)
+> +{
+> +	struct bgmac *bgmac = dev_get_drvdata(dev);
+> +
+> +	return bgmac_enet_resume(bgmac);
+> +}
+> +
+> +static const struct dev_pm_ops bgmac_pm_ops = {
+> +	.suspend = bgmac_suspend,
+> +	.resume = bgmac_resume
+> +};
+> +
+> +#define BGMAC_PM_OPS (&bgmac_pm_ops)
+> +#else
+> +#define BGMAC_PM_OPS NULL
+> +#endif /* CONFIG_PM */
+> +
+>  static const struct of_device_id bgmac_of_enet_match[] = {
+>  	{.compatible = "brcm,amac",},
+>  	{.compatible = "brcm,nsp-amac",},
+> @@ -252,6 +285,7 @@ static struct platform_driver bgmac_enet_driver = {
+>  	.driver = {
+>  		.name  = "bgmac-enet",
+>  		.of_match_table = bgmac_of_enet_match,
+> +		.pm = BGMAC_PM_OPS
+>  	},
+>  	.probe = bgmac_probe,
+>  	.remove = bgmac_remove,
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index bd549f8..e78c91d 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -1478,6 +1478,7 @@ int bgmac_enet_probe(struct bgmac *bgmac)
+>  
+>  	net_dev->irq = bgmac->irq;
+>  	SET_NETDEV_DEV(net_dev, bgmac->dev);
+> +	dev_set_drvdata(bgmac->dev, bgmac);
+>  
+>  	if (!is_valid_ether_addr(bgmac->mac_addr)) {
+>  		dev_err(bgmac->dev, "Invalid MAC addr: %pM\n",
+> @@ -1551,5 +1552,55 @@ void bgmac_enet_remove(struct bgmac *bgmac)
+>  }
+>  EXPORT_SYMBOL_GPL(bgmac_enet_remove);
+>  
+> +int bgmac_enet_suspend(struct bgmac *bgmac)
+> +{
+> +	if (!netif_running(bgmac->net_dev))
+> +		return 0;
+> +
+> +	phy_stop(bgmac->net_dev->phydev);
+> +
+> +	netif_stop_queue(bgmac->net_dev);
+> +
+> +	napi_disable(&bgmac->napi);
+> +
+> +	netif_tx_lock(bgmac->net_dev);
+> +	netif_device_detach(bgmac->net_dev);
+> +	netif_tx_unlock(bgmac->net_dev);
+> +
+> +	bgmac_chip_intrs_off(bgmac);
+> +	bgmac_chip_reset(bgmac);
+> +	bgmac_dma_cleanup(bgmac);
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(bgmac_enet_suspend);
+> +
+> +int bgmac_enet_resume(struct bgmac *bgmac)
+> +{
+> +	int rc;
+> +
+> +	if (netif_running(bgmac->net_dev))
+> +		return 0;
 
-This patch series addresses the crash seen with the Generic PHY driver
-in phy_attach_direct() introduced in the latest pull to Linus.
+This should be if (!netif_running()) here, if it is running, we need to
+do all of what is below.
 
-We also address how to properly bind and unbind to/from the PHY drivers which
-would previously be crashing in flames since we did not stop the state machine.
+With that fixed:
 
-Thanks!
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Changes in v3:
+> +
+> +	rc = bgmac_dma_init(bgmac);
+> +	if (rc)
+> +		return rc;
+> +
+> +	bgmac_chip_init(bgmac);
+> +
+> +	napi_enable(&bgmac->napi);
+> +
+> +	netif_tx_lock(bgmac->net_dev);
+> +	netif_device_attach(bgmac->net_dev);
+> +	netif_tx_unlock(bgmac->net_dev);
+> +
+> +	netif_start_queue(bgmac->net_dev);
+> +
+> +	phy_start(bgmac->net_dev->phydev);
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(bgmac_enet_resume);
+> +
+>  MODULE_AUTHOR("Rafał Miłecki");
+>  MODULE_LICENSE("GPL");
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+> index 5a518fe..741ca27 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.h
+> +++ b/drivers/net/ethernet/broadcom/bgmac.h
+> @@ -538,6 +538,8 @@ int bgmac_enet_probe(struct bgmac *bgmac);
+>  void bgmac_enet_remove(struct bgmac *bgmac);
+>  void bgmac_adjust_link(struct net_device *net_dev);
+>  int bgmac_phy_connect_direct(struct bgmac *bgmac);
+> +int bgmac_enet_suspend(struct bgmac *bgmac);
+> +int bgmac_enet_resume(struct bgmac *bgmac);
+>  
+>  struct mii_bus *bcma_mdio_mii_register(struct bgmac *bgmac);
+>  void bcma_mdio_mii_unregister(struct mii_bus *mii_bus);
+> 
 
-- made more testing as module/built-in, with Generic and non-Generic PHY drivers
-- exercised error paths on purpose by injecting errors
-- properly incremenet Generic PHY module reference count as well
-- fixed the error path to be correct
-
-Changes in v2:
-
-- fixed net: phy: Fix lack of reference count on PHY driver against
-  the Generic PHY driver which is special
-
-Florian Fainelli (3):
-  net: phy: Fix PHY module checks and NULL deref in phy_attach_direct()
-  net: phy: Check phydev->drv
-  net: phy: Fix PHY driver bind and unbind events
-
- drivers/net/phy/phy.c        | 26 +++++++++++++++++++++----
- drivers/net/phy/phy_device.c | 45 ++++++++++++++++++++++++++++++++++++++++----
- include/linux/phy.h          |  3 +++
- 3 files changed, 66 insertions(+), 8 deletions(-)
 
 -- 
-2.9.3
+Florian
