@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Thu,  9 Feb 2017 05:58:32 -0800
-Message-ID: <20170209135838.16487-9-edumazet@google.com>
+Subject: [PATCH v2 net-next 03/14] mlx4: remove order field from mlx4_en_frag_info
+Date: Thu,  9 Feb 2017 05:58:27 -0800
+Message-ID: <20170209135838.16487-4-edumazet@google.com>
 References: <20170209135838.16487-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
@@ -14,234 +14,82 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:35405 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752236AbdBIOGY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:06:24 -0500
-Received: by mail-pf0-f175.google.com with SMTP id f144so989428pfa.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:05:46 -0800 (PST)
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33718 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752236AbdBIOG2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:06:28 -0500
+Received: by mail-pf0-f170.google.com with SMTP id y143so1018893pfb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:06:27 -0800 (PST)
 In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use of order-3 pages is problematic in some cases.
-
-This patch might add three kinds of regression :
-
-1) a CPU performance regression, but we will add later page
-recycling and performance should be back.
-
-2) TCP receiver could grow its receive window slightly slower,
-   because skb->len/skb->truesize ratio will decrease.
-   This is mostly ok, we prefer being conservative to not risk OOM,
-   and eventually tune TCP better in the future.
-   This is consistent with other drivers using 2048 per ethernet frame.
-
-3) Because we allocate one page per RX slot, we consume more
-   memory for the ring buffers. XDP already had this constraint anyway.
+This is really a port attribute, no need to duplicate it per
+RX queue and per frag.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 72 +++++++++++++---------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  4 --
- 2 files changed, 33 insertions(+), 43 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 6 +++---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 0c61c1200f2aec4c74d7403d9ec3ed06821c..069ea09185fb0669d5c1f9b1b88f517b2d69 100644
+index 6183128b2d3d0519b46d14152b15c95ebbf6..b78d6762e03fc9f0c9e8bfa710efc2e7c86a 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -53,38 +53,26 @@
- static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
- 			    struct mlx4_en_rx_alloc *page_alloc,
- 			    const struct mlx4_en_frag_info *frag_info,
--			    gfp_t _gfp)
-+			    gfp_t gfp)
- {
--	int order;
+@@ -59,7 +59,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
  	struct page *page;
  	dma_addr_t dma;
  
--	for (order = priv->rx_page_order; ;) {
--		gfp_t gfp = _gfp;
--
--		if (order)
--			gfp |= __GFP_COMP | __GFP_NOWARN | __GFP_NOMEMALLOC;
--		page = alloc_pages(gfp, order);
--		if (likely(page))
--			break;
--		if (--order < 0 ||
--		    ((PAGE_SIZE << order) < frag_info->frag_size))
--			return -ENOMEM;
--	}
--	dma = dma_map_page(priv->ddev, page, 0, PAGE_SIZE << order,
--			   priv->dma_dir);
-+	page = alloc_page(gfp);
-+	if (unlikely(!page))
-+		return -ENOMEM;
-+	dma = dma_map_page(priv->ddev, page, 0, PAGE_SIZE, priv->dma_dir);
- 	if (unlikely(dma_mapping_error(priv->ddev, dma))) {
- 		put_page(page);
- 		return -ENOMEM;
- 	}
--	page_alloc->page_size = PAGE_SIZE << order;
- 	page_alloc->page = page;
- 	page_alloc->dma = dma;
- 	page_alloc->page_offset = 0;
- 	/* Not doing get_page() for each frag is a big win
- 	 * on asymetric workloads. Note we can not use atomic_set().
- 	 */
--	page_ref_add(page, page_alloc->page_size / frag_info->frag_stride - 1);
-+	page_ref_add(page, PAGE_SIZE / frag_info->frag_stride - 1);
- 	return 0;
- }
+-	for (order = frag_info->order; ;) {
++	for (order = priv->rx_page_order; ;) {
+ 		gfp_t gfp = _gfp;
  
-@@ -105,7 +93,7 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
- 		page_alloc[i].page_offset += frag_info->frag_stride;
- 
- 		if (page_alloc[i].page_offset + frag_info->frag_stride <=
--		    ring_alloc[i].page_size)
-+		    PAGE_SIZE)
- 			continue;
- 
- 		if (unlikely(mlx4_alloc_pages(priv, &page_alloc[i],
-@@ -127,11 +115,10 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
- 	while (i--) {
- 		if (page_alloc[i].page != ring_alloc[i].page) {
- 			dma_unmap_page(priv->ddev, page_alloc[i].dma,
--				page_alloc[i].page_size,
--				priv->dma_dir);
-+				       PAGE_SIZE, priv->dma_dir);
- 			page = page_alloc[i].page;
- 			/* Revert changes done by mlx4_alloc_pages */
--			page_ref_sub(page, page_alloc[i].page_size /
-+			page_ref_sub(page, PAGE_SIZE /
- 					   priv->frag_info[i].frag_stride - 1);
- 			put_page(page);
- 		}
-@@ -147,8 +134,8 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
- 	u32 next_frag_end = frags[i].page_offset + 2 * frag_info->frag_stride;
- 
- 
--	if (next_frag_end > frags[i].page_size)
--		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].page_size,
-+	if (next_frag_end > PAGE_SIZE)
-+		dma_unmap_page(priv->ddev, frags[i].dma, PAGE_SIZE,
- 			       priv->dma_dir);
- 
- 	if (frags[i].page)
-@@ -168,9 +155,8 @@ static int mlx4_en_init_allocator(struct mlx4_en_priv *priv,
- 				     frag_info, GFP_KERNEL | __GFP_COLD))
- 			goto out;
- 
--		en_dbg(DRV, priv, "  frag %d allocator: - size:%d frags:%d\n",
--		       i, ring->page_alloc[i].page_size,
--		       page_ref_count(ring->page_alloc[i].page));
-+		en_dbg(DRV, priv, "  frag %d allocator: - frags:%d\n",
-+		       i, page_ref_count(ring->page_alloc[i].page));
- 	}
- 	return 0;
- 
-@@ -180,11 +166,10 @@ static int mlx4_en_init_allocator(struct mlx4_en_priv *priv,
- 
- 		page_alloc = &ring->page_alloc[i];
- 		dma_unmap_page(priv->ddev, page_alloc->dma,
--			       page_alloc->page_size,
--			       priv->dma_dir);
-+			       PAGE_SIZE, priv->dma_dir);
- 		page = page_alloc->page;
- 		/* Revert changes done by mlx4_alloc_pages */
--		page_ref_sub(page, page_alloc->page_size /
-+		page_ref_sub(page, PAGE_SIZE /
- 				   priv->frag_info[i].frag_stride - 1);
- 		put_page(page);
- 		page_alloc->page = NULL;
-@@ -206,9 +191,9 @@ static void mlx4_en_destroy_allocator(struct mlx4_en_priv *priv,
- 		       i, page_count(page_alloc->page));
- 
- 		dma_unmap_page(priv->ddev, page_alloc->dma,
--				page_alloc->page_size, priv->dma_dir);
-+			       PAGE_SIZE, priv->dma_dir);
- 		while (page_alloc->page_offset + frag_info->frag_stride <
--		       page_alloc->page_size) {
-+		       PAGE_SIZE) {
- 			put_page(page_alloc->page);
- 			page_alloc->page_offset += frag_info->frag_stride;
- 		}
-@@ -1191,7 +1176,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 		if (order)
+@@ -1195,7 +1195,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
  	 * This only works when num_frags == 1.
  	 */
  	if (priv->tx_ring_num[TX_XDP]) {
--		priv->rx_page_order = 0;
+-		priv->frag_info[0].order = 0;
++		priv->rx_page_order = 0;
  		priv->frag_info[0].frag_size = eff_mtu;
+ 		priv->frag_info[0].frag_prefix_size = 0;
  		/* This will gain efficient xdp frame recycling at the
- 		 * expense of more costly truesize accounting
-@@ -1201,22 +1185,32 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 		priv->rx_headroom = XDP_PACKET_HEADROOM;
- 		i = 1;
- 	} else {
--		int buf_size = 0;
-+		int frag_size_max = 2048, buf_size = 0;
-+
-+		/* should not happen, right ? */
-+		if (eff_mtu > PAGE_SIZE + (MLX4_EN_MAX_RX_FRAGS - 1) * 2048)
-+			frag_size_max = PAGE_SIZE;
+@@ -1209,7 +1209,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 		int buf_size = 0;
  
  		while (buf_size < eff_mtu) {
--			int frag_size = eff_mtu - buf_size;
-+			int frag_stride, frag_size = eff_mtu - buf_size;
-+			int pad, nb;
- 
- 			if (i < MLX4_EN_MAX_RX_FRAGS - 1)
--				frag_size = min(frag_size, 2048);
-+				frag_size = min(frag_size, frag_size_max);
- 
- 			priv->frag_info[i].frag_size = frag_size;
-+			frag_stride = ALIGN(frag_size, SMP_CACHE_BYTES);
-+			/* We can only pack 2 1536-bytes frames in on 4K page
-+			 * Therefore, each frame would consume more bytes (truesize)
-+			 */
-+			nb = PAGE_SIZE / frag_stride;
-+			pad = (PAGE_SIZE - nb * frag_stride) / nb;
-+			pad &= ~(SMP_CACHE_BYTES - 1);
-+			priv->frag_info[i].frag_stride = frag_stride + pad;
- 
--			priv->frag_info[i].frag_stride = ALIGN(frag_size,
--							       SMP_CACHE_BYTES);
- 			buf_size += frag_size;
+-			priv->frag_info[i].order = MLX4_EN_ALLOC_PREFER_ORDER;
+ 			priv->frag_info[i].frag_size =
+ 				(eff_mtu > buf_size + frag_sizes[i]) ?
+ 					frag_sizes[i] : eff_mtu - buf_size;
+@@ -1221,6 +1220,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 			buf_size += priv->frag_info[i].frag_size;
  			i++;
  		}
--		priv->rx_page_order = MLX4_EN_ALLOC_PREFER_ORDER;
++		priv->rx_page_order = MLX4_EN_ALLOC_PREFER_ORDER;
  		priv->dma_dir = PCI_DMA_FROMDEVICE;
- 		priv->rx_headroom = 0;
  	}
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 92c6cf6de9452d5d1b2092a17a8dad5348db..4f7d1503277d2e030854deabeb22b96fa931 100644
+index c914915075b06fa60758cad44119507b1c55..670eed48cf3c3f6f76e86e077c997d6f8e65 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -102,8 +102,6 @@
- /* Use the maximum between 16384 and a single page */
- #define MLX4_EN_ALLOC_SIZE	PAGE_ALIGN(16384)
- 
--#define MLX4_EN_ALLOC_PREFER_ORDER	PAGE_ALLOC_COSTLY_ORDER
--
- #define MLX4_EN_MAX_RX_FRAGS	4
- 
- /* Maximum ring sizes */
-@@ -255,7 +253,6 @@ struct mlx4_en_rx_alloc {
- 	struct page	*page;
- 	dma_addr_t	dma;
- 	u32		page_offset;
--	u32		page_size;
+@@ -474,7 +474,6 @@ struct mlx4_en_frag_info {
+ 	u16 frag_size;
+ 	u16 frag_prefix_size;
+ 	u32 frag_stride;
+-	u16 order;
+ 	u16 rx_headroom;
  };
  
- #define MLX4_EN_CACHE_SIZE (2 * NAPI_POLL_WEIGHT)
-@@ -579,7 +576,6 @@ struct mlx4_en_priv {
+@@ -586,6 +585,7 @@ struct mlx4_en_priv {
  	u8 num_frags;
  	u8 log_rx_info;
  	u8 dma_dir;
--	u8 rx_page_order;
- 	u16 rx_headroom;
++	u8 rx_page_order;
  
  	struct mlx4_en_tx_ring **tx_ring[MLX4_EN_NUM_TX_TYPES];
+ 	struct mlx4_en_rx_ring *rx_ring[MAX_RX_RINGS];
 -- 
 2.11.0.483.g087da7b7c-goog
