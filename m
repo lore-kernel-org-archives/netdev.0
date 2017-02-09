@@ -1,52 +1,123 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 07/12] nfp: add MIP reading support
-Date: Thu,  9 Feb 2017 09:17:33 -0800
-Message-ID: <20170209171738.17386-8-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 05/12] nfp: add hwinfo support
+Date: Thu,  9 Feb 2017 09:17:31 -0800
+Message-ID: <20170209171738.17386-6-jakub.kicinski@netronome.com>
 References: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Cc: kubakici@wp.pl, oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35329 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751047AbdBIR3l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:29:41 -0500
-Received: by mail-pf0-f173.google.com with SMTP id f144so2023675pfa.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:29:40 -0800 (PST)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:36774 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751262AbdBIR3p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:29:45 -0500
+Received: by mail-pf0-f178.google.com with SMTP id 189so2009692pfu.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:29:45 -0800 (PST)
 In-Reply-To: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MIP is a vector of information which linker can optionally include
-in application firmware.  It will be used to retrieve the location
-of symbol tables.
+Hwinfo is a simple key=value store of information which is read
+from the flash and populated during chip power on.  Add code to
+look up information in it.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
  drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
- .../net/ethernet/netronome/nfp/nfpcore/nfp_mip.c   | 174 +++++++++++++++++++++
- .../net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h  |  10 ++
- 3 files changed, 185 insertions(+)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c
+ drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |   4 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |   3 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   |  15 +
+ .../ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c    | 318 +++++++++++++++++++++
+ 5 files changed, 341 insertions(+)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c
 
 diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index 408cb219a306..9c0662170de8 100644
+index 47010b7d3efa..e9177f04f67b 100644
 --- a/drivers/net/ethernet/netronome/nfp/Makefile
 +++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -5,6 +5,7 @@ nfp-objs := \
+@@ -4,6 +4,7 @@ nfp-objs := \
+ 	    nfpcore/nfp6000_pcie.o \
  	    nfpcore/nfp_cppcore.o \
  	    nfpcore/nfp_cpplib.o \
- 	    nfpcore/nfp_hwinfo.o \
-+	    nfpcore/nfp_mip.o \
- 	    nfpcore/nfp_nffw.o \
++	    nfpcore/nfp_hwinfo.o \
  	    nfpcore/nfp_resource.o \
  	    nfpcore/nfp_target.o \
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c
+ 	    nfp_main.o \
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+index 1aa57161f23e..1eae3e1e5fbe 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
+@@ -43,6 +43,10 @@
+ 
+ #include "nfp_cpp.h"
+ 
++/* Implemented in nfp_hwinfo.c */
++
++const char *nfp_hwinfo_lookup(struct nfp_cpp *cpp, const char *lookup);
++
+ /* Implemented in nfp_resource.c */
+ 
+ #define NFP_RESOURCE_TBL_TARGET		NFP_CPP_TARGET_MU
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+index f49f12a15669..1798ece689f7 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+@@ -219,6 +219,9 @@ u32 nfp_cpp_model(struct nfp_cpp *cpp);
+ u16 nfp_cpp_interface(struct nfp_cpp *cpp);
+ int nfp_cpp_serial(struct nfp_cpp *cpp, const u8 **serial);
+ 
++void *nfp_hwinfo_cache(struct nfp_cpp *cpp);
++void nfp_hwinfo_cache_set(struct nfp_cpp *cpp, void *val);
++
+ struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(struct nfp_cpp *cpp,
+ 						  u32 cpp_id,
+ 						  const char *name,
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+index 8e3322022322..aa94780f4dc7 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+@@ -96,6 +96,9 @@ struct nfp_cpp {
+ 	/* Cached areas for cpp/xpb readl/writel speedups */
+ 	struct mutex area_cache_mutex;  /* Lock for the area cache */
+ 	struct list_head area_cache_list;
++
++	/* Cached information */
++	void *hwinfo;
+ };
+ 
+ /* Element of the area_cache_list */
+@@ -237,6 +240,8 @@ void nfp_cpp_free(struct nfp_cpp *cpp)
+ 	if (cpp->op->free)
+ 		cpp->op->free(cpp);
+ 
++	kfree(cpp->hwinfo);
++
+ 	device_unregister(&cpp->dev);
+ 
+ 	kfree(cpp);
+@@ -277,6 +282,16 @@ int nfp_cpp_serial(struct nfp_cpp *cpp, const u8 **serial)
+ 	return sizeof(cpp->serial);
+ }
+ 
++void *nfp_hwinfo_cache(struct nfp_cpp *cpp)
++{
++	return cpp->hwinfo;
++}
++
++void nfp_hwinfo_cache_set(struct nfp_cpp *cpp, void *val)
++{
++	cpp->hwinfo = val;
++}
++
+ /**
+  * nfp_cpp_area_alloc_with_name() - allocate a new CPP area
+  * @cpp:	CPP device handle
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c
 new file mode 100644
-index 000000000000..3d15dd03647e
+index 000000000000..8d8f311ffa6e
 --- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_mip.c
-@@ -0,0 +1,174 @@
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_hwinfo.c
+@@ -0,0 +1,318 @@
 +/*
 + * Copyright (C) 2015-2017 Netronome Systems, Inc.
 + *
@@ -80,165 +151,290 @@ index 000000000000..3d15dd03647e
 + * SOFTWARE.
 + */
 +
-+/*
-+ * nfp_mip.c
-+ * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
-+ *          Jason McMullan <jason.mcmullan@netronome.com>
-+ *          Espen Skoglund <espen.skoglund@netronome.com>
++/* Parse the hwinfo table that the ARM firmware builds in the ARM scratch SRAM
++ * after chip reset.
++ *
++ * Examples of the fields:
++ *   me.count = 40
++ *   me.mask = 0x7f_ffff_ffff
++ *
++ *   me.count is the total number of MEs on the system.
++ *   me.mask is the bitmask of MEs that are available for application usage.
++ *
++ *   (ie, in this example, ME 39 has been reserved by boardconfig.)
 + */
++
++#include <asm/byteorder.h>
++#include <asm/unaligned.h>
++#include <linux/delay.h>
++#include <linux/log2.h>
 +#include <linux/kernel.h>
++#include <linux/module.h>
 +#include <linux/slab.h>
 +
++#define NFP_SUBSYS "nfp_hwinfo"
++
++#include "crc32.h"
 +#include "nfp.h"
 +#include "nfp_cpp.h"
-+#include "nfp_nffw.h"
++#include "nfp6000/nfp6000.h"
 +
-+#define NFP_MIP_SIGNATURE	cpu_to_le32(0x0050494d)  /* "MIP\0" */
-+#define NFP_MIP_VERSION		cpu_to_le32(1)
-+#define NFP_MIP_MAX_OFFSET	(256 * 1024)
++#define HWINFO_SIZE_MIN	0x100
++#define HWINFO_WAIT	20	/* seconds */
 +
-+struct nfp_mip {
-+	__le32 signature;
-+	__le32 mip_version;
-+	__le32 mip_size;
-+	__le32 first_entry;
++/* The Hardware Info Table defines the properties of the system.
++ *
++ * HWInfo v1 Table (fixed size)
++ *
++ * 0x0000: u32 version	        Hardware Info Table version (1.0)
++ * 0x0004: u32 size	        Total size of the table, including
++ *			        the CRC32 (IEEE 802.3)
++ * 0x0008: u32 jumptab	        Offset of key/value table
++ * 0x000c: u32 keys	        Total number of keys in the key/value table
++ * NNNNNN:		        Key/value jump table and string data
++ * (size - 4): u32 crc32	CRC32 (same as IEEE 802.3, POSIX csum, etc)
++ *				CRC32("",0) = ~0, CRC32("a",1) = 0x48C279FE
++ *
++ * HWInfo v2 Table (variable size)
++ *
++ * 0x0000: u32 version	        Hardware Info Table version (2.0)
++ * 0x0004: u32 size	        Current size of the data area, excluding CRC32
++ * 0x0008: u32 limit	        Maximum size of the table
++ * 0x000c: u32 reserved	        Unused, set to zero
++ * NNNNNN:			Key/value data
++ * (size - 4): u32 crc32	CRC32 (same as IEEE 802.3, POSIX csum, etc)
++ *				CRC32("",0) = ~0, CRC32("a",1) = 0x48C279FE
++ *
++ * If the HWInfo table is in the process of being updated, the low bit
++ * of version will be set.
++ *
++ * HWInfo v1 Key/Value Table
++ * -------------------------
++ *
++ *  The key/value table is a set of offsets to ASCIIZ strings which have
++ *  been strcmp(3) sorted (yes, please use bsearch(3) on the table).
++ *
++ *  All keys are guaranteed to be unique.
++ *
++ * N+0:	u32 key_1		Offset to the first key
++ * N+4:	u32 val_1		Offset to the first value
++ * N+8: u32 key_2		Offset to the second key
++ * N+c: u32 val_2		Offset to the second value
++ * ...
++ *
++ * HWInfo v2 Key/Value Table
++ * -------------------------
++ *
++ * Packed UTF8Z strings, ie 'key1\000value1\000key2\000value2\000'
++ *
++ * Unsorted.
++ */
++
++#define NFP_HWINFO_VERSION_1 ('H' << 24 | 'I' << 16 | 1 << 8 | 0 << 1 | 0)
++#define NFP_HWINFO_VERSION_2 ('H' << 24 | 'I' << 16 | 2 << 8 | 0 << 1 | 0)
++#define NFP_HWINFO_VERSION_UPDATING	BIT(0)
++
++struct nfp_hwinfo {
++	u8 start[0];
 +
 +	__le32 version;
-+	__le32 buildnum;
-+	__le32 buildtime;
-+	__le32 loadtime;
++	__le32 size;
 +
-+	__le32 symtab_addr;
-+	__le32 symtab_size;
-+	__le32 strtab_addr;
-+	__le32 strtab_size;
++	/* v2 specific fields */
++	__le32 limit;
++	__le32 resv;
 +
-+	char name[16];
-+	char toolchain[32];
++	char data[];
 +};
 +
-+/* Read memory and check if it could be a valid MIP */
-+static int
-+nfp_mip_try_read(struct nfp_cpp *cpp, u32 cpp_id, u64 addr, struct nfp_mip *mip)
++static bool nfp_hwinfo_is_updating(struct nfp_hwinfo *hwinfo)
 +{
-+	int ret;
++	return le32_to_cpu(hwinfo->version) & NFP_HWINFO_VERSION_UPDATING;
++}
 +
-+	ret = nfp_cpp_read(cpp, cpp_id, addr, mip, sizeof(*mip));
-+	if (ret != sizeof(*mip)) {
-+		nfp_err(cpp, "Failed to read MIP data (%d, %zu)\n",
-+			ret, sizeof(*mip));
-+		return -EIO;
-+	}
-+	if (mip->signature != NFP_MIP_SIGNATURE) {
-+		nfp_warn(cpp, "Incorrect MIP signature (0x%08x)\n",
-+			 le32_to_cpu(mip->signature));
-+		return -EINVAL;
-+	}
-+	if (mip->mip_version != NFP_MIP_VERSION) {
-+		nfp_warn(cpp, "Unsupported MIP version (%d)\n",
-+			 le32_to_cpu(mip->mip_version));
-+		return -EINVAL;
++static int
++hwinfo_db_walk(struct nfp_cpp *cpp, struct nfp_hwinfo *hwinfo, u32 size)
++{
++	const char *key, *val, *end = hwinfo->data + size;
++
++	for (key = hwinfo->data; *key && key < end;
++	     key = val + strlen(val) + 1) {
++
++		val = key + strlen(key) + 1;
++		if (val >= end) {
++			nfp_warn(cpp, "Bad HWINFO - overflowing key\n");
++			return -EINVAL;
++		}
++
++		if (val + strlen(val) + 1 > end) {
++			nfp_warn(cpp, "Bad HWINFO - overflowing value\n");
++			return -EINVAL;
++		}
 +	}
 +
 +	return 0;
 +}
 +
-+/* Try to locate MIP using the resource table */
-+static int nfp_mip_read_resource(struct nfp_cpp *cpp, struct nfp_mip *mip)
++static int
++hwinfo_db_validate(struct nfp_cpp *cpp, struct nfp_hwinfo *db, u32 len)
 +{
-+	struct nfp_nffw_info *nffw_info;
-+	u32 cpp_id;
-+	u64 addr;
-+	int err;
++	u32 size, crc;
 +
-+	nffw_info = nfp_nffw_info_open(cpp);
-+	if (IS_ERR(nffw_info))
-+		return PTR_ERR(nffw_info);
-+
-+	err = nfp_nffw_info_mip_first(nffw_info, &cpp_id, &addr);
-+	if (err)
-+		goto exit_close_nffw;
-+
-+	err = nfp_mip_try_read(cpp, cpp_id, addr, mip);
-+exit_close_nffw:
-+	nfp_nffw_info_close(nffw_info);
-+	return err;
-+}
-+
-+/**
-+ * nfp_mip_open() - Get device MIP structure
-+ * @cpp:	NFP CPP Handle
-+ *
-+ * Copy MIP structure from NFP device and return it.  The returned
-+ * structure is handled internally by the library and should be
-+ * freed by calling nfp_mip_close().
-+ *
-+ * Return: pointer to mip, NULL on failure.
-+ */
-+const struct nfp_mip *nfp_mip_open(struct nfp_cpp *cpp)
-+{
-+	struct nfp_mip *mip;
-+	int err;
-+
-+	mip = kmalloc(sizeof(*mip), GFP_KERNEL);
-+	if (!mip)
-+		return NULL;
-+
-+	err = nfp_mip_read_resource(cpp, mip);
-+	if (err) {
-+		kfree(mip);
-+		return NULL;
++	size = le32_to_cpu(db->size);
++	if (size > len) {
++		nfp_err(cpp, "Unsupported hwinfo size %u > %u\n", size, len);
++		return -EINVAL;
 +	}
 +
-+	return mip;
++	size -= sizeof(u32);
++	crc = crc32_posix(db, size);
++	if (crc != get_unaligned_le32(db->start + size)) {
++		nfp_err(cpp, "Corrupt hwinfo table (CRC mismatch), calculated 0x%x, expected 0x%x\n",
++			crc, get_unaligned_le32(db->start + size));
++
++		return -EINVAL;
++	}
++
++	return hwinfo_db_walk(cpp, db, size);
 +}
 +
-+void nfp_mip_close(const struct nfp_mip *mip)
++static int hwinfo_try_fetch(struct nfp_cpp *cpp, size_t *cpp_size)
 +{
-+	kfree(mip);
++	struct nfp_hwinfo *header;
++	struct nfp_resource *res;
++	u64 cpp_addr;
++	u32 cpp_id;
++	int err;
++	u8 *db;
++
++	res = nfp_resource_acquire(cpp, NFP_RESOURCE_NFP_HWINFO);
++	if (!IS_ERR(res)) {
++		cpp_id = nfp_resource_cpp_id(res);
++		cpp_addr = nfp_resource_address(res);
++		*cpp_size = nfp_resource_size(res);
++
++		nfp_resource_release(res);
++
++		if (*cpp_size < HWINFO_SIZE_MIN)
++			return -ENOENT;
++	} else if (PTR_ERR(res) == -ENOENT) {
++		/* Try getting the HWInfo table from the 'classic' location */
++		cpp_id = NFP_CPP_ISLAND_ID(NFP_CPP_TARGET_MU,
++					   NFP_CPP_ACTION_RW, 0, 1);
++		cpp_addr = 0x30000;
++		*cpp_size = 0x0e000;
++	} else {
++		return PTR_ERR(res);
++	}
++
++	db = kmalloc(*cpp_size + 1, GFP_KERNEL);
++	if (!db)
++		return -ENOMEM;
++
++	err = nfp_cpp_read(cpp, cpp_id, cpp_addr, db, *cpp_size);
++	if (err != *cpp_size) {
++		kfree(db);
++		return err < 0 ? err : -EIO;
++	}
++
++	header = (void *)db;
++	if (nfp_hwinfo_is_updating(header)) {
++		kfree(db);
++		return -EBUSY;
++	}
++
++	if (le32_to_cpu(header->version) != NFP_HWINFO_VERSION_2) {
++		nfp_err(cpp, "Unknown HWInfo version: 0x%08x\n",
++			le32_to_cpu(header->version));
++		kfree(db);
++		return -EINVAL;
++	}
++
++	/* NULL-terminate for safety */
++	db[*cpp_size] = '\0';
++
++	nfp_hwinfo_cache_set(cpp, db);
++
++	return 0;
++}
++
++static int hwinfo_fetch(struct nfp_cpp *cpp, size_t *hwdb_size)
++{
++	const unsigned long wait_until = jiffies + HWINFO_WAIT * HZ;
++	int err;
++
++	for (;;) {
++		const unsigned long start_time = jiffies;
++
++		err = hwinfo_try_fetch(cpp, hwdb_size);
++		if (!err)
++			return 0;
++
++		err = msleep_interruptible(100);
++		if (err || time_after(start_time, wait_until)) {
++			nfp_err(cpp, "NFP access error\n");
++			return -EIO;
++		}
++	}
++}
++
++static int nfp_hwinfo_load(struct nfp_cpp *cpp)
++{
++	struct nfp_hwinfo *db;
++	size_t hwdb_size = 0;
++	int err;
++
++	err = hwinfo_fetch(cpp, &hwdb_size);
++	if (err)
++		return err;
++
++	db = nfp_hwinfo_cache(cpp);
++	err = hwinfo_db_validate(cpp, db, hwdb_size);
++	if (err) {
++		kfree(db);
++		nfp_hwinfo_cache_set(cpp, NULL);
++		return err;
++	}
++
++	return 0;
 +}
 +
 +/**
-+ * nfp_mip_symtab() - Get the address and size of the MIP symbol table
-+ * @mip:	MIP handle
-+ * @addr:	Location for NFP DDR address of MIP symbol table
-+ * @size:	Location for size of MIP symbol table
++ * nfp_hwinfo_lookup() - Find a value in the HWInfo table by name
++ * @cpp:	NFP CPP handle
++ * @lookup:	HWInfo name to search for
++ *
++ * Return: Value of the HWInfo name, or NULL
 + */
-+void nfp_mip_symtab(const struct nfp_mip *mip, u32 *addr, u32 *size)
++const char *nfp_hwinfo_lookup(struct nfp_cpp *cpp, const char *lookup)
 +{
-+	*addr = le32_to_cpu(mip->symtab_addr);
-+	*size = le32_to_cpu(mip->symtab_size);
++	const char *key, *val, *end;
++	struct nfp_hwinfo *hwinfo;
++	int err;
++
++	hwinfo = nfp_hwinfo_cache(cpp);
++	if (!hwinfo) {
++		err = nfp_hwinfo_load(cpp);
++		if (err)
++			return NULL;
++		hwinfo = nfp_hwinfo_cache(cpp);
++	}
++
++	if (!hwinfo || !lookup)
++		return NULL;
++
++	end = hwinfo->data + le32_to_cpu(hwinfo->size) - sizeof(u32);
++
++	for (key = hwinfo->data; *key && key < end;
++	     key = val + strlen(val) + 1) {
++
++		val = key + strlen(key) + 1;
++
++		if (strcmp(key, lookup) == 0)
++			return val;
++	}
++
++	return NULL;
 +}
-+
-+/**
-+ * nfp_mip_strtab() - Get the address and size of the MIP symbol name table
-+ * @mip:	MIP handle
-+ * @addr:	Location for NFP DDR address of MIP symbol name table
-+ * @size:	Location for size of MIP symbol name table
-+ */
-+void nfp_mip_strtab(const struct nfp_mip *mip, u32 *addr, u32 *size)
-+{
-+	*addr = le32_to_cpu(mip->strtab_addr);
-+	*size = le32_to_cpu(mip->strtab_size);
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
-index 47a6571e236d..c91138c0daab 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
-@@ -48,4 +48,14 @@ struct nfp_nffw_info *nfp_nffw_info_open(struct nfp_cpp *cpp);
- void nfp_nffw_info_close(struct nfp_nffw_info *state);
- int nfp_nffw_info_mip_first(struct nfp_nffw_info *state, u32 *cpp_id, u64 *off);
- 
-+/* Implemented in nfp_mip.c */
-+
-+struct nfp_mip;
-+
-+const struct nfp_mip *nfp_mip_open(struct nfp_cpp *cpp);
-+void nfp_mip_close(const struct nfp_mip *mip);
-+
-+void nfp_mip_symtab(const struct nfp_mip *mip, u32 *addr, u32 *size);
-+void nfp_mip_strtab(const struct nfp_mip *mip, u32 *addr, u32 *size);
-+
- #endif /* NFP_NFFW_H */
 -- 
 2.11.0
