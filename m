@@ -1,71 +1,59 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] netlink: move nla_put_{u8,u16,u32} out of line
-Date: Thu, 9 Feb 2017 15:33:24 +0100
-Message-ID: <CAK8P3a1FLFG7NvTEPNQB6Gam2y7O3K+5T_cmQg-rOfT4TKNfnA@mail.gmail.com>
-References: <20170208211843.2822208-1-arnd@arndb.de> <CACT4Y+ZCZPh8be8zL1zNt=mqW586ngybiZ66b4Wc7Jt03qqtCw@mail.gmail.com>
- <CAK8P3a3uQJTxRjo+BwLqaiPnwZ7abGwj341UiLi_mhz1QQpY9w@mail.gmail.com> <CACT4Y+anR0oC_BXBOKW+SqfFEd_a4BXVcEPXr+4tE5XhuwF6BA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        netdev <netdev@vger.kernel.org>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Alexey Dobriyan <adobriyan@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Thomas Graf <tgraf@suug.ch>,
-        Eric Dumazet <edumazet@google.com>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+anR0oC_BXBOKW+SqfFEd_a4BXVcEPXr+4tE5XhuwF6BA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 2/4] devlink: rename devlink_eswitch_fill to devlink_nl_eswitch_fill
+Date: Thu,  9 Feb 2017 15:54:34 +0100
+Message-ID: <1486652076-20756-3-git-send-email-jiri@resnulli.us>
+References: <1486652076-20756-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, ogerlitz@mellanox.com, mlxsw@mellanox.com,
+        ivecera@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34910 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752252AbdBIO41 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:56:27 -0500
+Received: by mail-wm0-f68.google.com with SMTP id u63so3250344wmu.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:54:41 -0800 (PST)
+In-Reply-To: <1486652076-20756-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 1:46 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Thu, Feb 9, 2017 at 12:55 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->> On Thu, Feb 9, 2017 at 12:28 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->>> On Wed, Feb 8, 2017 at 10:18 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->>
->> Thanks for the list, that looks very helpful. The ones I found myself
->> seem to be a strict (and small) subset of those, using gcc-7.0.1 on x86-64
->> with allmodconfig and a few hundred randconfig builds. Which compiler
->> version did you use for your testing? If new versions are better than old
->> ones, we could start by fixing the ones that are still present in gcc-6 and
->> gcc-7, and making the warning conditionally on the compiler version.
->>
->> Another idea might be to separate out asan_stack=1 into a separate
->> Kconfig option and warn if that is enabled with compilers that are known
->> to be relatively bad it keeping the stack small.
->
->
-> Mine is gcc version 7.0.0 20161208. Make sure you enable KASAN_INLINE
-> and I also enabled CONFIG_KCOV. Other than that I just did
-> allyesconfig + make -k.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Ok, I see my mistake now: On the allmodconfig build, I had KASAN_INLINE
-disabled, which made the problem go away for almost all files (almost all
-frame sizes are below 2048 bytes, except for the two issues I posted patches
-for (hisilicon ethernet driver, and nla_put_* users).
+Be aligned with the rest of the file and name the helper function
+accordingly.
 
-On the randconfig build test, I have a long series of patches applied that
-address all known warnings, including my earlier "kasan: turn off
--fsanitize-address-use-after-scope for now" (see
-https://patchwork.kernel.org/patch/9442323/). Without
--fsanitize-address-use-after-scope, the problem is also mostly gone
-(a few cases show up in drivers/media/, and also in block/sed-opal.c
-and drivers/tty/vt/keyboard.c). I now have initial patches for all of
-them to bring the stack size below 2048 bytes.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/core/devlink.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-As far as I can see, the remaining problems with scary stack frame sizes
-you found only show up with the combination of all three: KASAN_INLINE,
-asan_stack=1 and -fsanitize-address-use-after-scope. If all three were
-separately configurable and we merge the patches I made, I think we could
-enable the normal 2048 byte warning in all configurations that have at least
-one of the turned off, but I don't know which of those combinations would
-actually be sensible for production kernels.
-
-      Arnd
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 7aa8e53..f361924 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -1392,9 +1392,9 @@ static int devlink_nl_cmd_sb_occ_max_clear_doit(struct sk_buff *skb,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-static int devlink_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
+-				enum devlink_command cmd, u32 portid,
+-				u32 seq, int flags)
++static int devlink_nl_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
++				   enum devlink_command cmd, u32 portid,
++				   u32 seq, int flags)
+ {
+ 	const struct devlink_ops *ops = devlink->ops;
+ 	void *hdr;
+@@ -1450,8 +1450,8 @@ static int devlink_nl_cmd_eswitch_get_doit(struct sk_buff *skb,
+ 	if (!msg)
+ 		return -ENOMEM;
+ 
+-	err = devlink_eswitch_fill(msg, devlink, DEVLINK_CMD_ESWITCH_GET,
+-				   info->snd_portid, info->snd_seq, 0);
++	err = devlink_nl_eswitch_fill(msg, devlink, DEVLINK_CMD_ESWITCH_GET,
++				      info->snd_portid, info->snd_seq, 0);
+ 
+ 	if (err) {
+ 		nlmsg_free(msg);
+-- 
+2.7.4
