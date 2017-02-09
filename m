@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V4 net-next 04/13] net/ena: fix RSS default hash configuration
-Date: Thu,  9 Feb 2017 15:21:30 +0200
-Message-ID: <1486646499-13682-5-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V4 net-next 08/13] net/ena: use napi_complete_done() return value
+Date: Thu,  9 Feb 2017 15:21:34 +0200
+Message-ID: <1486646499-13682-9-git-send-email-netanel@annapurnalabs.com>
 References: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -11,40 +11,82 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:33707 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751964AbdBIN3D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:29:03 -0500
-Received: by mail-wm0-f47.google.com with SMTP id t18so57764835wmt.0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:28:52 -0800 (PST)
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:36112 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752389AbdBIN3i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:29:38 -0500
+Received: by mail-wm0-f43.google.com with SMTP id c85so230705524wmi.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:29:37 -0800 (PST)
 In-Reply-To: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ENA default hash configures IPv4_frag hash twice instead of
-configure non-IP packets.
-
-The bug caused IPv4 fragmented packets to be calculated based on
-L2 source and destination address instead of L3 source and destination.
-IPv4 packets can reach to the wrong Rx queue.
+Do not unamsk interrupts if we are in busy poll mode.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 44 ++++++++++++++++++----------
+ 1 file changed, 29 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 3066d9c..46aad3a 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -2184,7 +2184,7 @@ int ena_com_set_default_hash_ctrl(struct ena_com_dev *ena_dev)
- 	hash_ctrl->selected_fields[ENA_ADMIN_RSS_IP4_FRAG].fields =
- 		ENA_ADMIN_RSS_L3_SA | ENA_ADMIN_RSS_L3_DA;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index 8ca1ba3..d467a79 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -1122,26 +1122,40 @@ static int ena_io_poll(struct napi_struct *napi, int budget)
+ 	tx_work_done = ena_clean_tx_irq(tx_ring, tx_budget);
+ 	rx_work_done = ena_clean_rx_irq(rx_ring, napi, budget);
  
--	hash_ctrl->selected_fields[ENA_ADMIN_RSS_IP4_FRAG].fields =
-+	hash_ctrl->selected_fields[ENA_ADMIN_RSS_NOT_IP].fields =
- 		ENA_ADMIN_RSS_L2_DA | ENA_ADMIN_RSS_L2_SA;
+-	if ((budget > rx_work_done) && (tx_budget > tx_work_done)) {
+-		napi_complete_done(napi, rx_work_done);
++	/* If the device is about to reset or down, avoid unmask
++	 * the interrupt and return 0 so NAPI won't reschedule
++	 */
++	if (unlikely(!test_bit(ENA_FLAG_DEV_UP, &tx_ring->adapter->flags) ||
++		     test_bit(ENA_FLAG_TRIGGER_RESET, &tx_ring->adapter->flags))) {
++		napi_complete_done(napi, 0);
++		ret = 0;
  
- 	for (i = 0; i < ENA_ADMIN_RSS_PROTO_NUM; i++) {
++	} else if ((budget > rx_work_done) && (tx_budget > tx_work_done)) {
+ 		napi_comp_call = 1;
+-		/* Tx and Rx share the same interrupt vector */
+-		if (ena_com_get_adaptive_moderation_enabled(rx_ring->ena_dev))
+-			ena_adjust_intr_moderation(rx_ring, tx_ring);
+ 
+-		/* Update intr register: rx intr delay, tx intr delay and
+-		 * interrupt unmask
++		/* Update numa and unmask the interrupt only when schedule
++		 * from the interrupt context (vs from sk_busy_loop)
+ 		 */
+-		ena_com_update_intr_reg(&intr_reg,
+-					rx_ring->smoothed_interval,
+-					tx_ring->smoothed_interval,
+-					true);
++		if (napi_complete_done(napi, rx_work_done)) {
++			/* Tx and Rx share the same interrupt vector */
++			if (ena_com_get_adaptive_moderation_enabled(rx_ring->ena_dev))
++				ena_adjust_intr_moderation(rx_ring, tx_ring);
++
++			/* Update intr register: rx intr delay,
++			 * tx intr delay and interrupt unmask
++			 */
++			ena_com_update_intr_reg(&intr_reg,
++						rx_ring->smoothed_interval,
++						tx_ring->smoothed_interval,
++						true);
++
++			/* It is a shared MSI-X.
++			 * Tx and Rx CQ have pointer to it.
++			 * So we use one of them to reach the intr reg
++			 */
++			ena_com_unmask_intr(rx_ring->ena_com_io_cq, &intr_reg);
++		}
+ 
+-		/* It is a shared MSI-X. Tx and Rx CQ have pointer to it.
+-		 * So we use one of them to reach the intr reg
+-		 */
+-		ena_com_unmask_intr(rx_ring->ena_com_io_cq, &intr_reg);
+ 
+ 		ena_update_ring_numa_node(tx_ring, rx_ring);
+ 
 -- 
 2.7.4
