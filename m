@@ -1,92 +1,189 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 11/14] mlx4: do not access rx_desc from mlx4_en_process_rx_cq()
-Date: Thu,  9 Feb 2017 05:58:35 -0800
-Message-ID: <20170209135838.16487-12-edumazet@google.com>
-References: <20170209135838.16487-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 3/6] sched: push TC filter protocol creation into a separate function
+Date: Thu,  9 Feb 2017 14:38:57 +0100
+Message-ID: <1486647540-14656-4-git-send-email-jiri@resnulli.us>
+References: <1486647540-14656-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33846 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752190AbdBIOGY (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36148 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752215AbdBIOGY (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:06:24 -0500
-Received: by mail-pf0-f170.google.com with SMTP id e4so1005243pfg.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:05:37 -0800 (PST)
-In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
+Received: by mail-wm0-f66.google.com with SMTP id r18so3038562wmd.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:05:45 -0800 (PST)
+In-Reply-To: <1486647540-14656-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of fetching dma address from rx_desc->data[0].addr,
-prefer using frags[0].dma + frags[0].page_offset to avoid
-a potential cache line miss.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Make the long function tc_ctl_tfilter a little bit shorter and easier to
+read. Also make the creation of filter proto symmetric to destruction.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ net/sched/cls_api.c | 110 ++++++++++++++++++++++++++++------------------------
+ 1 file changed, 59 insertions(+), 51 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index db2bceeb7e6405db0dbf45fdd20d47faae77..d11bec51e629bebf086366d18f6792b6a818 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -528,7 +528,6 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 4efa4df..d378a0b 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -19,6 +19,7 @@
+ #include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/errno.h>
++#include <linux/err.h>
+ #include <linux/skbuff.h>
+ #include <linux/init.h>
+ #include <linux/kmod.h>
+@@ -38,14 +39,14 @@ static DEFINE_RWLOCK(cls_mod_lock);
  
+ /* Find classifier type by string name */
  
- static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
--				      struct mlx4_en_rx_desc *rx_desc,
- 				      struct mlx4_en_rx_alloc *frags,
- 				      unsigned int length)
+-static const struct tcf_proto_ops *tcf_proto_lookup_ops(struct nlattr *kind)
++static const struct tcf_proto_ops *tcf_proto_lookup_ops(const char *kind)
  {
-@@ -703,7 +702,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	struct mlx4_cqe *cqe;
- 	struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
- 	struct mlx4_en_rx_alloc *frags;
--	struct mlx4_en_rx_desc *rx_desc;
- 	struct bpf_prog *xdp_prog;
- 	int doorbell_pending;
- 	struct sk_buff *skb;
-@@ -738,7 +736,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		    cq->mcq.cons_index & cq->size)) {
+ 	const struct tcf_proto_ops *t, *res = NULL;
  
- 		frags = ring->rx_info + (index << priv->log_rx_info);
--		rx_desc = ring->buf + (index << ring->log_stride);
+ 	if (kind) {
+ 		read_lock(&cls_mod_lock);
+ 		list_for_each_entry(t, &tcf_proto_base, head) {
+-			if (nla_strcmp(kind, t->kind) == 0) {
++			if (strcmp(kind, t->kind) == 0) {
+ 				if (try_module_get(t->owner))
+ 					res = t;
+ 				break;
+@@ -127,6 +128,56 @@ static inline u32 tcf_auto_prio(struct tcf_proto *tp)
+ 	return first;
+ }
  
- 		/*
- 		 * make sure we read the CQE after we read the ownership bit
-@@ -767,7 +764,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			/* Get pointer to first fragment since we haven't
- 			 * skb yet and cast it to ethhdr struct
- 			 */
--			dma = be64_to_cpu(rx_desc->data[0].addr);
-+			dma = frags[0].dma + frags[0].page_offset;
- 			dma_sync_single_for_cpu(priv->ddev, dma, sizeof(*ethh),
- 						DMA_FROM_DEVICE);
- 			ethh = (struct ethhdr *)(page_address(frags[0].page) +
-@@ -806,7 +803,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			void *orig_data;
- 			u32 act;
++static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
++					  u32 prio, u32 parent, struct Qdisc *q)
++{
++	struct tcf_proto *tp;
++	int err;
++
++	tp = kzalloc(sizeof(*tp), GFP_KERNEL);
++	if (!tp)
++		return ERR_PTR(-ENOBUFS);
++
++	err = -ENOENT;
++	tp->ops = tcf_proto_lookup_ops(kind);
++	if (!tp->ops) {
++#ifdef CONFIG_MODULES
++		rtnl_unlock();
++		request_module("cls_%s", kind);
++		rtnl_lock();
++		tp->ops = tcf_proto_lookup_ops(kind);
++		/* We dropped the RTNL semaphore in order to perform
++		 * the module load. So, even if we succeeded in loading
++		 * the module we have to replay the request. We indicate
++		 * this using -EAGAIN.
++		 */
++		if (tp->ops) {
++			module_put(tp->ops->owner);
++			err = -EAGAIN;
++		} else {
++			err = -ENOENT;
++		}
++		goto errout;
++#endif
++	}
++	tp->classify = tp->ops->classify;
++	tp->protocol = protocol;
++	tp->prio = prio;
++	tp->classid = parent;
++	tp->q = q;
++
++	err = tp->ops->init(tp);
++	if (err) {
++		module_put(tp->ops->owner);
++		goto errout;
++	}
++	return tp;
++
++errout:
++	kfree(tp);
++	return ERR_PTR(err);
++}
++
+ static bool tcf_proto_destroy(struct tcf_proto *tp, bool force)
+ {
+ 	if (tp->ops->destroy(tp, force)) {
+@@ -164,7 +215,6 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+ 	struct tcf_proto __rcu **back;
+ 	struct tcf_proto __rcu **chain;
+ 	struct tcf_proto *tp;
+-	const struct tcf_proto_ops *tp_ops;
+ 	const struct Qdisc_class_ops *cops;
+ 	unsigned long cl;
+ 	unsigned long fh;
+@@ -279,58 +329,16 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+ 		    !(n->nlmsg_flags & NLM_F_CREATE))
+ 			goto errout;
  
--			dma = be64_to_cpu(rx_desc->data[0].addr);
-+			dma = frags[0].dma + frags[0].page_offset;
- 			dma_sync_single_for_cpu(priv->ddev, dma,
- 						priv->frag_info[0].frag_size,
- 						DMA_FROM_DEVICE);
-@@ -946,7 +943,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
++		if (!nprio)
++			nprio = TC_H_MAJ(tcf_auto_prio(rtnl_dereference(*back)));
+ 
+-		/* Create new proto tcf */
+-
+-		err = -ENOBUFS;
+-		tp = kzalloc(sizeof(*tp), GFP_KERNEL);
+-		if (tp == NULL)
+-			goto errout;
+-		err = -ENOENT;
+-		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND]);
+-		if (tp_ops == NULL) {
+-#ifdef CONFIG_MODULES
+-			struct nlattr *kind = tca[TCA_KIND];
+-			char name[IFNAMSIZ];
+-
+-			if (kind != NULL &&
+-			    nla_strlcpy(name, kind, IFNAMSIZ) < IFNAMSIZ) {
+-				rtnl_unlock();
+-				request_module("cls_%s", name);
+-				rtnl_lock();
+-				tp_ops = tcf_proto_lookup_ops(kind);
+-				/* We dropped the RTNL semaphore in order to
+-				 * perform the module load.  So, even if we
+-				 * succeeded in loading the module we have to
+-				 * replay the request.  We indicate this using
+-				 * -EAGAIN.
+-				 */
+-				if (tp_ops != NULL) {
+-					module_put(tp_ops->owner);
+-					err = -EAGAIN;
+-				}
+-			}
+-#endif
+-			kfree(tp);
++		tp = tcf_proto_create(nla_data(tca[TCA_KIND]),
++				      protocol, nprio, parent, q);
++		if (IS_ERR(tp)) {
++			err = PTR_ERR(tp);
+ 			goto errout;
  		}
+-		tp->ops = tp_ops;
+-		tp->protocol = protocol;
+-		tp->prio = nprio ? :
+-			       TC_H_MAJ(tcf_auto_prio(rtnl_dereference(*back)));
+-		tp->q = q;
+-		tp->classify = tp_ops->classify;
+-		tp->classid = parent;
+-
+-		err = tp_ops->init(tp);
+-		if (err != 0) {
+-			module_put(tp_ops->owner);
+-			kfree(tp);
+-			goto errout;
+-		}
+-
+ 		tp_created = 1;
+-
+ 	} else if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], tp->ops->kind))
+ 		goto errout;
  
- 		/* GRO not possible, complete processing here */
--		skb = mlx4_en_rx_skb(priv, rx_desc, frags, length);
-+		skb = mlx4_en_rx_skb(priv, frags, length);
- 		if (unlikely(!skb)) {
- 			ring->dropped++;
- 			goto next;
 -- 
-2.11.0.483.g087da7b7c-goog
+2.7.4
