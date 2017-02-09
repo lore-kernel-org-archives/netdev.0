@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 2/2] net/mlx5: E-Switch, Add control for encapsulation
-Date: Thu,  9 Feb 2017 18:23:18 +0200
-Message-ID: <1486657398-6298-3-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 1/2] net/devlink: Add E-Switch encapsulation control
+Date: Thu,  9 Feb 2017 18:23:17 +0200
+Message-ID: <1486657398-6298-2-git-send-email-ogerlitz@mellanox.com>
 References: <1486657398-6298-1-git-send-email-ogerlitz@mellanox.com>
 Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
         Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
         Roi Dayan <roid@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47977 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47975 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751895AbdBIQYc (ORCPT
+        with ESMTP id S1751446AbdBIQYc (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 11:24:32 -0500
 In-Reply-To: <1486657398-6298-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,123 +19,98 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Roi Dayan <roid@mellanox.com>
 
-Implement the devlink e-switch encapsulation control set and get
-callbacks. Apply the value set by the user on the switchdev offloads
-mode when creating the flow table that is going to hold offloaded rules.
+This is an e-switch global knob to enable/disable HW support for applying
+encapsulation/decapsulation to VF traffic as part of SRIOV e-switch offloading.
+
+The actual encap/decap is carried out (along with the matching and other actions)
+per offloaded e-switch rules, e.g as done when offloading the TC tunnel key action.
+
+The supported mode are enable/disable.
 
 Signed-off-by: Roi Dayan <roid@mellanox.com>
 Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  3 ++
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 41 ++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  2 ++
- 4 files changed, 45 insertions(+), 2 deletions(-)
+ include/net/devlink.h        |  2 ++
+ include/uapi/linux/devlink.h |  1 +
+ net/core/devlink.c           | 22 ++++++++++++++++++++++
+ 3 files changed, 25 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index fcd5bc7..06065fd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -1803,6 +1803,7 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
- 	esw->enabled_vports = 0;
- 	esw->mode = SRIOV_NONE;
- 	esw->offloads.inline_mode = MLX5_INLINE_MODE_NONE;
-+	esw->offloads.encap = false;
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index d29e5fc..a09bff4 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -94,6 +94,8 @@ struct devlink_ops {
+ 	int (*eswitch_mode_set)(struct devlink *devlink, u16 mode);
+ 	int (*eswitch_inline_mode_get)(struct devlink *devlink, u8 *p_inline_mode);
+ 	int (*eswitch_inline_mode_set)(struct devlink *devlink, u8 inline_mode);
++	int (*eswitch_encap_get)(struct devlink *devlink, bool *p_encap);
++	int (*eswitch_encap_set)(struct devlink *devlink, bool encap);
+ };
  
- 	dev->priv.eswitch = esw;
- 	return 0;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 5b78883..6b1ddb9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -209,6 +209,7 @@ struct mlx5_esw_offload {
- 	struct mlx5_eswitch_rep *vport_reps;
- 	DECLARE_HASHTABLE(encap_tbl, 8);
+ static inline void *devlink_priv(struct devlink *devlink)
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index 0f1f3a1..c3f05c6 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -147,6 +147,7 @@ enum devlink_attr {
+ 	DEVLINK_ATTR_SB_OCC_MAX,		/* u32 */
+ 	DEVLINK_ATTR_ESWITCH_MODE,		/* u16 */
+ 	DEVLINK_ATTR_ESWITCH_INLINE_MODE,	/* u8 */
++	DEVLINK_ATTR_ESWITCH_ENCAP,		/* u8 */
+ 
+ 	/* add new attributes above here, update the policy in devlink.c */
+ 
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index e9c1e6a..9af5372 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -1401,6 +1401,7 @@ static int devlink_nl_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
+ 	int err = 0;
+ 	u16 mode;
  	u8 inline_mode;
 +	bool encap;
- };
  
- struct mlx5_eswitch {
-@@ -315,6 +316,8 @@ int mlx5_devlink_eswitch_mode_get(struct devlink *devlink, u16 *mode);
- int mlx5_devlink_eswitch_inline_mode_set(struct devlink *devlink, u8 mode);
- int mlx5_devlink_eswitch_inline_mode_get(struct devlink *devlink, u8 *mode);
- int mlx5_eswitch_inline_mode_get(struct mlx5_eswitch *esw, int nvfs, u8 *mode);
-+int mlx5_devlink_eswitch_encap_set(struct devlink *devlink, bool encap);
-+int mlx5_devlink_eswitch_encap_get(struct devlink *devlink, bool *encap);
- void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
- 				     int vport_index,
- 				     struct mlx5_eswitch_rep *rep);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 4f5b0d4..5787586 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -434,8 +434,7 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
- 	esw_size = min_t(int, MLX5_CAP_GEN(dev, max_flow_counter) * ESW_OFFLOADS_NUM_GROUPS,
- 			 1 << MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
+ 	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
+ 	if (!hdr)
+@@ -1429,6 +1430,15 @@ static int devlink_nl_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
+ 			goto nla_put_failure;
+ 	}
  
--	if (MLX5_CAP_ESW_FLOWTABLE_FDB(dev, encap) &&
--	    MLX5_CAP_ESW_FLOWTABLE_FDB(dev, decap))
-+	if (esw->offloads.encap)
- 		flags |= MLX5_FLOW_TABLE_TUNNEL_EN;
- 
- 	fdb = mlx5_create_auto_grouped_flow_table(root_ns, FDB_FAST_PATH,
-@@ -978,6 +977,44 @@ int mlx5_eswitch_inline_mode_get(struct mlx5_eswitch *esw, int nvfs, u8 *mode)
++	if (mode == DEVLINK_ESWITCH_MODE_SWITCHDEV && ops->eswitch_encap_get) {
++		err = ops->eswitch_encap_get(devlink, &encap);
++		if (err)
++			goto nla_put_failure;
++		err = nla_put_u8(msg, DEVLINK_ATTR_ESWITCH_ENCAP, encap);
++		if (err)
++			goto nla_put_failure;
++	}
++
+ 	genlmsg_end(msg, hdr);
  	return 0;
- }
  
-+int mlx5_devlink_eswitch_encap_set(struct devlink *devlink, bool encap)
-+{
-+	struct mlx5_core_dev *dev = devlink_priv(devlink);
-+	struct mlx5_eswitch *esw = dev->priv.eswitch;
-+
-+	if (!MLX5_CAP_GEN(dev, vport_group_manager))
-+		return -EOPNOTSUPP;
-+
-+	if (esw->mode == SRIOV_NONE)
-+		return -EOPNOTSUPP;
-+
-+	if (!encap)
-+		goto out;
-+
-+	if (!MLX5_CAP_ESW_FLOWTABLE_FDB(dev, encap) ||
-+	    !MLX5_CAP_ESW_FLOWTABLE_FDB(dev, decap))
-+		return -EOPNOTSUPP;
-+
-+out:
-+	esw->offloads.encap = encap;
-+	return 0;
-+}
-+
-+int mlx5_devlink_eswitch_encap_get(struct devlink *devlink, bool *encap)
-+{
-+	struct mlx5_core_dev *dev = devlink_priv(devlink);
-+	struct mlx5_eswitch *esw = dev->priv.eswitch;
-+
-+	if (!MLX5_CAP_GEN(dev, vport_group_manager))
-+		return -EOPNOTSUPP;
-+
-+	if (esw->mode == SRIOV_NONE)
-+		return -EOPNOTSUPP;
-+
-+	*encap = esw->offloads.encap;
-+	return 0;
-+}
-+
- void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
- 				     int vport_index,
- 				     struct mlx5_eswitch_rep *__rep)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index c4242a4..9f0a2c31 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1280,6 +1280,8 @@ static const struct devlink_ops mlx5_devlink_ops = {
- 	.eswitch_mode_get = mlx5_devlink_eswitch_mode_get,
- 	.eswitch_inline_mode_set = mlx5_devlink_eswitch_inline_mode_set,
- 	.eswitch_inline_mode_get = mlx5_devlink_eswitch_inline_mode_get,
-+	.eswitch_encap_set = mlx5_devlink_eswitch_encap_set,
-+	.eswitch_encap_get = mlx5_devlink_eswitch_encap_get,
- #endif
- };
+@@ -1470,11 +1480,23 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
+ 	const struct devlink_ops *ops = devlink->ops;
+ 	u16 mode;
+ 	u8 inline_mode;
++	bool encap;
+ 	int err = 0;
  
+ 	if (!ops)
+ 		return -EOPNOTSUPP;
+ 
++	if (info->attrs[DEVLINK_ATTR_ESWITCH_ENCAP]) {
++		if (!ops->eswitch_encap_set)
++			return -EOPNOTSUPP;
++		if (!info->attrs[DEVLINK_ATTR_ESWITCH_MODE])
++			return -EINVAL;
++		encap = nla_get_u8(info->attrs[DEVLINK_ATTR_ESWITCH_ENCAP]);
++		err = ops->eswitch_encap_set(devlink, encap);
++		if (err)
++			return err;
++	}
++
+ 	if (info->attrs[DEVLINK_ATTR_ESWITCH_MODE]) {
+ 		if (!ops->eswitch_mode_set)
+ 			return -EOPNOTSUPP;
 -- 
 2.5.5
