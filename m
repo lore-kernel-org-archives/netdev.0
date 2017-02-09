@@ -1,126 +1,50 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH iproute2/net-next repost 1/3] tc: flower: provide generic masked u8 parser helper
-Date: Thu,  9 Feb 2017 14:48:59 +0100
-Message-ID: <1486648141-22955-2-git-send-email-simon.horman@netronome.com>
-References: <1486648141-22955-1-git-send-email-simon.horman@netronome.com>
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com,
-        Simon Horman <simon.horman@netronome.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 06/10] mlxsw: spectrum: Change max vfid
+Date: Thu,  9 Feb 2017 14:54:45 +0100
+Message-ID: <1486648489-16455-7-git-send-email-jiri@resnulli.us>
+References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, ivecera@redhat.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:37900 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752033AbdBINuZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:50:25 -0500
-Received: by mail-wm0-f50.google.com with SMTP id r141so19696069wmg.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:49:17 -0800 (PST)
-In-Reply-To: <1486648141-22955-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:36255 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752365AbdBIN4z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:56:55 -0500
+Received: by mail-wr0-f195.google.com with SMTP id k90so11977652wrc.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:54:58 -0800 (PST)
+In-Reply-To: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Provide generic masked u8 paser helper and use it to parse arp operations.
+From: Nogah Frankel <nogahf@mellanox.com>
 
-Also consistently use __u8 rather than uint8_t, in keeping with the
-pervasive style in the file.
+A user that wants many bridges will use 1.Q bridge which are scalable.
+One can have as many 1.Q bridges as vfids.
+This patch sets their number to 1k, which is a reasonably large number.
+This change is done here because the next patches will add a new flood
+table, and without it, it will increase the overall size of the flood
+tables dramatically.
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- tc/f_flower.c | 55 ++++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 40 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 0f2251315975..5554cc05118b 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -309,33 +309,30 @@ static int flower_parse_arp_ip_addr(char *str, __be16 eth_type,
- 				      TCA_FLOWER_UNSPEC, TCA_FLOWER_UNSPEC, n);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 145897c..49fe75f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -55,7 +55,7 @@
+ #include "core_acl_flex_actions.h"
  
--static int flower_parse_arp_op(char *str, __be16 eth_type,
--			       int op_type, int mask_type,
--			       struct nlmsghdr *n)
-+static int flower_parse_u8(char *str, int value_type, int mask_type,
-+			   int (*value_from_name)(const char *str,
-+						 __u8 *value),
-+			   bool (*value_validate)(__u8 value),
-+			   struct nlmsghdr *n)
- {
- 	char *slash;
- 	int ret, err = -1;
--	uint8_t value, mask;
-+	__u8 value, mask;
+ #define MLXSW_SP_VFID_BASE VLAN_N_VID
+-#define MLXSW_SP_VFID_MAX 6656	/* Bridged VLAN interfaces */
++#define MLXSW_SP_VFID_MAX 1024	/* Bridged VLAN interfaces */
  
- 	slash = strchr(str, '/');
- 	if (slash)
- 		*slash = '\0';
- 
--	if (!flower_eth_type_arp(eth_type))
--		goto err;
--
--	if (!strcmp(str, "request")) {
--		value = ARPOP_REQUEST;
--	} else if (!strcmp(str, "reply")) {
--		value = ARPOP_REPLY;
--	} else {
-+	ret = value_from_name ? value_from_name(str, &value) : -1;
-+	if (ret < 0) {
- 		ret = get_u8(&value, str, 10);
- 		if (ret)
- 			goto err;
--		if (value && value != ARPOP_REQUEST && value != ARPOP_REPLY)
--			goto err;
- 	}
- 
-+	if (value_validate && !value_validate(value))
-+		goto err;
-+
- 	if (slash) {
- 		ret = get_u8(&mask, slash + 1, 10);
- 		if (ret)
-@@ -345,7 +342,7 @@ static int flower_parse_arp_op(char *str, __be16 eth_type,
- 		mask = UINT8_MAX;
- 	}
- 
--	addattr8(n, MAX_MSG, op_type, value);
-+	addattr8(n, MAX_MSG, value_type, value);
- 	addattr8(n, MAX_MSG, mask_type, mask);
- 
- 	err = 0;
-@@ -355,6 +352,34 @@ err:
- 	return err;
- }
- 
-+static int flower_arp_op_from_name(const char *name, __u8 *op)
-+{
-+	if (!strcmp(name, "request"))
-+		*op = ARPOP_REQUEST;
-+	else if (!strcmp(name, "reply"))
-+		*op = ARPOP_REPLY;
-+	else
-+		return -1;
-+
-+	return 0;
-+}
-+
-+static bool flow_arp_op_validate(__u8 op)
-+{
-+	return !op || op == ARPOP_REQUEST || op == ARPOP_REPLY;
-+}
-+
-+static int flower_parse_arp_op(char *str, __be16 eth_type,
-+			       int op_type, int mask_type,
-+			       struct nlmsghdr *n)
-+{
-+	if (!flower_eth_type_arp(eth_type))
-+		return -1;
-+
-+	return flower_parse_u8(str, op_type, mask_type, flower_arp_op_from_name,
-+			       flow_arp_op_validate, n);
-+}
-+
- static int flower_icmp_attr_type(__be16 eth_type, __u8 ip_proto,
- 				 enum flower_icmp_field field)
- {
+ #define MLXSW_SP_RFID_BASE 15360
+ #define MLXSW_SP_INVALID_RIF 0xffff
 -- 
-2.7.0.rc3.207.g0ac5344
+2.7.4
