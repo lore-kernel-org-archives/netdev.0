@@ -1,35 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 0/2] Fixes for sierra_net driver
-Date: Thu, 09 Feb 2017 16:42:12 -0500 (EST)
-Message-ID: <20170209.164212.1577169073741493412.davem@davemloft.net>
-References: <cad9ab0b146e4391a4c870290450214e@rwthex-w2-b.rwth-ad.de>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH v4 net-next 07/10] openvswitch: Inherit master's labels.
+Date: Thu, 9 Feb 2017 13:40:54 -0800
+Message-ID: <CAPWQB7H-URWDzAL_nyzEj3x-=uCe2XnJs=85NmRgpLn+fhgs2w@mail.gmail.com>
+References: <1486668121-45709-1-git-send-email-jarno@ovn.org> <1486668121-45709-8-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cad9ab0b146e4391a4c870290450214e-cBaz+nnMw1+krInni0qv/15UTUQ924AY@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        pravin shelar <pshelar@ovn.org>
+To: Jarno Rajahalme <jarno@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:45473 "EHLO
+        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752650AbdBIVoi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 16:44:38 -0500
+Received: from relay4-d.mail.gandi.net (relay4-d.mail.gandi.net [217.70.183.196])
+        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 0E5A24B6251
+        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 22:42:19 +0100 (CET)
+Received: from mfilter16-d.gandi.net (mfilter16-d.gandi.net [217.70.178.144])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id D666F1720A3
+        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 22:41:17 +0100 (CET)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter16-d.gandi.net (mfilter16-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id DYUpsRht_CIY for <netdev@vger.kernel.org>;
+        Thu,  9 Feb 2017 22:41:16 +0100 (CET)
+Received: from mail-qt0-f178.google.com (mail-qt0-f178.google.com [209.85.216.178])
+        (Authenticated sender: joe@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 5F4A11720A5
+        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 22:41:15 +0100 (CET)
+Received: by mail-qt0-f178.google.com with SMTP id w20so17313140qtb.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 13:41:15 -0800 (PST)
+In-Reply-To: <1486668121-45709-8-git-send-email-jarno@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Brüns <stefan.bruens-vA1bhqPz9FBZXbeN9DUtxg@public.gmane.org>
-Date: Wed, 8 Feb 2017 02:46:31 +0100
+On 9 February 2017 at 11:21, Jarno Rajahalme <jarno@ovn.org> wrote:
+> We avoid calling into nf_conntrack_in() for expected connections, as
+> that would remove the expectation that we want to stick around until
+> we are ready to commit the connection.  Instead, we do a lookup in the
+> expectation table directly.  However, after a successful expectation
+> lookup we have set the flow key label field from the master
+> connection, whereas nf_conntrack_in() does not do this.  This leads to
+> master's labels being inherited after an expectation lookup, but those
+> labels not being inherited after the corresponding conntrack action
+> with a commit flag.
+>
+> This patch resolves the problem by changing the commit code path to
+> also inherit the master's labels to the expected connection.
+> Resolving this conflict in favor of inheriting the labels allows more
+> information be passed from the master connection to related
+> connections, which would otherwise be much harder if the 32 bits in
+> the connmark are not enough.  Labels can still be set explicitly, so
+> this change only affects the default values of the labels in presense
+> of a master connection.
+>
+> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+> Acked-by: Pravin B Shelar <pshelar@ovn.org>
 
-> When trying to initiate a dual-stack (ipv4v6) connection, a MC7710, FW
-> version SWI9200X_03.05.24.00ap answers with an unsupported LSI. Add support
-> for this LSI.
-> Also the link_type should be ignored when going idle, otherwise the modem
-> is stuck in a bad link state.
-> Tested on MC7710, T-Mobile DE, APN internet.telekom, IPv4v6 PDP type. Both
-> IPv4 and IPv6 connections work.
-> 
-> v2: Do not overwrite protocol field in rx_fixup
-> v3: Remove leftover struct ethhdr *eth declaration
-
-Series applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Joe Stringer <joe@ovn.org>
