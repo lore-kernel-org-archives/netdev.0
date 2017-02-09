@@ -1,9 +1,8 @@
 From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
-Date: Thu, 9 Feb 2017 18:20:24 +0100
-Message-ID: <20170209172024.GE29882@lunn.ch>
+Date: Thu, 9 Feb 2017 18:22:11 +0100
+Message-ID: <20170209172211.GF29882@lunn.ch>
 References: <20170209150834.1158193-1-arnd@arndb.de>
- <20170209155751.GB29882@lunn.ch> <1967873.WpTcGj2Cy4@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,7 +15,7 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
 To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1967873.WpTcGj2Cy4@wuerfel>
+In-Reply-To: <20170209150834.1158193-1-arnd@arndb.de>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -28,24 +27,27 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-> Adding a 'select' statement to something as broad as NETDEVICES sounds
-> really bad, it has a significant risk of introducing dependency loops
-> and may be confusing if you want to build a multiplatform config without
-> networking support (note that NETDEVICES in turn depends on NET, which
-> can also be disabled).
+On Thu, Feb 09, 2017 at 04:08:11PM +0100, Arnd Bergmann wrote:
+> The newly introduced mdiobus_register_board_info() function is only available
+> as part of PHYLIB, so we get a link error when we call that from a board while
+> phylib is disabled:
+> 
+> arch/arm/plat-orion/common.o: In function `orion_ge00_switch_init':
+> common.c:(.init.text+0x6a4): undefined reference to `mdiobus_register_board_info'
+> 
+> This adds a workaround that is made up of three parts:
+> 
+> - in plat-orion, the function for declaring the switch is hidden without
+>   PHYLIB.
+> - in mach-orion5x, the caller conditionally stubs out the call to
+>   the removed function, so we can still build other orion5x boards
+>   without PHYLIB
+> - For the boards that actually declare the switch, we select PHYLIB
+>   explicitly from Kconfig if NETDEVICES is set. Without NETDEVICES,
+>   we cannot enable PHYLIB, but we also wouldn't need it.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-O.K, so overall it is not simple. So lets drop my idea.
- 
-> One possibility would be to have a special Kconfig symbol that controls
-> mdiobus_register_board_info() being present and have that symbol
-> force PHYLIB to never be "=m". Then we can either have no networking
-> support and no phylib, turning mdiobus_register_board_info() into a
-> stub, or we have the function built-in and reachable from the board
-> code.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-FYI: Florian is working on splitting MDIO out of PHYLIB. There will be
-two separate symbols, so it will be possible to have MDIO without
-PHYLIB. When this happens, i expect mdiobus_register_board_info() will
-be in the MDIO part, not PHYLIB.
-
-   Andrew
+    Andrew
