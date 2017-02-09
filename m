@@ -1,44 +1,105 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next] vxlan: remove vni zero check and drop for COLLECT_METADATA
-Date: Fri, 10 Feb 2017 21:38:36 -0800
-Message-ID: <1486791516-10285-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, joe@ovn.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:36830 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750725AbdBKFi7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 00:38:59 -0500
-Received: by mail-pg0-f49.google.com with SMTP id v184so16460442pgv.3
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 21:38:59 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Windsor <dwindsor@gmail.com>
+Subject: [RFC][PATCH] nfsd: add +1 to reference counting scheme for struct nfsd4_session
+Date: Thu,  9 Feb 2017 02:38:21 -0500
+Message-ID: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
+Cc: kernel-hardening@lists.openwall.com,
+	bfields@fieldses.org,
+	jlayton@poochiereds.net,
+	keescook@chromium.org,
+	elena.reshetova@intel.com,
+	dwindsor@gmail.com
+To: linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <kernel-hardening-return-6536-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+In furtherance of the KSPP effort to add overflow protection to kernel
+reference counters, a new type (refcount_t) and API have been created.
+Part of the refcount_t API is refcount_inc(), which will not increment a
+refcount_t variable if its value is 0 (as this would indicate a possible
+use-after-free condition). 
 
-This patch drops the vni zero check for COLLECT_METADATA mode.
-It is not really needed, vni zero is a valid vni.
+In auditing the kernel for refcounting corner cases, we've come across the
+case of struct nfsd4_session.  
 
-Fixes: 3ad7a4b141eb ("vxlan: support fdb and learning in COLLECT_METADATA mode"
-Reported-by: Joe Stringer <joe@ovn.org>
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>From fs/nfsd/state.h:
+
+/*
+ * Representation of a v4.1+ session. These are refcounted in a similar 
+ * fashion to the nfs4_client. References are only taken when the server
+ * is actively working on the object (primarily during the processing of
+ * compounds).
+ */
+struct nfsd4_session {
+    atomic_t se_ref;
+    ...
+};
+
+
+>From fs/nfsd/nfs4state.c:
+
+static void init_session(..., struct nfsd4_session *new, ...)
+{
+    ...
+    atomic_set(&new->se_ref, 0);
+    ...
+}
+ 
+Since nfsd4_session objects are initialized with refcount = 0, subsequent
+increments will fail using the new refcount_t API.
+
+Being largely unfamiliar with this subsystem's garbage collection
+mechanism, I'm unsure how to best fix this.  Attached is a patch that
+performs a logical +1 on struct nfsd4_session's reference counting
+scheme.
+
+If this is the correct route to take, I will resubmit this patch with
+updated comments for how struct nfsd4_session is refcounted (see the above
+comment from fs/nsfd/state.h).  This is in preparation for the previously
+mentioned refcount_t API series.
+
+Thanks,
+David Windsor
+
+Signed-off-by: David Windsor <dwindsor@gmail.com>
 ---
- drivers/net/vxlan.c |    3 ---
- 1 file changed, 3 deletions(-)
+ fs/nfsd/nfs4state.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 2374a75..4e27c5b 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1333,9 +1333,6 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
+index a0dee8a..b0f3010 100644
+--- a/fs/nfsd/nfs4state.c
++++ b/fs/nfsd/nfs4state.c
+@@ -196,7 +196,7 @@ static void nfsd4_put_session_locked(struct nfsd4_session *ses)
  
- 	vni = vxlan_vni(vxlan_hdr(skb)->vx_vni);
+ 	lockdep_assert_held(&nn->client_lock);
  
--	if ((vs->flags & VXLAN_F_COLLECT_METADATA) && !vni)
--		goto drop;
--
- 	vxlan = vxlan_vs_find_vni(vs, vni);
- 	if (!vxlan)
- 		goto drop;
+-	if (atomic_dec_and_test(&ses->se_ref) && is_session_dead(ses))
++	if (!atomic_add_unless(&ses->se_ref, -1, 1) && is_session_des(ses))
+ 		free_session(ses);
+ 	put_client_renew_locked(clp);
+ }
+@@ -1645,7 +1645,7 @@ static void init_session(struct svc_rqst *rqstp, struct nfsd4_session *new, stru
+ 	new->se_flags = cses->flags;
+ 	new->se_cb_prog = cses->callback_prog;
+ 	new->se_cb_sec = cses->cb_sec;
+-	atomic_set(&new->se_ref, 0);
++	atomic_set(&new->se_ref, 1);
+ 	idx = hash_sessionid(&new->se_sessionid);
+ 	list_add(&new->se_hash, &nn->sessionid_hashtbl[idx]);
+ 	spin_lock(&clp->cl_lock);
+@@ -1792,7 +1792,7 @@ free_client(struct nfs4_client *clp)
+ 		ses = list_entry(clp->cl_sessions.next, struct nfsd4_session,
+ 				se_perclnt);
+ 		list_del(&ses->se_perclnt);
+-		WARN_ON_ONCE(atomic_read(&ses->se_ref));
++		WARN_ON_ONCE((atomic_read(&ses->se_ref) > 1));
+ 		free_session(ses);
+ 	}
+ 	rpc_destroy_wait_queue(&clp->cl_cb_waitq);
 -- 
-1.7.10.4
+2.7.4
