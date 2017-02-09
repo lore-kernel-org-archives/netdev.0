@@ -1,53 +1,78 @@
 From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: Mellanox ConnectX-3 VF driver can't work with 16 CPUs?
-Date: Thu, 9 Feb 2017 18:47:33 +0200
-Message-ID: <032fd940-f0e8-4cd6-e455-8b8855c3105f@gmail.com>
-References: <MWHPR03MB2669F7138EE9DE92A372C863BF450@MWHPR03MB2669.namprd03.prod.outlook.com>
+Subject: Re: [PATCH v2 net-next 00/14] mlx4: order-0 allocations and page
+ recycling
+Date: Thu, 9 Feb 2017 18:49:01 +0200
+Message-ID: <c192d259-644b-0697-748f-549fdc9c11e0@gmail.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+ <3c48eac5-0c4f-f43a-1d76-75399e5fc1b8@gmail.com>
+ <CANn89i+sbU7b5CAhRq15Mk021X4afkB5E1ip+FRB4NevOrYJvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dexuan Cui <decui@microsoft.com>,
-        Yishai Hadas <yishaih@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:34765 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932221AbdBIQrg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 11:47:36 -0500
-Received: by mail-wr0-f170.google.com with SMTP id o16so87857634wra.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 08:47:36 -0800 (PST)
-In-Reply-To: <MWHPR03MB2669F7138EE9DE92A372C863BF450@MWHPR03MB2669.namprd03.prod.outlook.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35279 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751111AbdBIQux (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 11:50:53 -0500
+Received: by mail-wr0-f194.google.com with SMTP id o16so12530627wra.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 08:49:04 -0800 (PST)
+In-Reply-To: <CANn89i+sbU7b5CAhRq15Mk021X4afkB5E1ip+FRB4NevOrYJvQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dexuan,
 
 
-On 09/02/2017 12:03 PM, Dexuan Cui wrote:
-> Hi,
-> While trying SR-IOV with a Linux guest running on Hyper-V, I found this issue:
-> the VF driver can't work if the guest has 16 virtual CPUs (less vCPUs, e.g. 8,  can work fine):
+On 09/02/2017 6:44 PM, Eric Dumazet wrote:
+> On Thu, Feb 9, 2017 at 8:41 AM, Tariq Toukan <ttoukan.linux@gmail.com> wrote:
+>> Hi Eric,
+>>
+>> Thanks again for your series.
+>>
+>> On 09/02/2017 3:58 PM, Eric Dumazet wrote:
+>>
+>> As mentioned half a year ago, we better switch mlx4 driver to order-0
+>> allocations and page recycling.
+>>
+>> This reduces vulnerability surface thanks to better skb->truesize
+>> tracking and provides better performance in most cases.
+>>
+>> v2 provides an ethtool -S new counter (rx_alloc_pages) and
+>> code factorization, plus Tariq fix.
+>>
+>> I see that you made significant changes to the previous series, especially
+>> patch 14 (RX CQE processing).
+>> Please notice that our work week has just finished here in Israel.
+>> I will review the series, especially the new patches (10 to 14), on Sunday.
+>>
+>> We need to test this series again in our functional and performance
+>> regression systems.
+>> It will be running during the weekend, so we can analyze the results and
+>> update you on Sunday.
+>>
+>> Previous performance results showed a degradation, especially in:
+>> - TCP single stream at 64KB length.
+> What RX ring size are you using ? I have not seen this at all.
+Default, out of box.
 >
-> [    9.927820] mlx4_core: Mellanox ConnectX core driver v2.2-1 (Feb, 2014)
-> [    9.927882] mlx4_core: Initializing b961:00:02.0
-> [    9.970994] mlx4_core b961:00:02.0: Detected virtual function - running in slave mode
-> [    9.976783] mlx4_core b961:00:02.0: Sending reset
-> [    9.985858] mlx4_core b961:00:02.0: Sending vhcr0
-> [   10.004855] mlx4_core b961:00:02.0: HCA minimum page size:512
-> [   10.010465] mlx4_core b961:00:02.0: Timestamping is not supported in slave mode
-> [   10.203065] mlx4_core b961:00:02.0: Failed to initialize event queue table, aborting
-> [   10.226728] mlx4_core: probe of b961:00:02.0 failed with error -12
+>> - TCP 16 streams at 1KB length.
+> TCP does not really care, it coalesces all these into TSO skbs, full size...
+But the kernel stack has to split it back accordingly in the receive 
+side, no?
 >
-> I'm using the mainline kernel (4.10.0-rc4).
->
-> Any idea?
-Thanks for your report.
-We'll check this internally and get back to you.
-
-Regards,
-Tariq
->
-> Thanks,
-> -- Dexuan
->
+>> This was probably because cache was too short, and many page allocations
+>> were needed.
+>> In CX4, we saw the same kind of degradation, much clearer and amplified as
+>> it's 2.5 times faster (100G).
+>>
+>> Regards,
+>> Tariq Toukan
