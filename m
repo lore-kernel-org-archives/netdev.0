@@ -1,42 +1,97 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net/packet: use-after-free in packet_rcv_fanout
-Date: Thu, 9 Feb 2017 07:17:09 -0800
-Message-ID: <CANn89iJte06Ud6O2bKkgP8HZxx485dYwVY1uvZrAFCn5JA6L0w@mail.gmail.com>
-References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
- <20170209151220.GA4843@oracle.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [patch net-next 02/10] bridge: mcast: Merge the mc router ports
+ deletions to one function
+Date: Thu, 9 Feb 2017 16:11:09 +0100
+Message-ID: <9e1a73aa-29c3-d7fd-9569-7136e9d6a50e@redhat.com>
+References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
+ <1486648489-16455-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
-        Philip Pettersson <philip.pettersson@gmail.com>,
-        weongyo.linux@gmail.com, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170209151220.GA4843@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56722 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751895AbdBIPRo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Feb 2017 10:17:44 -0500
+In-Reply-To: <1486648489-16455-3-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 7:12 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (02/09/17 14:14), Dmitry Vyukov wrote:
->>
->> Call Trace:
->    :
->>  packet_rcv_has_room+0x25/0xb0 net/packet/af_packet.c:1308
->>  fanout_demux_rollover+0x3bb/0x6b0 net/packet/af_packet.c:1388
->>  packet_rcv_fanout+0x674/0x800 net/packet/af_packet.c:1490
->>  dev_queue_xmit_nit+0x73a/0xa90 net/core/dev.c:1898
->     :
->>  tcp_sendmsg_fastopen net/ipv4/tcp.c:1110 [inline]
->     :
+Dne 9.2.2017 v 14:54 Jiri Pirko napsal(a):
+> From: Nogah Frankel <nogahf@mellanox.com>
 >
-> looks like a race between a NIT socket (tcpdump, maybe?) that is closing,
-> and a standard tcp socket.. packet_release() takes the po->bind_lock
-> to remove the socket from the ptype_all NIT queue. but how does
-> that sync with the Tx path for other af_inet/af_inet6 sockets?
-
-RCU protection for hooks.
+> There are three places where a port gets deleted from the mc router port
+> list. This patch join the actual deletion to one function.
+> It will be helpful for later patch that will offload changes in the mc
+> router ports list.
+>
+> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  net/bridge/br_multicast.c | 24 +++++++++---------------
+>  1 file changed, 9 insertions(+), 15 deletions(-)
+>
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 8c0e896..2add6d4 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -47,6 +47,7 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+>  					 __u16 vid,
+>  					 const unsigned char *src);
+>
+> +static void __del_port_router(struct net_bridge_port *p);
+>  #if IS_ENABLED(CONFIG_IPV6)
+>  static void br_ip6_multicast_leave_group(struct net_bridge *br,
+>  					 struct net_bridge_port *port,
+> @@ -850,16 +851,10 @@ static void br_multicast_router_expired(unsigned long data)
+>  	spin_lock(&br->multicast_lock);
+>  	if (port->multicast_router == MDB_RTR_TYPE_DISABLED ||
+>  	    port->multicast_router == MDB_RTR_TYPE_PERM ||
+> -	    timer_pending(&port->multicast_router_timer) ||
+> -	    hlist_unhashed(&port->rlist))
+> +	    timer_pending(&port->multicast_router_timer))
+>  		goto out;
+>
+> -	hlist_del_init_rcu(&port->rlist);
+> -	br_rtr_notify(br->dev, port, RTM_DELMDB);
+> -	/* Don't allow timer refresh if the router expired */
+> -	if (port->multicast_router == MDB_RTR_TYPE_TEMP)
+> -		port->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
+> -
+> +	__del_port_router(port);
+>  out:
+>  	spin_unlock(&br->multicast_lock);
+>  }
+> @@ -1101,13 +1096,8 @@ void br_multicast_disable_port(struct net_bridge_port *port)
+>  		if (!(pg->flags & MDB_PG_FLAGS_PERMANENT))
+>  			br_multicast_del_pg(br, pg);
+>
+> -	if (!hlist_unhashed(&port->rlist)) {
+> -		hlist_del_init_rcu(&port->rlist);
+> -		br_rtr_notify(br->dev, port, RTM_DELMDB);
+> -		/* Don't allow timer refresh if disabling */
+> -		if (port->multicast_router == MDB_RTR_TYPE_TEMP)
+> -			port->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
+> -	}
+> +	__del_port_router(port);
+> +
+>  	del_timer(&port->multicast_router_timer);
+>  	del_timer(&port->ip4_own_query.timer);
+>  #if IS_ENABLED(CONFIG_IPV6)
+> @@ -2059,6 +2049,10 @@ static void __del_port_router(struct net_bridge_port *p)
+>  		return;
+>  	hlist_del_init_rcu(&p->rlist);
+>  	br_rtr_notify(p->br->dev, p, RTM_DELMDB);
+> +
+> +	/* don't allow timer refresh */
+> +	if (p->multicast_router == MDB_RTR_TYPE_TEMP)
+> +		p->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
+>  }
+>
+>  int br_multicast_set_port_router(struct net_bridge_port *p, unsigned long val)
+>
+Acked-by: Ivan Vecera <ivecera@redhat.com>
