@@ -1,45 +1,90 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: Mellanox ConnectX-3 VF driver can't work with 16 CPUs?
-Date: Thu, 9 Feb 2017 10:03:20 +0000
-Message-ID: <MWHPR03MB2669F7138EE9DE92A372C863BF450@MWHPR03MB2669.namprd03.prod.outlook.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: pull-request: can-next 2017-02-06,pull-request: can-next
+ 2017-02-06,Re: pull-request: can-next 2017-02-06,pull-request: can-next
+ 2017-02-06
+Date: Thu, 9 Feb 2017 10:52:23 +0100
+Message-ID: <44f94eb3-4c58-a63f-c7a9-46615155d7b5@pengutronix.de>
+References: <2b600a5b-f928-fe73-5b30-8b2fc1398068@pengutronix.de>
+ <20170206.111259.2261971436931731059.davem@davemloft.net>
+ <809cdb71-a29c-f952-0cab-ff643b4906f0@pengutronix.de>
+ <20170206.115910.1398846154082627685.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="HgPKxdbpPcFVlLhER7nAnIgfpHqRwWAbF"
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+        linux-can@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20170206.115910.1398846154082627685.davem@davemloft.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--HgPKxdbpPcFVlLhER7nAnIgfpHqRwWAbF
+Content-Type: multipart/mixed; boundary="qmdSTajE2r9vfSe13XfSnXGP2RjHtcRL8";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de, linux-can@vger.kernel.org
+Message-ID: <44f94eb3-4c58-a63f-c7a9-46615155d7b5@pengutronix.de>
+Subject: Re: pull-request: can-next 2017-02-06,pull-request: can-next
+ 2017-02-06,Re: pull-request: can-next 2017-02-06,pull-request: can-next
+ 2017-02-06
+References: <2b600a5b-f928-fe73-5b30-8b2fc1398068@pengutronix.de>
+ <20170206.111259.2261971436931731059.davem@davemloft.net>
+ <809cdb71-a29c-f952-0cab-ff643b4906f0@pengutronix.de>
+ <20170206.115910.1398846154082627685.davem@davemloft.net>
+In-Reply-To: <20170206.115910.1398846154082627685.davem@davemloft.net>
+
+--qmdSTajE2r9vfSe13XfSnXGP2RjHtcRL8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yishai Hadas <yishaih@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0119.outbound.protection.outlook.com ([104.47.36.119]:19264
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752153AbdBIKDf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Feb 2017 05:03:35 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Hi,=20
-While trying SR-IOV with a Linux guest running on Hyper-V, I found this iss=
-ue:
-the VF driver can't work if the guest has 16 virtual CPUs (less vCPUs, e.g.=
- 8,  can work fine):
+On 02/06/2017 05:59 PM, David Miller wrote:
+> Sure but what about these "can_rx_offload_le()" comparisons?
 
-[    9.927820] mlx4_core: Mellanox ConnectX core driver v2.2-1 (Feb, 2014)
-[    9.927882] mlx4_core: Initializing b961:00:02.0
-[    9.970994] mlx4_core b961:00:02.0: Detected virtual function - running =
-in slave mode
-[    9.976783] mlx4_core b961:00:02.0: Sending reset
-[    9.985858] mlx4_core b961:00:02.0: Sending vhcr0
-[   10.004855] mlx4_core b961:00:02.0: HCA minimum page size:512
-[   10.010465] mlx4_core b961:00:02.0: Timestamping is not supported in sla=
-ve mode
-[   10.203065] mlx4_core b961:00:02.0: Failed to initialize event queue tab=
-le, aborting
-[   10.226728] mlx4_core: probe of b961:00:02.0 failed with error -12
+This is to scan the mailboxes according to priority. On some CAN IP
+cores the mailboxes decrease in priority (0=3Dhigh, 63=3Dlow) some increa=
+se
+(63=3Dhigh, 0=3Dlow). The can_rx_offload_le() (le means less or equal) an=
+d
+can_rx_offload_inc() functions are used to abstract the order. We always
+only scan from highest to lower prio (offload->mb_first ...
+offload->mb_last):
 
-I'm using the mainline kernel (4.10.0-rc4).
+> 	for (i =3D offload->mb_first;
+> 	     can_rx_offload_le(offload, i, offload->mb_last);
+> 	     can_rx_offload_inc(offload, &i)) {
 
-Any idea?
+So we never wrap around.
 
-Thanks,
--- Dexuan
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--qmdSTajE2r9vfSe13XfSnXGP2RjHtcRL8--
+
+--HgPKxdbpPcFVlLhER7nAnIgfpHqRwWAbF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlicO9cACgkQHv7KIOw4
+HPZxCwf/URtTJrAEbNoK4Eoi2QWVb9Onns5bbb5D4DaKcaxHZEVp5pNzDPV0R8+Q
+YqofxyHX09VLKU1BS1IAbjKAmiO36L4WQ0OXSiV2gcETkutfx8zErTxUImzq3Gzy
+Ww71xbrOj5WyYNJjxRAiZSm/X0iZOlfGev/fpuMUZi0X7a6/IX/OXd39hGBGfjAh
+bjfMLhaGVLukjmah4d95J22kHhUy1vgnynPoiOM30N6Zd1Ld8MpYEXleuWtQupep
+A92SHiM3veY2Vp9OA82ZHctKgDzyZBxhDZoeimSNA4cKyeuWd8uLbMtEwy/PaQkV
+ua4ul4qwxZDzUYr3Sz1FyRM5NGexQg==
+=TRPC
+-----END PGP SIGNATURE-----
+
+--HgPKxdbpPcFVlLhER7nAnIgfpHqRwWAbF--
