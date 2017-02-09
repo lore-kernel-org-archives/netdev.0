@@ -1,78 +1,68 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH v2 net-next 00/14] mlx4: order-0 allocations and page
- recycling
-Date: Thu, 9 Feb 2017 18:49:01 +0200
-Message-ID: <c192d259-644b-0697-748f-549fdc9c11e0@gmail.com>
-References: <20170209135838.16487-1-edumazet@google.com>
- <3c48eac5-0c4f-f43a-1d76-75399e5fc1b8@gmail.com>
- <CANn89i+sbU7b5CAhRq15Mk021X4afkB5E1ip+FRB4NevOrYJvQ@mail.gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] udp: fix a potential panic in first_packet_length()
+Date: Thu, 09 Feb 2017 18:01:18 +0100
+Message-ID: <1486659678.2591.11.camel@redhat.com>
+References: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35279 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751111AbdBIQux (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 11:50:53 -0500
-Received: by mail-wr0-f194.google.com with SMTP id o16so12530627wra.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 08:49:04 -0800 (PST)
-In-Reply-To: <CANn89i+sbU7b5CAhRq15Mk021X4afkB5E1ip+FRB4NevOrYJvQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37424 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752003AbdBIRB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Feb 2017 12:01:56 -0500
+In-Reply-To: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2017-02-09 at 07:30 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> first_packet_length() is called from udp_ioctl()
+> 
+> udp_ioctl(), as its name suggests, is used by UDP protocols,
+> but is also used by L2TP :(
+> 
+> We shall call udp_rmem_release() only for UDP variants.
+> 
+> Thanks to Andrey and syzkaller team for providing the report
+> and a nice reproducer.
+> 
+> Fixes: 7c13f97ffde63 ("udp: do fwd memory scheduling on dequeue")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andrey Konovalov <andreyknvl@google.com>
+> ---
+>  net/ipv4/udp.c |    6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index 8aab7d78d25bc6eaa42dcc960cdbd5086f614cad..7c0807ee82cec6ca8c856da14fa6109dfdf27868 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1376,7 +1376,11 @@ static int first_packet_length(struct sock *sk)
+>  		kfree_skb(skb);
+>  	}
+>  	res = skb ? skb->len : -1;
+> -	if (total)
+> +	/* udp_ioctl() can be used by UDP/UDPLite, but also L2TP.
+> +	 * We only need to call udp_rmem_release() for UDP sockets.
+> +	 * L2TP does have a proper skb destructor invoked at kfree_skb() time.
+> +	 */
+> +	if (total && sk->sk_prot->memory_allocated == &udp_memory_allocated)
+>  		udp_rmem_release(sk, total, 1);
+>  	spin_unlock_bh(&rcvq->lock);
+>  	return res;
+> 
+> 
 
+My bad, I missed completely that call path.
 
-On 09/02/2017 6:44 PM, Eric Dumazet wrote:
-> On Thu, Feb 9, 2017 at 8:41 AM, Tariq Toukan <ttoukan.linux@gmail.com> wrote:
->> Hi Eric,
->>
->> Thanks again for your series.
->>
->> On 09/02/2017 3:58 PM, Eric Dumazet wrote:
->>
->> As mentioned half a year ago, we better switch mlx4 driver to order-0
->> allocations and page recycling.
->>
->> This reduces vulnerability surface thanks to better skb->truesize
->> tracking and provides better performance in most cases.
->>
->> v2 provides an ethtool -S new counter (rx_alloc_pages) and
->> code factorization, plus Tariq fix.
->>
->> I see that you made significant changes to the previous series, especially
->> patch 14 (RX CQE processing).
->> Please notice that our work week has just finished here in Israel.
->> I will review the series, especially the new patches (10 to 14), on Sunday.
->>
->> We need to test this series again in our functional and performance
->> regression systems.
->> It will be running during the weekend, so we can analyze the results and
->> update you on Sunday.
->>
->> Previous performance results showed a degradation, especially in:
->> - TCP single stream at 64KB length.
-> What RX ring size are you using ? I have not seen this at all.
-Default, out of box.
->
->> - TCP 16 streams at 1KB length.
-> TCP does not really care, it coalesces all these into TSO skbs, full size...
-But the kernel stack has to split it back accordingly in the receive 
-side, no?
->
->> This was probably because cache was too short, and many page allocations
->> were needed.
->> In CX4, we saw the same kind of degradation, much clearer and amplified as
->> it's 2.5 times faster (100G).
->>
->> Regards,
->> Tariq Toukan
+I'm wondering if calling first_packet_length() for l2tp_ip sockets
+makes sense ?!? Am I missing something or it touches udp stats and
+checks udp csum for non udp packets ?!?
+
+Paolo
