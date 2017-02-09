@@ -1,298 +1,112 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC v2 6/8] mlx5: Changes to use generic XDP infrastructure
-Date: Wed, 8 Feb 2017 15:41:25 -0800
-Message-ID: <20170208234127.3041579-7-tom@herbertland.com>
-References: <20170208234127.3041579-1-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net v3 3/3] net: phy: Fix PHY driver bind and unbind events
+Date: Wed,  8 Feb 2017 16:14:01 -0800
+Message-ID: <20170209001401.2564-4-f.fainelli@gmail.com>
+References: <20170209001401.2564-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        maowenan <maowenan@huawei.com>, andrew@lunn.ch,
+        rmk+kernel@armlinux.org.uk, festevam@gmail.com,
+        davem@davemloft.net, nikita.yoush@cogentembedded.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:39748 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752308AbdBIAUZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:20:25 -0500
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v18Nc5E9003980
-        for <netdev@vger.kernel.org>; Wed, 8 Feb 2017 15:41:51 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 28g9fv8muv-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 15:41:51 -0800
-Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
- mx-out.facebook.com (10.223.100.99) with ESMTP id
- 290aa0a2ee5811e6bcc724be05956610-204d3a50 for <netdev@vger.kernel.org>;        Wed,
- 08 Feb 2017 15:41:49 -0800
-In-Reply-To: <20170208234127.3041579-1-tom@herbertland.com>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:35222 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751073AbdBIAYN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:24:13 -0500
+Received: by mail-qt0-f194.google.com with SMTP id s58so25509699qtc.2
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 16:23:26 -0800 (PST)
+In-Reply-To: <20170209001401.2564-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change XDP program management functional interface to correspond to new
-XDP API.
+The PHY library does not deal very well with bind and unbind events. The first
+thing we would see is that we were not properly canceling the PHY state machine
+workqueue, so we would be crashing while dereferencing phydev->drv since there
+is no driver attached anymore.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Once we fix that, there are several things that did not quite work as expected:
+
+- if the PHY state machine was running, we were not stopping it properly, and
+  the state machine state would not be marked as such
+- when we rebind the driver, nothing would happen, since we would not know which
+  state we were before the unbind
+
+This patch takes the following approach:
+
+- if the PHY was attached, and the state machine was running we would stop it,
+  remember where we left, and schedule the state machine for restart upong
+  driver bind
+- if the PHY was attached, but HALTED, we would let it in that state, and do not
+  alter the state upon driver bind
+- in all other cases (detached) we would keep the PHY in DOWN state waiting for
+  a network driver to show up, and set PHY_READY on driver bind
+
+Suggested-by: Russell King <rmk+kernel@armlinux.org.uk>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |   3 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 105 ++++++----------------
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |  12 +--
- 3 files changed, 33 insertions(+), 87 deletions(-)
+ drivers/net/phy/phy_device.c | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 95ca03c..0255423 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -381,7 +381,6 @@ struct mlx5e_rq {
- 	u16                    rx_headroom;
- 
- 	struct mlx5e_rx_am     am; /* Adaptive Moderation */
--	struct bpf_prog       *xdp_prog;
- 
- 	/* control */
- 	struct mlx5_wq_ctrl    wq_ctrl;
-@@ -695,7 +694,7 @@ struct mlx5e_priv {
- 	/* priv data path fields - start */
- 	struct mlx5e_sq            **txq_to_sq_map;
- 	int channeltc_to_txq_map[MLX5E_MAX_NUM_CHANNELS][MLX5E_MAX_NUM_TC];
--	struct bpf_prog *xdp_prog;
-+	bool			   xdp_enabled;
- 	/* priv data path fields - end */
- 
- 	unsigned long              state;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 3cce628..da91cf52 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -36,6 +36,7 @@
- #include <linux/mlx5/fs.h>
- #include <net/vxlan.h>
- #include <linux/bpf.h>
-+#include <net/xdp.h>
- #include "en.h"
- #include "en_tc.h"
- #include "eswitch.h"
-@@ -113,7 +114,7 @@ static void mlx5e_set_rq_type_params(struct mlx5e_priv *priv, u8 rq_type)
- static void mlx5e_set_rq_priv_params(struct mlx5e_priv *priv)
- {
- 	u8 rq_type = mlx5e_check_fragmented_striding_rq_cap(priv->mdev) &&
--		    !priv->xdp_prog ?
-+		    !priv->xdp_enabled ?
- 		    MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ :
- 		    MLX5_WQ_TYPE_LINKED_LIST;
- 	mlx5e_set_rq_type_params(priv, rq_type);
-@@ -568,14 +569,12 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
- 	rq->ix      = c->ix;
- 	rq->priv    = c->priv;
- 
--	rq->xdp_prog = priv->xdp_prog ? bpf_prog_inc(priv->xdp_prog) : NULL;
--	if (IS_ERR(rq->xdp_prog)) {
--		err = PTR_ERR(rq->xdp_prog);
--		rq->xdp_prog = NULL;
--		goto err_rq_wq_destroy;
--	}
--
--	if (rq->xdp_prog) {
-+	if (priv->xdp_enabled) {
-+		/* Note XDP is checked whether it is enabled for the device. If
-+		 * XDP programs are set per ring as opposed to setting program
-+		 * across the device this could be adjusted to account for
-+		 * that.
-+		 */
- 		rq->buff.map_dir = DMA_BIDIRECTIONAL;
- 		rq->rx_headroom = XDP_PACKET_HEADROOM;
- 	} else {
-@@ -662,8 +661,6 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
- 	mlx5_core_destroy_mkey(mdev, &rq->umr_mkey);
- 
- err_rq_wq_destroy:
--	if (rq->xdp_prog)
--		bpf_prog_put(rq->xdp_prog);
- 	mlx5_wq_destroy(&rq->wq_ctrl);
- 
- 	return err;
-@@ -673,9 +670,6 @@ static void mlx5e_destroy_rq(struct mlx5e_rq *rq)
- {
- 	int i;
- 
--	if (rq->xdp_prog)
--		bpf_prog_put(rq->xdp_prog);
--
- 	switch (rq->wq_type) {
- 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
- 		mlx5e_rq_free_mpwqe_info(rq);
-@@ -1547,7 +1541,7 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	c->netdev   = priv->netdev;
- 	c->mkey_be  = cpu_to_be32(priv->mdev->mlx5e_res.mkey.key);
- 	c->num_tc   = priv->params.num_tc;
--	c->xdp      = !!priv->xdp_prog;
-+	c->xdp      = priv->xdp_enabled;
- 
- 	if (priv->params.rx_am_enabled)
- 		rx_cq_profile = mlx5e_am_get_def_profile(priv->params.rx_cq_period_mode);
-@@ -3196,96 +3190,52 @@ static void mlx5e_tx_timeout(struct net_device *dev)
- 		schedule_work(&priv->tx_timeout_work);
- }
- 
--static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
-+static int mlx5e_xdp_init(struct net_device *netdev, bool enable)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
--	struct bpf_prog *old_prog;
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 40675b9706ae..6e46f6807bb7 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1723,6 +1723,7 @@ static int phy_probe(struct device *dev)
+ 	struct phy_device *phydev = to_phy_device(dev);
+ 	struct device_driver *drv = phydev->mdio.dev.driver;
+ 	struct phy_driver *phydrv = to_phy_driver(drv);
++	bool should_start = false;
  	int err = 0;
--	bool reset, was_opened;
--	int i;
-+	bool was_opened;
  
- 	mutex_lock(&priv->state_lock);
- 
--	if ((netdev->features & NETIF_F_LRO) && prog) {
-+	if (priv->xdp_enabled == enable)
-+		goto unlock;
-+
-+	if ((netdev->features & NETIF_F_LRO) && enable) {
- 		netdev_warn(netdev, "can't set XDP while LRO is on, disable LRO first\n");
- 		err = -EINVAL;
- 		goto unlock;
+ 	phydev->drv = phydrv;
+@@ -1772,24 +1773,46 @@ static int phy_probe(struct device *dev)
  	}
  
- 	was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
--	/* no need for full reset when exchanging programs */
--	reset = (!priv->xdp_prog || !prog);
+ 	/* Set the state to READY by default */
+-	phydev->state = PHY_READY;
++	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
++		should_start = true;
++	else
++		phydev->state = PHY_READY;
  
--	if (was_opened && reset)
-+	if (was_opened)
- 		mlx5e_close_locked(netdev);
--	if (was_opened && !reset) {
--		/* num_channels is invariant here, so we can take the
--		 * batched reference right upfront.
--		 */
--		prog = bpf_prog_add(prog, priv->params.num_channels);
--		if (IS_ERR(prog)) {
--			err = PTR_ERR(prog);
--			goto unlock;
--		}
--	}
+ 	if (phydev->drv->probe)
+ 		err = phydev->drv->probe(phydev);
  
--	/* exchange programs, extra prog reference we got from caller
--	 * as long as we don't fail from this point onwards.
--	 */
--	old_prog = xchg(&priv->xdp_prog, prog);
--	if (old_prog)
--		bpf_prog_put(old_prog);
--
--	if (reset) /* change RQ type according to priv->xdp_prog */
--		mlx5e_set_rq_priv_params(priv);
-+	mlx5e_set_rq_priv_params(priv);
+ 	mutex_unlock(&phydev->lock);
  
--	if (was_opened && reset)
-+	if (was_opened)
- 		mlx5e_open_locked(netdev);
- 
--	if (!test_bit(MLX5E_STATE_OPENED, &priv->state) || reset)
--		goto unlock;
--
--	/* exchanging programs w/o reset, we update ref counts on behalf
--	 * of the channels RQs here.
--	 */
--	for (i = 0; i < priv->params.num_channels; i++) {
--		struct mlx5e_channel *c = priv->channel[i];
--
--		clear_bit(MLX5E_RQ_STATE_ENABLED, &c->rq.state);
--		napi_synchronize(&c->napi);
--		/* prevent mlx5e_poll_rx_cq from accessing rq->xdp_prog */
--
--		old_prog = xchg(&c->rq.xdp_prog, prog);
--
--		set_bit(MLX5E_RQ_STATE_ENABLED, &c->rq.state);
--		/* napi_schedule in case we have missed anything */
--		set_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
--		napi_schedule(&c->napi);
--
--		if (old_prog)
--			bpf_prog_put(old_prog);
--	}
--
- unlock:
- 	mutex_unlock(&priv->state_lock);
++	if (should_start)
++		phy_start(phydev);
++
  	return err;
  }
  
--static bool mlx5e_xdp_attached(struct net_device *dev)
-+static int mlx5_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
+ static int phy_remove(struct device *dev)
  {
--	struct mlx5e_priv *priv = netdev_priv(dev);
--
--	return !!priv->xdp_prog;
-+	return 0;
- }
+ 	struct phy_device *phydev = to_phy_device(dev);
++	bool should_stop = false;
++	enum phy_state state;
++
++	cancel_delayed_work_sync(&phydev->state_queue);
  
- static int mlx5e_xdp(struct net_device *dev, struct netdev_xdp *xdp)
- {
- 	switch (xdp->command) {
--	case XDP_SETUP_PROG:
--		return mlx5e_xdp_set(dev, xdp->prog);
--	case XDP_QUERY_PROG:
--		xdp->prog_attached = mlx5e_xdp_attached(dev);
--		return 0;
-+	case XDP_MODE_ON:
-+		return mlx5e_xdp_init(dev, true);
-+	case XDP_MODE_OFF:
-+		return mlx5e_xdp_init(dev, false);
-+	case XDP_CHECK_BPF_PROG:
-+		return mlx5_xdp_check_bpf(dev, xdp->prog);
- 	default:
- 		return -EINVAL;
- 	}
-@@ -3706,9 +3656,6 @@ static void mlx5e_nic_init(struct mlx5_core_dev *mdev,
- static void mlx5e_nic_cleanup(struct mlx5e_priv *priv)
- {
- 	mlx5e_vxlan_cleanup(priv);
--
--	if (priv->xdp_prog)
--		bpf_prog_put(priv->xdp_prog);
- }
+ 	mutex_lock(&phydev->lock);
+-	phydev->state = PHY_DOWN;
++	state = phydev->state;
++	if (state > PHY_UP && state != PHY_HALTED)
++		should_stop = true;
++	else
++		phydev->state = PHY_DOWN;
+ 	mutex_unlock(&phydev->lock);
  
- static int mlx5e_init_nic_rx(struct mlx5e_priv *priv)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index b039b87..50ab4b9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -721,18 +721,18 @@ static inline int mlx5e_xdp_handle(struct mlx5e_rq *rq,
- 				   struct mlx5e_dma_info *di,
- 				   void *va, u16 *rx_headroom, u32 *len)
- {
--	const struct bpf_prog *prog = READ_ONCE(rq->xdp_prog);
- 	struct xdp_buff xdp;
-+	struct xdp_hook *last_hook;
- 	u32 act;
- 
--	if (!prog)
-+	if (!xdp_hook_run_needed_check(rq->netdev, rq->cq.napi))
- 		return false;
- 
- 	xdp.data = va + *rx_headroom;
- 	xdp.data_end = xdp.data + *len;
- 	xdp.data_hard_start = va;
- 
--	act = bpf_prog_run_xdp(prog, &xdp);
-+	act = xdp_hook_run_ret_last(rq->cq.napi, &xdp, &last_hook);
- 	switch (act) {
- 	case XDP_PASS:
- 		*rx_headroom = xdp.data - xdp.data_hard_start;
-@@ -740,12 +740,12 @@ static inline int mlx5e_xdp_handle(struct mlx5e_rq *rq,
- 		return false;
- 	case XDP_TX:
- 		if (unlikely(!mlx5e_xmit_xdp_frame(rq, di, &xdp)))
--			trace_xdp_exception(rq->netdev, prog, act);
-+			trace_xdp_hook_exception(rq->netdev, last_hook, act);
- 		return true;
- 	default:
--		bpf_warn_invalid_xdp_action(act);
-+		xdp_warn_invalid_action(act);
- 	case XDP_ABORTED:
--		trace_xdp_exception(rq->netdev, prog, act);
-+		trace_xdp_hook_exception(rq->netdev, last_hook, act);
- 	case XDP_DROP:
- 		rq->stats.xdp_drop++;
- 		mlx5e_page_release(rq, di, true);
++	/* phy_stop() sets the state to HALTED, undo that for the ->probe() function
++	 * to have a chance to resume where we left
++	 */
++	if (should_stop) {
++		phy_stop(phydev);
++		phydev->state = state;
++	}
++
+ 	if (phydev->drv && phydev->drv->remove)
+ 		phydev->drv->remove(phydev);
+ 	phydev->drv = NULL;
 -- 
 2.9.3
