@@ -1,144 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
-Date: Thu, 9 Feb 2017 10:22:52 -0800
-Message-ID: <c6ab6498-8094-b23e-0b93-c3bf1c866992@gmail.com>
-References: <20170209150834.1158193-1-arnd@arndb.de>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 5/6] sched: add missing curly braces in else
+ branch in tc_ctl_tfilter
+Date: Thu, 9 Feb 2017 13:27:10 -0500
+Message-ID: <0158ade7-fdf9-8aaf-4573-deb844a0cb92@mojatatu.com>
+References: <1486647540-14656-1-git-send-email-jiri@resnulli.us>
+ <1486647540-14656-6-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- netdev@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
- linux-kernel@vger.kernel.org,
- Gregory Clement <gregory.clement@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>, "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170209150834.1158193-1-arnd@arndb.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36383 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751074AbdBIS1M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 13:27:12 -0500
+Received: by mail-io0-f193.google.com with SMTP id q20so2911363ioi.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 10:27:12 -0800 (PST)
+In-Reply-To: <1486647540-14656-6-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/09/2017 07:08 AM, Arnd Bergmann wrote:
-> The newly introduced mdiobus_register_board_info() function is only available
-> as part of PHYLIB, so we get a link error when we call that from a board while
-> phylib is disabled:
-> 
-> arch/arm/plat-orion/common.o: In function `orion_ge00_switch_init':
-> common.c:(.init.text+0x6a4): undefined reference to `mdiobus_register_board_info'
-
-There is an empty stub provided in include/linux/phy.h when
-CONFIG_PHYLIB is disabled, I am not clear why this did not work here?
-
-I disabled CONFIG_NETDEVICES to force CONFIG_PHY not to be set here, and
-I was not able to reproduce this, what am I missing?
-
-> 
-> This adds a workaround that is made up of three parts:
-> 
-> - in plat-orion, the function for declaring the switch is hidden without
->   PHYLIB.
-> - in mach-orion5x, the caller conditionally stubs out the call to
->   the removed function, so we can still build other orion5x boards
->   without PHYLIB
-> - For the boards that actually declare the switch, we select PHYLIB
->   explicitly from Kconfig if NETDEVICES is set. Without NETDEVICES,
->   we cannot enable PHYLIB, but we also wouldn't need it.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+On 17-02-09 08:38 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> Curly braces need to be there, for stylistic reasons.
+>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 > ---
->  arch/arm/mach-orion5x/Kconfig  | 5 +++++
->  arch/arm/mach-orion5x/common.c | 4 ++--
->  arch/arm/plat-orion/common.c   | 2 ++
->  3 files changed, 9 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/arm/mach-orion5x/Kconfig b/arch/arm/mach-orion5x/Kconfig
-> index 468b8cb7fd5f..b98a0057ef66 100644
-> --- a/arch/arm/mach-orion5x/Kconfig
-> +++ b/arch/arm/mach-orion5x/Kconfig
-> @@ -107,6 +107,7 @@ config MACH_TS409
->  
->  config MACH_WRT350N_V2
->  	bool "Linksys WRT350N v2"
-> +	select PHYLIB if NETDEVICES
->  	help
->  	  Say 'Y' here if you want your kernel to support the
->  	  Linksys WRT350N v2 platform.
-> @@ -146,24 +147,28 @@ config MACH_MSS2_DT
->  
->  config MACH_WNR854T
->  	bool "Netgear WNR854T"
-> +	select PHYLIB if NETDEVICES
->  	help
->  	  Say 'Y' here if you want your kernel to support the
->  	  Netgear WNR854T platform.
->  
->  config MACH_RD88F5181L_GE
->  	bool "Marvell Orion-VoIP GE Reference Design"
-> +	select PHYLIB if NETDEVICES
->  	help
->  	  Say 'Y' here if you want your kernel to support the
->  	  Marvell Orion-VoIP GE (88F5181L) RD.
->  
->  config MACH_RD88F5181L_FXO
->  	bool "Marvell Orion-VoIP FXO Reference Design"
-> +	select PHYLIB if NETDEVICES
->  	help
->  	  Say 'Y' here if you want your kernel to support the
->  	  Marvell Orion-VoIP FXO (88F5181L) RD.
->  
->  config MACH_RD88F6183AP_GE
->  	bool "Marvell Orion-1-90 AP GE Reference Design"
-> +	select PHYLIB if NETDEVICES
->  	help
->  	  Say 'Y' here if you want your kernel to support the
->  	  Marvell Orion-1-90 (88F6183) AP GE RD.
-> diff --git a/arch/arm/mach-orion5x/common.c b/arch/arm/mach-orion5x/common.c
-> index 83a7ec4c16d0..e712c5adaf87 100644
-> --- a/arch/arm/mach-orion5x/common.c
-> +++ b/arch/arm/mach-orion5x/common.c
-> @@ -107,10 +107,10 @@ void __init orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data)
->   ****************************************************************************/
->  void __init orion5x_eth_switch_init(struct dsa_chip_data *d)
->  {
-> -	orion_ge00_switch_init(d);
-> +	if (IS_BUILTIN(CONFIG_PHYLIB))
-> +		orion_ge00_switch_init(d);
->  }
->  
-> -
->  /*****************************************************************************
->   * I2C
->   ****************************************************************************/
-> diff --git a/arch/arm/plat-orion/common.c b/arch/arm/plat-orion/common.c
-> index 9255b6d67ba5..ab5af56f9b9d 100644
-> --- a/arch/arm/plat-orion/common.c
-> +++ b/arch/arm/plat-orion/common.c
-> @@ -471,6 +471,7 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
->  /*****************************************************************************
->   * Ethernet switch
->   ****************************************************************************/
-> +#if IS_BUILTIN(CONFIG_PHYLIB)
->  static __initconst const char *orion_ge00_mvmdio_bus_name = "orion-mii";
->  static __initdata struct mdio_board_info
->  		  orion_ge00_switch_board_info;
-> @@ -493,6 +494,7 @@ void __init orion_ge00_switch_init(struct dsa_chip_data *d)
->  
->  	mdiobus_register_board_info(&orion_ge00_switch_board_info, 1);
->  }
-> +#endif
->  
->  /*****************************************************************************
->   * I2C
-> 
+>  net/sched/cls_api.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+> index f44378c..48864ad 100644
+> --- a/net/sched/cls_api.c
+> +++ b/net/sched/cls_api.c
+> @@ -315,8 +315,9 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+>  					err = -EINVAL;
+>  					goto errout;
+>  				}
+> -			} else
+> +			} else {
+>  				tp = NULL;
+> +			}
+>  			break;
+>  		}
+>  	}
+>
 
+Jiri, shall we engage in a long discussion about which rule says that
+you can put braces around one line branching? ;->
 
--- 
-Florian
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+cheers,
+jamal
