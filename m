@@ -1,86 +1,45 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: net: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected in
- skb_array_produce
-Date: Thu, 9 Feb 2017 05:02:31 -0500 (EST)
-Message-ID: <50038580.20299907.1486634551103.JavaMail.zimbra@redhat.com>
-References: <CACT4Y+bs15VR7xjeYhece+0_X5Ss+5FM0w6jpJH0Dbbdu-+qCQ@mail.gmail.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: Mellanox ConnectX-3 VF driver can't work with 16 CPUs?
+Date: Thu, 9 Feb 2017 10:03:20 +0000
+Message-ID: <MWHPR03MB2669F7138EE9DE92A372C863BF450@MWHPR03MB2669.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Eric Dumazet <edumazet@google.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+bs15VR7xjeYhece+0_X5Ss+5FM0w6jpJH0Dbbdu-+qCQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Yishai Hadas <yishaih@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0119.outbound.protection.outlook.com ([104.47.36.119]:19264
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752153AbdBIKDf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Feb 2017 05:03:35 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,=20
+While trying SR-IOV with a Linux guest running on Hyper-V, I found this iss=
+ue:
+the VF driver can't work if the guest has 16 virtual CPUs (less vCPUs, e.g.=
+ 8,  can work fine):
 
+[    9.927820] mlx4_core: Mellanox ConnectX core driver v2.2-1 (Feb, 2014)
+[    9.927882] mlx4_core: Initializing b961:00:02.0
+[    9.970994] mlx4_core b961:00:02.0: Detected virtual function - running =
+in slave mode
+[    9.976783] mlx4_core b961:00:02.0: Sending reset
+[    9.985858] mlx4_core b961:00:02.0: Sending vhcr0
+[   10.004855] mlx4_core b961:00:02.0: HCA minimum page size:512
+[   10.010465] mlx4_core b961:00:02.0: Timestamping is not supported in sla=
+ve mode
+[   10.203065] mlx4_core b961:00:02.0: Failed to initialize event queue tab=
+le, aborting
+[   10.226728] mlx4_core: probe of b961:00:02.0 failed with error -12
 
------ Original Message -----
-> Hello,
-> 
-> I've got the following report while running syzkaller fuzzer on mmotm
-> (git://git.kernel.org/pub/scm/linux/kernel/git/mhocko/mm.git)
-> remotes/mmotm/auto-latest ee4ba7533626ba7bf2f8b992266467ac9fdc045e:
-> 
+I'm using the mainline kernel (4.10.0-rc4).
 
-[...]
+Any idea?
 
-> 
-> other info that might help us debug this:
-> 
->  Possible interrupt unsafe locking scenario:
-> 
->        CPU0                    CPU1
->        ----                    ----
->   lock(&(&r->consumer_lock)->rlock);
->                                local_irq_disable();
->                                lock(&(&r->producer_lock)->rlock);
->                                lock(&(&r->consumer_lock)->rlock);
->   <Interrupt>
->     lock(&(&r->producer_lock)->rlock);
-> 
-
-Thanks a lot for the testing.
-
-Looks like we could address this by using skb_array_consume_bh() instead.
-
-Could you pls verify if the following patch works?
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8a7d6b9..a97c00d 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -520,7 +520,7 @@ static void tun_queue_purge(struct tun_file *tfile)
- {
-        struct sk_buff *skb;
- 
--       while ((skb = skb_array_consume(&tfile->tx_array)) != NULL)
-+       while ((skb = skb_array_consume_bh(&tfile->tx_array)) != NULL)
-                kfree_skb(skb);
- 
-        skb_queue_purge(&tfile->sk.sk_write_queue);
-@@ -1458,7 +1458,7 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
-        struct sk_buff *skb = NULL;
-        int error = 0;
- 
--       skb = skb_array_consume(&tfile->tx_array);
-+       skb = skb_array_consume_bh(&tfile->tx_array);
-        if (skb)
-                goto out;
-        if (noblock) {
-@@ -1470,7 +1470,7 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
-        current->state = TASK_INTERRUPTIBLE;
- 
-        while (1) {
--               skb = skb_array_consume(&tfile->tx_array);
-+               skb = skb_array_consume_bh(&tfile->tx_array);
-                if (skb)
-                        break;
-                if (signal_pending(current)) {
+Thanks,
+-- Dexuan
