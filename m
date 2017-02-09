@@ -1,55 +1,123 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 01/14] mlx4: use __skb_fill_page_desc()
-Date: Thu,  9 Feb 2017 05:58:25 -0800
-Message-ID: <20170209135838.16487-2-edumazet@google.com>
-References: <20170209135838.16487-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211-next 2017-02-09
+Date: Thu,  9 Feb 2017 15:27:33 +0100
+Message-ID: <20170209142734.21891-1-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35388 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753096AbdBIO1e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:27:34 -0500
-Received: by mail-pf0-f174.google.com with SMTP id f144so1093651pfa.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:27:34 -0800 (PST)
-In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:60250 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753080AbdBIO1n (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Feb 2017 09:27:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or we might miss the fact that a page was allocated from memory reserves.
+Hi Dave,
 
-Fixes: dceeab0e5258 ("mlx4: support __GFP_MEMALLOC for rx")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Here are some more (final) updates for -next. Nothing here is
+really interesting, mostly cleanups and small fixes.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index d85e6446f9d99e38c75b97d7fba29bd057e0..867292880c07a15124a0cf099d1fcda09926 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -604,10 +604,10 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 		dma_sync_single_for_cpu(priv->ddev, dma, frag_info->frag_size,
- 					DMA_FROM_DEVICE);
- 
--		/* Save page reference in skb */
--		__skb_frag_set_page(&skb_frags_rx[nr], frags[nr].page);
--		skb_frag_size_set(&skb_frags_rx[nr], frag_info->frag_size);
--		skb_frags_rx[nr].page_offset = frags[nr].page_offset;
-+		__skb_fill_page_desc(skb, nr, frags[nr].page,
-+				     frags[nr].page_offset,
-+				     frag_info->frag_size);
-+
- 		skb->truesize += frag_info->frag_stride;
- 		frags[nr].page = NULL;
- 	}
--- 
-2.11.0.483.g087da7b7c-goog
+Please pull and let me know if there's any problem.
+
+Thanks,
+johannes
+
+
+
+The following changes since commit d140199af510ad4749dc5e38b7922135258ba5fd:
+
+  bpf, lpm: fix kfree of im_node in trie_update_elem (2017-01-23 21:17:35 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2017-02-09
+
+for you to fetch changes up to f181d6a3bcc35633facf5f3925699021c13492c5:
+
+  mac80211: fix CSA in IBSS mode (2017-02-09 15:18:24 +0100)
+
+----------------------------------------------------------------
+Some more updates:
+ * use shash in mac80211 crypto code where applicable
+ * some documentation fixes
+ * pass RSSI levels up in change notifications
+ * remove unused rfkill-regulator
+ * various other cleanups
+
+----------------------------------------------------------------
+Amadeusz Sławiński (1):
+      mac80211: use helper function to access ieee802_1d_to_ac[]
+
+Andrzej Zaborowski (2):
+      mac80211: Pass new RSSI level in CQM RSSI notification
+      cfg80211: Pass new RSSI level in CQM RSSI notification
+
+Ard Biesheuvel (2):
+      mac80211: fils_aead: Use crypto api CMAC shash rather than bare cipher
+      mac80211: aes-cmac: switch to shash CMAC driver
+
+Arend Van Spriel (1):
+      nl80211: fix validation of scheduled scan info for wowlan netdetect
+
+Dan Carpenter (1):
+      mac80211: check for allocation failure in debugfs code
+
+Johannes Berg (7):
+      cfg80211: fix a documentation warning
+      mac80211: fix documentation warnings
+      rfkill: remove rfkill-regulator
+      wireless: radiotap: rewrite the radiotap header file
+      wireless: define cipher/AKM suites using a macro
+      mac80211: add back lost debugfs files
+      nl80211: add HT/VHT capabilities to AP parameters
+
+Koen Vandeputte (1):
+      mac80211: fix CSA in IBSS mode
+
+Luca Coelho (2):
+      cfg80211: make rdev assignment clearer in nl80211_testmode_dump()
+      cfg80211: fix NAN bands definition
+
+Pichugin Dmitry (1):
+      cfg80211 debugfs: Cleanup some checkpatch issues
+
+ drivers/net/wireless/intel/iwlwifi/mvm/rx.c      |   2 +
+ drivers/net/wireless/marvell/mwifiex/sta_event.c |   4 +-
+ drivers/net/wireless/rndis_wlan.c                |   2 +-
+ drivers/net/wireless/rsi/rsi_91x_mac80211.c      |   2 +-
+ drivers/net/wireless/st/cw1200/sta.c             |   2 +-
+ drivers/net/wireless/ti/wl1251/event.c           |   4 +-
+ drivers/net/wireless/ti/wlcore/event.c           |   3 +-
+ include/linux/ieee80211.h                        |  49 +--
+ include/linux/rfkill-regulator.h                 |  48 ---
+ include/net/cfg80211.h                           |  92 +++--
+ include/net/ieee80211_radiotap.h                 | 455 ++++++++---------------
+ include/net/mac80211.h                           |  76 ++--
+ include/uapi/linux/nl80211.h                     |  60 ++-
+ net/mac80211/Kconfig                             |   1 +
+ net/mac80211/aes_cmac.c                          | 126 ++-----
+ net/mac80211/aes_cmac.h                          |  15 +-
+ net/mac80211/cfg.c                               |   4 +-
+ net/mac80211/debugfs.c                           |  12 +-
+ net/mac80211/debugfs_sta.c                       |   1 +
+ net/mac80211/fils_aead.c                         |  74 ++--
+ net/mac80211/ibss.c                              |   4 +-
+ net/mac80211/key.h                               |   2 +-
+ net/mac80211/mlme.c                              |   9 +-
+ net/mac80211/rx.c                                |   2 +-
+ net/mac80211/status.c                            |   2 +-
+ net/mac80211/trace.h                             |  27 +-
+ net/mac80211/tx.c                                |   4 +-
+ net/rfkill/Kconfig                               |  11 -
+ net/rfkill/Makefile                              |   1 -
+ net/rfkill/rfkill-regulator.c                    | 154 --------
+ net/wireless/core.c                              |   3 +-
+ net/wireless/debugfs.c                           |  10 +-
+ net/wireless/nl80211.c                           | 114 ++++--
+ net/wireless/trace.h                             |  27 +-
+ 34 files changed, 559 insertions(+), 843 deletions(-)
+ delete mode 100644 include/linux/rfkill-regulator.h
+ delete mode 100644 net/rfkill/rfkill-regulator.c
