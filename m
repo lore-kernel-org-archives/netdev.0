@@ -1,85 +1,53 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH v4 net-next 03/10] openvswitch: Do not trigger events for unconfirmed connections.
-Date: Thu,  9 Feb 2017 11:21:54 -0800
-Message-ID: <1486668121-45709-4-git-send-email-jarno@ovn.org>
-References: <1486668121-45709-1-git-send-email-jarno@ovn.org>
+Subject: [PATCH v4 net-next 00/10] openvswitch: Conntrack integration improvements.
+Date: Thu,  9 Feb 2017 11:21:51 -0800
+Message-ID: <1486668121-45709-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org, davem@davemloft.net, joe@ovn.org, pshelar@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:40915 "EHLO
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:33252 "EHLO
         relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754090AbdBITWW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:22 -0500
-In-Reply-To: <1486668121-45709-1-git-send-email-jarno@ovn.org>
+        with ESMTP id S1754105AbdBITW2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Receiving change events before the 'new' event for the connection has
-been received can be confusing.  Avoid triggering change events for
-setting conntrack mark or labels before the conntrack entry has been
-confirmed.
+This series improves the conntrack integration code in the openvswitch
+module by fixing outdated comments (patch 1), bugs (patches 2, 3, and
+7), clarifying code (patches 4, 5, and 6), improving performance
+(patch 10), and adding new features enabling better translation from
+firewall admission policy to network configuration requested by user
+communities (patches 8 and 9).
 
-Fixes: 182e3042e15d ("openvswitch: Allow matching on conntrack mark")
-Fixes: c2ac66735870 ("openvswitch: Allow matching on conntrack label")
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
----
- net/openvswitch/conntrack.c | 28 ++++++++++++++++++++++------
- 1 file changed, 22 insertions(+), 6 deletions(-)
+Please note that v3 of the series was Acked by Pravin, but I posted a
+v4 addressing the remaining english language and coding style issues
+posted by Joe on v2.
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 4df9a54..a6ff374 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -245,7 +245,8 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
- 	new_mark = ct_mark | (ct->mark & ~(mask));
- 	if (ct->mark != new_mark) {
- 		ct->mark = new_mark;
--		nf_conntrack_event_cache(IPCT_MARK, ct);
-+		if (nf_ct_is_confirmed(ct))
-+			nf_conntrack_event_cache(IPCT_MARK, ct);
- 		key->ct.mark = new_mark;
- 	}
- 
-@@ -262,7 +263,6 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_labels *cl;
- 	struct nf_conn *ct;
--	int err;
- 
- 	/* The connection could be invalid, in which case set_label is no-op.*/
- 	ct = nf_ct_get(skb, &ctinfo);
-@@ -277,10 +277,26 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
- 	if (!cl || sizeof(cl->bits) < OVS_CT_LABELS_LEN)
- 		return -ENOSPC;
- 
--	err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
--				    OVS_CT_LABELS_LEN / sizeof(u32));
--	if (err)
--		return err;
-+	if (nf_ct_is_confirmed(ct)) {
-+		/* Triggers a change event, which makes sense only for
-+		 * confirmed connections.
-+		 */
-+		int err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
-+						OVS_CT_LABELS_LEN / sizeof(u32));
-+		if (err)
-+			return err;
-+	} else {
-+		u32 *dst = (u32 *)cl->bits;
-+		const u32 *msk = (const u32 *)mask->ct_labels;
-+		const u32 *lbl = (const u32 *)labels->ct_labels;
-+		int i;
-+
-+		/* No-one else has access to the non-confirmed entry, copy
-+		 * labels over, keeping any bits we are not explicitly setting.
-+		 */
-+		for (i = 0; i < OVS_CT_LABELS_LEN / sizeof(u32); i++)
-+			dst[i] = (dst[i] & ~msk[i]) | (lbl[i] & msk[i]);
-+	}
- 
- 	ovs_ct_get_labels(ct, &key->ct.labels);
- 	return 0;
+v4: Address remaining language and coding style issues from Joe.
+v3: Rebase to the current net-next, add the comment only changing
+    patch 1 and reshuffle some of the patches as requested by Joe.
+
+Jarno Rajahalme (10):
+  openvswitch: Fix comments for skb->_nfct
+  openvswitch: Use inverted tuple in ovs_ct_find_existing() if NATted.
+  openvswitch: Do not trigger events for unconfirmed connections.
+  openvswitch: Unionize ovs_key_ct_label with a u32 array.
+  openvswitch: Simplify labels length logic.
+  openvswitch: Refactor labels initialization.
+  openvswitch: Inherit master's labels.
+  openvswitch: Add original direction conntrack tuple to sw_flow_key.
+  openvswitch: Add force commit.
+  openvswitch: Pack struct sw_flow_key.
+
+ include/uapi/linux/openvswitch.h |  33 ++++-
+ net/openvswitch/actions.c        |   2 +
+ net/openvswitch/conntrack.c      | 296 ++++++++++++++++++++++++++++++---------
+ net/openvswitch/conntrack.h      |  14 +-
+ net/openvswitch/flow.c           |  34 ++++-
+ net/openvswitch/flow.h           |  55 ++++++--
+ net/openvswitch/flow_netlink.c   |  92 +++++++++---
+ net/openvswitch/flow_netlink.h   |   7 +-
+ 8 files changed, 420 insertions(+), 113 deletions(-)
+
 -- 
 2.1.4
