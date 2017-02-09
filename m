@@ -1,10 +1,10 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv6 net-next 5/6] sctp: add support for generating stream
- reconf add incoming/outgoing streams request chunk
-Date: Thu, 9 Feb 2017 09:23:49 -0200
-Message-ID: <20170209112349.GL3414@localhost.localdomain>
+Subject: Re: [PATCHv6 net-next 4/6] sctp: implement sender-side procedures
+ for SSN/TSN Reset Request Parameter
+Date: Thu, 9 Feb 2017 09:23:30 -0200
+Message-ID: <20170209112330.GK3414@localhost.localdomain>
 References: <cover.1486573727.git.lucien.xin@gmail.com>
- <2664f74a3821c493b1b8beea4bc5c4077e994243.1486573728.git.lucien.xin@gmail.com>
+ <7095f88e0d93a7189df08fec56b3db89deb0397c.1486573728.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
@@ -12,114 +12,151 @@ Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
         Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56502 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56416 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752021AbdBILYM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751820AbdBILYM (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 9 Feb 2017 06:24:12 -0500
 Content-Disposition: inline
-In-Reply-To: <2664f74a3821c493b1b8beea4bc5c4077e994243.1486573728.git.lucien.xin@gmail.com>
+In-Reply-To: <7095f88e0d93a7189df08fec56b3db89deb0397c.1486573728.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 09, 2017 at 01:18:19AM +0800, Xin Long wrote:
-> This patch is to define Add Incoming/Outgoing Streams Request
-> Parameter described in rfc6525 section 4.5 and 4.6. They can
-> be in one same chunk trunk as rfc6525 section 3.1-7 describes,
-> so make them in one function.
+On Thu, Feb 09, 2017 at 01:18:18AM +0800, Xin Long wrote:
+> This patch is to implement Sender-Side Procedures for the SSN/TSN
+> Reset Request Parameter descibed in rfc6525 section 5.1.4.
+> 
+> It is also to add sockopt SCTP_RESET_ASSOC in rfc6525 section 6.3.3
+> for users.
 > 
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
 Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
 > ---
->  include/linux/sctp.h     |  7 +++++++
->  include/net/sctp/sm.h    |  3 +++
->  net/sctp/sm_make_chunk.c | 46 ++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 56 insertions(+)
+>  include/net/sctp/sctp.h   |  1 +
+>  include/uapi/linux/sctp.h |  1 +
+>  net/sctp/socket.c         | 29 +++++++++++++++++++++++++++++
+>  net/sctp/stream.c         | 40 ++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 71 insertions(+)
 > 
-> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-> index 71c0d41..b055788 100644
-> --- a/include/linux/sctp.h
-> +++ b/include/linux/sctp.h
-> @@ -742,4 +742,11 @@ struct sctp_strreset_tsnreq {
->  	__u32 request_seq;
->  };
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 480b65a..b60ca14 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -198,6 +198,7 @@ int sctp_offload_init(void);
+>   */
+>  int sctp_send_reset_streams(struct sctp_association *asoc,
+>  			    struct sctp_reset_streams *params);
+> +int sctp_send_reset_assoc(struct sctp_association *asoc);
 >  
-> +struct sctp_strreset_addstrm {
-> +	sctp_paramhdr_t param_hdr;
-> +	__u32 request_seq;
-> +	__u16 number_of_streams;
-> +	__u16 reserved;
-> +};
+>  /*
+>   * Module global variables
+> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+> index 03c27ce..c0bd8c3 100644
+> --- a/include/uapi/linux/sctp.h
+> +++ b/include/uapi/linux/sctp.h
+> @@ -117,6 +117,7 @@ typedef __s32 sctp_assoc_t;
+>  #define SCTP_PR_ASSOC_STATUS	115
+>  #define SCTP_ENABLE_STREAM_RESET	118
+>  #define SCTP_RESET_STREAMS	119
+> +#define SCTP_RESET_ASSOC	120
+>  
+>  /* PR-SCTP policies */
+>  #define SCTP_PR_SCTP_NONE	0x0000
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index a8b4252f..45a7c41 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -3818,6 +3818,32 @@ static int sctp_setsockopt_reset_streams(struct sock *sk,
+>  	return retval;
+>  }
+>  
+> +static int sctp_setsockopt_reset_assoc(struct sock *sk,
+> +				       char __user *optval,
+> +				       unsigned int optlen)
+> +{
+> +	struct sctp_association *asoc;
+> +	sctp_assoc_t associd;
+> +	int retval = -EINVAL;
 > +
->  #endif /* __LINUX_SCTP_H__ */
-> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-> index ac37c17..3675fde 100644
-> --- a/include/net/sctp/sm.h
-> +++ b/include/net/sctp/sm.h
-> @@ -267,6 +267,9 @@ struct sctp_chunk *sctp_make_strreset_req(
->  				bool out, bool in);
->  struct sctp_chunk *sctp_make_strreset_tsnreq(
->  				const struct sctp_association *asoc);
-> +struct sctp_chunk *sctp_make_strreset_addstrm(
-> +				const struct sctp_association *asoc,
-> +				__u16 out, __u16 in);
->  void sctp_chunk_assign_tsn(struct sctp_chunk *);
->  void sctp_chunk_assign_ssn(struct sctp_chunk *);
->  
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index 749842a..7f8dbf2 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -3687,3 +3687,49 @@ struct sctp_chunk *sctp_make_strreset_tsnreq(
->  
+> +	if (optlen != sizeof(associd))
+> +		goto out;
+> +
+> +	if (copy_from_user(&associd, optval, optlen)) {
+> +		retval = -EFAULT;
+> +		goto out;
+> +	}
+> +
+> +	asoc = sctp_id2assoc(sk, associd);
+> +	if (!asoc)
+> +		goto out;
+> +
+> +	retval = sctp_send_reset_assoc(asoc);
+> +
+> +out:
+> +	return retval;
+> +}
+> +
+>  /* API 6.2 setsockopt(), getsockopt()
+>   *
+>   * Applications use setsockopt() and getsockopt() to set or retrieve
+> @@ -3990,6 +4016,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
+>  	case SCTP_RESET_STREAMS:
+>  		retval = sctp_setsockopt_reset_streams(sk, optval, optlen);
+>  		break;
+> +	case SCTP_RESET_ASSOC:
+> +		retval = sctp_setsockopt_reset_assoc(sk, optval, optlen);
+> +		break;
+>  	default:
+>  		retval = -ENOPROTOOPT;
+>  		break;
+> diff --git a/net/sctp/stream.c b/net/sctp/stream.c
+> index 6a686e3..53e49fc 100644
+> --- a/net/sctp/stream.c
+> +++ b/net/sctp/stream.c
+> @@ -177,3 +177,43 @@ int sctp_send_reset_streams(struct sctp_association *asoc,
+>  out:
 >  	return retval;
 >  }
 > +
-> +/* RE-CONFIG 4.5/4.6 (ADD STREAM)
-> + *   0                   1                   2                   3
-> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |     Parameter Type = 17       |      Parameter Length = 12    |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |          Re-configuration Request Sequence Number             |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |      Number of new streams    |         Reserved              |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + */
-> +struct sctp_chunk *sctp_make_strreset_addstrm(
-> +				const struct sctp_association *asoc,
-> +				__u16 out, __u16 in)
+> +int sctp_send_reset_assoc(struct sctp_association *asoc)
 > +{
-> +	struct sctp_strreset_addstrm addstrm;
-> +	__u16 size = sizeof(addstrm);
-> +	struct sctp_chunk *retval;
+> +	struct sctp_chunk *chunk = NULL;
+> +	int retval;
+> +	__u16 i;
 > +
-> +	retval = sctp_make_reconf(asoc, (!!out + !!in) * size);
-> +	if (!retval)
-> +		return NULL;
+> +	if (!asoc->peer.reconf_capable ||
+> +	    !(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
+> +		return -ENOPROTOOPT;
 > +
-> +	if (out) {
-> +		addstrm.param_hdr.type = SCTP_PARAM_RESET_ADD_OUT_STREAMS;
-> +		addstrm.param_hdr.length = htons(size);
-> +		addstrm.number_of_streams = htons(out);
-> +		addstrm.request_seq = htonl(asoc->strreset_outseq);
-> +		addstrm.reserved = 0;
+> +	if (asoc->strreset_outstanding)
+> +		return -EINPROGRESS;
 > +
-> +		sctp_addto_chunk(retval, size, &addstrm);
+> +	chunk = sctp_make_strreset_tsnreq(asoc);
+> +	if (!chunk)
+> +		return -ENOMEM;
+> +
+> +	/* Block further xmit of data until this request is completed */
+> +	for (i = 0; i < asoc->stream->outcnt; i++)
+> +		asoc->stream->out[i].state = SCTP_STREAM_CLOSED;
+> +
+> +	asoc->strreset_chunk = chunk;
+> +	sctp_chunk_hold(asoc->strreset_chunk);
+> +
+> +	retval = sctp_send_reconf(asoc, chunk);
+> +	if (retval) {
+> +		sctp_chunk_put(asoc->strreset_chunk);
+> +		asoc->strreset_chunk = NULL;
+> +
+> +		for (i = 0; i < asoc->stream->outcnt; i++)
+> +			asoc->stream->out[i].state = SCTP_STREAM_OPEN;
+> +
+> +		return retval;
 > +	}
 > +
-> +	if (in) {
-> +		addstrm.param_hdr.type = SCTP_PARAM_RESET_ADD_IN_STREAMS;
-> +		addstrm.param_hdr.length = htons(size);
-> +		addstrm.number_of_streams = htons(in);
-> +		addstrm.request_seq = htonl(asoc->strreset_outseq + !!out);
-> +		addstrm.reserved = 0;
+> +	asoc->strreset_outstanding = 1;
 > +
-> +		sctp_addto_chunk(retval, size, &addstrm);
-> +	}
-> +
-> +	return retval;
+> +	return 0;
 > +}
 > -- 
 > 2.1.0
