@@ -1,56 +1,128 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
-Date: Thu, 9 Feb 2017 16:57:51 +0100
-Message-ID: <20170209155751.GB29882@lunn.ch>
-References: <20170209150834.1158193-1-arnd@arndb.de>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v3 net-next 1/2] net: dsa: mv88e6xxx: Add watchdog interrupt handler
+Date: Thu, 09 Feb 2017 10:52:15 -0500
+Message-ID: <878tpfuztc.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1486595023-28371-1-git-send-email-andrew@lunn.ch> <1486595023-28371-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
- Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
- Russell King <linux@armlinux.org.uk>, linux-kernel@vger.kernel.org,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S . Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20170209150834.1158193-1-arnd@arndb.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:37362 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753482AbdBIQC3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 11:02:29 -0500
+In-Reply-To: <1486595023-28371-2-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 09, 2017 at 04:08:11PM +0100, Arnd Bergmann wrote:
-> The newly introduced mdiobus_register_board_info() function is only available
-> as part of PHYLIB, so we get a link error when we call that from a board while
-> phylib is disabled:
-> 
-> arch/arm/plat-orion/common.o: In function `orion_ge00_switch_init':
-> common.c:(.init.text+0x6a4): undefined reference to `mdiobus_register_board_info'
-> 
-> This adds a workaround that is made up of three parts:
-> 
-> - in plat-orion, the function for declaring the switch is hidden without
->   PHYLIB.
-> - in mach-orion5x, the caller conditionally stubs out the call to
->   the removed function, so we can still build other orion5x boards
->   without PHYLIB
-> - For the boards that actually declare the switch, we select PHYLIB
->   explicitly from Kconfig if NETDEVICES is set. Without NETDEVICES,
->   we cannot enable PHYLIB, but we also wouldn't need it.
+Hi Andrew,
 
-Hi Arnd
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Although all correct, would it not be simpler to just select PHYLIB
-and NETDEVICES? These devices are all NAS boxes and WiFi access
-points. What sense does it make to build a kernel without working
-networking for these classes of devices?
+> +static int mv88e6097_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
+> +{
+> +	u16 reg;
+> +
+> +	mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
 
-	   Andrew
+We should not ignore read errors.
+
+> +
+> +	dev_info(chip->dev, "Watchdog event: 0x%04x", reg);
+> +
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static void mv88e6097_watchdog_free(struct mv88e6xxx_chip *chip)
+> +{
+> +	u16 reg;
+> +
+> +	mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
+> +
+> +	reg &= ~(GLOBAL2_WDOG_CONTROL_EGRESS_ENABLE |
+> +		 GLOBAL2_WDOG_CONTROL_QC_ENABLE);
+> +
+> +	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, reg);
+
+Same here.
+
+> +}
+> +
+> +static int mv88e6097_watchdog_setup(struct mv88e6xxx_chip *chip)
+> +{
+> +	return mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL,
+> +				  GLOBAL2_WDOG_CONTROL_EGRESS_ENABLE |
+> +				  GLOBAL2_WDOG_CONTROL_QC_ENABLE |
+> +				  GLOBAL2_WDOG_CONTROL_SWRESET);
+> +}
+
+Those above should be simple Global 2 routines to access the
+WDOG_CONTROL register data and functions.
+
+> +const struct mv88e6xxx_irq_ops mv88e6097_watchdog_ops = {
+> +	.irq_action = mv88e6097_watchdog_action,
+> +	.irq_setup = mv88e6097_watchdog_setup,
+> +	.irq_free = mv88e6097_watchdog_free,
+> +};
+> +
+> +static irqreturn_t mv88e6xxx_g2_watchdog_thread_fn(int irq, void *dev_id)
+> +{
+> +	struct mv88e6xxx_chip *chip = dev_id;
+> +	irqreturn_t ret = IRQ_NONE;
+> +
+> +	mutex_lock(&chip->reg_lock);
+> +	if (chip->info->ops->watchdog_ops->irq_action)
+> +		ret = chip->info->ops->watchdog_ops->irq_action(chip, irq);
+> +	mutex_unlock(&chip->reg_lock);
+> +
+> +	return ret;
+> +}
+> +
+> +static void mv88e6xxx_g2_watchdog_free(struct mv88e6xxx_chip *chip)
+> +{
+> +	mutex_lock(&chip->reg_lock);
+> +	if (chip->info->ops->watchdog_ops->irq_free)
+> +		chip->info->ops->watchdog_ops->irq_free(chip);
+> +	mutex_unlock(&chip->reg_lock);
+> +
+> +	free_irq(chip->watchdog_irq, chip);
+> +	irq_dispose_mapping(chip->watchdog_irq);
+> +}
+> +
+> +static int mv88e6xxx_g2_watchdog_setup(struct mv88e6xxx_chip *chip)
+> +{
+> +	int err;
+> +
+> +	chip->watchdog_irq = irq_find_mapping(chip->g2_irq.domain,
+> +					      GLOBAL2_INT_SOURCE_WATCHDOG);
+> +	if (chip->watchdog_irq < 0)
+> +		return chip->watchdog_irq;
+> +
+> +	err = request_threaded_irq(chip->watchdog_irq, NULL,
+> +				   mv88e6xxx_g2_watchdog_thread_fn,
+> +				   IRQF_ONESHOT | IRQF_TRIGGER_FALLING,
+> +				   "mv88e6xxx-watchdog", chip);
+> +	if (err)
+> +		return err;
+> +
+> +	mutex_lock(&chip->reg_lock);
+> +	if (chip->info->ops->watchdog_ops->irq_setup)
+> +		err = chip->info->ops->watchdog_ops->irq_setup(chip);
+> +	mutex_unlock(&chip->reg_lock);
+> +
+> +	return err;
+> +}
+
+We should not mix routines to access the chip registers with driver
+logic. That makes the code hard to read and maintain and lead us to drop
+error checkings for instance.
+
+The above boilerplate for watchdog/irq access can be added in chip.c
+wrapping simple chip->info->ops->watchdog_* functions.
+
+See my comments in 2/2.
+
+Thanks,
+
+        Vivien
