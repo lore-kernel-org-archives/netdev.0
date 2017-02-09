@@ -1,67 +1,61 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: micrel: ks8851: use new api ethtool_{get|set}_link_ksettings
-Date: Thu,  9 Feb 2017 09:57:47 +0100
-Message-ID: <1486630667-31935-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, jarod@redhat.com, stephen.boyd@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH net 1/1] net: sock: Use double send/recv buff value to
+ compare with max value
+Date: Thu, 9 Feb 2017 17:08:57 +0800
+Message-ID: <CA+6hz4q+S5_LyVMp9OSD24U=REymv+ciur9ZaT9wH0mhSvo_cw@mail.gmail.com>
+References: <1486559235-13633-1-git-send-email-fgao@ikuai8.com> <1486569601.7793.83.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpbgbr2.qq.com ([54.207.22.56]:53817 "EHLO smtpbgbr2.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751893AbdBIJKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Feb 2017 04:10:38 -0500
+Received: from mail-ua0-f177.google.com (unknown [209.85.217.177])
+        by esmtp4.qq.com (ESMTP) with SMTP id 0
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 17:08:58 +0800 (CST)
+Received: by mail-ua0-f177.google.com with SMTP id y9so130105664uae.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 01:08:59 -0800 (PST)
+In-Reply-To: <1486569601.7793.83.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Thu, Feb 9, 2017 at 12:00 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2017-02-08 at 21:07 +0800, fgao@ikuai8.com wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> Because the value of SO_SNDBUF and SO_RCVBUF is doubled before
+>> assignment, so the real value of send and recv buffer could be more
+>> than the max sysctl config sysctl_wmem_max and sysctl_rmem_max.
+>>
+>> Now use doulbe send/recv buffer value to compare with sysctl_wmem_max
+>> and sysctl_rmem_max, and it keeps consistence with SOCK_MIN_SNDBUF
+>> and SOCK_MIN_RCVBUF.
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>
+> Looks completely bogus, based on your comprehension of this code.
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+It is a config param, user could config any value.
+So why give it one bogus?
+If need more, user could config it by himself.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/micrel/ks8851.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+>
+> If you need to, fix the doc, not this code.
 
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index 955d69a..279ee46 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -1086,16 +1086,18 @@ static void ks8851_set_msglevel(struct net_device *dev, u32 to)
- 	ks->msg_enable = to;
- }
- 
--static int ks8851_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int ks8851_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	struct ks8851_net *ks = netdev_priv(dev);
--	return mii_ethtool_gset(&ks->mii, cmd);
-+	return mii_ethtool_get_link_ksettings(&ks->mii, cmd);
- }
- 
--static int ks8851_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int ks8851_set_link_ksettings(struct net_device *dev,
-+				     const struct ethtool_link_ksettings *cmd)
- {
- 	struct ks8851_net *ks = netdev_priv(dev);
--	return mii_ethtool_sset(&ks->mii, cmd);
-+	return mii_ethtool_set_link_ksettings(&ks->mii, cmd);
- }
- 
- static u32 ks8851_get_link(struct net_device *dev)
-@@ -1251,13 +1253,13 @@ static int ks8851_get_eeprom_len(struct net_device *dev)
- 	.get_drvinfo	= ks8851_get_drvinfo,
- 	.get_msglevel	= ks8851_get_msglevel,
- 	.set_msglevel	= ks8851_set_msglevel,
--	.get_settings	= ks8851_get_settings,
--	.set_settings	= ks8851_set_settings,
- 	.get_link	= ks8851_get_link,
- 	.nway_reset	= ks8851_nway_reset,
- 	.get_eeprom_len	= ks8851_get_eeprom_len,
- 	.get_eeprom	= ks8851_get_eeprom,
- 	.set_eeprom	= ks8851_set_eeprom,
-+	.get_link_ksettings = ks8851_get_link_ksettings,
-+	.set_link_ksettings = ks8851_set_link_ksettings,
- };
- 
- /* MII interface controls */
--- 
-1.7.4.4
+The current codes mean the buffer could exceed the sysctl max value.
+It seems inconsistent.
+
+Regards
+Feng
+
+>
+> Unless you give more details of course, why we should take your patch.
+>
+>
+>
+>
