@@ -1,190 +1,85 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH v4 net-next 06/10] openvswitch: Refactor labels initialization.
-Date: Thu,  9 Feb 2017 11:21:57 -0800
-Message-ID: <1486668121-45709-7-git-send-email-jarno@ovn.org>
+Subject: [PATCH v4 net-next 03/10] openvswitch: Do not trigger events for unconfirmed connections.
+Date: Thu,  9 Feb 2017 11:21:54 -0800
+Message-ID: <1486668121-45709-4-git-send-email-jarno@ovn.org>
 References: <1486668121-45709-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org, davem@davemloft.net, joe@ovn.org, pshelar@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:38061 "EHLO
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:40915 "EHLO
         relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754090AbdBITW1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:27 -0500
+        with ESMTP id S1754090AbdBITWW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:22 -0500
 In-Reply-To: <1486668121-45709-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refactoring conntrack labels initialization makes changes in later
-patches easier to review.
+Receiving change events before the 'new' event for the connection has
+been received can be confusing.  Avoid triggering change events for
+setting conntrack mark or labels before the conntrack entry has been
+confirmed.
 
+Fixes: 182e3042e15d ("openvswitch: Allow matching on conntrack mark")
+Fixes: c2ac66735870 ("openvswitch: Allow matching on conntrack label")
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Acked-by: Joe Stringer <joe@ovn.org>
 Acked-by: Pravin B Shelar <pshelar@ovn.org>
 ---
- net/openvswitch/conntrack.c | 104 ++++++++++++++++++++++++++------------------
- 1 file changed, 62 insertions(+), 42 deletions(-)
+ net/openvswitch/conntrack.c | 28 ++++++++++++++++++++++------
+ 1 file changed, 22 insertions(+), 6 deletions(-)
 
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index fe2a410..7c5bb98 100644
+index 4df9a54..a6ff374 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -227,19 +227,12 @@ int ovs_ct_put_key(const struct sw_flow_key *key, struct sk_buff *skb)
- 	return 0;
- }
- 
--static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
-+static int ovs_ct_set_mark(struct nf_conn *ct, struct sw_flow_key *key,
- 			   u32 ct_mark, u32 mask)
- {
- #if IS_ENABLED(CONFIG_NF_CONNTRACK_MARK)
--	enum ip_conntrack_info ctinfo;
--	struct nf_conn *ct;
- 	u32 new_mark;
- 
--	/* The connection could be invalid, in which case set_mark is no-op. */
--	ct = nf_ct_get(skb, &ctinfo);
--	if (!ct)
--		return 0;
--
+@@ -245,7 +245,8 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
  	new_mark = ct_mark | (ct->mark & ~(mask));
  	if (ct->mark != new_mark) {
  		ct->mark = new_mark;
-@@ -254,50 +247,66 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
- #endif
- }
- 
--static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
--			     const struct ovs_key_ct_labels *labels,
--			     const struct ovs_key_ct_labels *mask)
-+static struct nf_conn_labels *ovs_ct_get_conn_labels(struct nf_conn *ct)
- {
--	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_labels *cl;
--	struct nf_conn *ct;
--
--	/* The connection could be invalid, in which case set_label is no-op.*/
--	ct = nf_ct_get(skb, &ctinfo);
--	if (!ct)
--		return 0;
- 
- 	cl = nf_ct_labels_find(ct);
- 	if (!cl) {
- 		nf_ct_labels_ext_add(ct);
- 		cl = nf_ct_labels_find(ct);
+-		nf_conntrack_event_cache(IPCT_MARK, ct);
++		if (nf_ct_is_confirmed(ct))
++			nf_conntrack_event_cache(IPCT_MARK, ct);
+ 		key->ct.mark = new_mark;
  	}
-+
-+	return cl;
-+}
-+
-+/* Initialize labels for a new, yet to be committed conntrack entry.  Note that
-+ * since the new connection is not yet confirmed, and thus no-one else has
-+ * access to it's labels, we simply write them over.  Also, we refrain from
-+ * triggering events, as receiving change events before the create event would
-+ * be confusing.
-+ */
-+static int ovs_ct_init_labels(struct nf_conn *ct, struct sw_flow_key *key,
-+			      const struct ovs_key_ct_labels *labels,
-+			      const struct ovs_key_ct_labels *mask)
-+{
-+	struct nf_conn_labels *cl;
-+	u32 *dst;
-+	int i;
-+
-+	cl = ovs_ct_get_conn_labels(ct);
- 	if (!cl)
+ 
+@@ -262,7 +263,6 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn_labels *cl;
+ 	struct nf_conn *ct;
+-	int err;
+ 
+ 	/* The connection could be invalid, in which case set_label is no-op.*/
+ 	ct = nf_ct_get(skb, &ctinfo);
+@@ -277,10 +277,26 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
+ 	if (!cl || sizeof(cl->bits) < OVS_CT_LABELS_LEN)
  		return -ENOSPC;
  
--	if (nf_ct_is_confirmed(ct)) {
--		/* Triggers a change event, which makes sense only for
--		 * confirmed connections.
--		 */
--		int err = nf_connlabels_replace(ct, labels->ct_labels_32,
--						mask->ct_labels_32,
--						OVS_CT_LABELS_LEN_32);
--		if (err)
--			return err;
--	} else {
--		u32 *dst = (u32 *)cl->bits;
--		const u32 *msk = mask->ct_labels_32;
--		const u32 *lbl = labels->ct_labels_32;
--		int i;
-+	dst = (u32 *)cl->bits;
-+	for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
-+		dst[i] = (dst[i] & ~mask->ct_labels_32[i]) |
-+			(labels->ct_labels_32[i] & mask->ct_labels_32[i]);
+-	err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
+-				    OVS_CT_LABELS_LEN / sizeof(u32));
+-	if (err)
+-		return err;
++	if (nf_ct_is_confirmed(ct)) {
++		/* Triggers a change event, which makes sense only for
++		 * confirmed connections.
++		 */
++		int err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
++						OVS_CT_LABELS_LEN / sizeof(u32));
++		if (err)
++			return err;
++	} else {
++		u32 *dst = (u32 *)cl->bits;
++		const u32 *msk = (const u32 *)mask->ct_labels;
++		const u32 *lbl = (const u32 *)labels->ct_labels;
++		int i;
++
++		/* No-one else has access to the non-confirmed entry, copy
++		 * labels over, keeping any bits we are not explicitly setting.
++		 */
++		for (i = 0; i < OVS_CT_LABELS_LEN / sizeof(u32); i++)
++			dst[i] = (dst[i] & ~msk[i]) | (lbl[i] & msk[i]);
++	}
  
--		/* No-one else has access to the non-confirmed entry, copy
--		 * labels over, keeping any bits we are not explicitly setting.
--		 */
--		for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
--			dst[i] = (dst[i] & ~msk[i]) | (lbl[i] & msk[i]);
--	}
-+	memcpy(&key->ct.labels, cl->bits, OVS_CT_LABELS_LEN);
-+
-+	return 0;
-+}
-+
-+static int ovs_ct_set_labels(struct nf_conn *ct, struct sw_flow_key *key,
-+			     const struct ovs_key_ct_labels *labels,
-+			     const struct ovs_key_ct_labels *mask)
-+{
-+	struct nf_conn_labels *cl;
-+	int err;
-+
-+	cl = ovs_ct_get_conn_labels(ct);
-+	if (!cl)
-+		return -ENOSPC;
-+
-+	err = nf_connlabels_replace(ct, labels->ct_labels_32,
-+				    mask->ct_labels_32,
-+				    OVS_CT_LABELS_LEN_32);
-+	if (err)
-+		return err;
-+
-+	memcpy(&key->ct.labels, cl->bits, OVS_CT_LABELS_LEN);
- 
--	ovs_ct_get_labels(ct, &key->ct.labels);
+ 	ovs_ct_get_labels(ct, &key->ct.labels);
  	return 0;
- }
- 
-@@ -877,25 +886,36 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 			 const struct ovs_conntrack_info *info,
- 			 struct sk_buff *skb)
- {
-+	enum ip_conntrack_info ctinfo;
-+	struct nf_conn *ct;
- 	int err;
- 
- 	err = __ovs_ct_lookup(net, key, info, skb);
- 	if (err)
- 		return err;
- 
-+	/* The connection could be invalid, in which case this is a no-op.*/
-+	ct = nf_ct_get(skb, &ctinfo);
-+	if (!ct)
-+		return 0;
-+
- 	/* Apply changes before confirming the connection so that the initial
- 	 * conntrack NEW netlink event carries the values given in the CT
- 	 * action.
- 	 */
- 	if (info->mark.mask) {
--		err = ovs_ct_set_mark(skb, key, info->mark.value,
-+		err = ovs_ct_set_mark(ct, key, info->mark.value,
- 				      info->mark.mask);
- 		if (err)
- 			return err;
- 	}
- 	if (labels_nonzero(&info->labels.mask)) {
--		err = ovs_ct_set_labels(skb, key, &info->labels.value,
--					&info->labels.mask);
-+		if (!nf_ct_is_confirmed(ct))
-+			err = ovs_ct_init_labels(ct, key, &info->labels.value,
-+						 &info->labels.mask);
-+		else
-+			err = ovs_ct_set_labels(ct, key, &info->labels.value,
-+						&info->labels.mask);
- 		if (err)
- 			return err;
- 	}
 -- 
 2.1.4
