@@ -1,74 +1,44 @@
-From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V4 net-next 11/13] net/ena: change driver's default timeouts
-Date: Thu,  9 Feb 2017 15:21:37 +0200
-Message-ID: <1486646499-13682-12-git-send-email-netanel@annapurnalabs.com>
-References: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
-Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
-        zorik@annapurnalabs.com, alex@annapurnalabs.com,
-        saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
-        nafea@annapurnalabs.com, eric.dumazet@gmail.com,
-        evgenys@annapurnalabs.com
-To: linux-kernel@vger.kernel.org, davem@davemloft.net,
-        netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH iproute] tc: matchall: Print skip flags when dumping a filter
+Date: Thu,  9 Feb 2017 15:10:14 +0200
+Message-ID: <1486645814-16906-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:36848 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752580AbdBINbM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:31:12 -0500
-Received: by mail-wm0-f43.google.com with SMTP id c85so230739141wmi.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:30:48 -0800 (PST)
-In-Reply-To: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43166 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752498AbdBINh0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:37:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The timeouts were too agressive and sometimes cause false alarms.
+Print the skip flags when we dump a filter.
 
-Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Acked by: Yotam Gigi <yotamg@mellanox.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c    | 4 ++--
- drivers/net/ethernet/amazon/ena/ena_netdev.h | 6 +++---
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ tc/f_matchall.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 5518b1f..8029e7c 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -36,9 +36,9 @@
- /*****************************************************************************/
+diff --git a/tc/f_matchall.c b/tc/f_matchall.c
+index 04e524e..ac48630 100644
+--- a/tc/f_matchall.c
++++ b/tc/f_matchall.c
+@@ -130,6 +130,15 @@ static int matchall_print_opt(struct filter_util *qu, FILE *f,
+ 			sprint_tc_classid(rta_getattr_u32(tb[TCA_MATCHALL_CLASSID]), b1));
+ 	}
  
- /* Timeout in micro-sec */
--#define ADMIN_CMD_TIMEOUT_US (1000000)
-+#define ADMIN_CMD_TIMEOUT_US (3000000)
- 
--#define ENA_ASYNC_QUEUE_DEPTH 4
-+#define ENA_ASYNC_QUEUE_DEPTH 16
- #define ENA_ADMIN_QUEUE_DEPTH 32
- 
- #define MIN_ENA_VER (((ENA_COMMON_SPEC_VERSION_MAJOR) << \
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index f0ddc11..efe0ea1 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -100,7 +100,7 @@
- /* Number of queues to check for missing queues per timer service */
- #define ENA_MONITORED_TX_QUEUES	4
- /* Max timeout packets before device reset */
--#define MAX_NUM_OF_TIMEOUTED_PACKETS 32
-+#define MAX_NUM_OF_TIMEOUTED_PACKETS 128
- 
- #define ENA_TX_RING_IDX_NEXT(idx, ring_size) (((idx) + 1) & ((ring_size) - 1))
- 
-@@ -116,9 +116,9 @@
- #define ENA_IO_IRQ_IDX(q)		(ENA_IO_IRQ_FIRST_IDX + (q))
- 
- /* ENA device should send keep alive msg every 1 sec.
-- * We wait for 3 sec just to be on the safe side.
-+ * We wait for 6 sec just to be on the safe side.
-  */
--#define ENA_DEVICE_KALIVE_TIMEOUT	(3 * HZ)
-+#define ENA_DEVICE_KALIVE_TIMEOUT	(6 * HZ)
- 
- #define ENA_MMIO_DISABLE_REG_READ	BIT(0)
++	if (tb[TCA_MATCHALL_FLAGS]) {
++		__u32 flags = rta_getattr_u32(tb[TCA_MATCHALL_FLAGS]);
++
++		if (flags & TCA_CLS_FLAGS_SKIP_HW)
++			fprintf(f, "\n  skip_hw");
++		if (flags & TCA_CLS_FLAGS_SKIP_SW)
++			fprintf(f, "\n  skip_sw");
++	}
++
+ 	if (tb[TCA_MATCHALL_ACT])
+ 		tc_print_action(f, tb[TCA_MATCHALL_ACT]);
  
 -- 
-2.7.4
+2.3.7
