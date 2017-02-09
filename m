@@ -1,55 +1,67 @@
-From: "pupilla@libero.it" <pupilla@libero.it>
-Subject: R: Re: [PATCH net] lwtunnel: valid encap attr check should return 0
- when lwtunnel is disabled
-Date: Thu, 9 Feb 2017 09:48:58 +0100 (CET)
-Message-ID: <533381532.379531486630138912.JavaMail.httpd@webmail-35.iol.local>
-Reply-To: "pupilla@libero.it" <pupilla@libero.it>
-Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-17.italiaonline.it ([212.48.25.145]:39926 "EHLO libero.it"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751777AbdBIItY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Feb 2017 03:49:24 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: micrel: ks8851: use new api ethtool_{get|set}_link_ksettings
+Date: Thu,  9 Feb 2017 09:57:47 +0100
+Message-ID: <1486630667-31935-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, jarod@redhat.com, stephen.boyd@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
->Data: 8-feb-2017 18.55
->A: <dsa@cumulusnetworks.com>
->Cc: <netdev@vger.kernel.org>, <pupilla@libero.it>
->Ogg: Re: [PATCH net] lwtunnel: valid encap attr check should return 0 when 
-lwtunnel is disabled
->
->From: David Ahern <dsa@cumulusnetworks.com>
->Date: Wed,  8 Feb 2017 09:29:00 -0800
->
->> An error was reported upgrading to 4.9.8:
->>     root@Typhoon:~# ip route add default table 210 nexthop dev eth0 via 
-10.68.64.1
->>     weight 1 nexthop dev eth0 via 10.68.64.2 weight 1
->>     RTNETLINK answers: Operation not supported
->> 
->> The problem occurs when CONFIG_LWTUNNEL is not enabled and a multipath
->> route is submitted.
->> 
->> The point of lwtunnel_valid_encap_type_attr is catch modules that
->> need to be loaded before any references are taken with rntl held. With
->> CONFIG_LWTUNNEL disabled, there will be no modules to load so the
->> lwtunnel_valid_encap_type_attr stub should just return 0.
->> 
->> Fixes: 9ed59592e3e3 ("lwtunnel: fix autoload of lwt modules")
->> Reported-by: pupilla@libero.it
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->
->Applied and queued up for -stable, thanks for fixing this so quickly David.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Thanks everybody. I have applied the patch to linux-4.9.8 and all is fine.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/micrel/ks8851.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-Thanks again.
-
-Marco
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 955d69a..279ee46 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1086,16 +1086,18 @@ static void ks8851_set_msglevel(struct net_device *dev, u32 to)
+ 	ks->msg_enable = to;
+ }
+ 
+-static int ks8851_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int ks8851_get_link_ksettings(struct net_device *dev,
++				     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ks8851_net *ks = netdev_priv(dev);
+-	return mii_ethtool_gset(&ks->mii, cmd);
++	return mii_ethtool_get_link_ksettings(&ks->mii, cmd);
+ }
+ 
+-static int ks8851_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int ks8851_set_link_ksettings(struct net_device *dev,
++				     const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ks8851_net *ks = netdev_priv(dev);
+-	return mii_ethtool_sset(&ks->mii, cmd);
++	return mii_ethtool_set_link_ksettings(&ks->mii, cmd);
+ }
+ 
+ static u32 ks8851_get_link(struct net_device *dev)
+@@ -1251,13 +1253,13 @@ static int ks8851_get_eeprom_len(struct net_device *dev)
+ 	.get_drvinfo	= ks8851_get_drvinfo,
+ 	.get_msglevel	= ks8851_get_msglevel,
+ 	.set_msglevel	= ks8851_set_msglevel,
+-	.get_settings	= ks8851_get_settings,
+-	.set_settings	= ks8851_set_settings,
+ 	.get_link	= ks8851_get_link,
+ 	.nway_reset	= ks8851_nway_reset,
+ 	.get_eeprom_len	= ks8851_get_eeprom_len,
+ 	.get_eeprom	= ks8851_get_eeprom,
+ 	.set_eeprom	= ks8851_set_eeprom,
++	.get_link_ksettings = ks8851_get_link_ksettings,
++	.set_link_ksettings = ks8851_set_link_ksettings,
+ };
+ 
+ /* MII interface controls */
+-- 
+1.7.4.4
