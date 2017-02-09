@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v5 08/11] bpf: Use bpf_map_get_next_key() from the library
-Date: Fri, 10 Feb 2017 00:21:42 +0100
-Message-ID: <20170209232145.19085-9-mic@digikod.net>
+Subject: [PATCH net-next v5 03/11] bpf: Always test unprivileged programs
+Date: Fri, 10 Feb 2017 00:21:37 +0100
+Message-ID: <20170209232145.19085-4-mic@digikod.net>
 References: <20170209232145.19085-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -19,187 +19,135 @@ In-Reply-To: <20170209232145.19085-1-mic@digikod.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace bpf_map_next_key() with bpf_map_get_next_key() calls.
+If selftests are run as root, then execute the unprivileged checks as
+well. This switch from 243 to 368 tests.
+
+The test numbers are suffixed with "/u" when executed as unprivileged or
+with "/p" when executed as privileged.
+
+The geteuid() check is replaced with a capability check.
+
+Handling capabilities requires the libcap dependency.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Shuah Khan <shuah@kernel.org>
 ---
- tools/lib/bpf/bpf.c                        |  2 +-
- tools/lib/bpf/bpf.h                        |  2 +-
- tools/testing/selftests/bpf/bpf_sys.h      | 11 ----------
- tools/testing/selftests/bpf/test_lru_map.c |  2 +-
- tools/testing/selftests/bpf/test_maps.c    | 34 +++++++++++++++---------------
- 5 files changed, 20 insertions(+), 31 deletions(-)
+ tools/testing/selftests/bpf/Makefile        |  2 +-
+ tools/testing/selftests/bpf/test_verifier.c | 68 ++++++++++++++++++++++++++---
+ 2 files changed, 64 insertions(+), 6 deletions(-)
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index eab8c6bfbf8f..f8a2b7fa7741 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -135,7 +135,7 @@ int bpf_map_delete_elem(int fd, const void *key)
- 	return sys_bpf(BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index c470c7301636..f3d65ad53494 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -1,4 +1,4 @@
+-CFLAGS += -Wall -O2 -I../../../include/uapi
++CFLAGS += -Wall -O2 -lcap -I../../../include/uapi
+ 
+ test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
+ 
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 71f6407cde60..878bd60da376 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -16,6 +16,7 @@
+ #include <stdbool.h>
+ #include <sched.h>
+ 
++#include <sys/capability.h>
+ #include <sys/resource.h>
+ 
+ #include <linux/unistd.h>
+@@ -4574,6 +4575,55 @@ static void do_test_single(struct bpf_test *test, bool unpriv,
+ 	goto close_fds;
  }
  
--int bpf_map_get_next_key(int fd, void *key, void *next_key)
-+int bpf_map_get_next_key(int fd, const void *key, void *next_key)
++static bool is_admin(void)
++{
++	cap_t caps;
++	cap_flag_value_t sysadmin = CAP_CLEAR;
++	const cap_value_t cap_val = CAP_SYS_ADMIN;
++
++	if (!CAP_IS_SUPPORTED(CAP_SETFCAP)) {
++		perror("cap_get_flag");
++		return false;
++	}
++	caps = cap_get_proc();
++	if (!caps) {
++		perror("cap_get_proc");
++		return false;
++	}
++	if (cap_get_flag(caps, cap_val, CAP_EFFECTIVE, &sysadmin))
++		perror("cap_get_flag");
++	if (cap_free(caps))
++		perror("cap_free");
++	return (sysadmin == CAP_SET);
++}
++
++static int set_admin(bool admin)
++{
++	cap_t caps;
++	const cap_value_t cap_val = CAP_SYS_ADMIN;
++	int ret = -1;
++
++	caps = cap_get_proc();
++	if (!caps) {
++		perror("cap_get_proc");
++		return -1;
++	}
++	if (cap_set_flag(caps, CAP_EFFECTIVE, 1, &cap_val,
++				admin ? CAP_SET : CAP_CLEAR)) {
++		perror("cap_set_flag");
++		goto out;
++	}
++	if (cap_set_proc(caps)) {
++		perror("cap_set_proc");
++		goto out;
++	}
++	ret = 0;
++out:
++	if (cap_free(caps))
++		perror("cap_free");
++	return ret;
++}
++
+ static int do_test(bool unpriv, unsigned int from, unsigned int to)
  {
- 	union bpf_attr attr;
+ 	int i, passes = 0, errors = 0;
+@@ -4584,11 +4634,19 @@ static int do_test(bool unpriv, unsigned int from, unsigned int to)
+ 		/* Program types that are not supported by non-root we
+ 		 * skip right away.
+ 		 */
+-		if (unpriv && test->prog_type)
+-			continue;
++		if (!test->prog_type) {
++			if (!unpriv)
++				set_admin(false);
++			printf("#%d/u %s ", i, test->descr);
++			do_test_single(test, true, &passes, &errors);
++			if (!unpriv)
++				set_admin(true);
++		}
  
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index f559f648db45..88f07c15423a 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -38,7 +38,7 @@ int bpf_map_update_elem(int fd, const void *key, const void *value,
+-		printf("#%d %s ", i, test->descr);
+-		do_test_single(test, unpriv, &passes, &errors);
++		if (!unpriv) {
++			printf("#%d/p %s ", i, test->descr);
++			do_test_single(test, false, &passes, &errors);
++		}
+ 	}
  
- int bpf_map_lookup_elem(int fd, const void *key, void *value);
- int bpf_map_delete_elem(int fd, const void *key);
--int bpf_map_get_next_key(int fd, void *key, void *next_key);
-+int bpf_map_get_next_key(int fd, const void *key, void *next_key);
- int bpf_obj_pin(int fd, const char *pathname);
- int bpf_obj_get(const char *pathname);
- int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
-diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
-index 17581a42e1d9..aeff99f0a411 100644
---- a/tools/testing/selftests/bpf/bpf_sys.h
-+++ b/tools/testing/selftests/bpf/bpf_sys.h
-@@ -24,17 +24,6 @@ static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
- #endif
- }
+ 	printf("Summary: %d PASSED, %d FAILED\n", passes, errors);
+@@ -4600,7 +4658,7 @@ int main(int argc, char **argv)
+ 	struct rlimit rinf = { RLIM_INFINITY, RLIM_INFINITY };
+ 	struct rlimit rlim = { 1 << 20, 1 << 20 };
+ 	unsigned int from = 0, to = ARRAY_SIZE(tests);
+-	bool unpriv = geteuid() != 0;
++	bool unpriv = !is_admin();
  
--static inline int bpf_map_next_key(int fd, const void *key, void *next_key)
--{
--	union bpf_attr attr = {};
--
--	attr.map_fd = fd;
--	attr.key = bpf_ptr_to_u64(key);
--	attr.next_key = bpf_ptr_to_u64(next_key);
--
--	return bpf(BPF_MAP_GET_NEXT_KEY, &attr, sizeof(attr));
--}
--
- static inline int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
- 				 uint32_t size_value, uint32_t max_elem,
- 				 uint32_t flags)
-diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index 859c940a6e41..360f7e006eb6 100644
---- a/tools/testing/selftests/bpf/test_lru_map.c
-+++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -46,7 +46,7 @@ static int map_subset(int map0, int map1)
- 	unsigned long long value0[nr_cpus], value1[nr_cpus];
- 	int ret;
- 
--	while (!bpf_map_next_key(map1, &next_key, &next_key)) {
-+	while (!bpf_map_get_next_key(map1, &next_key, &next_key)) {
- 		assert(!bpf_map_lookup_elem(map1, &next_key, value1));
- 		ret = bpf_map_lookup_elem(map0, &next_key, value0);
- 		if (ret) {
-diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 0f9f90455375..be52c808d6cf 100644
---- a/tools/testing/selftests/bpf/test_maps.c
-+++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -89,11 +89,11 @@ static void test_hashmap(int task, void *data)
- 	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
- 
- 	/* Iterate over two elements. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
- 	       (next_key == 1 || next_key == 2));
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
- 	       (next_key == 1 || next_key == 2));
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
- 	       errno == ENOENT);
- 
- 	/* Delete both elements. */
-@@ -105,7 +105,7 @@ static void test_hashmap(int task, void *data)
- 
- 	key = 0;
- 	/* Check that map is empty. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == -1 &&
- 	       errno == ENOENT);
- 
- 	close(fd);
-@@ -175,7 +175,7 @@ static void test_hashmap_percpu(int task, void *data)
- 	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
- 
- 	/* Iterate over two elements. */
--	while (!bpf_map_next_key(fd, &key, &next_key)) {
-+	while (!bpf_map_get_next_key(fd, &key, &next_key)) {
- 		assert((expected_key_mask & next_key) == next_key);
- 		expected_key_mask &= ~next_key;
- 
-@@ -201,7 +201,7 @@ static void test_hashmap_percpu(int task, void *data)
- 
- 	key = 0;
- 	/* Check that map is empty. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == -1 &&
- 	       errno == ENOENT);
- 
- 	close(fd);
-@@ -246,11 +246,11 @@ static void test_arraymap(int task, void *data)
- 	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
- 
- 	/* Iterate over two elements. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
- 	       next_key == 0);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
- 	       next_key == 1);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
- 	       errno == ENOENT);
- 
- 	/* Delete shouldn't succeed. */
-@@ -301,11 +301,11 @@ static void test_arraymap_percpu(int task, void *data)
- 	assert(bpf_map_lookup_elem(fd, &key, values) == -1 && errno == ENOENT);
- 
- 	/* Iterate over two elements. */
--	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &key, &next_key) == 0 &&
- 	       next_key == 0);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == 0 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == 0 &&
- 	       next_key == 1);
--	assert(bpf_map_next_key(fd, &next_key, &next_key) == -1 &&
-+	assert(bpf_map_get_next_key(fd, &next_key, &next_key) == -1 &&
- 	       errno == ENOENT);
- 
- 	/* Delete shouldn't succeed. */
-@@ -380,8 +380,8 @@ static void test_map_large(void)
- 
- 	/* Iterate through all elements. */
- 	for (i = 0; i < MAP_SIZE; i++)
--		assert(bpf_map_next_key(fd, &key, &key) == 0);
--	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
-+		assert(bpf_map_get_next_key(fd, &key, &key) == 0);
-+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
- 
- 	key.c = 0;
- 	assert(bpf_map_lookup_elem(fd, &key, &value) == 0 && value == 0);
-@@ -479,8 +479,8 @@ static void test_map_parallel(void)
- 	/* Check that all elements were inserted. */
- 	key = -1;
- 	for (i = 0; i < MAP_SIZE; i++)
--		assert(bpf_map_next_key(fd, &key, &key) == 0);
--	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
-+		assert(bpf_map_get_next_key(fd, &key, &key) == 0);
-+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
- 
- 	/* Another check for all elements */
- 	for (i = 0; i < MAP_SIZE; i++) {
-@@ -496,7 +496,7 @@ static void test_map_parallel(void)
- 
- 	/* Nothing should be left. */
- 	key = -1;
--	assert(bpf_map_next_key(fd, &key, &key) == -1 && errno == ENOENT);
-+	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
- }
- 
- static void run_all_tests(void)
+ 	if (argc == 3) {
+ 		unsigned int l = atoi(argv[argc - 2]);
 -- 
 2.11.0
