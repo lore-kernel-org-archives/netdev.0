@@ -1,66 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] net/devlink: Add E-Switch encapsulation
- control
-Date: Thu, 9 Feb 2017 18:10:53 +0100
-Message-ID: <20170209171053.GC2018@nanopsycho>
-References: <1486657398-6298-1-git-send-email-ogerlitz@mellanox.com>
- <1486657398-6298-2-git-send-email-ogerlitz@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
+Date: Thu, 9 Feb 2017 18:20:24 +0100
+Message-ID: <20170209172024.GE29882@lunn.ch>
+References: <20170209150834.1158193-1-arnd@arndb.de>
+ <20170209155751.GB29882@lunn.ch> <1967873.WpTcGj2Cy4@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33174 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932148AbdBIRSY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:18:24 -0500
-Received: by mail-wr0-f196.google.com with SMTP id i10so12613269wrb.0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:18:23 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+ Russell King <linux@armlinux.org.uk>, linux-kernel@vger.kernel.org,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S . Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1486657398-6298-2-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1967873.WpTcGj2Cy4@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Feb 09, 2017 at 05:23:17PM CET, ogerlitz@mellanox.com wrote:
->From: Roi Dayan <roid@mellanox.com>
->
->This is an e-switch global knob to enable/disable HW support for applying
->encapsulation/decapsulation to VF traffic as part of SRIOV e-switch offloading.
->
->The actual encap/decap is carried out (along with the matching and other actions)
->per offloaded e-switch rules, e.g as done when offloading the TC tunnel key action.
->
->The supported mode are enable/disable.
->
->Signed-off-by: Roi Dayan <roid@mellanox.com>
->Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
->---
+> Adding a 'select' statement to something as broad as NETDEVICES sounds
+> really bad, it has a significant risk of introducing dependency loops
+> and may be confusing if you want to build a multiplatform config without
+> networking support (note that NETDEVICES in turn depends on NET, which
+> can also be disabled).
 
-[...]
+O.K, so overall it is not simple. So lets drop my idea.
+ 
+> One possibility would be to have a special Kconfig symbol that controls
+> mdiobus_register_board_info() being present and have that symbol
+> force PHYLIB to never be "=m". Then we can either have no networking
+> support and no phylib, turning mdiobus_register_board_info() into a
+> stub, or we have the function built-in and reachable from the board
+> code.
 
->@@ -1470,11 +1480,23 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
-> 	const struct devlink_ops *ops = devlink->ops;
-> 	u16 mode;
-> 	u8 inline_mode;
->+	bool encap;
-> 	int err = 0;
-> 
-> 	if (!ops)
-> 		return -EOPNOTSUPP;
-> 
->+	if (info->attrs[DEVLINK_ATTR_ESWITCH_ENCAP]) {
->+		if (!ops->eswitch_encap_set)
->+			return -EOPNOTSUPP;
->+		if (!info->attrs[DEVLINK_ATTR_ESWITCH_MODE])
->+			return -EINVAL;
->+		encap = nla_get_u8(info->attrs[DEVLINK_ATTR_ESWITCH_ENCAP]);
->+		err = ops->eswitch_encap_set(devlink, encap);
->+		if (err)
->+			return err;
->+	}
+FYI: Florian is working on splitting MDIO out of PHYLIB. There will be
+two separate symbols, so it will be possible to have MDIO without
+PHYLIB. When this happens, i expect mdiobus_register_board_info() will
+be in the MDIO part, not PHYLIB.
 
-Please maintain the same order as the attr enum and getters and put this
-behind the inline_mode. Thanks.
+   Andrew
