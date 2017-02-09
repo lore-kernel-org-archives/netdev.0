@@ -1,119 +1,73 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv6 net-next 3/6] sctp: add support for generating stream
- reconf ssn/tsn reset request chunk
-Date: Thu, 9 Feb 2017 15:56:08 +0800
-Message-ID: <CADvbK_eLpWWcsOQdX12U=T3T9_VRP1Tms9hnkfxODSGvPo8QXA@mail.gmail.com>
-References: <cover.1486573727.git.lucien.xin@gmail.com> <376d8794b81d7c5efe02b588ca381b88ed5f05ad.1486573728.git.lucien.xin@gmail.com>
- <20170208215734.GJ3414@localhost.localdomain>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
+Date: Thu, 9 Feb 2017 08:49:35 +0100
+Message-ID: <20170209074935.GA2018@nanopsycho>
+References: <20170208234127.3041579-1-tom@herbertland.com>
+ <20170208234127.3041579-2-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        davem <davem@davemloft.net>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:32994 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751940AbdBIH4Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 02:56:24 -0500
-In-Reply-To: <20170208215734.GJ3414@localhost.localdomain>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34329 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751605AbdBIH6j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 02:58:39 -0500
+Received: by mail-wm0-f67.google.com with SMTP id c85so1602999wmi.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 23:58:18 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170208234127.3041579-2-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 5:57 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On Thu, Feb 09, 2017 at 01:18:17AM +0800, Xin Long wrote:
->> This patch is to define SSN/TSN Reset Request Parameter described
->> in rfc6525 section 4.3.
->>
->> It's also to drop some unnecessary __packed in include/linux/sctp.h.
+Thu, Feb 09, 2017 at 12:41:20AM CET, tom@herbertland.com wrote:
+>This patch creates an infrastructure for registering and running code at
+>XDP hooks in drivers. This extends and generalizes the original XDP/BPF
+>interface. Specifically, it defines a generic xdp_hook structure and a
+>set of hooks that can be assigned to devices or napi instances.  These
+>hooks are also generic to allow for XDP/BPF programs as well as non-BPF
+>code (e.g. kernel code can be written in a module).
 >
-> Oups, extra line in the changelog here.
-I've moved the "drop __packed" to patch 1/6, this line should have
-been removed.
-Hi, David, can you remove this line when applying ?
-
-Thanks.
-
+>An XDP hook is defined by the xdp_hook structure. A pointer to this
+>structure is passed into the XDP register function to set up a hook.
+>The XDP register function mallocs its own xdp_hook structure and copies
+>the values from the xdp_hook passed in. The register function also saves
+>the pointer value of the xdp_hook argument; this pointer is used in
+>subsequently calls to XDP to identify the registered hook.
 >
->>
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->> ---
->>  include/linux/sctp.h     |  5 +++++
->>  include/net/sctp/sm.h    |  2 ++
->>  net/sctp/sm_make_chunk.c | 29 +++++++++++++++++++++++++++++
->>  3 files changed, 36 insertions(+)
->>
->> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
->> index d74fca3..71c0d41 100644
->> --- a/include/linux/sctp.h
->> +++ b/include/linux/sctp.h
->> @@ -737,4 +737,9 @@ struct sctp_strreset_inreq {
->>       __u16 list_of_streams[0];
->>  };
->>
->> +struct sctp_strreset_tsnreq {
->> +     sctp_paramhdr_t param_hdr;
->> +     __u32 request_seq;
->> +};
->> +
->>  #endif /* __LINUX_SCTP_H__ */
->> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
->> index 430ed13..ac37c17 100644
->> --- a/include/net/sctp/sm.h
->> +++ b/include/net/sctp/sm.h
->> @@ -265,6 +265,8 @@ struct sctp_chunk *sctp_make_strreset_req(
->>                               const struct sctp_association *asoc,
->>                               __u16 stream_num, __u16 *stream_list,
->>                               bool out, bool in);
->> +struct sctp_chunk *sctp_make_strreset_tsnreq(
->> +                             const struct sctp_association *asoc);
->>  void sctp_chunk_assign_tsn(struct sctp_chunk *);
->>  void sctp_chunk_assign_ssn(struct sctp_chunk *);
->>
->> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
->> index c7d3249..749842a 100644
->> --- a/net/sctp/sm_make_chunk.c
->> +++ b/net/sctp/sm_make_chunk.c
->> @@ -3658,3 +3658,32 @@ struct sctp_chunk *sctp_make_strreset_req(
->>
->>       return retval;
->>  }
->> +
->> +/* RE-CONFIG 4.3 (SSN/TSN RESET ALL)
->> + *   0                   1                   2                   3
->> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
->> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
->> + *  |     Parameter Type = 15       |      Parameter Length = 8     |
->> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
->> + *  |         Re-configuration Request Sequence Number              |
->> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
->> + */
->> +struct sctp_chunk *sctp_make_strreset_tsnreq(
->> +                             const struct sctp_association *asoc)
->> +{
->> +     struct sctp_strreset_tsnreq tsnreq;
->> +     __u16 length = sizeof(tsnreq);
->> +     struct sctp_chunk *retval;
->> +
->> +     retval = sctp_make_reconf(asoc, length);
->> +     if (!retval)
->> +             return NULL;
->> +
->> +     tsnreq.param_hdr.type = SCTP_PARAM_RESET_TSN_REQUEST;
->> +     tsnreq.param_hdr.length = htons(length);
->> +     tsnreq.request_seq = htonl(asoc->strreset_outseq);
->> +
->> +     sctp_addto_chunk(retval, sizeof(tsnreq), &tsnreq);
->> +
->> +     return retval;
->> +}
->> --
->> 2.1.0
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+>The interface is defined in net/xdp.h. This includes the definition of
+>xdp_hook, functions to register and unregister hooks on a device
+>or individual instances of napi, and xdp_hook_run that is called by
+>drivers to run the hooks.
+>
+>Signed-off-by: Tom Herbert <tom@herbertland.com>
+>---
+> drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c |   1 +
+> include/linux/filter.h                           |  10 +-
+> include/linux/netdev_features.h                  |   3 +-
+> include/linux/netdevice.h                        |  16 ++
+> include/net/xdp.h                                | 310 +++++++++++++++++++++++
+> include/trace/events/xdp.h                       |  31 +++
+> kernel/bpf/core.c                                |   1 +
+> net/core/Makefile                                |   2 +-
+> net/core/dev.c                                   |  53 ++--
+> net/core/filter.c                                |   1 +
+> net/core/rtnetlink.c                             |  14 +-
+> net/core/xdp.c                                   | 304 ++++++++++++++++++++++
+> 12 files changed, 711 insertions(+), 35 deletions(-)
+> create mode 100644 include/net/xdp.h
+> create mode 100644 net/core/xdp.c
+>
+
+[...]
+
+>@@ -48,6 +49,36 @@ TRACE_EVENT(xdp_exception,
+> 		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB))
+> );
+> 
+>+/* Temporaray trace function. This will be renamed to xdp_exception after all
+
+typo
+
+>+ * the calling drivers have been patched.
+>+ */
