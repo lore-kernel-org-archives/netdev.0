@@ -1,48 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: phy: Fix PHY module checks and NULL deref in
- phy_attach_direct()
-Date: Thu, 09 Feb 2017 16:22:35 -0500 (EST)
-Message-ID: <20170209.162235.1544284000098138678.davem@davemloft.net>
-References: <20170209030526.6029-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH v3] xen-netfront: Improve error handling
+ during initialization
+Date: Thu, 09 Feb 2017 16:46:55 -0500 (EST)
+Message-ID: <20170209.164655.35358163111689337.davem@davemloft.net>
+References: <1486551457-25963-1-git-send-email-ross.lagerwall@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maowenan@huawei.com, andrew@lunn.ch,
-        rmk+kernel@armlinux.org.uk, festevam@gmail.com,
-        nikita.yoush@cogentembedded.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50848 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932469AbdBIVp5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 16:45:57 -0500
-In-Reply-To: <20170209030526.6029-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
+ boris.ostrovsky@oracle.com
+To: ross.lagerwall@citrix.com
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1486551457-25963-1-git-send-email-ross.lagerwall@citrix.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed,  8 Feb 2017 19:05:26 -0800
-
-> The Generic PHY drivers gets assigned after we checked that the current
-> PHY driver is NULL, so we need to check a few things before we can
-> safely dereference d->driver. This would be causing a NULL deference to
-> occur when a system binds to the Generic PHY driver. Update
-> phy_attach_direct() to do the following:
-> 
-> - grab the driver module reference after we have assigned the Generic
->   PHY drivers accordingly, and remember we came from the generic PHY
->   path
-> 
-> - update the error path to clean up the module reference in case the
->   Generic PHY probe function fails
-> 
-> - split the error path involving phy_detacht() to avoid double free/put
->   since phy_detach() does all the clean up
-> 
-> - finally, have phy_detach() drop the module reference count before we
->   call device_release_driver() for the Generic PHY driver case
-> 
-> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Applied to 'net', thanks Florian.
+RnJvbTogUm9zcyBMYWdlcndhbGwgPHJvc3MubGFnZXJ3YWxsQGNpdHJpeC5jb20+CkRhdGU6IFdl
+ZCwgOCBGZWIgMjAxNyAxMDo1NzozNyArMDAwMAoKPiBUaGlzIGZpeGVzIGEgY3Jhc2ggd2hlbiBy
+dW5uaW5nIG91dCBvZiBncmFudCByZWZzIHdoZW4gY3JlYXRpbmcgbWFueQo+IHF1ZXVlcyBhY3Jv
+c3MgbWFueSBuZXRkZXZzLgo+IAo+ICogSWYgY3JlYXRpbmcgcXVldWVzIGZhaWxzIChpLmUuIHRo
+ZXJlIGFyZSBubyBncmFudCByZWZzIGF2YWlsYWJsZSksCj4gY2FsbCB4ZW5idXNfZGV2X2ZhdGFs
+KCkgdG8gZW5zdXJlIHRoYXQgdGhlIHhlbmJ1cyBkZXZpY2UgaXMgc2V0IHRvIHRoZQo+IGNsb3Nl
+ZCBzdGF0ZS4KPiAqIElmIG5vIHF1ZXVlcyBhcmUgY3JlYXRlZCwgZG9uJ3QgY2FsbCB4ZW5uZXRf
+ZGlzY29ubmVjdF9iYWNrZW5kIGFzCj4gbmV0ZGV2LT5yZWFsX251bV90eF9xdWV1ZXMgd2lsbCBu
+b3QgaGF2ZSBiZWVuIHNldCBjb3JyZWN0bHkuCj4gKiBJZiBzZXR1cF9uZXRmcm9udCgpIGZhaWxz
+LCBlbnN1cmUgdGhhdCBhbGwgdGhlIHF1ZXVlcyBjcmVhdGVkIGFyZQo+IGNsZWFuZWQgdXAsIG5v
+dCBqdXN0IHRob3NlIHRoYXQgaGF2ZSBiZWVuIHNldCB1cC4KPiAqIElmIGFueSBxdWV1ZXMgd2Vy
+ZSBzZXQgdXAgYW5kIGFuIGVycm9yIG9jY3VycywgY2FsbAo+IHhlbm5ldF9kZXN0cm95X3F1ZXVl
+cygpIHRvIGNsZWFuIHVwIHRoZSBuYXBpIGNvbnRleHQuCj4gKiBJZiBhbnkgZmF0YWwgZXJyb3Ig
+b2NjdXJzLCB1bnJlZ2lzdGVyIGFuZCBkZXN0cm95IHRoZSBuZXRkZXYgdG8gYXZvaWQKPiBsZWF2
+aW5nIGFyb3VuZCBhIGhhbGYgc2V0dXAgbmV0d29yayBkZXZpY2UuCj4gCj4gU2lnbmVkLW9mZi1i
+eTogUm9zcyBMYWdlcndhbGwgPHJvc3MubGFnZXJ3YWxsQGNpdHJpeC5jb20+CgpBcHBsaWVkLgoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVs
+IG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5v
+cmcveGVuLWRldmVsCg==
