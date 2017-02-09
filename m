@@ -1,95 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/10] switchdev: bridge: Offload mc router ports
-Date: Thu,  9 Feb 2017 14:54:42 +0100
-Message-ID: <1486648489-16455-4-git-send-email-jiri@resnulli.us>
-References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, ivecera@redhat.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 01/14] mlx4: use __skb_fill_page_desc()
+Date: Thu,  9 Feb 2017 05:58:25 -0800
+Message-ID: <20170209135838.16487-2-edumazet@google.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33015 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753211AbdBIO1B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:27:01 -0500
-Received: by mail-wr0-f195.google.com with SMTP id i10so12118444wrb.0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:27:00 -0800 (PST)
-In-Reply-To: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35388 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753096AbdBIO1e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:27:34 -0500
+Received: by mail-pf0-f174.google.com with SMTP id f144so1093651pfa.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:27:34 -0800 (PST)
+In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+Or we might miss the fact that a page was allocated from memory reserves.
 
-Offload the mc router ports list, whenever it is being changed.
-It is done because in some cases mc packets needs to be flooded to all
-the ports in this list.
-
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Fixes: dceeab0e5258 ("mlx4: support __GFP_MEMALLOC for rx")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/switchdev.h   |  2 ++
- net/bridge/br_multicast.c | 15 +++++++++++++++
- 2 files changed, 17 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 2971c2a..929d6af 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -46,6 +46,7 @@ enum switchdev_attr_id {
- 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
- 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
- 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
-+	SWITCHDEV_ATTR_ID_PORT_MROUTER,
- 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
- 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
- 	SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
-@@ -61,6 +62,7 @@ struct switchdev_attr {
- 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
- 		u8 stp_state;				/* PORT_STP_STATE */
- 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
-+		bool mrouter;				/* PORT_MROUTER */
- 		clock_t ageing_time;			/* BRIDGE_AGEING_TIME */
- 		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
- 		bool mc_disabled;			/* MC_DISABLED */
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 2add6d4..b760f26 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1317,6 +1317,19 @@ br_multicast_update_query_timer(struct net_bridge *br,
- 	mod_timer(&query->timer, jiffies + br->multicast_querier_interval);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index d85e6446f9d99e38c75b97d7fba29bd057e0..867292880c07a15124a0cf099d1fcda09926 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -604,10 +604,10 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 		dma_sync_single_for_cpu(priv->ddev, dma, frag_info->frag_size,
+ 					DMA_FROM_DEVICE);
  
-+static void br_port_mc_router_state_change(struct net_bridge_port *p,
-+					   bool is_mc_router)
-+{
-+	struct switchdev_attr attr = {
-+		.orig_dev = p->dev,
-+		.id = SWITCHDEV_ATTR_ID_PORT_MROUTER,
-+		.flags = SWITCHDEV_F_DEFER,
-+		.u.mrouter = is_mc_router,
-+	};
+-		/* Save page reference in skb */
+-		__skb_frag_set_page(&skb_frags_rx[nr], frags[nr].page);
+-		skb_frag_size_set(&skb_frags_rx[nr], frag_info->frag_size);
+-		skb_frags_rx[nr].page_offset = frags[nr].page_offset;
++		__skb_fill_page_desc(skb, nr, frags[nr].page,
++				     frags[nr].page_offset,
++				     frag_info->frag_size);
 +
-+	switchdev_port_attr_set(p->dev, &attr);
-+}
-+
- /*
-  * Add port to router_list
-  *  list is maintained ordered by pointer value
-@@ -1342,6 +1355,7 @@ static void br_multicast_add_router(struct net_bridge *br,
- 	else
- 		hlist_add_head_rcu(&port->rlist, &br->router_list);
- 	br_rtr_notify(br->dev, port, RTM_NEWMDB);
-+	br_port_mc_router_state_change(port, true);
- }
- 
- static void br_multicast_mark_router(struct net_bridge *br,
-@@ -2049,6 +2063,7 @@ static void __del_port_router(struct net_bridge_port *p)
- 		return;
- 	hlist_del_init_rcu(&p->rlist);
- 	br_rtr_notify(p->br->dev, p, RTM_DELMDB);
-+	br_port_mc_router_state_change(p, false);
- 
- 	/* don't allow timer refresh */
- 	if (p->multicast_router == MDB_RTR_TYPE_TEMP)
+ 		skb->truesize += frag_info->frag_stride;
+ 		frags[nr].page = NULL;
+ 	}
 -- 
-2.7.4
+2.11.0.483.g087da7b7c-goog
