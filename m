@@ -1,35 +1,44 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 0/2] net: ethernet: ti: cpsw: fix susp/resume
-Date: Fri, 10 Feb 2017 00:54:24 +0200
-Message-ID: <20170209225423.GA15853@khorivan>
-References: <1486598856-3512-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <20170209.172126.155005439329995220.davem@davemloft.net>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v5 02/11] bpf: Change the include directory for selftest
+Date: Fri, 10 Feb 2017 00:21:36 +0100
+Message-ID: <20170209232145.19085-3-mic@digikod.net>
+References: <20170209232145.19085-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org, AStarikovskiy@topcon.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:36274 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752257AbdBIXTy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 18:19:54 -0500
-Received: by mail-lf0-f54.google.com with SMTP id z134so11546088lff.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 15:19:19 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170209.172126.155005439329995220.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170209232145.19085-1-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 09, 2017 at 05:21:26PM -0500, David Miller wrote:
-> From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> Date: Thu,  9 Feb 2017 02:07:34 +0200
-> 
-> > These two patches fix suspend/resume chain.
-> 
-> Patch 2 doesn't apply cleanly to the 'net' tree, please
-> respin this series.
+Use the tools include directory instead of the installed one to allow
+builds from other kernels.
 
-Strange, I've just checked it on net-next/master, it was applied w/o any
-warnings.
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ tools/testing/selftests/bpf/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 769a6cb42b4b..c470c7301636 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -1,4 +1,4 @@
+-CFLAGS += -Wall -O2 -I../../../../usr/include
++CFLAGS += -Wall -O2 -I../../../include/uapi
+ 
+ test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
+ 
+-- 
+2.11.0
