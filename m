@@ -1,62 +1,57 @@
-From: Saber Rezvani <irsaber@gmail.com>
-Subject: [PATCH 1/1] net: ethernet: intel: e1000: msleep() is unreliable for anything <20ms
-Date: Fri, 10 Feb 2017 02:07:11 +0330
-Message-ID: <1486679831-5745-1-git-send-email-irsaber@gmail.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Saber Rezvani <irsaber@gmail.com>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
+Date: Thu, 09 Feb 2017 17:34:15 -0500 (EST)
+Message-ID: <20170209.173415.1198067959393786704.davem@davemloft.net>
+References: <20170208234127.3041579-2-tom@herbertland.com>
+        <20170209.171706.1575416693138040726.davem@davemloft.net>
+        <CALx6S34qGUd7Zteo_sDdcXK69cOZUwiQ6wsbLfiyHW1K6gJn=A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52058 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751939AbdBIWk5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 17:40:57 -0500
+In-Reply-To: <CALx6S34qGUd7Zteo_sDdcXK69cOZUwiQ6wsbLfiyHW1K6gJn=A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix the checkpatch.pl issue:
-WARNING: msleep < 20ms can sleep for up to 20ms; see
-Documentation/timers/timers-howto.txt
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 9 Feb 2017 14:26:50 -0800
 
-Signed-off-by: Saber Rezvani <irsaber@gmail.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> On Thu, Feb 9, 2017 at 2:17 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Wed, 8 Feb 2017 15:41:20 -0800
+>>
+>>> These hooks are also generic to allow for XDP/BPF programs as well
+>>> as non-BPF code (e.g. kernel code can be written in a module).
+>>
+>> I don't think we should even remotely consider surrendering the XDP
+>> hook to module code.
+>>
+>> We restrict it to eBPF for a reason, because that framework is
+>> restricted in what it can do, what it can access, and how it can do
+>> so.
+>>
+> Kernel modules go through extensive netdev review before they are
+> taken into the kernel, for BPF programs we just allow what any user
+> gives us without any peer review even implied.
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 93fc6c6..5403fa2 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -489,7 +489,7 @@ static void e1000_power_down_phy(struct e1000_adapter *adapter)
- 		e1000_read_phy_reg(hw, PHY_CTRL, &mii_reg);
- 		mii_reg |= MII_CR_POWER_DOWN;
- 		e1000_write_phy_reg(hw, PHY_CTRL, mii_reg);
--		msleep(1);
-+		usleep_range(1000, 5000);
- 	}
- out:
- 	return;
-@@ -536,7 +536,7 @@ void e1000_down(struct e1000_adapter *adapter)
- 	ew32(TCTL, tctl);
- 	/* flush both disables and wait for them to finish */
- 	E1000_WRITE_FLUSH();
--	msleep(10);
-+	usleep_range(1000, 5000);
- 
- 	napi_disable(&adapter->napi);
- 
-@@ -560,7 +560,7 @@ void e1000_reinit_locked(struct e1000_adapter *adapter)
- {
- 	WARN_ON(in_interrupt());
- 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
--		msleep(1);
-+		usleep_range(1000, 5000);
- 	e1000_down(adapter);
- 	e1000_up(adapter);
- 	clear_bit(__E1000_RESETTING, &adapter->flags);
-@@ -3569,7 +3569,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
- 	}
- 
- 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
--		msleep(1);
-+		usleep_range(1000, 5000);
- 	/* e1000_down has a dependency on max_frame_size */
- 	hw->max_frame_size = max_frame;
- 	if (netif_running(netdev)) {
--- 
-2.7.4
+We can actually control what externally written XDP eBPF programs can
+do, for kernel modules we have no such control or influence.  This
+hook runs right in the driver and bypasses the entire stack, it has to
+execute in a hardened thing that cannot crash and it will not as long
+as BPF verifier is correct.
+
+And you're going to make it even more complicated what XDP offload in
+hardware actually means.  With eBPF it is very clearly defined what
+the necessary execution engine is.
+
+Tom I'm strongly against being allowed to run arbitrary module code
+from the XDP hook, sorry.
+
+It is as important as the distinction between full stack offload and
+partial offload in those nice charts in your talks. :-)
