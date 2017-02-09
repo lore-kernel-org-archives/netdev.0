@@ -1,63 +1,140 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH net] net: hns: Fix the device being used for dma mapping
- during TX
-Date: Thu, 9 Feb 2017 11:30:13 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A860E3E@lhreml503-mbx>
-References: <20170209092409.202832-1-salil.mehta@huawei.com>
- <trinity-6f3e49ac-6fc0-4d36-a77a-44018a1b2e77-1486635890380@3capp-gmx-bs03>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>,
-        "Yankejian (Hackim Yim)" <yankejian@huawei.com>
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <trinity-6f3e49ac-6fc0-4d36-a77a-44018a1b2e77-1486635890380@3capp-gmx-bs03>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] ath6kl: Use net_device_stats from struct net_device
+Date: Thu,  9 Feb 2017 12:21:17 +0100
+Message-ID: <20170209112117.23994-1-tklauser@distanz.ch>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.zhinst.com ([212.126.164.98]:52096 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752029AbdBILgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Feb 2017 06:36:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBMaW5vIFNhbmZpbGlwcG8gW21h
-aWx0bzpMaW5vU2FuZmlsaXBwb0BnbXguZGVdDQo+IFNlbnQ6IFRodXJzZGF5LCBGZWJydWFyeSAw
-OSwgMjAxNyAxMDoyNSBBTQ0KPiBUbzogU2FsaWwgTWVodGENCj4gQ2M6IGRhdmVtQGRhdmVtbG9m
-dC5uZXQ7IFNhbGlsIE1laHRhOyBaaHVhbmd5dXplbmcgKFlpc2VuKTsNCj4gbWVodGEuc2FsaWwu
-bG5rQGdtYWlsLmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2
-Z2VyLmtlcm5lbC5vcmc7IExpbnV4YXJtOyBZYW5rZWppYW4gKEhhY2tpbSBZaW0pDQo+IFN1Ympl
-Y3Q6IFJlOiBbUEFUQ0ggbmV0XSBuZXQ6IGhuczogRml4IHRoZSBkZXZpY2UgYmVpbmcgdXNlZCBm
-b3IgZG1hDQo+IG1hcHBpbmcgZHVyaW5nIFRYDQo+IA0KPiBIaSwNCj4gDQo+ID4gRnJvbTogS2Vq
-aWFuIFlhbiA8eWFua2VqaWFuQGh1YXdlaS5jb20+DQo+ID4NCj4gPiBUaGlzIHBhdGNoIGZpeGVz
-IHRoZSBkZXZpY2UgYmVpbmcgdXNlZCB0byBETUEgbWFwIHNrYi0+ZGF0YS4NCj4gPiBFcnJvbmVv
-dXMgZGV2aWNlIGFzc2lnbm1lbnQgY2F1c2VzIHRoZSBjcmFzaCB3aGVuIFNNTVUgaXMgZW5hYmxl
-ZC4NCj4gPiBUaGlzIGhhcHBlbnMgZHVyaW5nIFRYIHNpbmNlIGJ1ZmZlciBnZXRzIERNQSBtYXBw
-ZWQgd2l0aCBkZXZpY2UNCj4gPiBjb3JyZXNwb25kaWduIHRvIG5ldF9kZXZpY2UgYW5kIGdldHMg
-dW5tYXBwZWQgdXNpbmcgdGhlIGRldmljZQ0KPiA+IHJlbGF0ZWQgdG8gRFNBRi4NCj4gPg0KPiA+
-IFNpZ25lZC1vZmYtYnk6IEtlamlhbiBZYW4gPHlhbmtlamlhbkBodWF3ZWkuY29tPg0KPiA+IFJl
-dmlld2VkLWJ5OiBZaXNlbiBaaHVhbmcgPHlpc2VuLnpodWFuZ0BodWF3ZWkuY29tPg0KPiA+IFNp
-Z25lZC1vZmYtYnk6IFNhbGlsIE1laHRhIDxzYWxpbC5tZWh0YUBodWF3ZWkuY29tPg0KPiA+IC0t
-LQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zL2huc19lbmV0LmMgfCAg
-ICAyICstDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigt
-KQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9o
-bnMvaG5zX2VuZXQuYw0KPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5z
-X2VuZXQuYw0KPiA+IGluZGV4IDY3MmI2NDYuLjJiNTJhMTIgMTAwNjQ0DQo+ID4gLS0tIGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaGlzaWxpY29uL2hucy9obnNfZW5ldC5jDQo+ID4gKysrIGIvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaGlzaWxpY29uL2hucy9obnNfZW5ldC5jDQo+ID4gQEAgLTMwNSw3
-ICszMDUsNyBAQCBpbnQgaG5zX25pY19uZXRfeG1pdF9odyhzdHJ1Y3QgbmV0X2RldmljZSAqbmRl
-diwNCj4gPiAgCQkJc3RydWN0IGhuc19uaWNfcmluZ19kYXRhICpyaW5nX2RhdGEpDQo+ID4gIHsN
-Cj4gPiAgCXN0cnVjdCBobnNfbmljX3ByaXYgKnByaXYgPSBuZXRkZXZfcHJpdihuZGV2KTsNCj4g
-PiAtCXN0cnVjdCBkZXZpY2UgKmRldiA9IHByaXYtPmRldjsNCj4gPiArCXN0cnVjdCBkZXZpY2Ug
-KmRldiA9IHJpbmdfdG9fZGV2KHJpbmdfZGF0YS0+cmluZyk7DQo+ID4gIAlzdHJ1Y3QgaG5hZV9y
-aW5nICpyaW5nID0gcmluZ19kYXRhLT5yaW5nOw0KPiA+ICAJc3RydWN0IG5ldGRldl9xdWV1ZSAq
-ZGV2X3F1ZXVlOw0KPiA+ICAJc3RydWN0IHNrYl9mcmFnX3N0cnVjdCAqZnJhZzsNCj4gPiAtLQ0K
-PiANCj4gSSB3b3VsZCBzYXkgaXQgc2hvdWxkIGJlIHRoZSBvdGhlciB3YXkgYXJvdW5kOiBVc2Ug
-cHJpdi0+ZGV2IGZvcg0KPiBtYXBwaW5nIGFuZA0KPiB1bm1hcHBpbmcgaW5zdGVhZCBvZiByaW5n
-X3RvX2RldigpLg0KWWVzLCB5b3UgZ290IGl0IHJpZ2h0LiBJZGVhbGx5LCBpdCBzaG91bGQgYmUg
-cGVyLXBvcnQgYW5kIGZvcg0KbGVnYWN5IHJlYXNvbnMgd2UgaGF2ZSBpdCB0aGlzIHdheS4gSW4g
-dGhlIGN1cnJlbnQgZGVzaWduLCB3ZSBoYXZlDQpTTU1VIG5vZGUgcGVyLWRzYWYgYW5kIEkgZ3Vl
-c3Mgd2Ugd2lsbCBub3QgbGFuZCBpbiB0aGUgcmlnaHQNCmRtYS1vcHMgaWYgd2UgdXNlIHBlci1u
-ZXRkZXYgcGxhdGZvcm0tZGV2aWNlL2RldmljZSByaWdodCBub3cuDQoNCkJlc3QgcmVnYXJkcw0K
-U2FsaWwNCj4gDQo+IFJlZ2FyZHMsDQo+IExpbm8NCg==
+Instead of using a private copy of struct net_device_stats in struct
+ath6kl_vif, use stats from struct net_device. Also remove the now
+unnecessary .ndo_get_stats function.
+
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/wireless/ath/ath6kl/core.h |  1 -
+ drivers/net/wireless/ath/ath6kl/main.c |  8 --------
+ drivers/net/wireless/ath/ath6kl/txrx.c | 22 +++++++++++-----------
+ 3 files changed, 11 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath6kl/core.h b/drivers/net/wireless/ath/ath6kl/core.h
+index ac25f1781b42..87e99c12d4ba 100644
+--- a/drivers/net/wireless/ath/ath6kl/core.h
++++ b/drivers/net/wireless/ath/ath6kl/core.h
+@@ -641,7 +641,6 @@ struct ath6kl_vif {
+ 	u32 txe_intvl;
+ 	u16 bg_scan_period;
+ 	u8 assoc_bss_dtim_period;
+-	struct net_device_stats net_stats;
+ 	struct target_stats target_stats;
+ 	struct wmi_connect_cmd profile;
+ 	u16 rsn_capab;
+diff --git a/drivers/net/wireless/ath/ath6kl/main.c b/drivers/net/wireless/ath/ath6kl/main.c
+index 1af3fed5a72c..91ee542de3d7 100644
+--- a/drivers/net/wireless/ath/ath6kl/main.c
++++ b/drivers/net/wireless/ath/ath6kl/main.c
+@@ -1113,13 +1113,6 @@ static int ath6kl_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static struct net_device_stats *ath6kl_get_stats(struct net_device *dev)
+-{
+-	struct ath6kl_vif *vif = netdev_priv(dev);
+-
+-	return &vif->net_stats;
+-}
+-
+ static int ath6kl_set_features(struct net_device *dev,
+ 			       netdev_features_t features)
+ {
+@@ -1285,7 +1278,6 @@ static const struct net_device_ops ath6kl_netdev_ops = {
+ 	.ndo_open               = ath6kl_open,
+ 	.ndo_stop               = ath6kl_close,
+ 	.ndo_start_xmit         = ath6kl_data_tx,
+-	.ndo_get_stats          = ath6kl_get_stats,
+ 	.ndo_set_features       = ath6kl_set_features,
+ 	.ndo_set_rx_mode	= ath6kl_set_multicast_list,
+ };
+diff --git a/drivers/net/wireless/ath/ath6kl/txrx.c b/drivers/net/wireless/ath/ath6kl/txrx.c
+index 9df41d5e3249..a531e0c5c1e2 100644
+--- a/drivers/net/wireless/ath/ath6kl/txrx.c
++++ b/drivers/net/wireless/ath/ath6kl/txrx.c
+@@ -405,7 +405,7 @@ int ath6kl_data_tx(struct sk_buff *skb, struct net_device *dev)
+ 			skb = skb_realloc_headroom(skb, dev->needed_headroom);
+ 			kfree_skb(tmp_skb);
+ 			if (skb == NULL) {
+-				vif->net_stats.tx_dropped++;
++				dev->stats.tx_dropped++;
+ 				return 0;
+ 			}
+ 		}
+@@ -520,8 +520,8 @@ int ath6kl_data_tx(struct sk_buff *skb, struct net_device *dev)
+ fail_tx:
+ 	dev_kfree_skb(skb);
+ 
+-	vif->net_stats.tx_dropped++;
+-	vif->net_stats.tx_aborted_errors++;
++	dev->stats.tx_dropped++;
++	dev->stats.tx_aborted_errors++;
+ 
+ 	return 0;
+ }
+@@ -767,7 +767,7 @@ void ath6kl_tx_complete(struct htc_target *target,
+ 				/* a packet was flushed  */
+ 				flushing[if_idx] = true;
+ 
+-			vif->net_stats.tx_errors++;
++			vif->ndev->stats.tx_errors++;
+ 
+ 			if (status != -ENOSPC && status != -ECANCELED)
+ 				ath6kl_warn("tx complete error: %d\n", status);
+@@ -783,8 +783,8 @@ void ath6kl_tx_complete(struct htc_target *target,
+ 				   eid, "OK");
+ 
+ 			flushing[if_idx] = false;
+-			vif->net_stats.tx_packets++;
+-			vif->net_stats.tx_bytes += skb->len;
++			vif->ndev->stats.tx_packets++;
++			vif->ndev->stats.tx_bytes += skb->len;
+ 		}
+ 
+ 		ath6kl_tx_clear_node_map(vif, eid, map_no);
+@@ -1365,8 +1365,8 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
+ 	 */
+ 	spin_lock_bh(&vif->if_lock);
+ 
+-	vif->net_stats.rx_packets++;
+-	vif->net_stats.rx_bytes += packet->act_len;
++	vif->ndev->stats.rx_packets++;
++	vif->ndev->stats.rx_bytes += packet->act_len;
+ 
+ 	spin_unlock_bh(&vif->if_lock);
+ 
+@@ -1395,8 +1395,8 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
+ 	    ((packet->act_len < min_hdr_len) ||
+ 	     (packet->act_len > WMI_MAX_AMSDU_RX_DATA_FRAME_LENGTH))) {
+ 		ath6kl_info("frame len is too short or too long\n");
+-		vif->net_stats.rx_errors++;
+-		vif->net_stats.rx_length_errors++;
++		vif->ndev->stats.rx_errors++;
++		vif->ndev->stats.rx_length_errors++;
+ 		dev_kfree_skb(skb);
+ 		return;
+ 	}
+@@ -1619,7 +1619,7 @@ void ath6kl_rx(struct htc_target *target, struct htc_packet *packet)
+ 			return;
+ 		}
+ 	} else if (!is_broadcast_ether_addr(datap->h_dest)) {
+-		vif->net_stats.multicast++;
++		vif->ndev->stats.multicast++;
+ 	}
+ 
+ 	ath6kl_deliver_frames_to_nw_stack(vif->ndev, skb);
+-- 
+2.11.0
