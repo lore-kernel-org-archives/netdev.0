@@ -1,126 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] l2tp: do not use udp_ioctl()
-Date: Thu, 09 Feb 2017 10:15:13 -0800
-Message-ID: <1486664113.7793.111.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
+Date: Thu, 9 Feb 2017 10:14:35 -0800
+Message-ID: <d00cef40-ab92-a84f-2e4e-1f7867b5ee76@gmail.com>
+References: <20170209150834.1158193-1-arnd@arndb.de>
+ <20170209155751.GB29882@lunn.ch> <1967873.WpTcGj2Cy4@wuerfel>
+ <20170209172024.GE29882@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34023 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752817AbdBISPQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 13:15:16 -0500
-Received: by mail-pg0-f65.google.com with SMTP id v184so909814pgv.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 10:15:16 -0800 (PST)
-In-Reply-To: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+ Russell King <linux@armlinux.org.uk>, linux-kernel@vger.kernel.org,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S . Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>, Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170209172024.GE29882@lunn.ch>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 02/09/2017 09:20 AM, Andrew Lunn wrote:
+>> Adding a 'select' statement to something as broad as NETDEVICES sounds
+>> really bad, it has a significant risk of introducing dependency loops
+>> and may be confusing if you want to build a multiplatform config without
+>> networking support (note that NETDEVICES in turn depends on NET, which
+>> can also be disabled).
+> 
+> O.K, so overall it is not simple. So lets drop my idea.
+>  
+>> One possibility would be to have a special Kconfig symbol that controls
+>> mdiobus_register_board_info() being present and have that symbol
+>> force PHYLIB to never be "=m". Then we can either have no networking
+>> support and no phylib, turning mdiobus_register_board_info() into a
+>> stub, or we have the function built-in and reachable from the board
+>> code.
+> 
+> FYI: Florian is working on splitting MDIO out of PHYLIB. There will be
+> two separate symbols, so it will be possible to have MDIO without
+> PHYLIB. When this happens, i expect mdiobus_register_board_info() will
+> be in the MDIO part, not PHYLIB.
 
-udp_ioctl(), as its name suggests, is used by UDP protocols,
-but is also used by L2TP :(
-
-L2TP should use its own handler, because it really does not
-look the same.
-
-SIOCINQ for instance should not assume UDP checksum or headers.
-
-Thanks to Andrey and syzkaller team for providing the report
-and a nice reproducer.
-
-While crashes only happen on recent kernels (after commit 
-7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")), this
-probably needs to be backported to older kernels.
-
-Fixes: 7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")
-Fixes: 85584672012e ("udp: Fix udp_poll() and ioctl()")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Cc: Paolo Abeni <pabeni@redhat.com>
----
- net/l2tp/l2tp_core.h |    1 +
- net/l2tp/l2tp_ip.c   |   26 +++++++++++++++++++++++++-
- net/l2tp/l2tp_ip6.c  |    2 +-
- 3 files changed, 27 insertions(+), 2 deletions(-)
-
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 8f560f7140a05694c13904d9b171ba67d9d11292..aebf281d09eeb31c531eb624bd2ddd78cab8da9b 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -263,6 +263,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
- int l2tp_nl_register_ops(enum l2tp_pwtype pw_type,
- 			 const struct l2tp_nl_cmd_ops *ops);
- void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
-+int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg);
- 
- /* Session reference counts. Incremented when code obtains a reference
-  * to a session.
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index 3d73278b86ca34bfbd774dc8f52e490169445e1b..d4e5d16d97d4b612f8a76557516288f4a011448a 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -11,6 +11,7 @@
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <asm/ioctls.h>
- #include <linux/icmp.h>
- #include <linux/module.h>
- #include <linux/skbuff.h>
-@@ -553,6 +554,29 @@ static int l2tp_ip_recvmsg(struct sock *sk, struct msghdr *msg,
- 	return err ? err : copied;
- }
- 
-+int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg)
-+{
-+	struct sk_buff *skb;
-+	int amount;
-+
-+	switch (cmd) {
-+	case SIOCOUTQ:
-+		amount = sk_wmem_alloc_get(sk);
-+		break;
-+	case SIOCINQ:
-+		spin_lock_bh(&sk->sk_receive_queue.lock);
-+		skb = skb_peek(&sk->sk_receive_queue);
-+		amount = skb ? skb->len : 0;
-+		spin_unlock_bh(&sk->sk_receive_queue.lock);
-+		break;
-+
-+	default:
-+		return -ENOIOCTLCMD;
-+	}
-+
-+	return put_user(amount, (int __user *)arg);
-+}
-+
- static struct proto l2tp_ip_prot = {
- 	.name		   = "L2TP/IP",
- 	.owner		   = THIS_MODULE,
-@@ -561,7 +585,7 @@ static struct proto l2tp_ip_prot = {
- 	.bind		   = l2tp_ip_bind,
- 	.connect	   = l2tp_ip_connect,
- 	.disconnect	   = l2tp_ip_disconnect,
--	.ioctl		   = udp_ioctl,
-+	.ioctl		   = l2tp_ioctl,
- 	.destroy	   = l2tp_ip_destroy_sock,
- 	.setsockopt	   = ip_setsockopt,
- 	.getsockopt	   = ip_getsockopt,
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 331ccf5a7bad80e011997e071489d7775b0c68c6..f47c45250f86c9189e0a6bbfd92b21cbe2069406 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -722,7 +722,7 @@ static struct proto l2tp_ip6_prot = {
- 	.bind		   = l2tp_ip6_bind,
- 	.connect	   = l2tp_ip6_connect,
- 	.disconnect	   = l2tp_ip6_disconnect,
--	.ioctl		   = udp_ioctl,
-+	.ioctl		   = l2tp_ioctl,
- 	.destroy	   = l2tp_ip6_destroy_sock,
- 	.setsockopt	   = ipv6_setsockopt,
- 	.getsockopt	   = ipv6_getsockopt,
+Yes that would be the plan.
+-- 
+Florian
