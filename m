@@ -1,96 +1,56 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v3 net-next 2/2] net: dsa: mv88e6xxx: Add mv88e6390 watchdog interrupt support
-Date: Thu, 09 Feb 2017 10:46:55 -0500
-Message-ID: <87a89v4b9s.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1486595023-28371-1-git-send-email-andrew@lunn.ch> <1486595023-28371-3-git-send-email-andrew@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
+Date: Thu, 9 Feb 2017 16:57:51 +0100
+Message-ID: <20170209155751.GB29882@lunn.ch>
+References: <20170209150834.1158193-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:35626 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751760AbdBIPsr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 10:48:47 -0500
-In-Reply-To: <1486595023-28371-3-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+ Russell King <linux@armlinux.org.uk>, linux-kernel@vger.kernel.org,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S . Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20170209150834.1158193-1-arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Thu, Feb 09, 2017 at 04:08:11PM +0100, Arnd Bergmann wrote:
+> The newly introduced mdiobus_register_board_info() function is only available
+> as part of PHYLIB, so we get a link error when we call that from a board while
+> phylib is disabled:
+> 
+> arch/arm/plat-orion/common.o: In function `orion_ge00_switch_init':
+> common.c:(.init.text+0x6a4): undefined reference to `mdiobus_register_board_info'
+> 
+> This adds a workaround that is made up of three parts:
+> 
+> - in plat-orion, the function for declaring the switch is hidden without
+>   PHYLIB.
+> - in mach-orion5x, the caller conditionally stubs out the call to
+>   the removed function, so we can still build other orion5x boards
+>   without PHYLIB
+> - For the boards that actually declare the switch, we select PHYLIB
+>   explicitly from Kconfig if NETDEVICES is set. Without NETDEVICES,
+>   we cannot enable PHYLIB, but we also wouldn't need it.
 
-Thanks for the v3.
+Hi Arnd
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Although all correct, would it not be simpler to just select PHYLIB
+and NETDEVICES? These devices are all NAS boxes and WiFi access
+points. What sense does it make to build a kernel without working
+networking for these classes of devices?
 
-> +static int mv88e6390_watchdog_setup(struct mv88e6xxx_chip *chip)
-> +{
-> +	return mv88e6xxx_g2_update(chip, GLOBAL2_WDOG_CONTROL,
-> +				   GLOBAL2_WDOG_INT_ENABLE |
-> +				   GLOBAL2_WDOG_CUT_THROUGH |
-> +				   GLOBAL2_WDOG_QUEUE_CONTROLLER |
-> +				   GLOBAL2_WDOG_EGRESS |
-> +				   GLOBAL2_WDOG_FORCE_IRQ);
-> +}
-> +
-> +static int mv88e6390_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
-> +{
-> +	int err;
-> +	u16 reg;
-> +
-> +	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, GLOBAL2_WDOG_EVENT);
-> +	err = mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-
-You don't check for errors when reading or writing.
-
-> +
-> +	dev_info(chip->dev, "Watchdog event: 0x%04x",
-> +		 reg & GLOBAL2_WDOG_DATA_MASK);
-> +
-> +	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, GLOBAL2_WDOG_HISTORY);
-> +	err = mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-> +
-> +	dev_info(chip->dev, "Watchdog history: 0x%04x",
-> +		 reg & GLOBAL2_WDOG_DATA_MASK);
-> +
-> +	/* Trigger a software reset to try to recover the switch */
-> +	if (chip->info->ops->reset)
-> +		chip->info->ops->reset(chip);
-
-A SMI device (here Global2) should not need to deal with other ops.
-
-> +
-> +	mv88e6390_watchdog_setup(chip);
-> +
-> +	return IRQ_HANDLED;
-> +}
-> +
-> +static void mv88e6390_watchdog_free(struct mv88e6xxx_chip *chip)
-> +{
-> +	mv88e6xxx_g2_update(chip, GLOBAL2_WDOG_CONTROL,
-> +			    GLOBAL2_WDOG_INT_ENABLE);
-> +}
-
-Sorry but this is a bit cluttered. We are mixing library routines to
-access a chip register with the watchdog/irq logic.
-
-It looks like all you need in global2.c is library functions to access
-the watchdog register (indirect, in case of 88E6390).
-
-    /* Offset 0x1B: Watch Dog Control Register */
-
-    int mv88e6097_g2_watchdog_read(...)
-    int mv88e6097_g2_watchdog_enable(...)
-    int mv88e6097_g2_watchdog_disable(...)
-    int mv88e6390_g2_watchdog_read(...)
-    int mv88e6390_g2_watchdog_enable(...)
-    int mv88e6390_g2_watchdog_disable(...)
-
-The above seems to be all we need to have implemented in global2.c.
-
-Then chip.c can glue all that nicely together, playing with ops and
-irq threads.
-
-
-Thanks,
-
-        Vivien
+	   Andrew
