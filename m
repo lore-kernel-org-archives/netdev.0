@@ -1,57 +1,102 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] spectrum: flower: Treat ETH_P_ALL as a special case and translate for HW
-Date: Thu,  9 Feb 2017 14:42:03 +0100
-Message-ID: <1486647723-14776-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, petrm@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 3/4] net/sched: cls_u32: Use skip flags to reflect HW offload status
+Date: Thu,  9 Feb 2017 16:18:07 +0200
+Message-ID: <1486649888-2786-4-git-send-email-ogerlitz@mellanox.com>
+References: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Amir Vadai <amirva@vadai.me>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33769 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752190AbdBIOOT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:14:19 -0500
-Received: by mail-wm0-f65.google.com with SMTP id v77so3075405wmv.0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:14:18 -0800 (PST)
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52572 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752505AbdBIOSW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:18:22 -0500
+In-Reply-To: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Currently there is no way of querying whether a filter is
+offloaded to HW or not when using both policy (no flag).
 
-HW does not understand ETH_P_ALL. So treat this special case differently
-and translate to 0/0 key/mask. That will allow HW to match all ethertypes.
+Reuse the skip flags to show the insertion status by setting
+the skip_hw flag in case the filter wasn't offloaded.
 
-Fixes: 7aa0f5aa9030 ("mlxsw: spectrum: Implement TC flower offload")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ net/sched/cls_u32.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
-index 35b147a..22ab429 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
-@@ -197,11 +197,18 @@ static int mlxsw_sp_flower_parse(struct mlxsw_sp *mlxsw_sp,
- 			skb_flow_dissector_target(f->dissector,
- 						  FLOW_DISSECTOR_KEY_BASIC,
- 						  f->mask);
--		ip_proto = key->ip_proto;
-+		u16 n_proto_key = ntohs(key->n_proto);
-+		u16 n_proto_mask = ntohs(mask->n_proto);
-+
-+		if (n_proto_key == ETH_P_ALL) {
-+			n_proto_key = 0;
-+			n_proto_mask = 0;
-+		}
- 		mlxsw_sp_acl_rulei_keymask_u32(rulei,
- 					       MLXSW_AFK_ELEMENT_ETHERTYPE,
--					       ntohs(key->n_proto),
--					       ntohs(mask->n_proto));
-+					       n_proto_key, n_proto_mask);
-+
-+		ip_proto = key->ip_proto;
- 		mlxsw_sp_acl_rulei_keymask_u32(rulei,
- 					       MLXSW_AFK_ELEMENT_IP_PROTO,
- 					       key->ip_proto, mask->ip_proto);
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index a6ec3e4b..97411d5 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -493,7 +493,7 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ }
+ 
+ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
+-				u32 flags)
++				u32 *flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_u32_offload u32_offload = {0};
+@@ -503,8 +503,12 @@ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
+ 	offload.type = TC_SETUP_CLSU32;
+ 	offload.cls_u32 = &u32_offload;
+ 
+-	if (!tc_should_offload(dev, tp, flags))
+-		return tc_skip_sw(flags) ? -EINVAL : 0;
++	if (!tc_should_offload(dev, tp, *flags)) {
++		if (tc_skip_sw(*flags))
++			return -EINVAL;
++		*flags = TCA_CLS_FLAGS_SKIP_HW;
++		return 0;
++	}
+ 
+ 	offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
+ 	offload.cls_u32->knode.handle = n->handle;
+@@ -523,9 +527,11 @@ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
+ 
+ 	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
+ 					    tp->protocol, &offload);
+-	if (tc_skip_sw(flags))
++	if (tc_skip_sw(*flags))
+ 		return err;
+ 
++	if (err)
++		*flags = TCA_CLS_FLAGS_SKIP_HW;
+ 	return 0;
+ }
+ 
+@@ -889,12 +895,13 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 			return err;
+ 		}
+ 
+-		err = u32_replace_hw_knode(tp, new, flags);
++		err = u32_replace_hw_knode(tp, new, &flags);
+ 		if (err) {
+ 			u32_destroy_key(tp, new, false);
+ 			return err;
+ 		}
+ 
++		n->flags |= flags;
+ 		u32_replace_knode(tp, tp_c, new);
+ 		tcf_unbind_filter(tp, &n->res);
+ 		call_rcu(&n->rcu, u32_delete_key_rcu);
+@@ -1010,10 +1017,11 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		struct tc_u_knode __rcu **ins;
+ 		struct tc_u_knode *pins;
+ 
+-		err = u32_replace_hw_knode(tp, n, flags);
++		err = u32_replace_hw_knode(tp, n, &flags);
+ 		if (err)
+ 			goto errhw;
+ 
++		n->flags |= flags;
+ 		ins = &ht->ht[TC_U32_HASH(handle)];
+ 		for (pins = rtnl_dereference(*ins); pins;
+ 		     ins = &pins->next, pins = rtnl_dereference(*ins))
 -- 
-2.7.4
+2.3.7
