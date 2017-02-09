@@ -1,125 +1,347 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: net/sctp: null-ptr-deref in sctp_put_port/sctp_endpoint_destroy
-Date: Fri, 10 Feb 2017 01:22:50 +0800
-Message-ID: <CADvbK_cSzM+wLMnDGjDdEV=GHh2iw69STFeLpuc6j_2os8Q99w@mail.gmail.com>
-References: <CAAeHK+wX-KCOEseoYAgKzX1UZm4ucT6jSxx7U_hT=SzNPx2FOQ@mail.gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH v2 net-next 14/14] mlx4: remove duplicate code in mlx4_en_process_rx_cq()
+Date: Thu, 9 Feb 2017 19:15:59 +0200
+Message-ID: <CALzJLG-rNgKSroZg5+XsHRF8vPb=+b4V2cSchAz3c6+cvOW96w@mail.gmail.com>
+References: <20170209135838.16487-1-edumazet@google.com> <20170209135838.16487-15-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+wX-KCOEseoYAgKzX1UZm4ucT6jSxx7U_hT=SzNPx2FOQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35125 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752846AbdBIRZB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:25:01 -0500
+Received: by mail-qk0-f195.google.com with SMTP id u25so1545019qki.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:24:55 -0800 (PST)
+In-Reply-To: <20170209135838.16487-15-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 3:00 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> Hi,
+On Thu, Feb 9, 2017 at 3:58 PM, Eric Dumazet <edumazet@google.com> wrote:
+> We should keep one way to build skbs, regardless of GRO being on or off.
 >
-> I've got the following error report while fuzzing the kernel with syzkaller.
+> Note that I made sure to defer as much as possible the point we need to
+> pull data from the frame, so that future prefetch() we might add
+> are more effective.
 >
-> On commit 926af6273fc683cd98cd0ce7bf0d04a02eed6742.
+> These skb attributes derive from the CQE or ring :
+>  ip_summed, csum
+>  hash
+>  vlan offload
+>  hwtstamps
+>  queue_mapping
 >
-> A reproducer and .config are attached.
->
-> general protection fault: 0000 [#1] SMP KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 3 PID: 19506 Comm: syz-executor0 Not tainted 4.10.0-rc7+ #126
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> task: ffff88003d7c1700 task.stack: ffff880037990000
-> RIP: 0010:__write_once_size include/linux/compiler.h:272 [inline]
-> RIP: 0010:__hlist_del include/linux/list.h:635 [inline]
-> RIP: 0010:__sk_del_bind_node include/net/sock.h:685 [inline]
-> RIP: 0010:__sctp_put_port net/sctp/socket.c:6994 [inline]
-> RIP: 0010:sctp_put_port+0x210/0x620 net/sctp/socket.c:7004
-> RSP: 0018:ffff8800379969e0 EFLAGS: 00010246
-> RAX: dffffc0000000010 RBX: 1ffff10006f32d41 RCX: ffff880037996a28
-> RDX: 0000000000000000 RSI: 0000000000000000 RDI: dffffc0000000000
-> RBP: ffff880037996b10 R08: 0000000000000000 R09: 0000000000000000
-> R10: 1c8b9dfca637effe R11: dffffc0000000000 R12: 0000000000000005
-> R13: ffff880037996ae8 R14: ffff88003a066c40 R15: ffff88003a067178
-> FS:  00007fd314dba700(0000) GS:ffff88006df00000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000020002ffc CR3: 000000003b10e000 CR4: 00000000000006e0
-> Call Trace:
->  sctp_endpoint_destroy net/sctp/endpointola.c:275 [inline]
->  sctp_endpoint_put+0x1b2/0x260 net/sctp/endpointola.c:296
->  sctp_endpoint_free+0x97/0xc0 net/sctp/endpointola.c:238
->  sctp_destroy_sock+0xd6/0x470 net/sctp/socket.c:4254
->  sctp_v6_destroy_sock+0x15/0x20 net/sctp/socket.c:7871
->  sk_common_release+0xbf/0x4e0 net/core/sock.c:2747
->  sctp_close+0x764/0x9f0 net/sctp/socket.c:1550
->  inet_release+0xed/0x1c0 net/ipv4/af_inet.c:425
->  inet6_release+0x50/0x70 net/ipv6/af_inet6.c:431
->  sock_release+0x8d/0x1e0 net/socket.c:599
->  sock_close+0x16/0x20 net/socket.c:1063
->  __fput+0x332/0x7f0 fs/file_table.c:208
->  ____fput+0x15/0x20 fs/file_table.c:244
->  task_work_run+0x19b/0x270 kernel/task_work.c:116
->  exit_task_work include/linux/task_work.h:21 [inline]
->  do_exit+0x186b/0x2800 kernel/exit.c:839
->  do_group_exit+0x149/0x420 kernel/exit.c:943
->  get_signal+0x76d/0x17e0 kernel/signal.c:2313
->  do_signal+0xd2/0x2190 arch/x86/kernel/signal.c:807
->  exit_to_usermode_loop+0x170/0x200 arch/x86/entry/common.c:156
->  prepare_exit_to_usermode arch/x86/entry/common.c:190 [inline]
->  syscall_return_slowpath+0x3d3/0x420 arch/x86/entry/common.c:259
->  entry_SYSCALL_64_fastpath+0xc0/0xc2
-> RIP: 0033:0x4458b9
-> RSP: 002b:00007fd314db9cf8 EFLAGS: 00000246 ORIG_RAX: 00000000000000ca
-> RAX: fffffffffffffe00 RBX: 0000000000708170 RCX: 00000000004458b9
-> RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000708170
-> RBP: 0000000000708150 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000000
-> R13: 0000000000000000 R14: 00007fd314dba9c0 R15: 00007fd314dba700
-> Code: ff ff ff 49 8b 76 20 48 bf 00 00 00 00 00 fc ff df 49 89 c8 49
-> c1 e8 03 41 c6 04 38 00 49 89 f0 49 89 95 40 ff ff ff 49 c1 e8 03 <41>
-> 80 3c 38 00 0f 85 f6 02 00 00 48 c1 e9 03 49 b8 00 00 00 00
-> RIP: __write_once_size include/linux/compiler.h:272 [inline] RSP:
-> ffff8800379969e0
-> RIP: __hlist_del include/linux/list.h:635 [inline] RSP: ffff8800379969e0
-> RIP: __sk_del_bind_node include/net/sock.h:685 [inline] RSP: ffff8800379969e0
-> RIP: __sctp_put_port net/sctp/socket.c:6994 [inline] RSP: ffff8800379969e0
-> RIP: sctp_put_port+0x210/0x620 net/sctp/socket.c:7004 RSP: ffff8800379969e0
-> ---[ end trace 54c316f8731a5a88 ]---
-> Kernel panic - not syncing: Fatal exception in interrupt
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Kernel Offset: disabled
-> Rebooting in 86400 seconds..
-the script is trying to add a new mrtable and set raw6_sk(sk)->ip6mr_table,
-but it's a sctp_sock. to set raw6_sk(sk)->ip6mr_table will cover
-sctp_sock(sk)->bind_hash, as [1] and [2] are at the same
-offset, this issue then is triggered when release this sk.
+> As a bonus, this patch removes mlx4 dependency on eth_get_headlen()
 
-struct sctp_sock {
-    [0x0] struct inet_sock inet;
-  [0x3d0] sctp_socket_type_t type;
-  [0x3d8] struct sctp_pf *pf;
-  [0x3e0] struct crypto_hash *hmac;
-  [0x3e8] char *sctp_hmac_alg;
-  [0x3f0] struct sctp_endpoint *ep;
-  [0x3f8] struct sctp_bind_bucket *bind_hash; <----[1]
-  ...
+So no copy at all in driver RX ?  as it is handled in
+napi_gro_frags(&cq->napi); ?
 
-struct raw6_sock {
-    [0x0] struct inet_sock inet;
-  [0x3d0] __u32 checksum;
-  [0x3d4] __u32 offset;
-  [0x3d8] struct icmp6_filter filter;
-  [0x3f8] __u32 ip6mr_table; <------[2]
-  ...
+General question, why not just use build_skb() ? which approach is better ?
 
-We may need to check sk->sk_type != SOCK_RAW in the case
-MRT6_TABLE in ip6_mroute_setsockopt just as in case MRT6_INIT.
-The similar issue may also exists in other protocol sk.
+> which is very often broken enough to give us headaches.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 203 ++++++-----------------------
+>  1 file changed, 37 insertions(+), 166 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index 0a87cc96e90ce7374821a0b4712d4b85ad8e..ef6c295789803a69f7066f7e5c80d1dc37f2 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -526,64 +526,6 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+>         return 0;
+>  }
+>
+> -
+> -static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+> -                                     struct mlx4_en_rx_alloc *frags,
+> -                                     unsigned int length)
+> -{
+> -       struct sk_buff *skb;
+> -       void *va;
+> -       int used_frags;
+> -       dma_addr_t dma;
+> -
+> -       skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
+> -       if (unlikely(!skb)) {
+> -               en_dbg(RX_ERR, priv, "Failed allocating skb\n");
+> -               return NULL;
+> -       }
+> -       skb_reserve(skb, NET_IP_ALIGN);
+> -       skb->len = length;
+> -
+> -       /* Get pointer to first fragment so we could copy the headers into the
+> -        * (linear part of the) skb */
+> -       va = page_address(frags[0].page) + frags[0].page_offset;
+> -
+> -       if (length <= SMALL_PACKET_SIZE) {
+> -               /* We are copying all relevant data to the skb - temporarily
+> -                * sync buffers for the copy */
+> -
+> -               dma = frags[0].dma + frags[0].page_offset;
+> -               dma_sync_single_for_cpu(priv->ddev, dma, length,
+> -                                       DMA_FROM_DEVICE);
+> -               skb_copy_to_linear_data(skb, va, length);
+> -               skb->tail += length;
+> -       } else {
+> -               unsigned int pull_len;
+> -
+> -               /* Move relevant fragments to skb */
+> -               used_frags = mlx4_en_complete_rx_desc(priv, frags,
+> -                                                       skb, length);
+> -               if (unlikely(!used_frags)) {
+> -                       kfree_skb(skb);
+> -                       return NULL;
+> -               }
+> -               skb_shinfo(skb)->nr_frags = used_frags;
+> -
+> -               pull_len = eth_get_headlen(va, SMALL_PACKET_SIZE);
+> -               /* Copy headers into the skb linear buffer */
+> -               memcpy(skb->data, va, pull_len);
+> -               skb->tail += pull_len;
+> -
+> -               /* Skip headers in first fragment */
+> -               skb_shinfo(skb)->frags[0].page_offset += pull_len;
+> -
+> -               /* Adjust size of first fragment */
+> -               skb_frag_size_sub(&skb_shinfo(skb)->frags[0], pull_len);
+> -               skb->data_len = length - pull_len;
+> -       }
+> -       return skb;
+> -}
+> -
+>  static void validate_loopback(struct mlx4_en_priv *priv, void *va)
+>  {
+>         const unsigned char *data = va + ETH_HLEN;
+> @@ -792,8 +734,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>                  */
+>                 length = be32_to_cpu(cqe->byte_cnt);
+>                 length -= ring->fcs_del;
+> -               l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+> -                       (cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
+>
+>                 /* A bpf program gets first chance to drop the packet. It may
+>                  * read bytes but not past the end of the frag.
+> @@ -849,122 +789,51 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>                 ring->bytes += length;
+>                 ring->packets++;
+>
+> +               skb = napi_get_frags(&cq->napi);
+> +               if (!skb)
+> +                       goto next;
+> +
+> +               if (unlikely(ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL)) {
+> +                       timestamp = mlx4_en_get_cqe_ts(cqe);
+> +                       mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
+> +                                              timestamp);
+> +               }
+> +               skb_record_rx_queue(skb, cq->ring);
+> +
+>                 if (likely(dev->features & NETIF_F_RXCSUM)) {
+>                         if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
+>                                                       MLX4_CQE_STATUS_UDP)) {
+>                                 if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
+>                                     cqe->checksum == cpu_to_be16(0xffff)) {
+>                                         ip_summed = CHECKSUM_UNNECESSARY;
+> +                                       l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+> +                                               (cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
+> +                                       if (l2_tunnel)
+> +                                               skb->csum_level = 1;
+>                                         ring->csum_ok++;
+>                                 } else {
+> -                                       ip_summed = CHECKSUM_NONE;
+> -                                       ring->csum_none++;
+> +                                       goto csum_none;
+>                                 }
+>                         } else {
+>                                 if (priv->flags & MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP &&
+>                                     (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
+>                                                                MLX4_CQE_STATUS_IPV6))) {
+> -                                       ip_summed = CHECKSUM_COMPLETE;
+> -                                       ring->csum_complete++;
+> +                                       if (check_csum(cqe, skb, va, dev->features)) {
+> +                                               goto csum_none;
+> +                                       } else {
+> +                                               ip_summed = CHECKSUM_COMPLETE;
+> +                                               ring->csum_complete++;
+> +                                       }
+>                                 } else {
+> -                                       ip_summed = CHECKSUM_NONE;
+> -                                       ring->csum_none++;
+> +                                       goto csum_none;
+>                                 }
+>                         }
+>                 } else {
+> +csum_none:
+>                         ip_summed = CHECKSUM_NONE;
+>                         ring->csum_none++;
+>                 }
+
+Why just not move this whole csum logic to a dedicated function ?
+all it needs to do is update some csum statistics and determine
+"ip_summed" value;
+
+> -
+> -               /* This packet is eligible for GRO if it is:
+> -                * - DIX Ethernet (type interpretation)
+> -                * - TCP/IP (v4)
+> -                * - without IP options
+> -                * - not an IP fragment
+> -                */
+> -               if (dev->features & NETIF_F_GRO) {
+> -                       struct sk_buff *gro_skb = napi_get_frags(&cq->napi);
+> -                       if (!gro_skb)
+> -                               goto next;
+> -
+> -                       nr = mlx4_en_complete_rx_desc(priv, frags, gro_skb,
+> -                                                     length);
+> -                       if (!nr)
+> -                               goto next;
+> -
+> -                       if (ip_summed == CHECKSUM_COMPLETE) {
+> -                               if (check_csum(cqe, gro_skb, va,
+> -                                              dev->features)) {
+> -                                       ip_summed = CHECKSUM_NONE;
+> -                                       ring->csum_none++;
+> -                                       ring->csum_complete--;
+> -                               }
+> -                       }
+> -
+> -                       skb_shinfo(gro_skb)->nr_frags = nr;
+> -                       gro_skb->len = length;
+> -                       gro_skb->data_len = length;
+> -                       gro_skb->ip_summed = ip_summed;
+> -
+> -                       if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
+> -                               gro_skb->csum_level = 1;
+> -
+> -                       if ((cqe->vlan_my_qpn &
+> -                           cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
+> -                           (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
+> -                               u16 vid = be16_to_cpu(cqe->sl_vid);
+> -
+> -                               __vlan_hwaccel_put_tag(gro_skb, htons(ETH_P_8021Q), vid);
+> -                       } else if ((be32_to_cpu(cqe->vlan_my_qpn) &
+> -                                 MLX4_CQE_SVLAN_PRESENT_MASK) &&
+> -                                (dev->features & NETIF_F_HW_VLAN_STAG_RX)) {
+> -                               __vlan_hwaccel_put_tag(gro_skb,
+> -                                                      htons(ETH_P_8021AD),
+> -                                                      be16_to_cpu(cqe->sl_vid));
+> -                       }
+> -
+> -                       if (dev->features & NETIF_F_RXHASH)
+> -                               skb_set_hash(gro_skb,
+> -                                            be32_to_cpu(cqe->immed_rss_invalid),
+> -                                            (ip_summed == CHECKSUM_UNNECESSARY) ?
+> -                                               PKT_HASH_TYPE_L4 :
+> -                                               PKT_HASH_TYPE_L3);
+> -
+> -                       skb_record_rx_queue(gro_skb, cq->ring);
+> -
+> -                       if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
+> -                               timestamp = mlx4_en_get_cqe_ts(cqe);
+> -                               mlx4_en_fill_hwtstamps(mdev,
+> -                                                      skb_hwtstamps(gro_skb),
+> -                                                      timestamp);
+> -                       }
+> -
+> -                       napi_gro_frags(&cq->napi);
+> -                       goto next;
+> -               }
+> -
+> -               /* GRO not possible, complete processing here */
+> -               skb = mlx4_en_rx_skb(priv, frags, length);
+> -               if (unlikely(!skb)) {
+> -                       ring->dropped++;
+> -                       goto next;
+> -               }
+> -
+> -               if (ip_summed == CHECKSUM_COMPLETE) {
+> -                       if (check_csum(cqe, skb, va, dev->features)) {
+> -                               ip_summed = CHECKSUM_NONE;
+> -                               ring->csum_complete--;
+> -                               ring->csum_none++;
+> -                       }
+> -               }
+> -
+
+Finally! Best patch ever !
+Thank you Eric.
+
+>                 skb->ip_summed = ip_summed;
+> -               skb->protocol = eth_type_trans(skb, dev);
+
+Not required anymore ?  I know napi_frags_skb does the job,
+but what about skb->pkt_type field which is handled in eth_type_trans ?
+
+> -               skb_record_rx_queue(skb, cq->ring);
+> -
+> -               if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
+> -                       skb->csum_level = 1;
+> -
+>                 if (dev->features & NETIF_F_RXHASH)
+>                         skb_set_hash(skb,
+>                                      be32_to_cpu(cqe->immed_rss_invalid),
+> @@ -972,23 +841,25 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>                                         PKT_HASH_TYPE_L4 :
+>                                         PKT_HASH_TYPE_L3);
+>
+> -               if ((be32_to_cpu(cqe->vlan_my_qpn) &
+> -                   MLX4_CQE_CVLAN_PRESENT_MASK) &&
+> +
+> +               if ((cqe->vlan_my_qpn &
+> +                    cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
+>                     (dev->features & NETIF_F_HW_VLAN_CTAG_RX))
+> -                       __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), be16_to_cpu(cqe->sl_vid));
+> -               else if ((be32_to_cpu(cqe->vlan_my_qpn) &
+> -                         MLX4_CQE_SVLAN_PRESENT_MASK) &&
+> +                       __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+> +                                              be16_to_cpu(cqe->sl_vid));
+> +               else if ((cqe->vlan_my_qpn &
+> +                         cpu_to_be32(MLX4_CQE_SVLAN_PRESENT_MASK)) &&
+>                          (dev->features & NETIF_F_HW_VLAN_STAG_RX))
+>                         __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021AD),
+>                                                be16_to_cpu(cqe->sl_vid));
+>
+> -               if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
+> -                       timestamp = mlx4_en_get_cqe_ts(cqe);
+> -                       mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
+> -                                              timestamp);
+> +               nr = mlx4_en_complete_rx_desc(priv, frags, skb, length);
+> +               if (nr) {
+
+likely() ?
+
+> +                       skb_shinfo(skb)->nr_frags = nr;
+> +                       skb->len = length;
+> +                       skb->data_len = length;
+> +                       napi_gro_frags(&cq->napi);
+>                 }
+
+no need to kfree_skb/reset some SKB fields in case nr == 0 ?
+since this SKB will be returned via napi_get_frags if you didn't
+actually consume it ..
+
+for example 1st packet is a valn packet and for some reason
+mlx4_en_complete_rx_desc returned 0 on it.
+next packet is a non vlan packet that will get the same skb of the 1st
+packet with non clean SKB fields such as (skb->vlan_tci) !
+
+> -
+> -               napi_gro_receive(&cq->napi, skb);
+>  next:
+>                 ++cq->mcq.cons_index;
+>                 index = (cq->mcq.cons_index) & ring->size_mask;
+> --
+> 2.11.0.483.g087da7b7c-goog
+>
