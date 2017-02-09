@@ -1,61 +1,45 @@
-From: Gao Feng <fgao@ikuai8.com>
-Subject: Re: [PATCH net 1/1] net: sock: Use double send/recv buff value to
- compare with max value
-Date: Thu, 9 Feb 2017 17:08:57 +0800
-Message-ID: <CA+6hz4q+S5_LyVMp9OSD24U=REymv+ciur9ZaT9wH0mhSvo_cw@mail.gmail.com>
-References: <1486559235-13633-1-git-send-email-fgao@ikuai8.com> <1486569601.7793.83.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH net] net: hns: Fix the device being used for dma mapping during TX
+Date: Thu, 9 Feb 2017 09:24:09 +0000
+Message-ID: <20170209092409.202832-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbgbr2.qq.com ([54.207.22.56]:53817 "EHLO smtpbgbr2.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751893AbdBIJKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Feb 2017 04:10:38 -0500
-Received: from mail-ua0-f177.google.com (unknown [209.85.217.177])
-        by esmtp4.qq.com (ESMTP) with SMTP id 0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 17:08:58 +0800 (CST)
-Received: by mail-ua0-f177.google.com with SMTP id y9so130105664uae.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 01:08:59 -0800 (PST)
-In-Reply-To: <1486569601.7793.83.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <mehta.salil.lnk@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>,
+        Kejian Yan <yankejian@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 9, 2017 at 12:00 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2017-02-08 at 21:07 +0800, fgao@ikuai8.com wrote:
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> Because the value of SO_SNDBUF and SO_RCVBUF is doubled before
->> assignment, so the real value of send and recv buffer could be more
->> than the max sysctl config sysctl_wmem_max and sysctl_rmem_max.
->>
->> Now use doulbe send/recv buffer value to compare with sysctl_wmem_max
->> and sysctl_rmem_max, and it keeps consistence with SOCK_MIN_SNDBUF
->> and SOCK_MIN_RCVBUF.
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> ---
->
-> Looks completely bogus, based on your comprehension of this code.
+From: Kejian Yan <yankejian@huawei.com>
 
-It is a config param, user could config any value.
-So why give it one bogus?
-If need more, user could config it by himself.
+This patch fixes the device being used to DMA map skb->data.
+Erroneous device assignment causes the crash when SMMU is enabled.
+This happens during TX since buffer gets DMA mapped with device
+correspondign to net_device and gets unmapped using the device
+related to DSAF.
 
->
-> If you need to, fix the doc, not this code.
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The current codes mean the buffer could exceed the sysctl max value.
-It seems inconsistent.
-
-Regards
-Feng
-
->
-> Unless you give more details of course, why we should take your patch.
->
->
->
->
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 672b646..2b52a12 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -305,7 +305,7 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
+ 			struct hns_nic_ring_data *ring_data)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+-	struct device *dev = priv->dev;
++	struct device *dev = ring_to_dev(ring_data->ring);
+ 	struct hnae_ring *ring = ring_data->ring;
+ 	struct netdev_queue *dev_queue;
+ 	struct skb_frag_struct *frag;
+-- 
+1.7.9.5
