@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V4 net-next 08/13] net/ena: use napi_complete_done() return value
-Date: Thu,  9 Feb 2017 15:21:34 +0200
-Message-ID: <1486646499-13682-9-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V4 net-next 05/13] net/ena: fix NULL dereference when removing the driver after device reset failed
+Date: Thu,  9 Feb 2017 15:21:31 +0200
+Message-ID: <1486646499-13682-6-git-send-email-netanel@annapurnalabs.com>
 References: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -10,83 +10,92 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         evgenys@annapurnalabs.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:36112 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752389AbdBIN3i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:29:38 -0500
-Received: by mail-wm0-f43.google.com with SMTP id c85so230705524wmi.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:29:37 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Do not unamsk interrupts if we are in busy poll mode.
+If for some reason the device stops responding, and the device reset
+failes to recover the device, the mmio register read data structure
+will not be reinitialized.
+
+On driver removal, the driver will also try to reset the device, but
+this time the mmio data structure will be NULL.
+
+To solve this issue, perform the device reset in the remove function
+only if the device is runnig.
+
+Crash log
+   54.240382] BUG: unable to handle kernel NULL pointer dereference at           (null)
+[   54.244186] IP: [<ffffffffc067de5a>] ena_com_reg_bar_read32+0x8a/0x180 [ena_drv]
+[   54.244186] PGD 0
+[   54.244186] Oops: 0002 [#1] SMP
+[   54.244186] Modules linked in: ena_drv(OE-) snd_hda_codec_generic kvm_intel kvm crct10dif_pclmul ppdev crc32_pclmul ghash_clmulni_intel aesni_intel snd_hda_intel aes_x86_64 snd_hda_controller lrw gf128mul cirrus glue_helper ablk_helper ttm snd_hda_codec drm_kms_helper cryptd snd_hwdep drm snd_pcm pvpanic snd_timer syscopyarea sysfillrect snd parport_pc sysimgblt serio_raw soundcore i2c_piix4 mac_hid lp parport psmouse floppy
+[   54.244186] CPU: 5 PID: 1841 Comm: rmmod Tainted: G           OE 3.16.0-031600-generic #201408031935
+[   54.244186] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+[   54.244186] task: ffff880135852880 ti: ffff8800bb640000 task.ti: ffff8800bb640000
+[   54.244186] RIP: 0010:[<ffffffffc067de5a>]  [<ffffffffc067de5a>] ena_com_reg_bar_read32+0x8a/0x180 [ena_drv]
+[   54.244186] RSP: 0018:ffff8800bb643d50  EFLAGS: 00010083
+[   54.244186] RAX: 000000000000deb0 RBX: 0000000000030d40 RCX: 0000000000000003
+[   54.244186] RDX: 0000000000000202 RSI: 0000000000000058 RDI: ffffc90000775104
+[   54.244186] RBP: ffff8800bb643d88 R08: 0000000000000000 R09: cf00000000000000
+[   54.244186] R10: 0000000fffffffe0 R11: 0000000000000001 R12: 0000000000000000
+[   54.244186] R13: ffffc90000765000 R14: ffffc90000775104 R15: 00007fca1fa98090
+[   54.244186] FS:  00007fca1f1bd740(0000) GS:ffff88013fd40000(0000) knlGS:0000000000000000
+[   54.244186] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   54.244186] CR2: 0000000000000000 CR3: 00000000b9cf6000 CR4: 00000000001406e0
+[   54.244186] Stack:
+[   54.244186]  0000000000000202 0000005800000286 ffffc90000765000 ffffc90000765000
+[   54.244186]  ffff880135f6b000 ffff8800b9360000 00007fca1fa98090 ffff8800bb643db8
+[   54.244186]  ffffffffc0680b3d ffff8800b93608c0 ffffc90000765000 ffff880135f6b000
+[   54.244186] Call Trace:
+[   54.244186]  [<ffffffffc0680b3d>] ena_com_dev_reset+0x1d/0x1b0 [ena_drv]
+[   54.244186]  [<ffffffffc0678497>] ena_remove+0xa7/0x130 [ena_drv]
+[   54.244186]  [<ffffffff813d4df6>] pci_device_remove+0x46/0xc0
+[   54.244186]  [<ffffffff814c3b7f>] __device_release_driver+0x7f/0xf0
+[   54.244186]  [<ffffffff814c4738>] driver_detach+0xc8/0xd0
+[   54.244186]  [<ffffffff814c3969>] bus_remove_driver+0x59/0xd0
+[   54.244186]  [<ffffffff814c4fde>] driver_unregister+0x2e/0x60
+[   54.244186]  [<ffffffff810f0a80>] ? show_refcnt+0x40/0x40
+[   54.244186]  [<ffffffff813d4ec3>] pci_unregister_driver+0x23/0xa0
+[   54.244186]  [<ffffffffc068413f>] ena_cleanup+0x10/0xed1 [ena_drv]
+[   54.244186]  [<ffffffff810f3a47>] SyS_delete_module+0x157/0x1e0
+[   54.244186]  [<ffffffff81014fb7>] ? do_notify_resume+0xc7/0xd0
+[   54.244186]  [<ffffffff81793fad>] system_call_fastpath+0x1a/0x1f
+[   54.244186] Code: c3 4d 8d b5 04 01 01 00 4c 89 f7 e8 e1 5a 11 c1 48 89 45 c8 41 0f b7 85 00 01 01 00 8d 48 01 66 2d 52 21 66 41 89 8d 00 01 01 00 <66> 41 89 04 24 0f b7 45 d4 89 45 d0 89 c1 41 0f b7 85 00 01 01
+[   54.244186] RIP  [<ffffffffc067de5a>] ena_com_reg_bar_read32+0x8a/0x180 [ena_drv]
+[   54.244186]  RSP <ffff8800bb643d50>
+[   54.244186] CR2: 0000000000000000
+[   54.244186] ---[ end trace 18dd9889b6497810 ]---
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 44 ++++++++++++++++++----------
- 1 file changed, 29 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_netdev.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 8ca1ba3..d467a79 100644
+index effe686..d1aa7b6 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -1122,26 +1122,40 @@ static int ena_io_poll(struct napi_struct *napi, int budget)
- 	tx_work_done = ena_clean_tx_irq(tx_ring, tx_budget);
- 	rx_work_done = ena_clean_rx_irq(rx_ring, napi, budget);
+@@ -2507,6 +2507,8 @@ static void ena_fw_reset_device(struct work_struct *work)
+ err:
+ 	rtnl_unlock();
  
--	if ((budget > rx_work_done) && (tx_budget > tx_work_done)) {
--		napi_complete_done(napi, rx_work_done);
-+	/* If the device is about to reset or down, avoid unmask
-+	 * the interrupt and return 0 so NAPI won't reschedule
-+	 */
-+	if (unlikely(!test_bit(ENA_FLAG_DEV_UP, &tx_ring->adapter->flags) ||
-+		     test_bit(ENA_FLAG_TRIGGER_RESET, &tx_ring->adapter->flags))) {
-+		napi_complete_done(napi, 0);
-+		ret = 0;
- 
-+	} else if ((budget > rx_work_done) && (tx_budget > tx_work_done)) {
- 		napi_comp_call = 1;
--		/* Tx and Rx share the same interrupt vector */
--		if (ena_com_get_adaptive_moderation_enabled(rx_ring->ena_dev))
--			ena_adjust_intr_moderation(rx_ring, tx_ring);
- 
--		/* Update intr register: rx intr delay, tx intr delay and
--		 * interrupt unmask
-+		/* Update numa and unmask the interrupt only when schedule
-+		 * from the interrupt context (vs from sk_busy_loop)
- 		 */
--		ena_com_update_intr_reg(&intr_reg,
--					rx_ring->smoothed_interval,
--					tx_ring->smoothed_interval,
--					true);
-+		if (napi_complete_done(napi, rx_work_done)) {
-+			/* Tx and Rx share the same interrupt vector */
-+			if (ena_com_get_adaptive_moderation_enabled(rx_ring->ena_dev))
-+				ena_adjust_intr_moderation(rx_ring, tx_ring);
++	clear_bit(ENA_FLAG_DEVICE_RUNNING, &adapter->flags);
 +
-+			/* Update intr register: rx intr delay,
-+			 * tx intr delay and interrupt unmask
-+			 */
-+			ena_com_update_intr_reg(&intr_reg,
-+						rx_ring->smoothed_interval,
-+						tx_ring->smoothed_interval,
-+						true);
-+
-+			/* It is a shared MSI-X.
-+			 * Tx and Rx CQ have pointer to it.
-+			 * So we use one of them to reach the intr reg
-+			 */
-+			ena_com_unmask_intr(rx_ring->ena_com_io_cq, &intr_reg);
-+		}
+ 	dev_err(&pdev->dev,
+ 		"Reset attempt failed. Can not reset the device\n");
+ }
+@@ -3115,7 +3117,9 @@ static void ena_remove(struct pci_dev *pdev)
  
--		/* It is a shared MSI-X. Tx and Rx CQ have pointer to it.
--		 * So we use one of them to reach the intr reg
--		 */
--		ena_com_unmask_intr(rx_ring->ena_com_io_cq, &intr_reg);
+ 	cancel_work_sync(&adapter->resume_io_task);
  
- 		ena_update_ring_numa_node(tx_ring, rx_ring);
+-	ena_com_dev_reset(ena_dev);
++	/* Reset the device only if the device is running. */
++	if (test_bit(ENA_FLAG_DEVICE_RUNNING, &adapter->flags))
++		ena_com_dev_reset(ena_dev);
+ 
+ 	ena_free_mgmnt_irq(adapter);
  
 -- 
 2.7.4
