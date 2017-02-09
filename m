@@ -1,36 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] udp: fix a potential panic in first_packet_length()
-Date: Thu, 09 Feb 2017 09:54:20 -0800
-Message-ID: <1486662860.7793.106.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1486659678.2591.11.camel@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: net: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected in
+ skb_array_produce
+Date: Thu, 9 Feb 2017 19:50:11 +0200
+Message-ID: <20170209194943-mutt-send-email-mst@kernel.org>
+References: <CACT4Y+bs15VR7xjeYhece+0_X5Ss+5FM0w6jpJH0Dbbdu-+qCQ@mail.gmail.com>
+ <50038580.20299907.1486634551103.JavaMail.zimbra@redhat.com>
+ <CACT4Y+ZVS_SvUarbvk4aeXkJvFCCfgozq5DzHYLcfbjMN4aTtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
         netdev <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36758 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751852AbdBIRyZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:54:25 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 75so855743pgf.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:54:21 -0800 (PST)
-In-Reply-To: <1486659678.2591.11.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+ZVS_SvUarbvk4aeXkJvFCCfgozq5DzHYLcfbjMN4aTtg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-02-09 at 18:01 +0100, Paolo Abeni wrote:
->  
+On Thu, Feb 09, 2017 at 11:49:30AM +0100, Dmitry Vyukov wrote:
+> On Thu, Feb 9, 2017 at 11:02 AM, Jason Wang <jasowang@redhat.com> wrote:
+> >
+> >
+> > ----- Original Message -----
+> >> Hello,
+> >>
+> >> I've got the following report while running syzkaller fuzzer on mmotm
+> >> (git://git.kernel.org/pub/scm/linux/kernel/git/mhocko/mm.git)
+> >> remotes/mmotm/auto-latest ee4ba7533626ba7bf2f8b992266467ac9fdc045e:
+> >>
+> >
+> > [...]
+> >
+> >>
+> >> other info that might help us debug this:
+> >>
+> >>  Possible interrupt unsafe locking scenario:
+> >>
+> >>        CPU0                    CPU1
+> >>        ----                    ----
+> >>   lock(&(&r->consumer_lock)->rlock);
+> >>                                local_irq_disable();
+> >>                                lock(&(&r->producer_lock)->rlock);
+> >>                                lock(&(&r->consumer_lock)->rlock);
+> >>   <Interrupt>
+> >>     lock(&(&r->producer_lock)->rlock);
+> >>
+> >
+> > Thanks a lot for the testing.
+> >
+> > Looks like we could address this by using skb_array_consume_bh() instead.
+> >
+> > Could you pls verify if the following patch works?
 > 
-> My bad, I missed completely that call path.
+> No, I can't test it, sorry. This happened once on bots. And bots
+> currently test only upstream versions.
+
+Which trees are tested? Will linux-next help?
+
 > 
-> I'm wondering if calling first_packet_length() for l2tp_ip sockets
-> makes sense ?!? Am I missing something or it touches udp stats and
-> checks udp csum for non udp packets ?!?
-
-Yes, I guess this is a good point.
-
-I will send a v2, thanks.
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index 8a7d6b9..a97c00d 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -520,7 +520,7 @@ static void tun_queue_purge(struct tun_file *tfile)
+> >  {
+> >         struct sk_buff *skb;
+> >
+> > -       while ((skb = skb_array_consume(&tfile->tx_array)) != NULL)
+> > +       while ((skb = skb_array_consume_bh(&tfile->tx_array)) != NULL)
+> >                 kfree_skb(skb);
+> >
+> >         skb_queue_purge(&tfile->sk.sk_write_queue);
+> > @@ -1458,7 +1458,7 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
+> >         struct sk_buff *skb = NULL;
+> >         int error = 0;
+> >
+> > -       skb = skb_array_consume(&tfile->tx_array);
+> > +       skb = skb_array_consume_bh(&tfile->tx_array);
+> >         if (skb)
+> >                 goto out;
+> >         if (noblock) {
+> > @@ -1470,7 +1470,7 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
+> >         current->state = TASK_INTERRUPTIBLE;
+> >
+> >         while (1) {
+> > -               skb = skb_array_consume(&tfile->tx_array);
+> > +               skb = skb_array_consume_bh(&tfile->tx_array);
+> >                 if (skb)
+> >                         break;
+> >                 if (signal_pending(current)) {
+> >
+> > --
+> > You received this message because you are subscribed to the Google Groups "syzkaller" group.
+> > To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
+> > For more options, visit https://groups.google.com/d/optout.
