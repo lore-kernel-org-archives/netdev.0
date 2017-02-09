@@ -1,43 +1,36 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 2/2] testsuite: Search kernel config in modules dir also
-Date: Thu,  9 Feb 2017 11:50:55 +0100
-Message-ID: <20170209105055.2477-3-phil@nwl.cc>
-References: <20170209105055.2477-1-phil@nwl.cc>
+Subject: [iproute PATCH v2 0/2] Two minor testsuite fixes
+Date: Thu,  9 Feb 2017 11:50:53 +0100
+Message-ID: <20170209105055.2477-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:54829 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:48025 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752288AbdBILAh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752329AbdBILAh (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 9 Feb 2017 06:00:37 -0500
-In-Reply-To: <20170209105055.2477-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At least in Fedora there is no /proc/config.gz but instead
-/lib/modules/`uname -r`/config, so use that as a fallback.
+While playing around with testsuite, I noticed two minor nits which this
+series attempts to fix.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- testsuite/Makefile | 6 ++++++
- 1 file changed, 6 insertions(+)
+Changes since v1:
+- Replaced patch1 completely.
 
-diff --git a/testsuite/Makefile b/testsuite/Makefile
-index fa7ddb8620754..50a7bafaca897 100644
---- a/testsuite/Makefile
-+++ b/testsuite/Makefile
-@@ -15,6 +15,12 @@ IPVERS := $(filter-out iproute2/Makefile,$(wildcard iproute2/*))
- 
- ifneq (,$(wildcard /proc/config.gz))
- 	KENV := $(shell cat /proc/config.gz | gunzip | grep ^CONFIG)
-+else
-+KVER := $(shell uname -r)
-+KCPATH := /lib/modules/${KVER}/config
-+ifneq (,$(wildcard ${KCPATH}))
-+	KENV := $(shell cat ${KCPATH} | grep ^CONFIG)
-+endif
- endif
- 
- .PHONY: compile listtests alltests configure $(TESTS)
+Phil Sutter (2):
+  testsuite: Generate nlmsg blob at runtime
+  testsuite: Search kernel config in modules dir also
+
+ .gitignore                                |   2 +
+ testsuite/Makefile                        |   8 +++
+ testsuite/tests/ip/link/dev_wo_vf_rate.nl | Bin 14076 -> 0 bytes
+ testsuite/tools/Makefile                  |   2 +
+ testsuite/tools/generate_nlmsg.c          | 116 ++++++++++++++++++++++++++++++
+ 5 files changed, 128 insertions(+)
+ delete mode 100644 testsuite/tests/ip/link/dev_wo_vf_rate.nl
+ create mode 100644 testsuite/tools/Makefile
+ create mode 100644 testsuite/tools/generate_nlmsg.c
+
 -- 
 2.11.0
