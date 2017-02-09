@@ -1,303 +1,72 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 02/12] nfp: rename the driver and add new main file
-Date: Thu,  9 Feb 2017 09:17:28 -0800
-Message-ID: <20170209171738.17386-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 10/12] nfp: add port layer to debugfs directories
+Date: Thu,  9 Feb 2017 09:17:36 -0800
+Message-ID: <20170209171738.17386-11-jakub.kicinski@netronome.com>
 References: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Cc: kubakici@wp.pl, oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36732 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751047AbdBIR3Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:29:24 -0500
-Received: by mail-pf0-f181.google.com with SMTP id 189so2007550pfu.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:29:23 -0800 (PST)
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33880 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751047AbdBIR3i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:29:38 -0500
+Received: by mail-pf0-f173.google.com with SMTP id e4so2038774pfg.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:29:33 -0800 (PST)
 In-Reply-To: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support for the PF driver is about to be added and will share
-much of the code.  When the VF driver was added we planned to
-maintain the PF driver as a separate module but have decided
-that for our simple use case just maintaining a single module
-is more reasonable.  Rename the driver to just "nfp" and update
-the Kconfig.
-
-While at it remove latent references to NFP3200.
+PF driver will support multiple ports per PCI device, add port
+number to DebugFS paths.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/Kconfig             | 18 ++---
- drivers/net/ethernet/netronome/Makefile            |  2 +-
- drivers/net/ethernet/netronome/nfp/Makefile        |  9 ++-
- drivers/net/ethernet/netronome/nfp/nfp_main.c      | 85 ++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_main.h      | 48 ++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  9 +--
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  8 +-
- .../net/ethernet/netronome/nfp/nfp_netvf_main.c    | 38 +---------
- 8 files changed, 160 insertions(+), 57 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_main.c
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_main.h
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       | 15 ++++++---
+ .../net/ethernet/netronome/nfp/nfp_net_debugfs.c   | 39 +++++++++++++++-------
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    |  7 ++--
+ 3 files changed, 43 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/Kconfig b/drivers/net/ethernet/netronome/Kconfig
-index 9508ad782c30..967d7ca8c28c 100644
---- a/drivers/net/ethernet/netronome/Kconfig
-+++ b/drivers/net/ethernet/netronome/Kconfig
-@@ -15,21 +15,21 @@ config NET_VENDOR_NETRONOME
- 
- if NET_VENDOR_NETRONOME
- 
--config NFP_NETVF
--	tristate "Netronome(R) NFP4000/NFP6000 VF NIC driver"
-+config NFP
-+	tristate "Netronome(R) NFP4000/NFP6000 NIC driver"
- 	depends on PCI && PCI_MSI
- 	depends on VXLAN || VXLAN=n
- 	---help---
--	  This driver supports SR-IOV virtual functions of
--	  the Netronome(R) NFP4000/NFP6000 cards working as
--	  a advanced Ethernet NIC.
-+	  This driver supports the Netronome(R) NFP4000/NFP6000 based
-+	  cards working as a advanced Ethernet NIC.  It works with both
-+	  SR-IOV physical and virtual functions.
- 
--config NFP_NET_DEBUG
--	bool "Debug support for Netronome(R) NFP3200/NFP6000 NIC drivers"
--	depends on NFP_NET || NFP_NETVF
-+config NFP_DEBUG
-+	bool "Debug support for Netronome(R) NFP4000/NFP6000 NIC drivers"
-+	depends on NFP
- 	---help---
- 	  Enable extra sanity checks and debugfs support in
--	  Netronome(R) NFP3200/NFP6000 NIC PF and VF drivers.
-+	  Netronome(R) NFP4000/NFP6000 NIC drivers.
- 	  Note: selecting this option may adversely impact
- 		performance.
- 
-diff --git a/drivers/net/ethernet/netronome/Makefile b/drivers/net/ethernet/netronome/Makefile
-index dcb7b383f634..7fb3b84b5556 100644
---- a/drivers/net/ethernet/netronome/Makefile
-+++ b/drivers/net/ethernet/netronome/Makefile
-@@ -2,4 +2,4 @@
- # Makefile for the Netronome network device drivers
- #
- 
--obj-$(CONFIG_NFP_NETVF) += nfp/
-+obj-$(CONFIG_NFP) += nfp/
-diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index 0efb2ba9a558..1103cb498323 100644
---- a/drivers/net/ethernet/netronome/nfp/Makefile
-+++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -1,15 +1,16 @@
--obj-$(CONFIG_NFP_NETVF)	+= nfp_netvf.o
-+obj-$(CONFIG_NFP)	+= nfp.o
- 
--nfp_netvf-objs := \
-+nfp-objs := \
-+	    nfp_main.o \
- 	    nfp_net_common.o \
- 	    nfp_net_ethtool.o \
- 	    nfp_net_offload.o \
- 	    nfp_netvf_main.o
- 
- ifeq ($(CONFIG_BPF_SYSCALL),y)
--nfp_netvf-objs += \
-+nfp-objs += \
- 	    nfp_bpf_verifier.o \
- 	    nfp_bpf_jit.o
- endif
- 
--nfp_netvf-$(CONFIG_NFP_NET_DEBUG) += nfp_net_debugfs.o
-+nfp-$(CONFIG_NFP_DEBUG) += nfp_net_debugfs.o
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-new file mode 100644
-index 000000000000..cc6d75fff005
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -0,0 +1,85 @@
-+/*
-+ * Copyright (C) 2015-2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+/*
-+ * nfp_main.c
-+ * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
-+ *          Alejandro Lucero <alejandro.lucero@netronome.com>
-+ *          Jason McMullan <jason.mcmullan@netronome.com>
-+ *          Rolf Neugebauer <rolf.neugebauer@netronome.com>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/pci.h>
-+#include <linux/firmware.h>
-+#include <linux/vermagic.h>
-+
-+#include "nfp_main.h"
-+#include "nfp_net.h"
-+
-+static const char nfp_driver_name[] = "nfp";
-+const char nfp_driver_version[] = VERMAGIC_STRING;
-+
-+static int __init nfp_main_init(void)
-+{
-+	int err;
-+
-+	pr_info("%s: NFP PCIe Driver, Copyright (C) 2014-2017 Netronome Systems\n",
-+		nfp_driver_name);
-+
-+	nfp_net_debugfs_create();
-+
-+	err = pci_register_driver(&nfp_netvf_pci_driver);
-+	if (err)
-+		goto err_destroy_debugfs;
-+
-+	return err;
-+
-+err_destroy_debugfs:
-+	nfp_net_debugfs_destroy();
-+	return err;
-+}
-+
-+static void __exit nfp_main_exit(void)
-+{
-+	pci_unregister_driver(&nfp_netvf_pci_driver);
-+	nfp_net_debugfs_destroy();
-+}
-+
-+module_init(nfp_main_init);
-+module_exit(nfp_main_exit);
-+
-+MODULE_AUTHOR("Netronome Systems <oss-drivers@netronome.com>");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("The Netronome Flow Processor (NFP) driver.");
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-new file mode 100644
-index 000000000000..371ae2731909
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -0,0 +1,48 @@
-+/*
-+ * Copyright (C) 2015-2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+/*
-+ * nfp_main.h
-+ * Author: Jason McMullan <jason.mcmullan@netronome.com>
-+ */
-+
-+#ifndef NFP_MAIN_H
-+#define NFP_MAIN_H
-+
-+#include <linux/types.h>
-+#include <linux/msi.h>
-+#include <linux/pci.h>
-+
-+extern struct pci_driver nfp_netvf_pci_driver;
-+
-+#endif /* NFP_MAIN_H */
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index 2115f446031e..f05f750c2ea0 100644
+index f05f750c2ea0..60c9aa80bbd1 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (C) 2015 Netronome Systems, Inc.
-+ * Copyright (C) 2015-2017 Netronome Systems, Inc.
-  *
-  * This software is dual licensed under the GNU General License Version 2,
-  * June 1991 as shown in the file COPYING in the top-level directory of this
-@@ -770,8 +770,7 @@ static inline u32 nfp_qcp_wr_ptr_read(u8 __iomem *q)
- }
- 
- /* Globals */
--extern const char nfp_net_driver_name[];
--extern const char nfp_net_driver_version[];
-+extern const char nfp_driver_version[];
- 
- /* Prototypes */
- void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
-@@ -795,7 +794,7 @@ int
- nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
- 		      struct nfp_net_ring_set *rx, struct nfp_net_ring_set *tx);
- 
--#ifdef CONFIG_NFP_NET_DEBUG
-+#ifdef CONFIG_NFP_DEBUG
+@@ -797,8 +797,9 @@ nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
+ #ifdef CONFIG_NFP_DEBUG
  void nfp_net_debugfs_create(void);
  void nfp_net_debugfs_destroy(void);
- void nfp_net_debugfs_adapter_add(struct nfp_net *nn);
-@@ -816,7 +815,7 @@ static inline void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
- static inline void nfp_net_debugfs_adapter_del(struct nfp_net *nn)
+-void nfp_net_debugfs_adapter_add(struct nfp_net *nn);
+-void nfp_net_debugfs_adapter_del(struct nfp_net *nn);
++struct dentry *nfp_net_debugfs_device_add(struct pci_dev *pdev);
++void nfp_net_debugfs_port_add(struct nfp_net *nn, struct dentry *ddir, int id);
++void nfp_net_debugfs_dir_clean(struct dentry **dir);
+ #else
+ static inline void nfp_net_debugfs_create(void)
+ {
+@@ -808,11 +809,17 @@ static inline void nfp_net_debugfs_destroy(void)
  {
  }
--#endif /* CONFIG_NFP_NET_DEBUG */
-+#endif /* CONFIG_NFP_DEBUG */
  
- void nfp_net_filter_stats_timer(unsigned long data);
- int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf);
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-index 1b26e9646574..255f30252550 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+-static inline void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
++static inline struct dentry *nfp_net_debugfs_device_add(struct pci_dev *pdev)
+ {
++	return NULL;
+ }
+ 
+-static inline void nfp_net_debugfs_adapter_del(struct nfp_net *nn)
++static inline void
++nfp_net_debugfs_port_add(struct nfp_net *nn, struct dentry *ddir, int id)
++{
++}
++
++static inline void nfp_net_debugfs_dir_clean(struct dentry **dir)
+ {
+ }
+ #endif /* CONFIG_NFP_DEBUG */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
+index c66f3f954aa8..6e9372a18375 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_debugfs.c
 @@ -1,5 +1,5 @@
  /*
 - * Copyright (C) 2015 Netronome Systems, Inc.
@@ -305,81 +74,105 @@ index 1b26e9646574..255f30252550 100644
   *
   * This software is dual licensed under the GNU General License Version 2,
   * June 1991 as shown in the file COPYING in the top-level directory of this
-@@ -132,9 +132,9 @@ static void nfp_net_get_drvinfo(struct net_device *netdev,
+@@ -202,16 +202,17 @@ static const struct file_operations nfp_xdp_q_fops = {
+ 	.llseek = seq_lseek
+ };
+ 
+-void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
++void nfp_net_debugfs_port_add(struct nfp_net *nn, struct dentry *ddir, int id)
  {
- 	struct nfp_net *nn = netdev_priv(netdev);
+ 	struct dentry *queues, *tx, *rx, *xdp;
+-	char int_name[16];
++	char name[20];
+ 	int i;
  
--	strlcpy(drvinfo->driver, nfp_net_driver_name, sizeof(drvinfo->driver));
--	strlcpy(drvinfo->version, nfp_net_driver_version,
--		sizeof(drvinfo->version));
-+	strlcpy(drvinfo->driver, nn->pdev->driver->name,
-+		sizeof(drvinfo->driver));
-+	strlcpy(drvinfo->version, nfp_driver_version, sizeof(drvinfo->version));
+ 	if (IS_ERR_OR_NULL(nfp_dir))
+ 		return;
  
- 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
- 		 "%d.%d.%d.%d",
+-	nn->debugfs_dir = debugfs_create_dir(pci_name(nn->pdev), nfp_dir);
++	sprintf(name, "port%d", id);
++	nn->debugfs_dir = debugfs_create_dir(name, ddir);
+ 	if (IS_ERR_OR_NULL(nn->debugfs_dir))
+ 		return;
+ 
+@@ -227,24 +228,38 @@ void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
+ 		return;
+ 
+ 	for (i = 0; i < min(nn->max_rx_rings, nn->max_r_vecs); i++) {
+-		sprintf(int_name, "%d", i);
+-		debugfs_create_file(int_name, S_IRUSR, rx,
++		sprintf(name, "%d", i);
++		debugfs_create_file(name, S_IRUSR, rx,
+ 				    &nn->r_vecs[i], &nfp_rx_q_fops);
+-		debugfs_create_file(int_name, S_IRUSR, xdp,
++		debugfs_create_file(name, S_IRUSR, xdp,
+ 				    &nn->r_vecs[i], &nfp_xdp_q_fops);
+ 	}
+ 
+ 	for (i = 0; i < min(nn->max_tx_rings, nn->max_r_vecs); i++) {
+-		sprintf(int_name, "%d", i);
+-		debugfs_create_file(int_name, S_IRUSR, tx,
++		sprintf(name, "%d", i);
++		debugfs_create_file(name, S_IRUSR, tx,
+ 				    &nn->r_vecs[i], &nfp_tx_q_fops);
+ 	}
+ }
+ 
+-void nfp_net_debugfs_adapter_del(struct nfp_net *nn)
++struct dentry *nfp_net_debugfs_device_add(struct pci_dev *pdev)
+ {
+-	debugfs_remove_recursive(nn->debugfs_dir);
+-	nn->debugfs_dir = NULL;
++	struct dentry *dev_dir;
++
++	if (IS_ERR_OR_NULL(nfp_dir))
++		return NULL;
++
++	dev_dir = debugfs_create_dir(pci_name(pdev), nfp_dir);
++	if (IS_ERR_OR_NULL(dev_dir))
++		return NULL;
++
++	return dev_dir;
++}
++
++void nfp_net_debugfs_dir_clean(struct dentry **dir)
++{
++	debugfs_remove_recursive(*dir);
++	*dir = NULL;
+ }
+ 
+ void nfp_net_debugfs_create(void)
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-index d065235034d4..5bacc48e6627 100644
+index 5bacc48e6627..ad0cc629cc32 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (C) 2015 Netronome Systems, Inc.
-+ * Copyright (C) 2015-2017 Netronome Systems, Inc.
-  *
-  * This software is dual licensed under the GNU General License Version 2,
-  * June 1991 as shown in the file COPYING in the top-level directory of this
-@@ -46,8 +46,8 @@
- #include "nfp_net_ctrl.h"
- #include "nfp_net.h"
+@@ -83,6 +83,7 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
+ 	u32 tx_bar_sz, rx_bar_sz;
+ 	int tx_bar_no, rx_bar_no;
+ 	u8 __iomem *ctrl_bar;
++	struct dentry *ddir;
+ 	struct nfp_net *nn;
+ 	u32 startq;
+ 	int stride;
+@@ -260,7 +261,9 @@ static int nfp_netvf_pci_probe(struct pci_dev *pdev,
+ 	pci_set_drvdata(pdev, nn);
  
--const char nfp_net_driver_name[] = "nfp_netvf";
--const char nfp_net_driver_version[] = "0.1";
-+static const char nfp_net_driver_name[] = "nfp_netvf";
-+
- #define PCI_DEVICE_NFP6000VF		0x6003
- static const struct pci_device_id nfp_netvf_pci_device_ids[] = {
- 	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP6000VF,
-@@ -315,39 +315,9 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
- 	pci_disable_device(pdev);
- }
+ 	nfp_net_info(nn);
+-	nfp_net_debugfs_adapter_add(nn);
++	ddir = nfp_net_debugfs_device_add(pdev);
++	nfp_net_debugfs_port_add(nn, ddir, 0);
++	nn->debugfs_dir = ddir;
  
--static struct pci_driver nfp_netvf_pci_driver = {
-+struct pci_driver nfp_netvf_pci_driver = {
- 	.name        = nfp_net_driver_name,
- 	.id_table    = nfp_netvf_pci_device_ids,
- 	.probe       = nfp_netvf_pci_probe,
- 	.remove      = nfp_netvf_pci_remove,
- };
--
--static int __init nfp_netvf_init(void)
--{
--	int err;
--
--	pr_info("%s: NFP VF Network driver, Copyright (C) 2014-2015 Netronome Systems\n",
--		nfp_net_driver_name);
--
--	nfp_net_debugfs_create();
--	err = pci_register_driver(&nfp_netvf_pci_driver);
--	if (err) {
--		nfp_net_debugfs_destroy();
--		return err;
--	}
--
--	return 0;
--}
--
--static void __exit nfp_netvf_exit(void)
--{
--	pci_unregister_driver(&nfp_netvf_pci_driver);
--	nfp_net_debugfs_destroy();
--}
--
--module_init(nfp_netvf_init);
--module_exit(nfp_netvf_exit);
--
--MODULE_AUTHOR("Netronome Systems <oss-drivers@netronome.com>");
--MODULE_LICENSE("GPL");
--MODULE_DESCRIPTION("NFP VF network device driver");
+ 	return 0;
+ 
+@@ -293,7 +296,7 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
+ 	/* Note, the order is slightly different from above as we need
+ 	 * to keep the nn pointer around till we have freed everything.
+ 	 */
+-	nfp_net_debugfs_adapter_del(nn);
++	nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 
+ 	nfp_net_netdev_clean(nn->netdev);
+ 
 -- 
 2.11.0
