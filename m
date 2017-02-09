@@ -1,93 +1,78 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH v4 net-next 04/10] openvswitch: Unionize ovs_key_ct_label with a u32 array.
-Date: Thu,  9 Feb 2017 11:21:55 -0800
-Message-ID: <1486668121-45709-5-git-send-email-jarno@ovn.org>
+Subject: [PATCH v4 net-next 05/10] openvswitch: Simplify labels length logic.
+Date: Thu,  9 Feb 2017 11:21:56 -0800
+Message-ID: <1486668121-45709-6-git-send-email-jarno@ovn.org>
 References: <1486668121-45709-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org, davem@davemloft.net, joe@ovn.org, pshelar@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:51796 "EHLO
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:38061 "EHLO
         relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753304AbdBITW2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:28 -0500
+        with ESMTP id S1752347AbdBITWZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:25 -0500
 In-Reply-To: <1486668121-45709-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the array of labels in struct ovs_key_ct_label an union, adding a
-u32 array of the same byte size as the existing u8 array.  It is
-faster to loop through the labels 32 bits at the time, which is also
-the alignment of netlink attributes.
+Since 23014011ba42 ("netfilter: conntrack: support a fixed size of 128
+distinct labels"), the size of conntrack labels extension has fixed to
+128 bits, so we do not need to check for labels sizes shorter than 128
+at run-time.  This patch simplifies labels length logic accordingly,
+but allows the conntrack labels size to be increased in the future
+without breaking the build.  In the event of conntrack labels
+increasing in size OVS would still be able to deal with the 128 first
+label bits.
 
+Suggested-by: Joe Stringer <joe@ovn.org>
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
 Acked-by: Pravin B Shelar <pshelar@ovn.org>
 ---
- include/uapi/linux/openvswitch.h |  8 ++++++--
- net/openvswitch/conntrack.c      | 15 ++++++++-------
- 2 files changed, 14 insertions(+), 9 deletions(-)
+ net/openvswitch/conntrack.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 375d812..96aee34 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -446,9 +446,13 @@ struct ovs_key_nd {
- 	__u8	nd_tll[ETH_ALEN];
- };
- 
--#define OVS_CT_LABELS_LEN	16
-+#define OVS_CT_LABELS_LEN_32	4
-+#define OVS_CT_LABELS_LEN	(OVS_CT_LABELS_LEN_32 * sizeof(__u32))
- struct ovs_key_ct_labels {
--	__u8	ct_labels[OVS_CT_LABELS_LEN];
-+	union {
-+		__u8	ct_labels[OVS_CT_LABELS_LEN];
-+		__u32	ct_labels_32[OVS_CT_LABELS_LEN_32];
-+	};
- };
- 
- /* OVS_KEY_ATTR_CT_STATE flags */
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index a6ff374..f23934c 100644
+index f23934c..fe2a410 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -281,20 +281,21 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
- 		/* Triggers a change event, which makes sense only for
- 		 * confirmed connections.
- 		 */
--		int err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
--						OVS_CT_LABELS_LEN / sizeof(u32));
-+		int err = nf_connlabels_replace(ct, labels->ct_labels_32,
-+						mask->ct_labels_32,
-+						OVS_CT_LABELS_LEN_32);
- 		if (err)
- 			return err;
- 	} else {
- 		u32 *dst = (u32 *)cl->bits;
--		const u32 *msk = (const u32 *)mask->ct_labels;
--		const u32 *lbl = (const u32 *)labels->ct_labels;
-+		const u32 *msk = mask->ct_labels_32;
-+		const u32 *lbl = labels->ct_labels_32;
- 		int i;
+@@ -129,22 +129,20 @@ static u32 ovs_ct_get_mark(const struct nf_conn *ct)
+ #endif
+ }
  
- 		/* No-one else has access to the non-confirmed entry, copy
- 		 * labels over, keeping any bits we are not explicitly setting.
- 		 */
--		for (i = 0; i < OVS_CT_LABELS_LEN / sizeof(u32); i++)
-+		for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
- 			dst[i] = (dst[i] & ~msk[i]) | (lbl[i] & msk[i]);
- 	}
- 
-@@ -866,8 +867,8 @@ static bool labels_nonzero(const struct ovs_key_ct_labels *labels)
++/* Guard against conntrack labels max size shrinking below 128 bits. */
++#if NF_CT_LABELS_MAX_SIZE < 16
++#error NF_CT_LABELS_MAX_SIZE must be at least 16 bytes
++#endif
++
+ static void ovs_ct_get_labels(const struct nf_conn *ct,
+ 			      struct ovs_key_ct_labels *labels)
  {
- 	size_t i;
+ 	struct nf_conn_labels *cl = ct ? nf_ct_labels_find(ct) : NULL;
  
--	for (i = 0; i < sizeof(*labels); i++)
--		if (labels->ct_labels[i])
-+	for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
-+		if (labels->ct_labels_32[i])
- 			return true;
+-	if (cl) {
+-		size_t len = sizeof(cl->bits);
+-
+-		if (len > OVS_CT_LABELS_LEN)
+-			len = OVS_CT_LABELS_LEN;
+-		else if (len < OVS_CT_LABELS_LEN)
+-			memset(labels, 0, OVS_CT_LABELS_LEN);
+-		memcpy(labels, cl->bits, len);
+-	} else {
++	if (cl)
++		memcpy(labels, cl->bits, OVS_CT_LABELS_LEN);
++	else
+ 		memset(labels, 0, OVS_CT_LABELS_LEN);
+-	}
+ }
  
- 	return false;
+ static void __ovs_ct_update_key(struct sw_flow_key *key, u8 state,
+@@ -274,7 +272,7 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
+ 		nf_ct_labels_ext_add(ct);
+ 		cl = nf_ct_labels_find(ct);
+ 	}
+-	if (!cl || sizeof(cl->bits) < OVS_CT_LABELS_LEN)
++	if (!cl)
+ 		return -ENOSPC;
+ 
+ 	if (nf_ct_is_confirmed(ct)) {
 -- 
 2.1.4
