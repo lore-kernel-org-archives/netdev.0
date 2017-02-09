@@ -1,24 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: ethernet: ti: cpsw: fix susp/resume
-Date: Thu, 09 Feb 2017 17:21:26 -0500 (EST)
-Message-ID: <20170209.172126.155005439329995220.davem@davemloft.net>
-References: <1486598856-3512-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-        linux-kernel@vger.kernel.org, AStarikovskiy@topcon.com
-To: ivan.khoronzhuk@linaro.org
+From: Saber Rezvani <irsaber@gmail.com>
+Subject: [PATCH 1/1] net: ethernet: intel: e1000: msleep() is unreliable for anything <20ms
+Date: Fri, 10 Feb 2017 02:07:11 +0330
+Message-ID: <1486679831-5745-1-git-send-email-irsaber@gmail.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Saber Rezvani <irsaber@gmail.com>
+To: jeffrey.t.kirsher@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486598856-3512-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Date: Thu,  9 Feb 2017 02:07:34 +0200
+Fix the checkpatch.pl issue:
+WARNING: msleep < 20ms can sleep for up to 20ms; see
+Documentation/timers/timers-howto.txt
 
-> These two patches fix suspend/resume chain.
+Signed-off-by: Saber Rezvani <irsaber@gmail.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Patch 2 doesn't apply cleanly to the 'net' tree, please
-respin this series.
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 93fc6c6..5403fa2 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -489,7 +489,7 @@ static void e1000_power_down_phy(struct e1000_adapter *adapter)
+ 		e1000_read_phy_reg(hw, PHY_CTRL, &mii_reg);
+ 		mii_reg |= MII_CR_POWER_DOWN;
+ 		e1000_write_phy_reg(hw, PHY_CTRL, mii_reg);
+-		msleep(1);
++		usleep_range(1000, 5000);
+ 	}
+ out:
+ 	return;
+@@ -536,7 +536,7 @@ void e1000_down(struct e1000_adapter *adapter)
+ 	ew32(TCTL, tctl);
+ 	/* flush both disables and wait for them to finish */
+ 	E1000_WRITE_FLUSH();
+-	msleep(10);
++	usleep_range(1000, 5000);
+ 
+ 	napi_disable(&adapter->napi);
+ 
+@@ -560,7 +560,7 @@ void e1000_reinit_locked(struct e1000_adapter *adapter)
+ {
+ 	WARN_ON(in_interrupt());
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+-		msleep(1);
++		usleep_range(1000, 5000);
+ 	e1000_down(adapter);
+ 	e1000_up(adapter);
+ 	clear_bit(__E1000_RESETTING, &adapter->flags);
+@@ -3569,7 +3569,7 @@ static int e1000_change_mtu(struct net_device *netdev, int new_mtu)
+ 	}
+ 
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+-		msleep(1);
++		usleep_range(1000, 5000);
+ 	/* e1000_down has a dependency on max_frame_size */
+ 	hw->max_frame_size = max_frame;
+ 	if (netif_running(netdev)) {
+-- 
+2.7.4
