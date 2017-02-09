@@ -1,48 +1,64 @@
-From: "Tobin C. Harding" <me@tobin.cc>
-Subject: [PATCH 0/4] Whitespace checkpatch fixes
-Date: Thu,  9 Feb 2017 17:56:03 +1100
-Message-ID: <1486623367-28861-1-git-send-email-me@tobin.cc>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Tobin C. Harding" <me@tobin.cc>
-To: "David S. Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [net, v3, 1/3] net: phy: Fix PHY module checks and NULL deref in
+ phy_attach_direct()
+Date: Wed, 8 Feb 2017 23:13:51 -0800
+Message-ID: <8c63b88f-c7d3-dd53-e3a8-9d38bb5a154c@gmail.com>
+References: <20170209001401.2564-2-f.fainelli@gmail.com>
+ <589C1309.5040302@denx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, maowenan <maowenan@huawei.com>,
+        andrew@lunn.ch, rmk+kernel@armlinux.org.uk, festevam@gmail.com,
+        davem@davemloft.net, nikita.yoush@cogentembedded.com
+To: hs@denx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:49139 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751751AbdBIHOG (ORCPT
+Received: from mail-ot0-f196.google.com ([74.125.82.196]:34153 "EHLO
+        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751918AbdBIHOG (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 02:14:06 -0500
+Received: by mail-ot0-f196.google.com with SMTP id 73so913563otj.1
+        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 23:13:55 -0800 (PST)
+In-Reply-To: <589C1309.5040302@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set fixes various whitespace checkpatch errors and warnings.
 
-Tobin C. Harding (4):
-  net: Fix checkpatch WARNING: please, no space before tabs
-  net: Fix checkpatch whitespace errors
-  net: Fix checkpatch block comments warnings
-  net: Fix checkpatch, Missing a blank line after declarations
 
- net/core/dev.c | 259 ++++++++++++++++++++++++++++++---------------------------
- 1 file changed, 137 insertions(+), 122 deletions(-)
+On 02/08/2017 10:58 PM, Heiko Schocher wrote:
+> Hello Florian,
+> 
+> Am 09.02.2017 um 01:13 schrieb Florian Fainelli:
+>> The Generic PHY drivers gets assigned after we checked that the current
+>> PHY driver is NULL, so we need to check a few things before we can
+>> safely dereference d->driver. This would be causing a NULL deference to
+>> occur when a system binds to the Generic PHY driver. Update
+>> phy_attach_direct() to do the following:
+>>
+>> - grab the driver module reference after we have assigned the Generic
+>>    PHY drivers accordingly
+>>
+>> - update the error path to clean up the module reference in case the
+>>    Generic PHY probe function fails
+>>
+>> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY
+>> driver")
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>   drivers/net/phy/phy_device.c | 16 +++++++++++++++-
+>>   1 file changed, 15 insertions(+), 1 deletion(-)
+> 
+> just stumbled over this bug on an am335x based board, with an
+> KSZ8081 attached, so there a "fixed-link" is used like:
+> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/arch/arm/boot/dts/am335x-baltos-ir3220.dts#n105
+> 
+> 
+> With your patch it crashes also ...
 
+The final version of the patch is here:
+
+http://patchwork.ozlabs.org/patch/725923/
+
+Do you mind giving it a try?
 -- 
-2.7.4
-
-
-
-"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING [GENERAL],commit_signer:72/82=88%)
-Eric Dumazet <edumazet@google.com> (commit_signer:23/82=28%,authored:19/82=23%,added_lines:150/1100=14%,removed_lines:104/791=13%)
-Alexander Duyck <alexander.h.duyck@intel.com> (commit_signer:14/82=17%,authored:11/82=13%,added_lines:259/1100=24%,removed_lines:66/791=8%)
-David Ahern <dsa@cumulusnetworks.com> (commit_signer:9/82=11%,authored:7/82=9%,added_lines:219/1100=20%,removed_lines:230/791=29%)
-Jesper Dangaard Brouer <brouer@redhat.com> (commit_signer:6/82=7%)
-"Tobin C. Harding" <me@tobin.cc> (added_lines:137/1100=12%,removed_lines:122/791=15%)
-Jiri Pirko <jiri@mellanox.com> (added_lines:90/1100=8%)
-stephen hemminger <stephen@networkplumber.org> (removed_lines:136/791=17%)
-netdev@vger.kernel.org (open list:NETWORKING [GENERAL])
-linux-kernel@vger.kernel.org (open list)
- 
+Florian
