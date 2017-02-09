@@ -1,74 +1,119 @@
-From: Heiko Schocher <hs@denx.de>
-Subject: Re: [net, v3, 1/3] net: phy: Fix PHY module checks and NULL deref in
- phy_attach_direct()
-Date: Thu, 9 Feb 2017 08:29:37 +0100
-Message-ID: <589C1A61.6040808@denx.de>
-References: <20170209001401.2564-2-f.fainelli@gmail.com>
- <589C1309.5040302@denx.de> <8c63b88f-c7d3-dd53-e3a8-9d38bb5a154c@gmail.com>
-Reply-To: hs@denx.de
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv6 net-next 3/6] sctp: add support for generating stream
+ reconf ssn/tsn reset request chunk
+Date: Thu, 9 Feb 2017 15:56:08 +0800
+Message-ID: <CADvbK_eLpWWcsOQdX12U=T3T9_VRP1Tms9hnkfxODSGvPo8QXA@mail.gmail.com>
+References: <cover.1486573727.git.lucien.xin@gmail.com> <376d8794b81d7c5efe02b588ca381b88ed5f05ad.1486573728.git.lucien.xin@gmail.com>
+ <20170208215734.GJ3414@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maowenan <maowenan@huawei.com>,
-        andrew@lunn.ch, rmk+kernel@armlinux.org.uk, festevam@gmail.com,
-        davem@davemloft.net, nikita.yoush@cogentembedded.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        davem <davem@davemloft.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:51128 "EHLO
-        mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751604AbdBIHaP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 02:30:15 -0500
-In-Reply-To: <8c63b88f-c7d3-dd53-e3a8-9d38bb5a154c@gmail.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:32994 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751940AbdBIH4Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 02:56:24 -0500
+In-Reply-To: <20170208215734.GJ3414@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Florian,
-
-Am 09.02.2017 um 08:13 schrieb Florian Fainelli:
->
->
-> On 02/08/2017 10:58 PM, Heiko Schocher wrote:
->> Hello Florian,
+On Thu, Feb 9, 2017 at 5:57 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Thu, Feb 09, 2017 at 01:18:17AM +0800, Xin Long wrote:
+>> This patch is to define SSN/TSN Reset Request Parameter described
+>> in rfc6525 section 4.3.
 >>
->> Am 09.02.2017 um 01:13 schrieb Florian Fainelli:
->>> The Generic PHY drivers gets assigned after we checked that the current
->>> PHY driver is NULL, so we need to check a few things before we can
->>> safely dereference d->driver. This would be causing a NULL deference to
->>> occur when a system binds to the Generic PHY driver. Update
->>> phy_attach_direct() to do the following:
->>>
->>> - grab the driver module reference after we have assigned the Generic
->>>     PHY drivers accordingly
->>>
->>> - update the error path to clean up the module reference in case the
->>>     Generic PHY probe function fails
->>>
->>> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY
->>> driver")
->>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->>> ---
->>>    drivers/net/phy/phy_device.c | 16 +++++++++++++++-
->>>    1 file changed, 15 insertions(+), 1 deletion(-)
->>
->> just stumbled over this bug on an am335x based board, with an
->> KSZ8081 attached, so there a "fixed-link" is used like:
->> http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/arch/arm/boot/dts/am335x-baltos-ir3220.dts#n105
->>
->>
->> With your patch it crashes also ...
+>> It's also to drop some unnecessary __packed in include/linux/sctp.h.
 >
-> The final version of the patch is here:
+> Oups, extra line in the changelog here.
+I've moved the "drop __packed" to patch 1/6, this line should have
+been removed.
+Hi, David, can you remove this line when applying ?
+
+Thanks.
+
 >
-> http://patchwork.ozlabs.org/patch/725923/
-
-Huh, sorry ...
-
-> Do you mind giving it a try?
-
-With this patch, ethernet works again fine on this board, thanks!
-
-bye,
-Heiko
--- 
-DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+>>
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ---
+>>  include/linux/sctp.h     |  5 +++++
+>>  include/net/sctp/sm.h    |  2 ++
+>>  net/sctp/sm_make_chunk.c | 29 +++++++++++++++++++++++++++++
+>>  3 files changed, 36 insertions(+)
+>>
+>> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
+>> index d74fca3..71c0d41 100644
+>> --- a/include/linux/sctp.h
+>> +++ b/include/linux/sctp.h
+>> @@ -737,4 +737,9 @@ struct sctp_strreset_inreq {
+>>       __u16 list_of_streams[0];
+>>  };
+>>
+>> +struct sctp_strreset_tsnreq {
+>> +     sctp_paramhdr_t param_hdr;
+>> +     __u32 request_seq;
+>> +};
+>> +
+>>  #endif /* __LINUX_SCTP_H__ */
+>> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+>> index 430ed13..ac37c17 100644
+>> --- a/include/net/sctp/sm.h
+>> +++ b/include/net/sctp/sm.h
+>> @@ -265,6 +265,8 @@ struct sctp_chunk *sctp_make_strreset_req(
+>>                               const struct sctp_association *asoc,
+>>                               __u16 stream_num, __u16 *stream_list,
+>>                               bool out, bool in);
+>> +struct sctp_chunk *sctp_make_strreset_tsnreq(
+>> +                             const struct sctp_association *asoc);
+>>  void sctp_chunk_assign_tsn(struct sctp_chunk *);
+>>  void sctp_chunk_assign_ssn(struct sctp_chunk *);
+>>
+>> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+>> index c7d3249..749842a 100644
+>> --- a/net/sctp/sm_make_chunk.c
+>> +++ b/net/sctp/sm_make_chunk.c
+>> @@ -3658,3 +3658,32 @@ struct sctp_chunk *sctp_make_strreset_req(
+>>
+>>       return retval;
+>>  }
+>> +
+>> +/* RE-CONFIG 4.3 (SSN/TSN RESET ALL)
+>> + *   0                   1                   2                   3
+>> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+>> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>> + *  |     Parameter Type = 15       |      Parameter Length = 8     |
+>> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>> + *  |         Re-configuration Request Sequence Number              |
+>> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+>> + */
+>> +struct sctp_chunk *sctp_make_strreset_tsnreq(
+>> +                             const struct sctp_association *asoc)
+>> +{
+>> +     struct sctp_strreset_tsnreq tsnreq;
+>> +     __u16 length = sizeof(tsnreq);
+>> +     struct sctp_chunk *retval;
+>> +
+>> +     retval = sctp_make_reconf(asoc, length);
+>> +     if (!retval)
+>> +             return NULL;
+>> +
+>> +     tsnreq.param_hdr.type = SCTP_PARAM_RESET_TSN_REQUEST;
+>> +     tsnreq.param_hdr.length = htons(length);
+>> +     tsnreq.request_seq = htonl(asoc->strreset_outseq);
+>> +
+>> +     sctp_addto_chunk(retval, sizeof(tsnreq), &tsnreq);
+>> +
+>> +     return retval;
+>> +}
+>> --
+>> 2.1.0
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
