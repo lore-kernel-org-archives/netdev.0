@@ -1,39 +1,41 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv4 net-next 0/7] net: dst_confirm replacement
-Date: Thu, 09 Feb 2017 17:02:08 -0500 (EST)
-Message-ID: <20170209.170208.999235350231796696.davem@davemloft.net>
-References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
-        <20170207.131134.567606043153504044.davem@davemloft.net>
-        <alpine.LFD.2.11.1702082245270.2608@ja.home.ssi.bg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [net-next] ARM: orion: remove unused
+ wnr854t_switch_plat_data
+Date: Thu, 09 Feb 2017 17:06:16 -0500 (EST)
+Message-ID: <20170209.170616.2056403989254038271.davem@davemloft.net>
+References: <20170208212431.2924390-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuehaibing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: ja-FgGsKACvmQM@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.11.1702082245270.2608-c1lBKlETG9EWAawoAK+ZAw@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, jason@lakedaemon.net,
+ netdev@vger.kernel.org, linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+ gregory.clement@free-electrons.com, linux-arm-kernel@lists.infradead.org,
+ sebastian.hesselbarth@gmail.com
+To: arnd@arndb.de
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170208212431.2924390-1-arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
-Date: Wed, 8 Feb 2017 23:05:36 +0200 (EET)
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed,  8 Feb 2017 22:24:19 +0100
 
-> On Tue, 7 Feb 2017, David Miller wrote:
+> The other instances of this structure got removed along with the MDIO
+> device change, but this one was left behind and needs to be removed
+> as well:
 > 
->> > - Now may be old function neigh_output() should be restored
->> > instead of dst_neigh_output?
->> 
->> Please elaborate.
+> arch/arm/mach-orion5x/wnr854t-setup.c:109:44: error: 'wnr854t_switch_plat_data' defined but not used [-Werror=unused-variable]
+>  static struct dsa_platform_data __initdata wnr854t_switch_plat_data = {
 > 
-> 	As dst_neigh_output does not use the dst arg anymore,
-> my idea was to rename dst_neigh_output to neigh_output, i.e.
-> just like it was before commit 5110effee8fd ("net: Do delayed neigh 
-> confirmation."
+> Fixes: 575e93f7b5e6 ("ARM: orion: Register DSA switch as a MDIO device")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-This sounds like a great idea.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
