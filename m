@@ -1,189 +1,311 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/6] sched: push TC filter protocol creation into a separate function
-Date: Thu,  9 Feb 2017 14:38:57 +0100
-Message-ID: <1486647540-14656-4-git-send-email-jiri@resnulli.us>
-References: <1486647540-14656-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 14/14] mlx4: remove duplicate code in mlx4_en_process_rx_cq()
+Date: Thu,  9 Feb 2017 05:58:38 -0800
+Message-ID: <20170209135838.16487-15-edumazet@google.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36148 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752215AbdBIOGY (ORCPT
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:35584 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752250AbdBIOGY (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:06:24 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r18so3038562wmd.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:05:45 -0800 (PST)
-In-Reply-To: <1486647540-14656-1-git-send-email-jiri@resnulli.us>
+Received: by mail-pg0-f46.google.com with SMTP id 194so1122511pgd.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:05:49 -0800 (PST)
+In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+We should keep one way to build skbs, regardless of GRO being on or off.
 
-Make the long function tc_ctl_tfilter a little bit shorter and easier to
-read. Also make the creation of filter proto symmetric to destruction.
+Note that I made sure to defer as much as possible the point we need to
+pull data from the frame, so that future prefetch() we might add
+are more effective.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+These skb attributes derive from the CQE or ring :
+ ip_summed, csum
+ hash
+ vlan offload
+ hwtstamps
+ queue_mapping
+
+As a bonus, this patch removes mlx4 dependency on eth_get_headlen()
+which is very often broken enough to give us headaches.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/sched/cls_api.c | 110 ++++++++++++++++++++++++++++------------------------
- 1 file changed, 59 insertions(+), 51 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 203 ++++++-----------------------
+ 1 file changed, 37 insertions(+), 166 deletions(-)
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 4efa4df..d378a0b 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -19,6 +19,7 @@
- #include <linux/kernel.h>
- #include <linux/string.h>
- #include <linux/errno.h>
-+#include <linux/err.h>
- #include <linux/skbuff.h>
- #include <linux/init.h>
- #include <linux/kmod.h>
-@@ -38,14 +39,14 @@ static DEFINE_RWLOCK(cls_mod_lock);
- 
- /* Find classifier type by string name */
- 
--static const struct tcf_proto_ops *tcf_proto_lookup_ops(struct nlattr *kind)
-+static const struct tcf_proto_ops *tcf_proto_lookup_ops(const char *kind)
- {
- 	const struct tcf_proto_ops *t, *res = NULL;
- 
- 	if (kind) {
- 		read_lock(&cls_mod_lock);
- 		list_for_each_entry(t, &tcf_proto_base, head) {
--			if (nla_strcmp(kind, t->kind) == 0) {
-+			if (strcmp(kind, t->kind) == 0) {
- 				if (try_module_get(t->owner))
- 					res = t;
- 				break;
-@@ -127,6 +128,56 @@ static inline u32 tcf_auto_prio(struct tcf_proto *tp)
- 	return first;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 0a87cc96e90ce7374821a0b4712d4b85ad8e..ef6c295789803a69f7066f7e5c80d1dc37f2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -526,64 +526,6 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 	return 0;
  }
  
-+static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
-+					  u32 prio, u32 parent, struct Qdisc *q)
-+{
-+	struct tcf_proto *tp;
-+	int err;
-+
-+	tp = kzalloc(sizeof(*tp), GFP_KERNEL);
-+	if (!tp)
-+		return ERR_PTR(-ENOBUFS);
-+
-+	err = -ENOENT;
-+	tp->ops = tcf_proto_lookup_ops(kind);
-+	if (!tp->ops) {
-+#ifdef CONFIG_MODULES
-+		rtnl_unlock();
-+		request_module("cls_%s", kind);
-+		rtnl_lock();
-+		tp->ops = tcf_proto_lookup_ops(kind);
-+		/* We dropped the RTNL semaphore in order to perform
-+		 * the module load. So, even if we succeeded in loading
-+		 * the module we have to replay the request. We indicate
-+		 * this using -EAGAIN.
-+		 */
-+		if (tp->ops) {
-+			module_put(tp->ops->owner);
-+			err = -EAGAIN;
-+		} else {
-+			err = -ENOENT;
-+		}
-+		goto errout;
-+#endif
-+	}
-+	tp->classify = tp->ops->classify;
-+	tp->protocol = protocol;
-+	tp->prio = prio;
-+	tp->classid = parent;
-+	tp->q = q;
-+
-+	err = tp->ops->init(tp);
-+	if (err) {
-+		module_put(tp->ops->owner);
-+		goto errout;
-+	}
-+	return tp;
-+
-+errout:
-+	kfree(tp);
-+	return ERR_PTR(err);
-+}
-+
- static bool tcf_proto_destroy(struct tcf_proto *tp, bool force)
+-
+-static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+-				      struct mlx4_en_rx_alloc *frags,
+-				      unsigned int length)
+-{
+-	struct sk_buff *skb;
+-	void *va;
+-	int used_frags;
+-	dma_addr_t dma;
+-
+-	skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
+-	if (unlikely(!skb)) {
+-		en_dbg(RX_ERR, priv, "Failed allocating skb\n");
+-		return NULL;
+-	}
+-	skb_reserve(skb, NET_IP_ALIGN);
+-	skb->len = length;
+-
+-	/* Get pointer to first fragment so we could copy the headers into the
+-	 * (linear part of the) skb */
+-	va = page_address(frags[0].page) + frags[0].page_offset;
+-
+-	if (length <= SMALL_PACKET_SIZE) {
+-		/* We are copying all relevant data to the skb - temporarily
+-		 * sync buffers for the copy */
+-
+-		dma = frags[0].dma + frags[0].page_offset;
+-		dma_sync_single_for_cpu(priv->ddev, dma, length,
+-					DMA_FROM_DEVICE);
+-		skb_copy_to_linear_data(skb, va, length);
+-		skb->tail += length;
+-	} else {
+-		unsigned int pull_len;
+-
+-		/* Move relevant fragments to skb */
+-		used_frags = mlx4_en_complete_rx_desc(priv, frags,
+-							skb, length);
+-		if (unlikely(!used_frags)) {
+-			kfree_skb(skb);
+-			return NULL;
+-		}
+-		skb_shinfo(skb)->nr_frags = used_frags;
+-
+-		pull_len = eth_get_headlen(va, SMALL_PACKET_SIZE);
+-		/* Copy headers into the skb linear buffer */
+-		memcpy(skb->data, va, pull_len);
+-		skb->tail += pull_len;
+-
+-		/* Skip headers in first fragment */
+-		skb_shinfo(skb)->frags[0].page_offset += pull_len;
+-
+-		/* Adjust size of first fragment */
+-		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], pull_len);
+-		skb->data_len = length - pull_len;
+-	}
+-	return skb;
+-}
+-
+ static void validate_loopback(struct mlx4_en_priv *priv, void *va)
  {
- 	if (tp->ops->destroy(tp, force)) {
-@@ -164,7 +215,6 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
- 	struct tcf_proto __rcu **back;
- 	struct tcf_proto __rcu **chain;
- 	struct tcf_proto *tp;
--	const struct tcf_proto_ops *tp_ops;
- 	const struct Qdisc_class_ops *cops;
- 	unsigned long cl;
- 	unsigned long fh;
-@@ -279,58 +329,16 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
- 		    !(n->nlmsg_flags & NLM_F_CREATE))
- 			goto errout;
+ 	const unsigned char *data = va + ETH_HLEN;
+@@ -792,8 +734,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		 */
+ 		length = be32_to_cpu(cqe->byte_cnt);
+ 		length -= ring->fcs_del;
+-		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+-			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
  
-+		if (!nprio)
-+			nprio = TC_H_MAJ(tcf_auto_prio(rtnl_dereference(*back)));
+ 		/* A bpf program gets first chance to drop the packet. It may
+ 		 * read bytes but not past the end of the frag.
+@@ -849,122 +789,51 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		ring->bytes += length;
+ 		ring->packets++;
  
--		/* Create new proto tcf */
++		skb = napi_get_frags(&cq->napi);
++		if (!skb)
++			goto next;
++
++		if (unlikely(ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL)) {
++			timestamp = mlx4_en_get_cqe_ts(cqe);
++			mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
++					       timestamp);
++		}
++		skb_record_rx_queue(skb, cq->ring);
++
+ 		if (likely(dev->features & NETIF_F_RXCSUM)) {
+ 			if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
+ 						      MLX4_CQE_STATUS_UDP)) {
+ 				if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
+ 				    cqe->checksum == cpu_to_be16(0xffff)) {
+ 					ip_summed = CHECKSUM_UNNECESSARY;
++					l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
++						(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
++					if (l2_tunnel)
++						skb->csum_level = 1;
+ 					ring->csum_ok++;
+ 				} else {
+-					ip_summed = CHECKSUM_NONE;
+-					ring->csum_none++;
++					goto csum_none;
+ 				}
+ 			} else {
+ 				if (priv->flags & MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP &&
+ 				    (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
+ 							       MLX4_CQE_STATUS_IPV6))) {
+-					ip_summed = CHECKSUM_COMPLETE;
+-					ring->csum_complete++;
++					if (check_csum(cqe, skb, va, dev->features)) {
++						goto csum_none;
++					} else {
++						ip_summed = CHECKSUM_COMPLETE;
++						ring->csum_complete++;
++					}
+ 				} else {
+-					ip_summed = CHECKSUM_NONE;
+-					ring->csum_none++;
++					goto csum_none;
+ 				}
+ 			}
+ 		} else {
++csum_none:
+ 			ip_summed = CHECKSUM_NONE;
+ 			ring->csum_none++;
+ 		}
 -
--		err = -ENOBUFS;
--		tp = kzalloc(sizeof(*tp), GFP_KERNEL);
--		if (tp == NULL)
--			goto errout;
--		err = -ENOENT;
--		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND]);
--		if (tp_ops == NULL) {
--#ifdef CONFIG_MODULES
--			struct nlattr *kind = tca[TCA_KIND];
--			char name[IFNAMSIZ];
+-		/* This packet is eligible for GRO if it is:
+-		 * - DIX Ethernet (type interpretation)
+-		 * - TCP/IP (v4)
+-		 * - without IP options
+-		 * - not an IP fragment
+-		 */
+-		if (dev->features & NETIF_F_GRO) {
+-			struct sk_buff *gro_skb = napi_get_frags(&cq->napi);
+-			if (!gro_skb)
+-				goto next;
 -
--			if (kind != NULL &&
--			    nla_strlcpy(name, kind, IFNAMSIZ) < IFNAMSIZ) {
--				rtnl_unlock();
--				request_module("cls_%s", name);
--				rtnl_lock();
--				tp_ops = tcf_proto_lookup_ops(kind);
--				/* We dropped the RTNL semaphore in order to
--				 * perform the module load.  So, even if we
--				 * succeeded in loading the module we have to
--				 * replay the request.  We indicate this using
--				 * -EAGAIN.
--				 */
--				if (tp_ops != NULL) {
--					module_put(tp_ops->owner);
--					err = -EAGAIN;
+-			nr = mlx4_en_complete_rx_desc(priv, frags, gro_skb,
+-						      length);
+-			if (!nr)
+-				goto next;
+-
+-			if (ip_summed == CHECKSUM_COMPLETE) {
+-				if (check_csum(cqe, gro_skb, va,
+-					       dev->features)) {
+-					ip_summed = CHECKSUM_NONE;
+-					ring->csum_none++;
+-					ring->csum_complete--;
 -				}
 -			}
--#endif
--			kfree(tp);
-+		tp = tcf_proto_create(nla_data(tca[TCA_KIND]),
-+				      protocol, nprio, parent, q);
-+		if (IS_ERR(tp)) {
-+			err = PTR_ERR(tp);
- 			goto errout;
- 		}
--		tp->ops = tp_ops;
--		tp->protocol = protocol;
--		tp->prio = nprio ? :
--			       TC_H_MAJ(tcf_auto_prio(rtnl_dereference(*back)));
--		tp->q = q;
--		tp->classify = tp_ops->classify;
--		tp->classid = parent;
 -
--		err = tp_ops->init(tp);
--		if (err != 0) {
--			module_put(tp_ops->owner);
--			kfree(tp);
--			goto errout;
+-			skb_shinfo(gro_skb)->nr_frags = nr;
+-			gro_skb->len = length;
+-			gro_skb->data_len = length;
+-			gro_skb->ip_summed = ip_summed;
+-
+-			if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
+-				gro_skb->csum_level = 1;
+-
+-			if ((cqe->vlan_my_qpn &
+-			    cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
+-			    (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
+-				u16 vid = be16_to_cpu(cqe->sl_vid);
+-
+-				__vlan_hwaccel_put_tag(gro_skb, htons(ETH_P_8021Q), vid);
+-			} else if ((be32_to_cpu(cqe->vlan_my_qpn) &
+-				  MLX4_CQE_SVLAN_PRESENT_MASK) &&
+-				 (dev->features & NETIF_F_HW_VLAN_STAG_RX)) {
+-				__vlan_hwaccel_put_tag(gro_skb,
+-						       htons(ETH_P_8021AD),
+-						       be16_to_cpu(cqe->sl_vid));
+-			}
+-
+-			if (dev->features & NETIF_F_RXHASH)
+-				skb_set_hash(gro_skb,
+-					     be32_to_cpu(cqe->immed_rss_invalid),
+-					     (ip_summed == CHECKSUM_UNNECESSARY) ?
+-						PKT_HASH_TYPE_L4 :
+-						PKT_HASH_TYPE_L3);
+-
+-			skb_record_rx_queue(gro_skb, cq->ring);
+-
+-			if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
+-				timestamp = mlx4_en_get_cqe_ts(cqe);
+-				mlx4_en_fill_hwtstamps(mdev,
+-						       skb_hwtstamps(gro_skb),
+-						       timestamp);
+-			}
+-
+-			napi_gro_frags(&cq->napi);
+-			goto next;
 -		}
 -
- 		tp_created = 1;
+-		/* GRO not possible, complete processing here */
+-		skb = mlx4_en_rx_skb(priv, frags, length);
+-		if (unlikely(!skb)) {
+-			ring->dropped++;
+-			goto next;
+-		}
 -
- 	} else if (tca[TCA_KIND] && nla_strcmp(tca[TCA_KIND], tp->ops->kind))
- 		goto errout;
+-		if (ip_summed == CHECKSUM_COMPLETE) {
+-			if (check_csum(cqe, skb, va, dev->features)) {
+-				ip_summed = CHECKSUM_NONE;
+-				ring->csum_complete--;
+-				ring->csum_none++;
+-			}
+-		}
+-
+ 		skb->ip_summed = ip_summed;
+-		skb->protocol = eth_type_trans(skb, dev);
+-		skb_record_rx_queue(skb, cq->ring);
+-
+-		if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
+-			skb->csum_level = 1;
+-
+ 		if (dev->features & NETIF_F_RXHASH)
+ 			skb_set_hash(skb,
+ 				     be32_to_cpu(cqe->immed_rss_invalid),
+@@ -972,23 +841,25 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 					PKT_HASH_TYPE_L4 :
+ 					PKT_HASH_TYPE_L3);
  
+-		if ((be32_to_cpu(cqe->vlan_my_qpn) &
+-		    MLX4_CQE_CVLAN_PRESENT_MASK) &&
++
++		if ((cqe->vlan_my_qpn &
++		     cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
+ 		    (dev->features & NETIF_F_HW_VLAN_CTAG_RX))
+-			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), be16_to_cpu(cqe->sl_vid));
+-		else if ((be32_to_cpu(cqe->vlan_my_qpn) &
+-			  MLX4_CQE_SVLAN_PRESENT_MASK) &&
++			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++					       be16_to_cpu(cqe->sl_vid));
++		else if ((cqe->vlan_my_qpn &
++			  cpu_to_be32(MLX4_CQE_SVLAN_PRESENT_MASK)) &&
+ 			 (dev->features & NETIF_F_HW_VLAN_STAG_RX))
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021AD),
+ 					       be16_to_cpu(cqe->sl_vid));
+ 
+-		if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
+-			timestamp = mlx4_en_get_cqe_ts(cqe);
+-			mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
+-					       timestamp);
++		nr = mlx4_en_complete_rx_desc(priv, frags, skb, length);
++		if (nr) {
++			skb_shinfo(skb)->nr_frags = nr;
++			skb->len = length;
++			skb->data_len = length;
++			napi_gro_frags(&cq->napi);
+ 		}
+-
+-		napi_gro_receive(&cq->napi, skb);
+ next:
+ 		++cq->mcq.cons_index;
+ 		index = (cq->mcq.cons_index) & ring->size_mask;
 -- 
-2.7.4
+2.11.0.483.g087da7b7c-goog
