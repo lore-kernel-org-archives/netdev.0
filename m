@@ -1,347 +1,67 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH v2 net-next 14/14] mlx4: remove duplicate code in mlx4_en_process_rx_cq()
-Date: Thu, 9 Feb 2017 19:15:59 +0200
-Message-ID: <CALzJLG-rNgKSroZg5+XsHRF8vPb=+b4V2cSchAz3c6+cvOW96w@mail.gmail.com>
-References: <20170209135838.16487-1-edumazet@google.com> <20170209135838.16487-15-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 01/12] bitfield.h: add FIELD_FIT() helper
+Date: Thu,  9 Feb 2017 09:17:27 -0800
+Message-ID: <20170209171738.17386-2-jakub.kicinski@netronome.com>
+References: <20170209171738.17386-1-jakub.kicinski@netronome.com>
+Cc: kubakici@wp.pl, oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35125 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752846AbdBIRZB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:25:01 -0500
-Received: by mail-qk0-f195.google.com with SMTP id u25so1545019qki.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:24:55 -0800 (PST)
-In-Reply-To: <20170209135838.16487-15-edumazet@google.com>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:35049 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753227AbdBIR0V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:26:21 -0500
+Received: by mail-pg0-f51.google.com with SMTP id 194so2306967pgd.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:26:21 -0800 (PST)
+In-Reply-To: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 3:58 PM, Eric Dumazet <edumazet@google.com> wrote:
-> We should keep one way to build skbs, regardless of GRO being on or off.
->
-> Note that I made sure to defer as much as possible the point we need to
-> pull data from the frame, so that future prefetch() we might add
-> are more effective.
->
-> These skb attributes derive from the CQE or ring :
->  ip_summed, csum
->  hash
->  vlan offload
->  hwtstamps
->  queue_mapping
->
-> As a bonus, this patch removes mlx4 dependency on eth_get_headlen()
+Add a helper for checking at runtime that a value will fit inside
+a specified field/mask.
 
-So no copy at all in driver RX ?  as it is handled in
-napi_gro_frags(&cq->napi); ?
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_bpf.h |  2 --
+ include/linux/bitfield.h                     | 13 +++++++++++++
+ 2 files changed, 13 insertions(+), 2 deletions(-)
 
-General question, why not just use build_skb() ? which approach is better ?
-
-> which is very often broken enough to give us headaches.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 203 ++++++-----------------------
->  1 file changed, 37 insertions(+), 166 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index 0a87cc96e90ce7374821a0b4712d4b85ad8e..ef6c295789803a69f7066f7e5c80d1dc37f2 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -526,64 +526,6 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
->         return 0;
->  }
->
-> -
-> -static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
-> -                                     struct mlx4_en_rx_alloc *frags,
-> -                                     unsigned int length)
-> -{
-> -       struct sk_buff *skb;
-> -       void *va;
-> -       int used_frags;
-> -       dma_addr_t dma;
-> -
-> -       skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
-> -       if (unlikely(!skb)) {
-> -               en_dbg(RX_ERR, priv, "Failed allocating skb\n");
-> -               return NULL;
-> -       }
-> -       skb_reserve(skb, NET_IP_ALIGN);
-> -       skb->len = length;
-> -
-> -       /* Get pointer to first fragment so we could copy the headers into the
-> -        * (linear part of the) skb */
-> -       va = page_address(frags[0].page) + frags[0].page_offset;
-> -
-> -       if (length <= SMALL_PACKET_SIZE) {
-> -               /* We are copying all relevant data to the skb - temporarily
-> -                * sync buffers for the copy */
-> -
-> -               dma = frags[0].dma + frags[0].page_offset;
-> -               dma_sync_single_for_cpu(priv->ddev, dma, length,
-> -                                       DMA_FROM_DEVICE);
-> -               skb_copy_to_linear_data(skb, va, length);
-> -               skb->tail += length;
-> -       } else {
-> -               unsigned int pull_len;
-> -
-> -               /* Move relevant fragments to skb */
-> -               used_frags = mlx4_en_complete_rx_desc(priv, frags,
-> -                                                       skb, length);
-> -               if (unlikely(!used_frags)) {
-> -                       kfree_skb(skb);
-> -                       return NULL;
-> -               }
-> -               skb_shinfo(skb)->nr_frags = used_frags;
-> -
-> -               pull_len = eth_get_headlen(va, SMALL_PACKET_SIZE);
-> -               /* Copy headers into the skb linear buffer */
-> -               memcpy(skb->data, va, pull_len);
-> -               skb->tail += pull_len;
-> -
-> -               /* Skip headers in first fragment */
-> -               skb_shinfo(skb)->frags[0].page_offset += pull_len;
-> -
-> -               /* Adjust size of first fragment */
-> -               skb_frag_size_sub(&skb_shinfo(skb)->frags[0], pull_len);
-> -               skb->data_len = length - pull_len;
-> -       }
-> -       return skb;
-> -}
-> -
->  static void validate_loopback(struct mlx4_en_priv *priv, void *va)
->  {
->         const unsigned char *data = va + ETH_HLEN;
-> @@ -792,8 +734,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->                  */
->                 length = be32_to_cpu(cqe->byte_cnt);
->                 length -= ring->fcs_del;
-> -               l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
-> -                       (cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
->
->                 /* A bpf program gets first chance to drop the packet. It may
->                  * read bytes but not past the end of the frag.
-> @@ -849,122 +789,51 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->                 ring->bytes += length;
->                 ring->packets++;
->
-> +               skb = napi_get_frags(&cq->napi);
-> +               if (!skb)
-> +                       goto next;
-> +
-> +               if (unlikely(ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL)) {
-> +                       timestamp = mlx4_en_get_cqe_ts(cqe);
-> +                       mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
-> +                                              timestamp);
-> +               }
-> +               skb_record_rx_queue(skb, cq->ring);
-> +
->                 if (likely(dev->features & NETIF_F_RXCSUM)) {
->                         if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
->                                                       MLX4_CQE_STATUS_UDP)) {
->                                 if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
->                                     cqe->checksum == cpu_to_be16(0xffff)) {
->                                         ip_summed = CHECKSUM_UNNECESSARY;
-> +                                       l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
-> +                                               (cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
-> +                                       if (l2_tunnel)
-> +                                               skb->csum_level = 1;
->                                         ring->csum_ok++;
->                                 } else {
-> -                                       ip_summed = CHECKSUM_NONE;
-> -                                       ring->csum_none++;
-> +                                       goto csum_none;
->                                 }
->                         } else {
->                                 if (priv->flags & MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP &&
->                                     (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
->                                                                MLX4_CQE_STATUS_IPV6))) {
-> -                                       ip_summed = CHECKSUM_COMPLETE;
-> -                                       ring->csum_complete++;
-> +                                       if (check_csum(cqe, skb, va, dev->features)) {
-> +                                               goto csum_none;
-> +                                       } else {
-> +                                               ip_summed = CHECKSUM_COMPLETE;
-> +                                               ring->csum_complete++;
-> +                                       }
->                                 } else {
-> -                                       ip_summed = CHECKSUM_NONE;
-> -                                       ring->csum_none++;
-> +                                       goto csum_none;
->                                 }
->                         }
->                 } else {
-> +csum_none:
->                         ip_summed = CHECKSUM_NONE;
->                         ring->csum_none++;
->                 }
-
-Why just not move this whole csum logic to a dedicated function ?
-all it needs to do is update some csum statistics and determine
-"ip_summed" value;
-
-> -
-> -               /* This packet is eligible for GRO if it is:
-> -                * - DIX Ethernet (type interpretation)
-> -                * - TCP/IP (v4)
-> -                * - without IP options
-> -                * - not an IP fragment
-> -                */
-> -               if (dev->features & NETIF_F_GRO) {
-> -                       struct sk_buff *gro_skb = napi_get_frags(&cq->napi);
-> -                       if (!gro_skb)
-> -                               goto next;
-> -
-> -                       nr = mlx4_en_complete_rx_desc(priv, frags, gro_skb,
-> -                                                     length);
-> -                       if (!nr)
-> -                               goto next;
-> -
-> -                       if (ip_summed == CHECKSUM_COMPLETE) {
-> -                               if (check_csum(cqe, gro_skb, va,
-> -                                              dev->features)) {
-> -                                       ip_summed = CHECKSUM_NONE;
-> -                                       ring->csum_none++;
-> -                                       ring->csum_complete--;
-> -                               }
-> -                       }
-> -
-> -                       skb_shinfo(gro_skb)->nr_frags = nr;
-> -                       gro_skb->len = length;
-> -                       gro_skb->data_len = length;
-> -                       gro_skb->ip_summed = ip_summed;
-> -
-> -                       if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
-> -                               gro_skb->csum_level = 1;
-> -
-> -                       if ((cqe->vlan_my_qpn &
-> -                           cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
-> -                           (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
-> -                               u16 vid = be16_to_cpu(cqe->sl_vid);
-> -
-> -                               __vlan_hwaccel_put_tag(gro_skb, htons(ETH_P_8021Q), vid);
-> -                       } else if ((be32_to_cpu(cqe->vlan_my_qpn) &
-> -                                 MLX4_CQE_SVLAN_PRESENT_MASK) &&
-> -                                (dev->features & NETIF_F_HW_VLAN_STAG_RX)) {
-> -                               __vlan_hwaccel_put_tag(gro_skb,
-> -                                                      htons(ETH_P_8021AD),
-> -                                                      be16_to_cpu(cqe->sl_vid));
-> -                       }
-> -
-> -                       if (dev->features & NETIF_F_RXHASH)
-> -                               skb_set_hash(gro_skb,
-> -                                            be32_to_cpu(cqe->immed_rss_invalid),
-> -                                            (ip_summed == CHECKSUM_UNNECESSARY) ?
-> -                                               PKT_HASH_TYPE_L4 :
-> -                                               PKT_HASH_TYPE_L3);
-> -
-> -                       skb_record_rx_queue(gro_skb, cq->ring);
-> -
-> -                       if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
-> -                               timestamp = mlx4_en_get_cqe_ts(cqe);
-> -                               mlx4_en_fill_hwtstamps(mdev,
-> -                                                      skb_hwtstamps(gro_skb),
-> -                                                      timestamp);
-> -                       }
-> -
-> -                       napi_gro_frags(&cq->napi);
-> -                       goto next;
-> -               }
-> -
-> -               /* GRO not possible, complete processing here */
-> -               skb = mlx4_en_rx_skb(priv, frags, length);
-> -               if (unlikely(!skb)) {
-> -                       ring->dropped++;
-> -                       goto next;
-> -               }
-> -
-> -               if (ip_summed == CHECKSUM_COMPLETE) {
-> -                       if (check_csum(cqe, skb, va, dev->features)) {
-> -                               ip_summed = CHECKSUM_NONE;
-> -                               ring->csum_complete--;
-> -                               ring->csum_none++;
-> -                       }
-> -               }
-> -
-
-Finally! Best patch ever !
-Thank you Eric.
-
->                 skb->ip_summed = ip_summed;
-> -               skb->protocol = eth_type_trans(skb, dev);
-
-Not required anymore ?  I know napi_frags_skb does the job,
-but what about skb->pkt_type field which is handled in eth_type_trans ?
-
-> -               skb_record_rx_queue(skb, cq->ring);
-> -
-> -               if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
-> -                       skb->csum_level = 1;
-> -
->                 if (dev->features & NETIF_F_RXHASH)
->                         skb_set_hash(skb,
->                                      be32_to_cpu(cqe->immed_rss_invalid),
-> @@ -972,23 +841,25 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->                                         PKT_HASH_TYPE_L4 :
->                                         PKT_HASH_TYPE_L3);
->
-> -               if ((be32_to_cpu(cqe->vlan_my_qpn) &
-> -                   MLX4_CQE_CVLAN_PRESENT_MASK) &&
-> +
-> +               if ((cqe->vlan_my_qpn &
-> +                    cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
->                     (dev->features & NETIF_F_HW_VLAN_CTAG_RX))
-> -                       __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), be16_to_cpu(cqe->sl_vid));
-> -               else if ((be32_to_cpu(cqe->vlan_my_qpn) &
-> -                         MLX4_CQE_SVLAN_PRESENT_MASK) &&
-> +                       __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-> +                                              be16_to_cpu(cqe->sl_vid));
-> +               else if ((cqe->vlan_my_qpn &
-> +                         cpu_to_be32(MLX4_CQE_SVLAN_PRESENT_MASK)) &&
->                          (dev->features & NETIF_F_HW_VLAN_STAG_RX))
->                         __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021AD),
->                                                be16_to_cpu(cqe->sl_vid));
->
-> -               if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
-> -                       timestamp = mlx4_en_get_cqe_ts(cqe);
-> -                       mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
-> -                                              timestamp);
-> +               nr = mlx4_en_complete_rx_desc(priv, frags, skb, length);
-> +               if (nr) {
-
-likely() ?
-
-> +                       skb_shinfo(skb)->nr_frags = nr;
-> +                       skb->len = length;
-> +                       skb->data_len = length;
-> +                       napi_gro_frags(&cq->napi);
->                 }
-
-no need to kfree_skb/reset some SKB fields in case nr == 0 ?
-since this SKB will be returned via napi_get_frags if you didn't
-actually consume it ..
-
-for example 1st packet is a valn packet and for some reason
-mlx4_en_complete_rx_desc returned 0 on it.
-next packet is a non vlan packet that will get the same skb of the 1st
-packet with non clean SKB fields such as (skb->vlan_tci) !
-
-> -
-> -               napi_gro_receive(&cq->napi, skb);
->  next:
->                 ++cq->mcq.cons_index;
->                 index = (cq->mcq.cons_index) & ring->size_mask;
-> --
-> 2.11.0.483.g087da7b7c-goog
->
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
+index 76a19f1796af..9513c80f7be5 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
+@@ -39,8 +39,6 @@
+ #include <linux/list.h>
+ #include <linux/types.h>
+ 
+-#define FIELD_FIT(mask, val)  (!((((u64)val) << __bf_shf(mask)) & ~(mask)))
+-
+ /* For branch fixup logic use up-most byte of branch instruction as scratch
+  * area.  Remember to clear this before sending instructions to HW!
+  */
+diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
+index f6505d83069d..8b9d6fff002d 100644
+--- a/include/linux/bitfield.h
++++ b/include/linux/bitfield.h
+@@ -63,6 +63,19 @@
+ 	})
+ 
+ /**
++ * FIELD_FIT() - check if value fits in the field
++ * @_mask: shifted mask defining the field's length and position
++ * @_val:  value to test against the field
++ *
++ * Return: true if @_val can fit inside @_mask, false if @_val is too big.
++ */
++#define FIELD_FIT(_mask, _val)						\
++	({								\
++		__BF_FIELD_CHECK(_mask, 0ULL, _val, "FIELD_FIT: ");	\
++		!((((typeof(_mask))_val) << __bf_shf(_mask)) & ~(_mask)); \
++	})
++
++/**
+  * FIELD_PREP() - prepare a bitfield element
+  * @_mask: shifted mask defining the field's length and position
+  * @_val:  value to put in the field
+-- 
+2.11.0
