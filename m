@@ -1,57 +1,24 @@
-From: Yanjun Zhu <yanjun.zhu@oracle.com>
-Subject: Re: [PATCH 1/1] ixgbe: add the external ixgbe fiber transceiver
- status
-Date: Fri, 10 Feb 2017 10:43:59 +0800
-Message-ID: <589D28EF.1050602@oracle.com>
-References: <1486609408-6770-1-git-send-email-yanjun.zhu@oracle.com>
- <87618083B2453E4A8714035B62D679925074E73F@FMSMSX105.amr.corp.intel.com>
+From: "IT Servicet" <asinha@indorama.com.ng>
+Subject: Maintenance Notification
+Date: Thu, 09 Feb 2017 23:05:58 +0100
+Message-ID: <20170209214626.425F5D46179@zimbra-new.indorama.com.ng>
+Reply-To: lisaquamgrant@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "broonie@kernel.org" <broonie@kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <asinha@indorama.com.ng>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:26355 "EHLO
-        userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750989AbdBJCpR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 21:45:17 -0500
-Received: from userp1040.oracle.com (userp1040.oracle.com [156.151.31.81])
-        by userp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id v1A2il90030400
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 02:44:47 GMT
-In-Reply-To: <87618083B2453E4A8714035B62D679925074E73F@FMSMSX105.amr.corp.intel.com>
+Received: from email.indorama.com.ng ([41.78.173.161]:47091 "EHLO
+        email.indorama.com.ng" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750966AbdBJCwz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 21:52:55 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Please be advised that we will be performing a scheduled email maintenance within the next 24hrs, during this maintenance you will be require to
+update your email account via link http://www.beam.to/4334
 
-
-On 2017/2/10 3:08, Tantilov, Emil S wrote:
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->> Behalf Of Zhu Yanjun
->> Sent: Wednesday, February 08, 2017 7:03 PM
->> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; broonie@kernel.org;
->> davem@davemloft.net; intel-wired-lan@lists.osuosl.org;
->> netdev@vger.kernel.org
->> Subject: [PATCH 1/1] ixgbe: add the external ixgbe fiber transceiver status
->>
->> When the ixgbe fiber transceiver is external, it is necessary to get
->> the present/absent status of this external ixgbe fiber transceiver.
-> The transceiver field was deprecated in the old ethtool API and is being
-> removed in the new. This patch will not apply at all once those changes are made:
->
-> http://patchwork.ozlabs.org/patch/725081/
-Thanks for your kind reply. I will change this patch based on the above 
-changes.
-
-Zhu Yanjun
->
-> Thanks,
-> Emil
->   
->
->
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
