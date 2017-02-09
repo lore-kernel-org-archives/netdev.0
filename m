@@ -1,8 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V4 net-next 12/13] net/ena: change condition for host attribute configuration
-Date: Thu,  9 Feb 2017 15:21:38 +0200
-Message-ID: <1486646499-13682-13-git-send-email-netanel@annapurnalabs.com>
-References: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V4 net-next 00/13]  Bug Fixes in ENA driver
+Date: Thu,  9 Feb 2017 15:21:26 +0200
+Message-ID: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
         saeed@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
@@ -10,69 +9,43 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         evgenys@annapurnalabs.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37843 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750994AbdBIN2Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:28:24 -0500
+Received: by mail-wm0-f51.google.com with SMTP id v77so19038104wmv.0
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:28:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move the host info config to be the first admin command that is executed.
-This change require the driver to remove the 'feature check'
-from host info configuration flow.
-The check is removed since the supported features bitmask field
-is retrieved only after calling ENA_ADMIN_DEVICE_ATTRIBUTES admin command.
+Changes from V3:
+* Rebase patchset to master and solve merge conflicts.
+* Remove redundant bug fix (fix error handling when probe fails)
 
-If set host info is not supported an error will be returned by the device.
+Netanel Belgazal (13):
+  net/ena: remove ntuple filter support from device feature list
+  net/ena: fix queues number calculation
+  net/ena: fix ethtool RSS flow configuration
+  net/ena: fix RSS default hash configuration
+  net/ena: fix NULL dereference when removing the driver after device
+    reset failed
+  net/ena: refactor ena_get_stats64 to be atomic context safe
+  net/ena: fix potential access to freed memory during device reset
+  net/ena: use napi_complete_done() return value
+  net/ena: use READ_ONCE to access completion descriptors
+  net/ena: reduce the severity of ena printouts
+  net/ena: change driver's default timeouts
+  net/ena: change condition for host attribute configuration
+  net/ena: update driver version to 1.1.2
 
-Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
----
- drivers/net/ethernet/amazon/ena/ena_com.c    | 8 +++-----
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 5 +++--
- 2 files changed, 6 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  20 ++-
+ drivers/net/ethernet/amazon/ena/ena_com.c        |  41 +++---
+ drivers/net/ethernet/amazon/ena/ena_com.h        |   1 +
+ drivers/net/ethernet/amazon/ena/ena_eth_com.c    |   8 +-
+ drivers/net/ethernet/amazon/ena/ena_netdev.c     | 176 ++++++++++++++++-------
+ drivers/net/ethernet/amazon/ena/ena_netdev.h     |   9 +-
+ 6 files changed, 172 insertions(+), 83 deletions(-)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 8029e7c..08d11ce 100644
---- a/drivers/net/ethernet/amazon/ena/ena_com.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -2451,11 +2451,9 @@ int ena_com_set_host_attributes(struct ena_com_dev *ena_dev)
- 
- 	int ret;
- 
--	if (!ena_com_check_supported_feature_id(ena_dev,
--						ENA_ADMIN_HOST_ATTR_CONFIG)) {
--		pr_warn("Set host attribute isn't supported\n");
--		return -EPERM;
--	}
-+	/* Host attribute config is called before ena_com_get_dev_attr_feat
-+	 * so ena_com can't check if the feature is supported.
-+	 */
- 
- 	memset(&cmd, 0x0, sizeof(cmd));
- 	admin_queue = &ena_dev->admin_queue;
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 5079366..d8c920b 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2414,6 +2414,8 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
- 	 */
- 	ena_com_set_admin_polling_mode(ena_dev, true);
- 
-+	ena_config_host_info(ena_dev);
-+
- 	/* Get Device Attributes*/
- 	rc = ena_com_get_dev_attr_feat(ena_dev, get_feat_ctx);
- 	if (rc) {
-@@ -2438,11 +2440,10 @@ static int ena_device_init(struct ena_com_dev *ena_dev, struct pci_dev *pdev,
- 
- 	*wd_state = !!(aenq_groups & BIT(ENA_ADMIN_KEEP_ALIVE));
- 
--	ena_config_host_info(ena_dev);
--
- 	return 0;
- 
- err_admin_init:
-+	ena_com_delete_host_info(ena_dev);
- 	ena_com_admin_destroy(ena_dev);
- err_mmio_read_less:
- 	ena_com_mmio_reg_read_request_destroy(ena_dev);
 -- 
 2.7.4
