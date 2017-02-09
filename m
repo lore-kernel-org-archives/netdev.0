@@ -1,34 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront: Rework the fix for Rx stall during OOM
- and network stress
-Date: Thu, 09 Feb 2017 16:34:41 -0500 (EST)
-Message-ID: <20170209.163441.1292042359985747391.davem@davemloft.net>
-References: <1486493941-15696-1-git-send-email-vineethp@amazon.com>
+Subject: Re: [Patch net] kcm: fix 0-length case for kcm_sendmsg()
+Date: Thu, 09 Feb 2017 16:39:38 -0500 (EST)
+Message-ID: <20170209.163938.1076043917493503575.davem@davemloft.net>
+References: <1486501187-12869-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: boris.ostrovsky@oracle.com, jgross@suse.com,
-        xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kamatam@amazon.com,
-        aliguori@amazon.com, guruanb@amazon.com
-To: vineethp@amazon.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486493941-15696-1-git-send-email-vineethp@amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andreyknvl@google.com, dvyukov@google.com,
+        tom@herbertland.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50576 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751356AbdBIVl0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 16:41:26 -0500
+In-Reply-To: <1486501187-12869-2-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vineeth Remanan Pillai <vineethp@amazon.com>
-Date: Tue, 7 Feb 2017 18:59:01 +0000
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  7 Feb 2017 12:59:47 -0800
 
-> The commit 90c311b0eeea ("xen-netfront: Fix Rx stall during network
-> stress and OOM") caused the refill timer to be triggerred almost on
-> all invocations of xennet_alloc_rx_buffers for certain workloads.
-> This reworks the fix by reverting to the old behaviour and taking into
-> consideration the skb allocation failure. Refill timer is now triggered
-> on insufficient requests or skb allocation failure.
+> Dmitry reported a kernel warning:
 > 
-> Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
-> Fixes: 90c311b0eeea (xen-netfront: Fix Rx stall during network stress and OOM)
-> Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+>  WARNING: CPU: 3 PID: 2936 at net/kcm/kcmsock.c:627
+>  kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
+>  CPU: 3 PID: 2936 Comm: a.out Not tainted 4.10.0-rc6+ #209
+>  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>  Call Trace:
+>   __dump_stack lib/dump_stack.c:15 [inline]
+>   dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+>   panic+0x1fb/0x412 kernel/panic.c:179
+>   __warn+0x1c4/0x1e0 kernel/panic.c:539
+>   warn_slowpath_null+0x2c/0x40 kernel/panic.c:582
+>   kcm_write_msgs+0x12e3/0x1b90 net/kcm/kcmsock.c:627
+>   kcm_sendmsg+0x163a/0x2200 net/kcm/kcmsock.c:1029
+>   sock_sendmsg_nosec net/socket.c:635 [inline]
+>   sock_sendmsg+0xca/0x110 net/socket.c:645
+>   sock_write_iter+0x326/0x600 net/socket.c:848
+>   new_sync_write fs/read_write.c:499 [inline]
+>   __vfs_write+0x483/0x740 fs/read_write.c:512
+>   vfs_write+0x187/0x530 fs/read_write.c:560
+>   SYSC_write fs/read_write.c:607 [inline]
+>   SyS_write+0xfb/0x230 fs/read_write.c:599
+>   entry_SYSCALL_64_fastpath+0x1f/0xc2
+> 
+> when calling syscall(__NR_write, sock2, 0x208aaf27ul, 0x0ul) on a KCM
+> seqpacket socket. It appears that kcm_sendmsg() does not handle len==0
+> case correctly, which causes an empty skb is allocated and queued.
+> Fix this by skipping the skb allocation for len==0 case.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Tom Herbert <tom@herbertland.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied.
+Applied and queued up for -stable.
