@@ -1,64 +1,74 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: micrel: ks8851_mll: use new api ethtool_{get|set}_link_ksettings
-Date: Thu,  9 Feb 2017 11:28:25 +0100
-Message-ID: <1486636105-18781-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, jarod@redhat.com
+From: Christophe LEROY <christophe.leroy@c-s.fr>
+Subject: Re: [PATCH 1/2] net: ethernet: ucc_geth: fix MEM_PART_MURAM mode
+Date: Thu, 9 Feb 2017 11:45:17 +0100
+Message-ID: <4ef41972-0cd1-525f-dbb2-95b3be007b93@c-s.fr>
+References: <cover.1486456900.git.christophe.leroy@c-s.fr>
+ <d25ee7a13b60dcd005c59169feacb18fb69a06c1.1486456900.git.christophe.leroy@c-s.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Li Yang <leoli@freescale.com>, Qiang Zhao <qiang.zhao@nxp.com>,
+        Scott Wood <oss@buserror.net>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d25ee7a13b60dcd005c59169feacb18fb69a06c1.1486456900.git.christophe.leroy@c-s.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Acked-by: David S. Miller <davem@davemloft.net>
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/micrel/ks8851_mll.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-index db62807..7647f7b 100644
---- a/drivers/net/ethernet/micrel/ks8851_mll.c
-+++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-@@ -1311,16 +1311,18 @@ static void ks_set_msglevel(struct net_device *netdev, u32 to)
- 	ks->msg_enable = to;
- }
- 
--static int ks_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
-+static int ks_get_link_ksettings(struct net_device *netdev,
-+				 struct ethtool_link_ksettings *cmd)
- {
- 	struct ks_net *ks = netdev_priv(netdev);
--	return mii_ethtool_gset(&ks->mii, cmd);
-+	return mii_ethtool_get_link_ksettings(&ks->mii, cmd);
- }
- 
--static int ks_set_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
-+static int ks_set_link_ksettings(struct net_device *netdev,
-+				 const struct ethtool_link_ksettings *cmd)
- {
- 	struct ks_net *ks = netdev_priv(netdev);
--	return mii_ethtool_sset(&ks->mii, cmd);
-+	return mii_ethtool_set_link_ksettings(&ks->mii, cmd);
- }
- 
- static u32 ks_get_link(struct net_device *netdev)
-@@ -1339,10 +1341,10 @@ static int ks_nway_reset(struct net_device *netdev)
- 	.get_drvinfo	= ks_get_drvinfo,
- 	.get_msglevel	= ks_get_msglevel,
- 	.set_msglevel	= ks_set_msglevel,
--	.get_settings	= ks_get_settings,
--	.set_settings	= ks_set_settings,
- 	.get_link	= ks_get_link,
- 	.nway_reset	= ks_nway_reset,
-+	.get_link_ksettings = ks_get_link_ksettings,
-+	.set_link_ksettings = ks_set_link_ksettings,
- };
- 
- /* MII interface controls */
--- 
-1.7.4.4
+Le 07/02/2017 à 10:05, Christophe Leroy a écrit :
+> Since commit 5093bb965a163 ("powerpc/QE: switch to the cpm_muram
+> implementation"), muram area is not part of immrbar mapping anymore
+> so immrbar_virt_to_phys() is not usable anymore.
+>
+> Fixes: 5093bb965a163 ("powerpc/QE: switch to the cpm_muram implementation)
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+> ---
+>  drivers/net/ethernet/freescale/ucc_geth.c | 8 +++-----
+>  include/soc/fsl/qe/qe.h                   | 1 +
+>  2 files changed, 4 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+> index 3f7ae9f..f77ba9f 100644
+> --- a/drivers/net/ethernet/freescale/ucc_geth.c
+> +++ b/drivers/net/ethernet/freescale/ucc_geth.c
+> @@ -2594,11 +2594,10 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
+>  			   MEM_PART_MURAM) {
+>  			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
+> -				 (u32) immrbar_virt_to_phys(ugeth->
+> -							    p_tx_bd_ring[i]));
+> +				 (u32)qe_muram_dma(ugeth->p_tx_bd_ring[i]));
+>  			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
+>  				 last_bd_completed_address,
+> -				 (u32) immrbar_virt_to_phys(endOfRing));
+> +				 (u32)qe_muram_dma(endOfRing));
+>  		}
+>  	}
+>
+> @@ -2844,8 +2843,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
+>  			   MEM_PART_MURAM) {
+>  			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
+> -				 (u32) immrbar_virt_to_phys(ugeth->
+> -							    p_rx_bd_ring[i]));
+> +				 (u32)qe_muram_dma(ugeth->p_rx_bd_ring[i]));
+>  		}
+>  		/* rest of fields handled by QE */
+>  	}
+> diff --git a/include/soc/fsl/qe/qe.h b/include/soc/fsl/qe/qe.h
+> index 70339d7..0cd4c1147 100644
+> --- a/include/soc/fsl/qe/qe.h
+> +++ b/include/soc/fsl/qe/qe.h
+> @@ -243,6 +243,7 @@ static inline int qe_alive_during_sleep(void)
+>  #define qe_muram_free cpm_muram_free
+>  #define qe_muram_addr cpm_muram_addr
+>  #define qe_muram_offset cpm_muram_offset
+> +#define qe_muram_dma cpm_muram_dma
+>
+>  #define qe_setbits32(_addr, _v) iowrite32be(ioread32be(_addr) |  (_v), (_addr))
+>  #define qe_clrbits32(_addr, _v) iowrite32be(ioread32be(_addr) & ~(_v), (_addr))
+>
