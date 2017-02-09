@@ -1,61 +1,91 @@
-From: Thomas Osterried <thomas@osterried.de>
-Subject: linux mkiss.c panic: fix
-Date: Thu, 9 Feb 2017 10:27:10 +0100
-Message-ID: <B4836AA3-200E-4BDA-B1B1-CD3F6AF28F94@osterried.de>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=us-ascii
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH net] net: hns: Fix the device being used for dma mapping
+ during TX
+Date: Thu, 9 Feb 2017 09:47:38 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A860C73@lhreml503-mbx>
+References: <20170209092409.202832-1-salil.mehta@huawei.com>
+ <8729016553E3654398EA69218DA29EEF15A6FB63@cnshjmbx02>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: =?utf-8?Q?Ralf_B=C3=A4chle_DL5RB?= <ralf@linux-mips.org>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>,
+        "Yankejian (Hackim Yim)" <yankejian@huawei.com>
+To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lhrrgout.huawei.com ([194.213.3.17]:9066 "EHLO
+        lhrrgout.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752403AbdBIJsG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 04:48:06 -0500
+In-Reply-To: <8729016553E3654398EA69218DA29EEF15A6FB63@cnshjmbx02>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+> -----Original Message-----
+> From: YUAN Linyu [mailto:Linyu.Yuan@alcatel-sbell.com.cn]
+> Sent: Thursday, February 09, 2017 9:36 AM
+> To: Salil Mehta; davem@davemloft.net
+> Cc: Zhuangyuzeng (Yisen); mehta.salil.lnk@gmail.com;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm;
+> Yankejian (Hackim Yim)
+> Subject: RE: [PATCH net] net: hns: Fix the device being used for dma
+> mapping during TX
+> 
+> 
+> 
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org]
+> > On Behalf Of Salil Mehta
+> > Sent: Thursday, February 09, 2017 5:24 PM
+> > To: davem@davemloft.net
+> > Cc: salil.mehta@huawei.com; yisen.zhuang@huawei.com;
+> > mehta.salil.lnk@gmail.com; netdev@vger.kernel.org;
+> > linux-kernel@vger.kernel.org; linuxarm@huawei.com; Kejian Yan
+> > Subject: [PATCH net] net: hns: Fix the device being used for dma
+> mapping during
+> > TX
+> >
+> > From: Kejian Yan <yankejian@huawei.com>
+> >
+> > This patch fixes the device being used to DMA map skb->data.
+> > Erroneous device assignment causes the crash when SMMU is enabled.
+> > This happens during TX since buffer gets DMA mapped with device
+> > correspondign to net_device and gets unmapped using the device
+> > related to DSAF.
+> >
+> > Signed-off-by: Kejian Yan <yankejian@huawei.com>
+> > Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+> > Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+> > ---
+> >  drivers/net/ethernet/hisilicon/hns/hns_enet.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> > b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> > index 672b646..2b52a12 100644
+> > --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> > +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> > @@ -305,7 +305,7 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
+> >  			struct hns_nic_ring_data *ring_data)
+> >  {
+> >  	struct hns_nic_priv *priv = netdev_priv(ndev);
+> > -	struct device *dev = priv->dev;
+> > +	struct device *dev = ring_to_dev(ring_data->ring);
+> >  	struct hnae_ring *ring = ring_data->ring;
+> struct device *dev = ring_to_dev(ring); ??????
+Yes, name of the macro is slight misnomer but this gets the dsaf device.
+Hope this answers your question?
 
-linux mkiss driver could cause a panic. 
-
-This patch fixes this issue:
-
-Signed-off-by: Thomas Osterried <thomas@osterried.de>
-
-mkiss kernel panic fix: Correct device variables guarantees proper skb room.
-
---- mkiss.c.orig        2015-11-18 11:08:46.000000000 +0100
-+++ mkiss.c     2016-02-06 18:04:05.000000000 +0100
-@@ -678,8 +678,8 @@
-{
-       /* Finish setting up the DEVICE info. */
-       dev->mtu             = AX_MTU;
--       dev->hard_header_len = 0;
--       dev->addr_len        = 0;
-+       dev->hard_header_len    = AX25_MAX_HEADER_LEN;
-+       dev->addr_len           = AX25_ADDR_LEN;
-       dev->type            = ARPHRD_AX25;
-       dev->tx_queue_len    = 10;
-       dev->header_ops      = &ax_header_ops;
-
-
-Reason:
-if you plug off i.e. your usb-serial-adapter, the driver re-initializes, with dev->hard_header_len and dev->addr_len set to zero, instead of the correct values.
-If afterwards a packet should be sent to the half-dead interface, it causes a kernel panic.
-These device parameters are used in other parts of the IP-stack when calculating the necessary room for the skb. After a packet goes to the mkiss driver for being sent out, there's no room left in the skb, due to the reserved length of 0. If skb_push pushes the ax25-header to the skb with no room left, we panic.
-
-The panic looked like this:
-=>
->> [<c0595468>] (skb_panic) from [<c0401f70>] (skb_push+0x4c/0x50)
->> [<c0401f70>] (skb_push) from [<bf0bdad4>] (ax25_hard_header+0x34/0xf4 [ax25])
->> [<bf0bdad4>] (ax25_hard_header [ax25]) from [<bf0d05d4>] (ax_header+0x38/0x40 [mkiss])
->> [<bf0d05d4>] (ax_header [mkiss]) from [<c041b584>] (neigh_compat_output+0x8c/0xd8)
->> [<c041b584>] (neigh_compat_output) from [<c043e7a8>] (ip_finish_output+0x2a0/0x914)
->> [<c043e7a8>] (ip_finish_output) from [<c043f948>] (ip_output+0xd8/0xf0)
->> [<c043f948>] (ip_output) from [<c043f04c>] (ip_local_out_sk+0x44/0x48)
-
-
-This patch makes mkiss behave like the 6pack driver. 6pack does not panic.
-In 6pack.c sp_setup() (same function name here) the values for dev->hard_header_len and dev->addr_len are set to the same values as in my mkiss patch.
-
-vy 73,
-	- Thomas  dl9sau
+Thanks
+Salil
+> >  	struct netdev_queue *dev_queue;
+> >  	struct skb_frag_struct *frag;
+> > --
+> > 1.7.9.5
+> >
