@@ -1,229 +1,169 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC v2 7/8] bnxt: Changes to use generic XDP infrastructure
-Date: Wed, 8 Feb 2017 15:41:26 -0800
-Message-ID: <20170208234127.3041579-8-tom@herbertland.com>
-References: <20170208234127.3041579-1-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Subject: [PATCH 1/3 v2 net-next] enic: add devcmds for vxlan offload
+Date: Wed,  8 Feb 2017 16:43:07 -0800
+Message-ID: <20170209004309.1225-2-gvaradar@cisco.com>
+References: <20170209004309.1225-1-gvaradar@cisco.com>
+Cc: benve@cisco.com, Govindarajulu Varadarajan <gvaradar@cisco.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55491 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751812AbdBIBQw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:16:52 -0500
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v18NXZk0025163
-        for <netdev@vger.kernel.org>; Wed, 8 Feb 2017 15:41:51 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 28g59k2082-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 15:41:51 -0800
-Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
- mx-out.facebook.com (10.223.100.99) with ESMTP id
- 2982c370ee5811e6a8b624be05956610-1fad0a50 for <netdev@vger.kernel.org>;        Wed,
- 08 Feb 2017 15:41:50 -0800
-In-Reply-To: <20170208234127.3041579-1-tom@herbertland.com>
+Received: from rcdn-iport-7.cisco.com ([173.37.86.78]:29293 "EHLO
+        rcdn-iport-7.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751636AbdBIBY6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:24:58 -0500
+In-Reply-To: <20170209004309.1225-1-gvaradar@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change XDP program management functional interface to correspond to new
-XDP API.
+This patch adds devcmds needed for vxlan offload. Implement 3 new devcmd
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+overlay_offload_ctrl: enable/disable offload
+overlay_offload_cfg: update offload udp port number
+get_supported_feature_ver: get hw supported offload version. Each
+			   version has different bitmap for csum_ok/encap
+
+Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 14 --------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h     |  2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c | 46 +++++++++++++++------------
- 3 files changed, 27 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/cisco/enic/vnic_dev.c    | 34 ++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/vnic_dev.h    |  5 +++
+ drivers/net/ethernet/cisco/enic/vnic_devcmd.h | 51 +++++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/vnic_enet.h   |  1 +
+ 4 files changed, 91 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index cda1c78..ce311fb 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -2091,9 +2091,6 @@ static void bnxt_free_rx_rings(struct bnxt *bp)
- 		struct bnxt_rx_ring_info *rxr = &bp->rx_ring[i];
- 		struct bnxt_ring_struct *ring;
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
+index 8f27df3207bc..1841ad45d215 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
++++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
+@@ -1247,3 +1247,37 @@ int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
  
--		if (rxr->xdp_prog)
--			bpf_prog_put(rxr->xdp_prog);
--
- 		kfree(rxr->rx_tpa);
- 		rxr->rx_tpa = NULL;
- 
-@@ -2381,15 +2378,6 @@ static int bnxt_init_one_rx_ring(struct bnxt *bp, int ring_nr)
- 	ring = &rxr->rx_ring_struct;
- 	bnxt_init_rxbd_pages(ring, type);
- 
--	if (BNXT_RX_PAGE_MODE(bp) && bp->xdp_prog) {
--		rxr->xdp_prog = bpf_prog_add(bp->xdp_prog, 1);
--		if (IS_ERR(rxr->xdp_prog)) {
--			int rc = PTR_ERR(rxr->xdp_prog);
--
--			rxr->xdp_prog = NULL;
--			return rc;
--		}
--	}
- 	prod = rxr->rx_prod;
- 	for (i = 0; i < bp->rx_ring_size; i++) {
- 		if (bnxt_alloc_rx_data(bp, rxr, prod, GFP_KERNEL) != 0) {
-@@ -7157,8 +7145,6 @@ static void bnxt_remove_one(struct pci_dev *pdev)
- 	pci_iounmap(pdev, bp->bar0);
- 	kfree(bp->edev);
- 	bp->edev = NULL;
--	if (bp->xdp_prog)
--		bpf_prog_put(bp->xdp_prog);
- 	free_netdev(dev);
- 
- 	pci_release_regions(pdev);
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 9f07b9c..3efe7af 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1175,7 +1175,7 @@ struct bnxt {
- 	u8			num_leds;
- 	struct bnxt_led_info	leds[BNXT_MAX_LED];
- 
--	struct bpf_prog		*xdp_prog;
-+	bool			xdp_enabled;
- };
- 
- #define BNXT_RX_STATS_OFFSET(counter)			\
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-index 899c30f..3cfdc94 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
-@@ -85,18 +85,18 @@ void bnxt_tx_int_xdp(struct bnxt *bp, struct bnxt_napi *bnapi, int nr_pkts)
- bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 		 struct page *page, u8 **data_ptr, unsigned int *len, u8 *event)
- {
--	struct bpf_prog *xdp_prog = READ_ONCE(rxr->xdp_prog);
- 	struct bnxt_tx_ring_info *txr;
- 	struct bnxt_sw_rx_bd *rx_buf;
- 	struct pci_dev *pdev;
- 	struct xdp_buff xdp;
-+	struct xdp_hook *last_hook;
- 	dma_addr_t mapping;
- 	void *orig_data;
- 	u32 tx_avail;
- 	u32 offset;
- 	u32 act;
- 
--	if (!xdp_prog)
-+	if (!xdp_hook_run_needed_check(bp->dev, &rxr->bnapi->napi))
- 		return false;
- 
- 	pdev = bp->pdev;
-@@ -113,7 +113,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 	dma_sync_single_for_cpu(&pdev->dev, mapping + offset, *len, bp->rx_dir);
- 
- 	rcu_read_lock();
--	act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+	act = xdp_hook_run_ret_last(&rxr->bnapi->napi, &xdp, &last_hook);
- 	rcu_read_unlock();
- 
- 	tx_avail = bnxt_tx_avail(bp, txr);
-@@ -134,7 +134,7 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 
- 	case XDP_TX:
- 		if (tx_avail < 2) {
--			trace_xdp_exception(bp->dev, xdp_prog, act);
-+			trace_xdp_hook_exception(bp->dev, last_hook, act);
- 			bnxt_reuse_rx_data(rxr, cons, page);
- 			return true;
- 		}
-@@ -147,10 +147,10 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
- 		bnxt_reuse_rx_data(rxr, cons, page);
- 		return true;
- 	default:
--		bpf_warn_invalid_xdp_action(act);
-+		xdp_warn_invalid_action(act);
- 		/* Fall thru */
- 	case XDP_ABORTED:
--		trace_xdp_exception(bp->dev, xdp_prog, act);
-+		trace_xdp_hook_exception(bp->dev, last_hook, act);
- 		/* Fall thru */
- 	case XDP_DROP:
- 		bnxt_reuse_rx_data(rxr, cons, page);
-@@ -160,13 +160,15 @@ bool bnxt_rx_xdp(struct bnxt *bp, struct bnxt_rx_ring_info *rxr, u16 cons,
+ 	return ret;
  }
- 
- /* Under rtnl_lock */
--static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
-+static int bnxt_xdp_init(struct bnxt *bp, bool enable)
- {
- 	struct net_device *dev = bp->dev;
- 	int tx_xdp = 0, rc, tc;
--	struct bpf_prog *old;
- 
--	if (prog && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
-+	if (bp->xdp_enabled == enable)
-+		return 0;
 +
-+	if (enable && bp->dev->mtu > BNXT_MAX_PAGE_MODE_MTU) {
- 		netdev_warn(dev, "MTU %d larger than largest XDP supported MTU %d.\n",
- 			    bp->dev->mtu, BNXT_MAX_PAGE_MODE_MTU);
- 		return -EOPNOTSUPP;
-@@ -175,7 +177,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
- 		netdev_warn(dev, "ethtool rx/tx channels must be combined to support XDP.\n");
- 		return -EOPNOTSUPP;
- 	}
--	if (prog)
-+	if (enable)
- 		tx_xdp = bp->rx_nr_rings;
- 
- 	tc = netdev_get_num_tc(dev);
-@@ -190,11 +192,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
- 	if (netif_running(dev))
- 		bnxt_close_nic(bp, true, false);
- 
--	old = xchg(&bp->xdp_prog, prog);
--	if (old)
--		bpf_prog_put(old);
--
--	if (prog) {
-+	if (enable) {
- 		bnxt_set_rx_skb_mode(bp, true);
- 	} else {
- 		int rx, tx;
-@@ -210,6 +208,7 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
- 	bp->tx_nr_rings = bp->tx_nr_rings_per_tc * tc + tx_xdp;
- 	bp->cp_nr_rings = max_t(int, bp->tx_nr_rings, bp->rx_nr_rings);
- 	bp->num_stat_ctxs = bp->cp_nr_rings;
-+	bp->xdp_enabled = enable;
- 	bnxt_set_tpa_flags(bp);
- 	bnxt_set_ring_params(bp);
- 
-@@ -219,18 +218,25 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
- 	return 0;
- }
- 
-+static int bnxt_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
++int vnic_dev_overlay_offload_ctrl(struct vnic_dev *vdev, u8 overlay, u8 config)
 +{
-+	return 0;
++	u64 a0 = overlay;
++	u64 a1 = config;
++	int wait = 1000;
++
++	return vnic_dev_cmd(vdev, CMD_OVERLAY_OFFLOAD_CTRL, &a0, &a1, wait);
 +}
 +
- int bnxt_xdp(struct net_device *dev, struct netdev_xdp *xdp)
- {
- 	struct bnxt *bp = netdev_priv(dev);
- 	int rc;
++int vnic_dev_overlay_offload_cfg(struct vnic_dev *vdev, u8 overlay,
++				 u16 vxlan_udp_port_number)
++{
++	u64 a1 = vxlan_udp_port_number;
++	u64 a0 = overlay;
++	int wait = 1000;
++
++	return vnic_dev_cmd(vdev, CMD_OVERLAY_OFFLOAD_CFG, &a0, &a1, wait);
++}
++
++int vnic_dev_get_supported_feature_ver(struct vnic_dev *vdev, u8 feature,
++				       u64 *supported_versions)
++{
++	u64 a0 = feature;
++	int wait = 1000;
++	u64 a1 = 0;
++	int ret;
++
++	ret = vnic_dev_cmd(vdev, CMD_GET_SUPP_FEATURE_VER, &a0, &a1, wait);
++	if (!ret)
++		*supported_versions = a0;
++
++	return ret;
++}
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.h b/drivers/net/ethernet/cisco/enic/vnic_dev.h
+index 54156c484424..9d43d6bb9907 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_dev.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_dev.h
+@@ -179,5 +179,10 @@ int vnic_dev_set_mac_addr(struct vnic_dev *vdev, u8 *mac_addr);
+ int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
+ 			struct filter *data);
+ int vnic_devcmd_init(struct vnic_dev *vdev);
++int vnic_dev_overlay_offload_ctrl(struct vnic_dev *vdev, u8 overlay, u8 config);
++int vnic_dev_overlay_offload_cfg(struct vnic_dev *vdev, u8 overlay,
++				 u16 vxlan_udp_port_number);
++int vnic_dev_get_supported_feature_ver(struct vnic_dev *vdev, u8 feature,
++				       u64 *supported_versions);
  
- 	switch (xdp->command) {
--	case XDP_SETUP_PROG:
--		rc = bnxt_xdp_set(bp, xdp->prog);
-+	case XDP_MODE_ON:
-+		rc = bnxt_xdp_init(bp, true);
-+		break;
-+	case XDP_MODE_OFF:
-+		rc = bnxt_xdp_init(bp, false);
- 		break;
--	case XDP_QUERY_PROG:
--		xdp->prog_attached = !!bp->xdp_prog;
--		rc = 0;
-+	case XDP_CHECK_BPF_PROG:
-+		rc = bnxt_xdp_check_bpf(dev, xdp->prog);
- 		break;
- 	default:
- 		rc = -EINVAL;
+ #endif /* _VNIC_DEV_H_ */
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
+index 2a812880b884..d83880b0d468 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
+@@ -406,6 +406,31 @@ enum vnic_devcmd_cmd {
+ 	 * in: (u32) a0=Queue Pair number
+ 	 */
+ 	CMD_QP_STATS_CLEAR = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 63),
++
++	/* Use this devcmd for agreeing on the highest common version supported
++	 * by both driver and fw for features who need such a facility.
++	 * in:	(u64) a0 = feature (driver requests for the supported versions
++	 *	on this feature)
++	 * out: (u64) a0 = bitmap of all supported versions for that feature
++	 */
++	CMD_GET_SUPP_FEATURE_VER = _CMDC(_CMD_DIR_RW, _CMD_VTYPE_ENET, 69),
++
++	/* Control (Enable/Disable) overlay offloads on the given vnic
++	 * in: (u8) a0 = OVERLAY_FEATURE_NVGRE : NVGRE
++	 *	    a0 = OVERLAY_FEATURE_VXLAN : VxLAN
++	 * in: (u8) a1 = OVERLAY_OFFLOAD_ENABLE : Enable or
++	 *	    a1 = OVERLAY_OFFLOAD_DISABLE : Disable or
++	 *	    a1 = OVERLAY_OFFLOAD_ENABLE_V2 : Enable with version 2
++	 */
++	CMD_OVERLAY_OFFLOAD_CTRL = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 72),
++
++	/* Configuration of overlay offloads feature on a given vNIC
++	 * in: (u8) a0 = DEVCMD_OVERLAY_NVGRE : NVGRE
++	 *	    a0 = DEVCMD_OVERLAY_VXLAN : VxLAN
++	 * in: (u8) a1 = VXLAN_PORT_UPDATE : VxLAN
++	 * in: (u16) a2 = unsigned short int port information
++	 */
++	CMD_OVERLAY_OFFLOAD_CFG = _CMDC(_CMD_DIR_WRITE, _CMD_VTYPE_ENET, 73),
+ };
+ 
+ /* CMD_ENABLE2 flags */
+@@ -657,4 +682,30 @@ struct devcmd2_result {
+ #define DEVCMD2_RING_SIZE	32
+ #define DEVCMD2_DESC_SIZE	128
+ 
++enum overlay_feature_t {
++	OVERLAY_FEATURE_NVGRE = 1,
++	OVERLAY_FEATURE_VXLAN,
++	OVERLAY_FEATURE_MAX,
++};
++
++enum overlay_ofld_cmd {
++	OVERLAY_OFFLOAD_ENABLE,
++	OVERLAY_OFFLOAD_DISABLE,
++	OVERLAY_OFFLOAD_ENABLE_P2,
++	OVERLAY_OFFLOAD_MAX,
++};
++
++#define OVERLAY_CFG_VXLAN_PORT_UPDATE	0
++
++/* Use this enum to get the supported versions for each of these features
++ * If you need to use the devcmd_get_supported_feature_version(), add
++ * the new feature into this enum and install function handler in devcmd.c
++ */
++enum vic_feature_t {
++	VIC_FEATURE_VXLAN,
++	VIC_FEATURE_RDMA,
++	VIC_FEATURE_VXLAN_PATCH,
++	VIC_FEATURE_MAX,
++};
++
+ #endif /* _VNIC_DEVCMD_H_ */
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_enet.h b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+index 75aced2de869..7d6fbb5635a4 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_enet.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+@@ -48,6 +48,7 @@ struct vnic_enet_config {
+ #define VENETF_RSSHASH_IPV6_EX	0x200	/* Hash on IPv6 extended fields */
+ #define VENETF_RSSHASH_TCPIPV6_EX 0x400	/* Hash on TCP + IPv6 ext. fields */
+ #define VENETF_LOOP		0x800	/* Loopback enabled */
++#define VENETF_VXLAN		0x10000	/* VxLAN offload */
+ 
+ #define VENET_INTR_TYPE_MIN	0	/* Timer specs min interrupt spacing */
+ #define VENET_INTR_TYPE_IDLE	1	/* Timer specs idle time before irq */
 -- 
-2.9.3
+2.11.0
