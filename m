@@ -1,104 +1,95 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 07/14] mlx4: removal of frag_sizes[]
-Date: Thu,  9 Feb 2017 05:58:31 -0800
-Message-ID: <20170209135838.16487-8-edumazet@google.com>
-References: <20170209135838.16487-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 03/10] switchdev: bridge: Offload mc router ports
+Date: Thu,  9 Feb 2017 14:54:42 +0100
+Message-ID: <1486648489-16455-4-git-send-email-jiri@resnulli.us>
+References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, ivecera@redhat.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36667 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753220AbdBIO1H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:27:07 -0500
-Received: by mail-pf0-f180.google.com with SMTP id 189so1082860pfu.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:27:07 -0800 (PST)
-In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33015 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753211AbdBIO1B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:27:01 -0500
+Received: by mail-wr0-f195.google.com with SMTP id i10so12118444wrb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:27:00 -0800 (PST)
+In-Reply-To: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We will soon use order-0 pages, and frag truesize will more precisely
-match real sizes.
+From: Nogah Frankel <nogahf@mellanox.com>
 
-In the new model, we prefer to use <= 2048 bytes fragments, so that
-we can use page-recycle technique on PAGE_SIZE=4096 arches.
+Offload the mc router ports list, whenever it is being changed.
+It is done because in some cases mc packets needs to be flooded to all
+the ports in this list.
 
-We will still pack as much frames as possible on arches with big
-pages, like PowerPC.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 24 ++++++++++--------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  8 --------
- 2 files changed, 10 insertions(+), 22 deletions(-)
+ include/net/switchdev.h   |  2 ++
+ net/bridge/br_multicast.c | 15 +++++++++++++++
+ 2 files changed, 17 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 453313d404e3698b0d41a8220005b3834c9d..0c61c1200f2aec4c74d7403d9ec3ed06821c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -1181,13 +1181,6 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
- 	return done;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 2971c2a..929d6af 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -46,6 +46,7 @@ enum switchdev_attr_id {
+ 	SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
+ 	SWITCHDEV_ATTR_ID_PORT_STP_STATE,
+ 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
++	SWITCHDEV_ATTR_ID_PORT_MROUTER,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
+@@ -61,6 +62,7 @@ struct switchdev_attr {
+ 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
+ 		u8 stp_state;				/* PORT_STP_STATE */
+ 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
++		bool mrouter;				/* PORT_MROUTER */
+ 		clock_t ageing_time;			/* BRIDGE_AGEING_TIME */
+ 		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
+ 		bool mc_disabled;			/* MC_DISABLED */
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2add6d4..b760f26 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1317,6 +1317,19 @@ br_multicast_update_query_timer(struct net_bridge *br,
+ 	mod_timer(&query->timer, jiffies + br->multicast_querier_interval);
  }
  
--static const int frag_sizes[] = {
--	FRAG_SZ0,
--	FRAG_SZ1,
--	FRAG_SZ2,
--	FRAG_SZ3
--};
--
- void mlx4_en_calc_rx_buf(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -1211,13 +1204,16 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 		int buf_size = 0;
- 
- 		while (buf_size < eff_mtu) {
--			priv->frag_info[i].frag_size =
--				(eff_mtu > buf_size + frag_sizes[i]) ?
--					frag_sizes[i] : eff_mtu - buf_size;
--			priv->frag_info[i].frag_stride =
--				ALIGN(priv->frag_info[i].frag_size,
--				      SMP_CACHE_BYTES);
--			buf_size += priv->frag_info[i].frag_size;
-+			int frag_size = eff_mtu - buf_size;
++static void br_port_mc_router_state_change(struct net_bridge_port *p,
++					   bool is_mc_router)
++{
++	struct switchdev_attr attr = {
++		.orig_dev = p->dev,
++		.id = SWITCHDEV_ATTR_ID_PORT_MROUTER,
++		.flags = SWITCHDEV_F_DEFER,
++		.u.mrouter = is_mc_router,
++	};
 +
-+			if (i < MLX4_EN_MAX_RX_FRAGS - 1)
-+				frag_size = min(frag_size, 2048);
++	switchdev_port_attr_set(p->dev, &attr);
++}
 +
-+			priv->frag_info[i].frag_size = frag_size;
-+
-+			priv->frag_info[i].frag_stride = ALIGN(frag_size,
-+							       SMP_CACHE_BYTES);
-+			buf_size += frag_size;
- 			i++;
- 		}
- 		priv->rx_page_order = MLX4_EN_ALLOC_PREFER_ORDER;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index d92e5228d4248f28151cba117a9485c71ef5..92c6cf6de9452d5d1b2092a17a8dad5348db 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -104,14 +104,6 @@
+ /*
+  * Add port to router_list
+  *  list is maintained ordered by pointer value
+@@ -1342,6 +1355,7 @@ static void br_multicast_add_router(struct net_bridge *br,
+ 	else
+ 		hlist_add_head_rcu(&port->rlist, &br->router_list);
+ 	br_rtr_notify(br->dev, port, RTM_NEWMDB);
++	br_port_mc_router_state_change(port, true);
+ }
  
- #define MLX4_EN_ALLOC_PREFER_ORDER	PAGE_ALLOC_COSTLY_ORDER
+ static void br_multicast_mark_router(struct net_bridge *br,
+@@ -2049,6 +2063,7 @@ static void __del_port_router(struct net_bridge_port *p)
+ 		return;
+ 	hlist_del_init_rcu(&p->rlist);
+ 	br_rtr_notify(p->br->dev, p, RTM_DELMDB);
++	br_port_mc_router_state_change(p, false);
  
--/* Receive fragment sizes; we use at most 3 fragments (for 9600 byte MTU
-- * and 4K allocations) */
--enum {
--	FRAG_SZ0 = 1536 - NET_IP_ALIGN,
--	FRAG_SZ1 = 4096,
--	FRAG_SZ2 = 4096,
--	FRAG_SZ3 = MLX4_EN_ALLOC_SIZE
--};
- #define MLX4_EN_MAX_RX_FRAGS	4
- 
- /* Maximum ring sizes */
+ 	/* don't allow timer refresh */
+ 	if (p->multicast_router == MDB_RTR_TYPE_TEMP)
 -- 
-2.11.0.483.g087da7b7c-goog
+2.7.4
