@@ -1,74 +1,90 @@
-From: Christophe LEROY <christophe.leroy@c-s.fr>
-Subject: Re: [PATCH 1/2] net: ethernet: ucc_geth: fix MEM_PART_MURAM mode
-Date: Thu, 9 Feb 2017 11:45:17 +0100
-Message-ID: <4ef41972-0cd1-525f-dbb2-95b3be007b93@c-s.fr>
-References: <cover.1486456900.git.christophe.leroy@c-s.fr>
- <d25ee7a13b60dcd005c59169feacb18fb69a06c1.1486456900.git.christophe.leroy@c-s.fr>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/1] ixgbe: add the external ixgbe fiber transceiver
+ status
+Date: Thu, 9 Feb 2017 13:49:30 +0300
+Message-ID: <27479fa3-47e7-5f01-1410-876a21e01523@cogentembedded.com>
+References: <1486609408-6770-1-git-send-email-yanjun.zhu@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Li Yang <leoli@freescale.com>, Qiang Zhao <qiang.zhao@nxp.com>,
-        Scott Wood <oss@buserror.net>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d25ee7a13b60dcd005c59169feacb18fb69a06c1.1486456900.git.christophe.leroy@c-s.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Zhu Yanjun <yanjun.zhu@oracle.com>, jeffrey.t.kirsher@intel.com,
+        broonie@kernel.org, davem@davemloft.net,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:36693 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752021AbdBIK5M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 05:57:12 -0500
+Received: by mail-lf0-f43.google.com with SMTP id z134so99051105lff.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 02:56:01 -0800 (PST)
+In-Reply-To: <1486609408-6770-1-git-send-email-yanjun.zhu@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Hello!
 
-Le 07/02/2017 à 10:05, Christophe Leroy a écrit :
-> Since commit 5093bb965a163 ("powerpc/QE: switch to the cpm_muram
-> implementation"), muram area is not part of immrbar mapping anymore
-> so immrbar_virt_to_phys() is not usable anymore.
+On 2/9/2017 6:03 AM, Zhu Yanjun wrote:
+
+> When the ixgbe fiber transceiver is external, it is necessary to get
+> the present/absent status of this external ixgbe fiber transceiver.
 >
-> Fixes: 5093bb965a163 ("powerpc/QE: switch to the cpm_muram implementation)
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+> The steps to get the present/absent status:
+> The enp1s0f0 is an external ixgbe fiber NIC.
+>
+> ethtool enp1s0f0
+>
+> ...
+>         Port: FIBRE
+>         PHYAD: 0
+>         Transceiver: external(present) <---The transceiver is present.
+>         Auto-negotiation: on
+>         Supports Wake-on: d
+> ...
+>
+> Or
+> ...
+>         Port: FIBRE
+>         PHYAD: 0
+>         Transceiver: external(absent) <---The transceiver is absent
+>         Auto-negotiation: on
+>         Supports Wake-on: d
+> ...
+>
+> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
 > ---
->  drivers/net/ethernet/freescale/ucc_geth.c | 8 +++-----
->  include/soc/fsl/qe/qe.h                   | 1 +
->  2 files changed, 4 insertions(+), 5 deletions(-)
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 15 +++++++++++++++
+>  include/uapi/linux/ethtool.h                     |  4 ++++
+>  2 files changed, 19 insertions(+)
 >
-> diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-> index 3f7ae9f..f77ba9f 100644
-> --- a/drivers/net/ethernet/freescale/ucc_geth.c
-> +++ b/drivers/net/ethernet/freescale/ucc_geth.c
-> @@ -2594,11 +2594,10 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
->  			   MEM_PART_MURAM) {
->  			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].bd_ring_base,
-> -				 (u32) immrbar_virt_to_phys(ugeth->
-> -							    p_tx_bd_ring[i]));
-> +				 (u32)qe_muram_dma(ugeth->p_tx_bd_ring[i]));
->  			out_be32(&ugeth->p_send_q_mem_reg->sqqd[i].
->  				 last_bd_completed_address,
-> -				 (u32) immrbar_virt_to_phys(endOfRing));
-> +				 (u32)qe_muram_dma(endOfRing));
->  		}
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+> index fd192bf..b3f86f4 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+> @@ -313,6 +313,21 @@ static int ixgbe_get_settings(struct net_device *netdev,
+>  		break;
 >  	}
 >
-> @@ -2844,8 +2843,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  		} else if (ugeth->ug_info->uf_info.bd_mem_part ==
->  			   MEM_PART_MURAM) {
->  			out_be32(&ugeth->p_rx_bd_qs_tbl[i].externalbdbaseptr,
-> -				 (u32) immrbar_virt_to_phys(ugeth->
-> -							    p_rx_bd_ring[i]));
-> +				 (u32)qe_muram_dma(ugeth->p_rx_bd_ring[i]));
->  		}
->  		/* rest of fields handled by QE */
->  	}
-> diff --git a/include/soc/fsl/qe/qe.h b/include/soc/fsl/qe/qe.h
-> index 70339d7..0cd4c1147 100644
-> --- a/include/soc/fsl/qe/qe.h
-> +++ b/include/soc/fsl/qe/qe.h
-> @@ -243,6 +243,7 @@ static inline int qe_alive_during_sleep(void)
->  #define qe_muram_free cpm_muram_free
->  #define qe_muram_addr cpm_muram_addr
->  #define qe_muram_offset cpm_muram_offset
-> +#define qe_muram_dma cpm_muram_dma
+> +	/* When the tranceiver is external, the following is meaningful.
+> +	 * ecmd->reserved[0] has 3 values:
+> +	 * 0x0: tranceiver absent
+> +	 * 0x4: tranceiver present
+> +	 * others: not support
+> +	 */
+> +	if (ecmd->port == PORT_FIBRE) {
+> +		u32 status = IXGBE_READ_REG(hw, IXGBE_ESDP) & IXGBE_ESDP_SDP2;
+> +
+> +		if (status == 0x4)
+> +			ecmd->transceiver = XCVR_EXTERNAL_PRESENT;
+> +		if (status == 0x0)
+
+    *else* *if*. Although *switch* would match better instead...
+
+> +			ecmd->transceiver = XCVR_EXTERNAL_ABSENT;
+> +	}
+> +
+>  	/* Indicate pause support */
+>  	ecmd->supported |= SUPPORTED_Pause;
 >
->  #define qe_setbits32(_addr, _v) iowrite32be(ioread32be(_addr) |  (_v), (_addr))
->  #define qe_clrbits32(_addr, _v) iowrite32be(ioread32be(_addr) & ~(_v), (_addr))
->
+[...]
+
+MBR, Sergei
