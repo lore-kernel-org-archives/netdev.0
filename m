@@ -1,128 +1,65 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 04/14] mlx4: get rid of frag_prefix_size
-Date: Thu,  9 Feb 2017 05:58:28 -0800
-Message-ID: <20170209135838.16487-5-edumazet@google.com>
-References: <20170209135838.16487-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 4/4] net/sched: cls_bpf: Use skip flags to reflect HW offload status
+Date: Thu,  9 Feb 2017 16:18:08 +0200
+Message-ID: <1486649888-2786-5-git-send-email-ogerlitz@mellanox.com>
+References: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Amir Vadai <amirva@vadai.me>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:34512 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751820AbdBIOY6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:24:58 -0500
-Received: by mail-pf0-f173.google.com with SMTP id e4so1091572pfg.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:23:44 -0800 (PST)
-In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53540 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752796AbdBIOZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:25:02 -0500
+In-Reply-To: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using per frag storage for frag_prefix_size is really silly.
+Currently there is no way of querying whether a filter is
+offloaded to HW or not when using both policy (no flag).
 
-mlx4_en_complete_rx_desc() has all needed info already.
+Reuse the skip flags to show the insertion status by setting
+the skip_hw flag in case the filter wasn't offloaded.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 27 ++++++++++++---------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  3 +--
- 2 files changed, 13 insertions(+), 17 deletions(-)
+ net/sched/cls_bpf.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b78d6762e03fc9f0c9e8bfa710efc2e7c86a..118ea83cff089f614a11f99f6623358f2006 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -588,15 +588,14 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 				    int length)
- {
- 	struct skb_frag_struct *skb_frags_rx = skb_shinfo(skb)->frags;
--	struct mlx4_en_frag_info *frag_info;
--	int nr;
-+	struct mlx4_en_frag_info *frag_info = priv->frag_info;
-+	int nr, frag_size;
- 	dma_addr_t dma;
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index d9c9701..91ba90d 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -185,14 +185,23 @@ static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 			return -EINVAL;
+ 		}
+ 	} else {
+-		if (!tc_should_offload(dev, tp, prog->gen_flags))
+-			return skip_sw ? -EINVAL : 0;
++		if (!tc_should_offload(dev, tp, prog->gen_flags)) {
++			if (tc_skip_sw(prog->gen_flags))
++				return -EINVAL;
++			prog->gen_flags |= TCA_CLS_FLAGS_SKIP_HW;
++			return 0;
++		}
+ 		cmd = TC_CLSBPF_ADD;
+ 	}
  
- 	/* Collect used fragments while replacing them in the HW descriptors */
--	for (nr = 0; nr < priv->num_frags; nr++) {
--		frag_info = &priv->frag_info[nr];
--		if (length <= frag_info->frag_prefix_size)
--			break;
-+	for (nr = 0;;) {
-+		frag_size = min_t(int, length, frag_info->frag_size);
+ 	ret = cls_bpf_offload_cmd(tp, obj, cmd);
+-	if (ret)
+-		return skip_sw ? ret : 0;
 +
- 		if (unlikely(!frags[nr].page))
- 			goto fail;
++	if (ret) {
++		if (skip_sw)
++			return ret;
++		prog->gen_flags |= TCA_CLS_FLAGS_SKIP_HW;
++		return 0;
++	}
  
-@@ -606,15 +605,16 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- 
- 		__skb_fill_page_desc(skb, nr, frags[nr].page,
- 				     frags[nr].page_offset,
--				     frag_info->frag_size);
-+				     frag_size);
- 
- 		skb->truesize += frag_info->frag_stride;
- 		frags[nr].page = NULL;
-+		nr++;
-+		length -= frag_size;
-+		if (!length)
-+			break;
-+		frag_info++;
- 	}
--	/* Adjust size of last fragment to match actual length */
--	if (nr > 0)
--		skb_frag_size_set(&skb_frags_rx[nr - 1],
--			length - priv->frag_info[nr - 1].frag_prefix_size);
- 	return nr;
- 
- fail:
-@@ -1197,7 +1197,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 	if (priv->tx_ring_num[TX_XDP]) {
- 		priv->rx_page_order = 0;
- 		priv->frag_info[0].frag_size = eff_mtu;
--		priv->frag_info[0].frag_prefix_size = 0;
- 		/* This will gain efficient xdp frame recycling at the
- 		 * expense of more costly truesize accounting
- 		 */
-@@ -1212,7 +1211,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 			priv->frag_info[i].frag_size =
- 				(eff_mtu > buf_size + frag_sizes[i]) ?
- 					frag_sizes[i] : eff_mtu - buf_size;
--			priv->frag_info[i].frag_prefix_size = buf_size;
- 			priv->frag_info[i].frag_stride =
- 				ALIGN(priv->frag_info[i].frag_size,
- 				      SMP_CACHE_BYTES);
-@@ -1232,10 +1230,9 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 	       eff_mtu, priv->num_frags);
- 	for (i = 0; i < priv->num_frags; i++) {
- 		en_err(priv,
--		       "  frag:%d - size:%d prefix:%d stride:%d\n",
-+		       "  frag:%d - size:%d stride:%d\n",
- 		       i,
- 		       priv->frag_info[i].frag_size,
--		       priv->frag_info[i].frag_prefix_size,
- 		       priv->frag_info[i].frag_stride);
- 	}
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 670eed48cf3c3f6f76e86e077c997d6f8e65..edd0f89fc1a1fdb711b8a8aefb4872fec23a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -472,9 +472,8 @@ struct mlx4_en_mc_list {
- 
- struct mlx4_en_frag_info {
- 	u16 frag_size;
--	u16 frag_prefix_size;
--	u32 frag_stride;
- 	u16 rx_headroom;
-+	u32 frag_stride;
- };
- 
- #ifdef CONFIG_MLX4_EN_DCB
+ 	obj->offloaded = true;
+ 	if (oldprog)
 -- 
-2.11.0.483.g087da7b7c-goog
+2.3.7
