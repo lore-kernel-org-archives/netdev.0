@@ -1,572 +1,168 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 12/12] nfp: add the PF driver
-Date: Thu,  9 Feb 2017 09:17:38 -0800
-Message-ID: <20170209171738.17386-13-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 03/12] nfp: add CPP access core
+Date: Thu,  9 Feb 2017 09:17:29 -0800
+Message-ID: <20170209171738.17386-4-jakub.kicinski@netronome.com>
 References: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Cc: kubakici@wp.pl, oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:36342 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932437AbdBIR2o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:28:44 -0500
-Received: by mail-pg0-f48.google.com with SMTP id v184so2300288pgv.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:28:44 -0800 (PST)
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:36324 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753588AbdBIR2j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:28:39 -0500
+Received: by mail-pg0-f47.google.com with SMTP id v184so2299353pgv.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:28:39 -0800 (PST)
 In-Reply-To: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add PF driver for NFP4000 and NFP6000.
+Command Push Pull is the name of NFP's network on a chip.
+PCIe PF can access the interconnect through a number of mappings
+controlled via Base Access Registers.  BARs allow the PF to issue
+pretty much any command or address any memory on the chip.
+
+Add appropriate logic and a handful of helper for simple operations
+like reading scalars from memories.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/Makefile       |   1 +
- drivers/net/ethernet/netronome/nfp/nfp_main.c     | 332 +++++++++++-
- drivers/net/ethernet/netronome/nfp/nfp_main.h     |  49 ++
- drivers/net/ethernet/netronome/nfp/nfp_net.h      |  26 +-
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 585 ++++++++++++++++++++++
- 5 files changed, 970 insertions(+), 23 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+ drivers/net/ethernet/netronome/nfp/Makefile        |    4 +
+ .../netronome/nfp/nfpcore/nfp6000/nfp6000.h        |   88 +
+ .../netronome/nfp/nfpcore/nfp6000/nfp_xpb.h        |   57 +
+ .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c  | 1364 ++++++++++++++++
+ .../ethernet/netronome/nfp/nfpcore/nfp6000_pcie.h  |   46 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_arm.h   |  246 +++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h   |  431 +++++
+ .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   | 1706 ++++++++++++++++++++
+ .../ethernet/netronome/nfp/nfpcore/nfp_cpplib.c    |  281 ++++
+ .../ethernet/netronome/nfp/nfpcore/nfp_target.c    |  764 +++++++++
+ 10 files changed, 4987 insertions(+)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp6000.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp_xpb.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_arm.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_target.c
 
 diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index eab39aec5b24..6933afa69df2 100644
+index 1103cb498323..fb9dadf9236d 100644
 --- a/drivers/net/ethernet/netronome/nfp/Makefile
 +++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -16,6 +16,7 @@ nfp-objs := \
+@@ -1,6 +1,10 @@
+ obj-$(CONFIG_NFP)	+= nfp.o
+ 
+ nfp-objs := \
++	    nfpcore/nfp6000_pcie.o \
++	    nfpcore/nfp_cppcore.o \
++	    nfpcore/nfp_cpplib.o \
++	    nfpcore/nfp_target.o \
+ 	    nfp_main.o \
  	    nfp_net_common.o \
  	    nfp_net_ethtool.o \
- 	    nfp_net_offload.o \
-+	    nfp_net_main.o \
- 	    nfp_netvf_main.o
- 
- ifeq ($(CONFIG_BPF_SYSCALL),y)
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-index cc6d75fff005..6e1bb3a4a611 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
-@@ -45,12 +45,326 @@
- #include <linux/firmware.h>
- #include <linux/vermagic.h>
- 
-+#include "nfpcore/nfp.h"
-+#include "nfpcore/nfp_cpp.h"
-+#include "nfpcore/nfp_nsp_eth.h"
-+
-+#include "nfpcore/nfp6000_pcie.h"
-+
- #include "nfp_main.h"
- #include "nfp_net.h"
- 
- static const char nfp_driver_name[] = "nfp";
- const char nfp_driver_version[] = VERMAGIC_STRING;
- 
-+static const struct pci_device_id nfp_pci_device_ids[] = {
-+	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP6000,
-+	  PCI_VENDOR_ID_NETRONOME, PCI_ANY_ID,
-+	  PCI_ANY_ID, 0,
-+	},
-+	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP4000,
-+	  PCI_VENDOR_ID_NETRONOME, PCI_ANY_ID,
-+	  PCI_ANY_ID, 0,
-+	},
-+	{ 0, } /* Required last entry. */
-+};
-+MODULE_DEVICE_TABLE(pci, nfp_pci_device_ids);
-+
-+static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
-+{
-+#ifdef CONFIG_PCI_IOV
-+	struct nfp_pf *pf = pci_get_drvdata(pdev);
-+	int err;
-+
-+	err = pci_enable_sriov(pdev, num_vfs);
-+	if (err) {
-+		dev_warn(&pdev->dev, "Failed to enable PCI sriov: %d\n", err);
-+		return err;
-+	}
-+
-+	pf->num_vfs = num_vfs;
-+
-+	dev_dbg(&pdev->dev, "Created %d VFs.\n", pf->num_vfs);
-+
-+	return num_vfs;
-+#endif
-+	return 0;
-+}
-+
-+static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
-+{
-+#ifdef CONFIG_PCI_IOV
-+	struct nfp_pf *pf = pci_get_drvdata(pdev);
-+
-+	/* If the VFs are assigned we cannot shut down SR-IOV without
-+	 * causing issues, so just leave the hardware available but
-+	 * disabled
-+	 */
-+	if (pci_vfs_assigned(pdev)) {
-+		dev_warn(&pdev->dev, "Disabling while VFs assigned - VFs will not be deallocated\n");
-+		return -EPERM;
-+	}
-+
-+	pf->num_vfs = 0;
-+
-+	pci_disable_sriov(pdev);
-+	dev_dbg(&pdev->dev, "Removed VFs.\n");
-+#endif
-+	return 0;
-+}
-+
-+static int nfp_pcie_sriov_configure(struct pci_dev *pdev, int num_vfs)
-+{
-+	if (num_vfs == 0)
-+		return nfp_pcie_sriov_disable(pdev);
-+	else
-+		return nfp_pcie_sriov_enable(pdev, num_vfs);
-+}
-+
-+/**
-+ * nfp_net_fw_find() - Find the correct firmware image for netdev mode
-+ * @pdev:	PCI Device structure
-+ * @pf:		NFP PF Device structure
-+ *
-+ * Return: firmware if found and requested successfully.
-+ */
-+static const struct firmware *
-+nfp_net_fw_find(struct pci_dev *pdev, struct nfp_pf *pf)
-+{
-+	const struct firmware *fw = NULL;
-+	struct nfp_eth_table_port *port;
-+	const char *fw_model;
-+	char fw_name[256];
-+	int spc, err = 0;
-+	int i, j;
-+
-+	if (!pf->eth_tbl) {
-+		dev_err(&pdev->dev, "Error: can't identify media config\n");
-+		return NULL;
-+	}
-+
-+	fw_model = nfp_hwinfo_lookup(pf->cpp, "assembly.partno");
-+	if (!fw_model) {
-+		dev_err(&pdev->dev, "Error: can't read part number\n");
-+		return NULL;
-+	}
-+
-+	spc = ARRAY_SIZE(fw_name);
-+	spc -= snprintf(fw_name, spc, "netronome/nic_%s", fw_model);
-+
-+	for (i = 0; spc > 0 && i < pf->eth_tbl->count; i += j) {
-+		port = &pf->eth_tbl->ports[i];
-+		j = 1;
-+		while (i + j < pf->eth_tbl->count &&
-+		       port->speed == port[j].speed)
-+			j++;
-+
-+		spc -= snprintf(&fw_name[ARRAY_SIZE(fw_name) - spc], spc,
-+				"_%dx%d", j, port->speed / 1000);
-+	}
-+
-+	if (spc <= 0)
-+		return NULL;
-+
-+	spc -= snprintf(&fw_name[ARRAY_SIZE(fw_name) - spc], spc, ".nffw");
-+	if (spc <= 0)
-+		return NULL;
-+
-+	err = request_firmware(&fw, fw_name, &pdev->dev);
-+	if (err)
-+		return NULL;
-+
-+	dev_info(&pdev->dev, "Loading FW image: %s\n", fw_name);
-+
-+	return fw;
-+}
-+
-+/**
-+ * nfp_net_fw_load() - Load the firmware image
-+ * @pdev:       PCI Device structure
-+ * @pf:		NFP PF Device structure
-+ * @nsp:	NFP SP handle
-+ *
-+ * Return: -ERRNO, 0 for no firmware loaded, 1 for firmware loaded
-+ */
-+static int
-+nfp_fw_load(struct pci_dev *pdev, struct nfp_pf *pf, struct nfp_nsp *nsp)
-+{
-+	const struct firmware *fw;
-+	u16 interface;
-+	int err;
-+
-+	interface = nfp_cpp_interface(pf->cpp);
-+	if (NFP_CPP_INTERFACE_UNIT_of(interface) != 0) {
-+		/* Only Unit 0 should reset or load firmware */
-+		dev_info(&pdev->dev, "Firmware will be loaded by partner\n");
-+		return 0;
-+	}
-+
-+	fw = nfp_net_fw_find(pdev, pf);
-+	if (!fw)
-+		return 0;
-+
-+	dev_info(&pdev->dev, "Soft-reset, loading FW image\n");
-+	err = nfp_nsp_device_soft_reset(nsp);
-+	if (err < 0) {
-+		dev_err(&pdev->dev, "Failed to soft reset the NFP: %d\n",
-+			err);
-+		goto exit_release_fw;
-+	}
-+
-+	err = nfp_nsp_load_fw(nsp, fw);
-+
-+	if (err < 0) {
-+		dev_err(&pdev->dev, "FW loading failed: %d\n", err);
-+		goto exit_release_fw;
-+	}
-+
-+	dev_info(&pdev->dev, "Finished loading FW image\n");
-+
-+exit_release_fw:
-+	release_firmware(fw);
-+
-+	return err < 0 ? err : 1;
-+}
-+
-+static void nfp_fw_unload(struct nfp_pf *pf)
-+{
-+	struct nfp_nsp *nsp;
-+	int err;
-+
-+	nsp = nfp_nsp_open(pf->cpp);
-+	if (IS_ERR(nsp)) {
-+		nfp_err(pf->cpp, "Reset failed, can't open NSP\n");
-+		return;
-+	}
-+
-+	err = nfp_nsp_device_soft_reset(nsp);
-+	if (err < 0)
-+		dev_warn(&pf->pdev->dev, "Couldn't unload firmware: %d\n", err);
-+	else
-+		dev_info(&pf->pdev->dev, "Firmware safely unloaded\n");
-+
-+	nfp_nsp_close(nsp);
-+}
-+
-+static int nfp_pci_probe(struct pci_dev *pdev,
-+			 const struct pci_device_id *pci_id)
-+{
-+	struct nfp_nsp *nsp;
-+	struct nfp_pf *pf;
-+	int err;
-+
-+	err = pci_enable_device(pdev);
-+	if (err < 0)
-+		return err;
-+
-+	pci_set_master(pdev);
-+
-+	err = dma_set_mask_and_coherent(&pdev->dev,
-+					DMA_BIT_MASK(NFP_NET_MAX_DMA_BITS));
-+	if (err)
-+		goto err_pci_disable;
-+
-+	err = pci_request_regions(pdev, nfp_driver_name);
-+	if (err < 0) {
-+		dev_err(&pdev->dev, "Unable to reserve pci resources.\n");
-+		goto err_pci_disable;
-+	}
-+
-+	pf = kzalloc(sizeof(*pf), GFP_KERNEL);
-+	if (!pf) {
-+		err = -ENOMEM;
-+		goto err_rel_regions;
-+	}
-+	INIT_LIST_HEAD(&pf->ports);
-+	pci_set_drvdata(pdev, pf);
-+	pf->pdev = pdev;
-+
-+	pf->cpp = nfp_cpp_from_nfp6000_pcie(pdev);
-+	if (IS_ERR_OR_NULL(pf->cpp)) {
-+		err = PTR_ERR(pf->cpp);
-+		if (err >= 0)
-+			err = -ENOMEM;
-+		goto err_disable_msix;
-+	}
-+
-+	nsp = nfp_nsp_open(pf->cpp);
-+	if (IS_ERR(nsp)) {
-+		err = PTR_ERR(nsp);
-+		goto err_cpp_free;
-+	}
-+
-+	err = nfp_nsp_wait(nsp);
-+	if (err < 0) {
-+		nfp_nsp_close(nsp);
-+		goto err_cpp_free;
-+	}
-+
-+	pf->eth_tbl = __nfp_eth_read_ports(pf->cpp, nsp);
-+
-+	err = nfp_fw_load(pdev, pf, nsp);
-+	nfp_nsp_close(nsp);
-+	if (err < 0) {
-+		dev_err(&pdev->dev, "Failed to load FW\n");
-+		goto err_eth_tbl_free;
-+	}
-+
-+	pf->fw_loaded = !!err;
-+
-+	err = nfp_net_pci_probe(pf);
-+	if (err)
-+		goto err_fw_unload;
-+
-+	return 0;
-+
-+err_fw_unload:
-+	if (pf->fw_loaded)
-+		nfp_fw_unload(pf);
-+err_eth_tbl_free:
-+	kfree(pf->eth_tbl);
-+err_cpp_free:
-+	nfp_cpp_free(pf->cpp);
-+err_disable_msix:
-+	pci_set_drvdata(pdev, NULL);
-+	kfree(pf);
-+err_rel_regions:
-+	pci_release_regions(pdev);
-+err_pci_disable:
-+	pci_disable_device(pdev);
-+
-+	return err;
-+}
-+
-+static void nfp_pci_remove(struct pci_dev *pdev)
-+{
-+	struct nfp_pf *pf = pci_get_drvdata(pdev);
-+
-+	if (!list_empty(&pf->ports))
-+		nfp_net_pci_remove(pf);
-+
-+	nfp_pcie_sriov_disable(pdev);
-+
-+	if (pf->fw_loaded)
-+		nfp_fw_unload(pf);
-+
-+	pci_set_drvdata(pdev, NULL);
-+	nfp_cpp_free(pf->cpp);
-+
-+	kfree(pf->eth_tbl);
-+	kfree(pf);
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+}
-+
-+static struct pci_driver nfp_pci_driver = {
-+	.name			= nfp_driver_name,
-+	.id_table		= nfp_pci_device_ids,
-+	.probe			= nfp_pci_probe,
-+	.remove			= nfp_pci_remove,
-+	.sriov_configure	= nfp_pcie_sriov_configure,
-+};
-+
- static int __init nfp_main_init(void)
- {
- 	int err;
-@@ -60,12 +374,18 @@ static int __init nfp_main_init(void)
- 
- 	nfp_net_debugfs_create();
- 
-+	err = pci_register_driver(&nfp_pci_driver);
-+	if (err < 0)
-+		goto err_destroy_debugfs;
-+
- 	err = pci_register_driver(&nfp_netvf_pci_driver);
- 	if (err)
--		goto err_destroy_debugfs;
-+		goto err_unreg_pf;
- 
- 	return err;
- 
-+err_unreg_pf:
-+	pci_unregister_driver(&nfp_pci_driver);
- err_destroy_debugfs:
- 	nfp_net_debugfs_destroy();
- 	return err;
-@@ -74,12 +394,22 @@ static int __init nfp_main_init(void)
- static void __exit nfp_main_exit(void)
- {
- 	pci_unregister_driver(&nfp_netvf_pci_driver);
-+	pci_unregister_driver(&nfp_pci_driver);
- 	nfp_net_debugfs_destroy();
- }
- 
- module_init(nfp_main_init);
- module_exit(nfp_main_exit);
- 
-+MODULE_FIRMWARE("netronome/nic_AMDA0081-0001_1x40.nffw");
-+MODULE_FIRMWARE("netronome/nic_AMDA0081-0001_4x10.nffw");
-+MODULE_FIRMWARE("netronome/nic_AMDA0096-0001_2x10.nffw");
-+MODULE_FIRMWARE("netronome/nic_AMDA0097-0001_2x40.nffw");
-+MODULE_FIRMWARE("netronome/nic_AMDA0097-0001_4x10_1x40.nffw");
-+MODULE_FIRMWARE("netronome/nic_AMDA0097-0001_8x10.nffw");
-+MODULE_FIRMWARE("netronome/nic_AMDA0099-0001_2x10.nffw");
-+MODULE_FIRMWARE("netronome/nic_AMDA0099-0001_2x25.nffw");
-+
- MODULE_AUTHOR("Netronome Systems <oss-drivers@netronome.com>");
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("The Netronome Flow Processor (NFP) driver.");
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-index 371ae2731909..6c40fa322da3 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_main.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
-@@ -39,10 +39,59 @@
- #ifndef NFP_MAIN_H
- #define NFP_MAIN_H
- 
-+#include <linux/list.h>
- #include <linux/types.h>
- #include <linux/msi.h>
- #include <linux/pci.h>
- 
-+struct dentry;
-+struct pci_dev;
-+
-+struct nfp_cpp;
-+struct nfp_cpp_area;
-+struct nfp_eth_table;
-+
-+/**
-+ * struct nfp_pf - NFP PF-specific device structure
-+ * @pdev:		Backpointer to PCI device
-+ * @cpp:		Pointer to the CPP handle
-+ * @ctrl_area:		Pointer to the CPP area for the control BAR
-+ * @tx_area:		Pointer to the CPP area for the TX queues
-+ * @rx_area:		Pointer to the CPP area for the FL/RX queues
-+ * @irq_entries:	Array of MSI-X entries for all ports
-+ * @num_vfs:		Number of SR-IOV VFs enabled
-+ * @fw_loaded:		Is the firmware loaded?
-+ * @eth_tbl:		NSP ETH table
-+ * @ddir:		Per-device debugfs directory
-+ * @num_ports:		Number of adapter ports
-+ * @ports:		Linked list of port structures (struct nfp_net)
-+ */
-+struct nfp_pf {
-+	struct pci_dev *pdev;
-+
-+	struct nfp_cpp *cpp;
-+
-+	struct nfp_cpp_area *ctrl_area;
-+	struct nfp_cpp_area *tx_area;
-+	struct nfp_cpp_area *rx_area;
-+
-+	struct msix_entry *irq_entries;
-+
-+	unsigned int num_vfs;
-+
-+	bool fw_loaded;
-+
-+	struct nfp_eth_table *eth_tbl;
-+
-+	struct dentry *ddir;
-+
-+	unsigned int num_ports;
-+	struct list_head ports;
-+};
-+
- extern struct pci_driver nfp_netvf_pci_driver;
- 
-+int nfp_net_pci_probe(struct nfp_pf *pf);
-+void nfp_net_pci_remove(struct nfp_pf *pf);
-+
- #endif /* NFP_MAIN_H */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-index ef031010ae09..d37d2391b4fe 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
-@@ -43,6 +43,7 @@
- #define _NFP_NET_H_
- 
- #include <linux/interrupt.h>
-+#include <linux/list.h>
- #include <linux/netdevice.h>
- #include <linux/pci.h>
- #include <linux/io-64-nonatomic-hi-lo.h>
-@@ -434,20 +435,13 @@ struct nfp_stat_pair {
-  * struct nfp_net - NFP network device structure
-  * @pdev:               Backpointer to PCI device
-  * @netdev:             Backpointer to net_device structure
-- * @nfp_fallback:       Is the driver used in fallback mode?
-  * @is_vf:              Is the driver attached to a VF?
-- * @fw_loaded:          Is the firmware loaded?
-  * @bpf_offload_skip_sw:  Offloaded BPF program will not be rerun by cls_bpf
-  * @bpf_offload_xdp:	Offloaded BPF program is XDP
-  * @ctrl:               Local copy of the control register/word.
-  * @fl_bufsz:           Currently configured size of the freelist buffers
-  * @rx_offset:		Offset in the RX buffers where packet data starts
-  * @xdp_prog:		Installed XDP program
-- * @cpp:                Pointer to the CPP handle
-- * @nfp_dev_cpp:        Pointer to the NFP Device handle
-- * @ctrl_area:          Pointer to the CPP area for the control BAR
-- * @tx_area:            Pointer to the CPP area for the TX queues
-- * @rx_area:            Pointer to the CPP area for the FL/RX queues
-  * @fw_ver:             Firmware version
-  * @cap:                Capabilities advertised by the Firmware
-  * @max_mtu:            Maximum support MTU advertised by the Firmware
-@@ -497,14 +491,13 @@ struct nfp_stat_pair {
-  * @tx_bar:             Pointer to mapped TX queues
-  * @rx_bar:             Pointer to mapped FL/RX queues
-  * @debugfs_dir:	Device directory in debugfs
-+ * @port_list:		Entry on device port list
-  */
- struct nfp_net {
- 	struct pci_dev *pdev;
- 	struct net_device *netdev;
- 
--	unsigned nfp_fallback:1;
- 	unsigned is_vf:1;
--	unsigned fw_loaded:1;
- 	unsigned bpf_offload_skip_sw:1;
- 	unsigned bpf_offload_xdp:1;
- 
-@@ -518,18 +511,6 @@ struct nfp_net {
- 	struct nfp_net_tx_ring *tx_rings;
- 	struct nfp_net_rx_ring *rx_rings;
- 
--#ifdef CONFIG_PCI_IOV
--	unsigned int num_vfs;
--	struct vf_data_storage *vfinfo;
--	int vf_rate_link_speed;
--#endif
--
--	struct nfp_cpp *cpp;
--	struct platform_device *nfp_dev_cpp;
--	struct nfp_cpp_area *ctrl_area;
--	struct nfp_cpp_area *tx_area;
--	struct nfp_cpp_area *rx_area;
--
- 	struct nfp_net_fw_version fw_ver;
- 	u32 cap;
- 	u32 max_mtu;
-@@ -592,11 +573,12 @@ struct nfp_net {
- 	u8 __iomem *qcp_cfg;
- 
- 	u8 __iomem *ctrl_bar;
--	u8 __iomem *q_bar;
- 	u8 __iomem *tx_bar;
- 	u8 __iomem *rx_bar;
- 
- 	struct dentry *debugfs_dir;
-+
-+	struct list_head port_list;
- };
- 
- struct nfp_net_ring_set {
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp6000.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp6000.h
 new file mode 100644
-index 000000000000..eccd31003b0d
+index 000000000000..0e497a6154db
 --- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -0,0 +1,585 @@
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp6000.h
+@@ -0,0 +1,88 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef NFP6000_NFP6000_H
++#define NFP6000_NFP6000_H
++
++#include <linux/errno.h>
++#include <linux/types.h>
++
++/* CPP Target IDs */
++#define NFP_CPP_TARGET_INVALID          0
++#define NFP_CPP_TARGET_NBI              1
++#define NFP_CPP_TARGET_QDR              2
++#define NFP_CPP_TARGET_ILA              6
++#define NFP_CPP_TARGET_MU               7
++#define NFP_CPP_TARGET_PCIE             9
++#define NFP_CPP_TARGET_ARM              10
++#define NFP_CPP_TARGET_CRYPTO           12
++#define NFP_CPP_TARGET_ISLAND_XPB       14      /* Shared with CAP */
++#define NFP_CPP_TARGET_ISLAND_CAP       14      /* Shared with XPB */
++#define NFP_CPP_TARGET_CT_XPB           14
++#define NFP_CPP_TARGET_LOCAL_SCRATCH    15
++#define NFP_CPP_TARGET_CLS              NFP_CPP_TARGET_LOCAL_SCRATCH
++
++#define NFP_ISL_EMEM0			24
++
++#define NFP_MU_ADDR_ACCESS_TYPE_MASK	3ULL
++#define NFP_MU_ADDR_ACCESS_TYPE_DIRECT	2ULL
++
++#define PUSHPULL(_pull, _push)		((_pull) << 4 | (_push) << 0)
++#define PUSH_WIDTH(_pushpull)		pushpull_width((_pushpull) >> 0)
++#define PULL_WIDTH(_pushpull)		pushpull_width((_pushpull) >> 4)
++
++static inline int pushpull_width(int pp)
++{
++	pp &= 0xf;
++
++	if (pp == 0)
++		return -EINVAL;
++	return 2 << pp;
++}
++
++static inline int nfp_cppat_mu_locality_lsb(int mode, bool addr40)
++{
++	switch (mode) {
++	case 0 ... 3:
++		return addr40 ? 38 : 30;
++	default:
++		return -EINVAL;
++	}
++}
++
++int nfp_target_pushpull(u32 cpp_id, u64 address);
++int nfp_target_cpp(u32 cpp_island_id, u64 cpp_island_address,
++		   u32 *cpp_target_id, u64 *cpp_target_address,
++		   const u32 *imb_table);
++
++#endif /* NFP6000_NFP6000_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp_xpb.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp_xpb.h
+new file mode 100644
+index 000000000000..40fb19939505
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000/nfp_xpb.h
+@@ -0,0 +1,57 @@
 +/*
 + * Copyright (C) 2015-2017 Netronome Systems, Inc.
 + *
@@ -601,556 +197,4908 @@ index 000000000000..eccd31003b0d
 + */
 +
 +/*
-+ * nfp_net_main.c
-+ * Netronome network device driver: Main entry point
++ * nfp_xpb.h
++ * Author: Jason McMullan <jason.mcmullan@netronome.com>
++ */
++
++#ifndef NFP6000_XPB_H
++#define NFP6000_XPB_H
++
++/* For use with NFP6000 Databook "XPB Addressing" section
++ */
++#define NFP_XPB_OVERLAY(island)  (((island) & 0x3f) << 24)
++
++#define NFP_XPB_ISLAND(island)   (NFP_XPB_OVERLAY(island) + 0x60000)
++
++#define NFP_XPB_ISLAND_of(offset) (((offset) >> 24) & 0x3F)
++
++/* For use with NFP6000 Databook "XPB Island and Device IDs" chapter
++ */
++#define NFP_XPB_DEVICE(island, slave, device) \
++	(NFP_XPB_OVERLAY(island) | \
++	 (((slave) & 3) << 22) | \
++	 (((device) & 0x3f) << 16))
++
++#endif /* NFP6000_XPB_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+new file mode 100644
+index 000000000000..165e085c2a24
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.c
+@@ -0,0 +1,1364 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp6000_pcie.c
 + * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
-+ *          Alejandro Lucero <alejandro.lucero@netronome.com>
++ *          Jason McMullan <jason.mcmullan@netronome.com>
++ *          Rolf Neugebauer <rolf.neugebauer@netronome.com>
++ *
++ * Multiplexes the NFP BARs between NFP internal resources and
++ * implements the PCIe specific interface for generic CPP bus access.
++ *
++ * The BARs are managed with refcounts and are allocated/acquired
++ * using target, token and offset/size matching.  The generic CPP bus
++ * abstraction builds upon this BAR interface.
++ */
++
++#include <asm/unaligned.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/kref.h>
++#include <linux/io.h>
++#include <linux/delay.h>
++#include <linux/interrupt.h>
++#include <linux/sort.h>
++#include <linux/sched.h>
++#include <linux/types.h>
++#include <linux/pci.h>
++
++#include "nfp_cpp.h"
++
++#include "nfp6000/nfp6000.h"
++
++#include "nfp6000_pcie.h"
++
++#define NFP_PCIE_BAR(_pf)	(0x30000 + ((_pf) & 7) * 0xc0)
++#define NFP_PCIE_BAR_EXPLICIT_BAR0(_x, _y) \
++	(0x00000080 + (0x40 * ((_x) & 0x3)) + (0x10 * ((_y) & 0x3)))
++#define   NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType(_x)     (((_x) & 0x3) << 30)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType_of(_x)  (((_x) >> 30) & 0x3)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Token(_x)          (((_x) & 0x3) << 28)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Token_of(_x)       (((_x) >> 28) & 0x3)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Address(_x)        (((_x) & 0xffffff) << 0)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR0_Address_of(_x)     (((_x) >> 0) & 0xffffff)
++#define NFP_PCIE_BAR_EXPLICIT_BAR1(_x, _y) \
++	(0x00000084 + (0x40 * ((_x) & 0x3)) + (0x10 * ((_y) & 0x3)))
++#define   NFP_PCIE_BAR_EXPLICIT_BAR1_SignalRef(_x)      (((_x) & 0x7f) << 24)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR1_SignalRef_of(_x)   (((_x) >> 24) & 0x7f)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataMaster(_x)     (((_x) & 0x3ff) << 14)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataMaster_of(_x)  (((_x) >> 14) & 0x3ff)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataRef(_x)        (((_x) & 0x3fff) << 0)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR1_DataRef_of(_x)     (((_x) >> 0) & 0x3fff)
++#define NFP_PCIE_BAR_EXPLICIT_BAR2(_x, _y) \
++	(0x00000088 + (0x40 * ((_x) & 0x3)) + (0x10 * ((_y) & 0x3)))
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Target(_x)         (((_x) & 0xf) << 28)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Target_of(_x)      (((_x) >> 28) & 0xf)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Action(_x)         (((_x) & 0x1f) << 23)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Action_of(_x)      (((_x) >> 23) & 0x1f)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Length(_x)         (((_x) & 0x1f) << 18)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_Length_of(_x)      (((_x) >> 18) & 0x1f)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_ByteMask(_x)       (((_x) & 0xff) << 10)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_ByteMask_of(_x)    (((_x) >> 10) & 0xff)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_SignalMaster(_x)   (((_x) & 0x3ff) << 0)
++#define   NFP_PCIE_BAR_EXPLICIT_BAR2_SignalMaster_of(_x) (((_x) >> 0) & 0x3ff)
++
++#define   NFP_PCIE_BAR_PCIE2CPP_Action_BaseAddress(_x)  (((_x) & 0x1f) << 16)
++#define   NFP_PCIE_BAR_PCIE2CPP_Action_BaseAddress_of(_x) (((_x) >> 16) & 0x1f)
++#define   NFP_PCIE_BAR_PCIE2CPP_BaseAddress(_x)         (((_x) & 0xffff) << 0)
++#define   NFP_PCIE_BAR_PCIE2CPP_BaseAddress_of(_x)      (((_x) >> 0) & 0xffff)
++#define   NFP_PCIE_BAR_PCIE2CPP_LengthSelect(_x)        (((_x) & 0x3) << 27)
++#define   NFP_PCIE_BAR_PCIE2CPP_LengthSelect_of(_x)     (((_x) >> 27) & 0x3)
++#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT    0
++#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_64BIT    1
++#define     NFP_PCIE_BAR_PCIE2CPP_LengthSelect_0BYTE    3
++#define   NFP_PCIE_BAR_PCIE2CPP_MapType(_x)             (((_x) & 0x7) << 29)
++#define   NFP_PCIE_BAR_PCIE2CPP_MapType_of(_x)          (((_x) >> 29) & 0x7)
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_FIXED         0
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_BULK          1
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_TARGET        2
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL       3
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT0     4
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT1     5
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT2     6
++#define     NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT3     7
++#define   NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(_x)  (((_x) & 0xf) << 23)
++#define   NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress_of(_x) (((_x) >> 23) & 0xf)
++#define   NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress(_x)   (((_x) & 0x3) << 21)
++#define   NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress_of(_x) (((_x) >> 21) & 0x3)
++#define NFP_PCIE_EM                                     0x020000
++#define NFP_PCIE_SRAM                                   0x000000
++
++#define NFP_PCIE_P2C_FIXED_SIZE(bar)               (1 << (bar)->bitsize)
++#define NFP_PCIE_P2C_BULK_SIZE(bar)                (1 << (bar)->bitsize)
++#define NFP_PCIE_P2C_GENERAL_TARGET_OFFSET(bar, x) ((x) << ((bar)->bitsize - 2))
++#define NFP_PCIE_P2C_GENERAL_TOKEN_OFFSET(bar, x) ((x) << ((bar)->bitsize - 4))
++#define NFP_PCIE_P2C_GENERAL_SIZE(bar)             (1 << ((bar)->bitsize - 4))
++
++#define NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(bar, slot) \
++	(0x400 + ((bar) * 8 + (slot)) * 4)
++
++#define NFP_PCIE_CPP_BAR_PCIETOCPPEXPANSIONBAR(bar, slot) \
++	(((bar) * 8 + (slot)) * 4)
++
++/* The number of explicit BARs to reserve.
++ * Minimum is 0, maximum is 4 on the NFP6000.
++ */
++#define NFP_PCIE_EXPLICIT_BARS		2
++
++struct nfp6000_pcie;
++struct nfp6000_area_priv;
++
++/**
++ * struct nfp_bar - describes BAR configuration and usage
++ * @nfp:	backlink to owner
++ * @barcfg:	cached contents of BAR config CSR
++ * @base:	the BAR's base CPP offset
++ * @mask:       mask for the BAR aperture (read only)
++ * @bitsize:	bitsize of BAR aperture (read only)
++ * @index:	index of the BAR
++ * @refcnt:	number of current users
++ * @iomem:	mapped IO memory
++ * @resource:	iomem resource window
++ */
++struct nfp_bar {
++	struct nfp6000_pcie *nfp;
++	u32 barcfg;
++	u64 base;          /* CPP address base */
++	u64 mask;          /* Bit mask of the bar */
++	u32 bitsize;       /* Bit size of the bar */
++	int index;
++	atomic_t refcnt;
++
++	void __iomem *iomem;
++	struct resource *resource;
++};
++
++#define NFP_PCI_BAR_MAX    (PCI_64BIT_BAR_COUNT * 8)
++
++struct nfp6000_pcie {
++	struct pci_dev *pdev;
++	struct device *dev;
++
++	/* PCI BAR management */
++	spinlock_t bar_lock;		/* Protect the PCI2CPP BAR cache */
++	int bars;
++	struct nfp_bar bar[NFP_PCI_BAR_MAX];
++	wait_queue_head_t bar_waiters;
++
++	/* Reserved BAR access */
++	struct {
++		void __iomem *csr;
++		void __iomem *em;
++		void __iomem *expl[4];
++	} iomem;
++
++	/* Explicit IO access */
++	struct {
++		struct mutex mutex; /* Lock access to this explicit group */
++		u8 master_id;
++		u8 signal_ref;
++		void __iomem *data;
++		struct {
++			void __iomem *addr;
++			int bitsize;
++			int free[4];
++		} group[4];
++	} expl;
++};
++
++static u32 nfp_bar_maptype(struct nfp_bar *bar)
++{
++	return NFP_PCIE_BAR_PCIE2CPP_MapType_of(bar->barcfg);
++}
++
++static resource_size_t nfp_bar_resource_len(struct nfp_bar *bar)
++{
++	return pci_resource_len(bar->nfp->pdev, (bar->index / 8) * 2) / 8;
++}
++
++static resource_size_t nfp_bar_resource_start(struct nfp_bar *bar)
++{
++	return pci_resource_start(bar->nfp->pdev, (bar->index / 8) * 2)
++		+ nfp_bar_resource_len(bar) * (bar->index & 7);
++}
++
++#define TARGET_WIDTH_32    4
++#define TARGET_WIDTH_64    8
++
++static int
++compute_bar(struct nfp6000_pcie *nfp, struct nfp_bar *bar,
++	    u32 *bar_config, u64 *bar_base,
++	    int tgt, int act, int tok, u64 offset, size_t size, int width)
++{
++	int bitsize;
++	u32 newcfg;
++
++	if (tgt >= NFP_CPP_NUM_TARGETS)
++		return -EINVAL;
++
++	switch (width) {
++	case 8:
++		newcfg = NFP_PCIE_BAR_PCIE2CPP_LengthSelect(
++			NFP_PCIE_BAR_PCIE2CPP_LengthSelect_64BIT);
++		break;
++	case 4:
++		newcfg = NFP_PCIE_BAR_PCIE2CPP_LengthSelect(
++			NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT);
++		break;
++	case 0:
++		newcfg = NFP_PCIE_BAR_PCIE2CPP_LengthSelect(
++			NFP_PCIE_BAR_PCIE2CPP_LengthSelect_0BYTE);
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	if (act != NFP_CPP_ACTION_RW && act != 0) {
++		/* Fixed CPP mapping with specific action */
++		u64 mask = ~(NFP_PCIE_P2C_FIXED_SIZE(bar) - 1);
++
++		newcfg |= NFP_PCIE_BAR_PCIE2CPP_MapType(
++			  NFP_PCIE_BAR_PCIE2CPP_MapType_FIXED);
++		newcfg |= NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(tgt);
++		newcfg |= NFP_PCIE_BAR_PCIE2CPP_Action_BaseAddress(act);
++		newcfg |= NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress(tok);
++
++		if ((offset & mask) != ((offset + size - 1) & mask))
++			return -EINVAL;
++		offset &= mask;
++
++		bitsize = 40 - 16;
++	} else {
++		u64 mask = ~(NFP_PCIE_P2C_BULK_SIZE(bar) - 1);
++
++		/* Bulk mapping */
++		newcfg |= NFP_PCIE_BAR_PCIE2CPP_MapType(
++			NFP_PCIE_BAR_PCIE2CPP_MapType_BULK);
++		newcfg |= NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(tgt);
++		newcfg |= NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress(tok);
++
++		if ((offset & mask) != ((offset + size - 1) & mask))
++			return -EINVAL;
++
++		offset &= mask;
++
++		bitsize = 40 - 21;
++	}
++
++	if (bar->bitsize < bitsize)
++		return -EINVAL;
++
++	newcfg |= offset >> bitsize;
++
++	if (bar_base)
++		*bar_base = offset;
++
++	if (bar_config)
++		*bar_config = newcfg;
++
++	return 0;
++}
++
++static int
++nfp6000_bar_write(struct nfp6000_pcie *nfp, struct nfp_bar *bar, u32 newcfg)
++{
++	int base, slot;
++	int xbar;
++
++	base = bar->index >> 3;
++	slot = bar->index & 7;
++
++	if (nfp->iomem.csr) {
++		xbar = NFP_PCIE_CPP_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
++		writel(newcfg, nfp->iomem.csr + xbar);
++		/* Readback to ensure BAR is flushed */
++		readl(nfp->iomem.csr + xbar);
++	} else {
++		xbar = NFP_PCIE_CFG_BAR_PCIETOCPPEXPANSIONBAR(base, slot);
++		pci_write_config_dword(nfp->pdev, xbar, newcfg);
++	}
++
++	bar->barcfg = newcfg;
++
++	return 0;
++}
++
++static int
++reconfigure_bar(struct nfp6000_pcie *nfp, struct nfp_bar *bar,
++		int tgt, int act, int tok, u64 offset, size_t size, int width)
++{
++	u64 newbase;
++	u32 newcfg;
++	int err;
++
++	err = compute_bar(nfp, bar, &newcfg, &newbase,
++			  tgt, act, tok, offset, size, width);
++	if (err)
++		return err;
++
++	bar->base = newbase;
++
++	return nfp6000_bar_write(nfp, bar, newcfg);
++}
++
++/* Check if BAR can be used with the given parameters. */
++static int matching_bar(struct nfp_bar *bar, u32 tgt, u32 act, u32 tok,
++			u64 offset, size_t size, int width)
++{
++	int bartgt, baract, bartok;
++	int barwidth;
++	u32 maptype;
++
++	maptype = NFP_PCIE_BAR_PCIE2CPP_MapType_of(bar->barcfg);
++	bartgt = NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress_of(bar->barcfg);
++	bartok = NFP_PCIE_BAR_PCIE2CPP_Token_BaseAddress_of(bar->barcfg);
++	baract = NFP_PCIE_BAR_PCIE2CPP_Action_BaseAddress_of(bar->barcfg);
++
++	barwidth = NFP_PCIE_BAR_PCIE2CPP_LengthSelect_of(bar->barcfg);
++	switch (barwidth) {
++	case NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT:
++		barwidth = 4;
++		break;
++	case NFP_PCIE_BAR_PCIE2CPP_LengthSelect_64BIT:
++		barwidth = 8;
++		break;
++	case NFP_PCIE_BAR_PCIE2CPP_LengthSelect_0BYTE:
++		barwidth = 0;
++		break;
++	default:
++		barwidth = -1;
++		break;
++	}
++
++	switch (maptype) {
++	case NFP_PCIE_BAR_PCIE2CPP_MapType_TARGET:
++		bartok = -1;
++		/* FALLTHROUGH */
++	case NFP_PCIE_BAR_PCIE2CPP_MapType_BULK:
++		baract = NFP_CPP_ACTION_RW;
++		if (act == 0)
++			act = NFP_CPP_ACTION_RW;
++		/* FALLTHROUGH */
++	case NFP_PCIE_BAR_PCIE2CPP_MapType_FIXED:
++		break;
++	default:
++		/* We don't match explicit bars through the area interface */
++		return 0;
++	}
++
++	/* Make sure to match up the width */
++	if (barwidth != width)
++		return 0;
++
++	if ((bartgt < 0 || bartgt == tgt) &&
++	    (bartok < 0 || bartok == tok) &&
++	    (baract == act) &&
++	    bar->base <= offset &&
++	    (bar->base + (1 << bar->bitsize)) >= (offset + size))
++		return 1;
++
++	/* No match */
++	return 0;
++}
++
++static int
++find_matching_bar(struct nfp6000_pcie *nfp,
++		  u32 tgt, u32 act, u32 tok, u64 offset, size_t size, int width)
++{
++	int n;
++
++	for (n = 0; n < nfp->bars; n++) {
++		struct nfp_bar *bar = &nfp->bar[n];
++
++		if (matching_bar(bar, tgt, act, tok, offset, size, width))
++			return n;
++	}
++
++	return -1;
++}
++
++/* Return EAGAIN if no resource is available */
++static int
++find_unused_bar_noblock(struct nfp6000_pcie *nfp,
++			int tgt, int act, int tok,
++			u64 offset, size_t size, int width)
++{
++	int n, invalid = 0;
++
++	for (n = 0; n < nfp->bars; n++) {
++		struct nfp_bar *bar = &nfp->bar[n];
++		int err;
++
++		if (bar->bitsize == 0) {
++			invalid++;
++			continue;
++		}
++
++		if (atomic_read(&bar->refcnt) != 0)
++			continue;
++
++		/* Just check to see if we can make it fit... */
++		err = compute_bar(nfp, bar, NULL, NULL,
++				  tgt, act, tok, offset, size, width);
++
++		if (err < 0)
++			invalid++;
++		else
++			return n;
++	}
++
++	return (n == invalid) ? -EINVAL : -EAGAIN;
++}
++
++static int
++find_unused_bar_and_lock(struct nfp6000_pcie *nfp,
++			 int tgt, int act, int tok,
++			 u64 offset, size_t size, int width)
++{
++	unsigned long flags;
++	int n;
++
++	spin_lock_irqsave(&nfp->bar_lock, flags);
++
++	n = find_unused_bar_noblock(nfp, tgt, act, tok, offset, size, width);
++	if (n < 0)
++		spin_unlock_irqrestore(&nfp->bar_lock, flags);
++	else
++		__release(&nfp->bar_lock);
++
++	return n;
++}
++
++static void nfp_bar_get(struct nfp6000_pcie *nfp, struct nfp_bar *bar)
++{
++	atomic_inc(&bar->refcnt);
++}
++
++static void nfp_bar_put(struct nfp6000_pcie *nfp, struct nfp_bar *bar)
++{
++	if (atomic_dec_and_test(&bar->refcnt))
++		wake_up_interruptible(&nfp->bar_waiters);
++}
++
++static int
++nfp_wait_for_bar(struct nfp6000_pcie *nfp, int *barnum,
++		 u32 tgt, u32 act, u32 tok, u64 offset, size_t size, int width)
++{
++	return wait_event_interruptible(nfp->bar_waiters,
++		(*barnum = find_unused_bar_and_lock(nfp, tgt, act, tok,
++						    offset, size, width))
++					!= -EAGAIN);
++}
++
++static int
++nfp_alloc_bar(struct nfp6000_pcie *nfp,
++	      u32 tgt, u32 act, u32 tok,
++	      u64 offset, size_t size, int width, int nonblocking)
++{
++	unsigned long irqflags;
++	int barnum, retval;
++
++	if (size > (1 << 24))
++		return -EINVAL;
++
++	spin_lock_irqsave(&nfp->bar_lock, irqflags);
++	barnum = find_matching_bar(nfp, tgt, act, tok, offset, size, width);
++	if (barnum >= 0) {
++		/* Found a perfect match. */
++		nfp_bar_get(nfp, &nfp->bar[barnum]);
++		spin_unlock_irqrestore(&nfp->bar_lock, irqflags);
++		return barnum;
++	}
++
++	barnum = find_unused_bar_noblock(nfp, tgt, act, tok,
++					 offset, size, width);
++	if (barnum < 0) {
++		if (nonblocking)
++			goto err_nobar;
++
++		/* Wait until a BAR becomes available.  The
++		 * find_unused_bar function will reclaim the bar_lock
++		 * if a free BAR is found.
++		 */
++		spin_unlock_irqrestore(&nfp->bar_lock, irqflags);
++		retval = nfp_wait_for_bar(nfp, &barnum, tgt, act, tok,
++					  offset, size, width);
++		if (retval)
++			return retval;
++		__acquire(&nfp->bar_lock);
++	}
++
++	nfp_bar_get(nfp, &nfp->bar[barnum]);
++	retval = reconfigure_bar(nfp, &nfp->bar[barnum],
++				 tgt, act, tok, offset, size, width);
++	if (retval < 0) {
++		nfp_bar_put(nfp, &nfp->bar[barnum]);
++		barnum = retval;
++	}
++
++err_nobar:
++	spin_unlock_irqrestore(&nfp->bar_lock, irqflags);
++	return barnum;
++}
++
++static void disable_bars(struct nfp6000_pcie *nfp);
++
++static int bar_cmp(const void *aptr, const void *bptr)
++{
++	const struct nfp_bar *a = aptr, *b = bptr;
++
++	if (a->bitsize == b->bitsize)
++		return a->index - b->index;
++	else
++		return a->bitsize - b->bitsize;
++}
++
++/* Map all PCI bars and fetch the actual BAR configurations from the
++ * board.  We assume that the BAR with the PCIe config block is
++ * already mapped.
++ *
++ * BAR0.0: Reserved for General Mapping (for MSI-X access to PCIe SRAM)
++ * BAR0.1: Reserved for XPB access (for MSI-X access to PCIe PBA)
++ * BAR0.2: --
++ * BAR0.3: --
++ * BAR0.4: Reserved for Explicit 0.0-0.3 access
++ * BAR0.5: Reserved for Explicit 1.0-1.3 access
++ * BAR0.6: Reserved for Explicit 2.0-2.3 access
++ * BAR0.7: Reserved for Explicit 3.0-3.3 access
++ *
++ * BAR1.0-BAR1.7: --
++ * BAR2.0-BAR2.7: --
++ */
++static int enable_bars(struct nfp6000_pcie *nfp, u16 interface)
++{
++	const u32 barcfg_msix_general =
++		NFP_PCIE_BAR_PCIE2CPP_MapType(
++			NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL) |
++		NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT;
++	const u32 barcfg_msix_xpb =
++		NFP_PCIE_BAR_PCIE2CPP_MapType(
++			NFP_PCIE_BAR_PCIE2CPP_MapType_BULK) |
++		NFP_PCIE_BAR_PCIE2CPP_LengthSelect_32BIT |
++		NFP_PCIE_BAR_PCIE2CPP_Target_BaseAddress(
++			NFP_CPP_TARGET_ISLAND_XPB);
++	const u32 barcfg_explicit[4] = {
++		NFP_PCIE_BAR_PCIE2CPP_MapType(
++			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT0),
++		NFP_PCIE_BAR_PCIE2CPP_MapType(
++			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT1),
++		NFP_PCIE_BAR_PCIE2CPP_MapType(
++			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT2),
++		NFP_PCIE_BAR_PCIE2CPP_MapType(
++			NFP_PCIE_BAR_PCIE2CPP_MapType_EXPLICIT3),
++	};
++	struct nfp_bar *bar;
++	int i, bars_free;
++	int expl_groups;
++
++	bar = &nfp->bar[0];
++	for (i = 0; i < ARRAY_SIZE(nfp->bar); i++, bar++) {
++		struct resource *res;
++
++		res = &nfp->pdev->resource[(i >> 3) * 2];
++
++		/* Skip over BARs that are not IORESOURCE_MEM */
++		if (!(resource_type(res) & IORESOURCE_MEM)) {
++			bar--;
++			continue;
++		}
++
++		bar->resource = res;
++		bar->barcfg = 0;
++
++		bar->nfp = nfp;
++		bar->index = i;
++		bar->mask = nfp_bar_resource_len(bar) - 1;
++		bar->bitsize = fls(bar->mask);
++		bar->base = 0;
++		bar->iomem = NULL;
++	}
++
++	nfp->bars = bar - &nfp->bar[0];
++	if (nfp->bars < 8) {
++		dev_err(nfp->dev, "No usable BARs found!\n");
++		return -EINVAL;
++	}
++
++	bars_free = nfp->bars;
++
++	/* Convert unit ID (0..3) to signal master/data master ID (0x40..0x70)
++	 */
++	mutex_init(&nfp->expl.mutex);
++
++	nfp->expl.master_id = ((NFP_CPP_INTERFACE_UNIT_of(interface) & 3) + 4)
++		<< 4;
++	nfp->expl.signal_ref = 0x10;
++
++	/* Configure, and lock, BAR0.0 for General Target use (MSI-X SRAM) */
++	bar = &nfp->bar[0];
++	bar->iomem = ioremap_nocache(nfp_bar_resource_start(bar),
++				     nfp_bar_resource_len(bar));
++	if (bar->iomem) {
++		dev_info(nfp->dev,
++			 "BAR0.0 RESERVED: General Mapping/MSI-X SRAM\n");
++		atomic_inc(&bar->refcnt);
++		bars_free--;
++
++		nfp6000_bar_write(nfp, bar, barcfg_msix_general);
++
++		nfp->expl.data = bar->iomem + NFP_PCIE_SRAM + 0x1000;
++	}
++
++	if (nfp->pdev->device == PCI_DEVICE_NFP4000 ||
++	    nfp->pdev->device == PCI_DEVICE_NFP6000) {
++		nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(0);
++		expl_groups = 4;
++	} else {
++		int pf = nfp->pdev->devfn & 7;
++
++		nfp->iomem.csr = bar->iomem + NFP_PCIE_BAR(pf);
++		expl_groups = 1;
++	}
++	nfp->iomem.em = bar->iomem + NFP_PCIE_EM;
++
++	/* Configure, and lock, BAR0.1 for PCIe XPB (MSI-X PBA) */
++	bar = &nfp->bar[1];
++	dev_info(nfp->dev, "BAR0.1 RESERVED: PCIe XPB/MSI-X PBA\n");
++	atomic_inc(&bar->refcnt);
++	bars_free--;
++
++	nfp6000_bar_write(nfp, bar, barcfg_msix_xpb);
++
++	/* Use BAR0.4..BAR0.7 for EXPL IO */
++	for (i = 0; i < 4; i++) {
++		int j;
++
++		if (i >= NFP_PCIE_EXPLICIT_BARS || i >= expl_groups) {
++			nfp->expl.group[i].bitsize = 0;
++			continue;
++		}
++
++		bar = &nfp->bar[4 + i];
++		bar->iomem = ioremap_nocache(nfp_bar_resource_start(bar),
++					     nfp_bar_resource_len(bar));
++		if (bar->iomem) {
++			dev_info(nfp->dev,
++				 "BAR0.%d RESERVED: Explicit%d Mapping\n",
++				 4 + i, i);
++			atomic_inc(&bar->refcnt);
++			bars_free--;
++
++			nfp->expl.group[i].bitsize = bar->bitsize;
++			nfp->expl.group[i].addr = bar->iomem;
++			nfp6000_bar_write(nfp, bar, barcfg_explicit[i]);
++
++			for (j = 0; j < 4; j++)
++				nfp->expl.group[i].free[j] = true;
++		}
++		nfp->iomem.expl[i] = bar->iomem;
++	}
++
++	/* Sort bars by bit size - use the smallest possible first. */
++	sort(&nfp->bar[0], nfp->bars, sizeof(nfp->bar[0]),
++	     bar_cmp, NULL);
++
++	dev_info(nfp->dev, "%d NFP PCI2CPP BARs, %d free\n",
++		 nfp->bars, bars_free);
++
++	return 0;
++}
++
++static void disable_bars(struct nfp6000_pcie *nfp)
++{
++	struct nfp_bar *bar = &nfp->bar[0];
++	int n;
++
++	for (n = 0; n < nfp->bars; n++, bar++) {
++		if (bar->iomem) {
++			iounmap(bar->iomem);
++			bar->iomem = NULL;
++		}
++	}
++}
++
++/*
++ * Generic CPP bus access interface.
++ */
++
++struct nfp6000_area_priv {
++	atomic_t refcnt;
++
++	struct nfp_bar *bar;
++	u32 bar_offset;
++
++	u32 target;
++	u32 action;
++	u32 token;
++	u64 offset;
++	struct {
++		int read;
++		int write;
++		int bar;
++	} width;
++	size_t size;
++
++	void __iomem *iomem;
++	phys_addr_t phys;
++	struct resource resource;
++};
++
++static int nfp6000_area_init(struct nfp_cpp_area *area, u32 dest,
++			     unsigned long long address, unsigned long size)
++{
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++	u32 target = NFP_CPP_ID_TARGET_of(dest);
++	u32 action = NFP_CPP_ID_ACTION_of(dest);
++	u32 token = NFP_CPP_ID_TOKEN_of(dest);
++	int pp;
++
++	pp = nfp_target_pushpull(NFP_CPP_ID(target, action, token), address);
++	if (pp < 0)
++		return pp;
++
++	priv->width.read = PUSH_WIDTH(pp);
++	priv->width.write = PULL_WIDTH(pp);
++	if (priv->width.read > 0 &&
++	    priv->width.write > 0 &&
++	    priv->width.read != priv->width.write) {
++		return -EINVAL;
++	}
++
++	if (priv->width.read > 0)
++		priv->width.bar = priv->width.read;
++	else
++		priv->width.bar = priv->width.write;
++
++	atomic_set(&priv->refcnt, 0);
++	priv->bar = NULL;
++
++	priv->target = target;
++	priv->action = action;
++	priv->token = token;
++	priv->offset = address;
++	priv->size = size;
++	memset(&priv->resource, 0, sizeof(priv->resource));
++
++	return 0;
++}
++
++static void nfp6000_area_cleanup(struct nfp_cpp_area *area)
++{
++}
++
++static void priv_area_get(struct nfp_cpp_area *area)
++{
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++
++	atomic_inc(&priv->refcnt);
++}
++
++static int priv_area_put(struct nfp_cpp_area *area)
++{
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++
++	if (WARN_ON(!atomic_read(&priv->refcnt)))
++		return 0;
++
++	return atomic_dec_and_test(&priv->refcnt);
++}
++
++static int nfp6000_area_acquire(struct nfp_cpp_area *area)
++{
++	struct nfp6000_pcie *nfp = nfp_cpp_priv(nfp_cpp_area_cpp(area));
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++	int barnum, err;
++
++	if (priv->bar) {
++		/* Already allocated. */
++		priv_area_get(area);
++		return 0;
++	}
++
++	barnum = nfp_alloc_bar(nfp, priv->target, priv->action, priv->token,
++			       priv->offset, priv->size, priv->width.bar, 1);
++
++	if (barnum < 0) {
++		err = barnum;
++		goto err_alloc_bar;
++	}
++	priv->bar = &nfp->bar[barnum];
++
++	/* Calculate offset into BAR. */
++	if (nfp_bar_maptype(priv->bar) ==
++	    NFP_PCIE_BAR_PCIE2CPP_MapType_GENERAL) {
++		priv->bar_offset = priv->offset &
++			(NFP_PCIE_P2C_GENERAL_SIZE(priv->bar) - 1);
++		priv->bar_offset += NFP_PCIE_P2C_GENERAL_TARGET_OFFSET(
++			priv->bar, priv->target);
++		priv->bar_offset += NFP_PCIE_P2C_GENERAL_TOKEN_OFFSET(
++			priv->bar, priv->token);
++	} else {
++		priv->bar_offset = priv->offset & priv->bar->mask;
++	}
++
++	/* We don't actually try to acquire the resource area using
++	 * request_resource.  This would prevent sharing the mapped
++	 * BAR between multiple CPP areas and prevent us from
++	 * effectively utilizing the limited amount of BAR resources.
++	 */
++	priv->phys = nfp_bar_resource_start(priv->bar) + priv->bar_offset;
++	priv->resource.name = nfp_cpp_area_name(area);
++	priv->resource.start = priv->phys;
++	priv->resource.end = priv->resource.start + priv->size - 1;
++	priv->resource.flags = IORESOURCE_MEM;
++
++	/* If the bar is already mapped in, use its mapping */
++	if (priv->bar->iomem)
++		priv->iomem = priv->bar->iomem + priv->bar_offset;
++	else
++		/* Must have been too big. Sub-allocate. */
++		priv->iomem = ioremap_nocache(priv->phys, priv->size);
++
++	if (IS_ERR_OR_NULL(priv->iomem)) {
++		dev_err(nfp->dev, "Can't ioremap() a %d byte region of BAR %d\n",
++			(int)priv->size, priv->bar->index);
++		err = !priv->iomem ? -ENOMEM : PTR_ERR(priv->iomem);
++		priv->iomem = NULL;
++		goto err_iomem_remap;
++	}
++
++	priv_area_get(area);
++	return 0;
++
++err_iomem_remap:
++	nfp_bar_put(nfp, priv->bar);
++	priv->bar = NULL;
++err_alloc_bar:
++	return err;
++}
++
++static void nfp6000_area_release(struct nfp_cpp_area *area)
++{
++	struct nfp6000_pcie *nfp = nfp_cpp_priv(nfp_cpp_area_cpp(area));
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++
++	if (!priv_area_put(area))
++		return;
++
++	if (!priv->bar->iomem)
++		iounmap(priv->iomem);
++
++	nfp_bar_put(nfp, priv->bar);
++
++	priv->bar = NULL;
++	priv->iomem = NULL;
++}
++
++static phys_addr_t nfp6000_area_phys(struct nfp_cpp_area *area)
++{
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++
++	return priv->phys;
++}
++
++static void __iomem *nfp6000_area_iomem(struct nfp_cpp_area *area)
++{
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++
++	return priv->iomem;
++}
++
++static struct resource *nfp6000_area_resource(struct nfp_cpp_area *area)
++{
++	/* Use the BAR resource as the resource for the CPP area.
++	 * This enables us to share the BAR among multiple CPP areas
++	 * without resource conflicts.
++	 */
++	struct nfp6000_area_priv *priv = nfp_cpp_area_priv(area);
++
++	return priv->bar->resource;
++}
++
++static int nfp6000_area_read(struct nfp_cpp_area *area, void *kernel_vaddr,
++			     unsigned long offset, unsigned int length)
++{
++	u64 __maybe_unused *wrptr64 = kernel_vaddr;
++	const u64 __iomem __maybe_unused *rdptr64;
++	struct nfp6000_area_priv *priv;
++	u32 *wrptr32 = kernel_vaddr;
++	const u32 __iomem *rdptr32;
++	int n, width;
++	bool is_64;
++
++	priv = nfp_cpp_area_priv(area);
++	rdptr64 = priv->iomem + offset;
++	rdptr32 = priv->iomem + offset;
++
++	if (offset + length > priv->size)
++		return -EFAULT;
++
++	width = priv->width.read;
++
++	if (width <= 0)
++		return -EINVAL;
++
++	/* Unaligned? Translate to an explicit access */
++	if ((priv->offset + offset) & (width - 1))
++		return nfp_cpp_explicit_read(nfp_cpp_area_cpp(area),
++					     NFP_CPP_ID(priv->target,
++							priv->action,
++							priv->token),
++					     priv->offset + offset,
++					     kernel_vaddr, length, width);
++
++	is_64 = width == TARGET_WIDTH_64;
++
++	/* MU reads via a PCIe2CPP BAR supports 32bit (and other) lengths */
++	if (priv->target == (NFP_CPP_TARGET_ID_MASK & NFP_CPP_TARGET_MU) &&
++	    priv->action == NFP_CPP_ACTION_RW)
++		is_64 = false;
++
++	if (is_64) {
++		if (offset % sizeof(u64) != 0 || length % sizeof(u64) != 0)
++			return -EINVAL;
++	} else {
++		if (offset % sizeof(u32) != 0 || length % sizeof(u32) != 0)
++			return -EINVAL;
++	}
++
++	if (WARN_ON(!priv->bar))
++		return -EFAULT;
++
++	if (is_64)
++#ifndef __raw_readq
++		return -EINVAL;
++#else
++		for (n = 0; n < length; n += sizeof(u64))
++			*wrptr64++ = __raw_readq(rdptr64++);
++#endif
++	else
++		for (n = 0; n < length; n += sizeof(u32))
++			*wrptr32++ = __raw_readl(rdptr32++);
++
++	return n;
++}
++
++static int
++nfp6000_area_write(struct nfp_cpp_area *area,
++		   const void *kernel_vaddr,
++		   unsigned long offset, unsigned int length)
++{
++	const u64 __maybe_unused *rdptr64 = kernel_vaddr;
++	u64 __iomem __maybe_unused *wrptr64;
++	const u32 *rdptr32 = kernel_vaddr;
++	struct nfp6000_area_priv *priv;
++	u32 __iomem *wrptr32;
++	int n, width;
++	bool is_64;
++
++	priv = nfp_cpp_area_priv(area);
++	wrptr64 = priv->iomem + offset;
++	wrptr32 = priv->iomem + offset;
++
++	if (offset + length > priv->size)
++		return -EFAULT;
++
++	width = priv->width.write;
++
++	if (width <= 0)
++		return -EINVAL;
++
++	/* Unaligned? Translate to an explicit access */
++	if ((priv->offset + offset) & (width - 1))
++		return nfp_cpp_explicit_write(nfp_cpp_area_cpp(area),
++					      NFP_CPP_ID(priv->target,
++							 priv->action,
++							 priv->token),
++					      priv->offset + offset,
++					      kernel_vaddr, length, width);
++
++	is_64 = width == TARGET_WIDTH_64;
++
++	/* MU writes via a PCIe2CPP BAR supports 32bit (and other) lengths */
++	if (priv->target == (NFP_CPP_TARGET_ID_MASK & NFP_CPP_TARGET_MU) &&
++	    priv->action == NFP_CPP_ACTION_RW)
++		is_64 = false;
++
++	if (is_64) {
++		if (offset % sizeof(u64) != 0 || length % sizeof(u64) != 0)
++			return -EINVAL;
++	} else {
++		if (offset % sizeof(u32) != 0 || length % sizeof(u32) != 0)
++			return -EINVAL;
++	}
++
++	if (WARN_ON(!priv->bar))
++		return -EFAULT;
++
++	if (is_64)
++#ifndef __raw_writeq
++		return -EINVAL;
++#else
++		for (n = 0; n < length; n += sizeof(u64)) {
++			__raw_writeq(*rdptr64++, wrptr64++);
++			wmb();
++		}
++#endif
++	else
++		for (n = 0; n < length; n += sizeof(u32)) {
++			__raw_writel(*rdptr32++, wrptr32++);
++			wmb();
++		}
++
++	return n;
++}
++
++struct nfp6000_explicit_priv {
++	struct nfp6000_pcie *nfp;
++	struct {
++		int group;
++		int area;
++	} bar;
++	int bitsize;
++	void __iomem *data;
++	void __iomem *addr;
++};
++
++static int nfp6000_explicit_acquire(struct nfp_cpp_explicit *expl)
++{
++	struct nfp6000_pcie *nfp = nfp_cpp_priv(nfp_cpp_explicit_cpp(expl));
++	struct nfp6000_explicit_priv *priv = nfp_cpp_explicit_priv(expl);
++	int i, j;
++
++	mutex_lock(&nfp->expl.mutex);
++	for (i = 0; i < ARRAY_SIZE(nfp->expl.group); i++) {
++		if (!nfp->expl.group[i].bitsize)
++			continue;
++
++		for (j = 0; j < ARRAY_SIZE(nfp->expl.group[i].free); j++) {
++			u16 data_offset;
++
++			if (!nfp->expl.group[i].free[j])
++				continue;
++
++			priv->nfp = nfp;
++			priv->bar.group = i;
++			priv->bar.area = j;
++			priv->bitsize = nfp->expl.group[i].bitsize - 2;
++
++			data_offset = (priv->bar.group << 9) +
++				(priv->bar.area << 7);
++			priv->data = nfp->expl.data + data_offset;
++			priv->addr = nfp->expl.group[i].addr +
++				(priv->bar.area << priv->bitsize);
++			nfp->expl.group[i].free[j] = false;
++
++			mutex_unlock(&nfp->expl.mutex);
++			return 0;
++		}
++	}
++	mutex_unlock(&nfp->expl.mutex);
++
++	return -EAGAIN;
++}
++
++static void nfp6000_explicit_release(struct nfp_cpp_explicit *expl)
++{
++	struct nfp6000_explicit_priv *priv = nfp_cpp_explicit_priv(expl);
++	struct nfp6000_pcie *nfp = priv->nfp;
++
++	mutex_lock(&nfp->expl.mutex);
++	nfp->expl.group[priv->bar.group].free[priv->bar.area] = true;
++	mutex_unlock(&nfp->expl.mutex);
++}
++
++static int nfp6000_explicit_put(struct nfp_cpp_explicit *expl,
++				const void *buff, size_t len)
++{
++	struct nfp6000_explicit_priv *priv = nfp_cpp_explicit_priv(expl);
++	const u32 *src = buff;
++	size_t i;
++
++	for (i = 0; i < len; i += sizeof(u32))
++		writel(*(src++), priv->data + i);
++
++	return i;
++}
++
++static int
++nfp6000_explicit_do(struct nfp_cpp_explicit *expl,
++		    const struct nfp_cpp_explicit_command *cmd, u64 address)
++{
++	struct nfp6000_explicit_priv *priv = nfp_cpp_explicit_priv(expl);
++	u8 signal_master, signal_ref, data_master;
++	struct nfp6000_pcie *nfp = priv->nfp;
++	int sigmask = 0;
++	u16 data_ref;
++	u32 csr[3];
++
++	if (cmd->siga_mode)
++		sigmask |= 1 << cmd->siga;
++	if (cmd->sigb_mode)
++		sigmask |= 1 << cmd->sigb;
++
++	signal_master = cmd->signal_master;
++	if (!signal_master)
++		signal_master = nfp->expl.master_id;
++
++	signal_ref = cmd->signal_ref;
++	if (signal_master == nfp->expl.master_id)
++		signal_ref = nfp->expl.signal_ref +
++			((priv->bar.group * 4 + priv->bar.area) << 1);
++
++	data_master = cmd->data_master;
++	if (!data_master)
++		data_master = nfp->expl.master_id;
++
++	data_ref = cmd->data_ref;
++	if (data_master == nfp->expl.master_id)
++		data_ref = 0x1000 +
++			(priv->bar.group << 9) + (priv->bar.area << 7);
++
++	csr[0] = NFP_PCIE_BAR_EXPLICIT_BAR0_SignalType(sigmask) |
++		NFP_PCIE_BAR_EXPLICIT_BAR0_Token(
++			NFP_CPP_ID_TOKEN_of(cmd->cpp_id)) |
++		NFP_PCIE_BAR_EXPLICIT_BAR0_Address(address >> 16);
++
++	csr[1] = NFP_PCIE_BAR_EXPLICIT_BAR1_SignalRef(signal_ref) |
++		NFP_PCIE_BAR_EXPLICIT_BAR1_DataMaster(data_master) |
++		NFP_PCIE_BAR_EXPLICIT_BAR1_DataRef(data_ref);
++
++	csr[2] = NFP_PCIE_BAR_EXPLICIT_BAR2_Target(
++			NFP_CPP_ID_TARGET_of(cmd->cpp_id)) |
++		NFP_PCIE_BAR_EXPLICIT_BAR2_Action(
++			NFP_CPP_ID_ACTION_of(cmd->cpp_id)) |
++		NFP_PCIE_BAR_EXPLICIT_BAR2_Length(cmd->len) |
++		NFP_PCIE_BAR_EXPLICIT_BAR2_ByteMask(cmd->byte_mask) |
++		NFP_PCIE_BAR_EXPLICIT_BAR2_SignalMaster(signal_master);
++
++	if (nfp->iomem.csr) {
++		writel(csr[0], nfp->iomem.csr +
++		       NFP_PCIE_BAR_EXPLICIT_BAR0(priv->bar.group,
++						  priv->bar.area));
++		writel(csr[1], nfp->iomem.csr +
++		       NFP_PCIE_BAR_EXPLICIT_BAR1(priv->bar.group,
++						  priv->bar.area));
++		writel(csr[2], nfp->iomem.csr +
++		       NFP_PCIE_BAR_EXPLICIT_BAR2(priv->bar.group,
++						  priv->bar.area));
++		/* Readback to ensure BAR is flushed */
++		readl(nfp->iomem.csr +
++		      NFP_PCIE_BAR_EXPLICIT_BAR0(priv->bar.group,
++						 priv->bar.area));
++		readl(nfp->iomem.csr +
++		      NFP_PCIE_BAR_EXPLICIT_BAR1(priv->bar.group,
++						 priv->bar.area));
++		readl(nfp->iomem.csr +
++		      NFP_PCIE_BAR_EXPLICIT_BAR2(priv->bar.group,
++						 priv->bar.area));
++	} else {
++		pci_write_config_dword(nfp->pdev, 0x400 +
++				       NFP_PCIE_BAR_EXPLICIT_BAR0(
++					       priv->bar.group, priv->bar.area),
++				       csr[0]);
++
++		pci_write_config_dword(nfp->pdev, 0x400 +
++				       NFP_PCIE_BAR_EXPLICIT_BAR1(
++					       priv->bar.group, priv->bar.area),
++				       csr[1]);
++
++		pci_write_config_dword(nfp->pdev, 0x400 +
++				       NFP_PCIE_BAR_EXPLICIT_BAR2(
++					       priv->bar.group, priv->bar.area),
++				       csr[2]);
++	}
++
++	/* Issue the 'kickoff' transaction */
++	readb(priv->addr + (address & ((1 << priv->bitsize) - 1)));
++
++	return sigmask;
++}
++
++static int nfp6000_explicit_get(struct nfp_cpp_explicit *expl,
++				void *buff, size_t len)
++{
++	struct nfp6000_explicit_priv *priv = nfp_cpp_explicit_priv(expl);
++	u32 *dst = buff;
++	size_t i;
++
++	for (i = 0; i < len; i += sizeof(u32))
++		*(dst++) = readl(priv->data + i);
++
++	return i;
++}
++
++static int nfp6000_init(struct nfp_cpp *cpp)
++{
++	nfp_cpp_area_cache_add(cpp, SZ_64K);
++	nfp_cpp_area_cache_add(cpp, SZ_64K);
++	nfp_cpp_area_cache_add(cpp, SZ_256K);
++
++	return 0;
++}
++
++static void nfp6000_free(struct nfp_cpp *cpp)
++{
++	struct nfp6000_pcie *nfp = nfp_cpp_priv(cpp);
++
++	disable_bars(nfp);
++	kfree(nfp);
++}
++
++static void nfp6000_read_serial(struct device *dev, u8 *serial)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++	int pos;
++	u32 reg;
++
++	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_DSN);
++	if (!pos) {
++		memset(serial, 0, NFP_SERIAL_LEN);
++		return;
++	}
++
++	pci_read_config_dword(pdev, pos + 4, &reg);
++	put_unaligned_be16(reg >> 16, serial + 4);
++	pci_read_config_dword(pdev, pos + 8, &reg);
++	put_unaligned_be32(reg, serial);
++}
++
++static u16 nfp6000_get_interface(struct device *dev)
++{
++	struct pci_dev *pdev = to_pci_dev(dev);
++	int pos;
++	u32 reg;
++
++	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_DSN);
++	if (!pos)
++		return NFP_CPP_INTERFACE(NFP_CPP_INTERFACE_TYPE_PCI, 0, 0xff);
++
++	pci_read_config_dword(pdev, pos + 4, &reg);
++
++	return reg & 0xffff;
++}
++
++static const struct nfp_cpp_operations nfp6000_pcie_ops = {
++	.owner			= THIS_MODULE,
++
++	.init			= nfp6000_init,
++	.free			= nfp6000_free,
++
++	.read_serial		= nfp6000_read_serial,
++	.get_interface		= nfp6000_get_interface,
++
++	.area_priv_size		= sizeof(struct nfp6000_area_priv),
++	.area_init		= nfp6000_area_init,
++	.area_cleanup		= nfp6000_area_cleanup,
++	.area_acquire		= nfp6000_area_acquire,
++	.area_release		= nfp6000_area_release,
++	.area_phys		= nfp6000_area_phys,
++	.area_iomem		= nfp6000_area_iomem,
++	.area_resource		= nfp6000_area_resource,
++	.area_read		= nfp6000_area_read,
++	.area_write		= nfp6000_area_write,
++
++	.explicit_priv_size	= sizeof(struct nfp6000_explicit_priv),
++	.explicit_acquire	= nfp6000_explicit_acquire,
++	.explicit_release	= nfp6000_explicit_release,
++	.explicit_put		= nfp6000_explicit_put,
++	.explicit_do		= nfp6000_explicit_do,
++	.explicit_get		= nfp6000_explicit_get,
++};
++
++/**
++ * nfp_cpp_from_nfp6000_pcie() - Build a NFP CPP bus from a NFP6000 PCI device
++ * @pdev:	NFP6000 PCI device
++ *
++ * Return: NFP CPP handle
++ */
++struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev)
++{
++	struct nfp6000_pcie *nfp;
++	u16 interface;
++	int err;
++
++	/*  Finished with card initialization. */
++	dev_info(&pdev->dev,
++		 "Netronome Flow Processor NFP4000/NFP6000 PCIe Card Probe\n");
++
++	nfp = kzalloc(sizeof(*nfp), GFP_KERNEL);
++	if (!nfp) {
++		err = -ENOMEM;
++		goto err_ret;
++	}
++
++	nfp->dev = &pdev->dev;
++	nfp->pdev = pdev;
++	init_waitqueue_head(&nfp->bar_waiters);
++	spin_lock_init(&nfp->bar_lock);
++
++	interface = nfp6000_get_interface(&pdev->dev);
++
++	if (NFP_CPP_INTERFACE_TYPE_of(interface) !=
++	    NFP_CPP_INTERFACE_TYPE_PCI) {
++		dev_err(&pdev->dev,
++			"Interface type %d is not the expected %d\n",
++			NFP_CPP_INTERFACE_TYPE_of(interface),
++			NFP_CPP_INTERFACE_TYPE_PCI);
++		err = -ENODEV;
++		goto err_free_nfp;
++	}
++
++	if (NFP_CPP_INTERFACE_CHANNEL_of(interface) !=
++	    NFP_CPP_INTERFACE_CHANNEL_PEROPENER) {
++		dev_err(&pdev->dev, "Interface channel %d is not the expected %d\n",
++			NFP_CPP_INTERFACE_CHANNEL_of(interface),
++			NFP_CPP_INTERFACE_CHANNEL_PEROPENER);
++		err = -ENODEV;
++		goto err_free_nfp;
++	}
++
++	err = enable_bars(nfp, interface);
++	if (err)
++		goto err_free_nfp;
++
++	/* Probe for all the common NFP devices */
++	return nfp_cpp_from_operations(&nfp6000_pcie_ops, &pdev->dev, nfp);
++
++err_free_nfp:
++	kfree(nfp);
++err_ret:
++	dev_err(&pdev->dev, "NFP6000 PCI setup failed\n");
++	return ERR_PTR(err);
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.h
+new file mode 100644
+index 000000000000..245d8aaaa97d
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp6000_pcie.h
+@@ -0,0 +1,46 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp6000_pcie.h
++ * Author: Jason McMullan <jason.mcmullan@netronome.com>
++ */
++
++#ifndef NFP6000_PCIE_H
++#define NFP6000_PCIE_H
++
++#include "nfp_cpp.h"
++
++struct nfp_cpp *nfp_cpp_from_nfp6000_pcie(struct pci_dev *pdev);
++
++#endif /* NFP6000_PCIE_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_arm.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_arm.h
+new file mode 100644
+index 000000000000..31fe92247f51
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_arm.h
+@@ -0,0 +1,246 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp_arm.h
++ * Definitions for ARM-based registers and memory spaces
++ */
++
++#ifndef NFP_ARM_H
++#define NFP_ARM_H
++
++#define NFP_ARM_QUEUE(_q)              (0x100000 + (0x800 * ((_q) & 0xff)))
++#define NFP_ARM_IM                     0x200000
++#define NFP_ARM_EM                     0x300000
++#define NFP_ARM_GCSR                   0x400000
++#define NFP_ARM_MPCORE                 0x800000
++#define NFP_ARM_PL310                  0xa00000
++/* Register Type: BulkBARConfig */
++#define NFP_ARM_GCSR_BULK_BAR(_bar)    (0x0 + (0x4 * ((_bar) & 0x7)))
++#define   NFP_ARM_GCSR_BULK_BAR_TYPE                    (0x1 << 31)
++#define     NFP_ARM_GCSR_BULK_BAR_TYPE_BULK             (0x0)
++#define     NFP_ARM_GCSR_BULK_BAR_TYPE_EXPA             (0x80000000)
++#define   NFP_ARM_GCSR_BULK_BAR_TGT(_x)                 (((_x) & 0xf) << 27)
++#define   NFP_ARM_GCSR_BULK_BAR_TGT_of(_x)              (((_x) >> 27) & 0xf)
++#define   NFP_ARM_GCSR_BULK_BAR_TOK(_x)                 (((_x) & 0x3) << 25)
++#define   NFP_ARM_GCSR_BULK_BAR_TOK_of(_x)              (((_x) >> 25) & 0x3)
++#define   NFP_ARM_GCSR_BULK_BAR_LEN                     (0x1 << 24)
++#define     NFP_ARM_GCSR_BULK_BAR_LEN_32BIT             (0x0)
++#define     NFP_ARM_GCSR_BULK_BAR_LEN_64BIT             (0x1000000)
++#define   NFP_ARM_GCSR_BULK_BAR_ADDR(_x)                ((_x) & 0x7ff)
++#define   NFP_ARM_GCSR_BULK_BAR_ADDR_of(_x)             ((_x) & 0x7ff)
++/* Register Type: ExpansionBARConfig */
++#define NFP_ARM_GCSR_EXPA_BAR(_bar)    (0x20 + (0x4 * ((_bar) & 0xf)))
++#define   NFP_ARM_GCSR_EXPA_BAR_TYPE                    (0x1 << 31)
++#define     NFP_ARM_GCSR_EXPA_BAR_TYPE_EXPA             (0x0)
++#define     NFP_ARM_GCSR_EXPA_BAR_TYPE_EXPL             (0x80000000)
++#define   NFP_ARM_GCSR_EXPA_BAR_TGT(_x)                 (((_x) & 0xf) << 27)
++#define   NFP_ARM_GCSR_EXPA_BAR_TGT_of(_x)              (((_x) >> 27) & 0xf)
++#define   NFP_ARM_GCSR_EXPA_BAR_TOK(_x)                 (((_x) & 0x3) << 25)
++#define   NFP_ARM_GCSR_EXPA_BAR_TOK_of(_x)              (((_x) >> 25) & 0x3)
++#define   NFP_ARM_GCSR_EXPA_BAR_LEN                     (0x1 << 24)
++#define     NFP_ARM_GCSR_EXPA_BAR_LEN_32BIT             (0x0)
++#define     NFP_ARM_GCSR_EXPA_BAR_LEN_64BIT             (0x1000000)
++#define   NFP_ARM_GCSR_EXPA_BAR_ACT(_x)                 (((_x) & 0x1f) << 19)
++#define   NFP_ARM_GCSR_EXPA_BAR_ACT_of(_x)              (((_x) >> 19) & 0x1f)
++#define     NFP_ARM_GCSR_EXPA_BAR_ACT_DERIVED           (0)
++#define   NFP_ARM_GCSR_EXPA_BAR_ADDR(_x)                ((_x) & 0x7fff)
++#define   NFP_ARM_GCSR_EXPA_BAR_ADDR_of(_x)             ((_x) & 0x7fff)
++/* Register Type: ExplicitBARConfig0_Reg */
++#define NFP_ARM_GCSR_EXPL0_BAR(_bar)   (0x60 + (0x4 * ((_bar) & 0x7)))
++#define   NFP_ARM_GCSR_EXPL0_BAR_ADDR(_x)               ((_x) & 0x3ffff)
++#define   NFP_ARM_GCSR_EXPL0_BAR_ADDR_of(_x)            ((_x) & 0x3ffff)
++/* Register Type: ExplicitBARConfig1_Reg */
++#define NFP_ARM_GCSR_EXPL1_BAR(_bar)   (0x80 + (0x4 * ((_bar) & 0x7)))
++#define   NFP_ARM_GCSR_EXPL1_BAR_POSTED                 (0x1 << 31)
++#define   NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF(_x)         (((_x) & 0x7f) << 24)
++#define   NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF_of(_x)      (((_x) >> 24) & 0x7f)
++#define   NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER(_x)        (((_x) & 0xff) << 16)
++#define   NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER_of(_x)     (((_x) >> 16) & 0xff)
++#define   NFP_ARM_GCSR_EXPL1_BAR_DATA_REF(_x)           ((_x) & 0x3fff)
++#define   NFP_ARM_GCSR_EXPL1_BAR_DATA_REF_of(_x)        ((_x) & 0x3fff)
++/* Register Type: ExplicitBARConfig2_Reg */
++#define NFP_ARM_GCSR_EXPL2_BAR(_bar)   (0xa0 + (0x4 * ((_bar) & 0x7)))
++#define   NFP_ARM_GCSR_EXPL2_BAR_TGT(_x)                (((_x) & 0xf) << 28)
++#define   NFP_ARM_GCSR_EXPL2_BAR_TGT_of(_x)             (((_x) >> 28) & 0xf)
++#define   NFP_ARM_GCSR_EXPL2_BAR_ACT(_x)                (((_x) & 0x1f) << 23)
++#define   NFP_ARM_GCSR_EXPL2_BAR_ACT_of(_x)             (((_x) >> 23) & 0x1f)
++#define   NFP_ARM_GCSR_EXPL2_BAR_LEN(_x)                (((_x) & 0x1f) << 18)
++#define   NFP_ARM_GCSR_EXPL2_BAR_LEN_of(_x)             (((_x) >> 18) & 0x1f)
++#define   NFP_ARM_GCSR_EXPL2_BAR_BYTE_MASK(_x)          (((_x) & 0xff) << 10)
++#define   NFP_ARM_GCSR_EXPL2_BAR_BYTE_MASK_of(_x)       (((_x) >> 10) & 0xff)
++#define   NFP_ARM_GCSR_EXPL2_BAR_TOK(_x)                (((_x) & 0x3) << 8)
++#define   NFP_ARM_GCSR_EXPL2_BAR_TOK_of(_x)             (((_x) >> 8) & 0x3)
++#define   NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER(_x)      ((_x) & 0xff)
++#define   NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER_of(_x)   ((_x) & 0xff)
++/* Register Type: PostedCommandSignal */
++#define NFP_ARM_GCSR_EXPL_POST(_bar)   (0xc0 + (0x4 * ((_bar) & 0x7)))
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_B(_x)              (((_x) & 0x7f) << 25)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_B_of(_x)           (((_x) >> 25) & 0x7f)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_B_BUS              (0x1 << 24)
++#define     NFP_ARM_GCSR_EXPL_POST_SIG_B_BUS_PULL       (0x0)
++#define     NFP_ARM_GCSR_EXPL_POST_SIG_B_BUS_PUSH       (0x1000000)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_A(_x)              (((_x) & 0x7f) << 17)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_A_of(_x)           (((_x) >> 17) & 0x7f)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_A_BUS              (0x1 << 16)
++#define     NFP_ARM_GCSR_EXPL_POST_SIG_A_BUS_PULL       (0x0)
++#define     NFP_ARM_GCSR_EXPL_POST_SIG_A_BUS_PUSH       (0x10000)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_B_RCVD             (0x1 << 7)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_B_VALID            (0x1 << 6)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_A_RCVD             (0x1 << 5)
++#define   NFP_ARM_GCSR_EXPL_POST_SIG_A_VALID            (0x1 << 4)
++#define   NFP_ARM_GCSR_EXPL_POST_CMD_COMPLETE           (0x1)
++/* Register Type: MPCoreBaseAddress */
++#define NFP_ARM_GCSR_MPCORE_BASE       0x00e0
++#define   NFP_ARM_GCSR_MPCORE_BASE_ADDR(_x)             (((_x) & 0x7ffff) << 13)
++#define   NFP_ARM_GCSR_MPCORE_BASE_ADDR_of(_x)          (((_x) >> 13) & 0x7ffff)
++/* Register Type: PL310BaseAddress */
++#define NFP_ARM_GCSR_PL310_BASE        0x00e4
++#define   NFP_ARM_GCSR_PL310_BASE_ADDR(_x)              (((_x) & 0xfffff) << 12)
++#define   NFP_ARM_GCSR_PL310_BASE_ADDR_of(_x)           (((_x) >> 12) & 0xfffff)
++/* Register Type: MPCoreConfig */
++#define NFP_ARM_GCSR_MP0_CFG           0x00e8
++#define   NFP_ARM_GCSR_MP0_CFG_SPI_BOOT                 (0x1 << 14)
++#define   NFP_ARM_GCSR_MP0_CFG_ENDIAN(_x)               (((_x) & 0x3) << 12)
++#define   NFP_ARM_GCSR_MP0_CFG_ENDIAN_of(_x)            (((_x) >> 12) & 0x3)
++#define     NFP_ARM_GCSR_MP0_CFG_ENDIAN_LITTLE          (0)
++#define     NFP_ARM_GCSR_MP0_CFG_ENDIAN_BIG             (1)
++#define   NFP_ARM_GCSR_MP0_CFG_RESET_VECTOR             (0x1 << 8)
++#define     NFP_ARM_GCSR_MP0_CFG_RESET_VECTOR_LO        (0x0)
++#define     NFP_ARM_GCSR_MP0_CFG_RESET_VECTOR_HI        (0x100)
++#define   NFP_ARM_GCSR_MP0_CFG_OUTCLK_EN(_x)            (((_x) & 0xf) << 4)
++#define   NFP_ARM_GCSR_MP0_CFG_OUTCLK_EN_of(_x)         (((_x) >> 4) & 0xf)
++#define   NFP_ARM_GCSR_MP0_CFG_ARMID(_x)                ((_x) & 0xf)
++#define   NFP_ARM_GCSR_MP0_CFG_ARMID_of(_x)             ((_x) & 0xf)
++/* Register Type: MPCoreIDCacheDataError */
++#define NFP_ARM_GCSR_MP0_CACHE_ERR     0x00ec
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D7             (0x1 << 15)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D6             (0x1 << 14)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D5             (0x1 << 13)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D4             (0x1 << 12)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D3             (0x1 << 11)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D2             (0x1 << 10)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D1             (0x1 << 9)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_D0             (0x1 << 8)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I7             (0x1 << 7)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I6             (0x1 << 6)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I5             (0x1 << 5)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I4             (0x1 << 4)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I3             (0x1 << 3)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I2             (0x1 << 2)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I1             (0x1 << 1)
++#define   NFP_ARM_GCSR_MP0_CACHE_ERR_MP0_I0             (0x1)
++/* Register Type: ARMDFT */
++#define NFP_ARM_GCSR_DFT               0x0100
++#define   NFP_ARM_GCSR_DFT_DBG_REQ                      (0x1 << 20)
++#define   NFP_ARM_GCSR_DFT_DBG_EN                       (0x1 << 19)
++#define   NFP_ARM_GCSR_DFT_WFE_EVT_TRG                  (0x1 << 18)
++#define   NFP_ARM_GCSR_DFT_ETM_WFI_RDY                  (0x1 << 17)
++#define   NFP_ARM_GCSR_DFT_ETM_PWR_ON                   (0x1 << 16)
++#define   NFP_ARM_GCSR_DFT_BIST_FAIL_of(_x)             (((_x) >> 8) & 0xf)
++#define   NFP_ARM_GCSR_DFT_BIST_DONE_of(_x)             (((_x) >> 4) & 0xf)
++#define   NFP_ARM_GCSR_DFT_BIST_RUN(_x)                 ((_x) & 0x7)
++#define   NFP_ARM_GCSR_DFT_BIST_RUN_of(_x)              ((_x) & 0x7)
++
++/* Gasket CSRs */
++/* NOTE: These cannot be remapped, and are always at this location.
++ */
++#define NFP_ARM_GCSR_START	(0xd6000000 + NFP_ARM_GCSR)
++#define NFP_ARM_GCSR_SIZE	SZ_64K
++
++/* BAR CSRs
++ */
++#define NFP_ARM_GCSR_BULK_BITS	11
++#define NFP_ARM_GCSR_EXPA_BITS	15
++#define NFP_ARM_GCSR_EXPL_BITS	18
++
++#define NFP_ARM_GCSR_BULK_SHIFT	(40 - 11)
++#define NFP_ARM_GCSR_EXPA_SHIFT	(40 - 15)
++#define NFP_ARM_GCSR_EXPL_SHIFT	(40 - 18)
++
++#define NFP_ARM_GCSR_BULK_SIZE	(1 << NFP_ARM_GCSR_BULK_SHIFT)
++#define NFP_ARM_GCSR_EXPA_SIZE	(1 << NFP_ARM_GCSR_EXPA_SHIFT)
++#define NFP_ARM_GCSR_EXPL_SIZE	(1 << NFP_ARM_GCSR_EXPL_SHIFT)
++
++#define NFP_ARM_GCSR_EXPL2_CSR(target, action, length, \
++			       byte_mask, token, signal_master) \
++	(NFP_ARM_GCSR_EXPL2_BAR_TGT(target) | \
++	 NFP_ARM_GCSR_EXPL2_BAR_ACT(action) | \
++	 NFP_ARM_GCSR_EXPL2_BAR_LEN(length) | \
++	 NFP_ARM_GCSR_EXPL2_BAR_BYTE_MASK(byte_mask) | \
++	 NFP_ARM_GCSR_EXPL2_BAR_TOK(token) | \
++	 NFP_ARM_GCSR_EXPL2_BAR_SIGNAL_MASTER(signal_master))
++#define NFP_ARM_GCSR_EXPL1_CSR(posted, signal_ref, data_master, data_ref) \
++	(((posted) ? NFP_ARM_GCSR_EXPL1_BAR_POSTED : 0) | \
++	 NFP_ARM_GCSR_EXPL1_BAR_SIGNAL_REF(signal_ref) | \
++	 NFP_ARM_GCSR_EXPL1_BAR_DATA_MASTER(data_master) | \
++	 NFP_ARM_GCSR_EXPL1_BAR_DATA_REF(data_ref))
++#define NFP_ARM_GCSR_EXPL0_CSR(address) \
++	NFP_ARM_GCSR_EXPL0_BAR_ADDR((address) >> NFP_ARM_GCSR_EXPL_SHIFT)
++#define NFP_ARM_GCSR_EXPL_POST_EXPECT_A(sig_ref, is_push, is_required) \
++	(NFP_ARM_GCSR_EXPL_POST_SIG_A(sig_ref) | \
++	 ((is_push) ? NFP_ARM_GCSR_EXPL_POST_SIG_A_BUS_PUSH : \
++		      NFP_ARM_GCSR_EXPL_POST_SIG_A_BUS_PULL) | \
++	 ((is_required) ? NFP_ARM_GCSR_EXPL_POST_SIG_A_VALID : 0))
++#define NFP_ARM_GCSR_EXPL_POST_EXPECT_B(sig_ref, is_push, is_required) \
++	(NFP_ARM_GCSR_EXPL_POST_SIG_B(sig_ref) | \
++	 ((is_push) ? NFP_ARM_GCSR_EXPL_POST_SIG_B_BUS_PUSH : \
++		      NFP_ARM_GCSR_EXPL_POST_SIG_B_BUS_PULL) | \
++	 ((is_required) ? NFP_ARM_GCSR_EXPL_POST_SIG_B_VALID : 0))
++
++#define NFP_ARM_GCSR_EXPA_CSR(mode, target, token, is_64, action, address) \
++	(((mode) ? NFP_ARM_GCSR_EXPA_BAR_TYPE_EXPL : \
++		   NFP_ARM_GCSR_EXPA_BAR_TYPE_EXPA) | \
++	 NFP_ARM_GCSR_EXPA_BAR_TGT(target) | \
++	 NFP_ARM_GCSR_EXPA_BAR_TOK(token) | \
++	 ((is_64) ? NFP_ARM_GCSR_EXPA_BAR_LEN_64BIT : \
++		    NFP_ARM_GCSR_EXPA_BAR_LEN_32BIT) | \
++	 NFP_ARM_GCSR_EXPA_BAR_ACT(action) | \
++	 NFP_ARM_GCSR_EXPA_BAR_ADDR((address) >> NFP_ARM_GCSR_EXPA_SHIFT))
++
++#define NFP_ARM_GCSR_BULK_CSR(mode, target, token, is_64, address) \
++	(((mode) ? NFP_ARM_GCSR_BULK_BAR_TYPE_EXPA : \
++		   NFP_ARM_GCSR_BULK_BAR_TYPE_BULK) | \
++	 NFP_ARM_GCSR_BULK_BAR_TGT(target) | \
++	 NFP_ARM_GCSR_BULK_BAR_TOK(token) | \
++	 ((is_64) ? NFP_ARM_GCSR_BULK_BAR_LEN_64BIT : \
++		    NFP_ARM_GCSR_BULK_BAR_LEN_32BIT) | \
++	 NFP_ARM_GCSR_BULK_BAR_ADDR((address) >> NFP_ARM_GCSR_BULK_SHIFT))
++
++	/* MP Core CSRs */
++#define NFP_ARM_MPCORE_SIZE	SZ_128K
++
++	/* PL320 CSRs */
++#define NFP_ARM_PCSR_SIZE	SZ_64K
++
++#endif /* NFP_ARM_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+new file mode 100644
+index 000000000000..f49f12a15669
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpp.h
+@@ -0,0 +1,431 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp_cpp.h
++ * Interface for low-level NFP CPP access.
++ * Authors: Jason McMullan <jason.mcmullan@netronome.com>
++ *          Rolf Neugebauer <rolf.neugebauer@netronome.com>
++ */
++#ifndef __NFP_CPP_H__
++#define __NFP_CPP_H__
++
++#include <linux/ctype.h>
++#include <linux/types.h>
++
++#ifndef NFP_SUBSYS
++#define NFP_SUBSYS "nfp"
++#endif
++
++#define nfp_err(cpp, fmt, args...) \
++	dev_err(nfp_cpp_device(cpp)->parent, NFP_SUBSYS ": " fmt, ## args)
++#define nfp_warn(cpp, fmt, args...) \
++	dev_warn(nfp_cpp_device(cpp)->parent, NFP_SUBSYS ": " fmt, ## args)
++#define nfp_info(cpp, fmt, args...) \
++	dev_info(nfp_cpp_device(cpp)->parent, NFP_SUBSYS ": " fmt, ## args)
++#define nfp_dbg(cpp, fmt, args...) \
++	dev_dbg(nfp_cpp_device(cpp)->parent, NFP_SUBSYS ": " fmt, ## args)
++
++#define PCI_64BIT_BAR_COUNT             3
++
++/* NFP hardware vendor/device ids.
++ */
++#define PCI_DEVICE_NFP4000              0x4000
++#define PCI_DEVICE_NFP6000              0x6000
++
++#define NFP_CPP_NUM_TARGETS             16
++
++struct device;
++
++struct nfp_cpp_area;
++struct nfp_cpp;
++struct resource;
++
++/* Wildcard indicating a CPP read or write action
++ *
++ * The action used will be either read or write depending on whether a
++ * read or write instruction/call is performed on the NFP_CPP_ID.  It
++ * is recomended that the RW action is used even if all actions to be
++ * performed on a NFP_CPP_ID are known to be only reads or writes.
++ * Doing so will in many cases save NFP CPP internal software
++ * resources.
++ */
++#define NFP_CPP_ACTION_RW               32
++
++#define NFP_CPP_TARGET_ID_MASK          0x1f
++
++/**
++ * NFP_CPP_ID() - pack target, token, and action into a CPP ID.
++ * @target:     NFP CPP target id
++ * @action:     NFP CPP action id
++ * @token:      NFP CPP token id
++ *
++ * Create a 32-bit CPP identifier representing the access to be made.
++ * These identifiers are used as parameters to other NFP CPP
++ * functions.  Some CPP devices may allow wildcard identifiers to be
++ * specified.
++ *
++ * Return:      NFP CPP ID
++ */
++#define NFP_CPP_ID(target, action, token)			 \
++	((((target) & 0x7f) << 24) | (((token)  & 0xff) << 16) | \
++	 (((action) & 0xff) <<  8))
++
++/**
++ * NFP_CPP_ISLAND_ID() - pack target, token, action, and island into a CPP ID.
++ * @target:     NFP CPP target id
++ * @action:     NFP CPP action id
++ * @token:      NFP CPP token id
++ * @island:     NFP CPP island id
++ *
++ * Create a 32-bit CPP identifier representing the access to be made.
++ * These identifiers are used as parameters to other NFP CPP
++ * functions.  Some CPP devices may allow wildcard identifiers to be
++ * specified.
++ *
++ * Return:      NFP CPP ID
++ */
++#define NFP_CPP_ISLAND_ID(target, action, token, island)	 \
++	((((target) & 0x7f) << 24) | (((token)  & 0xff) << 16) | \
++	 (((action) & 0xff) <<  8) | (((island) & 0xff) << 0))
++
++/**
++ * NFP_CPP_ID_TARGET_of() - Return the NFP CPP target of a NFP CPP ID
++ * @id:         NFP CPP ID
++ *
++ * Return:      NFP CPP target
++ */
++static inline u8 NFP_CPP_ID_TARGET_of(u32 id)
++{
++	return (id >> 24) & NFP_CPP_TARGET_ID_MASK;
++}
++
++/**
++ * NFP_CPP_ID_TOKEN_of() - Return the NFP CPP token of a NFP CPP ID
++ * @id:         NFP CPP ID
++ * Return:      NFP CPP token
++ */
++static inline u8 NFP_CPP_ID_TOKEN_of(u32 id)
++{
++	return (id >> 16) & 0xff;
++}
++
++/**
++ * NFP_CPP_ID_ACTION_of() - Return the NFP CPP action of a NFP CPP ID
++ * @id:         NFP CPP ID
++ *
++ * Return:      NFP CPP action
++ */
++static inline u8 NFP_CPP_ID_ACTION_of(u32 id)
++{
++	return (id >> 8) & 0xff;
++}
++
++/**
++ * NFP_CPP_ID_ISLAND_of() - Return the NFP CPP island of a NFP CPP ID
++ * @id: NFP CPP ID
++ *
++ * Return:      NFP CPP island
++ */
++static inline u8 NFP_CPP_ID_ISLAND_of(u32 id)
++{
++	return (id >> 0) & 0xff;
++}
++
++/* NFP Interface types - logical interface for this CPP connection
++ * 4 bits are reserved for interface type.
++ */
++#define NFP_CPP_INTERFACE_TYPE_INVALID      0x0
++#define NFP_CPP_INTERFACE_TYPE_PCI          0x1
++#define NFP_CPP_INTERFACE_TYPE_ARM          0x2
++#define NFP_CPP_INTERFACE_TYPE_RPC          0x3
++#define NFP_CPP_INTERFACE_TYPE_ILA          0x4
++
++/**
++ * NFP_CPP_INTERFACE() - Construct a 16-bit NFP Interface ID
++ * @type:       NFP Interface Type
++ * @unit:       Unit identifier for the interface type
++ * @channel:    Channel identifier for the interface unit
++ *
++ * Interface IDs consists of 4 bits of interface type,
++ * 4 bits of unit identifier, and 8 bits of channel identifier.
++ *
++ * The NFP Interface ID is used in the implementation of
++ * NFP CPP API mutexes, which use the MU Atomic CompareAndWrite
++ * operation - hence the limit to 16 bits to be able to
++ * use the NFP Interface ID as a lock owner.
++ *
++ * Return:      Interface ID
++ */
++#define NFP_CPP_INTERFACE(type, unit, channel)	\
++	((((type) & 0xf) << 12) |		\
++	 (((unit) & 0xf) <<  8) |		\
++	 (((channel) & 0xff) << 0))
++
++/**
++ * NFP_CPP_INTERFACE_TYPE_of() - Get the interface type
++ * @interface:  NFP Interface ID
++ * Return:      NFP Interface ID's type
++ */
++#define NFP_CPP_INTERFACE_TYPE_of(interface)   (((interface) >> 12) & 0xf)
++
++/**
++ * NFP_CPP_INTERFACE_UNIT_of() - Get the interface unit
++ * @interface:  NFP Interface ID
++ * Return:      NFP Interface ID's unit
++ */
++#define NFP_CPP_INTERFACE_UNIT_of(interface)   (((interface) >>  8) & 0xf)
++
++/**
++ * NFP_CPP_INTERFACE_CHANNEL_of() - Get the interface channel
++ * @interface:  NFP Interface ID
++ * Return:      NFP Interface ID's channel
++ */
++#define NFP_CPP_INTERFACE_CHANNEL_of(interface)   (((interface) >>  0) & 0xff)
++
++/* Implemented in nfp_cppcore.c */
++void nfp_cpp_free(struct nfp_cpp *cpp);
++u32 nfp_cpp_model(struct nfp_cpp *cpp);
++u16 nfp_cpp_interface(struct nfp_cpp *cpp);
++int nfp_cpp_serial(struct nfp_cpp *cpp, const u8 **serial);
++
++struct nfp_cpp_area *nfp_cpp_area_alloc_with_name(struct nfp_cpp *cpp,
++						  u32 cpp_id,
++						  const char *name,
++						  unsigned long long address,
++						  unsigned long size);
++struct nfp_cpp_area *nfp_cpp_area_alloc(struct nfp_cpp *cpp, u32 cpp_id,
++					unsigned long long address,
++					unsigned long size);
++void nfp_cpp_area_free(struct nfp_cpp_area *area);
++int nfp_cpp_area_acquire(struct nfp_cpp_area *area);
++int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area);
++void nfp_cpp_area_release(struct nfp_cpp_area *area);
++void nfp_cpp_area_release_free(struct nfp_cpp_area *area);
++int nfp_cpp_area_read(struct nfp_cpp_area *area, unsigned long offset,
++		      void *buffer, size_t length);
++int nfp_cpp_area_write(struct nfp_cpp_area *area, unsigned long offset,
++		       const void *buffer, size_t length);
++int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
++			     unsigned long long offset, unsigned long size);
++const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area);
++void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area);
++struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area);
++struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area);
++phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area);
++void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area);
++
++int nfp_cpp_area_readl(struct nfp_cpp_area *area, unsigned long offset,
++		       u32 *value);
++int nfp_cpp_area_writel(struct nfp_cpp_area *area, unsigned long offset,
++			u32 value);
++int nfp_cpp_area_readq(struct nfp_cpp_area *area, unsigned long offset,
++		       u64 *value);
++int nfp_cpp_area_writeq(struct nfp_cpp_area *area, unsigned long offset,
++			u64 value);
++int nfp_cpp_area_fill(struct nfp_cpp_area *area, unsigned long offset,
++		      u32 value, size_t length);
++
++int nfp_xpb_readl(struct nfp_cpp *cpp, u32 xpb_tgt, u32 *value);
++int nfp_xpb_writel(struct nfp_cpp *cpp, u32 xpb_tgt, u32 value);
++int nfp_xpb_writelm(struct nfp_cpp *cpp, u32 xpb_tgt, u32 mask, u32 value);
++
++/* Implemented in nfp_cpplib.c */
++int nfp_cpp_read(struct nfp_cpp *cpp, u32 cpp_id,
++		 unsigned long long address, void *kernel_vaddr, size_t length);
++int nfp_cpp_write(struct nfp_cpp *cpp, u32 cpp_id,
++		  unsigned long long address, const void *kernel_vaddr,
++		  size_t length);
++int nfp_cpp_readl(struct nfp_cpp *cpp, u32 cpp_id,
++		  unsigned long long address, u32 *value);
++int nfp_cpp_writel(struct nfp_cpp *cpp, u32 cpp_id,
++		   unsigned long long address, u32 value);
++int nfp_cpp_readq(struct nfp_cpp *cpp, u32 cpp_id,
++		  unsigned long long address, u64 *value);
++int nfp_cpp_writeq(struct nfp_cpp *cpp, u32 cpp_id,
++		   unsigned long long address, u64 value);
++
++struct nfp_cpp_mutex;
++
++int nfp_cpp_mutex_init(struct nfp_cpp *cpp, int target,
++		       unsigned long long address, u32 key_id);
++struct nfp_cpp_mutex *nfp_cpp_mutex_alloc(struct nfp_cpp *cpp, int target,
++					  unsigned long long address,
++					  u32 key_id);
++void nfp_cpp_mutex_free(struct nfp_cpp_mutex *mutex);
++int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex);
++int nfp_cpp_mutex_unlock(struct nfp_cpp_mutex *mutex);
++int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex);
++
++struct nfp_cpp_explicit;
++
++struct nfp_cpp_explicit_command {
++	u32 cpp_id;
++	u16 data_ref;
++	u8  data_master;
++	u8  len;
++	u8  byte_mask;
++	u8  signal_master;
++	u8  signal_ref;
++	u8  posted;
++	u8  siga;
++	u8  sigb;
++	s8   siga_mode;
++	s8   sigb_mode;
++};
++
++#define NFP_SERIAL_LEN		6
++
++/**
++ * struct nfp_cpp_operations - NFP CPP operations structure
++ * @area_priv_size:     Size of the nfp_cpp_area private data
++ * @owner:              Owner module
++ * @init:               Initialize the NFP CPP bus
++ * @free:               Free the bus
++ * @read_serial:	Read serial number to memory provided
++ * @get_interface:	Return CPP interface
++ * @area_init:          Initialize a new NFP CPP area (not serialized)
++ * @area_cleanup:       Clean up a NFP CPP area (not serialized)
++ * @area_acquire:       Acquire the NFP CPP area (serialized)
++ * @area_release:       Release area (serialized)
++ * @area_resource:      Get resource range of area (not serialized)
++ * @area_phys:          Get physical address of area (not serialized)
++ * @area_iomem:         Get iomem of area (not serialized)
++ * @area_read:          Perform a read from a NFP CPP area (serialized)
++ * @area_write:         Perform a write to a NFP CPP area (serialized)
++ * @explicit_priv_size: Size of an explicit's private area
++ * @explicit_acquire:   Acquire an explicit area
++ * @explicit_release:   Release an explicit area
++ * @explicit_put:       Write data to send
++ * @explicit_get:       Read data received
++ * @explicit_do:        Perform the transaction
++ */
++struct nfp_cpp_operations {
++	size_t area_priv_size;
++	struct module *owner;
++
++	int (*init)(struct nfp_cpp *cpp);
++	void (*free)(struct nfp_cpp *cpp);
++
++	void (*read_serial)(struct device *dev, u8 *serial);
++	u16 (*get_interface)(struct device *dev);
++
++	int (*area_init)(struct nfp_cpp_area *area,
++			 u32 dest, unsigned long long address,
++			 unsigned long size);
++	void (*area_cleanup)(struct nfp_cpp_area *area);
++	int (*area_acquire)(struct nfp_cpp_area *area);
++	void (*area_release)(struct nfp_cpp_area *area);
++	struct resource *(*area_resource)(struct nfp_cpp_area *area);
++	phys_addr_t (*area_phys)(struct nfp_cpp_area *area);
++	void __iomem *(*area_iomem)(struct nfp_cpp_area *area);
++	int (*area_read)(struct nfp_cpp_area *area, void *kernel_vaddr,
++			 unsigned long offset, unsigned int length);
++	int (*area_write)(struct nfp_cpp_area *area, const void *kernel_vaddr,
++			  unsigned long offset, unsigned int length);
++
++	size_t explicit_priv_size;
++	int (*explicit_acquire)(struct nfp_cpp_explicit *expl);
++	void (*explicit_release)(struct nfp_cpp_explicit *expl);
++	int (*explicit_put)(struct nfp_cpp_explicit *expl,
++			    const void *buff, size_t len);
++	int (*explicit_get)(struct nfp_cpp_explicit *expl,
++			    void *buff, size_t len);
++	int (*explicit_do)(struct nfp_cpp_explicit *expl,
++			   const struct nfp_cpp_explicit_command *cmd,
++			   u64 address);
++};
++
++struct nfp_cpp *
++nfp_cpp_from_operations(const struct nfp_cpp_operations *ops,
++			struct device *parent, void *priv);
++void *nfp_cpp_priv(struct nfp_cpp *priv);
++
++int nfp_cpp_area_cache_add(struct nfp_cpp *cpp, size_t size);
++
++/* The following section contains extensions to the
++ * NFP CPP API, to be used in a Linux kernel-space context.
++ */
++
++/* Use this channel ID for multiple virtual channel interfaces
++ * (ie ARM and PCIe) when setting up the interface field.
++ */
++#define NFP_CPP_INTERFACE_CHANNEL_PEROPENER	255
++struct device *nfp_cpp_device(struct nfp_cpp *cpp);
++
++/* Return code masks for nfp_cpp_explicit_do()
++ */
++#define NFP_SIGNAL_MASK_A	BIT(0)	/* Signal A fired */
++#define NFP_SIGNAL_MASK_B	BIT(1)	/* Signal B fired */
++
++enum nfp_cpp_explicit_signal_mode {
++	NFP_SIGNAL_NONE = 0,
++	NFP_SIGNAL_PUSH = 1,
++	NFP_SIGNAL_PUSH_OPTIONAL = -1,
++	NFP_SIGNAL_PULL = 2,
++	NFP_SIGNAL_PULL_OPTIONAL = -2,
++};
++
++struct nfp_cpp_explicit *nfp_cpp_explicit_acquire(struct nfp_cpp *cpp);
++int nfp_cpp_explicit_set_target(struct nfp_cpp_explicit *expl, u32 cpp_id,
++				u8 len, u8 mask);
++int nfp_cpp_explicit_set_data(struct nfp_cpp_explicit *expl,
++			      u8 data_master, u16 data_ref);
++int nfp_cpp_explicit_set_signal(struct nfp_cpp_explicit *expl,
++				u8 signal_master, u8 signal_ref);
++int nfp_cpp_explicit_set_posted(struct nfp_cpp_explicit *expl, int posted,
++				u8 siga,
++				enum nfp_cpp_explicit_signal_mode siga_mode,
++				u8 sigb,
++				enum nfp_cpp_explicit_signal_mode sigb_mode);
++int nfp_cpp_explicit_put(struct nfp_cpp_explicit *expl,
++			 const void *buff, size_t len);
++int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, u64 address);
++int nfp_cpp_explicit_get(struct nfp_cpp_explicit *expl, void *buff, size_t len);
++void nfp_cpp_explicit_release(struct nfp_cpp_explicit *expl);
++struct nfp_cpp *nfp_cpp_explicit_cpp(struct nfp_cpp_explicit *expl);
++void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit);
++
++/* Implemented in nfp_cpplib.c */
++
++int nfp_cpp_model_autodetect(struct nfp_cpp *cpp, u32 *model);
++
++int nfp_cpp_explicit_read(struct nfp_cpp *cpp, u32 cpp_id,
++			  u64 addr, void *buff, size_t len,
++			  int width_read);
++
++int nfp_cpp_explicit_write(struct nfp_cpp *cpp, u32 cpp_id,
++			   u64 addr, const void *buff, size_t len,
++			   int width_write);
++
++#endif /* !__NFP_CPP_H__ */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+new file mode 100644
+index 000000000000..8e3322022322
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
+@@ -0,0 +1,1706 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp_cppcore.c
++ * Provides low-level access to the NFP's internal CPP bus
++ * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
 + *          Jason McMullan <jason.mcmullan@netronome.com>
 + *          Rolf Neugebauer <rolf.neugebauer@netronome.com>
 + */
 +
-+#include <linux/etherdevice.h>
++#include <asm/unaligned.h>
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/ioport.h>
 +#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/pci.h>
-+#include <linux/pci_regs.h>
-+#include <linux/msi.h>
-+#include <linux/random.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <linux/wait.h>
 +
-+#include "nfpcore/nfp.h"
-+#include "nfpcore/nfp_cpp.h"
-+#include "nfpcore/nfp_nffw.h"
-+#include "nfpcore/nfp_nsp_eth.h"
-+#include "nfpcore/nfp6000_pcie.h"
++#include "nfp_arm.h"
++#include "nfp_cpp.h"
++#include "nfp6000/nfp6000.h"
 +
-+#include "nfp_net_ctrl.h"
-+#include "nfp_net.h"
-+#include "nfp_main.h"
++#define NFP_ARM_GCSR_SOFTMODEL2                              0x0000014c
++#define NFP_ARM_GCSR_SOFTMODEL3                              0x00000150
 +
-+#define NFP_PF_CSR_SLICE_SIZE	(32 * 1024)
++struct nfp_cpp_resource {
++	struct list_head list;
++	const char *name;
++	u32 cpp_id;
++	u64 start;
++	u64 end;
++};
 +
-+static int nfp_is_ready(struct nfp_cpp *cpp)
++struct nfp_cpp_mutex {
++	struct list_head list;
++	struct nfp_cpp *cpp;
++	int target;
++	u16 usage;
++	u16 depth;
++	unsigned long long address;
++	u32 key;
++};
++
++struct nfp_cpp {
++	struct device dev;
++
++	void *priv; /* Private data of the low-level implementation */
++
++	u32 model;
++	u16 interface;
++	u8 serial[NFP_SERIAL_LEN];
++
++	const struct nfp_cpp_operations *op;
++	struct list_head resource_list;	/* NFP CPP resource list */
++	struct list_head mutex_cache;	/* Mutex cache */
++	rwlock_t resource_lock;
++	wait_queue_head_t waitq;
++
++	/* NFP6000 CPP Mapping Table */
++	u32 imb_cat_table[16];
++
++	/* Cached areas for cpp/xpb readl/writel speedups */
++	struct mutex area_cache_mutex;  /* Lock for the area cache */
++	struct list_head area_cache_list;
++};
++
++/* Element of the area_cache_list */
++struct nfp_cpp_area_cache {
++	struct list_head entry;
++	u32 id;
++	u64 addr;
++	u32 size;
++	struct nfp_cpp_area *area;
++};
++
++struct nfp_cpp_area {
++	struct nfp_cpp *cpp;
++	struct kref kref;
++	atomic_t refcount;
++	struct mutex mutex;	/* Lock for the area's refcount */
++	unsigned long long offset;
++	unsigned long size;
++	struct nfp_cpp_resource resource;
++	void __iomem *iomem;
++	/* Here follows the 'priv' part of nfp_cpp_area. */
++};
++
++struct nfp_cpp_explicit {
++	struct nfp_cpp *cpp;
++	struct nfp_cpp_explicit_command cmd;
++	/* Here follows the 'priv' part of nfp_cpp_area. */
++};
++
++static void __resource_add(struct list_head *head, struct nfp_cpp_resource *res)
 +{
-+	const char *cp;
-+	long state;
-+	int err;
++	struct nfp_cpp_resource *tmp;
++	struct list_head *pos;
 +
-+	cp = nfp_hwinfo_lookup(cpp, "board.state");
-+	if (!cp)
-+		return 0;
++	list_for_each(pos, head) {
++		tmp = container_of(pos, struct nfp_cpp_resource, list);
 +
-+	err = kstrtol(cp, 0, &state);
-+	if (err < 0)
-+		return 0;
++		if (tmp->cpp_id > res->cpp_id)
++			break;
 +
-+	return state == 15;
++		if (tmp->cpp_id == res->cpp_id && tmp->start > res->start)
++			break;
++	}
++
++	list_add_tail(&res->list, pos);
++}
++
++static void __resource_del(struct nfp_cpp_resource *res)
++{
++	list_del_init(&res->list);
++}
++
++static void __release_cpp_area(struct kref *kref)
++{
++	struct nfp_cpp_area *area =
++		container_of(kref, struct nfp_cpp_area, kref);
++	struct nfp_cpp *cpp = nfp_cpp_area_cpp(area);
++
++	if (area->cpp->op->area_cleanup)
++		area->cpp->op->area_cleanup(area);
++
++	write_lock(&cpp->resource_lock);
++	__resource_del(&area->resource);
++	write_unlock(&cpp->resource_lock);
++	kfree(area);
++}
++
++static void nfp_cpp_area_put(struct nfp_cpp_area *area)
++{
++	kref_put(&area->kref, __release_cpp_area);
++}
++
++static struct nfp_cpp_area *nfp_cpp_area_get(struct nfp_cpp_area *area)
++{
++	kref_get(&area->kref);
++
++	return area;
 +}
 +
 +/**
-+ * nfp_net_map_area() - Help function to map an area
-+ * @cpp:    NFP CPP handler
-+ * @name:   Name for the area
-+ * @target: CPP target
-+ * @addr:   CPP address
-+ * @size:   Size of the area
-+ * @area:   Area handle (returned).
-+ *
-+ * This function is primarily to simplify the code in the main probe
-+ * function. To undo the effect of this functions call
-+ * @nfp_cpp_area_release_free(*area);
-+ *
-+ * Return: Pointer to memory mapped area or ERR_PTR
++ * nfp_cpp_free() - free the CPP handle
++ * @cpp:	CPP handle
 + */
-+static u8 __iomem *nfp_net_map_area(struct nfp_cpp *cpp,
-+				    const char *name, int isl, int target,
-+				    unsigned long long addr, unsigned long size,
-+				    struct nfp_cpp_area **area)
++void nfp_cpp_free(struct nfp_cpp *cpp)
 +{
-+	u8 __iomem *res;
-+	u32 dest;
-+	int err;
++	struct nfp_cpp_area_cache *cache, *ctmp;
++	struct nfp_cpp_resource *res, *rtmp;
++	struct nfp_cpp_mutex *mutex, *mtmp;
 +
-+	dest = NFP_CPP_ISLAND_ID(target, NFP_CPP_ACTION_RW, 0, isl);
++	/* There should be no mutexes in the cache at this point. */
++	WARN_ON(!list_empty(&cpp->mutex_cache));
++	/* .. but if there are, unlock them and complain. */
++	list_for_each_entry_safe(mutex, mtmp, &cpp->mutex_cache, list) {
++		dev_err(cpp->dev.parent, "Dangling mutex: @%d::0x%llx, %d locks held by %d owners\n",
++			mutex->target, (unsigned long long)mutex->address,
++			mutex->depth, mutex->usage);
 +
-+	*area = nfp_cpp_area_alloc_with_name(cpp, dest, name, addr, size);
-+	if (!*area) {
-+		err = -EIO;
-+		goto err_area;
++		/* Forcing an unlock */
++		mutex->depth = 1;
++		nfp_cpp_mutex_unlock(mutex);
++
++		/* Forcing a free */
++		mutex->usage = 1;
++		nfp_cpp_mutex_free(mutex);
 +	}
 +
-+	err = nfp_cpp_area_acquire(*area);
++	/* Remove all caches */
++	list_for_each_entry_safe(cache, ctmp, &cpp->area_cache_list, entry) {
++		list_del(&cache->entry);
++		if (cache->id)
++			nfp_cpp_area_release(cache->area);
++		nfp_cpp_area_free(cache->area);
++		kfree(cache);
++	}
++
++	/* There should be no dangling areas at this point */
++	WARN_ON(!list_empty(&cpp->resource_list));
++
++	/* .. but if they weren't, try to clean up. */
++	list_for_each_entry_safe(res, rtmp, &cpp->resource_list, list) {
++		struct nfp_cpp_area *area = container_of(res,
++							 struct nfp_cpp_area,
++							 resource);
++
++		dev_err(cpp->dev.parent, "Dangling area: %d:%d:%d:0x%0llx-0x%0llx%s%s\n",
++			NFP_CPP_ID_TARGET_of(res->cpp_id),
++			NFP_CPP_ID_ACTION_of(res->cpp_id),
++			NFP_CPP_ID_TOKEN_of(res->cpp_id),
++			res->start, res->end,
++			res->name ? " " : "",
++			res->name ? res->name : "");
++
++		if (area->cpp->op->area_release)
++			area->cpp->op->area_release(area);
++
++		__release_cpp_area(&area->kref);
++	}
++
++	if (cpp->op->free)
++		cpp->op->free(cpp);
++
++	device_unregister(&cpp->dev);
++
++	kfree(cpp);
++}
++
++/**
++ * nfp_cpp_model() - Retrieve the Model ID of the NFP
++ * @cpp:	NFP CPP handle
++ *
++ * Return: NFP CPP Model ID
++ */
++u32 nfp_cpp_model(struct nfp_cpp *cpp)
++{
++	return cpp->model;
++}
++
++/**
++ * nfp_cpp_interface() - Retrieve the Interface ID of the NFP
++ * @cpp:	NFP CPP handle
++ *
++ * Return: NFP CPP Interface ID
++ */
++u16 nfp_cpp_interface(struct nfp_cpp *cpp)
++{
++	return cpp->interface;
++}
++
++/**
++ * nfp_cpp_serial() - Retrieve the Serial ID of the NFP
++ * @cpp:	NFP CPP handle
++ * @serial:	Pointer to NFP serial number
++ *
++ * Return:  Length of NFP serial number
++ */
++int nfp_cpp_serial(struct nfp_cpp *cpp, const u8 **serial)
++{
++	*serial = &cpp->serial[0];
++	return sizeof(cpp->serial);
++}
++
++/**
++ * nfp_cpp_area_alloc_with_name() - allocate a new CPP area
++ * @cpp:	CPP device handle
++ * @dest:	NFP CPP ID
++ * @name:	Name of region
++ * @address:	Address of region
++ * @size:	Size of region
++ *
++ * Allocate and initialize a CPP area structure.  The area must later
++ * be locked down with an 'acquire' before it can be safely accessed.
++ *
++ * NOTE: @address and @size must be 32-bit aligned values.
++ *
++ * Return: NFP CPP area handle, or NULL
++ */
++struct nfp_cpp_area *
++nfp_cpp_area_alloc_with_name(struct nfp_cpp *cpp, u32 dest, const char *name,
++			     unsigned long long address, unsigned long size)
++{
++	struct nfp_cpp_area *area;
++	u64 tmp64 = address;
++	int err, name_len;
++
++	/* Remap from cpp_island to cpp_target */
++	err = nfp_target_cpp(dest, tmp64, &dest, &tmp64, cpp->imb_cat_table);
 +	if (err < 0)
-+		goto err_acquire;
++		return NULL;
 +
-+	res = nfp_cpp_area_iomem(*area);
-+	if (!res) {
-+		err = -EIO;
-+		goto err_map;
++	address = tmp64;
++
++	if (!name)
++		name = "(reserved)";
++
++	name_len = strlen(name) + 1;
++	area = kzalloc(sizeof(*area) + cpp->op->area_priv_size + name_len,
++		       GFP_KERNEL);
++	if (!area)
++		return NULL;
++
++	area->cpp = cpp;
++	area->resource.name = (void *)area + sizeof(*area) +
++		cpp->op->area_priv_size;
++	memcpy((char *)area->resource.name, name, name_len);
++
++	area->resource.cpp_id = dest;
++	area->resource.start = address;
++	area->resource.end = area->resource.start + size - 1;
++	INIT_LIST_HEAD(&area->resource.list);
++
++	atomic_set(&area->refcount, 0);
++	kref_init(&area->kref);
++	mutex_init(&area->mutex);
++
++	if (cpp->op->area_init) {
++		int err;
++
++		err = cpp->op->area_init(area, dest, address, size);
++		if (err < 0) {
++			kfree(area);
++			return NULL;
++		}
 +	}
++
++	write_lock(&cpp->resource_lock);
++	__resource_add(&cpp->resource_list, &area->resource);
++	write_unlock(&cpp->resource_lock);
++
++	area->offset = address;
++	area->size = size;
++
++	return area;
++}
++
++/**
++ * nfp_cpp_area_alloc() - allocate a new CPP area
++ * @cpp:	CPP handle
++ * @dest:	CPP id
++ * @address:	Start address on CPP target
++ * @size:	Size of area in bytes
++ *
++ * Allocate and initialize a CPP area structure.  The area must later
++ * be locked down with an 'acquire' before it can be safely accessed.
++ *
++ * NOTE: @address and @size must be 32-bit aligned values.
++ *
++ * Return: NFP CPP Area handle, or NULL
++ */
++struct nfp_cpp_area *
++nfp_cpp_area_alloc(struct nfp_cpp *cpp, u32 dest,
++		   unsigned long long address, unsigned long size)
++{
++	return nfp_cpp_area_alloc_with_name(cpp, dest, NULL, address, size);
++}
++
++/**
++ * nfp_cpp_area_free() - free up the CPP area
++ * @area:	CPP area handle
++ *
++ * Frees up memory resources held by the CPP area.
++ */
++void nfp_cpp_area_free(struct nfp_cpp_area *area)
++{
++	nfp_cpp_area_put(area);
++}
++
++/**
++ * nfp_cpp_area_acquire() - lock down a CPP area for access
++ * @area:	CPP area handle
++ *
++ * Locks down the CPP area for a potential long term activity.  Area
++ * must always be locked down before being accessed.
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_area_acquire(struct nfp_cpp_area *area)
++{
++	mutex_lock(&area->mutex);
++	if (atomic_inc_return(&area->refcount) == 1) {
++		int (*a_a)(struct nfp_cpp_area *);
++
++		a_a = area->cpp->op->area_acquire;
++		if (a_a) {
++			int err;
++
++			wait_event_interruptible(area->cpp->waitq,
++						 (err = a_a(area)) != -EAGAIN);
++			if (err < 0) {
++				atomic_dec(&area->refcount);
++				mutex_unlock(&area->mutex);
++				return err;
++			}
++		}
++	}
++	mutex_unlock(&area->mutex);
++
++	nfp_cpp_area_get(area);
++	return 0;
++}
++
++/**
++ * nfp_cpp_area_acquire_nonblocking() - lock down a CPP area for access
++ * @area:	CPP area handle
++ *
++ * Locks down the CPP area for a potential long term activity.  Area
++ * must always be locked down before being accessed.
++ *
++ * NOTE: Returns -EAGAIN is no area is available
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_area_acquire_nonblocking(struct nfp_cpp_area *area)
++{
++	mutex_lock(&area->mutex);
++	if (atomic_inc_return(&area->refcount) == 1) {
++		if (area->cpp->op->area_acquire) {
++			int err;
++
++			err = area->cpp->op->area_acquire(area);
++			if (err < 0) {
++				atomic_dec(&area->refcount);
++				mutex_unlock(&area->mutex);
++				return err;
++			}
++		}
++	}
++	mutex_unlock(&area->mutex);
++
++	nfp_cpp_area_get(area);
++	return 0;
++}
++
++/**
++ * nfp_cpp_area_release() - release a locked down CPP area
++ * @area:	CPP area handle
++ *
++ * Releases a previously locked down CPP area.
++ */
++void nfp_cpp_area_release(struct nfp_cpp_area *area)
++{
++	mutex_lock(&area->mutex);
++	/* Only call the release on refcount == 0 */
++	if (atomic_dec_and_test(&area->refcount)) {
++		if (area->cpp->op->area_release) {
++			area->cpp->op->area_release(area);
++			/* Let anyone waiting for a BAR try to get one.. */
++			wake_up_interruptible_all(&area->cpp->waitq);
++		}
++	}
++	mutex_unlock(&area->mutex);
++
++	nfp_cpp_area_put(area);
++}
++
++/**
++ * nfp_cpp_area_release_free() - release CPP area and free it
++ * @area:	CPP area handle
++ *
++ * Releases CPP area and frees up memory resources held by the it.
++ */
++void nfp_cpp_area_release_free(struct nfp_cpp_area *area)
++{
++	nfp_cpp_area_release(area);
++	nfp_cpp_area_free(area);
++}
++
++/**
++ * nfp_cpp_area_read() - read data from CPP area
++ * @area:	  CPP area handle
++ * @offset:	  offset into CPP area
++ * @kernel_vaddr: kernel address to put data into
++ * @length:	  number of bytes to read
++ *
++ * Read data from indicated CPP region.
++ *
++ * NOTE: @offset and @length must be 32-bit aligned values.
++ *
++ * NOTE: Area must have been locked down with an 'acquire'.
++ *
++ * Return: length of io, or -ERRNO
++ */
++int nfp_cpp_area_read(struct nfp_cpp_area *area,
++		      unsigned long offset, void *kernel_vaddr,
++		      size_t length)
++{
++	return area->cpp->op->area_read(area, kernel_vaddr, offset, length);
++}
++
++/**
++ * nfp_cpp_area_write() - write data to CPP area
++ * @area:	CPP area handle
++ * @offset:	offset into CPP area
++ * @kernel_vaddr: kernel address to read data from
++ * @length:	number of bytes to write
++ *
++ * Write data to indicated CPP region.
++ *
++ * NOTE: @offset and @length must be 32-bit aligned values.
++ *
++ * NOTE: Area must have been locked down with an 'acquire'.
++ *
++ * Return: length of io, or -ERRNO
++ */
++int nfp_cpp_area_write(struct nfp_cpp_area *area,
++		       unsigned long offset, const void *kernel_vaddr,
++		       size_t length)
++{
++	return area->cpp->op->area_write(area, kernel_vaddr, offset, length);
++}
++
++/**
++ * nfp_cpp_area_check_range() - check if address range fits in CPP area
++ * @area:	CPP area handle
++ * @offset:	offset into CPP target
++ * @length:	size of address range in bytes
++ *
++ * Check if address range fits within CPP area.  Return 0 if area
++ * fits or -EFAULT on error.
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_area_check_range(struct nfp_cpp_area *area,
++			     unsigned long long offset, unsigned long length)
++{
++	if (offset < area->offset ||
++	    offset + length > area->offset + area->size)
++		return -EFAULT;
++
++	return 0;
++}
++
++/**
++ * nfp_cpp_area_name() - return name of a CPP area
++ * @cpp_area:	CPP area handle
++ *
++ * Return: Name of the area, or NULL
++ */
++const char *nfp_cpp_area_name(struct nfp_cpp_area *cpp_area)
++{
++	return cpp_area->resource.name;
++}
++
++/**
++ * nfp_cpp_area_priv() - return private struct for CPP area
++ * @cpp_area:	CPP area handle
++ *
++ * Return: Private data for the CPP area
++ */
++void *nfp_cpp_area_priv(struct nfp_cpp_area *cpp_area)
++{
++	return &cpp_area[1];
++}
++
++/**
++ * nfp_cpp_area_cpp() - return CPP handle for CPP area
++ * @cpp_area:	CPP area handle
++ *
++ * Return: NFP CPP handle
++ */
++struct nfp_cpp *nfp_cpp_area_cpp(struct nfp_cpp_area *cpp_area)
++{
++	return cpp_area->cpp;
++}
++
++/**
++ * nfp_cpp_area_resource() - get resource
++ * @area:	CPP area handle
++ *
++ * NOTE: Area must have been locked down with an 'acquire'.
++ *
++ * Return: struct resource pointer, or NULL
++ */
++struct resource *nfp_cpp_area_resource(struct nfp_cpp_area *area)
++{
++	struct resource *res = NULL;
++
++	if (area->cpp->op->area_resource)
++		res = area->cpp->op->area_resource(area);
 +
 +	return res;
-+
-+err_map:
-+	nfp_cpp_area_release(*area);
-+err_acquire:
-+	nfp_cpp_area_free(*area);
-+err_area:
-+	return (u8 __iomem *)ERR_PTR(err);
-+}
-+
-+static void
-+nfp_net_get_mac_addr_hwinfo(struct nfp_net *nn, struct nfp_cpp *cpp,
-+			    unsigned int id)
-+{
-+	u8 mac_addr[ETH_ALEN];
-+	const char *mac_str;
-+	char name[32];
-+
-+	snprintf(name, sizeof(name), "eth%d.mac", id);
-+
-+	mac_str = nfp_hwinfo_lookup(cpp, name);
-+	if (!mac_str) {
-+		dev_warn(&nn->pdev->dev,
-+			 "Can't lookup MAC address. Generate\n");
-+		eth_hw_addr_random(nn->netdev);
-+		return;
-+	}
-+
-+	if (sscanf(mac_str, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-+		   &mac_addr[0], &mac_addr[1], &mac_addr[2],
-+		   &mac_addr[3], &mac_addr[4], &mac_addr[5]) != 6) {
-+		dev_warn(&nn->pdev->dev,
-+			 "Can't parse MAC address (%s). Generate.\n", mac_str);
-+		eth_hw_addr_random(nn->netdev);
-+		return;
-+	}
-+
-+	ether_addr_copy(nn->netdev->dev_addr, mac_addr);
-+	ether_addr_copy(nn->netdev->perm_addr, mac_addr);
 +}
 +
 +/**
-+ * nfp_net_get_mac_addr() - Get the MAC address.
-+ * @nn:       NFP Network structure
-+ * @pf:	      NFP PF device structure
-+ * @id:	      NFP port id
++ * nfp_cpp_area_phys() - get physical address of CPP area
++ * @area:	CPP area handle
 + *
-+ * First try to get the MAC address from NSP ETH table. If that
-+ * fails try HWInfo.  As a last resort generate a random address.
++ * NOTE: Area must have been locked down with an 'acquire'.
++ *
++ * Return: phy_addr_t of the area, or NULL
 + */
-+static void
-+nfp_net_get_mac_addr(struct nfp_net *nn, struct nfp_pf *pf, unsigned int id)
++phys_addr_t nfp_cpp_area_phys(struct nfp_cpp_area *area)
 +{
-+	int i;
++	phys_addr_t addr = ~0;
 +
-+	for (i = 0; pf->eth_tbl && i < pf->eth_tbl->count; i++)
-+		if (pf->eth_tbl->ports[i].eth_index == id) {
-+			const u8 *mac_addr = pf->eth_tbl->ports[i].mac_addr;
++	if (area->cpp->op->area_phys)
++		addr = area->cpp->op->area_phys(area);
 +
-+			ether_addr_copy(nn->netdev->dev_addr, mac_addr);
-+			ether_addr_copy(nn->netdev->perm_addr, mac_addr);
-+			return;
-+		}
-+
-+	nfp_net_get_mac_addr_hwinfo(nn, pf->cpp, id);
++	return addr;
 +}
 +
-+static unsigned int nfp_net_pf_get_num_ports(struct nfp_pf *pf)
++/**
++ * nfp_cpp_area_iomem() - get IOMEM region for CPP area
++ * @area:	CPP area handle
++ *
++ * Returns an iomem pointer for use with readl()/writel() style
++ * operations.
++ *
++ * NOTE: Area must have been locked down with an 'acquire'.
++ *
++ * Return: __iomem pointer to the area, or NULL
++ */
++void __iomem *nfp_cpp_area_iomem(struct nfp_cpp_area *area)
 +{
-+	char name[256];
-+	u16 interface;
-+	int pcie_pf;
-+	int err = 0;
-+	u64 val;
++	void __iomem *iomem = NULL;
 +
-+	interface = nfp_cpp_interface(pf->cpp);
-+	pcie_pf = NFP_CPP_INTERFACE_UNIT_of(interface);
++	if (area->cpp->op->area_iomem)
++		iomem = area->cpp->op->area_iomem(area);
 +
-+	snprintf(name, sizeof(name), "nfd_cfg_pf%d_num_ports", pcie_pf);
-+
-+	val = nfp_rtsym_read_le(pf->cpp, name, &err);
-+	/* Default to one port */
-+	if (err) {
-+		if (err != -ENOENT)
-+			nfp_err(pf->cpp, "Unable to read adapter port count\n");
-+		val = 1;
-+	}
-+
-+	return val;
++	return iomem;
 +}
 +
-+static unsigned int
-+nfp_net_pf_total_qcs(struct nfp_pf *pf, void __iomem *ctrl_bar,
-+		     unsigned int stride, u32 start_off, u32 num_off)
++/**
++ * nfp_cpp_area_readl() - Read a u32 word from an area
++ * @area:	CPP Area handle
++ * @offset:	Offset into area
++ * @value:	Pointer to read buffer
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_area_readl(struct nfp_cpp_area *area,
++		       unsigned long offset, u32 *value)
 +{
-+	unsigned int i, min_qc, max_qc;
-+
-+	min_qc = readl(ctrl_bar + start_off);
-+	max_qc = min_qc;
-+
-+	for (i = 0; i < pf->num_ports; i++) {
-+		/* To make our lives simpler only accept configuration where
-+		 * queues are allocated to PFs in order (queues of PFn all have
-+		 * indexes lower than PFn+1).
-+		 */
-+		if (max_qc > readl(ctrl_bar + start_off))
-+			return 0;
-+
-+		max_qc = readl(ctrl_bar + start_off);
-+		max_qc += readl(ctrl_bar + num_off) * stride;
-+		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
-+	}
-+
-+	return max_qc - min_qc;
-+}
-+
-+static u8 __iomem *nfp_net_pf_map_ctrl_bar(struct nfp_pf *pf)
-+{
-+	const struct nfp_rtsym *ctrl_sym;
-+	u8 __iomem *ctrl_bar;
-+	char pf_symbol[256];
-+	u16 interface;
-+	int pcie_pf;
-+
-+	interface = nfp_cpp_interface(pf->cpp);
-+	pcie_pf = NFP_CPP_INTERFACE_UNIT_of(interface);
-+
-+	snprintf(pf_symbol, sizeof(pf_symbol), "_pf%d_net_bar0", pcie_pf);
-+
-+	ctrl_sym = nfp_rtsym_lookup(pf->cpp, pf_symbol);
-+	if (!ctrl_sym) {
-+		dev_err(&pf->pdev->dev,
-+			"Failed to find PF BAR0 symbol %s\n", pf_symbol);
-+		return NULL;
-+	}
-+
-+	if (ctrl_sym->size < pf->num_ports * NFP_PF_CSR_SLICE_SIZE) {
-+		dev_err(&pf->pdev->dev,
-+			"PF BAR0 too small to contain %d ports\n",
-+			pf->num_ports);
-+		return NULL;
-+	}
-+
-+	ctrl_bar = nfp_net_map_area(pf->cpp, "net.ctrl",
-+				    ctrl_sym->domain, ctrl_sym->target,
-+				    ctrl_sym->addr, ctrl_sym->size,
-+				    &pf->ctrl_area);
-+	if (IS_ERR(ctrl_bar)) {
-+		dev_err(&pf->pdev->dev, "Failed to map PF BAR0: %ld\n",
-+			PTR_ERR(ctrl_bar));
-+		return NULL;
-+	}
-+
-+	return ctrl_bar;
-+}
-+
-+static void nfp_net_pf_free_netdevs(struct nfp_pf *pf)
-+{
-+	struct nfp_net *nn;
-+
-+	while (!list_empty(&pf->ports)) {
-+		nn = list_first_entry(&pf->ports, struct nfp_net, port_list);
-+		list_del(&nn->port_list);
-+
-+		nfp_net_netdev_free(nn);
-+	}
-+}
-+
-+static struct nfp_net *
-+nfp_net_pf_alloc_port_netdev(struct nfp_pf *pf, void __iomem *ctrl_bar,
-+			     void __iomem *tx_bar, void __iomem *rx_bar,
-+			     int stride, struct nfp_net_fw_version *fw_ver)
-+{
-+	u32 n_tx_rings, n_rx_rings;
-+	struct nfp_net *nn;
-+
-+	n_tx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_TXRINGS);
-+	n_rx_rings = readl(ctrl_bar + NFP_NET_CFG_MAX_RXRINGS);
-+
-+	/* Allocate and initialise the netdev */
-+	nn = nfp_net_netdev_alloc(pf->pdev, n_tx_rings, n_rx_rings);
-+	if (IS_ERR(nn))
-+		return nn;
-+
-+	nn->fw_ver = *fw_ver;
-+	nn->ctrl_bar = ctrl_bar;
-+	nn->tx_bar = tx_bar;
-+	nn->rx_bar = rx_bar;
-+	nn->is_vf = 0;
-+	nn->stride_rx = stride;
-+	nn->stride_tx = stride;
-+
-+	return nn;
-+}
-+
-+static int
-+nfp_net_pf_init_port_netdev(struct nfp_pf *pf, struct nfp_net *nn,
-+			    unsigned int id)
-+{
++	u8 tmp[4];
 +	int err;
 +
-+	/* Get MAC address */
-+	nfp_net_get_mac_addr(nn, pf, id);
++	err = nfp_cpp_area_read(area, offset, &tmp, sizeof(tmp));
++	*value = get_unaligned_le32(tmp);
 +
-+	/* Get ME clock frequency from ctrl BAR
-+	 * XXX for now frequency is hardcoded until we figure out how
-+	 * to get the value from nfp-hwinfo into ctrl bar
++	return err;
++}
++
++/**
++ * nfp_cpp_area_writel() - Write a u32 word to an area
++ * @area:	CPP Area handle
++ * @offset:	Offset into area
++ * @value:	Value to write
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_area_writel(struct nfp_cpp_area *area,
++			unsigned long offset, u32 value)
++{
++	u8 tmp[4];
++
++	put_unaligned_le32(value, tmp);
++
++	return nfp_cpp_area_write(area, offset, &tmp, sizeof(tmp));
++}
++
++/**
++ * nfp_cpp_area_readq() - Read a u64 word from an area
++ * @area:	CPP Area handle
++ * @offset:	Offset into area
++ * @value:	Pointer to read buffer
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_area_readq(struct nfp_cpp_area *area,
++		       unsigned long offset, u64 *value)
++{
++	u8 tmp[8];
++	int err;
++
++	err = nfp_cpp_area_read(area, offset, &tmp, sizeof(tmp));
++	*value = get_unaligned_le64(tmp);
++
++	return err;
++}
++
++/**
++ * nfp_cpp_area_writeq() - Write a u64 word to an area
++ * @area:	CPP Area handle
++ * @offset:	Offset into area
++ * @value:	Value to write
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_area_writeq(struct nfp_cpp_area *area,
++			unsigned long offset, u64 value)
++{
++	u8 tmp[8];
++
++	put_unaligned_le64(value, tmp);
++
++	return nfp_cpp_area_write(area, offset, &tmp, sizeof(tmp));
++}
++
++/**
++ * nfp_cpp_area_fill() - fill a CPP area with a value
++ * @area:	CPP area
++ * @offset:	offset into CPP area
++ * @value:	value to fill with
++ * @length:	length of area to fill
++ *
++ * Fill indicated area with given value.
++ *
++ * Return: length of io, or -ERRNO
++ */
++int nfp_cpp_area_fill(struct nfp_cpp_area *area,
++		      unsigned long offset, u32 value, size_t length)
++{
++	u8 tmp[4];
++	size_t i;
++	int k;
++
++	put_unaligned_le32(value, tmp);
++
++	if (offset % sizeof(tmp) || length % sizeof(tmp))
++		return -EINVAL;
++
++	for (i = 0; i < length; i += sizeof(tmp)) {
++		k = nfp_cpp_area_write(area, offset + i, &tmp, sizeof(tmp));
++		if (k < 0)
++			return k;
++	}
++
++	return i;
++}
++
++/**
++ * nfp_cpp_area_cache_add() - Permanently reserve and area for the hot cache
++ * @cpp:	NFP CPP handle
++ * @size:	Size of the area - MUST BE A POWER OF 2.
++ */
++int nfp_cpp_area_cache_add(struct nfp_cpp *cpp, size_t size)
++{
++	struct nfp_cpp_area_cache *cache;
++	struct nfp_cpp_area *area;
++
++	/* Allocate an area - we use the MU target's base as a placeholder,
++	 * as all supported chips have a MU.
 +	 */
-+	nn->me_freq_mhz = 1200;
++	area = nfp_cpp_area_alloc(cpp, NFP_CPP_ID(7, NFP_CPP_ACTION_RW, 0),
++				  0, size);
++	if (!area)
++		return -ENOMEM;
 +
-+	err = nfp_net_netdev_init(nn->netdev);
-+	if (err)
-+		return err;
++	cache = kzalloc(sizeof(*cache), GFP_KERNEL);
++	if (!cache)
++		return -ENOMEM;
 +
-+	nfp_net_debugfs_port_add(nn, pf->ddir, id);
-+
-+	nfp_net_info(nn);
++	cache->id = 0;
++	cache->addr = 0;
++	cache->size = size;
++	cache->area = area;
++	mutex_lock(&cpp->area_cache_mutex);
++	list_add_tail(&cache->entry, &cpp->area_cache_list);
++	mutex_unlock(&cpp->area_cache_mutex);
 +
 +	return 0;
 +}
 +
-+static int
-+nfp_net_pf_alloc_netdevs(struct nfp_pf *pf, void __iomem *ctrl_bar,
-+			 void __iomem *tx_bar, void __iomem *rx_bar,
-+			 int stride, struct nfp_net_fw_version *fw_ver)
++static struct nfp_cpp_area_cache *
++area_cache_get(struct nfp_cpp *cpp, u32 id,
++	       u64 addr, unsigned long *offset, size_t length)
 +{
-+	u32 prev_tx_base, prev_rx_base, tgt_tx_base, tgt_rx_base;
-+	struct nfp_net *nn;
-+	unsigned int i;
++	struct nfp_cpp_area_cache *cache;
 +	int err;
 +
-+	prev_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
-+	prev_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
++	/* Early exit when length == 0, which prevents
++	 * the need for special case code below when
++	 * checking against available cache size.
++	 */
++	if (length == 0)
++		return NULL;
 +
-+	for (i = 0; i < pf->num_ports; i++) {
-+		tgt_tx_base = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
-+		tgt_rx_base = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
-+		tx_bar += (tgt_tx_base - prev_tx_base) * NFP_QCP_QUEUE_ADDR_SZ;
-+		rx_bar += (tgt_rx_base - prev_rx_base) * NFP_QCP_QUEUE_ADDR_SZ;
-+		prev_tx_base = tgt_tx_base;
-+		prev_rx_base = tgt_rx_base;
++	if (list_empty(&cpp->area_cache_list) || id == 0)
++		return NULL;
 +
-+		nn = nfp_net_pf_alloc_port_netdev(pf, ctrl_bar, tx_bar, rx_bar,
-+						  stride, fw_ver);
-+		if (IS_ERR(nn)) {
-+			err = PTR_ERR(nn);
-+			goto err_free_prev;
++	/* Remap from cpp_island to cpp_target */
++	err = nfp_target_cpp(id, addr, &id, &addr, cpp->imb_cat_table);
++	if (err < 0)
++		return NULL;
++
++	addr += *offset;
++
++	mutex_lock(&cpp->area_cache_mutex);
++
++	/* See if we have a match */
++	list_for_each_entry(cache, &cpp->area_cache_list, entry) {
++		if (id == cache->id &&
++		    addr >= cache->addr &&
++		    addr + length <= cache->addr + cache->size)
++			goto exit;
++	}
++
++	/* No matches - inspect the tail of the LRU */
++	cache = list_entry(cpp->area_cache_list.prev,
++			   struct nfp_cpp_area_cache, entry);
++
++	/* Can we fit in the cache entry? */
++	if (round_down(addr + length - 1, cache->size) !=
++	    round_down(addr, cache->size)) {
++		mutex_unlock(&cpp->area_cache_mutex);
++		return NULL;
++	}
++
++	/* If id != 0, we will need to release it */
++	if (cache->id) {
++		nfp_cpp_area_release(cache->area);
++		cache->id = 0;
++		cache->addr = 0;
++	}
++
++	/* Adjust the start address to be cache size aligned */
++	cache->id = id;
++	cache->addr = addr & ~(u64)(cache->size - 1);
++
++	/* Re-init to the new ID and address */
++	if (cpp->op->area_init) {
++		err = cpp->op->area_init(cache->area,
++					 id, cache->addr, cache->size);
++		if (err < 0) {
++			mutex_unlock(&cpp->area_cache_mutex);
++			return NULL;
 +		}
-+		list_add_tail(&nn->port_list, &pf->ports);
-+
-+		ctrl_bar += NFP_PF_CSR_SLICE_SIZE;
 +	}
 +
-+	return 0;
++	/* Attempt to acquire */
++	err = nfp_cpp_area_acquire(cache->area);
++	if (err < 0) {
++		mutex_unlock(&cpp->area_cache_mutex);
++		return NULL;
++	}
 +
-+err_free_prev:
-+	nfp_net_pf_free_netdevs(pf);
++exit:
++	/* Adjust offset */
++	*offset = addr - cache->addr;
++	return cache;
++}
++
++static void
++area_cache_put(struct nfp_cpp *cpp, struct nfp_cpp_area_cache *cache)
++{
++	if (!cache)
++		return;
++
++	/* Move to front of LRU */
++	list_del(&cache->entry);
++	list_add(&cache->entry, &cpp->area_cache_list);
++
++	mutex_unlock(&cpp->area_cache_mutex);
++}
++
++/**
++ * nfp_cpp_read() - read from CPP target
++ * @cpp:		CPP handle
++ * @destination:	CPP id
++ * @address:		offset into CPP target
++ * @kernel_vaddr:	kernel buffer for result
++ * @length:		number of bytes to read
++ *
++ * Return: length of io, or -ERRNO
++ */
++int nfp_cpp_read(struct nfp_cpp *cpp, u32 destination,
++		 unsigned long long address, void *kernel_vaddr, size_t length)
++{
++	struct nfp_cpp_area_cache *cache;
++	struct nfp_cpp_area *area;
++	unsigned long offset = 0;
++	int err;
++
++	cache = area_cache_get(cpp, destination, address, &offset, length);
++	if (cache) {
++		area = cache->area;
++	} else {
++		area = nfp_cpp_area_alloc(cpp, destination, address, length);
++		if (!area)
++			return -ENOMEM;
++
++		err = nfp_cpp_area_acquire(area);
++		if (err)
++			goto out;
++	}
++
++	err = nfp_cpp_area_read(area, offset, kernel_vaddr, length);
++out:
++	if (cache)
++		area_cache_put(cpp, cache);
++	else
++		nfp_cpp_area_release_free(area);
++
 +	return err;
 +}
 +
-+static int
-+nfp_net_pf_spawn_netdevs(struct nfp_pf *pf,
-+			 void __iomem *ctrl_bar, void __iomem *tx_bar,
-+			 void __iomem *rx_bar, int stride,
-+			 struct nfp_net_fw_version *fw_ver)
++/**
++ * nfp_cpp_write() - write to CPP target
++ * @cpp:		CPP handle
++ * @destination:	CPP id
++ * @address:		offset into CPP target
++ * @kernel_vaddr:	kernel buffer to read from
++ * @length:		number of bytes to write
++ *
++ * Return: length of io, or -ERRNO
++ */
++int nfp_cpp_write(struct nfp_cpp *cpp, u32 destination,
++		  unsigned long long address,
++		  const void *kernel_vaddr, size_t length)
 +{
-+	unsigned int id, wanted_irqs, num_irqs, ports_left, irqs_left;
-+	struct nfp_net *nn;
++	struct nfp_cpp_area_cache *cache;
++	struct nfp_cpp_area *area;
++	unsigned long offset = 0;
 +	int err;
 +
-+	/* Allocate the netdevs and do basic init */
-+	err = nfp_net_pf_alloc_netdevs(pf, ctrl_bar, tx_bar, rx_bar,
-+				       stride, fw_ver);
++	cache = area_cache_get(cpp, destination, address, &offset, length);
++	if (cache) {
++		area = cache->area;
++	} else {
++		area = nfp_cpp_area_alloc(cpp, destination, address, length);
++		if (!area)
++			return -ENOMEM;
++
++		err = nfp_cpp_area_acquire(area);
++		if (err)
++			goto out;
++	}
++
++	err = nfp_cpp_area_write(area, offset, kernel_vaddr, length);
++
++out:
++	if (cache)
++		area_cache_put(cpp, cache);
++	else
++		nfp_cpp_area_release_free(area);
++
++	return err;
++}
++
++/* Return the correct CPP address, and fixup xpb_addr as needed. */
++static u32 nfp_xpb_to_cpp(struct nfp_cpp *cpp, u32 *xpb_addr)
++{
++	int island;
++	u32 xpb;
++
++	xpb = NFP_CPP_ID(14, NFP_CPP_ACTION_RW, 0);
++	/* Ensure that non-local XPB accesses go
++	 * out through the global XPBM bus.
++	 */
++	island = (*xpb_addr >> 24) & 0x3f;
++	if (!island)
++		return xpb;
++
++	if (island != 1) {
++		*xpb_addr |= 1 << 30;
++		return xpb;
++	}
++
++	/* Accesses to the ARM Island overlay uses Island 0 / Global Bit */
++	*xpb_addr &= ~0x7f000000;
++	if (*xpb_addr < 0x60000) {
++		*xpb_addr |= 1 << 30;
++	} else {
++		/* And only non-ARM interfaces use the island id = 1 */
++		if (NFP_CPP_INTERFACE_TYPE_of(nfp_cpp_interface(cpp))
++		    != NFP_CPP_INTERFACE_TYPE_ARM)
++			*xpb_addr |= 1 << 24;
++	}
++
++	return xpb;
++}
++
++/**
++ * nfp_xpb_readl() - Read a u32 word from a XPB location
++ * @cpp:	CPP device handle
++ * @xpb_addr:	Address for operation
++ * @value:	Pointer to read buffer
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_xpb_readl(struct nfp_cpp *cpp, u32 xpb_addr, u32 *value)
++{
++	u32 cpp_dest = nfp_xpb_to_cpp(cpp, &xpb_addr);
++
++	return nfp_cpp_readl(cpp, cpp_dest, xpb_addr, value);
++}
++
++/**
++ * nfp_xpb_writel() - Write a u32 word to a XPB location
++ * @cpp:	CPP device handle
++ * @xpb_addr:	Address for operation
++ * @value:	Value to write
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_xpb_writel(struct nfp_cpp *cpp, u32 xpb_addr, u32 value)
++{
++	u32 cpp_dest = nfp_xpb_to_cpp(cpp, &xpb_addr);
++
++	return nfp_cpp_writel(cpp, cpp_dest, xpb_addr, value);
++}
++
++/**
++ * nfp_xpb_writelm() - Modify bits of a 32-bit value from the XPB bus
++ * @cpp:	NFP CPP device handle
++ * @xpb_tgt:	XPB target and address
++ * @mask:	mask of bits to alter
++ * @value:	value to modify
++ *
++ * KERNEL: This operation is safe to call in interrupt or softirq context.
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_xpb_writelm(struct nfp_cpp *cpp, u32 xpb_tgt,
++		    u32 mask, u32 value)
++{
++	int err;
++	u32 tmp;
++
++	err = nfp_xpb_readl(cpp, xpb_tgt, &tmp);
++	if (err < 0)
++		return err;
++
++	tmp &= ~mask;
++	tmp |= mask & value;
++	return nfp_xpb_writel(cpp, xpb_tgt, tmp);
++}
++
++/* Lockdep markers */
++static struct lock_class_key nfp_cpp_resource_lock_key;
++
++static void nfp_cpp_dev_release(struct device *dev)
++{
++	/* Nothing to do here - it just makes the kernel happy */
++}
++
++/**
++ * nfp_cpp_from_operations() - Create a NFP CPP handle
++ *                             from an operations structure
++ * @ops:	NFP CPP operations structure
++ * @parent:	Parent device
++ * @priv:	Private data of low-level implementation
++ *
++ * NOTE: On failure, cpp_ops->free will be called!
++ *
++ * Return: NFP CPP handle on success, ERR_PTR on failure
++ */
++struct nfp_cpp *
++nfp_cpp_from_operations(const struct nfp_cpp_operations *ops,
++			struct device *parent, void *priv)
++{
++	const u32 arm = NFP_CPP_ID(NFP_CPP_TARGET_ARM, NFP_CPP_ACTION_RW, 0);
++	struct nfp_cpp *cpp;
++	u32 mask[2];
++	u32 xpbaddr;
++	size_t tgt;
++	int err;
++
++	cpp = kzalloc(sizeof(*cpp), GFP_KERNEL);
++	if (!cpp) {
++		err = -ENOMEM;
++		goto err_malloc;
++	}
++
++	cpp->op = ops;
++	cpp->priv = priv;
++	cpp->interface = ops->get_interface(parent);
++	if (ops->read_serial)
++		ops->read_serial(parent, cpp->serial);
++	rwlock_init(&cpp->resource_lock);
++	init_waitqueue_head(&cpp->waitq);
++	lockdep_set_class(&cpp->resource_lock, &nfp_cpp_resource_lock_key);
++	INIT_LIST_HEAD(&cpp->mutex_cache);
++	INIT_LIST_HEAD(&cpp->resource_list);
++	INIT_LIST_HEAD(&cpp->area_cache_list);
++	mutex_init(&cpp->area_cache_mutex);
++	cpp->dev.init_name = "cpp";
++	cpp->dev.parent = parent;
++	cpp->dev.release = nfp_cpp_dev_release;
++	err = device_register(&cpp->dev);
++	if (err < 0) {
++		put_device(&cpp->dev);
++		goto err_dev;
++	}
++
++	dev_set_drvdata(&cpp->dev, cpp);
++
++	/* NOTE: cpp_lock is NOT locked for op->init,
++	 * since it may call NFP CPP API operations
++	 */
++	if (cpp->op->init) {
++		err = cpp->op->init(cpp);
++		if (err < 0) {
++			dev_err(parent,
++				"NFP interface initialization failed\n");
++			goto err_out;
++		}
++	}
++
++	err = nfp_cpp_model_autodetect(cpp, &cpp->model);
++	if (err < 0) {
++		dev_err(parent, "NFP model detection failed\n");
++		goto err_out;
++	}
++
++	for (tgt = 0; tgt < ARRAY_SIZE(cpp->imb_cat_table); tgt++) {
++			/* Hardcoded XPB IMB Base, island 0 */
++		xpbaddr = 0x000a0000 + (tgt * 4);
++		err = nfp_xpb_readl(cpp, xpbaddr,
++				    &cpp->imb_cat_table[tgt]);
++		if (err < 0) {
++			dev_err(parent,
++				"Can't read CPP mapping from device\n");
++			goto err_out;
++		}
++	}
++
++	nfp_cpp_readl(cpp, arm, NFP_ARM_GCSR + NFP_ARM_GCSR_SOFTMODEL2,
++		      &mask[0]);
++	nfp_cpp_readl(cpp, arm, NFP_ARM_GCSR + NFP_ARM_GCSR_SOFTMODEL3,
++		      &mask[1]);
++
++	dev_info(cpp->dev.parent, "Model: 0x%08x, SN: %pM, Ifc: 0x%04x\n",
++		 nfp_cpp_model(cpp), cpp->serial, nfp_cpp_interface(cpp));
++
++	return cpp;
++
++err_out:
++	device_unregister(&cpp->dev);
++err_dev:
++	kfree(cpp);
++err_malloc:
++	return ERR_PTR(err);
++}
++
++/**
++ * nfp_cpp_priv() - Get the operations private data of a CPP handle
++ * @cpp:	CPP handle
++ *
++ * Return: Private data for the NFP CPP handle
++ */
++void *nfp_cpp_priv(struct nfp_cpp *cpp)
++{
++	return cpp->priv;
++}
++
++/**
++ * nfp_cpp_device() - Get the Linux device handle of a CPP handle
++ * @cpp:	CPP handle
++ *
++ * Return: Device for the NFP CPP bus
++ */
++struct device *nfp_cpp_device(struct nfp_cpp *cpp)
++{
++	return &cpp->dev;
++}
++
++#define NFP_EXPL_OP(func, expl, args...)			  \
++	({							  \
++		struct nfp_cpp *cpp = nfp_cpp_explicit_cpp(expl); \
++		int err = -ENODEV;				  \
++								  \
++		if (cpp->op->func)				  \
++			err = cpp->op->func(expl, ##args);	  \
++		err;						  \
++	})
++
++#define NFP_EXPL_OP_NR(func, expl, args...)			  \
++	({							  \
++		struct nfp_cpp *cpp = nfp_cpp_explicit_cpp(expl); \
++								  \
++		if (cpp->op->func)				  \
++			cpp->op->func(expl, ##args);		  \
++								  \
++	})
++
++/**
++ * nfp_cpp_explicit_acquire() - Acquire explicit access handle
++ * @cpp:	NFP CPP handle
++ *
++ * The 'data_ref' and 'signal_ref' values are useful when
++ * constructing the NFP_EXPL_CSR1 and NFP_EXPL_POST values.
++ *
++ * Return: NFP CPP explicit handle
++ */
++struct nfp_cpp_explicit *nfp_cpp_explicit_acquire(struct nfp_cpp *cpp)
++{
++	struct nfp_cpp_explicit *expl;
++	int err;
++
++	expl = kzalloc(sizeof(*expl) + cpp->op->explicit_priv_size, GFP_KERNEL);
++	if (!expl)
++		return NULL;
++
++	expl->cpp = cpp;
++	err = NFP_EXPL_OP(explicit_acquire, expl);
++	if (err < 0) {
++		kfree(expl);
++		return NULL;
++	}
++
++	return expl;
++}
++
++/**
++ * nfp_cpp_explicit_set_target() - Set target fields for explicit
++ * @expl:	Explicit handle
++ * @cpp_id:	CPP ID field
++ * @len:	CPP Length field
++ * @mask:	CPP Mask field
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_explicit_set_target(struct nfp_cpp_explicit *expl,
++				u32 cpp_id, u8 len, u8 mask)
++{
++	expl->cmd.cpp_id = cpp_id;
++	expl->cmd.len = len;
++	expl->cmd.byte_mask = mask;
++
++	return 0;
++}
++
++/**
++ * nfp_cpp_explicit_set_data() - Set data fields for explicit
++ * @expl:	Explicit handle
++ * @data_master: CPP Data Master field
++ * @data_ref:	CPP Data Ref field
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_explicit_set_data(struct nfp_cpp_explicit *expl,
++			      u8 data_master, u16 data_ref)
++{
++	expl->cmd.data_master = data_master;
++	expl->cmd.data_ref = data_ref;
++
++	return 0;
++}
++
++/**
++ * nfp_cpp_explicit_set_signal() - Set signal fields for explicit
++ * @expl:	Explicit handle
++ * @signal_master: CPP Signal Master field
++ * @signal_ref:	CPP Signal Ref field
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_explicit_set_signal(struct nfp_cpp_explicit *expl,
++				u8 signal_master, u8 signal_ref)
++{
++	expl->cmd.signal_master = signal_master;
++	expl->cmd.signal_ref = signal_ref;
++
++	return 0;
++}
++
++/**
++ * nfp_cpp_explicit_set_posted() - Set completion fields for explicit
++ * @expl:	Explicit handle
++ * @posted:	True for signaled completion, false otherwise
++ * @siga:	CPP Signal A field
++ * @siga_mode:	CPP Signal A Mode field
++ * @sigb:	CPP Signal B field
++ * @sigb_mode:	CPP Signal B Mode field
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_explicit_set_posted(struct nfp_cpp_explicit *expl, int posted,
++				u8 siga,
++				enum nfp_cpp_explicit_signal_mode siga_mode,
++				u8 sigb,
++				enum nfp_cpp_explicit_signal_mode sigb_mode)
++{
++	expl->cmd.posted = posted;
++	expl->cmd.siga = siga;
++	expl->cmd.sigb = sigb;
++	expl->cmd.siga_mode = siga_mode;
++	expl->cmd.sigb_mode = sigb_mode;
++
++	return 0;
++}
++
++/**
++ * nfp_cpp_explicit_put() - Set up the write (pull) data for a explicit access
++ * @expl:	NFP CPP Explicit handle
++ * @buff:	Data to have the target pull in the transaction
++ * @len:	Length of data, in bytes
++ *
++ * The 'len' parameter must be less than or equal to 128 bytes.
++ *
++ * If this function is called before the configuration
++ * registers are set, it will return -EINVAL.
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_explicit_put(struct nfp_cpp_explicit *expl,
++			 const void *buff, size_t len)
++{
++	return NFP_EXPL_OP(explicit_put, expl, buff, len);
++}
++
++/**
++ * nfp_cpp_explicit_do() - Execute a transaction, and wait for it to complete
++ * @expl:	NFP CPP Explicit handle
++ * @address:	Address to send in the explicit transaction
++ *
++ * If this function is called before the configuration
++ * registers are set, it will return -1, with an errno of EINVAL.
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_explicit_do(struct nfp_cpp_explicit *expl, u64 address)
++{
++	return NFP_EXPL_OP(explicit_do, expl, &expl->cmd, address);
++}
++
++/**
++ * nfp_cpp_explicit_get() - Get the 'push' (read) data from a explicit access
++ * @expl:	NFP CPP Explicit handle
++ * @buff:	Data that the target pushed in the transaction
++ * @len:	Length of data, in bytes
++ *
++ * The 'len' parameter must be less than or equal to 128 bytes.
++ *
++ * If this function is called before all three configuration
++ * registers are set, it will return -1, with an errno of EINVAL.
++ *
++ * If this function is called before nfp_cpp_explicit_do()
++ * has completed, it will return -1, with an errno of EBUSY.
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_cpp_explicit_get(struct nfp_cpp_explicit *expl, void *buff, size_t len)
++{
++	return NFP_EXPL_OP(explicit_get, expl, buff, len);
++}
++
++/**
++ * nfp_cpp_explicit_release() - Release explicit access handle
++ * @expl:	NFP CPP Explicit handle
++ *
++ */
++void nfp_cpp_explicit_release(struct nfp_cpp_explicit *expl)
++{
++	NFP_EXPL_OP_NR(explicit_release, expl);
++	kfree(expl);
++}
++
++/**
++ * nfp_cpp_explicit_cpp() - return CPP handle for CPP explicit
++ * @cpp_explicit:	CPP explicit handle
++ *
++ * Return: NFP CPP handle of the explicit
++ */
++struct nfp_cpp *nfp_cpp_explicit_cpp(struct nfp_cpp_explicit *cpp_explicit)
++{
++	return cpp_explicit->cpp;
++}
++
++/**
++ * nfp_cpp_explicit_priv() - return private struct for CPP explicit
++ * @cpp_explicit:	CPP explicit handle
++ *
++ * Return: private data of the explicit, or NULL
++ */
++void *nfp_cpp_explicit_priv(struct nfp_cpp_explicit *cpp_explicit)
++{
++	return &cpp_explicit[1];
++}
++
++/* THIS FUNCTION IS NOT EXPORTED */
++static u32 nfp_mutex_locked(u16 interface)
++{
++	return (u32)interface << 16 | 0x000f;
++}
++
++static u32 nfp_mutex_unlocked(u16 interface)
++{
++	return (u32)interface << 16 | 0x0000;
++}
++
++static bool nfp_mutex_is_locked(u32 val)
++{
++	return (val & 0xffff) == 0x000f;
++}
++
++static bool nfp_mutex_is_unlocked(u32 val)
++{
++	return (val & 0xffff) == 0000;
++}
++
++/* If you need more than 65536 recursive locks, please rethink your code. */
++#define MUTEX_DEPTH_MAX         0xffff
++
++static int
++nfp_cpp_mutex_validate(u16 interface, int *target, unsigned long long address)
++{
++	/* Not permitted on invalid interfaces */
++	if (NFP_CPP_INTERFACE_TYPE_of(interface) ==
++	    NFP_CPP_INTERFACE_TYPE_INVALID)
++		return -EINVAL;
++
++	/* Address must be 64-bit aligned */
++	if (address & 7)
++		return -EINVAL;
++
++	if (*target != NFP_CPP_TARGET_MU)
++		return -EINVAL;
++
++	return 0;
++}
++
++/**
++ * nfp_cpp_mutex_init() - Initialize a mutex location
++ * @cpp:	NFP CPP handle
++ * @target:	NFP CPP target ID (ie NFP_CPP_TARGET_CLS or NFP_CPP_TARGET_MU)
++ * @address:	Offset into the address space of the NFP CPP target ID
++ * @key:	Unique 32-bit value for this mutex
++ *
++ * The CPP target:address must point to a 64-bit aligned location, and
++ * will initialize 64 bits of data at the location.
++ *
++ * This creates the initial mutex state, as locked by this
++ * nfp_cpp_interface().
++ *
++ * This function should only be called when setting up
++ * the initial lock state upon boot-up of the system.
++ *
++ * Return: 0 on success, or -errno on failure
++ */
++int nfp_cpp_mutex_init(struct nfp_cpp *cpp,
++		       int target, unsigned long long address, u32 key)
++{
++	const u32 muw = NFP_CPP_ID(target, 4, 0);    /* atomic_write */
++	u16 interface = nfp_cpp_interface(cpp);
++	int err;
++
++	err = nfp_cpp_mutex_validate(interface, &target, address);
 +	if (err)
 +		return err;
 +
-+	/* Get MSI-X vectors */
-+	wanted_irqs = 0;
-+	list_for_each_entry(nn, &pf->ports, port_list)
-+		wanted_irqs += NFP_NET_NON_Q_VECTORS + nn->num_r_vecs;
-+	pf->irq_entries = kcalloc(wanted_irqs, sizeof(*pf->irq_entries),
-+				  GFP_KERNEL);
-+	if (!pf->irq_entries) {
-+		err = -ENOMEM;
-+		goto err_nn_free;
-+	}
++	err = nfp_cpp_writel(cpp, muw, address + 4, key);
++	if (err)
++		return err;
 +
-+	num_irqs = nfp_net_irqs_alloc(pf->pdev, pf->irq_entries,
-+				      NFP_NET_MIN_PORT_IRQS * pf->num_ports,
-+				      wanted_irqs);
-+	if (!num_irqs) {
-+		nn_warn(nn, "Unable to allocate MSI-X Vectors. Exiting\n");
-+		err = -ENOMEM;
-+		goto err_vec_free;
-+	}
-+
-+	/* Distribute IRQs to ports */
-+	irqs_left = num_irqs;
-+	ports_left = pf->num_ports;
-+	list_for_each_entry(nn, &pf->ports, port_list) {
-+		unsigned int n;
-+
-+		n = DIV_ROUND_UP(irqs_left, ports_left);
-+		nfp_net_irqs_assign(nn, &pf->irq_entries[num_irqs - irqs_left],
-+				    n);
-+		irqs_left -= n;
-+		ports_left--;
-+	}
-+
-+	/* Finish netdev init and register */
-+	id = 0;
-+	list_for_each_entry(nn, &pf->ports, port_list) {
-+		err = nfp_net_pf_init_port_netdev(pf, nn, id);
-+		if (err)
-+			goto err_prev_deinit;
-+
-+		id++;
-+	}
++	err = nfp_cpp_writel(cpp, muw, address, nfp_mutex_locked(interface));
++	if (err)
++		return err;
 +
 +	return 0;
++}
 +
-+err_prev_deinit:
-+	list_for_each_entry_continue_reverse(nn, &pf->ports, port_list) {
-+		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
-+		nfp_net_netdev_clean(nn->netdev);
++/**
++ * nfp_cpp_mutex_alloc() - Create a mutex handle
++ * @cpp:	NFP CPP handle
++ * @target:	NFP CPP target ID (ie NFP_CPP_TARGET_CLS or NFP_CPP_TARGET_MU)
++ * @address:	Offset into the address space of the NFP CPP target ID
++ * @key:	32-bit unique key (must match the key at this location)
++ *
++ * The CPP target:address must point to a 64-bit aligned location, and
++ * reserve 64 bits of data at the location for use by the handle.
++ *
++ * Only target/address pairs that point to entities that support the
++ * MU Atomic Engine's CmpAndSwap32 command are supported.
++ *
++ * Return:	A non-NULL struct nfp_cpp_mutex * on success, NULL on failure.
++ */
++struct nfp_cpp_mutex *nfp_cpp_mutex_alloc(struct nfp_cpp *cpp, int target,
++					  unsigned long long address, u32 key)
++{
++	const u32 mur = NFP_CPP_ID(target, 3, 0);    /* atomic_read */
++	u16 interface = nfp_cpp_interface(cpp);
++	struct nfp_cpp_mutex *mutex;
++	int err;
++	u32 tmp;
++
++	err = nfp_cpp_mutex_validate(interface, &target, address);
++	if (err)
++		return NULL;
++
++	/* Look for mutex on cache list */
++	list_for_each_entry(mutex, &cpp->mutex_cache, list) {
++		if (mutex->target == target && mutex->address == address) {
++			mutex->usage++;
++			return mutex;
++		}
 +	}
-+	nfp_net_irqs_disable(pf->pdev);
-+err_vec_free:
-+	kfree(pf->irq_entries);
-+err_nn_free:
-+	nfp_net_pf_free_netdevs(pf);
++
++	err = nfp_cpp_readl(cpp, mur, address + 4, &tmp);
++	if (err < 0)
++		return NULL;
++
++	if (tmp != key)
++		return NULL;
++
++	mutex = kzalloc(sizeof(*mutex), GFP_KERNEL);
++	if (!mutex)
++		return NULL;
++
++	mutex->cpp = cpp;
++	mutex->target = target;
++	mutex->address = address;
++	mutex->key = key;
++	mutex->depth = 0;
++	mutex->usage = 1;
++
++	/* Add mutex to cache list */
++	list_add(&mutex->list, &cpp->mutex_cache);
++
++	return mutex;
++}
++
++/**
++ * nfp_cpp_mutex_free() - Free a mutex handle - does not alter the lock state
++ * @mutex:	NFP CPP Mutex handle
++ */
++void nfp_cpp_mutex_free(struct nfp_cpp_mutex *mutex)
++{
++	if (--mutex->usage)
++		return;
++
++	/* Remove mutex from cache */
++	list_del(&mutex->list);
++	kfree(mutex);
++}
++
++/**
++ * nfp_cpp_mutex_lock() - Lock a mutex handle, using the NFP MU Atomic Engine
++ * @mutex:	NFP CPP Mutex handle
++ *
++ * Return: 0 on success, or -errno on failure
++ */
++int nfp_cpp_mutex_lock(struct nfp_cpp_mutex *mutex)
++{
++	unsigned long warn_at = jiffies + 15 * HZ;
++	unsigned int timeout_ms = 1;
++	int err;
++
++	/* We can't use a waitqueue here, because the unlocker
++	 * might be on a separate CPU.
++	 *
++	 * So just wait for now.
++	 */
++	for (;;) {
++		err = nfp_cpp_mutex_trylock(mutex);
++		if (err != -EBUSY)
++			break;
++
++		err = msleep_interruptible(timeout_ms);
++		if (err != 0)
++			return -ERESTARTSYS;
++
++		if (time_is_before_eq_jiffies(warn_at)) {
++			warn_at = jiffies + 60 * HZ;
++			dev_warn(mutex->cpp->dev.parent,
++				 "Warning: waiting for NFP mutex [usage:%hd depth:%hd target:%d addr:%llx key:%08x]\n",
++				 mutex->usage, mutex->depth,
++				 mutex->target, mutex->address, mutex->key);
++		}
++	}
++
 +	return err;
 +}
++
++/**
++ * nfp_cpp_mutex_unlock() - Unlock a mutex handle, using the MU Atomic Engine
++ * @mutex:	NFP CPP Mutex handle
++ *
++ * Return: 0 on success, or -errno on failure
++ */
++int nfp_cpp_mutex_unlock(struct nfp_cpp_mutex *mutex)
++{
++	const u32 muw = NFP_CPP_ID(mutex->target, 4, 0);    /* atomic_write */
++	const u32 mur = NFP_CPP_ID(mutex->target, 3, 0);    /* atomic_read */
++	struct nfp_cpp *cpp = mutex->cpp;
++	u32 key, value;
++	u16 interface;
++	int err;
++
++	interface = nfp_cpp_interface(cpp);
++
++	if (mutex->depth > 1) {
++		mutex->depth--;
++		return 0;
++	}
++
++	err = nfp_cpp_readl(mutex->cpp, mur, mutex->address + 4, &key);
++	if (err < 0)
++		return err;
++
++	if (key != mutex->key)
++		return -EPERM;
++
++	err = nfp_cpp_readl(mutex->cpp, mur, mutex->address, &value);
++	if (err < 0)
++		return err;
++
++	if (value != nfp_mutex_locked(interface))
++		return -EACCES;
++
++	err = nfp_cpp_writel(cpp, muw, mutex->address,
++			     nfp_mutex_unlocked(interface));
++	if (err < 0)
++		return err;
++
++	mutex->depth = 0;
++	return 0;
++}
++
++/**
++ * nfp_cpp_mutex_trylock() - Attempt to lock a mutex handle
++ * @mutex:	NFP CPP Mutex handle
++ *
++ * Return:      0 if the lock succeeded, -errno on failure
++ */
++int nfp_cpp_mutex_trylock(struct nfp_cpp_mutex *mutex)
++{
++	const u32 muw = NFP_CPP_ID(mutex->target, 4, 0);    /* atomic_write */
++	const u32 mus = NFP_CPP_ID(mutex->target, 5, 3);    /* test_set_imm */
++	const u32 mur = NFP_CPP_ID(mutex->target, 3, 0);    /* atomic_read */
++	struct nfp_cpp *cpp = mutex->cpp;
++	u32 key, value, tmp;
++	int err;
++
++	if (mutex->depth > 0) {
++		if (mutex->depth == MUTEX_DEPTH_MAX)
++			return -E2BIG;
++		mutex->depth++;
++		return 0;
++	}
++
++	/* Verify that the lock marker is not damaged */
++	err = nfp_cpp_readl(cpp, mur, mutex->address + 4, &key);
++	if (err < 0)
++		return err;
++
++	if (key != mutex->key)
++		return -EPERM;
++
++	/* Compare against the unlocked state, and if true,
++	 * write the interface id into the top 16 bits, and
++	 * mark as locked.
++	 */
++	value = nfp_mutex_locked(nfp_cpp_interface(cpp));
++
++	/* We use test_set_imm here, as it implies a read
++	 * of the current state, and sets the bits in the
++	 * bytemask of the command to 1s. Since the mutex
++	 * is guaranteed to be 64-bit aligned, the bytemask
++	 * of this 32-bit command is ensured to be 8'b00001111,
++	 * which implies that the lower 4 bits will be set to
++	 * ones regardless of the initial state.
++	 *
++	 * Since this is a 'Readback' operation, with no Pull
++	 * data, we can treat this as a normal Push (read)
++	 * atomic, which returns the original value.
++	 */
++	err = nfp_cpp_readl(cpp, mus, mutex->address, &tmp);
++	if (err < 0)
++		return err;
++
++	/* Was it unlocked? */
++	if (nfp_mutex_is_unlocked(tmp)) {
++		/* The read value can only be 0x....0000 in the unlocked state.
++		 * If there was another contending for this lock, then
++		 * the lock state would be 0x....000f
++		 */
++
++		/* Write our owner ID into the lock
++		 * While not strictly necessary, this helps with
++		 * debug and bookkeeping.
++		 */
++		err = nfp_cpp_writel(cpp, muw, mutex->address, value);
++		if (err < 0)
++			return err;
++
++		mutex->depth = 1;
++		return 0;
++	}
++
++	/* Already locked by us? Success! */
++	if (tmp == value) {
++		mutex->depth = 1;
++		return 0;
++	}
++
++	return nfp_mutex_is_locked(tmp) ? -EBUSY : -EINVAL;
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c
+new file mode 100644
+index 000000000000..0ba0379b8f75
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cpplib.c
+@@ -0,0 +1,281 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
 +
 +/*
-+ * PCI device functions
++ * nfp_cpplib.c
++ * Library of functions to access the NFP's CPP bus
++ * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
++ *          Jason McMullan <jason.mcmullan@netronome.com>
++ *          Rolf Neugebauer <rolf.neugebauer@netronome.com>
 + */
-+int nfp_net_pci_probe(struct nfp_pf *pf)
++
++#include <asm/unaligned.h>
++#include <linux/bitfield.h>
++#include <linux/delay.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/sched.h>
++
++#include "nfp_cpp.h"
++#include "nfp6000/nfp6000.h"
++#include "nfp6000/nfp_xpb.h"
++
++/* NFP6000 PL */
++#define NFP_PL_DEVICE_ID			0x00000004
++#define   NFP_PL_DEVICE_ID_MASK			GENMASK(7, 0)
++
++#define NFP6000_ARM_GCSR_SOFTMODEL0		0x00400144
++
++/**
++ * nfp_cpp_readl() - Read a u32 word from a CPP location
++ * @cpp:	CPP device handle
++ * @cpp_id:	CPP ID for operation
++ * @address:	Address for operation
++ * @value:	Pointer to read buffer
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_readl(struct nfp_cpp *cpp, u32 cpp_id,
++		  unsigned long long address, u32 *value)
 +{
-+	u8 __iomem *ctrl_bar, *tx_bar, *rx_bar;
-+	u32 total_tx_qcs, total_rx_qcs;
-+	struct nfp_net_fw_version fw_ver;
-+	u32 tx_area_sz, rx_area_sz;
-+	u32 start_q;
-+	int stride;
++	u8 tmp[4];
 +	int err;
 +
-+	/* Verify that the board has completed initialization */
-+	if (!nfp_is_ready(pf->cpp)) {
-+		nfp_err(pf->cpp, "NFP is not ready for NIC operation.\n");
-+		return -EINVAL;
-+	}
++	err = nfp_cpp_read(cpp, cpp_id, address, tmp, sizeof(tmp));
++	*value = get_unaligned_le32(tmp);
 +
-+	pf->num_ports = nfp_net_pf_get_num_ports(pf);
-+
-+	ctrl_bar = nfp_net_pf_map_ctrl_bar(pf);
-+	if (!ctrl_bar)
-+		return pf->fw_loaded ? -EINVAL : -EPROBE_DEFER;
-+
-+	nfp_net_get_fw_version(&fw_ver, ctrl_bar);
-+	if (fw_ver.resv || fw_ver.class != NFP_NET_CFG_VERSION_CLASS_GENERIC) {
-+		nfp_err(pf->cpp, "Unknown Firmware ABI %d.%d.%d.%d\n",
-+			fw_ver.resv, fw_ver.class, fw_ver.major, fw_ver.minor);
-+		err = -EINVAL;
-+		goto err_ctrl_unmap;
-+	}
-+
-+	/* Determine stride */
-+	if (nfp_net_fw_ver_eq(&fw_ver, 0, 0, 0, 1)) {
-+		stride = 2;
-+		nfp_warn(pf->cpp, "OBSOLETE Firmware detected - VF isolation not available\n");
-+	} else {
-+		switch (fw_ver.major) {
-+		case 1 ... 4:
-+			stride = 4;
-+			break;
-+		default:
-+			nfp_err(pf->cpp, "Unsupported Firmware ABI %d.%d.%d.%d\n",
-+				fw_ver.resv, fw_ver.class,
-+				fw_ver.major, fw_ver.minor);
-+			err = -EINVAL;
-+			goto err_ctrl_unmap;
-+		}
-+	}
-+
-+	/* Find how many QC structs need to be mapped */
-+	total_tx_qcs = nfp_net_pf_total_qcs(pf, ctrl_bar, stride,
-+					    NFP_NET_CFG_START_TXQ,
-+					    NFP_NET_CFG_MAX_TXRINGS);
-+	total_rx_qcs = nfp_net_pf_total_qcs(pf, ctrl_bar, stride,
-+					    NFP_NET_CFG_START_RXQ,
-+					    NFP_NET_CFG_MAX_RXRINGS);
-+	if (!total_tx_qcs || !total_rx_qcs) {
-+		nfp_err(pf->cpp, "Invalid PF QC configuration [%d,%d]\n",
-+			total_tx_qcs, total_rx_qcs);
-+		err = -EINVAL;
-+		goto err_ctrl_unmap;
-+	}
-+
-+	tx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * total_tx_qcs;
-+	rx_area_sz = NFP_QCP_QUEUE_ADDR_SZ * total_rx_qcs;
-+
-+	/* Map TX queues */
-+	start_q = readl(ctrl_bar + NFP_NET_CFG_START_TXQ);
-+	tx_bar = nfp_net_map_area(pf->cpp, "net.tx", 0, 0,
-+				  NFP_PCIE_QUEUE(start_q),
-+				  tx_area_sz, &pf->tx_area);
-+	if (IS_ERR(tx_bar)) {
-+		nfp_err(pf->cpp, "Failed to map TX area.\n");
-+		err = PTR_ERR(tx_bar);
-+		goto err_ctrl_unmap;
-+	}
-+
-+	/* Map RX queues */
-+	start_q = readl(ctrl_bar + NFP_NET_CFG_START_RXQ);
-+	rx_bar = nfp_net_map_area(pf->cpp, "net.rx", 0, 0,
-+				  NFP_PCIE_QUEUE(start_q),
-+				  rx_area_sz, &pf->rx_area);
-+	if (IS_ERR(rx_bar)) {
-+		nfp_err(pf->cpp, "Failed to map RX area.\n");
-+		err = PTR_ERR(rx_bar);
-+		goto err_unmap_tx;
-+	}
-+
-+	pf->ddir = nfp_net_debugfs_device_add(pf->pdev);
-+
-+	err = nfp_net_pf_spawn_netdevs(pf, ctrl_bar, tx_bar, rx_bar,
-+				       stride, &fw_ver);
-+	if (err)
-+		goto err_clean_ddir;
-+
-+	return 0;
-+
-+err_clean_ddir:
-+	nfp_net_debugfs_dir_clean(&pf->ddir);
-+	nfp_cpp_area_release_free(pf->rx_area);
-+err_unmap_tx:
-+	nfp_cpp_area_release_free(pf->tx_area);
-+err_ctrl_unmap:
-+	nfp_cpp_area_release_free(pf->ctrl_area);
 +	return err;
 +}
 +
-+void nfp_net_pci_remove(struct nfp_pf *pf)
++/**
++ * nfp_cpp_writel() - Write a u32 word to a CPP location
++ * @cpp:	CPP device handle
++ * @cpp_id:	CPP ID for operation
++ * @address:	Address for operation
++ * @value:	Value to write
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_writel(struct nfp_cpp *cpp, u32 cpp_id,
++		   unsigned long long address, u32 value)
 +{
-+	struct nfp_net *nn;
++	u8 tmp[4];
 +
-+	list_for_each_entry(nn, &pf->ports, port_list) {
-+		nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
++	put_unaligned_le32(value, tmp);
++	return nfp_cpp_write(cpp, cpp_id, address, tmp, sizeof(tmp));
++}
 +
-+		nfp_net_netdev_clean(nn->netdev);
++/**
++ * nfp_cpp_readq() - Read a u64 word from a CPP location
++ * @cpp:	CPP device handle
++ * @cpp_id:	CPP ID for operation
++ * @address:	Address for operation
++ * @value:	Pointer to read buffer
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_readq(struct nfp_cpp *cpp, u32 cpp_id,
++		  unsigned long long address, u64 *value)
++{
++	u8 tmp[8];
++	int err;
++
++	err = nfp_cpp_read(cpp, cpp_id, address, tmp, sizeof(tmp));
++	*value = get_unaligned_le64(tmp);
++
++	return err;
++}
++
++/**
++ * nfp_cpp_writeq() - Write a u64 word to a CPP location
++ * @cpp:	CPP device handle
++ * @cpp_id:	CPP ID for operation
++ * @address:	Address for operation
++ * @value:	Value to write
++ *
++ * Return: length of the io, or -ERRNO
++ */
++int nfp_cpp_writeq(struct nfp_cpp *cpp, u32 cpp_id,
++		   unsigned long long address, u64 value)
++{
++	u8 tmp[8];
++
++	put_unaligned_le64(value, tmp);
++	return nfp_cpp_write(cpp, cpp_id, address, tmp, sizeof(tmp));
++}
++
++/* NOTE: This code should not use nfp_xpb_* functions,
++ * as those are model-specific
++ */
++int nfp_cpp_model_autodetect(struct nfp_cpp *cpp, u32 *model)
++{
++	const u32 arm_id = NFP_CPP_ID(NFP_CPP_TARGET_ARM, 0, 0);
++	u32 reg;
++	int err;
++
++	err = nfp_cpp_readl(cpp, arm_id, NFP6000_ARM_GCSR_SOFTMODEL0, model);
++	if (err < 0)
++		return err;
++
++	/* The PL's PluDeviceID revision code is authoratative */
++	*model &= ~0xff;
++	err = nfp_xpb_readl(cpp, NFP_XPB_DEVICE(1, 1, 16) + NFP_PL_DEVICE_ID,
++			    &reg);
++	if (err < 0)
++		return err;
++
++	*model |= (NFP_PL_DEVICE_ID_MASK & reg) - 0x10;
++
++	return 0;
++}
++
++static u8 nfp_bytemask(int width, u64 addr)
++{
++	if (width == 8)
++		return 0xff;
++	else if (width == 4)
++		return 0x0f << (addr & 4);
++	else if (width == 2)
++		return 0x03 << (addr & 6);
++	else if (width == 1)
++		return 0x01 << (addr & 7);
++	else
++		return 0;
++}
++
++int nfp_cpp_explicit_read(struct nfp_cpp *cpp, u32 cpp_id,
++			  u64 addr, void *buff, size_t len, int width_read)
++{
++	struct nfp_cpp_explicit *expl;
++	char *tmp = buff;
++	int err, i, incr;
++	u8 byte_mask;
++
++	if (len & (width_read - 1))
++		return -EINVAL;
++
++	expl = nfp_cpp_explicit_acquire(cpp);
++	if (!expl)
++		return -EBUSY;
++
++	incr = min_t(int, 16 * width_read, 128);
++	incr = min_t(int, incr, len);
++
++	/* Translate a NFP_CPP_ACTION_RW to action 0 */
++	if (NFP_CPP_ID_ACTION_of(cpp_id) == NFP_CPP_ACTION_RW)
++		cpp_id = NFP_CPP_ID(NFP_CPP_ID_TARGET_of(cpp_id), 0,
++				    NFP_CPP_ID_TOKEN_of(cpp_id));
++
++	byte_mask = nfp_bytemask(width_read, addr);
++
++	nfp_cpp_explicit_set_target(expl, cpp_id,
++				    incr / width_read - 1, byte_mask);
++	nfp_cpp_explicit_set_posted(expl, 1, 0, NFP_SIGNAL_PUSH,
++				    0, NFP_SIGNAL_NONE);
++
++	for (i = 0; i < len; i += incr, addr += incr, tmp += incr) {
++		if (i + incr > len) {
++			incr = len - i;
++			nfp_cpp_explicit_set_target(expl, cpp_id,
++						    incr / width_read - 1,
++						    0xff);
++		}
++
++		err = nfp_cpp_explicit_do(expl, addr);
++		if (err < 0)
++			goto exit_release;
++
++		err = nfp_cpp_explicit_get(expl, tmp, incr);
++		if (err < 0)
++			goto exit_release;
++	}
++	err = len;
++exit_release:
++	nfp_cpp_explicit_release(expl);
++
++	return err;
++}
++
++int nfp_cpp_explicit_write(struct nfp_cpp *cpp, u32 cpp_id, u64 addr,
++			   const void *buff, size_t len, int width_write)
++{
++	struct nfp_cpp_explicit *expl;
++	const char *tmp = buff;
++	int err, i, incr;
++	u8 byte_mask;
++
++	if (len & (width_write - 1))
++		return -EINVAL;
++
++	expl = nfp_cpp_explicit_acquire(cpp);
++	if (!expl)
++		return -EBUSY;
++
++	incr = min_t(int, 16 * width_write, 128);
++	incr = min_t(int, incr, len);
++
++	/* Translate a NFP_CPP_ACTION_RW to action 1 */
++	if (NFP_CPP_ID_ACTION_of(cpp_id) == NFP_CPP_ACTION_RW)
++		cpp_id = NFP_CPP_ID(NFP_CPP_ID_TARGET_of(cpp_id), 1,
++				    NFP_CPP_ID_TOKEN_of(cpp_id));
++
++	byte_mask = nfp_bytemask(width_write, addr);
++
++	nfp_cpp_explicit_set_target(expl, cpp_id,
++				    incr / width_write - 1, byte_mask);
++	nfp_cpp_explicit_set_posted(expl, 1, 0, NFP_SIGNAL_PULL,
++				    0, NFP_SIGNAL_NONE);
++
++	for (i = 0; i < len; i += incr, addr += incr, tmp += incr) {
++		if (i + incr > len) {
++			incr = len - i;
++			nfp_cpp_explicit_set_target(expl, cpp_id,
++						    incr / width_write - 1,
++						    0xff);
++		}
++
++		err = nfp_cpp_explicit_put(expl, tmp, incr);
++		if (err < 0)
++			goto exit_release;
++
++		err = nfp_cpp_explicit_do(expl, addr);
++		if (err < 0)
++			goto exit_release;
++	}
++	err = len;
++exit_release:
++	nfp_cpp_explicit_release(expl);
++
++	return err;
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_target.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_target.c
+new file mode 100644
+index 000000000000..4ea1e585d945
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_target.c
+@@ -0,0 +1,764 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp_target.c
++ * CPP Access Width Decoder
++ * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
++ *          Jason McMullan <jason.mcmullan@netronome.com>
++ *          Francois H. Theron <francois.theron@netronome.com>
++ */
++
++#include <linux/bitops.h>
++
++#include "nfp_cpp.h"
++
++#include "nfp6000/nfp6000.h"
++
++#define P32 1
++#define P64 2
++
++/* This structure ONLY includes items that can be done with a read or write of
++ * 32-bit or 64-bit words. All others are not listed.
++ */
++
++#define AT(_action, _token, _pull, _push)				\
++	case NFP_CPP_ID(0, (_action), (_token)):			\
++		return PUSHPULL((_pull), (_push))
++
++static int target_rw(u32 cpp_id, int pp, int start, int len)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 0,  0, pp);
++	AT(1, 0, pp,  0);
++	AT(NFP_CPP_ACTION_RW, 0, pp, pp);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp6000_nbi_dma(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 0,   0, P64);	/* ReadNbiDma */
++	AT(1, 0,   P64, 0);	/* WriteNbiDma */
++	AT(NFP_CPP_ACTION_RW, 0, P64, P64);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp6000_nbi_stats(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 0,   0, P32);	/* ReadNbiStats */
++	AT(1, 0,   P32, 0);	/* WriteNbiStats */
++	AT(NFP_CPP_ACTION_RW, 0, P32, P32);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp6000_nbi_tm(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 0,   0, P64);	/* ReadNbiTM */
++	AT(1, 0,   P64, 0);	/* WriteNbiTM */
++	AT(NFP_CPP_ACTION_RW, 0, P64, P64);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp6000_nbi_ppc(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 0,   0, P64);	/* ReadNbiPreclassifier */
++	AT(1, 0,   P64, 0);	/* WriteNbiPreclassifier */
++	AT(NFP_CPP_ACTION_RW, 0, P64, P64);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp6000_nbi(u32 cpp_id, u64 address)
++{
++	u64 rel_addr = address & 0x3fFFFF;
++
++	if (rel_addr < (1 << 20))
++		return nfp6000_nbi_dma(cpp_id);
++	if (rel_addr < (2 << 20))
++		return nfp6000_nbi_stats(cpp_id);
++	if (rel_addr < (3 << 20))
++		return nfp6000_nbi_tm(cpp_id);
++	return nfp6000_nbi_ppc(cpp_id);
++}
++
++/* This structure ONLY includes items that can be done with a read or write of
++ * 32-bit or 64-bit words. All others are not listed.
++ */
++static int nfp6000_mu_common(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(NFP_CPP_ACTION_RW, 0, P64, P64);	/* read_be/write_be */
++	AT(NFP_CPP_ACTION_RW, 1, P64, P64);	/* read_le/write_le */
++	AT(NFP_CPP_ACTION_RW, 2, P64, P64);	/* read_swap_be/write_swap_be */
++	AT(NFP_CPP_ACTION_RW, 3, P64, P64);	/* read_swap_le/write_swap_le */
++	AT(0, 0,   0, P64);	/* read_be */
++	AT(0, 1,   0, P64);	/* read_le */
++	AT(0, 2,   0, P64);	/* read_swap_be */
++	AT(0, 3,   0, P64);	/* read_swap_le */
++	AT(1, 0, P64,   0);	/* write_be */
++	AT(1, 1, P64,   0);	/* write_le */
++	AT(1, 2, P64,   0);	/* write_swap_be */
++	AT(1, 3, P64,   0);	/* write_swap_le */
++	AT(3, 0,   0, P32);	/* atomic_read */
++	AT(3, 2, P32,   0);	/* mask_compare_write */
++	AT(4, 0, P32,   0);	/* atomic_write */
++	AT(4, 2,   0,   0);	/* atomic_write_imm */
++	AT(4, 3,   0, P32);	/* swap_imm */
++	AT(5, 0, P32,   0);	/* set */
++	AT(5, 3,   0, P32);	/* test_set_imm */
++	AT(6, 0, P32,   0);	/* clr */
++	AT(6, 3,   0, P32);	/* test_clr_imm */
++	AT(7, 0, P32,   0);	/* add */
++	AT(7, 3,   0, P32);	/* test_add_imm */
++	AT(8, 0, P32,   0);	/* addsat */
++	AT(8, 3,   0, P32);	/* test_subsat_imm */
++	AT(9, 0, P32,   0);	/* sub */
++	AT(9, 3,   0, P32);	/* test_sub_imm */
++	AT(10, 0, P32,   0);	/* subsat */
++	AT(10, 3,   0, P32);	/* test_subsat_imm */
++	AT(13, 0,   0, P32);	/* microq128_get */
++	AT(13, 1,   0, P32);	/* microq128_pop */
++	AT(13, 2, P32,   0);	/* microq128_put */
++	AT(15, 0, P32,   0);	/* xor */
++	AT(15, 3,   0, P32);	/* test_xor_imm */
++	AT(28, 0,   0, P32);	/* read32_be */
++	AT(28, 1,   0, P32);	/* read32_le */
++	AT(28, 2,   0, P32);	/* read32_swap_be */
++	AT(28, 3,   0, P32);	/* read32_swap_le */
++	AT(31, 0, P32,   0);	/* write32_be */
++	AT(31, 1, P32,   0);	/* write32_le */
++	AT(31, 2, P32,   0);	/* write32_swap_be */
++	AT(31, 3, P32,   0);	/* write32_swap_le */
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp6000_mu_ctm(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(16, 1,   0, P32);	/* packet_read_packet_status */
++	AT(17, 1,   0, P32);	/* packet_credit_get */
++	AT(17, 3,   0, P64);	/* packet_add_thread */
++	AT(18, 2,   0, P64);	/* packet_free_and_return_pointer */
++	AT(18, 3,   0, P64);	/* packet_return_pointer */
++	AT(21, 0,   0, P64);	/* pe_dma_to_memory_indirect */
++	AT(21, 1,   0, P64);	/* pe_dma_to_memory_indirect_swap */
++	AT(21, 2,   0, P64);	/* pe_dma_to_memory_indirect_free */
++	AT(21, 3,   0, P64);	/* pe_dma_to_memory_indirect_free_swap */
++	default:
++		return nfp6000_mu_common(cpp_id);
++	}
++}
++
++static int nfp6000_mu_emu(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(18, 0,   0, P32);	/* read_queue */
++	AT(18, 1,   0, P32);	/* read_queue_ring */
++	AT(18, 2, P32,   0);	/* write_queue */
++	AT(18, 3, P32,   0);	/* write_queue_ring */
++	AT(20, 2, P32,   0);	/* journal */
++	AT(21, 0,   0, P32);	/* get */
++	AT(21, 1,   0, P32);	/* get_eop */
++	AT(21, 2,   0, P32);	/* get_freely */
++	AT(22, 0,   0, P32);	/* pop */
++	AT(22, 1,   0, P32);	/* pop_eop */
++	AT(22, 2,   0, P32);	/* pop_freely */
++	default:
++		return nfp6000_mu_common(cpp_id);
++	}
++}
++
++static int nfp6000_mu_imu(u32 cpp_id)
++{
++	return nfp6000_mu_common(cpp_id);
++}
++
++static int nfp6000_mu(u32 cpp_id, u64 address)
++{
++	int pp;
++
++	if (address < 0x2000000000ULL)
++		pp = nfp6000_mu_ctm(cpp_id);
++	else if (address < 0x8000000000ULL)
++		pp = nfp6000_mu_emu(cpp_id);
++	else if (address < 0x9800000000ULL)
++		pp = nfp6000_mu_ctm(cpp_id);
++	else if (address < 0x9C00000000ULL)
++		pp = nfp6000_mu_emu(cpp_id);
++	else if (address < 0xA000000000ULL)
++		pp = nfp6000_mu_imu(cpp_id);
++	else
++		pp = nfp6000_mu_ctm(cpp_id);
++
++	return pp;
++}
++
++static int nfp6000_ila(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 1,   0, P32);	/* read_check_error */
++	AT(2, 0,   0, P32);	/* read_int */
++	AT(3, 0, P32,   0);	/* write_int */
++	default:
++		return target_rw(cpp_id, P32, 48, 4);
++	}
++}
++
++static int nfp6000_pci(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(2, 0,   0, P32);
++	AT(3, 0, P32,   0);
++	default:
++		return target_rw(cpp_id, P32, 4, 4);
++	}
++}
++
++static int nfp6000_crypto(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(2, 0, P64,   0);
++	default:
++		return target_rw(cpp_id, P64, 12, 4);
++	}
++}
++
++static int nfp6000_cap_xpb(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 1,   0, P32); /* RingGet */
++	AT(0, 2, P32,   0); /* Interthread Signal */
++	AT(1, 1, P32,   0); /* RingPut */
++	AT(1, 2, P32,   0); /* CTNNWr */
++	AT(2, 0,   0, P32); /* ReflectRd, signal none */
++	AT(2, 1,   0, P32); /* ReflectRd, signal self */
++	AT(2, 2,   0, P32); /* ReflectRd, signal remote */
++	AT(2, 3,   0, P32); /* ReflectRd, signal both */
++	AT(3, 0, P32,   0); /* ReflectWr, signal none */
++	AT(3, 1, P32,   0); /* ReflectWr, signal self */
++	AT(3, 2, P32,   0); /* ReflectWr, signal remote */
++	AT(3, 3, P32,   0); /* ReflectWr, signal both */
++	AT(NFP_CPP_ACTION_RW, 1, P32, P32);
++	default:
++		return target_rw(cpp_id, P32, 1, 63);
++	}
++}
++
++static int nfp6000_cls(u32 cpp_id)
++{
++	switch (cpp_id & NFP_CPP_ID(0, ~0, ~0)) {
++	AT(0, 3, P32,  0); /* xor */
++	AT(2, 0, P32,  0); /* set */
++	AT(2, 1, P32,  0); /* clr */
++	AT(4, 0, P32,  0); /* add */
++	AT(4, 1, P32,  0); /* add64 */
++	AT(6, 0, P32,  0); /* sub */
++	AT(6, 1, P32,  0); /* sub64 */
++	AT(6, 2, P32,  0); /* subsat */
++	AT(8, 2, P32,  0); /* hash_mask */
++	AT(8, 3, P32,  0); /* hash_clear */
++	AT(9, 0,  0, P32); /* ring_get */
++	AT(9, 1,  0, P32); /* ring_pop */
++	AT(9, 2,  0, P32); /* ring_get_freely */
++	AT(9, 3,  0, P32); /* ring_pop_freely */
++	AT(10, 0, P32,  0); /* ring_put */
++	AT(10, 2, P32,  0); /* ring_journal */
++	AT(14, 0,  P32, 0); /* reflect_write_sig_local */
++	AT(15, 1,  0, P32); /* reflect_read_sig_local */
++	AT(17, 2, P32,  0); /* statisic */
++	AT(24, 0,  0, P32); /* ring_read */
++	AT(24, 1, P32,  0); /* ring_write */
++	AT(25, 0,  0, P32); /* ring_workq_add_thread */
++	AT(25, 1, P32,  0); /* ring_workq_add_work */
++	default:
++		return target_rw(cpp_id, P32, 0, 64);
++	}
++}
++
++int nfp_target_pushpull(u32 cpp_id, u64 address)
++{
++	switch (NFP_CPP_ID_TARGET_of(cpp_id)) {
++	case NFP_CPP_TARGET_NBI:
++		return nfp6000_nbi(cpp_id, address);
++	case NFP_CPP_TARGET_QDR:
++		return target_rw(cpp_id, P32, 24, 4);
++	case NFP_CPP_TARGET_ILA:
++		return nfp6000_ila(cpp_id);
++	case NFP_CPP_TARGET_MU:
++		return nfp6000_mu(cpp_id, address);
++	case NFP_CPP_TARGET_PCIE:
++		return nfp6000_pci(cpp_id);
++	case NFP_CPP_TARGET_ARM:
++		if (address < 0x10000)
++			return target_rw(cpp_id, P64, 1, 1);
++		else
++			return target_rw(cpp_id, P32, 1, 1);
++	case NFP_CPP_TARGET_CRYPTO:
++		return nfp6000_crypto(cpp_id);
++	case NFP_CPP_TARGET_CT_XPB:
++		return nfp6000_cap_xpb(cpp_id);
++	case NFP_CPP_TARGET_CLS:
++		return nfp6000_cls(cpp_id);
++	case 0:
++		return target_rw(cpp_id, P32, 4, 4);
++	default:
++		return -EINVAL;
++	}
++}
++
++#undef AT
++#undef P32
++#undef P64
++
++/* All magic NFP-6xxx IMB 'mode' numbers here are from:
++ * Databook (1 August 2013)
++ * - System Overview and Connectivity
++ * -- Internal Connectivity
++ * --- Distributed Switch Fabric - Command Push/Pull (DSF-CPP) Bus
++ * ---- CPP addressing
++ * ----- Table 3.6. CPP Address Translation Mode Commands
++ */
++
++#define _NIC_NFP6000_MU_LOCALITY_DIRECT     2
++
++static int nfp_decode_basic(u64 addr, int *dest_island, int cpp_tgt,
++			    int mode, bool addr40, int isld1, int isld0)
++{
++	int iid_lsb, idx_lsb;
++
++	/* This function doesn't handle MU or CTXBP */
++	if (cpp_tgt == NFP_CPP_TARGET_MU || cpp_tgt == NFP_CPP_TARGET_CT_XPB)
++		return -EINVAL;
++
++	switch (mode) {
++	case 0:
++		/* For VQDR, in this mode for 32-bit addressing
++		 * it would be islands 0, 16, 32 and 48 depending on channel
++		 * and upper address bits.
++		 * Since those are not all valid islands, most decode
++		 * cases would result in bad island IDs, but we do them
++		 * anyway since this is decoding an address that is already
++		 * assumed to be used as-is to get to sram.
++		 */
++		iid_lsb = addr40 ? 34 : 26;
++		*dest_island = (addr >> iid_lsb) & 0x3F;
++		return 0;
++	case 1:
++		/* For VQDR 32-bit, this would decode as:
++		 * Channel 0: island#0
++		 * Channel 1: island#0
++		 * Channel 2: island#1
++		 * Channel 3: island#1
++		 * That would be valid as long as both islands
++		 * have VQDR. Let's allow this.
++		 */
++		idx_lsb = addr40 ? 39 : 31;
++		if (addr & BIT_ULL(idx_lsb))
++			*dest_island = isld1;
++		else
++			*dest_island = isld0;
++
++		return 0;
++	case 2:
++		/* For VQDR 32-bit:
++		 * Channel 0: (island#0 | 0)
++		 * Channel 1: (island#0 | 1)
++		 * Channel 2: (island#1 | 0)
++		 * Channel 3: (island#1 | 1)
++		 *
++		 * Make sure we compare against isldN values
++		 * by clearing the LSB.
++		 * This is what the silicon does.
++		 */
++		isld0 &= ~1;
++		isld1 &= ~1;
++
++		idx_lsb = addr40 ? 39 : 31;
++		iid_lsb = idx_lsb - 1;
++
++		if (addr & BIT_ULL(idx_lsb))
++			*dest_island = isld1 | (int)((addr >> iid_lsb) & 1);
++		else
++			*dest_island = isld0 | (int)((addr >> iid_lsb) & 1);
++
++		return 0;
++	case 3:
++		/* In this mode the data address starts to affect the island ID
++		 * so rather not allow it. In some really specific case
++		 * one could use this to send the upper half of the
++		 * VQDR channel to another MU, but this is getting very
++		 * specific.
++		 * However, as above for mode 0, this is the decoder
++		 * and the caller should validate the resulting IID.
++		 * This blindly does what the silicon would do.
++		 */
++		isld0 &= ~3;
++		isld1 &= ~3;
++
++		idx_lsb = addr40 ? 39 : 31;
++		iid_lsb = idx_lsb - 2;
++
++		if (addr & BIT_ULL(idx_lsb))
++			*dest_island = isld1 | (int)((addr >> iid_lsb) & 3);
++		else
++			*dest_island = isld0 | (int)((addr >> iid_lsb) & 3);
++
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp_encode_basic_qdr(u64 addr, int dest_island, int cpp_tgt,
++				int mode, bool addr40, int isld1, int isld0)
++{
++	int v, ret;
++
++	/* Full Island ID and channel bits overlap? */
++	ret = nfp_decode_basic(addr, &v, cpp_tgt, mode, addr40, isld1, isld0);
++	if (ret)
++		return ret;
++
++	/* The current address won't go where expected? */
++	if (dest_island != -1 && dest_island != v)
++		return -EINVAL;
++
++	/* If dest_island was -1, we don't care where it goes. */
++	return 0;
++}
++
++/* Try each option, take first one that fits.
++ * Not sure if we would want to do some smarter
++ * searching and prefer 0 or non-0 island IDs.
++ */
++static int nfp_encode_basic_search(u64 *addr, int dest_island, int *isld,
++				   int iid_lsb, int idx_lsb, int v_max)
++{
++	int i, v;
++
++	for (i = 0; i < 2; i++)
++		for (v = 0; v < v_max; v++) {
++			if (dest_island != (isld[i] | v))
++				continue;
++
++			*addr &= ~GENMASK_ULL(idx_lsb, iid_lsb);
++			*addr |= ((u64)i << idx_lsb);
++			*addr |= ((u64)v << iid_lsb);
++			return 0;
++		}
++
++	return -ENODEV;
++}
++
++/* For VQDR, we may not modify the Channel bits, which might overlap
++ *  with the Index bit. When it does, we need to ensure that isld0 == isld1.
++ */
++static int nfp_encode_basic(u64 *addr, int dest_island, int cpp_tgt,
++			    int mode, bool addr40, int isld1, int isld0)
++{
++	int iid_lsb, idx_lsb;
++	int isld[2];
++	u64 v64;
++
++	isld[0] = isld0;
++	isld[1] = isld1;
++
++	/* This function doesn't handle MU or CTXBP */
++	if (cpp_tgt == NFP_CPP_TARGET_MU || cpp_tgt == NFP_CPP_TARGET_CT_XPB)
++		return -EINVAL;
++
++	switch (mode) {
++	case 0:
++		if (cpp_tgt == NFP_CPP_TARGET_QDR && !addr40)
++			/* In this specific mode we'd rather not modify
++			 * the address but we can verify if the existing
++			 * contents will point to a valid island.
++			 */
++			return nfp_encode_basic_qdr(*addr, cpp_tgt, dest_island,
++						    mode, addr40, isld1, isld0);
++
++		iid_lsb = addr40 ? 34 : 26;
++		/* <39:34> or <31:26> */
++		v64 = GENMASK_ULL(iid_lsb + 5, iid_lsb);
++		*addr &= ~v64;
++		*addr |= ((u64)dest_island << iid_lsb) & v64;
++		return 0;
++	case 1:
++		if (cpp_tgt == NFP_CPP_TARGET_QDR && !addr40)
++			return nfp_encode_basic_qdr(*addr, cpp_tgt, dest_island,
++						    mode, addr40, isld1, isld0);
++
++		idx_lsb = addr40 ? 39 : 31;
++		if (dest_island == isld0) {
++			/* Only need to clear the Index bit */
++			*addr &= ~BIT_ULL(idx_lsb);
++			return 0;
++		}
++
++		if (dest_island == isld1) {
++			/* Only need to set the Index bit */
++			*addr |= BIT_ULL(idx_lsb);
++			return 0;
++		}
++
++		return -ENODEV;
++	case 2:
++		/* iid<0> = addr<30> = channel<0>
++		 * channel<1> = addr<31> = Index
++		 */
++		if (cpp_tgt == NFP_CPP_TARGET_QDR && !addr40)
++			/* Special case where we allow channel bits to
++			 * be set before hand and with them select an island.
++			 * So we need to confirm that it's at least plausible.
++			 */
++			return nfp_encode_basic_qdr(*addr, cpp_tgt, dest_island,
++						    mode, addr40, isld1, isld0);
++
++		/* Make sure we compare against isldN values
++		 * by clearing the LSB.
++		 * This is what the silicon does.
++		 */
++		isld[0] &= ~1;
++		isld[1] &= ~1;
++
++		idx_lsb = addr40 ? 39 : 31;
++		iid_lsb = idx_lsb - 1;
++
++		return nfp_encode_basic_search(addr, dest_island, isld,
++					       iid_lsb, idx_lsb, 2);
++	case 3:
++		if (cpp_tgt == NFP_CPP_TARGET_QDR && !addr40)
++			/* iid<0> = addr<29> = data
++			 * iid<1> = addr<30> = channel<0>
++			 * channel<1> = addr<31> = Index
++			 */
++			return nfp_encode_basic_qdr(*addr, cpp_tgt, dest_island,
++						    mode, addr40, isld1, isld0);
++
++		isld[0] &= ~3;
++		isld[1] &= ~3;
++
++		idx_lsb = addr40 ? 39 : 31;
++		iid_lsb = idx_lsb - 2;
++
++		return nfp_encode_basic_search(addr, dest_island, isld,
++					       iid_lsb, idx_lsb, 4);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp_encode_mu(u64 *addr, int dest_island, int mode,
++			 bool addr40, int isld1, int isld0)
++{
++	int iid_lsb, idx_lsb, locality_lsb;
++	int isld[2];
++	u64 v64;
++	int da;
++
++	isld[0] = isld0;
++	isld[1] = isld1;
++	locality_lsb = nfp_cppat_mu_locality_lsb(mode, addr40);
++
++	if (((*addr >> locality_lsb) & 3) == _NIC_NFP6000_MU_LOCALITY_DIRECT)
++		da = 1;
++	else
++		da = 0;
++
++	switch (mode) {
++	case 0:
++		iid_lsb = addr40 ? 32 : 24;
++		v64 = GENMASK_ULL(iid_lsb + 5, iid_lsb);
++		*addr &= ~v64;
++		*addr |= (((u64)dest_island) << iid_lsb) & v64;
++		return 0;
++	case 1:
++		if (da) {
++			iid_lsb = addr40 ? 32 : 24;
++			v64 = GENMASK_ULL(iid_lsb + 5, iid_lsb);
++			*addr &= ~v64;
++			*addr |= (((u64)dest_island) << iid_lsb) & v64;
++			return 0;
++		}
++
++		idx_lsb = addr40 ? 37 : 29;
++		if (dest_island == isld0) {
++			*addr &= ~BIT_ULL(idx_lsb);
++			return 0;
++		}
++
++		if (dest_island == isld1) {
++			*addr |= BIT_ULL(idx_lsb);
++			return 0;
++		}
++
++		return -ENODEV;
++	case 2:
++		if (da) {
++			iid_lsb = addr40 ? 32 : 24;
++			v64 = GENMASK_ULL(iid_lsb + 5, iid_lsb);
++			*addr &= ~v64;
++			*addr |= (((u64)dest_island) << iid_lsb) & v64;
++			return 0;
++		}
++
++		/* Make sure we compare against isldN values
++		 * by clearing the LSB.
++		 * This is what the silicon does.
++		 */
++		isld[0] &= ~1;
++		isld[1] &= ~1;
++
++		idx_lsb = addr40 ? 37 : 29;
++		iid_lsb = idx_lsb - 1;
++
++		return nfp_encode_basic_search(addr, dest_island, isld,
++					       iid_lsb, idx_lsb, 2);
++	case 3:
++		/* Only the EMU will use 40 bit addressing. Silently
++		 * set the direct locality bit for everyone else.
++		 * The SDK toolchain uses dest_island <= 0 to test
++		 * for atypical address encodings to support access
++		 * to local-island CTM with a 32-but address (high-locality
++		 * is effewctively ignored and just used for
++		 * routing to island #0).
++		 */
++		if (dest_island > 0 && (dest_island < 24 || dest_island > 26)) {
++			*addr |= ((u64)_NIC_NFP6000_MU_LOCALITY_DIRECT)
++							<< locality_lsb;
++			da = 1;
++		}
++
++		if (da) {
++			iid_lsb = addr40 ? 32 : 24;
++			v64 = GENMASK_ULL(iid_lsb + 5, iid_lsb);
++			*addr &= ~v64;
++			*addr |= (((u64)dest_island) << iid_lsb) & v64;
++			return 0;
++		}
++
++		isld[0] &= ~3;
++		isld[1] &= ~3;
++
++		idx_lsb = addr40 ? 37 : 29;
++		iid_lsb = idx_lsb - 2;
++
++		return nfp_encode_basic_search(addr, dest_island, isld,
++					       iid_lsb, idx_lsb, 4);
++	default:
++		return -EINVAL;
++	}
++}
++
++static int nfp_cppat_addr_encode(u64 *addr, int dest_island, int cpp_tgt,
++				 int mode, bool addr40, int isld1, int isld0)
++{
++	switch (cpp_tgt) {
++	case NFP_CPP_TARGET_NBI:
++	case NFP_CPP_TARGET_QDR:
++	case NFP_CPP_TARGET_ILA:
++	case NFP_CPP_TARGET_PCIE:
++	case NFP_CPP_TARGET_ARM:
++	case NFP_CPP_TARGET_CRYPTO:
++	case NFP_CPP_TARGET_CLS:
++		return nfp_encode_basic(addr, dest_island, cpp_tgt, mode,
++					addr40, isld1, isld0);
++
++	case NFP_CPP_TARGET_MU:
++		return nfp_encode_mu(addr, dest_island, mode,
++				     addr40, isld1, isld0);
++
++	case NFP_CPP_TARGET_CT_XPB:
++		if (mode != 1 || addr40)
++			return -EINVAL;
++		*addr &= ~GENMASK_ULL(29, 24);
++		*addr |= ((u64)dest_island << 24) & GENMASK_ULL(29, 24);
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++int nfp_target_cpp(u32 cpp_island_id, u64 cpp_island_address,
++		   u32 *cpp_target_id, u64 *cpp_target_address,
++		   const u32 *imb_table)
++{
++	const int island = NFP_CPP_ID_ISLAND_of(cpp_island_id);
++	const int target = NFP_CPP_ID_TARGET_of(cpp_island_id);
++	u32 imb;
++	int err;
++
++	if (target < 0 || target >= 16)
++		return -EINVAL;
++
++	if (island == 0) {
++		/* Already translated */
++		*cpp_target_id = cpp_island_id;
++		*cpp_target_address = cpp_island_address;
++		return 0;
 +	}
 +
-+	nfp_net_pf_free_netdevs(pf);
++	/* CPP + Island only allowed on systems with IMB tables */
++	if (!imb_table)
++		return -EINVAL;
 +
-+	nfp_net_debugfs_dir_clean(&pf->ddir);
++	imb = imb_table[target];
 +
-+	nfp_net_irqs_disable(pf->pdev);
-+	kfree(pf->irq_entries);
++	*cpp_target_address = cpp_island_address;
++	err = nfp_cppat_addr_encode(cpp_target_address, island, target,
++				    ((imb >> 13) & 7), ((imb >> 12) & 1),
++				    ((imb >> 6)  & 0x3f), ((imb >> 0)  & 0x3f));
++	if (err)
++		return err;
 +
-+	nfp_cpp_area_release_free(pf->rx_area);
-+	nfp_cpp_area_release_free(pf->tx_area);
-+	nfp_cpp_area_release_free(pf->ctrl_area);
++	*cpp_target_id = NFP_CPP_ID(target,
++				    NFP_CPP_ID_ACTION_of(cpp_island_id),
++				    NFP_CPP_ID_TOKEN_of(cpp_island_id));
++
++	return 0;
 +}
 -- 
 2.11.0
