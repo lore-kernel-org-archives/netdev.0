@@ -1,130 +1,185 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] l2tp: do not use udp_ioctl()
-Date: Thu, 09 Feb 2017 16:15:52 -0800
-Message-ID: <1486685752.7793.114.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1486664113.7793.111.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v5 07/11] bpf: Use bpf_map_delete_elem() from the library
+Date: Fri, 10 Feb 2017 00:21:41 +0100
+Message-ID: <20170209232145.19085-8-mic@digikod.net>
+References: <20170209232145.19085-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36760 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752420AbdBJAYW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 19:24:22 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 75so1556760pgf.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 16:24:22 -0800 (PST)
-In-Reply-To: <1486664113.7793.111.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
+        Shuah Khan <shuah@kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170209232145.19085-1-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Replace bpf_map_delete() with bpf_map_delete_elem() calls.
 
-udp_ioctl(), as its name suggests, is used by UDP protocols,
-but is also used by L2TP :(
-
-L2TP should use its own handler, because it really does not
-look the same.
-
-SIOCINQ for instance should not assume UDP checksum or headers.
-
-Thanks to Andrey and syzkaller team for providing the report
-and a nice reproducer.
-
-While crashes only happen on recent kernels (after commit 
-7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")), this
-probably needs to be backported to older kernels.
-
-Fixes: 7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")
-Fixes: 85584672012e ("udp: Fix udp_poll() and ioctl()")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
-Acked-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Shuah Khan <shuah@kernel.org>
 ---
-v2: Adding the EXPORT_SYMBOL(l2tp_ioctl) for ipv6, of course...
+ tools/lib/bpf/bpf.c                        |  2 +-
+ tools/lib/bpf/bpf.h                        |  2 +-
+ tools/testing/selftests/bpf/bpf_sys.h      | 10 ----------
+ tools/testing/selftests/bpf/test_lru_map.c |  6 +++---
+ tools/testing/selftests/bpf/test_maps.c    | 22 +++++++++++-----------
+ 5 files changed, 16 insertions(+), 26 deletions(-)
 
- net/l2tp/l2tp_core.h |    1 +
- net/l2tp/l2tp_ip.c   |   27 ++++++++++++++++++++++++++-
- net/l2tp/l2tp_ip6.c  |    2 +-
- 3 files changed, 28 insertions(+), 2 deletions(-)
-
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 8f560f7140a05694c13904d9b171ba67d9d11292..aebf281d09eeb31c531eb624bd2ddd78cab8da9b 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -263,6 +263,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
- int l2tp_nl_register_ops(enum l2tp_pwtype pw_type,
- 			 const struct l2tp_nl_cmd_ops *ops);
- void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
-+int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg);
- 
- /* Session reference counts. Incremented when code obtains a reference
-  * to a session.
-diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-index 3d73278b86ca34bfbd774dc8f52e490169445e1b..28c21546d5b60dcd07bbf6347389e97c918bf40f 100644
---- a/net/l2tp/l2tp_ip.c
-+++ b/net/l2tp/l2tp_ip.c
-@@ -11,6 +11,7 @@
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
-+#include <asm/ioctls.h>
- #include <linux/icmp.h>
- #include <linux/module.h>
- #include <linux/skbuff.h>
-@@ -553,6 +554,30 @@ static int l2tp_ip_recvmsg(struct sock *sk, struct msghdr *msg,
- 	return err ? err : copied;
+diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+index b1a1f58b99e0..eab8c6bfbf8f 100644
+--- a/tools/lib/bpf/bpf.c
++++ b/tools/lib/bpf/bpf.c
+@@ -124,7 +124,7 @@ int bpf_map_lookup_elem(int fd, const void *key, void *value)
+ 	return sys_bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
  }
  
-+int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg)
-+{
-+	struct sk_buff *skb;
-+	int amount;
-+
-+	switch (cmd) {
-+	case SIOCOUTQ:
-+		amount = sk_wmem_alloc_get(sk);
-+		break;
-+	case SIOCINQ:
-+		spin_lock_bh(&sk->sk_receive_queue.lock);
-+		skb = skb_peek(&sk->sk_receive_queue);
-+		amount = skb ? skb->len : 0;
-+		spin_unlock_bh(&sk->sk_receive_queue.lock);
-+		break;
-+
-+	default:
-+		return -ENOIOCTLCMD;
-+	}
-+
-+	return put_user(amount, (int __user *)arg);
-+}
-+EXPORT_SYMBOL(l2tp_ioctl);
-+
- static struct proto l2tp_ip_prot = {
- 	.name		   = "L2TP/IP",
- 	.owner		   = THIS_MODULE,
-@@ -561,7 +586,7 @@ static struct proto l2tp_ip_prot = {
- 	.bind		   = l2tp_ip_bind,
- 	.connect	   = l2tp_ip_connect,
- 	.disconnect	   = l2tp_ip_disconnect,
--	.ioctl		   = udp_ioctl,
-+	.ioctl		   = l2tp_ioctl,
- 	.destroy	   = l2tp_ip_destroy_sock,
- 	.setsockopt	   = ip_setsockopt,
- 	.getsockopt	   = ip_getsockopt,
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 331ccf5a7bad80e011997e071489d7775b0c68c6..f47c45250f86c9189e0a6bbfd92b21cbe2069406 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -722,7 +722,7 @@ static struct proto l2tp_ip6_prot = {
- 	.bind		   = l2tp_ip6_bind,
- 	.connect	   = l2tp_ip6_connect,
- 	.disconnect	   = l2tp_ip6_disconnect,
--	.ioctl		   = udp_ioctl,
-+	.ioctl		   = l2tp_ioctl,
- 	.destroy	   = l2tp_ip6_destroy_sock,
- 	.setsockopt	   = ipv6_setsockopt,
- 	.getsockopt	   = ipv6_getsockopt,
+-int bpf_map_delete_elem(int fd, void *key)
++int bpf_map_delete_elem(int fd, const void *key)
+ {
+ 	union bpf_attr attr;
+ 
+diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+index 171cf594f782..f559f648db45 100644
+--- a/tools/lib/bpf/bpf.h
++++ b/tools/lib/bpf/bpf.h
+@@ -37,7 +37,7 @@ int bpf_map_update_elem(int fd, const void *key, const void *value,
+ 			__u64 flags);
+ 
+ int bpf_map_lookup_elem(int fd, const void *key, void *value);
+-int bpf_map_delete_elem(int fd, void *key);
++int bpf_map_delete_elem(int fd, const void *key);
+ int bpf_map_get_next_key(int fd, void *key, void *next_key);
+ int bpf_obj_pin(int fd, const char *pathname);
+ int bpf_obj_get(const char *pathname);
+diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
+index 0a5a6060db70..17581a42e1d9 100644
+--- a/tools/testing/selftests/bpf/bpf_sys.h
++++ b/tools/testing/selftests/bpf/bpf_sys.h
+@@ -24,16 +24,6 @@ static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
+ #endif
+ }
+ 
+-static inline int bpf_map_delete(int fd, const void *key)
+-{
+-	union bpf_attr attr = {};
+-
+-	attr.map_fd = fd;
+-	attr.key = bpf_ptr_to_u64(key);
+-
+-	return bpf(BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
+-}
+-
+ static inline int bpf_map_next_key(int fd, const void *key, void *next_key)
+ {
+ 	union bpf_attr attr = {};
+diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
+index eccf6d96e551..859c940a6e41 100644
+--- a/tools/testing/selftests/bpf/test_lru_map.c
++++ b/tools/testing/selftests/bpf/test_lru_map.c
+@@ -324,7 +324,7 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 	if (map_type == BPF_MAP_TYPE_LRU_PERCPU_HASH) {
+ 		assert(!bpf_map_update_elem(lru_map_fd, &key, value,
+ 					    BPF_NOEXIST));
+-		assert(!bpf_map_delete(lru_map_fd, &key));
++		assert(!bpf_map_delete_elem(lru_map_fd, &key));
+ 	} else {
+ 		assert(bpf_map_update_elem(lru_map_fd, &key, value,
+ 					   BPF_EXIST));
+@@ -483,8 +483,8 @@ static void test_lru_sanity4(int map_type, int map_flags, unsigned int tgt_free)
+ 	}
+ 
+ 	for (; key <= 2 * tgt_free; key++) {
+-		assert(!bpf_map_delete(lru_map_fd, &key));
+-		assert(bpf_map_delete(lru_map_fd, &key));
++		assert(!bpf_map_delete_elem(lru_map_fd, &key));
++		assert(bpf_map_delete_elem(lru_map_fd, &key));
+ 	}
+ 
+ 	end_key = key + 2 * tgt_free;
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index 5db1a939af69..0f9f90455375 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -86,7 +86,7 @@ static void test_hashmap(int task, void *data)
+ 
+ 	/* Check that key = 0 doesn't exist. */
+ 	key = 0;
+-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
++	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
+ 
+ 	/* Iterate over two elements. */
+ 	assert(bpf_map_next_key(fd, &key, &next_key) == 0 &&
+@@ -98,10 +98,10 @@ static void test_hashmap(int task, void *data)
+ 
+ 	/* Delete both elements. */
+ 	key = 1;
+-	assert(bpf_map_delete(fd, &key) == 0);
++	assert(bpf_map_delete_elem(fd, &key) == 0);
+ 	key = 2;
+-	assert(bpf_map_delete(fd, &key) == 0);
+-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
++	assert(bpf_map_delete_elem(fd, &key) == 0);
++	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
+ 
+ 	key = 0;
+ 	/* Check that map is empty. */
+@@ -172,7 +172,7 @@ static void test_hashmap_percpu(int task, void *data)
+ 	       errno == E2BIG);
+ 
+ 	/* Check that key = 0 doesn't exist. */
+-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
++	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
+ 
+ 	/* Iterate over two elements. */
+ 	while (!bpf_map_next_key(fd, &key, &next_key)) {
+@@ -194,10 +194,10 @@ static void test_hashmap_percpu(int task, void *data)
+ 
+ 	/* Delete both elements. */
+ 	key = 1;
+-	assert(bpf_map_delete(fd, &key) == 0);
++	assert(bpf_map_delete_elem(fd, &key) == 0);
+ 	key = 2;
+-	assert(bpf_map_delete(fd, &key) == 0);
+-	assert(bpf_map_delete(fd, &key) == -1 && errno == ENOENT);
++	assert(bpf_map_delete_elem(fd, &key) == 0);
++	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == ENOENT);
+ 
+ 	key = 0;
+ 	/* Check that map is empty. */
+@@ -255,7 +255,7 @@ static void test_arraymap(int task, void *data)
+ 
+ 	/* Delete shouldn't succeed. */
+ 	key = 1;
+-	assert(bpf_map_delete(fd, &key) == -1 && errno == EINVAL);
++	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == EINVAL);
+ 
+ 	close(fd);
+ }
+@@ -310,7 +310,7 @@ static void test_arraymap_percpu(int task, void *data)
+ 
+ 	/* Delete shouldn't succeed. */
+ 	key = 1;
+-	assert(bpf_map_delete(fd, &key) == -1 && errno == EINVAL);
++	assert(bpf_map_delete_elem(fd, &key) == -1 && errno == EINVAL);
+ 
+ 	close(fd);
+ }
+@@ -445,7 +445,7 @@ static void do_work(int fn, void *data)
+ 			assert(bpf_map_update_elem(fd, &key, &value,
+ 						   BPF_EXIST) == 0);
+ 		} else {
+-			assert(bpf_map_delete(fd, &key) == 0);
++			assert(bpf_map_delete_elem(fd, &key) == 0);
+ 		}
+ 	}
+ }
+-- 
+2.11.0
