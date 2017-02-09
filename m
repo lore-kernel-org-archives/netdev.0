@@ -1,289 +1,142 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH v4 net-next 10/10] openvswitch: Pack struct sw_flow_key.
-Date: Thu,  9 Feb 2017 11:22:01 -0800
-Message-ID: <1486668121-45709-11-git-send-email-jarno@ovn.org>
+Subject: [PATCH v4 net-next 09/10] openvswitch: Add force commit.
+Date: Thu,  9 Feb 2017 11:22:00 -0800
+Message-ID: <1486668121-45709-10-git-send-email-jarno@ovn.org>
 References: <1486668121-45709-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org, davem@davemloft.net, joe@ovn.org, pshelar@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:47343 "EHLO
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:56163 "EHLO
         relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754105AbdBITWh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:37 -0500
+        with ESMTP id S1754211AbdBITWj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:22:39 -0500
 In-Reply-To: <1486668121-45709-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct sw_flow_key has two 16-bit holes. Move the most matched
-conntrack match fields there.  In some typical cases this reduces the
-size of the key that needs to be hashed into half and into one cache
-line.
+Stateful network admission policy may allow connections to one
+direction and reject connections initiated in the other direction.
+After policy change it is possible that for a new connection an
+overlapping conntrack entry already exists, where the original
+direction of the existing connection is opposed to the new
+connection's initial packet.
+
+Most importantly, conntrack state relating to the current packet gets
+the "reply" designation based on whether the original direction tuple
+or the reply direction tuple matched.  If this "directionality" is
+wrong w.r.t. to the stateful network admission policy it may happen
+that packets in neither direction are correctly admitted.
+
+This patch adds a new "force commit" option to the OVS conntrack
+action that checks the original direction of an existing conntrack
+entry.  If that direction is opposed to the current packet, the
+existing conntrack entry is deleted and a new one is subsequently
+created in the correct direction.
 
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-Acked-by: Joe Stringer <joe@ovn.org>
 Acked-by: Pravin B Shelar <pshelar@ovn.org>
 ---
- net/openvswitch/conntrack.c    | 40 ++++++++++++++++++++--------------------
- net/openvswitch/conntrack.h    |  8 ++++----
- net/openvswitch/flow.h         | 14 ++++++++------
- net/openvswitch/flow_netlink.c | 11 +++++++----
- 4 files changed, 39 insertions(+), 34 deletions(-)
+ include/uapi/linux/openvswitch.h |  5 +++++
+ net/openvswitch/conntrack.c      | 26 ++++++++++++++++++++++++--
+ 2 files changed, 29 insertions(+), 2 deletions(-)
 
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 90af8b8..7f41f7d 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -674,6 +674,10 @@ struct ovs_action_hash {
+  * @OVS_CT_ATTR_HELPER: variable length string defining conntrack ALG.
+  * @OVS_CT_ATTR_NAT: Nested OVS_NAT_ATTR_* for performing L3 network address
+  * translation (NAT) on the packet.
++ * @OVS_CT_ATTR_FORCE_COMMIT: Like %OVS_CT_ATTR_COMMIT, but instead of doing
++ * nothing if the connection is already committed will check that the current
++ * packet is in conntrack entry's original direction.  If directionality does
++ * not match, will delete the existing conntrack entry and commit a new one.
+  */
+ enum ovs_ct_attr {
+ 	OVS_CT_ATTR_UNSPEC,
+@@ -684,6 +688,7 @@ enum ovs_ct_attr {
+ 	OVS_CT_ATTR_HELPER,     /* netlink helper to assist detection of
+ 				   related connections. */
+ 	OVS_CT_ATTR_NAT,        /* Nested OVS_NAT_ATTR_* */
++	OVS_CT_ATTR_FORCE_COMMIT,  /* No argument */
+ 	__OVS_CT_ATTR_MAX
+ };
+ 
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 8b15bab..c2d452e 100644
+index bfd7606..8b15bab 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -152,7 +152,7 @@ static void __ovs_ct_update_key_orig_tp(struct sw_flow_key *key,
- 					const struct nf_conntrack_tuple *orig,
- 					u8 icmp_proto)
- {
--	key->ct.orig_proto = orig->dst.protonum;
-+	key->ct_orig_proto = orig->dst.protonum;
- 	if (orig->dst.protonum == icmp_proto) {
- 		key->ct.orig_tp.src = htons(orig->dst.u.icmp.type);
- 		key->ct.orig_tp.dst = htons(orig->dst.u.icmp.code);
-@@ -166,8 +166,8 @@ static void __ovs_ct_update_key(struct sw_flow_key *key, u8 state,
- 				const struct nf_conntrack_zone *zone,
- 				const struct nf_conn *ct)
- {
--	key->ct.state = state;
--	key->ct.zone = zone->id;
-+	key->ct_state = state;
-+	key->ct_zone = zone->id;
- 	key->ct.mark = ovs_ct_get_mark(ct);
- 	ovs_ct_get_labels(ct, &key->ct.labels);
- 
-@@ -195,10 +195,10 @@ static void __ovs_ct_update_key(struct sw_flow_key *key, u8 state,
- 			return;
- 		}
- 	}
--	/* Clear 'ct.orig_proto' to mark the non-existence of conntrack
-+	/* Clear 'ct_orig_proto' to mark the non-existence of conntrack
- 	 * original direction key fields.
+@@ -65,6 +65,7 @@ struct ovs_conntrack_info {
+ 	struct nf_conn *ct;
+ 	u8 commit : 1;
+ 	u8 nat : 3;                 /* enum ovs_ct_nat */
++	u8 force : 1;
+ 	u16 family;
+ 	struct md_mark mark;
+ 	struct md_labels labels;
+@@ -613,10 +614,13 @@ static bool skb_nfct_cached(struct net *net,
  	 */
--	key->ct.orig_proto = 0;
-+	key->ct_orig_proto = 0;
- }
- 
- /* Update 'key' based on skb->_nfct.  If 'post_ct' is true, then OVS has
-@@ -228,7 +228,7 @@ static void ovs_ct_update_key(const struct sk_buff *skb,
- 		if (ct->master)
- 			state |= OVS_CS_F_RELATED;
- 		if (keep_nat_flags) {
--			state |= key->ct.state & OVS_CS_F_NAT_MASK;
-+			state |= key->ct_state & OVS_CS_F_NAT_MASK;
- 		} else {
- 			if (ct->status & IPS_SRC_NAT)
- 				state |= OVS_CS_F_SRC_NAT;
-@@ -259,11 +259,11 @@ void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key)
- int ovs_ct_put_key(const struct sw_flow_key *swkey,
- 		   const struct sw_flow_key *output, struct sk_buff *skb)
- {
--	if (nla_put_u32(skb, OVS_KEY_ATTR_CT_STATE, output->ct.state))
-+	if (nla_put_u32(skb, OVS_KEY_ATTR_CT_STATE, output->ct_state))
- 		return -EMSGSIZE;
- 
- 	if (IS_ENABLED(CONFIG_NF_CONNTRACK_ZONES) &&
--	    nla_put_u16(skb, OVS_KEY_ATTR_CT_ZONE, output->ct.zone))
-+	    nla_put_u16(skb, OVS_KEY_ATTR_CT_ZONE, output->ct_zone))
- 		return -EMSGSIZE;
- 
- 	if (IS_ENABLED(CONFIG_NF_CONNTRACK_MARK) &&
-@@ -275,14 +275,14 @@ int ovs_ct_put_key(const struct sw_flow_key *swkey,
- 		    &output->ct.labels))
- 		return -EMSGSIZE;
- 
--	if (swkey->ct.orig_proto) {
-+	if (swkey->ct_orig_proto) {
- 		if (swkey->eth.type == htons(ETH_P_IP)) {
- 			struct ovs_key_ct_tuple_ipv4 orig = {
- 				output->ipv4.ct_orig.src,
- 				output->ipv4.ct_orig.dst,
- 				output->ct.orig_tp.src,
- 				output->ct.orig_tp.dst,
--				output->ct.orig_proto,
-+				output->ct_orig_proto,
- 			};
- 			if (nla_put(skb, OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4,
- 				    sizeof(orig), &orig))
-@@ -293,7 +293,7 @@ int ovs_ct_put_key(const struct sw_flow_key *swkey,
- 				IN6_ADDR_INITIALIZER(output->ipv6.ct_orig.dst),
- 				output->ct.orig_tp.src,
- 				output->ct.orig_tp.dst,
--				output->ct.orig_proto,
-+				output->ct_orig_proto,
- 			};
- 			if (nla_put(skb, OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6,
- 				    sizeof(orig), &orig))
-@@ -612,11 +612,11 @@ static bool skb_nfct_cached(struct net *net,
- 	 * due to an upcall.  If the connection was not confirmed, it is not
- 	 * cached and needs to be run through conntrack again.
- 	 */
--	if (!ct && key->ct.state & OVS_CS_F_TRACKED &&
--	    !(key->ct.state & OVS_CS_F_INVALID) &&
--	    key->ct.zone == info->zone.id) {
-+	if (!ct && key->ct_state & OVS_CS_F_TRACKED &&
-+	    !(key->ct_state & OVS_CS_F_INVALID) &&
-+	    key->ct_zone == info->zone.id) {
+ 	if (!ct && key->ct.state & OVS_CS_F_TRACKED &&
+ 	    !(key->ct.state & OVS_CS_F_INVALID) &&
+-	    key->ct.zone == info->zone.id)
++	    key->ct.zone == info->zone.id) {
  		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
--					  !!(key->ct.state
-+					  !!(key->ct_state
+ 					  !!(key->ct.state
  					     & OVS_CS_F_NAT_MASK));
- 		if (ct)
- 			nf_ct_get(skb, &ctinfo);
-@@ -740,7 +740,7 @@ static void ovs_nat_update_key(struct sw_flow_key *key,
- 	if (maniptype == NF_NAT_MANIP_SRC) {
- 		__be16 src;
++		if (ct)
++			nf_ct_get(skb, &ctinfo);
++	}
+ 	if (!ct)
+ 		return false;
+ 	if (!net_eq(net, read_pnet(&ct->ct_net)))
+@@ -630,6 +634,18 @@ static bool skb_nfct_cached(struct net *net,
+ 		if (help && rcu_access_pointer(help->helper) != info->helper)
+ 			return false;
+ 	}
++	/* Force conntrack entry direction to the current packet? */
++	if (info->force && CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL) {
++		/* Delete the conntrack entry if confirmed, else just release
++		 * the reference.
++		 */
++		if (nf_ct_is_confirmed(ct))
++			nf_ct_delete(ct, 0, 0);
++		else
++			nf_conntrack_put(&ct->ct_general);
++		nf_ct_set(skb, NULL, 0);
++		return false;
++	}
  
--		key->ct.state |= OVS_CS_F_SRC_NAT;
-+		key->ct_state |= OVS_CS_F_SRC_NAT;
- 		if (key->eth.type == htons(ETH_P_IP))
- 			key->ipv4.addr.src = ip_hdr(skb)->saddr;
- 		else if (key->eth.type == htons(ETH_P_IPV6))
-@@ -762,7 +762,7 @@ static void ovs_nat_update_key(struct sw_flow_key *key,
- 	} else {
- 		__be16 dst;
- 
--		key->ct.state |= OVS_CS_F_DST_NAT;
-+		key->ct_state |= OVS_CS_F_DST_NAT;
- 		if (key->eth.type == htons(ETH_P_IP))
- 			key->ipv4.addr.dst = ip_hdr(skb)->daddr;
- 		else if (key->eth.type == htons(ETH_P_IPV6))
-@@ -886,7 +886,7 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 		 * NAT after the nf_conntrack_in() call.  We can actually clear
- 		 * the whole state, as it will be re-initialized below.
- 		 */
--		key->ct.state = 0;
-+		key->ct_state = 0;
- 
- 		/* Update the key, but keep the NAT flags. */
- 		ovs_ct_update_key(skb, info, key, true, true);
-@@ -902,9 +902,9 @@ static int __ovs_ct_lookup(struct net *net, struct sw_flow_key *key,
- 		 *
- 		 * NAT will be done only if the CT action has NAT, and only
- 		 * once per packet (per zone), as guarded by the NAT bits in
--		 * the key->ct.state.
-+		 * the key->ct_state.
- 		 */
--		if (info->nat && !(key->ct.state & OVS_CS_F_NAT_MASK) &&
-+		if (info->nat && !(key->ct_state & OVS_CS_F_NAT_MASK) &&
- 		    (nf_ct_is_confirmed(ct) || info->commit) &&
- 		    ovs_ct_nat(net, key, info, skb, ct, ctinfo) != NF_ACCEPT) {
- 			return -EINVAL;
-diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
-index 9e92445..bc7efd1 100644
---- a/net/openvswitch/conntrack.h
-+++ b/net/openvswitch/conntrack.h
-@@ -76,14 +76,14 @@ static inline int ovs_ct_execute(struct net *net, struct sk_buff *skb,
- static inline void ovs_ct_fill_key(const struct sk_buff *skb,
- 				   struct sw_flow_key *key)
- {
--	key->ct.state = 0;
--	key->ct.zone = 0;
-+	key->ct_state = 0;
-+	key->ct_zone = 0;
- 	key->ct.mark = 0;
- 	memset(&key->ct.labels, 0, sizeof(key->ct.labels));
--	/* Clear 'ct.orig_proto' to mark the non-existence of original
-+	/* Clear 'ct_orig_proto' to mark the non-existence of original
- 	 * direction key fields.
- 	 */
--	key->ct.orig_proto = 0;
-+	key->ct_orig_proto = 0;
+ 	return true;
  }
+@@ -1207,6 +1223,7 @@ static int parse_nat(const struct nlattr *attr,
  
- static inline int ovs_ct_put_key(const struct sw_flow_key *swkey,
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 76e05b2..a9bc1c8 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -85,6 +85,11 @@ struct sw_flow_key {
- 		struct vlan_head cvlan;
- 		__be16 type;		/* Ethernet frame type. */
- 	} eth;
-+	/* Filling a hole of two bytes. */
-+	u8 ct_state;
-+	u8 ct_orig_proto;		/* CT original direction tuple IP
-+					 * protocol.
-+					 */
- 	union {
- 		struct {
- 			__be32 top_lse;	/* top label stack entry */
-@@ -96,6 +101,7 @@ struct sw_flow_key {
- 			u8     frag;	/* One of OVS_FRAG_TYPE_*. */
- 		} ip;
- 	};
-+	u16 ct_zone;			/* Conntrack zone. */
- 	struct {
- 		__be16 src;		/* TCP/UDP/SCTP source port. */
- 		__be16 dst;		/* TCP/UDP/SCTP destination port. */
-@@ -138,16 +144,12 @@ struct sw_flow_key {
- 		} ipv6;
- 	};
- 	struct {
--		/* Connection tracking fields. */
--		u8 state;
--		u8 orig_proto;		/* CT orig tuple IP protocol. */
--		u16 zone;
--		u32 mark;
-+		/* Connection tracking fields not packed above. */
- 		struct {
- 			__be16 src;	/* CT orig tuple tp src port. */
- 			__be16 dst;	/* CT orig tuple tp dst port. */
- 		} orig_tp;
--
-+		u32 mark;
- 		struct ovs_key_ct_labels labels;
- 	} ct;
- 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 989f38f..6f5fa50 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -1072,14 +1072,14 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 			return -EINVAL;
+ static const struct ovs_ct_len_tbl ovs_ct_attr_lens[OVS_CT_ATTR_MAX + 1] = {
+ 	[OVS_CT_ATTR_COMMIT]	= { .minlen = 0, .maxlen = 0 },
++	[OVS_CT_ATTR_FORCE_COMMIT]	= { .minlen = 0, .maxlen = 0 },
+ 	[OVS_CT_ATTR_ZONE]	= { .minlen = sizeof(u16),
+ 				    .maxlen = sizeof(u16) },
+ 	[OVS_CT_ATTR_MARK]	= { .minlen = sizeof(struct md_mark),
+@@ -1246,6 +1263,9 @@ static int parse_ct(const struct nlattr *attr, struct ovs_conntrack_info *info,
  		}
  
--		SW_FLOW_KEY_PUT(match, ct.state, ct_state, is_mask);
-+		SW_FLOW_KEY_PUT(match, ct_state, ct_state, is_mask);
- 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_STATE);
- 	}
- 	if (*attrs & (1 << OVS_KEY_ATTR_CT_ZONE) &&
- 	    ovs_ct_verify(net, OVS_KEY_ATTR_CT_ZONE)) {
- 		u16 ct_zone = nla_get_u16(a[OVS_KEY_ATTR_CT_ZONE]);
+ 		switch (type) {
++		case OVS_CT_ATTR_FORCE_COMMIT:
++			info->force = true;
++			/* fall through. */
+ 		case OVS_CT_ATTR_COMMIT:
+ 			info->commit = true;
+ 			break;
+@@ -1472,7 +1492,9 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *ct_info,
+ 	if (!start)
+ 		return -EMSGSIZE;
  
--		SW_FLOW_KEY_PUT(match, ct.zone, ct_zone, is_mask);
-+		SW_FLOW_KEY_PUT(match, ct_zone, ct_zone, is_mask);
- 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_ZONE);
- 	}
- 	if (*attrs & (1 << OVS_KEY_ATTR_CT_MARK) &&
-@@ -1107,7 +1107,7 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 		SW_FLOW_KEY_PUT(match, ipv4.ct_orig.dst, ct->ipv4_dst, is_mask);
- 		SW_FLOW_KEY_PUT(match, ct.orig_tp.src, ct->src_port, is_mask);
- 		SW_FLOW_KEY_PUT(match, ct.orig_tp.dst, ct->dst_port, is_mask);
--		SW_FLOW_KEY_PUT(match, ct.orig_proto, ct->ipv4_proto, is_mask);
-+		SW_FLOW_KEY_PUT(match, ct_orig_proto, ct->ipv4_proto, is_mask);
- 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4);
- 	}
- 	if (*attrs & (1ULL << OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6)) {
-@@ -1123,7 +1123,7 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 				   is_mask);
- 		SW_FLOW_KEY_PUT(match, ct.orig_tp.src, ct->src_port, is_mask);
- 		SW_FLOW_KEY_PUT(match, ct.orig_tp.dst, ct->dst_port, is_mask);
--		SW_FLOW_KEY_PUT(match, ct.orig_proto, ct->ipv6_proto, is_mask);
-+		SW_FLOW_KEY_PUT(match, ct_orig_proto, ct->ipv6_proto, is_mask);
- 		*attrs &= ~(1ULL << OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6);
- 	}
- 
-@@ -1564,6 +1564,9 @@ int ovs_nla_get_flow_metadata(struct net *net,
- 	memset(&match, 0, sizeof(match));
- 	match.key = key;
- 
-+	key->ct_state = 0;
-+	key->ct_zone = 0;
-+	key->ct_orig_proto = 0;
- 	memset(&key->ct, 0, sizeof(key->ct));
- 	memset(&key->ipv4.ct_orig, 0, sizeof(key->ipv4.ct_orig));
- 	memset(&key->ipv6.ct_orig, 0, sizeof(key->ipv6.ct_orig));
+-	if (ct_info->commit && nla_put_flag(skb, OVS_CT_ATTR_COMMIT))
++	if (ct_info->commit && nla_put_flag(skb, ct_info->force
++					    ? OVS_CT_ATTR_FORCE_COMMIT
++					    : OVS_CT_ATTR_COMMIT))
+ 		return -EMSGSIZE;
+ 	if (IS_ENABLED(CONFIG_NF_CONNTRACK_ZONES) &&
+ 	    nla_put_u16(skb, OVS_CT_ATTR_ZONE, ct_info->zone.id))
 -- 
 2.1.4
