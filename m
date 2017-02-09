@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv5 0/7] Refactor macvtap to re-use tap functionality by
- other virtual intefaces
-Date: Thu, 09 Feb 2017 17:07:41 -0500 (EST)
-Message-ID: <20170209.170741.524666868372427163.davem@davemloft.net>
-References: <1486589836-53858-1-git-send-email-sainath.grandhi@intel.com>
+Subject: Re: [PATCH 0/2] net: qcom/emac: add the last ethtool functions
+Date: Thu, 09 Feb 2017 17:09:35 -0500 (EST)
+Message-ID: <20170209.170935.1297264626138425848.davem@davemloft.net>
+References: <1486590568-31398-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mahesh@bandewar.net,
-        linux-kernel@vger.kernel.org
-To: sainath.grandhi@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486589836-53858-1-git-send-email-sainath.grandhi@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: timur@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51540 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752628AbdBIWJh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 17:09:37 -0500
+In-Reply-To: <1486590568-31398-1-git-send-email-timur@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sainath Grandhi <sainath.grandhi@intel.com>
-Date: Wed,  8 Feb 2017 13:37:09 -0800
+From: Timur Tabi <timur@codeaurora.org>
+Date: Wed,  8 Feb 2017 15:49:26 -0600
 
-> Tap character devices can be implemented on other virtual interfaces like
-> ipvlan, similar to macvtap. Source code for tap functionality in macvtap
-> can be re-used for this purpose.
-> 
-> This patch series splits macvtap source into two modules, macvtap and tap.
-> This patch series also includes a patch for implementing tap character
-> device driver based on the IP-VLAN network interface, called ipvtap.
-> 
-> These patches are tested on x86 platform.
+> These two patches implement the remaining two ethtool functions that
+> are of interest to the Qualcomm EMAC driver.  These are the last 
+> patches that will be submitted for the 4.11 merge window.
 
-I get rejects on patch #7 when I try to apply this to net-next,
-please respin.
+Series applied to net-next, thanks.
