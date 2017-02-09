@@ -1,88 +1,125 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Crashes in -next due to 'net: phy: Fix lack of reference count on
- PHY driver'
-Date: Wed, 8 Feb 2017 21:15:12 -0800
-Message-ID: <20170209051512.GA31314@roeck-us.net>
+From: Heiko Schocher <hs@denx.de>
+Subject: Re: [net, v3, 1/3] net: phy: Fix PHY module checks and NULL deref in
+ phy_attach_direct()
+Date: Thu, 9 Feb 2017 07:58:17 +0100
+Message-ID: <589C1309.5040302@denx.de>
+References: <20170209001401.2564-2-f.fainelli@gmail.com>
+Reply-To: hs@denx.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Mao Wenan <maowenan@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, maowenan <maowenan@huawei.com>,
+        andrew@lunn.ch, rmk+kernel@armlinux.org.uk, festevam@gmail.com,
+        davem@davemloft.net, nikita.yoush@cogentembedded.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:37395 "EHLO
+        mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751073AbdBIG7i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 01:59:38 -0500
+In-Reply-To: <20170209001401.2564-2-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello Florian,
 
-I see a number of my qemu tests in -next crash. Affected are tests
-of nios2, xtensa, and arm64.
+Am 09.02.2017 um 01:13 schrieb Florian Fainelli:
+> The Generic PHY drivers gets assigned after we checked that the current
+> PHY driver is NULL, so we need to check a few things before we can
+> safely dereference d->driver. This would be causing a NULL deference to
+> occur when a system binds to the Generic PHY driver. Update
+> phy_attach_direct() to do the following:
+>
+> - grab the driver module reference after we have assigned the Generic
+>    PHY drivers accordingly
+>
+> - update the error path to clean up the module reference in case the
+>    Generic PHY probe function fails
+>
+> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>   drivers/net/phy/phy_device.c | 16 +++++++++++++++-
+>   1 file changed, 15 insertions(+), 1 deletion(-)
 
-The arm64 crash log looks as follows.
+just stumbled over this bug on an am335x based board, with an
+KSZ8081 attached, so there a "fixed-link" is used like:
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/arch/arm/boot/dts/am335x-baltos-ir3220.dts#n105
 
-[    0.734220] Hardware name: ZynqMP EP108 (DT)
-[    0.734298] task: ffff80007cb50000 task.stack: ffff80007cb4c000
-[    0.734533] PC is at phy_attach_direct+0x54/0x1b8
-[    0.734592] LR is at phy_connect_direct+0x1c/0x70
-[    0.734643] pc : [<ffff000008603354>] lr : [<ffff0000086035b4>] pstate: 60000045
-...
-[    0.740044] [<ffff000008603354>] phy_attach_direct+0x54/0x1b8
-[    0.740118] [<ffff0000086035b4>] phy_connect_direct+0x1c/0x70
-[    0.740191] [<ffff00000862e360>] macb_probe+0x5a8/0x978
-[    0.740378] [<ffff000008555728>] platform_drv_probe+0x50/0xb8
-[    0.740449] [<ffff0000085538f4>] driver_probe_device+0x224/0x2c8
-[    0.740519] [<ffff000008553a44>] __driver_attach+0xac/0xb0
-[    0.740587] [<ffff000008551a38>] bus_for_each_dev+0x60/0xa0
-[    0.740653] [<ffff000008553200>] driver_attach+0x20/0x28
-[    0.740716] [<ffff000008552e08>] bus_add_driver+0x1d0/0x238
-[    0.740782] [<ffff0000085543b8>] driver_register+0x60/0xf8
-[    0.740849] [<ffff000008555668>] __platform_driver_register+0x40/0x48
-[    0.740924] [<ffff000008d41608>] macb_driver_init+0x18/0x20
-[    0.740994] [<ffff000008083150>] do_one_initcall+0x38/0x120
-[    0.741062] [<ffff000008d00cfc>] kernel_init_freeable+0x19c/0x23c
-[    0.741134] [<ffff0000089077c0>] kernel_init+0x10/0x100
-[    0.741199] [<ffff000008082ec0>] ret_from_fork+0x10/0x50
+With your patch it crashes also ...
 
-Detailed logs are available at http://kerneltests.org/builders, in the 'next'
-column. The scripts used to run the tests are available in the architecture
-subdirectories of https://github.com/groeck/linux-build-test/tree/master/rootfs.
+If I remove this part:
 
-I bisected the nios2 failure; it points to commit cafe8df8b9 ("net: phy: Fix
-lack of reference count on PHY driver"). Bisect log is attached below.
-Reverting this patch fixes the problem for all affected architectures
-in my tests.
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index d63d190..9dd08a4 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -921,11 +921,6 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+                 return -EIO;
+         }
 
-Guenter
+-       if (!try_module_get(d->driver->owner)) {
+-               dev_err(&dev->dev, "failed to get the device driver module\n");
+-               return -EIO;
+-       }
+-
+         get_device(d);
 
----
-# bad: [e3e6c5f3544c5d05c6b3b309a34f4f2c3537e993] Add linux-next specific files for 20170208
-# good: [d5adbfcd5f7bcc6fa58a41c5c5ada0e5c826ce2c] Linux 4.10-rc7
-git bisect start 'HEAD' 'v4.10-rc7'
-# bad: [403e468309f9e2b2dbe264be1ad29b1486ed720e] Merge remote-tracking branch 'crypto/master'
-git bisect bad 403e468309f9e2b2dbe264be1ad29b1486ed720e
-# bad: [44448c3f07a3ae77164de4405fa97baca4f103f5] Merge remote-tracking branch 'hid/for-next'
-git bisect bad 44448c3f07a3ae77164de4405fa97baca4f103f5
-# bad: [dd4318312c6fc5c00ae7619f875fb73538a2c1e6] Merge remote-tracking branch 'omap/for-next'
-git bisect bad dd4318312c6fc5c00ae7619f875fb73538a2c1e6
-# good: [52b61c8b3eefd40f8a70131cdc0c7348f18f463c] Merge branch 'next/soc' into for-next
-git bisect good 52b61c8b3eefd40f8a70131cdc0c7348f18f463c
-# good: [cbd3dcf3b865b961a9c10ff16e42908832cee63f] Merge branch 'next/dt' into for-next
-git bisect good cbd3dcf3b865b961a9c10ff16e42908832cee63f
-# bad: [66842bac82cae0e9378eea1c54ab9751e32a929b] Merge remote-tracking branch 'arm/for-next'
-git bisect bad 66842bac82cae0e9378eea1c54ab9751e32a929b
-# bad: [926af6273fc683cd98cd0ce7bf0d04a02eed6742] Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-git bisect bad 926af6273fc683cd98cd0ce7bf0d04a02eed6742
-# bad: [2dcab598484185dea7ec22219c76dcdd59e3cb90] sctp: avoid BUG_ON on sctp_wait_for_sndbuf
-git bisect bad 2dcab598484185dea7ec22219c76dcdd59e3cb90
-# bad: [89389b4d5524350e74974cf711fe4a18206c09d3] Merge tag 'mac80211-for-davem-2017-02-06' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211
-git bisect bad 89389b4d5524350e74974cf711fe4a18206c09d3
-# bad: [34b2cef20f19c87999fff3da4071e66937db9644] ipv4: keep skb->dst around in presence of IP options
-git bisect bad 34b2cef20f19c87999fff3da4071e66937db9644
-# bad: [cafe8df8b9bc9aa3dffa827c1a6757c6cd36f657] net: phy: Fix lack of reference count on PHY driver
-git bisect bad cafe8df8b9bc9aa3dffa827c1a6757c6cd36f657
-# good: [770f82253dbd7e6892a88018f2f6cd395f48d214] mlx4: xdp_prog becomes inactive after ethtool '-L' or '-G'
-git bisect good 770f82253dbd7e6892a88018f2f6cd395f48d214
-# good: [2372bcda5e681bc85d57a3604265155e1a4c040b] Merge branch 'mlx4-queue-reinit'
-git bisect good 2372bcda5e681bc85d57a3604265155e1a4c040b
-# first bad commit: [cafe8df8b9bc9aa3dffa827c1a6757c6cd36f657] net: phy: Fix lack of reference count on PHY driver
+         /* Assume that if there is no driver, that it doesn't
+
+it boots again .. I think, you forgot? simply this remove ?
+
+bye,
+Heiko
+>
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 0d8f4d3847f6..d63d190a95ef 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -908,6 +908,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>   	struct module *ndev_owner = dev->dev.parent->driver->owner;
+>   	struct mii_bus *bus = phydev->mdio.bus;
+>   	struct device *d = &phydev->mdio.dev;
+> +	bool using_genphy = false;
+>   	int err;
+>
+>   	/* For Ethernet device drivers that register their own MDIO bus, we
+> @@ -938,12 +939,22 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>   			d->driver =
+>   				&genphy_driver[GENPHY_DRV_1G].mdiodrv.driver;
+>
+> +		using_genphy = true;
+> +	}
+> +
+> +	if (!try_module_get(d->driver->owner)) {
+> +		dev_err(&dev->dev, "failed to get the device driver module\n");
+> +		err = -EIO;
+> +		goto error_put_device;
+> +	}
+> +
+> +	if (using_genphy) {
+>   		err = d->driver->probe(d);
+>   		if (err >= 0)
+>   			err = device_bind_driver(d);
+>
+>   		if (err)
+> -			goto error;
+> +			goto error_module_put;
+>   	}
+>
+>   	if (phydev->attached_dev) {
+> @@ -981,6 +992,9 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>
+>   error:
+>   	phy_detach(phydev);
+> +error_module_put:
+> +	module_put(d->driver->owner);
+> +error_put_device:
+>   	put_device(d);
+>   	module_put(d->driver->owner);
+>   	if (ndev_owner != bus->owner)
+>
+
+-- 
+DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
+HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
