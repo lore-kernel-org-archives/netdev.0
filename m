@@ -1,40 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv6 net-next 0/6] sctp: add sender-side procedures for
- stream reconf asoc reset and add streams
-Date: Thu, 09 Feb 2017 16:58:10 -0500 (EST)
-Message-ID: <20170209.165810.1019732594616565226.davem@davemloft.net>
-References: <cover.1486573727.git.lucien.xin@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv4 net-next 0/7] net: dst_confirm replacement
+Date: Thu, 09 Feb 2017 17:02:08 -0500 (EST)
+Message-ID: <20170209.170208.999235350231796696.davem@davemloft.net>
+References: <1486415657-14714-1-git-send-email-ja@ssi.bg>
+        <20170207.131134.567606043153504044.davem@davemloft.net>
+        <alpine.LFD.2.11.1702082245270.2608@ja.home.ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51232 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754175AbdBIV6a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 16:58:30 -0500
-In-Reply-To: <cover.1486573727.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuehaibing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: ja-FgGsKACvmQM@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LFD.2.11.1702082245270.2608-c1lBKlETG9EWAawoAK+ZAw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu,  9 Feb 2017 01:18:14 +0800
+From: Julian Anastasov <ja-FgGsKACvmQM@public.gmane.org>
+Date: Wed, 8 Feb 2017 23:05:36 +0200 (EET)
 
-> Patch 4/6 is to implement sender-side procedures for the SSN/TSN Reset
-> Request Parameter described in rfc6525 section 5.1.4, patch 3/6 is
-> ahead of it to define a function to make the request chunk for it.
+> On Tue, 7 Feb 2017, David Miller wrote:
 > 
-> Patch 6/6 is to implement sender-side procedures for the Add Incoming
-> and Outgoing Streams Request Parameter Request Parameter described in
-> rfc6525 section 5.1.5 and 5.1.6, patch 5/6 is ahead of it to define a
-> function to make the request chunk for it.
+>> > - Now may be old function neigh_output() should be restored
+>> > instead of dst_neigh_output?
+>> 
+>> Please elaborate.
 > 
-> Patch 2/6 is a fix to recover streams states when it fails to send
-> request and Patch 1/6 is to drop some unncessary __packed from some
-> old structures.
+> 	As dst_neigh_output does not use the dst arg anymore,
+> my idea was to rename dst_neigh_output to neigh_output, i.e.
+> just like it was before commit 5110effee8fd ("net: Do delayed neigh 
+> confirmation."
 
-Series applied with stray __packed reference removed from the commit
-message of patch #3.
+This sounds like a great idea.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
