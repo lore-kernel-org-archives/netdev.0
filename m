@@ -1,34 +1,86 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Linux HSR driver question
-Date: Thu, 9 Feb 2017 15:32:53 -0500
-Message-ID: <589CD1F5.1060104@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: "arvid.brodin@alten.se >> Arvid Brodin" <arvid.brodin@alten.se>,
-        "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx210.ext.ti.com ([198.47.19.17]:17652 "EHLO
-        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754086AbdBIU5r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 15:57:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: microchip: enc28j60: use new api ethtool_{get|set}_link_ksettings
+Date: Thu,  9 Feb 2017 22:02:47 +0100
+Message-ID: <1486674167-19306-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, mhei@heimpold.de, sergio.valverde@hpe.com,
+        jarod@redhat.com, dompe@hpe.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Arvid,
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-While I work to add PRP support to the existing Linux HSR driver, I came across
-a piece of code related to prune node function. The hsr_device.c adds the 
-prune timer in hsr_dev_finalize() by calling
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-add_timer(&hsr->prune_timer);
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/microchip/enc28j60.c |   31 +++++++++++++++-------------
+ 1 files changed, 17 insertions(+), 14 deletions(-)
 
-But it is never restarted in hsr_prune_nodes(). Is that intentional or a bug?
-I tried adding add_timer(&hsr->prune_timer) at the end of  hsr_prune_nodes(),
-but then a iperf test stops with no traffic across the hsr interface and it
-never recovers. I have to delete the interface and create it again to recover.
-Is that the reason, it is currently disabled?
-
+diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
+index 045b910..f6ecfa7 100644
+--- a/drivers/net/ethernet/microchip/enc28j60.c
++++ b/drivers/net/ethernet/microchip/enc28j60.c
+@@ -1487,27 +1487,30 @@ static void enc28j60_restart_work_handler(struct work_struct *work)
+ }
+ 
+ static int
+-enc28j60_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++enc28j60_get_link_ksettings(struct net_device *dev,
++			    struct ethtool_link_ksettings *cmd)
+ {
+ 	struct enc28j60_net *priv = netdev_priv(dev);
+ 
+-	cmd->transceiver = XCVR_INTERNAL;
+-	cmd->supported	= SUPPORTED_10baseT_Half
+-			| SUPPORTED_10baseT_Full
+-			| SUPPORTED_TP;
+-	ethtool_cmd_speed_set(cmd,  SPEED_10);
+-	cmd->duplex	= priv->full_duplex ? DUPLEX_FULL : DUPLEX_HALF;
+-	cmd->port	= PORT_TP;
+-	cmd->autoneg	= AUTONEG_DISABLE;
++	ethtool_link_ksettings_zero_link_mode(cmd, supported);
++	ethtool_link_ksettings_add_link_mode(cmd, supported, 10baseT_Half);
++	ethtool_link_ksettings_add_link_mode(cmd, supported, 10baseT_Full);
++	ethtool_link_ksettings_add_link_mode(cmd, supported, TP);
++
++	cmd->base.speed = SPEED_10;
++	cmd->base.duplex = priv->full_duplex ? DUPLEX_FULL : DUPLEX_HALF;
++	cmd->base.port	= PORT_TP;
++	cmd->base.autoneg = AUTONEG_DISABLE;
+ 
+ 	return 0;
+ }
+ 
+ static int
+-enc28j60_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++enc28j60_set_link_ksettings(struct net_device *dev,
++			    const struct ethtool_link_ksettings *cmd)
+ {
+-	return enc28j60_setlink(dev, cmd->autoneg,
+-				ethtool_cmd_speed(cmd), cmd->duplex);
++	return enc28j60_setlink(dev, cmd->base.autoneg,
++				cmd->base.speed, cmd->base.duplex);
+ }
+ 
+ static u32 enc28j60_get_msglevel(struct net_device *dev)
+@@ -1523,11 +1526,11 @@ static void enc28j60_set_msglevel(struct net_device *dev, u32 val)
+ }
+ 
+ static const struct ethtool_ops enc28j60_ethtool_ops = {
+-	.get_settings	= enc28j60_get_settings,
+-	.set_settings	= enc28j60_set_settings,
+ 	.get_drvinfo	= enc28j60_get_drvinfo,
+ 	.get_msglevel	= enc28j60_get_msglevel,
+ 	.set_msglevel	= enc28j60_set_msglevel,
++	.get_link_ksettings = enc28j60_get_link_ksettings,
++	.set_link_ksettings = enc28j60_set_link_ksettings,
+ };
+ 
+ static int enc28j60_chipset_init(struct net_device *dev)
 -- 
-Murali Karicheri
-Linux Kernel, Keystone
+1.7.4.4
