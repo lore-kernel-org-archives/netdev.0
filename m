@@ -1,83 +1,93 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH v3 net-next 03/10] openvswitch: Do not trigger events for unconfirmed connections.
-Date: Wed,  8 Feb 2017 17:30:30 -0800
-Message-ID: <1486603837-7202-4-git-send-email-jarno@ovn.org>
+Subject: [PATCH v3 net-next 02/10] openvswitch: Use inverted tuple in ovs_ct_find_existing() if NATted.
+Date: Wed,  8 Feb 2017 17:30:29 -0800
+Message-ID: <1486603837-7202-3-git-send-email-jarno@ovn.org>
 References: <1486603837-7202-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org, joe@ovn.org, pshelar@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:57404 "EHLO
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:42189 "EHLO
         relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752525AbdBIBbC (ORCPT
+        with ESMTP id S1752520AbdBIBbC (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:31:02 -0500
 In-Reply-To: <1486603837-7202-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Receiving change events before the 'new' event for the connection has
-been received can be confusing.  Avoid triggering change events for
-setting conntrack mark or labels before the conntrack entry has been
-confirmed.
+The conntrack lookup for existing connections fails to invert the
+packet 5-tuple for NATted packets, and therefore fails to find the
+existing conntrack entry.  Conntrack only stores 5-tuples for incoming
+packets, and there are various situations where a lookup on a packet
+that has already been transformed by NAT needs to be made.  Looking up
+an existing conntrack entry upon executing packet received from the
+userspace is one of them.
 
-Fixes: 182e3042e15d ("openvswitch: Allow matching on conntrack mark")
-Fixes: c2ac66735870 ("openvswitch: Allow matching on conntrack label")
+This patch fixes ovs_ct_find_existing() to invert the packet 5-tuple
+for the conntrack lookup whenever the packet has already been
+transformed by conntrack from its input form as evidenced by one of
+the NAT flags being set in the conntrack state metadata.
+
+Fixes: 05752523e565 ("openvswitch: Interface with NAT.")
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- net/openvswitch/conntrack.c | 28 ++++++++++++++++++++++------
- 1 file changed, 22 insertions(+), 6 deletions(-)
+ net/openvswitch/conntrack.c | 24 ++++++++++++++++++++++--
+ 1 file changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 4df9a54..a6ff374 100644
+index 5de6d12..4df9a54 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -245,7 +245,8 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
- 	new_mark = ct_mark | (ct->mark & ~(mask));
- 	if (ct->mark != new_mark) {
- 		ct->mark = new_mark;
--		nf_conntrack_event_cache(IPCT_MARK, ct);
-+		if (nf_ct_is_confirmed(ct))
-+			nf_conntrack_event_cache(IPCT_MARK, ct);
- 		key->ct.mark = new_mark;
+@@ -430,7 +430,7 @@ ovs_ct_get_info(const struct nf_conntrack_tuple_hash *h)
+  */
+ static struct nf_conn *
+ ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
+-		     u8 l3num, struct sk_buff *skb)
++		     u8 l3num, struct sk_buff *skb, bool natted)
+ {
+ 	struct nf_conntrack_l3proto *l3proto;
+ 	struct nf_conntrack_l4proto *l4proto;
+@@ -453,6 +453,17 @@ ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
+ 		return NULL;
  	}
  
-@@ -262,7 +263,6 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn_labels *cl;
- 	struct nf_conn *ct;
--	int err;
- 
- 	/* The connection could be invalid, in which case set_label is no-op.*/
- 	ct = nf_ct_get(skb, &ctinfo);
-@@ -277,10 +277,26 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
- 	if (!cl || sizeof(cl->bits) < OVS_CT_LABELS_LEN)
- 		return -ENOSPC;
- 
--	err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
--				    OVS_CT_LABELS_LEN / sizeof(u32));
--	if (err)
--		return err;
-+	if (nf_ct_is_confirmed(ct)) {
-+		/* Triggers a change event, which makes sense only for
-+		 * confirmed connections.
-+		 */
-+		int err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
-+						OVS_CT_LABELS_LEN / sizeof(u32));
-+		if (err)
-+			return err;
-+	} else {
-+		u32 *dst = (u32 *)cl->bits;
-+		const u32 *msk = (const u32 *)mask->ct_labels;
-+		const u32 *lbl = (const u32 *)labels->ct_labels;
-+		int i;
++	/* Must invert the tuple if skb has been transformed by NAT. */
++	if (natted) {
++		struct nf_conntrack_tuple inverse;
 +
-+		/* No-one else has access to the non-confirmed entry, copy
-+		 * labels over, keeping any bits we are not explicitly setting.
-+		 */
-+		for (i = 0; i < OVS_CT_LABELS_LEN / sizeof(u32); i++)
-+			dst[i] = (dst[i] & ~msk[i]) | (lbl[i] & msk[i]);
++		if (!nf_ct_invert_tuple(&inverse, &tuple, l3proto, l4proto)) {
++			pr_debug("ovs_ct_find_existing: Inversion failed!\n");
++			return NULL;
++		}
++		tuple = inverse;
 +	}
++
+ 	/* look for tuple match */
+ 	h = nf_conntrack_find_get(net, zone, &tuple);
+ 	if (!h)
+@@ -460,6 +471,13 @@ ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
  
- 	ovs_ct_get_labels(ct, &key->ct.labels);
- 	return 0;
+ 	ct = nf_ct_tuplehash_to_ctrack(h);
+ 
++	/* Inverted packet tuple matches the reverse direction conntrack tuple,
++	 * select the other tuplehash to get the right 'ctinfo' bits for this
++	 * packet.
++	 */
++	if (natted)
++		h = &ct->tuplehash[!h->tuple.dst.dir];
++
+ 	nf_ct_set(skb, ct, ovs_ct_get_info(h));
+ 	return ct;
+ }
+@@ -482,7 +500,9 @@ static bool skb_nfct_cached(struct net *net,
+ 	if (!ct && key->ct.state & OVS_CS_F_TRACKED &&
+ 	    !(key->ct.state & OVS_CS_F_INVALID) &&
+ 	    key->ct.zone == info->zone.id)
+-		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb);
++		ct = ovs_ct_find_existing(net, &info->zone, info->family, skb,
++					  !!(key->ct.state
++					     & OVS_CS_F_NAT_MASK));
+ 	if (!ct)
+ 		return false;
+ 	if (!net_eq(net, read_pnet(&ct->ct_net)))
 -- 
 2.1.4
