@@ -1,69 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 net-next 1/2] net: dsa: mv88e6xxx: Add watchdog
- interrupt handler
-Date: Thu, 9 Feb 2017 17:12:31 +0100
-Message-ID: <20170209161231.GC29882@lunn.ch>
-References: <1486595023-28371-1-git-send-email-andrew@lunn.ch>
- <1486595023-28371-2-git-send-email-andrew@lunn.ch>
- <878tpfuztc.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v3 net-next 00/10] openvswitch: Conntrack integration improvements.
+Date: Thu, 9 Feb 2017 08:44:55 -0800
+Message-ID: <CAOrHB_CiVOAQzBpFccZrnuS2Aa2YpdjnGeoivahy+MCdjuw1cQ@mail.gmail.com>
+References: <1486603837-7202-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Joe Stringer <joe@ovn.org>
+To: Jarno Rajahalme <jarno@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:33009 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753182AbdBIQlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Feb 2017 11:41:05 -0500
-Content-Disposition: inline
-In-Reply-To: <878tpfuztc.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:53675 "EHLO
+        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753497AbdBIQpA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 11:45:00 -0500
+Received: from mfilter20-d.gandi.net (mfilter20-d.gandi.net [217.70.178.148])
+        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 93E5DFB8CB
+        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 17:44:57 +0100 (CET)
+Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
+        by mfilter20-d.gandi.net (mfilter20-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id BAgqCqVdWiZv for <netdev@vger.kernel.org>;
+        Thu,  9 Feb 2017 17:44:56 +0100 (CET)
+Received: from mail-wm0-f54.google.com (mail-wm0-f54.google.com [74.125.82.54])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 5223CFB8E5
+        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 17:44:56 +0100 (CET)
+Received: by mail-wm0-f54.google.com with SMTP id r141so25232563wmg.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 08:44:56 -0800 (PST)
+In-Reply-To: <1486603837-7202-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 09, 2017 at 10:52:15AM -0500, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > +static int mv88e6097_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
-> > +{
-> > +	u16 reg;
-> > +
-> > +	mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-> 
-> We should not ignore read errors.
+On Wed, Feb 8, 2017 at 5:30 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
+> This series improves the conntrack integration code in the openvswitch
+> module by fixing outdated comments (patch 1), bugs (patches 2, 3, and
+> 7), clarifying code (patches 4, 5, and 6), improving performance
+> (patch 10), and adding new features enabling better translation from
+> firewall admission policy to network configuration requested by user
+> communities (patches 8 and 9).
+>
+> v3: Rebase to the current net-next, add the comment only changing
+>     patch 1 and reshuffle some of the patches as requested by Joe.
+>
 
-Hi Vivien
+All patches looks good to me.
 
-We are in the middle of an interrupt handler. If we get a read error
-here, we are probable one step from a "Kernel Panic -- not syncing:
-attempted to kill idle task".
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
 
-About the only thing which makes sense is to print a warning
-message. But that really should happen in one central place,
-mv88e6xxx_smi_read(), so it covers all reads everywhere.
-
-> > +	dev_info(chip->dev, "Watchdog event: 0x%04x", reg);
-> > +
-> > +	return IRQ_HANDLED;
-> > +}
-> > +
-> > +static void mv88e6097_watchdog_free(struct mv88e6xxx_chip *chip)
-> > +{
-> > +	u16 reg;
-> > +
-> > +	mv88e6xxx_g2_read(chip, GLOBAL2_WDOG_CONTROL, &reg);
-> > +
-> > +	reg &= ~(GLOBAL2_WDOG_CONTROL_EGRESS_ENABLE |
-> > +		 GLOBAL2_WDOG_CONTROL_QC_ENABLE);
-> > +
-> > +	mv88e6xxx_g2_write(chip, GLOBAL2_WDOG_CONTROL, reg);
-> 
-> Same here.
-
-Again, and do what? We are in the process of unbinding/unloading the
-kernel module. We are going to keep going whatever, and there is no
-mechanism to say an error occurred at this point, other than a printk.
-Again, such a printk should be in mv88e6xxx_smi_write().
-
-       Andrew
+Thanks.
