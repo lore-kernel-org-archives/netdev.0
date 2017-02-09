@@ -1,72 +1,432 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] net/devlink: Add E-Switch encapsulation
- control
-Date: Thu, 9 Feb 2017 18:36:34 +0100
-Message-ID: <20170209173634.GD2018@nanopsycho>
-References: <1486657398-6298-1-git-send-email-ogerlitz@mellanox.com>
- <1486657398-6298-2-git-send-email-ogerlitz@mellanox.com>
- <20170209171053.GC2018@nanopsycho>
- <2ccce1b4-4407-fe66-847a-9159579fac27@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 06/12] nfp: add support for reading nffw info
+Date: Thu,  9 Feb 2017 09:17:32 -0800
+Message-ID: <20170209171738.17386-7-jakub.kicinski@netronome.com>
+References: <20170209171738.17386-1-jakub.kicinski@netronome.com>
+Cc: kubakici@wp.pl, oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36077 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932089AbdBIRgh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:36:37 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r18so3939582wmd.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:36:36 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <2ccce1b4-4407-fe66-847a-9159579fac27@mellanox.com>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:36529 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753046AbdBIRsT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:48:19 -0500
+Received: by mail-pg0-f52.google.com with SMTP id v184so2417570pgv.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:47:35 -0800 (PST)
+In-Reply-To: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 09, 2017 at 06:20:14PM CET, ogerlitz@mellanox.com wrote:
->On 2/9/2017 7:10 PM, Jiri Pirko wrote:
->> > @@ -1470,11 +1480,23 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
->> > 	const struct devlink_ops *ops = devlink->ops;
->> > 	u16 mode;
->> > 	u8 inline_mode;
->> > +	bool encap;
->> > 	int err = 0;
->> > 
->> > 	if (!ops)
->> > 		return -EOPNOTSUPP;
->> > 
->> > +	if (info->attrs[DEVLINK_ATTR_ESWITCH_ENCAP]) {
->> > +		if (!ops->eswitch_encap_set)
->> > +			return -EOPNOTSUPP;
->> > +		if (!info->attrs[DEVLINK_ATTR_ESWITCH_MODE])
+NFFW info is a resource which contains information about
+the loaded application firmware.  Add code which will allow
+us to decode it and retrieve MIP location.
 
-Why you need to check this? Should be possible to set the attrs
-separatelly.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nffw.c  | 323 +++++++++++++++++++++
+ .../net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h  |  51 ++++
+ 3 files changed, 375 insertions(+)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
 
-
->> > +			return -EINVAL;
->> > +		encap = nla_get_u8(info->attrs[DEVLINK_ATTR_ESWITCH_ENCAP]);
->> > +		err = ops->eswitch_encap_set(devlink, encap);
->> > +		if (err)
->> > +			return err;
->> > +	}
->> Please maintain the same order as the attr enum and getters and put this
->> behind the inline_mode.
->
->The HW driver might want to use the attributes only when they are called to
->change the eswitch mode.
-
-I don't get it. Should be a separate attribute - separate op
-
-
->
->I see that the patch is not too consistent with setting the inline mode which
->is done after setting the eswitch mode, mmm, guess we need to fix that.
->
->Or.
->
->
->
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index e9177f04f67b..408cb219a306 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -5,6 +5,7 @@ nfp-objs := \
+ 	    nfpcore/nfp_cppcore.o \
+ 	    nfpcore/nfp_cpplib.o \
+ 	    nfpcore/nfp_hwinfo.o \
++	    nfpcore/nfp_nffw.o \
+ 	    nfpcore/nfp_resource.o \
+ 	    nfpcore/nfp_target.o \
+ 	    nfp_main.o \
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.c
+new file mode 100644
+index 000000000000..cd34097b79f1
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.c
+@@ -0,0 +1,323 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp_nffw.c
++ * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
++ *          Jason McMullan <jason.mcmullan@netronome.com>
++ *          Francois H. Theron <francois.theron@netronome.com>
++ */
++
++#include <linux/kernel.h>
++#include <linux/slab.h>
++
++#include "nfp.h"
++#include "nfp_cpp.h"
++#include "nfp_nffw.h"
++#include "nfp6000/nfp6000.h"
++
++/* Init-CSR owner IDs for firmware map to firmware IDs which start at 4.
++ * Lower IDs are reserved for target and loader IDs.
++ */
++#define NFFW_FWID_EXT   3 /* For active MEs that we didn't load. */
++#define NFFW_FWID_BASE  4
++
++#define NFFW_FWID_ALL   255
++
++/**
++ * NFFW_INFO_VERSION history:
++ * 0: This was never actually used (before versioning), but it refers to
++ *    the previous struct which had FWINFO_CNT = MEINFO_CNT = 120 that later
++ *    changed to 200.
++ * 1: First versioned struct, with
++ *     FWINFO_CNT = 120
++ *     MEINFO_CNT = 120
++ * 2:  FWINFO_CNT = 200
++ *     MEINFO_CNT = 200
++ */
++#define NFFW_INFO_VERSION_CURRENT 2
++
++/* Enough for all current chip families */
++#define NFFW_MEINFO_CNT_V1 120
++#define NFFW_FWINFO_CNT_V1 120
++#define NFFW_MEINFO_CNT_V2 200
++#define NFFW_FWINFO_CNT_V2 200
++
++/* Work in 32-bit words to make cross-platform endianness easier to handle */
++
++/** nfp.nffw meinfo **/
++struct nffw_meinfo {
++	__le32 ctxmask__fwid__meid;
++};
++
++struct nffw_fwinfo {
++	__le32 loaded__mu_da__mip_off_hi;
++	__le32 mip_cppid; /* 0 means no MIP */
++	__le32 mip_offset_lo;
++};
++
++struct nfp_nffw_info_v1 {
++	struct nffw_meinfo meinfo[NFFW_MEINFO_CNT_V1];
++	struct nffw_fwinfo fwinfo[NFFW_FWINFO_CNT_V1];
++};
++
++struct nfp_nffw_info_v2 {
++	struct nffw_meinfo meinfo[NFFW_MEINFO_CNT_V2];
++	struct nffw_fwinfo fwinfo[NFFW_FWINFO_CNT_V2];
++};
++
++/** Resource: nfp.nffw main **/
++struct nfp_nffw_info_data {
++	__le32 flags[2];
++	union {
++		struct nfp_nffw_info_v1 v1;
++		struct nfp_nffw_info_v2 v2;
++	} info;
++};
++
++struct nfp_nffw_info {
++	struct nfp_cpp *cpp;
++	struct nfp_resource *res;
++
++	struct nfp_nffw_info_data fwinf;
++};
++
++/* flg_info_version = flags[0]<27:16>
++ * This is a small version counter intended only to detect if the current
++ * implementation can read the current struct. Struct changes should be very
++ * rare and as such a 12-bit counter should cover large spans of time. By the
++ * time it wraps around, we don't expect to have 4096 versions of this struct
++ * to be in use at the same time.
++ */
++static u32 nffw_res_info_version_get(const struct nfp_nffw_info_data *res)
++{
++	return (le32_to_cpu(res->flags[0]) >> 16) & 0xfff;
++}
++
++/* flg_init = flags[0]<0> */
++static u32 nffw_res_flg_init_get(const struct nfp_nffw_info_data *res)
++{
++	return (le32_to_cpu(res->flags[0]) >> 0) & 1;
++}
++
++/* loaded = loaded__mu_da__mip_off_hi<31:31> */
++static u32 nffw_fwinfo_loaded_get(const struct nffw_fwinfo *fi)
++{
++	return (le32_to_cpu(fi->loaded__mu_da__mip_off_hi) >> 31) & 1;
++}
++
++/* mip_cppid = mip_cppid */
++static u32 nffw_fwinfo_mip_cppid_get(const struct nffw_fwinfo *fi)
++{
++	return le32_to_cpu(fi->mip_cppid);
++}
++
++/* loaded = loaded__mu_da__mip_off_hi<8:8> */
++static u32 nffw_fwinfo_mip_mu_da_get(const struct nffw_fwinfo *fi)
++{
++	return (le32_to_cpu(fi->loaded__mu_da__mip_off_hi) >> 8) & 1;
++}
++
++/* mip_offset = (loaded__mu_da__mip_off_hi<7:0> << 8) | mip_offset_lo */
++static u64 nffw_fwinfo_mip_offset_get(const struct nffw_fwinfo *fi)
++{
++	u64 mip_off_hi = le32_to_cpu(fi->loaded__mu_da__mip_off_hi);
++
++	return (mip_off_hi & 0xFF) << 32 | le32_to_cpu(fi->mip_offset_lo);
++}
++
++#define NFP_IMB_TGTADDRESSMODECFG_MODE_of(_x)		(((_x) >> 13) & 0x7)
++#define NFP_IMB_TGTADDRESSMODECFG_ADDRMODE		BIT(12)
++#define   NFP_IMB_TGTADDRESSMODECFG_ADDRMODE_32_BIT	0
++#define   NFP_IMB_TGTADDRESSMODECFG_ADDRMODE_40_BIT	BIT(12)
++
++static int nfp_mip_mu_locality_lsb(struct nfp_cpp *cpp)
++{
++	unsigned int mode, addr40;
++	u32 xpbaddr, imbcppat;
++	int err;
++
++	/* Hardcoded XPB IMB Base, island 0 */
++	xpbaddr = 0x000a0000 + NFP_CPP_TARGET_MU * 4;
++	err = nfp_xpb_readl(cpp, xpbaddr, &imbcppat);
++	if (err < 0)
++		return err;
++
++	mode = NFP_IMB_TGTADDRESSMODECFG_MODE_of(imbcppat);
++	addr40 = !!(imbcppat & NFP_IMB_TGTADDRESSMODECFG_ADDRMODE);
++
++	return nfp_cppat_mu_locality_lsb(mode, addr40);
++}
++
++static unsigned int
++nffw_res_fwinfos(struct nfp_nffw_info_data *fwinf, struct nffw_fwinfo **arr)
++{
++	/* For the this code, version 0 is most likely to be
++	 * version 1 in this case. Since the kernel driver
++	 * does not take responsibility for initialising the
++	 * nfp.nffw resource, any previous code (CA firmware or
++	 * userspace) that left the version 0 and did set
++	 * the init flag is going to be version 1.
++	 */
++	switch (nffw_res_info_version_get(fwinf)) {
++	case 0:
++	case 1:
++		*arr = &fwinf->info.v1.fwinfo[0];
++		return NFFW_FWINFO_CNT_V1;
++	case 2:
++		*arr = &fwinf->info.v2.fwinfo[0];
++		return NFFW_FWINFO_CNT_V2;
++	default:
++		*arr = NULL;
++		return 0;
++	}
++}
++
++/**
++ * nfp_nffw_info_open() - Acquire the lock on the NFFW table
++ * @cpp:	NFP CPP handle
++ *
++ * Return: 0, or -ERRNO
++ */
++struct nfp_nffw_info *nfp_nffw_info_open(struct nfp_cpp *cpp)
++{
++	struct nfp_nffw_info_data *fwinf;
++	struct nfp_nffw_info *state;
++	u32 info_ver;
++	int err;
++
++	state = kzalloc(sizeof(*state), GFP_KERNEL);
++	if (!state)
++		return ERR_PTR(-ENOMEM);
++
++	state->res = nfp_resource_acquire(cpp, NFP_RESOURCE_NFP_NFFW);
++	if (IS_ERR(state->res))
++		goto err_free;
++
++	fwinf = &state->fwinf;
++
++	if (sizeof(*fwinf) > nfp_resource_size(state->res))
++		goto err_release;
++
++	err = nfp_cpp_read(cpp, nfp_resource_cpp_id(state->res),
++			   nfp_resource_address(state->res),
++			   fwinf, sizeof(*fwinf));
++	if (err < sizeof(*fwinf))
++		goto err_release;
++
++	if (!nffw_res_flg_init_get(fwinf))
++		goto err_release;
++
++	info_ver = nffw_res_info_version_get(fwinf);
++	if (info_ver > NFFW_INFO_VERSION_CURRENT)
++		goto err_release;
++
++	state->cpp = cpp;
++	return state;
++
++err_release:
++	nfp_resource_release(state->res);
++err_free:
++	kfree(state);
++	return ERR_PTR(-EIO);
++}
++
++/**
++ * nfp_nffw_info_release() - Release the lock on the NFFW table
++ * @state:	NFP FW info state
++ *
++ * Return: 0, or -ERRNO
++ */
++void nfp_nffw_info_close(struct nfp_nffw_info *state)
++{
++	nfp_resource_release(state->res);
++	kfree(state);
++}
++
++/**
++ * nfp_nffw_info_fwid_first() - Return the first firmware ID in the NFFW
++ * @state:	NFP FW info state
++ *
++ * Return: First NFFW firmware info, NULL on failure
++ */
++static struct nffw_fwinfo *nfp_nffw_info_fwid_first(struct nfp_nffw_info *state)
++{
++	struct nffw_fwinfo *fwinfo;
++	unsigned int cnt, i;
++
++	cnt = nffw_res_fwinfos(&state->fwinf, &fwinfo);
++	if (!cnt)
++		return NULL;
++
++	for (i = 0; i < cnt; i++)
++		if (nffw_fwinfo_loaded_get(&fwinfo[i]))
++			return &fwinfo[i];
++
++	return NULL;
++}
++
++/**
++ * nfp_nffw_info_mip_first() - Retrieve the location of the first FW's MIP
++ * @state:	NFP FW info state
++ * @cpp_id:	Pointer to the CPP ID of the MIP
++ * @off:	Pointer to the CPP Address of the MIP
++ *
++ * Return: 0, or -ERRNO
++ */
++int nfp_nffw_info_mip_first(struct nfp_nffw_info *state, u32 *cpp_id, u64 *off)
++{
++	struct nffw_fwinfo *fwinfo;
++
++	fwinfo = nfp_nffw_info_fwid_first(state);
++	if (!fwinfo)
++		return -EINVAL;
++
++	*cpp_id = nffw_fwinfo_mip_cppid_get(fwinfo);
++	*off = nffw_fwinfo_mip_offset_get(fwinfo);
++
++	if (nffw_fwinfo_mip_mu_da_get(fwinfo)) {
++		int locality_off;
++
++		if (NFP_CPP_ID_TARGET_of(*cpp_id) != NFP_CPP_TARGET_MU)
++			return 0;
++
++		locality_off = nfp_mip_mu_locality_lsb(state->cpp);
++		if (locality_off < 0)
++			return locality_off;
++
++		*off &= ~(NFP_MU_ADDR_ACCESS_TYPE_MASK << locality_off);
++		*off |= NFP_MU_ADDR_ACCESS_TYPE_DIRECT << locality_off;
++	}
++
++	return 0;
++}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
+new file mode 100644
+index 000000000000..47a6571e236d
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nffw.h
+@@ -0,0 +1,51 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp_nffw.h
++ * Authors: Jason McMullan <jason.mcmullan@netronome.com>
++ *          Francois H. Theron <francois.theron@netronome.com>
++ */
++
++#ifndef NFP_NFFW_H
++#define NFP_NFFW_H
++
++/* Implemented in nfp_nffw.c */
++
++struct nfp_nffw_info;
++
++struct nfp_nffw_info *nfp_nffw_info_open(struct nfp_cpp *cpp);
++void nfp_nffw_info_close(struct nfp_nffw_info *state);
++int nfp_nffw_info_mip_first(struct nfp_nffw_info *state, u32 *cpp_id, u64 *off);
++
++#endif /* NFP_NFFW_H */
+-- 
+2.11.0
