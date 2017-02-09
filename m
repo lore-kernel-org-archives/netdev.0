@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V4 net-next 10/13] net/ena: reduce the severity of ena printouts
-Date: Thu,  9 Feb 2017 15:21:36 +0200
-Message-ID: <1486646499-13682-11-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V4 net-next 11/13] net/ena: change driver's default timeouts
+Date: Thu,  9 Feb 2017 15:21:37 +0200
+Message-ID: <1486646499-13682-12-git-send-email-netanel@annapurnalabs.com>
 References: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -10,128 +10,65 @@ Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         evgenys@annapurnalabs.com
 To: linux-kernel@vger.kernel.org, davem@davemloft.net,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:36848 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752580AbdBINbM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 08:31:12 -0500
+Received: by mail-wm0-f43.google.com with SMTP id c85so230739141wmi.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 05:30:48 -0800 (PST)
 In-Reply-To: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+The timeouts were too agressive and sometimes cause false alarms.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_com.c    | 27 +++++++++++++++++----------
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 14 +++++++++++---
- 2 files changed, 28 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_com.c    | 4 ++--
+ drivers/net/ethernet/amazon/ena/ena_netdev.h | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_com.c b/drivers/net/ethernet/amazon/ena/ena_com.c
-index 46aad3a..5518b1f 100644
+index 5518b1f..8029e7c 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_com.c
 +++ b/drivers/net/ethernet/amazon/ena/ena_com.c
-@@ -784,7 +784,7 @@ static int ena_com_get_feature_ex(struct ena_com_dev *ena_dev,
- 	int ret;
+@@ -36,9 +36,9 @@
+ /*****************************************************************************/
  
- 	if (!ena_com_check_supported_feature_id(ena_dev, feature_id)) {
--		pr_info("Feature %d isn't supported\n", feature_id);
-+		pr_debug("Feature %d isn't supported\n", feature_id);
- 		return -EPERM;
- 	}
+ /* Timeout in micro-sec */
+-#define ADMIN_CMD_TIMEOUT_US (1000000)
++#define ADMIN_CMD_TIMEOUT_US (3000000)
  
-@@ -1126,7 +1126,13 @@ int ena_com_execute_admin_command(struct ena_com_admin_queue *admin_queue,
- 	comp_ctx = ena_com_submit_admin_cmd(admin_queue, cmd, cmd_size,
- 					    comp, comp_size);
- 	if (unlikely(IS_ERR(comp_ctx))) {
--		pr_err("Failed to submit command [%ld]\n", PTR_ERR(comp_ctx));
-+		if (comp_ctx == ERR_PTR(-ENODEV))
-+			pr_debug("Failed to submit command [%ld]\n",
-+				 PTR_ERR(comp_ctx));
-+		else
-+			pr_err("Failed to submit command [%ld]\n",
-+			       PTR_ERR(comp_ctx));
-+
- 		return PTR_ERR(comp_ctx);
- 	}
+-#define ENA_ASYNC_QUEUE_DEPTH 4
++#define ENA_ASYNC_QUEUE_DEPTH 16
+ #define ENA_ADMIN_QUEUE_DEPTH 32
  
-@@ -1895,7 +1901,7 @@ int ena_com_set_dev_mtu(struct ena_com_dev *ena_dev, int mtu)
- 	int ret;
+ #define MIN_ENA_VER (((ENA_COMMON_SPEC_VERSION_MAJOR) << \
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index f0ddc11..efe0ea1 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -100,7 +100,7 @@
+ /* Number of queues to check for missing queues per timer service */
+ #define ENA_MONITORED_TX_QUEUES	4
+ /* Max timeout packets before device reset */
+-#define MAX_NUM_OF_TIMEOUTED_PACKETS 32
++#define MAX_NUM_OF_TIMEOUTED_PACKETS 128
  
- 	if (!ena_com_check_supported_feature_id(ena_dev, ENA_ADMIN_MTU)) {
--		pr_info("Feature %d isn't supported\n", ENA_ADMIN_MTU);
-+		pr_debug("Feature %d isn't supported\n", ENA_ADMIN_MTU);
- 		return -EPERM;
- 	}
+ #define ENA_TX_RING_IDX_NEXT(idx, ring_size) (((idx) + 1) & ((ring_size) - 1))
  
-@@ -1948,8 +1954,8 @@ int ena_com_set_hash_function(struct ena_com_dev *ena_dev)
+@@ -116,9 +116,9 @@
+ #define ENA_IO_IRQ_IDX(q)		(ENA_IO_IRQ_FIRST_IDX + (q))
  
- 	if (!ena_com_check_supported_feature_id(ena_dev,
- 						ENA_ADMIN_RSS_HASH_FUNCTION)) {
--		pr_info("Feature %d isn't supported\n",
--			ENA_ADMIN_RSS_HASH_FUNCTION);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_HASH_FUNCTION);
- 		return -EPERM;
- 	}
- 
-@@ -2112,7 +2118,8 @@ int ena_com_set_hash_ctrl(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(ena_dev,
- 						ENA_ADMIN_RSS_HASH_INPUT)) {
--		pr_info("Feature %d isn't supported\n", ENA_ADMIN_RSS_HASH_INPUT);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_HASH_INPUT);
- 		return -EPERM;
- 	}
- 
-@@ -2270,8 +2277,8 @@ int ena_com_indirect_table_set(struct ena_com_dev *ena_dev)
- 
- 	if (!ena_com_check_supported_feature_id(
- 		    ena_dev, ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG)) {
--		pr_info("Feature %d isn't supported\n",
--			ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
-+		pr_debug("Feature %d isn't supported\n",
-+			 ENA_ADMIN_RSS_REDIRECTION_TABLE_CONFIG);
- 		return -EPERM;
- 	}
- 
-@@ -2542,8 +2549,8 @@ int ena_com_init_interrupt_moderation(struct ena_com_dev *ena_dev)
- 
- 	if (rc) {
- 		if (rc == -EPERM) {
--			pr_info("Feature %d isn't supported\n",
--				ENA_ADMIN_INTERRUPT_MODERATION);
-+			pr_debug("Feature %d isn't supported\n",
-+				 ENA_ADMIN_INTERRUPT_MODERATION);
- 			rc = 0;
- 		} else {
- 			pr_err("Failed to get interrupt moderation admin cmd. rc: %d\n",
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index d467a79..5079366 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -563,6 +563,7 @@ static void ena_free_all_rx_bufs(struct ena_adapter *adapter)
+ /* ENA device should send keep alive msg every 1 sec.
+- * We wait for 3 sec just to be on the safe side.
++ * We wait for 6 sec just to be on the safe side.
   */
- static void ena_free_tx_bufs(struct ena_ring *tx_ring)
- {
-+	bool print_once = true;
- 	u32 i;
+-#define ENA_DEVICE_KALIVE_TIMEOUT	(3 * HZ)
++#define ENA_DEVICE_KALIVE_TIMEOUT	(6 * HZ)
  
- 	for (i = 0; i < tx_ring->ring_size; i++) {
-@@ -574,9 +575,16 @@ static void ena_free_tx_bufs(struct ena_ring *tx_ring)
- 		if (!tx_info->skb)
- 			continue;
+ #define ENA_MMIO_DISABLE_REG_READ	BIT(0)
  
--		netdev_notice(tx_ring->netdev,
--			      "free uncompleted tx skb qid %d idx 0x%x\n",
--			      tx_ring->qid, i);
-+		if (print_once) {
-+			netdev_notice(tx_ring->netdev,
-+				      "free uncompleted tx skb qid %d idx 0x%x\n",
-+				      tx_ring->qid, i);
-+			print_once = false;
-+		} else {
-+			netdev_dbg(tx_ring->netdev,
-+				   "free uncompleted tx skb qid %d idx 0x%x\n",
-+				   tx_ring->qid, i);
-+		}
- 
- 		ena_buf = tx_info->bufs;
- 		dma_unmap_single(tx_ring->dev,
 -- 
 2.7.4
