@@ -1,106 +1,84 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Thu, 9 Feb 2017 09:02:42 +0100
-Message-ID: <20170209080242.GA1698@localhost.localdomain>
-References: <20170207140144.GA11233@localhost>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 1/2] flow dissector: ND
+ support
+Date: Thu, 9 Feb 2017 09:25:39 +0100
+Message-ID: <20170209082538.GA474@penelope.horms.nl>
+References: <20170207.123831.1038511845714033360.davem@davemloft.net>
+ <20170208092823.GA17615@penelope.horms.nl>
+ <CALx6S36VrtQM5G2XPzpcrP=y3RyBwTnYJcaKqXtwyFgpGiz+Jg@mail.gmail.com>
+ <20170208.135415.601520734521006340.davem@davemloft.net>
+ <20170208200917.GA20719@nanopsycho>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Denny Page <dennypage@me.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
+Cc: David Miller <davem@davemloft.net>, tom@herbertland.com,
+        eric.dumazet@gmail.com, dinan.gunawardena@netronome.com,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34066 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751736AbdBIIDA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 03:03:00 -0500
-Received: by mail-wm0-f67.google.com with SMTP id c85so1617675wmi.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 00:02:56 -0800 (PST)
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:34429 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751807AbdBIIfs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 03:35:48 -0500
+Received: by mail-wm0-f53.google.com with SMTP id 196so56112598wmm.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 00:34:06 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20170207140144.GA11233@localhost>
+In-Reply-To: <20170208200917.GA20719@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 03:01:44PM +0100, Miroslav Lichvar wrote:
-> 1) new rx_filter for NTP
+On Wed, Feb 08, 2017 at 09:09:17PM +0100, Jiri Pirko wrote:
+> Wed, Feb 08, 2017 at 07:54:15PM CET, davem@davemloft.net wrote:
+> >From: Tom Herbert <tom@herbertland.com>
+> >Date: Wed, 8 Feb 2017 10:33:46 -0800
+> >
+> >> On Wed, Feb 8, 2017 at 1:28 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> >>> I think the above paragraph gets back to Tom's original question regarding
+> >>> making things more complex just for OvS (use-cases). Possibly ND is an edge
+> >>> case even for OvS and on reflection my timing for posting it seems to have
+> >>> been less than ideal.
+> >> 
+> >> If it wasn't ND it would be something else... with all the activity
+> >> happening in networking features and HW this is a timely discussion.
+> >> Flow dissector presents a good example of a function that might become
+> >> a dumping ground for an endless stream of features if we don't figure
+> >> out how exercise some restraint.
+> >
+> >I agree on most points.
+> >
+> >But, I would say that in this specific case, since we have ARP support in
+> >there already it behooves us to support the ipv6 side in the form of ND
+> >too.
+> >
+> >Then we can put a line in the sand and say that future feature additions
+> >in this area require serious discussion.
 
-This is an easy one.  No objections here.
+I think this serious discussion is all about the long term and am
+completely in favour of that. But in the short term it would help me to
+know if the line in the sand excludes proposing enhancements to protocols
+already supported by the flow dissector; in particular MPLS and IP fields I
+listed earlier in this thread.
 
->    Should be the current drivers of HW that can timestamp all packets
->    updated to fall back to HWTSTAMP_FILTER_ALL?
+Perhaps the answer is that it depends. But if the line in
+the sand has been fortified I'd rather avoid trying to cross it.
 
-Yes, and the phyter, the only driver that can support this directly,
-would need some work.
- 
-> 2) new SO_TIMESTAMPING option to receive from the error queue only
->    user data as was passed to sendmsg() instead of Ethernet frames
+> Yeah, well, and if there is a functinality that is unacceptable for any
+> reason to put into flow_dissector, we have to do a flow_dissector2?
 > 
->    Parsing Ethernet and IP headers (especially IPv6 options) is not
->    fun and SOF_TIMESTAMPING_OPT_ID is not always practical, e.g. in
->    applications which process messages from the error queue
->    asynchronously and don't bind/connect their sockets.
-
-This doesn't seem justified to me.  From the application POV, it is
-easier to hash the transmitted frames than to parse loop backed
-packets.
-
-> 3) target address in msg_name of messages from the error queue
+> Note that I originally had separate dissection in cls_flower, you
+> suggested to use the existing flow_dissector. And I still believe it was
+> the right way to do it.
 > 
->    With 2) and unconnected sockets, there needs to be a way to get the
->    address to which the packet was sent. Is it ok to always fill
->    msg_name, or does it need to be a new option?
+> I think that better is to make existing flow dissector more modular.
+> I'll look into this.
 
-Again, a hash table cures this.
+Making the flow dissector more modular makes some sense to me.
+It seems that it should be a way to address sharing common code while
+allowing more flexibility for users, such as flower, that need it.
 
-> 4) allow sockets to use both SW and HW TX timestamping at the same time
-> 
->    When using a socket which is not bound to a specific interface, it
->    would be nice to get transmit SW timestamps when HW timestamps are
->    missing. I suspect it's difficult to predict if a HW timestamp will
->    be available.
+Elsewhere in this thread there has been some discussion of BPF. While I
+also think that makes sense I think that for in-kernel users it makes
+more sense to allow leveraging of the flow dissector using C code.
 
-Right.
-
->    Maybe it would be acceptable to get from the error
->    queue two messages per transmission if the interface supports both
->    SW and HW timestamping?
-
-I like this idea better.
-
-However, I doubt the utility of this.  If you provide SW time stamps
-always and TX mostly, but not always, this forces the application to
-keep two sets of filtered data or two servos, one designed for SW and
-one for HW accuracy.
- 
-> 5) new SO_TIMESTAMPING options to get transposed RX timestamps
-> 
->    PTP uses preamble RX timestamps, but NTP works with trailer RX
->    timestamps. This means NTP implementations currently need to
->    transpose HW RX timestamps. The calculation requires the link speed
->    and the length of the packet at layer 2. It seems this can be
->    reliably done only using raw sockets. It would be very nice if the
->    kernel could tranpose the timestamps automatically.
-
-Impossible, because the link speed may change between the time when
-the MAC receives the data the kernel gets around to calculating the
-time stamp.
- 
-> 6) new SO_TIMESTAMPING option to get PHC index with HW timestamps
-> 
->    With bridges, bonding and other things it's difficult to determine
->    which PHC timestamped the packet. It would be very useful if the
->    PHC index was provided with each HW timestamp.
-
-Again, this only makes writing the application harder, as it would be
-forced to sort packets by PHC index.  It is much easier to open
-multiple sockets, each bound to one physical interface.
- 
->    I'm not sure what would be the best place to put it. I guess the
->    second timespec in scm_timestamping could be reused for this, but
->    that sounds like a gross hack. Do we need to define a new struct?
-
-Yes, I think so.
-
-Thanks,
-Richard
+Such an approach well allow some of the complexity that was recently added
+to the flow dissector to move into more peripheral code. Which may or may
+not be a win as I think was discussed earlier in this thread.
