@@ -1,55 +1,121 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 04/12] nfp: add support for resources
-Date: Thu,  9 Feb 2017 09:17:30 -0800
-Message-ID: <20170209171738.17386-5-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 02/12] nfp: rename the driver and add new main file
+Date: Thu,  9 Feb 2017 09:17:28 -0800
+Message-ID: <20170209171738.17386-3-jakub.kicinski@netronome.com>
 References: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Cc: kubakici@wp.pl, oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34674 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752782AbdBIR3B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:29:01 -0500
-Received: by mail-pg0-f43.google.com with SMTP id 14so2331586pgg.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:28:55 -0800 (PST)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36732 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751047AbdBIR3Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 12:29:24 -0500
+Received: by mail-pf0-f181.google.com with SMTP id 189so2007550pfu.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 09:29:23 -0800 (PST)
 In-Reply-To: <20170209171738.17386-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resource table is an array placed in a well defined location
-in device's memory which describes device resources and contains
-locks which have to be acquired to use them.
+Support for the PF driver is about to be added and will share
+much of the code.  When the VF driver was added we planned to
+maintain the PF driver as a separate module but have decided
+that for our simple use case just maintaining a single module
+is more reasonable.  Rename the driver to just "nfp" and update
+the Kconfig.
+
+While at it remove latent references to NFP3200.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
- drivers/net/ethernet/netronome/nfp/nfpcore/crc32.h |  65 +++++
- drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h   |  88 +++++++
- .../ethernet/netronome/nfp/nfpcore/nfp_resource.c  | 279 +++++++++++++++++++++
- 4 files changed, 433 insertions(+)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/crc32.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
+ drivers/net/ethernet/netronome/Kconfig             | 18 ++---
+ drivers/net/ethernet/netronome/Makefile            |  2 +-
+ drivers/net/ethernet/netronome/nfp/Makefile        |  9 ++-
+ drivers/net/ethernet/netronome/nfp/nfp_main.c      | 85 ++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      | 48 ++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  9 +--
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   |  8 +-
+ .../net/ethernet/netronome/nfp/nfp_netvf_main.c    | 38 +---------
+ 8 files changed, 160 insertions(+), 57 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_main.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_main.h
 
+diff --git a/drivers/net/ethernet/netronome/Kconfig b/drivers/net/ethernet/netronome/Kconfig
+index 9508ad782c30..967d7ca8c28c 100644
+--- a/drivers/net/ethernet/netronome/Kconfig
++++ b/drivers/net/ethernet/netronome/Kconfig
+@@ -15,21 +15,21 @@ config NET_VENDOR_NETRONOME
+ 
+ if NET_VENDOR_NETRONOME
+ 
+-config NFP_NETVF
+-	tristate "Netronome(R) NFP4000/NFP6000 VF NIC driver"
++config NFP
++	tristate "Netronome(R) NFP4000/NFP6000 NIC driver"
+ 	depends on PCI && PCI_MSI
+ 	depends on VXLAN || VXLAN=n
+ 	---help---
+-	  This driver supports SR-IOV virtual functions of
+-	  the Netronome(R) NFP4000/NFP6000 cards working as
+-	  a advanced Ethernet NIC.
++	  This driver supports the Netronome(R) NFP4000/NFP6000 based
++	  cards working as a advanced Ethernet NIC.  It works with both
++	  SR-IOV physical and virtual functions.
+ 
+-config NFP_NET_DEBUG
+-	bool "Debug support for Netronome(R) NFP3200/NFP6000 NIC drivers"
+-	depends on NFP_NET || NFP_NETVF
++config NFP_DEBUG
++	bool "Debug support for Netronome(R) NFP4000/NFP6000 NIC drivers"
++	depends on NFP
+ 	---help---
+ 	  Enable extra sanity checks and debugfs support in
+-	  Netronome(R) NFP3200/NFP6000 NIC PF and VF drivers.
++	  Netronome(R) NFP4000/NFP6000 NIC drivers.
+ 	  Note: selecting this option may adversely impact
+ 		performance.
+ 
+diff --git a/drivers/net/ethernet/netronome/Makefile b/drivers/net/ethernet/netronome/Makefile
+index dcb7b383f634..7fb3b84b5556 100644
+--- a/drivers/net/ethernet/netronome/Makefile
++++ b/drivers/net/ethernet/netronome/Makefile
+@@ -2,4 +2,4 @@
+ # Makefile for the Netronome network device drivers
+ #
+ 
+-obj-$(CONFIG_NFP_NETVF) += nfp/
++obj-$(CONFIG_NFP) += nfp/
 diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index fb9dadf9236d..47010b7d3efa 100644
+index 0efb2ba9a558..1103cb498323 100644
 --- a/drivers/net/ethernet/netronome/nfp/Makefile
 +++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -4,6 +4,7 @@ nfp-objs := \
- 	    nfpcore/nfp6000_pcie.o \
- 	    nfpcore/nfp_cppcore.o \
- 	    nfpcore/nfp_cpplib.o \
-+	    nfpcore/nfp_resource.o \
- 	    nfpcore/nfp_target.o \
- 	    nfp_main.o \
+@@ -1,15 +1,16 @@
+-obj-$(CONFIG_NFP_NETVF)	+= nfp_netvf.o
++obj-$(CONFIG_NFP)	+= nfp.o
+ 
+-nfp_netvf-objs := \
++nfp-objs := \
++	    nfp_main.o \
  	    nfp_net_common.o \
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/crc32.h b/drivers/net/ethernet/netronome/nfp/nfpcore/crc32.h
+ 	    nfp_net_ethtool.o \
+ 	    nfp_net_offload.o \
+ 	    nfp_netvf_main.o
+ 
+ ifeq ($(CONFIG_BPF_SYSCALL),y)
+-nfp_netvf-objs += \
++nfp-objs += \
+ 	    nfp_bpf_verifier.o \
+ 	    nfp_bpf_jit.o
+ endif
+ 
+-nfp_netvf-$(CONFIG_NFP_NET_DEBUG) += nfp_net_debugfs.o
++nfp-$(CONFIG_NFP_DEBUG) += nfp_net_debugfs.o
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
 new file mode 100644
-index 000000000000..6cee6382deb4
+index 000000000000..cc6d75fff005
 --- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/crc32.h
-@@ -0,0 +1,65 @@
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -0,0 +1,85 @@
 +/*
 + * Copyright (C) 2015-2017 Netronome Systems, Inc.
 + *
@@ -83,416 +149,237 @@ index 000000000000..6cee6382deb4
 + * SOFTWARE.
 + */
 +
-+#ifndef NFP_CRC32_H
-+#define NFP_CRC32_H
++/*
++ * nfp_main.c
++ * Authors: Jakub Kicinski <jakub.kicinski@netronome.com>
++ *          Alejandro Lucero <alejandro.lucero@netronome.com>
++ *          Jason McMullan <jason.mcmullan@netronome.com>
++ *          Rolf Neugebauer <rolf.neugebauer@netronome.com>
++ */
 +
 +#include <linux/kernel.h>
-+#include <linux/crc32.h>
++#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/firmware.h>
++#include <linux/vermagic.h>
 +
-+/**
-+ * crc32_posix_end() - Finalize POSIX CRC32 working state
-+ * @crc:	Current CRC32 working state
-+ * @total_len:	Total length of data that was CRC32'd
-+ *
-+ * Return: Final POSIX CRC32 value
-+ */
-+static inline u32 crc32_posix_end(u32 crc, size_t total_len)
-+{
-+	/* Extend with the length of the string. */
-+	while (total_len != 0) {
-+		u8 c = total_len & 0xff;
++#include "nfp_main.h"
++#include "nfp_net.h"
 +
-+		crc = crc32_be(crc, &c, 1);
-+		total_len >>= 8;
-+	}
++static const char nfp_driver_name[] = "nfp";
++const char nfp_driver_version[] = VERMAGIC_STRING;
 +
-+	return ~crc;
-+}
-+
-+static inline u32 crc32_posix(const void *buff, size_t len)
-+{
-+	return crc32_posix_end(crc32_be(0, buff, len), len);
-+}
-+
-+#endif /* NFP_CRC32_H */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-new file mode 100644
-index 000000000000..1aa57161f23e
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp.h
-@@ -0,0 +1,88 @@
-+/*
-+ * Copyright (C) 2015-2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+/*
-+ * nfp.h
-+ * Interface for NFP device access and query functions.
-+ */
-+
-+#ifndef __NFP_H__
-+#define __NFP_H__
-+
-+#include <linux/device.h>
-+
-+#include "nfp_cpp.h"
-+
-+/* Implemented in nfp_resource.c */
-+
-+#define NFP_RESOURCE_TBL_TARGET		NFP_CPP_TARGET_MU
-+#define NFP_RESOURCE_TBL_BASE		0x8100000000ULL
-+
-+/* NFP Resource Table self-identifier */
-+#define NFP_RESOURCE_TBL_NAME		"nfp.res"
-+#define NFP_RESOURCE_TBL_KEY		0x00000000 /* Special key for entry 0 */
-+
-+/* All other keys are CRC32-POSIX of the 8-byte identification string */
-+
-+/* ARM/PCI vNIC Interfaces 0..3 */
-+#define NFP_RESOURCE_VNIC_PCI_0		"vnic.p0"
-+#define NFP_RESOURCE_VNIC_PCI_1		"vnic.p1"
-+#define NFP_RESOURCE_VNIC_PCI_2		"vnic.p2"
-+#define NFP_RESOURCE_VNIC_PCI_3		"vnic.p3"
-+
-+/* NFP Hardware Info Database */
-+#define NFP_RESOURCE_NFP_HWINFO		"nfp.info"
-+
-+/* Service Processor */
-+#define NFP_RESOURCE_NSP		"nfp.sp"
-+
-+/* Netronone Flow Firmware Table */
-+#define NFP_RESOURCE_NFP_NFFW		"nfp.nffw"
-+
-+/* MAC Statistics Accumulator */
-+#define NFP_RESOURCE_MAC_STATISTICS	"mac.stat"
-+
-+struct nfp_resource *
-+nfp_resource_acquire(struct nfp_cpp *cpp, const char *name);
-+
-+void nfp_resource_release(struct nfp_resource *res);
-+
-+u32 nfp_resource_cpp_id(struct nfp_resource *res);
-+
-+const char *nfp_resource_name(struct nfp_resource *res);
-+
-+u64 nfp_resource_address(struct nfp_resource *res);
-+
-+u64 nfp_resource_size(struct nfp_resource *res);
-+
-+#endif /* !__NFP_H__ */
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
-new file mode 100644
-index 000000000000..a2850344f8b4
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_resource.c
-@@ -0,0 +1,279 @@
-+/*
-+ * Copyright (C) 2015-2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+/*
-+ * nfp_resource.c
-+ * Author: Jakub Kicinski <jakub.kicinski@netronome.com>
-+ *         Jason McMullan <jason.mcmullan@netronome.com>
-+ */
-+#include <linux/delay.h>
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+
-+#include "crc32.h"
-+#include "nfp.h"
-+#include "nfp_cpp.h"
-+#include "nfp6000/nfp6000.h"
-+
-+#define NFP_RESOURCE_ENTRY_NAME_SZ	8
-+
-+/**
-+ * struct nfp_resource_entry - Resource table entry
-+ * @owner:		NFP CPP Lock, interface owner
-+ * @key:		NFP CPP Lock, posix_crc32(name, 8)
-+ * @region:		Memory region descriptor
-+ * @name:		ASCII, zero padded name
-+ * @reserved
-+ * @cpp_action:		CPP Action
-+ * @cpp_token:		CPP Token
-+ * @cpp_target:		CPP Target ID
-+ * @page_offset:	256-byte page offset into target's CPP address
-+ * @page_size:		size, in 256-byte pages
-+ */
-+struct nfp_resource_entry {
-+	struct nfp_resource_entry_mutex {
-+		u32 owner;
-+		u32 key;
-+	} mutex;
-+	struct nfp_resource_entry_region {
-+		u8  name[NFP_RESOURCE_ENTRY_NAME_SZ];
-+		u8  reserved[5];
-+		u8  cpp_action;
-+		u8  cpp_token;
-+		u8  cpp_target;
-+		u32 page_offset;
-+		u32 page_size;
-+	} region;
-+};
-+
-+#define NFP_RESOURCE_TBL_SIZE		4096
-+#define NFP_RESOURCE_TBL_ENTRIES	(NFP_RESOURCE_TBL_SIZE /	\
-+					 sizeof(struct nfp_resource_entry))
-+
-+struct nfp_resource {
-+	char name[NFP_RESOURCE_ENTRY_NAME_SZ + 1];
-+	u32 cpp_id;
-+	u64 addr;
-+	u64 size;
-+	struct nfp_cpp_mutex *mutex;
-+};
-+
-+static int nfp_cpp_resource_find(struct nfp_cpp *cpp, struct nfp_resource *res)
-+{
-+	char name_pad[NFP_RESOURCE_ENTRY_NAME_SZ] = {};
-+	struct nfp_resource_entry entry;
-+	u32 cpp_id, key;
-+	int ret, i;
-+
-+	cpp_id = NFP_CPP_ID(NFP_RESOURCE_TBL_TARGET, 3, 0);  /* Atomic read */
-+
-+	strncpy(name_pad, res->name, sizeof(name_pad));
-+
-+	/* Search for a matching entry */
-+	key = NFP_RESOURCE_TBL_KEY;
-+	if (memcmp(name_pad, NFP_RESOURCE_TBL_NAME "\0\0\0\0\0\0\0\0", 8))
-+		key = crc32_posix(name_pad, sizeof(name_pad));
-+
-+	for (i = 0; i < NFP_RESOURCE_TBL_ENTRIES; i++) {
-+		u64 addr = NFP_RESOURCE_TBL_BASE +
-+			sizeof(struct nfp_resource_entry) * i;
-+
-+		ret = nfp_cpp_read(cpp, cpp_id, addr, &entry, sizeof(entry));
-+		if (ret != sizeof(entry))
-+			return -EIO;
-+
-+		if (entry.mutex.key != key)
-+			continue;
-+
-+		/* Found key! */
-+		res->mutex =
-+			nfp_cpp_mutex_alloc(cpp,
-+					    NFP_RESOURCE_TBL_TARGET, addr, key);
-+		res->cpp_id = NFP_CPP_ID(entry.region.cpp_target,
-+					 entry.region.cpp_action,
-+					 entry.region.cpp_token);
-+		res->addr = (u64)entry.region.page_offset << 8;
-+		res->size = (u64)entry.region.page_size << 8;
-+
-+		return 0;
-+	}
-+
-+	return -ENOENT;
-+}
-+
-+static int
-+nfp_resource_try_acquire(struct nfp_cpp *cpp, struct nfp_resource *res,
-+			 struct nfp_cpp_mutex *dev_mutex)
++static int __init nfp_main_init(void)
 +{
 +	int err;
 +
-+	if (nfp_cpp_mutex_lock(dev_mutex))
-+		return -EINVAL;
++	pr_info("%s: NFP PCIe Driver, Copyright (C) 2014-2017 Netronome Systems\n",
++		nfp_driver_name);
 +
-+	err = nfp_cpp_resource_find(cpp, res);
++	nfp_net_debugfs_create();
++
++	err = pci_register_driver(&nfp_netvf_pci_driver);
 +	if (err)
-+		goto err_unlock_dev;
++		goto err_destroy_debugfs;
 +
-+	err = nfp_cpp_mutex_trylock(res->mutex);
-+	if (err)
-+		goto err_res_mutex_free;
++	return err;
 +
-+	nfp_cpp_mutex_unlock(dev_mutex);
-+
-+	return 0;
-+
-+err_res_mutex_free:
-+	nfp_cpp_mutex_free(res->mutex);
-+err_unlock_dev:
-+	nfp_cpp_mutex_unlock(dev_mutex);
-+
++err_destroy_debugfs:
++	nfp_net_debugfs_destroy();
 +	return err;
 +}
 +
-+/**
-+ * nfp_resource_acquire() - Acquire a resource handle
-+ * @cpp:	NFP CPP handle
-+ * @name:	Name of the resource
-+ *
-+ * NOTE: This function locks the acquired resource
-+ *
-+ * Return: NFP Resource handle, or ERR_PTR()
-+ */
-+struct nfp_resource *
-+nfp_resource_acquire(struct nfp_cpp *cpp, const char *name)
++static void __exit nfp_main_exit(void)
 +{
-+	unsigned long warn_at = jiffies + 15 * HZ;
-+	struct nfp_cpp_mutex *dev_mutex;
-+	struct nfp_resource *res;
-+	int err;
-+
-+	res = kzalloc(sizeof(*res), GFP_KERNEL);
-+	if (!res)
-+		return ERR_PTR(-ENOMEM);
-+
-+	strncpy(res->name, name, NFP_RESOURCE_ENTRY_NAME_SZ);
-+
-+	dev_mutex = nfp_cpp_mutex_alloc(cpp, NFP_RESOURCE_TBL_TARGET,
-+					NFP_RESOURCE_TBL_BASE,
-+					NFP_RESOURCE_TBL_KEY);
-+	if (!dev_mutex) {
-+		kfree(res);
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	for (;;) {
-+		err = nfp_resource_try_acquire(cpp, res, dev_mutex);
-+		if (!err)
-+			break;
-+		if (err != -EBUSY)
-+			goto err_free;
-+
-+		err = msleep_interruptible(1);
-+		if (err != 0) {
-+			err = -ERESTARTSYS;
-+			goto err_free;
-+		}
-+
-+		if (time_is_before_eq_jiffies(warn_at)) {
-+			warn_at = jiffies + 60 * HZ;
-+			nfp_warn(cpp, "Warning: waiting for NFP resource %s\n",
-+				 name);
-+		}
-+	}
-+
-+	nfp_cpp_mutex_free(dev_mutex);
-+
-+	return res;
-+
-+err_free:
-+	nfp_cpp_mutex_free(dev_mutex);
-+	kfree(res);
-+	return ERR_PTR(err);
++	pci_unregister_driver(&nfp_netvf_pci_driver);
++	nfp_net_debugfs_destroy();
 +}
 +
-+/**
-+ * nfp_resource_release() - Release a NFP Resource handle
-+ * @res:	NFP Resource handle
-+ *
-+ * NOTE: This function implictly unlocks the resource handle
-+ */
-+void nfp_resource_release(struct nfp_resource *res)
-+{
-+	nfp_cpp_mutex_unlock(res->mutex);
-+	nfp_cpp_mutex_free(res->mutex);
-+	kfree(res);
-+}
++module_init(nfp_main_init);
++module_exit(nfp_main_exit);
 +
-+/**
-+ * nfp_resource_cpp_id() - Return the cpp_id of a resource handle
-+ * @res:	NFP Resource handle
++MODULE_AUTHOR("Netronome Systems <oss-drivers@netronome.com>");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("The Netronome Flow Processor (NFP) driver.");
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.h b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+new file mode 100644
+index 000000000000..371ae2731909
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.h
+@@ -0,0 +1,48 @@
++/*
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
 + *
-+ * Return: NFP CPP ID
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
 + */
-+u32 nfp_resource_cpp_id(struct nfp_resource *res)
-+{
-+	return res->cpp_id;
-+}
 +
-+/**
-+ * nfp_resource_name() - Return the name of a resource handle
-+ * @res:	NFP Resource handle
-+ *
-+ * Return: const char pointer to the name of the resource
++/*
++ * nfp_main.h
++ * Author: Jason McMullan <jason.mcmullan@netronome.com>
 + */
-+const char *nfp_resource_name(struct nfp_resource *res)
-+{
-+	return res->name;
-+}
 +
-+/**
-+ * nfp_resource_address() - Return the address of a resource handle
-+ * @res:	NFP Resource handle
-+ *
-+ * Return: Address of the resource
-+ */
-+u64 nfp_resource_address(struct nfp_resource *res)
-+{
-+	return res->addr;
-+}
++#ifndef NFP_MAIN_H
++#define NFP_MAIN_H
 +
-+/**
-+ * nfp_resource_size() - Return the size in bytes of a resource handle
-+ * @res:	NFP Resource handle
-+ *
-+ * Return: Size of the resource in bytes
-+ */
-+u64 nfp_resource_size(struct nfp_resource *res)
-+{
-+	return res->size;
-+}
++#include <linux/types.h>
++#include <linux/msi.h>
++#include <linux/pci.h>
++
++extern struct pci_driver nfp_netvf_pci_driver;
++
++#endif /* NFP_MAIN_H */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 2115f446031e..f05f750c2ea0 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2015 Netronome Systems, Inc.
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
+  *
+  * This software is dual licensed under the GNU General License Version 2,
+  * June 1991 as shown in the file COPYING in the top-level directory of this
+@@ -770,8 +770,7 @@ static inline u32 nfp_qcp_wr_ptr_read(u8 __iomem *q)
+ }
+ 
+ /* Globals */
+-extern const char nfp_net_driver_name[];
+-extern const char nfp_net_driver_version[];
++extern const char nfp_driver_version[];
+ 
+ /* Prototypes */
+ void nfp_net_get_fw_version(struct nfp_net_fw_version *fw_ver,
+@@ -795,7 +794,7 @@ int
+ nfp_net_ring_reconfig(struct nfp_net *nn, struct bpf_prog **xdp_prog,
+ 		      struct nfp_net_ring_set *rx, struct nfp_net_ring_set *tx);
+ 
+-#ifdef CONFIG_NFP_NET_DEBUG
++#ifdef CONFIG_NFP_DEBUG
+ void nfp_net_debugfs_create(void);
+ void nfp_net_debugfs_destroy(void);
+ void nfp_net_debugfs_adapter_add(struct nfp_net *nn);
+@@ -816,7 +815,7 @@ static inline void nfp_net_debugfs_adapter_add(struct nfp_net *nn)
+ static inline void nfp_net_debugfs_adapter_del(struct nfp_net *nn)
+ {
+ }
+-#endif /* CONFIG_NFP_NET_DEBUG */
++#endif /* CONFIG_NFP_DEBUG */
+ 
+ void nfp_net_filter_stats_timer(unsigned long data);
+ int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 1b26e9646574..255f30252550 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2015 Netronome Systems, Inc.
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
+  *
+  * This software is dual licensed under the GNU General License Version 2,
+  * June 1991 as shown in the file COPYING in the top-level directory of this
+@@ -132,9 +132,9 @@ static void nfp_net_get_drvinfo(struct net_device *netdev,
+ {
+ 	struct nfp_net *nn = netdev_priv(netdev);
+ 
+-	strlcpy(drvinfo->driver, nfp_net_driver_name, sizeof(drvinfo->driver));
+-	strlcpy(drvinfo->version, nfp_net_driver_version,
+-		sizeof(drvinfo->version));
++	strlcpy(drvinfo->driver, nn->pdev->driver->name,
++		sizeof(drvinfo->driver));
++	strlcpy(drvinfo->version, nfp_driver_version, sizeof(drvinfo->version));
+ 
+ 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
+ 		 "%d.%d.%d.%d",
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+index d065235034d4..5bacc48e6627 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_netvf_main.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2015 Netronome Systems, Inc.
++ * Copyright (C) 2015-2017 Netronome Systems, Inc.
+  *
+  * This software is dual licensed under the GNU General License Version 2,
+  * June 1991 as shown in the file COPYING in the top-level directory of this
+@@ -46,8 +46,8 @@
+ #include "nfp_net_ctrl.h"
+ #include "nfp_net.h"
+ 
+-const char nfp_net_driver_name[] = "nfp_netvf";
+-const char nfp_net_driver_version[] = "0.1";
++static const char nfp_net_driver_name[] = "nfp_netvf";
++
+ #define PCI_DEVICE_NFP6000VF		0x6003
+ static const struct pci_device_id nfp_netvf_pci_device_ids[] = {
+ 	{ PCI_VENDOR_ID_NETRONOME, PCI_DEVICE_NFP6000VF,
+@@ -315,39 +315,9 @@ static void nfp_netvf_pci_remove(struct pci_dev *pdev)
+ 	pci_disable_device(pdev);
+ }
+ 
+-static struct pci_driver nfp_netvf_pci_driver = {
++struct pci_driver nfp_netvf_pci_driver = {
+ 	.name        = nfp_net_driver_name,
+ 	.id_table    = nfp_netvf_pci_device_ids,
+ 	.probe       = nfp_netvf_pci_probe,
+ 	.remove      = nfp_netvf_pci_remove,
+ };
+-
+-static int __init nfp_netvf_init(void)
+-{
+-	int err;
+-
+-	pr_info("%s: NFP VF Network driver, Copyright (C) 2014-2015 Netronome Systems\n",
+-		nfp_net_driver_name);
+-
+-	nfp_net_debugfs_create();
+-	err = pci_register_driver(&nfp_netvf_pci_driver);
+-	if (err) {
+-		nfp_net_debugfs_destroy();
+-		return err;
+-	}
+-
+-	return 0;
+-}
+-
+-static void __exit nfp_netvf_exit(void)
+-{
+-	pci_unregister_driver(&nfp_netvf_pci_driver);
+-	nfp_net_debugfs_destroy();
+-}
+-
+-module_init(nfp_netvf_init);
+-module_exit(nfp_netvf_exit);
+-
+-MODULE_AUTHOR("Netronome Systems <oss-drivers@netronome.com>");
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("NFP VF network device driver");
 -- 
 2.11.0
