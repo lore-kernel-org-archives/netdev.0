@@ -1,53 +1,61 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and
- preparation patches
-Date: Thu, 9 Feb 2017 10:39:10 +0100
-Message-ID: <20170209103910.48242684@free-electrons.com>
-References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
- Russell King <linux@arm.linux.org.uk>, Jason Cooper <jason@lakedaemon.net>,
- Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Thomas Osterried <thomas@osterried.de>
+Subject: linux mkiss.c panic: fix
+Date: Thu, 9 Feb 2017 10:27:10 +0100
+Message-ID: <B4836AA3-200E-4BDA-B1B1-CD3F6AF28F94@osterried.de>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: =?utf-8?Q?Ralf_B=C3=A4chle_DL5RB?= <ralf@linux-mips.org>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David,
+Hello,
 
-On Thu,  2 Feb 2017 16:51:29 +0100, Thomas Petazzoni wrote:
+linux mkiss driver could cause a panic. 
 
-> This series contains a number of misc improvements and preparation
-> patches for an upcoming series that adds support for the new PPv2.2
-> network controller to the mvpp2 driver.
+This patch fixes this issue:
 
-Since I haven't received any comment on this series (besides a
-suggestion for a possible future improvement) and the kbuild robot
-hasn't complained, would it be possible to get this series merged for
-the next merge window ?
+Signed-off-by: Thomas Osterried <thomas@osterried.de>
 
-This way, we would be able to get these preliminary patches in 4.11,
-and then the next patch series (PPv2.2) hopefully in 4.12.
+mkiss kernel panic fix: Correct device variables guarantees proper skb room.
 
-Thanks a lot!
+--- mkiss.c.orig        2015-11-18 11:08:46.000000000 +0100
++++ mkiss.c     2016-02-06 18:04:05.000000000 +0100
+@@ -678,8 +678,8 @@
+{
+       /* Finish setting up the DEVICE info. */
+       dev->mtu             = AX_MTU;
+-       dev->hard_header_len = 0;
+-       dev->addr_len        = 0;
++       dev->hard_header_len    = AX25_MAX_HEADER_LEN;
++       dev->addr_len           = AX25_ADDR_LEN;
+       dev->type            = ARPHRD_AX25;
+       dev->tx_queue_len    = 10;
+       dev->header_ops      = &ax_header_ops;
 
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+
+Reason:
+if you plug off i.e. your usb-serial-adapter, the driver re-initializes, with dev->hard_header_len and dev->addr_len set to zero, instead of the correct values.
+If afterwards a packet should be sent to the half-dead interface, it causes a kernel panic.
+These device parameters are used in other parts of the IP-stack when calculating the necessary room for the skb. After a packet goes to the mkiss driver for being sent out, there's no room left in the skb, due to the reserved length of 0. If skb_push pushes the ax25-header to the skb with no room left, we panic.
+
+The panic looked like this:
+=>
+>> [<c0595468>] (skb_panic) from [<c0401f70>] (skb_push+0x4c/0x50)
+>> [<c0401f70>] (skb_push) from [<bf0bdad4>] (ax25_hard_header+0x34/0xf4 [ax25])
+>> [<bf0bdad4>] (ax25_hard_header [ax25]) from [<bf0d05d4>] (ax_header+0x38/0x40 [mkiss])
+>> [<bf0d05d4>] (ax_header [mkiss]) from [<c041b584>] (neigh_compat_output+0x8c/0xd8)
+>> [<c041b584>] (neigh_compat_output) from [<c043e7a8>] (ip_finish_output+0x2a0/0x914)
+>> [<c043e7a8>] (ip_finish_output) from [<c043f948>] (ip_output+0xd8/0xf0)
+>> [<c043f948>] (ip_output) from [<c043f04c>] (ip_local_out_sk+0x44/0x48)
+
+
+This patch makes mkiss behave like the 6pack driver. 6pack does not panic.
+In 6pack.c sp_setup() (same function name here) the values for dev->hard_header_len and dev->addr_len are set to the same values as in my mkiss patch.
+
+vy 73,
+	- Thomas  dl9sau
