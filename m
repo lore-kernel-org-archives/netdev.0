@@ -1,290 +1,52 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH RFC v2 5/8] virt_net: Changes to use generic XDP infrastructure
-Date: Wed, 8 Feb 2017 15:41:24 -0800
-Message-ID: <20170208234127.3041579-6-tom@herbertland.com>
-References: <20170208234127.3041579-1-tom@herbertland.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [net] net: phy: Fix lack of reference count on PHY driver
+Date: Thu, 9 Feb 2017 01:01:37 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F201EDA744@szxemi502-mbx.china.huawei.com>
+References: <20170201024643.2050-1-f.fainelli@gmail.com>
+ <87d96521-9d1f-f8e3-cea4-155b7522107e@arm.com>
+ <20170208162332.GA13281@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "rmk+kernel@armlinux.org.uk" <rmk+kernel@armlinux.org.uk>,
+        Catalin Marinas <Catalin.Marinas@arm.com>,
+        Dan Carpenter <dan.carpenter@oracle.com>
+To: Andrew Lunn <andrew@lunn.ch>, Robin Murphy <robin.murphy@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53516 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752445AbdBIA6R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 19:58:17 -0500
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v18NXuOx025723
-        for <netdev@vger.kernel.org>; Wed, 8 Feb 2017 15:41:50 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 28g59k207x-1
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 15:41:50 -0800
-Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
- mx-out.facebook.com (10.223.100.97) with ESMTP id
- 289a5982ee5811e6b71424be0593f280-fb7f5a50 for <netdev@vger.kernel.org>;        Wed,
- 08 Feb 2017 15:41:48 -0800
-In-Reply-To: <20170208234127.3041579-1-tom@herbertland.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:32061 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751515AbdBIBGj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:06:39 -0500
+In-Reply-To: <20170208162332.GA13281@lunn.ch>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change XDP program management functional interface to correspond to new
-XDP API.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- drivers/net/virtio_net.c | 98 +++++++++++++++++++-----------------------------
- 1 file changed, 38 insertions(+), 60 deletions(-)
+> -----Original Message-----
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Thursday, February 09, 2017 12:24 AM
+> To: Robin Murphy
+> Cc: Florian Fainelli; netdev@vger.kernel.org; davem@davemloft.net;
+> rmk+kernel@armlinux.org.uk; maowenan; Catalin Marinas
+> Subject: Re: [net] net: phy: Fix lack of reference count on PHY driver
+> 
+> On Wed, Feb 08, 2017 at 04:03:43PM +0000, Robin Murphy wrote:
+> > Hi all,
+> >
+> > We're seeing a new boot-time crash[1] on SMSC911x hardware from this
+> > patch in today's HEAD (as cafe8df8b9bc)...
+> 
+> Hi Robin
+> 
+> Thank for the report. See the discussion on netdev under the subject "Kernel
+> crashes in phy_attach_direct()"
+> 
+> Andrew
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 11e2853..e8b1747 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -93,8 +93,6 @@ struct receive_queue {
- 
- 	struct napi_struct napi;
- 
--	struct bpf_prog __rcu *xdp_prog;
--
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
- 
-@@ -140,6 +138,9 @@ struct virtnet_info {
- 	/* Host can handle any s/g split between our header and packet data */
- 	bool any_header_sg;
- 
-+	/* XDP has been enabled in device */
-+	bool xdp_enabled;
-+
- 	/* Packet virtio header size */
- 	u8 hdr_len;
- 
-@@ -414,13 +415,12 @@ static struct sk_buff *receive_small(struct net_device *dev,
- 				     void *buf, unsigned int len)
- {
- 	struct sk_buff * skb = buf;
--	struct bpf_prog *xdp_prog;
-+	struct xdp_hook *last_hook;
- 
- 	len -= vi->hdr_len;
- 
- 	rcu_read_lock();
--	xdp_prog = rcu_dereference(rq->xdp_prog);
--	if (xdp_prog) {
-+	if (xdp_hook_run_needed_check(dev, &rq->napi)) {
- 		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
- 		struct xdp_buff xdp;
- 		u32 act;
-@@ -431,8 +431,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
- 		xdp.data_hard_start = skb->data;
- 		xdp.data = skb->data + VIRTIO_XDP_HEADROOM;
- 		xdp.data_end = xdp.data + len;
--		act = bpf_prog_run_xdp(xdp_prog, &xdp);
--
-+		act = xdp_hook_run_ret_last(&rq->napi, &xdp, &last_hook);
- 		switch (act) {
- 		case XDP_PASS:
- 			/* Recalculate length in case bpf program changed it */
-@@ -441,13 +440,13 @@ static struct sk_buff *receive_small(struct net_device *dev,
- 			break;
- 		case XDP_TX:
- 			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, skb)))
--				trace_xdp_exception(vi->dev, xdp_prog, act);
-+				trace_xdp_hook_exception(vi->dev, last_hook, act);
- 			rcu_read_unlock();
- 			goto xdp_xmit;
- 		default:
--			bpf_warn_invalid_xdp_action(act);
-+			xdp_warn_invalid_action(act);
- 		case XDP_ABORTED:
--			trace_xdp_exception(vi->dev, xdp_prog, act);
-+			trace_xdp_hook_exception(vi->dev, last_hook, act);
- 		case XDP_DROP:
- 			goto err_xdp;
- 		}
-@@ -559,16 +558,15 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 	struct page *page = virt_to_head_page(buf);
- 	int offset = buf - page_address(page);
- 	struct sk_buff *head_skb, *curr_skb;
--	struct bpf_prog *xdp_prog;
- 	unsigned int truesize;
- 
- 	head_skb = NULL;
- 
- 	rcu_read_lock();
--	xdp_prog = rcu_dereference(rq->xdp_prog);
--	if (xdp_prog) {
-+	if (xdp_hook_run_needed_check(dev, &rq->napi)) {
- 		struct page *xdp_page;
- 		struct xdp_buff xdp;
-+		struct xdp_hook *last_hook;
- 		void *data;
- 		u32 act;
- 
-@@ -599,7 +597,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		xdp.data_hard_start = data - VIRTIO_XDP_HEADROOM + vi->hdr_len;
- 		xdp.data = data + vi->hdr_len;
- 		xdp.data_end = xdp.data + (len - vi->hdr_len);
--		act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+		act = xdp_hook_run_ret_last(&rq->napi, &xdp, &last_hook);
- 
- 		switch (act) {
- 		case XDP_PASS:
-@@ -622,16 +620,16 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 			break;
- 		case XDP_TX:
- 			if (unlikely(!virtnet_xdp_xmit(vi, rq, &xdp, data)))
--				trace_xdp_exception(vi->dev, xdp_prog, act);
-+				trace_xdp_hook_exception(vi->dev, last_hook, act);
- 			ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
- 			if (unlikely(xdp_page != page))
- 				goto err_xdp;
- 			rcu_read_unlock();
- 			goto xdp_xmit;
- 		default:
--			bpf_warn_invalid_xdp_action(act);
-+			xdp_warn_invalid_action(act);
- 		case XDP_ABORTED:
--			trace_xdp_exception(vi->dev, xdp_prog, act);
-+			trace_xdp_hook_exception(vi->dev, last_hook, act);
- 		case XDP_DROP:
- 			if (unlikely(xdp_page != page))
- 				__free_pages(xdp_page, 0);
-@@ -1599,7 +1597,7 @@ static int virtnet_set_channels(struct net_device *dev,
- 	 * also when XDP is loaded all RX queues have XDP programs so we only
- 	 * need to check a single RX queue.
- 	 */
--	if (vi->rq[0].xdp_prog)
-+	if (vi->xdp_enabled)
- 		return -EINVAL;
- 
- 	get_online_cpus();
-@@ -1770,13 +1768,22 @@ static int virtnet_reset(struct virtnet_info *vi)
- 	return ret;
- }
- 
--static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-+static int virtnet_xdp_check_bpf(struct net_device *dev, struct bpf_prog *prog)
-+{
-+	if (prog && prog->xdp_adjust_head) {
-+		netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
-+static int virtnet_xdp_init(struct net_device *dev, bool enable)
- {
- 	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
- 	struct virtnet_info *vi = netdev_priv(dev);
--	struct bpf_prog *old_prog;
- 	u16 oxdp_qp, xdp_qp = 0, curr_qp;
--	int i, err;
-+	int err;
- 
- 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
- 	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
-@@ -1797,7 +1804,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	}
- 
- 	curr_qp = vi->curr_queue_pairs - vi->xdp_queue_pairs;
--	if (prog)
-+	if (enable)
- 		xdp_qp = nr_cpu_ids;
- 
- 	/* XDP requires extra queues for XDP_TX */
-@@ -1807,12 +1814,6 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 		return -ENOMEM;
- 	}
- 
--	if (prog) {
--		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
--		if (IS_ERR(prog))
--			return PTR_ERR(prog);
--	}
--
- 	err = _virtnet_set_queues(vi, curr_qp + xdp_qp);
- 	if (err) {
- 		dev_warn(&dev->dev, "XDP Device queue allocation failure.\n");
-@@ -1835,12 +1836,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 
- 	netif_set_real_num_rx_queues(dev, curr_qp + xdp_qp);
- 
--	for (i = 0; i < vi->max_queue_pairs; i++) {
--		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
--		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
--		if (old_prog)
--			bpf_prog_put(old_prog);
--	}
-+	vi->xdp_enabled = enable;
- 
- 	return 0;
- 
-@@ -1855,31 +1851,18 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	/* On queue set error we can unwind bpf ref count and user space can
- 	 * retry this is most likely an allocation failure.
- 	 */
--	if (prog)
--		bpf_prog_sub(prog, vi->max_queue_pairs - 1);
- 	return err;
- }
- 
--static bool virtnet_xdp_query(struct net_device *dev)
--{
--	struct virtnet_info *vi = netdev_priv(dev);
--	int i;
--
--	for (i = 0; i < vi->max_queue_pairs; i++) {
--		if (vi->rq[i].xdp_prog)
--			return true;
--	}
--	return false;
--}
--
- static int virtnet_xdp(struct net_device *dev, struct netdev_xdp *xdp)
- {
- 	switch (xdp->command) {
--	case XDP_SETUP_PROG:
--		return virtnet_xdp_set(dev, xdp->prog);
--	case XDP_QUERY_PROG:
--		xdp->prog_attached = virtnet_xdp_query(dev);
--		return 0;
-+	case XDP_MODE_ON:
-+		return virtnet_xdp_init(dev, true);
-+	case XDP_MODE_OFF:
-+		return virtnet_xdp_init(dev, false);
-+	case XDP_CHECK_BPF_PROG:
-+		return virtnet_xdp_check_bpf(dev, xdp->prog);
- 	default:
- 		return -EINVAL;
- 	}
-@@ -1960,17 +1943,11 @@ static void virtnet_free_queues(struct virtnet_info *vi)
- 
- static void _free_receive_bufs(struct virtnet_info *vi)
- {
--	struct bpf_prog *old_prog;
- 	int i;
- 
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		while (vi->rq[i].pages)
- 			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
--
--		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
--		RCU_INIT_POINTER(vi->rq[i].xdp_prog, NULL);
--		if (old_prog)
--			bpf_prog_put(old_prog);
- 	}
- }
- 
-@@ -2283,7 +2260,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	/* Do we support "hardware" checksums? */
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
- 		/* This opens up the world of extra features. */
--		dev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_SG;
-+		dev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_SG |
-+				    NETIF_F_XDP;
- 		if (csum)
- 			dev->features |= NETIF_F_HW_CSUM | NETIF_F_SG;
- 
--- 
-2.9.3
+
+There is bug report from Dan Carpenter(dan.carpenter@oracle.com) who ran static analysis to find this issue. Thanks a lot.
+[bug report] net: phy: Fix lack of reference count on PHY driver
