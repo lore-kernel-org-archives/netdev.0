@@ -1,125 +1,158 @@
-From: Heiko Schocher <hs@denx.de>
-Subject: Re: [net, v3, 1/3] net: phy: Fix PHY module checks and NULL deref in
- phy_attach_direct()
-Date: Thu, 9 Feb 2017 07:58:17 +0100
-Message-ID: <589C1309.5040302@denx.de>
-References: <20170209001401.2564-2-f.fainelli@gmail.com>
-Reply-To: hs@denx.de
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maowenan <maowenan@huawei.com>,
-        andrew@lunn.ch, rmk+kernel@armlinux.org.uk, festevam@gmail.com,
-        davem@davemloft.net, nikita.yoush@cogentembedded.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:37395 "EHLO
-        mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751073AbdBIG7i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 01:59:38 -0500
-In-Reply-To: <20170209001401.2564-2-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Tobin C. Harding" <me@tobin.cc>
+Subject: [PATCH 3/4] net: Fix checkpatch block comments warnings
+Date: Thu,  9 Feb 2017 17:56:06 +1100
+Message-ID: <1486623367-28861-4-git-send-email-me@tobin.cc>
+References: <1486623367-28861-1-git-send-email-me@tobin.cc>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        stephen hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Tobin C. Harding" <me@tobin.cc>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486623367-28861-1-git-send-email-me@tobin.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Florian,
+Fix multiple occurrences of checkpatch warning. WARNING: Block
+comments use * on subsequent lines. Also make comment blocks
+more uniform.
 
-Am 09.02.2017 um 01:13 schrieb Florian Fainelli:
-> The Generic PHY drivers gets assigned after we checked that the current
-> PHY driver is NULL, so we need to check a few things before we can
-> safely dereference d->driver. This would be causing a NULL deference to
-> occur when a system binds to the Generic PHY driver. Update
-> phy_attach_direct() to do the following:
->
-> - grab the driver module reference after we have assigned the Generic
->    PHY drivers accordingly
->
-> - update the error path to clean up the module reference in case the
->    Generic PHY probe function fails
->
-> Fixes: cafe8df8b9bc ("net: phy: Fix lack of reference count on PHY driver")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->   drivers/net/phy/phy_device.c | 16 +++++++++++++++-
->   1 file changed, 15 insertions(+), 1 deletion(-)
+Signed-off-by: Tobin C. Harding <me@tobin.cc>
+---
+ net/core/dev.c | 65 +++++++++++++++++++++++++++++-----------------------------
+ 1 file changed, 33 insertions(+), 32 deletions(-)
 
-just stumbled over this bug on an am335x based board, with an
-KSZ8081 attached, so there a "fixed-link" is used like:
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/arch/arm/boot/dts/am335x-baltos-ir3220.dts#n105
-
-With your patch it crashes also ...
-
-If I remove this part:
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index d63d190..9dd08a4 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -921,11 +921,6 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
-                 return -EIO;
-         }
-
--       if (!try_module_get(d->driver->owner)) {
--               dev_err(&dev->dev, "failed to get the device driver module\n");
--               return -EIO;
--       }
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 471e41a..6a076a1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -353,10 +353,11 @@ static inline void netdev_set_addr_lockdep_class(struct net_device *dev)
+ #endif
+ 
+ /*******************************************************************************
++ *
++ *		Protocol management and registration routines
++ *
++ *******************************************************************************/
+ 
+-		Protocol management and registration routines
 -
-         get_device(d);
-
-         /* Assume that if there is no driver, that it doesn't
-
-it boots again .. I think, you forgot? simply this remove ?
-
-bye,
-Heiko
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 0d8f4d3847f6..d63d190a95ef 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -908,6 +908,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->   	struct module *ndev_owner = dev->dev.parent->driver->owner;
->   	struct mii_bus *bus = phydev->mdio.bus;
->   	struct device *d = &phydev->mdio.dev;
-> +	bool using_genphy = false;
->   	int err;
->
->   	/* For Ethernet device drivers that register their own MDIO bus, we
-> @@ -938,12 +939,22 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->   			d->driver =
->   				&genphy_driver[GENPHY_DRV_1G].mdiodrv.driver;
->
-> +		using_genphy = true;
-> +	}
-> +
-> +	if (!try_module_get(d->driver->owner)) {
-> +		dev_err(&dev->dev, "failed to get the device driver module\n");
-> +		err = -EIO;
-> +		goto error_put_device;
-> +	}
-> +
-> +	if (using_genphy) {
->   		err = d->driver->probe(d);
->   		if (err >= 0)
->   			err = device_bind_driver(d);
->
->   		if (err)
-> -			goto error;
-> +			goto error_module_put;
->   	}
->
->   	if (phydev->attached_dev) {
-> @@ -981,6 +992,9 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->
->   error:
->   	phy_detach(phydev);
-> +error_module_put:
-> +	module_put(d->driver->owner);
-> +error_put_device:
->   	put_device(d);
->   	module_put(d->driver->owner);
->   	if (ndev_owner != bus->owner)
->
-
+-*******************************************************************************/
+ 
+ /*
+  *	Add a protocol ID to the list. Now that the input handler is
+@@ -539,10 +540,10 @@ void dev_remove_offload(struct packet_offload *po)
+ EXPORT_SYMBOL(dev_remove_offload);
+ 
+ /******************************************************************************
+-
+-		      Device Boot-time Settings Routines
+-
+-*******************************************************************************/
++ *
++ *		      Device Boot-time Settings Routines
++ *
++ ******************************************************************************/
+ 
+ /* Boot time configuration table */
+ static struct netdev_boot_setup dev_boot_setup[NETDEV_BOOT_SETUP_MAX];
+@@ -664,10 +665,10 @@ int __init netdev_boot_setup(char *str)
+ __setup("netdev=", netdev_boot_setup);
+ 
+ /*******************************************************************************
+-
+-			    Device Interface Subroutines
+-
+-*******************************************************************************/
++ *
++ *			    Device Interface Subroutines
++ *
++ *******************************************************************************/
+ 
+ /**
+  *	dev_get_iflink	- get 'iflink' value of a interface
+@@ -3343,16 +3344,16 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+ 	}
+ 
+ 	/* The device has no queue. Common case for software devices:
+-	   loopback, all the sorts of tunnels...
++	 * loopback, all the sorts of tunnels...
+ 
+-	   Really, it is unlikely that netif_tx_lock protection is necessary
+-	   here.  (f.e. loopback and IP tunnels are clean ignoring statistics
+-	   counters.)
+-	   However, it is possible, that they rely on protection
+-	   made by us here.
++	 * Really, it is unlikely that netif_tx_lock protection is necessary
++	 * here.  (f.e. loopback and IP tunnels are clean ignoring statistics
++	 * counters.)
++	 * However, it is possible, that they rely on protection
++	 * made by us here.
+ 
+-	   Check this and shot the lock. It is not prone from deadlocks.
+-	   Either shot noqueue qdisc, it is even simpler 8)
++	 * Check this and shot the lock. It is not prone from deadlocks.
++	 *Either shot noqueue qdisc, it is even simpler 8)
+ 	 */
+ 	if (dev->flags & IFF_UP) {
+ 		int cpu = smp_processor_id(); /* ok because BHs are off */
+@@ -3414,9 +3415,9 @@ int dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv)
+ EXPORT_SYMBOL(dev_queue_xmit_accel);
+ 
+ 
+-/*=======================================================================
+-			Receiver routines
+-  =======================================================================*/
++/*************************************************************************
++ *			Receiver routines
++ *************************************************************************/
+ 
+ int netdev_max_backlog __read_mostly = 1000;
+ EXPORT_SYMBOL(netdev_max_backlog);
+@@ -6448,8 +6449,8 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
+ 	}
+ 
+ 	/* NOTE: order of synchronization of IFF_PROMISC and IFF_ALLMULTI
+-	   is important. Some (broken) drivers set IFF_PROMISC, when
+-	   IFF_ALLMULTI is requested not asking us and not reporting.
++	 * is important. Some (broken) drivers set IFF_PROMISC, when
++	 * IFF_ALLMULTI is requested not asking us and not reporting.
+ 	 */
+ 	if ((flags ^ dev->gflags) & IFF_ALLMULTI) {
+ 		int inc = (flags & IFF_ALLMULTI) ? 1 : -1;
+@@ -6813,8 +6814,8 @@ static void rollback_registered_many(struct list_head *head)
+ 
+ 
+ 		/* Notify protocols, that we are about to destroy
+-		   this device. They should clean all the things.
+-		*/
++		 * this device. They should clean all the things.
++		 */
+ 		call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+ 
+ 		if (!dev->rtnl_link_ops ||
+@@ -7951,12 +7952,12 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 	dev_shutdown(dev);
+ 
+ 	/* Notify protocols, that we are about to destroy
+-	   this device. They should clean all the things.
+-
+-	   Note that dev->reg_state stays at NETREG_REGISTERED.
+-	   This is wanted because this way 8021q and macvlan know
+-	   the device is just moving and can keep their slaves up.
+-	*/
++	 * this device. They should clean all the things.
++	 *
++	 * Note that dev->reg_state stays at NETREG_REGISTERED.
++	 * This is wanted because this way 8021q and macvlan know
++	 * the device is just moving and can keep their slaves up.
++	 */
+ 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+ 	rcu_barrier();
+ 	call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL, dev);
 -- 
-DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+2.7.4
