@@ -1,44 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] xen-netfront: Improve error handling
- during initialization
-Date: Thu, 09 Feb 2017 16:46:55 -0500 (EST)
-Message-ID: <20170209.164655.35358163111689337.davem@davemloft.net>
-References: <1486551457-25963-1-git-send-email-ross.lagerwall@citrix.com>
+Subject: Re: [PATCH net] igmp, mld: Fix memory leak in
+ igmpv3/mld_del_delrec()
+Date: Thu, 09 Feb 2017 16:47:04 -0500 (EST)
+Message-ID: <20170209.164704.601696075811710644.davem@davemloft.net>
+References: <1486559805-28482-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: jgross@suse.com, wei.liu2@citrix.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
- boris.ostrovsky@oracle.com
-To: ross.lagerwall@citrix.com
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1486551457-25963-1-git-send-email-ross.lagerwall@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net
+To: liuhangbin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51186 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753096AbdBIV5Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 16:57:16 -0500
+In-Reply-To: <1486559805-28482-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUm9zcyBMYWdlcndhbGwgPHJvc3MubGFnZXJ3YWxsQGNpdHJpeC5jb20+CkRhdGU6IFdl
-ZCwgOCBGZWIgMjAxNyAxMDo1NzozNyArMDAwMAoKPiBUaGlzIGZpeGVzIGEgY3Jhc2ggd2hlbiBy
-dW5uaW5nIG91dCBvZiBncmFudCByZWZzIHdoZW4gY3JlYXRpbmcgbWFueQo+IHF1ZXVlcyBhY3Jv
-c3MgbWFueSBuZXRkZXZzLgo+IAo+ICogSWYgY3JlYXRpbmcgcXVldWVzIGZhaWxzIChpLmUuIHRo
-ZXJlIGFyZSBubyBncmFudCByZWZzIGF2YWlsYWJsZSksCj4gY2FsbCB4ZW5idXNfZGV2X2ZhdGFs
-KCkgdG8gZW5zdXJlIHRoYXQgdGhlIHhlbmJ1cyBkZXZpY2UgaXMgc2V0IHRvIHRoZQo+IGNsb3Nl
-ZCBzdGF0ZS4KPiAqIElmIG5vIHF1ZXVlcyBhcmUgY3JlYXRlZCwgZG9uJ3QgY2FsbCB4ZW5uZXRf
-ZGlzY29ubmVjdF9iYWNrZW5kIGFzCj4gbmV0ZGV2LT5yZWFsX251bV90eF9xdWV1ZXMgd2lsbCBu
-b3QgaGF2ZSBiZWVuIHNldCBjb3JyZWN0bHkuCj4gKiBJZiBzZXR1cF9uZXRmcm9udCgpIGZhaWxz
-LCBlbnN1cmUgdGhhdCBhbGwgdGhlIHF1ZXVlcyBjcmVhdGVkIGFyZQo+IGNsZWFuZWQgdXAsIG5v
-dCBqdXN0IHRob3NlIHRoYXQgaGF2ZSBiZWVuIHNldCB1cC4KPiAqIElmIGFueSBxdWV1ZXMgd2Vy
-ZSBzZXQgdXAgYW5kIGFuIGVycm9yIG9jY3VycywgY2FsbAo+IHhlbm5ldF9kZXN0cm95X3F1ZXVl
-cygpIHRvIGNsZWFuIHVwIHRoZSBuYXBpIGNvbnRleHQuCj4gKiBJZiBhbnkgZmF0YWwgZXJyb3Ig
-b2NjdXJzLCB1bnJlZ2lzdGVyIGFuZCBkZXN0cm95IHRoZSBuZXRkZXYgdG8gYXZvaWQKPiBsZWF2
-aW5nIGFyb3VuZCBhIGhhbGYgc2V0dXAgbmV0d29yayBkZXZpY2UuCj4gCj4gU2lnbmVkLW9mZi1i
-eTogUm9zcyBMYWdlcndhbGwgPHJvc3MubGFnZXJ3YWxsQGNpdHJpeC5jb20+CgpBcHBsaWVkLgoK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVs
-IG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5v
-cmcveGVuLWRldmVsCg==
+From: Hangbin Liu <liuhangbin@gmail.com>
+Date: Wed,  8 Feb 2017 21:16:45 +0800
+
+> In function igmpv3/mld_add_delrec() we allocate pmc and put it in
+> idev->mc_tomb, so we should free it when we don't need it in del_delrec().
+> But I removed kfree(pmc) incorrectly in latest two patches. Now fix it.
+> 
+> Fixes: 24803f38a5c0 ("igmp: do not remove igmp souce list info when ...")
+> Fixes: 1666d49e1d41 ("mld: do not remove mld souce list info when ...")
+> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+
+Applied and queued up for -stable, thanks.
