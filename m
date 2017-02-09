@@ -1,7 +1,7 @@
 From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: [PATCH V4 net-next 03/13] net/ena: fix ethtool RSS flow configuration
-Date: Thu,  9 Feb 2017 15:21:29 +0200
-Message-ID: <1486646499-13682-4-git-send-email-netanel@annapurnalabs.com>
+Subject: [PATCH V4 net-next 06/13] net/ena: refactor ena_get_stats64 to be atomic context safe
+Date: Thu,  9 Feb 2017 15:21:32 +0200
+Message-ID: <1486646499-13682-7-git-send-email-netanel@annapurnalabs.com>
 References: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
 Cc: Netanel Belgazal <netanel@annapurnalabs.com>, dwmw@amazon.com,
         zorik@annapurnalabs.com, alex@annapurnalabs.com,
@@ -15,52 +15,118 @@ In-Reply-To: <1486646499-13682-1-git-send-email-netanel@annapurnalabs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ena_flow_data_to_flow_hash and ena_flow_hash_to_flow_type
-treat the ena_flow_hash_to_flow_type enum as power of two values.
+ndo_get_stat64() can be called from atomic context, but the current
+implementation sends an admin command to retrieve the statistics from
+the device. This admin command can sleep.
 
-Change the values of ena_admin_flow_hash_fields to be power of two values.
-
-This bug effect the ethtool set/get rxnfc.
-ethtool will report wrong values hash fields for get and will
-configure wrong hash fields in set.
+This patch re-factors the implementation of ena_get_stats64() to use
+the {rx,tx}bytes/count from the driver's inner counters, and to obtain
+the rx drop counter from the asynchronous keep alive (heart bit)
+event.
 
 Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_admin_defs.h | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_admin_defs.h |  8 ++++
+ drivers/net/ethernet/amazon/ena/ena_netdev.c     | 48 ++++++++++++++++--------
+ drivers/net/ethernet/amazon/ena/ena_netdev.h     |  1 +
+ 3 files changed, 42 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-index a46e749..e1594d6 100644
+index e1594d6..5b6509d 100644
 --- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
 +++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
-@@ -631,22 +631,22 @@ enum ena_admin_flow_hash_proto {
- /* RSS flow hash fields */
- enum ena_admin_flow_hash_fields {
- 	/* Ethernet Dest Addr */
--	ENA_ADMIN_RSS_L2_DA	= 0,
-+	ENA_ADMIN_RSS_L2_DA	= BIT(0),
- 
- 	/* Ethernet Src Addr */
--	ENA_ADMIN_RSS_L2_SA	= 1,
-+	ENA_ADMIN_RSS_L2_SA	= BIT(1),
- 
- 	/* ipv4/6 Dest Addr */
--	ENA_ADMIN_RSS_L3_DA	= 2,
-+	ENA_ADMIN_RSS_L3_DA	= BIT(2),
- 
- 	/* ipv4/6 Src Addr */
--	ENA_ADMIN_RSS_L3_SA	= 5,
-+	ENA_ADMIN_RSS_L3_SA	= BIT(3),
- 
- 	/* tcp/udp Dest Port */
--	ENA_ADMIN_RSS_L4_DP	= 6,
-+	ENA_ADMIN_RSS_L4_DP	= BIT(4),
- 
- 	/* tcp/udp Src Port */
--	ENA_ADMIN_RSS_L4_SP	= 7,
-+	ENA_ADMIN_RSS_L4_SP	= BIT(5),
+@@ -873,6 +873,14 @@ struct ena_admin_aenq_link_change_desc {
+ 	u32 flags;
  };
  
- struct ena_admin_proto_input {
++struct ena_admin_aenq_keep_alive_desc {
++	struct ena_admin_aenq_common_desc aenq_common_desc;
++
++	u32 rx_drops_low;
++
++	u32 rx_drops_high;
++};
++
+ struct ena_admin_ena_mmio_req_read_less_resp {
+ 	u16 req_id;
+ 
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+index d1aa7b6..54493e1 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
+@@ -2169,28 +2169,46 @@ static void ena_get_stats64(struct net_device *netdev,
+ 			    struct rtnl_link_stats64 *stats)
+ {
+ 	struct ena_adapter *adapter = netdev_priv(netdev);
+-	struct ena_admin_basic_stats ena_stats;
+-	int rc;
++	struct ena_ring *rx_ring, *tx_ring;
++	unsigned int start;
++	u64 rx_drops;
++	int i;
+ 
+ 	if (!test_bit(ENA_FLAG_DEV_UP, &adapter->flags))
+ 		return;
+ 
+-	rc = ena_com_get_dev_basic_stats(adapter->ena_dev, &ena_stats);
+-	if (rc)
+-		return;
++	for (i = 0; i < adapter->num_queues; i++) {
++		u64 bytes, packets;
++
++		tx_ring = &adapter->tx_ring[i];
+ 
+-	stats->tx_bytes = ((u64)ena_stats.tx_bytes_high << 32) |
+-		ena_stats.tx_bytes_low;
+-	stats->rx_bytes = ((u64)ena_stats.rx_bytes_high << 32) |
+-		ena_stats.rx_bytes_low;
++		do {
++			start = u64_stats_fetch_begin_irq(&tx_ring->syncp);
++			packets = tx_ring->tx_stats.cnt;
++			bytes = tx_ring->tx_stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&tx_ring->syncp, start));
+ 
+-	stats->rx_packets = ((u64)ena_stats.rx_pkts_high << 32) |
+-		ena_stats.rx_pkts_low;
+-	stats->tx_packets = ((u64)ena_stats.tx_pkts_high << 32) |
+-		ena_stats.tx_pkts_low;
++		stats->tx_packets += packets;
++		stats->tx_bytes += bytes;
++
++		rx_ring = &adapter->rx_ring[i];
++
++		do {
++			start = u64_stats_fetch_begin_irq(&rx_ring->syncp);
++			packets = rx_ring->rx_stats.cnt;
++			bytes = rx_ring->rx_stats.bytes;
++		} while (u64_stats_fetch_retry_irq(&rx_ring->syncp, start));
++
++		stats->rx_packets += packets;
++		stats->rx_bytes += bytes;
++	}
++
++	do {
++		start = u64_stats_fetch_begin_irq(&adapter->syncp);
++		rx_drops = adapter->dev_stats.rx_drops;
++	} while (u64_stats_fetch_retry_irq(&adapter->syncp, start));
+ 
+-	stats->rx_dropped = ((u64)ena_stats.rx_drops_high << 32) |
+-		ena_stats.rx_drops_low;
++	stats->rx_dropped = rx_drops;
+ 
+ 	stats->multicast = 0;
+ 	stats->collisions = 0;
+diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+index 69d7e9e..f0ddc11 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
++++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
+@@ -241,6 +241,7 @@ struct ena_stats_dev {
+ 	u64 interface_up;
+ 	u64 interface_down;
+ 	u64 admin_q_pause;
++	u64 rx_drops;
+ };
+ 
+ enum ena_flags_t {
 -- 
 2.7.4
