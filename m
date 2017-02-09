@@ -1,79 +1,92 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 10/10] mlxsw: spectrum: Update mc_disabled flag by switchdev attr
-Date: Thu,  9 Feb 2017 14:54:49 +0100
-Message-ID: <1486648489-16455-11-git-send-email-jiri@resnulli.us>
-References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, ivecera@redhat.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 05/14] mlx4: rx_headroom is a per port attribute
+Date: Thu,  9 Feb 2017 05:58:29 -0800
+Message-ID: <20170209135838.16487-6-edumazet@google.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36106 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751714AbdBIOFN (ORCPT
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35338 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751816AbdBIOFN (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:05:13 -0500
-Received: by mail-wr0-f194.google.com with SMTP id k90so12004740wrc.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:04:23 -0800 (PST)
-In-Reply-To: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
+Received: by mail-pf0-f175.google.com with SMTP id f144so985934pfa.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:05:03 -0800 (PST)
+In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+No need to duplicate it per RX queue / frags.
 
-Add a function to update mc_disabled from switchdev attr
-SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED
-
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 28 ++++++++++++++++++++++
- 1 file changed, 28 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 6 +++---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 9540f20..598727d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -274,6 +274,30 @@ static int mlxsw_sp_port_flood_table_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return err;
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 118ea83cff089f614a11f99f6623358f2006..bb33032a280f00ee62cc39d4261e72543ed0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -115,7 +115,7 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
  
-+static int mlxsw_sp_port_mc_disabled_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+					 struct switchdev_trans *trans,
-+					 bool mc_disabled)
-+{
-+	int set;
-+	int err = 0;
-+
-+	if (switchdev_trans_ph_prepare(trans))
-+		return 0;
-+
-+	if (mlxsw_sp_port->mc_router != mlxsw_sp_port->mc_flood) {
-+		set = mc_disabled ?
-+			mlxsw_sp_port->mc_flood : mlxsw_sp_port->mc_router;
-+		err = mlxsw_sp_port_flood_table_set(mlxsw_sp_port,
-+						    MLXSW_SP_FLOOD_TABLE_MC,
-+						    set);
-+	}
-+
-+	if (!err)
-+		mlxsw_sp_port->mc_disabled = mc_disabled;
-+
-+	return err;
-+}
-+
- int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
- 			     bool set)
- {
-@@ -461,6 +485,10 @@ static int mlxsw_sp_port_attr_set(struct net_device *dev,
- 		err = mlxsw_sp_port_attr_mc_router_set(mlxsw_sp_port, trans,
- 						       attr->u.mrouter);
- 		break;
-+	case SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED:
-+		err = mlxsw_sp_port_mc_disabled_set(mlxsw_sp_port, trans,
-+						    attr->u.mc_disabled);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
+ 	for (i = 0; i < priv->num_frags; i++) {
+ 		frags[i] = ring_alloc[i];
+-		frags[i].page_offset += priv->frag_info[i].rx_headroom;
++		frags[i].page_offset += priv->rx_headroom;
+ 		rx_desc->data[i].addr = cpu_to_be64(frags[i].dma +
+ 						    frags[i].page_offset);
+ 		ring_alloc[i] = page_alloc[i];
+@@ -1202,7 +1202,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 		 */
+ 		priv->frag_info[0].frag_stride = PAGE_SIZE;
+ 		priv->dma_dir = PCI_DMA_BIDIRECTIONAL;
+-		priv->frag_info[0].rx_headroom = XDP_PACKET_HEADROOM;
++		priv->rx_headroom = XDP_PACKET_HEADROOM;
+ 		i = 1;
+ 	} else {
+ 		int buf_size = 0;
+@@ -1214,12 +1214,12 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 			priv->frag_info[i].frag_stride =
+ 				ALIGN(priv->frag_info[i].frag_size,
+ 				      SMP_CACHE_BYTES);
+-			priv->frag_info[i].rx_headroom = 0;
+ 			buf_size += priv->frag_info[i].frag_size;
+ 			i++;
+ 		}
+ 		priv->rx_page_order = MLX4_EN_ALLOC_PREFER_ORDER;
+ 		priv->dma_dir = PCI_DMA_FROMDEVICE;
++		priv->rx_headroom = 0;
+ 	}
+ 
+ 	priv->num_frags = i;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index edd0f89fc1a1fdb711b8a8aefb4872fec23a..535bf2478d5fe7433b83687e04dedccf1278 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -472,7 +472,6 @@ struct mlx4_en_mc_list {
+ 
+ struct mlx4_en_frag_info {
+ 	u16 frag_size;
+-	u16 rx_headroom;
+ 	u32 frag_stride;
+ };
+ 
+@@ -585,6 +584,7 @@ struct mlx4_en_priv {
+ 	u8 log_rx_info;
+ 	u8 dma_dir;
+ 	u8 rx_page_order;
++	u16 rx_headroom;
+ 
+ 	struct mlx4_en_tx_ring **tx_ring[MLX4_EN_NUM_TX_TYPES];
+ 	struct mlx4_en_rx_ring *rx_ring[MAX_RX_RINGS];
 -- 
-2.7.4
+2.11.0.483.g087da7b7c-goog
