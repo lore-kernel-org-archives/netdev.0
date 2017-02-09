@@ -1,65 +1,61 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: linux <=4.9.5, 4.10-rc7 ok, 4.9.6 - 4.9.8 nok with realtek wlan,
- atom
-Date: Thu, 9 Feb 2017 13:43:21 -0600
-Message-ID: <20170209194321.GC11905@bhelgaas-glaptop.roam.corp.google.com>
-References: <CAJs9aZ9FqU-NCj2egBp6J06uD_Qp3Lje=mSSVbV4vNcYGKdumA@mail.gmail.com>
+From: sdncurious <sdncurious@gmail.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Thu, 9 Feb 2017 11:42:45 -0800
+Message-ID: <CAHoNx5_S3dCSbqfHT+i=VMqw11PcEMA2bBY8Sbp=pAFAhBL6CA@mail.gmail.com>
+References: <20170207140144.GA11233@localhost> <20170209080242.GA1698@localhost.localdomain>
+ <20170209110941.GA1449@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-pci@vger.kernel.org,
-        Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: rupert THURNER <rupert.thurner@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Richard Cochran <richardcochran@gmail.com>,
+        netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@redhat.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Denny Page <dennypage@me.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:54182 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753702AbdBITvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Feb 2017 14:51:54 -0500
-Content-Disposition: inline
-In-Reply-To: <CAJs9aZ9FqU-NCj2egBp6J06uD_Qp3Lje=mSSVbV4vNcYGKdumA@mail.gmail.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:35095 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752355AbdBITvy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:51:54 -0500
+Received: by mail-io0-f182.google.com with SMTP id j18so27890018ioe.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 11:51:25 -0800 (PST)
+In-Reply-To: <20170209110941.GA1449@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[+cc rtl8192ce folks in case they've seen this]
+>
+>> > 5) new SO_TIMESTAMPING options to get transposed RX timestamps
+>> >
+>> >    PTP uses preamble RX timestamps, but NTP works with trailer RX
+>> >    timestamps. This means NTP implementations currently need to
+>> >    transpose HW RX timestamps. The calculation requires the link speed
+>> >    and the length of the packet at layer 2. It seems this can be
+>> >    reliably done only using raw sockets. It would be very nice if the
+>> >    kernel could tranpose the timestamps automatically.
+>>
+>> Impossible, because the link speed may change between the time when
+>> the MAC receives the data the kernel gets around to calculating the
+>> time stamp.
+>
+> I think that would be an acceptable limitation. The application
+> certainly couldn't do a better job than the kernel and it won't have
+> to use raw sockets.
+>
 
-On Thu, Feb 09, 2017 at 03:45:01PM +0100, rupert THURNER wrote:
-> hi,
-> 
-> not technical expert enough, i just wanted to give a short user
-> feedback. for realtek wlan on atom, kernels up to 4.9.5 are ok, and
-> kernel 4.10.0-rc7-g926af6273fc6 (arch linux-git version numbering) as
-> well. kernels 4.9.6, 4.9.7, and 4.9.8 fail, i.e. connection to a WLAN
-> hotspot is possible then drops, or connecting to wlan fails
-> alltogether.
+As you are using HW that supports NTP time stamping won't it by
+default time stamp the receiving packet correctly at the CRC ? Or if
+someone came out with such a HW than what ?
+I am still at a loss as to why transpose is required in case of HW
+time stamping. If STF is used for both Tx and Rx time stamping the
+timing is absolutely correct. Any  delay in the PHY is nothing more
+than usual kernel processing delay,  which NTP should be able to deal
+with when trying to calculate the round trip time, unless there is an
+issue with the algorithm.
 
-Thanks very much for your report, and sorry for the inconvenience.
+The application can even calculate the complete delay in kernel
+processing if we provide another time stamp when the packet is read by
+the application. That seems to provide more accuracy and seems like a
+better idea.
 
-v4.10-rc7 works, so I guess we don't need to worry about fixing v4.10.
 
-But the stable kernels v4.9.6, v4.9.7, and v4.9.8 are broken, so we
-need to figure out why and make sure we fix the v4.9 stable series.
-
-I can't tell yet whether this is PCI-related or not.  If it is,
-4922a6a5cfa7 ("PCI: Enumerate switches below PCI-to-PCIe bridges")
-appeared in v4.9.6, and there is a known issue with that.  The issue
-should be fixed by 610c2b7ff8f6 ("PCI/ASPM: Handle PCI-to-PCIe bridges
-as roots of PCIe hierarchies"), which appeared in v4.9.9, so I guess
-the first thing to do would be to test v4.9.9.
-
-If it's not fixed in v4.9.9, can you share the complete dmesg log
-(output of "dmesg" command) and "lspci -vv" output for v4.9.5 (last
-known working version) and v4.9.6 (first known broken version)?  On
-v4.9.6, collect the dmesg output after the failure occurs.
-
-> 24: PCI 300.0: 0282 WLAN controller
->   [Created at pci.366]
->   Model: "Realtek RTL8188CE 802.11b/g/n WiFi Adapter"
->   Device: pci 0x8176 "RTL8188CE 802.11b/g/n WiFi Adapter"
->   Revision: 0x01
->   Driver: "rtl8192ce"
->   Driver Modules: "rtl8192ce"
->   Device File: wlp3s0
->   Features: WLAN
+RMS.
