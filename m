@@ -1,134 +1,84 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH net-next 0/9] mlx4: order-0 allocations and page recycling
-Date: Thu, 9 Feb 2017 14:00:03 +0200
-Message-ID: <a536bb6d-3596-188e-bc99-548b02f8eb91@gmail.com>
-References: <20170207030240.31357-1-edumazet@google.com>
- <3b996d14-0471-1fa3-e686-15cf48db4c19@gmail.com>
- <029a2e2e-eb06-e452-e00e-56dc9c4f3a47@gmail.com>
- <1486569156.7793.79.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCHv6 net-next 0/6] sctp: add sender-side procedures for
+ stream reconf asoc reset and add streams
+Date: Thu, 9 Feb 2017 07:30:10 -0500
+Message-ID: <20170209123010.GA25842@hmswarspite.think-freely.org>
+References: <cover.1486573727.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34477 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751795AbdBIMAM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 07:00:12 -0500
-Received: by mail-wr0-f195.google.com with SMTP id 89so11689372wrr.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 04:00:06 -0800 (PST)
-In-Reply-To: <1486569156.7793.79.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46077 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751389AbdBIMc2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 07:32:28 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1486573727.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 08/02/2017 5:52 PM, Eric Dumazet wrote:
-> On Wed, 2017-02-08 at 11:02 +0200, Tariq Toukan wrote:
->> On 07/02/2017 5:50 PM, Tariq Toukan wrote:
->>> Hi Eric,
->>>
->>> Thanks for your series.
->>>
->>> On 07/02/2017 5:02 AM, Eric Dumazet wrote:
->>>> As mentioned half a year ago, we better switch mlx4 driver to order-0
->>>> allocations and page recycling.
->>>>
->>>> This reduces vulnerability surface thanks to better skb->truesize
->>>> tracking
->>>> and provides better performance in most cases.
->>> The series makes significant change in the RX data-path, that requires
->>> deeper checks, in addition to code review.
->>> We applied your series and started running both our functional and
->>> performance regression.
->>> We will have results by tomorrow morning, and will analyze them during
->>> the day. I'll update about that.
->> We hit a kernel panic when running traffic after configuring a large MTU
->> (9000).
->> I will take deeper look into this soon and will keep you updated.
-> Hmm... I saw a typo for XDP, but not for the non XDP path...
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index 8f16ec8dfadd0f95646c498c14d53f7266a0..e572e175edfe0f7392b9833b5b3f867fd6db 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -132,7 +132,7 @@ static int mlx4_en_prepare_rx_desc(const struct mlx4_en_priv *priv,
->                                          (index << priv->log_rx_info);
->   
->          if (ring->page_cache.index > 0) {
-> -               if (frags[0].page) {
-> +               if (!frags[0].page) {
->                          ring->page_cache.index--;
->                          frags[0].page = ring->page_cache.buf[ring->page_cache.index].page;
->                          frags[0].dma  = ring->page_cache.buf[ring->page_cache.index].dma;
->
->
-Yes.
-
-Here it is:
-Large MTU enlarges priv->log_rx_info.
-
-1115         priv->log_rx_info = ROUNDUP_LOG2(i * sizeof(struct 
-mlx4_en_rx_alloc));
-
-In the free_frag function, only frag->page is cleared (dma and offset 
-are not!), leaving non-zero garbage that is read later as a page field.
-
-   90 static void mlx4_en_free_frag(const struct mlx4_en_priv *priv,
-   91                               struct mlx4_en_rx_alloc *frag)
-   92 {
-   93         if (frag->page) {
-   94                 dma_unmap_page(priv->ddev, frag->dma,
-   95                                PAGE_SIZE, priv->dma_dir);
-   96                 put_page(frag->page);
-   97         }
-
-Later, on line 82, we stay with a garbage page pointer.
-
-   74 static int mlx4_en_alloc_frags(const struct mlx4_en_priv *priv,
-   75                                struct mlx4_en_rx_desc *rx_desc,
-   76                                struct mlx4_en_rx_alloc *frags,
-   77                                gfp_t gfp)
-   78 {
-   79         int i;
-   80
-   81         for (i = 0; i < priv->num_frags; i++, frags++) {
-   82                 if (!frags->page && mlx4_alloc_page(priv, frags, gfp))
-   83                         return -ENOMEM;
-   84                 rx_desc->data[i].addr = cpu_to_be64(frags->dma +
-   85 frags->page_offset);
-   86         }
-   87         return 0;
-   88 }
-
-It can be fixed with this:
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c 
-b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 6854a19087ed..d97ee69393f0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -94,8 +94,8 @@ static void mlx4_en_free_frag(const struct 
-mlx4_en_priv *priv,
-                 dma_unmap_page(priv->ddev, frag->dma,
-                                PAGE_SIZE, priv->dma_dir);
-                 put_page(frag->page);
--               frag->page = NULL;
-         }
-+       memset(frag, 0, sizeof(*frag));
-  }
-
-  static void mlx4_en_init_rx_desc(const struct mlx4_en_priv *priv,
-
-
-Regards,
-Tariq Toukan.
+On Thu, Feb 09, 2017 at 01:18:14AM +0800, Xin Long wrote:
+> Patch 4/6 is to implement sender-side procedures for the SSN/TSN Reset
+> Request Parameter described in rfc6525 section 5.1.4, patch 3/6 is
+> ahead of it to define a function to make the request chunk for it.
+> 
+> Patch 6/6 is to implement sender-side procedures for the Add Incoming
+> and Outgoing Streams Request Parameter Request Parameter described in
+> rfc6525 section 5.1.5 and 5.1.6, patch 5/6 is ahead of it to define a
+> function to make the request chunk for it.
+> 
+> Patch 2/6 is a fix to recover streams states when it fails to send
+> request and Patch 1/6 is to drop some unncessary __packed from some
+> old structures.
+> 
+> v1->v2:
+>   - put these into a smaller group.
+>   - rename some temporary variables in the codes.
+>   - rename the titles of the commits and improve some changelogs.
+> v2->v3:
+>   - re-split the patchset and make sure it has no dead codes for review.
+>   - move some codes into stream.c from socket.c.
+> v3->v4:
+>   - add one more patch to fix a send reset stream request issue.
+>   - doing actual work only when request is sent successfully.
+>   - reduce some indents in sctp_send_add_streams.
+> v4->v5:
+>   - close streams before sending request and recover them when sending
+>     fails in patch 1/5 and patch 3/5
+> v5->v6:
+>   - add patch 1/6 to drop some unncessary __packed from some old structures.
+>   - remove __packed from some new structures in patch 3/6 and 5/6.
+>   - define unsigned int outcnt and incnt to make codes smaller in patch 6/6.
+>   - use krealloc instead of kcalloc and remove ksize check in patch 6/6, as
+>     ksize check is acutally used in krealloc already.
+> 
+> Xin Long (6):
+>   sctp: drop unnecessary __packed from some stream reconf structures
+>   sctp: streams should be recovered when it fails to send request.
+>   sctp: add support for generating stream reconf ssn/tsn reset request
+>     chunk
+>   sctp: implement sender-side procedures for SSN/TSN Reset Request
+>     Parameter
+>   sctp: add support for generating stream reconf add incoming/outgoing
+>     streams request chunk
+>   sctp: implement sender-side procedures for Add Incoming/Outgoing
+>     Streams Request Parameter
+> 
+>  include/linux/sctp.h      |  18 +++++--
+>  include/net/sctp/sctp.h   |   3 ++
+>  include/net/sctp/sm.h     |   5 ++
+>  include/uapi/linux/sctp.h |   8 +++
+>  net/sctp/sm_make_chunk.c  |  75 ++++++++++++++++++++++++++
+>  net/sctp/socket.c         |  58 ++++++++++++++++++++
+>  net/sctp/stream.c         | 134 +++++++++++++++++++++++++++++++++++++++++++++-
+>  7 files changed, 297 insertions(+), 4 deletions(-)
+> 
+> -- 
+> 2.1.0
+> 
+> 
+For the series
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
