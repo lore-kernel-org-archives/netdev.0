@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: qcom/emac: add the last ethtool functions
-Date: Thu, 09 Feb 2017 17:09:35 -0500 (EST)
-Message-ID: <20170209.170935.1297264626138425848.davem@davemloft.net>
-References: <1486590568-31398-1-git-send-email-timur@codeaurora.org>
+Subject: Re: [PATCH net] net: phy: Initialize mdio clock at probe function
+Date: Thu, 09 Feb 2017 17:10:40 -0500 (EST)
+Message-ID: <20170209.171040.432452627006517540.davem@davemloft.net>
+References: <1486592066-9097-1-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: timur@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51540 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752628AbdBIWJh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 17:09:37 -0500
-In-Reply-To: <1486590568-31398-1-git-send-email-timur@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rafal@milecki.pl, bcm-kernel-feedback-list@broadcom.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        yendapally.reddy@broadcom.com
+To: jon.mason@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486592066-9097-1-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Wed,  8 Feb 2017 15:49:26 -0600
+From: Jon Mason <jon.mason@broadcom.com>
+Date: Wed,  8 Feb 2017 17:14:26 -0500
 
-> These two patches implement the remaining two ethtool functions that
-> are of interest to the Qualcomm EMAC driver.  These are the last 
-> patches that will be submitted for the 4.11 merge window.
+> From: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+> 
+> USB PHYs need the MDIO clock divisor enabled earlier to work.
+> Initialize mdio clock divisor in probe function. The ext bus
+> bit available in the same register will be used by mdio mux
+> to enable external mdio.
+> 
+> Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+> Fixes: ddc24ae1 ("net: phy: Broadcom iProc MDIO bus driver")
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 
-Series applied to net-next, thanks.
+Applied.
