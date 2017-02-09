@@ -1,107 +1,64 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH net] net: hns: Fix the device being used for dma mapping
- during TX
-Date: Thu, 9 Feb 2017 10:20:35 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A860CFF@lhreml503-mbx>
-References: <20170209092409.202832-1-salil.mehta@huawei.com>
- <8729016553E3654398EA69218DA29EEF15A6FB63@cnshjmbx02>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>,
-        "Yankejian (Hackim Yim)" <yankejian@huawei.com>
-To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
-        "davem@davemloft.net" <davem@davemloft.net>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: micrel: ks8851_mll: use new api ethtool_{get|set}_link_ksettings
+Date: Thu,  9 Feb 2017 11:28:25 +0100
+Message-ID: <1486636105-18781-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, jarod@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Salil Mehta
-> Sent: Thursday, February 09, 2017 9:48 AM
-> To: 'YUAN Linyu'; davem@davemloft.net
-> Cc: Zhuangyuzeng (Yisen); mehta.salil.lnk@gmail.com;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm;
-> Yankejian (Hackim Yim)
-> Subject: RE: [PATCH net] net: hns: Fix the device being used for dma
-> mapping during TX
-> 
-> > -----Original Message-----
-> > From: YUAN Linyu [mailto:Linyu.Yuan@alcatel-sbell.com.cn]
-> > Sent: Thursday, February 09, 2017 9:36 AM
-> > To: Salil Mehta; davem@davemloft.net
-> > Cc: Zhuangyuzeng (Yisen); mehta.salil.lnk@gmail.com;
-> > netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm;
-> > Yankejian (Hackim Yim)
-> > Subject: RE: [PATCH net] net: hns: Fix the device being used for dma
-> > mapping during TX
-> >
-> >
-> >
-> > > -----Original Message-----
-> > > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> > owner@vger.kernel.org]
-> > > On Behalf Of Salil Mehta
-> > > Sent: Thursday, February 09, 2017 5:24 PM
-> > > To: davem@davemloft.net
-> > > Cc: salil.mehta@huawei.com; yisen.zhuang@huawei.com;
-> > > mehta.salil.lnk@gmail.com; netdev@vger.kernel.org;
-> > > linux-kernel@vger.kernel.org; linuxarm@huawei.com; Kejian Yan
-> > > Subject: [PATCH net] net: hns: Fix the device being used for dma
-> > mapping during
-> > > TX
-> > >
-> > > From: Kejian Yan <yankejian@huawei.com>
-> > >
-> > > This patch fixes the device being used to DMA map skb->data.
-> > > Erroneous device assignment causes the crash when SMMU is enabled.
-> > > This happens during TX since buffer gets DMA mapped with device
-> > > correspondign to net_device and gets unmapped using the device
-> > > related to DSAF.
-> > >
-> > > Signed-off-by: Kejian Yan <yankejian@huawei.com>
-> > > Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-> > > Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
-> > > ---
-> > >  drivers/net/ethernet/hisilicon/hns/hns_enet.c |    2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > >
-> > > diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > > b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > > index 672b646..2b52a12 100644
-> > > --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > > +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > > @@ -305,7 +305,7 @@ int hns_nic_net_xmit_hw(struct net_device
-> *ndev,
-> > >  			struct hns_nic_ring_data *ring_data)
-> > >  {
-> > >  	struct hns_nic_priv *priv = netdev_priv(ndev);
-> > > -	struct device *dev = priv->dev;
-> > > +	struct device *dev = ring_to_dev(ring_data->ring);
-> > >  	struct hnae_ring *ring = ring_data->ring;
-> > struct device *dev = ring_to_dev(ring); ??????
-> Yes, name of the macro is slight misnomer but this gets the dsaf
-> device.
-> Hope this answers your question?
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-I realized this lately, I think you meant below:
-  	struct hnae_ring *ring = ring_data->ring;
-	struct device *dev = ring_to_dev(ring);
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-I will correct this and float a patch. Thanks!
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/micrel/ks8851_mll.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-Best regards
-Salil
-> 
-> Thanks
-> Salil
-> > >  	struct netdev_queue *dev_queue;
-> > >  	struct skb_frag_struct *frag;
-> > > --
-> > > 1.7.9.5
-> > >
+diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+index db62807..7647f7b 100644
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c
+@@ -1311,16 +1311,18 @@ static void ks_set_msglevel(struct net_device *netdev, u32 to)
+ 	ks->msg_enable = to;
+ }
+ 
+-static int ks_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
++static int ks_get_link_ksettings(struct net_device *netdev,
++				 struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ks_net *ks = netdev_priv(netdev);
+-	return mii_ethtool_gset(&ks->mii, cmd);
++	return mii_ethtool_get_link_ksettings(&ks->mii, cmd);
+ }
+ 
+-static int ks_set_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
++static int ks_set_link_ksettings(struct net_device *netdev,
++				 const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ks_net *ks = netdev_priv(netdev);
+-	return mii_ethtool_sset(&ks->mii, cmd);
++	return mii_ethtool_set_link_ksettings(&ks->mii, cmd);
+ }
+ 
+ static u32 ks_get_link(struct net_device *netdev)
+@@ -1339,10 +1341,10 @@ static int ks_nway_reset(struct net_device *netdev)
+ 	.get_drvinfo	= ks_get_drvinfo,
+ 	.get_msglevel	= ks_get_msglevel,
+ 	.set_msglevel	= ks_set_msglevel,
+-	.get_settings	= ks_get_settings,
+-	.set_settings	= ks_set_settings,
+ 	.get_link	= ks_get_link,
+ 	.nway_reset	= ks_nway_reset,
++	.get_link_ksettings = ks_get_link_ksettings,
++	.set_link_ksettings = ks_set_link_ksettings,
+ };
+ 
+ /* MII interface controls */
+-- 
+1.7.4.4
