@@ -1,48 +1,43 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: Re: [PATCH v3 net-next 00/10] openvswitch: Conntrack integration improvements.
-Date: Thu, 9 Feb 2017 11:24:56 -0800
-Message-ID: <44856463-0FB9-4C62-8EF2-43ABAA2447ED@ovn.org>
-References: <1486603837-7202-1-git-send-email-jarno@ovn.org> <CAOrHB_CiVOAQzBpFccZrnuS2Aa2YpdjnGeoivahy+MCdjuw1cQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+From: Denny Page <dennypage@me.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Thu, 09 Feb 2017 12:37:38 -0800
+Message-ID: <BEB8365E-2031-4FD0-8976-2ACFE6B5641C@me.com>
+References: <20170207140144.GA11233@localhost>
+ <20170209080242.GA1698@localhost.localdomain>
+ <20170209110941.GA1449@localhost>
+ <CAHoNx5_S3dCSbqfHT+i=VMqw11PcEMA2bBY8Sbp=pAFAhBL6CA@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Joe Stringer <joe@ovn.org>, David Miller <davem@davemloft.net>
-To: Pravin Shelar <pshelar@ovn.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: Miroslav Lichvar <mlichvar@redhat.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@redhat.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Willem de Bruijn <willemb@google.com>
+To: sdncurious <sdncurious@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35606 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751318AbdBIUbJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 15:31:09 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 204so1163685pge.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 12:31:08 -0800 (PST)
-In-Reply-To: <CAOrHB_CiVOAQzBpFccZrnuS2Aa2YpdjnGeoivahy+MCdjuw1cQ@mail.gmail.com>
+Received: from st11p06im-asmtp002.me.com ([17.172.125.150]:35579 "EHLO
+        st11p06im-asmtp002.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753362AbdBIUiA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 15:38:00 -0500
+Received: from process-dkim-sign-daemon.st11p06im-asmtp002.me.com by
+ st11p06im-asmtp002.me.com
+ (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
+ id <0OL400800JXLRA00@st11p06im-asmtp002.me.com> for netdev@vger.kernel.org;
+ Thu, 09 Feb 2017 20:37:42 +0000 (GMT)
+In-reply-to: <CAHoNx5_S3dCSbqfHT+i=VMqw11PcEMA2bBY8Sbp=pAFAhBL6CA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-> On Feb 9, 2017, at 8:44 AM, Pravin Shelar <pshelar@ovn.org> wrote:
-> 
-> On Wed, Feb 8, 2017 at 5:30 PM, Jarno Rajahalme <jarno@ovn.org> wrote:
->> This series improves the conntrack integration code in the openvswitch
->> module by fixing outdated comments (patch 1), bugs (patches 2, 3, and
->> 7), clarifying code (patches 4, 5, and 6), improving performance
->> (patch 10), and adding new features enabling better translation from
->> firewall admission policy to network configuration requested by user
->> communities (patches 8 and 9).
->> 
->> v3: Rebase to the current net-next, add the comment only changing
->>    patch 1 and reshuffle some of the patches as requested by Joe.
->> 
-> 
-> All patches looks good to me.
-> 
-> Acked-by: Pravin B Shelar <pshelar@ovn.org>
-> 
-> Thanks.
+> On Feb 09, 2017, at 11:42, sdncurious <sdncurious@gmail.com> wrote:
+>=20
+> As you are using HW that supports NTP time stamping won't it by
+> default time stamp the receiving packet correctly at the CRC ? Or if
+> someone came out with such a HW than what ?
 
-Thanks for the review!
+As discussed in private email, all hardware operates at the end of the =
+SFD, and in makes sense for the hardware to always do so regardless of =
+what protocol is passing through.
 
-Joe spotted some english language and coding style issues I had not addressed in v3, so I just posted a v4. I included Joes and yours Acks, but not sure if that is the proper protocol, or if you need to Ack the v4 again. Sorry for the inconvenience!
-
-  Jarno
+Denny
