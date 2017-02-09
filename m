@@ -1,55 +1,45 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: Re: [PATCH v2 net-next 5/9] openvswitch: Refactor labels initialization.
-Date: Thu, 9 Feb 2017 11:04:00 -0800
-Message-ID: <F1135AFA-8090-40B9-8DD5-4AF70AFF0EE2@ovn.org>
-References: <1486582330-31152-1-git-send-email-jarno@ovn.org> <1486582330-31152-6-git-send-email-jarno@ovn.org> <CAPWQB7Gy_pd0ieXqSHXR=W-o0baX30G6yr9BbFLgEVxnP88Qjg@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH 1/1] ixgbe: add the external ixgbe fiber transceiver
+ status
+Date: Thu, 9 Feb 2017 19:08:43 +0000
+Message-ID: <87618083B2453E4A8714035B62D679925074E73F@FMSMSX105.amr.corp.intel.com>
+References: <1486609408-6770-1-git-send-email-yanjun.zhu@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>
-To: Joe Stringer <joe@ovn.org>
+To: Zhu Yanjun <yanjun.zhu@oracle.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "broonie@kernel.org" <broonie@kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33511 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751030AbdBITEf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 14:04:35 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 194so1010275pgd.0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 11:04:02 -0800 (PST)
-In-Reply-To: <CAPWQB7Gy_pd0ieXqSHXR=W-o0baX30G6yr9BbFLgEVxnP88Qjg@mail.gmail.com>
+Received: from mga14.intel.com ([192.55.52.115]:3967 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751235AbdBITMd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 9 Feb 2017 14:12:33 -0500
+In-Reply-To: <1486609408-6770-1-git-send-email-yanjun.zhu@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of Zhu Yanjun
+>Sent: Wednesday, February 08, 2017 7:03 PM
+>To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; broonie@kernel.org;
+>davem@davemloft.net; intel-wired-lan@lists.osuosl.org;
+>netdev@vger.kernel.org
+>Subject: [PATCH 1/1] ixgbe: add the external ixgbe fiber transceiver status
+>
+>When the ixgbe fiber transceiver is external, it is necessary to get
+>the present/absent status of this external ixgbe fiber transceiver.
 
-> On Feb 8, 2017, at 3:06 PM, Joe Stringer <joe@ovn.org> wrote:
-> 
-> On 8 February 2017 at 11:32, Jarno Rajahalme <jarno@ovn.org> wrote:
->> Refactoring conntrack labels initialization makes chenges in later
-> 
-> *changes
-> 
->> patches easier to review.
->> 
->> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> 
-> Minor other nit:
-> 
->> 
->>        cl = nf_ct_labels_find(ct);
->>        if (!cl) {
->>                nf_ct_labels_ext_add(ct);
->>                cl = nf_ct_labels_find(ct);
->>        }
->> +
->> +       return cl;
->> +}
->> +
->> +/* Initialize labels for a new, to be committed conntrack entry.  Note that
-> 
-> Maybe insert 'yet':
-> 
-> Initialize labels for a new, yet to be committed conntrack entry.  Note that
+The transceiver field was deprecated in the old ethtool API and is being
+removed in the new. This patch will not apply at all once those changes are made:
 
+http://patchwork.ozlabs.org/patch/725081/
 
-Fixed these typos for v4.
-
-  Jarno
+Thanks,
+Emil 
+ 
