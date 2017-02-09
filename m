@@ -1,73 +1,77 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
-Date: Thu, 9 Feb 2017 08:49:35 +0100
-Message-ID: <20170209074935.GA2018@nanopsycho>
-References: <20170208234127.3041579-1-tom@herbertland.com>
- <20170208234127.3041579-2-tom@herbertland.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv6 net-next 4/6] sctp: implement sender-side procedures for
+ SSN/TSN Reset Request Parameter
+Date: Thu, 9 Feb 2017 15:58:56 +0800
+Message-ID: <CADvbK_dCSAnxQYnrUDYFdg=GAHgUPLXLaX--3CWSv87NDGbVwA@mail.gmail.com>
+References: <cover.1486573727.git.lucien.xin@gmail.com> <7095f88e0d93a7189df08fec56b3db89deb0397c.1486573728.git.lucien.xin@gmail.com>
+ <20170208214801.GF3414@localhost.localdomain> <20170208215006.GG3414@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        davem <davem@davemloft.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34329 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751605AbdBIH6j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 02:58:39 -0500
-Received: by mail-wm0-f67.google.com with SMTP id c85so1602999wmi.1
-        for <netdev@vger.kernel.org>; Wed, 08 Feb 2017 23:58:18 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170208234127.3041579-2-tom@herbertland.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:32814 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751797AbdBIH66 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 02:58:58 -0500
+In-Reply-To: <20170208215006.GG3414@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 09, 2017 at 12:41:20AM CET, tom@herbertland.com wrote:
->This patch creates an infrastructure for registering and running code at
->XDP hooks in drivers. This extends and generalizes the original XDP/BPF
->interface. Specifically, it defines a generic xdp_hook structure and a
->set of hooks that can be assigned to devices or napi instances.  These
->hooks are also generic to allow for XDP/BPF programs as well as non-BPF
->code (e.g. kernel code can be written in a module).
+On Thu, Feb 9, 2017 at 5:50 AM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+> On Wed, Feb 08, 2017 at 07:48:01PM -0200, Marcelo Ricardo Leitner wrote:
+>> Hi Xin,
+>>
+>> On Thu, Feb 09, 2017 at 01:18:18AM +0800, Xin Long wrote:
+>> > This patch is to implement Sender-Side Procedures for the SSN/TSN
+>> > Reset Request Parameter descibed in rfc6525 section 5.1.4.
+>> >
+>> > It is also to add sockopt SCTP_RESET_ASSOC in rfc6525 section 6.3.3
+>> > for users.
+>> >
+>> > Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>> ...
+>> > +
+>> > +int sctp_send_reset_assoc(struct sctp_association *asoc)
+>> > +{
+>> > +   struct sctp_chunk *chunk = NULL;
+>> > +   int retval;
+>> > +   __u16 i;
+>> > +
+>> > +   if (!asoc->peer.reconf_capable ||
+>> > +       !(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
+>> > +           return -ENOPROTOOPT;
+>> > +
+>> > +   if (asoc->strreset_outstanding)
+>> > +           return -EINPROGRESS;
+>> > +
+>> > +   chunk = sctp_make_strreset_tsnreq(asoc);
+>>           ^--- refcnf = 1 (as per sctp_chunkify())
+>>
+>> > +   if (!chunk)
+>> > +           return -ENOMEM;
+>> > +
+>> > +   /* Block further xmit of data until this request is completed */
+>> > +   for (i = 0; i < asoc->stream->outcnt; i++)
+>> > +           asoc->stream->out[i].state = SCTP_STREAM_CLOSED;
+>> > +
+>> > +   asoc->strreset_chunk = chunk;
+>> > +   sctp_chunk_hold(asoc->strreset_chunk);
+>>                                  ^--- refcnf = 2
+>> > +
+>> > +   retval = sctp_send_reconf(asoc, chunk);
+>> > +   if (retval) {
+>> > +           sctp_chunk_put(asoc->strreset_chunk);
+>>                                           ^--- refcnf = 1
+>>
+>> Won't we leak the chunk here?
 >
->An XDP hook is defined by the xdp_hook structure. A pointer to this
->structure is passed into the XDP register function to set up a hook.
->The XDP register function mallocs its own xdp_hook structure and copies
->the values from the xdp_hook passed in. The register function also saves
->the pointer value of the xdp_hook argument; this pointer is used in
->subsequently calls to XDP to identify the registered hook.
+> No we won't, sctp_send_reconf() frees it for us, aye.
+yups. :)
+
 >
->The interface is defined in net/xdp.h. This includes the definition of
->xdp_hook, functions to register and unregister hooks on a device
->or individual instances of napi, and xdp_hook_run that is called by
->drivers to run the hooks.
 >
->Signed-off-by: Tom Herbert <tom@herbertland.com>
->---
-> drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c |   1 +
-> include/linux/filter.h                           |  10 +-
-> include/linux/netdev_features.h                  |   3 +-
-> include/linux/netdevice.h                        |  16 ++
-> include/net/xdp.h                                | 310 +++++++++++++++++++++++
-> include/trace/events/xdp.h                       |  31 +++
-> kernel/bpf/core.c                                |   1 +
-> net/core/Makefile                                |   2 +-
-> net/core/dev.c                                   |  53 ++--
-> net/core/filter.c                                |   1 +
-> net/core/rtnetlink.c                             |  14 +-
-> net/core/xdp.c                                   | 304 ++++++++++++++++++++++
-> 12 files changed, 711 insertions(+), 35 deletions(-)
-> create mode 100644 include/net/xdp.h
-> create mode 100644 net/core/xdp.c
->
-
-[...]
-
->@@ -48,6 +49,36 @@ TRACE_EVENT(xdp_exception,
-> 		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB))
-> );
-> 
->+/* Temporaray trace function. This will be renamed to xdp_exception after all
-
-typo
-
->+ * the calling drivers have been patched.
->+ */
