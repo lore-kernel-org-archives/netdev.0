@@ -1,70 +1,57 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH net-next v2 00/12] net: dsa: remove unnecessary phy.h include
-Date: Thu, 09 Feb 2017 16:10:06 +0200
-Message-ID: <877f4zjw01.fsf@kamboji.qca.qualcomm.com>
-References: <20170207230305.18222-1-f.fainelli@gmail.com>
-        <20170208.110626.346978547122180233.davem@davemloft.net>
-        <87h944ll0w.fsf@kamboji.qca.qualcomm.com>
-        <5fe312c8-e59e-669c-cd29-f6773adcd8e5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-mips@linux-mips.org, linux-nfs@vger.kernel.org,
-        linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-wireless@vger.kernel.org, target-devel@vger.kernel.org,
-        andrew@lunn.ch, anna.schumaker@netapp.com,
-        derek.chickles@caviumnetworks.com,
-        felix.manlunas@caviumnetworks.com, bfields@fieldses.org,
-        jlayton@poochiereds.net, jirislaby@gmail.com,
-        mcgrof@do-not-panic.com, madalin.bucur@nxp.com,
-        UNGLinuxDriver@microchip.com, nab@linux-iscsi.org,
-        mickflemm@gmail.com, nicolas.ferre@atmel.com,
-        raghu.vatsavayi@caviumnetworks.com, ralf@linux-mips.org,
-        satananda.burla@caviumnetworks.com,
-        thomas.petazzoni@free-electrons.com, timur@codeaurora.org,
-        trond.myklebust@primarydata.com,
-        vivien.didelot@savoirfairelinux.co
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <5fe312c8-e59e-669c-cd29-f6773adcd8e5@gmail.com> (Florian
-        Fainelli's message of "Wed, 8 Feb 2017 11:45:11 -0800")
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] spectrum: flower: Treat ETH_P_ALL as a special case and translate for HW
+Date: Thu,  9 Feb 2017 14:42:03 +0100
+Message-ID: <1486647723-14776-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, petrm@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33769 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752190AbdBIOOT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:14:19 -0500
+Received: by mail-wm0-f65.google.com with SMTP id v77so3075405wmv.0
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:14:18 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+From: Jiri Pirko <jiri@mellanox.com>
 
->>> If not, for something like this it's a must:
->>>
->>> drivers/net/wireless/ath/wil6210/cfg80211.c:24:30: error: expected =E2=
-=80=98)=E2=80=99 before =E2=80=98bool=E2=80=99
->>>  module_param(disable_ap_sme, bool, 0444);
->>>                               ^
->>> drivers/net/wireless/ath/wil6210/cfg80211.c:25:34: error: expected =E2=
-=80=98)=E2=80=99 before string constant
->>>  MODULE_PARM_DESC(disable_ap_sme, " let user space handle AP mode SME");
->>>                                   ^
->>> Like like that file needs linux/module.h included.
->>=20
->> Johannes already fixed a similar (or same) problem in my tree:
->>=20
->> wil6210: include moduleparam.h
->>=20
->> https://git.kernel.org/cgit/linux/kernel/git/kvalo/wireless-drivers-next=
-.git/commit/?id=3D949c2d0096753d518ef6e0bd8418c8086747196b
->>=20
->> I'm planning to send you a pull request tomorrow which contains that
->> one.
->
-> Thanks Kalle!
->
-> David, can you hold on this series until Kalle's pull request gets
-> submitted? Past this error, allmodconfig builds fine with this patch
-> series (just tested). Thanks!
+HW does not understand ETH_P_ALL. So treat this special case differently
+and translate to 0/0 key/mask. That will allow HW to match all ethertypes.
 
-Just submitted the pull request:
+Fixes: 7aa0f5aa9030 ("mlxsw: spectrum: Implement TC flower offload")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-https://patchwork.ozlabs.org/patch/726133/
-
---=20
-Kalle Valo
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+index 35b147a..22ab429 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_flower.c
+@@ -197,11 +197,18 @@ static int mlxsw_sp_flower_parse(struct mlxsw_sp *mlxsw_sp,
+ 			skb_flow_dissector_target(f->dissector,
+ 						  FLOW_DISSECTOR_KEY_BASIC,
+ 						  f->mask);
+-		ip_proto = key->ip_proto;
++		u16 n_proto_key = ntohs(key->n_proto);
++		u16 n_proto_mask = ntohs(mask->n_proto);
++
++		if (n_proto_key == ETH_P_ALL) {
++			n_proto_key = 0;
++			n_proto_mask = 0;
++		}
+ 		mlxsw_sp_acl_rulei_keymask_u32(rulei,
+ 					       MLXSW_AFK_ELEMENT_ETHERTYPE,
+-					       ntohs(key->n_proto),
+-					       ntohs(mask->n_proto));
++					       n_proto_key, n_proto_mask);
++
++		ip_proto = key->ip_proto;
+ 		mlxsw_sp_acl_rulei_keymask_u32(rulei,
+ 					       MLXSW_AFK_ELEMENT_IP_PROTO,
+ 					       key->ip_proto, mask->ip_proto);
+-- 
+2.7.4
