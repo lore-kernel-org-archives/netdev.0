@@ -1,181 +1,104 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/10] mlxsw: spectrum: Add an option to flood mc by mc_router_port
-Date: Thu,  9 Feb 2017 14:54:47 +0100
-Message-ID: <1486648489-16455-9-git-send-email-jiri@resnulli.us>
-References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, ivecera@redhat.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 07/14] mlx4: removal of frag_sizes[]
+Date: Thu,  9 Feb 2017 05:58:31 -0800
+Message-ID: <20170209135838.16487-8-edumazet@google.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:32782 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753157AbdBIO0i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:26:38 -0500
-Received: by mail-wm0-f65.google.com with SMTP id v77so3129577wmv.0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:26:38 -0800 (PST)
-In-Reply-To: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:36667 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753220AbdBIO1H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:27:07 -0500
+Received: by mail-pf0-f180.google.com with SMTP id 189so1082860pfu.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:27:07 -0800 (PST)
+In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+We will soon use order-0 pages, and frag truesize will more precisely
+match real sizes.
 
-The decision whether to flood a multicast packet to a port dependent
-on three flags: mc_disabled, mc_router_port, mc_flood.
+In the new model, we prefer to use <= 2048 bytes fragments, so that
+we can use page-recycle technique on PAGE_SIZE=4096 arches.
 
-If mc_disabled is on, the port will be flooded according to mc_flood,
-otherwise, according to mc_router_port. To accomplish that, add those
-flags into the mlxsw_sp_port struct and update the mc flood table
-accordingly.
+We will still pack as much frames as possible on arches with big
+pages, like PowerPC.
 
-Update mc_router_port by switchdev attribute
-SWITCHDEV_ATTR_ID_PORT_MC_ROUTER_PORT.
-
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  6 ++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 ++-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 34 ++++++++++++++++++++--
- 3 files changed, 41 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 24 ++++++++++--------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  8 --------
+ 2 files changed, 10 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 1d9a8c5..37c018b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -4073,6 +4073,8 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mlxsw_sp_port->learning_sync = 1;
- 	mlxsw_sp_port->uc_flood = 1;
- 	mlxsw_sp_port->mc_flood = 1;
-+	mlxsw_sp_port->mc_router = 0;
-+	mlxsw_sp_port->mc_disabled = 1;
- 	mlxsw_sp_port->bridged = 1;
- 
- 	return 0;
-@@ -4090,6 +4092,7 @@ static void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port)
- 	mlxsw_sp_port->learning_sync = 0;
- 	mlxsw_sp_port->uc_flood = 0;
- 	mlxsw_sp_port->mc_flood = 0;
-+	mlxsw_sp_port->mc_router = 0;
- 	mlxsw_sp_port->bridged = 0;
- 
- 	/* Add implicit VLAN interface in the device, so that untagged
-@@ -4753,6 +4756,8 @@ static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
- 	mlxsw_sp_vport->learning_sync = 1;
- 	mlxsw_sp_vport->uc_flood = 1;
- 	mlxsw_sp_vport->mc_flood = 1;
-+	mlxsw_sp_vport->mc_router = 0;
-+	mlxsw_sp_vport->mc_disabled = 1;
- 	mlxsw_sp_vport->bridged = 1;
- 
- 	return 0;
-@@ -4774,6 +4779,7 @@ static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
- 	mlxsw_sp_vport->learning_sync = 0;
- 	mlxsw_sp_vport->uc_flood = 0;
- 	mlxsw_sp_vport->mc_flood = 0;
-+	mlxsw_sp_vport->mc_router = 0;
- 	mlxsw_sp_vport->bridged = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 453313d404e3698b0d41a8220005b3834c9d..0c61c1200f2aec4c74d7403d9ec3ed06821c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -1181,13 +1181,6 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
+ 	return done;
  }
  
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 7b8d1cf..13ec85e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -339,10 +339,12 @@ struct mlxsw_sp_port {
- 	struct mlxsw_sp *mlxsw_sp;
- 	u8 local_port;
- 	u8 stp_state;
--	u8 learning:1,
-+	u16 learning:1,
- 	   learning_sync:1,
- 	   uc_flood:1,
- 	   mc_flood:1,
-+	   mc_router:1,
-+	   mc_disabled:1,
- 	   bridged:1,
- 	   lagged:1,
- 	   split:1;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index fe3cf568..5370246 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -264,14 +264,20 @@ static int mlxsw_sp_port_flood_table_set(struct mlxsw_sp_port *mlxsw_sp_port,
- int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
- 			     bool set)
+-static const int frag_sizes[] = {
+-	FRAG_SZ0,
+-	FRAG_SZ1,
+-	FRAG_SZ2,
+-	FRAG_SZ3
+-};
+-
+ void mlx4_en_calc_rx_buf(struct net_device *dev)
  {
-+	bool mc_set = set;
- 	u16 vfid;
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -1211,13 +1204,16 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 		int buf_size = 0;
  
- 	/* In case of vFIDs, index into the flooding table is relative to
- 	 * the start of the vFIDs range.
- 	 */
- 	vfid = mlxsw_sp_fid_to_vfid(fid);
+ 		while (buf_size < eff_mtu) {
+-			priv->frag_info[i].frag_size =
+-				(eff_mtu > buf_size + frag_sizes[i]) ?
+-					frag_sizes[i] : eff_mtu - buf_size;
+-			priv->frag_info[i].frag_stride =
+-				ALIGN(priv->frag_info[i].frag_size,
+-				      SMP_CACHE_BYTES);
+-			buf_size += priv->frag_info[i].frag_size;
++			int frag_size = eff_mtu - buf_size;
 +
-+	if (set)
-+		mc_set = mlxsw_sp_vport->mc_disabled ?
-+			 mlxsw_sp_vport->mc_flood : mlxsw_sp_vport->mc_router;
++			if (i < MLX4_EN_MAX_RX_FRAGS - 1)
++				frag_size = min(frag_size, 2048);
 +
- 	return __mlxsw_sp_port_flood_set(mlxsw_sp_vport, vfid, vfid, set, set,
--					 set);
-+					 mc_set);
- }
++			priv->frag_info[i].frag_size = frag_size;
++
++			priv->frag_info[i].frag_stride = ALIGN(frag_size,
++							       SMP_CACHE_BYTES);
++			buf_size += frag_size;
+ 			i++;
+ 		}
+ 		priv->rx_page_order = MLX4_EN_ALLOC_PREFER_ORDER;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index d92e5228d4248f28151cba117a9485c71ef5..92c6cf6de9452d5d1b2092a17a8dad5348db 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -104,14 +104,6 @@
  
- static int mlxsw_sp_port_learning_set(struct mlxsw_sp_port *mlxsw_sp_port,
-@@ -393,6 +399,22 @@ static int mlxsw_sp_port_attr_br_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return 0;
- }
+ #define MLX4_EN_ALLOC_PREFER_ORDER	PAGE_ALLOC_COSTLY_ORDER
  
-+static int mlxsw_sp_port_attr_mc_router_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+					    struct switchdev_trans *trans,
-+					    bool is_port_mc_router)
-+{
-+	if (switchdev_trans_ph_prepare(trans))
-+		return 0;
-+
-+	mlxsw_sp_port->mc_router = is_port_mc_router;
-+	if (!mlxsw_sp_port->mc_disabled)
-+		return mlxsw_sp_port_flood_table_set(mlxsw_sp_port,
-+						     MLXSW_SP_FLOOD_TABLE_MC,
-+						     is_port_mc_router);
-+
-+	return 0;
-+}
-+
- static int mlxsw_sp_port_attr_set(struct net_device *dev,
- 				  const struct switchdev_attr *attr,
- 				  struct switchdev_trans *trans)
-@@ -422,6 +444,10 @@ static int mlxsw_sp_port_attr_set(struct net_device *dev,
- 						     attr->orig_dev,
- 						     attr->u.vlan_filtering);
- 		break;
-+	case SWITCHDEV_ATTR_ID_PORT_MROUTER:
-+		err = mlxsw_sp_port_attr_mc_router_set(mlxsw_sp_port, trans,
-+						       attr->u.mrouter);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -567,6 +593,7 @@ static int mlxsw_sp_port_fid_map(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid,
- static int mlxsw_sp_port_fid_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 				  u16 fid_begin, u16 fid_end)
- {
-+	bool mc_flood;
- 	int fid, err;
+-/* Receive fragment sizes; we use at most 3 fragments (for 9600 byte MTU
+- * and 4K allocations) */
+-enum {
+-	FRAG_SZ0 = 1536 - NET_IP_ALIGN,
+-	FRAG_SZ1 = 4096,
+-	FRAG_SZ2 = 4096,
+-	FRAG_SZ3 = MLX4_EN_ALLOC_SIZE
+-};
+ #define MLX4_EN_MAX_RX_FRAGS	4
  
- 	for (fid = fid_begin; fid <= fid_end; fid++) {
-@@ -575,9 +602,12 @@ static int mlxsw_sp_port_fid_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 			goto err_port_fid_join;
- 	}
- 
-+	mc_flood = mlxsw_sp_port->mc_disabled ?
-+			mlxsw_sp_port->mc_flood : mlxsw_sp_port->mc_router;
-+
- 	err = __mlxsw_sp_port_flood_set(mlxsw_sp_port, fid_begin, fid_end,
- 					mlxsw_sp_port->uc_flood, true,
--					mlxsw_sp_port->mc_flood);
-+					mc_flood);
- 	if (err)
- 		goto err_port_flood_set;
- 
+ /* Maximum ring sizes */
 -- 
-2.7.4
+2.11.0.483.g087da7b7c-goog
