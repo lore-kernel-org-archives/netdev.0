@@ -1,133 +1,75 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] l2tp: do not use udp_ioctl()
-Date: Thu, 09 Feb 2017 22:17:49 +0100
-Message-ID: <1486675069.3545.1.camel@redhat.com>
-References: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1486664113.7793.111.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+From: Denny Page <dennypage@me.com>
+Subject: Re: Extending socket timestamping API for NTP
+Date: Thu, 09 Feb 2017 12:25:43 -0800
+Message-ID: <C3BAD228-118B-4810-9FA0-6007EEE62368@me.com>
+References: <20170207140144.GA11233@localhost>
+ <2DAAE40C-75B6-48F6-B57F-1C72086929B9@me.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Miroslav Lichvar <mlichvar@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39710 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932651AbdBIVRv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Feb 2017 16:17:51 -0500
-In-Reply-To: <1486664113.7793.111.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:48353 "EHLO
+        st11p06im-asmtp001.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753483AbdBIV0s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 16:26:48 -0500
+Received: from process-dkim-sign-daemon.st11p06im-asmtp001.me.com by
+ st11p06im-asmtp001.me.com
+ (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
+ id <0OL401400JAC6I00@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
+ Thu, 09 Feb 2017 20:25:46 +0000 (GMT)
+In-reply-to: <2DAAE40C-75B6-48F6-B57F-1C72086929B9@me.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-02-09 at 10:15 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> udp_ioctl(), as its name suggests, is used by UDP protocols,
-> but is also used by L2TP :(
-> 
-> L2TP should use its own handler, because it really does not
-> look the same.
-> 
-> SIOCINQ for instance should not assume UDP checksum or headers.
-> 
-> Thanks to Andrey and syzkaller team for providing the report
-> and a nice reproducer.
-> 
-> While crashes only happen on recent kernels (after commit 
-> 7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")), this
-> probably needs to be backported to older kernels.
-> 
-> Fixes: 7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")
-> Fixes: 85584672012e ("udp: Fix udp_poll() and ioctl()")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Andrey Konovalov <andreyknvl@google.com>
-> Cc: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/l2tp/l2tp_core.h |    1 +
->  net/l2tp/l2tp_ip.c   |   26 +++++++++++++++++++++++++-
->  net/l2tp/l2tp_ip6.c  |    2 +-
->  3 files changed, 27 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-> index 8f560f7140a05694c13904d9b171ba67d9d11292..aebf281d09eeb31c531eb624bd2ddd78cab8da9b 100644
-> --- a/net/l2tp/l2tp_core.h
-> +++ b/net/l2tp/l2tp_core.h
-> @@ -263,6 +263,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
->  int l2tp_nl_register_ops(enum l2tp_pwtype pw_type,
->  			 const struct l2tp_nl_cmd_ops *ops);
->  void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
-> +int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg);
->  
->  /* Session reference counts. Incremented when code obtains a reference
->   * to a session.
-> diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
-> index 3d73278b86ca34bfbd774dc8f52e490169445e1b..d4e5d16d97d4b612f8a76557516288f4a011448a 100644
-> --- a/net/l2tp/l2tp_ip.c
-> +++ b/net/l2tp/l2tp_ip.c
-> @@ -11,6 +11,7 @@
->  
->  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
->  
-> +#include <asm/ioctls.h>
->  #include <linux/icmp.h>
->  #include <linux/module.h>
->  #include <linux/skbuff.h>
-> @@ -553,6 +554,29 @@ static int l2tp_ip_recvmsg(struct sock *sk, struct msghdr *msg,
->  	return err ? err : copied;
->  }
->  
-> +int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg)
-> +{
-> +	struct sk_buff *skb;
-> +	int amount;
-> +
-> +	switch (cmd) {
-> +	case SIOCOUTQ:
-> +		amount = sk_wmem_alloc_get(sk);
-> +		break;
-> +	case SIOCINQ:
-> +		spin_lock_bh(&sk->sk_receive_queue.lock);
-> +		skb = skb_peek(&sk->sk_receive_queue);
-> +		amount = skb ? skb->len : 0;
-> +		spin_unlock_bh(&sk->sk_receive_queue.lock);
-> +		break;
-> +
-> +	default:
-> +		return -ENOIOCTLCMD;
-> +	}
-> +
-> +	return put_user(amount, (int __user *)arg);
-> +}
-> +
->  static struct proto l2tp_ip_prot = {
->  	.name		   = "L2TP/IP",
->  	.owner		   = THIS_MODULE,
-> @@ -561,7 +585,7 @@ static struct proto l2tp_ip_prot = {
->  	.bind		   = l2tp_ip_bind,
->  	.connect	   = l2tp_ip_connect,
->  	.disconnect	   = l2tp_ip_disconnect,
-> -	.ioctl		   = udp_ioctl,
-> +	.ioctl		   = l2tp_ioctl,
->  	.destroy	   = l2tp_ip_destroy_sock,
->  	.setsockopt	   = ip_setsockopt,
->  	.getsockopt	   = ip_getsockopt,
-> diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-> index 331ccf5a7bad80e011997e071489d7775b0c68c6..f47c45250f86c9189e0a6bbfd92b21cbe2069406 100644
-> --- a/net/l2tp/l2tp_ip6.c
-> +++ b/net/l2tp/l2tp_ip6.c
-> @@ -722,7 +722,7 @@ static struct proto l2tp_ip6_prot = {
->  	.bind		   = l2tp_ip6_bind,
->  	.connect	   = l2tp_ip6_connect,
->  	.disconnect	   = l2tp_ip6_disconnect,
-> -	.ioctl		   = udp_ioctl,
-> +	.ioctl		   = l2tp_ioctl,
->  	.destroy	   = l2tp_ip6_destroy_sock,
->  	.setsockopt	   = ipv6_setsockopt,
->  	.getsockopt	   = ipv6_getsockopt,
-> 
-> 
 
-Thank you for taking care of this! LGTM.
+> On Feb 08, 2017, at 16:45, Denny Page <dennypage@me.com> wrote:
+>=20
+> [Resend as plain text]
+>=20
+>=20
+>> On Feb 07, 2017, at 06:01, Miroslav Lichvar <mlichvar@redhat.com> =
+wrote:
+>>=20
+>> 5) new SO_TIMESTAMPING options to get transposed RX timestamps
+>>=20
+>>  PTP uses preamble RX timestamps, but NTP works with trailer RX
+>>  timestamps. This means NTP implementations currently need to
+>>  transpose HW RX timestamps. The calculation requires the link speed
+>>  and the length of the packet at layer 2. It seems this can be
+>>  reliably done only using raw sockets. It would be very nice if the
+>>  kernel could tranpose the timestamps automatically.
+>>=20
+>>  The existing SOF_TIMESTAMPING_RX_HARDWARE flag could be aliased to
+>>  SOF_TIMESTAMPING_RX_HARDWARE_PREAMBLE and the new flag could be
+>>  SOF_TIMESTAMPING_RX_HARDWARE_TRAILER.
+>>=20
+>>  PTP has a similar problem with SW RX timestamps, which are closer
+>>  to the trailer timestamps rather than preamble timestamps. A new
+>>  SOF_TIMESTAMPING_RX_SOFTWARE_PREAMBLE flag could be added for PTP
+>>  implementations to get transposed timestamps in order to improve
+>>  accuracy.
+>>=20
+>> 6) new SO_TIMESTAMPING option to get PHC index with HW timestamps
+>>=20
+>>  With bridges, bonding and other things it's difficult to determine
+>>  which PHC timestamped the packet. It would be very useful if the
+>>  PHC index was provided with each HW timestamp.
+>>=20
+>>  I'm not sure what would be the best place to put it. I guess the
+>>  second timespec in scm_timestamping could be reused for this, but
+>>  that sounds like a gross hack. Do we need to define a new struct?
+>=20
+>=20
+> Miroslav, if #5 were implemented, would #6 still needed?
+>=20
+> Denny
 
-Acked-by: Paolo Abeni <pabeni@redhat.com>
+Miroslav, please ignore this. Of course you still need the index in =
+order to get the PHC offset. My bad.
+
+Denny
