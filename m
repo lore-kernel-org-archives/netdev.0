@@ -1,80 +1,134 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] netlink: move nla_put_{u8,u16,u32} out of line
-Date: Thu, 9 Feb 2017 12:55:00 +0100
-Message-ID: <CAK8P3a3uQJTxRjo+BwLqaiPnwZ7abGwj341UiLi_mhz1QQpY9w@mail.gmail.com>
-References: <20170208211843.2822208-1-arnd@arndb.de> <CACT4Y+ZCZPh8be8zL1zNt=mqW586ngybiZ66b4Wc7Jt03qqtCw@mail.gmail.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net-next 0/9] mlx4: order-0 allocations and page recycling
+Date: Thu, 9 Feb 2017 14:00:03 +0200
+Message-ID: <a536bb6d-3596-188e-bc99-548b02f8eb91@gmail.com>
+References: <20170207030240.31357-1-edumazet@google.com>
+ <3b996d14-0471-1fa3-e686-15cf48db4c19@gmail.com>
+ <029a2e2e-eb06-e452-e00e-56dc9c4f3a47@gmail.com>
+ <1486569156.7793.79.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Alexey Dobriyan <adobriyan@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Thomas Graf <tgraf@suug.ch>,
-        Eric Dumazet <edumazet@google.com>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+ZCZPh8be8zL1zNt=mqW586ngybiZ66b4Wc7Jt03qqtCw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:34477 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751795AbdBIMAM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 07:00:12 -0500
+Received: by mail-wr0-f195.google.com with SMTP id 89so11689372wrr.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 04:00:06 -0800 (PST)
+In-Reply-To: <1486569156.7793.79.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 12:28 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Wed, Feb 8, 2017 at 10:18 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->> When CONFIG_KASAN is enabled, the "--param asan-stack=1" causes rather large
->> stack frames in some functions. This goes unnoticed normally because
->> CONFIG_FRAME_WARN is disabled with CONFIG_KASAN by default as of commit
->> 3f181b4d8652 ("lib/Kconfig.debug: disable -Wframe-larger-than warnings with
->> KASAN=y").
->>
->> The kernelci.org build bot however has the warning enabled and that led
->> me to investigate it a little further, as every build produces these warnings:
->>
->> net/wireless/nl80211.c:4389:1: warning: the frame size of 2240 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->> net/wireless/nl80211.c:1895:1: warning: the frame size of 3776 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->> net/wireless/nl80211.c:1410:1: warning: the frame size of 2208 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->> net/bridge/br_netlink.c:1282:1: warning: the frame size of 2544 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+
+
+On 08/02/2017 5:52 PM, Eric Dumazet wrote:
+> On Wed, 2017-02-08 at 11:02 +0200, Tariq Toukan wrote:
+>> On 07/02/2017 5:50 PM, Tariq Toukan wrote:
+>>> Hi Eric,
+>>>
+>>> Thanks for your series.
+>>>
+>>> On 07/02/2017 5:02 AM, Eric Dumazet wrote:
+>>>> As mentioned half a year ago, we better switch mlx4 driver to order-0
+>>>> allocations and page recycling.
+>>>>
+>>>> This reduces vulnerability surface thanks to better skb->truesize
+>>>> tracking
+>>>> and provides better performance in most cases.
+>>> The series makes significant change in the RX data-path, that requires
+>>> deeper checks, in addition to code review.
+>>> We applied your series and started running both our functional and
+>>> performance regression.
+>>> We will have results by tomorrow morning, and will analyze them during
+>>> the day. I'll update about that.
+>> We hit a kernel panic when running traffic after configuring a large MTU
+>> (9000).
+>> I will take deeper look into this soon and will keep you updated.
+> Hmm... I saw a typo for XDP, but not for the non XDP path...
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index 8f16ec8dfadd0f95646c498c14d53f7266a0..e572e175edfe0f7392b9833b5b3f867fd6db 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -132,7 +132,7 @@ static int mlx4_en_prepare_rx_desc(const struct mlx4_en_priv *priv,
+>                                          (index << priv->log_rx_info);
+>   
+>          if (ring->page_cache.index > 0) {
+> -               if (frags[0].page) {
+> +               if (!frags[0].page) {
+>                          ring->page_cache.index--;
+>                          frags[0].page = ring->page_cache.buf[ring->page_cache.index].page;
+>                          frags[0].dma  = ring->page_cache.buf[ring->page_cache.index].dma;
 >
 >
-> This may be a good thing in itself, I don't know. But I don't think we
-> need to do this for KASAN.
-> KASAN does increase stack frames, but it also doubles stack size. So
-> at the very least we need to also double CONFIG_FRAME_WARN under KASAN
-> to 4096, which would auto-fix your warnings. Enabling 4096 warning for
-> KASAN may be moderately useful (catch cases of extremely large frames,
-> because KASAN frame increase can be much larger than 2x). But I am
-> watching these "used greatest stack depth" messages and also my test
-> bots and never seen anything worryingly low.
+Yes.
 
-I'm playing with this on my autobuilder some more, and so far
-have only encountered a handful of functions that use more
-than 2048 bytes of stack on x86-64 with KASAN enabled, and
-for each one of them I could come up with a patch that improved
-the object code while making the stack smaller.
+Here it is:
+Large MTU enlarges priv->log_rx_info.
 
-A "noinline_for_kasan" annotation would be sufficient to address most
-of them.
+1115         priv->log_rx_info = ROUNDUP_LOG2(i * sizeof(struct 
+mlx4_en_rx_alloc));
 
-> I've built kernel with KASAN+KCOV and there is 381 case throughout the codebase:
-> https://gist.githubusercontent.com/dvyukov/038426827b369f62d56e50cb39db29df/raw/96cdd758f06751339428c05fda3bc09c6beb700b/gistfile1.txt
-> Changing code for each of them looks like lots of work, and can
-> introduce bugs. 4096 would leave about 50 of them, but it's still
-> lots.
+In the free_frag function, only frag->page is cleared (dma and offset 
+are not!), leaving non-zero garbage that is read later as a page field.
 
-Thanks for the list, that looks very helpful. The ones I found myself
-seem to be a strict (and small) subset of those, using gcc-7.0.1 on x86-64
-with allmodconfig and a few hundred randconfig builds. Which compiler
-version did you use for your testing? If new versions are better than old
-ones, we could start by fixing the ones that are still present in gcc-6 and
-gcc-7, and making the warning conditionally on the compiler version.
+   90 static void mlx4_en_free_frag(const struct mlx4_en_priv *priv,
+   91                               struct mlx4_en_rx_alloc *frag)
+   92 {
+   93         if (frag->page) {
+   94                 dma_unmap_page(priv->ddev, frag->dma,
+   95                                PAGE_SIZE, priv->dma_dir);
+   96                 put_page(frag->page);
+   97         }
 
-Another idea might be to separate out asan_stack=1 into a separate
-Kconfig option and warn if that is enabled with compilers that are known
-to be relatively bad it keeping the stack small.
+Later, on line 82, we stay with a garbage page pointer.
 
-    Arnd
+   74 static int mlx4_en_alloc_frags(const struct mlx4_en_priv *priv,
+   75                                struct mlx4_en_rx_desc *rx_desc,
+   76                                struct mlx4_en_rx_alloc *frags,
+   77                                gfp_t gfp)
+   78 {
+   79         int i;
+   80
+   81         for (i = 0; i < priv->num_frags; i++, frags++) {
+   82                 if (!frags->page && mlx4_alloc_page(priv, frags, gfp))
+   83                         return -ENOMEM;
+   84                 rx_desc->data[i].addr = cpu_to_be64(frags->dma +
+   85 frags->page_offset);
+   86         }
+   87         return 0;
+   88 }
+
+It can be fixed with this:
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c 
+b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 6854a19087ed..d97ee69393f0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -94,8 +94,8 @@ static void mlx4_en_free_frag(const struct 
+mlx4_en_priv *priv,
+                 dma_unmap_page(priv->ddev, frag->dma,
+                                PAGE_SIZE, priv->dma_dir);
+                 put_page(frag->page);
+-               frag->page = NULL;
+         }
++       memset(frag, 0, sizeof(*frag));
+  }
+
+  static void mlx4_en_init_rx_desc(const struct mlx4_en_priv *priv,
+
+
+Regards,
+Tariq Toukan.
