@@ -1,133 +1,128 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
-Date: Thu, 9 Feb 2017 14:22:34 +0000
-Message-ID: <BL2PR07MB2306990912A16BD6B9A5FE3F8D450@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20170208234127.3041579-1-tom@herbertland.com>
- <20170208234127.3041579-2-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "kernel-team@fb.com" <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 04/14] mlx4: get rid of frag_prefix_size
+Date: Thu,  9 Feb 2017 05:58:28 -0800
+Message-ID: <20170209135838.16487-5-edumazet@google.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0089.outbound.protection.outlook.com ([104.47.42.89]:60256
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751644AbdBIOXW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 9 Feb 2017 09:23:22 -0500
-In-Reply-To: <20170208234127.3041579-2-tom@herbertland.com>
-Content-Language: en-US
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:34512 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751820AbdBIOY6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:24:58 -0500
+Received: by mail-pf0-f173.google.com with SMTP id e4so1091572pfg.1
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:23:44 -0800 (PST)
+In-Reply-To: <20170209135838.16487-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> + * Fields:
-> + *
-> + *   priority - priority for insertion into set. The set is ordered lowe=
-st to
-> + *	highest priority.
-> + *   is_bpf - indicates that the hook is a BPF program (priv refers to a
-> + *	bpf_prog structure. This allows calling the BPF program directly
-> + *	from xdp_run without a extra level of indirection.
-> + *   hookfn - function to call when hook are run.
-> + *   priv - private data associated with hook. This is passed as an argu=
-ment
-> + *	to the hook function (in the case of BPF this is a bpf_prog structure=
-).
-> + *   put_priv - function call when XDP is done with private data.
-> + *   def - point to definitions of xdp_hook. The pointer value is saved =
-as
+Using per frag storage for frag_prefix_size is really silly.
 
-def->template
+mlx4_en_complete_rx_desc() has all needed info already.
 
-> + *      a refernce the instance of hook loaded (used to find and unregis=
-ter a
-> + *      hook).
-> + *   tag - readable tag for reporting purposes
-> + */
-> +struct xdp_hook {
-> +	int priority;
-> +	bool is_bpf;
-> +	xdp_hookfn *hookfn;
-> +	void __rcu *priv;
-> +	xdp_put_privfn *put_priv;
-> +	const struct xdp_hook *template;
-> +	u8 tag[XDP_TAG_SIZE];
-> +};
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 27 ++++++++++++---------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  3 +--
+ 2 files changed, 13 insertions(+), 17 deletions(-)
 
-...
-
-> +static inline int __xdp_run_one_hook(struct xdp_hook *hook,
-> +				     struct xdp_buff *xdp)
-> +{
-> +	void *priv =3D rcu_dereference(hook->priv);
-> +
-> +	if (hook->is_bpf) {
-
-Shouldn't this branch be 'likely' [until we have other flavors of xdp]?
-
-> +		/* Run BPF programs directly do avoid one layer of
-> +		 * indirection.
-> +		 */
-> +		return BPF_PROG_RUN((struct bpf_prog *)priv, (void *)xdp);
-> +	} else {
-> +		return hook->hookfn(priv, xdp);
-> +	}
-> +}
-> +
-> +/* Core function to run the XDP hooks. This must be as fast as possible
-> +*/ static inline int __xdp_hook_run(struct xdp_hook_set *hook_set,
-> +				 struct xdp_buff *xdp,
-> +				 struct xdp_hook **last_hook)
-> +{
-> +	struct xdp_hook *hook;
-> +	int i, ret;
-> +
-> +	if (unlikely(!hook_set))
-> +		return XDP_PASS;
-> +
-> +	hook =3D &hook_set->hooks[0];
-> +	ret =3D __xdp_run_one_hook(hook, xdp);
-> +	*last_hook =3D hook;
-
-Not setting last_hook in loop; Probably failing the 'last' intention.
-
-> +	for (i =3D 1; i < hook_set->num; i++) {
-> +		if (ret !=3D XDP_PASS)
-> +			break;
-> +		hook =3D &hook_set->hooks[i];
-> +		ret =3D __xdp_run_one_hook(hook, xdp);
-> +	}
-> +
-> +	return ret;
-> +}
-...
-
-> +/* Run a BPF/XDP program. RCU read lock must be held */ static u32
-> +dev_bpf_prog_run_xdp(const void *priv,
-> +				struct xdp_buff *xdp)
-> +{
-> +	const struct bpf_prog *prog =3D (const struct bpf_prog *)priv;
-> +
-> +	return BPF_PROG_RUN(prog, (void *)xdp); }
-> +
-> +static void dev_bpf_prog_put_xdp(const void *priv) {
-> +	bpf_prog_put((struct bpf_prog *)priv); }
-> +
-> +struct xdp_hook xdp_bpf_hook =3D {
-> +	.hookfn =3D dev_bpf_prog_run_xdp,
-> +	.put_priv =3D dev_bpf_prog_put_xdp,
-> +	.priority =3D 0,
-> +	.is_bpf =3D true
-> +};
-
-What's the purpose of populating hookfn,
-if for performance you've chosen the function based on 'is_bpf'?
-
-...
-
-> -	if (!dev->netdev_ops->ndo_xdp)
-> +	if (!(dev->features & NETIF_F_XDP))
->  		return 0;
-
-This should probably go in the cleanup patch.
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index b78d6762e03fc9f0c9e8bfa710efc2e7c86a..118ea83cff089f614a11f99f6623358f2006 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -588,15 +588,14 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 				    int length)
+ {
+ 	struct skb_frag_struct *skb_frags_rx = skb_shinfo(skb)->frags;
+-	struct mlx4_en_frag_info *frag_info;
+-	int nr;
++	struct mlx4_en_frag_info *frag_info = priv->frag_info;
++	int nr, frag_size;
+ 	dma_addr_t dma;
+ 
+ 	/* Collect used fragments while replacing them in the HW descriptors */
+-	for (nr = 0; nr < priv->num_frags; nr++) {
+-		frag_info = &priv->frag_info[nr];
+-		if (length <= frag_info->frag_prefix_size)
+-			break;
++	for (nr = 0;;) {
++		frag_size = min_t(int, length, frag_info->frag_size);
++
+ 		if (unlikely(!frags[nr].page))
+ 			goto fail;
+ 
+@@ -606,15 +605,16 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 
+ 		__skb_fill_page_desc(skb, nr, frags[nr].page,
+ 				     frags[nr].page_offset,
+-				     frag_info->frag_size);
++				     frag_size);
+ 
+ 		skb->truesize += frag_info->frag_stride;
+ 		frags[nr].page = NULL;
++		nr++;
++		length -= frag_size;
++		if (!length)
++			break;
++		frag_info++;
+ 	}
+-	/* Adjust size of last fragment to match actual length */
+-	if (nr > 0)
+-		skb_frag_size_set(&skb_frags_rx[nr - 1],
+-			length - priv->frag_info[nr - 1].frag_prefix_size);
+ 	return nr;
+ 
+ fail:
+@@ -1197,7 +1197,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 	if (priv->tx_ring_num[TX_XDP]) {
+ 		priv->rx_page_order = 0;
+ 		priv->frag_info[0].frag_size = eff_mtu;
+-		priv->frag_info[0].frag_prefix_size = 0;
+ 		/* This will gain efficient xdp frame recycling at the
+ 		 * expense of more costly truesize accounting
+ 		 */
+@@ -1212,7 +1211,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 			priv->frag_info[i].frag_size =
+ 				(eff_mtu > buf_size + frag_sizes[i]) ?
+ 					frag_sizes[i] : eff_mtu - buf_size;
+-			priv->frag_info[i].frag_prefix_size = buf_size;
+ 			priv->frag_info[i].frag_stride =
+ 				ALIGN(priv->frag_info[i].frag_size,
+ 				      SMP_CACHE_BYTES);
+@@ -1232,10 +1230,9 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ 	       eff_mtu, priv->num_frags);
+ 	for (i = 0; i < priv->num_frags; i++) {
+ 		en_err(priv,
+-		       "  frag:%d - size:%d prefix:%d stride:%d\n",
++		       "  frag:%d - size:%d stride:%d\n",
+ 		       i,
+ 		       priv->frag_info[i].frag_size,
+-		       priv->frag_info[i].frag_prefix_size,
+ 		       priv->frag_info[i].frag_stride);
+ 	}
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 670eed48cf3c3f6f76e86e077c997d6f8e65..edd0f89fc1a1fdb711b8a8aefb4872fec23a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -472,9 +472,8 @@ struct mlx4_en_mc_list {
+ 
+ struct mlx4_en_frag_info {
+ 	u16 frag_size;
+-	u16 frag_prefix_size;
+-	u32 frag_stride;
+ 	u16 rx_headroom;
++	u32 frag_stride;
+ };
+ 
+ #ifdef CONFIG_MLX4_EN_DCB
+-- 
+2.11.0.483.g087da7b7c-goog
