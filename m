@@ -1,56 +1,53 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/7] mlxsw: Identical routes handling
-Date: Thu,  9 Feb 2017 10:28:37 +0100
-Message-ID: <1486632524-5588-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/7] ipv4: fib: Send deletion notification with actual FIB alias type
+Date: Thu,  9 Feb 2017 10:28:39 +0100
+Message-ID: <1486632524-5588-3-git-send-email-jiri@resnulli.us>
+References: <1486632524-5588-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        mlxsw@mellanox.com
+        mlxsw@mellanox.com, Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35540 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752274AbdBIJ2r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 04:28:47 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u63so1906728wmu.2
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 01:28:46 -0800 (PST)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36299 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752489AbdBIJ2t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 04:28:49 -0500
+Received: by mail-wr0-f194.google.com with SMTP id k90so11246877wrc.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 01:28:48 -0800 (PST)
+In-Reply-To: <1486632524-5588-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Ido says:
+When a FIB alias is removed, a notification is sent using the type
+passed from user space - can be RTN_UNSPEC - instead of the actual type
+of the removed alias. This is problematic for listeners of the FIB
+notification chain, as several FIB aliases can exist with matching
+parameters, but the type.
 
-The kernel can store several FIB aliases that share the same prefix and
-length. These aliases can differ in other parameters such as TOS and
-metric, which are taken into account during lookup.
+Solve this by passing the actual type of the removed FIB alias.
 
-Offloading devices might not have the same flexibility, allowing only a
-single route with the same prefix and length to be reflected. mlxsw is
-one such device.
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+CC: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/fib_trie.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-This patchset aims to correctly handle this situation in the mlxsw
-driver. The first four patches introduce small changes in the IPv4 FIB
-code, so that listeners of the FIB notification chain will be able to
-correctly handle identical routes.
-
-The last three patches build on top of previous work and introduce the
-necessary changes in the mlxsw driver. The biggest change is the
-introduction of a FIB node, where identical routes are chained, instead
-of a primitive reference counting. This is explained in detail in the
-fifth patch.
-
-Ido Schimmel (7):
-  ipv4: fib: Only flush FIB aliases belonging to currently flushed table
-  ipv4: fib: Send deletion notification with actual FIB alias type
-  ipv4: fib: Send notification before deleting FIB alias
-  ipv4: fib: Add events for FIB replace and append
-  mlxsw: spectrum_router: Correctly handle identical routes
-  mlxsw: spectrum_router: Add support for route append
-  mlxsw: spectrum_router: Add support for route replace
-
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 644 +++++++++++++++------
- include/net/ip_fib.h                               |   3 +-
- net/ipv4/fib_trie.c                                |  42 +-
- 3 files changed, 489 insertions(+), 200 deletions(-)
-
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 5ef4596..b0bfb1c 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1653,8 +1653,8 @@ int fib_table_delete(struct net *net, struct fib_table *tb,
+ 		return -ESRCH;
+ 
+ 	call_fib_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, key, plen,
+-				 fa_to_delete->fa_info, tos, cfg->fc_type,
+-				 tb->tb_id, 0);
++				 fa_to_delete->fa_info, tos,
++				 fa_to_delete->fa_type, tb->tb_id, 0);
+ 	rtmsg_fib(RTM_DELROUTE, htonl(key), fa_to_delete, plen, tb->tb_id,
+ 		  &cfg->fc_nlinfo, 0);
+ 
 -- 
 2.7.4
