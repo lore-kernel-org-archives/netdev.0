@@ -1,91 +1,84 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH net] net: hns: Fix the device being used for dma mapping
- during TX
-Date: Thu, 9 Feb 2017 09:47:38 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A860C73@lhreml503-mbx>
-References: <20170209092409.202832-1-salil.mehta@huawei.com>
- <8729016553E3654398EA69218DA29EEF15A6FB63@cnshjmbx02>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCHv3 net-next 00/12] net: mvpp2: misc improvements and
+ preparation patches
+Date: Thu, 9 Feb 2017 09:55:34 +0000
+Message-ID: <20170209095534.GB27312@n2100.armlinux.org.uk>
+References: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>,
-        "Yankejian (Hackim Yim)" <yankejian@huawei.com>
-To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lhrrgout.huawei.com ([194.213.3.17]:9066 "EHLO
-        lhrrgout.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752403AbdBIJsG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 04:48:06 -0500
-In-Reply-To: <8729016553E3654398EA69218DA29EEF15A6FB63@cnshjmbx02>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+ Hanna Hawa <hannah@marvell.com>, Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1486050701-27899-1-git-send-email-thomas.petazzoni@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: YUAN Linyu [mailto:Linyu.Yuan@alcatel-sbell.com.cn]
-> Sent: Thursday, February 09, 2017 9:36 AM
-> To: Salil Mehta; davem@davemloft.net
-> Cc: Zhuangyuzeng (Yisen); mehta.salil.lnk@gmail.com;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm;
-> Yankejian (Hackim Yim)
-> Subject: RE: [PATCH net] net: hns: Fix the device being used for dma
-> mapping during TX
+On Thu, Feb 02, 2017 at 04:51:29PM +0100, Thomas Petazzoni wrote:
+> David,
 > 
+> This series contains a number of misc improvements and preparation
+> patches for an upcoming series that adds support for the new PPv2.2
+> network controller to the mvpp2 driver.
 > 
+> Sorry for the long delay since v2, I was on
+> vacation/conference/training in January, and therefore wasn't able to
+> resend a new version earlier. Upcoming versions should arrive much
+> faster, if there are further comments on this series.
 > 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org]
-> > On Behalf Of Salil Mehta
-> > Sent: Thursday, February 09, 2017 5:24 PM
-> > To: davem@davemloft.net
-> > Cc: salil.mehta@huawei.com; yisen.zhuang@huawei.com;
-> > mehta.salil.lnk@gmail.com; netdev@vger.kernel.org;
-> > linux-kernel@vger.kernel.org; linuxarm@huawei.com; Kejian Yan
-> > Subject: [PATCH net] net: hns: Fix the device being used for dma
-> mapping during
-> > TX
-> >
-> > From: Kejian Yan <yankejian@huawei.com>
-> >
-> > This patch fixes the device being used to DMA map skb->data.
-> > Erroneous device assignment causes the crash when SMMU is enabled.
-> > This happens during TX since buffer gets DMA mapped with device
-> > correspondign to net_device and gets unmapped using the device
-> > related to DSAF.
-> >
-> > Signed-off-by: Kejian Yan <yankejian@huawei.com>
-> > Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
-> > Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
-> > ---
-> >  drivers/net/ethernet/hisilicon/hns/hns_enet.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> >
-> > diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > index 672b646..2b52a12 100644
-> > --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> > @@ -305,7 +305,7 @@ int hns_nic_net_xmit_hw(struct net_device *ndev,
-> >  			struct hns_nic_ring_data *ring_data)
-> >  {
-> >  	struct hns_nic_priv *priv = netdev_priv(ndev);
-> > -	struct device *dev = priv->dev;
-> > +	struct device *dev = ring_to_dev(ring_data->ring);
-> >  	struct hnae_ring *ring = ring_data->ring;
-> struct device *dev = ring_to_dev(ring); ??????
-Yes, name of the macro is slight misnomer but this gets the dsaf device.
-Hope this answers your question?
+> The most significant improvements are:
+> 
+>  - Switching to using build_skb(), which is necessary for the upcoming
+>    PPv2.2 support, but anyway a good improvement to the current mvpp2
+>    driver (supporting PPv2.1).
+> 
+>  - Making the driver build on 64-bit platforms.
+> 
+> Changes since v2:
+> 
+>  - Fix remaining 64-bit build warning, reported by David Miller.
+> 
+>  - Adjust how bit mask related definitions are done in "net: mvpp2:
+>    simplify MVPP2_PRS_RI_* definitions" according to Russell King
+>    suggestions.
+> 
+>  - Add a patch "net: mvpp2: remove useless arguments in
+>    mvpp2_rx_{pkts,time}_coal_set", suggested by Russell King.
+> 
+>  - Rework mvpp2_rx_time_coal_set() implementation to avoid overflows
+>    and rounding errors. I've used the implementation suggested by
+>    Russell King.
+> 
+> Changes since v1:
+> 
+>  - This series is split as a separate series from the larger patch set
+>    adding support for PPv2.2 in the mvpp2 driver, as requested by
+>    David Miller.
+> 
+>  - Rebased on top of v4.10-rc1.
 
-Thanks
-Salil
-> >  	struct netdev_queue *dev_queue;
-> >  	struct skb_frag_struct *frag;
-> > --
-> > 1.7.9.5
-> >
+For the whole series:
+
+Acked-by: Russell King <rmk+kernel@armlinux.org.uk>
+
+Thanks.
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
