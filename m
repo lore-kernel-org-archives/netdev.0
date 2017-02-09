@@ -1,131 +1,132 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/10] mlxsw: spectrum: Break flood set func to be per table
-Date: Thu,  9 Feb 2017 14:54:43 +0100
-Message-ID: <1486648489-16455-5-git-send-email-jiri@resnulli.us>
-References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, ivecera@redhat.com,
-        stephen@networkplumber.org, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35886 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751463AbdBIPBP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 10:01:15 -0500
-Received: by mail-wr0-f196.google.com with SMTP id k90so12165760wrc.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 07:01:15 -0800 (PST)
-In-Reply-To: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
+Date: Thu,  9 Feb 2017 16:08:11 +0100
+Message-ID: <20170209150834.1158193-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>, Arnd Bergmann <arnd@arndb.de>,
+ netdev@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
+ linux-kernel@vger.kernel.org,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Nogah Frankel <nogahf@mellanox.com>
+The newly introduced mdiobus_register_board_info() function is only available
+as part of PHYLIB, so we get a link error when we call that from a board while
+phylib is disabled:
 
-Currently, the flood set function can't operate on only one table, but
-sets both uc_flood and mb_flood together.
-This patch creates a function that sets the flood state per table.
+arch/arm/plat-orion/common.o: In function `orion_ge00_switch_init':
+common.c:(.init.text+0x6a4): undefined reference to `mdiobus_register_board_info'
 
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+This adds a workaround that is made up of three parts:
+
+- in plat-orion, the function for declaring the switch is hidden without
+  PHYLIB.
+- in mach-orion5x, the caller conditionally stubs out the call to
+  the removed function, so we can still build other orion5x boards
+  without PHYLIB
+- For the boards that actually declare the switch, we select PHYLIB
+  explicitly from Kconfig if NETDEVICES is set. Without NETDEVICES,
+  we cannot enable PHYLIB, but we also wouldn't need it.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 54 ++++++++++++++--------
- 1 file changed, 34 insertions(+), 20 deletions(-)
+ arch/arm/mach-orion5x/Kconfig  | 5 +++++
+ arch/arm/mach-orion5x/common.c | 4 ++--
+ arch/arm/plat-orion/common.c   | 2 ++
+ 3 files changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index b87ba7d3..2bd5ffe 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -166,9 +166,10 @@ static int mlxsw_sp_port_attr_stp_state_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return mlxsw_sp_port_stp_state_set(mlxsw_sp_port, state);
- }
+diff --git a/arch/arm/mach-orion5x/Kconfig b/arch/arm/mach-orion5x/Kconfig
+index 468b8cb7fd5f..b98a0057ef66 100644
+--- a/arch/arm/mach-orion5x/Kconfig
++++ b/arch/arm/mach-orion5x/Kconfig
+@@ -107,6 +107,7 @@ config MACH_TS409
  
--static int __mlxsw_sp_port_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
--				     u16 idx_begin, u16 idx_end, bool uc_set,
--				     bool bm_set)
-+static int __mlxsw_sp_port_flood_table_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+					   u16 idx_begin, u16 idx_end,
-+					   enum mlxsw_sp_flood_table table,
-+					   bool set)
+ config MACH_WRT350N_V2
+ 	bool "Linksys WRT350N v2"
++	select PHYLIB if NETDEVICES
+ 	help
+ 	  Say 'Y' here if you want your kernel to support the
+ 	  Linksys WRT350N v2 platform.
+@@ -146,24 +147,28 @@ config MACH_MSS2_DT
+ 
+ config MACH_WNR854T
+ 	bool "Netgear WNR854T"
++	select PHYLIB if NETDEVICES
+ 	help
+ 	  Say 'Y' here if you want your kernel to support the
+ 	  Netgear WNR854T platform.
+ 
+ config MACH_RD88F5181L_GE
+ 	bool "Marvell Orion-VoIP GE Reference Design"
++	select PHYLIB if NETDEVICES
+ 	help
+ 	  Say 'Y' here if you want your kernel to support the
+ 	  Marvell Orion-VoIP GE (88F5181L) RD.
+ 
+ config MACH_RD88F5181L_FXO
+ 	bool "Marvell Orion-VoIP FXO Reference Design"
++	select PHYLIB if NETDEVICES
+ 	help
+ 	  Say 'Y' here if you want your kernel to support the
+ 	  Marvell Orion-VoIP FXO (88F5181L) RD.
+ 
+ config MACH_RD88F6183AP_GE
+ 	bool "Marvell Orion-1-90 AP GE Reference Design"
++	select PHYLIB if NETDEVICES
+ 	help
+ 	  Say 'Y' here if you want your kernel to support the
+ 	  Marvell Orion-1-90 (88F6183) AP GE RD.
+diff --git a/arch/arm/mach-orion5x/common.c b/arch/arm/mach-orion5x/common.c
+index 83a7ec4c16d0..e712c5adaf87 100644
+--- a/arch/arm/mach-orion5x/common.c
++++ b/arch/arm/mach-orion5x/common.c
+@@ -107,10 +107,10 @@ void __init orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data)
+  ****************************************************************************/
+ void __init orion5x_eth_switch_init(struct dsa_chip_data *d)
  {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	u16 local_port = mlxsw_sp_port->local_port;
-@@ -186,26 +187,35 @@ static int __mlxsw_sp_port_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 	if (!sftr_pl)
- 		return -ENOMEM;
- 
--	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_UC, idx_begin,
--			    table_type, range, local_port, uc_set);
-+	mlxsw_reg_sftr_pack(sftr_pl, table, idx_begin,
-+			    table_type, range, local_port, set);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
-+
-+	kfree(sftr_pl);
-+	return err;
-+}
-+
-+static int __mlxsw_sp_port_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
-+				     u16 idx_begin, u16 idx_end, bool uc_set,
-+				     bool bm_set)
-+{
-+	int err;
-+
-+	err = __mlxsw_sp_port_flood_table_set(mlxsw_sp_port, idx_begin, idx_end,
-+					      MLXSW_SP_FLOOD_TABLE_UC, uc_set);
- 	if (err)
--		goto buffer_out;
-+		return err;
- 
--	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_BM, idx_begin,
--			    table_type, range, local_port, bm_set);
--	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
-+	err = __mlxsw_sp_port_flood_table_set(mlxsw_sp_port, idx_begin, idx_end,
-+					      MLXSW_SP_FLOOD_TABLE_BM, bm_set);
- 	if (err)
- 		goto err_flood_bm_set;
- 
--	goto buffer_out;
-+	return 0;
- 
- err_flood_bm_set:
--	mlxsw_reg_sftr_pack(sftr_pl, MLXSW_SP_FLOOD_TABLE_UC, idx_begin,
--			    table_type, range, local_port, !uc_set);
--	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sftr), sftr_pl);
--buffer_out:
--	kfree(sftr_pl);
-+	__mlxsw_sp_port_flood_table_set(mlxsw_sp_port, idx_begin, idx_end,
-+					MLXSW_SP_FLOOD_TABLE_UC, !uc_set);
- 	return err;
+-	orion_ge00_switch_init(d);
++	if (IS_BUILTIN(CONFIG_PHYLIB))
++		orion_ge00_switch_init(d);
  }
  
-@@ -220,13 +230,16 @@ static int mlxsw_sp_port_uc_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 		u16 fid = mlxsw_sp_vport_fid_get(mlxsw_sp_port)->fid;
- 		u16 vfid = mlxsw_sp_fid_to_vfid(fid);
+-
+ /*****************************************************************************
+  * I2C
+  ****************************************************************************/
+diff --git a/arch/arm/plat-orion/common.c b/arch/arm/plat-orion/common.c
+index 9255b6d67ba5..ab5af56f9b9d 100644
+--- a/arch/arm/plat-orion/common.c
++++ b/arch/arm/plat-orion/common.c
+@@ -471,6 +471,7 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
+ /*****************************************************************************
+  * Ethernet switch
+  ****************************************************************************/
++#if IS_BUILTIN(CONFIG_PHYLIB)
+ static __initconst const char *orion_ge00_mvmdio_bus_name = "orion-mii";
+ static __initdata struct mdio_board_info
+ 		  orion_ge00_switch_board_info;
+@@ -493,6 +494,7 @@ void __init orion_ge00_switch_init(struct dsa_chip_data *d)
  
--		return  __mlxsw_sp_port_flood_set(mlxsw_sp_port, vfid, vfid,
--						  set, true);
-+		return __mlxsw_sp_port_flood_table_set(mlxsw_sp_port, vfid,
-+						       vfid,
-+						       MLXSW_SP_FLOOD_TABLE_UC,
-+						       set);
- 	}
- 
- 	for_each_set_bit(vid, mlxsw_sp_port->active_vlans, VLAN_N_VID) {
--		err = __mlxsw_sp_port_flood_set(mlxsw_sp_port, vid, vid, set,
--						true);
-+		err = __mlxsw_sp_port_flood_table_set(mlxsw_sp_port, vid, vid,
-+						      MLXSW_SP_FLOOD_TABLE_UC,
-+						      set);
- 		if (err) {
- 			last_visited_vid = vid;
- 			goto err_port_flood_set;
-@@ -237,7 +250,8 @@ static int mlxsw_sp_port_uc_flood_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 
- err_port_flood_set:
- 	for_each_set_bit(vid, mlxsw_sp_port->active_vlans, last_visited_vid)
--		__mlxsw_sp_port_flood_set(mlxsw_sp_port, vid, vid, !set, true);
-+		__mlxsw_sp_port_flood_table_set(mlxsw_sp_port, vid, vid,
-+						MLXSW_SP_FLOOD_TABLE_UC, !set);
- 	netdev_err(dev, "Failed to configure unicast flooding\n");
- 	return err;
+ 	mdiobus_register_board_info(&orion_ge00_switch_board_info, 1);
  }
++#endif
+ 
+ /*****************************************************************************
+  * I2C
 -- 
-2.7.4
+2.9.0
