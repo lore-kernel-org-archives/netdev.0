@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] igmp, mld: Fix memory leak in
- igmpv3/mld_del_delrec()
-Date: Thu, 09 Feb 2017 16:47:04 -0500 (EST)
-Message-ID: <20170209.164704.601696075811710644.davem@davemloft.net>
-References: <1486559805-28482-1-git-send-email-liuhangbin@gmail.com>
+Subject: Re: [PATCH net-next 0/6] sfc: more encap offloads
+Date: Thu, 09 Feb 2017 16:48:15 -0500 (EST)
+Message-ID: <20170209.164815.725900604860030929.davem@davemloft.net>
+References: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-To: liuhangbin@gmail.com
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51186 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51190 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753096AbdBIV5Q (ORCPT
+        with ESMTP id S1752840AbdBIV5Q (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 16:57:16 -0500
-In-Reply-To: <1486559805-28482-1-git-send-email-liuhangbin@gmail.com>
+In-Reply-To: <b4d116f2-8298-60c4-7f33-f53d9f39a9cd@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hangbin Liu <liuhangbin@gmail.com>
-Date: Wed,  8 Feb 2017 21:16:45 +0800
+From: Edward Cree <ecree@solarflare.com>
+Date: Wed, 8 Feb 2017 16:49:12 +0000
 
-> In function igmpv3/mld_add_delrec() we allocate pmc and put it in
-> idev->mc_tomb, so we should free it when we don't need it in del_delrec().
-> But I removed kfree(pmc) incorrectly in latest two patches. Now fix it.
-> 
-> Fixes: 24803f38a5c0 ("igmp: do not remove igmp souce list info when ...")
-> Fixes: 1666d49e1d41 ("mld: do not remove mld souce list info when ...")
-> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> This patch series adds support for RX checksum offload of encapsulated packets.
+> It also adds support for configuring the hardware's lists of UDP ports used for
+> VXLAN and GENEVE encapsulation offloads.  Since changing these lists causes the
+> MC to reboot, the driver has been hardened against reboots, which used to be
+> considered an exceptional occurrence but are now normal.
 
-Applied and queued up for -stable, thanks.
+Series applied, thanks.
