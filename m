@@ -1,118 +1,83 @@
 From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH v3 net-next 07/10] openvswitch: Inherit master's labels.
-Date: Wed,  8 Feb 2017 17:30:34 -0800
-Message-ID: <1486603837-7202-8-git-send-email-jarno@ovn.org>
+Subject: [PATCH v3 net-next 03/10] openvswitch: Do not trigger events for unconfirmed connections.
+Date: Wed,  8 Feb 2017 17:30:30 -0800
+Message-ID: <1486603837-7202-4-git-send-email-jarno@ovn.org>
 References: <1486603837-7202-1-git-send-email-jarno@ovn.org>
 Cc: jarno@ovn.org, joe@ovn.org, pshelar@ovn.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:36299 "EHLO
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:57404 "EHLO
         relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752525AbdBIBbF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:31:05 -0500
+        with ESMTP id S1752525AbdBIBbC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 8 Feb 2017 20:31:02 -0500
 In-Reply-To: <1486603837-7202-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We avoid calling into nf_conntrack_in() for expected connections, as
-that would remove the expectation that we want to stick around until
-we are ready to commit the connection.  Instead, we do a lookup in the
-expectation table directly.  However, after a successful expectation
-lookup we have set the flow key label field from the master
-connection, whereas nf_conntrack_in() does not do this.  This leads to
-master's labels being inherited after an expectation lookup, but those
-labels not being inherited after the corresponding conntrack action
-with a commit flag.
+Receiving change events before the 'new' event for the connection has
+been received can be confusing.  Avoid triggering change events for
+setting conntrack mark or labels before the conntrack entry has been
+confirmed.
 
-This patch resolves the problem by changing the commit code path to
-also inherit the master's labels to the expected connection.
-Resolving this conflict in favor or inheriting the labels allows more
-information be passed from the master connection to related
-connections, which would otherwise be much harder if the 32 bits in
-the connmark are not enough.  Labels can still be set explicitly, so
-this change only affects the default values of the labels in presense
-of a master connection.
-
-Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+Fixes: 182e3042e15d ("openvswitch: Allow matching on conntrack mark")
+Fixes: c2ac66735870 ("openvswitch: Allow matching on conntrack label")
 Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 ---
- net/openvswitch/conntrack.c | 45 +++++++++++++++++++++++++++++++--------------
- 1 file changed, 31 insertions(+), 14 deletions(-)
+ net/openvswitch/conntrack.c | 28 ++++++++++++++++++++++------
+ 1 file changed, 22 insertions(+), 6 deletions(-)
 
 diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 0e038ee..5fbadcd 100644
+index 4df9a54..a6ff374 100644
 --- a/net/openvswitch/conntrack.c
 +++ b/net/openvswitch/conntrack.c
-@@ -73,6 +73,8 @@ struct ovs_conntrack_info {
- #endif
- };
+@@ -245,7 +245,8 @@ static int ovs_ct_set_mark(struct sk_buff *skb, struct sw_flow_key *key,
+ 	new_mark = ct_mark | (ct->mark & ~(mask));
+ 	if (ct->mark != new_mark) {
+ 		ct->mark = new_mark;
+-		nf_conntrack_event_cache(IPCT_MARK, ct);
++		if (nf_ct_is_confirmed(ct))
++			nf_conntrack_event_cache(IPCT_MARK, ct);
+ 		key->ct.mark = new_mark;
+ 	}
  
-+static bool labels_nonzero(const struct ovs_key_ct_labels *labels);
-+
- static void __ovs_ct_free_action(struct ovs_conntrack_info *ct_info);
+@@ -262,7 +263,6 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn_labels *cl;
+ 	struct nf_conn *ct;
+-	int err;
  
- static u16 key_to_nfproto(const struct sw_flow_key *key)
-@@ -272,18 +274,32 @@ static int ovs_ct_init_labels(struct nf_conn *ct, struct sw_flow_key *key,
- 			      const struct ovs_key_ct_labels *labels,
- 			      const struct ovs_key_ct_labels *mask)
- {
--	struct nf_conn_labels *cl;
--	u32 *dst;
--	int i;
-+	struct nf_conn_labels *cl, *master_cl;
-+	bool have_mask = labels_nonzero(mask);
-+
-+	/* Inherit master's labels to the related connection? */
-+	master_cl = (ct->master) ? nf_ct_labels_find(ct->master) : NULL;
-+
-+	if (!master_cl && !have_mask)
-+		return 0;   /* Nothing to do. */
- 
- 	cl = ovs_ct_get_conn_labels(ct);
- 	if (!cl)
+ 	/* The connection could be invalid, in which case set_label is no-op.*/
+ 	ct = nf_ct_get(skb, &ctinfo);
+@@ -277,10 +277,26 @@ static int ovs_ct_set_labels(struct sk_buff *skb, struct sw_flow_key *key,
+ 	if (!cl || sizeof(cl->bits) < OVS_CT_LABELS_LEN)
  		return -ENOSPC;
  
--	dst = (u32 *)cl->bits;
--	for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
--		dst[i] = (dst[i] & ~mask->ct_labels_32[i]) |
--			(labels->ct_labels_32[i] & mask->ct_labels_32[i]);
-+	/* Inherit the master's labels, if any. */
-+	if (master_cl)
-+		*cl = *master_cl;
-+
-+	if (have_mask) {
-+		u32 *dst = (u32 *)cl->bits;
-+		int i;
-+
-+		for (i = 0; i < OVS_CT_LABELS_LEN_32; i++)
-+			dst[i] = (dst[i] & ~mask->ct_labels_32[i]) |
-+				(labels->ct_labels_32[i]
-+				 & mask->ct_labels_32[i]);
-+	}
- 
- 	memcpy(&key->ct.labels, cl->bits, OVS_CT_LABELS_LEN);
- 
-@@ -911,13 +927,14 @@ static int ovs_ct_commit(struct net *net, struct sw_flow_key *key,
- 		if (err)
- 			return err;
- 	}
--	if (labels_nonzero(&info->labels.mask)) {
--		if (!nf_ct_is_confirmed(ct))
--			err = ovs_ct_init_labels(ct, key, &info->labels.value,
--						 &info->labels.mask);
--		else
--			err = ovs_ct_set_labels(ct, key, &info->labels.value,
--						&info->labels.mask);
-+	if (!nf_ct_is_confirmed(ct)) {
-+		err = ovs_ct_init_labels(ct, key, &info->labels.value,
-+					 &info->labels.mask);
+-	err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
+-				    OVS_CT_LABELS_LEN / sizeof(u32));
+-	if (err)
+-		return err;
++	if (nf_ct_is_confirmed(ct)) {
++		/* Triggers a change event, which makes sense only for
++		 * confirmed connections.
++		 */
++		int err = nf_connlabels_replace(ct, (u32 *)labels, (u32 *)mask,
++						OVS_CT_LABELS_LEN / sizeof(u32));
 +		if (err)
 +			return err;
-+	} else if (labels_nonzero(&info->labels.mask)) {
-+		err = ovs_ct_set_labels(ct, key, &info->labels.value,
-+					&info->labels.mask);
- 		if (err)
- 			return err;
- 	}
++	} else {
++		u32 *dst = (u32 *)cl->bits;
++		const u32 *msk = (const u32 *)mask->ct_labels;
++		const u32 *lbl = (const u32 *)labels->ct_labels;
++		int i;
++
++		/* No-one else has access to the non-confirmed entry, copy
++		 * labels over, keeping any bits we are not explicitly setting.
++		 */
++		for (i = 0; i < OVS_CT_LABELS_LEN / sizeof(u32); i++)
++			dst[i] = (dst[i] & ~msk[i]) | (lbl[i] & msk[i]);
++	}
+ 
+ 	ovs_ct_get_labels(ct, &key->ct.labels);
+ 	return 0;
 -- 
 2.1.4
