@@ -1,65 +1,104 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/4] devlink: allow to fillup eswitch attrs even if mode_get op does not exist
-Date: Thu,  9 Feb 2017 15:54:36 +0100
-Message-ID: <1486652076-20756-5-git-send-email-jiri@resnulli.us>
-References: <1486652076-20756-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, ogerlitz@mellanox.com, mlxsw@mellanox.com,
-        ivecera@redhat.com
+Subject: [patch net-next 01/10] switchdev: bridge: Offload multicast disabled
+Date: Thu,  9 Feb 2017 14:54:40 +0100
+Message-ID: <1486648489-16455-2-git-send-email-jiri@resnulli.us>
+References: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, ivecera@redhat.com,
+        stephen@networkplumber.org, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36813 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35059 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752357AbdBIO41 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:56:27 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r18so3253113wmd.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:54:44 -0800 (PST)
-In-Reply-To: <1486652076-20756-1-git-send-email-jiri@resnulli.us>
+        with ESMTP id S1752631AbdBIO5Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 09:57:16 -0500
+Received: by mail-wm0-f65.google.com with SMTP id u63so3260616wmu.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 06:57:15 -0800 (PST)
+In-Reply-To: <1486648489-16455-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Nogah Frankel <nogahf@mellanox.com>
 
-Even when mode_get op is not present, other eswitch attrs need to be
-filled-up.
+Offload multicast disabled flag, for more accurate mc flood behavior:
+When it is on, the mdb should be ignored.
+When it is off, unregistered mc packets should be flooded to mc router
+ports.
 
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/core/devlink.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ include/net/switchdev.h   |  2 ++
+ net/bridge/br_multicast.c | 16 ++++++++++++++++
+ 2 files changed, 18 insertions(+)
 
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 7f88cc8..e9c1e6a 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -1410,12 +1410,14 @@ static int devlink_nl_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
- 	if (err)
- 		goto nla_put_failure;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index eba80c4..2971c2a 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -48,6 +48,7 @@ enum switchdev_attr_id {
+ 	SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
++	SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
+ };
  
--	err = ops->eswitch_mode_get(devlink, &mode);
--	if (err)
--		goto nla_put_failure;
--	err = nla_put_u16(msg, DEVLINK_ATTR_ESWITCH_MODE, mode);
--	if (err)
--		goto nla_put_failure;
-+	if (ops->eswitch_mode_get) {
-+		err = ops->eswitch_mode_get(devlink, &mode);
-+		if (err)
-+			goto nla_put_failure;
-+		err = nla_put_u16(msg, DEVLINK_ATTR_ESWITCH_MODE, mode);
-+		if (err)
-+			goto nla_put_failure;
-+	}
+ struct switchdev_attr {
+@@ -62,6 +63,7 @@ struct switchdev_attr {
+ 		unsigned long brport_flags;		/* PORT_BRIDGE_FLAGS */
+ 		clock_t ageing_time;			/* BRIDGE_AGEING_TIME */
+ 		bool vlan_filtering;			/* BRIDGE_VLAN_FILTERING */
++		bool mc_disabled;			/* MC_DISABLED */
+ 	} u;
+ };
  
- 	if (ops->eswitch_inline_mode_get) {
- 		err = ops->eswitch_inline_mode_get(devlink, &inline_mode);
-@@ -1443,7 +1445,7 @@ static int devlink_nl_cmd_eswitch_get_doit(struct sk_buff *skb,
- 	struct sk_buff *msg;
- 	int err;
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 1de3438..8c0e896 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -27,6 +27,7 @@
+ #include <linux/inetdevice.h>
+ #include <linux/mroute.h>
+ #include <net/ip.h>
++#include <net/switchdev.h>
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+ #include <net/mld.h>
+@@ -1007,6 +1008,18 @@ static void br_ip6_multicast_port_query_expired(unsigned long data)
+ }
+ #endif
  
--	if (!ops || !ops->eswitch_mode_get)
-+	if (!ops)
- 		return -EOPNOTSUPP;
++static void br_mc_disabled_update(struct net_device *dev, bool value)
++{
++	struct switchdev_attr attr = {
++		.orig_dev = dev,
++		.id = SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
++		.flags = SWITCHDEV_F_DEFER,
++		.u.mc_disabled = value,
++	};
++
++	switchdev_port_attr_set(dev, &attr);
++}
++
+ int br_multicast_add_port(struct net_bridge_port *port)
+ {
+ 	port->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
+@@ -1019,6 +1032,8 @@ int br_multicast_add_port(struct net_bridge_port *port)
+ 	setup_timer(&port->ip6_own_query.timer,
+ 		    br_ip6_multicast_port_query_expired, (unsigned long)port);
+ #endif
++	br_mc_disabled_update(port->dev, port->br->multicast_disabled);
++
+ 	port->mcast_stats = netdev_alloc_pcpu_stats(struct bridge_mcast_stats);
+ 	if (!port->mcast_stats)
+ 		return -ENOMEM;
+@@ -2121,6 +2136,7 @@ int br_multicast_toggle(struct net_bridge *br, unsigned long val)
+ 	if (br->multicast_disabled == !val)
+ 		goto unlock;
  
- 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	br_mc_disabled_update(br->dev, !val);
+ 	br->multicast_disabled = !val;
+ 	if (br->multicast_disabled)
+ 		goto unlock;
 -- 
 2.7.4
