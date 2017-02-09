@@ -1,85 +1,134 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH] netlink: move nla_put_{u8,u16,u32} out of line
-Date: Thu, 9 Feb 2017 13:46:06 +0100
-Message-ID: <CACT4Y+anR0oC_BXBOKW+SqfFEd_a4BXVcEPXr+4tE5XhuwF6BA@mail.gmail.com>
-References: <20170208211843.2822208-1-arnd@arndb.de> <CACT4Y+ZCZPh8be8zL1zNt=mqW586ngybiZ66b4Wc7Jt03qqtCw@mail.gmail.com>
- <CAK8P3a3uQJTxRjo+BwLqaiPnwZ7abGwj341UiLi_mhz1QQpY9w@mail.gmail.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net-next 4/9] mlx4: get rid of frag_prefix_size
+Date: Thu, 9 Feb 2017 14:28:15 +0200
+Message-ID: <008c9016-6781-374a-ab78-79c3a9af0f06@gmail.com>
+References: <20170207030240.31357-1-edumazet@google.com>
+ <20170207030240.31357-5-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        netdev <netdev@vger.kernel.org>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Alexey Dobriyan <adobriyan@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Thomas Graf <tgraf@suug.ch>,
-        Eric Dumazet <edumazet@google.com>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a3uQJTxRjo+BwLqaiPnwZ7abGwj341UiLi_mhz1QQpY9w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Thu, Feb 9, 2017 at 12:55 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Thu, Feb 9, 2017 at 12:28 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> On Wed, Feb 8, 2017 at 10:18 PM, Arnd Bergmann <arnd@arndb.de> wrote:
->>> When CONFIG_KASAN is enabled, the "--param asan-stack=1" causes rather large
->>> stack frames in some functions. This goes unnoticed normally because
->>> CONFIG_FRAME_WARN is disabled with CONFIG_KASAN by default as of commit
->>> 3f181b4d8652 ("lib/Kconfig.debug: disable -Wframe-larger-than warnings with
->>> KASAN=y").
->>>
->>> The kernelci.org build bot however has the warning enabled and that led
->>> me to investigate it a little further, as every build produces these warnings:
->>>
->>> net/wireless/nl80211.c:4389:1: warning: the frame size of 2240 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->>> net/wireless/nl80211.c:1895:1: warning: the frame size of 3776 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->>> net/wireless/nl80211.c:1410:1: warning: the frame size of 2208 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->>> net/bridge/br_netlink.c:1282:1: warning: the frame size of 2544 bytes is larger than 2048 bytes [-Wframe-larger-than=]
->>
->>
->> This may be a good thing in itself, I don't know. But I don't think we
->> need to do this for KASAN.
->> KASAN does increase stack frames, but it also doubles stack size. So
->> at the very least we need to also double CONFIG_FRAME_WARN under KASAN
->> to 4096, which would auto-fix your warnings. Enabling 4096 warning for
->> KASAN may be moderately useful (catch cases of extremely large frames,
->> because KASAN frame increase can be much larger than 2x). But I am
->> watching these "used greatest stack depth" messages and also my test
->> bots and never seen anything worryingly low.
->
-> I'm playing with this on my autobuilder some more, and so far
-> have only encountered a handful of functions that use more
-> than 2048 bytes of stack on x86-64 with KASAN enabled, and
-> for each one of them I could come up with a patch that improved
-> the object code while making the stack smaller.
->
-> A "noinline_for_kasan" annotation would be sufficient to address most
-> of them.
->
->> I've built kernel with KASAN+KCOV and there is 381 case throughout the codebase:
->> https://gist.githubusercontent.com/dvyukov/038426827b369f62d56e50cb39db29df/raw/96cdd758f06751339428c05fda3bc09c6beb700b/gistfile1.txt
->> Changing code for each of them looks like lots of work, and can
->> introduce bugs. 4096 would leave about 50 of them, but it's still
->> lots.
->
-> Thanks for the list, that looks very helpful. The ones I found myself
-> seem to be a strict (and small) subset of those, using gcc-7.0.1 on x86-64
-> with allmodconfig and a few hundred randconfig builds. Which compiler
-> version did you use for your testing? If new versions are better than old
-> ones, we could start by fixing the ones that are still present in gcc-6 and
-> gcc-7, and making the warning conditionally on the compiler version.
->
-> Another idea might be to separate out asan_stack=1 into a separate
-> Kconfig option and warn if that is enabled with compilers that are known
-> to be relatively bad it keeping the stack small.
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35085 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751543AbdBIM5c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 07:57:32 -0500
+Received: by mail-wr0-f196.google.com with SMTP id o16so11872071wra.2
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 04:57:32 -0800 (PST)
+In-Reply-To: <20170207030240.31357-5-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Mine is gcc version 7.0.0 20161208. Make sure you enable KASAN_INLINE
-and I also enabled CONFIG_KCOV. Other than that I just did
-allyesconfig + make -k.
+
+On 07/02/2017 5:02 AM, Eric Dumazet wrote:
+> Using per frag storage for frag_prefix_size is really silly.
+>
+> mlx4_en_complete_rx_desc() has all needed info already.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 27 ++++++++++++---------------
+>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  3 +--
+>   2 files changed, 13 insertions(+), 17 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index f868cb330039f5730ab8f59eca451c3d5272..c6c64ac1e25931fc172beb5c718ec3a799f6 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -585,15 +585,14 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+>   				    int length)
+>   {
+>   	struct skb_frag_struct *skb_frags_rx = skb_shinfo(skb)->frags;
+> -	struct mlx4_en_frag_info *frag_info;
+> -	int nr;
+> +	struct mlx4_en_frag_info *frag_info = priv->frag_info;
+> +	int nr, frag_size;
+>   	dma_addr_t dma;
+>   
+>   	/* Collect used fragments while replacing them in the HW descriptors */
+> -	for (nr = 0; nr < priv->num_frags; nr++) {
+> -		frag_info = &priv->frag_info[nr];
+> -		if (length <= frag_info->frag_prefix_size)
+> -			break;
+> +	for (nr = 0;;) {
+> +		frag_size = min_t(int, length, frag_info->frag_size);
+> +
+>   		if (unlikely(!frags[nr].page))
+>   			goto fail;
+>   
+> @@ -603,15 +602,16 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+>   
+>   		__skb_fill_page_desc(skb, nr, frags[nr].page,
+>   				     frags[nr].page_offset,
+> -				     frag_info->frag_size);
+> +				     frag_size);
+Same for dma_sync_single (two lines above).
+>   
+>   		skb->truesize += frag_info->frag_stride;
+>   		frags[nr].page = NULL;
+> +		nr++;
+> +		length -= frag_size;
+> +		if (!length)
+> +			break;
+> +		frag_info++;
+>   	}
+> -	/* Adjust size of last fragment to match actual length */
+> -	if (nr > 0)
+> -		skb_frag_size_set(&skb_frags_rx[nr - 1],
+> -			length - priv->frag_info[nr - 1].frag_prefix_size);
+>   	return nr;
+>   
+>   fail:
+> @@ -1194,7 +1194,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+>   	if (priv->tx_ring_num[TX_XDP]) {
+>   		priv->rx_page_order = 0;
+>   		priv->frag_info[0].frag_size = eff_mtu;
+> -		priv->frag_info[0].frag_prefix_size = 0;
+>   		/* This will gain efficient xdp frame recycling at the
+>   		 * expense of more costly truesize accounting
+>   		 */
+> @@ -1209,7 +1208,6 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+>   			priv->frag_info[i].frag_size =
+>   				(eff_mtu > buf_size + frag_sizes[i]) ?
+>   					frag_sizes[i] : eff_mtu - buf_size;
+> -			priv->frag_info[i].frag_prefix_size = buf_size;
+>   			priv->frag_info[i].frag_stride =
+>   				ALIGN(priv->frag_info[i].frag_size,
+>   				      SMP_CACHE_BYTES);
+> @@ -1229,10 +1227,9 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
+>   	       eff_mtu, priv->num_frags);
+>   	for (i = 0; i < priv->num_frags; i++) {
+>   		en_err(priv,
+> -		       "  frag:%d - size:%d prefix:%d stride:%d\n",
+> +		       "  frag:%d - size:%d stride:%d\n",
+>   		       i,
+>   		       priv->frag_info[i].frag_size,
+> -		       priv->frag_info[i].frag_prefix_size,
+>   		       priv->frag_info[i].frag_stride);
+>   	}
+>   }
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index 11898550f87c077f6687903790d329e4aa1e..fe8ed4e85e9645679cc37d0d30284b523689 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> @@ -472,9 +472,8 @@ struct mlx4_en_mc_list {
+>   
+>   struct mlx4_en_frag_info {
+>   	u16 frag_size;
+> -	u16 frag_prefix_size;
+> -	u32 frag_stride;
+>   	u16 rx_headroom;
+> +	u32 frag_stride;
+>   };
+>   
+>   #ifdef CONFIG_MLX4_EN_DCB
