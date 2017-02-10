@@ -1,135 +1,85 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH] ibmvnic: Initialize completion variables before starting
- work
-Date: Fri, 10 Feb 2017 13:45:05 -0500
-Message-ID: <20170210184505.13381.72796.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] NET: Fix /proc/net/arp for AX.25
+Date: Sat, 11 Feb 2017 00:38:57 +0100
+Message-ID: <20170210233857.GA13996@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:35897 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751965AbdBJXiu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 18:38:50 -0500
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1AIs2fi017644
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:54:52 -0500
-Received: from e19.ny.us.ibm.com (e19.ny.us.ibm.com [129.33.205.209])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 28hcpu2nsh-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:54:51 -0500
-Received: from localhost
-        by e19.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Fri, 10 Feb 2017 13:54:51 -0500
-Received: from b01cxnp23032.gho.pok.ibm.com (b01cxnp23032.gho.pok.ibm.com [9.57.198.27])
-        by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 05312C9003E
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:54:31 -0500 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Osterried <thomas@osterried.de>, linux-hams@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Initialize condition variables prior to invoking any work that can
-mark them complete. This resolves a race in the ibmvnic driver where
-the driver faults trying to complete an uninitialized condition
-variable.
+When sending ARP requests over AX.25 links the hwaddress in the neighbour
+cache are not getting initialized.  For such an incomplete arp entry
+ax2asc2 will generate an empty string resulting in /proc/net/arp output
+like the following:
 
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+$ cat /proc/net/arp
+IP address       HW type     Flags       HW address            Mask     Device
+192.168.122.1    0x1         0x2         52:54:00:00:5d:5f     *        ens3
+172.20.1.99      0x3         0x0              *        bpq0
+
+The missing field will confuse the procfs parsing of arp(8) resulting in
+incorrect output for the device such as the following:
+
+$ arp
+Address                  HWtype  HWaddress           Flags Mask            Iface
+gateway                  ether   52:54:00:00:5d:5f   C                     ens3
+172.20.1.99                      (incomplete)                              ens3
+
+This changes the content of /proc/net/arp to:
+
+$ cat /proc/net/arp
+IP address       HW type     Flags       HW address            Mask     Device
+172.20.1.99      0x3         0x0         *                     *        bpq0
+192.168.122.1    0x1         0x2         52:54:00:00:5d:5f     *        ens3
+
+To do so it change ax2asc to put the string "*" in buf for a NULL address
+argument.  Finally the HW address field is left aligned in a 17 character
+field (the length of an ethernet HW address in the usual hex notation) for
+readability.
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |   17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
+ net/ipv4/arp.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index a024141..752b082 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -189,9 +189,10 @@ static int alloc_long_term_buff(struct ibmvnic_adapter *adapter,
- 	}
- 	ltb->map_id = adapter->map_id;
- 	adapter->map_id++;
-+
-+	init_completion(&adapter->fw_done);
- 	send_request_map(adapter, ltb->addr,
- 			 ltb->size, ltb->map_id);
--	init_completion(&adapter->fw_done);
- 	wait_for_completion(&adapter->fw_done);
- 	return 0;
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 89a8cac4..51b27ae 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1263,7 +1263,7 @@ void __init arp_init(void)
+ /*
+  *	ax25 -> ASCII conversion
+  */
+-static char *ax2asc2(ax25_address *a, char *buf)
++static void ax2asc2(ax25_address *a, char *buf)
+ {
+ 	char c, *s;
+ 	int n;
+@@ -1285,10 +1285,10 @@ static char *ax2asc2(ax25_address *a, char *buf)
+ 	*s++ = n + '0';
+ 	*s++ = '\0';
+ 
+-	if (*buf == '\0' || *buf == '-')
+-		return "*";
+-
+-	return buf;
++	if (*buf == '\0' || *buf == '-') {
++		buf[0] = '*';
++		buf[1] = '\0';
++	}
  }
-@@ -1121,10 +1122,10 @@ static void ibmvnic_get_ethtool_stats(struct net_device *dev,
- 	crq.request_statistics.ioba = cpu_to_be32(adapter->stats_token);
- 	crq.request_statistics.len =
- 	    cpu_to_be32(sizeof(struct ibmvnic_statistics));
--	ibmvnic_send_crq(adapter, &crq);
+ #endif /* CONFIG_AX25 */
  
- 	/* Wait for data to be written */
- 	init_completion(&adapter->stats_done);
-+	ibmvnic_send_crq(adapter, &crq);
- 	wait_for_completion(&adapter->stats_done);
- 
- 	for (i = 0; i < ARRAY_SIZE(ibmvnic_stats); i++)
-@@ -2799,9 +2800,9 @@ static ssize_t trace_read(struct file *file, char __user *user_buf, size_t len,
- 	crq.collect_fw_trace.correlator = adapter->ras_comps[num].correlator;
- 	crq.collect_fw_trace.ioba = cpu_to_be32(trace_tok);
- 	crq.collect_fw_trace.len = adapter->ras_comps[num].trace_buff_size;
--	ibmvnic_send_crq(adapter, &crq);
- 
- 	init_completion(&adapter->fw_done);
-+	ibmvnic_send_crq(adapter, &crq);
- 	wait_for_completion(&adapter->fw_done);
- 
- 	if (*ppos + len > be32_to_cpu(adapter->ras_comps[num].trace_buff_size))
-@@ -3581,9 +3582,9 @@ static int ibmvnic_dump_show(struct seq_file *seq, void *v)
- 	memset(&crq, 0, sizeof(crq));
- 	crq.request_dump_size.first = IBMVNIC_CRQ_CMD;
- 	crq.request_dump_size.cmd = REQUEST_DUMP_SIZE;
--	ibmvnic_send_crq(adapter, &crq);
- 
- 	init_completion(&adapter->fw_done);
-+	ibmvnic_send_crq(adapter, &crq);
- 	wait_for_completion(&adapter->fw_done);
- 
- 	seq_write(seq, adapter->dump_data, adapter->dump_data_size);
-@@ -3629,8 +3630,8 @@ static void handle_crq_init_rsp(struct work_struct *work)
- 		}
+@@ -1322,7 +1322,7 @@ static void arp_format_neigh_entry(struct seq_file *seq,
  	}
- 
--	send_version_xchg(adapter);
- 	reinit_completion(&adapter->init_done);
-+	send_version_xchg(adapter);
- 	if (!wait_for_completion_timeout(&adapter->init_done, timeout)) {
- 		dev_err(dev, "Passive init timeout\n");
- 		goto task_failed;
-@@ -3640,9 +3641,9 @@ static void handle_crq_init_rsp(struct work_struct *work)
- 		if (adapter->renegotiate) {
- 			adapter->renegotiate = false;
- 			release_sub_crqs_no_irqs(adapter);
--			send_cap_queries(adapter);
- 
- 			reinit_completion(&adapter->init_done);
-+			send_cap_queries(adapter);
- 			if (!wait_for_completion_timeout(&adapter->init_done,
- 							 timeout)) {
- 				dev_err(dev, "Passive init timeout\n");
-@@ -3772,9 +3773,9 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 			adapter->debugfs_dump = ent;
- 		}
- 	}
--	ibmvnic_send_crq_init(adapter);
- 
- 	init_completion(&adapter->init_done);
-+	ibmvnic_send_crq_init(adapter);
- 	if (!wait_for_completion_timeout(&adapter->init_done, timeout))
- 		return 0;
- 
-@@ -3782,9 +3783,9 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 		if (adapter->renegotiate) {
- 			adapter->renegotiate = false;
- 			release_sub_crqs_no_irqs(adapter);
--			send_cap_queries(adapter);
- 
- 			reinit_completion(&adapter->init_done);
-+			send_cap_queries(adapter);
- 			if (!wait_for_completion_timeout(&adapter->init_done,
- 							 timeout))
- 				return 0;
+ #endif
+ 	sprintf(tbuf, "%pI4", n->primary_key);
+-	seq_printf(seq, "%-16s 0x%-10x0x%-10x%s     *        %s\n",
++	seq_printf(seq, "%-16s 0x%-10x0x%-10x%-17s     *        %s\n",
+ 		   tbuf, hatype, arp_state_to_flags(n), hbuffer, dev->name);
+ 	read_unlock(&n->lock);
+ }
