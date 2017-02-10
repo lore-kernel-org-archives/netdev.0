@@ -1,43 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
-Date: Fri, 10 Feb 2017 10:12:08 -0500 (EST)
-Message-ID: <20170210.101208.1693704737584245625.davem@davemloft.net>
-References: <CALx6S37_GOP4a0x2aVbde1ynZRxDXx3A+YfY6sMMEZQEKN_1+g@mail.gmail.com>
-        <20170209.223348.2143869696524078186.davem@davemloft.net>
-        <CALx6S3695kv=Rr9V48k_CByCGvXLKzoM2XgpHiysB+cpaA4tzg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
+Date: Fri, 10 Feb 2017 09:42:21 -0800
+Message-ID: <352146cc-845c-2860-44ca-7338eb53e260@gmail.com>
+References: <20170209150834.1158193-1-arnd@arndb.de>
+ <c6ab6498-8094-b23e-0b93-c3bf1c866992@gmail.com>
+ <CAK8P3a2Yss8r0qoubg2C7Jp+0JE3Fx+igWHQOscR+SB6d+W_HA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42114 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751858AbdBJRGu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 12:06:50 -0500
-In-Reply-To: <CALx6S3695kv=Rr9V48k_CByCGvXLKzoM2XgpHiysB+cpaA4tzg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Networking <netdev@vger.kernel.org>, Russell King <linux@armlinux.org.uk>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S . Miller" <davem@davemloft.net>,
+ Linux ARM <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAK8P3a2Yss8r0qoubg2C7Jp+0JE3Fx+igWHQOscR+SB6d+W_HA@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 9 Feb 2017 20:55:34 -0800
+On 02/10/2017 12:20 AM, Arnd Bergmann wrote:
+> On Thu, Feb 9, 2017 at 7:22 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> On 02/09/2017 07:08 AM, Arnd Bergmann wrote:
+>> I disabled CONFIG_NETDEVICES to force CONFIG_PHY not to be set here, and
+>> I was not able to reproduce this, what am I missing?
+> 
+> In the ARMv5 allmodconfig build, this fails because CONFIG_PHY=m, and
+> we can't call into it. You could use IS_BUILTIN instead of IS_ENABLED in
+> the header as a oneline workaround, but I think that would be more confusing
+> to real users that try to use CONFIG_PHY=m without realizing why they lose
+> access to their switch.
 
-> On Thu, Feb 9, 2017 at 7:33 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <tom@herbertland.com>
->> Date: Thu, 9 Feb 2017 18:29:54 -0800
->>
->>> So we have thousands or LOC coming into drivers every day anyway with
->>> all those properties anyway, so this "restricted" environment solves
->>> at best 1% of the problem.
->>
->> What you must understand is that no matter what someone outside of
->> upstream writes into an eBPF program, it's safe, and we can absolutely
->> prove this with the verifier and the invariants of the execution
->> environment.
->>
-> This is the exact same argument the userspace stack proponents will
-> use-- put your stack in userspace and you can't crash the host.
+I see, this patch should also help fixing this:
 
-Sounds like we can therefore meet that requirement and keep them in
-the kernel networking path, which supports all of our values and goals
-precisely.
+http://patchwork.ozlabs.org/patch/726381/
+
+-- 
+Florian
