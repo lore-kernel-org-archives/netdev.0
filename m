@@ -1,123 +1,32 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH 2/3] tipc: Fix tipc_sk_reinit race conditions
-Date: Fri, 10 Feb 2017 18:53:00 +0800
-Message-ID: <3938c771-7c3e-b521-8c3a-3b8271a48e27@windriver.com>
-References: <20170207123827.GA14678@gondor.apana.org.au>
- <E1cb53g-0003pz-KV@gondobar>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next,v2] gtp: add MAINTAINERS
+Date: Fri, 10 Feb 2017 16:04:39 -0500 (EST)
+Message-ID: <20170210.160439.856977983504436379.davem@davemloft.net>
+References: <1486729587-501-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>, <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, laforge@gnumonks.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:56226 "EHLO
-        mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932102AbdBJVEb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 16:04:31 -0500
-In-Reply-To: <E1cb53g-0003pz-KV@gondobar>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48442 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751504AbdBJVEq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 16:04:46 -0500
+In-Reply-To: <1486729587-501-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2017 08:39 PM, Herbert Xu wrote:
-> There are two problems with the function tipc_sk_reinit.  Firstly
-> it's doing a manual walk over an rhashtable.  This is broken as
-> an rhashtable can be resized and if you manually walk over it
-> during a resize then you may miss entries.
-> 
-> Secondly it's missing memory barriers as previously the code used
-> spinlocks which provide the barriers implicitly.
-> 
-> This patch fixes both problems.
-> 
-> Fixes: 07f6c4bc048a ("tipc: convert tipc reference table to...")
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 10 Feb 2017 13:26:27 +0100
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
-
+> From: Pablo Neira <pablo@netfilter.org>
+> 
+> Add maintainers for this tunnel driver. Include main osmocom.org mailist
+> list too.
+> 
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 > ---
-> 
->  net/tipc/net.c    |    4 ++++
->  net/tipc/socket.c |   30 +++++++++++++++++++-----------
->  2 files changed, 23 insertions(+), 11 deletions(-)
-> 
-> diff --git a/net/tipc/net.c b/net/tipc/net.c
-> index 28bf4fe..ab8a2d5 100644
-> --- a/net/tipc/net.c
-> +++ b/net/tipc/net.c
-> @@ -110,6 +110,10 @@ int tipc_net_start(struct net *net, u32 addr)
->  	char addr_string[16];
->  
->  	tn->own_addr = addr;
-> +
-> +	/* Ensure that the new address is visible before we reinit. */
-> +	smp_mb();
-> +
->  	tipc_named_reinit(net);
->  	tipc_sk_reinit(net);
->  
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> index 333c5da..20240e1 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -384,8 +384,6 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
->  	INIT_LIST_HEAD(&tsk->publications);
->  	msg = &tsk->phdr;
->  	tn = net_generic(sock_net(sk), tipc_net_id);
-> -	tipc_msg_init(tn->own_addr, msg, TIPC_LOW_IMPORTANCE, TIPC_NAMED_MSG,
-> -		      NAMED_H_SIZE, 0);
->  
->  	/* Finish initializing socket data structures */
->  	sock->ops = ops;
-> @@ -395,6 +393,13 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
->  		pr_warn("Socket create failed; port number exhausted\n");
->  		return -EINVAL;
->  	}
-> +
-> +	/* Ensure tsk is visible before we read own_addr. */
-> +	smp_mb();
-> +
-> +	tipc_msg_init(tn->own_addr, msg, TIPC_LOW_IMPORTANCE, TIPC_NAMED_MSG,
-> +		      NAMED_H_SIZE, 0);
-> +
->  	msg_set_origport(msg, tsk->portid);
->  	setup_timer(&sk->sk_timer, tipc_sk_timeout, (unsigned long)tsk);
->  	sk->sk_shutdown = 0;
-> @@ -2267,24 +2272,27 @@ static int tipc_sk_withdraw(struct tipc_sock *tsk, uint scope,
->  void tipc_sk_reinit(struct net *net)
->  {
->  	struct tipc_net *tn = net_generic(net, tipc_net_id);
-> -	const struct bucket_table *tbl;
-> -	struct rhash_head *pos;
-> +	struct rhashtable_iter iter;
->  	struct tipc_sock *tsk;
->  	struct tipc_msg *msg;
-> -	int i;
->  
-> -	rcu_read_lock();
-> -	tbl = rht_dereference_rcu((&tn->sk_rht)->tbl, &tn->sk_rht);
-> -	for (i = 0; i < tbl->size; i++) {
-> -		rht_for_each_entry_rcu(tsk, pos, tbl, i, node) {
-> +	rhashtable_walk_enter(&tn->sk_rht, &iter);
-> +
-> +	do {
-> +		tsk = ERR_PTR(rhashtable_walk_start(&iter));
-> +		if (tsk)
-> +			continue;
-> +
-> +		while ((tsk = rhashtable_walk_next(&iter)) && !IS_ERR(tsk)) {
->  			spin_lock_bh(&tsk->sk.sk_lock.slock);
->  			msg = &tsk->phdr;
->  			msg_set_prevnode(msg, tn->own_addr);
->  			msg_set_orignode(msg, tn->own_addr);
->  			spin_unlock_bh(&tsk->sk.sk_lock.slock);
->  		}
-> -	}
-> -	rcu_read_unlock();
-> +
-> +		rhashtable_walk_stop(&iter);
-> +	} while (tsk == ERR_PTR(-EAGAIN));
->  }
->  
->  static struct tipc_sock *tipc_sk_lookup(struct net *net, u32 portid)
-> 
+> v2: Harald suggests osmocom-net-gprs@lists.osmocom.org is better ML for this.
+
+Applied, thanks.
