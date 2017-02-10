@@ -1,65 +1,116 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
-Date: Fri, 10 Feb 2017 09:03:06 -0600
-Message-ID: <CAL_Jsq+W=gXRYTuEAwdXfKvRsUY559zAp2tstGxdrF0BzAhQKQ@mail.gmail.com>
-References: <20170124084606.GA11764@app09> <20170125.123448.742815192519658537.davem@davemloft.net>
- <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw@mail.gmail.com>
- <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop> <CAEbi=3fZddPR8L+B6gW+yUraAK_wu=4oOyk3ff-Ez-Qy-LEBfQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Mark Rutland <mark.rutland@arm.com>
-To: Greentime Hu <green.hu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAEbi=3fZddPR8L+B6gW+yUraAK_wu=4oOyk3ff-Ez-Qy-LEBfQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH iproute2 1/2] utils: make hex2mem available to all users
+Date: Fri, 10 Feb 2017 06:18:11 -0500
+Message-ID: <1486725492-16748-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, mrv@mojatatu.com,
+        Jamal Hadi Salim <hadi@mojatatu.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:36467 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752741AbdBJPIR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 10:08:17 -0500
+Received: by mail-io0-f194.google.com with SMTP id q20so5992199ioi.3
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 07:08:16 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 8, 2017 at 5:59 AM, Greentime Hu <green.hu@gmail.com> wrote:
-> On Sat, Jan 28, 2017 at 6:17 AM, Rob Herring <robh@kernel.org> wrote:
->>
->> On Wed, Jan 25, 2017 at 10:09:20PM +0100, Arnd Bergmann wrote:
->> > On Wed, Jan 25, 2017 at 6:34 PM, David Miller <davem@davemloft.net> wrote:
->> > > From: Greentime Hu <green.hu@gmail.com>
->> > > Date: Tue, 24 Jan 2017 16:46:14 +0800
->> > >> We also use the same binding document to describe the same faraday ethernet
->> > >> controller and add faraday to vendor-prefixes.txt.
->> > >
->> > > Why are you renaming the MOXA binding file instead of adding a completely new one
->> > > for faraday?  The MOXA one should stick around, I don't see a justification for
->> > > removing it.
->> >
->> > This was my suggestion, basically fixing the name of the existing
->> > binding, which was
->> > accidentally named after one of the users rather than the company that did the
->> > hardware.
->> >
->> > We can't change the compatible string, but I'd much prefer having only
->> > one binding
->> > file for this device rather than two separate ones that could possibly become
->> > incompatible in case we add new properties to them. If there is only
->> > one of them,
->> > naming it according to the hardware design is the general policy.
->> >
->> > Note that we currently have two separate device drivers, but that is more a
->> > historic artifact, and if we ever get around to merging them into one driver,
->> > that should not impact the binding.
->>
->> The change is fine with me, but the subject and commit message need some
->> work.
->
-> Hi, Rob:
->
-> Would you please advise me of the proper subject and commit messages?
+From: Jamal Hadi Salim <hadi@mojatatu.com>
 
-Split the binding to a separate commit and summarize the email
-discussion here. For a subject, something like this:
+hex2mem() api is useful for parsing hexstrings which are then packed in
+a stream of chars.
 
-"dt-bindings: net: generalize moxart-mac to support all faraday based ftmac IP"
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/utils.h |  1 +
+ ip/ipl2tp.c     | 25 -------------------------
+ lib/utils.c     | 25 +++++++++++++++++++++++++
+ 3 files changed, 26 insertions(+), 25 deletions(-)
 
-Rob
+diff --git a/include/utils.h b/include/utils.h
+index dc1d6b9..22369e0 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -118,6 +118,7 @@ int get_be32(__be32 *val, const char *arg, int base);
+ int get_be16(__be16 *val, const char *arg, int base);
+ int get_addr64(__u64 *ap, const char *cp);
+ 
++int hex2mem(const char *buf, uint8_t *mem, int count);
+ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
+ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len);
+ #define ADDR64_BUF_SIZE sizeof("xxxx:xxxx:xxxx:xxxx")
+diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
+index 0f91aeb..88664c9 100644
+--- a/ip/ipl2tp.c
++++ b/ip/ipl2tp.c
+@@ -485,31 +485,6 @@ static int get_tunnel(struct l2tp_data *p)
+  * Command parser
+  *****************************************************************************/
+ 
+-static int hex2mem(const char *buf, uint8_t *mem, int count)
+-{
+-	int i, j;
+-	int c;
+-
+-	for (i = 0, j = 0; i < count; i++, j += 2) {
+-		c = get_hex(buf[j]);
+-		if (c < 0)
+-			goto err;
+-
+-		mem[i] = c << 4;
+-
+-		c = get_hex(buf[j + 1]);
+-		if (c < 0)
+-			goto err;
+-
+-		mem[i] |= c;
+-	}
+-
+-	return 0;
+-
+-err:
+-	return -1;
+-}
+-
+ static void usage(void) __attribute__((noreturn));
+ 
+ static void usage(void)
+diff --git a/lib/utils.c b/lib/utils.c
+index 83c9d09..870c4f1 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -962,6 +962,31 @@ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
+ 	return buf;
+ }
+ 
++int hex2mem(const char *buf, uint8_t *mem, int count)
++{
++	int i, j;
++	int c;
++
++	for (i = 0, j = 0; i < count; i++, j += 2) {
++		c = get_hex(buf[j]);
++		if (c < 0)
++			goto err;
++
++		mem[i] = c << 4;
++
++		c = get_hex(buf[j + 1]);
++		if (c < 0)
++			goto err;
++
++		mem[i] |= c;
++	}
++
++	return 0;
++
++err:
++	return -1;
++}
++
+ int addr64_n2a(__u64 addr, char *buff, size_t len)
+ {
+ 	__u16 *words = (__u16 *)&addr;
+-- 
+1.9.1
