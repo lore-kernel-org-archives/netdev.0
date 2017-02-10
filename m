@@ -1,58 +1,102 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v3] can: Fix kernel panic at security_sock_rcv_skb
-Date: Fri, 10 Feb 2017 09:28:57 +0100
-Message-ID: <9f8cc561-e1e6-c2f6-2bcc-3fe0282ca05c@hartkopp.net>
-References: <0e458012-e97b-298d-296e-ed25e35689a0@hartkopp.net>
- <1484226099.15816.25.camel@edumazet-glaptop3.roam.corp.google.com>
- <1485533504.6360.62.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170129.183406.1410276231781823069.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170129.183406.1410276231781823069.davem@davemloft.net>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saber Rezvani <irsaber@gmail.com>
+Subject: [PATCH 1/1] net: ethernet: intel: e1000: msleep() is unreliable for anything <20ms
+Date: Fri, 10 Feb 2017 12:12:53 +0330
+Message-ID: <1486716173-10891-1-git-send-email-irsaber@gmail.com>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Saber Rezvani <irsaber@gmail.com>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sender-pp-092.zoho.com ([135.84.80.237]:25341 "EHLO
+        sender-pp-092.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751949AbdBJIqm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 03:46:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Dave, Greg,
+Fix the checkpatch.pl issue:
+WARNING: msleep < 20ms can sleep for up to 20ms; see
+Documentation/timers/timers-howto.txt
 
-On 01/30/2017 12:34 AM, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 27 Jan 2017 08:11:44 -0800
->
->> From: Eric Dumazet <edumazet@google.com>
->>
->> Zhang Yanmin reported crashes [1] and provided a patch adding a
->> synchronize_rcu() call in can_rx_unregister()
->>
->> The main problem seems that the sockets themselves are not RCU
->> protected.
->>
->> If CAN uses RCU for delivery, then sockets should be freed only after
->> one RCU grace period.
->>
->> Recent kernels could use sock_set_flag(sk, SOCK_RCU_FREE), but let's
->> ease stable backports with the following fix instead.
->  ...
->> Reported-by: Zhang Yanmin <yanmin.zhang@intel.com>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->
-> Applied and queued up for -stable, thanks Eric.
->
+Signed-off-by: Saber Rezvani <irsaber@gmail.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-can you please check whether this upstream commit
-
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=f1712c73714088a7252d276a57126d56c7d37e64
-
-really was queued up for -stable?
-
-This commit
-
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=a06393ed03167771246c4c43192d9c264bc48412
-
-was posted later and already got into the 4.4 and 4.9 stable trees.
-
-Best regards,
-Oliver
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index 975eeb8..fa47eab 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -207,7 +207,7 @@ static int e1000_set_settings(struct net_device *netdev,
+ 	}
+ 
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+-		msleep(1);
++		usleep_range(1000, 5000);
+ 
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+ 		hw->autoneg = 1;
+@@ -294,7 +294,7 @@ static int e1000_set_pauseparam(struct net_device *netdev,
+ 	adapter->fc_autoneg = pause->autoneg;
+ 
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+-		msleep(1);
++		usleep_range(1000, 5000);
+ 
+ 	if (pause->rx_pause && pause->tx_pause)
+ 		hw->fc = E1000_FC_FULL;
+@@ -592,7 +592,7 @@ static int e1000_set_ringparam(struct net_device *netdev,
+ 		return -EINVAL;
+ 
+ 	while (test_and_set_bit(__E1000_RESETTING, &adapter->flags))
+-		msleep(1);
++		usleep_range(1000, 5000);
+ 
+ 	if (netif_running(adapter->netdev))
+ 		e1000_down(adapter);
+@@ -869,7 +869,7 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
+ 	/* Disable all the interrupts */
+ 	ew32(IMC, 0xFFFFFFFF);
+ 	E1000_WRITE_FLUSH();
+-	msleep(10);
++	usleep_range(10000, 11000);
+ 
+ 	/* Test each interrupt */
+ 	for (; i < 10; i++) {
+@@ -887,7 +887,7 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
+ 			ew32(IMC, mask);
+ 			ew32(ICS, mask);
+ 			E1000_WRITE_FLUSH();
+-			msleep(10);
++			usleep_range(10000, 11000);
+ 
+ 			if (adapter->test_icr & mask) {
+ 				*data = 3;
+@@ -905,7 +905,7 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
+ 		ew32(IMS, mask);
+ 		ew32(ICS, mask);
+ 		E1000_WRITE_FLUSH();
+-		msleep(10);
++		usleep_range(10000, 11000);
+ 
+ 		if (!(adapter->test_icr & mask)) {
+ 			*data = 4;
+@@ -923,7 +923,7 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
+ 			ew32(IMC, ~mask & 0x00007FFF);
+ 			ew32(ICS, ~mask & 0x00007FFF);
+ 			E1000_WRITE_FLUSH();
+-			msleep(10);
++			usleep_range(10000, 11000);
+ 
+ 			if (adapter->test_icr) {
+ 				*data = 5;
+@@ -935,7 +935,7 @@ static int e1000_intr_test(struct e1000_adapter *adapter, u64 *data)
+ 	/* Disable all the interrupts */
+ 	ew32(IMC, 0xFFFFFFFF);
+ 	E1000_WRITE_FLUSH();
+-	msleep(10);
++	usleep_range(10000, 11000);
+ 
+ 	/* Unhook test interrupt handler */
+ 	free_irq(irq, netdev);
+-- 
+2.7.4
