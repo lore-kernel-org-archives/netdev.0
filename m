@@ -1,45 +1,65 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH/RFC v3 net] ravb: unmap descriptors when freeing rings
-Date: Fri, 10 Feb 2017 14:52:50 +0100
-Message-ID: <CAMuHMdVzN_6tfjD1eYBLzrpynupo6C2hnLv6mm5UzcdSNzWtyQ@mail.gmail.com>
-References: <1485282073-16662-1-git-send-email-horms+renesas@verge.net.au> <312867f0-f6dd-3c92-df09-fae72ea7405b@cogentembedded.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
+Date: Fri, 10 Feb 2017 09:03:06 -0600
+Message-ID: <CAL_Jsq+W=gXRYTuEAwdXfKvRsUY559zAp2tstGxdrF0BzAhQKQ@mail.gmail.com>
+References: <20170124084606.GA11764@app09> <20170125.123448.742815192519658537.davem@davemloft.net>
+ <CAK8P3a2Zr6=4x8JRa313DQ2ND0V=8eL0yKkrd93wbdxkiOtmSw@mail.gmail.com>
+ <20170127221733.tcoudehkp5b5jnfw@rob-hp-laptop> <CAEbi=3fZddPR8L+B6gW+yUraAK_wu=4oOyk3ff-Ez-Qy-LEBfQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34842 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751858AbdBJN7E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 08:59:04 -0500
-In-Reply-To: <312867f0-f6dd-3c92-df09-fae72ea7405b@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Mark Rutland <mark.rutland@arm.com>
+To: Greentime Hu <green.hu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAEbi=3fZddPR8L+B6gW+yUraAK_wu=4oOyk3ff-Ez-Qy-LEBfQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 25, 2017 at 5:18 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 01/24/2017 09:21 PM, Simon Horman wrote:
->
->> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+On Wed, Feb 8, 2017 at 5:59 AM, Greentime Hu <green.hu@gmail.com> wrote:
+> On Sat, Jan 28, 2017 at 6:17 AM, Rob Herring <robh@kernel.org> wrote:
 >>
->> "swiotlb buffer is full" errors occur after repeated initialisation of a
->> device - f.e. suspend/resume or ip link set up/down. This is because
->> memory
->> mapped using dma_map_single() in ravb_ring_format() and ravb_start_xmit()
->> is not released.  Resolve this problem by unmapping descriptors when
->> freeing rings.
+>> On Wed, Jan 25, 2017 at 10:09:20PM +0100, Arnd Bergmann wrote:
+>> > On Wed, Jan 25, 2017 at 6:34 PM, David Miller <davem@davemloft.net> wrote:
+>> > > From: Greentime Hu <green.hu@gmail.com>
+>> > > Date: Tue, 24 Jan 2017 16:46:14 +0800
+>> > >> We also use the same binding document to describe the same faraday ethernet
+>> > >> controller and add faraday to vendor-prefixes.txt.
+>> > >
+>> > > Why are you renaming the MOXA binding file instead of adding a completely new one
+>> > > for faraday?  The MOXA one should stick around, I don't see a justification for
+>> > > removing it.
+>> >
+>> > This was my suggestion, basically fixing the name of the existing
+>> > binding, which was
+>> > accidentally named after one of the users rather than the company that did the
+>> > hardware.
+>> >
+>> > We can't change the compatible string, but I'd much prefer having only
+>> > one binding
+>> > file for this device rather than two separate ones that could possibly become
+>> > incompatible in case we add new properties to them. If there is only
+>> > one of them,
+>> > naming it according to the hardware design is the general policy.
+>> >
+>> > Note that we currently have two separate device drivers, but that is more a
+>> > historic artifact, and if we ever get around to merging them into one driver,
+>> > that should not impact the binding.
+>>
+>> The change is fine with me, but the subject and commit message need some
+>> work.
 >
+> Hi, Rob:
 >
->    Could you look into the sh_eth driver which seems to have the same issue?
+> Would you please advise me of the proper subject and commit messages?
 
-Indeed, after a few suspend/resume cycles on r8a7791/koelsch:
+Split the binding to a separate commit and summarize the email
+discussion here. For a subject, something like this:
 
-WARNING: CPU: 1 PID: 1699 at lib/dma-debug.c:517 add_dma_entry+0xfc/0x148
-DMA-API: exceeded 7 overlapping mappings of cacheline 0x0000000001a827e3
+"dt-bindings: net: generalize moxart-mac to support all faraday based ftmac IP"
 
-Gr{oetje,eeting}s,
-
-                        Geert
+Rob
