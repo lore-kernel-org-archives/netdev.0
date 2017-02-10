@@ -1,108 +1,43 @@
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Subject: [PATCH net] at803x: insure minimum delay for SGMII link AN completion ckeck
-Date: Fri, 10 Feb 2017 18:42:23 +0200
-Message-ID: <1486744943-12474-1-git-send-email-claudiu.manoil@nxp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
+Date: Fri, 10 Feb 2017 10:12:08 -0500 (EST)
+Message-ID: <20170210.101208.1693704737584245625.davem@davemloft.net>
+References: <CALx6S37_GOP4a0x2aVbde1ynZRxDXx3A+YfY6sMMEZQEKN_1+g@mail.gmail.com>
+        <20170209.223348.2143869696524078186.davem@davemloft.net>
+        <CALx6S3695kv=Rr9V48k_CByCGvXLKzoM2XgpHiysB+cpaA4tzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0064.outbound.protection.outlook.com ([104.47.38.64]:65383
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751060AbdBJQ6l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 10 Feb 2017 11:58:41 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:42114 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751858AbdBJRGu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 12:06:50 -0500
+In-Reply-To: <CALx6S3695kv=Rr9V48k_CByCGvXLKzoM2XgpHiysB+cpaA4tzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit: f62265b "at803x: double check SGMII side autoneg"
-introduced a regression for the p1010rdb board which has
-two of the ethernet controllers (eTSEC) connected through
-SGMII links to external Atheros SGMII AR8033 PHYs.
-The issue consists in a dead link for these ports, and is
-100% reproducible on kernel 4.9 (and later):
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 9 Feb 2017 20:55:34 -0800
 
-root@p1010rdb-pb:~# ifconfig eth2 172.16.1.1
-[  203.274263] IPv6: ADDRCONF(NETDEV_UP): eth2: link is not ready
-root@p1010rdb-pb:~# [  206.408255] 803x_aneg_done: SGMII link is not ok
+> On Thu, Feb 9, 2017 at 7:33 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Thu, 9 Feb 2017 18:29:54 -0800
+>>
+>>> So we have thousands or LOC coming into drivers every day anyway with
+>>> all those properties anyway, so this "restricted" environment solves
+>>> at best 1% of the problem.
+>>
+>> What you must understand is that no matter what someone outside of
+>> upstream writes into an eBPF program, it's safe, and we can absolutely
+>> prove this with the verifier and the invariants of the execution
+>> environment.
+>>
+> This is the exact same argument the userspace stack proponents will
+> use-- put your stack in userspace and you can't crash the host.
 
-root@p1010rdb-pb:~# ethtool eth2
-Settings for eth2:
-        Supported ports: [ MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Supported pause frame use: Symmetric Receive-only
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Half 10baseT/Full
-                                             100baseT/Half 100baseT/Full
-                                             1000baseT/Half 1000baseT/Full
-        Link partner advertised pause frame use: Symmetric Receive-only
-        Link partner advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: MII
-        PHYAD: 2
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: g
-        Wake-on: d
-        Current message level: 0x0000003f (63)
-                               drv probe link timer ifdown ifup
-        Link detected: no
-
-Insuring up to 100 usecs for the SGMII link side AN to complete
-proves to be enough to have a working SGMII link, for this board.
-The need for a delay for the SGMII link side may be explained by
-the fact that there are two levels of auto-negotiation (AN) for a
-SGMII link.  First the PHY autonegotiates the link parameters w/
-its link partner over the copper link. In the second stage, the
-AN results are then passed to the eTSEC MAC over the SGMII link
-using the Clause 37 auto-negotiation functionality.  While the
-aneg_done() hook is called by the phylib state machine to check
-for the completion of the 1st stage AN of the external PHY,
-there's no mechanism to insure proper AN completion of the internal
-SGMII link (which is actually handled on the eTSEC side by a
-"internal PHY", called TBI).
-
-Fixes: f62265b "at803x: double check SGMII side autoneg"
-
-Signed-off-by: Claudiu Manoil <claudiu.manoil@nxp.com>
----
- drivers/net/phy/at803x.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index a52b560..55fa7c4 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -366,6 +366,7 @@ static void at803x_link_change_notify(struct phy_device *phydev)
- static int at803x_aneg_done(struct phy_device *phydev)
- {
- 	int ccr;
-+	int timeout = 100; /* usecs */
- 
- 	int aneg_done = genphy_aneg_done(phydev);
- 	if (aneg_done != BMSR_ANEGCOMPLETE)
-@@ -383,7 +384,13 @@ static int at803x_aneg_done(struct phy_device *phydev)
- 	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
- 
- 	/* check if the SGMII link is OK. */
--	if (!(phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)) {
-+	do {
-+		if (phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)
-+			break;
-+		udelay(1);
-+	} while (--timeout);
-+
-+	if (!timeout) {
- 		pr_warn("803x_aneg_done: SGMII link is not ok\n");
- 		aneg_done = 0;
- 	}
--- 
-1.7.11.7
+Sounds like we can therefore meet that requirement and keep them in
+the kernel networking path, which supports all of our values and goals
+precisely.
