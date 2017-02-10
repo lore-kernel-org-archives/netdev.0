@@ -1,95 +1,96 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH net-next v5 04/11] bpf: Use bpf_load_program() from the
- library
-Date: Fri, 10 Feb 2017 10:39:31 +0800
-Message-ID: <e29f46d0-cf3a-6d52-ccc4-53efeed6c2a9@huawei.com>
-References: <20170209232145.19085-1-mic@digikod.net>
- <20170209232145.19085-5-mic@digikod.net>
- <2ffd3f6b-ee07-af83-ced3-bad5e4e35cc8@huawei.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the selinux tree
+Date: Fri, 10 Feb 2017 13:50:15 +1100
+Message-ID: <20170210135015.7a573b81@canb.auug.org.au>
+References: <20170110122703.2dbdfd18@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Shuah Khan <shuah@kernel.org>
-To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
-        <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Paul Moore <paul@paul-moore.com>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Stephen Smalley <sds@tycho.nsa.gov>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        James Morris <jmorris@namei.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2ffd3f6b-ee07-af83-ced3-bad5e4e35cc8@huawei.com>
+In-Reply-To: <20170110122703.2dbdfd18@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
+On Tue, 10 Jan 2017 12:27:03 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> After merging the selinux tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
+> 
+> In file included from /home/sfr/next/next/security/selinux/avc.c:35:0:
+> /home/sfr/next/next/security/selinux/include/classmap.h:242:2: error: #error New address family defined, please update secclass_map.
+>  #error New address family defined, please update secclass_map.
+>   ^
+> /home/sfr/next/next/security/selinux/hooks.c: In function 'socket_type_to_security_class':
+> /home/sfr/next/next/security/selinux/hooks.c:1409:2: error: #error New address family defined, please update this function.
+> 
+> Caused by commit
+> 
+>   da69a5306ab9 ("selinux: support distinctions among all network address families")
+> 
+> interacting with commit
+> 
+>   ac7138746e14 ("smc: establish new socket family")
+> 
+> from the net-next tree.
+> 
+> I added the following merge fix patch:
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 10 Jan 2017 12:22:21 +1100
+> Subject: [PATCH] selinux: merge fix for "smc: establish new socket family"
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  security/selinux/hooks.c            | 4 +++-
+>  security/selinux/include/classmap.h | 4 +++-
+>  2 files changed, 6 insertions(+), 2 deletions(-)
+> 
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index bada3cd42b9c..712fd0e7c91d 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -1405,7 +1405,9 @@ static inline u16 socket_type_to_security_class(int family, int type, int protoc
+>  			return SECCLASS_KCM_SOCKET;
+>  		case PF_QIPCRTR:
+>  			return SECCLASS_QIPCRTR_SOCKET;
+> -#if PF_MAX > 43
+> +		case PF_SMC:
+> +			return SECCLASS_SMC_SOCKET;
+> +#if PF_MAX > 44
+>  #error New address family defined, please update this function.
+>  #endif
+>  		}
+> diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
+> index 0dfd26d0b8d8..40f1d4f8bc2a 100644
+> --- a/security/selinux/include/classmap.h
+> +++ b/security/selinux/include/classmap.h
+> @@ -235,9 +235,11 @@ struct security_class_mapping secclass_map[] = {
+>  	  { COMMON_SOCK_PERMS, NULL } },
+>  	{ "qipcrtr_socket",
+>  	  { COMMON_SOCK_PERMS, NULL } },
+> +	{ "smc_socket",
+> +	  { COMMON_SOCK_PERMS, NULL } },
+>  	{ NULL }
+>    };
+>  
+> -#if PF_MAX > 43
+> +#if PF_MAX > 44
+>  #error New address family defined, please update secclass_map.
+>  #endif
+> -- 
+> 2.10.2
 
-On 2017/2/10 10:25, Wangnan (F) wrote:
->
->
-> On 2017/2/10 7:21, Mickaël Salaün wrote:
->> Replace bpf_prog_load() with bpf_load_program() calls.
->>
->> Signed-off-by: Mickaël Salaün <mic@digikod.net>
->> Cc: Alexei Starovoitov <ast@fb.com>
->> Cc: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: Shuah Khan <shuah@kernel.org>
->> ---
->>   tools/lib/bpf/bpf.c                         |  6 +++---
->>   tools/lib/bpf/bpf.h                         |  4 ++--
->>   tools/testing/selftests/bpf/Makefile        |  4 +++-
->>   tools/testing/selftests/bpf/bpf_sys.h       | 21 ---------------------
->>   tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
->>   tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
->>   6 files changed, 17 insertions(+), 32 deletions(-)
->>
->> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
->> index 3ddb58a36d3c..58ce252073fa 100644
->> --- a/tools/lib/bpf/bpf.c
->> +++ b/tools/lib/bpf/bpf.c
->> @@ -42,7 +42,7 @@
->>   # endif
->>   #endif
->>   -static __u64 ptr_to_u64(void *ptr)
->> +static __u64 ptr_to_u64(const void *ptr)
->>   {
->>       return (__u64) (unsigned long) ptr;
->>   }
->> @@ -69,8 +69,8 @@ int bpf_create_map(enum bpf_map_type map_type, int 
->> key_size,
->>       return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
->>   }
->>   -int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
->> -             size_t insns_cnt, char *license,
->> +int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn 
->> *insns,
->> +             size_t insns_cnt, const char *license,
->>                __u32 kern_version, char *log_buf, size_t log_buf_sz)
->>   {
->>       int fd;
->> diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
->> index a2f9853dd882..bc959a2de023 100644
->> --- a/tools/lib/bpf/bpf.h
->> +++ b/tools/lib/bpf/bpf.h
->> @@ -28,8 +28,8 @@ int bpf_create_map(enum bpf_map_type map_type, int 
->> key_size, int value_size,
->>     /* Recommend log buffer size */
->>   #define BPF_LOG_BUF_SIZE 65536
->> -int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
->> -             size_t insns_cnt, char *license,
->> +int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn 
->> *insns,
->> +             size_t insns_cnt, const char *license,
->>                __u32 kern_version, char *log_buf,
->>                size_t log_buf_sz);
->
-> For libbpf changes:
-
-And for similar code in patch 5-8:
-
-Acked-by Wang Nan <wangnan0@huawei.com>
-
-Thank you.
->
-> Acked-by Wang Nan <wangnan0@huawei.com>
->
-> Thank you.
+This now applies when I merge the security tree (as it merged the
+selinux tree, presumably).
+-- 
+Cheers,
+Stephen Rothwell
