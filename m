@@ -1,49 +1,40 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: re: sfc: process RX event inner checksum flags
-Date: Fri, 10 Feb 2017 16:14:49 +0000
-Message-ID: <61213e24-db1d-8a56-e1a9-e68ae689b73f@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: remove member 'max' of struct scm_fp_list
+Date: Fri, 10 Feb 2017 10:25:43 -0500 (EST)
+Message-ID: <20170210.102543.2139355880844380775.davem@davemloft.net>
+References: <1486728673-19466-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-        Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
+To: cugyly@163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41446 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751767AbdBJQVG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 11:21:06 -0500
+In-Reply-To: <1486728673-19466-1-git-send-email-cugyly@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi there,
+From: yuan linyu <cugyly@163.com>
+Date: Fri, 10 Feb 2017 20:11:13 +0800
 
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> 
+> SCM_MAX_FD can fully replace it.
+> 
+> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-not sure if this is a bug, or intentional, but CoverityScan picked up a
-mismatch in arguments when calling efx_ef10_handle_rx_event_error() with
-commit "sfc: process RX event inner checksum flags" that landed in
-linux-next:
+I don't think so:
 
-  CID 1402067 (#1 of 1): Arguments in wrong order
-(SWAPPED_ARGUMENTS)swapped_arguments: The positions of arguments in the
-call to efx_ef10_handle_rx_event_errors do not match the ordering of the
-parameters:
+> @@ -341,7 +332,6 @@ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
+>  	if (new_fpl) {
+>  		for (i = 0; i < fpl->count; i++)
+>  			get_file(fpl->fp[i]);
+> -		new_fpl->max = new_fpl->count;
+>  		new_fpl->user = get_uid(fpl->user);
 
-    rx_l3_class is passed to rx_encap_hdr
-    rx_l4_class is passed to rx_l3_class
-    rx_encap_hdr is passed to rx_l4_class
+It's not set the SCM_MAX_FD here, it's set to whatever fpl->count is.
 
-
-The function in question has the prototype:
-
-static u16 efx_ef10_handle_rx_event_errors(struct efx_channel *channel,
-                                          unsigned int n_packets,
-                                          unsigned int rx_encap_hdr,
-                                          unsigned int rx_l3_class,
-                                          unsigned int rx_l4_class,
-                                          const efx_qword_t *event)
-
-...where as it it being called using:
-
-flags |= efx_ef10_handle_rx_event_errors(channel, n_packets,
-rx_l3_class, rx_l4_class, rx_encap_hdr, event);
-
-Is this a bug or intentional?
-
-Colin
+In other words, your patch breaks things.
