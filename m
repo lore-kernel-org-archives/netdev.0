@@ -1,46 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: mkiss: Fix panic
-Date: Fri, 10 Feb 2017 13:42:00 -0500 (EST)
-Message-ID: <20170210.134200.637935062739586183.davem@davemloft.net>
-References: <B4836AA3-200E-4BDA-B1B1-CD3F6AF28F94@osterried.de>
-        <20170209131211.GA16072@linux-mips.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: net/packet: use-after-free in packet_rcv_fanout
+Date: Fri, 10 Feb 2017 11:16:24 -0800
+Message-ID: <20170210191624.GA11187@oracle.com>
+References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
+ <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
+ <1486696765.7793.119.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170210033306.GA770@oracle.com>
+ <CAM_iQpWtFo80Z5yDn1Mf6bcZg+OWCyeq98WF7t+bwxGOuSjXpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-        linux-kernel@vger.kernel.org, thomas@osterried.de
-To: ralf@linux-mips.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
+        Philip Pettersson <philip.pettersson@gmail.com>,
+        weongyo.linux@gmail.com, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170209131211.GA16072@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpWtFo80Z5yDn1Mf6bcZg+OWCyeq98WF7t+bwxGOuSjXpA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Thu, 9 Feb 2017 14:12:11 +0100
+On (02/10/17 10:00), Cong Wang wrote:
+> My understanding about the race here is packet_release() doesn't
+> wait for flying packets correctly, which leads to a flying packet still
+> refers to the struct sock which is being released.
+> 
+> This could happen because struct packet_fanout is refcn'ted, it is
+   :
+> At least I believe this explains the crash Dmitry reported.
 
-> If a USB-to-serial adapter is unplugged, the driver re-initializes, with
-> dev->hard_header_len and dev->addr_len set to zero, instead of the correct
-> values.  If then a packet is sent through the half-dead interface, the
-> kernel will panic due to running out of headroom in the skb when pushing
-> for the AX.25 headers resulting in this panic:
-> 
-> [<c0595468>] (skb_panic) from [<c0401f70>] (skb_push+0x4c/0x50)
-> [<c0401f70>] (skb_push) from [<bf0bdad4>] (ax25_hard_header+0x34/0xf4 [ax25])
-> [<bf0bdad4>] (ax25_hard_header [ax25]) from [<bf0d05d4>] (ax_header+0x38/0x40 [mkiss])
-> [<bf0d05d4>] (ax_header [mkiss]) from [<c041b584>] (neigh_compat_output+0x8c/0xd8)
-> [<c041b584>] (neigh_compat_output) from [<c043e7a8>] (ip_finish_output+0x2a0/0x914)
-> [<c043e7a8>] (ip_finish_output) from [<c043f948>] (ip_output+0xd8/0xf0)
-> [<c043f948>] (ip_output) from [<c043f04c>] (ip_local_out_sk+0x44/0x48)
-> 
-> This patch makes mkiss behave like the 6pack driver. 6pack does not
-> panic.  In 6pack.c sp_setup() (same function name here) the values for
-> dev->hard_header_len and dev->addr_len are set to the same values as in
-> my mkiss patch.
-> 
-> [ralf@linux-mips.org: Massages original submission to conform to the usual
-> standards for patch submissions.]
-> 
-> Signed-off-by: Thomas Osterried <thomas@osterried.de>
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+hmm, the proof of the pudding is in the eating- would be good to 
+be able to reliably reproduce this somewhere (thus proving that
+root-cause analysis is rock-solid), maybe by introducing artificial
+delays to slow down paths..
 
-Applied, thank you.
+I'm travelling at the moment but may be able to give this (try
+to reproduce it reliably) next week.
+
+--Sowmini
