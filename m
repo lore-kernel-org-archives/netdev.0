@@ -1,49 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
-Date: Fri, 10 Feb 2017 09:42:21 -0800
-Message-ID: <352146cc-845c-2860-44ca-7338eb53e260@gmail.com>
-References: <20170209150834.1158193-1-arnd@arndb.de>
- <c6ab6498-8094-b23e-0b93-c3bf1c866992@gmail.com>
- <CAK8P3a2Yss8r0qoubg2C7Jp+0JE3Fx+igWHQOscR+SB6d+W_HA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- Networking <netdev@vger.kernel.org>, Russell King <linux@armlinux.org.uk>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S . Miller" <davem@davemloft.net>,
- Linux ARM <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAK8P3a2Yss8r0qoubg2C7Jp+0JE3Fx+igWHQOscR+SB6d+W_HA@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH v3 net-next 2/9] sunvnet: remove unused variable in maybe_tx_wakeup
+Date: Fri, 10 Feb 2017 09:38:18 -0800
+Message-ID: <1486748305-240339-3-git-send-email-shannon.nelson@oracle.com>
+References: <1486748305-240339-1-git-send-email-shannon.nelson@oracle.com>
+Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Shannon Nelson <shannon.nelson@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:23162 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751712AbdBJRpK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 12:45:10 -0500
+In-Reply-To: <1486748305-240339-1-git-send-email-shannon.nelson@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/10/2017 12:20 AM, Arnd Bergmann wrote:
-> On Thu, Feb 9, 2017 at 7:22 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 02/09/2017 07:08 AM, Arnd Bergmann wrote:
->> I disabled CONFIG_NETDEVICES to force CONFIG_PHY not to be set here, and
->> I was not able to reproduce this, what am I missing?
-> 
-> In the ARMv5 allmodconfig build, this fails because CONFIG_PHY=m, and
-> we can't call into it. You could use IS_BUILTIN instead of IS_ENABLED in
-> the header as a oneline workaround, but I think that would be more confusing
-> to real users that try to use CONFIG_PHY=m without realizing why they lose
-> access to their switch.
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
-I see, this patch should also help fixing this:
+The vio_dring_state *dr variable is unused in maybe_tx_wakeup().
+As the comments indicate, we call maybe_tx_wakeup() whenever we
+get a STOPPED LDC message on the port. If the queue is stopped,
+we want to wake it up so that we will send another START message
+at the next TX and trigger the consumer to drain the dring.
 
-http://patchwork.ozlabs.org/patch/726381/
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+---
+ drivers/net/ethernet/sun/sunvnet_common.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
+index c71f000..0f940f0 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.c
++++ b/drivers/net/ethernet/sun/sunvnet_common.c
+@@ -719,12 +719,8 @@ static void maybe_tx_wakeup(struct vnet_port *port)
+ 	txq = netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
+ 				  port->q_index);
+ 	__netif_tx_lock(txq, smp_processor_id());
+-	if (likely(netif_tx_queue_stopped(txq))) {
+-		struct vio_dring_state *dr;
+-
+-		dr = &port->vio.drings[VIO_DRIVER_TX_RING];
++	if (likely(netif_tx_queue_stopped(txq)))
+ 		netif_tx_wake_queue(txq);
+-	}
+ 	__netif_tx_unlock(txq);
+ }
+ 
 -- 
-Florian
+1.7.1
