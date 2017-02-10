@@ -1,66 +1,47 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH RFC net] net/mlx5e: Add preemption enable/disable around
- TC statistics upcall
-Date: Fri, 10 Feb 2017 10:14:16 -0800
-Message-ID: <20170210101416.1c537cec@cakuba.netronome.com>
-References: <1486654723-25777-1-git-send-email-ogerlitz@mellanox.com>
-        <20170209173441.1f1eb96e@cakuba.netronome.com>
-        <CAJ3xEMjuBqrJrQatVroLdF49rxzdF+9a1aP8b3mJSqUyS63-5A@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: cafe8df8b9bc clashes with DSA
+Date: Fri, 10 Feb 2017 10:19:47 -0800
+Message-ID: <9be783d6-2686-9140-6e6c-c96044836e34@gmail.com>
+References: <77093903.194093.1486748785802.JavaMail.zimbra@savoirfairelinux.com>
+ <ccabc2d3-9589-f4f5-cdab-ee3ba40e8bc7@gmail.com>
+ <87wpcyq6an.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170210180640.GJ2103@lunn.ch>
+ <87efz5q5dl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Amir Vadai <amir@vadai.me>, Ido Schimmel <idosch@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Roi Dayan <roid@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: maowenan@huawei.com, netdev@vger.kernel.org
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:35586 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750881AbdBJSPc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:15:32 -0500
-Received: by mail-pf0-f170.google.com with SMTP id 202so7818171pfx.2
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 10:14:21 -0800 (PST)
-In-Reply-To: <CAJ3xEMjuBqrJrQatVroLdF49rxzdF+9a1aP8b3mJSqUyS63-5A@mail.gmail.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:35673 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751460AbdBJSUY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:20:24 -0500
+Received: by mail-qt0-f195.google.com with SMTP id s58so5531634qtc.2
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 10:19:50 -0800 (PST)
+In-Reply-To: <87efz5q5dl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 10 Feb 2017 18:21:25 +0200, Or Gerlitz wrote:
-> On Fri, Feb 10, 2017 at 3:34 AM, Jakub Kicinski wrote:
-> > On Thu,  9 Feb 2017 17:38:43 +0200, Or Gerlitz wrote:  
-> >> Running with CONFIG_PREEMPT set, I get a
-> >>
-> >> BUG: using smp_processor_id() in preemptible [00000000] code: tc/3793
-> >>
-> >> asserion from the TC action (mirred) stats_update callback, when the do
-> >>
-> >>       _bstats_cpu_update(this_cpu_ptr(a->cpu_bstats), bytes, packets)
-> >>
-> >> As done by commit 66860be "nfp: bpf: allow offloaded filters to update stats",
-> >> disabling/enabling preemption around the TC upcall solves that.
-> >>
-> >> Fixes: aad7e08d39bd ('net/mlx5e: Hardware offloaded flower filter statistics support')
-> >> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> >> ---
-> >>
-> >> I marked it as RFC, since I wasn't fully sure on the nature of the
-> >> problem, nor if this is the direction we should take to the fix.  
+On 02/10/2017 10:15 AM, Vivien Didelot wrote:
+> Hi Andrew,
 > 
-> > I think it's the right fix  
+> Andrew Lunn <andrew@lunn.ch> writes:
 > 
-> Do you under the problem? what's wrong with the call done in the TC
-> action code w.r.t preemption?
+>> David will at some point merge net into net-next.
 > 
-> does it make sense to do this (say) 100K times/sec?
+> Yes I know that, I just wasn't sure if having such crash in net-next was
+> tolerated or not. Cherry-picking 6d9f66ac7fec does the job on my side.
+> 
+>> Until then, you can work around the issue by enabling the PHY drivers
+>> for you hardware. You are also likely to gain a few nice features,
+>> like PHY interrupts rather than polling, maybe some temperature
+>> sensors, PHY statistics, etc...
+> 
+> Hum I have CONFIG_MARVELL_PHY enabled, am I missing something?
 
-TC actions have pre-cpu stats, referencing them has to be done with
-preemption disabled.  Let's CC Jamal and Cong - maybe there are some
-more clever things we could do here?  The situation in a nutshell is
-that the offload drivers read the stats from HW and want to write them
-back to the TC action stats.  The writeback happens in process context
-when user requests stats dump (potentially for multiple actions but we
-currently would just iterate over all actions in driver code).
+If you have fixed PHYs they'll use Generic PHY, suddenly the dungeons
+collapses, you die.
+-- 
+Florian
