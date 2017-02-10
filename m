@@ -1,71 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] netlink: move nla_put_{u8,u16,u32} out of line
-Date: Fri, 10 Feb 2017 12:06:56 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0283526@AcuExch.aculab.com>
-References: <20170208211843.2822208-1-arnd@arndb.de>
- <20170209.163123.1938061993523088894.davem@davemloft.net>
+From: Mart van Santen <mart@greenhost.nl>
+Subject: [PATCH] xen-netback: vif counters from int/long to u64
+Date: Fri, 10 Feb 2017 12:02:18 +0000
+Message-ID: <1486728138-13253-1-git-send-email-mart@greenhost.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "johannes.berg@intel.com" <johannes.berg@intel.com>,
-        "aryabinin@virtuozzo.com" <aryabinin@virtuozzo.com>,
-        "glider@google.com" <glider@google.com>,
-        "dvyukov@google.com" <dvyukov@google.com>,
-        "kasan-dev@googlegroups.com" <kasan-dev@googlegroups.com>,
-        "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
-        "adobriyan@gmail.com" <adobriyan@gmail.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "tgraf@suug.ch" <tgraf@suug.ch>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-        "arnd@arndb.de" <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170209.163123.1938061993523088894.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mart van Santen <mart@greenhost.nl>
+To: Wei Liu <wei.liu2@citrix.com>, Paul Durrant <paul.durrant@citrix.com>,
+ xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-From: David Miller
-> Sent: 09 February 2017 21:31
-> From: Arnd Bergmann <arnd@arndb.de>
-> Date: Wed,  8 Feb 2017 22:18:26 +0100
-> 
-> > When CONFIG_KASAN is enabled, the "--param asan-stack=1" causes rather large
-> > stack frames in some functions. This goes unnoticed normally because
-> > CONFIG_FRAME_WARN is disabled with CONFIG_KASAN by default as of commit
-> > 3f181b4d8652 ("lib/Kconfig.debug: disable -Wframe-larger-than warnings with
-> > KASAN=y").
-> >
-> > The kernelci.org build bot however has the warning enabled and that led
-> > me to investigate it a little further, as every build produces these warnings:
-> >
-> > net/wireless/nl80211.c:4389:1: warning: the frame size of 2240 bytes is larger than 2048 bytes [-
-...
-> >
-> > It turns out that there is a relatively simple workaround for the netlink
-> > users that currently use a local variable in order to do the type conversion:
-> > Moving the three functions (for each of the typical sizes) to lib/nlattr.c
-> > avoids using local variables in the caller, which drastically reduces the
-> > stack usage for nl80211 and br_netlink.
-> >
-> > It would be good if we could enable the frame size check after that again,
-> > but that should be a separate patch and it requires some more testing
-> > to see which the largest acceptable frame size should be.
-...
-> You should only extern these things when KASAN is enabled.
-> 
-> The reason is that uninlining these routines makes attribute emission
-> more expensive and for some applications performance of this matters.
-
-If performance of nla_put() matters, then adding 1, 2 and 4 byte attributes
-ought to be doable without writing the values to memory and later doing
-(I presume) a memcpy().
-
-I also can't help feeling that the gcc KASAN stuff needs some way to
-annotate an 'extern' to say that a value passed by reference isn't
-treated as an array.
-Otherwise I suspect you get a lot of bloat all over the place.
-
-	David
+VGhpcyBwYXRjaCBmaXhlcyBhbiBpc3N1ZSB3aGVyZSB0aGUgdHlwZSBvZiBjb3VudGVycyBpbiB0
+aGUgcXVldWUocykKYW5kIGludGVyZmFjZSBhcmUgbm90IGluIHN5bmMgKHF1ZXVlIGNvdW50ZXJz
+IGFyZSBpbnQsIGludGVyZmFjZQpjb3VudGVycyBhcmUgbG9uZyksIGNhdXNpbmcgaW5jb3JyZWN0
+IHJlcG9ydGluZyBvZiB0eC9yeCB2YWx1ZXMKb2YgdGhlIHZpZiBpbnRlcmZhY2UgYW5kIHVuY2xl
+YXIgY291bnRlciBvdmVyZmxvd3MuClRoaXMgcGF0Y2ggc2V0cyBib3RoIGNvdW50ZXJzIHRvIHRo
+ZSB1NjQgdHlwZS4KClNpZ25lZC1vZmYtYnk6IE1hcnQgdmFuIFNhbnRlbiA8bWFydEBncmVlbmhv
+c3Qubmw+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5ldGJhY2svY29tbW9uLmggICAgfCA4ICsrKyst
+LS0tCiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYyB8IDggKysrKy0tLS0KIDIg
+ZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCA4IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdp
+dCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2NvbW1vbi5oIGIvZHJpdmVycy9uZXQveGVuLW5l
+dGJhY2svY29tbW9uLmgKaW5kZXggM2NlMWY3ZC4uNTMwNTg2YiAxMDA2NDQKLS0tIGEvZHJpdmVy
+cy9uZXQveGVuLW5ldGJhY2svY29tbW9uLmgKKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sv
+Y29tbW9uLmgKQEAgLTExMywxMCArMTEzLDEwIEBAIHN0cnVjdCB4ZW52aWZfc3RhdHMgewogCSAq
+IEEgc3Vic2V0IG9mIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzIHRoYXQgY29udGFpbnMgb25seSB0
+aGUKIAkgKiBmaWVsZHMgdGhhdCBhcmUgdXBkYXRlZCBpbiBuZXRiYWNrLmMgZm9yIGVhY2ggcXVl
+dWUuCiAJICovCi0JdW5zaWduZWQgaW50IHJ4X2J5dGVzOwotCXVuc2lnbmVkIGludCByeF9wYWNr
+ZXRzOwotCXVuc2lnbmVkIGludCB0eF9ieXRlczsKLQl1bnNpZ25lZCBpbnQgdHhfcGFja2V0czsK
+Kwl1NjQgcnhfYnl0ZXM7CisJdTY0IHJ4X3BhY2tldHM7CisJdTY0IHR4X2J5dGVzOworCXU2NCB0
+eF9wYWNrZXRzOwogCiAJLyogQWRkaXRpb25hbCBzdGF0cyB1c2VkIGJ5IHhlbnZpZiAqLwogCXVu
+c2lnbmVkIGxvbmcgcnhfZ3NvX2NoZWNrc3VtX2ZpeHVwOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9u
+ZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRl
+cmZhY2UuYwppbmRleCA1Nzk1MjEzLi41MGZhMTY5IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC94
+ZW4tbmV0YmFjay9pbnRlcmZhY2UuYworKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRl
+cmZhY2UuYwpAQCAtMjIxLDEwICsyMjEsMTAgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2aWNlX3N0
+YXRzICp4ZW52aWZfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCiB7CiAJc3RydWN0
+IHhlbnZpZiAqdmlmID0gbmV0ZGV2X3ByaXYoZGV2KTsKIAlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpx
+dWV1ZSA9IE5VTEw7Ci0JdW5zaWduZWQgbG9uZyByeF9ieXRlcyA9IDA7Ci0JdW5zaWduZWQgbG9u
+ZyByeF9wYWNrZXRzID0gMDsKLQl1bnNpZ25lZCBsb25nIHR4X2J5dGVzID0gMDsKLQl1bnNpZ25l
+ZCBsb25nIHR4X3BhY2tldHMgPSAwOworCXU2NCByeF9ieXRlcyA9IDA7CisJdTY0IHJ4X3BhY2tl
+dHMgPSAwOworCXU2NCB0eF9ieXRlcyA9IDA7CisJdTY0IHR4X3BhY2tldHMgPSAwOwogCXVuc2ln
+bmVkIGludCBpbmRleDsKIAogCXNwaW5fbG9jaygmdmlmLT5sb2NrKTsKLS0gCjIuMS40CgoKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVsIG1h
+aWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcv
+eGVuLWRldmVsCg==
