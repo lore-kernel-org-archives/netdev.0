@@ -1,94 +1,138 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH V5 for-next 19/21] RDMA/bnxt_re: Set uverbs command mask
-Date: Fri, 10 Feb 2017 03:19:51 -0800
-Message-ID: <1486725593-9872-20-git-send-email-selvin.xavier@broadcom.com>
-References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
-Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Subject: [PATCH V5 for-next 00/21] Broadcom RoCE Driver (bnxt_re)
+Date: Fri, 10 Feb 2017 03:19:32 -0800
+Message-ID: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
+Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>
 To: dledford@redhat.com, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f174.google.com ([209.85.216.174]:34648 "EHLO
-        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751756AbdBJL1t (ORCPT
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:34516 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751956AbdBJL1t (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:27:49 -0500
-Received: by mail-qt0-f174.google.com with SMTP id w20so31373800qtb.1
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:27:33 -0800 (PST)
-In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
+Received: by mail-qk0-f171.google.com with SMTP id s186so35511158qkb.1
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:27:42 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch exports available uverbs command mask to the IB stack.
-Also, populates some of the missing parameters in the ibdev structure
-used for registration.
+This series introduces the RoCE driver for the Broadcom
+NetXtreme-E 10/25/40/50G RoCE HCAs.
+This driver is dependent on the bnxt_en NIC driver and is
+based on the for-4.11 branch in linux-rdma repository.
+bnxt_en changes required for this patch series are already
+available afore mentioned branch.
 
-v4: Changes the include file names
+These changes are available for your reference in
+the bnxt_re_v5 branch of following repository.
+https://github.com/Broadcom/linux-rdma-nxt/
 
-Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
-Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
----
- drivers/infiniband/hw/bnxt_re/main.c | 35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+Doug,
+This patchset addresses review comments from you and Leon.
+This series also includes some changes required for the latest FW.
+Please consider applying this to linux-rdma tree.
 
-diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
-index 92a217b..6b9f117 100644
---- a/drivers/infiniband/hw/bnxt_re/main.c
-+++ b/drivers/infiniband/hw/bnxt_re/main.c
-@@ -62,6 +62,7 @@
- #include "qplib_rcfw.h"
- #include "bnxt_re.h"
- #include "ib_verbs.h"
-+#include <rdma/bnxt_re-abi.h>
- #include "bnxt.h"
- static char version[] =
- 		BNXT_RE_DESC " v" ROCE_DRV_MODULE_VERSION "\n";
-@@ -432,8 +433,42 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
- 		strlen(BNXT_RE_DESC) + 5);
- 	ibdev->phys_port_cnt = 1;
- 
-+	bnxt_qplib_get_guid(rdev->netdev->dev_addr, (u8 *)&ibdev->node_guid);
-+
- 	ibdev->num_comp_vectors	= 1;
- 	ibdev->dma_device = &rdev->en_dev->pdev->dev;
-+	ibdev->local_dma_lkey = BNXT_QPLIB_RSVD_LKEY;
-+
-+	/* User space */
-+	ibdev->uverbs_abi_ver = BNXT_RE_ABI_VERSION;
-+	ibdev->uverbs_cmd_mask =
-+			(1ull << IB_USER_VERBS_CMD_GET_CONTEXT)		|
-+			(1ull << IB_USER_VERBS_CMD_QUERY_DEVICE)	|
-+			(1ull << IB_USER_VERBS_CMD_QUERY_PORT)		|
-+			(1ull << IB_USER_VERBS_CMD_ALLOC_PD)		|
-+			(1ull << IB_USER_VERBS_CMD_DEALLOC_PD)		|
-+			(1ull << IB_USER_VERBS_CMD_REG_MR)		|
-+			(1ull << IB_USER_VERBS_CMD_REREG_MR)		|
-+			(1ull << IB_USER_VERBS_CMD_DEREG_MR)		|
-+			(1ull << IB_USER_VERBS_CMD_CREATE_COMP_CHANNEL) |
-+			(1ull << IB_USER_VERBS_CMD_CREATE_CQ)		|
-+			(1ull << IB_USER_VERBS_CMD_RESIZE_CQ)		|
-+			(1ull << IB_USER_VERBS_CMD_DESTROY_CQ)		|
-+			(1ull << IB_USER_VERBS_CMD_CREATE_QP)		|
-+			(1ull << IB_USER_VERBS_CMD_MODIFY_QP)		|
-+			(1ull << IB_USER_VERBS_CMD_QUERY_QP)		|
-+			(1ull << IB_USER_VERBS_CMD_DESTROY_QP)		|
-+			(1ull << IB_USER_VERBS_CMD_CREATE_SRQ)		|
-+			(1ull << IB_USER_VERBS_CMD_MODIFY_SRQ)		|
-+			(1ull << IB_USER_VERBS_CMD_QUERY_SRQ)		|
-+			(1ull << IB_USER_VERBS_CMD_DESTROY_SRQ)		|
-+			(1ull << IB_USER_VERBS_CMD_CREATE_AH)		|
-+			(1ull << IB_USER_VERBS_CMD_MODIFY_AH)		|
-+			(1ull << IB_USER_VERBS_CMD_QUERY_AH)		|
-+			(1ull << IB_USER_VERBS_CMD_DESTROY_AH);
-+	/* POLL_CQ and REQ_NOTIFY_CQ is directly handled in libbnxt_re */
-+
-+	/* Kernel verbs */
- 	ibdev->query_device		= bnxt_re_query_device;
- 	ibdev->modify_device		= bnxt_re_modify_device;
- 
+Thanks,
+Selvin Xavier
+
+v4->v5:
+  * Removes rdev ref_count as this is not necessary. 
+  * Adds a check to see if the device is supporting RoCE
+  * Updating the PF FW communication channel offset as per
+    the latest FW changes
+  * Use min_t macro to calculate the number CQ and QP entries
+  * Adds ib_udata parameter to create_ah verb
+  * Uses ETH_P_IBOE macro for RoCE ethertype
+  * Code refactoring based on the review comments from Leon
+
+v3->v4:
+  * Changes driver folder name to bnxt_re and remove the bnxt_re/bnxt
+    prefix from the individual files inside the driver folder.
+  * Changes the file name bnxtre-abi to bnxt_re-abi.h to align with
+    convention <module_name>-abi.h
+  * Updates the Makefile and Kconfig file with new format change.
+
+v2->v3:
+  * Fix 0day build breakage
+  * Fix cocci, kbuild robot, sparse, smatch and checkpatch warnings
+  * Changed the filename bnxt_re_uverbs_abi.h  to bnxtre-abi.h
+  * Removed the __packed qualifier from the uverbs structure and adjusted
+    the structure alignment to 64bits.
+  * Added retry count to bail out in case of delayed or no response
+    to FW commands
+  * Removed the debugfs support from this patch series
+  * Changed some of the defines as inline functions based on Jason's comment
+  * Split two functions to get rid of switch within switch construct
+  * Removed bnxt_re_copy_to_udata as it is just a wrapper for ib_copy_to_udata
+  * Added maintainers information to MAINTAINERS file
+
+v1-> v2:
+  * The license text in each file updated to reflect Dual license.
+  * Makefile and Kconfig changes are pushed to the last patch
+  * Moved bnxt_re_uverbs_abi.h to include/uapi/rdma folder
+  * Remove duplicate structure definitions from bnxt_re_hsi.h as
+    it is available in the corresponding bnxt_en header file (bnxt_hsi.h)
+  * Removed some unused code reported during code review.
+  * Fixed few sparse warnings
+
+Selvin Xavier (21):
+  RDMA/bnxt_re: Add bnxt_re RoCE driver files
+  RDMA/bnxt_re: Introducing autogenerated Host Software Interface(hsi)
+    file
+  RDMA/bnxt_re: register with the NIC driver
+  RDMA/bnxt_re: Enabling RoCE control path
+  RDMA/bnxt_re: Adding Notification Queue support
+  RDMA/bnxt_re: Support for PD, ucontext and mmap verbs
+  RDMA/bnxt_re: Support for query and modify device verbs
+  RDMA/bnxt_re: Adding support for port related verbs
+  RDMA/bnxt_re: Support for GID related verbs
+  RDMA/bnxt_re: Support for CQ verbs
+  RDMA/bnxt_re: Support for AH verbs
+  RDMA/bnxt_re: Support memory registration verbs
+  RDMA/bnxt_re: Support QP verbs
+  RDMA/bnxt_re: Support post_send verb
+  RDMA/bnxt_re: Support post_recv
+  RDMA/bnxt_re: Support poll_cq verb
+  RDMA/bnxt_re: Handling dispatching of events to IB stack
+  RDMA/bnxt_re: Support for DCB
+  RDMA/bnxt_re: Set uverbs command mask
+  RDMA/bnxt_re: Add QP event handling
+  RDMA/bnxt_re: Add bnxt_re driver build support
+
+ MAINTAINERS                                |   11 +
+ drivers/infiniband/Kconfig                 |    2 +
+ drivers/infiniband/hw/Makefile             |    1 +
+ drivers/infiniband/hw/bnxt_re/Kconfig      |    9 +
+ drivers/infiniband/hw/bnxt_re/Makefile     |    6 +
+ drivers/infiniband/hw/bnxt_re/bnxt_re.h    |  146 ++
+ drivers/infiniband/hw/bnxt_re/ib_verbs.c   | 3202 ++++++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxt_re/ib_verbs.h   |  197 ++
+ drivers/infiniband/hw/bnxt_re/main.c       | 1315 ++++++++++++
+ drivers/infiniband/hw/bnxt_re/qplib_fp.c   | 2167 +++++++++++++++++++
+ drivers/infiniband/hw/bnxt_re/qplib_fp.h   |  439 ++++
+ drivers/infiniband/hw/bnxt_re/qplib_rcfw.c |  694 ++++++
+ drivers/infiniband/hw/bnxt_re/qplib_rcfw.h |  231 ++
+ drivers/infiniband/hw/bnxt_re/qplib_res.c  |  825 +++++++
+ drivers/infiniband/hw/bnxt_re/qplib_res.h  |  223 ++
+ drivers/infiniband/hw/bnxt_re/qplib_sp.c   |  838 ++++++++
+ drivers/infiniband/hw/bnxt_re/qplib_sp.h   |  160 ++
+ drivers/infiniband/hw/bnxt_re/roce_hsi.h   | 2821 ++++++++++++++++++++++++
+ include/uapi/rdma/bnxt_re-abi.h            |   89 +
+ 19 files changed, 13376 insertions(+)
+ create mode 100644 drivers/infiniband/hw/bnxt_re/Kconfig
+ create mode 100644 drivers/infiniband/hw/bnxt_re/Makefile
+ create mode 100644 drivers/infiniband/hw/bnxt_re/bnxt_re.h
+ create mode 100644 drivers/infiniband/hw/bnxt_re/ib_verbs.c
+ create mode 100644 drivers/infiniband/hw/bnxt_re/ib_verbs.h
+ create mode 100644 drivers/infiniband/hw/bnxt_re/main.c
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_fp.c
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_fp.h
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_rcfw.c
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_rcfw.h
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_res.c
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_res.h
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_sp.c
+ create mode 100644 drivers/infiniband/hw/bnxt_re/qplib_sp.h
+ create mode 100644 drivers/infiniband/hw/bnxt_re/roce_hsi.h
+ create mode 100644 include/uapi/rdma/bnxt_re-abi.h
+
 -- 
 2.5.5
