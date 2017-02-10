@@ -1,30 +1,26 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: sfc: process RX event inner checksum flags
-Date: Fri, 10 Feb 2017 16:52:43 +0000
-Message-ID: <053538d2-f641-47a4-fee4-5919f033cd39@solarflare.com>
-References: <61213e24-db1d-8a56-e1a9-e68ae689b73f@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 0/6] sched: cls_api: small cleanup
+Date: Fri, 10 Feb 2017 11:38:28 -0500 (EST)
+Message-ID: <20170210.113828.2048369366207310898.davem@davemloft.net>
+References: <1486647540-14656-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin Ian King <colin.king@canonical.com>,
-        Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-        <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <61213e24-db1d-8a56-e1a9-e68ae689b73f@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, mlxsw@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41982 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752847AbdBJQ5Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 11:57:16 -0500
+In-Reply-To: <1486647540-14656-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/02/17 16:14, Colin Ian King wrote:
-> Hi there,
->
->
-> not sure if this is a bug, or intentional, but CoverityScan picked up a
-> mismatch in arguments when calling efx_ef10_handle_rx_event_error() with
-> commit "sfc: process RX event inner checksum flags"
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  9 Feb 2017 14:38:54 +0100
 
-It's a bug, thanks for the catch (and thanks Coverity as well).
+> This patchset makes couple of things in cls_api code a bit nicer and easier
+> for reader to digest.
 
-Will send a patch shortly.
-
--Ed
+Series applied, thanks Jiri.
