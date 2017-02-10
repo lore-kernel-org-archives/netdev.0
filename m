@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH V5 for-next 10/21] RDMA/bnxt_re: Support for CQ verbs
-Date: Fri, 10 Feb 2017 03:19:42 -0800
-Message-ID: <1486725593-9872-11-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH V5 for-next 06/21] RDMA/bnxt_re: Support for PD, ucontext and mmap verbs
+Date: Fri, 10 Feb 2017 03:19:38 -0800
+Message-ID: <1486725593-9872-7-git-send-email-selvin.xavier@broadcom.com>
 References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Eddie Wai <eddie.wai@broadcom.com>,
@@ -10,22 +10,29 @@ Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 To: dledford@redhat.com, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f179.google.com ([209.85.216.179]:33971 "EHLO
-        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752516AbdBJL2X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:28:23 -0500
-Received: by mail-qt0-f179.google.com with SMTP id w20so31390048qtb.1
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:28:22 -0800 (PST)
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:35679 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752377AbdBJL2N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:28:13 -0500
+Received: by mail-qk0-f181.google.com with SMTP id u25so35384526qki.2
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:28:13 -0800 (PST)
 In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implements support for create_cq, destroy_cq and req_notify_cq
+This patch includes the uverbs ABI header file to enable user verbs.
+Also, adds support for the Protection Domain, User Context and mmap
 verbs.
 
-v3: Code cleanup based on errors reported by sparse on endianness check.
-    Removes unwanted macros.
-v5: Use min_t macro to calculate the CQ entries
+v2: Moved the bnxt_re_uverbs_abi.h file to include/uapi/rdma folder.
+    Also, Fixed one sparse warning.
+v3: Fixes some cross compile and sparse warnings. Changes the
+    bnxt_re_uverbs_abi.h file name to bnxtre-abi.h. Aligns the data
+    structure to 64 bit and eliminates __packed qualifier from
+    bnxtre-abi.h
+v4: Changes the bnxtre_abi.h file name to bnxt_re-abi.h to follow
+    modulename-abi.h format. Also, modifies the include file name.
+v5: Changes the year in copyright text
 
 Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
@@ -33,521 +40,441 @@ Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/infiniband/hw/bnxt_re/ib_verbs.c | 144 ++++++++++++++++++++++++
- drivers/infiniband/hw/bnxt_re/ib_verbs.h |  19 ++++
- drivers/infiniband/hw/bnxt_re/main.c     |   4 +
- drivers/infiniband/hw/bnxt_re/qplib_fp.c | 181 +++++++++++++++++++++++++++++++
- drivers/infiniband/hw/bnxt_re/qplib_fp.h |  50 +++++++++
- include/uapi/rdma/bnxt_re-abi.h          |  12 ++
- 6 files changed, 410 insertions(+)
+ drivers/infiniband/hw/bnxt_re/ib_verbs.c  | 218 ++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxt_re/ib_verbs.h  |  23 ++++
+ drivers/infiniband/hw/bnxt_re/main.c      |   7 +
+ drivers/infiniband/hw/bnxt_re/qplib_res.c |  28 ++++
+ drivers/infiniband/hw/bnxt_re/qplib_res.h |   6 +
+ drivers/infiniband/hw/bnxt_re/qplib_sp.h  |   4 +
+ include/uapi/rdma/bnxt_re-abi.h           |  59 ++++++++
+ 7 files changed, 345 insertions(+)
+ create mode 100644 include/uapi/rdma/bnxt_re-abi.h
 
 diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.c b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
-index 1c9e1f4..f85d4c4 100644
+index 279c353..6589a41 100644
 --- a/drivers/infiniband/hw/bnxt_re/ib_verbs.c
 +++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
-@@ -492,6 +492,150 @@ struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
- 	return ERR_PTR(rc);
- }
- 
-+/* Completion Queues */
-+int bnxt_re_destroy_cq(struct ib_cq *ib_cq)
+@@ -35,3 +35,221 @@
+  *
+  * Description: IB Verbs interpreter
+  */
++
++#include <linux/interrupt.h>
++#include <linux/types.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++
++#include <rdma/ib_verbs.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_addr.h>
++#include <rdma/ib_mad.h>
++#include <rdma/ib_cache.h>
++
++#include "bnxt_ulp.h"
++
++#include "roce_hsi.h"
++#include "qplib_res.h"
++#include "qplib_sp.h"
++#include "qplib_fp.h"
++#include "qplib_rcfw.h"
++
++#include "bnxt_re.h"
++#include "ib_verbs.h"
++#include <rdma/bnxt_re-abi.h>
++
++/* Protection Domains */
++int bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
 +{
-+	struct bnxt_re_cq *cq = container_of(ib_cq, struct bnxt_re_cq, ib_cq);
-+	struct bnxt_re_dev *rdev = cq->rdev;
++	struct bnxt_re_pd *pd = container_of(ib_pd, struct bnxt_re_pd, ib_pd);
++	struct bnxt_re_dev *rdev = pd->rdev;
 +	int rc;
 +
-+	rc = bnxt_qplib_destroy_cq(&rdev->qplib_res, &cq->qplib_cq);
++	if (ib_pd->uobject && pd->dpi.dbr) {
++		struct ib_ucontext *ib_uctx = ib_pd->uobject->context;
++		struct bnxt_re_ucontext *ucntx;
++
++		/* Free DPI only if this is the first PD allocated by the
++		 * application and mark the context dpi as NULL
++		 */
++		ucntx = container_of(ib_uctx, struct bnxt_re_ucontext, ib_uctx);
++
++		rc = bnxt_qplib_dealloc_dpi(&rdev->qplib_res,
++					    &rdev->qplib_res.dpi_tbl,
++					    &pd->dpi);
++		if (rc)
++			dev_err(rdev_to_dev(rdev), "Failed to deallocate HW DPI");
++			/* Don't fail, continue*/
++		ucntx->dpi = NULL;
++	}
++
++	rc = bnxt_qplib_dealloc_pd(&rdev->qplib_res,
++				   &rdev->qplib_res.pd_tbl,
++				   &pd->qplib_pd);
 +	if (rc) {
-+		dev_err(rdev_to_dev(rdev), "Failed to destroy HW CQ");
++		dev_err(rdev_to_dev(rdev), "Failed to deallocate HW PD");
 +		return rc;
 +	}
-+	if (cq->umem && !IS_ERR(cq->umem))
-+		ib_umem_release(cq->umem);
 +
-+	if (cq) {
-+		kfree(cq->cql);
-+		kfree(cq);
-+	}
-+	atomic_dec(&rdev->cq_count);
-+	rdev->nq.budget--;
++	kfree(pd);
 +	return 0;
 +}
 +
-+struct ib_cq *bnxt_re_create_cq(struct ib_device *ibdev,
-+				const struct ib_cq_init_attr *attr,
-+				struct ib_ucontext *context,
-+				struct ib_udata *udata)
++struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
++			       struct ib_ucontext *ucontext,
++			       struct ib_udata *udata)
 +{
 +	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
-+	struct bnxt_re_cq *cq = NULL;
-+	int rc, entries;
-+	int cqe = attr->cqe;
++	struct bnxt_re_ucontext *ucntx = container_of(ucontext,
++						      struct bnxt_re_ucontext,
++						      ib_uctx);
++	struct bnxt_re_pd *pd;
++	int rc;
 +
-+	/* Validate CQ fields */
-+	if (cqe < 1 || cqe > dev_attr->max_cq_wqes) {
-+		dev_err(rdev_to_dev(rdev), "Failed to create CQ -max exceeded");
-+		return ERR_PTR(-EINVAL);
-+	}
-+	cq = kzalloc(sizeof(*cq), GFP_KERNEL);
-+	if (!cq)
++	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
++	if (!pd)
 +		return ERR_PTR(-ENOMEM);
 +
-+	cq->rdev = rdev;
-+	cq->qplib_cq.cq_handle = (u64)(unsigned long)(&cq->qplib_cq);
-+
-+	entries = roundup_pow_of_two(cqe + 1);
-+	if (entries > dev_attr->max_cq_wqes + 1)
-+		entries = dev_attr->max_cq_wqes + 1;
-+
-+	if (context) {
-+		struct bnxt_re_cq_req req;
-+		struct bnxt_re_ucontext *uctx = container_of
-+						(context,
-+						 struct bnxt_re_ucontext,
-+						 ib_uctx);
-+		if (ib_copy_from_udata(&req, udata, sizeof(req))) {
-+			rc = -EFAULT;
-+			goto fail;
-+		}
-+
-+		cq->umem = ib_umem_get(context, req.cq_va,
-+				       entries * sizeof(struct cq_base),
-+				       IB_ACCESS_LOCAL_WRITE, 1);
-+		if (IS_ERR(cq->umem)) {
-+			rc = PTR_ERR(cq->umem);
-+			goto fail;
-+		}
-+		cq->qplib_cq.sghead = cq->umem->sg_head.sgl;
-+		cq->qplib_cq.nmap = cq->umem->nmap;
-+		cq->qplib_cq.dpi = uctx->dpi;
-+	} else {
-+		cq->max_cql = min_t(u32, entries, MAX_CQL_PER_POLL);
-+		cq->cql = kcalloc(cq->max_cql, sizeof(struct bnxt_qplib_cqe),
-+				  GFP_KERNEL);
-+		if (!cq->cql) {
-+			rc = -ENOMEM;
-+			goto fail;
-+		}
-+
-+		cq->qplib_cq.dpi = &rdev->dpi_privileged;
-+		cq->qplib_cq.sghead = NULL;
-+		cq->qplib_cq.nmap = 0;
-+	}
-+	cq->qplib_cq.max_wqe = entries;
-+	cq->qplib_cq.cnq_hw_ring_id = rdev->nq.ring_id;
-+
-+	rc = bnxt_qplib_create_cq(&rdev->qplib_res, &cq->qplib_cq);
-+	if (rc) {
-+		dev_err(rdev_to_dev(rdev), "Failed to create HW CQ");
++	pd->rdev = rdev;
++	if (bnxt_qplib_alloc_pd(&rdev->qplib_res.pd_tbl, &pd->qplib_pd)) {
++		dev_err(rdev_to_dev(rdev), "Failed to allocate HW PD");
++		rc = -ENOMEM;
 +		goto fail;
 +	}
 +
-+	cq->ib_cq.cqe = entries;
-+	cq->cq_period = cq->qplib_cq.period;
-+	rdev->nq.budget++;
++	if (udata) {
++		struct bnxt_re_pd_resp resp;
 +
-+	atomic_inc(&rdev->cq_count);
++		if (!ucntx->dpi) {
++			/* Allocate DPI in alloc_pd to avoid failing of
++			 * ibv_devinfo and family of application when DPIs
++			 * are depleted.
++			 */
++			if (bnxt_qplib_alloc_dpi(&rdev->qplib_res.dpi_tbl,
++						 &pd->dpi, ucntx)) {
++				rc = -ENOMEM;
++				goto dbfail;
++			}
++			ucntx->dpi = &pd->dpi;
++		}
 +
-+	if (context) {
-+		struct bnxt_re_cq_resp resp;
++		resp.pdid = pd->qplib_pd.id;
++		/* Still allow mapping this DBR to the new user PD. */
++		resp.dpi = ucntx->dpi->dpi;
++		resp.dbr = (u64)ucntx->dpi->umdbr;
 +
-+		resp.cqid = cq->qplib_cq.id;
-+		resp.tail = cq->qplib_cq.hwq.cons;
-+		resp.phase = cq->qplib_cq.period;
-+		resp.rsvd = 0;
 +		rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
 +		if (rc) {
-+			dev_err(rdev_to_dev(rdev), "Failed to copy CQ udata");
-+			bnxt_qplib_destroy_cq(&rdev->qplib_res, &cq->qplib_cq);
-+			goto c2fail;
++			dev_err(rdev_to_dev(rdev),
++				"Failed to copy user response\n");
++			goto dbfail;
 +		}
 +	}
 +
-+	return &cq->ib_cq;
-+
-+c2fail:
-+	if (context)
-+		ib_umem_release(cq->umem);
++	return &pd->ib_pd;
++dbfail:
++	(void)bnxt_qplib_dealloc_pd(&rdev->qplib_res, &rdev->qplib_res.pd_tbl,
++				    &pd->qplib_pd);
 +fail:
-+	kfree(cq->cql);
-+	kfree(cq);
++	kfree(pd);
 +	return ERR_PTR(rc);
 +}
 +
-+int bnxt_re_req_notify_cq(struct ib_cq *ib_cq,
-+			  enum ib_cq_notify_flags ib_cqn_flags)
++struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
++					   struct ib_udata *udata)
 +{
-+	struct bnxt_re_cq *cq = container_of(ib_cq, struct bnxt_re_cq, ib_cq);
-+	int type = 0;
-+
-+	/* Trigger on the very next completion */
-+	if (ib_cqn_flags & IB_CQ_NEXT_COMP)
-+		type = DBR_DBR_TYPE_CQ_ARMALL;
-+	/* Trigger on the next solicited completion */
-+	else if (ib_cqn_flags & IB_CQ_SOLICITED)
-+		type = DBR_DBR_TYPE_CQ_ARMSE;
-+
-+	bnxt_qplib_req_notify_cq(&cq->qplib_cq, type);
-+
-+	return 0;
-+}
-+
- struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
- 					   struct ib_udata *udata)
- {
-diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.h b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-index 144a48b..735be6d 100644
---- a/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-+++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-@@ -51,6 +51,19 @@ struct bnxt_re_pd {
- 	struct bnxt_qplib_dpi	dpi;
- };
- 
-+struct bnxt_re_cq {
-+	struct bnxt_re_dev	*rdev;
-+	spinlock_t              cq_lock;	/* protect cq */
-+	u16			cq_count;
-+	u16			cq_period;
-+	struct ib_cq		ib_cq;
-+	struct bnxt_qplib_cq	qplib_cq;
-+	struct bnxt_qplib_cqe	*cql;
-+#define MAX_CQL_PER_POLL	1024
-+	u32			max_cql;
-+	struct ib_umem		*umem;
-+};
-+
- struct bnxt_re_ucontext {
- 	struct bnxt_re_dev	*rdev;
- 	struct ib_ucontext	ib_uctx;
-@@ -89,6 +102,12 @@ struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
- 			       struct ib_ucontext *context,
- 			       struct ib_udata *udata);
- int bnxt_re_dealloc_pd(struct ib_pd *pd);
-+struct ib_cq *bnxt_re_create_cq(struct ib_device *ibdev,
-+				const struct ib_cq_init_attr *attr,
-+				struct ib_ucontext *context,
-+				struct ib_udata *udata);
-+int bnxt_re_destroy_cq(struct ib_cq *cq);
-+int bnxt_re_req_notify_cq(struct ib_cq *cq, enum ib_cq_notify_flags flags);
- struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
- 					   struct ib_udata *udata);
- int bnxt_re_dealloc_ucontext(struct ib_ucontext *context);
-diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
-index 0071831..2c5d192 100644
---- a/drivers/infiniband/hw/bnxt_re/main.c
-+++ b/drivers/infiniband/hw/bnxt_re/main.c
-@@ -447,6 +447,10 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
- 
- 	ibdev->alloc_pd			= bnxt_re_alloc_pd;
- 	ibdev->dealloc_pd		= bnxt_re_dealloc_pd;
-+
-+	ibdev->create_cq		= bnxt_re_create_cq;
-+	ibdev->destroy_cq		= bnxt_re_destroy_cq;
-+	ibdev->req_notify_cq		= bnxt_re_req_notify_cq;
- 	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
- 	ibdev->dealloc_ucontext		= bnxt_re_dealloc_ucontext;
- 	ibdev->mmap			= bnxt_re_mmap;
-diff --git a/drivers/infiniband/hw/bnxt_re/qplib_fp.c b/drivers/infiniband/hw/bnxt_re/qplib_fp.c
-index 7c98950..bda6aaf 100644
---- a/drivers/infiniband/hw/bnxt_re/qplib_fp.c
-+++ b/drivers/infiniband/hw/bnxt_re/qplib_fp.c
-@@ -50,14 +50,17 @@
- #include "qplib_sp.h"
- #include "qplib_fp.h"
- 
-+static void bnxt_qplib_arm_cq_enable(struct bnxt_qplib_cq *cq);
- static void bnxt_qplib_service_nq(unsigned long data)
- {
- 	struct bnxt_qplib_nq *nq = (struct bnxt_qplib_nq *)data;
- 	struct bnxt_qplib_hwq *hwq = &nq->hwq;
- 	struct nq_base *nqe, **nq_ptr;
-+	int num_cqne_processed = 0;
- 	u32 sw_cons, raw_cons;
- 	u16 type;
- 	int budget = nq->budget;
-+	u64 q_handle;
- 
- 	/* Service the NQ until empty */
- 	raw_cons = hwq->cons;
-@@ -71,7 +74,23 @@ static void bnxt_qplib_service_nq(unsigned long data)
- 		type = le16_to_cpu(nqe->info10_type) & NQ_BASE_TYPE_MASK;
- 		switch (type) {
- 		case NQ_BASE_TYPE_CQ_NOTIFICATION:
-+		{
-+			struct nq_cn *nqcne = (struct nq_cn *)nqe;
-+
-+			q_handle = le32_to_cpu(nqcne->cq_handle_low);
-+			q_handle |= (u64)le32_to_cpu(nqcne->cq_handle_high)
-+						     << 32;
-+			bnxt_qplib_arm_cq_enable((struct bnxt_qplib_cq *)
-+						 ((unsigned long)q_handle));
-+			if (!nq->cqn_handler(nq, (struct bnxt_qplib_cq *)
-+						 ((unsigned long)q_handle)))
-+				num_cqne_processed++;
-+			else
-+				dev_warn(&nq->pdev->dev,
-+					 "QPLIB: cqn - type 0x%x not handled",
-+					 type);
- 			break;
-+		}
- 		case NQ_BASE_TYPE_DBQ_EVENT:
- 			break;
- 		default:
-@@ -196,3 +215,165 @@ int bnxt_qplib_alloc_nq(struct pci_dev *pdev, struct bnxt_qplib_nq *nq)
- 	nq->budget = 8;
- 	return 0;
- }
-+
-+/* CQ */
-+
-+/* Spinlock must be held */
-+static void bnxt_qplib_arm_cq_enable(struct bnxt_qplib_cq *cq)
-+{
-+	struct dbr_dbr db_msg = { 0 };
-+
-+	db_msg.type_xid =
-+		cpu_to_le32(((cq->id << DBR_DBR_XID_SFT) & DBR_DBR_XID_MASK) |
-+			    DBR_DBR_TYPE_CQ_ARMENA);
-+	/* Flush memory writes before enabling the CQ */
-+	wmb();
-+	__iowrite64_copy(cq->dbr_base, &db_msg, sizeof(db_msg) / sizeof(u64));
-+}
-+
-+static void bnxt_qplib_arm_cq(struct bnxt_qplib_cq *cq, u32 arm_type)
-+{
-+	struct bnxt_qplib_hwq *cq_hwq = &cq->hwq;
-+	struct dbr_dbr db_msg = { 0 };
-+	u32 sw_cons;
-+
-+	/* Ring DB */
-+	sw_cons = HWQ_CMP(cq_hwq->cons, cq_hwq);
-+	db_msg.index = cpu_to_le32((sw_cons << DBR_DBR_INDEX_SFT) &
-+				    DBR_DBR_INDEX_MASK);
-+	db_msg.type_xid =
-+		cpu_to_le32(((cq->id << DBR_DBR_XID_SFT) & DBR_DBR_XID_MASK) |
-+			    arm_type);
-+	/* flush memory writes before arming the CQ */
-+	wmb();
-+	__iowrite64_copy(cq->dpi->dbr, &db_msg, sizeof(db_msg) / sizeof(u64));
-+}
-+
-+int bnxt_qplib_create_cq(struct bnxt_qplib_res *res, struct bnxt_qplib_cq *cq)
-+{
-+	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
-+	struct cmdq_create_cq req;
-+	struct creq_create_cq_resp *resp;
-+	struct bnxt_qplib_pbl *pbl;
-+	u16 cmd_flags = 0;
++	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
++	struct bnxt_re_uctx_resp resp;
++	struct bnxt_re_ucontext *uctx;
++	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
 +	int rc;
 +
-+	cq->hwq.max_elements = cq->max_wqe;
-+	rc = bnxt_qplib_alloc_init_hwq(res->pdev, &cq->hwq, cq->sghead,
-+				       cq->nmap, &cq->hwq.max_elements,
-+				       BNXT_QPLIB_MAX_CQE_ENTRY_SIZE, 0,
-+				       PAGE_SIZE, HWQ_TYPE_QUEUE);
-+	if (rc)
-+		goto exit;
++	dev_dbg(rdev_to_dev(rdev), "ABI version requested %d",
++		ibdev->uverbs_abi_ver);
 +
-+	RCFW_CMD_PREP(req, CREATE_CQ, cmd_flags);
-+
-+	if (!cq->dpi) {
-+		dev_err(&rcfw->pdev->dev,
-+			"QPLIB: FP: CREATE_CQ failed due to NULL DPI");
-+		return -EINVAL;
++	if (ibdev->uverbs_abi_ver != BNXT_RE_ABI_VERSION) {
++		dev_dbg(rdev_to_dev(rdev), " is different from the device %d ",
++			BNXT_RE_ABI_VERSION);
++		return ERR_PTR(-EPERM);
 +	}
-+	req.dpi = cpu_to_le32(cq->dpi->dpi);
-+	req.cq_handle = cpu_to_le64(cq->cq_handle);
 +
-+	req.cq_size = cpu_to_le32(cq->hwq.max_elements);
-+	pbl = &cq->hwq.pbl[PBL_LVL_0];
-+	req.pg_size_lvl = cpu_to_le32(
-+	    ((cq->hwq.level & CMDQ_CREATE_CQ_LVL_MASK) <<
-+						CMDQ_CREATE_CQ_LVL_SFT) |
-+	    (pbl->pg_size == ROCE_PG_SIZE_4K ? CMDQ_CREATE_CQ_PG_SIZE_PG_4K :
-+	     pbl->pg_size == ROCE_PG_SIZE_8K ? CMDQ_CREATE_CQ_PG_SIZE_PG_8K :
-+	     pbl->pg_size == ROCE_PG_SIZE_64K ? CMDQ_CREATE_CQ_PG_SIZE_PG_64K :
-+	     pbl->pg_size == ROCE_PG_SIZE_2M ? CMDQ_CREATE_CQ_PG_SIZE_PG_2M :
-+	     pbl->pg_size == ROCE_PG_SIZE_8M ? CMDQ_CREATE_CQ_PG_SIZE_PG_8M :
-+	     pbl->pg_size == ROCE_PG_SIZE_1G ? CMDQ_CREATE_CQ_PG_SIZE_PG_1G :
-+	     CMDQ_CREATE_CQ_PG_SIZE_PG_4K));
++	uctx = kzalloc(sizeof(*uctx), GFP_KERNEL);
++	if (!uctx)
++		return ERR_PTR(-ENOMEM);
 +
-+	req.pbl = cpu_to_le64(pbl->pg_map_arr[0]);
++	uctx->rdev = rdev;
 +
-+	req.cq_fco_cnq_id = cpu_to_le32(
-+			(cq->cnq_hw_ring_id & CMDQ_CREATE_CQ_CNQ_ID_MASK) <<
-+			 CMDQ_CREATE_CQ_CNQ_ID_SFT);
-+
-+	resp = (struct creq_create_cq_resp *)
-+			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
-+						     NULL, 0);
-+	if (!resp) {
-+		dev_err(&rcfw->pdev->dev, "QPLIB: FP: CREATE_CQ send failed");
-+		return -EINVAL;
-+	}
-+	if (!bnxt_qplib_rcfw_wait_for_resp(rcfw, le16_to_cpu(req.cookie))) {
-+		/* Cmd timed out */
-+		dev_err(&rcfw->pdev->dev, "QPLIB: FP: CREATE_CQ timed out");
-+		rc = -ETIMEDOUT;
++	uctx->shpg = (void *)__get_free_page(GFP_KERNEL);
++	if (!uctx->shpg) {
++		rc = -ENOMEM;
 +		goto fail;
 +	}
-+	if (resp->status ||
-+	    le16_to_cpu(resp->cookie) != le16_to_cpu(req.cookie)) {
-+		dev_err(&rcfw->pdev->dev, "QPLIB: FP: CREATE_CQ failed ");
-+		dev_err(&rcfw->pdev->dev,
-+			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
-+			resp->status, le16_to_cpu(req.cookie),
-+			le16_to_cpu(resp->cookie));
-+		rc = -EINVAL;
-+		goto fail;
++	spin_lock_init(&uctx->sh_lock);
++
++	resp.dev_id = rdev->en_dev->pdev->devfn; /*Temp, Use idr_alloc instead*/
++	resp.max_qp = rdev->qplib_ctx.qpc_count;
++	resp.pg_size = PAGE_SIZE;
++	resp.cqe_sz = sizeof(struct cq_base);
++	resp.max_cqd = dev_attr->max_cq_wqes;
++	resp.rsvd    = 0;
++
++	rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to copy user context");
++		rc = -EFAULT;
++		goto cfail;
 +	}
-+	cq->id = le32_to_cpu(resp->xid);
-+	cq->dbr_base = res->dpi_tbl.dbr_bar_reg_iomem;
-+	cq->period = BNXT_QPLIB_QUEUE_START_PERIOD;
-+	init_waitqueue_head(&cq->waitq);
 +
-+	bnxt_qplib_arm_cq_enable(cq);
-+	return 0;
-+
++	return &uctx->ib_uctx;
++cfail:
++	free_page((unsigned long)uctx->shpg);
++	uctx->shpg = NULL;
 +fail:
-+	bnxt_qplib_free_hwq(res->pdev, &cq->hwq);
-+exit:
-+	return rc;
++	kfree(uctx);
++	return ERR_PTR(rc);
 +}
 +
-+int bnxt_qplib_destroy_cq(struct bnxt_qplib_res *res, struct bnxt_qplib_cq *cq)
++int bnxt_re_dealloc_ucontext(struct ib_ucontext *ib_uctx)
 +{
-+	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
-+	struct cmdq_destroy_cq req;
-+	struct creq_destroy_cq_resp *resp;
-+	u16 cmd_flags = 0;
-+
-+	RCFW_CMD_PREP(req, DESTROY_CQ, cmd_flags);
-+
-+	req.cq_cid = cpu_to_le32(cq->id);
-+	resp = (struct creq_destroy_cq_resp *)
-+			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
-+						     NULL, 0);
-+	if (!resp) {
-+		dev_err(&rcfw->pdev->dev, "QPLIB: FP: DESTROY_CQ send failed");
-+		return -EINVAL;
-+	}
-+	if (!bnxt_qplib_rcfw_wait_for_resp(rcfw, le16_to_cpu(req.cookie))) {
-+		/* Cmd timed out */
-+		dev_err(&rcfw->pdev->dev, "QPLIB: FP: DESTROY_CQ timed out");
-+		return -ETIMEDOUT;
-+	}
-+	if (resp->status ||
-+	    le16_to_cpu(resp->cookie) != le16_to_cpu(req.cookie)) {
-+		dev_err(&rcfw->pdev->dev, "QPLIB: FP: DESTROY_CQ failed ");
-+		dev_err(&rcfw->pdev->dev,
-+			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
-+			resp->status, le16_to_cpu(req.cookie),
-+			le16_to_cpu(resp->cookie));
-+		return -EINVAL;
-+	}
-+	bnxt_qplib_free_hwq(res->pdev, &cq->hwq);
++	struct bnxt_re_ucontext *uctx = container_of(ib_uctx,
++						   struct bnxt_re_ucontext,
++						   ib_uctx);
++	if (uctx->shpg)
++		free_page((unsigned long)uctx->shpg);
++	kfree(uctx);
 +	return 0;
 +}
 +
-+void bnxt_qplib_req_notify_cq(struct bnxt_qplib_cq *cq, u32 arm_type)
++/* Helper function to mmap the virtual memory from user app */
++int bnxt_re_mmap(struct ib_ucontext *ib_uctx, struct vm_area_struct *vma)
 +{
-+	unsigned long flags;
++	struct bnxt_re_ucontext *uctx = container_of(ib_uctx,
++						   struct bnxt_re_ucontext,
++						   ib_uctx);
++	struct bnxt_re_dev *rdev = uctx->rdev;
++	u64 pfn;
 +
-+	spin_lock_irqsave(&cq->hwq.lock, flags);
-+	if (arm_type)
-+		bnxt_qplib_arm_cq(cq, arm_type);
++	if (vma->vm_end - vma->vm_start != PAGE_SIZE)
++		return -EINVAL;
 +
-+	spin_unlock_irqrestore(&cq->hwq.lock, flags);
++	if (vma->vm_pgoff) {
++		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
++		if (io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
++				       PAGE_SIZE, vma->vm_page_prot)) {
++			dev_err(rdev_to_dev(rdev), "Failed to map DPI");
++			return -EAGAIN;
++		}
++	} else {
++		pfn = virt_to_phys(uctx->shpg) >> PAGE_SHIFT;
++		if (remap_pfn_range(vma, vma->vm_start,
++				    pfn, PAGE_SIZE, vma->vm_page_prot)) {
++			dev_err(rdev_to_dev(rdev),
++				"Failed to map shared page");
++			return -EAGAIN;
++		}
++	}
++
++	return 0;
 +}
-diff --git a/drivers/infiniband/hw/bnxt_re/qplib_fp.h b/drivers/infiniband/hw/bnxt_re/qplib_fp.h
-index 78e1717..1dfc86d 100644
---- a/drivers/infiniband/hw/bnxt_re/qplib_fp.h
-+++ b/drivers/infiniband/hw/bnxt_re/qplib_fp.h
-@@ -38,6 +38,52 @@
+diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.h b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
+index 8ffdf88..3b994f1 100644
+--- a/drivers/infiniband/hw/bnxt_re/ib_verbs.h
++++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
+@@ -39,4 +39,27 @@
+ #ifndef __BNXT_RE_IB_VERBS_H__
+ #define __BNXT_RE_IB_VERBS_H__
  
- #ifndef __BNXT_QPLIB_FP_H__
- #define __BNXT_QPLIB_FP_H__
-+#define BNXT_QPLIB_MAX_CQE_ENTRY_SIZE	sizeof(struct cq_base)
-+
-+struct bnxt_qplib_cqe {
-+	u8				status;
-+	u8				type;
-+	u8				opcode;
-+	u32				length;
-+	u64				wr_id;
-+	union {
-+		__be32			immdata;
-+		u32			invrkey;
-+	};
-+	u64				qp_handle;
-+	u64				mr_handle;
-+	u16				flags;
-+	u8				smac[6];
-+	u32				src_qp;
-+	u16				raweth_qp1_flags;
-+	u16				raweth_qp1_errors;
-+	u16				raweth_qp1_cfa_code;
-+	u32				raweth_qp1_flags2;
-+	u32				raweth_qp1_metadata;
-+	u8				raweth_qp1_payload_offset;
-+	u16				pkey_index;
++struct bnxt_re_pd {
++	struct bnxt_re_dev	*rdev;
++	struct ib_pd		ib_pd;
++	struct bnxt_qplib_pd	qplib_pd;
++	struct bnxt_qplib_dpi	dpi;
 +};
 +
-+#define BNXT_QPLIB_QUEUE_START_PERIOD		0x01
-+struct bnxt_qplib_cq {
-+	struct bnxt_qplib_dpi		*dpi;
-+	void __iomem			*dbr_base;
-+	u32				max_wqe;
-+	u32				id;
-+	u16				count;
-+	u16				period;
-+	struct bnxt_qplib_hwq		hwq;
-+	u32				cnq_hw_ring_id;
-+	bool				resize_in_progress;
-+	struct scatterlist		*sghead;
-+	u32				nmap;
-+	u64				cq_handle;
-+
-+#define CQ_RESIZE_WAIT_TIME_MS		500
-+	unsigned long			flags;
-+#define CQ_FLAGS_RESIZE_IN_PROG		1
-+	wait_queue_head_t		waitq;
++struct bnxt_re_ucontext {
++	struct bnxt_re_dev	*rdev;
++	struct ib_ucontext	ib_uctx;
++	struct bnxt_qplib_dpi	*dpi;
++	void			*shpg;
++	spinlock_t		sh_lock;	/* protect shpg */
 +};
- 
- #define BNXT_QPLIB_MAX_NQE_ENTRY_SIZE	sizeof(struct nq_base)
- 
-@@ -97,6 +143,10 @@ int bnxt_qplib_enable_nq(struct pci_dev *pdev, struct bnxt_qplib_nq *nq,
- 			 int (*srqn_handler)(struct bnxt_qplib_nq *nq,
- 					     void *srq,
- 					     u8 event));
-+int bnxt_qplib_create_cq(struct bnxt_qplib_res *res, struct bnxt_qplib_cq *cq);
-+int bnxt_qplib_destroy_cq(struct bnxt_qplib_res *res, struct bnxt_qplib_cq *cq);
 +
-+void bnxt_qplib_req_notify_cq(struct bnxt_qplib_cq *cq, u32 arm_type);
- void bnxt_qplib_free_nq(struct bnxt_qplib_nq *nq);
- int bnxt_qplib_alloc_nq(struct pci_dev *pdev, struct bnxt_qplib_nq *nq);
- #endif /* __BNXT_QPLIB_FP_H__ */
-diff --git a/include/uapi/rdma/bnxt_re-abi.h b/include/uapi/rdma/bnxt_re-abi.h
-index f2fe71d..ecded46 100644
---- a/include/uapi/rdma/bnxt_re-abi.h
-+++ b/include/uapi/rdma/bnxt_re-abi.h
-@@ -56,4 +56,16 @@ struct bnxt_re_pd_resp {
- 	__u64 dbr;
++struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
++			       struct ib_ucontext *context,
++			       struct ib_udata *udata);
++int bnxt_re_dealloc_pd(struct ib_pd *pd);
++struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
++					   struct ib_udata *udata);
++int bnxt_re_dealloc_ucontext(struct ib_ucontext *context);
++int bnxt_re_mmap(struct ib_ucontext *context, struct vm_area_struct *vma);
+ #endif /* __BNXT_RE_IB_VERBS_H__ */
+diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
+index 9091caf..05c33a7 100644
+--- a/drivers/infiniband/hw/bnxt_re/main.c
++++ b/drivers/infiniband/hw/bnxt_re/main.c
+@@ -59,6 +59,7 @@
+ #include "qplib_fp.h"
+ #include "qplib_rcfw.h"
+ #include "bnxt_re.h"
++#include "ib_verbs.h"
+ #include "bnxt.h"
+ static char version[] =
+ 		BNXT_RE_DESC " v" ROCE_DRV_MODULE_VERSION "\n";
+@@ -431,6 +432,12 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
+ 
+ 	ibdev->num_comp_vectors	= 1;
+ 	ibdev->dma_device = &rdev->en_dev->pdev->dev;
++	ibdev->alloc_pd			= bnxt_re_alloc_pd;
++	ibdev->dealloc_pd		= bnxt_re_dealloc_pd;
++	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
++	ibdev->dealloc_ucontext		= bnxt_re_dealloc_ucontext;
++	ibdev->mmap			= bnxt_re_mmap;
++
+ 	return ib_register_device(ibdev, NULL);
+ }
+ 
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_res.c b/drivers/infiniband/hw/bnxt_re/qplib_res.c
+index 22db75c..0e661c2 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_res.c
++++ b/drivers/infiniband/hw/bnxt_re/qplib_res.c
+@@ -527,6 +527,34 @@ static int bnxt_qplib_alloc_pkey_tbl(struct bnxt_qplib_res *res,
+ 	return 0;
  };
  
-+struct bnxt_re_cq_req {
-+	__u64 cq_va;
-+	__u64 cq_handle;
++/* PDs */
++int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pdt, struct bnxt_qplib_pd *pd)
++{
++	u32 bit_num;
++
++	bit_num = find_first_bit(pdt->tbl, pdt->max);
++	if (bit_num == pdt->max)
++		return -ENOMEM;
++
++	/* Found unused PD */
++	clear_bit(bit_num, pdt->tbl);
++	pd->id = bit_num;
++	return 0;
++}
++
++int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
++			  struct bnxt_qplib_pd_tbl *pdt,
++			  struct bnxt_qplib_pd *pd)
++{
++	if (test_and_set_bit(pd->id, pdt->tbl)) {
++		dev_warn(&res->pdev->dev, "Freeing an unused PD? pdn = %d",
++			 pd->id);
++		return -EINVAL;
++	}
++	pd->id = 0;
++	return 0;
++}
++
+ static void bnxt_qplib_free_pd_tbl(struct bnxt_qplib_pd_tbl *pdt)
+ {
+ 	kfree(pdt->tbl);
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_res.h b/drivers/infiniband/hw/bnxt_re/qplib_res.h
+index a3405e7..4cecadb 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_res.h
++++ b/drivers/infiniband/hw/bnxt_re/qplib_res.h
+@@ -186,6 +186,7 @@ struct bnxt_qplib_res {
+ 	struct bnxt_qplib_dpi_tbl	dpi_tbl;
+ };
+ 
++struct bnxt_qplib_pd;
+ struct bnxt_qplib_dev_attr;
+ 
+ void bnxt_qplib_free_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq);
+@@ -193,6 +194,11 @@ int bnxt_qplib_alloc_init_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq,
+ 			      struct scatterlist *sl, int nmap, u32 *elements,
+ 			      u32 elements_per_page, u32 aux, u32 pg_size,
+ 			      enum bnxt_qplib_hwq_type hwq_type);
++int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pd_tbl,
++			struct bnxt_qplib_pd *pd);
++int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
++			  struct bnxt_qplib_pd_tbl *pd_tbl,
++			  struct bnxt_qplib_pd *pd);
+ int bnxt_qplib_alloc_dpi(struct bnxt_qplib_dpi_tbl *dpit,
+ 			 struct bnxt_qplib_dpi     *dpi,
+ 			 void                      *app);
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_sp.h b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
+index 0aff2d0..f7584c5 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_sp.h
++++ b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
+@@ -70,6 +70,10 @@ struct bnxt_qplib_dev_attr {
+ 	u8				tqm_alloc_reqs[MAX_TQM_ALLOC_REQ];
+ };
+ 
++struct bnxt_qplib_pd {
++	u32				id;
 +};
 +
-+struct bnxt_re_cq_resp {
-+	__u32 cqid;
-+	__u32 tail;
-+	__u32 phase;
+ struct bnxt_qplib_gid {
+ 	u8				data[16];
+ };
+diff --git a/include/uapi/rdma/bnxt_re-abi.h b/include/uapi/rdma/bnxt_re-abi.h
+new file mode 100644
+index 0000000..f2fe71d
+--- /dev/null
++++ b/include/uapi/rdma/bnxt_re-abi.h
+@@ -0,0 +1,59 @@
++/*
++ * Broadcom NetXtreme-E RoCE driver.
++ *
++ * Copyright (c) 2016 - 2017, Broadcom. All rights reserved.  The term
++ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
++ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * Description: Uverbs ABI header file
++ */
++
++#ifndef __BNXT_RE_UVERBS_ABI_H__
++#define __BNXT_RE_UVERBS_ABI_H__
++
++#define BNXT_RE_ABI_VERSION	1
++
++struct bnxt_re_uctx_resp {
++	__u32 dev_id;
++	__u32 max_qp;
++	__u32 pg_size;
++	__u32 cqe_sz;
++	__u32 max_cqd;
 +	__u32 rsvd;
 +};
 +
- #endif /* __BNXT_RE_UVERBS_ABI_H__*/
++struct bnxt_re_pd_resp {
++	__u32 pdid;
++	__u32 dpi;
++	__u64 dbr;
++};
++
++#endif /* __BNXT_RE_UVERBS_ABI_H__*/
 -- 
 2.5.5
