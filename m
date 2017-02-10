@@ -1,54 +1,60 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] netlink: move nla_put_{u8,u16,u32} out of line
-Date: Fri, 10 Feb 2017 14:24:58 +0100
-Message-ID: <CAK8P3a2VvyUj6z10GuPCdR9YHMDazfq86TKF260=waKeD83csg@mail.gmail.com>
-References: <20170208211843.2822208-1-arnd@arndb.de> <CAK8P3a1FLFG7NvTEPNQB6Gam2y7O3K+5T_cmQg-rOfT4TKNfnA@mail.gmail.com>
- <CACT4Y+bpoud4y2N0xkatG8N5we6+scqYhCZhvaXJSBQiVnznTQ@mail.gmail.com> <4145102.8mea7fgqQV@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: busy-poll: remove LL_FLUSH_FAILED and
+ LL_FLUSH_BUSY
+Date: Fri, 10 Feb 2017 05:46:46 -0800
+Message-ID: <1486734406.7793.142.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        netdev <netdev@vger.kernel.org>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        kasan-dev <kasan-dev@googlegroups.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Alexey Dobriyan <adobriyan@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Thomas Graf <tgraf@suug.ch>,
-        Eric Dumazet <edumazet@google.com>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4145102.8mea7fgqQV@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36431 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751430AbdBJNsM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 08:48:12 -0500
+Received: by mail-pf0-f196.google.com with SMTP id 19so2665151pfo.3
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 05:46:48 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 6:00 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> To reduce this risk, -fsanitize-address-use-after-scope is now split out
-> into a separate Kconfig option, which cannot be selected at the same time
-> as CONFIG_KASAN_INLINE, leading to stack frames that are smaller than 2
-> kilobytes most of the time on x86_64. Now we can turn on the warning again
-> that was disabled in commit 3f181b4 ("lib/Kconfig.debug: disable
-> -Wframe-larger-than warnings with KASAN=y").
->
-> The hope is that we can fix all code that still produces warnings, so far
-> I have found four areas that are still affected (netlink, hisi-hns,
-> dvb and tty/keyboard), and I have patches for all of them.
+From: Eric Dumazet <edumazet@google.com>
 
-scratch that, my randconfig tests found too many remaining problems
-with asan-stack=1 even when only one of CONFIG_KASAN_INLINE
-and -fsanitize-address-use-after-scope is set.
+Commit 79e7fff47b7b ("net: remove support for per driver
+ndo_busy_poll()") made them obsolete.
 
-I actually get results as bad as
-fs/direct-io.c: In function 'do_direct_IO':
-fs/direct-io.c:1057:1: error: the frame size of 7240 bytes is larger
-than 2048 bytes [-Werror=frame-larger-than=]
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/busy_poll.h |    4 ----
+ net/core/dev.c          |    3 ---
+ 2 files changed, 7 deletions(-)
 
-with KASAN_OUTLINE=y and KASAN_EXTRA=n.
-
-I need to investigate further to see if I can narrow it down to some
-other configuration options.
-
-       Arnd
+diff --git a/include/net/busy_poll.h b/include/net/busy_poll.h
+index d73b849e29a6869e282103f329c3a02f4e1a6882..b8d637225a07ddd2c0183b75a42cd5c9c5a69851 100644
+--- a/include/net/busy_poll.h
++++ b/include/net/busy_poll.h
+@@ -33,10 +33,6 @@ struct napi_struct;
+ extern unsigned int sysctl_net_busy_read __read_mostly;
+ extern unsigned int sysctl_net_busy_poll __read_mostly;
+ 
+-/* return values from ndo_ll_poll */
+-#define LL_FLUSH_FAILED		-1
+-#define LL_FLUSH_BUSY		-2
+-
+ static inline bool net_busy_loop_on(void)
+ {
+ 	return sysctl_net_busy_poll;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0921609dfa81b70a13e0b4ca7852fde6ded7ed82..a6d9b1f071b330c3428c2a0a2d4eb13584911939 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4998,9 +4998,6 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 					LINUX_MIB_BUSYPOLLRXPACKETS, rc);
+ 		local_bh_enable();
+ 
+-		if (rc == LL_FLUSH_FAILED)
+-			break; /* permanent failure */
+-
+ 		if (nonblock || !skb_queue_empty(&sk->sk_receive_queue) ||
+ 		    busy_loop_timeout(end_time))
+ 			break;
