@@ -1,139 +1,99 @@
-From: Anoob Soman <anoob.soman@citrix.com>
-Subject: [PATCH net] packet: Do not call fanout_release from atomic contexts
-Date: Fri, 10 Feb 2017 12:39:44 +0000
-Message-ID: <1486730384-18749-1-git-send-email-anoob.soman@citrix.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: linux-next: build failure after merge of the selinux tree
+Date: Fri, 10 Feb 2017 07:34:10 -0500
+Message-ID: <CAHC9VhTTO7JK=BbFnpfHHC_itN03VvioCw_J0p8xc+A7zELm5A@mail.gmail.com>
+References: <20170110122703.2dbdfd18@canb.auug.org.au> <20170210135015.7a573b81@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-        Anoob Soman <anoob.soman@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:56965 "EHLO SMTP.CITRIX.COM"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752846AbdBJMkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 10 Feb 2017 07:40:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        James Morris <jmorris@namei.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Stephen Smalley <sds@tycho.nsa.gov>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170210135015.7a573b81@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 6664498280cf ("packet: call fanout_release, while UNREGISTERING a
-netdev"), unfortunately, introduced the following issues.
+On Thu, Feb 9, 2017 at 9:50 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
+>
+> On Tue, 10 Jan 2017 12:27:03 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>>
+>> After merging the selinux tree, today's linux-next build (x86_64
+>> allmodconfig) failed like this:
+>>
+>> In file included from /home/sfr/next/next/security/selinux/avc.c:35:0:
+>> /home/sfr/next/next/security/selinux/include/classmap.h:242:2: error: #error New address family defined, please update secclass_map.
+>>  #error New address family defined, please update secclass_map.
+>>   ^
+>> /home/sfr/next/next/security/selinux/hooks.c: In function 'socket_type_to_security_class':
+>> /home/sfr/next/next/security/selinux/hooks.c:1409:2: error: #error New address family defined, please update this function.
+>>
+>> Caused by commit
+>>
+>>   da69a5306ab9 ("selinux: support distinctions among all network address families")
+>>
+>> interacting with commit
+>>
+>>   ac7138746e14 ("smc: establish new socket family")
+>>
+>> from the net-next tree.
+>>
+>> I added the following merge fix patch:
+>>
+>> From: Stephen Rothwell <sfr@canb.auug.org.au>
+>> Date: Tue, 10 Jan 2017 12:22:21 +1100
+>> Subject: [PATCH] selinux: merge fix for "smc: establish new socket family"
+>>
+>> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+>> ---
+>>  security/selinux/hooks.c            | 4 +++-
+>>  security/selinux/include/classmap.h | 4 +++-
+>>  2 files changed, 6 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+>> index bada3cd42b9c..712fd0e7c91d 100644
+>> --- a/security/selinux/hooks.c
+>> +++ b/security/selinux/hooks.c
+>> @@ -1405,7 +1405,9 @@ static inline u16 socket_type_to_security_class(int family, int type, int protoc
+>>                       return SECCLASS_KCM_SOCKET;
+>>               case PF_QIPCRTR:
+>>                       return SECCLASS_QIPCRTR_SOCKET;
+>> -#if PF_MAX > 43
+>> +             case PF_SMC:
+>> +                     return SECCLASS_SMC_SOCKET;
+>> +#if PF_MAX > 44
+>>  #error New address family defined, please update this function.
+>>  #endif
+>>               }
+>> diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
+>> index 0dfd26d0b8d8..40f1d4f8bc2a 100644
+>> --- a/security/selinux/include/classmap.h
+>> +++ b/security/selinux/include/classmap.h
+>> @@ -235,9 +235,11 @@ struct security_class_mapping secclass_map[] = {
+>>         { COMMON_SOCK_PERMS, NULL } },
+>>       { "qipcrtr_socket",
+>>         { COMMON_SOCK_PERMS, NULL } },
+>> +     { "smc_socket",
+>> +       { COMMON_SOCK_PERMS, NULL } },
+>>       { NULL }
+>>    };
+>>
+>> -#if PF_MAX > 43
+>> +#if PF_MAX > 44
+>>  #error New address family defined, please update secclass_map.
+>>  #endif
+>> --
+>> 2.10.2
+>
+> This now applies when I merge the security tree (as it merged the
+> selinux tree, presumably).
 
-1. calling mutex_lock(&fanout_mutex) (fanout_release()) from inside
-rcu_read-side critical section. rcu_read_lock disables preemption, most often,
-which prohibits calling sleeping functions.
+Yes, James just pulled the SELinux tree yesterday.
 
-[  ] include/linux/rcupdate.h:560 Illegal context switch in RCU read-side critical section!
-[  ]
-[  ] rcu_scheduler_active = 1, debug_locks = 0
-[  ] 4 locks held by ovs-vswitchd/1969:
-[  ]  #0:  (cb_lock){++++++}, at: [<ffffffff8158a6c9>] genl_rcv+0x19/0x40
-[  ]  #1:  (ovs_mutex){+.+.+.}, at: [<ffffffffa04878ca>] ovs_vport_cmd_del+0x4a/0x100 [openvswitch]
-[  ]  #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81564157>] rtnl_lock+0x17/0x20
-[  ]  #3:  (rcu_read_lock){......}, at: [<ffffffff81614165>] packet_notifier+0x5/0x3f0
-[  ]
-[  ] Call Trace:
-[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
-[  ]  [<ffffffff810c9077>] lockdep_rcu_suspicious+0x107/0x110
-[  ]  [<ffffffff810a2da7>] ___might_sleep+0x57/0x210
-[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
-[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
-[  ]  [<ffffffff810de93f>] ? vprintk_default+0x1f/0x30
-[  ]  [<ffffffff81186e88>] ? printk+0x4d/0x4f
-[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
-[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
-
-2. calling mutex_lock(&fanout_mutex) inside spin_lock(&po->bind_lock).
-"sleeping function called from invalid context"
-
-[  ] BUG: sleeping function called from invalid context at kernel/locking/mutex.c:620
-[  ] in_atomic(): 1, irqs_disabled(): 0, pid: 1969, name: ovs-vswitchd
-[  ] INFO: lockdep is turned off.
-[  ] Call Trace:
-[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
-[  ]  [<ffffffff810a2f52>] ___might_sleep+0x202/0x210
-[  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
-[  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
-[  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
-[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
-
-3. calling dev_remove_pack(&fanout->prot_hook), from inside
-spin_lock(&po->bind_lock) or rcu_read-side critical-section. dev_remove_pack()
--> synchronize_net(), which might sleep.
-
-[  ] BUG: scheduling while atomic: ovs-vswitchd/1969/0x00000002
-[  ] INFO: lockdep is turned off.
-[  ] Call Trace:
-[  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
-[  ]  [<ffffffff81186274>] __schedule_bug+0x64/0x73
-[  ]  [<ffffffff8162b8cb>] __schedule+0x6b/0xd10
-[  ]  [<ffffffff8162c5db>] schedule+0x6b/0x80
-[  ]  [<ffffffff81630b1d>] schedule_timeout+0x38d/0x410
-[  ]  [<ffffffff810ea3fd>] synchronize_sched_expedited+0x53d/0x810
-[  ]  [<ffffffff810ea6de>] synchronize_rcu_expedited+0xe/0x10
-[  ]  [<ffffffff8154eab5>] synchronize_net+0x35/0x50
-[  ]  [<ffffffff8154eae3>] dev_remove_pack+0x13/0x20
-[  ]  [<ffffffff8161077e>] fanout_release+0xbe/0xe0
-[  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
-
-4. fanout_release() races with calls from different CPU.
-
-To fix the above problems, remove the call to fanout_release() under
-rcu_read_lock(). Instead, call __dev_remove_pack(&fanout->prot_hook) and
-netdev_run_todo will be happy that &dev->ptype_specific list is empty. In order
-to achieve this, I moved dev_{add,remove}_pack() out of fanout_{add,release} to
-__fanout_{link,unlink}. So, call to {,__}unregister_prot_hook() will make sure
-fanout->prot_hook is removed as well.
-
-Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
----
- net/packet/af_packet.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index d56ee46..0eb7230 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1497,6 +1497,8 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po)
- 	f->arr[f->num_members] = sk;
- 	smp_wmb();
- 	f->num_members++;
-+	if (f->num_members == 1)
-+		dev_add_pack(&f->prot_hook);
- 	spin_unlock(&f->lock);
- }
- 
-@@ -1513,6 +1515,8 @@ static void __fanout_unlink(struct sock *sk, struct packet_sock *po)
- 	BUG_ON(i >= f->num_members);
- 	f->arr[i] = f->arr[f->num_members - 1];
- 	f->num_members--;
-+	if (f->num_members == 0)
-+		__dev_remove_pack(&f->prot_hook);
- 	spin_unlock(&f->lock);
- }
- 
-@@ -1687,7 +1691,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		match->prot_hook.func = packet_rcv_fanout;
- 		match->prot_hook.af_packet_priv = match;
- 		match->prot_hook.id_match = match_fanout_group;
--		dev_add_pack(&match->prot_hook);
- 		list_add(&match->list, &fanout_list);
- 	}
- 	err = -EINVAL;
-@@ -1726,7 +1729,6 @@ static void fanout_release(struct sock *sk)
- 
- 	if (atomic_dec_and_test(&f->sk_ref)) {
- 		list_del(&f->list);
--		dev_remove_pack(&f->prot_hook);
- 		fanout_release_data(f);
- 		kfree(f);
- 	}
-@@ -3900,7 +3902,6 @@ static int packet_notifier(struct notifier_block *this,
- 				}
- 				if (msg == NETDEV_UNREGISTER) {
- 					packet_cached_dev_reset(po);
--					fanout_release(sk);
- 					po->ifindex = -1;
- 					if (po->prot_hook.dev)
- 						dev_put(po->prot_hook.dev);
 -- 
-2.7.4
+paul moore
+www.paul-moore.com
