@@ -1,534 +1,305 @@
-From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH V5 for-next 09/21] RDMA/bnxt_re: Support for GID related verbs
-Date: Fri, 10 Feb 2017 03:19:41 -0800
-Message-ID: <1486725593-9872-10-git-send-email-selvin.xavier@broadcom.com>
+From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH V5 for-next 18/21] RDMA/bnxt_re: Support for DCB
+Date: Fri, 10 Feb 2017 03:19:50 -0800
+Message-ID: <1486725593-9872-19-git-send-email-selvin.xavier@broadcom.com>
 References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
-Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: dledford@redhat.com, linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f173.google.com ([209.85.216.173]:34159 "EHLO
-        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753021AbdBJL2t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:28:49 -0500
-Received: by mail-qt0-f173.google.com with SMTP id w20so31398686qtb.1
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:28:48 -0800 (PST)
-In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Implements add GID, del GID,  get_netdev and pkey related verbs.
+This patch queries the configured RoCE APP Priority on the host
+using the dcbnl API and programs the RoCE FW with the corresponding
+Traffic Class(es) for the priority.
 
-v3: Fixes some sparse warning related to endianness check. Removes
-    macros which are just wrapper for standard defines.
+v2: Fixed some sparse warning and cleanup of function
+bnxt_re_query_hwrm_pri2cos
 
-Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
-Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
+v3: Adds bnxt_qplib_map_tc2cos as a part of this patch. Uses
+    ROCE_V2_UDP_DPORT instead of BNXT_RE_ROCE_V2_PORT_NO.
+
+v5: Uses ETH_P_IBOE macro for RoCE ethertype
+
+Signed-off-by: Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/hw/bnxt_re/ib_verbs.c  | 123 +++++++++++++++++
- drivers/infiniband/hw/bnxt_re/ib_verbs.h  |  18 +++
- drivers/infiniband/hw/bnxt_re/main.c      |   7 +
- drivers/infiniband/hw/bnxt_re/qplib_res.c |   5 +
- drivers/infiniband/hw/bnxt_re/qplib_res.h |   3 +
- drivers/infiniband/hw/bnxt_re/qplib_sp.c  | 218 ++++++++++++++++++++++++++++++
- drivers/infiniband/hw/bnxt_re/qplib_sp.h  |  11 ++
- 7 files changed, 385 insertions(+)
+ drivers/infiniband/hw/bnxt_re/bnxt_re.h  |   3 +
+ drivers/infiniband/hw/bnxt_re/main.c     | 141 +++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxt_re/qplib_sp.c |  37 ++++++++
+ drivers/infiniband/hw/bnxt_re/qplib_sp.h |   1 +
+ 4 files changed, 182 insertions(+)
 
-diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.c b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
-index 41d9534..1c9e1f4 100644
---- a/drivers/infiniband/hw/bnxt_re/ib_verbs.c
-+++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
-@@ -60,6 +60,22 @@
- #include "ib_verbs.h"
- #include <rdma/bnxt_re-abi.h>
+diff --git a/drivers/infiniband/hw/bnxt_re/bnxt_re.h b/drivers/infiniband/hw/bnxt_re/bnxt_re.h
+index 5032ca1..ebf7be8 100644
+--- a/drivers/infiniband/hw/bnxt_re/bnxt_re.h
++++ b/drivers/infiniband/hw/bnxt_re/bnxt_re.h
+@@ -93,6 +93,9 @@ struct bnxt_re_dev {
  
-+/* Device */
-+struct net_device *bnxt_re_get_netdev(struct ib_device *ibdev, u8 port_num)
-+{
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	struct net_device *netdev = NULL;
+ 	int				id;
+ 
++	struct delayed_work		worker;
++	u8				cur_prio_map;
 +
-+	rcu_read_lock();
-+	if (rdev)
-+		netdev = rdev->netdev;
-+	if (netdev)
-+		dev_hold(netdev);
-+
-+	rcu_read_unlock();
-+	return netdev;
-+}
-+
- int bnxt_re_query_device(struct ib_device *ibdev,
- 			 struct ib_device_attr *ib_attr,
- 			 struct ib_udata *udata)
-@@ -272,6 +288,113 @@ int bnxt_re_get_port_immutable(struct ib_device *ibdev, u8 port_num,
- 	immutable->max_mad_size = IB_MGMT_MAD_SIZE;
- 	return 0;
+ 	/* FP Notification Queue (CQ & SRQ) */
+ 	struct tasklet_struct		nq_task;
+ 
+diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
+index c84691a..92a217b 100644
+--- a/drivers/infiniband/hw/bnxt_re/main.c
++++ b/drivers/infiniband/hw/bnxt_re/main.c
+@@ -44,8 +44,10 @@
+ #include <linux/rculist.h>
+ #include <linux/spinlock.h>
+ #include <linux/pci.h>
++#include <net/dcbnl.h>
+ #include <net/ipv6.h>
+ #include <net/addrconf.h>
++#include <linux/if_ether.h>
+ 
+ #include <rdma/ib_verbs.h>
+ #include <rdma/ib_user_verbs.h>
+@@ -726,6 +728,50 @@ static void bnxt_re_dispatch_event(struct ib_device *ibdev, struct ib_qp *qp,
+ 	ib_dispatch_event(&ib_event);
  }
-+
-+int bnxt_re_query_pkey(struct ib_device *ibdev, u8 port_num,
-+		       u16 index, u16 *pkey)
+ 
++#define HWRM_QUEUE_PRI2COS_QCFG_INPUT_FLAGS_IVLAN      0x02
++static int bnxt_re_query_hwrm_pri2cos(struct bnxt_re_dev *rdev, u8 dir,
++				      u64 *cid_map)
 +{
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
++	struct hwrm_queue_pri2cos_qcfg_input req = {0};
++	struct bnxt *bp = netdev_priv(rdev->netdev);
++	struct hwrm_queue_pri2cos_qcfg_output resp;
++	struct bnxt_en_dev *en_dev = rdev->en_dev;
++	struct bnxt_fw_msg fw_msg;
++	u32 flags = 0;
++	u8 *qcfgmap, *tmp_map;
++	int rc = 0, i;
 +
-+	/* Ignore port_num */
++	if (!cid_map)
++		return -EINVAL;
 +
-+	memset(pkey, 0, sizeof(*pkey));
-+	return bnxt_qplib_get_pkey(&rdev->qplib_res,
-+				   &rdev->qplib_res.pkey_tbl, index, pkey);
-+}
++	memset(&fw_msg, 0, sizeof(fw_msg));
++	bnxt_re_init_hwrm_hdr(rdev, (void *)&req,
++			      HWRM_QUEUE_PRI2COS_QCFG, -1, -1);
++	flags |= (dir & 0x01);
++	flags |= HWRM_QUEUE_PRI2COS_QCFG_INPUT_FLAGS_IVLAN;
++	req.flags = cpu_to_le32(flags);
++	req.port_id = bp->pf.port_id;
 +
-+int bnxt_re_query_gid(struct ib_device *ibdev, u8 port_num,
-+		      int index, union ib_gid *gid)
-+{
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	int rc = 0;
++	bnxt_re_fill_fw_msg(&fw_msg, (void *)&req, sizeof(req), (void *)&resp,
++			    sizeof(resp), DFLT_HWRM_CMD_TIMEOUT);
++	rc = en_dev->en_ops->bnxt_send_fw_msg(en_dev, BNXT_ROCE_ULP, &fw_msg);
++	if (rc)
++		return rc;
 +
-+	/* Ignore port_num */
-+	memset(gid, 0, sizeof(*gid));
-+	rc = bnxt_qplib_get_sgid(&rdev->qplib_res,
-+				 &rdev->qplib_res.sgid_tbl, index,
-+				 (struct bnxt_qplib_gid *)gid);
++	if (resp.queue_cfg_info) {
++		dev_warn(rdev_to_dev(rdev),
++			 "Asymmetric cos queue configuration detected");
++		dev_warn(rdev_to_dev(rdev),
++			 " on device, QoS may not be fully functional\n");
++	}
++	qcfgmap = &resp.pri0_cos_queue_id;
++	tmp_map = (u8 *)cid_map;
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		tmp_map[i] = qcfgmap[i];
++
 +	return rc;
 +}
 +
-+int bnxt_re_del_gid(struct ib_device *ibdev, u8 port_num,
-+		    unsigned int index, void **context)
+ static bool bnxt_re_is_qp1_or_shadow_qp(struct bnxt_re_dev *rdev,
+ 					struct bnxt_re_qp *qp)
+ {
+@@ -757,6 +803,80 @@ static void bnxt_re_dev_stop(struct bnxt_re_dev *rdev)
+ 	mutex_unlock(&rdev->qp_lock);
+ }
+ 
++static u32 bnxt_re_get_priority_mask(struct bnxt_re_dev *rdev)
 +{
-+	int rc = 0;
-+	struct bnxt_re_gid_ctx *ctx, **ctx_tbl;
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	struct bnxt_qplib_sgid_tbl *sgid_tbl = &rdev->qplib_res.sgid_tbl;
++	u32 prio_map = 0, tmp_map = 0;
++	struct net_device *netdev;
++	struct dcb_app app;
 +
-+	/* Delete the entry from the hardware */
-+	ctx = *context;
-+	if (!ctx)
-+		return -EINVAL;
++	netdev = rdev->netdev;
 +
-+	if (sgid_tbl && sgid_tbl->active) {
-+		if (ctx->idx >= sgid_tbl->max)
-+			return -EINVAL;
-+		ctx->refcnt--;
-+		if (!ctx->refcnt) {
-+			rc = bnxt_qplib_del_sgid
-+					(sgid_tbl,
-+					 &sgid_tbl->tbl[ctx->idx], true);
-+			if (rc)
-+				dev_err(rdev_to_dev(rdev),
-+					"Failed to remove GID: %#x", rc);
-+			ctx_tbl = sgid_tbl->ctx;
-+			ctx_tbl[ctx->idx] = NULL;
-+			kfree(ctx);
++	memset(&app, 0, sizeof(app));
++	app.selector = IEEE_8021QAZ_APP_SEL_ETHERTYPE;
++	app.protocol = ETH_P_IBOE;
++	tmp_map = dcb_ieee_getapp_mask(netdev, &app);
++	prio_map = tmp_map;
++
++	app.selector = IEEE_8021QAZ_APP_SEL_DGRAM;
++	app.protocol = ROCE_V2_UDP_DPORT;
++	tmp_map = dcb_ieee_getapp_mask(netdev, &app);
++	prio_map |= tmp_map;
++
++	if (!prio_map)
++		prio_map = -EFAULT;
++	return prio_map;
++}
++
++static void bnxt_re_parse_cid_map(u8 prio_map, u8 *cid_map, u16 *cosq)
++{
++	u16 prio;
++	u8 id;
++
++	for (prio = 0, id = 0; prio < 8; prio++) {
++		if (prio_map & (1 << prio)) {
++			cosq[id] = cid_map[prio];
++			id++;
++			if (id == 2) /* Max 2 tcs supported */
++				break;
 +		}
-+	} else {
-+		return -EINVAL;
 +	}
-+	return rc;
 +}
 +
-+int bnxt_re_add_gid(struct ib_device *ibdev, u8 port_num,
-+		    unsigned int index, const union ib_gid *gid,
-+		    const struct ib_gid_attr *attr, void **context)
++static int bnxt_re_setup_qos(struct bnxt_re_dev *rdev)
 +{
++	u8 prio_map = 0;
++	u64 cid_map;
 +	int rc;
-+	u32 tbl_idx = 0;
-+	u16 vlan_id = 0xFFFF;
-+	struct bnxt_re_gid_ctx *ctx, **ctx_tbl;
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	struct bnxt_qplib_sgid_tbl *sgid_tbl = &rdev->qplib_res.sgid_tbl;
 +
-+	if ((attr->ndev) && is_vlan_dev(attr->ndev))
-+		vlan_id = vlan_dev_vlan_id(attr->ndev);
++	/* Get priority for roce */
++	rc = bnxt_re_get_priority_mask(rdev);
++	if (rc < 0)
++		return rc;
++	prio_map = (u8)rc;
 +
-+	rc = bnxt_qplib_add_sgid(sgid_tbl, (struct bnxt_qplib_gid *)gid,
-+				 rdev->qplib_res.netdev->dev_addr,
-+				 vlan_id, true, &tbl_idx);
-+	if (rc == -EALREADY) {
-+		ctx_tbl = sgid_tbl->ctx;
-+		ctx_tbl[tbl_idx]->refcnt++;
-+		*context = ctx_tbl[tbl_idx];
++	if (prio_map == rdev->cur_prio_map)
 +		return 0;
++	rdev->cur_prio_map = prio_map;
++	/* Get cosq id for this priority */
++	rc = bnxt_re_query_hwrm_pri2cos(rdev, 0, &cid_map);
++	if (rc) {
++		dev_warn(rdev_to_dev(rdev), "no cos for p_mask %x\n", prio_map);
++		return rc;
 +	}
++	/* Parse CoS IDs for app priority */
++	bnxt_re_parse_cid_map(prio_map, (u8 *)&cid_map, rdev->cosq);
 +
-+	if (rc < 0) {
-+		dev_err(rdev_to_dev(rdev), "Failed to add GID: %#x", rc);
++	/* Config BONO. */
++	rc = bnxt_qplib_map_tc2cos(&rdev->qplib_res, rdev->cosq);
++	if (rc) {
++		dev_warn(rdev_to_dev(rdev), "no tc for cos{%x, %x}\n",
++			 rdev->cosq[0], rdev->cosq[1]);
 +		return rc;
 +	}
 +
-+	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
-+	if (!ctx)
-+		return -ENOMEM;
-+	ctx_tbl = sgid_tbl->ctx;
-+	ctx->idx = tbl_idx;
-+	ctx->refcnt = 1;
-+	ctx_tbl[tbl_idx] = ctx;
-+
-+	return rc;
++	return 0;
 +}
 +
-+enum rdma_link_layer bnxt_re_get_link_layer(struct ib_device *ibdev,
-+					    u8 port_num)
-+{
-+	return IB_LINK_LAYER_ETHERNET;
-+}
-+
- /* Protection Domains */
- int bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
+ static void bnxt_re_ib_unreg(struct bnxt_re_dev *rdev, bool lock_wait)
  {
-diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.h b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-index 458b887..144a48b 100644
---- a/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-+++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-@@ -39,6 +39,11 @@
- #ifndef __BNXT_RE_IB_VERBS_H__
- #define __BNXT_RE_IB_VERBS_H__
+ 	int i, rc;
+@@ -768,6 +888,9 @@ static void bnxt_re_ib_unreg(struct bnxt_re_dev *rdev, bool lock_wait)
+ 		/* Cleanup ib dev */
+ 		bnxt_re_unregister_ib(rdev);
+ 	}
++	if (test_and_clear_bit(BNXT_RE_FLAG_QOS_WORK_REG, &rdev->flags))
++		cancel_delayed_work(&rdev->worker);
++
+ 	bnxt_re_cleanup_res(rdev);
+ 	bnxt_re_free_res(rdev, lock_wait);
  
-+struct bnxt_re_gid_ctx {
-+	u32			idx;
-+	u32			refcnt;
-+};
-+
- struct bnxt_re_pd {
- 	struct bnxt_re_dev	*rdev;
- 	struct ib_pd		ib_pd;
-@@ -54,6 +59,8 @@ struct bnxt_re_ucontext {
- 	spinlock_t		sh_lock;	/* protect shpg */
- };
- 
-+struct net_device *bnxt_re_get_netdev(struct ib_device *ibdev, u8 port_num);
-+
- int bnxt_re_query_device(struct ib_device *ibdev,
- 			 struct ib_device_attr *ib_attr,
- 			 struct ib_udata *udata);
-@@ -67,6 +74,17 @@ int bnxt_re_modify_port(struct ib_device *ibdev, u8 port_num,
- 			struct ib_port_modify *port_modify);
- int bnxt_re_get_port_immutable(struct ib_device *ibdev, u8 port_num,
- 			       struct ib_port_immutable *immutable);
-+int bnxt_re_query_pkey(struct ib_device *ibdev, u8 port_num,
-+		       u16 index, u16 *pkey);
-+int bnxt_re_del_gid(struct ib_device *ibdev, u8 port_num,
-+		    unsigned int index, void **context);
-+int bnxt_re_add_gid(struct ib_device *ibdev, u8 port_num,
-+		    unsigned int index, const union ib_gid *gid,
-+		    const struct ib_gid_attr *attr, void **context);
-+int bnxt_re_query_gid(struct ib_device *ibdev, u8 port_num,
-+		      int index, union ib_gid *gid);
-+enum rdma_link_layer bnxt_re_get_link_layer(struct ib_device *ibdev,
-+					    u8 port_num);
- struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
- 			       struct ib_ucontext *context,
- 			       struct ib_udata *udata);
-diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
-index 847aa3f..0071831 100644
---- a/drivers/infiniband/hw/bnxt_re/main.c
-+++ b/drivers/infiniband/hw/bnxt_re/main.c
-@@ -438,6 +438,13 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
- 	ibdev->query_port		= bnxt_re_query_port;
- 	ibdev->modify_port		= bnxt_re_modify_port;
- 	ibdev->get_port_immutable	= bnxt_re_get_port_immutable;
-+	ibdev->query_pkey		= bnxt_re_query_pkey;
-+	ibdev->query_gid		= bnxt_re_query_gid;
-+	ibdev->get_netdev		= bnxt_re_get_netdev;
-+	ibdev->add_gid			= bnxt_re_add_gid;
-+	ibdev->del_gid			= bnxt_re_del_gid;
-+	ibdev->get_link_layer		= bnxt_re_get_link_layer;
-+
- 	ibdev->alloc_pd			= bnxt_re_alloc_pd;
- 	ibdev->dealloc_pd		= bnxt_re_dealloc_pd;
- 	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
-diff --git a/drivers/infiniband/hw/bnxt_re/qplib_res.c b/drivers/infiniband/hw/bnxt_re/qplib_res.c
-index d91a034..62447b3 100644
---- a/drivers/infiniband/hw/bnxt_re/qplib_res.c
-+++ b/drivers/infiniband/hw/bnxt_re/qplib_res.c
-@@ -507,6 +507,11 @@ static void bnxt_qplib_cleanup_sgid_tbl(struct bnxt_qplib_res *res,
- {
- 	int i;
- 
-+	for (i = 0; i < sgid_tbl->max; i++) {
-+		if (memcmp(&sgid_tbl->tbl[i], &bnxt_qplib_gid_zero,
-+			   sizeof(bnxt_qplib_gid_zero)))
-+			bnxt_qplib_del_sgid(sgid_tbl, &sgid_tbl->tbl[i], true);
-+	}
- 	memset(sgid_tbl->tbl, 0, sizeof(struct bnxt_qplib_gid) * sgid_tbl->max);
- 	memset(sgid_tbl->hw_id, -1, sizeof(u16) * sgid_tbl->max);
- 	sgid_tbl->active = 0;
-diff --git a/drivers/infiniband/hw/bnxt_re/qplib_res.h b/drivers/infiniband/hw/bnxt_re/qplib_res.h
-index 4323953..6277d80 100644
---- a/drivers/infiniband/hw/bnxt_re/qplib_res.h
-+++ b/drivers/infiniband/hw/bnxt_re/qplib_res.h
-@@ -186,6 +186,9 @@ struct bnxt_qplib_res {
- 	struct bnxt_qplib_dpi_tbl	dpi_tbl;
- };
- 
-+#define to_bnxt_qplib(ptr, type, member)	\
-+	container_of(ptr, type, member)
-+
- struct bnxt_qplib_pd;
- struct bnxt_qplib_dev_attr;
- 
-diff --git a/drivers/infiniband/hw/bnxt_re/qplib_sp.c b/drivers/infiniband/hw/bnxt_re/qplib_sp.c
-index 0578420..ba16f6b 100644
---- a/drivers/infiniband/hw/bnxt_re/qplib_sp.c
-+++ b/drivers/infiniband/hw/bnxt_re/qplib_sp.c
-@@ -46,6 +46,10 @@
- #include "qplib_res.h"
- #include "qplib_rcfw.h"
- #include "qplib_sp.h"
-+
-+const struct bnxt_qplib_gid bnxt_qplib_gid_zero = {{ 0, 0, 0, 0, 0, 0, 0, 0,
-+						     0, 0, 0, 0, 0, 0, 0, 0 } };
-+
- /* Device */
- int bnxt_qplib_get_dev_attr(struct bnxt_qplib_rcfw *rcfw,
- 			    struct bnxt_qplib_dev_attr *attr)
-@@ -129,6 +133,220 @@ int bnxt_qplib_get_dev_attr(struct bnxt_qplib_rcfw *rcfw,
- 	return 0;
+@@ -810,6 +933,16 @@ static void bnxt_re_set_resource_limits(struct bnxt_re_dev *rdev)
+ 		rdev->dev_attr.tqm_alloc_reqs[i];
  }
  
-+/* SGID */
-+int bnxt_qplib_get_sgid(struct bnxt_qplib_res *res,
-+			struct bnxt_qplib_sgid_tbl *sgid_tbl, int index,
-+			struct bnxt_qplib_gid *gid)
++/* worker thread for polling periodic events. Now used for QoS programming*/
++static void bnxt_re_worker(struct work_struct *work)
 +{
-+	if (index > sgid_tbl->max) {
-+		dev_err(&res->pdev->dev,
-+			"QPLIB: Index %d exceeded SGID table max (%d)",
-+			index, sgid_tbl->max);
-+		return -EINVAL;
-+	}
-+	memcpy(gid, &sgid_tbl->tbl[index], sizeof(*gid));
-+	return 0;
++	struct bnxt_re_dev *rdev = container_of(work, struct bnxt_re_dev,
++						worker.work);
++
++	bnxt_re_setup_qos(rdev);
++	schedule_delayed_work(&rdev->worker, msecs_to_jiffies(30000));
 +}
 +
-+int bnxt_qplib_del_sgid(struct bnxt_qplib_sgid_tbl *sgid_tbl,
-+			struct bnxt_qplib_gid *gid, bool update)
+ static int bnxt_re_ib_reg(struct bnxt_re_dev *rdev)
+ {
+ 	int i, j, rc;
+@@ -894,6 +1027,14 @@ static int bnxt_re_ib_reg(struct bnxt_re_dev *rdev)
+ 		goto fail;
+ 	}
+ 
++	rc = bnxt_re_setup_qos(rdev);
++	if (rc)
++		pr_info("RoCE priority not yet configured\n");
++
++	INIT_DELAYED_WORK(&rdev->worker, bnxt_re_worker);
++	set_bit(BNXT_RE_FLAG_QOS_WORK_REG, &rdev->flags);
++	schedule_delayed_work(&rdev->worker, msecs_to_jiffies(30000));
++
+ 	/* Register ib dev */
+ 	rc = bnxt_re_register_ib(rdev);
+ 	if (rc) {
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_sp.c b/drivers/infiniband/hw/bnxt_re/qplib_sp.c
+index a936c48..7b31ecc 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_sp.c
++++ b/drivers/infiniband/hw/bnxt_re/qplib_sp.c
+@@ -799,3 +799,40 @@ int bnxt_qplib_free_fast_reg_page_list(struct bnxt_qplib_res *res,
+ 	bnxt_qplib_free_hwq(res->pdev, &frpl->hwq);
+ 	return 0;
+ }
++
++int bnxt_qplib_map_tc2cos(struct bnxt_qplib_res *res, u16 *cids)
 +{
-+	struct bnxt_qplib_res *res = to_bnxt_qplib(sgid_tbl,
-+						   struct bnxt_qplib_res,
-+						   sgid_tbl);
 +	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
-+	int index;
++	struct cmdq_map_tc_to_cos req;
++	struct creq_map_tc_to_cos_resp *resp;
++	u16 cmd_flags = 0;
++	int tleft;
 +
-+	if (!sgid_tbl) {
-+		dev_err(&res->pdev->dev, "QPLIB: SGID table not allocated");
++	RCFW_CMD_PREP(req, MAP_TC_TO_COS, cmd_flags);
++	req.cos0 = cpu_to_le16(cids[0]);
++	req.cos1 = cpu_to_le16(cids[1]);
++
++	resp = bnxt_qplib_rcfw_send_message(rcfw, (void *)&req, NULL, 0);
++	if (!resp) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: MAP_TC2COS send failed");
 +		return -EINVAL;
 +	}
-+	/* Do we need a sgid_lock here? */
-+	if (!sgid_tbl->active) {
++
++	tleft = bnxt_qplib_rcfw_block_for_resp(rcfw, le16_to_cpu(req.cookie));
++	if (!tleft) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: MAP_TC2COS timed out");
++		return -ETIMEDOUT;
++	}
++
++	if (resp->status ||
++	    le16_to_cpu(resp->cookie) != le16_to_cpu(req.cookie)) {
++		dev_err(&res->pdev->dev, "QPLIB: SP: MAP_TC2COS failed ");
 +		dev_err(&res->pdev->dev,
-+			"QPLIB: SGID table has no active entries");
-+		return -ENOMEM;
++			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
++			resp->status, le16_to_cpu(req.cookie),
++			le16_to_cpu(resp->cookie));
++		return -EINVAL;
 +	}
-+	for (index = 0; index < sgid_tbl->max; index++) {
-+		if (!memcmp(&sgid_tbl->tbl[index], gid, sizeof(*gid)))
-+			break;
-+	}
-+	if (index == sgid_tbl->max) {
-+		dev_warn(&res->pdev->dev, "GID not found in the SGID table");
-+		return 0;
-+	}
-+	/* Remove GID from the SGID table */
-+	if (update) {
-+		struct cmdq_delete_gid req;
-+		struct creq_delete_gid_resp *resp;
-+		u16 cmd_flags = 0;
 +
-+		RCFW_CMD_PREP(req, DELETE_GID, cmd_flags);
-+		if (sgid_tbl->hw_id[index] == 0xFFFF) {
-+			dev_err(&res->pdev->dev,
-+				"QPLIB: GID entry contains an invalid HW id");
-+			return -EINVAL;
-+		}
-+		req.gid_index = cpu_to_le16(sgid_tbl->hw_id[index]);
-+		resp = (struct creq_delete_gid_resp *)
-+			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req, NULL,
-+						     0);
-+		if (!resp) {
-+			dev_err(&res->pdev->dev,
-+				"QPLIB: SP: DELETE_GID send failed");
-+			return -EINVAL;
-+		}
-+		if (!bnxt_qplib_rcfw_wait_for_resp(rcfw,
-+						   le16_to_cpu(req.cookie))) {
-+			/* Cmd timed out */
-+			dev_err(&res->pdev->dev,
-+				"QPLIB: SP: DELETE_GID timed out");
-+			return -ETIMEDOUT;
-+		}
-+		if (resp->status ||
-+		    le16_to_cpu(resp->cookie) != le16_to_cpu(req.cookie)) {
-+			dev_err(&res->pdev->dev,
-+				"QPLIB: SP: DELETE_GID failed ");
-+			dev_err(&res->pdev->dev,
-+				"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
-+				resp->status, le16_to_cpu(req.cookie),
-+				le16_to_cpu(resp->cookie));
-+			return -EINVAL;
-+		}
-+	}
-+	memcpy(&sgid_tbl->tbl[index], &bnxt_qplib_gid_zero,
-+	       sizeof(bnxt_qplib_gid_zero));
-+	sgid_tbl->active--;
-+	dev_dbg(&res->pdev->dev,
-+		"QPLIB: SGID deleted hw_id[0x%x] = 0x%x active = 0x%x",
-+		 index, sgid_tbl->hw_id[index], sgid_tbl->active);
-+	sgid_tbl->hw_id[index] = (u16)-1;
-+
-+	/* unlock */
 +	return 0;
 +}
-+
-+int bnxt_qplib_add_sgid(struct bnxt_qplib_sgid_tbl *sgid_tbl,
-+			struct bnxt_qplib_gid *gid, u8 *smac, u16 vlan_id,
-+			bool update, u32 *index)
-+{
-+	struct bnxt_qplib_res *res = to_bnxt_qplib(sgid_tbl,
-+						   struct bnxt_qplib_res,
-+						   sgid_tbl);
-+	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
-+	int i, free_idx, rc = 0;
-+
-+	if (!sgid_tbl) {
-+		dev_err(&res->pdev->dev, "QPLIB: SGID table not allocated");
-+		return -EINVAL;
-+	}
-+	/* Do we need a sgid_lock here? */
-+	if (sgid_tbl->active == sgid_tbl->max) {
-+		dev_err(&res->pdev->dev, "QPLIB: SGID table is full");
-+		return -ENOMEM;
-+	}
-+	free_idx = sgid_tbl->max;
-+	for (i = 0; i < sgid_tbl->max; i++) {
-+		if (!memcmp(&sgid_tbl->tbl[i], gid, sizeof(*gid))) {
-+			dev_dbg(&res->pdev->dev,
-+				"QPLIB: SGID entry already exist in entry %d!",
-+				i);
-+			*index = i;
-+			return -EALREADY;
-+		} else if (!memcmp(&sgid_tbl->tbl[i], &bnxt_qplib_gid_zero,
-+				   sizeof(bnxt_qplib_gid_zero)) &&
-+			   free_idx == sgid_tbl->max) {
-+			free_idx = i;
-+		}
-+	}
-+	if (free_idx == sgid_tbl->max) {
-+		dev_err(&res->pdev->dev,
-+			"QPLIB: SGID table is FULL but count is not MAX??");
-+		return -ENOMEM;
-+	}
-+	if (update) {
-+		struct cmdq_add_gid req;
-+		struct creq_add_gid_resp *resp;
-+		u16 cmd_flags = 0;
-+		u32 temp32[4];
-+		u16 temp16[3];
-+
-+		RCFW_CMD_PREP(req, ADD_GID, cmd_flags);
-+
-+		memcpy(temp32, gid->data, sizeof(struct bnxt_qplib_gid));
-+		req.gid[0] = cpu_to_be32(temp32[3]);
-+		req.gid[1] = cpu_to_be32(temp32[2]);
-+		req.gid[2] = cpu_to_be32(temp32[1]);
-+		req.gid[3] = cpu_to_be32(temp32[0]);
-+		if (vlan_id != 0xFFFF)
-+			req.vlan = cpu_to_le16((vlan_id &
-+					CMDQ_ADD_GID_VLAN_VLAN_ID_MASK) |
-+					CMDQ_ADD_GID_VLAN_TPID_TPID_8100 |
-+					CMDQ_ADD_GID_VLAN_VLAN_EN);
-+
-+		/* MAC in network format */
-+		memcpy(temp16, smac, 6);
-+		req.src_mac[0] = cpu_to_be16(temp16[0]);
-+		req.src_mac[1] = cpu_to_be16(temp16[1]);
-+		req.src_mac[2] = cpu_to_be16(temp16[2]);
-+
-+		resp = (struct creq_add_gid_resp *)
-+			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
-+						     NULL, 0);
-+		if (!resp) {
-+			dev_err(&res->pdev->dev,
-+				"QPLIB: SP: ADD_GID send failed");
-+			return -EINVAL;
-+		}
-+		if (!bnxt_qplib_rcfw_wait_for_resp(rcfw,
-+						   le16_to_cpu(req.cookie))) {
-+			/* Cmd timed out */
-+			dev_err(&res->pdev->dev,
-+				"QPIB: SP: ADD_GID timed out");
-+			return -ETIMEDOUT;
-+		}
-+		if (resp->status ||
-+		    le16_to_cpu(resp->cookie) != le16_to_cpu(req.cookie)) {
-+			dev_err(&res->pdev->dev, "QPLIB: SP: ADD_GID failed ");
-+			dev_err(&res->pdev->dev,
-+				"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
-+				resp->status, le16_to_cpu(req.cookie),
-+				le16_to_cpu(resp->cookie));
-+			return -EINVAL;
-+		}
-+		sgid_tbl->hw_id[free_idx] = le32_to_cpu(resp->xid);
-+	}
-+	/* Add GID to the sgid_tbl */
-+	memcpy(&sgid_tbl->tbl[free_idx], gid, sizeof(*gid));
-+	sgid_tbl->active++;
-+	dev_dbg(&res->pdev->dev,
-+		"QPLIB: SGID added hw_id[0x%x] = 0x%x active = 0x%x",
-+		 free_idx, sgid_tbl->hw_id[free_idx], sgid_tbl->active);
-+
-+	*index = free_idx;
-+	/* unlock */
-+	return rc;
-+}
-+
-+/* pkeys */
-+int bnxt_qplib_get_pkey(struct bnxt_qplib_res *res,
-+			struct bnxt_qplib_pkey_tbl *pkey_tbl, u16 index,
-+			u16 *pkey)
-+{
-+	if (index == 0xFFFF) {
-+		*pkey = 0xFFFF;
-+		return 0;
-+	}
-+	if (index > pkey_tbl->max) {
-+		dev_err(&res->pdev->dev,
-+			"QPLIB: Index %d exceeded PKEY table max (%d)",
-+			index, pkey_tbl->max);
-+		return -EINVAL;
-+	}
-+	memcpy(pkey, &pkey_tbl->tbl[index], sizeof(*pkey));
-+	return 0;
-+}
-+
- int bnxt_qplib_del_pkey(struct bnxt_qplib_res *res,
- 			struct bnxt_qplib_pkey_tbl *pkey_tbl, u16 *pkey,
- 			bool update)
 diff --git a/drivers/infiniband/hw/bnxt_re/qplib_sp.h b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
-index f7584c5..a3d4aab 100644
+index 18c94c8..1442a61 100644
 --- a/drivers/infiniband/hw/bnxt_re/qplib_sp.h
 +++ b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
-@@ -78,6 +78,17 @@ struct bnxt_qplib_gid {
- 	u8				data[16];
- };
- 
-+int bnxt_qplib_get_sgid(struct bnxt_qplib_res *res,
-+			struct bnxt_qplib_sgid_tbl *sgid_tbl, int index,
-+			struct bnxt_qplib_gid *gid);
-+int bnxt_qplib_del_sgid(struct bnxt_qplib_sgid_tbl *sgid_tbl,
-+			struct bnxt_qplib_gid *gid, bool update);
-+int bnxt_qplib_add_sgid(struct bnxt_qplib_sgid_tbl *sgid_tbl,
-+			struct bnxt_qplib_gid *gid, u8 *mac, u16 vlan_id,
-+			bool update, u32 *index);
-+int bnxt_qplib_get_pkey(struct bnxt_qplib_res *res,
-+			struct bnxt_qplib_pkey_tbl *pkey_tbl, u16 index,
-+			u16 *pkey);
- int bnxt_qplib_del_pkey(struct bnxt_qplib_res *res,
- 			struct bnxt_qplib_pkey_tbl *pkey_tbl, u16 *pkey,
- 			bool update);
+@@ -156,4 +156,5 @@ int bnxt_qplib_alloc_fast_reg_page_list(struct bnxt_qplib_res *res,
+ 					struct bnxt_qplib_frpl *frpl, int max);
+ int bnxt_qplib_free_fast_reg_page_list(struct bnxt_qplib_res *res,
+ 				       struct bnxt_qplib_frpl *frpl);
++int bnxt_qplib_map_tc2cos(struct bnxt_qplib_res *res, u16 *cids);
+ #endif /* __BNXT_QPLIB_SP_H__*/
 -- 
 2.5.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
