@@ -1,46 +1,42 @@
-From: Marty Plummer <netz.kernel@gmail.com>
-Subject: net: hix5hd2_gmac uninitialized net_device
-Date: Fri, 10 Feb 2017 01:45:45 -0600
-Message-ID: <20170210074544.eoabpjf522pmwoui@tha-monstah.mydomain>
-References: <20170210074118.vchxsn7fag6tlsmg@tha-monstah.mydomain>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
+Date: Fri, 10 Feb 2017 09:20:04 +0100
+Message-ID: <CAK8P3a2Yss8r0qoubg2C7Jp+0JE3Fx+igWHQOscR+SB6d+W_HA@mail.gmail.com>
+References: <20170209150834.1158193-1-arnd@arndb.de>
+ <c6ab6498-8094-b23e-0b93-c3bf1c866992@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:36731 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751922AbdBJHqf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 02:46:35 -0500
-Received: by mail-ot0-f194.google.com with SMTP id 36so3055233otx.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 23:45:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170210074118.vchxsn7fag6tlsmg@tha-monstah.mydomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Networking <netdev@vger.kernel.org>, Russell King <linux@armlinux.org.uk>,
+ Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S . Miller" <davem@davemloft.net>,
+ Linux ARM <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <c6ab6498-8094-b23e-0b93-c3bf1c866992@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 10, 2017 at 01:41:18AM -0600, Marty Plummer wrote:
-> Greetings.
-> 
-> I think I may have found a bug with the hix5hd2_gmac driver; unless I'm
-> missing something, it appears that somehow the net_device struct is not
-> being initialized properly in the hix5hd2_dev_probe function.
-> 
-> Having set up my devicetree properly (I hope, still new to this), I first
-> recieved an error when inserting the module:
-> "(unnamed net_device) (uninitialized): No irq resource"
-> while I very clearly have the interrupts property defined within this node.
-> 
-> Removing the phy-handle node for testing purposes, I get a similar message:
-> "(unnamed net_device) (uninitialized): not find phy-handle"
-> 
-> So, it seams to my (admittedly inexperienced) mind that the ndev pointer is
-> not being initialized properly, or that the error checking at line 1111
-> is not functioning properly either, for it to have gotten so far along
-> into the function, only to fail at the attempt to access the ndev pointer.
-> 
-> If you require more information from me, please let me know.
-> 
-> Marty
+On Thu, Feb 9, 2017 at 7:22 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 02/09/2017 07:08 AM, Arnd Bergmann wrote:
+> I disabled CONFIG_NETDEVICES to force CONFIG_PHY not to be set here, and
+> I was not able to reproduce this, what am I missing?
 
-Sorry, forgot the subject. Still getting the hang of mutt.
+In the ARMv5 allmodconfig build, this fails because CONFIG_PHY=m, and
+we can't call into it. You could use IS_BUILTIN instead of IS_ENABLED in
+the header as a oneline workaround, but I think that would be more confusing
+to real users that try to use CONFIG_PHY=m without realizing why they lose
+access to their switch.
+
+        Arnd
