@@ -1,38 +1,38 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: cafe8df8b9bc clashes with DSA
-Date: Fri, 10 Feb 2017 13:15:34 -0500
-Message-ID: <87efz5q5dl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <77093903.194093.1486748785802.JavaMail.zimbra@savoirfairelinux.com> <ccabc2d3-9589-f4f5-cdab-ee3ba40e8bc7@gmail.com> <87wpcyq6an.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170210180640.GJ2103@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/packet: use-after-free in packet_rcv_fanout
+Date: Fri, 10 Feb 2017 10:15:51 -0800
+Message-ID: <1486750551.7793.153.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
+         <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
+         <1486696765.7793.119.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1486697003.7793.121.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpXHktH+Wo7GtJC4afY_Wm11PpKcNFx41f_x4Vs93J-bMA@mail.gmail.com>
+         <1486749566.7793.150.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpV836zWmUY+CSj9ffwn-ng4J96mhNurXVANHd29DX+F_A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Florian Fainelli <f.fainelli@gmail.com>, maowenan@huawei.com,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:43670 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752897AbdBJS1E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:27:04 -0500
-In-Reply-To: <20170210180640.GJ2103@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Philip Pettersson <philip.pettersson@gmail.com>,
+        weongyo.linux@gmail.com, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpV836zWmUY+CSj9ffwn-ng4J96mhNurXVANHd29DX+F_A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+On Fri, 2017-02-10 at 10:02 -0800, Cong Wang wrote:
 
-Andrew Lunn <andrew@lunn.ch> writes:
+> I don't have to give a 100% correct patch to prove my explanation
+> of the crash. At least it makes more sense than yours...
 
-> David will at some point merge net into net-next.
+I will submit it regardless of what you think.
 
-Yes I know that, I just wasn't sure if having such crash in net-next was
-tolerated or not. Cherry-picking 6d9f66ac7fec does the job on my side.
-
-> Until then, you can work around the issue by enabling the PHY drivers
-> for you hardware. You are also likely to gain a few nice features,
-> like PHY interrupts rather than polling, maybe some temperature
-> sensors, PHY statistics, etc...
-
-Hum I have CONFIG_MARVELL_PHY enabled, am I missing something?
-
-Thanks,
-
-        Vivien
+It solves _another_ issue, one of of 10 in af_packet.c
