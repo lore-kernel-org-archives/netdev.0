@@ -1,57 +1,91 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
-Date: Thu, 9 Feb 2017 20:55:34 -0800
-Message-ID: <CALx6S3695kv=Rr9V48k_CByCGvXLKzoM2XgpHiysB+cpaA4tzg@mail.gmail.com>
-References: <CALx6S368wyPdLkyvAhFG3BXJFJifFSJSK+x__2sQr1rGeP8aRw@mail.gmail.com>
- <20170209.204229.1662524081519832785.davem@davemloft.net> <CALx6S37_GOP4a0x2aVbde1ynZRxDXx3A+YfY6sMMEZQEKN_1+g@mail.gmail.com>
- <20170209.223348.2143869696524078186.davem@davemloft.net>
+From: Kaiwen Xu <kevin@kevxu.net>
+Subject: Re: loopback device reference count leakage
+Date: Fri, 10 Feb 2017 05:45:36 +0000
+Message-ID: <BY1PR17MB0101812AA1E386BB56CBF13BA1440@BY1PR17MB0101.namprd17.prod.outlook.com>
+References: <BY1PR17MB0101922AF9444B40E31B3B3CA1750@BY1PR17MB0101.namprd17.prod.outlook.com>
+ <CAM_iQpXQ5MyL_KYNctZuZLv_w-ai3pmXKswOLXYeEYmVBdQqJA@mail.gmail.com>
+ <CO2PR17MB01050D56F6EE3C8D54B00CAAA1770@CO2PR17MB0105.namprd17.prod.outlook.com>
+ <CAM_iQpWJmXnsZ4D870aEZ+HL3pfaZU3HyunyxnhG9=EHS0Tcdg@mail.gmail.com>
+ <CO2PR17MB01057D980A6B7827B48BD7A7A1760@CO2PR17MB0105.namprd17.prod.outlook.com>
+ <CO2PR17MB0105551B80302C4B5657CA80A1430@CO2PR17MB0105.namprd17.prod.outlook.com>
+ <CAM_iQpVpjhSLGrqQAL4N=X3hqcZBQd1F+2QzO+7rmLJijq4hRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kernel Team <kernel-team@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:33183 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751071AbdBJF1P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 00:27:15 -0500
-Received: by mail-qk0-f196.google.com with SMTP id 11so3695667qkl.0
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 21:27:15 -0800 (PST)
-In-Reply-To: <20170209.223348.2143869696524078186.davem@davemloft.net>
+Received: from bay004-omc4s15.hotmail.com ([65.54.190.217]:64777 "EHLO
+        BAY004-OMC4S15.hotmail.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751000AbdBJFqZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 00:46:25 -0500
+In-Reply-To: <CAM_iQpVpjhSLGrqQAL4N=X3hqcZBQd1F+2QzO+7rmLJijq4hRA@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <05429510766D5242B78B38761DDE4F45@namprd17.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 7:33 PM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Thu, 9 Feb 2017 18:29:54 -0800
->
->> So we have thousands or LOC coming into drivers every day anyway with
->> all those properties anyway, so this "restricted" environment solves
->> at best 1% of the problem.
->
-> What you must understand is that no matter what someone outside of
-> upstream writes into an eBPF program, it's safe, and we can absolutely
-> prove this with the verifier and the invariants of the execution
-> environment.
->
-This is the exact same argument the userspace stack proponents will
-use-- put your stack in userspace and you can't crash the host. But
-just like eBPF that does not at all mean the logic of the program is
-correct. Getting into a mode where we drop every packet, or checksums
-are miscomputed, or a protocol field is miswritten is entirely
-possible. The value of coding in the Linux kernel, maybe the only
-truly relevant point compared to userspace stacks, is the scrutiny,
-the testing, the debugging, and the eyes of experts we get to look at
-every line going into the kernel to avoid such problems. Even though
-there's the possibility of crash or deadloacking the system, I would
-absolutely put the quality of kernel code over _any_ piece of
-userspace code _any_ day of the week. Maybe some day we'll see a
-process for XDP/BPF for reviewing and accepting code and you along
-with several of established experts on netdev will be earnestly
-reviewing such code, but until then I am more inclined to stick with
-writing kernel code for anything other than simple things that are
-amenable to BPF. The problem with kernel bypass is not just that it
-bypasses the well-written and well-tested kernel code, but that it
-also bypasses the process.
+I am using macvlan device inside the container. With following Docker
+network plugin:
 
-Tom
+https://github.com/gopher-net/macvlan-docker-plugin
+
+Each macvlan device, which gets assigned into the container network
+namespace, is attached to host's vlan device, which is then attached to
+host's eth0.
+
+    eth0  <==  eth0.1000  <==  macvlan0 (host macvlan device)
+                          \==  macvlan1 (container macvlan device)
+                          \==  macvlan2 (container macvlan device)
+                          ...
+
+eth0 has a 10.x.x.x/24 IP address. eth0.1000 is able to use any of the
+addresses in another 10.x.x.y/24 range (different from the /24 assigned to
+eth0), but itself isn't directly assigned an IP address. macvlan0, which
+is on the host, is assigned an IP address in the 10.x.x.y/24 range that
+belongs to eth0.1000. When container start up, a new macvlan device is
+created attaching to eth0.1000 with a different 10.x.x.y/24 address,
+which is assigned into the container network namespace. The container's
+10.x.x.y/24 address is directly reachable outside of the host.
+
+Thanks,
+Kaiwen
+
+On Wed, Feb 08, 2017 at 01:50:57PM -0800, Cong Wang wrote:
+> On Mon, Feb 6, 2017 at 6:32 PM, Kaiwen Xu <kevin@kevxu.net> wrote:
+> > Hi Cong,
+> >
+> > I did some more testing, seems like your second assumption is correct.
+> > There is indeed some things holding the references to a particular dst
+> > which preventing it to be gc'ed.
+> 
+> Excellent!
+> 
+> >
+> > I added logging to each dst_hold (or dst_hold_safe, or
+> > skb_dst_force_safe) and dst_release, which formatted as following:
+> >
+> > <dev name> (<protocol>) [<dst addr>]: dst_release / dst_hold ... <refcnt> <caller function>
+> >
+> > And inside dst_gc_task(), I added logging when gc delay occurred,
+> > formatted as:
+> >
+> > [dst_gc_task] <dev name> (<protocol>): delayed <refcnt>
+> >
+> > I have the log attached.
+> 
+> The following line looks suspicious:
+> 
+> Feb  6 16:27:24 <hostname> kernel: [63589.458067] [dst_gc_task]
+> lodebug (2): delayed 19
+> 
+> Looks like you ended up having one dst whose refcnt is 19 in GC,
+> and this lasted for a rather long time for some reason.
+> 
+> It is hard to know if it is a refcnt leak even with your log, since there were
+> 4K+ refcnt'ing happened on that dst...
+> 
+> Meanwhile, can you share your setup of your container? What network device
+> do you use in your container? How is it connected to outside?
+> 
+> Thanks.
