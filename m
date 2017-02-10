@@ -1,88 +1,79 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 2/2] actions: Add support for user cookies
-Date: Fri, 10 Feb 2017 06:24:50 -0500
-Message-ID: <5a189312-8ac0-2508-d5d1-43db24959b5d@mojatatu.com>
-References: <1486725492-16748-1-git-send-email-jhs@emojatatu.com>
- <1486725492-16748-2-git-send-email-jhs@emojatatu.com>
+From: Selvin Xavier <selvin.xavier@broadcom.com>
+Subject: Re: [PATCH for bnxt_re V4 03/21] RDMA/bnxt_re: register with the NIC driver
+Date: Fri, 10 Feb 2017 17:11:00 +0530
+Message-ID: <CA+sbYW2iajTVnHUVhdch+y-TjexcKpwFCCS0bx+iUc=OA3U3YA@mail.gmail.com>
+References: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
+ <1482320530-5344-4-git-send-email-selvin.xavier@broadcom.com> <1486412780.86943.5.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mrv@mojatatu.com,
-        Jamal Hadi Salim <hadi@mojatatu.com>
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-rdma@vger.kernel.org,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36690 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751690AbdBJLeb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:34:31 -0500
-Received: by mail-io0-f193.google.com with SMTP id q20so5504471ioi.3
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:34:12 -0800 (PST)
-In-Reply-To: <1486725492-16748-2-git-send-email-jhs@emojatatu.com>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:36693 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752030AbdBJLtX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:49:23 -0500
+Received: by mail-qk0-f173.google.com with SMTP id 11so35770402qkl.3
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:48:25 -0800 (PST)
+In-Reply-To: <1486412780.86943.5.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-02-10 06:18 AM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <hadi@mojatatu.com>
+On Tue, Feb 7, 2017 at 1:56 AM, Doug Ledford <dledford@redhat.com> wrote:
+>> +static void bnxt_re_dev_remove(struct bnxt_re_dev *rdev)
+>> +{
+>> +       int i = BNXT_RE_REF_WAIT_COUNT;
+>> +
+>> +       /* Wait for rdev refcount to come down */
+>> +       while ((atomic_read(&rdev->ref_count) > 1) && i--)
+>> +               msleep(100);
+>> +
+>> +       if (atomic_read(&rdev->ref_count) > 1)
+>> +               dev_err(rdev_to_dev(rdev),
+>> +                       "Failed waiting for ref count to deplete %d",
+>> +                       atomic_read(&rdev->ref_count));
+>> +
+>> +       atomic_set(&rdev->ref_count, 0);
+>> +       dev_put(rdev->netdev);
+>> +       rdev->netdev = NULL;
+>> +
+>> +       mutex_lock(&bnxt_re_dev_lock);
+>> +       list_del_rcu(&rdev->list);
+>> +       mutex_unlock(&bnxt_re_dev_lock);
+>> +
+>> +       synchronize_rcu();
+>> +       flush_workqueue(bnxt_re_wq);
+>> +
+>> +       ib_dealloc_device(&rdev->ibdev);
+>> +       /* rdev is gone */
+>> +}
 >
-> Make use of 128b user cookies
+> This looks bad.  Either your ref counting is right, and your ref count
+> should go to 1, or you have an issue that won't be helped by forcibly
+> removing the device.  In its current form, this looks like an oopser
+> waiting to happen.
 >
-> Introduce optional 128-bit action cookie.
-> Like all other cookie schemes in the networking world (eg in protocols
-> like http or existing kernel fib protocol field, etc) the idea is to save
-> user state that when retrieved serves as a correlator. The kernel
-> _should not_ intepret it.  The user can store whatever they wish in the
-> 128 bits.
->
-> Sample exercise(showing variable length use of cookie)
->
-> .. create an accept action with cookie a1b2c3d4
-> sudo $TC actions add action ok index 1 cookie a1b2c3d4
->
-> .. dump all gact actions..
-> sudo $TC -s actions ls action gact
->
->     action order 0: gact action pass
->      random type none pass val 0
->      index 1 ref 1 bind 0 installed 5 sec used 5 sec
->     Action statistics:
->     Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->     backlog 0b 0p requeues 0
->     cookie a1b2c3d4
->
-> .. bind the accept action to a filter..
-> sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
-> u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
->
-> ... send some traffic..
-> $ ping 127.0.0.1 -c 3
-> PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
-> 64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
-> 64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
-> 64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
->
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  include/linux/pkt_cls.h |  2 +-
->  tc/m_action.c           | 44 ++++++++++++++++++++++++++++++++++++++------
->  2 files changed, 39 insertions(+), 7 deletions(-)
->
-> diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
-> index fef68c4..af17f3c 100644
-> --- a/include/linux/pkt_cls.h
-> +++ b/include/linux/pkt_cls.h
-> @@ -343,7 +343,7 @@ enum {
->  	TCA_BPF_NAME,
->  	TCA_BPF_FLAGS,
->  	TCA_BPF_FLAGS_GEN,
-> -	TCA_BPF_DIGEST,
-> +	TCA_BPF_TAG,
->  	__TCA_BPF_MAX,
->  };
->
+> If you know your ref counting is right, then simply wait until it goes
+> to 1, don't have this bailout logic.  If you truly need to bailout for
+> some reason, then you need to not free things.  Better to shutdown then
+> leak and live than release and have a use after free data corrupter.
 
+Thanks for your commet.
+I reviewed the usage of ref_count again and it is not really required
+in this patch series.
+It is being incremented and decremented from the netdev notifier and
+will be always 1
+in bnxt_re_dev_remove. bnxt_re_dev_remove is also invoked from netdev
+notifier, so
+no need to wait in this function.  So, I have removed ref_count
+variable and cleaned up
+this function in the v5 patch set.
 
-Sorry - above header wasnt supposed to be in the patch. Ignore.
-I will send v2.
-
-cheers,
-jamal
+Thanks,
+Selvin
