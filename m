@@ -1,60 +1,34 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/packet: use-after-free in packet_rcv_fanout
-Date: Fri, 10 Feb 2017 10:34:03 -0800
-Message-ID: <CAM_iQpVaCDtP8-1AoVUVAB+-jM7rcLBj4wgo8-qp2WMCP5U8PQ@mail.gmail.com>
-References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
- <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
- <1486696765.7793.119.camel@edumazet-glaptop3.roam.corp.google.com>
- <1486697003.7793.121.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXHktH+Wo7GtJC4afY_Wm11PpKcNFx41f_x4Vs93J-bMA@mail.gmail.com>
- <1486749566.7793.150.camel@edumazet-glaptop3.roam.corp.google.com> <1486749763.7793.152.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next] spectrum: flower: Treat ETH_P_ALL as a
+ special case and translate for HW
+Date: Fri, 10 Feb 2017 13:43:07 -0500 (EST)
+Message-ID: <20170210.134307.331666923417761529.davem@davemloft.net>
+References: <1486647723-14776-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Anoob Soman <anoob.soman@citrix.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Philip Pettersson <philip.pettersson@gmail.com>,
-        weongyo.linux@gmail.com, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486749763.7793.152.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, petrm@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45604 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752040AbdBJSnP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:43:15 -0500
+In-Reply-To: <1486647723-14776-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 10, 2017 at 10:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2017-02-10 at 09:59 -0800, Eric Dumazet wrote:
->> On Fri, 2017-02-10 at 09:49 -0800, Cong Wang wrote:
->> > On Thu, Feb 9, 2017 at 7:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > > On Thu, 2017-02-09 at 19:19 -0800, Eric Dumazet wrote:
->> > >
->> > >> More likely the bug is in fanout_add(), with a buggy sequence in error
->> > >> case, and not correct locking.
->> > >>
->> > >> kfree(po->rollover);
->> > >> po->rollover = NULL;
->> > >>
->> > >> Two cpus entering fanout_add() (using the same af_packet socket,
->> > >> syzkaller courtesy...) might both see po->fanout being NULL.
->> > >>
->> > >> Then they grab the mutex.  Too late...
->> > >
->> > > Patch could be :
->> > >
->> >
->> > For me, clearly the data structure that use-after-free'd is struct sock
->> > rather than struct packet_rollover.
->>
->> Fine. But your patch makes absolutely no sense.
->
-> At least, Anoob patch is making a step into the right direction ;)
->
-> https://patchwork.ozlabs.org/patch/726532/
->
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  9 Feb 2017 14:42:03 +0100
 
-Yeah, but still looks like a different one with the one Dmitry reported.
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> HW does not understand ETH_P_ALL. So treat this special case differently
+> and translate to 0/0 key/mask. That will allow HW to match all ethertypes.
+> 
+> Fixes: 7aa0f5aa9030 ("mlxsw: spectrum: Implement TC flower offload")
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+
+Applied, thanks.
