@@ -1,17 +1,13 @@
 From: Saber Rezvani <irsaber@gmail.com>
 Subject: [PATCH 1/1] net: ethernet: intel: e1000: msleep() is unreliable for anything <20ms
-Date: Fri, 10 Feb 2017 12:12:53 +0330
-Message-ID: <1486716173-10891-1-git-send-email-irsaber@gmail.com>
+Date: Fri, 10 Feb 2017 12:26:28 +0330
+Message-ID: <1486716988-11608-1-git-send-email-irsaber@gmail.com>
 Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org, Saber Rezvani <irsaber@gmail.com>
 To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-pp-092.zoho.com ([135.84.80.237]:25341 "EHLO
-        sender-pp-092.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751949AbdBJIqm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 03:46:42 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Fix the checkpatch.pl issue:
 WARNING: msleep < 20ms can sleep for up to 20ms; see
