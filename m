@@ -1,53 +1,69 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 0/2] net: ethernet: ti: cpsw: fix susp/resume
-Date: Fri, 10 Feb 2017 12:05:07 -0600
-Message-ID: <ffaeb9fe-fd0a-3735-9f72-dded96de6e56@ti.com>
-References: <1486598856-3512-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <20170209.172126.155005439329995220.davem@davemloft.net>
- <20170209225423.GA15853@khorivan>
- <20170209.204507.954952367013216032.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/packet: use-after-free in packet_rcv_fanout
+Date: Fri, 10 Feb 2017 10:00:43 -0800
+Message-ID: <CAM_iQpWtFo80Z5yDn1Mf6bcZg+OWCyeq98WF7t+bwxGOuSjXpA@mail.gmail.com>
+References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
+ <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
+ <1486696765.7793.119.camel@edumazet-glaptop3.roam.corp.google.com> <20170210033306.GA770@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <AStarikovskiy@topcon.com>
-To: David Miller <davem@davemloft.net>, <ivan.khoronzhuk@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170209.204507.954952367013216032.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
+        Philip Pettersson <philip.pettersson@gmail.com>,
+        weongyo.linux@gmail.com, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34589 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751993AbdBJSIW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:08:22 -0500
+In-Reply-To: <20170210033306.GA770@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 02/09/2017 07:45 PM, David Miller wrote:
-> From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> Date: Fri, 10 Feb 2017 00:54:24 +0200
->
->> On Thu, Feb 09, 2017 at 05:21:26PM -0500, David Miller wrote:
->>> From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->>> Date: Thu,  9 Feb 2017 02:07:34 +0200
->>>
->>>> These two patches fix suspend/resume chain.
->>>
->>> Patch 2 doesn't apply cleanly to the 'net' tree, please
->>> respin this series.
+On Thu, Feb 9, 2017 at 7:33 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (02/09/17 19:19), Eric Dumazet wrote:
 >>
->> Strange, I've just checked it on net-next/master, it was applied w/o any
->> warnings.
+>> More likely the bug is in fanout_add(), with a buggy sequence in error
+>> case, and not correct locking.
+>>
+>> kfree(po->rollover);
+>> po->rollover = NULL;
+>>
+>> Two cpus entering fanout_add() (using the same af_packet socket,
+>> syzkaller courtesy...) might both see po->fanout being NULL.
+>>
+>> Then they grab the mutex.  Too late...
 >
-> It makes no sense to test "net-next" when I am telling you that it is
-> the "net" tree it doesn't apply to.
->
-> This is a bug fix, so it should be targetting the "net" tree.
->
+> I'm not sure I follow- aiui the panic was in acceessing the
+> sk_receive_queue.lock in a socket that had been closed earlier. I think
+> the assumption is that rcu_read_lock_bh in __dev_queue_xmit (and
+> rcu_read_lock in dev_queue_xmit_nit?) should make sure that the nit
+> packet delivery can be done safely, and the synchronize_net in
+> packet_release() makes sure that the Tx paths are quiesced before freeing
+> the socket.  What is the race-hole here? Does it have to do with the
+> _bh and softirq context, somehow?
 
-Looks like the first fix is for net, but the second one is for net-next
-I do not see
-03fd01ad0eead23eb79294b6fb4d71dcac493855
-"net: ethernet: ti: cpsw: don't duplicate ndev_running"
-in net.
+My understanding about the race here is packet_release() doesn't
+wait for flying packets correctly, which leads to a flying packet still
+refers to the struct sock which is being released.
 
--- 
-regards,
--grygorii
+This could happen because struct packet_fanout is refcn'ted, it is
+still there when this is not the last sock referring it, therefore, the
+callback packet_rcv_fanout() is not removed yet. When packet_release()
+tries to remove the pointer to struct sock from f->arr[i] in
+__fanout_unlink(), a flying packet could race with f->arr[i]:
+
+po = pkt_sk(f->arr[idx]);
+
+Of course, the fix may not be as easy as just adding a synchronize_net(),
+perhaps we need the spinlock too in fanout_demux_rollover().
+
+At least I believe this explains the crash Dmitry reported.
