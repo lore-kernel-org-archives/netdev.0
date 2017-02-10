@@ -1,55 +1,184 @@
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Subject: [PATCH] ibmvnic: Call napi_disable instead of napi_enable in
- failure path
-Date: Fri, 10 Feb 2017 13:29:06 -0500
-Message-ID: <20170210182906.1468.77665.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+From: Lucas Bates <lucasb@mojatatu.com>
+Subject: [PATCH iproute2 1/1] man page: add page for skbmod action
+Date: Fri, 10 Feb 2017 18:28:54 -0500
+Message-ID: <1486769334-5534-1-git-send-email-lucasb@mojatatu.com>
+Cc: jhs@mojatatu.com, mrv@mojatatu.com, netdev@vger.kernel.org,
+        Lucas Bates <lucasb@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:60571 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751014AbdBJXLY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 18:11:24 -0500
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1AIchMc172861
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:38:53 -0500
-Received: from e18.ny.us.ibm.com (e18.ny.us.ibm.com [129.33.205.208])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 28hf9xjm4c-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:38:53 -0500
-Received: from localhost
-        by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
-        Fri, 10 Feb 2017 13:38:52 -0500
-Received: from b01cxnp22035.gho.pok.ibm.com (b01cxnp22035.gho.pok.ibm.com [9.57.198.25])
-        by d01dlp01.pok.ibm.com (Postfix) with ESMTP id B436F38C8041
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:38:51 -0500 (EST)
+Received: from mail-it0-f66.google.com ([209.85.214.66]:36056 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751040AbdBJX3e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 18:29:34 -0500
+Received: by mail-it0-f66.google.com with SMTP id f200so5783187itf.3
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 15:29:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The failure path in ibmvnic_open() mistakenly makes a second call
-to napi_enable instead of calling napi_disable. This can result
-in a BUG_ON for any queues that were enabled in the previous call
-to napi_enable.
-
-Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ man/man8/Makefile    |   2 +-
+ man/man8/tc-skbmod.8 | 137 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 138 insertions(+), 1 deletion(-)
+ create mode 100644 man/man8/tc-skbmod.8
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index c125966..a024141 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -505,7 +505,7 @@ static int ibmvnic_open(struct net_device *netdev)
- 	adapter->rx_pool = NULL;
- rx_pool_arr_alloc_failed:
- 	for (i = 0; i < adapter->req_rx_queues; i++)
--		napi_enable(&adapter->napi[i]);
-+		napi_disable(&adapter->napi[i]);
- alloc_napi_failed:
- 	return -ENOMEM;
- }
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index bc2fc81..1bd2f02 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -16,7 +16,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
+ 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
+ 	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
+ 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
+-	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8  tc-ife.8 \
++	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 tc-skbmod.8 tc-ife.8 \
+ 	tc-tunnel_key.8 \
+ 	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8 \
+ 	ifstat.8
+diff --git a/man/man8/tc-skbmod.8 b/man/man8/tc-skbmod.8
+new file mode 100644
+index 0000000..46418b6
+--- /dev/null
++++ b/man/man8/tc-skbmod.8
+@@ -0,0 +1,137 @@
++.TH "skbmod action in tc" 8 "21 Sep 2016" "iproute2" "Linux"
++
++.SH NAME
++skbmod - user-friendly packet editor action
++.SH SYNOPSIS
++.in +8
++.ti -8
++.BR tc " ... " "action skbmod " "{ [ " "set "
++.IR SETTABLE " ] [ "
++.BI swap " SWAPPABLE"
++.RI " ] [ " CONTROL " ] [ "
++.BI index " INDEX "
++] }
++
++.ti -8
++.IR SETTABLE " := "
++.RB " [ " dmac
++.IR DMAC " ] "
++.RB " [ " smac
++.IR SMAC " ] "
++.RB " [ " etype
++.IR ETYPE " ] "
++
++.ti -8
++.IR SWAPPABLE " := "
++.B mac
++.ti -8
++.IR CONTROL " := {"
++.BR reclassify " | " pipe " | " drop " | " shot " | " continue " | " pass " }"
++.SH DESCRIPTION
++The
++.B skbmod
++action is intended as a usability upgrade to the existing
++.B pedit
++action. Instead of having to manually edit 8-, 16-, or 32-bit chunks of an
++ethernet header,
++.B skbmod
++allows complete substitution of supported elements.
++.SH OPTIONS
++.TP
++.BI dmac " DMAC"
++Change the destination mac to the specified address.
++.TP
++.BI smac " SMAC"
++Change the source mac to the specified address.
++.TP
++.BI etype " ETYPE"
++Change the ethertype to the specified value.
++.TP
++.BI mac
++Used to swap mac addresses. The
++.B swap mac
++directive is performed
++after any outstanding D/SMAC changes.
++.TP
++.I CONTROL
++The following keywords allow to control how the tree of qdisc, classes,
++filters and actions is further traversed after this action.
++.RS
++.TP
++.B reclassify
++Restart with the first filter in the current list.
++.TP
++.B pipe
++Continue with the next action attached to the same filter.
++.TP
++.B drop
++.TQ
++.B shot
++Drop the packet.
++.TP
++.B continue
++Continue classification with the next filter in line.
++.TP
++.B pass
++Finish classification process and return to calling qdisc for further packet
++processing. This is the default.
++.SH EXAMPLES
++To start, observe the following filter with a pedit action:
++
++.RS
++.EX
++tc filter add dev eth1 parent 1: protocol ip prio 10 \\
++	u32 match ip protocol 1 0xff flowid 1:2 \\
++	action pedit munge offset -14 u8 set 0x02 \\
++	munge offset -13 u8 set 0x15 \\
++	munge offset -12 u8 set 0x15 \\
++	munge offset -11 u8 set 0x15 \\
++	munge offset -10 u16 set 0x1515 \\
++	pipe
++.EE
++.RE
++
++Using the skbmod action, this command can be simplified to:
++
++.RS
++.EX
++tc filter add dev eth1 parent 1: protocol ip prio 10 \\
++	u32 match ip protocol 1 0xff flowid 1:2 \\
++	action skbmod set dmac 02:15:15:15:15:15 \\
++	pipe
++.EE
++.RE
++
++Complexity will increase if source mac and ethertype are also being edited
++as part of the action. If all three fields are to be changed with skbmod:
++
++.RS
++.EX
++tc filter add dev eth5 parent 1: protocol ip prio 10 \\
++	u32 match ip protocol 1 0xff flowid 1:2 \\
++	action skbmod \\
++	set etype 0xBEEF \\
++	set dmac 02:12:13:14:15:16 \\
++	set smac 02:22:23:24:25:26
++.EE
++.RE
++
++Finally, swap the destination and source mac addresses in the header:
++
++.RS
++.EX
++tc filter add dev eth3 parent 1: protocol ip prio 10 \\
++	u32 match ip protocol 1 0xff flowid 1:2 \\
++	action skbmod \\
++	swap mac
++.EE
++.RE
++
++As mentioned above, the swap action will occur after any
++.B " smac/dmac "
++substitutions are executed, if they are present.
++
++.SH SEE ALSO
++.BR tc (8),
++.BR tc-u32 (8),
++.BR tc-pedit (8)
+-- 
+2.7.4
