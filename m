@@ -1,46 +1,27 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH 2/2] net: fs_enet: Simplify code
-Date: Fri, 10 Feb 2017 21:17:19 +0100
-Message-ID: <20170210201719.16636-1-christophe.jaillet@wanadoo.fr>
-Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: pantelis.antoniou@gmail.com, vbordug@ru.mvista.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/12] Netronome NFP4000 and NFP6000 PF driver
+Date: Fri, 10 Feb 2017 15:53:52 -0500 (EST)
+Message-ID: <20170210.155352.2076111009943025495.davem@davemloft.net>
+References: <20170209171738.17386-1-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kubakici@wp.pl, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48294 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751238AbdBJUyD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 15:54:03 -0500
+In-Reply-To: <20170209171738.17386-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is no need to use an intermediate variable to handle an error code
-in this case.
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu,  9 Feb 2017 09:17:26 -0800
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
----
-I think that the remaining use of 'err' a few lines above could also be
-dropped. However, it could change the return value (i.e. propagation of the
-error returned by 'of_phy_register_fixed_link' instead of -ENODEV) and I'm
-unsure it would be correct. So I leave it as-is.
----
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+> This is a base PF driver for Netronome NFP4000 and NFP6000 chips.  This
+> series doesn't add any exciting new features, it provides a foundation
+> for supporting more advanced firmware applications.
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index 5c6426756d11..753259091b22 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -964,11 +964,10 @@ static int fs_enet_probe(struct platform_device *ofdev)
- 	 */
- 	clk = devm_clk_get(&ofdev->dev, "per");
- 	if (!IS_ERR(clk)) {
--		err = clk_prepare_enable(clk);
--		if (err) {
--			ret = err;
-+		ret = clk_prepare_enable(clk);
-+		if (ret)
- 			goto out_deregister_fixed_link;
--		}
-+
- 		fpi->clk_per = clk;
- 	}
- 
--- 
-2.9.3
+Series applied, thank you.
