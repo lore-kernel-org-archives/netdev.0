@@ -1,184 +1,135 @@
-From: Lucas Bates <lucasb@mojatatu.com>
-Subject: [PATCH iproute2 1/1] man page: add page for skbmod action
-Date: Fri, 10 Feb 2017 18:28:54 -0500
-Message-ID: <1486769334-5534-1-git-send-email-lucasb@mojatatu.com>
-Cc: jhs@mojatatu.com, mrv@mojatatu.com, netdev@vger.kernel.org,
-        Lucas Bates <lucasb@mojatatu.com>
-To: stephen@networkplumber.org
+From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+Subject: [PATCH] ibmvnic: Initialize completion variables before starting
+ work
+Date: Fri, 10 Feb 2017 13:45:05 -0500
+Message-ID: <20170210184505.13381.72796.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jallen@linux.vnet.ibm.com, tlfalcon@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:36056 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751040AbdBJX3e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 18:29:34 -0500
-Received: by mail-it0-f66.google.com with SMTP id f200so5783187itf.3
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 15:29:03 -0800 (PST)
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:35897 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751965AbdBJXiu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 18:38:50 -0500
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v1AIs2fi017644
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:54:52 -0500
+Received: from e19.ny.us.ibm.com (e19.ny.us.ibm.com [129.33.205.209])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 28hcpu2nsh-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:54:51 -0500
+Received: from localhost
+        by e19.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <nfont@linux.vnet.ibm.com>;
+        Fri, 10 Feb 2017 13:54:51 -0500
+Received: from b01cxnp23032.gho.pok.ibm.com (b01cxnp23032.gho.pok.ibm.com [9.57.198.27])
+        by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 05312C9003E
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:54:31 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
----
- man/man8/Makefile    |   2 +-
- man/man8/tc-skbmod.8 | 137 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 138 insertions(+), 1 deletion(-)
- create mode 100644 man/man8/tc-skbmod.8
+Initialize condition variables prior to invoking any work that can
+mark them complete. This resolves a race in the ibmvnic driver where
+the driver faults trying to complete an uninitialized condition
+variable.
 
-diff --git a/man/man8/Makefile b/man/man8/Makefile
-index bc2fc81..1bd2f02 100644
---- a/man/man8/Makefile
-+++ b/man/man8/Makefile
-@@ -16,7 +16,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
- 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
- 	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
- 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
--	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8  tc-ife.8 \
-+	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 tc-skbmod.8 tc-ife.8 \
- 	tc-tunnel_key.8 \
- 	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8 \
- 	ifstat.8
-diff --git a/man/man8/tc-skbmod.8 b/man/man8/tc-skbmod.8
-new file mode 100644
-index 0000000..46418b6
---- /dev/null
-+++ b/man/man8/tc-skbmod.8
-@@ -0,0 +1,137 @@
-+.TH "skbmod action in tc" 8 "21 Sep 2016" "iproute2" "Linux"
+Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c |   17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index a024141..752b082 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -189,9 +189,10 @@ static int alloc_long_term_buff(struct ibmvnic_adapter *adapter,
+ 	}
+ 	ltb->map_id = adapter->map_id;
+ 	adapter->map_id++;
 +
-+.SH NAME
-+skbmod - user-friendly packet editor action
-+.SH SYNOPSIS
-+.in +8
-+.ti -8
-+.BR tc " ... " "action skbmod " "{ [ " "set "
-+.IR SETTABLE " ] [ "
-+.BI swap " SWAPPABLE"
-+.RI " ] [ " CONTROL " ] [ "
-+.BI index " INDEX "
-+] }
-+
-+.ti -8
-+.IR SETTABLE " := "
-+.RB " [ " dmac
-+.IR DMAC " ] "
-+.RB " [ " smac
-+.IR SMAC " ] "
-+.RB " [ " etype
-+.IR ETYPE " ] "
-+
-+.ti -8
-+.IR SWAPPABLE " := "
-+.B mac
-+.ti -8
-+.IR CONTROL " := {"
-+.BR reclassify " | " pipe " | " drop " | " shot " | " continue " | " pass " }"
-+.SH DESCRIPTION
-+The
-+.B skbmod
-+action is intended as a usability upgrade to the existing
-+.B pedit
-+action. Instead of having to manually edit 8-, 16-, or 32-bit chunks of an
-+ethernet header,
-+.B skbmod
-+allows complete substitution of supported elements.
-+.SH OPTIONS
-+.TP
-+.BI dmac " DMAC"
-+Change the destination mac to the specified address.
-+.TP
-+.BI smac " SMAC"
-+Change the source mac to the specified address.
-+.TP
-+.BI etype " ETYPE"
-+Change the ethertype to the specified value.
-+.TP
-+.BI mac
-+Used to swap mac addresses. The
-+.B swap mac
-+directive is performed
-+after any outstanding D/SMAC changes.
-+.TP
-+.I CONTROL
-+The following keywords allow to control how the tree of qdisc, classes,
-+filters and actions is further traversed after this action.
-+.RS
-+.TP
-+.B reclassify
-+Restart with the first filter in the current list.
-+.TP
-+.B pipe
-+Continue with the next action attached to the same filter.
-+.TP
-+.B drop
-+.TQ
-+.B shot
-+Drop the packet.
-+.TP
-+.B continue
-+Continue classification with the next filter in line.
-+.TP
-+.B pass
-+Finish classification process and return to calling qdisc for further packet
-+processing. This is the default.
-+.SH EXAMPLES
-+To start, observe the following filter with a pedit action:
-+
-+.RS
-+.EX
-+tc filter add dev eth1 parent 1: protocol ip prio 10 \\
-+	u32 match ip protocol 1 0xff flowid 1:2 \\
-+	action pedit munge offset -14 u8 set 0x02 \\
-+	munge offset -13 u8 set 0x15 \\
-+	munge offset -12 u8 set 0x15 \\
-+	munge offset -11 u8 set 0x15 \\
-+	munge offset -10 u16 set 0x1515 \\
-+	pipe
-+.EE
-+.RE
-+
-+Using the skbmod action, this command can be simplified to:
-+
-+.RS
-+.EX
-+tc filter add dev eth1 parent 1: protocol ip prio 10 \\
-+	u32 match ip protocol 1 0xff flowid 1:2 \\
-+	action skbmod set dmac 02:15:15:15:15:15 \\
-+	pipe
-+.EE
-+.RE
-+
-+Complexity will increase if source mac and ethertype are also being edited
-+as part of the action. If all three fields are to be changed with skbmod:
-+
-+.RS
-+.EX
-+tc filter add dev eth5 parent 1: protocol ip prio 10 \\
-+	u32 match ip protocol 1 0xff flowid 1:2 \\
-+	action skbmod \\
-+	set etype 0xBEEF \\
-+	set dmac 02:12:13:14:15:16 \\
-+	set smac 02:22:23:24:25:26
-+.EE
-+.RE
-+
-+Finally, swap the destination and source mac addresses in the header:
-+
-+.RS
-+.EX
-+tc filter add dev eth3 parent 1: protocol ip prio 10 \\
-+	u32 match ip protocol 1 0xff flowid 1:2 \\
-+	action skbmod \\
-+	swap mac
-+.EE
-+.RE
-+
-+As mentioned above, the swap action will occur after any
-+.B " smac/dmac "
-+substitutions are executed, if they are present.
-+
-+.SH SEE ALSO
-+.BR tc (8),
-+.BR tc-u32 (8),
-+.BR tc-pedit (8)
--- 
-2.7.4
++	init_completion(&adapter->fw_done);
+ 	send_request_map(adapter, ltb->addr,
+ 			 ltb->size, ltb->map_id);
+-	init_completion(&adapter->fw_done);
+ 	wait_for_completion(&adapter->fw_done);
+ 	return 0;
+ }
+@@ -1121,10 +1122,10 @@ static void ibmvnic_get_ethtool_stats(struct net_device *dev,
+ 	crq.request_statistics.ioba = cpu_to_be32(adapter->stats_token);
+ 	crq.request_statistics.len =
+ 	    cpu_to_be32(sizeof(struct ibmvnic_statistics));
+-	ibmvnic_send_crq(adapter, &crq);
+ 
+ 	/* Wait for data to be written */
+ 	init_completion(&adapter->stats_done);
++	ibmvnic_send_crq(adapter, &crq);
+ 	wait_for_completion(&adapter->stats_done);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ibmvnic_stats); i++)
+@@ -2799,9 +2800,9 @@ static ssize_t trace_read(struct file *file, char __user *user_buf, size_t len,
+ 	crq.collect_fw_trace.correlator = adapter->ras_comps[num].correlator;
+ 	crq.collect_fw_trace.ioba = cpu_to_be32(trace_tok);
+ 	crq.collect_fw_trace.len = adapter->ras_comps[num].trace_buff_size;
+-	ibmvnic_send_crq(adapter, &crq);
+ 
+ 	init_completion(&adapter->fw_done);
++	ibmvnic_send_crq(adapter, &crq);
+ 	wait_for_completion(&adapter->fw_done);
+ 
+ 	if (*ppos + len > be32_to_cpu(adapter->ras_comps[num].trace_buff_size))
+@@ -3581,9 +3582,9 @@ static int ibmvnic_dump_show(struct seq_file *seq, void *v)
+ 	memset(&crq, 0, sizeof(crq));
+ 	crq.request_dump_size.first = IBMVNIC_CRQ_CMD;
+ 	crq.request_dump_size.cmd = REQUEST_DUMP_SIZE;
+-	ibmvnic_send_crq(adapter, &crq);
+ 
+ 	init_completion(&adapter->fw_done);
++	ibmvnic_send_crq(adapter, &crq);
+ 	wait_for_completion(&adapter->fw_done);
+ 
+ 	seq_write(seq, adapter->dump_data, adapter->dump_data_size);
+@@ -3629,8 +3630,8 @@ static void handle_crq_init_rsp(struct work_struct *work)
+ 		}
+ 	}
+ 
+-	send_version_xchg(adapter);
+ 	reinit_completion(&adapter->init_done);
++	send_version_xchg(adapter);
+ 	if (!wait_for_completion_timeout(&adapter->init_done, timeout)) {
+ 		dev_err(dev, "Passive init timeout\n");
+ 		goto task_failed;
+@@ -3640,9 +3641,9 @@ static void handle_crq_init_rsp(struct work_struct *work)
+ 		if (adapter->renegotiate) {
+ 			adapter->renegotiate = false;
+ 			release_sub_crqs_no_irqs(adapter);
+-			send_cap_queries(adapter);
+ 
+ 			reinit_completion(&adapter->init_done);
++			send_cap_queries(adapter);
+ 			if (!wait_for_completion_timeout(&adapter->init_done,
+ 							 timeout)) {
+ 				dev_err(dev, "Passive init timeout\n");
+@@ -3772,9 +3773,9 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 			adapter->debugfs_dump = ent;
+ 		}
+ 	}
+-	ibmvnic_send_crq_init(adapter);
+ 
+ 	init_completion(&adapter->init_done);
++	ibmvnic_send_crq_init(adapter);
+ 	if (!wait_for_completion_timeout(&adapter->init_done, timeout))
+ 		return 0;
+ 
+@@ -3782,9 +3783,9 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		if (adapter->renegotiate) {
+ 			adapter->renegotiate = false;
+ 			release_sub_crqs_no_irqs(adapter);
+-			send_cap_queries(adapter);
+ 
+ 			reinit_completion(&adapter->init_done);
++			send_cap_queries(adapter);
+ 			if (!wait_for_completion_timeout(&adapter->init_done,
+ 							 timeout))
+ 				return 0;
