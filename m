@@ -1,255 +1,85 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2] net: phy: Allow splitting MDIO bus/device support from PHYs
-Date: Thu,  9 Feb 2017 18:12:36 -0800
-Message-ID: <20170210021236.8891-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, rmk+kernel@armlinux.org.uk,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36595 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751120AbdBJCMm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 21:12:42 -0500
-Received: by mail-qk0-f193.google.com with SMTP id i34so3271766qkh.3
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 18:12:40 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH net-next v5 04/11] bpf: Use bpf_load_program() from the
+ library
+Date: Fri, 10 Feb 2017 10:25:58 +0800
+Message-ID: <2ffd3f6b-ee07-af83-ced3-bad5e4e35cc8@huawei.com>
+References: <20170209232145.19085-1-mic@digikod.net>
+ <20170209232145.19085-5-mic@digikod.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Shuah Khan <shuah@kernel.org>
+To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
+        <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170209232145.19085-5-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Introduce a new configuration symbol: MDIO_DEVICE which allows building
-the MDIO devices and bus code, without pulling in the entire Ethernet
-PHY library and devices code.
 
-PHYLIB nows select MDIO_DEVICE and the relevant Makefile files are
-updated to reflect that.
 
-When MDIO_DEVICE (MDIO bus/device only) is selected, but not PHYLIB, we
-have mdio-bus.ko as a loadable module, and it does not have a
-module_exit() function because the safety of removing a bus class is
-unclear.
+On 2017/2/10 7:21, Mickaël Salaün wrote:
+> Replace bpf_prog_load() with bpf_load_program() calls.
+>
+> Signed-off-by: Mickaël Salaün <mic@digikod.net>
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Shuah Khan <shuah@kernel.org>
+> ---
+>   tools/lib/bpf/bpf.c                         |  6 +++---
+>   tools/lib/bpf/bpf.h                         |  4 ++--
+>   tools/testing/selftests/bpf/Makefile        |  4 +++-
+>   tools/testing/selftests/bpf/bpf_sys.h       | 21 ---------------------
+>   tools/testing/selftests/bpf/test_tag.c      |  6 ++++--
+>   tools/testing/selftests/bpf/test_verifier.c |  8 +++++---
+>   6 files changed, 17 insertions(+), 32 deletions(-)
+>
+> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+> index 3ddb58a36d3c..58ce252073fa 100644
+> --- a/tools/lib/bpf/bpf.c
+> +++ b/tools/lib/bpf/bpf.c
+> @@ -42,7 +42,7 @@
+>   # endif
+>   #endif
+>   
+> -static __u64 ptr_to_u64(void *ptr)
+> +static __u64 ptr_to_u64(const void *ptr)
+>   {
+>   	return (__u64) (unsigned long) ptr;
+>   }
+> @@ -69,8 +69,8 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size,
+>   	return sys_bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+>   }
+>   
+> -int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
+> -		     size_t insns_cnt, char *license,
+> +int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
+> +		     size_t insns_cnt, const char *license,
+>   		     __u32 kern_version, char *log_buf, size_t log_buf_sz)
+>   {
+>   	int fd;
+> diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+> index a2f9853dd882..bc959a2de023 100644
+> --- a/tools/lib/bpf/bpf.h
+> +++ b/tools/lib/bpf/bpf.h
+> @@ -28,8 +28,8 @@ int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+>   
+>   /* Recommend log buffer size */
+>   #define BPF_LOG_BUF_SIZE 65536
+> -int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
+> -		     size_t insns_cnt, char *license,
+> +int bpf_load_program(enum bpf_prog_type type, const struct bpf_insn *insns,
+> +		     size_t insns_cnt, const char *license,
+>   		     __u32 kern_version, char *log_buf,
+>   		     size_t log_buf_sz);
+>   
 
-When both MDIO_DEVICE and PHYLIB are enabled, we need to assemble
-everything into a common loadable module: libphy.ko because of nasty
-circular dependencies between phy.c, phy_device.c and mdio_bus.c which
-are really tough to untangle.
+For libbpf changes:
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v2:
+Acked-by Wang Nan <wangnan0@huawei.com>
 
-- implement Russell's feedback
-- solve the circular dependency in the CONFIG_MDIO_DEVICE + CONFIG_PHYLIB case
-
- drivers/net/Makefile             |  2 +-
- drivers/net/phy/Kconfig          | 59 +++++++++++++++++++++++-----------------
- drivers/net/phy/Makefile         | 13 +++++++--
- drivers/net/phy/mdio-boardinfo.c |  1 +
- drivers/net/phy/mdio_bus.c       |  9 ++++++
- include/linux/phy.h              | 21 ++++++++++++--
- 6 files changed, 75 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 7336cbd3ef5d..a701e390d48f 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -17,7 +17,7 @@ obj-$(CONFIG_MII) += mii.o
- obj-$(CONFIG_MDIO) += mdio.o
- obj-$(CONFIG_NET) += Space.o loopback.o
- obj-$(CONFIG_NETCONSOLE) += netconsole.o
--obj-$(CONFIG_PHYLIB) += phy/
-+obj-$(CONFIG_MDIO_DEVICE) += phy/
- obj-$(CONFIG_RIONET) += rionet.o
- obj-$(CONFIG_NET_TEAM) += team/
- obj-$(CONFIG_TUN) += tun.o
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 8dbd59baa34d..01152fb9cb76 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -2,33 +2,12 @@
- # PHY Layer Configuration
- #
- 
--menuconfig PHYLIB
--	tristate "PHY Device support and infrastructure"
--	depends on NETDEVICES
-+menuconfig MDIO_DEVICE
-+	tristate "MDIO bus device drivers"
- 	help
--	  Ethernet controllers are usually attached to PHY
--	  devices.  This option provides infrastructure for
--	  managing PHY devices.
--
--if PHYLIB
--
--config SWPHY
--	bool
--
--config LED_TRIGGER_PHY
--	bool "Support LED triggers for tracking link state"
--	depends on LEDS_TRIGGERS
--	---help---
--	  Adds support for a set of LED trigger events per-PHY.  Link
--	  state change will trigger the events, for consumption by an
--	  LED class driver.  There are triggers for each link speed currently
--	  supported by the phy, and are of the form:
--	       <mii bus id>:<phy>:<speed>
--
--	  Where speed is in the form:
--		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-+	   MDIO devices and driver infrastructure code.
- 
--comment "MDIO bus device drivers"
-+if MDIO_DEVICE
- 
- config MDIO_BCM_IPROC
- 	tristate "Broadcom iProc MDIO bus controller"
-@@ -160,6 +139,36 @@ config MDIO_XGENE
- 	  This module provides a driver for the MDIO busses found in the
- 	  APM X-Gene SoC's.
- 
-+endif
-+
-+menuconfig PHYLIB
-+	tristate "PHY Device support and infrastructure"
-+	depends on NETDEVICES
-+	select MDIO_DEVICE
-+	help
-+	  Ethernet controllers are usually attached to PHY
-+	  devices.  This option provides infrastructure for
-+	  managing PHY devices.
-+
-+if PHYLIB
-+
-+config SWPHY
-+	bool
-+
-+config LED_TRIGGER_PHY
-+	bool "Support LED triggers for tracking link state"
-+	depends on LEDS_TRIGGERS
-+	---help---
-+	  Adds support for a set of LED trigger events per-PHY.  Link
-+	  state change will trigger the events, for consumption by an
-+	  LED class driver.  There are triggers for each link speed currently
-+	  supported by the phy, and are of the form:
-+	       <mii bus id>:<phy>:<speed>
-+
-+	  Where speed is in the form:
-+		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-+
-+
- comment "MII PHY device drivers"
- 
- config AMD_PHY
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 407b0b601ea8..668d0cdc398f 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -1,7 +1,16 @@
- # Makefile for Linux PHY drivers and MDIO bus drivers
- 
--libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o \
--				   mdio-boardinfo.o
-+libphy-y			:= phy.o phy_device.o
-+mdio-bus-y			+= mdio_bus.o mdio_device.o mdio-boardinfo.o
-+
-+# PHYLIB implies MDIO_DEVICE, in that case, we have a bunch of circular
-+# dependencies that does not make it possible to split mdio-bus objects into a
-+# dedicated loadable module, so we bundle them all together into libphy.ko
-+ifdef CONFIG_PHYLIB
-+libphy-y			+= $(mdio-bus-y)
-+else
-+obj-$(CONFIG_MDIO_DEVICE)	+= mdio-bus.o
-+endif
- libphy-$(CONFIG_SWPHY)		+= swphy.o
- libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
- 
-diff --git a/drivers/net/phy/mdio-boardinfo.c b/drivers/net/phy/mdio-boardinfo.c
-index 6b988f77da08..61941e29daae 100644
---- a/drivers/net/phy/mdio-boardinfo.c
-+++ b/drivers/net/phy/mdio-boardinfo.c
-@@ -84,3 +84,4 @@ int mdiobus_register_board_info(const struct mdio_board_info *info,
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(mdiobus_register_board_info);
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fa7d51f14869..46b468eb6e12 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -648,9 +648,18 @@ int __init mdio_bus_init(void)
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mdio_bus_init);
- 
-+#if IS_ENABLED(CONFIG_PHYLIB)
- void mdio_bus_exit(void)
- {
- 	class_unregister(&mdio_bus_class);
- 	bus_unregister(&mdio_bus_type);
- }
-+EXPORT_SYMBOL_GPL(mdio_bus_exit);
-+#else
-+module_init(mdio_bus_init);
-+/* no module_exit, intentional */
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("MDIO bus/device layer");
-+#endif
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index d9bdf53e0514..1817ece59943 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -779,8 +779,24 @@ void phy_write_mmd_indirect(struct phy_device *phydev, int prtad,
- struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 				     bool is_c45,
- 				     struct phy_c45_device_ids *c45_ids);
-+#if IS_ENABLED(CONFIG_PHYLIB)
- struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
- int phy_device_register(struct phy_device *phy);
-+void phy_device_free(struct phy_device *phydev);
-+#else
-+static inline
-+struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
-+{
-+	return NULL;
-+}
-+
-+static inline int phy_device_register(struct phy_device *phy)
-+{
-+	return 0;
-+}
-+
-+static inline void phy_device_free(struct phy_device *phydev) { }
-+#endif /* CONFIG_PHYLIB */
- void phy_device_remove(struct phy_device *phydev);
- int phy_init_hw(struct phy_device *phydev);
- int phy_suspend(struct phy_device *phydev);
-@@ -854,7 +870,6 @@ int phy_ethtool_ksettings_set(struct phy_device *phydev,
- int phy_mii_ioctl(struct phy_device *phydev, struct ifreq *ifr, int cmd);
- int phy_start_interrupts(struct phy_device *phydev);
- void phy_print_status(struct phy_device *phydev);
--void phy_device_free(struct phy_device *phydev);
- int phy_set_max_speed(struct phy_device *phydev, u32 max_speed);
- 
- int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask,
-@@ -881,8 +896,10 @@ int phy_ethtool_set_link_ksettings(struct net_device *ndev,
- 				   const struct ethtool_link_ksettings *cmd);
- int phy_ethtool_nway_reset(struct net_device *ndev);
- 
-+#if IS_ENABLED(CONFIG_PHYLIB)
- int __init mdio_bus_init(void);
- void mdio_bus_exit(void);
-+#endif
- 
- extern struct bus_type mdio_bus_type;
- 
-@@ -893,7 +910,7 @@ struct mdio_board_info {
- 	const void	*platform_data;
- };
- 
--#if IS_ENABLED(CONFIG_PHYLIB)
-+#if IS_ENABLED(CONFIG_MDIO_DEVICE)
- int mdiobus_register_board_info(const struct mdio_board_info *info,
- 				unsigned int n);
- #else
--- 
-2.9.3
+Thank you.
