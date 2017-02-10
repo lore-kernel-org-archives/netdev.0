@@ -1,73 +1,97 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH] xen-netback: vif counters from int/long to
- u64
-Date: Fri, 10 Feb 2017 12:49:47 +0000
-Message-ID: <2877c83e45a444e1b39f0da1e5adb86b@AMSPEX02CL03.citrite.net>
-References: <1486728138-13253-1-git-send-email-mart@greenhost.nl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Fri, 10 Feb 2017 04:27:58 -0800
+Message-ID: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: 'Mart van Santen' <mart@greenhost.nl>, Wei Liu <wei.liu2@citrix.com>,
- "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1486728138-13253-1-git-send-email-mart@greenhost.nl>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33042 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751457AbdBJM4O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 07:56:14 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so3173794pgd.0
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 04:56:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBYZW4tZGV2ZWwgW21haWx0bzp4
-ZW4tZGV2ZWwtYm91bmNlc0BsaXN0cy54ZW4ub3JnXSBPbiBCZWhhbGYgT2YNCj4gTWFydCB2YW4g
-U2FudGVuDQo+IFNlbnQ6IDEwIEZlYnJ1YXJ5IDIwMTcgMTI6MDINCj4gVG86IFdlaSBMaXUgPHdl
-aS5saXUyQGNpdHJpeC5jb20+OyBQYXVsIER1cnJhbnQgPFBhdWwuRHVycmFudEBjaXRyaXguY29t
-PjsNCj4geGVuLWRldmVsQGxpc3RzLnhlbnByb2plY3Qub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnDQo+IENjOiBNYXJ0IHZhbiBTYW50ZW4gPG1hcnRAZ3JlZW5ob3N0Lm5sPg0KPiBTdWJqZWN0
-OiBbWGVuLWRldmVsXSBbUEFUQ0hdIHhlbi1uZXRiYWNrOiB2aWYgY291bnRlcnMgZnJvbSBpbnQv
-bG9uZyB0byB1NjQNCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXMgYW4gaXNzdWUgd2hlcmUgdGhlIHR5
-cGUgb2YgY291bnRlcnMgaW4gdGhlIHF1ZXVlKHMpDQo+IGFuZCBpbnRlcmZhY2UgYXJlIG5vdCBp
-biBzeW5jIChxdWV1ZSBjb3VudGVycyBhcmUgaW50LCBpbnRlcmZhY2UNCj4gY291bnRlcnMgYXJl
-IGxvbmcpLCBjYXVzaW5nIGluY29ycmVjdCByZXBvcnRpbmcgb2YgdHgvcnggdmFsdWVzDQo+IG9m
-IHRoZSB2aWYgaW50ZXJmYWNlIGFuZCB1bmNsZWFyIGNvdW50ZXIgb3ZlcmZsb3dzLg0KPiBUaGlz
-IHBhdGNoIHNldHMgYm90aCBjb3VudGVycyB0byB0aGUgdTY0IHR5cGUuDQo+IA0KPiBTaWduZWQt
-b2ZmLWJ5OiBNYXJ0IHZhbiBTYW50ZW4gPG1hcnRAZ3JlZW5ob3N0Lm5sPg0KDQpMb29rcyBzZW5z
-aWJsZSB0byBtZS4NCg0KUmV2aWV3ZWQtYnk6IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNp
-dHJpeC5jb20+DQoNCj4gLS0tDQo+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9jb21tb24uaCAg
-ICB8IDggKysrKy0tLS0NCj4gIGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jIHwg
-OCArKysrLS0tLQ0KPiAgMiBmaWxlcyBjaGFuZ2VkLCA4IGluc2VydGlvbnMoKyksIDggZGVsZXRp
-b25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svY29tbW9u
-LmggYi9kcml2ZXJzL25ldC94ZW4tDQo+IG5ldGJhY2svY29tbW9uLmgNCj4gaW5kZXggM2NlMWY3
-ZC4uNTMwNTg2YiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svY29tbW9u
-LmgNCj4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svY29tbW9uLmgNCj4gQEAgLTExMywx
-MCArMTEzLDEwIEBAIHN0cnVjdCB4ZW52aWZfc3RhdHMgew0KPiAgCSAqIEEgc3Vic2V0IG9mIHN0
-cnVjdCBuZXRfZGV2aWNlX3N0YXRzIHRoYXQgY29udGFpbnMgb25seSB0aGUNCj4gIAkgKiBmaWVs
-ZHMgdGhhdCBhcmUgdXBkYXRlZCBpbiBuZXRiYWNrLmMgZm9yIGVhY2ggcXVldWUuDQo+ICAJICov
-DQo+IC0JdW5zaWduZWQgaW50IHJ4X2J5dGVzOw0KPiAtCXVuc2lnbmVkIGludCByeF9wYWNrZXRz
-Ow0KPiAtCXVuc2lnbmVkIGludCB0eF9ieXRlczsNCj4gLQl1bnNpZ25lZCBpbnQgdHhfcGFja2V0
-czsNCj4gKwl1NjQgcnhfYnl0ZXM7DQo+ICsJdTY0IHJ4X3BhY2tldHM7DQo+ICsJdTY0IHR4X2J5
-dGVzOw0KPiArCXU2NCB0eF9wYWNrZXRzOw0KPiANCj4gIAkvKiBBZGRpdGlvbmFsIHN0YXRzIHVz
-ZWQgYnkgeGVudmlmICovDQo+ICAJdW5zaWduZWQgbG9uZyByeF9nc29fY2hlY2tzdW1fZml4dXA7
-DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYyBiL2Ry
-aXZlcnMvbmV0L3hlbi0NCj4gbmV0YmFjay9pbnRlcmZhY2UuYw0KPiBpbmRleCA1Nzk1MjEzLi41
-MGZhMTY5IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2Uu
-Yw0KPiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYw0KPiBAQCAtMjIx
-LDEwICsyMjEsMTAgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzDQo+ICp4ZW52aWZf
-Z2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQo+ICB7DQo+ICAJc3RydWN0IHhlbnZp
-ZiAqdmlmID0gbmV0ZGV2X3ByaXYoZGV2KTsNCj4gIAlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1
-ZSA9IE5VTEw7DQo+IC0JdW5zaWduZWQgbG9uZyByeF9ieXRlcyA9IDA7DQo+IC0JdW5zaWduZWQg
-bG9uZyByeF9wYWNrZXRzID0gMDsNCj4gLQl1bnNpZ25lZCBsb25nIHR4X2J5dGVzID0gMDsNCj4g
-LQl1bnNpZ25lZCBsb25nIHR4X3BhY2tldHMgPSAwOw0KPiArCXU2NCByeF9ieXRlcyA9IDA7DQo+
-ICsJdTY0IHJ4X3BhY2tldHMgPSAwOw0KPiArCXU2NCB0eF9ieXRlcyA9IDA7DQo+ICsJdTY0IHR4
-X3BhY2tldHMgPSAwOw0KPiAgCXVuc2lnbmVkIGludCBpbmRleDsNCj4gDQo+ICAJc3Bpbl9sb2Nr
-KCZ2aWYtPmxvY2spOw0KPiAtLQ0KPiAyLjEuNA0KPiANCj4gDQo+IF9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fDQo+IFhlbi1kZXZlbCBtYWlsaW5nIGxpc3QN
-Cj4gWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcNCj4gaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1k
-ZXZlbA0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVu
-LWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3Rz
-Lnhlbi5vcmcveGVuLWRldmVsCg==
+From: Eric Dumazet <edumazet@google.com>
+
+All rx and rx netdev interrupts are handled by respectively
+by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
+
+But mlx4_eq_int() also fires a tasklet to service all items that were
+queued via mlx4_add_cq_to_tasklet(), but this handler was not called
+unless user cqe was handled.
+
+This is very confusing, as "mpstat -I SCPU ..." show huge number of
+tasklet invocations.
+
+This patch saves this overhead, by carefully firing the tasklet directly
+from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/cq.c |    6 +++++-
+ drivers/net/ethernet/mellanox/mlx4/eq.c |    9 +--------
+ 2 files changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
+index 6b8635378f1fcb2aae4e8ac390bcd09d552c2256..fa6d2354a0e910ee160863e3cbe21a512d77bf03 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
+@@ -81,8 +81,9 @@ void mlx4_cq_tasklet_cb(unsigned long data)
+ 
+ static void mlx4_add_cq_to_tasklet(struct mlx4_cq *cq)
+ {
+-	unsigned long flags;
+ 	struct mlx4_eq_tasklet *tasklet_ctx = cq->tasklet_ctx.priv;
++	unsigned long flags;
++	bool kick;
+ 
+ 	spin_lock_irqsave(&tasklet_ctx->lock, flags);
+ 	/* When migrating CQs between EQs will be implemented, please note
+@@ -92,7 +93,10 @@ static void mlx4_add_cq_to_tasklet(struct mlx4_cq *cq)
+ 	 */
+ 	if (list_empty_careful(&cq->tasklet_ctx.list)) {
+ 		atomic_inc(&cq->refcount);
++		kick = list_empty(&tasklet_ctx->list);
+ 		list_add_tail(&cq->tasklet_ctx.list, &tasklet_ctx->list);
++		if (kick)
++			tasklet_schedule(&tasklet_ctx->task);
+ 	}
+ 	spin_unlock_irqrestore(&tasklet_ctx->lock, flags);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 0509996957d9664b612358dd805359f4bc67b8dc..39232b6a974f4b4b961d3b0b8634f04e6b9d0caa 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -494,7 +494,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_eqe *eqe;
+-	int cqn = -1;
++	int cqn;
+ 	int eqes_found = 0;
+ 	int set_ci = 0;
+ 	int port;
+@@ -840,13 +840,6 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 
+ 	eq_set_ci(eq, 1);
+ 
+-	/* cqn is 24bit wide but is initialized such that its higher bits
+-	 * are ones too. Thus, if we got any event, cqn's high bits should be off
+-	 * and we need to schedule the tasklet.
+-	 */
+-	if (!(cqn & ~0xffffff))
+-		tasklet_schedule(&eq->tasklet_ctx.task);
+-
+ 	return eqes_found;
+ }
+ 
