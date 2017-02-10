@@ -1,202 +1,400 @@
-From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH V5 for-next 08/21] RDMA/bnxt_re: Adding support for port related verbs
-Date: Fri, 10 Feb 2017 03:19:40 -0800
-Message-ID: <1486725593-9872-9-git-send-email-selvin.xavier@broadcom.com>
+From: Selvin Xavier <selvin.xavier@broadcom.com>
+Subject: [PATCH V5 for-next 11/21] RDMA/bnxt_re: Support for AH verbs
+Date: Fri, 10 Feb 2017 03:19:43 -0800
+Message-ID: <1486725593-9872-12-git-send-email-selvin.xavier@broadcom.com>
 References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: dledford@redhat.com, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f180.google.com ([209.85.216.180]:36190 "EHLO
+        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752096AbdBJLao (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:30:44 -0500
+Received: by mail-qt0-f180.google.com with SMTP id k15so31539238qtg.3
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:30:11 -0800 (PST)
+In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Implements query_port, modify_port and port_immutable verbs
+This patch implements support for create_ah, destroy_ah, query_ah
+and modify_ah verbs.
 
-Signed-off-by: Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+v3: Removes unwanted macros and does cleanup listed by checkpatch
+v5: Adds ib_udata parameter to create_ah verb
+
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/infiniband/hw/bnxt_re/ib_verbs.c | 122 +++++++++++++++++++++++++++++++
- drivers/infiniband/hw/bnxt_re/ib_verbs.h |   7 ++
+ drivers/infiniband/hw/bnxt_re/ib_verbs.c | 148 +++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxt_re/ib_verbs.h |  12 +++
  drivers/infiniband/hw/bnxt_re/main.c     |   4 +
- 3 files changed, 133 insertions(+)
+ drivers/infiniband/hw/bnxt_re/qplib_sp.c |  94 ++++++++++++++++++++
+ drivers/infiniband/hw/bnxt_re/qplib_sp.h |  18 ++++
+ include/uapi/rdma/bnxt_re-abi.h          |   7 ++
+ 6 files changed, 283 insertions(+)
 
 diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.c b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
-index 5dae826..41d9534 100644
+index f85d4c4..18580e7 100644
 --- a/drivers/infiniband/hw/bnxt_re/ib_verbs.c
 +++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
-@@ -150,6 +150,128 @@ int bnxt_re_modify_device(struct ib_device *ibdev,
- 	return 0;
+@@ -492,6 +492,154 @@ struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
+ 	return ERR_PTR(rc);
  }
  
-+static void __to_ib_speed_width(struct net_device *netdev, u8 *speed, u8 *width)
++/* Address Handles */
++int bnxt_re_destroy_ah(struct ib_ah *ib_ah)
 +{
-+	struct ethtool_link_ksettings lksettings;
-+	u32 espeed;
++	struct bnxt_re_ah *ah = container_of(ib_ah, struct bnxt_re_ah, ib_ah);
++	struct bnxt_re_dev *rdev = ah->rdev;
++	int rc;
 +
-+	if (netdev->ethtool_ops && netdev->ethtool_ops->get_link_ksettings) {
-+		memset(&lksettings, 0, sizeof(lksettings));
-+		rtnl_lock();
-+		netdev->ethtool_ops->get_link_ksettings(netdev, &lksettings);
-+		rtnl_unlock();
-+		espeed = lksettings.base.speed;
-+	} else {
-+		espeed = SPEED_UNKNOWN;
++	rc = bnxt_qplib_destroy_ah(&rdev->qplib_res, &ah->qplib_ah);
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to destroy HW AH");
++		return rc;
 +	}
-+	switch (espeed) {
-+	case SPEED_1000:
-+		*speed = IB_SPEED_SDR;
-+		*width = IB_WIDTH_1X;
-+		break;
-+	case SPEED_10000:
-+		*speed = IB_SPEED_QDR;
-+		*width = IB_WIDTH_1X;
-+		break;
-+	case SPEED_20000:
-+		*speed = IB_SPEED_DDR;
-+		*width = IB_WIDTH_4X;
-+		break;
-+	case SPEED_25000:
-+		*speed = IB_SPEED_EDR;
-+		*width = IB_WIDTH_1X;
-+		break;
-+	case SPEED_40000:
-+		*speed = IB_SPEED_QDR;
-+		*width = IB_WIDTH_4X;
-+		break;
-+	case SPEED_50000:
-+		break;
-+	default:
-+		*speed = IB_SPEED_SDR;
-+		*width = IB_WIDTH_1X;
-+		break;
-+	}
++	kfree(ah);
++	return 0;
 +}
 +
-+/* Port */
-+int bnxt_re_query_port(struct ib_device *ibdev, u8 port_num,
-+		       struct ib_port_attr *port_attr)
++struct ib_ah *bnxt_re_create_ah(struct ib_pd *ib_pd,
++				struct ib_ah_attr *ah_attr,
++				struct ib_udata *udata)
 +{
-+	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
-+	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
++	struct bnxt_re_pd *pd = container_of(ib_pd, struct bnxt_re_pd, ib_pd);
++	struct bnxt_re_dev *rdev = pd->rdev;
++	struct bnxt_re_ah *ah;
++	int rc;
++	u16 vlan_tag;
++	u8 nw_type;
 +
-+	memset(port_attr, 0, sizeof(*port_attr));
++	struct ib_gid_attr sgid_attr;
 +
-+	if (netif_running(rdev->netdev) && netif_carrier_ok(rdev->netdev)) {
-+		port_attr->state = IB_PORT_ACTIVE;
-+		port_attr->phys_state = 5;
-+	} else {
-+		port_attr->state = IB_PORT_DOWN;
-+		port_attr->phys_state = 3;
++	if (!(ah_attr->ah_flags & IB_AH_GRH)) {
++		dev_err(rdev_to_dev(rdev), "Failed to alloc AH: GRH not set");
++		return ERR_PTR(-EINVAL);
 +	}
-+	port_attr->max_mtu = IB_MTU_4096;
-+	port_attr->active_mtu = iboe_get_mtu(rdev->netdev->mtu);
-+	port_attr->gid_tbl_len = dev_attr->max_sgid;
-+	port_attr->port_cap_flags = IB_PORT_CM_SUP | IB_PORT_REINIT_SUP |
-+				    IB_PORT_DEVICE_MGMT_SUP |
-+				    IB_PORT_VENDOR_CLASS_SUP |
-+				    IB_PORT_IP_BASED_GIDS;
++	ah = kzalloc(sizeof(*ah), GFP_ATOMIC);
++	if (!ah)
++		return ERR_PTR(-ENOMEM);
 +
-+	/* Max MSG size set to 2G for now */
-+	port_attr->max_msg_sz = 0x80000000;
-+	port_attr->bad_pkey_cntr = 0;
-+	port_attr->qkey_viol_cntr = 0;
-+	port_attr->pkey_tbl_len = dev_attr->max_pkey;
-+	port_attr->lid = 0;
-+	port_attr->sm_lid = 0;
-+	port_attr->lmc = 0;
-+	port_attr->max_vl_num = 4;
-+	port_attr->sm_sl = 0;
-+	port_attr->subnet_timeout = 0;
-+	port_attr->init_type_reply = 0;
-+	/* call the underlying netdev's ethtool hooks to query speed settings
-+	 * for which we acquire rtnl_lock _only_ if it's registered with
-+	 * IB stack to avoid race in the NETDEV_UNREG path
++	ah->rdev = rdev;
++	ah->qplib_ah.pd = &pd->qplib_pd;
++
++	/* Supply the configuration for the HW */
++	memcpy(ah->qplib_ah.dgid.data, ah_attr->grh.dgid.raw,
++	       sizeof(union ib_gid));
++	/*
++	 * If RoCE V2 is enabled, stack will have two entries for
++	 * each GID entry. Avoiding this duplicte entry in HW. Dividing
++	 * the GID index by 2 for RoCE V2
 +	 */
-+	if (test_bit(BNXT_RE_FLAG_IBDEV_REGISTERED, &rdev->flags))
-+		__to_ib_speed_width(rdev->netdev, &port_attr->active_speed,
-+				    &port_attr->active_width);
-+	return 0;
-+}
++	ah->qplib_ah.sgid_index = ah_attr->grh.sgid_index / 2;
++	ah->qplib_ah.host_sgid_index = ah_attr->grh.sgid_index;
++	ah->qplib_ah.traffic_class = ah_attr->grh.traffic_class;
++	ah->qplib_ah.flow_label = ah_attr->grh.flow_label;
++	ah->qplib_ah.hop_limit = ah_attr->grh.hop_limit;
++	ah->qplib_ah.sl = ah_attr->sl;
++	if (ib_pd->uobject &&
++	    !rdma_is_multicast_addr((struct in6_addr *)
++				    ah_attr->grh.dgid.raw) &&
++	    !rdma_link_local_addr((struct in6_addr *)
++				  ah_attr->grh.dgid.raw)) {
++		union ib_gid sgid;
 +
-+int bnxt_re_modify_port(struct ib_device *ibdev, u8 port_num,
-+			int port_modify_mask,
-+			struct ib_port_modify *port_modify)
-+{
-+	switch (port_modify_mask) {
-+	case IB_PORT_SHUTDOWN:
-+		break;
-+	case IB_PORT_INIT_TYPE:
-+		break;
-+	case IB_PORT_RESET_QKEY_CNTR:
-+		break;
-+	default:
-+		break;
++		rc = ib_get_cached_gid(&rdev->ibdev, 1,
++				       ah_attr->grh.sgid_index, &sgid,
++				       &sgid_attr);
++		if (rc) {
++			dev_err(rdev_to_dev(rdev),
++				"Failed to query gid at index %d",
++				ah_attr->grh.sgid_index);
++			goto fail;
++		}
++		if (sgid_attr.ndev) {
++			if (is_vlan_dev(sgid_attr.ndev))
++				vlan_tag = vlan_dev_vlan_id(sgid_attr.ndev);
++			dev_put(sgid_attr.ndev);
++		}
++		/* Get network header type for this GID */
++		nw_type = ib_gid_to_network_type(sgid_attr.gid_type, &sgid);
++		switch (nw_type) {
++		case RDMA_NETWORK_IPV4:
++			ah->qplib_ah.nw_type = CMDQ_CREATE_AH_TYPE_V2IPV4;
++			break;
++		case RDMA_NETWORK_IPV6:
++			ah->qplib_ah.nw_type = CMDQ_CREATE_AH_TYPE_V2IPV6;
++			break;
++		default:
++			ah->qplib_ah.nw_type = CMDQ_CREATE_AH_TYPE_V1;
++			break;
++		}
++		rc = rdma_addr_find_l2_eth_by_grh(&sgid, &ah_attr->grh.dgid,
++						  ah_attr->dmac, &vlan_tag,
++						  &sgid_attr.ndev->ifindex,
++						  NULL);
++		if (rc) {
++			dev_err(rdev_to_dev(rdev), "Failed to get dmac\n");
++			goto fail;
++		}
 +	}
-+	return 0;
++
++	memcpy(ah->qplib_ah.dmac, ah_attr->dmac, ETH_ALEN);
++	rc = bnxt_qplib_create_ah(&rdev->qplib_res, &ah->qplib_ah);
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to allocate HW AH");
++		goto fail;
++	}
++
++	/* Write AVID to shared page. */
++	if (ib_pd->uobject) {
++		struct ib_ucontext *ib_uctx = ib_pd->uobject->context;
++		struct bnxt_re_ucontext *uctx;
++		unsigned long flag;
++		u32 *wrptr;
++
++		uctx = container_of(ib_uctx, struct bnxt_re_ucontext, ib_uctx);
++		spin_lock_irqsave(&uctx->sh_lock, flag);
++		wrptr = (u32 *)(uctx->shpg + BNXT_RE_AVID_OFFT);
++		*wrptr = ah->qplib_ah.id;
++		wmb(); /* make sure cache is updated. */
++		spin_unlock_irqrestore(&uctx->sh_lock, flag);
++	}
++
++	return &ah->ib_ah;
++
++fail:
++	kfree(ah);
++	return ERR_PTR(rc);
 +}
 +
-+int bnxt_re_get_port_immutable(struct ib_device *ibdev, u8 port_num,
-+			       struct ib_port_immutable *immutable)
++int bnxt_re_modify_ah(struct ib_ah *ib_ah, struct ib_ah_attr *ah_attr)
 +{
-+	struct ib_port_attr port_attr;
-+
-+	if (bnxt_re_query_port(ibdev, port_num, &port_attr))
-+		return -EINVAL;
-+
-+	immutable->pkey_tbl_len = port_attr.pkey_tbl_len;
-+	immutable->gid_tbl_len = port_attr.gid_tbl_len;
-+	immutable->core_cap_flags = RDMA_CORE_PORT_IBA_ROCE;
-+	immutable->core_cap_flags |= RDMA_CORE_CAP_PROT_ROCE_UDP_ENCAP;
-+	immutable->max_mad_size = IB_MGMT_MAD_SIZE;
 +	return 0;
 +}
- /* Protection Domains */
- int bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
++
++int bnxt_re_query_ah(struct ib_ah *ib_ah, struct ib_ah_attr *ah_attr)
++{
++	struct bnxt_re_ah *ah = container_of(ib_ah, struct bnxt_re_ah, ib_ah);
++
++	memcpy(ah_attr->grh.dgid.raw, ah->qplib_ah.dgid.data,
++	       sizeof(union ib_gid));
++	ah_attr->grh.sgid_index = ah->qplib_ah.host_sgid_index;
++	ah_attr->grh.traffic_class = ah->qplib_ah.traffic_class;
++	ah_attr->sl = ah->qplib_ah.sl;
++	memcpy(ah_attr->dmac, ah->qplib_ah.dmac, ETH_ALEN);
++	ah_attr->ah_flags = IB_AH_GRH;
++	ah_attr->port_num = 1;
++	ah_attr->static_rate = 0;
++	return 0;
++}
++
+ /* Completion Queues */
+ int bnxt_re_destroy_cq(struct ib_cq *ib_cq)
  {
 diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.h b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-index b7ca72d..458b887 100644
+index 735be6d..1dcca49 100644
 --- a/drivers/infiniband/hw/bnxt_re/ib_verbs.h
 +++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
-@@ -60,6 +60,13 @@ int bnxt_re_query_device(struct ib_device *ibdev,
- int bnxt_re_modify_device(struct ib_device *ibdev,
- 			  int device_modify_mask,
- 			  struct ib_device_modify *device_modify);
-+int bnxt_re_query_port(struct ib_device *ibdev, u8 port_num,
-+		       struct ib_port_attr *port_attr);
-+int bnxt_re_modify_port(struct ib_device *ibdev, u8 port_num,
-+			int port_modify_mask,
-+			struct ib_port_modify *port_modify);
-+int bnxt_re_get_port_immutable(struct ib_device *ibdev, u8 port_num,
-+			       struct ib_port_immutable *immutable);
- struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
+@@ -51,6 +51,12 @@ struct bnxt_re_pd {
+ 	struct bnxt_qplib_dpi	dpi;
+ };
+ 
++struct bnxt_re_ah {
++	struct bnxt_re_dev	*rdev;
++	struct ib_ah		ib_ah;
++	struct bnxt_qplib_ah	qplib_ah;
++};
++
+ struct bnxt_re_cq {
+ 	struct bnxt_re_dev	*rdev;
+ 	spinlock_t              cq_lock;	/* protect cq */
+@@ -102,6 +108,12 @@ struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
  			       struct ib_ucontext *context,
  			       struct ib_udata *udata);
+ int bnxt_re_dealloc_pd(struct ib_pd *pd);
++struct ib_ah *bnxt_re_create_ah(struct ib_pd *pd,
++				struct ib_ah_attr *ah_attr,
++				struct ib_udata *udata);
++int bnxt_re_modify_ah(struct ib_ah *ah, struct ib_ah_attr *ah_attr);
++int bnxt_re_query_ah(struct ib_ah *ah, struct ib_ah_attr *ah_attr);
++int bnxt_re_destroy_ah(struct ib_ah *ah);
+ struct ib_cq *bnxt_re_create_cq(struct ib_device *ibdev,
+ 				const struct ib_cq_init_attr *attr,
+ 				struct ib_ucontext *context,
 diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
-index bdb297f..847aa3f 100644
+index 2c5d192..bbaf35a 100644
 --- a/drivers/infiniband/hw/bnxt_re/main.c
 +++ b/drivers/infiniband/hw/bnxt_re/main.c
-@@ -434,6 +434,10 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
- 	ibdev->dma_device = &rdev->en_dev->pdev->dev;
- 	ibdev->query_device		= bnxt_re_query_device;
- 	ibdev->modify_device		= bnxt_re_modify_device;
-+
-+	ibdev->query_port		= bnxt_re_query_port;
-+	ibdev->modify_port		= bnxt_re_modify_port;
-+	ibdev->get_port_immutable	= bnxt_re_get_port_immutable;
+@@ -448,6 +448,10 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
  	ibdev->alloc_pd			= bnxt_re_alloc_pd;
  	ibdev->dealloc_pd		= bnxt_re_dealloc_pd;
- 	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
+ 
++	ibdev->create_ah		= bnxt_re_create_ah;
++	ibdev->modify_ah		= bnxt_re_modify_ah;
++	ibdev->query_ah			= bnxt_re_query_ah;
++	ibdev->destroy_ah		= bnxt_re_destroy_ah;
+ 	ibdev->create_cq		= bnxt_re_create_cq;
+ 	ibdev->destroy_cq		= bnxt_re_destroy_cq;
+ 	ibdev->req_notify_cq		= bnxt_re_req_notify_cq;
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_sp.c b/drivers/infiniband/hw/bnxt_re/qplib_sp.c
+index ba16f6b..387168f 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_sp.c
++++ b/drivers/infiniband/hw/bnxt_re/qplib_sp.c
+@@ -416,3 +416,97 @@ int bnxt_qplib_add_pkey(struct bnxt_qplib_res *res,
+ 	/* unlock */
+ 	return rc;
+ }
++
++/* AH */
++int bnxt_qplib_create_ah(struct bnxt_qplib_res *res, struct bnxt_qplib_ah *ah)
++{
++	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
++	struct cmdq_create_ah req;
++	struct creq_create_ah_resp *resp;
++	u16 cmd_flags = 0;
++	u32 temp32[4];
++	u16 temp16[3];
++
++	RCFW_CMD_PREP(req, CREATE_AH, cmd_flags);
++
++	memcpy(temp32, ah->dgid.data, sizeof(struct bnxt_qplib_gid));
++	req.dgid[0] = cpu_to_le32(temp32[0]);
++	req.dgid[1] = cpu_to_le32(temp32[1]);
++	req.dgid[2] = cpu_to_le32(temp32[2]);
++	req.dgid[3] = cpu_to_le32(temp32[3]);
++
++	req.type = ah->nw_type;
++	req.hop_limit = ah->hop_limit;
++	req.sgid_index = cpu_to_le16(res->sgid_tbl.hw_id[ah->sgid_index]);
++	req.dest_vlan_id_flow_label = cpu_to_le32((ah->flow_label &
++					CMDQ_CREATE_AH_FLOW_LABEL_MASK) |
++					CMDQ_CREATE_AH_DEST_VLAN_ID_MASK);
++	req.pd_id = cpu_to_le32(ah->pd->id);
++	req.traffic_class = ah->traffic_class;
++
++	/* MAC in network format */
++	memcpy(temp16, ah->dmac, 6);
++	req.dest_mac[0] = cpu_to_le16(temp16[0]);
++	req.dest_mac[1] = cpu_to_le16(temp16[1]);
++	req.dest_mac[2] = cpu_to_le16(temp16[2]);
++
++	resp = (struct creq_create_ah_resp *)
++			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
++						     NULL, 1);
++	if (!resp) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: CREATE_AH send failed");
++		return -EINVAL;
++	}
++	if (!bnxt_qplib_rcfw_block_for_resp(rcfw, le16_to_cpu(req.cookie))) {
++		/* Cmd timed out */
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: CREATE_AH timed out");
++		return -ETIMEDOUT;
++	}
++	if (resp->status ||
++	    le16_to_cpu(resp->cookie) != le16_to_cpu(req.cookie)) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: CREATE_AH failed ");
++		dev_err(&rcfw->pdev->dev,
++			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
++			resp->status, le16_to_cpu(req.cookie),
++			le16_to_cpu(resp->cookie));
++		return -EINVAL;
++	}
++	ah->id = le32_to_cpu(resp->xid);
++	return 0;
++}
++
++int bnxt_qplib_destroy_ah(struct bnxt_qplib_res *res, struct bnxt_qplib_ah *ah)
++{
++	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
++	struct cmdq_destroy_ah req;
++	struct creq_destroy_ah_resp *resp;
++	u16 cmd_flags = 0;
++
++	/* Clean up the AH table in the device */
++	RCFW_CMD_PREP(req, DESTROY_AH, cmd_flags);
++
++	req.ah_cid = cpu_to_le32(ah->id);
++
++	resp = (struct creq_destroy_ah_resp *)
++			bnxt_qplib_rcfw_send_message(rcfw, (void *)&req,
++						     NULL, 1);
++	if (!resp) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: DESTROY_AH send failed");
++		return -EINVAL;
++	}
++	if (!bnxt_qplib_rcfw_block_for_resp(rcfw, le16_to_cpu(req.cookie))) {
++		/* Cmd timed out */
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: DESTROY_AH timed out");
++		return -ETIMEDOUT;
++	}
++	if (resp->status ||
++	    le16_to_cpu(resp->cookie) != le16_to_cpu(req.cookie)) {
++		dev_err(&rcfw->pdev->dev, "QPLIB: SP: DESTROY_AH failed ");
++		dev_err(&rcfw->pdev->dev,
++			"QPLIB: with status 0x%x cmdq 0x%x resp 0x%x",
++			resp->status, le16_to_cpu(req.cookie),
++			le16_to_cpu(resp->cookie));
++		return -EINVAL;
++	}
++	return 0;
++}
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_sp.h b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
+index a3d4aab..1ef2578 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_sp.h
++++ b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
+@@ -78,6 +78,22 @@ struct bnxt_qplib_gid {
+ 	u8				data[16];
+ };
+ 
++struct bnxt_qplib_ah {
++	struct bnxt_qplib_gid		dgid;
++	struct bnxt_qplib_pd		*pd;
++	u32				id;
++	u8				sgid_index;
++	/* For Query AH if the hw table and SW table are differnt */
++	u8				host_sgid_index;
++	u8				traffic_class;
++	u32				flow_label;
++	u8				hop_limit;
++	u8				sl;
++	u8				dmac[6];
++	u16				vlan_id;
++	u8				nw_type;
++};
++
+ int bnxt_qplib_get_sgid(struct bnxt_qplib_res *res,
+ 			struct bnxt_qplib_sgid_tbl *sgid_tbl, int index,
+ 			struct bnxt_qplib_gid *gid);
+@@ -97,4 +113,6 @@ int bnxt_qplib_add_pkey(struct bnxt_qplib_res *res,
+ 			bool update);
+ int bnxt_qplib_get_dev_attr(struct bnxt_qplib_rcfw *rcfw,
+ 			    struct bnxt_qplib_dev_attr *attr);
++int bnxt_qplib_create_ah(struct bnxt_qplib_res *res, struct bnxt_qplib_ah *ah);
++int bnxt_qplib_destroy_ah(struct bnxt_qplib_res *res, struct bnxt_qplib_ah *ah);
+ #endif /* __BNXT_QPLIB_SP_H__*/
+diff --git a/include/uapi/rdma/bnxt_re-abi.h b/include/uapi/rdma/bnxt_re-abi.h
+index ecded46..a4720cf 100644
+--- a/include/uapi/rdma/bnxt_re-abi.h
++++ b/include/uapi/rdma/bnxt_re-abi.h
+@@ -68,4 +68,11 @@ struct bnxt_re_cq_resp {
+ 	__u32 rsvd;
+ };
+ 
++enum bnxt_re_shpg_offt {
++	BNXT_RE_BEG_RESV_OFFT	= 0x00,
++	BNXT_RE_AVID_OFFT	= 0x10,
++	BNXT_RE_AVID_SIZE	= 0x04,
++	BNXT_RE_END_RESV_OFFT	= 0xFF0
++};
++
+ #endif /* __BNXT_RE_UVERBS_ABI_H__*/
 -- 
 2.5.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
