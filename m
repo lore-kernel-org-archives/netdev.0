@@ -1,41 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 00/10] openvswitch: Conntrack integration
- improvements.
-Date: Thu, 09 Feb 2017 23:00:03 -0500 (EST)
-Message-ID: <20170209.230003.218280941905141491.davem@davemloft.net>
-References: <1486668121-45709-1-git-send-email-jarno@ovn.org>
+Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
+Date: Thu, 09 Feb 2017 20:48:11 -0500 (EST)
+Message-ID: <20170209.204811.352646130146676206.davem@davemloft.net>
+References: <CALx6S34qGUd7Zteo_sDdcXK69cOZUwiQ6wsbLfiyHW1K6gJn=A@mail.gmail.com>
+        <20170209.173415.1198067959393786704.davem@davemloft.net>
+        <CALx6S36ojsMZx-TW0cMCjvK07ffymPon8FDAVKMpmFRd8R-yYw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@ovn.org, pshelar@ovn.org
-To: jarno@ovn.org
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58344 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58490 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750972AbdBJEAR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 23:00:17 -0500
-In-Reply-To: <1486668121-45709-1-git-send-email-jarno@ovn.org>
+        with ESMTP id S1750966AbdBJEQZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 23:16:25 -0500
+In-Reply-To: <CALx6S36ojsMZx-TW0cMCjvK07ffymPon8FDAVKMpmFRd8R-yYw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jarno Rajahalme <jarno@ovn.org>
-Date: Thu,  9 Feb 2017 11:21:51 -0800
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 9 Feb 2017 15:08:22 -0800
 
-> This series improves the conntrack integration code in the openvswitch
-> module by fixing outdated comments (patch 1), bugs (patches 2, 3, and
-> 7), clarifying code (patches 4, 5, and 6), improving performance
-> (patch 10), and adding new features enabling better translation from
-> firewall admission policy to network configuration requested by user
-> communities (patches 8 and 9).
-> 
-> Please note that v3 of the series was Acked by Pravin, but I posted a
-> v4 addressing the remaining english language and coding style issues
-> posted by Joe on v2.
-> 
-> v4: Address remaining language and coding style issues from Joe.
-> v3: Rebase to the current net-next, add the comment only changing
->     patch 1 and reshuffle some of the patches as requested by Joe.
+> Okay, how about this... I'll add a configuration option like
+> XDP_ALLOW_OTHER_HOOKS. The default will be to disallow setting any
+> hook other than a BPF. If it is set, then we'll accept other hooks
+> to be run. This way mostly restrict the interface by default, but
+> still allow experimentation with other hook types like I need with
+> TXDP or maybe the netfilter guys might want to fastpath netfilter
+> etc. When we we bring a working robust implementation to netdev that
+> show clear benefits then we can add those to BPF as the "allowed"
+> hooks at that time. So this strictly controls the interfaces, but
+> still also allows room for innovation.
 
-Ok, I caught this v4 before pushing out v3 by mistake.
+Anyone is allowed to "innovate" in their own private kernel tree.
 
-Series applied, th anks.
+But I'm not unleashing that upstream.
+
+The only reason I accepted XDP is entirely because it is limited
+in scope to eBPF.  All eBPF programs execute in finite time,
+cannot loop, cannot deadlock, cannot access arbitrary pieces
+of kernel memory and datastructures.
+
+It is a well defined, constrained, and incredibly tightly controlled
+execution environment for implementing policy, monitoring and control.
