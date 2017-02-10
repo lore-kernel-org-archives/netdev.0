@@ -1,38 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net/sched: Use TC skip flags to reflect
- HW offload status
-Date: Fri, 10 Feb 2017 14:36:36 -0500 (EST)
-Message-ID: <20170210.143636.253114480501653886.davem@davemloft.net>
-References: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 00/12] net: dsa: remove unnecessary phy.h
+ include
+Date: Fri, 10 Feb 2017 11:44:49 -0800
+Message-ID: <68d8c792-5d09-7cdc-4a94-8437bfb0299e@gmail.com>
+References: <87h944ll0w.fsf@kamboji.qca.qualcomm.com>
+ <5fe312c8-e59e-669c-cd29-f6773adcd8e5@gmail.com>
+ <877f4zjw01.fsf@kamboji.qca.qualcomm.com>
+ <20170210.135138.2084086346069765205.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, jakub.kicinski@netronome.com,
-        john.r.fastabend@intel.com, amirva@vadai.me, netdev@vger.kernel.org
-To: ogerlitz@mellanox.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+        linux-nfs@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+        target-devel@vger.kernel.org, andrew@lunn.ch,
+        anna.schumaker@netapp.com, derek.chickles@caviumnetworks.com,
+        felix.manlunas@caviumnetworks.com, bfields@fieldses.org,
+        jlayton@poochiereds.net, jirislaby@gmail.com,
+        mcgrof@do-not-panic.com, madalin.bucur@nxp.com,
+        UNGLinuxDriver@microchip.com, nab@linux-iscsi.org,
+        mickflemm@gmail.com, nicolas.ferre@atmel.com,
+        raghu.vatsavayi@caviumnetworks.com, ralf@linux-mips.org,
+        satananda.burla@caviumnetworks.com,
+        thomas.petazzoni@free-electrons.com, timur@codeaurora.org,
+        trond.myklebust@primarydata.com,
+        vivien.didelot@savoirfairelinux.com, woojung.huh@microchip.com
+To: David Miller <davem@davemloft.net>, kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46890 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752608AbdBJTgi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 14:36:38 -0500
-In-Reply-To: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:34471 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752388AbdBJTo7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 14:44:59 -0500
+In-Reply-To: <20170210.135138.2084086346069765205.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu,  9 Feb 2017 16:18:04 +0200
-
-> Currently there is no way of querying whether a filter is
-> offloaded to HW or not when using both policy (no flag).
+On 02/10/2017 10:51 AM, David Miller wrote:
+> From: Kalle Valo <kvalo@codeaurora.org>
+> Date: Thu, 09 Feb 2017 16:10:06 +0200
 > 
-> Reuse the skip flags to show the insertion status by setting
-> the skip_hw flag in case the filter wasn't offloaded.
+>> Florian Fainelli <f.fainelli@gmail.com> writes:
+>>
+>>>>> If not, for something like this it's a must:
+>>>>>
+>>>>> drivers/net/wireless/ath/wil6210/cfg80211.c:24:30: error: expected ‘)’ before ‘bool’
+>>>>>  module_param(disable_ap_sme, bool, 0444);
+>>>>>                               ^
+>>>>> drivers/net/wireless/ath/wil6210/cfg80211.c:25:34: error: expected ‘)’ before string constant
+>>>>>  MODULE_PARM_DESC(disable_ap_sme, " let user space handle AP mode SME");
+>>>>>                                   ^
+>>>>> Like like that file needs linux/module.h included.
+>>>>
+>>>> Johannes already fixed a similar (or same) problem in my tree:
+>>>>
+>>>> wil6210: include moduleparam.h
+>>>>
+>>>> https://git.kernel.org/cgit/linux/kernel/git/kvalo/wireless-drivers-next.git/commit/?id=949c2d0096753d518ef6e0bd8418c8086747196b
+>>>>
+>>>> I'm planning to send you a pull request tomorrow which contains that
+>>>> one.
+>>>
+>>> Thanks Kalle!
+>>>
+>>> David, can you hold on this series until Kalle's pull request gets
+>>> submitted? Past this error, allmodconfig builds fine with this patch
+>>> series (just tested). Thanks!
+>>
+>> Just submitted the pull request:
+>>
+>> https://patchwork.ozlabs.org/patch/726133/
 > 
-> The bpf patch is compile tested only, Daniel/Jakub, will 
-> appreciate your review/ack.
- ...
+> I've retried this patch series, and will push it out assuming the build
+> completes properly.
 
-I'm learning towards suggesting that you use new flags, this way it
-will be unambiguous whether we are running an old kernel.
-
-If you just use the skip flag, it's impossible to tell the difference.
+I see it merged in net-next/master, thanks a lot this is going to save a
+lot of cycles in the future, thanks David!
+-- 
+Florian
