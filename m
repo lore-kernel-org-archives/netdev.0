@@ -1,46 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: cafe8df8b9bc clashes with DSA
-Date: Fri, 10 Feb 2017 19:06:40 +0100
-Message-ID: <20170210180640.GJ2103@lunn.ch>
-References: <77093903.194093.1486748785802.JavaMail.zimbra@savoirfairelinux.com>
- <ccabc2d3-9589-f4f5-cdab-ee3ba40e8bc7@gmail.com>
- <87wpcyq6an.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/packet: use-after-free in packet_rcv_fanout
+Date: Fri, 10 Feb 2017 10:34:03 -0800
+Message-ID: <CAM_iQpVaCDtP8-1AoVUVAB+-jM7rcLBj4wgo8-qp2WMCP5U8PQ@mail.gmail.com>
+References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
+ <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
+ <1486696765.7793.119.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1486697003.7793.121.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXHktH+Wo7GtJC4afY_Wm11PpKcNFx41f_x4Vs93J-bMA@mail.gmail.com>
+ <1486749566.7793.150.camel@edumazet-glaptop3.roam.corp.google.com> <1486749763.7793.152.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, maowenan@huawei.com,
-        netdev@vger.kernel.org
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34502 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752164AbdBJSk1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 10 Feb 2017 13:40:27 -0500
-Content-Disposition: inline
-In-Reply-To: <87wpcyq6an.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Anoob Soman <anoob.soman@citrix.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Philip Pettersson <philip.pettersson@gmail.com>,
+        weongyo.linux@gmail.com, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486749763.7793.152.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 10, 2017 at 12:55:44PM -0500, Vivien Didelot wrote:
-> Hi Florian,
-> 
-> Florian Fainelli <f.fainelli@gmail.com> writes:
-> 
-> > Fixed in the "net" tree with:
-> >
-> > 6d9f66ac7fec2a6ccd649e5909806dfe36f1fc25 ("net: phy: Fix PHY module
-> > checks and NULL deref in phy_attach_direct()"), applies fine to net-next
-> > as well.
-> 
-> Correct, this fixes my setup. Shouldn't this be submitted to net-next as
-> well then?
+On Fri, Feb 10, 2017 at 10:02 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-02-10 at 09:59 -0800, Eric Dumazet wrote:
+>> On Fri, 2017-02-10 at 09:49 -0800, Cong Wang wrote:
+>> > On Thu, Feb 9, 2017 at 7:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > > On Thu, 2017-02-09 at 19:19 -0800, Eric Dumazet wrote:
+>> > >
+>> > >> More likely the bug is in fanout_add(), with a buggy sequence in error
+>> > >> case, and not correct locking.
+>> > >>
+>> > >> kfree(po->rollover);
+>> > >> po->rollover = NULL;
+>> > >>
+>> > >> Two cpus entering fanout_add() (using the same af_packet socket,
+>> > >> syzkaller courtesy...) might both see po->fanout being NULL.
+>> > >>
+>> > >> Then they grab the mutex.  Too late...
+>> > >
+>> > > Patch could be :
+>> > >
+>> >
+>> > For me, clearly the data structure that use-after-free'd is struct sock
+>> > rather than struct packet_rollover.
+>>
+>> Fine. But your patch makes absolutely no sense.
+>
+> At least, Anoob patch is making a step into the right direction ;)
+>
+> https://patchwork.ozlabs.org/patch/726532/
+>
 
-Hi Vivien
-
-David will at some point merge net into net-next.
-
-Until then, you can work around the issue by enabling the PHY drivers
-for you hardware. You are also likely to gain a few nice features,
-like PHY interrupts rather than polling, maybe some temperature
-sensors, PHY statistics, etc...
-
-     Andrew
+Yeah, but still looks like a different one with the one Dmitry reported.
