@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] spectrum: flower: Treat ETH_P_ALL as a
- special case and translate for HW
-Date: Fri, 10 Feb 2017 13:43:07 -0500 (EST)
-Message-ID: <20170210.134307.331666923417761529.davem@davemloft.net>
-References: <1486647723-14776-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH V2 net] net: hns: Fix the device being used for dma
+ mapping during TX
+Date: Fri, 10 Feb 2017 13:40:53 -0500 (EST)
+Message-ID: <20170210.134053.1587518147779422167.davem@davemloft.net>
+References: <20170209114615.179560-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, petrm@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45604 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752040AbdBJSnP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:43:15 -0500
-In-Reply-To: <1486647723-14776-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com, yankejian@huawei.com
+To: salil.mehta@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170209114615.179560-1-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu,  9 Feb 2017 14:42:03 +0100
+From: Salil Mehta <salil.mehta@huawei.com>
+Date: Thu, 9 Feb 2017 11:46:15 +0000
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> From: Kejian Yan <yankejian@huawei.com>
 > 
-> HW does not understand ETH_P_ALL. So treat this special case differently
-> and translate to 0/0 key/mask. That will allow HW to match all ethertypes.
+> This patch fixes the device being used to DMA map skb->data.
+> Erroneous device assignment causes the crash when SMMU is enabled.
+> This happens during TX since buffer gets DMA mapped with device
+> correspondign to net_device and gets unmapped using the device
+> related to DSAF.
 > 
-> Fixes: 7aa0f5aa9030 ("mlxsw: spectrum: Implement TC flower offload")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Kejian Yan <yankejian@huawei.com>
+> Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+> Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 
-Applied, thanks.
+Applied, thank you.
