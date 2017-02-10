@@ -1,155 +1,113 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: natsemi: ns83820: use new api ethtool_{get|set}_link_ksettings
-Date: Fri, 10 Feb 2017 23:57:48 +0100
-Message-ID: <1486767468-20242-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, jarod@redhat.com, weiyongjun1@huawei.com,
-        javier@osg.samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34096 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751131AbdBJW56 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 17:57:58 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c85so9354675wmi.1
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 14:57:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] NET: mkiss/6pack: Fix SIOCSIFENCAP ioctl
+Date: Sat, 11 Feb 2017 00:01:21 +0100
+Message-ID: <20170210230121.GA27466@linux-mips.org>
+References: <20170209131211.GA16072@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Osterried <thomas@osterried.de>, linux-hams@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170209131211.GA16072@linux-mips.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+When looking at Thomas' mkiss fix 7ba1b6890387 ("NET: mkiss: Fix panic")
+I noticed that the mkiss SIOCSIFENCAPS ioctl was also doing a slightly
+strange assignment 
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+               dev->hard_header_len = AX25_KISS_HEADER_LEN +
+                                      AX25_MAX_HEADER_LEN + 3;
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/natsemi/ns83820.c |   46 +++++++++++++++++--------------
- 1 files changed, 25 insertions(+), 21 deletions(-)
+AX25_MAX_HEADER_LEN already accounts for the KISS byte so adding
+AX25_KISS_HEADER_LEN is a double allocation nor does the "+ 3" seem to
+be necessary.  So this can be simplified to
 
-diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
-index f9d2eb9..729095d 100644
---- a/drivers/net/ethernet/natsemi/ns83820.c
-+++ b/drivers/net/ethernet/natsemi/ns83820.c
-@@ -1217,12 +1217,13 @@ static void ns83820_update_stats(struct ns83820 *dev)
- }
+               dev->hard_header_len = AX25_MAX_HEADER_LEN
+
+which after the preceeding fix is a redundant assignment of what
+ax_setup has already assigned so delete the line.  The assignments
+to dev->addr_len and dev->type are similarly redundant.
+
+The SIOCSIFENCAP argument was never checked for validity.  Check that
+it is 4 and return -EINVAL if not.  The magic constant 4 dates back to
+the days when KISS was handled by the SLIP driver where it had the
+symbol name SL_MODE_AX25.
+
+Since however mkiss.c only supports a single encapsulation mode there
+is no point in storing it in struct mkiss so delete all that.
+
+Note that while useless we can't delete the SIOCSIFENCAP ioctl as
+kissattach(8) is still using it and without mkiss issuing a
+SIOCSIFENCAP ioctl an older kernel that does not have Thomas' mkiss fix
+would still panic on attempt to transmit via mkiss.
+
+6pack was suffering from the same issue except there SIOCGIFENCAP was
+return 0 for the encapsulation while the spattach utility was passing 4
+for the mode, so the mode check added for 6pack is a bit more lenient
+allow the values 0 and 4 to be set.  That way we retain the option
+to set different encapsulation modes for future extensions.
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+ drivers/net/hamradio/6pack.c | 10 ++++------
+ drivers/net/hamradio/mkiss.c | 10 ++++------
+ 2 files changed, 8 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 470b3dc..d949b9f 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -104,7 +104,6 @@ struct sixpack {
+ 	int			buffsize;       /* Max buffers sizes */
  
- /* Let ethtool retrieve info */
--static int ns83820_get_settings(struct net_device *ndev,
--				struct ethtool_cmd *cmd)
-+static int ns83820_get_link_ksettings(struct net_device *ndev,
-+				      struct ethtool_link_ksettings *cmd)
- {
- 	struct ns83820 *dev = PRIV(ndev);
- 	u32 cfg, tanar, tbicr;
- 	int fullduplex   = 0;
-+	u32 supported;
+ 	unsigned long		flags;		/* Flag values/ mode etc */
+-	unsigned char		mode;		/* 6pack mode */
  
- 	/*
- 	 * Here's the list of available ethtool commands from other drivers:
-@@ -1244,44 +1245,47 @@ static int ns83820_get_settings(struct net_device *ndev,
- 
- 	fullduplex = (cfg & CFG_DUPSTS) ? 1 : 0;
- 
--	cmd->supported = SUPPORTED_Autoneg;
-+	supported = SUPPORTED_Autoneg;
- 
- 	if (dev->CFG_cache & CFG_TBI_EN) {
- 		/* we have optical interface */
--		cmd->supported |= SUPPORTED_1000baseT_Half |
-+		supported |= SUPPORTED_1000baseT_Half |
- 					SUPPORTED_1000baseT_Full |
- 					SUPPORTED_FIBRE;
--		cmd->port       = PORT_FIBRE;
-+		cmd->base.port       = PORT_FIBRE;
- 	} else {
- 		/* we have copper */
--		cmd->supported |= SUPPORTED_10baseT_Half |
-+		supported |= SUPPORTED_10baseT_Half |
- 			SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Half |
- 			SUPPORTED_100baseT_Full | SUPPORTED_1000baseT_Half |
- 			SUPPORTED_1000baseT_Full |
- 			SUPPORTED_MII;
--		cmd->port = PORT_MII;
-+		cmd->base.port = PORT_MII;
- 	}
- 
--	cmd->duplex = fullduplex ? DUPLEX_FULL : DUPLEX_HALF;
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+
-+	cmd->base.duplex = fullduplex ? DUPLEX_FULL : DUPLEX_HALF;
- 	switch (cfg / CFG_SPDSTS0 & 3) {
- 	case 2:
--		ethtool_cmd_speed_set(cmd, SPEED_1000);
-+		cmd->base.speed = SPEED_1000;
- 		break;
- 	case 1:
--		ethtool_cmd_speed_set(cmd, SPEED_100);
-+		cmd->base.speed = SPEED_100;
- 		break;
- 	default:
--		ethtool_cmd_speed_set(cmd, SPEED_10);
-+		cmd->base.speed = SPEED_10;
- 		break;
- 	}
--	cmd->autoneg = (tbicr & TBICR_MR_AN_ENABLE)
-+	cmd->base.autoneg = (tbicr & TBICR_MR_AN_ENABLE)
- 		? AUTONEG_ENABLE : AUTONEG_DISABLE;
- 	return 0;
- }
- 
- /* Let ethool change settings*/
--static int ns83820_set_settings(struct net_device *ndev,
--				struct ethtool_cmd *cmd)
-+static int ns83820_set_link_ksettings(struct net_device *ndev,
-+				      const struct ethtool_link_ksettings *cmd)
- {
- 	struct ns83820 *dev = PRIV(ndev);
- 	u32 cfg, tanar;
-@@ -1306,10 +1310,10 @@ static int ns83820_set_settings(struct net_device *ndev,
- 	spin_lock(&dev->tx_lock);
- 
- 	/* Set duplex */
--	if (cmd->duplex != fullduplex) {
-+	if (cmd->base.duplex != fullduplex) {
- 		if (have_optical) {
- 			/*set full duplex*/
--			if (cmd->duplex == DUPLEX_FULL) {
-+			if (cmd->base.duplex == DUPLEX_FULL) {
- 				/* force full duplex */
- 				writel(readl(dev->base + TXCFG)
- 					| TXCFG_CSI | TXCFG_HBI | TXCFG_ATP,
-@@ -1333,7 +1337,7 @@ static int ns83820_set_settings(struct net_device *ndev,
- 
- 	/* Set autonegotiation */
- 	if (1) {
--		if (cmd->autoneg == AUTONEG_ENABLE) {
-+		if (cmd->base.autoneg == AUTONEG_ENABLE) {
- 			/* restart auto negotiation */
- 			writel(TBICR_MR_AN_ENABLE | TBICR_MR_RESTART_AN,
- 				dev->base + TBICR);
-@@ -1348,7 +1352,7 @@ static int ns83820_set_settings(struct net_device *ndev,
+ 	/* 6pack stuff */
+ 	unsigned char		tx_delay;
+@@ -723,11 +722,10 @@ static int sixpack_ioctl(struct tty_struct *tty, struct file *file,
+ 			break;
  		}
  
- 		printk(KERN_INFO "%s: autoneg %s via ethtool\n", ndev->name,
--				cmd->autoneg ? "ENABLED" : "DISABLED");
-+				cmd->base.autoneg ? "ENABLED" : "DISABLED");
- 	}
+-		sp->mode = tmp;
+-		dev->addr_len        = AX25_ADDR_LEN;
+-		dev->hard_header_len = AX25_KISS_HEADER_LEN +
+-		                       AX25_MAX_HEADER_LEN + 3;
+-		dev->type            = ARPHRD_AX25;
++		if (tmp != 0 && tmp != 4) {
++			err = -EINVAL;
++			break;
++		}
  
- 	phy_intr(ndev);
-@@ -1375,10 +1379,10 @@ static u32 ns83820_get_link(struct net_device *ndev)
- }
+ 		err = 0;
+ 		break;
+diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
+index 1dfe230..cdaf819 100644
+--- a/drivers/net/hamradio/mkiss.c
++++ b/drivers/net/hamradio/mkiss.c
+@@ -71,7 +71,6 @@ struct mkiss {
+ #define AXF_KEEPTEST	3		/* Keepalive test flag		*/
+ #define AXF_OUTWAIT	4		/* is outpacket was flag	*/
  
- static const struct ethtool_ops ops = {
--	.get_settings    = ns83820_get_settings,
--	.set_settings    = ns83820_set_settings,
- 	.get_drvinfo     = ns83820_get_drvinfo,
--	.get_link        = ns83820_get_link
-+	.get_link        = ns83820_get_link,
-+	.get_link_ksettings = ns83820_get_link_ksettings,
-+	.set_link_ksettings = ns83820_set_link_ksettings,
- };
+-	int		mode;
+         int		crcmode;	/* MW: for FlexNet, SMACK etc.  */
+ 	int		crcauto;	/* CRC auto mode */
  
- static inline void ns83820_disable_interrupts(struct ns83820 *dev)
--- 
-1.7.4.4
+@@ -841,11 +840,10 @@ static int mkiss_ioctl(struct tty_struct *tty, struct file *file,
+ 			break;
+ 		}
+ 
+-		ax->mode = tmp;
+-		dev->addr_len        = AX25_ADDR_LEN;
+-		dev->hard_header_len = AX25_KISS_HEADER_LEN +
+-		                       AX25_MAX_HEADER_LEN + 3;
+-		dev->type            = ARPHRD_AX25;
++		if (tmp != 4) {
++			err = -EINVAL;
++			break;
++		}
+ 
+ 		err = 0;
+ 		break;
