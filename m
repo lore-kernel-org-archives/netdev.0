@@ -1,46 +1,51 @@
-From: Denny Page <dennypage@me.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Thu, 09 Feb 2017 16:33:19 -0800
-Message-ID: <CB10D113-C345-45FD-8B87-F8E08350E818@me.com>
-References: <20170207140144.GA11233@localhost>
- <20170209080242.GA1698@localhost.localdomain>
- <20170209110941.GA1449@localhost>
- <CAHoNx5_S3dCSbqfHT+i=VMqw11PcEMA2bBY8Sbp=pAFAhBL6CA@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Miroslav Lichvar <mlichvar@redhat.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Willem de Bruijn <willemb@google.com>
-To: sdncurious <sdncurious@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:35702 "EHLO
-        st11p06im-asmtp001.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751123AbdBJBer (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 20:34:47 -0500
-Received: from process-dkim-sign-daemon.st11p06im-asmtp001.me.com by
- st11p06im-asmtp001.me.com
- (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
- id <0OL400U00UUH1T00@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
- Fri, 10 Feb 2017 00:33:22 +0000 (GMT)
-In-reply-to: <CAHoNx5_S3dCSbqfHT+i=VMqw11PcEMA2bBY8Sbp=pAFAhBL6CA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: fs, net: deadlock between bind/splice on af_unix
+Date: Thu, 9 Feb 2017 17:37:56 -0800
+Message-ID: <CAM_iQpUibPgC6kW2JmkhmPneZ6p7z6QjYdAQ8ng+pxtiWJ7xVA@mail.gmail.com>
+References: <CAM_iQpXjeG5=wZyQP-yOKcB4WRfgGRjeQ+NDHyeSWwdU50Xh5g@mail.gmail.com>
+ <20161209064144.GZ1555@ZenIV.linux.org.uk> <CACT4Y+ad1s6HPdw-ocQ5YfFx7qCeWb3z1k7F9+9KsNmw6+Tszw@mail.gmail.com>
+ <CAM_iQpWu+V2E_uxJLUjS+xM+94CKKR+Bv95UrFPuswUAuAGM+w@mail.gmail.com>
+ <20170126232912.rgh6undqxd4tofqj@dhcp-1-212.brq.redhat.com>
+ <CAM_iQpXqqmAGPbo6jNJV4bOco9sfvXukNAxYPp4tfL=CNwF-RA@mail.gmail.com>
+ <20170127064143.ddyt43iglu2odlld@dhcp-1-212.brq.redhat.com>
+ <CAM_iQpWSRjh4sV-hQxSAFsmvXZ1P4u959vm+UfCP55szQUb0-g@mail.gmail.com>
+ <20170131181411.cq3o7yxrnhq6thpt@dhcp-1-212.brq.redhat.com>
+ <CAM_iQpVG+ybcv1DAc01y3c=CRmUgMqocEnp-efhVM0c-t4hZ0w@mail.gmail.com> <20170207142035.vfnyrbggb6kbfzgd@dhcp-1-212.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Mateusz Guzik <mguzik@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170207142035.vfnyrbggb6kbfzgd@dhcp-1-212.brq.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Feb 7, 2017 at 6:20 AM, Mateusz Guzik <mguzik@redhat.com> wrote:
+>
+> Yes, but unix_release_sock is expected to leave the file behind.
+> Note I'm not claiming there is a leak, but that racing threads will be
+> able to trigger a condition where you create a file and fail to bind it.
+>
 
-> On Feb 09, 2017, at 11:42, sdncurious <sdncurious@gmail.com> wrote:
->=20
-> I am still at a loss as to why transpose is required in case of HW
-> time stamping. If STF is used for both Tx and Rx time stamping the
-> timing is absolutely correct.
+Which is expected, right? No one guarantees the success of file
+creation is the success of bind, the previous code does but it is not
+part of API AFAIK. Should a sane user-space application check
+the file creation for a successful bind() or just check its return value?
 
-Perhaps this will help. The specific transposition is:
+> What to do with the file now?
+>
 
-  transposed_timestamp_ns =3D timestamp_ns + (frame_len_bits * =
-1000000000) / (interface_speed * 1000000)
+We just do what unix_release_sock() does, so why do you keep
+asking the same question?
 
-The transposition is applied to received timestamps only.
-
-Denny
+If you still complain about the race with user-space, think about the
+same race in-between a successful bind() and close(), nothing is new.
