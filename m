@@ -1,7 +1,7 @@
 From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: [PATCH V5 for-next 17/21] RDMA/bnxt_re: Handling dispatching of events to IB stack
-Date: Fri, 10 Feb 2017 03:19:49 -0800
-Message-ID: <1486725593-9872-18-git-send-email-selvin.xavier@broadcom.com>
+Subject: [PATCH V5 for-next 20/21] RDMA/bnxt_re: Add QP event handling
+Date: Fri, 10 Feb 2017 03:19:52 -0800
+Message-ID: <1486725593-9872-21-git-send-email-selvin.xavier@broadcom.com>
 References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
 Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Eddie Wai <eddie.wai@broadcom.com>,
@@ -10,24 +10,21 @@ Cc: netdev@vger.kernel.org, Selvin Xavier <selvin.xavier@broadcom.com>,
         Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 To: dledford@redhat.com, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:35317 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752191AbdBJLXE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:23:04 -0500
-Received: by mail-qk0-f181.google.com with SMTP id u25so35228166qki.2
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:21:17 -0800 (PST)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:33042 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751831AbdBJL1t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:27:49 -0500
+Received: by mail-qk0-f171.google.com with SMTP id s140so35618864qke.0
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:27:41 -0800 (PST)
 In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch implements events dispatching to the IB stack
-based on NETDEV events received.
+Implements callback handler for processing Async events related to a QP.
+This patch also implements the control path command completion handling.
 
-v2: Removed cleanup of the resources during driver unload since
-    we are calling unregister_netdevice_notifier first in the exit.
-
-v3: Fixes cocci warnings and some sparse warnings
-v5: Removes qp_wait parameter from bnxt_re_dev_stop() as it was never used
+v3: Removes unwanted braces
+v5: Added a debug print QP error notification
 
 Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
@@ -35,94 +32,75 @@ Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
 Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/infiniband/hw/bnxt_re/main.c | 59 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 59 insertions(+)
+ drivers/infiniband/hw/bnxt_re/qplib_rcfw.c | 49 ++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
 
-diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
-index 95dbbbe..c84691a 100644
---- a/drivers/infiniband/hw/bnxt_re/main.c
-+++ b/drivers/infiniband/hw/bnxt_re/main.c
-@@ -712,6 +712,51 @@ static int bnxt_re_alloc_res(struct bnxt_re_dev *rdev)
- 	return rc;
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_rcfw.c b/drivers/infiniband/hw/bnxt_re/qplib_rcfw.c
+index 6040786..23fb726 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_rcfw.c
++++ b/drivers/infiniband/hw/bnxt_re/qplib_rcfw.c
+@@ -257,6 +257,46 @@ static int bnxt_qplib_process_func_event(struct bnxt_qplib_rcfw *rcfw,
+ 	return 0;
  }
  
-+static void bnxt_re_dispatch_event(struct ib_device *ibdev, struct ib_qp *qp,
-+				   u8 port_num, enum ib_event_type event)
++static int bnxt_qplib_process_qp_event(struct bnxt_qplib_rcfw *rcfw,
++				       struct creq_qp_event *qp_event)
 +{
-+	struct ib_event ib_event;
++	struct bnxt_qplib_crsq *crsq = &rcfw->crsq;
++	struct bnxt_qplib_hwq *cmdq = &rcfw->cmdq;
++	struct bnxt_qplib_crsqe *crsqe;
++	u16 cbit, cookie, blocked = 0;
++	unsigned long flags;
++	u32 sw_cons;
 +
-+	ib_event.device = ibdev;
-+	if (qp)
-+		ib_event.element.qp = qp;
-+	else
-+		ib_event.element.port_num = port_num;
-+	ib_event.event = event;
-+	ib_dispatch_event(&ib_event);
-+}
++	switch (qp_event->event) {
++	case CREQ_QP_EVENT_EVENT_QP_ERROR_NOTIFICATION:
++		dev_dbg(&rcfw->pdev->dev,
++			"QPLIB: Received QP error notification");
++		break;
++	default:
++		/* Command Response */
++		spin_lock_irqsave(&cmdq->lock, flags);
++		sw_cons = HWQ_CMP(crsq->cons, crsq);
++		crsqe = &crsq->crsq[sw_cons];
++		crsq->cons++;
++		memcpy(&crsqe->qp_event, qp_event, sizeof(crsqe->qp_event));
 +
-+static bool bnxt_re_is_qp1_or_shadow_qp(struct bnxt_re_dev *rdev,
-+					struct bnxt_re_qp *qp)
-+{
-+	return (qp->ib_qp.qp_type == IB_QPT_GSI) || (qp == rdev->qp1_sqp);
-+}
++		cookie = le16_to_cpu(crsqe->qp_event.cookie);
++		blocked = cookie & RCFW_CMD_IS_BLOCKING;
++		cookie &= RCFW_MAX_COOKIE_VALUE;
++		cbit = cookie % RCFW_MAX_OUTSTANDING_CMD;
++		if (!test_and_clear_bit(cbit, rcfw->cmdq_bitmap))
++			dev_warn(&rcfw->pdev->dev,
++				 "QPLIB: CMD bit %d was not requested", cbit);
 +
-+static void bnxt_re_dev_stop(struct bnxt_re_dev *rdev)
-+{
-+	int mask = IB_QP_STATE;
-+	struct ib_qp_attr qp_attr;
-+	struct bnxt_re_qp *qp;
-+
-+	qp_attr.qp_state = IB_QPS_ERR;
-+	mutex_lock(&rdev->qp_lock);
-+	list_for_each_entry(qp, &rdev->qp_list, list) {
-+		/* Modify the state of all QPs except QP1/Shadow QP */
-+		if (!bnxt_re_is_qp1_or_shadow_qp(rdev, qp)) {
-+			if (qp->qplib_qp.state !=
-+			    CMDQ_MODIFY_QP_NEW_STATE_RESET &&
-+			    qp->qplib_qp.state !=
-+			    CMDQ_MODIFY_QP_NEW_STATE_ERR) {
-+				bnxt_re_dispatch_event(&rdev->ibdev, &qp->ib_qp,
-+						       1, IB_EVENT_QP_FATAL);
-+				bnxt_re_modify_qp(&qp->ib_qp, &qp_attr, mask,
-+						  NULL);
-+			}
-+		}
++		cmdq->cons += crsqe->req_size;
++		spin_unlock_irqrestore(&cmdq->lock, flags);
++		if (!blocked)
++			wake_up(&rcfw->waitq);
++		break;
 +	}
-+	mutex_unlock(&rdev->qp_lock);
++	return 0;
 +}
 +
- static void bnxt_re_ib_unreg(struct bnxt_re_dev *rdev, bool lock_wait)
+ /* SP - CREQ Completion handlers */
+ static void bnxt_qplib_service_creq(unsigned long data)
  {
- 	int i, rc;
-@@ -871,6 +916,9 @@ static int bnxt_re_ib_reg(struct bnxt_re_dev *rdev)
- 		}
- 	}
- 	set_bit(BNXT_RE_FLAG_IBDEV_REGISTERED, &rdev->flags);
-+	bnxt_re_dispatch_event(&rdev->ibdev, NULL, 1, IB_EVENT_PORT_ACTIVE);
-+	bnxt_re_dispatch_event(&rdev->ibdev, NULL, 1, IB_EVENT_GID_CHANGE);
-+
- 	return 0;
- free_sctx:
- 	bnxt_re_net_stats_ctx_free(rdev, rdev->qplib_ctx.stats.fw_id, true);
-@@ -950,8 +998,19 @@ static void bnxt_re_task(struct work_struct *work)
- 				"Failed to register with IB: %#x", rc);
- 		break;
- 	case NETDEV_UP:
-+		bnxt_re_dispatch_event(&rdev->ibdev, NULL, 1,
-+				       IB_EVENT_PORT_ACTIVE);
-+		break;
- 	case NETDEV_DOWN:
-+		bnxt_re_dev_stop(rdev);
-+		break;
- 	case NETDEV_CHANGE:
-+		if (!netif_carrier_ok(rdev->netdev))
-+			bnxt_re_dev_stop(rdev);
-+		else if (netif_carrier_ok(rdev->netdev))
-+			bnxt_re_dispatch_event(&rdev->ibdev, NULL, 1,
-+					       IB_EVENT_PORT_ACTIVE);
-+		break;
- 	default:
- 		break;
- 	}
+@@ -280,6 +320,15 @@ static void bnxt_qplib_service_creq(unsigned long data)
+ 		type = creqe->type & CREQ_BASE_TYPE_MASK;
+ 		switch (type) {
+ 		case CREQ_BASE_TYPE_QP_EVENT:
++			if (!bnxt_qplib_process_qp_event
++			    (rcfw, (struct creq_qp_event *)creqe))
++				rcfw->creq_qp_event_processed++;
++			else {
++				dev_warn(&rcfw->pdev->dev, "QPLIB: crsqe with");
++				dev_warn(&rcfw->pdev->dev,
++					 "QPLIB: type = 0x%x not handled",
++					 type);
++			}
+ 			break;
+ 		case CREQ_BASE_TYPE_FUNC_EVENT:
+ 			if (!bnxt_qplib_process_func_event
 -- 
 2.5.5
