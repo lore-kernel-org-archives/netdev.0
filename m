@@ -1,46 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
-Date: Thu, 09 Feb 2017 20:48:11 -0500 (EST)
-Message-ID: <20170209.204811.352646130146676206.davem@davemloft.net>
-References: <CALx6S34qGUd7Zteo_sDdcXK69cOZUwiQ6wsbLfiyHW1K6gJn=A@mail.gmail.com>
-        <20170209.173415.1198067959393786704.davem@davemloft.net>
-        <CALx6S36ojsMZx-TW0cMCjvK07ffymPon8FDAVKMpmFRd8R-yYw@mail.gmail.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: net/packet: use-after-free in packet_rcv_fanout
+Date: Thu, 9 Feb 2017 20:18:43 -0800
+Message-ID: <CANn89iKAPxnTwiTvptdifoX8rHCSuiPdfefC=rWei+-uXkY=hQ@mail.gmail.com>
+References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
+ <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
+ <1486696765.7793.119.camel@edumazet-glaptop3.roam.corp.google.com> <20170210033306.GA770@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58490 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750966AbdBJEQZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 23:16:25 -0500
-In-Reply-To: <CALx6S36ojsMZx-TW0cMCjvK07ffymPon8FDAVKMpmFRd8R-yYw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
+        Philip Pettersson <philip.pettersson@gmail.com>,
+        weongyo.linux@gmail.com, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        Anoob Soman <anoob.soman@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170210033306.GA770@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 9 Feb 2017 15:08:22 -0800
+On Thu, Feb 9, 2017 at 7:33 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> On (02/09/17 19:19), Eric Dumazet wrote:
+>>
+>> More likely the bug is in fanout_add(), with a buggy sequence in error
+>> case, and not correct locking.
+>>
+>> kfree(po->rollover);
+>> po->rollover = NULL;
+>>
+>> Two cpus entering fanout_add() (using the same af_packet socket,
+>> syzkaller courtesy...) might both see po->fanout being NULL.
+>>
+>> Then they grab the mutex.  Too late...
+>
+> I'm not sure I follow- aiui the panic was in acceessing the
+> sk_receive_queue.lock in a socket that had been closed earlier. I think
+> the assumption is that rcu_read_lock_bh in __dev_queue_xmit (and
+> rcu_read_lock in dev_queue_xmit_nit?) should make sure that the nit
+> packet delivery can be done safely, and the synchronize_net in
+> packet_release() makes sure that the Tx paths are quiesced before freeing
+> the socket.  What is the race-hole here? Does it have to do with the
+> _bh and softirq context, somehow?
+>
 
-> Okay, how about this... I'll add a configuration option like
-> XDP_ALLOW_OTHER_HOOKS. The default will be to disallow setting any
-> hook other than a BPF. If it is set, then we'll accept other hooks
-> to be run. This way mostly restrict the interface by default, but
-> still allow experimentation with other hook types like I need with
-> TXDP or maybe the netfilter guys might want to fastpath netfilter
-> etc. When we we bring a working robust implementation to netdev that
-> show clear benefits then we can add those to BPF as the "allowed"
-> hooks at that time. So this strictly controls the interfaces, but
-> still also allows room for innovation.
+We have probably a dozen of bugs to fix in af_packet.c
 
-Anyone is allowed to "innovate" in their own private kernel tree.
+The race in fanout_add() is one ot theml.
 
-But I'm not unleashing that upstream.
+I do not believe Anoob Soman sent his fixes btw ...
 
-The only reason I accepted XDP is entirely because it is limited
-in scope to eBPF.  All eBPF programs execute in finite time,
-cannot loop, cannot deadlock, cannot access arbitrary pieces
-of kernel memory and datastructures.
-
-It is a well defined, constrained, and incredibly tightly controlled
-execution environment for implementing policy, monitoring and control.
+( Look for this thread : http://marc.info/?l=linux-netdev&m=148588680525648&w=2
