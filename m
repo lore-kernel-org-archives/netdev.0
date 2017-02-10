@@ -1,57 +1,53 @@
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Subject: Re: [PATCH v4 0/3] Miscellaneous fixes for BPF (perf tree)
-Date: Fri, 10 Feb 2017 15:42:34 -0200
-Message-ID: <20170210174234.GH2162@redhat.com>
-References: <20170208202744.16274-1-mic@digikod.net>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 0/2] net: ethernet: ti: cpsw: fix susp/resume
+Date: Fri, 10 Feb 2017 12:05:07 -0600
+Message-ID: <ffaeb9fe-fd0a-3735-9f72-dded96de6e56@ti.com>
+References: <1486598856-3512-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <20170209.172126.155005439329995220.davem@davemloft.net>
+ <20170209225423.GA15853@khorivan>
+ <20170209.204507.954952367013216032.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
-        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
-To: Wang Nan <wangnan0@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48360 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753379AbdBJSHy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 10 Feb 2017 13:07:54 -0500
-Content-Disposition: inline
-In-Reply-To: <20170208202744.16274-1-mic@digikod.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <mugunthanvnm@ti.com>, <netdev@vger.kernel.org>,
+        <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <AStarikovskiy@topcon.com>
+To: David Miller <davem@davemloft.net>, <ivan.khoronzhuk@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170209.204507.954952367013216032.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Em Wed, Feb 08, 2017 at 09:27:41PM +0100, Mickaël Salaün escreveu:
-> This series brings some fixes and small improvements to the BPF samples.
-> 
-> This is intended for the perf tree and apply on 7a5980f9c006 ("tools lib bpf:
-> Add missing header to the library").
 
-Wang, are you ok with this series? Joe?
 
-- Arnaldo
- 
-> Changes since v3:
-> * remove applied patch 1/5
-> * remove patch 2/5 on bpf_load_program() as requested by Wang Nan
-> 
-> Changes since v2:
-> * add this cover letter
-> 
-> Changes since v1:
-> * exclude patches not intended for the perf tree
-> 
-> Regards,
-> 
-> Mickaël Salaün (3):
->   samples/bpf: Ignore already processed ELF sections
->   samples/bpf: Reset global variables
->   samples/bpf: Add missing header
-> 
->  samples/bpf/bpf_load.c     | 7 +++++++
->  samples/bpf/tracex5_kern.c | 1 +
->  2 files changed, 8 insertions(+)
-> 
-> -- 
-> 2.11.0
+On 02/09/2017 07:45 PM, David Miller wrote:
+> From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> Date: Fri, 10 Feb 2017 00:54:24 +0200
+>
+>> On Thu, Feb 09, 2017 at 05:21:26PM -0500, David Miller wrote:
+>>> From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+>>> Date: Thu,  9 Feb 2017 02:07:34 +0200
+>>>
+>>>> These two patches fix suspend/resume chain.
+>>>
+>>> Patch 2 doesn't apply cleanly to the 'net' tree, please
+>>> respin this series.
+>>
+>> Strange, I've just checked it on net-next/master, it was applied w/o any
+>> warnings.
+>
+> It makes no sense to test "net-next" when I am telling you that it is
+> the "net" tree it doesn't apply to.
+>
+> This is a bug fix, so it should be targetting the "net" tree.
+>
+
+Looks like the first fix is for net, but the second one is for net-next
+I do not see
+03fd01ad0eead23eb79294b6fb4d71dcac493855
+"net: ethernet: ti: cpsw: don't duplicate ndev_running"
+in net.
+
+-- 
+regards,
+-grygorii
