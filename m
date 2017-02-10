@@ -1,75 +1,57 @@
-From: "Wangnan (F)" <wangnan0@huawei.com>
-Subject: Re: [PATCH net-next v5 10/11] bpf: Remove bpf_sys.h from selftests
-Date: Fri, 10 Feb 2017 10:30:13 +0800
-Message-ID: <828ab1ff-4dcf-53ff-c97b-074adb895006@huawei.com>
-References: <20170209232145.19085-1-mic@digikod.net>
- <20170209232145.19085-11-mic@digikod.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
+Date: Thu, 9 Feb 2017 18:30:05 -0800
+Message-ID: <CALx6S37vWi_qbBzq2Anxy6Yb5mgcQjgt7TDWYJgNJJJ13qPi2g@mail.gmail.com>
+References: <CALx6S34qGUd7Zteo_sDdcXK69cOZUwiQ6wsbLfiyHW1K6gJn=A@mail.gmail.com>
+ <20170209.173415.1198067959393786704.davem@davemloft.net> <CALx6S36ojsMZx-TW0cMCjvK07ffymPon8FDAVKMpmFRd8R-yYw@mail.gmail.com>
+ <20170209.204811.352646130146676206.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Shuah Khan <shuah@kernel.org>
-To: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170209232145.19085-11-mic@digikod.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36786 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750994AbdBJCae (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 21:30:34 -0500
+Received: by mail-qk0-f193.google.com with SMTP id i34so3311864qkh.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 18:30:06 -0800 (PST)
+In-Reply-To: <20170209.204811.352646130146676206.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017/2/10 7:21, Mickaël Salaün wrote:
-> Add require dependency headers.
+On Thu, Feb 9, 2017 at 5:48 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Thu, 9 Feb 2017 15:08:22 -0800
 >
-> Signed-off-by: Mickaël Salaün <mic@digikod.net>
-> Cc: Alexei Starovoitov <ast@fb.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Shuah Khan <shuah@kernel.org>
-> ---
->   tools/lib/bpf/bpf.c                         |  6 ++++++
->   tools/testing/selftests/bpf/bpf_sys.h       | 27 ---------------------------
->   tools/testing/selftests/bpf/test_lpm_map.c  |  1 -
->   tools/testing/selftests/bpf/test_lru_map.c  |  1 -
->   tools/testing/selftests/bpf/test_maps.c     |  1 -
->   tools/testing/selftests/bpf/test_tag.c      |  3 +--
->   tools/testing/selftests/bpf/test_verifier.c |  4 ++--
->   7 files changed, 9 insertions(+), 34 deletions(-)
->   delete mode 100644 tools/testing/selftests/bpf/bpf_sys.h
+>> Okay, how about this... I'll add a configuration option like
+>> XDP_ALLOW_OTHER_HOOKS. The default will be to disallow setting any
+>> hook other than a BPF. If it is set, then we'll accept other hooks
+>> to be run. This way mostly restrict the interface by default, but
+>> still allow experimentation with other hook types like I need with
+>> TXDP or maybe the netfilter guys might want to fastpath netfilter
+>> etc. When we we bring a working robust implementation to netdev that
+>> show clear benefits then we can add those to BPF as the "allowed"
+>> hooks at that time. So this strictly controls the interfaces, but
+>> still also allows room for innovation.
 >
-> diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-> index f8a2b7fa7741..50e04cc5dddd 100644
-> --- a/tools/lib/bpf/bpf.c
-> +++ b/tools/lib/bpf/bpf.c
-> @@ -50,7 +50,13 @@ static __u64 ptr_to_u64(const void *ptr)
->   static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
->   		   unsigned int size)
->   {
-> +#ifdef __NR_bpf
->   	return syscall(__NR_bpf, cmd, attr, size);
-> +#else
-> +	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
-> +	errno = ENOSYS;
-> +	return -1;
-> +#endif
->   }
->   
+> Anyone is allowed to "innovate" in their own private kernel tree.
+>
+> But I'm not unleashing that upstream.
+>
+> The only reason I accepted XDP is entirely because it is limited
+> in scope to eBPF.  All eBPF programs execute in finite time,
+> cannot loop, cannot deadlock, cannot access arbitrary pieces
+> of kernel memory and datastructures.
+>
+> It is a well defined, constrained, and incredibly tightly controlled
+> execution environment for implementing policy, monitoring and control.
 
-We don't need check __NR_bpf again. It has already
-been checked at the header of this file:
+And it's also incredibly invasive in the core data path of drivers.
+TBH it is not clear to me that the narrow use cases for XDP justifies
+adding this complexity being added to every driver.
 
-#ifndef __NR_bpf
-# if defined(__i386__)
-#  define __NR_bpf 357
-# elif defined(__x86_64__)
-#  define __NR_bpf 321
-# elif defined(__aarch64__)
-#  define __NR_bpf 280
-# else
-#  error __NR_bpf not defined. libbpf does not support your arch.
-# endif
-#endif
+In any case, I withdraw the patch set.
 
-Thank you.
+Tom
