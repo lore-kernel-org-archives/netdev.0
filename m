@@ -1,71 +1,65 @@
-From: Adrian Chadd <adrian@freebsd.org>
-Subject: Re: [PATCH 1/3] ath10k: remove ath10k_vif_to_arvif()
-Date: Thu, 9 Feb 2017 23:14:40 -0800
-Message-ID: <CAJ-Vmom7k3Tsgs8tRHQppmL7XxADS3V24AGOQY5QgkrSgr5Qzg@mail.gmail.com>
-References: <1486030773-30600-1-git-send-email-amadeusz.slawinski@tieto.com>
- <CAJ-VmonrHpS3MArM9ohHgLvb6xspP_gnVVeJWA9F-pjUpJ+LZA@mail.gmail.com>
- <87y3xi4b28.fsf@qca.qualcomm.com> <5899DDD7.7000605@candelatech.com> <87tw82il32.fsf@kamboji.qca.qualcomm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net tree
+Date: Fri, 10 Feb 2017 18:27:14 +1100
+Message-ID: <20170210182714.0a186a25@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Greear <greearb@candelatech.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        =?UTF-8?B?QW1hZGV1c3ogU8WCYXdpxYRza2k=?=
-        <amadeusz.slawinski@tieto.com>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "Valo, Kalle" <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87tw82il32.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        Stefan =?UTF-8?B?QnLDvG5z?= <stefan.bruens@rwth-aachen.de>
+To: Andrew Morton <akpm@linux-foundation.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9 February 2017 at 23:03, Valo, Kalle <kvalo@qca.qualcomm.com> wrote:
-> Ben Greear <greearb@candelatech.com> writes:
->
->> On 02/07/2017 01:14 AM, Valo, Kalle wrote:
->>> Adrian Chadd <adrian@freebsd.org> writes:
->>>
->>>> Removing this method makes the diff to FreeBSD larger, as "vif" in
->>>> FreeBSD is a different pointer.
->>>>
->>>> (Yes, I have ath10k on freebsd working and I'd like to find a way to
->>>> reduce the diff moving forward.)
->>>
->>> I don't like this "(void *) vif->drv_priv" style that much either but
->>> apparently it's commonly used in Linux wireless code and already parts
->>> of ath10k. So this patch just unifies the coding style.
->>
->> Surely the code compiles to the same thing, so why add a patch that
->> makes it more difficult for Adrian and makes the code no easier to read
->> for the rest of us?
->
-> Because that's the coding style used already in Linux. It's great to see
-> that parts of ath10k can be used also in other systems but in principle
-> I'm not very fond of the idea starting to reject valid upstream patches
-> because of driver forks.
->
-> I think backports project is doing it right, it's not limiting upstream
-> development in any way and handles all the API changes internally. Maybe
-> FreeBSD could do something similar?
+Hi Andrew,
 
-I tried, but ... well, imagine renaming vif->drv_priv to something
-else. That's what you're suggesting. :-) You can do it with
-coccinelle, but not via just backports API implementations. I'm a big
-fan of light weight accessor APIs for the same reason.
+Today's linux-next merge of the akpm tree got a conflict in:
 
-(Since FreeBSD doesn't have that pointer in ieee80211vap, it's done a
-different way.)
+  drivers/net/usb/sierra_net.c
 
-If you could convert other direct uses over to ath10k_vif_to_arvif()
-then that'd make me happier. If not, it's fine, when I push this into
-freebsd and fast-forward commits, I'll have to just maintain it.
+between commit:
 
-For what it's worth - the linux skb accessors are the same. If there
-were accessors for the skb data / len fields (like we do for mbufs)
-then porting the code would've involved about 5,000 less changed
-lines.
+  5a70348e1187 ("sierra_net: Add support for IPv6 and Dual-Stack Link Sense Indications")
 
+from the net tree and patch:
 
+  "lib/vsprintf.c: remove %Z support"
 
--adrian
+from the akpm tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/usb/sierra_net.c
+index d9440bc022f2,88ace5024306..000000000000
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@@ -376,11 -349,11 +376,11 @@@ static inline int sierra_net_is_valid_a
+  static int sierra_net_parse_lsi(struct usbnet *dev, char *data, int datalen)
+  {
+  	struct lsi_umts *lsi = (struct lsi_umts *)data;
+ +	u32 expected_length;
+  
+ -	if (datalen < sizeof(struct lsi_umts)) {
+ -		netdev_err(dev->net, "%s: Data length %d, exp %zu\n",
+ -				__func__, datalen,
+ -				sizeof(struct lsi_umts));
+ +	if (datalen < sizeof(struct lsi_umts_single)) {
+- 		netdev_err(dev->net, "%s: Data length %d, exp >= %Zu\n",
+++		netdev_err(dev->net, "%s: Data length %d, exp >= %zu\n",
+ +			   __func__, datalen, sizeof(struct lsi_umts_single));
+  		return -1;
+  	}
+  
