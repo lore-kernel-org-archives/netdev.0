@@ -1,40 +1,46 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: fix swapped arguments to
- efx_ef10_handle_rx_event_errors
-Date: Fri, 10 Feb 2017 17:34:59 +0000
-Message-ID: <3d0f460b-b283-4157-33a4-0c30257a1cba@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NET: mkiss: Fix panic
+Date: Fri, 10 Feb 2017 13:42:00 -0500 (EST)
+Message-ID: <20170210.134200.637935062739586183.davem@davemloft.net>
+References: <B4836AA3-200E-4BDA-B1B1-CD3F6AF28F94@osterried.de>
+        <20170209131211.GA16072@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:13247 "EHLO
-        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751989AbdBJS7X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:59:23 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+        linux-kernel@vger.kernel.org, thomas@osterried.de
+To: ralf@linux-mips.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170209131211.GA16072@linux-mips.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixes: a0ee35414837 ("sfc: process RX event inner checksum flags")
-Reported-by: Colin Ian King <colin.king@canonical.com>
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Thu, 9 Feb 2017 14:12:11 +0100
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 6bba2d2..761ccc6 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -3356,8 +3356,9 @@ static int efx_ef10_handle_rx_event(struct efx_channel *channel,
- 	EFX_AND_QWORD(errors, *event, errors);
- 	if (unlikely(!EFX_QWORD_IS_ZERO(errors))) {
- 		flags |= efx_ef10_handle_rx_event_errors(channel, n_packets,
-+							 rx_encap_hdr,
- 							 rx_l3_class, rx_l4_class,
--							 rx_encap_hdr, event);
-+							 event);
- 	} else {
- 		bool tcpudp = rx_l4_class == ESE_DZ_L4_CLASS_TCP ||
- 			      rx_l4_class == ESE_DZ_L4_CLASS_UDP;
+> If a USB-to-serial adapter is unplugged, the driver re-initializes, with
+> dev->hard_header_len and dev->addr_len set to zero, instead of the correct
+> values.  If then a packet is sent through the half-dead interface, the
+> kernel will panic due to running out of headroom in the skb when pushing
+> for the AX.25 headers resulting in this panic:
+> 
+> [<c0595468>] (skb_panic) from [<c0401f70>] (skb_push+0x4c/0x50)
+> [<c0401f70>] (skb_push) from [<bf0bdad4>] (ax25_hard_header+0x34/0xf4 [ax25])
+> [<bf0bdad4>] (ax25_hard_header [ax25]) from [<bf0d05d4>] (ax_header+0x38/0x40 [mkiss])
+> [<bf0d05d4>] (ax_header [mkiss]) from [<c041b584>] (neigh_compat_output+0x8c/0xd8)
+> [<c041b584>] (neigh_compat_output) from [<c043e7a8>] (ip_finish_output+0x2a0/0x914)
+> [<c043e7a8>] (ip_finish_output) from [<c043f948>] (ip_output+0xd8/0xf0)
+> [<c043f948>] (ip_output) from [<c043f04c>] (ip_local_out_sk+0x44/0x48)
+> 
+> This patch makes mkiss behave like the 6pack driver. 6pack does not
+> panic.  In 6pack.c sp_setup() (same function name here) the values for
+> dev->hard_header_len and dev->addr_len are set to the same values as in
+> my mkiss patch.
+> 
+> [ralf@linux-mips.org: Massages original submission to conform to the usual
+> standards for patch submissions.]
+> 
+> Signed-off-by: Thomas Osterried <thomas@osterried.de>
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+Applied, thank you.
