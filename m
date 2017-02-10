@@ -1,42 +1,58 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
-Date: Fri, 10 Feb 2017 09:20:04 +0100
-Message-ID: <CAK8P3a2Yss8r0qoubg2C7Jp+0JE3Fx+igWHQOscR+SB6d+W_HA@mail.gmail.com>
-References: <20170209150834.1158193-1-arnd@arndb.de>
- <c6ab6498-8094-b23e-0b93-c3bf1c866992@gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH v3] can: Fix kernel panic at security_sock_rcv_skb
+Date: Fri, 10 Feb 2017 09:28:57 +0100
+Message-ID: <9f8cc561-e1e6-c2f6-2bcc-3fe0282ca05c@hartkopp.net>
+References: <0e458012-e97b-298d-296e-ed25e35689a0@hartkopp.net>
+ <1484226099.15816.25.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1485533504.6360.62.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170129.183406.1410276231781823069.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- Networking <netdev@vger.kernel.org>, Russell King <linux@armlinux.org.uk>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S . Miller" <davem@davemloft.net>,
- Linux ARM <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <c6ab6498-8094-b23e-0b93-c3bf1c866992@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: stable@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170129.183406.1410276231781823069.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 9, 2017 at 7:22 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 02/09/2017 07:08 AM, Arnd Bergmann wrote:
-> I disabled CONFIG_NETDEVICES to force CONFIG_PHY not to be set here, and
-> I was not able to reproduce this, what am I missing?
+Hello Dave, Greg,
 
-In the ARMv5 allmodconfig build, this fails because CONFIG_PHY=m, and
-we can't call into it. You could use IS_BUILTIN instead of IS_ENABLED in
-the header as a oneline workaround, but I think that would be more confusing
-to real users that try to use CONFIG_PHY=m without realizing why they lose
-access to their switch.
+On 01/30/2017 12:34 AM, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 27 Jan 2017 08:11:44 -0800
+>
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> Zhang Yanmin reported crashes [1] and provided a patch adding a
+>> synchronize_rcu() call in can_rx_unregister()
+>>
+>> The main problem seems that the sockets themselves are not RCU
+>> protected.
+>>
+>> If CAN uses RCU for delivery, then sockets should be freed only after
+>> one RCU grace period.
+>>
+>> Recent kernels could use sock_set_flag(sk, SOCK_RCU_FREE), but let's
+>> ease stable backports with the following fix instead.
+>  ...
+>> Reported-by: Zhang Yanmin <yanmin.zhang@intel.com>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>
+> Applied and queued up for -stable, thanks Eric.
+>
 
-        Arnd
+can you please check whether this upstream commit
+
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=f1712c73714088a7252d276a57126d56c7d37e64
+
+really was queued up for -stable?
+
+This commit
+
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=a06393ed03167771246c4c43192d9c264bc48412
+
+was posted later and already got into the 4.4 and 4.9 stable trees.
+
+Best regards,
+Oliver
