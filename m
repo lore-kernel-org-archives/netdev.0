@@ -1,43 +1,30 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 0/2] afs: Use system UUID generation
-Date: Fri, 10 Feb 2017 16:46:12 +0000
-Message-ID: <148674517199.6350.17724845267620917182.stgit@warthog.procyon.org.uk>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: sfc: process RX event inner checksum flags
+Date: Fri, 10 Feb 2017 16:52:43 +0000
+Message-ID: <053538d2-f641-47a4-fee4-5919f033cd39@solarflare.com>
+References: <61213e24-db1d-8a56-e1a9-e68ae689b73f@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin Ian King <colin.king@canonical.com>,
+        Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+        <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <61213e24-db1d-8a56-e1a9-e68ae689b73f@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 10/02/17 16:14, Colin Ian King wrote:
+> Hi there,
+>
+>
+> not sure if this is a bug, or intentional, but CoverityScan picked up a
+> mismatch in arguments when calling efx_ef10_handle_rx_event_error() with
+> commit "sfc: process RX event inner checksum flags"
 
-There is now a general function for generating a UUID and AFS should make
-use of it.  It's also been recommended to me that I switch to using random
-rather than time plus MAC address-based UUIDs which this function does.
+It's a bug, thanks for the catch (and thanks Coverity as well).
 
-The patches can be found here also:
+Will send a patch shortly.
 
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-
-Tagged thusly:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-	rxrpc-rewrite-20170210
-
-David
----
-Arnd Bergmann (1):
-      afs: Use core kernel UUID generation
-
-David Howells (1):
-      afs: Move UUID struct to linux/uuid.h
-
-
- fs/afs/cmservice.c   |   28 ++++++++++++++--------------
- fs/afs/internal.h    |   38 +++++++-------------------------------
- fs/afs/main.c        |   49 ++-----------------------------------------------
- fs/afs/netdevices.c  |   21 ---------------------
- include/linux/uuid.h |   24 ++++++++++++++++++++++++
- 5 files changed, 47 insertions(+), 113 deletions(-)
+-Ed
