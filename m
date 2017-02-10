@@ -1,55 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: cafe8df8b9bc clashes with DSA
-Date: Fri, 10 Feb 2017 09:59:27 -0800
-Message-ID: <97e083a4-b27d-ce3c-227e-4c328f4a8b88@gmail.com>
-References: <77093903.194093.1486748785802.JavaMail.zimbra@savoirfairelinux.com>
- <ccabc2d3-9589-f4f5-cdab-ee3ba40e8bc7@gmail.com>
- <87wpcyq6an.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH v4 0/3] Miscellaneous fixes for BPF (perf tree)
+Date: Fri, 10 Feb 2017 15:42:34 -0200
+Message-ID: <20170210174234.GH2162@redhat.com>
+References: <20170208202744.16274-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: maowenan@huawei.com, netdev@vger.kernel.org
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Joe Stringer <joe@ovn.org>, netdev@vger.kernel.org
+To: Wang Nan <wangnan0@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36402 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750910AbdBJSBC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:01:02 -0500
-Received: by mail-qk0-f193.google.com with SMTP id i34so6064426qkh.3
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 09:59:30 -0800 (PST)
-In-Reply-To: <87wpcyq6an.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Received: from mx1.redhat.com ([209.132.183.28]:48360 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753379AbdBJSHy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 10 Feb 2017 13:07:54 -0500
+Content-Disposition: inline
+In-Reply-To: <20170208202744.16274-1-mic@digikod.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/10/2017 09:55 AM, Vivien Didelot wrote:
-> Hi Florian,
+Em Wed, Feb 08, 2017 at 09:27:41PM +0100, Mickaël Salaün escreveu:
+> This series brings some fixes and small improvements to the BPF samples.
 > 
-> Florian Fainelli <f.fainelli@gmail.com> writes:
-> 
->> Fixed in the "net" tree with:
->>
->> 6d9f66ac7fec2a6ccd649e5909806dfe36f1fc25 ("net: phy: Fix PHY module
->> checks and NULL deref in phy_attach_direct()"), applies fine to net-next
->> as well.
-> 
-> Correct, this fixes my setup. Shouldn't this be submitted to net-next as
-> well then?
+> This is intended for the perf tree and apply on 7a5980f9c006 ("tools lib bpf:
+> Add missing header to the library").
 
-I indicated in the patch that this was also applicable to "net-next"
-after David merged "net" into "net-next" [1]. We are getting close from
-releasing 4.10 now, so I am assuming that David will close net-next
-soon, and that usually means merging "net" back into "net-next", which
-will get us the fix. David, is that correct?
+Wang, are you ok with this series? Joe?
 
-[1]: http://patchwork.ozlabs.org/patch/725923/
-
+- Arnaldo
+ 
+> Changes since v3:
+> * remove applied patch 1/5
+> * remove patch 2/5 on bpf_load_program() as requested by Wang Nan
 > 
-> Thanks,
+> Changes since v2:
+> * add this cover letter
 > 
->         Vivien
+> Changes since v1:
+> * exclude patches not intended for the perf tree
 > 
-
-
--- 
-Florian
+> Regards,
+> 
+> Mickaël Salaün (3):
+>   samples/bpf: Ignore already processed ELF sections
+>   samples/bpf: Reset global variables
+>   samples/bpf: Add missing header
+> 
+>  samples/bpf/bpf_load.c     | 7 +++++++
+>  samples/bpf/tracex5_kern.c | 1 +
+>  2 files changed, 8 insertions(+)
+> 
+> -- 
+> 2.11.0
