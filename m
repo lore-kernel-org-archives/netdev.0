@@ -1,96 +1,106 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the selinux tree
-Date: Fri, 10 Feb 2017 13:50:15 +1100
-Message-ID: <20170210135015.7a573b81@canb.auug.org.au>
-References: <20170110122703.2dbdfd18@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net/packet: use-after-free in packet_rcv_fanout
+Date: Thu, 09 Feb 2017 19:19:25 -0800
+Message-ID: <1486696765.7793.119.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
+         <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <paul@paul-moore.com>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        James Morris <jmorris@namei.org>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        philip.pettersson@gmail.com, weongyo.linux@gmail.com,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170110122703.2dbdfd18@canb.auug.org.au>
+In-Reply-To: <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Thu, 2017-02-09 at 17:24 -0800, Cong Wang wrote:
+> On Thu, Feb 9, 2017 at 5:14 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> > Hello,
+> >
+> > I've got the following use-after-free report in packet_rcv_fanout
+> > while running syzkaller fuzzer on linux-next
+> > e3e6c5f3544c5d05c6b3b309a34f4f2c3537e993. So far it happened once and
+> > is not reproducible, but maybe the stacks will allow you to figure out
+> > what happens.
+> >
+> > BUG: KASAN: use-after-free in __lock_acquire+0x3212/0x3430
+> > kernel/locking/lockdep.c:3224 at addr ffff8801d903d538
+> > Read of size 8 by task syz-executor1/10596
+> > CPU: 1 PID: 10596 Comm: syz-executor1 Not tainted 4.10.0-rc7-next-20170208 #1
+> > Hardware name: Google Google Compute Engine/Google Compute Engine,
+> > BIOS Google 01/01/2011
+> >
+> > Call Trace:
+> >  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
+> >  __lock_acquire+0x3212/0x3430 kernel/locking/lockdep.c:3224
+> >  lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
+> >  __raw_spin_lock_bh include/linux/spinlock_api_smp.h:135 [inline]
+> >  _raw_spin_lock_bh+0x3a/0x50 kernel/locking/spinlock.c:175
+> >  spin_lock_bh include/linux/spinlock.h:304 [inline]
+> >  packet_rcv_has_room+0x25/0xb0 net/packet/af_packet.c:1308
+> >  fanout_demux_rollover+0x3bb/0x6b0 net/packet/af_packet.c:1388
+> >  packet_rcv_fanout+0x674/0x800 net/packet/af_packet.c:1490
+> >  dev_queue_xmit_nit+0x73a/0xa90 net/core/dev.c:1898
+> >  xmit_one net/core/dev.c:2870 [inline]
+> >  dev_hard_start_xmit+0x16b/0xab0 net/core/dev.c:2890
+> >  __dev_queue_xmit+0x16d1/0x1e60 net/core/dev.c:3355
+> >  dev_queue_xmit+0x17/0x20 net/core/dev.c:3388
+> >  neigh_hh_output include/net/neighbour.h:468 [inline]
+> >  dst_neigh_output include/net/dst.h:452 [inline]
+> >  ip6_finish_output2+0x1461/0x2380 net/ipv6/ip6_output.c:123
+> >  ip6_finish_output+0x2f9/0x950 net/ipv6/ip6_output.c:149
+> >  NF_HOOK_COND include/linux/netfilter.h:246 [inline]
+> >  ip6_output+0x1cb/0x8c0 net/ipv6/ip6_output.c:163
+> >  ip6_xmit+0xc2f/0x1e80 include/net/dst.h:498
+> >  inet6_csk_xmit+0x320/0x5d0 net/ipv6/inet6_connection_sock.c:139
+> >  tcp_transmit_skb+0x1ab4/0x3460 net/ipv4/tcp_output.c:1054
+> >  tcp_send_syn_data net/ipv4/tcp_output.c:3343 [inline]
+> >  tcp_connect+0x11a7/0x2f50 net/ipv4/tcp_output.c:3375
+> >  tcp_v6_connect+0x1a6e/0x1f70 net/ipv6/tcp_ipv6.c:295
+> >  __inet_stream_connect+0x2d1/0xf80 net/ipv4/af_inet.c:618
+> >  tcp_sendmsg_fastopen net/ipv4/tcp.c:1110 [inline]
+> >  tcp_sendmsg+0x23ac/0x3bd0 net/ipv4/tcp.c:1133
+> >  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:761
+> >  sock_sendmsg_nosec net/socket.c:633 [inline]
+> >  sock_sendmsg+0xca/0x110 net/socket.c:643
+> >  SYSC_sendto+0x660/0x810 net/socket.c:1685
+> >  SyS_sendto+0x40/0x50 net/socket.c:1653
+> >  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> 
+> It seems on-flying packets could still refer the struct sock pointer
+> via f->arr[i], if so we need a sync before unlinking it:
+> 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index d56ee46..8724a98 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -2924,6 +2924,8 @@ static int packet_release(struct socket *sock)
+>         sock_prot_inuse_add(net, sk->sk_prot, -1);
+>         preempt_enable();
+> 
+> +       synchronize_net();
+> +
+>         spin_lock(&po->bind_lock);
+>         unregister_prot_hook(sk, false);
+>         packet_cached_dev_reset(po);
 
-On Tue, 10 Jan 2017 12:27:03 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->
-> After merging the selinux tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
-> 
-> In file included from /home/sfr/next/next/security/selinux/avc.c:35:0:
-> /home/sfr/next/next/security/selinux/include/classmap.h:242:2: error: #error New address family defined, please update secclass_map.
->  #error New address family defined, please update secclass_map.
->   ^
-> /home/sfr/next/next/security/selinux/hooks.c: In function 'socket_type_to_security_class':
-> /home/sfr/next/next/security/selinux/hooks.c:1409:2: error: #error New address family defined, please update this function.
-> 
-> Caused by commit
-> 
->   da69a5306ab9 ("selinux: support distinctions among all network address families")
-> 
-> interacting with commit
-> 
->   ac7138746e14 ("smc: establish new socket family")
-> 
-> from the net-next tree.
-> 
-> I added the following merge fix patch:
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Tue, 10 Jan 2017 12:22:21 +1100
-> Subject: [PATCH] selinux: merge fix for "smc: establish new socket family"
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  security/selinux/hooks.c            | 4 +++-
->  security/selinux/include/classmap.h | 4 +++-
->  2 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-> index bada3cd42b9c..712fd0e7c91d 100644
-> --- a/security/selinux/hooks.c
-> +++ b/security/selinux/hooks.c
-> @@ -1405,7 +1405,9 @@ static inline u16 socket_type_to_security_class(int family, int type, int protoc
->  			return SECCLASS_KCM_SOCKET;
->  		case PF_QIPCRTR:
->  			return SECCLASS_QIPCRTR_SOCKET;
-> -#if PF_MAX > 43
-> +		case PF_SMC:
-> +			return SECCLASS_SMC_SOCKET;
-> +#if PF_MAX > 44
->  #error New address family defined, please update this function.
->  #endif
->  		}
-> diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
-> index 0dfd26d0b8d8..40f1d4f8bc2a 100644
-> --- a/security/selinux/include/classmap.h
-> +++ b/security/selinux/include/classmap.h
-> @@ -235,9 +235,11 @@ struct security_class_mapping secclass_map[] = {
->  	  { COMMON_SOCK_PERMS, NULL } },
->  	{ "qipcrtr_socket",
->  	  { COMMON_SOCK_PERMS, NULL } },
-> +	{ "smc_socket",
-> +	  { COMMON_SOCK_PERMS, NULL } },
->  	{ NULL }
->    };
->  
-> -#if PF_MAX > 43
-> +#if PF_MAX > 44
->  #error New address family defined, please update secclass_map.
->  #endif
-> -- 
-> 2.10.2
+More likely the bug is in fanout_add(), with a buggy sequence in error
+case, and not correct locking.
 
-This now applies when I merge the security tree (as it merged the
-selinux tree, presumably).
--- 
-Cheers,
-Stephen Rothwell
+kfree(po->rollover);
+po->rollover = NULL;
+
+Two cpus entering fanout_add() (using the same af_packet socket,
+syzkaller courtesy...) might both see po->fanout being NULL.
+
+Then they grab the mutex.  Too late...
