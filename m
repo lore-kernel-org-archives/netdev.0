@@ -1,172 +1,95 @@
-From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
-Subject: [PATCH net-next v5 10/11] bpf: Remove bpf_sys.h from selftests
-Date: Fri, 10 Feb 2017 00:21:44 +0100
-Message-ID: <20170209232145.19085-11-mic@digikod.net>
-References: <20170209232145.19085-1-mic@digikod.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/packet: use-after-free in packet_rcv_fanout
+Date: Thu, 9 Feb 2017 17:24:08 -0800
+Message-ID: <CAM_iQpXDwx3=tF4Atu7O+STswdTxLFzzT5-K2bgqtcWcF4aghA@mail.gmail.com>
+References: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
-        Shuah Khan <shuah@kernel.org>
-To: linux-kernel@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, jarno@ovn.org,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        philip.pettersson@gmail.com, weongyo.linux@gmail.com,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-sh.infomaniak.ch ([128.65.195.4]:35534 "EHLO
-        smtp-sh.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751983AbdBJAkc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 19:40:32 -0500
-In-Reply-To: <20170209232145.19085-1-mic@digikod.net>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36797 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751153AbdBJBYa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 20:24:30 -0500
+In-Reply-To: <CACT4Y+a2tTARdXKtjtWny9hAPc9b8Q-v8ya3TOV-T+8s=PR2HQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add require dependency headers.
+On Thu, Feb 9, 2017 at 5:14 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> Hello,
+>
+> I've got the following use-after-free report in packet_rcv_fanout
+> while running syzkaller fuzzer on linux-next
+> e3e6c5f3544c5d05c6b3b309a34f4f2c3537e993. So far it happened once and
+> is not reproducible, but maybe the stacks will allow you to figure out
+> what happens.
+>
+> BUG: KASAN: use-after-free in __lock_acquire+0x3212/0x3430
+> kernel/locking/lockdep.c:3224 at addr ffff8801d903d538
+> Read of size 8 by task syz-executor1/10596
+> CPU: 1 PID: 10596 Comm: syz-executor1 Not tainted 4.10.0-rc7-next-20170208 #1
+> Hardware name: Google Google Compute Engine/Google Compute Engine,
+> BIOS Google 01/01/2011
+>
+> Call Trace:
+>  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
+>  __lock_acquire+0x3212/0x3430 kernel/locking/lockdep.c:3224
+>  lock_acquire+0x2a1/0x630 kernel/locking/lockdep.c:3753
+>  __raw_spin_lock_bh include/linux/spinlock_api_smp.h:135 [inline]
+>  _raw_spin_lock_bh+0x3a/0x50 kernel/locking/spinlock.c:175
+>  spin_lock_bh include/linux/spinlock.h:304 [inline]
+>  packet_rcv_has_room+0x25/0xb0 net/packet/af_packet.c:1308
+>  fanout_demux_rollover+0x3bb/0x6b0 net/packet/af_packet.c:1388
+>  packet_rcv_fanout+0x674/0x800 net/packet/af_packet.c:1490
+>  dev_queue_xmit_nit+0x73a/0xa90 net/core/dev.c:1898
+>  xmit_one net/core/dev.c:2870 [inline]
+>  dev_hard_start_xmit+0x16b/0xab0 net/core/dev.c:2890
+>  __dev_queue_xmit+0x16d1/0x1e60 net/core/dev.c:3355
+>  dev_queue_xmit+0x17/0x20 net/core/dev.c:3388
+>  neigh_hh_output include/net/neighbour.h:468 [inline]
+>  dst_neigh_output include/net/dst.h:452 [inline]
+>  ip6_finish_output2+0x1461/0x2380 net/ipv6/ip6_output.c:123
+>  ip6_finish_output+0x2f9/0x950 net/ipv6/ip6_output.c:149
+>  NF_HOOK_COND include/linux/netfilter.h:246 [inline]
+>  ip6_output+0x1cb/0x8c0 net/ipv6/ip6_output.c:163
+>  ip6_xmit+0xc2f/0x1e80 include/net/dst.h:498
+>  inet6_csk_xmit+0x320/0x5d0 net/ipv6/inet6_connection_sock.c:139
+>  tcp_transmit_skb+0x1ab4/0x3460 net/ipv4/tcp_output.c:1054
+>  tcp_send_syn_data net/ipv4/tcp_output.c:3343 [inline]
+>  tcp_connect+0x11a7/0x2f50 net/ipv4/tcp_output.c:3375
+>  tcp_v6_connect+0x1a6e/0x1f70 net/ipv6/tcp_ipv6.c:295
+>  __inet_stream_connect+0x2d1/0xf80 net/ipv4/af_inet.c:618
+>  tcp_sendmsg_fastopen net/ipv4/tcp.c:1110 [inline]
+>  tcp_sendmsg+0x23ac/0x3bd0 net/ipv4/tcp.c:1133
+>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:761
+>  sock_sendmsg_nosec net/socket.c:633 [inline]
+>  sock_sendmsg+0xca/0x110 net/socket.c:643
+>  SYSC_sendto+0x660/0x810 net/socket.c:1685
+>  SyS_sendto+0x40/0x50 net/socket.c:1653
+>  entry_SYSCALL_64_fastpath+0x1f/0xc2
 
-Signed-off-by: Mickaël Salaün <mic@digikod.net>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Shuah Khan <shuah@kernel.org>
----
- tools/lib/bpf/bpf.c                         |  6 ++++++
- tools/testing/selftests/bpf/bpf_sys.h       | 27 ---------------------------
- tools/testing/selftests/bpf/test_lpm_map.c  |  1 -
- tools/testing/selftests/bpf/test_lru_map.c  |  1 -
- tools/testing/selftests/bpf/test_maps.c     |  1 -
- tools/testing/selftests/bpf/test_tag.c      |  3 +--
- tools/testing/selftests/bpf/test_verifier.c |  4 ++--
- 7 files changed, 9 insertions(+), 34 deletions(-)
- delete mode 100644 tools/testing/selftests/bpf/bpf_sys.h
+It seems on-flying packets could still refer the struct sock pointer
+via f->arr[i], if so we need a sync before unlinking it:
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index f8a2b7fa7741..50e04cc5dddd 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -50,7 +50,13 @@ static __u64 ptr_to_u64(const void *ptr)
- static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
- 		   unsigned int size)
- {
-+#ifdef __NR_bpf
- 	return syscall(__NR_bpf, cmd, attr, size);
-+#else
-+	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
-+	errno = ENOSYS;
-+	return -1;
-+#endif
- }
- 
- int bpf_create_map(enum bpf_map_type map_type, int key_size,
-diff --git a/tools/testing/selftests/bpf/bpf_sys.h b/tools/testing/selftests/bpf/bpf_sys.h
-deleted file mode 100644
-index aa076a8a07f7..000000000000
---- a/tools/testing/selftests/bpf/bpf_sys.h
-+++ /dev/null
-@@ -1,27 +0,0 @@
--#ifndef __BPF_SYS__
--#define __BPF_SYS__
--
--#include <stdint.h>
--#include <stdlib.h>
--
--#include <sys/syscall.h>
--
--#include <linux/bpf.h>
--
--static inline __u64 bpf_ptr_to_u64(const void *ptr)
--{
--	return (__u64)(unsigned long) ptr;
--}
--
--static inline int bpf(int cmd, union bpf_attr *attr, unsigned int size)
--{
--#ifdef __NR_bpf
--	return syscall(__NR_bpf, cmd, attr, size);
--#else
--	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
--	errno = ENOSYS;
--	return -1;
--#endif
--}
--
--#endif /* __BPF_SYS__ */
-diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
-index 3cc812cac2d7..e97565243d59 100644
---- a/tools/testing/selftests/bpf/test_lpm_map.c
-+++ b/tools/testing/selftests/bpf/test_lpm_map.c
-@@ -23,7 +23,6 @@
- #include <sys/resource.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- struct tlpm_node {
-diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
-index 48973ded1c96..00b0aff56e2e 100644
---- a/tools/testing/selftests/bpf/test_lru_map.c
-+++ b/tools/testing/selftests/bpf/test_lru_map.c
-@@ -19,7 +19,6 @@
- #include <sys/resource.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- #define LOCAL_FREE_TARGET	(128)
-diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 39168499f43f..cada17ac00b8 100644
---- a/tools/testing/selftests/bpf/test_maps.c
-+++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -22,7 +22,6 @@
- #include <linux/bpf.h>
- 
- #include <bpf/bpf.h>
--#include "bpf_sys.h"
- #include "bpf_util.h"
- 
- static int map_flags;
-diff --git a/tools/testing/selftests/bpf/test_tag.c b/tools/testing/selftests/bpf/test_tag.c
-index ae4263638cd5..de409fc50c35 100644
---- a/tools/testing/selftests/bpf/test_tag.c
-+++ b/tools/testing/selftests/bpf/test_tag.c
-@@ -1,3 +1,4 @@
-+#include <stdint.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <ctype.h>
-@@ -20,8 +21,6 @@
- 
- #include "../../../include/linux/filter.h"
- 
--#include "bpf_sys.h"
--
- static struct bpf_insn prog[BPF_MAXINSNS];
- 
- static void bpf_gen_imm_prog(unsigned int insns, int fd_map)
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index 63818cbb9fb1..e1f5b9eea1e8 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -8,7 +8,9 @@
-  * License as published by the Free Software Foundation.
-  */
- 
-+#include <stdint.h>
- #include <stdio.h>
-+#include <stdlib.h>
- #include <unistd.h>
- #include <errno.h>
- #include <string.h>
-@@ -28,8 +30,6 @@
- 
- #include "../../../include/linux/filter.h"
- 
--#include "bpf_sys.h"
--
- #ifndef ARRAY_SIZE
- # define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
- #endif
--- 
-2.11.0
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index d56ee46..8724a98 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2924,6 +2924,8 @@ static int packet_release(struct socket *sock)
+        sock_prot_inuse_add(net, sk->sk_prot, -1);
+        preempt_enable();
+
++       synchronize_net();
++
+        spin_lock(&po->bind_lock);
+        unregister_prot_hook(sk, false);
+        packet_cached_dev_reset(po);
