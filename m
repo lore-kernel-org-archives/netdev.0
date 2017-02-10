@@ -1,51 +1,40 @@
-From: Denny Page <dennypage@me.com>
-Subject: Re: Extending socket timestamping API for NTP
-Date: Fri, 10 Feb 2017 10:55:35 -0800
-Message-ID: <97185563-83FD-46D6-B8CE-D3F236157D4D@me.com>
-References: <20170207140144.GA11233@localhost>
- <20170209080242.GA1698@localhost.localdomain>
- <20170209110941.GA1449@localhost>
- <CAHoNx5_S3dCSbqfHT+i=VMqw11PcEMA2bBY8Sbp=pAFAhBL6CA@mail.gmail.com>
- <CB10D113-C345-45FD-8B87-F8E08350E818@me.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.2 \(3259\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Miroslav Lichvar <mlichvar@redhat.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@redhat.com>,
-        "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        Willem de Bruijn <willemb@google.com>
-To: sdncurious <sdncurious@gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next] sfc: fix swapped arguments to
+ efx_ef10_handle_rx_event_errors
+Date: Fri, 10 Feb 2017 17:34:59 +0000
+Message-ID: <3d0f460b-b283-4157-33a4-0c30257a1cba@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from st11p06im-asmtp001.me.com ([17.172.125.149]:55434 "EHLO
-        st11p06im-asmtp001.me.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751996AbdBJS4Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:56:24 -0500
-Received: from process-dkim-sign-daemon.st11p06im-asmtp001.me.com by
- st11p06im-asmtp001.me.com
- (Oracle Communications Messaging Server 7.0.5.38.0 64bit (built Feb 26 2016))
- id <0OL6010009VOC900@st11p06im-asmtp001.me.com> for netdev@vger.kernel.org;
- Fri, 10 Feb 2017 18:55:39 +0000 (GMT)
-In-reply-to: <CB10D113-C345-45FD-8B87-F8E08350E818@me.com>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:13247 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751989AbdBJS7X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:59:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fixes: a0ee35414837 ("sfc: process RX event inner checksum flags")
+Reported-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ef10.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> On Feb 09, 2017, at 16:33, Denny Page <dennypage@me.com> wrote:
->=20
->=20
->> On Feb 09, 2017, at 11:42, sdncurious <sdncurious@gmail.com> wrote:
->>=20
->> I am still at a loss as to why transpose is required in case of HW
->> time stamping. If STF is used for both Tx and Rx time stamping the
->> timing is absolutely correct.
->=20
-> Perhaps this will help. The specific transposition is:
->=20
->  transposed_timestamp_ns =3D timestamp_ns + (frame_len_bits * =
-1000000000) / (interface_speed * 1000000)
->=20
-> The transposition is applied to received timestamps only.
-
-
-Before anyone else asks, yes, I know this can be reduced. :)=
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 6bba2d2..761ccc6 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -3356,8 +3356,9 @@ static int efx_ef10_handle_rx_event(struct efx_channel *channel,
+ 	EFX_AND_QWORD(errors, *event, errors);
+ 	if (unlikely(!EFX_QWORD_IS_ZERO(errors))) {
+ 		flags |= efx_ef10_handle_rx_event_errors(channel, n_packets,
++							 rx_encap_hdr,
+ 							 rx_l3_class, rx_l4_class,
+-							 rx_encap_hdr, event);
++							 event);
+ 	} else {
+ 		bool tcpudp = rx_l4_class == ESE_DZ_L4_CLASS_TCP ||
+ 			      rx_l4_class == ESE_DZ_L4_CLASS_UDP;
