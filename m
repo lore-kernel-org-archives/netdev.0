@@ -1,44 +1,130 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH v4 net-next 06/10] openvswitch: Refactor labels initialization.
-Date: Thu, 9 Feb 2017 13:46:33 -0800
-Message-ID: <CAPWQB7F9AQ10HRQkPpyn8TL2bgBtk3OJvtsgOO+BcDASDT4uYA@mail.gmail.com>
-References: <1486668121-45709-1-git-send-email-jarno@ovn.org> <1486668121-45709-7-git-send-email-jarno@ovn.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net] l2tp: do not use udp_ioctl()
+Date: Thu, 09 Feb 2017 16:15:52 -0800
+Message-ID: <1486685752.7793.114.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1486654229.7793.100.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1486664113.7793.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        pravin shelar <pshelar@ovn.org>
-To: Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:41603 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752637AbdBIXxX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 18:53:23 -0500
-Received: from relay5-d.mail.gandi.net (relay5-d.mail.gandi.net [217.70.183.197])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 5C79347EAFB
-        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 22:48:42 +0100 (CET)
-Received: from mfilter20-d.gandi.net (mfilter20-d.gandi.net [217.70.178.148])
-        by relay5-d.mail.gandi.net (Postfix) with ESMTP id EE6D141C074
-        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 22:46:56 +0100 (CET)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-        by mfilter20-d.gandi.net (mfilter20-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id 95MkjwOTqViS for <netdev@vger.kernel.org>;
-        Thu,  9 Feb 2017 22:46:55 +0100 (CET)
-Received: from mail-qt0-f179.google.com (mail-qt0-f179.google.com [209.85.216.179])
-        (Authenticated sender: joe@ovn.org)
-        by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 4BC1541C080
-        for <netdev@vger.kernel.org>; Thu,  9 Feb 2017 22:46:55 +0100 (CET)
-Received: by mail-qt0-f179.google.com with SMTP id w20so17441197qtb.1
-        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 13:46:55 -0800 (PST)
-In-Reply-To: <1486668121-45709-7-git-send-email-jarno@ovn.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36760 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752420AbdBJAYW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 9 Feb 2017 19:24:22 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 75so1556760pgf.3
+        for <netdev@vger.kernel.org>; Thu, 09 Feb 2017 16:24:22 -0800 (PST)
+In-Reply-To: <1486664113.7793.111.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9 February 2017 at 11:21, Jarno Rajahalme <jarno@ovn.org> wrote:
-> Refactoring conntrack labels initialization makes changes in later
-> patches easier to review.
->
-> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
-> Acked-by: Pravin B Shelar <pshelar@ovn.org>
+From: Eric Dumazet <edumazet@google.com>
 
-Acked-by: Joe Stringer <joe@ovn.org>
+udp_ioctl(), as its name suggests, is used by UDP protocols,
+but is also used by L2TP :(
+
+L2TP should use its own handler, because it really does not
+look the same.
+
+SIOCINQ for instance should not assume UDP checksum or headers.
+
+Thanks to Andrey and syzkaller team for providing the report
+and a nice reproducer.
+
+While crashes only happen on recent kernels (after commit 
+7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")), this
+probably needs to be backported to older kernels.
+
+Fixes: 7c13f97ffde6 ("udp: do fwd memory scheduling on dequeue")
+Fixes: 85584672012e ("udp: Fix udp_poll() and ioctl()")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Andrey Konovalov <andreyknvl@google.com>
+Acked-by: Paolo Abeni <pabeni@redhat.com>
+---
+v2: Adding the EXPORT_SYMBOL(l2tp_ioctl) for ipv6, of course...
+
+ net/l2tp/l2tp_core.h |    1 +
+ net/l2tp/l2tp_ip.c   |   27 ++++++++++++++++++++++++++-
+ net/l2tp/l2tp_ip6.c  |    2 +-
+ 3 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 8f560f7140a05694c13904d9b171ba67d9d11292..aebf281d09eeb31c531eb624bd2ddd78cab8da9b 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -263,6 +263,7 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
+ int l2tp_nl_register_ops(enum l2tp_pwtype pw_type,
+ 			 const struct l2tp_nl_cmd_ops *ops);
+ void l2tp_nl_unregister_ops(enum l2tp_pwtype pw_type);
++int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+ 
+ /* Session reference counts. Incremented when code obtains a reference
+  * to a session.
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 3d73278b86ca34bfbd774dc8f52e490169445e1b..28c21546d5b60dcd07bbf6347389e97c918bf40f 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -11,6 +11,7 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
++#include <asm/ioctls.h>
+ #include <linux/icmp.h>
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+@@ -553,6 +554,30 @@ static int l2tp_ip_recvmsg(struct sock *sk, struct msghdr *msg,
+ 	return err ? err : copied;
+ }
+ 
++int l2tp_ioctl(struct sock *sk, int cmd, unsigned long arg)
++{
++	struct sk_buff *skb;
++	int amount;
++
++	switch (cmd) {
++	case SIOCOUTQ:
++		amount = sk_wmem_alloc_get(sk);
++		break;
++	case SIOCINQ:
++		spin_lock_bh(&sk->sk_receive_queue.lock);
++		skb = skb_peek(&sk->sk_receive_queue);
++		amount = skb ? skb->len : 0;
++		spin_unlock_bh(&sk->sk_receive_queue.lock);
++		break;
++
++	default:
++		return -ENOIOCTLCMD;
++	}
++
++	return put_user(amount, (int __user *)arg);
++}
++EXPORT_SYMBOL(l2tp_ioctl);
++
+ static struct proto l2tp_ip_prot = {
+ 	.name		   = "L2TP/IP",
+ 	.owner		   = THIS_MODULE,
+@@ -561,7 +586,7 @@ static struct proto l2tp_ip_prot = {
+ 	.bind		   = l2tp_ip_bind,
+ 	.connect	   = l2tp_ip_connect,
+ 	.disconnect	   = l2tp_ip_disconnect,
+-	.ioctl		   = udp_ioctl,
++	.ioctl		   = l2tp_ioctl,
+ 	.destroy	   = l2tp_ip_destroy_sock,
+ 	.setsockopt	   = ip_setsockopt,
+ 	.getsockopt	   = ip_getsockopt,
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 331ccf5a7bad80e011997e071489d7775b0c68c6..f47c45250f86c9189e0a6bbfd92b21cbe2069406 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -722,7 +722,7 @@ static struct proto l2tp_ip6_prot = {
+ 	.bind		   = l2tp_ip6_bind,
+ 	.connect	   = l2tp_ip6_connect,
+ 	.disconnect	   = l2tp_ip6_disconnect,
+-	.ioctl		   = udp_ioctl,
++	.ioctl		   = l2tp_ioctl,
+ 	.destroy	   = l2tp_ip6_destroy_sock,
+ 	.setsockopt	   = ipv6_setsockopt,
+ 	.getsockopt	   = ipv6_getsockopt,
