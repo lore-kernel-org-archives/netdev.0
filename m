@@ -1,383 +1,238 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC PATCH net] bpf: introduce BPF_F_ALLOW_OVERRIDE flag
-Date: Fri, 10 Feb 2017 13:38:45 -0800
-Message-ID: <CALCETrVjLP+p1mk92h=Xy6EfQdC-dbYwzwHf_sCNzKNb8jeY-w@mail.gmail.com>
-References: <1486666763-2698065-1-git-send-email-ast@fb.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
+Date: Fri, 10 Feb 2017 21:45:13 +0000
+Message-ID: <20170210214513.GA8937@ZenIV.linux.org.uk>
+References: <20160728012253.GT2356@ZenIV.linux.org.uk>
+ <201608030349.u733nRPn000595@sdf.org>
+ <20160803054118.GG2356@ZenIV.linux.org.uk>
+ <2363167.YiBS7sFNO2@debian64>
+ <20160809145836.GQ2356@ZenIV.linux.org.uk>
+ <20170210081126.GA14157@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Daniel Mack <daniel@zonque.org>, Tejun Heo <tj@kernel.org>,
-        Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Alan Curry <rlwinm@sdf.org>,
+        alexmcwhirter@triadic.us, David Miller <davem@davemloft.net>,
+        Christian Lamparter <chunkeey@googlemail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f172.google.com ([209.85.217.172]:33327 "EHLO
-        mail-ua0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751026AbdBJVjQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 16:39:16 -0500
-Received: by mail-ua0-f172.google.com with SMTP id i68so38139981uad.0
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:39:07 -0800 (PST)
-In-Reply-To: <1486666763-2698065-1-git-send-email-ast@fb.com>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:34102 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751029AbdBJVpV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 16:45:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20170210081126.GA14157@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 9, 2017 at 10:59 AM, Alexei Starovoitov <ast@fb.com> wrote:
-> If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
-> to the given cgroup the descendent cgroup will be able to override
-> effective bpf program that was inherited from this cgroup.
-> By default it's not passed, therefore override is disallowed.
->
-> Examples:
-> 1.
-> prog X attached to /A with default
-> prog Y fails to attach to /A/B and /A/B/C
-> Everything under /A runs prog X
->
-> 2.
-> prog X attached to /A with ALLOW_OVERRIDE
-> prog Y attached to /A/B with default. Everything under /A/B runs prog Y
+[repost with netdev added - hadn't realized it wasn't in Cc]
 
-I think that, for ease of future extension, Y should also need
-ALLOW_OVERRIDE.  Otherwise, when non-overridable hooks can stack,
-there could be confusion as to whether Y should override something or
-should stack.
+On Tue, Aug 09, 2016 at 03:58:36PM +0100, Al Viro wrote:
 
-> prog M attached to /A/C with default. Everything under /A/C runs prog M
-> prog N fails to attach to /A/C/foo.
-> prog L attached to /A/D with ALLOW_OVERRIDE.
->   Events under /A/D run prog L and can be overridden in /A/D/foo
->
-> /A still runs prog X
-> prog K attached to /A with ALLOW_OVERRIDE.
->   /A now runs prog K while /A/B runs prog Y and /A/C runs prog M
-> prog J attached to /A with default.
->   /A now runs prog J while /A/B runs prog Y.
->   /A/B cannot be changed anymore (since parent disallows override),
->   but can be cleared. After detach /A/B will run prog J.
->
-> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-> ---
->
-> Below are few proposals for future extensions and not definitive:
-> 1.
-> we can extend the behavior with a chain of non-overridable like:
-> prog X attached to /A with default
-> prog Y attached to /A/B with default
-> The events scoped by /A/B will run program Y first and if it returns 1
-> the prog X will be run. For control app there will be an illusion
-> that it owns cgroup /A/B with single prog and detach from /A/B will delete
-> prog Y unambiguously.
-> While another control app that attached to /A also see its prog X running,
-> unless prog Y filtered it out, which means (from X point of view)
-> that event didn't happen.
-> Attaching two programs to /A is not allowed.
-> We would need to combine prog X and Y into array to avoid link list
-> traversal for performance reasons, but that's an implementation detail.
->
-> 2.
-> we can add another flag to reverse this call order too.
-> Instead of calling the progs from child to parent, do parent to child.
+> Actually returning to the original behaviour would be "restore ->msg_iter
+> if we tried skb_copy_and_csum_datagram() and failed for any reason".  Which
+> would be bloody inconsistent wrt EFAULT, since the other branch (chunk
+> large enough to cover the entire recvmsg()) will copy as much as it can
+> and (in old kernel) drain iovec or (on the current one) leave iov_iter
+> advance unreverted.
 
-I think the order should depend on the hook.  Hooks for
-process-initiated actions (egress, socket creation) should run
-innermost first and hooks for outside actions (ingress) should be
-outermost first.
+To resurrect the old thread: the problem is still there.  Namely, csum
+mismatch on packet should leave the iterator as it had been.  That much
+is clear; the question is what should be done on EFAULT halfway through.
 
->
-> 3.
-> we can extend the api further by adding 'attach_priority' flag as:
-> prog X attach /A prio=20
-> prog Y attach /A prio=10
-> prog N attach /A/B prio=20
-> prog M attach /A/B prio=10
-> in /A/B the sequence of progs will be M -> N -> Y -> X
+Semantics of both csum and non-csum skb_copy_datagram_msg() variants in
+EFAULT case is an interesting question.  None of that family report
+partial copy; it's full or -EFAULT.  So for the sake of basic sanity
+it would be better to leave iterator in the original state when that
+kind of thing happens.  On the other hand, quite a few callers don't
+care about the state of iterator after that and I wonder if the overhead
+would be sensitive.  OTTH, the overhead in question is "save 5 words into
+local variable and don't use it in the normal case" - in the code that
+copies an skb worth of data.
 
-I haven't thought of a use for this.  Maybe there is one.
+AFAICS, the following gives consistent (and minimally surprising) semantics,
+as well as fixing the outright bug with iov_iter left advanced in case of csum
+errors.  Comments?
 
->
-> prog X attach /A prio=10 and prog Y attach /A prio=10 will be disallowed,
-> but attach with the same prio to different cgroups is ok.
-> If attached with prio, detach must specify prio as well.
-> Attach transitions:
-> allow_override -> disable_override/single_prog = ok
-> allow_override -> prio (multi prog at the same cgroup) = ok
-> disable_override/single_prog -> prio = ok (with respect to child/parent order)
-> prio -> allow_override = fail
-> prio -> disable_override/single_prog = fail
->
-> ***
-> To summarize the key to not breaking abi is to preserve user space
-> expectations. Right now (without this patch) we have progs
-> overridable by any descendent. Which means that control plane
-> application has to expect that something may overwrite the program.
-> Hence any new flag will not break this expectation
-> (overridable == control plane cannot assume that its attached
-> programs will run in the hostile environment)
-> and that's the main reason why I don't think we need to change anything now
-> and hence this patch is an RFC.
->
-> Adding 'allow_override' flag and changing the default to
-> override disallowed is also fine from api extensibility point of view.
-> Since for 'override disallowed' case the control plane app will
-> be expecting that any processes will not override its program
-> in the descendent cgroups and it will run. This would have to be preserved.
-> That's why the future api extensions (like #1 above) would have to do
-> the program chaining to preserve 'disallow override' flag expectations.
-> So imo it's safer to keep overridable as it is today, since this flag
-> adds a bit more restrictions to the future extensions
-> comparing to everything overridable.
->
-> Andy,
-> does it all make sense?
-
-Yes with the caveat above.
-
-> Do you still insist on submitting this patch officially?
-
-I'm not sure what you mean.
-
-> or you're ok keeping it overridable for now.
-
-I really think the default should change for 4.10.  People are going
-to use this feature for sandboxing or in systemd or whatever, and that
-code should keep working in newer kernels even when run in a container
-that has a bpf hook set up outside it.
-
-> Note that in the future it will not be possible to change the default,
-> but 'disallow_override' flag can added at any time:
-> Change the default in this patch and it can be appied for 4.12 or later.
-> ---
->  include/linux/bpf-cgroup.h | 13 ++++++-------
->  include/uapi/linux/bpf.h   |  7 +++++++
->  kernel/bpf/cgroup.c        | 25 +++++++++++++++++++------
->  kernel/bpf/syscall.c       | 20 ++++++++++++++------
->  kernel/cgroup.c            |  9 +++++----
->  5 files changed, 51 insertions(+), 23 deletions(-)
->
-> diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-> index 92bc89ae7e20..c970a25d2a49 100644
-> --- a/include/linux/bpf-cgroup.h
-> +++ b/include/linux/bpf-cgroup.h
-> @@ -21,20 +21,19 @@ struct cgroup_bpf {
->          */
->         struct bpf_prog *prog[MAX_BPF_ATTACH_TYPE];
->         struct bpf_prog __rcu *effective[MAX_BPF_ATTACH_TYPE];
-> +       bool disallow_override[MAX_BPF_ATTACH_TYPE];
->  };
->
->  void cgroup_bpf_put(struct cgroup *cgrp);
->  void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent);
->
-> -void __cgroup_bpf_update(struct cgroup *cgrp,
-> -                        struct cgroup *parent,
-> -                        struct bpf_prog *prog,
-> -                        enum bpf_attach_type type);
-> +int __cgroup_bpf_update(struct cgroup *cgrp, struct cgroup *parent,
-> +                       struct bpf_prog *prog, enum bpf_attach_type type,
-> +                       bool overridable);
->
->  /* Wrapper for __cgroup_bpf_update() protected by cgroup_mutex */
-> -void cgroup_bpf_update(struct cgroup *cgrp,
-> -                      struct bpf_prog *prog,
-> -                      enum bpf_attach_type type);
-> +int cgroup_bpf_update(struct cgroup *cgrp, struct bpf_prog *prog,
-> +                     enum bpf_attach_type type, bool overridable);
->
->  int __cgroup_bpf_run_filter_skb(struct sock *sk,
->                                 struct sk_buff *skb,
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index e5b8cf16cbaf..69f65b710b10 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -116,6 +116,12 @@ enum bpf_attach_type {
->
->  #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
->
-> +/* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
-> + * to the given target_fd cgroup the descendent cgroup will be able to
-> + * override effective bpf program that was inherited from this cgroup
-> + */
-> +#define BPF_F_ALLOW_OVERRIDE   (1U << 0)
-> +
->  #define BPF_PSEUDO_MAP_FD      1
->
->  /* flags for BPF_MAP_UPDATE_ELEM command */
-> @@ -171,6 +177,7 @@ union bpf_attr {
->                 __u32           target_fd;      /* container object to attach to */
->                 __u32           attach_bpf_fd;  /* eBPF program to attach */
->                 __u32           attach_type;
-> +               __u32           attach_flags;
->         };
->  } __attribute__((aligned(8)));
->
-> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-> index a515f7b007c6..27cf8a3bc191 100644
-> --- a/kernel/bpf/cgroup.c
-> +++ b/kernel/bpf/cgroup.c
-> @@ -52,6 +52,7 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
->                 e = rcu_dereference_protected(parent->bpf.effective[type],
->                                               lockdep_is_held(&cgroup_mutex));
->                 rcu_assign_pointer(cgrp->bpf.effective[type], e);
-> +               cgrp->bpf.disallow_override[type] = parent->bpf.disallow_override[type];
->         }
->  }
->
-> @@ -82,13 +83,22 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
->   *
->   * Must be called with cgroup_mutex held.
->   */
-> -void __cgroup_bpf_update(struct cgroup *cgrp,
-> -                        struct cgroup *parent,
-> -                        struct bpf_prog *prog,
-> -                        enum bpf_attach_type type)
-> +int __cgroup_bpf_update(struct cgroup *cgrp, struct cgroup *parent,
-> +                       struct bpf_prog *prog, enum bpf_attach_type type,
-> +                       bool new_overridable)
->  {
->         struct bpf_prog *old_prog, *effective;
->         struct cgroup_subsys_state *pos;
-> +       bool overridable = true;
-> +
-> +       if (parent)
-> +               overridable = !parent->bpf.disallow_override[type];
-> +
-> +       if (!overridable && prog)
-> +               return -EPERM;
-> +
-> +       if (prog)
-> +               overridable = new_overridable;
->
->         old_prog = xchg(cgrp->bpf.prog + type, prog);
->
-> @@ -101,11 +111,13 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
->                 struct cgroup *desc = container_of(pos, struct cgroup, self);
->
->                 /* skip the subtree if the descendant has its own program */
-> -               if (desc->bpf.prog[type] && desc != cgrp)
-> +               if (desc->bpf.prog[type] && desc != cgrp) {
->                         pos = css_rightmost_descendant(pos);
-> -               else
-> +               } else {
->                         rcu_assign_pointer(desc->bpf.effective[type],
->                                            effective);
-> +                       desc->bpf.disallow_override[type] = !overridable;
-> +               }
->         }
->
->         if (prog)
-> @@ -115,6 +127,7 @@ void __cgroup_bpf_update(struct cgroup *cgrp,
->                 bpf_prog_put(old_prog);
->                 static_branch_dec(&cgroup_bpf_enabled_key);
->         }
-> +       return 0;
->  }
->
->  /**
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 19b6129eab23..bbb016adbaeb 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -920,13 +920,14 @@ static int bpf_obj_get(const union bpf_attr *attr)
->
->  #ifdef CONFIG_CGROUP_BPF
->
-> -#define BPF_PROG_ATTACH_LAST_FIELD attach_type
-> +#define BPF_PROG_ATTACH_LAST_FIELD attach_flags
->
->  static int bpf_prog_attach(const union bpf_attr *attr)
->  {
-> +       enum bpf_prog_type ptype;
->         struct bpf_prog *prog;
->         struct cgroup *cgrp;
-> -       enum bpf_prog_type ptype;
-> +       int ret;
->
->         if (!capable(CAP_NET_ADMIN))
->                 return -EPERM;
-> @@ -934,6 +935,9 @@ static int bpf_prog_attach(const union bpf_attr *attr)
->         if (CHECK_ATTR(BPF_PROG_ATTACH))
->                 return -EINVAL;
->
-> +       if (attr->attach_flags & ~BPF_F_ALLOW_OVERRIDE)
-> +               return -EINVAL;
-> +
->         switch (attr->attach_type) {
->         case BPF_CGROUP_INET_INGRESS:
->         case BPF_CGROUP_INET_EGRESS:
-> @@ -956,10 +960,13 @@ static int bpf_prog_attach(const union bpf_attr *attr)
->                 return PTR_ERR(cgrp);
->         }
->
-> -       cgroup_bpf_update(cgrp, prog, attr->attach_type);
-> +       ret = cgroup_bpf_update(cgrp, prog, attr->attach_type,
-> +                               attr->attach_flags & BPF_F_ALLOW_OVERRIDE);
-> +       if (ret)
-> +               bpf_prog_put(prog);
->         cgroup_put(cgrp);
->
-> -       return 0;
-> +       return ret;
->  }
->
->  #define BPF_PROG_DETACH_LAST_FIELD attach_type
-> @@ -967,6 +974,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
->  static int bpf_prog_detach(const union bpf_attr *attr)
->  {
->         struct cgroup *cgrp;
-> +       int ret;
->
->         if (!capable(CAP_NET_ADMIN))
->                 return -EPERM;
-> @@ -982,7 +990,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
->                 if (IS_ERR(cgrp))
->                         return PTR_ERR(cgrp);
->
-> -               cgroup_bpf_update(cgrp, NULL, attr->attach_type);
-> +               ret = cgroup_bpf_update(cgrp, NULL, attr->attach_type, false);
->                 cgroup_put(cgrp);
->                 break;
->
-> @@ -990,7 +998,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
->                 return -EINVAL;
->         }
->
-> -       return 0;
-> +       return ret;
->  }
->  #endif /* CONFIG_CGROUP_BPF */
->
-> diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-> index 688dd02af985..53bbca7c4859 100644
-> --- a/kernel/cgroup.c
-> +++ b/kernel/cgroup.c
-> @@ -6498,15 +6498,16 @@ static __init int cgroup_namespaces_init(void)
->  subsys_initcall(cgroup_namespaces_init);
->
->  #ifdef CONFIG_CGROUP_BPF
-> -void cgroup_bpf_update(struct cgroup *cgrp,
-> -                      struct bpf_prog *prog,
-> -                      enum bpf_attach_type type)
-> +int cgroup_bpf_update(struct cgroup *cgrp, struct bpf_prog *prog,
-> +                     enum bpf_attach_type type, bool overridable)
->  {
->         struct cgroup *parent = cgroup_parent(cgrp);
-> +       int ret;
->
->         mutex_lock(&cgroup_mutex);
-> -       __cgroup_bpf_update(cgrp, parent, prog, type);
-> +       ret = __cgroup_bpf_update(cgrp, parent, prog, type, overridable);
->         mutex_unlock(&cgroup_mutex);
-> +       return ret;
->  }
->  #endif /* CONFIG_CGROUP_BPF */
->
-> --
-> 2.8.0
->
-
-
-
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index c27011bbe30c..14ae17e77603 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -848,7 +848,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
+ 		total += VLAN_HLEN;
+ 
+-		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
++		ret = __skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
+ 		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 
+@@ -857,7 +857,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 			goto done;
+ 	}
+ 
+-	ret = skb_copy_datagram_iter(skb, vlan_offset, iter,
++	ret = __skb_copy_datagram_iter(skb, vlan_offset, iter,
+ 				     skb->len - vlan_offset);
+ 
+ done:
+@@ -899,11 +899,14 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q,
+ 		finish_wait(sk_sleep(&q->sk), &wait);
+ 
+ 	if (skb) {
++		struct iov_iter saved = *to;
+ 		ret = macvtap_put_user(q, skb, to);
+-		if (unlikely(ret < 0))
++		if (unlikely(ret < 0)) {
++			*to = saved;
+ 			kfree_skb(skb);
+-		else
++		} else {
+ 			consume_skb(skb);
++		}
+ 	}
+ 	return ret;
+ }
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index a411b43a69eb..0d8badc3c4e9 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -480,7 +480,7 @@ static ssize_t ppp_read(struct file *file, char __user *buf,
+ 	iov.iov_base = buf;
+ 	iov.iov_len = count;
+ 	iov_iter_init(&to, READ, &iov, 1, count);
+-	if (skb_copy_datagram_iter(skb, 0, &to, skb->len))
++	if (__skb_copy_datagram_iter(skb, 0, &to, skb->len))
+ 		goto outf;
+ 	ret = skb->len;
+ 
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 30863e378925..2003b8c9970e 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1430,7 +1430,7 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 
+ 		vlan_offset = offsetof(struct vlan_ethhdr, h_vlan_proto);
+ 
+-		ret = skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
++		ret = __skb_copy_datagram_iter(skb, 0, iter, vlan_offset);
+ 		if (ret || !iov_iter_count(iter))
+ 			goto done;
+ 
+@@ -1439,7 +1439,8 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+ 			goto done;
+ 	}
+ 
+-	skb_copy_datagram_iter(skb, vlan_offset, iter, skb->len - vlan_offset);
++	/* XXX: no error check? */
++	__skb_copy_datagram_iter(skb, vlan_offset, iter, skb->len - vlan_offset);
+ 
+ done:
+ 	/* caller is in process context, */
+@@ -1501,6 +1502,7 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ {
+ 	struct sk_buff *skb;
+ 	ssize_t ret;
++	struct iov_iter saved;
+ 	int err;
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
+@@ -1513,11 +1515,14 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 	if (!skb)
+ 		return err;
+ 
++	saved = *to;
+ 	ret = tun_put_user(tun, tfile, skb, to);
+-	if (unlikely(ret < 0))
++	if (unlikely(ret < 0)) {
++		*to = saved;
+ 		kfree_skb(skb);
+-	else
++	} else {
+ 		consume_skb(skb);
++	}
+ 
+ 	return ret;
+ }
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f1adddc1c5ac..ee8d962373af 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3060,8 +3060,17 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags, int noblock,
+ 				  int *err);
+ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ 			   struct poll_table_struct *wait);
+-int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
++int __skb_copy_datagram_iter(const struct sk_buff *from, int offset,
+ 			   struct iov_iter *to, int size);
++static inline int skb_copy_datagram_iter(const struct sk_buff *from, int offset,
++					struct iov_iter *to, int size)
++{
++	struct iov_iter saved = *to;
++	int res = __skb_copy_datagram_iter(from, offset, to, size);
++	if (unlikely(res))
++		*to = saved;
++	return res;
++}
+ static inline int skb_copy_datagram_msg(const struct sk_buff *from, int offset,
+ 					struct msghdr *msg, int size)
+ {
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ea633342ab0d..33ff2046dda1 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -394,7 +394,7 @@ EXPORT_SYMBOL(skb_kill_datagram);
+  *	@to: iovec iterator to copy to
+  *	@len: amount of data to copy from buffer to iovec
+  */
+-int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
++int __skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 			   struct iov_iter *to, int len)
+ {
+ 	int start = skb_headlen(skb);
+@@ -445,7 +445,7 @@ int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 		if ((copy = end - offset) > 0) {
+ 			if (copy > len)
+ 				copy = len;
+-			if (skb_copy_datagram_iter(frag_iter, offset - start,
++			if (__skb_copy_datagram_iter(frag_iter, offset - start,
+ 						   to, copy))
+ 				goto fault;
+ 			if ((len -= copy) == 0)
+@@ -471,7 +471,7 @@ int skb_copy_datagram_iter(const struct sk_buff *skb, int offset,
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(skb_copy_datagram_iter);
++EXPORT_SYMBOL(__skb_copy_datagram_iter);
+ 
+ /**
+  *	skb_copy_datagram_from_iter - Copy a datagram from an iov_iter.
+@@ -750,14 +750,16 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+ {
+ 	__wsum csum;
+ 	int chunk = skb->len - hlen;
++	struct iov_iter saved;
+ 
+ 	if (!chunk)
+ 		return 0;
+ 
++	saved = msg->msg_iter;
+ 	if (msg_data_left(msg) < chunk) {
+ 		if (__skb_checksum_complete(skb))
+ 			goto csum_error;
+-		if (skb_copy_datagram_msg(skb, hlen, msg, chunk))
++		if (__skb_copy_datagram_iter(skb, hlen, &msg->msg_iter, chunk))
+ 			goto fault;
+ 	} else {
+ 		csum = csum_partial(skb->data, hlen, skb->csum);
+@@ -771,8 +773,10 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+ 	}
+ 	return 0;
+ csum_error:
++	msg->msg_iter = saved;
+ 	return -EINVAL;
+ fault:
++	msg->msg_iter = saved;
+ 	return -EFAULT;
+ }
+ EXPORT_SYMBOL(skb_copy_and_csum_datagram_msg);
