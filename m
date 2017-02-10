@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2] gtp: add MAINTAINERS
-Date: Fri, 10 Feb 2017 16:04:39 -0500 (EST)
-Message-ID: <20170210.160439.856977983504436379.davem@davemloft.net>
-References: <1486729587-501-1-git-send-email-pablo@netfilter.org>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH net 1/1] net: fec: fix multicast filtering hardware setup
+Date: Fri, 10 Feb 2017 19:19:36 -0200
+Message-ID: <CAOMZO5A=JQHDU6qFqzzkKQWStUqhDngRcbuf-qmSWgZUd7VRyA@mail.gmail.com>
+References: <1486706069-29124-1-git-send-email-fugang.duan@nxp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, laforge@gnumonks.org
-To: pablo@netfilter.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Andy Duan <fugang.duan@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48442 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751504AbdBJVEq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 16:04:46 -0500
-In-Reply-To: <1486729587-501-1-git-send-email-pablo@netfilter.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:34289 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751441AbdBJVTh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 16:19:37 -0500
+Received: by mail-oi0-f67.google.com with SMTP id w144so3371019oiw.1
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 13:19:37 -0800 (PST)
+In-Reply-To: <1486706069-29124-1-git-send-email-fugang.duan@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 10 Feb 2017 13:26:27 +0100
+On Fri, Feb 10, 2017 at 3:54 AM, Andy Duan <fugang.duan@nxp.com> wrote:
+> Fix hardware setup of multicast address hash:
+> - Never clear the hardware hash (to avoid packet loss)
+> - Construct the hash register values in software and then write once
+> to hardware
+>
+> Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+> Signed-off-by: Rui Sousa <rui.sousa@nxp.com>
 
-> From: Pablo Neira <pablo@netfilter.org>
-> 
-> Add maintainers for this tunnel driver. Include main osmocom.org mailist
-> list too.
-> 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
-> v2: Harald suggests osmocom-net-gprs@lists.osmocom.org is better ML for this.
-
-Applied, thanks.
+It seems you missed to put Rui's name in the From: field.
