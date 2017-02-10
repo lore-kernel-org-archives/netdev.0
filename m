@@ -1,97 +1,144 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] mlx4: do not fire tasklet unless necessary
-Date: Fri, 10 Feb 2017 04:27:58 -0800
-Message-ID: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
+Date: Fri, 10 Feb 2017 14:02:17 +0100
+Message-ID: <20170210130217.GA4570@kroah.com>
+References: <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170115110628.GF26374@kroah.com>
+ <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+ <20170115191632.GD5643@lunn.ch>
+ <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+ <20170119142820.GA494@kroah.com> <20170119145315.GD21805@lunn.ch>
+ <20170119165155.GH27312@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33042 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751457AbdBJM4O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 07:56:14 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 194so3173794pgd.0
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 04:56:14 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
+ open list <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20170119165155.GH27312@n2100.armlinux.org.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Jan 19, 2017 at 04:51:55PM +0000, Russell King - ARM Linux wrote:
+> (This is mainly for Greg's benefit to help him understand the issue.)
+> 
+> I think the diagram you gave initially made this confusing, as it
+> talks about a CPU(sic) producing the "RGMII" and "MII-MGMT".
+> 
+> Let's instead show a better representation that hopefully helps Greg
+> understand networking. :)
+> 
+> 
+>   CPU
+> System <-B->  Ethernet controller <-P-> } PHY <---> network cable
+>                                         } - - - - - - - or - - - - - - -
+>                   MDIO bus -------M---> } Switch <-P-> PHYs <--> network
+>                                               `----M----^        cables
+> 
+> 'B' can be an on-SoC bus or something like PCI.
+> 
+> 'P' are the high-speed connectivity between the ethernet controller and
+> PHY which carries the packet data.  It has no addressing, it's a point
+> to point link.  RGMII is just one wiring example, there are many
+> different interfaces there (SGMII, AUI, XAUI, XGMII to name a few.)
+> 
+> 'M' are the MDIO bus, which is the bus by which ethernet PHYs and
+> switches can be identified and controlled.
+> 
+> The MDIO bus has a bus_type, has host drivers which are sometimes
+> part of the ethernet controller, but can also be stand-alone devices
+> shared between multiple ethernet controllers.
+> 
+> PHYs are a kind of MDIO device which are members of the MDIO bus
+> type.  Each PHY (and switch) has a numerical address, and identifying
+> numbers within its register set which identifies the manufacturer
+> and device type.  We have device_driver objects for these.
+> 
+> Expanding the above diagram to make it (hopefully) even clearer,
+> we can have this classic setup:
+> 
+>   CPU
+> System <-B-> Ethernet controller <-P-> PHY <---> network cable
+>                  MDIO bus -------M------^
+> 
+> Or, in the case of two DSA switches attached to an Ethernet controller:
+> 
+>                                      |~~~~~~~~|
+> System <-B-> Ethernet controller <-P-> Switch <-P-> PHY1 <--> network cable
+>                  MDIO bus ----+--M--->   1    <-P-> PHY2 <--> network cable
+>                               |      |        ...    |
+>                               |      |        <-P-> PHYn <--> network cable
+>                               |      |....^...|      |
+>                               |           |  `---M---'
+>                               |           P
+>                               |           |
+>                               |      |~~~~v~~~|
+>                               `------> Switch <-P-> PHY1 <--> network cable
+>                                      |   2    ...    |
+>                                      |        <-P-> PHYn <--> network cable
+>                                      |........|      |
+>                                              `---M---'
+> 
+> The problem that the DSA guys are trying to deal with is how to
+> represent the link between the DSA switches (which are devices
+> sitting off their controlling bus - the MDIO bus) and the ethernet
+> controller associated with that collection of devices, be it a
+> switch or PHY.
 
-All rx and rx netdev interrupts are handled by respectively
-by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
+Why do they have to represent that link?  This is a driver that somehow
+binds the two togther in some sort of "control plane"?
 
-But mlx4_eq_int() also fires a tasklet to service all items that were
-queued via mlx4_add_cq_to_tasklet(), but this handler was not called
-unless user cqe was handled.
+> Merely changing the parent/child relationships to try and solve
+> one issue just creates exactly the same problem elsewhere.
 
-This is very confusing, as "mpstat -I SCPU ..." show huge number of
-tasklet invocations.
+Fair enough.
 
-This patch saves this overhead, by carefully firing the tasklet directly
-from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
+> So, I hope with these diagrams, you can see that trying to make
+> the ethernet controller a child device of the DSA switches
+> means that (eg) it's no longer a PCI device, which is rather
+> absurd, especially when considering that what happens to the
+> right of the ethernet controller in the diagrams above is
+> normally external chips to the SoC or ethernet device.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>
-Cc: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/cq.c |    6 +++++-
- drivers/net/ethernet/mellanox/mlx4/eq.c |    9 +--------
- 2 files changed, 6 insertions(+), 9 deletions(-)
+Ok, thanks for the long explainations and diagrams.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cq.c b/drivers/net/ethernet/mellanox/mlx4/cq.c
-index 6b8635378f1fcb2aae4e8ac390bcd09d552c2256..fa6d2354a0e910ee160863e3cbe21a512d77bf03 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cq.c
-@@ -81,8 +81,9 @@ void mlx4_cq_tasklet_cb(unsigned long data)
- 
- static void mlx4_add_cq_to_tasklet(struct mlx4_cq *cq)
- {
--	unsigned long flags;
- 	struct mlx4_eq_tasklet *tasklet_ctx = cq->tasklet_ctx.priv;
-+	unsigned long flags;
-+	bool kick;
- 
- 	spin_lock_irqsave(&tasklet_ctx->lock, flags);
- 	/* When migrating CQs between EQs will be implemented, please note
-@@ -92,7 +93,10 @@ static void mlx4_add_cq_to_tasklet(struct mlx4_cq *cq)
- 	 */
- 	if (list_empty_careful(&cq->tasklet_ctx.list)) {
- 		atomic_inc(&cq->refcount);
-+		kick = list_empty(&tasklet_ctx->list);
- 		list_add_tail(&cq->tasklet_ctx.list, &tasklet_ctx->list);
-+		if (kick)
-+			tasklet_schedule(&tasklet_ctx->task);
- 	}
- 	spin_unlock_irqrestore(&tasklet_ctx->lock, flags);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 0509996957d9664b612358dd805359f4bc67b8dc..39232b6a974f4b4b961d3b0b8634f04e6b9d0caa 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -494,7 +494,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_eqe *eqe;
--	int cqn = -1;
-+	int cqn;
- 	int eqes_found = 0;
- 	int set_ci = 0;
- 	int port;
-@@ -840,13 +840,6 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 
- 	eq_set_ci(eq, 1);
- 
--	/* cqn is 24bit wide but is initialized such that its higher bits
--	 * are ones too. Thus, if we got any event, cqn's high bits should be off
--	 * and we need to schedule the tasklet.
--	 */
--	if (!(cqn & ~0xffffff))
--		tasklet_schedule(&eq->tasklet_ctx.task);
--
- 	return eqes_found;
- }
- 
+_BUT_ my original point remains.  These new functions you all are trying
+to get into the driver core, do NOT do what they say they are doing.
+They are mucking around with a "known topology" and just happen to work
+because the device you are trying to find shares a common parent with
+yourself.
+
+That is not what the function says it does, and as such, I do not want
+that function in the driver core at all.
+
+If you wish to keep it in your own subsystem, that's fine, but call it
+what it really is:
+	hack_to_find_peer_device_on_random_bus()
+and pass in a _real_ pointer to a bus type.  Not some random string
+please.
+
+Or better yet, have the DSA code accept pointers to the two devices in
+the first place, so it "knows" what to do here in a much better way.
+Right now it is a bad hack.  You all can not argue that is not true.
+
+thanks,
+
+greg k-h
