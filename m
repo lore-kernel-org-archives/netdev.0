@@ -1,99 +1,73 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: linux-next: build failure after merge of the selinux tree
-Date: Fri, 10 Feb 2017 07:34:10 -0500
-Message-ID: <CAHC9VhTTO7JK=BbFnpfHHC_itN03VvioCw_J0p8xc+A7zELm5A@mail.gmail.com>
-References: <20170110122703.2dbdfd18@canb.auug.org.au> <20170210135015.7a573b81@canb.auug.org.au>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: Re: [PATCH] xen-netback: vif counters from int/long to
+ u64
+Date: Fri, 10 Feb 2017 12:49:47 +0000
+Message-ID: <2877c83e45a444e1b39f0da1e5adb86b@AMSPEX02CL03.citrite.net>
+References: <1486728138-13253-1-git-send-email-mart@greenhost.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        James Morris <jmorris@namei.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170210135015.7a573b81@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: 'Mart van Santen' <mart@greenhost.nl>, Wei Liu <wei.liu2@citrix.com>,
+ "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1486728138-13253-1-git-send-email-mart@greenhost.nl>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 9, 2017 at 9:50 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi all,
->
-> On Tue, 10 Jan 2017 12:27:03 +1100 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->>
->> After merging the selinux tree, today's linux-next build (x86_64
->> allmodconfig) failed like this:
->>
->> In file included from /home/sfr/next/next/security/selinux/avc.c:35:0:
->> /home/sfr/next/next/security/selinux/include/classmap.h:242:2: error: #error New address family defined, please update secclass_map.
->>  #error New address family defined, please update secclass_map.
->>   ^
->> /home/sfr/next/next/security/selinux/hooks.c: In function 'socket_type_to_security_class':
->> /home/sfr/next/next/security/selinux/hooks.c:1409:2: error: #error New address family defined, please update this function.
->>
->> Caused by commit
->>
->>   da69a5306ab9 ("selinux: support distinctions among all network address families")
->>
->> interacting with commit
->>
->>   ac7138746e14 ("smc: establish new socket family")
->>
->> from the net-next tree.
->>
->> I added the following merge fix patch:
->>
->> From: Stephen Rothwell <sfr@canb.auug.org.au>
->> Date: Tue, 10 Jan 2017 12:22:21 +1100
->> Subject: [PATCH] selinux: merge fix for "smc: establish new socket family"
->>
->> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
->> ---
->>  security/selinux/hooks.c            | 4 +++-
->>  security/selinux/include/classmap.h | 4 +++-
->>  2 files changed, 6 insertions(+), 2 deletions(-)
->>
->> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
->> index bada3cd42b9c..712fd0e7c91d 100644
->> --- a/security/selinux/hooks.c
->> +++ b/security/selinux/hooks.c
->> @@ -1405,7 +1405,9 @@ static inline u16 socket_type_to_security_class(int family, int type, int protoc
->>                       return SECCLASS_KCM_SOCKET;
->>               case PF_QIPCRTR:
->>                       return SECCLASS_QIPCRTR_SOCKET;
->> -#if PF_MAX > 43
->> +             case PF_SMC:
->> +                     return SECCLASS_SMC_SOCKET;
->> +#if PF_MAX > 44
->>  #error New address family defined, please update this function.
->>  #endif
->>               }
->> diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
->> index 0dfd26d0b8d8..40f1d4f8bc2a 100644
->> --- a/security/selinux/include/classmap.h
->> +++ b/security/selinux/include/classmap.h
->> @@ -235,9 +235,11 @@ struct security_class_mapping secclass_map[] = {
->>         { COMMON_SOCK_PERMS, NULL } },
->>       { "qipcrtr_socket",
->>         { COMMON_SOCK_PERMS, NULL } },
->> +     { "smc_socket",
->> +       { COMMON_SOCK_PERMS, NULL } },
->>       { NULL }
->>    };
->>
->> -#if PF_MAX > 43
->> +#if PF_MAX > 44
->>  #error New address family defined, please update secclass_map.
->>  #endif
->> --
->> 2.10.2
->
-> This now applies when I merge the security tree (as it merged the
-> selinux tree, presumably).
-
-Yes, James just pulled the SELinux tree yesterday.
-
--- 
-paul moore
-www.paul-moore.com
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBYZW4tZGV2ZWwgW21haWx0bzp4
+ZW4tZGV2ZWwtYm91bmNlc0BsaXN0cy54ZW4ub3JnXSBPbiBCZWhhbGYgT2YNCj4gTWFydCB2YW4g
+U2FudGVuDQo+IFNlbnQ6IDEwIEZlYnJ1YXJ5IDIwMTcgMTI6MDINCj4gVG86IFdlaSBMaXUgPHdl
+aS5saXUyQGNpdHJpeC5jb20+OyBQYXVsIER1cnJhbnQgPFBhdWwuRHVycmFudEBjaXRyaXguY29t
+PjsNCj4geGVuLWRldmVsQGxpc3RzLnhlbnByb2plY3Qub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwu
+b3JnDQo+IENjOiBNYXJ0IHZhbiBTYW50ZW4gPG1hcnRAZ3JlZW5ob3N0Lm5sPg0KPiBTdWJqZWN0
+OiBbWGVuLWRldmVsXSBbUEFUQ0hdIHhlbi1uZXRiYWNrOiB2aWYgY291bnRlcnMgZnJvbSBpbnQv
+bG9uZyB0byB1NjQNCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXMgYW4gaXNzdWUgd2hlcmUgdGhlIHR5
+cGUgb2YgY291bnRlcnMgaW4gdGhlIHF1ZXVlKHMpDQo+IGFuZCBpbnRlcmZhY2UgYXJlIG5vdCBp
+biBzeW5jIChxdWV1ZSBjb3VudGVycyBhcmUgaW50LCBpbnRlcmZhY2UNCj4gY291bnRlcnMgYXJl
+IGxvbmcpLCBjYXVzaW5nIGluY29ycmVjdCByZXBvcnRpbmcgb2YgdHgvcnggdmFsdWVzDQo+IG9m
+IHRoZSB2aWYgaW50ZXJmYWNlIGFuZCB1bmNsZWFyIGNvdW50ZXIgb3ZlcmZsb3dzLg0KPiBUaGlz
+IHBhdGNoIHNldHMgYm90aCBjb3VudGVycyB0byB0aGUgdTY0IHR5cGUuDQo+IA0KPiBTaWduZWQt
+b2ZmLWJ5OiBNYXJ0IHZhbiBTYW50ZW4gPG1hcnRAZ3JlZW5ob3N0Lm5sPg0KDQpMb29rcyBzZW5z
+aWJsZSB0byBtZS4NCg0KUmV2aWV3ZWQtYnk6IFBhdWwgRHVycmFudCA8cGF1bC5kdXJyYW50QGNp
+dHJpeC5jb20+DQoNCj4gLS0tDQo+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9jb21tb24uaCAg
+ICB8IDggKysrKy0tLS0NCj4gIGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jIHwg
+OCArKysrLS0tLQ0KPiAgMiBmaWxlcyBjaGFuZ2VkLCA4IGluc2VydGlvbnMoKyksIDggZGVsZXRp
+b25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svY29tbW9u
+LmggYi9kcml2ZXJzL25ldC94ZW4tDQo+IG5ldGJhY2svY29tbW9uLmgNCj4gaW5kZXggM2NlMWY3
+ZC4uNTMwNTg2YiAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svY29tbW9u
+LmgNCj4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svY29tbW9uLmgNCj4gQEAgLTExMywx
+MCArMTEzLDEwIEBAIHN0cnVjdCB4ZW52aWZfc3RhdHMgew0KPiAgCSAqIEEgc3Vic2V0IG9mIHN0
+cnVjdCBuZXRfZGV2aWNlX3N0YXRzIHRoYXQgY29udGFpbnMgb25seSB0aGUNCj4gIAkgKiBmaWVs
+ZHMgdGhhdCBhcmUgdXBkYXRlZCBpbiBuZXRiYWNrLmMgZm9yIGVhY2ggcXVldWUuDQo+ICAJICov
+DQo+IC0JdW5zaWduZWQgaW50IHJ4X2J5dGVzOw0KPiAtCXVuc2lnbmVkIGludCByeF9wYWNrZXRz
+Ow0KPiAtCXVuc2lnbmVkIGludCB0eF9ieXRlczsNCj4gLQl1bnNpZ25lZCBpbnQgdHhfcGFja2V0
+czsNCj4gKwl1NjQgcnhfYnl0ZXM7DQo+ICsJdTY0IHJ4X3BhY2tldHM7DQo+ICsJdTY0IHR4X2J5
+dGVzOw0KPiArCXU2NCB0eF9wYWNrZXRzOw0KPiANCj4gIAkvKiBBZGRpdGlvbmFsIHN0YXRzIHVz
+ZWQgYnkgeGVudmlmICovDQo+ICAJdW5zaWduZWQgbG9uZyByeF9nc29fY2hlY2tzdW1fZml4dXA7
+DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYyBiL2Ry
+aXZlcnMvbmV0L3hlbi0NCj4gbmV0YmFjay9pbnRlcmZhY2UuYw0KPiBpbmRleCA1Nzk1MjEzLi41
+MGZhMTY5IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2Uu
+Yw0KPiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYw0KPiBAQCAtMjIx
+LDEwICsyMjEsMTAgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzDQo+ICp4ZW52aWZf
+Z2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQo+ICB7DQo+ICAJc3RydWN0IHhlbnZp
+ZiAqdmlmID0gbmV0ZGV2X3ByaXYoZGV2KTsNCj4gIAlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1
+ZSA9IE5VTEw7DQo+IC0JdW5zaWduZWQgbG9uZyByeF9ieXRlcyA9IDA7DQo+IC0JdW5zaWduZWQg
+bG9uZyByeF9wYWNrZXRzID0gMDsNCj4gLQl1bnNpZ25lZCBsb25nIHR4X2J5dGVzID0gMDsNCj4g
+LQl1bnNpZ25lZCBsb25nIHR4X3BhY2tldHMgPSAwOw0KPiArCXU2NCByeF9ieXRlcyA9IDA7DQo+
+ICsJdTY0IHJ4X3BhY2tldHMgPSAwOw0KPiArCXU2NCB0eF9ieXRlcyA9IDA7DQo+ICsJdTY0IHR4
+X3BhY2tldHMgPSAwOw0KPiAgCXVuc2lnbmVkIGludCBpbmRleDsNCj4gDQo+ICAJc3Bpbl9sb2Nr
+KCZ2aWYtPmxvY2spOw0KPiAtLQ0KPiAyLjEuNA0KPiANCj4gDQo+IF9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fDQo+IFhlbi1kZXZlbCBtYWlsaW5nIGxpc3QN
+Cj4gWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcNCj4gaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1k
+ZXZlbA0KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVu
+LWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwczovL2xpc3Rz
+Lnhlbi5vcmcveGVuLWRldmVsCg==
