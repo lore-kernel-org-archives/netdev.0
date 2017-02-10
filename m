@@ -1,110 +1,115 @@
-From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH V5 for-next 21/21] RDMA/bnxt_re: Add bnxt_re driver build support
-Date: Fri, 10 Feb 2017 03:19:53 -0800
-Message-ID: <1486725593-9872-22-git-send-email-selvin.xavier@broadcom.com>
-References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1486725593-9872-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH v2 iproute2 1/2] utils: make hex2mem available to all users
+Date: Fri, 10 Feb 2017 06:25:43 -0500
+Message-ID: <1486725944-16898-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, mrv@mojatatu.com,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:33007 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752116AbdBJLdT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 06:33:19 -0500
+Received: by mail-io0-f195.google.com with SMTP id 101so5542110iom.0
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 03:33:19 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Makefile and Kconfig changes for enabling bnxt_re compilation
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-v3: Adds list of MAINTAINERS of bnxt_re driver. Removes bnxt_re_debugfs.c
-    from Makefile as this file is no longer present
+hex2mem() api is useful for parsing hexstrings which are then packed in
+a stream of chars.
 
-Signed-off-by: Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- MAINTAINERS                            | 11 +++++++++++
- drivers/infiniband/Kconfig             |  2 ++
- drivers/infiniband/hw/Makefile         |  1 +
- drivers/infiniband/hw/bnxt_re/Kconfig  |  9 +++++++++
- drivers/infiniband/hw/bnxt_re/Makefile |  6 ++++++
- 5 files changed, 29 insertions(+)
- create mode 100644 drivers/infiniband/hw/bnxt_re/Kconfig
- create mode 100644 drivers/infiniband/hw/bnxt_re/Makefile
+ include/utils.h |  1 +
+ ip/ipl2tp.c     | 25 -------------------------
+ lib/utils.c     | 25 +++++++++++++++++++++++++
+ 3 files changed, 26 insertions(+), 25 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 5f0420a..468d2e8 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2808,6 +2808,17 @@ L:	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org (moderated for non-subscribers)
- S:	Maintained
- F:	arch/arm64/boot/dts/broadcom/vulcan*
+diff --git a/include/utils.h b/include/utils.h
+index dc1d6b9..22369e0 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -118,6 +118,7 @@ int get_be32(__be32 *val, const char *arg, int base);
+ int get_be16(__be16 *val, const char *arg, int base);
+ int get_addr64(__u64 *ap, const char *cp);
  
-+BROADCOM NETXTREME-E ROCE DRIVER
-+M:	Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-+M:	Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-+M:	Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-+M:	Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-+L:	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-+W:	http://www.broadcom.com
-+S:	Supported
-+F:	drivers/infiniband/hw/bnxt_re/
-+F:	include/uapi/rdma/bnxt_re-abi.h
-+
- BROCADE BFA FC SCSI DRIVER
- M:	Anil Gurumurthy <anil.gurumurthy-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
- M:	Sudarsana Kalluru <sudarsana.kalluru-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
-diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
-index 6709173..66f8602 100644
---- a/drivers/infiniband/Kconfig
-+++ b/drivers/infiniband/Kconfig
-@@ -92,4 +92,6 @@ source "drivers/infiniband/hw/hfi1/Kconfig"
++int hex2mem(const char *buf, uint8_t *mem, int count);
+ char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
+ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len);
+ #define ADDR64_BUF_SIZE sizeof("xxxx:xxxx:xxxx:xxxx")
+diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
+index 0f91aeb..88664c9 100644
+--- a/ip/ipl2tp.c
++++ b/ip/ipl2tp.c
+@@ -485,31 +485,6 @@ static int get_tunnel(struct l2tp_data *p)
+  * Command parser
+  *****************************************************************************/
  
- source "drivers/infiniband/hw/qedr/Kconfig"
+-static int hex2mem(const char *buf, uint8_t *mem, int count)
+-{
+-	int i, j;
+-	int c;
+-
+-	for (i = 0, j = 0; i < count; i++, j += 2) {
+-		c = get_hex(buf[j]);
+-		if (c < 0)
+-			goto err;
+-
+-		mem[i] = c << 4;
+-
+-		c = get_hex(buf[j + 1]);
+-		if (c < 0)
+-			goto err;
+-
+-		mem[i] |= c;
+-	}
+-
+-	return 0;
+-
+-err:
+-	return -1;
+-}
+-
+ static void usage(void) __attribute__((noreturn));
  
-+source "drivers/infiniband/hw/bnxt_re/Kconfig"
+ static void usage(void)
+diff --git a/lib/utils.c b/lib/utils.c
+index 83c9d09..870c4f1 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -962,6 +962,31 @@ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
+ 	return buf;
+ }
+ 
++int hex2mem(const char *buf, uint8_t *mem, int count)
++{
++	int i, j;
++	int c;
 +
- endif # INFINIBAND
-diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
-index ed553de..34c93ab 100644
---- a/drivers/infiniband/hw/Makefile
-+++ b/drivers/infiniband/hw/Makefile
-@@ -12,3 +12,4 @@ obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
- obj-$(CONFIG_INFINIBAND_HFI1)		+= hfi1/
- obj-$(CONFIG_INFINIBAND_HNS)		+= hns/
- obj-$(CONFIG_INFINIBAND_QEDR)		+= qedr/
-+obj-$(CONFIG_INFINIBAND_BNXT_RE)	+= bnxt_re/
-diff --git a/drivers/infiniband/hw/bnxt_re/Kconfig b/drivers/infiniband/hw/bnxt_re/Kconfig
-new file mode 100644
-index 0000000..cd0175e
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxt_re/Kconfig
-@@ -0,0 +1,9 @@
-+config INFINIBAND_BNXT_RE
-+    tristate "Broadcom Netxtreme HCA support"
-+    depends on ETHERNET && NETDEVICES && PCI && INET
-+    select NET_VENDOR_BROADCOM
-+    select BNXT
-+    ---help---
-+	  This driver supports Broadcom NetXtreme-E 10/25/40/50 gigabit
-+	  RoCE HCAs.  To compile this driver as a module, choose M here:
-+	  the module will be called bnxt_re.
-diff --git a/drivers/infiniband/hw/bnxt_re/Makefile b/drivers/infiniband/hw/bnxt_re/Makefile
-new file mode 100644
-index 0000000..036f84e
---- /dev/null
-+++ b/drivers/infiniband/hw/bnxt_re/Makefile
-@@ -0,0 +1,6 @@
++	for (i = 0, j = 0; i < count; i++, j += 2) {
++		c = get_hex(buf[j]);
++		if (c < 0)
++			goto err;
 +
-+ccflags-y := -Idrivers/net/ethernet/broadcom/bnxt
-+obj-$(CONFIG_INFINIBAND_BNXT_RE) += bnxt_re.o
-+bnxt_re-y := main.o ib_verbs.o \
-+	     qplib_res.o qplib_rcfw.o	\
-+	     qplib_sp.o qplib_fp.o
++		mem[i] = c << 4;
++
++		c = get_hex(buf[j + 1]);
++		if (c < 0)
++			goto err;
++
++		mem[i] |= c;
++	}
++
++	return 0;
++
++err:
++	return -1;
++}
++
+ int addr64_n2a(__u64 addr, char *buff, size_t len)
+ {
+ 	__u16 *words = (__u16 *)&addr;
 -- 
-2.5.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.9.1
