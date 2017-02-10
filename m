@@ -1,271 +1,194 @@
-From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ethtool: add support for forward error correction modes
-Date: Fri, 10 Feb 2017 10:28:31 -0800
-Message-ID: <1486751311-42019-1-git-send-email-vidya@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, dustin@cumulusnetworks.com,
-        odedw@mellanox.com, ariela@mellanox.com, Yuval.Mintz@qlogic.com,
-        galp@mellanox.com, vidya.chowdary@gmail.com
-To: netdev@vger.kernel.org, leedom@chelsio.com, linville@tuxdriver.com,
-        jeffrey.t.kirsher@intel.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34579 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753663AbdBJS2g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 13:28:36 -0500
-Received: by mail-pf0-f180.google.com with SMTP id e4so11009118pfg.1
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 10:28:36 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
+Date: Fri, 10 Feb 2017 10:30:58 -0800
+Message-ID: <29f1c56a-45ab-53b8-e6c6-83746e6ae18b@gmail.com>
+References: <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170115110628.GF26374@kroah.com>
+ <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+ <20170115191632.GD5643@lunn.ch>
+ <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+ <20170119142820.GA494@kroah.com> <20170119145315.GD21805@lunn.ch>
+ <20170119165155.GH27312@n2100.armlinux.org.uk>
+ <20170210130217.GA4570@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
+ open list <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Greg KH <gregkh@linuxfoundation.org>,
+ Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170210130217.GA4570@kroah.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+On 02/10/2017 05:02 AM, Greg KH wrote:
+> On Thu, Jan 19, 2017 at 04:51:55PM +0000, Russell King - ARM Linux wrote:
+>> (This is mainly for Greg's benefit to help him understand the issue.)
+>>
+>> I think the diagram you gave initially made this confusing, as it
+>> talks about a CPU(sic) producing the "RGMII" and "MII-MGMT".
+>>
+>> Let's instead show a better representation that hopefully helps Greg
+>> understand networking. :)
+>>
+>>
+>>   CPU
+>> System <-B->  Ethernet controller <-P-> } PHY <---> network cable
+>>                                         } - - - - - - - or - - - - - - -
+>>                   MDIO bus -------M---> } Switch <-P-> PHYs <--> network
+>>                                               `----M----^        cables
+>>
+>> 'B' can be an on-SoC bus or something like PCI.
+>>
+>> 'P' are the high-speed connectivity between the ethernet controller and
+>> PHY which carries the packet data.  It has no addressing, it's a point
+>> to point link.  RGMII is just one wiring example, there are many
+>> different interfaces there (SGMII, AUI, XAUI, XGMII to name a few.)
+>>
+>> 'M' are the MDIO bus, which is the bus by which ethernet PHYs and
+>> switches can be identified and controlled.
+>>
+>> The MDIO bus has a bus_type, has host drivers which are sometimes
+>> part of the ethernet controller, but can also be stand-alone devices
+>> shared between multiple ethernet controllers.
+>>
+>> PHYs are a kind of MDIO device which are members of the MDIO bus
+>> type.  Each PHY (and switch) has a numerical address, and identifying
+>> numbers within its register set which identifies the manufacturer
+>> and device type.  We have device_driver objects for these.
+>>
+>> Expanding the above diagram to make it (hopefully) even clearer,
+>> we can have this classic setup:
+>>
+>>   CPU
+>> System <-B-> Ethernet controller <-P-> PHY <---> network cable
+>>                  MDIO bus -------M------^
+>>
+>> Or, in the case of two DSA switches attached to an Ethernet controller:
+>>
+>>                                      |~~~~~~~~|
+>> System <-B-> Ethernet controller <-P-> Switch <-P-> PHY1 <--> network cable
+>>                  MDIO bus ----+--M--->   1    <-P-> PHY2 <--> network cable
+>>                               |      |        ...    |
+>>                               |      |        <-P-> PHYn <--> network cable
+>>                               |      |....^...|      |
+>>                               |           |  `---M---'
+>>                               |           P
+>>                               |           |
+>>                               |      |~~~~v~~~|
+>>                               `------> Switch <-P-> PHY1 <--> network cable
+>>                                      |   2    ...    |
+>>                                      |        <-P-> PHYn <--> network cable
+>>                                      |........|      |
+>>                                              `---M---'
+>>
+>> The problem that the DSA guys are trying to deal with is how to
+>> represent the link between the DSA switches (which are devices
+>> sitting off their controlling bus - the MDIO bus) and the ethernet
+>> controller associated with that collection of devices, be it a
+>> switch or PHY.
+> 
+> Why do they have to represent that link?  This is a driver that somehow
+> binds the two togther in some sort of "control plane"?
 
-Forward Error Correction (FEC) modes i.e Base-R
-and Reed-Solomon modes are introduced in 25G/40G/100G standards
-for providing good BER at high speeds.
-Various networking devices which support 25G/40G/100G provides ability
-to manage supported FEC modes and the lack of FEC encoding control and
-reporting today is a source for itneroperability issues for many vendors.
-FEC capability as well as specific FEC mode i.e. Base-R
-or RS modes can be requested or advertised through bits D44:47 of base link
-codeword.
+We have to represent that link because the CPU/host/management Ethernet
+MAC is physically connected to the CPU/management port of the switch. It
+does indeed participate in establishing the control plane.
 
-This patch set intends to provide option under ethtool to manage and report
-FEC encoding settings for networking devices as per IEEE 802.3 bj, bm and by
-specs.
+The basic idea of DSA is that the switch inserts vendor tags to indicate
+why the packet is sent towards the CPU in the first place: flooding,
+management, copy etc along with information as to which
+originating/destination port(s) this packet comes/goes from/to. On top
+of that, we demultiplex that tag to deliver normal Ethernet frames to
+per-port network devices (virtual network devices).
 
-set-fec/show-fec option(s) are  designed to provide  control and report
-the FEC encoding on the link.
+If we did leave the switch in an unmanaged mode and not logically
+attached to an Ethernet MAC for management, we'd lose all that
+information (we could use per-port VLANs to re-create it, but it would
+be inferior to what a switch with proprietary tags can do)
 
-SET FEC option:
-root@tor: ethtool --set-fec  swp1 encoding [off | RS | BaseR | auto]
+Code in net/dsa/dsa2.c that binds the two (switch and Ethernet MAC)
+together is not strictly a driver, it just is resident in memory and
+waits for dsa_register_switch() to be called until it tries to do this
+binding.
 
-Encoding: Types of encoding
-Off    :  Turning off any encoding
-RS     :  enforcing RS-FEC encoding on supported speeds
-BaseR  :  enforcing Base R encoding on supported speeds
-Auto   :  IEEE defaults for the speed/medium combination
+> 
+>> Merely changing the parent/child relationships to try and solve
+>> one issue just creates exactly the same problem elsewhere.
+> 
+> Fair enough.
+> 
+>> So, I hope with these diagrams, you can see that trying to make
+>> the ethernet controller a child device of the DSA switches
+>> means that (eg) it's no longer a PCI device, which is rather
+>> absurd, especially when considering that what happens to the
+>> right of the ethernet controller in the diagrams above is
+>> normally external chips to the SoC or ethernet device.
+> 
+> Ok, thanks for the long explainations and diagrams.
+> 
+> _BUT_ my original point remains.  These new functions you all are trying
+> to get into the driver core, do NOT do what they say they are doing.
+> They are mucking around with a "known topology" and just happen to work
+> because the device you are trying to find shares a common parent with
+> yourself.
+> 
+> That is not what the function says it does, and as such, I do not want
+> that function in the driver core at all.
+> 
+> If you wish to keep it in your own subsystem, that's fine, but call it
+> what it really is:
+> 	hack_to_find_peer_device_on_random_bus()
+> and pass in a _real_ pointer to a bus type.  Not some random string
+> please.
 
-Here are a few examples of what we would expect if encoding=auto:
-- if autoneg is on, we are  expecting FEC to be negotiated as on or off
-  as long as protocol supports it
-- if the hardware is capable of detecting the FEC encoding on it's
-      receiver it will reconfigure its encoder to match
-- in absence of the above, the configuration would be set to IEEE
-  defaults.
+Yes, David has accepted that and we did make it prefixed with dsa_*.
+That does not mean it should stay forever though if we can work on
+something better designed.
 
->From our  understanding , this is essentially what most hardware/driver
-combinations are doing today in the absence of a way for users to
-control the behavior.
+> 
+> Or better yet, have the DSA code accept pointers to the two devices in
+> the first place, so it "knows" what to do here in a much better way.
 
-SHOW FEC option:
-root@tor: ethtool --show-fec  swp1
-FEC parameters for swp1:
-Active FEC encodings: RS
-Configured FEC encodings:  RS | BaseR
+Well, that is really what is being done here, the "inputs" to the code
+in net/dsa/dsa2.c are opaque struct device references that we
+verify/proof by making sure they belong in the class of device we expect
+them to be.
 
-ETHTOOL DEVNAME output modification:
+NB: technically it's just one device reference: Ethernet MAC device,
+because the other one is implied by the device driver registering the
+switch with dsa_register_switch() (MDIO, SPI, I2C, PCI etc..).
 
-ethtool devname output:
-root@tor:~# ethtool swp1
-Settings for swp1:
-root@hpe-7712-03:~# ethtool swp18
-Settings for swp18:
-    Supported ports: [ FIBRE ]
-    Supported link modes:   40000baseCR4/Full
-                            40000baseSR4/Full
-                            40000baseLR4/Full
-                            100000baseSR4/Full
-                            100000baseCR4/Full
-                            100000baseLR4_ER4/Full
-    Supported pause frame use: No
-    Supports auto-negotiation: Yes
-    Supported FEC modes: [RS | BaseR | None | Not reported]
-    Advertised link modes:  Not reported
-    Advertised pause frame use: No
-    Advertised auto-negotiation: No
-    Advertised FEC modes: [RS | BaseR | None | Not reported]
-<<<< One or more FEC modes
-    Speed: 100000Mb/s
-    Duplex: Full
-    Port: FIBRE
-    PHYAD: 106
-    Transceiver: internal
-    Auto-negotiation: off
-    Link detected: yes
+> Right now it is a bad hack.  You all can not argue that is not true.
 
-This patch includes following changes
-a) New ETHTOOL_SFECPARAM/SFECPARAM API, handled by
-  the new get_fecparam/set_fecparam callbacks, provides support
-  for configuration of forward error correction modes.
-b) Link mode bits for FEC modes i.e. None (No FEC mode), RS, BaseR/FC
-  are defined so that users can configure these fec modes for supported
-  and advertising fields as part of link autonegotiation.
+It's hard to argue on an qualifier for that design when we can't even
+agree whether our understanding of these devices matches your
+understanding after you read and digested our explanations :)
 
-Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+I entirely agree that the design has shortcomings, and in fact, it does
+present some challenges that are not well solved right now, if you
+unbind the Ethernet MAC driver, you leave a dangling DSA switch tree,
+and good luck re-attaching it.
 
-Changes in RFC PATCH v2:
-- Implement Gal Pressman and Casey Leedom feedback
-- Removing autonegotiation field in fecparam structure
-  and included active_fec to provide mechanism to indicate
-  the configured and active FEC modes on port
----
- include/linux/ethtool.h      |  4 ++++
- include/uapi/linux/ethtool.h | 48 +++++++++++++++++++++++++++++++++++++++++++-
- net/core/ethtool.c           | 34 +++++++++++++++++++++++++++++++
- 3 files changed, 85 insertions(+), 1 deletion(-)
+So maybe we should talk about it in person at $next conference, I will
+be at ELC, how about you?
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 9ded8c6..79a0bab 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -372,5 +372,9 @@ struct ethtool_ops {
- 				      struct ethtool_link_ksettings *);
- 	int	(*set_link_ksettings)(struct net_device *,
- 				      const struct ethtool_link_ksettings *);
-+	int	(*get_fecparam)(struct net_device *,
-+				      struct ethtool_fecparam *);
-+	int	(*set_fecparam)(struct net_device *,
-+				      struct ethtool_fecparam *);
- };
- #endif /* _LINUX_ETHTOOL_H */
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index 3dc91a4..38dbfeb 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1238,6 +1238,47 @@ struct ethtool_per_queue_op {
- 	char	data[];
- };
- 
-+/**
-+ * struct ethtool_fecparam - Ethernet forward error correction(fec) parameters
-+ * @cmd: Command number = %ETHTOOL_GFECPARAM or %ETHTOOL_SFECPARAM
-+ * @active_fec: FEC mode which is active on porte
-+ * @fec: Bitmask of supported/configured FEC modes
-+ * @rsvd: Reserved for future extensions. i.e FEC bypass feature.
-+ *
-+ * Drivers should reject a non-zero setting of @autoneg when
-+ * autoneogotiation is disabled (or not supported) for the link.
-+ *
-+ */
-+struct ethtool_fecparam {
-+	__u32   cmd;
-+	/* bitmask of FEC modes */
-+	__u32   active_fec;
-+	__u32   fec;
-+	__u32   reserved;
-+};
-+
-+/**
-+ * enum ethtool_fec_config_bits - flags definition of ethtool_fec_configuration
-+ * @ETHTOOL_FEC_NONE: FEC mode configuration is not supported
-+ * @ETHTOOL_FEC_AUTO: Default/Best FEC mode provided by driver
-+ * @ETHTOOL_FEC_OFF: No FEC Mode
-+ * @ETHTOOL_FEC_RS: Reed-Solomon Forward Error Detection mode
-+ * @ETHTOOL_FEC_BASER: Base-R/Reed-Solomon Forward Error Detection mode
-+ */
-+enum ethtool_fec_config_bits {
-+	ETHTOOL_FEC_NONE_BIT,
-+	ETHTOOL_FEC_AUTO_BIT,
-+	ETHTOOL_FEC_OFF_BIT,
-+	ETHTOOL_FEC_RS_BIT,
-+	ETHTOOL_FEC_BASER_BIT,
-+};
-+
-+#define ETHTOOL_FEC_NONE		(1 << ETHTOOL_FEC_NONE_BIT)
-+#define ETHTOOL_FEC_AUTO		(1 << ETHTOOL_FEC_AUTO_BIT)
-+#define ETHTOOL_FEC_OFF			(1 << ETHTOOL_FEC_OFF_BIT)
-+#define ETHTOOL_FEC_RS			(1 << ETHTOOL_FEC_RS_BIT)
-+#define ETHTOOL_FEC_BASER		(1 << ETHTOOL_FEC_BASER_BIT)
-+
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* DEPRECATED, Get settings.
- 					    * Please use ETHTOOL_GLINKSETTINGS
-@@ -1330,6 +1371,8 @@ struct ethtool_per_queue_op {
- #define ETHTOOL_SLINKSETTINGS	0x0000004d /* Set ethtool_link_settings */
- #define ETHTOOL_PHY_GTUNABLE	0x0000004e /* Get PHY tunable configuration */
- #define ETHTOOL_PHY_STUNABLE	0x0000004f /* Set PHY tunable configuration */
-+#define ETHTOOL_GFECPARAM	0x00000050 /* Get FEC settings */
-+#define ETHTOOL_SFECPARAM	0x00000051 /* Set FEC settings */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-@@ -1387,6 +1430,9 @@ enum ethtool_link_mode_bit_indices {
- 	ETHTOOL_LINK_MODE_2500baseT_Full_BIT	= 47,
- 	ETHTOOL_LINK_MODE_5000baseT_Full_BIT	= 48,
- 
-+	ETHTOOL_LINK_MODE_FEC_NONE_BIT	= 49,
-+	ETHTOOL_LINK_MODE_FEC_RS_BIT	= 50,
-+	ETHTOOL_LINK_MODE_FEC_BASER_BIT	= 51,
- 
- 	/* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
- 	 * 31. Please do NOT define any SUPPORTED_* or ADVERTISED_*
-@@ -1395,7 +1441,7 @@ enum ethtool_link_mode_bit_indices {
- 	 */
- 
- 	__ETHTOOL_LINK_MODE_LAST
--	  = ETHTOOL_LINK_MODE_5000baseT_Full_BIT,
-+	  = ETHTOOL_LINK_MODE_FEC_BASER_BIT,
- };
- 
- #define __ETHTOOL_LINK_MODE_LEGACY_MASK(base_name)	\
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index be7bab1..98fd78c 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -2519,6 +2519,33 @@ static int set_phy_tunable(struct net_device *dev, void __user *useraddr)
- 	return ret;
- }
- 
-+static int ethtool_get_fecparam(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_fecparam fecparam = { ETHTOOL_GFECPARAM };
-+
-+	if (!dev->ethtool_ops->get_fecparam)
-+		return -EOPNOTSUPP;
-+
-+	dev->ethtool_ops->get_fecparam(dev, &fecparam);
-+
-+	if (copy_to_user(useraddr, &fecparam, sizeof(fecparam)))
-+		return -EFAULT;
-+	return 0;
-+}
-+
-+static int ethtool_set_fecparam(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_fecparam fecparam;
-+
-+	if (!dev->ethtool_ops->set_fecparam)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&fecparam, useraddr, sizeof(fecparam)))
-+		return -EFAULT;
-+
-+	return dev->ethtool_ops->set_fecparam(dev, &fecparam);
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev_ioctl.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -2578,6 +2605,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GTUNABLE:
- 	case ETHTOOL_PHY_GTUNABLE:
- 	case ETHTOOL_GLINKSETTINGS:
-+	case ETHTOOL_GFECPARAM:
- 		break;
- 	default:
- 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
-@@ -2789,6 +2817,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_PHY_STUNABLE:
- 		rc = set_phy_tunable(dev, useraddr);
- 		break;
-+	case ETHTOOL_GFECPARAM:
-+		rc = ethtool_get_fecparam(dev, useraddr);
-+		break;
-+	case ETHTOOL_SFECPARAM:
-+		rc = ethtool_set_fecparam(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
+Thanks
 -- 
-2.1.4
+Florian
