@@ -1,122 +1,63 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net-next 6/8] net: ethernet: annapurna: add wol helpers
- to the Alpine driver
-Date: Fri, 10 Feb 2017 11:12:47 +0100
-Message-ID: <20170210101247.pxie2wtkbgh4th7f@kwain>
-References: <20170203181216.30214-1-antoine.tenart@free-electrons.com>
- <20170203181216.30214-7-antoine.tenart@free-electrons.com>
- <08b62752-8bb2-4633-c44f-74eb585e7e52@cogentembedded.com>
- <063D6719AE5E284EB5DD2968C1650D6DB027C6C3@AcuExch.aculab.com>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: Re: net: hix5hd2_gmac uninitialized net_device
+Date: Fri, 10 Feb 2017 18:21:35 +0800
+Message-ID: <589D942F.7070700@hisilicon.com>
+References: <20170210074118.vchxsn7fag6tlsmg@tha-monstah.mydomain>
+ <20170210074544.eoabpjf522pmwoui@tha-monstah.mydomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4209163939340556044=="
-Cc: "thomas.petazzoni@free-electrons.com"
- <thomas.petazzoni@free-electrons.com>,
- "saeed@annapurnalabs.com" <saeed@annapurnalabs.com>,
- "arnd@arndb.de" <arnd@arndb.de>,
- 'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Antoine Tenart <antoine.tenart@free-electrons.com>,
- "talz@annapurnalabs.com" <talz@annapurnalabs.com>,
- "rshitrit@annapurnalabs.com" <rshitrit@annapurnalabs.com>,
- "barak@annapurnalabs.com" <barak@annapurnalabs.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- "tsahee@annapurnalabs.com" <tsahee@annapurnalabs.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB027C6C3@AcuExch.aculab.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
-
-
---===============4209163939340556044==
-Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="drbwwxfbvppzfunx"
-Content-Disposition: inline
-
-
---drbwwxfbvppzfunx
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi!
-
-On Mon, Feb 06, 2017 at 11:35:49AM +0000, David Laight wrote:
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] =
-On Behalf Of Sergei Shtylyov
-> > Sent: 03 February 2017 18:22
-> > On 02/03/2017 09:12 PM, Antoine Tenart wrote:
-> >=20
-> > > +	if ((adapter) && (adapter->phy_exist) && (adapter->mdio_bus)) {
-> >=20
-> >     Now that's somewhat stupid looking... does the whole driver use thi=
-s "style"?
->=20
-> Not only that, in one of the two functions it is followed by:
->=20
-> +	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
->=20
-> Which assumes that 'adapter' is not NULL.
-> Some verifiers will detect that as a possible NULL pointer dereference.
->=20
-> Pointers should only be checked for NULL if there are valid reasons
-> why they can be NULL in that code path.
-> Getting there with a NULL pointer dues to some race condition isn't one o=
-f them.
-
-Totally agree, for the NULL checks and for the useless parenthesis. I'll
-try to catch other examples of this in the driver.
-
-Thanks!
-
-Antoine
-
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---drbwwxfbvppzfunx
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCgAGBQJYnZIfAAoJEFxNi8it27zYeTEP/iLoZQdr0B7KXEzZVgXP63wK
-l725HwxDIY8DwH0ervjD4afPT7kNDI55G8HY1Fr40cbc06dM0MaMFodiSwdKrTnY
-2fNyyEcDRg40wFP91JTWyOakaBH7SOQDpGqnetoWEXzT11/TW2QtsWVL5OywOfyS
-+DnvVnq2DMHvlE4DkYjTgpe4+wi/RqL23VKiRqheGfev0P2nxg+Y7BM9tI4niA/w
-7eK1VY/I7nsmdmpios4oPCpwidb+MNAgQ0WbRFUr9DDul9niRciH2Ng+tBiUz0mZ
-JXSY2Ha85NJpQmUv/nsQqP1WgShRQc3hVt1bNgCRYuSJmzy/ajdi2F0XhTaZEGar
-PGlig/+JyFqUNB3YihJrqfD1bRLrt6Svn1lGE6TifQLkl9RvfZlGba+70dLm8L7O
-QKKGvb47ktcWOpsEBwxCnNjnXz0VfaTd58jeo4GD11lGpmHYKRLYjvV9ooFlMyF9
-tZpQt5hGixUGJ9t9J01hadG5JSGlDwfcfG7U4hW8AEu4g1oR3+D2g0q8JUigBuhG
-KFFgH/D4yxrlp8hSYASDh0Lbc/QIerHvLnulIH+lUsE8XLPTHieZLbClVjUIMPag
-V7MJc4/96hFQ9JUUNygh6j/4AXGdDRd7W6q5mTuDvER9/puYJp3+dBHuo1UWkdCG
-JsSlwMuq7jNFB/5L/W4b
-=RQy4
------END PGP SIGNATURE-----
-
---drbwwxfbvppzfunx--
-
-
---===============4209163939340556044==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>
+To: Marty Plummer <netz.kernel@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:36928 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752357AbdBJKXN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 05:23:13 -0500
+In-Reply-To: <20170210074544.eoabpjf522pmwoui@tha-monstah.mydomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
---===============4209163939340556044==--
+
+On 2017/2/10 15:45, Marty Plummer wrote:
+> On Fri, Feb 10, 2017 at 01:41:18AM -0600, Marty Plummer wrote:
+>> Greetings.
+>>
+>> I think I may have found a bug with the hix5hd2_gmac driver; unless I'm
+>> missing something, it appears that somehow the net_device struct is not
+>> being initialized properly in the hix5hd2_dev_probe function.
+>>
+>> Having set up my devicetree properly (I hope, still new to this), I first
+>> recieved an error when inserting the module:
+>> "(unnamed net_device) (uninitialized): No irq resource"
+>> while I very clearly have the interrupts property defined within this node.
+>>
+I think the error "No irq resource" happened for some other reason, has no relation with
+the info "(unnamed net_device) (uninitialized):".
+You can add more debug info to find bug.
+
+>> Removing the phy-handle node for testing purposes, I get a similar message:
+>> "(unnamed net_device) (uninitialized): not find phy-handle"
+>>
+>> So, it seams to my (admittedly inexperienced) mind that the ndev pointer is
+>> not being initialized properly, or that the error checking at line 1111
+>> is not functioning properly either, for it to have gotten so far along
+>> into the function, only to fail at the attempt to access the ndev pointer.
+>>
+Yes, I agree with you that the ndev has not been initialized completely,
+because the function "register_netdev" has not been called yet.
+It's better to use the "dev_err" to replace the "netdev_err".
+
+>> If you require more information from me, please let me know.
+>>
+>> Marty
+> 
+> Sorry, forgot the subject. Still getting the hang of mutt.
+> 
+> 
+
+    Regards,
+    Dongpo
+
+.
