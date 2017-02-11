@@ -1,43 +1,64 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net-next] vxlan: remove vni zero check and drop for COLLECT_METADATA
-Date: Sat, 11 Feb 2017 12:09:22 -0800
-Message-ID: <CAPWQB7FU8UxAOy+Cw0vjN9giTjNNMHr1hLDgtyUgVBwEY+_+3Q@mail.gmail.com>
-References: <1486791516-10285-1-git-send-email-roopa@cumulusnetworks.com>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v1] bpf: Rebuild bpf.o for any dependency update
+Date: Sat, 11 Feb 2017 23:20:23 +0100
+Message-ID: <20170211222023.19920-1-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:36353 "EHLO
-        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751027AbdBKUJs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 15:09:48 -0500
-Received: from mfilter20-d.gandi.net (mfilter20-d.gandi.net [217.70.178.148])
-        by relay6-d.mail.gandi.net (Postfix) with ESMTP id 5C8D1FB881
-        for <netdev@vger.kernel.org>; Sat, 11 Feb 2017 21:09:45 +0100 (CET)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-        by mfilter20-d.gandi.net (mfilter20-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id Sc3raoCmsZbx for <netdev@vger.kernel.org>;
-        Sat, 11 Feb 2017 21:09:43 +0100 (CET)
-Received: from mail-qt0-f174.google.com (mail-qt0-f174.google.com [209.85.216.174])
-        (Authenticated sender: joe@ovn.org)
-        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 82863FB877
-        for <netdev@vger.kernel.org>; Sat, 11 Feb 2017 21:09:43 +0100 (CET)
-Received: by mail-qt0-f174.google.com with SMTP id v23so60120192qtb.0
-        for <netdev@vger.kernel.org>; Sat, 11 Feb 2017 12:09:43 -0800 (PST)
-In-Reply-To: <1486791516-10285-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10 February 2017 at 21:38, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> This patch drops the vni zero check for COLLECT_METADATA mode.
-> It is not really needed, vni zero is a valid vni.
->
-> Fixes: 3ad7a4b141eb ("vxlan: support fdb and learning in COLLECT_METADATA mode"
-> Reported-by: Joe Stringer <joe@ovn.org>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+This is needed to force a rebuild of bpf.o when one of its dependencies
+(e.g. uapi/linux/bpf.h) is updated.
 
-Thanks, I tried this out and it fixes the issue.
+Add a phony target.
+
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Wang Nan <wangnan0@huawei.com>
+---
+ tools/testing/selftests/bpf/Makefile | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index a35f564f66a1..c7816fe60feb 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -1,13 +1,24 @@
+-CFLAGS += -Wall -O2 -lcap -I../../../include/uapi -I../../../lib
++LIBDIR := ../../../lib
++BPFOBJ := $(LIBDIR)/bpf/bpf.o
++
++CFLAGS += -Wall -O2 -lcap -I../../../include/uapi -I$(LIBDIR)
+ 
+ test_objs = test_verifier test_tag test_maps test_lru_map test_lpm_map
+ 
+ TEST_PROGS := $(test_objs) test_kmod.sh
+ TEST_FILES := $(test_objs)
+ 
++.PHONY: all clean force
++
+ all: $(test_objs)
+ 
+-$(test_objs): ../../../lib/bpf/bpf.o
++# force a rebuild of BPFOBJ when its dependencies are updated
++force:
++
++$(BPFOBJ): force
++	$(MAKE) -C $(dir $(BPFOBJ))
++
++$(test_objs): $(BPFOBJ)
+ 
+ include ../lib.mk
+ 
+-- 
+2.11.0
