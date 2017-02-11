@@ -1,68 +1,40 @@
-From: David Windsor <dwindsor@gmail.com>
-Subject: Re: [RFC][PATCH] nfsd: add +1 to reference counting scheme for struct nfsd4_session
-Date: Sat, 11 Feb 2017 01:42:53 -0500
-Message-ID: <CAEXv5_jUa8Av4JABoKSAueiLHSLzibMvaE-8DrVcxZHFceckMg@mail.gmail.com>
-References: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATH v3 net-next] net: remove member 'max' of struct
+ scm_fp_list
+Date: Sat, 11 Feb 2017 02:02:50 -0500 (EST)
+Message-ID: <20170211.020250.864578992818171198.davem@davemloft.net>
+References: <1486784477-3892-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kernel-hardening@lists.openwall.com,
-        Bruce Fields <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Kees Cook <keescook@chromium.org>,
-        "Reshetova, Elena" <elena.reshetova@intel.com>,
-        David Windsor <dwindsor@gmail.com>
-To: linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
+To: cugyly@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f68.google.com ([209.85.213.68]:36826 "EHLO
-        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750736AbdBKGmy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 01:42:54 -0500
-In-Reply-To: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56724 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753263AbdBKHK6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 02:10:58 -0500
+In-Reply-To: <1486784477-3892-1-git-send-email-cugyly@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-<snip>
+From: yuan linyu <cugyly@163.com>
+Date: Sat, 11 Feb 2017 11:41:17 +0800
 
-> Signed-off-by: David Windsor <dwindsor@gmail.com>
-> ---
->  fs/nfsd/nfs4state.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
-> index a0dee8a..b0f3010 100644
-> --- a/fs/nfsd/nfs4state.c
-> +++ b/fs/nfsd/nfs4state.c
-> @@ -196,7 +196,7 @@ static void nfsd4_put_session_locked(struct nfsd4_session *ses)
->
->         lockdep_assert_held(&nn->client_lock);
->
-> -       if (atomic_dec_and_test(&ses->se_ref) && is_session_dead(ses))
-> +       if (!atomic_add_unless(&ses->se_ref, -1, 1) && is_session_des(ses))
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> 
+> 'max' only used at three places in scm.c,
+> 1. in scm_fp_copy(), fpl->max = SCM_MAX_FD;
+> 2. in scm_fp_copy(), if (fpl->count + num > fpl->max)
+> 3. in scm_fp_dup(), new_fpl->max = new_fpl->count;
+> at place 3, the worst case is new_fpl->count = SCM_MAX_FD,
+> so do a full size dup, then 'max' field will always
+> SCM_MAX_FD and it can be removed.
+> 
+> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-This should read:
-if (!atomic_add_unless(&ses->se_ref, -1, 1) && is_session_dead(ses))
+Please don't take this the wrong way, but I am ignoring your
+patches on this issue.  This is even more broken than your
+previous two submissions.
 
->                 free_session(ses);
->         put_client_renew_locked(clp);
->  }
-> @@ -1645,7 +1645,7 @@ static void init_session(struct svc_rqst *rqstp, struct nfsd4_session *new, stru
->         new->se_flags = cses->flags;
->         new->se_cb_prog = cses->callback_prog;
->         new->se_cb_sec = cses->cb_sec;
-> -       atomic_set(&new->se_ref, 0);
-> +       atomic_set(&new->se_ref, 1);
->         idx = hash_sessionid(&new->se_sessionid);
->         list_add(&new->se_hash, &nn->sessionid_hashtbl[idx]);
->         spin_lock(&clp->cl_lock);
-> @@ -1792,7 +1792,7 @@ free_client(struct nfs4_client *clp)
->                 ses = list_entry(clp->cl_sessions.next, struct nfsd4_session,
->                                 se_perclnt);
->                 list_del(&ses->se_perclnt);
-> -               WARN_ON_ONCE(atomic_read(&ses->se_ref));
-> +               WARN_ON_ONCE((atomic_read(&ses->se_ref) > 1));
->                 free_session(ses);
->         }
->         rpc_destroy_wait_queue(&clp->cl_cb_waitq);
-> --
-> 2.7.4
->
+Sorry.
