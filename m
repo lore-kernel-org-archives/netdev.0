@@ -1,46 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 0/3] rhashtable: Handle table allocation failure during
- insertion
-Date: Sat, 11 Feb 2017 19:24:22 +0800
-Message-ID: <20170211112421.GA1570@gondor.apana.org.au>
-References: <20170207123827.GA14678@gondor.apana.org.au>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH net-next v1] bpf: Remove redundant ifdef
+Date: Sat, 11 Feb 2017 20:37:08 +0100
+Message-ID: <20170211193708.18191-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:36097 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751185AbdBKS63 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 13:58:29 -0500
-Content-Disposition: inline
-In-Reply-To: <20170207123827.GA14678@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+Remove a useless ifdef __NR_bpf as requested by Wang Nan.
 
-v2 -
+Inline one-line static functions as it was in the bpf_sys.h file.
 
-Added Ack to patch 2.
-Fixed RCU annotation in code path executed by rehasher by using
-rht_dereference_bucket.
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Wang Nan <wangnan0@huawei.com>
+Link: https://lkml.kernel.org/r/828ab1ff-4dcf-53ff-c97b-074adb895006@huawei.com
+---
+ tools/lib/bpf/bpf.c | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
 
-v1 -
-
-This series tackles the problem of table allocation failures during
-insertion.  The issue is that we cannot vmalloc during insertion.
-This series deals with this by introducing nested tables.
-
-The first two patches removes manual hash table walks which cannot
-work on a nested table.
-
-The final patch introduces nested tables.
-
-I've tested this with test_rhashtable and it appears to work.
-
-Cheers,
+diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+index 50e04cc5dddd..2de9c386989a 100644
+--- a/tools/lib/bpf/bpf.c
++++ b/tools/lib/bpf/bpf.c
+@@ -42,21 +42,15 @@
+ # endif
+ #endif
+ 
+-static __u64 ptr_to_u64(const void *ptr)
++static inline __u64 ptr_to_u64(const void *ptr)
+ {
+ 	return (__u64) (unsigned long) ptr;
+ }
+ 
+-static int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
+-		   unsigned int size)
++static inline int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
++			  unsigned int size)
+ {
+-#ifdef __NR_bpf
+ 	return syscall(__NR_bpf, cmd, attr, size);
+-#else
+-	fprintf(stderr, "No bpf syscall, kernel headers too old?\n");
+-	errno = ENOSYS;
+-	return -1;
+-#endif
+ }
+ 
+ int bpf_create_map(enum bpf_map_type map_type, int key_size,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.11.0
