@@ -1,44 +1,46 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH] net: ethernet: ti: cpsw: return NET_XMIT_DROP if skb_padto failed
-Date: Sat, 11 Feb 2017 03:49:57 +0200
-Message-ID: <1486777797-28143-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
-        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com
+From: yuan linyu <cugyly@163.com>
+Subject: Re: [PATCH] net: remove member 'max' of struct scm_fp_list
+Date: Sat, 11 Feb 2017 10:04:22 +0800
+Message-ID: <1486778662.2554.2.camel@163.com>
+References: <1486728673-19466-1-git-send-email-cugyly@163.com>
+         <20170210.102543.2139355880844380775.davem@davemloft.net>
+Reply-To: cugyly@163.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:34674 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753398AbdBKBuI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 20:50:08 -0500
-Received: by mail-lf0-f43.google.com with SMTP id v186so30828830lfa.1
-        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 17:50:02 -0800 (PST)
+Received: from m12-18.163.com ([220.181.12.18]:60689 "EHLO m12-18.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753317AbdBKCEd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 10 Feb 2017 21:04:33 -0500
+In-Reply-To: <20170210.102543.2139355880844380775.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If skb_padto failed the skb has been dropped already, so it was
-consumed, but it doesn't mean it was sent, thus no need to update
-queue tx time, etc. So, return NET_XMIT_DROP as more appropriate.
-
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
-Based on net-next/master
-
- drivers/net/ethernet/ti/cpsw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 4d1c0c3..503fa8a 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1604,7 +1604,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
- 	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
- 		cpsw_err(priv, tx_err, "packet pad failed\n");
- 		ndev->stats.tx_dropped++;
--		return NETDEV_TX_OK;
-+		return NET_XMIT_DROP;
- 	}
- 
- 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
--- 
-2.7.4
+On 五, 2017-02-10 at 10:25 -0500, David Miller wrote:
+> From: yuan linyu <cugyly@163.com>
+> Date: Fri, 10 Feb 2017 20:11:13 +0800
+> 
+> > From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> > 
+> > SCM_MAX_FD can fully replace it.
+> > 
+> > Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> 
+> I don't think so:
+> 
+> > @@ -341,7 +332,6 @@ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
+> >       if (new_fpl) {
+> >               for (i = 0; i < fpl->count; i++)
+> >                       get_file(fpl->fp[i]);
+> > -             new_fpl->max = new_fpl->count;
+> >               new_fpl->user = get_uid(fpl->user);
+> 
+> It's not set the SCM_MAX_FD here, it's set to whatever fpl->count is.
+> 
+> In other words, your patch breaks things.
+maybe it's not good to "SCM_MAX_FD can fully replace it".
+actually 'max' field is useless.'count' field is enough.
+ 
