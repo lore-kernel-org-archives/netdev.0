@@ -1,123 +1,63 @@
-From: yuan linyu <cugyly@163.com>
-Subject: Re: [PATH v2 net-next] net: remove member 'max' of struct
- scm_fp_list
-Date: Sat, 11 Feb 2017 10:47:59 +0800
-Message-ID: <1486781279.3122.1.camel@163.com>
-References: <1486780603-2888-1-git-send-email-cugyly@163.com>
-Reply-To: cugyly@163.com
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 1/7] staging: rtl8712: Fix some Sparse endian messages
+Date: Fri, 10 Feb 2017 21:30:24 -0600
+Message-ID: <20170211033030.28827-2-Larry.Finger@lwfinger.net>
+References: <20170211033030.28827-1-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-15.163.com ([220.181.12.15]:34210 "EHLO m12-15.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751888AbdBKCsU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 10 Feb 2017 21:48:20 -0500
-In-Reply-To: <1486780603-2888-1-git-send-email-cugyly@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Larry Finger <Larry.Finger@lwfinger.net>
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170211033030.28827-1-Larry.Finger@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-hi,
-yes, my misunderstanding.
+Sparse reports the following:
 
-it's error when use after dup.
+  CHECK   drivers/staging/rtl8712/rtl8712_xmit.c
+drivers/staging/rtl8712/rtl8712_xmit.c:564:42: warning: cast from restricted __le32
+drivers/staging/rtl8712/rtl8712_xmit.c:569:42: warning: cast from restricted __le32
+drivers/staging/rtl8712/rtl8712_xmit.c:571:42: warning: cast from restricted __le32
 
-can we do a full size(SCM_MAX_FD) dup?
- 
+Each of these cases is transferring a quantity that is little-endian. There
+is no need for conversion.
 
-On 六, 2017-02-11 at 10:36 +0800, yuan linyu wrote:
-> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> 
-> 'max' only used at three places in scm.c,
-> 1. in scm_fp_copy(), fpl->max = SCM_MAX_FD;
-> 2. in scm_fp_copy(), if (fpl->count + num > fpl->max)
-> 3. in scm_fp_dup(), new_fpl->max = new_fpl->count;
-> at place 2, fpl->max can be replaced with SCM_MAX_FD.
-> no other place read this 'max' again, so it can be removed.
-> 
-> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> ---
-> v1->v2:
->     update commit log to describe correct reason to remove 'max'
-> 
->  include/net/scm.h |  3 +--
->  net/core/scm.c    | 20 +++++---------------
->  2 files changed, 6 insertions(+), 17 deletions(-)
-> 
-> diff --git a/include/net/scm.h b/include/net/scm.h
-> index 59fa93c..1301227 100644
-> --- a/include/net/scm.h
-> +++ b/include/net/scm.h
-> @@ -19,8 +19,7 @@ struct scm_creds {
->  };
->  
->  struct scm_fp_list {
-> -	short			count;
-> -	short			max;
-> +	unsigned int	count;
->  	struct user_struct	*user;
->  	struct file		*fp[SCM_MAX_FD];
->  };
-> diff --git a/net/core/scm.c b/net/core/scm.c
-> index b6d8368..53679517 100644
-> --- a/net/core/scm.c
-> +++ b/net/core/scm.c
-> @@ -69,15 +69,7 @@ static int scm_fp_copy(struct cmsghdr *cmsg, struct scm_fp_list **fplp)
->  	int *fdp = (int*)CMSG_DATA(cmsg);
->  	struct scm_fp_list *fpl = *fplp;
->  	struct file **fpp;
-> -	int i, num;
-> -
-> -	num = (cmsg->cmsg_len - sizeof(struct cmsghdr))/sizeof(int);
-> -
-> -	if (num <= 0)
-> -		return 0;
-> -
-> -	if (num > SCM_MAX_FD)
-> -		return -EINVAL;
-> +	unsigned int i, num;
->  
->  	if (!fpl)
->  	{
-> @@ -86,18 +78,17 @@ static int scm_fp_copy(struct cmsghdr *cmsg, struct scm_fp_list **fplp)
->  			return -ENOMEM;
->  		*fplp = fpl;
->  		fpl->count = 0;
-> -		fpl->max = SCM_MAX_FD;
->  		fpl->user = NULL;
->  	}
-> -	fpp = &fpl->fp[fpl->count];
->  
-> -	if (fpl->count + num > fpl->max)
-> +	num = (cmsg->cmsg_len - sizeof(struct cmsghdr))/sizeof(int);
-> +	if (fpl->count + num > SCM_MAX_FD)
->  		return -EINVAL;
->  
->  	/*
->  	 *	Verify the descriptors and increment the usage count.
->  	 */
-> -
-> +	fpp = &fpl->fp[fpl->count];
->  	for (i=0; i< num; i++)
->  	{
->  		int fd = fdp[i];
-> @@ -112,7 +103,7 @@ static int scm_fp_copy(struct cmsghdr *cmsg, struct scm_fp_list **fplp)
->  	if (!fpl->user)
->  		fpl->user = get_uid(current_user());
->  
-> -	return num;
-> +	return 0;
->  }
->  
->  void __scm_destroy(struct scm_cookie *scm)
-> @@ -341,7 +332,6 @@ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
->  	if (new_fpl) {
->  		for (i = 0; i < fpl->count; i++)
->  			get_file(fpl->fp[i]);
-> -		new_fpl->max = new_fpl->count;
->  		new_fpl->user = get_uid(fpl->user);
->  	}
->  	return new_fpl;
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/staging/rtl8712/rtl8712_xmit.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/staging/rtl8712/rtl8712_xmit.c b/drivers/staging/rtl8712/rtl8712_xmit.c
+index 4231a0a..7fe6265 100644
+--- a/drivers/staging/rtl8712/rtl8712_xmit.c
++++ b/drivers/staging/rtl8712/rtl8712_xmit.c
+@@ -561,14 +561,14 @@ static void update_txdesc(struct xmit_frame *pxmitframe, uint *pmem, int sz)
+ 
+ 			ptxdesc_mp = &txdesc_mp;
+ 			/* offset 8 */
+-			ptxdesc->txdw2 = cpu_to_le32(ptxdesc_mp->txdw2);
++			ptxdesc->txdw2 = ptxdesc_mp->txdw2;
+ 			if (bmcst)
+ 				ptxdesc->txdw2 |= cpu_to_le32(BMC);
+ 			ptxdesc->txdw2 |= cpu_to_le32(BK);
+ 			/* offset 16 */
+-			ptxdesc->txdw4 = cpu_to_le32(ptxdesc_mp->txdw4);
++			ptxdesc->txdw4 = ptxdesc_mp->txdw4;
+ 			/* offset 20 */
+-			ptxdesc->txdw5 = cpu_to_le32(ptxdesc_mp->txdw5);
++			ptxdesc->txdw5 = ptxdesc_mp->txdw5;
+ 			pattrib->pctrl = 0;/* reset to zero; */
+ 		}
+ 	} else if (pxmitframe->frame_tag == MGNT_FRAMETAG) {
+-- 
+2.10.2
