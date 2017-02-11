@@ -1,8 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 5/7] staging: r8712u: Fix Sparse endian warning in
- rtl871x_recv.c
-Date: Fri, 10 Feb 2017 21:30:28 -0600
-Message-ID: <20170211033030.28827-6-Larry.Finger@lwfinger.net>
+Subject: [PATCH 7/7] staging: r8712u: Fix Sparse warnings in rtl871x_mlme.c
+Date: Fri, 10 Feb 2017 21:30:30 -0600
+Message-ID: <20170211033030.28827-8-Larry.Finger@lwfinger.net>
 References: <20170211033030.28827-1-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,31 +23,53 @@ Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
 Sparse reports the following:
-  CHECK   drivers/staging/rtl8712/rtl871x_recv.c
-drivers/staging/rtl8712/rtl871x_recv.c:657:21: warning: incorrect type in assignment (different base types)
-drivers/staging/rtl8712/rtl871x_recv.c:657:21:    expected unsigned short [unsigned] [assigned] [usertype] len
-drivers/staging/rtl8712/rtl871x_recv.c:657:21:    got restricted __be16 [usertype] <noident>
+  CHECK   drivers/staging/rtl8712/rtl871x_mlme.c
+drivers/staging/rtl8712/rtl871x_mlme.c:1653:46: warning: incorrect type in assignment (different base types)
+drivers/staging/rtl8712/rtl871x_mlme.c:1653:46:    expected unsigned int [unsigned] [usertype] DSConfig
+drivers/staging/rtl8712/rtl871x_mlme.c:1653:46:    got restricted __le32 [usertype] <noident>
+drivers/staging/rtl8712/rtl871x_mlme.c:1656:56: warning: incorrect type in assignment (different base types)
+drivers/staging/rtl8712/rtl871x_mlme.c:1656:56:    expected unsigned int [unsigned] [usertype] ATIMWindow
+drivers/staging/rtl8712/rtl871x_mlme.c:1656:56:    got restricted __le32 [usertype] <noident>
+drivers/staging/rtl8712/rtl871x_mlme.c:1712:35: warning: incorrect type in assignment (different base types)
+drivers/staging/rtl8712/rtl871x_mlme.c:1712:35:    expected restricted __le16 [addressable] [usertype] cap_info
+drivers/staging/rtl8712/rtl871x_mlme.c:1712:35:    got int
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8712/rtl871x_recv.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/staging/rtl8712/rtl871x_mlme.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/staging/rtl8712/rtl871x_recv.c b/drivers/staging/rtl8712/rtl871x_recv.c
-index 147b75b..2ef31a4 100644
---- a/drivers/staging/rtl8712/rtl871x_recv.c
-+++ b/drivers/staging/rtl8712/rtl871x_recv.c
-@@ -654,8 +654,9 @@ sint r8712_wlanhdr_to_ethhdr(union recv_frame *precvframe)
- 	memcpy(ptr, pattrib->dst, ETH_ALEN);
- 	memcpy(ptr + ETH_ALEN, pattrib->src, ETH_ALEN);
- 	if (!bsnaphdr) {
--		len = htons(len);
--		memcpy(ptr + 12, &len, 2);
-+		__be16 be_tmp = htons(len);
-+
-+		memcpy(ptr + 12, &be_tmp, 2);
+diff --git a/drivers/staging/rtl8712/rtl871x_mlme.c b/drivers/staging/rtl8712/rtl871x_mlme.c
+index fd8d96d..bf1ac22 100644
+--- a/drivers/staging/rtl8712/rtl871x_mlme.c
++++ b/drivers/staging/rtl8712/rtl871x_mlme.c
+@@ -1650,10 +1650,9 @@ void r8712_update_registrypriv_dev_network(struct _adapter *adapter)
+ 		/* TODO */
+ 		break;
  	}
- 	return _SUCCESS;
- }
+-	pdev_network->Configuration.DSConfig = cpu_to_le32(
+-					       pregistrypriv->channel);
++	pdev_network->Configuration.DSConfig = pregistrypriv->channel;
+ 	if (cur_network->network.InfrastructureMode == Ndis802_11IBSS)
+-		pdev_network->Configuration.ATIMWindow = cpu_to_le32(3);
++		pdev_network->Configuration.ATIMWindow = 3;
+ 	pdev_network->InfrastructureMode = cur_network->network.InfrastructureMode;
+ 	/* 1. Supported rates
+ 	 * 2. IE
+@@ -1709,12 +1708,12 @@ unsigned int r8712_restructure_ht_ie(struct _adapter *padapter, u8 *in_ie,
+ 		}
+ 		out_len = *pout_len;
+ 		memset(&ht_capie, 0, sizeof(struct ieee80211_ht_cap));
+-		ht_capie.cap_info = IEEE80211_HT_CAP_SUP_WIDTH |
++		ht_capie.cap_info = cpu_to_le16(IEEE80211_HT_CAP_SUP_WIDTH |
+ 				    IEEE80211_HT_CAP_SGI_20 |
+ 				    IEEE80211_HT_CAP_SGI_40 |
+ 				    IEEE80211_HT_CAP_TX_STBC |
+ 				    IEEE80211_HT_CAP_MAX_AMSDU |
+-				    IEEE80211_HT_CAP_DSSSCCK40;
++				    IEEE80211_HT_CAP_DSSSCCK40);
+ 		ht_capie.ampdu_params_info = (IEEE80211_HT_CAP_AMPDU_FACTOR &
+ 				0x03) | (IEEE80211_HT_CAP_AMPDU_DENSITY & 0x00);
+ 		r8712_set_ie(out_ie + out_len, _HT_CAPABILITY_IE_,
 -- 
 2.10.2
