@@ -1,38 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v3 net-next 4/9] sunvnet: add driver stats for ethtool
- support
-Date: Fri, 10 Feb 2017 16:22:08 -0800
-Message-ID: <20170210162208.69485824@xeon-e3>
-References: <1486748305-240339-1-git-send-email-shannon.nelson@oracle.com>
-        <1486748305-240339-5-git-send-email-shannon.nelson@oracle.com>
+From: Marty Plummer <netz.kernel@gmail.com>
+Subject: Re: net: hix5hd2_gmac uninitialized net_device
+Date: Fri, 10 Feb 2017 18:51:33 -0600
+Message-ID: <20170211005132.xdk2d7etb732scqo@tha-monstah.mydomain>
+References: <20170210074118.vchxsn7fag6tlsmg@tha-monstah.mydomain>
+ <20170210074544.eoabpjf522pmwoui@tha-monstah.mydomain>
+ <589D942F.7070700@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shannon Nelson <shannon.nelson@oracle.com>
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <1486748305-240339-5-git-send-email-shannon.nelson@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, yisen.zhuang@huawei.com,
+        salil.mehta@huawei.com
+To: Dongpo Li <lidongpo@hisilicon.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ot0-f195.google.com ([74.125.82.195]:36830 "EHLO
+        mail-ot0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751123AbdBKAvm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 19:51:42 -0500
+Received: by mail-ot0-f195.google.com with SMTP id 36so5394182otx.3
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 16:50:52 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <589D942F.7070700@hisilicon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 10 Feb 2017 09:38:20 -0800
-Shannon Nelson <shannon.nelson@oracle.com> wrote:
+On Fri, Feb 10, 2017 at 06:21:35PM +0800, Dongpo Li wrote:
+> I think the error "No irq resource" happened for some other reason, has no relation with
+> the info "(unnamed net_device) (uninitialized):".
+> You can add more debug info to find bug.
+Do you have any particular suggestions as to what to check out, or is
+this just a general 'debug more' instruction?
+> Yes, I agree with you that the ndev has not been initialized completely,
+> because the function "register_netdev" has not been called yet.
+> It's better to use the "dev_err" to replace the "netdev_err".
+>
+Ah, I see. So, prior to line 1266's call to register_netdev, it will
+always be uninitialized and unnamed, regardless of what is or isn't
+right elsewhere. Good to know. So, I could replace these netdev_err
+with dev_err for now, up until that point, so I can get a bit more info,
+yes?
+> 
+>     Regards,
+>     Dongpo
+>
 
-> +static void vsw_get_ethtool_stats(struct net_device *dev,
-> +				  struct ethtool_stats *estats, u64 *data)
-> +{
-> +	int i = 0;
-> +
-> +	data[i++] = dev->stats.rx_packets;
-> +	data[i++] = dev->stats.tx_packets;
-> +	data[i++] = dev->stats.rx_bytes;
-> +	data[i++] = dev->stats.tx_bytes;
-> +	data[i++] = dev->stats.rx_errors;
-> +	data[i++] = dev->stats.tx_errors;
-> +	data[i++] = dev->stats.rx_dropped;
-> +	data[i++] = dev->stats.tx_dropped;
-> +	data[i++] = dev->stats.multicast;
-
-Please do not duplicate regular network statistics into ethtool.
-This doesn't really add any value.
+	Regards,
+	Marty
