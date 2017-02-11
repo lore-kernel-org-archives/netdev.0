@@ -1,8 +1,7 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 2/7] staging: rtl8712u: Fix endian settings for structs
- describing network packets
-Date: Fri, 10 Feb 2017 21:30:25 -0600
-Message-ID: <20170211033030.28827-3-Larry.Finger@lwfinger.net>
+Subject: [PATCH 4/7] staging: r8712u: Fix Sparse warning in rtl871x_xmit.c
+Date: Fri, 10 Feb 2017 21:30:27 -0600
+Message-ID: <20170211033030.28827-5-Larry.Finger@lwfinger.net>
 References: <20170211033030.28827-1-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,178 +22,52 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-The headers describing a number of network packets do not have the
-correct endian settings for several types of data.
+Sparse reports the following:
+  CHECK   drivers/staging/rtl8712/rtl871x_xmit.c
+drivers/staging/rtl8712/rtl871x_xmit.c:350:44: warning: restricted __le32 degrades to integer
+drivers/staging/rtl8712/rtl871x_xmit.c:491:23: warning: incorrect type in initializer (different base types)
+drivers/staging/rtl8712/rtl871x_xmit.c:491:23:    expected unsigned short [usertype] *fctrl
+drivers/staging/rtl8712/rtl871x_xmit.c:491:23:    got restricted __le16 *<noident>
+drivers/staging/rtl8712/rtl871x_xmit.c:580:36: warning: incorrect type in assignment (different base types)
+drivers/staging/rtl8712/rtl871x_xmit.c:580:36:    expected unsigned short [unsigned] [short] [usertype] <noident>
+drivers/staging/rtl8712/rtl871x_xmit.c:580:36:    got restricted __be16 [usertype] <noident>
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8712/ieee80211.h | 84 ++++++++++++++++++-------------------
- 1 file changed, 42 insertions(+), 42 deletions(-)
+ drivers/staging/rtl8712/rtl871x_xmit.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/staging/rtl8712/ieee80211.h b/drivers/staging/rtl8712/ieee80211.h
-index 67ab580..68fd65e 100644
---- a/drivers/staging/rtl8712/ieee80211.h
-+++ b/drivers/staging/rtl8712/ieee80211.h
-@@ -138,51 +138,51 @@ struct ieee_ibss_seq {
- };
+diff --git a/drivers/staging/rtl8712/rtl871x_xmit.c b/drivers/staging/rtl8712/rtl871x_xmit.c
+index 4ab82ba..de88819 100644
+--- a/drivers/staging/rtl8712/rtl871x_xmit.c
++++ b/drivers/staging/rtl8712/rtl871x_xmit.c
+@@ -347,7 +347,8 @@ sint r8712_update_attrib(struct _adapter *padapter, _pkt *pkt,
+ 	 * some settings above.
+ 	 */
+ 	if (check_fwstate(pmlmepriv, WIFI_MP_STATE))
+-		pattrib->priority = (txdesc.txdw1 >> QSEL_SHT) & 0x1f;
++		pattrib->priority =
++		    (le32_to_cpu(txdesc.txdw1) >> QSEL_SHT) & 0x1f;
+ 	return _SUCCESS;
+ }
  
- struct ieee80211_hdr {
--	u16 frame_ctl;
--	u16 duration_id;
-+	__le16 frame_ctl;
-+	__le16 duration_id;
- 	u8 addr1[ETH_ALEN];
- 	u8 addr2[ETH_ALEN];
- 	u8 addr3[ETH_ALEN];
--	u16 seq_ctl;
-+	__le16 seq_ctl;
- 	u8 addr4[ETH_ALEN];
--} __packed;
-+}  __packed __aligned(2);
+@@ -488,7 +489,7 @@ static sint make_wlanhdr(struct _adapter *padapter, u8 *hdr,
+ 	struct ieee80211_hdr *pwlanhdr = (struct ieee80211_hdr *)hdr;
+ 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
+ 	struct qos_priv *pqospriv = &pmlmepriv->qospriv;
+-	u16 *fctrl = &pwlanhdr->frame_ctl;
++	__le16 *fctrl = &pwlanhdr->frame_ctl;
  
- struct ieee80211_hdr_3addr {
--	u16 frame_ctl;
--	u16 duration_id;
-+	__le16 frame_ctl;
-+	__le16 duration_id;
- 	u8 addr1[ETH_ALEN];
- 	u8 addr2[ETH_ALEN];
- 	u8 addr3[ETH_ALEN];
--	u16 seq_ctl;
--} __packed;
-+	__le16 seq_ctl;
-+}  __packed __aligned(2);
+ 	memset(hdr, 0, WLANHDR_OFFSET);
+ 	SetFrameSubType(fctrl, pattrib->subtype);
+@@ -577,7 +578,7 @@ static sint r8712_put_snap(u8 *data, u16 h_proto)
+ 	snap->oui[0] = oui[0];
+ 	snap->oui[1] = oui[1];
+ 	snap->oui[2] = oui[2];
+-	*(u16 *)(data + SNAP_SIZE) = htons(h_proto);
++	*(__be16 *)(data + SNAP_SIZE) = htons(h_proto);
+ 	return SNAP_SIZE + sizeof(u16);
+ }
  
- struct	ieee80211_hdr_qos {
--	u16 frame_ctl;
--	u16 duration_id;
-+	__le16 frame_ctl;
-+	__le16 duration_id;
- 	u8 addr1[ETH_ALEN];
- 	u8 addr2[ETH_ALEN];
- 	u8 addr3[ETH_ALEN];
--	u16 seq_ctl;
-+	__le16 seq_ctl;
- 	u8 addr4[ETH_ALEN];
--	u16	qc;
--}  __packed;
-+	__le16	qc;
-+}   __packed __aligned(2);
- 
- struct  ieee80211_hdr_3addr_qos {
--	u16 frame_ctl;
--	u16 duration_id;
-+	__le16 frame_ctl;
-+	__le16 duration_id;
- 	u8  addr1[ETH_ALEN];
- 	u8  addr2[ETH_ALEN];
- 	u8  addr3[ETH_ALEN];
--	u16 seq_ctl;
--	u16 qc;
-+	__le16 seq_ctl;
-+	__le16 qc;
- }  __packed;
- 
- struct eapol {
- 	u8 snap[6];
--	u16 ethertype;
-+	__be16 ethertype;
- 	u8 version;
- 	u8 type;
--	u16 length;
-+	__le16 length;
- } __packed;
- 
- enum eap_type {
-@@ -514,13 +514,13 @@ struct ieee80211_security {
-  */
- 
- struct ieee80211_header_data {
--	u16 frame_ctl;
--	u16 duration_id;
-+	__le16 frame_ctl;
-+	__le16 duration_id;
- 	u8 addr1[6];
- 	u8 addr2[6];
- 	u8 addr3[6];
--	u16 seq_ctrl;
--};
-+	__le16 seq_ctrl;
-+} __packed __aligned(2);
- 
- #define BEACON_PROBE_SSID_ID_POSITION 12
- 
-@@ -552,18 +552,18 @@ struct ieee80211_info_element {
- /*
-  * These are the data types that can make up management packets
-  *
--	u16 auth_algorithm;
--	u16 auth_sequence;
--	u16 beacon_interval;
--	u16 capability;
-+	__le16 auth_algorithm;
-+	__le16 auth_sequence;
-+	__le16 beacon_interval;
-+	__le16 capability;
- 	u8 current_ap[ETH_ALEN];
--	u16 listen_interval;
-+	__le16 listen_interval;
- 	struct {
- 		u16 association_id:14, reserved:2;
- 	} __packed;
--	u32 time_stamp[2];
--	u16 reason;
--	u16 status;
-+	__le32 time_stamp[2];
-+	__le16 reason;
-+	__le16 status;
- */
- 
- #define IEEE80211_DEFAULT_TX_ESSID "Penguin"
-@@ -571,16 +571,16 @@ struct ieee80211_info_element {
- 
- struct ieee80211_authentication {
- 	struct ieee80211_header_data header;
--	u16 algorithm;
--	u16 transaction;
--	u16 status;
-+	__le16 algorithm;
-+	__le16 transaction;
-+	__le16 status;
- } __packed;
- 
- struct ieee80211_probe_response {
- 	struct ieee80211_header_data header;
--	u32 time_stamp[2];
--	u16 beacon_interval;
--	u16 capability;
-+	__le32 time_stamp[2];
-+	__le16 beacon_interval;
-+	__le16 capability;
- 	struct ieee80211_info_element info_element;
- } __packed;
- 
-@@ -590,16 +590,16 @@ struct ieee80211_probe_request {
- 
- struct ieee80211_assoc_request_frame {
- 	struct ieee80211_hdr_3addr header;
--	u16 capability;
--	u16 listen_interval;
-+	__le16 capability;
-+	__le16 listen_interval;
- 	struct ieee80211_info_element_hdr info_element;
- } __packed;
- 
- struct ieee80211_assoc_response_frame {
- 	struct ieee80211_hdr_3addr header;
--	u16 capability;
--	u16 status;
--	u16 aid;
-+	__le16 capability;
-+	__le16 status;
-+	__le16 aid;
- } __packed;
- 
- struct ieee80211_txb {
 -- 
 2.10.2
