@@ -1,103 +1,140 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v4 1/2] qed: Add infrastructure for PTP support.
-Date: Sat, 11 Feb 2017 09:58:10 +0100
-Message-ID: <20170211085810.GA4006@localhost.localdomain>
-References: <1486536194-30872-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1486536194-30872-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] NET: mkiss/6pack: Fix SIOCSIFENCAP ioctl
+Date: Sat, 11 Feb 2017 11:53:09 +0100
+Message-ID: <589EED15.8090303@bfs.de>
+References: <20170210230121.GA27466@linux-mips.org>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, Yuval.Mintz@cavium.com
-To: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Thomas Osterried <thomas@osterried.de>,
+        linux-hams@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35585 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753308AbdBKI6P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 03:58:15 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u63so10278284wmu.2
-        for <netdev@vger.kernel.org>; Sat, 11 Feb 2017 00:58:14 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1486536194-30872-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+Received: from mx02-sz.bfs.de ([194.94.69.103]:37993 "EHLO mx02-sz.bfs.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752936AbdBKKxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 11 Feb 2017 05:53:16 -0500
+In-Reply-To: <20170210230121.GA27466@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 07, 2017 at 10:43:13PM -0800, Sudarsana Kalluru wrote:
-> +/* Adjust the HW clock by a rate given in parts-per-billion (ppb) units.
-> + * FW/HW accepts the adjustment value in terms of 3 parameters:
-> + *   Drift period - adjustment happens once in certain number of nano seconds.
-> + *   Drift value - time is adjusted by a certain value, for example by 5 ns.
-> + *   Drift direction - add or subtract the adjustment value.
-> + * The routine translates ppb into the adjustment triplet in an optimal manner.
-> + */
-> +static int qed_ptp_hw_adjfreq(struct qed_dev *cdev, s32 ppb)
-> +{
-> +	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-> +	s64 period, period1, period2, dif, dif1, dif2;
-> +	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-> +	int drift_dir, best_val, best_period;
-> +	s64 best_dif, temp, val;
-> +	u32 drift_ctr_cfg = 0;
-> +	u32 drift_state;
-> +
-> +	best_dif = ppb;
-> +	best_period = 2;
-> +	best_val = 0;
-> +	drift_dir = 1;
-> +
-> +	if (ppb < 0) {
-> +		ppb = -ppb;
-> +		drift_dir = 0;
-> +	}
-> +
-> +	if (ppb == 0) {
-> +		/* No clock adjustment required */
-> +		best_val = 0;
-> +		best_period = 0xFFFFFFF;
-> +	} else {
-> +		/* Adjustment value is up to +/-7ns, find an optimal value in
-> +		 * this range.
-> +		 */
-> +		for (val = 1; val <= 7; val++) {
-> +			period1 = div_s64(val * 1000000000, ppb);
 
-You don't round this, but you should.
 
-> +			period1 -= 8;
-> +			period1 >>= 4;
-
-You should round here as well and spare yourself the following two
-divisions.
-
-> +			if (period1 < 1)
-> +				period1 = 1;
-> +			if (period1 > 0xFFFFFFE)
-> +				period1 = 0xFFFFFFE;
-> +			period2 = period1 + 1;
-> +
-> +			temp = div_s64(val * 1000000000, (period1 * 16 + 8));
-> +			dif1 = ppb - temp;
-> +			if (dif1 < 0)
-> +				dif1 = -dif1;
-> +
-> +			temp = div_s64(val * 1000000000, (period2 * 16 + 8));
-> +			dif2 = ppb - temp;
-> +			if (dif2 < 0)
-> +				dif2 = -dif2;
-> +
-> +			dif = min_t(s64, dif1, dif2);
-> +			period = (dif1 < dif2) ? period1 : period2;
-> +			if (dif < best_dif) {
-
-Consider testing for (dif <= best) instead.
-
-If I am not mistaken, then you can skip the cases val==2 and val==3,
-because they are equivalent to val==4 and 6.
-
-> +				best_dif = dif;
-> +				best_val = (int)val;
-> +				best_period = (int)period;
-> +			}
+Am 11.02.2017 00:01, schrieb Ralf Baechle:
+> When looking at Thomas' mkiss fix 7ba1b6890387 ("NET: mkiss: Fix panic")
+> I noticed that the mkiss SIOCSIFENCAPS ioctl was also doing a slightly
+> strange assignment 
+> 
+>                dev->hard_header_len = AX25_KISS_HEADER_LEN +
+>                                       AX25_MAX_HEADER_LEN + 3;
+> 
+> AX25_MAX_HEADER_LEN already accounts for the KISS byte so adding
+> AX25_KISS_HEADER_LEN is a double allocation nor does the "+ 3" seem to
+> be necessary.  So this can be simplified to
+> 
+>                dev->hard_header_len = AX25_MAX_HEADER_LEN
+> 
+> which after the preceeding fix is a redundant assignment of what
+> ax_setup has already assigned so delete the line.  The assignments
+> to dev->addr_len and dev->type are similarly redundant.
+> 
+> The SIOCSIFENCAP argument was never checked for validity.  Check that
+> it is 4 and return -EINVAL if not.  The magic constant 4 dates back to
+> the days when KISS was handled by the SLIP driver where it had the
+> symbol name SL_MODE_AX25.
+> 
+> Since however mkiss.c only supports a single encapsulation mode there
+> is no point in storing it in struct mkiss so delete all that.
+> 
+> Note that while useless we can't delete the SIOCSIFENCAP ioctl as
+> kissattach(8) is still using it and without mkiss issuing a
+> SIOCSIFENCAP ioctl an older kernel that does not have Thomas' mkiss fix
+> would still panic on attempt to transmit via mkiss.
+> 
+> 6pack was suffering from the same issue except there SIOCGIFENCAP was
+> return 0 for the encapsulation while the spattach utility was passing 4
+> for the mode, so the mode check added for 6pack is a bit more lenient
+> allow the values 0 and 4 to be set.  That way we retain the option
+> to set different encapsulation modes for future extensions.
+> 
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> 
+>  drivers/net/hamradio/6pack.c | 10 ++++------
+>  drivers/net/hamradio/mkiss.c | 10 ++++------
+>  2 files changed, 8 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+> index 470b3dc..d949b9f 100644
+> --- a/drivers/net/hamradio/6pack.c
+> +++ b/drivers/net/hamradio/6pack.c
+> @@ -104,7 +104,6 @@ struct sixpack {
+>  	int			buffsize;       /* Max buffers sizes */
+>  
+>  	unsigned long		flags;		/* Flag values/ mode etc */
+> -	unsigned char		mode;		/* 6pack mode */
+>  
+>  	/* 6pack stuff */
+>  	unsigned char		tx_delay;
+> @@ -723,11 +722,10 @@ static int sixpack_ioctl(struct tty_struct *tty, struct file *file,
+>  			break;
+>  		}
+>  
+> -		sp->mode = tmp;
+> -		dev->addr_len        = AX25_ADDR_LEN;
+> -		dev->hard_header_len = AX25_KISS_HEADER_LEN +
+> -		                       AX25_MAX_HEADER_LEN + 3;
+> -		dev->type            = ARPHRD_AX25;
+> +		if (tmp != 0 && tmp != 4) {
+> +			err = -EINVAL;
+> +			break;
 > +		}
-> +	}
+>  
 
-Thanks,
-Richard
+What is about a comment like:
+/*
+The magic constant 4 dates back to the days when KISS was handled by the SLIP driver where it had the
+ symbol name SL_MODE_AX25.
+*/
+
+just not to confuse future readers ..
+
+re,
+ wh
+
+
+>  		err = 0;
+>  		break;
+> diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
+> index 1dfe230..cdaf819 100644
+> --- a/drivers/net/hamradio/mkiss.c
+> +++ b/drivers/net/hamradio/mkiss.c
+> @@ -71,7 +71,6 @@ struct mkiss {
+>  #define AXF_KEEPTEST	3		/* Keepalive test flag		*/
+>  #define AXF_OUTWAIT	4		/* is outpacket was flag	*/
+>  
+> -	int		mode;
+>          int		crcmode;	/* MW: for FlexNet, SMACK etc.  */
+>  	int		crcauto;	/* CRC auto mode */
+>  
+> @@ -841,11 +840,10 @@ static int mkiss_ioctl(struct tty_struct *tty, struct file *file,
+>  			break;
+>  		}
+>  
+> -		ax->mode = tmp;
+> -		dev->addr_len        = AX25_ADDR_LEN;
+> -		dev->hard_header_len = AX25_KISS_HEADER_LEN +
+> -		                       AX25_MAX_HEADER_LEN + 3;
+> -		dev->type            = ARPHRD_AX25;
+> +		if (tmp != 4) {
+> +			err = -EINVAL;
+> +			break;
+> +		}
+>  
+>  		err = 0;
+>  		break;
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-hams" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
