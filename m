@@ -1,140 +1,69 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [PATCH] NET: mkiss/6pack: Fix SIOCSIFENCAP ioctl
-Date: Sat, 11 Feb 2017 11:53:09 +0100
-Message-ID: <589EED15.8090303@bfs.de>
-References: <20170210230121.GA27466@linux-mips.org>
-Reply-To: wharms@bfs.de
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v4 1/2] qed: Add infrastructure for PTP support.
+Date: Sat, 11 Feb 2017 12:16:38 +0100
+Message-ID: <20170211111638.GA6564@localhost.localdomain>
+References: <1486536194-30872-1-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <1486536194-30872-2-git-send-email-Sudarsana.Kalluru@cavium.com>
+ <20170211085810.GA4006@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Thomas Osterried <thomas@osterried.de>,
-        linux-hams@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, Yuval.Mintz@cavium.com
+To: Sudarsana Kalluru <Sudarsana.Kalluru@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02-sz.bfs.de ([194.94.69.103]:37993 "EHLO mx02-sz.bfs.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752936AbdBKKxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 11 Feb 2017 05:53:16 -0500
-In-Reply-To: <20170210230121.GA27466@linux-mips.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36136 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753308AbdBKLQp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 06:16:45 -0500
+Received: by mail-wr0-f194.google.com with SMTP id k90so17598452wrc.3
+        for <netdev@vger.kernel.org>; Sat, 11 Feb 2017 03:16:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170211085810.GA4006@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Feb 11, 2017 at 09:58:10AM +0100, Richard Cochran wrote:
+> If I am not mistaken, then you can skip the cases val==2 and val==3,
+> because they are equivalent to val==4 and 6.
 
+I took a stab at this, and you can see the result, below.  My version
+has lower average error than yours in the interval 1 < ppb < 60000,
+and it uses only 8 64-bit divisions.  Outside of that interval, your
+version has lower error.
 
-Am 11.02.2017 00:01, schrieb Ralf Baechle:
-> When looking at Thomas' mkiss fix 7ba1b6890387 ("NET: mkiss: Fix panic")
-> I noticed that the mkiss SIOCSIFENCAPS ioctl was also doing a slightly
-> strange assignment 
-> 
->                dev->hard_header_len = AX25_KISS_HEADER_LEN +
->                                       AX25_MAX_HEADER_LEN + 3;
-> 
-> AX25_MAX_HEADER_LEN already accounts for the KISS byte so adding
-> AX25_KISS_HEADER_LEN is a double allocation nor does the "+ 3" seem to
-> be necessary.  So this can be simplified to
-> 
->                dev->hard_header_len = AX25_MAX_HEADER_LEN
-> 
-> which after the preceeding fix is a redundant assignment of what
-> ax_setup has already assigned so delete the line.  The assignments
-> to dev->addr_len and dev->type are similarly redundant.
-> 
-> The SIOCSIFENCAP argument was never checked for validity.  Check that
-> it is 4 and return -EINVAL if not.  The magic constant 4 dates back to
-> the days when KISS was handled by the SLIP driver where it had the
-> symbol name SL_MODE_AX25.
-> 
-> Since however mkiss.c only supports a single encapsulation mode there
-> is no point in storing it in struct mkiss so delete all that.
-> 
-> Note that while useless we can't delete the SIOCSIFENCAP ioctl as
-> kissattach(8) is still using it and without mkiss issuing a
-> SIOCSIFENCAP ioctl an older kernel that does not have Thomas' mkiss fix
-> would still panic on attempt to transmit via mkiss.
-> 
-> 6pack was suffering from the same issue except there SIOCGIFENCAP was
-> return 0 for the encapsulation while the spattach utility was passing 4
-> for the mode, so the mode check added for 6pack is a bit more lenient
-> allow the values 0 and 4 to be set.  That way we retain the option
-> to set different encapsulation modes for future extensions.
-> 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-> 
->  drivers/net/hamradio/6pack.c | 10 ++++------
->  drivers/net/hamradio/mkiss.c | 10 ++++------
->  2 files changed, 8 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
-> index 470b3dc..d949b9f 100644
-> --- a/drivers/net/hamradio/6pack.c
-> +++ b/drivers/net/hamradio/6pack.c
-> @@ -104,7 +104,6 @@ struct sixpack {
->  	int			buffsize;       /* Max buffers sizes */
->  
->  	unsigned long		flags;		/* Flag values/ mode etc */
-> -	unsigned char		mode;		/* 6pack mode */
->  
->  	/* 6pack stuff */
->  	unsigned char		tx_delay;
-> @@ -723,11 +722,10 @@ static int sixpack_ioctl(struct tty_struct *tty, struct file *file,
->  			break;
->  		}
->  
-> -		sp->mode = tmp;
-> -		dev->addr_len        = AX25_ADDR_LEN;
-> -		dev->hard_header_len = AX25_KISS_HEADER_LEN +
-> -		                       AX25_MAX_HEADER_LEN + 3;
-> -		dev->type            = ARPHRD_AX25;
-> +		if (tmp != 0 && tmp != 4) {
-> +			err = -EINVAL;
-> +			break;
-> +		}
->  
+So, at the very least, you should introduce a threshold and use this
+algorithm for adjustments under 60 ppm.  Better yet, find a way to use
+fewer divisions for adjustments greater and 60 ppm...
 
-What is about a comment like:
-/*
-The magic constant 4 dates back to the days when KISS was handled by the SLIP driver where it had the
- symbol name SL_MODE_AX25.
-*/
+Thanks,
+Richard
 
-just not to confuse future readers ..
+---
+#include <stdint.h>
 
-re,
- wh
+#define TEN9		(1000000000UL)
 
+unsigned int calc_min_integer(uint64_t ppb, uint64_t *M)
+{
+	uint64_t err, m, min, n, N, p2, reg;
 
->  		err = 0;
->  		break;
-> diff --git a/drivers/net/hamradio/mkiss.c b/drivers/net/hamradio/mkiss.c
-> index 1dfe230..cdaf819 100644
-> --- a/drivers/net/hamradio/mkiss.c
-> +++ b/drivers/net/hamradio/mkiss.c
-> @@ -71,7 +71,6 @@ struct mkiss {
->  #define AXF_KEEPTEST	3		/* Keepalive test flag		*/
->  #define AXF_OUTWAIT	4		/* is outpacket was flag	*/
->  
-> -	int		mode;
->          int		crcmode;	/* MW: for FlexNet, SMACK etc.  */
->  	int		crcauto;	/* CRC auto mode */
->  
-> @@ -841,11 +840,10 @@ static int mkiss_ioctl(struct tty_struct *tty, struct file *file,
->  			break;
->  		}
->  
-> -		ax->mode = tmp;
-> -		dev->addr_len        = AX25_ADDR_LEN;
-> -		dev->hard_header_len = AX25_KISS_HEADER_LEN +
-> -		                       AX25_MAX_HEADER_LEN + 3;
-> -		dev->type            = ARPHRD_AX25;
-> +		if (tmp != 4) {
-> +			err = -EINVAL;
-> +			break;
-> +		}
->  
->  		err = 0;
->  		break;
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-hams" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	min = TEN9;
+	for (n = 4; n <= 7; n++) {
+		m = n * TEN9;
+		m = (m + ppb/2) / ppb;
+
+		/*truncate to HW resolution*/
+		reg = (m + 8) / 16;
+		m = reg * 16;
+
+		p2 = (n * TEN9 + m/2) / m;
+
+		err = ppb > p2 ? ppb - p2 : p2 - ppb;
+
+		if (min >= err) {
+			min = err;
+			N = n;
+			*M = m;
+		}
+	}
+	return N;
+}
