@@ -1,9 +1,10 @@
 From: Brian Norris <briannorris@chromium.org>
-Subject: Re: [PATCH 1/3] Bluetooth: bnep: fix possible might sleep error in
- bnep_session
-Date: Fri, 10 Feb 2017 17:40:45 -0800
-Message-ID: <20170211014044.GB101282@google.com>
+Subject: Re: [PATCH 2/3] Bluetooth: cmtp: fix possible might sleep error in
+ cmtp_session
+Date: Fri, 10 Feb 2017 17:43:17 -0800
+Message-ID: <20170211014247.GC101282@google.com>
 References: <1485230871-22828-1-git-send-email-jeffy.chen@rock-chips.com>
+ <1485230871-22828-2-git-send-email-jeffy.chen@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-bluetooth@vger.kernel.org,
@@ -18,14 +19,14 @@ Cc: linux-bluetooth@vger.kernel.org,
 To: Jeffy Chen <jeffy.chen@rock-chips.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1485230871-22828-1-git-send-email-jeffy.chen@rock-chips.com>
+In-Reply-To: <1485230871-22828-2-git-send-email-jeffy.chen@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-On Tue, Jan 24, 2017 at 12:07:49PM +0800, Jeffy Chen wrote:
-> It looks like bnep_session has same pattern as the issue reported in
+On Tue, Jan 24, 2017 at 12:07:50PM +0800, Jeffy Chen wrote:
+> It looks like cmtp_session has same pattern as the issue reported in
 > old rfcomm:
 > 
 > 	while (1) {
@@ -46,21 +47,21 @@ On Tue, Jan 24, 2017 at 12:07:49PM +0800, Jeffy Chen wrote:
 > Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
 > ---
 > 
->  net/bluetooth/bnep/core.c | 15 +++++++++------
->  1 file changed, 9 insertions(+), 6 deletions(-)
+>  net/bluetooth/cmtp/core.c | 21 ++++++++++++++-------
+>  1 file changed, 14 insertions(+), 7 deletions(-)
 > 
-> diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
-> index fbf251f..da04d51 100644
-> --- a/net/bluetooth/bnep/core.c
-> +++ b/net/bluetooth/bnep/core.c
-> @@ -484,16 +484,16 @@ static int bnep_session(void *arg)
->  	struct net_device *dev = s->dev;
->  	struct sock *sk = s->sock->sk;
+> diff --git a/net/bluetooth/cmtp/core.c b/net/bluetooth/cmtp/core.c
+> index 9e59b66..6b03f2b 100644
+> --- a/net/bluetooth/cmtp/core.c
+> +++ b/net/bluetooth/cmtp/core.c
+> @@ -280,16 +280,16 @@ static int cmtp_session(void *arg)
+>  	struct cmtp_session *session = arg;
+>  	struct sock *sk = session->sock->sk;
 >  	struct sk_buff *skb;
 > -	wait_queue_t wait;
 > +	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 >  
->  	BT_DBG("");
+>  	BT_DBG("session %p", session);
 >  
 >  	set_user_nice(current, -15);
 >  
@@ -71,11 +72,11 @@ On Tue, Jan 24, 2017 at 12:07:49PM +0800, Jeffy Chen wrote:
 > +		/* Ensure session->terminate is updated */
 > +		smp_mb__before_atomic();
 >  
->  		if (atomic_read(&s->terminate))
+>  		if (atomic_read(&session->terminate))
 >  			break;
-> @@ -515,9 +515,8 @@ static int bnep_session(void *arg)
->  				break;
->  		netif_wake_queue(dev);
+> @@ -306,9 +306,8 @@ static int cmtp_session(void *arg)
+>  
+>  		cmtp_process_transmit(session);
 >  
 > -		schedule();
 > +		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
@@ -83,34 +84,41 @@ On Tue, Jan 24, 2017 at 12:07:49PM +0800, Jeffy Chen wrote:
 > -	__set_current_state(TASK_RUNNING);
 >  	remove_wait_queue(sk_sleep(sk), &wait);
 >  
->  	/* Cleanup session */
-> @@ -666,7 +665,11 @@ int bnep_del_connection(struct bnep_conndel_req *req)
->  	s = __bnep_get_session(req->dst);
->  	if (s) {
->  		atomic_inc(&s->terminate);
-> -		wake_up_process(s->task);
+>  	down_write(&cmtp_session_sem);
+> @@ -393,7 +392,11 @@ int cmtp_add_connection(struct cmtp_connadd_req *req, struct socket *sock)
+>  		err = cmtp_attach_device(session);
+>  		if (err < 0) {
+>  			atomic_inc(&session->terminate);
+> -			wake_up_process(session->task);
+> +
+> +			/* Ensure session->terminate is updated */
+> +			smp_mb__after_atomic();
+> +
+
+Same comment about the barrier.
+
+> +			wake_up_interruptible(sk_sleep(session->sock->sk));
+>  			up_write(&cmtp_session_sem);
+>  			return err;
+>  		}
+> @@ -431,7 +434,11 @@ int cmtp_del_connection(struct cmtp_conndel_req *req)
+>  
+>  		/* Stop session thread */
+>  		atomic_inc(&session->terminate);
+> -		wake_up_process(session->task);
 > +
 > +		/* Ensure session->terminate is updated */
 > +		smp_mb__after_atomic();
+
+And again.
+
+But otherwise I think this looks OK, again with the caveat that I don't
+know Bluetooth/CMTP that well:
+
+Reviewed-by: Brian Norris <briannorris@chromium.org>
+
 > +
-
-__wake_up() suggests:
-
- * It may be assumed that this function implies a write memory barrier before
- * changing the task state if and only if any tasks are woken up.
-
-so the above barrier is probably unnecessary. I'm not so sure about the
-one before atomic_read(); seems fine.
-
-Other than that, I this looks ok:
-
-Reviewed-by: Brian Norris <briannorris@chromium.or>
-
-But I haven't been testing BNEP.
-
-Brian
-
-> +		wake_up_interruptible(sk_sleep(s->sock->sk));
+> +		wake_up_interruptible(sk_sleep(session->sock->sk));
 >  	} else
 >  		err = -ENOENT;
 >  
