@@ -1,128 +1,44 @@
-From: Brian Norris <briannorris@chromium.org>
-Subject: Re: [PATCH 2/3] Bluetooth: cmtp: fix possible might sleep error in
- cmtp_session
-Date: Fri, 10 Feb 2017 17:43:17 -0800
-Message-ID: <20170211014247.GC101282@google.com>
-References: <1485230871-22828-1-git-send-email-jeffy.chen@rock-chips.com>
- <1485230871-22828-2-git-send-email-jeffy.chen@rock-chips.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-bluetooth@vger.kernel.org,
-        Douglas Anderson <dianders@chromium.org>,
-        Johan Hedberg <johan.hedberg@intel.com>,
-        Peter Hurley <peter@hurleysoftware.com>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>
-To: Jeffy Chen <jeffy.chen@rock-chips.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1485230871-22828-2-git-send-email-jeffy.chen@rock-chips.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH] net: ethernet: ti: cpsw: return NET_XMIT_DROP if skb_padto failed
+Date: Sat, 11 Feb 2017 03:49:57 +0200
+Message-ID: <1486777797-28143-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
+        linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: mugunthanvnm@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:34674 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753398AbdBKBuI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 10 Feb 2017 20:50:08 -0500
+Received: by mail-lf0-f43.google.com with SMTP id v186so30828830lfa.1
+        for <netdev@vger.kernel.org>; Fri, 10 Feb 2017 17:50:02 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+If skb_padto failed the skb has been dropped already, so it was
+consumed, but it doesn't mean it was sent, thus no need to update
+queue tx time, etc. So, return NET_XMIT_DROP as more appropriate.
 
-On Tue, Jan 24, 2017 at 12:07:50PM +0800, Jeffy Chen wrote:
-> It looks like cmtp_session has same pattern as the issue reported in
-> old rfcomm:
-> 
-> 	while (1) {
-> 		set_current_state(TASK_INTERRUPTIBLE);
-> 		if (condition)
-> 			break;
-> 		// may call might_sleep here
-> 		schedule();
-> 	}
-> 	__set_current_state(TASK_RUNNING);
-> 
-> Which fixed at:
-> 	dfb2fae Bluetooth: Fix nested sleeps
-> 
-> So let's fix it at the same way, also follow the suggestion of:
-> https://lwn.net/Articles/628628/
-> 
-> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
-> ---
-> 
->  net/bluetooth/cmtp/core.c | 21 ++++++++++++++-------
->  1 file changed, 14 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/bluetooth/cmtp/core.c b/net/bluetooth/cmtp/core.c
-> index 9e59b66..6b03f2b 100644
-> --- a/net/bluetooth/cmtp/core.c
-> +++ b/net/bluetooth/cmtp/core.c
-> @@ -280,16 +280,16 @@ static int cmtp_session(void *arg)
->  	struct cmtp_session *session = arg;
->  	struct sock *sk = session->sock->sk;
->  	struct sk_buff *skb;
-> -	wait_queue_t wait;
-> +	DEFINE_WAIT_FUNC(wait, woken_wake_function);
->  
->  	BT_DBG("session %p", session);
->  
->  	set_user_nice(current, -15);
->  
-> -	init_waitqueue_entry(&wait, current);
->  	add_wait_queue(sk_sleep(sk), &wait);
->  	while (1) {
-> -		set_current_state(TASK_INTERRUPTIBLE);
-> +		/* Ensure session->terminate is updated */
-> +		smp_mb__before_atomic();
->  
->  		if (atomic_read(&session->terminate))
->  			break;
-> @@ -306,9 +306,8 @@ static int cmtp_session(void *arg)
->  
->  		cmtp_process_transmit(session);
->  
-> -		schedule();
-> +		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
->  	}
-> -	__set_current_state(TASK_RUNNING);
->  	remove_wait_queue(sk_sleep(sk), &wait);
->  
->  	down_write(&cmtp_session_sem);
-> @@ -393,7 +392,11 @@ int cmtp_add_connection(struct cmtp_connadd_req *req, struct socket *sock)
->  		err = cmtp_attach_device(session);
->  		if (err < 0) {
->  			atomic_inc(&session->terminate);
-> -			wake_up_process(session->task);
-> +
-> +			/* Ensure session->terminate is updated */
-> +			smp_mb__after_atomic();
-> +
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
+Based on net-next/master
 
-Same comment about the barrier.
+ drivers/net/ethernet/ti/cpsw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> +			wake_up_interruptible(sk_sleep(session->sock->sk));
->  			up_write(&cmtp_session_sem);
->  			return err;
->  		}
-> @@ -431,7 +434,11 @@ int cmtp_del_connection(struct cmtp_conndel_req *req)
->  
->  		/* Stop session thread */
->  		atomic_inc(&session->terminate);
-> -		wake_up_process(session->task);
-> +
-> +		/* Ensure session->terminate is updated */
-> +		smp_mb__after_atomic();
-
-And again.
-
-But otherwise I think this looks OK, again with the caveat that I don't
-know Bluetooth/CMTP that well:
-
-Reviewed-by: Brian Norris <briannorris@chromium.org>
-
-> +
-> +		wake_up_interruptible(sk_sleep(session->sock->sk));
->  	} else
->  		err = -ENOENT;
->  
-> -- 
-> 2.1.4
-> 
-> 
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 4d1c0c3..503fa8a 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1604,7 +1604,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 	if (skb_padto(skb, CPSW_MIN_PACKET_SIZE)) {
+ 		cpsw_err(priv, tx_err, "packet pad failed\n");
+ 		ndev->stats.tx_dropped++;
+-		return NETDEV_TX_OK;
++		return NET_XMIT_DROP;
+ 	}
+ 
+ 	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
+-- 
+2.7.4
