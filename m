@@ -1,115 +1,84 @@
-From: "Jonathan T. Leighton" <jtleight@udel.edu>
-Subject: [PATCH 2/2] ipv6: Handle IPv4-mapped src to in6addr_any dst.
-Date: Sun, 12 Feb 2017 17:26:07 -0500
-Message-ID: <7de3e9af8a12e60819ebc58dd682ea2eb3ede05e.1486937974.git.jtleight@udel.edu>
-References: <cover.1486937974.git.jtleight@udel.edu>
-Cc: "Jonathan T. Leighton" <jtleight@udel.edu>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next 00/14] mlx4: order-0 allocations and page
+ recycling
+Date: Sun, 12 Feb 2017 23:38:53 +0100
+Message-ID: <20170212233853.193a2714@redhat.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+        <3c48eac5-0c4f-f43a-1d76-75399e5fc1b8@gmail.com>
+        <CANn89i+sbU7b5CAhRq15Mk021X4afkB5E1ip+FRB4NevOrYJvQ@mail.gmail.com>
+        <c192d259-644b-0697-748f-549fdc9c11e0@gmail.com>
+        <CANn89iLNvQyfXUZwtQuhXBgZrKCDWEaouVtD4Txaem_wDXrdQg@mail.gmail.com>
+        <2a345874-2ad7-997e-2904-0d56148a2c56@gmail.com>
+        <1486933066.8227.6.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tariq Toukan <ttoukan.linux@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>, brouer@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35254 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751405AbdBLW0M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 17:26:12 -0500
-Received: by mail-qt0-f193.google.com with SMTP id s58so11010591qtc.2
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 14:26:12 -0800 (PST)
-In-Reply-To: <cover.1486937974.git.jtleight@udel.edu>
-In-Reply-To: <cover.1486937974.git.jtleight@udel.edu>
-References: <cover.1486937974.git.jtleight@udel.edu>
+Received: from mx1.redhat.com ([209.132.183.28]:57586 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750882AbdBLWi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 12 Feb 2017 17:38:59 -0500
+In-Reply-To: <1486933066.8227.6.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a check on the type of the source address for the case
-where the destination address is in6addr_any. If the source is an
-IPv4-mapped IPv6 source address, the destination is changed to
-::ffff:127.0.0.1, and otherwise the destination is changed to ::1. This
-is done in three locations to handle UDP calls to either connect() or
-sendmsg() and TCP calls to connect(). Note that udpv6_sendmsg() delays
-handling an in6addr_any destination until very late, so the patch only
-needs to handle the case where the source is an IPv4-mapped IPv6
-address.
+On Sun, 12 Feb 2017 12:57:46 -0800
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Signed-off-by: Jonathan T. Leighton <jtleight@udel.edu>
----
- net/ipv6/datagram.c | 14 +++++++++-----
- net/ipv6/tcp_ipv6.c | 11 ++++++++---
- net/ipv6/udp.c      |  4 ++++
- 3 files changed, 21 insertions(+), 8 deletions(-)
+> On Sun, 2017-02-12 at 18:31 +0200, Tariq Toukan wrote:
+> > On 09/02/2017 6:56 PM, Eric Dumazet wrote:  
+> > >> Default, out of box.  
+> > > Well. Please report :
+> > >
+> > > ethtool  -l eth0
+> > > ethtool -g eth0  
+> > $ ethtool -g p1p1
+> > Ring parameters for p1p1:
+> > Pre-set maximums:
+> > RX:             8192
+> > RX Mini:        0
+> > RX Jumbo:       0
+> > TX:             8192
+> > Current hardware settings:
+> > RX:             1024
+> > RX Mini:        0
+> > RX Jumbo:       0
+> > TX:             512  
+> 
+> We are using 4096 slots per RX queue, this is why I could not reproduce
+> your results.
 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index a3eaafd..eec27f8 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -167,18 +167,22 @@ int __ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr,
- 	if (np->sndflow)
- 		fl6_flowlabel = usin->sin6_flowinfo & IPV6_FLOWINFO_MASK;
- 
--	addr_type = ipv6_addr_type(&usin->sin6_addr);
--
--	if (addr_type == IPV6_ADDR_ANY) {
-+	if (ipv6_addr_any(&usin->sin6_addr)) {
- 		/*
- 		 *	connect to self
- 		 */
--		usin->sin6_addr.s6_addr[15] = 0x01;
-+		if (ipv6_addr_v4mapped(&sk->sk_v6_rcv_saddr))
-+			ipv6_addr_set_v4mapped(htonl(INADDR_LOOPBACK),
-+					       &usin->sin6_addr);
-+		else
-+			usin->sin6_addr = in6addr_loopback;
- 	}
- 
-+	addr_type = ipv6_addr_type(&usin->sin6_addr);
-+
- 	daddr = &usin->sin6_addr;
- 
--	if (addr_type == IPV6_ADDR_MAPPED) {
-+	if (addr_type & IPV6_ADDR_MAPPED) {
- 		struct sockaddr_in sin;
- 
- 		if (__ipv6_only_sock(sk)) {
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index b5d2721..21c7199 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -149,8 +149,13 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	 *	connect() to INADDR_ANY means loopback (BSD'ism).
- 	 */
- 
--	if (ipv6_addr_any(&usin->sin6_addr))
--		usin->sin6_addr.s6_addr[15] = 0x1;
-+	if (ipv6_addr_any(&usin->sin6_addr)) {
-+		if (ipv6_addr_v4mapped(&sk->sk_v6_rcv_saddr))
-+			ipv6_addr_set_v4mapped(htonl(INADDR_LOOPBACK),
-+					       &usin->sin6_addr);
-+		else
-+			usin->sin6_addr = in6addr_loopback;
-+	}
- 
- 	addr_type = ipv6_addr_type(&usin->sin6_addr);
- 
-@@ -189,7 +194,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	 *	TCP over IPv4
- 	 */
- 
--	if (addr_type == IPV6_ADDR_MAPPED) {
-+	if (addr_type & IPV6_ADDR_MAPPED) {
- 		u32 exthdrlen = icsk->icsk_ext_hdr_len;
- 		struct sockaddr_in sin;
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index df71ba0..4e4c401 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1046,6 +1046,10 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 			if (addr_len < SIN6_LEN_RFC2133)
- 				return -EINVAL;
- 			daddr = &sin6->sin6_addr;
-+			if (ipv6_addr_any(daddr) &&
-+			    ipv6_addr_v4mapped(&np->saddr))
-+				ipv6_addr_set_v4mapped(htonl(INADDR_LOOPBACK),
-+						       daddr);
- 			break;
- 		case AF_INET:
- 			goto do_udp_sendmsg;
+Just so others understand this: The number of RX queue slots is
+indirectly the size of the page-recycle "cache" in this scheme (that
+depend on refcnt tricks to see if page can be reused).  
+
+
+> A single TCP flow easily can have more than 1024 MSS waiting in its
+> receive queue (typical receive window on linux is 6MB/2 )
+
+So, you do need to increase the page-"cache" size, and need this for
+real-life cases, interesting.
+
+
+> I mentioned that having a slightly inflated skb->truesize might have an
+> impact in some workloads. (charging for 2048 bytes per MSS instead of
+> 1536), but this is not related to mlx4 and should be tweaked in TCP
+> stack instead, since this 2048 bytes (half a page on x86) strategy is
+> now well spread.
+
+
 -- 
-2.7.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
