@@ -1,66 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 00/14] mlx4: order-0 allocations and page
- recycling
-Date: Sun, 12 Feb 2017 12:57:46 -0800
-Message-ID: <1486933066.8227.6.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170209135838.16487-1-edumazet@google.com>
-         <3c48eac5-0c4f-f43a-1d76-75399e5fc1b8@gmail.com>
-         <CANn89i+sbU7b5CAhRq15Mk021X4afkB5E1ip+FRB4NevOrYJvQ@mail.gmail.com>
-         <c192d259-644b-0697-748f-549fdc9c11e0@gmail.com>
-         <CANn89iLNvQyfXUZwtQuhXBgZrKCDWEaouVtD4Txaem_wDXrdQg@mail.gmail.com>
-         <2a345874-2ad7-997e-2904-0d56148a2c56@gmail.com>
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Subject: [PATCH v1] samples/bpf: Add a .gitignore for binaries
+Date: Sun, 12 Feb 2017 22:23:56 +0100
+Message-ID: <20170212212356.11675-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Tariq Toukan <ttoukan.linux@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35094 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750882AbdBLU5t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 15:57:49 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 204so7819290pge.2
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 12:57:49 -0800 (PST)
-In-Reply-To: <2a345874-2ad7-997e-2904-0d56148a2c56@gmail.com>
+Received: from smtp-sh.infomaniak.ch ([128.65.195.4]:58912 "EHLO
+        smtp-sh.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751275AbdBLVY6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 16:24:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2017-02-12 at 18:31 +0200, Tariq Toukan wrote:
-> On 09/02/2017 6:56 PM, Eric Dumazet wrote:
-> >> Default, out of box.
-> > Well. Please report :
-> >
-> > ethtool  -l eth0
-> > ethtool -g eth0
-> $ ethtool -g p1p1
-> Ring parameters for p1p1:
-> Pre-set maximums:
-> RX:             8192
-> RX Mini:        0
-> RX Jumbo:       0
-> TX:             8192
-> Current hardware settings:
-> RX:             1024
-> RX Mini:        0
-> RX Jumbo:       0
-> TX:             512
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Wang Nan <wangnan0@huawei.com>
+---
+ samples/bpf/.gitignore | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+ create mode 100644 samples/bpf/.gitignore
 
-We are using 4096 slots per RX queue, this is why I could not reproduce
-your results.
-
-A single TCP flow easily can have more than 1024 MSS waiting in its
-receive queue (typical receive window on linux is 6MB/2 )
-
-I mentioned that having a slightly inflated skb->truesize might have an
-impact in some workloads. (charging for 2048 bytes per MSS instead of
-1536), but this is not related to mlx4 and should be tweaked in TCP
-stack instead, since this 2048 bytes (half a page on x86) strategy is
-now well spread.
+diff --git a/samples/bpf/.gitignore b/samples/bpf/.gitignore
+new file mode 100644
+index 000000000000..a7562a5ef4c2
+--- /dev/null
++++ b/samples/bpf/.gitignore
+@@ -0,0 +1,32 @@
++fds_example
++lathist
++lwt_len_hist
++map_perf_test
++offwaketime
++sampleip
++sockex1
++sockex2
++sockex3
++sock_example
++spintest
++tc_l2_redirect
++test_cgrp2_array_pin
++test_cgrp2_attach
++test_cgrp2_attach2
++test_cgrp2_sock
++test_cgrp2_sock2
++test_current_task_under_cgroup
++test_lru_dist
++test_overhead
++test_probe_write_user
++trace_event
++trace_output
++tracex1
++tracex2
++tracex3
++tracex4
++tracex5
++tracex6
++xdp1
++xdp2
++xdp_tx_iptunnel
+-- 
+2.11.0
