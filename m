@@ -1,210 +1,41 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
- device_find_class()
-Date: Sun, 12 Feb 2017 13:56:42 +0100
-Message-ID: <20170212125642.GA27090@kroah.com>
-References: <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
- <20170115173949.GA19268@kroah.com>
- <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
- <20170115191632.GD5643@lunn.ch>
- <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
- <20170119142820.GA494@kroah.com>
- <20170119145315.GD21805@lunn.ch>
- <20170119165155.GH27312@n2100.armlinux.org.uk>
- <20170210130217.GA4570@kroah.com>
- <29f1c56a-45ab-53b8-e6c6-83746e6ae18b@gmail.com>
+From: Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [RFC v3 00/11] HFI Virtual Network Interface Controller (VNIC)
+Date: Sun, 12 Feb 2017 13:26:35 +0000
+Message-ID: <HE1PR0501MB2812C133C408A8092A745F82B1460@HE1PR0501MB2812.eurprd05.prod.outlook.com>
+References: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <29f1c56a-45ab-53b8-e6c6-83746e6ae18b@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1486498990-76562-1-git-send-email-niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 10, 2017 at 10:30:58AM -0800, Florian Fainelli wrote:
-> On 02/10/2017 05:02 AM, Greg KH wrote:
-> > On Thu, Jan 19, 2017 at 04:51:55PM +0000, Russell King - ARM Linux wrote:
-> >> (This is mainly for Greg's benefit to help him understand the issue.)
-> >>
-> >> I think the diagram you gave initially made this confusing, as it
-> >> talks about a CPU(sic) producing the "RGMII" and "MII-MGMT".
-> >>
-> >> Let's instead show a better representation that hopefully helps Greg
-> >> understand networking. :)
-> >>
-> >>
-> >>   CPU
-> >> System <-B->  Ethernet controller <-P-> } PHY <---> network cable
-> >>                                         } - - - - - - - or - - - - - - -
-> >>                   MDIO bus -------M---> } Switch <-P-> PHYs <--> network
-> >>                                               `----M----^        cables
-> >>
-> >> 'B' can be an on-SoC bus or something like PCI.
-> >>
-> >> 'P' are the high-speed connectivity between the ethernet controller and
-> >> PHY which carries the packet data.  It has no addressing, it's a point
-> >> to point link.  RGMII is just one wiring example, there are many
-> >> different interfaces there (SGMII, AUI, XAUI, XGMII to name a few.)
-> >>
-> >> 'M' are the MDIO bus, which is the bus by which ethernet PHYs and
-> >> switches can be identified and controlled.
-> >>
-> >> The MDIO bus has a bus_type, has host drivers which are sometimes
-> >> part of the ethernet controller, but can also be stand-alone devices
-> >> shared between multiple ethernet controllers.
-> >>
-> >> PHYs are a kind of MDIO device which are members of the MDIO bus
-> >> type.  Each PHY (and switch) has a numerical address, and identifying
-> >> numbers within its register set which identifies the manufacturer
-> >> and device type.  We have device_driver objects for these.
-> >>
-> >> Expanding the above diagram to make it (hopefully) even clearer,
-> >> we can have this classic setup:
-> >>
-> >>   CPU
-> >> System <-B-> Ethernet controller <-P-> PHY <---> network cable
-> >>                  MDIO bus -------M------^
-> >>
-> >> Or, in the case of two DSA switches attached to an Ethernet controller:
-> >>
-> >>                                      |~~~~~~~~|
-> >> System <-B-> Ethernet controller <-P-> Switch <-P-> PHY1 <--> network cable
-> >>                  MDIO bus ----+--M--->   1    <-P-> PHY2 <--> network cable
-> >>                               |      |        ...    |
-> >>                               |      |        <-P-> PHYn <--> network cable
-> >>                               |      |....^...|      |
-> >>                               |           |  `---M---'
-> >>                               |           P
-> >>                               |           |
-> >>                               |      |~~~~v~~~|
-> >>                               `------> Switch <-P-> PHY1 <--> network cable
-> >>                                      |   2    ...    |
-> >>                                      |        <-P-> PHYn <--> network cable
-> >>                                      |........|      |
-> >>                                              `---M---'
-> >>
-> >> The problem that the DSA guys are trying to deal with is how to
-> >> represent the link between the DSA switches (which are devices
-> >> sitting off their controlling bus - the MDIO bus) and the ethernet
-> >> controller associated with that collection of devices, be it a
-> >> switch or PHY.
-> > 
-> > Why do they have to represent that link?  This is a driver that somehow
-> > binds the two togther in some sort of "control plane"?
-> 
-> We have to represent that link because the CPU/host/management Ethernet
-> MAC is physically connected to the CPU/management port of the switch. It
-> does indeed participate in establishing the control plane.
+> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-
+> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Vishwanathapura, Niranjana
 
-But who uses that "link"?  What in userspace cares about it?  What in
-the kernel cares?
+>=20
+> ChangeLog:
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D
+> v2 =3D> v3:
+> a) Introduce and adopt generic RDMA netdev interface including,
+>      - having bottom hfi1 driver directly interfacing with netstack.
+>      - optimizing interface between hfi_vnic and hfi1 driver.
+> b) Remove bitfield usage.
+> c) Move hfi_vnic driver to drivers/infiniband/ulp folder.
 
-> The basic idea of DSA is that the switch inserts vendor tags to indicate
-> why the packet is sent towards the CPU in the first place: flooding,
-> management, copy etc along with information as to which
-> originating/destination port(s) this packet comes/goes from/to. On top
-> of that, we demultiplex that tag to deliver normal Ethernet frames to
-> per-port network devices (virtual network devices).
-> 
-> If we did leave the switch in an unmanaged mode and not logically
-> attached to an Ethernet MAC for management, we'd lose all that
-> information (we could use per-port VLANs to re-create it, but it would
-> be inferior to what a switch with proprietary tags can do)
-> 
-> Code in net/dsa/dsa2.c that binds the two (switch and Ethernet MAC)
-> together is not strictly a driver, it just is resident in memory and
-> waits for dsa_register_switch() to be called until it tries to do this
-> binding.
+The vnic driver should be placed under drivers/infiniband/hw/hfi1/* since i=
+t is HFI-specific.
+--Liran
 
-Ok, but when that "binding" happens, why do you need to show it in
-sysfs?
-
-> >> Merely changing the parent/child relationships to try and solve
-> >> one issue just creates exactly the same problem elsewhere.
-> > 
-> > Fair enough.
-> > 
-> >> So, I hope with these diagrams, you can see that trying to make
-> >> the ethernet controller a child device of the DSA switches
-> >> means that (eg) it's no longer a PCI device, which is rather
-> >> absurd, especially when considering that what happens to the
-> >> right of the ethernet controller in the diagrams above is
-> >> normally external chips to the SoC or ethernet device.
-> > 
-> > Ok, thanks for the long explainations and diagrams.
-> > 
-> > _BUT_ my original point remains.  These new functions you all are trying
-> > to get into the driver core, do NOT do what they say they are doing.
-> > They are mucking around with a "known topology" and just happen to work
-> > because the device you are trying to find shares a common parent with
-> > yourself.
-> > 
-> > That is not what the function says it does, and as such, I do not want
-> > that function in the driver core at all.
-> > 
-> > If you wish to keep it in your own subsystem, that's fine, but call it
-> > what it really is:
-> > 	hack_to_find_peer_device_on_random_bus()
-> > and pass in a _real_ pointer to a bus type.  Not some random string
-> > please.
-> 
-> Yes, David has accepted that and we did make it prefixed with dsa_*.
-> That does not mean it should stay forever though if we can work on
-> something better designed.
-
-Maybe, but really, this is a special case.
-
-> > Or better yet, have the DSA code accept pointers to the two devices in
-> > the first place, so it "knows" what to do here in a much better way.
-> 
-> Well, that is really what is being done here, the "inputs" to the code
-> in net/dsa/dsa2.c are opaque struct device references that we
-> verify/proof by making sure they belong in the class of device we expect
-> them to be.
-
-Why not take pointers to the class devices you expect in the first
-place?  No need to take an "opaque" pointer, right?  Then nothing
-special needs to be found anywhere else.
-
-> NB: technically it's just one device reference: Ethernet MAC device,
-> because the other one is implied by the device driver registering the
-> switch with dsa_register_switch() (MDIO, SPI, I2C, PCI etc..).
-> 
-> > Right now it is a bad hack.  You all can not argue that is not true.
-> 
-> It's hard to argue on an qualifier for that design when we can't even
-> agree whether our understanding of these devices matches your
-> understanding after you read and digested our explanations :)
-
-I think so, but again, you all don't seem to understand just why this is
-such a bad hack of the driver model...
-
-The main reason we don't have a "what type of device is this device
-pointer" is that you are always supposed to "just know" what type it is,
-because someone gave you the right type (i.e. the driver core, or
-yourself).  So when you do random walks of the tree, and just expect
-random strings to match up, it scares me.
-
-> I entirely agree that the design has shortcomings, and in fact, it does
-> present some challenges that are not well solved right now, if you
-> unbind the Ethernet MAC driver, you leave a dangling DSA switch tree,
-> and good luck re-attaching it.
-> 
-> So maybe we should talk about it in person at $next conference, I will
-> be at ELC, how about you?
-
-No, sorry, I'll be at a conference all the week before, and was at
-FOSDEM, conferences 3 weeks in a row is rough.
-
-greg k-h
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
