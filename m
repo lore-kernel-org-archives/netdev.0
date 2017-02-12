@@ -1,88 +1,69 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v4 1/2] qed: Add infrastructure for PTP support.
-Date: Sun, 12 Feb 2017 20:50:27 +0100
-Message-ID: <20170212195027.GA2696@localhost.localdomain>
-References: <1486536194-30872-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1486536194-30872-2-git-send-email-Sudarsana.Kalluru@cavium.com>
- <20170211085810.GA4006@localhost.localdomain>
- <20170211111638.GA6564@localhost.localdomain>
- <BL2PR07MB2306C87FF3E79B221675F5848D460@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20170212140202.GA1702@localhost.localdomain>
- <BL2PR07MB2306751ABE3FC347E40302B18D460@BL2PR07MB2306.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: nuvoton: w90p910: use new api ethtool_{get|set}_link_ksettings
+Date: Sun, 12 Feb 2017 21:38:29 +0100
+Message-ID: <1486931909-18330-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: mcuos.com@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32869 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751103AbdBLTum (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 14:50:42 -0500
-Received: by mail-wm0-f68.google.com with SMTP id v77so15655133wmv.0
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 11:50:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <BL2PR07MB2306751ABE3FC347E40302B18D460@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34786 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751269AbdBLUih (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 15:38:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 12, 2017 at 03:07:34PM +0000, Mintz, Yuval wrote:
-> Your algorithm ignores the HW limitation. Consider (ppb == 1): 
-> your logic would output N == 7, *M == 7000000000,
->    Which has perfect accuracy [N / *M is 1 / 10^9].
-> But the solution for
->    'period' * 16 + 8 == 7 * 10^9
-> isn't a whole number, so this result doesn't really reflect the actual
-> approximation error since we couldn't configure it to HW.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-Ok, so change my code to read:
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-		/*truncate to HW resolution*/
-		reg = (m - 8) / 16;
-		m = reg * 16 + 8;
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/nuvoton/w90p910_ether.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-Your HW will happyly accept the value of 'reg', right?
-
-> The original would return val == 1, period == 62499999; While this
-> does have some error [val / (period * 16 + 8) is slightly bigger
-> than 1 / 10^9, error at 18[?] digit after dot], it's the best we can
-> configure for the HW.
-
-That is *not* the best you can do:
-
-Perfect:  1 / 1000000000 = .000000001
-Yours:    1 / 999999992  = .000000001000000008
-Mine*:    7 / 6999999992 = .00000000100000000114
-
-[ * revised with the above change ]
-
-Not a huge difference, but yours is not "the best we can".
-
-Let's try another:
-
-ppb = 40831
-
-Perfect:  40831 / 1000000000 = .000040831
-Yours:    4 / 97960          = .00004083299305839118
-Mine:     5 / 122456         = .00004083099235643823
-
-See the difference?
-
-Please, try the two algorithms and plot the RMS error over the
-interval ppb = 1 ... 100000.  The result may surprise you.
-
-> No. In an ideal world, I would have liked optimizing everything.
-> But in this world if I do find time to spend on optimizations 
-> I rather do that for the stuff that matters. I.e., datapath.
-
-As the PTP maintainer, I look after about the PTP drivers.  They
-should be as good as we can make them (even when the HW is a broken as
-yours is).  That is why I bothered to review and to spend time
-thinking about your problem.  I especially care about having good
-examples in the tree, since this stuff will inevitably get copied by
-new driver authors.  It is wonderful that your data path is so very
-optimized, but that is no excuse for poor PTP code.
-
-Thanks,
-Richard
+diff --git a/drivers/net/ethernet/nuvoton/w90p910_ether.c b/drivers/net/ethernet/nuvoton/w90p910_ether.c
+index 119f6dc..9709c8c 100644
+--- a/drivers/net/ethernet/nuvoton/w90p910_ether.c
++++ b/drivers/net/ethernet/nuvoton/w90p910_ether.c
+@@ -874,16 +874,18 @@ static void w90p910_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
+ }
+ 
+-static int w90p910_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int w90p910_get_link_ksettings(struct net_device *dev,
++				      struct ethtool_link_ksettings *cmd)
+ {
+ 	struct w90p910_ether *ether = netdev_priv(dev);
+-	return mii_ethtool_gset(&ether->mii, cmd);
++	return mii_ethtool_get_link_ksettings(&ether->mii, cmd);
+ }
+ 
+-static int w90p910_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int w90p910_set_link_ksettings(struct net_device *dev,
++				      const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct w90p910_ether *ether = netdev_priv(dev);
+-	return mii_ethtool_sset(&ether->mii, cmd);
++	return mii_ethtool_set_link_ksettings(&ether->mii, cmd);
+ }
+ 
+ static int w90p910_nway_reset(struct net_device *dev)
+@@ -899,11 +901,11 @@ static u32 w90p910_get_link(struct net_device *dev)
+ }
+ 
+ static const struct ethtool_ops w90p910_ether_ethtool_ops = {
+-	.get_settings	= w90p910_get_settings,
+-	.set_settings	= w90p910_set_settings,
+ 	.get_drvinfo	= w90p910_get_drvinfo,
+ 	.nway_reset	= w90p910_nway_reset,
+ 	.get_link	= w90p910_get_link,
++	.get_link_ksettings = w90p910_get_link_ksettings,
++	.set_link_ksettings = w90p910_set_link_ksettings,
+ };
+ 
+ static const struct net_device_ops w90p910_ether_netdev_ops = {
+-- 
+1.7.4.4
