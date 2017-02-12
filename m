@@ -1,77 +1,60 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 21/21] netfilter: nf_tables: honor NFT_SET_OBJECT in set backend selection
-Date: Sun, 12 Feb 2017 20:42:53 +0100
-Message-ID: <1486928573-24773-22-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/21] netfilter: nf_ct_expect: nf_ct_expect_insert() returns void
+Date: Sun, 12 Feb 2017 20:42:46 +0100
+Message-ID: <1486928573-24773-15-git-send-email-pablo@netfilter.org>
 References: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60530 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751443AbdBLTn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 12 Feb 2017 14:43:28 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id AB287BA6F8
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:26 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 9CA90DA84B
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:26 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id D1B98DA847
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:23 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Check for NFT_SET_OBJECT feature flag, otherwise we may end up selecting
-the wrong set backend.
+From: Gao Feng <fgao@ikuai8.com>
 
+Because nf_ct_expect_insert() always succeeds now, its return value can
+be just void instead of int. And remove code that checks for its return
+value.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c  | 3 ++-
- net/netfilter/nft_set_hash.c   | 2 +-
- net/netfilter/nft_set_rbtree.c | 2 +-
- 3 files changed, 4 insertions(+), 3 deletions(-)
+ net/netfilter/nf_conntrack_expect.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 6c782532615f..ff7304ae58ac 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -2424,7 +2424,8 @@ nft_select_set_ops(const struct nlattr * const nla[],
- 	features = 0;
- 	if (nla[NFTA_SET_FLAGS] != NULL) {
- 		features = ntohl(nla_get_be32(nla[NFTA_SET_FLAGS]));
--		features &= NFT_SET_INTERVAL | NFT_SET_MAP | NFT_SET_TIMEOUT;
-+		features &= NFT_SET_INTERVAL | NFT_SET_MAP | NFT_SET_TIMEOUT |
-+			    NFT_SET_OBJECT;
- 	}
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index f8dbacf66795..e19a69787d99 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -353,7 +353,7 @@ void nf_ct_expect_put(struct nf_conntrack_expect *exp)
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_expect_put);
  
- 	bops	    = NULL;
-diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
-index 6938bc890f31..5f652720fc78 100644
---- a/net/netfilter/nft_set_hash.c
-+++ b/net/netfilter/nft_set_hash.c
-@@ -404,7 +404,7 @@ static struct nft_set_ops nft_hash_ops __read_mostly = {
- 	.lookup		= nft_hash_lookup,
- 	.update		= nft_hash_update,
- 	.walk		= nft_hash_walk,
--	.features	= NFT_SET_MAP | NFT_SET_TIMEOUT,
-+	.features	= NFT_SET_MAP | NFT_SET_OBJECT | NFT_SET_TIMEOUT,
- 	.owner		= THIS_MODULE,
- };
+-static int nf_ct_expect_insert(struct nf_conntrack_expect *exp)
++static void nf_ct_expect_insert(struct nf_conntrack_expect *exp)
+ {
+ 	struct nf_conn_help *master_help = nfct_help(exp->master);
+ 	struct nf_conntrack_helper *helper;
+@@ -380,7 +380,6 @@ static int nf_ct_expect_insert(struct nf_conntrack_expect *exp)
+ 	add_timer(&exp->timeout);
  
-diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
-index 3387ed7dd231..71e8fb886a73 100644
---- a/net/netfilter/nft_set_rbtree.c
-+++ b/net/netfilter/nft_set_rbtree.c
-@@ -310,7 +310,7 @@ static struct nft_set_ops nft_rbtree_ops __read_mostly = {
- 	.activate	= nft_rbtree_activate,
- 	.lookup		= nft_rbtree_lookup,
- 	.walk		= nft_rbtree_walk,
--	.features	= NFT_SET_INTERVAL | NFT_SET_MAP,
-+	.features	= NFT_SET_INTERVAL | NFT_SET_MAP | NFT_SET_OBJECT,
- 	.owner		= THIS_MODULE,
- };
+ 	NF_CT_STAT_INC(net, expect_create);
+-	return 0;
+ }
  
+ /* Race with expectations being used means we could have none to find; OK. */
+@@ -464,9 +463,8 @@ int nf_ct_expect_related_report(struct nf_conntrack_expect *expect,
+ 	if (ret <= 0)
+ 		goto out;
+ 
+-	ret = nf_ct_expect_insert(expect);
+-	if (ret < 0)
+-		goto out;
++	nf_ct_expect_insert(expect);
++
+ 	spin_unlock_bh(&nf_conntrack_expect_lock);
+ 	nf_ct_expect_event_report(IPEXP_NEW, expect, portid, report);
+ 	return ret;
 -- 
 2.1.4
+
