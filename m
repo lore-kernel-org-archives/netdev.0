@@ -1,135 +1,63 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: neterion: s2io: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 12 Feb 2017 11:44:36 +0100
-Message-ID: <1486896276-5647-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: jdmason@kudzu.us, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATH v2 net-next] net: remove member 'max' of struct scm_fp_list
+Date: Sun, 12 Feb 2017 13:54:28 +0300
+Message-ID: <181c529e-fc20-4b21-1e94-b069554769ca@cogentembedded.com>
+References: <1486780603-2888-1-git-send-email-cugyly@163.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: yuan linyu <cugyly@163.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:35599 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751120AbdBLKy3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 05:54:29 -0500
+Received: by mail-lf0-f46.google.com with SMTP id n124so39935779lfd.2
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 02:54:29 -0800 (PST)
+In-Reply-To: <1486780603-2888-1-git-send-email-cugyly@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On 2/11/2017 5:36 AM, yuan linyu wrote:
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+>
+> 'max' only used at three places in scm.c,
+> 1. in scm_fp_copy(), fpl->max = SCM_MAX_FD;
+> 2. in scm_fp_copy(), if (fpl->count + num > fpl->max)
+> 3. in scm_fp_dup(), new_fpl->max = new_fpl->count;
+> at place 2, fpl->max can be replaced with SCM_MAX_FD.
+> no other place read this 'max' again, so it can be removed.
+>
+> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> ---
+> v1->v2:
+>     update commit log to describe correct reason to remove 'max'
+>
+>  include/net/scm.h |  3 +--
+>  net/core/scm.c    | 20 +++++---------------
+>  2 files changed, 6 insertions(+), 17 deletions(-)
+>
+> diff --git a/include/net/scm.h b/include/net/scm.h
+> index 59fa93c..1301227 100644
+> --- a/include/net/scm.h
+> +++ b/include/net/scm.h
+> @@ -19,8 +19,7 @@ struct scm_creds {
+>  };
+>
+>  struct scm_fp_list {
+> -	short			count;
+> -	short			max;
+> +	unsigned int	count;
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/neterion/s2io.c |   51 +++++++++++++++++++--------------
- 1 files changed, 29 insertions(+), 22 deletions(-)
+    Why break the alignment in the 2nd column?
 
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index 203abcb..c5c1d0e 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -5300,10 +5300,10 @@ static int do_s2io_prog_unicast(struct net_device *dev, u8 *addr)
- }
- 
- /**
-- * s2io_ethtool_sset - Sets different link parameters.
-+ * s2io_ethtool_set_link_ksettings - Sets different link parameters.
-  * @sp : private member of the device structure, which is a pointer to the
-  * s2io_nic structure.
-- * @info: pointer to the structure with parameters given by ethtool to set
-+ * @cmd: pointer to the structure with parameters given by ethtool to set
-  * link information.
-  * Description:
-  * The function sets different link parameters provided by the user onto
-@@ -5312,13 +5312,14 @@ static int do_s2io_prog_unicast(struct net_device *dev, u8 *addr)
-  * 0 on success.
-  */
- 
--static int s2io_ethtool_sset(struct net_device *dev,
--			     struct ethtool_cmd *info)
-+static int
-+s2io_ethtool_set_link_ksettings(struct net_device *dev,
-+				const struct ethtool_link_ksettings *cmd)
- {
- 	struct s2io_nic *sp = netdev_priv(dev);
--	if ((info->autoneg == AUTONEG_ENABLE) ||
--	    (ethtool_cmd_speed(info) != SPEED_10000) ||
--	    (info->duplex != DUPLEX_FULL))
-+	if ((cmd->base.autoneg == AUTONEG_ENABLE) ||
-+	    (cmd->base.speed != SPEED_10000) ||
-+	    (cmd->base.duplex != DUPLEX_FULL))
- 		return -EINVAL;
- 	else {
- 		s2io_close(sp->dev);
-@@ -5329,10 +5330,10 @@ static int s2io_ethtool_sset(struct net_device *dev,
- }
- 
- /**
-- * s2io_ethtol_gset - Return link specific information.
-+ * s2io_ethtol_get_link_ksettings - Return link specific information.
-  * @sp : private member of the device structure, pointer to the
-  *      s2io_nic structure.
-- * @info : pointer to the structure with parameters given by ethtool
-+ * @cmd : pointer to the structure with parameters given by ethtool
-  * to return link information.
-  * Description:
-  * Returns link specific information like speed, duplex etc.. to ethtool.
-@@ -5340,25 +5341,31 @@ static int s2io_ethtool_sset(struct net_device *dev,
-  * return 0 on success.
-  */
- 
--static int s2io_ethtool_gset(struct net_device *dev, struct ethtool_cmd *info)
-+static int
-+s2io_ethtool_get_link_ksettings(struct net_device *dev,
-+				struct ethtool_link_ksettings *cmd)
- {
- 	struct s2io_nic *sp = netdev_priv(dev);
--	info->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
--	info->advertising = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
--	info->port = PORT_FIBRE;
- 
--	/* info->transceiver */
--	info->transceiver = XCVR_EXTERNAL;
-+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, 10000baseT_Full);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, FIBRE);
-+
-+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
-+	ethtool_link_ksettings_add_link_mode(cmd, advertising, 10000baseT_Full);
-+	ethtool_link_ksettings_add_link_mode(cmd, advertising, FIBRE);
-+
-+	cmd->base.port = PORT_FIBRE;
- 
- 	if (netif_carrier_ok(sp->dev)) {
--		ethtool_cmd_speed_set(info, SPEED_10000);
--		info->duplex = DUPLEX_FULL;
-+		cmd->base.speed = SPEED_10000;
-+		cmd->base.duplex = DUPLEX_FULL;
- 	} else {
--		ethtool_cmd_speed_set(info, SPEED_UNKNOWN);
--		info->duplex = DUPLEX_UNKNOWN;
-+		cmd->base.speed = SPEED_UNKNOWN;
-+		cmd->base.duplex = DUPLEX_UNKNOWN;
- 	}
- 
--	info->autoneg = AUTONEG_DISABLE;
-+	cmd->base.autoneg = AUTONEG_DISABLE;
- 	return 0;
- }
- 
-@@ -6626,8 +6633,6 @@ static int s2io_set_features(struct net_device *dev, netdev_features_t features)
- }
- 
- static const struct ethtool_ops netdev_ethtool_ops = {
--	.get_settings = s2io_ethtool_gset,
--	.set_settings = s2io_ethtool_sset,
- 	.get_drvinfo = s2io_ethtool_gdrvinfo,
- 	.get_regs_len = s2io_ethtool_get_regs_len,
- 	.get_regs = s2io_ethtool_gregs,
-@@ -6643,6 +6648,8 @@ static int s2io_set_features(struct net_device *dev, netdev_features_t features)
- 	.set_phys_id = s2io_ethtool_set_led,
- 	.get_ethtool_stats = s2io_get_ethtool_stats,
- 	.get_sset_count = s2io_get_sset_count,
-+	.get_link_ksettings = s2io_ethtool_get_link_ksettings,
-+	.set_link_ksettings = s2io_ethtool_set_link_ksettings,
- };
- 
- /**
--- 
-1.7.4.4
+>  	struct user_struct	*user;
+>  	struct file		*fp[SCM_MAX_FD];
+>  };
+[...]
+
+MBR, Sergei
