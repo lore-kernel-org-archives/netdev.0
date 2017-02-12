@@ -1,72 +1,102 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH v2 net] bpf: introduce BPF_F_ALLOW_OVERRIDE flag
-Date: Sat, 11 Feb 2017 21:52:58 -0800
-Message-ID: <589FF83A.4010201@fb.com>
-References: <1486787304-2805663-1-git-send-email-ast@fb.com>
- <20170212054739.GA13855@mtj.duckdns.org>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH V5 for-next 21/21] RDMA/bnxt_re: Add bnxt_re driver build
+ support
+Date: Sun, 12 Feb 2017 09:54:49 +0200
+Message-ID: <20170212075449.GA14015@mtr-leonro.local>
+References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
+ <1486725593-9872-22-git-send-email-selvin.xavier@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Daniel Mack <daniel@zonque.org>,
-        Andy Lutomirski <luto@amacapital.net>, <netdev@vger.kernel.org>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="mP3DRpeJDSE+ciuQ"
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Selvin Xavier <selvin.xavier@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:46567 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750717AbdBLFx2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 00:53:28 -0500
-In-Reply-To: <20170212054739.GA13855@mtj.duckdns.org>
+Received: from mail.kernel.org ([198.145.29.136]:53828 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750780AbdBLHyo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 12 Feb 2017 02:54:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1486725593-9872-22-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/11/17 9:47 PM, Tejun Heo wrote:
-> On Fri, Feb 10, 2017 at 08:28:24PM -0800, Alexei Starovoitov wrote:
->> If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
->> to the given cgroup the descendent cgroup will be able to override
->> effective bpf program that was inherited from this cgroup.
->> By default it's not passed, therefore override is disallowed.
->>
->> Examples:
->> 1.
->> prog X attached to /A with default
->> prog Y fails to attach to /A/B and /A/B/C
->> Everything under /A runs prog X
->>
->> 2.
->> prog X attached to /A with allow_override.
->> prog Y fails to attach to /A/B with default (non-override)
->> prog M attached to /A/B with allow_override.
->> Everything under /A/B runs prog M only.
->>
->> 3.
->> prog X attached to /A with allow_override.
->> prog Y fails to attach to /A with default.
->> The user has to detach first to switch the mode.
->>
->> In the future this behavior may be extended with a chain of
->> non-overridable programs.
->>
->> Also fix the bug where detach from cgroup where nothing is attached
->> was not throwing error. Return ENOENT in such case.
->>
->> Add several testcases and adjust libbpf.
->>
->> Fixes: 3007098494be ("cgroup: add support for eBPF programs")
->> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
->
-> The cgroup part looks good to me.  Please feel free to add
->
-> Acked-by: Tejun Heo <tj@kernel.org>
->
-> One question tho.  Is there a specific reason to disallow attaching
-> !overridable program under an overridable one?  Isn't disallowing
-> attaching programs if the closest ancestor is !overridable enough?
 
-yes. I felt the same way and v1 patch did that, but
-as Andy pointed out the more strict rules will be easier to
-extend later, so this v2 patch is using this approach.
+--mP3DRpeJDSE+ciuQ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Andy, ping !
+On Fri, Feb 10, 2017 at 03:19:53AM -0800, Selvin Xavier wrote:
+> Makefile and Kconfig changes for enabling bnxt_re compilation
+>
+> v3: Adds list of MAINTAINERS of bnxt_re driver. Removes bnxt_re_debugfs.c
+>     from Makefile as this file is no longer present
+>
+> Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+> Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
+> ---
+>  MAINTAINERS                            | 11 +++++++++++
+>  drivers/infiniband/Kconfig             |  2 ++
+>  drivers/infiniband/hw/Makefile         |  1 +
+>  drivers/infiniband/hw/bnxt_re/Kconfig  |  9 +++++++++
+>  drivers/infiniband/hw/bnxt_re/Makefile |  6 ++++++
+>  5 files changed, 29 insertions(+)
+>  create mode 100644 drivers/infiniband/hw/bnxt_re/Kconfig
+>  create mode 100644 drivers/infiniband/hw/bnxt_re/Makefile
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 5f0420a..468d2e8 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -2808,6 +2808,17 @@ L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+>  S:	Maintained
+>  F:	arch/arm64/boot/dts/broadcom/vulcan*
+>
+> +BROADCOM NETXTREME-E ROCE DRIVER
+> +M:	Selvin Xavier <selvin.xavier@broadcom.com>
+> +M:	Devesh Sharma <devesh.sharma@broadcom.com>
+> +M:	Somnath Kotur <somnath.kotur@broadcom.com>
+> +M:	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+> +L:	linux-rdma@vger.kernel.org
+> +W:	http://www.broadcom.com
+> +S:	Supported
+> +F:	drivers/infiniband/hw/bnxt_re/
+> +F:	include/uapi/rdma/bnxt_re-abi.h
+> +
+
+Please take a look on the note which I gave to Faisal a long time ago [1].
+Our experience shows that the more people you add here, the less chances
+to be CCed on the relevant patches.
+
+It is definitely up to you.
+
+Thanks,
+Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+
+[1] https://www.spinics.net/lists/linux-rdma/msg41457.html
+
+--mP3DRpeJDSE+ciuQ
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAligFMkACgkQ5GN7iDZy
+WKdEeBAAmG98PiNXIjvBTNyK1OA7CalYPcWIHCJrBRu/0F5+c9TynITQ3BSBcz0x
+6YP2cYepgTyNbMTvYH8Qz/mCWvI7smEQZFwgRJxlW+fG6zjNYSFt0t+LYrOUQKDn
+JDDkPKUbSnHlz0b18Nh6tknTbY4GHFnEHbYly0KCwytwMd6zHidTHkw/Fu05v9YG
+5Z600Mq/GfkawfsSqXG1skrkdrPOuSC1AmigFkpc6mUHh8f2u6rUZTQjZAFaKJSk
+Ejt5Y08ZEtncJ+8kbspvtjhLRjgSasn4B4H6WlV79L2Wa5580Ushnl9J8uF4FhQe
+w9QrxvYS+FQkvGfchzH0YiXLV2kZ+xXnmGZrtjSS0e/uTRFc62J/OfdK+WnKpnag
+NuqvUwNx7YWfSpQ/t8F0YJ2H44JhsSo6VuIxqE0l5sVEUn6VBcdMN05pOyz4jjKx
+tZBeWC/kUSbdPxhkBawnZJeOkKVcf4Y01S2JYYIZWW8wuuJ4PtYHDaKphILRdQaf
+My7iw9kOT1Zp43F2T8n23HFipVrqg8p1+SsXdkYuemnkQB4wwJ9KxY3urvaXwO4s
++HIA2iT1vl4Lr6btgTn03OMKhMO5G0oJE8F4SLrejlAgF9HJ5Edk9H55i3z9W6jp
+ysHfqTBCcTOQrrf31gEWCOTxzAwXdQIH8wVaDyCUQ0dIyYd8VCY=
+=ETDW
+-----END PGP SIGNATURE-----
+
+--mP3DRpeJDSE+ciuQ--
