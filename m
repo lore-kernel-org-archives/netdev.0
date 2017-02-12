@@ -1,47 +1,210 @@
-From: Matthew Wilcox <mawilcox@microsoft.com>
-Subject: RE: [PATCH 1/2] include: Fix checkpatch whitespace error and warning
-Date: Sun, 12 Feb 2017 12:17:48 +0000
-Message-ID: <BY2PR21MB0036BDD3E99415EA0742D00ACB460@BY2PR21MB0036.namprd21.prod.outlook.com>
-References: <1486868254-5386-1-git-send-email-me@tobin.cc>
- <1486868254-5386-2-git-send-email-me@tobin.cc>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
+ device_find_class()
+Date: Sun, 12 Feb 2017 13:56:42 +0100
+Message-ID: <20170212125642.GA27090@kroah.com>
+References: <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+ <20170115191632.GD5643@lunn.ch>
+ <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+ <20170119142820.GA494@kroah.com>
+ <20170119145315.GD21805@lunn.ch>
+ <20170119165155.GH27312@n2100.armlinux.org.uk>
+ <20170210130217.GA4570@kroah.com>
+ <29f1c56a-45ab-53b8-e6c6-83746e6ae18b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Tobin C. Harding" <me@tobin.cc>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "moderated list:ARM SUB-ARCHITECTURES"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486868254-5386-2-git-send-email-me@tobin.cc>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <29f1c56a-45ab-53b8-e6c6-83746e6ae18b@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RG9uJ3Qgd29ycnkgYWJvdXQgdGhpcyBmaWxlOyBJIGhhdmUgYSBjb21wbGV0ZSByZXdyaXRlIGFs
-cmVhZHkgcXVldWVkLg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFRv
-YmluIEMuIEhhcmRpbmcgW21haWx0bzptZUB0b2Jpbi5jY10NCj4gU2VudDogU2F0dXJkYXksIEZl
-YnJ1YXJ5IDExLCAyMDE3IDk6NTggUE0NCj4gVG86IERhdmlkIFMgLiBNaWxsZXIgPGRhdmVtQGRh
-dmVtbG9mdC5uZXQ+DQo+IENjOiBNYXR0aGV3IFdpbGNveCA8bWF3aWxjb3hAbWljcm9zb2Z0LmNv
-bT47IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5v
-cmc7IFRvYmluIEMuIEhhcmRpbmcgPG1lQHRvYmluLmNjPg0KPiBTdWJqZWN0OiBbUEFUQ0ggMS8y
-XSBpbmNsdWRlOiBGaXggY2hlY2twYXRjaCB3aGl0ZXNwYWNlIGVycm9yIGFuZCB3YXJuaW5nDQo+
-IA0KPiBUaGlzIHBhdGNoIGZpeGVzIHR3byB0cml2aWFsIHdoaXRlc3BhY2UgbWVzc2FnZXMgKEVS
-Uk9SL1dBUk5JTkcpLg0KPiBGaXhlcyB0cmFpbGluZyB3aGl0ZXNwYWNlIEVSUk9SIGFuZCBmaXhl
-cyBzcGFjZSBiZWZvcmUgdGFicyBXQVJOSU5HLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogVG9iaW4g
-Qy4gSGFyZGluZyA8bWVAdG9iaW4uY2M+DQo+IC0tLQ0KPiAgaW5jbHVkZS9saW51eC9pZHIuaCB8
-IDQgKystLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMo
-LSkNCj4gDQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2lkci5oIGIvaW5jbHVkZS9saW51
-eC9pZHIuaA0KPiBpbmRleCAzYzAxYjg5Li40YThkZTJmIDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRl
-L2xpbnV4L2lkci5oDQo+ICsrKyBiL2luY2x1ZGUvbGludXgvaWRyLmgNCj4gQEAgLTEsNiArMSw2
-IEBADQo+ICAvKg0KPiAgICogaW5jbHVkZS9saW51eC9pZHIuaA0KPiAtICoNCj4gKyAqDQo+ICAg
-KiAyMDAyLTEwLTE4ICB3cml0dGVuIGJ5IEppbSBIb3VzdG9uIGppbS5ob3VzdG9uQGNjdXIuY29t
-DQo+ICAgKglDb3B5cmlnaHQgKEMpIDIwMDIgYnkgQ29uY3VycmVudCBDb21wdXRlciBDb3Jwb3Jh
-dGlvbg0KPiAgICoJRGlzdHJpYnV0ZWQgdW5kZXIgdGhlIEdOVSBHUEwgbGljZW5zZSB2ZXJzaW9u
-IDIuDQo+IEBAIC0xODMsNyArMTgzLDcgQEAgc3RhdGljIGlubGluZSB2b2lkICppZHJfZmluZChz
-dHJ1Y3QgaWRyICppZHIsIGludCBpZCkNCj4gICAqLw0KPiAgI2RlZmluZSBJREFfQ0hVTktfU0la
-RQkJMTI4CS8qIDEyOCBieXRlcyBwZXIgY2h1bmsgKi8NCj4gICNkZWZpbmUgSURBX0JJVE1BUF9M
-T05HUwkoSURBX0NIVU5LX1NJWkUgLyBzaXplb2YobG9uZykgLSAxKQ0KPiAtI2RlZmluZSBJREFf
-QklUTUFQX0JJVFMgCShJREFfQklUTUFQX0xPTkdTICogc2l6ZW9mKGxvbmcpICogOCkNCj4gKyNk
-ZWZpbmUgSURBX0JJVE1BUF9CSVRTICAgICAgICAgKElEQV9CSVRNQVBfTE9OR1MgKiBzaXplb2Yo
-bG9uZykgKiA4KQ0KPiANCj4gIHN0cnVjdCBpZGFfYml0bWFwIHsNCj4gIAlsb25nCQkJbnJfYnVz
-eTsNCj4gLS0NCj4gMi43LjQNCg0K
+On Fri, Feb 10, 2017 at 10:30:58AM -0800, Florian Fainelli wrote:
+> On 02/10/2017 05:02 AM, Greg KH wrote:
+> > On Thu, Jan 19, 2017 at 04:51:55PM +0000, Russell King - ARM Linux wrote:
+> >> (This is mainly for Greg's benefit to help him understand the issue.)
+> >>
+> >> I think the diagram you gave initially made this confusing, as it
+> >> talks about a CPU(sic) producing the "RGMII" and "MII-MGMT".
+> >>
+> >> Let's instead show a better representation that hopefully helps Greg
+> >> understand networking. :)
+> >>
+> >>
+> >>   CPU
+> >> System <-B->  Ethernet controller <-P-> } PHY <---> network cable
+> >>                                         } - - - - - - - or - - - - - - -
+> >>                   MDIO bus -------M---> } Switch <-P-> PHYs <--> network
+> >>                                               `----M----^        cables
+> >>
+> >> 'B' can be an on-SoC bus or something like PCI.
+> >>
+> >> 'P' are the high-speed connectivity between the ethernet controller and
+> >> PHY which carries the packet data.  It has no addressing, it's a point
+> >> to point link.  RGMII is just one wiring example, there are many
+> >> different interfaces there (SGMII, AUI, XAUI, XGMII to name a few.)
+> >>
+> >> 'M' are the MDIO bus, which is the bus by which ethernet PHYs and
+> >> switches can be identified and controlled.
+> >>
+> >> The MDIO bus has a bus_type, has host drivers which are sometimes
+> >> part of the ethernet controller, but can also be stand-alone devices
+> >> shared between multiple ethernet controllers.
+> >>
+> >> PHYs are a kind of MDIO device which are members of the MDIO bus
+> >> type.  Each PHY (and switch) has a numerical address, and identifying
+> >> numbers within its register set which identifies the manufacturer
+> >> and device type.  We have device_driver objects for these.
+> >>
+> >> Expanding the above diagram to make it (hopefully) even clearer,
+> >> we can have this classic setup:
+> >>
+> >>   CPU
+> >> System <-B-> Ethernet controller <-P-> PHY <---> network cable
+> >>                  MDIO bus -------M------^
+> >>
+> >> Or, in the case of two DSA switches attached to an Ethernet controller:
+> >>
+> >>                                      |~~~~~~~~|
+> >> System <-B-> Ethernet controller <-P-> Switch <-P-> PHY1 <--> network cable
+> >>                  MDIO bus ----+--M--->   1    <-P-> PHY2 <--> network cable
+> >>                               |      |        ...    |
+> >>                               |      |        <-P-> PHYn <--> network cable
+> >>                               |      |....^...|      |
+> >>                               |           |  `---M---'
+> >>                               |           P
+> >>                               |           |
+> >>                               |      |~~~~v~~~|
+> >>                               `------> Switch <-P-> PHY1 <--> network cable
+> >>                                      |   2    ...    |
+> >>                                      |        <-P-> PHYn <--> network cable
+> >>                                      |........|      |
+> >>                                              `---M---'
+> >>
+> >> The problem that the DSA guys are trying to deal with is how to
+> >> represent the link between the DSA switches (which are devices
+> >> sitting off their controlling bus - the MDIO bus) and the ethernet
+> >> controller associated with that collection of devices, be it a
+> >> switch or PHY.
+> > 
+> > Why do they have to represent that link?  This is a driver that somehow
+> > binds the two togther in some sort of "control plane"?
+> 
+> We have to represent that link because the CPU/host/management Ethernet
+> MAC is physically connected to the CPU/management port of the switch. It
+> does indeed participate in establishing the control plane.
+
+But who uses that "link"?  What in userspace cares about it?  What in
+the kernel cares?
+
+> The basic idea of DSA is that the switch inserts vendor tags to indicate
+> why the packet is sent towards the CPU in the first place: flooding,
+> management, copy etc along with information as to which
+> originating/destination port(s) this packet comes/goes from/to. On top
+> of that, we demultiplex that tag to deliver normal Ethernet frames to
+> per-port network devices (virtual network devices).
+> 
+> If we did leave the switch in an unmanaged mode and not logically
+> attached to an Ethernet MAC for management, we'd lose all that
+> information (we could use per-port VLANs to re-create it, but it would
+> be inferior to what a switch with proprietary tags can do)
+> 
+> Code in net/dsa/dsa2.c that binds the two (switch and Ethernet MAC)
+> together is not strictly a driver, it just is resident in memory and
+> waits for dsa_register_switch() to be called until it tries to do this
+> binding.
+
+Ok, but when that "binding" happens, why do you need to show it in
+sysfs?
+
+> >> Merely changing the parent/child relationships to try and solve
+> >> one issue just creates exactly the same problem elsewhere.
+> > 
+> > Fair enough.
+> > 
+> >> So, I hope with these diagrams, you can see that trying to make
+> >> the ethernet controller a child device of the DSA switches
+> >> means that (eg) it's no longer a PCI device, which is rather
+> >> absurd, especially when considering that what happens to the
+> >> right of the ethernet controller in the diagrams above is
+> >> normally external chips to the SoC or ethernet device.
+> > 
+> > Ok, thanks for the long explainations and diagrams.
+> > 
+> > _BUT_ my original point remains.  These new functions you all are trying
+> > to get into the driver core, do NOT do what they say they are doing.
+> > They are mucking around with a "known topology" and just happen to work
+> > because the device you are trying to find shares a common parent with
+> > yourself.
+> > 
+> > That is not what the function says it does, and as such, I do not want
+> > that function in the driver core at all.
+> > 
+> > If you wish to keep it in your own subsystem, that's fine, but call it
+> > what it really is:
+> > 	hack_to_find_peer_device_on_random_bus()
+> > and pass in a _real_ pointer to a bus type.  Not some random string
+> > please.
+> 
+> Yes, David has accepted that and we did make it prefixed with dsa_*.
+> That does not mean it should stay forever though if we can work on
+> something better designed.
+
+Maybe, but really, this is a special case.
+
+> > Or better yet, have the DSA code accept pointers to the two devices in
+> > the first place, so it "knows" what to do here in a much better way.
+> 
+> Well, that is really what is being done here, the "inputs" to the code
+> in net/dsa/dsa2.c are opaque struct device references that we
+> verify/proof by making sure they belong in the class of device we expect
+> them to be.
+
+Why not take pointers to the class devices you expect in the first
+place?  No need to take an "opaque" pointer, right?  Then nothing
+special needs to be found anywhere else.
+
+> NB: technically it's just one device reference: Ethernet MAC device,
+> because the other one is implied by the device driver registering the
+> switch with dsa_register_switch() (MDIO, SPI, I2C, PCI etc..).
+> 
+> > Right now it is a bad hack.  You all can not argue that is not true.
+> 
+> It's hard to argue on an qualifier for that design when we can't even
+> agree whether our understanding of these devices matches your
+> understanding after you read and digested our explanations :)
+
+I think so, but again, you all don't seem to understand just why this is
+such a bad hack of the driver model...
+
+The main reason we don't have a "what type of device is this device
+pointer" is that you are always supposed to "just know" what type it is,
+because someone gave you the right type (i.e. the driver core, or
+yourself).  So when you do random walks of the tree, and just expect
+random strings to match up, it scares me.
+
+> I entirely agree that the design has shortcomings, and in fact, it does
+> present some challenges that are not well solved right now, if you
+> unbind the Ethernet MAC driver, you leave a dangling DSA switch tree,
+> and good luck re-attaching it.
+> 
+> So maybe we should talk about it in person at $next conference, I will
+> be at ELC, how about you?
+
+No, sorry, I'll be at a conference all the week before, and was at
+FOSDEM, conferences 3 weeks in a row is rough.
+
+greg k-h
