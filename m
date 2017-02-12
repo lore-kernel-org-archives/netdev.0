@@ -1,111 +1,340 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] 40GbE Intel Wired LAN Driver Updates 2017-02-11
-Date: Sat, 11 Feb 2017 21:30:14 -0800
-Message-ID: <20170212053028.98581-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 04/14] i40e/i40evf: Moves skb from i40e_rx_buffer to i40e_ring
+Date: Sat, 11 Feb 2017 21:30:18 -0800
+Message-ID: <20170212053028.98581-5-jeffrey.t.kirsher@intel.com>
+References: <20170212053028.98581-1-jeffrey.t.kirsher@intel.com>
+Cc: Scott Peterson <scott.d.peterson@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga05.intel.com ([192.55.52.43]:15779 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750714AbdBLFaa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 12 Feb 2017 00:30:30 -0500
+        id S1750959AbdBLFac (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 12 Feb 2017 00:30:32 -0500
+In-Reply-To: <20170212053028.98581-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Scott Peterson <scott.d.peterson@intel.com>
 
-Jake makes a minor change to prevent a minor bit of work, if it is not
-necessary.  In the case where we do not have a client, there is no need
-to check the client params, so move the check till after we have ensured
-we have a client.  Correct a code comment which incorrectly implied
-that raw_packet buffers were freed in i40e_clean_tx_ring(), so fixed
-the code comment to better explain where memory is freed.  Reduce the
-severity and frequency of the message notifying we cleared the receive
-timestamp register, since the logic has a much better detection scheme
-that could detect a stalled receive timestamp register.  The improved
-logic was actually causing the notification message to occur more
-frequently and was giving the user a false perception that a timestamp
-event was missed for a valid packet, so reduce the severity from
-dev_warn to dev_dbg and only fire off the message when 3 or 4 of the
-RXTIME registers are stalled and get cleared within the same
-watchdog event.  Fixed a bug, where we were modifying the mac_filter
-outside a lock when handling the addition of broadcast filters.  Fix
-this by updating i40e_update_filter_state logic so that it knows to
-avoid broadcast filters, which ensures that we do not have to remove
-the filter separately and can put it back using the normal flow.
-Refactored how we add new filters to firmware to avoid a race condition
-that can occur due to removing filters from the hash temporarily.
+This patch reduces the size of struct i40e_rx_buffer by one pointer,
+and makes the i40e driver a little more consistent with the igb driver
+in terms of packets that span buffers.
 
-Mitch adds a sleep (without timeout) so that we wait for a reply from
-the PF before we continue, since the iWarp client cannot continue until
-the operation is completed.  Fixed up a function which could never
-return an error, to be void and cleaned up the checking of the now
-null and void return value.
+We do this by moving the skb field from struct i40e_rx_buffer to
+struct i40e_ring. We pass the skb we already have (or NULL if we
+don't) to i40e_fetch_rx_buffer(), which skips the skb allocation if we
+already have one for this packet.
 
-Scott limits the DMA sync to CPU to the actual length of the incoming
-packet, versus the syncing of the entire buffer.  Also reduces the
-receive buffer struct (by a single pointer) and align the driver to be
-more consistent with other Intel drivers with respect to packets that
-span buffers.
+Change-ID: I4ad48a531844494ba0c5d8e1a62209a057f661b0
+Signed-off-by: Scott Peterson <scott.d.peterson@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 31 +++++++++++++--------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   |  9 +++++++-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 30 +++++++++++++-------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  9 +++++++-
+ 4 files changed, 46 insertions(+), 33 deletions(-)
 
-Sudheer adds a field to track the bus number info and modified log
-statements to print bus, device and function information.
-
-Henry adds the ability to store the FEC status bits from the link up
-event.  Also adds the ethtool support for FEC capabilities and 25G
-link types.
-
-The following are changes since commit 1bf960502e4c94425c3a3a985200834fb59839c6:
-  net: ethernet: ti: cpsw: return NET_XMIT_DROP if skb_padto failed
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Bimmy Pujari (1):
-  i40e/i40evf : Changed version from 1.6.25 to 1.6.27
-
-Henry Tieman (2):
-  i40e: Save link FEC info from link up event
-  i40e: Save more link abilities when using ethtool
-
-Jacob Keller (5):
-  i40e: don't check params until after checking for client instance
-  i40e: update comment explaining where FDIR buffers are freed
-  i40e: don't warn every time we clear an Rx timestamp register
-  i40e: allow i40e_update_filter_state to skip broadcast filters
-  i40e: avoid race condition when sending filters to firmware for
-    addition
-
-Mitch Williams (2):
-  i40evf: track outstanding client request
-  i40e: Clean up dead code
-
-Scott Peterson (3):
-  i40e/i40evf: Limit DMA sync of RX buffers to actual packet size
-  i40e/i40evf: Moves skb from i40e_rx_buffer to i40e_ring
-  i40e/i40evf: eliminate i40e_pull_tail()
-
-Sudheer Mogilappagari (1):
-  i40e: Add bus number info to i40e_bus_info struct
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  16 ++
- drivers/net/ethernet/intel/i40e/i40e_client.c      |  33 ++-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   2 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   3 +
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 192 +++++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_osdep.h       |  12 +-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  21 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 223 ++++++++++++---------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   2 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 215 +++++++++++---------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   9 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   2 +
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   3 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   4 +
- 17 files changed, 463 insertions(+), 285 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 4852445..aa9755b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1013,14 +1013,15 @@ void i40e_clean_rx_ring(struct i40e_ring *rx_ring)
+ 	if (!rx_ring->rx_bi)
+ 		return;
+ 
++	if (rx_ring->skb) {
++		dev_kfree_skb(rx_ring->skb);
++		rx_ring->skb = NULL;
++	}
++
+ 	/* Free all the Rx ring sk_buffs */
+ 	for (i = 0; i < rx_ring->count; i++) {
+ 		struct i40e_rx_buffer *rx_bi = &rx_ring->rx_bi[i];
+ 
+-		if (rx_bi->skb) {
+-			dev_kfree_skb(rx_bi->skb);
+-			rx_bi->skb = NULL;
+-		}
+ 		if (!rx_bi->page)
+ 			continue;
+ 
+@@ -1608,7 +1609,8 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
+  */
+ static inline
+ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
+-				     union i40e_rx_desc *rx_desc)
++				     union i40e_rx_desc *rx_desc,
++				     struct sk_buff *skb)
+ {
+ 	u64 local_status_error_len =
+ 		le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+@@ -1616,15 +1618,12 @@ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 		(local_status_error_len & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+ 		I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 	struct i40e_rx_buffer *rx_buffer;
+-	struct sk_buff *skb;
+ 	struct page *page;
+ 
+ 	rx_buffer = &rx_ring->rx_bi[rx_ring->next_to_clean];
+ 	page = rx_buffer->page;
+ 	prefetchw(page);
+ 
+-	skb = rx_buffer->skb;
+-
+ 	if (likely(!skb)) {
+ 		void *page_addr = page_address(page) + rx_buffer->page_offset;
+ 
+@@ -1648,8 +1647,6 @@ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 		 * it now to avoid a possible cache miss
+ 		 */
+ 		prefetchw(skb->data);
+-	} else {
+-		rx_buffer->skb = NULL;
+ 	}
+ 
+ 	/* we are reusing so sync this buffer for CPU use */
+@@ -1702,7 +1699,6 @@ static bool i40e_is_non_eop(struct i40e_ring *rx_ring,
+ #define staterrlen rx_desc->wb.qword1.status_error_len
+ 	if (unlikely(i40e_rx_is_programming_status(le64_to_cpu(staterrlen)))) {
+ 		i40e_clean_programming_status(rx_ring, rx_desc);
+-		rx_ring->rx_bi[ntc].skb = skb;
+ 		return true;
+ 	}
+ 	/* if we are the last buffer then there is nothing else to do */
+@@ -1710,8 +1706,6 @@ static bool i40e_is_non_eop(struct i40e_ring *rx_ring,
+ 	if (likely(i40e_test_staterr(rx_desc, I40E_RXD_EOF)))
+ 		return false;
+ 
+-	/* place skb in next buffer to be received */
+-	rx_ring->rx_bi[ntc].skb = skb;
+ 	rx_ring->rx_stats.non_eop_descs++;
+ 
+ 	return true;
+@@ -1732,12 +1726,12 @@ static bool i40e_is_non_eop(struct i40e_ring *rx_ring,
+ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ {
+ 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
++	struct sk_buff *skb = rx_ring->skb;
+ 	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
+ 	bool failure = false;
+ 
+ 	while (likely(total_rx_packets < budget)) {
+ 		union i40e_rx_desc *rx_desc;
+-		struct sk_buff *skb;
+ 		u16 vlan_tag;
+ 		u8 rx_ptype;
+ 		u64 qword;
+@@ -1766,7 +1760,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 */
+ 		dma_rmb();
+ 
+-		skb = i40e_fetch_rx_buffer(rx_ring, rx_desc);
++		skb = i40e_fetch_rx_buffer(rx_ring, rx_desc, skb);
+ 		if (!skb)
+ 			break;
+ 
+@@ -1785,8 +1779,10 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ 
+-		if (i40e_cleanup_headers(rx_ring, skb))
++		if (i40e_cleanup_headers(rx_ring, skb)) {
++			skb = NULL;
+ 			continue;
++		}
+ 
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+@@ -1811,11 +1807,14 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 			   le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1) : 0;
+ 
+ 		i40e_receive_skb(rx_ring, skb, vlan_tag);
++		skb = NULL;
+ 
+ 		/* update budget accounting */
+ 		total_rx_packets++;
+ 	}
+ 
++	rx_ring->skb = skb;
++
+ 	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+ 	rx_ring->stats.bytes += total_rx_bytes;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 1ea820e..f809790 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -253,7 +253,6 @@ struct i40e_tx_buffer {
+ };
+ 
+ struct i40e_rx_buffer {
+-	struct sk_buff *skb;
+ 	dma_addr_t dma;
+ 	struct page *page;
+ 	unsigned int page_offset;
+@@ -354,6 +353,14 @@ struct i40e_ring {
+ 
+ 	struct rcu_head rcu;		/* to avoid race on free */
+ 	u16 next_to_alloc;
++	struct sk_buff *skb;		/* When i40e_clean_rx_ring_irq() must
++					 * return before it sees the EOP for
++					 * the current packet, we save that skb
++					 * here and resume receiving this
++					 * packet the next time
++					 * i40e_clean_rx_ring_irq() is called
++					 * for this ring.
++					 */
+ } ____cacheline_internodealigned_in_smp;
+ 
+ enum i40e_latency_range {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 4264d91..7e9c425 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -501,14 +501,15 @@ void i40evf_clean_rx_ring(struct i40e_ring *rx_ring)
+ 	if (!rx_ring->rx_bi)
+ 		return;
+ 
++	if (rx_ring->skb) {
++		dev_kfree_skb(rx_ring->skb);
++		rx_ring->skb = NULL;
++	}
++
+ 	/* Free all the Rx ring sk_buffs */
+ 	for (i = 0; i < rx_ring->count; i++) {
+ 		struct i40e_rx_buffer *rx_bi = &rx_ring->rx_bi[i];
+ 
+-		if (rx_bi->skb) {
+-			dev_kfree_skb(rx_bi->skb);
+-			rx_bi->skb = NULL;
+-		}
+ 		if (!rx_bi->page)
+ 			continue;
+ 
+@@ -1086,7 +1087,8 @@ static bool i40e_add_rx_frag(struct i40e_ring *rx_ring,
+  */
+ static inline
+ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
+-				       union i40e_rx_desc *rx_desc)
++				       union i40e_rx_desc *rx_desc,
++				       struct sk_buff *skb)
+ {
+ 	u64 local_status_error_len =
+ 		le64_to_cpu(rx_desc->wb.qword1.status_error_len);
+@@ -1094,15 +1096,12 @@ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 		(local_status_error_len & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+ 		I40E_RXD_QW1_LENGTH_PBUF_SHIFT;
+ 	struct i40e_rx_buffer *rx_buffer;
+-	struct sk_buff *skb;
+ 	struct page *page;
+ 
+ 	rx_buffer = &rx_ring->rx_bi[rx_ring->next_to_clean];
+ 	page = rx_buffer->page;
+ 	prefetchw(page);
+ 
+-	skb = rx_buffer->skb;
+-
+ 	if (likely(!skb)) {
+ 		void *page_addr = page_address(page) + rx_buffer->page_offset;
+ 
+@@ -1126,8 +1125,6 @@ struct sk_buff *i40evf_fetch_rx_buffer(struct i40e_ring *rx_ring,
+ 		 * it now to avoid a possible cache miss
+ 		 */
+ 		prefetchw(skb->data);
+-	} else {
+-		rx_buffer->skb = NULL;
+ 	}
+ 
+ 	/* we are reusing so sync this buffer for CPU use */
+@@ -1182,8 +1179,6 @@ static bool i40e_is_non_eop(struct i40e_ring *rx_ring,
+ 	if (likely(i40e_test_staterr(rx_desc, I40E_RXD_EOF)))
+ 		return false;
+ 
+-	/* place skb in next buffer to be received */
+-	rx_ring->rx_bi[ntc].skb = skb;
+ 	rx_ring->rx_stats.non_eop_descs++;
+ 
+ 	return true;
+@@ -1204,12 +1199,12 @@ static bool i40e_is_non_eop(struct i40e_ring *rx_ring,
+ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ {
+ 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
++	struct sk_buff *skb = rx_ring->skb;
+ 	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
+ 	bool failure = false;
+ 
+ 	while (likely(total_rx_packets < budget)) {
+ 		union i40e_rx_desc *rx_desc;
+-		struct sk_buff *skb;
+ 		u16 vlan_tag;
+ 		u8 rx_ptype;
+ 		u64 qword;
+@@ -1238,7 +1233,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 		 */
+ 		dma_rmb();
+ 
+-		skb = i40evf_fetch_rx_buffer(rx_ring, rx_desc);
++		skb = i40evf_fetch_rx_buffer(rx_ring, rx_desc, skb);
+ 		if (!skb)
+ 			break;
+ 
+@@ -1257,8 +1252,10 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 			continue;
+ 		}
+ 
+-		if (i40e_cleanup_headers(rx_ring, skb))
++		if (i40e_cleanup_headers(rx_ring, skb)) {
++			skb = NULL;
+ 			continue;
++		}
+ 
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+@@ -1275,11 +1272,14 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 			   le16_to_cpu(rx_desc->wb.qword0.lo_dword.l2tag1) : 0;
+ 
+ 		i40e_receive_skb(rx_ring, skb, vlan_tag);
++		skb = NULL;
+ 
+ 		/* update budget accounting */
+ 		total_rx_packets++;
+ 	}
+ 
++	rx_ring->skb = skb;
++
+ 	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+ 	rx_ring->stats.bytes += total_rx_bytes;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index a5fc789..8274ba6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -239,7 +239,6 @@ struct i40e_tx_buffer {
+ };
+ 
+ struct i40e_rx_buffer {
+-	struct sk_buff *skb;
+ 	dma_addr_t dma;
+ 	struct page *page;
+ 	unsigned int page_offset;
+@@ -340,6 +339,14 @@ struct i40e_ring {
+ 
+ 	struct rcu_head rcu;		/* to avoid race on free */
+ 	u16 next_to_alloc;
++	struct sk_buff *skb;		/* When i40evf_clean_rx_ring_irq() must
++					 * return before it sees the EOP for
++					 * the current packet, we save that skb
++					 * here and resume receiving this
++					 * packet the next time
++					 * i40evf_clean_rx_ring_irq() is called
++					 * for this ring.
++					 */
+ } ____cacheline_internodealigned_in_smp;
+ 
+ enum i40e_latency_range {
 -- 
 2.10.2
