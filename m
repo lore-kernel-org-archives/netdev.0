@@ -1,74 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net/llc: avoid BUG_ON() in skb_orphan()
-Date: Sun, 12 Feb 2017 14:03:52 -0800
-Message-ID: <1486937032.8227.14.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+yzH_M4uzetrMQPMgYBNDXYAp0V11DcMtUgNWVvPg4x=g@mail.gmail.com>
-         <CANn89iKww-oSWGWx-PZ_gXYmeFr8NSwJS55vNB=jyaBghTmtvA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrey Konovalov <andreyknvl@google.com>, acme@redhat.com,
-        netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: "Jonathan T. Leighton" <jtleight@udel.edu>
+Subject: [PATCH 0/2] IPv4-mapped on wire, :: dst address issue
+Date: Sun, 12 Feb 2017 17:26:05 -0500
+Message-ID: <cover.1486937974.git.jtleight@udel.edu>
+Cc: "Jonathan T. Leighton" <jtleight@udel.edu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34083 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751327AbdBLWDy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 17:03:54 -0500
-Received: by mail-pg0-f67.google.com with SMTP id v184so7918173pgv.1
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 14:03:53 -0800 (PST)
-In-Reply-To: <CANn89iKww-oSWGWx-PZ_gXYmeFr8NSwJS55vNB=jyaBghTmtvA@mail.gmail.com>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:33696 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751405AbdBLW0L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 17:26:11 -0500
+Received: by mail-qt0-f193.google.com with SMTP id n13so11039939qtc.0
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 14:26:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Under some circumstances IPv6 datagrams are sent with IPv4-mapped IPv6
+addresses as the source. Given an IPv6 socket bound to an IPv4-mapped
+IPv6 address, and an IPv6 destination address, both TCP and UDP will
+will send packets using the IPv4-mapped IPv6 address as the source. Per
+RFC 6890 (Table 20), IPv4-mapped IPv6 source addresses are not allowed
+in an IP datagram. The problem can be observed by attempting to
+connect() either a TCP or UDP socket, or by using sendmsg() with a UDP
+socket. The patch is intended to correct this issue for all socket
+types.
 
-It seems nobody used LLC since linux-3.12.
+linux follows the BSD convention that an IPv6 destination address
+specified as in6addr_any is converted to the loopback address.
+Currently, neither TCP nor UDP consider the possibility that the source
+address is an IPv4-mapped IPv6 address, and assume that the appropriate
+loopback address is ::1. The patch adds a check on whether or not the
+source address is an IPv4-mapped IPv6 address and then sets the
+destination address to either ::ffff:127.0.0.1 or ::1, as appropriate.
 
-Fortunately fuzzers like syzkaller still know how to run this code,
-otherwise it would be no fun.
+Jon
 
-Setting skb->sk without skb->destructor leads to all kinds of
-bugs, we now prefer to be very strict about it.
+Jonathan T. Leighton (2):
+  ipv6: Inhibit IPv4-mapped src address on the wire.
+  ipv6: Handle IPv4-mapped src to in6addr_any dst.
 
-Ideally here we would use skb_set_owner() but this helper does not exist yet,
-only CAN seems to have a private helper for that.
+ net/ipv6/datagram.c   | 14 +++++++++-----
+ net/ipv6/ip6_output.c |  3 +++
+ net/ipv6/tcp_ipv6.c   | 11 ++++++++---
+ net/ipv6/udp.c        |  4 ++++
+ 4 files changed, 24 insertions(+), 8 deletions(-)
 
-Fixes: 376c7311bdb6 ("net: add a temporary sanity check in skb_orphan()")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Andrey Konovalov <andreyknvl@google.com>
----
- net/llc/llc_conn.c |    3 +++
- net/llc/llc_sap.c  |    3 +++
- 2 files changed, 6 insertions(+)
-
-diff --git a/net/llc/llc_conn.c b/net/llc/llc_conn.c
-index 3e821daf9dd4a2fbf00550591e92b153efd4a73a..8bc5a1bd2d453542df31506f543feb64b64cdd96 100644
---- a/net/llc/llc_conn.c
-+++ b/net/llc/llc_conn.c
-@@ -821,7 +821,10 @@ void llc_conn_handler(struct llc_sap *sap, struct sk_buff *skb)
- 		 * another trick required to cope with how the PROCOM state
- 		 * machine works. -acme
- 		 */
-+		skb_orphan(skb);
-+		sock_hold(sk);
- 		skb->sk = sk;
-+		skb->destructor = sock_efree;
- 	}
- 	if (!sock_owned_by_user(sk))
- 		llc_conn_rcv(sk, skb);
-diff --git a/net/llc/llc_sap.c b/net/llc/llc_sap.c
-index d0e1e804ebd73dcebcf2f930b921233a49b0f454..5404d0d195cc581613e356b75bd70321e617673e 100644
---- a/net/llc/llc_sap.c
-+++ b/net/llc/llc_sap.c
-@@ -290,7 +290,10 @@ static void llc_sap_rcv(struct llc_sap *sap, struct sk_buff *skb,
- 
- 	ev->type   = LLC_SAP_EV_TYPE_PDU;
- 	ev->reason = 0;
-+	skb_orphan(skb);
-+	sock_hold(sk);
- 	skb->sk = sk;
-+	skb->destructor = sock_efree;
- 	llc_sap_state_process(sap, skb);
- }
- 
+-- 
+2.7.4
