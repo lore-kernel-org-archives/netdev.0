@@ -1,42 +1,103 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net_sched: fix error recovery at qdisc
- creation
-Date: Sat, 11 Feb 2017 21:39:23 -0500 (EST)
-Message-ID: <20170211.213923.229808067383794475.davem@davemloft.net>
-References: <1486751509.7793.162.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44692 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751076AbdBLCjZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 21:39:25 -0500
-In-Reply-To: <1486751509.7793.162.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Tobin C. Harding" <me@tobin.cc>
+Subject: [PATCH 0/2] net: Replace custom page based bitmap with IDA
+Date: Sun, 12 Feb 2017 13:57:32 +1100
+Message-ID: <1486868254-5386-1-git-send-email-me@tobin.cc>
+Cc: mawilcox@microsoft.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, "Tobin C. Harding" <me@tobin.cc>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Feb 2017 10:31:49 -0800
+Current implementation of __dev_alloc_name uses a custom bitmap of
+a single page to iterate network device id's and allocate an
+unused id. This is seemingly the same task that the IDA does. Also the
+current implementation leads to a upper limit of 8 * PAGE_SIZE on the
+number of network id's (for each name format i.e eth0).
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Dmitry reported uses after free in qdisc code [1]
-> 
-> The problem here is that ops->init() can return an error.
-> 
-> qdisc_create_dflt() then call ops->destroy(),
-> while qdisc_create() does _not_ call it.
-> 
-> Four qdisc chose to call their own ops->destroy(), assuming their caller
-> would not.
-> 
-> This patch makes sure qdisc_create() calls ops->destroy()
-> and fixes the four qdisc to avoid double free.
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+This patch uses the kernel's IDA as a replacement to the page based
+bitmap. This has the effect of simplifying the code and removing
+the upper limit.
 
-Applied, thanks Eric.
+Testing was carried out using a simple network device module, the
+core of which is;
+
+#define NDEVICES 32768     /* current implementation hard limit */
+
+/* test driver */
+static int tm_init_module(void)
+{
+	int result;
+	int i;
+	unsigned long before, after, diff, msec;
+
+	pr_debug("tm: init module");
+
+	before = jiffies;
+
+	for (i = 0; i < NDEVICES; i++) {
+
+		devs[i] = alloc_netdev(0, "sn%d",
+				NET_NAME_UNKNOWN, tm_init);
+
+		if (!devs[i])
+			return -ENOMEM;
+
+		result = register_netdev(devs[i]);
+		if (result) {
+			pr_err("tm: error %i registering device \"%s\"\n",
+				result, devs[i]->name);
+			tm_cleanup();
+			return -ENODEV;
+		}
+	}
+
+	after = jiffies;
+	diff = (long)after - (long)before;
+	msec = diff * 1000 / HZ;
+	pr_debug("tm: Total milliseconds: %ld\n", msec);
+
+	return 0;
+}
+module_init(tm_init_module);
+
+The main objective of this patch is to simplify the code of __dev_alloc_name.
+As a side effect the hard limit is also removed. Results from running the,
+admittedly convoluted, test module show that the patched version is slightly slower.
+
+
+Benchmarks
+==========
+
+System: core i5 Linux 4.10.0-rc7+ #18 SMP
+
+$ qemu-system-x86_64 -kernel arch/x86_64/boot/bzImage -drive file=/home/tobin/build/imgs/qemu-image.img,index=0,media=disk,format=raw -append "root=/dev/sda console=ttyS0" --enable-kvm --nographic -m 12G
+
+
+Current implementation
+
+#define NDEVICES 30000
+
+[  134.376741] tm: Total milliseconds: 127152
+
+Patched version
+
+#define NDEVICES 30000
+
+[  226.960212] tm: Total milliseconds: 220756
+
+#define NDEVICES 35000
+
+[  276.590994] tm: Total milliseconds: 270620
+
+
+Tobin C. Harding (2):
+  include: Fix checkpatch whitespace error and warning
+  net: Replace custom page based bitmap with IDA
+
+ include/linux/idr.h |  4 ++--
+ net/core/dev.c      | 20 ++++++--------------
+ 2 files changed, 8 insertions(+), 16 deletions(-)
+
+-- 
+2.7.4
