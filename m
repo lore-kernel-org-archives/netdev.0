@@ -1,105 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: mkiss/6pack: Fix SIOCSIFENCAP ioctl
-Date: Sat, 11 Feb 2017 21:30:44 -0500 (EST)
-Message-ID: <20170211.213044.1550234417843321703.davem@davemloft.net>
-References: <20170210230121.GA27466@linux-mips.org>
-        <589EED15.8090303@bfs.de>
+Subject: Re: [PATCH net-next] net_sched: fix error recovery at qdisc
+ creation
+Date: Sat, 11 Feb 2017 21:39:23 -0500 (EST)
+Message-ID: <20170211.213923.229808067383794475.davem@davemloft.net>
+References: <1486751509.7793.162.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org, thomas@osterried.de,
-        linux-hams@vger.kernel.org
-To: wharms@bfs.de
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44578 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44692 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdBLCaq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 21:30:46 -0500
-In-Reply-To: <589EED15.8090303@bfs.de>
+        with ESMTP id S1751076AbdBLCjZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 21:39:25 -0500
+In-Reply-To: <1486751509.7793.162.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: walter harms <wharms@bfs.de>
-Date: Sat, 11 Feb 2017 11:53:09 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 10 Feb 2017 10:31:49 -0800
 
+> From: Eric Dumazet <edumazet@google.com>
 > 
+> Dmitry reported uses after free in qdisc code [1]
 > 
-> Am 11.02.2017 00:01, schrieb Ralf Baechle:
->> When looking at Thomas' mkiss fix 7ba1b6890387 ("NET: mkiss: Fix panic")
->> I noticed that the mkiss SIOCSIFENCAPS ioctl was also doing a slightly
->> strange assignment 
->> 
->>                dev->hard_header_len = AX25_KISS_HEADER_LEN +
->>                                       AX25_MAX_HEADER_LEN + 3;
->> 
->> AX25_MAX_HEADER_LEN already accounts for the KISS byte so adding
->> AX25_KISS_HEADER_LEN is a double allocation nor does the "+ 3" seem to
->> be necessary.  So this can be simplified to
->> 
->>                dev->hard_header_len = AX25_MAX_HEADER_LEN
->> 
->> which after the preceeding fix is a redundant assignment of what
->> ax_setup has already assigned so delete the line.  The assignments
->> to dev->addr_len and dev->type are similarly redundant.
->> 
->> The SIOCSIFENCAP argument was never checked for validity.  Check that
->> it is 4 and return -EINVAL if not.  The magic constant 4 dates back to
->> the days when KISS was handled by the SLIP driver where it had the
->> symbol name SL_MODE_AX25.
->> 
->> Since however mkiss.c only supports a single encapsulation mode there
->> is no point in storing it in struct mkiss so delete all that.
->> 
->> Note that while useless we can't delete the SIOCSIFENCAP ioctl as
->> kissattach(8) is still using it and without mkiss issuing a
->> SIOCSIFENCAP ioctl an older kernel that does not have Thomas' mkiss fix
->> would still panic on attempt to transmit via mkiss.
->> 
->> 6pack was suffering from the same issue except there SIOCGIFENCAP was
->> return 0 for the encapsulation while the spattach utility was passing 4
->> for the mode, so the mode check added for 6pack is a bit more lenient
->> allow the values 0 and 4 to be set.  That way we retain the option
->> to set different encapsulation modes for future extensions.
->> 
->> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
->> 
->>  drivers/net/hamradio/6pack.c | 10 ++++------
->>  drivers/net/hamradio/mkiss.c | 10 ++++------
->>  2 files changed, 8 insertions(+), 12 deletions(-)
->> 
->> diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
->> index 470b3dc..d949b9f 100644
->> --- a/drivers/net/hamradio/6pack.c
->> +++ b/drivers/net/hamradio/6pack.c
->> @@ -104,7 +104,6 @@ struct sixpack {
->>  	int			buffsize;       /* Max buffers sizes */
->>  
->>  	unsigned long		flags;		/* Flag values/ mode etc */
->> -	unsigned char		mode;		/* 6pack mode */
->>  
->>  	/* 6pack stuff */
->>  	unsigned char		tx_delay;
->> @@ -723,11 +722,10 @@ static int sixpack_ioctl(struct tty_struct *tty, struct file *file,
->>  			break;
->>  		}
->>  
->> -		sp->mode = tmp;
->> -		dev->addr_len        = AX25_ADDR_LEN;
->> -		dev->hard_header_len = AX25_KISS_HEADER_LEN +
->> -		                       AX25_MAX_HEADER_LEN + 3;
->> -		dev->type            = ARPHRD_AX25;
->> +		if (tmp != 0 && tmp != 4) {
->> +			err = -EINVAL;
->> +			break;
->> +		}
->>  
+> The problem here is that ops->init() can return an error.
 > 
-> What is about a comment like:
-> /*
-> The magic constant 4 dates back to the days when KISS was handled by the SLIP driver where it had the
->  symbol name SL_MODE_AX25.
-> */
+> qdisc_create_dflt() then call ops->destroy(),
+> while qdisc_create() does _not_ call it.
 > 
-> just not to confuse future readers ..
+> Four qdisc chose to call their own ops->destroy(), assuming their caller
+> would not.
+> 
+> This patch makes sure qdisc_create() calls ops->destroy()
+> and fixes the four qdisc to avoid double free.
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Agreed, every magic comment needs a define or a big comment.
+Applied, thanks Eric.
