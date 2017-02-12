@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ibmvnic: Initialize completion variables before
- starting work
-Date: Sat, 11 Feb 2017 21:24:36 -0500 (EST)
-Message-ID: <20170211.212436.1146139307102503062.davem@davemloft.net>
-References: <20170210184505.13381.72796.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
+Subject: Re: [PATCH net-next] vxlan: remove vni zero check and drop for
+ COLLECT_METADATA
+Date: Sat, 11 Feb 2017 21:26:14 -0500 (EST)
+Message-ID: <20170211.212614.1589003625673836126.davem@davemloft.net>
+References: <1486791516-10285-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jallen@linux.vnet.ibm.com,
-        tlfalcon@linux.vnet.ibm.com
-To: nfont@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, joe@ovn.org
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44480 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44510 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751088AbdBLCYi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 21:24:38 -0500
-In-Reply-To: <20170210184505.13381.72796.stgit@ltcalpine2-lp14.aus.stglabs.ibm.com>
+        with ESMTP id S1751114AbdBLC0Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 11 Feb 2017 21:26:16 -0500
+In-Reply-To: <1486791516-10285-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nathan Fontenot <nfont@linux.vnet.ibm.com>
-Date: Fri, 10 Feb 2017 13:45:05 -0500
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Fri, 10 Feb 2017 21:38:36 -0800
 
-> Initialize condition variables prior to invoking any work that can
-> mark them complete. This resolves a race in the ibmvnic driver where
-> the driver faults trying to complete an uninitialized condition
-> variable.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> Signed-off-by: Nathan Fontenot <nfont@linux.vnet.ibm.com>
+> This patch drops the vni zero check for COLLECT_METADATA mode.
+> It is not really needed, vni zero is a valid vni.
+> 
+> Fixes: 3ad7a4b141eb ("vxlan: support fdb and learning in COLLECT_METADATA mode"
+> Reported-by: Joe Stringer <joe@ovn.org>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
 Applied.
