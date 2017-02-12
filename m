@@ -1,93 +1,71 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
-Date: Sun, 12 Feb 2017 05:42:18 +0000
-Message-ID: <20170212054209.GQ13195@ZenIV.linux.org.uk>
-References: <20160728012253.GT2356@ZenIV.linux.org.uk>
- <20170210081126.GA14157@ZenIV.linux.org.uk>
- <20170210214513.GA8937@ZenIV.linux.org.uk>
- <6129494.xvkFqTsVzW@debian64>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2 net] bpf: introduce BPF_F_ALLOW_OVERRIDE flag
+Date: Sun, 12 Feb 2017 14:47:39 +0900
+Message-ID: <20170212054739.GA13855@mtj.duckdns.org>
+References: <1486787304-2805663-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-        Alan Curry <rlwinm@sdf.org>, alexmcwhirter@triadic.us,
-        David Miller <davem@davemloft.net>
-To: Christian Lamparter <chunkeey@googlemail.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Daniel Mack <daniel@zonque.org>,
+        Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:60076 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751142AbdBLFnG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 00:43:06 -0500
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35199 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750717AbdBLFro (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 00:47:44 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 204so6534636pge.2
+        for <netdev@vger.kernel.org>; Sat, 11 Feb 2017 21:47:43 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <6129494.xvkFqTsVzW@debian64>
+In-Reply-To: <1486787304-2805663-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 11, 2017 at 08:37:06PM +0100, Christian Lamparter wrote:
-
-> I think if you follow through with this argument. You have the problem of:
-> How to handle EFAULT from skb_copy_datagram_* (and all it's "wrappers")?
+On Fri, Feb 10, 2017 at 08:28:24PM -0800, Alexei Starovoitov wrote:
+> If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
+> to the given cgroup the descendent cgroup will be able to override
+> effective bpf program that was inherited from this cgroup.
+> By default it's not passed, therefore override is disallowed.
 > 
-> Because on one hand, the iovec could be partially bad. I remember that 
-> the application could do the following shenanigans during recvmsg: 
->  - mprotect() could've flipped page read-only and back to read-write.
->  - Or truncate() could've shortened the mmapped file,
->  - etc.
+> Examples:
+> 1.
+> prog X attached to /A with default
+> prog Y fails to attach to /A/B and /A/B/C
+> Everything under /A runs prog X
 > 
-> In this case the error should be propagated back to the userspace.
+> 2.
+> prog X attached to /A with allow_override.
+> prog Y fails to attach to /A/B with default (non-override)
+> prog M attached to /A/B with allow_override.
+> Everything under /A/B runs prog M only.
 > 
-> But OTOH, it could just be a temporary failure (*) and restoring the
-> iovec and trying again is needed.
-
-No.  You can't _rely_ upon -EFAULT being repeated, but it's not something
-you would expect to retry your way out of.
-
-The sane semantics is
-	* fail read/recvmsg (with EFAULT) if it's a datagram socket
-	* fail if it's a stream socket and nothing has been read by
-that point
-	* a short read if something has been already read.
-
-> Is this a correct/complete assessment of the problem at hand? Or did
-> I make a mistake / wrong assumption in there?
-
-> I'm looking at:
-> <http://lxr.free-electrons.com/source/net/ipv4/tcp_input.c#L4668>
-> <http://lxr.free-electrons.com/source/net/ipv4/tcp_input.c#L5232>
-> <http://lxr.free-electrons.com/source/net/ipv4/tcp_input.c#L5465>
+> 3.
+> prog X attached to /A with allow_override.
+> prog Y fails to attach to /A with default.
+> The user has to detach first to switch the mode.
 > 
-> >From what I can see, the tcp functions tcp_data_queue(),
-> tcp_copy_to_iovec() and tcp_rcv_established() would need to be
-> extended to handle EFAULT. Because if the iovec is restored
-> and the application did something bad (mprotect(), truncate(),
->  ...), this code would sort of loop?
+> In the future this behavior may be extended with a chain of
+> non-overridable programs.
+> 
+> Also fix the bug where detach from cgroup where nothing is attached
+> was not throwing error. Return ENOENT in such case.
+> 
+> Add several testcases and adjust libbpf.
+> 
+> Fixes: 3007098494be ("cgroup: add support for eBPF programs")
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 
-tcp_v4_do_rcv() has every right to copy nothing whatsoever - it's a fastpath
-and when e.g. it's called in context of another thread or when skb isn't the
-next fragment expected it won't bother with tcp_copy_to_iovec() at all.
-Failure to copy anything in there is just fine, as long as you don't end
-up buggering tp->ucopy state (in particular, tp->ucopy.msg->msg_iter).
+The cgroup part looks good to me.  Please feel free to add
 
-> If this is the case: How many retries do we want, before we can
-> say it is a permament failure (and abort)?
+Acked-by: Tejun Heo <tj@kernel.org>
 
-We don't want any.  What happens is that this path won't copy anything and
-when that skb gets to
-                        err = skb_copy_datagram_msg(skb, offset, msg, used);
-                        if (err) {
-                                /* Exception. Bailout! */
-                                if (!copied)
-                                        copied = -EFAULT;
-                                break;
-                        }
-in tcp_recvmsg() we'll get our short read.
+One question tho.  Is there a specific reason to disallow attaching
+!overridable program under an overridable one?  Isn't disallowing
+attaching programs if the closest ancestor is !overridable enough?
 
-Again, the trouble is not with tcp_v4_do_rcv() failing to copy something -
-it's failing to copy and ending up with iov_iter advanced that might be
-a problem.  E.g. tp->ucopy.len getting out of sync with tp->ucopy.msg->msg_iter,
-etc.
+Thanks.
 
-Short read on fault is fine.  So's full copy if somebody had been flipping
-memprotect() and slow path ends up catching the moment when the buffer is
-writable.  Both outcomes are fine.  Having the same memprotect() flipping
-leave ->msg_iter more than one would expect by tp->ucopy.len and everything
-back with copy_to_user working again, OTOH, might confuse tcp_input.c.
+-- 
+tejun
