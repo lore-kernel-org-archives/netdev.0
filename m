@@ -1,32 +1,47 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net-next v4 1/2] qed: Add infrastructure for PTP support.
-Date: Sun, 12 Feb 2017 11:52:23 +0000
-Message-ID: <BL2PR07MB230689D83356C4577C8AB1E58D460@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <1486536194-30872-1-git-send-email-Sudarsana.Kalluru@cavium.com>
- <1486536194-30872-2-git-send-email-Sudarsana.Kalluru@cavium.com>
- <20170211085810.GA4006@localhost.localdomain>
- <20170211111638.GA6564@localhost.localdomain>
- <BL2PR07MB2306C87FF3E79B221675F5848D460@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Matthew Wilcox <mawilcox@microsoft.com>
+Subject: RE: [PATCH 1/2] include: Fix checkpatch whitespace error and warning
+Date: Sun, 12 Feb 2017 12:17:48 +0000
+Message-ID: <BY2PR21MB0036BDD3E99415EA0742D00ACB460@BY2PR21MB0036.namprd21.prod.outlook.com>
+References: <1486868254-5386-1-git-send-email-me@tobin.cc>
+ <1486868254-5386-2-git-send-email-me@tobin.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0078.outbound.protection.outlook.com ([104.47.41.78]:21540
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751137AbdBLLw0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 12 Feb 2017 06:52:26 -0500
-In-Reply-To: <BL2PR07MB2306C87FF3E79B221675F5848D460@BL2PR07MB2306.namprd07.prod.outlook.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Tobin C. Harding" <me@tobin.cc>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486868254-5386-2-git-send-email-me@tobin.cc>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> The '+8' is not some sort of rounding correction, but rather part of the
-> required configuration.
-
-Just to clarify [since it's bit a meaningless otherwise] -
-this +8 is a HW-bug workaround.
+RG9uJ3Qgd29ycnkgYWJvdXQgdGhpcyBmaWxlOyBJIGhhdmUgYSBjb21wbGV0ZSByZXdyaXRlIGFs
+cmVhZHkgcXVldWVkLg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFRv
+YmluIEMuIEhhcmRpbmcgW21haWx0bzptZUB0b2Jpbi5jY10NCj4gU2VudDogU2F0dXJkYXksIEZl
+YnJ1YXJ5IDExLCAyMDE3IDk6NTggUE0NCj4gVG86IERhdmlkIFMgLiBNaWxsZXIgPGRhdmVtQGRh
+dmVtbG9mdC5uZXQ+DQo+IENjOiBNYXR0aGV3IFdpbGNveCA8bWF3aWxjb3hAbWljcm9zb2Z0LmNv
+bT47IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5v
+cmc7IFRvYmluIEMuIEhhcmRpbmcgPG1lQHRvYmluLmNjPg0KPiBTdWJqZWN0OiBbUEFUQ0ggMS8y
+XSBpbmNsdWRlOiBGaXggY2hlY2twYXRjaCB3aGl0ZXNwYWNlIGVycm9yIGFuZCB3YXJuaW5nDQo+
+IA0KPiBUaGlzIHBhdGNoIGZpeGVzIHR3byB0cml2aWFsIHdoaXRlc3BhY2UgbWVzc2FnZXMgKEVS
+Uk9SL1dBUk5JTkcpLg0KPiBGaXhlcyB0cmFpbGluZyB3aGl0ZXNwYWNlIEVSUk9SIGFuZCBmaXhl
+cyBzcGFjZSBiZWZvcmUgdGFicyBXQVJOSU5HLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogVG9iaW4g
+Qy4gSGFyZGluZyA8bWVAdG9iaW4uY2M+DQo+IC0tLQ0KPiAgaW5jbHVkZS9saW51eC9pZHIuaCB8
+IDQgKystLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMo
+LSkNCj4gDQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L2lkci5oIGIvaW5jbHVkZS9saW51
+eC9pZHIuaA0KPiBpbmRleCAzYzAxYjg5Li40YThkZTJmIDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRl
+L2xpbnV4L2lkci5oDQo+ICsrKyBiL2luY2x1ZGUvbGludXgvaWRyLmgNCj4gQEAgLTEsNiArMSw2
+IEBADQo+ICAvKg0KPiAgICogaW5jbHVkZS9saW51eC9pZHIuaA0KPiAtICoNCj4gKyAqDQo+ICAg
+KiAyMDAyLTEwLTE4ICB3cml0dGVuIGJ5IEppbSBIb3VzdG9uIGppbS5ob3VzdG9uQGNjdXIuY29t
+DQo+ICAgKglDb3B5cmlnaHQgKEMpIDIwMDIgYnkgQ29uY3VycmVudCBDb21wdXRlciBDb3Jwb3Jh
+dGlvbg0KPiAgICoJRGlzdHJpYnV0ZWQgdW5kZXIgdGhlIEdOVSBHUEwgbGljZW5zZSB2ZXJzaW9u
+IDIuDQo+IEBAIC0xODMsNyArMTgzLDcgQEAgc3RhdGljIGlubGluZSB2b2lkICppZHJfZmluZChz
+dHJ1Y3QgaWRyICppZHIsIGludCBpZCkNCj4gICAqLw0KPiAgI2RlZmluZSBJREFfQ0hVTktfU0la
+RQkJMTI4CS8qIDEyOCBieXRlcyBwZXIgY2h1bmsgKi8NCj4gICNkZWZpbmUgSURBX0JJVE1BUF9M
+T05HUwkoSURBX0NIVU5LX1NJWkUgLyBzaXplb2YobG9uZykgLSAxKQ0KPiAtI2RlZmluZSBJREFf
+QklUTUFQX0JJVFMgCShJREFfQklUTUFQX0xPTkdTICogc2l6ZW9mKGxvbmcpICogOCkNCj4gKyNk
+ZWZpbmUgSURBX0JJVE1BUF9CSVRTICAgICAgICAgKElEQV9CSVRNQVBfTE9OR1MgKiBzaXplb2Yo
+bG9uZykgKiA4KQ0KPiANCj4gIHN0cnVjdCBpZGFfYml0bWFwIHsNCj4gIAlsb25nCQkJbnJfYnVz
+eTsNCj4gLS0NCj4gMi43LjQNCg0K
