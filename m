@@ -1,69 +1,66 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: nuvoton: w90p910: use new api ethtool_{get|set}_link_ksettings
-Date: Sun, 12 Feb 2017 21:38:29 +0100
-Message-ID: <1486931909-18330-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: mcuos.com@gmail.com, davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 00/14] mlx4: order-0 allocations and page
+ recycling
+Date: Sun, 12 Feb 2017 12:57:46 -0800
+Message-ID: <1486933066.8227.6.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170209135838.16487-1-edumazet@google.com>
+         <3c48eac5-0c4f-f43a-1d76-75399e5fc1b8@gmail.com>
+         <CANn89i+sbU7b5CAhRq15Mk021X4afkB5E1ip+FRB4NevOrYJvQ@mail.gmail.com>
+         <c192d259-644b-0697-748f-549fdc9c11e0@gmail.com>
+         <CANn89iLNvQyfXUZwtQuhXBgZrKCDWEaouVtD4Txaem_wDXrdQg@mail.gmail.com>
+         <2a345874-2ad7-997e-2904-0d56148a2c56@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Tariq Toukan <ttoukan.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34786 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751269AbdBLUih (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 15:38:37 -0500
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35094 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750882AbdBLU5t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 15:57:49 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 204so7819290pge.2
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 12:57:49 -0800 (PST)
+In-Reply-To: <2a345874-2ad7-997e-2904-0d56148a2c56@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Sun, 2017-02-12 at 18:31 +0200, Tariq Toukan wrote:
+> On 09/02/2017 6:56 PM, Eric Dumazet wrote:
+> >> Default, out of box.
+> > Well. Please report :
+> >
+> > ethtool  -l eth0
+> > ethtool -g eth0
+> $ ethtool -g p1p1
+> Ring parameters for p1p1:
+> Pre-set maximums:
+> RX:             8192
+> RX Mini:        0
+> RX Jumbo:       0
+> TX:             8192
+> Current hardware settings:
+> RX:             1024
+> RX Mini:        0
+> RX Jumbo:       0
+> TX:             512
 
-As I don't have the hardware, I'd be very pleased if
-someone may test this patch.
+We are using 4096 slots per RX queue, this is why I could not reproduce
+your results.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/nuvoton/w90p910_ether.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+A single TCP flow easily can have more than 1024 MSS waiting in its
+receive queue (typical receive window on linux is 6MB/2 )
 
-diff --git a/drivers/net/ethernet/nuvoton/w90p910_ether.c b/drivers/net/ethernet/nuvoton/w90p910_ether.c
-index 119f6dc..9709c8c 100644
---- a/drivers/net/ethernet/nuvoton/w90p910_ether.c
-+++ b/drivers/net/ethernet/nuvoton/w90p910_ether.c
-@@ -874,16 +874,18 @@ static void w90p910_get_drvinfo(struct net_device *dev,
- 	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
- }
- 
--static int w90p910_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int w90p910_get_link_ksettings(struct net_device *dev,
-+				      struct ethtool_link_ksettings *cmd)
- {
- 	struct w90p910_ether *ether = netdev_priv(dev);
--	return mii_ethtool_gset(&ether->mii, cmd);
-+	return mii_ethtool_get_link_ksettings(&ether->mii, cmd);
- }
- 
--static int w90p910_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int w90p910_set_link_ksettings(struct net_device *dev,
-+				      const struct ethtool_link_ksettings *cmd)
- {
- 	struct w90p910_ether *ether = netdev_priv(dev);
--	return mii_ethtool_sset(&ether->mii, cmd);
-+	return mii_ethtool_set_link_ksettings(&ether->mii, cmd);
- }
- 
- static int w90p910_nway_reset(struct net_device *dev)
-@@ -899,11 +901,11 @@ static u32 w90p910_get_link(struct net_device *dev)
- }
- 
- static const struct ethtool_ops w90p910_ether_ethtool_ops = {
--	.get_settings	= w90p910_get_settings,
--	.set_settings	= w90p910_set_settings,
- 	.get_drvinfo	= w90p910_get_drvinfo,
- 	.nway_reset	= w90p910_nway_reset,
- 	.get_link	= w90p910_get_link,
-+	.get_link_ksettings = w90p910_get_link_ksettings,
-+	.set_link_ksettings = w90p910_set_link_ksettings,
- };
- 
- static const struct net_device_ops w90p910_ether_netdev_ops = {
--- 
-1.7.4.4
+I mentioned that having a slightly inflated skb->truesize might have an
+impact in some workloads. (charging for 2048 bytes per MSS instead of
+1536), but this is not related to mlx4 and should be tweaked in TCP
+stack instead, since this 2048 bytes (half a page on x86) strategy is
+now well spread.
