@@ -1,94 +1,88 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net/sched: cls_bpf: Use skip flags to
- reflect HW offload status
-Date: Sun, 12 Feb 2017 11:59:46 +0200
-Message-ID: <CAJ3xEMi=Q5yr=M40h_nCZF3+L-NT=UskkAgH-jXr825icxxV-A@mail.gmail.com>
-References: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com>
- <1486649888-2786-5-git-send-email-ogerlitz@mellanox.com> <20170209172223.405b9e2f@cakuba.netronome.com>
- <CAJ3xEMh_2PdQXb01NmMnvaRyMzxC8VtNnu8XCqvPLQYRwYJPuQ@mail.gmail.com> <20170210094244.6feb9c47@cakuba.netronome.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 12/14] i40e: allow i40e_update_filter_state to skip
+ broadcast filters
+Date: Sun, 12 Feb 2017 13:17:34 +0300
+Message-ID: <639a9d62-a283-9fcb-4fad-dc7aeda74c7f@cogentembedded.com>
+References: <20170212053028.98581-1-jeffrey.t.kirsher@intel.com>
+ <20170212053028.98581-13-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Amir Vadai <amir@vadai.me>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:35095 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750915AbdBLJ7r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 04:59:47 -0500
-Received: by mail-ot0-f194.google.com with SMTP id 65so8076994otq.2
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 01:59:47 -0800 (PST)
-In-Reply-To: <20170210094244.6feb9c47@cakuba.netronome.com>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:33294 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751111AbdBLKRf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 05:17:35 -0500
+Received: by mail-lf0-f43.google.com with SMTP id x1so39847565lff.0
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 02:17:35 -0800 (PST)
+In-Reply-To: <20170212053028.98581-13-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 10, 2017 at 7:42 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Fri, 10 Feb 2017 18:33:13 +0200, Or Gerlitz wrote:
->> On Fri, Feb 10, 2017 at 3:22 AM, Jakub Kicinski <kubakici@wp.pl> wrote:
->> > On Thu,  9 Feb 2017 16:18:08 +0200, Or Gerlitz wrote:
->> >> Currently there is no way of querying whether a filter is
->> >> offloaded to HW or not when using both policy (no flag).
+Hello!
 
->> >> Reuse the skip flags to show the insertion status by setting
->> >> the skip_hw flag in case the filter wasn't offloaded.
+On 2/12/2017 8:30 AM, Jeff Kirsher wrote:
 
->> > I'm obviously all for reporting whether tc objects are offloaded or not
->> > but let me ask perhaps the silly question of why reuse the SKIP_HW flag?
->> > We don't have to worry about flag bits running out, could it be clearer
->> > to users to report whether object is present in HW using a new flag?  Or
->> > even two flags for present/non-present so user doesn't have to ponder
->> > what no flag means (old kernel or not offloaded?). I don't really mind
->> > either way I'm just wondering what the motivation was and maybe how
->> > others feel.
+> From: Jacob Keller <jacob.e.keller@intel.com>
+>
+> Fix a bug where we modified the mac_filter_hash while outside a lock,
+> when handling addition of broadcast filters.
+>
+> Normally, we add filters to firmware by batching the additions into
+> lists and issuing 1 update for every few filters. Broadcast filters are
+> handled differently, by instead setting the broadcast promiscuous mode
+> flags. In order to make sure the 1<->1 mapping of filters in our
+> addition array lined up with filters in the hlist tmp_add_list, we had
+> to remove the filter and move it back to the main hash. However, we
+> didn't do this under lock, which could cause consistency problems for
+> the list.
+>
+> Fix this by updating i40e_update_filter_state logic so that it knows to
+> avoid broadcast filters. This ensures that we don't have to remove the
+> filter separately, and can put it back using the normal flow.
+>
+> Change-ID: Id288fade80b3e3a9a54b68cc249188cb95147518
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_main.c | 37 ++++++++++++++++++++++-------
+>  1 file changed, 29 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index fa4a04d..06c80d4 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -1843,6 +1843,31 @@ static void i40e_undo_filter_entries(struct i40e_vsi *vsi,
+>  }
+>
+>  /**
+> + * i40e_next_entry - Get the next non-broadcast filter from a list
+> + * @f: pointer to filter in list
+> + *
+> + * Returns the next non-broadcast filter in the list. Required so that we
+> + * ignore broadcast filters within the list, since these are not handled via
+> + * the normal firmware update path.
+> + */
+> +static struct i40e_mac_filter *i40e_next_filter(struct i40e_mac_filter *f)
+> +{
+> +	while (f) {
+> +		f = hlist_entry(f->hlist.next,
+> +				typeof(struct i40e_mac_filter),
+> +				hlist);
+> +
+> +		/* keep going if we found a broadcast filter */
+> +		if (f && is_broadcast_ether_addr(f->macaddr))
+> +			continue;
+> +
+> +		break;
 
->> yeah, the flags are a bit confusing to some people, but it's all about
->> polarity..
+    Isn't it simpler to *break* on an inverted condition above?
+This way, *continue* isn;'t needed...
 
->> when the flags were introduced few of us where in favor of "positive"
->> polarity, that is with possibly three values: "sw only" "hw only" and
->> "both" but that JJJ (Jiri/John/Jamal) consensus was to pick a
->> "negative" polarity of "skip sw" "skip hw" and "default" which means
->> the filter is in SW and possibly in HW. I think we can live with that
->> semantics and this small series just helps for the default case, allow
->> user-space to know if the filter was offloaded using the existing
->> fields.
+[...]
 
->> I am not in favor of making this more complex...
-
-> I'm 100% with you.  Restating my proposal was to leave the SKIP_* flags
-> with all their existing semantics and complexity and for reporting to
-> user space whether something got offloaded add new ones.  My opinion
-> is that it would make things simpler, but I'm happy with your version
-> if none else thinks this way.
-
-> To spell it out with this patchset we would get the following semantics
-> of flags in dumps:
->  - no flags - offloaded || old kernel;
->  - skip_hw - not offloaded (either on user request || no flag
->    was set but offload could not happen);
->  - skip_sw - offload only on explicit request.
-
-> What we could do if we want to add flags would be:
->  - no flags - old kernel;
->  - no_offload - not offloaded;
->  - skip_hw | no_offload - not offloaded on explicit user request;
->  - offload - offloaded opportunistically;
->  - skip_sw | offload - offloaded on explicit request.
-
-Jakub,
-
-Re old kernels, I was thinking that we can address that with pushing
-this series to
-stable kernels, if this direction can fly, we can avoid adding these
-two new flags.
-
-Checking that with dave on the cover letter thread, lets see where
-this takes us.
-
-Or.
+MBR, Sergei
