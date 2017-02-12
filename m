@@ -1,75 +1,60 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/21] netfilter: nf_tables: add flush field to struct nft_set_iter
-Date: Sun, 12 Feb 2017 20:42:37 +0100
-Message-ID: <1486928573-24773-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/21] netfilter: nf_tables: use struct nft_set_iter in set element flush
+Date: Sun, 12 Feb 2017 20:42:35 +0100
+Message-ID: <1486928573-24773-4-git-send-email-pablo@netfilter.org>
 References: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60436 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751278AbdBLTnP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 12 Feb 2017 14:43:15 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E8E0EBA703
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D9E9DDA841
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 99749DA814
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:08 +0100 (CET)
 In-Reply-To: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This provides context to walk callback iterator, thus, we know if the
-walk happens from the set flush path. This is required by the new bitmap
-set type coming in a follow up patch which has no real struct
-nft_set_ext, so it has to allocate it based on the two bit compact
-element representation.
+Instead of struct nft_set_dump_args, remove unnecessary wrapper
+structure.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h | 1 +
- net/netfilter/nf_tables_api.c     | 4 ++++
- 2 files changed, 5 insertions(+)
+ net/netfilter/nf_tables_api.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index ab155644d489..5830f594842e 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -203,6 +203,7 @@ struct nft_set_elem {
- struct nft_set;
- struct nft_set_iter {
- 	u8		genmask;
-+	bool		flush;
- 	unsigned int	count;
- 	unsigned int	skip;
- 	int		err;
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index c09b11eb36fc..7ae810b03462 100644
+index 3643ce345b59..790ffed82930 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -3121,6 +3121,7 @@ int nf_tables_bind_set(const struct nft_ctx *ctx, struct nft_set *set,
- 		iter.count	= 0;
- 		iter.err	= 0;
- 		iter.fn		= nf_tables_bind_check_setelem;
-+		iter.flush	= false;
+@@ -3936,15 +3936,13 @@ static int nf_tables_delsetelem(struct net *net, struct sock *nlsk,
+ 		return -EBUSY;
  
- 		set->ops->walk(ctx, set, &iter);
- 		if (iter.err < 0)
-@@ -3374,6 +3375,7 @@ static int nf_tables_dump_set(struct sk_buff *skb, struct netlink_callback *cb)
- 	args.iter.count		= 0;
- 	args.iter.err		= 0;
- 	args.iter.fn		= nf_tables_dump_setelem;
-+	args.iter.flush		= false;
- 	set->ops->walk(&ctx, set, &args.iter);
- 
- 	nla_nest_end(skb, nest);
-@@ -3939,6 +3941,7 @@ static int nf_tables_delsetelem(struct net *net, struct sock *nlsk,
- 		struct nft_set_iter iter = {
- 			.genmask	= genmask,
- 			.fn		= nft_flush_set,
-+			.flush		= true,
+ 	if (nla[NFTA_SET_ELEM_LIST_ELEMENTS] == NULL) {
+-		struct nft_set_dump_args args = {
+-			.iter	= {
+-				.genmask	= genmask,
+-				.fn		= nft_flush_set,
+-			},
++		struct nft_set_iter iter = {
++			.genmask	= genmask,
++			.fn		= nft_flush_set,
  		};
- 		set->ops->walk(&ctx, set, &iter);
+-		set->ops->walk(&ctx, set, &args.iter);
++		set->ops->walk(&ctx, set, &iter);
  
-@@ -5089,6 +5092,7 @@ static int nf_tables_check_loops(const struct nft_ctx *ctx,
- 			iter.count	= 0;
- 			iter.err	= 0;
- 			iter.fn		= nf_tables_loop_check_setelem;
-+			iter.flush	= false;
+-		return args.iter.err;
++		return iter.err;
+ 	}
  
- 			set->ops->walk(ctx, set, &iter);
- 			if (iter.err < 0)
+ 	nla_for_each_nested(attr, nla[NFTA_SET_ELEM_LIST_ELEMENTS], rem) {
 -- 
 2.1.4
-
