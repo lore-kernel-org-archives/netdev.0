@@ -1,72 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Fw: [Bug 193911] New: net_prio.ifpriomap is not aware of the network namespace, and discloses all network interface
-Date: Mon, 13 Feb 2017 08:04:57 +1300
-Message-ID: <87mvdrkz6u.fsf@xmission.com>
-References: <20170203155330.06edece4@xeon-e3>
-        <CAM_iQpVB_OvJy4Yz97MeOh9hNwm-mTG9aM1FWBpaaOmjroWvVw@mail.gmail.com>
-        <20170206204728.GA23737@htj.duckdns.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        xgao01@email.wm.edu
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:36647 "EHLO
-        out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751218AbdBLTJ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 14:09:26 -0500
-In-Reply-To: <20170206204728.GA23737@htj.duckdns.org> (Tejun Heo's message of
-        "Mon, 6 Feb 2017 15:47:28 -0500")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 02/21] netfilter: nf_tables: pass netns to set->ops->remove()
+Date: Sun, 12 Feb 2017 20:42:34 +0100
+Message-ID: <1486928573-24773-3-git-send-email-pablo@netfilter.org>
+References: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tejun Heo <tj@kernel.org> writes:
+This new parameter is required by the new bitmap set type that comes in a
+follow up patch.
 
-> Hello,
->
-> On Sun, Feb 05, 2017 at 11:05:36PM -0800, Cong Wang wrote:
->> > To be more specific, the read operation of net_prio.ifpriomap is handled by the
->> > function read_priomap. Tracing from this function, we can find it invokes
->> > for_each_netdev_rcu and set the first parameter as the address of init_net. It
->> > iterates all network devices of the host regardless of the network namespace.
->> > Thus, from the view of a container, it can read the names of all network
->> > devices of the host.
->> 
->> I think that is probably because cgroup files don't provide a net pointer
->> for the context, if so we probably need some API similar to
->> class_create_file_ns().
->
-> Yeah, the whole thing never considered netns or delegation.  Maybe the
-> read function itself should probably filter on the namespace of the
-> reader?  I'm not completely sure whether trying to fix it won't cause
-> some of existing use cases to break.  Eric, what do you think?
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/net/netfilter/nf_tables.h | 3 ++-
+ net/netfilter/nf_tables_api.c     | 6 +++---
+ net/netfilter/nft_set_hash.c      | 3 ++-
+ net/netfilter/nft_set_rbtree.c    | 3 ++-
+ 4 files changed, 9 insertions(+), 6 deletions(-)
 
-Apologies for the delay I just made it back from vacation.
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 7dfdb517f0be..a721bcb1210c 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -298,7 +298,8 @@ struct nft_set_ops {
+ 	bool				(*deactivate_one)(const struct net *net,
+ 							  const struct nft_set *set,
+ 							  void *priv);
+-	void				(*remove)(const struct nft_set *set,
++	void				(*remove)(const struct net *net,
++						  const struct nft_set *set,
+ 						  const struct nft_set_elem *elem);
+ 	void				(*walk)(const struct nft_ctx *ctx,
+ 						struct nft_set *set,
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 57eeae63f597..3643ce345b59 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3752,7 +3752,7 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 	return 0;
+ 
+ err6:
+-	set->ops->remove(set, &elem);
++	set->ops->remove(ctx->net, set, &elem);
+ err5:
+ 	kfree(trans);
+ err4:
+@@ -4804,7 +4804,7 @@ static int nf_tables_commit(struct net *net, struct sk_buff *skb)
+ 			nf_tables_setelem_notify(&trans->ctx, te->set,
+ 						 &te->elem,
+ 						 NFT_MSG_DELSETELEM, 0);
+-			te->set->ops->remove(te->set, &te->elem);
++			te->set->ops->remove(net, te->set, &te->elem);
+ 			atomic_dec(&te->set->nelems);
+ 			te->set->ndeact--;
+ 			break;
+@@ -4925,7 +4925,7 @@ static int nf_tables_abort(struct net *net, struct sk_buff *skb)
+ 		case NFT_MSG_NEWSETELEM:
+ 			te = (struct nft_trans_elem *)trans->data;
+ 
+-			te->set->ops->remove(te->set, &te->elem);
++			te->set->ops->remove(net, te->set, &te->elem);
+ 			atomic_dec(&te->set->nelems);
+ 			break;
+ 		case NFT_MSG_DELSETELEM:
+diff --git a/net/netfilter/nft_set_hash.c b/net/netfilter/nft_set_hash.c
+index e36069fb76ae..bb157bd47fe8 100644
+--- a/net/netfilter/nft_set_hash.c
++++ b/net/netfilter/nft_set_hash.c
+@@ -203,7 +203,8 @@ static void *nft_hash_deactivate(const struct net *net,
+ 	return he;
+ }
+ 
+-static void nft_hash_remove(const struct nft_set *set,
++static void nft_hash_remove(const struct net *net,
++			    const struct nft_set *set,
+ 			    const struct nft_set_elem *elem)
+ {
+ 	struct nft_hash *priv = nft_set_priv(set);
+diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
+index f06f55ee516d..9fbd70da1633 100644
+--- a/net/netfilter/nft_set_rbtree.c
++++ b/net/netfilter/nft_set_rbtree.c
+@@ -151,7 +151,8 @@ static int nft_rbtree_insert(const struct net *net, const struct nft_set *set,
+ 	return err;
+ }
+ 
+-static void nft_rbtree_remove(const struct nft_set *set,
++static void nft_rbtree_remove(const struct net *net,
++			      const struct nft_set *set,
+ 			      const struct nft_set_elem *elem)
+ {
+ 	struct nft_rbtree *priv = nft_set_priv(set);
+-- 
+2.1.4
 
-There are cases where we do look at the reader/opener of the  file, and
-it is a pain, almost always the best policy is to have the context fixed
-at mount time.
-
-I don't see an obvious answer of what better semantics for this file
-should be.  Perhaps Docker can mount over this file on older kernels?
-
-The namespace primitives that people build containers out of were never
-guaranteed not to leak the fact that you are in a container.  So a small
-essentially harmless information leak is not something I panic about.
-It is the setting up of the container itself that must know what the
-primitives do to ensure that leaks don't happen, if you want to avoid leaks.
-
-That said if this controller/file does not consider netns and delegation
-I suspect the right thing to do is put it under CONFIG_BROKEN or
-possibly
-CONFIG_I_REALLY_NEED_THIS_SILLY_CODE_FOR_BACKWARDS_COMPATIBILITY
-aka CONFIG_STAGING and let the code age out of the kernel there.
-
-If someone actually cares about this code and wants to fix it to do the
-something reasonable and is willing to dig through all of the subtleties
-I can help with that.  I may be wrong but the code feels like something
-that just isn't interesting enough to make it worth fixing.
-
-Eric
