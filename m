@@ -1,53 +1,153 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] i40e: update comment explaining where FDIR buffers are freed
-Date: Sat, 11 Feb 2017 21:30:20 -0800
-Message-ID: <20170212053028.98581-7-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] i40e: Add bus number info to i40e_bus_info struct
+Date: Sat, 11 Feb 2017 21:30:23 -0800
+Message-ID: <20170212053028.98581-10-jeffrey.t.kirsher@intel.com>
 References: <20170212053028.98581-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga05.intel.com ([192.55.52.43]:18297 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750714AbdBLFac (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 12 Feb 2017 00:30:32 -0500
+        id S1751132AbdBLFad (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 12 Feb 2017 00:30:33 -0500
 In-Reply-To: <20170212053028.98581-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
 
-The original comment implies that the only location where the raw_packet
-buffer will be freed is in i40e_clean_tx_ring() which is incorrect. In
-fact this isn't even the normal case. Update the comment explaining
-where the memory is freed.
+Currently i40e_bus_info has PCI device and function info only and log
+messages print device number as bus number. Added field to provide bus
+number info and modified log statements to print bus, device and
+function information.
 
-Change-ID: Ie0defc35ed1c3af183f81fdc60b6d783707a5595
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: I811617cee2714cc0d6bade8d369f57040990756f
+Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_client.c   | 16 +++++++++-------
+ drivers/net/ethernet/intel/i40e/i40e_main.c     |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_osdep.h    | 12 ++++++------
+ drivers/net/ethernet/intel/i40e/i40e_type.h     |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h   |  1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |  1 +
+ 6 files changed, 19 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 1202b4c7..09f09ea 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -432,7 +432,12 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
- 		ret = -EINVAL;
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index 233627e..d570219 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -510,9 +510,10 @@ void i40e_client_subtask(struct i40e_pf *pf)
+ 			continue;
  
--	/* The buffer allocated here is freed by the i40e_clean_tx_ring() */
-+	/* The buffer allocated here will be normally be freed by
-+	 * i40e_clean_fdir_tx_irq() as it reclaims resources after transmit
-+	 * completion. In the event of an error adding the buffer to the FDIR
-+	 * ring, it will immediately be freed. It may also be freed by
-+	 * i40e_clean_tx_ring() when closing the VSI.
-+	 */
- 	return ret;
- }
+ 		if (!existing) {
+-			dev_info(&pf->pdev->dev, "Added instance of Client %s to PF%d bus=0x%02x func=0x%02x\n",
++			dev_info(&pf->pdev->dev, "Added instance of Client %s to PF%d bus=0x%02x dev=0x%02x func=0x%02x\n",
+ 				 client->name, pf->hw.pf_id,
+-				 pf->hw.bus.device, pf->hw.bus.func);
++				 pf->hw.bus.bus_id, pf->hw.bus.device,
++				 pf->hw.bus.func);
+ 		}
  
+ 		mutex_lock(&i40e_client_instance_mutex);
+@@ -561,8 +562,9 @@ int i40e_lan_add_device(struct i40e_pf *pf)
+ 	ldev->pf = pf;
+ 	INIT_LIST_HEAD(&ldev->list);
+ 	list_add(&ldev->list, &i40e_devices);
+-	dev_info(&pf->pdev->dev, "Added LAN device PF%d bus=0x%02x func=0x%02x\n",
+-		 pf->hw.pf_id, pf->hw.bus.device, pf->hw.bus.func);
++	dev_info(&pf->pdev->dev, "Added LAN device PF%d bus=0x%02x dev=0x%02x func=0x%02x\n",
++		 pf->hw.pf_id, pf->hw.bus.bus_id,
++		 pf->hw.bus.device, pf->hw.bus.func);
+ 
+ 	/* Since in some cases register may have happened before a device gets
+ 	 * added, we can schedule a subtask to go initiate the clients if
+@@ -590,9 +592,9 @@ int i40e_lan_del_device(struct i40e_pf *pf)
+ 	mutex_lock(&i40e_device_mutex);
+ 	list_for_each_entry_safe(ldev, tmp, &i40e_devices, list) {
+ 		if (ldev->pf == pf) {
+-			dev_info(&pf->pdev->dev, "Deleted LAN device PF%d bus=0x%02x func=0x%02x\n",
+-				 pf->hw.pf_id, pf->hw.bus.device,
+-				 pf->hw.bus.func);
++			dev_info(&pf->pdev->dev, "Deleted LAN device PF%d bus=0x%02x dev=0x%02x func=0x%02x\n",
++				 pf->hw.pf_id, pf->hw.bus.bus_id,
++				 pf->hw.bus.device, pf->hw.bus.func);
+ 			list_del(&ldev->list);
+ 			kfree(ldev);
+ 			ret = 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 0afb32b..0f00b1a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -10990,6 +10990,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	hw->subsystem_device_id = pdev->subsystem_device;
+ 	hw->bus.device = PCI_SLOT(pdev->devfn);
+ 	hw->bus.func = PCI_FUNC(pdev->devfn);
++	hw->bus.bus_id = pdev->bus->number;
+ 	pf->instance = pfs_found;
+ 
+ 	/* set up the locks for the AQ, do this only once in probe
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_osdep.h b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+index be74bcf..fea81ed 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_osdep.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_osdep.h
+@@ -69,12 +69,12 @@ struct i40e_virt_mem {
+ #define i40e_allocate_virt_mem(h, m, s) i40e_allocate_virt_mem_d(h, m, s)
+ #define i40e_free_virt_mem(h, m) i40e_free_virt_mem_d(h, m)
+ 
+-#define i40e_debug(h, m, s, ...)                                \
+-do {                                                            \
+-	if (((m) & (h)->debug_mask))                            \
+-		pr_info("i40e %02x.%x " s,                      \
+-			(h)->bus.device, (h)->bus.func,         \
+-			##__VA_ARGS__);                         \
++#define i40e_debug(h, m, s, ...)				\
++do {								\
++	if (((m) & (h)->debug_mask))				\
++		pr_info("i40e %02x:%02x.%x " s,			\
++			(h)->bus.bus_id, (h)->bus.device,	\
++			(h)->bus.func, ##__VA_ARGS__);		\
+ } while (0)
+ 
+ typedef enum i40e_status_code i40e_status;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index b6cf8d2..9e9ae9f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -469,6 +469,7 @@ struct i40e_bus_info {
+ 	u16 func;
+ 	u16 device;
+ 	u16 lan_id;
++	u16 bus_id;
+ };
+ 
+ /* Flow control (FC) parameters */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 92ac60d..3f19dff 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -442,6 +442,7 @@ struct i40e_bus_info {
+ 	u16 func;
+ 	u16 device;
+ 	u16 lan_id;
++	u16 bus_id;
+ };
+ 
+ /* Flow control (FC) parameters */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 729d8fa..920c1cb 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2726,6 +2726,7 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	hw->subsystem_device_id = pdev->subsystem_device;
+ 	hw->bus.device = PCI_SLOT(pdev->devfn);
+ 	hw->bus.func = PCI_FUNC(pdev->devfn);
++	hw->bus.bus_id = pdev->bus->number;
+ 
+ 	/* set up the locks for the AQ, do this only once in probe
+ 	 * and destroy them only once in remove
 -- 
 2.10.2
