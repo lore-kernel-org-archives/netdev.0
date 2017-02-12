@@ -1,276 +1,60 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/21] netfilter: nft_exthdr: add TCP option matching
-Date: Sun, 12 Feb 2017 20:42:44 +0100
-Message-ID: <1486928573-24773-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 18/21] netfilter: nf_tables: add check_genid to the nfnetlink subsystem
+Date: Sun, 12 Feb 2017 20:42:50 +0100
+Message-ID: <1486928573-24773-19-git-send-email-pablo@netfilter.org>
 References: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60444 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751443AbdBLTnY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 12 Feb 2017 14:43:24 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 8D734BA6E6
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:23 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 7E6CDDA853
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:23 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 53D23DA847
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 20:43:21 +0100 (CET)
 In-Reply-To: <1486928573-24773-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Manuel Messner <mm@skelett.io>
+This patch implements the check generation id as provided by nfnetlink.
+This allows us to reject ruleset updates against stale baseline, so
+userspace can retry update with a fresh ruleset cache.
 
-This patch implements the kernel side of the TCP option patch.
-
-Signed-off-by: Manuel Messner <mm@skelett.io>
-Reviewed-by: Florian Westphal <fw@strlen.de>
-Acked-by: Phil Sutter <phil@nwl.cc>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_tables.h |  17 ++++-
- net/netfilter/Kconfig                    |   4 +-
- net/netfilter/nft_exthdr.c               | 119 +++++++++++++++++++++++++++----
- 3 files changed, 124 insertions(+), 16 deletions(-)
+ net/netfilter/nf_tables_api.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 3e60ed78c538..207951516ede 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -709,13 +709,27 @@ enum nft_exthdr_flags {
- };
- 
- /**
-- * enum nft_exthdr_attributes - nf_tables IPv6 extension header expression netlink attributes
-+ * enum nft_exthdr_op - nf_tables match options
-+ *
-+ * @NFT_EXTHDR_OP_IPV6: match against ipv6 extension headers
-+ * @NFT_EXTHDR_OP_TCP: match against tcp options
-+ */
-+enum nft_exthdr_op {
-+	NFT_EXTHDR_OP_IPV6,
-+	NFT_EXTHDR_OP_TCPOPT,
-+	__NFT_EXTHDR_OP_MAX
-+};
-+#define NFT_EXTHDR_OP_MAX	(__NFT_EXTHDR_OP_MAX - 1)
-+
-+/**
-+ * enum nft_exthdr_attributes - nf_tables extension header expression netlink attributes
-  *
-  * @NFTA_EXTHDR_DREG: destination register (NLA_U32: nft_registers)
-  * @NFTA_EXTHDR_TYPE: extension header type (NLA_U8)
-  * @NFTA_EXTHDR_OFFSET: extension header offset (NLA_U32)
-  * @NFTA_EXTHDR_LEN: extension header length (NLA_U32)
-  * @NFTA_EXTHDR_FLAGS: extension header flags (NLA_U32)
-+ * @NFTA_EXTHDR_OP: option match type (NLA_U8)
-  */
- enum nft_exthdr_attributes {
- 	NFTA_EXTHDR_UNSPEC,
-@@ -724,6 +738,7 @@ enum nft_exthdr_attributes {
- 	NFTA_EXTHDR_OFFSET,
- 	NFTA_EXTHDR_LEN,
- 	NFTA_EXTHDR_FLAGS,
-+	NFTA_EXTHDR_OP,
- 	__NFTA_EXTHDR_MAX
- };
- #define NFTA_EXTHDR_MAX		(__NFTA_EXTHDR_MAX - 1)
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index ea479ed43373..9b28864cc36a 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -467,10 +467,10 @@ config NF_TABLES_NETDEV
- 	  This option enables support for the "netdev" table.
- 
- config NFT_EXTHDR
--	tristate "Netfilter nf_tables IPv6 exthdr module"
-+	tristate "Netfilter nf_tables exthdr module"
- 	help
- 	  This option adds the "exthdr" expression that you can use to match
--	  IPv6 extension headers.
-+	  IPv6 extension headers and tcp options.
- 
- config NFT_META
- 	tristate "Netfilter nf_tables meta module"
-diff --git a/net/netfilter/nft_exthdr.c b/net/netfilter/nft_exthdr.c
-index a89e5ab150db..c308920b194c 100644
---- a/net/netfilter/nft_exthdr.c
-+++ b/net/netfilter/nft_exthdr.c
-@@ -15,20 +15,29 @@
- #include <linux/netfilter.h>
- #include <linux/netfilter/nf_tables.h>
- #include <net/netfilter/nf_tables.h>
--// FIXME:
--#include <net/ipv6.h>
-+#include <net/tcp.h>
- 
- struct nft_exthdr {
- 	u8			type;
- 	u8			offset;
- 	u8			len;
-+	u8			op;
- 	enum nft_registers	dreg:8;
- 	u8			flags;
- };
- 
--static void nft_exthdr_eval(const struct nft_expr *expr,
--			    struct nft_regs *regs,
--			    const struct nft_pktinfo *pkt)
-+static unsigned int optlen(const u8 *opt, unsigned int offset)
-+{
-+	/* Beware zero-length options: make finite progress */
-+	if (opt[offset] <= TCPOPT_NOP || opt[offset + 1] == 0)
-+		return 1;
-+	else
-+		return opt[offset + 1];
-+}
-+
-+static void nft_exthdr_ipv6_eval(const struct nft_expr *expr,
-+				 struct nft_regs *regs,
-+				 const struct nft_pktinfo *pkt)
- {
- 	struct nft_exthdr *priv = nft_expr_priv(expr);
- 	u32 *dest = &regs->data[priv->dreg];
-@@ -52,6 +61,53 @@ static void nft_exthdr_eval(const struct nft_expr *expr,
- 	regs->verdict.code = NFT_BREAK;
- }
- 
-+static void nft_exthdr_tcp_eval(const struct nft_expr *expr,
-+				struct nft_regs *regs,
-+				const struct nft_pktinfo *pkt)
-+{
-+	u8 buff[sizeof(struct tcphdr) + MAX_TCP_OPTION_SPACE];
-+	struct nft_exthdr *priv = nft_expr_priv(expr);
-+	unsigned int i, optl, tcphdr_len, offset;
-+	u32 *dest = &regs->data[priv->dreg];
-+	struct tcphdr *tcph;
-+	u8 *opt;
-+
-+	if (!pkt->tprot_set || pkt->tprot != IPPROTO_TCP)
-+		goto err;
-+
-+	tcph = skb_header_pointer(pkt->skb, pkt->xt.thoff, sizeof(*tcph), buff);
-+	if (!tcph)
-+		goto err;
-+
-+	tcphdr_len = __tcp_hdrlen(tcph);
-+	if (tcphdr_len < sizeof(*tcph))
-+		goto err;
-+
-+	tcph = skb_header_pointer(pkt->skb, pkt->xt.thoff, tcphdr_len, buff);
-+	if (!tcph)
-+		goto err;
-+
-+	opt = (u8 *)tcph;
-+	for (i = sizeof(*tcph); i < tcphdr_len - 1; i += optl) {
-+		optl = optlen(opt, i);
-+
-+		if (priv->type != opt[i])
-+			continue;
-+
-+		if (i + optl > tcphdr_len || priv->len + priv->offset > optl)
-+			goto err;
-+
-+		offset = i + priv->offset;
-+		dest[priv->len / NFT_REG32_SIZE] = 0;
-+		memcpy(dest, opt + offset, priv->len);
-+
-+		return;
-+	}
-+
-+err:
-+	regs->verdict.code = NFT_BREAK;
-+}
-+
- static const struct nla_policy nft_exthdr_policy[NFTA_EXTHDR_MAX + 1] = {
- 	[NFTA_EXTHDR_DREG]		= { .type = NLA_U32 },
- 	[NFTA_EXTHDR_TYPE]		= { .type = NLA_U8 },
-@@ -65,13 +121,13 @@ static int nft_exthdr_init(const struct nft_ctx *ctx,
- 			   const struct nlattr * const tb[])
- {
- 	struct nft_exthdr *priv = nft_expr_priv(expr);
--	u32 offset, len, flags = 0;
-+	u32 offset, len, flags = 0, op = NFT_EXTHDR_OP_IPV6;
- 	int err;
- 
--	if (tb[NFTA_EXTHDR_DREG] == NULL ||
--	    tb[NFTA_EXTHDR_TYPE] == NULL ||
--	    tb[NFTA_EXTHDR_OFFSET] == NULL ||
--	    tb[NFTA_EXTHDR_LEN] == NULL)
-+	if (!tb[NFTA_EXTHDR_DREG] ||
-+	    !tb[NFTA_EXTHDR_TYPE] ||
-+	    !tb[NFTA_EXTHDR_OFFSET] ||
-+	    !tb[NFTA_EXTHDR_LEN])
- 		return -EINVAL;
- 
- 	err = nft_parse_u32_check(tb[NFTA_EXTHDR_OFFSET], U8_MAX, &offset);
-@@ -91,11 +147,18 @@ static int nft_exthdr_init(const struct nft_ctx *ctx,
- 			return -EINVAL;
- 	}
- 
-+	if (tb[NFTA_EXTHDR_OP]) {
-+		err = nft_parse_u32_check(tb[NFTA_EXTHDR_OP], U8_MAX, &op);
-+		if (err < 0)
-+			return err;
-+	}
-+
- 	priv->type   = nla_get_u8(tb[NFTA_EXTHDR_TYPE]);
- 	priv->offset = offset;
- 	priv->len    = len;
- 	priv->dreg   = nft_parse_register(tb[NFTA_EXTHDR_DREG]);
- 	priv->flags  = flags;
-+	priv->op     = op;
- 
- 	return nft_validate_register_store(ctx, priv->dreg, NULL,
- 					   NFT_DATA_VALUE, priv->len);
-@@ -115,6 +178,8 @@ static int nft_exthdr_dump(struct sk_buff *skb, const struct nft_expr *expr)
- 		goto nla_put_failure;
- 	if (nla_put_be32(skb, NFTA_EXTHDR_FLAGS, htonl(priv->flags)))
- 		goto nla_put_failure;
-+	if (nla_put_be32(skb, NFTA_EXTHDR_OP, htonl(priv->op)))
-+		goto nla_put_failure;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index cb6ae46f6c48..71c60a04b66b 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -4972,6 +4972,11 @@ static int nf_tables_abort(struct net *net, struct sk_buff *skb)
  	return 0;
- 
- nla_put_failure:
-@@ -122,17 +187,45 @@ static int nft_exthdr_dump(struct sk_buff *skb, const struct nft_expr *expr)
  }
  
- static struct nft_expr_type nft_exthdr_type;
--static const struct nft_expr_ops nft_exthdr_ops = {
-+static const struct nft_expr_ops nft_exthdr_ipv6_ops = {
-+	.type		= &nft_exthdr_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_exthdr)),
-+	.eval		= nft_exthdr_ipv6_eval,
-+	.init		= nft_exthdr_init,
-+	.dump		= nft_exthdr_dump,
-+};
-+
-+static const struct nft_expr_ops nft_exthdr_tcp_ops = {
- 	.type		= &nft_exthdr_type,
- 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_exthdr)),
--	.eval		= nft_exthdr_eval,
-+	.eval		= nft_exthdr_tcp_eval,
- 	.init		= nft_exthdr_init,
- 	.dump		= nft_exthdr_dump,
- };
- 
-+static const struct nft_expr_ops *
-+nft_exthdr_select_ops(const struct nft_ctx *ctx,
-+		      const struct nlattr * const tb[])
++static bool nf_tables_valid_genid(struct net *net, u32 genid)
 +{
-+	u32 op;
-+
-+	if (!tb[NFTA_EXTHDR_OP])
-+		return &nft_exthdr_ipv6_ops;
-+
-+	op = ntohl(nla_get_u32(tb[NFTA_EXTHDR_OP]));
-+	switch (op) {
-+	case NFT_EXTHDR_OP_TCPOPT:
-+		return &nft_exthdr_tcp_ops;
-+	case NFT_EXTHDR_OP_IPV6:
-+		return &nft_exthdr_ipv6_ops;
-+	}
-+
-+	return ERR_PTR(-EOPNOTSUPP);
++	return net->nft.base_seq == genid;
 +}
 +
- static struct nft_expr_type nft_exthdr_type __read_mostly = {
- 	.name		= "exthdr",
--	.ops		= &nft_exthdr_ops,
-+	.select_ops	= &nft_exthdr_select_ops,
- 	.policy		= nft_exthdr_policy,
- 	.maxattr	= NFTA_EXTHDR_MAX,
- 	.owner		= THIS_MODULE,
+ static const struct nfnetlink_subsystem nf_tables_subsys = {
+ 	.name		= "nf_tables",
+ 	.subsys_id	= NFNL_SUBSYS_NFTABLES,
+@@ -4979,6 +4984,7 @@ static const struct nfnetlink_subsystem nf_tables_subsys = {
+ 	.cb		= nf_tables_cb,
+ 	.commit		= nf_tables_commit,
+ 	.abort		= nf_tables_abort,
++	.valid_genid	= nf_tables_valid_genid,
+ };
+ 
+ int nft_chain_validate_dependency(const struct nft_chain *chain,
 -- 
 2.1.4
-
