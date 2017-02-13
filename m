@@ -1,111 +1,59 @@
-From: Alexander Alemayhu <alexander@alemayhu.com>
-Subject: [PATCH] bpf: reduce compiler warnings by adding fallthrough comments
-Date: Tue, 14 Feb 2017 00:02:35 +0100
-Message-ID: <20170213230235.12677-1-alexander@alemayhu.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Mon, 13 Feb 2017 15:16:35 -0800
+Message-ID: <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
+References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
+ <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com> <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: ast@kernel.org, daniel@iogearbox.net, brouer@redhat.com,
-        dcb314@hotmail.com, jbacik@fb.com,
-        Alexander Alemayhu <alexander@alemayhu.com>
-To: netdev@vger.kernel.org
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:36435 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbdBMXCu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 18:02:50 -0500
-Received: by mail-lf0-f48.google.com with SMTP id z134so58153246lff.3
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 15:02:50 -0800 (PST)
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35575 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750975AbdBMXQh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 18:16:37 -0500
+Received: by mail-it0-f65.google.com with SMTP id 203so1141995ith.2
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 15:16:36 -0800 (PST)
+In-Reply-To: <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes the following warnings:
+On Mon, Feb 13, 2017 at 1:09 PM, Eric Dumazet <edumazet@google.com> wrote:
+> On Mon, Feb 13, 2017 at 12:51 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+>> On Mon, Feb 13, 2017 at 11:58 AM, Eric Dumazet <edumazet@google.com> wrote:
+>
+>>> +                              PAGE_SIZE, priv->dma_dir);
+>>>                 page = page_alloc->page;
+>>>                 /* Revert changes done by mlx4_alloc_pages */
+>>> -               page_ref_sub(page, page_alloc->page_size /
+>>> +               page_ref_sub(page, PAGE_SIZE /
+>>>                                    priv->frag_info[i].frag_stride - 1);
+>>>                 put_page(page);
+>>>                 page_alloc->page = NULL;
+>>
+>> You can probably simplify this by using __page_frag_cache_drain since
+>> that way you can just doe the sub and test for the whole set instead
+>> of doing N - 1 and 1.
+>
+> Well, we remove this anyway in following patch ;)
 
-kernel/bpf/verifier.c: In function ‘may_access_direct_pkt_data’:
-kernel/bpf/verifier.c:702:6: warning: this statement may fall through [-Wimplicit-fallthrough=]
-   if (t == BPF_WRITE)
-      ^
-kernel/bpf/verifier.c:704:2: note: here
-  case BPF_PROG_TYPE_SCHED_CLS:
-  ^~~~
-kernel/bpf/verifier.c: In function ‘reg_set_min_max_inv’:
-kernel/bpf/verifier.c:2057:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
-   true_reg->min_value = 0;
-   ~~~~~~~~~~~~~~~~~~~~^~~
-kernel/bpf/verifier.c:2058:2: note: here
-  case BPF_JSGT:
-  ^~~~
-kernel/bpf/verifier.c:2068:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
-   true_reg->min_value = 0;
-   ~~~~~~~~~~~~~~~~~~~~^~~
-kernel/bpf/verifier.c:2069:2: note: here
-  case BPF_JSGE:
-  ^~~~
-kernel/bpf/verifier.c: In function ‘reg_set_min_max’:
-kernel/bpf/verifier.c:2009:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
-   false_reg->min_value = 0;
-   ~~~~~~~~~~~~~~~~~~~~~^~~
-kernel/bpf/verifier.c:2010:2: note: here
-  case BPF_JSGT:
-  ^~~~
-kernel/bpf/verifier.c:2019:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
-   false_reg->min_value = 0;
-   ~~~~~~~~~~~~~~~~~~~~~^~~
-kernel/bpf/verifier.c:2020:2: note: here
-  case BPF_JSGE:
-  ^~~~
+Any plans to add the bulk page count updates back at some point?  I
+just got around to adding it for igb in commit bd4171a5d4c2 ("igb:
+update code to better handle incrementing page count").  I should have
+patches for ixgbe, i40e, and i40evf here pretty soon.  That was one of
+the reasons why I implemented __page_frag_cache_drain in the first
+place.  As I'm sure Jesper will probably point out the atomic op for
+get_page/page_ref_inc can be pretty expensive if I recall correctly.
 
-Reported-by: David Binderman <dcb314@hotmail.com>
-Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
----
-Using gcc (GCC) 7.0.1 20170204 (Red Hat 7.0.1-0.6)
-
- kernel/bpf/verifier.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 1a754e5d2695..d2bded2b250c 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -701,6 +701,7 @@ static bool may_access_direct_pkt_data(struct bpf_verifier_env *env,
- 		/* dst_input() and dst_output() can't write for now */
- 		if (t == BPF_WRITE)
- 			return false;
-+		/* fallthrough */
- 	case BPF_PROG_TYPE_SCHED_CLS:
- 	case BPF_PROG_TYPE_SCHED_ACT:
- 	case BPF_PROG_TYPE_XDP:
-@@ -2007,6 +2008,7 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
- 	case BPF_JGT:
- 		/* Unsigned comparison, the minimum value is 0. */
- 		false_reg->min_value = 0;
-+		/* fallthrough */
- 	case BPF_JSGT:
- 		/* If this is false then we know the maximum val is val,
- 		 * otherwise we know the min val is val+1.
-@@ -2017,6 +2019,7 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
- 	case BPF_JGE:
- 		/* Unsigned comparison, the minimum value is 0. */
- 		false_reg->min_value = 0;
-+		/* fallthrough */
- 	case BPF_JSGE:
- 		/* If this is false then we know the maximum value is val - 1,
- 		 * otherwise we know the mimimum value is val.
-@@ -2055,6 +2058,7 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
- 	case BPF_JGT:
- 		/* Unsigned comparison, the minimum value is 0. */
- 		true_reg->min_value = 0;
-+		/* fallthrough */
- 	case BPF_JSGT:
- 		/*
- 		 * If this is false, then the val is <= the register, if it is
-@@ -2066,6 +2070,7 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
- 	case BPF_JGE:
- 		/* Unsigned comparison, the minimum value is 0. */
- 		true_reg->min_value = 0;
-+		/* fallthrough */
- 	case BPF_JSGE:
- 		/* If this is false then constant < register, if it is true then
- 		 * the register < constant.
--- 
-2.11.1
+- Alex
