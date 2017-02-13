@@ -1,7 +1,8 @@
 From: Jeffy Chen <jeffy.chen@rock-chips.com>
-Subject: [PATCH v2 1/3] Bluetooth: bnep: fix possible might sleep error in bnep_session
-Date: Mon, 13 Feb 2017 12:09:04 +0800
-Message-ID: <1486958946-25142-1-git-send-email-jeffy.chen@rock-chips.com>
+Subject: [PATCH v2 3/3] Bluetooth: hidp: fix possible might sleep error in hidp_session_thread
+Date: Mon, 13 Feb 2017 12:09:06 +0800
+Message-ID: <1486958946-25142-3-git-send-email-jeffy.chen@rock-chips.com>
+References: <1486958946-25142-1-git-send-email-jeffy.chen@rock-chips.com>
 Cc: Brian Norris <briannorris@chromium.org>,
         Douglas Anderson <dianders@chromium.org>,
         Johan Hedberg <johan.hedberg@intel.com>,
@@ -14,10 +15,11 @@ Cc: Brian Norris <briannorris@chromium.org>,
         Gustavo Padovan <gustavo@padovan.org>
 To: linux-bluetooth@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486958946-25142-1-git-send-email-jeffy.chen@rock-chips.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It looks like bnep_session has same pattern as the issue reported in
+It looks like hidp_session_thread has same pattern as the issue reported in
 old rfcomm:
 
 	while (1) {
@@ -36,57 +38,111 @@ So let's fix it at the same way, also follow the suggestion of:
 https://lwn.net/Articles/628628/
 
 Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+1/ Fix could not wake up by wake attempts on original wait queues.
+2/ Remove unnecessary memory barrier before wake_up_* functions.
+
 ---
 
-Changes in v2:
-Remove unnecessary memory barrier before wake_up_* functions.
+Changes in v2: None
 
- net/bluetooth/bnep/core.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ net/bluetooth/hidp/core.c | 33 ++++++++++++++++++++++-----------
+ 1 file changed, 22 insertions(+), 11 deletions(-)
 
-diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
-index fbf251f..4d6b94d 100644
---- a/net/bluetooth/bnep/core.c
-+++ b/net/bluetooth/bnep/core.c
-@@ -484,16 +484,16 @@ static int bnep_session(void *arg)
- 	struct net_device *dev = s->dev;
- 	struct sock *sk = s->sock->sk;
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 0bec458..076bc50 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -36,6 +36,7 @@
+ #define VERSION "1.2"
+ 
+ static DECLARE_RWSEM(hidp_session_sem);
++static DECLARE_WAIT_QUEUE_HEAD(hidp_session_wq);
+ static LIST_HEAD(hidp_session_list);
+ 
+ static unsigned char hidp_keycode[256] = {
+@@ -1068,12 +1069,12 @@ static int hidp_session_start_sync(struct hidp_session *session)
+  * Wake up session thread and notify it to stop. This is asynchronous and
+  * returns immediately. Call this whenever a runtime error occurs and you want
+  * the session to stop.
+- * Note: wake_up_process() performs any necessary memory-barriers for us.
++ * Note: wake_up_interruptible() performs any necessary memory-barriers for us.
+  */
+ static void hidp_session_terminate(struct hidp_session *session)
+ {
+ 	atomic_inc(&session->terminate);
+-	wake_up_process(session->task);
++	wake_up_interruptible(&hidp_session_wq);
+ }
+ 
+ /*
+@@ -1180,7 +1181,9 @@ static void hidp_session_run(struct hidp_session *session)
+ 	struct sock *ctrl_sk = session->ctrl_sock->sk;
+ 	struct sock *intr_sk = session->intr_sock->sk;
  	struct sk_buff *skb;
--	wait_queue_t wait;
 +	DEFINE_WAIT_FUNC(wait, woken_wake_function);
  
- 	BT_DBG("");
- 
- 	set_user_nice(current, -15);
- 
--	init_waitqueue_entry(&wait, current);
- 	add_wait_queue(sk_sleep(sk), &wait);
- 	while (1) {
++	add_wait_queue(&hidp_session_wq, &wait);
+ 	for (;;) {
+ 		/*
+ 		 * This thread can be woken up two ways:
+@@ -1188,12 +1191,10 @@ static void hidp_session_run(struct hidp_session *session)
+ 		 *    session->terminate flag and wakes this thread up.
+ 		 *  - Via modifying the socket state of ctrl/intr_sock. This
+ 		 *    thread is woken up by ->sk_state_changed().
+-		 *
+-		 * Note: set_current_state() performs any necessary
+-		 * memory-barriers for us.
+ 		 */
 -		set_current_state(TASK_INTERRUPTIBLE);
+ 
 +		/* Ensure session->terminate is updated */
 +		smp_mb__before_atomic();
- 
- 		if (atomic_read(&s->terminate))
+ 		if (atomic_read(&session->terminate))
  			break;
-@@ -515,9 +515,8 @@ static int bnep_session(void *arg)
- 				break;
- 		netif_wake_queue(dev);
+ 
+@@ -1227,11 +1228,22 @@ static void hidp_session_run(struct hidp_session *session)
+ 		hidp_process_transmit(session, &session->ctrl_transmit,
+ 				      session->ctrl_sock);
  
 -		schedule();
 +		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
  	}
--	__set_current_state(TASK_RUNNING);
- 	remove_wait_queue(sk_sleep(sk), &wait);
++	remove_wait_queue(&hidp_session_wq, &wait);
  
- 	/* Cleanup session */
-@@ -666,7 +665,7 @@ int bnep_del_connection(struct bnep_conndel_req *req)
- 	s = __bnep_get_session(req->dst);
- 	if (s) {
- 		atomic_inc(&s->terminate);
--		wake_up_process(s->task);
-+		wake_up_interruptible(sk_sleep(s->sock->sk));
- 	} else
- 		err = -ENOENT;
+ 	atomic_inc(&session->terminate);
+-	set_current_state(TASK_RUNNING);
++
++	/* Ensure session->terminate is updated */
++	smp_mb__after_atomic();
++}
++
++int hidp_session_wake_function(wait_queue_t *wait, unsigned int mode,
++			       int sync, void *key)
++{
++	wake_up_interruptible(&hidp_session_wq);
++
++	return default_wake_function(wait, mode, sync, key);
+ }
  
+ /*
+@@ -1244,7 +1256,8 @@ static void hidp_session_run(struct hidp_session *session)
+ static int hidp_session_thread(void *arg)
+ {
+ 	struct hidp_session *session = arg;
+-	wait_queue_t ctrl_wait, intr_wait;
++	DEFINE_WAIT_FUNC(ctrl_wait, hidp_session_wake_function);
++	DEFINE_WAIT_FUNC(intr_wait, hidp_session_wake_function);
+ 
+ 	BT_DBG("session %p", session);
+ 
+@@ -1254,8 +1267,6 @@ static int hidp_session_thread(void *arg)
+ 	set_user_nice(current, -15);
+ 	hidp_set_timer(session);
+ 
+-	init_waitqueue_entry(&ctrl_wait, current);
+-	init_waitqueue_entry(&intr_wait, current);
+ 	add_wait_queue(sk_sleep(session->ctrl_sock->sk), &ctrl_wait);
+ 	add_wait_queue(sk_sleep(session->intr_sock->sk), &intr_wait);
+ 	/* This memory barrier is paired with wq_has_sleeper(). See
 -- 
 2.1.4
