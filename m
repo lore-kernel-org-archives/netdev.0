@@ -1,63 +1,38 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: Re: [PATCH net-next v2 4/6] gtp: consolidate pdp context
- destruction into helper
-Date: Mon, 13 Feb 2017 15:14:49 +0100 (CET)
-Message-ID: <1516124800.96408.1486995289464.JavaMail.zimbra@tpip.net>
-References: <20170130163713.17524-1-aschultz@tpip.net> <20170130163713.17524-5-aschultz@tpip.net> <20170206135859.mq6pidofidnps2q6@nataraja>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Mon, 13 Feb 2017 15:23:21 +0100
+Message-ID: <20170213142321.vkas3kdsc43xs35v@nataraja>
+References: <20170203091231.10142-1-jonas@southpole.se>
+ <1107124975.65949.1486977919253.JavaMail.zimbra@tpip.net>
+ <20170213111640.GA1458@salvia>
+ <1384904207.69904.1486986729381.JavaMail.zimbra@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: pablo <pablo@netfilter.org>, netdev <netdev@vger.kernel.org>,
-        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
-        openbsc <openbsc@lists.osmocom.org>
-To: laforge <laforge@gnumonks.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo <pablo@netfilter.org>, Jonas Bonn <jonas@southpole.se>,
+        netdev <netdev@vger.kernel.org>,
+        osmocom-net-gprs@lists.osmocom.org
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:58173 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752270AbdBMOOv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 09:14:51 -0500
-In-Reply-To: <20170206135859.mq6pidofidnps2q6@nataraja>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:42923 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752396AbdBMOXq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 09:23:46 -0500
+Content-Disposition: inline
+In-Reply-To: <1384904207.69904.1486986729381.JavaMail.zimbra@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Andreas, Pablo, Jonas,
 
+I think that the SGSN/GGSN role flag (or whatever it may end up being
+called) logically belongs in the gtp-device at this point, and will in
+the future belong to the UDP/GTP-socket (with Andreas' proposed
+changes).   Having it per-pdp-context indeed seems odd and just provide
+a way to create broken configurations (and increase the memory use per
+pdp context, of which you have many more than netdevs or gtp-sockets).
 
------ On Feb 6, 2017, at 2:58 PM, laforge laforge@gnumonks.org wrote:
-
-> Hi Andreas,
-> 
-> On Mon, Jan 30, 2017 at 05:37:11PM +0100, Andreas Schultz wrote:
->> Consolidate duplicate code into helper.
-> 
-> Makes complete sense.
-> 
-> However:
-> 
->> +static void pdp_context_delete(struct pdp_ctx *pctx);
->> +
-> 
-> why introduce the forward-declaration and then define the function
-> further down in the file?  I think in general, it is preferred to put
-> helper functions on top, before their first use, so forward declarations
-> can be avoided?  Particularly if the helper function doesn't call any
-> other functions that are not yet declared at this point.
-
-I wanted to keep functions that work on the data structure close
-together. I this case the function the initialized the pdp context
-and the delete function for it.
-
-Andreas
-
-> 
-> Please note the above might just be my personal taste, not sure if
-> that's a general habit in the kernel networking code these days.
-> 
-> So with or without the re-ordering:
-> 
-> Acked-by: Harald Welte <laforge@gnumonks.org>
-> 
-> --
-> - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-> ============================================================================
-> "Privacy in residential applications is a desirable marketing option."
->                                                   (ETSI EN 300 175-7 Ch. A6)
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
