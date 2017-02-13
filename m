@@ -1,38 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v4 net-next 5/8] sunvnet: straighten up message event
- handling logic
-Date: Mon, 13 Feb 2017 11:06:42 -0800
-Message-ID: <1487012802.6214.3.camel@perches.com>
-References: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
-         <1487012224-403399-6-git-send-email-shannon.nelson@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shannon Nelson <shannon.nelson@oracle.com>, netdev@vger.kernel.org,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487012224-403399-6-git-send-email-shannon.nelson@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] kcm: fix a null pointer dereference in kcm_sendmsg()
+Date: Mon, 13 Feb 2017 11:13:16 -0800
+Message-ID: <1487013196-2375-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: dvyukov@google.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ot0-f195.google.com ([74.125.82.195]:33775 "EHLO
+        mail-ot0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751578AbdBMTNa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 14:13:30 -0500
+Received: by mail-ot0-f195.google.com with SMTP id f9so13083965otd.0
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 11:13:30 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-02-13 at 10:57 -0800, Shannon Nelson wrote:
-> The use of gotos for handling the incoming events made this code
-> harder to read and support than it should be.  This patch straightens
-> out and clears up the logic.
-> 
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
-> ---
->  drivers/net/ethernet/sun/sunvnet_common.c |   94 ++++++++++++++---------------
->  1 files changed, 45 insertions(+), 49 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-[]
-> @@ -738,41 +738,37 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
-[]
-> +	/* we don't expect any other bits */
-> +	BUG_ON(port->rx_event & ~(LDC_EVENT_DATA_READY |
-> +				  LDC_EVENT_RESET |
-> +				  LDC_EVENT_UP));
+In commit 98e3862ca2b1 ("kcm: fix 0-length case for kcm_sendmsg()")
+I tried to avoid skb allocation for 0-length case, but missed
+a check for NULL pointer in the non EOR case.
 
-Is it really necessary to use BUG_ON here?
+Fixes: 98e3862ca2b1 ("kcm: fix 0-length case for kcm_sendmsg()")
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: Tom Herbert <tom@herbertland.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/kcm/kcmsock.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+index 64f0e85..a646f34 100644
+--- a/net/kcm/kcmsock.c
++++ b/net/kcm/kcmsock.c
+@@ -1044,8 +1044,10 @@ static int kcm_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 	} else {
+ 		/* Message not complete, save state */
+ partial_message:
+-		kcm->seq_skb = head;
+-		kcm_tx_msg(head)->last_skb = skb;
++		if (head) {
++			kcm->seq_skb = head;
++			kcm_tx_msg(head)->last_skb = skb;
++		}
+ 	}
+ 
+ 	KCM_STATS_ADD(kcm->stats.tx_bytes, copied);
+-- 
+2.5.5
