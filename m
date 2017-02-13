@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v3 net-next 12/14] mlx4: factorize page_address() calls
-Date: Mon, 13 Feb 2017 11:58:56 -0800
-Message-ID: <20170213195858.5215-13-edumazet@google.com>
+Subject: [PATCH v3 net-next 14/14] mlx4: remove duplicate code in mlx4_en_process_rx_cq()
+Date: Mon, 13 Feb 2017 11:58:58 -0800
+Message-ID: <20170213195858.5215-15-edumazet@google.com>
 References: <20170213195858.5215-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
@@ -15,95 +15,311 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:34053 "EHLO
-        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753148AbdBMT7u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 14:59:50 -0500
-Received: by mail-oi0-f47.google.com with SMTP id s203so57341050oie.1
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 11:59:50 -0800 (PST)
+Received: from mail-ot0-f170.google.com ([74.125.82.170]:35223 "EHLO
+        mail-ot0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753148AbdBMT7y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 14:59:54 -0500
+Received: by mail-ot0-f170.google.com with SMTP id 65so77092227otq.2
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 11:59:53 -0800 (PST)
 In-Reply-To: <20170213195858.5215-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to compute the frame virtual address at different points.
-Do it once.
+We should keep one way to build skbs, regardless of GRO being on or off.
 
-Following patch will use the new va address for validate_loopback()
+Note that I made sure to defer as much as possible the point we need to
+pull data from the frame, so that future prefetch() we might add
+are more effective.
+
+These skb attributes derive from the CQE or ring :
+ ip_summed, csum
+ hash
+ vlan offload
+ hwtstamps
+ queue_mapping
+
+As a bonus, this patch removes mlx4 dependency on eth_get_headlen()
+which is very often broken enough to give us headaches.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 209 ++++++-----------------------
+ 1 file changed, 41 insertions(+), 168 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index b62fa265890edd0eff50256bdc50fc907dbe8aa2..b5aa3f986508f0a5a89a40e18f8db99767068fef 100644
+index 33b28278c8270197c5a8f35521fd2af5e1e6b1be..aa074e57ce06fb2842fa1faabd156c3cd2fe10f5 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -734,9 +734,10 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	/* Process all completed CQEs */
- 	while (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK,
- 		    cq->mcq.cons_index & cq->size)) {
-+		void *va;
+@@ -526,64 +526,6 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
+ 	return 0;
+ }
  
- 		frags = ring->rx_info + (index << priv->log_rx_info);
 -
-+		va = page_address(frags[0].page) + frags[0].page_offset;
- 		/*
- 		 * make sure we read the CQE after we read the ownership bit
+-static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+-				      struct mlx4_en_rx_alloc *frags,
+-				      unsigned int length)
+-{
+-	struct sk_buff *skb;
+-	void *va;
+-	int used_frags;
+-	dma_addr_t dma;
+-
+-	skb = netdev_alloc_skb(priv->dev, SMALL_PACKET_SIZE + NET_IP_ALIGN);
+-	if (unlikely(!skb)) {
+-		en_dbg(RX_ERR, priv, "Failed allocating skb\n");
+-		return NULL;
+-	}
+-	skb_reserve(skb, NET_IP_ALIGN);
+-	skb->len = length;
+-
+-	/* Get pointer to first fragment so we could copy the headers into the
+-	 * (linear part of the) skb */
+-	va = page_address(frags[0].page) + frags[0].page_offset;
+-
+-	if (length <= SMALL_PACKET_SIZE) {
+-		/* We are copying all relevant data to the skb - temporarily
+-		 * sync buffers for the copy */
+-
+-		dma = frags[0].dma + frags[0].page_offset;
+-		dma_sync_single_for_cpu(priv->ddev, dma, length,
+-					DMA_FROM_DEVICE);
+-		skb_copy_to_linear_data(skb, va, length);
+-		skb->tail += length;
+-	} else {
+-		unsigned int pull_len;
+-
+-		/* Move relevant fragments to skb */
+-		used_frags = mlx4_en_complete_rx_desc(priv, frags,
+-							skb, length);
+-		if (unlikely(!used_frags)) {
+-			kfree_skb(skb);
+-			return NULL;
+-		}
+-		skb_shinfo(skb)->nr_frags = used_frags;
+-
+-		pull_len = eth_get_headlen(va, SMALL_PACKET_SIZE);
+-		/* Copy headers into the skb linear buffer */
+-		memcpy(skb->data, va, pull_len);
+-		skb->tail += pull_len;
+-
+-		/* Skip headers in first fragment */
+-		skb_shinfo(skb)->frags[0].page_offset += pull_len;
+-
+-		/* Adjust size of first fragment */
+-		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], pull_len);
+-		skb->data_len = length - pull_len;
+-	}
+-	return skb;
+-}
+-
+ static void validate_loopback(struct mlx4_en_priv *priv, void *va)
+ {
+ 	const unsigned char *data = va + ETH_HLEN;
+@@ -792,8 +734,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
  		 */
-@@ -759,7 +760,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		 * and not performing the selftest or flb disabled
- 		 */
- 		if (priv->flags & MLX4_EN_FLAG_RX_FILTER_NEEDED) {
--			struct ethhdr *ethh;
-+			const struct ethhdr *ethh = va;
- 			dma_addr_t dma;
- 			/* Get pointer to first fragment since we haven't
- 			 * skb yet and cast it to ethhdr struct
-@@ -767,8 +768,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			dma = frags[0].dma + frags[0].page_offset;
- 			dma_sync_single_for_cpu(priv->ddev, dma, sizeof(*ethh),
- 						DMA_FROM_DEVICE);
--			ethh = (struct ethhdr *)(page_address(frags[0].page) +
--						 frags[0].page_offset);
+ 		length = be32_to_cpu(cqe->byte_cnt);
+ 		length -= ring->fcs_del;
+-		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+-			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
  
- 			if (is_multicast_ether_addr(ethh->h_dest)) {
- 				struct mlx4_mac_entry *entry;
-@@ -808,8 +807,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 						priv->frag_info[0].frag_size,
- 						DMA_FROM_DEVICE);
+ 		/* A bpf program gets first chance to drop the packet. It may
+ 		 * read bytes but not past the end of the frag.
+@@ -849,122 +789,51 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		ring->bytes += length;
+ 		ring->packets++;
  
--			xdp.data_hard_start = page_address(frags[0].page);
--			xdp.data = xdp.data_hard_start + frags[0].page_offset;
-+			xdp.data_hard_start = va - frags[0].page_offset;
-+			xdp.data = va;
- 			xdp.data_end = xdp.data + length;
- 			orig_data = xdp.data;
- 
-@@ -819,6 +818,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 				length = xdp.data_end - xdp.data;
- 				frags[0].page_offset = xdp.data -
- 					xdp.data_hard_start;
-+				va = xdp.data;
++		skb = napi_get_frags(&cq->napi);
++		if (!skb)
++			goto next;
++
++		if (unlikely(ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL)) {
++			timestamp = mlx4_en_get_cqe_ts(cqe);
++			mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
++					       timestamp);
++		}
++		skb_record_rx_queue(skb, cq->ring);
++
+ 		if (likely(dev->features & NETIF_F_RXCSUM)) {
+ 			if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
+ 						      MLX4_CQE_STATUS_UDP)) {
+ 				if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
+ 				    cqe->checksum == cpu_to_be16(0xffff)) {
+ 					ip_summed = CHECKSUM_UNNECESSARY;
++					l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
++						(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
++					if (l2_tunnel)
++						skb->csum_level = 1;
+ 					ring->csum_ok++;
+ 				} else {
+-					ip_summed = CHECKSUM_NONE;
+-					ring->csum_none++;
++					goto csum_none;
+ 				}
+ 			} else {
+ 				if (priv->flags & MLX4_EN_FLAG_RX_CSUM_NON_TCP_UDP &&
+ 				    (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
+ 							       MLX4_CQE_STATUS_IPV6))) {
+-					ip_summed = CHECKSUM_COMPLETE;
+-					ring->csum_complete++;
++					if (check_csum(cqe, skb, va, dev->features)) {
++						goto csum_none;
++					} else {
++						ip_summed = CHECKSUM_COMPLETE;
++						ring->csum_complete++;
++					}
+ 				} else {
+-					ip_summed = CHECKSUM_NONE;
+-					ring->csum_none++;
++					goto csum_none;
+ 				}
  			}
- 
- 			switch (act) {
-@@ -891,7 +891,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 				goto next;
- 
- 			if (ip_summed == CHECKSUM_COMPLETE) {
--				void *va = skb_frag_address(skb_shinfo(gro_skb)->frags);
- 				if (check_csum(cqe, gro_skb, va,
- 					       dev->features)) {
- 					ip_summed = CHECKSUM_NONE;
-@@ -955,7 +954,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		} else {
++csum_none:
+ 			ip_summed = CHECKSUM_NONE;
+ 			ring->csum_none++;
  		}
+-
+-		/* This packet is eligible for GRO if it is:
+-		 * - DIX Ethernet (type interpretation)
+-		 * - TCP/IP (v4)
+-		 * - without IP options
+-		 * - not an IP fragment
+-		 */
+-		if (dev->features & NETIF_F_GRO) {
+-			struct sk_buff *gro_skb = napi_get_frags(&cq->napi);
+-			if (!gro_skb)
+-				goto next;
+-
+-			nr = mlx4_en_complete_rx_desc(priv, frags, gro_skb,
+-						      length);
+-			if (!nr)
+-				goto next;
+-
+-			if (ip_summed == CHECKSUM_COMPLETE) {
+-				if (check_csum(cqe, gro_skb, va,
+-					       dev->features)) {
+-					ip_summed = CHECKSUM_NONE;
+-					ring->csum_none++;
+-					ring->csum_complete--;
+-				}
+-			}
+-
+-			skb_shinfo(gro_skb)->nr_frags = nr;
+-			gro_skb->len = length;
+-			gro_skb->data_len = length;
+-			gro_skb->ip_summed = ip_summed;
+-
+-			if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
+-				gro_skb->csum_level = 1;
+-
+-			if ((cqe->vlan_my_qpn &
+-			    cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
+-			    (dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
+-				u16 vid = be16_to_cpu(cqe->sl_vid);
+-
+-				__vlan_hwaccel_put_tag(gro_skb, htons(ETH_P_8021Q), vid);
+-			} else if ((be32_to_cpu(cqe->vlan_my_qpn) &
+-				  MLX4_CQE_SVLAN_PRESENT_MASK) &&
+-				 (dev->features & NETIF_F_HW_VLAN_STAG_RX)) {
+-				__vlan_hwaccel_put_tag(gro_skb,
+-						       htons(ETH_P_8021AD),
+-						       be16_to_cpu(cqe->sl_vid));
+-			}
+-
+-			if (dev->features & NETIF_F_RXHASH)
+-				skb_set_hash(gro_skb,
+-					     be32_to_cpu(cqe->immed_rss_invalid),
+-					     (ip_summed == CHECKSUM_UNNECESSARY) ?
+-						PKT_HASH_TYPE_L4 :
+-						PKT_HASH_TYPE_L3);
+-
+-			skb_record_rx_queue(gro_skb, cq->ring);
+-
+-			if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
+-				timestamp = mlx4_en_get_cqe_ts(cqe);
+-				mlx4_en_fill_hwtstamps(mdev,
+-						       skb_hwtstamps(gro_skb),
+-						       timestamp);
+-			}
+-
+-			napi_gro_frags(&cq->napi);
+-			goto next;
+-		}
+-
+-		/* GRO not possible, complete processing here */
+-		skb = mlx4_en_rx_skb(priv, frags, length);
+-		if (unlikely(!skb)) {
+-			ring->dropped++;
+-			goto next;
+-		}
+-
+-		if (ip_summed == CHECKSUM_COMPLETE) {
+-			if (check_csum(cqe, skb, va, dev->features)) {
+-				ip_summed = CHECKSUM_NONE;
+-				ring->csum_complete--;
+-				ring->csum_none++;
+-			}
+-		}
+-
+ 		skb->ip_summed = ip_summed;
+-		skb->protocol = eth_type_trans(skb, dev);
+-		skb_record_rx_queue(skb, cq->ring);
+-
+-		if (l2_tunnel && ip_summed == CHECKSUM_UNNECESSARY)
+-			skb->csum_level = 1;
+-
+ 		if (dev->features & NETIF_F_RXHASH)
+ 			skb_set_hash(skb,
+ 				     be32_to_cpu(cqe->immed_rss_invalid),
+@@ -972,32 +841,36 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 					PKT_HASH_TYPE_L4 :
+ 					PKT_HASH_TYPE_L3);
  
- 		if (ip_summed == CHECKSUM_COMPLETE) {
--			if (check_csum(cqe, skb, skb->data, dev->features)) {
-+			if (check_csum(cqe, skb, va, dev->features)) {
- 				ip_summed = CHECKSUM_NONE;
- 				ring->csum_complete--;
- 				ring->csum_none++;
+-		if ((be32_to_cpu(cqe->vlan_my_qpn) &
+-		    MLX4_CQE_CVLAN_PRESENT_MASK) &&
++
++		if ((cqe->vlan_my_qpn &
++		     cpu_to_be32(MLX4_CQE_CVLAN_PRESENT_MASK)) &&
+ 		    (dev->features & NETIF_F_HW_VLAN_CTAG_RX))
+-			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), be16_to_cpu(cqe->sl_vid));
+-		else if ((be32_to_cpu(cqe->vlan_my_qpn) &
+-			  MLX4_CQE_SVLAN_PRESENT_MASK) &&
++			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++					       be16_to_cpu(cqe->sl_vid));
++		else if ((cqe->vlan_my_qpn &
++			  cpu_to_be32(MLX4_CQE_SVLAN_PRESENT_MASK)) &&
+ 			 (dev->features & NETIF_F_HW_VLAN_STAG_RX))
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021AD),
+ 					       be16_to_cpu(cqe->sl_vid));
+ 
+-		if (ring->hwtstamp_rx_filter == HWTSTAMP_FILTER_ALL) {
+-			timestamp = mlx4_en_get_cqe_ts(cqe);
+-			mlx4_en_fill_hwtstamps(mdev, skb_hwtstamps(skb),
+-					       timestamp);
++		nr = mlx4_en_complete_rx_desc(priv, frags, skb, length);
++		if (likely(nr)) {
++			skb_shinfo(skb)->nr_frags = nr;
++			skb->len = length;
++			skb->data_len = length;
++			napi_gro_frags(&cq->napi);
++		} else {
++			skb->vlan_tci = 0;
++			skb_clear_hash(skb);
+ 		}
+-
+-		napi_gro_receive(&cq->napi, skb);
+ next:
+ 		++cq->mcq.cons_index;
+ 		index = (cq->mcq.cons_index) & ring->size_mask;
+ 		cqe = mlx4_en_get_cqe(cq->buf, index, priv->cqe_size) + factor;
+ 		if (++polled == budget)
+-			goto out;
++			break;
+ 	}
+ 
+-out:
+ 	rcu_read_unlock();
+ 
+ 	if (polled) {
 -- 
 2.11.0.483.g087da7b7c-goog
