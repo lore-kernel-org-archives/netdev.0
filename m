@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] MAINTAINERS: Remove old e-mail address
-Date: Mon, 13 Feb 2017 12:24:52 -0500 (EST)
-Message-ID: <20170213.122452.1768827579246942054.davem@davemloft.net>
-References: <20170213171544.GD6473@kernel.org>
+Subject: Re: [PATCH] net:ethernet:aquantia: Add 2500/5000 mbit link modes
+ support.
+Date: Mon, 13 Feb 2017 12:26:08 -0500 (EST)
+Message-ID: <20170213.122608.1741813028941681007.davem@davemloft.net>
+References: <985062aeff6287805fa59f2d8a51636bc296ff47.1486672746.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: acme@kernel.org
+Cc: netdev@vger.kernel.org, Simon.Edelhaus@aquantia.com,
+        Alexey.Andriyanov@aquantia.com
+To: Pavel.Belous@aquantia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46078 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46108 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751617AbdBMRYy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 12:24:54 -0500
-In-Reply-To: <20170213171544.GD6473@kernel.org>
+        with ESMTP id S1751693AbdBMR0J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 12:26:09 -0500
+In-Reply-To: <985062aeff6287805fa59f2d8a51636bc296ff47.1486672746.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Date: Mon, 13 Feb 2017 14:15:44 -0300
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Date: Thu,  9 Feb 2017 23:53:10 +0300
 
-> The ghostprotocols.net domain is not working, remove it from CREDITS and
-> MAINTAINERS, and change the status to "Odd fixes", and since I haven't
-> been maintaining those, remove my address from there.
+> From: Pavel Belous <pavel.belous@aquantia.com>
 > 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Using new link mode indices instead deprecated SUPPORTED_/ADVERTISED_
+> macro.
+> 
+> Added indication for 2500 and 5000mbit link modes (AQtion adapter already
+> supports these speeds).
+> 
+> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
