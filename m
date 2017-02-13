@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 ipsec-next 3/6] net: Prepare gro for packet consuming gro callbacks
-Date: Mon, 13 Feb 2017 10:57:58 +0100
-Message-ID: <1486979881-24635-4-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC v2 ipsec-next 4/6] xfrm: Export xfrm_parse_spi.
+Date: Mon, 13 Feb 2017 10:57:59 +0100
+Message-ID: <1486979881-24635-5-git-send-email-steffen.klassert@secunet.com>
 References: <1486979881-24635-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,101 +12,45 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Sowmini Varadhan <sowmini.varadhan@oracle.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:35352 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:35376 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751849AbdBMJ7g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 04:59:36 -0500
+        id S1752003AbdBMJ7s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 04:59:48 -0500
 In-Reply-To: <1486979881-24635-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The upcomming IPsec ESP gro callbacks will consume the skb,
-so prepare for that.
+We need it in the ESP offload handlers, so export it.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/linux/netdevice.h | 9 +++++++++
- net/core/dev.c            | 7 +++++++
- net/xfrm/Kconfig          | 4 ++++
- 3 files changed, 20 insertions(+)
+ include/net/xfrm.h    | 1 +
+ net/xfrm/xfrm_input.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f9da3ac..9e5d1cd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -352,6 +352,7 @@ enum gro_result {
- 	GRO_HELD,
- 	GRO_NORMAL,
- 	GRO_DROP,
-+	GRO_CONSUMED,
- };
- typedef enum gro_result gro_result_t;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 287635d..fe8db3d 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1520,6 +1520,7 @@ int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
+ 		    int encap_type);
+ int xfrm4_transport_finish(struct sk_buff *skb, int async);
+ int xfrm4_rcv(struct sk_buff *skb);
++int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq);
  
-@@ -2661,10 +2662,18 @@ static inline void skb_gro_remcsum_cleanup(struct sk_buff *skb,
- 	remcsum_unadjust((__sum16 *)ptr, grc->delta);
- }
- 
-+#ifdef CONFIG_XFRM_OFFLOAD
-+static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
-+{
-+	if (PTR_ERR(pp) != -EINPROGRESS)
-+		NAPI_GRO_CB(skb)->flush |= flush;
-+}
-+#else
- static inline void skb_gro_flush_final(struct sk_buff *skb, struct sk_buff **pp, int flush)
+ static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
  {
- 	NAPI_GRO_CB(skb)->flush |= flush;
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index d8f913b..86f8a8d 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -170,6 +170,7 @@ int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
+ 	*seq = *(__be32 *)(skb_transport_header(skb) + offset_seq);
+ 	return 0;
  }
-+#endif
++EXPORT_SYMBOL(xfrm_parse_spi);
  
- static inline int dev_hard_header(struct sk_buff *skb, struct net_device *dev,
- 				  unsigned short type,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3e1a601..64efbb9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4505,6 +4505,11 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
- 	if (&ptype->list == head)
- 		goto normal;
- 
-+	if (IS_ERR(pp) && PTR_ERR(pp) == -EINPROGRESS) {
-+		ret = GRO_CONSUMED;
-+		goto ok;
-+	}
-+
- 	same_flow = NAPI_GRO_CB(skb)->same_flow;
- 	ret = NAPI_GRO_CB(skb)->free ? GRO_MERGED_FREE : GRO_MERGED;
- 
-@@ -4609,6 +4614,7 @@ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
- 
- 	case GRO_HELD:
- 	case GRO_MERGED:
-+	case GRO_CONSUMED:
- 		break;
- 	}
- 
-@@ -4680,6 +4686,7 @@ static gro_result_t napi_frags_finish(struct napi_struct *napi,
- 		break;
- 
- 	case GRO_MERGED:
-+	case GRO_CONSUMED:
- 		break;
- 	}
- 
-diff --git a/net/xfrm/Kconfig b/net/xfrm/Kconfig
-index bda1a13..a484451 100644
---- a/net/xfrm/Kconfig
-+++ b/net/xfrm/Kconfig
-@@ -5,6 +5,10 @@ config XFRM
-        bool
-        depends on NET
- 
-+config XFRM_OFFLOAD
-+       bool
-+       depends on XFRM
-+
- config XFRM_ALGO
- 	tristate
- 	select XFRM
+ int xfrm_prepare_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
 -- 
 1.9.1
