@@ -1,60 +1,44 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch net-next] net: qcom/emac: fix a sizeof() typo
-Date: Mon, 13 Feb 2017 12:55:03 +0100
-Message-ID: <58A19E97.6000704@bfs.de>
-References: <20170213110021.GA17205@mwanda>
-Reply-To: wharms@bfs.de
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH/RFC v3 net] ravb: unmap descriptors when freeing rings
+Date: Mon, 13 Feb 2017 13:09:13 +0100
+Message-ID: <20170213120912.GA24412@verge.net.au>
+References: <1485282073-16662-1-git-send-email-horms+renesas@verge.net.au>
+ <312867f0-f6dd-3c92-df09-fae72ea7405b@cogentembedded.com>
+ <CAMuHMdVzN_6tfjD1eYBLzrpynupo6C2hnLv6mm5UzcdSNzWtyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170213110021.GA17205@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdVzN_6tfjD1eYBLzrpynupo6C2hnLv6mm5UzcdSNzWtyQ@mail.gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-Am 13.02.2017 12:00, schrieb Dan Carpenter:
-> We had intended to say "sizeof(u32)" but the "u" is missing.
-> Fortunately, sizeof(32) is also 4, so the original code still works.
+On Fri, Feb 10, 2017 at 02:52:50PM +0100, Geert Uytterhoeven wrote:
+> On Wed, Jan 25, 2017 at 5:18 PM, Sergei Shtylyov
+> <sergei.shtylyov@cogentembedded.com> wrote:
+> > On 01/24/2017 09:21 PM, Simon Horman wrote:
+> >
+> >> From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> >>
+> >> "swiotlb buffer is full" errors occur after repeated initialisation of a
+> >> device - f.e. suspend/resume or ip link set up/down. This is because
+> >> memory
+> >> mapped using dma_map_single() in ravb_ring_format() and ravb_start_xmit()
+> >> is not released.  Resolve this problem by unmapping descriptors when
+> >> freeing rings.
+> >
+> >
+> >    Could you look into the sh_eth driver which seems to have the same issue?
 > 
-> Fixes: c4e7beea2192 ("net: qcom/emac: add ethtool support for reading hardware registers")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Indeed, after a few suspend/resume cycles on r8a7791/koelsch:
 > 
-> diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-> index 0d9945fb79be..bbe24639aa5a 100644
-> --- a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-> +++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-> @@ -227,7 +227,7 @@ static void emac_get_regs(struct net_device *netdev,
->  
->  static int emac_get_regs_len(struct net_device *netdev)
->  {
-> -	return EMAC_MAX_REG_SIZE * sizeof(32);
-> +	return EMAC_MAX_REG_SIZE * sizeof(u32);
->  }
->  
+> WARNING: CPU: 1 PID: 1699 at lib/dma-debug.c:517 add_dma_entry+0xfc/0x148
+> DMA-API: exceeded 7 overlapping mappings of cacheline 0x0000000001a827e3
 
-
-We have a function where the argument is ignored and the rest is const ?
-
-emac_ethtool_get_regs_len seems the only user. So it would be fairly easy to
-move that into that function.
-
-@maintainer:
-Is there a deeper logic behind this ?
-
-
-re,
- wh
-
-
-
->  static const struct ethtool_ops emac_ethtool_ops = {
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Thanks for confirming that. It matches my expectation after
+reading of the sh_eth code.
