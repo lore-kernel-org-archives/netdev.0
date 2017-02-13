@@ -1,117 +1,127 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC v2 ipsec-next 5/6] xfrm: Extend the sec_path for IPsec offloading
-Date: Mon, 13 Feb 2017 10:58:00 +0100
-Message-ID: <1486979881-24635-6-git-send-email-steffen.klassert@secunet.com>
-References: <1486979881-24635-1-git-send-email-steffen.klassert@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Ilan Tayari <ilant@mellanox.com>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: <netdev@vger.kernel.org>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] brcmfmac: Use net_device_stats from struct net_device
+Date: Mon, 13 Feb 2017 11:14:09 +0100
+Message-ID: <20170213101409.8205-1-tklauser@distanz.ch>
+Cc: linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
+To: arend.vanspriel@broadcom.com, franky.lin@broadcom.com,
+        hante.meuleman@broadcom.com, kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:35410 "EHLO a.mx.secunet.com"
+Received: from mail.zhinst.com ([212.126.164.98]:59020 "EHLO mail.zhinst.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751507AbdBMKAT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 05:00:19 -0500
-In-Reply-To: <1486979881-24635-1-git-send-email-steffen.klassert@secunet.com>
+        id S1751007AbdBMKOP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 05:14:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to keep per packet offloading informations across
-the layers. So we extend the sec_path to carry these for
-the input and output offload codepath.
+Instead of using a private copy of struct net_device_stats in struct
+brcm_if, use stats from struct net_device.  Also remove the now
+unnecessary .ndo_get_stats function.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
- include/net/xfrm.h    | 41 +++++++++++++++++++++++++++++++++++++++++
- net/xfrm/xfrm_input.c |  2 ++
- 2 files changed, 43 insertions(+)
+ .../wireless/broadcom/brcm80211/brcmfmac/core.c    | 26 +++++++---------------
+ .../wireless/broadcom/brcm80211/brcmfmac/core.h    |  2 --
+ 2 files changed, 8 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index fe8db3d..11f63f2 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -498,6 +498,7 @@ struct xfrm_tmpl {
- };
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+index b73a55b00fa7..60da86a8d95b 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+@@ -249,10 +249,10 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
  
- #define XFRM_MAX_DEPTH		6
-+#define XFRM_MAX_OFFLOAD_DEPTH	1
+ done:
+ 	if (ret) {
+-		ifp->stats.tx_dropped++;
++		ndev->stats.tx_dropped++;
+ 	} else {
+-		ifp->stats.tx_packets++;
+-		ifp->stats.tx_bytes += skb->len;
++		ndev->stats.tx_packets++;
++		ndev->stats.tx_bytes += skb->len;
+ 	}
  
- struct xfrm_policy_walk_entry {
- 	struct list_head	all;
-@@ -973,10 +974,41 @@ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
- 
- void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev);
- 
-+struct xfrm_offload {
-+        /* Output sequence number for replay protection on offloading. */
-+	struct {
-+		__u32 low;
-+		__u32 hi;
-+	} seq;
-+
-+	__u32			flags;
-+#define	SA_DELETE_REQ		1
-+#define	CRYPTO_DONE		2
-+#define	CRYPTO_NEXT_DONE	4
-+#define	CRYPTO_FALLBACK		8
-+#define	XFRM_GSO_SEGMENT	16
-+#define	XFRM_GRO		32
-+
-+	__u32			status;
-+#define CRYPTO_SUCCESS				1
-+#define CRYPTO_GENERIC_ERROR			2
-+#define CRYPTO_TRANSPORT_AH_AUTH_FAILED		4
-+#define CRYPTO_TRANSPORT_ESP_AUTH_FAILED	8
-+#define CRYPTO_TUNNEL_AH_AUTH_FAILED		16
-+#define CRYPTO_TUNNEL_ESP_AUTH_FAILED		32
-+#define CRYPTO_INVALID_PACKET_SYNTAX		64
-+#define CRYPTO_INVALID_PROTOCOL			128
-+
-+	__u8			proto;
-+};
-+
- struct sec_path {
- 	atomic_t		refcnt;
- 	int			len;
-+	int			olen;
-+
- 	struct xfrm_state	*xvec[XFRM_MAX_DEPTH];
-+	struct xfrm_offload	ovec[XFRM_MAX_OFFLOAD_DEPTH];
- };
- 
- static inline int secpath_exists(struct sk_buff *skb)
-@@ -1776,6 +1808,15 @@ static inline struct xfrm_state *xfrm_input_state(struct sk_buff *skb)
+ 	/* Return ok: we always eat the packet */
+@@ -296,15 +296,15 @@ void brcmf_txflowblock(struct device *dev, bool state)
+ void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb)
  {
- 	return skb->sp->xvec[skb->sp->len - 1];
+ 	if (skb->pkt_type == PACKET_MULTICAST)
+-		ifp->stats.multicast++;
++		ifp->ndev->stats.multicast++;
+ 
+ 	if (!(ifp->ndev->flags & IFF_UP)) {
+ 		brcmu_pkt_buf_free_skb(skb);
+ 		return;
+ 	}
+ 
+-	ifp->stats.rx_bytes += skb->len;
+-	ifp->stats.rx_packets++;
++	ifp->ndev->stats.rx_bytes += skb->len;
++	ifp->ndev->stats.rx_packets++;
+ 
+ 	brcmf_dbg(DATA, "rx proto=0x%X\n", ntohs(skb->protocol));
+ 	if (in_interrupt())
+@@ -327,7 +327,7 @@ static int brcmf_rx_hdrpull(struct brcmf_pub *drvr, struct sk_buff *skb,
+ 
+ 	if (ret || !(*ifp) || !(*ifp)->ndev) {
+ 		if (ret != -ENODATA && *ifp)
+-			(*ifp)->stats.rx_errors++;
++			(*ifp)->ndev->stats.rx_errors++;
+ 		brcmu_pkt_buf_free_skb(skb);
+ 		return -ENODATA;
+ 	}
+@@ -388,7 +388,7 @@ void brcmf_txfinalize(struct brcmf_if *ifp, struct sk_buff *txp, bool success)
+ 	}
+ 
+ 	if (!success)
+-		ifp->stats.tx_errors++;
++		ifp->ndev->stats.tx_errors++;
+ 
+ 	brcmu_pkt_buf_free_skb(txp);
  }
-+static inline struct xfrm_offload *xfrm_offload(struct sk_buff *skb)
-+{
-+	struct sec_path *sp = skb->sp;
-+
-+	if (!sp || !sp->olen || sp->len != sp->olen)
-+		return NULL;
-+
-+	return &sp->ovec[sp->olen - 1];
-+}
- #endif
+@@ -411,15 +411,6 @@ void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
+ 	}
+ }
  
- static inline int xfrm_mark_get(struct nlattr **attrs, struct xfrm_mark *m)
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 86f8a8d..d2ff712 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -105,6 +105,8 @@ struct sec_path *secpath_dup(struct sec_path *src)
- 		return NULL;
- 
- 	sp->len = 0;
-+	sp->olen = 0;
-+
- 	if (src) {
- 		int i;
- 
+-static struct net_device_stats *brcmf_netdev_get_stats(struct net_device *ndev)
+-{
+-	struct brcmf_if *ifp = netdev_priv(ndev);
+-
+-	brcmf_dbg(TRACE, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
+-
+-	return &ifp->stats;
+-}
+-
+ static void brcmf_ethtool_get_drvinfo(struct net_device *ndev,
+ 				    struct ethtool_drvinfo *info)
+ {
+@@ -492,7 +483,6 @@ static int brcmf_netdev_open(struct net_device *ndev)
+ static const struct net_device_ops brcmf_netdev_ops_pri = {
+ 	.ndo_open = brcmf_netdev_open,
+ 	.ndo_stop = brcmf_netdev_stop,
+-	.ndo_get_stats = brcmf_netdev_get_stats,
+ 	.ndo_start_xmit = brcmf_netdev_start_xmit,
+ 	.ndo_set_mac_address = brcmf_netdev_set_mac_address,
+ 	.ndo_set_rx_mode = brcmf_netdev_set_multicast_list
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
+index de3197be5491..6aecd8dfd824 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
+@@ -171,7 +171,6 @@ enum brcmf_netif_stop_reason {
+  * @drvr: points to device related information.
+  * @vif: points to cfg80211 specific interface information.
+  * @ndev: associated network device.
+- * @stats: interface specific network statistics.
+  * @multicast_work: worker object for multicast provisioning.
+  * @ndoffload_work: worker object for neighbor discovery offload configuration.
+  * @fws_desc: interface specific firmware-signalling descriptor.
+@@ -187,7 +186,6 @@ struct brcmf_if {
+ 	struct brcmf_pub *drvr;
+ 	struct brcmf_cfg80211_vif *vif;
+ 	struct net_device *ndev;
+-	struct net_device_stats stats;
+ 	struct work_struct multicast_work;
+ 	struct work_struct ndoffload_work;
+ 	struct brcmf_fws_mac_descriptor *fws_desc;
 -- 
-1.9.1
+2.11.0
