@@ -1,75 +1,59 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
-Date: Mon, 13 Feb 2017 12:16:40 +0100
-Message-ID: <20170213111640.GA1458@salvia>
-References: <20170203091231.10142-1-jonas@southpole.se>
- <1107124975.65949.1486977919253.JavaMail.zimbra@tpip.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 6/7] staging: r8712u: Fix Sparse warnings in
+ rtl871x_ioctl_linux.c
+Date: Mon, 13 Feb 2017 11:27:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0284E26@AcuExch.aculab.com>
+References: <20170211033030.28827-1-Larry.Finger@lwfinger.net>
+ <20170211033030.28827-7-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jonas Bonn <jonas@southpole.se>, laforge <laforge@gnumonks.org>,
-        netdev <netdev@vger.kernel.org>
-To: Andreas Schultz <aschultz@tpip.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>
+To: 'Larry Finger' <Larry.Finger@lwfinger.net>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48128 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752720AbdBMLQ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 06:16:57 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 9F818170D47
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 12:16:48 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 856964EA73
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 12:16:48 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 2FB6329B6C
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 12:16:41 +0100 (CET)
-Content-Disposition: inline
-In-Reply-To: <1107124975.65949.1486977919253.JavaMail.zimbra@tpip.net>
+Received: from smtp-out4.electric.net ([192.162.216.184]:56194 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752200AbdBML1N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 06:27:13 -0500
+In-Reply-To: <20170211033030.28827-7-Larry.Finger@lwfinger.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2017 at 10:25:19AM +0100, Andreas Schultz wrote:
-> Hi,
+From: Larry Finger
+> Sent: 11 February 2017 03:30
+> Sparse reports the following:
+>   CHECK   drivers/staging/rtl8712/rtl871x_ioctl_linux.c
+> drivers/staging/rtl8712/rtl871x_ioctl_linux.c:1422:46: warning: restricted __le16 degrades to integer
+> drivers/staging/rtl8712/rtl871x_ioctl_linux.c:1424:46: warning: restricted __le16 degrades to integer
 > 
-> I'm a bit late to comment, but maybe you can consider an additional
-> change for v2...
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+>  drivers/staging/rtl8712/rtl871x_ioctl_linux.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> ----- On Feb 3, 2017, at 10:12 AM, Jonas Bonn jonas@southpole.se wrote:
-> 
-> > The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
-> > contexts based on the incoming packets _destination_ address.  If we
-> > want to write an SGSN, then we want to be idenityfing PDP contexts
-> > based on _source_ address.
-> > 
-> > This patch adds a "flags" argument at GTP-link creation time to specify
-> > whether we are on the GGSN or SGSN side of the tunnel; this flag is then
-> > used to determine which part of the IP packet to use in determining
-> > the PDP context.
-> > 
-> > Signed-off-by: Jonas Bonn <jonas@southpole.se>
-> > ---
-> > 
-> > drivers/net/gtp.c            | 43 ++++++++++++++++++++++++++++++++-----------
-> > include/uapi/linux/gtp.h     |  2 +-
-> > include/uapi/linux/if_link.h |  5 +++++
-> > 3 files changed, 38 insertions(+), 12 deletions(-)
-> > 
-> > diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-> > index 50349a9..1bbac69 100644
-> > --- a/drivers/net/gtp.c
-> > +++ b/drivers/net/gtp.c
-> > @@ -72,6 +72,7 @@ struct gtp_dev {
-> > 	struct net		*net;
-> > 	struct net_device	*dev;
-> > 
-> > +	unsigned int		flags;
-> 
-> This should IMHO not go into the gtp_dev, the right place
-> is the PDP context.
+> diff --git a/drivers/staging/rtl8712/rtl871x_ioctl_linux.c
+> b/drivers/staging/rtl8712/rtl871x_ioctl_linux.c
+> index 0dc18d6..f4167f1 100644
+> --- a/drivers/staging/rtl8712/rtl871x_ioctl_linux.c
+> +++ b/drivers/staging/rtl8712/rtl871x_ioctl_linux.c
+> @@ -1419,9 +1419,9 @@ static int r8711_wx_get_rate(struct net_device *dev,
+>  			ht_cap = true;
+>  			pht_capie = (struct ieee80211_ht_cap *)(p + 2);
+>  			memcpy(&mcs_rate, pht_capie->supp_mcs_set, 2);
+> -			bw_40MHz = (pht_capie->cap_info &
+> +			bw_40MHz = (le16_to_cpu(pht_capie->cap_info) &
+>  				    IEEE80211_HT_CAP_SUP_WIDTH) ? 1 : 0;
+> -			short_GI = (pht_capie->cap_info &
+> +			short_GI = (le16_to_cpu(pht_capie->cap_info) &
+>  				    (IEEE80211_HT_CAP_SGI_20 |
+>  				    IEEE80211_HT_CAP_SGI_40)) ? 1 : 0;
 
-So you want to allow mixed configurations where some PDP ctx may be in
-SGSN mode while others in GGSN.
+You've added a byteswap on le systems - so the title is wrong.
+You need to sort out whether the byteswap is needed or not.
 
-This doesn't make any sense to me. On top of this, don't forget this
-is just for testing, so I don't see any valid usecase for such a fine
-grain thing.
+Also it is best to byteswap the constant.
+
+	David
