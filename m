@@ -1,35 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net:ethernet:aquantia: Add 2500/5000 mbit link modes
- support.
-Date: Mon, 13 Feb 2017 12:26:08 -0500 (EST)
-Message-ID: <20170213.122608.1741813028941681007.davem@davemloft.net>
-References: <985062aeff6287805fa59f2d8a51636bc296ff47.1486672746.git.pavel.belous@aquantia.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] at803x: insure minimum delay for SGMII link AN
+ completion ckeck
+Date: Mon, 13 Feb 2017 18:31:05 +0100
+Message-ID: <20170213173105.GE9946@lunn.ch>
+References: <1486744943-12474-1-git-send-email-claudiu.manoil@nxp.com>
+ <849590ef-2913-5c8e-56a7-a00d238d1235@neratec.com>
+ <AM5PR0401MB25616E07222F4B854CB2247D96590@AM5PR0401MB2561.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon.Edelhaus@aquantia.com,
-        Alexey.Andriyanov@aquantia.com
-To: Pavel.Belous@aquantia.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Claudiu Manoil <claudiu.manoil@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46108 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbdBMR0J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 12:26:09 -0500
-In-Reply-To: <985062aeff6287805fa59f2d8a51636bc296ff47.1486672746.git.pavel.belous@aquantia.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:37597 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752803AbdBMRbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 12:31:11 -0500
+Content-Disposition: inline
+In-Reply-To: <AM5PR0401MB25616E07222F4B854CB2247D96590@AM5PR0401MB2561.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Date: Thu,  9 Feb 2017 23:53:10 +0300
+> Yes, the phy is operating in interrupt mode.
+> The phy nodes from the board's device tree have their interrupt properties set:
+> http://lxr.free-electrons.com/source/arch/powerpc/boot/dts/fsl/p1010rdb-pb.dts
+> 
+> I can confirm that link status changes are signaled via interrupts ("phy_interrupt") 
+> in this case.
 
-> From: Pavel Belous <pavel.belous@aquantia.com>
-> 
-> Using new link mode indices instead deprecated SUPPORTED_/ADVERTISED_
-> macro.
-> 
-> Added indication for 2500 and 5000mbit link modes (AQtion adapter already
-> supports these speeds).
-> 
-> Signed-off-by: Pavel Belous <pavel.belous@aquantia.com>
+Is there a way to enable an interrupt when SGMII signalled link
+changes has happened? Maybe another interrupt enable bit somewhere?
+That would avoid having to sleep().
 
-Applied to net-next, thanks.
+     Andrew
