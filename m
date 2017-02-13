@@ -1,76 +1,127 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [net-next] ARM: orion: fix PHYLIB dependency
-Date: Mon, 13 Feb 2017 15:31:20 +0100
-Message-ID: <CAK8P3a1tJ_DPb1aDngazF0UnfWzwY0+v0Oz1DOiUPpBdDyyu_Q@mail.gmail.com>
-References: <20170209150834.1158193-1-arnd@arndb.de> <CAK8P3a2Yss8r0qoubg2C7Jp+0JE3Fx+igWHQOscR+SB6d+W_HA@mail.gmail.com>
- <352146cc-845c-2860-44ca-7338eb53e260@gmail.com> <2626135.PlNJ5EMbcM@wuerfel>
- <b78765e9-2696-5587-0485-e497eb4459db@gmail.com> <CAK8P3a2BAgtKmEeaom8kNQghLnjGWLGC782OTBTGcfcD_Z8WgQ@mail.gmail.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
+Date: Mon, 13 Feb 2017 15:46:56 +0100
+Message-ID: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux ARM <linux-arm-kernel@lists.infradead.org>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Networking <netdev@vger.kernel.org>,
-        Russell King <linux@armlinux.org.uk>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a2BAgtKmEeaom8kNQghLnjGWLGC782OTBTGcfcD_Z8WgQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 10, 2017 at 10:32 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Fri, Feb 10, 2017 at 9:57 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 02/10/2017 12:05 PM, Arnd Bergmann wrote:
->>> On Friday, February 10, 2017 9:42:21 AM CET Florian Fainelli wrote:
->>>> On 02/10/2017 12:20 AM, Arnd Bergmann wrote:
->>>>> On Thu, Feb 9, 2017 at 7:22 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>>>>> On 02/09/2017 07:08 AM, Arnd Bergmann wrote:
->>>>>> I disabled CONFIG_NETDEVICES to force CONFIG_PHY not to be set here, and
->>>>>> I was not able to reproduce this, what am I missing?
->>>>>
->>>>> In the ARMv5 allmodconfig build, this fails because CONFIG_PHY=m, and
->>>>> we can't call into it. You could use IS_BUILTIN instead of IS_ENABLED in
->>>>> the header as a oneline workaround, but I think that would be more confusing
->>>>> to real users that try to use CONFIG_PHY=m without realizing why they lose
->>>>> access to their switch.
->>>>
->>>> I see, this patch should also help fixing this:
->>>>
->>>> http://patchwork.ozlabs.org/patch/726381/
->>>
->>> I think you still have the same problem, as you can still have the
->>> boardinfo registration in a loadable module.
->>
->> The patch exports mdiobus_register_board_info() so that should solve
->> your problem here, and I did verify this with a loadable module that
->> references mdiobus_register_board_info() in that case.
->
-> No, that's a different problem. What you get with arm allmodconfig
-> (try it!) is that mdio-bus.ko is a loadable module, but referenced
-> from built-in code rather than the other way around. Exporting
-> the symbol doesn't change anything since the module cannot
-> be loaded by the time we need the symbol.
+Hello,
 
-I got another failure with my patch applied:
+The following program triggers stack out-of-bounds in xfrm_flowi_sport:
 
-drivers/net/phy/mdio-boardinfo.o: In function
-`mdiobus_setup_mdiodev_from_board_info':
-mdio-boardinfo.c:(.text.mdiobus_setup_mdiodev_from_board_info+0x48):
-undefined reference to `mdio_device_create'
-mdio-boardinfo.c:(.text.mdiobus_setup_mdiodev_from_board_info+0x78):
-undefined reference to `mdio_device_register'
-mdio-boardinfo.c:(.text.mdiobus_setup_mdiodev_from_board_info+0x84):
-undefined reference to `mdio_device_free'
-mdio-boardinfo.c:(.text.mdiobus_setup_mdiodev_from_board_info+0xa8):
-undefined reference to `mdio_device_bus_match'
 
-I hadn't realized earlier that the function has to call back into
-the mdio layer. This is theoretically fixable too, but it's probably easier
-to make all of the MDIO bus layer builtin whenever there is a user of
-mdiobus_register_board_info().
+BUG: KASAN: stack-out-of-bounds in xfrm_flowi_sport
+include/net/xfrm.h:862 [inline] at addr ffff8800677df796
+BUG: KASAN: stack-out-of-bounds in __xfrm6_selector_match
+net/xfrm/xfrm_policy.c:89 [inline] at addr ffff8800677df796
+BUG: KASAN: stack-out-of-bounds in xfrm_selector_match+0xc94/0xe40
+net/xfrm/xfrm_policy.c:101 at addr ffff8800677df796
+Read of size 2 by task a.out/3338
+page:ffffea00016a38c8 count:0 mapcount:0 mapping:          (null) index:0x0
+flags: 0x100000000000000()
+raw: 0100000000000000 0000000000000000 0000000000000000 00000000ffffffff
+raw: 0000000000000000 dead000000000200 0000000000000000
+page dumped because: kasan: bad access detected
+CPU: 0 PID: 3338 Comm: a.out Tainted: G    B           4.10.0-rc8+ #218
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+ __asan_report_load2_noabort+0x29/0x30 mm/kasan/report.c:329
+ xfrm_flowi_sport include/net/xfrm.h:862 [inline]
+ __xfrm6_selector_match net/xfrm/xfrm_policy.c:89 [inline]
+ xfrm_selector_match+0xc94/0xe40 net/xfrm/xfrm_policy.c:101
+ xfrm_sk_policy_lookup+0x1bb/0x540 net/xfrm/xfrm_policy.c:1259
+ xfrm_lookup+0x215/0x10f0 net/xfrm/xfrm_policy.c:2256
+ xfrm_lookup_route+0x39/0x1a0 net/xfrm/xfrm_policy.c:2390
+ ip_route_output_flow+0x7f/0xa0 net/ipv4/route.c:2447
+ udp_sendmsg+0x162b/0x2b80 net/ipv4/udp.c:1027
+ udpv6_sendmsg+0x10a9/0x3170 net/ipv6/udp.c:1065
+ inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+ sock_sendmsg_nosec net/socket.c:635 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:645
+ SYSC_sendto+0x660/0x810 net/socket.c:1687
+ SyS_sendto+0x40/0x50 net/socket.c:1655
+ entry_SYSCALL_64_fastpath+0x1f/0xc2
+RIP: 0033:0x436ed3
+RSP: 002b:00007fff6d081748 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
+RAX: ffffffffffffffda RBX: 0000000000401860 RCX: 0000000000436ed3
+RDX: 000000000000008f RSI: 0000000020003f71 RDI: 0000000000000003
+RBP: 0000000000000000 R08: 0000000020003000 R09: 0000000000000010
+R10: 0000000000040084 R11: 0000000000000246 R12: 00000000004002b0
+R13: 0000000000401860 R14: 00000000004018f0 R15: 0000000000000000
+Memory state around the buggy address:
+ ffff8800677df680: f1 00 f2 f2 f2 f2 f2 f2 f2 f8 f2 f2 f2 f2 f2 f2
+ ffff8800677df700: f2 00 00 00 00 f2 f2 f2 f2 00 00 00 00 00 00 00
+>ffff8800677df780: f2 f2 f2 f2 f2 00 00 00 00 00 00 00 00 00 f2 f2
+                         ^
+ ffff8800677df800: f2 f3 f3 f3 f3 00 00 00 00 00 00 00 00 00 00 00
+ ffff8800677df880: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+==================================================================
 
-      Arnd
+
+// autogenerated by syzkaller (http://github.com/google/syzkaller)
+#define _GNU_SOURCE
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <linux/in.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+int main()
+{
+  mmap((void*)0x20000000ul, 0xfff000ul, 0x3ul, 0x32ul, -1, 0);
+  int sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP);
+  (*(uint64_t*)0x20000098 = (uint64_t)0x20b50000);
+  (*(uint32_t*)0x200000a0 = (uint32_t)0x1);
+  (*(uint64_t*)0x20000000 = (uint64_t)0x20005000);
+  (*(uint64_t*)0x20000008 = (uint64_t)0x20002fdc);
+  (*(uint64_t*)0x20000010 = (uint64_t)0x20001ff8);
+  (*(uint64_t*)0x20000018 = (uint64_t)0x20004ff0);
+  (*(uint32_t*)0x20000020 = (uint32_t)0x1);
+  (*(uint32_t*)0x20000024 = (uint32_t)0x0);
+  (*(uint32_t*)0x20000028 = (uint32_t)0x2);
+  (*(uint32_t*)0x2000002c = (uint32_t)0x0);
+  (*(uint32_t*)0x20000030 = (uint32_t)0x0);
+  (*(uint32_t*)0x20000034 = (uint32_t)0x0);
+  (*(uint32_t*)0x20000038 = (uint32_t)0x0);
+  (*(uint32_t*)0x2000003c = (uint32_t)0x0);
+  setsockopt(sock, 0x29ul, 0x23ul, (void*)0x20000000ul, 0x264ul);
+  (*(uint16_t*)0x20003000 = (uint16_t)0x2);
+  (*(uint16_t*)0x20003002 = (uint16_t)0x214e);
+  (*(uint32_t*)0x20003004 = (uint32_t)0x0);
+  (*(uint8_t*)0x20003008 = (uint8_t)0x0);
+  (*(uint8_t*)0x20003009 = (uint8_t)0x0);
+  (*(uint8_t*)0x2000300a = (uint8_t)0x0);
+  (*(uint8_t*)0x2000300b = (uint8_t)0x0);
+  (*(uint8_t*)0x2000300c = (uint8_t)0x0);
+  (*(uint8_t*)0x2000300d = (uint8_t)0x0);
+  (*(uint8_t*)0x2000300e = (uint8_t)0x0);
+  (*(uint8_t*)0x2000300f = (uint8_t)0x0);
+  sendto(sock, (void*)0x20003f71ul, 0x8ful, 0x40084ul,
+(void*)0x20003000ul, 0x10ul);
+  return 0;
+}
+
+
+On commit 7089db84e356562f8ba737c29e472cc42d530dbc.
+
+
+struct flowi4 fl4_stack allocated on stack in udp_sendmsg is being
+casted to larger struct flowi and then accessed.
