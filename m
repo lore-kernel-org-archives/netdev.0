@@ -1,102 +1,82 @@
-From: David Windsor <dwindsor@gmail.com>
-Subject: Re: [kernel-hardening] Re: [RFC][PATCH] nfsd: add +1 to reference
- counting scheme for struct nfsd4_session
-Date: Mon, 13 Feb 2017 06:46:19 -0500
-Message-ID: <CAEXv5_hP39k7HSLP-G_khx7MMQHnk=8Z5caa+U5n3bYvUTE1gQ@mail.gmail.com>
-References: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
- <CAEXv5_jUa8Av4JABoKSAueiLHSLzibMvaE-8DrVcxZHFceckMg@mail.gmail.com> <20170213105422.snaw65btejr3vsdi@ishxps>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Mon, 13 Feb 2017 12:52:09 +0100 (CET)
+Message-ID: <1384904207.69904.1486986729381.JavaMail.zimbra@tpip.net>
+References: <20170203091231.10142-1-jonas@southpole.se> <1107124975.65949.1486977919253.JavaMail.zimbra@tpip.net> <20170213111640.GA1458@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-hardening@lists.openwall.com,
-        Bruce Fields <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Kees Cook <keescook@chromium.org>,
-        "Reshetova, Elena" <elena.reshetova@intel.com>
-To: Hans Liljestrand <ishkamiel@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jonas Bonn <jonas@southpole.se>, laforge <laforge@gnumonks.org>,
+        netdev <netdev@vger.kernel.org>
+To: pablo <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f194.google.com ([209.85.217.194]:34808 "EHLO
-        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751652AbdBMLqV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 06:46:21 -0500
-In-Reply-To: <20170213105422.snaw65btejr3vsdi@ishxps>
+Received: from mail.tpip.net ([92.43.49.48]:34817 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751652AbdBMLwM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 06:52:12 -0500
+In-Reply-To: <20170213111640.GA1458@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2017 at 5:54 AM, Hans Liljestrand <ishkamiel@gmail.com> wrote:
-> On Sat, Feb 11, 2017 at 01:42:53AM -0500, David Windsor wrote:
->>
->> <snip>
->>
->>> Signed-off-by: David Windsor <dwindsor@gmail.com>
->>> ---
->>>  fs/nfsd/nfs4state.c | 6 +++---
->>>  1 file changed, 3 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
->>> index a0dee8a..b0f3010 100644
->>> --- a/fs/nfsd/nfs4state.c
->>> +++ b/fs/nfsd/nfs4state.c
->>> @@ -196,7 +196,7 @@ static void nfsd4_put_session_locked(struct
->>> nfsd4_session *ses)
->>>
->>>         lockdep_assert_held(&nn->client_lock);
->>>
->>> -       if (atomic_dec_and_test(&ses->se_ref) && is_session_dead(ses))
->>> +       if (!atomic_add_unless(&ses->se_ref, -1, 1) &&
->>> is_session_des(ses))
->>
->>
->> This should read:
->> if (!atomic_add_unless(&ses->se_ref, -1, 1) && is_session_dead(ses))
->>
->>>                 free_session(ses);
->
->
-> Hi,
-> I'm not sure if I have this correctly; But both before and after the patch
-> free_session gets called when se_ref count was 1, shouldn't this have
-> changed with the +1 scheme?
->
-> Also, since the !atomic_add_unless doesn't actually decrement when at 1,
-> doesn't this leave the se_ref as 1 when it's destroyed? The function seems
-> to always be locked, so perhaps this doesn't matter, but still seems a bit
-> risky.
->
+Hi,
 
-Yes; I forgot the additional call to atomic_dec_and_test() before
-free_session().  Thanks!
+----- On Feb 13, 2017, at 12:16 PM, pablo pablo@netfilter.org wrote:
 
-I'll resubmit this after seeing how the rest of this discussion goes.
-We may end up abandoning this refcounting case.
+> On Mon, Feb 13, 2017 at 10:25:19AM +0100, Andreas Schultz wrote:
+>> Hi,
+>> 
+>> I'm a bit late to comment, but maybe you can consider an additional
+>> change for v2...
+>> 
+>> ----- On Feb 3, 2017, at 10:12 AM, Jonas Bonn jonas@southpole.se wrote:
+>> 
+>> > The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
+>> > contexts based on the incoming packets _destination_ address.  If we
+>> > want to write an SGSN, then we want to be idenityfing PDP contexts
+>> > based on _source_ address.
+>> > 
+>> > This patch adds a "flags" argument at GTP-link creation time to specify
+>> > whether we are on the GGSN or SGSN side of the tunnel; this flag is then
+>> > used to determine which part of the IP packet to use in determining
+>> > the PDP context.
+>> > 
+>> > Signed-off-by: Jonas Bonn <jonas@southpole.se>
+>> > ---
+>> > 
+>> > drivers/net/gtp.c            | 43 ++++++++++++++++++++++++++++++++-----------
+>> > include/uapi/linux/gtp.h     |  2 +-
+>> > include/uapi/linux/if_link.h |  5 +++++
+>> > 3 files changed, 38 insertions(+), 12 deletions(-)
+>> > 
+>> > diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+>> > index 50349a9..1bbac69 100644
+>> > --- a/drivers/net/gtp.c
+>> > +++ b/drivers/net/gtp.c
+>> > @@ -72,6 +72,7 @@ struct gtp_dev {
+>> > 	struct net		*net;
+>> > 	struct net_device	*dev;
+>> > 
+>> > +	unsigned int		flags;
+>> 
+>> This should IMHO not go into the gtp_dev, the right place
+>> is the PDP context.
+> 
+> So you want to allow mixed configurations where some PDP ctx may be in
+> SGSN mode while others in GGSN.
+> 
+> This doesn't make any sense to me. On top of this, don't forget this
+> is just for testing, so I don't see any valid usecase for such a fine
+> grain thing.
 
-> Thanks,
-> -hans
->
->
->>>         put_client_renew_locked(clp);
->>>  }
->>> @@ -1645,7 +1645,7 @@ static void init_session(struct svc_rqst *rqstp,
->>> struct nfsd4_session *new, stru
->>>         new->se_flags = cses->flags;
->>>         new->se_cb_prog = cses->callback_prog;
->>>         new->se_cb_sec = cses->cb_sec;
->>> -       atomic_set(&new->se_ref, 0);
->>> +       atomic_set(&new->se_ref, 1);
->>>         idx = hash_sessionid(&new->se_sessionid);
->>>         list_add(&new->se_hash, &nn->sessionid_hashtbl[idx]);
->>>         spin_lock(&clp->cl_lock);
->>> @@ -1792,7 +1792,7 @@ free_client(struct nfs4_client *clp)
->>>                 ses = list_entry(clp->cl_sessions.next, struct
->>> nfsd4_session,
->>>                                 se_perclnt);
->>>                 list_del(&ses->se_perclnt);
->>> -               WARN_ON_ONCE(atomic_read(&ses->se_ref));
->>> +               WARN_ON_ONCE((atomic_read(&ses->se_ref) > 1));
->>>                 free_session(ses);
->>>         }
->>>         rpc_destroy_wait_queue(&clp->cl_cb_waitq);
->>> --
->>> 2.7.4
->>>
->
+You are right, running such a configuration does not make sense.
+However, when I wrote this the PDP context looked like the most
+sensible palace to me.
+
+Anyhow, thinking about this again, I think that integrating that flag
+in a rewrite of the validation logic in the Rx path make more sense.
+Currently we validate the MS as soon as we have found the PDP context.
+This should be delayed a bit and the validation should happen after
+pulling the GTP header and right before injecting the payload into
+the net device. The flag would then indeed go into the gtp_dev.
+
+Andreas
