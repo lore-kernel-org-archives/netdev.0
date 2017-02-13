@@ -1,9 +1,10 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v4 net-next 3/8] sunvnet: update version and version printing
-Date: Mon, 13 Feb 2017 10:56:59 -0800
-Message-ID: <1487012224-403399-4-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH v4 net-next 2/8] sunvnet: remove unused variable in maybe_tx_wakeup
+Date: Mon, 13 Feb 2017 10:56:58 -0800
+Message-ID: <1487012224-403399-3-git-send-email-shannon.nelson@oracle.com>
 References: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
         Shannon Nelson <shannon.nelson@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -11,61 +12,36 @@ In-Reply-To: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There have been several changes since the first version of this code, so
-we bump the version number.  While we're at it, we can simplify the
-version printing a bit and drop a couple lines of code.
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
+The vio_dring_state *dr variable is unused in maybe_tx_wakeup().
+As the comments indicate, we call maybe_tx_wakeup() whenever we
+get a STOPPED LDC message on the port. If the queue is stopped,
+we want to wake it up so that we will send another START message
+at the next TX and trigger the consumer to drain the dring.
+
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet.c |   14 ++++----------
- 1 files changed, 4 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/sun/sunvnet_common.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 5356a70..4cc2571 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -38,11 +38,11 @@
- #define VNET_TX_TIMEOUT			(5 * HZ)
- 
- #define DRV_MODULE_NAME		"sunvnet"
--#define DRV_MODULE_VERSION	"1.0"
--#define DRV_MODULE_RELDATE	"June 25, 2007"
-+#define DRV_MODULE_VERSION	"2.0"
-+#define DRV_MODULE_RELDATE	"February 3, 2017"
- 
- static char version[] =
--	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
-+	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
- MODULE_AUTHOR("David S. Miller (davem@davemloft.net)");
- MODULE_DESCRIPTION("Sun LDOM virtual network driver");
- MODULE_LICENSE("GPL");
-@@ -303,11 +303,6 @@ static void vnet_cleanup(void)
- 	.handshake_complete	= sunvnet_handshake_complete_common,
- };
- 
--static void print_version(void)
--{
--	printk_once(KERN_INFO "%s", version);
--}
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
+index c71f000..0f940f0 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.c
++++ b/drivers/net/ethernet/sun/sunvnet_common.c
+@@ -719,12 +719,8 @@ static void maybe_tx_wakeup(struct vnet_port *port)
+ 	txq = netdev_get_tx_queue(VNET_PORT_TO_NET_DEVICE(port),
+ 				  port->q_index);
+ 	__netif_tx_lock(txq, smp_processor_id());
+-	if (likely(netif_tx_queue_stopped(txq))) {
+-		struct vio_dring_state *dr;
 -
- const char *remote_macaddr_prop = "remote-mac-address";
- 
- static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
-@@ -319,8 +314,6 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	const u64 *rmac;
- 	int len, i, err, switch_port;
- 
--	print_version();
--
- 	hp = mdesc_grab();
- 
- 	vp = vnet_find_parent(hp, vdev->mp, vdev);
-@@ -446,6 +439,7 @@ static int vnet_port_remove(struct vio_dev *vdev)
- 
- static int __init vnet_init(void)
- {
-+	pr_info("%s\n", version);
- 	return vio_register_driver(&vnet_port_driver);
+-		dr = &port->vio.drings[VIO_DRIVER_TX_RING];
++	if (likely(netif_tx_queue_stopped(txq)))
+ 		netif_tx_wake_queue(txq);
+-	}
+ 	__netif_tx_unlock(txq);
  }
  
 -- 
