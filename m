@@ -1,127 +1,52 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
-Date: Mon, 13 Feb 2017 15:46:56 +0100
-Message-ID: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
+From: Anoob Soman <anoob.soman@citrix.com>
+Subject: Re: [PATCH net] packet: Do not call fanout_release from atomic
+ contexts
+Date: Mon, 13 Feb 2017 14:50:30 +0000
+Message-ID: <64b9aba2-71c7-6e69-630e-aba995306dbf@citrix.com>
+References: <1486730384-18749-1-git-send-email-anoob.soman@citrix.com>
+ <1486735077.7793.149.camel@edumazet-glaptop3.roam.corp.google.com>
+ <822618dc-9e7f-83dd-1920-6a69aaf27dc0@citrix.com>
+ <1486995964.8227.34.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:31583 "EHLO
+        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751504AbdBMOuy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 09:50:54 -0500
+In-Reply-To: <1486995964.8227.34.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 13/02/17 14:26, Eric Dumazet wrote:
+> On Mon, 2017-02-13 at 13:28 +0000, Anoob Soman wrote:
+>
+>> Wouldn't it be easier to call synchronize_net(), before calling
+>> fanout_release_data() and kfree(f).
+>> The behavior, wrt synchronize_net, would be same as before and
+>> fanout_release() will cleanup everything without leaving any residue.
+> So we would require two synchronize_net() calls instead of one ?
+>
+> synchronize_net() is very expensive on some hosts, it is a big hammer.
+>
+>
+>
 
-The following program triggers stack out-of-bounds in xfrm_flowi_sport:
+Yes, one before fanout_release_data() (will be called only if 
+fanout->sk_ref == 0) and one after fanout_release().
 
+I understand synchronize_net() is expensive, but adding another 
+synchronize_net(),  before fanout_release_data(), will be no different 
+from what we have in the existing code.
 
-BUG: KASAN: stack-out-of-bounds in xfrm_flowi_sport
-include/net/xfrm.h:862 [inline] at addr ffff8800677df796
-BUG: KASAN: stack-out-of-bounds in __xfrm6_selector_match
-net/xfrm/xfrm_policy.c:89 [inline] at addr ffff8800677df796
-BUG: KASAN: stack-out-of-bounds in xfrm_selector_match+0xc94/0xe40
-net/xfrm/xfrm_policy.c:101 at addr ffff8800677df796
-Read of size 2 by task a.out/3338
-page:ffffea00016a38c8 count:0 mapcount:0 mapping:          (null) index:0x0
-flags: 0x100000000000000()
-raw: 0100000000000000 0000000000000000 0000000000000000 00000000ffffffff
-raw: 0000000000000000 dead000000000200 0000000000000000
-page dumped because: kasan: bad access detected
-CPU: 0 PID: 3338 Comm: a.out Tainted: G    B           4.10.0-rc8+ #218
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Call Trace:
- __asan_report_load2_noabort+0x29/0x30 mm/kasan/report.c:329
- xfrm_flowi_sport include/net/xfrm.h:862 [inline]
- __xfrm6_selector_match net/xfrm/xfrm_policy.c:89 [inline]
- xfrm_selector_match+0xc94/0xe40 net/xfrm/xfrm_policy.c:101
- xfrm_sk_policy_lookup+0x1bb/0x540 net/xfrm/xfrm_policy.c:1259
- xfrm_lookup+0x215/0x10f0 net/xfrm/xfrm_policy.c:2256
- xfrm_lookup_route+0x39/0x1a0 net/xfrm/xfrm_policy.c:2390
- ip_route_output_flow+0x7f/0xa0 net/ipv4/route.c:2447
- udp_sendmsg+0x162b/0x2b80 net/ipv4/udp.c:1027
- udpv6_sendmsg+0x10a9/0x3170 net/ipv6/udp.c:1065
- inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
- sock_sendmsg_nosec net/socket.c:635 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:645
- SYSC_sendto+0x660/0x810 net/socket.c:1687
- SyS_sendto+0x40/0x50 net/socket.c:1655
- entry_SYSCALL_64_fastpath+0x1f/0xc2
-RIP: 0033:0x436ed3
-RSP: 002b:00007fff6d081748 EFLAGS: 00000246 ORIG_RAX: 000000000000002c
-RAX: ffffffffffffffda RBX: 0000000000401860 RCX: 0000000000436ed3
-RDX: 000000000000008f RSI: 0000000020003f71 RDI: 0000000000000003
-RBP: 0000000000000000 R08: 0000000020003000 R09: 0000000000000010
-R10: 0000000000040084 R11: 0000000000000246 R12: 00000000004002b0
-R13: 0000000000401860 R14: 00000000004018f0 R15: 0000000000000000
-Memory state around the buggy address:
- ffff8800677df680: f1 00 f2 f2 f2 f2 f2 f2 f2 f8 f2 f2 f2 f2 f2 f2
- ffff8800677df700: f2 00 00 00 00 f2 f2 f2 f2 00 00 00 00 00 00 00
->ffff8800677df780: f2 f2 f2 f2 f2 00 00 00 00 00 00 00 00 00 f2 f2
-                         ^
- ffff8800677df800: f2 f3 f3 f3 f3 00 00 00 00 00 00 00 00 00 00 00
- ffff8800677df880: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-==================================================================
+I can also make sure second synchronize_net() doesn't get called again, 
+if fanout_release() calls synchronize_net(), by making fanout_release() 
+return something to indicate it has done synchronize_net().
 
 
-// autogenerated by syzkaller (http://github.com/google/syzkaller)
-#define _GNU_SOURCE
-#include <sys/mman.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/syscall.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <linux/in.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+Thanks,
 
-int main()
-{
-  mmap((void*)0x20000000ul, 0xfff000ul, 0x3ul, 0x32ul, -1, 0);
-  int sock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_IP);
-  (*(uint64_t*)0x20000098 = (uint64_t)0x20b50000);
-  (*(uint32_t*)0x200000a0 = (uint32_t)0x1);
-  (*(uint64_t*)0x20000000 = (uint64_t)0x20005000);
-  (*(uint64_t*)0x20000008 = (uint64_t)0x20002fdc);
-  (*(uint64_t*)0x20000010 = (uint64_t)0x20001ff8);
-  (*(uint64_t*)0x20000018 = (uint64_t)0x20004ff0);
-  (*(uint32_t*)0x20000020 = (uint32_t)0x1);
-  (*(uint32_t*)0x20000024 = (uint32_t)0x0);
-  (*(uint32_t*)0x20000028 = (uint32_t)0x2);
-  (*(uint32_t*)0x2000002c = (uint32_t)0x0);
-  (*(uint32_t*)0x20000030 = (uint32_t)0x0);
-  (*(uint32_t*)0x20000034 = (uint32_t)0x0);
-  (*(uint32_t*)0x20000038 = (uint32_t)0x0);
-  (*(uint32_t*)0x2000003c = (uint32_t)0x0);
-  setsockopt(sock, 0x29ul, 0x23ul, (void*)0x20000000ul, 0x264ul);
-  (*(uint16_t*)0x20003000 = (uint16_t)0x2);
-  (*(uint16_t*)0x20003002 = (uint16_t)0x214e);
-  (*(uint32_t*)0x20003004 = (uint32_t)0x0);
-  (*(uint8_t*)0x20003008 = (uint8_t)0x0);
-  (*(uint8_t*)0x20003009 = (uint8_t)0x0);
-  (*(uint8_t*)0x2000300a = (uint8_t)0x0);
-  (*(uint8_t*)0x2000300b = (uint8_t)0x0);
-  (*(uint8_t*)0x2000300c = (uint8_t)0x0);
-  (*(uint8_t*)0x2000300d = (uint8_t)0x0);
-  (*(uint8_t*)0x2000300e = (uint8_t)0x0);
-  (*(uint8_t*)0x2000300f = (uint8_t)0x0);
-  sendto(sock, (void*)0x20003f71ul, 0x8ful, 0x40084ul,
-(void*)0x20003000ul, 0x10ul);
-  return 0;
-}
-
-
-On commit 7089db84e356562f8ba737c29e472cc42d530dbc.
-
-
-struct flowi4 fl4_stack allocated on stack in udp_sendmsg is being
-casted to larger struct flowi and then accessed.
+Anoob.
