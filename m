@@ -1,46 +1,69 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: Re: Linux HSR driver question
-Date: Mon, 13 Feb 2017 16:38:58 +0100
-Message-ID: <58A1D312.2030003@alten.se>
-References: <589CD1F5.1060104@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.webland.nu ([37.26.152.130]:55944 "HELO mx01.webland.nu"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-        id S1751313AbdBMPyR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 10:54:17 -0500
-In-Reply-To: <589CD1F5.1060104@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: [PATCH] ath9k: Access rchan::buf only with per_cpu helper
+Date: Mon, 13 Feb 2017 16:56:48 +0100
+Message-ID: <20170213155648.4821-1-sven@narfation.org>
+Cc: ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org,
+        Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>,
+        Akash Goel <akash.goel-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-02-09 21:32, Murali Karicheri wrote:
-> Hi Arvid,
-> 
-> While I work to add PRP support to the existing Linux HSR driver, I came across
-> a piece of code related to prune node function. The hsr_device.c adds the 
-> prune timer in hsr_dev_finalize() by calling
-> 
-> add_timer(&hsr->prune_timer);
-> 
-> But it is never restarted in hsr_prune_nodes(). Is that intentional or a bug?
-> I tried adding add_timer(&hsr->prune_timer) at the end of  hsr_prune_nodes(),
-> but then a iperf test stops with no traffic across the hsr interface and it
-> never recovers. I have to delete the interface and create it again to recover.
-> Is that the reason, it is currently disabled?
-> 
+The relayfs was changed to use per CPU constructs to handle the rchan
+buffers. But the users of the rchan buffers in other parts of the kernel
+were not modified. This caused crashes like
 
-Hi Murali,
+  BUG: unable to handle kernel paging request at 00003a5198a0b910
+  IP: [<ffffffffa973cb3a>] ath_cmn_process_fft+0xea/0x610
+  PGD 0 [  179.522449]
+  Oops: 0000 [#1] SMP
+  Modules linked in:
+  CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.9.0-rc5 #1
+  [...]
+  Call Trace:
+   <IRQ> [  179.656426]  [<ffffffffa9704373>] ? ath_rx_tasklet+0x2f3/0xd10
+   [<ffffffffa9702106>] ? ath9k_tasklet+0x1b6/0x230
+   [<ffffffffa90dcbd1>] ? tasklet_action+0xf1/0x100
+   [<ffffffffa9a3cb3f>] ? __do_softirq+0xef/0x284
+   [<ffffffffa90dd22e>] ? irq_exit+0xae/0xb0
+   [<ffffffffa9a3c89f>] ? do_IRQ+0x4f/0xd0
+   [<ffffffffa9a3aa42>] ? common_interrupt+0x82/0x82
+   <EOI> [  179.703152]  [<ffffffffa9a39c1d>] ? poll_idle+0x2d/0x57
+   [<ffffffffa908c845>] ? sched_clock+0x5/0x10
+   [<ffffffffa97bc8d6>] ? cpuidle_enter_state+0xf6/0x2d0
+   [<ffffffffa911988e>] ? cpu_startup_entry+0x14e/0x230
+   [<ffffffffaa3cdf70>] ? start_kernel+0x461/0x481
+   [<ffffffffaa3cd120>] ? early_idt_handler_array+0x120/0x120
+   [<ffffffffaa3cd413>] ? x86_64_start_kernel+0x14c/0x170
+  Code: 31 db 41 be ff ff ff ff 4c 8b 26 48 8b 6e 08 49 8b 84 24 60 05 00
+        00 48 8b 00 0f b7 40 04 66 89 44 24 48 eb 11 48 8b 55 40 48 98 <48>
+        8b 3c c2 e8 ad a0 a4 ff 01 c3 41 8d 56 01 be 00 02 00 00 48
+  RIP  [<ffffffffa973cb3a>] ath_cmn_process_fft+0xea/0x610
+   RSP <ffff9b43e7003d20>
+  CR2: 00003a5198a0b910
 
-Sorry I don't remember the details here. I do know I tested that a node that had
-been unplugged for two minutes was forgotten by the other nodes, so this has 
-worked at some time in the past, at least. :)
+Fixes: 017c59c042d0 ("relay: Use per CPU constructs for the relay channel buffer pointers")
+Cc: Akash Goel <akash.goel-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reported-by: Mathias Kretschmer <mathias.kretschmer-P6MEQ+vrfQDSyEMIgutvibNAH6kLmebB@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+---
+ drivers/net/wireless/ath/ath9k/common-spectral.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-
--- 
-Arvid Brodin
-Linux Consultant
-ALTEN Sweden
+diff --git a/drivers/net/wireless/ath/ath9k/common-spectral.c b/drivers/net/wireless/ath/ath9k/common-spectral.c
+index 789a3dbe8341..0ffa23a61568 100644
+--- a/drivers/net/wireless/ath/ath9k/common-spectral.c
++++ b/drivers/net/wireless/ath/ath9k/common-spectral.c
+@@ -482,7 +482,7 @@ ath_cmn_is_fft_buf_full(struct ath_spec_scan_priv *spec_priv)
+ 	struct rchan *rc = spec_priv->rfs_chan_spec_scan;
+ 
+ 	for_each_online_cpu(i)
+-		ret += relay_buf_full(rc->buf[i]);
++		ret += relay_buf_full(*per_cpu_ptr(rc->buf, i));
+ 
+ 	i = num_online_cpus();
+ 
