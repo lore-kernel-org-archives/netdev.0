@@ -1,110 +1,248 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH net] at803x: insure minimum delay for SGMII link AN
- completion ckeck
-Date: Mon, 13 Feb 2017 16:35:15 +0100
-Message-ID: <5afc3664-a1af-c83e-debb-0df7906c4275@neratec.com>
-References: <1486744943-12474-1-git-send-email-claudiu.manoil@nxp.com>
- <849590ef-2913-5c8e-56a7-a00d238d1235@neratec.com>
- <AM5PR0401MB25616E07222F4B854CB2247D96590@AM5PR0401MB2561.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Claudiu Manoil <claudiu.manoil@nxp.com>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: [PATCH net-next v3 3/8] gtp: make GTP sockets in gtp_newlink optional
+Date: Mon, 13 Feb 2017 16:36:19 +0100
+Message-ID: <20170213153624.14170-4-aschultz@tpip.net>
+References: <20170213153624.14170-1-aschultz@tpip.net>
+Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
+        Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
+        osmocom-net-gprs@lists.osmocom.org, Jonas Bonn <jonas@southpole.se>
+To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:11223 "EHLO mail.neratec.com"
+Received: from mail.tpip.net ([92.43.49.48]:37095 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753716AbdBMPfS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 10:35:18 -0500
-In-Reply-To: <AM5PR0401MB25616E07222F4B854CB2247D96590@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+        id S1753545AbdBMPg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 10:36:29 -0500
+In-Reply-To: <20170213153624.14170-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/13/2017 02:15 PM, Claudiu Manoil wrote:
->> -----Original Message-----
->> From: Zefir Kurtisi [mailto:zefir.kurtisi@neratec.com]
->> Sent: Monday, February 13, 2017 12:16 PM
->> To: Claudiu Manoil <claudiu.manoil@nxp.com>
->> Cc: netdev@vger.kernel.org; David S. Miller <davem@davemloft.net>; Florian
->> Fainelli <f.fainelli@gmail.com>
->> Subject: Re: [PATCH net] at803x: insure minimum delay for SGMII link AN
->> completion ckeck
->>
->> On 02/10/2017 05:42 PM, Claudiu Manoil wrote:
->>> Commit: f62265b "at803x: double check SGMII side autoneg"
->>> introduced a regression for the p1010rdb board which has
->>> two of the ethernet controllers (eTSEC) connected through
->>> SGMII links to external Atheros SGMII AR8033 PHYs.
->>> The issue consists in a dead link for these ports, and is
->>> 100% reproducible on kernel 4.9 (and later):
->>>
-> 
-> [...]
-> 
->>>
->>
->> Could you confirm that you are using PHY_HAS_INTERRUPT? In polling mode the
->> effect would be very unlikely to happen, since you'd need to run the state machine
->> exactly between the two AN stages.
->>
-> 
-> Hi Zefir.  Thanks for having a look at this issue.
-> Yes, the phy is operating in interrupt mode.
-> The phy nodes from the board's device tree have their interrupt properties set:
-> http://lxr.free-electrons.com/source/arch/powerpc/boot/dts/fsl/p1010rdb-pb.dts
-> 
-> I can confirm that link status changes are signaled via interrupts ("phy_interrupt") 
-> in this case.  And this is always desirable, right? Why would one want to waste CPU 
-> cycles by polling for link status changes periodically, if it can work with interrupts.
-> 
-Sure, only wanted to double check, since we are polling and with that never run
-(or at least never observed) into a situation where a first read fails but
-subsequent ones succeed.
+Having both GTPv0-U and GTPv1-U is not always desirable.
+Fallback from GTPv1-U to GTPv0-U was depreciated from 3GPP
+Rel-8 onwards. Post Rel-8 implementation are discuraged
+from listening on the v0 port (see 3GPP TS 29.281, Sect. 1).
 
->> As for the 100us delay proposed, is this something Atheros suggested or is it
->> based on empirical considerations? Since ending up in a situation where the
->> double-check fails might left you with a permanent link loss, having a reliable
->> minimum required delay between first and second stage AN is essential - to me
->> 100us look quite short.
->>
-> 
-> The value was chosen based on experiments, so yes, it's empirical.  I don't think 
-> that detailed documentation for this phy is publicly available.  I was expecting a 
-> small delay and I was looking for the smallest power of 10 (10 us doesn't work).
-> But I'm also expecting that the SGMII specification is imposing a minimum delay 
-> between AN completion on the copper side and AN completion on the SGMII side.
-> 
-My bad, I assumed NXP is already part of Qualcomm and with that you had better
-access to Atheros internal documentation than the typical open-source developer -
-realized the merger is yet to come.
+A future change will completely decouple the sockets from the
+network device. Till then, at least one of the sockets needs to
+be specified (either v0 or v1), the other is optional.
 
->> Same goes for the readout polling proposed: given that reading an MDIO register
->> takes ~16us (at assumed 2.5MHz MDC), delaying for 1us between reads is kind of
->> useless and ends up in storm-reading the register (and also extends the wait-time
->> by the same factor). Imo, it won't hurt to sleep for milliseconds between reads
->> here (see phy_poll_reset() for reference).
->>
-> 
-> I'm not fond of using udelay either, I'm also aware that the timeout loop is not 
-> exactly 100 us, given the delay involved by the phy register reads, but I wanted 
-> to emphasize that there needs to be a minimum delay before establishing that
-> the SGMII AN is done.
-> Would you mind sending a v2 patch using msleep() instead of udelay()?
-> You have an idea now of the minimum delay needed in my case.
-> 
-Would make sense to me. It won't hurt to provide a significantly higher wait time
-(e.g. 50ms) and sleep for 4ms between register reads. Since polling happens only
-in the failure case, it is cheap for the typical one.
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ drivers/net/gtp.c | 149 +++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 79 insertions(+), 70 deletions(-)
 
-@Florian: sleeping in .aneg_done is ok, right?
-
-> Thanks,
-> Claudiu
-> 
-
-Thanks and great to hear that you are working with P1010 - that's maybe the root
-cause for the workaround we are dealing with here, since the eTSEC has a known
-problem with stalling SGMII link (errata A-004187). At least one more party that
-might observe the issue.
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index a8ce8c7..fe96d21 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -259,30 +259,30 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
+ }
+ 
+-static void gtp_encap_disable(struct gtp_dev *gtp)
+-{
+-	if (gtp->sk0) {
+-		udp_sk(gtp->sk0)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sk0, NULL);
+-		sock_put(gtp->sk0);
+-	}
+-	if (gtp->sk1u) {
+-		udp_sk(gtp->sk1u)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sk1u, NULL);
+-		sock_put(gtp->sk1u);
+-	}
+-
+-	gtp->sk0 = NULL;
+-	gtp->sk1u = NULL;
+-}
+-
+ static void gtp_encap_destroy(struct sock *sk)
+ {
+ 	struct gtp_dev *gtp;
+ 
+ 	gtp = rcu_dereference_sk_user_data(sk);
+-	if (gtp)
+-		gtp_encap_disable(gtp);
++	if (gtp) {
++		udp_sk(sk)->encap_type = 0;
++		rcu_assign_sk_user_data(sk, NULL);
++		sock_put(sk);
++	}
++}
++
++static void gtp_encap_disable_sock(struct sock *sk)
++{
++	if (!sk)
++		return;
++
++	gtp_encap_destroy(sk);
++}
++
++static void gtp_encap_disable(struct gtp_dev *gtp)
++{
++	gtp_encap_disable_sock(gtp->sk0);
++	gtp_encap_disable_sock(gtp->sk1u);
+ }
+ 
+ /* UDP encapsulation receive handler. See net/ipv4/udp.c.
+@@ -642,27 +642,24 @@ static void gtp_link_setup(struct net_device *dev)
+ 
+ static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
+ static void gtp_hashtable_free(struct gtp_dev *gtp);
+-static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    int fd_gtp0, int fd_gtp1);
++static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[]);
++static void gtp_encap_disable(struct gtp_dev *gtp);
+ 
+ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 			struct nlattr *tb[], struct nlattr *data[])
+ {
+-	int hashsize, err, fd0, fd1;
+ 	struct gtp_dev *gtp;
+ 	struct gtp_net *gn;
++	int hashsize, err;
+ 
+-	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
++	if (!data[IFLA_GTP_FD0] && !data[IFLA_GTP_FD1])
+ 		return -EINVAL;
+ 
+ 	gtp = netdev_priv(dev);
+ 
+-	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
+-	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+-
+-	err = gtp_encap_enable(dev, gtp, fd0, fd1);
++	err = gtp_encap_enable(gtp, data);
+ 	if (err < 0)
+-		goto out_err;
++		return err;
+ 
+ 	if (!data[IFLA_GTP_PDP_HASHSIZE])
+ 		hashsize = 1024;
+@@ -690,7 +687,6 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 	gtp_hashtable_free(gtp);
+ out_encap:
+ 	gtp_encap_disable(gtp);
+-out_err:
+ 	return err;
+ }
+ 
+@@ -805,63 +801,76 @@ static void gtp_hashtable_free(struct gtp_dev *gtp)
+ 	kfree(gtp->tid_hash);
+ }
+ 
+-static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
+-			    int fd_gtp0, int fd_gtp1)
++static struct sock *gtp_encap_enable_socket(int fd, int type,
++					    struct gtp_dev *gtp)
+ {
+ 	struct udp_tunnel_sock_cfg tuncfg = {NULL};
+-	struct socket *sock0, *sock1u;
++	struct socket *sock;
++	struct sock *sk;
+ 	int err;
+ 
+-	netdev_dbg(dev, "enable gtp on %d, %d\n", fd_gtp0, fd_gtp1);
++	pr_debug("enable gtp on %d, %d\n", fd, type);
+ 
+-	sock0 = sockfd_lookup(fd_gtp0, &err);
+-	if (sock0 == NULL) {
+-		netdev_dbg(dev, "socket fd=%d not found (gtp0)\n", fd_gtp0);
+-		return -ENOENT;
++	sock = sockfd_lookup(fd, &err);
++	if (!sock) {
++		pr_debug("gtp socket fd=%d not found\n", fd);
++		return NULL;
+ 	}
+ 
+-	if (sock0->sk->sk_protocol != IPPROTO_UDP) {
+-		netdev_dbg(dev, "socket fd=%d not UDP\n", fd_gtp0);
+-		err = -EINVAL;
+-		goto err1;
++	if (sock->sk->sk_protocol != IPPROTO_UDP) {
++		pr_debug("socket fd=%d not UDP\n", fd);
++		sk = ERR_PTR(-EINVAL);
++		goto out_sock;
+ 	}
+ 
+-	sock1u = sockfd_lookup(fd_gtp1, &err);
+-	if (sock1u == NULL) {
+-		netdev_dbg(dev, "socket fd=%d not found (gtp1u)\n", fd_gtp1);
+-		err = -ENOENT;
+-		goto err1;
++	if (rcu_dereference_sk_user_data(sock->sk)) {
++		sk = ERR_PTR(-EBUSY);
++		goto out_sock;
+ 	}
+ 
+-	if (sock1u->sk->sk_protocol != IPPROTO_UDP) {
+-		netdev_dbg(dev, "socket fd=%d not UDP\n", fd_gtp1);
+-		err = -EINVAL;
+-		goto err2;
+-	}
+-
+-	netdev_dbg(dev, "enable gtp on %p, %p\n", sock0, sock1u);
+-
+-	sock_hold(sock0->sk);
+-	gtp->sk0 = sock0->sk;
+-	sock_hold(sock1u->sk);
+-	gtp->sk1u = sock1u->sk;
++	sk = sock->sk;
++	sock_hold(sk);
+ 
+ 	tuncfg.sk_user_data = gtp;
++	tuncfg.encap_type = type;
+ 	tuncfg.encap_rcv = gtp_encap_recv;
+ 	tuncfg.encap_destroy = gtp_encap_destroy;
+ 
+-	tuncfg.encap_type = UDP_ENCAP_GTP0;
+-	setup_udp_tunnel_sock(sock_net(gtp->sk0), sock0, &tuncfg);
+-
+-	tuncfg.encap_type = UDP_ENCAP_GTP1U;
+-	setup_udp_tunnel_sock(sock_net(gtp->sk1u), sock1u, &tuncfg);
+-
+-	err = 0;
+-err2:
+-	sockfd_put(sock1u);
+-err1:
+-	sockfd_put(sock0);
+-	return err;
++	setup_udp_tunnel_sock(sock_net(sock->sk), sock, &tuncfg);
++
++out_sock:
++	sockfd_put(sock);
++	return sk;
++}
++
++static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[])
++{
++	struct sock *sk1u = NULL;
++	struct sock *sk0 = NULL;
++
++	if (data[IFLA_GTP_FD0]) {
++		u32 fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
++
++		sk0 = gtp_encap_enable_socket(fd0, UDP_ENCAP_GTP0, gtp);
++		if (IS_ERR(sk0))
++			return PTR_ERR(sk0);
++	}
++
++	if (data[IFLA_GTP_FD1]) {
++		u32 fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
++
++		sk1u = gtp_encap_enable_socket(fd1, UDP_ENCAP_GTP1U, gtp);
++		if (IS_ERR(sk1u)) {
++			if (sk0)
++				gtp_encap_disable_sock(sk0);
++			return PTR_ERR(sk1u);
++		}
++	}
++
++	gtp->sk0 = sk0;
++	gtp->sk1u = sk1u;
++
++	return 0;
+ }
+ 
+ static struct net_device *gtp_find_dev(struct net *net, int ifindex)
+-- 
+2.10.2
