@@ -1,277 +1,54 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net-next v3 4/8] gtp: merge gtp_get_net and gtp_genl_find_dev
-Date: Mon, 13 Feb 2017 16:36:20 +0100
-Message-ID: <20170213153624.14170-5-aschultz@tpip.net>
-References: <20170213153624.14170-1-aschultz@tpip.net>
+Subject: [PATCH net-next v3 0/8] gtp: misc improvements
+Date: Mon, 13 Feb 2017 16:36:16 +0100
+Message-ID: <20170213153624.14170-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         osmocom-net-gprs@lists.osmocom.org, Jonas Bonn <jonas@southpole.se>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:38606 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:58274 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753191AbdBMPgj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 10:36:39 -0500
-In-Reply-To: <20170213153624.14170-1-aschultz@tpip.net>
+        id S1753680AbdBMPgf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 10:36:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both function are always used together with the final goal to
-get the gtp_dev. This simplifies the code by merging them together.
+Hi Pablo,
 
-The netdevice lookup is changed to use the regular dev_get_by_index.
-The gtp netdevice list is now only used to find the PDP contexts for
-imcomming packets. It can be completely eliminated Once the TEID
-hash is moved into the GTP socket.
+This is v3 of the GTP improvements.
 
-Signed-off-by: Andreas Schultz <aschultz@tpip.net>
----
- drivers/net/gtp.c | 147 ++++++++++++++++++++++++++----------------------------
- 1 file changed, 70 insertions(+), 77 deletions(-)
+This series lays the groundwork for removing the socket references from
+the GTP netdevice by removing duplicate code and simplifying the logic on
+some code paths.
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index fe96d21..f340e20 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -745,21 +745,6 @@ static struct rtnl_link_ops gtp_link_ops __read_mostly = {
- 	.fill_info	= gtp_fill_info,
- };
- 
--static struct net *gtp_genl_get_net(struct net *src_net, struct nlattr *tb[])
--{
--	struct net *net;
--
--	/* Examine the link attributes and figure out which network namespace
--	 * we are talking about.
--	 */
--	if (tb[GTPA_NET_NS_FD])
--		net = get_net_ns_by_fd(nla_get_u32(tb[GTPA_NET_NS_FD]));
--	else
--		net = get_net(src_net);
--
--	return net;
--}
--
- static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize)
- {
- 	int i;
-@@ -873,16 +858,31 @@ static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[])
- 	return 0;
- }
- 
--static struct net_device *gtp_find_dev(struct net *net, int ifindex)
-+static struct gtp_dev *gtp_genl_find_dev(struct net *src_net,
-+					 struct nlattr *tb[])
- {
--	struct gtp_net *gn = net_generic(net, gtp_net_id);
--	struct gtp_dev *gtp;
--
--	list_for_each_entry_rcu(gtp, &gn->gtp_dev_list, list) {
--		if (ifindex == gtp->dev->ifindex)
--			return gtp->dev;
--	}
--	return NULL;
-+	struct gtp_dev *gtp = NULL;
-+	struct net_device *dev;
-+	struct net *net;
-+
-+	/* Examine the link attributes and figure out which network namespace
-+	 * we are talking about.
-+	 */
-+	if (tb[GTPA_NET_NS_FD])
-+		net = get_net_ns_by_fd(nla_get_u32(tb[GTPA_NET_NS_FD]));
-+	else
-+		net = get_net(src_net);
-+
-+	if (IS_ERR(net))
-+		return NULL;
-+
-+	/* Check if there's an existing gtpX device to configure */
-+	dev = dev_get_by_index_rcu(net, nla_get_u32(tb[GTPA_LINK]));
-+	if (dev->netdev_ops == &gtp_netdev_ops)
-+		gtp = netdev_priv(dev);
-+
-+	put_net(net);
-+	return gtp;
- }
- 
- static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
-@@ -912,9 +912,9 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
- 	}
- }
- 
--static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
-+static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
- {
--	struct gtp_dev *gtp = netdev_priv(dev);
-+	struct net_device *dev = gtp->dev;
- 	u32 hash_ms, hash_tid = 0;
- 	struct pdp_ctx *pctx;
- 	bool found = false;
-@@ -991,8 +991,8 @@ static int ipv4_pdp_add(struct net_device *dev, struct genl_info *info)
- 
- static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
- {
--	struct net_device *dev;
--	struct net *net;
-+	struct gtp_dev *gtp;
-+	int err;
- 
- 	if (!info->attrs[GTPA_VERSION] ||
- 	    !info->attrs[GTPA_LINK] ||
-@@ -1016,77 +1016,79 @@ static int gtp_genl_new_pdp(struct sk_buff *skb, struct genl_info *info)
- 		return -EINVAL;
- 	}
- 
--	net = gtp_genl_get_net(sock_net(skb->sk), info->attrs);
--	if (IS_ERR(net))
--		return PTR_ERR(net);
-+	rcu_read_lock();
- 
--	/* Check if there's an existing gtpX device to configure */
--	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL) {
--		put_net(net);
--		return -ENODEV;
-+	gtp = gtp_genl_find_dev(sock_net(skb->sk), info->attrs);
-+	if (!gtp) {
-+		err = -ENODEV;
-+		goto out_unlock;
- 	}
--	put_net(net);
- 
--	return ipv4_pdp_add(dev, info);
-+	err = ipv4_pdp_add(gtp, info);
-+
-+out_unlock:
-+	rcu_read_unlock();
-+	return err;
- }
- 
- static int gtp_genl_del_pdp(struct sk_buff *skb, struct genl_info *info)
- {
--	struct net_device *dev;
- 	struct pdp_ctx *pctx;
- 	struct gtp_dev *gtp;
--	struct net *net;
-+	int err = 0;
- 
- 	if (!info->attrs[GTPA_VERSION] ||
- 	    !info->attrs[GTPA_LINK])
- 		return -EINVAL;
- 
--	net = gtp_genl_get_net(sock_net(skb->sk), info->attrs);
--	if (IS_ERR(net))
--		return PTR_ERR(net);
-+	rcu_read_lock();
- 
--	/* Check if there's an existing gtpX device to configure */
--	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL) {
--		put_net(net);
--		return -ENODEV;
-+	gtp = gtp_genl_find_dev(sock_net(skb->sk), info->attrs);
-+	if (!gtp) {
-+		err = -ENODEV;
-+		goto out_unlock;
- 	}
--	put_net(net);
--
--	gtp = netdev_priv(dev);
- 
- 	switch (nla_get_u32(info->attrs[GTPA_VERSION])) {
- 	case GTP_V0:
--		if (!info->attrs[GTPA_TID])
--			return -EINVAL;
-+		if (!info->attrs[GTPA_TID]) {
-+			err = -EINVAL;
-+			goto out_unlock;
-+		}
- 		pctx = gtp0_pdp_find(gtp, nla_get_u64(info->attrs[GTPA_TID]));
- 		break;
- 	case GTP_V1:
--		if (!info->attrs[GTPA_I_TEI])
--			return -EINVAL;
-+		if (!info->attrs[GTPA_I_TEI]) {
-+			err = -EINVAL;
-+			goto out_unlock;
-+		}
- 		pctx = gtp1_pdp_find(gtp, nla_get_u64(info->attrs[GTPA_I_TEI]));
- 		break;
- 
- 	default:
--		return -EINVAL;
-+		err = -EINVAL;
-+		goto out_unlock;
- 	}
- 
--	if (pctx == NULL)
--		return -ENOENT;
-+	if (!pctx) {
-+		err = -ENOENT;
-+		goto out_unlock;
-+	}
- 
- 	if (pctx->gtp_version == GTP_V0)
--		netdev_dbg(dev, "GTPv0-U: deleting tunnel id = %llx (pdp %p)\n",
-+		netdev_dbg(gtp->dev, "GTPv0-U: deleting tunnel id = %llx (pdp %p)\n",
- 			   pctx->u.v0.tid, pctx);
- 	else if (pctx->gtp_version == GTP_V1)
--		netdev_dbg(dev, "GTPv1-U: deleting tunnel id = %x/%x (pdp %p)\n",
-+		netdev_dbg(gtp->dev, "GTPv1-U: deleting tunnel id = %x/%x (pdp %p)\n",
- 			   pctx->u.v1.i_tei, pctx->u.v1.o_tei, pctx);
- 
- 	hlist_del_rcu(&pctx->hlist_tid);
- 	hlist_del_rcu(&pctx->hlist_addr);
- 	kfree_rcu(pctx, rcu_head);
- 
--	return 0;
-+out_unlock:
-+	rcu_read_unlock();
-+	return err;
- }
- 
- static struct genl_family gtp_genl_family;
-@@ -1130,11 +1132,9 @@ static int gtp_genl_fill_info(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
- static int gtp_genl_get_pdp(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct pdp_ctx *pctx = NULL;
--	struct net_device *dev;
- 	struct sk_buff *skb2;
- 	struct gtp_dev *gtp;
- 	u32 gtp_version;
--	struct net *net;
- 	int err;
- 
- 	if (!info->attrs[GTPA_VERSION] ||
-@@ -1150,21 +1150,14 @@ static int gtp_genl_get_pdp(struct sk_buff *skb, struct genl_info *info)
- 		return -EINVAL;
- 	}
- 
--	net = gtp_genl_get_net(sock_net(skb->sk), info->attrs);
--	if (IS_ERR(net))
--		return PTR_ERR(net);
--
--	/* Check if there's an existing gtpX device to configure */
--	dev = gtp_find_dev(net, nla_get_u32(info->attrs[GTPA_LINK]));
--	if (dev == NULL) {
--		put_net(net);
--		return -ENODEV;
--	}
--	put_net(net);
--
--	gtp = netdev_priv(dev);
--
- 	rcu_read_lock();
-+
-+	gtp = gtp_genl_find_dev(sock_net(skb->sk), info->attrs);
-+	if (!gtp) {
-+		err = -ENODEV;
-+		goto err_unlock;
-+	}
-+
- 	if (gtp_version == GTP_V0 &&
- 	    info->attrs[GTPA_TID]) {
- 		u64 tid = nla_get_u64(info->attrs[GTPA_TID]);
--- 
-2.10.2
+It slighly changes the GTP genl API by making the socket parameters optional
+(though one of them is still required).
+
+The removal of the socket references will break the 1:1 releation between
+GTP netdevice and GTP socket that prevents us to support multiple VRFs with
+overlaping IP addresse spaces attached to the same GTP-U entity (needed for
+multi APN support).
+
+Pablo found a socket hold problem in v2. In order to solve that I had to
+switch the socket references from the struct socket to the internal
+struct sock. This should have no functionl impact, but we can now hang
+on to the reference without blocking user space from closing the GTP socket.
+
+There was also some length off-list conversation about why the netdevice to
+socket relation needs to be changed at all. Harald did already agree to this
+but Pablo had some questions. I've tried to address that with a bit of
+dokumentation for the GTP module. Hopefully this will explain the need for
+the change sufficiently.
+
+This series does have conflicts with the SGSN side tunnel work done by
+Jonas Bonn. The unification of the tunnel Rx code touches the same places
+he changed.
+
+v2->v3:
+ * add documentation to explain the goal of all these changes
+ * incorporate review comments
+ * switch from struct socket to struct sock
+
+Regards
+Andreas
