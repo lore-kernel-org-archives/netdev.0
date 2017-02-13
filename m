@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v3 net-next 10/14] mlx4: add rx_alloc_pages counter in ethtool -S
-Date: Mon, 13 Feb 2017 11:58:54 -0800
-Message-ID: <20170213195858.5215-11-edumazet@google.com>
+Subject: [PATCH v3 net-next 11/14] mlx4: do not access rx_desc from mlx4_en_process_rx_cq()
+Date: Mon, 13 Feb 2017 11:58:55 -0800
+Message-ID: <20170213195858.5215-12-edumazet@google.com>
 References: <20170213195858.5215-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Tariq Toukan <tariqt@mellanox.com>,
@@ -15,131 +15,79 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f48.google.com ([209.85.214.48]:36481 "EHLO
-        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753148AbdBMT7q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 14:59:46 -0500
-Received: by mail-it0-f48.google.com with SMTP id c7so979650itd.1
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 11:59:46 -0800 (PST)
+Received: from mail-it0-f41.google.com ([209.85.214.41]:36508 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753164AbdBMT7s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 14:59:48 -0500
+Received: by mail-it0-f41.google.com with SMTP id c7so980925itd.1
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 11:59:48 -0800 (PST)
 In-Reply-To: <20170213195858.5215-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new counter tracks number of pages that we allocated for one port.
-
-lpaa24:~# ethtool -S eth0 | egrep 'rx_alloc_pages|rx_packets'
-     rx_packets: 306755183
-     rx_alloc_pages: 932897
+Instead of fetching dma address from rx_desc->data[0].addr,
+prefer using frags[0].dma + frags[0].page_offset to avoid
+a potential cache line miss.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_port.c    |  2 ++
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 11 +++++++----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  1 +
- drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h |  2 +-
- 5 files changed, 12 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index c4d714fcc7dae759998a49a1f90f9ab1ee9bdda3..ffbcb27c05e55f43630a812249bab21609886dd9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -117,7 +117,7 @@ static const char main_strings[][ETH_GSTRING_LEN] = {
- 	/* port statistics */
- 	"tso_packets",
- 	"xmit_more",
--	"queue_stopped", "wake_queue", "tx_timeout", "rx_alloc_failed",
-+	"queue_stopped", "wake_queue", "tx_timeout", "rx_alloc_pages",
- 	"rx_csum_good", "rx_csum_none", "rx_csum_complete", "tx_chksum_offload",
- 
- 	/* pf statistics */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_port.c b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-index 9166d90e732858610b1407fe85cbf6cbe27f5e0b..e0eb695318e64ebcaf58d6edb5f9a57be6f9ddf6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_port.c
-@@ -213,6 +213,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 	priv->port_stats.rx_chksum_good = 0;
- 	priv->port_stats.rx_chksum_none = 0;
- 	priv->port_stats.rx_chksum_complete = 0;
-+	priv->port_stats.rx_alloc_pages = 0;
- 	priv->xdp_stats.rx_xdp_drop    = 0;
- 	priv->xdp_stats.rx_xdp_tx      = 0;
- 	priv->xdp_stats.rx_xdp_tx_full = 0;
-@@ -223,6 +224,7 @@ int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_dev *mdev, u8 port, u8 reset)
- 		priv->port_stats.rx_chksum_good += READ_ONCE(ring->csum_ok);
- 		priv->port_stats.rx_chksum_none += READ_ONCE(ring->csum_none);
- 		priv->port_stats.rx_chksum_complete += READ_ONCE(ring->csum_complete);
-+		priv->port_stats.rx_alloc_pages += READ_ONCE(ring->rx_alloc_pages);
- 		priv->xdp_stats.rx_xdp_drop	+= READ_ONCE(ring->xdp_drop);
- 		priv->xdp_stats.rx_xdp_tx	+= READ_ONCE(ring->xdp_tx);
- 		priv->xdp_stats.rx_xdp_tx_full	+= READ_ONCE(ring->xdp_tx_full);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 5edd0cf2999cbde37b3404aafd700584696af940..d3a425fa46b3924411e42a865b3a57aa063f1635 100644
+index d3a425fa46b3924411e42a865b3a57aa063f1635..b62fa265890edd0eff50256bdc50fc907dbe8aa2 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -72,6 +72,7 @@ static int mlx4_alloc_page(struct mlx4_en_priv *priv,
- }
+@@ -528,7 +528,6 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
  
- static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
-+			       struct mlx4_en_rx_ring *ring,
- 			       struct mlx4_en_rx_desc *rx_desc,
- 			       struct mlx4_en_rx_alloc *frags,
- 			       gfp_t gfp)
-@@ -79,8 +80,11 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
- 	int i;
  
- 	for (i = 0; i < priv->num_frags; i++, frags++) {
--		if (!frags->page && mlx4_alloc_page(priv, frags, gfp))
--			return -ENOMEM;
-+		if (!frags->page) {
-+			if (mlx4_alloc_page(priv, frags, gfp))
-+				return -ENOMEM;
-+			ring->rx_alloc_pages++;
-+		}
- 		rx_desc->data[i].addr = cpu_to_be64(frags->dma +
- 						    frags->page_offset);
- 	}
-@@ -133,7 +137,6 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
- 	struct mlx4_en_rx_desc *rx_desc = ring->buf + (index * ring->stride);
- 	struct mlx4_en_rx_alloc *frags = ring->rx_info +
- 					(index << priv->log_rx_info);
--
- 	if (ring->page_cache.index > 0) {
- 		/* XDP uses a single page per frame */
- 		if (!frags->page) {
-@@ -147,7 +150,7 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
- 		return 0;
- 	}
+ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+-				      struct mlx4_en_rx_desc *rx_desc,
+ 				      struct mlx4_en_rx_alloc *frags,
+ 				      unsigned int length)
+ {
+@@ -703,7 +702,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	struct mlx4_cqe *cqe;
+ 	struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
+ 	struct mlx4_en_rx_alloc *frags;
+-	struct mlx4_en_rx_desc *rx_desc;
+ 	struct bpf_prog *xdp_prog;
+ 	int doorbell_pending;
+ 	struct sk_buff *skb;
+@@ -738,7 +736,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		    cq->mcq.cons_index & cq->size)) {
  
--	return mlx4_en_alloc_frags(priv, rx_desc, frags, gfp);
-+	return mlx4_en_alloc_frags(priv, ring, rx_desc, frags, gfp);
- }
+ 		frags = ring->rx_info + (index << priv->log_rx_info);
+-		rx_desc = ring->buf + (index << ring->log_stride);
  
- static bool mlx4_en_is_ring_empty(const struct mlx4_en_rx_ring *ring)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 3c93b9614e0674e904d33b83e041f348d4f2ffe9..52f157cea7765ad6907c59aead357a158848b38d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -346,6 +346,7 @@ struct mlx4_en_rx_ring {
- 	unsigned long csum_ok;
- 	unsigned long csum_none;
- 	unsigned long csum_complete;
-+	unsigned long rx_alloc_pages;
- 	unsigned long xdp_drop;
- 	unsigned long xdp_tx;
- 	unsigned long xdp_tx_full;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-index 48641cb0367f251a07537b82d0a16bf50d8479ef..926f3c3f3665c5d28fe5d35c41afaa0e5917c007 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_stats.h
-@@ -37,7 +37,7 @@ struct mlx4_en_port_stats {
- 	unsigned long queue_stopped;
- 	unsigned long wake_queue;
- 	unsigned long tx_timeout;
--	unsigned long rx_alloc_failed;
-+	unsigned long rx_alloc_pages;
- 	unsigned long rx_chksum_good;
- 	unsigned long rx_chksum_none;
- 	unsigned long rx_chksum_complete;
+ 		/*
+ 		 * make sure we read the CQE after we read the ownership bit
+@@ -767,7 +764,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			/* Get pointer to first fragment since we haven't
+ 			 * skb yet and cast it to ethhdr struct
+ 			 */
+-			dma = be64_to_cpu(rx_desc->data[0].addr);
++			dma = frags[0].dma + frags[0].page_offset;
+ 			dma_sync_single_for_cpu(priv->ddev, dma, sizeof(*ethh),
+ 						DMA_FROM_DEVICE);
+ 			ethh = (struct ethhdr *)(page_address(frags[0].page) +
+@@ -806,7 +803,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			void *orig_data;
+ 			u32 act;
+ 
+-			dma = be64_to_cpu(rx_desc->data[0].addr);
++			dma = frags[0].dma + frags[0].page_offset;
+ 			dma_sync_single_for_cpu(priv->ddev, dma,
+ 						priv->frag_info[0].frag_size,
+ 						DMA_FROM_DEVICE);
+@@ -946,7 +943,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		}
+ 
+ 		/* GRO not possible, complete processing here */
+-		skb = mlx4_en_rx_skb(priv, rx_desc, frags, length);
++		skb = mlx4_en_rx_skb(priv, frags, length);
+ 		if (unlikely(!skb)) {
+ 			ring->dropped++;
+ 			goto next;
 -- 
 2.11.0.483.g087da7b7c-goog
