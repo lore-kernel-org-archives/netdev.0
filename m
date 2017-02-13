@@ -1,174 +1,130 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net-next v3 5/8] gtp: consolidate gtp socket rx path
-Date: Mon, 13 Feb 2017 16:36:21 +0100
-Message-ID: <20170213153624.14170-6-aschultz@tpip.net>
+Subject: [PATCH net-next v3 2/8] gtp: switch from struct socket to struct sock for the GTP sockets
+Date: Mon, 13 Feb 2017 16:36:18 +0100
+Message-ID: <20170213153624.14170-3-aschultz@tpip.net>
 References: <20170213153624.14170-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         osmocom-net-gprs@lists.osmocom.org, Jonas Bonn <jonas@southpole.se>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:43213 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:48643 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753545AbdBMPgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 10:36:37 -0500
+        id S1753679AbdBMPgj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 10:36:39 -0500
 In-Reply-To: <20170213153624.14170-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add network device to gtp context in preparation for splitting
-the TEID from the network device.
+After enabling the UDP encapsulation, only the sk member is used.
 
-Use this to rework the socker rx path. Move the common RX part
-of v0 and v1 into a helper. Also move the final rx part into
-that helper as well.
+Holding the socket would prevent user space from closing the socket,
+but holding a reference to the sk member does not have the same
+effect.
+
+This change will make it simpler to later detach the sockets from
+the netdevice.
 
 Signed-off-by: Andreas Schultz <aschultz@tpip.net>
 ---
- drivers/net/gtp.c | 80 ++++++++++++++++++++++++++++++-------------------------
- 1 file changed, 44 insertions(+), 36 deletions(-)
+ drivers/net/gtp.c | 42 +++++++++++++++++++++++-------------------
+ 1 file changed, 23 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index f340e20..e21b663 100644
+index bda0c64..a8ce8c7 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -58,6 +58,8 @@ struct pdp_ctx {
- 	struct in_addr		ms_addr_ip4;
- 	struct in_addr		sgsn_addr_ip4;
+@@ -66,8 +66,8 @@ struct pdp_ctx {
+ struct gtp_dev {
+ 	struct list_head	list;
  
-+	struct net_device       *dev;
-+
- 	atomic_t		tx_seq;
- 	struct rcu_head		rcu_head;
- };
-@@ -175,6 +177,40 @@ static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
- 	return false;
- }
+-	struct socket		*sock0;
+-	struct socket		*sock1u;
++	struct sock		*sk0;
++	struct sock		*sk1u;
  
-+static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb, unsigned int hdrlen,
-+		  bool xnet)
-+{
-+	struct pcpu_sw_netstats *stats;
-+
-+	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
-+		pr_debug("No PDP ctx for this MS\n");
-+		return 1;
-+	}
-+
-+	/* Get rid of the GTP + UDP headers. */
-+	if (iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet))
-+		return -1;
-+
-+	pr_debug("forwarding packet from GGSN to uplink\n");
-+
-+	/* Now that the UDP and the GTP header have been removed, set up the
-+	 * new network header. This is required by the upper layer to
-+	 * calculate the transport header.
-+	 */
-+	skb_reset_network_header(skb);
-+
-+	skb->dev = pctx->dev;
-+
-+	stats = this_cpu_ptr(pctx->dev->tstats);
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_packets++;
-+	stats->rx_bytes += skb->len;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	netif_rx(skb);
-+	return 0;
-+}
-+
- /* 1 means pass up to the stack, -1 means drop and 0 means decapsulated. */
- static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 			       bool xnet)
-@@ -201,13 +237,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		return 1;
+ 	struct net_device	*dev;
+ 
+@@ -261,17 +261,19 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
+ 
+ static void gtp_encap_disable(struct gtp_dev *gtp)
+ {
+-	if (gtp->sock0 && gtp->sock0->sk) {
+-		udp_sk(gtp->sock0->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock0->sk, NULL);
++	if (gtp->sk0) {
++		udp_sk(gtp->sk0)->encap_type = 0;
++		rcu_assign_sk_user_data(gtp->sk0, NULL);
++		sock_put(gtp->sk0);
+ 	}
+-	if (gtp->sock1u && gtp->sock1u->sk) {
+-		udp_sk(gtp->sock1u->sk)->encap_type = 0;
+-		rcu_assign_sk_user_data(gtp->sock1u->sk, NULL);
++	if (gtp->sk1u) {
++		udp_sk(gtp->sk1u)->encap_type = 0;
++		rcu_assign_sk_user_data(gtp->sk1u, NULL);
++		sock_put(gtp->sk1u);
  	}
  
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
--		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
--		return 1;
--	}
--
--	/* Get rid of the GTP + UDP headers. */
--	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-+	return gtp_rx(pctx, skb, hdrlen, xnet);
- }
- 
- static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
-@@ -250,13 +280,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb,
- 		return 1;
- 	}
- 
--	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
--		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
--		return 1;
--	}
--
--	/* Get rid of the GTP + UDP headers. */
--	return iptunnel_pull_header(skb, hdrlen, skb->protocol, xnet);
-+	return gtp_rx(pctx, skb, hdrlen, xnet);
+-	gtp->sock0 = NULL;
+-	gtp->sock1u = NULL;
++	gtp->sk0 = NULL;
++	gtp->sk1u = NULL;
  }
  
  static void gtp_encap_destroy(struct sock *sk)
-@@ -290,10 +314,9 @@ static void gtp_encap_disable(struct gtp_dev *gtp)
-  */
- static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- {
--	struct pcpu_sw_netstats *stats;
- 	struct gtp_dev *gtp;
-+	int ret = 0;
- 	bool xnet;
--	int ret;
+@@ -484,14 +486,14 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
  
- 	gtp = rcu_dereference_sk_user_data(sk);
- 	if (!gtp)
-@@ -319,33 +342,17 @@ static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	switch (ret) {
- 	case 1:
- 		netdev_dbg(gtp->dev, "pass up to the process\n");
--		return 1;
-+		break;
- 	case 0:
--		netdev_dbg(gtp->dev, "forwarding packet from GGSN to uplink\n");
+ 	switch (pctx->gtp_version) {
+ 	case GTP_V0:
+-		if (gtp->sock0)
+-			sk = gtp->sock0->sk;
++		if (gtp->sk0)
++			sk = gtp->sk0;
+ 		else
+ 			sk = NULL;
  		break;
- 	case -1:
- 		netdev_dbg(gtp->dev, "GTP packet has been dropped\n");
- 		kfree_skb(skb);
--		return 0;
-+		ret = 0;
-+		break;
+ 	case GTP_V1:
+-		if (gtp->sock1u)
+-			sk = gtp->sock1u->sk;
++		if (gtp->sk1u)
++			sk = gtp->sk1u;
+ 		else
+ 			sk = NULL;
+ 		break;
+@@ -504,7 +506,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 		return -ENOENT;
  	}
  
--	/* Now that the UDP and the GTP header have been removed, set up the
--	 * new network header. This is required by the upper layer to
--	 * calculate the transport header.
--	 */
--	skb_reset_network_header(skb);
--
--	skb->dev = gtp->dev;
--
--	stats = this_cpu_ptr(gtp->dev->tstats);
--	u64_stats_update_begin(&stats->syncp);
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--	u64_stats_update_end(&stats->syncp);
--
--	netif_rx(skb);
--
--	return 0;
-+	return ret;
- }
+-	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sock0->sk,
++	rt = ip4_route_output_gtp(sock_net(sk), &fl4, gtp->sk0,
+ 				  pctx->sgsn_addr_ip4.s_addr);
+ 	if (IS_ERR(rt)) {
+ 		netdev_dbg(dev, "no route to SSGN %pI4\n",
+@@ -839,18 +841,20 @@ static int gtp_encap_enable(struct net_device *dev, struct gtp_dev *gtp,
  
- static int gtp_dev_init(struct net_device *dev)
-@@ -953,6 +960,7 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct genl_info *info)
- 	if (pctx == NULL)
- 		return -ENOMEM;
+ 	netdev_dbg(dev, "enable gtp on %p, %p\n", sock0, sock1u);
  
-+	pctx->dev = gtp->dev;
- 	ipv4_pdp_fill(pctx, info);
- 	atomic_set(&pctx->tx_seq, 0);
+-	gtp->sock0 = sock0;
+-	gtp->sock1u = sock1u;
++	sock_hold(sock0->sk);
++	gtp->sk0 = sock0->sk;
++	sock_hold(sock1u->sk);
++	gtp->sk1u = sock1u->sk;
  
+ 	tuncfg.sk_user_data = gtp;
+ 	tuncfg.encap_rcv = gtp_encap_recv;
+ 	tuncfg.encap_destroy = gtp_encap_destroy;
+ 
+ 	tuncfg.encap_type = UDP_ENCAP_GTP0;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock0->sk), gtp->sock0, &tuncfg);
++	setup_udp_tunnel_sock(sock_net(gtp->sk0), sock0, &tuncfg);
+ 
+ 	tuncfg.encap_type = UDP_ENCAP_GTP1U;
+-	setup_udp_tunnel_sock(sock_net(gtp->sock1u->sk), gtp->sock1u, &tuncfg);
++	setup_udp_tunnel_sock(sock_net(gtp->sk1u), sock1u, &tuncfg);
+ 
+ 	err = 0;
+ err2:
 -- 
 2.10.2
