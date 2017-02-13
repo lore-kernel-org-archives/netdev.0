@@ -1,83 +1,181 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net tree
-Date: Tue, 14 Feb 2017 09:12:50 +1100
-Message-ID: <20170214091250.57d054b2@canb.auug.org.au>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/dccp: use-after-free in dccp_feat_activate_values
+Date: Mon, 13 Feb 2017 14:29:24 -0800
+Message-ID: <CAM_iQpUVusW6YJqSgXSo2hAA2dCZGYxw4h+A1_iBpaiYMsXDMA@mail.gmail.com>
+References: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Alexei Starovoitov <ast@fb.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        "David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:39591 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750975AbdBMWMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 17:12:54 -0500
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37454 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750975AbdBMW3q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 17:29:46 -0500
+In-Reply-To: <CAAeHK+xDhUDe9_-uEakJG9iqTtD_+fFr+JyUbkWCHHLBCcu1uQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Mon, Feb 13, 2017 at 11:19 AM, Andrey Konovalov
+<andreyknvl@google.com> wrote:
+> Hi,
+>
+> I've got the following error report while fuzzing the kernel with syzkaller.
+>
+> On commit 926af6273fc683cd98cd0ce7bf0d04a02eed6742.
+>
+> A reproducer and .config are attached.
+> Note, that it takes quite some time to trigger the bug (up to 10 minutes).
+>
+> BUG: KASAN: use-after-free in dccp_feat_activate_values+0x967/0xab0
+> net/dccp/feat.c:1541 at addr ffff88003713be68
+> Read of size 8 by task syz-executor2/8457
+> CPU: 2 PID: 8457 Comm: syz-executor2 Not tainted 4.10.0-rc7+ #127
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  <IRQ>
+>  __dump_stack lib/dump_stack.c:15 [inline]
+>  dump_stack+0x292/0x398 lib/dump_stack.c:51
+>  kasan_object_err+0x1c/0x70 mm/kasan/report.c:162
+>  print_address_description mm/kasan/report.c:200 [inline]
+>  kasan_report_error mm/kasan/report.c:289 [inline]
+>  kasan_report.part.1+0x20e/0x4e0 mm/kasan/report.c:311
+>  kasan_report mm/kasan/report.c:332 [inline]
+>  __asan_report_load8_noabort+0x29/0x30 mm/kasan/report.c:332
+>  dccp_feat_activate_values+0x967/0xab0 net/dccp/feat.c:1541
+>  dccp_create_openreq_child+0x464/0x610 net/dccp/minisocks.c:121
+>  dccp_v6_request_recv_sock+0x1f6/0x1960 net/dccp/ipv6.c:457
+>  dccp_check_req+0x335/0x5a0 net/dccp/minisocks.c:186
+>  dccp_v6_rcv+0x69e/0x1d00 net/dccp/ipv6.c:711
+>  ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
+>  NF_HOOK include/linux/netfilter.h:257 [inline]
+>  ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
+>  dst_input include/net/dst.h:507 [inline]
+>  ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
+>  NF_HOOK include/linux/netfilter.h:257 [inline]
+>  ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
+>  __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
+>  __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
+>  process_backlog+0xe5/0x6c0 net/core/dev.c:4839
+>  napi_poll net/core/dev.c:5202 [inline]
+>  net_rx_action+0xe70/0x1900 net/core/dev.c:5267
+>  __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
+>  do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:902
 
-After merging the net tree, today's linux-next build (powerpc64le perf)
-failed like this:
 
-Warning: tools/include/uapi/linux/bpf.h differs from kernel
-bpf.c: In function 'bpf_prog_attach':
-bpf.c:180:6: error: 'union bpf_attr' has no member named 'attach_flags'; did you mean 'map_flags'?
-  attr.attach_flags  = flags;
-      ^
+Seems there is a race condition between iterating dccp_feat_entry
+and freeing it, bh_lock_sock() seems not held in this path.
 
-Caused by commit
 
-  7f677633379b ("bpf: introduce BPF_F_ALLOW_OVERRIDE flag")
-
-Unfortunately, the perf header files are kept separate from the kernel
-header files proper and are not automatically copied over :-(
-
-I have applied the following build fix patch for today.
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 14 Feb 2017 08:22:20 +1100
-Subject: [PATCH] bpf: kernel header files need to be copied into the tools directory
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- tools/include/uapi/linux/bpf.h | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 0eb0e87dbe9f..d2b0ac799d03 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -116,6 +116,12 @@ enum bpf_attach_type {
- 
- #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
- 
-+/* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
-+ * to the given target_fd cgroup the descendent cgroup will be able to
-+ * override effective bpf program that was inherited from this cgroup
-+ */
-+#define BPF_F_ALLOW_OVERRIDE	(1U << 0)
-+
- #define BPF_PSEUDO_MAP_FD	1
- 
- /* flags for BPF_MAP_UPDATE_ELEM command */
-@@ -171,6 +177,7 @@ union bpf_attr {
- 		__u32		target_fd;	/* container object to attach to */
- 		__u32		attach_bpf_fd;	/* eBPF program to attach */
- 		__u32		attach_type;
-+		__u32		attach_flags;
- 	};
- } __attribute__((aligned(8)));
- 
--- 
-2.10.2
-
--- 
-Cheers,
-Stephen Rothwell
+>  </IRQ>
+>  do_softirq.part.17+0x1e8/0x230 kernel/softirq.c:328
+>  do_softirq kernel/softirq.c:176 [inline]
+>  __local_bh_enable_ip+0x1f2/0x200 kernel/softirq.c:181
+>  local_bh_enable include/linux/bottom_half.h:31 [inline]
+>  rcu_read_unlock_bh include/linux/rcupdate.h:971 [inline]
+>  ip6_finish_output2+0xbb0/0x23d0 net/ipv6/ip6_output.c:123
+>  ip6_finish_output+0x302/0x960 net/ipv6/ip6_output.c:148
+>  NF_HOOK_COND include/linux/netfilter.h:246 [inline]
+>  ip6_output+0x1cb/0x8d0 net/ipv6/ip6_output.c:162
+>  ip6_xmit+0xcdf/0x20d0 include/net/dst.h:501
+>  inet6_csk_xmit+0x320/0x5f0 net/ipv6/inet6_connection_sock.c:179
+>  dccp_transmit_skb+0xb09/0x1120 net/dccp/output.c:141
+>  dccp_xmit_packet+0x215/0x760 net/dccp/output.c:280
+>  dccp_write_xmit+0x168/0x1d0 net/dccp/output.c:362
+>  dccp_sendmsg+0x79c/0xb10 net/dccp/proto.c:796
+>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
+>  sock_sendmsg_nosec net/socket.c:635 [inline]
+>  sock_sendmsg+0xca/0x110 net/socket.c:645
+>  SYSC_sendto+0x660/0x810 net/socket.c:1687
+>  SyS_sendto+0x40/0x50 net/socket.c:1655
+>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+> RIP: 0033:0x4458b9
+> RSP: 002b:00007f8ceb77bb58 EFLAGS: 00000282 ORIG_RAX: 000000000000002c
+> RAX: ffffffffffffffda RBX: 0000000000000017 RCX: 00000000004458b9
+> RDX: 0000000000000023 RSI: 0000000020e60000 RDI: 0000000000000017
+> RBP: 00000000006e1b90 R08: 00000000200f9fe1 R09: 0000000000000020
+> R10: 0000000000008010 R11: 0000000000000282 R12: 00000000007080a8
+> R13: 0000000000000000 R14: 00007f8ceb77c9c0 R15: 00007f8ceb77c700
+> Object at ffff88003713be50, in cache kmalloc-64 size: 64
+> Allocated:
+> PID = 8446
+>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
+>  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
+>  set_track mm/kasan/kasan.c:514 [inline]
+>  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:605
+>  kmem_cache_alloc_trace+0x82/0x270 mm/slub.c:2738
+>  kmalloc include/linux/slab.h:490 [inline]
+>  dccp_feat_entry_new+0x214/0x410 net/dccp/feat.c:467
+>  dccp_feat_push_change+0x38/0x220 net/dccp/feat.c:487
+>  __feat_register_sp+0x223/0x2f0 net/dccp/feat.c:741
+>  dccp_feat_propagate_ccid+0x22b/0x2b0 net/dccp/feat.c:949
+>  dccp_feat_server_ccid_dependencies+0x1b3/0x250 net/dccp/feat.c:1012
+>  dccp_make_response+0x1f1/0xc90 net/dccp/output.c:423
+>  dccp_v6_send_response+0x4ec/0xc20 net/dccp/ipv6.c:217
+>  dccp_v6_conn_request+0xaba/0x11b0 net/dccp/ipv6.c:377
+>  dccp_rcv_state_process+0x51e/0x1650 net/dccp/input.c:606
+>  dccp_v6_do_rcv+0x213/0x350 net/dccp/ipv6.c:632
+>  sk_backlog_rcv include/net/sock.h:893 [inline]
+>  __sk_receive_skb+0x36f/0xcc0 net/core/sock.c:479
+>  dccp_v6_rcv+0xba5/0x1d00 net/dccp/ipv6.c:742
+>  ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
+>  NF_HOOK include/linux/netfilter.h:257 [inline]
+>  ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
+>  dst_input include/net/dst.h:507 [inline]
+>  ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
+>  NF_HOOK include/linux/netfilter.h:257 [inline]
+>  ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
+>  __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
+>  __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
+>  process_backlog+0xe5/0x6c0 net/core/dev.c:4839
+>  napi_poll net/core/dev.c:5202 [inline]
+>  net_rx_action+0xe70/0x1900 net/core/dev.c:5267
+>  __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
+> Freed:
+> PID = 15
+>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
+>  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
+>  set_track mm/kasan/kasan.c:514 [inline]
+>  kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:578
+>  slab_free_hook mm/slub.c:1355 [inline]
+>  slab_free_freelist_hook mm/slub.c:1377 [inline]
+>  slab_free mm/slub.c:2954 [inline]
+>  kfree+0xe8/0x2b0 mm/slub.c:3874
+>  dccp_feat_entry_destructor.part.4+0x48/0x60 net/dccp/feat.c:418
+>  dccp_feat_entry_destructor net/dccp/feat.c:416 [inline]
+>  dccp_feat_list_pop net/dccp/feat.c:541 [inline]
+>  dccp_feat_activate_values+0x57f/0xab0 net/dccp/feat.c:1543
+>  dccp_create_openreq_child+0x464/0x610 net/dccp/minisocks.c:121
+>  dccp_v6_request_recv_sock+0x1f6/0x1960 net/dccp/ipv6.c:457
+>  dccp_check_req+0x335/0x5a0 net/dccp/minisocks.c:186
+>  dccp_v6_rcv+0x69e/0x1d00 net/dccp/ipv6.c:711
+>  ip6_input_finish+0x46d/0x17a0 net/ipv6/ip6_input.c:279
+>  NF_HOOK include/linux/netfilter.h:257 [inline]
+>  ip6_input+0xdb/0x590 net/ipv6/ip6_input.c:322
+>  dst_input include/net/dst.h:507 [inline]
+>  ip6_rcv_finish+0x289/0x890 net/ipv6/ip6_input.c:69
+>  NF_HOOK include/linux/netfilter.h:257 [inline]
+>  ipv6_rcv+0x12ec/0x23d0 net/ipv6/ip6_input.c:203
+>  __netif_receive_skb_core+0x1ae5/0x3400 net/core/dev.c:4190
+>  __netif_receive_skb+0x2a/0x170 net/core/dev.c:4228
+>  process_backlog+0xe5/0x6c0 net/core/dev.c:4839
+>  napi_poll net/core/dev.c:5202 [inline]
+>  net_rx_action+0xe70/0x1900 net/core/dev.c:5267
+>  __do_softirq+0x2fb/0xb7d kernel/softirq.c:284
+> Memory state around the buggy address:
+>  ffff88003713bd00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>  ffff88003713bd80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>>ffff88003713be00: fc fc fc fc fc fc fc fc fc fc fb fb fb fb fb fb
+>                                                           ^
+>  ffff88003713be80: fb fb fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+>  ffff88003713bf00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> ==================================================================
+> Disabling lock debugging due to kernel taint
+> Kernel panic - not syncing: panic_on_warn set ...
