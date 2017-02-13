@@ -1,44 +1,42 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 0/9] bnxt_en: Misc updates.
-Date: Sun, 12 Feb 2017 19:18:09 -0500
-Message-ID: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 4/9] bnxt_en: Allow NETIF_F_NTUPLE to be enabled on VFs.
+Date: Sun, 12 Feb 2017 19:18:13 -0500
+Message-ID: <1486945098-4086-5-git-send-email-michael.chan@broadcom.com>
+References: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:35441 "EHLO
-        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751000AbdBMASt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 19:18:49 -0500
-Received: by mail-it0-f43.google.com with SMTP id 203so170031214ith.0
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 16:18:49 -0800 (PST)
+Received: from mail-it0-f41.google.com ([209.85.214.41]:35461 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751305AbdBMASx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 19:18:53 -0500
+Received: by mail-it0-f41.google.com with SMTP id 203so170032055ith.0
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 16:18:53 -0800 (PST)
+In-Reply-To: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Miscellaneous updates include update of the firmware spec, ethtool flash
-enhancement, ethtool -l minor fix, NTUPLE support enhancements, FEC
-link settings message during link up, and new PCI IDs.  Please review.
-Thanks.
+Commit ae10ae740ad2 ("bnxt_en: Add new hardware RFS mode.") has added
+code to allow NTUPLE to be enabled on VFs.  So we now remove the
+BNXT_VF() check in rfs_capable() to allow NTUPLE on VFs.
 
-Deepak Khungar (1):
-  bnxt_en: Added PCI IDs for BCM57452 and BCM57454 ASICs
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Kshitij Soni (1):
-  bnxt_en: Retry failed NVM_INSTALL_UPDATE with defragmentation flag.
-
-Michael Chan (7):
-  bnxt_en: Update to firmware interface spec 1.7.0.
-  bnxt_en: Fix ethtool -l pre-set max combined channel.
-  bnxt_en: Allow NETIF_F_NTUPLE to be enabled on VFs.
-  bnxt_en: Add hardware NTUPLE filter for encapsulated packets.
-  bnxt_en: Do not setup PHY unless driving a single PF.
-  bnxt_en: Print FEC settings as part of the linkup dmesg.
-  bnxt_en: Fix bnxt_setup_tc() error message.
-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  52 ++-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h         |   9 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |  34 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 437 ++++++++++++++++++----
- 4 files changed, 431 insertions(+), 101 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 8ac5987..516c5d7 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -6291,7 +6291,7 @@ static bool bnxt_rfs_capable(struct bnxt *bp)
+ #ifdef CONFIG_RFS_ACCEL
+ 	int vnics, max_vnics, max_rss_ctxs;
+ 
+-	if (BNXT_VF(bp) || !(bp->flags & BNXT_FLAG_MSIX_CAP))
++	if (!(bp->flags & BNXT_FLAG_MSIX_CAP))
+ 		return false;
+ 
+ 	vnics = 1 + bp->rx_nr_rings;
 -- 
 1.8.3.1
