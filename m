@@ -1,22 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: neterion: vxge: use new api
+Subject: Re: [PATCH] net: nuvoton: w90p910: use new api
  ethtool_{get|set}_link_ksettings
-Date: Sun, 12 Feb 2017 22:35:22 -0500 (EST)
-Message-ID: <20170212.223522.214558864369976339.davem@davemloft.net>
-References: <1486917193-7054-1-git-send-email-tremyfr@gmail.com>
+Date: Sun, 12 Feb 2017 22:35:31 -0500 (EST)
+Message-ID: <20170212.223531.2159528346622192427.davem@davemloft.net>
+References: <1486931909-18330-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, netdev@vger.kernel.org,
+Cc: mcuos.com@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486917193-7054-1-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <1486931909-18330-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 12 Feb 2017 17:33:13 +0100
+Date: Sun, 12 Feb 2017 21:38:29 +0100
 
 > The ethtool api {get|set}_settings is deprecated.
 > We move this driver to new api {get|set}_link_ksettings.
