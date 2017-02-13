@@ -1,38 +1,32 @@
-From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [RFC][PATCH] nfsd: add +1 to reference counting scheme for
- struct nfsd4_session
-Date: Mon, 13 Feb 2017 04:12:38 -0800
-Message-ID: <20170213121238.GA4753@infradead.org>
-References: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
- <CAEXv5_jUa8Av4JABoKSAueiLHSLzibMvaE-8DrVcxZHFceckMg@mail.gmail.com>
- <1486816302.4233.29.camel@poochiereds.net>
- <CAEXv5_gd7F-eaazzU1BWPzH4huhEcO1Y-FWov5UP9T+6R+fv-A@mail.gmail.com>
- <20170213103815.GA5131@infradead.org>
- <CAEXv5_g=DS4wk0mgZuw-doVCqountb-CxZki1LOoQH-P7W1U4A@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: Performance in stmmac
+Date: Mon, 13 Feb 2017 13:58:08 +0100
+Message-ID: <67f5c073-bd38-7dbf-37e6-2eeb3039e83d@st.com>
+References: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org,
-        Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEXv5_g=DS4wk0mgZuw-doVCqountb-CxZki1LOoQH-P7W1U4A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <niklas.cassel@axis.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:38779 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751604AbdBMM6Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 07:58:16 -0500
+In-Reply-To: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2017 at 06:42:56AM -0500, David Windsor wrote:
-> I'm not sure this is a sound argument for not converting to
-> refcount_t.
+Hi Joao
 
-It's an argument again the way how this patch was sent.  Please take care
-of all the trivial conversions first, and then do anything non-trivial
-on a case by case basis.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 2/7/2017 8:33 PM, Joao Pinto wrote:
+> I am seeing tx being performed in all queues, but rx is just being routed to
+> queue 0. The reason why only queue 0 is processing the packets is because I am
+> using priority tagged routing for now and iperf is not capable of producing
+> priority tagged traffic.
+
+I wonder if you tried the multi-queue channels & AV/B stack.
+
+Regards
+Peppe
