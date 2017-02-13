@@ -1,95 +1,77 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH] Make EN2 pin optional in the TRF7970A driver
-Date: Mon, 13 Feb 2017 15:31:57 -0600
-Message-ID: <CAL_JsqKM4fEcfPekYkt-+TVNXE3nMF1AEfSHWW+3wAgdYDMXEg@mail.gmail.com>
-References: <1486444924-18444-1-git-send-email-hs@denx.de> <20170210155114.pvjahqqjqurw5jdc@rob-hp-laptop>
- <58A15454.4030602@denx.de>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH net-next v5 1/2] qed: Add infrastructure for PTP support
+Date: Mon, 13 Feb 2017 21:51:08 +0000
+Message-ID: <BL2PR07MB230666FC45C1F86F774FE2B18D590@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1486993586-16431-1-git-send-email-Yuval.Mintz@cavium.com>
+ <1486993586-16431-2-git-send-email-Yuval.Mintz@cavium.com>
+ <20170213202550.GA3005@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Guan Ben <ben.guan@cn.bosch.com>,
-        Mark Jonas <mark.jonas@de.bosch.com>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Samuel Ortiz <sameo@linux.intel.com>,
-        Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Mark Rutland <mark.rutland@arm.com>
-To: Heiko Schocher <hs@denx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58A15454.4030602@denx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0072.outbound.protection.outlook.com ([104.47.32.72]:38838
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752492AbdBMVvM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 16:51:12 -0500
+In-Reply-To: <20170213202550.GA3005@localhost.localdomain>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2017 at 12:38 AM, Heiko Schocher <hs@denx.de> wrote:
-> Hello Rob,
->
->
-> Am 10.02.2017 um 16:51 schrieb Rob Herring:
->>
->> On Tue, Feb 07, 2017 at 06:22:04AM +0100, Heiko Schocher wrote:
->>>
->>> From: Guan Ben <ben.guan@cn.bosch.com>
->>>
->>> Make the EN2 pin optional. This is useful for boards,
->>> which have this pin fix wired, for example to ground.
->>>
->>> Signed-off-by: Guan Ben <ben.guan@cn.bosch.com>
->>> Signed-off-by: Mark Jonas <mark.jonas@de.bosch.com>
->>> Signed-off-by: Heiko Schocher <hs@denx.de>
->>>
->>> ---
->>>
->>>   .../devicetree/bindings/net/nfc/trf7970a.txt       |  4 ++--
->>>   drivers/nfc/trf7970a.c                             | 26
->>> ++++++++++++----------
->>>   2 files changed, 16 insertions(+), 14 deletions(-)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
->>> b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
->>> index 32b35a0..5889a3d 100644
->>> --- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
->>> +++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
->>> @@ -5,8 +5,8 @@ Required properties:
->>>   - spi-max-frequency: Maximum SPI frequency (<= 2000000).
->>>   - interrupt-parent: phandle of parent interrupt handler.
->>>   - interrupts: A single interrupt specifier.
->>> -- ti,enable-gpios: Two GPIO entries used for 'EN' and 'EN2' pins on the
->>> -  TRF7970A.
->>> +- ti,enable-gpios: One or two GPIO entries used for 'EN' and 'EN2' pins
->>> on the
->>> +  TRF7970A. EN2 is optional.
->>
->>
->> Could EN ever be optional/fixed? If so, perhaps deprecate this property
->> and do 2 properties, one for each pin.
->
->
-> The hardware I have has the EN2 pin fix connected to ground. Looking
-> into http://www.ti.com/lit/ds/slos743k/slos743k.pdf page 19 table 6-3
-> and 6-4 the EN2 pin is a don;t core if EN = 1. If EN = 0 EN2 pin
-> selects between Power Down and Sleep Mode ... I see no reason why
-> this is not possible/allowed ...
->
-> Hmm.. I do not like the idea of deprecating the "ti,enable-gpios"
-> property into 2 seperate properties ... but if this would be a reason
-> for not accepting this patch, I can do this ... How should I name
-> the 2 new properties?
+> > +static int qed_ptp_hw_adjfreq(struct qed_dev *cdev, s32 ppb) {
+> > +	struct qed_hwfn *p_hwfn =3D QED_LEADING_HWFN(cdev);
+> > +	struct qed_ptt *p_ptt =3D p_hwfn->p_ptp_ptt;
+> > +	int drift_dir, best_val, best_period;
+> > +	s64 period, dif, dif2;
+> > +	u32 drift_ctr_cfg =3D 0;
+> > +	s64 best_dif, val;
+> > +	u32 drift_state;
+> > +
+> > +	best_dif =3D ppb;
 
-I guess if this ever happens, then we just add "ti,enable2-gpios" and
-ti,enable-gpios continues to point to EN. We don't need to deprecate
-anything (or maybe just deprecate having both GPIOs on single
-property).
+Crap. Apparently I've sent my early draft.
 
-In that case,
+'best_dif' is the culprit for the odd results [not the -8].
+In the previous calculation it was the theoretical upper-bound,
+now it should be an unreachable number instead [7000000000].
 
-Acked-by: Rob Herring <robh@kernel.org>
+> > +	best_period =3D 2;
+> > +	best_val =3D 0;
+> > +	drift_dir =3D 1;
+> > +
+> > +	if (ppb < 0) {
+> > +		ppb =3D -ppb;
+> > +		drift_dir =3D 0;
+> > +	}
+> > +
+> > +	if (ppb =3D=3D 0) {
+> > +		/* No clock adjustment required */
+> > +		best_val =3D 0;
+> > +		best_period =3D 0xFFFFFFF;
+> > +	} else {
+> > +		/* Adjustment value is up to +/-7ns, find an optimal value in
+> > +		 * this range.
+> > +		 */
+> > +		for (val =3D 7; val > 0; val++) {
+>=20
+> This is an endless loop. ------------- ^^^^^
 
->
-> "ti,pin-enable"  and "ti,pin-enable2" ?
->
-> bye,
-> Heiko
-> --
-> DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
-> HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
+And this, obviously...
+
+>=20
+> Besides that, this code returns some very strange values.  For example, f=
+or
+> ppb =3D 100106, 100107, and 100108.  Also ppb =3D 1...8 all return 0/40.
+>=20
+> Trouble with the -=3D 8?
+>=20
+> I can only recommend plotting all of the raw errors and also average
+> (RMS) error over the nominal interval ppb =3D 1...500000.
+>=20
+
+I'll send the corrected v6 tomorrow. Sorry about this one.
