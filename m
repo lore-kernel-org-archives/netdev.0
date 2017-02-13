@@ -1,27 +1,37 @@
-From: Kelly Eells <KEells@hfmhealth.org>
-Subject: Rv-Self-Service Email
-Date: Mon, 13 Feb 2017 10:06:59 +0000
-Message-ID: <280F8E720501E843B6DD4D594785379FECAE8BAD@HFM-EXCH-MBX2.hfmhealth.com>
+From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [RFC][PATCH] nfsd: add +1 to reference counting scheme for
+ struct nfsd4_session
+Date: Mon, 13 Feb 2017 02:38:15 -0800
+Message-ID: <20170213103815.GA5131@infradead.org>
+References: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
+ <CAEXv5_jUa8Av4JABoKSAueiLHSLzibMvaE-8DrVcxZHFceckMg@mail.gmail.com>
+ <1486816302.4233.29.camel@poochiereds.net>
+ <CAEXv5_gd7F-eaazzU1BWPzH4huhEcO1Y-FWov5UP9T+6R+fv-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: "infO@mail.org" <infO@mail.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hfmhealth.org ([216.138.129.4]:40499 "HELO mail.hfmhealth.org"
-        rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with SMTP
-        id S1751455AbdBMKbo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 05:31:44 -0500
-Received: from mail.hfmhealth.org (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id DD9B2300812
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 04:07:38 -0600 (CST)
-Received: from zixvpm.hfmhealth.org (unknown [10.1.8.154])
-        by mail.hfmhealth.org (Postfix) with ESMTP id D2D993007F6
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 04:07:38 -0600 (CST)
-Received: from 127.0.0.1 (ZixVPM [127.0.0.1])
-        by Outbound.hfmhealth.org (Proprietary) with SMTP id 92EA51403AF
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 04:01:21 -0600 (CST)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org,
+        Bruce Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAEXv5_gd7F-eaazzU1BWPzH4huhEcO1Y-FWov5UP9T+6R+fv-A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Your mailbox is almost full. 558MB/576MB To keep your password active. Click Here<http://constrein.com.br/public/stf/> to update
+On Sat, Feb 11, 2017 at 09:01:15AM -0500, David Windsor wrote:
+> I'm not sure there's another way to accomplish what we need
+> (initializing struct nfsd4_session objects with refcount=1) without
+> also modifying the freeable reference state.  After migrating to the
+> refcount_t API, if we leave init_session() as is, the first call to
+> nfsd4_get_session_locked() will fail:
+
+Which is a pretty clear indicator that this code should simply not
+migrate to the recount_t API.  Why was it even considered if the
+conversion is obviously broken?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
