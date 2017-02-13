@@ -1,116 +1,225 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH v2 net-next 00/14] mlx4: order-0 allocations and page
- recycling
-Date: Mon, 13 Feb 2017 10:50:43 +0200
-Message-ID: <5efe33e3-8009-683b-b913-1b97dce3fac2@gmail.com>
-References: <20170209135838.16487-1-edumazet@google.com>
- <9b098a3d-aec0-4085-2cd5-ea3819927071@mellanox.com>
- <b7f2d119-3c84-b911-eeb4-880427299213@mellanox.com>
- <CANn89iJdVbQ2WNK=6pj65J=aBGOn8pXZvpDud_Dy9yFje30mjQ@mail.gmail.com>
+From: Andreas Schultz <aschultz@tpip.net>
+Subject: Re: [PATCH 1/1] gtp: support SGSN-side tunnels
+Date: Mon, 13 Feb 2017 10:25:19 +0100 (CET)
+Message-ID: <1107124975.65949.1486977919253.JavaMail.zimbra@tpip.net>
+References: <20170203091231.10142-1-jonas@southpole.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+Cc: laforge <laforge@gnumonks.org>, pablo <pablo@netfilter.org>,
+        netdev <netdev@vger.kernel.org>
+To: Jonas Bonn <jonas@southpole.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36378 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750975AbdBMIus (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 03:50:48 -0500
-Received: by mail-wr0-f193.google.com with SMTP id k90so22898480wrc.3
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 00:50:48 -0800 (PST)
-In-Reply-To: <CANn89iJdVbQ2WNK=6pj65J=aBGOn8pXZvpDud_Dy9yFje30mjQ@mail.gmail.com>
+Received: from mail.tpip.net ([92.43.49.48]:44485 "EHLO mail.tpip.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751666AbdBMJZX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 04:25:23 -0500
+In-Reply-To: <20170203091231.10142-1-jonas@southpole.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-On 12/02/2017 6:48 PM, Eric Dumazet wrote:
->> Setup 2: PowerPC
->>
->> [10586.623028] Unable to handle kernel paging request for data at address
->> 0x800000251f9001c
->> [10586.623072] Faulting instruction address: 0xc000000000236fa8
->> [10586.623081] Oops: Kernel access of bad area, sig: 11 [#1]
->> [10586.623087] SMP NR_CPUS=2048
->> [10586.623087] NUMA
->> [10586.623093] pSeries
->> [10586.623103] Modules linked in: rdma_ucm ib_ucm rdma_cm iw_cm ib_ipoib
->> ib_cm ib_uverbs ib_umad mlx5_ib mlx5_core mlx4_en ptp pps_core mlx4_ib
->> ib_core mlx4_core devlink netconsole 8021q garp mrp stp llc nfsv3 nfs
->> fscache sg pseries_rng nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables
->> ext4 mbcache jbd2 sd_mod ibmvscsi ibmveth scsi_transport_srp [last unloaded:
->> devlink]
->> [10586.623137] CPU: 8 PID: 30175 Comm: ifconfig Not tainted
->> 4.10.0-rc6-eric_v2 #1
->> [10586.623144] task: c00000000b1e4480 task.stack: c00000000a3cc000
->> [10586.623151] NIP: c000000000236fa8 LR: d000000004f738c4 CTR:
->> c000000000236fa0
->> [10586.623156] REGS: c00000000a3cf360 TRAP: 0380   Not tainted
->> (4.10.0-rc6-eric_v2)
->> [10586.623162] MSR: 800000000280b032 <SF,VEC,VSX,EE,FP,ME,IR,DR,RI>
->> [10586.623167]   CR: 28002048  XER: 20000000
->> [10586.623178] CFAR: d000000004f87ab0 SOFTE: 1
->> [10586.623178] GPR00: d000000004f739d0 c00000000a3cf5e0 c00000000121da00
->> 0800000251f90000
->> [10586.623178] GPR04: 0000000000000000 0000000000010000 0000000000000002
->> 0000000000000000
->> [10586.623178] GPR08: c0000000011a3218 c000000000026320 0800000251f9001c
->> d000000004f87a98
->> [10586.623178] GPR12: c000000000236fa0 c00000000e834800 00003fffd7c08bcc
->> 0000000000000000
->> [10586.623178] GPR16: 0000000000000000 00003fffd7c08bd8 00003fffd7c08c18
->> 00003fffd7c08bd0
->> [10586.623178] GPR20: c0000002b37f1438 c000000275b5b400 c0000002b37f1438
->> 0000000000000046
->> [10586.623178] GPR24: 5deadbeef0000200 c0000002b37e0900 0000000000000000
->> d000000004fd0020
->> [10586.623178] GPR28: c0000002b37f0900 0000000000000000 0000000000000000
->> d000000004fd0020
->> [10586.623223] NIP [c000000000236fa8] .__free_pages+0x8/0x50
->> [10586.623236] LR [d000000004f738c4]
->> .mlx4_en_free_rx_desc.isra.21+0xd4/0x180 [mlx4_en]
->> [10586.623243] Call Trace:
->> [10586.623248] [c00000000a3cf5e0] [c0000002b37ed770] 0xc0000002b37ed770
->> (unreliable)
->> [10586.623260] [c00000000a3cf690] [d000000004f739d0]
->> .mlx4_en_free_rx_buf+0x60/0x130 [mlx4_en]
->> [10586.623274] [c00000000a3cf720] [d000000004f74658]
->> .mlx4_en_deactivate_rx_ring+0x128/0x180 [mlx4_en]
->> [10586.623286] [c00000000a3cf7c0] [d000000004f815c4]
->> .mlx4_en_stop_port+0x614/0x950 [mlx4_en]
->> [10586.623297] [c00000000a3cf8a0] [d000000004f81abc]
->> .mlx4_en_change_mtu+0x1bc/0x210 [mlx4_en]
->> [10586.623307] [c00000000a3cf940] [c000000000736f50]
->> .dev_set_mtu+0x190/0x270
->> [10586.623316] [c00000000a3cf9e0] [c0000000007644c8] .dev_ifsioc+0x348/0x3f0
->> [10586.623323] [c00000000a3cfa80] [c000000000764920] .dev_ioctl+0x3b0/0x880
->> [10586.623331] [c00000000a3cfb70] [c000000000712880]
->> .sock_do_ioctl+0x90/0xb0
->> [10586.623337] [c00000000a3cfc00] [c000000000713380] .sock_ioctl+0x2b0/0x390
->> [10586.623345] [c00000000a3cfca0] [c0000000003059b4]
->> .do_vfs_ioctl+0xc4/0x8b0
->> [10586.623352] [c00000000a3cfd90] [c000000000306264] .SyS_ioctl+0xc4/0xe0
->> [10586.623360] [c00000000a3cfe30] [c00000000000b184] system_call+0x38/0xe0
->> [10586.623367] Instruction dump:
->> [10586.623372] fadf0028 7f1cd92a 4bfffe70 7f43d378 7fe4fb78 7fa5eb78
->> 38c00000 38e00005
->> [10586.623383] 4bffd689 4bfffe6c 7c0004ac 3943001c <7d005028> 3108ffff
->> 7d00512d 40c2fff4
->> [10586.623397] ---[ end trace 97ff7bd173bea34a ]---
->> [10586.623403]
->> [10588.623447] Kernel panic - not syncing: Fatal exception
->
-> Yeah, changing MTU seems to be problematic because of the log_rx_info
-> trick that you already mentioned.
->
-> Can you tell me what was the old MTU and what is the new one ?
-MTU is changed from 1500 to 500, with VLAN configured.
->
-> Thanks
+I'm a bit late to comment, but maybe you can consider an additional
+change for v2...
+
+----- On Feb 3, 2017, at 10:12 AM, Jonas Bonn jonas@southpole.se wrote:
+
+> The GTP-tunnel driver is explicitly GGSN-side as it searches for PDP
+> contexts based on the incoming packets _destination_ address.  If we
+> want to write an SGSN, then we want to be idenityfing PDP contexts
+> based on _source_ address.
+> 
+> This patch adds a "flags" argument at GTP-link creation time to specify
+> whether we are on the GGSN or SGSN side of the tunnel; this flag is then
+> used to determine which part of the IP packet to use in determining
+> the PDP context.
+> 
+> Signed-off-by: Jonas Bonn <jonas@southpole.se>
+> ---
+> 
+> drivers/net/gtp.c            | 43 ++++++++++++++++++++++++++++++++-----------
+> include/uapi/linux/gtp.h     |  2 +-
+> include/uapi/linux/if_link.h |  5 +++++
+> 3 files changed, 38 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+> index 50349a9..1bbac69 100644
+> --- a/drivers/net/gtp.c
+> +++ b/drivers/net/gtp.c
+> @@ -72,6 +72,7 @@ struct gtp_dev {
+> 	struct net		*net;
+> 	struct net_device	*dev;
+> 
+> +	unsigned int		flags;
+
+This should IMHO not go into the gtp_dev, the right place
+is the PDP context.
+
+In the current design the netdevice might seem like the logical
+place, but the relation between tunnels and netdevices is actually
+wrong. This leaves the PDP context the only correct place.
+
+I currently have an ongoing discussion with Pablo about this. Harald
+seems already convinced (http://marc.info/?l=linux-netdev&m=148638992010344&w=2).
+
+> 	unsigned int		hash_size;
+> 	struct hlist_head	*tid_hash;
+> 	struct hlist_head	*addr_hash;
+> @@ -150,8 +151,8 @@ static struct pdp_ctx *ipv4_pdp_find(struct gtp_dev *gtp,
+> __be32 ms_addr)
+> 	return NULL;
+> }
+> 
+> -static bool gtp_check_src_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
+> -				  unsigned int hdrlen)
+> +static bool gtp_check_ms_ipv4(struct sk_buff *skb, struct pdp_ctx *pctx,
+> +				  unsigned int hdrlen, unsigned int flags)
+> {
+> 	struct iphdr *iph;
+> 
+> @@ -160,18 +161,22 @@ static bool gtp_check_src_ms_ipv4(struct sk_buff *skb,
+> struct pdp_ctx *pctx,
+> 
+> 	iph = (struct iphdr *)(skb->data + hdrlen);
+> 
+> -	return iph->saddr == pctx->ms_addr_ip4.s_addr;
+> +	if (flags & GTP_FLAGS_SGSN) {
+> +		return iph->daddr == pctx->ms_addr_ip4.s_addr;
+> +	} else {
+> +		return iph->saddr == pctx->ms_addr_ip4.s_addr;
+> +	}
+> }
+> 
+> -/* Check if the inner IP source address in this packet is assigned to any
+> +/* Check if the inner IP address in this packet is assigned to any
+>  * existing mobile subscriber.
+>  */
+> -static bool gtp_check_src_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
+> -			     unsigned int hdrlen)
+> +static bool gtp_check_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
+> +			     unsigned int hdrlen, unsigned int flags)
+> {
+> 	switch (ntohs(skb->protocol)) {
+> 	case ETH_P_IP:
+> -		return gtp_check_src_ms_ipv4(skb, pctx, hdrlen);
+> +		return gtp_check_ms_ipv4(skb, pctx, hdrlen, flags);
+> 	}
+> 	return false;
+> }
+> @@ -205,7 +210,7 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct
+> sk_buff *skb,
+> 		goto out_rcu;
+> 	}
+> 
+> -	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
+> +	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->flags)) {
+> 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+> 		ret = -1;
+> 		goto out_rcu;
+> @@ -248,7 +253,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct
+> sk_buff *skb,
+> 	if (gtp1->flags & GTP1_F_MASK)
+> 		hdrlen += 4;
+> 
+> -	/* Make sure the header is larger enough, including extensions. */
+> +	/* Make sure the header is large enough, including extensions. */
+> 	if (!pskb_may_pull(skb, hdrlen))
+> 		return -1;
+> 
+> @@ -262,7 +267,7 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct
+> sk_buff *skb,
+> 		goto out_rcu;
+> 	}
+> 
+> -	if (!gtp_check_src_ms(skb, pctx, hdrlen)) {
+> +	if (!gtp_check_ms(skb, pctx, hdrlen, gtp->flags)) {
+> 		netdev_dbg(gtp->dev, "No PDP ctx for this MS\n");
+> 		ret = -1;
+> 		goto out_rcu;
+> @@ -491,7 +496,11 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct
+> net_device *dev,
+> 	 * Prepend PDP header with TEI/TID from PDP ctx.
+> 	 */
+> 	iph = ip_hdr(skb);
+> -	pctx = ipv4_pdp_find(gtp, iph->daddr);
+> +	if (gtp->flags & GTP_FLAGS_SGSN) {
+> +		pctx = ipv4_pdp_find(gtp, iph->saddr);
+> +	} else {
+> +		pctx = ipv4_pdp_find(gtp, iph->daddr);
+> +	}
+> 	if (!pctx) {
+> 		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
+> 			   &iph->daddr);
+> @@ -666,12 +675,23 @@ static int gtp_newlink(struct net *src_net, struct
+> net_device *dev,
+> 	int hashsize, err, fd0, fd1;
+> 	struct gtp_dev *gtp;
+> 	struct gtp_net *gn;
+> +	unsigned int flags;
+> +
+> +	if (data[IFLA_GTP_FLAGS]) {
+> +		flags = nla_get_u32(data[IFLA_GTP_FLAGS]);
+> +		if (flags & ~GTP_FLAGS_MASK)
+> +			return -EINVAL;
+> +	} else {
+> +		flags = 0;
+> +	}
+> 
+> 	if (!data[IFLA_GTP_FD0] || !data[IFLA_GTP_FD1])
+> 		return -EINVAL;
+> 
+> 	gtp = netdev_priv(dev);
+> 
+> +	gtp->flags = flags;
+> +
+> 	fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
+> 	fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+> 
+> @@ -723,6 +743,7 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1]
+> = {
+> 	[IFLA_GTP_FD0]			= { .type = NLA_U32 },
+> 	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
+> 	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
+> +	[IFLA_GTP_FLAGS]		= { .type = NLA_U32 },
+> };
+> 
+> static int gtp_validate(struct nlattr *tb[], struct nlattr *data[])
+> diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
+> index 72a04a0..79037cc 100644
+> --- a/include/uapi/linux/gtp.h
+> +++ b/include/uapi/linux/gtp.h
+> @@ -19,7 +19,7 @@ enum gtp_attrs {
+> 	GTPA_LINK,
+> 	GTPA_VERSION,
+> 	GTPA_TID,	/* for GTPv0 only */
+> -	GTPA_SGSN_ADDRESS,
+> +	GTPA_SGSN_ADDRESS, /* Remote GSN, either SGSN or GGSN */
+> 	GTPA_MS_ADDRESS,
+> 	GTPA_FLOW,
+> 	GTPA_NET_NS_FD,
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index ccde456..a446e7b 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -533,11 +533,16 @@ enum {
+> #define IFLA_PPP_MAX (__IFLA_PPP_MAX - 1)
+> 
+> /* GTP section */
+> +
+> +#define GTP_FLAGS_SGSN		(1U << 0)
+> +#define GTP_FLAGS_MASK		(GTP_FLAGS_SGSN)
+> +
+> enum {
+> 	IFLA_GTP_UNSPEC,
+> 	IFLA_GTP_FD0,
+> 	IFLA_GTP_FD1,
+> 	IFLA_GTP_PDP_HASHSIZE,
+> +	IFLA_GTP_FLAGS,
+> 	__IFLA_GTP_MAX,
+> };
+> #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
+> --
+> 2.9.3
+
+Andreas
