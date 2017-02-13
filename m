@@ -1,85 +1,82 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 5/9] bnxt_en: Add hardware NTUPLE filter for encapsulated packets.
-Date: Sun, 12 Feb 2017 19:18:14 -0500
-Message-ID: <1486945098-4086-6-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 7/9] bnxt_en: Print FEC settings as part of the linkup dmesg.
+Date: Sun, 12 Feb 2017 19:18:16 -0500
+Message-ID: <1486945098-4086-8-git-send-email-michael.chan@broadcom.com>
 References: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:35465 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751229AbdBMATE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 19:19:04 -0500
-Received: by mail-it0-f50.google.com with SMTP id 203so170032261ith.0
-        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 16:18:59 -0800 (PST)
+Received: from mail-it0-f51.google.com ([209.85.214.51]:37129 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751357AbdBMAS4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 19:18:56 -0500
+Received: by mail-it0-f51.google.com with SMTP id x75so22850168itb.0
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 16:18:56 -0800 (PST)
 In-Reply-To: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If skb_flow_dissect_flow_keys() returns with the encapsulation flag
-set, pass the information to the firmware to setup the NTUPLE filter
-accordingly.
+Print FEC (Forward Error Correction) autoneg and encoding settings during
+link up.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 13 ++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  4 ++++
+ 2 files changed, 16 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 516c5d7..f3d829f 100644
+index afd1190..9f1dfbe 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -3456,6 +3456,9 @@ static int bnxt_hwrm_cfa_ntuple_filter_free(struct bnxt *bp,
- 	 CFA_NTUPLE_FILTER_ALLOC_REQ_ENABLES_DST_PORT_MASK |	\
- 	 CFA_NTUPLE_FILTER_ALLOC_REQ_ENABLES_DST_ID)
+@@ -5437,7 +5437,7 @@ static void bnxt_report_link(struct bnxt *bp)
+ 	if (bp->link_info.link_up) {
+ 		const char *duplex;
+ 		const char *flow_ctrl;
+-		u16 speed;
++		u16 speed, fec;
  
-+#define BNXT_NTP_TUNNEL_FLTR_FLAG				\
-+		CFA_NTUPLE_FILTER_ALLOC_REQ_ENABLES_TUNNEL_TYPE
+ 		netif_carrier_on(bp->dev);
+ 		if (bp->link_info.duplex == BNXT_LINK_DUPLEX_FULL)
+@@ -5459,6 +5459,12 @@ static void bnxt_report_link(struct bnxt *bp)
+ 			netdev_info(bp->dev, "EEE is %s\n",
+ 				    bp->eee.eee_active ? "active" :
+ 							 "not active");
++		fec = bp->link_info.fec_cfg;
++		if (!(fec & PORT_PHY_QCFG_RESP_FEC_CFG_FEC_NONE_SUPPORTED))
++			netdev_info(bp->dev, "FEC autoneg %s encodings: %s\n",
++				    (fec & BNXT_FEC_AUTONEG) ? "on" : "off",
++				    (fec & BNXT_FEC_ENC_BASE_R) ? "BaseR" :
++				     (fec & BNXT_FEC_ENC_RS) ? "RS" : "None");
+ 	} else {
+ 		netif_carrier_off(bp->dev);
+ 		netdev_err(bp->dev, "NIC Link is Down\n");
+@@ -5583,6 +5589,11 @@ static int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
+ 			}
+ 		}
+ 	}
 +
- static int bnxt_hwrm_cfa_ntuple_filter_alloc(struct bnxt *bp,
- 					     struct bnxt_ntuple_filter *fltr)
- {
-@@ -3496,6 +3499,11 @@ static int bnxt_hwrm_cfa_ntuple_filter_alloc(struct bnxt *bp,
- 		req.dst_ipaddr[0] = keys->addrs.v4addrs.dst;
- 		req.dst_ipaddr_mask[0] = cpu_to_be32(0xffffffff);
- 	}
-+	if (keys->control.flags & FLOW_DIS_ENCAPSULATION) {
-+		req.enables |= cpu_to_le32(BNXT_NTP_TUNNEL_FLTR_FLAG);
-+		req.tunnel_type =
-+			CFA_NTUPLE_FILTER_ALLOC_REQ_TUNNEL_TYPE_ANYTUNNEL;
-+	}
++	link_info->fec_cfg = PORT_PHY_QCFG_RESP_FEC_CFG_FEC_NONE_SUPPORTED;
++	if (bp->hwrm_spec_code >= 0x10504)
++		link_info->fec_cfg = le16_to_cpu(resp->fec_cfg);
++
+ 	/* TODO: need to add more logic to report VF link */
+ 	if (chng_link_state) {
+ 		if (link_info->phy_link_status == BNXT_LINK_LINK)
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index eaed700..faf26a2 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -867,6 +867,10 @@ struct bnxt_link_info {
+ 	u16			force_link_speed;
+ 	u32			preemphasis;
+ 	u8			module_status;
++	u16			fec_cfg;
++#define BNXT_FEC_AUTONEG	PORT_PHY_QCFG_RESP_FEC_CFG_FEC_AUTONEG_ENABLED
++#define BNXT_FEC_ENC_BASE_R	PORT_PHY_QCFG_RESP_FEC_CFG_FEC_CLAUSE74_ENABLED
++#define BNXT_FEC_ENC_RS		PORT_PHY_QCFG_RESP_FEC_CFG_FEC_CLAUSE91_ENABLED
  
- 	req.src_port = keys->ports.src;
- 	req.src_port_mask = cpu_to_be16(0xffff);
-@@ -6869,6 +6877,7 @@ static bool bnxt_fltr_match(struct bnxt_ntuple_filter *f1,
- 	    keys1->ports.ports == keys2->ports.ports &&
- 	    keys1->basic.ip_proto == keys2->basic.ip_proto &&
- 	    keys1->basic.n_proto == keys2->basic.n_proto &&
-+	    keys1->control.flags == keys2->control.flags &&
- 	    ether_addr_equal(f1->src_mac_addr, f2->src_mac_addr) &&
- 	    ether_addr_equal(f1->dst_mac_addr, f2->dst_mac_addr))
- 		return true;
-@@ -6886,9 +6895,6 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 	int rc = 0, idx, bit_id, l2_idx = 0;
- 	struct hlist_head *head;
- 
--	if (skb->encapsulation)
--		return -EPROTONOSUPPORT;
--
- 	if (!ether_addr_equal(dev->dev_addr, eth->h_dest)) {
- 		struct bnxt_vnic_info *vnic = &bp->vnic_info[0];
- 		int off = 0, j;
-@@ -6927,6 +6933,11 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 		rc = -EPROTONOSUPPORT;
- 		goto err_free;
- 	}
-+	if ((fkeys->control.flags & FLOW_DIS_ENCAPSULATION) &&
-+	    bp->hwrm_spec_code < 0x10601) {
-+		rc = -EPROTONOSUPPORT;
-+		goto err_free;
-+	}
- 
- 	memcpy(new_fltr->dst_mac_addr, eth->h_dest, ETH_ALEN);
- 	memcpy(new_fltr->src_mac_addr, eth->h_source, ETH_ALEN);
+ 	/* copy of requested setting from ethtool cmd */
+ 	u8			autoneg;
 -- 
 1.8.3.1
