@@ -1,34 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] packet: Do not call fanout_release from atomic
- contexts
-Date: Mon, 13 Feb 2017 06:26:04 -0800
-Message-ID: <1486995964.8227.34.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1486730384-18749-1-git-send-email-anoob.soman@citrix.com>
-         <1486735077.7793.149.camel@edumazet-glaptop3.roam.corp.google.com>
-         <822618dc-9e7f-83dd-1920-6a69aaf27dc0@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/2] mv88e6xxx Watchdog support
+Date: Mon, 13 Feb 2017 09:30:45 -0500 (EST)
+Message-ID: <20170213.093045.2293700707099754308.davem@davemloft.net>
+References: <1486595023-28371-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Anoob Soman <anoob.soman@citrix.com>
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:33807 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753213AbdBMO0G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 09:26:06 -0500
-Received: by mail-oi0-f66.google.com with SMTP id w144so7583060oiw.1
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 06:26:06 -0800 (PST)
-In-Reply-To: <822618dc-9e7f-83dd-1920-6a69aaf27dc0@citrix.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43574 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751945AbdBMOaw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 09:30:52 -0500
+In-Reply-To: <1486595023-28371-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-02-13 at 13:28 +0000, Anoob Soman wrote:
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Thu,  9 Feb 2017 00:03:41 +0100
 
-> Wouldn't it be easier to call synchronize_net(), before calling 
-> fanout_release_data() and kfree(f).
-> The behavior, wrt synchronize_net, would be same as before and 
-> fanout_release() will cleanup everything without leaving any residue.
+> The Marvell switches have an in built watchdog over some of the
+> internal state machine. The watchdog can be configured to raise an
+> interrupt on error. The problem the watchdog found is then logged to
+> the kernel log.
+> 
+> The older switches can automagically perform a software reset when the
+> watchdog triggers. This just resets the internal state machine, but
+> leaves the switch configuration unchanged.
+> 
+> The 6390 family of switches cannot both raise an interrupt and
+> automagically perform a software reset. So the interrupt handler has
+> to perform the switch reset, and then re-enable the watchdog
+> interrupts.
+> 
+> This has been tested using hacked together debugfs code which allows
+> the "force" bit to be set, so cause a watchdog interrupt.
+> 
+> v2: Remove g2_prefix
 
-So we would require two synchronize_net() calls instead of one ?
-
-synchronize_net() is very expensive on some hosts, it is a big hammer.
+Series applied, thanks Andrew.
