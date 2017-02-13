@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] bnxt_en: Misc updates.
-Date: Sun, 12 Feb 2017 22:21:38 -0500 (EST)
-Message-ID: <20170212.222138.1987193262558336332.davem@davemloft.net>
-References: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: [PATCH] net: micrel: ks8695net: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Sun, 12 Feb 2017 22:34:12 -0500 (EST)
+Message-ID: <20170212.223412.1048055944103362816.davem@davemloft.net>
+References: <1486594485-24700-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35990 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751229AbdBMDVu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 22:21:50 -0500
-In-Reply-To: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: harvey.hunt@imgtec.com, edumazet@google.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486594485-24700-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Sun, 12 Feb 2017 19:18:09 -0500
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Wed,  8 Feb 2017 23:54:45 +0100
 
-> Miscellaneous updates include update of the firmware spec, ethtool flash
-> enhancement, ethtool -l minor fix, NTUPLE support enhancements, FEC
-> link settings message during link up, and new PCI IDs.  Please review.
-> Thanks.
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> As I don't have the hardware, I'd be very pleased if
+> someone may test this patch.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-This all looks pretty straightforward to me, series applied, thanks
-Michael.
+Applied.
