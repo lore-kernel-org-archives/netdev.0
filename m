@@ -1,73 +1,55 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next 2/3] bridge: fdb: add proper lock checks in searching functions
-Date: Mon, 13 Feb 2017 14:59:10 +0100
-Message-ID: <1486994351-1137-3-git-send-email-nikolay@cumulusnetworks.com>
-References: <1486994351-1137-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
-        stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch net-next] net: qcom/emac: fix a sizeof() typo
+Date: Mon, 13 Feb 2017 17:00:40 +0300
+Message-ID: <20170213140040.GB4108@mwanda>
+References: <20170213110021.GA17205@mwanda>
+ <58A19E97.6000704@bfs.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: walter harms <wharms@bfs.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:33143 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752656AbdBMOAP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 09:00:15 -0500
-Received: by mail-wm0-f44.google.com with SMTP id t18so6715152wmt.0
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 06:00:10 -0800 (PST)
-In-Reply-To: <1486994351-1137-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:20944 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752282AbdBMOBC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 09:01:02 -0500
+Content-Disposition: inline
+In-Reply-To: <58A19E97.6000704@bfs.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to avoid new errors add checks to br_fdb_find and fdb_find_rcu
-functions. The first requires hash_lock, the second obviously RCU.
+On Mon, Feb 13, 2017 at 12:55:03PM +0100, walter harms wrote:
+> 
+> 
+> Am 13.02.2017 12:00, schrieb Dan Carpenter:
+> > We had intended to say "sizeof(u32)" but the "u" is missing.
+> > Fortunately, sizeof(32) is also 4, so the original code still works.
+> > 
+> > Fixes: c4e7beea2192 ("net: qcom/emac: add ethtool support for reading hardware registers")
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > 
+> > diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+> > index 0d9945fb79be..bbe24639aa5a 100644
+> > --- a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+> > +++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+> > @@ -227,7 +227,7 @@ static void emac_get_regs(struct net_device *netdev,
+> >  
+> >  static int emac_get_regs_len(struct net_device *netdev)
+> >  {
+> > -	return EMAC_MAX_REG_SIZE * sizeof(32);
+> > +	return EMAC_MAX_REG_SIZE * sizeof(u32);
+> >  }
+> >  
+> 
+> 
+> We have a function where the argument is ignored and the rest is const ?
+> 
+> emac_ethtool_get_regs_len seems the only user. So it would be fairly easy to
+> move that into that function.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_fdb.c     | 4 ++++
- net/bridge/br_private.h | 9 +++++++++
- 2 files changed, 13 insertions(+)
+It's not the only user.  We have to pass netdev because it's used as a
+function pointer.
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 04a53a0b733d..da5ed7d0a3c8 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -89,6 +89,8 @@ static struct net_bridge_fdb_entry *fdb_find_rcu(struct hlist_head *head,
- {
- 	struct net_bridge_fdb_entry *f;
- 
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
- 	hlist_for_each_entry_rcu(f, head, hlist)
- 		if (ether_addr_equal(f->addr.addr, addr) && f->vlan_id == vid)
- 			break;
-@@ -104,6 +106,8 @@ static struct net_bridge_fdb_entry *br_fdb_find(struct net_bridge *br,
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
- 	struct net_bridge_fdb_entry *fdb;
- 
-+	WARN_ON_ONCE(!br_hash_lock_held(br));
-+
- 	rcu_read_lock();
- 	fdb = fdb_find_rcu(head, addr, vid);
- 	rcu_read_unlock();
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 61368186edea..2288fca7756c 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -531,6 +531,15 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
- int br_fdb_external_learn_del(struct net_bridge *br, struct net_bridge_port *p,
- 			      const unsigned char *addr, u16 vid);
- 
-+static inline bool br_hash_lock_held(struct net_bridge *br)
-+{
-+#ifdef CONFIG_LOCKDEP
-+	return lockdep_is_held(&br->hash_lock);
-+#else
-+	return true;
-+#endif
-+}
-+
- /* br_forward.c */
- enum br_pkt_type {
- 	BR_PKT_UNICAST,
--- 
-2.1.4
+regards,
+dan carpenter
