@@ -1,142 +1,74 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v4 net-next 5/8] sunvnet: straighten up message event handling logic
-Date: Mon, 13 Feb 2017 10:57:01 -0800
-Message-ID: <1487012224-403399-6-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH v4 net-next 7/8] ldmvsw: update and simplify version string
+Date: Mon, 13 Feb 2017 10:57:03 -0800
+Message-ID: <1487012224-403399-8-git-send-email-shannon.nelson@oracle.com>
 References: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
         Shannon Nelson <shannon.nelson@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <sparclinux-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:30127 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752798AbdBMTAo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 14:00:44 -0500
 In-Reply-To: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The use of gotos for handling the incoming events made this code
-harder to read and support than it should be.  This patch straightens
-out and clears up the logic.
+New version and simplify the print code.
 
 Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- drivers/net/ethernet/sun/sunvnet_common.c |   94 ++++++++++++++---------------
- 1 files changed, 45 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/sun/ldmvsw.c |   14 ++++----------
+ 1 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 623363b..d124bde 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -738,41 +738,37 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
- 	struct vio_driver_state *vio = &port->vio;
- 	int tx_wakeup, err;
- 	int npkts = 0;
--	int event = (port->rx_event & LDC_EVENT_RESET);
--
--ldc_ctrl:
--	if (unlikely(event == LDC_EVENT_RESET ||
--		     event == LDC_EVENT_UP)) {
--		vio_link_state_change(vio, event);
--
--		if (event == LDC_EVENT_RESET) {
--			vnet_port_reset(port);
--			vio_port_up(vio);
--
--			/* If the device is running but its tx queue was
--			 * stopped (due to flow control), restart it.
--			 * This is necessary since vnet_port_reset()
--			 * clears the tx drings and thus we may never get
--			 * back a VIO_TYPE_DATA ACK packet - which is
--			 * the normal mechanism to restart the tx queue.
--			 */
--			if (netif_running(dev))
--				maybe_tx_wakeup(port);
--		}
-+
-+	/* we don't expect any other bits */
-+	BUG_ON(port->rx_event & ~(LDC_EVENT_DATA_READY |
-+				  LDC_EVENT_RESET |
-+				  LDC_EVENT_UP));
-+
-+	/* RESET takes precedent over any other event */
-+	if (port->rx_event & LDC_EVENT_RESET) {
-+		vio_link_state_change(vio, LDC_EVENT_RESET);
-+		vnet_port_reset(port);
-+		vio_port_up(vio);
-+
-+		/* If the device is running but its tx queue was
-+		 * stopped (due to flow control), restart it.
-+		 * This is necessary since vnet_port_reset()
-+		 * clears the tx drings and thus we may never get
-+		 * back a VIO_TYPE_DATA ACK packet - which is
-+		 * the normal mechanism to restart the tx queue.
-+		 */
-+		if (netif_running(dev))
-+			maybe_tx_wakeup(port);
-+
- 		port->rx_event = 0;
- 		return 0;
- 	}
--	/* We may have multiple LDC events in rx_event. Unroll send_events() */
--	event = (port->rx_event & LDC_EVENT_UP);
--	port->rx_event &= ~(LDC_EVENT_RESET | LDC_EVENT_UP);
--	if (event == LDC_EVENT_UP)
--		goto ldc_ctrl;
--	event = port->rx_event;
--	if (!(event & LDC_EVENT_DATA_READY))
--		return 0;
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+index 335b876..f0fe6cf 100644
+--- a/drivers/net/ethernet/sun/ldmvsw.c
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -41,11 +41,11 @@
+ static u8 vsw_port_hwaddr[ETH_ALEN] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
  
--	/* we dont expect any other bits than RESET, UP, DATA_READY */
--	BUG_ON(event != LDC_EVENT_DATA_READY);
-+	if (port->rx_event & LDC_EVENT_UP) {
-+		vio_link_state_change(vio, LDC_EVENT_UP);
-+		port->rx_event = 0;
-+		return 0;
-+	}
+ #define DRV_MODULE_NAME		"ldmvsw"
+-#define DRV_MODULE_VERSION	"1.0"
+-#define DRV_MODULE_RELDATE	"Jan 15, 2016"
++#define DRV_MODULE_VERSION	"1.1"
++#define DRV_MODULE_RELDATE	"February 3, 2017"
  
- 	err = 0;
- 	tx_wakeup = 0;
-@@ -795,25 +791,25 @@ static int vnet_event_napi(struct vnet_port *port, int budget)
- 			pkt->start_idx = vio_dring_next(dr,
- 							port->napi_stop_idx);
- 			pkt->end_idx = -1;
--			goto napi_resume;
--		}
--		err = ldc_read(vio->lp, &msgbuf, sizeof(msgbuf));
--		if (unlikely(err < 0)) {
--			if (err == -ECONNRESET)
--				vio_conn_reset(vio);
--			break;
-+		} else {
-+			err = ldc_read(vio->lp, &msgbuf, sizeof(msgbuf));
-+			if (unlikely(err < 0)) {
-+				if (err == -ECONNRESET)
-+					vio_conn_reset(vio);
-+				break;
-+			}
-+			if (err == 0)
-+				break;
-+			viodbg(DATA, "TAG [%02x:%02x:%04x:%08x]\n",
-+			       msgbuf.tag.type,
-+			       msgbuf.tag.stype,
-+			       msgbuf.tag.stype_env,
-+			       msgbuf.tag.sid);
-+			err = vio_validate_sid(vio, &msgbuf.tag);
-+			if (err < 0)
-+				break;
- 		}
--		if (err == 0)
--			break;
--		viodbg(DATA, "TAG [%02x:%02x:%04x:%08x]\n",
--		       msgbuf.tag.type,
--		       msgbuf.tag.stype,
--		       msgbuf.tag.stype_env,
--		       msgbuf.tag.sid);
--		err = vio_validate_sid(vio, &msgbuf.tag);
--		if (err < 0)
--			break;
--napi_resume:
-+
- 		if (likely(msgbuf.tag.type == VIO_TYPE_DATA)) {
- 			if (msgbuf.tag.stype == VIO_SUBTYPE_INFO) {
- 				if (!sunvnet_port_is_up_common(port)) {
+ static char version[] =
+-	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
++	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
+ MODULE_AUTHOR("Oracle");
+ MODULE_DESCRIPTION("Sun4v LDOM Virtual Switch Driver");
+ MODULE_LICENSE("GPL");
+@@ -259,11 +259,6 @@ static void vsw_poll_controller(struct net_device *dev)
+ 	.handshake_complete	= sunvnet_handshake_complete_common,
+ };
+ 
+-static void print_version(void)
+-{
+-	printk_once(KERN_INFO "%s", version);
+-}
+-
+ static const char *remote_macaddr_prop = "remote-mac-address";
+ static const char *id_prop = "id";
+ 
+@@ -279,8 +274,6 @@ static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 	const u64 *port_id;
+ 	u64 handle;
+ 
+-	print_version();
+-
+ 	hp = mdesc_grab();
+ 
+ 	rmac = mdesc_get_property(hp, vdev->mp, remote_macaddr_prop, &len);
+@@ -457,6 +450,7 @@ static void vsw_cleanup(void)
+ 
+ static int __init vsw_init(void)
+ {
++	pr_info("%s\n", version);
+ 	return vio_register_driver(&vsw_port_driver);
+ }
+ 
 -- 
 1.7.1
-
