@@ -1,60 +1,62 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: linux-next: build failure after merge of the rcu tree
-Date: Sun, 12 Feb 2017 20:37:48 -0800
-Message-ID: <20170213043748.GA30506@linux.vnet.ibm.com>
-References: <20170119143445.6b65dc8b@canb.auug.org.au>
- <CAJzB8QEdnVG8Gy-WOSu1pWTtkeVWgBzZvGCu0nobW3M-hBhpkw@mail.gmail.com>
- <20170213132133.3795849e@canb.auug.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH V5 for-next 16/21] RDMA/bnxt_re: Support poll_cq verb
+Date: Mon, 13 Feb 2017 10:47:10 +0530
+Message-ID: <CA+sbYW36txPueFBWFOWigHu_XmnTPY+-Vdu5MmGeOQ7uFjrWag@mail.gmail.com>
+References: <1486725593-9872-1-git-send-email-selvin.xavier@broadcom.com>
+ <1486725593-9872-17-git-send-email-selvin.xavier@broadcom.com> <20170212143051.GD14015@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul McKenney <paulmckrcu@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170213132133.3795849e@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170212143051.GD14015-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2017 at 01:21:33PM +1100, Stephen Rothwell wrote:
-> Hi Paul,
-> 
-> On Thu, 19 Jan 2017 13:54:37 -0800 Paul McKenney <paulmckrcu@gmail.com> wrote:
-> >
-> > On Wed, Jan 18, 2017 at 7:34 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> > > Hi Paul,
-> > >
-> > > After merging the rcu tree, today's linux-next build (x86_64 allmodconfig)
-> > > failed like this:
-> > >
-> > > net/smc/af_smc.c:102:16: error: 'SLAB_DESTROY_BY_RCU' undeclared here (not in a function)
-> > >   .slab_flags = SLAB_DESTROY_BY_RCU,
-> > >                 ^
-> > >
-> > > Caused by commit
-> > >
-> > >   c7a545924ca1 ("mm: Rename SLAB_DESTROY_BY_RCU to SLAB_TYPESAFE_BY_RCU")
-> > >
-> > > interacting with commit
-> > >
-> > >   ac7138746e14 ("smc: establish new socket family")
-> > >
-> > > from the net-next tree.
-> > >
-> > > I have applied the following merge fix patch (someone will need to
-> > > remember to mention this to Linus):  
-> > 
-> > Thank you, Stephen!  I expect that there might be a bit more
-> > bikeshedding on the name, but here is hoping...  :-/
-> 
-> The need for this merge fix patch has gone away today.  Is that a
-> permanent situation, or will it come back?
+On Sun, Feb 12, 2017 at 8:00 PM, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+>> +static u8 __rc_to_ib_wc_status(u8 qstatus)
+>> +{
+>> +     switch (qstatus) {
+>> +     case CQ_RES_RC_STATUS_OK:
+>> +             return IB_WC_SUCCESS;
+>> +     case CQ_RES_RC_STATUS_LOCAL_ACCESS_ERROR:
+>> +             return IB_WC_LOC_ACCESS_ERR;
+>> +     case CQ_RES_RC_STATUS_LOCAL_LENGTH_ERR:
+>> +             return IB_WC_LOC_LEN_ERR;
+>> +     case CQ_RES_RC_STATUS_LOCAL_PROTECTION_ERR:
+>> +             return IB_WC_LOC_PROT_ERR;
+>> +     case CQ_RES_RC_STATUS_LOCAL_QP_OPERATION_ERR:
+>> +             return IB_WC_LOC_QP_OP_ERR;
+>> +     case CQ_RES_RC_STATUS_MEMORY_MGT_OPERATION_ERR:
+>> +             return IB_WC_GENERAL_ERR;
+>> +     case CQ_RES_RC_STATUS_REMOTE_INVALID_REQUEST_ERR:
+>> +             return IB_WC_REM_INV_REQ_ERR;
+>> +     case CQ_RES_RC_STATUS_WORK_REQUEST_FLUSHED_ERR:
+>> +             return IB_WC_WR_FLUSH_ERR;
+>> +     case CQ_RES_RC_STATUS_HW_FLUSH_ERR:
+>> +             return IB_WC_WR_FLUSH_ERR;
+>> +     default:
+>> +             return IB_WC_GENERAL_ERR;
+>> +     }
+>> +}
+>> +
+>
+> Why don't you use these defines directly?
 
-I chickened out on that commit for this merge window, so it will come
-back at -rc1.  But I will cover that when I rebase to -rc1.
+CQ_RES* values are returned by the HW and these values are
+different from the corresponding IB_WC status values.   say,
+CQ_RES_RC_STATUS_HW_FLUSH_ERR is 8 where as
+IB_WC_WR_FLUSH_ERR is 5.
+So we thought it is better to map these values in a function rather
+than having a switch/case in the calling function.
 
-							Thanx, Paul
+Let me know if you meant something different in your query.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
