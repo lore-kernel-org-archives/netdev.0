@@ -1,87 +1,98 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: Linux HSR driver question
-Date: Mon, 13 Feb 2017 13:05:57 -0500
-Message-ID: <58A1F585.8080508@ti.com>
-References: <589CD1F5.1060104@ti.com> <58A1D312.2030003@alten.se>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 0/4] net/sched: Use TC skip flags to reflect HW
+ offload status
+Date: Mon, 13 Feb 2017 20:10:36 +0200
+Message-ID: <CAJ3xEMg=33E+W0n25wnWdgcc7=nqv_8NpjTw6Ema7_9fJt=+Og@mail.gmail.com>
+References: <1486649888-2786-1-git-send-email-ogerlitz@mellanox.com> <20170210.143636.253114480501653886.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
-To: Arvid Brodin <arvid.brodin@alten.se>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, mlxsw@mellanox.com
+To: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:36944 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752127AbdBMSGF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 13:06:05 -0500
-In-Reply-To: <58A1D312.2030003@alten.se>
+Received: from mail-ot0-f194.google.com ([74.125.82.194]:36687 "EHLO
+        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752048AbdBMSKi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 13:10:38 -0500
+Received: by mail-ot0-f194.google.com with SMTP id 36so12795795otx.3
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 10:10:37 -0800 (PST)
+In-Reply-To: <20170210.143636.253114480501653886.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/13/2017 10:38 AM, Arvid Brodin wrote:
-> On 2017-02-09 21:32, Murali Karicheri wrote:
->> Hi Arvid,
+On Fri, Feb 10, 2017 at 9:36 PM, David Miller <davem@davemloft.net> wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> Date: Thu,  9 Feb 2017 16:18:04 +0200
+>
+>> Currently there is no way of querying whether a filter is
+>> offloaded to HW or not when using both policy (no flag).
 >>
->> While I work to add PRP support to the existing Linux HSR driver, I came across
->> a piece of code related to prune node function. The hsr_device.c adds the 
->> prune timer in hsr_dev_finalize() by calling
+>> Reuse the skip flags to show the insertion status by setting
+>> the skip_hw flag in case the filter wasn't offloaded.
 >>
->> add_timer(&hsr->prune_timer);
->>
->> But it is never restarted in hsr_prune_nodes(). Is that intentional or a bug?
->> I tried adding add_timer(&hsr->prune_timer) at the end of  hsr_prune_nodes(),
->> but then a iperf test stops with no traffic across the hsr interface and it
->> never recovers. I have to delete the interface and create it again to recover.
->> Is that the reason, it is currently disabled?
->>
-> 
-> Hi Murali,
-> 
-> Sorry I don't remember the details here. I do know I tested that a node that had
-> been unplugged for two minutes was forgotten by the other nodes, so this has 
-> worked at some time in the past, at least. :)
-> 
-> 
-Arvid,
+>> The bpf patch is compile tested only, Daniel/Jakub, will
+>> appreciate your review/ack.
 
-Thanks for the response!
+> I'm learning towards suggesting that you use new flags, this way it
+> will be unambiguous whether we are running an old kernel.
 
-But from the code point of view, I understand that the hsr_prune_nodes() is the
-function responsible for checking the timein of nodes from the node list and 
-removing nodes where no frames received over last HSR_NODE_FORGET_TIME. Right?
-I don't see how that can work without the prune timer running? Am I correct? 
+> If you just use the skip flag, it's impossible to tell the difference.
 
-Also the node list is protected by an RCU lock. However, I don't see synchronization
-call to provide exclusive access to updater (add/delete) inside hsr_add_node(), 
-hsr_prune_nodes() and hsr_handle_sup_frame(). Am I missing something?
+Dave, all
 
-I am running into an issue in my code that have added support for PRP handling
-where the SKB destination MAC address (from Master node to remote node packet)
-gets corrupted with Remote Node's MAC B address while the code is inside
-hsr_forward_do(). I see this when I do an iperf for about 5 minutes. I plan
-to do a long term iperf test on the original code as well. From my debug
-so far, this address is correctly pointing to Remote Node's A address when the 
-SKB is received at hsr_dev_xmit(), but inside, hsr_forward_do(), the SKB 
-MAC h_dest changes to Node's B address and when SKB gets forwarded to slave's
-interface in hsr_xmit() I see a WARN_ONCE
+SB Jakub detailed proposal, will be good to know if you're happy with
+that so I can have backwind for implementing it... basically I was
+thinking to add into the UAPI @
+ http://lxr.free-electrons.com/source/include/uapi/linux/pkt_cls.h#L157
 
-	node_dst = find_node_by_AddrA(&port->hsr->node_db, eth_hdr(skb)->h_dest);
-	if (!node_dst) {
-		WARN_ONCE(1, "%s: Unknown node\n", __func__);
-		return;
-	}
+which has the following flags
 
-My understanding is that, the code replaces Remote Node's B address in SKB mac
-h_source with that of A address before SKB is delivered to masters interface and
-to the stack. When SKB is received from the stack for remote node, in hsr_xmit(),
-h_dest in replaced to match the remote node's interface MAC B address. So the
-above WARN_ONCE should never appear. Is the understanding right?
+/* tca flags definitions */
+#define TCA_CLS_FLAGS_SKIP_HW   (1 << 0)
+#define TCA_CLS_FLAGS_SKIP_SW   (1 << 1)
 
-Also have you ever tested the HSR driver with same MAC address configured on slave A
-and B's interfaces? AFAIK, That is how this is expected to be used on industrial
-networks. I haven't tried this, but just want to check with you if the driver is
-tested with same MAC address configured on both slave's interfaces. Could you 
-repond please?
+#define TCA_CLS_FLAGS_OFFLOADED  (1 << 2)
+#define TCA_CLS_FLAGS_NOT_OFFLOADED (1 << 3)
 
--- 
-Murali Karicheri
-Linux Kernel
+we need two new flags and not only one for user space to
+be able and identify if they run over older kernel
+
+And set these flags in each of the offloading classifiers
+
+This is along the proposal of Jakub below
+
+thoughts?
+
+Or.
+
+On Fri, Feb 10, 2017 at 7:42 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
+
+> Restating my proposal was to leave the SKIP_* flags
+> with all their existing semantics and complexity and for reporting to
+> user space whether something got offloaded add new ones.  My opinion
+> is that it would make things simpler, but I'm happy with your version
+> if none else thinks this way.
+>
+> To spell it out with this patchset we would get the following semantics
+> of flags in dumps:
+>  - no flags - offloaded || old kernel;
+>  - skip_hw - not offloaded (either on user request || no flag
+>    was set but offload could not happen);
+>  - skip_sw - offload only on explicit request.
+>
+> What we could do if we want to add flags would be:
+>  - no flags - old kernel;
+>  - no_offload - not offloaded;
+>  - skip_hw | no_offload - not offloaded on explicit user request;
+>  - offload - offloaded opportunistically;
+>  - skip_sw | offload - offloaded on explicit request.
+>
+> Because of dealing with distributor's kernels and various other
+> backports checking if kernel is old is a pain in practice :|
