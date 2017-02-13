@@ -1,32 +1,33 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: Performance in stmmac
-Date: Mon, 13 Feb 2017 13:58:08 +0100
-Message-ID: <67f5c073-bd38-7dbf-37e6-2eeb3039e83d@st.com>
-References: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [patch net-next] net: qcom/emac: fix a sizeof() typo
+Date: Mon, 13 Feb 2017 07:03:19 -0600
+Message-ID: <23c98d90-913d-f590-2677-096bf5dc15ff@codeaurora.org>
+References: <20170213110021.GA17205@mwanda> <58A19E97.6000704@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Joao Pinto <Joao.Pinto@synopsys.com>, <niklas.cassel@axis.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:38779 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751604AbdBMM6Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 07:58:16 -0500
-In-Reply-To: <1d4da3b4-d798-e55a-3988-647adbfd8413@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: wharms@bfs.de, Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <58A19E97.6000704@bfs.de>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Joao
+walter harms wrote:
+> We have a function where the argument is ignored and the rest is const ?
+>
+> emac_ethtool_get_regs_len seems the only user. So it would be fairly easy to
+> move that into that function.
+>
+> @maintainer:
+> Is there a deeper logic behind this ?
 
-On 2/7/2017 8:33 PM, Joao Pinto wrote:
-> I am seeing tx being performed in all queues, but rx is just being routed to
-> queue 0. The reason why only queue 0 is processing the packets is because I am
-> using priority tagged routing for now and iperf is not capable of producing
-> priority tagged traffic.
+I don't understand the question.
 
-I wonder if you tried the multi-queue channels & AV/B stack.
+The patch is valid (I have no idea how I made that mistake).
 
-Regards
-Peppe
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
