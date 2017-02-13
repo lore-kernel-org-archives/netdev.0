@@ -1,54 +1,150 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: [PATCH net-next v3 0/8] gtp: misc improvements
-Date: Mon, 13 Feb 2017 16:36:16 +0100
-Message-ID: <20170213153624.14170-1-aschultz@tpip.net>
+Subject: [PATCH net-next v3 1/8] gtp: add documentation
+Date: Mon, 13 Feb 2017 16:36:17 +0100
+Message-ID: <20170213153624.14170-2-aschultz@tpip.net>
+References: <20170213153624.14170-1-aschultz@tpip.net>
 Cc: netdev@vger.kernel.org, Harald Welte <laforge@gnumonks.org>,
         Lionel Gauthier <Lionel.Gauthier@eurecom.fr>,
         osmocom-net-gprs@lists.osmocom.org, Jonas Bonn <jonas@southpole.se>
 To: Pablo Neira <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:58274 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:50304 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753680AbdBMPgf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 10:36:35 -0500
+        id S1753197AbdBMPg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 10:36:29 -0500
+In-Reply-To: <20170213153624.14170-1-aschultz@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+The GTP-U implementation in not only driven by 3GPP TS 29.281, but
+also by the requirements of the 3GPP network entities that use it.
 
-This is v3 of the GTP improvements.
+This document tries to explain and clarify some design decision and
+their origins.
 
-This series lays the groundwork for removing the socket references from
-the GTP netdevice by removing duplicate code and simplifying the logic on
-some code paths.
+Signed-off-by: Andreas Schultz <aschultz@tpip.net>
+---
+ Documentation/networking/gtp.txt | 112 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 112 insertions(+)
+ create mode 100644 Documentation/networking/gtp.txt
 
-It slighly changes the GTP genl API by making the socket parameters optional
-(though one of them is still required).
-
-The removal of the socket references will break the 1:1 releation between
-GTP netdevice and GTP socket that prevents us to support multiple VRFs with
-overlaping IP addresse spaces attached to the same GTP-U entity (needed for
-multi APN support).
-
-Pablo found a socket hold problem in v2. In order to solve that I had to
-switch the socket references from the struct socket to the internal
-struct sock. This should have no functionl impact, but we can now hang
-on to the reference without blocking user space from closing the GTP socket.
-
-There was also some length off-list conversation about why the netdevice to
-socket relation needs to be changed at all. Harald did already agree to this
-but Pablo had some questions. I've tried to address that with a bit of
-dokumentation for the GTP module. Hopefully this will explain the need for
-the change sufficiently.
-
-This series does have conflicts with the SGSN side tunnel work done by
-Jonas Bonn. The unification of the tunnel Rx code touches the same places
-he changed.
-
-v2->v3:
- * add documentation to explain the goal of all these changes
- * incorporate review comments
- * switch from struct socket to struct sock
-
-Regards
-Andreas
+diff --git a/Documentation/networking/gtp.txt b/Documentation/networking/gtp.txt
+new file mode 100644
+index 0000000..cefd983
+--- /dev/null
++++ b/Documentation/networking/gtp.txt
+@@ -0,0 +1,112 @@
++Note: this document contain some forward looking statements and does
++      not (yet) reflect the implementation. This is done to motivate
++      and explain some of the changes to come.
++
++      This note will be removed once the implementation matches this
++      document.
++
++General Packet Radio System (GPRS) Tunnelling Protocol User Plane (GTP-U)
++=========================================================================
++
++The GTP-U protocol is a tunnelling protocol used in public land mobile networks
++[PLMN]. It is always use together with a user space control instance implementing
++a 3GPP network entity (e.g. GGSN, SGSN, PDN-GW, S-GW).
++
++The protocol is specified for version 0 in [GSM 09.60] and for version 1 in
++[3GPP TS 29.281]. However, the functionality defined in those documents has
++always to be taken in relation of the functional 3GPP entity that is using it.
++
++The rest of document is focusing on version 1 of the protocol. GTPv1 to GTPv0
++interworking and the use of GTPv0-U in general has be depreciated from 3GPP Rel8
++onward [3GPP TS 29.060].
++
++Local GTP-U entity and tunnel identification
++--------------------------------------------
++
++GTP-U uses UDP for transporting PDU's. The receiving UDP port is 2152 for
++GTPv1-U and 3386 for GTPv0-U.
++
++There is only one GTP-U entity (and therefor SGSN/GGSN/S-GW/PDN-GW instance)
++per IP address. Tunnel Endpoint Identifier (TEID) are unique per GTP-U entity.
++
++A specific tunnel is only defined by the destination entity. Since the
++destination port is constant, only the destination IP and TEID define
++a tunnel. The source IP and Port have no meaning for the tunnel.
++
++Therefore:
++
++  * when sending, the remote entity is defined by the remote IP and the tunnel
++    endpoint id. The source IP and port have no meaning and can be changed
++    at any time.
++
++  * when receiving the local entity is defined by the local destination IP
++     and the tunnel endpoint id. The source IP and port have no meaning and can
++     change at any time.
++
++[3GPP TS 29.281] Section 4.3.0 defines this so:
++
++> The TEID in the GTP-U header is used to de-multiplex traffic incoming from
++> remote tunnel endpoints so that it is delivered to the User plane entities
++> in a way that allows multiplexing of different users, different packet
++> protocols and different QoS levels. Therefore no two remote GTP-U endpoints
++> shall send traffic to a GTP-U protocol entity using the same TEID value except
++> for data forwarding as part of mobility procedures.
++
++The definition above only defines that two remote GTP-U endpoints *should not*
++send to the same TEID, it *does not* forbid or exclude such a scenario. In
++fact, the mentioned mobility procedures make it necessary that the GTP-U entity
++accepts traffic for TEID's from multiple or unknown peers.
++
++Therefor the receiving side only identifies tunnels based on TEID's, not based
++on the source IP.
++
++APN vs. Network Device
++----------------------
++
++The GTP-U driver creates a Linux network device for each Gi/SGi interface.
++
++[3GPP TS 29.281] calls the Gi/SGi reference point an interface. This may lead
++to the impression that the GGSN/P-GW can have only one such interface.
++
++Correct is that the Gi/SGi reference point defines the interworking between
++the 3GPP packet domain (PDN) based on GTP-U tunnel and IP based networks.
++
++There is no provision in any of the 3GPP documents that limits the number of
++Gi/SGi interfaces implemented by a GGSN/P-GW.
++
++[3GPP TS 29.061] Section 11.3 makes it clear that the selection of a specific
++Gi/SGi interfaces is made through the Access Point Name (APN):
++
++>    2. each private network manages its own addressing. In general this will
++>       result in different private networks having overlapping address ranges.
++>       A logically separate connection (e.g. an IP in IP tunnel or layer 2
++>       virtual circuit) is used between the GGSN/P-GW and each private network.
++>       In this case the IP address alone is not necessarily unique. The pair
++>       of values, Access Point Name (APN) and IPv4 address and/or IPv6
++>       prefixes, is unique.
++
++In order to support the overlapping address range use case, each APN is mapped
++to a separate Gi/SGi interface (network device).
++
++NOTE: The Access Point Name is purely a control plane (GTP-C) concept. At the
++      GTP-U level, only Tunnel Endpoint Identifiers are present in GTP-U packets
++      and network devices are known. Therefore for a given UE the mapping in
++      IP to PDN network is:
++
++       * network device + MS IP -> Peer IP + Peer TEID,
++
++      and from PDN to IP network:
++
++       * local GTP-U IP + TEID  -> network device
++
++      Furthermore, before a received T-PDU is injected into the network device
++      the MS IP is checked against the IP recorded in PDP context.
++
++References:
++-----------
++
++[PLMN]           https://en.wikipedia.org/wiki/Public_land_mobile_network
++[3GPP TS 29.060] http://www.etsi.org/deliver/etsi_ts/129000_129099/129060/13.06.00_60/ts_129060v130600p.pdf
++[3GPP TS 29.061] http://www.etsi.org/deliver/etsi_ts/129000_129099/129061/13.06.00_60/ts_129061v130600p.pdf
++[3GPP TS 29.281] http://www.etsi.org/deliver/etsi_ts/129200_129299/129281/13.02.00_60/ts_129281v130200p.pdf
++[GSM 09.60]      http://www.etsi.org/deliver/etsi_ts/101300_101399/101347/06.13.00_60/ts_101347v061300p.pdf
+-- 
+2.10.2
