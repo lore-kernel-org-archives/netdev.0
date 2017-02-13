@@ -1,26 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: natsemi: ns83820: use new api
+Subject: Re: [PATCH] net: neterion: vxge: use new api
  ethtool_{get|set}_link_ksettings
-Date: Sun, 12 Feb 2017 22:35:06 -0500 (EST)
-Message-ID: <20170212.223506.544191440339326357.davem@davemloft.net>
-References: <1486767468-20242-1-git-send-email-tremyfr@gmail.com>
+Date: Sun, 12 Feb 2017 22:35:22 -0500 (EST)
+Message-ID: <20170212.223522.214558864369976339.davem@davemloft.net>
+References: <1486917193-7054-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jarod@redhat.com, weiyongjun1@huawei.com, javier@osg.samsung.com,
-        netdev@vger.kernel.org
+Cc: jdmason@kudzu.us, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36184 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751942AbdBMDfZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 22:35:25 -0500
-In-Reply-To: <1486767468-20242-1-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1486917193-7054-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Fri, 10 Feb 2017 23:57:48 +0100
+Date: Sun, 12 Feb 2017 17:33:13 +0100
 
 > The ethtool api {get|set}_settings is deprecated.
 > We move this driver to new api {get|set}_link_ksettings.
