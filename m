@@ -1,76 +1,43 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v4 net-next 1/8] sunvnet: make sunvnet common code dynamically loadable
-Date: Mon, 13 Feb 2017 10:56:57 -0800
-Message-ID: <1487012224-403399-2-git-send-email-shannon.nelson@oracle.com>
-References: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH v4 net-next 0/8] sunvnet driver updates
+Date: Mon, 13 Feb 2017 10:56:56 -0800
+Message-ID: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
         Shannon Nelson <shannon.nelson@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the sunvnet_common code was split out for use by both sunvnet
-and the newer ldmvsw, it was made into a static kernel library, which
-limits the usefulness of sunvnet and ldmvsw as loadables, since most
-of the real work is being done in the shared code.  Also, this is
-simply dead code in kernels that aren't running the LDoms.
+The sunvnet ldom virtual network driver was due for some updates and
+a bugfix or two.  These patches address a few items left over from
+last year's make-over.
 
-This patch makes the sunvnet_common into a dynamically loadable
-module and makes sunvnet and ldmvsw dependent on sunvnet_common.
+v2:
+ - changed memory barrier fix to use smp_wmb
+ - put NETIF_F_SG back into the advertised ldmvsw hw_features
 
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
----
- drivers/net/ethernet/sun/Kconfig          |    8 ++++++--
- drivers/net/ethernet/sun/sunvnet_common.c |    5 +++++
- 2 files changed, 11 insertions(+), 2 deletions(-)
+v3:
+ - the sunvnet_common module doesn't need module_init or _exit
 
-diff --git a/drivers/net/ethernet/sun/Kconfig b/drivers/net/ethernet/sun/Kconfig
-index a4b40e3..b2caf51 100644
---- a/drivers/net/ethernet/sun/Kconfig
-+++ b/drivers/net/ethernet/sun/Kconfig
-@@ -70,19 +70,23 @@ config CASSINI
- 	  <http://docs.oracle.com/cd/E19113-01/giga.ether.pci/817-4341-10/817-4341-10.pdf>.
- 
- config SUNVNET_COMMON
--	bool
-+	tristate "Common routines to support Sun Virtual Networking"
- 	depends on SUN_LDOMS
--	default y if SUN_LDOMS
-+	default m
- 
- config SUNVNET
- 	tristate "Sun Virtual Network support"
-+	default m
- 	depends on SUN_LDOMS
-+	depends on SUNVNET_COMMON
- 	---help---
- 	  Support for virtual network devices under Sun Logical Domains.
- 
- config LDMVSW
- 	tristate "Sun4v LDoms Virtual Switch support"
-+	default m
- 	depends on SUN_LDOMS
-+	depends on SUNVNET_COMMON
- 	---help---
- 	  Support for virtual switch devices under Sun4v Logical Domains.
- 	  This driver adds a network interface for every vsw-port node
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 191c8ad..c71f000 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -37,6 +37,11 @@
-  */
- #define	VNET_MAX_RETRIES	10
- 
-+MODULE_AUTHOR("David S. Miller (davem@davemloft.net)");
-+MODULE_DESCRIPTION("Sun LDOM virtual network support library");
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION("1.1");
-+
- static int __vnet_tx_trigger(struct vnet_port *port, u32 start);
- static void vnet_port_reset(struct vnet_port *port);
- 
--- 
-1.7.1
+v4:
+ - dropped the statistics patch
+ - fixed up "default" tag for SUNVNET_COMMON
+
+Shannon Nelson (7):
+  sunvnet: make sunvnet common code dynamically loadable
+  sunvnet: update version and version printing
+  sunvnet: add memory barrier before check for tx enable
+  sunvnet: straighten up message event handling logic
+  sunvnet: remove extra rcu_read_unlocks
+  ldmvsw: update and simplify version string
+  ldmvsw: disable tso and gso for bridge operations
+
+Sowmini Varadhan (1):
+  sunvnet: remove unused variable in maybe_tx_wakeup
+
+ drivers/net/ethernet/sun/Kconfig          |    8 ++-
+ drivers/net/ethernet/sun/ldmvsw.c         |   19 ++---
+ drivers/net/ethernet/sun/sunvnet.c        |   14 +---
+ drivers/net/ethernet/sun/sunvnet_common.c |  117 ++++++++++++++---------------
+ 4 files changed, 72 insertions(+), 86 deletions(-)
