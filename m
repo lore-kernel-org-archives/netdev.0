@@ -1,292 +1,111 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH 2/2] pcnet32: fix BNC/AUI port on AM79C970A
-Date: Mon, 13 Feb 2017 23:45:47 +0100
-Message-ID: <1487025947-28867-2-git-send-email-linux@rainbow-software.org>
-References: <1487025947-28867-1-git-send-email-linux@rainbow-software.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: <pcnet32@frontier.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1487025947-28867-1-git-send-email-linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Subject: [PATCH] bpf: reduce compiler warnings by adding fallthrough comments
+Date: Tue, 14 Feb 2017 00:02:35 +0100
+Message-ID: <20170213230235.12677-1-alexander@alemayhu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: ast@kernel.org, daniel@iogearbox.net, brouer@redhat.com,
+        dcb314@hotmail.com, jbacik@fb.com,
+        Alexander Alemayhu <alexander@alemayhu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:36435 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751317AbdBMXCu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 18:02:50 -0500
+Received: by mail-lf0-f48.google.com with SMTP id z134so58153246lff.3
+        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 15:02:50 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Even though the port autoselection is enabled by default on AM79C970A,
-BNC/AUI port does not work because the link is always reported to be
-down. The link state reported by the chip belongs only to the TP port
-but the driver uses it regardless of the port used. The chip can't
-detect BNC/AUI link state.
+Fixes the following warnings:
 
-Disable port autoselection and use TP port by default to keep current
-behavior (link detection works on TP port, BNC/AUI port does not work).
+kernel/bpf/verifier.c: In function ‘may_access_direct_pkt_data’:
+kernel/bpf/verifier.c:702:6: warning: this statement may fall through [-Wimplicit-fallthrough=]
+   if (t == BPF_WRITE)
+      ^
+kernel/bpf/verifier.c:704:2: note: here
+  case BPF_PROG_TYPE_SCHED_CLS:
+  ^~~~
+kernel/bpf/verifier.c: In function ‘reg_set_min_max_inv’:
+kernel/bpf/verifier.c:2057:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
+   true_reg->min_value = 0;
+   ~~~~~~~~~~~~~~~~~~~~^~~
+kernel/bpf/verifier.c:2058:2: note: here
+  case BPF_JSGT:
+  ^~~~
+kernel/bpf/verifier.c:2068:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
+   true_reg->min_value = 0;
+   ~~~~~~~~~~~~~~~~~~~~^~~
+kernel/bpf/verifier.c:2069:2: note: here
+  case BPF_JSGE:
+  ^~~~
+kernel/bpf/verifier.c: In function ‘reg_set_min_max’:
+kernel/bpf/verifier.c:2009:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
+   false_reg->min_value = 0;
+   ~~~~~~~~~~~~~~~~~~~~~^~~
+kernel/bpf/verifier.c:2010:2: note: here
+  case BPF_JSGT:
+  ^~~~
+kernel/bpf/verifier.c:2019:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
+   false_reg->min_value = 0;
+   ~~~~~~~~~~~~~~~~~~~~~^~~
+kernel/bpf/verifier.c:2020:2: note: here
+  case BPF_JSGE:
+  ^~~~
 
-Implement ethtool autoneg, port and duplex configuration to allow
-using the BNC/AUI port.
-
-Report the TP link state only if the TP port is selected. When the
-port autoselection is enabled or AUI port is selected, report the link
-as always up.
-
-Move pcnet32_suspend() and pcnet32_clr_suspend() functions to avoid
-forward declarations.
-
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+Reported-by: David Binderman <dcb314@hotmail.com>
+Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
 ---
- drivers/net/ethernet/amd/pcnet32.c |  177 +++++++++++++++++++++++++-----------
- 1 file changed, 125 insertions(+), 52 deletions(-)
+Using gcc (GCC) 7.0.1 20170204 (Red Hat 7.0.1-0.6)
 
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index ade3289..c0a9254 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -291,7 +291,10 @@ struct pcnet32_private {
- 	int			options;
- 	unsigned int		shared_irq:1,	/* shared irq possible */
- 				dxsuflo:1,   /* disable transmit stop on uflo */
--				mii:1;		/* mii port available */
-+				mii:1,		/* mii port available */
-+				autoneg:1,	/* autoneg enabled */
-+				port_tp:1,	/* port set to TP */
-+				fdx:1;		/* full duplex enabled */
- 	struct net_device	*next;
- 	struct mii_if_info	mii_if;
- 	struct timer_list	watchdog_timer;
-@@ -677,6 +680,52 @@ static void pcnet32_poll_controller(struct net_device *dev)
- }
- #endif
- 
-+/*
-+ * lp->lock must be held.
-+ */
-+static int pcnet32_suspend(struct net_device *dev, unsigned long *flags,
-+			   int can_sleep)
-+{
-+	int csr5;
-+	struct pcnet32_private *lp = netdev_priv(dev);
-+	const struct pcnet32_access *a = lp->a;
-+	ulong ioaddr = dev->base_addr;
-+	int ticks;
-+
-+	/* really old chips have to be stopped. */
-+	if (lp->chip_version < PCNET32_79C970A)
-+		return 0;
-+
-+	/* set SUSPEND (SPND) - CSR5 bit 0 */
-+	csr5 = a->read_csr(ioaddr, CSR5);
-+	a->write_csr(ioaddr, CSR5, csr5 | CSR5_SUSPEND);
-+
-+	/* poll waiting for bit to be set */
-+	ticks = 0;
-+	while (!(a->read_csr(ioaddr, CSR5) & CSR5_SUSPEND)) {
-+		spin_unlock_irqrestore(&lp->lock, *flags);
-+		if (can_sleep)
-+			msleep(1);
-+		else
-+			mdelay(1);
-+		spin_lock_irqsave(&lp->lock, *flags);
-+		ticks++;
-+		if (ticks > 200) {
-+			netif_printk(lp, hw, KERN_DEBUG, dev,
-+				     "Error getting into suspend!\n");
-+			return 0;
-+		}
-+	}
-+	return 1;
-+}
-+
-+static void pcnet32_clr_suspend(struct pcnet32_private *lp, ulong ioaddr)
-+{
-+	int csr5 = lp->a->read_csr(ioaddr, CSR5);
-+	/* clear SUSPEND (SPND) - CSR5 bit 0 */
-+	lp->a->write_csr(ioaddr, CSR5, csr5 & ~CSR5_SUSPEND);
-+}
-+
- static int pcnet32_get_link_ksettings(struct net_device *dev,
- 				      struct ethtool_link_ksettings *cmd)
- {
-@@ -684,12 +733,29 @@ static int pcnet32_get_link_ksettings(struct net_device *dev,
- 	unsigned long flags;
- 	int r = -EOPNOTSUPP;
- 
-+	spin_lock_irqsave(&lp->lock, flags);
- 	if (lp->mii) {
--		spin_lock_irqsave(&lp->lock, flags);
- 		mii_ethtool_get_link_ksettings(&lp->mii_if, cmd);
--		spin_unlock_irqrestore(&lp->lock, flags);
-+		r = 0;
-+	} else if (lp->chip_version == PCNET32_79C970A) {
-+		if (lp->autoneg) {
-+			cmd->base.autoneg = AUTONEG_ENABLE;
-+			if (lp->a->read_bcr(dev->base_addr, 4) == 0xc0)
-+				cmd->base.port = PORT_AUI;
-+			else
-+				cmd->base.port = PORT_TP;
-+		} else {
-+			cmd->base.autoneg = AUTONEG_DISABLE;
-+			cmd->base.port = lp->port_tp ? PORT_TP : PORT_AUI;
-+		}
-+		cmd->base.duplex = lp->fdx ? DUPLEX_FULL : DUPLEX_HALF;
-+		cmd->base.speed = SPEED_10;
-+		ethtool_convert_legacy_u32_to_link_mode(
-+						cmd->link_modes.supported,
-+						SUPPORTED_TP | SUPPORTED_AUI);
- 		r = 0;
- 	}
-+	spin_unlock_irqrestore(&lp->lock, flags);
- 	return r;
- }
- 
-@@ -697,14 +763,46 @@ static int pcnet32_set_link_ksettings(struct net_device *dev,
- 				      const struct ethtool_link_ksettings *cmd)
- {
- 	struct pcnet32_private *lp = netdev_priv(dev);
-+	ulong ioaddr = dev->base_addr;
- 	unsigned long flags;
- 	int r = -EOPNOTSUPP;
-+	int suspended, bcr2, bcr9, csr15;
- 
-+	spin_lock_irqsave(&lp->lock, flags);
- 	if (lp->mii) {
--		spin_lock_irqsave(&lp->lock, flags);
- 		r = mii_ethtool_set_link_ksettings(&lp->mii_if, cmd);
--		spin_unlock_irqrestore(&lp->lock, flags);
-+	} else if (lp->chip_version == PCNET32_79C970A) {
-+		suspended = pcnet32_suspend(dev, &flags, 0);
-+		if (!suspended)
-+			lp->a->write_csr(ioaddr, CSR0, CSR0_STOP);
-+
-+		lp->autoneg = cmd->base.autoneg == AUTONEG_ENABLE;
-+		bcr2 = lp->a->read_bcr(ioaddr, 2);
-+		if (cmd->base.autoneg == AUTONEG_ENABLE) {
-+			lp->a->write_bcr(ioaddr, 2, bcr2 | 0x0002);
-+		} else {
-+			lp->a->write_bcr(ioaddr, 2, bcr2 & ~0x0002);
-+
-+			lp->port_tp = cmd->base.port == PORT_TP;
-+			csr15 = lp->a->read_csr(ioaddr, CSR15) & ~0x0180;
-+			if (cmd->base.port == PORT_TP)
-+				csr15 |= 0x0080;
-+			lp->a->write_csr(ioaddr, CSR15, csr15);
-+			lp->init_block->mode = cpu_to_le16(csr15);
-+
-+			lp->fdx = cmd->base.duplex == DUPLEX_FULL;
-+			bcr9 = lp->a->read_bcr(ioaddr, 9) & ~0x0003;
-+			if (cmd->base.duplex == DUPLEX_FULL)
-+				bcr9 |= 0x0003;
-+			lp->a->write_bcr(ioaddr, 9, bcr9);
-+		}
-+		if (suspended)
-+			pcnet32_clr_suspend(lp, ioaddr);
-+		else if (netif_running(dev))
-+			pcnet32_restart(dev, CSR0_NORMAL);
-+		r = 0;
- 	}
-+	spin_unlock_irqrestore(&lp->lock, flags);
- 	return r;
- }
- 
-@@ -732,7 +830,14 @@ static u32 pcnet32_get_link(struct net_device *dev)
- 	spin_lock_irqsave(&lp->lock, flags);
- 	if (lp->mii) {
- 		r = mii_link_ok(&lp->mii_if);
--	} else if (lp->chip_version >= PCNET32_79C970A) {
-+	} else if (lp->chip_version == PCNET32_79C970A) {
-+		ulong ioaddr = dev->base_addr;	/* card base I/O address */
-+		/* only read link if port is set to TP */
-+		if (!lp->autoneg && lp->port_tp)
-+			r = (lp->a->read_bcr(ioaddr, 4) != 0xc0);
-+		else /* link always up for AUI port or port auto select */
-+			r = 1;
-+	} else if (lp->chip_version > PCNET32_79C970A) {
- 		ulong ioaddr = dev->base_addr;	/* card base I/O address */
- 		r = (lp->a->read_bcr(ioaddr, 4) != 0xc0);
- 	} else {	/* can not detect link on really old chips */
-@@ -1070,52 +1175,6 @@ static int pcnet32_set_phys_id(struct net_device *dev,
- }
- 
- /*
-- * lp->lock must be held.
-- */
--static int pcnet32_suspend(struct net_device *dev, unsigned long *flags,
--		int can_sleep)
--{
--	int csr5;
--	struct pcnet32_private *lp = netdev_priv(dev);
--	const struct pcnet32_access *a = lp->a;
--	ulong ioaddr = dev->base_addr;
--	int ticks;
--
--	/* really old chips have to be stopped. */
--	if (lp->chip_version < PCNET32_79C970A)
--		return 0;
--
--	/* set SUSPEND (SPND) - CSR5 bit 0 */
--	csr5 = a->read_csr(ioaddr, CSR5);
--	a->write_csr(ioaddr, CSR5, csr5 | CSR5_SUSPEND);
--
--	/* poll waiting for bit to be set */
--	ticks = 0;
--	while (!(a->read_csr(ioaddr, CSR5) & CSR5_SUSPEND)) {
--		spin_unlock_irqrestore(&lp->lock, *flags);
--		if (can_sleep)
--			msleep(1);
--		else
--			mdelay(1);
--		spin_lock_irqsave(&lp->lock, *flags);
--		ticks++;
--		if (ticks > 200) {
--			netif_printk(lp, hw, KERN_DEBUG, dev,
--				     "Error getting into suspend!\n");
--			return 0;
--		}
--	}
--	return 1;
--}
--
--static void pcnet32_clr_suspend(struct pcnet32_private *lp, ulong ioaddr)
--{
--	int csr5 = lp->a->read_csr(ioaddr, CSR5);
--	/* clear SUSPEND (SPND) - CSR5 bit 0 */
--	lp->a->write_csr(ioaddr, CSR5, csr5 & ~CSR5_SUSPEND);
--}
--
--/*
-  * process one receive descriptor entry
-  */
- 
-@@ -1819,6 +1878,9 @@ static void pcnet32_probe_vlbus(unsigned int *pcnet32_portlist)
- 		lp->options = PCNET32_PORT_ASEL;
- 	else
- 		lp->options = options_mapping[options[cards_found]];
-+	/* force default port to TP on 79C970A so link detection can work */
-+	if (lp->chip_version == PCNET32_79C970A)
-+		lp->options = PCNET32_PORT_10BT;
- 	lp->mii_if.dev = dev;
- 	lp->mii_if.mdio_read = mdio_read;
- 	lp->mii_if.mdio_write = mdio_write;
-@@ -2070,6 +2132,10 @@ static int pcnet32_open(struct net_device *dev)
- 		     (u32) (lp->rx_ring_dma_addr),
- 		     (u32) (lp->init_dma_addr));
- 
-+	lp->autoneg = !!(lp->options & PCNET32_PORT_ASEL);
-+	lp->port_tp = !!(lp->options & PCNET32_PORT_10BT);
-+	lp->fdx = !!(lp->options & PCNET32_PORT_FD);
-+
- 	/* set/reset autoselect bit */
- 	val = lp->a->read_bcr(ioaddr, 2) & ~2;
- 	if (lp->options & PCNET32_PORT_ASEL)
-@@ -2793,6 +2859,13 @@ static void pcnet32_check_media(struct net_device *dev, int verbose)
- 
- 	if (lp->mii) {
- 		curr_link = mii_link_ok(&lp->mii_if);
-+	} else if (lp->chip_version == PCNET32_79C970A) {
-+		ulong ioaddr = dev->base_addr;	/* card base I/O address */
-+		/* only read link if port is set to TP */
-+		if (!lp->autoneg && lp->port_tp)
-+			curr_link = (lp->a->read_bcr(ioaddr, 4) != 0xc0);
-+		else /* link always up for AUI port or port auto select */
-+			curr_link = 1;
- 	} else {
- 		ulong ioaddr = dev->base_addr;	/* card base I/O address */
- 		curr_link = (lp->a->read_bcr(ioaddr, 4) != 0xc0);
+ kernel/bpf/verifier.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 1a754e5d2695..d2bded2b250c 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -701,6 +701,7 @@ static bool may_access_direct_pkt_data(struct bpf_verifier_env *env,
+ 		/* dst_input() and dst_output() can't write for now */
+ 		if (t == BPF_WRITE)
+ 			return false;
++		/* fallthrough */
+ 	case BPF_PROG_TYPE_SCHED_CLS:
+ 	case BPF_PROG_TYPE_SCHED_ACT:
+ 	case BPF_PROG_TYPE_XDP:
+@@ -2007,6 +2008,7 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
+ 	case BPF_JGT:
+ 		/* Unsigned comparison, the minimum value is 0. */
+ 		false_reg->min_value = 0;
++		/* fallthrough */
+ 	case BPF_JSGT:
+ 		/* If this is false then we know the maximum val is val,
+ 		 * otherwise we know the min val is val+1.
+@@ -2017,6 +2019,7 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
+ 	case BPF_JGE:
+ 		/* Unsigned comparison, the minimum value is 0. */
+ 		false_reg->min_value = 0;
++		/* fallthrough */
+ 	case BPF_JSGE:
+ 		/* If this is false then we know the maximum value is val - 1,
+ 		 * otherwise we know the mimimum value is val.
+@@ -2055,6 +2058,7 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
+ 	case BPF_JGT:
+ 		/* Unsigned comparison, the minimum value is 0. */
+ 		true_reg->min_value = 0;
++		/* fallthrough */
+ 	case BPF_JSGT:
+ 		/*
+ 		 * If this is false, then the val is <= the register, if it is
+@@ -2066,6 +2070,7 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
+ 	case BPF_JGE:
+ 		/* Unsigned comparison, the minimum value is 0. */
+ 		true_reg->min_value = 0;
++		/* fallthrough */
+ 	case BPF_JSGE:
+ 		/* If this is false then constant < register, if it is true then
+ 		 * the register < constant.
 -- 
-Ondrej Zary
+2.11.1
