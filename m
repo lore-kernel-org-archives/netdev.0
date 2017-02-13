@@ -1,160 +1,72 @@
-From: Anoob Soman <anoob.soman@citrix.com>
-Subject: Re: [PATCH net] packet: Do not call fanout_release from atomic
- contexts
-Date: Mon, 13 Feb 2017 13:28:34 +0000
-Message-ID: <822618dc-9e7f-83dd-1920-6a69aaf27dc0@citrix.com>
-References: <1486730384-18749-1-git-send-email-anoob.soman@citrix.com>
- <1486735077.7793.149.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next v5 0/2] qed*: Add support for PTP
+Date: Mon, 13 Feb 2017 15:46:24 +0200
+Message-ID: <1486993586-16431-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <Sudarsana.Kalluru@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:37050 "EHLO
-        SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751975AbdBMN2z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 08:28:55 -0500
-In-Reply-To: <1486735077.7793.149.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:34685 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750943AbdBMNrV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 08:47:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/02/17 13:57, Eric Dumazet wrote:
-> On Fri, 2017-02-10 at 12:39 +0000, Anoob Soman wrote:
->> Commit 6664498280cf ("packet: call fanout_release, while UNREGISTERING a
->> netdev"), unfortunately, introduced the following issues.
->>
->> 1. calling mutex_lock(&fanout_mutex) (fanout_release()) from inside
->> rcu_read-side critical section. rcu_read_lock disables preemption, most often,
->> which prohibits calling sleeping functions.
->>
->> [  ] include/linux/rcupdate.h:560 Illegal context switch in RCU read-side critical section!
->> [  ]
->> [  ] rcu_scheduler_active = 1, debug_locks = 0
->> [  ] 4 locks held by ovs-vswitchd/1969:
->> [  ]  #0:  (cb_lock){++++++}, at: [<ffffffff8158a6c9>] genl_rcv+0x19/0x40
->> [  ]  #1:  (ovs_mutex){+.+.+.}, at: [<ffffffffa04878ca>] ovs_vport_cmd_del+0x4a/0x100 [openvswitch]
->> [  ]  #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81564157>] rtnl_lock+0x17/0x20
->> [  ]  #3:  (rcu_read_lock){......}, at: [<ffffffff81614165>] packet_notifier+0x5/0x3f0
->> [  ]
->> [  ] Call Trace:
->> [  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
->> [  ]  [<ffffffff810c9077>] lockdep_rcu_suspicious+0x107/0x110
->> [  ]  [<ffffffff810a2da7>] ___might_sleep+0x57/0x210
->> [  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
->> [  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
->> [  ]  [<ffffffff810de93f>] ? vprintk_default+0x1f/0x30
->> [  ]  [<ffffffff81186e88>] ? printk+0x4d/0x4f
->> [  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
->> [  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
->>
->> 2. calling mutex_lock(&fanout_mutex) inside spin_lock(&po->bind_lock).
->> "sleeping function called from invalid context"
->>
->> [  ] BUG: sleeping function called from invalid context at kernel/locking/mutex.c:620
->> [  ] in_atomic(): 1, irqs_disabled(): 0, pid: 1969, name: ovs-vswitchd
->> [  ] INFO: lockdep is turned off.
->> [  ] Call Trace:
->> [  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
->> [  ]  [<ffffffff810a2f52>] ___might_sleep+0x202/0x210
->> [  ]  [<ffffffff810a2fd0>] __might_sleep+0x70/0x90
->> [  ]  [<ffffffff8162e80c>] mutex_lock_nested+0x3c/0x3a0
->> [  ]  [<ffffffff816106dd>] fanout_release+0x1d/0xe0
->> [  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
->>
->> 3. calling dev_remove_pack(&fanout->prot_hook), from inside
->> spin_lock(&po->bind_lock) or rcu_read-side critical-section. dev_remove_pack()
->> -> synchronize_net(), which might sleep.
->>
->> [  ] BUG: scheduling while atomic: ovs-vswitchd/1969/0x00000002
->> [  ] INFO: lockdep is turned off.
->> [  ] Call Trace:
->> [  ]  [<ffffffff813770c1>] dump_stack+0x85/0xc4
->> [  ]  [<ffffffff81186274>] __schedule_bug+0x64/0x73
->> [  ]  [<ffffffff8162b8cb>] __schedule+0x6b/0xd10
->> [  ]  [<ffffffff8162c5db>] schedule+0x6b/0x80
->> [  ]  [<ffffffff81630b1d>] schedule_timeout+0x38d/0x410
->> [  ]  [<ffffffff810ea3fd>] synchronize_sched_expedited+0x53d/0x810
->> [  ]  [<ffffffff810ea6de>] synchronize_rcu_expedited+0xe/0x10
->> [  ]  [<ffffffff8154eab5>] synchronize_net+0x35/0x50
->> [  ]  [<ffffffff8154eae3>] dev_remove_pack+0x13/0x20
->> [  ]  [<ffffffff8161077e>] fanout_release+0xbe/0xe0
->> [  ]  [<ffffffff81614459>] packet_notifier+0x2f9/0x3f0
->>
->> 4. fanout_release() races with calls from different CPU.
->>
->> To fix the above problems, remove the call to fanout_release() under
->> rcu_read_lock(). Instead, call __dev_remove_pack(&fanout->prot_hook) and
->> netdev_run_todo will be happy that &dev->ptype_specific list is empty. In order
->> to achieve this, I moved dev_{add,remove}_pack() out of fanout_{add,release} to
->> __fanout_{link,unlink}. So, call to {,__}unregister_prot_hook() will make sure
->> fanout->prot_hook is removed as well.
->>
->> Signed-off-by: Anoob Soman <anoob.soman@citrix.com>
->> ---
-> Thanks for this work Anoob
->
-> For next submission please add these tags :
->
-> Fixes: 6664498280cf ("packet: call fanout_release, while UNREGISTERING a netdev")
-> Reported-by: Eric Dumazet <edumazet@google.com>
-Sure, I will add it.
-> Please read my comments below :
->
->>   net/packet/af_packet.c | 7 ++++---
->>   1 file changed, 4 insertions(+), 3 deletions(-)
->>
->> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
->> index d56ee46..0eb7230 100644
->> --- a/net/packet/af_packet.c
->> +++ b/net/packet/af_packet.c
->> @@ -1497,6 +1497,8 @@ static void __fanout_link(struct sock *sk, struct packet_sock *po)
->>   	f->arr[f->num_members] = sk;
->>   	smp_wmb();
->>   	f->num_members++;
->> +	if (f->num_members == 1)
->> +		dev_add_pack(&f->prot_hook);
->>   	spin_unlock(&f->lock);
->>   }
->>   
->> @@ -1513,6 +1515,8 @@ static void __fanout_unlink(struct sock *sk, struct packet_sock *po)
->>   	BUG_ON(i >= f->num_members);
->>   	f->arr[i] = f->arr[f->num_members - 1];
->>   	f->num_members--;
->> +	if (f->num_members == 0)
->> +		__dev_remove_pack(&f->prot_hook);
-> Note that __dev_remove_pack(&f->prot_hook) wont respect one RCU grace
-> period.
->
->>   	spin_unlock(&f->lock);
->>   }
->>   
->> @@ -1687,7 +1691,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
->>   		match->prot_hook.func = packet_rcv_fanout;
->>   		match->prot_hook.af_packet_priv = match;
->>   		match->prot_hook.id_match = match_fanout_group;
->> -		dev_add_pack(&match->prot_hook);
->>   		list_add(&match->list, &fanout_list);
->>   	}
->>   	err = -EINVAL;
->> @@ -1726,7 +1729,6 @@ static void fanout_release(struct sock *sk)
->>   
->>   	if (atomic_dec_and_test(&f->sk_ref)) {
->>   		list_del(&f->list);
->> -		dev_remove_pack(&f->prot_hook);
-> But here, a grace period was respected, before fanout_release_data() and
-> the problematic kfree(f)
-Yes, you are right I will fix it up.
-> You need to postpone these after one rcu grace period.
->
-> One way to handle that would be to return f (or NULL) from
-> fanout_release(), and move these two calls _after_ the synchronize_net()
-> in packet_release()
-Wouldn't it be easier to call synchronize_net(), before calling 
-fanout_release_data() and kfree(f).
-The behavior, wrt synchronize_net, would be same as before and 
-fanout_release() will cleanup everything without leaving any residue.
+This patch series adds required changes for qed/qede drivers for
+supporting the IEEE Precision Time Protocol (PTP).
 
+Dave,
+Please consider applying this series to "net-next".
 
 Thanks,
-Anoob.
+Yuval
+
+Changes from previous versions:
+-------------------------------
+v5: Removed two divisions from the adjust-frequency loop.
+    Resulting logic would use 8 divisions [instead of 24].
+
+v4: Remove the loop iteration for value '0' in the qed_ptp_hw_adjfreq()
+    implementation.
+
+v3: Use div_s64 for 64-bit divisions as do_div gives error for signed
+    types.
+    Incorporated review comments from Richard Cochran.
+      - Clear timestamp resgisters as soon as timestamp is read.
+      - Use shift operation in the place of 'divide by 16'.
+
+v2: Use do_div for 64-bit divisions.
+
+Sudarsana Reddy Kalluru (2):
+  qed: Add infrastructure for PTP support
+  qede: Add driver support for PTP
+
+ drivers/net/ethernet/qlogic/Kconfig             |   1 +
+ drivers/net/ethernet/qlogic/qed/Makefile        |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed.h           |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.c        |   5 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.h        |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  15 +
+ drivers/net/ethernet/qlogic/qed/qed_ptp.c       | 317 ++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_ptp.h       |  47 +++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  31 ++
+ drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
+ drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
+ include/linux/qed/qed_eth_if.h                  |  22 +
+ 17 files changed, 1102 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
+
+-- 
+1.9.3
