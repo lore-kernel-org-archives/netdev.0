@@ -1,173 +1,95 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [PATCH v3 3/3] Bluetooth: hidp: fix possible might sleep error in hidp_session_thread
-Date: Mon, 13 Feb 2017 13:27:26 -0800
-Message-ID: <CAKdAkRTxN3TrNYwFB1AXz4XgOoJdKpgkgHSdqf299CoHfMZ2vQ@mail.gmail.com>
-References: <1486959154-25810-1-git-send-email-jeffy.chen@rock-chips.com> <1486959154-25810-3-git-send-email-jeffy.chen@rock-chips.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH] Make EN2 pin optional in the TRF7970A driver
+Date: Mon, 13 Feb 2017 15:31:57 -0600
+Message-ID: <CAL_JsqKM4fEcfPekYkt-+TVNXE3nMF1AEfSHWW+3wAgdYDMXEg@mail.gmail.com>
+References: <1486444924-18444-1-git-send-email-hs@denx.de> <20170210155114.pvjahqqjqurw5jdc@rob-hp-laptop>
+ <58A15454.4030602@denx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-bluetooth@vger.kernel.org,
-        Brian Norris <briannorris@chromium.org>,
-        Douglas Anderson <dianders@chromium.org>,
-        Johan Hedberg <johan.hedberg@intel.com>,
-        Peter Hurley <peter@hurleysoftware.com>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        lkml <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>
-To: Jeffy Chen <jeffy.chen@rock-chips.com>
+Cc: netdev <netdev@vger.kernel.org>, Guan Ben <ben.guan@cn.bosch.com>,
+        Mark Jonas <mark.jonas@de.bosch.com>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Samuel Ortiz <sameo@linux.intel.com>,
+        Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+        Mark Rutland <mark.rutland@arm.com>
+To: Heiko Schocher <hs@denx.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486959154-25810-3-git-send-email-jeffy.chen@rock-chips.com>
+In-Reply-To: <58A15454.4030602@denx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeffy,
+On Mon, Feb 13, 2017 at 12:38 AM, Heiko Schocher <hs@denx.de> wrote:
+> Hello Rob,
+>
+>
+> Am 10.02.2017 um 16:51 schrieb Rob Herring:
+>>
+>> On Tue, Feb 07, 2017 at 06:22:04AM +0100, Heiko Schocher wrote:
+>>>
+>>> From: Guan Ben <ben.guan@cn.bosch.com>
+>>>
+>>> Make the EN2 pin optional. This is useful for boards,
+>>> which have this pin fix wired, for example to ground.
+>>>
+>>> Signed-off-by: Guan Ben <ben.guan@cn.bosch.com>
+>>> Signed-off-by: Mark Jonas <mark.jonas@de.bosch.com>
+>>> Signed-off-by: Heiko Schocher <hs@denx.de>
+>>>
+>>> ---
+>>>
+>>>   .../devicetree/bindings/net/nfc/trf7970a.txt       |  4 ++--
+>>>   drivers/nfc/trf7970a.c                             | 26
+>>> ++++++++++++----------
+>>>   2 files changed, 16 insertions(+), 14 deletions(-)
+>>>
+>>> diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+>>> b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+>>> index 32b35a0..5889a3d 100644
+>>> --- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+>>> +++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+>>> @@ -5,8 +5,8 @@ Required properties:
+>>>   - spi-max-frequency: Maximum SPI frequency (<= 2000000).
+>>>   - interrupt-parent: phandle of parent interrupt handler.
+>>>   - interrupts: A single interrupt specifier.
+>>> -- ti,enable-gpios: Two GPIO entries used for 'EN' and 'EN2' pins on the
+>>> -  TRF7970A.
+>>> +- ti,enable-gpios: One or two GPIO entries used for 'EN' and 'EN2' pins
+>>> on the
+>>> +  TRF7970A. EN2 is optional.
+>>
+>>
+>> Could EN ever be optional/fixed? If so, perhaps deprecate this property
+>> and do 2 properties, one for each pin.
+>
+>
+> The hardware I have has the EN2 pin fix connected to ground. Looking
+> into http://www.ti.com/lit/ds/slos743k/slos743k.pdf page 19 table 6-3
+> and 6-4 the EN2 pin is a don;t core if EN = 1. If EN = 0 EN2 pin
+> selects between Power Down and Sleep Mode ... I see no reason why
+> this is not possible/allowed ...
+>
+> Hmm.. I do not like the idea of deprecating the "ti,enable-gpios"
+> property into 2 seperate properties ... but if this would be a reason
+> for not accepting this patch, I can do this ... How should I name
+> the 2 new properties?
 
-On Sun, Feb 12, 2017 at 8:12 PM, Jeffy Chen <jeffy.chen@rock-chips.com> wrote:
-> It looks like hidp_session_thread has same pattern as the issue reported in
-> old rfcomm:
->
->         while (1) {
->                 set_current_state(TASK_INTERRUPTIBLE);
->                 if (condition)
->                         break;
->                 // may call might_sleep here
->                 schedule();
->         }
->         __set_current_state(TASK_RUNNING);
->
-> Which fixed at:
->         dfb2fae Bluetooth: Fix nested sleeps
->
-> So let's fix it at the same way, also follow the suggestion of:
-> https://lwn.net/Articles/628628/
->
-> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
-> 1/ Fix could not wake up by wake attempts on original wait queues.
-> 2/ Remove unnecessary memory barrier before wake_up_* functions.
->
-> ---
->
-> Changes in v3: None
-> Changes in v2: None
->
->  net/bluetooth/hidp/core.c | 33 ++++++++++++++++++++++-----------
->  1 file changed, 22 insertions(+), 11 deletions(-)
->
-> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-> index 0bec458..076bc50 100644
-> --- a/net/bluetooth/hidp/core.c
-> +++ b/net/bluetooth/hidp/core.c
-> @@ -36,6 +36,7 @@
->  #define VERSION "1.2"
->
->  static DECLARE_RWSEM(hidp_session_sem);
-> +static DECLARE_WAIT_QUEUE_HEAD(hidp_session_wq);
->  static LIST_HEAD(hidp_session_list);
->
->  static unsigned char hidp_keycode[256] = {
-> @@ -1068,12 +1069,12 @@ static int hidp_session_start_sync(struct hidp_session *session)
->   * Wake up session thread and notify it to stop. This is asynchronous and
->   * returns immediately. Call this whenever a runtime error occurs and you want
->   * the session to stop.
-> - * Note: wake_up_process() performs any necessary memory-barriers for us.
-> + * Note: wake_up_interruptible() performs any necessary memory-barriers for us.
->   */
->  static void hidp_session_terminate(struct hidp_session *session)
->  {
->         atomic_inc(&session->terminate);
-> -       wake_up_process(session->task);
-> +       wake_up_interruptible(&hidp_session_wq);
->  }
->
->  /*
-> @@ -1180,7 +1181,9 @@ static void hidp_session_run(struct hidp_session *session)
->         struct sock *ctrl_sk = session->ctrl_sock->sk;
->         struct sock *intr_sk = session->intr_sock->sk;
->         struct sk_buff *skb;
-> +       DEFINE_WAIT_FUNC(wait, woken_wake_function);
->
-> +       add_wait_queue(&hidp_session_wq, &wait);
->         for (;;) {
->                 /*
->                  * This thread can be woken up two ways:
-> @@ -1188,12 +1191,10 @@ static void hidp_session_run(struct hidp_session *session)
->                  *    session->terminate flag and wakes this thread up.
->                  *  - Via modifying the socket state of ctrl/intr_sock. This
->                  *    thread is woken up by ->sk_state_changed().
-> -                *
-> -                * Note: set_current_state() performs any necessary
-> -                * memory-barriers for us.
->                  */
-> -               set_current_state(TASK_INTERRUPTIBLE);
->
-> +               /* Ensure session->terminate is updated */
-> +               smp_mb__before_atomic();
->                 if (atomic_read(&session->terminate))
->                         break;
->
-> @@ -1227,11 +1228,22 @@ static void hidp_session_run(struct hidp_session *session)
->                 hidp_process_transmit(session, &session->ctrl_transmit,
->                                       session->ctrl_sock);
->
-> -               schedule();
-> +               wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
->         }
-> +       remove_wait_queue(&hidp_session_wq, &wait);
->
->         atomic_inc(&session->terminate);
-> -       set_current_state(TASK_RUNNING);
-> +
-> +       /* Ensure session->terminate is updated */
-> +       smp_mb__after_atomic();
-> +}
-> +
-> +int hidp_session_wake_function(wait_queue_t *wait, unsigned int mode,
-> +                              int sync, void *key)
+I guess if this ever happens, then we just add "ti,enable2-gpios" and
+ti,enable-gpios continues to point to EN. We don't need to deprecate
+anything (or maybe just deprecate having both GPIOs on single
+property).
 
-static?
+In that case,
 
-> +{
-> +       wake_up_interruptible(&hidp_session_wq);
-> +
-> +       return default_wake_function(wait, mode, sync, key);
+Acked-by: Rob Herring <robh@kernel.org>
 
-I do not think you need to call default_wake_function() here: the
-process is waiting on hidp_session_wq, so the wakeup above is what
-will wake up the session. By the time you get to call
-default_wake_function() task will already be in wrong state. I think
-we should simply return "false" instead of calling
-default_wake_function().
-
->  }
 >
->  /*
-> @@ -1244,7 +1256,8 @@ static void hidp_session_run(struct hidp_session *session)
->  static int hidp_session_thread(void *arg)
->  {
->         struct hidp_session *session = arg;
-> -       wait_queue_t ctrl_wait, intr_wait;
-> +       DEFINE_WAIT_FUNC(ctrl_wait, hidp_session_wake_function);
-> +       DEFINE_WAIT_FUNC(intr_wait, hidp_session_wake_function);
+> "ti,pin-enable"  and "ti,pin-enable2" ?
 >
->         BT_DBG("session %p", session);
->
-> @@ -1254,8 +1267,6 @@ static int hidp_session_thread(void *arg)
->         set_user_nice(current, -15);
->         hidp_set_timer(session);
->
-> -       init_waitqueue_entry(&ctrl_wait, current);
-> -       init_waitqueue_entry(&intr_wait, current);
->         add_wait_queue(sk_sleep(session->ctrl_sock->sk), &ctrl_wait);
->         add_wait_queue(sk_sleep(session->intr_sock->sk), &intr_wait);
->         /* This memory barrier is paired with wq_has_sleeper(). See
+> bye,
+> Heiko
 > --
-> 2.1.4
->
->
-
-Thanks.
-
--- 
-Dmitry
+> DENX Software Engineering GmbH,      Managing Director: Wolfgang Denk
+> HRB 165235 Munich, Office: Kirchenstr.5, D-82194 Groebenzell, Germany
