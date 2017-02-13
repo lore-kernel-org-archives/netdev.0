@@ -1,100 +1,44 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the ipsec-next tree with the net-next
- tree
-Date: Mon, 13 Feb 2017 10:25:31 +1100
-Message-ID: <20170213102531.60d3f36d@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Julian Anastasov <ja@ssi.bg>, Florian Westphal <fw@strlen.de>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 0/9] bnxt_en: Misc updates.
+Date: Sun, 12 Feb 2017 19:18:09 -0500
+Message-ID: <1486945098-4086-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f43.google.com ([209.85.214.43]:35441 "EHLO
+        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdBMASt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 12 Feb 2017 19:18:49 -0500
+Received: by mail-it0-f43.google.com with SMTP id 203so170031214ith.0
+        for <netdev@vger.kernel.org>; Sun, 12 Feb 2017 16:18:49 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Steffen,
+Miscellaneous updates include update of the firmware spec, ethtool flash
+enhancement, ethtool -l minor fix, NTUPLE support enhancements, FEC
+link settings message during link up, and new PCI IDs.  Please review.
+Thanks.
 
-Today's linux-next merge of the ipsec-next tree got a conflict in:
+Deepak Khungar (1):
+  bnxt_en: Added PCI IDs for BCM57452 and BCM57454 ASICs
 
-  net/xfrm/xfrm_policy.c
+Kshitij Soni (1):
+  bnxt_en: Retry failed NVM_INSTALL_UPDATE with defragmentation flag.
 
-between commit:
+Michael Chan (7):
+  bnxt_en: Update to firmware interface spec 1.7.0.
+  bnxt_en: Fix ethtool -l pre-set max combined channel.
+  bnxt_en: Allow NETIF_F_NTUPLE to be enabled on VFs.
+  bnxt_en: Add hardware NTUPLE filter for encapsulated packets.
+  bnxt_en: Do not setup PHY unless driving a single PF.
+  bnxt_en: Print FEC settings as part of the linkup dmesg.
+  bnxt_en: Fix bnxt_setup_tc() error message.
 
-  63fca65d0863 ("net: add confirm_neigh method to dst_ops")
-
-from the net-next tree and commits:
-
-  3d7d25a68ea5 ("xfrm: policy: remove garbage_collect callback")
-  a2817d8b279b ("xfrm: policy: remove family field")
-
-from the ipsec-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  52 ++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |   9 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |  34 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 437 ++++++++++++++++++----
+ 4 files changed, 431 insertions(+), 101 deletions(-)
 
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/xfrm/xfrm_policy.c
-index f68d75766d51,04ed1a1ae019..000000000000
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@@ -2856,32 -2843,15 +2843,32 @@@ static struct neighbour *xfrm_neigh_loo
-  	return dst->path->ops->neigh_lookup(dst, skb, daddr);
-  }
-  
- +static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
- +{
- +	const struct dst_entry *path = dst->path;
- +
- +	for (; dst != path; dst = dst->child) {
- +		const struct xfrm_state *xfrm = dst->xfrm;
- +
- +		if (xfrm->props.mode == XFRM_MODE_TRANSPORT)
- +			continue;
- +		if (xfrm->type->flags & XFRM_TYPE_REMOTE_COADDR)
- +			daddr = xfrm->coaddr;
- +		else if (!(xfrm->type->flags & XFRM_TYPE_LOCAL_COADDR))
- +			daddr = &xfrm->id.daddr;
- +	}
- +	path->ops->confirm_neigh(path, daddr);
- +}
- +
-- int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
-+ int xfrm_policy_register_afinfo(const struct xfrm_policy_afinfo *afinfo, int family)
-  {
-  	int err = 0;
-- 	if (unlikely(afinfo == NULL))
-- 		return -EINVAL;
-- 	if (unlikely(afinfo->family >= NPROTO))
-+ 
-+ 	if (WARN_ON(family >= ARRAY_SIZE(xfrm_policy_afinfo)))
-  		return -EAFNOSUPPORT;
-+ 
-  	spin_lock(&xfrm_policy_afinfo_lock);
-- 	if (unlikely(xfrm_policy_afinfo[afinfo->family] != NULL))
-+ 	if (unlikely(xfrm_policy_afinfo[family] != NULL))
-  		err = -EEXIST;
-  	else {
-  		struct dst_ops *dst_ops = afinfo->dst_ops;
-@@@ -2899,11 -2869,7 +2886,9 @@@
-  			dst_ops->link_failure = xfrm_link_failure;
-  		if (likely(dst_ops->neigh_lookup == NULL))
-  			dst_ops->neigh_lookup = xfrm_neigh_lookup;
- +		if (likely(!dst_ops->confirm_neigh))
- +			dst_ops->confirm_neigh = xfrm_confirm_neigh;
-- 		if (likely(afinfo->garbage_collect == NULL))
-- 			afinfo->garbage_collect = xfrm_garbage_collect_deferred;
-- 		rcu_assign_pointer(xfrm_policy_afinfo[afinfo->family], afinfo);
-+ 		rcu_assign_pointer(xfrm_policy_afinfo[family], afinfo);
-  	}
-  	spin_unlock(&xfrm_policy_afinfo_lock);
-  
+1.8.3.1
