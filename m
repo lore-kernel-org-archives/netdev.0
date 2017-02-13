@@ -1,127 +1,132 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] brcmfmac: Use net_device_stats from struct net_device
-Date: Mon, 13 Feb 2017 11:14:09 +0100
-Message-ID: <20170213101409.8205-1-tklauser@distanz.ch>
-Cc: linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
-To: arend.vanspriel@broadcom.com, franky.lin@broadcom.com,
-        hante.meuleman@broadcom.com, kvalo@codeaurora.org
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH net] at803x: insure minimum delay for SGMII link AN
+ completion ckeck
+Date: Mon, 13 Feb 2017 11:15:58 +0100
+Message-ID: <849590ef-2913-5c8e-56a7-a00d238d1235@neratec.com>
+References: <1486744943-12474-1-git-send-email-claudiu.manoil@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Claudiu Manoil <claudiu.manoil@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:59020 "EHLO mail.zhinst.com"
+Received: from mail.neratec.com ([46.140.151.2]:7448 "EHLO mail.neratec.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751007AbdBMKOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 13 Feb 2017 05:14:15 -0500
+        id S1750853AbdBMKQB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 13 Feb 2017 05:16:01 -0500
+In-Reply-To: <1486744943-12474-1-git-send-email-claudiu.manoil@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of using a private copy of struct net_device_stats in struct
-brcm_if, use stats from struct net_device.  Also remove the now
-unnecessary .ndo_get_stats function.
+On 02/10/2017 05:42 PM, Claudiu Manoil wrote:
+> Commit: f62265b "at803x: double check SGMII side autoneg"
+> introduced a regression for the p1010rdb board which has
+> two of the ethernet controllers (eTSEC) connected through
+> SGMII links to external Atheros SGMII AR8033 PHYs.
+> The issue consists in a dead link for these ports, and is
+> 100% reproducible on kernel 4.9 (and later):
+> 
+> root@p1010rdb-pb:~# ifconfig eth2 172.16.1.1
+> [  203.274263] IPv6: ADDRCONF(NETDEV_UP): eth2: link is not ready
+> root@p1010rdb-pb:~# [  206.408255] 803x_aneg_done: SGMII link is not ok
+> 
+> root@p1010rdb-pb:~# ethtool eth2
+> Settings for eth2:
+>         Supported ports: [ MII ]
+>         Supported link modes:   10baseT/Half 10baseT/Full
+>                                 100baseT/Half 100baseT/Full
+>                                 1000baseT/Full
+>         Supported pause frame use: Symmetric Receive-only
+>         Supports auto-negotiation: Yes
+>         Advertised link modes:  10baseT/Half 10baseT/Full
+>                                 100baseT/Half 100baseT/Full
+>                                 1000baseT/Full
+>         Advertised pause frame use: No
+>         Advertised auto-negotiation: Yes
+>         Link partner advertised link modes:  10baseT/Half 10baseT/Full
+>                                              100baseT/Half 100baseT/Full
+>                                              1000baseT/Half 1000baseT/Full
+>         Link partner advertised pause frame use: Symmetric Receive-only
+>         Link partner advertised auto-negotiation: Yes
+>         Speed: 1000Mb/s
+>         Duplex: Full
+>         Port: MII
+>         PHYAD: 2
+>         Transceiver: internal
+>         Auto-negotiation: on
+>         Supports Wake-on: g
+>         Wake-on: d
+>         Current message level: 0x0000003f (63)
+>                                drv probe link timer ifdown ifup
+>         Link detected: no
+> 
+> Insuring up to 100 usecs for the SGMII link side AN to complete
+> proves to be enough to have a working SGMII link, for this board.
+> The need for a delay for the SGMII link side may be explained by
+> the fact that there are two levels of auto-negotiation (AN) for a
+> SGMII link.  First the PHY autonegotiates the link parameters w/
+> its link partner over the copper link. In the second stage, the
+> AN results are then passed to the eTSEC MAC over the SGMII link
+> using the Clause 37 auto-negotiation functionality.  While the
+> aneg_done() hook is called by the phylib state machine to check
+> for the completion of the 1st stage AN of the external PHY,
+> there's no mechanism to insure proper AN completion of the internal
+> SGMII link (which is actually handled on the eTSEC side by a
+> "internal PHY", called TBI).
+> 
+> Fixes: f62265b "at803x: double check SGMII side autoneg"
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@nxp.com>
+> ---
+>  drivers/net/phy/at803x.c | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+> index a52b560..55fa7c4 100644
+> --- a/drivers/net/phy/at803x.c
+> +++ b/drivers/net/phy/at803x.c
+> @@ -366,6 +366,7 @@ static void at803x_link_change_notify(struct phy_device *phydev)
+>  static int at803x_aneg_done(struct phy_device *phydev)
+>  {
+>  	int ccr;
+> +	int timeout = 100; /* usecs */
+>  
+>  	int aneg_done = genphy_aneg_done(phydev);
+>  	if (aneg_done != BMSR_ANEGCOMPLETE)
+> @@ -383,7 +384,13 @@ static int at803x_aneg_done(struct phy_device *phydev)
+>  	phy_write(phydev, AT803X_REG_CHIP_CONFIG, ccr & ~AT803X_BT_BX_REG_SEL);
+>  
+>  	/* check if the SGMII link is OK. */
+> -	if (!(phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)) {
+> +	do {
+> +		if (phy_read(phydev, AT803X_PSSR) & AT803X_PSSR_MR_AN_COMPLETE)
+> +			break;
+> +		udelay(1);
+> +	} while (--timeout);
+> +
+> +	if (!timeout) {
+>  		pr_warn("803x_aneg_done: SGMII link is not ok\n");
+>  		aneg_done = 0;
+>  	}
+> 
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- .../wireless/broadcom/brcm80211/brcmfmac/core.c    | 26 +++++++---------------
- .../wireless/broadcom/brcm80211/brcmfmac/core.h    |  2 --
- 2 files changed, 8 insertions(+), 20 deletions(-)
+Could you confirm that you are using PHY_HAS_INTERRUPT? In polling mode the effect
+would be very unlikely to happen, since you'd need to run the state machine
+exactly between the two AN stages.
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-index b73a55b00fa7..60da86a8d95b 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
-@@ -249,10 +249,10 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
- 
- done:
- 	if (ret) {
--		ifp->stats.tx_dropped++;
-+		ndev->stats.tx_dropped++;
- 	} else {
--		ifp->stats.tx_packets++;
--		ifp->stats.tx_bytes += skb->len;
-+		ndev->stats.tx_packets++;
-+		ndev->stats.tx_bytes += skb->len;
- 	}
- 
- 	/* Return ok: we always eat the packet */
-@@ -296,15 +296,15 @@ void brcmf_txflowblock(struct device *dev, bool state)
- void brcmf_netif_rx(struct brcmf_if *ifp, struct sk_buff *skb)
- {
- 	if (skb->pkt_type == PACKET_MULTICAST)
--		ifp->stats.multicast++;
-+		ifp->ndev->stats.multicast++;
- 
- 	if (!(ifp->ndev->flags & IFF_UP)) {
- 		brcmu_pkt_buf_free_skb(skb);
- 		return;
- 	}
- 
--	ifp->stats.rx_bytes += skb->len;
--	ifp->stats.rx_packets++;
-+	ifp->ndev->stats.rx_bytes += skb->len;
-+	ifp->ndev->stats.rx_packets++;
- 
- 	brcmf_dbg(DATA, "rx proto=0x%X\n", ntohs(skb->protocol));
- 	if (in_interrupt())
-@@ -327,7 +327,7 @@ static int brcmf_rx_hdrpull(struct brcmf_pub *drvr, struct sk_buff *skb,
- 
- 	if (ret || !(*ifp) || !(*ifp)->ndev) {
- 		if (ret != -ENODATA && *ifp)
--			(*ifp)->stats.rx_errors++;
-+			(*ifp)->ndev->stats.rx_errors++;
- 		brcmu_pkt_buf_free_skb(skb);
- 		return -ENODATA;
- 	}
-@@ -388,7 +388,7 @@ void brcmf_txfinalize(struct brcmf_if *ifp, struct sk_buff *txp, bool success)
- 	}
- 
- 	if (!success)
--		ifp->stats.tx_errors++;
-+		ifp->ndev->stats.tx_errors++;
- 
- 	brcmu_pkt_buf_free_skb(txp);
- }
-@@ -411,15 +411,6 @@ void brcmf_txcomplete(struct device *dev, struct sk_buff *txp, bool success)
- 	}
- }
- 
--static struct net_device_stats *brcmf_netdev_get_stats(struct net_device *ndev)
--{
--	struct brcmf_if *ifp = netdev_priv(ndev);
--
--	brcmf_dbg(TRACE, "Enter, bsscfgidx=%d\n", ifp->bsscfgidx);
--
--	return &ifp->stats;
--}
--
- static void brcmf_ethtool_get_drvinfo(struct net_device *ndev,
- 				    struct ethtool_drvinfo *info)
- {
-@@ -492,7 +483,6 @@ static int brcmf_netdev_open(struct net_device *ndev)
- static const struct net_device_ops brcmf_netdev_ops_pri = {
- 	.ndo_open = brcmf_netdev_open,
- 	.ndo_stop = brcmf_netdev_stop,
--	.ndo_get_stats = brcmf_netdev_get_stats,
- 	.ndo_start_xmit = brcmf_netdev_start_xmit,
- 	.ndo_set_mac_address = brcmf_netdev_set_mac_address,
- 	.ndo_set_rx_mode = brcmf_netdev_set_multicast_list
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
-index de3197be5491..6aecd8dfd824 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
-@@ -171,7 +171,6 @@ enum brcmf_netif_stop_reason {
-  * @drvr: points to device related information.
-  * @vif: points to cfg80211 specific interface information.
-  * @ndev: associated network device.
-- * @stats: interface specific network statistics.
-  * @multicast_work: worker object for multicast provisioning.
-  * @ndoffload_work: worker object for neighbor discovery offload configuration.
-  * @fws_desc: interface specific firmware-signalling descriptor.
-@@ -187,7 +186,6 @@ struct brcmf_if {
- 	struct brcmf_pub *drvr;
- 	struct brcmf_cfg80211_vif *vif;
- 	struct net_device *ndev;
--	struct net_device_stats stats;
- 	struct work_struct multicast_work;
- 	struct work_struct ndoffload_work;
- 	struct brcmf_fws_mac_descriptor *fws_desc;
--- 
-2.11.0
+As for the 100us delay proposed, is this something Atheros suggested or is it
+based on empirical considerations? Since ending up in a situation where the
+double-check fails might left you with a permanent link loss, having a reliable
+minimum required delay between first and second stage AN is essential - to me
+100us look quite short.
+
+Same goes for the readout polling proposed: given that reading an MDIO register
+takes ~16us (at assumed 2.5MHz MDC), delaying for 1us between reads is kind of
+useless and ends up in storm-reading the register (and also extends the wait-time
+by the same factor). Imo, it won't hurt to sleep for milliseconds between reads
+here (see phy_poll_reset() for reference).
+
+
+Cheers,
+Zefir
