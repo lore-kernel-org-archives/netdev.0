@@ -1,22 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: micrel: ks8695net: use new api
+Subject: Re: [PATCH] net: micrel: ks8851_mll: use new api
  ethtool_{get|set}_link_ksettings
-Date: Sun, 12 Feb 2017 22:34:12 -0500 (EST)
-Message-ID: <20170212.223412.1048055944103362816.davem@davemloft.net>
-References: <1486594485-24700-1-git-send-email-tremyfr@gmail.com>
+Date: Sun, 12 Feb 2017 22:34:23 -0500 (EST)
+Message-ID: <20170212.223423.2146977280382456256.davem@davemloft.net>
+References: <1486636105-18781-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harvey.hunt@imgtec.com, edumazet@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: jarod@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1486594485-24700-1-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <1486636105-18781-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Wed,  8 Feb 2017 23:54:45 +0100
+Date: Thu,  9 Feb 2017 11:28:25 +0100
 
 > The ethtool api {get|set}_settings is deprecated.
 > We move this driver to new api {get|set}_link_ksettings.
