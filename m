@@ -1,59 +1,63 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Mon, 13 Feb 2017 15:16:35 -0800
-Message-ID: <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
-References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
- <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com> <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: reduce compiler warnings by adding fallthrough comments
+Date: Tue, 14 Feb 2017 00:18:05 +0100
+Message-ID: <58A23EAD.6040800@iogearbox.net>
+References: <20170213230235.12677-1-alexander@alemayhu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: ast@kernel.org, brouer@redhat.com, dcb314@hotmail.com,
+        jbacik@fb.com
+To: Alexander Alemayhu <alexander@alemayhu.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35575 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750975AbdBMXQh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 18:16:37 -0500
-Received: by mail-it0-f65.google.com with SMTP id 203so1141995ith.2
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 15:16:36 -0800 (PST)
-In-Reply-To: <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:35112 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751250AbdBMXSI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 18:18:08 -0500
+In-Reply-To: <20170213230235.12677-1-alexander@alemayhu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 13, 2017 at 1:09 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Mon, Feb 13, 2017 at 12:51 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
->> On Mon, Feb 13, 2017 at 11:58 AM, Eric Dumazet <edumazet@google.com> wrote:
+On 02/14/2017 12:02 AM, Alexander Alemayhu wrote:
+> Fixes the following warnings:
 >
->>> +                              PAGE_SIZE, priv->dma_dir);
->>>                 page = page_alloc->page;
->>>                 /* Revert changes done by mlx4_alloc_pages */
->>> -               page_ref_sub(page, page_alloc->page_size /
->>> +               page_ref_sub(page, PAGE_SIZE /
->>>                                    priv->frag_info[i].frag_stride - 1);
->>>                 put_page(page);
->>>                 page_alloc->page = NULL;
->>
->> You can probably simplify this by using __page_frag_cache_drain since
->> that way you can just doe the sub and test for the whole set instead
->> of doing N - 1 and 1.
+> kernel/bpf/verifier.c: In function ‘may_access_direct_pkt_data’:
+> kernel/bpf/verifier.c:702:6: warning: this statement may fall through [-Wimplicit-fallthrough=]
+>     if (t == BPF_WRITE)
+>        ^
+> kernel/bpf/verifier.c:704:2: note: here
+>    case BPF_PROG_TYPE_SCHED_CLS:
+>    ^~~~
+> kernel/bpf/verifier.c: In function ‘reg_set_min_max_inv’:
+> kernel/bpf/verifier.c:2057:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
+>     true_reg->min_value = 0;
+>     ~~~~~~~~~~~~~~~~~~~~^~~
+> kernel/bpf/verifier.c:2058:2: note: here
+>    case BPF_JSGT:
+>    ^~~~
+> kernel/bpf/verifier.c:2068:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
+>     true_reg->min_value = 0;
+>     ~~~~~~~~~~~~~~~~~~~~^~~
+> kernel/bpf/verifier.c:2069:2: note: here
+>    case BPF_JSGE:
+>    ^~~~
+> kernel/bpf/verifier.c: In function ‘reg_set_min_max’:
+> kernel/bpf/verifier.c:2009:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
+>     false_reg->min_value = 0;
+>     ~~~~~~~~~~~~~~~~~~~~~^~~
+> kernel/bpf/verifier.c:2010:2: note: here
+>    case BPF_JSGT:
+>    ^~~~
+> kernel/bpf/verifier.c:2019:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
+>     false_reg->min_value = 0;
+>     ~~~~~~~~~~~~~~~~~~~~~^~~
+> kernel/bpf/verifier.c:2020:2: note: here
+>    case BPF_JSGE:
+>    ^~~~
 >
-> Well, we remove this anyway in following patch ;)
+> Reported-by: David Binderman <dcb314@hotmail.com>
+> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
 
-Any plans to add the bulk page count updates back at some point?  I
-just got around to adding it for igb in commit bd4171a5d4c2 ("igb:
-update code to better handle incrementing page count").  I should have
-patches for ixgbe, i40e, and i40evf here pretty soon.  That was one of
-the reasons why I implemented __page_frag_cache_drain in the first
-place.  As I'm sure Jesper will probably point out the atomic op for
-get_page/page_ref_inc can be pretty expensive if I recall correctly.
+These fall-through comments are fine for net-next tree.
 
-- Alex
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
