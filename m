@@ -1,7 +1,7 @@
 From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH v4 net-next 8/8] ldmvsw: disable tso and gso for bridge operations
-Date: Mon, 13 Feb 2017 10:57:04 -0800
-Message-ID: <1487012224-403399-9-git-send-email-shannon.nelson@oracle.com>
+Subject: [PATCH v4 net-next 3/8] sunvnet: update version and version printing
+Date: Mon, 13 Feb 2017 10:56:59 -0800
+Message-ID: <1487012224-403399-4-git-send-email-shannon.nelson@oracle.com>
 References: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
 Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
         Shannon Nelson <shannon.nelson@oracle.com>
@@ -11,64 +11,61 @@ In-Reply-To: <1487012224-403399-1-git-send-email-shannon.nelson@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ldmvsw driver is specifically for supporting the ldom virtual
-networking by running in the primary ldom and using the LDC to connect
-the remaining ldoms to the outside world via a bridge.  With TSO and GSO
-supported while connected the bridge, things tend to misbehave as seen
-in our case by delayed packets, enough to begin triggering retransmits
-and affecting overall throughput.  By turning off advertised support for
-TSO and GSO we restore stable traffic flow through the bridge.
-
-Orabug: 23293104
+There have been several changes since the first version of this code, so
+we bump the version number.  While we're at it, we can simplify the
+version printing a bit and drop a couple lines of code.
 
 Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 ---
- drivers/net/ethernet/sun/ldmvsw.c         |    5 ++---
- drivers/net/ethernet/sun/sunvnet_common.c |    3 ++-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sun/sunvnet.c |   14 ++++----------
+ 1 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
-index f0fe6cf..89952de 100644
---- a/drivers/net/ethernet/sun/ldmvsw.c
-+++ b/drivers/net/ethernet/sun/ldmvsw.c
-@@ -234,8 +234,7 @@ static void vsw_poll_controller(struct net_device *dev)
- 	dev->ethtool_ops = &vsw_ethtool_ops;
- 	dev->watchdog_timeo = VSW_TX_TIMEOUT;
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 5356a70..4cc2571 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -38,11 +38,11 @@
+ #define VNET_TX_TIMEOUT			(5 * HZ)
  
--	dev->hw_features = NETIF_F_TSO | NETIF_F_GSO | NETIF_F_GSO_SOFTWARE |
--			   NETIF_F_HW_CSUM | NETIF_F_SG;
-+	dev->hw_features = NETIF_F_HW_CSUM | NETIF_F_SG;
- 	dev->features = dev->hw_features;
+ #define DRV_MODULE_NAME		"sunvnet"
+-#define DRV_MODULE_VERSION	"1.0"
+-#define DRV_MODULE_RELDATE	"June 25, 2007"
++#define DRV_MODULE_VERSION	"2.0"
++#define DRV_MODULE_RELDATE	"February 3, 2017"
  
- 	/* MTU range: 68 - 65535 */
-@@ -320,7 +319,7 @@ static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
- 	port->vp = vp;
- 	port->dev = dev;
- 	port->switch_port = 1;
--	port->tso = true;
-+	port->tso = false; /* no tso in vsw, misbehaves in bridge */
- 	port->tsolen = 0;
+ static char version[] =
+-	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
++	DRV_MODULE_NAME " " DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")";
+ MODULE_AUTHOR("David S. Miller (davem@davemloft.net)");
+ MODULE_DESCRIPTION("Sun LDOM virtual network driver");
+ MODULE_LICENSE("GPL");
+@@ -303,11 +303,6 @@ static void vnet_cleanup(void)
+ 	.handshake_complete	= sunvnet_handshake_complete_common,
+ };
  
- 	/* Mark the port as belonging to ldmvsw which directs the
-diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
-index 65f7038..fa2d11c 100644
---- a/drivers/net/ethernet/sun/sunvnet_common.c
-+++ b/drivers/net/ethernet/sun/sunvnet_common.c
-@@ -186,6 +186,7 @@ static int handle_attr_info(struct vio_driver_state *vio,
- 	} else {
- 		pkt->cflags &= ~VNET_LSO_IPV4_CAPAB;
- 		pkt->ipv4_lso_maxlen = 0;
-+		port->tsolen = 0;
- 	}
+-static void print_version(void)
+-{
+-	printk_once(KERN_INFO "%s", version);
+-}
+-
+ const char *remote_macaddr_prop = "remote-mac-address";
  
- 	/* for version >= 1.6, ACK packet mode we support */
-@@ -1635,7 +1636,7 @@ static void vnet_port_reset(struct vnet_port *port)
- 	del_timer(&port->clean_timer);
- 	sunvnet_port_free_tx_bufs_common(port);
- 	port->rmtu = 0;
--	port->tso = true;
-+	port->tso = (port->vsw == 0);  /* no tso in vsw, misbehaves in bridge */
- 	port->tsolen = 0;
+ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+@@ -319,8 +314,6 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 	const u64 *rmac;
+ 	int len, i, err, switch_port;
+ 
+-	print_version();
+-
+ 	hp = mdesc_grab();
+ 
+ 	vp = vnet_find_parent(hp, vdev->mp, vdev);
+@@ -446,6 +439,7 @@ static int vnet_port_remove(struct vio_dev *vdev)
+ 
+ static int __init vnet_init(void)
+ {
++	pr_info("%s\n", version);
+ 	return vio_register_driver(&vnet_port_driver);
  }
  
 -- 
