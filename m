@@ -1,73 +1,147 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 14 Feb 2017 14:23:26 +0100
-Message-ID: <20170214132326.GD18546@krava>
-References: <20170214091250.57d054b2@canb.auug.org.au>
- <20170214064221.GB10242@gmail.com>
- <20170214091937.GA18546@krava>
- <20170214125020.GA4458@kernel.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Tue, 14 Feb 2017 05:45:01 -0800
+Message-ID: <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
+References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
+ <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
+ <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
+ <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com> <20170214131206.44b644f6@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170214125020.GA4458@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>, "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>,
+	Martin KaFai Lau <kafai@fb.com>, Saeed Mahameed <saeedm@mellanox.com>,
+	Willem de Bruijn <willemb@google.com>, Brenden Blanco <bblanco@plumgrid.com>,
+	Alexei Starovoitov <ast@kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>, linux-mm <linux-mm@kvack.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170214131206.44b644f6@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 14, 2017 at 09:50:20AM -0300, Arnaldo Carvalho de Melo wrote:
+On Tue, Feb 14, 2017 at 4:12 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
 
-SNIP
+> It is important to understand that there are two cases for the cost of
+> an atomic op, which depend on the cache-coherency state of the
+> cacheline.
+>
+> Measured on Skylake CPU i7-6700K CPU @ 4.00GHz
+>
+> (1) Local CPU atomic op :  27 cycles(tsc)  6.776 ns
+> (2) Remote CPU atomic op: 260 cycles(tsc) 64.964 ns
+>
 
-> 
-> What I think Ingo meant with dependency at the build system level is to
-> somehow state that if file A gets changed, then tool B must be rebuilt.
-> 
-> Now that samples/bpf and tools/perf/ depend on tools/lib/bpf/ I _always_
-> build both, ditto for tools/objtool, that shares a different library
-> with tools/perf/, tools/lib/subcmd/:
-> 
-> ENTRYPOINT make -C /git/linux/tools/perf O=/tmp/build/perf && \
->            rm -rf /tmp/build/perf/{.[^.]*,*} && \
->            make NO_LIBELF=1 -C /git/linux/tools/perf O=/tmp/build/perf && \
->            make -C /git/linux/tools/objtool O=/tmp/build/objtool && \
->            make -C /git/linux O=/tmp/build/linux allmodconfig && \
->            make -C /git/linux O=/tmp/build/linux headers_install && \
->            make -C /git/linux O=/tmp/build/linux samples/bpf/
-> 
-> This is the default action for my
-> docker.io/acmel/linux-perf-tools-build-fedora:rawhide container.
-> 
-> It is published, so a:
-> 
->    docker pull docker.io/acmel/linux-perf-tools-build-fedora:rawhide
-> 
-> And then run it before pushing things upstream would catch these kinds
-> of errors.
-> 
-> But that would possibly disrupt too much people's workflow, that is why
-> using the Kbuild originated tools/build/ we have to somehow express that
-> when a change is made in a file then a tool that uses that file needs to
-> be rebuilt.
+Okay, it seems you guys really want a patch that I said was not giving
+good results
 
-we already have the check in the check-headers.sh script,
-an AFAICS there's no 'rebuild' option here.. just warn or fail
-because the headers update needs to be done manualy
+Let me publish the numbers I get , adding or not the last (and not
+official) patch.
 
-> 
-> Makefile rules probably would be enough, but then it would have to be
-> done at the tools/build/ level and all tools using shared components
-> would have to use it to trigger the rebuild.
+If I _force_ the user space process to run on the other node,
+then the results are not the ones Alex or you are expecting.
 
-we can move/invoke the check-headers.sh script in some upper dir
+I have with this patch about 2.7 Mpps of this silly single TCP flow,
+and 3.5 Mpps without it.
 
-jirka
+lpaa24:~# sar -n DEV 1 10 | grep eth0 | grep Ave
+Average:         eth0 2699243.20  16663.70 1354783.36   1079.95
+0.00      0.00      4.50
+
+Profile of the cpu on NUMA node 1 ( netserver consuming data ) :
+
+    54.73%  [kernel]      [k] copy_user_enhanced_fast_string
+    31.07%  [kernel]      [k] skb_release_data
+     4.24%  [kernel]      [k] skb_copy_datagram_iter
+     1.35%  [kernel]      [k] copy_page_to_iter
+     0.98%  [kernel]      [k] _raw_spin_lock
+     0.90%  [kernel]      [k] skb_release_head_state
+     0.60%  [kernel]      [k] tcp_transmit_skb
+     0.51%  [kernel]      [k] mlx4_en_xmit
+     0.33%  [kernel]      [k] ___cache_free
+     0.28%  [kernel]      [k] tcp_rcv_established
+
+Profile of cpu handling mlx4 softirqs (NUMA node 0)
+
+
+    48.00%  [kernel]          [k] mlx4_en_process_rx_cq
+    12.92%  [kernel]          [k] napi_gro_frags
+     7.28%  [kernel]          [k] inet_gro_receive
+     7.17%  [kernel]          [k] tcp_gro_receive
+     5.10%  [kernel]          [k] dev_gro_receive
+     4.87%  [kernel]          [k] skb_gro_receive
+     2.45%  [kernel]          [k] mlx4_en_prepare_rx_desc
+     2.04%  [kernel]          [k] __build_skb
+     1.02%  [kernel]          [k] napi_reuse_skb.isra.95
+     1.01%  [kernel]          [k] tcp4_gro_receive
+     0.65%  [kernel]          [k] kmem_cache_alloc
+     0.45%  [kernel]          [k] _raw_spin_lock
+
+Without the latest  patch (the exact patch series v3 I submitted),
+thus with this atomic_inc() in mlx4_en_process_rx_cq  instead of only reads.
+
+lpaa24:~# sar -n DEV 1 10|grep eth0|grep Ave
+Average:         eth0 3566768.50  25638.60 1790345.69   1663.51
+0.00      0.00      4.50
+
+Profiles of the two cpus :
+
+    74.85%  [kernel]      [k] copy_user_enhanced_fast_string
+     6.42%  [kernel]      [k] skb_release_data
+     5.65%  [kernel]      [k] skb_copy_datagram_iter
+     1.83%  [kernel]      [k] copy_page_to_iter
+     1.59%  [kernel]      [k] _raw_spin_lock
+     1.48%  [kernel]      [k] skb_release_head_state
+     0.72%  [kernel]      [k] tcp_transmit_skb
+     0.68%  [kernel]      [k] mlx4_en_xmit
+     0.43%  [kernel]      [k] page_frag_free
+     0.38%  [kernel]      [k] ___cache_free
+     0.37%  [kernel]      [k] tcp_established_options
+     0.37%  [kernel]      [k] __ip_local_out
+
+
+   37.98%  [kernel]          [k] mlx4_en_process_rx_cq
+    26.47%  [kernel]          [k] napi_gro_frags
+     7.02%  [kernel]          [k] inet_gro_receive
+     5.89%  [kernel]          [k] tcp_gro_receive
+     5.17%  [kernel]          [k] dev_gro_receive
+     4.80%  [kernel]          [k] skb_gro_receive
+     2.61%  [kernel]          [k] __build_skb
+     2.45%  [kernel]          [k] mlx4_en_prepare_rx_desc
+     1.59%  [kernel]          [k] napi_reuse_skb.isra.95
+     0.95%  [kernel]          [k] tcp4_gro_receive
+     0.51%  [kernel]          [k] kmem_cache_alloc
+     0.42%  [kernel]          [k] __inet_lookup_established
+     0.34%  [kernel]          [k] swiotlb_sync_single_for_cpu
+
+
+So probably this will need further analysis, outside of the scope of
+this patch series.
+
+Could we now please Ack this v3 and merge it ?
+
+Thanks.
+
+
+
+> Notice the huge difference. And in case 2, it is enough that the remote
+> CPU reads the cacheline and brings it into "Shared" (MESI) state, and
+> the local CPU then does the atomic op.
+>
+> One key ideas behind the page_pool, is that remote CPUs read/detect
+> refcnt==1 (Shared-state), and store the page in a small per-CPU array.
+> When array is full, it gets bulk returned to the shared-ptr-ring pool.
+> When "local" CPU need new pages, from the shared-ptr-ring it prefetchw
+> during it's bulk refill, to latency-hide the MESI transitions needed.
+>
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
