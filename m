@@ -1,53 +1,84 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Tue, 14 Feb 2017 17:17:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DCFE63512@AcuExch.aculab.com>
-References: <20170214131206.44b644f6@redhat.com>
-        <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
-        <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
- <20170214.120426.2032015522492111544.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: "edumazet@google.com" <edumazet@google.com>, "brouer@redhat.com"
-	<brouer@redhat.com>, "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "tariqt@mellanox.com"
-	<tariqt@mellanox.com>, "kafai@fb.com" <kafai@fb.com>, "saeedm@mellanox.com"
-	<saeedm@mellanox.com>, "willemb@google.com" <willemb@google.com>,
-	"bblanco@plumgrid.com" <bblanco@plumgrid.com>, "ast@kernel.org"
-	<ast@kernel.org>, "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>
-To: 'David Miller' <davem@davemloft.net>, "ttoukan.linux@gmail.com"
-	<ttoukan.linux@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170214.120426.2032015522492111544.davem@davemloft.net>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Anssi Hannula <anssi.hannula@bitwise.fi>
+Subject: [PATCH 1/2] net: xilinx_emaclite: fix receive buffer overflow
+Date: Tue, 14 Feb 2017 19:11:44 +0200
+Message-ID: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
+Cc: Michal Simek <michal.simek@xilinx.com>,
+        =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+        netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bitwise.fi ([109.204.228.163]:40619 "EHLO mail.bitwise.fi"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753768AbdBNRVE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Feb 2017 12:21:04 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> Sent: 14 February 2017 17:04
-...
-> One path I see around all of this is full integration.  Meaning that
-> we can free pages into the page allocator which are still DMA mapped.
-> And future allocations from that device are prioritized to take still
-> DMA mapped objects.
-...
+xilinx_emaclite looks at the received data to try to determine the
+Ethernet packet length but does not properly clamp it if
+proto_type == ETH_P_IP or 1500 < proto_type <= 1518, causing a buffer
+overflow and a panic via skb_panic() as the length exceeds the allocated
+skb size.
 
-For systems with 'expensive' iommu has anyone tried separating the
-allocation of iommu resource (eg page table slots) from their
-assignment to physical pages?
+Fix those cases.
 
-Provided the page sizes all match, setting up a receive buffer might
-be as simple as writing the physical address into the iommu slot
-that matches the ring entry.
+Also add an additional unconditional check with WARN_ON() at the end.
 
-Or am I thinking about hardware that is much simpler than real life?
+Signed-off-by: Anssi Hannula <anssi.hannula@bitwise.fi>
+Fixes: bb81b2ddfa19 ("net: add Xilinx emac lite device driver")
+---
 
-	David
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index e3070fd8..bd6470f 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -369,7 +369,7 @@ static int xemaclite_send_data(struct net_local *drvdata, u8 *data,
+  *
+  * Return:	Total number of bytes received
+  */
+-static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
++static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data, int maxlen)
+ {
+ 	void __iomem *addr;
+ 	u16 length, proto_type;
+@@ -409,7 +409,7 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
+ 
+ 	/* Check if received ethernet frame is a raw ethernet frame
+ 	 * or an IP packet or an ARP packet */
+-	if (proto_type > (ETH_FRAME_LEN + ETH_FCS_LEN)) {
++	if (proto_type > ETH_DATA_LEN) {
+ 
+ 		if (proto_type == ETH_P_IP) {
+ 			length = ((ntohl(__raw_readl(addr +
+@@ -417,6 +417,7 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
+ 					XEL_RXBUFF_OFFSET)) >>
+ 					XEL_HEADER_SHIFT) &
+ 					XEL_RPLR_LENGTH_MASK);
++			length = min_t(u16, length, ETH_DATA_LEN);
+ 			length += ETH_HLEN + ETH_FCS_LEN;
+ 
+ 		} else if (proto_type == ETH_P_ARP)
+@@ -429,6 +430,9 @@ static u16 xemaclite_recv_data(struct net_local *drvdata, u8 *data)
+ 		/* Use the length in the frame, plus the header and trailer */
+ 		length = proto_type + ETH_HLEN + ETH_FCS_LEN;
+ 
++	if (WARN_ON(length > maxlen))
++		length = maxlen;
++
+ 	/* Read from the EmacLite device */
+ 	xemaclite_aligned_read((u32 __force *) (addr + XEL_RXBUFF_OFFSET),
+ 				data, length);
+@@ -603,7 +607,7 @@ static void xemaclite_rx_handler(struct net_device *dev)
+ 
+ 	skb_reserve(skb, 2);
+ 
+-	len = xemaclite_recv_data(lp, (u8 *) skb->data);
++	len = xemaclite_recv_data(lp, (u8 *) skb->data, len);
+ 
+ 	if (!len) {
+ 		dev->stats.rx_errors++;
+-- 
+2.8.3
