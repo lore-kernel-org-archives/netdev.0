@@ -1,48 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Tue, 14 Feb 2017 14:59:19 -0500 (EST)
-Message-ID: <20170214.145919.808498227095540599.davem@davemloft.net>
-References: <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
-	<20170214.120426.2032015522492111544.davem@davemloft.net>
-	<20170214203822.72d41268@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ttoukan.linux@gmail.com, edumazet@google.com,
- alexander.duyck@gmail.com, netdev@vger.kernel.org, tariqt@mellanox.com,
- kafai@fb.com, saeedm@mellanox.com, willemb@google.com,
- bblanco@plumgrid.com, ast@kernel.org, eric.dumazet@gmail.com,
- linux-mm@kvack.org
-To: brouer@redhat.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170214203822.72d41268@redhat.com>
-Sender: owner-linux-mm@kvack.org
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 5/8] net: stmmac: run stmmac_hw_fix_mac_speed when speed is valid
+Date: Tue, 14 Feb 2017 20:54:38 +0100
+Message-ID: <20170214195441.30425-6-clabbe.montjoie@gmail.com>
+References: <20170214195441.30425-1-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170214195441.30425-1-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Tue, 14 Feb 2017 20:38:22 +0100
+This patch mutualise a bit by running stmmac_hw_fix_mac_speed() after
+the switch in case of valid speed.
 
-> On Tue, 14 Feb 2017 12:04:26 -0500 (EST)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> One path I see around all of this is full integration.  Meaning that
->> we can free pages into the page allocator which are still DMA mapped.
->> And future allocations from that device are prioritized to take still
->> DMA mapped objects.
-> 
-> I like this idea.  Are you saying that this should be done per DMA
-> engine or per device?
-> 
-> If this is per device, it is almost the page_pool idea.  
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Per-device is simplest, at least at first.
-
-Maybe later down the road we can try to pool by "mapping entity" be
-that a parent IOMMU or something else like a hypervisor managed
-page table.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index f7664b9..bebe810 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -719,7 +719,6 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 				if (priv->plat->has_gmac ||
+ 				    priv->plat->has_gmac4)
+ 					ctrl &= ~priv->hw->link.port;
+-				stmmac_hw_fix_mac_speed(priv);
+ 				break;
+ 			case 100:
+ 			case 10:
+@@ -734,7 +733,6 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 				} else {
+ 					ctrl &= ~priv->hw->link.port;
+ 				}
+-				stmmac_hw_fix_mac_speed(priv);
+ 				break;
+ 			default:
+ 				netif_warn(priv, link, priv->dev,
+@@ -742,7 +740,8 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 				phydev->speed = SPEED_UNKNOWN;
+ 				break;
+ 			}
+-
++			if (phydev->speed != SPEED_UNKNOWN)
++				stmmac_hw_fix_mac_speed(priv);
+ 			priv->speed = phydev->speed;
+ 		}
+ 
+-- 
+2.10.2
