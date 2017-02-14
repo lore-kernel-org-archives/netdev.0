@@ -1,503 +1,270 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next v6 1/2] qed: Add infrastructure for PTP support
-Date: Tue, 14 Feb 2017 18:03:24 +0200
-Message-ID: <1487088205-21578-2-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next v6 2/2] qede: Add driver support for PTP
+Date: Tue, 14 Feb 2017 18:03:25 +0200
+Message-ID: <1487088205-21578-3-git-send-email-Yuval.Mintz@cavium.com>
 References: <1487088205-21578-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Sudarsana.Kalluru@cavium.com>,
-        Sudarsana Reddy Kalluru <sudarsana.Kalluru@cavium.com>,
         Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
         <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:53844 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:53845 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752976AbdBNQDy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 11:03:54 -0500
+        by vger.kernel.org with ESMTP id S1752976AbdBNQEE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 11:04:04 -0500
 In-Reply-To: <1487088205-21578-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <sudarsana.Kalluru@cavium.com>
+From: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 
-The patch adds the required qed interfaces for configuring/reading
-the PTP clock on the adapter.
+This patch adds the driver support for,
+  - Registering the ptp clock functionality with the OS.
+  - Timestamping the Rx/Tx PTP packets.
+  - Ethtool callbacks related to PTP.
 
 Signed-off-by: Sudarsana Reddy Kalluru <Sudarsana.Kalluru@cavium.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/Makefile       |   2 +-
- drivers/net/ethernet/qlogic/qed/qed.h          |   2 +
- drivers/net/ethernet/qlogic/qed/qed_l2.c       |   5 +
- drivers/net/ethernet/qlogic/qed/qed_l2.h       |   1 +
- drivers/net/ethernet/qlogic/qed/qed_main.c     |  15 ++
- drivers/net/ethernet/qlogic/qed/qed_ptp.c      | 323 +++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_ptp.h      |  47 ++++
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h |  31 +++
- include/linux/qed/qed_eth_if.h                 |  22 ++
- 9 files changed, 447 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
- create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
+ drivers/net/ethernet/qlogic/Kconfig             |   1 +
+ drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
+ drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
+ 8 files changed, 661 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
 
-diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
-index 729e437..1a7300f 100644
---- a/drivers/net/ethernet/qlogic/qed/Makefile
-+++ b/drivers/net/ethernet/qlogic/qed/Makefile
-@@ -2,7 +2,7 @@ obj-$(CONFIG_QED) := qed.o
+diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
+index 3cfd105..aaa1e85 100644
+--- a/drivers/net/ethernet/qlogic/Kconfig
++++ b/drivers/net/ethernet/qlogic/Kconfig
+@@ -104,6 +104,7 @@ config QED_SRIOV
+ config QEDE
+ 	tristate "QLogic QED 25/40/100Gb Ethernet NIC"
+ 	depends on QED
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This enables the support for ...
  
- qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o \
- 	 qed_int.o qed_main.o qed_mcp.o qed_sp_commands.o qed_spq.o qed_l2.o \
--	 qed_selftest.o qed_dcbx.o qed_debug.o
-+	 qed_selftest.o qed_dcbx.o qed_debug.o qed_ptp.o
- qed-$(CONFIG_QED_SRIOV) += qed_sriov.o qed_vf.o
- qed-$(CONFIG_QED_LL2) += qed_ll2.o
- qed-$(CONFIG_QED_RDMA) += qed_roce.o
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 1f61cf3..6557f94 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -456,6 +456,8 @@ struct qed_hwfn {
- 	u8 dcbx_no_edpm;
- 	u8 db_bar_no_edpm;
+diff --git a/drivers/net/ethernet/qlogic/qede/Makefile b/drivers/net/ethernet/qlogic/qede/Makefile
+index 38fbee6..bc5f7c3 100644
+--- a/drivers/net/ethernet/qlogic/qede/Makefile
++++ b/drivers/net/ethernet/qlogic/qede/Makefile
+@@ -1,5 +1,5 @@
+ obj-$(CONFIG_QEDE) := qede.o
  
-+	/* p_ptp_ptt is valid for leading HWFN only */
-+	struct qed_ptt *p_ptp_ptt;
- 	struct qed_simd_fp_handler	simd_proto_handler[64];
+-qede-y := qede_main.o qede_fp.o qede_filter.o qede_ethtool.o
++qede-y := qede_main.o qede_fp.o qede_filter.o qede_ethtool.o qede_ptp.o
+ qede-$(CONFIG_DCB) += qede_dcbnl.o
+ qede-$(CONFIG_QED_RDMA) += qede_roce.o
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index b423406..f2aaef2 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -137,6 +137,8 @@ struct qede_rdma_dev {
+ 	struct workqueue_struct *roce_wq;
+ };
  
- #ifdef CONFIG_QED_SRIOV
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 7520eb3..df932be 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -214,6 +214,7 @@ int qed_sp_eth_vport_start(struct qed_hwfn *p_hwfn,
- 	p_ramrod->vport_id	= abs_vport_id;
++struct qede_ptp;
++
+ struct qede_dev {
+ 	struct qed_dev			*cdev;
+ 	struct net_device		*ndev;
+@@ -148,8 +150,10 @@ struct qede_dev {
+ 	u32 flags;
+ #define QEDE_FLAG_IS_VF	BIT(0)
+ #define IS_VF(edev)	(!!((edev)->flags & QEDE_FLAG_IS_VF))
++#define QEDE_TX_TIMESTAMPING_EN		BIT(1)
  
- 	p_ramrod->mtu			= cpu_to_le16(p_params->mtu);
-+	p_ramrod->handle_ptp_pkts	= p_params->handle_ptp_pkts;
- 	p_ramrod->inner_vlan_removal_en	= p_params->remove_inner_vlan;
- 	p_ramrod->drop_ttl0_en		= p_params->drop_ttl0;
- 	p_ramrod->untagged		= p_params->only_untagged;
-@@ -1886,6 +1887,7 @@ static int qed_start_vport(struct qed_dev *cdev,
- 		start.drop_ttl0 = params->drop_ttl0;
- 		start.opaque_fid = p_hwfn->hw_info.opaque_fid;
- 		start.concrete_fid = p_hwfn->hw_info.concrete_fid;
-+		start.handle_ptp_pkts = params->handle_ptp_pkts;
- 		start.vport_id = params->vport_id;
- 		start.max_buffers_per_cqe = 16;
- 		start.mtu = params->mtu;
-@@ -2328,6 +2330,8 @@ static int qed_fp_cqe_completion(struct qed_dev *dev,
- extern const struct qed_eth_dcbnl_ops qed_dcbnl_ops_pass;
+ 	const struct qed_eth_ops	*ops;
++	struct qede_ptp			*ptp;
+ 
+ 	struct qed_dev_eth_info dev_info;
+ #define QEDE_MAX_RSS_CNT(edev)	((edev)->dev_info.num_queues)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index baf2642..c02754d 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -39,6 +39,7 @@
+ #include <linux/capability.h>
+ #include <linux/vmalloc.h>
+ #include "qede.h"
++#include "qede_ptp.h"
+ 
+ #define QEDE_RQSTAT_OFFSET(stat_name) \
+ 	 (offsetof(struct qede_rx_queue, stat_name))
+@@ -940,6 +941,14 @@ static int qede_set_channels(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static int qede_get_ts_info(struct net_device *dev,
++			    struct ethtool_ts_info *info)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++
++	return qede_ptp_get_ts_info(edev, info);
++}
++
+ static int qede_set_phys_id(struct net_device *dev,
+ 			    enum ethtool_phys_id_state state)
+ {
+@@ -1586,6 +1595,7 @@ static int qede_get_tunable(struct net_device *dev,
+ 	.get_rxfh_key_size = qede_get_rxfh_key_size,
+ 	.get_rxfh = qede_get_rxfh,
+ 	.set_rxfh = qede_set_rxfh,
++	.get_ts_info = qede_get_ts_info,
+ 	.get_channels = qede_get_channels,
+ 	.set_channels = qede_set_channels,
+ 	.self_test = qede_self_test,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_fp.c b/drivers/net/ethernet/qlogic/qede/qede_fp.c
+index 26848ee..1e65038 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_fp.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_fp.c
+@@ -40,6 +40,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
+ #include <net/ip6_checksum.h>
++#include "qede_ptp.h"
+ 
+ #include <linux/qed/qed_if.h>
+ #include "qede.h"
+@@ -1277,6 +1278,7 @@ static int qede_rx_process_cqe(struct qede_dev *edev,
+ 	qede_get_rxhash(skb, fp_cqe->bitfields, fp_cqe->rss_hash);
+ 	qede_set_skb_csum(skb, csum_flag);
+ 	skb_record_rx_queue(skb, rxq->rxq_id);
++	qede_ptp_record_rx_ts(edev, cqe, skb);
+ 
+ 	/* SKB is prepared - pass it to stack */
+ 	qede_skb_receive(edev, fp, rxq, skb, le16_to_cpu(fp_cqe->vlan_tag));
+@@ -1451,6 +1453,9 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	first_bd->data.bd_flags.bitfields =
+ 		1 << ETH_TX_1ST_BD_FLAGS_START_BD_SHIFT;
+ 
++	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP))
++		qede_ptp_tx_ts(edev, skb);
++
+ 	/* Map skb linear data for DMA and set in the first BD */
+ 	mapping = dma_map_single(txq->dev, skb->data,
+ 				 skb_headlen(skb), DMA_TO_DEVICE);
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 40a76a1..d163e72 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -62,6 +62,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/qed/qede_roce.h>
+ #include "qede.h"
++#include "qede_ptp.h"
+ 
+ static char version[] =
+ 	"QLogic FastLinQ 4xxxx Ethernet Driver qede " DRV_MODULE_VERSION "\n";
+@@ -484,6 +485,25 @@ static int qede_set_vf_trust(struct net_device *dev, int vfidx, bool setting)
+ }
  #endif
  
-+extern const struct qed_eth_ptp_ops qed_ptp_ops_pass;
-+
- static const struct qed_eth_ops qed_eth_ops_pass = {
- 	.common = &qed_common_ops_pass,
- #ifdef CONFIG_QED_SRIOV
-@@ -2336,6 +2340,7 @@ static int qed_fp_cqe_completion(struct qed_dev *dev,
- #ifdef CONFIG_DCB
- 	.dcb = &qed_dcbnl_ops_pass,
- #endif
-+	.ptp = &qed_ptp_ops_pass,
- 	.fill_dev_info = &qed_fill_eth_dev_info,
- 	.register_ops = &qed_register_eth_ops,
- 	.check_mac = &qed_check_mac,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-index 93cb932..e763abd 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-@@ -156,6 +156,7 @@ struct qed_sp_vport_start_params {
- 	enum qed_tpa_mode tpa_mode;
- 	bool remove_inner_vlan;
- 	bool tx_switching;
-+	bool handle_ptp_pkts;
- 	bool only_untagged;
- 	bool drop_ttl0;
- 	u8 max_buffers_per_cqe;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 93eee83..592e104 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -902,6 +902,7 @@ static int qed_slowpath_start(struct qed_dev *cdev,
- 	struct qed_mcp_drv_version drv_version;
- 	const u8 *data = NULL;
- 	struct qed_hwfn *hwfn;
-+	struct qed_ptt *p_ptt;
- 	int rc = -EINVAL;
- 
- 	if (qed_iov_wq_start(cdev))
-@@ -916,6 +917,14 @@ static int qed_slowpath_start(struct qed_dev *cdev,
- 				  QED_FW_FILE_NAME);
- 			goto err;
- 		}
-+
-+		p_ptt = qed_ptt_acquire(QED_LEADING_HWFN(cdev));
-+		if (p_ptt) {
-+			QED_LEADING_HWFN(cdev)->p_ptp_ptt = p_ptt;
-+		} else {
-+			DP_NOTICE(cdev, "Failed to acquire PTT for PTP\n");
-+			goto err;
-+		}
- 	}
- 
- 	cdev->rx_coalesce_usecs = QED_DEFAULT_RX_USECS;
-@@ -1003,6 +1012,10 @@ static int qed_slowpath_start(struct qed_dev *cdev,
- 	if (IS_PF(cdev))
- 		release_firmware(cdev->firmware);
- 
-+	if (IS_PF(cdev) && QED_LEADING_HWFN(cdev)->p_ptp_ptt)
-+		qed_ptt_release(QED_LEADING_HWFN(cdev),
-+				QED_LEADING_HWFN(cdev)->p_ptp_ptt);
-+
- 	qed_iov_wq_stop(cdev, false);
- 
- 	return rc;
-@@ -1016,6 +1029,8 @@ static int qed_slowpath_stop(struct qed_dev *cdev)
- 	qed_ll2_dealloc_if(cdev);
- 
- 	if (IS_PF(cdev)) {
-+		qed_ptt_release(QED_LEADING_HWFN(cdev),
-+				QED_LEADING_HWFN(cdev)->p_ptp_ptt);
- 		qed_free_stream_mem(cdev);
- 		if (IS_QED_ETH_IF(cdev))
- 			qed_sriov_disable(cdev, true);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ptp.c b/drivers/net/ethernet/qlogic/qed/qed_ptp.c
-new file mode 100644
-index 0000000..aba0c46
---- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ptp.c
-@@ -0,0 +1,323 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+#include <linux/types.h>
-+#include "qed.h"
-+#include "qed_dev_api.h"
-+#include "qed_hw.h"
-+#include "qed_l2.h"
-+#include "qed_ptp.h"
-+#include "qed_reg_addr.h"
-+
-+/* 16 nano second time quantas to wait before making a Drift adjustment */
-+#define QED_DRIFT_CNTR_TIME_QUANTA_SHIFT	0
-+/* Nano seconds to add/subtract when making a Drift adjustment */
-+#define QED_DRIFT_CNTR_ADJUSTMENT_SHIFT		28
-+/* Add/subtract the Adjustment_Value when making a Drift adjustment */
-+#define QED_DRIFT_CNTR_DIRECTION_SHIFT		31
-+#define QED_TIMESTAMP_MASK			BIT(16)
-+
-+/* Read Rx timestamp */
-+static int qed_ptp_hw_read_rx_ts(struct qed_dev *cdev, u64 *timestamp)
++static int qede_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 +{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+	u32 val;
++	struct qede_dev *edev = netdev_priv(dev);
 +
-+	*timestamp = 0;
-+	val = qed_rd(p_hwfn, p_ptt, NIG_REG_LLH_PTP_HOST_BUF_SEQID);
-+	if (!(val & QED_TIMESTAMP_MASK)) {
-+		DP_INFO(p_hwfn, "Invalid Rx timestamp, buf_seqid = %d\n", val);
-+		return -EINVAL;
-+	}
++	if (!netif_running(dev))
++		return -EAGAIN;
 +
-+	val = qed_rd(p_hwfn, p_ptt, NIG_REG_LLH_PTP_HOST_BUF_TS_LSB);
-+	*timestamp = qed_rd(p_hwfn, p_ptt, NIG_REG_LLH_PTP_HOST_BUF_TS_MSB);
-+	*timestamp <<= 32;
-+	*timestamp |= val;
-+
-+	/* Reset timestamp register to allow new timestamp */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_HOST_BUF_SEQID,
-+	       QED_TIMESTAMP_MASK);
-+
-+	return 0;
-+}
-+
-+/* Read Tx timestamp */
-+static int qed_ptp_hw_read_tx_ts(struct qed_dev *cdev, u64 *timestamp)
-+{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+	u32 val;
-+
-+	*timestamp = 0;
-+	val = qed_rd(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_BUF_SEQID);
-+	if (!(val & QED_TIMESTAMP_MASK)) {
-+		DP_INFO(p_hwfn, "Invalid Tx timestamp, buf_seqid = %d\n", val);
-+		return -EINVAL;
-+	}
-+
-+	val = qed_rd(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_BUF_TS_LSB);
-+	*timestamp = qed_rd(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_BUF_TS_MSB);
-+	*timestamp <<= 32;
-+	*timestamp |= val;
-+
-+	/* Reset timestamp register to allow new timestamp */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_BUF_SEQID, QED_TIMESTAMP_MASK);
-+
-+	return 0;
-+}
-+
-+/* Read Phy Hardware Clock */
-+static int qed_ptp_hw_read_cc(struct qed_dev *cdev, u64 *phc_cycles)
-+{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+	u32 temp = 0;
-+
-+	temp = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_SYNC_TIME_LSB);
-+	*phc_cycles = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_SYNC_TIME_MSB);
-+	*phc_cycles <<= 32;
-+	*phc_cycles |= temp;
-+
-+	return 0;
-+}
-+
-+/* Filter PTP protocol packets that need to be timestamped */
-+static int qed_ptp_hw_cfg_rx_filters(struct qed_dev *cdev,
-+				     enum qed_ptp_filter_type type)
-+{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+	u32 rule_mask, parm_mask;
-+
-+	switch (type) {
-+	case QED_PTP_FILTER_L2_IPV4_IPV6:
-+		parm_mask = 0x6AA;
-+		rule_mask = 0x3EEE;
-+		break;
-+	case QED_PTP_FILTER_L2:
-+		parm_mask = 0x6BF;
-+		rule_mask = 0x3EFF;
-+		break;
-+	case QED_PTP_FILTER_IPV4_IPV6:
-+		parm_mask = 0x7EA;
-+		rule_mask = 0x3FFE;
-+		break;
-+	case QED_PTP_FILTER_IPV4:
-+		parm_mask = 0x7EE;
-+		rule_mask = 0x3FFE;
-+		break;
++	switch (cmd) {
++	case SIOCSHWTSTAMP:
++		return qede_ptp_hw_ts(edev, ifr);
 +	default:
-+		DP_INFO(p_hwfn, "Invalid PTP filter type %d\n", type);
-+		return -EINVAL;
++		DP_VERBOSE(edev, QED_MSG_DEBUG,
++			   "default IOCTL cmd 0x%x\n", cmd);
++		return -EOPNOTSUPP;
 +	}
-+
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_PARAM_MASK, parm_mask);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_RULE_MASK, rule_mask);
-+
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_TO_HOST, 0x1);
-+
-+	/* Reset possibly old timestamps */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_HOST_BUF_SEQID,
-+	       QED_TIMESTAMP_MASK);
 +
 +	return 0;
 +}
 +
-+/* Adjust the HW clock by a rate given in parts-per-billion (ppb) units.
-+ * FW/HW accepts the adjustment value in terms of 3 parameters:
-+ *   Drift period - adjustment happens once in certain number of nano seconds.
-+ *   Drift value - time is adjusted by a certain value, for example by 5 ns.
-+ *   Drift direction - add or subtract the adjustment value.
-+ * The routine translates ppb into the adjustment triplet in an optimal manner.
-+ */
-+static int qed_ptp_hw_adjfreq(struct qed_dev *cdev, s32 ppb)
-+{
-+	s64 best_val, val, best_period, period, approx_dev, dif, dif2;
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+	u32 drift_ctr_cfg = 0, drift_state;
-+	int drift_dir = 1;
-+
-+	if (ppb < 0) {
-+		ppb = -ppb;
-+		drift_dir = 0;
-+	}
-+
-+	if (ppb > 1) {
-+		s64 best_dif = ppb, best_approx_dev = 1;
-+
-+		/* Adjustment value is up to +/-7ns, find an optimal value in
-+		 * this range.
-+		 */
-+		for (val = 7; val > 0; val--) {
-+			period = div_s64(val * 1000000000, ppb);
-+			period -= 8;
-+			period >>= 4;
-+			if (period < 1)
-+				period = 1;
-+			if (period > 0xFFFFFFE)
-+				period = 0xFFFFFFE;
-+
-+			/* Check both rounding ends for approximate error */
-+			approx_dev = period * 16 + 8;
-+			dif = ppb * approx_dev - val * 1000000000;
-+			dif2 = dif + 16 * ppb;
-+
-+			if (dif < 0)
-+				dif = -dif;
-+			if (dif2 < 0)
-+				dif2 = -dif2;
-+
-+			/* Determine which end gives better approximation */
-+			if (dif * (approx_dev + 16) > dif2 * approx_dev) {
-+				period++;
-+				approx_dev += 16;
-+				dif = dif2;
-+			}
-+
-+			/* Track best approximation found so far */
-+			if (best_dif * approx_dev > dif * best_approx_dev) {
-+				best_dif = dif;
-+				best_val = val;
-+				best_period = period;
-+				best_approx_dev = approx_dev;
-+			}
+ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_open = qede_open,
+ 	.ndo_stop = qede_close,
+@@ -492,6 +512,7 @@ static int qede_set_vf_trust(struct net_device *dev, int vfidx, bool setting)
+ 	.ndo_set_mac_address = qede_set_mac_addr,
+ 	.ndo_validate_addr = eth_validate_addr,
+ 	.ndo_change_mtu = qede_change_mtu,
++	.ndo_do_ioctl = qede_ioctl,
+ #ifdef CONFIG_QED_SRIOV
+ 	.ndo_set_vf_mac = qede_set_vf_mac,
+ 	.ndo_set_vf_vlan = qede_set_vf_vlan,
+@@ -841,6 +862,15 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
+ 
+ 	edev->ops->common->set_id(cdev, edev->ndev->name, DRV_MODULE_VERSION);
+ 
++	/* PTP not supported on VFs */
++	if (!is_vf) {
++		rc = qede_ptp_register_phc(edev);
++		if (rc) {
++			DP_NOTICE(edev, "Cannot register PHC\n");
++			goto err5;
 +		}
-+	} else if (ppb == 1) {
-+		/* This is a special case as its the only value which wouldn't
-+		 * fit in a s64 variable. In order to prevent castings simple
-+		 * handle it seperately.
-+		 */
-+		best_val = 4;
-+		best_period = 0xee6b27f;
-+	} else {
-+		best_val = 0;
-+		best_period = 0xFFFFFFF;
 +	}
 +
-+	drift_ctr_cfg = (best_period << QED_DRIFT_CNTR_TIME_QUANTA_SHIFT) |
-+			(((int)best_val) << QED_DRIFT_CNTR_ADJUSTMENT_SHIFT) |
-+			(((int)drift_dir) << QED_DRIFT_CNTR_DIRECTION_SHIFT);
+ 	edev->ops->register_ops(cdev, &qede_ll_ops, edev);
+ 
+ #ifdef CONFIG_DCB
+@@ -856,6 +886,8 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
+ 
+ 	return 0;
+ 
++err5:
++	unregister_netdev(edev->ndev);
+ err4:
+ 	qede_roce_dev_remove(edev);
+ err3:
+@@ -907,6 +939,8 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
+ 
+ 	unregister_netdev(ndev);
+ 
++	qede_ptp_remove(edev);
 +
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x1);
+ 	qede_roce_dev_remove(edev);
+ 
+ 	edev->ops->common->set_power_state(cdev, PCI_D0);
+@@ -1660,6 +1694,7 @@ static int qede_start_queues(struct qede_dev *edev, bool clear_stats)
+ 	if (!vport_update_params)
+ 		return -ENOMEM;
+ 
++	start.handle_ptp_pkts = !!(edev->ptp);
+ 	start.gro_enable = !edev->gro_disable;
+ 	start.mtu = edev->ndev->mtu;
+ 	start.vport_id = 0;
+@@ -1781,6 +1816,8 @@ static void qede_unload(struct qede_dev *edev, enum qede_unload_mode mode,
+ 	qede_roce_dev_event_close(edev);
+ 	edev->state = QEDE_STATE_CLOSED;
+ 
++	qede_ptp_stop(edev);
 +
-+	drift_state = qed_rd(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR);
-+	if (drift_state & 1) {
-+		qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_DRIFT_CNTR_CONF,
-+		       drift_ctr_cfg);
-+	} else {
-+		DP_INFO(p_hwfn, "Drift counter is not reset\n");
-+		return -EINVAL;
-+	}
+ 	/* Close OS Tx */
+ 	netif_tx_disable(edev->ndev);
+ 	netif_carrier_off(edev->ndev);
+@@ -1882,6 +1919,8 @@ static int qede_load(struct qede_dev *edev, enum qede_load_mode mode,
+ 	qede_roce_dev_event_open(edev);
+ 	qede_link_update(edev, &link_output);
+ 
++	qede_ptp_start(edev, (mode == QEDE_LOAD_NORMAL));
 +
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x0);
-+
-+	return 0;
-+}
-+
-+static int qed_ptp_hw_enable(struct qed_dev *cdev)
-+{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+
-+	/* Reset PTP event detection rules - will be configured in the IOCTL */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_PARAM_MASK, 0x7FF);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_RULE_MASK, 0x3FFF);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_PARAM_MASK, 0x7FF);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_RULE_MASK, 0x3FFF);
-+
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_PTP_EN, 7);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_RX_PTP_EN, 7);
-+
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TS_OUTPUT_ENABLE_PDA, 0x1);
-+
-+	/* Pause free running counter */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TIMESYNC_GEN_REG_BB, 2);
-+
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_FREE_CNT_VALUE_LSB, 0);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_FREE_CNT_VALUE_MSB, 0);
-+	/* Resume free running counter */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TIMESYNC_GEN_REG_BB, 4);
-+
-+	/* Disable drift register */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_DRIFT_CNTR_CONF, 0x0);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TSGEN_RST_DRIFT_CNTR, 0x0);
-+
-+	/* Reset possibly old timestamps */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_HOST_BUF_SEQID,
-+	       QED_TIMESTAMP_MASK);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_BUF_SEQID, QED_TIMESTAMP_MASK);
-+
-+	return 0;
-+}
-+
-+static int qed_ptp_hw_hwtstamp_tx_on(struct qed_dev *cdev)
-+{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_PARAM_MASK, 0x6AA);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_RULE_MASK, 0x3EEE);
-+
-+	return 0;
-+}
-+
-+static int qed_ptp_hw_disable(struct qed_dev *cdev)
-+{
-+	struct qed_hwfn *p_hwfn = QED_LEADING_HWFN(cdev);
-+	struct qed_ptt *p_ptt = p_hwfn->p_ptp_ptt;
-+
-+	/* Reset PTP event detection rules */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_PARAM_MASK, 0x7FF);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_LLH_PTP_RULE_MASK, 0x3FFF);
-+
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_PARAM_MASK, 0x7FF);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_LLH_PTP_RULE_MASK, 0x3FFF);
-+
-+	/* Disable the PTP feature */
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_RX_PTP_EN, 0x0);
-+	qed_wr(p_hwfn, p_ptt, NIG_REG_TX_PTP_EN, 0x0);
-+
-+	return 0;
-+}
-+
-+const struct qed_eth_ptp_ops qed_ptp_ops_pass = {
-+	.hwtstamp_tx_on = qed_ptp_hw_hwtstamp_tx_on,
-+	.cfg_rx_filters = qed_ptp_hw_cfg_rx_filters,
-+	.read_rx_ts = qed_ptp_hw_read_rx_ts,
-+	.read_tx_ts = qed_ptp_hw_read_tx_ts,
-+	.read_cc = qed_ptp_hw_read_cc,
-+	.adjfreq = qed_ptp_hw_adjfreq,
-+	.disable = qed_ptp_hw_disable,
-+	.enable = qed_ptp_hw_enable,
-+};
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ptp.h b/drivers/net/ethernet/qlogic/qed/qed_ptp.h
+ 	edev->state = QEDE_STATE_OPEN;
+ 
+ 	DP_INFO(edev, "Ending successfully qede load\n");
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ptp.c b/drivers/net/ethernet/qlogic/qede/qede_ptp.c
 new file mode 100644
-index 0000000..63c666d
+index 0000000..2e62dec
 --- /dev/null
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ptp.h
-@@ -0,0 +1,47 @@
-+/* QLogic qed NIC Driver
++++ b/drivers/net/ethernet/qlogic/qede/qede_ptp.c
+@@ -0,0 +1,536 @@
++/* QLogic qede NIC Driver
 + * Copyright (c) 2015-2017  QLogic Corporation
 + *
 + * This software is available to you under a choice of one of two
@@ -528,115 +295,581 @@ index 0000000..63c666d
 + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 + * SOFTWARE.
 + */
-+#ifndef _QED_PTP_H
-+#define _QED_PTP_H
-+#include <linux/types.h>
++#include "qede_ptp.h"
 +
-+int qed_ptp_hwtstamp_tx_on(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
-+int qed_ptp_cfg_rx_filters(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
-+			   enum qed_ptp_filter_type type);
-+int qed_ptp_read_rx_ts(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt, u64 *ts);
-+int qed_ptp_read_tx_ts(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt, u64 *ts);
-+int qed_ptp_read_cc(struct qed_hwfn *p_hwfn,
-+		    struct qed_ptt *p_ptt, u64 *cycles);
-+int qed_ptp_adjfreq(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt, s32 ppb);
-+int qed_ptp_disable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
-+int qed_ptp_enable(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt);
++struct qede_ptp {
++	const struct qed_eth_ptp_ops	*ops;
++	struct ptp_clock_info		clock_info;
++	struct cyclecounter		cc;
++	struct timecounter		tc;
++	struct ptp_clock		*clock;
++	struct work_struct		work;
++	struct qede_dev			*edev;
++	struct sk_buff			*tx_skb;
 +
-+#endif
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index b6722c6..3b7edf6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -1481,4 +1481,35 @@
- #define DORQ_REG_PF_ICID_BIT_SHIFT_NORM	0x100448UL
- #define DORQ_REG_PF_MIN_ADDR_REG1 0x100400UL
- #define DORQ_REG_PF_DPI_BIT_SHIFT 0x100450UL
-+#define NIG_REG_RX_PTP_EN 0x501900UL
-+#define NIG_REG_TX_PTP_EN 0x501904UL
-+#define NIG_REG_LLH_PTP_TO_HOST	0x501908UL
-+#define NIG_REG_LLH_PTP_TO_MCP 0x50190cUL
-+#define NIG_REG_PTP_SW_TXTSEN 0x501910UL
-+#define NIG_REG_LLH_PTP_ETHERTYPE_1 0x501914UL
-+#define NIG_REG_LLH_PTP_MAC_DA_2_LSB 0x501918UL
-+#define NIG_REG_LLH_PTP_MAC_DA_2_MSB 0x50191cUL
-+#define NIG_REG_LLH_PTP_PARAM_MASK 0x501920UL
-+#define NIG_REG_LLH_PTP_RULE_MASK 0x501924UL
-+#define NIG_REG_TX_LLH_PTP_PARAM_MASK 0x501928UL
-+#define NIG_REG_TX_LLH_PTP_RULE_MASK 0x50192cUL
-+#define NIG_REG_LLH_PTP_HOST_BUF_SEQID 0x501930UL
-+#define NIG_REG_LLH_PTP_HOST_BUF_TS_LSB 0x501934UL
-+#define NIG_REG_LLH_PTP_HOST_BUF_TS_MSB	0x501938UL
-+#define NIG_REG_LLH_PTP_MCP_BUF_SEQID 0x50193cUL
-+#define NIG_REG_LLH_PTP_MCP_BUF_TS_LSB 0x501940UL
-+#define NIG_REG_LLH_PTP_MCP_BUF_TS_MSB 0x501944UL
-+#define NIG_REG_TX_LLH_PTP_BUF_SEQID 0x501948UL
-+#define NIG_REG_TX_LLH_PTP_BUF_TS_LSB 0x50194cUL
-+#define NIG_REG_TX_LLH_PTP_BUF_TS_MSB 0x501950UL
-+#define NIG_REG_RX_PTP_TS_MSB_ERR 0x501954UL
-+#define NIG_REG_TX_PTP_TS_MSB_ERR 0x501958UL
-+#define NIG_REG_TSGEN_SYNC_TIME_LSB 0x5088c0UL
-+#define NIG_REG_TSGEN_SYNC_TIME_MSB 0x5088c4UL
-+#define NIG_REG_TSGEN_RST_DRIFT_CNTR 0x5088d8UL
-+#define NIG_REG_TSGEN_DRIFT_CNTR_CONF 0x5088dcUL
-+#define NIG_REG_TS_OUTPUT_ENABLE_PDA 0x508870UL
-+#define NIG_REG_TIMESYNC_GEN_REG_BB 0x500d00UL
-+#define NIG_REG_TSGEN_FREE_CNT_VALUE_LSB 0x5088a8UL
-+#define NIG_REG_TSGEN_FREE_CNT_VALUE_MSB 0x5088acUL
- #endif
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 3613d63..4cd1f0c 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -96,6 +96,7 @@ struct qed_update_vport_params {
- 
- struct qed_start_vport_params {
- 	bool remove_inner_vlan;
-+	bool handle_ptp_pkts;
- 	bool gro_enable;
- 	bool drop_ttl0;
- 	u8 vport_id;
-@@ -159,6 +160,15 @@ struct qed_eth_cb_ops {
- 	void (*force_mac) (void *dev, u8 *mac, bool forced);
- };
- 
-+#define QED_MAX_PHC_DRIFT_PPB   291666666
-+
-+enum qed_ptp_filter_type {
-+	QED_PTP_FILTER_L2,
-+	QED_PTP_FILTER_IPV4,
-+	QED_PTP_FILTER_IPV4_IPV6,
-+	QED_PTP_FILTER_L2_IPV4_IPV6
++	/* ptp spinlock is used for protecting the cycle/time counter fields
++	 * and, also for serializing the qed PTP API invocations.
++	 */
++	spinlock_t			lock;
++	bool				hw_ts_ioctl_called;
++	u16				tx_type;
++	u16				rx_filter;
 +};
 +
- #ifdef CONFIG_DCB
- /* Prototype declaration of qed_eth_dcbnl_ops should match with the declaration
-  * of dcbnl_rtnl_ops structure.
-@@ -218,6 +228,17 @@ struct qed_eth_dcbnl_ops {
- };
- #endif
- 
-+struct qed_eth_ptp_ops {
-+	int (*hwtstamp_tx_on)(struct qed_dev *);
-+	int (*cfg_rx_filters)(struct qed_dev *, enum qed_ptp_filter_type);
-+	int (*read_rx_ts)(struct qed_dev *, u64 *);
-+	int (*read_tx_ts)(struct qed_dev *, u64 *);
-+	int (*read_cc)(struct qed_dev *, u64 *);
-+	int (*disable)(struct qed_dev *);
-+	int (*adjfreq)(struct qed_dev *, s32);
-+	int (*enable)(struct qed_dev *);
-+};
++/**
++ * qede_ptp_adjfreq
++ * @ptp: the ptp clock structure
++ * @ppb: parts per billion adjustment from base
++ *
++ * Adjust the frequency of the ptp cycle counter by the
++ * indicated ppb from the base frequency.
++ */
++static int qede_ptp_adjfreq(struct ptp_clock_info *info, s32 ppb)
++{
++	struct qede_ptp *ptp = container_of(info, struct qede_ptp, clock_info);
++	struct qede_dev *edev = ptp->edev;
++	int rc;
 +
- struct qed_eth_ops {
- 	const struct qed_common_ops *common;
- #ifdef CONFIG_QED_SRIOV
-@@ -226,6 +247,7 @@ struct qed_eth_ops {
- #ifdef CONFIG_DCB
- 	const struct qed_eth_dcbnl_ops *dcb;
- #endif
-+	const struct qed_eth_ptp_ops *ptp;
- 
- 	int (*fill_dev_info)(struct qed_dev *cdev,
- 			     struct qed_dev_eth_info *info);
++	__qede_lock(edev);
++	if (edev->state == QEDE_STATE_OPEN) {
++		spin_lock_bh(&ptp->lock);
++		rc = ptp->ops->adjfreq(edev->cdev, ppb);
++		spin_unlock_bh(&ptp->lock);
++	} else {
++		DP_ERR(edev, "PTP adjfreq called while interface is down\n");
++		rc = -EFAULT;
++	}
++	__qede_unlock(edev);
++
++	return rc;
++}
++
++static int qede_ptp_adjtime(struct ptp_clock_info *info, s64 delta)
++{
++	struct qede_dev *edev;
++	struct qede_ptp *ptp;
++
++	ptp = container_of(info, struct qede_ptp, clock_info);
++	edev = ptp->edev;
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG, "PTP adjtime called, delta = %llx\n",
++		   delta);
++
++	spin_lock_bh(&ptp->lock);
++	timecounter_adjtime(&ptp->tc, delta);
++	spin_unlock_bh(&ptp->lock);
++
++	return 0;
++}
++
++static int qede_ptp_gettime(struct ptp_clock_info *info, struct timespec64 *ts)
++{
++	struct qede_dev *edev;
++	struct qede_ptp *ptp;
++	u64 ns;
++
++	ptp = container_of(info, struct qede_ptp, clock_info);
++	edev = ptp->edev;
++
++	spin_lock_bh(&ptp->lock);
++	ns = timecounter_read(&ptp->tc);
++	spin_unlock_bh(&ptp->lock);
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG, "PTP gettime called, ns = %llu\n", ns);
++
++	*ts = ns_to_timespec64(ns);
++
++	return 0;
++}
++
++static int qede_ptp_settime(struct ptp_clock_info *info,
++			    const struct timespec64 *ts)
++{
++	struct qede_dev *edev;
++	struct qede_ptp *ptp;
++	u64 ns;
++
++	ptp = container_of(info, struct qede_ptp, clock_info);
++	edev = ptp->edev;
++
++	ns = timespec64_to_ns(ts);
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG, "PTP settime called, ns = %llu\n", ns);
++
++	/* Re-init the timecounter */
++	spin_lock_bh(&ptp->lock);
++	timecounter_init(&ptp->tc, &ptp->cc, ns);
++	spin_unlock_bh(&ptp->lock);
++
++	return 0;
++}
++
++/* Enable (or disable) ancillary features of the phc subsystem */
++static int qede_ptp_ancillary_feature_enable(struct ptp_clock_info *info,
++					     struct ptp_clock_request *rq,
++					     int on)
++{
++	struct qede_dev *edev;
++	struct qede_ptp *ptp;
++
++	ptp = container_of(info, struct qede_ptp, clock_info);
++	edev = ptp->edev;
++
++	DP_ERR(edev, "PHC ancillary features are not supported\n");
++
++	return -ENOTSUPP;
++}
++
++static void qede_ptp_task(struct work_struct *work)
++{
++	struct skb_shared_hwtstamps shhwtstamps;
++	struct qede_dev *edev;
++	struct qede_ptp *ptp;
++	u64 timestamp, ns;
++	int rc;
++
++	ptp = container_of(work, struct qede_ptp, work);
++	edev = ptp->edev;
++
++	/* Read Tx timestamp registers */
++	spin_lock_bh(&ptp->lock);
++	rc = ptp->ops->read_tx_ts(edev->cdev, &timestamp);
++	spin_unlock_bh(&ptp->lock);
++	if (rc) {
++		/* Reschedule to keep checking for a valid timestamp value */
++		schedule_work(&ptp->work);
++		return;
++	}
++
++	ns = timecounter_cyc2time(&ptp->tc, timestamp);
++	memset(&shhwtstamps, 0, sizeof(shhwtstamps));
++	shhwtstamps.hwtstamp = ns_to_ktime(ns);
++	skb_tstamp_tx(ptp->tx_skb, &shhwtstamps);
++	dev_kfree_skb_any(ptp->tx_skb);
++	ptp->tx_skb = NULL;
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG,
++		   "Tx timestamp, timestamp cycles = %llu, ns = %llu\n",
++		   timestamp, ns);
++}
++
++/* Read the PHC. This API is invoked with ptp_lock held. */
++static u64 qede_ptp_read_cc(const struct cyclecounter *cc)
++{
++	struct qede_dev *edev;
++	struct qede_ptp *ptp;
++	u64 phc_cycles;
++	int rc;
++
++	ptp = container_of(cc, struct qede_ptp, cc);
++	edev = ptp->edev;
++	rc = ptp->ops->read_cc(edev->cdev, &phc_cycles);
++	if (rc)
++		WARN_ONCE(1, "PHC read err %d\n", rc);
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG, "PHC read cycles = %llu\n", phc_cycles);
++
++	return phc_cycles;
++}
++
++static void qede_ptp_init_cc(struct qede_dev *edev)
++{
++	struct qede_ptp *ptp;
++
++	ptp = edev->ptp;
++	if (!ptp)
++		return;
++
++	memset(&ptp->cc, 0, sizeof(ptp->cc));
++	ptp->cc.read = qede_ptp_read_cc;
++	ptp->cc.mask = CYCLECOUNTER_MASK(64);
++	ptp->cc.shift = 0;
++	ptp->cc.mult = 1;
++}
++
++static int qede_ptp_cfg_filters(struct qede_dev *edev)
++{
++	struct qede_ptp *ptp = edev->ptp;
++
++	if (!ptp)
++		return -EIO;
++
++	if (!ptp->hw_ts_ioctl_called) {
++		DP_INFO(edev, "TS IOCTL not called\n");
++		return 0;
++	}
++
++	switch (ptp->tx_type) {
++	case HWTSTAMP_TX_ON:
++		edev->flags |= QEDE_TX_TIMESTAMPING_EN;
++		ptp->ops->hwtstamp_tx_on(edev->cdev);
++		break;
++
++	case HWTSTAMP_TX_ONESTEP_SYNC:
++		DP_ERR(edev, "One-step timestamping is not supported\n");
++		return -ERANGE;
++	}
++
++	spin_lock_bh(&ptp->lock);
++	switch (ptp->rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		break;
++	case HWTSTAMP_FILTER_ALL:
++	case HWTSTAMP_FILTER_SOME:
++		ptp->rx_filter = HWTSTAMP_FILTER_NONE;
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++		ptp->rx_filter = HWTSTAMP_FILTER_PTP_V1_L4_EVENT;
++		/* Initialize PTP detection for UDP/IPv4 events */
++		ptp->ops->cfg_rx_filters(edev->cdev, QED_PTP_FILTER_IPV4);
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++		ptp->rx_filter = HWTSTAMP_FILTER_PTP_V2_L4_EVENT;
++		/* Initialize PTP detection for UDP/IPv4 or UDP/IPv6 events */
++		ptp->ops->cfg_rx_filters(edev->cdev, QED_PTP_FILTER_IPV4_IPV6);
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++		ptp->rx_filter = HWTSTAMP_FILTER_PTP_V2_L2_EVENT;
++		/* Initialize PTP detection L2 events */
++		ptp->ops->cfg_rx_filters(edev->cdev, QED_PTP_FILTER_L2);
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		ptp->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
++		/* Initialize PTP detection L2, UDP/IPv4 or UDP/IPv6 events */
++		ptp->ops->cfg_rx_filters(edev->cdev,
++					 QED_PTP_FILTER_L2_IPV4_IPV6);
++		break;
++	}
++
++	spin_unlock_bh(&ptp->lock);
++
++	return 0;
++}
++
++int qede_ptp_hw_ts(struct qede_dev *edev, struct ifreq *ifr)
++{
++	struct hwtstamp_config config;
++	struct qede_ptp *ptp;
++	int rc;
++
++	ptp = edev->ptp;
++	if (!ptp)
++		return -EIO;
++
++	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
++		return -EFAULT;
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG,
++		   "HWTSTAMP IOCTL: Requested tx_type = %d, requested rx_filters = %d\n",
++		   config.tx_type, config.rx_filter);
++
++	if (config.flags) {
++		DP_ERR(edev, "config.flags is reserved for future use\n");
++		return -EINVAL;
++	}
++
++	ptp->hw_ts_ioctl_called = 1;
++	ptp->tx_type = config.tx_type;
++	ptp->rx_filter = config.rx_filter;
++
++	rc = qede_ptp_cfg_filters(edev);
++	if (rc)
++		return rc;
++
++	config.rx_filter = ptp->rx_filter;
++
++	return copy_to_user(ifr->ifr_data, &config,
++			    sizeof(config)) ? -EFAULT : 0;
++}
++
++/* Called during load, to initialize PTP-related stuff */
++static void qede_ptp_init(struct qede_dev *edev, bool init_tc)
++{
++	struct qede_ptp *ptp;
++	int rc;
++
++	ptp = edev->ptp;
++	if (!ptp)
++		return;
++
++	spin_lock_init(&ptp->lock);
++
++	/* Configure PTP in HW */
++	rc = ptp->ops->enable(edev->cdev);
++	if (rc) {
++		DP_ERR(edev, "Stopping PTP initialization\n");
++		return;
++	}
++
++	/* Init work queue for Tx timestamping */
++	INIT_WORK(&ptp->work, qede_ptp_task);
++
++	/* Init cyclecounter and timecounter. This is done only in the first
++	 * load. If done in every load, PTP application will fail when doing
++	 * unload / load (e.g. MTU change) while it is running.
++	 */
++	if (init_tc) {
++		qede_ptp_init_cc(edev);
++		timecounter_init(&ptp->tc, &ptp->cc,
++				 ktime_to_ns(ktime_get_real()));
++	}
++
++	DP_VERBOSE(edev, QED_MSG_DEBUG, "PTP initialization is successful\n");
++}
++
++void qede_ptp_start(struct qede_dev *edev, bool init_tc)
++{
++	qede_ptp_init(edev, init_tc);
++	qede_ptp_cfg_filters(edev);
++}
++
++void qede_ptp_remove(struct qede_dev *edev)
++{
++	struct qede_ptp *ptp;
++
++	ptp = edev->ptp;
++	if (ptp && ptp->clock) {
++		ptp_clock_unregister(ptp->clock);
++		ptp->clock = NULL;
++	}
++
++	kfree(ptp);
++	edev->ptp = NULL;
++}
++
++int qede_ptp_get_ts_info(struct qede_dev *edev, struct ethtool_ts_info *info)
++{
++	struct qede_ptp *ptp = edev->ptp;
++
++	if (!ptp)
++		return -EIO;
++
++	info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
++				SOF_TIMESTAMPING_RX_SOFTWARE |
++				SOF_TIMESTAMPING_SOFTWARE |
++				SOF_TIMESTAMPING_TX_HARDWARE |
++				SOF_TIMESTAMPING_RX_HARDWARE |
++				SOF_TIMESTAMPING_RAW_HARDWARE;
++
++	if (ptp->clock)
++		info->phc_index = ptp_clock_index(ptp->clock);
++	else
++		info->phc_index = -1;
++
++	info->rx_filters = BIT(HWTSTAMP_FILTER_NONE) |
++			   BIT(HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
++			   BIT(HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
++			   BIT(HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_EVENT) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_SYNC) |
++			   BIT(HWTSTAMP_FILTER_PTP_V2_DELAY_REQ);
++
++	info->tx_types = BIT(HWTSTAMP_TX_OFF) | BIT(HWTSTAMP_TX_ON);
++
++	return 0;
++}
++
++/* Called during unload, to stop PTP-related stuff */
++void qede_ptp_stop(struct qede_dev *edev)
++{
++	struct qede_ptp *ptp;
++
++	ptp = edev->ptp;
++	if (!ptp)
++		return;
++
++	/* Cancel PTP work queue. Should be done after the Tx queues are
++	 * drained to prevent additional scheduling.
++	 */
++	cancel_work_sync(&ptp->work);
++	if (ptp->tx_skb) {
++		dev_kfree_skb_any(ptp->tx_skb);
++		ptp->tx_skb = NULL;
++	}
++
++	/* Disable PTP in HW */
++	spin_lock_bh(&ptp->lock);
++	ptp->ops->disable(edev->cdev);
++	spin_unlock_bh(&ptp->lock);
++}
++
++int qede_ptp_register_phc(struct qede_dev *edev)
++{
++	struct qede_ptp *ptp;
++
++	ptp = kzalloc(sizeof(*ptp), GFP_KERNEL);
++	if (!ptp) {
++		DP_INFO(edev, "Failed to allocate struct for PTP\n");
++		return -ENOMEM;
++	}
++
++	ptp->edev = edev;
++	ptp->ops = edev->ops->ptp;
++	if (!ptp->ops) {
++		kfree(ptp);
++		edev->ptp = NULL;
++		DP_ERR(edev, "PTP clock registeration failed\n");
++		return -EIO;
++	}
++
++	edev->ptp = ptp;
++
++	/* Fill the ptp_clock_info struct and register PTP clock */
++	ptp->clock_info.owner = THIS_MODULE;
++	snprintf(ptp->clock_info.name, 16, "%s", edev->ndev->name);
++	ptp->clock_info.max_adj = QED_MAX_PHC_DRIFT_PPB;
++	ptp->clock_info.n_alarm = 0;
++	ptp->clock_info.n_ext_ts = 0;
++	ptp->clock_info.n_per_out = 0;
++	ptp->clock_info.pps = 0;
++	ptp->clock_info.adjfreq = qede_ptp_adjfreq;
++	ptp->clock_info.adjtime = qede_ptp_adjtime;
++	ptp->clock_info.gettime64 = qede_ptp_gettime;
++	ptp->clock_info.settime64 = qede_ptp_settime;
++	ptp->clock_info.enable = qede_ptp_ancillary_feature_enable;
++
++	ptp->clock = ptp_clock_register(&ptp->clock_info, &edev->pdev->dev);
++	if (IS_ERR(ptp->clock)) {
++		ptp->clock = NULL;
++		kfree(ptp);
++		edev->ptp = NULL;
++		DP_ERR(edev, "PTP clock registeration failed\n");
++	}
++
++	return 0;
++}
++
++void qede_ptp_tx_ts(struct qede_dev *edev, struct sk_buff *skb)
++{
++	struct qede_ptp *ptp;
++
++	ptp = edev->ptp;
++	if (!ptp)
++		return;
++
++	if (unlikely(!(edev->flags & QEDE_TX_TIMESTAMPING_EN))) {
++		DP_NOTICE(edev,
++			  "Tx timestamping was not enabled, this packet will not be timestamped\n");
++	} else if (unlikely(ptp->tx_skb)) {
++		DP_NOTICE(edev,
++			  "The device supports only a single outstanding packet to timestamp, this packet will not be timestamped\n");
++	} else {
++		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
++		/* schedule check for Tx timestamp */
++		ptp->tx_skb = skb_get(skb);
++		schedule_work(&ptp->work);
++	}
++}
++
++void qede_ptp_rx_ts(struct qede_dev *edev, struct sk_buff *skb)
++{
++	struct qede_ptp *ptp;
++	u64 timestamp, ns;
++	int rc;
++
++	ptp = edev->ptp;
++	if (!ptp)
++		return;
++
++	spin_lock_bh(&ptp->lock);
++	rc = ptp->ops->read_rx_ts(edev->cdev, &timestamp);
++	if (rc) {
++		spin_unlock_bh(&ptp->lock);
++		DP_INFO(edev, "Invalid Rx timestamp\n");
++		return;
++	}
++
++	ns = timecounter_cyc2time(&ptp->tc, timestamp);
++	spin_unlock_bh(&ptp->lock);
++	skb_hwtstamps(skb)->hwtstamp = ns_to_ktime(ns);
++	DP_VERBOSE(edev, QED_MSG_DEBUG,
++		   "Rx timestamp, timestamp cycles = %llu, ns = %llu\n",
++		   timestamp, ns);
++}
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ptp.h b/drivers/net/ethernet/qlogic/qede/qede_ptp.h
+new file mode 100644
+index 0000000..f328f9b
+--- /dev/null
++++ b/drivers/net/ethernet/qlogic/qede/qede_ptp.h
+@@ -0,0 +1,65 @@
++/* QLogic qede NIC Driver
++ * Copyright (c) 2015-2017  QLogic Corporation
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and /or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++#ifndef _QEDE_PTP_H_
++#define _QEDE_PTP_H_
++
++#include <linux/ptp_clock_kernel.h>
++#include <linux/net_tstamp.h>
++#include <linux/timecounter.h>
++#include "qede.h"
++
++void qede_ptp_rx_ts(struct qede_dev *edev, struct sk_buff *skb);
++void qede_ptp_tx_ts(struct qede_dev *edev, struct sk_buff *skb);
++int qede_ptp_hw_ts(struct qede_dev *edev, struct ifreq *req);
++void qede_ptp_start(struct qede_dev *edev, bool init_tc);
++void qede_ptp_stop(struct qede_dev *edev);
++void qede_ptp_remove(struct qede_dev *edev);
++int qede_ptp_register_phc(struct qede_dev *edev);
++int qede_ptp_get_ts_info(struct qede_dev *edev, struct ethtool_ts_info *ts);
++
++static inline void qede_ptp_record_rx_ts(struct qede_dev *edev,
++					 union eth_rx_cqe *cqe,
++					 struct sk_buff *skb)
++{
++	/* Check if this packet was timestamped */
++	if (unlikely(le16_to_cpu(cqe->fast_path_regular.pars_flags.flags) &
++		     (1 << PARSING_AND_ERR_FLAGS_TIMESTAMPRECORDED_SHIFT))) {
++		if (likely(le16_to_cpu(cqe->fast_path_regular.pars_flags.flags)
++		    & (1 << PARSING_AND_ERR_FLAGS_TIMESYNCPKT_SHIFT))) {
++			qede_ptp_rx_ts(edev, skb);
++		} else {
++			DP_INFO(edev,
++				"Timestamp recorded for non PTP packets\n");
++		}
++	}
++}
++#endif /* _QEDE_PTP_H_ */
 -- 
 1.9.3
