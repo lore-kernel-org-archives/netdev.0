@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4: do not use rwlock in fast path
-Date: Tue, 14 Feb 2017 11:28:51 -0500 (EST)
-Message-ID: <20170214.112851.873582209944615021.davem@davemloft.net>
-References: <1486660204.7793.104.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] mlx4: do not fire tasklet unless necessary
+Date: Tue, 14 Feb 2017 11:29:34 -0500 (EST)
+Message-ID: <20170214.112934.1599802496934237896.davem@davemloft.net>
+References: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tariqt@mellanox.com,
-        sbohrer@rgmadvisors.com
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com, saeedm@mellanox.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35528 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35560 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752271AbdBNQ2x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 11:28:53 -0500
-In-Reply-To: <1486660204.7793.104.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1753447AbdBNQ3f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 11:29:35 -0500
+In-Reply-To: <1486729678.7793.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Feb 2017 09:10:04 -0800
+Date: Fri, 10 Feb 2017 04:27:58 -0800
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> Using a reader-writer lock in fast path is silly, when we can
-> instead use RCU or a seqlock.
+> All rx and rx netdev interrupts are handled by respectively
+> by mlx4_en_rx_irq() and mlx4_en_tx_irq() which simply schedule a NAPI.
 > 
-> For mlx4 hwstamp clock, a seqlock is the way to go, removing
-> two atomic operations and false sharing. 
+> But mlx4_eq_int() also fires a tasklet to service all items that were
+> queued via mlx4_add_cq_to_tasklet(), but this handler was not called
+> unless user cqe was handled.
+> 
+> This is very confusing, as "mpstat -I SCPU ..." show huge number of
+> tasklet invocations.
+> 
+> This patch saves this overhead, by carefully firing the tasklet directly
+> from mlx4_add_cq_to_tasklet(), removing four atomic operations per IRQ.
 > 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 > Cc: Tariq Toukan <tariqt@mellanox.com>
+> Cc: Saeed Mahameed <saeedm@mellanox.com>
 
-Tariq or someone else at Mellanox please review, this patch has been
-rotting for 5 days in patchwork.
-
-Thank you.
+Tariq/Saeed, please review.
