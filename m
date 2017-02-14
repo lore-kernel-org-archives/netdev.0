@@ -1,7 +1,7 @@
 From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [PATCH 15/15] samples/bpf: Reset global variables
-Date: Mon, 13 Feb 2017 22:14:00 -0300
-Message-ID: <20170214011400.13352-16-acme@kernel.org>
+Subject: [PATCH 14/15] samples/bpf: Ignore already processed ELF sections
+Date: Mon, 13 Feb 2017 22:13:59 -0300
+Message-ID: <20170214011400.13352-15-acme@kernel.org>
 References: <20170214011400.13352-1-acme@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -20,8 +20,7 @@ List-Id: netdev.vger.kernel.org
 
 From: Mickaël Salaün <mic@digikod.net>
 
-Before loading a new ELF, clean previous kernel version, license and
-processed sections.
+Add a missing check for the map fixup loop.
 
 Signed-off-by: Mickaël Salaün <mic@digikod.net>
 Acked-by: Joe Stringer <joe@ovn.org>
@@ -30,27 +29,24 @@ Cc: Alexei Starovoitov <ast@fb.com>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: David S. Miller <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
-Link: http://lkml.kernel.org/r/20170208202744.16274-3-mic@digikod.net
+Link: http://lkml.kernel.org/r/20170208202744.16274-2-mic@digikod.net
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
- samples/bpf/bpf_load.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ samples/bpf/bpf_load.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index e04fe09d7c2e..b86ee54da2d1 100644
+index 396e204888b3..e04fe09d7c2e 100644
 --- a/samples/bpf/bpf_load.c
 +++ b/samples/bpf/bpf_load.c
-@@ -277,6 +277,11 @@ int load_bpf_file(char *path)
- 	Elf_Data *data, *data_prog, *symbols = NULL;
- 	char *shname, *shname_prog;
+@@ -328,6 +328,8 @@ int load_bpf_file(char *path)
  
-+	/* reset global variables */
-+	kern_version = 0;
-+	memset(license, 0, sizeof(license));
-+	memset(processed_sec, 0, sizeof(processed_sec));
-+
- 	if (elf_version(EV_CURRENT) == EV_NONE)
- 		return 1;
+ 	/* load programs that need map fixup (relocations) */
+ 	for (i = 1; i < ehdr.e_shnum; i++) {
++		if (processed_sec[i])
++			continue;
  
+ 		if (get_sec(elf, i, &ehdr, &shname, &shdr, &data))
+ 			continue;
 -- 
 2.9.3
