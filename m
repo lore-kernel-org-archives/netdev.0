@@ -1,47 +1,76 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Tue, 14 Feb 2017 08:03:05 -0800
-Message-ID: <CANn89iK2YaThRzWtcaFRi01FuJ874krD0b5orzVtDqijkdtbvw@mail.gmail.com>
-References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
- <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
- <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
- <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
- <20170214131206.44b644f6@redhat.com> <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
- <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com> <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next v6 0/2] qed*: Add support for PTP
+Date: Tue, 14 Feb 2017 18:03:23 +0200
+Message-ID: <1487088205-21578-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tariq Toukan <ttoukan.linux@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        linux-mm <linux-mm@kvack.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <Sudarsana.Kalluru@cavium.com>,
+        Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:35784 "EHLO
-        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753028AbdBNQDH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 11:03:07 -0500
-Received: by mail-it0-f47.google.com with SMTP id 203so38831198ith.0
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 08:03:06 -0800 (PST)
-In-Reply-To: <1487087488.8227.53.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:52986 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752976AbdBNQDk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 11:03:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Anything _relying_ on order-3 pages being available to impress
-> friends/customers is a lie.
->
+This patch series adds required changes for qed/qede drivers for
+supporting the IEEE Precision Time Protocol (PTP).
 
-BTW, you do understand that on PowerPC right now, an Ethernet frame
-holds 65536*8 =  half a MByte , right ?
+Dave,
+Please consider applying this series to "net-next".
 
-So any PowerPC host using mlx4 NIC can easily be bringed down, by
-using a few TCP flows and sending out of order packets.
+Thanks,
+Yuval
 
-That is in itself quite scary.
+Changes from previous versions:
+-------------------------------
+v6: Corrected broken loop iteration in previous version.
+    Reduced approximation error of adjfreq.
+
+v5: Removed two divisions from the adjust-frequency loop.
+    Resulting logic would use 8 divisions [instead of 24].
+
+v4: Remove the loop iteration for value '0' in the qed_ptp_hw_adjfreq()
+    implementation.
+
+v3: Use div_s64 for 64-bit divisions as do_div gives error for signed
+    types.
+    Incorporated review comments from Richard Cochran.
+      - Clear timestamp resgisters as soon as timestamp is read.
+      - Use shift operation in the place of 'divide by 16'.
+
+v2: Use do_div for 64-bit divisions.
+
+Sudarsana Reddy Kalluru (2):
+  qed: Add infrastructure for PTP support
+  qede: Add driver support for PTP
+
+
+ drivers/net/ethernet/qlogic/Kconfig             |   1 +
+ drivers/net/ethernet/qlogic/qed/Makefile        |   2 +-
+ drivers/net/ethernet/qlogic/qed/qed.h           |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.c        |   5 +
+ drivers/net/ethernet/qlogic/qed/qed_l2.h        |   1 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  15 +
+ drivers/net/ethernet/qlogic/qed/qed_ptp.c       | 323 ++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_ptp.h       |  47 +++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |  31 ++
+ drivers/net/ethernet/qlogic/qede/Makefile       |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h         |   4 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  10 +
+ drivers/net/ethernet/qlogic/qede/qede_fp.c      |   5 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  39 ++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.c     | 536 ++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_ptp.h     |  65 +++
+ include/linux/qed/qed_eth_if.h                  |  22 +
+ 17 files changed, 1108 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qed/qed_ptp.h
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.c
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_ptp.h
+
+-- 
+1.9.3
