@@ -1,74 +1,112 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 net-next] virtio: Fix affinity for #VCPUs != #queue
- pairs
-Date: Tue, 14 Feb 2017 23:05:29 +0200
-Message-ID: <20170214225629-mutt-send-email-mst@kernel.org>
-References: <20170207181506.36668-1-serebrin@google.com>
- <20170208205353-mutt-send-email-mst@kernel.org>
- <CAN+hb0Uen4_bHR8xPcUNZG+aKPYAvjUqY1Z4PA7WWOs7jG3EAA@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC v2 1/8] xdp: Infrastructure to generalize XDP
+Date: Tue, 14 Feb 2017 13:07:35 -0800
+Message-ID: <CALx6S35C3SYvaBT93VsDJW4gej30MXD1PqjN53cfqG00L=NM3g@mail.gmail.com>
+References: <20170208234127.3041579-1-tom@herbertland.com> <20170208234127.3041579-2-tom@herbertland.com>
+ <20170214213157.32e37148@redhat.com> <CALx6S34mpo+Q_gsP37ENDqC8yEhk9s=in9v0S_c26z0JTM=adQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
-        netdev@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        Venkatesh Srinivas <venkateshs@google.com>,
-        "Jon Olson (Google Drive)" <jonolson@google.com>,
-        willemdebruijn.kernel@gmail.com, Rick Jones <rick.jones2@hpe.com>,
-        James Mattson <jmattson@google.com>,
-        linux-s390 <linux-s390@vger.kernel.org>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
-To: Benjamin Serebrin <serebrin@google.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAN+hb0Uen4_bHR8xPcUNZG+aKPYAvjUqY1Z4PA7WWOs7jG3EAA@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kernel Team <kernel-team@fb.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:34015 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753047AbdBNVHg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 16:07:36 -0500
+Received: by mail-qk0-f194.google.com with SMTP id e1so20898626qkh.1
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 13:07:36 -0800 (PST)
+In-Reply-To: <CALx6S34mpo+Q_gsP37ENDqC8yEhk9s=in9v0S_c26z0JTM=adQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2017 at 11:17:41AM -0800, Benjamin Serebrin wrote:
-> On Wed, Feb 8, 2017 at 11:37 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> 
-> > IIRC irqbalance will bail out and avoid touching affinity
-> > if you set affinity from driver.  Breaking that's not nice.
-> > Pls correct me if I'm wrong.
-> 
-> 
-> I believe you're right that irqbalance will leave the affinity alone.
-> 
-> Irqbalance has had changes that may or may not be in the versions bundled with
-> various guests, and I don't have a definitive cross-correlation of irqbalance
-> version to guest version.  But in the existing code, the driver does
-> set affinity for #VCPUs==#queues, so that's been happening anyway.
-
-Right - the idea being we load all CPUs equally so we don't
-need help from irqbalance - hopefully packets will be spread
-across queues in a balanced way.
-
-When we have less queues the load isn't balanced so we
-definitely need something fancier to take into account
-the overall system load.
-
-
-> The (original) intention of this patch was to extend the existing behavior
-> to the case where we limit queue counts, to avoid the surprising discontinuity
-> when #VCPU != #queues.
-> 
-> It's not obvious that it's wrong to cause irqbalance to leave these
-> queues alone:  Generally you want the interrupt to come to the core that
-> caused the work, to have cache locality and avoid lock contention.
-
-But why the first N cpus? That's more or less the same as assigning them
-at random. It might benefit your workload but it's not clear it isn't
-breaking someone else's. You are right it's not obvious it's doing the
-wrong thing but it's also not obvious it's doing the right one.
-
-> Doing fancier things is outside the scope of this patch.
+On Tue, Feb 14, 2017 at 12:47 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Tue, Feb 14, 2017 at 12:31 PM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+>> On Wed, 8 Feb 2017 15:41:20 -0800
+>> Tom Herbert <tom@herbertland.com> wrote:
+>>
+>>> +static inline int __xdp_run_one_hook(struct xdp_hook *hook,
+>>> +                                  struct xdp_buff *xdp)
+>>> +{
+>>> +     void *priv = rcu_dereference(hook->priv);
+>>> +
+>>> +     if (hook->is_bpf) {
+>>> +             /* Run BPF programs directly do avoid one layer of
+>>> +              * indirection.
+>>> +              */
+>>> +             return BPF_PROG_RUN((struct bpf_prog *)priv, (void *)xdp);
+>>> +     } else {
+>>> +             return hook->hookfn(priv, xdp);
+>>> +     }
+>>> +}
+>>> +
+>>> +/* Core function to run the XDP hooks. This must be as fast as possible */
+>>> +static inline int __xdp_hook_run(struct xdp_hook_set *hook_set,
+>>> +                              struct xdp_buff *xdp,
+>>> +                              struct xdp_hook **last_hook)
+>>> +{
+>>> +     struct xdp_hook *hook;
+>>> +     int i, ret;
+>>> +
+>>> +     if (unlikely(!hook_set))
+>>> +             return XDP_PASS;
+>>> +
+>>> +     hook = &hook_set->hooks[0];
+>>> +     ret = __xdp_run_one_hook(hook, xdp);
+>>> +     *last_hook = hook;
+>>> +
+>>> +     for (i = 1; i < hook_set->num; i++) {
+>>> +             if (ret != XDP_PASS)
+>>> +                     break;
+>>> +             hook = &hook_set->hooks[i];
+>>> +             ret = __xdp_run_one_hook(hook, xdp);
+>>> +     }
+>>> +
+>>> +     return ret;
+>>> +}
+>>
+>> There is one basic problem with this approach.  There is no bulking and
+>> no reuse of instruction cache.  There is no revolution in this approach.
+>> We will end-up with the same known performance problems when more hook
+>> users get added.
+>>
+>> Calling N-number of hooks per every packet, will just end-up flushing
+>> the instruction cache (like the issues we have today).
+>>
+>> Instead take N-packets, and then call the hooks by turn (store action
+>> verdicts in packet-vector).  Such an architecture would be inline with
+>> that VPP, Snabb and DPDK is doing.  Optimizing icache usage, and opens
+>> up for smarter prefetching of lookup tables.  Imagine, having hook-1
+>> identify lookup bucket and start prefetch, hook-2 access the bucket and
+>> prefetch table data, and hook-3 read data.  This is what DPDK is doing
+>> see[1], and VPP is doing similar tricks to get it to scale to large
+>> route lookup tables.
+>>
+> Conceptually, that's a good extension, basically provide VPP-like
+> interface in the kernel. Unfortunately though, we need the return
+> codes to be processed in the driver so that API and driver model would
+> have to change more. If we do this I suggest it's done sooner than
+> later, as more drivers adopt XDP changing all the drivers for that API
+> become much harder (as I saw with just the second version of this
+> patch).
 >
-> > Doesn't look like this will handle the case of num cpus < num queues well.
-> 
-> I believe it's correct.  The first #VCPUs queues will have one bit set in their
-> xps mask, and the remaining queues have no bits set.  That means each VCPU uses
-> its own assigned TX queue (and the TX interrupt comes back to that VCPU).
-> 
-> Thanks again for the review!
-> Ben
+
+Off the top of my head... I'd say may we might be able to have a
+minimally invasive interface with something like:
+
+XDP_RUN(hook, xdp, drv_xdp_handle_action)
+
+This replaces xdp_run and return codes are processed in the called
+functions. Its a macro so that xdp_handle_action can be inlined.
+Batching could then be done in the backend XDP so that it would be
+transparent to the driver. We'd also probably want another call like
+so the driver can flush the queued packets when exiting the rx loop.
+Something like:
+
+XDP_FLUSH(xdp, drv_xdp_handle_action)
+
+The hook then contains a function callback that gives an array of
+pages to a function and returns an array of actions.
+
+Tom
