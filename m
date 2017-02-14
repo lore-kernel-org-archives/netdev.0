@@ -1,49 +1,41 @@
-From: David Windsor <dwindsor@gmail.com>
-Subject: Re: [RFC][PATCH] nfsd: add +1 to reference counting scheme for struct nfsd4_session
-Date: Tue, 14 Feb 2017 08:48:26 -0500
-Message-ID: <CAEXv5_ifq6gO1eBueYGCL21QBAsCQNZROxGCuEYWSNmXz7OTeQ@mail.gmail.com>
-References: <1486625901-10094-1-git-send-email-dwindsor@gmail.com>
- <CAEXv5_jUa8Av4JABoKSAueiLHSLzibMvaE-8DrVcxZHFceckMg@mail.gmail.com>
- <1486816302.4233.29.camel@poochiereds.net> <CAEXv5_gd7F-eaazzU1BWPzH4huhEcO1Y-FWov5UP9T+6R+fv-A@mail.gmail.com>
- <20170213103815.GA5131@infradead.org> <CAEXv5_g=DS4wk0mgZuw-doVCqountb-CxZki1LOoQH-P7W1U4A@mail.gmail.com>
- <20170213121238.GA4753@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net: BUG in __skb_gso_segment
+Date: Tue, 14 Feb 2017 05:54:17 -0800
+Message-ID: <1487080457.8227.41.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAAeHK+x0LGHoBF-iL5Az-nrXTBkMUfeqi0Pb-7Fne7L8ZYA6Sg@mail.gmail.com>
+         <CANn89i+rqdKnRN9XH4ARqGouJaM0P2WtH9XrGQF+MJ_+mgrsaQ@mail.gmail.com>
+         <CAAeHK+wfDdc_FybfsZUS0F4n9qkdCd-6V_VEEA0EgJ_vZjzRmg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jeff Layton <jlayton@poochiereds.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-hardening@lists.openwall.com,
-	Bruce Fields <bfields@fieldses.org>, Kees Cook <keescook@chromium.org>,
-	"Reshetova, Elena" <elena.reshetova@intel.com>
-To: Christoph Hellwig <hch@infradead.org>
-Return-path: <kernel-hardening-return-6641-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170213121238.GA4753@infradead.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+wfDdc_FybfsZUS0F4n9qkdCd-6V_VEEA0EgJ_vZjzRmg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2017 at 7:12 AM, Christoph Hellwig <hch@infradead.org> wrote:
-> On Mon, Feb 13, 2017 at 06:42:56AM -0500, David Windsor wrote:
->> I'm not sure this is a sound argument for not converting to
->> refcount_t.
->
-> It's an argument again the way how this patch was sent.  Please take care
-> of all the trivial conversions first, and then do anything non-trivial
-> on a case by case basis.
+On Tue, 2017-02-14 at 13:59 +0100, Andrey Konovalov wrote:
+> On Mon, Feb 13, 2017 at 10:56 PM, Eric Dumazet <edumazet@google.com> wrote:
 
-This is actually what we're currently doing.
+> Hi Eric,
+> 
+> >
+> > 926af6273fc683cd98cd0ce7bf0d04a02eed6 is quite old ;)
+> 
+> Updated to 4.10-rc8 :)
+> 
+> >
+> > Probably already fixed ?
+> 
+> Yes, it is.
+> 
+> Thanks!
 
-The vast majority of atomic_t to refcount_t conversions are trivial,
-as they most always follow the pattern:
-
-1.  Initialize the atomic_t refcounter to 1.
-2.  Perform shared object get/put operations.
-3.  Free the shared object when its refcount becomes 0.
-
-We've identified a handful of instances in which steps 1 and 3 are
-different from above (i.e. initializing refcounts to 0, freeing
-objects when refcount is non-zero, etc.).  The above patch addresses
-one of these instances in NFS.
-
-Thanks,
-David
+Perfect, thanks for confirming this.
