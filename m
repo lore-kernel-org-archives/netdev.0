@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 3/6] net/sched: cls_flower: Reflect HW offload status
-Date: Tue, 14 Feb 2017 16:30:37 +0200
-Message-ID: <1487082640-24813-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 1/6] net/sched: cls_matchall: Dump skip flags
+Date: Tue, 14 Feb 2017 16:30:35 +0200
+Message-ID: <1487082640-24813-2-git-send-email-ogerlitz@mellanox.com>
 References: <1487082640-24813-1-git-send-email-ogerlitz@mellanox.com>
 Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
         John Fastabend <john.r.fastabend@intel.com>,
@@ -11,45 +11,35 @@ Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
         Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54485 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54483 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754070AbdBNOay (ORCPT
+        with ESMTP id S1754066AbdBNOay (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 09:30:54 -0500
 In-Reply-To: <1487082640-24813-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flower support for the "in hw" offloading flags.
+The skip flags are not dumped to user-space, do that.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Amir Vadai <amir@vadai.me>
 Acked-by: Jiri Pirko <jiri@mellanox.com>
+Acked-by: Yotam Gigi <yotamg@mellanox.com>
 ---
- net/sched/cls_flower.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ net/sched/cls_matchall.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 0826c8e..a08d36f 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -273,6 +273,8 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index f2141cb..ce2f7d4 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -244,6 +244,8 @@ static int mall_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 	    nla_put_u32(skb, TCA_MATCHALL_CLASSID, head->res.classid))
+ 		goto nla_put_failure;
  
- 	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
- 					    tc);
-+	if (!err)
-+		f->flags |= TCA_CLS_FLAGS_IN_HW;
- 
- 	if (tc_skip_sw(f->flags))
- 		return err;
-@@ -912,6 +914,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 			goto errout;
- 	}
- 
-+	if (!(tc_in_hw(fnew->flags)))
-+		fnew->flags |= TCA_CLS_FLAGS_NOT_IN_HW;
++	nla_put_u32(skb, TCA_MATCHALL_FLAGS, head->flags);
 +
- 	if (fold) {
- 		if (!tc_skip_sw(fold->flags))
- 			rhashtable_remove_fast(&head->ht, &fold->ht_node,
+ 	if (tcf_exts_dump(skb, &head->exts))
+ 		goto nla_put_failure;
+ 
 -- 
 2.3.7
