@@ -1,30 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] net: qcom/emac: fix a sizeof() typo
-Date: Mon, 13 Feb 2017 22:21:22 -0500 (EST)
-Message-ID: <20170213.222122.338973843065896613.davem@davemloft.net>
-References: <20170213110021.GA17205@mwanda>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: timur@codeaurora.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55414 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751370AbdBNDVZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 22:21:25 -0500
-In-Reply-To: <20170213110021.GA17205@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: [PATCH 1/4] ptp: do not explicitly set drvdata in ptp_clock_register()
+Date: Mon, 13 Feb 2017 19:51:05 -0800
+Message-ID: <20170214035108.19622-1-dmitry.torokhov@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Mon, 13 Feb 2017 14:00:22 +0300
+We do not need explicitly call dev_set_drvdata(), as it is done for us by
+device_create().
 
-> We had intended to say "sizeof(u32)" but the "u" is missing.
-> Fortunately, sizeof(32) is also 4, so the original code still works.
-> 
-> Fixes: c4e7beea2192 ("net: qcom/emac: add ethtool support for reading hardware registers")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+---
+ drivers/ptp/ptp_clock.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Applied.
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index 9c13381b6966..b4e5e8022c29 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -227,8 +227,6 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ 	if (IS_ERR(ptp->dev))
+ 		goto no_device;
+ 
+-	dev_set_drvdata(ptp->dev, ptp);
+-
+ 	err = ptp_populate_sysfs(ptp);
+ 	if (err)
+ 		goto no_sysfs;
+-- 
+2.11.0.483.g087da7b7c-goog
