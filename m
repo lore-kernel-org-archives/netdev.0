@@ -1,48 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Mon, 13 Feb 2017 16:47:26 -0800
-Message-ID: <1487033246.8227.38.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170213195858.5215-1-edumazet@google.com>
-         <20170213195858.5215-9-edumazet@google.com>
-         <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
-         <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
-         <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
-         <CANn89iJfLu8ai1SDGDt5aowAGibdxumDA89Y44f6SjTTt+sGBg@mail.gmail.com>
-         <CAKgT0UdgnKzJ8PJFPfvJiOSZQ3E3Sw5nWjyrROuERv0=-dxmxQ@mail.gmail.com>
-         <CANn89iLgUsPDL0wbuHk5RaehzJ+TRLQ=WkVBMTB65scrEjO3Ug@mail.gmail.com>
-         <CAKgT0Uex--jLtBtJ+wp8wmkZuUfTu7ktYTvBF9623Ztm_NrGxw@mail.gmail.com>
-         <CANn89iJ+kn4ycP2HV_um5JUfPWpX9KJ0KFtXyx3562c=kCBYyQ@mail.gmail.com>
-         <CAKgT0Uf-JhOn+OOyjO8GH5SepA68j36eSY2m-buWJ5AH_82o2g@mail.gmail.com>
-         <1487033175.8227.37.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f194.google.com ([74.125.82.194]:34633 "EHLO
-        mail-ot0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751452AbdBNAr2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 19:47:28 -0500
-Received: by mail-ot0-f194.google.com with SMTP id 73so14273204otj.1
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 16:47:28 -0800 (PST)
-In-Reply-To: <1487033175.8227.37.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Subject: [PATCH v4 1/3] Bluetooth: bnep: fix possible might sleep error in bnep_session
+Date: Tue, 14 Feb 2017 08:55:23 +0800
+Message-ID: <1487033725-7208-1-git-send-email-jeffy.chen@rock-chips.com>
+Cc: Brian Norris <briannorris@chromium.org>,
+        Douglas Anderson <dianders@chromium.org>,
+        Johan Hedberg <johan.hedberg@intel.com>,
+        Peter Hurley <peter@hurleysoftware.com>,
+        Jeffy Chen <jeffy.chen@rock-chips.com>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>
+To: linux-bluetooth@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-02-13 at 16:46 -0800, Eric Dumazet wrote:
+It looks like bnep_session has same pattern as the issue reported in
+old rfcomm:
 
-> Alex, be assured that I implemented the full thing, of course.
-> 
-> ( The pagecnt_bias field, .. refilled every 16K rounds )
+	while (1) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (condition)
+			break;
+		// may call might_sleep here
+		schedule();
+	}
+	__set_current_state(TASK_RUNNING);
 
-Correction, USHRT_MAX is  ~64K, not 16K
+Which fixed at:
+	dfb2fae Bluetooth: Fix nested sleeps
+
+So let's fix it at the same way, also follow the suggestion of:
+https://lwn.net/Articles/628628/
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+Reviewed-by: Brian Norris <briannorris@chromium.org>
+---
+
+Changes in v3:
+Add brian's Reviewed-by.
+
+Changes in v2:
+Remove unnecessary memory barrier before wake_up_* functions.
+
+ net/bluetooth/bnep/core.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+index fbf251f..4d6b94d 100644
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -484,16 +484,16 @@ static int bnep_session(void *arg)
+ 	struct net_device *dev = s->dev;
+ 	struct sock *sk = s->sock->sk;
+ 	struct sk_buff *skb;
+-	wait_queue_t wait;
++	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+ 
+ 	BT_DBG("");
+ 
+ 	set_user_nice(current, -15);
+ 
+-	init_waitqueue_entry(&wait, current);
+ 	add_wait_queue(sk_sleep(sk), &wait);
+ 	while (1) {
+-		set_current_state(TASK_INTERRUPTIBLE);
++		/* Ensure session->terminate is updated */
++		smp_mb__before_atomic();
+ 
+ 		if (atomic_read(&s->terminate))
+ 			break;
+@@ -515,9 +515,8 @@ static int bnep_session(void *arg)
+ 				break;
+ 		netif_wake_queue(dev);
+ 
+-		schedule();
++		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+ 	}
+-	__set_current_state(TASK_RUNNING);
+ 	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	/* Cleanup session */
+@@ -666,7 +665,7 @@ int bnep_del_connection(struct bnep_conndel_req *req)
+ 	s = __bnep_get_session(req->dst);
+ 	if (s) {
+ 		atomic_inc(&s->terminate);
+-		wake_up_process(s->task);
++		wake_up_interruptible(sk_sleep(s->sock->sk));
+ 	} else
+ 		err = -ENOENT;
+ 
+-- 
+2.1.4
