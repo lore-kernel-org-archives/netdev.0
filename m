@@ -1,65 +1,74 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH 2/2] pcnet32: fix BNC/AUI port on AM79C970A
-Date: Tue, 14 Feb 2017 21:54:58 +0100
-Message-ID: <201702142154.59035.linux@rainbow-software.org>
-References: <1487025947-28867-1-git-send-email-linux@rainbow-software.org> <1487025947-28867-2-git-send-email-linux@rainbow-software.org> <20170214.142856.670670406050328036.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 net-next] virtio: Fix affinity for #VCPUs != #queue
+ pairs
+Date: Tue, 14 Feb 2017 23:05:29 +0200
+Message-ID: <20170214225629-mutt-send-email-mst@kernel.org>
+References: <20170207181506.36668-1-serebrin@google.com>
+ <20170208205353-mutt-send-email-mst@kernel.org>
+ <CAN+hb0Uen4_bHR8xPcUNZG+aKPYAvjUqY1Z4PA7WWOs7jG3EAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: pcnet32@frontier.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170214.142856.670670406050328036.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>,
+        netdev@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        Venkatesh Srinivas <venkateshs@google.com>,
+        "Jon Olson (Google Drive)" <jonolson@google.com>,
+        willemdebruijn.kernel@gmail.com, Rick Jones <rick.jones2@hpe.com>,
+        James Mattson <jmattson@google.com>,
+        linux-s390 <linux-s390@vger.kernel.org>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
+To: Benjamin Serebrin <serebrin@google.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <CAN+hb0Uen4_bHR8xPcUNZG+aKPYAvjUqY1Z4PA7WWOs7jG3EAA@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 14 February 2017 20:28:56 David Miller wrote:
-> From: Ondrej Zary <linux@rainbow-software.org>
-> Date: Mon, 13 Feb 2017 23:45:47 +0100
+On Tue, Feb 14, 2017 at 11:17:41AM -0800, Benjamin Serebrin wrote:
+> On Wed, Feb 8, 2017 at 11:37 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> 
+> > IIRC irqbalance will bail out and avoid touching affinity
+> > if you set affinity from driver.  Breaking that's not nice.
+> > Pls correct me if I'm wrong.
+> 
+> 
+> I believe you're right that irqbalance will leave the affinity alone.
+> 
+> Irqbalance has had changes that may or may not be in the versions bundled with
+> various guests, and I don't have a definitive cross-correlation of irqbalance
+> version to guest version.  But in the existing code, the driver does
+> set affinity for #VCPUs==#queues, so that's been happening anyway.
+
+Right - the idea being we load all CPUs equally so we don't
+need help from irqbalance - hopefully packets will be spread
+across queues in a balanced way.
+
+When we have less queues the load isn't balanced so we
+definitely need something fancier to take into account
+the overall system load.
+
+
+> The (original) intention of this patch was to extend the existing behavior
+> to the case where we limit queue counts, to avoid the surprising discontinuity
+> when #VCPU != #queues.
+> 
+> It's not obvious that it's wrong to cause irqbalance to leave these
+> queues alone:  Generally you want the interrupt to come to the core that
+> caused the work, to have cache locality and avoid lock contention.
+
+But why the first N cpus? That's more or less the same as assigning them
+at random. It might benefit your workload but it's not clear it isn't
+breaking someone else's. You are right it's not obvious it's doing the
+wrong thing but it's also not obvious it's doing the right one.
+
+> Doing fancier things is outside the scope of this patch.
 >
-> > Even though the port autoselection is enabled by default on AM79C970A,
-> > BNC/AUI port does not work because the link is always reported to be
-> > down. The link state reported by the chip belongs only to the TP port
-> > but the driver uses it regardless of the port used. The chip can't
-> > detect BNC/AUI link state.
-> >
-> > Disable port autoselection and use TP port by default to keep current
-> > behavior (link detection works on TP port, BNC/AUI port does not work).
-> >
-> > Implement ethtool autoneg, port and duplex configuration to allow
-> > using the BNC/AUI port.
-> >
-> > Report the TP link state only if the TP port is selected. When the
-> > port autoselection is enabled or AUI port is selected, report the link
-> > as always up.
-> >
-> > Move pcnet32_suspend() and pcnet32_clr_suspend() functions to avoid
-> > forward declarations.
-> >
-> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
->
-> Also applied to net-next, thanks.
->
-> Are you really sure the is no way to discover the BNC/AUI link state
-> from the hardware?
-
-Yes, searched through the datasheet: http://support.amd.com/TechDocs/19436.pdf
-
-Even the TP link detection seems a bit wrong - the driver reads link LED state 
-(there's no other way) but does not ensure that the LED is really programmed 
-to represent link state. But I'm better not touching that - it works for me 
-and probably for other people too.
-
-Thought at first that the card (Microdyne NE5500+) is faulty as BNC didn't 
-work in Linux and also in Windows XP. But then I tested Windows 98 and it 
-worked fine (the driver uses port autoselect).
-
-Turned out that the Windows XP driver is broken. It uses manual port 
-selection - works in TP mode (including link state detection) but does not 
-work in BNC/AUI mode.
-
--- 
-Ondrej Zary
+> > Doesn't look like this will handle the case of num cpus < num queues well.
+> 
+> I believe it's correct.  The first #VCPUs queues will have one bit set in their
+> xps mask, and the remaining queues have no bits set.  That means each VCPU uses
+> its own assigned TX queue (and the TX interrupt comes back to that VCPU).
+> 
+> Thanks again for the review!
+> Ben
