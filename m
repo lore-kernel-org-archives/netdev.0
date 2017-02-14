@@ -1,41 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: xilinx_emaclite: fix receive buffer overflow
-Date: Tue, 14 Feb 2017 15:12:59 -0500 (EST)
-Message-ID: <20170214.151259.1157334352658192111.davem@davemloft.net>
-References: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: Re: [PATCH net-next v6 0/2] qed*: Add support for PTP
+Date: Tue, 14 Feb 2017 20:12:52 +0000
+Message-ID: <BL2PR07MB230680F7B0E85799B0DA58C48D580@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <1487088205-21578-1-git-send-email-Yuval.Mintz@cavium.com>,<20170214.144351.675778032610245493.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-        netdev@vger.kernel.org
-To: anssi.hannula@bitwise.fi
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>,
+        "Kalluru, Sudarsana" <Sudarsana.Kalluru@cavium.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42162 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755082AbdBNUNG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 15:13:06 -0500
-In-Reply-To: <20170214171145.26953-1-anssi.hannula@bitwise.fi>
+Received: from mail-sn1nam02on0064.outbound.protection.outlook.com ([104.47.36.64]:18958
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755031AbdBNUM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Feb 2017 15:12:56 -0500
+In-Reply-To: <20170214.144351.675778032610245493.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anssi Hannula <anssi.hannula@bitwise.fi>
-Date: Tue, 14 Feb 2017 19:11:44 +0200
+> > This patch series adds required changes for qed/qede drivers for
+> > supporting the IEEE Precision Time Protocol (PTP).
+> >=20
+> > Dave,
+> > Please consider applying this series to "net-next".
 
-> xilinx_emaclite looks at the received data to try to determine the
-> Ethernet packet length but does not properly clamp it if
-> proto_type == ETH_P_IP or 1500 < proto_type <= 1518, causing a buffer
-> overflow and a panic via skb_panic() as the length exceeds the allocated
-> skb size.
-> 
-> Fix those cases.
-> 
-> Also add an additional unconditional check with WARN_ON() at the end.
-> 
-> Signed-off-by: Anssi Hannula <anssi.hannula@bitwise.fi>
-> Fixes: bb81b2ddfa19 ("net: add Xilinx emac lite device driver")
+> Please fix the problems reported by the kbuild robot.
 
-Why does this driver do all of this crazy stuff parsing the packet
-headers?
+> Thanks.
 
-It should be able to just read the length provided by the device
-at XEL_RPLR_OFFSET and just use that.
+Fixing those are trivial [simply setting the variables to 0 on declaration]=
+,
+but I actually believe those are false positives.
+Still, if you want me to re-spin v7 for this - I'll send it tomorrow.
