@@ -1,53 +1,50 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: [PATCH 2/4] ptp: use kcalloc/kmallco_array when allocating arrays
-Date: Mon, 13 Feb 2017 19:51:06 -0800
-Message-ID: <20170214035108.19622-2-dmitry.torokhov@gmail.com>
-References: <20170214035108.19622-1-dmitry.torokhov@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170214035108.19622-1-dmitry.torokhov@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Leon Romanovsky <leon@kernel.org>
+Subject: [PATCH iproute2] devlink: Call dl_free in early exit case
+Date: Tue, 14 Feb 2017 07:29:38 +0200
+Message-ID: <20170214052938.16727-1-leon@kernel.org>
+Cc: linux-netdev <netdev@vger.kernel.org>,
+        Leon Romanovsky <leonro@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:39786 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750721AbdBNF3c (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Feb 2017 00:29:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-kcalloc/kmalloc_array are more semantically correct when allocating arrays
-of objects, and overflow-safe.
+From: Leon Romanovsky <leonro@mellanox.com>
 
-Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Prior to parsing command options, the devlink tool allocates memory
+to store results. In case of early exit (wrong parameters or version
+check), this memory wasn't freed.
+
+Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/ptp/ptp_sysfs.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ devlink/devlink.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/ptp/ptp_sysfs.c b/drivers/ptp/ptp_sysfs.c
-index 53d43954a974..77843790c381 100644
---- a/drivers/ptp/ptp_sysfs.c
-+++ b/drivers/ptp/ptp_sysfs.c
-@@ -269,13 +269,13 @@ static int ptp_populate_pins(struct ptp_clock *ptp)
- 	struct ptp_clock_info *info = ptp->info;
- 	int err = -ENOMEM, i, n_pins = info->n_pins;
- 
--	ptp->pin_dev_attr = kzalloc(n_pins * sizeof(*ptp->pin_dev_attr),
-+	ptp->pin_dev_attr = kcalloc(n_pins, sizeof(*ptp->pin_dev_attr),
- 				    GFP_KERNEL);
- 	if (!ptp->pin_dev_attr)
- 		goto no_dev_attr;
- 
--	ptp->pin_attr = kzalloc((1 + n_pins) * sizeof(struct attribute *),
--				GFP_KERNEL);
-+	ptp->pin_attr = kmalloc_array(1 + n_pins, sizeof(*ptp->pin_attr),
-+				      GFP_KERNEL);
- 	if (!ptp->pin_attr)
- 		goto no_pin_attr;
- 
-@@ -289,6 +289,9 @@ static int ptp_populate_pins(struct ptp_clock *ptp)
- 		ptp->pin_attr[i] = &da->attr;
+diff --git a/devlink/devlink.c b/devlink/devlink.c
+index 23db9e7c..34a409f7 100644
+--- a/devlink/devlink.c
++++ b/devlink/devlink.c
+@@ -2579,7 +2579,8 @@ int main(int argc, char **argv)
+ 		switch (opt) {
+ 		case 'V':
+ 			printf("devlink utility, iproute2-ss%s\n", SNAPSHOT);
+-			return EXIT_SUCCESS;
++			ret = EXIT_SUCCESS;
++			goto dl_free;
+ 		case 'n':
+ 			dl->no_nice_names = true;
+ 			break;
+@@ -2592,7 +2593,8 @@ int main(int argc, char **argv)
+ 		default:
+ 			pr_err("Unknown option.\n");
+ 			help();
+-			return EXIT_FAILURE;
++			ret = EXIT_FAILURE;
++			goto dl_free;
+ 		}
  	}
- 
-+	/* NULL terminator */
-+	ptp->pin_attr[n_pins] = NULL;
-+
- 	ptp->pin_attr_group.name = "pins";
- 	ptp->pin_attr_group.attrs = ptp->pin_attr;
- 
--- 
-2.11.0.483.g087da7b7c-goog
