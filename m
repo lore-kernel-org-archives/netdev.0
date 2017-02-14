@@ -1,40 +1,73 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: Re: ANNOUNCE: Netdev 2.1 update Feb 14
-Date: Tue, 14 Feb 2017 08:21:33 -0500
-Message-ID: <d3237bc3-4c1e-9f60-4c70-2fa0d799f883@mojatatu.com>
-References: <42736b6d-b23b-bcae-e53d-a943516ce100@mojatatu.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Tue, 14 Feb 2017 14:23:26 +0100
+Message-ID: <20170214132326.GD18546@krava>
+References: <20170214091250.57d054b2@canb.auug.org.au>
+ <20170214064221.GB10242@gmail.com>
+ <20170214091937.GA18546@krava>
+ <20170214125020.GA4458@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        info-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        tech-committee-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Stephen Jaworski <jaws-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Rob Echlin <rob-XjY9sGI/8jX3fQ9qLvQP4Q@public.gmane.org>, lwn-T1hC0tSOHrs@public.gmane.org, people-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <42736b6d-b23b-bcae-e53d-a943516ce100-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@kernel.org>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+        Arnaldo Carvalho de Melo <acme@infradead.org>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170214125020.GA4458@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 17-02-14 08:16 AM, Jamal Hadi Salim wrote:
->
-> A few announcements:
-> -Registration is open. Register early so we can plan better.
-> https://onlineregistrations.ca/netdev21/
->
-> hotel (If you can get the hotel cheaper online than conference
-> rates please send us email, dont book ):
-> http://www.netdevconf.org/2.1/hotel.html
->
-> News:
-> - We are pleased to announce our first silver sponsor! We thank
-> ZEVENET for their commitment to the netdev community!
->
+On Tue, Feb 14, 2017 at 09:50:20AM -0300, Arnaldo Carvalho de Melo wrote:
 
-Apologies - small correction. ZEVENET is the _first_ bronze
-sponsor.
-https://www.netdevconf.org/2.1/news.html?sponsor-ZEVENET
+SNIP
 
-cheers,
-jamal
+> 
+> What I think Ingo meant with dependency at the build system level is to
+> somehow state that if file A gets changed, then tool B must be rebuilt.
+> 
+> Now that samples/bpf and tools/perf/ depend on tools/lib/bpf/ I _always_
+> build both, ditto for tools/objtool, that shares a different library
+> with tools/perf/, tools/lib/subcmd/:
+> 
+> ENTRYPOINT make -C /git/linux/tools/perf O=/tmp/build/perf && \
+>            rm -rf /tmp/build/perf/{.[^.]*,*} && \
+>            make NO_LIBELF=1 -C /git/linux/tools/perf O=/tmp/build/perf && \
+>            make -C /git/linux/tools/objtool O=/tmp/build/objtool && \
+>            make -C /git/linux O=/tmp/build/linux allmodconfig && \
+>            make -C /git/linux O=/tmp/build/linux headers_install && \
+>            make -C /git/linux O=/tmp/build/linux samples/bpf/
+> 
+> This is the default action for my
+> docker.io/acmel/linux-perf-tools-build-fedora:rawhide container.
+> 
+> It is published, so a:
+> 
+>    docker pull docker.io/acmel/linux-perf-tools-build-fedora:rawhide
+> 
+> And then run it before pushing things upstream would catch these kinds
+> of errors.
+> 
+> But that would possibly disrupt too much people's workflow, that is why
+> using the Kbuild originated tools/build/ we have to somehow express that
+> when a change is made in a file then a tool that uses that file needs to
+> be rebuilt.
+
+we already have the check in the check-headers.sh script,
+an AFAICS there's no 'rebuild' option here.. just warn or fail
+because the headers update needs to be done manualy
+
+> 
+> Makefile rules probably would be enough, but then it would have to be
+> done at the tools/build/ level and all tools using shared components
+> would have to use it to trigger the rebuild.
+
+we can move/invoke the check-headers.sh script in some upper dir
+
+jirka
