@@ -1,44 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ibmvnic: Fix initial MTU settings
-Date: Tue, 14 Feb 2017 14:58:10 -0500 (EST)
-Message-ID: <20170214.145810.826153305226199095.davem@davemloft.net>
-References: <1487089379-29498-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Tue, 14 Feb 2017 14:59:19 -0500 (EST)
+Message-ID: <20170214.145919.808498227095540599.davem@davemloft.net>
+References: <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
+	<20170214.120426.2032015522492111544.davem@davemloft.net>
+	<20170214203822.72d41268@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nfont@linux.vnet.ibm.com,
-        jallen@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41894 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754778AbdBNT6M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 14:58:12 -0500
-In-Reply-To: <1487089379-29498-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ttoukan.linux@gmail.com, edumazet@google.com,
+ alexander.duyck@gmail.com, netdev@vger.kernel.org, tariqt@mellanox.com,
+ kafai@fb.com, saeedm@mellanox.com, willemb@google.com,
+ bblanco@plumgrid.com, ast@kernel.org, eric.dumazet@gmail.com,
+ linux-mm@kvack.org
+To: brouer@redhat.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170214203822.72d41268@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Tue, 14 Feb 2017 10:22:59 -0600
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Tue, 14 Feb 2017 20:38:22 +0100
 
-> In the current driver, the MTU is set to the maximum value
-> capable for the backing device. This decision turned out to
-> be a mistake as it led to confusion among users. The expected
-> initial MTU value used for other IBM vNIC capable operating
-> systems is 1500, with the maximum value (9000) reserved for
-> when Jumbo frames are enabled. This patch sets the MTU to
-> the default value for a net device.
+> On Tue, 14 Feb 2017 12:04:26 -0500 (EST)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> It also corrects a discrepancy between MTU values received from
-> firmware, which includes the ethernet header length, and net
-> device MTU values.
+>> One path I see around all of this is full integration.  Meaning that
+>> we can free pages into the page allocator which are still DMA mapped.
+>> And future allocations from that device are prioritized to take still
+>> DMA mapped objects.
 > 
-> Finally, it removes redundant min/max MTU assignments after device
-> initialization.
+> I like this idea.  Are you saying that this should be done per DMA
+> engine or per device?
 > 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> ---
-> v2: included more detailed commit message addressing why
->     this patch is needed
+> If this is per device, it is almost the page_pool idea.  
 
-Applied, thanks.
+Per-device is simplest, at least at first.
+
+Maybe later down the road we can try to pool by "mapping entity" be
+that a parent IOMMU or something else like a hypervisor managed
+page table.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
