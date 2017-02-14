@@ -1,82 +1,71 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH v4 net] bpf: add bpf_sk_netns_id() helper
-Date: Tue, 14 Feb 2017 20:21:09 +1300
-Message-ID: <87h93xqlui.fsf@xmission.com>
-References: <1486432968-3255218-1-git-send-email-ast@fb.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Mon, 13 Feb 2017 23:59:42 -0800
+Message-ID: <CAPWQB7GPyiN+5rdLRyXA4v03-2hPZ=Xfw_URFyuFjTQo+=C1Dg@mail.gmail.com>
+References: <20170214091250.57d054b2@canb.auug.org.au> <58A241EC.8050400@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S . Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Tejun Heo <tj@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>, <netdev@vger.kernel.org>
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Wang Nan <wangnan0@huawei.com>
 To: Alexei Starovoitov <ast@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:48036 "EHLO
-        out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751937AbdBNHZp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 02:25:45 -0500
-In-Reply-To: <1486432968-3255218-1-git-send-email-ast@fb.com> (Alexei
-        Starovoitov's message of "Mon, 6 Feb 2017 18:02:48 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <58A241EC.8050400@fb.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexei Starovoitov <ast@fb.com> writes:
+On 13 February 2017 at 15:31, Alexei Starovoitov <ast@fb.com> wrote:
+> On 2/13/17 2:12 PM, Stephen Rothwell wrote:
+>>
+>> Hi all,
+>>
+>> After merging the net tree, today's linux-next build (powerpc64le perf)
+>> failed like this:
+>>
+>> Warning: tools/include/uapi/linux/bpf.h differs from kernel
+>> bpf.c: In function 'bpf_prog_attach':
+>> bpf.c:180:6: error: 'union bpf_attr' has no member named 'attach_flags';
+>> did you mean 'map_flags'?
+>>    attr.attach_flags  = flags;
+>>        ^
+>>
+>> Caused by commit
+>>
+>>    7f677633379b ("bpf: introduce BPF_F_ALLOW_OVERRIDE flag")
+>>
+>> Unfortunately, the perf header files are kept separate from the kernel
+>> header files proper and are not automatically copied over :-(
+>>
+>> I have applied the following build fix patch for today.
+>
+>
+> Yes. Thanks for the fix. It's more than a merge conflict.
+> I should have added it in the first place. Now we have both
+> perf and samples/bpf depend on tools/lib/bpf and I simply
+> forgot about this dependency, since building perf
+> is not my typical workflow.
+>
+> Joe,
+> can you think of a way to make tools/lib/bpf to
+> use tools/include only?
+> Right now we just pull tools/lib/bpf/bpf.o in samples/bpf/Makefile
+> and that's a hack that caused this issue.
+> samples/bpf/ needs to depend on libbpf.a properly.
 
-> in cases where bpf programs are looking at sockets and packets
-> that belong to different netns, it could be useful to get an id
-> that uniquely identify a netns within the whole system.
+Honestly the build system stuff is all black magic to me.
 
-It could be useful but there is no unique namespace id.
+Originally I had a line in the samples/bpf makefile that changed
+directory and ran make there, but it was limited in that it only
+addressed the 'all' target so you could still hit issues when trying
+to build specific samples directly via their own targets so I removed
+it on request:
 
-> Therefore introduce 'u64 bpf_sk_netns_id(sk);' helper. It returns
-> unique value that identifies netns of given socket or dev_net(skb->dev)
-> The upper 32-bits of the return value contain device id where namespace
-> filesystem resides and lower 32-bits contain inode number within that filesystem.
-> It's the same as
->  struct stat st;
->  stat("/proc/pid/ns/net", &st);
->  return (st->st_dev << 32)  | st->st_ino;
-
-The function is fundamentally buggy.  Inode numbers are 64bit and need
-to be 64bit whenever we expose them to userspace.  Otherwise we are
-painting ourselves into a corner with respect to future expansion.
-
-> For example to disallow raw sockets in all non-init netns
-> the bpf_type_cgroup_sock program can do:
-> if (sk->type == SOCK_RAW && bpf_sk_netns_id(sk) != 0x3f0000075)
->   return 0;
-> where 0x3f0000075 comes from combination of st_dev and st_ino
-> of /proc/pid/ns/net
-
-Which is generally a reasonable type of thing to do.
-
-However if we make the logic look like:
-
-if (sk->type == SOCK_RAW && bpf_sk_net(sk, 0x3f, 0x75))
-	return 0;
-
-With the comparison in the function call itself.  That will solve the
-32 vs 64bit inode number issue as well putting the burden on matching
-what userspace sees to what the kernel sees to the kernel.  Which
-is much more future proof.
-
-I suspect the bpf verifier can even be enhanced to check that the last
-two arguments are constants.  Limiting the device number and inode
-number to constants will make further optimizations/simplifcations
-possible.   But that is just a nice to have.
-
-But the key thing here is that if we pass the device number and the
-inode to the kernel and ask it to compare, the kernel can lookup up the
-namespace by device+inode and see if it matches what is on the socket
-without any need for that to be a unique name of the network namespace
-which is 1000 times more maintainable then returning a magic string.
-
-Which means even if all we do in kernel churn is go back to the
-implementation that existed a little while ago where the device number
-depended upon which mount of proc you looked at, the bpf filters written
-today can all be made to work with any challenge.
-
-Does that make sense?
-
-Eric
+https://patchwork.kernel.org/patch/9472573/
