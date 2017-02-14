@@ -1,86 +1,32 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next 12/14] i40e: allow i40e_update_filter_state to skip
- broadcast filters
-Date: Tue, 14 Feb 2017 17:42:14 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5857D7413C@ORSMSX115.amr.corp.intel.com>
-References: <20170212053028.98581-1-jeffrey.t.kirsher@intel.com>
- <20170212053028.98581-13-jeffrey.t.kirsher@intel.com>
- <639a9d62-a283-9fcb-4fad-dc7aeda74c7f@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] sfc: prevent bogus interrupt-mode
+ fallbacks
+Date: Tue, 14 Feb 2017 12:45:24 -0500 (EST)
+Message-ID: <20170214.124524.830689543639993890.davem@davemloft.net>
+References: <2af4ea1f-cdf7-48b2-1712-e25590919f15@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44428 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932181AbdBNRmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Feb 2017 12:42:17 -0500
-In-Reply-To: <639a9d62-a283-9fcb-4fad-dc7aeda74c7f@cogentembedded.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:38150 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932290AbdBNRp0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 12:45:26 -0500
+In-Reply-To: <2af4ea1f-cdf7-48b2-1712-e25590919f15@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBTZXJnZWkgU2h0eWx5b3YgW21h
-aWx0bzpzZXJnZWkuc2h0eWx5b3ZAY29nZW50ZW1iZWRkZWQuY29tXQ0KPiBTZW50OiBTdW5kYXks
-IEZlYnJ1YXJ5IDEyLCAyMDE3IDI6MTggQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVCA8amVm
-ZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPjsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldA0KPiBDYzogS2Vs
-bGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+OyBuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnOw0KPiBuaG9ybWFuQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IGpvZ3Jl
-ZW5lQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAxMi8xNF0gaTQwZTogYWxs
-b3cgaTQwZV91cGRhdGVfZmlsdGVyX3N0YXRlIHRvIHNraXANCj4gYnJvYWRjYXN0IGZpbHRlcnMN
-Cj4gDQo+IEhlbGxvIQ0KPiANCj4gT24gMi8xMi8yMDE3IDg6MzAgQU0sIEplZmYgS2lyc2hlciB3
-cm90ZToNCj4gDQo+ID4gRnJvbTogSmFjb2IgS2VsbGVyIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5j
-b20+DQo+ID4NCj4gPiBGaXggYSBidWcgd2hlcmUgd2UgbW9kaWZpZWQgdGhlIG1hY19maWx0ZXJf
-aGFzaCB3aGlsZSBvdXRzaWRlIGEgbG9jaywNCj4gPiB3aGVuIGhhbmRsaW5nIGFkZGl0aW9uIG9m
-IGJyb2FkY2FzdCBmaWx0ZXJzLg0KPiA+DQo+ID4gTm9ybWFsbHksIHdlIGFkZCBmaWx0ZXJzIHRv
-IGZpcm13YXJlIGJ5IGJhdGNoaW5nIHRoZSBhZGRpdGlvbnMgaW50bw0KPiA+IGxpc3RzIGFuZCBp
-c3N1aW5nIDEgdXBkYXRlIGZvciBldmVyeSBmZXcgZmlsdGVycy4gQnJvYWRjYXN0IGZpbHRlcnMg
-YXJlDQo+ID4gaGFuZGxlZCBkaWZmZXJlbnRseSwgYnkgaW5zdGVhZCBzZXR0aW5nIHRoZSBicm9h
-ZGNhc3QgcHJvbWlzY3VvdXMgbW9kZQ0KPiA+IGZsYWdzLiBJbiBvcmRlciB0byBtYWtlIHN1cmUg
-dGhlIDE8LT4xIG1hcHBpbmcgb2YgZmlsdGVycyBpbiBvdXINCj4gPiBhZGRpdGlvbiBhcnJheSBs
-aW5lZCB1cCB3aXRoIGZpbHRlcnMgaW4gdGhlIGhsaXN0IHRtcF9hZGRfbGlzdCwgd2UgaGFkDQo+
-ID4gdG8gcmVtb3ZlIHRoZSBmaWx0ZXIgYW5kIG1vdmUgaXQgYmFjayB0byB0aGUgbWFpbiBoYXNo
-LiBIb3dldmVyLCB3ZQ0KPiA+IGRpZG4ndCBkbyB0aGlzIHVuZGVyIGxvY2ssIHdoaWNoIGNvdWxk
-IGNhdXNlIGNvbnNpc3RlbmN5IHByb2JsZW1zIGZvcg0KPiA+IHRoZSBsaXN0Lg0KPiA+DQo+ID4g
-Rml4IHRoaXMgYnkgdXBkYXRpbmcgaTQwZV91cGRhdGVfZmlsdGVyX3N0YXRlIGxvZ2ljIHNvIHRo
-YXQgaXQga25vd3MgdG8NCj4gPiBhdm9pZCBicm9hZGNhc3QgZmlsdGVycy4gVGhpcyBlbnN1cmVz
-IHRoYXQgd2UgZG9uJ3QgaGF2ZSB0byByZW1vdmUgdGhlDQo+ID4gZmlsdGVyIHNlcGFyYXRlbHks
-IGFuZCBjYW4gcHV0IGl0IGJhY2sgdXNpbmcgdGhlIG5vcm1hbCBmbG93Lg0KPiA+DQo+ID4gQ2hh
-bmdlLUlEOiBJZDI4OGZhZGU4MGIzZTNhOWE1NGI2OGNjMjQ5MTg4Y2I5NTE0NzUxOA0KPiA+IFNp
-Z25lZC1vZmYtYnk6IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiA+
-IFRlc3RlZC1ieTogQW5kcmV3IEJvd2VycyA8YW5kcmV3eC5ib3dlcnNAaW50ZWwuY29tPg0KPiA+
-IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29t
-Pg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfbWFp
-bi5jIHwgMzcNCj4gKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0NCj4gPiAgMSBmaWxlIGNo
-YW5nZWQsIDI5IGluc2VydGlvbnMoKyksIDggZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX21haW4uYw0KPiBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV9tYWluLmMNCj4gPiBpbmRleCBmYTRh
-MDRkLi4wNmM4MGQ0IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2k0MGUvaTQwZV9tYWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
-NDBlL2k0MGVfbWFpbi5jDQo+ID4gQEAgLTE4NDMsNiArMTg0MywzMSBAQCBzdGF0aWMgdm9pZCBp
-NDBlX3VuZG9fZmlsdGVyX2VudHJpZXMoc3RydWN0IGk0MGVfdnNpDQo+ICp2c2ksDQo+ID4gIH0N
-Cj4gPg0KPiA+ICAvKioNCj4gPiArICogaTQwZV9uZXh0X2VudHJ5IC0gR2V0IHRoZSBuZXh0IG5v
-bi1icm9hZGNhc3QgZmlsdGVyIGZyb20gYSBsaXN0DQo+ID4gKyAqIEBmOiBwb2ludGVyIHRvIGZp
-bHRlciBpbiBsaXN0DQo+ID4gKyAqDQo+ID4gKyAqIFJldHVybnMgdGhlIG5leHQgbm9uLWJyb2Fk
-Y2FzdCBmaWx0ZXIgaW4gdGhlIGxpc3QuIFJlcXVpcmVkIHNvIHRoYXQgd2UNCj4gPiArICogaWdu
-b3JlIGJyb2FkY2FzdCBmaWx0ZXJzIHdpdGhpbiB0aGUgbGlzdCwgc2luY2UgdGhlc2UgYXJlIG5v
-dCBoYW5kbGVkIHZpYQ0KPiA+ICsgKiB0aGUgbm9ybWFsIGZpcm13YXJlIHVwZGF0ZSBwYXRoLg0K
-PiA+ICsgKi8NCj4gPiArc3RhdGljIHN0cnVjdCBpNDBlX21hY19maWx0ZXIgKmk0MGVfbmV4dF9m
-aWx0ZXIoc3RydWN0IGk0MGVfbWFjX2ZpbHRlciAqZikNCj4gPiArew0KPiA+ICsJd2hpbGUgKGYp
-IHsNCj4gPiArCQlmID0gaGxpc3RfZW50cnkoZi0+aGxpc3QubmV4dCwNCj4gPiArCQkJCXR5cGVv
-ZihzdHJ1Y3QgaTQwZV9tYWNfZmlsdGVyKSwNCj4gPiArCQkJCWhsaXN0KTsNCj4gPiArDQo+ID4g
-KwkJLyoga2VlcCBnb2luZyBpZiB3ZSBmb3VuZCBhIGJyb2FkY2FzdCBmaWx0ZXIgKi8NCj4gPiAr
-CQlpZiAoZiAmJiBpc19icm9hZGNhc3RfZXRoZXJfYWRkcihmLT5tYWNhZGRyKSkNCj4gPiArCQkJ
-Y29udGludWU7DQo+ID4gKw0KPiA+ICsJCWJyZWFrOw0KPiANCj4gICAgIElzbid0IGl0IHNpbXBs
-ZXIgdG8gKmJyZWFrKiBvbiBhbiBpbnZlcnRlZCBjb25kaXRpb24gYWJvdmU/DQo+IFRoaXMgd2F5
-LCAqY29udGludWUqIGlzbjsndCBuZWVkZWQuLi4NCj4gDQoNCldoZW4gSSB3cm90ZSB0aGUgY29k
-ZSBvcmlnaW5hbGx5IGl0IHNlZW1lZCBiZXR0ZXIsIGJ1dCBub3cgdGhhdCBJIHRoaW5rIGFib3V0
-IGl0LCB0aGUgaW52ZXJ0ZWQgY29uZGl0aW9uYWwgaXNuJ3QgdGhhdCBtdWNoIG1vcmUgY29tcGxp
-Y2F0ZWQsIHNvIEknbGwgY2hhbmdlIGl0Lg0KDQpUaGFua3MsDQpKYWtlDQoNCj4gWy4uLl0NCj4g
-DQo+IE1CUiwgU2VyZ2VpDQoNCg==
+From: Edward Cree <ecree@solarflare.com>
+Date: Mon, 13 Feb 2017 14:54:56 +0000
+
+> EF10 VFs only support MSI-X interrupts, not MSI or legacy.  This series
+>  stops the probe logic from trying to fallback to those if MSI-X interrupt
+>  probe fails.  It also prevents selecting them with the interrupt_mode
+>  module parameter.
+> This avoids producing messages like "failed to hook legacy IRQ 0" and "IRQ
+>  handler type mismatch for IRQ 0", and ensures that the relevant error
+>  (from the attempt to enable MSI-X) is reported to the caller.
+
+Series applied, thanks Edward.
