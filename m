@@ -1,42 +1,35 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [1/3] ath10k: remove ath10k_vif_to_arvif()
-Date: Tue, 14 Feb 2017 09:40:01 -0800
-Message-ID: <dffab7ef3a364a49a28d876f577561db@eusanexr01a.eu.qualcomm.com>
-References: <1486030773-30600-1-git-send-email-amadeusz.slawinski@tieto.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] bridge: minor fdb cleanup
+Date: Tue, 14 Feb 2017 12:41:25 -0500 (EST)
+Message-ID: <20170214.124125.1924291870103930791.davem@davemloft.net>
+References: <1486994351-1137-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <ath10k@lists.infradead.org>, <netdev@vger.kernel.org>,
-        <linux-wireless@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        =?UTF-8?q?Amadeusz=20S=C5=82awi=C5=84ski?=
-        <amadeusz.slawinski@tieto.com>
-To: =?utf-8?q?Amadeusz_S=C5=82awi=C5=84ski?=
-        <amadeusz.slawinski@tieto.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:17984 "EHLO
-        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932121AbdBNRkN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 12:40:13 -0500
-In-Reply-To: <1486030773-30600-1-git-send-email-amadeusz.slawinski@tieto.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org
+To: nikolay@cumulusnetworks.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1486994351-1137-1-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Amadeusz Sławiński wrote:
-> it adds unnecessary level of indirection, while we just access structure
-> field
-> 
-> Signed-off-by: Amadeusz Sławiński <amadeusz.slawinski@tieto.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Mon, 13 Feb 2017 14:59:08 +0100
 
-3 patches applied to ath-next branch of ath.git, thanks.
+> These patches aim to simplify the bridge fdb API a little by removing some
+> redundant functions and converting them into wrappers of a single function.
+> Also add proper lock checking to avoid future mistakes for the search
+> functions.
 
-56ac13bfc703 ath10k: remove ath10k_vif_to_arvif()
-182f1e5a626e ath10k: use size_t for len variables
-6d2191135637 ath10k: fix comment
+This looks fine, series applied.
 
--- 
-https://patchwork.kernel.org/patch/9551559/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+Thanks.
