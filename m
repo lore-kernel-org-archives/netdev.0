@@ -1,60 +1,76 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net] at803x: insure minimum delay for SGMII link AN
- completion ckeck
-Date: Tue, 14 Feb 2017 15:50:44 +0100
-Message-ID: <20170214145044.GF32480@lunn.ch>
-References: <1486744943-12474-1-git-send-email-claudiu.manoil@nxp.com>
- <849590ef-2913-5c8e-56a7-a00d238d1235@neratec.com>
- <AM5PR0401MB25616E07222F4B854CB2247D96590@AM5PR0401MB2561.eurprd04.prod.outlook.com>
- <20170213173105.GE9946@lunn.ch>
- <AM5PR0401MB2561EFE479E6B2FCC508C9BD96580@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCHv2 net-next 11/16] net: mvpp2: handle misc PPv2.1/PPv2.2
+ differences
+Date: Tue, 14 Feb 2017 15:53:13 +0100
+Message-ID: <20170214155313.1e9a497b@free-electrons.com>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
+        <20170107093834.GJ14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Claudiu Manoil <claudiu.manoil@nxp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Hanna Hawa <hannah@marvell.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Stefan Chulski <stefanc@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39525 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751464AbdBNOut (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Feb 2017 09:50:49 -0500
-Content-Disposition: inline
-In-Reply-To: <AM5PR0401MB2561EFE479E6B2FCC508C9BD96580@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:49368 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751376AbdBNOxQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 09:53:16 -0500
+In-Reply-To: <20170107093834.GJ14217@n2100.armlinux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 14, 2017 at 02:31:53PM +0000, Claudiu Manoil wrote:
-> >-----Original Message-----
-> >From: Andrew Lunn [mailto:andrew@lunn.ch]
-> >Sent: Monday, February 13, 2017 7:31 PM
-> >Subject: Re: [PATCH net] at803x: insure minimum delay for SGMII link AN
-> >completion ckeck
-> >
-> 
-> [...]
-> 
-> >>
-> >> I can confirm that link status changes are signaled via interrupts ("phy_interrupt")
-> >> in this case.
-> >
-> >Is there a way to enable an interrupt when SGMII signalled link
-> >changes has happened? Maybe another interrupt enable bit somewhere?
-> >That would avoid having to sleep().
-> >
-> 
-> No, except for the interrupt lines coming from the external AR8033 PHYs there's 
-> nothing else (documentation on the SoC and board is available on nxp.com).
-> I think this question hints to the actual problem, that the internal SGMII link 
-> should have a separate state (and state machine) apart from the external link's
-> state.
+Hello,
 
-Yes. I think this is something Russell Kings phylink patchset tried to
-address. He has something similar. SGMII link to an SFP cage, which
-could have a copper module plugged in. So again, multiple PHYs in a
-chain.
+On Sat, 7 Jan 2017 09:38:34 +0000, Russell King - ARM Linux wrote:
 
-	Andrew
+> This has the side effect that nothing clears the port reset bit in the
+> GMAC, which means there's no hope of the interface working - with the
+> reset bit set, the port is well and truely held in "link down" state.
 
-	
+Things were working fine here on Armada 7K/8K even without calling
+mvpp21_port_power_up(port). But I've looked into more details, and in
+fact the whole function makes sense on PPv2.2, except the
+mvpp2_port_fc_adv_enable(port) part of it. So I've replaced this with:
+
+	mvpp2_port_mii_set(port);
+	mvpp2_port_periodic_xon_disable(port);
+
+	if (priv->hw_version == MVPP21)
+		mvpp2_port_fc_adv_enable(port);
+
+	mvpp2_port_reset(port);
+
+This will be in my v3.
+
+> In any case, the GMAC part is much the same as mvneta, and I think
+> that code should be shared rather than writing new versions of it.
+
+Possibly, but it's really a separate thing: this is completely
+independent from introducing PPv2.2 support, it's something that
+already exists. The patch series is already 16 patches long in its v2,
+and is going to even a bit longer in its v3, so I would really like to
+stick to just PPv2.2 support.
+
+Thanks!
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
