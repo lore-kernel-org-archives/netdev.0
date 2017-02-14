@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@kernel.org>
 Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 14 Feb 2017 07:35:14 +0100
-Message-ID: <20170214063514.GA10242@gmail.com>
+Date: Tue, 14 Feb 2017 07:42:21 +0100
+Message-ID: <20170214064221.GB10242@gmail.com>
 References: <20170214091250.57d054b2@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,13 +11,15 @@ Cc: David Miller <davem@davemloft.net>,
         Peter Zijlstra <peterz@infradead.org>,
         Ingo Molnar <mingo@redhat.com>,
         Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+        Jiri Olsa <jolsa@redhat.com>,
+        Arnaldo Carvalho de Melo <acme@infradead.org>
 To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35846 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750767AbdBNGfT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 01:35:19 -0500
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34152 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752324AbdBNGm0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 01:42:26 -0500
 Content-Disposition: inline
 In-Reply-To: <20170214091250.57d054b2@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
@@ -26,30 +28,36 @@ List-ID: <netdev.vger.kernel.org>
 
 * Stephen Rothwell <sfr@canb.auug.org.au> wrote:
 
-> --- a/tools/include/uapi/linux/bpf.h
-> +++ b/tools/include/uapi/linux/bpf.h
-> @@ -116,6 +116,12 @@ enum bpf_attach_type {
->  
->  #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
->  
-> +/* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
-> + * to the given target_fd cgroup the descendent cgroup will be able to
-> + * override effective bpf program that was inherited from this cgroup
-> + */
-> +#define BPF_F_ALLOW_OVERRIDE	(1U << 0)
-> +
+> Hi all,
+> 
+> After merging the net tree, today's linux-next build (powerpc64le perf)
+> failed like this:
+> 
+> Warning: tools/include/uapi/linux/bpf.h differs from kernel
+> bpf.c: In function 'bpf_prog_attach':
+> bpf.c:180:6: error: 'union bpf_attr' has no member named 'attach_flags'; did you mean 'map_flags'?
+>   attr.attach_flags  = flags;
+>       ^
+> 
+> Caused by commit
+> 
+>   7f677633379b ("bpf: introduce BPF_F_ALLOW_OVERRIDE flag")
+> 
+> Unfortunately, the perf header files are kept separate from the kernel
+> header files proper and are not automatically copied over :-(
 
-BTW., guys, for heaven's sake, please use the standard (multi-line) comment style:
+No, that's wrong, the problem is not that headers were not shared, the problem is 
+that a tooling interdependency was not properly tested *and* that the dependency 
+was not properly implemented in the build system either.
 
-  /*
-   * Comment .....
-   * ...... goes here.
-   */
+Note that we had similar build breakages when include headers _were_ shared as 
+well, so sharing the headers would only have worked around this particular bug and 
+would have introduced fragility in other places...
 
-specified in Documentation/CodingStyle...
-
-It's not that hard to create visually balanced patterns.
+The best, most robust solution in this particular case would be to fix the 
+(tooling) build system to express the dependency, that would have shown the build 
+failure right when the modification was done.
 
 Thanks,
 
-        Ingo
+	Ingo
