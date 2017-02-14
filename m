@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: busy-poll: remove LL_FLUSH_FAILED and
- LL_FLUSH_BUSY
-Date: Mon, 13 Feb 2017 22:01:03 -0500 (EST)
-Message-ID: <20170213.220103.1689372921636040210.davem@davemloft.net>
-References: <1486734406.7793.142.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: make net_device members garp_port and
+ mrp_port conditional
+Date: Mon, 13 Feb 2017 22:03:32 -0500 (EST)
+Message-ID: <20170213.220332.1254193563682425809.davem@davemloft.net>
+References: <20170210154350.11694-1-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55180 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55192 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750943AbdBNDBI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 22:01:08 -0500
-In-Reply-To: <1486734406.7793.142.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1750946AbdBNDDf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 22:03:35 -0500
+In-Reply-To: <20170210154350.11694-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 10 Feb 2017 05:46:46 -0800
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Fri, 10 Feb 2017 16:43:50 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> garp_port is only used in net/802/garp.c which is only compiled with
+> CONFIG_GARP enabled. Same goes for mrp_port which is only used in
+> net/802/mrp.c with CONFIG_MRP enabled.
 > 
-> Commit 79e7fff47b7b ("net: remove support for per driver
-> ndo_busy_poll()") made them obsolete.
+> Only include the two members in struct net_device if their respective
+> CONFIG_* is enabled. This saves a few bytes in struct net_device in case
+> CONFIG_GARP or CONFIG_MRP are not enabled.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Applied, thanks Eric.
+Applied, thanks.
