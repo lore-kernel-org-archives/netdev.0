@@ -1,116 +1,175 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Mon, 13 Feb 2017 16:57:35 -0800
-Message-ID: <1487033855.8227.40.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170213195858.5215-1-edumazet@google.com>
-         <20170213195858.5215-9-edumazet@google.com>
-         <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
-         <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
-         <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
-         <CANn89iJfLu8ai1SDGDt5aowAGibdxumDA89Y44f6SjTTt+sGBg@mail.gmail.com>
-         <CAKgT0UdgnKzJ8PJFPfvJiOSZQ3E3Sw5nWjyrROuERv0=-dxmxQ@mail.gmail.com>
-         <CANn89iLgUsPDL0wbuHk5RaehzJ+TRLQ=WkVBMTB65scrEjO3Ug@mail.gmail.com>
-         <CAKgT0Uex--jLtBtJ+wp8wmkZuUfTu7ktYTvBF9623Ztm_NrGxw@mail.gmail.com>
-         <CANn89iJ+kn4ycP2HV_um5JUfPWpX9KJ0KFtXyx3562c=kCBYyQ@mail.gmail.com>
-         <CAKgT0Uf-JhOn+OOyjO8GH5SepA68j36eSY2m-buWJ5AH_82o2g@mail.gmail.com>
-         <1487033175.8227.37.camel@edumazet-glaptop3.roam.corp.google.com>
+From: jeffy <jeffy.chen@rock-chips.com>
+Subject: Re: [PATCH v3 3/3] Bluetooth: hidp: fix possible might sleep error
+ in hidp_session_thread
+Date: Tue, 14 Feb 2017 08:57:50 +0800
+Message-ID: <58A2560E.6000504@rock-chips.com>
+References: <1486959154-25810-1-git-send-email-jeffy.chen@rock-chips.com> <1486959154-25810-3-git-send-email-jeffy.chen@rock-chips.com> <CAKdAkRTxN3TrNYwFB1AXz4XgOoJdKpgkgHSdqf299CoHfMZ2vQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
+Cc: linux-bluetooth@vger.kernel.org,
+        Brian Norris <briannorris@chromium.org>,
+        Douglas Anderson <dianders@chromium.org>,
+        Johan Hedberg <johan.hedberg@intel.com>,
+        Peter Hurley <peter@hurleysoftware.com>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
         netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:35367 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751583AbdBNA5i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 19:57:38 -0500
-Received: by mail-it0-f68.google.com with SMTP id 203so1695661ith.2
-        for <netdev@vger.kernel.org>; Mon, 13 Feb 2017 16:57:37 -0800 (PST)
-In-Reply-To: <1487033175.8227.37.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        lkml <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKdAkRTxN3TrNYwFB1AXz4XgOoJdKpgkgHSdqf299CoHfMZ2vQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Dmitry,
 
-> Alex, be assured that I implemented the full thing, of course.
-
-Patch was :
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index aa074e57ce06fb2842fa1faabd156c3cd2fe10f5..0ae1b544668d26c24044dbdefdd9b12253596ff9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -68,6 +68,7 @@ static int mlx4_alloc_page(struct mlx4_en_priv *priv,
-        frag->page = page;
-        frag->dma = dma;
-        frag->page_offset = priv->rx_headroom;
-+       frag->pagecnt_bias = 1;
-        return 0;
- }
- 
-@@ -97,7 +98,7 @@ static void mlx4_en_free_frag(const struct mlx4_en_priv *priv,
-        if (frag->page) {
-                dma_unmap_page(priv->ddev, frag->dma,
-                               PAGE_SIZE, priv->dma_dir);
--               __free_page(frag->page);
-+               __page_frag_cache_drain(frag->page, frag->pagecnt_bias);
-        }
-        /* We need to clear all fields, otherwise a change of priv->log_rx_info
-         * could lead to see garbage later in frag->page.
-@@ -470,6 +471,7 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
- {
-        const struct mlx4_en_frag_info *frag_info = priv->frag_info;
-        unsigned int truesize = 0;
-+       unsigned int pagecnt_bias;
-        int nr, frag_size;
-        struct page *page;
-        dma_addr_t dma;
-@@ -491,9 +493,10 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
-                                     frag_size);
- 
-                truesize += frag_info->frag_stride;
-+               pagecnt_bias = frags->pagecnt_bias--;
-                if (frag_info->frag_stride == PAGE_SIZE / 2) {
-                        frags->page_offset ^= PAGE_SIZE / 2;
--                       release = page_count(page) != 1 ||
-+                       release = page_count(page) != pagecnt_bias ||
-                                  page_is_pfmemalloc(page) ||
-                                  page_to_nid(page) != numa_mem_id();
-                } else {
-@@ -504,9 +507,13 @@ static int mlx4_en_complete_rx_desc(struct mlx4_en_priv *priv,
-                }
-                if (release) {
-                        dma_unmap_page(priv->ddev, dma, PAGE_SIZE, priv->dma_dir);
-+                       __page_frag_cache_drain(page, --pagecnt_bias);
-                        frags->page = NULL;
-                } else {
--                       page_ref_inc(page);
-+                       if (pagecnt_bias == 1) {
-+                               page_ref_add(page, USHRT_MAX);
-+                               frags->pagecnt_bias = USHRT_MAX;
-+                       }
-                }
- 
-                nr++;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 52f157cea7765ad6907c59aead357a158848b38d..0de5933fd56bda3db15b4aa33d2366eff98f4154 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -252,7 +252,12 @@ struct mlx4_en_tx_desc {
- struct mlx4_en_rx_alloc {
-        struct page     *page;
-        dma_addr_t      dma;
-+#if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
-        u32             page_offset;
-+#else
-+       u16             page_offset;
-+#endif
-+       u16 pagecnt_bias;
- };
- 
- #define MLX4_EN_CACHE_SIZE (2 * NAPI_POLL_WEIGHT)
+On 02/14/2017 05:27 AM, Dmitry Torokhov wrote:
+> Hi Jeffy,
+>
+> On Sun, Feb 12, 2017 at 8:12 PM, Jeffy Chen <jeffy.chen@rock-chips.com> wrote:
+>> It looks like hidp_session_thread has same pattern as the issue reported in
+>> old rfcomm:
+>>
+>>          while (1) {
+>>                  set_current_state(TASK_INTERRUPTIBLE);
+>>                  if (condition)
+>>                          break;
+>>                  // may call might_sleep here
+>>                  schedule();
+>>          }
+>>          __set_current_state(TASK_RUNNING);
+>>
+>> Which fixed at:
+>>          dfb2fae Bluetooth: Fix nested sleeps
+>>
+>> So let's fix it at the same way, also follow the suggestion of:
+>> https://lwn.net/Articles/628628/
+>>
+>> Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+>> 1/ Fix could not wake up by wake attempts on original wait queues.
+>> 2/ Remove unnecessary memory barrier before wake_up_* functions.
+>>
+>> ---
+>>
+>> Changes in v3: None
+>> Changes in v2: None
+>>
+>>   net/bluetooth/hidp/core.c | 33 ++++++++++++++++++++++-----------
+>>   1 file changed, 22 insertions(+), 11 deletions(-)
+>>
+>> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+>> index 0bec458..076bc50 100644
+>> --- a/net/bluetooth/hidp/core.c
+>> +++ b/net/bluetooth/hidp/core.c
+>> @@ -36,6 +36,7 @@
+>>   #define VERSION "1.2"
+>>
+>>   static DECLARE_RWSEM(hidp_session_sem);
+>> +static DECLARE_WAIT_QUEUE_HEAD(hidp_session_wq);
+>>   static LIST_HEAD(hidp_session_list);
+>>
+>>   static unsigned char hidp_keycode[256] = {
+>> @@ -1068,12 +1069,12 @@ static int hidp_session_start_sync(struct hidp_session *session)
+>>    * Wake up session thread and notify it to stop. This is asynchronous and
+>>    * returns immediately. Call this whenever a runtime error occurs and you want
+>>    * the session to stop.
+>> - * Note: wake_up_process() performs any necessary memory-barriers for us.
+>> + * Note: wake_up_interruptible() performs any necessary memory-barriers for us.
+>>    */
+>>   static void hidp_session_terminate(struct hidp_session *session)
+>>   {
+>>          atomic_inc(&session->terminate);
+>> -       wake_up_process(session->task);
+>> +       wake_up_interruptible(&hidp_session_wq);
+>>   }
+>>
+>>   /*
+>> @@ -1180,7 +1181,9 @@ static void hidp_session_run(struct hidp_session *session)
+>>          struct sock *ctrl_sk = session->ctrl_sock->sk;
+>>          struct sock *intr_sk = session->intr_sock->sk;
+>>          struct sk_buff *skb;
+>> +       DEFINE_WAIT_FUNC(wait, woken_wake_function);
+>>
+>> +       add_wait_queue(&hidp_session_wq, &wait);
+>>          for (;;) {
+>>                  /*
+>>                   * This thread can be woken up two ways:
+>> @@ -1188,12 +1191,10 @@ static void hidp_session_run(struct hidp_session *session)
+>>                   *    session->terminate flag and wakes this thread up.
+>>                   *  - Via modifying the socket state of ctrl/intr_sock. This
+>>                   *    thread is woken up by ->sk_state_changed().
+>> -                *
+>> -                * Note: set_current_state() performs any necessary
+>> -                * memory-barriers for us.
+>>                   */
+>> -               set_current_state(TASK_INTERRUPTIBLE);
+>>
+>> +               /* Ensure session->terminate is updated */
+>> +               smp_mb__before_atomic();
+>>                  if (atomic_read(&session->terminate))
+>>                          break;
+>>
+>> @@ -1227,11 +1228,22 @@ static void hidp_session_run(struct hidp_session *session)
+>>                  hidp_process_transmit(session, &session->ctrl_transmit,
+>>                                        session->ctrl_sock);
+>>
+>> -               schedule();
+>> +               wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+>>          }
+>> +       remove_wait_queue(&hidp_session_wq, &wait);
+>>
+>>          atomic_inc(&session->terminate);
+>> -       set_current_state(TASK_RUNNING);
+>> +
+>> +       /* Ensure session->terminate is updated */
+>> +       smp_mb__after_atomic();
+>> +}
+>> +
+>> +int hidp_session_wake_function(wait_queue_t *wait, unsigned int mode,
+>> +                              int sync, void *key)
+> static?
+Oops, sure.
+>
+>> +{
+>> +       wake_up_interruptible(&hidp_session_wq);
+>> +
+>> +       return default_wake_function(wait, mode, sync, key);
+> I do not think you need to call default_wake_function() here: the
+> process is waiting on hidp_session_wq, so the wakeup above is what
+> will wake up the session. By the time you get to call
+> default_wake_function() task will already be in wrong state. I think
+> we should simply return "false" instead of calling
+> default_wake_function().
+Ok, thanx.
+>
+>>   }
+>>
+>>   /*
+>> @@ -1244,7 +1256,8 @@ static void hidp_session_run(struct hidp_session *session)
+>>   static int hidp_session_thread(void *arg)
+>>   {
+>>          struct hidp_session *session = arg;
+>> -       wait_queue_t ctrl_wait, intr_wait;
+>> +       DEFINE_WAIT_FUNC(ctrl_wait, hidp_session_wake_function);
+>> +       DEFINE_WAIT_FUNC(intr_wait, hidp_session_wake_function);
+>>
+>>          BT_DBG("session %p", session);
+>>
+>> @@ -1254,8 +1267,6 @@ static int hidp_session_thread(void *arg)
+>>          set_user_nice(current, -15);
+>>          hidp_set_timer(session);
+>>
+>> -       init_waitqueue_entry(&ctrl_wait, current);
+>> -       init_waitqueue_entry(&intr_wait, current);
+>>          add_wait_queue(sk_sleep(session->ctrl_sock->sk), &ctrl_wait);
+>>          add_wait_queue(sk_sleep(session->intr_sock->sk), &intr_wait);
+>>          /* This memory barrier is paired with wq_has_sleeper(). See
+>> --
+>> 2.1.4
+>>
+>>
+> Thanks.
+>
