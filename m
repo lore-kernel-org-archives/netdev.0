@@ -1,101 +1,90 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Tue, 14 Feb 2017 20:38:22 +0100
-Message-ID: <20170214203822.72d41268@redhat.com>
-References: <20170214131206.44b644f6@redhat.com>
-	<CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
-	<cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
-	<20170214.120426.2032015522492111544.davem@davemloft.net>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net: use-after-free in tw_timer_handler
+Date: Tue, 14 Feb 2017 20:38:30 +0100
+Message-ID: <CACT4Y+aZrpZ3JevLrg5i=nTzBAcVhKX9qmajyW5b-+xExwrCHg@mail.gmail.com>
+References: <CACT4Y+a2t=Ev1-Mp6+aHzRkNPhWaY-dSYRdMeL2Hp7b37bnbUg@mail.gmail.com>
+ <CACT4Y+ba65AD9qpjjJqM=_Pn333iWTm86BNmy2A5_EqHTY_kWA@mail.gmail.com>
+ <1485268138.16328.297.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+b=-XJCwofbCRo6BnKJRU=amd7pxYpNrGdPEFT0bAtJaQ@mail.gmail.com>
+ <CANn89iK=5uPEDLpM6=JAKzJ=1GuSSiXw5b_8BrkVUvhYRi_9mw@mail.gmail.com>
+ <CACT4Y+bRP9ffnXDJeOD5VkqFw+-cDHh4hEVzcnv3vnHh+vdqBQ@mail.gmail.com>
+ <1486576716.7793.84.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+ZqSi_v+ie5MCRggJSZeKQgWqGPKrsRRyaE_GVAfkgLjA@mail.gmail.com>
+ <1486581462.7793.86.camel@edumazet-glaptop3.roam.corp.google.com> <CACT4Y+aagYbMz=3w4zrXaZYJXn65LxZRd7ud1nje9SfS39d+eQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ttoukan.linux@gmail.com, edumazet@google.com, alexander.duyck@gmail.com,
-        netdev@vger.kernel.org, tariqt@mellanox.com, kafai@fb.com,
-        saeedm@mellanox.com, willemb@google.com, bblanco@plumgrid.com,
-        ast@kernel.org, eric.dumazet@gmail.com, linux-mm@kvack.org,
-        brouer@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170214.120426.2032015522492111544.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f46.google.com ([209.85.213.46]:33201 "EHLO
+        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752968AbdBNTiw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 14:38:52 -0500
+Received: by mail-vk0-f46.google.com with SMTP id k127so86599933vke.0
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 11:38:52 -0800 (PST)
+In-Reply-To: <CACT4Y+aagYbMz=3w4zrXaZYJXn65LxZRd7ud1nje9SfS39d+eQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Feb 2017 12:04:26 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+On Wed, Feb 8, 2017 at 8:32 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>>> >> >>> This code was changed a long time ago :
+>>> >> >>>
+>>> >> >>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=ed2e923945892a8372ab70d2f61d364b0b6d9054
+>>> >> >>>
+>>> >> >>> So I suspect a recent patch broke the logic.
+>>> >> >>>
+>>> >> >>> You might start a bisection :
+>>> >> >>>
+>>> >> >>> I would check if 4.7 and 4.8 trigger the issue you noticed.
+>>> >> >>
+>>> >> >>
+>>> >> >> It happens with too low rate for bisecting (few times per day). I
+>>> >> >> could add some additional checks into code, but I don't know what
+>>> >> >> checks could be useful.
+>>> >> >
+>>> >> > If you can not tell if 4.7 and/or 4.8 have the problem, I am not sure
+>>> >> > we are able to help.
+>>> >>
+>>> >>
+>>> >> There are also chances that the problem is older.
+>>> >>
+>>> >> Looking at the code, this part of inet_twsk_purge looks fishy:
+>>> >>
+>>> >> 285                         if (unlikely((tw->tw_family != family) ||
+>>> >> 286                                      atomic_read(&twsk_net(tw)->count))) {
+>>> >>
+>>> >> It uses net->count == 0 check to find the right sockets. But what if
+>>> >> there are several nets with count == 0 in flight, can't there be
+>>> >> several inet_twsk_purge calls running concurrently freeing each other
+>>> >> sockets? If so it looks like inet_twsk_purge can call
+>>> >> inet_twsk_deschedule_put twice for a socket. Namely, two calls for
+>>> >> different nets discover the socket, check that net->count==0 and both
+>>> >> call inet_twsk_deschedule_put. Shouldn't we just give inet_twsk_purge
+>>> >> net that it needs to purge?
+>>> >
+>>> > Yes, atomic_read() is not a proper sync point.
+>>>
+>>> Do you mean that it does not include read barrier?
+>>> I more mean that we can call inet_twsk_deschedule_put twice for the same socket.
+>>
+>> I meant that this code assumed RTNL being held.
+>>
+>> This might not be the case now, after some old change.
+>
+>
+> cleanup_net releases rtnl lock right before calling these callbacks.
 
-> From: Tariq Toukan <ttoukan.linux@gmail.com>
-> Date: Tue, 14 Feb 2017 16:56:49 +0200
-> 
-> > Internally, I already implemented "dynamic page-cache" and
-> > "page-reuse" mechanisms in the driver, and together they totally
-> > bridge the performance gap.  
 
-It sounds like you basically implemented a page_pool scheme...
-
-> I worry about a dynamically growing page cache inside of drivers
-> because it is invisible to the rest of the kernel.
-
-Exactly, that is why I wanted a separate standardized thing, I call the
-page_pool, which is part of the MM-tree and interacts with the page
-allocator.  E.g. it must implement/support a way the page allocator can
-reclaim pages from it (admit I didn't implement this in RFC patches).
-
-
-> It responds only to local needs.
-
-Generally true, but a side effect of recycling these pages, result in
-less fragmentation of the page allocator/buddy system.
-
-
-> The price of the real page allocator comes partly because it can
-> respond to global needs.
-> 
-> If a driver consumes some unreasonable percentage of system memory, it
-> is keeping that memory from being used from other parts of the system
-> even if it would be better for networking to be slightly slower with
-> less cache because that other thing that needs memory is more
-> important.
-
-(That is why I want to have OOM protection at device level, with the
-recycle feedback from page pool we have this knowledge, and further I
-wanted to allow blocking a specific RX queue[1])
-[1] https://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/memory_model_nic.html#userspace-delivery-and-oom
-
-
-> I think this is one of the primary reasons that the MM guys severely
-> chastise us when we build special purpose local caches into networking
-> facilities.
-> 
-> And the more I think about it the more I think they are right.
-
-+1
- 
-> One path I see around all of this is full integration.  Meaning that
-> we can free pages into the page allocator which are still DMA mapped.
-> And future allocations from that device are prioritized to take still
-> DMA mapped objects.
-
-I like this idea.  Are you saying that this should be done per DMA
-engine or per device?
-
-If this is per device, it is almost the page_pool idea.  
-
- 
-> Yes, we still need to make the page allocator faster, but this kind of
-> work helps everyone not just 100GB ethernet NICs.
-
-True.  And Mel already have some generic improvements to the page
-allocator queued for the next merge.  And I have the responsibility to
-get the bulking API into shape.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
++Andrey, do you know somebody on your side interested in stability of
+network namespace?
+This use-after-free seems to be related to net namespace. For context,
+full thread is here:
+https://groups.google.com/forum/#!msg/syzkaller/p1tn-_Kc6l4/smuL_FMAAgAJ
