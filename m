@@ -1,106 +1,155 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 14 Feb 2017 09:50:20 -0300
-Message-ID: <20170214125020.GA4458@kernel.org>
-References: <20170214091250.57d054b2@canb.auug.org.au>
- <20170214064221.GB10242@gmail.com>
- <20170214091937.GA18546@krava>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: net: BUG in __skb_gso_segment
+Date: Tue, 14 Feb 2017 13:59:35 +0100
+Message-ID: <CAAeHK+wfDdc_FybfsZUS0F4n9qkdCd-6V_VEEA0EgJ_vZjzRmg@mail.gmail.com>
+References: <CAAeHK+x0LGHoBF-iL5Az-nrXTBkMUfeqi0Pb-7Fne7L8ZYA6Sg@mail.gmail.com>
+ <CANn89i+rqdKnRN9XH4ARqGouJaM0P2WtH9XrGQF+MJ_+mgrsaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@kernel.org>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>
-To: Jiri Olsa <jolsa@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:55650 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752455AbdBNM6n (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Feb 2017 07:58:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20170214091937.GA18546@krava>
+Received: from mail-wr0-f169.google.com ([209.85.128.169]:35808 "EHLO
+        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753360AbdBNM7m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 07:59:42 -0500
+Received: by mail-wr0-f169.google.com with SMTP id c4so11581857wrd.2
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 04:59:36 -0800 (PST)
+In-Reply-To: <CANn89i+rqdKnRN9XH4ARqGouJaM0P2WtH9XrGQF+MJ_+mgrsaQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Feb 14, 2017 at 10:19:37AM +0100, Jiri Olsa escreveu:
-> On Tue, Feb 14, 2017 at 07:42:21AM +0100, Ingo Molnar wrote:
-> > * Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> > > Unfortunately, the perf header files are kept separate from the kernel
-> > > header files proper and are not automatically copied over :-(
+On Mon, Feb 13, 2017 at 10:56 PM, Eric Dumazet <edumazet@google.com> wrote:
+> On Mon, Feb 13, 2017 at 11:54 AM, Andrey Konovalov
+> <andreyknvl@google.com> wrote:
+>> Hi,
+>>
+>> I've got the following error report while fuzzing the kernel with syzkaller.
+>>
+>> A reproducer and .config are attached.
+>>
+>> On commit 926af6273fc683cd98cd0ce7bf0d04a02eed6742.
+>>
+>> kernel BUG at ./include/linux/skbuff.h:1942!
+>> invalid opcode: 0000 [#1] SMP KASAN
+>> Dumping ftrace buffer:
+>>    (ftrace buffer empty)
+>> Modules linked in:
+>> CPU: 1 PID: 5922 Comm: syz-executor5 Not tainted 4.10.0-rc7+ #127
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>> task: ffff88003ba72dc0 task.stack: ffff880033ed0000
+>> RIP: 0010:__skb_pull include/linux/skbuff.h:1942 [inline]
+>> RIP: 0010:skb_mac_gso_segment+0x5ae/0x690 net/core/dev.c:2634
+>> RSP: 0018:ffff880033ed6c48 EFLAGS: 00010216
+>> RAX: 0000000000010000 RBX: 000000000000113e RCX: ffffc90003f74000
+>> RDX: 0000000000000223 RSI: ffffffff833cfbfe RDI: ffff88003e305244
+>> RBP: ffff880033ed6d98 R08: 0000000000000000 R09: 0000000000000000
+>> R10: c66e14bf8d4328e9 R11: 0000000000000000 R12: 000000000000000e
+>> R13: ffff88003e3051c0 R14: ffff880033ed6d70 R15: 0000000000000000
+>> FS:  00007faa035db700(0000) GS:ffff88003ed00000(0000) knlGS:0000000000000000
+>> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>> CR2: 00000000203dd000 CR3: 000000003c165000 CR4: 00000000000006e0
+>> Call Trace:
+>>  __skb_gso_segment+0x3d2/0x780 net/core/dev.c:2710
+>>  skb_gso_segment include/linux/netdevice.h:3914 [inline]
+>>  validate_xmit_skb+0x5c9/0xc20 net/core/dev.c:2944
+>>  __dev_queue_xmit+0x102e/0x2860 net/core/dev.c:3364
+>>  dev_queue_xmit+0x17/0x20 net/core/dev.c:3405
+>>  packet_snd net/packet/af_packet.c:2872 [inline]
+>>  packet_sendmsg+0x40bc/0x58b0 net/packet/af_packet.c:2897
+>>  sock_sendmsg_nosec net/socket.c:635 [inline]
+>>  sock_sendmsg+0xca/0x110 net/socket.c:645
+>>  ___sys_sendmsg+0x4a3/0xae0 net/socket.c:1985
+>>  __sys_sendmmsg+0x25c/0x750 net/socket.c:2075
+>>  SYSC_sendmmsg net/socket.c:2106 [inline]
+>>  SyS_sendmmsg+0x35/0x60 net/socket.c:2101
+>>  entry_SYSCALL_64_fastpath+0x1f/0xc2
+>> RIP: 0033:0x4458b9
+>> RSP: 002b:00007faa035dab58 EFLAGS: 00000292 ORIG_RAX: 0000000000000133
+>> RAX: ffffffffffffffda RBX: 0000000000000016 RCX: 00000000004458b9
+>> RDX: 0000000000000001 RSI: 0000000020bc7fc8 RDI: 0000000000000016
+>> RBP: 00000000006e1ad0 R08: 0000000000000000 R09: 0000000000000000
+>> R10: 0000000000000000 R11: 0000000000000292 R12: 0000000000708000
+>> R13: 0000000020fcc000 R14: 0000000000001000 R15: 0000000000000003
+>> Code: 00 00 48 c7 c7 00 4b 23 85 c6 05 b6 6f b2 02 01 e8 58 7a 04 fe
+>> e9 ae fc ff ff 48 c7 c3 ea ff ff ff e9 dc fe ff ff e8 82 f0 1d fe <0f>
+>> 0b 48 8b bd e0 fe ff ff e8 a4 30 48 fe e9 ef fd ff ff e8 9a
+>> RIP: __skb_pull include/linux/skbuff.h:1942 [inline] RSP: ffff880033ed6c48
+>> RIP: skb_mac_gso_segment+0x5ae/0x690 net/core/dev.c:2634 RSP: ffff880033ed6c48
+>> ---[ end trace 2214c8475331c97c ]---
+>> Kernel panic - not syncing: Fatal exception in interrupt
+>> Dumping ftrace buffer:
+>>    (ftrace buffer empty)
+>> Kernel Offset: disabled
+>> Rebooting in 86400 seconds..
+>
+> Hi Andrey.
 
-> > No, that's wrong, the problem is not that headers were not shared, the problem is 
-> > that a tooling interdependency was not properly tested *and* that the dependency 
-> > was not properly implemented in the build system either.
+Hi Eric,
 
-> > Note that we had similar build breakages when include headers _were_ shared as 
-> > well, so sharing the headers would only have worked around this particular bug and 
-> > would have introduced fragility in other places...
+>
+> 926af6273fc683cd98cd0ce7bf0d04a02eed6 is quite old ;)
 
-> > The best, most robust solution in this particular case would be to fix the 
-> > (tooling) build system to express the dependency, that would have shown the build 
-> > failure right when the modification was done.
- 
-> so we have the warning now:
->   Warning: tools/include/uapi/linux/bpf.h differs from kernel
- 
-> do you want to change it into the build failure?
+Updated to 4.10-rc8 :)
 
-No. Differences in the copy are not always problematic, the problem here
-lies elsewhere.
+>
+> Probably already fixed ?
 
-Please run:
+Yes, it is.
 
-  make -C tools all
+Thanks!
 
-To build all tools when you touch something in tools/include and/or
-tools/lib/
-
-- Arnaldo
-
-
-
-Bored? Here is what I first wrote ;-)
-
-Simply using the kernel original would require kernel hackers to build
-all tools using that file, something we long decided not to do.
-
-What I think Ingo meant with dependency at the build system level is to
-somehow state that if file A gets changed, then tool B must be rebuilt.
-
-Now that samples/bpf and tools/perf/ depend on tools/lib/bpf/ I _always_
-build both, ditto for tools/objtool, that shares a different library
-with tools/perf/, tools/lib/subcmd/:
-
-ENTRYPOINT make -C /git/linux/tools/perf O=/tmp/build/perf && \
-           rm -rf /tmp/build/perf/{.[^.]*,*} && \
-           make NO_LIBELF=1 -C /git/linux/tools/perf O=/tmp/build/perf && \
-           make -C /git/linux/tools/objtool O=/tmp/build/objtool && \
-           make -C /git/linux O=/tmp/build/linux allmodconfig && \
-           make -C /git/linux O=/tmp/build/linux headers_install && \
-           make -C /git/linux O=/tmp/build/linux samples/bpf/
-
-This is the default action for my
-docker.io/acmel/linux-perf-tools-build-fedora:rawhide container.
-
-It is published, so a:
-
-   docker pull docker.io/acmel/linux-perf-tools-build-fedora:rawhide
-
-And then run it before pushing things upstream would catch these kinds
-of errors.
-
-But that would possibly disrupt too much people's workflow, that is why
-using the Kbuild originated tools/build/ we have to somehow express that
-when a change is made in a file then a tool that uses that file needs to
-be rebuilt.
-
-Makefile rules probably would be enough, but then it would have to be
-done at the tools/build/ level and all tools using shared components
-would have to use it to trigger the rebuild.
-
-- Arnaldo
+>
+> commit 57031eb794906eea4e1c7b31dc1e2429c0af0c66
+> Author: Willem de Bruijn <willemb@google.com>
+> Date:   Tue Feb 7 15:57:21 2017 -0500
+>
+>     packet: round up linear to header len
+>
+>     Link layer protocols may unconditionally pull headers, as Ethernet
+>     does in eth_type_trans. Ensure that the entire link layer header
+>     always lies in the skb linear segment. tpacket_snd has such a check.
+>     Extend this to packet_snd.
+>
+>     Variable length link layer headers complicate the computation
+>     somewhat. Here skb->len may be smaller than dev->hard_header_len.
+>
+>     Round up the linear length to be at least as long as the smallest of
+>     the two.
+>
+>     Reported-by: Dmitry Vyukov <dvyukov@google.com>
+>     Signed-off-by: Willem de Bruijn <willemb@google.com>
+>     Acked-by: Eric Dumazet <edumazet@google.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> commit 217e6fa24ce28ec87fca8da93c9016cb78028612
+> Author: Willem de Bruijn <willemb@google.com>
+> Date:   Tue Feb 7 15:57:20 2017 -0500
+>
+>     net: introduce device min_header_len
+>
+>     The stack must not pass packets to device drivers that are shorter
+>     than the minimum link layer header length.
+>
+>     Previously, packet sockets would drop packets smaller than or equal
+>     to dev->hard_header_len, but this has false positives. Zero length
+>     payload is used over Ethernet. Other link layer protocols support
+>     variable length headers. Support for validation of these protocols
+>     removed the min length check for all protocols.
+>
+>     Introduce an explicit dev->min_header_len parameter and drop all
+>     packets below this value. Initially, set it to non-zero only for
+>     Ethernet and loopback. Other protocols can follow in a patch to
+>     net-next.
+>
+>     Fixes: 9ed988cd5915 ("packet: validate variable length ll headers")
+>     Reported-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+>     Signed-off-by: Willem de Bruijn <willemb@google.com>
+>     Acked-by: Eric Dumazet <edumazet@google.com>
+>     Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
