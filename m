@@ -1,91 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] rt2500usb: don't mark register accesses as inline
-Date: Tue, 14 Feb 2017 22:28:33 +0100
-Message-ID: <20170214212846.2809141-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Mathias Kresin <dev@kresin.me>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>,
-        Helmut Schaa <helmut.schaa@googlemail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Tue, 14 Feb 2017 13:56:47 -0800
+Message-ID: <CANn89iK6Ecf2NNxKLy83WYK3WnuinGWc9J03UOpFROOWqE=Bog@mail.gmail.com>
+References: <20170213195858.5215-1-edumazet@google.com> <20170213195858.5215-9-edumazet@google.com>
+ <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
+ <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
+ <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
+ <20170214131206.44b644f6@redhat.com> <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
+ <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com> <CAKgT0UdRmpV_n1wstTHvqCgyRtze8z1rTJ5pKc_jdRttQCSySw@mail.gmail.com>
+ <20170214194615.3feddd07@redhat.com> <CANn89iK4fnsjsK+GHYdT7_F0f++sa+t2LqrZWftjEryhF=hX+w@mail.gmail.com>
+ <20170214210219.1ea87229@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Tariq Toukan <ttoukan.linux@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        linux-mm <linux-mm@kvack.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:38111 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750711AbdBNV4t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 16:56:49 -0500
+Received: by mail-it0-f53.google.com with SMTP id c7so51120502itd.1
+        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 13:56:49 -0800 (PST)
+In-Reply-To: <20170214210219.1ea87229@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_KASAN is set, we get a rather large stack here:
+>
+> This obviously does not work for the case I'm talking about
+> (transmitting out another device with XDP).
+>
 
-drivers/net/wireless/ralink/rt2x00/rt2500usb.c: In function 'rt2500usb_set_device_state':
-drivers/net/wireless/ralink/rt2x00/rt2500usb.c:1074:1: error: the frame size of 3032 bytes is larger than 100 bytes [-Werror=frame-larger-than=]
+XDP_TX does not handle this yet.
 
-If we don't force those functions to be inline, the compiler can figure this
-out better itself and not inline the functions when doing so would be harmful,
-reducing the stack size to a merge 256 bytes.
+When XDP_TX was added, it was very clear that the transmit _had_ to be
+done on the same port.
 
-Note that there is another problem that manifests in this driver, as a result
-of the typecheck() macro causing even larger stack frames.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/wireless/ralink/rt2x00/rt2500usb.c | 19 +++++--------------
- 1 file changed, 5 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/wireless/ralink/rt2x00/rt2500usb.c b/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
-index 62357465fe29..0d2670a56c4c 100644
---- a/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
-+++ b/drivers/net/wireless/ralink/rt2x00/rt2500usb.c
-@@ -55,7 +55,7 @@ MODULE_PARM_DESC(nohwcrypt, "Disable hardware encryption.");
-  * If the csr_mutex is already held then the _lock variants must
-  * be used instead.
-  */
--static inline void rt2500usb_register_read(struct rt2x00_dev *rt2x00dev,
-+static void rt2500usb_register_read(struct rt2x00_dev *rt2x00dev,
- 					   const unsigned int offset,
- 					   u16 *value)
- {
-@@ -66,7 +66,7 @@ static inline void rt2500usb_register_read(struct rt2x00_dev *rt2x00dev,
- 	*value = le16_to_cpu(reg);
- }
- 
--static inline void rt2500usb_register_read_lock(struct rt2x00_dev *rt2x00dev,
-+static void rt2500usb_register_read_lock(struct rt2x00_dev *rt2x00dev,
- 						const unsigned int offset,
- 						u16 *value)
- {
-@@ -77,16 +77,7 @@ static inline void rt2500usb_register_read_lock(struct rt2x00_dev *rt2x00dev,
- 	*value = le16_to_cpu(reg);
- }
- 
--static inline void rt2500usb_register_multiread(struct rt2x00_dev *rt2x00dev,
--						const unsigned int offset,
--						void *value, const u16 length)
--{
--	rt2x00usb_vendor_request_buff(rt2x00dev, USB_MULTI_READ,
--				      USB_VENDOR_REQUEST_IN, offset,
--				      value, length);
--}
--
--static inline void rt2500usb_register_write(struct rt2x00_dev *rt2x00dev,
-+static void rt2500usb_register_write(struct rt2x00_dev *rt2x00dev,
- 					    const unsigned int offset,
- 					    u16 value)
- {
-@@ -96,7 +87,7 @@ static inline void rt2500usb_register_write(struct rt2x00_dev *rt2x00dev,
- 				      &reg, sizeof(reg));
- }
- 
--static inline void rt2500usb_register_write_lock(struct rt2x00_dev *rt2x00dev,
-+static void rt2500usb_register_write_lock(struct rt2x00_dev *rt2x00dev,
- 						 const unsigned int offset,
- 						 u16 value)
- {
-@@ -106,7 +97,7 @@ static inline void rt2500usb_register_write_lock(struct rt2x00_dev *rt2x00dev,
- 				       &reg, sizeof(reg), REGISTER_TIMEOUT);
- }
- 
--static inline void rt2500usb_register_multiwrite(struct rt2x00_dev *rt2x00dev,
-+static void rt2500usb_register_multiwrite(struct rt2x00_dev *rt2x00dev,
- 						 const unsigned int offset,
- 						 void *value, const u16 length)
- {
--- 
-2.9.0
+Since all this discussion happened in this thread ( mlx4: use order-0
+pages for RX )
+I was kind of assuming all the comments were relevant to current code or patch,
+not future devs ;)
