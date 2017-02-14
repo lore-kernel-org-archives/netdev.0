@@ -1,87 +1,32 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
-Date: Tue, 14 Feb 2017 21:02:19 +0100
-Message-ID: <20170214210219.1ea87229@redhat.com>
-References: <20170213195858.5215-1-edumazet@google.com>
-        <20170213195858.5215-9-edumazet@google.com>
-        <CAKgT0Ufx0Y=9kjLax36Gx4e7Y-A7sKZDNYxgJ9wbCT4_vxHhGA@mail.gmail.com>
-        <CANn89iLkPB_Dx1L2dFfwOoeXOmPhu_C3OO2yqZi8+Rvjr=-EtA@mail.gmail.com>
-        <CAKgT0UeB_e_Z7LM1_r=en8JJdgLhoYFstWpCDQN6iawLYZJKDA@mail.gmail.com>
-        <20170214131206.44b644f6@redhat.com>
-        <CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
-        <cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
-        <CAKgT0UdRmpV_n1wstTHvqCgyRtze8z1rTJ5pKc_jdRttQCSySw@mail.gmail.com>
-        <20170214194615.3feddd07@redhat.com>
-        <CANn89iK4fnsjsK+GHYdT7_F0f++sa+t2LqrZWftjEryhF=hX+w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net_sched: nla_memdup_cookie() can be static
+Date: Tue, 14 Feb 2017 15:02:34 -0500 (EST)
+Message-ID: <20170214.150234.1161025224187495564.davem@davemloft.net>
+References: <20170214141932.15115-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Tariq Toukan <ttoukan.linux@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        linux-mm <linux-mm@kvack.org>, brouer@redhat.com
-To: Eric Dumazet <edumazet@google.com>
+Cc: jhs@mojatatu.com, weiyongjun1@huawei.com, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51786 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752105AbdBNUC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 14 Feb 2017 15:02:26 -0500
-In-Reply-To: <CANn89iK4fnsjsK+GHYdT7_F0f++sa+t2LqrZWftjEryhF=hX+w@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42022 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752604AbdBNUCg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 15:02:36 -0500
+In-Reply-To: <20170214141932.15115-1-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Feb 2017 11:02:01 -0800
-Eric Dumazet <edumazet@google.com> wrote:
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Tue, 14 Feb 2017 14:19:32 +0000
 
-> On Tue, Feb 14, 2017 at 10:46 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> >  
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> >
-> > With this Intel driver page count based recycle approach, the recycle
-> > size is tied to the size of the RX ring.  As Eric and Tariq discovered.
-> > And for other performance reasons (memory footprint of walking RX ring
-> > data-structures), don't want to increase the RX ring sizes.  Thus, it
-> > create two opposite performance needs.  That is why I think a more
-> > explicit approach with a pool is more attractive.
-> >
-> > How is this approach doing to work for XDP?
-> > (XDP doesn't "share" the page, and in-general we don't want the extra
-> > atomic.)
-> >
-> > We absolutely need recycling with XDP, when transmitting out another
-> > device, and the other devices DMA-TX completion need some way of
-> > returning this page.
-> > What is basically needed is a standardized callback to allow the remote
-> > driver to return the page to the originating driver.  As we don't have
-> > a NDP for XDP-forward/transmit yet, we could pass this callback as a
-> > parameter along with the packet-page to send?
-> >
-> >  
+> Fixes the following sparse warning:
 > 
+> net/sched/act_api.c:532:5: warning:
+>  symbol 'nla_memdup_cookie' was not declared. Should it be static?
 > 
-> mlx4 already has a cache for XDP.
-> I believe I did not change this part, it still should work.
-> 
-> commit d576acf0a22890cf3f8f7a9b035f1558077f6770
-> Author: Brenden Blanco <bblanco@plumgrid.com>
-> Date:   Tue Jul 19 12:16:52 2016 -0700
-> 
->     net/mlx4_en: add page recycle to prepare rx ring for tx support
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-This obviously does not work for the case I'm talking about
-(transmitting out another device with XDP).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Applied, thank you.
