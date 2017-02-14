@@ -1,45 +1,76 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 1/6] net/sched: cls_matchall: Dump skip flags
-Date: Tue, 14 Feb 2017 16:30:35 +0200
-Message-ID: <1487082640-24813-2-git-send-email-ogerlitz@mellanox.com>
-References: <1487082640-24813-1-git-send-email-ogerlitz@mellanox.com>
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>, netdev@vger.kernel.org,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Claudiu Manoil <claudiu.manoil@nxp.com>
+Subject: RE: [PATCH net] at803x: insure minimum delay for SGMII link AN
+ completion ckeck
+Date: Tue, 14 Feb 2017 14:31:53 +0000
+Message-ID: <AM5PR0401MB2561EFE479E6B2FCC508C9BD96580@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+References: <1486744943-12474-1-git-send-email-claudiu.manoil@nxp.com>
+ <849590ef-2913-5c8e-56a7-a00d238d1235@neratec.com>
+ <AM5PR0401MB25616E07222F4B854CB2247D96590@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+ <20170213173105.GE9946@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "Florian Fainelli" <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54483 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754066AbdBNOay (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 09:30:54 -0500
-In-Reply-To: <1487082640-24813-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mail-ve1eur01on0073.outbound.protection.outlook.com ([104.47.1.73]:22719
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753096AbdBNOb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 14 Feb 2017 09:31:59 -0500
+In-Reply-To: <20170213173105.GE9946@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The skip flags are not dumped to user-space, do that.
+>-----Original Message-----
+>From: Andrew Lunn [mailto:andrew@lunn.ch]
+>Sent: Monday, February 13, 2017 7:31 PM
+>Subject: Re: [PATCH net] at803x: insure minimum delay for SGMII link AN
+>completion ckeck
+>
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: Yotam Gigi <yotamg@mellanox.com>
----
- net/sched/cls_matchall.c | 2 ++
- 1 file changed, 2 insertions(+)
+[...]
 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index f2141cb..ce2f7d4 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -244,6 +244,8 @@ static int mall_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 	    nla_put_u32(skb, TCA_MATCHALL_CLASSID, head->res.classid))
- 		goto nla_put_failure;
- 
-+	nla_put_u32(skb, TCA_MATCHALL_FLAGS, head->flags);
-+
- 	if (tcf_exts_dump(skb, &head->exts))
- 		goto nla_put_failure;
- 
--- 
-2.3.7
+>>
+>> I can confirm that link status changes are signaled via interrupts ("phy=
+_interrupt")
+>> in this case.
+>
+>Is there a way to enable an interrupt when SGMII signalled link
+>changes has happened? Maybe another interrupt enable bit somewhere?
+>That would avoid having to sleep().
+>
+
+No, except for the interrupt lines coming from the external AR8033 PHYs the=
+re's=20
+nothing else (documentation on the SoC and board is available on nxp.com).
+I think this question hints to the actual problem, that the internal SGMII =
+link=20
+should have a separate state (and state machine) apart from the external li=
+nk's
+state.  PHYLIB currently handles the state of the external link of a PHY, h=
+ence=20
+the aneg_done() hook should reflect the status of the external link. So, I =
+think=20
+there'll always be issues if the external PHY device's aneg_done() returns =
+the AN=20
+status of the internal SGMII link. Actually, the internal link is owned by =
+an internal=20
+(SoC) PHY device, TBI in this case (or something similar for other SoCs I'd=
+ expect),=20
+so, by a different phy device.  Moreover, the auto-negotiation on the exter=
+nal link=20
+is different from the AN on the internal SGMII link (different IEEE clauses=
+: clause 27 vs=20
+clause 37).
+So, I think the way to go would be to drop the SGMII link state check from =
+AR803x's
+aneg_done() for now and try to address SGMII internal link potential issues=
+ at SoC/MAC=20
+level, on a case by case basis.
+
+Claudiu
