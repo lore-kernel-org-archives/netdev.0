@@ -1,29 +1,52 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 3/4] ptp: use is_visible method to hide unused attributes
-Date: Tue, 14 Feb 2017 09:42:26 +0100
-Message-ID: <20170214084226.GC8048@localhost.localdomain>
-References: <20170214035108.19622-1-dmitry.torokhov@gmail.com>
- <20170214035108.19622-3-dmitry.torokhov@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
+Date: Tue, 14 Feb 2017 10:08:16 +0100
+Message-ID: <20170214090816.GJ30338@gauss.secunet.com>
+References: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
+ <20170214070854.GH30338@gauss.secunet.com>
+ <CACT4Y+aPd8drh7MQf8cXLs_9f-oymf6YiWfN+owUsSYYz0yMzA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170214035108.19622-3-dmitry.torokhov@gmail.com>
+In-Reply-To: <CACT4Y+aPd8drh7MQf8cXLs_9f-oymf6YiWfN+owUsSYYz0yMzA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2017 at 07:51:07PM -0800, Dmitry Torokhov wrote:
-> Instead of creating selected attributes after the device is created (and
-> after userspace potentially seen uevent), lets use attribute group
-> is_visible() method to control which attributes are shown. This will allow
-> us to create all attributes (except "pins" group, which will be taken care
-> of later) before userspace gets notified about new ptp class device.
+On Tue, Feb 14, 2017 at 09:41:35AM +0100, Dmitry Vyukov wrote:
+> On Tue, Feb 14, 2017 at 8:08 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > On Mon, Feb 13, 2017 at 03:46:56PM +0100, Dmitry Vyukov wrote:
+> >>
+> >> On commit 7089db84e356562f8ba737c29e472cc42d530dbc.
+> >>
+> >>
+> >> struct flowi4 fl4_stack allocated on stack in udp_sendmsg is being
+> >> casted to larger struct flowi and then accessed.
+> >
+> > Looks like the problem is when using IPv4-mapped IPv6 addresses.
+> >
+> > Does the patch below help?
+> 
+> 
+> Steffen, can you please run the reproducer I provided?
+> I specifically spent time to supply you with a simple, reliable
+> reproducer. I am not even saying about adding a test case for the bug.
+> Kernel development practices seem to encourage developers to not
+> bother with tests. But at least testing a patch that you are sending
+> looks like a reasonable thing to do.
 
-At first glance, this patch and the next look like nice improvements.
-I don't futz around with sysfs code very often, and so may I ask how
-or whether you tested it?
+I tested this with my socket policy testcases of course.
+I dont have a IPv4-mapped IPv6 addresses testcase and
+changing userspace in my test setup means to rebuild
+the system iso image.
 
-Thanks,
-Richard
+Asking for a test is not so uncommon. You have the
+testcase, why not running it again?
