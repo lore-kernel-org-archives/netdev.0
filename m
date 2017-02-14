@@ -1,34 +1,29 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next V2 6/6] net/sched: cls_bpf: Reflect HW offload
- status
-Date: Tue, 14 Feb 2017 11:27:16 -0800
-Message-ID: <20170214112716.6b9a700e@cakuba.netronome.com>
-References: <1487082640-24813-1-git-send-email-ogerlitz@mellanox.com>
-        <1487082640-24813-7-git-send-email-ogerlitz@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] pcnet32: factor out pcnet32_clr_suspend()
+Date: Tue, 14 Feb 2017 14:28:29 -0500 (EST)
+Message-ID: <20170214.142829.2209542102219622424.davem@davemloft.net>
+References: <1487025947-28867-1-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>, netdev@vger.kernel.org
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: pcnet32@frontier.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: linux@rainbow-software.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f173.google.com ([74.125.82.173]:34105 "EHLO
-        mail-ot0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753570AbdBNT1T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 14:27:19 -0500
-Received: by mail-ot0-f173.google.com with SMTP id t47so16965763ota.1
-        for <netdev@vger.kernel.org>; Tue, 14 Feb 2017 11:27:19 -0800 (PST)
-In-Reply-To: <1487082640-24813-7-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41434 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750831AbdBNT2d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 14:28:33 -0500
+In-Reply-To: <1487025947-28867-1-git-send-email-linux@rainbow-software.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Feb 2017 16:30:40 +0200, Or Gerlitz wrote:
-> BPF classifier support for the "in hw" offloading flags.
-> 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reviewed-by: Amir Vadai <amir@vadai.me>
+From: Ondrej Zary <linux@rainbow-software.org>
+Date: Mon, 13 Feb 2017 23:45:46 +0100
 
-Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Move the code to clear SUSPEND flag to a separate function to simplify
+> code.
+> 
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+
+Applied to net-next.
