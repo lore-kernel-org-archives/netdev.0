@@ -1,74 +1,56 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: ath9k: Access rchan::buf only with per_cpu helper
-Date: Tue, 14 Feb 2017 09:59:48 -0800
-Message-ID: <b024ba5dbbc244788065b05d5fc99cfa@eusanexr01a.eu.qualcomm.com>
-References: <20170213155648.4821-1-sven@narfation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-wireless@vger.kernel.org>, <ath9k-devel@qca.qualcomm.com>,
-        <kvalo@codeaurora.org>, <netdev@vger.kernel.org>,
-        <sw@simonwunderlich.de>, Sven Eckelmann <sven@narfation.org>,
-        Akash Goel <akash.goel@intel.com>,
-        "Nick Kossifidis" <mickflemm@gmail.com>
-To: Sven Eckelmann <sven@narfation.org>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH 0/3] add support for multiple queues/channels in stmmac
+Date: Tue, 14 Feb 2017 18:00:40 +0000
+Message-ID: <cover.1487089769.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:38168 "EHLO
-        wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754767AbdBNSAB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 13:00:01 -0500
-In-Reply-To: <20170213155648.4821-1-sven@narfation.org>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:50288 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754767AbdBNSAt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 13:00:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sven Eckelmann <sven@narfation.org> wrote:
-> The relayfs was changed to use per CPU constructs to handle the rchan
-> buffers. But the users of the rchan buffers in other parts of the kernel
-> were not modified. This caused crashes like
-> 
->   BUG: unable to handle kernel paging request at 00003a5198a0b910
->   IP: [<ffffffffa973cb3a>] ath_cmn_process_fft+0xea/0x610
->   PGD 0 [  179.522449]
->   Oops: 0000 [#1] SMP
->   Modules linked in:
->   CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.9.0-rc5 #1
->   [...]
->   Call Trace:
->    <IRQ> [  179.656426]  [<ffffffffa9704373>] ? ath_rx_tasklet+0x2f3/0xd10
->    [<ffffffffa9702106>] ? ath9k_tasklet+0x1b6/0x230
->    [<ffffffffa90dcbd1>] ? tasklet_action+0xf1/0x100
->    [<ffffffffa9a3cb3f>] ? __do_softirq+0xef/0x284
->    [<ffffffffa90dd22e>] ? irq_exit+0xae/0xb0
->    [<ffffffffa9a3c89f>] ? do_IRQ+0x4f/0xd0
->    [<ffffffffa9a3aa42>] ? common_interrupt+0x82/0x82
->    <EOI> [  179.703152]  [<ffffffffa9a39c1d>] ? poll_idle+0x2d/0x57
->    [<ffffffffa908c845>] ? sched_clock+0x5/0x10
->    [<ffffffffa97bc8d6>] ? cpuidle_enter_state+0xf6/0x2d0
->    [<ffffffffa911988e>] ? cpu_startup_entry+0x14e/0x230
->    [<ffffffffaa3cdf70>] ? start_kernel+0x461/0x481
->    [<ffffffffaa3cd120>] ? early_idt_handler_array+0x120/0x120
->    [<ffffffffaa3cd413>] ? x86_64_start_kernel+0x14c/0x170
->   Code: 31 db 41 be ff ff ff ff 4c 8b 26 48 8b 6e 08 49 8b 84 24 60 05 00
->         00 48 8b 00 0f b7 40 04 66 89 44 24 48 eb 11 48 8b 55 40 48 98 <48>
->         8b 3c c2 e8 ad a0 a4 ff 01 c3 41 8d 56 01 be 00 02 00 00 48
->   RIP  [<ffffffffa973cb3a>] ath_cmn_process_fft+0xea/0x610
->    RSP <ffff9b43e7003d20>
->   CR2: 00003a5198a0b910
-> 
-> Fixes: 017c59c042d0 ("relay: Use per CPU constructs for the relay channel buffer pointers")
-> Cc: Akash Goel <akash.goel@intel.com>
-> Cc: Nick Kossifidis <mickflemm@gmail.com>
-> Reported-by: Mathias Kretschmer <mathias.kretschmer@fit.fraunhofer.de>
-> Signed-off-by: Sven Eckelmann <sven@narfation.org>
+This patch-set was built in order to be easy for a developer to have
+a clear view of what was done to add multiple queues/channels to stmmac.
+It shows a progressive work starting in an initial mac functions upgrade,
+followed by dma related functions upgrade and finally introcuding the
+multiple buffers.
 
-Patch applied to ath-next branch of ath.git, thanks.
+Some of the functions had to be broken in RX and TX related, in order to
+enable separated treatment, since the number of RX queues can be different
+from the number of TX queues for example.
 
-07460b92db7c ath9k: Access rchan::buf only with per_cpu helper
+Each patch and the final patch-set were tested using a 4.21 EQOS IP Core.
+
+Joao Pinto (3):
+  net: stmicro: prepare dwmac4 core for mtl
+  net: stmicro: prepare dwmac4 dma for mtl
+  net: stmicro: multiple buffer support
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |   11 +
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c   |   44 +-
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   89 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    6 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |   16 +-
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    3 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |   19 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |   49 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  |  194 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c   |  297 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.h   |   25 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_lib.c   |   58 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |   15 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |   14 +-
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c    |   47 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   47 +-
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   26 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 1961 ++++++++++++++------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   33 +
+ include/linux/stmmac.h                             |    8 +
+ 20 files changed, 2153 insertions(+), 809 deletions(-)
 
 -- 
-https://patchwork.kernel.org/patch/9570191/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+2.9.3
