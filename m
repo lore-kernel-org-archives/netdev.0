@@ -1,44 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] uapi: fix linux/if_pppol2tp.h userspace compilation
- errors
-Date: Tue, 14 Feb 2017 14:37:23 -0500 (EST)
-Message-ID: <20170214.143723.629330014459224649.davem@davemloft.net>
-References: <20170214103353.GA8394@altlinux.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v3 net-next 08/14] mlx4: use order-0 pages for RX
+Date: Tue, 14 Feb 2017 20:38:22 +0100
+Message-ID: <20170214203822.72d41268@redhat.com>
+References: <20170214131206.44b644f6@redhat.com>
+	<CANn89i+udp6Y42D9wqmz7U6LGn1mtDRXpQGHAOAeX25eD0dGnQ@mail.gmail.com>
+	<cd4f3d91-252b-4796-2bd2-3030c18d9ee6@gmail.com>
+	<20170214.120426.2032015522492111544.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jchapman@katalix.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: ldv@altlinux.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41604 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752277AbdBNThZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 14:37:25 -0500
-In-Reply-To: <20170214103353.GA8394@altlinux.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ttoukan.linux@gmail.com, edumazet@google.com, alexander.duyck@gmail.com,
+        netdev@vger.kernel.org, tariqt@mellanox.com, kafai@fb.com,
+        saeedm@mellanox.com, willemb@google.com, bblanco@plumgrid.com,
+        ast@kernel.org, eric.dumazet@gmail.com, linux-mm@kvack.org,
+        brouer@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170214.120426.2032015522492111544.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Date: Tue, 14 Feb 2017 13:33:53 +0300
+On Tue, 14 Feb 2017 12:04:26 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-> In file included from /usr/include/linux/l2tp.h:12:0,
->                  from /usr/include/linux/if_pppol2tp.h:21,
-> /usr/include/netinet/in.h:31:8: error: redefinition of 'struct in_addr'
+> From: Tariq Toukan <ttoukan.linux@gmail.com>
+> Date: Tue, 14 Feb 2017 16:56:49 +0200
+> 
+> > Internally, I already implemented "dynamic page-cache" and
+> > "page-reuse" mechanisms in the driver, and together they totally
+> > bridge the performance gap.  
 
-This is protected properly by __UAPI_DEF_IN_ADDR, so whichever gets
-included first makes the definition.
+It sounds like you basically implemented a page_pool scheme...
 
-This whole thing is designed so that if GLIBC headers are included
-first, __UAPI_DEF_IN_ADDR will be defined to zero, therefore
-linux/in.h won't try to make the definition.  Otherwise it will.
+> I worry about a dynamically growing page cache inside of drivers
+> because it is invisible to the rest of the kernel.
 
-The facility should not be so fragile that we have to play all
-kinds of header ordering games.  We would be imposing the same
-strange rules on userspace applications including these headers
-which is completely unacceptable.
+Exactly, that is why I wanted a separate standardized thing, I call the
+page_pool, which is part of the MM-tree and interacts with the page
+allocator.  E.g. it must implement/support a way the page allocator can
+reclaim pages from it (admit I didn't implement this in RFC patches).
 
-So if the facility isn't working correctly, let's fix that instead
-of fidgeting with include ordering all over the tree.
 
-Thanks.
+> It responds only to local needs.
+
+Generally true, but a side effect of recycling these pages, result in
+less fragmentation of the page allocator/buddy system.
+
+
+> The price of the real page allocator comes partly because it can
+> respond to global needs.
+> 
+> If a driver consumes some unreasonable percentage of system memory, it
+> is keeping that memory from being used from other parts of the system
+> even if it would be better for networking to be slightly slower with
+> less cache because that other thing that needs memory is more
+> important.
+
+(That is why I want to have OOM protection at device level, with the
+recycle feedback from page pool we have this knowledge, and further I
+wanted to allow blocking a specific RX queue[1])
+[1] https://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/memory_model_nic.html#userspace-delivery-and-oom
+
+
+> I think this is one of the primary reasons that the MM guys severely
+> chastise us when we build special purpose local caches into networking
+> facilities.
+> 
+> And the more I think about it the more I think they are right.
+
++1
+ 
+> One path I see around all of this is full integration.  Meaning that
+> we can free pages into the page allocator which are still DMA mapped.
+> And future allocations from that device are prioritized to take still
+> DMA mapped objects.
+
+I like this idea.  Are you saying that this should be done per DMA
+engine or per device?
+
+If this is per device, it is almost the page_pool idea.  
+
+ 
+> Yes, we still need to make the page allocator faster, but this kind of
+> work helps everyone not just 100GB ethernet NICs.
+
+True.  And Mel already have some generic improvements to the page
+allocator queued for the next merge.  And I have the responsibility to
+get the bulking API into shape.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
