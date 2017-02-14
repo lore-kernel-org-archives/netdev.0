@@ -1,63 +1,91 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 14 Feb 2017 07:42:21 +0100
-Message-ID: <20170214064221.GB10242@gmail.com>
-References: <20170214091250.57d054b2@canb.auug.org.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
+Date: Tue, 14 Feb 2017 08:08:54 +0100
+Message-ID: <20170214070854.GH30338@gauss.secunet.com>
+References: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-        Jiri Olsa <jolsa@redhat.com>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34152 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752324AbdBNGm0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 01:42:26 -0500
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170214091250.57d054b2@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-* Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-
-> Hi all,
+On Mon, Feb 13, 2017 at 03:46:56PM +0100, Dmitry Vyukov wrote:
 > 
-> After merging the net tree, today's linux-next build (powerpc64le perf)
-> failed like this:
+> On commit 7089db84e356562f8ba737c29e472cc42d530dbc.
 > 
-> Warning: tools/include/uapi/linux/bpf.h differs from kernel
-> bpf.c: In function 'bpf_prog_attach':
-> bpf.c:180:6: error: 'union bpf_attr' has no member named 'attach_flags'; did you mean 'map_flags'?
->   attr.attach_flags  = flags;
->       ^
 > 
-> Caused by commit
-> 
->   7f677633379b ("bpf: introduce BPF_F_ALLOW_OVERRIDE flag")
-> 
-> Unfortunately, the perf header files are kept separate from the kernel
-> header files proper and are not automatically copied over :-(
+> struct flowi4 fl4_stack allocated on stack in udp_sendmsg is being
+> casted to larger struct flowi and then accessed.
 
-No, that's wrong, the problem is not that headers were not shared, the problem is 
-that a tooling interdependency was not properly tested *and* that the dependency 
-was not properly implemented in the build system either.
+Looks like the problem is when using IPv4-mapped IPv6 addresses.
 
-Note that we had similar build breakages when include headers _were_ shared as 
-well, so sharing the headers would only have worked around this particular bug and 
-would have introduced fragility in other places...
+Does the patch below help?
 
-The best, most robust solution in this particular case would be to fix the 
-(tooling) build system to express the dependency, that would have shown the build 
-failure right when the modification was done.
 
-Thanks,
+Subject: [PATCH RFC ipsec] xfrm: Don't use sk_family for socket policy lookups
 
-	Ingo
+On IPv4-mapped IPv6 addresses sk_family is AF_INET6,
+but the flow informations are created based on AF_INET.
+So the routing set up 'struct flowi4' but we try to
+access 'struct flowi6' what leads to an out of bounds
+access. Fix this by using the family we get with the
+dst_entry, like we do it for the standard policy lookup.
+
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_policy.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b5e665b..4891b7b 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1216,7 +1216,7 @@ static inline int policy_to_flow_dir(int dir)
+ }
+ 
+ static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
+-						 const struct flowi *fl)
++						 const struct flowi *fl, u16 family)
+ {
+ 	struct xfrm_policy *pol;
+ 	struct net *net = sock_net(sk);
+@@ -1225,8 +1225,7 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
+ 	read_lock_bh(&net->xfrm.xfrm_policy_lock);
+ 	pol = rcu_dereference(sk->sk_policy[dir]);
+ 	if (pol != NULL) {
+-		bool match = xfrm_selector_match(&pol->selector, fl,
+-						 sk->sk_family);
++		bool match = xfrm_selector_match(&pol->selector, fl, family);
+ 		int err = 0;
+ 
+ 		if (match) {
+@@ -2221,7 +2220,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 	sk = sk_const_to_full_sk(sk);
+ 	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
+ 		num_pols = 1;
+-		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
++		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl, family);
+ 		err = xfrm_expand_policies(fl, family, pols,
+ 					   &num_pols, &num_xfrms);
+ 		if (err < 0)
+@@ -2500,7 +2499,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+ 	pol = NULL;
+ 	sk = sk_to_full_sk(sk);
+ 	if (sk && sk->sk_policy[dir]) {
+-		pol = xfrm_sk_policy_lookup(sk, dir, &fl);
++		pol = xfrm_sk_policy_lookup(sk, dir, &fl, family);
+ 		if (IS_ERR(pol)) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINPOLERROR);
+ 			return 0;
+-- 
+1.9.1
