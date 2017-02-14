@@ -1,51 +1,103 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 2/4] ptp: use kcalloc/kmallco_array when allocating arrays
-Date: Tue, 14 Feb 2017 09:38:50 +0100
-Message-ID: <20170214083850.GB8048@localhost.localdomain>
-References: <20170214035108.19622-1-dmitry.torokhov@gmail.com>
- <20170214035108.19622-2-dmitry.torokhov@gmail.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: net/xfrm: stack out-of-bounds in xfrm_flowi_sport
+Date: Tue, 14 Feb 2017 09:41:35 +0100
+Message-ID: <CACT4Y+aPd8drh7MQf8cXLs_9f-oymf6YiWfN+owUsSYYz0yMzA@mail.gmail.com>
+References: <CACT4Y+ZBY+gYUJ9NuxPByEbbrR7M09vBd5Lx4=xGSGXSxai==Q@mail.gmail.com>
+ <20170214070854.GH30338@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170214035108.19622-2-dmitry.torokhov@gmail.com>
+In-Reply-To: <20170214070854.GH30338@gauss.secunet.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 13, 2017 at 07:51:06PM -0800, Dmitry Torokhov wrote:
-> @@ -269,13 +269,13 @@ static int ptp_populate_pins(struct ptp_clock *ptp)
->  	struct ptp_clock_info *info = ptp->info;
->  	int err = -ENOMEM, i, n_pins = info->n_pins;
->  
-> -	ptp->pin_dev_attr = kzalloc(n_pins * sizeof(*ptp->pin_dev_attr),
-> +	ptp->pin_dev_attr = kcalloc(n_pins, sizeof(*ptp->pin_dev_attr),
->  				    GFP_KERNEL);
->  	if (!ptp->pin_dev_attr)
->  		goto no_dev_attr;
->  
-> -	ptp->pin_attr = kzalloc((1 + n_pins) * sizeof(struct attribute *),
-> -				GFP_KERNEL);
-> +	ptp->pin_attr = kmalloc_array(1 + n_pins, sizeof(*ptp->pin_attr),
-> +				      GFP_KERNEL);
+On Tue, Feb 14, 2017 at 8:08 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Mon, Feb 13, 2017 at 03:46:56PM +0100, Dmitry Vyukov wrote:
+>>
+>> On commit 7089db84e356562f8ba737c29e472cc42d530dbc.
+>>
+>>
+>> struct flowi4 fl4_stack allocated on stack in udp_sendmsg is being
+>> casted to larger struct flowi and then accessed.
+>
+> Looks like the problem is when using IPv4-mapped IPv6 addresses.
+>
+> Does the patch below help?
 
-I prefer kcalloc here as well, even if it isn't strictly necessary
-according to the current usage of pin_attr.  That way, any future
-changes to the pin handling code won't have to worry about
-uninitialized memory.  After all, this is hardly a performance path.
 
->  	if (!ptp->pin_attr)
->  		goto no_pin_attr;
->  
-> @@ -289,6 +289,9 @@ static int ptp_populate_pins(struct ptp_clock *ptp)
->  		ptp->pin_attr[i] = &da->attr;
->  	}
->  
-> +	/* NULL terminator */
-> +	ptp->pin_attr[n_pins] = NULL;
+Steffen, can you please run the reproducer I provided?
+I specifically spent time to supply you with a simple, reliable
+reproducer. I am not even saying about adding a test case for the bug.
+Kernel development practices seem to encourage developers to not
+bother with tests. But at least testing a patch that you are sending
+looks like a reasonable thing to do.
+Thanks
 
-And drop this then, please.
 
-Thanks,
-Richard
+> Subject: [PATCH RFC ipsec] xfrm: Don't use sk_family for socket policy lookups
+>
+> On IPv4-mapped IPv6 addresses sk_family is AF_INET6,
+> but the flow informations are created based on AF_INET.
+> So the routing set up 'struct flowi4' but we try to
+> access 'struct flowi6' what leads to an out of bounds
+> access. Fix this by using the family we get with the
+> dst_entry, like we do it for the standard policy lookup.
+>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/xfrm/xfrm_policy.c | 9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index b5e665b..4891b7b 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1216,7 +1216,7 @@ static inline int policy_to_flow_dir(int dir)
+>  }
+>
+>  static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
+> -                                                const struct flowi *fl)
+> +                                                const struct flowi *fl, u16 family)
+>  {
+>         struct xfrm_policy *pol;
+>         struct net *net = sock_net(sk);
+> @@ -1225,8 +1225,7 @@ static struct xfrm_policy *xfrm_sk_policy_lookup(const struct sock *sk, int dir,
+>         read_lock_bh(&net->xfrm.xfrm_policy_lock);
+>         pol = rcu_dereference(sk->sk_policy[dir]);
+>         if (pol != NULL) {
+> -               bool match = xfrm_selector_match(&pol->selector, fl,
+> -                                                sk->sk_family);
+> +               bool match = xfrm_selector_match(&pol->selector, fl, family);
+>                 int err = 0;
+>
+>                 if (match) {
+> @@ -2221,7 +2220,7 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+>         sk = sk_const_to_full_sk(sk);
+>         if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
+>                 num_pols = 1;
+> -               pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
+> +               pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl, family);
+>                 err = xfrm_expand_policies(fl, family, pols,
+>                                            &num_pols, &num_xfrms);
+>                 if (err < 0)
+> @@ -2500,7 +2499,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+>         pol = NULL;
+>         sk = sk_to_full_sk(sk);
+>         if (sk && sk->sk_policy[dir]) {
+> -               pol = xfrm_sk_policy_lookup(sk, dir, &fl);
+> +               pol = xfrm_sk_policy_lookup(sk, dir, &fl, family);
+>                 if (IS_ERR(pol)) {
+>                         XFRM_INC_STATS(net, LINUX_MIB_XFRMINPOLERROR);
+>                         return 0;
+> --
+> 1.9.1
+>
