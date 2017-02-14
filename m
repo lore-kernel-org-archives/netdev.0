@@ -1,37 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: spectrum: Change ipv6 unregistered mc
- table
-Date: Tue, 14 Feb 2017 13:16:35 -0500 (EST)
-Message-ID: <20170214.131635.895852511182934791.davem@davemloft.net>
-References: <1487016182-1896-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nogahf@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: [PATCH v2 1/4] ptp: do not explicitly set drvdata in ptp_clock_register()
+Date: Tue, 14 Feb 2017 10:23:31 -0800
+Message-ID: <20170214182334.23296-2-dmitry.torokhov@gmail.com>
+References: <20170214182334.23296-1-dmitry.torokhov@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39126 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750930AbdBNSQh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 13:16:37 -0500
-In-Reply-To: <1487016182-1896-1-git-send-email-jiri@resnulli.us>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35712 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751504AbdBNSXi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 14 Feb 2017 13:23:38 -0500
+In-Reply-To: <20170214182334.23296-1-dmitry.torokhov@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 13 Feb 2017 21:03:02 +0100
+We do not need explicitly call dev_set_drvdata(), as it is done for us by
+device_create().
 
-> From: Nogah Frankel <nogahf@mellanox.com>
-> 
-> Point back the unregister IPv6 mc table to the bc table.
-> It is done since IPv6 mcast snooping is not supported for Spectrum yet.
-> 
-> Reported-by: Jiri Pirko <jiri@mellanox.com>
-> Fixes: 71c365bdc439 ("mlxsw: spectrum: Separate bc and mc floods")
-> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Tested-by: Jiri Pirko <jiri@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+---
+ drivers/ptp/ptp_clock.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Applied, thanks Jiri.
+diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+index 9c13381b6966..b4e5e8022c29 100644
+--- a/drivers/ptp/ptp_clock.c
++++ b/drivers/ptp/ptp_clock.c
+@@ -227,8 +227,6 @@ struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info,
+ 	if (IS_ERR(ptp->dev))
+ 		goto no_device;
+ 
+-	dev_set_drvdata(ptp->dev, ptp);
+-
+ 	err = ptp_populate_sysfs(ptp);
+ 	if (err)
+ 		goto no_sysfs;
+-- 
+2.11.0.483.g087da7b7c-goog
