@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: make net_device members garp_port and
- mrp_port conditional
-Date: Mon, 13 Feb 2017 22:03:32 -0500 (EST)
-Message-ID: <20170213.220332.1254193563682425809.davem@davemloft.net>
-References: <20170210154350.11694-1-tklauser@distanz.ch>
+Subject: Re: [PATCH net-next 0/2] afs: Use system UUID generation
+Date: Mon, 13 Feb 2017 22:09:54 -0500 (EST)
+Message-ID: <20170213.220954.1817553128967975340.davem@davemloft.net>
+References: <148674517199.6350.17724845267620917182.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55192 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750946AbdBNDDf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 13 Feb 2017 22:03:35 -0500
-In-Reply-To: <20170210154350.11694-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <148674517199.6350.17724845267620917182.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Fri, 10 Feb 2017 16:43:50 +0100
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 10 Feb 2017 16:46:12 +0000
 
-> garp_port is only used in net/802/garp.c which is only compiled with
-> CONFIG_GARP enabled. Same goes for mrp_port which is only used in
-> net/802/mrp.c with CONFIG_MRP enabled.
+> There is now a general function for generating a UUID and AFS should make
+> use of it.  It's also been recommended to me that I switch to using random
+> rather than time plus MAC address-based UUIDs which this function does.
 > 
-> Only include the two members in struct net_device if their respective
-> CONFIG_* is enabled. This saves a few bytes in struct net_device in case
-> CONFIG_GARP or CONFIG_MRP are not enabled.
+> The patches can be found here also:
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+> 
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20170210
 
-Applied, thanks.
+Pulled, thanks David.
